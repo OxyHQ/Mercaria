@@ -652,12 +652,35 @@ out without recording it, which is indistinguishable from having missed it —
 reader speaks, was dropped that way. The exclusion lists are what stop that
 happening silently again.
 
-`WRITERS` in the same file records, per in-scope table, the production modules
-that INSERT, UPDATE or DELETE it, re-derived from comment-stripped source on
-every run. Eleven of the twenty-two declared columns have no request surface at
-all — their text arrives from a code constant (the vertical-package apply), a
-copy-forward, or nothing — so that census is the only thing standing between
-their declaration and a promise: a table gaining a writer fails the build.
+### The population is CLOSED, not enumerated
+
+Eleven of the twenty-two declared columns have no request surface at all — their
+text arrives from a code constant (the vertical-package apply), a copy-forward,
+or nothing. A policy applied only at request schemas would cover HTTP and
+nothing else, and no amount of searching can tell you the enumeration has
+finished. So the enforcement is at the WRITE, and closure is two mechanisms:
+
+1. **`assertLocalizedRow(table, row)` is the one function a writer calls**, and
+   its result is SPREAD into the `values(...)` object rather than checked beside
+   it — the `ledgerRepository` shape, where the function that checks is the
+   function that produces what is written, so a column left out of the call is
+   left out of the write. It takes a ROW rather than a column list because
+   per-column was tried first and is unsatisfiable: the vertical-package seed
+   writes `attribute_value_localizations.label` and not `.description`, so
+   "assert every declared column" is a rule no writer can meet, and "assert the
+   ones you write" is not a question source can answer. A key that is not a
+   declared column of that table THROWS rather than being ignored.
+2. **`WRITERS` in `localized-text-format.test.ts` records, per in-scope table,
+   the production modules that INSERT, UPDATE or DELETE it**, re-derived from
+   comment-stripped source on every run, and asserts each of them calls
+   `assertLocalizedRow` for its table. A module nobody recorded fails the census;
+   a recorded module that stops calling the chokepoint fails it too.
+
+The one excused writer is `copyForwardProductTypeFieldLocalizations`, named by
+path with its reason: it carries rows that already exist to a new product-type
+version, so refusing there would fail a version bump on text written before this
+policy and lose the translation. `copyForwardProductTypeLocalizations` is
+excused for the same reason inside a module that does assert on its upsert.
 
 ### The classification
 

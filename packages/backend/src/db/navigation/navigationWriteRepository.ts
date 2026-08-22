@@ -23,6 +23,7 @@
  */
 
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import { assertLocalizedRow } from '../../lib/localized-text.js';
 import type {
   CurrencyCode,
   NavigationLocalizationProvenance,
@@ -251,7 +252,20 @@ export async function replaceNavigationNodes(
         ...(localization.reviewedAt === undefined ? {} : { reviewedAt: localization.reviewedAt }),
       })),
     );
-    if (labels.length > 0) await db.insert(navigationNodeLocalizations).values(labels);
+    // See `listingLocalizationRepository.upsertListingLocalization` (#367 line
+    // 187). Applied to the COMPOSED rows immediately before the insert, so it
+    // covers every branch above that could have put text in one. Spread rather
+    // than checked beside them, so a row this call does not cover is a row that
+    // does not reach the insert.
+    const checked = labels.map((label) => ({
+      ...label,
+      ...assertLocalizedRow('navigation_node_localizations', {
+        label: label.label,
+        description: label.description ?? null,
+        accessibilityLabel: label.accessibilityLabel ?? null,
+      }),
+    }));
+    if (checked.length > 0) await db.insert(navigationNodeLocalizations).values(checked);
 
     const readyKeys = new Set(ready.map((node) => node.key));
     pending = pending.filter((node) => !readyKeys.has(node.key));

@@ -50,6 +50,7 @@ import {
   insertCategoryAlias,
 } from '../../db/taxonomy/taxonomyRepository.js';
 import { normalizeCatalogAlias } from '../../services/taxonomy/alias-normalization.js';
+import { assertLocalizedRow } from '../../lib/localized-text.js';
 import { upsertCategoryLocalization } from '../../db/catalogLocalization/categoryLocalizationRepository.js';
 import { upsertProductTypeLocalization } from '../../db/catalogLocalization/productTypeLocalizationRepository.js';
 import {
@@ -506,7 +507,14 @@ export async function applyVerticalPackage(
             status: 'approved',
             provenance: 'mercaria',
             sourceLocale: 'en',
-            label: localization.label,
+            // The declaration, applied where the WRITE is (#367 line 187). The
+            // text is a code constant rather than a request body, so there is no
+            // request schema to attach it to — this IS the boundary for this
+            // table. It writes `label` and not `description`, which is exactly
+            // why the check takes a ROW rather than a column list.
+            ...assertLocalizedRow('attribute_value_localizations', {
+              label: localization.label,
+            }),
             reviewedByOxyUserId: options.actorOxyUserId,
             reviewedAt: new Date(),
           })

@@ -177,10 +177,12 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // Read off the guard, and the module count moving by exactly one is the
     // check that a single contract module arrived rather than a directory.
     // #367 line 187 added `localized-text-format.ts`: one module, five exported
-    // types, eight property signatures. READ OFF the guard's own output, not
+    // types, nine property signatures. READ OFF the guard's own output, not
     // derived by adding to the line above — a pin computed from the previous
     // pin stops describing the tree it pins on the first delta somebody guesses.
-    "walked 125 contract module(s), 2253 exported type(s), 7604 property signature(s)",
+    // (Read twice: the first reading said eight, and stating the descriptor's
+    // `property` field rather than folding it from the SQL name added the ninth.)
+    "walked 125 contract module(s), 2253 exported type(s), 7605 property signature(s)",
     "check A arms exercised by real declarations: 5/9",
   ],
 });

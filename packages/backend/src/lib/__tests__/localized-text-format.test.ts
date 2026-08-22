@@ -190,6 +190,41 @@ describe('the population is walked, and every walked table has a disposition', (
     }
   });
 
+  it('states each column\'s TypeScript property, checked against the real drizzle table', () => {
+    // `assertLocalizedRow` is keyed on the PROPERTY a writer passes. It is
+    // STATED rather than folded from the SQL name — a `_x` → `X` derivation is a
+    // content fold and `script-coverage-census.test.ts` demanded six scripts of
+    // fixtures for it — so THIS is what stops it being a second spelling that
+    // can drift: the property is compared against what the schema declares.
+    const byTable = new Map<string, readonly (readonly [string, string])[]>(
+      tables.map((table) => [
+        String(getTableName(table as never)),
+        Object.entries(getTableColumns(table as never)).map(
+          ([property, column]) => [property, sqlColumnName(column as never)] as const,
+        ),
+      ]),
+    );
+    let checked = 0;
+    for (const key of LOCALIZED_TEXT_COLUMN_KEYS) {
+      const field = LOCALIZED_TEXT_FIELDS[key];
+      const columns = byTable.get(field.table);
+      expect(columns, field.table).toBeDefined();
+      const match = (columns ?? []).find(([, sqlName]) => sqlName === field.column);
+      expect(match, key).toBeDefined();
+      expect(match?.[0], key).toBe(field.property);
+      checked++;
+    }
+    expect(checked).toBe(LOCALIZED_TEXT_COLUMN_KEYS.length);
+    expect(checked).toBeGreaterThanOrEqual(20);
+    // At least three columns genuinely differ between the two spellings, or this
+    // case would pass against a `property` field nobody ever had to state.
+    expect(
+      LOCALIZED_TEXT_COLUMN_KEYS.filter(
+        (key) => LOCALIZED_TEXT_FIELDS[key].property !== LOCALIZED_TEXT_FIELDS[key].column,
+      ).length,
+    ).toBeGreaterThanOrEqual(3);
+  });
+
   it('MUTATION SELF-TEST — the column walk notices a column it was not told about', () => {
     // Feeding the comparison a column the declaration does not carry must turn
     // it red. Without this the equality above is satisfied by a walk that
@@ -350,6 +385,14 @@ describe('the structure detector reports what a value actually carries', () => {
       'paragraph_break',
     ]);
     expect([...structuresIn('a\r\n\r\nb')].sort()).toEqual(['line_break', 'paragraph_break']);
+    // REGRESSION — a single Windows line break is ONE line break. The obvious
+    // `[\n\r][^\S\n\r]*[\n\r]` blank-line pattern matches `\r\n` itself and
+    // reports a paragraph break for it. Nothing observable changes today
+    // (a plain field refuses both, a rich field permits both), which is exactly
+    // why it needs a case: it starts mattering the moment a descriptor permits
+    // `line_break` alone, and the descriptor shape already allows that.
+    expect(structuresIn('a\r\nb')).toEqual(['line_break']);
+    expect(structuresIn('a\rb')).toEqual(['line_break']);
   });
 
   it('MUTATION SELF-TEST — each half is detected by its own rule', () => {
@@ -595,7 +638,18 @@ function walkSource(dir: string, out: string[] = []): string[] {
  * which is the only thing that keeps the eleven columns with no request surface
  * from being a promise.
  */
-const WRITERS: Readonly<Record<string, { symbol: string; modules: readonly string[] }>> =
+interface WriterRecord {
+  readonly symbol: string;
+  readonly modules: readonly string[];
+  /**
+   * A module that legitimately writes this table WITHOUT applying the
+   * declaration, and the reason — naming the PATH, never the category. Every
+   * other recorded module must call the assertion for every declared column.
+   */
+  readonly unassertedModules?: Readonly<Record<string, string>>;
+}
+
+const WRITERS: Readonly<Record<string, WriterRecord>> =
   Object.freeze({
     category_localizations: {
       symbol: 'categoryLocalizations',
@@ -608,6 +662,13 @@ const WRITERS: Readonly<Record<string, { symbol: string; modules: readonly strin
     product_type_field_localizations: {
       symbol: 'productTypeFieldLocalizations',
       modules: ['db/catalogLocalization/productTypeFieldLocalizationRepository.ts'],
+      unassertedModules: {
+        'db/catalogLocalization/productTypeFieldLocalizationRepository.ts':
+          '`copyForwardProductTypeFieldLocalizations` is its ONLY writer and it carries rows ' +
+          'that already exist to a new product-type version. No new text enters through it, and ' +
+          'refusing there would fail a version bump on text written before this policy — losing ' +
+          'the translation, which is the opposite of what the policy is for.',
+      },
     },
     // No writer at all. #367's L2 translation of Mercaria's own catalogue copy
     // is modelled and nothing populates it yet.
@@ -679,6 +740,59 @@ describe('the writer census — a new writer of an in-scope table fails the buil
     expect(
       withWriter.test(stripComments('/* db.insert(listingLocalizations) */')),
     ).toBe(false);
+  });
+
+  it('routes every localized-text WRITE through the declaration, at the writer', () => {
+    // The closure property, and the reason this file does not simply enumerate
+    // request surfaces: a request schema covers HTTP and nothing else, and no
+    // amount of searching can tell you the enumeration has finished. Every
+    // module recorded above as a writer must NAME every declared column of its
+    // table in an `assertLocalizedText`/`assertOptionalLocalizedText` call, or
+    // be excused BY PATH with a reason. Combined with the writer census above —
+    // which fails on a module nobody recorded — the set of code that can write
+    // these columns is closed: a new writer either calls the assertion or turns
+    // this file red.
+    let asserted = 0;
+    let excused = 0;
+    for (const [table, entry] of Object.entries(WRITERS)) {
+      const columns = LOCALIZED_TEXT_COLUMN_KEYS.filter(
+        (key) => LOCALIZED_TEXT_FIELDS[key].table === table,
+      );
+      expect(columns.length, table).toBeGreaterThan(0);
+      for (const module of entry.modules) {
+        const excuse = entry.unassertedModules?.[module];
+        if (excuse !== undefined) {
+          expect(excuse.length, module).toBeGreaterThan(60);
+          excused++;
+          continue;
+        }
+        const body = sources.get(module);
+        expect(body, module).toBeDefined();
+        // ONE call, naming the TABLE. Per COLUMN was the first shape and it was
+        // wrong: it demanded every writer name every declared column, which the
+        // vertical-package seed cannot satisfy — it writes
+        // `attribute_value_localizations.label` and not `.description`. The
+        // row-shaped call has no such requirement and covers a column added
+        // later with no edit here.
+        expect(body, `${module} must call assertLocalizedRow('${table}', …)`).toContain(
+          `assertLocalizedRow('${table}'`,
+        );
+        asserted++;
+      }
+    }
+    // Floors, plural: a run where every module was excused, or where there were
+    // no modules at all, would satisfy the loop above by doing nothing.
+    expect(asserted).toBeGreaterThanOrEqual(6);
+    expect(excused).toBeGreaterThanOrEqual(1);
+  });
+
+  it('MUTATION SELF-TEST — the write-chokepoint check reads real source', () => {
+    // The check above is a substring test over a file this run read. If the map
+    // were empty or the reads were failing, it would pass by iterating nothing.
+    const listing = sources.get('db/catalogLocalization/listingLocalizationRepository.ts');
+    expect(listing).toBeDefined();
+    expect(listing).toContain("assertLocalizedRow('listing_localizations'");
+    expect(listing).not.toContain("assertLocalizedRow('listing_subtitles'");
   });
 
   it('records which in-scope tables have a request surface and which do not', () => {

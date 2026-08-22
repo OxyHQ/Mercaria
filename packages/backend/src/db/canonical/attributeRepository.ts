@@ -15,6 +15,7 @@
  */
 
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { assertLocalizedRow } from '../../lib/localized-text.js';
 import type {
   AttributeComponentAxis,
   AttributeNormalizationState,
@@ -372,7 +373,9 @@ export async function insertCanonicalImage(
       fileId: input.fileId ?? null,
       sourceUrl: input.sourceUrl ?? null,
       sourceRecordId: input.sourceRecordId,
-      alt: input.alt ?? null,
+      // See `listingLocalizationRepository.upsertListingLocalization` (#367 line
+      // 187). Spread, so a column left out of the call is left out of the write.
+      ...assertLocalizedRow('canonical_images', { alt: input.alt ?? null }),
       locale: input.locale ?? null,
       position: input.position ?? 0,
       status: input.status ?? 'active',

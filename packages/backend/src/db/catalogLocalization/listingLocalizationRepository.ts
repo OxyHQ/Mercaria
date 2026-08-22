@@ -28,6 +28,7 @@ import type {
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { listingLocalizations } from '../schema/catalogLocalization.js';
+import { assertLocalizedRow } from '../../lib/localized-text.js';
 
 /** One row of `listing_localizations`. */
 export type ListingLocalizationRow = InferSelectModel<typeof listingLocalizations>;
@@ -142,8 +143,15 @@ export async function upsertListingLocalization(
     locale: input.locale,
     status: input.status,
     provenance: input.provenance,
-    title: input.title ?? null,
-    description: input.description ?? null,
+    // The declaration, applied where the WRITE is rather than only at the
+    // request schema (#367 line 187), and SPREAD rather than checked beside the
+    // object — so a column left out of this call is left out of the write. This
+    // module is the only writer of the table, so a caller that is not an HTTP
+    // route cannot go around it.
+    ...assertLocalizedRow('listing_localizations', {
+      title: input.title ?? null,
+      description: input.description ?? null,
+    }),
     sourceLocale: input.sourceLocale ?? null,
     sourceRevision: input.sourceRevision ?? null,
     reviewedByOxyUserId: input.reviewedByOxyUserId ?? null,

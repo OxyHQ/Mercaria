@@ -318,6 +318,22 @@ export interface LocalizedTextFieldDescriptor {
   readonly table: string;
   /** The SQL column name. */
   readonly column: string;
+  /**
+   * The drizzle/TypeScript property name for {@link column}.
+   *
+   * STATED, not folded. A `_x` → `X` derivation is a content fold by
+   * `script-coverage-census.test.ts`'s definition — an operation whose output
+   * depends on the script of its input — and that census demanded Arabic,
+   * Bengali, Cyrillic, Devanagari, Hiragana and Katakana fixtures for it. The
+   * input here is a SQL identifier and is ASCII by construction, but "this fold
+   * is safe because of where its input comes from" is exactly the exemption that
+   * census exists to refuse. Removing the fold is cheaper than arguing with it.
+   *
+   * It is not a second spelling to keep in step either:
+   * `localized-text-format.test.ts` walks the REAL drizzle table and asserts
+   * every one of these against the property the schema actually declares.
+   */
+  readonly property: string;
   /** Derived from {@link structures}. Never stated independently. */
   readonly format: LocalizedTextFormat;
   /**
@@ -347,12 +363,16 @@ const NONE: readonly LocalizedRichTextStructure[] = Object.freeze([]);
 function describe(
   key: LocalizedTextColumnKey,
   structures: readonly LocalizedRichTextStructure[],
+  /** Only where drizzle spells it differently from PostgreSQL. Identity, never a fold. */
+  property?: string,
 ): LocalizedTextFieldDescriptor {
   const [table, column] = key.split('.');
+  const sqlColumn = column ?? '';
   return {
     key,
     table: table ?? '',
-    column: column ?? '',
+    column: sqlColumn,
+    property: property ?? sqlColumn,
     format: structures.length === 0 ? 'plain' : 'rich',
     structures,
   };
@@ -380,12 +400,17 @@ export const LOCALIZED_TEXT_FIELDS: Readonly<
   ),
   // Guidance about the whole form — the field this repository's own sanitizer
   // docblock is describing when it says paragraph structure is meaningful.
-  'product_type_localizations.help_text': describe('product_type_localizations.help_text', BLOCK),
+  'product_type_localizations.help_text': describe(
+    'product_type_localizations.help_text',
+    BLOCK,
+    'helpText',
+  ),
   // The label beside one input. One line, always.
   'product_type_field_localizations.label': describe('product_type_field_localizations.label', NONE),
   'product_type_field_localizations.help_text': describe(
     'product_type_field_localizations.help_text',
     BLOCK,
+    'helpText',
   ),
   // Ghost text INSIDE an input, which is a single line by construction.
   'product_type_field_localizations.placeholder': describe(
@@ -435,6 +460,7 @@ export const LOCALIZED_TEXT_FIELDS: Readonly<
   'navigation_node_localizations.accessibility_label': describe(
     'navigation_node_localizations.accessibility_label',
     NONE,
+    'accessibilityLabel',
   ),
   // A seller's own title for one listing, in one locale. A card, a cart line, an
   // order line and a `<title>` — every one of them a single line.
@@ -461,3 +487,17 @@ export const PLAIN_LOCALIZED_TEXT_COLUMN_KEYS: readonly LocalizedTextColumnKey[]
 /** Every localized text column declared `rich`. */
 export const RICH_LOCALIZED_TEXT_COLUMN_KEYS: readonly LocalizedTextColumnKey[] =
   LOCALIZED_TEXT_COLUMN_KEYS.filter((key) => LOCALIZED_TEXT_FIELDS[key].format === 'rich');
+
+/** The declared columns of one table, by SQL table name. */
+export function localizedTextFieldsOfTable(
+  table: string,
+): readonly LocalizedTextFieldDescriptor[] {
+  return LOCALIZED_TEXT_COLUMN_KEYS.filter((key) => LOCALIZED_TEXT_FIELDS[key].table === table).map(
+    (key) => LOCALIZED_TEXT_FIELDS[key],
+  );
+}
+
+/** Every table this policy declares columns on. */
+export const LOCALIZED_TEXT_TABLES: readonly string[] = [
+  ...new Set(LOCALIZED_TEXT_COLUMN_KEYS.map((key) => LOCALIZED_TEXT_FIELDS[key].table)),
+];
