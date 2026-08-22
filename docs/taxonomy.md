@@ -156,6 +156,28 @@ exactly like a resolution.
 There is no `is_primary`, `preferred` or `display` column and no boolean beside
 `kind`, so an alias has no way to claim to be the name.
 
+`kind` is `synonym | search_term | legacy_name | external_label | misspelling |
+transliteration | abbreviation | regional_term` — the last three added for
+#367's "regional terms, abbreviations … and transliterations", matching the
+three `PRODUCT_TYPE_ALIAS_KINDS` already carried. The two neighbouring kinds do
+not cover them: `search_term` says a phrase is one somebody TYPES and says
+nothing about whether it is derived from the name (`tv` is a contraction of
+"television", `4k` is not), and `external_label` is what a SOURCE called it and
+carries that provenance, where `movil` against `celular` is Mercaria's own
+vocabulary for one shelf in two markets. Nothing READS `kind` —
+`findActiveCategoriesByAliases` does not select it — so it is authoring and
+operator-review metadata and a new member moves no search result. Widening it is
+a shared-types change plus an additive migration in the same PR;
+`db/__tests__/category-alias-kind-widening.realdb.test.ts` reads the live
+`pg_constraint` definition so the two cannot silently disagree.
+
+`kind` is **not** a column in `category_aliases_category_locale_normalized_key`,
+which is why #854 — `normalizeCatalogAlias` folding Cyrillic `й`→`и` and `ё`→`е`
+into `normalized_alias`, so `йорк` and `иорк` are one key — is orthogonal to the
+vocabulary and is fixed in the normalizer. A cross-script pair is unaffected:
+the fold strips combining marks and performs no script conversion, so `телефон`
+and its transliteration `telefon` never collide.
+
 The unique is `(category_id, locale, normalized_alias)` and **not** `(locale,
 normalized_alias)`: "phone" legitimately points at more than one shelf, and a
 constraint refusing the second one would make the taxonomy unable to record
