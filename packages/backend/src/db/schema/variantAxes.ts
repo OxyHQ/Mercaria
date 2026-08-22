@@ -113,12 +113,13 @@ import { productTypeDefinitions } from './productTypes';
  * ## `product_type_definition_id` is NULLABLE, and that is a decision
  *
  * ADR 0007 D6 speaks of "any listing migrated to a product type", and the
- * obvious reading makes this column NOT NULL. It is not, because `listings`
- * carries no `product_type_definition_id` today — ADR 0007 D13 assigns that
- * widening to the authoring workstream (D10, merge-order step 5) — so a NOT NULL
- * citation would make the legacy backfill unable to type a single axis until
- * that lands. A backfill that resolves nothing is not a safer backfill, it is a
- * vacuous one.
+ * obvious reading makes this column NOT NULL. It is not, because when this
+ * table landed `listings` carried no `product_type_definition_id` — ADR 0007
+ * D13 assigned that widening to the authoring workstream (D10, merge-order step
+ * 5) — so a NOT NULL citation would have made the legacy backfill unable to
+ * type a single axis until it landed. A backfill that resolves nothing is not a
+ * safer backfill, it is a vacuous one. The column stays nullable because a
+ * legacy axis on an untyped listing is still a real axis.
  *
  * What the nullability does NOT cost is the prohibition, because the permission
  * is checked at two grains and only one of them needs a product type:
@@ -130,9 +131,21 @@ import { productTypeDefinitions } from './productTypes';
  *    TYPE's narrower answer. Checked by the same trigger, and only when a
  *    version is cited.
  *
- * When step 5 lands `listings.product_type_definition_id`, the owed change is
- * one trigger clause asserting the citation agrees with the listing's own — and
- * it is named in `docs/variant-axes.md` rather than stubbed here.
+ * ## Step 5 HAS landed, and the clause it owes is still owed
+ *
+ * `listings.product_type_definition_id` exists (`db/schema/catalog.ts`), with a
+ * partial index and the `mercaria_listing_product_type_pin_not_cleared`
+ * trigger. The change this docblock said was owed when it landed — one clause in
+ * `mercaria_native_variant_axis_citation` asserting the axis citation agrees
+ * with the LISTING's own pin — was not added with it. So an axis may cite
+ * product type version A while the listing it belongs to is pinned to version
+ * B, and no CHECK, trigger or test refuses the pair.
+ *
+ * Recorded here rather than silently corrected, because the sentence above read
+ * as a completed handoff for as long as it said "when step 5 lands": a reader
+ * who checked in the interval and found no clause was reading the code
+ * correctly. `docs/catalog-glossary.md` §"Two things in this repository that
+ * share a name" carries the same residual for whoever picks it up.
  */
 export const nativeListingVariantAxes = pgTable(
   'native_listing_variant_axes',
