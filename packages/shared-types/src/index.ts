@@ -689,6 +689,14 @@ export * from './navigation';
 // markets" a property of the field rather than a discipline every reader has to
 // remember.
 export * from './catalog-localization';
+// Which localized fields carry plain text and which carry structured rich text
+// (#367 line 187). AFTER `./catalog-localization`, whose family it declares a
+// policy over — but keyed on the STORAGE (`<table>.<column>`) rather than on the
+// resolver's field registry, because four localized text columns have no
+// registry entry and a policy keyed on the registry would have missed every one.
+// Its allow-list of permitted structure is closed and its fourteen prohibitions
+// are disjoint from it, so "rich" cannot widen without a diff somebody reviews.
+export * from './localized-text-format';
 // Which PostgreSQL text-search configuration analyses each locale's catalogue
 // text (#367 Workstream 5). AFTER `./catalog-localization`, which it derives its
 // key space from: the map is a total `Record<SupportedLocale, …>`, so adding a

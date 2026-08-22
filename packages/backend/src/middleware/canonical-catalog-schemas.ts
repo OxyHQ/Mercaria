@@ -22,6 +22,7 @@
  */
 
 import { z } from 'zod';
+import { localizedText } from './localized-text-schemas.js';
 import {
   CANONICAL_ALIAS_KINDS,
   IDENTIFIER_SCHEMES,
@@ -153,7 +154,9 @@ export const canonicalProductObservationSchema = z
           .object({
             fileId: idSchema.optional(),
             sourceUrl: z.string().trim().url().max(2_000).optional(),
-            alt: z.string().trim().max(500).optional(),
+            // Localized alt text: PLAIN by `LOCALIZED_TEXT_FIELDS` (#367 line
+            // 187), because a screen reader speaks it as one utterance.
+            alt: localizedText('canonical_images.alt', { max: 500 }).optional(),
             locale: z.string().trim().min(2).max(35).optional(),
           })
           .strict()

@@ -22,6 +22,7 @@
  */
 
 import { z } from 'zod';
+import { localizedText } from './localized-text-schemas.js';
 import {
   ALL_CURRENCY_CODES,
   ATTRIBUTE_CARDINALITIES,
@@ -136,13 +137,19 @@ export const attributeDefinitionDraftSchema = z
       )
       .max(500)
       .optional(),
+    // The LOCALIZED half — one `attribute_labels` row per locale. Both fields
+    // carry their `LOCALIZED_TEXT_FIELDS` declaration (#367 line 187): the
+    // label is a facet-group heading and a table header, so it is PLAIN; the
+    // description is block copy. `label`/`description` at the top of this
+    // schema are the definition's own BASE-locale text on `attribute_definitions`,
+    // a table with no `locale` column and therefore outside that registry.
     labels: z
       .array(
         z
           .object({
             locale: localeSchema,
-            label: z.string().trim().min(1).max(160),
-            description: z.string().trim().max(2_000).optional(),
+            label: localizedText('attribute_labels.label', { min: 1, max: 160 }),
+            description: localizedText('attribute_labels.description', { max: 2_000 }).optional(),
           })
           .strict(),
       )
