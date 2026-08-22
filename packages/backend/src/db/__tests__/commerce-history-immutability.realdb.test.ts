@@ -55,10 +55,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import {
-  ORDER_HISTORY_DISPOSITIONS,
-  ORDER_HISTORY_ROOT_TABLE,
-  orderHistoryDispositionFor,
-} from '../orderHistoryDispositions.js';
+  COMMERCE_HISTORY_DISPOSITIONS,
+  COMMERCE_HISTORY_ROOT_TABLES,
+  commerceHistoryDispositionFor,
+} from '../commerceHistoryDispositions.js';
 
 let db: Database;
 
@@ -110,7 +110,9 @@ const CLOSURE_SQL = `
     join pg_namespace n on n.oid = cl.relnamespace
     where k.contype = 'f' and n.nspname = 'public'
   ), closure(tname) as (
-    select '${ORDER_HISTORY_ROOT_TABLE}'::name
+    select r.tname from (values ${COMMERCE_HISTORY_ROOT_TABLES.map(
+      (table) => `('${table}'::name)`,
+    ).join(', ')}) as r(tname)
     union
     select fk.child from fk join closure on fk.parent = closure.tname
     where fk.child <> closure.tname
@@ -139,7 +141,17 @@ function cloneSql(replicate: boolean): string {
       replicate
         ? `
     for trg in
-      select x.tgname, p.oid::regprocedure as fn,
+      -- The function CALL, arguments included, lifted out of the trigger's own
+      -- definition. A regprocedure cast renders only the bare name with empty
+      -- parentheses and DROPS the argument list, which for an argument-driven
+      -- trigger is the difference between replicating the enforcement and
+      -- replicating an inert shell of it. Measured: with the arguments dropped,
+      -- TG_ARGV comes back NULL (not empty), FOREACH ... IN ARRAY TG_ARGV raises
+      -- 22004, and the probe recorded a REFUSAL that had nothing to do with the
+      -- column under test. Every frozen-column verdict in this file was green
+      -- for that wrong reason until the SQLSTATE assertion below was added.
+      select x.tgname,
+             regexp_replace(pg_get_triggerdef(x.oid), '^.*EXECUTE (FUNCTION|PROCEDURE) ', '') as fn,
              case when (x.tgtype::int & 2) > 0 then 'before' else 'after' end as timing,
              array_to_string(array_remove(array[
                case when (x.tgtype::int & 4) > 0 then 'insert' end,
@@ -263,6 +275,10 @@ begin
           first_value := '''00000000-0000-0000-0000-000000000001''::uuid';
           second_value := '''00000000-0000-0000-0000-000000000002''::uuid';
         when 'bool' then first_value := 'false'; second_value := 'true';
+        when 'float8' then first_value := '1.5'; second_value := '2.5';
+        when 'jsonb' then
+          first_value := '''{"probe":"a"}''::jsonb';
+          second_value := '''{"probe":"b"}''::jsonb';
         else
           raise exception
             'no probe values for %.% of type % — add a pair rather than skipping it, or the column stops being checked',
@@ -275,7 +291,10 @@ begin
         execute format('update pg_temp.probe_clone set %I = %s', col.name, second_value);
         verdict := 'allowed';
       exception when others then
-        verdict := 'refused';
+        -- The SQLSTATE, never the word "refused". A refusal is only evidence of
+        -- enforcement if it is the enforcement's OWN refusal; anything else is
+        -- the probe tripping over itself and reading as a pass.
+        get stacked diagnostics verdict = returned_sqlstate;
       end;
       insert into probe_columns values (target, col.name, verdict);
     end loop;
@@ -335,6 +354,80 @@ interface Probes {
   readonly rows: readonly RowProbe[];
   readonly columns: readonly ColumnProbe[];
   readonly unwired: readonly RowProbe[];
+  /** `table` -> the columns its column-freeze triggers actually name. */
+  readonly enforcedColumns: ReadonlyMap<string, readonly string[]>;
+}
+
+/** The function every column-freeze trigger runs. Its ARGUMENTS are the list. */
+const COLUMN_FREEZE_FUNCTION = 'mercaria_commerce_snapshot_columns_immutable';
+
+/**
+ * The SQLSTATEs a trigger deliberately RAISING can produce here, read as codes
+ * and never as condition names.
+ *
+ * All three are measured, not assumed:
+ *
+ *  - `23514` (`check_violation`) — everything #367 line 75 added passes it as
+ *    `USING ERRCODE`, and so does #90's condition freeze.
+ *  - `P0001` (`raise_exception`) — plpgsql's DEFAULT, which most of the freezes
+ *    predating this issue produce because their bodies pass no ERRCODE at all.
+ *  - `23001` (`restrict_violation`) — what the `retail_service_request*`
+ *    triggers pass. It is genuinely a RAISE and not a foreign key firing:
+ *    `CREATE TABLE ... (LIKE ...)` copies no foreign keys, so the clone has none
+ *    to violate, and the migrations spell it `USING ERRCODE =
+ *    'restrict_violation'` explicitly.
+ *
+ * Anything else means the probe hit something that is not the enforcement under
+ * test.
+ *
+ * Spelled as CODES and never as condition names. `RAISE ... USING ERRCODE`
+ * accepts either spelling, so a test matching the NAME compiles, reads
+ * correctly, and matches nothing — `restrict_violation` above is exactly the
+ * pair that has already cost a day elsewhere in this repo.
+ */
+const RAISE_SQLSTATES: readonly string[] = ['23514', 'P0001', '23001'];
+
+/** The tables #367 line 75 froze — the ones whose refusal must be 23514 exactly. */
+const SNAPSHOT_TABLES: readonly string[] = [
+  'payments',
+  'refunds',
+  'transfers',
+  'payouts',
+  'disputes',
+  'provider_accounts',
+  'payment_provider_events',
+  'payment_outboxes',
+];
+
+/**
+ * What each column-freeze trigger names, read back out of the applied schema.
+ *
+ * The THIRD derivation, and it closes a direction the other two cannot see. The
+ * column probe is aimed BY the declarations, so it can only ever check columns
+ * somebody declared: a trigger freezing a column no entry mentions is invisible
+ * to it, and so is a trigger that quietly stopped naming one. Reading the
+ * argument list back off `pg_trigger` and comparing it to the declaration makes
+ * both directions fail loudly.
+ *
+ * `pg_get_triggerdef` is used rather than decoding `tgargs`, which is a bytea of
+ * NUL-separated C strings — parsing that by hand is a second thing to get wrong
+ * in a file whose whole purpose is not getting this wrong.
+ */
+const TRIGGER_ARG_SQL = `
+  select c.relname as tbl, pg_get_triggerdef(t.oid) as def
+  from pg_trigger t
+  join pg_class c on c.oid = t.tgrelid
+  join pg_proc p on p.oid = t.tgfoid
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public'
+    and not t.tgisinternal
+    and p.proname = '${COLUMN_FREEZE_FUNCTION}'
+`;
+
+/** Pull the quoted arguments out of one `CREATE TRIGGER ... EXECUTE FUNCTION f('a', 'b')`. */
+function argumentsOf(definition: string): readonly string[] {
+  const call = definition.slice(definition.lastIndexOf(`${COLUMN_FREEZE_FUNCTION}(`));
+  return [...call.matchAll(/'([^']*)'/gu)].map((match) => match[1] ?? '');
 }
 
 async function runProbes(): Promise<Probes> {
@@ -342,7 +435,7 @@ async function runProbes(): Promise<Probes> {
     const closureRows = await tx.execute<{ tname: string }>(sql.raw(`${CLOSURE_SQL} order by 1`));
 
     await tx.execute(sql`create temp table probe_column_plan(tbl name, col name) on commit drop`);
-    for (const entry of ORDER_HISTORY_DISPOSITIONS) {
+    for (const entry of COMMERCE_HISTORY_DISPOSITIONS) {
       for (const column of entry.frozenColumns) {
         await tx.execute(
           sql`insert into probe_column_plan values (${entry.table}, ${column})`,
@@ -353,7 +446,7 @@ async function runProbes(): Promise<Probes> {
     // The unwired self-test runs against tables the ledger says are refused, so
     // it is aimed by the declarations rather than by a name written here.
     await tx.execute(sql`create temp table probe_unwired_plan(tbl name) on commit drop`);
-    for (const entry of ORDER_HISTORY_DISPOSITIONS) {
+    for (const entry of COMMERCE_HISTORY_DISPOSITIONS) {
       if (entry.rowUpdate === 'refused' || entry.rowDelete === 'refused') {
         await tx.execute(sql`insert into probe_unwired_plan values (${entry.table})`);
       }
@@ -371,11 +464,21 @@ async function runProbes(): Promise<Probes> {
       sql`select tbl, trigs, upd, del from probe_unwired`,
     );
 
+    const triggerDefs = await tx.execute<{ tbl: string; def: string }>(sql.raw(TRIGGER_ARG_SQL));
+    const enforcedColumns = new Map<string, readonly string[]>();
+    for (const row of [...triggerDefs]) {
+      enforcedColumns.set(row.tbl, [
+        ...(enforcedColumns.get(row.tbl) ?? []),
+        ...argumentsOf(row.def),
+      ]);
+    }
+
     return {
       closure: [...closureRows].map((row) => row.tname),
       rows: [...rows],
       columns: [...columns],
       unwired: [...unwired],
+      enforcedColumns,
     };
   });
 }
@@ -389,7 +492,7 @@ beforeAll(async () => {
 describe('the two derivations of the order-history population agree', () => {
   it('finds the same closure in pg_constraint as the census finds in drizzle', () => {
     const applied = [...probes.closure].sort();
-    const declared = ORDER_HISTORY_DISPOSITIONS.map((entry) => entry.table).sort();
+    const declared = COMMERCE_HISTORY_DISPOSITIONS.map((entry) => entry.table).sort();
     expect(
       applied,
       'The tables reachable from `orders` in the APPLIED schema differ from the ' +
@@ -401,7 +504,7 @@ describe('the two derivations of the order-history population agree', () => {
 
   it('measured every declared table', () => {
     expect(probes.rows.map((row) => row.tbl).sort()).toEqual(
-      ORDER_HISTORY_DISPOSITIONS.map((entry) => entry.table).sort(),
+      COMMERCE_HISTORY_DISPOSITIONS.map((entry) => entry.table).sort(),
     );
   });
 });
@@ -409,7 +512,7 @@ describe('the two derivations of the order-history population agree', () => {
 describe('every declared disposition is what the database does', () => {
   it('refuses, or allows, exactly what the ledger says', () => {
     const disagreements = probes.rows.flatMap((row) => {
-      const declared = orderHistoryDispositionFor(row.tbl);
+      const declared = commerceHistoryDispositionFor(row.tbl);
       if (!declared) return [`${row.tbl}: probed but not declared`];
       const out: string[] = [];
       if (row.upd !== declared.rowUpdate) {
@@ -425,24 +528,111 @@ describe('every declared disposition is what the database does', () => {
       disagreements,
       'A disposition and the database disagree. If a trigger was dropped or ' +
         'rewired, that is the bug; if one was added, update ' +
-        '`orderHistoryDispositions.ts` and say why in its reason.',
+        '`commerceHistoryDispositions.ts` and say why in its reason.',
     ).toEqual([]);
   });
 
   it('freezes every column the ledger declares frozen', () => {
-    const planned = ORDER_HISTORY_DISPOSITIONS.flatMap((entry) =>
+    const planned = COMMERCE_HISTORY_DISPOSITIONS.flatMap((entry) =>
       entry.frozenColumns.map((column) => `${entry.table}.${column}`),
     ).sort();
     const probed = probes.columns.map((row) => `${row.tbl}.${row.col}`).sort();
     expect(probed, 'A declared frozen column was never probed').toEqual(planned);
 
     const notFrozen = probes.columns
-      .filter((row) => row.verdict !== 'refused')
+      .filter((row) => row.verdict === 'allowed')
       .map((row) => `${row.tbl}.${row.col}`);
     expect(
       notFrozen,
       'These columns are declared frozen and the database let them change.',
     ).toEqual([]);
+  });
+
+  it('refuses each frozen column by RAISING, not by tripping over something else', () => {
+    // THE assertion that makes every verdict above mean something. A probe that
+    // trips over its own harness raises too, and "refused" cannot tell the two
+    // apart — so the check is the SQLSTATE, read NUMERICALLY.
+    //
+    // This is not hypothetical. Replicating these triggers through
+    // `regprocedure` drops their argument list, `TG_ARGV` comes back NULL rather
+    // than empty, and `FOREACH` raises **22004**. Every frozen column then
+    // reported "refused" while the freeze under test was inert. The fix is above;
+    // this is what would have caught it.
+    const wrongCode = probes.columns
+      .filter((row) => row.verdict !== 'allowed' && !RAISE_SQLSTATES.includes(row.verdict))
+      .map((row) => `${row.tbl}.${row.col}: SQLSTATE ${row.verdict}`);
+    expect(
+      wrongCode,
+      'A frozen column was refused by something other than a trigger deliberately ' +
+        'RAISING. 22004 in particular means the probe replicated a trigger without ' +
+        'its arguments and is measuring its own harness; 23502 or 23503 would mean ' +
+        'a NOT NULL or a foreign key refused the write and the freeze was never ' +
+        'reached.',
+    ).toEqual([]);
+  });
+
+  it('refuses every #367-line-75 column with 23514 specifically', () => {
+    // The sharper half. The freezes that predate this issue raise with the
+    // plpgsql DEFAULT (P0001) because their bodies pass no `USING ERRCODE`;
+    // every trigger this issue adds passes `USING ERRCODE = 'check_violation'`,
+    // so 23514 is assertable exactly for them and a drift back to a generic
+    // raise — or to any other refusal — fails here.
+    const strays = probes.columns
+      .filter((row) => SNAPSHOT_TABLES.includes(row.tbl) && row.verdict !== '23514')
+      .map((row) => `${row.tbl}.${row.col}: SQLSTATE ${row.verdict}`);
+    expect(strays).toEqual([]);
+
+    // …and it measured them, rather than finding none and agreeing with itself.
+    const measured = probes.columns.filter((row) => SNAPSHOT_TABLES.includes(row.tbl));
+    expect(measured.length).toBeGreaterThanOrEqual(60);
+  });
+});
+
+describe('what the triggers freeze is what the ledger declares', () => {
+  it('names EXACTLY the declared columns, table by table', () => {
+    // Scoped to the tables whose freeze runs through the SHARED, argument-driven
+    // function. The freezes that predate #367 line 75 each have their own
+    // bespoke function with the column names written into its body, where there
+    // is no argument list to read back — those are covered behaviourally by the
+    // column probe instead. Widening this to them would not check them, it would
+    // just demand they be rewritten.
+    const disagreements: string[] = [];
+    const tables = new Set(probes.enforcedColumns.keys());
+    for (const table of [...tables].sort()) {
+      const enforced = [...(probes.enforcedColumns.get(table) ?? [])].sort();
+      const declared = [...(commerceHistoryDispositionFor(table)?.frozenColumns ?? [])].sort();
+      if (enforced.join(',') !== declared.join(',')) {
+        disagreements.push(`${table}: trigger freezes [${enforced}], ledger declares [${declared}]`);
+      }
+    }
+    expect(
+      disagreements,
+      'A column-freeze trigger and its declaration disagree. The column probe cannot ' +
+        'catch this on its own: it is aimed BY the declarations, so a column the trigger ' +
+        'freezes and no entry mentions is invisible to it, and so is one the trigger ' +
+        'quietly stopped naming.',
+    ).toEqual([]);
+  });
+
+  it('read a plausible number of trigger arguments back', () => {
+    // The vacuity floor for THIS derivation. `pg_get_triggerdef` returning
+    // something the parser does not recognise, or the function being renamed,
+    // would leave `enforcedColumns` empty — and an empty map compared against an
+    // empty declaration set agrees perfectly. Measured: 8 tables, 67 columns.
+    expect(probes.enforcedColumns.size).toBeGreaterThanOrEqual(8);
+    const total = [...probes.enforcedColumns.values()].flat().length;
+    expect(total).toBeGreaterThanOrEqual(60);
+  });
+
+  it('parses an argument list it is handed', () => {
+    // The parser's own positive control, so the floor above cannot be satisfied
+    // by a parser that returns something plausible for anything.
+    expect(
+      argumentsOf(
+        `CREATE TRIGGER t BEFORE UPDATE ON public.x FOR EACH ROW EXECUTE FUNCTION ` +
+          `${COLUMN_FREEZE_FUNCTION}('a_col', 'b_col')`,
+      ),
+    ).toEqual(['a_col', 'b_col']);
   });
 });
 
@@ -450,14 +640,22 @@ describe('the probe measures something', () => {
   it('observed enough refusals to be worth reading', () => {
     // The floors are the whole defence against a probe that broke and reported
     // `allowed` everywhere — which is exactly what an unprotected schema looks
-    // like. Measured at the time of writing: 20 tables refuse a no-op UPDATE, 15
-    // refuse DELETE, and 40 columns are frozen.
+    // like. Measured at the time of writing: 27 tables refuse a no-op UPDATE, 20
+    // refuse DELETE, and 112 columns are frozen.
     const refusedUpdate = probes.rows.filter((row) => row.upd === 'refused');
     const refusedDelete = probes.rows.filter((row) => row.del === 'refused');
-    expect(refusedUpdate.length).toBeGreaterThanOrEqual(18);
-    expect(refusedDelete.length).toBeGreaterThanOrEqual(13);
-    expect(probes.columns.length).toBeGreaterThanOrEqual(35);
-    expect(probes.columns.every((row) => row.verdict === 'refused')).toBe(true);
+    expect(refusedUpdate.length).toBeGreaterThanOrEqual(24);
+    expect(refusedDelete.length).toBeGreaterThanOrEqual(18);
+    expect(probes.columns.length).toBeGreaterThanOrEqual(100);
+    expect(probes.columns.every((row) => RAISE_SQLSTATES.includes(row.verdict))).toBe(true);
+
+    // And the payment/refund half specifically. The totals above are dominated
+    // by the order tables, so a regression that lost exactly the #367 line 75
+    // columns would still clear every floor in this block.
+    const payAndRefund = probes.columns.filter((row) =>
+      ['payments', 'refunds', 'transfers', 'payouts', 'provider_accounts'].includes(row.tbl),
+    );
+    expect(payAndRefund.length).toBeGreaterThanOrEqual(48);
   });
 
   it('found real triggers on every table it says is protected', () => {
@@ -513,16 +711,36 @@ describe('the probe goes red when the enforcement is gone', () => {
   it('raises rather than skipping a column type it has no probe values for', async () => {
     // The vacuity floor on the column probe's own vocabulary. A skip would let a
     // frozen column of a new type stop being checked with nothing said.
+    //
+    // This used to aim at `orders.fx_rate_rate` (`double precision`). #367 line
+    // 75 froze `payments.platform_rate_rate`, which is the same type, so the
+    // probe GAINED a `float8` pair and this control had to move rather than be
+    // deleted — a self-test that stops discriminating because the thing it
+    // measured became supported is a self-test that silently passes forever.
+    // `provider_accounts.disabled_reason_codes` is `text[]`, which nothing in
+    // this file declares frozen and the probe deliberately has no pair for.
     await expect(
       db.transaction(async (tx) => {
         await tx.execute(
           sql`create temp table probe_column_plan(tbl name, col name) on commit drop`,
         );
-        // `orders.fx_rate_rate` is `double precision`, which the probe
-        // deliberately has no pair for.
-        await tx.execute(sql`insert into probe_column_plan values ('orders', 'fx_rate_rate')`);
+        await tx.execute(
+          sql`insert into probe_column_plan values ('provider_accounts', 'disabled_reason_codes')`,
+        );
         await tx.execute(sql.raw(COLUMN_PROBE_SQL));
       }),
     ).rejects.toThrow(/no probe values for/);
+  });
+
+  it('still has a float8 column under test, so gaining that pair cost nothing', () => {
+    // The other half of moving the control above: the `float8` pair was added
+    // for a REASON, and if that reason ever disappears the pair becomes
+    // unexercised vocabulary that the moved control no longer covers either.
+    const float8Columns = COMMERCE_HISTORY_DISPOSITIONS.flatMap((entry) =>
+      entry.frozenColumns
+        .filter((column) => column.endsWith('rate_rate'))
+        .map((column) => `${entry.table}.${column}`),
+    );
+    expect(float8Columns).toContain('payments.platform_rate_rate');
   });
 });

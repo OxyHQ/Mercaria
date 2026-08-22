@@ -625,17 +625,30 @@ capability gap. The second has since been built — see the update inside it.**
 
    **What changed.** #815 built exactly that data structure, using the
    `merge-plan-census.test.ts` device this bullet cites as a positive control.
-   `db/orderHistoryDispositions.ts:100` declares per table
+   `db/commerceHistoryDispositions.ts` declares per table
    `{rowUpdate, rowDelete, frozenColumns, reason}`; the population is not a
-   table list but the transitive foreign-key closure of ONE root
-   (`ORDER_HISTORY_ROOT_TABLE = 'orders'`, `:93`), walked over
+   table list but the transitive foreign-key closure of a derived ROOT SET
+   (`COMMERCE_HISTORY_ROOT_TABLES`), walked over
    `getTableConfig(...).foreignKeys` on the drizzle barrel.
-   `db/__tests__/order-history-census.test.ts:136` asserts the ledger covers
+   `db/__tests__/commerce-history-census.test.ts` asserts the ledger covers
    that closure EXACTLY, in both directions, so **a new table naming an order
-   fails the build until somebody decides what may be rewritten in it**.
-   `db/__tests__/order-history-immutability.realdb.test.ts` then executes each
-   declaration against a real server, so a declaration is never taken on trust.
-   Closure size at the time of writing: 57 tables. That realdb probe is also
+   or a payment fails the build until somebody decides what may be rewritten in
+   it**. `db/__tests__/commerce-history-immutability.realdb.test.ts` then
+   executes each declaration against a real server, so a declaration is never
+   taken on trust.
+
+   **#367 line 75 widened it.** The roots are now `orders` PLUS every table
+   `schema/payments.ts` exports — module membership rather than a name list,
+   because the payment domain holds no foreign key to `orders` by design
+   (`order-linkage.ts` is the one seam), so a walk from `orders` provably never
+   reaches `payments`, `transfers`, `payouts`, `disputes`, `payment_attempts`,
+   `payment_provider_events`, `payment_outboxes` or `provider_accounts`.
+   Closure size: **57 tables before, 70 after**. Migration `0135` supplies the
+   enforcement — two functions and ten triggers, freezing 67 payment and refund
+   snapshot columns and refusing every UPDATE of `payment_attempts` and
+   `refund_line_items`. Nothing there refuses a DELETE, deliberately: two of the
+   tables are targets of the shared retention sweep and `refund_line_items` is
+   reached by a cascade. That realdb probe is also
    why the count above moved: **9 files under `packages/backend/src` now
    reference `pg_trigger`**, and the new one is the first that is not a
    per-domain floor naming its own triggers.
