@@ -237,6 +237,37 @@ const OPEN_QUESTIONS: readonly OpenQuestion[] = [
   },
 ];
 
+/**
+ * CLAUSE 4's body, extracted so the mutation self-test drives the REAL check
+ * rather than a re-implementation of it.
+ *
+ * A self-test that only asserts `answered.resolved()` is `true` measures the
+ * fake object it just built and nothing else — it would stay green if the loop
+ * below stopped asserting altogether. Returns the number of triggers it
+ * actually ran, because "every trigger reports still-open" is also what running
+ * NO triggers reports.
+ */
+function assertStillOpen(questions: readonly OpenQuestion[]): number {
+  let evaluated = 0;
+  for (const question of questions) {
+    if (question.resolved === null) {
+      expect(
+        question.noTriggerBecause?.length ?? 0,
+        `${question.id} has no trigger and no reason for having none`,
+      ).toBeGreaterThan(80);
+      continue;
+    }
+    evaluated++;
+    expect(
+      question.resolved(),
+      `${question.id} is now ANSWERABLE from the code and is still listed as open in ADR 0007 ` +
+        `§Open questions: "${question.question}" — record the decision as a numbered D and delete ` +
+        'the entry.',
+    ).toBe(false);
+  }
+  return evaluated;
+}
+
 /* ──────────────────────────────── the walk ─────────────────────────────────── */
 
 const tables = barrelTables();
@@ -395,23 +426,7 @@ describe('#367 line 121 — every open question is EVALUATED, not narrated (ADR 
     // `DEFERRED_FOREIGN_KEYS` mechanism, generalized from foreign keys to
     // semantic questions. Green here means "nothing has answered them yet",
     // never "the questions are fine".
-    let evaluated = 0;
-    for (const question of OPEN_QUESTIONS) {
-      if (question.resolved === null) {
-        expect(
-          question.noTriggerBecause?.length ?? 0,
-          `${question.id} has no trigger and no reason for having none`,
-        ).toBeGreaterThan(80);
-        continue;
-      }
-      evaluated++;
-      expect(
-        question.resolved(),
-        `${question.id} is now ANSWERABLE from the code and is still listed as open in ADR 0007 ` +
-          `§Open questions: "${question.question}" — record the decision as a numbered D and delete ` +
-          'the entry.',
-      ).toBe(false);
-    }
+    const evaluated = assertStillOpen(OPEN_QUESTIONS);
     // A register of nothing but null triggers is a narrated register wearing
     // this file's name.
     expect(evaluated, 'no open question carries a trigger this file can run').toBeGreaterThanOrEqual(2);
@@ -475,12 +490,29 @@ describe('mutation self-tests — each detector, against inputs it never receive
   });
 
   it('CLAUSE 4 fires when a trigger reports its question answered', () => {
-    // The whole point of the register, driven against a trigger that returns
-    // true. Without this, a register of triggers that can only ever answer
-    // "still open" would satisfy CLAUSE 4 forever.
-    const answered: OpenQuestion = { id: 'Q99', question: 'x'.repeat(40), resolved: () => true };
-    expect(answered.resolved!()).toBe(true);
-    expect(OPEN_QUESTIONS.filter((q) => q.resolved !== null).length).toBeGreaterThanOrEqual(2);
+    // Driven through `assertStillOpen`, the SAME function CLAUSE 4 calls — a
+    // self-test that asserted `answered.resolved() === true` would measure the
+    // object it had just built and would stay green if the clause stopped
+    // asserting at all.
+    const answered: OpenQuestion = {
+      id: 'Q99',
+      question: 'A planted question whose trigger reports it answerable.',
+      resolved: () => true,
+    };
+    expect(() => assertStillOpen([answered])).toThrow(/Q99 is now ANSWERABLE/);
+    // And the other direction: it must NOT throw on a question still open, or
+    // the clause would be one that can only ever fail.
+    expect(assertStillOpen([{ ...answered, resolved: () => false }])).toBe(1);
+    // A `null` trigger with no reason is refused; with one, it is admitted and
+    // is NOT counted as evaluated.
+    expect(() =>
+      assertStillOpen([{ id: 'Q98', question: 'y'.repeat(40), resolved: null }]),
+    ).toThrow(/no trigger and no reason/);
+    expect(
+      assertStillOpen([
+        { id: 'Q98', question: 'y'.repeat(40), resolved: null, noTriggerBecause: 'z'.repeat(90) },
+      ]),
+    ).toBe(0);
   });
 
   it("Q2's trigger reads the migration chain and can tell the two bodies apart", () => {
