@@ -23,6 +23,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PRODUCT_TYPE_AUTHORING_FLOWS,
   PRODUCT_TYPE_COMPATIBILITY_AXIS_KEYS,
+  PRODUCT_TYPE_COMPOSITION_AXIS_KEYS,
   PRODUCT_TYPE_FIELD_REQUIREMENTS,
   PRODUCT_TYPE_FIELD_SCOPES,
   PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS,
@@ -147,23 +148,53 @@ describe('the variant-axis prohibition is a CHECK, and it names what it refuses'
     }
   });
 
-  it('covers both halves of the forbidden set, and they are disjoint', () => {
-    // The offer facts come from #94 and the compatibility targets from this
-    // domain. Merging the two lists by hand is how one of them silently stops
-    // being rendered into the constraint.
-    for (const key of RESERVED_OFFER_FACT_KEYS) {
-      expect(PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS).toContain(key);
+  it('covers all three halves of the forbidden set, and they are disjoint', () => {
+    // The offer facts come from #94, the compatibility targets from ADR 0007 D8
+    // and the composition keys from ADR 0007 D15. Merging three lists by hand is
+    // how one of them silently stops being rendered into the constraint.
+    const parts = [
+      RESERVED_OFFER_FACT_KEYS,
+      PRODUCT_TYPE_COMPATIBILITY_AXIS_KEYS,
+      PRODUCT_TYPE_COMPOSITION_AXIS_KEYS,
+    ];
+    for (const part of parts) {
+      for (const key of part) {
+        expect(PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS, `${key} is not forbidden`).toContain(key);
+      }
     }
-    for (const key of PRODUCT_TYPE_COMPATIBILITY_AXIS_KEYS) {
-      expect(PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS).toContain(key);
-      expect(RESERVED_OFFER_FACT_KEYS).not.toContain(key);
+    // Pairwise disjoint. Summing the lengths below only equals the union's size
+    // while that holds, so a key appearing in two lists would otherwise hide a
+    // key that had left a third.
+    for (const [index, part] of parts.entries()) {
+      for (const other of parts.filter((_, otherIndex) => otherIndex !== index)) {
+        for (const key of part) {
+          expect(other, `${key} appears in two of the three source lists`).not.toContain(key);
+        }
+      }
     }
     expect(PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS.length).toBe(
-      RESERVED_OFFER_FACT_KEYS.length + PRODUCT_TYPE_COMPATIBILITY_AXIS_KEYS.length,
+      parts.reduce((total, part) => total + part.length, 0),
     );
-    // The vacuity floor: a rendered list of nothing would satisfy the loop above
+    // The vacuity floor: a rendered list of nothing would satisfy the loops above
     // by iterating zero times.
-    expect(PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS.length).toBeGreaterThanOrEqual(30);
+    expect(PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS.length).toBeGreaterThanOrEqual(40);
+  });
+
+  it('leaves `pack_count` a legitimate axis, which is what makes a multipack representable', () => {
+    // ADR 0002 D15 makes a multipack a variant of the SAME product carrying
+    // exactly this axis and its own GTIN. The absence is load-bearing rather
+    // than an oversight, and it is asserted beside the composition keys because
+    // that is the list a later reader would be tempted to add it to.
+    expect(PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS).not.toContain('pack_count');
+    expect(axisCheck).not.toContain("'pack_count'");
+    // The control for the clause above: the composition keys it sits beside ARE
+    // rendered, so `not.toContain` is measuring the list rather than an empty
+    // CHECK. Without this, dropping every composition key would leave the two
+    // assertions above green.
+    expect(PRODUCT_TYPE_COMPOSITION_AXIS_KEYS.length).toBeGreaterThanOrEqual(10);
+    for (const key of PRODUCT_TYPE_COMPOSITION_AXIS_KEYS) {
+      expect(axisCheck, `the CHECK does not name the composition key ${key}`).toContain(`'${key}'`);
+    }
   });
 
   it('the detector is not vacuous — a key NOT on the list is absent from the CHECK', () => {

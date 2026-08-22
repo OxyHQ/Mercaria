@@ -172,7 +172,11 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // no property signature — while the type count moves by two. Read off the
     // guard, and the two figures that did NOT move are the check that the delta
     // is the one intended rather than a module having quietly appeared.
-    "walked 123 contract module(s), 2241 exported type(s), 7591 property signature(s)",
+    // #367 line 144 (ADR 0007 D15) added `commerce-type.ts`, so all three move
+    // together: one module, seven exported types, eight property signatures.
+    // Read off the guard, and the module count moving by exactly one is the
+    // check that a single contract module arrived rather than a directory.
+    "walked 124 contract module(s), 2248 exported type(s), 7599 property signature(s)",
     "check A arms exercised by real declarations: 5/9",
   ],
 });

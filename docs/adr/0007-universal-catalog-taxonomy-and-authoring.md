@@ -1089,6 +1089,87 @@ compatibility fact is a real column with real constraints. A scanned gate
 enumerates the permitted JSONB columns exactly, so a new one fails the build
 until it is justified here.
 
+### D15. What the catalogue classifies: a physical good, and nothing else
+
+Closes the open item this ADR carried — *"whether bundles, services and digital
+goods get their own product-type scopes or are excluded at launch"* — and
+answers epic line 144's fourth clause, *"non-standard future commerce types"*.
+
+**Code:** `@mercaria/shared-types` `commerce-type.ts` (the decision, as data) ·
+`src/__tests__/commerce-type-exclusion.test.ts` (the wall) ·
+`src/__tests__/commerce-type-structural-walls.test.ts` (the pins) ·
+`PRODUCT_TYPE_COMPOSITION_AXIS_KEYS` in `product-type.ts`. Reference:
+[`docs/commerce-types.md`](../commerce-types.md).
+
+**Bundles and multipacks FIT, and neither gets a product type of its own.**
+Both are physical goods whose SHAPE differs, not commerce types, and ADR 0002
+D15 already chose the mechanism for each: a bundle is its OWN
+`canonical_products` row carrying `bundle_components` rows, authored under
+whatever product type its own category grants; a multipack is a variant of the
+same product carrying a `pack_count` axis and its own GTIN. Neither is a schema
+question, so neither is a product type. `PHYSICAL_GOOD_COMPOSITIONS` is a total
+map over the three shapes and every entry declares `needsOwnProductType: false`,
+so changing that answer changes this decision in the same diff.
+
+The enforceable consequence is D8's rule applied to composition:
+**`PRODUCT_TYPE_COMPOSITION_AXIS_KEYS` joins the reserved offer facts and the
+compatibility targets in `PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS`.** A bundle's
+contents are a RELATIONSHIP with its own table, quantity, self-containment CHECK
+and merge-conflict kind; an attribute axis spelling the same fact would be a
+second representation of it, failing in the multiplying direction — one variant
+per thing the bundle contains. The keys stay definable (a "what's in the box"
+specification is a good product-scope attribute); what they may not be is an
+option row. `pack_count` is deliberately NOT in that tuple and a test pins the
+absence, because forbidding it would make every six-pack unrepresentable.
+
+**Services, digital goods, stored value, event admissions and consumer
+subscriptions are EXCLUDED.** The five were derived from what this repository
+already names as absent or forbidden rather than imagined, and each entry in
+`COMMERCE_TYPE_DISPOSITIONS` cites where.
+
+**There is no `commerce_type` column, and the absence IS the enforcement.** The
+obvious spelling — a discriminator on `categories` or `listings` whose CHECK
+admits one value — is refused for the reason `canonicalCatalog.ts` refuses an
+`is_bundle` flag and `services/analytics/` refuses a property bag: a column with
+one legal value is already in place to receive a second, and widening a CHECK
+reads as ordinary schema work rather than as an ADR amendment. It would also not
+do the job it appears to do, since a category slug is free text and a
+`digital-goods` category declared `physical_good` is a lie no constraint can see.
+
+**What IS held structurally is that Mercaria's own model cannot grow a
+representation of an excluded type by accident.** Six comment-stripped detectors
+over both source trees, keyed on the identifiers each type would arrive under —
+a column, a field, a union member — plus the rival-discriminator seam. Admitting
+a type in the disposition map disarms its detector, which is the intended shape:
+the cheapest green is then this decision, amended where a reviewer sees it,
+beside the prerequisites it must discharge.
+
+**The exclusions are existing walls, named.** Every refusal was true before this
+decision was written and none of it was written down, which is the difference
+between an accident and an intentional exclusion. Measured, and now pinned:
+`destinationFromInput` throws without a destination and `CheckoutDestination`'s
+three branches are all places; `orders` takes `addressColumns`, whose recipient,
+line 1, city, postal code and country are NOT NULL, and even collection
+satisfies them by snapshotting the pickup location's own address;
+`order_items.variant_id` is NOT NULL, so there is no ad-hoc or labour line;
+`ORDER_STATUSES` and `SHIPPING_METHODS` describe physical movement and nothing
+else; every `ITEM_CONDITION_KEYS` member describes the state of an object; and
+`rateMatchesRegion` reads exactly three inputs — the shipping country, region and
+postal code — which is the goods place-of-supply rule and structurally the wrong
+one for a digital supply.
+
+**A future type arrives through a PROCEDURE, not an extension point.** No open
+`type` column, no `metadata` bag, no plugin seam — this ADR's D14 already bounds
+JSONB and the reasoning is the same one `services/payments/redact.ts` gives for
+an allow-list. Instead `COMMERCE_TYPE_PREREQUISITES` is a CLOSED tuple naming
+each place the commerce path assumes a physical good, and admitting a type means
+naming the ones it needs and discharging them in the change that admits it.
+Because the vocabulary is closed, a type cannot be admitted by inventing a reason
+it needs none. `COMMERCE_TYPE_DISPOSITIONS` is total, so a member added to either
+tuple fails `tsc` until somebody decides — the `CHANNEL_ENTITY_POLICY` and
+`MERGE_REHOMING_PLAN` shape, where a type that must NOT be classified is as much
+a decision as one that must.
+
 ## Merge order
 
 The dependency graph, and therefore the merge order. Items on the same line are
@@ -1148,6 +1229,13 @@ independent of each other; only the migration slot (D11) serializes them.
   architectural one — `findCategoryAncestors` costing a round trip it does not
   need — and it is not blocking.
 - Community translation contribution and its moderation rules, if enabled.
-- Whether bundles, services and digital goods get their own product-type
+- ~~Whether bundles, services and digital goods get their own product-type
   scopes or are excluded at launch — decided in the product-type PR, recorded
-  here when it is.
+  here when it is.~~ **CLOSED** (#367 line 144): **D15** above. It was not
+  decided in the product-type PR — `a5b39abe` shipped the schema and left the
+  question open, which is why the answer arrives in its own change with a wall
+  and a set of pins rather than as a paragraph. Bundles and multipacks FIT and
+  need no product type of their own; services, digital goods, stored value,
+  event admissions and consumer subscriptions are EXCLUDED; and a future type
+  arrives through a closed prerequisite vocabulary rather than an extension
+  point.

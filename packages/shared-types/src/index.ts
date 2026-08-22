@@ -662,6 +662,15 @@ export * from './shopping-agent';
 // restates — a product-type field cites an attribute version and describes none
 // of its meaning, so the two can never disagree about what a value is.
 export * from './product-type';
+// What kind of thing the catalogue classifies at all (#367 line 144, ADR 0007
+// D15). Downstream of `./product-type`, and it defines no vocabulary any domain
+// above it owns: a bundle and a multipack are COMPOSITION shapes of a physical
+// good carried by mechanisms ADR 0002 D15 already chose, and the excluded types
+// name no column, because the ABSENT discriminator is what makes the exclusion
+// hold. Its admitted tuple is DISJOINT from its excluded one, and its
+// disposition map is total, so a commerce type cannot be added anywhere without
+// a decision compiling beside it.
+export * from './commerce-type';
 // Navigation trees and the merchandising separation (#367 step 7, ADR 0007 D3).
 // LAST, and it defines no vocabulary any domain above it owns: a node POINTS at
 // `./condition`'s groups, `./offer`'s kinds and availability and `./money`'s

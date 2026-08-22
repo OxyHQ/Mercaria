@@ -206,14 +206,54 @@ export const PRODUCT_TYPE_COMPATIBILITY_AXIS_KEYS: readonly string[] = [
 ];
 
 /**
- * Every attribute key a `variant_capable` product-type field is REFUSED for, as
- * a CHECK on `product_type_fields` (ADR 0007 D6/D8).
+ * Attribute keys that may never carry a variant axis because they name what a
+ * product CONTAINS (#367 line 144, ADR 0007 D15).
  *
- * Derived from the two lists above rather than retyped, so #94 adding a reserved
- * offer fact widens this prohibition too. Note the asymmetry that makes it a
- * real gate rather than a restatement: the registry's CHECK stops those keys
- * being DEFINED, and this one stops a compatibility target — which is legally
- * definable — being turned into an option axis.
+ * The {@link PRODUCT_TYPE_COMPATIBILITY_AXIS_KEYS} argument, applied to
+ * composition instead of fitment. ADR 0002 D15 makes a bundle its OWN canonical
+ * product whose contents are `bundle_components` rows — a relationship between
+ * two variants, with its own table, its own quantity, its own self-containment
+ * CHECK and its own merge-conflict kind. An attribute axis spelling the same
+ * fact would be a second representation of it, and the two would disagree in the
+ * direction that matters: the axis would multiply a bundle into one variant per
+ * thing it contains, which is exactly the 400-SKU explosion D8 refuses for a
+ * brake pad.
+ *
+ * These keys stay perfectly DEFINABLE — "what's in the box" is an ordinary
+ * product-scope specification and a good one. What they may not be is an option
+ * row. That is the same asymmetry the compatibility list has, and the reason
+ * both are held here rather than in #94's registry.
+ *
+ * **`pack_count` is deliberately NOT a member**, and the absence is load-bearing
+ * rather than an oversight: ADR 0002 D15 makes a multipack a variant of the same
+ * product carrying exactly that axis, so forbidding it would make every
+ * six-pack-and-single pair unrepresentable. `product-type-composition-axis.test.ts`
+ * pins it.
+ */
+export const PRODUCT_TYPE_COMPOSITION_AXIS_KEYS: readonly string[] = [
+  'bundle_components',
+  'bundle_contents',
+  'bundle_items',
+  'box_contents',
+  'in_the_box',
+  'kit_contents',
+  'included_items',
+  'includes',
+  'contains',
+  'contents',
+  'components',
+  'component_variants',
+];
+
+/**
+ * Every attribute key a `variant_capable` product-type field is REFUSED for, as
+ * a CHECK on `product_type_fields` (ADR 0007 D6/D8/D15).
+ *
+ * Derived from the three lists above rather than retyped, so #94 adding a
+ * reserved offer fact widens this prohibition too. Note the asymmetry that makes
+ * it a real gate rather than a restatement: the registry's CHECK stops those
+ * keys being DEFINED, and this one stops a compatibility target or a
+ * composition — both legally definable — being turned into an option axis.
  *
  * Widening it is a code change PLUS a migration, like every other rendered
  * CHECK: the union widens immediately and the database constraint does not.
@@ -221,6 +261,7 @@ export const PRODUCT_TYPE_COMPATIBILITY_AXIS_KEYS: readonly string[] = [
 export const PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS: readonly string[] = [
   ...RESERVED_OFFER_FACT_KEYS,
   ...PRODUCT_TYPE_COMPATIBILITY_AXIS_KEYS,
+  ...PRODUCT_TYPE_COMPOSITION_AXIS_KEYS,
 ];
 
 /**
