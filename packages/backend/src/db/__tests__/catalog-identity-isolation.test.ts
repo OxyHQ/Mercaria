@@ -76,11 +76,17 @@ const REQUEST_SCHEMA_DIRECTORIES = ['middleware', 'controllers', 'routes'] as co
 /**
  * Both spellings of a single-column foreign key.
  *
- * The house form is `.references(() => table.id)`; 47 of the 769 declarations
- * use `.references((): AnyPgColumn => table.id)`, the annotation drizzle needs
- * for a self- or circular reference. A regex covering only the first form
- * reports 722 instead of 769 and reads as a complete census — which is the
- * failure this comment exists to stop somebody re-introducing while tidying.
+ * The house form is `.references(() => table.id)`; a minority use
+ * `.references((): AnyPgColumn => table.id)`, the annotation drizzle needs for a
+ * self- or circular reference. **A regex covering only the first form silently
+ * undercounts and reads as a complete census** — which is the failure this
+ * comment exists to stop somebody re-introducing while tidying.
+ *
+ * The proportion is deliberately not written down. It used to say "47 of the
+ * 769" and both numbers had moved by the time anything compared them (#367 line
+ * 102) — a count in prose is a fact with no owner, PR #857. The walked figures
+ * are printed by the "walked a real population" case on every successful run,
+ * which is where to read them.
  */
 const SINGLE_COLUMN_FK =
   /\.references\(\s*\([^)]*\)(?::\s*[A-Za-z]+)?\s*=>\s*([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)/g;
