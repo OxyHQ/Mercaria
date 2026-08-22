@@ -132,9 +132,11 @@ grains, and why neither edge may claim a mandatory parent.
 on: an offer names the exact configuration it sells, so "the same phone from
 eleven sellers" is eleven offer rows under one canonical variant.
 
-**`native_listing_variant_axes` is where a published listing's product type
-lives.** `listings` itself carries no `product_type_definition_id` — see the
-collision below.
+**A listing's product type is pinned in THREE places, and they are not gated
+against each other.** `listings.product_type_definition_id` (the pin, landed by
+merge-order step 5), `native_listing_variant_axes.product_type_definition_id`
+(the version each declared axis was made under) and the draft
+(`catalogAuthoring.ts`). See the collision below — and the residual under it.
 
 ## Write ownership
 
@@ -195,14 +197,27 @@ WooCommerce import carries, indexed for store browse
 (`listings_store_id_product_type_idx`, `catalog.ts:552`) and accepted on the v1
 listing contracts as `productType: z.string()`
 (`middleware/schemas.ts:173`, `:229`, `:1275`). #367's product type is
-`product_type_definitions`, cited by id — and a listing carries **no**
-`product_type_definition_id` column at all. The pin lives on
-`native_listing_variant_axes.product_type_definition_id`
-(`db/schema/variantAxes.ts:159`) and on the draft
-(`db/schema/catalogAuthoring.ts:136`).
+`product_type_definitions`, cited by id from
+`listings.product_type_definition_id` in the SAME table — a nullable foreign key
+with a partial index and the `mercaria_listing_product_type_pin_not_cleared`
+trigger, gated by `db/__tests__/listing-product-type-pin.realdb.test.ts`. A
+version is also cited by each declared axis
+(`native_listing_variant_axes.product_type_definition_id`) and by the draft
+(`db/schema/catalogAuthoring.ts`).
+
+**Residual, measured rather than assumed:** nothing compares the axis citation
+against the listing's own pin. `mercaria_native_variant_axis_citation`
+(`drizzle/0097_uneven_hedge_knight.sql:178`) checks the attribute definition and
+the product-type field and stops there, so an axis may cite one product type
+version while the listing it belongs to is pinned to another. The axis
+docblock (`db/schema/variantAxes.ts`) names that clause as the change owed
+"when step 5 lands `listings.product_type_definition_id`"; step 5 has landed and
+the clause has not.
 
 So "this listing's product type" has two answers with different meanings, and
-only one of them is versioned. When you read `productType` in this repository,
+only one of them is versioned. `catalog-concept-distinctness.test.ts` freezes
+that pair: `listings.product_type` is a declared, untyped near-name, and a THIRD
+untyped concept-named column on a concept's own row fails the build. When you read `productType` in this repository,
 check which table it came from before you use it.
 
 **"Report" is two unrelated things** — sales analytics and abuse reports — and
