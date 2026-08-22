@@ -166,7 +166,13 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // property deltas, which is how a pin stops describing the tree it pins.
     // #367 W0's `catalog-rollout.ts` added the next one, and these three figures
     // were likewise READ OFF the guard rather than incremented.
-    "walked 123 contract module(s), 2239 exported type(s), 7591 property signature(s)",
+    // #367 line 150 added `CollectionProductWrite` and
+    // `CollectionForbiddenProductWrite` to the EXISTING `collection.ts`, so the
+    // module count holds and the property count holds — a union alias declares
+    // no property signature — while the type count moves by two. Read off the
+    // guard, and the two figures that did NOT move are the check that the delta
+    // is the one intended rather than a module having quietly appeared.
+    "walked 123 contract module(s), 2241 exported type(s), 7591 property signature(s)",
     "check A arms exercised by real declarations: 5/9",
   ],
 });

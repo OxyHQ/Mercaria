@@ -123,3 +123,62 @@ export interface SetCollectionProductsInput {
   /** Full ordered replacement of the manual collection's product list. */
   productIds: string[];
 }
+
+/**
+ * The ONE product fact collection membership writes.
+ *
+ * A row in `listing_collections`, and nothing else. ADR 0007 D3: `collections`,
+ * `collection_rules` and `listing_collections` "are **not** given category
+ * semantics and a collection membership never becomes a product fact".
+ */
+export type CollectionProductWrite = 'collection_membership';
+
+/** {@link CollectionProductWrite}. */
+export const COLLECTION_PRODUCT_WRITES: readonly CollectionProductWrite[] = [
+  'collection_membership',
+];
+
+/**
+ * A product fact a merchandising collection may NEVER write (ADR 0007 D3).
+ *
+ * The named half of "without assigning fake categories to products". The failure
+ * is not a crash and not a refusal — it is a merchant who needs a *Summer Sale*
+ * shelf, mints a *Summer Sale* CATEGORY because that is what the browse tree
+ * reads, and files forty products under it. Every page renders. The taxonomy is
+ * now carrying a marketing campaign, `category_slugs` says a swimsuit's browse
+ * path is `summer-sale`, and the damage surfaces months later as a shopper
+ * filtering *Swimwear* and finding nothing.
+ *
+ * Stated as VALUES rather than as prose so a refusal can name the thing —
+ * `NAVIGATION_FORBIDDEN_TARGET_KINDS` is the same device for D3's other half,
+ * and the two lists exist because the temptation is symmetric: a menu and a
+ * collection are both arrangements OF the catalogue, and both are one convenient
+ * write away from becoming a second authority OVER it.
+ *
+ * Asserted DISJOINT from {@link COLLECTION_PRODUCT_WRITES} by
+ * `merchandising-category-isolation.test.ts`, which also holds the import graph
+ * that makes each of these unreachable from the merchandising domain.
+ *
+ * A collection legitimately READS a category — `categorySlug` is a
+ * {@link CollectionRuleField}, and "everything in Shoes" is the ordinary reason
+ * somebody builds an automated collection. The prohibition is on the WRITE.
+ */
+export type CollectionForbiddenProductWrite =
+  | 'primary_category'
+  | 'secondary_classification'
+  | 'category_browse_path'
+  | 'category_definition'
+  | 'canonical_product_category'
+  | 'product_type'
+  | 'brand';
+
+/** {@link CollectionForbiddenProductWrite}. */
+export const COLLECTION_FORBIDDEN_PRODUCT_WRITES: readonly CollectionForbiddenProductWrite[] = [
+  'primary_category',
+  'secondary_classification',
+  'category_browse_path',
+  'category_definition',
+  'canonical_product_category',
+  'product_type',
+  'brand',
+];

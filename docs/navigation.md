@@ -328,6 +328,59 @@ Measured: mutating `projection.ts` to contain `db.insert(categories)` and a
 
 ---
 
+## The merchandising half of D3 (#367 line 150)
+
+D3 has two prohibitions and only one of them had a mechanism. "Nothing in
+navigation may write to `categories`" has been gated since step 7, above. "A
+collection membership never becomes a product fact" was a sentence — measured on
+`db3b3bf`, the whole merchandising domain touched a category on exactly **one**
+line, and it is a read. So the property held by everybody's good behaviour, and
+adding `updateListingColumns(id, { categoryId })` to `collection.service.ts`
+would have failed no test in the repository.
+
+`packages/backend/src/services/__tests__/merchandising-category-isolation.test.ts`
+is the counterpart gate. Population: `db/merchandising/` walked, plus every
+`merchandis|collection`-named module in `routes`, `controllers`, `middleware`,
+`db/schema`, `services` and `connectors` — 9 modules, against 13 the whole-tree
+sweep finds.
+
+**The boundary is READ versus WRITE, and that is most of the work.** A collection
+legitimately reads a category: `categorySlug` is a published `CollectionRuleField`
+and "everything in Shoes" is the ordinary reason to build an automated
+collection. `db/merchandising/collectionRules.ts` maps it onto
+`listings.categorySlugs` for an `arrayContains` predicate. A wall that fired on
+the *word* `category` would go red on the one line that is supposed to be there,
+and whoever hit it would delete the wall rather than the line — the same
+reasoning wall 1 above records for the same tables. So the detectors name
+drizzle's write verbs, the writer symbols, the write-service imports and raw SQL;
+**WALL 2 asserts the permitted read is still present and still passes every
+detector**, so the file cannot go quietly inert if that read is ever deleted.
+
+Four walls: no module writes a category, a classification or a listing; the
+permitted read survives; no merchandising table carries category semantics
+(walked from the real drizzle tables); and
+`COLLECTION_FORBIDDEN_PRODUCT_WRITES` (seven) is disjoint from
+`COLLECTION_PRODUCT_WRITES` (one — the membership row), so a refusal names
+`category_definition` rather than "unrecognized". A fifth wall applies the
+detectors to what each module can **reach**, because `collection.service.ts`
+already imports four read helpers from `db/catalog/listingRepository.ts`, the
+module that also holds `insertListing` and `updateListingColumns`.
+
+Measured, in the tree rather than against the regexes: planting each of the four
+write shapes in `services/collection.service.ts` turns the gate red **naming that
+file**, and disabling each detector **separately** turns the suite red through
+that detector's own control — none of the four is defended by accident. Deleting
+the permitted read reds WALL 2; widening the population to all of `src/` reds the
+foreign-module control; emptying the exclusion list reds the count.
+
+`collection` names two unrelated domains here — merchandising, and **pickup**
+(collecting a parcel, #93). The four pickup modules are counted exclusions with
+reasons rather than a narrower pattern, and `PICKUP_COLLECTION_MODULES` is the
+one source both the population filter and the exclusion read, so the two cannot
+drift into disagreeing about which tree a module is in.
+
+---
+
 ## Rollout
 
 One lever, `CATALOG_TAXONOMY_V2_ENABLED` (ADR 0007 D12), default **false** —

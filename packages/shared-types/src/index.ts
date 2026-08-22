@@ -65,6 +65,9 @@ export * from './location';
 export * from './pickup';
 
 // Collection DTOs (Collection, CollectionType, CollectionSortOrder, CollectionRule, …).
+// Carries D3's merchandising half stated as values: the one product fact a
+// membership writes, and the seven it may never write. A rule READS a category
+// (`categorySlug` is a rule field); nothing here can say what a product IS.
 export * from './collection';
 
 // Inventory DTOs (InventoryLevelDTO).

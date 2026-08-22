@@ -654,3 +654,44 @@ returned the buyer domain. **Measure a candidate against the gate's own
 detectors before adding it**: the one above was clean against all six of that
 gate's walls, so it was a widening; one that trips a wall needs a counted
 exclusion instead, or the conversion builds a false wall.
+
+### When the bare word returns a whole OTHER domain, keep the broad pattern
+
+The triage above assumes the strays are few. Sometimes the word is simply owned
+twice: `collection` is a merchandising shelf **and** pickup collection —
+collecting a parcel (#93) — and the two share no table, service or route.
+`merchandising-category-isolation.test.ts` sweeps `merchandis|collection` and
+gets 13 modules for a domain of 9.
+
+**Keep the broad pattern and excuse the four**, rather than tuning the pattern
+until they stop matching. A tuned pattern is one nobody can check by reading it,
+and the next pickup-named module lands silently inside a wall about
+merchandising — where it is scanned by detectors that were never written with it
+in mind, and passes, which reads as coverage.
+
+**And derive the carve-out from ONE list.** The population has to filter the
+strays out and `assertNothingOutsideDomainPopulation` has to excuse them, so
+there are two readers of one fact. Written separately they drift, and the drift
+is only half-loud: a module excused but NOT filtered fails the "excused AND in
+the population" assertion, while one filtered but NOT excused fails the outside-
+population assertion — but a module dropped from BOTH is simply gone from the
+gate, silently. One `Set` built from the `ForeignModule[]`, read by both, makes
+that state unrepresentable.
+
+### Mutate each detector SEPARATELY, or you have measured one of them
+
+A gate with N detectors and one mutation experiment has tested one detector. The
+natural reading of "I broke it and it went red" is that the set works; what it
+shows is that *something* in the set works. Measured elsewhere in this tree: four
+sibling tie-breaks, removing one went red, removing another stayed green, because
+only one fixture carried the collision — three were defended by accident.
+
+Two cheap habits close it. Put the detectors in an ARRAY rather than one
+alternation, so each can be disabled on its own; and assert that each sample is
+caught by **exactly one** detector:
+
+    expect(violations(sample.fires, DETECTORS)).toEqual([DETECTORS[index].source]);
+
+`toEqual([…])` rather than `toContain` is the whole difference — it fails when
+two detectors overlap, which is the state in which removing either leaves the
+suite green and the redundant wall reads as load-bearing.
