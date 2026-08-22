@@ -70,7 +70,13 @@
   retention requires the DELETE (analytics, price history, snapshots), in which
   case say so — a trigger refusing it makes the retention sweep fail silently.
 - **A versioned wire contract, never a `@deprecated` alias.** A shipped mobile
-  build cannot be recalled; state `retiresWhen` and keep serving both.
+  build cannot be recalled; state `retiresWhen` and keep serving both. Register
+  it in `backend/src/__tests__/v1-wire-contracts.ts` — the population is DERIVED
+  from the docblocks, so an unregistered one fails the census, and an entry with
+  no `provenBy` moves an exact count somebody has to justify. Prove it at the
+  ENTRY POINT: the v1 condition projection was pinned exhaustively as a pure
+  function while the hydration call served a constant, and all 10,500 tests were
+  green.
 - **Four eyes** (`CATALOG_FOUR_EYES_REQUIRED` and its siblings) is the ROW's
   shape — approvers differing from each other and from the requester, held by a
   CHECK or a partial unique, never by a service comparison.

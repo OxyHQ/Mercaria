@@ -61,8 +61,17 @@ export interface OffsetSearchResult {
  * through: the query is a wire contract with pagination and sort mixed into it,
  * and the filter is what actually narrows rows. Keeping them distinct is what
  * stops a new query parameter from silently reaching the database.
+ *
+ * Exported so the v1 contract tests can drive it directly — the
+ * `destinationFromInput` precedent, for the same reason it gives: "an old client
+ * still works" is a claim about THIS function, and this is the ONE place both v1
+ * query spellings (`category`, `condition`) are translated. Before #367 line 74
+ * it was private and `search.service` had no test importer anywhere in the
+ * repository, so the `used`-widening below — the branch that decides whether a
+ * shipped mobile build can still see refurbished and for-parts listings — was
+ * reachable by no test at all.
  */
-function toFilters(query: ListingQuery): ListingSearchFilters {
+export function toFilters(query: ListingQuery): ListingSearchFilters {
   const filters: ListingSearchFilters = {};
 
   if (query.ownerType) filters.ownerType = query.ownerType;
