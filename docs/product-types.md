@@ -457,7 +457,20 @@ The derivation is pure and is tested without a server in
   not one. When it arrives it belongs on the existing
   `CATALOG_OPERATOR_OXY_USER_IDS` allow-list — the one #54, #56, #57, #58, #60,
   #62, #68, #78 and #94 already share — and not a seventh list.
-- **The open item ADR 0007 records:** whether bundles, services and digital goods
-  get their own product-type scopes or are excluded at launch. Nothing in this
-  schema decides it; a product type is a key and a version, so either answer is a
-  data change.
+- ~~**The open item ADR 0007 records:** whether bundles, services and digital
+  goods get their own product-type scopes or are excluded at launch.~~
+  **CLOSED** by ADR 0007 D15 (#367 line 144) — see
+  [`commerce-types.md`](./commerce-types.md). Bundles and multipacks FIT and get
+  no product type of their own, because neither is a schema question: a bundle
+  is its own canonical product carrying `bundle_components` rows and a multipack
+  is a `pack_count` variant, both ADR 0002 D15's mechanisms. Services and digital
+  goods are EXCLUDED, along with stored value, event admissions and consumer
+  subscriptions.
+
+  What that decision changed HERE is one tuple:
+  `PRODUCT_TYPE_COMPOSITION_AXIS_KEYS` joins the reserved offer facts and the
+  compatibility targets in `PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS`, so a
+  bundle's contents can never become an option row — D8's fitment argument
+  applied to composition, and rendered into the same two CHECKs. `pack_count` is
+  deliberately NOT a member and a test pins the absence; forbidding it would make
+  every six-pack unrepresentable.
