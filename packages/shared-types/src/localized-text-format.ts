@@ -62,11 +62,16 @@
  *
  * {@link CATALOG_LOCALIZED_FIELDS} answers "what may a reader ask the resolver
  * for" and covers eighteen fields. The nine family tables hold twenty-two
- * localized text columns. The four it does not cover — `attribute_value`'s
- * description and all three of `navigation_node_localizations` — are real
- * columns a real writer writes, and a sanitization policy keyed on the resolver
- * registry would have left every one of them out. So this map is keyed on
- * `<table>.<column>` as PostgreSQL spells them.
+ * localized text columns, and this map declares those twenty-two plus
+ * `canonical_images.alt` — twenty-three, which is the number to quote for the
+ * POLICY. (Stating both is deliberate: "the family holds 22" and "23 columns are
+ * declared" are different facts and quoting one for the other is how a
+ * population figure goes wrong in prose while every gate stays green.) The four
+ * columns the registry does not cover — `attribute_value`'s description and all
+ * three of `navigation_node_localizations` — are real columns a real writer
+ * writes, and a sanitization policy keyed on the resolver registry would have
+ * left every one of them out. So this map is keyed on `<table>.<column>` as
+ * PostgreSQL spells them.
  *
  * ## How the population is DERIVED, and what a first pass missed
  *

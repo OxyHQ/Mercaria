@@ -654,7 +654,7 @@ happening silently again.
 
 ### The population is CLOSED, not enumerated
 
-Eleven of the twenty-two declared columns have no request surface at all — their
+Eleven of the twenty-three declared columns have no request surface at all — their
 text arrives from a code constant (the vertical-package apply), a copy-forward,
 or nothing. A policy applied only at request schemas would cover HTTP and
 nothing else, and no amount of searching can tell you the enumeration has
@@ -684,9 +684,10 @@ excused for the same reason inside a module that does assert on its upsert.
 
 ### The classification
 
-Plain (13): every name, label, title, placeholder and `example`, plus
-`accessibility_label` and `canonical_images.alt`. Rich (10): every `description`
-and `help_text`.
+Twenty-three declared columns across ten tables — the nine-member localization
+family's twenty-two, plus `canonical_images.alt`. Plain (13): every name, label,
+title, placeholder and `example`, plus `accessibility_label` and
+`canonical_images.alt`. Rich (10): every `description` and `help_text`.
 
 It reads like a rule over column names and is not one — `example` is plain
 because it is a VALUE a seller would type into the box beside it, and
