@@ -960,6 +960,13 @@
       "when": 1787399677877,
       "tag": "0136_category_scope_stays_with_its_version",
       "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1787407293713,
+      "tag": "0137_order_snapshot_immutability",
+      "breakpoints": true
     }
   ]
 }

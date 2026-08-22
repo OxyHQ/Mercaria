@@ -52,19 +52,29 @@
  * are documented as immutable somewhere and enforced NOWHERE say so in the one
  * place a reader is already looking.
  *
- * ## Some entries record a GAP or a PARTIAL rather than a guarantee
+ * ## The eight-table claim, and how it was closed
  *
  * `schema/orders.ts`'s own opening line calls eight tables "the immutable
  * commerce record" — `orders`, `order_items`, `order_item_option_values`,
  * `order_status_history`, `order_applied_discounts`, `order_tax_lines`,
- * `refunds`, `refund_line_items`. The payment and refund half of that list is
- * now enforced; the four ORDER-side tables named there still refuse nothing, and
- * so does `retail_procurement_intents`, which `schema/retailCheckout.ts` calls
- * frozen at checkout. Those are recorded as what the database ACTUALLY does,
- * with the discrepancy named in the reason. Declaring them `refused` to match
- * the prose would make this file the fiction instead of the schema — and the
- * realdb half would fail immediately, which is the property that keeps this
- * honest.
+ * `refunds`, `refund_line_items`. #868 enforced the payment and refund half and
+ * recorded the rest as GAPs; #375 closed them, together with
+ * `retail_procurement_intents`, which `schema/retailCheckout.ts` calls frozen at
+ * checkout in two places and `schema/retailFulfilment.ts` cites as one of the
+ * "immutable homes" that justify NOT copying six facts into
+ * `retail_order_role_snapshots`.
+ *
+ * That last one is worth stating plainly, because it is the shape of the whole
+ * hazard: a load-bearing architectural decision — do not duplicate this fact,
+ * its other home is immutable — rested on an immutability the database did not
+ * have. Measured before the fix, every column of `retail_procurement_intents`
+ * was rewritable, `buyer_locked_total_amount` included, which is the figure
+ * every variance comparison and every compensating refund is sized from.
+ *
+ * A claim is only withdrawn here when the column legitimately MOVES, and then
+ * the schema's own comment is corrected in the same change rather than left
+ * standing. A comment asserting an immutability the database does not have is
+ * worse than no comment: it is read as a guarantee, and #375 found four of them.
  *
  * ## A column that MOVES is a decision, and the census accepts it
  *
@@ -78,9 +88,9 @@
  * `onConflictDoUpdate` in the domain, and the DISAGREEMENTS are recorded in the
  * reasons rather than resolved silently.
  *
- * ## Why NOTHING here refuses a DELETE
+ * ## Why NOTHING either issue touched refuses a DELETE
  *
- * Every entry this issue touched keeps `rowDelete: 'allowed'`, and that is
+ * Every entry #868 and #375 touched keeps `rowDelete: 'allowed'`, and that is
  * measured rather than conceded. `payment_provider_events` and
  * `payment_outboxes` are DELETE targets of the shared retention sweep
  * (`db/expiryTargets.ts`), so a DELETE trigger there would make retention fail
@@ -90,6 +100,14 @@
  * because nothing deletes them — these cannot. (#90's condition photos set the
  * precedent: permit the DELETE so the cascade the foreign key already declares
  * still works.)
+ *
+ * The order side is the same answer with a wider blast radius. All six tables
+ * #375 froze cascade from `orders` (or, for `order_item_option_values`, from
+ * `order_items`); a cascaded DELETE issues a real row DELETE on the child and
+ * FIRES its triggers. Eighteen realdb teardowns delete orders and
+ * `scripts/seed.ts` clears the whole table, so a DELETE refusal on any ONE of
+ * them breaks every one of those runs — including on the four tables nothing
+ * deletes directly, which is exactly where the mistake would look safe.
  *
  * ## Why the freezes are WRITE-ONCE
  *
@@ -269,11 +287,13 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
   },
   {
     table: 'order_applied_discounts',
-    rowUpdate: 'allowed',
+    rowUpdate: 'refused',
     rowDelete: 'allowed',
     frozenColumns: [],
     reason:
-      "GAP: named in `schema/orders.ts`'s \"immutable commerce record\" list, and carrying no enforcement of any kind.",
+      'What a discount actually took off THIS order, persisted so a refund is computed against exactly ' +
+      'what was charged — append-only by `order_applied_discounts_append_only` (#375). Nothing in the ' +
+      'tree updates one. DELETE stays open: it is reached by the FK cascade from `orders`.',
   },
   {
     table: 'order_fee_snapshot_lines',
@@ -291,20 +311,50 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
   },
   {
     table: 'order_item_option_values',
-    rowUpdate: 'allowed',
+    rowUpdate: 'refused',
     rowDelete: 'allowed',
     frozenColumns: [],
     reason:
-      "GAP: named in `schema/orders.ts`'s \"immutable commerce record\" list, and carrying no enforcement of any kind.",
+      'The `{name, value}` pairs printed on the receipt, append-only by ' +
+      '`order_item_option_values_append_only` (#375). Nothing in the tree updates one. DELETE stays ' +
+      'open: it is reached by the FK cascade from `order_items`.',
   },
   {
     table: 'order_items',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
-    frozenColumns: ['condition_key', 'condition_assertion', 'condition_notes'],
+    frozenColumns: [
+      'condition_key',
+      'condition_assertion',
+      'condition_notes',
+      'order_id',
+      'listing_id',
+      'variant_id',
+      'title',
+      'variant_title',
+      'image_url',
+      'quantity',
+      'location_id',
+      'unit_price_shop_amount',
+      'unit_price_shop_currency',
+      'unit_price_presentment_amount',
+      'unit_price_presentment_currency',
+      'line_total_shop_amount',
+      'line_total_shop_currency',
+      'line_total_presentment_amount',
+      'line_total_presentment_currency',
+      'discount_total_shop_amount',
+      'discount_total_shop_currency',
+      'discount_total_presentment_amount',
+      'discount_total_presentment_currency',
+    ],
     reason:
-      "PARTIAL: #90's three condition columns refuse UPDATE, but the `title`, `unit_price` and " +
-      '`quantity` that `schema/orders.ts` calls frozen at checkout do not, and neither does DELETE.',
+      'One purchased line as it stood at checkout: what was sold, at what price, how many, and where ' +
+      "from. #90's three condition columns keep their own bespoke trigger and the other twenty are " +
+      "`order_items_snapshot_immutable` (#375). NOT a whole-row freeze: `position` stays open because " +
+      '`db/__tests__/condition.realdb.test.ts` asserts an ordinary UPDATE still succeeds there — a ' +
+      "vacuity guard proving #90's trigger is column-scoped rather than a whole-row refusal, and one " +
+      'worth keeping. DELETE stays open: the FK cascade from `orders`.',
   },
   {
     table: 'order_pickups',
@@ -330,20 +380,24 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
   },
   {
     table: 'order_status_history',
-    rowUpdate: 'allowed',
+    rowUpdate: 'refused',
     rowDelete: 'allowed',
     frozenColumns: [],
     reason:
-      'GAP: `schema/orders.ts` calls it the append-only lifecycle trail and rests that on the ABSENCE of ' +
-      'an `updated_at` column, which stops an ORM idiom rather than an UPDATE. No trigger exists.',
+      'The lifecycle trail, now append-only by `order_status_history_append_only` (#375) rather than by ' +
+      'the ABSENCE of an `updated_at` column, which stopped an ORM idiom and nothing else — measured, ' +
+      'the status, the instant, the acting account and the note were all rewritable, so an audit row ' +
+      'could be reattributed to a different person. DELETE stays open: the FK cascade from `orders`.',
   },
   {
     table: 'order_tax_lines',
-    rowUpdate: 'allowed',
+    rowUpdate: 'refused',
     rowDelete: 'allowed',
     frozenColumns: [],
     reason:
-      "GAP: named in `schema/orders.ts`'s \"immutable commerce record\" list, and carrying no enforcement of any kind.",
+      "One applied rate's contribution to a placed order's tax — the figure a tax authority can ask " +
+      'about years later — append-only by `order_tax_lines_append_only` (#375). Nothing in the tree ' +
+      'updates one. DELETE stays open: it is reached by the FK cascade from `orders`.',
   },
   {
     table: 'orders',
@@ -354,10 +408,67 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       'buyer_guest_checkout_id',
       'buyer_oxy_user_id',
       'claimed_by_oxy_user_id',
+      'order_number',
+      'checkout_group_id',
+      'idempotency_key',
+      'seller_type',
+      'seller_oxy_user_id',
+      'store_id',
+      'customer_id',
+      'commercial_role',
+      'source_channel',
+      'shipping_address_label',
+      'shipping_address_recipient_name',
+      'shipping_address_line1',
+      'shipping_address_line2',
+      'shipping_address_city',
+      'shipping_address_region',
+      'shipping_address_postal_code',
+      'shipping_address_country',
+      'shipping_address_phone',
+      'shipping_method',
+      'shipping_label',
+      'shipping_cost_shop_amount',
+      'shipping_cost_shop_currency',
+      'shipping_cost_presentment_amount',
+      'shipping_cost_presentment_currency',
+      'totals_subtotal_shop_amount',
+      'totals_subtotal_shop_currency',
+      'totals_subtotal_presentment_amount',
+      'totals_subtotal_presentment_currency',
+      'totals_discount_total_shop_amount',
+      'totals_discount_total_shop_currency',
+      'totals_discount_total_presentment_amount',
+      'totals_discount_total_presentment_currency',
+      'totals_shipping_shop_amount',
+      'totals_shipping_shop_currency',
+      'totals_shipping_presentment_amount',
+      'totals_shipping_presentment_currency',
+      'totals_tax_shop_amount',
+      'totals_tax_shop_currency',
+      'totals_tax_presentment_amount',
+      'totals_tax_presentment_currency',
+      'totals_grand_total_shop_amount',
+      'totals_grand_total_shop_currency',
+      'totals_grand_total_presentment_amount',
+      'totals_grand_total_presentment_currency',
+      'fx_rate_from',
+      'fx_rate_to',
+      'fx_rate_rate',
+      'fx_rate_as_of',
+      'fx_rate_provider',
     ],
     reason:
-      'PARTIAL: the four buyer-identity columns are frozen (ADR 0003 D6/I7), which is right — but the ' +
-      'status and every money column move by design, and nothing refuses a DELETE of an order.',
+      'The row MUST move — the lifecycle status, the payment linkage, the tracking number, the ' +
+      'moderation hold, the claim pair and the connector-sync columns are all written today — so what ' +
+      'was SOLD is frozen by column instead: the order number, the group, who sold it, the commercial ' +
+      'model, the destination address snapshot and every money and FX column ' +
+      '(`orders_snapshot_immutable`, #375), on top of ADR 0003 D6/I7\'s four buyer-identity columns, ' +
+      'which keep their own bespoke trigger because it must permit `claimed_by_oxy_user_id` value → ' +
+      'NULL (an audited unclaim) and the write-once guard would refuse it. `created_at` is deliberately ' +
+      'left open: it is the RESERVATION CLOCK that `checkout.stripe.realdb.test.ts` moves to travel ' +
+      'past the reservation TTL. DELETE stays open — `scripts/seed.ts` clears the table and eighteen ' +
+      'realdb teardowns delete orders, and every child cascade depends on it.',
   },
   {
     table: 'payment_attempts',
@@ -607,10 +718,27 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     table: 'retail_procurement_intents',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
-    frozenColumns: [],
+    frozenColumns: [
+      'order_id',
+      'checkout_group_id',
+      'supplier_id',
+      'supplier_account_id',
+      'agreement_id',
+      'purchase_order_id',
+      'supplier_cost_amount',
+      'supplier_cost_currency',
+      'buyer_locked_total_amount',
+      'buyer_locked_total_currency',
+    ],
     reason:
-      'GAP: `schema/retailCheckout.ts` calls it frozen at checkout and `retailFulfilment.ts` cites it as an ' +
-      'immutable home, but only its LINES carry a trigger — `buyer_locked_total_amount` is freely updatable.',
+      "#123's \"WHAT was promised, frozen at checkout\", which `schema/retailCheckout.ts` says twice and " +
+      '`retailFulfilment.ts` cites as an immutable home. The row moves — an intent is recorded, ' +
+      'requested, then resolved — so `status`, `requested_at`, `failure_kind` and `failure_detail` stay ' +
+      'open and everything the purchase order is COMPOSED from is frozen ' +
+      '(`retail_procurement_intents_snapshot_immutable`, #375). `purchase_order_id` is frozen ' +
+      "write-once, which admits `attachRetailIntentPurchaseOrder`'s one CAS stamp and refuses a " +
+      're-point — a second purchase order for one intent being the duplicate-supplier-order failure the ' +
+      'whole domain is shaped around. DELETE stays open: the FK cascade from `orders`.',
   },
   {
     table: 'retail_reconciliation_components',

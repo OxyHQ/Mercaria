@@ -161,6 +161,19 @@ export const retailOfferBindings = pgTable(
 /**
  * `retail_procurement_intents` — one supplier's share of one retail order,
  * frozen at checkout.
+ *
+ * Frozen by COLUMN, since the row moves: `retail_procurement_intents_snapshot_immutable`
+ * (#375) refuses a rewrite of everything the purchase order is COMPOSED from —
+ * the order, the group, the supplier trio, the agreement, the supplier cost and
+ * `buyer_locked_total`. `status`, `requested_at`, `failure_kind` and
+ * `failure_detail` stay open because an intent is recorded, requested, then
+ * resolved. `purchase_order_id` is frozen WRITE-ONCE, which admits
+ * `attachRetailIntentPurchaseOrder`'s one CAS stamp and refuses a re-point.
+ *
+ * Until #375 the database enforced NONE of the "frozen at checkout" this
+ * docblock and the module header both assert: measured,
+ * `buyer_locked_total_amount` was freely rewritable, and it is the figure every
+ * variance comparison and every compensating refund is sized from.
  */
 export const retailProcurementIntents = pgTable(
   'retail_procurement_intents',
