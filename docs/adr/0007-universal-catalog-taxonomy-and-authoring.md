@@ -1244,7 +1244,7 @@ for each term names the same table and a file that really declares it. It cannot
 prove a definition is *true* — no gate reads a markdown cell and knows whether
 that sentence describes that table. What it removes is the failure that actually
 happened: the glossary's homes were cited by LINE, and by the time #882 bound
-seven of the nineteen, twelve of the twenty-two line citations had rotted,
+seven of the nineteen, twelve of the twenty-three line citations had rotted,
 `inventory_levels` by two hundred and ten. Line numbers are gone from that
 document and this table never carried them.
 

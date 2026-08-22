@@ -16,7 +16,7 @@
 > rather than describing an intention.
 >
 > **No row cites a LINE.** It used to, and by the time anything read them
-> twelve of the twenty-two had rotted — `inventory_levels` by two hundred and
+> twelve of the twenty-three had rotted — `inventory_levels` by two hundred and
 > ten lines. A line number is a fact about a file's current shape with no owner
 > and no gate, and it goes wrong on an edit nobody made to this document. What
 > replaces it is strictly better information: the table name and the file, both

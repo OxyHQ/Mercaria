@@ -20,7 +20,7 @@
  * Because the encoding that already existed was measurably wrong, and nothing
  * could notice. Measured on 2026-08-23, against `origin/main` at `58d2301e`:
  *
- * - The glossary cited each term's home by LINE. **Twelve of the twenty-two
+ * - The glossary cited each term's home by LINE. **Twelve of the twenty-three
  *   were stale**, `inventory_levels` by two hundred and ten lines — a document
  *   six days old. They are gone; CLAUSE 3 keeps them gone.
  * - Its identity section stated four figures said to come "from the gate's own
@@ -340,7 +340,7 @@ describe('#367 line 102 — the vocabulary is encoded in the ADR and in the glos
 
   it('CLAUSE 3 — the glossary cites no LINE in a live source file', () => {
     // The fact with no owner. A line number describes a file's current shape
-    // and rots on an edit nobody made to this document; twelve of twenty-two
+    // and rots on an edit nobody made to this document; twelve of twenty-three
     // had, before they were removed. A citation into an APPLIED MIGRATION is
     // the one permitted form, because a migration is immutable once it has run,
     // so its line numbers cannot move.
