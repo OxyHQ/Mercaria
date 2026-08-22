@@ -306,8 +306,12 @@ is owned by the product-type domain rather than by taxonomy.
 That population is DERIVED rather than listed. `src/db/categoryScopeFreeze.ts`
 walks the drizzle schema for every table naming both a `categories.id` and a
 versioned definition (a table whose identity is `(<something>key,
-<something>version)`), and `category-scope-freeze-census.test.ts` fails the build
-if one of them is not declared — either as a rule with a trigger, or as an
+<something>version)`) — a rule measured at three widths, which find 2, 14 and 23
+versioned tables and the same TWO rules every time; the widest adds only
+`navigation_nodes`, a menu item that POINTS at a category rather than saying what
+applies under one, and the census asserts it adds no rule so the day that stops
+being true is a red build. `category-scope-freeze-census.test.ts` fails the build
+if a member is not declared — either as a rule with a trigger, or as an
 authored SUBJECT, which is checkable rather than assertable: a rule carries a
 UNIQUE over (definition, category) and a subject does not, and both directions
 are asserted. `category-scope-freeze.realdb.test.ts` then executes every

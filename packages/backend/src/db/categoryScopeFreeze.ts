@@ -35,14 +35,18 @@
  * `version_key`, `cohort_key`, `plan_key` on the rest, and a rule keyed on the
  * literal name `key` would find only the two.
  *
- * That was measured rather than assumed: the strict `(key, version)` reading
- * finds 2 tables and the loose one finds 14 — `fee_schedules`,
- * `ranking_policy_versions`, `retail_eligibility_policies`,
- * `analytics_experiments` and the rest — and the POPULATION below is the same
- * five tables either way, because no other versioned policy in the repository
- * has a child carrying a `categories.id` foreign key. The loose rule is kept
- * because it costs nothing and the strict one would silently miss the first
- * policy family that grew one.
+ * That was measured rather than assumed, at three widths. The strict
+ * `(key, version)` reading finds 2 tables; the loose spelling finds 14
+ * (`fee_schedules`, `ranking_policy_versions`, `retail_eligibility_policies`,
+ * `analytics_experiments` and the rest) and gives the SAME five-table
+ * population; and accepting a wider unique that merely CONTAINS both columns
+ * finds 23 and adds exactly one table, `navigation_nodes`, which is a subject.
+ * So the FROZEN set is two under every reading. The loose spelling is what
+ * ships because it costs nothing and the strict one would silently miss the
+ * first policy family to grow a category scope; the widest is not the default
+ * because it pulls in mapping and acceptance rows that carry a version column
+ * without being a contract — and the census asserts it adds no RULE, so the day
+ * that stops being true is a red build rather than a silent omission.
  *
  * ## `subject` is a decision, and it is CHECKABLE
  *
@@ -193,14 +197,31 @@ const VERSION_COLUMN = /(?:^|_|[a-z])[Vv]ersion$/u;
  */
 export function deriveVersionedDefinitionTables(
   schemaModule: Record<string, unknown>,
+  /**
+   * `identity` (the default) wants the key and the version to BE the unique —
+   * a table whose identity is that pair. `any` accepts a wider unique that
+   * merely contains both, which catches a contract versioned per market and
+   * locale (`navigation_trees` is `(key, market, locale, version)`).
+   *
+   * The default is the narrow one because it is what "a version of this
+   * contract" means, and the wide reading pulls in mapping and acceptance rows
+   * that carry a version column without being a contract. The census pins the
+   * consequence rather than leaving it to taste: under `any` the population
+   * gains exactly one table and it is a SUBJECT, so the FROZEN set is the same
+   * under both — measured, and red if that ever stops being true.
+   */
+  options: { readonly arity?: 'identity' | 'any' } = {},
 ): ReadonlySet<string> {
+  const exact = (options.arity ?? 'identity') === 'identity';
   const found = new Set<string>();
   for (const table of tablesOf(schemaModule)) {
     const config = getTableConfig(table);
     for (const columns of uniqueColumnSets(table)) {
-      if (columns.length !== 2) continue;
-      if (columns.some((name) => KEY_COLUMN.test(name)) &&
-        columns.some((name) => VERSION_COLUMN.test(name))) {
+      if (exact && columns.length !== 2) continue;
+      if (
+        columns.some((name) => KEY_COLUMN.test(name)) &&
+        columns.some((name) => VERSION_COLUMN.test(name))
+      ) {
         found.add(config.name);
       }
     }

@@ -138,6 +138,46 @@ describe('the category-override population is derived, not remembered', () => {
     expect(deriveCategoryScopedDefinitionTables(schema, new Set())).toEqual([]);
   });
 
+  /**
+   * The blind spot in the shipped rule, measured rather than argued.
+   *
+   * `identity` wants the key and the version to BE the unique, so it misses a
+   * contract versioned per market and locale — `navigation_trees` is
+   * `(key, market, locale, version)`. The wide reading finds 23 versioned
+   * tables instead of 14 and adds exactly ONE table to the population,
+   * `navigation_nodes`, which is a SUBJECT: a menu item POINTS at a category,
+   * it does not say what applies under one.
+   *
+   * So the FROZEN set is the same under both readings today, and this is the
+   * assertion that notices when it stops being — a wide-only contract growing a
+   * (version, category) rule fails here, naming it, even though the shipped
+   * derivation would never have seen it.
+   */
+  it('gains no RULE under the wider versioned reading', () => {
+    const wide = deriveVersionedDefinitionTables(schema, { arity: 'any' });
+    const narrow = deriveVersionedDefinitionTables(schema);
+    expect(wide.size).toBeGreaterThan(narrow.size); // the readings really differ
+    expect(wide.has('navigation_trees')).toBe(true);
+    expect(narrow.has('navigation_trees')).toBe(false);
+
+    const widePopulation = deriveCategoryScopedDefinitionTables(schema, wide);
+    const wideRules = widePopulation
+      .filter((entry) => entry.hasScopeUnique)
+      .map((entry) => entry.table);
+    const narrowRules = deriveCategoryScopedDefinitionTables(schema)
+      .filter((entry) => entry.hasScopeUnique)
+      .map((entry) => entry.table);
+
+    expect(wideRules).toEqual(narrowRules);
+    expect(wideRules).toEqual([
+      'attribute_definition_categories',
+      'product_type_category_scopes',
+    ]);
+    // And the wide reading really does reach further, or the equality above is
+    // two identical populations agreeing about nothing.
+    expect(widePopulation.map((entry) => entry.table)).toContain('navigation_nodes');
+  });
+
   it('finds every table naming BOTH a category and a versioned definition', () => {
     const population = deriveCategoryScopedDefinitionTables(schema);
     expect(population.length).toBeGreaterThanOrEqual(POPULATION_FLOOR);
