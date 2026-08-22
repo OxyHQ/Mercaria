@@ -135,7 +135,23 @@ export async function closeAttributeReview(
   return rows[0];
 }
 
-/** The queue an operator works, highest priority and oldest first. */
+/**
+ * The queue an operator works, highest priority and oldest first.
+ *
+ * `id` is the third ordering term and it is load-bearing, not decoration.
+ * `priority` is `integer().notNull().default(0)` and `created_at` defaults to
+ * `date_trunc('milliseconds', now())` — where `now()` is the TRANSACTION
+ * timestamp, so a bulk enqueue writes every row it creates with a byte-identical
+ * sort key. This read is OFFSET-paginated, and an offset page over an ordering
+ * that ties is the one shape that both REPEATS a row on one page and DROPS
+ * another for good: the database is free to order the tied block differently
+ * between the query for page one and the query for page two. A dropped row here
+ * is a review nobody ever works.
+ *
+ * The primary key breaks every remaining tie, which makes the order total.
+ * `attribute_value_reviews_queue_idx (state, priority desc, created_at)` still
+ * serves the leading terms, so this costs no plan change.
+ */
 export async function listOpenAttributeReviews(
   db: DatabaseOrTransaction,
   options: { attributeKey?: string; limit: number; offset: number },
@@ -148,7 +164,11 @@ export async function listOpenAttributeReviews(
     .select()
     .from(attributeValueReviews)
     .where(and(...filters))
-    .orderBy(desc(attributeValueReviews.priority), asc(attributeValueReviews.createdAt))
+    .orderBy(
+      desc(attributeValueReviews.priority),
+      asc(attributeValueReviews.createdAt),
+      asc(attributeValueReviews.id),
+    )
     .limit(options.limit)
     .offset(options.offset);
 }

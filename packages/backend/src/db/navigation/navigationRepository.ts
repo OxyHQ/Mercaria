@@ -17,7 +17,7 @@
  * row is one edit away from updating it.
  */
 
-import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type { NavigationSurface } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { brands } from '../schema/organizations.js';
@@ -145,6 +145,31 @@ const TREE_COLUMNS = {
  * other is not live. A DRAFT can never appear here, which is what makes
  * "unpublished navigation is not publicly readable" a property of the query
  * rather than of the caller.
+ *
+ * ## `version` is the third ordering term, and it is what keeps the ETag stable
+ *
+ * `(surface, key)` is NOT a total order over what this statement can return.
+ * `navigation_trees`' only unique is `(key, market, locale, version)` — there is
+ * deliberately no one-published-per-key partial unique — so two published
+ * versions of one tree, both inside their effective window, satisfy this WHERE
+ * together and tie on `(surface, key)`. The database is then free to return them
+ * in either order.
+ *
+ * That is not a cosmetic tie, because of what consumes this list.
+ * `readPublishedNavigation` does not deduplicate: it iterates these rows in
+ * order, composes the payload from them, and hands the payload to
+ * `navigationEtag`, which hashes it. A tie therefore produces TWO validators for
+ * identical data, so every client revalidating gets a 200 with a full body
+ * instead of a 304 — a cache that has stopped working while reporting success,
+ * which `services/navigation/etag.ts` names as the exact failure its determinism
+ * exists to prevent. The ordering half of this epic line and the ETag half are
+ * one defect, not two.
+ *
+ * `market` and `locale` complete that unique and are NOT in the ordering: both
+ * are pinned to a single value by the first two conditions below, so they can
+ * only ever compare equal. That is recorded as this read's entry in
+ * `db/__tests__/ordering-dispositions.ts`, which is what stops the gate reading
+ * a legitimately-total ordering as a defect.
  */
 export async function findLiveNavigationTrees(
   db: DatabaseOrTransaction,
@@ -169,7 +194,7 @@ export async function findLiveNavigationTrees(
     .select(TREE_COLUMNS)
     .from(navigationTrees)
     .where(and(...conditions))
-    .orderBy(asc(navigationTrees.surface), asc(navigationTrees.key));
+    .orderBy(asc(navigationTrees.surface), asc(navigationTrees.key), desc(navigationTrees.version));
   return rows;
 }
 
@@ -185,10 +210,22 @@ export async function findNavigationTreeById(
 /**
  * Every node of the given trees, in deterministic order.
  *
- * `position` then `key`: the position is unique among siblings at the row (two
- * partial unique indexes), and the key tiebreak means a total order exists
- * whatever is stored — a page that reordered itself between two requests is a
- * bug nobody reports and everybody sees.
+ * `treeId`, then `position`, then `key`.
+ *
+ * The tree leads, and it is what makes this total rather than
+ * total-if-you-know-the-caller. `navigation_nodes_tree_key_key` is
+ * `(tree_id, key)`, so `(position, key)` alone covers no unique once this read
+ * spans SEVERAL trees — which it does: `readPublishedNavigation` passes every
+ * live tree at once. Two nodes in different trees sharing a position and a key
+ * tie, and the database may return them in either order.
+ *
+ * Before the tree was added the payload was still stable, but only because the
+ * caller partitions with `nodes.filter(n => n.treeId === tree.id)` and `filter`
+ * preserves relative order. That is a real guarantee and an invisible one: it
+ * lives in another module, it is not what this ORDER BY says, and it disappears
+ * the day somebody groups with a `Map` or sorts the result. Leading with the
+ * tree makes the order total here, changes nothing about the per-tree sequence,
+ * and removes the dependency.
  */
 export async function listNavigationNodes(
   db: DatabaseOrTransaction,
@@ -216,7 +253,7 @@ export async function listNavigationNodes(
     })
     .from(navigationNodes)
     .where(inArray(navigationNodes.treeId, [...treeIds]))
-    .orderBy(asc(navigationNodes.position), asc(navigationNodes.key));
+    .orderBy(asc(navigationNodes.treeId), asc(navigationNodes.position), asc(navigationNodes.key));
   return rows;
 }
 
@@ -291,7 +328,14 @@ export async function listNavigationSavedQueryAttributes(
     })
     .from(navigationSavedQueryAttributeFilters)
     .where(inArray(navigationSavedQueryAttributeFilters.savedQueryId, [...savedQueryIds]))
+    // `savedQueryId` leads, for the reason `listNavigationNodes` above states:
+    // the unique is `(saved_query_id, attribute_key)`, this read spans several
+    // saved queries, and `(position, attributeKey)` alone covers no unique
+    // across them. These filters are composed into the navigation payload that
+    // `navigationEtag` hashes, so an arbitrary order between two saved queries'
+    // filters is an unstable validator rather than a cosmetic wobble.
     .orderBy(
+      asc(navigationSavedQueryAttributeFilters.savedQueryId),
       asc(navigationSavedQueryAttributeFilters.position),
       asc(navigationSavedQueryAttributeFilters.attributeKey),
     );
