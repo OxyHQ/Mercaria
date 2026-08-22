@@ -218,8 +218,14 @@ export const SMARTPHONE_PACKAGE: VerticalPackage = {
         { locale: 'es', alias: 'móviles', kind: 'synonym' },
         { locale: 'es', alias: 'celular', kind: 'synonym' },
         { locale: 'es', alias: 'celulares', kind: 'synonym' },
-        { locale: 'es-mx', alias: 'celular', kind: 'synonym' },
-        { locale: 'es-mx', alias: 'celulares', kind: 'synonym' },
+        // `regional_term`, not `synonym`: these two carry the SAME word as the
+        // `es` rows above and exist only because the market differs, which is
+        // what the kind means. Nothing reads `kind` today
+        // (`findActiveCategoriesByAliases` does not select it), so this changes
+        // no behaviour — it makes the row say what the comment above this list
+        // has always said it was.
+        { locale: 'es-mx', alias: 'celular', kind: 'regional_term' },
+        { locale: 'es-mx', alias: 'celulares', kind: 'regional_term' },
       ],
     },
   ],
