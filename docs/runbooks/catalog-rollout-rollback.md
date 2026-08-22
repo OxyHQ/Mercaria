@@ -53,13 +53,22 @@ on the list; **404 with an operator's token means the list is empty.**
 **Four levers exist**, and the arithmetic is worth stating because it is not a
 subtraction: ADR 0007 D12 originally named six, **three of those were never
 built**, and **one lever a rollout needs was not among the six**. So 6 − 3 + 1 = 4.
-Do not quote `CATALOG_LOCALIZATION_ENABLED`, `PRODUCT_TYPES_ENABLED` or
-`CATALOG_AUTHORING_COHORTS` at anybody — they appear nowhere in
-`packages/backend/src` — and do not forget `FACETS_ENABLED`, which D12 did not
-mention and which turns off a live public surface. **D12 has since been corrected**
-to name the four and to record why each absent one is absent. Full inventory:
+Do not quote `CATALOG_LOCALIZATION_ENABLED` or `PRODUCT_TYPES_ENABLED` at
+anybody — they appear nowhere in `packages/backend/src` — and do not forget
+`FACETS_ENABLED`, which D12 did not mention and which turns off a live public
+surface. **D12 has since been corrected** to name the four and to record why each
+absent one is absent. Full inventory:
 [`../catalog-migration-operations.md`](../catalog-migration-operations.md)
 §"The lever inventory".
+
+**`CATALOG_AUTHORING_COHORTS` was the third absence and it has been CLOSED**, as
+**`CATALOG_ROLLOUT_COHORTS`** — a fifth lever that narrows which slice of the
+deployment the four above are switched on for, over market, locale, store,
+category and product type. **It is not a rollback lever and must not be used as
+one**: emptying it WIDENS the rollout to everybody, which is the opposite of what
+an incident wants. To roll a cohort back, remove entries; to roll the surface
+back, set the four levers to `false`. Full reference:
+[`../catalog-rollout-cohorts.md`](../catalog-rollout-cohorts.md).
 
 | Set this to `false` | Mounts withdrawn | Blast radius |
 |---|---|---|
@@ -211,11 +220,16 @@ type's group headings are catalogue metadata of the kind `/categories` already
 serves unconditionally, and a key with no published version answers 404, so a
 deployment that has published nothing exposes nothing). **Remedy: unpublish the
 product type version** through the governance surface — a data change.
-`CATALOG_AUTHORING_COHORTS` was not built either, which means **D12's staged
-rollout order is not executable as written**: authoring is all-or-nothing on
-`CATALOG_AUTHORING_ENABLED`, so "selected stores" and "selected product types and
-categories" have no mechanism. Stage on product-type PUBLICATION instead, which is
-the lever that actually exists.
+
+**Authoring CAN now be narrowed to a cohort.** `CATALOG_ROLLOUT_COHORTS` closed
+that gap, so "selected stores" and "selected product types and categories" have a
+mechanism and D12's staged rollout order is executable. Two things to hold on to
+during an incident: the list is **cumulative**, so removing an entry withdraws
+that slice and emptying it opens the rollout to everybody; and a cohort refusal
+is the **same 404** the lever gives, so the storefront's navigation fallback
+covers it unchanged. Product-type PUBLICATION remains the coarser boundary and
+the only one whose rollback is an audited data change rather than an environment
+change.
 
 ---
 

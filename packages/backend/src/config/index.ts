@@ -886,6 +886,36 @@ function resolveCanonicalReadCohorts(): readonly string[] {
 }
 
 /**
+ * `CATALOG_ROLLOUT_COHORTS` → which slice of a deployment the #367 catalog
+ * surfaces are switched on for (ADR 0007 D12, epic Workstream 0).
+ *
+ * The four catalog levers are booleans over a whole deployment, so D12's staged
+ * rollout order — internal users → selected stores → selected product types and
+ * categories → locales and markets → GA — was not executable: nothing narrowed a
+ * mount to a cohort. This is that narrowing, and it is spelled `ROLLOUT` rather
+ * than D12's `AUTHORING` because it narrows all four levers' surfaces.
+ *
+ * EMPTY means every cohort — the `CANONICAL_READ_COHORTS` and
+ * `CHECKOUT_DESTINATION_COUNTRIES` rule, and here for a sharper version of their
+ * reason: the four levers ALREADY decide the whole deployment, so an empty
+ * default is today's behaviour exactly and adding this variable withdraws
+ * nothing from a deployment that never sets it. Deliberately NOT the
+ * `SEO_CANARY_CATEGORY_IDS` rule (empty ⇒ nothing), which is right there because
+ * an empty canary list under `canary` would otherwise publish a catalogue.
+ *
+ * Entries are `<dimension>:<value>` or the literal `all`. The shape filter here
+ * is coarse and the DIMENSION is validated in `parseCatalogRolloutCohorts`
+ * against `CATALOG_ROLLOUT_DIMENSIONS`; both directions DROP what they cannot
+ * read, so a typo narrows the rollout and can never widen it.
+ */
+function resolveCatalogRolloutCohorts(): readonly string[] {
+  return strEnv('CATALOG_ROLLOUT_COHORTS', '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry === 'all' || /^[a-z_]+:.+$/.test(entry));
+}
+
+/**
  * `ANALYTICS_OPERATOR_OXY_USER_IDS` → the discovery-analytics allow-list (#77
  * dashboards).
  *
@@ -1947,6 +1977,23 @@ export interface CatalogConfig {
    * stays readable through its own surface while it is off.
    */
   readonly facetsEnabled: boolean;
+  /**
+   * `CATALOG_ROLLOUT_COHORTS` — which slice of the deployment the four levers
+   * above are switched on FOR (ADR 0007 D12, epic Workstream 0 line 117).
+   *
+   * The levers decide WHETHER a catalog surface exists; this decides WHO it
+   * exists for, over five dimensions — market, locale, store, category, product
+   * type (`CATALOG_ROLLOUT_DIMENSIONS`). Raw `<dimension>:<value>` entries; the
+   * union, the parser and the matcher are `services/catalog-rollout/cohort.ts`
+   * and the gate is `middleware/catalog-rollout.ts`.
+   *
+   * EMPTY — the default — means every cohort, which is today's behaviour
+   * exactly. It narrows a MOUNTED surface per request and gates no loop, no
+   * repository and no stored row: a draft, a proposal or a navigation tree
+   * written while a cohort was enabled is still there, and still reachable, when
+   * it is widened again.
+   */
+  readonly rolloutCohorts: readonly string[];
 }
 
 /**
@@ -3720,6 +3767,7 @@ export const config: AppConfig = Object.freeze({
     curationPollIntervalMs: intEnv('CURATION_JOB_POLL_INTERVAL_MS', 10_000),
     taxonomyV2Enabled: boolEnv('CATALOG_TAXONOMY_V2_ENABLED', false),
     facetsEnabled: boolEnv('FACETS_ENABLED', false),
+    rolloutCohorts: Object.freeze(resolveCatalogRolloutCohorts()),
   }),
   sellYours: Object.freeze({
     enabled: boolEnv('SELL_YOURS_ENABLED', true),

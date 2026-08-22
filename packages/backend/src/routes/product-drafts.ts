@@ -20,6 +20,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
+import { catalogRolloutGate } from '../middleware/catalog-rollout.js';
 import { loadStore, requireStorePermission } from '../middleware/store-authz.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { validateBody, validateId, validateQuery } from '../middleware/validate.js';
@@ -46,6 +47,17 @@ import {
 const router = Router({ mergeParams: true });
 
 router.use(makeRateLimiter('admin'), authenticateToken, validateId('storeId'), loadStore);
+/**
+ * `CATALOG_ROLLOUT_COHORTS` (ADR 0007 D12) — the rollout stage this store is in.
+ *
+ * The richest subject in the epic and the reason the gate sits at `router.use`
+ * here rather than per route: `mergeParams` puts `:storeId` on every request,
+ * and a draft CREATE additionally carries `categoryId`, `productTypeKey`,
+ * `locale` and `market` in its body, so all five dimensions are answerable on
+ * one surface. AFTER `loadStore`, so a request for a store the caller cannot
+ * reach is refused as unauthorised rather than as un-rolled-out.
+ */
+router.use(catalogRolloutGate());
 
 router.get(
   '/',

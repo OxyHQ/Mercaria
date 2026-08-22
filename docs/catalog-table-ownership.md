@@ -332,10 +332,13 @@ whether a metric reports `surface_not_mounted`. D12's substantive claim survives
 count in it does not, and `runbooks/catalog-rollout-rollback.md:109` already
 states the correct six.
 
-Three levers ADR 0007 D12 originally named do not exist — `PRODUCT_TYPES_ENABLED`
-(deliberately not built), `CATALOG_LOCALIZATION_ENABLED` (unnecessary while
-localized reads stay transitively contained) and `CATALOG_AUTHORING_COHORTS` (not
-built, which is why the ADR's staged rollout order is not executable as written).
+Two levers ADR 0007 D12 originally named do not exist — `PRODUCT_TYPES_ENABLED`
+(deliberately not built) and `CATALOG_LOCALIZATION_ENABLED` (unnecessary while
+localized reads stay transitively contained). The third, `CATALOG_AUTHORING_COHORTS`,
+was built as **`CATALOG_ROLLOUT_COHORTS`** — renamed because it narrows all four
+levers' surfaces rather than authoring alone — so the ADR's staged rollout order
+is executable; see
+[`catalog-rollout-cohorts.md`](catalog-rollout-cohorts.md). It owns no table.
 D12 is corrected in place and states each reason; the operational detail is
 [`catalog-migration-operations.md`](catalog-migration-operations.md) and
 [`runbooks/catalog-rollout-rollback.md`](runbooks/catalog-rollout-rollback.md).
