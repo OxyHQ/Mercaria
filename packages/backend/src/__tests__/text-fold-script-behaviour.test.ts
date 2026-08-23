@@ -46,11 +46,12 @@
  *    `markPair` field. A hand-written list of subjects is a list of the mistakes
  *    somebody had already thought of, and a fold cannot be caught being wrong
  *    about a script nobody measured it against.
- * 2. **The register is keyed on (fold, SCRIPT), not on the fold.** #830's three
+ * 2. **The register is keyed on (fold, SCRIPT), not on the fold.** #838's three
  *    turned every `\p{M}` into a space and were broken everywhere at once;
  *    #854's two strip `U+0300–U+036F` only, so they eat Cyrillic and Greek marks
  *    and genuinely preserve Devanagari, Bengali and Japanese ones. Recording
  *    them as wholly broken would have thrown away the coverage they do earn.
+ *    Only the CYRILLIC half is gated, and {@link MARK_LOSING_PAIRS} says why.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -143,13 +144,30 @@ function stripDiacritics(value: string): string {
  *
  * ## Why a PAIR and not a fold
  *
- * #833's register held whole folds, because #830's three ate Devanagari matras
+ * #833's register held whole folds, because #838's three ate Devanagari matras
  * by turning every `\p{M}` into a space — a fold doing that is broken for every
  * script at once. #854's mechanism is narrower and the register had to widen to
  * hold it: `NFD` + strip `U+0300–U+036F` eats a CYRILLIC letter's breve and a
  * GREEK letter's tonos while leaving Devanagari, Bengali and Japanese marks
  * untouched, because those live in other blocks. `normalizeCatalogAlias` is
  * genuinely mark-preserving for four of the five scripts measured here.
+ *
+ * ## Greek is affected, is NOT gated here, and that is not an oversight
+ *
+ * The same strip eats a Greek tonos: measured, `έξι` and `εξι` fold onto one
+ * string through BOTH of these folds, exactly as `мой` and `мои` do. It is not
+ * in the register because it cannot be. Every entry names a script carrying a
+ * `markPair` in `script-corpus.ts`, and that corpus is held EXACTLY equal to
+ * the scripts the product ships locale bundles for — `script-coverage-census.test.ts`
+ * asserts `toEqual`, not containment — so adding a Greek sample fails that
+ * census. Correctly: the corpus's job is to cover what the product renders, and
+ * no Greek bundle ships.
+ *
+ * Stated here rather than left implied, because the reader this matters to is
+ * whoever takes #854. Routing both folds through `foldAccents` fixes Cyrillic
+ * and Greek together (measured). A Cyrillic-specific carve-out would leave
+ * Greek live with nothing in this suite red — and the prose above saying "eat
+ * Cyrillic and Greek marks" is a MEASUREMENT, not a claim of coverage.
  *
  * Recording it as a whole broken fold would have cost the Devanagari and Bengali
  * coverage it does have; recording it as nothing at all is what let it sit in
