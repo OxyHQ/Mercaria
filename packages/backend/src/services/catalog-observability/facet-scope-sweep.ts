@@ -80,18 +80,32 @@
  * is counted on its own and excluded from the denominator. That is why the
  * metric's denominator is `sampled` and not `drawn`.
  *
- * ## `invalid` is UNMEASURED, and the reason is a fact about the facets domain
+ * ## `invalid` names TWO things, and only one of them is unmeasured
  *
- * W17 names "empty/invalid facet generation". The facets domain publishes no
- * "invalid" verdict: `FacetSuppressionReason` is a closed set of eight members
- * and every one of them says a facet was WITHHELD, not that a facet was
- * generated and is unusable. `unsupported_value_type` and
- * `unconvertible_currency` come closest and are still withholdings — the rail
- * declined to render, which is the domain working. So `invalid` is reported as
- * {@link FacetScopeInvalidUnmeasured} and there is no `count` property on it for
- * anybody to read; the distinction is not invented here and it is not folded
- * into `empty`, because "no facet was offered" and "a facet was offered and is
- * broken" lead an operator to opposite actions.
+ * W17 names "empty/invalid facet generation", and that word does two jobs. The
+ * distinction is the whole of this section, because an earlier version of it
+ * argued the unmeasurable half and reported both.
+ *
+ * **"A facet was generated, returned, and is unusable" is unmeasured, and the
+ * reason is a fact about the domain.** `FacetSuppressionReason` is a closed set
+ * of NINE members and every one says a facet was WITHHELD.
+ * `unsupported_value_type` and `unconvertible_currency` come closest and are
+ * still withholdings — the rail declined to render, which is the domain
+ * working. Nothing validates facet OUTPUT anywhere: the route mounts
+ * `validateBody(facetRequestSchema)`, which is the REQUEST, and there is no
+ * response schema and no post-generation check. So this half is reported as
+ * {@link FacetScopeInvalidUnmeasured} with no `count` property for anybody to
+ * read, and it is not folded into `empty`, because "no facet was offered" and
+ * "a facet was offered and is broken" lead an operator to opposite actions.
+ *
+ * **"Facet generation FAILED" is measured, and this module has always measured
+ * it.** A scope whose planning raised is counted in `failed` and its id kept in
+ * `failedSample`. That count is now published as
+ * `facet_scope_generation_failure_rate` (`failed / drawn`), and the live
+ * equivalent is `facet_generation_error_rate` over `POST /facets`' 5xx. Until
+ * those two existed, the `warn` below said the count was the aggregate signal
+ * and the count reached nobody — the instrument was recording and nothing read
+ * it, which is the failure this whole file is otherwise about.
  *
  * What IS reported is `emptyReasons` — the domain's own reasons, as the domain
  * gave them, over the empty scopes only. It is diagnostic and NOT a partition

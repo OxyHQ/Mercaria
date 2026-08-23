@@ -163,8 +163,11 @@ consistent. `collectCatalogMetrics` **throws** on a missing producer rather than
 reporting a zero, because a metric defined and unproduced is the exact vacuity
 this domain exists to prevent.
 
-31 producers + 7 seams = 38 definitions, and that identity is what the census
-holds.
+44 producers + 5 seams = 49 definitions, and that identity is what the census
+holds. **Re-derive these three from the registry rather than adjusting them by
+the delta of your own change** — this line was stale by eleven definitions when
+somebody finally counted, because every PR that moved it moved it by an amount
+that looked right.
 
 ### One optional field carrying two halves
 
@@ -505,13 +508,22 @@ justifies it, which is the only way it is accountable to anybody.
 
 - **`FacetScopeSweepResult.invalid`** is always `{ state: 'unmeasured', reason:
   'dimension_absent_from_source', seam }` and has **no `count` property in any
-  branch**, because there is no branch. W17 asks for "empty/invalid facet
-  generation" and the facets domain publishes no invalid verdict:
-  `FacetSuppressionReason` has eight members and every one says a facet was
-  WITHHELD, which is the rail declining to render rather than a broken facet.
-  Closing it is a verdict in `services/facets`, not a derivation here — at which
-  point the type grows a `measured` branch and the sweep fills it from the same
-  verdicts it already collects.
+  branch**, because there is no branch. It covers exactly ONE of the two things
+  W17's "empty/invalid facet generation" can mean: **a facet that was generated,
+  returned, and is unusable**. The facets domain publishes no such verdict —
+  `FacetSuppressionReason` has NINE members and every one says a facet was
+  WITHHELD, which is the rail declining to render rather than a broken facet,
+  and nothing validates facet OUTPUT anywhere (`routes/facets.ts` mounts
+  `validateBody(facetRequestSchema)`, which is the REQUEST; there is no response
+  schema). Closing it is a verdict in `services/facets`, not a derivation here —
+  at which point the type grows a `measured` branch and the sweep fills it from
+  the same verdicts it already collects.
+
+  **The other meaning — generation that FAILED — is measured**, and was being
+  collected long before it was published: `facet_scope_generation_failure_rate`
+  (`failed / drawn`, from this sweep) and `facet_generation_error_rate` (5xx over
+  `POST /facets`). Both counts already existed and neither was read by anything,
+  which is why the item read as wholly unmeasurable for longer than it was.
 - **`resolveProductDemand`-style substitutes are not reached for.** `emptyReasons`
   reports the facets domain's own suppression reasons over the empty scopes, is
   diagnostic and is NOT a partition (a scope withholding three facets appears in
@@ -522,8 +534,8 @@ justifies it, which is the only way it is accountable to anybody.
 
 ## An unmounted surface is not a seam
 
-Three of the four route-observation metrics hang off the authoring schema route
-and one off facets, and **both of those routes sit behind a rollout flag that
+Three of the five route-observation metrics hang off the authoring schema route
+and two off facets, and **both of those routes sit behind a rollout flag that
 defaults to false** — `CATALOG_AUTHORING_ENABLED` and `FACETS_ENABLED`. With a
 flag off the route is not mounted at all, so the surface cannot be served.
 
@@ -1801,7 +1813,7 @@ stops anybody looking.
 | Metrics for taxonomy/product-type/attribute completeness | **Done** — three, consumed from `readCatalogQuality`. |
 | Metrics for translation coverage, fallback use, stale/missing, machine-vs-reviewed | **Partial.** Coverage, machine share, stale and missing are produced; fallback use is seam 3. |
 | Metrics for search zero-result rate by locale/market | **Partial.** `search_zero_result_rate_by_market` is produced, bucketed by market, narrowed to `traffic_class = 'human'` and excluding NULL-market rows from BOTH halves; `search_zero_result_rate_by_locale` is seam 4. Analytics collection is off by default, so an empty population means "not collecting". |
-| Metrics for facet usage, latency and empty/invalid facet generation | **Partial.** Empty generation is produced; latency is produced on `POST /facets`, and answers `surface_not_mounted` while `FACETS_ENABLED` is off (the default); usage is seam 5; `invalid` is unmeasured below the metric layer, because the facets domain publishes no invalid verdict. |
+| Metrics for facet usage, latency and empty/invalid facet generation | **Partial, and `invalid` is now PARTLY refused rather than wholly unmeasured.** Empty generation is produced; latency is produced on `POST /facets`, and answers `surface_not_mounted` while `FACETS_ENABLED` is off (the default); usage is seam 5. **`invalid` splits**: generation that FAILED is measured, live by `facet_generation_error_rate` (5xx on `POST /facets`, `since_process_start`) and in batch by `facet_scope_generation_failure_rate` (`failed / drawn`) — both counts already existed and were read by nothing. A facet that was generated, returned and is UNUSABLE stays unmeasured, because nothing validates facet output anywhere; that half needs a verdict in `services/facets`. |
 | Metrics for mapping coverage and ambiguity by external source | **Done** — three. |
 | Metrics for backfill/reindex progress, retries and dead letters | **Partial.** Progress, retries, failed runs and pending reindex are produced; throughput is seam 7 and dead letters are seam 6. |
 | Structured logs with entity ids, schema versions and correlation ids without leaking | **Done** — a closed field set, a disjoint prohibition list, a mutation-tested guard. |

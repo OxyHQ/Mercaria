@@ -1102,6 +1102,29 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
       + 'one number.',
   },
   {
+    key: 'facet_generation_error_rate',
+    title: 'Facet generation error rate',
+    kind: 'ratio',
+    numerator: 'POST /facets responses with status >= 500.',
+    denominator: 'All POST /facets responses this process served.',
+    window: 'since_process_start',
+    source: 'route_observations',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'The LIVE half of W17\'s "invalid facet generation", and it is deliberately not the whole '
+      + 'of it: this counts a generation that RAISED, which the controller answers 5xx. It cannot '
+      + 'see a facet that was generated, returned, and is unusable — nothing validates facet '
+      + 'OUTPUT anywhere in the domain, so that half of the item stays open rather than being '
+      + 'quietly reported as zero here. '
+      + 'Counts only 5xx. A refused sort key and a malformed request body are 4xx and are correct '
+      + 'answers, so folding them in would make a stale client read as a server fault — the '
+      + 'authoring_schema_error_rate decision, same reasoning one route over. '
+      + 'Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it, and '
+      + 'it answers "is this process failing facet requests now" rather than anything about last '
+      + 'week. `0 / 0` — a task that has served no facet request — reports NO ratio, which is not '
+      + 'a zero error rate.',
+  },
+  {
     key: 'facet_scope_empty_rate',
     title: 'Category scopes generating no facets',
     kind: 'ratio',
@@ -1114,6 +1137,26 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
       'A property of the CATALOGUE, not of traffic: it says which categories would render a bare '
       + 'filter rail if somebody visited them, and nothing about whether anybody does. It is '
       + 'sampled, so it is an estimate with a stated population.',
+  },
+  {
+    key: 'facet_scope_generation_failure_rate',
+    title: 'Category scopes whose facet generation raised',
+    kind: 'ratio',
+    numerator: 'Sampled categories whose facet planning threw rather than returning a verdict.',
+    denominator: 'Every category the sweep DREW, which is the sampled ones plus these.',
+    window: 'instant',
+    source: 'facet_scope_sweep',
+    freshnessSeconds: 3600,
+    attributionLimit:
+      'The BATCH half of W17\'s "invalid facet generation", and the denominator is the point: it '
+      + 'is `drawn` and NOT `sampled`, because a scope that raised has no empty-or-populated '
+      + 'verdict and is excluded from `facet_scope_empty_rate`\'s denominator entirely. So these '
+      + 'two metrics partition the drawn set between them and neither dilutes the other. '
+      + 'The sweep captures a bounded sample of the offending category ids beside this count; it '
+      + 'is NOT published here, because a metric breakdown must be a closed set of values and a '
+      + 'category id is neither closed nor a value — it is in the sweep result and the warn log. '
+      + 'A property of the CATALOGUE rather than of traffic, sampled, so it is an estimate with a '
+      + 'stated population.',
   },
   {
     key: 'facet_usage_rate',
