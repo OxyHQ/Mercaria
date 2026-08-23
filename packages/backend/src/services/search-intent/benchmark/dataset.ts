@@ -400,8 +400,31 @@ const CASES: readonly IntentBenchmarkCase[] = [
     locale: 'en-GB',
     registry: 'laptops',
     query: 'laptop with 16 GB of memory segunda mano',
-    // A Spanish phrase in an English-locale query is READ, and the response
-    // stays in the request's locale — localization rule 6.
+    // A Spanish phrase in an English-locale query is READ. Both halves of this
+    // query are asserted and each comes from a different language: `used` from
+    // `segunda mano`, and the `ram` preference from `16 GB of memory`.
+    //
+    // It does NOT cover localization rule 6's other half — that the response
+    // comes back in the request's locale (#946). This comment used to claim it
+    // did, and the claim was false three ways. `IntentBenchmarkExpectation` has
+    // TWELVE members and not one of them is about the paraphrase, so no case in
+    // this dataset can assert response text at all; the runner never inspects
+    // it, and passes `locale` for cohort filtering only. `ParaphraseInput` has
+    // seven members and no locale, and `paraphrase.ts` reads
+    // `constraint.explanation` with zero references to a localized label.
+    //
+    // The nearest thing to a recorded decision is `describeBudget`'s docblock
+    // (`paraphrase.ts:171-172`): "Grouping and locale-aware rendering belong to
+    // the client, which knows the shopper's locale." Stated with its scope,
+    // because the scope is narrower than the sentence sounds — that docblock is
+    // about rendering a MONEY AMOUNT, and the module header says nothing about
+    // locale at all. It is evidence for the boundary and not a ruling on the
+    // whole paraphrase.
+    //
+    // So the uncovered half is unimplemented, and whether that is a gap or a
+    // deliberate boundary is #946's to settle. Asserting it here would be a
+    // failing test for behaviour nobody has built, which belongs with the fix
+    // and not ahead of it.
     expect: { conditionGroups: ['used'], preferenceAttributeKeys: ['ram'] },
   },
 
