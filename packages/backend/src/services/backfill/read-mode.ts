@@ -45,8 +45,30 @@
  * #70's `GET /search` is the first surface where `shadow` computes BOTH answers
  * and compares them — see `services/search/shadow.ts`, which records the
  * comparison and still serves nothing. #71's product page is the other one and
- * does not exist yet; this module gives it `resolveCanonicalReadMode` and
- * {@link recordCanonicalShadowRead} rather than pretending it already compares.
+ * now does the same: `controllers/product-page.controller.ts` counts the offers
+ * it would have served against the active native listings reached through
+ * `native_listing_links` and records it with `recordProductPageShadow`
+ * (`services/product-page/shadow.ts`), also serving nothing.
+ *
+ * ## `shadow` therefore means TWO different things, and they are not degrees
+ *
+ * On the routes THIS module gates it is a DEMAND counter: a 404 plus
+ * {@link recordCanonicalShadowRead}, evidence that somebody would have asked.
+ * On those two surfaces it is a COMPARISON between two implementations. Same
+ * word, different mechanisms, and the distinction is recorded here rather than
+ * smoothed over because reaching for the wrong one is easy and reviews as
+ * correct — the comparison is the memorable half, and it is the half most
+ * surfaces cannot have.
+ *
+ * **A comparison is a relation between two implementations, so a surface with
+ * no predecessor cannot have one.** That is a fact about the surface rather
+ * than about the work: `POST /facets` is canonical-only and always was — there
+ * is no listing-first filter path in this backend to compare against, and
+ * `FACETS_ENABLED` is a boolean rather than a read mode — so #367's "shadow
+ * facet comparisons" is UNBUILDABLE rather than unbuilt. The only thing
+ * available there is the demand counter above, which turning the surface on
+ * supersedes immediately, with real latency and error numbers instead of
+ * refusals.
  */
 
 import type { NextFunction, Request, Response } from 'express';
