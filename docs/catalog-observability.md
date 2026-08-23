@@ -6,7 +6,7 @@ periodic integrity checks, the publication trace, the structured-log allow-list
 and the operator surface that serves all of it.
 
 `AGENTS.md` carries the rules that break silently if you get them wrong; this
-document carries the mechanics, the provenance of every number, the seven metrics
+document carries the mechanics, the provenance of every number, the eight metrics
 this deployment cannot produce and why, and the checkbox-by-checkbox statement of
 what W16 and W17 have and have not actually done.
 
@@ -69,6 +69,7 @@ a domain repository invites the next reader to use it for a DECISION.
 | The registry, the reading union, the budgets, the integrity vocabulary | `@mercaria/shared-types` `catalog-metrics.ts` |
 | The collector and the producer census | `services/catalog-observability/metrics.service.ts` |
 | The metric aggregates | `services/catalog-observability/queries.ts` |
+| The proposal queue's depth, aging and SLA visibility | `services/catalog-observability/proposal-queue.ts` |
 | The in-process route timer | `services/catalog-observability/route-observations.ts` |
 | The latency budget report | `services/catalog-observability/budgets.ts` |
 | The six integrity checks | `services/catalog-observability/integrity.service.ts` |
@@ -89,6 +90,7 @@ drives:
 |---|---|
 | `contract-gates.test.ts` | the registry's completeness, the `unmeasured` biconditional against a HAND-WRITTEN expected set, the producer census in all three directions with a registry-mutating self-test, the budget/observed-route derivation, **the budget-names-a-real-route gate**, and the operator surface's exact route set |
 | `metrics.realdb.test.ts` | the collector against a real server: one reading per definition in registry order, the shape biconditionals, breakdowns summing to their reading, BOTH branches of every flag-gated surface, and two positive controls (in-process and Postgres) with nothing in common |
+| `proposal-queue.realdb.test.ts` | the proposal queue read: exact per-state and per-band deltas over a thirty-row fixture, the conserved partition, a row dated in the FUTURE landing in `unbandedOpenCount`, percentiles proven to be OBSERVED ages, and — through the pure derivation, because a shared database cannot be driven BELOW a floor — the below-floor refusal and both health flags |
 | `middleware-wiring.integration.test.ts` | that the middleware is actually MOUNTED — real `createApp()`, a real listening server, real HTTP. Every other suite here passes with `app.use(catalogObservability)` deleted, which is the "a mechanism can be GREEN AND INERT" trap in its exact form |
 | `routes/__tests__/internal-catalog-metrics.test.ts` | the operator gate and the read-only closure from OUTSIDE, over HTTP: allow-listed 200, non-operator 403, empty list 404 from the mount, the payments list refused, no write method anywhere under the prefix, and the trace's two-member handle set |
 | `route-observations.test.ts` | the store: `undefined` never a zeroed bucket, 304 as its own dimension, exact counts against windowed percentiles, nearest-rank figures, the ring buffer's eviction, and unusable durations |
@@ -107,7 +109,7 @@ read assembled at request time.
 
 ## Metrics are DATA, not prose
 
-`CATALOG_METRICS` holds **38 definitions**. `CatalogMetricDefinition` is #77's
+`CATALOG_METRICS` holds **44 definitions**. `CatalogMetricDefinition` is #77's
 `AnalyticsMetricDefinition` applied to the catalog graph and keeps that type's
 one load-bearing property: apart from `unmeasured` there is **no optional
 field**, so a number whose denominator, window, source or attribution limit
@@ -268,7 +270,7 @@ rather than a gap here.
 
 ## What is not measured, and why
 
-**Seven of the thirty-eight metrics carry a seam.** Each is present in the
+**Eight of the forty-four metrics carry a seam.** Each is present in the
 registry, readable through the surface, and answers `unmeasured` — because
 absence from a registry is indistinguishable from nobody having thought of the
 metric, and a zero is indistinguishable from health.
@@ -277,7 +279,7 @@ metric, and a zero is indistinguishable from health.
 dashboard can render the gap as a gap. The seam text below is the registry's own,
 condensed; the registry is the authority.
 
-**The set of seven is a DECISION, not a derivation.**
+**The set of eight is a DECISION, not a derivation.**
 `contract-gates.test.ts` holds it as `EXPECTED_UNMEASURED_METRIC_KEYS`, written
 out by hand and asserted in both directions, because
 `CATALOG_METRICS.filter((m) => m.unmeasured)` agrees with itself whatever the
@@ -285,14 +287,14 @@ registry says — so a metric shipping `unmeasured` because nobody finished its
 producer would pass, and closing a seam would pass too. **Closing one of the
 seven is an edit to that list**, which is somebody stating that the gap named
 below is gone. The same file also asserts
-`census.definitions - census.producers === 7`, which is the arithmetic identity
-that catches a producer deleted while its definition stays measured — something
-three empty lists cannot express.
+`census.definitions - census.producers === EXPECTED_UNMEASURED_METRIC_KEYS.length`,
+which is the arithmetic identity that catches a producer deleted while its
+definition stays measured — something three empty lists cannot express.
 
-**`surface_not_mounted` is NOT one of the seven and must not be counted with
+**`surface_not_mounted` is NOT one of the eight and must not be counted with
 them.** It is a deployment state, not a gap in the code, and it is explained in
 §"An unmounted surface is not a seam" below. On a stock deployment the report
-therefore carries **seven registry seams plus up to four runtime
+therefore carries **eight registry seams plus up to four runtime
 `surface_not_mounted` readings**, and those are different facts: a seam is work
 owed to somebody, an unmounted surface is one variable away.
 
@@ -405,6 +407,38 @@ limit says the number only grows — see
 mostly about not sending somebody to restart a worker that does not exist.
 
 **What closes it:** that consumer.
+
+### 8. `proposal_sla_breach_count` — `policy_target_undefined`
+
+**The one seam here whose gap is not code.** Every input it would need is
+measured and served: `readProposalQueueAging` publishes the queue's depth and
+oldest age per lifecycle state, a five-band waiting-age partition over the open
+rows and nearest-rank percentiles, and `GET
+/internal/catalog-metrics/proposal-queue` renders all of it. What does not exist
+is a **review-time target** — how long a catalogue proposal may wait before
+somebody should be told — and nothing anywhere in this repository defines one.
+
+`policy_target_undefined` exists as its own reason for exactly that reason.
+`not_instrumented` would say a column or a counter is owed, which sends a reader
+to write code; this says the number is already there and somebody has to decide
+what an acceptable value is, which sends them to write a policy. Reporting the
+metric as `0` would say "nothing has breached a target that does not exist",
+which is true, reads as healthy, and hardens the first time somebody quotes it.
+
+The type says the same thing: `CatalogProposalSlaVisibility` is a union with ONE
+member, `undefined_target`, and there is no `targetSeconds` field, no deadline
+and no breach count anywhere in the domain — the `GuestP2PAuthorization` device,
+so "we are within SLA" is unrepresentable rather than merely unwritten. A
+`contract-gates.test.ts` scan over the two owning modules (comment-stripped AND
+string-literal-stripped, because both of them name the gap in prose on purpose)
+fails the build if a threshold-shaped identifier appears in either.
+
+**What closes it:** a decision recorded on #367 Workstream 6 naming a target per
+open state — a proposal awaiting an operator and one awaiting a submitter are
+different waits and the second is not Mercaria's to answer — plus the second
+member on `CatalogProposalSlaVisibility` that carries it and the producer that
+compares against it. The number arrives in the same commit as the decision that
+justifies it, which is the only way it is accountable to anybody.
 
 ### Two more figures that are unmeasured below the metric layer
 
@@ -1220,6 +1254,99 @@ whether anybody visits the categories it reports.
 
 ---
 
+## The proposal review queue (#367 W6)
+
+`GET /internal/catalog-metrics/proposal-queue` — the fifth GET on this surface,
+and the distribution behind the registry's six proposal metrics.
+
+Those six are single integers: how many were created and decided in the last
+week, how many are open, how many sit in each of the three open states, and how
+old the oldest open one is. That is the right shape for a dashboard tile and the
+wrong shape for the question an operator actually has, which is **where the
+waiting is**. A backlog of forty is a different situation depending on whether it
+is forty things submitted this morning or four things nobody has looked at since
+March.
+
+Both come out of `tallyProposals` — ONE statement, one snapshot, one clock — so
+the tile and the page behind it cannot disagree. `proposal-queue.ts` derives and
+reads nothing; #70 extracted `summariseProjectedOffers` for the same reason and
+the reasoning is unchanged.
+
+### What it carries
+
+| Field | What it is |
+|---|---|
+| `depthByState` | every one of the eight lifecycle states, empty ones included, each with its own `oldestAgeSeconds` (`null` when the state is empty, never zero) and an `open` flag derived from `CATALOG_PROPOSAL_OPEN_STATES` |
+| `openDepth` / `totalDepth` | the backlog, and every row — the second counted as `count(*)` and NOT summed from the states above |
+| `countsAgree` | whether the per-state counts account for every row |
+| `agingBands` | five contiguous bands from zero, open-ended at the top, over the OPEN rows |
+| `unbandedOpenCount` | open rows that fell in no band |
+| `oldestOpenAgeSeconds` | `null` when nothing is open |
+| `deferredAheadCount` | `deferred` rows whose `deferred_until` has NOT passed |
+| `waitAge` | nearest-rank p50/p90/p95 and the maximum, **or an explicit refusal** |
+| `sla` | that there is no target |
+
+There is deliberately **no proposal id, store, submitter, label or convergence
+key** anywhere in the response, and no parameter of any kind on the route. Which
+proposal is oldest is a question `/internal/catalog-proposals?state=submitted`
+already answers, ordered by the index built for it; narrowing an aggregate by
+store is how "what is this merchant asking for" becomes answerable from a metrics
+surface. A realdb test walks a REAL emitted reading for each of those field
+names, with a positive control so a response of `{}` cannot pass it.
+
+### The two health flags, and what each can notice
+
+Both exist because a queue metric that reports a comfortable number while
+measuring nothing is the failure this whole read is written against.
+
+**`countsAgree`** compares a `count(*)` against the SUM of the eight per-state
+filters. Those disagree exactly when a row carries a state this build's
+`CATALOG_PROPOSAL_STATES` does not contain — and the reachable cause is not
+exotic: a `pre` migration widening `catalog_proposals_state_check` ahead of the
+image that reads it is how this repository ships a vocabulary change. Without the
+flag the symptom is a backlog that is quietly short.
+
+**`unbandedOpenCount`** is `openDepth` minus the banded total — a SUBTRACTION,
+not an `age < 0` filter, and the difference is the point. It catches a row whose
+`created_at` is in the FUTURE (a clock fault: the failure that produced
+`observed_at > now` on every ingested record in #63 and #65 and hid as a
+per-record parse failure) AND a gap opened between two bands, which is the edit a
+later reader makes and which a negative-age filter is blind to. The realdb suite
+inserts a future-dated proposal on purpose, because a health flag nobody has ever
+seen fire is one nobody trusts.
+
+### Why the percentiles can be withheld
+
+`CATALOG_PROPOSAL_WAIT_AGE_MIN_POPULATION` is **twenty, and it is derived rather
+than chosen**. The percentiles are nearest-rank (`percentile_disc`), so p95 over
+`n` samples is the element at rank `ceil(0.95n)` — which equals `n`, the maximum
+itself, for every `n < 20`, and stops equalling it at exactly 20. Below the floor
+a "p95" is the largest observed age wearing a more authoritative name, which is
+the shape of a number that gets quoted. `contract-gates.test.ts` re-derives the
+crossover from the rank formula in both directions, so changing the percentile
+set moves the floor or fails the build.
+
+Below it, `waitAge` is `{ state: 'unmeasured', population, reason:
+'population_below_floor', floor }` — **with no percentile property of any kind**,
+so a caller cannot render one. The population survives on the refusal because
+"the queue is empty" and "the queue is too small to summarise" lead an operator
+to opposite conclusions and both land there. The age BANDS remain, and they are
+exact at any population because they count rather than estimate.
+
+Nearest-rank also means every published figure is the age of a proposal that
+really is waiting. A realdb assertion checks each one for MEMBERSHIP in the set
+of open ages read as plain rows; mutating `percentile_disc(0.9)` to
+`percentile_cont(0.9)` turns it red naming the interpolated value.
+
+### And there is no SLA
+
+`sla` is always `{ state: 'undefined_target', statement, seam }`. See §"What is
+not measured, and why" item 8 — the aging is measured, the target is a policy
+decision nobody has made, and `CatalogProposalSlaVisibility` has no member that
+could say otherwise.
+
+---
+
 ## The publication trace
 
 `GET /internal/catalog-metrics/trace/:handleKind/:handle` answers "what happened
@@ -1671,8 +1798,13 @@ Every line is a thing to CHECK, not a thing to have intended.
       NOT as a seam or a zero — it is the one unmeasured reading that a variable
       fixes.
 - [ ] Every `unmeasured` reading is rendered as a GAP, never as zero, and
-      `awaitingSeams` is on the dashboard so the seven are visible without
+      `awaitingSeams` is on the dashboard so the eight are visible without
       reading this file.
+- [ ] `proposal_sla_breach_count` is rendered as "no target defined", not as
+      "0 breaches". It is the one seam whose gap is a POLICY decision rather than
+      missing code, and a green tile there is a claim nobody has earned —
+      `GET /internal/catalog-metrics/proposal-queue` carries the same statement
+      in `sla.statement` for a surface to render verbatim.
 - [ ] A ratio with `denominator: 0` renders as "no population", not as 0% or
       100%.
 - [ ] `complete: false` on the integrity report is treated as louder than any

@@ -33,7 +33,10 @@
 
 import { sql } from 'drizzle-orm';
 import {
+  CATALOG_PROPOSAL_AGE_BANDS,
   CATALOG_PROPOSAL_OPEN_STATES,
+  CATALOG_PROPOSAL_STATES,
+  CATALOG_PROPOSAL_WAIT_AGE_PERCENTILES,
   NATIVE_LISTING_LINK_METHODS,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
@@ -177,52 +180,193 @@ export async function tallyLinkMethods(
 /* Proposals                                                                   */
 /* -------------------------------------------------------------------------- */
 
+/** One lifecycle state's depth and the age of its oldest row. */
+export interface ProposalStateTally {
+  readonly state: string;
+  readonly count: number;
+  /** `null` when the state is empty — never zero, which reads as "up to date". */
+  readonly oldestAgeSeconds: number | null;
+}
+
+/** How many open proposals fall in one contiguous age band. */
+export interface ProposalAgeBandTally {
+  readonly key: string;
+  readonly count: number;
+}
+
 export interface ProposalTally {
   readonly createdInWindow: number;
+  readonly decidedInWindow: number;
   readonly openNow: number;
   /** Seconds since the oldest still-open proposal was created. Null when none is open. */
   readonly oldestOpenAgeSeconds: number | null;
+  /**
+   * One entry per member of `CATALOG_PROPOSAL_STATES`, present whether or not
+   * the state has any rows — an absent bucket and a zero one read the same on a
+   * dashboard, and only one of them is a fact about the queue.
+   */
+  readonly byState: readonly ProposalStateTally[];
+  /**
+   * Every row, counted as `count(*)`.
+   *
+   * NOT summed from `byState`, deliberately: the sum and this number disagree
+   * exactly when a row carries a state this build's tuple does not contain, and
+   * that comparison is the only thing in the read that can notice such a row.
+   */
+  readonly totalRows: number;
+  /** One entry per member of `CATALOG_PROPOSAL_AGE_BANDS`, over the OPEN rows. */
+  readonly openByAgeBand: readonly ProposalAgeBandTally[];
+  /**
+   * Open rows whose age is NEGATIVE, i.e. whose `created_at` is in the future.
+   *
+   * The bands are contiguous from zero, so such a row falls in none of them and
+   * would otherwise vanish out of the distribution silently. It is counted here
+   * rather than folded into the first band because a clock fault and a young
+   * proposal are opposite facts.
+   */
+  readonly openWithFutureCreatedAt: number;
+  /** Open `deferred` rows whose `deferred_until` has not yet passed. */
+  readonly deferredAhead: number;
+  /** Nearest-rank percentiles of the open rows' ages. `null` when nothing is open. */
+  readonly openAgePercentiles: {
+    readonly p50Seconds: number | null;
+    readonly p90Seconds: number | null;
+    readonly p95Seconds: number | null;
+    readonly maxSeconds: number | null;
+  };
 }
 
 /**
- * Proposal creation, backlog and backlog AGE.
+ * The proposal queue: creation, decision, depth by state, aging and percentiles.
  *
- * The open set is `CATALOG_PROPOSAL_OPEN_STATES`, imported rather than restated,
- * so "is this proposal still waiting on somebody" has one answer here and in the
- * convergence index that enforces it. `deferred` is open — an operator saying
- * "not now" has not decided — and the metric's attribution limit says so, because
- * a planned deferral does read as backlog.
+ * ## One statement, one clock
  *
- * Age is `max`-of-nothing-safe: `min(created_at)` over an empty filter is NULL
- * and `extract(epoch from (now() - NULL))` is NULL, which the caller renders as
- * an empty population rather than as a healthy zero.
+ * Every figure comes out of a single `select` over `catalog_proposals`, so they
+ * describe one snapshot. Two statements would let the queue move between the
+ * depth and the distribution, and the symptom would be a band count that does not
+ * sum to the depth — which is exactly the identity the caller checks, and it must
+ * fail on a real fault rather than on a race the reader introduced.
+ *
+ * The age clock is the ROW's own `created_at` against the statement's `now()`
+ * (Postgres `now()` is transaction start, so it is one instant for every column
+ * here). Nothing is measured from a sweep tick: a page clock captured before the
+ * work ran is what produced `observed_at > now` on every ingested record in #63
+ * and #65, and the way that failure hides is by looking like a young row.
+ *
+ * ## The open set is imported, never restated
+ *
+ * `CATALOG_PROPOSAL_OPEN_STATES` also renders the convergence index's predicate,
+ * so "is this proposal still waiting on somebody" has one answer here, in the
+ * publication gate and in the database. `deferred` is open — an operator saying
+ * "not now" has not decided — and `deferredAhead` is what lets a reader subtract
+ * the part of that which is a plan rather than a wait.
+ *
+ * ## Nothing here is `max`-of-nothing unsafe
+ *
+ * `min(created_at) filter (…)` over an empty set is NULL and
+ * `extract(epoch from (now() - NULL))` is NULL, which the caller renders as an
+ * empty population rather than as a healthy zero. Likewise `percentile_disc`
+ * over no rows is NULL. `percentile_disc` and not `percentile_cont`: nearest-rank,
+ * so every figure published is the age of a proposal that really is waiting
+ * rather than a point between two of them.
  */
 export async function tallyProposals(
   windowSeconds: number,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ProposalTally> {
   const open = sql.raw(inList(CATALOG_PROPOSAL_OPEN_STATES));
-  const rows = await db.execute<{
-    created_in_window: number;
-    open_now: number;
-    oldest_open_age_seconds: number | null;
-  }>(sql`
+  const age = sql`extract(epoch from (now() - created_at))`;
+  // The percentile arguments come from the shared tuple and are NOT spelled out
+  // here, because `CATALOG_PROPOSAL_WAIT_AGE_MIN_POPULATION` is derived from the
+  // largest of them: two spellings would let the SQL measure one set while the
+  // floor defended another, and both would still return numbers.
+  const percentiles = CATALOG_PROPOSAL_WAIT_AGE_PERCENTILES;
+
+  // One column per state and one per band, each rendered from the shared tuple
+  // so a vocabulary change cannot leave this read counting a set the rest of the
+  // system no longer uses. `sql.join` keeps every state value a BOUND parameter.
+  const stateCounts = sql.join(
+    CATALOG_PROPOSAL_STATES.map(
+      (state, index) => sql`
+        count(*) filter (where state = ${state})::int as ${sql.raw(`state_count_${String(index)}`)},
+        extract(epoch from (now() - min(created_at) filter (where state = ${state})))
+          ::double precision as ${sql.raw(`state_age_${String(index)}`)}`,
+    ),
+    sql`, `,
+  );
+  const bandCounts = sql.join(
+    CATALOG_PROPOSAL_AGE_BANDS.map((band, index) => {
+      const upper =
+        band.toSeconds === null ? sql`true` : sql`${age} < ${band.toSeconds}`;
+      return sql`
+        count(*) filter (
+          where state in (${open}) and ${age} >= ${band.fromSeconds} and ${upper}
+        )::int as ${sql.raw(`band_count_${String(index)}`)}`;
+    }),
+    sql`, `,
+  );
+
+  const rows = await db.execute<Record<string, number | null>>(sql`
     select
       count(*) filter (
         where created_at > now() - make_interval(secs => ${windowSeconds})
       )::int as created_in_window,
+      count(*) filter (
+        where decided_at is not null
+          and decided_at > now() - make_interval(secs => ${windowSeconds})
+      )::int as decided_in_window,
       count(*) filter (where state in (${open}))::int as open_now,
+      count(*)::int as total_rows,
       extract(epoch from (
         now() - min(created_at) filter (where state in (${open}))
-      ))::double precision as oldest_open_age_seconds
+      ))::double precision as oldest_open_age_seconds,
+      count(*) filter (where state in (${open}) and ${age} < 0)::int as open_future_created,
+      count(*) filter (
+        where state = 'deferred' and deferred_until is not null and deferred_until > now()
+      )::int as deferred_ahead,
+      percentile_disc(${percentiles[0]}) within group (order by ${age})
+        filter (where state in (${open}))::double precision as p50_seconds,
+      percentile_disc(${percentiles[1]}) within group (order by ${age})
+        filter (where state in (${open}))::double precision as p90_seconds,
+      percentile_disc(${percentiles[2]}) within group (order by ${age})
+        filter (where state in (${open}))::double precision as p95_seconds,
+      max(${age}) filter (where state in (${open}))::double precision as max_seconds,
+      ${stateCounts},
+      ${bandCounts}
     from catalog_proposals
   `);
-  const row = rows[0];
-  const age = row?.oldest_open_age_seconds;
+  const row = rows[0] ?? {};
+
+  /** A nullable numeric column, kept NULL rather than coerced to a plausible zero. */
+  const nullableNumber = (column: string): number | null => {
+    const value = row[column];
+    return value === null || value === undefined ? null : Number(value);
+  };
+  const wholeNumber = (column: string): number => Number(row[column] ?? 0);
+
   return {
-    createdInWindow: Number(row?.created_in_window ?? 0),
-    openNow: Number(row?.open_now ?? 0),
-    oldestOpenAgeSeconds: age === null || age === undefined ? null : Number(age),
+    createdInWindow: wholeNumber('created_in_window'),
+    decidedInWindow: wholeNumber('decided_in_window'),
+    openNow: wholeNumber('open_now'),
+    oldestOpenAgeSeconds: nullableNumber('oldest_open_age_seconds'),
+    byState: CATALOG_PROPOSAL_STATES.map((state, index) => ({
+      state,
+      count: wholeNumber(`state_count_${String(index)}`),
+      oldestAgeSeconds: nullableNumber(`state_age_${String(index)}`),
+    })),
+    totalRows: wholeNumber('total_rows'),
+    openByAgeBand: CATALOG_PROPOSAL_AGE_BANDS.map((band, index) => ({
+      key: band.key,
+      count: wholeNumber(`band_count_${String(index)}`),
+    })),
+    openWithFutureCreatedAt: wholeNumber('open_future_created'),
+    deferredAhead: wholeNumber('deferred_ahead'),
+    openAgePercentiles: {
+      p50Seconds: nullableNumber('p50_seconds'),
+      p90Seconds: nullableNumber('p90_seconds'),
+      p95Seconds: nullableNumber('p95_seconds'),
+      maxSeconds: nullableNumber('max_seconds'),
+    },
   };
 }
 

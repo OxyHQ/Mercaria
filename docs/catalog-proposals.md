@@ -339,6 +339,14 @@ POST /internal/catalog-proposals/:id/{approve,merge,reject,request-information,d
 POST /internal/catalog-proposals/:id/backfill
 ```
 
+…and the queue's own health, on the observability surface behind the same
+allow-list — see §"Queue metrics, aging and the SLA that does not exist":
+
+```
+GET  /internal/catalog-metrics/proposal-queue   depth and aging by state, no parameter
+GET  /internal/catalog-metrics                  nine catalog_proposals-sourced metrics
+```
+
 The route set is CLOSED. There is no "set this proposal approved", no "attach
 this entity id", no "clear this decision", no "edit this label" and no delete —
 each would be a way to make the record say something other than what happened,
@@ -346,6 +354,43 @@ and `catalog_review_events` is append-only precisely so the record cannot be
 quietly corrected afterwards. Every write is keyed on a PROPOSAL id and the trace
 opens from one; the queue's `storeId` is a FILTER over a list an operator can
 already page, not a handle.
+
+## Queue metrics, aging and the SLA that does not exist
+
+The queue's health is measured by the observability domain, not by this one, and
+that is where the read lives: `GET /internal/catalog-metrics/proposal-queue`,
+behind the SAME allow-list, plus nine `catalog_proposals`-sourced metrics on
+`GET /internal/catalog-metrics`. Full mechanics:
+[catalog-observability.md](catalog-observability.md) §"The proposal review
+queue"; the alert and its runbook are
+[runbooks/catalog-proposal-backlog.md](runbooks/catalog-proposal-backlog.md).
+
+It is on the metrics surface rather than here for two reasons. The dependency
+already points that way — the observability domain reads `catalog_proposals` and
+nothing here reads it back — and this router's set is closed around ADR 0007 D9's
+six operator ACTIONS plus a trace keyed on a proposal id, while an aggregate over
+every merchant's requests is a different kind of thing. Nothing in that response
+carries a proposal id, a store, a submitter or a label, and the route takes no
+parameter: the queue LIST here is where a filter belongs.
+
+What it publishes, all out of ONE statement so the tiles and the page cannot
+disagree: depth and oldest age for every one of the eight states (empty ones
+included, `null` age rather than zero); the three open counts, which SUM to the
+backlog exactly; `deferredAheadCount`, which is what lets a reader subtract the
+part of the backlog that is a plan rather than a wait; a five-band waiting-age
+partition; and nearest-rank percentiles that are WITHHELD below twenty open rows,
+because below twenty a p95 is arithmetically the maximum.
+
+**There is no review-time target.** `CatalogProposalSlaVisibility` is a union
+with ONE member, `undefined_target`, and no field anywhere in the domain could
+hold a threshold or a breach count — the `GuestP2PAuthorization` device, so
+"we are within SLA" is unrepresentable rather than merely unwritten.
+`proposal_sla_breach_count` is DEFINED and answers `unmeasured` with the reason
+`policy_target_undefined`, which exists to keep "a column is owed" and "a
+decision is owed" apart. Closing it is a decision recorded on #367 Workstream 6
+naming a target **per open state** — a proposal awaiting an operator and one
+awaiting a submitter are different waits, and the second is not Mercaria's to
+answer — landing in the same commit as the second union member that carries it.
 
 ## Rate limits
 

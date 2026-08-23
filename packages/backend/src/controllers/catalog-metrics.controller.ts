@@ -33,6 +33,7 @@ import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
 import { collectCatalogMetrics } from '../services/catalog-observability/metrics.service.js';
 import { runCatalogIntegrityChecks } from '../services/catalog-observability/integrity.service.js';
 import { readCatalogLatencyReport } from '../services/catalog-observability/budgets.js';
+import { readProposalQueueAging } from '../services/catalog-observability/proposal-queue.js';
 import { traceCatalogPublication } from '../services/catalog-observability/trace.service.js';
 
 /** `GET /internal/catalog-metrics` — every defined metric, measured or not. */
@@ -58,6 +59,33 @@ export async function catalogIntegrityHandler(req: Request, res: Response): Prom
       '[CatalogObservability] integrity sweep failed',
     );
     sendError(res, ErrorCodes.INTERNAL_ERROR, 'Could not run catalog integrity checks', 500);
+  }
+}
+
+/**
+ * `GET /internal/catalog-metrics/proposal-queue` — the review queue's shape.
+ *
+ * The registry's six proposal metrics are single integers; this is the
+ * distribution behind them — depth and oldest age per lifecycle state, a
+ * five-band waiting-age partition over the open rows, nearest-rank percentiles
+ * (withheld below the population at which a p95 is arithmetically the maximum),
+ * and the explicit statement that no review-time SLA target exists.
+ *
+ * It takes NO parameter of any kind. There is no `storeId` filter, no state
+ * filter and no date range: narrowing a queue aggregate by store is how "what is
+ * this merchant asking for" becomes answerable from a metrics surface, and the
+ * queue LIST at `/internal/catalog-proposals` is where a filter belongs. Nothing
+ * in the response carries a proposal id, a store, a submitter or a label.
+ */
+export async function catalogProposalQueueHandler(req: Request, res: Response): Promise<void> {
+  try {
+    sendSuccess(res, await readProposalQueueAging());
+  } catch (error: unknown) {
+    log.general.error(
+      { err: error, actor: catalogOperatorId(req) },
+      '[CatalogObservability] proposal queue read failed',
+    );
+    sendError(res, ErrorCodes.INTERNAL_ERROR, 'Could not read the catalog proposal queue', 500);
   }
 }
 

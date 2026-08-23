@@ -563,6 +563,24 @@ describe('the collector really reads Postgres', () => {
                 ${`${FIXTURE_PREFIX} probe brand`}, ${`${FIXTURE_PREFIX} probe brand`})
       `);
 
+      // A DECIDED proposal, so `proposal_decision_count` has something to see and
+      // the backlog metrics have something they must NOT see. `decided_at` is the
+      // service rate against `proposal_creation_count`'s arrival rate, and a
+      // decided row is created in the window too — which is why the creation
+      // delta below is TWO while the backlog delta is one.
+      await tx.execute(sql`
+        insert into catalog_proposals
+          (id, type, origin, state, submitted_by_oxy_user_id,
+           proposed_label, source_locale, normalized_label, search_label,
+           resolved_entity_id, decided_by_oxy_user_id, decided_at, decision_reason)
+        values (${`${FIXTURE_PREFIX}-proposal-2`}, 'brand', 'operator', 'approved',
+                ${`${FIXTURE_PREFIX}-operator`},
+                ${'Obs Metrics Probe Brand Two'}, 'en',
+                ${`${FIXTURE_PREFIX} probe brand two`}, ${`${FIXTURE_PREFIX} probe brand two`},
+                ${`${FIXTURE_PREFIX}-entity`}, ${`${FIXTURE_PREFIX}-decider`},
+                now(), ${'Obs metrics probe decision'})
+      `);
+
       // Three searches across TWO markets, so the breakdown this metric carries
       // is genuinely non-empty and the bucket identity below has something to
       // sum. `analytics_search_queries` carries no actor column at all (#77 owns
@@ -591,13 +609,81 @@ describe('the collector really reads Postgres', () => {
       expect(
         measuredNumerator(after, 'proposal_creation_count')
           - measuredNumerator(before, 'proposal_creation_count'),
-        'proposal_creation_count did not see the inserted row',
-      ).toBe(1);
+        'proposal_creation_count did not see the inserted rows',
+      ).toBe(2);
       expect(
         measuredNumerator(after, 'proposal_backlog_count')
           - measuredNumerator(before, 'proposal_backlog_count'),
         'proposal_backlog_count did not see the inserted row',
       ).toBe(1);
+      // The decided row moves the service rate and NOTHING in the backlog: a
+      // metric that counted every row with a `decided_at` column rather than one
+      // stamped in the window would move by whatever the database already held.
+      expect(
+        measuredNumerator(after, 'proposal_decision_count')
+          - measuredNumerator(before, 'proposal_decision_count'),
+        'proposal_decision_count did not see the decided row',
+      ).toBe(1);
+      // Only the open state the submitted row is in moves. The other two are the
+      // control: a producer reading the wrong bucket, or the whole backlog into
+      // each of them, fails exactly here.
+      expect(
+        measuredNumerator(after, 'proposal_backlog_awaiting_operator_count')
+          - measuredNumerator(before, 'proposal_backlog_awaiting_operator_count'),
+      ).toBe(1);
+      expect(
+        measuredNumerator(after, 'proposal_backlog_awaiting_submitter_count')
+          - measuredNumerator(before, 'proposal_backlog_awaiting_submitter_count'),
+        'a submitted proposal moved the needs_information count',
+      ).toBe(0);
+      expect(
+        measuredNumerator(after, 'proposal_backlog_deferred_count')
+          - measuredNumerator(before, 'proposal_backlog_deferred_count'),
+        'a submitted proposal moved the deferred count',
+      ).toBe(0);
+
+      // THE CONSERVED TOTAL, asserted absolutely on both readings rather than as
+      // a delta: the three open states partition the backlog, so this holds
+      // whatever a parallel file is doing — and a floor ("at least N are
+      // submitted") could not notice a fourth open state arriving, which is
+      // precisely the change that would break it. All four numbers come out of
+      // ONE statement, so it is an identity over one snapshot rather than four
+      // reads that agree most of the time.
+      //
+      // On an EMPTY database the `before` half is `0 === 0 + 0 + 0`, which is
+      // true and is a measurement of nothing — so the floor below asserts the
+      // `after` half really had something to conserve, and the version over a
+      // queue populated in all three open states at once lives in
+      // `proposal-queue.realdb.test.ts`, which builds one.
+      let conservationChecked = 0;
+      for (const [label, report] of [
+        ['before', before],
+        ['after', after],
+      ] as const) {
+        expect(
+          measuredNumerator(report, 'proposal_backlog_awaiting_operator_count')
+            + measuredNumerator(report, 'proposal_backlog_awaiting_submitter_count')
+            + measuredNumerator(report, 'proposal_backlog_deferred_count'),
+          `${label}: the three open states do not account for the backlog`,
+        ).toBe(measuredNumerator(report, 'proposal_backlog_count'));
+        conservationChecked += 1;
+      }
+      expect(conservationChecked).toBe(2);
+      expect(
+        measuredNumerator(after, 'proposal_backlog_count'),
+        'the backlog was empty after the insert, so the identity conserved nothing',
+      ).toBeGreaterThan(0);
+
+      // The submitted row is now the only thing this transaction can see in that
+      // state, so the age exists and is a real one. `numerator` on an age reading
+      // is the population it was taken over.
+      const operatorAge = reading(after, 'proposal_awaiting_operator_oldest_age');
+      expect(operatorAge?.state).toBe('measured');
+      if (operatorAge?.state === 'measured') {
+        expect(operatorAge.numerator).toBeGreaterThan(0);
+        expect(operatorAge.ageSeconds, 'a non-empty submitted queue reported no age').toBeDefined();
+        expect(operatorAge.ageSeconds).toBeGreaterThanOrEqual(0);
+      }
       // `numerator` on an age reading is how many rows the age was taken over,
       // and the age itself must now exist: an open backlog with no age would be
       // the "healthy zero" the builder refuses.
