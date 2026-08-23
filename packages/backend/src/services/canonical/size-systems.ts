@@ -97,7 +97,6 @@ import type {
   SizeMeasurementBasis,
   SizeRegion,
   SizeSystem,
-  SizeValueShape,
 } from '@mercaria/shared-types';
 
 /**
