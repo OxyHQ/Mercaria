@@ -216,7 +216,23 @@ export const SIZE_VALUE_SHAPES: readonly SizeValueShape[] = [
  * and it is refused a comparison like any other mismatch.
  */
 export interface SizeSystem {
-  /** The attribute key that IS this system — `shoe_size_us_mens`. */
+  /**
+   * The stable machine key that IS this system, and TWO namespaces now mint one.
+   *
+   * The catalogue's own conventions are attribute definitions, so their key is
+   * an attribute key (`shoe_size_us_mens`). The external-mapping layer targets
+   * `catalog_external_mappings.target_size_system_key`, which is a DIFFERENT
+   * column with a different CHECK, and `services/canonical/size-systems.ts`
+   * mints its keys by deriving them from the four facets below
+   * (`size.footwear.us.mens.manufacturer_label`).
+   *
+   * Nothing relates the two, deliberately — that is the value-level mapping
+   * this epic re-scoped to an ADR amendment. The consequence is worth stating
+   * rather than discovering: {@link compareSizeDeclarations} settles identity on
+   * this field LAST, so one convention presented under both spellings is
+   * refused as `no_sourced_mapping`. That fails CLOSED (a refusal, never a false
+   * equality) and it is the amendment's to resolve.
+   */
   readonly key: string;
   readonly domain: SizeDomain;
   readonly region: SizeRegion;

@@ -364,6 +364,14 @@ two bucket sets — and what this adds is the four facts that were implicit in t
 spelling of the key: **domain**, **region**, **audience** and **measurement
 basis**, as four closed tuples.
 
+- **There is now a SECOND key namespace, and it is disjoint from this one.**
+  `catalog_external_mappings.target_size_system_key` is a different column with a
+  different CHECK, so `services/canonical/size-systems.ts` mints keys for it by
+  DERIVING them from the four facets (`size.footwear.eu.unisex.manufacturer_label`)
+  — the four facts, in the key, rather than implicit in its spelling. Nothing
+  relates the two namespaces and a gate says so;
+  `docs/catalog-external-mappings.md` §"The size-system registry" carries the
+  reasoning and the consequence.
 - **`compareSizeDeclarations` is the only comparison over sizes, and it does not
   convert.** It answers `equal`, `different_value` (one system, two values) or
   `refused` naming the facet that differs. There is no return value in which

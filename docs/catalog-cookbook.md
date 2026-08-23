@@ -230,6 +230,28 @@ Two consequences, both worth saying out loud:
   authoring schema and a women's facet list cannot offer that key at all — which
   is what stops `9` under one definition being read beside `9` under the other.
 
+#### …and a SECOND, disjoint key namespace, for external mappings only
+
+`catalog_external_mappings` records that a source's token means a size system,
+and its `target_size_system_key` is a different column with a different CHECK —
+so a size system also has a key in `services/canonical/size-systems.ts`, derived
+from its four facets: `size.<domain>.<region>.<audience>.<basis>`.
+
+Adding one is a code change and nothing else — no table, no migration:
+
+1. Append the four facets plus a `valueShape` to `DECLARED_SIZE_SYSTEMS` in
+   `services/canonical/size-systems.ts`. The key is DERIVED; do not write one,
+   and never parse one.
+2. That is the whole procedure. The build refuses two declarations that derive
+   one key, and `size-system-registry.test.ts` re-derives every key from its own
+   facets.
+
+Add a system only when Mercaria's catalogue can actually express it. A key the
+registry holds makes a mapping RESOLVE, so seeding a convention no listing can
+carry points reviewed mappings at nothing. And do **not** relate these keys to
+the attribute keys above: a gate scans both modules against the footwear seed's
+own key list and fails the build on one.
+
 ### A colour is a controlled value, and its marketing name is a different field
 
 `footwear_color` is an enum with aliases and per-locale labels; `footwear_colorway`

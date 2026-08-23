@@ -343,11 +343,62 @@ Each is a named contract that FAILS CLOSED. None is a stub that lies.
 | Seam | State today | What closes it |
 | --- | --- | --- |
 | **Product types** (ADR 0007 D5, merge-order step 3) | `conceptExists('product_type', …)` answers `unavailable`, which resolves to `registry_unavailable` and BLOCKS. `reviewed_product_type_definition_id` is in `DEFERRED_FOREIGN_KEYS`, so the id-column gate fails the build the moment `product_type_definitions` appears. | One `registerCatalogConceptRegistry` call, plus turning the deferred entry into a real `.references()`. **Not** a foreign key on `target_product_type_key` — see below. |
-| **Size systems** | Mercaria has no size-system registry at all — no table, no key namespace, no conversion rules. A `size_system` mapping is proposable, reviewable, versionable and storable, and never resolves. | One `registerCatalogConceptRegistry` call by whichever issue builds size systems. |
+| **Size systems** | **CLOSED.** `services/canonical/size-systems.ts` is a code registry the `units.ts` shape, registered at boot by `registerSizeSystemConceptRegistry()`. A `size_system` mapping onto a key it holds RESOLVES; one onto a well-formed key it does not hold is `target_unresolvable`; a deployment that skipped the registration is still `registry_unavailable`. There is still no size-system TABLE and no conversion rule anywhere. | — |
 | **Ingestion calls the resolver** | Nothing calls `resolveExternalToken`, so `catalog_external_token_observations` is empty and every impact preview reports `no_observations_recorded`. | #62/#63/#65/#66 calling the resolver at the point they read a source's category, field, value or unit. |
 | **The reprocessing consumer** | An `apply` stamps `reprocess_requested_at`; nothing drains it. The claim columns and the partial index are on the row. | A re-normalization drain — the same one a `NORMALIZATION_VERSION` bump schedules in #62. |
 | **HTTP surface** | There is no route. Every service function takes an actor id and is callable from an operator controller. | An `/internal/catalog-external-mappings/*` router on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/#60/#62/#68/#70/#78 use — **not a seventh list**. |
 | **Suggesters** | `heuristic_suggestion` is a permitted provenance and nothing produces one. | Whatever proposes mappings, which still cannot approve one. |
+
+### The size-system registry, and the key namespace it mints
+
+`services/canonical/size-systems.ts` holds the table;
+`services/canonical/size-system-registry.ts` is the reader and
+`index.ts` registers it before the listener opens — statically, because a
+deferred registration would answer the first request `registry_unavailable`,
+which is indistinguishable from a deployment that has no registry.
+
+It IDENTIFIES and nothing else. `units.ts` may legitimately convert, because a
+millimetre and an inch are two names for one length; an EU 42 and a US 9 are
+not, and `size-system-non-equivalence.test.ts`'s whole-backend scan covers
+these two modules like every other.
+
+**The key is DERIVED from the four facets and never parsed** —
+`size.<domain>.<region>.<audience>.<basis>`, e.g.
+`size.footwear.us.mens.manufacturer_label`. The generated-composite device
+(`endpoint_key`, `commercial_key`), for the reason
+`shared-types/size-system.ts` opens with: the four facts a size system consists
+of used to be "encoded in the SPELLING of the key", and a spelling is not a
+model. A short opaque key (`size.eu` — the illustration in `DOTTED_KEY_SHAPE`'s
+own docblock) names a region and is silent about audience, which is the facet
+worth a full shoe size. There is deliberately no inverse function: the moment
+one exists, a reader can split a key on dots and get facets that disagree with
+the row, and a scanned gate fails the build on one.
+
+Correcting a facet therefore mints a DIFFERENT key, which is ADR 0007 D1's
+"deprecated and superseded, never renamed" arriving for free — if a system's
+facets change it IS a different system.
+
+**Its members are the five conventions the footwear vertical actually
+publishes**, and nothing else. Seeding an apparel or ring system nothing sells
+in would make a mapping RESOLVE against a convention no listing can express —
+the registry-that-agrees failure in miniature, and worse than the unregistered
+seam, which at least blocked visibly.
+
+**It relates nothing to an attribute key.** `scripts/seed-verticals/footwear.ts`
+declares the same five conventions as ATTRIBUTE definitions and the facets were
+read off it, but that correspondence is prose: no value in either module is an
+attribute key, and the gate scans comment-stripped source against the seed's own
+key list. Relating the two namespaces is the value-level mapping this epic
+re-scoped to an ADR amendment, and it would arrive here disguised as a
+convenience. Until it lands, one convention presented under both spellings is
+refused by `compareSizeDeclarations` as `no_sourced_mapping` — closed, never a
+false equality.
+
+**A pinned version answers `unavailable`.** A code table ships exactly one
+revision, so `present` would claim a check nobody performed and `absent` would
+deny a system Mercaria has. No caller passes a version today; the branch is
+driven by a test anyway, because a defensive branch nobody drives is a claim
+rather than a behaviour.
 
 ### `target_product_type_key` is FK-less by DESIGN, not by timing
 
