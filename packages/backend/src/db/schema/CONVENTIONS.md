@@ -1136,6 +1136,41 @@ natural-unique idempotency the four sections above state. What is #57's own:
   branch is load-bearing for the reason `commerce_relationships`' is: an
   unrecognised kind is unrepresentable even with the kind CHECK dropped, so
   widening the tuple without widening the CHECK fails the first write.
+- **An external offer never BECOMES a native listing, and the conversion is
+  blocked in the type before the database sees it** (#367 line 633). The CHECK
+  above is the second half: its `native` arm requires `listing_id is not null`
+  as well as `product_variant_id`, and all three non-native arms force BOTH
+  NULL — so becoming native means acquiring a listing and a variant that the
+  row's own kind forbids it to hold. The FIRST half is `OfferPatch` in
+  `db/offers/offerRepository.ts`, which is
+  `Partial<Omit<InsertOfferInput, 'id' | 'kind' | …>>`: **`kind` is omitted, so
+  an update that changed it does not compile.** Its docblock states the reason
+  — *"an offer that changed kind or variant is a DIFFERENT offer and must be a
+  new row"* — and stating it as a type is what stops a caller widening it by
+  accident. Retirement and re-observation are the supported transitions; an
+  external offer that later becomes sellable natively is a NEW native row whose
+  listing the converger owns, and #58's `native_listing_links` is the seam that
+  associates the two without merging them.
+
+  What is ENFORCED above is the type and the CHECK. What is only MEASURED is
+  that nothing exercises the gap between them. Counting **non-test lines calling
+  the symbol, excluding its own definition**, over `packages/backend/src`:
+  `updateOffer` — the one writer taking a free-form patch — has **0**, against
+  **2** for `upsertExternalOffer` as the control that the count can find a
+  caller at all.
+
+  ```
+  grep -rn '<symbol>(' packages/backend/src --include=*.ts \
+    | grep -v 'export async' | grep -v '__tests__' | wc -l
+  ```
+
+  Both figures come from that one command, and naming it is the point rather
+  than pedantry: `upsertExternalOffer` reads as 2, 3, 6, 7, 11 or 17 depending
+  on whether tests, the defining file, whole files or occurrences are counted,
+  and a control nobody can reproduce takes the zero beside it down with it.
+  A control measured by a different instrument from its subject is not a
+  control. That is a fact about today with a date on it, where the two layers
+  above are properties of the code.
 - **There is NO stored checkout-eligibility verdict, and that is the deliberate
   divergence from the `onboarding_state` one-verdict rule.** Payment readiness
   is one stored verdict because its inputs are all on the row being verdicted;
