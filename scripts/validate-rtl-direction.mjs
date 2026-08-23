@@ -207,6 +207,163 @@ if (RTL_LANGUAGE_CODES.size < MINIMUM_RTL_LANGUAGES) {
   );
 }
 
+// ------------------------------- the set is not the POPULATION (#367 line 202) ---
+
+/**
+ * `RTL_LANGUAGE_CODES` is HAND-WRITTEN, and every loop above iterates IT.
+ *
+ * That is the gap this block closes, and it is worth stating precisely because
+ * the guard's own output hides it: a language absent from the set is not
+ * "checked and found LTR", it is **never a subject**. Ship `ks.json` (Kashmiri)
+ * or `syr.json` (Syriac) — both genuinely right-to-left, neither in the set —
+ * and `isRtlLocale` answers `false`, `syncLayoutDirection` leaves the app
+ * left-to-right, and every assertion in this file passes while the summary line
+ * cheerfully reports `(0 RTL)`. The bundle ships, the copy renders, and the
+ * layout is silently wrong.
+ *
+ * It is the hand-maintained-map failure applied to a locale list, and it has the
+ * asymmetry every curated list has: it notices a locale REMOVED (the floor above
+ * fires) and never notices one ADDED.
+ *
+ * ## The fix is derivation, not a bigger list
+ *
+ * RTL-ness is a property of the SCRIPT, and the script is derivable from the
+ * tag. `Intl.Locale` carries CLDR's own answer, so the population becomes the
+ * locales each app actually SHIPS and the verdict comes from an authority that
+ * is not a second copy of the first. A locale added tomorrow is a subject on the
+ * day its bundle lands; one that is not RTL costs nothing.
+ *
+ * ## Two runtimes, two spellings, and why the control below is load-bearing
+ *
+ * The accessor is NOT portable and the difference is silent. Measured on this
+ * machine: bun 1.3.14 exposes `getTextInfo()` as a function and leaves
+ * `textInfo` UNDEFINED; node 22 exposes `textInfo` as an object and leaves
+ * `getTextInfo` undefined. These scripts run under bun — but a check written
+ * against one spelling returns `undefined` under the other, every comparison
+ * below reads "no opinion", and the whole block reports clean while measuring
+ * nothing. `assertProbeWorks` is what makes that a loud failure instead.
+ */
+const ICU_UNAVAILABLE = "unavailable";
+
+function icuDirection(tag) {
+  try {
+    const locale = new Intl.Locale(tag);
+    // Both spellings, because neither runtime has both. See the note above.
+    const info = locale.textInfo ?? locale.getTextInfo?.();
+    return info?.direction ?? ICU_UNAVAILABLE;
+  } catch {
+    return ICU_UNAVAILABLE;
+  }
+}
+
+/**
+ * Tags where CLDR is WRONG and `RTL_LANGUAGE_CODES` is right.
+ *
+ * An exception rather than a silent skip: a table somebody has to read is the
+ * difference between "we know CLDR disagrees here and why" and "the check
+ * quietly stopped covering this one".
+ *
+ * `dv` (Dhivehi) is written in THAANA, which runs right to left — ICU maximizes
+ * it to `dv-Thaa-MV` correctly and then reports `direction: "ltr"` anyway. Not
+ * shipped today, so this exception is not load-bearing yet; it is here so that
+ * shipping `dv.json` does not fail this guard for CLDR's mistake.
+ */
+const ICU_DIRECTION_EXCEPTIONS = new Map([
+  ["dv", "ICU/CLDR reports ltr for Thaana, which is a right-to-left script"],
+]);
+
+/**
+ * The probe answers at all, in BOTH directions.
+ *
+ * Without the negative half a probe hardwired to `"rtl"` would satisfy every
+ * `ar` comparison in the block below.
+ */
+const PROBE_CONTROLS = [
+  { tag: "ar", expected: "rtl" },
+  { tag: "he", expected: "rtl" },
+  { tag: "en", expected: "ltr" },
+  { tag: "ja", expected: "ltr" },
+];
+
+let probeWorks = true;
+for (const control of PROBE_CONTROLS) {
+  const actual = icuDirection(control.tag);
+  if (actual === control.expected) continue;
+  probeWorks = false;
+  failures.push(
+    `the Intl direction probe answered ${JSON.stringify(actual)} for "${control.tag}", expected `
+    + `"${control.expected}". Every cross-check below compares against this probe, so a broken one `
+    + "makes the whole block pass while measuring nothing. This runtime may expose the accessor "
+    + "under the other spelling (`textInfo` vs `getTextInfo()`) or ship without full ICU data.",
+  );
+}
+
+if (probeWorks) {
+  /**
+   * The population is the SHIPPED bundles, deduplicated across apps — not
+   * `RTL_LANGUAGE_CODES`. That inversion is the whole point of this block.
+   */
+  const shippedLanguages = new Set();
+  for (const app of APPS) {
+    for (const tag of shipped.get(app.name)) shippedLanguages.add(languageOf(tag));
+  }
+
+  for (const language of [...shippedLanguages].sort()) {
+    const icu = icuDirection(language);
+    if (icu === ICU_UNAVAILABLE) {
+      failures.push(
+        `Intl has no direction for the shipped language "${language}", so this guard cannot say `
+        + "whether it should mirror. Add it to ICU_DIRECTION_EXCEPTIONS with the reason, or "
+        + "establish the direction another way — do not leave it unanswered.",
+      );
+      continue;
+    }
+    const listedAsRtl = RTL_LANGUAGE_CODES.has(language);
+    const exception = ICU_DIRECTION_EXCEPTIONS.get(language);
+    if (exception !== undefined) continue;
+    if ((icu === "rtl") === listedAsRtl) continue;
+    failures.push(
+      listedAsRtl
+        ? `"${language}" is in RTL_LANGUAGE_CODES but Intl reports its script runs ${icu}. An LTR `
+          + "language in that set mirrors a layout that should not be mirrored."
+        : `"${language}" ships a bundle and Intl reports its script runs RIGHT-TO-LEFT, but it is `
+          + "NOT in RTL_LANGUAGE_CODES (packages/ui/src/i18n/rtl-locales.ts). Every loop in this "
+          + "guard iterates that set, so this language is not checked and found LTR — it is never a "
+          + "subject. The app ships its copy and lays it out left-to-right, with every guard green.",
+    );
+  }
+
+  /**
+   * The set's OWN members, so a typo'd or wrongly-added entry is caught even
+   * for a language nothing ships yet. Scoped by the exception table above.
+   */
+  for (const language of RTL_LANGUAGE_CODES) {
+    if (ICU_DIRECTION_EXCEPTIONS.has(language)) continue;
+    const icu = icuDirection(language);
+    if (icu === "rtl" || icu === ICU_UNAVAILABLE) continue;
+    failures.push(
+      `RTL_LANGUAGE_CODES contains "${language}", but Intl reports its script runs ${icu}. Either `
+      + "it is a typo, or CLDR disagrees for a reason worth recording in ICU_DIRECTION_EXCEPTIONS.",
+    );
+  }
+
+  /**
+   * The exception table cannot outlive its reason.
+   *
+   * An entry CLDR has since corrected is a permanent hole in the cross-check
+   * that reads exactly like a covered case, so it fails here rather than
+   * lingering. This is the one assertion in the block that gets BETTER when
+   * upstream improves.
+   */
+  for (const [language, why] of ICU_DIRECTION_EXCEPTIONS) {
+    if (icuDirection(language) !== "rtl") continue;
+    failures.push(
+      `ICU_DIRECTION_EXCEPTIONS excuses "${language}" because ${why} — but Intl now reports it as `
+      + "rtl, so the exception is stale and is excusing nothing. Delete the entry.",
+    );
+  }
+}
+
 // ------------------------------------------------------------------- verdict ---
 
 if (failures.length > 0) {
@@ -221,9 +378,20 @@ const summary = APPS.map((app) => {
   return `${app.name} ${tags.length} bundles (${rtl.length} RTL)`;
 }).join(", ");
 
+const crossChecked = new Set();
+for (const app of APPS) {
+  for (const tag of shipped.get(app.name)) crossChecked.add(languageOf(tag));
+}
+
 console.log(
   `RTL direction guard passed — ${summary}; `
-  + `${RTL_LANGUAGE_CODES.size} RTL languages probed against each app's shipped bundles, `
-  + `${CASES.length} synthetic cases covering both answers, storefront Arabic control anchored, `
-  + `one shared RTL set (#435 deleted the storefront's copy; the drift comparison went with it).`,
+  // Where each number comes from, because "checks N RTL locales" is not a claim
+  // a reader can act on without knowing whether N is a hand-written list or a
+  // derived population. The first is the LIST; the second is the POPULATION.
+  + `${RTL_LANGUAGE_CODES.size} hand-listed RTL languages probed against each app's shipped `
+  + `bundles, ${CASES.length} synthetic cases covering both answers, storefront Arabic control `
+  + `anchored, one shared RTL set (#435 deleted the storefront's copy; the drift comparison went `
+  + `with it); and ${crossChecked.size} SHIPPED languages cross-checked against Intl's own script `
+  + `direction with ${ICU_DIRECTION_EXCEPTIONS.size} recorded CLDR exception(s), so a right-to-left `
+  + `locale added to the product without being added to the list fails here (#367 line 202).`,
 );

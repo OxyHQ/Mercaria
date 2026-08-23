@@ -20,20 +20,48 @@
  * ## The two groups, and why a fold moves between them
  *
  * {@link MARK_PRESERVING_FOLDS} keep a script's combining marks, so two words
- * that differ only in marks stay different. {@link MARK_LOSING_FOLDS} do not —
- * they are the #830 defect. Fixing one is a ONE-LINE diff here: move it between
- * the lists. That is deliberate. A fix that did not have to touch this file
- * would be a fix nobody could see.
+ * that differ only in marks stay different. {@link MARK_LOSING_PAIRS} names the
+ * (fold, script) combinations that do not — the #830 defect. Fixing one is a
+ * ONE-LINE diff here: delete its entry. That is deliberate. A fix that did not
+ * have to touch this file would be a fix nobody could see.
  *
  * **#838 emptied the second list**, and the assertions did not go with it: the
  * mark-loss MECHANISM check the losing group carried is now applied to every
  * member of the preserving one, on whichever half of each pair actually carries
  * a mark. Otherwise fixing the bug would have deleted the only test that could
  * detect it coming back.
+ *
+ * ## #367 line 202 refilled it, and what that exposed about this file
+ *
+ * The register is no longer empty: `normalizeCatalogAlias` and `foldPhrase`
+ * carry #854, and BOTH were sitting in the preserving list claiming a property
+ * they do not have. Nothing was wrong with the assertions — the SUBJECTS were
+ * wrong. `MARK_BEARING` was the literal `['Bengali', 'Devanagari']`, and those
+ * two folds pass both of those scripts, so the only scripts they were ever asked
+ * about were the two they get right.
+ *
+ * Two things changed as a result, and the first is the general lesson:
+ *
+ * 1. **The mark-bearing scripts are now DERIVED** from `script-corpus.ts`'s
+ *    `markPair` field. A hand-written list of subjects is a list of the mistakes
+ *    somebody had already thought of, and a fold cannot be caught being wrong
+ *    about a script nobody measured it against.
+ * 2. **The register is keyed on (fold, SCRIPT), not on the fold.** #830's three
+ *    turned every `\p{M}` into a space and were broken everywhere at once;
+ *    #854's two strip `U+0300–U+036F` only, so they eat Cyrillic and Greek marks
+ *    and genuinely preserve Devanagari, Bengali and Japanese ones. Recording
+ *    them as wholly broken would have thrown away the coverage they do earn.
  */
 
 import { describe, expect, it } from 'vitest';
-import { SCRIPT_CORPUS, scriptSample, scriptVariant } from './script-corpus.js';
+import {
+  SCRIPT_CORPUS,
+  type ScriptFamily,
+  markBearingScripts,
+  scriptMarkPair,
+  scriptSample,
+  scriptVariant,
+} from './script-corpus.js';
 import { slugify } from '../utils/slug.js';
 import { normalizeEntityName } from '../services/canonical/normalization.js';
 import { normalizeCatalogAlias } from '../services/taxonomy/alias-normalization.js';
@@ -68,6 +96,11 @@ interface NamedFold {
  * marks fold to two different strings, AND a mark-bearing input still carries a
  * mark on the way out. The second is the MECHANISM, and it is here rather than
  * in the list below because #838 emptied that one.
+ *
+ * Membership is NOT a claim that a fold preserves every script's marks — that is
+ * what {@link MARK_LOSING_PAIRS} exists to qualify. `normalizeCatalogAlias` and
+ * `foldPhrase` are here AND registered against Cyrillic: they keep Devanagari,
+ * Bengali and Japanese marks and eat Cyrillic ones, and both facts are asserted.
  *
  * `normalizeEntityName` is here because #834 put it here. The last three are
  * here because #838 did, and each names the stored key it writes, because that
@@ -106,37 +139,96 @@ function stripDiacritics(value: string): string {
 }
 
 /**
- * Folds that DESTROY combining marks — the #830 mechanism.
+ * (fold, script) pairs where the fold is KNOWN to destroy that script's marks.
  *
- * **EMPTY, and that is the finding rather than the absence of one.** #833 put
- * three here; #838 fixed all three and moved them up. A fourth belongs here the
- * day it is measured, with its issue, and the loop below runs again.
+ * ## Why a PAIR and not a fold
  *
- * The register is kept rather than deleted because an empty list is a claim —
- * "this repository has no known mark-eating fold" — and `the register is empty`
- * below is what asserts it. What it must NOT be is the only thing left standing:
- * a `for` loop over an empty array emits zero tests and reads exactly like a
- * passing suite, which is why the mechanism assertion moved into
- * {@link MARK_PRESERVING_FOLDS} instead of being deleted with these entries.
+ * #833's register held whole folds, because #830's three ate Devanagari matras
+ * by turning every `\p{M}` into a space — a fold doing that is broken for every
+ * script at once. #854's mechanism is narrower and the register had to widen to
+ * hold it: `NFD` + strip `U+0300–U+036F` eats a CYRILLIC letter's breve and a
+ * GREEK letter's tonos while leaving Devanagari, Bengali and Japanese marks
+ * untouched, because those live in other blocks. `normalizeCatalogAlias` is
+ * genuinely mark-preserving for four of the five scripts measured here.
+ *
+ * Recording it as a whole broken fold would have cost the Devanagari and Bengali
+ * coverage it does have; recording it as nothing at all is what let it sit in
+ * the preserving register claiming a property it does not have. So the entry
+ * names the script.
+ *
+ * ## These are CHARACTERISATIONS, not endorsements
+ *
+ * Fixing the fold turns the case below red. That is the point, and it is the
+ * same contract #833 wrote for the whole-fold register: delete the entry in the
+ * same diff, and the pair rejoins the preserving loop automatically because that
+ * loop's subjects are derived.
  */
-const MARK_LOSING_FOLDS: readonly (NamedFold & { readonly issue: string })[] = [];
+interface MarkLosingPair {
+  /** Must match a {@link MARK_PRESERVING_FOLDS} entry's `name`. */
+  readonly name: string;
+  readonly script: ScriptFamily;
+  readonly issue: string;
+}
 
-/** The scripts whose corpus entry carries a marks-only variant pair. */
-const MARK_BEARING = ['Bengali', 'Devanagari'] as const;
+/**
+ * The register. **#854 is open, so it is no longer empty.**
+ *
+ * Both entries perform the identical `NFD` + strip; `alias-normalization.test.ts`
+ * pins the two to each other on every fixture, which is why neither can be fixed
+ * alone. `foldAccents` in `@mercaria/shared-types` is the CORRECTED spelling of
+ * the same fold and is what they adopt when #854 is taken — it drops a mark only
+ * when it is a Latin combining diacritic sitting on a Latin base.
+ *
+ * `normalizeCatalogAlias` is the one that costs money: its output is STORED as
+ * `category_aliases.normalized_alias`, under
+ * `category_aliases_category_locale_normalized_key`, so two distinct Russian
+ * aliases for one category in one locale do not merely match loosely — the
+ * second fails its write.
+ */
+const MARK_LOSING_PAIRS: readonly MarkLosingPair[] = [
+  { name: 'normalizeCatalogAlias', script: 'Cyrillic', issue: '#854' },
+  { name: 'foldPhrase', script: 'Cyrillic', issue: '#854' },
+];
+
+const isKnownLosing = (name: string, script: ScriptFamily): boolean =>
+  MARK_LOSING_PAIRS.some((pair) => pair.name === name && pair.script === script);
+
+/**
+ * The scripts whose corpus entry carries a marks-only pair — DERIVED.
+ *
+ * This was `['Bengali', 'Devanagari']`, written out, and that literal is the
+ * whole of why #854 was invisible here: `normalizeCatalogAlias` and `foldPhrase`
+ * pass both of those scripts and were therefore never asked about the one they
+ * fail. A fold cannot be caught being wrong about a script nobody measured it
+ * against, and a hand-maintained list of subjects is a list of the mistakes
+ * somebody had already thought of.
+ */
+const MARK_BEARING = markBearingScripts();
 
 describe('a fold that keeps combining marks keeps two words apart', () => {
   for (const { name, fold } of MARK_PRESERVING_FOLDS) {
-    it(`${name} distinguishes singular from plural in every mark-bearing script`, () => {
+    it(`${name} keeps a mark-bearing pair apart in every script not registered against it`, () => {
+      let asserted = 0;
       for (const script of MARK_BEARING) {
-        const sample = scriptSample(script);
-        // The corpus guarantees these differ ONLY in marks, so a fold that
-        // collapses them has eaten the marks and nothing else could explain it.
-        const variant = scriptVariant(script);
+        // A pair this fold is KNOWN to collapse is characterised below with its
+        // issue, not asserted here. Skipping it silently is what the floor
+        // underneath stops: a fold registered as losing for every script would
+        // otherwise assert nothing and report exactly what a clean run reports.
+        if (isKnownLosing(name, script)) continue;
+        const pair = scriptMarkPair(script);
+        asserted += 1;
         expect(
-          fold(sample.noun),
-          `${name} collapsed ${script} "${sample.noun}" (${sample.nounGloss}) onto "${variant}" (${sample.variantGloss})`,
-        ).not.toBe(fold(variant));
+          fold(pair.marked),
+          `${name} collapsed ${script} "${pair.marked}" (${pair.markedGloss}) onto `
+            + `"${pair.unmarked}" (${pair.unmarkedGloss})`,
+        ).not.toBe(fold(pair.unmarked));
       }
+      expect(
+        asserted,
+        `${name} is registered as mark-losing for every mark-bearing script, so this case `
+          + 'measured nothing. A fold with no script left to be right about belongs in a '
+          + 'different suite, not in a green one.',
+      ).toBeGreaterThan(0);
     });
 
     it(`${name} lets a combining mark out the other side`, () => {
@@ -150,8 +242,9 @@ describe('a fold that keeps combining marks keeps two words apart', () => {
       // so a length assertion passes while measuring nothing.
       let marked = 0;
       for (const script of MARK_BEARING) {
-        const sample = scriptSample(script);
-        for (const input of [sample.noun, scriptVariant(script)]) {
+        if (isKnownLosing(name, script)) continue;
+        const pair = scriptMarkPair(script);
+        for (const input of [pair.marked, pair.unmarked]) {
           // Only one half of the Bengali pair carries a mark: `বই` is two
           // independent letters and the matras are in `বইগুলি`. Asserting on the
           // noun of every pair would fail on a fold doing nothing wrong.
@@ -164,8 +257,18 @@ describe('a fold that keeps combining marks keeps two words apart', () => {
         }
       }
       // The floor: with no mark-bearing fixture the loop above asserts nothing.
-      // Measured on the corpus #833 ships — Devanagari contributes both halves,
-      // Bengali only its variant.
+      //
+      // THREE, and the number is a measurement rather than a count of the
+      // corpus's pairs — which is what keeps it from being circular. The corpus
+      // carries FOUR mark pairs and only three of their eight members carry a
+      // mark in COMPOSED form: Devanagari contributes both halves, Bengali only
+      // its marked one, and Cyrillic and Hiragana contribute NOTHING because `й`
+      // (U+0439) and `じ` (U+3058) are precomposed and `\p{M}` does not match
+      // them as written. Those two are carried by the DISTINCTNESS case above,
+      // which is the half that catches #854.
+      //
+      // So a fifth pair does not necessarily move this number, and a decomposed
+      // fixture would. Either way it moves deliberately.
       expect(marked, 'no mark-bearing fixture reached the assertion').toBe(3);
     });
   }
@@ -186,30 +289,67 @@ describe('a fold that keeps combining marks keeps two words apart', () => {
   });
 });
 
-describe('the register of folds that still destroy combining marks (#830)', () => {
-  for (const { name, fold, issue } of MARK_LOSING_FOLDS) {
-    it(`${name} collapses Devanagari singular and plural onto one key — ${issue}`, () => {
+describe('the register of folds that still destroy combining marks (#830, #854)', () => {
+  for (const { name, script, issue } of MARK_LOSING_PAIRS) {
+    const entry = MARK_PRESERVING_FOLDS.find((candidate) => candidate.name === name);
+
+    it(`${name} collapses a ${script} mark pair onto one key — ${issue}`, () => {
+      // The register names a fold by STRING, so a rename would silently empty
+      // this case. Resolving it against the real list is what makes that a
+      // failure instead of a skipped subject.
+      if (entry === undefined) {
+        throw new Error(`${name} is registered as mark-losing but is not a fold under test`);
+      }
+      const { fold } = entry;
+      const pair = scriptMarkPair(script);
+
+      // The premise, first: the two fixtures really are two different strings.
+      // Without it a corpus edit making them identical turns everything below
+      // into a comparison of a word with itself.
+      expect(pair.marked, 'the corpus pair collapsed — this case would assert nothing')
+        .not.toBe(pair.unmarked);
+
       // A CHARACTERISATION, not an endorsement. Fixing the fold makes this red,
-      // which is the point: move the entry into MARK_PRESERVING_FOLDS in the same
-      // diff and the loss stops being invisible.
-      const hindi = scriptSample('Devanagari');
-      expect(fold(hindi.noun)).toBe(fold(scriptVariant('Devanagari')));
-      // …and the MECHANISM is mark loss rather than a coincidence of these two
-      // words. Deliberately not "the output is shorter": the folds this held
-      // replaced each mark with a SPACE, so the codepoint count is unchanged and
-      // a length assertion passes while measuring nothing.
-      expect(/\p{M}/u.test(hindi.noun), 'the fixture carries no combining mark').toBe(true);
-      expect(/\p{M}/u.test(fold(hindi.noun)), 'the marks survived — has this been fixed?')
-        .toBe(false);
+      // which is the point: delete the register entry in the same diff and the
+      // pair rejoins the preserving loop, which derives its subjects.
+      //
+      // The MECHANISM is stated as "the MARKED word folds to exactly the
+      // UNMARKED one" rather than #833's "the input carried a `\p{M}` and the
+      // output does not". `мой` is PRECOMPOSED, so that spelling would fail on
+      // the premise instead of on the defect — and this one is sharper anyway:
+      // the mark did not merely vanish, it took the letter's identity with it
+      // and handed back a different real word.
+      expect(
+        fold(pair.marked),
+        `${name} no longer folds ${script} "${pair.marked}" (${pair.markedGloss}) onto `
+          + `"${pair.unmarked}" (${pair.unmarkedGloss}). If ${issue} is fixed, delete this `
+          + 'entry from MARK_LOSING_PAIRS in the same diff so the preserving loop measures '
+          + 'the pair again.',
+      ).toBe(pair.unmarked);
     });
   }
 
-  it('is empty — no fold in this repository is known to eat combining marks', () => {
-    // #833 measured three and #838 fixed all three. This assertion is the claim
-    // that the count is now zero; it is not the gate. The gate is the pair of
-    // properties every entry in MARK_PRESERVING_FOLDS is held to, which is where
-    // the three went and where a regression in any of them turns red.
-    expect(MARK_LOSING_FOLDS.map((entry) => entry.name)).toEqual([]);
+  it('names exactly the folds #854 is open against, and no others', () => {
+    // #833 measured three whole folds and #838 fixed all three, which emptied
+    // this register. #854 refilled it with two (fold, script) pairs. An EXACT
+    // pin rather than a floor: a fold added here without an issue is somebody
+    // recording a defect instead of fixing it, and a fold removed without the
+    // fix landing is the register quietly losing a subject.
+    expect(MARK_LOSING_PAIRS.map((pair) => `${pair.name}/${pair.script}/${pair.issue}`)).toEqual([
+      'normalizeCatalogAlias/Cyrillic/#854',
+      'foldPhrase/Cyrillic/#854',
+    ]);
+  });
+
+  it('registers no pair for a script the corpus cannot measure', () => {
+    // A pair naming a script with no mark fixture would make `scriptMarkPair`
+    // throw INSIDE the case above — a red build with a confusing message rather
+    // than a clear one. It would also mean the preserving loop was skipping a
+    // subject that never existed.
+    for (const pair of MARK_LOSING_PAIRS) {
+      expect(MARK_BEARING, `${pair.name} is registered against ${pair.script}, which carries no `
+        + 'mark pair in the corpus').toContain(pair.script);
+    }
   });
 
   it('strip_diacritics keeps the Japanese dakuten, which is part of the word', () => {

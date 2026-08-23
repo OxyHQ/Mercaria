@@ -37,6 +37,12 @@
  *      moment the pluralizer stops being English-shaped. See "What K replaced"
  *      below.
  *
+ *   L. NO BLANK VALUE (#367 line 202) — a key whose value is empty or
+ *      whitespace-only. B cannot see it, because a blank value has en.json's key
+ *      and en.json's placeholder set; and unlike a MISSING key it does not fall
+ *      back, because the key exists — so the control renders with no text at
+ *      all. See the block itself for what was measured.
+ *
  *   C. REFERENTIAL INTEGRITY — every `t('literal')` names a key that exists in
  *      that app's `en.json`, and every key in `en.json` is named by some string
  *      literal in that app's source.
@@ -2905,6 +2911,62 @@ for (const app of OWNERS) {
         + "being looked up, so the call resolves to a key that does not exist and renders "
         + '`[missing "…"]` in every language. Rename the slot — `subject`, `conditions`, anything '
         + "that is not an option name.",
+      );
+    }
+  }
+
+  // L. a translated value is not BLANK (#367 line 202).
+  //
+  // ## What B cannot see, and why this is not a narrower version of it
+  //
+  // B compares two SETS: which keys a bundle holds, and which `%{placeholders}`
+  // each value carries. `"common.save": ""` in `de.json` has exactly `en`'s key
+  // and exactly `en`'s placeholder set — the empty one — so it satisfies both
+  // halves and B reports nothing. Neither do C (the key exists and is
+  // referenced), D, E, F, G, G' or K. Measured, not reasoned: the three cases in
+  // `test-validate-i18n-strings.mjs` under this letter each ran the whole guard
+  // against a fixture tree carrying one, and it printed `i18n string guard
+  // passed` and exited 0.
+  //
+  // ## Why blank is WORSE than missing, which is the part that inverts
+  //
+  // A MISSING key falls back: `enableFallback` walks `de` → `en` and the
+  // merchant sees an English word. A BLANK value does not, because the key
+  // EXISTS — measured against a real `I18n` instance, `t()` returns `""`. So the
+  // control renders with no label at all: an unlabelled button, an empty column
+  // heading, a dialog whose confirm action is a blank rectangle. There is no
+  // `[missing "…"]` marker and no English to notice. It is the one bundle defect
+  // that produces no text of any kind to review.
+  //
+  // ## The backend takes the opposite policy, deliberately, and IS guarded
+  //
+  // `services/catalog-localization/resolve.ts`'s `readableText` treats a blank
+  // row as UNREADABLE and continues down the fallback chain, so a blank Spanish
+  // category name yields the English one. Two layers, opposite answers to "is
+  // blank a translation", and only the backend's was enforced. This is the
+  // client half.
+  //
+  // ## No exemption list, because the population needed none
+  //
+  // Measured on this branch: 35,724 string leaves across 48 bundle files, ZERO
+  // empty and ZERO whitespace-only. So the check ships at full strength rather
+  // than with a residual pin — and if a legitimate blank ever has a reason, the
+  // reason belongs beside it in an exemption, not in a widened predicate.
+  //
+  // Runs over EVERY bundle including `en`, for G's reason turned up a notch: a
+  // blank ENGLISH value is blank in every language at once, since it is what the
+  // other eleven fall back to. Floored by `minimumKeys`/`minimumLocales` above,
+  // so an empty bundle set fails there first rather than passing here silently.
+  for (const [path, flat] of flatByLocale) {
+    for (const [key, value] of flat) {
+      if (value.trim().length > 0) continue;
+      const shape = value.length === 0 ? "is EMPTY" : `is WHITESPACE-ONLY (${JSON.stringify(value)})`;
+      failures.push(
+        `${path}: "${key}" ${shape}. i18n-js returns it verbatim — the key EXISTS, so `
+        + "enableFallback never engages and the control renders with no text at all. That is worse "
+        + "than a missing key, which at least falls back to English. Check B cannot see it: a blank "
+        + "value carries en.json's key and en.json's (empty) placeholder set, so parity is "
+        + "satisfied. Delete the key to fall back, or write the string.",
       );
     }
   }

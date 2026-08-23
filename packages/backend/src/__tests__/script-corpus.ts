@@ -49,6 +49,47 @@ export type ScriptFamily =
   | 'Hiragana'
   | 'Katakana';
 
+/**
+ * A pair of REAL words that differ ONLY in a combining mark, in the script's own
+ * orthography — the fixture a mark-eating fold collapses.
+ *
+ * Separate from {@link ScriptSample.variant}, which is overloaded: it is a
+ * marks-only pair for Devanagari and Bengali, a CASING pair for Cyrillic, a
+ * half-width pair for Katakana and a precomposed/decomposed pair for Latin. That
+ * overload is why `MARK_BEARING` in `text-fold-script-behaviour.test.ts` was a
+ * hand-written list of the two scripts whose `variant` happened to be the right
+ * shape — and a hand-maintained map is exactly what let #854 sit unmeasured for
+ * a week inside the gate built to catch its family.
+ *
+ * With the pair named explicitly, `MARK_BEARING` is DERIVED from the corpus, so
+ * adding one here extends every fold's assertion rather than requiring somebody
+ * to remember a second list.
+ *
+ * ## Composed marks and precomposed ones are different fixtures
+ *
+ * Devanagari `साइकिलें` carries its matras as separate `Mn`/`Mc` codepoints in
+ * NFC, so `\p{M}` sees them without normalising. Cyrillic `мой` does NOT: `й` is
+ * the single precomposed codepoint U+0439 and only decomposes to `и` + U+0306
+ * under NFD. Both are mark-bearing pairs and a fold can eat either, but only the
+ * first can be asserted on with a `\p{M}` test of the INPUT — which is why the
+ * mechanism assertion and the distinctness assertion are separate, and why
+ * Cyrillic contributes to one and not the other.
+ */
+export interface ScriptMarkPair {
+  /** The member carrying the mark. */
+  readonly marked: string;
+  /** What {@link marked} means, in English. */
+  readonly markedGloss: string;
+  /**
+   * The member without it — a DIFFERENT real word, not a misspelling. That is
+   * the whole point: a fold that removes the mark does not merely lose
+   * decoration, it returns the other word.
+   */
+  readonly unmarked: string;
+  /** What {@link unmarked} means, in English. */
+  readonly unmarkedGloss: string;
+}
+
 /** One script's sample, with the gloss a reviewer needs. */
 export interface ScriptSample {
   readonly script: ScriptFamily;
@@ -69,6 +110,15 @@ export interface ScriptSample {
   readonly adjective: string;
   /** What {@link adjective} means, in English. */
   readonly adjectiveGloss: string;
+  /**
+   * Two real words differing ONLY in a combining mark, or `undefined` where the
+   * script has no such pair. See {@link ScriptMarkPair}.
+   *
+   * `text-fold-script-behaviour.test.ts` derives its mark-bearing script list
+   * from the presence of this field, so adding one extends every fold's
+   * assertion.
+   */
+  readonly markPair: ScriptMarkPair | undefined;
 }
 
 /**
@@ -90,6 +140,11 @@ export const SCRIPT_CORPUS: readonly ScriptSample[] = [
     variantGloss: 'cafe, precomposed U+00E9',
     adjective: 'nuevo',
     adjectiveGloss: 'new (es)',
+    // NONE, and the absence is the point rather than an omission: `café` and
+    // `cafe` are a mark pair that folds are SUPPOSED to collapse. A markPair
+    // asserts two words stay APART, so recording one here would assert the
+    // opposite of what accent folding is for.
+    markPair: undefined,
   },
   {
     script: 'Arabic',
@@ -99,6 +154,10 @@ export const SCRIPT_CORPUS: readonly ScriptSample[] = [
     variantGloss: undefined,
     adjective: 'جديد',
     adjectiveGloss: 'new (ar)',
+    // Arabic diacritics (harakat) are optional and virtually never written in
+    // product copy, so a pair differing only in them would be a fixture nobody
+    // types. The hazard Arabic carries is #832's, not #830's.
+    markPair: undefined,
   },
   {
     script: 'Bengali',
@@ -110,6 +169,12 @@ export const SCRIPT_CORPUS: readonly ScriptSample[] = [
     variantGloss: 'books (bn) — differs by vowel signs',
     adjective: 'নতুন',
     adjectiveGloss: 'new (bn)',
+    markPair: {
+      marked: 'বইগুলি',
+      markedGloss: 'books (bn) — carries the ু vowel sign',
+      unmarked: 'বই',
+      unmarkedGloss: 'book (bn)',
+    },
   },
   {
     script: 'Cyrillic',
@@ -120,6 +185,31 @@ export const SCRIPT_CORPUS: readonly ScriptSample[] = [
     variantGloss: 'Bicycle (ru), capitalised',
     adjective: 'новый',
     adjectiveGloss: 'new (ru)',
+    /**
+     * `мой` / `мои` — #854's own pair, and the fixture this corpus was missing.
+     *
+     * `й` is U+0439, a PRECOMPOSED codepoint that decomposes to `и` + U+0306
+     * (combining breve) — inside the `U+0300–U+036F` block a Latin accent fold
+     * strips. It is not `и` with decoration: it is its own letter of the Russian
+     * alphabet, and `мой` (my, masc. sg.) and `мои` (my, pl.) are two words.
+     *
+     * Two consequences follow from it being PRECOMPOSED, and they are why this
+     * entry bites one assertion and not the other. `\p{M}` does not match either
+     * member as written, so the mechanism assertion — "a mark came out the other
+     * side" — has nothing to look at and skips it. What catches a fold here is
+     * DISTINCTNESS: the two words must not land on one string.
+     *
+     * Cyrillic was in this corpus from the start and its `variant` slot went to
+     * the CASING pair, for #832's `[A-Z]` reasoning. That is why the mark-eating
+     * gate could not see #854 — not because Cyrillic was missing, but because
+     * the one variant slot was already spent.
+     */
+    markPair: {
+      marked: 'мой',
+      markedGloss: 'my (ru, masculine singular) — the й carries U+0306 under NFD',
+      unmarked: 'мои',
+      unmarkedGloss: 'my (ru, plural) — a DIFFERENT word, spelled with и',
+    },
   },
   {
     script: 'Devanagari',
@@ -131,6 +221,12 @@ export const SCRIPT_CORPUS: readonly ScriptSample[] = [
     variantGloss: 'bicycles (hi) — differs by combining marks',
     adjective: 'नया',
     adjectiveGloss: 'new (hi)',
+    markPair: {
+      marked: 'साइकिलें',
+      markedGloss: 'bicycles (hi) — carries the ें matra',
+      unmarked: 'साइकिल',
+      unmarkedGloss: 'bicycle (hi)',
+    },
   },
   {
     script: 'Han',
@@ -140,6 +236,8 @@ export const SCRIPT_CORPUS: readonly ScriptSample[] = [
     variantGloss: undefined,
     adjective: '全新',
     adjectiveGloss: 'brand new (zh-Hans)',
+    /** Han carries no combining marks at all. */
+    markPair: undefined,
   },
   {
     script: 'Hiragana',
@@ -151,6 +249,21 @@ export const SCRIPT_CORPUS: readonly ScriptSample[] = [
     variantGloss: 'the same word without dakuten on the first kana — a different word',
     adjective: 'あたらしい',
     adjectiveGloss: 'new (ja)',
+    /**
+     * Precomposed like Cyrillic's: `じ` is U+3058 and decomposes to `し` +
+     * U+3099. The dakuten is NOT in the Latin block, so a fold stripping only
+     * `U+0300–U+036F` leaves it alone — but one stripping every `\p{M}` eats it,
+     * and #838 measured `strip_diacritics:1` doing exactly that and returning
+     * `してんしゃ`, a different and meaningless word. That defect has its own
+     * named case below; recording the pair here extends the same protection to
+     * every OTHER fold, none of which had it.
+     */
+    markPair: {
+      marked: 'じてんしゃ',
+      markedGloss: 'bicycle (ja) — じ is し plus the dakuten U+3099 under NFD',
+      unmarked: 'してんしゃ',
+      unmarkedGloss: 'a different, meaningless word — what #838 measured coming back',
+    },
   },
   {
     script: 'Katakana',
@@ -161,6 +274,9 @@ export const SCRIPT_CORPUS: readonly ScriptSample[] = [
     variantGloss: 'the same word in HALF-WIDTH katakana',
     adjective: 'ニュー',
     adjectiveGloss: 'new (ja, from English "new")',
+    // The Hiragana entry already carries the dakuten pair; a katakana twin would
+    // measure the same codepoint through the same folds.
+    markPair: undefined,
   },
 ];
 
@@ -193,4 +309,32 @@ export function scriptVariant(script: ScriptFamily): string {
     throw new Error(`corpus sample for ${script} carries no variant to compare against`);
   }
   return variant;
+}
+
+/**
+ * Every script carrying a {@link ScriptMarkPair} — the mark-eating gate's
+ * subjects, DERIVED rather than listed.
+ *
+ * `text-fold-script-behaviour.test.ts` held this as a two-element literal, and
+ * #854 is what that cost: `normalizeCatalogAlias` and `foldPhrase` sat in its
+ * mark-PRESERVING register for a week claiming a property they do not have,
+ * because the only scripts they were measured against were the two somebody had
+ * written down. A fold cannot be wrong about a script nobody asked it about.
+ */
+export function markBearingScripts(): ScriptFamily[] {
+  return SCRIPT_CORPUS.filter((entry) => entry.markPair !== undefined).map((entry) => entry.script);
+}
+
+/**
+ * One script's mark pair.
+ *
+ * THROWS when the script has none, for {@link scriptVariant}'s reason: a caller
+ * that received `undefined` would assert it away and read as a passing test.
+ */
+export function scriptMarkPair(script: ScriptFamily): ScriptMarkPair {
+  const { markPair } = scriptSample(script);
+  if (markPair === undefined) {
+    throw new Error(`corpus sample for ${script} carries no mark pair`);
+  }
+  return markPair;
 }
