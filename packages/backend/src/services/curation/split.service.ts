@@ -97,7 +97,7 @@ import {
   productIdentifiers,
 } from '../../db/schema/canonicalCatalog.js';
 import { nativeListingLinks, offers } from '../../db/schema/offers.js';
-import { normalizeEntityName } from '../canonical/normalization.js';
+import { NAME_FOLD_VERSION, normalizeEntityName } from '../canonical/normalization.js';
 import { splitImpactFromAssignments, impactColumnValues } from './impact.js';
 import { CURATED_ENTITIES } from './entity-registry.js';
 import { rebuildEntityRollups } from './rollups.js';
@@ -628,6 +628,10 @@ async function runMintPhase(
       slug,
       name,
       normalizedName: normalizeEntityName(name),
+      // #915: a split MINTS a canonical product, so it folds and must stamp.
+      // Leaving it to the column default is correct only while the constant is
+      // 1 — after a bump this row would claim a fold it was not built under.
+      nameFoldVersion: NAME_FOLD_VERSION,
       brandId: parent?.brandId ?? null,
       familyId: parent?.familyId ?? null,
       categoryId: parent?.categoryId ?? null,

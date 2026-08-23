@@ -70,6 +70,7 @@ import {
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { contentHashOf, type JsonValue } from './content-hash.js';
 import {
+  NAME_FOLD_VERSION,
   normalizeAliasLookup,
   normalizeDomain,
   normalizeEntityName,
@@ -135,6 +136,9 @@ export async function createBrand(input: CreateBrandInput): Promise<BrandRow> {
         slug,
         name,
         normalizedName,
+        // #915: stamped WITH the value, in the same statement, so a row can
+        // never carry a fold version it was not folded under.
+        nameFoldVersion: NAME_FOLD_VERSION,
         description: input.description ?? null,
         websiteUrl: input.websiteUrl ?? null,
         observedDomains,
@@ -204,6 +208,9 @@ export async function updateBrand(brandId: string, input: UpdateBrandInput): Pro
       if (name !== brand.name) {
         patch.name = name;
         patch.normalizedName = normalizedName;
+        // #915: the re-fold and its version move together — a patch that set
+        // one without the other is the divergence the column exists to detect.
+        patch.nameFoldVersion = NAME_FOLD_VERSION;
         pinned.add('name');
         await insertBrandAlias(tx, {
           brandId,

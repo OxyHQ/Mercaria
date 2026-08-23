@@ -148,6 +148,15 @@ export const catalogProposals = pgTable(
      */
     normalizedLabel: text().notNull(),
     /**
+     * Which {@link normalizeEntityName} version folded `normalizedLabel` (#915).
+     *
+     * Not `normalization_version`: `canonical_attribute_values.normalization_rule_version`
+     * is a DIFFERENT fold over different values. See `NAME_FOLD_VERSION` for what
+     * a bump obliges — the fold runs on both sides, so a query folded under a
+     * newer version misses a row folded under an older one SILENTLY.
+     */
+    nameFoldVersion: integer().notNull().default(1),
+    /**
      * The SEARCH form — accent-folded and lower-cased, the space the trigram
      * index lives in. Separate from `normalized_label` because the two answer
      * different questions: the normalized form decides CONVERGENCE (is this the

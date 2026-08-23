@@ -33,7 +33,17 @@ export type ProductFamilyRow = typeof canonicalProductFamilies.$inferSelect;
 export type ProductFamilyAliasRow = typeof canonicalProductFamilyAliases.$inferSelect;
 export type ProductFamilySourceLinkRow = typeof canonicalProductFamilySourceLinks.$inferSelect;
 export type ProductFamilyRedirectRow = typeof canonicalProductFamilyRedirects.$inferSelect;
-export type InsertProductFamilyInput = typeof canonicalProductFamilies.$inferInsert;
+/**
+ * #915: `nameFoldVersion` is REQUIRED here, though the column has a DEFAULT.
+ *
+ * The database default is load-bearing — the serving image writes none of these
+ * columns and they are NOT NULL — but a default also makes `$inferInsert` mark
+ * the field OPTIONAL, which is how a new writer folds a name and silently takes
+ * version 1 while folding under 2. The requirement is re-imposed at the input
+ * type instead. Reasoning in full: `canonicalProductRepository.ts`.
+ */
+export type InsertProductFamilyInput = typeof canonicalProductFamilies.$inferInsert &
+  Required<Pick<typeof canonicalProductFamilies.$inferInsert, 'nameFoldVersion'>>;
 
 /** The columns an update may touch. Identity columns are absent on purpose. */
 export type ProductFamilyPatch = Partial<
@@ -41,6 +51,8 @@ export type ProductFamilyPatch = Partial<
     ProductFamilyRow,
     | 'name'
     | 'normalizedName'
+    // #915: patchable so a re-fold moves the value and its version together.
+    | 'nameFoldVersion'
     | 'description'
     | 'brandId'
     | 'categoryId'

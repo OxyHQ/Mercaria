@@ -1037,6 +1037,13 @@
       "when": 1787473636972,
       "tag": "0147_zippy_karen_page",
       "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1787488527127,
+      "tag": "0148_lyrical_turbo",
+      "breakpoints": true
     }
   ]
 }
