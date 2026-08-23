@@ -12,6 +12,12 @@
 
 import { z } from 'zod';
 import { isLiveEntityId } from '@oxyhq/db';
+// #906: the SAME bounds the authoring path applies, imported rather than
+// retyped — a second number here would be a second answer to one question.
+import {
+  MAX_VALUES_PER_VARIANT_AXIS,
+  MAX_VARIANT_AXES_PER_PRODUCT,
+} from './catalog-authoring-schemas.js';
 import {
   ABUSE_REPORT_CATEGORIES,
   ABUSE_REPORTED_TYPES,
@@ -88,10 +94,15 @@ const optionValueSchema = z.object({
   value: z.string().trim().min(1),
 });
 
-/** A selectable option and its allowed values. */
+/**
+ * A selectable option and its allowed values.
+ *
+ * `values` is capped at {@link MAX_VALUES_PER_VARIANT_AXIS}, the SAME bound
+ * `catalog-authoring-schemas.ts` puts on one axis's answers — see #906.
+ */
 const listingOptionSchema = z.object({
   name: z.string().trim().min(1),
-  values: z.array(z.string().trim().min(1)).min(1),
+  values: z.array(z.string().trim().min(1)).min(1).max(MAX_VALUES_PER_VARIANT_AXIS),
 });
 
 /** SEO override (title/description) shared by store products and collections. */
@@ -205,7 +216,7 @@ export const releasePinnedFieldsSchema = z
 
 /** A variant supplied when creating a store product (CreateStoreProductVariantInput). */
 const createStoreProductVariantSchema = z.object({
-  optionValues: z.array(optionValueSchema),
+  optionValues: z.array(optionValueSchema).max(MAX_VARIANT_AXES_PER_PRODUCT),
   price: moneySchema,
   compareAtPrice: moneySchema.optional(),
   sku: z.string().trim().min(1).optional(),
@@ -223,7 +234,7 @@ export const createStoreProductSchema = z.object({
   category: z.string().trim().min(1),
   imageFileIds: z.array(z.string().trim().min(1)),
   tags: z.array(z.string().trim().min(1)).optional(),
-  options: z.array(listingOptionSchema),
+  options: z.array(listingOptionSchema).max(MAX_VARIANT_AXES_PER_PRODUCT),
   variants: z.array(createStoreProductVariantSchema).min(1),
   vendor: z.string().trim().min(1).optional(),
   productType: z.string().trim().min(1).optional(),
@@ -242,7 +253,7 @@ export const updateVariantSchema = z
     barcode: z.string().trim().min(1).optional(),
     price: moneySchema.optional(),
     compareAtPrice: moneySchema.nullable().optional(),
-    optionValues: z.array(optionValueSchema).optional(),
+    optionValues: z.array(optionValueSchema).max(MAX_VARIANT_AXES_PER_PRODUCT).optional(),
     inventory: z
       .object({
         tracked: z.boolean().optional(),
@@ -1227,7 +1238,7 @@ export const connectPushChannelSchema = z.object({
 
 /** One ingested variant (`IngestProductVariant`). */
 const ingestVariantSchema = z.object({
-  optionValues: z.array(optionValueSchema).optional(),
+  optionValues: z.array(optionValueSchema).max(MAX_VARIANT_AXES_PER_PRODUCT).optional(),
   price: moneySchema,
   compareAtPrice: moneySchema.optional(),
   sku: z.string().trim().min(1).max(120).optional(),
@@ -1269,7 +1280,7 @@ const ingestProductSchema = z.object({
   images: z
     .array(z.string().trim().url().startsWith('http', 'Must be an absolute http(s) URL'))
     .optional(),
-  options: z.array(listingOptionSchema).optional(),
+  options: z.array(listingOptionSchema).max(MAX_VARIANT_AXES_PER_PRODUCT).optional(),
   variants: z.array(ingestVariantSchema).min(1),
   vendor: z.string().trim().min(1).max(200).optional(),
   productType: z.string().trim().min(1).max(200).optional(),

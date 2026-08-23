@@ -148,9 +148,28 @@ const answer = z
     { message: 'an answer carries exactly one of text, number, boolean, enumValueId or canonicalRef' },
   );
 
+/**
+ * How many DIMENSIONS one product may vary along, and how many VALUES one of
+ * them may offer (#367 lines 762 / 431).
+ *
+ * Exported because they are the answer for the legacy store-product write too
+ * (`middleware/schemas.ts`), which had no bound at all in either dimension
+ * until #906. A different number there would be a second answer to a question
+ * this module already answers, and the one somebody consulted would be
+ * whichever they found first — the two-representations defect arriving as a
+ * validation constant.
+ *
+ * **Both are CHOSEN, not measured.** 16 and 64 are what the authoring wizard
+ * generates within before it refuses; neither is derived from a measurement of
+ * server cost. That provenance travels with them so nobody reads an inherited
+ * number as an empirical one.
+ */
+export const MAX_VARIANT_AXES_PER_PRODUCT = 16;
+export const MAX_VALUES_PER_VARIANT_AXIS = 64;
+
 /** The answers for one field. An empty `values` CLEARS it — a real request. */
 const fieldAnswers = z
-  .object({ attributeKey, values: z.array(answer).max(64) })
+  .object({ attributeKey, values: z.array(answer).max(MAX_VALUES_PER_VARIANT_AXIS) })
   .strict();
 
 const variantInput = z
@@ -162,7 +181,7 @@ const variantInput = z
     compareAtPrice: money.optional(),
     inventoryTracked: z.boolean().optional(),
     inventoryAvailable: z.number().int().min(0).max(1_000_000),
-    axes: z.array(fieldAnswers).max(16),
+    axes: z.array(fieldAnswers).max(MAX_VARIANT_AXES_PER_PRODUCT),
     selectedCanonicalVariantId: entityId.nullable().optional(),
   })
   .strict();
