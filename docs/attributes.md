@@ -320,103 +320,180 @@ specification and have a price filter find it.
   definition publication/deprecation, with a deterministic id so a repeat
   converges. The CONSUMER is #61's; the record is written now.
 
-## Who reads a definition, and why nothing asserts that they agree (#367 line 1034)
+## Who reads a definition, and how the six surfaces reach one (#367 line 1034)
 
-Line 1034 asks that six surfaces use the same attribute definitions. **The ID
-half is gated everywhere and the definition half is asserted nowhere**, and the
-reason is recorded here rather than closed with a gate, because a gate would be
-wrong rather than merely unnecessary.
+Line 1034 asks that **category pages, menus, search interpretation, facets, PDP
+specs and comparisons use the same IDs/definitions.** On today's code they do.
+This section records how, because the *how* is the part that is easy to get
+wrong and was got wrong three times before it was measured.
 
-**Measured over non-test modules, and re-measurable** — a reader whose count
-differs should re-run it and correct this table, not assume they miscounted. The
-numbers below were wrong twice in the audit this decision came from (once for
-`facets`, once for `product-page`), which is the argument for a measured figure
-over a cited one: **a citation keeps reading as authoritative after the thing it
-cites has moved, and a measured number is falsifiable by one command.**
+**A surface is a frontend composition over several backend rails, and the
+relation is many-to-many.** There is no module per surface. Two independent
+attempts to write one down produced two different wrong mappings — one by
+concept word (`taxonomy` because it contains the idea of a category), one by the
+nearest-looking route (`catalog-pages`, which serves brand and family pages) —
+and neither is a careless reading. **The module whose name shares a word with a
+surface is the one to check hardest, not the one to assume.**
 
-```
-git grep -c 'resolveDefinitionsForCategory\|resolveAllActiveDefinitions' \
-  -- 'packages/backend/src/services/<surface>' | grep -v __tests__
-```
+### What each surface composes
 
-`grep -c` counts matching LINES, not occurrences, so sum the rows a multi-file
-surface returns — and a single line naming BOTH symbols would undercount by one.
-Driven both ways on `search-intent`, the widest row: **4 lines, 4 occurrences**,
-so the two agree today. If they ever diverge, the occurrence count is the one
-this table means.
+Measured from the screen's own imports outward to the endpoint each hook calls.
 
+| surface | frontend entry | backend rails | definition-bearing rail |
+| --- | --- | --- | --- |
+| category pages | `app/(app)/categories/[handle].tsx` | `/categories`, `/listings`, `/facets`, `/navigation` | `services/facets` |
+| menus | `components/catalog/NavigationMenu.tsx` → `/navigation` | `services/navigation` | **none** |
+| search interpretation | `app/(app)/search.tsx` | `/search-intent`, `/search` | `services/search-intent` |
+| facets | `components/catalog/FacetRail.tsx` → `/facets` | `services/facets` | `services/facets` |
+| PDP specs | `app/(app)/p/[handle].tsx` | `/product-page`, `/catalog-attributes/{definitions,values}` | `controllers/catalog-attributes.controller.ts` |
+| comparisons | `app/(app)/compare.tsx` | `/comparison` | `services/comparison` |
 
-| surface | calls `resolveDefinitionsForCategory` / `resolveAllActiveDefinitions` | reaches another definition source |
+Two of these are worth reading twice. **A category page never calls
+`/taxonomy`** — `lib/catalog/category-tree.ts` resolves to `GET /categories`,
+which is `db/catalog/categoryRepository` plus `services/search.service`. And
+**the PDP composes its specification table client-side** from
+`/catalog-attributes/definitions` and `/catalog-attributes/values/...`
+(`lib/catalog/use-specifications.ts`, whose own docblock calls them *"the
+registry reads a product page needs"*), so its definition rail is a CONTROLLER
+and not a service. `services/product-page` reads no definition at all, which is
+#71's *"composes and does not decide"* holding completely.
+
+### Where each rail obtains a definition
+
+**Every definition read on the six compositions, by any route**, given as call
+sites rather than counts — a count over a symbol list is the thing that went
+wrong here three times, and a file:line cannot be off by a population.
+
+| rail | definition reads | resolves via |
 | --- | --- | --- |
-| `services/comparison` | 2 | — |
-| `services/facets` | 2 | — |
-| `services/search-intent` | 4 | — |
-| `services/navigation` | 0 | — |
-| `services/taxonomy` | 0 | `schemaSourceRepository` |
-| `services/product-page` | 0 | — |
+| `services/facets` | `facet.service.ts:162` | registry service |
+| `services/search-intent` | `plan.service.ts:407-408` | registry service |
+| `services/comparison` | `comparison.service.ts:498`, plus `listOperatorOnlyAttributeKeys` (`:50`) | registry service, and the registry's OWN repository |
+| `controllers/catalog-attributes.controller.ts` | `:69`, `:70`, `:78`, `:79`, `:180` | registry service |
+| `services/navigation` | none | — |
+| `services/product-page` | none | — |
+| `services/search` | none | — |
+| `/categories` → `categoryRepository`, `search.service` | none | — |
+| **`/categories` and `/listings` → `services/catalog-hydration.service.ts:84`** | **`listVariantAxesForListings`** | **the TABLE, directly** |
 
-**Three surfaces obtain a definition and all three go through the registry's own
-entry points.** The one apparent exception is not one: `comparison.service.ts`
-imports `listOperatorOnlyAttributeKeys` from `db/attributes/definitionRepository`
-— the registry's OWN repository, one layer down, not a second answer.
+`services/product-page`'s zero is measurable rather than argued. Over its
+**non-test** modules — occurrences on non-test lines, one instrument for every
+row — `attribute` is **1** (the English word *attributed*, in a comment about an
+affiliate link, `outbound.ts:34`) and `attributeDefinitionId`, `projection`,
+`specification` and `spec` are each **0**, against a control of **148** for
+`offer`.
 
-**Three obtain no definition at all**, each for its own reason:
+```
+grep -rn --include=*.ts '<word>' packages/backend/src/services/product-page \
+  | grep -v __tests__ | grep -o '<word>' | wc -l
+```
 
-- **`navigation`** keys on `category_id`. That is line 1034's identity half, and
-  it needs no definition to render a tree.
-- **`taxonomy`** reads `schemaSourceRepository`, and its own docblock says which
-  part: *"`db/catalogAuthoring/schemaSourceRepository.ts`'s recursive CTE"* — a
-  category-tree walk. It is a definition-adjacent repository being used for a
-  category fact.
-- **`product-page`** names no attribute definition anywhere. Its **non-test
-  modules** — the population this whole table is measured over — contain **one**
-  occurrence of the string `attribute`, and it is the English
-  word inside a comment about an affiliate *attributed* link
-  (`outbound.ts:34`); `attributeDefinitionId` appears **zero** times. **The page
-  reads no registry** — which is #71's *"composes and does not decide"* holding
-  completely, and is exactly what those zeros prove. By what route a
-  specification does reach the page is not asserted here: `projection`,
-  `specification` and `spec` each appear **zero** times in those same modules
-  (control: `offer`, 223), so any sentence naming one would be describing a
-  mechanism nobody has measured.
+### The one rail that is not the registry
+
+**`db/variantAxes/variantAxisRepository.ts` INNER JOINs `attribute_definitions`
+and selects its base `label` column.** `catalog-hydration.service.ts:449` calls
+it and `services/variant-axes/projection.ts:149` renders the result as the
+axis's user-visible `name`; that module's own docblock states it — *"The axis
+NAME is `attribute_definitions.label`, resolved at read time."*
+
+**On line 1034's actual question this is clean, structurally rather than by
+convention.** The join is on `attribute_definition_id`, which is `notNull` with
+an `ON DELETE restrict` edge to `attribute_definitions.id`, and the join is
+INNER. It cannot cite a definition that does not exist and it cannot cite a
+different one. The repository argues the INNER join for that reason in its own
+comment.
+
+**What it cannot do is localize, and that is the finding rather than a
+footnote.** The registry's DTO carries `label: row.label` *and* `labels:
+resolved.labels`; this rail reads the base column and never touches
+`attribute_labels` — **0** occurrences across all three of its files
+(`catalog-hydration.service.ts`, `variantAxisRepository.ts`, `projection.ts`)
+against a `label` control of 1, 5 and 9. So on a category page the facet rail is
+locale-resolved and the listing card's axis names are not, from the same
+definition row.
+
+> **One rail reads the definition table directly, and a change to how the
+> registry answers will not reach it.**
+
+*Resolves to the same row* and *resolves through the registry* are different
+guarantees, and the difference is already live: the registry grew a localized
+label chain and this rail did not follow, **because nothing makes it.** Anyone
+changing how the registry answers needs this paragraph, not the tick above it.
+
+The gap itself belongs to **line 69** (*"Make all UI labels … localizable"*),
+which is open. It does not touch lines 542 or 559 — those sit under *Product
+detail pages* and *Product comparison*, and both rails resolve labels through
+the registry, the PDP through ADR 0007 D4's chain in
+`lib/catalog/variant-axes.ts:121-141`.
+
+### The population was wrong three times and the conclusion never moved
+
+The first census here answered *"who calls the two registry entry points, under
+`services/<surface>`"*. It was under-specified in three independent dimensions,
+each found only by looking where there was no reason to expect an answer:
+
+| dimension | the miss | effect |
+| --- | --- | --- |
+| population layer | scoped to `services/`; one rail is a **controller** | a surface's whole definition rail invisible, its row read `0` |
+| symbol set | grepped **2** symbols; the registry service exports **5** read resolvers | 9 files → **17** |
+| depth | entry points only | missed a repository that joins the table two layers down |
+
+**Derive an entry-point census from the module's EXPORT SURFACE, not from the
+symbols you have seen called** — `resolveActiveDefinition`,
+`resolveDefinitionVersion`, `resolveAllActiveDefinitions`,
+`resolveDefinitionsForCategory` and `listDefinitionHistory`, all five:
+
+```
+grep -rlE 'resolveActiveDefinition|resolveDefinitionVersion|resolveAllActiveDefinitions|resolveDefinitionsForCategory|listDefinitionHistory' \
+  packages/backend/src --include=*.ts | grep -v __tests__ | wc -l      # 17
+```
+
+**Every widening left the verdict where it was**, and it also simplified it: none
+of the eight files the wider symbol set adds is on any of the six compositions
+(the internal controller, a seed script, `attribute-observation`,
+`value-extension`, `catalog-governance/definition-diff` and the two
+`variant-axes` modules), and `services/taxonomy` — which an earlier draft of this
+table listed as the category-page rail — is on **no** surface composition at all.
+A repeatedly-corrected instrument with a stable answer is evidence; a
+right-first-time one is a claim.
 
 ## Why a gate here would be wrong, not merely unnecessary
 
-A gate asserting all six call the registry **would fail three surfaces for being
-correctly designed.** It is the same shape as demanding an
-`accessibilityLabel` on a control already named by its own text — the check goes
+A gate asserting all six call the registry **would fail three rails for being
+correctly designed** — `navigation`, `product-page` and `search` obtain no
+definition because they need none. It is the same shape as demanding an
+`accessibilityLabel` on a control already named by its own text: the check goes
 red on correct code, and whoever hits it deletes the check rather than the
 design.
 
-**And the honest question is not "do all six call it" but "does any of the six
-obtain a definition by a route that could disagree with the registry".** Today
-none does, so a scan for that route is a census over an empty set — which reads
-as coverage and measures nothing.
+**And the honest question is not "do all six call it" but "does any rail obtain a
+definition by a route that could disagree with the registry".** One rail obtains
+one by a route the registry does not own, and it is pinned to the same row by a
+foreign key — so the scan a gate would run has exactly one hit and that hit is
+correct. A census whose only finding is a true positive it must then exempt
+reads as coverage and measures nothing.
 
 ## What would change this, and why it is a fact about today
 
-**The absence is not a structural guarantee.** Six repositories read
-`attribute_definitions` directly — `definitionRepository`,
+**The absence of a second answer is not a structural guarantee.** Six
+repositories read `attribute_definitions` directly — `definitionRepository`,
 `schemaSourceRepository`, `conceptReadRepository`, `completenessRepository`,
-`duplicateRepository` and `variantAxisRepository` — so a surface obtaining a
-definition **without** going through `resolveDefinitionsForCategory` /
-`resolveAllActiveDefinitions` is writable, not unrepresentable. It simply has not
-been written.
+`duplicateRepository` and `variantAxisRepository` — so a rail obtaining a
+definition without going through the registry is writable, and one already does.
+Four services read the table directly too (`catalog-backfill`,
+`catalog-governance`, `catalog-localization`, `catalog-observability`); all four
+are back-office and none is on a surface composition.
 
 So the condition that turns this decision into a gate is one of:
 
-1. a surface reading a definition through any repository other than
-   `db/attributes/definitionRepository`; or
-2. a surface declaring an attribute key, a field list or a definition id as a
+1. a rail reading a definition through a repository other than
+   `db/attributes/definitionRepository`, where the read is not pinned to the
+   definition id by a foreign key; or
+2. a rail declaring an attribute key, a field list or a definition id as a
    literal rather than resolving one.
 
 Either makes a violating line writable AND present, at which point there is
-something for a scan to find.
-
-**This does not tick line 1034.** The line asks that six surfaces use the same
-definitions; what is recorded above is that three use none and three use the
-registry — which is *why nothing asserts agreement*, not evidence that they
-agree.
+something for a scan to find that is not already correct.
 
 ## API
 
