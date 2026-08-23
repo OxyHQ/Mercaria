@@ -376,26 +376,56 @@ nothing about whether a shopper touched one.
 
 ### 4. `backfill_dead_letter_count` — `no_dead_letter_state`
 
-Would separate "still retrying" from "given up".
+Would count runs that gave up after EXHAUSTING their retries.
 
-**None of #367's own queues has a dead-letter state.**
-`catalog_backfill_runs`, `catalog_external_mapping_runs` and
-`catalog_external_token_observations` record `last_error` and no more — **neither
-run table has an `attempts` column at all** (`db/schema/backfill.ts:140-200`,
-`db/schema/catalogExternalMappings.ts:764-802`; the `attempts` column that does
-exist is `attribute_reindex_requests`', `db/schema/attributeRegistry.ts:560`, and
-nothing increments it). So a run that has given up is indistinguishable from one
-still retrying, and there is no retry counter on the run to read either. #58's
-`match_queue` DOES have one and IS measured, as
-`match_queue_dead_letter_count` — which is precisely why this is `unmeasured`
-rather than zero: the concept exists one domain over, so a zero here would read
-as "none" instead of "not a state these tables have". Reporting it as `0` would
-put a permanently green tile on a dashboard for a condition that cannot occur.
+**The missing half is the RETRY, not the terminal state — and this section said
+the opposite until it was measured.** `failed` IS terminal and unclaimable:
+`RESUMABLE` is `['pending', 'paused']`
+(`db/backfill/backfillRunRepository.ts:38`) and the claim predicate admits only
+those or a `running` row whose lease expired (`:159`). So a run that has given
+up is **exactly** distinguishable from one still going, by claimability — the
+earlier text here ("indistinguishable from one still retrying") described an
+absence that is not there.
 
-**What closes it:** a terminal state on those three tables, or the explicit
-decision that their retries are unbounded — recorded either way. This is also
-W16's "add dead-letter/retry handling for asynchronous jobs", which is therefore
-NOT done for this epic's own queues.
+What is genuinely absent is an **automatic, bounded** retry. There is **no
+`max_attempts` anywhere in the catalog backfill domain**, so a run terminates on
+its FIRST page-level error while still holding a good cursor, and waits for a
+person. **The catalog failure mode is give-up-instantly, not retry-forever** —
+the opposite of what a reader would assume from the five outbox implementations
+elsewhere in this repository.
+
+`catalog_backfill_records.attempts` is not a counter-example, and it is worth
+saying so because it is the first thing a reader finds: it counts how many times
+a subject has been **re-examined across runs an operator started**
+(`db/schema/backfill.ts:341`, incremented by the record upsert), and
+`backfill_retry_count` measures records above one. That is a poison-record
+signal, not a retry loop — and having no bound is precisely why nothing can
+exhaust one.
+
+So "zero dead letters" is still a category error, for a sharper reason: nothing
+can exhaust retries it never makes. And the tempting fix is worse than the gap
+— a metric named for exhaustion, over a state reached on the first error, would
+carry REAL NUMBERS under a false meaning, which is harder to catch than a green
+zero because the numbers look like evidence.
+
+**It is deliberately not renamed either.** "Runs an operator must restart" is a
+real operational question with a real answer today, and
+`backfill_failed_run_count` already answers it — `count(*) where status =
+'failed'`. A second metric over one predicate is two names for one number.
+
+**That neighbouring metric's own attribution limit was WRONG and is corrected
+in the same change**: it read *"a failed run keeps its cursor and is resumable,
+so this is work outstanding rather than work lost."* A failed run keeps its
+cursor and is **not** resumable. It was telling an operator that stopped work
+would resume — a live, measured number under a false reassurance, which is
+worse than the unmeasured one beside it.
+
+**What closes it:** a BOUNDED RETRY on those tables, keeping `failed` as the
+terminal state it already behaves like. The exhaustion reading becomes true the
+moment there is something to exhaust. This is also W16's "add
+dead-letter/retry handling for asynchronous jobs", which is therefore NOT done
+for this epic's own queues — and the reason is now known to be the retry rather
+than the state.
 
 ### 5. `reindex_throughput` — `no_consumer_registered`
 
