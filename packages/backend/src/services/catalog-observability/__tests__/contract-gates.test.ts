@@ -38,6 +38,7 @@ import {
   CATALOG_METRICS,
   CATALOG_METRIC_KEYS,
   CATALOG_METRIC_KINDS,
+  CATALOG_IN_PROCESS_METRIC_SOURCES,
   CATALOG_METRIC_SOURCES,
   CATALOG_METRIC_WINDOWS,
   CATALOG_PROPOSAL_AGE_BANDS,
@@ -265,19 +266,32 @@ describe('#367 W17 — every metric states its numerator, denominator, window an
   });
 
   it('only an in-process counter may claim zero staleness', () => {
-    // `freshnessSeconds === 0` ⟺ `source === 'route_observations'`. Both
-    // directions: a Postgres aggregate declaring 0 would tell a dashboard its
-    // number is never stale, and a route observation declaring 300 would suggest
-    // there is a cache in front of a module-scope integer.
+    // `freshnessSeconds === 0` ⟺ the source is one of
+    // `CATALOG_IN_PROCESS_METRIC_SOURCES`. Both directions: a Postgres aggregate
+    // declaring 0 would tell a dashboard its number is never stale, and an
+    // in-process counter declaring 300 would suggest there is a cache in front
+    // of a module-scope integer.
+    //
+    // Read off the named tuple rather than a source LITERAL, which is what this
+    // was and what made a second in-process source (#367 line 324's shadow
+    // counters) fail a rule it satisfies. A literal here is a hand-maintained
+    // map of one entry.
     const zeroFreshness = CATALOG_METRICS.filter((metric) => metric.freshnessSeconds === 0)
       .map((metric) => metric.key)
       .sort();
-    const inProcess = CATALOG_METRICS.filter((metric) => metric.source === 'route_observations')
+    const inProcess = CATALOG_METRICS.filter((metric) =>
+      CATALOG_IN_PROCESS_METRIC_SOURCES.includes(metric.source),
+    )
       .map((metric) => metric.key)
       .sort();
     // The floor: with neither set populated this would be `[] === []`.
     expect(inProcess.length).toBeGreaterThanOrEqual(3);
     expect(zeroFreshness).toEqual(inProcess);
+    // And the tuple must name only real sources, or a typo in it would silently
+    // shrink `inProcess` back toward the literal this replaced.
+    for (const source of CATALOG_IN_PROCESS_METRIC_SOURCES) {
+      expect(CATALOG_METRIC_SOURCES, `${source} is not a declared source`).toContain(source);
+    }
   });
 
   it('every key is unique, and CATALOG_METRIC_KEYS is DERIVED rather than restated', () => {

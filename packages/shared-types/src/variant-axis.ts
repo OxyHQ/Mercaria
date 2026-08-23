@@ -243,6 +243,35 @@ export const NATIVE_CLAIM_FORBIDDEN_TARGETS: readonly string[] = [
 ];
 
 /* -------------------------------------------------------------------------- */
+/* Which representation a catalogue READ prefers (#367 line 324)               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Whether a hydration read serves a listing's options from the TYPED axes or
+ * from the legacy free-text tables.
+ *
+ * #367 line 324 asks that `listing_options` and `product_variant_option_values`
+ * become "a migration compatibility projection/fallback, not the new source of
+ * truth". That is a question about which table a READ prefers, and no listing's
+ * own state can answer it — which is why this is a deployment lever and not a
+ * column.
+ *
+ * - `off` — legacy only. Today's behaviour exactly, and the default.
+ * - `shadow` — compute BOTH, record how they compared, serve LEGACY. The
+ *   instrument, not the change.
+ * - `on` — prefer the typed axes for any listing that declares them; fall back
+ *   to legacy for every listing that does not.
+ *
+ * The three members are `CANONICAL_READ_MODES`' spelling because it is the
+ * right vocabulary, and a SEPARATE tuple because this lever gates the NATIVE
+ * catalogue rather than the canonical graph. One tuple serving two rollouts is
+ * a shared fate nobody chose: widening one would widen the other.
+ */
+export type VariantAxisReadMode = 'off' | 'shadow' | 'on';
+
+export const VARIANT_AXIS_READ_MODES: readonly VariantAxisReadMode[] = ['off', 'shadow', 'on'];
+
+/* -------------------------------------------------------------------------- */
 /* The variant signature (ADR 0007 D6)                                         */
 /* -------------------------------------------------------------------------- */
 

@@ -67,8 +67,11 @@ vi.mock('../../middleware/auth.js', () => ({
   oxyClient: { getFileDownloadUrl: (id: string, variant?: string) => `media:${id}:${variant ?? 'full'}` },
 }));
 
+// #367 line 324: `off` is the default and today's behaviour, so every case in
+// this file keeps reading the legacy option tables and none of them changes.
+// The three modes are driven in `catalog-hydration-variant-axes.test.ts`.
 vi.mock('../../config/index.js', () => ({
-  config: { feed: { storeCardThumbnails: 3 } },
+  config: { feed: { storeCardThumbnails: 3 }, variantAxes: { reads: 'off' } },
 }));
 
 vi.mock('../../lib/logger.js', () => ({

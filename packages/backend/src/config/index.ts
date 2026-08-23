@@ -19,6 +19,7 @@ import type {
   ModerationEnforcementMode,
   SavedItemsReadMode,
   SeoIndexingMode,
+  VariantAxisReadMode,
 } from '@mercaria/shared-types';
 import {
   ALL_CURRENCY_CODES,
@@ -31,6 +32,7 @@ import {
   MERCHANT_DEMAND_WINDOW_DAYS,
   SAVED_ITEMS_READ_MODES,
   SEO_INDEXING_MODES,
+  VARIANT_AXIS_READ_MODES,
 } from '@mercaria/shared-types';
 import { tmpdir } from 'node:os';
 import { PRINTFUL_BASE_URL } from '../services/printful/transport-contract.js';
@@ -816,6 +818,25 @@ function resolveSavedItemsReadMode(): SavedItemsReadMode {
   log.general.error(
     { variable: 'PRODUCT_SAVE_READS', value: raw, allowed: SAVED_ITEMS_READ_MODES },
     "[config] saved-items read mode is not recognised; falling back to 'off'",
+  );
+  return 'off';
+}
+
+/**
+ * `VARIANT_AXIS_READS` → typed axes or the legacy option tables (#367 line 324).
+ *
+ * Falls back to `off` — today's behaviour — and the fallback is the whole of
+ * the safety here: an unrecognised value must not roll a deployment FORWARD
+ * onto a representation it has not shadowed, because the forward direction is
+ * the one that changes what a shopper reads.
+ */
+function resolveVariantAxisReadMode(): VariantAxisReadMode {
+  const raw = strEnv('VARIANT_AXIS_READS', 'off').trim().toLowerCase();
+  const mode = VARIANT_AXIS_READ_MODES.find((candidate) => candidate === raw);
+  if (mode !== undefined) return mode;
+  log.general.error(
+    { variable: 'VARIANT_AXIS_READS', value: raw, allowed: VARIANT_AXIS_READ_MODES },
+    "[config] variant axis read mode is not recognised; falling back to 'off'",
   );
   return 'off';
 }
@@ -2044,6 +2065,27 @@ export interface SellYoursConfig {
   readonly draftListLimit: number;
   /** How many canonical candidates an identify-step search offers. */
   readonly candidateLimit: number;
+}
+
+export interface VariantAxesConfig {
+  /**
+   * `VARIANT_AXIS_READS` — `off | shadow | on`, which representation a
+   * hydration read serves a listing's options FROM (#367 line 324).
+   *
+   * Defaults to `off`, which is today's behaviour exactly: the typed axes are
+   * written by the authoring publish path and by the backfill script and are
+   * read by no serving path, so a deployment adopting this image serves the
+   * legacy free-text tables as it always has.
+   *
+   * `shadow` is the instrument rather than the change — it computes both and
+   * counts how they compared, then serves LEGACY. It is what measures the
+   * desync `db/catalog/variantRepository.ts` `updateVariant` can create: that
+   * write replaces `product_variant_option_values` and touches no typed axis,
+   * so a connector re-sync or a merchant edit leaves the two disagreeing with
+   * nothing to notice. Run `shadow` before `on`, or the first thing `on`
+   * changes is which of the two a shopper is served during that disagreement.
+   */
+  readonly reads: VariantAxisReadMode;
 }
 
 export interface ProductSavesConfig {
@@ -3564,6 +3606,7 @@ export interface CatalogProposalsConfig {
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
+  readonly variantAxes: VariantAxesConfig;
   readonly productSaves: ProductSavesConfig;
   readonly watchlists: WatchlistsConfig;
   readonly sellYours: SellYoursConfig;
@@ -3775,6 +3818,9 @@ export const config: AppConfig = Object.freeze({
     guidanceSoldSampleSize: intEnv('SELL_YOURS_GUIDANCE_SOLD_SAMPLE_SIZE', 200),
     draftListLimit: intEnv('SELL_YOURS_DRAFT_LIST_LIMIT', 25),
     candidateLimit: intEnv('SELL_YOURS_CANDIDATE_LIMIT', 10),
+  }),
+  variantAxes: Object.freeze({
+    reads: resolveVariantAxisReadMode(),
   }),
   productSaves: Object.freeze({
     enabled: boolEnv('PRODUCT_SAVES_ENABLED', false),

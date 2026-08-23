@@ -51,6 +51,7 @@ import {
   SUPPORTED_LOCALES,
 } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
+import { readVariantAxisShadowCounters } from '../variant-axes/projection.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { summarizeMatchQueue } from '../../db/matching/matchQueueRepository.js';
 import { readCatalogQuality } from '../catalog-governance/quality.service.js';
@@ -704,6 +705,26 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
 
   reindex_pending_count: async (definition, { db }) =>
     count(definition, await countPendingReindexRequests(db)),
+
+  /* ---- Typed variant axes on the catalogue read (#367 line 324) ----------- */
+  //
+  // Both read the SAME process-local counters, and neither checks the lever: a
+  // zero denominator already says it is off, and `ratio` keeps a zero
+  // denominator in the MEASURED branch (its own docblock's `0 / 0` rule). A
+  // `notMounted` branch here would report "we did not look" for a deployment
+  // that simply has not turned shadow on, which is a different sentence.
+  variant_axis_typed_coverage: async (definition) => {
+    const counters = readVariantAxisShadowCounters();
+    return ratio(definition, counters.listings - counters.typedAbsent, counters.listings);
+  },
+
+  variant_axis_shadow_divergence: async (definition) => {
+    const counters = readVariantAxisShadowCounters();
+    // `agreed + diverged` — the listings where both representations carried
+    // something. Using `listings` would make the rate track the migration
+    // backlog rather than the drift, and it would FALL as coverage rose.
+    return ratio(definition, counters.diverged, counters.agreed + counters.diverged);
+  },
 };
 
 /**

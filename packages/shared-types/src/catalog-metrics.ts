@@ -95,9 +95,42 @@ export const CATALOG_METRIC_SOURCES = [
   'analytics_search_queries',
   'facet_scope_sweep',
   'route_observations',
+  /**
+   * The shadow comparison in `services/variant-axes/projection.ts` (#367 line
+   * 324), counted as each listing is hydrated.
+   *
+   * Process-local like `route_observations`, and it resets on deploy for the
+   * same reason. It differs in one way worth naming here rather than in every
+   * metric that reads it: it records NOTHING unless `VARIANT_AXIS_READS` is
+   * `shadow` or `on`, so a zero denominator means the lever is off rather than
+   * that nobody browsed.
+   */
+  'variant_axis_shadow',
 ] as const;
 
 export type CatalogMetricSource = (typeof CATALOG_METRIC_SOURCES)[number];
+
+/**
+ * The sources that are MODULE-SCOPE COUNTERS in this process rather than a read
+ * of something durable.
+ *
+ * A subset of `CATALOG_METRIC_SOURCES`, and the reason it is named rather than
+ * spelled at each use is the biconditional `contract-gates.test.ts` holds:
+ * `freshnessSeconds === 0` exactly when the source is one of these. A metric
+ * over a Postgres aggregate declaring zero staleness would tell a dashboard its
+ * number is never stale; an in-process counter declaring 300 would suggest a
+ * cache in front of an integer. Written as ONE tuple so a third in-process
+ * source joins both halves of that rule in a single edit, rather than passing a
+ * gate keyed on a literal.
+ *
+ * They share the other property worth stating once: **they reset on deploy and
+ * on every task restart**, so a fleet reading is the sum over tasks and no
+ * single task's number is the answer.
+ */
+export const CATALOG_IN_PROCESS_METRIC_SOURCES: readonly CatalogMetricSource[] = [
+  'route_observations',
+  'variant_axis_shadow',
+];
 
 /**
  * The window a metric is computed over.
@@ -1179,6 +1212,47 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
         + '#61 declined to build the drain because the refresh semantics belong to a projection '
         + 'nobody has adopted. Closing it is that consumer.',
     },
+  },
+
+  /* ---- Typed variant axes on the catalogue read (#367 line 324) ----------- */
+  {
+    key: 'variant_axis_typed_coverage',
+    title: 'Typed variant axis coverage',
+    kind: 'ratio',
+    numerator:
+      'Listings hydrated while VARIANT_AXIS_READS was shadow or on that DECLARED at least one '
+      + 'native_listing_variant_axes row.',
+    denominator: 'All listings hydrated while that lever was shadow or on.',
+    window: 'since_process_start',
+    source: 'variant_axis_shadow',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'This is the migration backlog weighted by TRAFFIC, not by catalogue size: a listing '
+      + 'nobody views is never counted. That is deliberate — it answers "how much of what '
+      + 'people actually read is typed" — and it is why it is not a substitute for counting '
+      + 'listing_options rows. Zero denominator means the lever is off, not that nobody '
+      + 'browsed.',
+  },
+  {
+    key: 'variant_axis_shadow_divergence',
+    title: 'Typed vs legacy option divergence',
+    kind: 'ratio',
+    numerator:
+      'Hydrated listings whose typed axes and legacy option values rendered DIFFERENT ordered '
+      + 'value sequences for some variant.',
+    denominator:
+      'Hydrated listings where BOTH representations carried something — agreed plus diverged. A '
+      + 'listing with no typed axes is not a disagreement and is excluded, or the rate would '
+      + 'track the backlog instead of the drift.',
+    window: 'since_process_start',
+    source: 'variant_axis_shadow',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'Compares VALUES only. An axis NAME differing is ADR 0007 D6 working — one definition '
+      + 'behind Color, Colour and Tono — so counting it would make every backfilled listing '
+      + 'permanently diverged and hide the drift this exists to find. Non-zero means a write '
+      + 'path moved product_variant_option_values without moving the typed axis (#905), which '
+      + 'is what VARIANT_AXIS_READS=on would then serve.',
   },
 ];
 
