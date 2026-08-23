@@ -844,6 +844,70 @@ describe('resolving a field', () => {
     expect(resolved.step).toBe('language');
   });
 
+  it('prefers the es-mx row when an es row is ALSO servable — the ORDER, not the walk', () => {
+    // ## Why this case exists, and what was measured
+    //
+    // "The exact locale beats its language" is the whole of what a fallback
+    // chain decides, and until this case NOTHING in the repository could fail if
+    // it were reversed. Measured on `c83e28b0`: inverting `resolveLocalizedField`'s
+    // loop to `[...plan.rowLocales].reverse()` — so `es` is consulted before
+    // `es-mx` — left the ENTIRE backend suite green, 686 files and 10,930 tests.
+    //
+    // Every neighbouring case reads as coverage of this rule and none of them
+    // is. `reports an exact hit as exact` supplies only an `es-es` row;
+    // `falls to the language and says so` supplies only an `es` row; and
+    // `walks PAST a withdrawn or empty row` does supply both, but its `es-mx`
+    // row is `deprecated`, so `es` is the answer under EITHER ordering. A rule
+    // that arbitrates between two inputs cannot be tested by a fixture that
+    // supplies one of them.
+    //
+    // `localeFallbackChain('es-mx', …)` is separately pinned to
+    // `['es-mx', 'es', 'en']`. That pins the LIST; this pins that the resolver
+    // consumes it in the order it was handed.
+    const both = resolveLocalizedField({
+      field: 'category.name',
+      requestedLocale: 'es-mx',
+      candidates: [candidate('es', 'Zapatos'), candidate('es-mx', 'Tenis')],
+      baseValue: 'Shoes',
+    });
+    expect(both.outcome).toBe('resolved');
+    if (both.outcome !== 'resolved') return;
+    // `Tenis` is what a Mexican shopper is owed; `Zapatos` is the Castilian
+    // word. Two REAL words rather than `A`/`B`, so a reviewer can see that the
+    // wrong answer here is a wrong answer to a person.
+    expect(both.value).toBe('Tenis');
+    expect(both.effectiveLocale).toBe('es-mx');
+    expect(both.step).toBe('exact');
+
+    // The candidates are supplied `es` FIRST, so a resolver that scanned the
+    // CANDIDATE list instead of the chain would answer `Zapatos`. Array order is
+    // documented as irrelevant; this is what holds it to that.
+
+    // ## The control, without which the assertion above proves nothing
+    //
+    // The fixture is only discriminating if BOTH rows would have been served on
+    // their own. Take either away and the survivor answers — so neither is
+    // quietly non-servable, and the case above really did choose between two
+    // live options rather than finding one.
+    const esOnly = resolveLocalizedField({
+      field: 'category.name',
+      requestedLocale: 'es-mx',
+      candidates: [candidate('es', 'Zapatos')],
+      baseValue: 'Shoes',
+    });
+    expect(esOnly.outcome === 'resolved' && esOnly.value, 'the es row is not servable alone, so '
+      + 'the case above had only one real option').toBe('Zapatos');
+
+    const mxOnly = resolveLocalizedField({
+      field: 'category.name',
+      requestedLocale: 'es-mx',
+      candidates: [candidate('es-mx', 'Tenis')],
+      baseValue: 'Shoes',
+    });
+    expect(mxOnly.outcome === 'resolved' && mxOnly.value, 'the es-mx row is not servable alone, '
+      + 'so the case above had only one real option').toBe('Tenis');
+  });
+
   it('falls to the base value, which lives on the entity and never in a row', () => {
     const resolved = resolveLocalizedField({
       field: 'category.name',

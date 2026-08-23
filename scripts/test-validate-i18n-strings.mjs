@@ -1098,6 +1098,92 @@ const cases = [
     expectExit: 1,
     expectOutput: "packages/dashboard: 1 key lookup(s) falling back to the raw subscript",
   },
+  // --------------------------------------------------- L: no blank value ---
+  //
+  // Each of the three below was run against the guard BEFORE check L existed,
+  // and all three printed `i18n string guard passed` and exited 0. That is what
+  // makes them cases rather than coverage: the defect they carry was invisible
+  // to A, B, C, D, E, F, G, G' and K together.
+
+  {
+    name: "an EMPTY sibling value fails (L)",
+    files: (() => {
+      const files = migratedTree();
+      files["packages/dashboard/lib/i18n/locales/de.json"] = bundle((value) => {
+        value.common.save = "";
+        return value;
+      });
+      return files;
+    })(),
+    expectExit: 1,
+    // The file and the key in ONE substring, so this cannot be satisfied by some
+    // other bundle happening to be blank.
+    expectOutput: 'packages/dashboard/lib/i18n/locales/de.json: "common.save" is EMPTY',
+  },
+  {
+    name: "a WHITESPACE-ONLY sibling value fails (L)",
+    // Separate from the case above rather than folded into it: `""` and `"   "`
+    // reach the predicate by different routes (`length === 0` versus
+    // `trim().length === 0`), so a check written with `=== ""` passes this one
+    // while claiming to cover both.
+    files: (() => {
+      const files = migratedTree();
+      files["packages/dashboard/lib/i18n/locales/de.json"] = bundle((value) => {
+        value.common.save = "   ";
+        return value;
+      });
+      return files;
+    })(),
+    expectExit: 1,
+    expectOutput: 'packages/dashboard/lib/i18n/locales/de.json: "common.save" is WHITESPACE-ONLY',
+  },
+  {
+    name: "a blank ENGLISH value fails too (L)",
+    // The English bundle is what the other eleven fall back to, so a blank there
+    // is blank in every language at once — and a loop written to skip `en`, the
+    // way check B's parity loop correctly does, would miss the worst case while
+    // catching the milder ones.
+    files: (() => {
+      const files = migratedTree();
+      files["packages/dashboard/lib/i18n/locales/en.json"] = bundle((value) => {
+        value.common.cancel = "";
+        return value;
+      });
+      return files;
+    })(),
+    expectExit: 1,
+    expectOutput: 'packages/dashboard/lib/i18n/locales/en.json: "common.cancel" is EMPTY',
+  },
+  {
+    name: "a value that merely REPEATS English does NOT fire (L's boundary)",
+    // The negative half, and it is the one that keeps L shippable.
+    //
+    // "the sibling differs from English" is the tempting next check and it was
+    // MEASURED before being rejected: across the real bundles, 964 of 32,461
+    // non-English leaves are byte-identical to their English twin — 3.0% — and
+    // the sample is brand names (`Shopify`, `Etsy`, `Magento`), strings that are
+    // nothing but placeholders (`%{type} · %{items} · %{state}`), and code or
+    // URL placeholders (`ck_...`, `1Z…`, `https://example.com/products.csv`).
+    // Every one is correct copy. A check firing on them would be ~0% precision
+    // and would be switched off within a week, taking L with it.
+    //
+    // So this case pins the boundary: L is about a value with no CONTENT, never
+    // about a value with the WRONG content, which no static check can decide.
+    files: treeWithBundle((value) => {
+      value.channelName = "Shopify";
+      return value;
+    }, {
+      // Dashboard only: `treeWithBundle` mutates the DASHBOARD's bundles, so a
+      // call site in another app would name a key that app's en.json lacks and
+      // this case would go red on check C instead of on L.
+      "packages/dashboard/app/(app)/channel.tsx":
+        'import { useTranslation } from "@/lib/i18n";\n'
+        + "export default function S() { const { t } = useTranslation();\n"
+        + '  return <View><Text>{t("channelName")}</Text></View>; }\n',
+    }),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
 ];
 
 /**
