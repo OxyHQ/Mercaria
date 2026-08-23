@@ -148,19 +148,29 @@ describe('the forbidden list and the walked population are both real', () => {
     // when it grew — and re-stating the derived set here would reintroduce
     // exactly that, one indirection further along.
     //
-    // These five must be present because each is named by ADR 0007 D5 or landed
-    // with a decision recorded beside it; the count is what fails when a SIXTH
+    // These six must be present because each is named by ADR 0007 D5 or landed
+    // with a decision recorded beside it; the count is what fails when a SEVENTH
     // arrives, which is the conversation this gate exists to start.
+    //
+    // `product_type_field_allowed_values` was the sixth, and the conversation it
+    // started has a short answer: it is a pure JOIN — a field id, the definition
+    // id both its composite keys pin, and an `attribute_enum_values` id — so
+    // there is no column a default answer could live on and none may be added.
+    // It belongs IN the population rather than excused from it, because the
+    // forbidden-spelling scan below is exactly what should be walking it: a
+    // `defaultValue` arriving here would prefill a form with a value nobody
+    // asserted, which is the same defect one table over.
     for (const required of [
       'product_type_definitions',
       'product_type_category_scopes',
       'product_type_field_groups',
       'product_type_fields',
+      'product_type_field_allowed_values',
       'product_type_aliases',
     ]) {
       expect(names, `${required} is not in the derived population`).toContain(required);
     }
-    expect(names).toHaveLength(5);
+    expect(names).toHaveLength(6);
 
     process.stdout.write(
       `\n  [product-type defaults census] ${names.length} tables derived from the module: ` +

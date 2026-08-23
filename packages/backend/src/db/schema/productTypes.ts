@@ -90,7 +90,7 @@ import {
   type ProductTypeVisibilityRule,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf } from './columns';
-import { attributeDefinitions } from './attributeRegistry';
+import { attributeDefinitions, attributeEnumValues } from './attributeRegistry';
 import { categories } from './catalog';
 
 /**
@@ -458,6 +458,149 @@ export const productTypeFields = pgTable(
     ),
     index('product_type_fields_layout_idx').on(t.productTypeDefinitionId, t.flow, t.position),
     index('product_type_fields_attribute_idx').on(t.attributeKey, t.attributeDefinitionVersion),
+    /**
+     * The target of `product_type_field_allowed_values`' composite foreign key.
+     *
+     * `unique()` and NOT `uniqueIndex()`: a foreign key may only reference a
+     * unique CONSTRAINT or a primary key, and drizzle's `uniqueIndex` emits an
+     * index — which Postgres refuses as an FK target.
+     *
+     * It can never fail to apply. `id` is the primary key, so `(id,
+     * attribute_definition_id)` is unique by construction for every row that
+     * exists or could exist: no scan finds a duplicate, and no backfill is
+     * owed. This carries no NEW invariant — it exists only so the subset's
+     * composite key has something to point at.
+     */
+    unique('product_type_fields_id_attribute_definition_key').on(t.id, t.attributeDefinitionId),
+  ],
+);
+
+/**
+ * `product_type_field_allowed_values` — the SUBSET of a cited attribute's
+ * controlled values this field permits (#367 W7, epic line 235).
+ *
+ * ## The clause is "without copying value records", and this is what honours it
+ *
+ * A phone form offers three storage capacities out of the twenty
+ * `storage_capacity` defines; a drive form offers eight others. The obvious
+ * implementation — a `text[]` of permitted value spellings on
+ * `product_type_fields` — satisfies the words of the clause and reintroduces
+ * exactly the defect `attribute_enum_values` was created to remove: #56's
+ * `allowed_values text[]` is GONE rather than kept beside the rows, because
+ * *"keeping both would be two representations of the permitted set, and the one
+ * an alias resolved against would be whichever the writer remembered to
+ * update."* A subset of value STRINGS is that array again, one table over, and
+ * an alias resolving to a canonical value would have nothing to check it
+ * against.
+ *
+ * So a subset is a JOIN onto `attribute_enum_values.id`. There is one record per
+ * permitted value and this table points at it; nothing here can drift from the
+ * registry, because nothing here restates it.
+ *
+ * ## An EMPTY subset means EVERY value, and that is not a style choice
+ *
+ * `attribute_definition_categories`' convention (empty ⇒ everywhere) rather than
+ * `product_type_field_categories`' (empty ⇒ nowhere), and the two are not
+ * arbitrary opposites: absence THERE narrows something a person added
+ * deliberately, while absence HERE is the state of every field that exists. Read
+ * as "nowhere", the migration that creates this table would take every published
+ * product-type version to zero offered values at once — an outage rather than a
+ * convention. A field with no rows here is a field nobody has narrowed.
+ *
+ * Emptiness is an absence and cannot carry a CHECK, so the invariant that CAN be
+ * structural is made structural instead — see the composite key below.
+ *
+ * ## The subset narrows WHICH values, never their ORDER
+ *
+ * There is deliberately no `position` column. `attribute_enum_values.position`
+ * already orders them, and a second ordering would be two answers to "what order
+ * does this form render", with the rendered one being whichever the composition
+ * happened to read. The same reasoning that keeps the values themselves in one
+ * place.
+ *
+ * ## What is deliberately NOT expressible: a CATEGORY-only subset
+ *
+ * Narrowing values per category, independent of a product type, is not
+ * modelled. `attribute_definition_categories` already answers "does this
+ * attribute apply in this category", and a second scope keyed on categories
+ * would be a fourth representation of where an attribute applies — after that
+ * table, `product_type_category_scopes` and `product_type_field_categories`. The
+ * authoring schema is composed for one (product type, category) pair, so a
+ * per-category subset would additionally have to be INTERSECTED with this one,
+ * and the answer a merchant saw would depend on which the composition applied
+ * first. Recorded as a decision rather than left as an omission somebody
+ * re-opens.
+ *
+ * ## Carry-forward: there is nothing to carry
+ *
+ * `insertProductTypeField` has one production caller (the vertical seed script);
+ * no clone-from-previous-version path and no HTTP surface creates a field.
+ * `ATTRIBUTE_VERSION_CARRY_FORWARD` is a census over `attribute_definitions`
+ * COLUMNS, so a new table owes it no disposition. These rows key on
+ * `product_type_field_id`, so if a clone is ever built they move with the field
+ * by construction rather than by somebody remembering them.
+ */
+export const productTypeFieldAllowedValues = pgTable(
+  'product_type_field_allowed_values',
+  {
+    id: generatedId(),
+    /** The field being narrowed. Half of BOTH composite keys below. */
+    productTypeFieldId: text().notNull(),
+    /**
+     * The attribute definition VERSION the field cites, carried here so the two
+     * composite foreign keys share it. Not a denormalization anybody may write
+     * independently: it is pinned on both sides at once, which is the whole
+     * mechanism.
+     */
+    attributeDefinitionId: text().notNull(),
+    /** The permitted value. A ROW, never a string — see the table doc. */
+    attributeEnumValueId: text().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    /**
+     * THE INVARIANT, as a shape rather than a service check: a subset row cannot
+     * name a value belonging to a different attribute than its field cites.
+     *
+     * Two NOT NULL composite foreign keys sharing `attribute_definition_id` —
+     * the `match_category_gates` device (#58), where a gate cites its benchmark
+     * by a composite key carrying the policy version so that citing another
+     * policy's run is unrepresentable. Here the shared column forces the field's
+     * cited definition and the value's owning definition to be the same row.
+     * Neither key alone is enough; together they leave no shape for the mistake.
+     *
+     * `cascade` from the field, because the subset is a property OF the field
+     * and a subset of a field that no longer exists is about nothing.
+     */
+    foreignKey({
+      name: 'product_type_field_allowed_values_field_fk',
+      columns: [t.productTypeFieldId, t.attributeDefinitionId],
+      foreignColumns: [productTypeFields.id, productTypeFields.attributeDefinitionId],
+    }).onDelete('cascade'),
+    /**
+     * `no action` and NOT `restrict`, the measurement recorded on
+     * `product_type_fields_group_fk` above: `restrict` is checked IMMEDIATELY,
+     * so a delete that cascades to both a subset row and its enum value in ONE
+     * statement would raise on whichever cascade ran first. `no action` is
+     * checked at the end of the statement, by which point both are gone —
+     * while a delete of an enum value a LIVE subset still names still raises,
+     * which is the protection this key is for.
+     */
+    foreignKey({
+      name: 'product_type_field_allowed_values_value_fk',
+      columns: [t.attributeDefinitionId, t.attributeEnumValueId],
+      foreignColumns: [attributeEnumValues.attributeDefinitionId, attributeEnumValues.id],
+    }).onDelete('no action'),
+    /**
+     * One row per permitted value per field. A repeat is not a stronger
+     * permission; it is one value counted twice by anything that counts them.
+     */
+    uniqueIndex('product_type_field_allowed_values_key').on(
+      t.productTypeFieldId,
+      t.attributeEnumValueId,
+    ),
+    /** The composition's own read: every permitted value of one field. */
+    index('product_type_field_allowed_values_field_idx').on(t.productTypeFieldId),
   ],
 );
 

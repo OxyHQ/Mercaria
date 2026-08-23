@@ -81,6 +81,7 @@ import { findCategoryLocalizations } from '../../db/catalogLocalization/category
 import { findProductTypeLocalizations } from '../../db/catalogLocalization/productTypeLocalizationRepository.js';
 import {
   listProductTypeFieldGroups,
+  listProductTypeFieldAllowedValues,
   listProductTypeFields,
 } from '../../db/productTypes/productTypeFieldRepository.js';
 import { findProductTypeDefinitionById } from '../../db/productTypes/productTypeRepository.js';
@@ -460,9 +461,10 @@ async function composeForDefinition(
     if (hit !== undefined) return { outcome: 'composed', schema: hit };
   }
 
-  const [definitions, enumValues] = await Promise.all([
+  const [definitions, enumValues, allowedValues] = await Promise.all([
     listAttributeDefinitionsByIds(db, attributeDefinitionIds),
     listAttributeEnumValues(db, attributeDefinitionIds),
+    listProductTypeFieldAllowedValues(db, fields.map((field) => field.id)),
   ]);
   const definitionById = new Map(definitions.map((row) => [row.id, row]));
 
@@ -471,6 +473,24 @@ async function composeForDefinition(
     const bucket = valuesByDefinition.get(value.attributeDefinitionId) ?? [];
     bucket.push({ id: value.id, value: value.value, position: value.position });
     valuesByDefinition.set(value.attributeDefinitionId, bucket);
+  }
+
+  /**
+   * The permitted subset per field, or ABSENT for a field nobody narrowed
+   * (#367 W7, epic line 235).
+   *
+   * `undefined` and an empty set are kept apart deliberately: absence means the
+   * field permits every value its definition defines, which is the state of
+   * every field that has ever existed. An empty subset is unrepresentable — a
+   * row IS a permission, so "permits none" has no shape — and collapsing the two
+   * would make the first deploy of this table offer nothing anywhere. See the
+   * table's own doc.
+   */
+  const permittedByField = new Map<string, Set<string>>();
+  for (const row of allowedValues) {
+    const bucket = permittedByField.get(row.productTypeFieldId) ?? new Set<string>();
+    bucket.add(row.attributeEnumValueId);
+    permittedByField.set(row.productTypeFieldId, bucket);
   }
 
   const composedGroups: AuthoringGroup[] = groups.map((group) => ({
@@ -506,7 +526,14 @@ async function composeForDefinition(
       position: field.position,
       visibilityRule: field.visibilityRule ?? null,
       validation: toValidation(attribute),
-      controlledValues: valuesByDefinition.get(field.attributeDefinitionId) ?? [],
+      // NARROWED by the field's subset when it has one, and the registry's own
+      // order is preserved because `definitionValues` is already ordered by
+      // `attribute_enum_values.position` — the subset says WHICH values, never
+      // in what order, so there is only ever one ordering authority.
+      controlledValues: permittedValues(
+        valuesByDefinition.get(field.attributeDefinitionId) ?? [],
+        permittedByField.get(field.id),
+      ),
     });
   }
 
@@ -517,7 +544,14 @@ async function composeForDefinition(
     fields: composedFields,
     groups,
     definitionById,
-    enumValueIds: enumValues.map((value) => value.id),
+    // The values the composed fields actually RENDER, not every value of every
+    // cited definition. Before subsets existed the two sets were identical; now
+    // a narrowed field must not pull localized labels for values no form shows,
+    // and the union is taken across fields because two fields citing one
+    // definition may permit different subsets of it.
+    enumValueIds: composedFields.flatMap((field) =>
+      field.controlledValues.map((value) => value.id),
+    ),
   });
 
   const body = {
@@ -580,6 +614,29 @@ interface ComposeTextInput {
  * there resolves a slug this surface has no use for, and a schema needs the
  * attribute labels it does not carry.
  */
+/**
+ * The values a field permits: its subset when it has one, every value otherwise.
+ *
+ * PURE, and separated from the composition so the empty-versus-absent decision
+ * has one place a test can drive and one place a reader can check. The filter
+ * preserves `definitionValues`' order, which is the registry's own — a subset
+ * narrows WHICH values, never their order.
+ *
+ * A subset naming a value the definition no longer defines contributes nothing
+ * rather than a hole: the intersection is taken over the registry's rows, so a
+ * stale row cannot conjure a value into a form. It cannot arise today —
+ * `product_type_field_allowed_values` pins the value and its owning definition
+ * with one composite key — and the filter direction is what keeps that true if
+ * it ever could.
+ */
+function permittedValues(
+  definitionValues: readonly AuthoringControlledValue[],
+  permitted: ReadonlySet<string> | undefined,
+): AuthoringControlledValue[] {
+  if (permitted === undefined) return [...definitionValues];
+  return definitionValues.filter((value) => permitted.has(value.id));
+}
+
 async function composeText(
   db: DatabaseOrTransaction,
   input: ComposeTextInput,

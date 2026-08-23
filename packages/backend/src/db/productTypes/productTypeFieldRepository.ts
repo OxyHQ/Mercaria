@@ -21,7 +21,7 @@
  * `product-type-isolation.test.ts` fails the build if one appears.
  */
 
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type {
   ProductTypeAuthoringFlow,
   ProductTypeFieldRequirement,
@@ -32,6 +32,7 @@ import type {
 import {
   productTypeCategoryScopes,
   productTypeFieldGroups,
+  productTypeFieldAllowedValues,
   productTypeFields,
 } from '../schema/productTypes.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
@@ -119,6 +120,59 @@ export async function insertProductTypeField(
     })
     .returning();
   return row;
+}
+
+/**
+ * Permit ONE of the cited attribute's values on ONE field (#367 W7, line 235).
+ *
+ * `attributeDefinitionId` is required rather than derived, and that is the
+ * mechanism rather than an inconvenience: it is the column both composite
+ * foreign keys pin, so passing it is what ties the field's cited definition and
+ * the value's owning definition to the same row. A signature that looked it up
+ * here would be a service deciding what the schema already decides.
+ *
+ * A published version refuses this insert — `product_type_field_allowed_values_
+ * frozen` — so it is only callable while the version is still `draft` or
+ * `review`, which is the contract every other child of a version already has.
+ */
+export async function insertProductTypeFieldAllowedValue(
+  db: DatabaseOrTransaction,
+  input: {
+    productTypeFieldId: string;
+    attributeDefinitionId: string;
+    attributeEnumValueId: string;
+  },
+): Promise<void> {
+  await db.insert(productTypeFieldAllowedValues).values(input);
+}
+
+/**
+ * The permitted-value SUBSET of a set of fields, as `(fieldId, enumValueId)`
+ * pairs (#367 W7, epic line 235).
+ *
+ * Returns the JOIN rows and never the values themselves, which is the point:
+ * the composition already holds every value of every cited definition, and this
+ * says which of them each field permits. Reading the values through this table
+ * would give the registry a second reader that could disagree with the first.
+ *
+ * A field with NO rows here is ABSENT from the result, not present-and-empty —
+ * and the caller must keep those apart, because absent means "permits every
+ * value" while an empty subset is unrepresentable (a row is a permission, so
+ * there is no way to store "permits none"). `product_type_field_allowed_values`'
+ * table doc carries why absence reads as everything.
+ */
+export async function listProductTypeFieldAllowedValues(
+  db: DatabaseOrTransaction,
+  productTypeFieldIds: readonly string[],
+): Promise<{ productTypeFieldId: string; attributeEnumValueId: string }[]> {
+  if (productTypeFieldIds.length === 0) return [];
+  return db
+    .select({
+      productTypeFieldId: productTypeFieldAllowedValues.productTypeFieldId,
+      attributeEnumValueId: productTypeFieldAllowedValues.attributeEnumValueId,
+    })
+    .from(productTypeFieldAllowedValues)
+    .where(inArray(productTypeFieldAllowedValues.productTypeFieldId, [...productTypeFieldIds]));
 }
 
 /**

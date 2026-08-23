@@ -45,6 +45,7 @@ import {
   integer,
   pgTable,
   text,
+  unique,
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
@@ -592,6 +593,21 @@ export const attributeEnumValues = pgTable(
       .on(t.replacesEnumValueId)
       .where(sql`${t.replacesEnumValueId} is not null`),
     index('attribute_enum_values_position_idx').on(t.attributeDefinitionId, t.position),
+    /**
+     * The target of `product_type_field_allowed_values`' composite foreign key
+     * (#367 W7, epic line 235).
+     *
+     * `unique()` and NOT `uniqueIndex()`: a foreign key may only reference a
+     * unique CONSTRAINT or a primary key, and `uniqueIndex` emits an index,
+     * which Postgres refuses as an FK target.
+     *
+     * It can never fail to apply. `id` is the primary key, so `(attribute_
+     * definition_id, id)` is unique by construction for every row that exists or
+     * could exist — no scan, no duplicate risk, no backfill. It adds no NEW
+     * invariant; it exists so a subset's composite key can pin the value and its
+     * owning definition together.
+     */
+    unique('attribute_enum_values_definition_id_key').on(t.attributeDefinitionId, t.id),
   ],
 );
 
