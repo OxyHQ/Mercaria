@@ -276,6 +276,12 @@ export async function advanceBackfillRun(
       unmatched: sql`${catalogBackfillRuns.unmatched} + ${counters.unmatched}`,
       skipped: sql`${catalogBackfillRuns.skipped} + ${counters.skipped}`,
       failed: sql`${catalogBackfillRuns.failed} + ${counters.failed}`,
+      // A page that advanced is a page that worked, so the consecutive-failure
+      // budget starts over. This is what makes the count CONSECUTIVE rather
+      // than a lifetime one, and it is the right shape for a pass whose cursor
+      // survives every failure: a run that fails once, recovers and fails again
+      // six pages later has not exhausted anything.
+      consecutiveFailures: 0,
     })
     .where(
       and(
@@ -288,12 +294,104 @@ export async function advanceBackfillRun(
 }
 
 /**
+ * Record a page-level failure and say whether the run may be retried
+ * (#367 W16 line 759).
+ *
+ * Increments `consecutive_failures` and releases the lease, choosing the status
+ * from the incremented value against `maxAttempts`:
+ *
+ * - **below the ceiling** → `paused`, which IS in `RESUMABLE`, so the
+ *   dispatcher picks the run up on its next tick and re-reads the same page.
+ *   The cursor was never moved, so the retry is exact.
+ *
+ *   `paused` and NOT `pending`:
+ *   `catalog_backfill_runs_started_shape_check` is the biconditional
+ *   `(status = 'pending') = (started_at is null)`, so `pending` means NEVER
+ *   STARTED rather than ready-to-run. A claimed run has a `started_at`, so
+ *   `pending` is unrepresentable for it — the database refuses the write, and
+ *   it is right to: `paused` already means started, holding a cursor, waiting
+ *   for its next page, which is exactly what a retryable failure leaves
+ *   behind. It is also the state a SUCCESSFUL non-final page releases to, so
+ *   a retry and an ordinary pause are the same shape to every reader.
+ * - **at or above it** → `failed`, which is NOT in `RESUMABLE` and therefore
+ *   terminal. That is the dead-letter this domain already had; what it lacked
+ *   was anything before it.
+ *
+ * ## Why this is not "make `failed` claimable"
+ *
+ * Because `failed` has a SECOND producer. `cancelCatalogBackfillRun` releases
+ * to `failed` with the operator's reason in `last_error`, deliberately, since a
+ * cancelled pass and a broken one are the same fact to every reader of this
+ * table. Widening the claim predicate to include `failed` would make the
+ * dispatcher restart a run an operator had just stopped — silently, within
+ * fifteen seconds. So the retry happens BEFORE the terminal state, never out of
+ * it, and cancellation keeps working unchanged because it does not come through
+ * this function at all.
+ *
+ * The owner check is the same one `releaseBackfillRun` applies: a task whose
+ * lease was reclaimed mid-page must not write its verdict over the new owner's.
+ *
+ * @returns The status it settled on, or `undefined` when the lease was gone.
+ */
+export async function recordBackfillPageFailure(
+  input: {
+    runId: string;
+    leaseOwner: string;
+    maxAttempts: number;
+    error: string;
+    now?: Date;
+  },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<'paused' | 'failed' | undefined> {
+  const now = input.now ?? new Date();
+  // ONE statement: the increment and the decision are the same write, so two
+  // tasks cannot both read `consecutive_failures` and both decide to retry.
+  //
+  // `least(...)` is not defending against a race — the claim predicate already
+  // makes one impossible, because a run that reached the ceiling is `failed`,
+  // `failed` is not claimable, and no lease means no increment. What it defends
+  // against is the CEILING MOVING: `maxAttempts` is an env var, so a run sitting
+  // at 5 when somebody lowers it from 8 to 3 would otherwise store 6 — a count
+  // above the ceiling it was judged by, which reads as having spent more budget
+  // than exists. The clamp keeps the number meaning "how far into the budget"
+  // under a ceiling that changed.
+  const rows = await db
+    .update(catalogBackfillRuns)
+    .set({
+      consecutiveFailures: sql`least(${catalogBackfillRuns.consecutiveFailures} + 1, ${input.maxAttempts})`,
+      status: sql`case
+        when ${catalogBackfillRuns.consecutiveFailures} + 1 >= ${input.maxAttempts} then 'failed'
+        else 'paused'
+      end`,
+      leaseOwner: null,
+      leaseUntil: null,
+      lastError: input.error.slice(0, CATALOG_BACKFILL_MAX_TEXT_LENGTH),
+      lastRunAt: now,
+    })
+    .where(
+      and(
+        eq(catalogBackfillRuns.id, input.runId),
+        eq(catalogBackfillRuns.leaseOwner, input.leaseOwner),
+      ),
+    )
+    .returning({ status: catalogBackfillRuns.status });
+  const settled = rows[0];
+  if (settled === undefined) return undefined;
+  return settled.status === 'failed' ? 'failed' : 'paused';
+}
+
+/**
  * Give the lease back.
  *
  * Only a COMPLETED pass clears the cursor and stamps `completed_at`; an
  * incomplete release keeps the cursor, which is the whole of "resumable". A
  * FAILED release keeps it too — the page that raised is retried from where it
  * started, not skipped.
+ *
+ * A page-level FAILURE does not come through here any more: it goes to
+ * {@link recordBackfillPageFailure}, which counts it first. This function still
+ * accepts `failed` because operator CANCELLATION uses it, and a cancellation is
+ * terminal on the first and only attempt.
  */
 export async function releaseBackfillRun(
   input: {
