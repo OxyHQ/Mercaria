@@ -182,6 +182,32 @@ storage".
 The official-channel filter reads #55's **temporal** relationships live, so an
 authorization that lapsed a minute ago stops qualifying with no sweep having run.
 
+### Every variant-side filter is answered by ONE variant (#567)
+
+`attributes` is the only variant-grain filter this rail carries, and its whole
+requirement set goes to `findProductIdsSatisfyingAttributes`
+(`db/search/searchCandidateRepository.ts:1082`) in ONE statement, at `:505`.
+Category browse passes its set to the same function verbatim
+(`services/catalog-pages/product-browse.service.ts:220`), which is why the two
+rails cannot disagree.
+
+The loop it replaces asked which products satisfied each constraint and
+intersected the ids, which ANDs them per PRODUCT: a product survived when a red
+variant existed **and** a size-43 variant existed, with no single variant being
+both. The facet rail never had that bug and produces the COUNT, so a category
+page could render `matchedProductCount: 1` above a list containing the crossed
+product — the same failure as #438 one grain up, and discovered by the shopper at
+the size chart rather than at checkout.
+
+The per-constraint `or` between product grain and variant grain is not
+redundancy. A mixed set — a 6.9-inch screen recorded on the product, a size 43
+recorded on the variant — means one variant of a product whose screen is 6.9;
+requiring every constraint at variant grain drops every product-grain filter, and
+requiring every one at product grain restores the bug. `f3374654` asserts the
+facet rail and the result rails agree over one filter set, and
+`docs/facets.md` carries the correlated SQL shape and the grain of every other
+filter.
+
 ### Every offer-side filter is answered by ONE offer (#438)
 
 Market, kind, availability, condition and merchant are columns on `offers`, so
