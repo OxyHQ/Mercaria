@@ -27,11 +27,18 @@
  *   source, and it has a population floor, so a moved file cannot pass it by
  *   having nothing to scan.
  *
- * The one property NOT asserted here is that the keys are STORABLE — that is
- * `catalog_external_mappings_size_system_key_shape_check`'s, it needs a real
- * PostgreSQL server, and re-implementing the pattern in TypeScript would be a
- * test of the re-implementation. `size-system-registry.realdb.test.ts` drives
- * it, together with the real resolver.
+ * ## Storability is proved in two halves, and only one of them is here
+ *
+ * That a minted key is ACCEPTED by
+ * `catalog_external_mappings_size_system_key_shape_check` needs a real
+ * PostgreSQL server — re-implementing the pattern in TypeScript would be a test
+ * of the re-implementation — and `size-system-registry.realdb.test.ts` drives
+ * it over the keys that EXIST, together with the real resolver.
+ *
+ * What that cannot reach is a key nobody has declared yet, so the vocabulary
+ * case below asserts the per-SEGMENT property of the four tuples the key is
+ * composed from. Without it a member like `us-west` would break the namespace
+ * with nothing red until somebody declared a system using it.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -47,6 +54,12 @@ import {
   registerSizeSystemConceptRegistry,
   sizeSystemConceptRegistry,
 } from '../size-system-registry.js';
+import {
+  SIZE_AUDIENCES,
+  SIZE_DOMAINS,
+  SIZE_MEASUREMENT_BASES,
+  SIZE_REGIONS,
+} from '@mercaria/shared-types';
 import {
   SIZE_SYSTEM_DEFINITIONS,
   SIZE_SYSTEM_IDENTITY_FACETS,
@@ -142,6 +155,53 @@ describe('the key is derived from the four facets and never parsed', () => {
     expect(sizeSystemKey({ ...base, domain: 'apparel' })).toBe(
       'size.apparel.us.mens.manufacturer_label',
     );
+  });
+
+  it('draws every segment from a vocabulary whose members are legal segments', () => {
+    // The half of "every key this can produce is storable" that a real server
+    // cannot supply. The realdb suite inserts the keys that EXIST; this is what
+    // extends the claim to the ones a future declaration could mint, and
+    // without it a member like `us-west` would break the namespace with nothing
+    // red until somebody declared a system using it.
+    //
+    // Deliberately NOT a copy of the column's own CHECK
+    // (`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$`) — that would be a test of the copy.
+    // This asserts the narrower per-SEGMENT property of the vocabularies the
+    // key is composed from, and the realdb case proves the composition is
+    // accepted.
+    const SEGMENT = /^[a-z][a-z0-9_]*$/;
+    const vocabularies: Readonly<Record<string, readonly string[]>> = {
+      SIZE_DOMAINS,
+      SIZE_REGIONS,
+      SIZE_AUDIENCES,
+      SIZE_MEASUREMENT_BASES,
+    };
+    // One vocabulary per key facet, and the two lists are compared rather than
+    // both hand-written — a facet added to the key with no vocabulary here
+    // would otherwise go unscanned.
+    expect(Object.keys(vocabularies)).toHaveLength(SIZE_SYSTEM_IDENTITY_FACETS.length);
+
+    const offenders: string[] = [];
+    let members = 0;
+    for (const [name, tuple] of Object.entries(vocabularies)) {
+      // Per-tuple floor: an emptied vocabulary contributes no offender and
+      // reads exactly like a clean one.
+      expect(tuple.length, `${name} is empty`).toBeGreaterThanOrEqual(4);
+      for (const member of tuple) {
+        members += 1;
+        if (!SEGMENT.test(member)) offenders.push(`${name}: ${member}`);
+      }
+    }
+    expect(members, `scanned ${members} vocabulary members`).toBeGreaterThanOrEqual(25);
+    expect(offenders, offenders.join('\n')).toEqual([]);
+
+    // The mutation self-test: the pattern really rejects the spellings that
+    // would break a dotted key, and really admits the ones in use.
+    for (const illegal of ['us-west', 'Kids', 'EU', '2xl', '', 'foot length', 'a.b']) {
+      expect(SEGMENT.test(illegal), `admitted ${illegal}`).toBe(false);
+    }
+    expect(SEGMENT.test('manufacturer_label')).toBe(true);
+    expect(SEGMENT.test(SIZE_SYSTEM_KEY_NAMESPACE)).toBe(true);
   });
 
   it('has no inverse — nothing splits a key back into facets', () => {

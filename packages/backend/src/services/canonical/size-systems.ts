@@ -123,11 +123,21 @@ export const SIZE_SYSTEM_IDENTITY_FACETS = [
 /**
  * The key for one identity. The ONE derivation, and there is no inverse.
  *
- * Total over the four closed tuples: every member of each is already
- * `[a-z][a-z0-9_]*`, so every key this can produce satisfies
- * `catalog_external_mappings_size_system_key_shape_check`. That is asserted
- * against a REAL PostgreSQL server rather than against a copy of the pattern —
- * a regex re-implemented here would be a test of the re-implementation.
+ * Total over the four closed tuples, and the claim that every key it can
+ * produce satisfies `catalog_external_mappings_size_system_key_shape_check` is
+ * proved in TWO halves, because neither instrument can make it alone:
+ *
+ * - Every tuple member is a legal SEGMENT (`[a-z][a-z0-9_]*`) — asserted over
+ *   all four vocabularies in `size-system-registry.test.ts`.
+ * - A key composed of such segments is actually ACCEPTED by that CHECK —
+ *   asserted against a real PostgreSQL server in
+ *   `size-system-registry.realdb.test.ts`, because a regex re-implemented here
+ *   would be a test of the re-implementation.
+ *
+ * The realdb half covers the keys that EXIST; the tuple half is what extends it
+ * to the ones a future declaration could mint. Stated as two because the realdb
+ * suite alone would leave a member like `us-west` breaking the namespace with
+ * nothing red until somebody declared a system using it.
  */
 export function sizeSystemKey(identity: SizeSystemIdentity): string {
   return [
