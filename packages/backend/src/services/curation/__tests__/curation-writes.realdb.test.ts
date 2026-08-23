@@ -3529,6 +3529,79 @@ describe('#893: a merge closes the question it was asked, and annotates the rest
     expect(rows[0]?.resolution).toBeNull();
   });
 
+  it('annotates the NULLABLE counterpart too, independently of the subject', async () => {
+    /**
+     * The control the rest of this describe cannot be: every other case here
+     * builds items whose counterpart is NULL, so `counterpartRedirect` is `null`
+     * for the same reason a DELETED counterpart branch would return `null`.
+     * Measured — removing the branch from `annotateSubjectRedirects` outright
+     * left all four green.
+     *
+     * That is the #893 finding one level in. `subject_type`/`subject_id` are
+     * `NOT NULL` and `counterpart_type`/`counterpart_id` are not, so the
+     * plausible narrowing is "keep the real references, skip the optional
+     * metadata" — which reads as tidying rather than as a mistake, and which a
+     * control made only of `NOT NULL` members cannot detect.
+     *
+     * So this row exercises the two branches in OPPOSITE directions at once: a
+     * LIVE subject and a TOMBSTONED counterpart. Dropping either branch, or
+     * wiring both to the same lookup, turns it red.
+     *
+     * `identifier_conflict` rather than `suspected_duplicate` because it is
+     * paired and deliberately NOT in `CURATION_ORDERED_PAIR_REVIEW_KINDS` —
+     * there the direction MEANS something, so this fixture can decide WHICH side
+     * is merged away instead of letting the id ordering decide it.
+     */
+    const live = await seedProduct('q893-cp-live');
+    const doomed = await seedProduct('q893-cp-doomed');
+    const survivor = await seedProduct('q893-cp-survivor');
+
+    const item = await raiseReviewItem({
+      kind: 'identifier_conflict',
+      subjectType: 'canonical_product',
+      subjectId: live.productId,
+      counterpartType: 'canonical_product',
+      counterpartId: doomed.productId,
+      note: 'the disputed newcomer against an incumbent that is about to be merged',
+      actorOxyUserId: OPERATOR,
+    });
+
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: doomed.productId,
+      winnerId: survivor.productId,
+      reason: 'merging the COUNTERPART out from under an open item',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(job.id, `lease-893-cp-${RUN}`)).completed).toBe(true);
+
+    const annotated = await getItemWithContext(item.id);
+    // The subject is untouched and LIVE — so this half cannot be satisfied by a
+    // resolver that redirects everything.
+    expect(annotated.item.subjectRedirect, 'a live subject was reported as merged').toBeNull();
+    // …and the nullable half is the one that would go missing.
+    expect(
+      annotated.item.counterpartRedirect,
+      'the counterpart branch is not annotated — a NOT NULL narrowing would look exactly like this',
+    ).not.toBeNull();
+    expect(annotated.item.counterpartRedirect?.id).toBe(doomed.productId);
+    expect(annotated.item.counterpartRedirect?.mergedIntoId).toBe(survivor.productId);
+
+    // The item itself did not move, and was not closed: this merge named no
+    // review item, and a merge answers only the question it was asked.
+    const rows = await db
+      .select({
+        state: catalogReviewItems.state,
+        subjectId: catalogReviewItems.subjectId,
+        counterpartId: catalogReviewItems.counterpartId,
+      })
+      .from(catalogReviewItems)
+      .where(eq(catalogReviewItems.id, item.id));
+    expect(rows[0]?.state).toBe('open');
+    expect(rows[0]?.subjectId).toBe(live.productId);
+    expect(rows[0]?.counterpartId).toBe(doomed.productId);
+  });
+
   it('annotates a LIVE subject as null, and finds the tombstone only for a merged one', async () => {
     // The positive/negative pair for the annotation itself. A resolver that
     // answered `null` for everything would satisfy the live half of this and

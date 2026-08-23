@@ -533,6 +533,36 @@ is currently `untouched`, and the one a later reader should challenge rather
 than copy, because `retail_suppressions` one row over stores the same fact twice
 and the plan DOES move a recall with its entity.
 
+#### The declared `idColumns` are checked against the schema too (#893)
+
+The reconciliation above is at the TABLE grain. Nothing checked that an entry's
+`idColumns` were COMPLETE — and measured: deleting `counterpart_id` from the
+`catalog_review_items` entry left all three census files green. The entry would
+then read as a finished decision while covering half the reference, which is this
+register's own defect one level in.
+
+So for `untouched` and `rehomed` — the two dispositions asserting that a real
+reference exists and that this register decided it — every BARE `<x>_id` sitting
+beside a closed-value-set `<x>_type` or `<x>_kind` must be named. Derived from
+the pairing, so it needs no list; `_kind` as well as `_type`, because #720's
+synonym tables spell it that way.
+
+**And the population is asserted to contain a NULLABLE column.**
+`subject_type`/`subject_id` are `NOT NULL` and the counterpart pair is not, so
+the plausible narrowing of a polymorphic derivation is "keep the real references,
+skip the optional metadata" — which reads as tidying rather than as a mistake,
+and is exactly why it would survive review. *A control made only of `NOT NULL`
+columns cannot detect a `NOT NULL` filter*, so the floor asserts the walk covered
+at least two nullable ones (`catalog_review_items.counterpart_id` and
+`catalog_authoring_draft_values.canonical_ref_id`). Narrowing the derivation to
+`NOT NULL` now turns the build red on that floor and on the entry count.
+
+`covered_by_bare_entity_census` is excluded deliberately: its citation is
+governed by the two tests that verify the OTHER census can still re-check the
+column, which is a different and stricter property, and requiring completeness
+here as well would put the two rules in conflict for a column that register
+legitimately does not re-check.
+
 #### #893 re-checked it, and the gap was somewhere else
 
 The issue reported the FK census as blind to `catalog_review_items.subject_id`,
