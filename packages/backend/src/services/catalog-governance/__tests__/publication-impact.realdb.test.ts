@@ -164,6 +164,7 @@ beforeAll(async () => {
     market: 'ES',
     permissions: E2E_PERMISSIONS,
     ttlSeconds: 3600,
+    idempotencyKey: null,
     title: `Impact preview phone ${TOKEN}`,
   });
   candidate = await insertProductTypeDefinition(db, {

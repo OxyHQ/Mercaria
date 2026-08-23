@@ -225,10 +225,21 @@ export async function authoringCanonicalSearchHandler(req: Request, res: Respons
 /* Store-scoped drafts                                                         */
 /* -------------------------------------------------------------------------- */
 
-/** `POST /stores/:storeId/product-drafts`. */
+/**
+ * `POST /stores/:storeId/product-drafts`.
+ *
+ * The `Idempotency-Key` header is read raw, the way `publishProductDraftHandler`
+ * below reads it and for the same reason: it is a transport-level retry token
+ * rather than part of the body a client composes, so it gets no schema and no
+ * middleware. Read identically in both places on purpose — a second spelling
+ * would be a second answer to what counts as a key.
+ */
 export async function createProductDraftHandler(req: Request, res: Response): Promise<void> {
   const storeId = routeParam(req, 'storeId');
   try {
+    const rawIdempotencyKey = req.headers['idempotency-key'];
+    const idempotencyKey =
+      (Array.isArray(rawIdempotencyKey) ? rawIdempotencyKey[0] : rawIdempotencyKey) || null;
     const body = req.body as {
       categoryId: string;
       productTypeKey: string;
@@ -250,6 +261,7 @@ export async function createProductDraftHandler(req: Request, res: Response): Pr
       market: body.market,
       permissions: authoringPermissions(req),
       ttlSeconds: config.catalogAuthoring.draftTtlSeconds,
+      idempotencyKey,
       ...(body.title === undefined ? {} : { title: body.title }),
       ...(body.description === undefined ? {} : { description: body.description }),
     });

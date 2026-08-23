@@ -46,6 +46,7 @@ import type { Database, DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   discardDraft,
   findDraft,
+  findDraftByCreateIdempotencyKey,
   insertDraft,
   listDraftValues,
   listDraftVariants,
@@ -138,6 +139,14 @@ export interface CreateDraftInput {
   readonly ttlSeconds: number;
   readonly title?: string;
   readonly description?: string;
+  /**
+   * The caller's `Idempotency-Key` header, when it sent one (#367 line 432).
+   *
+   * Spelled exactly as `PublishDraftInput.idempotencyKey` and required for the
+   * same reason: `string | null` rather than optional, so a caller states
+   * "no key" rather than reaching today's behaviour by forgetting the field.
+   */
+  readonly idempotencyKey: string | null;
 }
 
 export interface PatchDraftInput {
@@ -199,8 +208,35 @@ function requireComposed(composition: AuthoringSchemaComposition): AuthoringSche
  * on. It is kept rather than narrowed to `deprecated`, because a check that
  * states the whole rule cannot be walked around by a later change to what the
  * composition serves.
+ *
+ * ## Idempotency (#367 line 432)
+ *
+ * A repeat under the same `Idempotency-Key` returns the FIRST draft and creates
+ * nothing. Two things make that true and only one of them is load-bearing:
+ *
+ * 1. The pre-read below, which is an OPTIMISATION. It saves the schema
+ *    composition on the ordinary retry path — the case a client actually hits,
+ *    where the first response was lost long ago. It can lose a race and is not
+ *    what makes the guarantee.
+ * 2. `insertDraft`'s `ON CONFLICT DO NOTHING` on
+ *    `catalog_authoring_drafts_create_idempotency_key`, which is THE mechanism.
+ *    Two concurrent creates both miss the pre-read; the index refuses the second
+ *    and the empty result is what tells this function to read the winner back.
+ *
+ * A retry carrying a DIFFERENT body converges on the first draft unchanged and
+ * never rewrites it — `ensureGuestCheckout`'s ruling, for its reason: the draft
+ * an author has been typing into must not be replaced by a stale retry of the
+ * request that made it. The composition is still refused on its own merits
+ * first, so a key cannot be used to smuggle an invalid draft past validation.
+ *
+ * With no key the behaviour is exactly what it was: a new draft every time.
  */
 export async function createDraft(db: Database, input: CreateDraftInput): Promise<AuthoringDraft> {
+  if (input.idempotencyKey !== null) {
+    const prior = await findDraftByCreateIdempotencyKey(db, input.storeId, input.idempotencyKey);
+    if (prior !== null) return hydrateDraft(db, prior);
+  }
+
   const composition = await composeAuthoringSchema(db, {
     productTypeKey: input.productTypeKey,
     ...(input.version === undefined ? {} : { version: input.version }),
@@ -222,6 +258,7 @@ export async function createDraft(db: Database, input: CreateDraftInput): Promis
     insertDraft(tx, {
       storeId: input.storeId,
       createdByOxyUserId: input.actorOxyUserId,
+      createIdempotencyKey: input.idempotencyKey,
       categoryId: input.categoryId,
       productTypeDefinitionId: schema.productType.definitionId,
       flow: input.flow,
@@ -234,7 +271,23 @@ export async function createDraft(db: Database, input: CreateDraftInput): Promis
       ...(input.description === undefined ? {} : { description: input.description }),
     }),
   );
-  return hydrateDraft(db, row);
+  if (row !== null) return hydrateDraft(db, row);
+
+  // `null` reaches here only with a key — see `insertDraft`. Somebody else's
+  // create won the index between our pre-read and our insert, so THEIR draft is
+  // the answer. Read it back OUTSIDE the transaction that lost, which has
+  // already committed having written nothing.
+  const winner =
+    input.idempotencyKey === null
+      ? null
+      : await findDraftByCreateIdempotencyKey(db, input.storeId, input.idempotencyKey);
+  if (winner === null) {
+    // Unreachable barring the row being deleted between the conflict and this
+    // read. Stated rather than assumed away: returning a fabricated draft, or
+    // letting `hydrateDraft` take a null, would both be worse than saying so.
+    throw new Error('createDraft: the conflicting draft could not be read back');
+  }
+  return hydrateDraft(db, winner);
 }
 
 /** One draft, whole. 404 rather than 403 for another store's — see the header. */

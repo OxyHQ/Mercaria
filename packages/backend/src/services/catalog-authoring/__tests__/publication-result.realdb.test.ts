@@ -118,6 +118,7 @@ async function publishTwoVariantListing(idempotencyKey: string | null): Promise<
     market: 'ES',
     permissions: E2E_PERMISSIONS,
     ttlSeconds: 3600,
+    idempotencyKey: null,
     title: 'A phone published to prove its result is whole',
   });
 

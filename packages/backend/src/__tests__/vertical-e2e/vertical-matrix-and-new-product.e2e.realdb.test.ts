@@ -283,6 +283,7 @@ describe('a variant signature ignores the order the axes were typed in', () => {
       market: 'ES',
       permissions: E2E_PERMISSIONS,
       ttlSeconds: 3600,
+      idempotencyKey: null,
       title: 'A draft with one combination twice',
     });
 
@@ -365,6 +366,7 @@ describe('the whole eight-configuration matrix, published as one listing', () =>
       market: 'ES',
       permissions: E2E_PERMISSIONS,
       ttlSeconds: 3600,
+      idempotencyKey: null,
       title: 'Kestrel Trailwind 3 — the whole matrix',
     });
 
@@ -561,6 +563,7 @@ describe('a genuinely NEW model, from proposal to a listing somebody can find', 
       market: 'ES',
       permissions: E2E_PERMISSIONS,
       ttlSeconds: 3600,
+      idempotencyKey: null,
       title: `${NEW_MODEL_NAME} — first listing`,
     });
     await patchDraft(db, {

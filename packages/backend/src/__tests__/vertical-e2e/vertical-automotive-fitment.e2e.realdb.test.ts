@@ -197,6 +197,7 @@ describe('authoring the part, and what the fitment answer becomes', () => {
       market: 'DE',
       permissions: E2E_PERMISSIONS,
       ttlSeconds: 3600,
+      idempotencyKey: null,
       title: 'Voltek VP-4410 front brake pad set',
     });
     await patchDraft(db, {

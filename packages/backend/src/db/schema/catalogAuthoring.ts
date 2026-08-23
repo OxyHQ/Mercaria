@@ -220,6 +220,19 @@ export const catalogAuthoringDrafts = pgTable(
       .references(() => stores.id, { onDelete: 'cascade' }),
     /** An Oxy account id — no foreign key; Oxy owns identity. */
     createdByOxyUserId: text().notNull(),
+    /**
+     * The caller-supplied `Idempotency-Key` a CREATE converged on (#367 line 432).
+     *
+     * The sibling of {@link publishIdempotencyKey} below, deliberately a second
+     * column rather than one shared between the two actions: a client retries a
+     * create and a publish under different keys, and one column would make the
+     * second action's key overwrite the evidence the first converged on. The
+     * pair's two partial uniques sit together at the foot of this table.
+     *
+     * NULL is the ordinary state — a client that sent no key gets today's
+     * behaviour exactly, which is why nothing about this column is `notNull`.
+     */
+    createIdempotencyKey: text(),
     status: text({ enum: asEnumValues(AUTHORING_DRAFT_STATUSES) }).notNull().default('open'),
 
     /** `restrict`: nothing deletes a category, and a pin may not be orphaned. */
@@ -440,6 +453,23 @@ export const catalogAuthoringDrafts = pgTable(
     uniqueIndex('catalog_authoring_drafts_idempotency_key')
       .on(t.storeId, t.publishIdempotencyKey)
       .where(sql`${t.publishIdempotencyKey} is not null`),
+    /**
+     * ONE draft per create idempotency key per store (#367 line 432).
+     *
+     * The same shape as the publish index above and store-scoped for the same
+     * reason: two merchants generating the same client-side key must not
+     * collide, and a global unique would answer the second one with somebody
+     * else's draft.
+     *
+     * This index IS the mechanism, not a backstop for the service's pre-read.
+     * `insertDraft`'s `ON CONFLICT DO NOTHING` names it — and because it is
+     * PARTIAL, that statement has to repeat this predicate as its `where` or
+     * Postgres cannot infer the arbiter and the insert raises instead of
+     * converging.
+     */
+    uniqueIndex('catalog_authoring_drafts_create_idempotency_key')
+      .on(t.storeId, t.createIdempotencyKey)
+      .where(sql`${t.createIdempotencyKey} is not null`),
     /** The store's own draft list, newest first — the surface's only feed. */
     index('catalog_authoring_drafts_store_idx').on(t.storeId, t.status, t.updatedAt.desc()),
     index('catalog_authoring_drafts_expires_at_idx')

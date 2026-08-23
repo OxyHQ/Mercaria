@@ -137,6 +137,7 @@ beforeAll(async () => {
     market: 'ES',
     permissions: E2E_PERMISSIONS,
     ttlSeconds: 3600,
+    idempotencyKey: null,
     title: `Outbox phone ${TOKEN}`,
   });
   await patchDraft(db, {

@@ -173,6 +173,7 @@ async function openAxonDraft(options: {
     market: 'ES',
     permissions: E2E_PERMISSIONS,
     ttlSeconds: 3600,
+    idempotencyKey: null,
     title: options.title,
   });
   const patched = await patchDraft(db, {
@@ -246,6 +247,7 @@ describe('a refusal, before anything is written', () => {
       market: 'ES',
       permissions: E2E_PERMISSIONS,
       ttlSeconds: 3600,
+      idempotencyKey: null,
       title: 'A draft with nothing in it',
     });
 
@@ -377,6 +379,7 @@ describe('a guard raised INSIDE the transaction leaves nothing behind', () => {
       market: 'ES',
       permissions: E2E_PERMISSIONS,
       ttlSeconds: 3600,
+      idempotencyKey: null,
       title: 'Lumira Axon 9 Pro — one good variant and one wrong',
     });
     const patched = await patchDraft(db, {
@@ -513,6 +516,7 @@ describe('a guard raised INSIDE the transaction leaves nothing behind', () => {
       market: 'ES',
       permissions: E2E_PERMISSIONS,
       ttlSeconds: 3600,
+      idempotencyKey: null,
       title: 'Lumira Axon 9 Pro — wrong variant first',
     });
     await patchDraft(db, {

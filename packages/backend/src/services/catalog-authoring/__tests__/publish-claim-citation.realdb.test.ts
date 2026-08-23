@@ -97,6 +97,7 @@ async function publishOne(suffix: string, skus: readonly [string, string]): Prom
     market: 'ES',
     permissions: E2E_PERMISSIONS,
     ttlSeconds: 3600,
+    idempotencyKey: null,
     title: `Citation phone ${suffix}`,
   });
 
