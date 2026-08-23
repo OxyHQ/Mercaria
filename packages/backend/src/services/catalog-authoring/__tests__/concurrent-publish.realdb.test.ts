@@ -172,6 +172,7 @@ async function authorDraft(suffix: string): Promise<string> {
     market: 'ES',
     permissions: E2E_PERMISSIONS,
     ttlSeconds: 3600,
+    idempotencyKey: null,
     title: `Concurrency phone ${suffix}`,
   });
 
@@ -444,6 +445,7 @@ describe('two edits of one draft', () => {
       market: 'ES',
       permissions: E2E_PERMISSIONS,
       ttlSeconds: 3600,
+      idempotencyKey: null,
       title: `Concurrency phone edits`,
     });
     draftId = draft.id;

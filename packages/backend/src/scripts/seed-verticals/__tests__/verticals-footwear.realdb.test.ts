@@ -646,6 +646,7 @@ describe('authoring → publication → the product page', () => {
       market: 'ES',
       permissions: PERMISSIONS,
       ttlSeconds: 3600,
+      idempotencyKey: null,
       title: 'Fixture running shoe',
     });
 

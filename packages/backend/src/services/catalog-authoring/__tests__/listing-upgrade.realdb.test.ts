@@ -119,6 +119,7 @@ async function publishListing(
     market: 'ES',
     permissions: E2E_PERMISSIONS,
     ttlSeconds: 3600,
+    idempotencyKey: null,
     title,
   });
   await patchDraft(db, {

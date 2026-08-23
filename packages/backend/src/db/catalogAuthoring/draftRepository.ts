@@ -48,17 +48,55 @@ export interface NewCatalogAuthoringDraft {
   readonly expiresAt: Date;
   readonly title?: string | null;
   readonly description?: string | null;
+  /**
+   * The caller's `Idempotency-Key`, or `null` when it sent none (#367 line 432).
+   *
+   * REQUIRED rather than optional, so every construction site states one. An
+   * optional field here would let a new caller omit it and get today's
+   * duplicate-on-retry behaviour back with nothing to read at the call site.
+   */
+  readonly createIdempotencyKey: string | null;
 }
 
+/**
+ * Insert one draft, or report that this store's key already made one.
+ *
+ * ## `null` is an ANSWER, and only when a key was sent
+ *
+ * `ON CONFLICT … DO NOTHING … RETURNING` writes nothing at all on a repeat, and
+ * the EMPTY result set is what says so — the `claimModerationEvent` shape, one
+ * domain over. The unique index is the mechanism; the service's pre-read is an
+ * optimisation that can lose a race, and this cannot.
+ *
+ * A thrown error is neither outcome. The 23505 is deliberately NOT caught: a
+ * dropped connection or an exhausted pool must propagate rather than read as
+ * "already created", which would answer a caller with somebody else's draft.
+ *
+ * The arbiter is NAMED, so only a conflict on
+ * `catalog_authoring_drafts_create_idempotency_key` is absorbed and a primary-key
+ * collision still raises. `where` repeats that index's own predicate because it
+ * is PARTIAL: without it Postgres cannot infer the arbiter and the statement
+ * raises instead of converging — the `customers_store_id_oxy_user_id_key` trap,
+ * and the reason this is one statement rather than a check-then-insert. (It is
+ * `where` here and `targetWhere` on `onConflictDoUpdate`: drizzle names the same
+ * predicate differently per method, and only the update form has a second one.)
+ *
+ * With NO key the partial index covers nothing, so a conflict is unreachable and
+ * an empty result would mean something genuinely went wrong. That case still
+ * THROWS, exactly as it did before: "converged" and "anomaly" must not share a
+ * return value, or an anomaly on the no-key path surfaces as a confusing miss in
+ * the caller's read-back instead of at its cause.
+ */
 export async function insertDraft(
   db: DatabaseOrTransaction,
   values: NewCatalogAuthoringDraft,
-): Promise<CatalogAuthoringDraftRow> {
+): Promise<CatalogAuthoringDraftRow | null> {
   const rows = await db
     .insert(catalogAuthoringDrafts)
     .values({
       storeId: values.storeId,
       createdByOxyUserId: values.createdByOxyUserId,
+      createIdempotencyKey: values.createIdempotencyKey,
       status: 'open',
       categoryId: values.categoryId,
       productTypeDefinitionId: values.productTypeDefinitionId,
@@ -72,15 +110,41 @@ export async function insertDraft(
       description: values.description ?? null,
       expiresAt: values.expiresAt,
     })
+    .onConflictDoNothing({
+      target: [catalogAuthoringDrafts.storeId, catalogAuthoringDrafts.createIdempotencyKey],
+      where: sql`${catalogAuthoringDrafts.createIdempotencyKey} is not null`,
+    })
     .returning();
-  // A single-row insert either produced a row or raised. Reading `[0]` without
-  // asserting it is the shape every repository here uses; the non-null assertion
-  // this codebase forbids would be the alternative.
   const [row] = rows;
   if (row === undefined) {
+    if (values.createIdempotencyKey !== null) return null;
     throw new Error('insertDraft: the insert returned no row');
   }
   return row;
+}
+
+/**
+ * The draft this create key already made, if any.
+ *
+ * Scoped to the store, because the unique it reads is — a global lookup would
+ * answer one merchant with another's draft on a colliding client-side key.
+ */
+export async function findDraftByCreateIdempotencyKey(
+  db: DatabaseOrTransaction,
+  storeId: string,
+  createIdempotencyKey: string,
+): Promise<CatalogAuthoringDraftRow | null> {
+  const rows = await db
+    .select()
+    .from(catalogAuthoringDrafts)
+    .where(
+      and(
+        eq(catalogAuthoringDrafts.storeId, storeId),
+        eq(catalogAuthoringDrafts.createIdempotencyKey, createIdempotencyKey),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 /** One draft, scoped to the store that owns it — never by id alone. */

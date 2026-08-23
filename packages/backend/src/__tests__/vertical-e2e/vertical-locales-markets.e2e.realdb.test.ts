@@ -253,6 +253,7 @@ describe.each(PAIRS)('the footwear journey in $name', (pair) => {
       market: pair.market,
       permissions: E2E_PERMISSIONS,
       ttlSeconds: 3600,
+      idempotencyKey: null,
       // Distinct per pair so the assertions can name this pair's listing. Not a
       // constraint: see the header — the publication path writes a NULL handle.
       title: `Kestrel Trailwind 3 (${pair.market})`,
@@ -582,6 +583,7 @@ describe.each(PAIRS)('the smartphone existing-canonical journey in $name', (pair
       market: pair.market,
       permissions: E2E_PERMISSIONS,
       ttlSeconds: 3600,
+      idempotencyKey: null,
       title: `Lumira Axon 9 Pro (${pair.market})`,
     });
 

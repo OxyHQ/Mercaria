@@ -51,6 +51,9 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
+import { createDatabase } from '@oxyhq/db';
+import type postgres from 'postgres';
+import * as schema from '../../../db/schema/index.js';
 import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';
 import { catalogReviewEvents } from '../../../db/schema/catalogProposals.js';
@@ -765,4 +768,170 @@ describe.skipIf(!ready)('the trigram near-duplicate path writes evidence (#630)'
     // the population counter exists to tell apart.
     expect(result.proposal.duplicateScanPopulation).toBeGreaterThan(0);
   });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Convergence under a genuine race (#367 line 432)                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * #367 line 432 asks for idempotency keys on the create/publish mutations.
+ *
+ * **This endpoint needs no key, and adding one would be a defect.** It already
+ * converges, on something strictly stronger than a transport retry token: a
+ * SEMANTIC key — `type : attribute : category : product type : normalized
+ * label`, a STORED GENERATED column — behind the partial unique
+ * `catalog_proposals_open_convergence_key`, with the loser reading the winner
+ * back inside the SAME transaction. That converges two DIFFERENT merchants
+ * proposing one concept, which an `Idempotency-Key` cannot do; and the two
+ * would disagree exactly where it matters, because a resubmission under one
+ * header key with an edited label IS a different concept and only the semantic
+ * key can say so. Two answers to "what makes two submissions the same" is the
+ * failure this repository names everywhere else.
+ *
+ * The retry path is already covered elsewhere in the domain and was measured
+ * rather than assumed: `insertProposalReference` is `onConflictDoNothing`, so a
+ * retry attaches nothing twice, and the submission budget is a COUNT over a
+ * window rather than an increment, so a converged retry — which writes no row —
+ * consumes none of it.
+ *
+ * What was missing is the same thing the drafts create was missing: a case a
+ * RACE can fail. `a SECOND merchant asking for the same concept CONVERGES`
+ * above is sequential, so it passes identically against a read-then-write with
+ * no unique index at all.
+ *
+ * So the holder sits on the key uncommitted, the racer runs the REAL service on
+ * its own `max: 1` pool, and `pg_blocking_pids` is polled until it reports a
+ * genuine wait — `waitUntilBlocked` THROWS if that never happens, so a case
+ * which degenerated into a sequential pair fails loudly rather than passing
+ * quietly. A third local copy of that barrier (`concurrent-publish.realdb.test.ts`
+ * and `canonical-teardown.realdb.test.ts` carry the other two), kept local
+ * because each names the mechanism it is proving in its own failure message.
+ */
+describe.skipIf(!ready)('convergence under a genuine race', () => {
+  const SUFFIX = Math.random().toString(36).slice(2, 8);
+  /** Normalizes to `race <suffix>` — a concept no other case in this file uses. */
+  const RACE_LABEL = `  Race   ${SUFFIX} `;
+  const RACE_NORMALIZED = `race ${SUFFIX}`;
+
+  interface Solo {
+    readonly db: Database;
+    readonly client: postgres.Sql;
+    readonly pid: number;
+  }
+
+  const solos: Solo[] = [];
+  let racer: Solo;
+  let holder: Solo;
+  let probe: Solo;
+
+  async function openSolo(): Promise<Solo> {
+    const databaseUrl = process.env['DATABASE_URL'];
+    if (databaseUrl === undefined) {
+      throw new Error('vitest.pg.globalSetup did not publish DATABASE_URL');
+    }
+    const instance = createDatabase({
+      databaseUrl,
+      schema,
+      client: { max: 1, onnotice: () => undefined },
+    });
+    const rows = await instance.client<{ pid: number }[]>`select pg_backend_pid() as pid`;
+    const pid = rows[0]?.pid;
+    if (pid === undefined) throw new Error('the solo connection did not report a backend pid');
+    const solo: Solo = { db: instance.db, client: instance.client, pid };
+    solos.push(solo);
+    return solo;
+  }
+
+  async function waitUntilBlocked(waiterPid: number, holderPid: number): Promise<void> {
+    const deadline = Date.now() + 15_000;
+    for (;;) {
+      const rows = await probe.client<{ blockers: number[] }[]>`
+        select pg_blocking_pids(${waiterPid}) as blockers`;
+      if ((rows[0]?.blockers ?? []).includes(holderPid)) return;
+      if (Date.now() >= deadline) {
+        throw new Error(
+          `backend ${String(waiterPid)} was never blocked by ${String(holderPid)}: this case ` +
+            'measured a sequential run rather than a race. If ' +
+            '`catalog_proposals_open_convergence_key` has stopped being a unique index, this is ' +
+            'the assertion that says so.',
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+
+  beforeAll(async () => {
+    racer = await openSolo();
+    holder = await openSolo();
+    probe = await openSolo();
+  }, 120_000);
+
+  afterAll(async () => {
+    // Before the FILE-level teardown, which deletes rows these still hold a
+    // snapshot of — and a pool left open outlives the run and holds a backend
+    // on a server many worktrees share.
+    for (const solo of solos) await solo.client.end({ timeout: 5 });
+  }, 120_000);
+
+  it('converges on the winner rather than minting a second open proposal', async () => {
+    // A seed proposal under a DIFFERENT concept, so the holder's row can be
+    // copied from a real one and inherit every NOT NULL column. `convergence_key`
+    // is GENERATED, so overriding the normalized label is what re-keys it — and
+    // is why this cannot be written by inserting the key directly.
+    const seed = await submitProposal(db, submission(`Seed ${SUFFIX}`, MERCHANT, false));
+    const holderId = `${P}-race-${SUFFIX}`;
+
+    // Declared OUTSIDE the transaction and NOT returned from `begin`: postgres.js
+    // commits only when the callback resolves, so returning the racer's promise
+    // deadlocks the case against the very commit it is waiting for.
+    let racing: ReturnType<typeof submitProposal> | undefined;
+
+    await holder.client.begin(async (tx) => {
+      await tx`
+        insert into catalog_proposals
+          (id, type, origin, store_id, submitted_by_oxy_user_id, proposed_label, source_locale,
+           normalized_label, search_label, state, category_id, product_type_definition_id,
+           attribute_definition_id, attribute_definition_version,
+           duplicate_scan_population, duplicate_scan_candidates, duplicate_scan_at)
+        select ${holderId}, type, origin, store_id, submitted_by_oxy_user_id,
+               ${`Race ${SUFFIX}`}, source_locale, ${RACE_NORMALIZED}, ${RACE_NORMALIZED},
+               'submitted', category_id, product_type_definition_id, attribute_definition_id,
+               attribute_definition_version, duplicate_scan_population, duplicate_scan_candidates,
+               duplicate_scan_at
+        from catalog_proposals where id = ${seed.proposal.id}
+      `;
+
+      // The racer runs the REAL service on its own connection. Not awaited: it
+      // is about to block on the uncommitted tuple above.
+      racing = submitProposal(racer.db, submission(RACE_LABEL, SECOND_MERCHANT, false));
+
+      // The non-vacuity control.
+      await waitUntilBlocked(racer.pid, holder.pid);
+
+      // Resolving the callback commits, which turns the racer's WAIT into the
+      // conflict it has to converge on.
+    });
+
+    if (racing === undefined) throw new Error('the racer never started');
+    const converged = await racing;
+
+    // The SERVICE's own answer, which a table read cannot make.
+    expect(converged.outcome).toBe('converged');
+    expect(converged.proposal.id).toBe(holderId);
+
+    // …and exactly one OPEN proposal carries the concept.
+    const key = proposalConvergenceKey({
+      type: 'controlled_value',
+      attributeDefinitionId: `${P}-attr`,
+      categoryId: `${P}-cat`,
+      productTypeDefinitionId: `${P}-ptd`,
+      normalizedLabel: RACE_NORMALIZED,
+    });
+    const count = await db.execute<{ total: number }>(sql`
+      select count(*)::int as total from catalog_proposals
+      where convergence_key = ${key} and state in ('submitted', 'needs_information', 'deferred')
+    `);
+    expect(count[0]?.total).toBe(1);
+  }, 120_000);
 });

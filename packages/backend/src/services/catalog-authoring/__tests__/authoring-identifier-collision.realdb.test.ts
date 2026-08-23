@@ -125,6 +125,7 @@ async function validateWith(options: {
     market: 'ES',
     permissions: E2E_PERMISSIONS,
     ttlSeconds: 3600,
+    idempotencyKey: null,
     title: `Collision phone ${TOKEN}`,
   });
 

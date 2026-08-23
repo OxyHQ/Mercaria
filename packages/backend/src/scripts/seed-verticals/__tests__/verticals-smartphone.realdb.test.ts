@@ -399,6 +399,7 @@ describe('selecting an existing canonical product and publishing by DIRECT LINK'
       market: 'ES',
       permissions: PERMISSIONS,
       ttlSeconds: 3600,
+      idempotencyKey: null,
       title: 'Lumira Axon 9 Pro — fixture listing',
     });
 

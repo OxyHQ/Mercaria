@@ -207,6 +207,7 @@ async function authorDraft(options: {
     market: 'ES',
     permissions: E2E_PERMISSIONS,
     ttlSeconds: 3600,
+    idempotencyKey: null,
     title: `Reference phone ${TOKEN}`,
   });
 
