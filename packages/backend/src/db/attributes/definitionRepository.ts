@@ -472,10 +472,23 @@ export async function insertAttributeEnumValue(
   value: string,
   label: string,
   position: number,
+  /**
+   * #367 line 280 — the previous version's value this one replaces, when the
+   * draft is retiring one. Set at INSERT because the freeze makes it the only
+   * moment it can be set: `mercaria_attribute_enum_frozen` refuses every write
+   * to this table once the parent leaves `draft`.
+   */
+  replacesEnumValueId?: string,
 ): Promise<AttributeEnumValueRow | undefined> {
   const rows = await db
     .insert(attributeEnumValues)
-    .values({ attributeDefinitionId, value, label, position })
+    .values({
+      attributeDefinitionId,
+      value,
+      label,
+      position,
+      ...(replacesEnumValueId === undefined ? {} : { replacesEnumValueId }),
+    })
     .onConflictDoNothing({
       target: [attributeEnumValues.attributeDefinitionId, attributeEnumValues.value],
     })

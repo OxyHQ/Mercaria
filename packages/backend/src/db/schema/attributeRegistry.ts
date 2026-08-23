@@ -526,6 +526,48 @@ export const attributeEnumValues = pgTable(
     /** What a shopper reads. Changing it never moves a stored value. */
     label: text().notNull(),
     position: integer().notNull().default(0),
+    /**
+     * The value of a PREVIOUS version that this one replaces — "use this instead
+     * of `gray`" (#367 line 280).
+     *
+     * ## Why this points BACKWARD where `attribute_definitions` points forward
+     *
+     * #367 line 237 put a FORWARD pointer on `attribute_definitions`, because
+     * there the successor is published before the predecessor is deprecated, so
+     * the deprecated row could still be written. **Neither is true here**, and
+     * the asymmetry is forced rather than chosen:
+     *
+     * `mercaria_attribute_enum_frozen` refuses INSERT, UPDATE *and* DELETE on
+     * this table for any definition that has left `draft`. A retired value's row
+     * belongs to a published version, so it can never be written again — a
+     * forward pointer would need that freeze weakened, and the freeze is what
+     * keeps a published version's value vocabulary immutable.
+     *
+     * The successor, by contrast, is being drafted when the redirect is known:
+     * retiring a value means drafting version N+1 that carries everything except
+     * it, and the row naming what it replaces is inserted in that same draft.
+     * So this is the classic case the house idiom was built for —
+     * `product_identifiers.supersedes_identifier_id`'s *"the successor names its
+     * predecessor, so it always resolves"* — and pointing forward here would
+     * cost a trigger change to buy a worse write ordering.
+     *
+     * ## ONE HOP, and it is not chased
+     *
+     * `attribute_definitions.replaced_by_definition_id` states the reasoning in
+     * full and it holds unchanged: a replacement records what an operator
+     * decided at one moment, and if `a` was replaced by `b` and `b` later by
+     * `c`, nobody decided that `c` replaces `a`. A consumer wanting the terminal
+     * value walks the chain itself and bounds the walk.
+     *
+     * ## What it does NOT do
+     *
+     * It does not move stored assignments. Those cite the version they were
+     * recorded under and keep resolving through `resolveDefinitionVersion`,
+     * which is the whole reason the `restrict` below exists.
+     */
+    replacesEnumValueId: text().references((): AnyPgColumn => attributeEnumValues.id, {
+      onDelete: 'restrict',
+    }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -535,6 +577,20 @@ export const attributeEnumValues = pgTable(
       sql`${t.value} = lower(btrim(${t.value})) and ${t.value} <> ''`,
     ),
     uniqueIndex('attribute_enum_values_value_key').on(t.attributeDefinitionId, t.value),
+    // A value cannot replace itself — the `<> id` shape every supersession
+    // pointer in this schema carries.
+    check(
+      'attribute_enum_values_replaces_self_check',
+      sql`${t.replacesEnumValueId} is null or ${t.replacesEnumValueId} <> ${t.id}`,
+    ),
+    // At most ONE successor per retired value: "use X instead" has to be
+    // unambiguous, and two rows claiming to replace `gray` is a question with no
+    // answer. PARTIAL with the predicate spelled out rather than relying on
+    // Postgres treating NULLs as distinct — the behaviour is the same and the
+    // intent is not readable from the plain form.
+    uniqueIndex('attribute_enum_values_replaces_key')
+      .on(t.replacesEnumValueId)
+      .where(sql`${t.replacesEnumValueId} is not null`),
     index('attribute_enum_values_position_idx').on(t.attributeDefinitionId, t.position),
   ],
 );

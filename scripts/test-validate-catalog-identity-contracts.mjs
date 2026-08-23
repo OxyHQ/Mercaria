@@ -208,7 +208,7 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // would have been RIGHT — by luck, and indistinguishable at the time from
     // the #892 case. A pin that is only re-derived when somebody expects it to
     // have moved is a pin nobody re-derives.
-    "walked 126 contract module(s), 2260 exported type(s), 7642 property signature(s)",
+    "walked 126 contract module(s), 2260 exported type(s), 7644 property signature(s)",
     "check A arms exercised by real declarations: 5/9",
   ],
 });

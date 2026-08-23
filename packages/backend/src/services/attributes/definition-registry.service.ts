@@ -102,7 +102,13 @@ export interface DraftAttributeDefinitionInput {
   hardConstraintCapable?: boolean;
   displayPolicy?: AttributeDisplayPolicy;
   evidencePolicy?: AttributeEvidencePolicy;
-  enumValues?: { value: string; label: string; aliases?: string[] }[];
+  enumValues?: {
+    value: string;
+    label: string;
+    aliases?: string[];
+    /** #367 line 280 — the previous version's value this one replaces. */
+    replacesEnumValueId?: string;
+  }[];
   labels?: { locale: string; label: string; description?: string }[];
   categoryScopes?: { categoryId: string; includeDescendants?: boolean }[];
   actorOxyUserId: string;
@@ -178,6 +184,7 @@ export async function draftAttributeDefinition(
         canonicalValue,
         enumValue.label.trim(),
         position,
+        enumValue.replacesEnumValueId,
       );
       if (!stored) continue;
       for (const alias of enumValue.aliases ?? []) {
@@ -524,10 +531,17 @@ export function toAttributeDefinitionDto(
       ? {}
       : { replacedByDefinitionId: row.replacedByDefinitionId }),
     enumValues: resolved.enumValues.map((value) => ({
+      id: value.id,
       value: value.value,
       label: value.label,
       position: value.position,
       aliases: aliasesFor(value.value),
+      // #367 line 280. Emitted beside `id` so the pointer can be FOLLOWED — a
+      // redirect no consumer of this shape could resolve would be a mechanism
+      // with no caller.
+      ...(value.replacesEnumValueId === null
+        ? {}
+        : { replacesEnumValueId: value.replacesEnumValueId }),
     })),
     componentAxes: row.componentAxes.filter(isComponentAxis),
     validation: {

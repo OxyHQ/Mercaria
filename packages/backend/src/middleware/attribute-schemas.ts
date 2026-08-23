@@ -145,6 +145,15 @@ export const attributeDefinitionDraftSchema = z
             value: z.string().trim().min(1).max(160),
             label: z.string().trim().min(1).max(160),
             aliases: z.array(z.string().trim().min(1).max(160)).max(50).optional(),
+            /**
+             * #367 line 280 — the previous version's value this one replaces.
+             *
+             * Accepted only at DRAFT time, which is not a policy but the only
+             * moment there is: `mercaria_attribute_enum_frozen` refuses every
+             * write to `attribute_enum_values` once the parent definition leaves
+             * `draft`, so a redirect that is not set here can never be set.
+             */
+            replacesEnumValueId: idSchema.optional(),
           })
           .strict(),
       )
@@ -546,7 +555,12 @@ export interface AttributeDefinitionDraftBody {
   hardConstraintCapable?: boolean;
   displayPolicy?: AttributeDisplayPolicy;
   evidencePolicy?: AttributeEvidencePolicy;
-  enumValues?: { value: string; label: string; aliases?: string[] }[];
+  enumValues?: {
+    value: string;
+    label: string;
+    aliases?: string[];
+    replacesEnumValueId?: string;
+  }[];
   labels?: { locale: string; label: string; description?: string }[];
   categoryScopes?: { categoryId: string; includeDescendants?: boolean }[];
 }
