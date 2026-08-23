@@ -469,6 +469,47 @@ global switch and the one an incident actually needs.
   instead, against the same tables, through the real adapter over a fake
   transport.
 
+  **The suite's own docblock said otherwise until #367 line 632.** It claimed all
+  three called it and labelled all three with the wrong source kind, rotated one
+  place — and it was **wrong when written rather than overtaken**: #64's
+  selection document, which names eBay the marketplace and Awin the affiliate
+  network, was already in the tree twenty hours earlier
+  (`git merge-base --is-ancestor 22716148 f05d221e` → true). This page and
+  `ebay-ingestion.realdb.test.ts` both had it right the whole time, which is what
+  made the disagreement findable at all.
+
+### Contract coverage by SOURCE KIND (#367 line 632)
+
+Line 632 asks for contract tests over *"representative Amazon/eBay/brand/feed-like
+fixtures"*. Those four words name KINDS rather than a required fixture list, and
+the reason is `docs/catalog-sources/2026-08-09-launch-sources.md:22` — **"Amazon
+is not selected, and honestly cannot be today"**, with the Associates-enrollment
+reason in its §4. A fixture for a source the epic's own dated decision rejected as
+unbuildable is not a requirement.
+
+Mapped onto `CatalogSourceKind`:
+
+| kind | contract coverage |
+| --- | --- |
+| `connector` | `connectors/__tests__/connector-contract-suite.ts` via `shopify-contract.test.ts` and `woocommerce-contract.test.ts` |
+| `feed` | `adapters/__tests__/product-feed-contract.test.ts` (#63) |
+| `affiliate_network` | `adapters/__tests__/awin-feed-contract.test.ts` (#66) |
+| `marketplace_api` | `services/ebay/__tests__/ebay-ingestion.realdb.test.ts` — the same thirteen concerns, differently shaped, for the reasons above |
+| `operator`, `backfill` | **none, and line 632 does not ask for one** — neither is a provider integration with a transport to contract-test |
+
+**Whichever kind `brand` denotes, it is covered**: a brand running its own store is
+a `connector`, a brand publishing a product file is a `feed`, a brand reaching
+buyers through a network is `affiliate_network`. Nothing here rests on picking
+one — no file in the repository maps that word, and the verdict does not need it
+to.
+
+The second clause — *"without coupling the core domain to any one provider"* — is
+structural and measured: **zero** of the eleven framework-core modules under
+`services/ingestion/` import from `adapters/` or a provider service, against a
+control of 26 imports in `ingest.service.ts` alone, and wall 1 of
+`ingestion-isolation.test.ts` scans the DIRECTORY, so it holds for adapters
+nobody has written.
+
   #63's runner added two harness fields, and both are the scenario staying in
   FRAMEWORK terms rather than quietly meaning "HTTP". `pageSize` exists because a
   FILE has no page tokens — #63 reads the whole feed once and pages a local stage
