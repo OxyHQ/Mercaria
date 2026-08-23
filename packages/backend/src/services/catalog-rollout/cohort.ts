@@ -155,6 +155,13 @@ export function catalogRolloutSubjectValue(
       return normaliseSubjectValue(subject.categoryId, 'exact');
     case 'product_type':
       return normaliseSubjectValue(subject.productTypeKey, 'exact');
+    case 'internal_user':
+      // The ONE dimension whose value is a claim about the CALLER rather than
+      // about the request, so its subject field is populated from the
+      // authenticated actor and never from `pick()`. See
+      // `catalogRolloutSubjectFromRequest`. `exact`, because an Oxy user id is
+      // an opaque case-sensitive identifier like a store id.
+      return normaliseSubjectValue(subject.internalUserOxyUserId, 'exact');
     default: {
       // The exhaustiveness check, and it is written as an assignment to `never`
       // rather than left to the compiler's own switch analysis on purpose: this
@@ -229,6 +236,7 @@ function normaliseCohortValue(dimension: CatalogRolloutDimension, value: string)
     case 'store':
     case 'category':
     case 'product_type':
+    case 'internal_user':
       return value;
     default: {
       // See `catalogRolloutSubjectValue` — same reason, same `strict: false`.
