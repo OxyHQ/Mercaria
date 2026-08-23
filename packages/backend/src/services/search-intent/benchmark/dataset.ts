@@ -400,8 +400,25 @@ const CASES: readonly IntentBenchmarkCase[] = [
     locale: 'en-GB',
     registry: 'laptops',
     query: 'laptop with 16 GB of memory segunda mano',
-    // A Spanish phrase in an English-locale query is READ, and the response
-    // stays in the request's locale — localization rule 6.
+    // A Spanish phrase in an English-locale query is READ. Both halves of this
+    // query are asserted and each comes from a different language: `used` from
+    // `segunda mano`, and the `ram` preference from `16 GB of memory`.
+    //
+    // It does NOT cover localization rule 6's other half — that the response
+    // comes back in the request's locale (#946). This comment used to claim it
+    // did, and the claim was false three ways. `IntentBenchmarkExpectation` has
+    // TWELVE members and not one of them is about the paraphrase, so no case in
+    // this dataset can assert response text at all; the runner never inspects
+    // it, and passes `locale` for cohort filtering only. `ParaphraseInput` has
+    // seven members and no locale. And `paraphrase.ts` reads
+    // `constraint.explanation` with zero references to a localized label, its
+    // own docblock recording the decision: "Grouping and locale-aware rendering
+    // belong to the client, which knows the shopper's locale."
+    //
+    // So the uncovered half is not merely unasserted — it is unimplemented, by a
+    // decision the module that would have to do it already states. Asserting it
+    // here would be a failing test for behaviour nobody has built, which belongs
+    // with the fix and not ahead of it.
     expect: { conditionGroups: ['used'], preferenceAttributeKeys: ['ram'] },
   },
 
