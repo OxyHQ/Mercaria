@@ -105,6 +105,8 @@ const QUANTITY_PROPERTIES: readonly string[] = [
 /** An observed route template with three metrics behind it. */
 const SCHEMA_ROUTE = '/catalog-authoring/schemas/:productTypeKey';
 const FACETS_ROUTE = '/facets';
+const CATEGORIES_ROUTE = '/categories';
+const SEARCH_ROUTE = '/search';
 
 let baseline: CatalogMetricsReport;
 
@@ -480,6 +482,68 @@ describe('the collector really reads the route store', () => {
         // And it carries no quantity, so it cannot be rendered as zero.
         expect(Object.keys(entry)).not.toContain('numerator');
       }
+    }
+  });
+
+  it('the two unconditional routes report 5xx, exclude 4xx, and need no mount flag', async () => {
+    // #913: four routes carry a latency budget and are therefore observed, and
+    // two of them reached no metric at all — a 5xx on `/categories` or
+    // `/search` was recorded by the middleware and read by nothing.
+    resetCatalogRouteObservations();
+    // BOTH flags OFF, deliberately. These two routes are mounted
+    // unconditionally, so unlike the authoring and facet rates they must still
+    // be MEASURED here. A producer that copied a `mounted` guard across would
+    // answer `surface_not_mounted` and this case is what catches it.
+    const collect = () =>
+      collectCatalogMetrics({
+        facetSampleSize: NO_FACET_SAMPLE,
+        mounted: { catalogAuthoring: false, facets: false },
+      });
+
+    for (const key of ['taxonomy_read_error_rate', 'search_read_error_rate']) {
+      const before = reading(await collect(), key);
+      expect(before?.state, `${key} is gated on a flag it has no business reading`).toBe(
+        'measured',
+      );
+      if (before?.state === 'measured') {
+        expect(before.denominator).toBe(0);
+        expect(Object.keys(before), `${key}: 0 / 0 was rendered as a ratio`).not.toContain('ratio');
+      }
+    }
+
+    // `/categories`: one 500 and one 404 of four. The 404 is the load-bearing
+    // one — a bad handle is a correct answer, and a producer counting every
+    // non-2xx would report 2/4.
+    observeCatalogRoute({ method: 'GET', route: CATEGORIES_ROUTE, statusCode: 200, durationMs: 5 });
+    observeCatalogRoute({ method: 'GET', route: CATEGORIES_ROUTE, statusCode: 200, durationMs: 6 });
+    observeCatalogRoute({ method: 'GET', route: CATEGORIES_ROUTE, statusCode: 404, durationMs: 2 });
+    observeCatalogRoute({ method: 'GET', route: CATEGORIES_ROUTE, statusCode: 500, durationMs: 9 });
+    // `/search`: TWO 404s and no 5xx — the shape a default deployment actually
+    // has, because `CANONICAL_SEARCH` is `off` and every request is a 404. It
+    // must read `0 / 2` and NOT an empty population: mounted and refusing is a
+    // different state from not mounted.
+    observeCatalogRoute({ method: 'GET', route: SEARCH_ROUTE, statusCode: 404, durationMs: 3 });
+    observeCatalogRoute({ method: 'GET', route: SEARCH_ROUTE, statusCode: 404, durationMs: 4 });
+
+    const after = await collect();
+
+    const taxonomy = reading(after, 'taxonomy_read_error_rate');
+    expect(taxonomy?.state).toBe('measured');
+    if (taxonomy?.state === 'measured') {
+      expect(taxonomy.numerator).toBe(1);
+      expect(taxonomy.denominator).toBe(4);
+      expect(taxonomy.ratio).toBe(0.25);
+    }
+
+    const search = reading(after, 'search_read_error_rate');
+    expect(search?.state).toBe('measured');
+    if (search?.state === 'measured') {
+      expect(search.numerator).toBe(0);
+      expect(search.denominator).toBe(2);
+      // A ratio of exactly 0 over a REAL population, which is a different
+      // reading from the no-ratio `0 / 0` above and is the whole point of
+      // counting a refusing surface's requests.
+      expect(search.ratio).toBe(0);
     }
   });
 

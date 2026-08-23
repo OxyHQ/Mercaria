@@ -1048,7 +1048,42 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
       + 'translation_missing_count is the metric for that.',
   },
 
+  /* ---- Taxonomy read (#913) ---------------------------------------------- */
+  {
+    key: 'taxonomy_read_error_rate',
+    title: 'Category read error rate',
+    kind: 'ratio',
+    numerator: 'GET /categories responses with status >= 500.',
+    denominator: 'All GET /categories responses this process served.',
+    window: 'since_process_start',
+    source: 'route_observations',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'The route every shopper hits and the one with the TIGHTEST latency budget (150 ms), '
+      + 'mounted unconditionally — so unlike the authoring and facet rates beside it there is no '
+      + '`surface_not_mounted` branch, because there is no lever that can withdraw it. '
+      + 'Counts only 5xx, the `authoring_schema_error_rate` decision for the third and fourth time. A 4xx on this route is a CORRECT answer — a malformed request, an unknown handle, or a rollout lever answering 404 — and folding those in would make a stale client and a deliberately-off surface raise the same number a server fault does. `clientErrors` is recorded by the middleware for every observed route and is deliberately published by nothing (#913). Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it. `0 / 0` — a task that has served none of these — reports NO ratio, which is not a zero error rate.',
+  },
+
   /* ---- Search (W17 item 6) ----------------------------------------------- */
+  {
+    key: 'search_read_error_rate',
+    title: 'Search read error rate',
+    kind: 'ratio',
+    numerator: 'GET /search responses with status >= 500.',
+    denominator: 'All GET /search responses this process served.',
+    window: 'since_process_start',
+    source: 'route_observations',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'The ROUTE is mounted unconditionally; `CANONICAL_SEARCH` decides what it ANSWERS, and '
+      + 'with the default `off` — and under `shadow` — every request is a 404. So a default '
+      + 'deployment reads `0 / N` rather than an empty population, and that is the honest '
+      + 'reading: mounted and refusing is a different state from not mounted, and the requests '
+      + 'are real. A 5xx here is a genuine fault whatever the lever says, because `shadow` runs '
+      + 'the canonical query and the legacy one before answering 404. '
+      + 'Counts only 5xx, the `authoring_schema_error_rate` decision for the third and fourth time. A 4xx on this route is a CORRECT answer — a malformed request, an unknown handle, or a rollout lever answering 404 — and folding those in would make a stale client and a deliberately-off surface raise the same number a server fault does. `clientErrors` is recorded by the middleware for every observed route and is deliberately published by nothing (#913). Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it. `0 / 0` — a task that has served none of these — reports NO ratio, which is not a zero error rate.',
+  },
   {
     key: 'search_zero_result_rate_by_market',
     title: 'Search zero-result rate by market',

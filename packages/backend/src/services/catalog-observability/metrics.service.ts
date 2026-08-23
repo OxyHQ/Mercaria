@@ -669,6 +669,36 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
    * "this task served no failing facet requests" about a surface that cannot be
    * requested at all.
    */
+  /**
+   * The two unconditionally-mounted observed routes, which had NO metric at all
+   * (#913).
+   *
+   * Four routes carry a latency budget and are therefore observed for
+   * `requests`, `serverErrors`, `clientErrors`, `notModified` and `latency`.
+   * Before this, two of them were read by a metric and two were read only by
+   * the latency BUDGET report — so a 5xx on `/categories` or `/search` reached
+   * no surface at all.
+   *
+   * No `mounted` guard on either, and that is not an omission: `MountedSurfaces`
+   * carries the two FLAG-GATED surfaces, and neither of these has a lever that
+   * can withdraw the route. `/search`'s lever decides what it ANSWERS, which is
+   * a different thing and is why its own attribution limit says so.
+   *
+   * Latency for both is deliberately NOT published as a metric — the budget
+   * report at `GET /internal/catalog-metrics/latency` already walks every entry
+   * in `CATALOG_LATENCY_BUDGETS` and is served, so a metric would be a second
+   * representation of a fact that already has a reader.
+   */
+  taxonomy_read_error_rate: async (definition) => {
+    const observed = readRouteObservation('GET', '/categories');
+    return ratio(definition, observed?.serverErrors ?? 0, observed?.requests ?? 0);
+  },
+
+  search_read_error_rate: async (definition) => {
+    const observed = readRouteObservation('GET', '/search');
+    return ratio(definition, observed?.serverErrors ?? 0, observed?.requests ?? 0);
+  },
+
   facet_generation_error_rate: async (definition, { mounted }) => {
     if (!mounted.facets) return notMounted(definition, 'FACETS_ENABLED');
     const observed = readRouteObservation('POST', '/facets');
