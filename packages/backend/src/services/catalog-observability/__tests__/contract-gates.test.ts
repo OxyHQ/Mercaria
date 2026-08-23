@@ -75,7 +75,11 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
  * a build failure and a decision — a removal here is somebody stating that the
  * seam named in `docs/catalog-observability.md` is closed.
  *
- * Eight, one per gap, each with its own reason and seam in the registry.
+ * SIX, one per gap, each with its own reason and seam in the registry. It was
+ * eight until #367 W17 lines 768 and 771 closed `draft_validation_failure_rate`
+ * and `translation_fallback_use_rate` — both `not_instrumented`, both closed by
+ * an in-process counter at the site the seam named. A removal here is somebody
+ * stating a gap is gone, which is exactly what those two are.
  *
  * `proposal_sla_breach_count` is the one whose gap is NOT code. Its input — the
  * queue's depth, per-state oldest age, five-band waiting-age distribution and
@@ -87,12 +91,10 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const EXPECTED_UNMEASURED_METRIC_KEYS: readonly string[] = [
   'authoring_schema_memo_hit_rate',
   'backfill_dead_letter_count',
-  'draft_validation_failure_rate',
   'facet_usage_rate',
   'proposal_sla_breach_count',
   'reindex_throughput',
   'search_zero_result_rate_by_locale',
-  'translation_fallback_use_rate',
 ];
 
 /**
@@ -354,7 +356,10 @@ describe('#367 W17 — `unmeasured` carries BOTH halves, and the set is a decisi
     // The floor. An empty set passes the loop for the best possible reason and
     // the worst possible cause — #367 names gaps that exist, so zero of them
     // would mean the registry had lost its own seams.
-    expect(unmeasured.length).toBeGreaterThanOrEqual(5);
+    // FOUR, not five: the floor came down deliberately when 768 and 771 closed.
+    // A floor that could never drop would forbid exactly that closure, and would
+    // be satisfied by padding the list with a gap nobody owes.
+    expect(unmeasured.length).toBeGreaterThanOrEqual(4);
     // And every REASON in the closed tuple that a definition claims is really in
     // the tuple, checked from the definition side as well as the vocabulary
     // side — a reason added to the tuple and used by nothing is a member the
@@ -377,7 +382,7 @@ describe('#367 W17 — `unmeasured` carries BOTH halves, and the set is a decisi
     }
   });
 
-  it('the unmeasured set is EXACTLY the eight this deployment has', () => {
+  it('the unmeasured set is EXACTLY the six this deployment has', () => {
     // Both directions, against a hand-written list. Closing a seam is a
     // deliberate edit here; a new metric shipping `unmeasured` because nobody
     // finished its producer is a build failure rather than a permanently grey

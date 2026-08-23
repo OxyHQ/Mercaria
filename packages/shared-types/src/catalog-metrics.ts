@@ -96,6 +96,21 @@ export const CATALOG_METRIC_SOURCES = [
   'facet_scope_sweep',
   'route_observations',
   /**
+   * The in-process record of what a PUBLICATION attempt was refused for
+   * (#367 W17 line 768). Counted where `publish.service.ts` calls
+   * `validateDraftRow`, which is the one site a publication is decided at —
+   * `draft.service.ts`'s standalone validate is NOT an attempt and is not
+   * counted, or the rate would report every keystroke a form validated.
+   */
+  'authoring_publication_attempts',
+  /**
+   * The in-process record of how a localized field was answered (#367 W17
+   * line 771) — exact, a language truncation, the base locale, or not at all.
+   * Counted in the SERVING path and never in `resolve.ts`, whose purity is
+   * load-bearing and argued in its own header.
+   */
+  'localization_resolutions',
+  /**
    * The shadow comparison in `services/variant-axes/projection.ts` (#367 line
    * 324), counted as each listing is hydrated.
    *
@@ -130,6 +145,8 @@ export type CatalogMetricSource = (typeof CATALOG_METRIC_SOURCES)[number];
 export const CATALOG_IN_PROCESS_METRIC_SOURCES: readonly CatalogMetricSource[] = [
   'route_observations',
   'variant_axis_shadow',
+  'authoring_publication_attempts',
+  'localization_resolutions',
 ];
 
 /**
@@ -212,10 +229,17 @@ export interface CatalogMetricDefinition {
  * Why a metric this registry defines could not be produced.
  *
  * Closed, because the whole point is that an operator can tell the six apart.
- * `no_dead_letter_state` is the one to read: #367's queues record `attempts` and
- * `last_error` and have no dead-letter state at all, so "zero dead letters" is
- * not a healthy reading — it is a category error, and reporting it as `0` would
- * put a permanently green tile on a dashboard for a condition that cannot occur.
+ *
+ * TWO are deliberately used by NO definition, for different reasons.
+ * `source_unavailable` belongs to the COLLECTOR — a registry entry claiming it
+ * would make an incident indistinguishable from a designed gap.
+ * `no_dead_letter_state` stopped applying to #367's backfill queues when line
+ * 759 gave `catalog_backfill_runs` a bounded retry: the condition it names
+ * ("cannot arise") is now reachable there, so `backfill_dead_letter_count`
+ * moved to `dimension_absent_from_source`, which is what that table actually
+ * lacks — a column recording WHY a run ended, `failed` having two producers.
+ * Both members stay because the distinctions they draw are real; an unused
+ * reason is cheaper than a metric filed under an inaccurate one.
  */
 export const CATALOG_UNMEASURED_REASONS = [
   /** Nothing records the fact. A column or a counter is owed. */
@@ -224,7 +248,15 @@ export const CATALOG_UNMEASURED_REASONS = [
   'client_signal_absent',
   /** The queue this would measure has no consumer, so throughput is undefined. */
   'no_consumer_registered',
-  /** The state this counts does not exist in the schema. Not the same as zero. */
+  /**
+   * The condition this counts cannot arise. Not the same as zero.
+   *
+   * Named for the state because #58's `match_queue` carries a `dead_letter`
+   * status. Used by NO definition today: #367's backfill runs had no retry to
+   * exhaust until line 759 gave them one, and now that they have it what they
+   * lack is the CAUSE dimension rather than the state. Kept for the next queue
+   * that reaches a terminal condition it can never actually enter.
+   */
   'no_dead_letter_state',
   /** The dimension asked for is not on the source table. */
   'dimension_absent_from_source',
@@ -620,24 +652,45 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
   },
   {
     key: 'draft_validation_failure_rate',
-    title: 'Draft validation failures by field code',
+    title: 'Publication attempts refused by validation',
     kind: 'ratio',
-    numerator: 'Publication attempts refused by validation, bucketed by the failing field code.',
-    denominator: 'All publication attempts.',
-    window: 'rolling_7d',
-    source: 'catalog_authoring_drafts',
-    freshnessSeconds: 300,
+    numerator: 'Publication attempts this process refused because the draft did not validate.',
+    denominator:
+      'Publication attempts this process made. An attempt is a call that reached '
+      + "`validateDraftRow` from the PUBLISH path; `draft.service.ts`'s standalone validate is "
+      + 'not one, or the rate would report every keystroke a form validated.',
+    window: 'since_process_start',
+    source: 'authoring_publication_attempts',
+    freshnessSeconds: 0,
     attributionLimit:
-      'Would name the field that stops merchants, which is the one thing the abandonment rate '
-      + 'cannot. Bucketed by FIELD CODE and never by field label, which is localized.',
-    unmeasured: {
-      reason: 'not_instrumented',
-      seam:
-        'No table records a validation outcome. publish.service.ts:191 computes '
-        + 'AuthoringValidationResult and returns it to the caller; nothing persists it and the '
-        + 'refused branch logs nothing. Closing it is an append-only counter table keyed on '
-        + '(field code, day), written on the refusal path.',
-    },
+      'PROCESS-LOCAL and RESET BY EVERY DEPLOY — several tasks each count their own traffic, '
+      + 'and a deploy zeroes all of them. Read it as a rate, never as a total. It carries NO '
+      + 'per-code breakdown, deliberately: one refusal can carry several findings with '
+      + 'different codes, so codes do not PARTITION attempts and a `by` here would count one '
+      + 'refusal in several buckets while claiming to sum to the denominator. '
+      + 'draft_validation_failure_code_share answers "which codes" over the population where '
+      + 'they do partition. It also says nothing about whether the author fixed it: a merchant '
+      + 'who corrects a field and republishes is two attempts and one refusal.',
+  },
+  {
+    key: 'draft_validation_failure_code_share',
+    title: 'Validation findings by code',
+    kind: 'ratio',
+    numerator:
+      'Findings of one AuthoringValidationCode on refused publication attempts, per bucket.',
+    denominator:
+      'All findings on refused publication attempts. FINDINGS and not attempts, which is the '
+      + 'whole reason this is a second metric: a code partitions findings exactly, and an '
+      + 'attempt it does not partition at all.',
+    window: 'since_process_start',
+    source: 'authoring_publication_attempts',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'A SHARE of findings, so it cannot be read as "how many drafts failed this way" — one '
+      + 'draft missing four required fields contributes four. Bucketed by the closed '
+      + 'AUTHORING_VALIDATION_CODES tuple and never by attribute key, whose cardinality grows '
+      + 'with the registry; a per-attribute instrument is a different one with its own '
+      + 'disclosure argument. Process-local and reset by every deploy.',
   },
 
   /* ---- Resolution mix (W17 item 3) --------------------------------------- */
@@ -705,11 +758,16 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'match_queue',
     freshnessSeconds: 60,
     attributionLimit:
-      'The ONE dead-letter state anywhere in this chain, and it belongs to #58\'s match queue '
-      + "rather than to any of #367's own tables — which is why "
-      + 'backfill_dead_letter_count next to it is unmeasured rather than zero. A subject here has '
-      + 'exhausted its retries and will never be matched without an operator; it does not '
-      + 'disappear from the catalogue, so the listing is live and unattached.',
+      'The only dead-letter STATE reachable BY NAME in this chain, and it belongs to #58\'s match '
+      + "queue rather than to any of #367's own tables. It is no longer the only place a bounded "
+      + 'retry can be EXHAUSTED — #367 line 759 gave `catalog_backfill_runs` one — so the '
+      + 'difference from a `failed` backfill run is not that this queue retries and that one does '
+      + 'not. It is that this state is NAMED: a subject here has exhausted its retries and will '
+      + 'never be matched without an operator, and the status column says exactly that. A backfill '
+      + 'run records a consecutive-failure COUNT and no cause, so exhaustion there cannot be told '
+      + 'from an operator cancellation — which is why backfill_dead_letter_count next to it is '
+      + 'unmeasured rather than zero. A dead-lettered subject does not disappear from the '
+      + 'catalogue, so the listing is live and unattached.',
   },
   {
     key: 'proposal_creation_count',
@@ -964,25 +1022,25 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
   },
   {
     key: 'translation_fallback_use_rate',
-    title: 'Translation fallback use rate',
+    title: 'Localized reads answered by a fallback',
     kind: 'ratio',
-    numerator: 'Localized reads answered from a fallback locale rather than the requested one.',
-    denominator: 'All localized reads.',
-    window: 'rolling_24h',
-    source: 'category_localizations',
-    freshnessSeconds: 300,
+    numerator:
+      'Field resolutions this process answered from a LANGUAGE truncation or the BASE locale '
+      + 'rather than the locale asked for.',
+    denominator:
+      'Field resolutions this process performed, including the ones that resolved EXACTLY and '
+      + 'the ones that could not be answered at all. Traffic, not catalogue size — so the rate '
+      + 'falls when translation coverage rises rather than tracking how much catalogue exists.',
+    window: 'since_process_start',
+    source: 'localization_resolutions',
+    freshnessSeconds: 0,
     attributionLimit:
-      'The only metric here that measures what shoppers actually HIT rather than what the '
-      + 'catalogue contains. Coverage cannot substitute: an untranslated category nobody visits '
-      + 'costs nothing, and a translated one whose locale variant is missing costs every visit.',
-    unmeasured: {
-      reason: 'not_instrumented',
-      seam:
-        'services/catalog-localization/read.service.ts resolves the fallback chain per read and '
-        + 'records nothing. Closing it is a counter incremented where the chain selects a locale '
-        + 'other than the requested one — a `void` emitter, the recordAnalyticsEvent shape, so it '
-        + 'can never join the read path.',
-    },
+      'PROCESS-LOCAL and RESET BY EVERY DEPLOY. It counts FIELD resolutions, not requests: one '
+      + 'category page is many, so a page with one untranslated description is not "one '
+      + 'fallback read". `unavailable` is in the denominator and in no fallback bucket — a '
+      + 'field nobody could answer is not a fallback, and folding it in would make the rate '
+      + 'rise when text is MISSING rather than when it is merely untranslated. '
+      + 'translation_missing_count is the metric for that.',
   },
 
   /* ---- Search (W17 item 6) ----------------------------------------------- */
@@ -1149,8 +1207,16 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_backfill_runs',
     freshnessSeconds: 300,
     attributionLimit:
-      'A failed run keeps its cursor and is resumable, so this is work outstanding rather than '
-      + 'work lost.',
+      'A failed run keeps its cursor and an operator must RESTART it — nothing picks it up again. '
+      + "`RESUMABLE` is ['pending', 'paused'] and the claim admits only those or a `running` row "
+      + 'whose lease expired, so `failed` is terminal and UNCLAIMABLE. This is therefore work '
+      + 'STOPPED rather than work outstanding, and it is the number that answers "how many runs are '
+      + 'waiting for a person" — no retry clears a `failed` row, because since #367 line 759 '
+      + '`failed` is where the bounded retry STOPS rather than where it never began. It MIXES two '
+      + 'producers and that is deliberate: a run that exhausted `CATALOG_BACKFILL_MAX_ATTEMPTS` '
+      + 'consecutive failed pages, and one `cancelCatalogBackfillRun` stopped. Both are waiting for '
+      + 'a person, which is the question asked; telling them apart is not something this table '
+      + 'records, which is why backfill_dead_letter_count beside it stays unmeasured.',
   },
   {
     key: 'backfill_dead_letter_count',
@@ -1162,19 +1228,32 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_backfill_runs',
     freshnessSeconds: 300,
     attributionLimit:
-      'Would separate "still retrying" from "given up". Reporting this as zero would put a '
-      + 'permanently green tile on a dashboard for a condition that cannot occur.',
+      'Would count runs that gave up after EXHAUSTING a bounded retry. That retry now EXISTS '
+      + '(#367 line 759), so the number it names CAN occur — what is missing is the cause '
+      + 'dimension, see the seam. `backfill_failed_run_count` is the operational question that has '
+      + 'an answer today and covers both producers of `failed`; this is deliberately not a second '
+      + 'name for it.',
     unmeasured: {
-      reason: 'no_dead_letter_state',
+      reason: 'dimension_absent_from_source',
       seam:
-        "None of #367's own queues has a dead-letter state: catalog_backfill_runs, "
-        + 'catalog_external_mapping_runs and catalog_external_token_observations record attempts '
-        + 'and last_error only, so a run that has given up is indistinguishable from one still '
-        + 'retrying. #58\'s match_queue DOES have one and is measured as '
-        + 'match_queue_dead_letter_count — which is why this is unmeasured rather than zero: the '
-        + 'concept exists one domain over, so a zero here would read as "none" instead of "not a '
-        + 'state these tables have". Closing it is a terminal state on those three tables, or the '
-        + 'explicit decision that their retries are unbounded — recorded either way.',
+        'MEASURED, and #367 line 759 closed the half this seam used to name. '
+        + '`catalog_backfill_runs.consecutive_failures` counts failed pages IN A ROW, '
+        + '`CATALOG_BACKFILL_MAX_ATTEMPTS` bounds it, and `recordBackfillPageFailure` releases '
+        + '`paused` below the ceiling and `failed` at it — so exhaustion is a real, reachable '
+        + 'condition and `no_dead_letter_state` ("the condition this counts cannot arise") stopped '
+        + 'being true of it. What is still absent is the DIMENSION. `failed` has a SECOND producer: '
+        + '`cancelCatalogBackfillRun` releases through `releaseBackfillRun`, which never touches '
+        + 'the counter, and the table carries no column saying WHY a run ended. Neither available '
+        + 'predicate is honest, and both fail SILENTLY. '
+        + '`consecutive_failures >= CATALOG_BACKFILL_MAX_ATTEMPTS` keys the population on a MUTABLE '
+        + 'env var that is deliberately an incident lever, so raising the ceiling from 8 to 16 '
+        + 'un-counts every run that already exhausted at 8 — at exactly the moment somebody raised '
+        + 'it in order to read the number. `consecutive_failures > 0` counts a run an operator '
+        + 'cancelled after two bad pages as a dead letter, which it is not. '
+        + '`catalog_backfill_records.attempts` is not a third option — it counts RE-EXAMINATIONS of '
+        + 'one subject across runs a person started, is never reset and is bounded by nothing, so '
+        + 'nothing can exhaust it. Closing this is ONE column on `catalog_backfill_runs` recording '
+        + 'the terminal CAUSE, written by the two producers that already differ.',
     },
   },
   {

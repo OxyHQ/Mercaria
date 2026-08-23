@@ -94,6 +94,7 @@ import {
 } from '../variant-axes/variant-axes.service.js';
 import { normalizeAxisValue } from '../variant-axes/signature.js';
 import { hydrateDraft, validateDraftRow } from './draft.service.js';
+import { recordPublicationAttempt } from './publication-observation.js';
 import { composePublicationResult } from './publication-result.js';
 import { composeAuthoringSchemaForDefinitionId } from './schema.service.js';
 import type { AuthoringPermissionContext } from '@mercaria/shared-types';
@@ -252,6 +253,11 @@ async function settlePublication(
     }
 
     const validation = await validateDraftRow(tx, draft, composition.schema);
+    // The ONE site a publication is decided at, which is why the counter is
+    // here and not in `validateDraftRow`: `draft.service.ts` calls that too, for
+    // the standalone validate a form runs on every keystroke, and counting
+    // those would make the refusal rate a measure of typing (#367 W17 line 768).
+    recordPublicationAttempt(validation);
     if (!validation.publishable) return { refused: validation };
 
     const category = await findCategoryRow(tx, draft.categoryId);

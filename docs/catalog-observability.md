@@ -116,7 +116,7 @@ read assembled at request time.
 
 ## Metrics are DATA, not prose
 
-`CATALOG_METRICS` holds **44 definitions**. `CatalogMetricDefinition` is #77's
+`CATALOG_METRICS` holds **47 definitions**. `CatalogMetricDefinition` is #77's
 `AnalyticsMetricDefinition` applied to the catalog graph and keeps that type's
 one load-bearing property: apart from `unmeasured` there is **no optional
 field**, so a number whose denominator, window, source or attribution limit
@@ -187,9 +187,17 @@ does not exist to be measured" cannot be spelled two ways and counted as one:
 | `dimension_absent_from_source` | the dimension asked for is not on the source table |
 | `source_unavailable` | the owning reader refused or was unavailable for this read |
 | `surface_not_mounted` | the route this metric observes is not mounted in this deployment |
+| `policy_target_undefined` | no threshold is defined anywhere, so the breach it counts has no definition |
 
-The last TWO are the only ones no definition declares — both are substituted by
-the collector at runtime, and neither is a seam. `source_unavailable` is what a producer's failure
+**THREE are declared by no definition, and not for one reason.**
+`source_unavailable` and `surface_not_mounted` are substituted by the COLLECTOR
+at runtime and neither is a seam. `no_dead_letter_state` is different: it is a
+seam vocabulary member that stopped applying when #367 line 759 gave
+`catalog_backfill_runs` a bounded retry, so the one metric that declared it moved
+to `dimension_absent_from_source`. It is kept rather than deleted because the
+distinction it draws is real and the next queue without a terminal state will
+need it — an unused reason is cheaper than a metric filed under an inaccurate
+one. `source_unavailable` is what a producer's failure
 degrades to at runtime, and it is deliberately a different fact from a designed
 seam. A permanent seam is work outstanding; an unavailable source is an incident.
 `recordMetricCollectionFailure()` fires at the failure site, so the operator sees
@@ -277,7 +285,7 @@ rather than a gap here.
 
 ## What is not measured, and why
 
-**Eight of the forty-four metrics carry a seam.** Each is present in the
+**Six of the forty-seven metrics carry a seam.** Each is present in the
 registry, readable through the surface, and answers `unmeasured` — because
 absence from a registry is indistinguishable from nobody having thought of the
 metric, and a zero is indistinguishable from health.
@@ -286,7 +294,7 @@ metric, and a zero is indistinguishable from health.
 dashboard can render the gap as a gap. The seam text below is the registry's own,
 condensed; the registry is the authority.
 
-**The set of eight is a DECISION, not a derivation.**
+**The set of six is a DECISION, not a derivation.**
 `contract-gates.test.ts` holds it as `EXPECTED_UNMEASURED_METRIC_KEYS`, written
 out by hand and asserted in both directions, because
 `CATALOG_METRICS.filter((m) => m.unmeasured)` agrees with itself whatever the
@@ -298,10 +306,10 @@ below is gone. The same file also asserts
 which is the arithmetic identity that catches a producer deleted while its
 definition stays measured — something three empty lists cannot express.
 
-**`surface_not_mounted` is NOT one of the eight and must not be counted with
+**`surface_not_mounted` is NOT one of the six and must not be counted with
 them.** It is a deployment state, not a gap in the code, and it is explained in
 §"An unmounted surface is not a seam" below. On a stock deployment the report
-therefore carries **eight registry seams plus up to four runtime
+therefore carries **six registry seams plus up to four runtime
 `surface_not_mounted` readings**, and those are different facts: a seam is work
 owed to somebody, an unmounted surface is one variable away.
 
@@ -318,36 +326,40 @@ so `authoring_schema_client_cache_hit_rate` measures a different cache.
 `analyticsSinkStats` shape, and one call in each of the two branches
 (`memo.get` hit, and `remember` after a cold composition).
 
-### 2. `draft_validation_failure_rate` — `not_instrumented`
+### The two that CLOSED (#367 W17 lines 768 and 771)
 
-Publication attempts refused by validation, bucketed by the failing FIELD CODE —
-the one thing the abandonment rate cannot tell you, because it names the field
-that stops merchants.
+`draft_validation_failure_rate` and `translation_fallback_use_rate` were items 2
+and 3 here, both `not_instrumented`, and both are now produced. Recorded rather
+than deleted, because "this was never built" and "this was built in August" lead
+a reader to different questions about a number they are looking at.
 
-No table records a validation outcome. `publish.service.ts` computes
-`validateDraftRow(...)` and returns `{ refused: validation }` to the caller;
-nothing persists it and the refused branch logs nothing.
+Each closed the way its own seam said it would — a counter at the site the seam
+named, not a table:
 
-**What closes it:** an append-only counter table keyed on (field code, day),
-written on the refusal path. Bucketed by field CODE and never by field label,
-which is localized.
+- **768** counts at `publish.service.ts`'s ONE call to `validateDraftRow` from
+  the publish path. `draft.service.ts` calls the same function for the standalone
+  validate a form runs on every keystroke, and counting those would make the
+  refusal rate a measure of typing.
+- **771** counts in the SERVING path and never in `resolve.ts`, whose header
+  opens with **PURE** and argues it. `resolveObservedLocalizedField` is the one
+  thing a serving module may import, and
+  `localized-read-observation.test.ts` fails the build if one reaches past it —
+  because a serving path that resolves without recording makes the RATE wrong
+  rather than merely incomplete.
 
-### 3. `translation_fallback_use_rate` — `not_instrumented`
+768 arrived as TWO metrics, and the split is the interesting part: a refusal
+carries any number of findings, so a validation CODE partitions findings exactly
+and attempts not at all. `draft_validation_failure_rate` therefore carries no
+breakdown, and `draft_validation_failure_code_share` answers "which codes" over
+the population where they do partition. One metric with a `by` would have counted
+one refusal in three buckets while claiming they summed to its denominator.
 
-Localized reads answered from a fallback locale rather than the requested one.
-**The only metric in the translation set that measures what shoppers actually
-HIT** rather than what the catalogue contains — and coverage cannot substitute:
-an untranslated category nobody visits costs nothing, and a translated one whose
-locale variant is missing costs every visit.
+Both are bucketed on CLOSED tuples — `AUTHORING_VALIDATION_CODES` and
+`LOCALIZATION_FALLBACK_STEPS`. Bucketing 768 on `attributeKey` was considered and
+refused: its cardinality grows with the registry, which is an unbounded metric
+dimension arriving as a breakdown key instead of a column.
 
-`services/catalog-localization/read.service.ts` resolves the fallback chain per
-read and records nothing.
-
-**What closes it:** a counter incremented where the chain selects a locale other
-than the requested one — a `void` emitter in the `recordAnalyticsEvent` shape, so
-it can never join the read path.
-
-### 4. `search_zero_result_rate_by_locale` — `dimension_absent_from_source`
+### 2. `search_zero_result_rate_by_locale` — `dimension_absent_from_source`
 
 A market is not a locale: one market serves several languages, and a zero-result
 rate that is fine in one and terrible in another is exactly what the market split
@@ -359,7 +371,7 @@ owns that table.
 **What closes it:** one nullable text column plus the emit site in
 `search-instrumentation.ts`.
 
-### 5. `facet_usage_rate` — `client_signal_absent`
+### 3. `facet_usage_rate` — `client_signal_absent`
 
 Whether generated facets are worth generating — distinct from
 `facet_scope_empty_rate`, which says whether they EXIST.
@@ -370,30 +382,72 @@ nothing about whether a shopper touched one.
 
 **What closes it:** a `facet_applied` client event type plus its emitter.
 
-### 6. `backfill_dead_letter_count` — `no_dead_letter_state`
+### 4. `backfill_dead_letter_count` — `dimension_absent_from_source`
 
-Would separate "still retrying" from "given up".
+Would count runs that gave up after EXHAUSTING a bounded retry.
 
-**None of #367's own queues has a dead-letter state.**
-`catalog_backfill_runs`, `catalog_external_mapping_runs` and
-`catalog_external_token_observations` record `last_error` and no more — **neither
-run table has an `attempts` column at all** (`db/schema/backfill.ts:140-200`,
-`db/schema/catalogExternalMappings.ts:764-802`; the `attempts` column that does
-exist is `attribute_reindex_requests`', `db/schema/attributeRegistry.ts:560`, and
-nothing increments it). So a run that has given up is indistinguishable from one
-still retrying, and there is no retry counter on the run to read either. #58's
-`match_queue` DOES have one and IS measured, as
-`match_queue_dead_letter_count` — which is precisely why this is `unmeasured`
-rather than zero: the concept exists one domain over, so a zero here would read
-as "none" instead of "not a state these tables have". Reporting it as `0` would
-put a permanently green tile on a dashboard for a condition that cannot occur.
+**This section has now been wrong twice, in opposite directions, and both
+corrections were forced by a measurement rather than a re-reading.** It first
+said a failed run was indistinguishable from one still retrying; `failed` is
+terminal and unclaimable (`RESUMABLE` is `['pending', 'paused']`,
+`db/backfill/backfillRunRepository.ts:38`; the claim predicate admits only those
+or a `running` row whose lease expired, `:159`), so that absence was not there.
+It then said the missing half was the RETRY, and that there was **no
+`max_attempts` anywhere in the catalog backfill domain**. That was true when it
+was written and is **no longer true**: #367 line 759 gave runs a bounded retry.
 
-**What closes it:** a terminal state on those three tables, or the explicit
-decision that their retries are unbounded — recorded either way. This is also
-W16's "add dead-letter/retry handling for asynchronous jobs", which is therefore
-NOT done for this epic's own queues.
+**What exists now.** `catalog_backfill_runs.consecutive_failures` counts failed
+pages IN A ROW and is reset by any page that advances;
+`CATALOG_BACKFILL_MAX_ATTEMPTS` (default 8) bounds it; and
+`recordBackfillPageFailure` is one statement that increments and decides —
+`paused` below the ceiling, so the dispatcher re-reads the same page on its next
+tick, and `failed` at it. So a run CAN now exhaust its retries, and the condition
+this metric names is reachable.
 
-### 7. `reindex_throughput` — `no_consumer_registered`
+**What is still absent is the DIMENSION, which is why the reason changed rather
+than the metric becoming measured.** `failed` has a SECOND producer:
+`cancelCatalogBackfillRun` releases through `releaseBackfillRun`, which never
+touches the counter — deliberately, because a cancellation is terminal on its
+first and only attempt. `catalog_backfill_runs` carries no column saying WHY a
+run ended, and **neither available predicate is honest, both failing silently**:
+
+- `consecutive_failures >= CATALOG_BACKFILL_MAX_ATTEMPTS` keys the population on
+  a **mutable env var that is deliberately an incident lever**. Raising the
+  ceiling from 8 to 16 un-counts every run that already exhausted at 8 — at
+  exactly the moment somebody raised it in order to read the number.
+- `consecutive_failures > 0` counts a run an operator cancelled after two bad
+  pages as a dead letter, which it is not.
+
+`catalog_backfill_records.attempts` is not a third option, and it is worth saying
+so because it is the first thing a reader finds: it counts how many times a
+subject has been **re-examined across runs an operator started**
+(`db/schema/backfill.ts`, incremented by the record upsert), is never reset, is
+bounded by nothing, and `backfill_retry_count` measures records above one. That
+is a poison-record signal, not a retry loop.
+
+So "zero dead letters" is still a category error, for a third and sharper reason:
+the exhaustion happens, and the table cannot tell it apart from a cancellation.
+
+**It is deliberately not renamed either.** "Runs an operator must restart" is a
+real operational question with a real answer today, and
+`backfill_failed_run_count` already answers it — `count(*) where status =
+'failed'`, covering BOTH producers, which is correct for that question because
+both are waiting for a person. A second metric over one predicate is two names
+for one number.
+
+**That neighbouring metric's own attribution limit was WRONG and was corrected
+in this same change**: it read *"a failed run keeps its cursor and is resumable,
+so this is work outstanding rather than work lost."* A failed run keeps its
+cursor and is **not** resumable. It was telling an operator that stopped work
+would resume — a live, measured number under a false reassurance, which is worse
+than the unmeasured one beside it.
+
+**What closes it:** ONE column on `catalog_backfill_runs` recording the terminal
+CAUSE, written by the two producers that already differ. Not a threshold, not a
+derived predicate — the two writers know which of them they are, and nothing
+downstream can recover it once they have both written `failed`.
+
+### 5. `reindex_throughput` — `no_consumer_registered`
 
 Would be the indexing-lag signal W17 asks for.
 
@@ -415,7 +469,7 @@ mostly about not sending somebody to restart a worker that does not exist.
 
 **What closes it:** that consumer.
 
-### 8. `proposal_sla_breach_count` — `policy_target_undefined`
+### 6. `proposal_sla_breach_count` — `policy_target_undefined`
 
 **The one seam here whose gap is not code.** Every input it would need is
 measured and served: `readProposalQueueAging` publishes the queue's depth and
@@ -1731,7 +1785,7 @@ stops anybody looking.
 | Key caches by all semantic dimensions | **Done, elsewhere** — the key carries product type, category, flow, locale, market, permission fingerprint and the invalidation revisions. |
 | Invalidate through versioned events/outbox | **Done, elsewhere** — `catalog_authoring_schema_invalidations`. |
 | Make backfills, reindexing and mapping reprocessing resumable and idempotent | **Partial, and narrower than this row said before.** `catalog_backfill_runs` is genuinely leased, cursored and drained — it is the ONE job here that resumes. **Mapping runs are NOT leased**: `catalog_external_mapping_runs.claimed_at`/`claimed_by`/`claim_expires_at` are written by no production code and `RUN_COLUMNS` omits them, and `openReprocessRun`/`runReprocessPage` have zero callers outside their own module — no route, no CLI, no dispatcher — so there is nothing to resume and nothing to start. Reindex requests have deterministic ids and NO consumer, so "resumable reindexing" is vacuous. Also untested where it matters: no test calls `claimBackfillRun`, so the expired-lease reclaim branch is unexercised. Detail and the operator steps: [`runbooks/catalog-backfill-resumption.md`](runbooks/catalog-backfill-resumption.md). |
-| Add dead-letter/retry handling for asynchronous jobs | **Not done** for this epic's own queues — that is seam 6, `no_dead_letter_state`. #58's `match_queue` has one. |
+| Add dead-letter/retry handling for asynchronous jobs | **RETRY done, dead-letter REPORTING not.** #367 line 759 gave `catalog_backfill_runs` a bounded retry — `consecutive_failures` against `CATALOG_BACKFILL_MAX_ATTEMPTS`, releasing `paused` below the ceiling and `failed` at it. What is still missing is telling that exhaustion apart from `cancelCatalogBackfillRun`, the second producer of `failed`, which needs a terminal-cause column: seam 4, now `dimension_absent_from_source`. Mapping and reindex queues have neither. #58's `match_queue` has a named `dead_letter` state. |
 | Define consistency behavior between DB publication and search index visibility | **Not done.** There is no index and no consumer; the trace's reindex hop says so. |
 | Add load tests for large variant matrices, deep category trees and popular facets | **Partial.** The ancestry benchmark is a deep-tree load test at 5,010 nodes. Variant matrices and popular facets are not covered. |
 | Add safeguards/limits against pathological schemas or combinatorial variant explosions | **Not this domain.** |
@@ -1805,7 +1859,7 @@ Every line is a thing to CHECK, not a thing to have intended.
       NOT as a seam or a zero — it is the one unmeasured reading that a variable
       fixes.
 - [ ] Every `unmeasured` reading is rendered as a GAP, never as zero, and
-      `awaitingSeams` is on the dashboard so the eight are visible without
+      `awaitingSeams` is on the dashboard so the six are visible without
       reading this file.
 - [ ] `proposal_sla_breach_count` is rendered as "no target defined", not as
       "0 breaches". It is the one seam whose gap is a POLICY decision rather than

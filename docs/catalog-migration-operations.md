@@ -701,15 +701,21 @@ Everything below is read from `GET /internal/catalog-metrics`
 | `backfill_failed_run_count` | `catalog_backfill_runs` with `status = 'failed'` | `instant` | `catalog_backfill_runs` | 300 s | `:967` |
 | `backfill_retry_count` | `catalog_backfill_records` with `attempts > 1` | `instant` | `catalog_backfill_records` | 300 s | `:954` |
 | `match_queue_dead_letter_count` | `match_queue` rows `status = 'dead_letter'` | `instant` | `match_queue` | 60 s | `:637` |
-| `backfill_dead_letter_count` | — | — | — | — | **`unmeasured`**, `no_dead_letter_state`, `:980` |
+| `backfill_dead_letter_count` | — | — | — | — | **`unmeasured`**, `dimension_absent_from_source` |
 | `mustStayZero.metricCollectionFailures` and its two siblings | see `catalog-observability.md:465-504` | process-local | in-process counters | per task | — |
 
-**The gap, and it is the sharp one: there is no metric that counts a failed
-publication.** `POST /stores/:storeId/product-drafts/:draftId/publish` is not an
-observed route and nothing persists a validation refusal (that is W17's
-`draft_validation_failure_rate` seam, `catalog-metrics.ts:560`).
-`authoring_schema_error_rate` observes the **schema read**, not the publish, and
-counts only 5xx — a composition refusal is a 4xx and a correct answer.
+**That gap is now HALF closed, and the half that remains is the durable one.**
+W17 line 768 made `draft_validation_failure_rate` and
+`draft_validation_failure_code_share` MEASURED: `recordPublicationAttempt`
+counts every attempt the publish path refused for a draft that did not validate,
+and the share partitions those refusals by validation CODE. Both are
+`since_process_start` in-process counters, which is the limit — **a task
+restart resets them and nothing persists a validation refusal**, so they answer
+"is this deployment refusing publications right now" and never "how many failed
+last week". `POST /stores/:storeId/product-drafts/:draftId/publish` is still not
+an observed route. `authoring_schema_error_rate` observes the **schema read**,
+not the publish, and counts only 5xx — a composition refusal is a 4xx and a
+correct answer.
 So "publication failures" is diagnosed from draft OUTCOMES in aggregate plus the
 per-publication row trace, which is exactly what
 [`runbooks/catalog-publication-failures.md`](runbooks/catalog-publication-failures.md)
@@ -757,7 +763,7 @@ honest content is that there is no indexer to recover.
 | `translation_coverage` | rows `reviewed` or `approved` / eligible entity-locale pairs | `instant` | `catalog_governance_quality` | 900 s | `:738` |
 | `translation_stale_count` | rows `status = 'stale'` | `instant` | `category_localizations` | 900 s | `:764` |
 | `translation_machine_share` | rows `status = 'machine_translated'` / all localization rows that exist for the locale | `instant` | `category_localizations` | 900 s | `:751` |
-| `translation_fallback_use_rate` | *(would be)* localized reads answered from a fallback locale / all localized reads | `rolling_24h` | `category_localizations` | 300 s | **`unmeasured`**, `not_instrumented`, `:790` |
+| `translation_fallback_use_rate` | localized reads answered from a fallback locale / all localized reads | `since_process_start` | `localization_resolutions` | in-process | MEASURED since W17 line 771 |
 | `attribute_localized_label_completeness` | active attribute definitions carrying at least one `attribute_labels` row / all active attribute definitions | `instant` | `product_type_definitions` | 900 s | `:720` |
 
 Two attribution limits an operator has to read together, or the dashboard misleads
@@ -776,12 +782,13 @@ in the dangerous direction:
 numerator — counting it is how a locale reports 98% while a shopper reads a
 machine's guess at a legal category name.
 
-**Four of the five measure what the CATALOGUE contains; none measures what a
-shopper hit.** That is `translation_fallback_use_rate`, a declared seam:
-`services/catalog-localization/read.service.ts` resolves the fallback chain per
-read and records nothing. Coverage cannot substitute — an untranslated category
-nobody visits costs nothing, and a translated one whose locale variant is missing
-costs every visit. **Operator action:**
+**Four of the five measure what the CATALOGUE contains; the fifth measures what a
+shopper hit.** That is `translation_fallback_use_rate`, MEASURED since W17 line
+771 by `recordLocalizedResolution` at the one wrapped resolver every localized
+read passes through — with the in-process limit that a task restart zeroes it and
+tasks do not share it. Coverage cannot substitute for it — an untranslated
+category nobody visits costs nothing, and a translated one whose locale variant
+is missing costs every visit. **Operator action:**
 [`runbooks/catalog-translation-regressions.md`](runbooks/catalog-translation-regressions.md).
 
 ### 4. Review backlog

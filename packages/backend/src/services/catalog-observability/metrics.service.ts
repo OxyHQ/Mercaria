@@ -39,8 +39,10 @@
  */
 
 import {
+  AUTHORING_VALIDATION_CODES,
   CATALOG_METRICS,
   CATALOG_METRIC_KEYS,
+  LOCALIZATION_FALLBACK_STEPS,
   type CatalogLatencySample,
   type CatalogMetricBucket,
   type CatalogMetricDefinition,
@@ -52,6 +54,8 @@ import {
 } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { readVariantAxisShadowCounters } from '../variant-axes/projection.js';
+import { readAuthoringPublicationCounters } from '../catalog-authoring/publication-observation.js';
+import { readLocalizationReadCounters } from '../catalog-localization/read-observation.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { summarizeMatchQueue } from '../../db/matching/matchQueueRepository.js';
 import { readCatalogQuality } from '../catalog-governance/quality.service.js';
@@ -716,6 +720,53 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
   variant_axis_typed_coverage: async (definition) => {
     const counters = readVariantAxisShadowCounters();
     return ratio(definition, counters.listings - counters.typedAbsent, counters.listings);
+  },
+
+  /* ---- Publication attempts (#367 W17 line 768) -------------------------- */
+  //
+  // Both read the SAME process-local counters and neither checks a flag: a zero
+  // denominator already says this task has published nothing, and `ratio` keeps
+  // a zero denominator in the MEASURED branch. The two are separate metrics
+  // rather than one with a breakdown because a refusal carries any number of
+  // findings, so a CODE partitions findings exactly and attempts not at all —
+  // see `publication-observation.ts`.
+  draft_validation_failure_rate: async (definition) => {
+    const counters = readAuthoringPublicationCounters();
+    return ratio(definition, counters.refused, counters.attempts);
+  },
+
+  draft_validation_failure_code_share: async (definition) => {
+    const counters = readAuthoringPublicationCounters();
+    const by: CatalogMetricBucket[] = [];
+    // One bucket per code that OCCURRED, not one per member of the tuple: thirty
+    // zero buckets would bury the two that are biting. The order is the tuple's,
+    // so two readings of the same counters render identically.
+    for (const code of AUTHORING_VALIDATION_CODES) {
+      const found = counters.findingsByCode[code] ?? 0;
+      if (found === 0) continue;
+      by.push(bucket(code, found, counters.findings));
+    }
+    return ratio(definition, counters.findings, counters.findings, by);
+  },
+
+  /* ---- Localized reads (#367 W17 line 771) ------------------------------- */
+  translation_fallback_use_rate: async (definition) => {
+    const counters = readLocalizationReadCounters();
+    const fallback = LOCALIZATION_FALLBACK_STEPS.filter((step) => step !== 'exact').reduce(
+      (total, step) => total + counters.byStep[step],
+      0,
+    );
+    const by: CatalogMetricBucket[] = LOCALIZATION_FALLBACK_STEPS.map((step) =>
+      // `exact` contributes a numerator of ZERO and its full denominator: it is
+      // part of the population and is not a fallback. Dropping it would make the
+      // buckets sum to less than the reading, which the bucket identity refuses.
+      bucket(step, step === 'exact' ? 0 : counters.byStep[step], counters.byStep[step]),
+    );
+    // …and the fourth outcome, which is not a step at all. A field the chain
+    // could not answer is in the denominator and in no fallback bucket, or the
+    // rate would rise when text is MISSING rather than merely untranslated.
+    by.push(bucket('unavailable', 0, counters.unavailable));
+    return ratio(definition, fallback, counters.resolutions, by);
   },
 
   variant_axis_shadow_divergence: async (definition) => {
