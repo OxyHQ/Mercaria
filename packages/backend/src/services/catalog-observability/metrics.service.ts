@@ -76,6 +76,7 @@ import {
   countPendingReindexRequests,
   tallyAttributeLocalizedLabels,
   tallyBackfillRetries,
+  backfillCauseCountsAgree,
   tallyBackfillRuns,
   tallyDraftOutcomes,
   tallyExternalMappingCoverage,
@@ -705,6 +706,48 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
   backfill_failed_run_count: async (definition, { shared }) => {
     if (!shared.backfillRuns) return unavailable(definition);
     return count(definition, shared.backfillRuns.failed);
+  },
+
+  /**
+   * Runs the system gave up on BY ITSELF — the exhaustion subset of `failed`.
+   *
+   * Reads the stored `terminal_cause` rather than deriving from
+   * `consecutive_failures`, because `failed` has two producers and the count
+   * this answers must exclude the one that is a person's decision. The whole
+   * `failed` population is reported as buckets beside the number, so what the
+   * numerator LEAVES OUT is visible rather than inferred — and `cause_missing`
+   * in particular, which must be zero once the `0147` biconditional is in force
+   * and is the only thing that tells a genuine zero apart from a count taken
+   * while the rollout was mid-flight.
+   *
+   * `backfillCauseCountsAgree` is a conserved total, not a floor: the four
+   * buckets are disjoint and exhaustive over `failed` by construction, so a
+   * mismatch means the cause vocabulary and this query have diverged and the
+   * reading is refused rather than published short. Refusing is right because
+   * the failure mode it catches is a dead-letter count that is quietly LOW,
+   * which no threshold on the number itself could ever notice.
+   */
+  backfill_dead_letter_count: async (definition, { shared }) => {
+    const tally = shared.backfillRuns;
+    if (!tally) return unavailable(definition);
+    if (!backfillCauseCountsAgree(tally)) return unavailable(definition);
+    // Each bucket is ONE cause: its denominator is that cause's share of the
+    // `failed` population and its numerator is how much of the dead-letter
+    // count came from it — which is all of it for `retry_exhausted` and none of
+    // it for the other three. So the buckets partition the numerator AND the
+    // denominator, which is the shape every other breakdown here has, and the
+    // three zero-numerator buckets are carrying their DENOMINATORS: that is
+    // where `cause_missing` becomes visible.
+    return ratio(definition, tally.retryExhausted, tally.failed, [
+      {
+        key: 'retry_exhausted',
+        numerator: tally.retryExhausted,
+        denominator: tally.retryExhausted,
+      },
+      { key: 'operator_cancelled', numerator: 0, denominator: tally.operatorCancelled },
+      { key: 'unrecorded', numerator: 0, denominator: tally.unrecorded },
+      { key: 'cause_missing', numerator: 0, denominator: tally.causeMissing },
+    ]);
   },
 
   reindex_pending_count: async (definition, { db }) =>

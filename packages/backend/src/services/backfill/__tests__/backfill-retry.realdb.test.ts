@@ -88,6 +88,7 @@ async function readRun(id: string) {
       cursor: catalogBackfillRuns.cursor,
       leaseOwner: catalogBackfillRuns.leaseOwner,
       lastError: catalogBackfillRuns.lastError,
+      terminalCause: catalogBackfillRuns.terminalCause,
     })
     .from(catalogBackfillRuns)
     .where(eq(catalogBackfillRuns.id, id));
@@ -206,6 +207,87 @@ describe('the owner check', () => {
   });
 });
 
+/**
+ * The constraint under test, named rather than inferred from a SQLSTATE.
+ *
+ * `catalog_backfill_runs` carries several CHECKs that all raise `23514`, and
+ * one of them — `..._started_shape_check` — fires on the very transition these
+ * cases drive. Asserting the name is what makes the case about THIS constraint.
+ */
+const TERMINAL_CAUSE_CHECK = 'catalog_backfill_runs_terminal_cause_shape_check';
+
+describe('the terminal cause tells the two producers of `failed` apart (#367 W17)', () => {
+  it('exhaustion writes `retry_exhausted`, and only at the ceiling', async () => {
+    const id = await openRun();
+    // Below the ceiling there is no cause, because nothing has ended. Asserting
+    // this is what stops the `case` being written as a bare `'retry_exhausted'`
+    // — which would classify a run that is about to be retried as a dead letter
+    // and put it in the count for as long as it kept failing.
+    expect(await failOnce(id, 2)).toBe('paused');
+    expect((await readRun(id)).terminalCause).toBeNull();
+
+    expect(await failOnce(id, 2)).toBe('failed');
+    const row = await readRun(id);
+    expect(row.status).toBe('failed');
+    expect(row.terminalCause).toBe('retry_exhausted');
+    // The cursor is untouched by the classification: a dead letter is still a
+    // run somebody can restart from where it stopped.
+    expect(row.cursor).toBe(`cursor-${RUN}`);
+  });
+
+  it('a `failed` run with NO cause is refused by the database', async () => {
+    // The `0147` biconditional, driven rather than assumed. Without it a third
+    // producer of `failed` would silently enlarge the `cause_missing` bucket
+    // and shrink the dead-letter count, and nothing in the type system can see
+    // a raw SQL update.
+    //
+    // The run is CLAIMED first, and that is not incidental. A freshly opened
+    // run has `started_at IS NULL`, so moving it to `failed` violates
+    // `catalog_backfill_runs_started_shape_check` — a DIFFERENT constraint,
+    // with the same SQLSTATE. Written the obvious way this case passed while
+    // testing nothing about the terminal cause, and a mutation that weakened
+    // `0147` back to `0146`'s implication left it green. Hence both fixes: the
+    // fixture reaches the state under test, and the assertion names the
+    // CONSTRAINT rather than settling for `23514`.
+    const id = await openRun();
+    expect(await claimBackfillRun({ runId: id, leaseOwner: OWNER })).toBeDefined();
+
+    await expect(
+      db
+        .update(catalogBackfillRuns)
+        .set({ status: 'failed', terminalCause: null })
+        .where(eq(catalogBackfillRuns.id, id)),
+    ).rejects.toMatchObject({
+      // SQLSTATE lives on `cause`, never on `error.code`, for a drizzle error.
+      cause: { code: '23514', constraint_name: TERMINAL_CAUSE_CHECK },
+    });
+    // The row did not move: a refused statement is a refused statement, and a
+    // test that only asserted the throw would pass against one that partially
+    // applied.
+    expect((await readRun(id)).status).toBe('running');
+  });
+
+  it('a cause on a run that has NOT failed is refused by the database', async () => {
+    // The other direction of the same biconditional. It is what stops a stale
+    // cause surviving a release: a `paused` row carrying `retry_exhausted`
+    // would be counted by nothing and would mean nothing, and it is exactly
+    // what a `case` missing its `else null` would produce — which is the
+    // mutation that turns five cases in this file red.
+    const id = await openRun();
+    expect(await claimBackfillRun({ runId: id, leaseOwner: OWNER })).toBeDefined();
+
+    await expect(
+      db
+        .update(catalogBackfillRuns)
+        .set({ status: 'paused', terminalCause: 'retry_exhausted' })
+        .where(eq(catalogBackfillRuns.id, id)),
+    ).rejects.toMatchObject({
+      cause: { code: '23514', constraint_name: TERMINAL_CAUSE_CHECK },
+    });
+    expect((await readRun(id)).terminalCause).toBeNull();
+  });
+});
+
 describe('operator cancellation is NOT a retry', () => {
   it('stays terminal on the first and only attempt', async () => {
     // The reason the retry happens BEFORE `failed` rather than by widening the
@@ -221,6 +303,7 @@ describe('operator cancellation is NOT a retry', () => {
       runId: id,
       leaseOwner: OWNER,
       outcome: 'failed',
+      terminalCause: 'operator_cancelled',
       error: `cancelled by ${OPERATOR}: no longer needed`,
     });
     expect(released).toBe(true);
@@ -230,6 +313,11 @@ describe('operator cancellation is NOT a retry', () => {
     // Cancellation does not spend the retry budget, because it does not go
     // through the counter at all.
     expect(row.consecutiveFailures).toBe(0);
+    // And that is exactly why `consecutive_failures` cannot be the discriminant
+    // a dead-letter count reads: this row is `failed` with a count of 0, and a
+    // run cancelled after two bad pages would be `failed` with a count of 2.
+    // The cause is the only thing that separates them.
+    expect(row.terminalCause).toBe('operator_cancelled');
     expect(await claimBackfillRun({ runId: id, leaseOwner: `${OWNER}-4` })).toBeUndefined();
   });
 });

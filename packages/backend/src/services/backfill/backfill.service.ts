@@ -323,6 +323,12 @@ export async function cancelCatalogBackfillRun(
         runId,
         leaseOwner: `cancel:${input.actorOxyUserId}`,
         outcome: 'failed',
+        // The OTHER producer of `failed`, and the reason the cause is a column.
+        // An operator stopping a run is not a dead letter: nothing was
+        // exhausted and nothing is owed a retry. Counting it as one would
+        // report a person's decision as a system failure, which is the number
+        // `backfill_dead_letter_count` exists to keep clean.
+        terminalCause: 'operator_cancelled',
         error: `cancelled by ${input.actorOxyUserId}: ${input.reason}`,
       },
       tx,

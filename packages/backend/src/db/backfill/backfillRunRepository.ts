@@ -24,6 +24,7 @@ import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type {
   CatalogBackfillCohortKind,
   CatalogBackfillMode,
+  CatalogBackfillProducerTerminalCause,
   CatalogBackfillStage,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
@@ -363,6 +364,17 @@ export async function recordBackfillPageFailure(
         when ${catalogBackfillRuns.consecutiveFailures} + 1 >= ${input.maxAttempts} then 'failed'
         else 'paused'
       end`,
+      // The SAME `case`, so the status and the cause cannot disagree: two
+      // expressions over one condition can be edited apart, and the row would
+      // then violate `catalog_backfill_runs_terminal_cause_shape_check` rather
+      // than silently mis-classify — but only after somebody deployed it. This
+      // is the exhaustion producer, so the only cause it can name is
+      // `retry_exhausted`; the `paused` branch writes NULL because a run that
+      // has not ended has not ended for a reason.
+      terminalCause: sql`case
+        when ${catalogBackfillRuns.consecutiveFailures} + 1 >= ${input.maxAttempts} then 'retry_exhausted'
+        else null
+      end`,
       leaseOwner: null,
       leaseUntil: null,
       lastError: input.error.slice(0, CATALOG_BACKFILL_MAX_TEXT_LENGTH),
@@ -392,15 +404,35 @@ export async function recordBackfillPageFailure(
  * {@link recordBackfillPageFailure}, which counts it first. This function still
  * accepts `failed` because operator CANCELLATION uses it, and a cancellation is
  * terminal on the first and only attempt.
+ *
+ * **A `failed` release must NAME its cause, and that is the input TYPE rather
+ * than a check.** `ReleaseBackfillRunInput` is a union whose `failed` member
+ * carries a non-optional `terminalCause`, so a third producer of `failed`
+ * cannot be written without deciding what it means — the compiler asks before
+ * the constraint does, and before a reviewer has to notice. The type is spelled
+ * as two whole object shapes rather than a common half intersected with a
+ * union, because this package compiles with `strict: false` and narrowing an
+ * intersection is exactly where that bites.
  */
+export type ReleaseBackfillRunInput =
+  | {
+      runId: string;
+      leaseOwner: string;
+      outcome: 'paused' | 'completed';
+      error?: string;
+      now?: Date;
+    }
+  | {
+      runId: string;
+      leaseOwner: string;
+      outcome: 'failed';
+      terminalCause: CatalogBackfillProducerTerminalCause;
+      error?: string;
+      now?: Date;
+    };
+
 export async function releaseBackfillRun(
-  input: {
-    runId: string;
-    leaseOwner: string;
-    outcome: 'paused' | 'completed' | 'failed';
-    error?: string;
-    now?: Date;
-  },
+  input: ReleaseBackfillRunInput,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<boolean> {
   const now = input.now ?? new Date();
@@ -412,6 +444,13 @@ export async function releaseBackfillRun(
       leaseUntil: null,
       lastError:
         input.error === undefined ? null : input.error.slice(0, CATALOG_BACKFILL_MAX_TEXT_LENGTH),
+      // Written on EVERY release, including the two that write NULL. Nothing
+      // reachable can leave a stale cause behind — `failed` is not claimable,
+      // so a run carrying one cannot be released again — but stating it makes
+      // the statement satisfy `..._terminal_cause_shape_check` on its face,
+      // instead of satisfying it via an argument about reachability that a
+      // later change to `RESUMABLE` would quietly invalidate.
+      terminalCause: input.outcome === 'failed' ? input.terminalCause : null,
       ...(input.outcome === 'completed' ? { cursor: null, completedAt: now } : {}),
     })
     .where(

@@ -1,0 +1,42 @@
+-- oxy:deploy-phase=post
+-- oxy:rollback=restore: catalog_backfill_runs_terminal_cause_shape_check is NARROWED here
+--   and its previous form -- the implication -- lives in 0146, not in this file, so
+--   putting it back is a read of that migration. Re-adding the wider form always
+--   succeeds, because every row satisfying a biconditional satisfies the implication it
+--   strengthens. The UPDATE also rewrites terminal_cause on rows the previous image
+--   left NULL, and those values are not recoverable from this file: what they record is
+--   that nothing recorded them.
+--
+-- Narrow `terminal_cause` from an implication to a BICONDITIONAL (#367 W17).
+--
+-- 0146 (`pre`) could only ship `cause -> failed`. This adds the other half --
+-- `failed -> cause` -- and it is `post` for the textbook reason: it BREAKS A
+-- WRITE THE PREVIOUS IMAGE PERFORMS. That image's `releaseBackfillRun` releases
+-- a run to `failed` with no cause, and this constraint rejects exactly that
+-- row. Landing it before the rollout would fail every operator cancellation
+-- against the still-serving tasks.
+--
+-- The UPDATE is not a repeat of 0146's for its own sake. It covers the ROLLOUT
+-- WINDOW: between 0146 applying and the new image being live, the OLD image
+-- keeps writing `failed` with no cause, and those rows would fail the
+-- constraint below. They are `unrecorded` for the same reason the historical
+-- ones are -- nothing captured why -- so they are classified the same way
+-- rather than guessed at. It is idempotent and is a no-op on a deployment where
+-- the window produced nothing.
+--
+-- Why narrow at all, when 0146's column already lets the metric report an
+-- `unrecorded` bucket: without this half, a future writer producing `failed`
+-- with no cause is INDISTINGUISHABLE from history, and `unrecorded` becomes a
+-- growing population that means two different things. With it, `unrecorded` is
+-- closed and finite -- exactly "ended before the column existed" -- and a new
+-- unclassified producer fails loudly at its first write instead of quietly
+-- enlarging the bucket a reader has been told to ignore.
+--
+-- Rollback is derived: re-adding the 0146 implication restores the previous
+-- state exactly, and no row needs to change to satisfy the wider constraint.
+
+ALTER TABLE "catalog_backfill_runs" DROP CONSTRAINT "catalog_backfill_runs_terminal_cause_shape_check";--> statement-breakpoint
+-- oxy:handwritten-begin=terminal_cause_rollout_window_backfill
+UPDATE "catalog_backfill_runs" SET "terminal_cause" = 'unrecorded' WHERE "status" = 'failed' AND "terminal_cause" IS NULL;--> statement-breakpoint
+-- oxy:handwritten-end=terminal_cause_rollout_window_backfill
+ALTER TABLE "catalog_backfill_runs" ADD CONSTRAINT "catalog_backfill_runs_terminal_cause_shape_check" CHECK (("catalog_backfill_runs"."terminal_cause" is null) = ("catalog_backfill_runs"."status" <> 'failed'));
