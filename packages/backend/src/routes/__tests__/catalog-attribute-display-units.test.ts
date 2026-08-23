@@ -233,6 +233,35 @@ describe('the public values route composes a display unit', () => {
     expect(spain.get('weight')).not.toBe(bySystem.get('weight'));
   });
 
+  it('lets an EXPLICIT unit system beat a market that disagrees', async () => {
+    // The case that decides whether the market is a FALLBACK or a DERIVATION,
+    // and the only one that can tell them apart: the two cases above send one
+    // parameter each, so `preferredSystem`'s two branches are both reachable
+    // whichever order it checks them in.
+    //
+    // Measured before this case existed: inverting those two lines — market
+    // first, explicit preference second — left all 27 tests in this file and
+    // `services/canonical/__tests__/display-units.test.ts` green, while a
+    // shopper in the United States who had chosen metric was served pounds.
+    // That is #367 line 199's collapse (ADR 0007 D4: seven independent
+    // dimensions, never derived from one another), and nothing was watching it.
+    const metricInUs = await values('?market=US&unitSystem=metric');
+    expect(metricInUs.get('weight')).toBe('187 g');
+    expect(metricInUs.get('screen_size')).toBe('154.9 mm');
+
+    // And the mirror, so this cannot pass against a build that ignores `market`
+    // altogether: a metric market with an explicit US preference is US.
+    const usInSpain = await values('?market=ES&unitSystem=us');
+    expect(usInSpain.get('weight')).toBe('0.412 lb');
+    expect(usInSpain.get('screen_size')).toBe('6.1 in');
+
+    // The control on both: the market alone still answers, so the fallback is
+    // still wired and the two assertions above are about PRECEDENCE rather than
+    // about a market parameter nobody reads.
+    expect((await values('?market=US')).get('weight')).toBe('0.412 lb');
+    expect((await values('?market=ES')).get('weight')).toBe('187 g');
+  });
+
   it('leaves a non-measurement alone, whatever the preference', async () => {
     for (const query of ['?unitSystem=us', '?unitSystem=uk', '?market=US']) {
       const rendered = await values(query);

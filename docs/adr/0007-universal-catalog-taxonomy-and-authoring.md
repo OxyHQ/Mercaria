@@ -452,6 +452,34 @@ carried as seven fields and never collapsed into one. Canonical numeric and
 unit storage is independent of formatting; formatting is `Intl`/CLDR at the
 boundary.
 
+> **CORRECTED — "carried as seven fields" is not true anywhere, and both places
+> have a recorded reason.** The DECISION (seven independent dimensions, never
+> derived from one another) stands and is now gated on both sides; the
+> MECHANISM sentence overstates what either package does.
+>
+> The storefront carries SIX, with `timeZone` a counted exemption
+> (`packages/frontend/lib/catalog/request-context.ts`, #553): a field with no
+> source and no consumer satisfies this sentence, changes no behaviour, and
+> leaves the next reader unable to tell an unread dimension from a wired one.
+>
+> The backend carries no request-context OBJECT at all — each axis is a
+> per-endpoint parameter — and `size_system` is not receivable on any of them,
+> because Mercaria publishes no size-system mapping over HTTP and a parameter
+> that cannot mean anything is the same trap one layer down. Six of the seven
+> have at least one field; `measurement_system` has exactly ONE
+> (`?unitSystem=`), and losing it would make that axis wholly derived from
+> `market`.
+>
+> `language` is DERIVED from `locale` and legitimately so: it is the primary
+> subtag, a projection BCP-47 defines and this ADR's own `es-MX` → `es`
+> fallback depends on. It is also the one pair a value census cannot judge,
+> because `SUPPORTED_LOCALES` contains the bare subtags.
+>
+> Measured and gated by
+> `packages/backend/src/__tests__/request-context-axis-separation.test.ts`;
+> written up in [catalog-localization.md](../catalog-localization.md) §"The
+> seven request-context axes, on the SERVER".
+
 ### D5. Product types are versioned schemas, and they are the one new entity
 
 `product_type_definitions` is added, with the exact mechanism
