@@ -124,7 +124,14 @@ export async function publishDefinitionHandler(req: Request, res: Response): Pro
 export async function deprecateDefinitionHandler(req: Request, res: Response): Promise<void> {
   try {
     const { key, version } = req.params as { key: string; version: string };
-    sendSuccess(res, await deprecateAttributeDefinition(key, parseVersion(version)));
+    // #367 line 237. Optional: a deprecation that names no successor is a
+    // complete decision — "nobody should use this attribute any more" — so an
+    // absent body is not a missing argument.
+    const body = (req.body ?? {}) as { replacedByDefinitionId?: string };
+    sendSuccess(
+      res,
+      await deprecateAttributeDefinition(key, parseVersion(version), body.replacedByDefinitionId),
+    );
   } catch (error) {
     respondWithError(res, error, 'Deprecating the attribute definition failed');
   }

@@ -449,7 +449,7 @@ const PRODUCT_TYPE_REFERENCES: readonly GovernedReference[] = [
   },
 ];
 
-/** Every foreign key into an attribute definition version. Thirteen entries. */
+/** Every foreign key into an attribute definition version. Fourteen entries. */
 const ATTRIBUTE_REFERENCES: readonly GovernedReference[] = [
   {
     column: attributeLabels.attributeDefinitionId,
@@ -475,6 +475,11 @@ const ATTRIBUTE_REFERENCES: readonly GovernedReference[] = [
     column: productTypeFields.attributeDefinitionId,
     disposition: 'blocks',
     note: 'ON DELETE restrict. Every product-type version citing this definition keeps citing it; a new attribute version needs a new product-type version to be used',
+  },
+  {
+    column: attributeDefinitions.replacedByDefinitionId,
+    disposition: 'blocks',
+    note: 'ON DELETE restrict, and a SELF reference (#367 line 237) — the deprecated versions that name this one as their replacement. It blocks deliberately: "use X instead" pointing at a row that is gone is worse advice than none, so the successor cannot be removed while anything still redirects to it. An operator seeing this count is being told how many deprecations they would strand, which is exactly the number they need before retiring a replacement. Note the count is inbound and the pointer is FORWARD, so these are PREDECESSORS — the one place in this plan where a nonzero count means "things older than this", not newer',
   },
   {
     column: canonicalVariantAttributes.attributeDefinitionId,

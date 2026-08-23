@@ -378,6 +378,10 @@ export function fixtureDefinition(
       key: input.key,
       version: overrides.version ?? 1,
       lifecycleState: overrides.lifecycleState ?? 'active',
+      // #367 line 237. Always null here: this catalogue exists to be MATCHED
+      // against, and a benchmark definition that redirected somewhere else would
+      // be measuring a redirect rather than the matcher.
+      replacedByDefinitionId: null,
       label: input.label,
       description: input.description ?? null,
       valueType: input.valueType,

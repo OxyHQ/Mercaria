@@ -46,6 +46,7 @@ import {
   pgTable,
   text,
   uniqueIndex,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
@@ -192,6 +193,46 @@ export const attributeDefinitions = pgTable(
     publishedByOxyUserId: text(),
     publishedAt: timestamptz(),
     deprecatedAt: timestamptz(),
+    /**
+     * The definition to use INSTEAD of this one (#367 line 237).
+     *
+     * ## Forward, where the rest of the schema points backward
+     *
+     * `product_identifiers.supersedes_identifier_id` and its dozen siblings run
+     * BACKWARDS — the successor names its predecessor, so the pointer always
+     * resolves. This one runs FORWARD, and it has to: "use X instead" is read by
+     * somebody standing on the DEPRECATED row, and a backward pointer answers
+     * that only by scanning the table for whoever names them.
+     *
+     * It still carries a real foreign key, which the other forward pointer in
+     * this schema deliberately does not. `merchant_demand_snapshots.superseded_by_id`
+     * has none because a partial unique forces the outgoing row to be stamped
+     * before its replacement exists, so "a real foreign key would refuse exactly
+     * that statement". No such ordering applies here: a replacement definition is
+     * drafted and published BEFORE the old one is deprecated, so the successor is
+     * already there to point at. Copying the no-FK shape would import a
+     * workaround for a problem this table does not have.
+     *
+     * ## Same-key replacement is NOT what this is for
+     *
+     * `(key, version)` already expresses that: version N+1 replaces N. What
+     * nothing could say before is CROSS-KEY — "use `display_diagonal` instead of
+     * `screen_size`" — because version ordering says nothing between two keys.
+     *
+     * ## ONE HOP. It is not chased, and that is deliberate
+     *
+     * The pointer records what an operator decided at one moment. If `a -> b` and
+     * later `b -> c`, nobody ever decided "use c instead of a", and a reader told
+     * so is handed an inference wearing a record's clothes. Chasing also admits a
+     * cycle, which one hop cannot. The merge chain DOES chase
+     * (`resolveProductRow`, bounded at `MAX_MERGE_HOPS`) because a merge asserts
+     * IDENTITY — a *is* b, so following it is the same fact. A replacement asserts
+     * ADVICE, and advice does not compose. A consumer that wants the terminal
+     * replacement walks it itself and bounds the walk.
+     */
+    replacedByDefinitionId: text().references((): AnyPgColumn => attributeDefinitions.id, {
+      onDelete: 'restrict',
+    }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -205,6 +246,23 @@ export const attributeDefinitions = pgTable(
     checkOneOf('attribute_definitions_evidence_policy_check', t.evidencePolicy, ATTRIBUTE_EVIDENCE_POLICIES),
     ...currencyChecks('attribute_definitions', [t.currency]),
     check('attribute_definitions_key_shape_check', sql`${t.key} ~ '^[a-z][a-z0-9_]*$'`),
+    // A definition cannot replace itself. The `<> id` shape every supersession
+    // pointer in this schema carries.
+    check(
+      'attribute_definitions_replaced_by_self_check',
+      sql`${t.replacedByDefinitionId} is null or ${t.replacedByDefinitionId} <> ${t.id}`,
+    ),
+    // Only a definition that is OUT of service may name a replacement, so the
+    // pointer can never become a second way of saying "deprecated" beside
+    // `lifecycle_state`. ONE-WAY rather than a biconditional, deliberately: a
+    // version may be deprecated with no successor at all — "we stopped using
+    // this" is a complete decision — and demanding one would make an honest
+    // deprecation unrepresentable.
+    check(
+      'attribute_definitions_replaced_by_lifecycle_check',
+      sql`${t.replacedByDefinitionId} is null
+          or ${t.lifecycleState} in ('deprecated', 'retired')`,
+    ),
     check('attribute_definitions_version_check', sql`${t.version} >= 1`),
     // An offer fact is not a product attribute. See the file header.
     check(

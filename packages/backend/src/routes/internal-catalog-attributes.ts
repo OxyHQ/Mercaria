@@ -23,6 +23,7 @@ import { validateBody, validateQuery } from '../middleware/validate.js';
 import {
   attributeCoverageQuerySchema,
   attributeDefinitionDraftSchema,
+  attributeDeprecateSchema,
   attributeObservationSchema,
   attributeReviewQuerySchema,
   attributeReviewResolveSchema,
@@ -58,7 +59,11 @@ router.post('/definitions', validateBody(attributeDefinitionDraftSchema), draftD
 // Route ORDER: the three lifecycle suffixes and `/versions` are distinct, but
 // all must precede the bare `/definitions/:key`, or it swallows them.
 router.post('/definitions/:key/versions/:version/publish', publishDefinitionHandler);
-router.post('/definitions/:key/versions/:version/deprecate', deprecateDefinitionHandler);
+router.post(
+  '/definitions/:key/versions/:version/deprecate',
+  validateBody(attributeDeprecateSchema),
+  deprecateDefinitionHandler,
+);
 router.post('/definitions/:key/versions/:version/retire', retireDefinitionHandler);
 router.get('/definitions/:key/versions', listDefinitionHistoryHandler);
 router.get('/definitions/:key', getActiveDefinitionHandler);

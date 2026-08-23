@@ -43,6 +43,7 @@ import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   addAttributeDefinitionCategory,
   findActiveAttributeDefinition,
+  findAttributeDefinitionById,
   findAttributeDefinitionVersion,
   insertAttributeDefinition,
   insertAttributeEnumValue,
@@ -288,12 +289,33 @@ export async function publishAttributeDefinition(
   });
 }
 
-/** Take a version out of service for NEW assignments. Stored values still resolve. */
+/**
+ * Take a version out of service for NEW assignments. Stored values still resolve.
+ *
+ * `replacedByDefinitionId` is optional and answers "use X instead" (#367 line
+ * 237). Omitting it is a complete decision, not an incomplete one: a version can
+ * be deprecated because nobody should use that attribute any more, with no
+ * successor to send anybody to.
+ *
+ * The replacement is written in the SAME statement as the lifecycle move rather
+ * than a second UPDATE afterwards, so the row never exists in the intermediate
+ * state `attribute_definitions_replaced_by_lifecycle_check` refuses — and a
+ * crash between two statements cannot leave a deprecation whose successor was
+ * lost.
+ */
 export async function deprecateAttributeDefinition(
   key: string,
   version: number,
+  replacedByDefinitionId?: string,
 ): Promise<AttributeDefinition> {
-  return moveLifecycle(key, version, 'active', 'deprecated', 'definition_deprecated');
+  return moveLifecycle(
+    key,
+    version,
+    'active',
+    'deprecated',
+    'definition_deprecated',
+    replacedByDefinitionId,
+  );
 }
 
 /** Stop offering the attribute entirely — no facet, no filter, no new value. */
@@ -310,13 +332,24 @@ async function moveLifecycle(
   expected: 'active' | 'deprecated',
   next: 'deprecated' | 'retired',
   reindexReason: 'definition_deprecated',
+  replacedByDefinitionId?: string,
 ): Promise<AttributeDefinition> {
   const normalizedKey = normalizeAttributeKey(key);
   return getDb().transaction(async (tx) => {
     const row = await findAttributeDefinitionVersion(tx, normalizedKey, version);
     if (!row) throw notFound(`Attribute '${normalizedKey}' has no version ${version}.`);
+    // The replacement must EXIST, and saying so here rather than letting the
+    // foreign key raise is what turns a 500 into a 404 naming what was missing.
+    // The FK is still the authority — this is the message, not the guarantee.
+    if (replacedByDefinitionId !== undefined) {
+      const replacement = await findAttributeDefinitionById(tx, replacedByDefinitionId);
+      if (!replacement) {
+        throw notFound(`No attribute definition ${replacedByDefinitionId} to replace it with.`);
+      }
+    }
     const moved = await transitionAttributeDefinition(tx, row.id, expected, next, {
       deprecatedAt: new Date(),
+      ...(replacedByDefinitionId === undefined ? {} : { replacedByDefinitionId }),
     });
     if (!moved) {
       throw conflict(
@@ -487,6 +520,9 @@ export function toAttributeDefinitionDto(
     ...(row.baseUnit === null ? {} : { baseUnit: row.baseUnit }),
     ...(row.ratingScaleMax === null ? {} : { ratingScaleMax: row.ratingScaleMax }),
     ...(row.currency === null ? {} : { currency: row.currency }),
+    ...(row.replacedByDefinitionId === null
+      ? {}
+      : { replacedByDefinitionId: row.replacedByDefinitionId }),
     enumValues: resolved.enumValues.map((value) => ({
       value: value.value,
       label: value.label,

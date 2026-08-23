@@ -608,6 +608,17 @@ export interface AttributeDefinition {
    * names no destination grants none.
    */
   categoryScopes: AttributeCategoryScope[];
+  /**
+   * The definition to use INSTEAD of this one, when a deprecation named a
+   * successor (#367 line 237).
+   *
+   * Present only on a `deprecated` or `retired` version, and absent on a
+   * deprecation that named none — "we stopped using this" is a complete
+   * decision. It is ONE HOP: if the replacement is itself replaced, this still
+   * names the one an operator chose, and a consumer that wants the terminal
+   * definition walks the chain itself and bounds the walk.
+   */
+  replacedByDefinitionId?: string;
   createdAt: string;
   updatedAt: string;
   publishedAt?: string;
