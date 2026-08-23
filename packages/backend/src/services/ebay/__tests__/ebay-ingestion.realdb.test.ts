@@ -74,6 +74,7 @@ import {
   configureIngestionSource,
   publishIngestionSourcePolicy,
 } from '../../ingestion/source.service.js';
+import { runCanonicalSearch } from '../../search/canonical-search.service.js';
 import { createEbayBrowseAdapter } from '../../ingestion/adapters/ebay.js';
 import type { EbayTransport, EbayHttpResponse } from '../http.js';
 import type { EbayItem } from '../normalize.js';
@@ -1579,6 +1580,150 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
       expect(offer?.conditionSourceLabel).toBe('3000');
       expect(offer?.condition).toBe('unknown');
       expect(offer?.conditionMappingState).toBe('unmapped');
+    });
+
+    /**
+     * The FOURTH hop — #367 line 819, "connector source → mapping → normalized
+     * facts → search".
+     *
+     * The first three hops are asserted throughout this file and #62's shared
+     * contract suite. Nothing drove the last one: no ingestion, eBay, Awin or
+     * feed-import test called `runCanonicalSearch`, so a change that stopped an
+     * ingested offer reaching the search projection broke no test on the
+     * ingestion side of the repository.
+     *
+     * ## Why it lives here and not in the shared contract suite
+     *
+     * `adapter-contract-suite.ts` IS "#62's thirteen cases" — the count is
+     * stated in nine places and anchored to that issue's own list — and this is
+     * not one of them. Nor is it a claim about ADAPTERS: every adapter hands the
+     * framework the same `NormalizedSourceRecord`, so running it per provider
+     * would measure one thing repeatedly. It runs once, here, because this is
+     * where a REAL adapter's output already exists beside an active matching
+     * policy, a bound merchant and a rights policy that permits display —
+     * without a fifth copy of that fixture stack, a fifth claimant on the
+     * global matching-policy slot, or a fifth teardown to keep correct.
+     *
+     * ## The BEFORE read is the whole assertion
+     *
+     * Searching only after ingestion and asserting a summary exists would pass
+     * on a product carrying offers from anything at all — and this product is
+     * minted by `mintCanonicalVariant`, so "it is findable" is a fact about the
+     * FIXTURE. The search therefore runs BEFORE as well, where `offerSummary`
+     * must be ABSENT: a canonical product with no offer "must not carry a price
+     * that would read as one somebody could pay". The DELTA between the two
+     * reads is what the ingestion did, and nothing else in this case is.
+     */
+    it('reaches SEARCH: the ingested offers appear in the product’s own result', async () => {
+      await ensureMatchPolicy();
+      const canonical = await mintCanonicalVariant('search', fixtureGtinBody(RUN, 4));
+      const term = `eBay product search ${RUN}`;
+
+      /** This product's own result row, or `undefined`. Never a count: sibling
+       * fixtures hold products whose names share every word but the RUN. */
+      const findMine = async (searchTerm: string) => {
+        const outcome = await runCanonicalSearch(
+          { term: searchTerm, kinds: ['product'], filters: {}, limit: 50 },
+          db,
+        );
+        return outcome.response.results.find(
+          (entry) => entry.kind === 'product' && entry.canonicalProductId === canonical.productId,
+        );
+      };
+
+      const before = await findMine(term);
+      expect(before, 'the freshly minted product was not reachable by its own name').toBeDefined();
+      if (before === undefined || before.kind !== 'product') return;
+      expect(
+        before.offerSummary,
+        'the product carried an offer summary before anything was ingested',
+      ).toBeUndefined();
+
+      /**
+       * The item ids are this CASE's own, and that is not cosmetic.
+       *
+       * Written first with `v1|s1|0` and `v1|s2|0` — the ids the marketplace
+       * case above uses — this passed alone and failed in the file, with both
+       * offers carrying THIS case's prices and attached to the MARKETPLACE
+       * case's canonical variant. The shared-database rule ("scope every
+       * aggregate to ids your file owns") holds one level further down: inside
+       * a file, an external id is a source object's identity, and two cases
+       * reusing one converge onto a lineage neither of them meant.
+       */
+      const source = await bringUpSource('reachessearch', { queries: [{ value: '9356' }] });
+      source.fake.items.set(
+        'v1|search1|0',
+        ebayItem({
+          id: 'v1|search1|0',
+          title: `eBay product search ${RUN}`,
+          seller: `delta_${RUN}`,
+          price: '120.00',
+          gtin: canonical.gtin,
+          conditionId: '3000',
+          affiliate: true,
+        }),
+      );
+      source.fake.items.set(
+        'v1|search2|0',
+        ebayItem({
+          id: 'v1|search2|0',
+          title: `eBay product search ${RUN}`,
+          seller: `epsilon_${RUN}`,
+          price: '95.50',
+          gtin: canonical.gtin,
+          conditionId: '3000',
+          affiliate: true,
+        }),
+      );
+      source.fake.searchPages.set('9356', [['v1|search1|0', 'v1|search2|0']]);
+
+      await ingestToCompletion(source.sourceId);
+
+      // The middle of the chain, asserted first so a failure below is
+      // attributable to the SEARCH hop rather than to the ingestion.
+      const active = await db
+        .select()
+        .from(offers)
+        .where(
+          and(eq(offers.canonicalVariantId, canonical.variantId), eq(offers.status, 'active')),
+        );
+      expect(active).toHaveLength(2);
+      const cheapest = Math.min(
+        ...active.map((offer) => offer.priceAmount ?? Number.POSITIVE_INFINITY),
+      );
+      // The expected figure is READ from the offers rather than recomputed from
+      // the fixture's decimal strings: this case is about the search agreeing
+      // with what was stored, not about minor-unit arithmetic it does not own.
+      expect(Number.isFinite(cheapest)).toBe(true);
+
+      const after = await findMine(term);
+      expect(after).toBeDefined();
+      if (after === undefined || after.kind !== 'product') return;
+      expect(
+        after.offerSummary,
+        'the ingested offers did not reach the search projection',
+      ).toBeDefined();
+      expect(after.offerSummary?.currentOfferCount).toBe(2);
+      expect(after.offerSummary?.lowestPrice?.amount).toBe(cheapest);
+
+      /**
+       * The control on the ANCHOR, and the cheap spelling of it is wrong.
+       *
+       * `no-such-ebay-product` REACHES this product through the fuzzy trigram
+       * stage, because it shares `product` with the name. A nonsense control
+       * has to share no trigram with anything in the catalogue — measured in
+       * `vertical-automotive-fitment`, where the first spelling passed for the
+       * wrong reason.
+       */
+      const absent = await runCanonicalSearch(
+        { term: 'qxzj wvnk plfh', kinds: ['product'], filters: {}, limit: 50 },
+        db,
+      );
+      expect(
+        absent.response.results.some(
+          (entry) => entry.kind === 'product' && entry.canonicalProductId === canonical.productId,
+        ),
+      ).toBe(false);
     });
   });
 
