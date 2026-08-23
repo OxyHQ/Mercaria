@@ -33,6 +33,7 @@ import type {
   FacetBucket,
   FacetLabel,
   FacetLevel,
+  FacetRangeDisplay,
   FacetResponse,
   FacetScope,
   FacetSelectionEntry,
@@ -79,6 +80,10 @@ import {
   listProductTypeFacetFields,
 } from '../../db/facets/facetMetadataRepository.js';
 import { resolveDefinitionsForCategory } from '../attributes/definition-registry.service.js';
+import {
+  renderMeasurement,
+  type MeasurementSystem,
+} from '../canonical/display-units.js';
 import { readLocalizedAttributeValues, readLocalizedCategories } from '../catalog-localization/read.service.js';
 import { attributeNameLabel, facetLocaleChain, labelFromResolution, stableKeyLabel } from './labels.js';
 import { planFacets, type FacetPlanEntry } from './metadata.js';
@@ -109,6 +114,18 @@ export interface FacetRequest {
    * stores native currency and this domain converts nothing on the way in.
    */
   readonly displayCurrency: CurrencyCode;
+  /**
+   * How measurements are SHOWN, or `null` for "the request stated nothing"
+   * (#367 line 598).
+   *
+   * Already RESOLVED by the caller through `catalog-attributes.controller.ts`'s
+   * own rule — an explicit `unitSystem` beats a `market` — so this domain holds
+   * one answer and never a pair it could combine differently. `null` is a real
+   * value and not a missing one: with no preference every range is served in its
+   * base unit exactly as it was before this existed, which is also what a market
+   * `measurementSystemForMarket` cannot place resolves to.
+   */
+  readonly measurementSystem?: MeasurementSystem | null;
   readonly sort?: { readonly key: string; readonly direction: string };
   readonly now?: Date;
 }
@@ -253,6 +270,7 @@ export async function resolveFacets(
       observedLabels,
       selection: request.selection,
       hasSelection: selectedKeys.has(entry.plan.key),
+      measurementSystem: request.measurementSystem ?? null,
     });
     if (built.suppression !== undefined) {
       suppressed.push({ facetKey: entry.plan.key, origin: 'attribute', reason: built.suppression });
@@ -533,6 +551,7 @@ function buildAttributeFacet(input: {
   observedLabels: ReadonlyMap<string, ReadonlyMap<string, string[]>>;
   selection: readonly FacetSelectionEntry[];
   hasSelection: boolean;
+  measurementSystem: MeasurementSystem | null;
 }): BuiltFacet {
   const { plan } = input.pending;
   if (plan.suppression !== undefined) return { suppression: plan.suppression };
@@ -630,17 +649,77 @@ function buildAttributeFacet(input: {
   });
   if (suppression !== undefined) return { suppression };
 
+  const rangeMin = range?.min ?? 0;
+  const rangeMax = range?.max ?? 0;
+  const display = rangeDisplay(rangeMin, rangeMax, plan.baseUnit, input.measurementSystem);
   const values: FacetValues = {
     shape: 'range',
     range: {
-      min: range?.min ?? 0,
-      max: range?.max ?? 0,
+      min: rangeMin,
+      max: rangeMax,
       ...(plan.baseUnit === null ? {} : { unit: plan.baseUnit }),
       ...(selectedMin === undefined ? {} : { selectedMin }),
       ...(selectedMax === undefined ? {} : { selectedMax }),
+      ...(display === null ? {} : { display }),
     },
   };
   return { facet: assembleFacet(input.pending, values, input.counts) };
+}
+
+/**
+ * The same span in the shopper's own measurement system, or `null` (#367 line 598).
+ *
+ * FOUR ways this answers `null`, and each is a decision rather than a guard:
+ *
+ * 1. **The request stated no preference.** `measurementSystemForMarket` returns
+ *    `null` for an absent or malformed market rather than `metric`, and this
+ *    carries that through — "this shopper told us nothing" is not "this shopper
+ *    is metric", and converting for somebody who never asked is the one outcome
+ *    `display-units.ts` was written to refuse. The response is then
+ *    byte-identical to what it was before this existed.
+ * 2. **The attribute has no unit.** Nothing to convert and no unit to name.
+ * 3. **`renderMeasurement` REFUSES** — an unknown or non-convertible stored
+ *    unit. It does not fall back to the base unit, and neither does this: a
+ *    refusal means no display, never a guess.
+ * 4. **The converted span is not two finite numbers.** A range needs both ends.
+ *
+ * NOTHING is converted here. `renderMeasurement` picks the unit and calls
+ * `units.ts`, which is the one conversion authority `unit-authority.test.ts`
+ * gates — a factor in this file would be a second answer to what a millimetre
+ * is. `baseMagnitudeMax` is passed because that parameter exists for exactly
+ * this: its own docblock calls it "the upper bound of a range".
+ *
+ * And it deliberately touches only the DISPLAY. `FacetRange.min`/`.max` stay in
+ * the base unit because they are the vocabulary a SELECTION comes back in —
+ * `facet-schemas.ts` says "a magnitude in an attribute's BASE unit" — so
+ * converting them in place would make a shopper's slider drag mean a different
+ * measurement, silently, with every request still well-formed.
+ *
+ * EXPORTED because it is the decision #367 line 598 turns on and it is not
+ * reachable through `resolveFacets` without a database — no fixture in this
+ * repository produces a range facet carrying a unit, so the four `null` branches
+ * would otherwise be unexercised, and branch 1 is the one that is wrong
+ * silently. Not a test hatch: it is a named decision with its own reasons, and
+ * the alternative was a test that re-implements it and therefore measures the
+ * re-implementation.
+ */
+export function rangeDisplay(
+  min: number,
+  max: number,
+  baseUnit: string | null,
+  system: MeasurementSystem | null,
+): FacetRangeDisplay | null {
+  if (system === null || baseUnit === null) return null;
+  const rendered = renderMeasurement({ baseMagnitude: min, baseMagnitudeMax: max, baseUnit }, system);
+  if (rendered.outcome !== 'rendered') return null;
+  if (rendered.magnitudeMax === undefined) return null;
+  if (!Number.isFinite(rendered.magnitude) || !Number.isFinite(rendered.magnitudeMax)) return null;
+  return {
+    min: rendered.magnitude,
+    max: rendered.magnitudeMax,
+    unit: rendered.unit,
+    decimals: rendered.decimals,
+  };
 }
 
 /** Wrap the plan, the label and the values into the DTO. */

@@ -452,12 +452,45 @@ export interface FacetBucket {
 }
 
 /** A numeric facet's span, in the definition's base unit. */
-export interface FacetRange {
+/**
+ * The same span rendered in the shopper's own measurement system (#367 line 598).
+ *
+ * A SEPARATE projection rather than a conversion of {@link FacetRange.min} and
+ * `.max`, and the separation is the whole of the design. Those two numbers are
+ * not only what a rail prints — they are the vocabulary a selection is sent back
+ * in, and `facet-schemas.ts` states it: *"A magnitude in an attribute's BASE
+ * unit — never the source's own unit."* Convert them in place and a shopper who
+ * drags a slider to `6.1` filters on 6.1 MILLIMETRES, silently, with every
+ * request still well-formed.
+ *
+ * So the base span stays exactly as it was, every existing client is unaffected,
+ * and this rides beside it for rendering only. Absent when the request stated no
+ * preference, when the attribute has no unit, and when the stored unit is one
+ * `units.ts` does not know — `renderMeasurement` REFUSES rather than falling back
+ * to the base unit, and a refusal here means no display, never a guess.
+ */
+export interface FacetRangeDisplay {
+  /** {@link FacetRange.min}, converted. */
   readonly min: number;
+  /** {@link FacetRange.max}, converted. */
   readonly max: number;
+  /** A canonical unit KEY from `units.ts` — never localized copy. */
+  readonly unit: string;
+  /** How many decimals the magnitudes were rounded to. */
+  readonly decimals: number;
+}
+
+export interface FacetRange {
+  /** In the attribute's BASE unit. What a selection is sent back in. */
+  readonly min: number;
+  /** In the attribute's BASE unit. What a selection is sent back in. */
+  readonly max: number;
+  /** The BASE unit. @see FacetRangeDisplay for the shopper's own. */
   readonly unit?: string;
   readonly selectedMin?: number;
   readonly selectedMax?: number;
+  /** Rendering only. Absent unless the request stated a preference. */
+  readonly display?: FacetRangeDisplay;
 }
 
 /** A money facet's span, always naming its currency. */
