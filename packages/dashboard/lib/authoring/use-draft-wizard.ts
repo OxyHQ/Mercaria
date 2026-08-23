@@ -165,6 +165,57 @@ export function useDraftWizard(params: {
   }, [dirty, canEdit, conflicted, signature]);
 
   /**
+   * The latest `dirty`, for the unmount flush below.
+   *
+   * The `saveNowRef` rule, for the same reason: assigned in an effect and read
+   * only inside another effect's callback, never in a memoized position, so the
+   * React Compiler cannot skip the body that reads it.
+   */
+  const dirtyRef = useRef(dirty);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+
+  /**
+   * Save what is pending when the wizard goes away.
+   *
+   * `beforeunload` above covers a browser unload and nothing else. An IN-APP
+   * navigation — back to the product list, or a back gesture on native — unmounts
+   * this hook without any such event, and the debounce effect's cleanup then runs
+   * `clearTimeout`, so up to `AUTOSAVE_DELAY_MS` of typing is discarded with no
+   * warning and no request. There is no navigation guard anywhere in this
+   * repository to lean on instead.
+   *
+   * ## Why this is its OWN effect, and why the dependency array is empty
+   *
+   * The obvious fix — flush in the debounce's cleanup instead of clearing —
+   * is wrong and expensive. That effect lists `signature`, which changes on every
+   * content change, so its cleanup runs on every keystroke and the `clearTimeout`
+   * there IS the debounce. Saving from it would send one request per character.
+   *
+   * An effect with an EMPTY dependency array never re-runs, so its cleanup is an
+   * unmount and nothing else. That is the distinction a single effect cannot make.
+   *
+   * Both values are read through refs because an empty array closes over the
+   * FIRST render, where `dirty` is false by construction — `savedSignature` is
+   * seeded from the same hydration `form` is. `saveNow` already refuses when
+   * `canEdit` is false or the draft is `conflicted`, and `saveNowRef` holds the
+   * latest closure, so this adds a dirtiness guard and no second copy of that
+   * rule.
+   *
+   * The request outlives the component deliberately: nothing passes an
+   * `AbortSignal` — React Query does not give mutations one and `apiClient` wires
+   * none — so the save completes and only its `setState` calls are discarded,
+   * which is the half that no longer matters.
+   */
+  useEffect(
+    () => () => {
+      if (dirtyRef.current) void saveNowRef.current();
+    },
+    [],
+  );
+
+  /**
    * What the indicator says, DERIVED rather than stored.
    *
    * `unsaved` is not a state anything writes: it is exactly "the form differs
