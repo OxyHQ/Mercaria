@@ -123,6 +123,7 @@ flowchart LR
     M_Classification --> X_categories
     M_Classification --> X_listings
     M_Product_types --> X_attribute_definitions
+    M_Product_types --> X_attribute_enum_values
     M_Product_types --> X_categories
     M_Localization --> X_attribute_enum_values
     M_Localization --> X_canonical_product_families
@@ -217,7 +218,7 @@ flowchart LR
     W_db_catalogProposals -->|"1"| M_Variant_axes_and_claims
     W_db_compatibility -->|"7"| M_Compatibility
     W_db_navigation -->|"5"| M_Navigation
-    W_db_productTypes -->|"4"| M_Product_types
+    W_db_productTypes -->|"5"| M_Product_types
     W_db_taxonomy -->|"2"| M_Classification
     W_db_taxonomy -->|"3"| M_Taxonomy
     W_db_variantAxes -->|"5"| M_Variant_axes_and_claims
@@ -279,7 +280,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 56 tables created by a migration at or after `0088`
+All 57 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -341,18 +342,22 @@ erDiagram
     }
     product_type_fields {
     }
+    product_type_field_allowed_values {
+    }
     product_type_aliases {
     }
     product_type_definitions ||--o{ product_type_aliases : "product_type_definition_id · cascade"
     categories ||--o{ product_type_category_scopes : "category_id · restrict"
     product_type_definitions ||--o{ product_type_category_scopes : "product_type_definition_id · cascade"
+    attribute_enum_values ||--o{ product_type_field_allowed_values : "attribute_definition_id + attribute_enum_value_id · no action"
+    product_type_fields ||--o{ product_type_field_allowed_values : "product_type_field_id + attribute_definition_id · cascade"
     product_type_definitions ||--o{ product_type_field_groups : "product_type_definition_id · cascade"
     attribute_definitions ||--o{ product_type_fields : "attribute_definition_id · restrict"
     product_type_definitions ||--o{ product_type_fields : "product_type_definition_id · cascade"
     product_type_field_groups |o--o{ product_type_fields : "group_id + product_type_definition_id · no action"
 ```
 
-Also names, from outside the epic: `attribute_definitions`, `categories`.
+Also names, from outside the epic: `attribute_definitions`, `attribute_enum_values`, `categories`.
 
 | Table | Created by | Written by |
 |---|---|---|
@@ -360,6 +365,7 @@ Also names, from outside the epic: `attribute_definitions`, `categories`.
 | `product_type_category_scopes` | `0089` | `db/productTypes` (insert) |
 | `product_type_field_groups` | `0089` | `db/productTypes` (insert) |
 | `product_type_fields` | `0089` | `db/productTypes` (delete/insert) |
+| `product_type_field_allowed_values` | `0144` | `db/productTypes` (insert) |
 | `product_type_aliases` | `0112` | — *no application writer* |
 
 ### Localization
@@ -733,9 +739,9 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 56 |
+| Tables in the population | 57 |
 | Modules they are grouped into | 13 |
-| Foreign keys out of an epic table | 124 |
+| Foreign keys out of an epic table | 126 |
 | Foreign keys into one, from outside the epic | 2 |
 | Pre-existing tables the epic attaches to | 15 |
 | Relationships the schema proves are 1:1 | 1 |
@@ -744,7 +750,7 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 | Tables written from more than one directory | 4 |
 | Tables no application code writes | 4 |
 
-`ON DELETE` across those 124 foreign keys: **41** `cascade`, **1** `no action`, **82** `restrict`.
+`ON DELETE` across those 126 foreign keys: **42** `cascade`, **2** `no action`, **82** `restrict`.
 
 ### The relationships the schema proves are 1:1
 

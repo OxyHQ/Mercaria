@@ -65,6 +65,7 @@ import {
 import {
   insertProductTypeCategoryScope,
   insertProductTypeField,
+  insertProductTypeFieldAllowedValue,
   insertProductTypeFieldGroup,
 } from '../../db/productTypes/productTypeFieldRepository.js';
 import { publishProductTypeVersion } from '../../services/product-types/product-type.service.js';
@@ -91,6 +92,7 @@ import {
 import { openAutomotiveFitment } from '../../db/compatibility/automotiveFitmentRepository.js';
 import { recordCompatibilityClaim } from '../../services/compatibility/claim.service.js';
 import { attributeEnumValues } from '../../db/schema/attributeRegistry.js';
+import { listAttributeEnumValues } from '../../db/attributes/definitionRepository.js';
 import { attributeValueLocalizations } from '../../db/schema/catalogLocalization.js';
 import type { VerticalPackage } from './types.js';
 
@@ -576,7 +578,7 @@ export async function applyVerticalPackage(
           `Product type '${productType.key}' cites attribute '${field.attributeKey}', which the package does not declare before it.`,
         );
       }
-      await insertProductTypeField(db, {
+      const fieldRow = await insertProductTypeField(db, {
         productTypeDefinitionId: definition.id,
         groupId: field.groupKey === undefined ? null : (groupIds.get(field.groupKey) ?? null),
         attributeDefinitionId,
@@ -589,6 +591,38 @@ export async function applyVerticalPackage(
         variantCapable: field.variantCapable ?? false,
         position: field.position,
       });
+
+      // The permitted-value subset, resolved from spellings to registry ROWS
+      // (#367 W7, line 235). Here rather than after publication because
+      // publication is the LAST step below and a published version's subsets are
+      // frozen — the same contract every other child of a version has.
+      if (field.allowedValues !== undefined && field.allowedValues.length > 0) {
+        const valueIds = new Map(
+          (await listAttributeEnumValues(db, [attributeDefinitionId])).map((row) => [
+            row.value,
+            row.id,
+          ]),
+        );
+        for (const value of field.allowedValues) {
+          const enumValueId = valueIds.get(value);
+          // THROWS rather than skips. A skipped spelling would leave the field
+          // permitting a smaller set than the package declares — or, if every
+          // spelling missed, no subset at all, which reads as "not narrowed" and
+          // silently offers every value. A typo must stop the seed.
+          if (enumValueId === undefined) {
+            throw new Error(
+              `Product type '${productType.key}' permits value '${value}' on '${field.attributeKey}', `
+                + 'which that attribute does not define. A permitted value must name a controlled '
+                + 'value the cited definition already carries.',
+            );
+          }
+          await insertProductTypeFieldAllowedValue(db, {
+            productTypeFieldId: fieldRow.id,
+            attributeDefinitionId,
+            attributeEnumValueId: enumValueId,
+          });
+        }
+      }
     }
 
     for (const categoryKey of productType.categoryScopeKeys) {

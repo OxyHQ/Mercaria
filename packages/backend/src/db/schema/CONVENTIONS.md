@@ -6829,3 +6829,73 @@ variant-scoped fact (`selectedVariant?.price ?? listing.price`).
 `findVariantImages` OMITS a variant with no selections rather than returning an
 empty array, so a caller cannot mistake "chose nothing" for "was not in the
 batch"; the repository never substitutes the gallery itself.
+
+---
+
+## Allowed value subsets per product-type field (#367 W7, epic line 235)
+
+`product_type_field_allowed_values` — which of a cited attribute's controlled
+values one product-type field permits. One table, three foreign-keyed columns,
+no CHECK and one trigger.
+
+**The clause is "without copying value records", and it held VACUOUSLY before
+this.** Nothing subsetted, so nothing copied. The way somebody satisfies its
+words and breaks its intent is a `text[]` of permitted value spellings on
+`product_type_fields` — which is #56's `allowed_values text[]` again. That column
+is GONE rather than kept beside `attribute_enum_values`, because *"keeping both
+would be two representations of the permitted set, and the one an alias resolved
+against would be whichever the writer remembered to update."* So a subset is a
+JOIN onto `attribute_enum_values.id`, and the table carries no column that could
+hold a spelling.
+
+**The grain is the FIELD, not the category.** Every other per-context narrowing
+of a cited attribute is already a column on `product_type_fields`
+(`requirement`, `valuePolicy`, `variantCapable`, `visibilityRule`, the four copy
+columns). A per-CATEGORY subset is deliberately NOT modelled: it would be a
+fourth representation of where an attribute applies — after
+`attribute_definition_categories`, `product_type_category_scopes` and
+`product_type_field_categories` — and because a schema is composed for ONE
+(product type, category) pair, it would additionally have to be intersected with
+this one, making the answer depend on which was applied first.
+
+**An EMPTY subset means EVERY value**, `attribute_definition_categories`'
+convention and not `product_type_field_categories`'. The two are not arbitrary
+opposites: absence THERE narrows something somebody added deliberately, while
+absence HERE is the state of every field that exists. Read as "nowhere", the
+migration creating this table would take every published product-type version to
+zero offered values at once. That is an outage, not a convention.
+
+**The subset says WHICH values, never their ORDER.** No `position` column;
+`attribute_enum_values.position` already orders them, and a second ordering is
+two answers to what a form renders.
+
+**Two NOT NULL composite foreign keys sharing `attribute_definition_id`** are the
+invariant — the `match_category_gates` device. `(product_type_field_id,
+attribute_definition_id)` → `product_type_fields`, and `(attribute_definition_id,
+attribute_enum_value_id)` → `attribute_enum_values`. A subset naming a value
+belonging to a different attribute than its field cites is UNREPRESENTABLE rather
+than refused by a service. Both targets needed a `unique()` — never a
+`uniqueIndex()`, which Postgres refuses as an FK target — and both are
+`(id, <other column>)` over a primary key, so they are unique by construction and
+could not fail to apply.
+
+**`on delete no action` on the value key, not `restrict`**, the measurement
+already recorded on `product_type_fields_group_fk`: `restrict` is checked
+immediately, so a delete cascading to both a subset row and its enum value in one
+statement raises on whichever cascade ran first.
+
+**`mercaria_product_type_allowed_value_frozen`** freezes a published version's
+subsets with the rest of its contract. It is a THIRD function rather than a
+fourth trigger on `mercaria_product_type_child_frozen`, because that one reads
+`NEW.product_type_definition_id` and this table is one hop further out — its
+parent is a FIELD. Its reasoning is the existing one verbatim: a schema whose
+contract could change after publication is a mutable document wearing a version
+number, and without this the subset is the one piece of a published schema that
+could still move under a merchant.
+
+**Carry-forward: nothing carries.** `insertProductTypeField` has one production
+caller (the vertical seed script); no clone-from-previous-version path and no
+HTTP surface creates a field. `ATTRIBUTE_VERSION_CARRY_FORWARD` is a census over
+`attribute_definitions` COLUMNS, so this table owes it no disposition. The rows
+key on `product_type_field_id`, so a clone would move them with the field by
+construction.

@@ -177,6 +177,19 @@ export interface VerticalProductTypeField {
   readonly valuePolicy: ProductTypeValuePolicy;
   readonly variantCapable?: boolean;
   readonly position: number;
+  /**
+   * The subset of the cited attribute's controlled values this field permits
+   * (#367 W7, epic line 235). ABSENT means every value — the state of every
+   * field that exists, and the reason `product_type_field_allowed_values` reads
+   * an empty subset as "not narrowed" rather than "permits nothing".
+   *
+   * Declared as VALUE SPELLINGS because that is what a package author writes;
+   * `apply.ts` resolves each to an `attribute_enum_values` row and stores the
+   * ID, so nothing here becomes a second copy of the permitted set. A spelling
+   * that resolves to nothing THROWS — a skipped one would silently widen the
+   * form back to every value, which is the failure this whole feature is about.
+   */
+  readonly allowedValues?: readonly string[];
 }
 
 export interface VerticalProductType {
