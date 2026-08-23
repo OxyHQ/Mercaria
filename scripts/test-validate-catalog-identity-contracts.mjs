@@ -189,7 +189,26 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // an age band three twice over and the two percentile branches nine between
     // them — while the module count moving by exactly one says a single contract
     // module arrived rather than a directory.
-    "walked 126 contract module(s), 2260 exported type(s), 7640 property signature(s)",
+    // #367 line 277 added `AttributeDefinition.searchable` to the EXISTING
+    // `attribute-registry.ts`, so ONLY the property count moves, by one. READ
+    // OFF the guard against this branch AND against `origin/main` in a separate
+    // worktree, so the delta is a measured difference between two trees rather
+    // than an increment of the line above. The two figures that did NOT move
+    // are what makes this a check: the same change also added a member to
+    // `FacetSuppressionReason` and a tuple entry beside it, and a union alias
+    // declares no property signature and no exported type — had either of those
+    // figures moved, something other than one property had arrived.
+    //
+    // Measured three times across three rebases, which is the whole argument for
+    // the method. Behind #892 NEITHER side of the conflict carried the right
+    // figures and the arithmetic answer — main's module count plus this branch's
+    // property delta — was wrong on TWO of the three, because #892 moved the
+    // exported-type and property counts as well. Behind #894 and #897 the
+    // baseline did not move at all, and carrying the previous figure forward
+    // would have been RIGHT — by luck, and indistinguishable at the time from
+    // the #892 case. A pin that is only re-derived when somebody expects it to
+    // have moved is a pin nobody re-derives.
+    "walked 126 contract module(s), 2260 exported type(s), 7641 property signature(s)",
     "check A arms exercised by real declarations: 5/9",
   ],
 });
