@@ -89,8 +89,11 @@ vi.mock('../../middleware/auth.js', () => ({
   oxyClient: { getFileDownloadUrl: (id: string) => `media:${id}` },
 }));
 
+// #367 line 324: `off` is the default and today's behaviour, so the v1 wire
+// contract keeps being served from the legacy option tables and every
+// assertion in this file is about the same bytes it always was.
 vi.mock('../../config/index.js', () => ({
-  config: { feed: { storeCardThumbnails: 3 } },
+  config: { feed: { storeCardThumbnails: 3 }, variantAxes: { reads: 'off' } },
 }));
 
 vi.mock('../../lib/logger.js', () => ({
