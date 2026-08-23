@@ -68,6 +68,18 @@ const asEnum = <T extends string>(values: readonly T[]): readonly [T, ...T[]] =>
 };
 
 const idSchema = z.string().trim().min(1).max(64);
+
+/**
+ * The body of a deprecation (#367 line 237).
+ *
+ * `.strict()`, so a caller cannot smuggle a lifecycle field in beside the
+ * replacement — the transition itself is decided by the ROUTE, never by the
+ * body. The whole object is optional at the route, because deprecating with no
+ * successor is a complete decision rather than a missing one.
+ */
+export const attributeDeprecateSchema = z
+  .object({ replacedByDefinitionId: idSchema.optional() })
+  .strict();
 const attributeKeySchema = z
   .string()
   .trim()

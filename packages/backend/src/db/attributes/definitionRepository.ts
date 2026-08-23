@@ -255,7 +255,15 @@ export async function transitionAttributeDefinition(
   id: string,
   expected: AttributeLifecycleState,
   next: AttributeLifecycleState,
-  audit: { publishedByOxyUserId?: string; publishedAt?: Date; deprecatedAt?: Date },
+  audit: {
+    publishedByOxyUserId?: string;
+    publishedAt?: Date;
+    deprecatedAt?: Date;
+    /** #367 line 237 — set in the SAME statement as the lifecycle move, so the
+     *  row never exists in a state `attribute_definitions_replaced_by_lifecycle_check`
+     *  refuses. */
+    replacedByDefinitionId?: string;
+  },
 ): Promise<AttributeDefinitionRow | undefined> {
   const rows = await db
     .update(attributeDefinitions)
@@ -266,6 +274,9 @@ export async function transitionAttributeDefinition(
         : { publishedByOxyUserId: audit.publishedByOxyUserId }),
       ...(audit.publishedAt === undefined ? {} : { publishedAt: audit.publishedAt }),
       ...(audit.deprecatedAt === undefined ? {} : { deprecatedAt: audit.deprecatedAt }),
+      ...(audit.replacedByDefinitionId === undefined
+        ? {}
+        : { replacedByDefinitionId: audit.replacedByDefinitionId }),
     })
     .where(and(eq(attributeDefinitions.id, id), eq(attributeDefinitions.lifecycleState, expected)))
     .returning();
