@@ -401,6 +401,15 @@ two bucket sets — and what this adds is the four facts that were implicit in t
 spelling of the key: **domain**, **region**, **audience** and **measurement
 basis**, as four closed tuples.
 
+- **There is now a SECOND key namespace, and it is disjoint from this one.**
+  `catalog_external_mappings.target_size_system_key` is a different column with a
+  different CHECK, so `services/canonical/size-systems.ts` mints keys for it
+  (`size.shoe_eu`). The key there is OPAQUE and the four facets are required
+  FIELDS on the entry — the `unit.gigabyte` shape, where the family is a column
+  and not a key segment — which is what keeps `no_sourced_mapping` reachable.
+  Nothing relates the two namespaces and a gate says so;
+  `docs/catalog-external-mappings.md` §"The size-system registry" carries the
+  reasoning and the cost.
 - **`compareSizeDeclarations` is the only comparison over sizes, and it does not
   convert.** It answers `equal`, `different_value` (one system, two values) or
   `refused` naming the facet that differs. There is no return value in which

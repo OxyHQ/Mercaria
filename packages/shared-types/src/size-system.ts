@@ -216,7 +216,29 @@ export const SIZE_VALUE_SHAPES: readonly SizeValueShape[] = [
  * and it is refused a comparison like any other mismatch.
  */
 export interface SizeSystem {
-  /** The attribute key that IS this system — `shoe_size_us_mens`. */
+  /**
+   * The stable machine key that IS this system, and TWO namespaces now mint one.
+   *
+   * The catalogue's own conventions are attribute definitions, so their key is
+   * an attribute key (`shoe_size_us_mens`). The external-mapping layer targets
+   * `catalog_external_mappings.target_size_system_key`, a DIFFERENT column with
+   * a different CHECK, whose keys `services/canonical/size-systems.ts` mints
+   * (`size.shoe_us_mens`).
+   *
+   * **In both namespaces the key is OPAQUE and is never a function of the
+   * facets below.** That is what keeps this field load-bearing: this interface
+   * settles identity on it LAST, so `no_sourced_mapping` — two systems agreeing
+   * on all four facets and differing only here — stays reachable. It is the only
+   * relation a sourced mapping can ever express, and a key derived from the
+   * facets would make it unrepresentable. The cost is the one `unit.gigabyte`
+   * already pays: a reader cannot see a system's facets from its key, so they
+   * read the system.
+   *
+   * Nothing relates the two namespaces, deliberately — that is the value-level
+   * mapping this epic re-scoped to an ADR amendment. Until it lands, one
+   * convention presented under both spellings is refused as
+   * `no_sourced_mapping`: closed, never a false equality.
+   */
   readonly key: string;
   readonly domain: SizeDomain;
   readonly region: SizeRegion;

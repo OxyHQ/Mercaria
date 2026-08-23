@@ -343,11 +343,109 @@ Each is a named contract that FAILS CLOSED. None is a stub that lies.
 | Seam | State today | What closes it |
 | --- | --- | --- |
 | **Product types** (ADR 0007 D5, merge-order step 3) | `conceptExists('product_type', …)` answers `unavailable`, which resolves to `registry_unavailable` and BLOCKS. `reviewed_product_type_definition_id` is in `DEFERRED_FOREIGN_KEYS`, so the id-column gate fails the build the moment `product_type_definitions` appears. | One `registerCatalogConceptRegistry` call, plus turning the deferred entry into a real `.references()`. **Not** a foreign key on `target_product_type_key` — see below. |
-| **Size systems** | Mercaria has no size-system registry at all — no table, no key namespace, no conversion rules. A `size_system` mapping is proposable, reviewable, versionable and storable, and never resolves. | One `registerCatalogConceptRegistry` call by whichever issue builds size systems. |
+| **Size systems** | **CLOSED.** `services/canonical/size-systems.ts` is a code registry the `units.ts` shape, registered at boot by `registerSizeSystemConceptRegistry()`. A `size_system` mapping onto a key it holds RESOLVES; one onto a well-formed key it does not hold is `target_unresolvable`; a deployment that skipped the registration is still `registry_unavailable`. There is still no size-system TABLE and no conversion rule anywhere. | — |
 | **Ingestion calls the resolver** | Nothing calls `resolveExternalToken`, so `catalog_external_token_observations` is empty and every impact preview reports `no_observations_recorded`. | #62/#63/#65/#66 calling the resolver at the point they read a source's category, field, value or unit. |
 | **The reprocessing consumer** | An `apply` stamps `reprocess_requested_at`; nothing drains it. The claim columns and the partial index are on the row. | A re-normalization drain — the same one a `NORMALIZATION_VERSION` bump schedules in #62. |
 | **HTTP surface** | There is no route. Every service function takes an actor id and is callable from an operator controller. | An `/internal/catalog-external-mappings/*` router on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/#60/#62/#68/#70/#78 use — **not a seventh list**. |
 | **Suggesters** | `heuristic_suggestion` is a permitted provenance and nothing produces one. | Whatever proposes mappings, which still cannot approve one. |
+
+### The size-system registry, and the key namespace it mints
+
+`services/canonical/size-systems.ts` holds the table;
+`services/canonical/size-system-registry.ts` is the reader and
+`index.ts` registers it before the listener opens — statically, because a
+deferred registration would answer the first request `registry_unavailable`,
+which is indistinguishable from a deployment that has no registry.
+
+It IDENTIFIES and nothing else. `units.ts` may legitimately convert, because a
+millimetre and an inch are two names for one length; an EU 42 and a US 9 are
+not, and `size-system-non-equivalence.test.ts`'s whole-backend scan covers
+these two modules like every other.
+
+**The four facets are REQUIRED FIELDS on every entry, and the key is OPAQUE** —
+a short stable name (`size.shoe_eu`, `size.shoe_us_mens`, `size.shoe_cm`) that
+nothing composes and nothing parses. The governing precedent is
+`unit.gigabyte`: `catalog_external_mappings` carries `target_unit_family` as its
+OWN column beside `target_unit_code`, so the family is a field and the key does
+not encode it — and ADR 0007's decision superseding D1's enumeration puts size
+system in exactly that class, as a *supporting registry*.
+
+**The reason is `no_sourced_mapping`.** `compareSizeDeclarations` reaches that
+refusal only when domain, audience, measurement basis and region are all equal
+and the KEY differs. Were the key `f(domain, region, audience, basis)`, all four
+equal would imply one key, two such systems could not both exist, and the branch
+would be unreachable — and it is the ONLY relation a sourced mapping can ever
+express. Two brands' "EU" conventions agreeing on all four facets and still
+being different systems is that aliasing case, and it is what the ADR amendment
+for epic line 308 is being written to land on. A derived key would foreclose it
+inside a namespace frozen forever. So two entries MAY share all four facets; the
+builder refuses a duplicate KEY and does not look at facets at all.
+
+A facet change is still a different system, enforced by FREEZING the entry
+rather than by a key re-deriving: an entry whose facets were wrong is superseded
+by a new entry under a new key, never edited in place — ADR 0007 D1's
+"deprecated and superseded, never renamed", applied to the thing the key names.
+
+### Minting a key: why `size.dress_uk` and not `size.uk`
+
+**The subject is in the key BECAUSE the facets are not.** That is the whole
+rule, and it is the one a reader needs before adding the sixth system.
+
+A key has to be unique across every size system this registry will ever hold,
+and it is frozen, so uniqueness has to be true forever rather than true today.
+The facets cannot supply it — they are fields precisely so that two systems may
+share all four — so the key carries a SUBJECT instead: enough of what is being
+sized to keep a shoe apart from a dress. A bare `size.eu` reads fine while
+footwear is the only vertical and collides on the first apparel EU convention,
+at which point the remedy is a rename, which ADR 0007 D1 forbids outright. The
+first five keys are also the pattern every later key imitates, which is why this
+is settled here rather than left as a spelling to tidy up.
+
+So the shape is `size.<subject>_<distinguisher>`: `size.shoe_eu`,
+`size.shoe_us_mens`, `size.dress_uk`. Two things it is NOT:
+
+- **Not a composition of the facets.** `shoe` is deliberately not the spelling
+  of the `footwear` facet value, and `size.shoe_us_mens` is not
+  `size.footwear.us.mens.manufacturer_label`. A key that looked derived would
+  invite the next reader to parse it, and a parse is a second authority that can
+  disagree with the entry. Two gates fail the build on it: a scan for a key
+  composed from a facet or parsed back into one, and an assertion over the real
+  table that no key EQUALS the composite of its own facets.
+- **Not a unit.** `size.shoe_cm` rather than `size.cm`, because centimetres are
+  a unit and the system is a foot LENGTH measured in them. `size.cm` would
+  invite somebody to read this registry as a unit table, which is the
+  `size_chart_as_conversion_table` failure one door over.
+
+Two systems that differ only in who publishes them get two subjects or two
+distinguishers — never one key — because that is the aliasing case above.
+
+**The cost, stated rather than left to be found: a reader cannot see a system's
+facets from its key.** `size.shoe_eu` does not say who it is cut for or whether
+it measures anything. That is the trade `unit.gigabyte` already makes — you look
+the unit up to learn its family — and the remedy is the same: read the entry,
+which is required to state all four.
+
+**Its members are the five conventions the footwear vertical actually
+publishes**, and nothing else. Seeding an apparel or ring system nothing sells
+in would make a mapping RESOLVE against a convention no listing can express —
+the registry-that-agrees failure in miniature, and worse than the unregistered
+seam, which at least blocked visibly.
+
+**It relates nothing to an attribute key.** `scripts/seed-verticals/footwear.ts`
+declares the same five conventions as ATTRIBUTE definitions and the facets were
+read off it, but that correspondence is prose: no value in either module is an
+attribute key, and the gate scans comment-stripped source against the seed's own
+key list. Relating the two namespaces is the value-level mapping this epic
+re-scoped to an ADR amendment, and it would arrive here disguised as a
+convenience. Until it lands, one convention presented under both spellings is
+refused by `compareSizeDeclarations` as `no_sourced_mapping` — closed, never a
+false equality.
+
+**A pinned version answers `unavailable`.** A code table ships exactly one
+revision, so `present` would claim a check nobody performed and `absent` would
+deny a system Mercaria has. No caller passes a version today; the branch is
+driven by a test anyway, because a defensive branch nobody drives is a claim
+rather than a behaviour.
 
 ### `target_product_type_key` is FK-less by DESIGN, not by timing
 

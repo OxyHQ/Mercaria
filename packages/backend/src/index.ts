@@ -7,6 +7,7 @@ import { startExpirySweeper, stopExpirySweeper } from './db/expirySweeper.js';
 import { createApp } from './app.js';
 import { log } from './lib/logger.js';
 import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';
+import { registerSizeSystemConceptRegistry } from './services/canonical/size-system-registry.js';
 
 
 // Socket.io
@@ -18,6 +19,19 @@ const __dirname = dirname(__filename);
 
 // Load .env from the api directory (not the monorepo root)
 dotenv.config({ path: join(__dirname, '../.env') });
+
+// Publish the size-system code registry to the external-mapping resolver
+// (#367 Workstream 11), closing `concept-registry.port.ts`'s `size_system`
+// seam. A STATIC import and a direct call, rather than the deferred
+// `import(...).then(...)` every dispatcher below uses, and the difference is
+// load-bearing: those start LOOPS, which may begin a tick late with no
+// consequence, while this answers a QUESTION the first request can ask. A
+// resolution arriving before a deferred registration landed would be told
+// `registry_unavailable` — indistinguishable from a deployment that has no
+// registry at all — and the mapping would block for a reason that was not
+// true. There is nothing to gate and nothing to fail: the reader holds a code
+// table, opens no connection and reads no config.
+registerSizeSystemConceptRegistry();
 
 const app = createApp();
 // Local dev default only — ECS injects PORT explicitly (oxy-infra
