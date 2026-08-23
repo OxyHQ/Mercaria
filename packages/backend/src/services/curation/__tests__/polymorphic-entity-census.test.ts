@@ -178,6 +178,76 @@ function deriveByShape(
   return found;
 }
 
+/** The two spellings a discriminator uses in this schema. See `pairedBareIdColumns`. */
+const DISCRIMINATOR_SUFFIXES: readonly string[] = ['_type', '_kind'];
+
+/**
+ * Every BARE `<x>_id` on a table that sits beside a closed-value-set
+ * `<x>_type` or `<x>_kind` — the polymorphic pairing, with nullability.
+ *
+ * `_kind` as well as `_type` because #720's two synonym tables spell it that
+ * way, and a rule reading only `_type` would have the shape of the miss this
+ * register already paid for.
+ *
+ * A pair whose id column DOES carry a foreign key is excluded: the reference is
+ * then FK'd and `merge-plan-census.test.ts` already forces a decision on it, so
+ * demanding a second declaration here would put two registers in charge of one
+ * column. The discriminator there merely says which of several real keys is
+ * populated, which is what `discriminates_foreign_keys` is for.
+ */
+function pairedBareIdColumns(
+  table: PgTable,
+): readonly { readonly name: string; readonly nullable: boolean }[] {
+  const config = getTableConfig(table);
+  const byName = new Map(config.columns.map((column) => [sqlColumnName(column), column]));
+  const foreignKeyed = new Set<string>();
+  for (const key of config.foreignKeys) {
+    for (const column of key.reference().columns) foreignKeyed.add(sqlColumnName(column));
+  }
+
+  const found = new Map<string, { name: string; nullable: boolean }>();
+  for (const column of config.columns) {
+    const name = sqlColumnName(column);
+    const suffix = DISCRIMINATOR_SUFFIXES.find((candidate) => name.endsWith(candidate));
+    if (!suffix) continue;
+    if (!enumValuesOf(column)) continue;
+    const idName = `${name.slice(0, -suffix.length)}_id`;
+    const idColumn = byName.get(idName);
+    if (!idColumn || foreignKeyed.has(idName)) continue;
+    found.set(idName, {
+      name: idName,
+      nullable: !(idColumn as unknown as { readonly notNull: boolean }).notNull,
+    });
+  }
+  return [...found.values()].sort((left, right) => left.name.localeCompare(right.name));
+}
+
+/** Every paired bare id column an `untouched`/`rehomed` entry has not named. */
+function undeclaredPairedColumns(
+  entries: readonly PolymorphicEntityReference[],
+  pool: readonly PgTable[],
+): { readonly undeclared: string[]; readonly entries: number; readonly columns: number; readonly nullable: number } {
+  const undeclared: string[] = [];
+  let walked = 0;
+  let columns = 0;
+  let nullable = 0;
+  for (const entry of entries) {
+    if (entry.disposition !== 'untouched' && entry.disposition !== 'rehomed') continue;
+    const table = pool.find((candidate) => getTableName(candidate) === entry.table);
+    if (!table) continue;
+    const paired = pairedBareIdColumns(table);
+    if (paired.length === 0) continue;
+    walked += 1;
+    const named = new Set(entry.idColumns ?? []);
+    for (const column of paired) {
+      columns += 1;
+      if (column.nullable) nullable += 1;
+      if (!named.has(column.name)) undeclared.push(`${entry.table}.${column.name}`);
+    }
+  }
+  return { undeclared: undeclared.sort(), entries: walked, columns, nullable };
+}
+
 /** The population every reconciliation runs against: the union of both halves. */
 function derivePopulation(
   pool: readonly PgTable[],
@@ -308,6 +378,112 @@ describe('every polymorphic reference to a mergeable entity has a decision (#654
     // there is no reference must not name columns, or the two dispositions stop
     // meaning different things.
     expect(wrong).toEqual([]);
+  });
+
+  /**
+   * #893 — the declared column list is checked against the SCHEMA, so it cannot
+   * be a hand list hiding inside a derived register.
+   *
+   * The reconciliation above is at the TABLE grain: it proves every derived
+   * table has an entry. Nothing proved an entry's `idColumns` were COMPLETE —
+   * and measured before this existed, deleting `counterpart_id` from
+   * `catalog_review_items` left all three census files green. The entry would
+   * then read as a finished decision while covering half the reference, which is
+   * the defect this register was built to close, one level in.
+   *
+   * ## The population is the PAIRING, and it must contain a NULLABLE member
+   *
+   * `subject_type`/`subject_id` are `NOT NULL` and `counterpart_type`/
+   * `counterpart_id` are not. So the plausible way somebody narrows a
+   * polymorphic derivation is by keeping the `NOT NULL` columns — it reads as
+   * "find the real references, skip the optional metadata", which is a
+   * reasonable-sounding narrowing rather than a careless one, and that is
+   * exactly why it would survive review.
+   *
+   * **A control made only of `NOT NULL` columns cannot detect a `NOT NULL`
+   * filter.** So the floors below assert not only that the walk covered
+   * something, but that what it covered INCLUDES a nullable column — the
+   * control's own adequacy as an assertion rather than as an accident. Two
+   * qualify today: `catalog_review_items.counterpart_id` and
+   * `catalog_authoring_draft_values.canonical_ref_id`.
+   *
+   * ## Only `untouched` and `rehomed`
+   *
+   * Those are the two dispositions asserting that a real reference exists and
+   * that THIS register decided what a merge does with it.
+   * `covered_by_bare_entity_census` is excluded deliberately: its citation is
+   * governed by the two tests below, which enforce a different and stricter
+   * property — that the other census can still RE-CHECK the cited column — and
+   * requiring completeness here as well would put the two rules in conflict for
+   * a column that register legitimately does not re-check.
+   * `not_an_entity_reference` and `discriminates_foreign_keys` are excluded
+   * because for them `idColumns` is FORBIDDEN, which the test above enforces.
+   */
+  it('#893: every BARE paired id column is named, nullable ones included', () => {
+    const result = undeclaredPairedColumns(POLYMORPHIC_ENTITY_REFERENCES, tables);
+
+    expect(
+      result.undeclared,
+      'these columns sit beside a closed-value-set discriminator on a table this register says a '
+        + 'merge LEAVES or MOVES, and the entry does not name them. Name every one, or the entry '
+        + 'is a decision about a reference nobody identified.',
+    ).toEqual([]);
+
+    // The vacuity floors. An empty list is also what a walk that found no
+    // entries, or no paired columns, reports.
+    expect(
+      result.entries,
+      'fewer entries were walked than the register carries. A derivation that stopped SEEING a '
+        + 'table — a narrowed suffix rule, a NOT NULL filter — reports the same clean list as one '
+        + 'that found every column, so the count is the only thing that tells them apart.',
+    ).toBeGreaterThanOrEqual(5);
+    // SIX across those five entries today, counted from the walk rather than by
+    // arithmetic over the entries: three tables carry one paired column each and
+    // `catalog_review_items` carries two.
+    expect(result.columns, 'no column was checked').toBeGreaterThanOrEqual(6);
+    // THE ONE THAT MATTERS. See the docblock: with no nullable member in the
+    // population, a derivation narrowed to NOT NULL columns would pass this.
+    expect(
+      result.nullable,
+      'every column this walked is NOT NULL, so it cannot detect a derivation narrowed to '
+        + 'NOT NULL columns — which is the narrowing that reads as tidying',
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  it('#893: the completeness detector really fires — the mutation self-test', () => {
+    // `toEqual([])` above is what a detector that always returns `[]` reports.
+    // Driven against a COPY of the register with one column removed, and the
+    // column removed is the NULLABLE one, because that is the case the floor
+    // above exists to keep detectable.
+    const target = POLYMORPHIC_ENTITY_REFERENCES.find(
+      (entry) => entry.table === 'catalog_review_items',
+    );
+    expect(target?.idColumns, 'the fixture entry no longer names both sides').toEqual([
+      'subject_id',
+      'counterpart_id',
+    ]);
+
+    const mutated = POLYMORPHIC_ENTITY_REFERENCES.map((entry) =>
+      entry.table === 'catalog_review_items' ? { ...entry, idColumns: ['subject_id'] } : entry,
+    );
+    expect(undeclaredPairedColumns(mutated, tables).undeclared).toEqual([
+      'catalog_review_items.counterpart_id',
+    ]);
+
+    // …and the derivation itself is shown to SEE a nullable column, against a
+    // synthetic table rather than the register — so the property survives
+    // whatever the register happens to contain.
+    const probe = pgTable('polymorphic_nullable_probe', {
+      id: text().primaryKey(),
+      subjectType: text({ enum: ['canonical_product', 'brand'] }).notNull(),
+      subjectId: text().notNull(),
+      counterpartType: text({ enum: ['canonical_product', 'brand'] }),
+      counterpartId: text(),
+    });
+    expect(pairedBareIdColumns(probe)).toEqual([
+      { name: 'counterpart_id', nullable: true },
+      { name: 'subject_id', nullable: false },
+    ]);
   });
 
   it('VERIFIES every citation of the bare-entity census rather than trusting it', () => {

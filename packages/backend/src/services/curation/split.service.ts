@@ -101,6 +101,7 @@ import { normalizeEntityName } from '../canonical/normalization.js';
 import { splitImpactFromAssignments, impactColumnValues } from './impact.js';
 import { CURATED_ENTITIES } from './entity-registry.js';
 import { rebuildEntityRollups } from './rollups.js';
+import { closeJobReviewItem } from './job-review-item.js';
 import { recordRevision } from './revision.js';
 
 /**
@@ -942,7 +943,25 @@ export async function runSplitJob(jobId: string, leaseOwner: string): Promise<Ru
     job = refreshed;
   }
 
-  const completed = await completeSplitJob(job.id, leaseOwner, db);
+  // Completion and the closure of the originating item together — `runMergeJob`
+  // carries the reasoning, and the two paths use ONE implementation because two
+  // copies of "what does a finished job do with its question" is two answers.
+  const completed = await db.transaction(async (tx) => {
+    const won = await completeSplitJob(job.id, leaseOwner, tx);
+    if (won) {
+      await closeJobReviewItem(
+        {
+          reviewItemId: job.reviewItemId,
+          requestedByOxyUserId: job.requestedByOxyUserId,
+          reason: job.reason,
+          splitJobId: job.id,
+        },
+        'split',
+        tx,
+      );
+    }
+    return won;
+  });
   await recordRevision(
     {
       entityType: job.entityType,

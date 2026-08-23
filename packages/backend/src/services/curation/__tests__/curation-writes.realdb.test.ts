@@ -91,6 +91,11 @@ import { shoppingAgents } from '../../../db/schema/shoppingAgents.js';
 import { pruneBasketCandidates } from '../../comparison/basket/candidates.js';
 import { estimateMergeImpact } from '../impact.js';
 import { recordRevision, recordCompensation } from '../revision.js';
+import {
+  annotateSubjectRedirects,
+  getItemWithContext,
+  raiseReviewItem,
+} from '../review-queue.service.js';
 import { suppressEntity, liftEntitySuppression } from '../correction.service.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 
@@ -3310,5 +3315,337 @@ describe('RESUMPTION: a stamped phase is skipped and an unstamped one is re-run'
       );
     expect(phases).toHaveLength(1);
     expect(phases[0]?.completedAt).not.toBeNull();
+  });
+});
+
+/**
+ * #893 — the review item a merge was requested FROM, and the one that merely
+ * happens to be about the loser.
+ *
+ * ## What was measured before any of this existed
+ *
+ * An operator raised `suspected_duplicate` between two products, requested the
+ * merge FROM that item (`reviewItemId` accepted, stored on the job, stamped on
+ * the revision), and the merge completed. **The item was still `open`, still
+ * naming the loser, which was now a tombstone.** `CURATION_RESOLUTIONS.merged`
+ * and `.split` were written by nobody: `closeReviewItem` had one caller, an
+ * operator typing into the HTTP surface.
+ *
+ * ## And what was measured and is NOT changed
+ *
+ * The revision recording a closure lands on the item's own SUBJECT — the
+ * tombstone, when the subject has been merged away. That is not a defect and the
+ * case below pins it so a later "follow the tombstone" cannot land quietly: a
+ * merge records every one of its OWN revisions against the loser too
+ * (`requestMerge`, `approveMerge`), so moving the queue's half would put it
+ * somewhere the merge's half is not — and `catalog_revisions` is `untouched` by
+ * a merge precisely because one entity's history must not move onto another's.
+ *
+ * The remedy for the UNRELATED item is therefore an annotation and never a move:
+ * `POLYMORPHIC_ENTITY_REFERENCES` records `catalog_review_items` as `untouched`
+ * because rehoming either side would silently change the question after the
+ * fact, and dismissing it would be a machine taking an operator's decision.
+ */
+describe('#893: a merge closes the question it was asked, and annotates the rest', () => {
+  it('closes the originating item as `merged`, and leaves an unrelated one open and FLAGGED', async () => {
+    const loser = await seedProduct('q893-loser');
+    const winner = await seedProduct('q893-winner');
+    const [lo, hi] =
+      loser.productId < winner.productId
+        ? [loser.productId, winner.productId]
+        : [winner.productId, loser.productId];
+
+    // The question the merge answers. `suspected_duplicate` is an ORDERED pair
+    // kind, so the ids go in id order — which is why the subject may be either
+    // side, and why closing it cannot depend on which.
+    const originating = await raiseReviewItem({
+      kind: 'suspected_duplicate',
+      subjectType: 'canonical_product',
+      subjectId: lo,
+      counterpartType: 'canonical_product',
+      counterpartId: hi,
+      note: 'these two look like duplicates',
+      actorOxyUserId: OPERATOR,
+    });
+    // A DIFFERENT question that merely happens to be about the loser. The
+    // control for "closes the one item and no other".
+    const unrelated = await raiseReviewItem({
+      kind: 'orphaned_record',
+      subjectType: 'canonical_product',
+      subjectId: loser.productId,
+      note: 'an unrelated question about the losing identity',
+      actorOxyUserId: OPERATOR,
+    });
+
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'duplicate confirmed from the queue',
+      actorOxyUserId: OPERATOR,
+      reviewItemId: originating.id,
+    });
+    const result = await claimAndRunMerge(job.id, `lease-893-${RUN}`);
+    expect(result.completed).toBe(true);
+    expect(result.blocked).toBe(false);
+
+    const rows = await db
+      .select()
+      .from(catalogReviewItems)
+      .where(inArray(catalogReviewItems.id, [originating.id, unrelated.id]));
+    const closed = rows.find((row) => row.id === originating.id);
+    const open = rows.find((row) => row.id === unrelated.id);
+    // The floor: two items were raised and two must come back, or the
+    // assertions below are about `undefined`.
+    expect(rows).toHaveLength(2);
+
+    // THE FIX. Before it, this was `open` with a null resolution.
+    expect(closed?.state).toBe('resolved');
+    expect(closed?.resolution).toBe('merged');
+    expect(closed?.resolvedByOxyUserId).toBe(OPERATOR);
+    expect(closed?.resolutionReason).toBe('duplicate confirmed from the queue');
+    // …and the SUBJECT did not move. Closing the question is not re-asking it
+    // about a different pair.
+    expect(closed?.subjectId).toBe(lo);
+    expect(closed?.counterpartId).toBe(hi);
+
+    // THE CONTROL. A merge answers ONE question; dismissing the others would be
+    // a machine taking an operator's decision.
+    expect(open?.state).toBe('open');
+    expect(open?.resolution).toBeNull();
+    expect(open?.subjectId).toBe(loser.productId);
+
+    // And the operator can SEE that its subject is gone — which is the whole
+    // remedy for an item a merge deliberately does not touch.
+    const annotated = await getItemWithContext(unrelated.id);
+    expect(annotated.item.subjectRedirect).not.toBeNull();
+    expect(annotated.item.subjectRedirect?.mergedIntoId).toBe(winner.productId);
+    expect(annotated.item.subjectRedirect?.type).toBe('canonical_product');
+    // `null` and not an absent field: a live subject is the ordinary case and
+    // must be distinguishable from nobody having looked.
+    expect(annotated.item.counterpartRedirect).toBeNull();
+    expect(Object.keys(annotated.item)).toContain('counterpartRedirect');
+
+    // The closure is AUDITED, and the revision names the job that did it.
+    const revisions = await db
+      .select({
+        entityId: catalogRevisions.entityId,
+        action: catalogRevisions.action,
+        mergeJobId: catalogRevisions.mergeJobId,
+      })
+      .from(catalogRevisions)
+      .where(
+        and(
+          eq(catalogRevisions.reviewItemId, originating.id),
+          eq(catalogRevisions.action, 'correct'),
+        ),
+      );
+    expect(revisions).toHaveLength(1);
+    expect(revisions[0]?.mergeJobId).toBe(job.id);
+    // MEASURED AND DELIBERATE: the item's own subject, which here is whichever
+    // id sorted lower — a tombstone when that is the loser. See the describe.
+    expect(revisions[0]?.entityId).toBe(lo);
+  });
+
+  it('is idempotent: re-running a completed job closes nothing a second time', async () => {
+    const loser = await seedProduct('q893-idem-loser');
+    const winner = await seedProduct('q893-idem-winner');
+    const item = await raiseReviewItem({
+      kind: 'orphaned_record',
+      subjectType: 'canonical_product',
+      subjectId: loser.productId,
+      note: 'closed once, and only once',
+      actorOxyUserId: OPERATOR,
+    });
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'idempotency probe',
+      actorOxyUserId: OPERATOR,
+      reviewItemId: item.id,
+    });
+    await claimAndRunMerge(job.id, `lease-893-idem-${RUN}`);
+
+    const first = await db
+      .select({ resolvedAt: catalogReviewItems.resolvedAt, state: catalogReviewItems.state })
+      .from(catalogReviewItems)
+      .where(eq(catalogReviewItems.id, item.id));
+    expect(first[0]?.state).toBe('resolved');
+    const closedAt = first[0]?.resolvedAt;
+    expect(closedAt, 'the first run did not close the item').toBeDefined();
+
+    // A re-run of a job that is already `done`. `completeMergeJob` is a CAS on
+    // the owned lease and answers false, so nothing should be written — and the
+    // closure's own CAS is a second, independent reason nothing is.
+    const second = await runMergeJob(job.id, `lease-893-idem-${RUN}`);
+    expect(second.finalPhase).toBe('done');
+
+    const after = await db
+      .select({ resolvedAt: catalogReviewItems.resolvedAt, state: catalogReviewItems.state })
+      .from(catalogReviewItems)
+      .where(eq(catalogReviewItems.id, item.id));
+    expect(after[0]?.state).toBe('resolved');
+    // The INSTANT, not just the state: a second close would move it, and a
+    // state assertion alone cannot tell one closure from two.
+    expect(after[0]?.resolvedAt?.getTime()).toBe(closedAt?.getTime());
+    // And exactly ONE closure revision exists.
+    const revisions = await db
+      .select({ id: catalogRevisions.id })
+      .from(catalogRevisions)
+      .where(
+        and(eq(catalogRevisions.reviewItemId, item.id), eq(catalogRevisions.action, 'correct')),
+      );
+    expect(revisions).toHaveLength(1);
+  });
+
+  it('a merge with no originating item closes nothing and completes — the negative control', async () => {
+    // Without this, every assertion above is satisfied by a closure that fires
+    // on every merge regardless of what the job named.
+    const loser = await seedProduct('q893-none-loser');
+    const winner = await seedProduct('q893-none-winner');
+    const bystander = await raiseReviewItem({
+      kind: 'orphaned_record',
+      subjectType: 'canonical_product',
+      subjectId: loser.productId,
+      note: 'nobody asked this job about me',
+      actorOxyUserId: OPERATOR,
+    });
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'a merge nobody raised from the queue',
+      actorOxyUserId: OPERATOR,
+    });
+    const result = await claimAndRunMerge(job.id, `lease-893-none-${RUN}`);
+    expect(result.completed).toBe(true);
+
+    const rows = await db
+      .select({ state: catalogReviewItems.state, resolution: catalogReviewItems.resolution })
+      .from(catalogReviewItems)
+      .where(eq(catalogReviewItems.id, bystander.id));
+    expect(rows[0]?.state).toBe('open');
+    expect(rows[0]?.resolution).toBeNull();
+  });
+
+  it('annotates the NULLABLE counterpart too, independently of the subject', async () => {
+    /**
+     * The control the rest of this describe cannot be: every other case here
+     * builds items whose counterpart is NULL, so `counterpartRedirect` is `null`
+     * for the same reason a DELETED counterpart branch would return `null`.
+     * Measured — removing the branch from `annotateSubjectRedirects` outright
+     * left all four green.
+     *
+     * That is the #893 finding one level in. `subject_type`/`subject_id` are
+     * `NOT NULL` and `counterpart_type`/`counterpart_id` are not, so the
+     * plausible narrowing is "keep the real references, skip the optional
+     * metadata" — which reads as tidying rather than as a mistake, and which a
+     * control made only of `NOT NULL` members cannot detect.
+     *
+     * So this row exercises the two branches in OPPOSITE directions at once: a
+     * LIVE subject and a TOMBSTONED counterpart. Dropping either branch, or
+     * wiring both to the same lookup, turns it red.
+     *
+     * `identifier_conflict` rather than `suspected_duplicate` because it is
+     * paired and deliberately NOT in `CURATION_ORDERED_PAIR_REVIEW_KINDS` —
+     * there the direction MEANS something, so this fixture can decide WHICH side
+     * is merged away instead of letting the id ordering decide it.
+     */
+    const live = await seedProduct('q893-cp-live');
+    const doomed = await seedProduct('q893-cp-doomed');
+    const survivor = await seedProduct('q893-cp-survivor');
+
+    const item = await raiseReviewItem({
+      kind: 'identifier_conflict',
+      subjectType: 'canonical_product',
+      subjectId: live.productId,
+      counterpartType: 'canonical_product',
+      counterpartId: doomed.productId,
+      note: 'the disputed newcomer against an incumbent that is about to be merged',
+      actorOxyUserId: OPERATOR,
+    });
+
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: doomed.productId,
+      winnerId: survivor.productId,
+      reason: 'merging the COUNTERPART out from under an open item',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(job.id, `lease-893-cp-${RUN}`)).completed).toBe(true);
+
+    const annotated = await getItemWithContext(item.id);
+    // The subject is untouched and LIVE — so this half cannot be satisfied by a
+    // resolver that redirects everything.
+    expect(annotated.item.subjectRedirect, 'a live subject was reported as merged').toBeNull();
+    // …and the nullable half is the one that would go missing.
+    expect(
+      annotated.item.counterpartRedirect,
+      'the counterpart branch is not annotated — a NOT NULL narrowing would look exactly like this',
+    ).not.toBeNull();
+    expect(annotated.item.counterpartRedirect?.id).toBe(doomed.productId);
+    expect(annotated.item.counterpartRedirect?.mergedIntoId).toBe(survivor.productId);
+
+    // The item itself did not move, and was not closed: this merge named no
+    // review item, and a merge answers only the question it was asked.
+    const rows = await db
+      .select({
+        state: catalogReviewItems.state,
+        subjectId: catalogReviewItems.subjectId,
+        counterpartId: catalogReviewItems.counterpartId,
+      })
+      .from(catalogReviewItems)
+      .where(eq(catalogReviewItems.id, item.id));
+    expect(rows[0]?.state).toBe('open');
+    expect(rows[0]?.subjectId).toBe(live.productId);
+    expect(rows[0]?.counterpartId).toBe(doomed.productId);
+  });
+
+  it('annotates a LIVE subject as null, and finds the tombstone only for a merged one', async () => {
+    // The positive/negative pair for the annotation itself. A resolver that
+    // answered `null` for everything would satisfy the live half of this and
+    // fail the merged half; one that answered a redirect for everything fails
+    // the live half.
+    const live = await seedProduct('q893-live');
+    const gone = await seedProduct('q893-gone');
+    const survivor = await seedProduct('q893-survivor');
+
+    const liveItem = await raiseReviewItem({
+      kind: 'orphaned_record',
+      subjectType: 'canonical_product',
+      subjectId: live.productId,
+      note: 'about a product nobody merged',
+      actorOxyUserId: OPERATOR,
+    });
+    const goneItem = await raiseReviewItem({
+      kind: 'orphaned_record',
+      subjectType: 'canonical_product',
+      subjectId: gone.productId,
+      note: 'about a product that is about to be merged away',
+      actorOxyUserId: OPERATOR,
+    });
+
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: gone.productId,
+      winnerId: survivor.productId,
+      reason: 'merging the subject out from under an open item',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(job.id, `lease-893-ann-${RUN}`)).completed).toBe(true);
+
+    const annotated = await annotateSubjectRedirects(
+      await db
+        .select()
+        .from(catalogReviewItems)
+        .where(inArray(catalogReviewItems.id, [liveItem.id, goneItem.id])),
+    );
+    // The floor: two items in, two annotated out.
+    expect(annotated).toHaveLength(2);
+    const liveRow = annotated.find((row) => row.id === liveItem.id);
+    const goneRow = annotated.find((row) => row.id === goneItem.id);
+    expect(liveRow?.subjectRedirect, 'a live subject was reported as merged').toBeNull();
+    expect(goneRow?.subjectRedirect?.mergedIntoId).toBe(survivor.productId);
   });
 });

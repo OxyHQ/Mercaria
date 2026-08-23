@@ -59,6 +59,65 @@ item rather than two views of one problem. `identifier_conflict` is excluded
 from the ordering rule because there the direction MEANS something: the subject
 is the disputed newcomer and the counterpart is the incumbent active owner.
 
+### What a merge does with the queue (#893, epic line 340)
+
+Two different things, and the difference is the whole answer.
+
+**The item the job was requested FROM is CLOSED, as `merged` (or `split`).**
+`requestMerge` and `requestSplit` have always accepted a `reviewItemId`, stored
+it on the job and stamped it on the revision — and nothing closed it. Measured
+end to end against a real server before the fix: an operator raises
+`suspected_duplicate` between two products, requests the merge from that item,
+the merge completes, and **the item is still `open`, still naming the loser,
+which is now a tombstone.** The queue went on asking a question the act that
+named it had already answered.
+
+`CURATION_RESOLUTIONS` has had the word for that outcome since the vocabulary was
+written — `merged`, with `split` beside it — and before this **nothing wrote
+either**: `closeReviewItem` had exactly one caller, `resolveItem`, which is an
+operator typing into the HTTP surface. So the two resolutions naming what a job
+did were reachable only by somebody doing the job's bookkeeping by hand.
+
+`services/curation/job-review-item.ts` is the ONE implementation both jobs call,
+and it runs in the SAME transaction as `completeMergeJob`/`completeSplitJob`.
+Together, because the alternative has a window: a job marked `done` with its
+question still open in the inbox is exactly the state that was measured, and a
+crash between two statements would make it permanent. Completion is attempted
+FIRST and the closure is gated on its result — that completion is a CAS on the
+OWNED LEASE, so a worker whose lease was reclaimed mid-run must close nothing.
+Idempotency is `closeReviewItem`'s own CAS (`WHERE state IN ('open','in_review')`,
+empty result IS the "already closed" answer), so a re-run, an operator who closed
+it by hand first, and two workers racing all converge on one closure.
+
+**Every OTHER open item about the loser stays open, and is ANNOTATED.** A merge
+answers one question; dismissing the rest would be a machine taking an
+operator's decision, and it is a worse version of the repointing
+`POLYMORPHIC_ENTITY_REFERENCES` already refuses for this table — "a review item
+is the QUESTION somebody was asked about two specific rows; rehoming either side
+would silently change the question after the fact". That disposition stands.
+What was missing is that **an operator could not tell a live subject from a
+tombstone**: the queue served `subject_id` and nothing else.
+
+`services/curation/subject-redirect.ts` adds `subjectRedirect` and
+`counterpartRedirect` to every item `listQueue` and `getItemWithContext` return —
+`null` for a live subject (distinct from the field being absent, which would mean
+nobody looked) and `{type, id, mergedIntoId}` for one that was merged away. It
+ANNOTATES and never moves, so "follow the tombstone, re-raise against the winner,
+or act on it as it stands" stays a decision a person takes. One statement per
+distinct mergeable type per page, never a lookup per row; only a MERGEABLE
+subject is queried at all, because six of the thirteen subject types are not
+entities and have no tombstone to read. One hop and no chain, because
+`requestMerge` refuses a tombstone as the WINNER.
+
+**What did NOT change, and is now pinned by a test.** Closing an item records the
+revision against the item's own SUBJECT — the tombstone, when the subject has
+been merged away. That is not a defect: a merge records every one of its OWN
+revisions against the loser too (`requestMerge`, `approveMerge`), so following
+the tombstone in the queue's half would put it somewhere the merge's half is not,
+and `catalog_revisions` is `untouched` by a merge precisely because one entity's
+history must not move onto another's. A later "fix" that follows it now fails the
+build.
+
 **Merchant collisions are detected on a shared DOMAIN, not a name.** `merchants`
 carries no `normalized_name` column and the absence is a decision: ADR 0002 D3
 makes a merchant a seller of record, and #53 keeps name matching out of identity
@@ -473,6 +532,55 @@ The entry to read is `catalog_entity_suppressions`: a real bare reference that
 is currently `untouched`, and the one a later reader should challenge rather
 than copy, because `retail_suppressions` one row over stores the same fact twice
 and the plan DOES move a recall with its entity.
+
+#### The declared `idColumns` are checked against the schema too (#893)
+
+The reconciliation above is at the TABLE grain. Nothing checked that an entry's
+`idColumns` were COMPLETE — and measured: deleting `counterpart_id` from the
+`catalog_review_items` entry left all three census files green. The entry would
+then read as a finished decision while covering half the reference, which is this
+register's own defect one level in.
+
+So for `untouched` and `rehomed` — the two dispositions asserting that a real
+reference exists and that this register decided it — every BARE `<x>_id` sitting
+beside a closed-value-set `<x>_type` or `<x>_kind` must be named. Derived from
+the pairing, so it needs no list; `_kind` as well as `_type`, because #720's
+synonym tables spell it that way.
+
+**And the population is asserted to contain a NULLABLE column.**
+`subject_type`/`subject_id` are `NOT NULL` and the counterpart pair is not, so
+the plausible narrowing of a polymorphic derivation is "keep the real references,
+skip the optional metadata" — which reads as tidying rather than as a mistake,
+and is exactly why it would survive review. *A control made only of `NOT NULL`
+columns cannot detect a `NOT NULL` filter*, so the floor asserts the walk covered
+at least two nullable ones (`catalog_review_items.counterpart_id` and
+`catalog_authoring_draft_values.canonical_ref_id`). Narrowing the derivation to
+`NOT NULL` now turns the build red on that floor and on the entry count.
+
+`covered_by_bare_entity_census` is excluded deliberately: its citation is
+governed by the two tests that verify the OTHER census can still re-check the
+column, which is a different and stricter property, and requiring completeness
+here as well would put the two rules in conflict for a column that register
+legitimately does not re-check.
+
+#### #893 re-checked it, and the gap was somewhere else
+
+The issue reported the FK census as blind to `catalog_review_items.subject_id`,
+with "neither the census nor a read-time resolution to catch it". Measured
+against the SHA it cites, the register above was already there and already
+carried all three of its named tables with reasoned dispositions —
+`catalog_review_items` and `catalog_revisions` and
+`catalog_entity_suppressions`, the last of them settled by #694's outright
+refusal to merge a suppressed entity. The blind spot was closed; what remained
+was what a merge DOES with an item it cannot move, which is
+[What a merge does with the queue](#what-a-merge-does-with-the-queue-893-epic-line-340)
+above.
+
+The issue's second claim did not survive measurement either: `resolveItem`
+recording its revision against `item.subjectId` is not a defect, because the
+merge records its own revisions against the loser too — following the tombstone
+there would put the queue's half of the trail somewhere the merge's half is not.
+A test now pins it.
 
 ### What the census caught on its first rebase
 
