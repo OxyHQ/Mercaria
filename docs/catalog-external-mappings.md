@@ -386,13 +386,38 @@ rather than by a key re-deriving: an entry whose facets were wrong is superseded
 by a new entry under a new key, never edited in place — ADR 0007 D1's
 "deprecated and superseded, never renamed", applied to the thing the key names.
 
-**The subject is kept in the local part** (`size.shoe_eu`, not the docblock's
-illustrative `size.eu`) for two reasons that only bite later: a bare `size.eu`
-collides the moment an apparel EU convention exists, and a key is frozen, so the
-remedy would be exactly the rename D1 forbids. `shoe` is also deliberately not
-the spelling of the `footwear` facet value, which makes "opaque, never parsed"
-visible rather than a rule somebody has to remember. Scanned gates fail the
-build on a key composed from a facet **or** parsed back into one.
+### Minting a key: why `size.dress_uk` and not `size.uk`
+
+**The subject is in the key BECAUSE the facets are not.** That is the whole
+rule, and it is the one a reader needs before adding the sixth system.
+
+A key has to be unique across every size system this registry will ever hold,
+and it is frozen, so uniqueness has to be true forever rather than true today.
+The facets cannot supply it — they are fields precisely so that two systems may
+share all four — so the key carries a SUBJECT instead: enough of what is being
+sized to keep a shoe apart from a dress. A bare `size.eu` reads fine while
+footwear is the only vertical and collides on the first apparel EU convention,
+at which point the remedy is a rename, which ADR 0007 D1 forbids outright. The
+first five keys are also the pattern every later key imitates, which is why this
+is settled here rather than left as a spelling to tidy up.
+
+So the shape is `size.<subject>_<distinguisher>`: `size.shoe_eu`,
+`size.shoe_us_mens`, `size.dress_uk`. Two things it is NOT:
+
+- **Not a composition of the facets.** `shoe` is deliberately not the spelling
+  of the `footwear` facet value, and `size.shoe_us_mens` is not
+  `size.footwear.us.mens.manufacturer_label`. A key that looked derived would
+  invite the next reader to parse it, and a parse is a second authority that can
+  disagree with the entry. Two gates fail the build on it: a scan for a key
+  composed from a facet or parsed back into one, and an assertion over the real
+  table that no key EQUALS the composite of its own facets.
+- **Not a unit.** `size.shoe_cm` rather than `size.cm`, because centimetres are
+  a unit and the system is a foot LENGTH measured in them. `size.cm` would
+  invite somebody to read this registry as a unit table, which is the
+  `size_chart_as_conversion_table` failure one door over.
+
+Two systems that differ only in who publishes them get two subjects or two
+distinguishers — never one key — because that is the aliasing case above.
 
 **The cost, stated rather than left to be found: a reader cannot see a system's
 facets from its key.** `size.shoe_eu` does not say who it is cut for or whether

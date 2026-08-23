@@ -63,12 +63,21 @@
  * rules on the SHAPE of a machine key and nothing narrower; it does not fix a
  * size-system key format, so this is the decision it left open.
  *
- * The SUBJECT is kept in the local part (`size.shoe_eu`, not `size.eu`) for two
- * reasons that only bite later. A bare `size.eu` collides the moment an apparel
- * EU convention exists, and a key is frozen, so the remedy would be exactly the
- * rename D1 forbids. And `shoe` is deliberately not the spelling of the
- * `footwear` facet value: the key resembles no facet, which makes "opaque,
- * never parsed" visible rather than a rule somebody has to remember.
+ * **The SUBJECT is in the key BECAUSE the facets are not.** A key must be unique
+ * across every system this registry will ever hold, and it is frozen, so that
+ * has to be true forever rather than true today. The facets cannot supply it —
+ * they are fields precisely so two systems may share all four — so the key
+ * carries enough of WHAT is sized to keep a shoe apart from a dress.
+ * `size.shoe_eu`, not `size.eu`: the bare form reads fine while footwear is the
+ * only vertical and collides on the first apparel EU convention, at which point
+ * the remedy is the rename D1 forbids.
+ *
+ * `shoe` is deliberately not the spelling of the `footwear` facet value, so the
+ * key resembles no facet at all — which makes "opaque, never parsed" visible
+ * rather than a rule somebody has to remember. And `size.shoe_cm` rather than
+ * `size.cm`, because centimetres are a UNIT and the system is a foot length
+ * measured in them; the bare form would invite a reader to treat this registry
+ * as a unit table, which is `size_chart_as_conversion_table` one door over.
  *
  * ## The members are the systems Mercaria's catalogue actually declares
  *

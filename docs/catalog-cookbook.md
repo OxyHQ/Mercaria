@@ -246,11 +246,22 @@ Adding one is a code change and nothing else — no table, no migration:
 2. That is the whole procedure. The build refuses two entries under one key, and
    `size-system-registry.test.ts` asserts every entry declares all four facets.
 
+**The subject is in the key because the facets are not** — `size.dress_uk`, not
+`size.uk`. A key must be unique across every size system forever and the facets
+cannot supply that (two systems may share all four), so the key carries enough
+of WHAT is sized to keep a shoe apart from a dress. A bare `size.uk` collides on
+the second vertical and a key is frozen, so the remedy would be a rename, which
+ADR 0007 D1 forbids.
+
 **Do not compose the key from the facets, and never parse one.** Two systems
 agreeing on all four facets and differing only in key is the aliasing relation
 `no_sourced_mapping` exists to express, and a derived key would make it
-unrepresentable. **Correcting a facet is a NEW entry under a NEW key**, never an
-edit: an entry is frozen the way its key is.
+unrepresentable. Two gates fail the build on it. Note `size.shoe_cm` rather than
+`size.cm`: centimetres are a unit, the system is a foot length measured in them.
+
+**Correcting a facet is a NEW entry under a NEW key**, never an edit: an entry
+is frozen the way its key is. Full reasoning:
+`docs/catalog-external-mappings.md` §"Minting a key".
 
 Add a system only when Mercaria's catalogue can actually express it. A key the
 registry holds makes a mapping RESOLVE, so seeding a convention no listing can

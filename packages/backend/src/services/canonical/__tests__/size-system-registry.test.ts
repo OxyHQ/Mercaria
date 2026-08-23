@@ -168,6 +168,36 @@ describe('every entry declares its four facets, and the key is opaque', () => {
     );
   });
 
+  it('holds no key EQUAL to the composite of its own facets', () => {
+    // The behavioural half of "the key is not derived", and the assertion that
+    // goes red if a later change re-derives keys from facets. The scan below is
+    // a source-text gate and can be walked around; this one reads the DATA.
+    //
+    // It names the exact forbidden value rather than a shape: a key that equals
+    // `namespace + the four facets joined` is what a derivation produces, and it
+    // is the one spelling that makes `no_sourced_mapping` unreachable. Measured
+    // — reintroducing the derivation in `buildRegistry` turns this red along
+    // with the scan.
+    let compared = 0;
+    for (const system of SIZE_SYSTEM_DEFINITIONS) {
+      const composite = [
+        SIZE_SYSTEM_KEY_NAMESPACE,
+        ...SIZE_SYSTEM_IDENTITY_FACETS.map((facet) => system[facet]),
+      ].join('.');
+      // The control: the composite really is the string a derivation would
+      // produce, so this is comparing against the right thing rather than
+      // against something no implementation could ever emit.
+      expect(composite.startsWith(`${SIZE_SYSTEM_KEY_NAMESPACE}.`)).toBe(true);
+      expect(composite.split('.')).toHaveLength(SIZE_SYSTEM_IDENTITY_FACETS.length + 1);
+
+      expect(system.key, `${system.key} is the composite of its own facets`).not.toBe(composite);
+      compared += 1;
+    }
+    // Floor: an emptied table compares nothing and reports a clean run.
+    expect(compared).toBe(SIZE_SYSTEM_DEFINITIONS.length);
+    expect(compared).toBeGreaterThanOrEqual(5);
+  });
+
   it('composes no key from a facet, and parses none back', () => {
     // The key must stay a NAME. A composition would make two systems agreeing
     // on four facets unrepresentable; a parse would give the facets a second
