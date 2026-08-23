@@ -720,4 +720,111 @@ describe('aliases and external mappings (ADR 0007 D1/D2)', () => {
         .where(eq(categoryExternalMappings.id, v2.id)),
     ).rejects.toSatisfy(isCheckViolation);
   });
+
+  /**
+   * Two sources, different external names, ONE category (#367 line 1052).
+   *
+   * *"Two external sources with different category/attribute names map to the
+   * same Mercaria concepts while preserving raw source values."* The line spans
+   * two domains: this is the CATEGORY half, and
+   * `services/catalog-external-mappings/__tests__/external-mappings.realdb.test.ts`
+   * describe 12 is the attribute half, in the same shape. Neither approximates
+   * the other — `category_external_mappings` belongs to the taxonomy module
+   * (ADR 0007 D2) and the attribute domain carries no `category` dimension at
+   * all, so a case covering one and reading as covering the line would be the
+   * quiet half-coverage the split exists to avoid.
+   *
+   * The mechanism is `category_external_mappings_current_key`, whose uniqueness
+   * is `(source_id, external_key) WHERE valid_to is null` — **scoped to the
+   * SOURCE**, so two sources reaching one category is unconstrained by
+   * construction. The case above is the other axis entirely: one source's key
+   * moving across two categories over TIME, which is divergence rather than
+   * convergence.
+   *
+   * The assertion is the REVERSE read — by `category_id`, the column
+   * `category_external_mappings_category_idx` is on — because two rows existing
+   * is a statement about the fixture and "which sources call this category
+   * something" is what a consumer asks. And each source's own `external_key`
+   * must still be readable AS that source's: that is the "preserving raw source
+   * values" half, and a case asserting only the shared category has proven the
+   * convergence and lost the preservation.
+   */
+  it('two sources with different names converge on one category, keeping their own words', async () => {
+    const [sourceA] = await db
+      .insert(catalogSources)
+      .values({
+        kind: 'affiliate_network',
+        name: `Convergence A ${RUN}`,
+        mayDisplay: true,
+        mayStore: true,
+        attributionRequired: false,
+      })
+      .returning();
+    const [sourceB] = await db
+      .insert(catalogSources)
+      .values({
+        kind: 'affiliate_network',
+        name: `Convergence B ${RUN}`,
+        mayDisplay: true,
+        mayStore: true,
+        attributionRequired: false,
+      })
+      .returning();
+    createdSourceIds.push(sourceA.id, sourceB.id);
+
+    const shared = await makeCategory('convergent-target');
+    const elsewhere = await makeCategory('convergent-control');
+
+    // Two feeds' own words for one shelf. Different spellings on purpose:
+    // normalization is what makes two tokens one WITHIN a source, never across
+    // sources, and this is the across case.
+    const keyA = `Mobile Phones ${RUN}`;
+    const keyB = `smartphones-and-accessories-${RUN}`;
+
+    const fromA = await openCategoryExternalMapping({
+      sourceId: sourceA.id,
+      externalKey: keyA,
+      categoryId: shared,
+    });
+    const fromB = await openCategoryExternalMapping({
+      sourceId: sourceB.id,
+      externalKey: keyB,
+      categoryId: shared,
+    });
+    // The CONTROL: source A again, a DIFFERENT category — so "both came back"
+    // cannot be satisfied by a read that returns everything.
+    const control = await openCategoryExternalMapping({
+      sourceId: sourceA.id,
+      externalKey: `Laptops ${RUN}`,
+      categoryId: elsewhere,
+    });
+
+    // Both are LIVE. Neither superseded the other, which is what a
+    // target-scoped unique would have forced.
+    expect(fromA.version).toBe(1);
+    expect(fromB.version).toBe(1);
+    expect(fromA.validTo).toBeNull();
+    expect(fromB.validTo).toBeNull();
+
+    // The reverse read, by the column the index is on.
+    const rows = await db
+      .select({
+        id: categoryExternalMappings.id,
+        sourceId: categoryExternalMappings.sourceId,
+        externalKey: categoryExternalMappings.externalKey,
+      })
+      .from(categoryExternalMappings)
+      .where(eq(categoryExternalMappings.categoryId, shared));
+
+    expect(rows.map((row) => row.id).sort()).toEqual([fromA.id, fromB.id].sort());
+
+    // Each source's own words, still readable as that source's.
+    const bySource = new Map(rows.map((row) => [row.sourceId, row.externalKey]));
+    expect(bySource.get(sourceA.id), 'source A lost its own spelling').toBe(keyA);
+    expect(bySource.get(sourceB.id), 'source B lost its own spelling').toBe(keyB);
+    expect(bySource.get(sourceA.id)).not.toBe(bySource.get(sourceB.id));
+
+    // And the control stayed where it was.
+    expect(rows.some((row) => row.id === control.id)).toBe(false);
+  });
 });
