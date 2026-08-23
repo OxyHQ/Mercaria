@@ -38,6 +38,7 @@ import type {
   SourceFreshness,
   SourceLinkMethod,
 } from '@mercaria/shared-types';
+import { SHOPPER_VISIBLE_CATALOG_STATUSES } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   countProductsForFamily,
@@ -835,6 +836,36 @@ async function recordFreshness(
  * structurally absent from the return type. Field provenance appears because
  * #56 acceptance 4 asks for traceability, and it carries the source KIND and
  * observation time, never the source record's id.
+ *
+ * ## The visibility check, and why it is HERE and in this ORDER (#888)
+ *
+ * This function is the single point FIVE public surfaces resolve a product
+ * through — both `/canonical-products/:idOrSlug` handlers, the #71 product
+ * page, the #96 comparison subject loader, and `seo.service.ts`'s
+ * `readProductSlug`, which puts a `rel=canonical` on a legacy listing. Until
+ * this check existed, every one of them served a SUPPRESSED product to whoever
+ * held the id. The SEO one is the reason it matters most: the others serve a
+ * withdrawn product and can stop; that one PUBLISHES it to a crawler, which
+ * keeps it long after the suppression.
+ *
+ * **After `resolveProductRow`, never before.** The resolver follows the merge
+ * chain, and `merged` is not shopper-visible — so checking first would break an
+ * old link to a merged product, which must keep resolving to its winner
+ * (pinned by #897). The winner's visibility is what this decides.
+ *
+ * **`SHOPPER_VISIBLE_CATALOG_STATUSES`, never `status === 'active'`.**
+ * `discontinued` is deliberately shopper-visible: a product nobody makes any
+ * more still has a page, a history and offers. Narrowing to `active` would
+ * delist every discontinued product — a guard wider than the invariant, which
+ * is this repository's recurring failure and always looks safe.
+ *
+ * It also excludes `draft`, which is a real change beyond suppression and the
+ * right one: a draft is a canonical record #60's backfill minted provisionally
+ * or #59 has not promoted, and no public surface should have been serving one.
+ *
+ * Derived at READ time and no sweep: a lift restores the product instantly and
+ * nothing is owed. Retiring its offers instead would be one-way in the offer
+ * domain and could not be undone by a lift.
  */
 export async function getPublicCanonicalProduct(
   idOrSlug: string,
@@ -843,7 +874,9 @@ export async function getPublicCanonicalProduct(
   const row =
     (await findCanonicalProductById(db, idOrSlug)) ?? (await findCanonicalProductBySlug(db, idOrSlug));
   if (!row) return undefined;
-  return toPublicCanonicalProduct(db, await resolveProductRow(db, row));
+  const resolved = await resolveProductRow(db, row);
+  if (!SHOPPER_VISIBLE_CATALOG_STATUSES.includes(resolved.status)) return undefined;
+  return toPublicCanonicalProduct(db, resolved);
 }
 
 /** Offset-paginated product list — the pagination seam #70–#73 read through. */
