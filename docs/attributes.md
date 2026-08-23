@@ -320,6 +320,104 @@ specification and have a price filter find it.
   definition publication/deprecation, with a deterministic id so a repeat
   converges. The CONSUMER is #61's; the record is written now.
 
+## Who reads a definition, and why nothing asserts that they agree (#367 line 1034)
+
+Line 1034 asks that six surfaces use the same attribute definitions. **The ID
+half is gated everywhere and the definition half is asserted nowhere**, and the
+reason is recorded here rather than closed with a gate, because a gate would be
+wrong rather than merely unnecessary.
+
+**Measured over non-test modules, and re-measurable** — a reader whose count
+differs should re-run it and correct this table, not assume they miscounted. The
+numbers below were wrong twice in the audit this decision came from (once for
+`facets`, once for `product-page`), which is the argument for a measured figure
+over a cited one: **a citation keeps reading as authoritative after the thing it
+cites has moved, and a measured number is falsifiable by one command.**
+
+```
+git grep -c 'resolveDefinitionsForCategory\|resolveAllActiveDefinitions' \
+  -- 'packages/backend/src/services/<surface>' | grep -v __tests__
+```
+
+`grep -c` counts matching LINES, not occurrences, so sum the rows a multi-file
+surface returns — and a single line naming BOTH symbols would undercount by one.
+Driven both ways on `search-intent`, the widest row: **4 lines, 4 occurrences**,
+so the two agree today. If they ever diverge, the occurrence count is the one
+this table means.
+
+
+| surface | calls `resolveDefinitionsForCategory` / `resolveAllActiveDefinitions` | reaches another definition source |
+| --- | --- | --- |
+| `services/comparison` | 2 | — |
+| `services/facets` | 2 | — |
+| `services/search-intent` | 4 | — |
+| `services/navigation` | 0 | — |
+| `services/taxonomy` | 0 | `schemaSourceRepository` |
+| `services/product-page` | 0 | — |
+
+**Three surfaces obtain a definition and all three go through the registry's own
+entry points.** The one apparent exception is not one: `comparison.service.ts`
+imports `listOperatorOnlyAttributeKeys` from `db/attributes/definitionRepository`
+— the registry's OWN repository, one layer down, not a second answer.
+
+**Three obtain no definition at all**, each for its own reason:
+
+- **`navigation`** keys on `category_id`. That is line 1034's identity half, and
+  it needs no definition to render a tree.
+- **`taxonomy`** reads `schemaSourceRepository`, and its own docblock says which
+  part: *"`db/catalogAuthoring/schemaSourceRepository.ts`'s recursive CTE"* — a
+  category-tree walk. It is a definition-adjacent repository being used for a
+  category fact.
+- **`product-page`** names no attribute definition anywhere. Its **non-test
+  modules** — the population this whole table is measured over — contain **one**
+  occurrence of the string `attribute`, and it is the English
+  word inside a comment about an affiliate *attributed* link
+  (`outbound.ts:34`); `attributeDefinitionId` appears **zero** times. **The page
+  reads no registry** — which is #71's *"composes and does not decide"* holding
+  completely, and is exactly what those zeros prove. By what route a
+  specification does reach the page is not asserted here: `projection`,
+  `specification` and `spec` each appear **zero** times in those same modules
+  (control: `offer`, 223), so any sentence naming one would be describing a
+  mechanism nobody has measured.
+
+## Why a gate here would be wrong, not merely unnecessary
+
+A gate asserting all six call the registry **would fail three surfaces for being
+correctly designed.** It is the same shape as demanding an
+`accessibilityLabel` on a control already named by its own text — the check goes
+red on correct code, and whoever hits it deletes the check rather than the
+design.
+
+**And the honest question is not "do all six call it" but "does any of the six
+obtain a definition by a route that could disagree with the registry".** Today
+none does, so a scan for that route is a census over an empty set — which reads
+as coverage and measures nothing.
+
+## What would change this, and why it is a fact about today
+
+**The absence is not a structural guarantee.** Six repositories read
+`attribute_definitions` directly — `definitionRepository`,
+`schemaSourceRepository`, `conceptReadRepository`, `completenessRepository`,
+`duplicateRepository` and `variantAxisRepository` — so a surface obtaining a
+definition **without** going through `resolveDefinitionsForCategory` /
+`resolveAllActiveDefinitions` is writable, not unrepresentable. It simply has not
+been written.
+
+So the condition that turns this decision into a gate is one of:
+
+1. a surface reading a definition through any repository other than
+   `db/attributes/definitionRepository`; or
+2. a surface declaring an attribute key, a field list or a definition id as a
+   literal rather than resolving one.
+
+Either makes a violating line writable AND present, at which point there is
+something for a scan to find.
+
+**This does not tick line 1034.** The line asks that six surfaces use the same
+definitions; what is recorded above is that three use none and three use the
+registry — which is *why nothing asserts agreement*, not evidence that they
+agree.
+
 ## API
 
 Public — `/catalog-attributes`, no auth, `listings` rate-limit scope:
