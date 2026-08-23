@@ -59,6 +59,7 @@ import { catalogEntitySuppressions } from '../../../db/schema/curation.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 import { declaredOfferCondition } from '../../condition/condition-mapping.service.js';
 import { listOffers } from '../../offers/offer.service.js';
+import { getPublicCanonicalProduct } from '../../canonical/canonical-product.service.js';
 import { suppressEntity, liftEntitySuppression } from '../correction.service.js';
 
 const RUN = uuidv7().slice(-12);
@@ -96,6 +97,16 @@ afterAll(async () => {
   // a plain `text()` with no foreign key — so the residue blocks nothing here or
   // in any sibling file, which is what makes leaving it correct rather than
   // merely unavoidable.
+  // `canonical_products.merged_into_id` is a SELF reference, so a tombstone
+  // pointing at a sibling would block that sibling's delete. Cleared first —
+  // and the STATUS has to move with it: `canonical_products_merged_state_check`
+  // is a biconditional, so nulling the pointer alone is refused with 23514 and
+  // takes the whole teardown down with it. Measured on this file's first run.
+  await db
+    .update(canonicalProducts)
+    .set({ status: 'active', mergedIntoId: null })
+    .where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+
   const suppressionSubjects = safeIds([...createdProductIds, ...createdVariantIds]);
   await db
     .delete(catalogEntitySuppressions)
@@ -125,13 +136,15 @@ async function seedProductWithOffer(label: string): Promise<{
   productId: string;
   variantId: string;
   offerId: string;
+  slug: string;
 }> {
+  const slug = `suppression-${label}-${RUN}`;
   const [product] = await db
     .insert(canonicalProducts)
     .values({
       name: `Suppression ${label} ${RUN}`,
       normalizedName: `suppression ${label} ${RUN}`,
-      slug: `suppression-${label}-${RUN}`,
+      slug,
     })
     .returning({ id: canonicalProducts.id });
   if (!product) throw new Error('seedProductWithOffer produced no product');
@@ -207,7 +220,7 @@ async function seedProductWithOffer(label: string): Promise<{
   if (!offer) throw new Error('seedProductWithOffer produced no offer');
   createdOfferIds.push(offer.id);
 
-  return { productId: product.id, variantId: variant.id, offerId: offer.id };
+  return { productId: product.id, variantId: variant.id, offerId: offer.id, slug };
 }
 
 /** The ids `GET /offers` serves for one canonical PRODUCT. */
@@ -339,5 +352,49 @@ describe('the visibility predicate is exactly the shopper-visible set', () => {
       .where(eq(canonicalProducts.id, seeded.productId));
 
     expect(await servedForProduct(seeded.productId)).toEqual([]);
+  });
+});
+
+// ── Tombstone resolution happens BEFORE the visibility check ────────────────
+
+describe('a merged loser still reaches its winner', () => {
+  it('resolves an old link to the winner, whose offers are still served', async () => {
+    // The ordering this pins: `resolveProductRow` walks the merge chain, and the
+    // visibility predicate is applied to what it LANDS ON. Reversed — visibility
+    // first — every shared link to a merged product would 404, because a
+    // tombstone is `merged` and `merged` is not shopper-visible. Without this
+    // case that ordering is a sentence in a docblock.
+    //
+    // The loser deliberately KEEPS its own offer. A completed merge repoints
+    // offers in the `offers` phase and only stamps the tombstone later, in
+    // `redirects`, so this is not a state a finished merge leaves behind — which
+    // is exactly why it is worth asserting: it makes "the tombstone serves
+    // nothing" a fact about the predicate rather than a fact about the fixture
+    // having no rows to serve.
+    const winner = await seedProductWithOffer('merge-winner');
+    const loser = await seedProductWithOffer('merge-loser');
+
+    // Controls, before anything is merged: both are ordinary products and both
+    // serve their own offer.
+    expect(await servedForProduct(winner.productId)).toEqual([winner.offerId]);
+    expect(await servedForProduct(loser.productId)).toEqual([loser.offerId]);
+
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'merged', mergedIntoId: winner.productId })
+      .where(eq(canonicalProducts.id, loser.productId));
+
+    // 1. The old link still resolves — by the loser's own slug, which ADR 0002
+    //    D12 keeps forever precisely so a shared URL survives a merge.
+    const resolved = await getPublicCanonicalProduct(loser.slug);
+    expect(resolved?.id).toBe(winner.productId);
+
+    // 2. The winner it resolved to is still served. This is the half that fails
+    //    if the visibility predicate is applied before the chain walk.
+    expect(await servedForProduct(winner.productId)).toEqual([winner.offerId]);
+
+    // 3. …and the tombstone's OWN offers are not served, even though it still
+    //    holds one. Non-vacuous by construction — see the note above.
+    expect(await servedForProduct(loser.productId)).toEqual([]);
   });
 });
