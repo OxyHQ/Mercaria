@@ -53,6 +53,16 @@ import {
 } from '../../../db/postgres.js';
 import { collectCatalogMetrics } from '../metrics.service.js';
 import {
+  readAuthoringPublicationCounters,
+  recordPublicationAttempt,
+  resetAuthoringPublicationCounters,
+} from '../../catalog-authoring/publication-observation.js';
+import {
+  readLocalizationReadCounters,
+  recordLocalizedResolution,
+  resetLocalizationReadCounters,
+} from '../../catalog-localization/read-observation.js';
+import {
   observeCatalogRoute,
   resetCatalogRouteObservations,
 } from '../route-observations.js';
@@ -541,6 +551,162 @@ describe('the collector really reads the route store', () => {
 /* -------------------------------------------------------------------------- */
 /* Positive control 2: Postgres                                                */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * The two in-process counters #367 W17 lines 768 and 771 closed.
+ *
+ * A THIRD positive control with nothing in common with the other two: the route
+ * store is HTTP timings, the Postgres one is a row, and these are counters two
+ * different services increment. All three would have to be broken at once for
+ * the collector to be returning constants.
+ *
+ * Both are deterministically zero in a process that has published nothing and
+ * resolved nothing, which is what makes the `0 / 0` branch assertable here
+ * rather than hoped for.
+ */
+describe('the collector really reads the publication and localization counters', () => {
+  beforeAll(() => {
+    resetAuthoringPublicationCounters();
+    resetLocalizationReadCounters();
+  });
+
+  async function collect() {
+    return collectCatalogMetrics({ facetSampleSize: NO_FACET_SAMPLE });
+  }
+
+  it('reports 0 / 0 before anything happens — no ratio, and NOT a seam', () => {
+    // The distinction the registry exists to keep: "nothing has been published
+    // in this process" is MEASURED with an empty population, not unmeasured.
+    // Reading it as a seam would tell an operator the metric was never built.
+    const before = readAuthoringPublicationCounters();
+    expect(before.attempts).toBe(0);
+    expect(readLocalizationReadCounters().resolutions).toBe(0);
+  });
+
+  it('moves both by exactly what was recorded, and the buckets partition', async () => {
+    const before = await collect();
+    for (const key of [
+      'draft_validation_failure_rate',
+      'draft_validation_failure_code_share',
+      'translation_fallback_use_rate',
+    ]) {
+      const entry = reading(before, key);
+      expect(entry?.state, `${key} is not measured`).toBe('measured');
+      // Through the file's own helper, which asserts MEASURED first: reading a
+      // denominator off the union directly is a type error, which is the
+      // `unmeasured` branch carrying no quantity doing its job.
+      expect(
+        measuredDenominator(before, key),
+        `${key} reported a population before anything ran`,
+      ).toBe(0);
+      // `0 / 0` keeps `denominator: 0` in the measured branch and omits `ratio`.
+      expect(Object.keys(entry ?? {}), `${key} rendered a ratio over nothing`).not.toContain(
+        'ratio',
+      );
+    }
+
+    // THREE publication attempts: one clean, two refused, the refusals carrying
+    // FOUR error findings between them across two codes — so attempts, refusals
+    // and findings are three different numbers and no assertion below can pass
+    // by reading the wrong one.
+    recordPublicationAttempt({ publishable: true, findings: [], schemaEtag: 'e' });
+    recordPublicationAttempt({
+      publishable: false,
+      schemaEtag: 'e',
+      findings: [
+        { code: 'required_field_missing', severity: 'error', path: 'a' },
+        { code: 'required_field_missing', severity: 'error', path: 'b' },
+        // A WARNING, which refuses nothing and must not be counted — otherwise
+        // the code shares describe advice nobody was blocked by.
+        { code: 'value_implausible', severity: 'warning', path: 'c' },
+      ],
+    });
+    recordPublicationAttempt({
+      publishable: false,
+      schemaEtag: 'e',
+      findings: [
+        { code: 'required_field_missing', severity: 'error', path: 'd' },
+        { code: 'value_not_in_controlled_set', severity: 'error', path: 'e' },
+      ],
+    });
+
+    // Localized reads: two exact, one language fallback, one base, one that
+    // could not be answered at all.
+    for (const step of ['exact', 'exact', 'language', 'base'] as const) {
+      recordLocalizedResolution({
+        outcome: 'resolved',
+        basis: 'localization_row',
+        value: 'x',
+        requestedLocale: 'es-mx',
+        effectiveLocale: 'es',
+        step,
+        status: 'approved',
+        provenance: 'mercaria',
+      } as never);
+    }
+    recordLocalizedResolution({
+      outcome: 'unavailable',
+      reason: 'no_text_in_locale',
+      requestedLocale: 'es-mx',
+    } as never);
+
+    const after = await collect();
+
+    // 768: two refusals out of three attempts.
+    const failure = reading(after, 'draft_validation_failure_rate');
+    expect(failure?.state).toBe('measured');
+    if (failure?.state === 'measured') {
+      expect(failure.numerator).toBe(2);
+      expect(failure.denominator).toBe(3);
+      expect(failure.ratio).toBeCloseTo(2 / 3);
+      // NO breakdown, deliberately — a refusal carries several codes, so codes
+      // do not partition attempts. Asserted rather than left to the docblock.
+      expect(Object.keys(failure), 'the rate grew a breakdown it cannot partition').not.toContain(
+        'by',
+      );
+    }
+
+    // …and the codes, over FOUR error findings: three of one, one of another,
+    // and the warning excluded. A producer counting findings-per-attempt or
+    // including warnings gets a different number here.
+    const shares = reading(after, 'draft_validation_failure_code_share');
+    expect(shares?.state).toBe('measured');
+    if (shares?.state === 'measured') {
+      expect(shares.numerator).toBe(4);
+      expect(shares.denominator).toBe(4);
+      const by = new Map((shares.by ?? []).map((entry) => [entry.key, entry.numerator]));
+      expect(by.get('required_field_missing')).toBe(3);
+      expect(by.get('value_not_in_controlled_set')).toBe(1);
+      expect(by.has('value_implausible'), 'a warning was counted as a refusal reason').toBe(false);
+      // Only codes that OCCURRED get a bucket — thirty zeroes would bury these.
+      expect(shares.by).toHaveLength(2);
+    }
+
+    // 771: two of five resolutions were fallbacks; `unavailable` is in the
+    // denominator and in no fallback bucket.
+    const fallback = reading(after, 'translation_fallback_use_rate');
+    expect(fallback?.state).toBe('measured');
+    if (fallback?.state === 'measured') {
+      expect(fallback.numerator).toBe(2);
+      expect(fallback.denominator).toBe(5);
+      const by = new Map((fallback.by ?? []).map((entry) => [entry.key, entry]));
+      expect(by.get('exact')?.numerator, 'an exact read was counted as a fallback').toBe(0);
+      expect(by.get('exact')?.denominator).toBe(2);
+      expect(by.get('language')?.numerator).toBe(1);
+      expect(by.get('base')?.numerator).toBe(1);
+      expect(by.get('unavailable')?.numerator, 'an unanswerable field read as a fallback').toBe(0);
+      expect(by.get('unavailable')?.denominator).toBe(1);
+      // THE IDENTITY: the buckets sum to the reading, both halves.
+      expect(expectBucketsSumToReading(fallback), 'the step breakdown is empty').toBeGreaterThanOrEqual(
+        4,
+      );
+    }
+
+    expect(after.mustStayZero.metricCollectionFailures).toBe(
+      before.mustStayZero.metricCollectionFailures,
+    );
+  });
+});
 
 describe('the collector really reads Postgres', () => {
   it('moves the proposal metrics by exactly the row this file inserted', async () => {

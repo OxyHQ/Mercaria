@@ -103,7 +103,9 @@ import {
   readAuthoringSchemaRevisions,
   type AuthoringInvalidationRef,
 } from '../../db/catalogAuthoring/schemaInvalidationRepository.js';
-import { localeFallbackChain, resolveLocalizedField } from '../catalog-localization/resolve.js';
+import { localeFallbackChain } from '../catalog-localization/resolve.js';
+// The OBSERVED resolver — see `read-observation.ts` (#367 W17 line 771).
+import { resolveObservedLocalizedField } from '../catalog-localization/read-observation.js';
 import { authoringEtag, authoringSchemaCacheKey, type AuthoringSchemaKey } from './etag.js';
 
 /** The declared component axes, as a set, for the narrowing below. */
@@ -652,7 +654,7 @@ async function composeText(
   ]);
 
   const productTypeName = toText(
-    resolveLocalizedField({
+    resolveObservedLocalizedField({
       field: 'product_type.name',
       requestedLocale: input.requestedLocale,
       candidates: productTypeRows.map((row) => ({
@@ -665,7 +667,7 @@ async function composeText(
     }),
   );
   const productTypeDescription = toText(
-    resolveLocalizedField({
+    resolveObservedLocalizedField({
       field: 'product_type.description',
       requestedLocale: input.requestedLocale,
       candidates: productTypeRows.map((row) => ({
@@ -678,7 +680,7 @@ async function composeText(
     }),
   );
   const categoryName = toText(
-    resolveLocalizedField({
+    resolveObservedLocalizedField({
       field: 'category.name',
       requestedLocale: input.requestedLocale,
       candidates: categoryRows.map((row) => ({
@@ -836,7 +838,7 @@ async function readLocalizedValueLabels(
   for (const base of baseRows) {
     resolved.set(
       base.id,
-      resolveLocalizedField({
+      resolveObservedLocalizedField({
         field: 'attribute_value.label',
         requestedLocale: chain[0] ?? MERCARIA_BASE_LOCALE,
         candidates: candidatesByValue.get(base.id) ?? [],
@@ -847,9 +849,13 @@ async function readLocalizedValueLabels(
   return resolved;
 }
 
-type LocalizedCandidateStatus = Parameters<typeof resolveLocalizedField>[0]['candidates'][number]['status'];
+// Off the OBSERVED resolver, whose signature is the pure one's unchanged — so
+// these describe exactly what this serving path passes, and a widening of the
+// pure resolver that the wrapper did not adopt would be a type error here.
+type LocalizedCandidateStatus =
+  Parameters<typeof resolveObservedLocalizedField>[0]['candidates'][number]['status'];
 type LocalizedCandidateProvenance = Parameters<
-  typeof resolveLocalizedField
+  typeof resolveObservedLocalizedField
 >[0]['candidates'][number]['provenance'];
 
 /* -------------------------------------------------------------------------- */
@@ -887,7 +893,7 @@ export async function listAuthoringCategories(
 
   return rows.map((row) => {
     const name = toText(
-      resolveLocalizedField({
+      resolveObservedLocalizedField({
         field: 'category.name',
         requestedLocale: options.requestedLocale,
         candidates: byCategory.get(row.id) ?? [],
@@ -934,7 +940,7 @@ export async function listAuthoringProductTypes(
 
   return scoped.map((entry) => {
     const name = toText(
-      resolveLocalizedField({
+      resolveObservedLocalizedField({
         field: 'product_type.name',
         requestedLocale: options.requestedLocale,
         candidates: byDefinition.get(entry.definition.id) ?? [],

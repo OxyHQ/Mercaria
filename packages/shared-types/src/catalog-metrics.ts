@@ -96,6 +96,21 @@ export const CATALOG_METRIC_SOURCES = [
   'facet_scope_sweep',
   'route_observations',
   /**
+   * The in-process record of what a PUBLICATION attempt was refused for
+   * (#367 W17 line 768). Counted where `publish.service.ts` calls
+   * `validateDraftRow`, which is the one site a publication is decided at —
+   * `draft.service.ts`'s standalone validate is NOT an attempt and is not
+   * counted, or the rate would report every keystroke a form validated.
+   */
+  'authoring_publication_attempts',
+  /**
+   * The in-process record of how a localized field was answered (#367 W17
+   * line 771) — exact, a language truncation, the base locale, or not at all.
+   * Counted in the SERVING path and never in `resolve.ts`, whose purity is
+   * load-bearing and argued in its own header.
+   */
+  'localization_resolutions',
+  /**
    * The shadow comparison in `services/variant-axes/projection.ts` (#367 line
    * 324), counted as each listing is hydrated.
    *
@@ -130,6 +145,8 @@ export type CatalogMetricSource = (typeof CATALOG_METRIC_SOURCES)[number];
 export const CATALOG_IN_PROCESS_METRIC_SOURCES: readonly CatalogMetricSource[] = [
   'route_observations',
   'variant_axis_shadow',
+  'authoring_publication_attempts',
+  'localization_resolutions',
 ];
 
 /**
@@ -620,24 +637,45 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
   },
   {
     key: 'draft_validation_failure_rate',
-    title: 'Draft validation failures by field code',
+    title: 'Publication attempts refused by validation',
     kind: 'ratio',
-    numerator: 'Publication attempts refused by validation, bucketed by the failing field code.',
-    denominator: 'All publication attempts.',
-    window: 'rolling_7d',
-    source: 'catalog_authoring_drafts',
-    freshnessSeconds: 300,
+    numerator: 'Publication attempts this process refused because the draft did not validate.',
+    denominator:
+      'Publication attempts this process made. An attempt is a call that reached '
+      + "`validateDraftRow` from the PUBLISH path; `draft.service.ts`'s standalone validate is "
+      + 'not one, or the rate would report every keystroke a form validated.',
+    window: 'since_process_start',
+    source: 'authoring_publication_attempts',
+    freshnessSeconds: 0,
     attributionLimit:
-      'Would name the field that stops merchants, which is the one thing the abandonment rate '
-      + 'cannot. Bucketed by FIELD CODE and never by field label, which is localized.',
-    unmeasured: {
-      reason: 'not_instrumented',
-      seam:
-        'No table records a validation outcome. publish.service.ts:191 computes '
-        + 'AuthoringValidationResult and returns it to the caller; nothing persists it and the '
-        + 'refused branch logs nothing. Closing it is an append-only counter table keyed on '
-        + '(field code, day), written on the refusal path.',
-    },
+      'PROCESS-LOCAL and RESET BY EVERY DEPLOY — several tasks each count their own traffic, '
+      + 'and a deploy zeroes all of them. Read it as a rate, never as a total. It carries NO '
+      + 'per-code breakdown, deliberately: one refusal can carry several findings with '
+      + 'different codes, so codes do not PARTITION attempts and a `by` here would count one '
+      + 'refusal in several buckets while claiming to sum to the denominator. '
+      + 'draft_validation_failure_code_share answers "which codes" over the population where '
+      + 'they do partition. It also says nothing about whether the author fixed it: a merchant '
+      + 'who corrects a field and republishes is two attempts and one refusal.',
+  },
+  {
+    key: 'draft_validation_failure_code_share',
+    title: 'Validation findings by code',
+    kind: 'ratio',
+    numerator:
+      'Findings of one AuthoringValidationCode on refused publication attempts, per bucket.',
+    denominator:
+      'All findings on refused publication attempts. FINDINGS and not attempts, which is the '
+      + 'whole reason this is a second metric: a code partitions findings exactly, and an '
+      + 'attempt it does not partition at all.',
+    window: 'since_process_start',
+    source: 'authoring_publication_attempts',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'A SHARE of findings, so it cannot be read as "how many drafts failed this way" — one '
+      + 'draft missing four required fields contributes four. Bucketed by the closed '
+      + 'AUTHORING_VALIDATION_CODES tuple and never by attribute key, whose cardinality grows '
+      + 'with the registry; a per-attribute instrument is a different one with its own '
+      + 'disclosure argument. Process-local and reset by every deploy.',
   },
 
   /* ---- Resolution mix (W17 item 3) --------------------------------------- */
@@ -964,25 +1002,25 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
   },
   {
     key: 'translation_fallback_use_rate',
-    title: 'Translation fallback use rate',
+    title: 'Localized reads answered by a fallback',
     kind: 'ratio',
-    numerator: 'Localized reads answered from a fallback locale rather than the requested one.',
-    denominator: 'All localized reads.',
-    window: 'rolling_24h',
-    source: 'category_localizations',
-    freshnessSeconds: 300,
+    numerator:
+      'Field resolutions this process answered from a LANGUAGE truncation or the BASE locale '
+      + 'rather than the locale asked for.',
+    denominator:
+      'Field resolutions this process performed, including the ones that resolved EXACTLY and '
+      + 'the ones that could not be answered at all. Traffic, not catalogue size — so the rate '
+      + 'falls when translation coverage rises rather than tracking how much catalogue exists.',
+    window: 'since_process_start',
+    source: 'localization_resolutions',
+    freshnessSeconds: 0,
     attributionLimit:
-      'The only metric here that measures what shoppers actually HIT rather than what the '
-      + 'catalogue contains. Coverage cannot substitute: an untranslated category nobody visits '
-      + 'costs nothing, and a translated one whose locale variant is missing costs every visit.',
-    unmeasured: {
-      reason: 'not_instrumented',
-      seam:
-        'services/catalog-localization/read.service.ts resolves the fallback chain per read and '
-        + 'records nothing. Closing it is a counter incremented where the chain selects a locale '
-        + 'other than the requested one — a `void` emitter, the recordAnalyticsEvent shape, so it '
-        + 'can never join the read path.',
-    },
+      'PROCESS-LOCAL and RESET BY EVERY DEPLOY. It counts FIELD resolutions, not requests: one '
+      + 'category page is many, so a page with one untranslated description is not "one '
+      + 'fallback read". `unavailable` is in the denominator and in no fallback bucket — a '
+      + 'field nobody could answer is not a fallback, and folding it in would make the rate '
+      + 'rise when text is MISSING rather than when it is merely untranslated. '
+      + 'translation_missing_count is the metric for that.',
   },
 
   /* ---- Search (W17 item 6) ----------------------------------------------- */
