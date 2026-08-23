@@ -1527,6 +1527,68 @@ this branch exists to prevent: "queued, waiting" and "queued, and nothing will
 ever read it" look identical in a depth metric and lead an operator to opposite
 conclusions.
 
+### Two of #367 line 578's five kinds have no producer, and only one of them is fine
+
+Line 578 asks for *"reindex jobs for taxonomy, translation, definition, mapping
+and selected-value changes"*. `ATTRIBUTE_REINDEX_REASONS` has **six** members and
+**neither `taxonomy` nor `translation` is among them**. Recorded here because a
+reader who checks the tuple finds two kinds missing and nothing saying whether
+that is a decision or a gap — and the answers differ.
+
+*(The tuple is six, not nine. `ATTRIBUTE_REVIEW_REASONS` sits directly above it
+in the same file and shares the member `definition_deprecated`; reading the two
+as one is the census error `attribute-registry.ts` already records #636 making.
+`ATTRIBUTE_ENTITY_KINDS` — `product | variant` — is a third neighbour.)*
+
+**Translation: correct, but not for the reason it looks like.** The tempting
+account is *"a translation write updates a generated `search_vector` in its own
+row, so there is nothing to schedule"*. That is true of **one of the eight**
+localization tables — `listing_localizations`, whose `search_vector` is
+`generatedAlwaysAs` a per-locale analyser `CASE` over its own columns. The other
+seven (`category_localizations`, `product_type_localizations`,
+`product_type_field_localizations`, `attribute_value_localizations`,
+`canonical_product_localizations`, `canonical_product_family_localizations`,
+`navigation_node_localizations`) carry **no derived text at all**, which is the
+actual reason they need no job: `canonical_products.search_vector` and
+`canonical_product_families.search_vector` are both
+`to_tsvector('simple', name)` over the BASE name in their own row, so no index
+in this schema reads a translation.
+
+**What would change it:** any search vector, index or projection that reads a
+localization table other than `listing_localizations` — making canonical search
+cover translated names is the obvious next want, and it is the change that makes
+a `translation` reindex kind necessary. Note also that
+`listing_localizations`' own vector renders its `CASE` arms from the
+locale→analyser map, so changing that map is a migration rather than a job.
+
+**Taxonomy: NOT correct — the condition that would break it already holds.** The
+synchronous mechanism is real and was traced: `moveCategory` writes the moved
+node and then every descendant in one statement, both inside one transaction
+(`taxonomyRepository.ts:235`), and `updateCategoryPresentation` calls
+`rewriteDescendantAncestorSlugs` when a slug changes (`:216`). Neither is
+deferred, and `services/catalog-governance/apply.ts` enqueues nothing after
+either.
+
+But `categories.ancestor_slugs` is not the only materialization of that path.
+**`listings.category_slugs` is a second one, on a different table**, with its own
+GIN index (`listings_category_slugs_idx`), read by the browse filter
+(`listingRepository.ts:1212`, `arrayContains`), by `/catalog-pages` and
+`/search`'s category parameter, and by condition-policy matching — whose own
+docblock calls it *"the listing's own denormalized ancestor path"*.
+
+**Nothing in the taxonomy write path touches it.** Its only writers are
+`catalog-write.service.ts:323` (when the listing itself is written) and
+`catalog-backfill/repair.service.ts:227`, whose single caller is the operator
+script `scripts/backfill-catalog-paths.ts`. So a category move or rename leaves
+every affected listing filtering under its OLD path until somebody edits the
+listing or runs the script.
+
+This is not the reindex queue's gap to fill — that queue is keyed on
+`ATTRIBUTE_ENTITY_KINDS`, which is canonical `product | variant`, so a native
+listing has no `entity_id` to occupy (see the two reasons above). It is a
+denormalized column with no maintainer, and it is filed separately rather than
+papered over here.
+
 ---
 
 ## Correlation ids
