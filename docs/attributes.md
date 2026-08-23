@@ -339,6 +339,12 @@ git grep -c 'resolveDefinitionsForCategory\|resolveAllActiveDefinitions' \
   -- 'packages/backend/src/services/<surface>' | grep -v __tests__
 ```
 
+`grep -c` counts matching LINES, not occurrences, so sum the rows a multi-file
+surface returns — and a single line naming BOTH symbols would undercount by one.
+Driven both ways on `search-intent`, the widest row: **4 lines, 4 occurrences**,
+so the two agree today. If they ever diverge, the occurrence count is the one
+this table means.
+
 
 | surface | calls `resolveDefinitionsForCategory` / `resolveAllActiveDefinitions` | reaches another definition source |
 | --- | --- | --- |
@@ -365,9 +371,13 @@ imports `listOperatorOnlyAttributeKeys` from `db/attributes/definitionRepository
 - **`product-page`** names no attribute definition anywhere. The whole directory
   contains **one** occurrence of the string `attribute`, and it is the English
   word inside a comment about an affiliate *attributed* link
-  (`outbound.ts:34`); `attributeDefinitionId` appears **zero** times. That is
-  #71's *"composes and does not decide"* holding completely: specifications reach
-  the page through other domains' projections, and the page reads no registry.
+  (`outbound.ts:34`); `attributeDefinitionId` appears **zero** times. **The page
+  reads no registry** — which is #71's *"composes and does not decide"* holding
+  completely, and is exactly what those zeros prove. By what route a
+  specification does reach the page is not asserted here: `projection`,
+  `specification` and `spec` each appear **zero** times in the directory too
+  (control: `offer`, 223), so any sentence naming one would be describing a
+  mechanism nobody has measured.
 
 ## Why a gate here would be wrong, not merely unnecessary
 
