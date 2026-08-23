@@ -368,14 +368,15 @@ imports `listOperatorOnlyAttributeKeys` from `db/attributes/definitionRepository
   part: *"`db/catalogAuthoring/schemaSourceRepository.ts`'s recursive CTE"* — a
   category-tree walk. It is a definition-adjacent repository being used for a
   category fact.
-- **`product-page`** names no attribute definition anywhere. The whole directory
-  contains **one** occurrence of the string `attribute`, and it is the English
+- **`product-page`** names no attribute definition anywhere. Its **non-test
+  modules** — the population this whole table is measured over — contain **one**
+  occurrence of the string `attribute`, and it is the English
   word inside a comment about an affiliate *attributed* link
   (`outbound.ts:34`); `attributeDefinitionId` appears **zero** times. **The page
   reads no registry** — which is #71's *"composes and does not decide"* holding
   completely, and is exactly what those zeros prove. By what route a
   specification does reach the page is not asserted here: `projection`,
-  `specification` and `spec` each appear **zero** times in the directory too
+  `specification` and `spec` each appear **zero** times in those same modules
   (control: `offer`, 223), so any sentence naming one would be describing a
   mechanism nobody has measured.
 
