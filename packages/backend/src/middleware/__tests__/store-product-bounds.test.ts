@@ -58,7 +58,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_VALUES_PER_VARIANT_AXIS,
   MAX_VARIANT_AXES_PER_PRODUCT,
-} from '../catalog-authoring-schemas.js';
+} from '@mercaria/shared-types';
 import {
   createStoreProductSchema,
   ingestProductsSchema,

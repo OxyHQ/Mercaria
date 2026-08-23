@@ -73,11 +73,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import {
+  MAX_VALUES_PER_VARIANT_AXIS,
+  MAX_VARIANT_AXES_PER_PRODUCT,
   PRODUCT_TYPE_EDITABLE_LIFECYCLES,
   PRODUCT_TYPE_LIFECYCLES,
   type AuthoringPermissionContext,
   type ProductTypeLifecycle,
 } from '@mercaria/shared-types';
+import { config } from '../../../config/index.js';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { categories } from '../../../db/schema/catalog.js';
 import { attributeDefinitions } from '../../../db/schema/attributeRegistry.js';
@@ -428,6 +431,25 @@ describe('a RETRIEVABLE version still composes', () => {
     expect(composition.outcome).toBe('composed');
     if (composition.outcome !== 'composed') return;
     expect(composition.schema.productType.version).toBe(versionByLifecycle.get('published'));
+  });
+});
+
+describe('a composition publishes the matrix rules (#367 line 405)', () => {
+  it('serves the axis, value and variant ceilings the server enforces', async () => {
+    // The half `matrix-rules.test.ts` cannot reach: that file drives the request
+    // schemas at the published numbers and never calls the composer, so without
+    // this case a composer that stopped emitting `matrix` altogether would leave
+    // it green. Reuses the fixture already built above and inserts no rows.
+    const composition = await composeAt(undefined);
+    expect(composition.outcome).toBe('composed');
+    if (composition.outcome !== 'composed') return;
+
+    expect(composition.schema.matrix.maxAxes).toBe(MAX_VARIANT_AXES_PER_PRODUCT);
+    expect(composition.schema.matrix.maxValuesPerAxis).toBe(MAX_VALUES_PER_VARIANT_AXIS);
+    // The PUBLISHING ceiling, which is why it is read from config rather than
+    // pinned: `MAX_VARIANTS_PER_PRODUCT` is a deployment variable, and a literal
+    // here would go red on any deployment that set it.
+    expect(composition.schema.matrix.maxVariants).toBe(config.catalog.maxVariantsPerProduct);
   });
 });
 

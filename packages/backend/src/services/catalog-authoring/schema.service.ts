@@ -50,6 +50,8 @@ import {
   ATTRIBUTE_COMPONENT_AXES,
   AUTHORING_SCHEMA_CONTRACT_VERSION,
   AUTHORING_STEP_KINDS,
+  MAX_VALUES_PER_VARIANT_AXIS,
+  MAX_VARIANT_AXES_PER_PRODUCT,
   MERCARIA_BASE_LOCALE,
   PRODUCT_TYPE_AUTHORING_FLOWS,
   type AuthoringCategoryOption,
@@ -73,6 +75,7 @@ import {
   type SupportedLocale,
 } from '@mercaria/shared-types';
 import { inArray } from 'drizzle-orm';
+import { config } from '../../config/index.js';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
 import { listAttributeEnumValues } from '../../db/attributes/definitionRepository.js';
 import { attributeEnumValues } from '../../db/schema/attributeRegistry.js';
@@ -567,6 +570,18 @@ async function composeForDefinition(
     steps: composeSteps(input.permissions),
     groups: composedGroups,
     fields: composedFields,
+    // #367 line 405's matrix RULES. `AuthoringField.variantCapable` above is
+    // its capabilities half; these are the three numbers a client needs before
+    // it generates anything. Composed from the SAME symbols the request
+    // schemas enforce with (`MAX_VARIANT_AXES_PER_PRODUCT`,
+    // `MAX_VALUES_PER_VARIANT_AXIS`) and the SAME config the publish path
+    // refuses on (`config.catalog.maxVariantsPerProduct`), so a served number
+    // and an enforced number are one binding rather than two that agree today.
+    matrix: {
+      maxAxes: MAX_VARIANT_AXES_PER_PRODUCT,
+      maxValuesPerAxis: MAX_VALUES_PER_VARIANT_AXIS,
+      maxVariants: config.catalog.maxVariantsPerProduct,
+    },
     text: text.text,
   };
   const schema: AuthoringSchema = { ...body, etag: authoringEtag(key, body) };

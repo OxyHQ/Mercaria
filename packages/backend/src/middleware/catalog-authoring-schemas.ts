@@ -27,6 +27,8 @@ import {
   AUTHORING_CANONICAL_REF_KINDS,
   AUTHORING_DRAFT_STATUSES,
   MAX_MONEY_MINOR_UNITS,
+  MAX_VALUES_PER_VARIANT_AXIS,
+  MAX_VARIANT_AXES_PER_PRODUCT,
   PRODUCT_TYPE_AUTHORING_FLOWS,
 } from '@mercaria/shared-types';
 import { sanitizeAuthoredText } from '../lib/authored-text.js';
@@ -148,24 +150,24 @@ const answer = z
     { message: 'an answer carries exactly one of text, number, boolean, enumValueId or canonicalRef' },
   );
 
-/**
- * How many DIMENSIONS one product may vary along, and how many VALUES one of
- * them may offer (#367 lines 762 / 431).
+/*
+ * `MAX_VARIANT_AXES_PER_PRODUCT` and `MAX_VALUES_PER_VARIANT_AXIS` used to be
+ * DEFINED here and are now imported from `@mercaria/shared-types` — a clean cut,
+ * not a re-export.
  *
- * Exported because they are the answer for the legacy store-product write too
- * (`middleware/schemas.ts`), which had no bound at all in either dimension
- * until #906. A different number there would be a second answer to a question
- * this module already answers, and the one somebody consulted would be
- * whichever they found first — the two-representations defect arriving as a
- * validation constant.
+ * The reason they moved is #367 line 405: a bound the server enforces and no
+ * client can read is a bound the dashboard has to guess, and the guess is a
+ * literal that nothing keeps in step. They are published on `AuthoringSchema`
+ * as `matrix.maxAxes` / `matrix.maxValuesPerAxis`, composed from these exact
+ * symbols, so the served number and the enforced number are the same binding
+ * rather than two that agree today.
  *
- * **Both are CHOSEN, not measured.** 16 and 64 are what the authoring wizard
- * generates within before it refuses; neither is derived from a measurement of
- * server cost. That provenance travels with them so nobody reads an inherited
- * number as an empirical one.
+ * What did NOT move is what they mean here — they are still the answer for the
+ * legacy store-product write (`middleware/schemas.ts`) as well as the authoring
+ * path, and both are still CHOSEN rather than measured: 16 and 64 are what the
+ * wizard generates within before it refuses, neither derived from a measurement
+ * of server cost. That provenance is restated on the shared-types declaration.
  */
-export const MAX_VARIANT_AXES_PER_PRODUCT = 16;
-export const MAX_VALUES_PER_VARIANT_AXIS = 64;
 
 /** The answers for one field. An empty `values` CLEARS it — a real request. */
 const fieldAnswers = z
