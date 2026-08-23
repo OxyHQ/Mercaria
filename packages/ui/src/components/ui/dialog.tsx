@@ -53,16 +53,14 @@ DialogTrigger.displayName = 'DialogTrigger';
 interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof View> {
   overlayClassName?: string;
   showCloseButton?: boolean;
-  /** @deprecated Use showCloseButton instead */
-  closeButton?: boolean;
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof View>,
   DialogContentProps
->(({ className, overlayClassName, showCloseButton, closeButton, children, ...props }, ref) => {
+>(({ className, overlayClassName, showCloseButton, children, ...props }, ref) => {
   const { open, onOpenChange } = React.useContext(DialogContext);
-  const shouldShowClose = showCloseButton ?? closeButton ?? true;
+  const shouldShowClose = showCloseButton ?? true;
   const insets = useSafeAreaInsets();
 
   return (
