@@ -187,9 +187,17 @@ does not exist to be measured" cannot be spelled two ways and counted as one:
 | `dimension_absent_from_source` | the dimension asked for is not on the source table |
 | `source_unavailable` | the owning reader refused or was unavailable for this read |
 | `surface_not_mounted` | the route this metric observes is not mounted in this deployment |
+| `policy_target_undefined` | no threshold is defined anywhere, so the breach it counts has no definition |
 
-The last TWO are the only ones no definition declares — both are substituted by
-the collector at runtime, and neither is a seam. `source_unavailable` is what a producer's failure
+**THREE are declared by no definition, and not for one reason.**
+`source_unavailable` and `surface_not_mounted` are substituted by the COLLECTOR
+at runtime and neither is a seam. `no_dead_letter_state` is different: it is a
+seam vocabulary member that stopped applying when #367 line 759 gave
+`catalog_backfill_runs` a bounded retry, so the one metric that declared it moved
+to `dimension_absent_from_source`. It is kept rather than deleted because the
+distinction it draws is real and the next queue without a terminal state will
+need it — an unused reason is cheaper than a metric filed under an inaccurate
+one. `source_unavailable` is what a producer's failure
 degrades to at runtime, and it is deliberately a different fact from a designed
 seam. A permanent seam is work outstanding; an unavailable source is an incident.
 `recordMetricCollectionFailure()` fires at the failure site, so the operator sees
@@ -374,58 +382,70 @@ nothing about whether a shopper touched one.
 
 **What closes it:** a `facet_applied` client event type plus its emitter.
 
-### 4. `backfill_dead_letter_count` — `no_dead_letter_state`
+### 4. `backfill_dead_letter_count` — `dimension_absent_from_source`
 
-Would count runs that gave up after EXHAUSTING their retries.
+Would count runs that gave up after EXHAUSTING a bounded retry.
 
-**The missing half is the RETRY, not the terminal state — and this section said
-the opposite until it was measured.** `failed` IS terminal and unclaimable:
-`RESUMABLE` is `['pending', 'paused']`
-(`db/backfill/backfillRunRepository.ts:38`) and the claim predicate admits only
-those or a `running` row whose lease expired (`:159`). So a run that has given
-up is **exactly** distinguishable from one still going, by claimability — the
-earlier text here ("indistinguishable from one still retrying") described an
-absence that is not there.
+**This section has now been wrong twice, in opposite directions, and both
+corrections were forced by a measurement rather than a re-reading.** It first
+said a failed run was indistinguishable from one still retrying; `failed` is
+terminal and unclaimable (`RESUMABLE` is `['pending', 'paused']`,
+`db/backfill/backfillRunRepository.ts:38`; the claim predicate admits only those
+or a `running` row whose lease expired, `:159`), so that absence was not there.
+It then said the missing half was the RETRY, and that there was **no
+`max_attempts` anywhere in the catalog backfill domain**. That was true when it
+was written and is **no longer true**: #367 line 759 gave runs a bounded retry.
 
-What is genuinely absent is an **automatic, bounded** retry. There is **no
-`max_attempts` anywhere in the catalog backfill domain**, so a run terminates on
-its FIRST page-level error while still holding a good cursor, and waits for a
-person. **The catalog failure mode is give-up-instantly, not retry-forever** —
-the opposite of what a reader would assume from the five outbox implementations
-elsewhere in this repository.
+**What exists now.** `catalog_backfill_runs.consecutive_failures` counts failed
+pages IN A ROW and is reset by any page that advances;
+`CATALOG_BACKFILL_MAX_ATTEMPTS` (default 8) bounds it; and
+`recordBackfillPageFailure` is one statement that increments and decides —
+`paused` below the ceiling, so the dispatcher re-reads the same page on its next
+tick, and `failed` at it. So a run CAN now exhaust its retries, and the condition
+this metric names is reachable.
 
-`catalog_backfill_records.attempts` is not a counter-example, and it is worth
-saying so because it is the first thing a reader finds: it counts how many times
-a subject has been **re-examined across runs an operator started**
-(`db/schema/backfill.ts:341`, incremented by the record upsert), and
-`backfill_retry_count` measures records above one. That is a poison-record
-signal, not a retry loop — and having no bound is precisely why nothing can
-exhaust one.
+**What is still absent is the DIMENSION, which is why the reason changed rather
+than the metric becoming measured.** `failed` has a SECOND producer:
+`cancelCatalogBackfillRun` releases through `releaseBackfillRun`, which never
+touches the counter — deliberately, because a cancellation is terminal on its
+first and only attempt. `catalog_backfill_runs` carries no column saying WHY a
+run ended, and **neither available predicate is honest, both failing silently**:
 
-So "zero dead letters" is still a category error, for a sharper reason: nothing
-can exhaust retries it never makes. And the tempting fix is worse than the gap
-— a metric named for exhaustion, over a state reached on the first error, would
-carry REAL NUMBERS under a false meaning, which is harder to catch than a green
-zero because the numbers look like evidence.
+- `consecutive_failures >= CATALOG_BACKFILL_MAX_ATTEMPTS` keys the population on
+  a **mutable env var that is deliberately an incident lever**. Raising the
+  ceiling from 8 to 16 un-counts every run that already exhausted at 8 — at
+  exactly the moment somebody raised it in order to read the number.
+- `consecutive_failures > 0` counts a run an operator cancelled after two bad
+  pages as a dead letter, which it is not.
+
+`catalog_backfill_records.attempts` is not a third option, and it is worth saying
+so because it is the first thing a reader finds: it counts how many times a
+subject has been **re-examined across runs an operator started**
+(`db/schema/backfill.ts`, incremented by the record upsert), is never reset, is
+bounded by nothing, and `backfill_retry_count` measures records above one. That
+is a poison-record signal, not a retry loop.
+
+So "zero dead letters" is still a category error, for a third and sharper reason:
+the exhaustion happens, and the table cannot tell it apart from a cancellation.
 
 **It is deliberately not renamed either.** "Runs an operator must restart" is a
 real operational question with a real answer today, and
 `backfill_failed_run_count` already answers it — `count(*) where status =
-'failed'`. A second metric over one predicate is two names for one number.
+'failed'`, covering BOTH producers, which is correct for that question because
+both are waiting for a person. A second metric over one predicate is two names
+for one number.
 
-**That neighbouring metric's own attribution limit was WRONG and is corrected
-in the same change**: it read *"a failed run keeps its cursor and is resumable,
+**That neighbouring metric's own attribution limit was WRONG and was corrected
+in this same change**: it read *"a failed run keeps its cursor and is resumable,
 so this is work outstanding rather than work lost."* A failed run keeps its
 cursor and is **not** resumable. It was telling an operator that stopped work
-would resume — a live, measured number under a false reassurance, which is
-worse than the unmeasured one beside it.
+would resume — a live, measured number under a false reassurance, which is worse
+than the unmeasured one beside it.
 
-**What closes it:** a BOUNDED RETRY on those tables, keeping `failed` as the
-terminal state it already behaves like. The exhaustion reading becomes true the
-moment there is something to exhaust. This is also W16's "add
-dead-letter/retry handling for asynchronous jobs", which is therefore NOT done
-for this epic's own queues — and the reason is now known to be the retry rather
-than the state.
+**What closes it:** ONE column on `catalog_backfill_runs` recording the terminal
+CAUSE, written by the two producers that already differ. Not a threshold, not a
+derived predicate — the two writers know which of them they are, and nothing
+downstream can recover it once they have both written `failed`.
 
 ### 5. `reindex_throughput` — `no_consumer_registered`
 
@@ -1765,7 +1785,7 @@ stops anybody looking.
 | Key caches by all semantic dimensions | **Done, elsewhere** — the key carries product type, category, flow, locale, market, permission fingerprint and the invalidation revisions. |
 | Invalidate through versioned events/outbox | **Done, elsewhere** — `catalog_authoring_schema_invalidations`. |
 | Make backfills, reindexing and mapping reprocessing resumable and idempotent | **Partial, and narrower than this row said before.** `catalog_backfill_runs` is genuinely leased, cursored and drained — it is the ONE job here that resumes. **Mapping runs are NOT leased**: `catalog_external_mapping_runs.claimed_at`/`claimed_by`/`claim_expires_at` are written by no production code and `RUN_COLUMNS` omits them, and `openReprocessRun`/`runReprocessPage` have zero callers outside their own module — no route, no CLI, no dispatcher — so there is nothing to resume and nothing to start. Reindex requests have deterministic ids and NO consumer, so "resumable reindexing" is vacuous. Also untested where it matters: no test calls `claimBackfillRun`, so the expired-lease reclaim branch is unexercised. Detail and the operator steps: [`runbooks/catalog-backfill-resumption.md`](runbooks/catalog-backfill-resumption.md). |
-| Add dead-letter/retry handling for asynchronous jobs | **Not done** for this epic's own queues — that is seam 6, `no_dead_letter_state`. #58's `match_queue` has one. |
+| Add dead-letter/retry handling for asynchronous jobs | **RETRY done, dead-letter REPORTING not.** #367 line 759 gave `catalog_backfill_runs` a bounded retry — `consecutive_failures` against `CATALOG_BACKFILL_MAX_ATTEMPTS`, releasing `paused` below the ceiling and `failed` at it. What is still missing is telling that exhaustion apart from `cancelCatalogBackfillRun`, the second producer of `failed`, which needs a terminal-cause column: seam 4, now `dimension_absent_from_source`. Mapping and reindex queues have neither. #58's `match_queue` has a named `dead_letter` state. |
 | Define consistency behavior between DB publication and search index visibility | **Not done.** There is no index and no consumer; the trace's reindex hop says so. |
 | Add load tests for large variant matrices, deep category trees and popular facets | **Partial.** The ancestry benchmark is a deep-tree load test at 5,010 nodes. Variant matrices and popular facets are not covered. |
 | Add safeguards/limits against pathological schemas or combinatorial variant explosions | **Not this domain.** |

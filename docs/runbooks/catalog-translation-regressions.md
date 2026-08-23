@@ -5,14 +5,16 @@ share went the wrong way. Reference:
 [../catalog-observability.md](../catalog-observability.md) and
 [../catalog-localization.md](../catalog-localization.md).
 
-**Four of the five translation metrics measure what the CATALOGUE contains. None
-of them measures what a shopper hit** — that is
-`translation_fallback_use_rate`, and it is a declared seam
-(`not_instrumented`): `services/catalog-localization/read.service.ts` resolves
-the fallback chain per read and records nothing. So this runbook can tell you a
-locale got worse and cannot tell you whether anybody noticed. Coverage cannot
-substitute: an untranslated category nobody visits costs nothing, and a
-translated one whose locale variant is missing costs every visit.
+**Four of the five translation metrics measure what the CATALOGUE contains. The
+fifth measures what a shopper hit, and since W17 line 771 it is MEASURED** —
+`translation_fallback_use_rate`, fed by `recordLocalizedResolution` at the one
+wrapped resolver every localized read goes through. **Its limit is that it is an
+in-process counter over `since_process_start`**: a task restart zeroes it, tasks
+do not share it, and it cannot answer a question about yesterday. So this runbook
+can now tell you whether anybody is hitting a fallback right now, and still
+cannot tell you whether they were last week. Coverage cannot substitute: an
+untranslated category nobody visits costs nothing, and a translated one whose
+locale variant is missing costs every visit.
 
 **Owner:** whoever owns the localization review desk. Escalate to the API on-call
 only if a status is moving without anybody reviewing.
@@ -27,7 +29,7 @@ only if a status is moving without anybody reviewing.
 | `translation_stale_count` | same report | a rise in `numerator` |
 | `translation_missing_count` | same report | a rise, or a flip to `state: "unmeasured"` |
 | `translation_machine_share` | same report | a rise, per locale from `by` |
-| `translation_fallback_use_rate` | same report | always `unmeasured`. Nothing to alert on |
+| `translation_fallback_use_rate` | same report | a rise in `ratio` — but per TASK and since ITS start, so compare within one process lifetime and never across a deploy. `0 / 0` (a task that served no localized read) reports NO ratio, which is not zero |
 
 `translation_coverage` comes from `readCatalogQuality`'s locale dimension —
 catalog-governance is the one authority and this domain re-derives nothing.
@@ -73,7 +75,8 @@ nothing there to make stale.
   `packages/backend/src` — so do not go looking for it and do not tell anybody to
   flip it. What decides whether a regression is visible is which surfaces read the
   affected entity in the affected locale, and this domain cannot answer that: the
-  metric that could is `translation_fallback_use_rate`, and it is a seam.
+  metric that could is `translation_fallback_use_rate`, which is measured since
+  W17 line 771 but only `since_process_start`.
 - **Not zero, when it says `unmeasured`.** `translation_missing_count` carries
   catalog-governance's OWN three-valued verdict through rather than flattening it:
   `coverage: "unmeasured"` on the `missing_translation` queue becomes an

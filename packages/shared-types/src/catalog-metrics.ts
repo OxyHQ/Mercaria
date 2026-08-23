@@ -229,15 +229,17 @@ export interface CatalogMetricDefinition {
  * Why a metric this registry defines could not be produced.
  *
  * Closed, because the whole point is that an operator can tell the six apart.
- * `no_dead_letter_state` is the one to read, and its name is the least precise
- * of the six — measured, what #367's backfill queues lack is not the terminal
- * STATE but the RETRY. `failed` is terminal and unclaimable (`RESUMABLE` is
- * `['pending', 'paused']`), and there is no `max_attempts` anywhere in the
- * domain, so a run gives up on its FIRST page-level error.
- * `catalog_backfill_records.attempts` counts RE-EXAMINATIONS a person started,
- * not an automatic retry. "Zero dead letters" is therefore still a category
- * error — nothing can exhaust a bound that does not exist — but the fix is a
- * bounded retry rather than a new column, and the metric's own seam says so.
+ *
+ * TWO are deliberately used by NO definition, for different reasons.
+ * `source_unavailable` belongs to the COLLECTOR — a registry entry claiming it
+ * would make an incident indistinguishable from a designed gap.
+ * `no_dead_letter_state` stopped applying to #367's backfill queues when line
+ * 759 gave `catalog_backfill_runs` a bounded retry: the condition it names
+ * ("cannot arise") is now reachable there, so `backfill_dead_letter_count`
+ * moved to `dimension_absent_from_source`, which is what that table actually
+ * lacks — a column recording WHY a run ended, `failed` having two producers.
+ * Both members stay because the distinctions they draw are real; an unused
+ * reason is cheaper than a metric filed under an inaccurate one.
  */
 export const CATALOG_UNMEASURED_REASONS = [
   /** Nothing records the fact. A column or a counter is owed. */
@@ -249,9 +251,11 @@ export const CATALOG_UNMEASURED_REASONS = [
   /**
    * The condition this counts cannot arise. Not the same as zero.
    *
-   * Named for the state because #58's `match_queue` has one and #367's tables
-   * do not — but for the backfill queues the missing half is the RETRY, not the
-   * terminal state. See the vocabulary docblock above.
+   * Named for the state because #58's `match_queue` carries a `dead_letter`
+   * status. Used by NO definition today: #367's backfill runs had no retry to
+   * exhaust until line 759 gave them one, and now that they have it what they
+   * lack is the CAUSE dimension rather than the state. Kept for the next queue
+   * that reaches a terminal condition it can never actually enter.
    */
   'no_dead_letter_state',
   /** The dimension asked for is not on the source table. */
@@ -754,12 +758,15 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'match_queue',
     freshnessSeconds: 60,
     attributionLimit:
-      'The ONE dead-letter state anywhere in this chain, and it belongs to #58\'s match queue '
-      + "rather than to any of #367's own tables — which is why "
-      + 'backfill_dead_letter_count next to it is unmeasured rather than zero. A subject here has '
-      + 'EXHAUSTED ITS RETRIES and will never be matched without an operator, and that is the '
-      + 'difference from a `failed` backfill run, which is equally terminal and got there on its '
-      + 'FIRST error because nothing in that domain retries. It does not disappear from the '
+      'The only dead-letter STATE reachable BY NAME in this chain, and it belongs to #58\'s match '
+      + "queue rather than to any of #367's own tables. It is no longer the only place a bounded "
+      + 'retry can be EXHAUSTED — #367 line 759 gave `catalog_backfill_runs` one — so the '
+      + 'difference from a `failed` backfill run is not that this queue retries and that one does '
+      + 'not. It is that this state is NAMED: a subject here has exhausted its retries and will '
+      + 'never be matched without an operator, and the status column says exactly that. A backfill '
+      + 'run records a consecutive-failure COUNT and no cause, so exhaustion there cannot be told '
+      + 'from an operator cancellation — which is why backfill_dead_letter_count next to it is '
+      + 'unmeasured rather than zero. A dead-lettered subject does not disappear from the '
       + 'catalogue, so the listing is live and unattached.',
   },
   {
@@ -1204,7 +1211,12 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
       + "`RESUMABLE` is ['pending', 'paused'] and the claim admits only those or a `running` row "
       + 'whose lease expired, so `failed` is terminal and UNCLAIMABLE. This is therefore work '
       + 'STOPPED rather than work outstanding, and it is the number that answers "how many runs are '
-      + 'waiting for a person" — there is no retry that will clear it.',
+      + 'waiting for a person" — no retry clears a `failed` row, because since #367 line 759 '
+      + '`failed` is where the bounded retry STOPS rather than where it never began. It MIXES two '
+      + 'producers and that is deliberate: a run that exhausted `CATALOG_BACKFILL_MAX_ATTEMPTS` '
+      + 'consecutive failed pages, and one `cancelCatalogBackfillRun` stopped. Both are waiting for '
+      + 'a person, which is the question asked; telling them apart is not something this table '
+      + 'records, which is why backfill_dead_letter_count beside it stays unmeasured.',
   },
   {
     key: 'backfill_dead_letter_count',
@@ -1216,27 +1228,32 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_backfill_runs',
     freshnessSeconds: 300,
     attributionLimit:
-      'Would count runs that gave up after EXHAUSTING their retries. Nothing here retries '
-      + 'AUTOMATICALLY and no bound exists to exhaust, so the number it names cannot occur — see '
-      + 'the seam. `backfill_failed_run_count` is the operational question that DOES have an '
-      + 'answer today, and this is deliberately not a second name for it.',
+      'Would count runs that gave up after EXHAUSTING a bounded retry. That retry now EXISTS '
+      + '(#367 line 759), so the number it names CAN occur — what is missing is the cause '
+      + 'dimension, see the seam. `backfill_failed_run_count` is the operational question that has '
+      + 'an answer today and covers both producers of `failed`; this is deliberately not a second '
+      + 'name for it.',
     unmeasured: {
-      reason: 'no_dead_letter_state',
+      reason: 'dimension_absent_from_source',
       seam:
-        'MEASURED, and it inverts the reason this seam used to give. `failed` IS terminal and '
-        + "unclaimable — `RESUMABLE` is ['pending', 'paused'] and the claim predicate admits only "
-        + 'those or a lease-expired `running` — so a run that has given up is EXACTLY '
-        + 'distinguishable from one still going, by claimability. What does not exist is an '
-        + 'AUTOMATIC, BOUNDED retry: there is no `max_attempts` anywhere in the domain, so a run '
-        + 'terminates on its FIRST page-level error and waits for a person. '
-        + '`catalog_backfill_records.attempts` is NOT a counter-example — it counts how many times '
-        + 'a subject has been RE-EXAMINED across runs an operator started, and having no bound is '
-        + 'exactly why nothing can exhaust one. The catalog failure mode is give-up-instantly, not '
-        + 'retry-forever, and a metric named for exhaustion over a state reached on the first error '
-        + 'would carry real numbers under a false meaning — which is worse than a green zero, '
-        + 'because the numbers would look like evidence. Closing it is a BOUNDED RETRY on those '
-        + 'tables, keeping `failed` as the terminal state it already behaves like; the exhaustion '
-        + 'reading becomes true the moment there is something to exhaust.',
+        'MEASURED, and #367 line 759 closed the half this seam used to name. '
+        + '`catalog_backfill_runs.consecutive_failures` counts failed pages IN A ROW, '
+        + '`CATALOG_BACKFILL_MAX_ATTEMPTS` bounds it, and `recordBackfillPageFailure` releases '
+        + '`paused` below the ceiling and `failed` at it — so exhaustion is a real, reachable '
+        + 'condition and `no_dead_letter_state` ("the condition this counts cannot arise") stopped '
+        + 'being true of it. What is still absent is the DIMENSION. `failed` has a SECOND producer: '
+        + '`cancelCatalogBackfillRun` releases through `releaseBackfillRun`, which never touches '
+        + 'the counter, and the table carries no column saying WHY a run ended. Neither available '
+        + 'predicate is honest, and both fail SILENTLY. '
+        + '`consecutive_failures >= CATALOG_BACKFILL_MAX_ATTEMPTS` keys the population on a MUTABLE '
+        + 'env var that is deliberately an incident lever, so raising the ceiling from 8 to 16 '
+        + 'un-counts every run that already exhausted at 8 — at exactly the moment somebody raised '
+        + 'it in order to read the number. `consecutive_failures > 0` counts a run an operator '
+        + 'cancelled after two bad pages as a dead letter, which it is not. '
+        + '`catalog_backfill_records.attempts` is not a third option — it counts RE-EXAMINATIONS of '
+        + 'one subject across runs a person started, is never reset and is bounded by nothing, so '
+        + 'nothing can exhaust it. Closing this is ONE column on `catalog_backfill_runs` recording '
+        + 'the terminal CAUSE, written by the two producers that already differ.',
     },
   },
   {

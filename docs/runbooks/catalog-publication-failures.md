@@ -4,11 +4,15 @@ A merchant published a product and something in the chain behind it did not
 happen. Reference for everything below:
 [../catalog-observability.md](../catalog-observability.md).
 
-**Read this first, because it changes what you look at.** There is **no metric
-that counts failed publications.** The publish endpoint
-(`POST /stores/:storeId/product-drafts/:draftId/publish`) is not an observed
-route, and nothing persists a validation refusal — that is the
-`draft_validation_failure_rate` seam. `authoring_schema_error_rate` DOES observe
+**Read this first, because it changes what you look at.** Since W17 line 768
+there ARE two metrics counting refused publications — `draft_validation_failure_rate`
+and `draft_validation_failure_code_share`, fed by `recordPublicationAttempt` on
+the publish path — but **both are in-process counters over
+`since_process_start`, and nothing persists a validation refusal.** So they tell
+you whether this deployment is refusing publications NOW, a task restart zeroes
+them, and they cannot answer a question about yesterday. The publish endpoint
+(`POST /stores/:storeId/product-drafts/:draftId/publish`) is still not an
+observed route. `authoring_schema_error_rate` DOES observe
 real traffic (it is keyed on `GET /catalog-authoring/schemas/:productTypeKey`,
 and answers `surface_not_mounted` while `CATALOG_AUTHORING_ENABLED` is off), but
 it counts only responses with `status >= 500` on the SCHEMA READ, which is neither
