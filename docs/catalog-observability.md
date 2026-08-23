@@ -163,7 +163,7 @@ consistent. `collectCatalogMetrics` **throws** on a missing producer rather than
 reporting a zero, because a metric defined and unproduced is the exact vacuity
 this domain exists to prevent.
 
-44 producers + 5 seams = 49 definitions, and that identity is what the census
+46 producers + 5 seams = 51 definitions, and that identity is what the census
 holds. **Re-derive these three from the registry rather than adjusting them by
 the delta of your own change** — this line was stale by eleven definitions when
 somebody finally counted, because every PR that moved it moved it by an amount
@@ -534,15 +534,24 @@ justifies it, which is the only way it is accountable to anybody.
 
 ## An unmounted surface is not a seam
 
-Three of the five route-observation metrics hang off the authoring schema route
-and two off facets, and **both of those routes sit behind a rollout flag that
-defaults to false** — `CATALOG_AUTHORING_ENABLED` and `FACETS_ENABLED`. With a
-flag off the route is not mounted at all, so the surface cannot be served.
+**Five of the seven route-observation producers** hang off a flag-gated route —
+three off the authoring schema and two off facets — and **both of those routes
+sit behind a rollout flag that defaults to false**, `CATALOG_AUTHORING_ENABLED`
+and `FACETS_ENABLED`. With a flag off the route is not mounted at all, so the
+surface cannot be served.
+
+The other two are `taxonomy_read_error_rate` and `search_read_error_rate`
+(#913), and they take **no** mount guard because `/categories` and `/search` are
+mounted unconditionally — there is no lever that can withdraw either route.
+`CANONICAL_SEARCH` decides what `/search` ANSWERS, which is a different thing:
+with it off every request is a 404, so that metric reads `0 / N` rather than an
+empty population, and mounted-and-refusing stays distinguishable from
+not-mounted.
 
 Reporting that as `measured, numerator: 0` would assert **that this task served
 none of those requests** — a fact about TRAFFIC — when the truth is a fact about
 the DEPLOYMENT. That is the phantom-template defect one layer over: a quiet,
-healthy-looking tile for a feature nobody switched on. So the four producers
+healthy-looking tile for a feature nobody switched on. So the five producers
 answer `unmeasured` with reason `surface_not_mounted` and a seam that **names the
 variable to set**, and says in as many words that no code change is owed.
 
@@ -552,6 +561,7 @@ variable to set**, and says in as many words that no code change is owed.
 | `authoring_schema_error_rate` | same | same |
 | `authoring_schema_client_cache_hit_rate` | same | same |
 | `facet_generation_latency` | `POST /facets` | `FACETS_ENABLED` |
+| `facet_generation_error_rate` | same | same |
 
 Two mechanics worth knowing:
 
