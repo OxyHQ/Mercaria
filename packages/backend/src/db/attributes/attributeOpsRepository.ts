@@ -289,7 +289,7 @@ export async function facetBucketsForCategory(
     where p.category_id = ${categoryId}
       and p.status = 'active'
       and v.selection_state = 'selected'
-      and v.attribute_key = any(${[...attributeKeys]}::text[])
+      and v.attribute_key = any(${sql.param([...attributeKeys])}::text[])
       and (v.normalized_text is not null or v.normalized_boolean is not null)
     group by v.attribute_key, v.normalized_text, v.normalized_boolean
     order by count(*) desc, v.attribute_key
@@ -315,7 +315,7 @@ export async function facetRangesForCategory(
       and p.status = 'active'
       and v.selection_state = 'selected'
       and v.normalized_number is not null
-      and v.attribute_key = any(${[...attributeKeys]}::text[])
+      and v.attribute_key = any(${sql.param([...attributeKeys])}::text[])
     group by v.attribute_key
   `);
   return [...rows];

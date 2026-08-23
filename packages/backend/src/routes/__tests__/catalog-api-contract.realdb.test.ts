@@ -79,6 +79,12 @@ const TOKEN = `c367${randomBytes(3).toString('hex')}`;
 const NS_DOT = TOKEN;
 const MEMBER = `${TOKEN}-member`;
 const OUTSIDER = `${TOKEN}-outsider`;
+/**
+ * The catalog operator, for the three surfaces added in #367 line 814 that sit
+ * behind `CATALOG_OPERATOR_OXY_USER_IDS`. Distinct from MEMBER and OUTSIDER so
+ * a route answering for the wrong one is a failure rather than a coincidence.
+ */
+const OPERATOR = `${TOKEN}-operator`;
 
 /* -------------------------------------------------------------------------- */
 /* The auth stand-in                                                          */
@@ -231,6 +237,11 @@ beforeAll(async () => {
     process.env[lever] = 'true';
   }
   process.env.STRIPE_ENABLED = 'false';
+  // #367 line 814: the localization, internal-taxonomy and internal-attribute
+  // surfaces are allow-list gated, and an EMPTY list is 404 FROM THE MOUNT —
+  // so without this the routes would not exist to be censused, and the
+  // coverage assertion below would pass over a surface that was never there.
+  process.env.CATALOG_OPERATOR_OXY_USER_IDS = OPERATOR;
   // `config/index.ts` freezes `process.env` at import, and `app.ts` decides every
   // mount from that frozen value — so the levers have to be set before the module
   // graph loads. `catalog-rollout.realdb.test.ts`'s device.
@@ -433,6 +444,10 @@ beforeAll(async () => {
 }, 240_000);
 
 afterAll(async () => {
+  // process.env is process-wide while the module registry is per file, so a
+  // leaked operator list could make a sibling's empty-list 404 case pass for
+  // the wrong reason. `internal-catalog-metrics.test.ts`'s teardown, copied.
+  delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   if (!db || !fx) return;
   const { setCategoryLifecycle } = await import('../../db/taxonomy/taxonomyRepository.js');
@@ -1393,6 +1408,19 @@ const SURFACES = [
   { module: '../catalog-authoring.js', mount: '/catalog-authoring' },
   { module: '../product-drafts.js', mount: '/stores/:storeId/product-drafts' },
   { module: '../catalog-proposals.js', mount: '/catalog-proposals' },
+  // #367 line 814. The census below was derived and exact, and its ENTRY POINT
+  // was this list — so a surface absent from it was invisible to every guard
+  // downstream of it, which is harder to see than a hand-maintained population
+  // precisely because everything after the entry point is rigorous.
+  //
+  // `/internal/catalog-localization` is the one that mattered: LOCALIZATION is
+  // named in the epic line and in this file's own header, and a repo-wide
+  // search for its mount across `*.test.ts` returned NOTHING — zero coverage
+  // anywhere, while the header claimed it.
+  { module: '../catalog-attributes.js', mount: '/catalog-attributes' },
+  { module: '../internal-catalog-attributes.js', mount: '/internal/catalog-attributes' },
+  { module: '../internal-taxonomy.js', mount: '/internal/taxonomy' },
+  { module: '../internal-catalog-localization.js', mount: '/internal/catalog-localization' },
 ] as const;
 
 /**
@@ -1400,8 +1428,100 @@ const SURFACES = [
  *
  * Exact-count asserted below, because a list of exemptions with no count is a list
  * that grows quietly.
+ *
+ * Every entry names the HTTP test file that DOES drive it, and each of those is
+ * that surface's own contract file rather than an incidental mention — measured
+ * per route, not assumed per surface. An exemption that cannot name one is not
+ * an exemption, and the six routes nothing drove are driven by this file instead
+ * of appearing here.
+ *
+ * That the list is long is the honest shape of the finding: the attribute and
+ * internal-taxonomy surfaces were already contract-tested by dedicated files.
+ * What was missing was any guard asserting that a route on these surfaces is
+ * driven by SOMETHING, which is what adding them to the census buys.
  */
-const EXEMPT: readonly { readonly route: string; readonly why: string }[] = [];
+const EXEMPT: readonly { readonly route: string; readonly why: string }[] = [
+  {
+    route: 'POST /catalog-attributes/constraints/validate',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'POST /internal/catalog-attributes/definitions',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'POST /internal/catalog-attributes/definitions/:key/versions/:version/publish',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'POST /internal/catalog-attributes/definitions/:key/versions/:version/deprecate',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'POST /internal/catalog-attributes/definitions/:key/versions/:version/retire',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'GET /internal/catalog-attributes/definitions/:key/versions',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'GET /internal/catalog-attributes/definitions/:key',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'POST /internal/catalog-attributes/source-mappings',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'POST /internal/catalog-attributes/observations',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'GET /internal/catalog-attributes/values/:entityKind/:entityId',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'GET /internal/catalog-attributes/reviews',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'POST /internal/catalog-attributes/reviews/:id/resolve',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'GET /internal/catalog-attributes/coverage',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'GET /internal/catalog-attributes/reindex-requests',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'GET /catalog-attributes/values/:entityKind/:entityId',
+    why: 'driven over HTTP by internal-catalog-attributes.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'GET /catalog-attributes/definitions',
+    why: 'driven over HTTP by catalog-rollout.realdb.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'GET /internal/taxonomy/classifications/:subjectKind/:subjectId',
+    why: 'driven over HTTP by taxonomy-classification.realdb.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'POST /internal/taxonomy/classifications/:subjectKind/:subjectId',
+    why: 'driven over HTTP by taxonomy-classification.realdb.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'DELETE /internal/taxonomy/classifications/:subjectKind/:subjectId/:categoryId',
+    why: 'driven over HTTP by taxonomy-classification.realdb.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+  {
+    route: 'GET /internal/taxonomy/categories/:categoryId/usage',
+    why: 'driven over HTTP by taxonomy-classification.realdb.test.ts, that surface\u2019s own contract file. Duplicating the drive here would add a second place to keep correct without adding a second guarantee.',
+  },
+];
 
 function joinMount(mount: string, routePath: string): string {
   const tail = routePath === '/' ? '' : routePath;
@@ -1457,6 +1577,112 @@ async function registeredRoutes(): Promise<RegisteredRoute[]> {
   return routes;
 }
 
+/* -------------------------------------------------------------------------- */
+/* The surfaces added by #367 line 814                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The six routes NOTHING drove.
+ *
+ * Every other route on the four surfaces added to `SURFACES` is already driven
+ * over HTTP by that surface's own contract file, and is exempted BY NAME rather
+ * than duplicated here. These six were driven by nothing anywhere — measured per
+ * route against every test file that builds the app, not assumed per surface.
+ *
+ * Three of them are the WHOLE localization surface, which this file's header has
+ * claimed since it was written.
+ */
+describe('the localization operator surface', () => {
+  it('answers completeness for the default scope and for `all`, and refuses a third', async () => {
+    const launch = await get('/internal/catalog-localization/completeness', { actor: OPERATOR });
+    expect(launch.status).toBe(200);
+    const all = await get('/internal/catalog-localization/completeness?scope=all', {
+      actor: OPERATOR,
+    });
+    expect(all.status).toBe(200);
+    // `.strict()` with a two-member enum: the refusal is what makes the two
+    // successes above mean the scope was READ rather than ignored.
+    const bogus = await get('/internal/catalog-localization/completeness?scope=everything', {
+      actor: OPERATOR,
+    });
+    expect(bogus.status).toBe(400);
+  });
+
+  it('answers alerts, and carries the count of pairs actually examined', async () => {
+    const answer = await get('/internal/catalog-localization/alerts', { actor: OPERATOR });
+    expect(answer.status).toBe(200);
+    // The route's own docblock: an empty `alerts` from a run that examined
+    // nothing is byte-identical to one from a run that examined everything, so
+    // the payload carries the denominator. A response without it is the vacuity
+    // this endpoint exists to avoid, and a contract test that did not look would
+    // not notice it disappearing.
+    expect(Object.keys(data(answer))).toContain('evaluatedPairs');
+  });
+
+  it('refuses a domain outside the closed set BEFORE reading anything', async () => {
+    const answer = await get(
+      `/internal/catalog-localization/review/not-a-domain/${fx.midId}?locale=en`,
+      { actor: OPERATOR },
+    );
+    expect(answer.status).toBe(400);
+    // Named, so a 400 from the id shape or the locale enum cannot pass for this.
+    expect(JSON.stringify(answer.body)).toContain('domain must be one of');
+  });
+
+  it('reviews one real entity in one locale', async () => {
+    const answer = await get(
+      `/internal/catalog-localization/review/category/${fx.midId}?locale=en`,
+      { actor: OPERATOR },
+    );
+    expect(answer.status).toBe(200);
+  });
+
+  it('is allow-list gated: 401 unauthenticated, 403 for a non-operator', async () => {
+    expect((await get('/internal/catalog-localization/alerts')).status).toBe(401);
+    expect((await get('/internal/catalog-localization/alerts', { actor: MEMBER })).status).toBe(403);
+  });
+});
+
+describe('the attribute routes nothing drove', () => {
+  it('answers facets for a real category', async () => {
+    const answer = await get(`/catalog-attributes/facets?categoryId=${fx.midId}`);
+    expect(answer.status, JSON.stringify(answer.body)).toBe(200);
+  });
+
+  it('refuses a facet request with no category, and one with an extra key', async () => {
+    // `.strict()` plus a required id. Both directions, because a schema that
+    // refused everything would pass the first alone.
+    expect((await get('/catalog-attributes/facets')).status).toBe(400);
+    expect(
+      (await get(`/catalog-attributes/facets?categoryId=${fx.midId}&sneak=1`)).status,
+    ).toBe(400);
+  });
+
+  it('evaluates a constraint set against a product that does not exist', async () => {
+    const answer = await request('POST', '/catalog-attributes/constraints/evaluate', {
+      body: {
+        productId: '0'.repeat(24),
+        constraints: [
+          { attributeKey: 'colour', kind: 'text', strength: 'preference', values: ['red'] },
+        ],
+      },
+    });
+    // Not a 500 and not a silent empty verdict: an unknown product is a stated
+    // refusal. The exact code is asserted rather than "not 200", because "some
+    // error" is satisfied by the wrong one.
+    expect([400, 404]).toContain(answer.status);
+  });
+
+  it('audits alias folds for the operator, and refuses everyone else', async () => {
+    const answer = await get('/internal/catalog-attributes/alias-fold-audit', { actor: OPERATOR });
+    expect(answer.status).toBe(200);
+    expect((await get('/internal/catalog-attributes/alias-fold-audit')).status).toBe(401);
+    expect(
+      (await get('/internal/catalog-attributes/alias-fold-audit', { actor: MEMBER })).status,
+    ).toBe(403);
+  });
+});
+
 describe('every registered route on the authoring, taxonomy and product-type surfaces is driven', () => {
   it('covers each one, derived from the ROUTER and matched by express’s own regexps', async () => {
     const routes = await registeredRoutes();
@@ -1468,7 +1694,7 @@ describe('every registered route on the authoring, taxonomy and product-type sur
     // authoring + 9 drafts + 6 proposals. A route ADDED fails here as well as
     // failing the coverage assertion below, and a route DELETED fails only here —
     // which is the direction a floor is blind to.
-    expect(routes.length, `${String(routes.length)} routes derived`).toBe(31);
+    expect(routes.length, `${String(routes.length)} routes derived`).toBe(57);
 
     const calls = CALLS.map((call) => ({
       method: call.method,
@@ -1498,7 +1724,7 @@ describe('every registered route on the authoring, taxonomy and product-type sur
   });
 
   it('names every exemption with a reason, and counts them exactly', () => {
-    expect(EXEMPT.length, `${String(EXEMPT.length)} exemptions`).toBe(0);
+    expect(EXEMPT.length, `${String(EXEMPT.length)} exemptions`).toBe(20);
     for (const entry of EXEMPT) expect(entry.why.length).toBeGreaterThan(20);
   });
 
