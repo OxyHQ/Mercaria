@@ -26,8 +26,16 @@ import {
   FACET_TAXONOMY_KEY,
   MAX_MONEY_MINOR_UNITS,
 } from '@mercaria/shared-types';
+import {
+  MEASUREMENT_SYSTEMS,
+  type MeasurementSystem,
+} from '../services/canonical/display-units.js';
+import { asEnumValues } from './pickup-enum-values.js';
 
 const idSchema = z.string().trim().min(1).max(64);
+
+/** The three systems as the non-empty tuple `z.enum` requires. */
+const MEASUREMENT_SYSTEM_VALUES = asEnumValues(MEASUREMENT_SYSTEMS as readonly MeasurementSystem[]);
 
 /** A #94 registry key. The same shape `attribute_definitions_key_format` holds. */
 const attributeKeySchema = z
@@ -159,6 +167,26 @@ export const facetRequestSchema = z
     /** BCP-47. Validated against the supported set by the resolver, not here. */
     locale: z.string().trim().min(2).max(35).optional(),
     currency: z.enum(ALL_CURRENCY_CODES as unknown as [string, ...string[]]).optional(),
+    /**
+     * How measurements are SHOWN (#367 line 598) — the two parameters
+     * `attributeValuesQuerySchema` already uses, spelled the same way on
+     * purpose so two surfaces cannot decide differently.
+     *
+     * `unitSystem` is the shopper's own preference, which the storefront reads
+     * off the DEVICE's CLDR measurement system. `market` is the fallback for a
+     * client that has a market and no stated preference, and it is deliberately
+     * a SECOND parameter rather than something the server derives from
+     * `locale` above: a shopper reading Spanish in Ohio is in a US-customary
+     * market, and taking the system off the reading language is the collapse
+     * ADR 0007 D4 forbids. Neither is required, and with neither present the
+     * response is byte-identical to what it was before they existed.
+     */
+    unitSystem: z.enum(MEASUREMENT_SYSTEM_VALUES).optional(),
+    market: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z]{2}$/u)
+      .optional(),
     sort: z
       .object({ key: z.string().trim().min(1).max(64), direction: z.string().trim().min(1).max(8) })
       .strict()
@@ -192,5 +220,7 @@ export interface FacetRequestBody {
   }[];
   readonly locale?: string;
   readonly currency?: string;
+  readonly unitSystem?: MeasurementSystem;
+  readonly market?: string;
   readonly sort?: { readonly key: string; readonly direction: string };
 }

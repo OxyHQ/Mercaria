@@ -215,7 +215,11 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // carries it), and left the module count alone — the shape of an addition to
     // an existing contract module, which is what it was. Re-derived from the
     // tool's own output line rather than added up.
-    "walked 126 contract module(s), 2264 exported type(s), 7649 property signature(s)",
+    // A fifth instance, #367 line 598: `FacetRangeDisplay` plus `display` on
+    // `FacetRange` moved the exported types by ONE and the property signatures
+    // by FIVE (one interface, its four members, and the field carrying it), and
+    // left the module count alone. Re-derived from the tool's own output line.
+    "walked 126 contract module(s), 2265 exported type(s), 7654 property signature(s)",
     "check A arms exercised by real declarations: 5/9",
   ],
 });
