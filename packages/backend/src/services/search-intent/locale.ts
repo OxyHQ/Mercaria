@@ -306,3 +306,49 @@ export function toMinorUnits(amount: number, currency: CurrencyCode): number | u
   if (!Number.isSafeInteger(minor) || minor < 0) return undefined;
   return minor;
 }
+
+/**
+ * The label an attribute is DESCRIBED under, in the shopper's own language
+ * (#367 line 590, #946 piece 2).
+ *
+ * `deterministic.ts` already matches a typed phrase against every localized
+ * label a definition carries — that is how `memoria` finds the RAM attribute.
+ * What it did NOT do is describe the result under the label it matched: every
+ * explanation was built from `definition.row.label`, the BASE label, so a
+ * shopper who typed `memoria` was told *"RAM is at least 16 GB"* in English.
+ *
+ * ## Why the chain is a PREFERENCE and the base is the floor
+ *
+ * `es-ES` prefers a row recorded as `es-ES`, then one recorded as `es`, then the
+ * base. It never falls through to some OTHER language's row: a French label is
+ * not a better answer for a Spanish reader than the base one, and picking
+ * "whatever localization exists" is how a German shopper gets Portuguese.
+ *
+ * That is deliberately NARROWER than the matching side, and the asymmetry is the
+ * point. `deterministic.ts` READS every language for every query (localization
+ * rule 6) because a shopper may type a word from any of them; it may only WRITE
+ * back one, and the only defensible one is theirs.
+ *
+ * ## What this does not touch
+ *
+ * The English template sentences around the label — *"is at least"*, *"we
+ * treated it as a preference"* — are #946 piece 3 and a product decision, not
+ * this function's. And number formatting is `describeBudget`'s recorded
+ * boundary (`paraphrase.ts`): grouping and locale-aware rendering belong to the
+ * client, which knows the shopper's locale and has `formatMoney`.
+ */
+export function labelForLocale(
+  baseLabel: string,
+  labels: readonly { readonly locale: string; readonly label: string }[],
+  locale: string,
+): string {
+  const tag = locale.trim().toLowerCase().replace(/_/gu, '-');
+  const language = languageOf(locale);
+  for (const wanted of tag === language ? [tag] : [tag, language]) {
+    const hit = labels.find((entry) => entry.locale.trim().toLowerCase() === wanted);
+    // An empty localized label is not a translation — it is a row somebody left
+    // blank, and rendering it would replace a real English word with nothing.
+    if (hit !== undefined && hit.label.trim().length > 0) return hit.label;
+  }
+  return baseLabel;
+}
