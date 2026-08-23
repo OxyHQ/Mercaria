@@ -702,6 +702,13 @@ function buildAttributeFacet(input: {
  * silently. Not a test hatch: it is a named decision with its own reasons, and
  * the alternative was a test that re-implements it and therefore measures the
  * re-implementation.
+ *
+ * The export is PROVISIONAL, and the condition that ends it is stated so nobody
+ * has to re-derive it: **a realdb fixture producing a range facet that carries a
+ * unit** makes every branch here reachable through `resolveFacets`, at which
+ * point the tests move behind the public entry point and this stops being
+ * exported. Nothing else changes — the function keeps its name, its reasons and
+ * its callers.
  */
 export function rangeDisplay(
   min: number,
