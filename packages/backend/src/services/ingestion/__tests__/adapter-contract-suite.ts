@@ -1,12 +1,30 @@
 /**
  * THE REUSABLE ADAPTER CONTRACT SUITE — issue #62 §"Tests", all thirteen cases.
  *
- * #63 (affiliate networks), #65 (merchant feeds) and #66 (marketplace APIs) each
- * call {@link describeCatalogSourceAdapterContract} with a harness that
- * materialises a SCENARIO in their own transport, and get every case below for
- * free. That is what "the framework supports #63, #65 and #66 without schema
- * forks" (issue acceptance 7) means operationally: the same thirteen assertions,
- * against the same tables, for every provider Mercaria ever adds.
+ * #63 (merchant feeds) and #66 (affiliate networks) each call
+ * {@link describeCatalogSourceAdapterContract} with a harness that materialises
+ * a SCENARIO in their own transport, and get every case below for free. That is
+ * what "the framework supports #63, #65 and #66 without schema forks" (issue
+ * acceptance 7) means operationally: the same thirteen assertions, against the
+ * same tables, for every provider Mercaria ever adds.
+ *
+ * ## #65 (marketplace APIs) does NOT call this, and never did
+ *
+ * This docblock claimed all three called it and labelled all three with the
+ * wrong source kind, rotated one place. **It was wrong when written, not
+ * overtaken**: #64's selection document — which names eBay the marketplace and
+ * Awin the affiliate network — was committed roughly twenty hours earlier
+ * (`git merge-base --is-ancestor 22716148 f05d221e` returns true). The `#65
+ * calls it` half is different in kind, a prediction about an unbuilt issue that
+ * became false when #65 shipped and declined; `ebay-ingestion.realdb.test.ts`
+ * and `docs/ingestion.md` both stated it correctly the whole time.
+ *
+ * eBay covers the same thirteen concerns in its own realdb suite for two reasons
+ * that are properties of the provider — a pass is DISCOVERY then VERIFICATION so
+ * it makes more framework pages than scenario pages, and the Browse API
+ * publishes no per-item `sourceUpdatedAt`, so cases 2/3/4 cannot be satisfied
+ * without inventing a provider timestamp. See that file's own docblock; do not
+ * "close the gap" by making it call this.
  *
  * ## The scenario is stated in FRAMEWORK terms, not transport terms
  *
