@@ -42,6 +42,7 @@ import type {
   ProductPageOffers,
   ProductPageVariant,
 } from '@mercaria/shared-types';
+import { SHOPPER_VISIBLE_CATALOG_STATUSES } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import { validationError } from '../../lib/errors/error-codes.js';
 import {
@@ -172,7 +173,12 @@ async function readPageVariants(
     options: ProductPageVariant['options'];
   }[] = [];
   for (const variant of rows) {
-    if (variant.status === 'merged') continue;
+    // Not `=== 'merged'`. A SUPPRESSED variant stayed in the configuration
+    // picker under that test (#888): the product resolves, the picker offers
+    // the withdrawn configuration, and selecting it scopes the page to it.
+    // `merged` remains excluded because this list is the picker rather than a
+    // resolver — it is one member of the set below, not a separate rule.
+    if (!SHOPPER_VISIBLE_CATALOG_STATUSES.includes(variant.status)) continue;
     projected.push({
       id: variant.id,
       ...(variant.name === undefined || variant.name === null ? {} : { name: variant.name }),

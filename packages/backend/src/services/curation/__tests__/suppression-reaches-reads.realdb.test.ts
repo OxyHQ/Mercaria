@@ -60,6 +60,7 @@ import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardow
 import { declaredOfferCondition } from '../../condition/condition-mapping.service.js';
 import { listOffers } from '../../offers/offer.service.js';
 import { getPublicCanonicalProduct } from '../../canonical/canonical-product.service.js';
+import { readCanonicalProductPage } from '../../product-page/product-page.service.js';
 import { suppressEntity, liftEntitySuppression } from '../correction.service.js';
 
 const RUN = uuidv7().slice(-12);
@@ -356,6 +357,116 @@ describe('the visibility predicate is exactly the shopper-visible set', () => {
 });
 
 // ── Tombstone resolution happens BEFORE the visibility check ────────────────
+
+describe('the ENTITY reads stop serving a suppressed product too (#888)', () => {
+  /**
+   * `listOffersForComparison` was fixed first, so a suppressed product served no
+   * offers and reported no "from" price. It still RESOLVED: five public surfaces
+   * reach a product through `getPublicCanonicalProduct`, which applied no status
+   * filter at all — both `/canonical-products/:idOrSlug` handlers, the #71
+   * product page, the #96 comparison subject loader, and `seo.service.ts`'s
+   * `readProductSlug`.
+   *
+   * The SEO one is why this is a separate describe rather than a footnote on the
+   * offers cases. The other four SERVE a withdrawn product and can stop; that
+   * one PUBLISHES it — a `rel=canonical` pointing a crawler at a product an
+   * operator withdrew, which outlives the suppression by however long the index
+   * takes to forget.
+   */
+  it('hides a suppressed PRODUCT from the shared entity read, and resolved it before', async () => {
+    const seeded = await seedProductWithOffer('entity');
+
+    // The control, for this file's stated reason: "returns undefined" is
+    // satisfied by a fixture that never existed.
+    const before = await getPublicCanonicalProduct(seeded.productId);
+    expect(before?.id).toBe(seeded.productId);
+
+    await suppressEntity({
+      entityType: 'canonical_product',
+      entityId: seeded.productId,
+      reason: 'pending_investigation',
+      note: null,
+      actorOxyUserId: OPERATOR,
+    });
+
+    expect(await getPublicCanonicalProduct(seeded.productId)).toBeUndefined();
+    // By SLUG as well as by id. The two are separate lookups in that function
+    // and a filter applied to one branch would leave every shared link working.
+    expect(await getPublicCanonicalProduct(seeded.slug)).toBeUndefined();
+  });
+
+  it('keeps a DISCONTINUED product served through the same read', async () => {
+    // The inverse control, and the one that fails if anybody later narrows the
+    // predicate to `status = 'active'`. A discontinued product is a real-world
+    // fact rather than a decision to hide, and its page, history and offers all
+    // stay. This is the hazard neither reading the diff nor a suppression case
+    // can catch, because both look more careful when they are wrong.
+    const seeded = await seedProductWithOffer('discontinued-entity');
+
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'discontinued' })
+      .where(eq(canonicalProducts.id, seeded.productId));
+
+    const served = await getPublicCanonicalProduct(seeded.productId);
+    expect(served?.id, 'a discontinued product stopped resolving').toBe(seeded.productId);
+  });
+
+  it('drops a suppressed VARIANT from the product page configuration picker', async () => {
+    // The variant half, and a genuinely separate defect from the offer one.
+    // `listOffersForComparison` already refuses a suppressed variant's offers,
+    // so the picker offered a configuration with NO price behind it — the
+    // shopper selects the withdrawn option and the page scopes itself to an
+    // empty comparison. `readPageVariants` skipped `merged` only.
+    const seeded = await seedProductWithOffer('picker');
+    const page = () =>
+      readCanonicalProductPage({
+        handle: seeded.productId,
+        comparisonCurrency: 'EUR',
+        limit: 10,
+        offerComparisonPermitted: true,
+      });
+
+    const before = await page();
+    expect(
+      before?.page.variants.map((variant) => variant.id),
+      'the picker did not offer the configuration to begin with',
+    ).toContain(seeded.variantId);
+
+    await suppressEntity({
+      entityType: 'canonical_variant',
+      entityId: seeded.variantId,
+      reason: 'data_quality',
+      note: null,
+      actorOxyUserId: OPERATOR,
+    });
+
+    const after = await page();
+    // The PRODUCT is untouched, so the page still renders — this is the
+    // configuration leaving the picker, not the page disappearing.
+    expect(after?.page.product.id).toBe(seeded.productId);
+    expect(after?.page.variants.map((variant) => variant.id)).not.toContain(seeded.variantId);
+  });
+
+  it('checks visibility AFTER following a tombstone, so an old link still works', async () => {
+    // The ordering guard. `merged` is not in `SHOPPER_VISIBLE_CATALOG_STATUSES`,
+    // so a check placed BEFORE `resolveProductRow` would 404 every shared link
+    // to a merged product — which ADR 0002 D12/D16 keep working forever. The
+    // winner's visibility is what the check is about.
+    const loser = await seedProductWithOffer('tombstone-entity-loser');
+    const winner = await seedProductWithOffer('tombstone-entity-winner');
+
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'merged', mergedIntoId: winner.productId })
+      .where(eq(canonicalProducts.id, loser.productId));
+
+    const resolved = await getPublicCanonicalProduct(loser.slug);
+    expect(resolved?.id, 'an old link to a merged product stopped resolving').toBe(
+      winner.productId,
+    );
+  });
+});
 
 describe('a merged loser still reaches its winner', () => {
   it('resolves an old link to the winner, whose offers are still served', async () => {
