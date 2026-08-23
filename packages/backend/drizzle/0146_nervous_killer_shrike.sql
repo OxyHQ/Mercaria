@@ -1,0 +1,51 @@
+-- oxy:deploy-phase=pre
+-- oxy:rollback=replay: the terminal_cause classification is gone with the column, and
+--   re-applying THIS migration re-derives it -- 'unrecorded' is a function of
+--   status = 'failed' alone. Coarser than what it replaces, and deliberately so: a run
+--   the running image had classified 'retry_exhausted' comes back as 'unrecorded',
+--   because after a rollback nothing has recorded why it ended, which is what
+--   'unrecorded' means.
+--
+-- Record WHY a backfill run ended in `failed` (#367 W17, the
+-- `backfill_dead_letter_count` seam).
+--
+-- `failed` has TWO producers that mean opposite things to an operator:
+-- `recordBackfillPageFailure` at the ceiling (the bounded retry was exhausted --
+-- a dead letter) and `cancelCatalogBackfillRun` (a person stopped it -- not a
+-- dead letter at all). Once both have written `failed`, nothing downstream can
+-- recover which one it was, so this is a COLUMN rather than a derived
+-- predicate. Both candidate derivations key on `consecutive_failures`, whose
+-- ceiling is CATALOG_BACKFILL_MAX_ATTEMPTS -- a MUTABLE env var deliberately
+-- left an incident lever -- so raising it from 8 to 16 would un-count every run
+-- that already exhausted at 8, at exactly the moment somebody raised it in
+-- order to read the number.
+--
+-- Every statement here is ADDITIVE with respect to the serving image, which
+-- writes no cause: the column is nullable, `..._terminal_cause_check` is an
+-- `in` list that NULL satisfies (a CHECK rejects only FALSE), and
+-- `..._terminal_cause_shape_check` is the IMPLICATION `cause -> failed`, which
+-- a NULL cause satisfies unconditionally. The REVERSE half -- `failed` implies
+-- a cause -- is 0147's, and it is `post` precisely because it breaks the write
+-- the previous image performs.
+--
+-- The backfill classifies pre-existing `failed` rows as `unrecorded` rather
+-- than guessing at either real cause. That is not a sentinel: it is the honest
+-- statement that the information was destroyed before this column existed, and
+-- it is what stops `backfill_dead_letter_count` reporting a confident 0 on a
+-- deployment whose failed runs all predate the column. The metric surfaces it
+-- as its own bucket.
+--
+-- Rollback is derived: dropping the column loses only the classification, and
+-- the runs, their cursors, their `last_error` and their statuses are untouched.
+-- Re-applying re-classifies everything as `unrecorded`, which is true again.
+
+ALTER TABLE "catalog_backfill_runs" ADD COLUMN "terminal_cause" text;--> statement-breakpoint
+-- oxy:handwritten-begin=terminal_cause_unrecorded_backfill
+-- Before the CHECKs, per the house rule: a backfill that runs after a
+-- constraint is a migration that fails on its own historical rows. Neither
+-- CHECK below would actually reject a NULL, so this ordering is habit rather
+-- than necessity here -- and the habit is what makes the next one safe.
+UPDATE "catalog_backfill_runs" SET "terminal_cause" = 'unrecorded' WHERE "status" = 'failed' AND "terminal_cause" IS NULL;--> statement-breakpoint
+-- oxy:handwritten-end=terminal_cause_unrecorded_backfill
+ALTER TABLE "catalog_backfill_runs" ADD CONSTRAINT "catalog_backfill_runs_terminal_cause_check" CHECK ("catalog_backfill_runs"."terminal_cause" in ('retry_exhausted', 'operator_cancelled', 'unrecorded'));--> statement-breakpoint
+ALTER TABLE "catalog_backfill_runs" ADD CONSTRAINT "catalog_backfill_runs_terminal_cause_shape_check" CHECK ("catalog_backfill_runs"."terminal_cause" is null or "catalog_backfill_runs"."status" = 'failed');

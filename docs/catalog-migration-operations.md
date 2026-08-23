@@ -701,7 +701,7 @@ Everything below is read from `GET /internal/catalog-metrics`
 | `backfill_failed_run_count` | `catalog_backfill_runs` with `status = 'failed'` | `instant` | `catalog_backfill_runs` | 300 s | `:967` |
 | `backfill_retry_count` | `catalog_backfill_records` with `attempts > 1` | `instant` | `catalog_backfill_records` | 300 s | `:954` |
 | `match_queue_dead_letter_count` | `match_queue` rows `status = 'dead_letter'` | `instant` | `match_queue` | 60 s | `:637` |
-| `backfill_dead_letter_count` | — | — | — | — | **`unmeasured`**, `dimension_absent_from_source` |
+| `backfill_dead_letter_count` | `catalog_backfill_runs` with `status = 'failed'` and `terminal_cause = 'retry_exhausted'` | `instant` | `catalog_backfill_runs` | 300 s | MEASURED; `by` carries all four cause buckets |
 | `mustStayZero.metricCollectionFailures` and its two siblings | see `catalog-observability.md:465-504` | process-local | in-process counters | per task | — |
 
 **That gap is now HALF closed, and the half that remains is the durable one.**
@@ -721,12 +721,23 @@ per-publication row trace, which is exactly what
 [`runbooks/catalog-publication-failures.md`](runbooks/catalog-publication-failures.md)
 does. **Operator action:** that runbook.
 
-`backfill_dead_letter_count` being `unmeasured` rather than `0` is the correct
-reading and must be rendered as a gap: **none of #367's own queues has a
-dead-letter state**, so a run that has given up is indistinguishable from one
-still retrying. Closing it is a terminal state on `catalog_backfill_runs`,
-`catalog_external_mapping_runs` and `catalog_external_token_observations`, or the
-explicit decision that their retries are unbounded.
+`backfill_dead_letter_count` is now **measured** for `catalog_backfill_runs`, and
+the two changes that got it there are worth reading in order. Line 759 gave runs
+a bounded retry, so exhaustion became a thing that happens;
+`catalog_backfill_runs.terminal_cause` then recorded WHICH of the two producers
+of `failed` ended each run, because `cancelCatalogBackfillRun` also writes
+`failed` and an operator stopping a run is not a dead letter. **Read the `by`
+buckets, not only the number**: `unrecorded` is the closed population that
+predates migration `0146`, and `cause_missing` must be ZERO once `0147` has
+applied — non-zero means a rollout in flight or a producer that does not name
+its cause.
+
+**`catalog_external_mapping_runs` and `catalog_external_token_observations` still
+have neither a bounded retry nor a cause**, so nothing counts dead letters for
+them. That is the remaining half of this gap, and it is a different piece of work
+from the one just done: those runs are not leased or dispatched at all
+(`openReprocessRun`/`runReprocessPage` have no callers), so a retry ceiling would
+bound a loop that does not run.
 
 ### 2. Lag
 
@@ -833,11 +844,14 @@ rather than what to type.
 | **Missing translations** | a **drop** in `translation_coverage` per locale relative to its own trailing value, plus an absolute floor per locale before that locale is advertised | the coverage series per locale over one translation cycle. A cross-locale constant is wrong on its face — a launch locale and a long-tail one are not comparable |
 | **Review backlog** | an **age**, as above, plus a rate-of-arrival alert on `proposal_creation_count` (`rolling_7d`) to catch a taxonomy gap rather than a staffing one | the arrival rate once merchants are authoring. The definition's own attribution limit is the trap: a rise means the taxonomy is missing concepts OR that more merchants are authoring, and only the completeness metrics separate them |
 
-**Three that must not get a threshold at all**, and the reason is in the metric
-rather than in the number: `reindex_pending_count` (only grows, no consumer),
-`backfill_dead_letter_count` (`unmeasured` — a zero would be a permanently green
-tile for a condition that cannot occur) and `translation_machine_share` read
-alone (zero is the worst case, not the best).
+**Two that must not get a threshold at all**, and the reason is in the metric
+rather than in the number: `reindex_pending_count` (only grows, no consumer) and
+`translation_machine_share` read alone (zero is the worst case, not the best).
+
+`backfill_dead_letter_count` used to be a third and no longer is: it is measured,
+and a rise in it is a real signal. Alert on the NUMBER, and read `cause_missing`
+beside it — a threshold on the total that ignores that bucket would go quiet
+during exactly the rollout where the count is incomplete.
 
 ---
 

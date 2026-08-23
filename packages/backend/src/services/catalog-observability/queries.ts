@@ -592,6 +592,42 @@ export interface BackfillRunTally {
   readonly running: number;
   readonly pending: number;
   readonly paused: number;
+  /** `failed` because the bounded retry was exhausted. THE dead-letter count. */
+  readonly retryExhausted: number;
+  /** `failed` because an operator stopped it. Not a dead letter. */
+  readonly operatorCancelled: number;
+  /** `failed` before `terminal_cause` existed. Closed and finite after `0147`. */
+  readonly unrecorded: number;
+  /**
+   * `failed` with NO cause at all.
+   *
+   * Must be ZERO once `0147` (`post`) has applied, which makes it the
+   * instrument's own alarm rather than a fourth flavour of dead letter: before
+   * the rollout completes it counts rows the previous image wrote, and
+   * afterwards a non-zero value means a producer of `failed` exists that does
+   * not name its cause — the thing the union type and the biconditional both
+   * exist to prevent. Counted rather than folded into `unrecorded` because
+   * "nobody classified this" and "the constraint that guarantees classification
+   * is not in force" are different facts about the deployment.
+   */
+  readonly causeMissing: number;
+}
+
+/**
+ * Whether the four cause counts account for every `failed` run.
+ *
+ * A conserved total rather than a floor: the four are disjoint and exhaustive
+ * over `failed` BY CONSTRUCTION (three named causes, plus NULL), so this is an
+ * exact identity and not an approximation that erodes as the table grows.
+ * `false` means the CHECK vocabulary and this query have diverged — a cause was
+ * added to the tuple and not to the tally — which would otherwise present as a
+ * dead-letter count that quietly drifts below the truth.
+ */
+export function backfillCauseCountsAgree(tally: BackfillRunTally): boolean {
+  return (
+    tally.retryExhausted + tally.operatorCancelled + tally.unrecorded + tally.causeMissing ===
+    tally.failed
+  );
 }
 
 /** Backfill runs by status. Bounded by the five statuses, not by run count. */
@@ -605,6 +641,10 @@ export async function tallyBackfillRuns(
     running: number;
     pending: number;
     paused: number;
+    retry_exhausted: number;
+    operator_cancelled: number;
+    unrecorded: number;
+    cause_missing: number;
   }>(sql`
     select
       count(*)::int as total,
@@ -612,7 +652,19 @@ export async function tallyBackfillRuns(
       count(*) filter (where status = 'failed')::int as failed,
       count(*) filter (where status = 'running')::int as running,
       count(*) filter (where status = 'pending')::int as pending,
-      count(*) filter (where status = 'paused')::int as paused
+      count(*) filter (where status = 'paused')::int as paused,
+      -- The cause splits live in the SAME statement as the status counts, so
+      -- the dead-letter number and the failed number it is checked against
+      -- describe ONE snapshot. Two statements would let a run fail between them
+      -- and make backfillCauseCountsAgree report a divergence that is really
+      -- just the clock.
+      count(*) filter (where status = 'failed' and terminal_cause = 'retry_exhausted')::int
+        as retry_exhausted,
+      count(*) filter (where status = 'failed' and terminal_cause = 'operator_cancelled')::int
+        as operator_cancelled,
+      count(*) filter (where status = 'failed' and terminal_cause = 'unrecorded')::int
+        as unrecorded,
+      count(*) filter (where status = 'failed' and terminal_cause is null)::int as cause_missing
     from catalog_backfill_runs
   `);
   const row = rows[0];
@@ -623,6 +675,10 @@ export async function tallyBackfillRuns(
     running: Number(row?.running ?? 0),
     pending: Number(row?.pending ?? 0),
     paused: Number(row?.paused ?? 0),
+    retryExhausted: Number(row?.retry_exhausted ?? 0),
+    operatorCancelled: Number(row?.operator_cancelled ?? 0),
+    unrecorded: Number(row?.unrecorded ?? 0),
+    causeMissing: Number(row?.cause_missing ?? 0),
   };
 }
 

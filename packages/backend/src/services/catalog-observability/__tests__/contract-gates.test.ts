@@ -75,11 +75,20 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
  * a build failure and a decision — a removal here is somebody stating that the
  * seam named in `docs/catalog-observability.md` is closed.
  *
- * SIX, one per gap, each with its own reason and seam in the registry. It was
+ * FIVE, one per gap, each with its own reason and seam in the registry. It was
  * eight until #367 W17 lines 768 and 771 closed `draft_validation_failure_rate`
  * and `translation_fallback_use_rate` — both `not_instrumented`, both closed by
  * an in-process counter at the site the seam named. A removal here is somebody
  * stating a gap is gone, which is exactly what those two are.
+ *
+ * The sixth was `backfill_dead_letter_count`, and it took TWO changes in the
+ * database rather than one in the registry. Line 759 gave `catalog_backfill_runs`
+ * a bounded retry, which made exhaustion reachable and moved the seam's reason
+ * from `no_dead_letter_state` to `dimension_absent_from_source`;
+ * `terminal_cause` then recorded WHICH of the two producers of `failed` ended a
+ * run, which supplied the dimension. Worth spelling out because a reason that
+ * moves and then disappears is the shape a relabelling takes, and this was not
+ * one: neither step could have been taken without the column that preceded it.
  *
  * `proposal_sla_breach_count` is the one whose gap is NOT code. Its input — the
  * queue's depth, per-state oldest age, five-band waiting-age distribution and
@@ -90,7 +99,6 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
  */
 const EXPECTED_UNMEASURED_METRIC_KEYS: readonly string[] = [
   'authoring_schema_memo_hit_rate',
-  'backfill_dead_letter_count',
   'facet_usage_rate',
   'proposal_sla_breach_count',
   'reindex_throughput',

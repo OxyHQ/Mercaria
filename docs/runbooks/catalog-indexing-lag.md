@@ -178,7 +178,9 @@ and change its condition.
 - **Do not treat this as an offer-convergence or match-queue problem.** Those are
   different queues with real consumers and real dead-letter or lease semantics:
   `GET /internal/offers/convergence` and `GET /internal/matching/metrics`.
-- **Do not add a `catalog_backfill_runs`-style dead-letter alert here.** #367's
-  own queues have no dead-letter state at all — that is a separate documented
-  seam (`backfill_dead_letter_count`), and reporting it as zero would put a
-  permanently green tile on a dashboard for a condition that cannot occur.
+- **Do not add a `catalog_backfill_runs`-style dead-letter alert here.**
+  `backfill_dead_letter_count` is measured now, but it is about BACKFILL RUNS —
+  a queue with a bounded retry and a recorded terminal cause. Reindex requests
+  have neither, and no consumer at all, so a dead-letter count over them would
+  be a permanently green tile for a condition that cannot occur. The metric to
+  read here is still `reindex_pending_count`, which only grows.

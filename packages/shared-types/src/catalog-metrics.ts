@@ -233,13 +233,16 @@ export interface CatalogMetricDefinition {
  * TWO are deliberately used by NO definition, for different reasons.
  * `source_unavailable` belongs to the COLLECTOR — a registry entry claiming it
  * would make an incident indistinguishable from a designed gap.
- * `no_dead_letter_state` stopped applying to #367's backfill queues when line
- * 759 gave `catalog_backfill_runs` a bounded retry: the condition it names
- * ("cannot arise") is now reachable there, so `backfill_dead_letter_count`
- * moved to `dimension_absent_from_source`, which is what that table actually
- * lacks — a column recording WHY a run ended, `failed` having two producers.
- * Both members stay because the distinctions they draw are real; an unused
- * reason is cheaper than a metric filed under an inaccurate one.
+ * `no_dead_letter_state` was retired from `backfill_dead_letter_count` in two
+ * steps, and the sequence is the useful part. Line 759 gave
+ * `catalog_backfill_runs` a bounded retry, so the condition the reason names
+ * ("cannot arise") became REACHABLE and the metric moved to
+ * `dimension_absent_from_source` — the table recorded no cause, and `failed`
+ * has two producers. `catalog_backfill_runs.terminal_cause` then supplied that
+ * dimension and the metric became MEASURED. Neither step was a relabelling to
+ * make something pass: each followed a change in what the database records.
+ * Both members stay unused because the distinctions they draw are real, and an
+ * unused reason is cheaper than a metric filed under an inaccurate one.
  */
 export const CATALOG_UNMEASURED_REASONS = [
   /** Nothing records the fact. A column or a counter is owed. */
@@ -764,9 +767,11 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
       + 'difference from a `failed` backfill run is not that this queue retries and that one does '
       + 'not. It is that this state is NAMED: a subject here has exhausted its retries and will '
       + 'never be matched without an operator, and the status column says exactly that. A backfill '
-      + 'run records a consecutive-failure COUNT and no cause, so exhaustion there cannot be told '
-      + 'from an operator cancellation — which is why backfill_dead_letter_count next to it is '
-      + 'unmeasured rather than zero. A dead-lettered subject does not disappear from the '
+      + 'run names its cause in `terminal_cause`, so backfill_dead_letter_count beside this one '
+      + 'counts the same KIND of event over a different queue and the two are comparable. The '
+      + 'distinction that remains is where the fact lives: a dead-lettered subject here is a '
+      + 'STATUS, and there it is a status plus a cause, because that queue also ends in `failed` '
+      + 'when an operator stops a run. A dead-lettered subject does not disappear from the '
       + 'catalogue, so the listing is live and unattached.',
   },
   {
@@ -1215,46 +1220,39 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
       + '`failed` is where the bounded retry STOPS rather than where it never began. It MIXES two '
       + 'producers and that is deliberate: a run that exhausted `CATALOG_BACKFILL_MAX_ATTEMPTS` '
       + 'consecutive failed pages, and one `cancelCatalogBackfillRun` stopped. Both are waiting for '
-      + 'a person, which is the question asked; telling them apart is not something this table '
-      + 'records, which is why backfill_dead_letter_count beside it stays unmeasured.',
+      + 'a person, which is the question asked. Telling them apart is what `terminal_cause` '
+      + 'records, and backfill_dead_letter_count beside this one reads it — so this number is '
+      + 'always the LARGER of the two, and a gap between them is operator cancellations rather '
+      + 'than a discrepancy.',
   },
   {
     key: 'backfill_dead_letter_count',
     title: 'Backfill dead letters',
-    kind: 'count',
-    numerator: 'Queue rows abandoned after exhausting their retries.',
-    denominator: 'Not a ratio.',
+    kind: 'ratio',
+    numerator:
+      "catalog_backfill_runs rows with status = 'failed' and terminal_cause = 'retry_exhausted'.",
+    denominator: "All catalog_backfill_runs rows with status = 'failed'.",
     window: 'instant',
     source: 'catalog_backfill_runs',
     freshnessSeconds: 300,
     attributionLimit:
-      'Would count runs that gave up after EXHAUSTING a bounded retry. That retry now EXISTS '
-      + '(#367 line 759), so the number it names CAN occur — what is missing is the cause '
-      + 'dimension, see the seam. `backfill_failed_run_count` is the operational question that has '
-      + 'an answer today and covers both producers of `failed`; this is deliberately not a second '
-      + 'name for it.',
-    unmeasured: {
-      reason: 'dimension_absent_from_source',
-      seam:
-        'MEASURED, and #367 line 759 closed the half this seam used to name. '
-        + '`catalog_backfill_runs.consecutive_failures` counts failed pages IN A ROW, '
-        + '`CATALOG_BACKFILL_MAX_ATTEMPTS` bounds it, and `recordBackfillPageFailure` releases '
-        + '`paused` below the ceiling and `failed` at it — so exhaustion is a real, reachable '
-        + 'condition and `no_dead_letter_state` ("the condition this counts cannot arise") stopped '
-        + 'being true of it. What is still absent is the DIMENSION. `failed` has a SECOND producer: '
-        + '`cancelCatalogBackfillRun` releases through `releaseBackfillRun`, which never touches '
-        + 'the counter, and the table carries no column saying WHY a run ended. Neither available '
-        + 'predicate is honest, and both fail SILENTLY. '
-        + '`consecutive_failures >= CATALOG_BACKFILL_MAX_ATTEMPTS` keys the population on a MUTABLE '
-        + 'env var that is deliberately an incident lever, so raising the ceiling from 8 to 16 '
-        + 'un-counts every run that already exhausted at 8 — at exactly the moment somebody raised '
-        + 'it in order to read the number. `consecutive_failures > 0` counts a run an operator '
-        + 'cancelled after two bad pages as a dead letter, which it is not. '
-        + '`catalog_backfill_records.attempts` is not a third option — it counts RE-EXAMINATIONS of '
-        + 'one subject across runs a person started, is never reset and is bounded by nothing, so '
-        + 'nothing can exhaust it. Closing this is ONE column on `catalog_backfill_runs` recording '
-        + 'the terminal CAUSE, written by the two producers that already differ.',
-    },
+      'The NUMERATOR is the dead-letter COUNT and the ratio is its share of `failed`; the key '
+      + 'keeps its `_count` name because dashboards and runbooks cite it, and the number they '
+      + 'cite is the numerator. It is a ratio rather than a bare count because the breakdown is '
+      + 'what makes a zero readable, and in this registry a breakdown partitions a numerator and '
+      + 'a denominator. '
+      + 'RUNS that exhausted the bounded retry, and ONLY those. `failed` has a second producer — '
+      + '`cancelCatalogBackfillRun` — and counting an operator stopping a run as a dead letter '
+      + "would report a person's decision as a system failure, so the cause is a stored column and "
+      + 'this number reads it. It is not derivable: both candidate predicates over '
+      + '`consecutive_failures` are silently wrong, one because its ceiling is a mutable incident '
+      + 'lever and the other because a run cancelled after two bad pages carries a non-zero count. '
+      + 'The `by` breakdown carries every `failed` run, so what this number EXCLUDES is visible '
+      + 'beside it rather than inferred: `unrecorded` is the closed, finite population that ended '
+      + 'before the cause column existed (migration 0146), and `cause_missing` MUST BE ZERO once '
+      + '0147 has applied — a non-zero value there means either a rollout still in progress or a '
+      + 'producer of `failed` that does not name its cause, and it is the reason a zero here '
+      + 'cannot be mistaken for an instrument that stopped working.',
   },
   {
     key: 'reindex_pending_count',

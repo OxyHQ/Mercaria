@@ -84,6 +84,7 @@ import {
   CATALOG_BACKFILL_RUN_STATUSES,
   CATALOG_BACKFILL_STAGES,
   CATALOG_BACKFILL_SUBJECT_KINDS,
+  CATALOG_BACKFILL_TERMINAL_CAUSES,
   CATALOG_CONSISTENCY_FINDING_KINDS,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf } from './columns';
@@ -215,6 +216,32 @@ export const catalogBackfillRuns = pgTable(
      */
     consecutiveFailures: integer().notNull().default(0),
 
+    /**
+     * WHY this run ended in `failed`, written by the producer that ended it.
+     *
+     * NULL for every run that has not ended in `failed` — a biconditional CHECK
+     * (`catalog_backfill_runs_terminal_cause_shape_check`, added by `0147`), so
+     * a `running`, `paused` or `completed` row cannot carry one and a `failed`
+     * row cannot lack one.
+     *
+     * The vocabulary and the argument for storing this rather than deriving it
+     * are on `CatalogBackfillTerminalCause` in `@mercaria/shared-types`. The
+     * short version: `failed` has two producers, `recordBackfillPageFailure` at
+     * the ceiling and `cancelCatalogBackfillRun`, and once both have written
+     * `failed` nothing downstream can recover which one it was. Every candidate
+     * derivation keys on `consecutive_failures`, whose ceiling is a MUTABLE env
+     * var — so the derived population moves when an operator turns an incident
+     * knob, in the direction that reports FEWER dead letters at exactly the
+     * moment somebody is looking for them.
+     *
+     * Two migrations, and the split is the deploy-phase rule doing its job:
+     * `0146` (`pre`) adds the nullable column, the implication CHECK and the
+     * backfill; `0147` (`post`) narrows it to the biconditional, which breaks
+     * the write the PREVIOUS image performs — `releaseBackfillRun` releasing
+     * `failed` with no cause — and therefore cannot land before the rollout.
+     */
+    terminalCause: text({ enum: asEnumValues(CATALOG_BACKFILL_TERMINAL_CAUSES) }),
+
     /** Which task holds the page lease. An opaque worker identity — no FK. */
     leaseOwner: text(),
     leaseUntil: timestamptz(),
@@ -233,6 +260,33 @@ export const catalogBackfillRuns = pgTable(
     checkOneOf('catalog_backfill_runs_stage_check', t.stage, CATALOG_BACKFILL_STAGES),
     checkOneOf('catalog_backfill_runs_mode_check', t.mode, CATALOG_BACKFILL_MODES),
     checkOneOf('catalog_backfill_runs_status_check', t.status, CATALOG_BACKFILL_RUN_STATUSES),
+    checkOneOf(
+      'catalog_backfill_runs_terminal_cause_check',
+      t.terminalCause,
+      CATALOG_BACKFILL_TERMINAL_CAUSES,
+    ),
+    /**
+     * `failed` ⟺ a terminal cause, written as ONE biconditional over two
+     * never-NULL operands (`status` is `notNull`, and `is null` never yields
+     * NULL), so neither direction can be satisfied by a NULL the way a naive
+     * pair of implications would be.
+     *
+     * `0146` (`pre`) shipped only the `cause → failed` half, because the
+     * serving image releases `failed` with no cause and a `pre` migration may
+     * not break the previous image. `0147` (`post`) re-backfills the rows that
+     * image wrote during the rollout and then narrows to this — a textbook
+     * `post` statement, in that it breaks a write the previous image performs.
+     *
+     * The narrowing is what makes `unrecorded` mean something FINITE: after it,
+     * a `failed` row always has a cause, so `unrecorded` is exactly "ended
+     * before the column existed" — a closed population that cannot grow. Left
+     * at the implication, a future writer producing `failed` with no cause
+     * would be indistinguishable from history.
+     */
+    check(
+      'catalog_backfill_runs_terminal_cause_shape_check',
+      sql`(${t.terminalCause} is null) = (${t.status} <> 'failed')`,
+    ),
     checkOneOf(
       'catalog_backfill_runs_cohort_kind_check',
       t.cohortKind,
