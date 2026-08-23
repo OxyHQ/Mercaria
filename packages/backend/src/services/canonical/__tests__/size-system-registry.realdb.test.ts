@@ -12,6 +12,9 @@
  * asserted in TypeScript would be a test of the copy. A mocked insert accepts
  * any statement, including the ones the server refuses outright.
  *
+ * The keys are hand-written rather than composed, so this covers the whole
+ * population by construction: a key that exists is a key inserted below.
+ *
  * The paired control is the second case: a key the CHECK must REFUSE, asserted
  * by SQLSTATE and by constraint name. Without it, "every key inserted" is also
  * what a dropped constraint reports.
@@ -279,7 +282,7 @@ describe('the real resolver gives three different answers about one mapping', ()
     // Storable, correctly shaped, and names a system Mercaria has not declared:
     // the case an operator must be told about. Answering `resolved` here is the
     // whole failure a registry-that-agrees would cause, and it is silent.
-    const unknown = 'size.apparel.uk.womens.manufacturer_label';
+    const unknown = 'size.dress_uk';
     expect(sizeSystemKeys()).not.toContain(unknown);
 
     const resolution = await resolveAgainst(unknown);

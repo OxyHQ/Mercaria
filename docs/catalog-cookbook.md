@@ -234,17 +234,23 @@ Two consequences, both worth saying out loud:
 
 `catalog_external_mappings` records that a source's token means a size system,
 and its `target_size_system_key` is a different column with a different CHECK —
-so a size system also has a key in `services/canonical/size-systems.ts`, derived
-from its four facets: `size.<domain>.<region>.<audience>.<basis>`.
+so a size system also has a key in `services/canonical/size-systems.ts`:
+`size.shoe_eu`, `size.shoe_us_mens`, `size.shoe_cm`.
 
 Adding one is a code change and nothing else — no table, no migration:
 
-1. Append the four facets plus a `valueShape` to `DECLARED_SIZE_SYSTEMS` in
-   `services/canonical/size-systems.ts`. The key is DERIVED; do not write one,
-   and never parse one.
-2. That is the whole procedure. The build refuses two declarations that derive
-   one key, and `size-system-registry.test.ts` re-derives every key from its own
-   facets.
+1. Append an entry to `DECLARED_SIZE_SYSTEMS` in
+   `services/canonical/size-systems.ts` with a short opaque key in the `size.`
+   namespace and all four facets — `domain`, `region`, `audience`,
+   `measurementBasis` — plus a `valueShape`.
+2. That is the whole procedure. The build refuses two entries under one key, and
+   `size-system-registry.test.ts` asserts every entry declares all four facets.
+
+**Do not compose the key from the facets, and never parse one.** Two systems
+agreeing on all four facets and differing only in key is the aliasing relation
+`no_sourced_mapping` exists to express, and a derived key would make it
+unrepresentable. **Correcting a facet is a NEW entry under a NEW key**, never an
+edit: an entry is frozen the way its key is.
 
 Add a system only when Mercaria's catalogue can actually express it. A key the
 registry holds makes a mapping RESOLVE, so seeding a convention no listing can

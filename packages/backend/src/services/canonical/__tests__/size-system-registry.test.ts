@@ -17,9 +17,10 @@
  *   order in one test. Remove the registration and the second half reports
  *   `unavailable`; remove the TABLE and it reports `absent`. Three states,
  *   three distinguishable failures.
- * - **The derivation**: every key equals the derivation of its own facets.
- *   Hand-write a key that disagrees and this fails; hand-write one that agrees
- *   and it passes — which is the point, because agreeing IS the property.
+ * - **The key is opaque**: two entries sharing all four facets must be
+ *   ADMITTED, because `no_sourced_mapping` is the only relation a sourced
+ *   mapping can express. A key derived from the facets would make that branch
+ *   unreachable, so its reachability is driven directly rather than assumed.
  * - **The prototype keys**: an object-literal lookup reports `present` for
  *   `constructor` and `toString`. A `Map` reports `absent`. Same call, opposite
  *   answers, so the test measures the implementation rather than the interface.
@@ -27,18 +28,15 @@
  *   source, and it has a population floor, so a moved file cannot pass it by
  *   having nothing to scan.
  *
- * ## Storability is proved in two halves, and only one of them is here
+ * ## Storability is not asserted here
  *
- * That a minted key is ACCEPTED by
+ * That a key is ACCEPTED by
  * `catalog_external_mappings_size_system_key_shape_check` needs a real
  * PostgreSQL server — re-implementing the pattern in TypeScript would be a test
  * of the re-implementation — and `size-system-registry.realdb.test.ts` drives
- * it over the keys that EXIST, together with the real resolver.
- *
- * What that cannot reach is a key nobody has declared yet, so the vocabulary
- * case below asserts the per-SEGMENT property of the four tuples the key is
- * composed from. Without it a member like `us-west` would break the namespace
- * with nothing red until somebody declared a system using it.
+ * it over every key in the table, together with the real resolver. Since the
+ * keys are now hand-written rather than composed, that case covers the whole
+ * population by construction: a key that exists is a key it inserts.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -54,18 +52,12 @@ import {
   registerSizeSystemConceptRegistry,
   sizeSystemConceptRegistry,
 } from '../size-system-registry.js';
-import {
-  SIZE_AUDIENCES,
-  SIZE_DOMAINS,
-  SIZE_MEASUREMENT_BASES,
-  SIZE_REGIONS,
-} from '@mercaria/shared-types';
+import { compareSizeDeclarations, type SizeSystem } from '@mercaria/shared-types';
 import {
   SIZE_SYSTEM_DEFINITIONS,
   SIZE_SYSTEM_IDENTITY_FACETS,
   SIZE_SYSTEM_KEY_NAMESPACE,
   resolveSizeSystem,
-  sizeSystemKey,
   sizeSystemKeys,
 } from '../size-systems.js';
 
@@ -95,38 +87,42 @@ afterEach(() => {
   clearCatalogConceptRegistries();
 });
 
-describe('the key is derived from the four facets and never parsed', () => {
-  it('mints one key per system, each equal to the derivation of its own facets', () => {
+describe('every entry declares its four facets, and the key is opaque', () => {
+  it('names all four facets on every entry, and a key in the namespace', () => {
     // Population floor: an emptied table makes every walk below vacuous.
     expect(SIZE_SYSTEM_DEFINITIONS.length).toBeGreaterThanOrEqual(5);
 
     for (const system of SIZE_SYSTEM_DEFINITIONS) {
-      expect(system.key).toBe(
-        sizeSystemKey({
-          domain: system.domain,
-          region: system.region,
-          audience: system.audience,
-          measurementBasis: system.measurementBasis,
-        }),
-      );
+      for (const facet of SIZE_SYSTEM_IDENTITY_FACETS) {
+        // `strict: false`, so a missing facet is `undefined` at runtime rather
+        // than a compile error in every case a JS caller can produce. This is
+        // what "required FIELDS" means when the guarantee has to hold at run
+        // time: a system that never declared its audience would be comparable
+        // with everything.
+        expect(system[facet], `${system.key} has no ${facet}`).toBeTruthy();
+        expect(typeof system[facet]).toBe('string');
+      }
+      expect(system.valueShape, `${system.key} has no valueShape`).toBeTruthy();
       expect(system.key.startsWith(`${SIZE_SYSTEM_KEY_NAMESPACE}.`)).toBe(true);
     }
 
     // Distinct, and the count is asserted BOTH ways so a table that lost an
-    // entry and a derivation that collapsed two onto one look different.
+    // entry and two entries colliding on one key look different. This is also
+    // what measures `buildRegistry`'s throw: remove it and a duplicate key
+    // silently keeps the last, which lands here as a length mismatch.
     const keys = sizeSystemKeys();
     expect(keys).toHaveLength(SIZE_SYSTEM_DEFINITIONS.length);
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it('builds the key from EVERY identity facet the entries carry', () => {
+  it('lists exactly the facets a real entry carries', () => {
     // Derived from a real definition rather than hand-listed: a fifth facet
-    // added to `SizeSystemIdentity` and to the entries, but forgotten in the
-    // key, would leave two systems sharing one key and nothing else would
-    // notice. `valueShape` is excluded BY NAME because shared-types states it
-    // is not a facet of identity — a decision recorded here, so a sixth field
-    // arriving with no decision fails the build rather than being absorbed.
-    // (`merge-plan-census.test.ts`'s posture: silence is not a disposition.)
+    // added to `SizeSystemIdentity` and to the entries but forgotten in the
+    // tuple would go unchecked above. `valueShape` is excluded BY NAME because
+    // shared-types states it is not a facet of identity — a decision recorded
+    // here, so a sixth field arriving with no decision fails the build rather
+    // than being absorbed. (`merge-plan-census.test.ts`: silence is not a
+    // disposition.)
     const sample = SIZE_SYSTEM_DEFINITIONS[0];
     expect(sample).toBeDefined();
     const carried = Object.keys(sample as object).filter(
@@ -135,90 +131,68 @@ describe('the key is derived from the four facets and never parsed', () => {
     expect(carried.sort()).toEqual([...SIZE_SYSTEM_IDENTITY_FACETS].sort());
   });
 
-  it('names its facets in the key, which a short opaque key could not', () => {
-    // The reason the derived form was chosen over `size.eu`. Two systems that
-    // differ ONLY in audience — the facet worth a full shoe size — must produce
-    // two keys, and every facet must be recoverable by a READER of the key even
-    // though no code parses it.
-    const base = {
-      domain: 'footwear',
-      region: 'us',
-      audience: 'mens',
-      measurementBasis: 'manufacturer_label',
-    } as const;
-    const mens = sizeSystemKey(base);
-    const womens = sizeSystemKey({ ...base, audience: 'womens' });
-    expect(mens).not.toBe(womens);
-    expect(mens).toBe('size.footwear.us.mens.manufacturer_label');
-    expect(womens).toBe('size.footwear.us.womens.manufacturer_label');
-    // …and a domain change moves it too, so the key is not region-plus-noise.
-    expect(sizeSystemKey({ ...base, domain: 'apparel' })).toBe(
-      'size.apparel.us.mens.manufacturer_label',
+  it('ADMITS two systems agreeing on all four facets — the aliasing case', () => {
+    // The property the key form exists to preserve, driven over a REAL entry
+    // rather than a constructed pair: `compareSizeDeclarations` reaches
+    // `no_sourced_mapping` only when all four facets are equal and the KEY
+    // differs, and that refusal is the only relation a sourced mapping can ever
+    // express.
+    //
+    // What this measures precisely: nothing about a registry entry's SHAPE
+    // forecloses the relation — take one and give it a second key and the
+    // branch answers. It does NOT measure the key form, because
+    // `compareSizeDeclarations` is shared-types' and behaves identically either
+    // way; what a derived key would remove is the registry's ability to HOLD
+    // two such systems. The gate below ("composes no key from a facet") is the
+    // one that goes red if a derivation returns, and it is mutation-tested.
+    // Said plainly because a case that claimed to catch the derivation would be
+    // a mechanism its body never tests.
+    const real = SIZE_SYSTEM_DEFINITIONS[0] as SizeSystem;
+    const alias: SizeSystem = { ...real, key: `${real.key}_brandx` };
+
+    // The twin really differs in the key ALONE, or the assertion below would be
+    // measuring a facet mismatch and reporting it as the aliasing case.
+    for (const facet of SIZE_SYSTEM_IDENTITY_FACETS) {
+      expect(alias[facet]).toBe(real[facet]);
+    }
+    expect(alias.key).not.toBe(real.key);
+
+    expect(compareSizeDeclarations({ system: real, value: '42' }, { system: alias, value: '42' })).toEqual(
+      { outcome: 'refused', reason: 'no_sourced_mapping' },
+    );
+    // The control: the same system against ITSELF still compares, so the
+    // refusal above is about the two keys and not about a comparison that
+    // refuses everything.
+    expect(compareSizeDeclarations({ system: real, value: '42' }, { system: real, value: '42' })).toEqual(
+      { outcome: 'equal', systemKey: real.key },
     );
   });
 
-  it('draws every segment from a vocabulary whose members are legal segments', () => {
-    // The half of "every key this can produce is storable" that a real server
-    // cannot supply. The realdb suite inserts the keys that EXIST; this is what
-    // extends the claim to the ones a future declaration could mint, and
-    // without it a member like `us-west` would break the namespace with nothing
-    // red until somebody declared a system using it.
-    //
-    // Deliberately NOT a copy of the column's own CHECK
-    // (`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$`) — that would be a test of the copy.
-    // This asserts the narrower per-SEGMENT property of the vocabularies the
-    // key is composed from, and the realdb case proves the composition is
-    // accepted.
-    const SEGMENT = /^[a-z][a-z0-9_]*$/;
-    const vocabularies: Readonly<Record<string, readonly string[]>> = {
-      SIZE_DOMAINS,
-      SIZE_REGIONS,
-      SIZE_AUDIENCES,
-      SIZE_MEASUREMENT_BASES,
-    };
-    // One vocabulary per key facet, and the two lists are compared rather than
-    // both hand-written — a facet added to the key with no vocabulary here
-    // would otherwise go unscanned.
-    expect(Object.keys(vocabularies)).toHaveLength(SIZE_SYSTEM_IDENTITY_FACETS.length);
-
-    const offenders: string[] = [];
-    let members = 0;
-    for (const [name, tuple] of Object.entries(vocabularies)) {
-      // Per-tuple floor: an emptied vocabulary contributes no offender and
-      // reads exactly like a clean one.
-      expect(tuple.length, `${name} is empty`).toBeGreaterThanOrEqual(4);
-      for (const member of tuple) {
-        members += 1;
-        if (!SEGMENT.test(member)) offenders.push(`${name}: ${member}`);
-      }
-    }
-    expect(members, `scanned ${members} vocabulary members`).toBeGreaterThanOrEqual(25);
-    expect(offenders, offenders.join('\n')).toEqual([]);
-
-    // The mutation self-test: the pattern really rejects the spellings that
-    // would break a dotted key, and really admits the ones in use.
-    for (const illegal of ['us-west', 'Kids', 'EU', '2xl', '', 'foot length', 'a.b']) {
-      expect(SEGMENT.test(illegal), `admitted ${illegal}`).toBe(false);
-    }
-    expect(SEGMENT.test('manufacturer_label')).toBe(true);
-    expect(SEGMENT.test(SIZE_SYSTEM_KEY_NAMESPACE)).toBe(true);
-  });
-
-  it('has no inverse — nothing splits a key back into facets', () => {
-    // The derivation must stay the ONE authority. A reader that split on dots
-    // would produce facets that can disagree with the row, silently, in the
-    // direction that reads as a working feature.
-    const parsePatterns: readonly { name: string; pattern: RegExp }[] = [
+  it('composes no key from a facet, and parses none back', () => {
+    // The key must stay a NAME. A composition would make two systems agreeing
+    // on four facets unrepresentable; a parse would give the facets a second
+    // authority that can disagree with the entry. Both directions are scanned.
+    const forbidden: readonly { name: string; pattern: RegExp }[] = [
       { name: 'splitting a key', pattern: /\.split\s*\(\s*['"`][.]['"`]/ },
       { name: 'a facet parser', pattern: /\b(?:parseSizeSystemKey|sizeSystemFrom|facetsOfKey)\b/i },
       { name: 'reading a key segment', pattern: /\bkey\s*\.\s*split\b/ },
+      // The composition direction: a key built by joining facet fields, in
+      // either of the two spellings somebody would reach for.
+      {
+        name: 'joining facets into a key',
+        pattern: /\[[^\]]*\b(?:domain|audience|measurementBasis)\b[^\]]*\]\s*\.join\s*\(/,
+      },
+      {
+        name: 'interpolating facets into a key',
+        pattern: /`[^`]*\$\{[^}]*\.(?:domain|audience|measurementBasis)\b[^`]*`/,
+      },
     ];
     const scanned = OWNED_MODULES.map((file) => [file, stripComments(ownedSource(file))] as const);
     expect(scanned).toHaveLength(2);
 
     const violations: string[] = [];
     for (const [file, source] of scanned) {
-      for (const { name, pattern } of parsePatterns) {
+      for (const { name, pattern } of forbidden) {
         if (pattern.test(source)) violations.push(`${file} carries ${name}`);
       }
     }
@@ -230,13 +204,15 @@ describe('the key is derived from the four facets and never parsed', () => {
       'splitting a key': "const parts = other.split('.');",
       'a facet parser': 'export function parseSizeSystemKey(k: string) { return k; }',
       'reading a key segment': 'const [, domain] = key.split(SEPARATOR);',
+      'joining facets into a key':
+        "return [NAMESPACE, entry.domain, entry.region, entry.audience, entry.measurementBasis].join('.');",
+      'interpolating facets into a key': 'const key = `size.${entry.domain}.${entry.audience}`;',
     };
-    expect(Object.keys(fixtures).sort()).toEqual(parsePatterns.map((p) => p.name).sort());
-    for (const { name, pattern } of parsePatterns) {
+    expect(Object.keys(fixtures).sort()).toEqual(forbidden.map((entry) => entry.name).sort());
+    const benign = "const found = SIZE_SYSTEMS_BY_KEY.get(key); return system.domain === other.domain;";
+    for (const { name, pattern } of forbidden) {
       expect(pattern.test(fixtures[name] as string), `${name} missed its own fixture`).toBe(true);
-      expect(pattern.test('return sizeSystemKey(identity);'), `${name} fires on the real code`).toBe(
-        false,
-      );
+      expect(pattern.test(benign), `${name} fires on ordinary code`).toBe(false);
     }
   });
 });
@@ -280,7 +256,7 @@ describe('a key this registry does not hold is ABSENT, not present', () => {
     // The paired negative, over the same call. Without it a registry returning
     // `present` unconditionally satisfies every line above.
     await expect(
-      conceptExists('size_system', 'size.footwear.jp.mens.manufacturer_label'),
+      conceptExists('size_system', 'size.shoe_jp'),
     ).resolves.toEqual({ state: 'absent' });
   });
 
@@ -296,7 +272,7 @@ describe('a key this registry does not hold is ABSENT, not present', () => {
       `${real} `,
       `${real}.`,
       `.${real}`,
-      real.replace(/[.]/g, '_'),
+      real.replace('.', '_'),
       real.slice(0, -1),
     ]) {
       expect(resolveSizeSystem(near), `resolved a near-miss: ${near}`).toBeNull();
@@ -331,10 +307,10 @@ describe('a key this registry does not hold is ABSENT, not present', () => {
       'size.',
       '.',
       '..',
-      'sïze.footwear.eu.unisex.manufacturer_label',
+      'sïze.shoe_eu',
       '.'.repeat(10_000),
       'a'.repeat(100_000),
-      'size.footwear.eu.unisex.manufacturer_label; drop table catalog_external_mappings',
+      'size.shoe_eu; drop table catalog_external_mappings',
       // Not a string at all. `strict: false` and an untyped HTTP boundary make
       // this reachable in practice, and a registry that threw would take a whole
       // ingestion pass down over one bad row.
@@ -367,7 +343,7 @@ describe('a key this registry does not hold is ABSENT, not present', () => {
     await expect(conceptExists('size_system', real)).resolves.toEqual({ state: 'present' });
     // …and an unknown key with a version is still refused for the version,
     // because the version cannot be checked at all.
-    expect((await conceptExists('size_system', 'size.nope.eu.mens.foot_length', 2)).state).toBe(
+    expect((await conceptExists('size_system', 'size.nope', 2)).state).toBe(
       'unavailable',
     );
   });

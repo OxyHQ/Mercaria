@@ -32,8 +32,8 @@ that a source's token MEANS a size system, and such a mapping now RESOLVES —
 against `services/canonical/size-systems.ts`, a code registry that IDENTIFIES a
 convention by key and relates nothing to anything
 (`docs/catalog-external-mappings.md` §"The size-system registry"). Its keys are a
-namespace of their own (`size.footwear.eu.unisex.manufacturer_label`), disjoint
-from the attribute keys below, and it holds no chart and no conversion. So there
+namespace of their own (`size.shoe_eu`), disjoint from the attribute keys below,
+and it holds no chart and no conversion. So there
 is still no size-system table, no audience column and nothing that could relate
 an EU 42 to a UK 8.
 

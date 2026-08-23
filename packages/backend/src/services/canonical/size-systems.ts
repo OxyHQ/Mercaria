@@ -17,38 +17,58 @@
  * not, and `size-system-non-equivalence.test.ts` scans the whole backend —
  * this file included — for the shapes such a conversion would take.
  *
- * ## The key is GENERATED from the facets and is never parsed
+ * ## The key is OPAQUE, and deliberately NOT a function of the facets
  *
- * `shared-types/size-system.ts` states the failure this whole vocabulary
- * exists against: the four facts a size system consists of were "encoded in
- * the SPELLING of the key", and "a spelling is not a model". So the four
- * facets are the authority here and {@link sizeSystemKey} derives the key from
- * them — the `endpoint_key` / `commercial_key` device, a generated composite
- * rather than a parsed one. There is deliberately no inverse function, and
- * adding one would make the derivation a second authority: at that moment a
- * reader could split a key on dots and get facets that disagree with the row.
+ * A system's four facets are REQUIRED FIELDS on its entry. Its key is a short
+ * stable name that nothing composes and nothing parses. The governing
+ * precedent is `unit.gigabyte`: `catalog_external_mappings` carries
+ * `target_unit_family` as its OWN column beside `target_unit_code`, so the
+ * family is a field and the key does not encode it — and ADR 0007's decision
+ * superseding D1's enumeration puts size system in exactly that class, as a
+ * *supporting registry* rather than a concept the epic names.
  *
- * Two consequences worth stating rather than discovering:
+ * **The reason is `no_sourced_mapping`, and it is the whole point.**
+ * `compareSizeDeclarations` reaches that refusal only when `domain`,
+ * `audience`, `measurementBasis` and `region` are all equal and the KEY
+ * differs. Were a key `f(domain, region, audience, basis)`, all four equal
+ * would imply one key, two such systems could not both exist, and that branch
+ * would be unreachable. It is the ONLY relation a sourced mapping can ever
+ * express — two brands' "EU" conventions agreeing on all four facets and still
+ * being different systems is the aliasing case — and a derived key would
+ * foreclose it inside a namespace every future `size_system` mapping cites
+ * forever.
  *
- * - **A key cannot disagree with its own metadata**, which is the property a
- *   short opaque key (`size.eu`) cannot have. That spelling names a region and
- *   is silent about domain, audience and measurement basis — and audience is
- *   the facet that costs a full size when it is dropped.
- * - **Correcting a facet mints a DIFFERENT key**, which is exactly ADR 0007
- *   D1's rule ("a concept whose key was wrong is deprecated and superseded,
- *   never renamed") arriving for free. If a system's facets change it IS a
- *   different system, and the derived key says so out loud.
+ * So **two entries MAY share all four facets**. {@link buildRegistry} refuses a
+ * duplicate KEY and deliberately does not look at facets at all.
  *
- * ## Why `size.` is the first segment
+ * **A facet change is still a different system**, enforced by freezing the
+ * entry rather than by a key re-deriving: an entry whose facets were wrong is
+ * superseded by a NEW entry under a NEW key, never edited in place. ADR 0007
+ * D1's "deprecated and superseded, never renamed", applied to the thing the key
+ * names.
+ *
+ * **The cost, stated rather than left to be discovered: a reader cannot see a
+ * system's facets from its key.** `size.shoe_eu` does not say who it is cut for
+ * or whether it measures anything. That is the trade `unit.gigabyte` already
+ * makes — you look the unit up to learn its family — and the remedy is the
+ * same: read the entry, which is required to state all four.
+ *
+ * ## Why `size.` is the first segment, and why the subject is kept
  *
  * ADR 0007 D1 documents the key namespace by example — `color.black`,
  * `unit.gigabyte` — and the illustration in `catalogExternalMappings.ts`'s own
  * `DOTTED_KEY_SHAPE` docblock is `size.eu`. A key exists so "a human-readable
  * identity survives a database restore" (D1), and an identity that names its
  * own namespace survives being read without the column it came out of. The ADR
- * rules on the SHAPE of a machine key and on nothing narrower; it does not fix
- * a size-system key format, so this is the decision it left open and this file
- * is where it is made.
+ * rules on the SHAPE of a machine key and nothing narrower; it does not fix a
+ * size-system key format, so this is the decision it left open.
+ *
+ * The SUBJECT is kept in the local part (`size.shoe_eu`, not `size.eu`) for two
+ * reasons that only bite later. A bare `size.eu` collides the moment an apparel
+ * EU convention exists, and a key is frozen, so the remedy would be exactly the
+ * rename D1 forbids. And `shoe` is deliberately not the spelling of the
+ * `footwear` facet value: the key resembles no facet, which makes "opaque,
+ * never parsed" visible rather than a rule somebody has to remember.
  *
  * ## The members are the systems Mercaria's catalogue actually declares
  *
@@ -81,23 +101,23 @@ import type {
 } from '@mercaria/shared-types';
 
 /**
- * The first segment of every key this registry mints.
+ * The first segment of every key in this namespace.
  *
  * A constant rather than a literal spelled at each use, because it appears in
- * the derivation and in the tests that pin the derivation, and two spellings of
- * one namespace prefix is how half a namespace ends up somewhere else.
+ * the entries and in the tests that pin them, and two spellings of one
+ * namespace prefix is how half a namespace ends up somewhere else.
  */
 export const SIZE_SYSTEM_KEY_NAMESPACE = 'size';
 
 /**
- * The four facts a size system IS.
+ * The four facts a size system IS — required on every entry, and NOT its key.
  *
- * Exactly `SizeSystem` minus `key` (derived from these) and minus `valueShape`,
- * which `shared-types/size-system.ts` states is "not a facet of identity". The
- * type is written as its own interface rather than as an `Omit` so the compiler
- * refuses a fifth field silently joining the key: a subtractive type admits new
- * members by default, and every member of THIS one changes what a key is
- * forever.
+ * Exactly `SizeSystem` minus `key` and minus `valueShape`, which
+ * `shared-types/size-system.ts` states is "not a facet of identity". Written as
+ * its own interface rather than as an `Omit` so the compiler refuses a fifth
+ * field slipping in unnoticed: a subtractive type admits new members by
+ * default, and every member of THIS one is something
+ * `compareSizeDeclarations` decides a comparison on.
  */
 export interface SizeSystemIdentity {
   readonly domain: SizeDomain;
@@ -107,11 +127,13 @@ export interface SizeSystemIdentity {
 }
 
 /**
- * The facet ORDER the key is built in, as data.
+ * The facets an entry must declare, as data.
  *
- * Read by {@link sizeSystemKey} and asserted against `SizeSystemIdentity`'s own
- * shape by the test, so a facet added to the interface and forgotten here fails
- * the build rather than quietly leaving two systems sharing one key.
+ * Asserted against a real entry's own shape by the test, so a facet added to
+ * `SizeSystemIdentity` and forgotten in an entry fails the build. `audience` is
+ * the one this exists for: a system that never declared who it is cut for would
+ * be comparable with everything, and making the field required is what stops an
+ * entry existing without one.
  */
 export const SIZE_SYSTEM_IDENTITY_FACETS = [
   'domain',
@@ -121,47 +143,13 @@ export const SIZE_SYSTEM_IDENTITY_FACETS = [
 ] as const satisfies readonly (keyof SizeSystemIdentity)[];
 
 /**
- * The key for one identity. The ONE derivation, and there is no inverse.
- *
- * Total over the four closed tuples, and the claim that every key it can
- * produce satisfies `catalog_external_mappings_size_system_key_shape_check` is
- * proved in TWO halves, because neither instrument can make it alone:
- *
- * - Every tuple member is a legal SEGMENT (`[a-z][a-z0-9_]*`) — asserted over
- *   all four vocabularies in `size-system-registry.test.ts`.
- * - A key composed of such segments is actually ACCEPTED by that CHECK —
- *   asserted against a real PostgreSQL server in
- *   `size-system-registry.realdb.test.ts`, because a regex re-implemented here
- *   would be a test of the re-implementation.
- *
- * The realdb half covers the keys that EXIST; the tuple half is what extends it
- * to the ones a future declaration could mint. Stated as two because the realdb
- * suite alone would leave a member like `us-west` breaking the namespace with
- * nothing red until somebody declared a system using it.
- */
-export function sizeSystemKey(identity: SizeSystemIdentity): string {
-  return [
-    SIZE_SYSTEM_KEY_NAMESPACE,
-    identity.domain,
-    identity.region,
-    identity.audience,
-    identity.measurementBasis,
-  ].join('.');
-}
-
-/** One declared system: its identity, plus the shape of the values it carries. */
-interface DeclaredSizeSystem extends SizeSystemIdentity {
-  readonly valueShape: SizeValueShape;
-}
-
-/**
- * Mercaria's size systems, as facets.
+ * Mercaria's size systems: a key, its four facets, and the shape of its values.
  *
  * Every entry is a convention the footwear vertical really publishes. The
  * audiences are its category SCOPES — the US definitions are scoped to the
  * men's and women's nodes and the EU, UK and centimetre ones to `shoes`, which
- * is what makes the first two gendered and the last three unisex. `unisex` is
- * a declared audience and is deliberately not `unspecified`: the catalogue has
+ * is what makes the first two gendered and the last three unisex. `unisex` is a
+ * declared audience and deliberately not `unspecified`: the catalogue has
  * stated who these scales are cut for.
  *
  * The centimetre entry is the one to read. It is a foot LENGTH — a real
@@ -170,9 +158,14 @@ interface DeclaredSizeSystem extends SizeSystemIdentity {
  * own. That difference is a facet, which is why no arithmetic anywhere relates
  * them, and why its region is `international` rather than a market: a
  * centimetre names no country.
+ *
+ * Two entries here happen to differ in more than one facet. Nothing requires
+ * that: the table admits two keys agreeing on all four, which is the aliasing
+ * case the module docblock explains.
  */
-const DECLARED_SIZE_SYSTEMS: readonly DeclaredSizeSystem[] = Object.freeze([
+const DECLARED_SIZE_SYSTEMS: readonly SizeSystem[] = Object.freeze([
   {
+    key: 'size.shoe_eu',
     domain: 'footwear',
     region: 'eu',
     audience: 'unisex',
@@ -180,6 +173,7 @@ const DECLARED_SIZE_SYSTEMS: readonly DeclaredSizeSystem[] = Object.freeze([
     valueShape: 'numeric',
   },
   {
+    key: 'size.shoe_uk',
     domain: 'footwear',
     region: 'uk',
     audience: 'unisex',
@@ -187,6 +181,7 @@ const DECLARED_SIZE_SYSTEMS: readonly DeclaredSizeSystem[] = Object.freeze([
     valueShape: 'numeric',
   },
   {
+    key: 'size.shoe_us_mens',
     domain: 'footwear',
     region: 'us',
     audience: 'mens',
@@ -194,6 +189,7 @@ const DECLARED_SIZE_SYSTEMS: readonly DeclaredSizeSystem[] = Object.freeze([
     valueShape: 'numeric',
   },
   {
+    key: 'size.shoe_us_womens',
     domain: 'footwear',
     region: 'us',
     audience: 'womens',
@@ -201,6 +197,7 @@ const DECLARED_SIZE_SYSTEMS: readonly DeclaredSizeSystem[] = Object.freeze([
     valueShape: 'numeric',
   },
   {
+    key: 'size.shoe_cm',
     domain: 'footwear',
     region: 'international',
     audience: 'unisex',
@@ -210,29 +207,30 @@ const DECLARED_SIZE_SYSTEMS: readonly DeclaredSizeSystem[] = Object.freeze([
 ]);
 
 /**
- * Build the table, refusing two declarations that derive one key.
+ * Build the table, refusing two entries under one key.
  *
- * A collision is possible in principle — `valueShape` is not part of the key,
- * and `shared-types/size-system.ts` says two systems differing only in shape
- * are still two systems — so the collapse is made LOUD rather than left to
- * whoever notices that one of their two conventions stopped resolving. It
- * throws at import, which is the same posture `registerCatalogConceptRegistry`
- * takes toward two readers for one dimension: the input is a code constant, so
- * a throw here is a build failure and never a runtime one.
+ * It looks at the KEY and at nothing else. Two entries sharing all four facets
+ * are legitimate and must be admitted — that is the relation
+ * `no_sourced_mapping` exists to express — so the only thing that can be wrong
+ * here is one key naming two systems, which a `Map` would silently resolve by
+ * keeping the last.
+ *
+ * It throws at import, the posture `registerCatalogConceptRegistry` takes
+ * toward two readers for one dimension. The input is a code constant, so this
+ * is a build failure and never a runtime one; the test asserting the keys are
+ * distinct is what measures it, and this is what makes a mistake loud at boot
+ * rather than at somebody's first insert.
  */
-function buildRegistry(
-  declared: readonly DeclaredSizeSystem[],
-): ReadonlyMap<string, SizeSystem> {
+function buildRegistry(declared: readonly SizeSystem[]): ReadonlyMap<string, SizeSystem> {
   const byKey = new Map<string, SizeSystem>();
   for (const entry of declared) {
-    const key = sizeSystemKey(entry);
-    if (byKey.has(key)) {
+    if (byKey.has(entry.key)) {
       throw new Error(
-        `Two size systems derive the key '${key}'. The four identity facets are the key, so ` +
-          'two declarations sharing them are one system — or one of them names its facets wrongly.',
+        `Two size systems are declared under the key '${entry.key}'. A key is an identity; ` +
+          'two systems that are genuinely different need two keys, and one of these is a typo.',
       );
     }
-    byKey.set(key, Object.freeze({ key, ...entry }));
+    byKey.set(entry.key, Object.freeze({ ...entry }));
   }
   return byKey;
 }
@@ -246,8 +244,7 @@ function buildRegistry(
  * one would report `present` for three keys it does not have and one of them
  * would come back as a function. A `Map` has no prototype chain to walk.
  */
-const SIZE_SYSTEMS_BY_KEY: ReadonlyMap<string, SizeSystem> =
-  buildRegistry(DECLARED_SIZE_SYSTEMS);
+const SIZE_SYSTEMS_BY_KEY: ReadonlyMap<string, SizeSystem> = buildRegistry(DECLARED_SIZE_SYSTEMS);
 
 /**
  * Every size system Mercaria has, in declaration order.
@@ -260,7 +257,7 @@ export const SIZE_SYSTEM_DEFINITIONS: readonly SizeSystem[] = Object.freeze([
   ...SIZE_SYSTEMS_BY_KEY.values(),
 ]);
 
-/** Every minted key, in declaration order. */
+/** Every key in the namespace, in declaration order. */
 export function sizeSystemKeys(): readonly string[] {
   return SIZE_SYSTEM_DEFINITIONS.map((system) => system.key);
 }
@@ -269,12 +266,12 @@ export function sizeSystemKeys(): readonly string[] {
  * Resolve a key to the system it names, or `null`.
  *
  * EXACT match, with no trim and no case fold — the one place this deliberately
- * differs from `units.ts`'s `resolveUnit`, which does both.
- * `resolveUnit` reads a SOURCE's own spelling, where `GB`, `gb` and `gigabyte`
- * are three ways somebody wrote one unit. This reads a Mercaria KEY, which is
- * one spelling by construction: `target_size_system_key` is CHECK-restricted to
- * `^[a-z]...`, so a key that also resolved under ` Size.EU ` would be a second
- * name for one concept and the two would index differently.
+ * differs from `units.ts`'s `resolveUnit`, which does both. `resolveUnit` reads
+ * a SOURCE's own spelling, where `GB`, `gb` and `gigabyte` are three ways
+ * somebody wrote one unit. This reads a Mercaria KEY, which is one spelling by
+ * construction: `target_size_system_key` is CHECK-restricted to `^[a-z]...`, so
+ * a key that also resolved under ` Size.Shoe_EU ` would be a second name for
+ * one concept and the two would index differently.
  *
  * Never throws, for any input. A key this table does not hold is `null`, which
  * the registry reports as `absent` and the resolver turns into a blocking

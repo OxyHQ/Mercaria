@@ -362,21 +362,43 @@ millimetre and an inch are two names for one length; an EU 42 and a US 9 are
 not, and `size-system-non-equivalence.test.ts`'s whole-backend scan covers
 these two modules like every other.
 
-**The key is DERIVED from the four facets and never parsed** —
-`size.<domain>.<region>.<audience>.<basis>`, e.g.
-`size.footwear.us.mens.manufacturer_label`. The generated-composite device
-(`endpoint_key`, `commercial_key`), for the reason
-`shared-types/size-system.ts` opens with: the four facts a size system consists
-of used to be "encoded in the SPELLING of the key", and a spelling is not a
-model. A short opaque key (`size.eu` — the illustration in `DOTTED_KEY_SHAPE`'s
-own docblock) names a region and is silent about audience, which is the facet
-worth a full shoe size. There is deliberately no inverse function: the moment
-one exists, a reader can split a key on dots and get facets that disagree with
-the row, and a scanned gate fails the build on one.
+**The four facets are REQUIRED FIELDS on every entry, and the key is OPAQUE** —
+a short stable name (`size.shoe_eu`, `size.shoe_us_mens`, `size.shoe_cm`) that
+nothing composes and nothing parses. The governing precedent is
+`unit.gigabyte`: `catalog_external_mappings` carries `target_unit_family` as its
+OWN column beside `target_unit_code`, so the family is a field and the key does
+not encode it — and ADR 0007's decision superseding D1's enumeration puts size
+system in exactly that class, as a *supporting registry*.
 
-Correcting a facet therefore mints a DIFFERENT key, which is ADR 0007 D1's
-"deprecated and superseded, never renamed" arriving for free — if a system's
-facets change it IS a different system.
+**The reason is `no_sourced_mapping`.** `compareSizeDeclarations` reaches that
+refusal only when domain, audience, measurement basis and region are all equal
+and the KEY differs. Were the key `f(domain, region, audience, basis)`, all four
+equal would imply one key, two such systems could not both exist, and the branch
+would be unreachable — and it is the ONLY relation a sourced mapping can ever
+express. Two brands' "EU" conventions agreeing on all four facets and still
+being different systems is that aliasing case, and it is what the ADR amendment
+for epic line 308 is being written to land on. A derived key would foreclose it
+inside a namespace frozen forever. So two entries MAY share all four facets; the
+builder refuses a duplicate KEY and does not look at facets at all.
+
+A facet change is still a different system, enforced by FREEZING the entry
+rather than by a key re-deriving: an entry whose facets were wrong is superseded
+by a new entry under a new key, never edited in place — ADR 0007 D1's
+"deprecated and superseded, never renamed", applied to the thing the key names.
+
+**The subject is kept in the local part** (`size.shoe_eu`, not the docblock's
+illustrative `size.eu`) for two reasons that only bite later: a bare `size.eu`
+collides the moment an apparel EU convention exists, and a key is frozen, so the
+remedy would be exactly the rename D1 forbids. `shoe` is also deliberately not
+the spelling of the `footwear` facet value, which makes "opaque, never parsed"
+visible rather than a rule somebody has to remember. Scanned gates fail the
+build on a key composed from a facet **or** parsed back into one.
+
+**The cost, stated rather than left to be found: a reader cannot see a system's
+facets from its key.** `size.shoe_eu` does not say who it is cut for or whether
+it measures anything. That is the trade `unit.gigabyte` already makes — you look
+the unit up to learn its family — and the remedy is the same: read the entry,
+which is required to state all four.
 
 **Its members are the five conventions the footwear vertical actually
 publishes**, and nothing else. Seeding an apparel or ring system nothing sells
