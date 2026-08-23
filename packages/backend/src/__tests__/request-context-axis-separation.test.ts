@@ -331,9 +331,12 @@ function pairsFor(keys: readonly string[], values: readonly string[]): string[] 
  * would need a string index signature.
  *
  * What it does NOT see is stated rather than implied: an `if`/`else if` chain, a
- * regex, a lookup assembled at runtime, and a table split across two files. The
- * miss set is the price of a detector with no false positives, and every miss
- * is a shape a reviewer can see in a diff.
+ * regex, a lookup whose VALUES are objects rather than strings
+ * (`{ ES: { currency: 'EUR' } }`), a lookup assembled at runtime, and a table
+ * split across two files. The population is `packages/` — the repo-root
+ * `scripts/` guards are outside it. The miss set is the price of a detector
+ * with no false positives, and every miss is a shape a reviewer can see in a
+ * diff.
  */
 function scanSource(relativePath: string, text: string): ScanResult {
   const source = ts.createSourceFile(
