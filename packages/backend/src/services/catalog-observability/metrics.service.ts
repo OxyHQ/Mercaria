@@ -654,12 +654,53 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
     return latency(definition, readRouteObservation('POST', '/facets')?.latency);
   },
 
+  /**
+   * A facet request this process ANSWERED 5xx — the live half of W17's
+   * "invalid facet generation".
+   *
+   * Mirrors `authoring_schema_error_rate` exactly, on the other observed route
+   * that has a producer. The data was already being collected: `POST /facets`
+   * is one of the four `CATALOG_LATENCY_BUDGETS` routes, so the middleware has
+   * always recorded `requests`, `serverErrors` and `clientErrors` for it, and
+   * only `latency` was ever read.
+   *
+   * `mounted.facets` first, for `facet_generation_latency`'s reason: with
+   * `FACETS_ENABLED` off the route is not mounted, and a `0 / 0` there would say
+   * "this task served no failing facet requests" about a surface that cannot be
+   * requested at all.
+   */
+  facet_generation_error_rate: async (definition, { mounted }) => {
+    if (!mounted.facets) return notMounted(definition, 'FACETS_ENABLED');
+    const observed = readRouteObservation('POST', '/facets');
+    return ratio(definition, observed?.serverErrors ?? 0, observed?.requests ?? 0);
+  },
+
   facet_scope_empty_rate: async (definition, { shared }) => {
     if (!shared.facetScopes) return unavailable(definition);
     // `sampled` is the denominator and `population` is not: a scope whose
     // generation raised has no verdict and is excluded from both halves, which
     // is why the sweep reports the two numbers separately.
     return ratio(definition, shared.facetScopes.empty, shared.facetScopes.sampled);
+  },
+
+  /**
+   * A scope whose facet generation RAISED — the batch half of the same item.
+   *
+   * The sweep has always counted this (`failed`) and sampled the offending
+   * category ids (`failedSample`); nothing read either, so the module's own
+   * comment — it logs at `warn` rather than `error` because "the count is the
+   * aggregate signal" — described a signal that reached nobody. This publishes
+   * the count.
+   *
+   * The denominator is `drawn`, NOT `sampled`. `facet_scope_empty_rate`
+   * deliberately excludes these scopes from its denominator because they have
+   * no empty-or-populated verdict, so the two metrics partition `drawn` between
+   * them and neither dilutes the other. `drawn === sampled + failed` is the
+   * sweep's own stated identity.
+   */
+  facet_scope_generation_failure_rate: async (definition, { shared }) => {
+    if (!shared.facetScopes) return unavailable(definition);
+    return ratio(definition, shared.facetScopes.failed, shared.facetScopes.drawn);
   },
 
   /* ---- External mappings ------------------------------------------------- */

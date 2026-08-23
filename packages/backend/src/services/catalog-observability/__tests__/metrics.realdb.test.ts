@@ -104,6 +104,7 @@ const QUANTITY_PROPERTIES: readonly string[] = [
 
 /** An observed route template with three metrics behind it. */
 const SCHEMA_ROUTE = '/catalog-authoring/schemas/:productTypeKey';
+const FACETS_ROUTE = '/facets';
 
 let baseline: CatalogMetricsReport;
 
@@ -465,6 +466,7 @@ describe('the collector really reads the route store', () => {
       'authoring_schema_error_rate',
       'authoring_schema_client_cache_hit_rate',
       'facet_generation_latency',
+      'facet_generation_error_rate',
     ]) {
       const entry = reading(off, key);
       expect(entry?.state, `${key} reported a population instead of an unmounted surface`).toBe(
@@ -478,6 +480,82 @@ describe('the collector really reads the route store', () => {
         // And it carries no quantity, so it cannot be rendered as zero.
         expect(Object.keys(entry)).not.toContain('numerator');
       }
+    }
+  });
+
+  it('counts a facet 5xx and NOT a facet 4xx, and answers `0 / 0` with no ratio', async () => {
+    // The live half of W17's "invalid facet generation". The data was always
+    // being collected — `POST /facets` is one of the four routes with a latency
+    // budget, so `requests`/`serverErrors`/`clientErrors` were recorded for it
+    // and only `latency` was ever read.
+    resetCatalogRouteObservations();
+    const collect = () =>
+      collectCatalogMetrics({
+        facetSampleSize: NO_FACET_SAMPLE,
+        mounted: { catalogAuthoring: true, facets: true },
+      });
+
+    const before = reading(await collect(), 'facet_generation_error_rate');
+    expect(before?.state).toBe('measured');
+    if (before?.state === 'measured') {
+      // A task that has served no facet request is MEASURED with an empty
+      // population, not a confident zero error rate.
+      expect(before.denominator).toBe(0);
+      expect(before.numerator).toBe(0);
+      expect(Object.keys(before), '0 / 0 was rendered as a ratio').not.toContain('ratio');
+    }
+
+    observeCatalogRoute({ method: 'POST', route: FACETS_ROUTE, statusCode: 200, durationMs: 7 });
+    observeCatalogRoute({ method: 'POST', route: FACETS_ROUTE, statusCode: 400, durationMs: 3 });
+    observeCatalogRoute({ method: 'POST', route: FACETS_ROUTE, statusCode: 500, durationMs: 31 });
+
+    const after = reading(await collect(), 'facet_generation_error_rate');
+    expect(after?.state).toBe('measured');
+    if (after?.state === 'measured') {
+      // 1 of 3, and the 400 is the load-bearing one. A refused sort key and a
+      // malformed body are 4xx and are CORRECT answers; a producer counting
+      // every non-2xx would report 2/3 here and make a stale client read as a
+      // server fault. That is the whole content of this metric's attribution
+      // limit, driven rather than described.
+      expect(after.numerator).toBe(1);
+      expect(after.denominator).toBe(3);
+      expect(after.ratio).toBeCloseTo(1 / 3, 10);
+    }
+  });
+
+  it('publishes the sweep failure count against `drawn`, beside the empty rate on `sampled`', async () => {
+    // What this pins and what it does not, stated because the difference is not
+    // visible from the assertions.
+    //
+    // PINS: the metric exists, is wired to the sweep, is MEASURED rather than a
+    // seam, and its denominator is the one the empty rate EXCLUDES its failures
+    // from — `drawn === sampled + failed`, expressed across the two published
+    // numbers rather than re-read from the sweep.
+    //
+    // DOES NOT PIN: the field choice under a real failure. Mutating the producer's
+    // denominator from `drawn` to `sampled` leaves this GREEN — measured, not
+    // assumed — because no failing scope is reachable here and the two fields
+    // are then equal.
+    //
+    // Closing it was ATTEMPTED and abandoned for a reason worth recording, since
+    // the obvious next attempt runs into the same wall. The failing scope lives
+    // in `facet-scope-sweep.realdb.test.ts`, whose fixture raises by pricing an
+    // offer above `MAX_MONEY_MINOR_UNITS`; running `collectCatalogMetrics({ db: tx })`
+    // inside that fixture's transaction draws the category and reports
+    // `failed: 0` anyway, because that fixture's offers carry `stale_at` a day
+    // after its frozen `NOW` and **`collectCatalogMetrics` takes no clock** — it
+    // uses the real one, so every fixture offer is long stale, no price facet is
+    // planned, and nothing raises. The two ways out are a `now` option on the
+    // collector (a production seam existing only for a test) or real-future
+    // dates in a fixture ten other cases depend on. Neither is worth it for a
+    // two-line producer whose identity is already pinned on the sweep RESULT.
+    const collected = await collectCatalogMetrics({ facetSampleSize: FACET_SAMPLE_SIZE });
+    const failure = reading(collected, 'facet_scope_generation_failure_rate');
+    const empty = reading(collected, 'facet_scope_empty_rate');
+    expect(failure?.state, 'the sweep failure rate is not published').toBe('measured');
+    expect(empty?.state).toBe('measured');
+    if (failure?.state === 'measured' && empty?.state === 'measured') {
+      expect(failure.denominator).toBe((empty.denominator ?? 0) + failure.numerator);
     }
   });
 
