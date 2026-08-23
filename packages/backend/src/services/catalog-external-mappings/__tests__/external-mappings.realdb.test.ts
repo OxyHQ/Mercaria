@@ -60,6 +60,8 @@ let db: Database;
 const RUN = uuidv7().slice(-12);
 
 const SOURCE = `src-${RUN}`;
+/** A SECOND source, for #367 line 1052's convergence — see the last describe. */
+const SOURCE_B = `src-b-${RUN}`;
 const OPERATOR_A = `op-a-${RUN}`;
 const OPERATOR_B = `op-b-${RUN}`;
 
@@ -141,14 +143,24 @@ async function approve(id: string, by: string): Promise<void> {
 
 beforeAll(async () => {
   db = await connectPostgres();
-  await db.insert(catalogSources).values({
-    id: SOURCE,
-    kind: 'operator',
-    name: `external-mapping realdb ${RUN}`,
-    mayDisplay: true,
-    mayStore: true,
-    attributionRequired: false,
-  });
+  await db.insert(catalogSources).values([
+    {
+      id: SOURCE,
+      kind: 'operator',
+      name: `external-mapping realdb ${RUN}`,
+      mayDisplay: true,
+      mayStore: true,
+      attributionRequired: false,
+    },
+    {
+      id: SOURCE_B,
+      kind: 'operator',
+      name: `external-mapping realdb B ${RUN}`,
+      mayDisplay: true,
+      mayStore: true,
+      attributionRequired: false,
+    },
+  ]);
 });
 
 afterAll(async () => {
@@ -194,7 +206,7 @@ afterAll(async () => {
       await tx.execute(sql.raw(`alter table ${table} enable trigger ${trigger}`));
     }
   });
-  await db.delete(catalogSources).where(eq(catalogSources.id, SOURCE));
+  await db.delete(catalogSources).where(inArray(catalogSources.id, [SOURCE, SOURCE_B]));
   await closePostgres();
 });
 
@@ -695,5 +707,134 @@ describe('12. the fixtures this file owns are the ones it deletes', () => {
       expect(id, `${id} is not scoped to this run`).toContain(RUN);
     }
     expect(mappingIds.length, 'no mappings were created — did the suite run?').toBeGreaterThan(5);
+  });
+});
+
+/**
+ * 12. Two sources, different external names, one Mercaria concept (#367 line 1052).
+ *
+ * *"Two external sources with different category/attribute names map to the same
+ * Mercaria concepts while preserving raw source values."*
+ *
+ * The mechanism is present and pointed: `catalog_external_mappings_live_primary_key`
+ * scopes its uniqueness to `(catalog_source_id, dimension, external_key_normalized)`,
+ * so **convergence across sources is unconstrained by construction** — it needs no
+ * fan-out approval, because a fan-out is one source's token reaching several
+ * targets and this is the opposite. And
+ * `catalog_external_mappings_target_attribute_idx` exists for the read that
+ * proves it, under the comment *"which sources point at this Mercaria concept"*.
+ *
+ * Nothing exercised either. Every other case in this file is single-source, and
+ * describe 1-2's one-to-many is the OPPOSITE direction — one token fanning out.
+ *
+ * ## What is asserted, and why each half is needed
+ *
+ * **The reverse read is the assertion, not the two inserts.** Two rows existing
+ * is a statement about the fixture; querying by `target_attribute_key` and
+ * getting both sources back is the thing a consumer does and the thing the index
+ * was built for.
+ *
+ * **And the RAW keys must survive distinctly.** "Both map to `ram_capacity`" is
+ * half the line; the other half is that each source's own spelling is still
+ * readable AS that source's. A case asserting only the target has proven the
+ * convergence and lost the preservation.
+ *
+ * The taxonomy half of line 1052 lives in `db/__tests__/taxonomy.realdb.test.ts`
+ * — `category_external_mappings` belongs to the taxonomy module (ADR 0007 D2)
+ * and this domain carries no `category` dimension at all. It is covered there,
+ * in the same shape, rather than approximated here.
+ */
+describe('12. two sources converge on one concept, keeping their own words (#367 line 1052)', () => {
+  /**
+   * A target key this describe OWNS.
+   *
+   * `proposal()` defaults to `ram_capacity` and earlier describes approve rows
+   * carrying it, so a reverse read on the bare key returns their fixtures too —
+   * measured: four rows where two were expected. Scoping the TARGET is the same
+   * per-run discipline the ids already use, and it is what makes the count
+   * assertions statements about this case rather than about the file.
+   */
+  const TARGET = `ram_capacity_${RUN}`;
+  const OTHER_TARGET = `display_size_${RUN}`;
+
+  it('admits both, returns both by target, and preserves each raw key', async () => {
+    // Different SPELLINGS on purpose: `memory_gb` and `ramGB` are what two real
+    // feeds would call one thing, and normalization is what makes them one
+    // token WITHIN a source — never across sources, which is the property here.
+    const fromA = proposal({
+      catalogSourceId: SOURCE,
+      externalKey: `memory_gb_${RUN}`,
+      targetAttributeKey: TARGET,
+    });
+    const fromB = proposal({
+      catalogSourceId: SOURCE_B,
+      externalKey: `ramGB_${RUN}`,
+      targetAttributeKey: TARGET,
+    });
+    // The CONTROL. Same source as A, a DIFFERENT target — so "both came back"
+    // cannot be satisfied by a read that returns everything.
+    const otherTarget = proposal({
+      catalogSourceId: SOURCE,
+      externalKey: `screen_size_${RUN}`,
+      targetAttributeKey: OTHER_TARGET,
+    });
+
+    await db.insert(catalogExternalMappings).values([fromA, fromB, otherTarget]);
+    // Approved, because the live-primary unique only applies to approved rows —
+    // asserting convergence over `proposed` rows would prove nothing about the
+    // constraint that could have refused it.
+    await approve(fromA.id, OPERATOR_A);
+    await approve(fromB.id, OPERATOR_A);
+    await approve(otherTarget.id, OPERATOR_A);
+
+    // The reverse read, by the column the index is on.
+    const rows = await db
+      .select({
+        id: catalogExternalMappings.id,
+        sourceId: catalogExternalMappings.catalogSourceId,
+        externalKey: catalogExternalMappings.externalKey,
+        targetAttributeKey: catalogExternalMappings.targetAttributeKey,
+      })
+      .from(catalogExternalMappings)
+      .where(
+        and(
+          eq(catalogExternalMappings.targetAttributeKey, TARGET),
+          eq(catalogExternalMappings.state, 'approved'),
+          inArray(catalogExternalMappings.catalogSourceId, [SOURCE, SOURCE_B]),
+        ),
+      );
+
+    expect(rows.map((row) => row.id).sort()).toEqual([fromA.id, fromB.id].sort());
+
+    // Each source's own words, still readable as that source's. This is the
+    // "preserving raw source values" half, and it is why the assertion is a
+    // PAIR rather than a count.
+    const bySource = new Map(rows.map((row) => [row.sourceId, row.externalKey]));
+    expect(bySource.get(SOURCE), 'source A lost its own spelling').toBe(fromA.externalKey);
+    expect(bySource.get(SOURCE_B), 'source B lost its own spelling').toBe(fromB.externalKey);
+    expect(bySource.get(SOURCE)).not.toBe(bySource.get(SOURCE_B));
+
+    // And the control did not come back, so the read is selective.
+    expect(rows.some((row) => row.id === otherTarget.id)).toBe(false);
+  });
+
+  it('needed no fan-out approval — the constraint is source-scoped, not target-scoped', async () => {
+    // The negative half, and the reason convergence is safe rather than merely
+    // untested. Describe 1-2 proves a SECOND live mapping for one token in one
+    // source is refused without a fan-out; this proves the same target reached
+    // from a second SOURCE is not that case at all. Both rows above are live,
+    // approved, and carry no `fan_out_approved_at`.
+    const live = await db
+      .select({ fanOut: catalogExternalMappings.fanOutApprovedAt })
+      .from(catalogExternalMappings)
+      .where(
+        and(
+          eq(catalogExternalMappings.targetAttributeKey, TARGET),
+          eq(catalogExternalMappings.state, 'approved'),
+          inArray(catalogExternalMappings.catalogSourceId, [SOURCE, SOURCE_B]),
+        ),
+      );
+    expect(live.length, 'the convergent pair is not both live').toBe(2);
+    for (const row of live) expect(row.fanOut).toBeNull();
   });
 });
