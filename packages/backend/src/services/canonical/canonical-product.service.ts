@@ -84,7 +84,12 @@ import {
 } from '../../db/canonical/provenanceRepository.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { contentHashOf, type JsonValue } from './content-hash.js';
-import { normalizeAliasLookup, normalizeEntityName, slugFromName } from './normalization.js';
+import {
+  NAME_FOLD_VERSION,
+  normalizeAliasLookup,
+  normalizeEntityName,
+  slugFromName,
+} from './normalization.js';
 import { normalizeAttributeKey } from './variant-signature.js';
 import { ensureDefaultVariant, listVariantOptions } from './canonical-variant.service.js';
 import { isPubliclyVisibleIdentifier } from './product-identifier.service.js';
@@ -178,6 +183,9 @@ export async function createCanonicalProduct(
         slug,
         name,
         normalizedName,
+        // #915: stamped WITH the value, in the same statement, so a row can
+        // never carry a fold version it was not folded under.
+        nameFoldVersion: NAME_FOLD_VERSION,
         description: input.description ?? null,
         brandId: input.brandId ?? null,
         familyId: input.familyId ?? null,
@@ -282,6 +290,9 @@ export async function updateCanonicalProduct(
       if (name !== product.name) {
         patch.name = name;
         patch.normalizedName = normalizedName;
+        // #915: the re-fold and its version move together — a patch that set
+        // one without the other is the divergence the column exists to detect.
+        patch.nameFoldVersion = NAME_FOLD_VERSION;
         pinned.add('name');
         await insertCanonicalProductAlias(tx, {
           productId,

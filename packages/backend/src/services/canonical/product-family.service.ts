@@ -52,7 +52,12 @@ import {
 } from '../../db/canonical/provenanceRepository.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { contentHashOf, type JsonValue } from './content-hash.js';
-import { normalizeAliasLookup, normalizeEntityName, slugFromName } from './normalization.js';
+import {
+  NAME_FOLD_VERSION,
+  normalizeAliasLookup,
+  normalizeEntityName,
+  slugFromName,
+} from './normalization.js';
 
 const MAX_MERGE_HOPS = 10;
 const MIN_SIMILARITY = 0.3;
@@ -104,6 +109,9 @@ export async function createProductFamily(
         slug,
         name,
         normalizedName,
+        // #915: stamped WITH the value, in the same statement, so a row can
+        // never carry a fold version it was not folded under.
+        nameFoldVersion: NAME_FOLD_VERSION,
         description: input.description ?? null,
         brandId: input.brandId ?? null,
         categoryId: input.categoryId ?? null,
@@ -173,6 +181,9 @@ export async function updateProductFamily(
       if (name !== family.name) {
         patch.name = name;
         patch.normalizedName = normalizedName;
+        // #915: the re-fold and its version move together — a patch that set
+        // one without the other is the divergence the column exists to detect.
+        patch.nameFoldVersion = NAME_FOLD_VERSION;
         pinned.add('name');
         await insertProductFamilyAlias(tx, {
           familyId,

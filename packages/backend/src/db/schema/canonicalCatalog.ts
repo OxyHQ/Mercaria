@@ -132,6 +132,15 @@ export const canonicalProductFamilies = pgTable(
     name: text().notNull(),
     /** Service-maintained normalization of `name`, for candidate generation. */
     normalizedName: text().notNull(),
+    /**
+     * Which {@link normalizeEntityName} version folded `normalizedName` (#915).
+     *
+     * Not `normalization_version`: `canonical_attribute_values.normalization_rule_version`
+     * is a DIFFERENT fold over different values. See `NAME_FOLD_VERSION` for what
+     * a bump obliges — the fold runs on both sides, so a query folded under a
+     * newer version misses a row folded under an older one SILENTLY.
+     */
+    nameFoldVersion: integer().notNull().default(1),
     description: text(),
     /** The brand this line is marketed under, when it has one. */
     brandId: text().references(() => brands.id, { onDelete: 'restrict' }),
@@ -297,6 +306,15 @@ export const canonicalProducts = pgTable(
     name: text().notNull(),
     /** Service-maintained normalization of `name`, for candidate generation. */
     normalizedName: text().notNull(),
+    /**
+     * Which {@link normalizeEntityName} version folded `normalizedName` (#915).
+     *
+     * Not `normalization_version`: `canonical_attribute_values.normalization_rule_version`
+     * is a DIFFERENT fold over different values. See `NAME_FOLD_VERSION` for what
+     * a bump obliges — the fold runs on both sides, so a query folded under a
+     * newer version misses a row folded under an older one SILENTLY.
+     */
+    nameFoldVersion: integer().notNull().default(1),
     description: text(),
     /** The product's own brand — the authority for identifier scoping. */
     brandId: text().references(() => brands.id, { onDelete: 'restrict' }),

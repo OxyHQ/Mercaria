@@ -18,7 +18,7 @@
  *    identical either way.
  */
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getTableColumns } from 'drizzle-orm';
@@ -54,31 +54,68 @@ import {
  * and the whole failure mode here is a migration that applies cleanly and
  * enforces nothing.
  */
-const MIGRATION_SQL = join(
-  import.meta.dirname,
-  '..',
-  '..',
-  '..',
-  '..',
-  'drizzle',
-  '0100_same_iron_man.sql',
-);
+const DRIZZLE_DIR = join(import.meta.dirname, '..', '..', '..', '..', 'drizzle');
+
+/**
+ * The migration that INTRODUCED this domain's triggers.
+ *
+ * Distinct from {@link statementRegion}, and both are needed. This one answers
+ * "did the paste that created these five functions carry all five, with one
+ * deploy-phase marker" — a question about ONE migration's completeness, which a
+ * later `CREATE OR REPLACE` neither changes nor can answer. `statementRegion`
+ * answers "what does this function do TODAY", which only the last definition
+ * knows.
+ */
+const ORIGIN_MIGRATION = '0100_same_iron_man.sql';
 
 function pendingSql(): string {
-  return readFileSync(MIGRATION_SQL, 'utf8');
+  return readFileSync(join(DRIZZLE_DIR, ORIGIN_MIGRATION), 'utf8');
 }
 
 /**
- * The statement REGION — everything from the first begin marker on.
+ * Every migration carrying a hand-written block, oldest first.
  *
- * Anchored at column 0, never a substring search: the file's header explains the
- * marker convention and mentions both markers in prose, and an unanchored slice
- * would drag the header in and compare against text that is not SQL.
+ * Filename order IS apply order — the prefixes are zero-padded and the journal
+ * is generated from them.
  */
-function statementRegion(): string {
-  const source = pendingSql();
-  const lines = source.split('\n');
-  const start = lines.findIndex((line) => line.startsWith('-- oxy:handwritten-begin='));
+function migrationsWithHandwrittenBlocks(): { readonly file: string; readonly sql: string }[] {
+  return readdirSync(DRIZZLE_DIR)
+    .filter((file) => file.endsWith('.sql'))
+    .sort()
+    .map((file) => ({ file, sql: readFileSync(join(DRIZZLE_DIR, file), 'utf8') }))
+    .filter((entry) => entry.sql.includes('-- oxy:handwritten-begin='));
+}
+
+/**
+ * The statement REGION for ONE function, from the LAST migration that defines it.
+ *
+ * Originally this read a single pinned migration, which was right while each
+ * function was defined exactly once. It stopped being right the moment one was
+ * replaced: `CREATE OR REPLACE FUNCTION` means the body that RUNS is the most
+ * recent one, so a gate anchored to the FIRST definition goes on asserting the
+ * frozen column list of a function the database no longer has — green, and
+ * measuring a superseded body. Resolving the last definition is what keeps this
+ * a gate on what ships rather than on what shipped once.
+ *
+ * Anchored at column 0, never a substring search: these files explain the marker
+ * convention in prose, and an unanchored slice drags the header into the
+ * comparison and compares against text that is not SQL.
+ */
+function statementRegion(functionName?: string): string {
+  const marker =
+    functionName === undefined
+      ? '-- oxy:handwritten-begin='
+      : `-- oxy:handwritten-begin=${functionName}`;
+  const defining = migrationsWithHandwrittenBlocks().filter((entry) =>
+    entry.sql.split('\n').some((line) => line.startsWith(marker)),
+  );
+  expect(
+    defining.length,
+    `no migration defines ${functionName ?? 'any handwritten block'}`,
+  ).toBeGreaterThan(0);
+  const latest = defining[defining.length - 1] as { readonly sql: string };
+  const lines = latest.sql.split('\n');
+  const start = lines.findIndex((line) => line.startsWith(marker));
   expect(start, 'no column-0 begin marker in the migration').toBeGreaterThan(-1);
   return lines.slice(start).join('\n');
 }
@@ -207,17 +244,20 @@ describe('the staging SQL carries every trigger this domain claims', () => {
     // AFTER a `BEFORE UPDATE` trigger runs, so `NEW.convergence_key` is NULL
     // inside one of these functions and any comparison against it raises on every
     // update. Cost a real bug in #59 and again in Workstream 11.
-    expect(statementRegion()).not.toContain('new.convergence_key');
+    expect(statementRegion('mercaria_catalog_proposal_freeze')).not.toContain(
+      'new.convergence_key',
+    );
     // …and the five RAW components the generation reads ARE compared, so the
     // freeze is not merely avoiding the generated column but covering what it is
     // derived from.
-    const region = statementRegion();
+    const region = statementRegion('mercaria_catalog_proposal_freeze');
     for (const column of [
       'new.type',
       'new.attribute_definition_id',
       'new.category_id',
       'new.product_type_definition_id',
       'new.normalized_label',
+      'new.name_fold_version',
     ]) {
       expect(region, `${column} is not frozen`).toContain(column);
     }
@@ -238,38 +278,46 @@ describe('the staging SQL carries every trigger this domain claims', () => {
     // mentions `$$` in prose and would otherwise flip the state and make every
     // later comment read as body text — the trap Workstream 11's own gate hit
     // twice while being written.
-    const region = statementRegion();
-    const bodyAt = new Array<boolean>(region.length).fill(false);
-    let inBody = false;
-    let offset = 0;
-    for (const line of region.split('\n')) {
-      const isComment = line.trimStart().startsWith('--');
-      for (let i = 0; i < line.length; i += 1) {
-        bodyAt[offset + i] = inBody;
-        if (!inBody && isComment) continue;
-        if (line.startsWith('$$', i)) {
-          inBody = !inBody;
-          bodyAt[offset + i] = false;
-          bodyAt[offset + i + 1] = false;
-          i += 1;
+    // EVERY migration carrying a hand-written block, not just one. The check is
+    // about dollar-quote hygiene in the file, so pinning it to a single
+    // migration leaves every later hand-written body unchecked — and a later
+    // body is exactly where the next one gets pasted.
+    let totalSeparators = 0;
+    for (const entry of migrationsWithHandwrittenBlocks()) {
+      const lines = entry.sql.split('\n');
+      const from = lines.findIndex((line) => line.startsWith('-- oxy:handwritten-begin='));
+      const region = lines.slice(from).join('\n');
+      const bodyAt = new Array<boolean>(region.length).fill(false);
+      let inBody = false;
+      let offset = 0;
+      for (const line of region.split('\n')) {
+        const isComment = line.trimStart().startsWith('--');
+        for (let i = 0; i < line.length; i += 1) {
+          bodyAt[offset + i] = inBody;
+          if (!inBody && isComment) continue;
+          if (line.startsWith('$$', i)) {
+            inBody = !inBody;
+            bodyAt[offset + i] = false;
+            bodyAt[offset + i + 1] = false;
+            i += 1;
+          }
         }
+        offset += line.length + 1;
       }
-      offset += line.length + 1;
-    }
-    expect(inBody, 'the migration leaves a dollar-quoted body open').toBe(false);
+      expect(inBody, `${entry.file} leaves a dollar-quoted body open`).toBe(false);
 
-    const separators = [...region.matchAll(/--> statement-breakpoint/g)];
-    // A vacuity floor: a region with no separators at all would pass the loop
-    // below by measuring nothing.
-    expect(separators.length, 'no statement separators found — did the slice work?').toBeGreaterThan(
-      3,
-    );
-    for (const match of separators) {
-      expect(
-        bodyAt[match.index],
-        `a statement separator sits inside a $$ body at offset ${match.index}`,
-      ).toBe(false);
+      const separators = [...region.matchAll(/--> statement-breakpoint/g)];
+      totalSeparators += separators.length;
+      for (const match of separators) {
+        expect(
+          bodyAt[match.index],
+          `${entry.file}: a statement separator sits inside a $$ body at offset ${match.index}`,
+        ).toBe(false);
+      }
     }
+    // A vacuity floor on the TOTAL: a walk that sliced nothing would pass the
+    // loop above by measuring nothing at all.
+    expect(totalSeparators, 'no statement separators found — did the walk work?').toBeGreaterThan(3);
   });
 });
 
@@ -288,7 +336,7 @@ function assertFreezePartition(input: {
   readonly mutable: Readonly<Record<string, string>>;
   readonly minimumFrozen: number;
 }): void {
-  const region = statementRegion();
+  const region = statementRegion(input.functionName);
   const from = region.indexOf(`${input.functionName}()`);
   const to = region.indexOf(`-- oxy:handwritten-end=${input.functionName}`);
   expect(from, `could not find ${input.functionName}`).toBeGreaterThan(-1);
@@ -332,7 +380,7 @@ describe('the column-enumerating triggers are DECLARED PARTITIONS', () => {
     assertFreezePartition({
       functionName: 'mercaria_catalog_proposal_freeze',
       table: catalogProposals,
-      minimumFrozen: 16,
+      minimumFrozen: 17,
       mutable: {
         // The disposition — everything a decision moves, each guarded further by
         // `mercaria_catalog_proposal_state` and by the row's own CHECKs.

@@ -71,6 +71,7 @@ import {
 } from '../proposal.service.js';
 import { approveProposal, redirectProposal, rejectProposal } from '../review.service.js';
 import { runProposalBackfill } from '../backfill.service.js';
+import { NAME_FOLD_VERSION } from '../../canonical/normalization.js';
 
 /** Everything this file owns. One prefix, so the teardown is one predicate. */
 const P = 'catprop-rdb';
@@ -933,5 +934,58 @@ describe.skipIf(!ready)('convergence under a genuine race', () => {
       where convergence_key = ${key} and state in ('submitted', 'needs_information', 'deferred')
     `);
     expect(count[0]?.total).toBe(1);
+  }, 120_000);
+});
+
+describe.skipIf(!ready)('the name fold version is frozen with the value it describes', () => {
+  /**
+   * #915. The static census proves the trigger's SQL NAMES the column; only a
+   * server proves the trigger fires on it. A freeze asserted only in a source
+   * scan is a comment — and this one was added by a `CREATE OR REPLACE` in a
+   * later migration, which is precisely the shape that applies cleanly and
+   * enforces nothing if the replacement never ran.
+   */
+  it('REFUSES an update that moves it, and still allows a mutable column', async () => {
+    const proposal = await submitProposal(db, submission('Violeta Fold', MERCHANT, false));
+    const id = proposal.proposal.id;
+
+    // The writer stamped it — the row does not merely carry the column default,
+    // which would look identical here and everywhere else.
+    const before = await db.execute<{ name_fold_version: number }>(sql`
+      select name_fold_version from catalog_proposals where id = ${id}
+    `);
+    expect(Number(before[0]?.name_fold_version)).toBe(NAME_FOLD_VERSION);
+
+    // The refusal is read off `cause`, never `message`. drizzle wraps a server
+    // error as `Failed query: <sql>`, so matching the message asserts only that
+    // SOMETHING went wrong — a typo'd column, a missing table and the trigger
+    // firing are all the same string. `toThrow` alone passed for the wrong
+    // reason here on the first run.
+    let refusal: unknown;
+    try {
+      await db.execute(sql`
+        update catalog_proposals set name_fold_version = name_fold_version + 1 where id = ${id}
+      `);
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal, 'the freeze allowed the fold version to move').toBeDefined();
+    const cause = (refusal as { cause?: { message?: string } }).cause;
+    expect(cause?.message ?? '', 'refused, but not by the proposal freeze').toMatch(
+      /immutable once submitted/i,
+    );
+
+    // The positive control, and it is not optional: without it a row that could
+    // not be updated for ANY reason — a lock, an unrelated CHECK, a typo in the
+    // predicate matching nothing — reads exactly like a working freeze.
+    // `updated_at` is one of the columns declared MUTABLE.
+    await db.execute(sql`
+      update catalog_proposals set updated_at = now() where id = ${id}
+    `);
+
+    const after = await db.execute<{ name_fold_version: number }>(sql`
+      select name_fold_version from catalog_proposals where id = ${id}
+    `);
+    expect(Number(after[0]?.name_fold_version)).toBe(NAME_FOLD_VERSION);
   }, 120_000);
 });

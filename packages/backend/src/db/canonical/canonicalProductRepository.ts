@@ -25,7 +25,22 @@ export type CanonicalProductRow = typeof canonicalProducts.$inferSelect;
 export type CanonicalProductAliasRow = typeof canonicalProductAliases.$inferSelect;
 export type CanonicalProductSourceLinkRow = typeof canonicalProductSourceLinks.$inferSelect;
 export type CanonicalProductRedirectRow = typeof canonicalProductRedirects.$inferSelect;
-export type InsertCanonicalProductInput = typeof canonicalProducts.$inferInsert;
+/**
+ * #915: `nameFoldVersion` is REQUIRED here, though the column has a DEFAULT.
+ *
+ * The column needs its database default — the serving image writes none of these
+ * columns and they are NOT NULL, so the `pre` migration has to backfill and
+ * defend that window. But a default also makes `$inferInsert` mark the field
+ * OPTIONAL, which is exactly how a new writer folds a name and silently takes
+ * version 1 while folding under 2 (measured: `split.service` did precisely that).
+ *
+ * So the default stays in the schema and the requirement is re-imposed HERE, at
+ * the input type every caller passes. A property the type system already knows
+ * gets a gate in the type system rather than a source scan: it is precise, it
+ * costs no exclusion list, and it covers writers nobody has written yet.
+ */
+export type InsertCanonicalProductInput = typeof canonicalProducts.$inferInsert &
+  Required<Pick<typeof canonicalProducts.$inferInsert, 'nameFoldVersion'>>;
 
 /** The columns an update may touch. Identity columns are absent on purpose. */
 export type CanonicalProductPatch = Partial<
@@ -33,6 +48,8 @@ export type CanonicalProductPatch = Partial<
     CanonicalProductRow,
     | 'name'
     | 'normalizedName'
+    // #915: patchable so a re-fold moves the value and its version together.
+    | 'nameFoldVersion'
     | 'description'
     | 'brandId'
     | 'familyId'

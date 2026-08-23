@@ -29,7 +29,17 @@ export type OrganizationAliasRow = typeof organizationAliases.$inferSelect;
 export type OrganizationSourceLinkRow = typeof organizationSourceLinks.$inferSelect;
 
 /** What the write service supplies to mint an organization. */
-export type InsertOrganizationInput = typeof organizations.$inferInsert;
+/**
+ * #915: `nameFoldVersion` is REQUIRED here, though the column has a DEFAULT.
+ *
+ * The database default is load-bearing — the serving image writes none of these
+ * columns and they are NOT NULL — but a default also makes `$inferInsert` mark
+ * the field OPTIONAL, which is how a new writer folds a name and silently takes
+ * version 1 while folding under 2. The requirement is re-imposed at the input
+ * type instead. Reasoning in full: `canonicalProductRepository.ts`.
+ */
+export type InsertOrganizationInput = typeof organizations.$inferInsert &
+  Required<Pick<typeof organizations.$inferInsert, 'nameFoldVersion'>>;
 
 /** The columns an organization update may touch. Identity columns are absent. */
 export type OrganizationPatch = Partial<
@@ -37,6 +47,8 @@ export type OrganizationPatch = Partial<
     OrganizationRow,
     | 'name'
     | 'normalizedName'
+    // #915: patchable so a re-fold moves the value and its version together.
+    | 'nameFoldVersion'
     | 'legalName'
     | 'websiteUrl'
     | 'verifiedDomains'
