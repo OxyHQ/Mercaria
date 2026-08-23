@@ -327,7 +327,18 @@ half is gated everywhere and the definition half is asserted nowhere**, and the
 reason is recorded here rather than closed with a gate, because a gate would be
 wrong rather than merely unnecessary.
 
-Measured over non-test modules:
+**Measured over non-test modules, and re-measurable** — a reader whose count
+differs should re-run it and correct this table, not assume they miscounted. The
+numbers below were wrong twice in the audit this decision came from (once for
+`facets`, once for `product-page`), which is the argument for a measured figure
+over a cited one: **a citation keeps reading as authoritative after the thing it
+cites has moved, and a measured number is falsifiable by one command.**
+
+```
+git grep -c 'resolveDefinitionsForCategory\|resolveAllActiveDefinitions' \
+  -- 'packages/backend/src/services/<surface>' | grep -v __tests__
+```
+
 
 | surface | calls `resolveDefinitionsForCategory` / `resolveAllActiveDefinitions` | reaches another definition source |
 | --- | --- | --- |
