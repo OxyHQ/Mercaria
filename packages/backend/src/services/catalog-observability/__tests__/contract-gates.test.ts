@@ -40,9 +40,15 @@ import {
   CATALOG_METRIC_KINDS,
   CATALOG_METRIC_SOURCES,
   CATALOG_METRIC_WINDOWS,
+  CATALOG_PROPOSAL_AGE_BANDS,
+  CATALOG_PROPOSAL_SLA_STATES,
+  CATALOG_PROPOSAL_WAIT_AGE_MIN_POPULATION,
+  CATALOG_PROPOSAL_WAIT_AGE_PERCENTILES,
   CATALOG_UNMEASURED_REASONS,
   type CatalogMetricDefinition,
   type CatalogMetricKind,
+  type CatalogProposalAgeBand,
+  describeCatalogProposalSla,
 } from '@mercaria/shared-types';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -68,23 +74,31 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
  * a build failure and a decision — a removal here is somebody stating that the
  * seam named in `docs/catalog-observability.md` is closed.
  *
- * Seven, one per gap, each with its own reason and seam in the registry.
+ * Eight, one per gap, each with its own reason and seam in the registry.
+ *
+ * `proposal_sla_breach_count` is the one whose gap is NOT code. Its input — the
+ * queue's depth, per-state oldest age, five-band waiting-age distribution and
+ * nearest-rank percentiles — is measured and served; what is missing is a
+ * review-time TARGET, which is a policy decision nobody has taken. It carries
+ * `policy_target_undefined` for exactly that reason, and reporting zero instead
+ * would say "nothing has breached a target that does not exist".
  */
 const EXPECTED_UNMEASURED_METRIC_KEYS: readonly string[] = [
   'authoring_schema_memo_hit_rate',
   'backfill_dead_letter_count',
   'draft_validation_failure_rate',
   'facet_usage_rate',
+  'proposal_sla_breach_count',
   'reindex_throughput',
   'search_zero_result_rate_by_locale',
   'translation_fallback_use_rate',
 ];
 
 /**
- * The four GETs `internal-catalog-metrics.ts` promises in its own docblock.
+ * The five GETs `internal-catalog-metrics.ts` promises in its own docblock.
  *
  * Asserted as an EXACT set, never by containment: the router's header says the
- * set is closed and read-only, and the route that matters is the fifth one —
+ * set is closed and read-only, and the route that matters is the NEXT one —
  * "recompute this", "clear this counter", "resolve this finding" are each one
  * handler away and each would make this surface a way to make the catalogue
  * agree with a dashboard.
@@ -93,6 +107,7 @@ const EXPECTED_ROUTES: readonly string[] = [
   'GET /',
   'GET /integrity',
   'GET /latency',
+  'GET /proposal-queue',
   'GET /trace/:handleKind/:handle',
 ];
 
@@ -108,6 +123,105 @@ function registeredRoutes(router: { stack: unknown[] }): string[] {
     }
   }
   return found.sort();
+}
+
+/**
+ * The two modules that decide what the proposal queue may say about an SLA.
+ *
+ * Paths relative to `packages/backend/src`, so the second reaches across into
+ * shared-types — which is where the TYPE lives, and a type carrying a threshold
+ * field is how one would arrive with no backend change at all.
+ *
+ * Each entry names an anchor the stripped source must still contain, because a
+ * renamed or moved file reads as one with no threshold in it for entirely the
+ * wrong reason.
+ */
+const SLA_SCANNED_MODULES: readonly { readonly path: string; readonly anchor: string }[] = [
+  {
+    path: 'services/catalog-observability/proposal-queue.ts',
+    anchor: 'deriveProposalQueueAging',
+  },
+  {
+    path: join('..', '..', 'shared-types', 'src', 'catalog-proposal-queue.ts'),
+    anchor: 'CatalogProposalSlaVisibility',
+  },
+];
+
+/** Strip comments: both scanned modules document at length what they refuse to do. */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+/**
+ * Strip string and template literals.
+ *
+ * The comment strip alone is not enough here, and that is the whole reason this
+ * exists: `describeCatalogProposalSla`'s own `statement` and `seam` are STRING
+ * LITERALS that name the missing target and the breach metric on purpose. A
+ * detector that could not tell a sentence explaining the gap from a field
+ * implementing one would fire on the explanation, and would be disabled the first
+ * time somebody read it.
+ */
+function stripStringLiterals(source: string): string {
+  return source
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
+    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
+    .replace(/`(?:[^`\\]|\\.)*`/g, '``');
+}
+
+/**
+ * Identifiers that would hold a review-time threshold, or a verdict against one.
+ *
+ * Takes RAW source and does the whole pipeline itself — comments out, string
+ * literals out, then scan — so the mutation self-test drives exactly the
+ * pipeline the scan does rather than a shorter one that happens to agree.
+ *
+ * snake_case tokens are excluded: `undefined_target` and `policy_target_undefined`
+ * are members of the two closed vocabularies that STATE the gap, and the union
+ * having exactly one member is separately gated above. Only a camelCase or bare
+ * identifier could be a field carrying a number.
+ */
+function thresholdIdentifiers(source: string): string[] {
+  const code = stripStringLiterals(stripComments(source));
+  const found = new Set<string>();
+  for (const match of code.matchAll(/\b[A-Za-z_$][\w$]*\b/gu)) {
+    const token = match[0];
+    if (token.includes('_')) continue;
+    if (!/target|deadline|threshold|breach|within/iu.test(token)) continue;
+    found.add(token);
+  }
+  return [...found].sort();
+}
+
+/**
+ * Every way an age-band tuple can stop being a contiguous partition from zero,
+ * as a list of sentences.
+ *
+ * Returned rather than asserted so the detector itself can be driven against a
+ * broken tuple — `toEqual([])` is what a detector that always answers `[]`
+ * reports.
+ */
+function bandContiguityFaults(bands: readonly CatalogProposalAgeBand[]): string[] {
+  const faults: string[] = [];
+  bands.forEach((band, index) => {
+    const previous = bands[index - 1];
+    if (index === 0) {
+      if (band.fromSeconds !== 0) faults.push(`${band.key} does not start at zero`);
+    } else if (previous && band.fromSeconds !== previous.toSeconds) {
+      faults.push(`${band.key} does not begin where ${previous.key} ends`);
+    }
+    const isLast = index === bands.length - 1;
+    if (isLast && band.toSeconds !== null) {
+      faults.push(`${band.key} is the last band and is not open-ended`);
+    }
+    if (!isLast && band.toSeconds === null) {
+      faults.push(`${band.key} is not the last band and is open-ended`);
+    }
+    if (band.toSeconds !== null && band.toSeconds <= band.fromSeconds) {
+      faults.push(`${band.key} ends before it begins`);
+    }
+  });
+  return faults;
 }
 
 /** The keys of every metric carrying a seam, sorted. */
@@ -227,6 +341,11 @@ describe('#367 W17 — `unmeasured` carries BOTH halves, and the set is a decisi
     // the worst possible cause — #367 names gaps that exist, so zero of them
     // would mean the registry had lost its own seams.
     expect(unmeasured.length).toBeGreaterThanOrEqual(5);
+    // And every REASON in the closed tuple that a definition claims is really in
+    // the tuple, checked from the definition side as well as the vocabulary
+    // side — a reason added to the tuple and used by nothing is a member the
+    // gate below would still count.
+    expect(new Set(unmeasured.map((metric) => metric.unmeasured?.reason)).size).toBeGreaterThan(1);
 
     for (const metric of unmeasured) {
       const gap = metric.unmeasured;
@@ -244,7 +363,7 @@ describe('#367 W17 — `unmeasured` carries BOTH halves, and the set is a decisi
     }
   });
 
-  it('the unmeasured set is EXACTLY the seven this deployment has', () => {
+  it('the unmeasured set is EXACTLY the eight this deployment has', () => {
     // Both directions, against a hand-written list. Closing a seam is a
     // deliberate edit here; a new metric shipping `unmeasured` because nobody
     // finished its producer is a build failure rather than a permanently grey
@@ -592,8 +711,184 @@ describe('#367 W17 — the integrity vocabulary', () => {
 
 /* -------------------------------------------------------------------------- */
 
+describe('#367 W6 — the proposal age bands are a PARTITION from zero', () => {
+  it('the bands are contiguous, ordered, start at zero and end open', () => {
+    // The floor. An empty tuple satisfies every pairwise assertion below for the
+    // best possible reason and the worst possible cause.
+    expect(CATALOG_PROPOSAL_AGE_BANDS.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(CATALOG_PROPOSAL_AGE_BANDS.map((band) => band.key)).size).toBe(
+      CATALOG_PROPOSAL_AGE_BANDS.length,
+    );
+
+    // Contiguity is what makes `unbandedOpenCount` mean "an age below zero" and
+    // nothing else. A GAP between two bands would silently drop every open
+    // proposal whose age fell in it, and the distribution would still look like
+    // a distribution — the counts would simply be short, with the shortfall
+    // landing in `unbandedOpenCount` only because it is derived by subtraction.
+    expect(bandContiguityFaults(CATALOG_PROPOSAL_AGE_BANDS)).toEqual([]);
+  });
+
+  it('the contiguity detector really fires — the mutation self-test', () => {
+    // `toEqual([])` above is what a detector that always returns `[]` reports,
+    // so the detector is driven against each of the four ways a band tuple can
+    // be wrong. Synthetic input, because the real tuple is correct and must
+    // stay so.
+    expect(bandContiguityFaults([{ key: 'a', fromSeconds: 60, toSeconds: null }])).toContain(
+      'a does not start at zero',
+    );
+    expect(
+      bandContiguityFaults([
+        { key: 'a', fromSeconds: 0, toSeconds: 60 },
+        { key: 'b', fromSeconds: 120, toSeconds: null },
+      ]),
+      'a gap between two bands went unreported',
+    ).toContain('b does not begin where a ends');
+    expect(
+      bandContiguityFaults([
+        { key: 'a', fromSeconds: 0, toSeconds: 60 },
+        { key: 'b', fromSeconds: 60, toSeconds: 120 },
+      ]),
+      'a closed last band went unreported',
+    ).toContain('b is the last band and is not open-ended');
+    expect(
+      bandContiguityFaults([
+        { key: 'a', fromSeconds: 0, toSeconds: null },
+        { key: 'b', fromSeconds: 0, toSeconds: null },
+      ]),
+      'an open-ended band in the middle went unreported',
+    ).toContain('a is not the last band and is open-ended');
+    // And the clean case, so the detector is not simply reporting everything.
+    expect(
+      bandContiguityFaults([
+        { key: 'a', fromSeconds: 0, toSeconds: 60 },
+        { key: 'b', fromSeconds: 60, toSeconds: null },
+      ]),
+    ).toEqual([]);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+describe('#367 W6 — the percentile floor is DERIVED, not chosen', () => {
+  it('is exactly the population at which a nearest-rank p95 stops being the maximum', () => {
+    // The whole claim in the constant's docblock, re-derived from the rank
+    // formula rather than trusted. `percentile_disc(p)` over n samples returns
+    // the element at rank ceil(p * n); when that equals n it IS the maximum, so
+    // publishing it as a p95 restates the largest observed age under a name that
+    // implies a distribution behind it.
+    const highest = Math.max(...CATALOG_PROPOSAL_WAIT_AGE_PERCENTILES);
+    const rankIsMax = (n: number): boolean => Math.ceil(highest * n) === n;
+
+    // Below the floor, always the maximum. `assertEachOf` rather than a bare
+    // loop: the population list is the thing under test and an empty one would
+    // make this assert nothing.
+    const below = Array.from({ length: CATALOG_PROPOSAL_WAIT_AGE_MIN_POPULATION - 1 }, (_, i) => i + 1);
+    assertEachOf(below, CATALOG_PROPOSAL_WAIT_AGE_MIN_POPULATION - 1, (n) => {
+      expect(rankIsMax(n), `p${String(highest)} over ${String(n)} samples is not the maximum`).toBe(
+        true,
+      );
+    });
+    // And AT the floor it stops. Both directions, or a floor of 1000 would pass
+    // the half above.
+    expect(
+      rankIsMax(CATALOG_PROPOSAL_WAIT_AGE_MIN_POPULATION),
+      'the floor is higher than the crossover, so figures that would mean something are withheld',
+    ).toBe(false);
+
+    expect(CATALOG_PROPOSAL_WAIT_AGE_PERCENTILES.length).toBeGreaterThanOrEqual(3);
+    for (const percentile of CATALOG_PROPOSAL_WAIT_AGE_PERCENTILES) {
+      expect(percentile, 'a percentile is outside (0, 1)').toBeGreaterThan(0);
+      expect(percentile).toBeLessThan(1);
+    }
+  });
+
+  it('the tuple and the published field NAMES are the same three values', () => {
+    // `tallyProposals` renders its three `percentile_disc` arguments from this
+    // tuple BY POSITION, and `CatalogProposalWaitAge` names its fields
+    // `p50Seconds`, `p90Seconds` and `p95Seconds`. So the tuple is the only
+    // spelling of the numbers, and this is what stops it drifting away from the
+    // names that publish them: changing a member without renaming its field
+    // would serve a p99 under the name `p95Seconds`, and every gate above would
+    // still pass because the arithmetic would still be correct.
+    expect(
+      [...CATALOG_PROPOSAL_WAIT_AGE_PERCENTILES],
+      'the percentile tuple no longer matches the p50/p90/p95 field names it is published under',
+    ).toEqual([0.5, 0.9, 0.95]);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+describe('#367 W6 — there is no SLA target, and none is representable', () => {
+  it('the SLA union has ONE member and the published answer is it', () => {
+    expect(CATALOG_PROPOSAL_SLA_STATES).toEqual(['undefined_target']);
+    const answer = describeCatalogProposalSla();
+    expect(answer.state).toBe('undefined_target');
+    // Both halves, and both long enough to be read by a person rather than
+    // rendered as a label. The seam floor matches the registry's own.
+    expect(answer.statement.length, 'the SLA statement says nothing').toBeGreaterThan(40);
+    expect(answer.seam.length, 'the SLA gap names no owner').toBeGreaterThan(40);
+    // The shape is exactly these three keys. A fourth would be where a target
+    // arrives without the second union member that is supposed to carry it.
+    expect(Object.keys(answer).sort()).toEqual(['seam', 'state', 'statement']);
+  });
+
+  it('no module in the queue domain declares a threshold field', () => {
+    // A scanned wall, over COMMENT-STRIPPED source, because both modules
+    // document at length what they refuse to do and in the same vocabulary.
+    // Keyed on camelCase IDENTIFIERS rather than on the word "sla": the metric
+    // key `proposal_sla_breach_count` is a legitimate snake_case token that the
+    // seam text names on purpose, and a detector that could not tell those apart
+    // would fire on the very sentence explaining the gap.
+    const sources = SLA_SCANNED_MODULES.map((module) => ({
+      ...module,
+      source: readFileSync(join(SRC_ROOT, module.path), 'utf8'),
+    }));
+    assertEachOf(sources, 2, ({ path, anchor, source }) => {
+      // The vacuity floor for the SCAN rather than for the list: a moved,
+      // renamed or comment-only file scans clean for entirely the wrong reason,
+      // and the anchor is what tells that apart from a file that really carries
+      // no threshold.
+      expect(source, `${path} scanned without its anchor — is it still the right file?`).toContain(
+        anchor,
+      );
+      expect(
+        thresholdIdentifiers(source),
+        `${path} declares a review-time threshold — that belongs in the same change as the `
+          + 'policy decision and the second CatalogProposalSlaVisibility member',
+      ).toEqual([]);
+    });
+  });
+
+  it('the threshold detector really fires — the mutation self-test', () => {
+    expect(thresholdIdentifiers('readonly targetSeconds: number;')).toContain('targetSeconds');
+    expect(thresholdIdentifiers('const slaDeadlineSeconds = 3600;')).toContain(
+      'slaDeadlineSeconds',
+    );
+    expect(thresholdIdentifiers('if (withinSla) return;')).toContain('withinSla');
+    expect(thresholdIdentifiers('breachCount += 1;')).toContain('breachCount');
+    // And the three things it must NOT fire on: the metric key, the word inside
+    // a string literal, and the word inside a comment. Every one of them appears
+    // in the two scanned files on purpose, and a detector that flagged any of
+    // them would be one somebody disables.
+    expect(thresholdIdentifiers("key: 'proposal_sla_breach_count',")).toEqual([]);
+    expect(
+      thresholdIdentifiers("statement: 'nothing has breached a target that does not exist',"),
+    ).toEqual([]);
+    expect(thresholdIdentifiers('/** The breach metric and its target. */')).toEqual([]);
+    // The type and factory names really do contain "Sla", and must survive:
+    // this gate is about a NUMBER, and refusing the vocabulary that states the
+    // gap would make the gap unstateable.
+    expect(
+      thresholdIdentifiers('export function describeCatalogProposalSla(): CatalogProposalSlaVisibility {'),
+    ).toEqual([]);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
 describe('#367 — the operator surface is a CLOSED set of reads', () => {
-  it('registers EXACTLY the four documented GETs', () => {
+  it('registers EXACTLY the five documented GETs', () => {
     expect(registeredRoutes(catalogMetricsRouter as unknown as { stack: unknown[] })).toEqual(
       [...EXPECTED_ROUTES].sort(),
     );

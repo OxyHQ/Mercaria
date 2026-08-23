@@ -214,6 +214,24 @@ export const CATALOG_UNMEASURED_REASONS = [
    * metrics; `/categories` and `/search` are mounted unconditionally.
    */
   'surface_not_mounted',
+  /**
+   * The measurement exists; the THRESHOLD it would be compared against does not.
+   *
+   * Distinct from `not_instrumented`, and the distinction is the reason this
+   * member exists rather than being folded into it: `not_instrumented` says a
+   * column or a counter is owed, which sends a reader to write code. This says
+   * the input is already published and what is missing is somebody deciding what
+   * an acceptable value is — which sends them to write a policy. Reporting the
+   * second as the first is how a decision nobody has taken looks like a task
+   * nobody has finished.
+   *
+   * ONE metric takes it, `proposal_sla_breach_count`: the proposal queue's
+   * depth, its per-state aging and its waiting-age percentiles are all measured
+   * (`readProposalQueueAging`), and no review-time target is defined anywhere in
+   * this repository. A number invented to fill it would harden the first time
+   * somebody quoted it, so the seam is named instead.
+   */
+  'policy_target_undefined',
 ] as const;
 
 export type CatalogUnmeasuredReason = (typeof CATALOG_UNMEASURED_REASONS)[number];
@@ -696,8 +714,112 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_proposals',
     freshnessSeconds: 300,
     attributionLimit:
-      'The SLA signal W6 asks for. It is the oldest, not the median, because a queue is judged '
-      + 'by the thing that has waited longest.',
+      'The oldest, not the median, because a queue is judged by the thing that has waited '
+      + 'longest — but it is the oldest of ALL open states, so a proposal parked on a merchant '
+      + 'who never replied dominates it forever. proposal_awaiting_operator_oldest_age is the '
+      + 'one that measures Mercaria\'s own responsiveness, and the full distribution is at '
+      + 'GET /internal/catalog-metrics/proposal-queue.',
+  },
+  {
+    key: 'proposal_backlog_awaiting_operator_count',
+    title: 'Proposals nobody has looked at',
+    kind: 'count',
+    numerator: "catalog_proposals rows in state 'submitted'.",
+    denominator: 'Not a ratio.',
+    window: 'instant',
+    source: 'catalog_proposals',
+    freshnessSeconds: 300,
+    attributionLimit:
+      'The share of the backlog that is Mercaria\'s to answer. It says nothing about how long '
+      + 'any of them has waited — read it with proposal_awaiting_operator_oldest_age — and a '
+      + 'proposal an operator has already opened and not decided is still in here, because '
+      + 'reading is not a state.',
+  },
+  {
+    key: 'proposal_backlog_awaiting_submitter_count',
+    title: 'Proposals waiting on a merchant',
+    kind: 'count',
+    numerator: "catalog_proposals rows in state 'needs_information'.",
+    denominator: 'Not a ratio.',
+    window: 'instant',
+    source: 'catalog_proposals',
+    freshnessSeconds: 300,
+    attributionLimit:
+      'Open, and NOT Mercaria\'s to answer: an operator asked and is waiting. It is separated '
+      + 'from the backlog for exactly that reason, and it is not a health signal on its own — a '
+      + 'large number can mean the form asks for too little or that reviewers ask for too much, '
+      + 'and this cannot tell those apart.',
+  },
+  {
+    key: 'proposal_backlog_deferred_count',
+    title: 'Deferred proposals',
+    kind: 'count',
+    numerator: "catalog_proposals rows in state 'deferred'.",
+    denominator: 'Not a ratio.',
+    window: 'instant',
+    source: 'catalog_proposals',
+    freshnessSeconds: 300,
+    attributionLimit:
+      'Every deferral, whether its date has passed or not. A deferral whose date has passed is '
+      + 'back in the queue and is genuinely waiting; the split is deferredAheadCount on '
+      + 'GET /internal/catalog-metrics/proposal-queue, which this count deliberately does not '
+      + 'duplicate.',
+  },
+  {
+    key: 'proposal_awaiting_operator_oldest_age',
+    title: 'Oldest proposal nobody has looked at',
+    kind: 'age_seconds',
+    numerator: "Seconds since the oldest 'submitted' catalog_proposals row was created.",
+    denominator: 'Not a ratio.',
+    window: 'instant',
+    source: 'catalog_proposals',
+    freshnessSeconds: 300,
+    attributionLimit:
+      'Mercaria\'s own worst response time, with the two waits that are not Mercaria\'s '
+      + '(needs_information, deferred) excluded. It is a MAXIMUM and says nothing about the '
+      + 'shape behind it: the age bands and percentiles at '
+      + 'GET /internal/catalog-metrics/proposal-queue are that, and the percentiles refuse to '
+      + 'answer below a population of twenty.',
+  },
+  {
+    key: 'proposal_decision_count',
+    title: 'Proposals decided',
+    kind: 'count',
+    numerator: 'catalog_proposals rows whose decided_at falls in the window.',
+    denominator: 'Not a ratio.',
+    window: 'rolling_7d',
+    source: 'catalog_proposals',
+    freshnessSeconds: 300,
+    attributionLimit:
+      'The service rate to read against proposal_creation_count\'s arrival rate — a backlog is '
+      + 'a stock and neither number alone says whether it is growing. It counts OPERATOR '
+      + 'decisions only: a withdrawal is the submitter closing their own request and stamps no '
+      + 'decided_at, so it is in neither this nor the backlog it left.',
+  },
+  {
+    key: 'proposal_sla_breach_count',
+    title: 'Proposals past their review target',
+    kind: 'count',
+    numerator: 'Open catalog_proposals rows older than the review-time target for their state.',
+    denominator: 'Not a ratio.',
+    window: 'instant',
+    source: 'catalog_proposals',
+    freshnessSeconds: 300,
+    attributionLimit:
+      'Would count rows past a target, which says nothing about how far past — the age bands '
+      + 'and the percentiles are that. It is unmeasured because no target exists, not because '
+      + 'the ages do not.',
+    unmeasured: {
+      reason: 'policy_target_undefined',
+      seam:
+        'No review-time target is defined for a catalogue proposal anywhere in this repository. '
+        + 'The input is already published — depth and oldest age per open state, a five-band '
+        + 'waiting-age distribution and nearest-rank percentiles, all from '
+        + 'readProposalQueueAging — so what is owed is a decision on #367 Workstream 6 naming a '
+        + 'target per open state, plus the second member on CatalogProposalSlaVisibility that '
+        + 'carries it. Reporting zero here today would mean "nothing has breached a target that '
+        + 'does not exist", which is true and reads as healthy.',
+    },
   },
 
   /* ---- Completeness (W17 item 4) ----------------------------------------- */

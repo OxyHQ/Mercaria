@@ -811,6 +811,15 @@ export * from './authoring-schema';
 // are how "a merchant proposal never becomes globally trusted data by being
 // submitted" is a shape rather than a rule somebody remembers.
 export * from './catalog-proposal';
+
+// The proposal review queue's depth, aging and the SLA target that does not
+// exist (#367 W6). The one to read is `CatalogProposalSlaVisibility`: a union
+// with ONE member and no field anywhere carrying a threshold or a breach count,
+// so "we are within SLA" is unrepresentable until somebody decides what the
+// target is. Beside it, `CatalogProposalWaitAge`'s `unmeasured` branch carries no
+// percentile property at all, and `CATALOG_PROPOSAL_WAIT_AGE_MIN_POPULATION` is
+// DERIVED from the nearest-rank formula rather than picked.
+export * from './catalog-proposal-queue';
 export * from './catalog-backfill';
 
 // The dimensions a catalog rollout may be scoped by (#367 Workstream 0,

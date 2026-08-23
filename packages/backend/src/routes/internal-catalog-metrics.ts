@@ -13,7 +13,7 @@
  *
  * ## The route set is CLOSED and read-only
  *
- * Four GETs and nothing else. There is deliberately no "recompute", no "clear
+ * Five GETs and nothing else. There is deliberately no "recompute", no "clear
  * this counter", no "resolve this finding" and no repair of any kind:
  *
  * - Every integrity check is a DETECTION whose subject can legitimately be
@@ -28,7 +28,8 @@
  *
  * The closure is asserted twice, from both sides. `contract-gates.test.ts` reads
  * the registered set off this router's own stack and asserts it EXACTLY rather
- * than by containment, so a fifth route is a build failure and a decision.
+ * than by containment, so a sixth route is a build failure and a decision — as
+ * the fifth (`/proposal-queue`) was, and its addition is what that gate is for.
  * `routes/__tests__/internal-catalog-metrics.test.ts` asserts the same closure
  * from OUTSIDE, over HTTP on the mounted app, which additionally catches a write
  * handler mounted under this prefix by anything other than this file — and covers
@@ -53,6 +54,7 @@ import {
   catalogIntegrityHandler,
   catalogLatencyHandler,
   catalogMetricsHandler,
+  catalogProposalQueueHandler,
   catalogPublicationTraceHandler,
 } from '../controllers/catalog-metrics.controller.js';
 
@@ -68,7 +70,7 @@ const router = Router();
 // per-IP bucket would be one bucket for the whole operator team and the first
 // real incident — when several of them are refreshing these reads at once — is
 // exactly when it would trip. `/internal/payments` does mount one because its
-// surface can MOVE MONEY; this one is four read-only GETs.
+// surface can MOVE MONEY; this one is five read-only GETs.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 
@@ -87,6 +89,24 @@ router.get('/integrity', catalogIntegrityHandler);
 
 /** The W16 latency budgets against what this task has observed. */
 router.get('/latency', catalogLatencyHandler);
+
+/**
+ * The proposal review queue's depth, aging and SLA visibility (#367 W6).
+ *
+ * The FIFTH GET, and it is here rather than on `/internal/catalog-proposals`
+ * deliberately. That router's own header states its set is closed and every
+ * entry is either one of ADR 0007 D9's six operator ACTIONS or a trace keyed on a
+ * proposal id; an aggregate over every merchant's requests is a different kind of
+ * thing and belongs with the other reads that answer "is the machinery working".
+ * Keeping it here is also what keeps the dependency pointing one way — the
+ * observability domain reads `catalog_proposals` and the proposal domain reads
+ * nothing of this one — and it means the registry's six proposal metrics and this
+ * distribution come out of ONE derivation rather than two that could disagree.
+ *
+ * Still a read, still no parameter, and still nothing that names a person or a
+ * row: the response is integers and closed-set state keys.
+ */
+router.get('/proposal-queue', catalogProposalQueueHandler);
 
 /**
  * One publication, hop by hop.

@@ -134,11 +134,12 @@ afterAll(async () => {
   );
 });
 
-/** Every path this surface exposes. Four GETs and nothing else. */
+/** Every path this surface exposes. Five GETs and nothing else. */
 const PATHS: readonly string[] = [
   '/internal/catalog-metrics',
   '/internal/catalog-metrics/integrity',
   '/internal/catalog-metrics/latency',
+  '/internal/catalog-metrics/proposal-queue',
   '/internal/catalog-metrics/trace/draft/obs-route-draft-1',
 ];
 

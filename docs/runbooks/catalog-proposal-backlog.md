@@ -6,9 +6,18 @@ type, an attribute, a value — faster than anybody is deciding them. Reference:
 [../catalog-proposals.md](../catalog-proposals.md).
 
 **The number to alert on is the AGE, not the depth.** A deep queue being worked
-through is healthier than a shallow one that has stopped, and only
-`proposal_backlog_oldest_age` can tell them apart. It is the oldest rather than
-the median deliberately: a queue is judged by the thing that has waited longest.
+through is healthier than a shallow one that has stopped, and only an age can
+tell them apart.
+
+**There is NO review-time SLA target, and this runbook does not invent one.**
+Nothing in the repository defines how long a proposal may wait;
+`proposal_sla_breach_count` is DEFINED and reports `unmeasured` with reason
+`policy_target_undefined` for exactly that reason, and
+`GET /internal/catalog-metrics/proposal-queue` says so in `sla.statement`. So the
+threshold in the table below is one whoever wires the alert has to CHOOSE, and
+the honest thing to do is write it down where it can be argued with — see
+[../catalog-observability.md](../catalog-observability.md) §"What is not
+measured, and why" item 8 for what would close the gap properly.
 
 **Owner:** whoever owns the catalogue review desk. This is a staffing alert far
 more often than an engineering one.
@@ -19,12 +28,34 @@ more often than an engineering one.
 
 | Signal | Where | Condition |
 |---|---|---|
-| `proposal_backlog_oldest_age` | `GET /internal/catalog-metrics` → `.data.readings[] \| select(.key=="proposal_backlog_oldest_age")` | `ageSeconds` above the review SLA. `numerator` is how many proposals are open — a `numerator` of 0 means no age is reported at all, which is a healthy empty queue and not an age of zero |
-| `proposal_backlog_count` | same report | a depth threshold, read only TOGETHER with the age |
-| `proposal_creation_count` | same report | `rolling_7d`. A rise is context, not a fault |
+| `proposal_awaiting_operator_oldest_age` | `GET /internal/catalog-metrics` → `.data.readings[] \| select(.key=="proposal_awaiting_operator_oldest_age")` | **the one to alert on.** The oldest `submitted` row — Mercaria's own worst response time, with the two waits that are not Mercaria's excluded. `numerator` is how many are in that state; a `numerator` of 0 means no age is reported at all, which is a healthy empty queue and not an age of zero |
+| `proposal_backlog_oldest_age` | same report | the oldest of ALL open states. Useful, and dominated forever by one proposal parked on a merchant who never replied — which is why it is not the primary signal |
+| `proposal_backlog_awaiting_operator_count` | same report | the share of the backlog that is Mercaria's to answer |
+| `proposal_backlog_awaiting_submitter_count` | same report | `needs_information` — open, and NOT Mercaria's |
+| `proposal_backlog_deferred_count` | same report | every deferral, whether its date has passed or not |
+| `proposal_backlog_count` | same report | the three above SUM to it exactly; read as depth only TOGETHER with an age |
+| `proposal_creation_count` | same report | `rolling_7d` arrival rate. A rise is context, not a fault |
+| `proposal_decision_count` | same report | `rolling_7d` SERVICE rate. Read against the arrival rate: a backlog is a stock and neither number alone says whether it is growing. OPERATOR decisions only — a withdrawal stamps no `decided_at` |
+| `proposal_sla_breach_count` | same report | **always `unmeasured`.** Render it as "no target defined", never as "0 breaches" |
 
-Every one of the three is a `count`/`age_seconds` kind with source
-`catalog_proposals` and a declared freshness of 300 seconds.
+All of them are `count`/`age_seconds` kinds with source `catalog_proposals` and a
+declared freshness of 300 seconds.
+
+The shape behind them — depth and oldest age per state, the waiting-age
+distribution and the percentiles — is one call:
+
+```bash
+curl -s -H "Authorization: Bearer $OXY_TOKEN" \
+  https://<api>/internal/catalog-metrics/proposal-queue | jq '.data'
+```
+
+Two fields on it MUST be `true` and `0`; if either is not, stop and read
+[../catalog-observability.md](../catalog-observability.md) §"The proposal review
+queue" before trusting any number here. `countsAgree: false` means a proposal
+carries a state this build does not know about, so the backlog is quietly short.
+`unbandedOpenCount` above zero means an open proposal has a `created_at` in the
+FUTURE, or the age bands have developed a gap — either way the distribution is
+missing rows.
 
 ## What it means
 
@@ -74,6 +105,12 @@ curl -s -H "Authorization: Bearer $OXY_TOKEN" \
 `proposal_backlog_count`. An `ageSeconds` absent with a `numerator` above zero
 would mean the age read failed; an `ageSeconds` absent with `numerator: 0` is an
 empty queue.
+
+`waitAge` on the queue read answers `{ state: "unmeasured", reason:
+"population_below_floor" }` whenever fewer than twenty proposals are open. That
+is not a fault: below twenty a nearest-rank p95 IS the maximum, so it would
+restate `proposal_backlog_oldest_age` under a more authoritative name. The
+`agingBands` are exact at any population and are what to read instead.
 
 **2. Read the queue itself, oldest first, and see what is actually in it.**
 
@@ -167,6 +204,13 @@ surface is deliberately not gated on it.
 - **Do not alert on `proposal_backlog_count` alone.** Depth without age cannot
   tell a working desk from a stopped one, which is the failure both metrics exist
   to separate.
+- **Do not read `proposal_sla_breach_count` as zero breaches.** It is
+  `unmeasured` because no target exists, and a green tile there is a claim nobody
+  has earned. If a target is agreed, it lands as a second member on
+  `CatalogProposalSlaVisibility` plus a producer, in the same commit as the
+  decision — not as a number in a dashboard query.
+- **Do not read `waitAge` when it says `unmeasured`.** There is no number on that
+  branch to read; that is the enforcement, not an oversight.
 - **Do not read `proposal_creation_count` as a quality signal.** It cannot
   separate "the taxonomy is missing concepts" from "more merchants are
   authoring", and its attribution limit says so.

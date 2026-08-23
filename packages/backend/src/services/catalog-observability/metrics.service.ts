@@ -46,6 +46,7 @@ import {
   type CatalogMetricDefinition,
   type CatalogMetricReading,
   type CatalogMetricsReport,
+  type CatalogProposalState,
   type LocalizedEntityKind,
   SUPPORTED_LOCALES,
 } from '@mercaria/shared-types';
@@ -364,6 +365,34 @@ export const TRANSLATION_METRIC_DOMAINS: readonly LocalizedEntityKind[] = [
   'attribute_value',
 ];
 
+/**
+ * One state's bucket out of the proposal tally, or `undefined`.
+ *
+ * `undefined` is NOT the same as a count of zero and the two callers keep them
+ * apart: an empty state is a bucket carrying `0`, because `tallyProposals`
+ * renders one column per member of `CATALOG_PROPOSAL_STATES` whether or not any
+ * row is in it. A missing bucket means the read and this build's tuple disagree,
+ * which degrades the metric rather than reporting a reassuring zero.
+ */
+function proposalState(
+  tally: NonNullable<SharedReads['proposals7d']>,
+  state: CatalogProposalState,
+): { count: number; oldestAgeSeconds: number | null } | undefined {
+  return tally.byState.find((entry) => entry.state === state);
+}
+
+/** A count of the proposals in one lifecycle state. */
+function proposalStateCount(
+  definition: CatalogMetricDefinition,
+  shared: SharedReads,
+  state: CatalogProposalState,
+): CatalogMetricReading {
+  if (!shared.proposals7d) return unavailable(definition);
+  const bucket = proposalState(shared.proposals7d, state);
+  if (!bucket) return unavailable(definition);
+  return count(definition, bucket.count);
+}
+
 /** The desk rows this deployment's translation metrics are computed over. */
 function translationDeskRows(
   shared: SharedReads,
@@ -526,6 +555,37 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
       shared.proposals7d.openNow,
       shared.proposals7d.oldestOpenAgeSeconds,
     );
+  },
+
+  proposal_decision_count: async (definition, { shared }) => {
+    if (!shared.proposals7d) return unavailable(definition);
+    return count(definition, shared.proposals7d.decidedInWindow);
+  },
+
+  // The three open states, each its own count, all three read out of the SAME
+  // tally the backlog total comes from — so `submitted + needs_information +
+  // deferred === proposal_backlog_count` is an identity over one snapshot rather
+  // than four statements that agree most of the time. `metrics.realdb.test.ts`
+  // asserts it absolutely (it holds whatever a parallel file is doing) as well as
+  // asserting the delta this file's own insert moves.
+  proposal_backlog_awaiting_operator_count: async (definition, { shared }) =>
+    proposalStateCount(definition, shared, 'submitted'),
+
+  proposal_backlog_awaiting_submitter_count: async (definition, { shared }) =>
+    proposalStateCount(definition, shared, 'needs_information'),
+
+  proposal_backlog_deferred_count: async (definition, { shared }) =>
+    proposalStateCount(definition, shared, 'deferred'),
+
+  proposal_awaiting_operator_oldest_age: async (definition, { shared }) => {
+    if (!shared.proposals7d) return unavailable(definition);
+    const submitted = proposalState(shared.proposals7d, 'submitted');
+    // `undefined` means the tally carried no bucket for a state this build's own
+    // tuple names, which is a defect rather than an empty queue — so it degrades
+    // to `source_unavailable` and is counted, instead of reporting a healthy
+    // "nothing is waiting".
+    if (!submitted) return unavailable(definition);
+    return ageSeconds(definition, submitted.count, submitted.oldestAgeSeconds);
   },
 
   /* ---- Completeness ------------------------------------------------------ */

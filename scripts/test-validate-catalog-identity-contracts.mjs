@@ -182,7 +182,14 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // pin stops describing the tree it pins on the first delta somebody guesses.
     // (Read twice: the first reading said eight, and stating the descriptor's
     // `property` field rather than folding it from the SQL name added the ninth.)
-    "walked 125 contract module(s), 2253 exported type(s), 7605 property signature(s)",
+    // #367 line 379 added `catalog-proposal-queue.ts`: one module, seven
+    // exported types, thirty-five property signatures. READ OFF the guard's own
+    // output. The property delta is the large one and that is the tell it is the
+    // intended change — a queue reading is fourteen fields, a state depth four,
+    // an age band three twice over and the two percentile branches nine between
+    // them — while the module count moving by exactly one says a single contract
+    // module arrived rather than a directory.
+    "walked 126 contract module(s), 2260 exported type(s), 7640 property signature(s)",
     "check A arms exercised by real declarations: 5/9",
   ],
 });
