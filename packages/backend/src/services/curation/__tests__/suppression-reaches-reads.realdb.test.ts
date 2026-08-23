@@ -61,6 +61,7 @@ import { declaredOfferCondition } from '../../condition/condition-mapping.servic
 import { listOffers } from '../../offers/offer.service.js';
 import { getPublicCanonicalProduct } from '../../canonical/canonical-product.service.js';
 import { readCanonicalProductPage } from '../../product-page/product-page.service.js';
+import { runCanonicalSearch } from '../../search/canonical-search.service.js';
 import { suppressEntity, liftEntitySuppression } from '../correction.service.js';
 
 const RUN = uuidv7().slice(-12);
@@ -507,5 +508,74 @@ describe('a merged loser still reaches its winner', () => {
     // 3. …and the tombstone's OWN offers are not served, even though it still
     //    holds one. Non-vacuous by construction — see the note above.
     expect(await servedForProduct(loser.productId)).toEqual([]);
+  });
+
+  /**
+   * The SEARCH read — #367 line 1056's fourth noun.
+   *
+   * That line asks a merge to preserve "redirects, references, provenance and
+   * search behavior". The first three are held elsewhere: references by
+   * `merge-plan-census.test.ts`, provenance by the `source_links` phase, and the
+   * redirect by the case above. **Search was the one nothing drove.**
+   *
+   * `searchCandidateRepository.ts` states the property — "Tombstones and
+   * suppressions are excluded HERE, not later… a brand with 400 merged
+   * tombstones would return a page of nothing" — and no test in this repository
+   * searched for a merged product. `SHOPPER_VISIBLE_CATALOG_STATUSES` omits
+   * `merged`, so the behaviour is structural; what was missing is the assertion
+   * that the structure is wired to the read a shopper actually uses.
+   *
+   * ## Why the winner is searched too
+   *
+   * "The tombstone is not in the results" is satisfied by a search that returns
+   * nothing at all — a broken term, an empty fixture, a teardown that ran early.
+   * The winner is searched under its OWN name in the same two directions, so
+   * the assertion below is about the tombstone rather than about search having
+   * stopped answering. That is this file's convention, applied to a third read.
+   *
+   * ## What this deliberately does NOT assert, and why
+   *
+   * The merge is simulated with an UPDATE, as every case in this file does — the
+   * subject is the READ predicate, not the merge runner. A simulated merge mints
+   * no `former_name` alias, so this case makes no claim about the loser's old
+   * NAME reaching the winner through the alias stage. The alias row a real merge
+   * writes is asserted in `curation-writes.realdb.test.ts`; driving it through
+   * `runCanonicalSearch` needs the merge job and belongs beside it.
+   */
+  it('drops the tombstone from SEARCH, while the winner is still found', async () => {
+    const winner = await seedProductWithOffer('search-winner');
+    const loser = await seedProductWithOffer('search-loser');
+
+    /**
+     * By ID and never by count: both fixtures share the words `Suppression` and
+     * this run's token, so each name reaches the other through the fuzzy stage.
+     */
+    const found = async (term: string, productId: string): Promise<boolean> => {
+      const outcome = await runCanonicalSearch(
+        { term, kinds: ['product'], filters: {}, limit: 50 },
+        db,
+      );
+      return outcome.response.results.some(
+        (entry) => entry.kind === 'product' && entry.canonicalProductId === productId,
+      );
+    };
+
+    const loserTerm = `Suppression search-loser ${RUN}`;
+    const winnerTerm = `Suppression search-winner ${RUN}`;
+
+    // Both directions before anything is merged.
+    expect(await found(loserTerm, loser.productId), 'the loser was not searchable to begin with').toBe(true);
+    expect(await found(winnerTerm, winner.productId), 'the winner was not searchable to begin with').toBe(true);
+
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'merged', mergedIntoId: winner.productId })
+      .where(eq(canonicalProducts.id, loser.productId));
+
+    expect(await found(loserTerm, loser.productId), 'a merged tombstone was returned by search').toBe(false);
+    expect(
+      await found(winnerTerm, winner.productId),
+      'the winner stopped being searchable, so the assertion above measures nothing',
+    ).toBe(true);
   });
 });
