@@ -66,6 +66,7 @@ import {
   resolveDefinitionsForCategory,
   type ResolvedAttributeDefinition,
 } from '../attributes/definition-registry.service.js';
+import { readLocalizedCategories } from '../catalog-localization/read.service.js';
 import { validateConstraintSet } from '../attributes/constraint-validation.js';
 import { normalizeEntityName } from '../canonical/normalization.js';
 import { buildConstraintSet } from './constraints.js';
@@ -166,7 +167,7 @@ export async function planShoppingIntent(
   );
 
   // 4. Resolve what the draft NAMED against real tables.
-  const resolved = await resolveEntities(db, draft, request.categoryId);
+  const resolved = await resolveEntities(db, draft, request.categoryId, request.locale);
 
   // 5–7. The model half.
   const enablement = await decideEnablement(db, {
@@ -210,7 +211,9 @@ export async function planShoppingIntent(
   // through anything the model supplied — which is model-boundary rule 5 as a
   // property of the call graph.
   const mergedResolved =
-    merged === draft ? resolved : await resolveEntities(db, merged, request.categoryId);
+    merged === draft
+      ? resolved
+      : await resolveEntities(db, merged, request.categoryId, request.locale);
 
   // 8. #94's language.
   const built = buildConstraintSet({
@@ -433,6 +436,7 @@ async function resolveEntities(
   db: DatabaseOrTransaction,
   draft: InterpretationDraft,
   requestCategoryId: string | undefined,
+  locale: string,
 ): Promise<ResolvedEntities> {
   const categorySlugById: Record<string, string> = {};
   let categoryId = requestCategoryId;
@@ -458,6 +462,36 @@ async function resolveEntities(
       categoryId = row.id;
       categorySlugById[row.id] = row.slug;
       categoryName = row.name;
+    }
+  }
+
+  /*
+   * The category's name in the shopper's own language (#367 line 590, #946).
+   *
+   * The two reads above take `categories.name` — the BASE name, no localization
+   * join — so a Spanish shopper filtering under Smartphones was told "the
+   * category Smartphones" whatever `category_localizations` held. Resolving the
+   * attribute labels and leaving this English is a partial that reads as
+   * complete, which is why it is here rather than deferred.
+   *
+   * `readLocalizedCategories` rather than a join written here: it is #367 step
+   * 2's reader and `resolveLocalizedField`/`localeFallbackChain` are CALLED,
+   * never re-implemented. It falls back to the base name itself, so an absent
+   * translation returns exactly what this function returned before.
+   *
+   * One statement, and only when a category actually resolved — an intent with
+   * no category adds no query.
+   */
+  if (categoryId !== undefined && categoryName !== undefined) {
+    const [localized] = await readLocalizedCategories([categoryId], locale, db);
+    // `LocalizedResolution`'s `unavailable` branch has NO `value` property at
+    // all — that is how "a client never renders a raw key" is a fact about the
+    // type — so the discriminant is checked rather than the value defaulted.
+    // Both `resolved` bases are taken: `authored_base_text` IS the base name,
+    // which is what this function returned before.
+    if (localized !== undefined && localized.name.outcome === 'resolved') {
+      const value = localized.name.value.trim();
+      if (value.length > 0) categoryName = localized.name.value;
     }
   }
 
