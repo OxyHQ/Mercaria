@@ -199,9 +199,18 @@ describe('every entry declares its four facets, and the key is opaque', () => {
   });
 
   it('composes no key from a facet, and parses none back', () => {
-    // The key must stay a NAME. A composition would make two systems agreeing
-    // on four facets unrepresentable; a parse would give the facets a second
-    // authority that can disagree with the entry. Both directions are scanned.
+    // **Where the reversal is enforced, stated because a reader will look in the
+    // wrong place.** It is NOT enforced by `compareSizeDeclarations` behaving
+    // differently — that function is shared-types' and is byte-identical under
+    // either key form. It is enforced by what the registry can HOLD: a derived
+    // key collapses two systems agreeing on all four facets into one, so they
+    // could not both exist. Somebody hunting for the guarantee inside the
+    // comparison will find nothing and conclude the reversal is undefended.
+    //
+    // This gate and the composite assertion above are the two that hold it. A
+    // composition would make the aliasing relation unrepresentable; a parse
+    // would give the facets a second authority that can disagree with the
+    // entry. Both directions are scanned.
     const forbidden: readonly { name: string; pattern: RegExp }[] = [
       { name: 'splitting a key', pattern: /\.split\s*\(\s*['"`][.]['"`]/ },
       { name: 'a facet parser', pattern: /\b(?:parseSizeSystemKey|sizeSystemFrom|facetsOfKey)\b/i },

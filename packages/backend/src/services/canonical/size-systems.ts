@@ -217,11 +217,15 @@ const DECLARED_SIZE_SYSTEMS: readonly SizeSystem[] = Object.freeze([
 /**
  * Build the table, refusing two entries under one key.
  *
- * It looks at the KEY and at nothing else. Two entries sharing all four facets
- * are legitimate and must be admitted — that is the relation
- * `no_sourced_mapping` exists to express — so the only thing that can be wrong
- * here is one key naming two systems, which a `Map` would silently resolve by
- * keeping the last.
+ * **It looks at the KEY and at nothing else, and the absence of a facet check
+ * is deliberate rather than missing.** Two entries sharing all four facets are
+ * legitimate and MUST be admitted — that admission IS the relation
+ * `no_sourced_mapping` exists to express. Adding a "two entries have identical
+ * facets" check here for safety would reinstate the derived-key collapse under
+ * a different mechanism: the systems this domain must be able to hold would
+ * become a build error. So the only thing that can be wrong here is one key
+ * naming two systems, which a `Map` would otherwise resolve silently by keeping
+ * the last.
  *
  * It throws at import, the posture `registerCatalogConceptRegistry` takes
  * toward two readers for one dimension. The input is a code constant, so this
