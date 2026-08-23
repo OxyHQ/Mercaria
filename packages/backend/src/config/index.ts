@@ -2598,6 +2598,34 @@ export interface CanonicalRolloutConfig {
   readonly backfillBatchSize: number;
   /** How often the backfill dispatcher polls, in milliseconds. */
   readonly backfillPollIntervalMs: number;
+  /**
+   * `CATALOG_BACKFILL_MAX_ATTEMPTS` — consecutive failed pages before a run is
+   * released `failed` and stops being claimable (#367 W16 line 759).
+   *
+   * 8 is INHERITED, not chosen: `STRIPE_EVENT_MAX_ATTEMPTS`,
+   * `GUEST_PORTAL_MESSAGE_MAX_ATTEMPTS`, `GUEST_CLAIM_JOB_MAX_ATTEMPTS`,
+   * `PRICE_ALERT_NOTIFICATION_MAX_ATTEMPTS` and both `SHOPPING_AGENT_*` all say
+   * 8. The outliers have reasons that do not transfer — `MOOVO_MAX_ATTEMPTS` is
+   * an in-request HTTP retry rather than a durable job, and
+   * `MERCHANT_CLAIM_MAX_ATTEMPTS_PER_CHALLENGE` is an abuse limit.
+   *
+   * It is also independently right for THIS system, which is what makes it
+   * defensible rather than merely consistent: the dispatcher ticks every
+   * `backfillPollIntervalMs` (15s) and these rows carry NO backoff column, so 8
+   * is about two minutes — longer than an RDS failover, and short enough that a
+   * deterministic fault reaches an operator in two minutes instead of never.
+   *
+   * The caveat that comes with having no backoff: eight attempts at a flat 15s
+   * is eight failing queries against a database that may be struggling. That is
+   * negligible per run; the exposure is the number of concurrently failing runs,
+   * which nothing here bounds. Adding backoff is a second column and a second
+   * decision.
+   *
+   * An env var rather than a constant because the moment it matters is an
+   * incident, and raising a ceiling to get a stuck pass through a bad hour
+   * should not need a deploy.
+   */
+  readonly backfillMaxAttempts: number;
 }
 
 /**
@@ -3854,6 +3882,7 @@ export const config: AppConfig = Object.freeze({
     readCohorts: Object.freeze(resolveCanonicalReadCohorts()),
     backfillBatchSize: intEnv('CANONICAL_BACKFILL_BATCH_SIZE', 200),
     backfillPollIntervalMs: intEnv('CANONICAL_BACKFILL_POLL_INTERVAL_MS', 15_000),
+    backfillMaxAttempts: intEnv('CATALOG_BACKFILL_MAX_ATTEMPTS', 8),
   }),
   catalogIngestion: Object.freeze({
     enabled: boolEnv('CATALOG_INGESTION_ENABLED', false),

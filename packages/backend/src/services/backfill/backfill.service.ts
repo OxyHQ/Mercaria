@@ -45,6 +45,7 @@ import { listings } from '../../db/schema/catalog.js';
 import {
   advanceBackfillRun,
   claimBackfillRun,
+  recordBackfillPageFailure,
   findBackfillRunById,
   listResumableBackfillRuns,
   openBackfillRun,
@@ -206,15 +207,27 @@ export async function runCatalogBackfillPage(
      * here means the page itself could not run (the query failed, the cohort
      * became unresolvable). The cursor is NOT moved, which is what makes the
      * failure resumable rather than a skipped page.
+     *
+     * #367 W16 line 759: it is COUNTED before it is terminal. Until this, one
+     * dropped connection released the run `failed` — which `RESUMABLE` excludes,
+     * so a pass holding a perfectly good cursor stopped on its first transient
+     * error and waited for a person. `recordBackfillPageFailure` decides between
+     * `paused` (the dispatcher re-reads this same page on its next tick) and
+     * `failed` (terminal, and the dead-letter this domain always had).
      */
-    await releaseBackfillRun({
+    const settled = await recordBackfillPageFailure({
       runId: claimed.id,
       leaseOwner: LEASE_OWNER,
-      outcome: 'failed',
+      maxAttempts: config.canonicalRollout.backfillMaxAttempts,
       error: error instanceof Error ? error.message : String(error),
       now,
     });
-    log.general.error({ err: error, runId, stage: claimed.stage }, '[Backfill] page failed');
+    log.general.error(
+      { err: error, runId, stage: claimed.stage, settled: settled ?? 'lease_lost' },
+      settled === 'failed'
+        ? '[Backfill] page failed; attempts exhausted, run is terminal'
+        : '[Backfill] page failed; run will be retried',
+    );
     throw error;
   }
 

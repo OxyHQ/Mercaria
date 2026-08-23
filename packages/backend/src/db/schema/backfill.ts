@@ -177,6 +177,28 @@ export const catalogBackfillRuns = pgTable(
     lastRunAt: timestamptz(),
     lastError: text(),
 
+    /**
+     * How many page attempts have failed IN A ROW (#367 W16 line 759).
+     *
+     * Reset to 0 by any page that advances, so this is a CONSECUTIVE count and
+     * not a lifetime one: a pass that fails once, recovers and fails again six
+     * pages later gets a fresh budget, which is the right thing for a run whose
+     * cursor survives every failure.
+     *
+     * **Deliberately not called `attempts`.** `catalog_backfill_records.attempts`
+     * already exists, counts re-examinations of ONE SUBJECT across runs, is
+     * cumulative and is never reset — a completely different fact. Two columns
+     * called `attempts` in one domain with opposite semantics is what put a
+     * false sentence into `catalog-metrics.ts` ("the three tables record
+     * `attempts` and `last_error` only") and, from there, into two separate
+     * lanes' conclusions. The name is the fix at the source.
+     *
+     * Bounded by `CATALOG_BACKFILL_MAX_ATTEMPTS`, and the bound is applied in
+     * `services/backfill/backfill.service.ts` rather than here: a CHECK would
+     * make the ceiling a schema migration, and it is an incident lever.
+     */
+    consecutiveFailures: integer().notNull().default(0),
+
     /** Which task holds the page lease. An opaque worker identity — no FK. */
     leaseOwner: text(),
     leaseUntil: timestamptz(),
@@ -228,6 +250,15 @@ export const catalogBackfillRuns = pgTable(
       'catalog_backfill_runs_counters_total_check',
       sql`${t.scanned} = ${t.unchanged} + ${t.matched} + ${t.created} + ${t.enqueued}
           + ${t.reviewRequired} + ${t.unmatched} + ${t.skipped} + ${t.failed}`,
+    ),
+    /**
+     * A consecutive-failure count is a count. The CHECK is here and the CEILING
+     * is not: the ceiling is an incident lever and a CHECK would make raising it
+     * a migration, which is the one thing you cannot do at 3am.
+     */
+    check(
+      'catalog_backfill_runs_consecutive_failures_check',
+      sql`${t.consecutiveFailures} >= 0`,
     ),
     /** A completed pass has an end time and no cursor left to resume from. */
     check(
