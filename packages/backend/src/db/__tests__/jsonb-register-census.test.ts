@@ -219,8 +219,18 @@ const JSONB_COLUMN_BOUNDS: Readonly<Record<string, JsonbColumnBound>> = {
     why: 'References accumulated by one finding; grows with the run.',
   },
   'shopping_agents.constraintSet': {
-    bound: 'unbounded',
-    why: 'A stored #94 constraint set. The constraint VOCABULARY is closed; the number of constraints is not.',
+    bound: 'shape_bounded_only',
+    mechanism: 'MAX_CONSTRAINTS_PER_SET',
+    why:
+      'THIRTY-TWO constraints, at ingress: `createShoppingAgentSchema` and `updateShoppingAgentSchema` '
+      + 'both carry `z.array(productConstraintSchema).max(MAX_CONSTRAINTS_PER_SET)`. A COUNT bound and '
+      + 'not a size one — each element is itself unbounded — which is why this sits with the '
+      + 'payload_summary columns rather than with the two size CHECKs. '
+      + 'It binds every writer REACHABLE today and does so by reachability rather than by '
+      + 'construction: `agent.service.ts` is the only module that writes this column, its two exported '
+      + 'writers have exactly one caller each (`shopping-agents.controller.ts`), and both routes mount '
+      + '`validateBody`. A second caller of `createShoppingAgent` would bypass the bound silently, so '
+      + 'the completeness is a property of the current call graph and not of the column.',
   },
 };
 
