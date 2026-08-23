@@ -25,6 +25,8 @@ import type {
 import {
   ATTRIBUTE_CARDINALITIES,
   AUTHORING_VALIDATION_CODES,
+  MAX_VALUES_PER_VARIANT_AXIS,
+  MAX_VARIANT_AXES_PER_PRODUCT,
   PRODUCT_TYPE_AUTHORING_FLOWS,
 } from '@mercaria/shared-types';
 import {
@@ -101,6 +103,11 @@ function schema(fields: readonly AuthoringField[]): AuthoringSchema {
     steps: [],
     groups: [],
     fields,
+    matrix: {
+      maxAxes: MAX_VARIANT_AXES_PER_PRODUCT,
+      maxValuesPerAxis: MAX_VALUES_PER_VARIANT_AXIS,
+      maxVariants: 100,
+    },
     text: { groups: {}, fields: {}, values: {} },
     etag: '"authschema-test"',
   };

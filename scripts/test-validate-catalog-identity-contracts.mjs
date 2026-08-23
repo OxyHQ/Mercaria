@@ -208,7 +208,14 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // would have been RIGHT — by luck, and indistinguishable at the time from
     // the #892 case. A pin that is only re-derived when somebody expects it to
     // have moved is a pin nobody re-derives.
-    "walked 126 contract module(s), 2263 exported type(s), 7645 property signature(s)",
+    //
+    // A fourth instance, #367 line 405: `AuthoringMatrixRules` plus `matrix` on
+    // `AuthoringSchema` moved the exported types by ONE and the property
+    // signatures by FOUR (one interface, its three members, and the field that
+    // carries it), and left the module count alone — the shape of an addition to
+    // an existing contract module, which is what it was. Re-derived from the
+    // tool's own output line rather than added up.
+    "walked 126 contract module(s), 2264 exported type(s), 7649 property signature(s)",
     "check A arms exercised by real declarations: 5/9",
   ],
 });

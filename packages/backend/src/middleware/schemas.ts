@@ -12,12 +12,6 @@
 
 import { z } from 'zod';
 import { isLiveEntityId } from '@oxyhq/db';
-// #906: the SAME bounds the authoring path applies, imported rather than
-// retyped — a second number here would be a second answer to one question.
-import {
-  MAX_VALUES_PER_VARIANT_AXIS,
-  MAX_VARIANT_AXES_PER_PRODUCT,
-} from './catalog-authoring-schemas.js';
 import {
   ABUSE_REPORT_CATEGORIES,
   ABUSE_REPORTED_TYPES,
@@ -29,6 +23,10 @@ import {
   ITEM_CONDITION_KEYS,
   LEGACY_BINARY_CONDITIONS,
   MAX_MONEY_MINOR_UNITS,
+  // #906's bounds, and #367 line 405's published `matrix` rules, are the SAME
+  // symbols — one definition, so the served number cannot drift from this one.
+  MAX_VALUES_PER_VARIANT_AXIS,
+  MAX_VARIANT_AXES_PER_PRODUCT,
   type ConditionDetailKind,
   type ConditionDetailSeverity,
   type CurrencyCode,
