@@ -8,16 +8,23 @@
  * passed `"FAIR"` regardless of the store. So a unit test on the helper passes
  * today, with the bug live — it would be a test of the half that works.
  *
- * ## Why the bug is invisible without a magnitude assertion
+ * ## The magnitude pin lives in `money.test.ts`, not here
+ *
+ * `money.test.ts` already asserts `toMinorUnits('148', 'EUR') === 14_800` beside
+ * the FAIR cases, and runs JPY (0 decimals) through the same calls. That is the
+ * right home: those are facts about the CONVERSION. Repeating them here would be
+ * a second copy of one fact, and this file's subject is the CALLERS.
+ *
+ * ## Why the bug was invisible to a round trip
  *
  * The product screens wrote FAIR and read back with `toMajorString(amount,
  * "FAIR")`, so the dashboard round-tripped consistently: type `148.00`, see
  * `148` again. Every OTHER consumer — the pricing engine's shop-side
  * conversion, reports, `PriceDisplay` — read a number the merchant meant as
- * euros and treated it as FairCoin, at eight decimals instead of two. A test
- * that only round-trips through the same pair of helpers inherits exactly that
- * blindness, which is why the magnitude case below asserts `14_800` and names
- * the wrong answer it must not produce.
+ * euros and treated it as FairCoin, at eight decimals instead of two. A test that
+ * only round-trips through the same pair of helpers inherits exactly that
+ * blindness — which is why the assertions below are about which currency a
+ * CALLER names, and the absolute magnitudes are pinned in `money.test.ts`.
  *
  * ## Scope, and what deliberately falls outside it
  *
@@ -47,8 +54,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { CURRENCY_PRECISION } from '@mercaria/shared-types';
-import { toMajorString, toMinorUnits } from '../money';
 
 const PRODUCT_SCREENS = new URL('../../app/(app)/products/', import.meta.url).pathname;
 
@@ -149,20 +154,5 @@ describe('a catalog price names the store currency, not a literal', () => {
     expect(
       offenders([{ path: 'fake.tsx', text: '// currency: "FAIR" is what this used to do' }]),
     ).toEqual([]);
-  });
-
-  it('prices in the store currency at the store scale, not FAIR', () => {
-    // The magnitude assertion the round-trip cannot make. A EUR store's 148.00
-    // is 14_800 minor units; the bug produced 14_800_000_000 because FAIR
-    // carries eight decimals and EUR carries two.
-    expect(CURRENCY_PRECISION.EUR).toBe(2);
-    expect(CURRENCY_PRECISION.FAIR).toBe(8);
-
-    const typed = '148.00';
-    expect(toMinorUnits(typed, 'EUR')).toBe(14_800);
-    expect(toMinorUnits(typed, 'EUR')).not.toBe(toMinorUnits(typed, 'FAIR'));
-    // And the read side has to agree, or the field shows a different number
-    // from the one that was stored.
-    expect(toMajorString(14_800, 'EUR')).toBe('148');
   });
 });
