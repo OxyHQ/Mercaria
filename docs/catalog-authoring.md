@@ -475,16 +475,86 @@ No DDL, and no new query: every read is an existing repository function.
 
 ADR 0007 D6 replaces `listing_options.name` and
 `product_variant_option_values.name`/`.value` with typed axis rows, and #367 step
-4 owns that table. It is not on this branch's base, so a publication writes the
-legacy pairs — which is what every cart line, checkout line and connector push
-reads.
+4 owns those tables. ~~It is not on this branch's base, so a publication writes
+the legacy pairs.~~ **Overtaken: step 4 landed in
+[#447](https://github.com/OxyHQ/Mercaria/pull/447) (`22dacec9`) BEFORE step 5,
+and a publication has written the typed rows since step 5's own first commit** —
+`publish.service.ts` imports `writeVariantAxisValues` and calls it from
+`writeTypedAxesAndClaims`, which records both claim tables in the same
+transaction. The sentence was true of step 5's BRANCH and false of `main` on the
+day it merged; *"not on this branch's base"* is a claim whose ref stops existing
+at merge, and prose is the one thing neither `tsc` nor the suite can check.
 
-They are written from the SCHEMA: the option name is the attribute's base-locale
-label, the value is the controlled value's own canonical string. And the
-authoritative typed record is not lost — `catalog_authoring_draft_values` holds
-every answer with its attribute definition id and version, so step 4's backfill
-of an authoring-published listing reads a decided fact rather than re-normalizing
-a label.
+What is true now is what `writeTypedAxesAndClaims`' own docblock states: **the
+typed rows are the fact, the claim is what the merchant asserted, and the legacy
+pair is a projection of both.** They are still written because they are the
+DISPLAY path every cart line, checkout line, order line and catalogue DTO reads
+(`catalog-hydration`, `checkout.service`, `order-hydration`), and they are
+written from the SCHEMA rather than from free text: the option name is the
+attribute's base-locale label, the value is the controlled value's own canonical
+string. The authoritative typed record is not lost either —
+`catalog_authoring_draft_values` holds every answer with its attribute definition
+id and version, so the legacy-option backfill of an authoring-published listing
+reads a decided fact rather than re-normalizing a label. That is epic #367 line
+685's *one authoritative write path plus compatibility projections*, and it is
+why D13 retains both tables rather than dropping them.
+
+### The legacy free-text authoring API, deprecated during the transition
+
+`POST /admin/stores/:storeId/products` takes `options: [{ name, values }]` and
+`variants[].optionValues: [{ name, value }]` as **free text**
+(`createStoreProductSchema`, `middleware/schemas.ts`). It is **deprecated for new
+work during the transition** and remains fully served, unchanged.
+
+Nothing about it is marked `@deprecated`, and nothing may be:
+`docs/house-invariants.md` forbids the annotation and prescribes what takes its
+place — *"a versioned wire contract, never a `@deprecated` alias … state
+`retiresWhen` and keep serving both"*. A deprecation that names no retirement
+condition is the thing that rule exists to prevent, so the condition is below.
+
+**What actually separates the two paths** is one measurable fact, not a
+preference: **`catalog-write.service.ts` never calls `writeVariantAxisValues`,
+and `publish.service.ts` is its only non-test caller.** Both paths end in the
+same listing writer — the wizard calls `createStoreProductWithin` directly — so
+what the legacy API omits is everything downstream of it. A product created
+through it has legacy option text and no typed axis row, no attribute-definition
+citation and no version pin; a product published through the wizard has all
+four, with the legacy pair derived from them.
+
+**Retires when** no supported flow still authors untyped option text.
+`createStoreProduct` has four non-test callers and three of them are that flow —
+the HTTP route above (`products-admin.controller.ts`),
+`connector-sync.service.ts` and `channel-ingest.service.ts`, each building a
+`CreateStoreProductInput` itself. They are the checklist rather than a guess. The
+fourth is `scripts/seed.ts`, which serves no request and is named here so that
+counting the callers and reading this line give the same answer. The dashboard is
+not a fifth: its "Add product" destination is DERIVED from the server's own
+`CATALOG_AUTHORING_ENABLED` answer, so `/products/new` stays the destination on
+every deployment where the wizard is not mounted, and the wizard's own empty
+state routes back to it.
+
+**No date is stated and none should be.** `retiresWhen` is prose in this
+repository on purpose — `condition.ts` records that the condition is observable
+and *"the decision to act on it is a release decision, not something a constant
+can make"* — and epic line 526 already holds that retiring the old dashboard flow
+is a separate decision. Epic line 690 removes the authoring; line 691 removes the
+columns, and that has a mechanism waiting rather than a plan:
+`-- oxy:deploy-phase=post` is the marker a drop, narrow or rename carries, and 16
+of the 149 migrations carry it against 133 `pre` — a complete partition, so the
+verified cleanup migration is an ordinary one rather than a new capability.
+
+**Why this is prose and not an entry in `v1-wire-contracts.ts`.** That register
+is the repository's mechanism for a v1 contract and it was the first candidate.
+Its population is DERIVED from `shared-types` docblocks, and every one of its
+fourteen rows — twelve v1 contracts plus the two typed successors that replace
+them — is a FIELD held open beside its successor on the same contract:
+`Listing.condition` beside `itemCondition`, `CheckoutInput.addressId` beside
+`destination`. This is not that shape: the successor is a different endpoint
+family, not a second spelling of one body, so an entry would have no
+`supersededBy` to name and would be a claim fitted to a gate rather than one
+measured by it. The two `CreateStoreProductInput` fields that ARE v1 spellings,
+`condition` and `category`, are already registered there and are not restated
+here.
 
 ## Localization
 
@@ -622,9 +692,13 @@ about a product nobody made.
 
 ## Deferred, each a named contract rather than a stub
 
-- **#367 step 4** (typed variant axes and `native_*_attribute_claims`). The
+- ~~**#367 step 4** (typed variant axes and `native_*_attribute_claims`). The
   publication writes the legacy option pairs and the draft holds the typed
-  record, so the backfill reads a decision rather than guessing.
+  record, so the backfill reads a decision rather than guessing.~~ **DONE, and it
+  was already done when this line was written** — step 4 landed in
+  [#447](https://github.com/OxyHQ/Mercaria/pull/447) before step 5, and the
+  publication writes the typed axes and both claim tables itself. See "The legacy
+  option pairs" above.
 - **#367 step 6** (ADR 0007 D9 proposals). `proposal_pending_blocks_publication`
   and `proposal_not_permitted` are DEFINED and produced by nothing: until
   `catalog_proposals` exists there is no row a draft value could cite, and a
