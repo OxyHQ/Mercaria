@@ -1153,11 +1153,24 @@ natural-unique idempotency the four sections above state. What is #57's own:
   associates the two without merging them.
 
   What is ENFORCED above is the type and the CHECK. What is only MEASURED is
-  that nothing exercises the gap between them: `updateOffer` — the one writer
-  taking a free-form patch — has **zero** callers outside tests across
-  `packages/backend/src` (control: `upsertExternalOffer`, 4). That is a fact
-  about today with a date on it, where the two layers above are properties of
-  the code.
+  that nothing exercises the gap between them. Counting **non-test lines calling
+  the symbol, excluding its own definition**, over `packages/backend/src`:
+  `updateOffer` — the one writer taking a free-form patch — has **0**, against
+  **2** for `upsertExternalOffer` as the control that the count can find a
+  caller at all.
+
+  ```
+  grep -rn '<symbol>(' packages/backend/src --include=*.ts \
+    | grep -v 'export async' | grep -v '__tests__' | wc -l
+  ```
+
+  Both figures come from that one command, and naming it is the point rather
+  than pedantry: `upsertExternalOffer` reads as 2, 3, 6, 7, 11 or 17 depending
+  on whether tests, the defining file, whole files or occurrences are counted,
+  and a control nobody can reproduce takes the zero beside it down with it.
+  A control measured by a different instrument from its subject is not a
+  control. That is a fact about today with a date on it, where the two layers
+  above are properties of the code.
 - **There is NO stored checkout-eligibility verdict, and that is the deliberate
   divergence from the `onboarding_state` one-verdict rule.** Payment readiness
   is one stored verdict because its inputs are all on the row being verdicted;
