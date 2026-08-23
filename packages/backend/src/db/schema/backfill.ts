@@ -185,13 +185,29 @@ export const catalogBackfillRuns = pgTable(
      * pages later gets a fresh budget, which is the right thing for a run whose
      * cursor survives every failure.
      *
-     * **Deliberately not called `attempts`.** `catalog_backfill_records.attempts`
-     * already exists, counts re-examinations of ONE SUBJECT across runs, is
-     * cumulative and is never reset — a completely different fact. Two columns
-     * called `attempts` in one domain with opposite semantics is what put a
-     * false sentence into `catalog-metrics.ts` ("the three tables record
-     * `attempts` and `last_error` only") and, from there, into two separate
-     * lanes' conclusions. The name is the fix at the source.
+     * **Deliberately not called `attempts`**, and the two-level statement
+     * belongs here because getting it wrong is what cost two separate lanes a
+     * conclusion each:
+     *
+     * - **RUNS** — this table — had NO retry at all before #367 line 759.
+     *   `RESUMABLE` excludes `failed`, and a page-level error released straight
+     *   to it, so one dropped connection ended a pass holding a good cursor.
+     *   This column is what stands between the two.
+     * - **RECORDS** — `catalog_backfill_records.attempts` — carries an
+     *   UNBOUNDED re-examination count for ONE SUBJECT across runs an operator
+     *   started. Cumulative, never reset, measured by `backfill_retry_count`,
+     *   and nothing exhausts it because nothing bounds it. It is a
+     *   poison-record signal, not a retry loop.
+     *
+     * Neither yielded an exhaustion event, and the reason differs at each
+     * level. So "no attempts column anywhere" is FALSE and a reader who checks
+     * will find `catalog_backfill_records.attempts` and conclude the finding
+     * was wrong; "runs do not retry" is true and is what this column changes.
+     *
+     * Two columns called `attempts` in one domain with opposite semantics is
+     * also what put a false sentence into `catalog-metrics.ts` ("the three
+     * tables record `attempts` and `last_error` only" — this one records
+     * `last_error` only). The name is the fix at the source.
      *
      * Bounded by `CATALOG_BACKFILL_MAX_ATTEMPTS`, and the bound is applied in
      * `services/backfill/backfill.service.ts` rather than here: a CHECK would
