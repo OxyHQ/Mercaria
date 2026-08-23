@@ -948,6 +948,35 @@ enqueue, loop or checkout path reads any of them.
 
 #### The fifth lever: `CATALOG_ROLLOUT_COHORTS`
 
+> **CORRECTED after implementation — there is a SIXTH dimension.** The list
+> below is what Workstream 0 named and is left exactly as written, because it is
+> the record of that decision. `CATALOG_ROLLOUT_DIMENSIONS` now carries
+> `internal_user` as well, added in #919.
+>
+> The reason is in this decision's own text: D12's staged order opens with
+> *internal users*, and no dimension could express it — so the FIRST stage of the
+> order this lever exists to execute could not start. Its value is an Oxy user id
+> listed in `CATALOG_ROLLOUT_COHORTS` exactly as a store or a category is. There
+> is deliberately no allow-list behind it and it borrows none of the six operator
+> lists, because *"may reach the payment operator surface"* and *"should see the
+> new catalogue during stage 1"* are different questions, and a cohort keyed on
+> one would move whenever somebody was granted an unrelated power.
+>
+> It is also the only dimension that is a claim about the CALLER rather than
+> about the request, so its subject value comes from the authenticated actor and
+> never from `catalogRolloutSubjectFromRequest`'s read of params, query and body.
+> A consequence worth knowing before setting it: the three anonymous gated
+> surfaces (`facets`, `navigation`, `taxonomy`) carry no auth middleware, so
+> while this is the only enabled cohort they refuse every request — which is the
+> accurate rendering of "not rolled out" for a public surface, not a fault.
+>
+> **The tuple is the authority, never this prose.** A count in a document goes
+> stale and a symbol does not: `CATALOG_ROLLOUT_DIMENSIONS` is total over the
+> union, and `catalogRolloutSubjectValue` carries an exhaustiveness `never` whose
+> own comment records that adding a sixth member produced NO error until that
+> line existed. Full reference, including the per-dimension census:
+> [`../catalog-rollout-cohorts.md`](../catalog-rollout-cohorts.md).
+
 **Which slice of the deployment the four levers above are switched on FOR**, over
 the five dimensions Workstream 0 names: `market`, `locale`, `store`, `category`,
 `product_type` (`CATALOG_ROLLOUT_DIMENSIONS` in `@mercaria/shared-types`). Entries
