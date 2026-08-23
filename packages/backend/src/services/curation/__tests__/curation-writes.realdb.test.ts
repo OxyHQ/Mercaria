@@ -98,6 +98,7 @@ import {
 } from '../review-queue.service.js';
 import { suppressEntity, liftEntitySuppression } from '../correction.service.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
+import { runCanonicalSearch } from '../../search/canonical-search.service.js';
 
 let db: Database;
 
@@ -651,6 +652,77 @@ describe('acceptance 1: a duplicate merge preserves everything and redirects the
       .from(canonicalProductAliases)
       .where(eq(canonicalProductAliases.productId, winner.productId));
     expect(aliases).toContainEqual({ alias: `Curation loser-a ${RUN}`, kind: 'former_name' });
+  });
+
+  /**
+   * The sentence above, DRIVEN — #367 line 1056's "search behavior".
+   *
+   * `Search still finds the losing identity by the name it had` is asserted by
+   * reading the alias TABLE. That row is a necessary condition and not the
+   * behaviour: an alias nothing retrieves finds nothing, and until this case the
+   * curation domain reached `runCanonicalSearch` zero times. The claim and its
+   * evidence were one join apart, which is the mildest form of a shape this
+   * repository has now hit four times and the one least likely to be noticed,
+   * because nothing about it looks wrong.
+   *
+   * This runs the REAL merge rather than simulating a tombstone with an UPDATE
+   * — a simulated merge mints no `former_name` alias, so the state under test
+   * only exists after the runner's `aliases` phase. `suppression-reaches-reads`
+   * holds the other half (a merged tombstone leaves the result set) with the
+   * simulated form, because there the subject is the READ predicate.
+   *
+   * ## Three directions, because two of them can pass while the mechanism is gone
+   *
+   * The tombstone leaving the results and the winner arriving are different
+   * facts, and a search that stopped answering satisfies the first alone. So the
+   * SAME query is run before the merge (it must find the loser) and after it (it
+   * must find the winner and not the loser). And the winner's arrival is pinned
+   * to `exact_alias` rather than to mere presence: both fixtures share the word
+   * `Curation` and this run's token, so the winner is reachable by the fuzzy
+   * stage whatever the merge did with the alias.
+   */
+  it('resolves the loser’s OLD NAME to the winner through canonical search', async () => {
+    const loser = await seedProduct('search-loser');
+    const winner = await seedProduct('search-winner');
+    const loserName = `Curation search-loser ${RUN}`;
+
+    /** This product's own result row under the loser's original name. */
+    const hit = async (productId: string) => {
+      const outcome = await runCanonicalSearch(
+        { term: loserName, kinds: ['product'], filters: {}, limit: 50 },
+        db,
+      );
+      return outcome.response.results.find(
+        (entry) => entry.kind === 'product' && entry.canonicalProductId === productId,
+      );
+    };
+
+    expect(await hit(loser.productId), 'the loser was not findable by its own name').toBeDefined();
+
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'duplicate product',
+      actorOxyUserId: OPERATOR,
+    });
+    const result = await claimAndRunMerge(job.id, `lease-search-${RUN}`);
+    expect(result.completed, 'the merge did not complete').toBe(true);
+
+    expect(
+      await hit(loser.productId),
+      'a merged tombstone was returned by search',
+    ).toBeUndefined();
+
+    const after = await hit(winner.productId);
+    expect(
+      after,
+      'the loser’s old name stopped finding the identity it named',
+    ).toBeDefined();
+    if (after === undefined || after.kind !== 'product') return;
+    // THE assertion. Presence alone is satisfied by the fuzzy stage; the alias
+    // the merge minted is what makes the old name resolve to the new identity.
+    expect(after.matchStages).toContain('exact_alias');
   });
 });
 
