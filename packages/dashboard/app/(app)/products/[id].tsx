@@ -38,7 +38,7 @@ import {
 import { useConnection } from "@/lib/hooks/use-channels";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { useTranslation } from "@/lib/i18n";
-import { toFairMinor, toMajorString } from "@/lib/money";
+import { toMajorString, toMinorUnits } from "@/lib/money";
 
 const STATUSES: SellerSettableListingStatus[] = ["draft", "active", "archived"];
 
@@ -308,8 +308,15 @@ function VariantsSection({
 }) {
   const { t } = useTranslation();
   const { colors } = useColorScheme();
-  const { can } = useActiveStoreContext();
+  const { can, store } = useActiveStoreContext();
   const createVariant = useCreateVariant(storeId, product.id);
+  /**
+   * A new variant joins a product whose existing variants already name a
+   * currency, so it matches them; a product with none takes the STORE's
+   * (#927). Never a literal — writing FAIR here denominated a EUR store's
+   * catalogue in FairCoin, at eight decimals instead of two.
+   */
+  const currency = product.variants?.[0]?.price.currency ?? store?.defaultCurrency;
 
   const optionName = product.options?.[0]?.name ?? "";
   const [showAdd, setShowAdd] = useState(false);
@@ -318,7 +325,9 @@ function VariantsSection({
   const [newStock, setNewStock] = useState("0");
 
   const addVariant = () => {
-    const priceMinor = toFairMinor(newPrice);
+    // Refuse rather than default: an unknown currency must not become FAIR.
+    if (!currency) return;
+    const priceMinor = toMinorUnits(newPrice, currency);
     if (priceMinor === null) {
       toast.error(t("products.variants.priceInvalid"));
       return;
@@ -328,7 +337,7 @@ function VariantsSection({
       {
         optionValues:
           optionName && newValue.trim() ? [{ name: optionName, value: newValue.trim() }] : [],
-        price: { amount: priceMinor, currency: "FAIR" },
+        price: { amount: priceMinor, currency },
         inventory: { available },
       },
       {
@@ -429,17 +438,24 @@ function VariantRow({
   const deleteVariant = useDeleteVariant(storeId, productId);
   const setInventory = useSetVariantInventory(storeId, productId);
 
-  const [price, setPrice] = useState(toMajorString(variant.price.amount, "FAIR"));
+  /**
+   * The variant's OWN currency (#927) — a stored price already names its
+   * denomination, so nothing here needs the store or a literal. Rendering
+   * at FAIR's eight decimals showed a EUR price 10^6 too large, and the
+   * matching write hid it by being wrong in the same direction.
+   */
+  const currency = variant.price.currency;
+  const [price, setPrice] = useState(toMajorString(variant.price.amount, currency));
   const [stock, setStock] = useState(String(variant.available));
 
   const savePrice = () => {
-    const priceMinor = toFairMinor(price);
+    const priceMinor = toMinorUnits(price, currency);
     if (priceMinor === null) {
       toast.error(t("products.variants.priceInvalid"));
       return;
     }
     updateVariant.mutate(
-      { variantId: variant.id, input: { price: { amount: priceMinor, currency: "FAIR" } } },
+      { variantId: variant.id, input: { price: { amount: priceMinor, currency } } },
       {
         onSuccess: () => toast.success(t("products.variants.updated")),
         onError: () => toast.error(t("products.variants.updateFailed")),

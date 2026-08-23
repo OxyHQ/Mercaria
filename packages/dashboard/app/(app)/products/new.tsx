@@ -14,7 +14,8 @@ import { Screen } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useTranslation } from "@/lib/i18n";
 import { useCreateProduct } from "@/lib/hooks/use-products";
-import { toFairMinor } from "@/lib/money";
+import { useActiveStoreContext } from "@/lib/hooks/use-stores";
+import { toMinorUnits } from "@/lib/money";
 
 /** A single editable variant row in the builder. */
 interface VariantDraft {
@@ -50,6 +51,15 @@ function NewProductBody({ storeId }: { storeId: string }) {
   const { t } = useTranslation();
   const { colors } = useColorScheme();
   const createProduct = useCreateProduct(storeId);
+  /**
+   * The currency a catalog price is written in is the STORE's (#927).
+   *
+   * Not FAIR. The catalog stores NATIVE currency, and FAIR is a preferred
+   * PRESENTMENT default — a different role. Writing FAIR here priced a EUR
+   * store's catalogue in FairCoin at eight decimals instead of two, and it
+   * was invisible on this screen because the read used FAIR too.
+   */
+  const { store } = useActiveStoreContext();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -62,6 +72,14 @@ function NewProductBody({ storeId }: { storeId: string }) {
     setVariants((prev) => prev.map((v) => (v.key === key ? { ...v, ...patch } : v)));
   };
 
+  /**
+   * `RequireStore` redirects when no active store resolves, so by the time
+   * this body renders the store is present. Reading it through the optional
+   * chain keeps that a narrowing rather than a `!` assertion, and the form —
+   * and therefore the submit button — does not exist without it.
+   */
+  const currency = store?.defaultCurrency;
+
   const submit = () => {
     if (!title.trim()) {
       toast.error(t("products.new.titleRequired"));
@@ -72,9 +90,13 @@ function NewProductBody({ storeId }: { storeId: string }) {
       return;
     }
 
+    // Unreachable while the guard above holds; it is here so the currency
+    // can never be `undefined` at a write, rather than quietly becoming FAIR.
+    if (!currency) return;
+
     const builtVariants: CreateStoreProductVariantInput[] = [];
     for (const v of variants) {
-      const priceMinor = toFairMinor(v.priceMajor);
+      const priceMinor = toMinorUnits(v.priceMajor, currency);
       if (priceMinor === null) {
         toast.error(t("products.new.variantPriceInvalid"));
         return;
@@ -85,7 +107,7 @@ function NewProductBody({ storeId }: { storeId: string }) {
           optionName.trim() && v.title.trim()
             ? [{ name: optionName.trim(), value: v.title.trim() }]
             : [],
-        price: { amount: priceMinor, currency: "FAIR" },
+        price: { amount: priceMinor, currency },
         ...(v.sku.trim() ? { sku: v.sku.trim() } : {}),
         inventory: { available: Number.isFinite(available) ? Math.max(0, available) : 0 },
       });
