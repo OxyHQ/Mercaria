@@ -49,6 +49,11 @@ import {
   COMMERCE_FACETS,
 } from '@mercaria/shared-types';
 
+import {
+  MERCHANDISING_COLLECTION_REACH,
+  findMerchandisingReach,
+} from '../../../__tests__/merchandising-reach.js';
+
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const FRONTEND_ROOT = join(SRC_ROOT, '..', '..', 'frontend');
 
@@ -592,5 +597,138 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
       plantIn: 'lib',
       plantName: 'facet-cache.ts',
     });
+  });
+});
+
+/**
+ * A collection membership never becomes a product fact (ADR 0007 D3, #367 line 565).
+ *
+ * The facet half of a wall whose attribute half lives in
+ * `services/attributes/__tests__/hard-constraint-isolation.test.ts`. Both read
+ * the ONE vocabulary in `__tests__/merchandising-reach.ts`, so two walls cannot
+ * disagree about what "reaching the collection domain" means.
+ *
+ * ## Why a third file was not written for it
+ *
+ * D3's second sentence has three doors and two were already held by
+ * `services/__tests__/merchandising-category-isolation.test.ts` — the
+ * merchandising domain WRITING a product fact, and a collection-NAMED module
+ * sitting outside that domain. The third is a fact-establishing domain READING
+ * the collection domain, and that census could not see it: it matches a PATH, so
+ * `facet.service.ts` importing `collectionRepository` is invisible to a sweep
+ * for paths named `collection`.
+ *
+ * The wall belongs where its POPULATION already lives. This file and the
+ * attribute one each own a walker, a floor and a mutation harness over exactly
+ * the right directories, all of them proven. A new file would have restated a
+ * third walker over the same directories, which is the second-representation
+ * defect this repository keeps recording — so the invariant is split across two
+ * files and the vocabulary is not.
+ *
+ * ## Why this domain in particular
+ *
+ * A facet IS a product fact made browsable. If a collection membership reached
+ * `facet.service.ts`, a merchant's *Summer Sale* shelf would render as a
+ * property of the swimsuit, indistinguishable on the page from its material and
+ * its size — which is D3's failure exactly, arriving through the door that looks
+ * like a feature request.
+ *
+ * Scoped to `BACKEND_DIRECTORIES` — the two the domain owns — for the reason the
+ * lever wall above gives for the same narrowing.
+ *
+ * ## It holds today
+ *
+ * Measured over the 11 owned NON-TEST modules this walks: **zero** occurrences
+ * of `collection`, against **260** of `attribute` — the positive control that
+ * says the scan reached the corpus. Green on arrival; what it adds is that the
+ * absence is DECIDED.
+ */
+describe('a collection membership never becomes a product fact (ADR 0007 D3)', () => {
+  it('scans a real population, and the scan reaches the corpus (vacuity floor)', () => {
+    const paths = facetOwnedPaths();
+    expect(paths.length, `only ${String(paths.length)} owned modules walked`).toBeGreaterThanOrEqual(
+      MINIMUM_FACET_SERVICES + MINIMUM_FACET_REPOSITORIES,
+    );
+    // The POSITIVE CONTROL. A walk returning empty strings clears the count
+    // floor and reports a clean zero from every wall.
+    const attributeHits = paths.filter((path) =>
+      /attribute/iu.test(readFileSync(path, 'utf8')),
+    ).length;
+    expect(
+      attributeHits,
+      'the owned walk read no source that even mentions an attribute',
+    ).toBeGreaterThanOrEqual(5);
+  });
+
+  it('no module projecting a product fact reaches the collection domain', () => {
+    const offenders = facetOwnedPaths().flatMap((path) => {
+      const source = readFileSync(path, 'utf8');
+      const reach = findMerchandisingReach(source, stripComments(source));
+      if (reach === null) return [];
+      const relative = path.slice(path.indexOf('/src/') + '/src/'.length);
+      const at = reach.line === null ? '' : `:${String(reach.line)}`;
+      return [`${relative}${at} reaches the collection domain: ${reach.text}`];
+    });
+    expect(
+      offenders,
+      'a facet is a product fact made browsable; reading a collection here renders a ' +
+        'shelf a merchant arranged as a property of the product, which ADR 0007 D3 forbids',
+    ).toEqual([]);
+  });
+
+  it('MUTATION SELF-TEST: the REAL scan goes red on a mutated member of the population', () => {
+    const paths = facetOwnedPaths();
+    const victim = paths[paths.length - 1];
+    expect(victim, 'the walk found no file to mutate').toBeDefined();
+    if (victim === undefined) return;
+    const planted = `${readFileSync(victim, 'utf8')}\nimport { collections } from '../../db/schema/merchandising.js';\n`;
+    const offenders = paths.filter((path) =>
+      MERCHANDISING_COLLECTION_REACH.test(
+        stripComments(path === victim ? planted : readFileSync(path, 'utf8')),
+      ),
+    );
+    expect(offenders).toEqual([victim]);
+  });
+
+  it('reports the line the reach is really on, comments included', () => {
+    // `stripComments` does not preserve line count, so an offset into the
+    // stripped copy names a DIFFERENT REAL LINE. Measured while building this:
+    // a violation planted at line 1,037 of `facet.service.ts` was reported at
+    // 975 — a line carrying ordinary code, which reads as the gate being broken
+    // rather than the module. #939 hit the same thing with a different stripper.
+    const source = [
+      '/**',
+      ' * four',
+      ' * line',
+      ' */',
+      "import { collections } from '../../db/schema/merchandising.js';",
+    ].join('\n');
+    const reach = findMerchandisingReach(source, stripComments(source));
+    expect(reach, 'the planted reach was not found at all').not.toBeNull();
+    expect(reach?.line, 'the line drifted past a block comment').toBe(5);
+  });
+
+  it('MUTATION SELF-TEST: the vocabulary admits pickup and refuses merchandising', () => {
+    // `collection` names two unrelated things in this tree, and a wall that
+    // caught the wrong one would be deleted by whoever hit it. Both directions,
+    // driven, because the discriminator is a negative lookbehind that no reader
+    // can check by eye.
+    for (const forbidden of [
+      "import { findCollection } from '../../db/merchandising/collectionRepository.js';",
+      "import { collections } from '../../db/schema/merchandising.js';",
+      "import { listCollections } from '../collection.service.js';",
+      'await db.execute(sql`select id from listing_collections`);',
+    ]) {
+      expect(MERCHANDISING_COLLECTION_REACH.test(stripComments(forbidden)), forbidden).toBe(true);
+    }
+    for (const permitted of [
+      "import { markCollected } from '../pickup/collection.service.js';",
+      "import { code } from '../../services/pickup/collection-code.js';",
+      "import { discounts } from '../../db/merchandising/discountRepository.js';",
+      'const collections = groupBy(rows);',
+      '// a collection of values',
+    ]) {
+      expect(MERCHANDISING_COLLECTION_REACH.test(stripComments(permitted)), permitted).toBe(false);
+    }
   });
 });

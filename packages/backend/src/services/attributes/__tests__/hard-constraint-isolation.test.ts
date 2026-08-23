@@ -52,6 +52,11 @@ import {
   walkOwnedDirectory,
 } from '../../../__tests__/domain-population.js';
 import { assertEachOf } from '../../../__tests__/assert-each-of.js';
+import {
+  MERCHANDISING_COLLECTION_REACH,
+  findMerchandisingReach,
+} from '../../../__tests__/merchandising-reach.js';
+import { stripComments } from '../../../__tests__/package-barrel-symbols.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const DOMAIN_DIR = fileURLToPath(new URL('..', import.meta.url));
@@ -329,5 +334,111 @@ describe('the population rule 1 is applied to (#460)', () => {
       const source = readFileSync(join(SRC_ROOT, foreign), 'utf8');
       expect(STRENGTH_MUTATION.test(source), `${foreign} would trip rule 1`).toBe(false);
     });
+  });
+});
+
+/**
+ * A collection membership never becomes a product fact (ADR 0007 D3, #367 line 565).
+ *
+ * The third door of D3's second sentence, and the one nothing held.
+ * `merchandising-category-isolation.test.ts` stops the merchandising domain
+ * WRITING a product fact, and its `#460` census stops a collection-NAMED module
+ * sitting outside that domain — but that census matches a PATH, so an attribute
+ * module importing `collectionRepository` was invisible to it. This wall is the
+ * reverse direction: a fact-establishing domain may not READ the collection
+ * domain. `services/facets/__tests__/facet-isolation.test.ts` carries the same
+ * wall over the other fact domain, from the same vocabulary in
+ * `__tests__/merchandising-reach.ts`, so the two cannot disagree about what is
+ * forbidden.
+ *
+ * ## Why this domain, and why not the shared HTTP modules
+ *
+ * Scoped to `OWNED_DIRECTORIES` — `services/attributes` and `db/attributes` —
+ * rather than to `domainRelativePaths()`, which also sweeps routes, controllers
+ * and middleware named `attribute`. An HTTP surface may legitimately compose a
+ * shelf and a specification on one page; what it may not do is turn one into the
+ * other, and that happens where the fact is ESTABLISHED. A wall over the shared
+ * modules would be refused by the first legitimate page and then widened, taking
+ * the prohibition with it — the reasoning `facet-isolation.test.ts` records for
+ * its own lever wall.
+ *
+ * `services/search/` and `db/search/` are deliberately OUT. Search READS facts;
+ * it does not establish them. A collection leaking into a result set is a wrong
+ * ANSWER, which is `search-relevance-isolation.test.ts`'s subject, not a false
+ * FACT, which is this one's. Naming the distinction rather than leaving the
+ * neighbour unexplained, because "why not search too" is the first question a
+ * reader has.
+ *
+ * ## It holds today, and that is the point
+ *
+ * Measured on the tree this landed against, over the 18 owned NON-TEST modules
+ * this wall actually walks: **zero** occurrences of `collection`, against
+ * **830** occurrences of `attribute` in the same files — the positive control
+ * that says the scan reaches the corpus at all. So this wall goes green on
+ * arrival, and what it adds is that the absence is now DECIDED rather than a
+ * state that happens to hold.
+ *
+ * Both figures are over the walked population and not the directory: counting
+ * the directory includes `__tests__`, which the walker excludes, and gives 1,183
+ * — a number that is true of something this wall never reads.
+ */
+describe('a collection membership never becomes a product fact (ADR 0007 D3)', () => {
+  /** ONLY the owned directories — see the docblock. */
+  function ownedModules(): { path: string; source: string }[] {
+    return OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative)).map(
+      (relative) => ({
+        path: relative,
+        source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+      }),
+    );
+  }
+
+  it('scans a real population, and the scan reaches the corpus (vacuity floor)', () => {
+    const modules = ownedModules();
+    // 18 on the tree this landed against (16 services + 2 repositories,
+    // tests excluded by the walker). A floor, because modules get added.
+    expect(
+      modules.length,
+      `only ${String(modules.length)} owned modules walked`,
+    ).toBeGreaterThanOrEqual(14);
+    // The POSITIVE CONTROL. A walk that read empty strings clears the count
+    // floor above and reports a clean zero from every wall — the shape a
+    // prohibition-only gate cannot see. `attribute` is what this corpus is made
+    // of, so its absence would mean the source never arrived.
+    const attributeHits = modules.filter((module) => /attribute/iu.test(module.source)).length;
+    expect(
+      attributeHits,
+      'the owned walk read no source that even mentions an attribute',
+    ).toBeGreaterThanOrEqual(12);
+  });
+
+  it('no module establishing a product fact reaches the collection domain', () => {
+    const offenders = ownedModules().flatMap((module) => {
+      const reach = findMerchandisingReach(module.source, stripComments(module.source));
+      if (reach === null) return [];
+      const at = reach.line === null ? '' : `:${String(reach.line)}`;
+      return [`${module.path}${at} reaches the collection domain: ${reach.text}`];
+    });
+    expect(
+      offenders,
+      'a collection is a shelf a merchant arranged; reading one here turns it into a ' +
+        'property of the product, which ADR 0007 D3 forbids',
+    ).toEqual([]);
+  });
+
+  it('MUTATION SELF-TEST: the REAL scan goes red on a mutated member of the population', () => {
+    // The detector firing on a string is not the scan firing on a FILE. This
+    // swaps a mutated source into the population the assertion above walks and
+    // asserts EXACTLY that file is named.
+    const modules = ownedModules();
+    const victim = modules[modules.length - 1];
+    expect(victim, 'the walk found no file to mutate').toBeDefined();
+    if (victim === undefined) return;
+    const planted = `${victim.source}\nimport { findCollection } from '../../db/merchandising/collectionRepository.js';\n`;
+    const offenders = modules
+      .map((module) => (module.path === victim.path ? { ...module, source: planted } : module))
+      .filter((module) => MERCHANDISING_COLLECTION_REACH.test(stripComments(module.source)))
+      .map((module) => module.path);
+    expect(offenders).toEqual([victim.path]);
   });
 });
