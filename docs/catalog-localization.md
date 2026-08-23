@@ -697,6 +697,78 @@ every behavioural case is parameterised over the map under test: measured,
 moving a field from plain to rich changed which cases ran and every one still
 passed.
 
+## The seven request-context axes, on the SERVER (#367 line 199, ADR 0007 D4)
+
+D4 names seven independent request-context dimensions — `language`, `locale`,
+`market`, `currency`, `measurement_system`, `size_system`, `time_zone` — and
+says they are "carried as seven fields and never collapsed into one". The
+storefront's half is
+[storefront-catalog.md](storefront-catalog.md) §"The six dimensions are kept
+apart", gated by `packages/frontend/lib/catalog/__tests__/request-context.test.ts`.
+This is the server's half, and it is gated by
+`packages/backend/src/__tests__/request-context-axis-separation.test.ts`.
+
+**There is no request-context object in the backend, and there deliberately is
+not one now.** Each axis arrives as its own query or body field on the endpoints
+that need it — there is no ambient `req.locale`, and the only header-borne axis
+anywhere is `x-mercaria-market`, which feeds `services/analytics/request-context.ts`
+and nothing else. Adding a seventh-field container that nothing read would
+satisfy D4's sentence and change no behaviour, which is the trap the storefront
+already recorded for `timeZone`.
+
+What the backend's request surface carries, measured by walking the zod shapes
+of every `middleware/*-schemas.ts` module at runtime rather than by grepping:
+
+| Axis | Modules carrying a field | Note |
+|---|---|---|
+| `locale` | 15 | `?locale=`, never `Accept-Language` — `taxonomy.controller.ts` sends `Vary: Accept-Encoding` and refuses the header |
+| `market` | 23 | `country` is NOT counted: it means a delivery destination or a location's own country, a fact about a row |
+| `currency` | 20 | validated against `ALL_CURRENCY_CODES`, never derived |
+| `language` | 4 | |
+| `time_zone` | 3 | always a stored preference (quiet hours, pickup hours), validated against the runtime `Intl` |
+| `measurement_system` | **1** | `?unitSystem=` on `/catalog-attributes/values/*` |
+| `size_system` | **0** | the one exemption — see below |
+
+**`size_system` is not receivable, and that is the answer rather than a gap.**
+Mercaria publishes no size-system mapping over HTTP, so there is no value a
+request could send that would authorize collapsing EU 42 into US 9. The axis is
+fully modelled as a property of a size VALUE
+(`shared-types/src/size-system.ts`: domain, region, audience, basis) and
+`compareSizeDeclarations` refuses across systems. It arrives with the sourced
+mapping that would give it a meaning.
+
+**There is exactly ONE cross-axis lookup in the whole repository**, and it is a
+fallback rather than a derivation: `NON_METRIC_MARKETS` in
+`services/canonical/display-units.ts` is CLDR's supplemental `measurementData`.
+The line that keeps it a fallback is `preferredSystem`'s ordering — an explicit
+`?unitSystem=` is returned first, and `measurementSystemForMarket` answers
+`null` and not `metric` for a market CLDR has no entry for. **That ordering had
+no test.** Measured: inverting the two lines left all 27 cases in
+`routes/__tests__/catalog-attribute-display-units.test.ts` and
+`services/canonical/__tests__/display-units.test.ts` green while serving pounds
+to a shopper in the United States who had chosen metric, because every case sent
+one parameter at a time and both branches are reachable in either order. It is
+now pinned by "lets an EXPLICIT unit system beat a market that disagrees", with
+its own control that the market fallback is still wired.
+
+**`language` is the one legitimate derivation, and the reason is a vocabulary
+overlap.** It is the primary subtag of a locale — BCP-47's own projection, which
+the fallback chain above depends on — and `SUPPORTED_LOCALES` contains bare `es`
+as well as `es-mx`, so the two vocabularies are not disjoint. The gate derives
+that overlap rather than assuming it and reports the (language, locale) pair as
+unjudgeable by value in both directions, alongside
+(`measurement_system`, `size_system`), which share `us` and `uk`. That leaves 38
+of the 42 ordered pairs judgeable, and 36 of those have no site at all.
+
+**Case is the only thing separating a language from a market**, and the gate
+compares case-sensitively for that reason: `es` is Spanish and `ES` is Spain,
+`uk` is Ukrainian and the imperial system, `eu` is Basque and a size region.
+This repository already follows BCP-47's convention on both sides of every
+comparison — `services/catalog-rollout/cohort.ts` upper-cases a market and
+lower-cases a locale — and comparing case-insensitively made a
+language-to-language map read as a language→market table, which is the false
+positive that shaped the rule.
+
 ## What is deliberately absent
 
 - **A `localization_coverage_runs` table.** "How much of the catalogue is
