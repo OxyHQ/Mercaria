@@ -47,6 +47,7 @@ import {
 } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import { listSelectedAttributeValues, listAttributeValues } from '../../db/canonical/attributeRepository.js';
+import { listOperatorOnlyAttributeKeys } from '../../db/attributes/definitionRepository.js';
 import { validationError } from '../../lib/errors/error-codes.js';
 import { evaluateCandidate } from '../attributes/constraint-evaluation.js';
 import { loadCandidateFacts, offerContextFor } from '../attributes/entity-facts.service.js';
@@ -209,6 +210,7 @@ export async function compareCanonicalProducts(
     // ── #94's typed attributes ────────────────────────────────────────────
     const declared = await declaredAttributesFor(db, product.categoryId);
     const facts = await recordedFactsFor(db, index, product.id, requested.canonicalVariantId);
+    await withholdOperatorOnlyAttributes(db, declared, facts);
 
     // ── #94's constraint evaluation ───────────────────────────────────────
     const constraintRefs = new Map<string, string>();
@@ -564,6 +566,36 @@ async function recordedFactsFor(
   }
 
   return facts;
+}
+
+/**
+ * Drop every attribute the registry marks `operator_only` — #94's "displayable"
+ * capability, applied to this surface.
+ *
+ * `/comparison` is public and unauthenticated, and a table row publishes the
+ * attribute's LABEL and its normalized VALUE. Both maps are cleaned, and neither
+ * alone would be enough: `buildComparisonTable` builds a row for every key that
+ * appears in EITHER, so a fact whose definition sits outside the subject's
+ * category still reaches the table carrying its key as the row header (see
+ * `toAttributeFact`). Cleaning only the declarations would leave that row
+ * standing with its value intact.
+ *
+ * Mutating the maps rather than returning new ones is what keeps this a single
+ * statement at the one place both are in hand. They are local to the subject
+ * being assembled and nothing else holds a reference to either.
+ */
+async function withholdOperatorOnlyAttributes(
+  db: ReturnType<typeof getDb>,
+  declared: ReadonlyMap<string, DeclaredAttribute>,
+  facts: ReadonlyMap<string, TableAttributeFact>,
+): Promise<void> {
+  const keys = new Set([...declared.keys(), ...facts.keys()]);
+  if (keys.size === 0) return;
+  const withheld = await listOperatorOnlyAttributeKeys(db, [...keys]);
+  for (const key of withheld) {
+    (declared as Map<string, DeclaredAttribute>).delete(key);
+    (facts as Map<string, TableAttributeFact>).delete(key);
+  }
 }
 
 /** #94's evaluation for one subject, with the offer context this comparison names. */

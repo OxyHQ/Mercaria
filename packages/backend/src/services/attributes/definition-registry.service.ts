@@ -97,6 +97,7 @@ export interface DraftAttributeDefinitionInput {
   filterable?: boolean;
   sortable?: boolean;
   comparable?: boolean;
+  searchable?: boolean;
   hardConstraintCapable?: boolean;
   displayPolicy?: AttributeDisplayPolicy;
   evidencePolicy?: AttributeEvidencePolicy;
@@ -154,6 +155,14 @@ export async function draftAttributeDefinition(
       filterable: input.filterable ?? true,
       sortable: input.sortable ?? false,
       comparable: input.comparable ?? true,
+      // The default follows the DISPLAY POLICY rather than being a flat `true`.
+      // An `operator_only` attribute may not be searchable at all
+      // (`attribute_definitions_searchable_display_check`), so a flat default
+      // would refuse an operator drafting one for something they never said.
+      // This is choosing the default, not coercing a stated value: an explicit
+      // `searchable: true` beside `operator_only` still reaches the refusal in
+      // `assertDefinitionShape`.
+      searchable: input.searchable ?? (input.displayPolicy ?? 'public') === 'public',
       hardConstraintCapable: input.hardConstraintCapable ?? false,
       displayPolicy: input.displayPolicy ?? 'public',
       evidencePolicy: input.evidencePolicy ?? 'source_required',
@@ -497,6 +506,7 @@ export function toAttributeDefinitionDto(
     filterable: row.filterable,
     sortable: row.sortable,
     comparable: row.comparable,
+    searchable: row.searchable,
     hardConstraintCapable: row.hardConstraintCapable,
     displayPolicy: row.displayPolicy,
     evidencePolicy: row.evidencePolicy,
@@ -578,6 +588,11 @@ function assertDefinitionShape(key: string, input: DraftAttributeDefinitionInput
   if (input.hardConstraintCapable === true && input.filterable === false) {
     throw validationError(
       'A hard-constraint-capable attribute must be filterable — a requirement a shopper cannot see is a rule they cannot check.',
+    );
+  }
+  if (input.searchable === true && input.displayPolicy === 'operator_only') {
+    throw validationError(
+      'An operator-only attribute cannot be searchable: recognising a shopper word for it puts its label in the explanation shown back to them.',
     );
   }
 }

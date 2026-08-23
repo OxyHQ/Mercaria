@@ -49,8 +49,45 @@ stable when labels change".
 | `component_axes` | The named axes of a `structured` value, in order |
 | `min/max_value`, `decimal_places`, `max_length` | Validation and precision rules |
 | `implausible_above/below` | The scale-error detector, deliberately NOT the same as min/max |
-| `variant_defining`, `filterable`, `sortable`, `comparable`, `hard_constraint_capable` | What may be done with it |
+| `variant_defining`, `filterable`, `sortable`, `comparable`, `searchable`, `hard_constraint_capable` | What may be done with it |
 | `display_policy`, `evidence_policy` | Whether values may be shown publicly, and what backing they need |
+
+### Capability metadata (#367 line 277)
+
+Seven capabilities, six columns here and one a grain down, each with the reader
+that gives it effect:
+
+| Capability | Where | Reader |
+|---|---|---|
+| filterable | `attribute_definitions.filterable` | `facets/metadata.ts` (`not_filterable`), `search-intent/model-boundary.ts` |
+| sortable | `attribute_definitions.sortable` | `facets/sorting.ts`, which also refuses a suppressed facet's sort |
+| comparable | `attribute_definitions.comparable` | `comparison/table.ts` (`attribute_not_comparable`) |
+| searchable | `attribute_definitions.searchable` | `search-intent/plan.service.ts` — `loadDefinitions`, the one gate |
+| displayable | `attribute_definitions.display_policy` | `catalog-attributes.controller.ts`, `facets/metadata.ts`, `comparison.service.ts` |
+| hard-constraint-capable | `attribute_definitions.hard_constraint_capable` | `search-intent/deterministic.ts`, `facets/metadata.ts` |
+| variant-capable | `product_type_fields.variant_capable` | `facets/metadata.ts`, `catalog-authoring/validation.ts` |
+
+**"Displayable" is `display_policy`, not a boolean**, because `operator_only`
+names WHO may see the value rather than merely withholding it. It is the one
+capability whose absence was not a missing column: it existed and only ONE of
+the three public renderings of an attribute value consulted it. The facet rail
+and the comparison table now do; the CHECK that would make the combination
+unrepresentable is discussed in `CONVENTIONS.md` §"The versioned attribute
+registry" and is deliberately not added yet.
+
+**`variant_capable` is NOT duplicated onto `attribute_definitions`**, and
+`variant_defining` is not the same fact: whether an attribute CAN distinguish
+two variants is a property of the attribute WITHIN a product type — colour
+varies a shirt, an ISBN varies nothing — while `variant_defining` is the
+registry's default for an attribute no published product type mentions.
+`facets/metadata.ts`'s `levelFor` reads exactly that: the type's answer when
+there is one, the registry's when there is not.
+
+**`searchable` is not `filterable`.** One decides whether the rail OFFERS the
+attribute as a control to pick from; the other decides whether a shopper's own
+words may resolve to it. An attribute can be either without the other — a facet
+nobody would ever type, or a term that is understood and applied as a PREFERENCE
+where no facet exists — so neither implies the other and no CHECK says so.
 | `lifecycle_state` | `draft → active → deprecated → retired`, one active per key |
 
 Enum values and their aliases are child tables (`attribute_enum_values`,

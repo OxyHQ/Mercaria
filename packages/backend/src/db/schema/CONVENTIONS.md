@@ -1284,6 +1284,30 @@ shape looks arbitrary answerable:
 - **Only an `objective` attribute may be `hard_constraint_capable`, and it must
   be `filterable`.** An opinion must not be able to EXCLUDE a product, and a
   requirement nobody can see as a filter is a rule they cannot check.
+- **A `searchable` attribute must be `display_policy = 'public'`** (#367 line
+  277). `searchable` decides whether a shopper's own WORDS may resolve to the
+  attribute, and the deterministic interpreter echoes the matched attribute's
+  LABEL and its controlled value's LABEL back in the explanation it attaches to
+  every requirement — so an interpretation IS a public DTO, and recognising a
+  term publishes exactly what `operator_only` withheld. `0141` backfills
+  `searchable` from `display_policy` in the statement before the CHECK, which is
+  what lets it be added VALIDATED with a proof rather than a hope.
+  **The two SIBLING implications are deliberately NOT CHECKs**: `filterable` and
+  `comparable` already hold values that branch could not count, and the repair
+  available in a migration would be to rewrite the frozen meaning of a published
+  version. They are enforced at the READ instead — `facets/metadata.ts` suppresses
+  with `not_publicly_displayable`, `comparison.service.ts` withholds the key from
+  both the declaration and the fact map — and what is owed is a count of the rows
+  that would fail, then the two checks. The `attribute_labels` locale decision one
+  table over, for the same reason.
+- **Every capability column is FROZEN with the version**, and
+  `ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS` in `attributeRegistry.ts` is the list
+  `attribute-registry.realdb.test.ts` drives an UPDATE of, column by column,
+  against a published version. A capability that can be flipped on a live version
+  is a capability whose version stamp means nothing: a stored value cites the
+  version it was read under, so "was this reachable from a shopper's words under
+  v3" has to stay answerable from v3. The trigger's frozen list is hand-written
+  SQL no compiler reads, which is why the list exists as a value.
 - **`include_descendants` is per SCOPE row, not per definition.** That IS the
   inheritance rule: "screen size, everywhere under Electronics" and "shoe width,
   in Shoes and not in Shoe care" are both correct, and one global policy would

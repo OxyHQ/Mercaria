@@ -122,6 +122,7 @@ export const attributeDefinitionDraftSchema = z
     filterable: z.boolean().optional(),
     sortable: z.boolean().optional(),
     comparable: z.boolean().optional(),
+    searchable: z.boolean().optional(),
     hardConstraintCapable: z.boolean().optional(),
     displayPolicy: z.enum(DISPLAY_POLICY_VALUES).optional(),
     evidencePolicy: z.enum(EVIDENCE_POLICY_VALUES).optional(),
@@ -529,6 +530,7 @@ export interface AttributeDefinitionDraftBody {
   filterable?: boolean;
   sortable?: boolean;
   comparable?: boolean;
+  searchable?: boolean;
   hardConstraintCapable?: boolean;
   displayPolicy?: AttributeDisplayPolicy;
   evidencePolicy?: AttributeEvidencePolicy;

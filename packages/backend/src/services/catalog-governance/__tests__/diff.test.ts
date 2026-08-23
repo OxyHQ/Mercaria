@@ -60,7 +60,11 @@ function attribute(patch: Partial<DiffableAttributeVersion> = {}): DiffableAttri
     decimalPlaces: null,
     variantDefining: true,
     filterable: true,
+    sortable: false,
+    comparable: true,
+    searchable: true,
     hardConstraintCapable: false,
+    displayPolicy: 'public',
     enumValues: ['black', 'white'],
     categoryIds: ['cat-1'],
     ...patch,
@@ -216,6 +220,98 @@ describe('diffProductTypeVersions', () => {
 describe('diffAttributeVersions', () => {
   it('reports no entries between two identical versions', () => {
     expect(diffAttributeVersions(attribute(), attribute({ version: 2 })).entries).toEqual([]);
+  });
+
+  it('reports all seven capability changes, not the three it used to', () => {
+    // #367 line 277. Before this the diff carried `variantDefining`,
+    // `filterable` and `hardConstraintCapable` and nothing else, so an operator
+    // approving a new version could not see that it had stopped being
+    // comparable, sortable, searchable or public.
+    const everyCapabilityOn = attribute({
+      variantDefining: true,
+      filterable: true,
+      sortable: true,
+      comparable: true,
+      searchable: true,
+      hardConstraintCapable: true,
+      displayPolicy: 'public',
+    });
+    const withdrawn = diffAttributeVersions(
+      everyCapabilityOn,
+      attribute({
+        version: 2,
+        variantDefining: false,
+        filterable: false,
+        sortable: false,
+        comparable: false,
+        searchable: false,
+        hardConstraintCapable: false,
+        displayPolicy: 'operator_only',
+      }),
+    );
+    // Exactly seven, and named. An eighth would mean the diff reported a change
+    // nobody made; a sixth is the state this repaired.
+    expect(withdrawn.entries.map((entry) => entry.property).sort()).toEqual([
+      'comparable',
+      'displayPolicy',
+      'filterable',
+      'hardConstraintCapable',
+      'searchable',
+      'sortable',
+      'variantDefining',
+    ]);
+  });
+
+  it('separates the capabilities that STRAND something from the ones that do not', () => {
+    const stranding = (patch: Partial<DiffableAttributeVersion>): number =>
+      diffAttributeVersions(attribute(), attribute({ version: 2, ...patch })).breakingCount;
+
+    // Withdrawing these strands a variant matrix's axis and a phrase the
+    // interpreter used to understand. `hardConstraintCapable` is `false` in the
+    // fixture, so its withdrawal is exercised from `true`.
+    expect(stranding({ variantDefining: false })).toBe(1);
+    expect(stranding({ searchable: false })).toBe(1);
+    expect(
+      diffAttributeVersions(
+        attribute({ hardConstraintCapable: true }),
+        attribute({ version: 2, hardConstraintCapable: false }),
+      ).breakingCount,
+    ).toBe(1);
+
+    // These stop a rail offering a control and leave every stored value exactly
+    // as interpretable — reported, and not breaking. Each is asserted to produce
+    // an ENTRY as well, or "not breaking" would be satisfied by not reporting it.
+    for (const patch of [{ filterable: false }, { sortable: true }, { comparable: false }]) {
+      const diff = diffAttributeVersions(attribute(), attribute({ version: 2, ...patch }));
+      expect(diff.entries).toHaveLength(1);
+      expect(diff.breakingCount).toBe(0);
+    }
+
+    // And GRANTING one strands nothing, in either family.
+    expect(
+      diffAttributeVersions(
+        attribute({ searchable: false }),
+        attribute({ version: 2, searchable: true }),
+      ).breakingCount,
+    ).toBe(0);
+  });
+
+  it('treats a display policy as breaking in exactly one direction', () => {
+    // `public` → `operator_only` withdraws every stored value from every public
+    // surface at once. The reverse only adds, and reporting it as breaking would
+    // put a false warning in front of the operator making a catalogue MORE open.
+    const withdrawn = diffAttributeVersions(
+      attribute({ displayPolicy: 'public' }),
+      attribute({ version: 2, displayPolicy: 'operator_only' }),
+    );
+    expect(withdrawn.breakingCount).toBe(1);
+
+    const opened = diffAttributeVersions(
+      attribute({ displayPolicy: 'operator_only', searchable: false }),
+      attribute({ version: 2, displayPolicy: 'public', searchable: false }),
+    );
+    expect(opened.entries).toHaveLength(1);
+    expect(opened.breakingCount).toBe(0);
   });
 
   it('treats a value type or cardinality move as breaking', () => {

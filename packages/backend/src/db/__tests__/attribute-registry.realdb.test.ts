@@ -19,12 +19,14 @@ import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { categories } from '../schema/catalog.js';
 import { catalogSources, sourceRecords } from '../schema/provenance.js';
 import {
+  ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS,
   attributeDefinitions,
   attributeDefinitionCategories,
   attributeEnumValues,
   attributeReindexRequests,
   attributeValueAliases,
   attributeValueReviews,
+  type AttributeDefinitionCapabilityColumn,
 } from '../schema/attributeRegistry.js';
 import {
   canonicalAttributeValues,
@@ -37,6 +39,8 @@ import {
   resolveDefinitionsForCategory,
 } from '../../services/attributes/definition-registry.service.js';
 import { applyAttributeObservation } from '../../services/attributes/attribute-observation.service.js';
+import { ATTRIBUTE_VERSION_CARRY_FORWARD } from '../../services/attributes/version-carry-forward.js';
+import { listOperatorOnlyAttributeKeys } from '../attributes/definitionRepository.js';
 import { enqueueAttributeReindex } from '../attributes/attributeOpsRepository.js';
 import { createCanonicalProduct } from '../../services/canonical/canonical-product.service.js';
 import { deleteTestCanonicalRows } from './canonical-teardown.js';
@@ -305,6 +309,213 @@ describe('a definition version is published, not edited', () => {
       .where(eq(attributeDefinitions.key, attributeKey))
       .returning();
     expect(relabelled[0]?.label).toBe('Frozen, corrected');
+  });
+
+  /**
+   * The row every flip below is measured against.
+   *
+   * `searchable: false` rather than the column default, so that flipping
+   * `displayPolicy` to `operator_only` produces a row
+   * `attribute_definitions_searchable_display_check` ACCEPTS. Otherwise that one
+   * write would be refused by the CHECK before the freeze had anything to say,
+   * and a `display_policy` quietly dropped from the frozen list would still look
+   * refused — the assertion would pass while measuring the wrong constraint.
+   */
+  const CAPABILITY_BASELINE = {
+    variantDefining: false,
+    filterable: true,
+    sortable: false,
+    comparable: true,
+    searchable: false,
+    hardConstraintCapable: false,
+    displayPolicy: 'public',
+  } as const;
+
+  /**
+   * One value per capability column that DIFFERS from {@link CAPABILITY_BASELINE},
+   * so every patch is a real change the trigger has to notice, and no patch
+   * produces a row any CHECK on this table refuses. Each is applied as the
+   * baseline PLUS the one flip, so exactly one column moves per attempt and a
+   * refusal is attributable to it.
+   */
+
+  const CAPABILITY_FLIP: Readonly<
+    Record<AttributeDefinitionCapabilityColumn, Record<string, unknown>>
+  > = {
+    variantDefining: { variantDefining: true },
+    filterable: { filterable: false },
+    sortable: { sortable: true },
+    comparable: { comparable: false },
+    searchable: { searchable: true },
+    hardConstraintCapable: { hardConstraintCapable: true },
+    displayPolicy: { displayPolicy: 'operator_only' },
+  };
+
+  it('freezes every capability column once published, and permits each on a draft', async () => {
+    // The tuple names PROPERTIES of the drizzle table, and the trigger's frozen
+    // list is hand-maintained SQL no compiler reads. Tying the tuple to the
+    // schema-walked carry-forward census is what stops a typo here passing as
+    // coverage: that map is asserted against `getTableConfig(attributeDefinitions)`
+    // in `attribute-version-carry-forward.test.ts`, so a member that is not a
+    // real column cannot appear in both.
+    for (const column of ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS) {
+      expect(
+        Object.hasOwn(ATTRIBUTE_VERSION_CARRY_FORWARD, column),
+        `${column} is not a column of attribute_definitions`,
+      ).toBe(true);
+    }
+    // A vacuity floor. Seven is #367 line 277's own count minus variant
+    // capability, which lives on `product_type_fields`, plus `display_policy`.
+    expect(ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS.length).toBeGreaterThanOrEqual(7);
+
+    const attributeKey = key('capability_freeze');
+    await draftAttributeDefinition({
+      key: attributeKey,
+      label: 'Capability freeze',
+      valueType: 'string',
+      actorOxyUserId: OPERATOR,
+    });
+
+    // The POSITIVE CONTROL, and it runs first: every one of these patches
+    // SUCCEEDS while the version is a draft. Without it, a trigger that refused
+    // every update always would satisfy the published half exactly as well.
+    // Baseline-plus-one-flip, never cumulative. Cumulatively, `filterable:
+    // false` lands before `hardConstraintCapable: true` and the write is refused
+    // by `attribute_definitions_hard_constraint_check` rather than by the
+    // freeze — a red that says nothing about what is frozen.
+    let appliedOnDraft = 0;
+    for (const column of ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS) {
+      await db
+        .update(attributeDefinitions)
+        .set({ ...CAPABILITY_BASELINE, ...CAPABILITY_FLIP[column] })
+        .where(
+          and(eq(attributeDefinitions.key, attributeKey), eq(attributeDefinitions.version, 1)),
+        );
+      appliedOnDraft += 1;
+    }
+    expect(appliedOnDraft).toBe(ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS.length);
+
+    // Put the row back on the baseline, so every flip below is a change again.
+    await db
+      .update(attributeDefinitions)
+      .set({ ...CAPABILITY_BASELINE })
+      .where(and(eq(attributeDefinitions.key, attributeKey), eq(attributeDefinitions.version, 1)));
+    await publishAttributeDefinition(attributeKey, 1, OPERATOR);
+
+    let refused = 0;
+    for (const column of ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS) {
+      await expectRefused('trigger', () =>
+        db
+          .update(attributeDefinitions)
+          .set({ ...CAPABILITY_BASELINE, ...CAPABILITY_FLIP[column] })
+          .where(eq(attributeDefinitions.key, attributeKey)),
+      );
+      refused += 1;
+    }
+    expect(refused).toBe(ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS.length);
+  });
+
+  it('refuses a searchable attribute whose values are operator-only', async () => {
+    // Straight to the table, past the service refusal: the CHECK is what has to
+    // hold, because #367 line 277's capabilities are read by four domains and
+    // only one of them goes through `draftAttributeDefinition`.
+    await expectRefused('check', () =>
+      db.insert(attributeDefinitions).values({
+        key: key('operator_grade_searchable'),
+        version: 1,
+        lifecycleState: 'draft',
+        label: 'Supplier grade code',
+        valueType: 'string',
+        displayPolicy: 'operator_only',
+        searchable: true,
+      }),
+    );
+
+    // The other side of the biconditional-shaped pair, and the reason this is
+    // not simply "operator_only is refused": an operator-only attribute is a
+    // legitimate thing to define, it just may not be reachable from a shopper's
+    // words. Without this half the CHECK above could be satisfied by a rule that
+    // refused `operator_only` outright.
+    const permitted = await db
+      .insert(attributeDefinitions)
+      .values({
+        key: key('operator_grade_quiet'),
+        version: 1,
+        lifecycleState: 'draft',
+        label: 'Supplier grade code',
+        valueType: 'string',
+        displayPolicy: 'operator_only',
+        searchable: false,
+      })
+      .returning();
+    expect(permitted[0]?.searchable).toBe(false);
+
+    // And the DEFAULT follows the display policy rather than being a flat
+    // `true` — an operator drafting an operator-only attribute must not hit a
+    // refusal for a value they never stated.
+    const drafted = await draftAttributeDefinition({
+      key: key('operator_grade_default'),
+      label: 'Supplier grade code',
+      valueType: 'string',
+      displayPolicy: 'operator_only',
+      actorOxyUserId: OPERATOR,
+    });
+    expect(drafted.searchable).toBe(false);
+    // A public attribute still defaults to searchable, so the line above is a
+    // policy-dependent default and not a blanket `false`.
+    const publicDraft = await draftAttributeDefinition({
+      key: key('public_default'),
+      label: 'Screen size',
+      valueType: 'string',
+      actorOxyUserId: OPERATOR,
+    });
+    expect(publicDraft.searchable).toBe(true);
+  });
+
+  it('names the operator-only keys and nothing else', async () => {
+    // The read every public surface rendering attribute values needs. Four
+    // fixtures, and each absence is a different property:
+    const publicKey = key('cap_public');
+    const withheldKey = key('cap_withheld');
+    const draftWithheldKey = key('cap_withheld_draft');
+    const unknownKey = key('cap_never_defined');
+
+    for (const [attributeKey, policy] of [
+      [publicKey, 'public'] as const,
+      [withheldKey, 'operator_only'] as const,
+      [draftWithheldKey, 'operator_only'] as const,
+    ]) {
+      await draftAttributeDefinition({
+        key: attributeKey,
+        label: 'Capability read',
+        valueType: 'string',
+        displayPolicy: policy,
+        actorOxyUserId: OPERATOR,
+      });
+    }
+    await publishAttributeDefinition(publicKey, 1, OPERATOR);
+    await publishAttributeDefinition(withheldKey, 1, OPERATOR);
+    // `draftWithheldKey` stays a draft on purpose.
+
+    const withheld = await listOperatorOnlyAttributeKeys(db, [
+      publicKey,
+      withheldKey,
+      draftWithheldKey,
+      unknownKey,
+    ]);
+
+    expect([...withheld]).toEqual([withheldKey]);
+    // A `public` attribute is rendered — without this the read could be
+    // satisfied by one that names every key it was handed.
+    expect(withheld.has(publicKey)).toBe(false);
+    // A DRAFT policy governs nothing yet: only the ACTIVE version decides what
+    // may be shown NOW, which is `getPublicAttributeValuesHandler`'s own rule.
+    expect(withheld.has(draftWithheldKey)).toBe(false);
+    // And the EXCLUSION direction: a key with no active definition comes back
+    // absent and is therefore rendered. The inclusion direction would silently
+    // drop every fact recorded under a version that has since been retired.
+    expect(withheld.has(unknownKey)).toBe(false);
+    expect(await listOperatorOnlyAttributeKeys(db, [])).toEqual(new Set());
   });
 
   it('refuses to DELETE a published version', async () => {

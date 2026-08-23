@@ -74,6 +74,10 @@ function definition(spec: DefinitionSpec): ResolvedAttributeDefinition {
       filterable: true,
       sortable: false,
       comparable: true,
+      // Every benchmark definition is searchable: the cases exist to measure
+      // INTERPRETATION, and a definition the loader would have filtered out is
+      // one the interpreter never sees in production either.
+      searchable: true,
       hardConstraintCapable: spec.hardConstraintCapable ?? true,
       displayPolicy: 'public',
       evidencePolicy: 'source_required',

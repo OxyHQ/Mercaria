@@ -121,6 +121,39 @@ export async function listAttributeKeysByIds(
 }
 
 /**
+ * Which of these attribute keys the ACTIVE registry marks `operator_only`.
+ *
+ * The narrow-projection boundary again, and this one is the whole read a public
+ * surface needs: a caller holding attribute keys and about to render their
+ * values needs to know which it may not, and has no business loading those
+ * definitions' labels, bounds or controlled values to find out.
+ *
+ * It answers the EXCLUSION rather than the inclusion, deliberately — a key with
+ * no active definition comes back absent and is therefore rendered. That is the
+ * `getPublicAttributeValuesHandler` precedent verbatim, and the reasoning is
+ * that a value recorded under a version that has since been retired was never
+ * marked operator-only by anybody, while the inclusion direction would silently
+ * drop every such fact from a comparison table.
+ */
+export async function listOperatorOnlyAttributeKeys(
+  db: DatabaseOrTransaction,
+  keys: readonly string[],
+): Promise<Set<string>> {
+  if (keys.length === 0) return new Set();
+  const rows = await db
+    .select({ key: attributeDefinitions.key })
+    .from(attributeDefinitions)
+    .where(
+      and(
+        inArray(attributeDefinitions.key, [...keys]),
+        eq(attributeDefinitions.lifecycleState, 'active'),
+        eq(attributeDefinitions.displayPolicy, 'operator_only'),
+      ),
+    );
+  return new Set(rows.map((row) => row.key));
+}
+
+/**
  * The ACTIVE version of one attribute — the meaning a new observation is read
  * under.
  *

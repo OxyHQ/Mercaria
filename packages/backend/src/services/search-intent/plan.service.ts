@@ -378,14 +378,32 @@ export function planLatencyMs(result: ShoppingIntentResult): number {
  * registry, and the unscoped case is precisely the one the interpreter refuses
  * and asks about. So a shopper browsing a category gets a better answer, and
  * one who is not gets an honest question.
+ *
+ * ## `searchable` is applied HERE, once, and that is the whole gate
+ *
+ * #94's `searchable` (#367 line 277) decides whether a shopper's own words may
+ * resolve to an attribute at all. Applying it at the load is what makes it a
+ * property of the CALL GRAPH rather than a branch somebody has to remember:
+ * the deterministic interpreter matches units, enum spellings and localized
+ * labels in three separate passes, `buildModelVocabulary` composes what a model
+ * may name, and `validateCandidate` decides what a model's answer may resolve
+ * to — and every one of the four reads this same array. Filtering in any of them
+ * would leave the other three open.
+ *
+ * It is deliberately NOT applied inside `interpretDeterministically`: that
+ * function is pure and takes the definitions it is handed, which is what lets
+ * the #95 benchmark drive the PRODUCTION interpreter over an in-memory
+ * registry. A filter in there would be a second place the rule lives.
  */
 async function loadDefinitions(
   db: DatabaseOrTransaction,
   categoryId: string | undefined,
 ): Promise<readonly ResolvedAttributeDefinition[]> {
-  return categoryId === undefined
-    ? resolveAllActiveDefinitions(db)
-    : resolveDefinitionsForCategory(db, categoryId);
+  const definitions =
+    categoryId === undefined
+      ? await resolveAllActiveDefinitions(db)
+      : await resolveDefinitionsForCategory(db, categoryId);
+  return definitions.filter((definition) => definition.row.searchable);
 }
 
 /** Everything a draft named, resolved against Mercaria's own tables. */
