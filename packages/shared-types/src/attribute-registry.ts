@@ -585,6 +585,17 @@ export interface AttributeDefinition {
   filterable: boolean;
   sortable: boolean;
   comparable: boolean;
+  /**
+   * Whether a shopper's own WORDS may resolve to this attribute.
+   *
+   * Not the same question as `filterable`, which is whether the rail offers it
+   * as a facet to pick from. A `searchable: false` attribute contributes no term
+   * to natural-language interpretation and no entry to what a model may name,
+   * so its label and its controlled-value spellings are never matched in free
+   * text — which is what keeps an `operator_only` attribute's label out of the
+   * explanation an interpretation shows the shopper.
+   */
+  searchable: boolean;
   /** Whether a shopper's requirement on this attribute may EXCLUDE a product. */
   hardConstraintCapable: boolean;
   displayPolicy: AttributeDisplayPolicy;

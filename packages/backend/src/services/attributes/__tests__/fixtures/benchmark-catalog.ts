@@ -398,6 +398,7 @@ export function fixtureDefinition(
       filterable: input.filterable ?? true,
       sortable: input.sortable ?? false,
       comparable: input.comparable ?? true,
+      searchable: input.searchable ?? true,
       hardConstraintCapable: input.hardConstraintCapable ?? false,
       displayPolicy: input.displayPolicy ?? 'public',
       evidencePolicy: input.evidencePolicy ?? 'source_required',

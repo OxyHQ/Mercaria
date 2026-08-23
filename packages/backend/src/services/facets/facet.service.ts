@@ -154,6 +154,7 @@ export async function resolveFacets(
       cardinality: definition.row.cardinality,
       baseUnit: definition.row.baseUnit,
       filterable: definition.row.filterable,
+      publiclyDisplayable: definition.row.displayPolicy === 'public',
       sortable: definition.row.sortable,
       hardConstraintCapable: definition.row.hardConstraintCapable,
       variantDefining: definition.row.variantDefining,
