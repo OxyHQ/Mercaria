@@ -185,32 +185,71 @@ The dashboard has no `if (category === 'shoes')` and must not grow one. Two
 scanned gates enforce it and both run in CI:
 
 - `scripts/validate-authoring-schema-driven.mjs`, run as `validate:authoring-schema`
-  (`.github/workflows/ci.yml:167`) — four walls over `packages/dashboard/`,
-  vacuity floor 60 files; it currently scans 115.
+  (`.github/workflows/ci.yml:234`) — four walls.
 - `scripts/validate-storefront-catalog-driven.mjs`, run as
-  `validate:storefront-catalog` (`ci.yml:189`) — five walls over
-  `packages/frontend/`, floor 120; it currently scans 196.
+  `validate:storefront-catalog` (`ci.yml:256`) — five walls.
 
 Both npm scripts run their own `test-validate-*.mjs` self-test in the same
-command (`package.json:31`, `:36`), so a detector that stopped detecting fails
+command (`package.json:31`, `:37`), so a detector that stopped detecting fails
 beside the scan rather than passing quietly.
+
+**Each gate prints its own population, so run it rather than trusting a number
+here.** Both print the trees they walked and the file count per tree:
+
+```
+bun ./scripts/validate-authoring-schema-driven.mjs
+bun ./scripts/validate-storefront-catalog-driven.mjs
+```
+
+At `d7b381b7` those read 223 files (`packages/dashboard/` 118 +
+`packages/ui/src/` 105) and 363 files (`packages/frontend/` 198 +
+`packages/ui/src/` 105 + `packages/pos/` 60). **A reader whose figures differ
+should re-run and correct this page rather than assume they miscounted** — every
+count on it has drifted at least once, and the two paragraphs below say so about
+themselves.
 
 Both state their own blind spots in the file: a vocabulary re-listed with **no
 type annotation** is invisible to the re-listing wall, and a **cross-file**
 constant is invisible to the binding-resolution wall.
 
-**`packages/pos` and `packages/ui` are covered by neither gate.** `ui` has no
-test runner at all (`package.json:15` is `echo "No tests specified"`), so a
-hard-coded category list added there today fails nothing.
+> **This paragraph said `packages/pos` and `packages/ui` were covered by neither
+> gate, and it was true when written.** `d5fb6d8f` wrote it; `49275e70`
+> (*scan the trees each app compiles, not the package it is filed under* — #478,
+> CLOSED) landed afterwards and nobody swept this page.
+> `git merge-base --is-ancestor d5fb6d8f 49275e70` returns true. Kept rather than
+> deleted, so a reader who remembers the gap can tell it was closed.
+
+**What it is now.** `packages/ui/src` is scanned by BOTH gates and `packages/pos`
+by the storefront gate — the scripts' own docblocks state it
+(`validate-storefront-catalog-driven.mjs:42`, `:34`). A hard-coded category list
+added to either fails a gate today.
+
+**The premise is still true and its conclusion is not, which is why this one
+survived.** `packages/ui/package.json:16` is still
+`echo "No tests specified"` — anybody auditing that sentence checks the fact,
+finds it holds, and moves on. What expired is the inference, when the gates
+started scanning the TREES each app compiles rather than the package a file is
+filed under. **A stale fact is findable; a live fact carrying a dead conclusion
+is not, because checking the fact reassures you.**
 
 ### 2. Do not make a display string an identity
 
 Not as a foreign key — `db/__tests__/catalog-identity-isolation.test.ts` fails the
 build on a key pointed at `name`, `slug`, `label`, `title` or `description`, over
-809 foreign-key TARGET COLUMNS (784 single-column plus 25 named inside a
-composite `foreignKey({ foreignColumns: [...] })`) in 83 schema files. The gate
-prints all three figures on every successful run; this paragraph said 791 over 82
-and neither number reproduced, which is what a count with no rule beside it does.
+every foreign-key TARGET COLUMN in the schema, single-column and composite
+(`foreignKey({ foreignColumns: [...] })`) alike.
+
+**The gate prints its population; this page no longer restates it.**
+
+```
+bun run --cwd packages/backend test -- \
+  src/db/__tests__/catalog-identity-isolation.test.ts --reporter=verbose
+```
+
+At `d7b381b7`: 84 schema files, 789 single-column foreign keys, 29 composite
+target columns. This paragraph has now been wrong twice — it said 791 over 82,
+then 809 over 83 — **which is what a count with no rule beside it does, and
+restating it with fresher numbers is the treatment that already failed.**
 
 Not as a request field either. `category: z.string()` and `productType:
 z.string()` exist in exactly nine places, all of them pre-#367 v1 listing
@@ -226,15 +265,18 @@ outside the population. Nothing in the gate could see it: every floor, every
 count and both mutation self-tests measured the population the gate derived
 rather than the one it should have, which is `domain-population.ts`'s defect 3
 verbatim. The walk is now recursive over `middleware/`, `controllers/` and
-`routes/` (341 modules against the previous 74), with a floor per directory
-rather than one over the union.
+`routes/` (346 modules at `d7b381b7`, against the previous 74; the same verbose
+run above prints it), with a floor per directory rather than one over the
+union.
 
 And not as a DTO. `scripts/validate-catalog-identity-contracts.mjs` is the same
 invariant on the published `@mercaria/shared-types` surface — the type a shipped
 client compiles against, which no package's test runner covers. It READS clause
 3's `IDENTITY_SHAPED_FIELDS` rather than copying it, so one vocabulary serves
-both. Thirty-two occurrences over 121 modules are excused at an exact count,
-each with a disposition from a closed set (`versioned_contract`,
+both. Its excused occurrences are pinned at an exact count — thirty-two at
+`d7b381b7`, over the modules `bun ./scripts/validate-catalog-identity-contracts.mjs`
+reports (126 there, 7,654 property signatures) — each with a disposition from a
+closed set (`versioned_contract`,
 `external_mirror`, `external_observation`, `immutable_snapshot`, `presentation`,
 `scoped_key`) that decides its retirement condition. Four of the six retire
 never and say so.
@@ -248,9 +290,10 @@ and a negative control PER vocabulary member from the tuple itself, on every
 run, so no arm can be decoration.
 
 **Say which population a member count is over.** Three defensible rules give
-three different answers across the same 121 modules: DIRECT members of an
-exported declaration is 7,270; every property signature anywhere UNDER one is
-7,563; every property signature in the files regardless of export is 7,634. The
+three different answers across the same modules: DIRECT members of an exported
+declaration, every property signature anywhere UNDER one, and every property
+signature in the files regardless of export. They differed by roughly 360 when
+this was first measured; the gate's own run prints the middle one it uses. The
 DTO gate's walk is the middle rule and says so at `MINIMUM_SCANNED_MEMBERS`.
 That disagreement is how the walk's one real hole was found — it stopped at a
 generic's type ARGUMENTS, so the five members inside
@@ -274,18 +317,27 @@ a miss and inventing a normalization is the false merge #58 is shaped around.
 
 Price, stock, availability, condition and fulfilment do not belong on a canonical
 product or variant, and are not modellable as product-type attributes.
-`RESERVED_OFFER_FACT_KEYS` (`shared-types/src/attribute-registry.ts:371`) names
+`RESERVED_OFFER_FACT_KEYS` (`shared-types/src/attribute-registry.ts:458`) names
 twenty keys — `price`, `availability`, `in_stock`, `condition`, `shipping_cost`
 and sixteen more — rendered into `attribute_definitions_reserved_key_check`, so
-they cannot be defined as attributes at all. `product-type-isolation.test.ts:150`
+they cannot be defined as attributes at all. `services/__tests__/product-type-isolation.test.ts:231`
 asserts the product-type schema module declares no listing, offer, inventory or
 price column.
 
-A walk of `db/schema/canonicalCatalog.ts` — 17 tables, 225 columns — finds zero
-price, stock, availability, condition or fulfilment columns, and that is now a
-property rather than a census:
+A walk of `db/schema/canonicalCatalog.ts` finds zero price, stock, availability,
+condition or fulfilment columns, and that is now a property rather than a census:
 `db/__tests__/canonical-commerce-column-isolation.test.ts` refuses fifteen
-segment prohibitions across every canonical column. Adding `price_amount` or
+segment prohibitions across every canonical column, and prints its population:
+
+```
+bun run --cwd packages/backend test -- \
+  src/db/__tests__/canonical-commerce-column-isolation.test.ts --reporter=verbose
+```
+
+At `d7b381b7`: 17 canonical tables, 227 columns, 15 prohibitions, 2 exemptions,
+plus a positive control naming the prohibited columns it FINDS on `offers.ts`
+(20) and `catalog.ts` (19) — which is what stops the zero above being a fact
+about the detector. Adding `price_amount` or
 `available_quantity` to `canonical_variants` fails the build naming both the
 column and the prohibition.
 
@@ -301,7 +353,7 @@ attribute is its right home.
 
 What the gate does **not** cover is stated in the file: a commerce fact under a
 name no prohibition carries — `rrp`, `msrp_snapshot` — passes. That is the
-direction a per-table allow-list would cover, and 225 entries across the
+direction a per-table allow-list would cover, and an entry per column across the
 repository's oldest schema module is a merge conflict resolved by pasting.
 
 Compatibility is not a variant axis either. One brake-pad SKU fits many vehicles
@@ -311,9 +363,10 @@ epic's own worked counter-example.
 ### 4. Do not read `listings.product_type` as a product type
 
 It is the free-text string a Shopify or WooCommerce import carried
-(`db/schema/catalog.ts:368`). #367's product type is
+(`db/schema/catalog.ts:380`). #367's product type is
 `product_type_definitions`, and a listing carries no pin to it — the citation
 lives on `native_listing_variant_axes.product_type_definition_id`, and that
 column is **nullable and written only when the listing declares axes**
-(`services/catalog-authoring/publish.service.ts:581`). So a published listing
+(`services/catalog-authoring/publish.service.ts:286`, and `:661` on the
+republish path). So a published listing
 with no variant axes carries no product-type version anywhere. Do not infer one.
