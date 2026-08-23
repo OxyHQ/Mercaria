@@ -53,8 +53,9 @@ router.use(makeRateLimiter('admin'), authenticateToken, validateId('storeId'), l
  * The richest subject in the epic and the reason the gate sits at `router.use`
  * here rather than per route: `mergeParams` puts `:storeId` on every request,
  * and a draft CREATE additionally carries `categoryId`, `productTypeKey`,
- * `locale` and `market` in its body, so all five dimensions are answerable on
- * one surface. AFTER `loadStore`, so a request for a store the caller cannot
+ * `locale` and `market` in its body — and `authenticateToken` above supplies the
+ * caller, so all SIX dimensions including `internal_user` are answerable on one
+ * surface. AFTER `loadStore`, so a request for a store the caller cannot
  * reach is refused as unauthorised rather than as un-rolled-out.
  */
 router.use(catalogRolloutGate());

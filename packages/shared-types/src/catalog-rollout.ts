@@ -51,10 +51,29 @@ export type CatalogRolloutDimension =
   /** One category id. Exact, never a subtree — see `docs/catalog-rollout-cohorts.md`. */
   | 'category'
   /** One product-type machine key. */
-  | 'product_type';
+  | 'product_type'
+  /**
+   * One Oxy user id — ADR 0007 D12's FIRST rollout stage, "internal users".
+   *
+   * The value is the ACCOUNT, listed in `CATALOG_ROLLOUT_COHORTS` exactly as a
+   * store or a category is. There is deliberately no `INTERNAL_USER_*`
+   * allow-list behind it and it deliberately does not borrow one of the six
+   * operator lists: those answer "may operate payments", "may operate the
+   * catalogue" — and **"may reach the payment operator surface" and "should see
+   * the new catalogue during stage 1" are different questions**. Keyed on one of
+   * those, this cohort would move whenever somebody was granted an unrelated
+   * power, silently, in the direction of admitting people. `store:<id>` is not
+   * backed by a store allow-list either; every dimension here works by listing
+   * its values, and this is consistent with them by construction.
+   *
+   * **The only dimension that is a claim about the CALLER rather than about the
+   * REQUEST**, which is why its subject value has a different source. See
+   * `catalogRolloutSubjectFromRequest`.
+   */
+  | 'internal_user';
 
 /**
- * The five, as data, so a walk can iterate them.
+ * The six, as data, so a walk can iterate them.
  *
  * Deliberately does NOT include `all`: `all` is a whole-list escape rather than
  * a dimension, it names no subject field, and putting it here would make every
@@ -67,6 +86,7 @@ export const CATALOG_ROLLOUT_DIMENSIONS: readonly CatalogRolloutDimension[] = [
   'store',
   'category',
   'product_type',
+  'internal_user',
 ];
 
 /**
@@ -89,4 +109,14 @@ export interface CatalogRolloutSubject {
   readonly storeId?: string | null;
   readonly categoryId?: string | null;
   readonly productTypeKey?: string | null;
+  /**
+   * The AUTHENTICATED caller's Oxy user id, or null when the surface has none.
+   *
+   * Null on `facets`, `navigation` and `taxonomy`, which carry no auth
+   * middleware at all — so with `internal_user` enabled those three refuse every
+   * request, internal callers included. That is the accurate rendering of
+   * "not rolled out": a public, per-(market, locale), ETag-validated surface has
+   * no internal-only meaning, and stage 1 means it is not yet public.
+   */
+  readonly internalUserOxyUserId?: string | null;
 }

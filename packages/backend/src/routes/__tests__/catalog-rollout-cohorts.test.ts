@@ -61,11 +61,30 @@ vi.mock('@oxyhq/core/server', async (importOriginal) => ({
   getRequiredOxyUserId: () => 'oxy-user-catalog-cohort-probe',
 }));
 vi.mock('../../middleware/auth.js', () => ({
+  /**
+   * Authenticates AS the account the probe names, so `internal_user` has a
+   * caller to be.
+   *
+   * The header is this mock's stand-in for a signed request: the real
+   * `authenticateToken` sets `req.user` from a verified token, and the
+   * `internal_user` dimension reads `req.user?.id`. Without it every probe is
+   * anonymous and that dimension could only ever be refused — which would look
+   * exactly like a working gate.
+   *
+   * It is a mock-local mechanism and reaches no production path: the real
+   * middleware never reads this header, and `catalogRolloutSubjectFromRequest`
+   * takes the id from `req.user` rather than from the request, which is the
+   * property `internal_user is never taken from the request` pins.
+   */
   authenticateToken: (
-    _req: express.Request,
+    req: express.Request,
     _res: express.Response,
     next: express.NextFunction,
   ) => {
+    const asUser = req.header('x-probe-oxy-user-id');
+    if (asUser !== undefined && asUser !== '') {
+      (req as express.Request & { user?: { id: string } }).user = { id: asUser };
+    }
     next();
   },
   oxyClient: {},
@@ -101,6 +120,8 @@ interface Probe {
   readonly method: 'GET' | 'POST';
   readonly path: (value: string) => string;
   readonly body?: (value: string) => unknown;
+  /** Extra request headers, for a dimension the request body cannot state. */
+  readonly headers?: (value: string) => Record<string, string>;
 }
 
 /**
@@ -171,6 +192,22 @@ const PROBES: Record<CatalogRolloutDimension, DimensionProbe> = {
       path: (productTypeKey) => `/catalog-authoring/schemas/${productTypeKey}?bogus=1`,
     },
   },
+  internal_user: {
+    // An AUTHENTICATED surface, necessarily. The three anonymous gated routers
+    // (`facets`, `navigation`, `taxonomy`) carry no auth middleware, so they can
+    // never state this dimension and refuse every request while it is enabled —
+    // which `an anonymous surface refuses` below drives directly.
+    surface: 'GET /catalog-authoring/schemas/:productTypeKey',
+    inside: 'oxy-user-cohort-alpha',
+    outside: 'oxy-user-cohort-beta',
+    probe: {
+      method: 'GET',
+      // The product type is held constant at a value no cohort in this case
+      // names, so the only thing that can admit the request is the caller.
+      path: () => '/catalog-authoring/schemas/cohort.constant?bogus=1',
+      headers: (oxyUserId) => ({ 'x-probe-oxy-user-id': oxyUserId }),
+    },
+  },
 };
 
 interface Deployment {
@@ -218,14 +255,15 @@ async function build(cohorts: string): Promise<Deployment> {
 }
 
 async function call(deployment: Deployment, probe: Probe, value: string): Promise<number> {
+  const extraHeaders = probe.headers === undefined ? {} : probe.headers(value);
   const response = await fetch(`${deployment.url}${probe.path(value)}`, {
     method: probe.method,
     ...(probe.method === 'POST'
       ? {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...extraHeaders },
           body: JSON.stringify(probe.body === undefined ? {} : probe.body(value)),
         }
-      : {}),
+      : { headers: extraHeaders }),
   });
   return response.status;
 }
@@ -307,6 +345,63 @@ describe('every dimension actually scopes a real surface', () => {
       expect(status).toBe(400);
     });
   }
+});
+
+describe('`internal_user` is a claim about the CALLER, not about the request', () => {
+  /**
+   * The two properties the dimension exists for, neither of which the generic
+   * admit/refuse pair above can see.
+   */
+  it('a client cannot admit itself by NAMING an internal user in the request', async () => {
+    // The whole security content of this dimension. `internal_user` is the only
+    // one whose value is a claim about the caller, and
+    // `catalogRolloutSubjectFromRequest` reads the other five from
+    // params/query/body — so a resolver that picked this one up the same way
+    // would let any client send a known staff id and walk into an unreleased
+    // surface. That resolver's own docblock says it is not a security boundary,
+    // which is true and harmless for market and locale.
+    //
+    // Sent as an ANONYMOUS request naming the admitted account in every place
+    // `pick()` looks.
+    const deployment = deploymentFor('internal_user');
+    const named = PROBES.internal_user.inside;
+    const status = await call(
+      deployment,
+      {
+        method: 'GET',
+        path: () =>
+          `/catalog-authoring/schemas/cohort.constant?internalUserOxyUserId=${named}` +
+          `&oxyUserId=${named}&userId=${named}&bogus=1`,
+      },
+      named,
+    );
+    expect(
+      status,
+      'a request NAMING an internal user was admitted — the subject is being read from the ' +
+        'request rather than from the authenticated caller',
+    ).toBe(404);
+  });
+
+  it('an ANONYMOUS surface refuses every request while the dimension is enabled', async () => {
+    // The consequence, driven rather than described. `facets`, `navigation` and
+    // `taxonomy` carry no auth middleware, so they can never state this
+    // dimension and refuse everyone — internal callers included.
+    //
+    // That is the accurate rendering of "not rolled out" for a public,
+    // ETag-validated, per-(market, locale) surface, and it is asserted here so a
+    // reviewer meeting it in production finds it pinned as a decision rather
+    // than discovering it as a bug.
+    const deployment = deploymentFor('internal_user');
+    const status = await call(
+      deployment,
+      { method: 'GET', path: () => '/navigation?market=ES&locale=es&bogus=1' },
+      PROBES.internal_user.inside,
+    );
+    expect(
+      status,
+      'an anonymous surface answered while `internal_user` was the only enabled cohort',
+    ).toBe(404);
+  });
 });
 
 describe('the control: with no cohorts configured, nothing is refused', () => {

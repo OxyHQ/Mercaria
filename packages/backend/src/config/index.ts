@@ -2003,8 +2003,9 @@ export interface CatalogConfig {
    * above are switched on FOR (ADR 0007 D12, epic Workstream 0 line 117).
    *
    * The levers decide WHETHER a catalog surface exists; this decides WHO it
-   * exists for, over five dimensions — market, locale, store, category, product
-   * type (`CATALOG_ROLLOUT_DIMENSIONS`). Raw `<dimension>:<value>` entries; the
+   * exists for, over six dimensions — market, locale, store, category, product
+   * type and internal_user (`CATALOG_ROLLOUT_DIMENSIONS`). Raw
+   * `<dimension>:<value>` entries; the
    * union, the parser and the matcher are `services/catalog-rollout/cohort.ts`
    * and the gate is `middleware/catalog-rollout.ts`.
    *
