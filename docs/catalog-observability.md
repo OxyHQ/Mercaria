@@ -27,6 +27,13 @@ rollout guarantees about existing commerce:
 [runbooks/catalog-backfill-resumption.md](runbooks/catalog-backfill-resumption.md)
 and [catalog-migration-operations.md](catalog-migration-operations.md).
 
+And one that is a documented ABSENCE rather than a procedure:
+[runbooks/catalog-cache-failure.md](runbooks/catalog-cache-failure.md). The
+catalog path has exactly one cache, its key carries the invalidation revisions
+so a stale entry cannot be looked up, and there is no Redis in front of it — so
+there is nothing to flush and no queue to drain. It is written down because the
+alternative is the next person inventing a remedy for an unreachable state.
+
 ---
 
 ## What this domain is, and what it is not
