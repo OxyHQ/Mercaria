@@ -37,7 +37,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
-import { conditionKeysInGroup } from '@mercaria/shared-types';
+import { SHOPPER_VISIBLE_CATALOG_STATUSES, conditionKeysInGroup } from '@mercaria/shared-types';
 import type {
   ConditionGroup,
   OfferAvailability,
@@ -46,7 +46,7 @@ import type {
   OfferRetirementReason,
 } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
-import { canonicalVariants } from '../schema/canonicalCatalog.js';
+import { canonicalProducts, canonicalVariants } from '../schema/canonicalCatalog.js';
 import { offers } from '../schema/offers.js';
 import { storefronts } from '../schema/merchants.js';
 import { sourceRecords } from '../schema/provenance.js';
@@ -532,6 +532,75 @@ function conditionMembership(
 }
 
 /**
+ * The canonical statuses a comparison may serve, as a SQL list.
+ *
+ * Rendered from `SHOPPER_VISIBLE_CATALOG_STATUSES` rather than spelled here, so
+ * this predicate and the ones search, the facet rail, the catalogue pages and
+ * the merchant catalogue already apply are ONE fact. #628 measured what a second
+ * opinion costs: the facet rail said `active` and the search rail said
+ * `('active','discontinued')`, and the counts beside the results disagreed.
+ */
+const SHOPPER_VISIBLE_STATUS_LIST = sql.join(
+  SHOPPER_VISIBLE_CATALOG_STATUSES.map((status) => sql`${status}`),
+  sql`, `,
+);
+
+/**
+ * The offers a comparison may serve, scoped to ONE canonical id — and to what a
+ * shopper is allowed to see (#367 line 366).
+ *
+ * ## Why the visibility lives HERE and not in the callers
+ *
+ * `suppressEntity` (#59 operator action 9) writes `status = 'suppressed'` on the
+ * entity and touches no offer and no `native_listing_links` row — deliberately,
+ * because retirement is one-way in the offer domain and a lift could not undo
+ * it. So a suppression is only ever as real as the reads that consult it, and
+ * before this it consulted NONE of them on the offer path: `GET /offers`
+ * (#57) and `readProductOfferSummary` (#68) both reach offers through this
+ * function and both served a suppressed product's prices in full.
+ *
+ * It is one predicate at the chokepoint rather than a check in each caller for
+ * the reason `stableKeyLabel`'s wall is one module: a rule re-stated per caller
+ * is a rule the next caller does not have.
+ *
+ * ## Both scopes take the SAME subquery, differing only in the column they pin
+ *
+ * The variant scope needs it because nothing else in the statement touches
+ * `canonical_variants` at all; the product scope needs it because its existing
+ * semi-join is where a suppressed CONFIGURATION under a visible product has to
+ * be dropped. Writing them as one shape is what stops a fix landing on one and
+ * leaving the other — which is a live failure mode here, since a product page
+ * reads the product scope and the variant picker reads the variant one.
+ *
+ * ## The width, which is the part to get right
+ *
+ * `SHOPPER_VISIBLE_CATALOG_STATUSES`, never `status = 'active'`. `discontinued`
+ * is in that set on purpose — the maker stopping production is a fact about the
+ * world, not Mercaria deciding to hide something, and the offers on it say what
+ * is still buyable. Narrowing to `active` would delist every discontinued
+ * product while reading as caution, the direction `retail_suppressions` records
+ * in `merge-plan.ts` as the dangerous one.
+ *
+ * A `merged` tombstone is excluded, and that does NOT break an old link: a merge
+ * repoints every offer onto the winner (`merge-plan.ts`, phase `offers`, proven
+ * by the `verify` phase), and `resolveProductRow` resolves the tombstone to the
+ * winner BEFORE anything asks this function for offers. The tombstone has no
+ * offers of its own left to hide.
+ */
+function shopperVisibleScope(query: OfferComparisonQuery): SQL {
+  const pin = query.canonicalVariantId
+    ? sql`${canonicalVariants.id} = ${query.canonicalVariantId}`
+    : sql`${canonicalVariants.productId} = ${query.canonicalProductId ?? ''}`;
+  return sql`${offers.canonicalVariantId} in (
+    select ${canonicalVariants.id} from ${canonicalVariants}
+    join ${canonicalProducts} on ${canonicalProducts.id} = ${canonicalVariants.productId}
+    where ${pin}
+      and ${canonicalVariants.status} in (${SHOPPER_VISIBLE_STATUS_LIST})
+      and ${canonicalProducts.status} in (${SHOPPER_VISIBLE_STATUS_LIST})
+  )`;
+}
+
+/**
  * The comparison read: active offers on a variant (or on every variant of a
  * product), cheapest first.
  *
@@ -551,12 +620,11 @@ export async function listOffersForComparison(
   const now = query.now ?? new Date();
   const sortPrice = sql`coalesce(${offers.priceAmount}, ${UNPRICED_SORT_KEY}::bigint)`;
 
-  const scope = query.canonicalVariantId
-    ? eq(offers.canonicalVariantId, query.canonicalVariantId)
-    : sql`${offers.canonicalVariantId} in (
-        select ${canonicalVariants.id} from ${canonicalVariants}
-        where ${eq(canonicalVariants.productId, query.canonicalProductId ?? '')}
-      )`;
+  // ONE predicate carries both "which canonical id was asked for" and "may a
+  // shopper see it". They were separate before #367 line 366 and the second did
+  // not exist; folding them is what makes it impossible to ask this function for
+  // a scope without also asking whether that scope may be served.
+  const scope = shopperVisibleScope(query);
 
   const rows = await db
     .select({ offer: offers, storefrontOperatorMerchantId: storefronts.merchantId })
