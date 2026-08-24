@@ -1044,6 +1044,13 @@
       "when": 1787488527127,
       "tag": "0148_lyrical_turbo",
       "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1787550601896,
+      "tag": "0149_giant_dark_phoenix",
+      "breakpoints": true
     }
   ]
 }

@@ -170,12 +170,62 @@ Each phase runs in its **own transaction**. One transaction over the whole merge
 would hold row locks on offers, reviews and relationships for the duration, and
 a failure at `rollups` would roll back eleven phases of correct work.
 
-### `blocked` is not `failed`, and neither is claimable by mistake
+### `blocked` is not `dead_letter`, and neither is claimable by mistake
 
 A job waiting on an operator's conflict decision is not an error and must not be
 retried, or the dispatcher spins against a judgement only a person can make. A
 job that threw IS an error and must be retried. Collapsing them would either
 spin the loop or bury a real fault among things "waiting for review".
+
+### Every status is written by something (#704)
+
+`CATALOG_JOB_STATUSES` has six members and `db/curation/jobRepository.ts` writes
+all six, from twelve sites: `processing` (claim), `completed` (complete),
+`blocked` (block), `dead_letter` or `pending` (release), `pending` (unblock) and
+`cancelled` (cancel, #680).
+
+There was a seventh. `failed` was CHECK-permitted on both job tables and
+accepted by the repository's status filter, and **nothing wrote it** — so it
+read as a state the system could reach. That was not inert:
+`mergeJobBlockingState` renders a child job's CURRENT status into an
+operator-facing refusal ("Child merge job `<id>` is `<status>` and must be
+completed before this merge may commit"), which meant the sentence could name a
+state no write produces, and read as a real diagnosis to whoever met it.
+
+It was cut rather than made reachable because there is no failure mode here that
+is not either a retryable release (`pending`) or an exhausted one
+(`dead_letter`) — a third would have needed a meaning somebody wanted. Migration
+`0149` narrows both CHECKs (`post`; a narrow breaks a write the previous image
+could perform, on the category, not on a measurement that such a write exists).
+
+So adding a member to that tuple means adding a WRITER in the same change.
+
+The same migration first rewrites any row holding `failed` to `dead_letter`, and
+that backfill is a **belt rather than a repair**: no writer of `failed` has ever
+existed here (`git log -S"'failed'"` over `db/curation/` and
+`services/curation/` returns no commit, `dead_letter` as a positive control
+returns three), so it is expected to affect zero rows. What it buys is that the
+deploy stops depending on that expectation — without it the narrowing is correct
+only if a production count says zero, and that count is taken before the deploy
+while the answer is needed during it.
+
+It is `dead_letter` and not `blocked` because such a row's PHASE is unknown, so
+it may have moved something. `mergeJobCancellationState` returns `allowed` for
+`blocked`, so that choice would let an operator cancel a possibly half-applied
+merge — the thing it refuses a `pending` job past `plan` for. `dead_letter`
+refuses cancellation, is not claimable and is not in `OPEN_STATUSES`, so it holds
+no open job and its refusal tells the operator they may request a fresh merge
+now. The cost, stated rather than hidden: `dead_letter` implies "exhausted its
+attempts", which is not knowable for such a row. A false implication behind a
+safe-failing refusal beats a true-sounding status that admits a dangerous
+action. `last_error` is marked `[#704]` with any prior value preserved after it,
+so the rewrite is observable afterwards and "did this belt ever fire?" stays
+answerable by query.
+
+The backfill sits in the `post` file above the narrowing, not in a `pre` one:
+`Migrate (pre)` runs while the image that could still write the value is
+serving, so a `pre` backfill races it, and `Migrate (post)` runs after the new
+image is live.
 
 ### A blocked job resumes when its condition clears, and only then (#663)
 
