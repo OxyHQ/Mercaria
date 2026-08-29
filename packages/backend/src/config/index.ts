@@ -651,7 +651,7 @@ function resolveGuestOperatorIds(): readonly string[] {
  * different question from where a parcel may go, and conflating them would
  * silently refuse an EEA seller shipping to a buyer one country outside the
  * list. Real per-carrier destination coverage belongs to Moovo and this repo
- * must not recreate it (`AGENTS.md` §Shipping); this is Mercaria's own market
+ * must not recreate it (`docs/architecture.md` §Shipping); this is Mercaria's own market
  * policy and nothing more.
  *
  * Values are upper-cased on read so `es,fr` and `ES,FR` mean the same thing;

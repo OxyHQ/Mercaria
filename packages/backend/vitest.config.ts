@@ -62,7 +62,7 @@ export default defineConfig({
      * cores, while staying far below `Lint & Test`'s own 15-minute job
      * timeout. No retries: a retry would hide a genuine race in exactly the
      * ebay-ingestion file already flagged as timing-sensitive in its own
-     * history (see AGENTS.md's eBay section).
+     * history (see `docs/catalog-sources/ebay-browse.md`).
      */
     testTimeout: 30000,
     // Creating and migrating the throwaway database can take a while on a cold

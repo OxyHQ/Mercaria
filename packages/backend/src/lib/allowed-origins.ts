@@ -16,7 +16,7 @@
  * `__Host-` cookie prefix the transport requires anyway.
  */
 
-/** Production web origins. `PRODUCTION_ORIGINS` per `AGENTS.md` §CORS. */
+/** Production web origins. `PRODUCTION_ORIGINS` per `docs/architecture.md` §CORS. */
 export const PRODUCTION_ORIGINS: readonly string[] = [
   'https://mercaria.co',
   'https://console.mercaria.co',

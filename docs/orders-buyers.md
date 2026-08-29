@@ -212,7 +212,7 @@ data (ADR 0003 M9).
 
 Purely additive: no column dropped, renamed or narrowed. The order of statements
 is load-bearing and a regeneration destroys it — the file says so at the top,
-and `AGENTS.md` §"Rebasing a migration behind another branch's" is the protocol.
+and `docs/postgres.md` §"Rebasing a migration behind another branch's" is the protocol.
 
 1. Add `orders.claimed_by_oxy_user_id` / `claimed_at`,
    `order_status_history.actor_kind` / `actor_guest_session_id`,

@@ -1,7 +1,7 @@
 # Discovery analytics and search-success measurement (#77)
 
-The full reference for the analytics domain. `AGENTS.md` carries the rules that
-are load-bearing; this document carries the mechanics, the metric definitions'
+The full reference for the analytics domain — the rules that are load-bearing,
+the mechanics, the metric definitions'
 provenance, the retention policy, the privacy-review checklist and the seams.
 
 Production collection is **OFF** and stays off until the privacy and retention

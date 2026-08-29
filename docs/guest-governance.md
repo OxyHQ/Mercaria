@@ -1,8 +1,8 @@
 # Guest-commerce governance (#111)
 
 The full reference for retention, privacy requests, abuse controls, security
-monitoring and the staged rollout. `AGENTS.md` carries the rules that are
-load-bearing; this carries the mechanics, the inventory's provenance, the
+monitoring and the staged rollout — the rules that are load-bearing, the
+mechanics, the inventory's provenance, the
 thresholds' reasoning and what is deliberately absent.
 
 #103 through #110 built guest commerce. This is the part that makes it

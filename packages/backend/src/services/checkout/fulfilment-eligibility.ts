@@ -22,7 +22,7 @@
  *
  * #105 eligibility rule 6. Mercaria has ONE shipping cost source today: the
  * flat per-method rates in `config.orders.shippingRates` (Moovo owns real rates
- * and this repo must not recreate its zones — see `AGENTS.md` §Shipping). The
+ * and this repo must not recreate its zones — see `docs/architecture.md` §Shipping). The
  * failure mode the rule warns about is a method whose rate is not configured
  * resolving to `undefined`, arithmetic turning that into `NaN` or `0`, and an
  * order shipping for nothing. {@link resolveShippingCostMinor} refuses instead,

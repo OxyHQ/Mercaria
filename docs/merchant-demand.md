@@ -1,7 +1,7 @@
 # Merchant demand analytics and the acquisition pipeline (#86)
 
-The full reference for the merchant demand domain. `AGENTS.md` carries the rules
-that are load-bearing across domains; this document carries the mechanics, each
+The full reference for the merchant demand domain — the rules that are
+load-bearing, the mechanics, each
 metric's provenance, the disclosure policy, the acquisition workflow and the
 seams.
 

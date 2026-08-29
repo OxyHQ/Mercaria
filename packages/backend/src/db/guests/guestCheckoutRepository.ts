@@ -47,7 +47,7 @@ export interface InsertGuestCheckoutInput {
  *
  * `ON CONFLICT … DO NOTHING` plus a read, rather than `DO UPDATE`: a repeat is
  * a genuine no-op, for the same structural reason the moderation outbox's
- * enqueue is (see `AGENTS.md` §Testing). A `DO UPDATE` writing "the same
+ * enqueue is (see `docs/postgres.md` §Tests). A `DO UPDATE` writing "the same
  * values" still moves `updated_at` and the row's `xmin`, and — far worse here —
  * would let a retry carrying a DIFFERENT email silently replace the contact a
  * placed order was made with, which is a change to an immutable commercial

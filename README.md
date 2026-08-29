@@ -176,7 +176,7 @@ The web apps are Workers with static assets rather than Pages, so only the custo
 
 TypeScript first, with no `as any`, no `@ts-ignore` and no non null assertions. Styling is NativeWind classes rather than inline styles. State is Zustand, data fetching is TanStack Query, routing is expo-router. Backend auth is `@oxyhq/core/server` middleware and is never hand rolled.
 
-Longer form docs live in [`docs/`](docs/), the full working agreement in [`AGENTS.md`](AGENTS.md), and setup details in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Longer form docs live in [`docs/`](docs/) — [`docs/README.md`](docs/README.md) is the index, one file per domain — with the product description in [`AGENTS.md`](AGENTS.md) and setup details in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 <br>
 
