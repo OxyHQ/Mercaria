@@ -173,10 +173,10 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24.20.0'
       - name: Require a green CI run for this commit
         run: node .github/scripts/require-ci-success.mjs
         env:
@@ -201,10 +201,10 @@ jobs:
     # run needs a human to approve it, not a runner change.
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configure AWS credentials (OIDC, no stored keys)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::237343248947:role/oxy-github-deploy
           aws-region: ${{ env.AWS_REGION }}
@@ -345,9 +345,10 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and push (linux/arm64)
+        id: image
         run: |
           IMG=$ECR_REGISTRY/oxy/$APP
           docker buildx build \
@@ -359,6 +360,18 @@ jobs:
             -t "$IMG:latest" \
             --push \
             .
+          DIGEST=$(aws ecr describe-images \
+            --repository-name "oxy/$APP" \
+            --image-ids "imageTag=$GITHUB_SHA" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)
+          if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::ECR returned an invalid image digest: $DIGEST"
+            exit 1
+          fi
+          IMAGE_URI="$IMG@$DIGEST"
+          echo "uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "built immutable image $IMAGE_URI"
 
       # ── Migrations run as one-shot ECS tasks, around the rollout ─────────────
       #
@@ -369,19 +382,16 @@ jobs:
       # declares its own side, and the migrator refuses to guess for one that
       # does not.
       #
-      # The task REUSES the service's live task definition and network
-      # configuration rather than registering its own, which is what gives the
-      # migrator the same DATABASE_URL secret, subnets and security groups the
-      # service has. Only the command is overridden. That also means it runs the
-      # image the task definition points at — the `:latest` tag this workflow
-      # just pushed — so `run-task` gets the NEW image without a second revision.
-      # If the task definition is ever pinned to an immutable tag, this step must
-      # register a revision instead, or it will migrate using the OLD image.
+      # Register one task revision pinned to the digest built above. Migrations,
+      # the rollout and catalog registration all use that same revision, so the
+      # database, registry and serving service cannot silently consume different
+      # contents through a mutable tag.
       - name: Resolve the ECS one-shot shape
         id: ecs
         env:
           # Absent on a `push` trigger, where only the default is ever right.
           REQUESTED_PHASE: ${{ github.event.inputs.migration_phase }}
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
         run: |
           echo "phase_mode=${REQUESTED_PHASE:-pre-post}" >> "$GITHUB_OUTPUT"
           # A FAILED QUERY AND AN ABSENT SERVICE ARE DIFFERENT FACTS (#608).
@@ -420,8 +430,25 @@ jobs:
           fi
           TD=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].taskDefinition' --output text)
           NET=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].networkConfiguration' --output json)
-          CONTAINER=$(aws ecs describe-task-definition --task-definition "$TD" --query 'taskDefinition.containerDefinitions[0].name' --output text)
-          echo "task_definition=$TD" >> "$GITHUB_OUTPUT"
+          DEFINITION=$(aws ecs describe-task-definition --task-definition "$TD" --query taskDefinition --output json)
+          CONTAINER=$(jq -er '.containerDefinitions[0].name' <<<"$DEFINITION")
+          MATCHES=$(jq --arg name "$CONTAINER" '[.containerDefinitions[] | select(.name == $name)] | length' <<<"$DEFINITION")
+          if [ "$MATCHES" != "1" ]; then
+            echo "::error::expected exactly one ECS container named $CONTAINER; found $MATCHES"
+            exit 1
+          fi
+          PAYLOAD=$(jq \
+            --arg name "$CONTAINER" \
+            --arg image "$IMAGE_URI" \
+            'del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                 .compatibilities, .registeredAt, .registeredBy)
+             | .containerDefinitions |= map(if .name == $name then .image = $image else . end)' \
+            <<<"$DEFINITION")
+          IMMUTABLE_TD=$(aws ecs register-task-definition \
+            --cli-input-json "$PAYLOAD" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "task_definition=$IMMUTABLE_TD" >> "$GITHUB_OUTPUT"
           echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
           # JSON on one line: a GITHUB_OUTPUT value cannot span lines unhelped.
           echo "network=$(echo "$NET" | jq -c .)" >> "$GITHUB_OUTPUT"
@@ -511,7 +538,10 @@ jobs:
         id: rollout
         if: steps.ecs.outputs.status == 'ACTIVE'
         run: |
-          aws ecs update-service --cluster "$CLUSTER" --service "$APP" --force-new-deployment >/dev/null
+          aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$APP" \
+            --task-definition "${{ steps.ecs.outputs.task_definition }}" >/dev/null
           aws ecs wait services-stable --cluster "$CLUSTER" --services "$APP"
           echo "performed=true" >> "$GITHUB_OUTPUT"
           echo "deployed $APP"
@@ -537,6 +567,18 @@ jobs:
           && steps.phases.outputs.has_post == 'true'
         run: |
           .github/scripts/run-migration-task.sh post
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}
+
+      - name: Register the deployed capability catalog
+        if: steps.ecs.outputs.status == 'ACTIVE'
+        run: |
+          COMMAND_JSON='["node","packages/backend/dist/register-capability-catalog.js"]' \
+          TASK_LABEL='capability catalog registration' \
+          STARTED_BY='deploy-capability-catalog' \
+          .github/scripts/run-ecs-task.sh
         env:
           TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
           CONTAINER_NAME: ${{ steps.ecs.outputs.container }}

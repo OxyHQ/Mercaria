@@ -49,7 +49,7 @@ export interface LocalizedTextBounds {
 export function localizedText(
   key: LocalizedTextColumnKey,
   bounds: LocalizedTextBounds,
-): z.ZodEffects<z.ZodString, string, string> {
+) {
   const base =
     bounds.min === undefined
       ? z.string().trim().max(bounds.max)

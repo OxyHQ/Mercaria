@@ -136,6 +136,8 @@ import {
 } from './services/backfill/read-mode.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
 import { ALLOWED_ORIGINS } from './lib/allowed-origins.js';
+import capabilitiesRouter from './routes/capabilities.js';
+import { createMercariaMcpHttpService } from './capabilities/mercaria-mcp-http.js';
 
 /**
  * Build the application.
@@ -148,6 +150,20 @@ import { ALLOWED_ORIGINS } from './lib/allowed-origins.js';
  */
 export function createApp(): express.Express {
   const app = express();
+  const mercariaMcpHttpService = createMercariaMcpHttpService();
+
+  // MCP owns its raw request body, exact protected-resource identity and OAuth
+  // challenge. Keep it above every app parser and webhook router so no shared
+  // middleware can consume or reinterpret the protocol request.
+  app.all(
+    mercariaMcpHttpService.protectedResourceMetadataPath,
+    (request, response) => {
+      mercariaMcpHttpService.handleProtectedResourceMetadata(request, response);
+    },
+  );
+  app.all(mercariaMcpHttpService.mcpPath, (request, response) => {
+    void mercariaMcpHttpService.handleMcp(request, response);
+  });
 
   // CORS — restricted to known origins. The list lives in
   // `lib/allowed-origins.ts` because it is ALSO the guest CSRF gate's
@@ -241,6 +257,7 @@ export function createApp(): express.Express {
   app.use(makeRateLimiter('general'));
 
   // Routes
+  app.use('/_oxy/capabilities', capabilitiesRouter);
   app.use('/health', healthRouter);
   app.use('/auth', authRouter);
   app.use('/feedback', feedbackRouter);

@@ -42,7 +42,7 @@ const findOrderById = vi.fn();
 const setOrderStatus = vi.fn();
 const insertRefund = vi.fn();
 const findRefundById = vi.fn();
-const findRefundByIdempotencyKey = vi.fn();
+const findRefundForStoreOrderReplay = vi.fn();
 const sumRefundedQuantities = vi.fn();
 const sumRefundedShopAmount = vi.fn();
 const enqueuePaymentEvent = vi.fn();
@@ -89,7 +89,7 @@ vi.mock('../../db/orders/orderRepository.js', () => ({
 vi.mock('../../db/orders/refundRepository.js', () => ({
   insertRefund: (...args: unknown[]) => insertRefund(...args),
   findRefundById: (...args: unknown[]) => findRefundById(...args),
-  findRefundByIdempotencyKey: (...args: unknown[]) => findRefundByIdempotencyKey(...args),
+  findRefundForStoreOrderReplay: (...args: unknown[]) => findRefundForStoreOrderReplay(...args),
   findRefundInStore: vi.fn(),
   findRefundsForOrderInStore: vi.fn(),
   nextRmaNumber: (...args: unknown[]) => nextRmaNumber(...args),
@@ -216,7 +216,7 @@ beforeEach(() => {
   setOrderStatus.mockReset().mockResolvedValue(undefined);
   insertRefund.mockReset();
   findRefundById.mockReset().mockResolvedValue(null);
-  findRefundByIdempotencyKey.mockReset().mockResolvedValue(null);
+  findRefundForStoreOrderReplay.mockReset().mockResolvedValue(null);
   enqueuePaymentEvent.mockReset().mockResolvedValue(true);
   // No prior refunds by default.
   sumRefundedQuantities.mockReset().mockResolvedValue(new Map<string, number>());
@@ -316,7 +316,7 @@ describe('refund.service.process', () => {
 
   it('is idempotent: a replayed idempotency key returns the prior refund without re-creating/re-restocking', async () => {
     // The step-1 short-circuit finds the existing refund and returns it.
-    findRefundByIdempotencyKey.mockResolvedValueOnce({
+    findRefundForStoreOrderReplay.mockResolvedValueOnce({
       id: 'refund-1',
       orderId: ORDER_ID,
       type: 'refund',
@@ -342,6 +342,64 @@ describe('refund.service.process', () => {
     );
 
     expect(result.id).toBe('refund-1');
+    expect(findRefundForStoreOrderReplay).toHaveBeenCalledWith(STORE, ORDER_ID, 'idem-1');
+    expect(findOrderById).not.toHaveBeenCalled();
+    expect(insertRefund).not.toHaveBeenCalled();
+    expect(restock).not.toHaveBeenCalled();
+  });
+
+  it('refuses an amount above the execution ceiling before inventory or writes', async () => {
+    findOrderById.mockResolvedValueOnce(mockOrder());
+
+    await expect(
+      process(
+        STORE,
+        ORDER_ID,
+        { lineItems: [{ variantId: 'v1', quantity: 1, restock: true }] },
+        ACTOR,
+        { maximumPresentmentAmountMinor: 999 },
+      ),
+    ).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.FORBIDDEN,
+    );
+
+    expect(restock).not.toHaveBeenCalled();
+    expect(nextRmaNumber).not.toHaveBeenCalled();
+    expect(insertRefund).not.toHaveBeenCalled();
+    expect(enqueuePaymentEvent).not.toHaveBeenCalled();
+  });
+
+  it('applies the execution ceiling to an idempotent replay too', async () => {
+    findRefundForStoreOrderReplay.mockResolvedValueOnce({
+      id: 'refund-1',
+      orderId: ORDER_ID,
+      type: 'refund',
+      status: 'refunded',
+      totalRefundedShopAmount: 1000,
+      totalRefundedShopCurrency: 'FAIR',
+      totalRefundedPresentmentAmount: 1000,
+      totalRefundedPresentmentCurrency: 'FAIR',
+      refundShippingShopAmount: null,
+      refundShippingShopCurrency: null,
+      refundShippingPresentmentAmount: null,
+      refundShippingPresentmentCurrency: null,
+      createdAt: new Date('2026-06-22T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-22T00:00:00.000Z'),
+      lineItems: [],
+    } as unknown as RefundRecord);
+
+    await expect(
+      process(
+        STORE,
+        ORDER_ID,
+        { lineItems: [{ variantId: 'v1', quantity: 1 }], idempotencyKey: 'idem-1' },
+        ACTOR,
+        { maximumPresentmentAmountMinor: 999 },
+      ),
+    ).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.FORBIDDEN,
+    );
+
     expect(findOrderById).not.toHaveBeenCalled();
     expect(insertRefund).not.toHaveBeenCalled();
     expect(restock).not.toHaveBeenCalled();

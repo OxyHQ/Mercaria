@@ -7,10 +7,10 @@ import { LanguageSelector } from "@/components/language-selector";
 import {
   APP_COLOR_PRESETS,
   APP_COLOR_NAMES,
-  getPresetVars,
   useBloomTheme,
   type AppColorName,
 } from "@oxyhq/bloom/theme";
+import { getPresetVars } from "@oxyhq/bloom/design-tokens";
 import { cn } from "@/lib/utils";
 
 /** Miniature app layout using real theme tokens via NativeWind vars() */

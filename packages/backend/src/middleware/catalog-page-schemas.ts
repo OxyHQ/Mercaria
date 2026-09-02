@@ -74,7 +74,7 @@ function commaList<T extends string>(values: readonly [T, ...T[]]) {
 }
 
 /** A comma-separated list of opaque values, bounded. */
-function boundedList(item: z.ZodType<string>, max: number) {
+function boundedList(item: z.ZodString, max: number) {
   return z
     .string()
     .transform((raw) =>

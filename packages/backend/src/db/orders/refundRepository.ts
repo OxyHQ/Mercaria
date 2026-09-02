@@ -142,6 +142,33 @@ export async function findRefundByIdempotencyKey(
 }
 
 /**
+ * One replayable refund scoped to the exact merchant boundary that created it.
+ *
+ * The idempotency key remains globally unique so concurrent retries converge,
+ * but a merchant-facing caller must never learn a refund from another store or
+ * order merely by presenting the same key. A collision outside this scope is a
+ * real conflict, not a replay result.
+ */
+export async function findRefundForStoreOrderReplay(
+  storeId: string,
+  orderId: string,
+  idempotencyKey: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<RefundRecord | null> {
+  const rows = await db
+    .select()
+    .from(refunds)
+    .where(and(
+      eq(refunds.storeId, storeId),
+      eq(refunds.orderId, orderId),
+      eq(refunds.idempotencyKey, idempotencyKey),
+    ))
+    .limit(1);
+  const [record] = await withLineItems(rows, db);
+  return record ?? null;
+}
+
+/**
  * One refund by its Mercaria id, with NO store scope.
  *
  * The store scope on every read above IS the authorization for a merchant

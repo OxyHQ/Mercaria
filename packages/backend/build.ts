@@ -2,7 +2,7 @@ import * as esbuild from 'esbuild';
 
 await esbuild.build({
   /**
-   * THREE entry points, and neither of the last two is optional.
+   * FOUR entry points, and none of the last three is optional.
    *
    * `src/db/migrate.ts` is the one-shot the deploy runs before and after the
    * rollout (`.github/workflows/deploy-aws.yml`). It cannot be invoked the way a
@@ -18,21 +18,26 @@ await esbuild.build({
    * NOT a deploy step: it is idempotent and appends nothing on a re-run, so it
    * is safe to run again, but nothing runs it automatically.
    *
+   * `src/register-capability-catalog.ts` publishes the exact catalog compiled
+   * into this image after the migrations and before the rollout. Registering a
+   * source-tree file from a runner would let Oxy advertise code that the task
+   * does not actually contain.
+   *
    * `src/scripts/seed.ts` is deliberately NOT an entry point and must not
    * become one. It opens by DELETING every listing, store, order, review and
    * category in the database it is pointed at, so putting it in the production
    * image would place a marketplace-destroying one-shot one `command` override
    * away from a running service.
    *
-   * `outdir` rather than `outfile` because there are three: esbuild takes the
+   * `outdir` rather than `outfile` because there are four: esbuild takes the
    * entry points' common ancestor (`src/`) as the base, so these land exactly at
-   * `dist/index.js`, `dist/db/migrate.js` and `dist/scripts/provision-taxonomy.js`.
-   * The migrator and the provisioner both call their main function at module
+   * `dist/index.js`, `dist/db/migrate.js`, `dist/register-capability-catalog.js`
+   * and `dist/scripts/provision-taxonomy.js`. The one-shots call their main function at module
    * load, so the emitted files run on plain `node <path>`.
    *
    * Note they sit at different depths below the package root, which is why
    * `db/migrationsFolder.ts` resolves by finding that root rather than by
-   * counting `..` segments — no fixed count is correct for all three.
+   * counting `..` segments — no fixed count is correct for all four.
    *
    * Code splitting is deliberately left OFF (esbuild's default): each entry is
    * self-contained, so the migrator cannot fail at container start on a missing
@@ -42,11 +47,12 @@ await esbuild.build({
   entryPoints: [
     'src/index.ts',
     'src/db/migrate.ts',
+    'src/register-capability-catalog.ts',
     'src/scripts/provision-taxonomy.ts',
   ],
   bundle: true,
   platform: 'node',
-  target: 'node20',
+  target: 'node24',
   format: 'esm',
   outdir: 'dist',
   // Keep every node_modules dependency external EXCEPT @mercaria/* — first-party
@@ -74,8 +80,8 @@ await esbuild.build({
   //     ZERO extensionless, so Node resolves every one.
   //   @oxyhq/bloom 0.67.0, lib/module — 82 relative imports, ALL 82 extensionless.
   //     So the old reason was true for bloom. This backend does NOT depend on
-  //     bloom; @mercaria/backend's only @oxyhq deps are core + the three
-  //     crowdsource packages (see package.json).
+  //     bloom. Re-measure each newly added backend package independently;
+  //     blanket bundling is still unsafe for the CommonJS packages above.
   // What would invalidate this: adding an @oxyhq dependency whose ESM build emits
   // extensionless relative imports (bloom being the known example). That fails at
   // container start with ERR_MODULE_NOT_FOUND naming the unresolved path — so

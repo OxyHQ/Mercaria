@@ -2,7 +2,7 @@
 #
 # Production image for the @mercaria/backend service.
 #
-# Multi-stage, multi-arch. `node:22-alpine` and `oven/bun` are multi-arch
+# Multi-stage, multi-arch. `node:24-alpine` and `oven/bun` are multi-arch
 # manifests, so this image builds natively on AWS Graviton (linux/arm64) as well
 # as x86_64 — Docker selects the right base layer per target platform.
 #
@@ -25,7 +25,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: builder — install the full dependency graph and bundle the API.
 # ---------------------------------------------------------------------------
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 # Toolchain for any dependency that needs a node-gyp fallback when a prebuilt
 # binary is unavailable for the target arch (e.g. ws's optional native
@@ -93,6 +93,8 @@ RUN test -f packages/backend/dist/index.js \
  || (echo "ERROR: packages/backend/dist/index.js was not produced by the build" && exit 1)
 RUN test -f packages/backend/dist/db/migrate.js \
  || (echo "ERROR: packages/backend/dist/db/migrate.js was not produced by the build" && exit 1)
+RUN test -f packages/backend/dist/register-capability-catalog.js \
+ || (echo "ERROR: packages/backend/dist/register-capability-catalog.js was not produced by the build" && exit 1)
 # The taxonomy provisioner is checked for the migrator's reason, one step
 # further: it is run by hand as a one-shot ECS task, so a missing emit would be
 # discovered by an operator holding an incident rather than by this build.
@@ -110,7 +112,7 @@ RUN rm -rf node_modules \
 # ---------------------------------------------------------------------------
 # Stage 2: runner — minimal runtime with production deps and the bundle.
 # ---------------------------------------------------------------------------
-FROM node:22-alpine AS runner
+FROM node:24-alpine AS runner
 
 ENV NODE_ENV=production \
     PORT=3001
