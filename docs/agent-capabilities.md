@@ -42,3 +42,11 @@ workflow resolves the pushed ECR digest, registers one immutable ECS task
 definition, and uses that same revision for migrations, rollout and catalog
 registration. Oxy application credentials remain in SSM and enter the task only
 through the infrastructure-managed task definition.
+
+The rollout waits for that exact ECS deployment to become the completed primary,
+verifies the live task definition and image digest, then probes the public MCP resource,
+central OAuth metadata, read-only scope set, bearer challenges and API/MCP host isolation.
+This happens before post-phase migrations or catalog publication. In the normal phased
+path, a candidate that fails before that boundary is returned to the recorded previous
+task definition; the explicit all-migrations cutover and failures of the external Oxy
+authorization server are never treated as safe Mercaria rollbacks.

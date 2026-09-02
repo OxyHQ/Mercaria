@@ -111,6 +111,16 @@ jobs:
       - name: Guard against MongoDB returning
         run: bun run validate:no-mongo
 
+      - name: Verify production deployment gate fixtures
+        run: |
+          bash -n \
+            .github/scripts/smoke-mcp.sh \
+            .github/scripts/test-smoke-mcp.sh \
+            .github/scripts/wait-for-ecs-deployment.sh \
+            .github/scripts/test-wait-for-ecs-deployment.sh
+          bash .github/scripts/test-smoke-mcp.sh
+          bash .github/scripts/test-wait-for-ecs-deployment.sh
+
       # #735 — a stale-base branch that silently reverts merged work.
       #
       # `ec05743c` (PR #725) reverted the whole of #726 — 58 files including a

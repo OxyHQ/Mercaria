@@ -102,6 +102,46 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(ecsTaskScript).toContain("EXIT_CODE");
   });
 
+  it('verifies the exact ECS candidate before destructive migrations or catalog publication', () => {
+    const steps = (parse(workflow) as WorkflowFile).jobs.deploy.steps;
+    const resolve = steps.find((step) => step.name?.startsWith('Resolve the ECS one-shot shape'));
+    const rolloutIndex = steps.findIndex((step) => step.name?.startsWith('Deploy to ECS'));
+    const smokeIndex = steps.findIndex((step) => step.name?.startsWith('Verify live Mercaria MCP'));
+    const rollbackIndex = steps.findIndex((step) =>
+      step.name?.startsWith('Roll back a failed candidate'),
+    );
+    const postIndex = steps.findIndex((step) => step.name?.startsWith('Migrate (post)'));
+    const catalogIndex = steps.findIndex((step) =>
+      step.name?.startsWith('Register the deployed capability catalog'),
+    );
+    const rollout = steps[rolloutIndex];
+    const smoke = steps[smokeIndex];
+    const rollback = steps[rollbackIndex];
+
+    expect(resolve?.run).toContain('previous_task_definition=$TD');
+    expect(rollout?.run).toContain('deployment_started=true');
+    expect(rollout?.run).toContain('.github/scripts/wait-for-ecs-deployment.sh');
+    expect(rollout?.run).not.toContain('aws ecs wait services-stable');
+    expect(rollout?.run).toContain('live_task_definition');
+    expect(rollout?.run).toContain('live_image');
+    expect(smoke?.run).toContain('.github/scripts/smoke-mcp.sh');
+
+    expect(rollback?.if).toContain('failure()');
+    expect(rollback?.if).toContain("phase_mode != 'all'");
+    expect(rollback?.if).toContain("rollback_safe != 'false'");
+    expect(rollback?.env?.PREVIOUS_TASK_DEFINITION).toBe(
+      '${{ steps.ecs.outputs.previous_task_definition }}',
+    );
+    expect(rollback?.run).toContain('--task-definition "$PREVIOUS_TASK_DEFINITION"');
+    expect(rollback?.run).toContain('.github/scripts/wait-for-ecs-deployment.sh');
+
+    expect(rolloutIndex).toBeGreaterThan(-1);
+    expect(smokeIndex).toBeGreaterThan(rolloutIndex);
+    expect(rollbackIndex).toBeGreaterThan(smokeIndex);
+    expect(postIndex).toBeGreaterThan(rollbackIndex);
+    expect(catalogIndex).toBeGreaterThan(postIndex);
+  });
+
   it('passes only phase values the migrator accepts', () => {
     // The script builds `--phase=` from its own argument, so the literal values
     // live in the CASE that validates it. Every one must be a spelling the

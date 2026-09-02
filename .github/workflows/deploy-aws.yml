@@ -439,6 +439,7 @@ jobs:
           done
 
           TD=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].taskDefinition' --output text)
+          echo "previous_task_definition=$TD" >> "$GITHUB_OUTPUT"
           NET=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].networkConfiguration' --output json)
           DEFINITION=$(aws ecs describe-task-definition --task-definition "$TD" --query taskDefinition --output json)
           CONTAINER=$(jq -er '.containerDefinitions[0].name' <<<"$DEFINITION")
@@ -571,14 +572,108 @@ jobs:
       - name: Deploy to ECS (rolling)
         id: rollout
         if: steps.ecs.outputs.status == 'ACTIVE'
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
         run: |
-          aws ecs update-service \
+          update_json=$(aws ecs update-service \
             --cluster "$CLUSTER" \
             --service "$APP" \
-            --task-definition "${{ steps.ecs.outputs.task_definition }}" >/dev/null
-          aws ecs wait services-stable --cluster "$CLUSTER" --services "$APP"
+            --task-definition "$TASK_DEFINITION")
+          echo "deployment_started=true" >> "$GITHUB_OUTPUT"
+          deployment_id=$(jq -r --arg task_definition "$TASK_DEFINITION" \
+            '.service.deployments[] | select(.status == "PRIMARY" and .taskDefinition == $task_definition) | .id' \
+            <<<"$update_json" | head -1)
+          if [ -z "$deployment_id" ]; then
+            echo "::error::ECS returned no primary deployment for $TASK_DEFINITION"
+            exit 1
+          fi
+
+          bash .github/scripts/wait-for-ecs-deployment.sh "$CLUSTER" "$APP" "$deployment_id"
+
+          service_json=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --output json)
+          live_task_definition=$(jq -r '.services[0].taskDefinition' <<<"$service_json")
+          if [ "$live_task_definition" != "$TASK_DEFINITION" ]; then
+            echo "::error::ECS serves $live_task_definition instead of $TASK_DEFINITION"
+            exit 1
+          fi
+          live_image=$(aws ecs describe-task-definition \
+            --task-definition "$live_task_definition" \
+            --query "taskDefinition.containerDefinitions[?name=='$CONTAINER_NAME'].image | [0]" \
+            --output text)
+          if [ "$live_image" != "$IMAGE_URI" ]; then
+            echo "::error::ECS serves $live_image instead of $IMAGE_URI"
+            exit 1
+          fi
+
           echo "performed=true" >> "$GITHUB_OUTPUT"
-          echo "deployed $APP"
+          echo "deployed $APP as $live_task_definition ($live_image)"
+
+      - name: Verify live Mercaria MCP and central OAuth contract
+        id: mcp_smoke
+        if: steps.rollout.outputs.performed == 'true'
+        run: |
+          set +e
+          bash .github/scripts/smoke-mcp.sh
+          smoke_status=$?
+          external_dependency_exit=42
+          echo "status=$smoke_status" >> "$GITHUB_OUTPUT"
+          if [ "$smoke_status" = "$external_dependency_exit" ]; then
+            echo "rollback_safe=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "rollback_safe=true" >> "$GITHUB_OUTPUT"
+          fi
+          exit "$smoke_status"
+
+      # Only additive `pre` migrations have run when this step is reached. A
+      # failed candidate can therefore return to the exact previous revision.
+      # The manually selected `all` cutover is excluded because it may already
+      # have applied destructive migrations before the rollout. A central Oxy
+      # outage is excluded too: changing Mercaria revisions cannot repair it.
+      - name: Roll back a failed candidate before post migration
+        if: >-
+          ${{
+            failure() &&
+            steps.ecs.outputs.phase_mode != 'all' &&
+            steps.rollout.outputs.deployment_started == 'true' &&
+            steps.mcp_smoke.outputs.rollback_safe != 'false'
+          }}
+        env:
+          PREVIOUS_TASK_DEFINITION: ${{ steps.ecs.outputs.previous_task_definition }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PREVIOUS_TASK_DEFINITION" ]; then
+            echo "::error::No previous task definition was recorded for rollback"
+            exit 1
+          fi
+
+          rollback_json=$(aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$APP" \
+            --task-definition "$PREVIOUS_TASK_DEFINITION")
+          rollback_deployment_id=$(jq -r --arg task_definition "$PREVIOUS_TASK_DEFINITION" \
+            '.service.deployments[] | select(.status == "PRIMARY" and .taskDefinition == $task_definition) | .id' \
+            <<<"$rollback_json" | head -1)
+          if [ -z "$rollback_deployment_id" ]; then
+            echo "::error::ECS returned no primary rollback deployment for $PREVIOUS_TASK_DEFINITION"
+            exit 1
+          fi
+
+          bash .github/scripts/wait-for-ecs-deployment.sh \
+            "$CLUSTER" "$APP" "$rollback_deployment_id"
+          live_task_definition=$(aws ecs describe-services \
+            --cluster "$CLUSTER" \
+            --services "$APP" \
+            --query 'services[0].taskDefinition' \
+            --output text)
+          if [ "$live_task_definition" != "$PREVIOUS_TASK_DEFINITION" ]; then
+            echo "::error::Rollback left $live_task_definition live instead of $PREVIOUS_TASK_DEFINITION"
+            exit 1
+          fi
+
+          bash .github/scripts/smoke-mcp.sh
+          echo "Rolled back to $PREVIOUS_TASK_DEFINITION before post migrations or catalog publication"
 
       # Runs on every ordinary release, because `has_post` is true whenever the
       # journal holds a post migration at all (see the Detect step). That is
