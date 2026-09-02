@@ -3,7 +3,7 @@ import { View, Animated, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
     APP_COLOR_PRESETS,
-    generateRoleColors,
+    ColorEngine,
     type AppColorName,
     type PersistedThemeState,
 } from '@oxyhq/bloom/theme';
@@ -49,7 +49,7 @@ const DARK_STOP = '#1A1A1A';
 function buildDarkGradient(presetName: AppColorName): readonly [string, string] {
     const preset = APP_COLOR_PRESETS[presetName];
     if (!preset) return FALLBACK_GRADIENT;
-    const { background } = generateRoleColors({
+    const { background } = ColorEngine.generateRoleColors({
         seed: preset.hex,
         variant: preset.variant,
         isDark: true,

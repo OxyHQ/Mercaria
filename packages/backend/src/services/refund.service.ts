@@ -47,7 +47,7 @@ import {
 } from '@mercaria/shared-types';
 import { isUniqueViolation } from '@oxyhq/db';
 import {
-  findRefundByIdempotencyKey,
+  findRefundForStoreOrderReplay,
   findRefundById,
   findRefundInStore,
   findRefundsForOrderInStore,
@@ -70,13 +70,32 @@ import { decrementOnRefund } from './customer.service.js';
 import { paymentRefundedEventId, enqueuePaymentEvent } from './payments/payment-outbox.service.js';
 import { refundGoesThroughProvider } from './payments/refund-execution.service.js';
 import { sumMoney, roundMinorUnits } from '../utils/money.js';
-import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
+import { conflict, forbidden, notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
 /** Status note recorded on the order when a refund leaves some amount refundable. */
 const PARTIAL_REFUND_NOTE = 'partial refund';
 /** Status note recorded on the order when a refund covers the grand total. */
 const FULL_REFUND_NOTE = 'refund';
+
+export interface RefundExecutionLimits {
+  /** Hard ceiling in the buyer's presentment currency, checked before effects. */
+  maximumPresentmentAmountMinor?: number;
+}
+
+function assertRefundAmountAllowed(
+  amountMinor: number,
+  limits: RefundExecutionLimits,
+): void {
+  const maximum = limits.maximumPresentmentAmountMinor;
+  if (maximum === undefined) return;
+  if (!Number.isSafeInteger(maximum) || maximum < 0) {
+    throw validationError('Maximum refund amount must be non-negative safe minor units');
+  }
+  if (amountMinor > maximum) {
+    throw forbidden('Refund exceeds the authorized maximum amount');
+  }
+}
 
 /** The four columns of a `DualMoney`, reassembled. */
 function dual(
@@ -177,11 +196,13 @@ export async function process(
   orderId: string,
   input: CreateRefundInput,
   actorOxyUserId: string,
+  limits: RefundExecutionLimits = {},
 ): Promise<RefundDTO> {
   // 1. Idempotency short-circuit: a replayed submit returns the prior refund.
   if (input.idempotencyKey) {
-    const existing = await findRefundByIdempotencyKey(input.idempotencyKey);
+    const existing = await findRefundForStoreOrderReplay(storeId, orderId, input.idempotencyKey);
     if (existing) {
+      assertRefundAmountAllowed(existing.totalRefundedPresentmentAmount, limits);
       return toRefundDTO(existing);
     }
   }
@@ -299,6 +320,12 @@ export async function process(
     ),
   };
 
+  // A capability ceiling is an execution guard, not an estimate. Check the
+  // amount computed from the immutable order before inventory, rows or outbox
+  // effects occur. The provider destination is not caller-selectable: the
+  // payment domain always returns funds through the order's original rail.
+  assertRefundAmountAllowed(totalRefunded.presentment.amount, limits);
+
   // 8. Restock explicitly per-line (NEVER via transition). Track if any happened.
   let anyRestock = false;
   for (const line of computedLines) {
@@ -377,7 +404,11 @@ export async function process(
     // The NAMED index, so a duplicate on any other constraint stays a real
     // failure rather than silently returning someone else's refund.
     if (isUniqueViolation(err, 'refunds_idempotency_key_key') && input.idempotencyKey) {
-      const converged = await findRefundByIdempotencyKey(input.idempotencyKey);
+      const converged = await findRefundForStoreOrderReplay(
+        storeId,
+        orderId,
+        input.idempotencyKey,
+      );
       if (converged) {
         log.general.warn(
           { orderId, storeId },

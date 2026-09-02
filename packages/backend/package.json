@@ -4,6 +4,9 @@
   "description": "Mercaria API \u2014 buy/sell marketplace backend by Oxy",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24.20.0"
+  },
   "main": "dist/index.js",
   "scripts": {
     "dev": "bun --watch src/index.ts",
@@ -22,11 +25,13 @@
   },
   "dependencies": {
     "@mercaria/shared-types": "workspace:*",
-    "@oxyhq/core": "^19.1.0",
+    "@oxyhq/contracts": "^0.38.0",
+    "@oxyhq/core": "^23.0.2",
     "@oxyhq/crowdsource": "0.3.0",
     "@oxyhq/crowdsource-contracts": "0.3.0",
     "@oxyhq/crowdsource-express": "0.3.0",
     "@oxyhq/db": "^0.1.2",
+    "@oxyhq/mcp": "^0.5.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "bullmq": "^5.80.4",
     "cors": "^2.8.6",
@@ -44,7 +49,7 @@
     "socket.io": "^4.8.3",
     "stripe": "^22.4.0",
     "web-push": "^3.6.7",
-    "zod": "^3.25.76"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

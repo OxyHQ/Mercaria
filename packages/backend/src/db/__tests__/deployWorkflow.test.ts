@@ -50,9 +50,11 @@ interface WorkflowFile {
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..', '..');
 const WORKFLOW_PATH = join(REPO_ROOT, '.github', 'workflows', 'deploy-aws.yml');
 const SCRIPT_PATH = join(REPO_ROOT, '.github', 'scripts', 'run-migration-task.sh');
+const ECS_TASK_SCRIPT_PATH = join(REPO_ROOT, '.github', 'scripts', 'run-ecs-task.sh');
 
 const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
 const script = readFileSync(SCRIPT_PATH, 'utf8');
+const ecsTaskScript = readFileSync(ECS_TASK_SCRIPT_PATH, 'utf8');
 
 describe('the deploy workflow and the migrator agree', () => {
   it('greps migrations with the pattern @oxyhq/db exports, not a copy of it', () => {
@@ -68,6 +70,31 @@ describe('the deploy workflow and the migrator agree', () => {
     // run there. `build.ts` emits this path as a second entry point.
     expect(script).toContain('packages/backend/dist/db/migrate.js');
     expect(script).toContain('"node"');
+  });
+
+  it('pins migrations, rollout and catalog registration to one immutable image', () => {
+    const jobs = (parse(workflow) as WorkflowFile).jobs;
+    const register = jobs.deploy.steps.find((step) =>
+      step.name?.startsWith('Resolve the ECS one-shot shape'),
+    );
+    const rollout = jobs.deploy.steps.find((step) => step.name?.startsWith('Deploy to ECS'));
+    const catalog = jobs.deploy.steps.find((step) =>
+      step.name?.startsWith('Register the deployed capability catalog'),
+    );
+
+    expect(workflow).toContain("--query 'imageDetails[0].imageDigest'");
+    expect(register?.run).toContain('aws ecs register-task-definition');
+    expect(register?.run).toContain('.image = $image');
+    expect(register?.run).toContain('/oxy/$APP/OXY_APPLICATION_KEY');
+    expect(register?.run).toContain('/oxy/$APP/OXY_APPLICATION_SECRET');
+    expect(register?.run).toContain('.name != "OXY_APPLICATION_KEY"');
+    expect(register?.run).toContain('.name != "OXY_APPLICATION_SECRET"');
+    expect(register?.run).toContain('{name: "OXY_API_URL", value: $oxy_api_url}');
+    expect(rollout?.run).toContain('--task-definition');
+    expect(catalog?.run).toContain('packages/backend/dist/register-capability-catalog.js');
+    expect(catalog?.env?.TASK_DEFINITION).toBe('${{ steps.ecs.outputs.task_definition }}');
+    expect(ecsTaskScript).toContain("--task-definition \"$TASK_DEFINITION\"");
+    expect(ecsTaskScript).toContain("EXIT_CODE");
   });
 
   it('passes only phase values the migrator accepts', () => {

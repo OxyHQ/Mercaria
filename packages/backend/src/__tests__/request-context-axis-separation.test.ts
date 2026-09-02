@@ -861,10 +861,14 @@ describe('CLAUSE 6: the backend request surface', () => {
       const walk = (node: unknown, depth: number): void => {
         if (depth > 8 || node === null || typeof node !== 'object' || seen.has(node)) return;
         seen.add(node);
-        const def = (node as { _def?: { typeName?: string; shape?: unknown } })._def;
+        const def = (node as {
+          _def?: { type?: string; typeName?: string; shape?: unknown };
+        })._def;
         if (def === undefined) return;
-        if (def.typeName === 'ZodObject' && typeof def.shape === 'function') {
-          for (const [key, child] of Object.entries((def.shape as () => Record<string, unknown>)())) {
+        const isZodObject = def.typeName === 'ZodObject' || def.type === 'object';
+        const shape = typeof def.shape === 'function' ? def.shape() : def.shape;
+        if (isZodObject && shape !== null && typeof shape === 'object') {
+          for (const [key, child] of Object.entries(shape as Record<string, unknown>)) {
             fieldNames += 1;
             if (!carriers.has(key)) carriers.set(key, new Set());
             (carriers.get(key) as Set<string>).add(file);
