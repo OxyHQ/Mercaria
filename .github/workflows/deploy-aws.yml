@@ -453,8 +453,12 @@ jobs:
             --arg oxy_api_url "https://api.oxy.so" \
             --arg oxy_key "arn:aws:ssm:$AWS_REGION:237343248947:parameter/oxy/$APP/OXY_APPLICATION_KEY" \
             --arg oxy_secret "arn:aws:ssm:$AWS_REGION:237343248947:parameter/oxy/$APP/OXY_APPLICATION_SECRET" \
-            'del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
-                 .compatibilities, .registeredAt, .registeredBy)
+            '{family, taskRoleArn, executionRoleArn, networkMode,
+              containerDefinitions, volumes, placementConstraints,
+              requiresCompatibilities, cpu, memory, tags, pidMode, ipcMode,
+              proxyConfiguration, inferenceAccelerators, ephemeralStorage,
+              runtimePlatform, enableFaultInjection}
+             | with_entries(select(.value != null))
              | .containerDefinitions |= map(
                  if .name == $name then
                    .image = $image
