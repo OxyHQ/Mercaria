@@ -19,9 +19,9 @@ await esbuild.build({
    * is safe to run again, but nothing runs it automatically.
    *
    * `src/register-capability-catalog.ts` publishes the exact catalog compiled
-   * into this image after the migrations and before the rollout. Registering a
-   * source-tree file from a runner would let Oxy advertise code that the task
-   * does not actually contain.
+   * into this image after the rollout, live MCP smoke and post migration.
+   * Registering a source-tree file from a runner would let Oxy advertise code
+   * that the task does not actually contain.
    *
    * `src/scripts/seed.ts` is deliberately NOT an entry point and must not
    * become one. It opens by DELETING every listing, store, order, review and
