@@ -188,6 +188,10 @@ const DISPATCH_ONLY_WITH_CREDENTIALS: Record<string, string> = {
   // hand. It holds a Cloudflare token and ships nothing on merge, so there is
   // no "merged but not deployed" state it can be in.
   'setup-mention-mcp-dns.yml': 'workflow_dispatch one-shot, not triggered by merging',
+  // This repo's MCP DNS/ACM bootstrap has the same one-shot shape. It creates
+  // validation and endpoint records only when an operator dispatches it; a
+  // merge alone changes no production deployment.
+  'setup-mercaria-mcp-dns.yml': 'workflow_dispatch one-shot, not triggered by merging',
 };
 
 describe('the coverage check watches every workflow that can ship', () => {
