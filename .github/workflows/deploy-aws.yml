@@ -583,8 +583,11 @@ jobs:
             --task-definition "$TASK_DEFINITION")
           echo "deployment_started=true" >> "$GITHUB_OUTPUT"
           deployment_id=$(jq -r --arg task_definition "$TASK_DEFINITION" \
-            '.service.deployments[] | select(.status == "PRIMARY" and .taskDefinition == $task_definition) | .id' \
-            <<<"$update_json" | head -1)
+            '[
+              .service.deployments[]
+              | select(.status == "PRIMARY" and .taskDefinition == $task_definition)
+            ] | if length == 1 then .[0].id else "" end' \
+            <<<"$update_json")
           if [ -z "$deployment_id" ]; then
             echo "::error::ECS returned no primary deployment for $TASK_DEFINITION"
             exit 1
@@ -653,8 +656,11 @@ jobs:
             --service "$APP" \
             --task-definition "$PREVIOUS_TASK_DEFINITION")
           rollback_deployment_id=$(jq -r --arg task_definition "$PREVIOUS_TASK_DEFINITION" \
-            '.service.deployments[] | select(.status == "PRIMARY" and .taskDefinition == $task_definition) | .id' \
-            <<<"$rollback_json" | head -1)
+            '[
+              .service.deployments[]
+              | select(.status == "PRIMARY" and .taskDefinition == $task_definition)
+            ] | if length == 1 then .[0].id else "" end' \
+            <<<"$rollback_json")
           if [ -z "$rollback_deployment_id" ]; then
             echo "::error::ECS returned no primary rollback deployment for $PREVIOUS_TASK_DEFINITION"
             exit 1
