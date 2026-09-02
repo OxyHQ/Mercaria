@@ -84,6 +84,11 @@ describe('the deploy workflow and the migrator agree', () => {
 
     expect(workflow).toContain("--query 'imageDetails[0].imageDigest'");
     expect(register?.run).toContain('aws ecs register-task-definition');
+    expect(register?.run).toContain(
+      '{family, taskRoleArn, executionRoleArn, networkMode,',
+    );
+    expect(register?.run).toContain('runtimePlatform, enableFaultInjection}');
+    expect(register?.run).not.toContain('del(.taskDefinitionArn');
     expect(register?.run).toContain('.image = $image');
     expect(register?.run).toContain('/oxy/$APP/OXY_APPLICATION_KEY');
     expect(register?.run).toContain('/oxy/$APP/OXY_APPLICATION_SECRET');
