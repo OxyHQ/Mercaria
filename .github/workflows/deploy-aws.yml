@@ -428,6 +428,16 @@ jobs:
             echo "ECS service $APP reported status '$STATUS' — the query SUCCEEDED and found no active service, so there is nothing to migrate or deploy against"
             exit 0
           fi
+
+          # Oxy provisions this service identity directly into SSM. Refuse to
+          # register a release revision unless both halves exist; ECS resolves
+          # these references before the container starts.
+          for PARAMETER in OXY_APPLICATION_KEY OXY_APPLICATION_SECRET; do
+            aws ssm get-parameter \
+              --name "/oxy/$APP/$PARAMETER" \
+              --query 'Parameter.Name' --output text >/dev/null
+          done
+
           TD=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].taskDefinition' --output text)
           NET=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].networkConfiguration' --output json)
           DEFINITION=$(aws ecs describe-task-definition --task-definition "$TD" --query taskDefinition --output json)
@@ -440,9 +450,29 @@ jobs:
           PAYLOAD=$(jq \
             --arg name "$CONTAINER" \
             --arg image "$IMAGE_URI" \
+            --arg oxy_api_url "https://api.oxy.so" \
+            --arg oxy_key "arn:aws:ssm:$AWS_REGION:237343248947:parameter/oxy/$APP/OXY_APPLICATION_KEY" \
+            --arg oxy_secret "arn:aws:ssm:$AWS_REGION:237343248947:parameter/oxy/$APP/OXY_APPLICATION_SECRET" \
             'del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
                  .compatibilities, .registeredAt, .registeredBy)
-             | .containerDefinitions |= map(if .name == $name then .image = $image else . end)' \
+             | .containerDefinitions |= map(
+                 if .name == $name then
+                   .image = $image
+                   | .environment = (
+                       ((.environment // []) | map(select(.name != "OXY_API_URL")))
+                       + [{name: "OXY_API_URL", value: $oxy_api_url}]
+                     )
+                   | .secrets = (
+                       ((.secrets // []) | map(select(
+                         .name != "OXY_APPLICATION_KEY" and
+                         .name != "OXY_APPLICATION_SECRET"
+                       ))) + [
+                         {name: "OXY_APPLICATION_KEY", valueFrom: $oxy_key},
+                         {name: "OXY_APPLICATION_SECRET", valueFrom: $oxy_secret}
+                       ]
+                     )
+                 else . end
+               )' \
             <<<"$DEFINITION")
           IMMUTABLE_TD=$(aws ecs register-task-definition \
             --cli-input-json "$PAYLOAD" \

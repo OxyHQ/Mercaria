@@ -85,6 +85,11 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(workflow).toContain("--query 'imageDetails[0].imageDigest'");
     expect(register?.run).toContain('aws ecs register-task-definition');
     expect(register?.run).toContain('.image = $image');
+    expect(register?.run).toContain('/oxy/$APP/OXY_APPLICATION_KEY');
+    expect(register?.run).toContain('/oxy/$APP/OXY_APPLICATION_SECRET');
+    expect(register?.run).toContain('.name != "OXY_APPLICATION_KEY"');
+    expect(register?.run).toContain('.name != "OXY_APPLICATION_SECRET"');
+    expect(register?.run).toContain('{name: "OXY_API_URL", value: $oxy_api_url}');
     expect(rollout?.run).toContain('--task-definition');
     expect(catalog?.run).toContain('packages/backend/dist/register-capability-catalog.js');
     expect(catalog?.env?.TASK_DEFINITION).toBe('${{ steps.ecs.outputs.task_definition }}');
