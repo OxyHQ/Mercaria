@@ -111,7 +111,7 @@ export async function auditMercariaCapabilityTicket(input: {
     ticket: input.ticket,
     result: input.result,
     rollback: { supported: input.rollbackSupported, attempted: false },
-    ...(input.idempotencyKeyHash ? { idempotencyKey: input.idempotencyKeyHash } : {}),
+    ...(input.idempotencyKeyHash ? { idempotencyKeyHash: input.idempotencyKeyHash } : {}),
   });
 }
 
