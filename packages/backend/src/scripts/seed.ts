@@ -40,7 +40,12 @@
  */
 
 import { uuidv7 } from '@oxyhq/db';
-import type { CreateStoreProductInput, DualMoney, Money } from '@mercaria/shared-types';
+import type {
+  CreateStoreProductInput,
+  DualMoney,
+  ListingConditionInput,
+  Money,
+} from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../db/postgres.js';
 import { categories, listings } from '../db/schema/catalog.js';
 import { STORE_PERMISSIONS, stores } from '../db/schema/stores.js';
@@ -222,8 +227,15 @@ const IMG = {
   nililotanJenna: 'https://cdn.shopify.com/s/files/1/0021/7595/9158/files/WRTW_00285_W12_JENNA_STONE_29b9bec8-0794-442c-90e7-8381a0cd218a.jpg?width=256',
   nililotanShon: 'https://cdn.shopify.com/s/files/1/0021/7595/9158/files/S26_WRTW_10193_W12_SHONPANT_VINTAGEWASHEDADMIRALBLUE_aa00f7ac-4cb7-4052-bdd4-c5e145a74955.jpg?width=256',
   nililotanBalletFlat: 'https://cdn.shopify.com/s/files/1/0021/7595/9158/files/C06_WRTW_12550_L142_BALLETFLAT_BLACK_4a_ad6ed509-d285-441c-858a-d1aac216a16d.jpg?width=256',
+  // The two secondhand items carry a second gallery entry because a `used_*`
+  // key needs two of the seller's own photographs before it may publish. The
+  // seed has one verified shot per item, so the second entry is the same shot
+  // at a second CDN width — a distinct file the gallery renders, which is what
+  // the evidence rows count.
   lakeKimono: 'https://cdn.shopify.com/s/files/1/0505/6125/files/LAKE_Webcrop_Spring2025_KimonoSet_Fog_1200x1800_469e4421-1758-44c8-a953-905daec8b878.jpg?width=384',
+  lakeKimonoDetail: 'https://cdn.shopify.com/s/files/1/0505/6125/files/LAKE_Webcrop_Spring2025_KimonoSet_Fog_1200x1800_469e4421-1758-44c8-a953-905daec8b878.jpg?width=1024',
   huhaBikini: 'https://cdn.shopify.com/s/files/1/0053/2244/0790/files/HUHA-Ecomm-1594-WebRes.jpg?width=384',
+  huhaBikiniDetail: 'https://cdn.shopify.com/s/files/1/0053/2244/0790/files/HUHA-Ecomm-1594-WebRes.jpg?width=1024',
 } as const;
 
 /** The single option axis name for the multi-variant beauty product. */
@@ -531,12 +543,26 @@ const STORES: StoreSpec[] = [
   },
 ];
 
-/** P2P (secondhand) listing specs. `price` is a MAJOR-unit FAIR (⊜) value. */
+/**
+ * P2P (secondhand) listing specs. `price` is a MAJOR-unit FAIR (⊜) value.
+ *
+ * `itemCondition` is the #90 taxonomy statement, not the v1 `condition` string:
+ * every non-`new` key requires an acknowledged disclosure and a minimum number
+ * of the seller's own photographs, and the legacy spelling carries neither — it
+ * resolves with `defectsAcknowledged: false` and no details, which the evidence
+ * gate refuses. A seed written in v1 therefore cannot publish a secondhand
+ * listing at all, so each spec states its condition the way the sell flow does.
+ *
+ * `images` doubles as the condition evidence: `createP2PListing` annotates the
+ * gallery it is given, so the list must be at least the key's
+ * `minimumItemPhotos` long.
+ */
 interface P2PSpec {
   title: string;
   description: string;
   categorySlug: string;
-  image: string;
+  images: readonly string[];
+  itemCondition: ListingConditionInput;
   price: number;
   available: number;
 }
@@ -546,7 +572,13 @@ const P2P_LISTINGS: P2PSpec[] = [
     title: 'LAKE DreamModal Kimono Set (preloved)',
     description: 'Worn twice, freshly laundered. Size M.',
     categorySlug: 'dresses',
-    image: IMG.lakeKimono,
+    images: [IMG.lakeKimono, IMG.lakeKimonoDetail],
+    itemCondition: {
+      key: 'used_like_new',
+      details: [{ kind: 'cosmetic_wear', severity: 'light' }],
+      photoAnnotations: [{ fileId: IMG.lakeKimonoDetail, showsDefect: true }],
+      defectsAcknowledged: true,
+    },
     price: 65,
     available: 1,
   },
@@ -554,7 +586,13 @@ const P2P_LISTINGS: P2PSpec[] = [
     title: 'huha High Rise Bikini',
     description: 'New without tags, never worn. Size S.',
     categorySlug: 'shirts',
-    image: IMG.huhaBikini,
+    images: [IMG.huhaBikini, IMG.huhaBikiniDetail],
+    itemCondition: {
+      key: 'used_like_new',
+      details: [{ kind: 'missing_accessory', note: 'Sold without its original tags.' }],
+      photoAnnotations: [{ fileId: IMG.huhaBikini, showsDefect: false }],
+      defectsAcknowledged: true,
+    },
     price: 18,
     available: 1,
   },
@@ -1146,9 +1184,9 @@ async function seedP2P(counts: SeedCounts): Promise<void> {
       title: spec.title,
       description: spec.description,
       price: fair(spec.price),
-      condition: 'used',
+      itemCondition: spec.itemCondition,
       category: spec.categorySlug,
-      imageFileIds: [spec.image],
+      imageFileIds: [...spec.images],
       tags: ['secondhand', spec.categorySlug],
       quantity: spec.available,
     });
