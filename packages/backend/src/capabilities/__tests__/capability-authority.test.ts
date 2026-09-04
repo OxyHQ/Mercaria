@@ -159,7 +159,7 @@ describe('Mercaria capability authority client', () => {
       ticket: 'signed-ticket',
       result: { status: 'succeeded' },
       rollback: { supported: false, attempted: false },
-      idempotencyKey: 'a'.repeat(64),
+      idempotencyKeyHash: 'a'.repeat(64),
     });
   });
 });
