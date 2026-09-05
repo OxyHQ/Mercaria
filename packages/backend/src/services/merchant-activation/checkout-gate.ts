@@ -54,6 +54,29 @@
  * No applicable schedule is #88's honest zero and the predicate reads it as
  * satisfied. So on today's configuration this gate refuses only a store somebody
  * deliberately paused or held.
+ *
+ * ## Both owner kinds, and why the P2P half is acceptance ONLY
+ *
+ * A schedule's scope is `eligible_seller_type`, whose values are `store`,
+ * `user`, and ABSENT meaning both. So `planConnectedMarketplaceFee` selects for
+ * a `user` seller exactly as it does for a store, calculates the fee, and
+ * snapshots it with `termsVersionAccepted` absent — and until this gate read
+ * `user:` groups, nothing refused that sale. A commission charged to somebody
+ * who was never offered the terms is precisely what #88's acceptance gate
+ * exists to prevent, and the scope that reaches them is the DEFAULT one.
+ *
+ * An individual seller has no `merchant_activation_settings` row, so the hold
+ * and pause levers are store-only and are not evaluated for them — that is a
+ * fact about the schema, not a lenience: there is no P2P hold to miss.
+ *
+ * **This gate refuses; it is not the acceptance surface.** There is none for
+ * `owner_type = 'user'` — `fee_schedule_acceptances` is written only by
+ * `/admin/stores/:storeId/fees/accept`, and `POST /seller/activation/policies`
+ * writes `merchant_activation_policy_acceptances`, a different table. Building
+ * one needs a decision this code cannot make: a store selects its schedule in
+ * `stores.default_currency`, and a person has no default currency to select in.
+ * Until that is decided, a `user`-reaching schedule takes P2P sales offline
+ * rather than billing them silently, which is the direction that is visible.
  */
 
 import { getDb } from '../../db/postgres.js';
@@ -85,35 +108,35 @@ export interface ActivationGateGroup {
  * BEFORE any reservation, for the reason every gate around it runs there: a
  * question this deployment's own state answers must never have taken stock.
  *
- * Only `store:` groups are examined. An individual seller has no store, no fee
- * acceptance row and no pause switch; guest P2P is refused earlier by #112, and
- * an authenticated P2P sale is governed by the seller's own payment readiness.
+ * Examines `store:` and `user:` groups, with different requirement sets: see
+ * the module docblock for why the P2P half is fee acceptance only.
  */
 export async function assertSellerGroupsActivated(
   groups: readonly ActivationGateGroup[],
 ): Promise<void> {
-  const stores = groups.flatMap((group) => {
-    if (!group.sellerKey.startsWith('store:')) return [];
-    const storeId = group.sellerKey.slice('store:'.length);
-    return storeId.length > 0 ? [{ ...group, storeId }] : [];
+  const owners = groups.flatMap((group) => {
+    for (const ownerType of ['store', 'user'] as const) {
+      const prefix = `${ownerType}:`;
+      if (!group.sellerKey.startsWith(prefix)) continue;
+      const ownerId = group.sellerKey.slice(prefix.length);
+      return ownerId.length > 0 ? [{ ...group, ownerType, ownerId }] : [];
+    }
+    return [];
   });
-  if (stores.length === 0) return;
+  if (owners.length === 0) return;
 
   const refused: { sellerKey: string; reasons: string[] }[] = [];
-  for (const group of stores) {
-    const settings = await readMerchantActivationSettings(group.storeId);
+  for (const group of owners) {
     const acceptance = group.feeSchedule
       ? await findFeeScheduleAcceptance(getDb(), {
-          ownerType: 'store',
-          ownerId: group.storeId,
+          ownerType: group.ownerType,
+          ownerId: group.ownerId,
           scheduleKey: group.feeSchedule.scheduleKey,
           scheduleVersion: group.feeSchedule.version,
         })
       : undefined;
 
     const outcomes = [
-      deriveNoPlatformHold(settings),
-      deriveNativeCheckoutNotPaused(settings),
       deriveFeeScheduleAccepted({
         applicableFeeSchedule: group.feeSchedule ?? null,
         // Selection already answered with the schedule this order will use, so
@@ -124,6 +147,17 @@ export async function assertSellerGroupsActivated(
         feeScheduleAcceptedVersionCurrent: acceptance !== undefined,
       }),
     ];
+
+    // The hold and the pause are settings on a STORE row. Reading them for an
+    // individual seller would be a lookup by a store id that does not exist,
+    // and `readMerchantActivationSettings` answers its UNWRITTEN default for
+    // any id it does not find — so an unconditional read would not throw, it
+    // would silently evaluate a person against a store's defaults.
+    if (group.ownerType === 'store') {
+      const settings = await readMerchantActivationSettings(group.ownerId);
+      outcomes.push(deriveNoPlatformHold(settings), deriveNativeCheckoutNotPaused(settings));
+    }
+
     const reasons = outcomes.flatMap((outcome) =>
       outcome.state === 'satisfied' ? [] : [outcome.reason],
     );
