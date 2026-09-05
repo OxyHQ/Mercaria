@@ -245,8 +245,27 @@ function isAnomalousPriceChange(
  * destination at all, and `offers_kind_shape_check` refuses a destination on
  * that kind — so "no outbound link" is a shape rather than a `null` somebody
  * remembered to pass.
+ *
+ * ## `sourceKind` is the SOURCE ROW's, never the adapter's
+ *
+ * It arrives as `resolved.source.sourceKind`, which
+ * `catalogSourceConfigRepository` selects from `catalog_sources.kind` — an
+ * operator-set column (`configureSourceSchema.kind` is
+ * `z.enum(CATALOG_SOURCE_KINDS)`). `CatalogSourceAdapter.kind` is a separate,
+ * descriptive field and NOTHING compares the two.
+ *
+ * That is what makes `affiliate` reachable for a shop Mercaria signed itself: a
+ * source configured `kind: 'affiliate_network'` with `provider: 'product_feed'`
+ * produces `affiliate` offers from an ordinary feed, given both rights. It is
+ * not a loophole — the kind is a statement about the commercial relationship,
+ * and the adapter is a statement about the transport. `docs/runbooks/direct-affiliate-partner.md`
+ * is the procedure that depends on it.
+ *
+ * Exported for the table in `ingestion-rules.test.ts`. It is the one link in
+ * that chain that is a decision rather than a plain read, and it used to be
+ * covered by nothing.
  */
-function offerKindFor(
+export function offerKindFor(
   rights: CatalogSourceRightsVerdict,
   sourceKind: string,
   destinationUrl: string | undefined,
