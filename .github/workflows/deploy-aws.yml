@@ -247,6 +247,10 @@ jobs:
           SYNC_SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
           SYNC_CONNECTOR_ENCRYPTION_KEY: ${{ secrets.CONNECTOR_ENCRYPTION_KEY }}
           SYNC_CONNECTOR_OAUTH_STATE_SECRET: ${{ secrets.CONNECTOR_OAUTH_STATE_SECRET }}
+          SYNC_STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          SYNC_STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          SYNC_STRIPE_CONNECT_WEBHOOK_SECRET: ${{ secrets.STRIPE_CONNECT_WEBHOOK_SECRET }}
+          SYNC_STRIPE_ONBOARDING_STATE_SECRET: ${{ secrets.STRIPE_ONBOARDING_STATE_SECRET }}
         run: |
           # WHAT THIS REPO OWNS AND CONSUMES — deliberately NOT a mirror of the
           # live task definition, in BOTH directions.
@@ -308,8 +312,26 @@ jobs:
           # definition" — until step 2 lands, the live task definition naming it
           # is exactly the state being retired. src/db/__tests__/deployWorkflow.test.ts
           # pins this list.
+          # The four STRIPE_* names are the payment rail's secret half (#35).
+          # `STRIPE_ENABLED` and every URL, country and currency list beside it
+          # are plain CONFIGURATION and belong in the task definition's
+          # `environment`, not here — and so does STRIPE_PUBLISHABLE_KEY, which
+          # is `pk_live_…`: the checkout handoff serves it to every browser
+          # (`services/payments/checkout-payment.service.ts:240`), so storing it
+          # as a SecureString would only make it harder to read, never safer.
+          #
+          # `config/index.ts:571` refuses to arm the rail unless the secret key
+          # and BOTH webhook secrets are present, so these four land or the rail
+          # stays off — there is no half-configured state to leak through.
+          #
+          # STRIPE_WEBHOOK_SECRET_PREVIOUS and its connect twin are deliberately
+          # ABSENT. They exist only inside a rotation window, and a name on this
+          # list with no value behind it warns on EVERY deploy forever, which is
+          # how a real warning stops being read. A rotation adds the name here
+          # AND to the task definition in the same pair of PRs, in that order,
+          # and removes both when the window closes.
           SHARED_SECRETS="REDIS_URL"
-          APP_SECRETS="DATABASE_URL VAPID_PRIVATE_KEY VAPID_PUBLIC_KEY VAPID_SUBJECT SHOPIFY_CLIENT_ID SHOPIFY_CLIENT_SECRET CONNECTOR_ENCRYPTION_KEY CONNECTOR_OAUTH_STATE_SECRET"
+          APP_SECRETS="DATABASE_URL VAPID_PRIVATE_KEY VAPID_PUBLIC_KEY VAPID_SUBJECT SHOPIFY_CLIENT_ID SHOPIFY_CLIENT_SECRET CONNECTOR_ENCRYPTION_KEY CONNECTOR_OAUTH_STATE_SECRET STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_CONNECT_WEBHOOK_SECRET STRIPE_ONBOARDING_STATE_SECRET"
 
           # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are deliberately absent,
           # though oxy-mercaria:3 reads both from /oxy/_shared/. Mercaria
