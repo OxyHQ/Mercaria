@@ -1265,6 +1265,46 @@
   },
   "settings": {
     "documentTitle": "Configurações | Mercaria Dashboard",
+    "fees": {
+      "documentTitle": "Comissões do marketplace | Painel da Mercaria",
+      "title": "Comissões do marketplace",
+      "subtitle": "O que a Mercaria cobra em cada venda e os termos que você aceita.",
+      "loadFailed": "Não foi possível carregar seus termos de comissão",
+      "acceptSucceeded": "Termos de comissão aceitos",
+      "acceptFailed": "Não foi possível registrar seu aceite. Os termos podem ter mudado — confira-os e tente de novo.",
+      "none": {
+        "heading": "Nenhuma comissão se aplica",
+        "body": "Hoje a Mercaria não cobra nada sobre suas vendas. Se isso mudar, você será solicitado a aceitar aqui os novos termos antes que passem a valer."
+      },
+      "pending": {
+        "heading": "Estes termos precisam do seu aceite",
+        "body": "Sua loja não pode receber novos pedidos até que um proprietário aceite os termos de comissão abaixo.",
+        "action": "Aceitar estes termos"
+      },
+      "accepted": {
+        "heading": "Termos aceitos",
+        "body": "Termos %{version} aceitos em %{date}."
+      },
+      "terms": {
+        "percentage": "%{percent} do subtotal dos itens",
+        "fixed": "Mais %{amount} por pedido",
+        "min": "Comissão mínima %{amount}",
+        "max": "Comissão máxima %{amount}",
+        "basis": "Cobrada sobre o preço dos itens após os descontos. Entrega e impostos nunca são incluídos.",
+        "refundPolicy": "Devolvida proporcionalmente a qualquer reembolso que você emitir.",
+        "taxUnknown": "Tratamento fiscal: não informado.",
+        "taxExclusive": "O imposto é cobrado além desta comissão.",
+        "taxInclusive": "O imposto está incluído nesta comissão.",
+        "version": "Termos versão %{version}",
+        "effectiveFrom": "Em vigor desde %{date}"
+      },
+      "preview": {
+        "title": "Quanto isso custa",
+        "body": "Escolha um total de pedido de exemplo para ver a comissão e o que fica com você.",
+        "result": "Comissão %{fee} — você fica com %{net}.",
+        "failed": "Não foi possível calcular esse exemplo"
+      }
+    },
     "language": {
       "description": "O idioma em que este painel é exibido. Salvo neste dispositivo; não muda o que seus clientes veem.",
       "title": "Idioma"
@@ -1461,6 +1501,10 @@
       "channels": {
         "description": "Conecte o Shopify e outras lojas para sincronizar",
         "label": "Canais de venda"
+      },
+      "fees": {
+        "label": "Comissões do marketplace",
+        "description": "O que a Mercaria cobra por venda e seu aceite dos termos"
       },
       "locations": {
         "description": "Onde você mantém o estoque",

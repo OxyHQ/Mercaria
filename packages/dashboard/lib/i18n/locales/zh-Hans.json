@@ -1247,6 +1247,46 @@
   },
   "settings": {
     "documentTitle": "设置 | Mercaria Dashboard",
+    "fees": {
+      "documentTitle": "平台佣金 | Mercaria 控制台",
+      "title": "平台佣金",
+      "subtitle": "Mercaria 对每笔销售收取的费用，以及你需要接受的条款。",
+      "loadFailed": "无法加载你的佣金条款",
+      "acceptSucceeded": "已接受佣金条款",
+      "acceptFailed": "无法记录你的接受。条款可能已更改——请查看后重试。",
+      "none": {
+        "heading": "当前不收取平台佣金",
+        "body": "Mercaria 目前不对你的销售收取任何费用。如有变更，会在生效前请你在此接受新条款。"
+      },
+      "pending": {
+        "heading": "这些条款需要你接受",
+        "body": "在店主接受下方的佣金条款之前，你的店铺无法接收新订单。",
+        "action": "接受这些条款"
+      },
+      "accepted": {
+        "heading": "条款已接受",
+        "body": "条款 %{version} 已于 %{date} 接受。"
+      },
+      "terms": {
+        "percentage": "商品小计的 %{percent}",
+        "fixed": "另加每笔订单 %{amount}",
+        "min": "最低佣金 %{amount}",
+        "max": "最高佣金 %{amount}",
+        "basis": "按折扣后的商品价格计收。配送费和税费从不计入。",
+        "refundPolicy": "按你发起的退款金额比例退还。",
+        "taxUnknown": "税务处理：未说明。",
+        "taxExclusive": "税费在此佣金之外另行收取。",
+        "taxInclusive": "税费已包含在此佣金内。",
+        "version": "条款版本 %{version}",
+        "effectiveFrom": "自 %{date} 起生效"
+      },
+      "preview": {
+        "title": "实际花费",
+        "body": "选择一个示例订单金额，查看佣金和你的所得。",
+        "result": "佣金 %{fee}——你可得 %{net}。",
+        "failed": "无法计算该示例"
+      }
+    },
     "language": {
       "description": "此仪表板显示所用的语言。仅保存在本设备上，不会改变你的客户看到的内容。",
       "title": "语言"
@@ -1439,6 +1479,10 @@
       "channels": {
         "description": "连接 Shopify 等店铺进行同步",
         "label": "销售渠道"
+      },
+      "fees": {
+        "label": "平台佣金",
+        "description": "Mercaria 每笔销售收取的费用，以及你对条款的接受情况"
       },
       "locations": {
         "description": "你存放库存的地方",

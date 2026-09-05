@@ -1265,6 +1265,46 @@
   },
   "settings": {
     "documentTitle": "Paramètres | Mercaria Dashboard",
+    "fees": {
+      "documentTitle": "Commissions de la place de marché | Tableau de bord Mercaria",
+      "title": "Commissions de la place de marché",
+      "subtitle": "Ce que Mercaria facture sur chaque vente et les conditions que vous acceptez.",
+      "loadFailed": "Impossible de charger vos conditions de commission",
+      "acceptSucceeded": "Conditions de commission acceptées",
+      "acceptFailed": "Votre acceptation n'a pas pu être enregistrée. Les conditions ont peut-être changé — vérifiez-les et réessayez.",
+      "none": {
+        "heading": "Aucune commission ne s'applique",
+        "body": "Mercaria ne facture rien sur vos ventes aujourd'hui. Si cela change, il vous sera demandé d'accepter ici les nouvelles conditions avant leur entrée en vigueur."
+      },
+      "pending": {
+        "heading": "Ces conditions demandent votre acceptation",
+        "body": "Votre boutique ne peut pas recevoir de nouvelles commandes tant qu'un propriétaire n'a pas accepté les conditions de commission ci-dessous.",
+        "action": "Accepter ces conditions"
+      },
+      "accepted": {
+        "heading": "Conditions acceptées",
+        "body": "Conditions %{version} acceptées le %{date}."
+      },
+      "terms": {
+        "percentage": "%{percent} du sous-total des articles",
+        "fixed": "Plus %{amount} par commande",
+        "min": "Commission minimale %{amount}",
+        "max": "Commission maximale %{amount}",
+        "basis": "Facturée sur le prix des articles après remises. La livraison et les taxes ne sont jamais incluses.",
+        "refundPolicy": "Restituée au prorata de tout remboursement que vous effectuez.",
+        "taxUnknown": "Traitement fiscal : non précisé.",
+        "taxExclusive": "La taxe s'ajoute à cette commission.",
+        "taxInclusive": "La taxe est comprise dans cette commission.",
+        "version": "Conditions version %{version}",
+        "effectiveFrom": "En vigueur depuis le %{date}"
+      },
+      "preview": {
+        "title": "Ce que cela coûte",
+        "body": "Choisissez un total de commande d'exemple pour voir la commission et ce qu'il vous reste.",
+        "result": "Commission %{fee} — il vous reste %{net}.",
+        "failed": "Impossible de calculer cet exemple"
+      }
+    },
     "language": {
       "description": "La langue d’affichage de ce tableau de bord. Enregistrée sur cet appareil ; elle ne change rien à ce que voient vos clients.",
       "title": "Langue"
@@ -1461,6 +1501,10 @@
       "channels": {
         "description": "Connectez Shopify et d’autres boutiques pour synchroniser",
         "label": "Canaux de vente"
+      },
+      "fees": {
+        "label": "Commissions de la place de marché",
+        "description": "Ce que Mercaria facture par vente et votre acceptation des conditions"
       },
       "locations": {
         "description": "Où vous stockez votre inventaire",
