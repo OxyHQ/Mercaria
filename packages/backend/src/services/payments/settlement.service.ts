@@ -74,7 +74,17 @@ import { highValueHoldFor } from './high-value-hold.js';
 
 /** What one settlement run did, for the caller's log line and its tests. */
 export interface SettlementOutcome {
-  /** Transfers created by THIS run. A repeat of a settled payment reports zero. */
+  /**
+   * Movements made AT THE RAIL by this run. A repeat of a settled payment
+   * reports zero.
+   *
+   * Not the same `created` as `CreatedOrExistingTransfer.created`, which is
+   * whether this caller's INSERT won. The two disagree exactly where it matters
+   * most: a released hold that finally pays reports `created: 1` here while
+   * `createOrGetTransfer` returned `created: false`, because the row was born on
+   * the run that held it and only the transfer is new. One is about a row, the
+   * other about money leaving.
+   */
   created: number;
   /** Orders already settled by an earlier run. */
   alreadySettled: number;

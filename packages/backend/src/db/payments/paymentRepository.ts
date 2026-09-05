@@ -860,6 +860,12 @@ export interface CreatedOrExistingTransfer {
    * exactly once, at the moment the money became settleable, and re-deciding it
    * on every re-entry is what would make a review's release un-releasable — the
    * recompute would simply hold it again. See `high-value-hold.ts`.
+   *
+   * Not the same `created` as `SettlementOutcome.created`, which counts
+   * movements made at the RAIL. A released hold that finally pays is
+   * `created: false` here and `created: 1` there — the row is old, the transfer
+   * is new — so a test asserting one against the other reads plausibly and is
+   * wrong.
    */
   created: boolean;
 }
