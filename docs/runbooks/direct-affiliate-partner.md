@@ -24,7 +24,8 @@ any route today. This is the shape #867 item 2, #855, #863 and #864 each record:
 a capability that exists at the service layer, passes its tests because they
 drive it directly, and has no route a person can reach.
 
-Two ways out, and it is a product decision rather than a mechanical one:
+Filed as **#986**, which carries the three options and their costs. Two of
+them, in short:
 
 - **Mirror the sixteen `/admin/stores/:storeId/feeds` routes onto
   `/internal/feed-imports`** on the catalogue-operator allow-list. Complete, and
