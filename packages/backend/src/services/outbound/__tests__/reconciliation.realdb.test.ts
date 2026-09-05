@@ -690,6 +690,81 @@ describe('commission reconciliation, against a real server', () => {
     expect(after.length).toBe(before.length);
   });
 
+  it('admits the `direct` network end to end, and still refuses a name nothing produces', async () => {
+    // The migration's whole effect, asserted where it lives. A directly-signed
+    // shop is a first-class network: its run opens, its transaction applies,
+    // its accrual books — and the widened CHECK is proved by the pair, because
+    // an insert that merely SUCCEEDS says nothing about whether a constraint is
+    // present at all.
+    const directRun = await openAffiliateReportRun(db, {
+      network: 'direct',
+      accountRef: `shop-${uuidv7()}`,
+      windowFrom: new Date('2026-02-01T00:00:00.000Z'),
+      windowTo: new Date('2026-03-03T23:59:59.000Z'),
+    });
+    const networkTransactionId = `direct-${uuidv7()}`;
+    const applied = await applyReportedTransaction(db, {
+      network: 'direct',
+      reportRunId: directRun.id,
+      reported: reported(networkTransactionId),
+      now: new Date(),
+    });
+    expect(applied.outcome).toBe('applied');
+    if (applied.outcome !== 'applied') return;
+
+    const row = await findAffiliateTransactionById(db, applied.transactionId);
+    expect(row?.network).toBe('direct');
+    // Unmatched, and for the SAME structural reason the two networks are: the
+    // URL handed over is the shop's own and Mercaria composes nothing, so
+    // there is no per-click reference for it to echo back.
+    expect(row?.matchState).toBe('unmatched');
+
+    // The negative control. Without it the case above would pass on a table
+    // carrying no network CHECK at all — which is exactly the state a
+    // regenerated migration that dropped and never re-added one would leave.
+    await expectRefusedBy(
+      () =>
+        db.insert(affiliateTransactions).values({
+          network: 'not-a-network' as 'direct',
+          networkTransactionId: `bogus-${uuidv7()}`,
+          state: 'approved',
+          commissionAmount: 120,
+          commissionCurrency: 'GBP',
+          eventAt: EVENT_AT,
+          matchState: 'unmatched',
+          // Every OTHER rule on this row has to be satisfied or the control
+          // passes against whichever fires first — which it did twice while
+          // this case was written, on the digest length and then on the
+          // match-shape biconditional. `expectRefusedBy` reads the constraint
+          // NAME, which is the only reason either was visible.
+          unmatchedReason: 'network_supplies_no_reference',
+          contentDigest: 'd'.repeat(64),
+        }),
+      /affiliate_transactions_network_check/u,
+    );
+  });
+
+  it('does not poll `direct`, and writes no run saying it tried', async () => {
+    // Unlike eBay's seam this one is not waiting on a credential: a
+    // directly-signed shop is not an API, so there is nothing to poll and
+    // `resolveRefusalAccountRef` names no publisher for it. A refused-attempt
+    // row every hour for a network that will never have a reader is noise that
+    // trains an operator to stop reading the table.
+    const before = await db
+      .select({ id: affiliateReportRuns.id })
+      .from(affiliateReportRuns)
+      .where(eq(affiliateReportRuns.network, 'direct'));
+    const pass = await runAffiliateReconciliationPass(db, { network: 'direct' });
+    expect(pass.unavailable?.reason).toBe('network_not_configured');
+    expect(resolveRefusalAccountRef('direct', config.ebay)).toBeNull();
+    expect(pass.runs).toHaveLength(0);
+    const after = await db
+      .select({ id: affiliateReportRuns.id })
+      .from(affiliateReportRuns)
+      .where(eq(affiliateReportRuns.network, 'direct'));
+    expect(after.length).toBe(before.length);
+  });
+
   it('leaves NOTHING behind when a transaction cannot be applied', async () => {
     // A commission re-denominated after it was booked. The refusal is raised
     // from inside the database transaction so the whole apply rolls back —

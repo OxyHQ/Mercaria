@@ -77,14 +77,51 @@ export const OUTBOUND_DESTINATION_KINDS: readonly OutboundDestinationKind[] = [
  * The affiliate networks Mercaria can RECONCILE against.
  *
  * Narrower than `offers.affiliate_network`, which is free text carrying
- * whatever a source declared. A network is on this list when Mercaria has a
- * report reader for it, so a `affiliate_transactions` row can never name a
- * network nothing could have produced it.
+ * whatever a source declared. A network is on this list when a
+ * `affiliate_transactions` row may name it — so the column can never carry a
+ * network nothing in this deployment could have produced.
+ *
+ * ## `direct` is not a network, and that is the point
+ *
+ * A shop Mercaria signed itself: it supplies a product feed and its own
+ * tracking URL, and it pays a commission under a contract rather than through
+ * a publisher programme. It is a member here because every other part of #67
+ * is network-neutral — the click row, the destination allow-list, the
+ * observation trail, the postings and the ledger accounts all key on this id —
+ * and modelling it as anything else would mean a second copy of all of them.
+ *
+ * It has NO report reader, and unlike eBay's that is not a gap waiting on an
+ * account: a directly-signed shop is not an API. Its statements arrive as
+ * documents, so booking them is an operator action rather than a poll, and
+ * `resolveAffiliateReportReader` says so by name.
+ *
+ * ## What this tuple governs, and what it does NOT
+ *
+ * The two CHECKs it renders are on `affiliate_report_runs.network` and
+ * `affiliate_transactions.network` — the COMMISSION records. `offers`'
+ * `affiliate_network` is free text carrying `catalog_source_configs.provider`,
+ * which is an adapter slug, so an offer never names a member of this tuple by
+ * that route and is not meant to.
+ *
+ * So `direct` here buys exactly one thing and it is the important one: a
+ * directly-signed shop's commission can be booked to the ledger under its own
+ * name, told apart from Awin's and eBay's, which is what
+ * `affiliate_commission_revenue` reporting per source needs.
+ *
+ * What it does NOT do is let a feed produce an `affiliate` OFFER for such a
+ * shop. `offerKindFor` grants that kind only where the source's `sourceKind` is
+ * `affiliate_network`, and only `adapters/awin-feed.ts` declares it —
+ * `adapters/product-feed.ts` declares `feed`. A direct shop's feed imported
+ * through `product_feed` today yields `external` offers, which DO carry a
+ * destination and DO redirect and record clicks
+ * (`services/outbound/destination.ts` says so explicitly), under the provider
+ * slug rather than under this name. Closing that is a feed adapter that
+ * declares `affiliate_network`, and it is not this member.
  */
-export type AffiliateNetworkId = 'awin' | 'ebay';
+export type AffiliateNetworkId = 'awin' | 'ebay' | 'direct';
 
 /** {@link AffiliateNetworkId} as the tuple the columns and CHECKs read. */
-export const AFFILIATE_NETWORK_IDS: readonly AffiliateNetworkId[] = ['awin', 'ebay'];
+export const AFFILIATE_NETWORK_IDS: readonly AffiliateNetworkId[] = ['awin', 'ebay', 'direct'];
 
 /**
  * Whether a network can carry a Mercaria click reference out and back again.
@@ -122,6 +159,15 @@ export const AFFILIATE_CLICK_REFERENCE_SUPPORT: Readonly<
   // Awin's `aw_deep_link` carries the network's own parameters. #66 admits the
   // host and stores the URL unmodified; nothing may append a `clickref`.
   awin: 'not_supported',
+  // A directly-signed shop supplies its own tracking URL, already carrying
+  // whatever identifies Mercaria under that contract. The "compose nothing"
+  // rule is not a network policy here — it is this repository's, and it applies
+  // to a stored URL whoever wrote it: `admitOutboundDestination` takes a stored
+  // row and an allow-list, and `outbound-isolation.test.ts` scans the domain
+  // for any request-derived input. A per-click reference would need the
+  // CONTRACT to define one and the ingestion to receive it in the URL, which is
+  // the same shape as the two networks and not a nearer one.
+  direct: 'not_supported',
 };
 
 /**

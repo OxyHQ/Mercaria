@@ -10,6 +10,10 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  AFFILIATE_CLICK_REFERENCE_SUPPORT,
+  AFFILIATE_NETWORK_IDS,
+} from '@mercaria/shared-types';
+import {
   AWIN_COMMISSION_STATUS_STATES,
   awinAmountText,
   awinDateParam,
@@ -19,6 +23,7 @@ import {
 } from '../reconciliation/awin.js';
 import { assertAwinPublisherUrl } from '../reconciliation/awin-transport.js';
 import { EBAY_REPORT_READER_UNAVAILABLE } from '../reconciliation/ebay.js';
+import { DIRECT_REPORT_READER_UNAVAILABLE } from '../reconciliation/direct.js';
 
 /** One Awin transaction as its own documentation shapes it. */
 function awinTransaction(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -240,5 +245,42 @@ describe('the eBay seam', () => {
     if (EBAY_REPORT_READER_UNAVAILABLE.outcome !== 'unavailable') return;
     expect(EBAY_REPORT_READER_UNAVAILABLE.reason).toBe('network_not_configured');
     expect(EBAY_REPORT_READER_UNAVAILABLE.detail).toContain('EPN');
+  });
+});
+
+describe('the direct-partner seam', () => {
+  it('answers `network_not_configured` and never an empty list', () => {
+    expect(DIRECT_REPORT_READER_UNAVAILABLE.outcome).toBe('unavailable');
+    if (DIRECT_REPORT_READER_UNAVAILABLE.outcome !== 'unavailable') return;
+    expect(DIRECT_REPORT_READER_UNAVAILABLE.reason).toBe('network_not_configured');
+  });
+
+  it('says it is not an API, which is what makes it a DIFFERENT seam from eBay', () => {
+    // Both refuse with the same reason and for different reasons, and a reader
+    // of the detail has to be able to tell them apart: eBay's waits on an
+    // account and an API that both exist, this one waits on an operator
+    // surface because a signed shop has no API to wait for. Asserting the
+    // distinguishing words is what stops the two details being collapsed into
+    // one shared sentence by a later tidy-up.
+    if (DIRECT_REPORT_READER_UNAVAILABLE.outcome !== 'unavailable') return;
+    if (EBAY_REPORT_READER_UNAVAILABLE.outcome !== 'unavailable') return;
+    expect(DIRECT_REPORT_READER_UNAVAILABLE.detail).toContain('not polled');
+    expect(DIRECT_REPORT_READER_UNAVAILABLE.detail).toContain('operator');
+    expect(DIRECT_REPORT_READER_UNAVAILABLE.detail).not.toBe(
+      EBAY_REPORT_READER_UNAVAILABLE.detail,
+    );
+  });
+
+  it('supplies no click reference, for a REPOSITORY rule rather than a network policy', () => {
+    // The two networks are `not_supported` because their own terms forbid
+    // composing a link. `direct` is `not_supported` because Mercaria hands over
+    // the stored URL verbatim whoever wrote it — a rule
+    // `outbound-isolation.test.ts` enforces over the whole domain. Same value,
+    // and the map is total over the union, so a fourth network cannot be added
+    // without stating which it is.
+    expect(AFFILIATE_CLICK_REFERENCE_SUPPORT.direct).toBe('not_supported');
+    expect(Object.keys(AFFILIATE_CLICK_REFERENCE_SUPPORT).sort()).toEqual(
+      [...AFFILIATE_NETWORK_IDS].sort(),
+    );
   });
 });
