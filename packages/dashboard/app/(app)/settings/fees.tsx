@@ -7,6 +7,7 @@ import {
   CURRENCY_PRECISION,
   type CurrencyCode,
   type FeePreview,
+  type FeeRefundPolicy,
   type FeeScheduleSummary,
   type FeeTaxTreatment,
   type StoreFeeScheduleView,
@@ -126,6 +127,21 @@ const TAX_COPY: Record<FeeTaxTreatment, string> = {
   inclusive: "settings.fees.terms.taxInclusive",
 };
 
+/**
+ * How each refund policy is worded.
+ *
+ * A `Record<FeeRefundPolicy, string>` rather than the one key the single member
+ * needs today, for the reason `FeeRefundPolicy`'s own docblock gives: adding a
+ * `retain` policy is "a code change plus a CHECK widening under its own
+ * review". This map is what makes that review reach this screen — a new member
+ * fails `tsc` here. Keyed on a literal sentence instead, a second policy would
+ * leave every merchant reading "refunded in proportion" about a fee Mercaria
+ * now keeps, on a green build, inside the screen that records their consent.
+ */
+const REFUND_COPY: Record<FeeRefundPolicy, string> = {
+  proportional: "settings.fees.terms.refundProportional",
+};
+
 function FeesPanel({ storeId, view }: { storeId: string; view: StoreFeeScheduleView }) {
   const { t, locale } = useTranslation();
   const { schedule, acceptance } = view;
@@ -226,7 +242,7 @@ function ScheduleTerms({ schedule }: { schedule: FeeScheduleSummary }) {
         ) : null}
         <Text className="text-xs text-muted-foreground">{t("settings.fees.terms.basis")}</Text>
         <Text className="text-xs text-muted-foreground">
-          {t("settings.fees.terms.refundPolicy")}
+          {t(REFUND_COPY[schedule.refundPolicy])}
         </Text>
         <Text className="text-xs text-muted-foreground">{t(TAX_COPY[schedule.taxTreatment])}</Text>
         <Text className="text-xs text-muted-foreground">

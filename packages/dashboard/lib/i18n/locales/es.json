@@ -1291,7 +1291,7 @@
         "min": "Comisión mínima %{amount}",
         "max": "Comisión máxima %{amount}",
         "basis": "Se cobra sobre el precio de los artículos tras los descuentos. El envío y los impuestos nunca se incluyen.",
-        "refundPolicy": "Se devuelve en proporción a cualquier reembolso que emitas.",
+        "refundProportional": "Se devuelve en proporción a cualquier reembolso que emitas.",
         "taxUnknown": "Tratamiento fiscal: sin especificar.",
         "taxExclusive": "Los impuestos se cobran aparte de esta comisión.",
         "taxInclusive": "Los impuestos están incluidos en esta comisión.",
