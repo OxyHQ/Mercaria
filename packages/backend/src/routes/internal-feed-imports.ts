@@ -18,23 +18,84 @@
  * validation reports and the reason their last pass failed are exactly that
  * evidence.
  *
- * ## It is READ-ONLY, and that is a decision rather than an omission
+ * ## The cross-owner READS write nothing, and that stays true
  *
- * There is no "activate this version", no "set this mapping", no "run this
- * feed". Every write in this domain belongs to the store that owns the feed and
- * is reached through `/admin/stores/:storeId/feeds` behind `channels:write`; an
- * operator route that could change a merchant's mapping would be a way to change
- * what a merchant sells without them asking. The one operator power that IS
- * needed — pausing or revoking a source whose terms went wrong — already exists
- * on `/internal/ingestion/sources/:id/status`, where the rights model lives.
+ * `GET /` and `GET /:configurationId` see every feed, whoever manages it, and
+ * there is deliberately still no operator route that can change a MERCHANT's
+ * mapping — that would be a way to change what a merchant sells without them
+ * asking. The one operator power over somebody else's feed — pausing or
+ * revoking a source whose terms went wrong — remains
+ * `/internal/ingestion/sources/:id/status`, where the rights model lives.
+ *
+ * ## `/platform/*` writes, and reaches ONLY the platform's own feeds
+ *
+ * `feed_configurations.owner_kind` has two members, and the second one had no
+ * writer: `createFeedConfiguration` writes `operator` when `storeId` is null,
+ * and its only caller supplied a store. So an external partner that is not and
+ * never will be a Mercaria store could not have a feed configured at all
+ * (#986), which blocked the one affiliate path needing nobody's approval
+ * (`docs/runbooks/direct-affiliate-partner.md`).
+ *
+ * These are the SAME handlers the merchant surface mounts, under a declared
+ * owner scope of `platform`. `assertConfigurationOwnedByRequester` compares
+ * `store_id` directly, so a merchant's configuration is 404 here for the same
+ * reason a stranger's is 404 there — one expression, both directions, and the
+ * read-only rule above is preserved by construction rather than by remembering
+ * to check.
+ *
+ * ## `sourceKind` exists on this surface and NOT on the merchant one
+ *
+ * `affiliate_network` says Mercaria links out to somebody else's shop and earns
+ * a commission on the click. It decides the offer KIND
+ * (`offerKindFor`), which decides `affiliateDisclosureRequired`
+ * (`commercial-presentation/presentation.ts`) — so it is a statement about a
+ * contract Mercaria signed, and a store must not be able to make it about its
+ * own catalogue. It is settable only at CREATION because `ensureCatalogSource`
+ * never updates an existing row's kind.
  */
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
-import { listAllFeedsHandler, traceFeedHandler } from '../controllers/feed-import.controller.js';
+import { makeRateLimiter } from '../lib/rate-limit.js';
+import { validateBody } from '../middleware/validate.js';
+import {
+  activateFeedVersionSchema,
+  createOperatorFeedConfigurationSchema,
+  draftFeedVersionSchema,
+} from '../middleware/feed-import-schemas.js';
+import {
+  activateFeedVersionHandler,
+  createFeedHandler,
+  declareFeedOwnerScope,
+  downloadFeedReportHandler,
+  draftFeedVersionHandler,
+  getFeedHandler,
+  getFeedReportHandler,
+  getFeedStatusHandler,
+  listAllFeedsHandler,
+  listFeedReportsHandler,
+  listFeedUploadsHandler,
+  listFeedsHandler,
+  previewFeedVersionHandler,
+  revertFeedVersionHandler,
+  syncFeedHandler,
+  traceFeedHandler,
+  uploadFeedHandler,
+  validateFeedVersionHandler,
+} from '../controllers/feed-import.controller.js';
 
 const router = Router();
+
+/**
+ * The merchant surface's own buckets, reused rather than a third pair.
+ *
+ * A preview, a validate, an upload and a sync each cause an outbound request to
+ * a host somebody chose or a write of up to `FEED_IMPORT_MAX_DOWNLOAD_BYTES`;
+ * that cost does not change because the caller is an operator, and a separate
+ * unmetered budget here would be the way to make Mercaria hammer a partner.
+ */
+const fetchLimiter = makeRateLimiter('feed-import-fetch', { authenticatedMax: 30 });
 
 // Authentication FIRST, then the allow-list — the gate reads the verified
 // caller, and an allow-list consulted before authentication would compare
@@ -44,6 +105,50 @@ router.use(requireCatalogOperator);
 
 /** GET — every configured feed, whoever manages it. */
 router.get('/', listAllFeedsHandler);
+
+/**
+ * The PLATFORM's own feeds. Mounted BEFORE `/:configurationId`, because
+ * `platform` would otherwise be read as a configuration id and every one of
+ * these would 404 through the cross-owner trace instead.
+ */
+const platform = Router();
+platform.use(declareFeedOwnerScope('platform'));
+
+platform.get('/', listFeedsHandler);
+platform.post('/', validateBody(createOperatorFeedConfigurationSchema), createFeedHandler);
+platform.get('/:configurationId', getFeedHandler);
+platform.get('/:configurationId/status', getFeedStatusHandler);
+platform.post(
+  '/:configurationId/versions',
+  validateBody(draftFeedVersionSchema),
+  draftFeedVersionHandler,
+);
+platform.post(
+  '/:configurationId/versions/:versionId/preview',
+  fetchLimiter,
+  previewFeedVersionHandler,
+);
+platform.post(
+  '/:configurationId/versions/:versionId/validate',
+  fetchLimiter,
+  validateFeedVersionHandler,
+);
+platform.post(
+  '/:configurationId/versions/:versionId/activate',
+  validateBody(activateFeedVersionSchema),
+  activateFeedVersionHandler,
+);
+platform.post('/:configurationId/versions/:versionId/revert', revertFeedVersionHandler);
+platform.get('/:configurationId/uploads', listFeedUploadsHandler);
+// No body parser, exactly as on the merchant surface: `express.raw` would
+// BUFFER a feed, which is gigabytes in memory. The handler iterates the stream.
+platform.post('/:configurationId/uploads', fetchLimiter, uploadFeedHandler);
+platform.get('/:configurationId/reports', listFeedReportsHandler);
+platform.get('/:configurationId/reports/:reportId', getFeedReportHandler);
+platform.get('/:configurationId/reports/:reportId/download', downloadFeedReportHandler);
+platform.post('/:configurationId/sync', fetchLimiter, syncFeedHandler);
+
+router.use('/platform', platform);
 
 /** GET — one feed's configuration, versions, mappings, reports and runs. */
 router.get('/:configurationId', traceFeedHandler);

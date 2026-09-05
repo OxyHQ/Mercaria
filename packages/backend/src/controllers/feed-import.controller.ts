@@ -23,14 +23,14 @@
  * one that gets it wrong.
  */
 
-import type { Request, Response } from 'express';
+import type { Request, RequestHandler, Response } from 'express';
 import { getRequiredOxyUserId } from '@oxyhq/core/server';
 import { config } from '../config/index.js';
 import { getDb } from '../db/postgres.js';
 import {
   findFeedConfiguration,
   listAllFeedConfigurations,
-  listFeedConfigurationsForStore,
+  listFeedConfigurationsForOwner,
   listFeedVersions,
   listFieldMappings,
   listValueMappings,
@@ -66,30 +66,94 @@ import { log } from '../lib/logger.js';
 import type { CatalogRefreshMode } from '@mercaria/shared-types';
 import type {
   ActivateFeedVersionBody,
-  CreateFeedConfigurationBody,
+  CreateOperatorFeedConfigurationBody,
   DraftFeedVersionBody,
 } from '../middleware/feed-import-schemas.js';
 import { feedUploadMetadataSchema } from '../middleware/feed-import-schemas.js';
 
-/** The store `loadStore` resolved, or a refusal. */
-function loadedStoreId(req: Request): string {
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      /**
+       * WHOSE feeds this request's handlers act on, set by the router.
+       *
+       * Optional in the type and REQUIRED at use: `feedOwnerStoreId` throws
+       * when it is absent rather than choosing a default, because the only
+       * default that could be chosen is one of the two owners and choosing
+       * either silently is the failure this property exists to prevent.
+       */
+      feedOwnerScope?: FeedOwnerScope;
+    }
+  }
+}
+
+/**
+ * WHOSE feeds a request acts on, DECLARED by the router rather than inferred.
+ *
+ * `feed_configurations.owner_kind` has two members and
+ * `feed_configurations_owner_shape_check` states the biconditional
+ * `(owner_kind = 'merchant') = (store_id is not null)`. A `merchant` feed is a
+ * store's own catalogue arriving by file; a `platform` one belongs to Mercaria
+ * — an external partner's feed, where the partner is not and never will be a
+ * Mercaria store (`docs/runbooks/direct-affiliate-partner.md`).
+ *
+ * ## Why it is declared and not read off `req.store`
+ *
+ * "No store loaded ⇒ the platform" is one missing `loadStore` away from turning
+ * every merchant route into an operator one, silently and in the direction that
+ * grants. So {@link feedOwnerStoreId} THROWS on a request whose router declared
+ * nothing, and the two routers each say which they are in one line. An
+ * undeclared scope is a wiring mistake, and this is where it is cheapest to
+ * find.
+ */
+export type FeedOwnerScope = 'merchant' | 'platform';
+
+/** The router's declaration. See {@link FeedOwnerScope}. */
+export function declareFeedOwnerScope(scope: FeedOwnerScope): RequestHandler {
+  return (req, _res, next) => {
+    req.feedOwnerScope = scope;
+    next();
+  };
+}
+
+/**
+ * The store this request's feeds belong to, or `null` for the platform's own.
+ *
+ * `null` is the value `feed_configurations.store_id` holds for a platform feed,
+ * so it is the value every comparison and every write below wants — not a
+ * sentinel this function invented.
+ */
+function feedOwnerStoreId(req: Request): string | null {
+  const scope = req.feedOwnerScope;
+  if (scope === undefined) {
+    // Not a 404: a client cannot cause this and cannot fix it. It means a
+    // router mounted these handlers without saying whose feeds they serve.
+    throw new Error(
+      'This router mounted the feed handlers without declaring a feed owner scope.',
+    );
+  }
+  if (scope === 'platform') return null;
   const store = req.store;
   if (!store) throw notFound('Store not loaded');
   return store.id;
 }
 
 /**
- * The ONE path from a `:configurationId` to a row on the merchant surface.
+ * The ONE path from a `:configurationId` to a row this request may act on.
  *
- * A configuration belonging to another store — or to no store at all, which is
- * an operator-managed feed — is answered 404 rather than 403: a distinguishable
- * response would let a store member enumerate which feed ids exist.
+ * A configuration belonging to a different owner is answered 404 rather than
+ * 403: a distinguishable response would let a store member enumerate which feed
+ * ids exist. The comparison is against `store_id` directly, so a platform
+ * request (`null`) reaches exactly the platform's own rows and a store's
+ * reaches exactly its own — one expression, both directions, with no branch to
+ * get backwards.
  */
-async function assertConfigurationBelongsToStore(
+async function assertConfigurationOwnedByRequester(
   req: Request,
   configurationId: string,
 ): Promise<FeedConfigurationRow> {
-  const storeId = loadedStoreId(req);
+  const storeId = feedOwnerStoreId(req);
   const configuration = await findFeedConfiguration(getDb(), configurationId);
   if (configuration === undefined || configuration.storeId !== storeId) {
     throw notFound('Feed configuration not found');
@@ -164,22 +228,28 @@ function respondWithFeedError(res: Response, error: unknown, context: string): v
 
 // ── Merchant surface ────────────────────────────────────────────────────────
 
-/** GET /admin/stores/:storeId/feeds */
-export async function listStoreFeedsHandler(req: Request, res: Response): Promise<void> {
+/** GET the requester's feeds — `/admin/stores/:storeId/feeds` or `/internal/feed-imports/platform`. */
+export async function listFeedsHandler(req: Request, res: Response): Promise<void> {
   try {
-    const rows = await listFeedConfigurationsForStore(getDb(), loadedStoreId(req));
+    const rows = await listFeedConfigurationsForOwner(getDb(), feedOwnerStoreId(req));
     sendSuccess(res, rows.map(toConfigurationDTO));
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'listStoreFeeds');
+    respondWithFeedError(res, error, 'listFeeds');
   }
 }
 
-/** POST /admin/stores/:storeId/feeds */
-export async function createStoreFeedHandler(req: Request, res: Response): Promise<void> {
+/** POST a new configuration for the requester's own owner. */
+export async function createFeedHandler(req: Request, res: Response): Promise<void> {
   try {
-    const body = req.body as CreateFeedConfigurationBody;
+    // The OPERATOR body, which is the merchant body plus `sourceKind`. Reading
+    // the wider type unconditionally is safe because the merchant schema is
+    // `.strict()` and does not declare the field, so a store's request can
+    // never carry one — the narrowing is done by the validator on the route,
+    // where a reviewer can see which schema each surface uses.
+    const body = req.body as CreateOperatorFeedConfigurationBody;
     const configuration = await createFeedConfiguration({
-      storeId: loadedStoreId(req),
+      storeId: feedOwnerStoreId(req),
+      ...(body.sourceKind === undefined ? {} : { sourceKind: body.sourceKind }),
       sourceName: body.sourceName,
       label: body.label,
       identityKeyFields: body.identityKeyFields,
@@ -195,38 +265,38 @@ export async function createStoreFeedHandler(req: Request, res: Response): Promi
     });
     sendSuccess(res, toConfigurationDTO(configuration), 201);
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'createStoreFeed');
+    respondWithFeedError(res, error, 'createFeed');
   }
 }
 
-/** GET /admin/stores/:storeId/feeds/:configurationId */
-export async function getStoreFeedHandler(req: Request, res: Response): Promise<void> {
+/** GET …/feeds/:configurationId */
+export async function getFeedHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     const versions = await listFeedVersions(getDb(), configuration.id);
     sendSuccess(res, {
       configuration: toConfigurationDTO(configuration),
       versions: versions.map(toVersionDTO),
     });
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'getStoreFeed');
+    respondWithFeedError(res, error, 'getFeed');
   }
 }
 
-/** GET /admin/stores/:storeId/feeds/:configurationId/status — issue Mapping UX 7. */
-export async function getStoreFeedStatusHandler(req: Request, res: Response): Promise<void> {
+/** GET …/feeds/:configurationId/status — issue Mapping UX 7. */
+export async function getFeedStatusHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     sendSuccess(res, await composeFeedStatus(configuration));
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'getStoreFeedStatus');
+    respondWithFeedError(res, error, 'getFeedStatus');
   }
 }
 
-/** POST /admin/stores/:storeId/feeds/:configurationId/versions */
-export async function draftStoreFeedVersionHandler(req: Request, res: Response): Promise<void> {
+/** POST …/feeds/:configurationId/versions */
+export async function draftFeedVersionHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     const body = req.body as DraftFeedVersionBody;
     // Field by field rather than a spread: the zod-inferred body types every
     // member as optional under this package's `strict: false`, so a spread
@@ -276,28 +346,28 @@ export async function draftStoreFeedVersionHandler(req: Request, res: Response):
     });
     sendSuccess(res, toVersionDTO(version), 201);
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'draftStoreFeedVersion');
+    respondWithFeedError(res, error, 'draftFeedVersion');
   }
 }
 
-/** POST /admin/stores/:storeId/feeds/:configurationId/versions/:versionId/preview */
-export async function previewStoreFeedVersionHandler(req: Request, res: Response): Promise<void> {
+/** POST …/feeds/:configurationId/versions/:versionId/preview */
+export async function previewFeedVersionHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     const preview = await previewFeed({
       configurationId: configuration.id,
       versionId: routeParam(req, 'versionId'),
     });
     sendSuccess(res, preview);
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'previewStoreFeedVersion');
+    respondWithFeedError(res, error, 'previewFeedVersion');
   }
 }
 
-/** POST /admin/stores/:storeId/feeds/:configurationId/versions/:versionId/validate */
-export async function validateStoreFeedVersionHandler(req: Request, res: Response): Promise<void> {
+/** POST …/feeds/:configurationId/versions/:versionId/validate */
+export async function validateFeedVersionHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     const report = await validateFeedVersion({
       configurationId: configuration.id,
       versionId: routeParam(req, 'versionId'),
@@ -306,14 +376,14 @@ export async function validateStoreFeedVersionHandler(req: Request, res: Respons
     });
     sendSuccess(res, report, 201);
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'validateStoreFeedVersion');
+    respondWithFeedError(res, error, 'validateFeedVersion');
   }
 }
 
-/** POST /admin/stores/:storeId/feeds/:configurationId/versions/:versionId/activate */
-export async function activateStoreFeedVersionHandler(req: Request, res: Response): Promise<void> {
+/** POST …/feeds/:configurationId/versions/:versionId/activate */
+export async function activateFeedVersionHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     const body = req.body as ActivateFeedVersionBody;
     await activateFeedVersion({
       configurationId: configuration.id,
@@ -323,14 +393,14 @@ export async function activateStoreFeedVersionHandler(req: Request, res: Respons
     });
     sendSuccess(res, { activated: true });
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'activateStoreFeedVersion');
+    respondWithFeedError(res, error, 'activateFeedVersion');
   }
 }
 
-/** POST /admin/stores/:storeId/feeds/:configurationId/versions/:versionId/revert */
-export async function revertStoreFeedVersionHandler(req: Request, res: Response): Promise<void> {
+/** POST …/feeds/:configurationId/versions/:versionId/revert */
+export async function revertFeedVersionHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     const version = await revertToFeedVersion({
       configurationId: configuration.id,
       versionId: routeParam(req, 'versionId'),
@@ -338,12 +408,12 @@ export async function revertStoreFeedVersionHandler(req: Request, res: Response)
     });
     sendSuccess(res, toVersionDTO(version), 201);
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'revertStoreFeedVersion');
+    respondWithFeedError(res, error, 'revertFeedVersion');
   }
 }
 
 /**
- * POST /admin/stores/:storeId/feeds/:configurationId/uploads
+ * POST …/feeds/:configurationId/uploads
  *
  * The bytes are the raw request body, streamed to disk and never buffered — an
  * upload is a feed and a feed is gigabytes. The metadata rides the query string
@@ -351,9 +421,9 @@ export async function revertStoreFeedVersionHandler(req: Request, res: Response)
  * ahead of the bytes, which is a dependency and a second parser over
  * attacker-supplied input for two fields.
  */
-export async function uploadStoreFeedHandler(req: Request, res: Response): Promise<void> {
+export async function uploadFeedHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     // The global `express.json()` matches on content type and would have
     // CONSUMED a JSON body before this handler ever ran, leaving an empty
     // stream that reads as an empty feed — and an empty feed on a snapshot
@@ -396,14 +466,14 @@ export async function uploadStoreFeedHandler(req: Request, res: Response): Promi
       201,
     );
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'uploadStoreFeed');
+    respondWithFeedError(res, error, 'uploadFeed');
   }
 }
 
-/** GET /admin/stores/:storeId/feeds/:configurationId/uploads */
-export async function listStoreFeedUploadsHandler(req: Request, res: Response): Promise<void> {
+/** GET …/feeds/:configurationId/uploads */
+export async function listFeedUploadsHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     const rows = await listFeedUploads(getDb(), configuration.id, 50);
     sendSuccess(
       res,
@@ -418,25 +488,25 @@ export async function listStoreFeedUploadsHandler(req: Request, res: Response): 
       })),
     );
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'listStoreFeedUploads');
+    respondWithFeedError(res, error, 'listFeedUploads');
   }
 }
 
-/** GET /admin/stores/:storeId/feeds/:configurationId/reports */
-export async function listStoreFeedReportsHandler(req: Request, res: Response): Promise<void> {
+/** GET …/feeds/:configurationId/reports */
+export async function listFeedReportsHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     const rows = await listFeedImportReports(getDb(), configuration.id, 50);
     sendSuccess(res, rows);
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'listStoreFeedReports');
+    respondWithFeedError(res, error, 'listFeedReports');
   }
 }
 
-/** GET /admin/stores/:storeId/feeds/:configurationId/reports/:reportId */
-export async function getStoreFeedReportHandler(req: Request, res: Response): Promise<void> {
+/** GET …/feeds/:configurationId/reports/:reportId */
+export async function getFeedReportHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     const report = await findFeedImportReport(getDb(), routeParam(req, 'reportId'));
     if (report === undefined || report.configurationId !== configuration.id) {
       throw notFound('Report not found for this feed');
@@ -446,12 +516,12 @@ export async function getStoreFeedReportHandler(req: Request, res: Response): Pr
       summary: await summarizeFeedImportReport(getDb(), report.id),
     });
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'getStoreFeedReport');
+    respondWithFeedError(res, error, 'getFeedReport');
   }
 }
 
 /**
- * GET /admin/stores/:storeId/feeds/:configurationId/reports/:reportId/download
+ * GET …/feeds/:configurationId/reports/:reportId/download
  *
  * A CSV of the report's entries: a record INDEX, an issue code, a severity, the
  * Mercaria role and the merchant's own column name — and no VALUE, except the
@@ -460,9 +530,9 @@ export async function getStoreFeedReportHandler(req: Request, res: Response): Pr
  * has the file; the index is what lets them find the row, and the report does
  * not need to hand back the contents of something they already hold.
  */
-export async function downloadStoreFeedReportHandler(req: Request, res: Response): Promise<void> {
+export async function downloadFeedReportHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     const report = await findFeedImportReport(getDb(), routeParam(req, 'reportId'));
     if (report === undefined || report.configurationId !== configuration.id) {
       throw notFound('Report not found for this feed');
@@ -493,7 +563,7 @@ export async function downloadStoreFeedReportHandler(req: Request, res: Response
     }
     res.end();
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'downloadStoreFeedReport');
+    respondWithFeedError(res, error, 'downloadFeedReport');
   }
 }
 
@@ -510,10 +580,10 @@ function csvCell(value: string | null): string {
   return `"${value.replace(/"/gu, '""')}"`;
 }
 
-/** POST /admin/stores/:storeId/feeds/:configurationId/sync — a MANUAL pass. */
-export async function syncStoreFeedHandler(req: Request, res: Response): Promise<void> {
+/** POST …/feeds/:configurationId/sync — a MANUAL pass. */
+export async function syncFeedHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationBelongsToStore(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
     const run = await openSourceRun(getDb(), {
       sourceId: configuration.sourceId,
       kind: 'manual',
@@ -527,7 +597,7 @@ export async function syncStoreFeedHandler(req: Request, res: Response): Promise
     });
     sendSuccess(res, { runId: run.id, status: run.status }, 202);
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'syncStoreFeed');
+    respondWithFeedError(res, error, 'syncFeed');
   }
 }
 
