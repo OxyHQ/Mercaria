@@ -331,6 +331,14 @@ describe('the deploy workflow syncs an explicit allowlist, never the whole conte
     'SHOPIFY_CLIENT_SECRET',
     'CONNECTOR_ENCRYPTION_KEY',
     'CONNECTOR_OAUTH_STATE_SECRET',
+    // The payment rail's secret half (#35). Not STRIPE_PUBLISHABLE_KEY, which
+    // is public by construction, and not the two `_PREVIOUS` rotation slots,
+    // which have no value outside a rotation window — see the step's own
+    // comment for why an always-empty name on this list is worse than absent.
+    'STRIPE_SECRET_KEY',
+    'STRIPE_WEBHOOK_SECRET',
+    'STRIPE_CONNECT_WEBHOOK_SECRET',
+    'STRIPE_ONBOARDING_STATE_SECRET',
   ];
 
   const syncStep = (parse(workflow) as WorkflowFile).jobs.deploy.steps.find((step) =>
