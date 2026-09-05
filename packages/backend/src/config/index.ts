@@ -36,6 +36,7 @@ import {
 } from '@mercaria/shared-types';
 import { tmpdir } from 'node:os';
 import { PRINTFUL_BASE_URL } from '../services/printful/transport-contract.js';
+import { parseThreeDSecureThresholds } from '../services/payments/stripe/three-d-secure.js';
 import { join } from 'node:path';
 import { log } from '../lib/logger.js';
 
@@ -633,6 +634,33 @@ function resolveStripePresentmentCurrencies(): readonly CurrencyCode[] {
     );
   }
   return known;
+}
+
+/**
+ * Parse `STRIPE_3DS_THRESHOLDS` — `EUR:50000,USD:50000`, in MINOR units.
+ *
+ * The parsing itself is `three-d-secure.ts`'s, so the rule and its tests live
+ * with the policy rather than in this file, and both branches stay reachable
+ * from a test whatever this deployment is configured with.
+ *
+ * A rejected entry is LOGGED and dropped, which leaves its currency with no
+ * threshold — and no threshold means authenticate every payment. So a typo
+ * costs friction and never exposure, which is the only direction worth
+ * defaulting.
+ */
+function resolveThreeDSecureThresholds(): Readonly<Partial<Record<CurrencyCode, number>>> {
+  const { thresholds, rejected } = parseThreeDSecureThresholds(
+    strEnv('STRIPE_3DS_THRESHOLDS', ''),
+    (code): code is CurrencyCode => (ALL_CURRENCY_CODES as readonly string[]).includes(code),
+  );
+  if (rejected.length > 0) {
+    log.general.error(
+      { rejected },
+      '[Stripe] STRIPE_3DS_THRESHOLDS has entries Mercaria cannot read; they are dropped, ' +
+        'and a currency with no threshold requests authentication on EVERY payment.',
+    );
+  }
+  return Object.freeze(thresholds as Partial<Record<CurrencyCode, number>>);
 }
 
 /**
@@ -1297,6 +1325,24 @@ export interface StripeConfig {
    * the whole rail down over a URL typo.
    */
   readonly checkoutReturnUrl?: string;
+  /**
+   * The order value, PER CURRENCY, above which Mercaria asks the issuer to
+   * authenticate the card — `STRIPE_3DS_THRESHOLDS`, minor units.
+   *
+   * A loss control rather than a friction setting: an authenticated payment
+   * shifts liability for a fraudulent chargeback to the ISSUER, and ADR 0001 D2
+   * puts the losses on Mercaria (`controller.losses.payments = 'application'`).
+   *
+   * Per currency because a minor-unit amount is meaningless without one — JPY
+   * has no minor unit and FAIR has eight, so one global integer would mean
+   * three different real amounts across the presentment set.
+   *
+   * A currency ABSENT from this map asks on every payment. See
+   * `services/payments/stripe/three-d-secure.ts` for why that direction, and
+   * for why relying on Stripe's `automatic` behaviour does not work on a US
+   * acquiring entity serving EEA cards.
+   */
+  readonly threeDSecureThresholds: Readonly<Partial<Record<CurrencyCode, number>>>;
 }
 
 /**
@@ -4218,6 +4264,7 @@ export const config: AppConfig = Object.freeze({
       sellerCountries: Object.freeze(resolveStripeSellerCountries()),
       platformCurrency: resolveStripePlatformCurrency(),
       presentmentCurrencies: Object.freeze(resolveStripePresentmentCurrencies()),
+      threeDSecureThresholds: resolveThreeDSecureThresholds(),
       eventMaxAttempts: intEnv('STRIPE_EVENT_MAX_ATTEMPTS', 8),
       eventBatchSize: intEnv('STRIPE_EVENT_BATCH_SIZE', 50),
       eventPollIntervalMs: intEnv('STRIPE_EVENT_POLL_INTERVAL_MS', 5_000),
