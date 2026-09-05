@@ -1051,6 +1051,13 @@
       "when": 1787550601896,
       "tag": "0149_giant_dark_phoenix",
       "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1788631759357,
+      "tag": "0150_volatile_nuke",
+      "breakpoints": true
     }
   ]
 }

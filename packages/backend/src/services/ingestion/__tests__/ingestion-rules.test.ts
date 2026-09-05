@@ -19,9 +19,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   CATALOG_SOURCE_HEALTH_STATES,
+  CATALOG_SOURCE_KINDS,
   CATALOG_SOURCE_RETIRING_OUTCOMES,
   CATALOG_SOURCE_RIGHTS,
   CATALOG_SOURCE_STATUSES,
+  type CatalogSourceRight,
+  type CatalogSourceRightsVerdict,
   type CatalogSourceStatus,
 } from '@mercaria/shared-types';
 import {
@@ -39,6 +42,7 @@ import {
   statusAfterRun,
 } from '../health.js';
 import { NORMALIZATION_LIMITS, canonicalizeNormalizedRecord } from '../normalization.js';
+import { offerKindFor } from '../ingest.service.js';
 import { MAX_STORED_PAYLOAD_BYTES, redactSourceObservation } from '../redact.js';
 
 const FULL: SourcePolicyRights = {
@@ -403,5 +407,61 @@ describe('redaction', () => {
     } else {
       expect(Buffer.byteLength(serialized, 'utf8')).toBeLessThanOrEqual(MAX_STORED_PAYLOAD_BYTES);
     }
+  });
+});
+
+describe('which offer kind a source produces', () => {
+  /** Every right false but the two named. The other seven do not enter this decision. */
+  function rights(...granted: readonly CatalogSourceRight[]): CatalogSourceRightsVerdict {
+    return Object.fromEntries(
+      CATALOG_SOURCE_RIGHTS.map((right) => [right, granted.includes(right)]),
+    ) as CatalogSourceRightsVerdict;
+  }
+
+  const DESTINATION = 'https://shop.example/product/1';
+
+  it('refuses a destination without the outbound_link right, whatever the source kind', () => {
+    // Rights 5 and 6, structural: `offers_kind_shape_check` refuses a
+    // destination on `informational`, so this is a shape rather than a null
+    // somebody remembered to pass.
+    for (const kind of CATALOG_SOURCE_KINDS) {
+      expect(offerKindFor(rights('affiliate_params'), kind, DESTINATION)).toBe('informational');
+      expect(offerKindFor(rights(), kind, DESTINATION)).toBe('informational');
+    }
+  });
+
+  it('refuses without a destination even where both rights are granted', () => {
+    for (const kind of CATALOG_SOURCE_KINDS) {
+      expect(offerKindFor(rights('outbound_link', 'affiliate_params'), kind, undefined)).toBe(
+        'informational',
+      );
+    }
+  });
+
+  it('grants `affiliate` on `affiliate_network` alone, and `external` on every other kind', () => {
+    // The property the direct-partner procedure depends on, and the reason it
+    // needs stating: `sourceKind` is the SOURCE ROW's
+    // (`catalog_sources.kind`, operator-set through `configureSourceSchema`),
+    // never the adapter's. `CatalogSourceAdapter.kind` is a separate
+    // descriptive field and nothing compares the two — so a source configured
+    // `affiliate_network` with `provider: 'product_feed'` produces `affiliate`
+    // offers from an ordinary feed.
+    const both = rights('outbound_link', 'affiliate_params');
+    for (const kind of CATALOG_SOURCE_KINDS) {
+      expect(offerKindFor(both, kind, DESTINATION)).toBe(
+        kind === 'affiliate_network' ? 'affiliate' : 'external',
+      );
+    }
+    // A floor under the case above: it would also pass if EVERY kind answered
+    // `affiliate`, so the sweep has to contain at least one of each.
+    expect(CATALOG_SOURCE_KINDS).toContain('affiliate_network');
+    expect(CATALOG_SOURCE_KINDS.filter((kind) => kind !== 'affiliate_network').length).toBeGreaterThan(0);
+  });
+
+  it('needs BOTH rights for `affiliate` — outbound_link alone is `external`', () => {
+    // Which is the honest degradation, not a defect: `destination.ts` says a
+    // source with no `affiliate_params` right stored no routing metadata, so
+    // the plain link is the correct thing to hand over.
+    expect(offerKindFor(rights('outbound_link'), 'affiliate_network', DESTINATION)).toBe('external');
   });
 });
