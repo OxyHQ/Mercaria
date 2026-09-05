@@ -254,6 +254,11 @@
       "subcategories": "Подкатегории",
       "empty": "Под эти фильтры пока ничего не подходит.",
       "documentTitle": "%{title} — Mercaria"
+    },
+    "categoryIndex": {
+      "title": "Все категории",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "Категории ещё не опубликованы."
     }
   },
   "cart": {

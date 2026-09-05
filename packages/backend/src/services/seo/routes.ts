@@ -158,6 +158,28 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = Object.freeze([
     screen: 'app/(app)/categories/[handle].tsx',
     sitemapCollection: 'categories',
   },
+  /**
+   * The taxonomy index hub.
+   *
+   * `docs/storefront-catalog.md` §Seams held this open on whether a page whose
+   * whole content is links to pages each indexed on their own earns a route id.
+   * It does — the reasoning is on `PublicRouteId`'s own member.
+   *
+   * NO `sitemapCollection`: there is one of it, so there is no collection to
+   * enumerate. It reaches a crawler through the sitemap index's static entries
+   * and through the storefront's own navigation, exactly as `home` does.
+   *
+   * Matching is by segment COUNT first (`matchPublicRoute`), so this
+   * one-segment pattern cannot be shadowed by the two-segment
+   * `/categories/:handle` above it, whichever order they sit in.
+   */
+  {
+    id: 'category_index',
+    pattern: '/categories',
+    identity: 'none',
+    availability: 'live',
+    screen: 'app/(app)/categories/index.tsx',
+  },
 ] satisfies readonly PublicRoute[]);
 
 /** The registry, by id — built once, so a lookup is not a scan. */

@@ -250,6 +250,11 @@
       "subcategories": "子类目",
       "empty": "暂时没有符合这些筛选条件的内容。",
       "documentTitle": "%{title} — Mercaria"
+    },
+    "categoryIndex": {
+      "title": "全部分类",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "尚未发布任何分类。"
     }
   },
   "cart": {

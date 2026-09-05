@@ -53,12 +53,17 @@ export type NavItem =
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { key: "home", labelKey: "nav.home", icon: Home, href: "/", available: true },
-  // No `href`: `/categories` is not a route. #367 workstream 9 built the
-  // category LANDING page (`/categories/:handle`) and deliberately did not ship
-  // an index hub — whether a page whose entire content is links to pages each
-  // indexed on their own earns a `PublicRouteId` of its own is an SEO decision,
-  // and it is not made yet. See `docs/storefront-catalog.md` §Seams.
-  { key: "explore", labelKey: "nav.explore", icon: LayoutGrid, available: false },
+  // The SEO decision `docs/storefront-catalog.md` §Seams was waiting on is
+  // made: `/categories` is a public indexable route, registered as
+  // `category_index`, and the hub renders the published navigation trees. See
+  // the `PublicRouteId` member for the reasoning.
+  {
+    key: "explore",
+    labelKey: "nav.explore",
+    icon: LayoutGrid,
+    href: "/categories",
+    available: true,
+  },
   {
     key: "cart",
     labelKey: "nav.cart",

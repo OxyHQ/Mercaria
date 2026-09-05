@@ -250,6 +250,11 @@
       "subcategories": "サブカテゴリー",
       "empty": "この絞り込みに合うものはまだありません。",
       "documentTitle": "%{title} — Mercaria"
+    },
+    "categoryIndex": {
+      "title": "すべてのカテゴリ",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "カテゴリはまだ公開されていません。"
     }
   },
   "cart": {

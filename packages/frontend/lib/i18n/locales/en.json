@@ -250,6 +250,11 @@
       "subcategories": "Subcategories",
       "empty": "Nothing here matches these filters yet.",
       "documentTitle": "%{title} — Mercaria"
+    },
+    "categoryIndex": {
+      "title": "All categories",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "No categories have been published yet."
     }
   },
   "cart": {

@@ -84,6 +84,11 @@ describe('which schema.org type each route emits', () => {
     product_family: ['BreadcrumbList'],
     seller: ['BreadcrumbList'],
     category_browse: ['BreadcrumbList'],
+    // The same as its per-category sibling, and deliberately NOT `WebSite`:
+    // that node says "this is the site", which is the home page's claim and is
+    // emitted once. A hub that repeated it would give a crawler two answers to
+    // one question.
+    category_index: ['BreadcrumbList'],
     native_store_legacy: ['BreadcrumbList'],
   };
 

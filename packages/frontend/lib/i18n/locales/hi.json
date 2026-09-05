@@ -250,6 +250,11 @@
       "subcategories": "उपश्रेणियाँ",
       "empty": "इन फ़िल्टरों से मेल खाता अभी कुछ नहीं है।",
       "documentTitle": "%{title} — Mercaria"
+    },
+    "categoryIndex": {
+      "title": "सभी श्रेणियाँ",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "अभी तक कोई श्रेणी प्रकाशित नहीं हुई है।"
     }
   },
   "cart": {

@@ -252,6 +252,11 @@
       "subcategories": "Sous-catégories",
       "empty": "Rien ne correspond encore à ces filtres.",
       "documentTitle": "%{title} — Mercaria"
+    },
+    "categoryIndex": {
+      "title": "Toutes les catégories",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "Aucune catégorie n'a encore été publiée."
     }
   },
   "cart": {
