@@ -65,6 +65,12 @@ export const queryKeys = {
   // lifecycles.
   plan: (storeId: string) => ["stores", storeId, "plan"] as const,
   planCatalog: (storeId: string) => ["stores", storeId, "plan", "catalog"] as const,
+  // What the store pays Mercaria PER ORDER — a third direction again, and a
+  // sibling of both above. `plan` is a recurring subscription the store chose;
+  // this is the marketplace fee applied to every sale, which the store accepts
+  // rather than buys. Keyed on its own so accepting the terms invalidates the
+  // schedule view and nothing else.
+  feeSchedule: (storeId: string) => ["stores", storeId, "fee-schedule"] as const,
   locations: (storeId: string) => ["stores", storeId, "locations"] as const,
   channels: (storeId: string) => ["stores", storeId, "channels"] as const,
   channelKeys: (storeId: string) => ["stores", storeId, "channel-keys"] as const,

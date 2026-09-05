@@ -1247,6 +1247,46 @@
   },
   "settings": {
     "documentTitle": "Settings | Mercaria Dashboard",
+    "fees": {
+      "documentTitle": "Marketplace fees | Mercaria Dashboard",
+      "title": "Marketplace fees",
+      "subtitle": "What Mercaria charges on each sale, and the terms you accept.",
+      "loadFailed": "Couldn't load your fee terms",
+      "acceptSucceeded": "Fee terms accepted",
+      "acceptFailed": "Couldn't record your acceptance. The terms may have changed — check them and try again.",
+      "none": {
+        "heading": "No marketplace fee applies",
+        "body": "Mercaria charges nothing on your sales today. If that changes you will be asked to accept the new terms here before it takes effect."
+      },
+      "pending": {
+        "heading": "These terms need your acceptance",
+        "body": "Your store cannot take new orders until an owner accepts the fee terms below.",
+        "action": "Accept these terms"
+      },
+      "accepted": {
+        "heading": "Terms accepted",
+        "body": "Terms %{version} accepted on %{date}."
+      },
+      "terms": {
+        "percentage": "%{percent} of the item subtotal",
+        "fixed": "Plus %{amount} per order",
+        "min": "Minimum fee %{amount}",
+        "max": "Maximum fee %{amount}",
+        "basis": "Charged on item prices after discounts. Delivery and tax are never included.",
+        "refundPolicy": "Refunded in proportion to any refund you issue.",
+        "taxUnknown": "Tax treatment: not stated.",
+        "taxExclusive": "Tax is charged on top of this fee.",
+        "taxInclusive": "Tax is included in this fee.",
+        "version": "Terms version %{version}",
+        "effectiveFrom": "In force since %{date}"
+      },
+      "preview": {
+        "title": "What this costs",
+        "body": "Pick an example order total to see the fee and what you keep.",
+        "result": "Fee %{fee} — you keep %{net}.",
+        "failed": "Couldn't work out that example"
+      }
+    },
     "language": {
       "description": "The language this dashboard is shown in. Saved on this device; it does not change what your customers see.",
       "title": "Language"
@@ -1439,6 +1479,10 @@
       "channels": {
         "description": "Connect Shopify and other stores to sync",
         "label": "Sales channels"
+      },
+      "fees": {
+        "label": "Marketplace fees",
+        "description": "What Mercaria charges per sale, and your acceptance of the terms"
       },
       "locations": {
         "description": "Where you stock inventory",

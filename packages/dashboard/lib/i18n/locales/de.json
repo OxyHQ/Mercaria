@@ -1247,6 +1247,46 @@
   },
   "settings": {
     "documentTitle": "Einstellungen | Mercaria Dashboard",
+    "fees": {
+      "documentTitle": "Marktplatzgebühren | Mercaria-Dashboard",
+      "title": "Marktplatzgebühren",
+      "subtitle": "Was Mercaria bei jedem Verkauf berechnet und welche Bedingungen Sie akzeptieren.",
+      "loadFailed": "Ihre Gebührenbedingungen konnten nicht geladen werden",
+      "acceptSucceeded": "Gebührenbedingungen akzeptiert",
+      "acceptFailed": "Ihre Zustimmung konnte nicht gespeichert werden. Die Bedingungen haben sich möglicherweise geändert — prüfen Sie sie und versuchen Sie es erneut.",
+      "none": {
+        "heading": "Es fällt keine Marktplatzgebühr an",
+        "body": "Mercaria berechnet derzeit nichts für Ihre Verkäufe. Sollte sich das ändern, werden Sie hier um Zustimmung zu den neuen Bedingungen gebeten, bevor sie gelten."
+      },
+      "pending": {
+        "heading": "Diese Bedingungen brauchen Ihre Zustimmung",
+        "body": "Ihr Shop kann keine neuen Bestellungen annehmen, bis eine Inhaberin oder ein Inhaber die untenstehenden Gebührenbedingungen akzeptiert.",
+        "action": "Diese Bedingungen akzeptieren"
+      },
+      "accepted": {
+        "heading": "Bedingungen akzeptiert",
+        "body": "Bedingungen %{version} akzeptiert am %{date}."
+      },
+      "terms": {
+        "percentage": "%{percent} der Artikelzwischensumme",
+        "fixed": "Plus %{amount} pro Bestellung",
+        "min": "Mindestgebühr %{amount}",
+        "max": "Höchstgebühr %{amount}",
+        "basis": "Berechnet auf die Artikelpreise nach Rabatten. Versand und Steuern sind nie enthalten.",
+        "refundPolicy": "Wird anteilig zu jeder von Ihnen ausgestellten Rückerstattung erstattet.",
+        "taxUnknown": "Steuerliche Behandlung: nicht angegeben.",
+        "taxExclusive": "Die Steuer wird zusätzlich zu dieser Gebühr berechnet.",
+        "taxInclusive": "Die Steuer ist in dieser Gebühr enthalten.",
+        "version": "Bedingungen Version %{version}",
+        "effectiveFrom": "Gültig seit %{date}"
+      },
+      "preview": {
+        "title": "Was das kostet",
+        "body": "Wählen Sie eine Beispielsumme, um die Gebühr und Ihren Anteil zu sehen.",
+        "result": "Gebühr %{fee} — Ihnen bleiben %{net}.",
+        "failed": "Dieses Beispiel konnte nicht berechnet werden"
+      }
+    },
     "language": {
       "description": "Die Sprache, in der dieses Dashboard angezeigt wird. Wird auf diesem Gerät gespeichert; sie ändert nicht, was Ihre Kunden sehen.",
       "title": "Sprache"
@@ -1439,6 +1479,10 @@
       "channels": {
         "description": "Shopify und andere Shops zum Synchronisieren verbinden",
         "label": "Vertriebskanäle"
+      },
+      "fees": {
+        "label": "Marktplatzgebühren",
+        "description": "Was Mercaria pro Verkauf berechnet und Ihre Zustimmung zu den Bedingungen"
       },
       "locations": {
         "description": "Wo Sie Bestand lagern",

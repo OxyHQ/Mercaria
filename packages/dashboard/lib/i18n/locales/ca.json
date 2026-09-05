@@ -1265,6 +1265,46 @@
   },
   "settings": {
     "documentTitle": "Configuració | Mercaria Dashboard",
+    "fees": {
+      "documentTitle": "Comissions del marketplace | Tauler de Mercaria",
+      "title": "Comissions del marketplace",
+      "subtitle": "El que Mercaria cobra per cada venda i les condicions que acceptes.",
+      "loadFailed": "No s'han pogut carregar les teves condicions de comissió",
+      "acceptSucceeded": "Condicions de comissió acceptades",
+      "acceptFailed": "No s'ha pogut registrar la teva acceptació. Pot ser que les condicions hagin canviat: revisa-les i torna-ho a provar.",
+      "none": {
+        "heading": "No s'aplica cap comissió",
+        "body": "Avui Mercaria no cobra res per les teves vendes. Si això canvia, se't demanarà que acceptis aquí les noves condicions abans que entrin en vigor."
+      },
+      "pending": {
+        "heading": "Aquestes condicions necessiten la teva acceptació",
+        "body": "La teva botiga no pot rebre comandes noves fins que un propietari accepti les condicions de comissió de sota.",
+        "action": "Acceptar aquestes condicions"
+      },
+      "accepted": {
+        "heading": "Condicions acceptades",
+        "body": "Condicions %{version} acceptades el %{date}."
+      },
+      "terms": {
+        "percentage": "%{percent} del subtotal d'articles",
+        "fixed": "Més %{amount} per comanda",
+        "min": "Comissió mínima %{amount}",
+        "max": "Comissió màxima %{amount}",
+        "basis": "Es cobra sobre el preu dels articles després dels descomptes. L'enviament i els impostos mai s'hi inclouen.",
+        "refundPolicy": "Es retorna en proporció a qualsevol reemborsament que emetis.",
+        "taxUnknown": "Tractament fiscal: sense especificar.",
+        "taxExclusive": "Els impostos es cobren a part d'aquesta comissió.",
+        "taxInclusive": "Els impostos estan inclosos en aquesta comissió.",
+        "version": "Versió de les condicions %{version}",
+        "effectiveFrom": "En vigor des del %{date}"
+      },
+      "preview": {
+        "title": "Quant costa",
+        "body": "Tria un total de comanda d'exemple per veure la comissió i el que et queda.",
+        "result": "Comissió %{fee}: et queden %{net}.",
+        "failed": "No s'ha pogut calcular aquest exemple"
+      }
+    },
     "language": {
       "description": "L'idioma en què es mostra aquest tauler. Es desa en aquest dispositiu; no canvia el que veuen els teus clients.",
       "title": "Idioma"
@@ -1461,6 +1501,10 @@
       "channels": {
         "description": "Connecta Shopify i altres botigues per sincronitzar",
         "label": "Canals de venda"
+      },
+      "fees": {
+        "label": "Comissions del marketplace",
+        "description": "El que Mercaria cobra per venda i la teva acceptació de les condicions"
       },
       "locations": {
         "description": "On tens l'inventari",

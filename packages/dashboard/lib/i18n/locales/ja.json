@@ -1247,6 +1247,46 @@
   },
   "settings": {
     "documentTitle": "設定 | Mercaria Dashboard",
+    "fees": {
+      "documentTitle": "マーケットプレイス手数料 | Mercaria ダッシュボード",
+      "title": "マーケットプレイス手数料",
+      "subtitle": "Mercaria が各販売で請求する金額と、承諾いただく条件です。",
+      "loadFailed": "手数料条件を読み込めませんでした",
+      "acceptSucceeded": "手数料条件を承諾しました",
+      "acceptFailed": "承諾を記録できませんでした。条件が変更された可能性があります。ご確認のうえ、もう一度お試しください。",
+      "none": {
+        "heading": "マーケットプレイス手数料は適用されません",
+        "body": "現在、Mercaria はお客様の販売に対して手数料を請求していません。変更される場合は、適用前にこの画面で新しい条件の承諾をお願いします。"
+      },
+      "pending": {
+        "heading": "この条件には承諾が必要です",
+        "body": "オーナーが下記の手数料条件を承諾するまで、ストアは新しい注文を受け付けられません。",
+        "action": "この条件を承諾する"
+      },
+      "accepted": {
+        "heading": "条件を承諾済み",
+        "body": "条件 %{version} を %{date} に承諾しました。"
+      },
+      "terms": {
+        "percentage": "商品小計の %{percent}",
+        "fixed": "さらに 1 注文あたり %{amount}",
+        "min": "最低手数料 %{amount}",
+        "max": "上限手数料 %{amount}",
+        "basis": "割引後の商品価格に対して請求されます。配送料と税は含まれません。",
+        "refundPolicy": "お客様が行った返金に比例して返還されます。",
+        "taxUnknown": "税の扱い: 記載なし。",
+        "taxExclusive": "税はこの手数料に加えて請求されます。",
+        "taxInclusive": "税はこの手数料に含まれています。",
+        "version": "条件バージョン %{version}",
+        "effectiveFrom": "%{date} から有効"
+      },
+      "preview": {
+        "title": "実際の金額",
+        "body": "注文合計の例を選ぶと、手数料と手取り額が表示されます。",
+        "result": "手数料 %{fee} — 手取りは %{net} です。",
+        "failed": "その例を計算できませんでした"
+      }
+    },
     "language": {
       "description": "このダッシュボードを表示する言語です。この端末に保存され、顧客に表示される内容は変わりません。",
       "title": "言語"
@@ -1439,6 +1479,10 @@
       "channels": {
         "description": "Shopifyなどのストアを接続して同期",
         "label": "販売チャネル"
+      },
+      "fees": {
+        "label": "マーケットプレイス手数料",
+        "description": "Mercaria の販売ごとの手数料と、条件への承諾状況"
       },
       "locations": {
         "description": "在庫を保管する場所",
