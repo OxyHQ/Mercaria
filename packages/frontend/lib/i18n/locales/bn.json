@@ -250,6 +250,11 @@
       "subcategories": "উপবিভাগ",
       "empty": "এই ফিল্টারগুলোর সঙ্গে মেলে এমন কিছু এখনও নেই।",
       "documentTitle": "%{title} — Mercaria"
+    },
+    "categoryIndex": {
+      "title": "সব বিভাগ",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "এখনও কোনো বিভাগ প্রকাশ করা হয়নি।"
     }
   },
   "cart": {

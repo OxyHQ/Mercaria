@@ -71,7 +71,24 @@ export type PublicRouteId =
   /** `/sellers/:oxyUserId` — a P2P seller's public profile (#92). */
   | 'seller'
   /** `/categories/:handle` — category and filtered browse. */
-  | 'category_browse';
+  | 'category_browse'
+  /**
+   * `/categories` — the taxonomy index hub.
+   *
+   * Public and indexable, and the decision is worth stating because
+   * `docs/storefront-catalog.md` §Seams left it open on the grounds that a page
+   * whose entire content is links to pages each indexed on their own might be
+   * thin. Every route excused from indexing is excused for one of three
+   * reasons — it is account-private, it is a shopper-assembled combination or
+   * position-dependent, or it is a step in a transaction — and a taxonomy root
+   * is none of them. It is the same content for every visitor, backed by
+   * editorially owned entities rather than generated combinations, and it is
+   * the top of the storefront's own internal link graph.
+   *
+   * It carries no `sitemapCollection`: there is one of it, so the sitemap needs
+   * no collection to enumerate.
+   */
+  | 'category_index';
 
 export const PUBLIC_ROUTE_IDS: readonly PublicRouteId[] = [
   'home',
@@ -84,6 +101,7 @@ export const PUBLIC_ROUTE_IDS: readonly PublicRouteId[] = [
   'legacy_listing',
   'seller',
   'category_browse',
+  'category_index',
 ];
 
 /**

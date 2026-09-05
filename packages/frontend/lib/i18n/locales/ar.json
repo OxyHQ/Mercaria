@@ -250,6 +250,11 @@
       "subcategories": "الفئات الفرعية",
       "empty": "لا يوجد بعد ما يطابق عوامل التصفية هذه.",
       "documentTitle": "%{title} — Mercaria"
+    },
+    "categoryIndex": {
+      "title": "جميع الفئات",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "لم تُنشر أي فئة بعد."
     }
   },
   "cart": {

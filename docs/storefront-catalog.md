@@ -511,19 +511,26 @@ is about the thing that changed last.
 
 ## Seams, each named rather than stubbed
 
-- **An `/categories` index hub, and the SEO decision it needs.** The category
-  LANDING page is what workstream 9 asks for and is what shipped; a hub whose
-  entire content is links to pages each indexed on their own is a different
-  thing, and whether it earns a `PublicRouteId` member of its own or a reasoned
-  `NON_PUBLIC_SCREENS` entry is an SEO call rather than a mechanical one. It is
-  deliberately not shipped, because a page carrying an unmade decision is worse
-  than an absent one — `seo-routes.test.ts` DIRECTION 2 would have had to be
-  answered by whoever happened to need the page. `NAV_ITEMS`'s `explore` entry
-  therefore stays `available: false`, which is the discriminated shape that
-  repository already uses for an unbuilt screen. **The question to file: is a
-  category index hub a public indexable route?** The storefront reaches every
-  category from the home feed's pills and from a published navigation tree, so
-  nothing is unreachable without it.
+- **The `/categories` index hub — CLOSED, and the SEO decision made.** The
+  question this seam held open was whether a page whose entire content is links
+  to pages each indexed on their own earns a `PublicRouteId` member or a
+  reasoned `NON_PUBLIC_SCREENS` entry. **It earns the member**, registered as
+  `category_index`, and the reasoning is on the member itself: every route the
+  registry excuses from indexing is excused for one of three reasons — it is
+  account-private, it is a shopper-assembled combination or position-dependent,
+  or it is a step in a transaction — and a taxonomy root is none of them. It is
+  the same content for every visitor, backed by editorially owned entities
+  rather than generated combinations, and it is the top of the storefront's own
+  internal link graph.
+
+  It carries no `sitemapCollection`, because there is one of it. `NAV_ITEMS`'s
+  `explore` entry is `available: true` with an `href`, and
+  `app/(app)/categories/index.tsx` renders the PUBLISHED navigation through
+  `useCatalogNavigation` — the taxonomy-v2 trees when
+  `CATALOG_TAXONOMY_V2_ENABLED` is on, the v1 category tree when it is not
+  (ADR 0007 D12). That hook had no consumer until this screen, so the hub is
+  also the surface where the rollback promised by
+  `docs/runbooks/catalog-rollout-rollback.md` is visible.
 
 - **The vehicle picker and a verdict for the shopper's OWN car (#367 workstream 5).**
   Fitment itself now RENDERS — `lib/catalog/compatibility.ts`,
