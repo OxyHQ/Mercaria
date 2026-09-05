@@ -30,7 +30,7 @@
  * reason: switching a loop off during an incident should park work, not lose the
  * record of it.
  *
- * The sweeps additionally require the RAIL, because three of the four cannot ask
+ * The sweeps additionally require the RAIL, because four of the five cannot ask
  * their question without it. The ledger audit is the exception and it is not
  * treated as one: a deployment with no Stripe has no payments to audit, so
  * running it alone would be a timer with nothing to find.
@@ -55,11 +55,12 @@ import {
 } from './provider-objects.job.js';
 import { auditLedgerPage } from './ledger-audit.job.js';
 import { reconcileAccountReadiness } from './account-readiness.job.js';
+import { releaseWithheldTransfersPage } from './withheld-transfers.job.js';
 
 let timer: NodeJS.Timeout | undefined;
 let running = false;
 
-/** What one job's page did, in the shape the runner needs from all four. */
+/** What one job's page did, in the shape the runner needs from all five. */
 interface JobPageOutcome {
   scanned: number;
   discrepancies: number;
@@ -193,6 +194,14 @@ async function runOnePage(input: {
     };
   }
 
+  if (job === 'withheld_transfers') {
+    const page = await releaseWithheldTransfersPage({ cursor: cursor.cursor, limit, now });
+    // `discrepancies: 0` is not a placeholder — see the job's docblock. A
+    // transfer that still did not leave already has its `transfer_withheld`
+    // exception, and no `payment_discrepancies` row is written here.
+    return { scanned: page.scanned, discrepancies: 0, nextCursor: page.nextCursor };
+  }
+
   // Not one of ours. `RECONCILIATION_JOBS` is wider than
   // `PAYMENT_RECONCILIATION_JOBS` — #128's retail reconciliation takes a cursor
   // row here and is run by its own runner, because it reads purchase orders and
@@ -217,12 +226,24 @@ async function runOnePage(input: {
  * reservation sweep releases the stock), then the two that compare records, then
  * account readiness, whose own timer in `account-reconciler.ts` already runs it
  * independently — this is the belt to that braces.
+ *
+ * `withheld_transfers` runs LAST, and after `account_readiness` specifically:
+ * releasing a held transfer re-enters settlement, which refuses a seller whose
+ * account is not `ready`, so a readiness that lapsed and has since been repaired
+ * should be reflected in `provider_accounts` before the release asks.
+ *
+ * Exported ONLY so `reconciliation-job-coverage.test.ts` can bind it to
+ * `PAYMENT_RECONCILIATION_JOBS`. It is hand-written rather than derived from
+ * that tuple because the ORDER above is a decision and a sort is not one — but
+ * a hand-written list is exactly what silently drops a member, and a sweep that
+ * is never ticked looks identical to one nobody configured.
  */
-const JOB_ORDER: readonly ReconciliationJob[] = [
+export const JOB_ORDER: readonly ReconciliationJob[] = [
   'open_payments',
   'provider_objects',
   'ledger_audit',
   'account_readiness',
+  'withheld_transfers',
 ];
 
 async function tick(): Promise<void> {
