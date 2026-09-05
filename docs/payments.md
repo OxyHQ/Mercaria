@@ -1390,12 +1390,30 @@ exactly like a pre-#88 order).
 checkout-time acceptance GATE runs at step 4f-bis of `checkout.service`, over the
 schedule checkout itself selected, refusing under `seller_not_activated` — and a
 deployment with no active schedule is unaffected, because no applicable schedule
-is this domain's honest zero. The P2P seller acceptance surface is
-`POST /seller/activation/policies`, whose row carries `owner_type = 'user'`
-(`docs/merchant-activation.md`). Schedule-change NOTIFICATIONS and downloadable
+is this domain's honest zero. Schedule-change NOTIFICATIONS and downloadable
 breakdowns are still owed: the acceptance state and its `current` flag are
 derived and visible the moment a version is bumped, but PUSHING a message needs
 the outbound transport #108 owns.
+
+**There is still NO P2P fee-schedule acceptance surface, and this paragraph
+used to say there was.** It named `POST /seller/activation/policies`, which
+writes `merchant_activation_policy_acceptances` — a different table from
+`fee_schedule_acceptances`, which only `/admin/stores/:storeId/fees/accept`
+writes. The two share a shape (`owner_type`/`owner_id`) and that is what made
+the claim readable; nothing else about them is the same.
+
+The consequence was not theoretical. A schedule's `eligible_seller_type` is
+`store`, `user`, or ABSENT meaning both, so `planConnectedMarketplaceFee`
+selects for an individual seller exactly as it does for a store, calculates the
+fee and snapshots it with `termsVersionAccepted` absent — and the gate examined
+only `store:` groups, so nothing refused the sale. The DEFAULT scope is one that
+reaches them. The gate now reads `user:` groups too and refuses on the same
+`fee_schedule_not_accepted` requirement, so a `user`-reaching schedule takes P2P
+sales offline rather than billing them silently.
+
+Building the surface needs a decision this domain cannot take alone: a store
+selects its schedule in `stores.default_currency`, and a person has no default
+currency to select in.
 
 ---
 
