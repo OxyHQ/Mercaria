@@ -22,7 +22,7 @@
  * interpretable.
  */
 
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { publicColumns } from '@oxyhq/db/assert';
 import type {
   FeedAuthKind,
@@ -119,14 +119,23 @@ export async function findFeedConfigurationBySource(
 }
 
 /** Every configuration a STORE owns — the tenant read (#63 security 6). */
-export async function listFeedConfigurationsForStore(
+export async function listFeedConfigurationsForOwner(
   db: DatabaseOrTransaction,
-  storeId: string,
+  storeId: string | null,
 ): Promise<FeedConfigurationRow[]> {
   return db
     .select()
     .from(feedConfigurations)
-    .where(eq(feedConfigurations.storeId, storeId))
+    .where(
+      // `eq(column, null)` renders `= NULL`, which is never true — so the
+      // platform's own feeds would come back as an empty list rather than as
+      // themselves, and the surface would report "you have no feeds" to the
+      // operator who just created one. `isNull` is the only spelling that
+      // reads a NULL owner.
+      storeId === null
+        ? isNull(feedConfigurations.storeId)
+        : eq(feedConfigurations.storeId, storeId),
+    )
     .orderBy(desc(feedConfigurations.createdAt));
 }
 

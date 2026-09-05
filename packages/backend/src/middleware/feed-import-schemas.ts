@@ -84,6 +84,32 @@ export const createFeedConfigurationSchema = z
 export type CreateFeedConfigurationBody = z.infer<typeof createFeedConfigurationSchema>;
 
 /**
+ * The OPERATOR's create body — the merchant one plus `sourceKind`.
+ *
+ * `.extend` rather than a second literal, so a field added to the merchant
+ * schema cannot be forgotten here; and the extension is one-directional on
+ * purpose. A merchant may NOT declare their own feed an `affiliate_network`:
+ * that kind says Mercaria links out to somebody else's shop and earns a
+ * commission on the click, which is a statement about a contract Mercaria
+ * signed, not about a file a store uploaded. Letting the merchant surface set
+ * it would let a store turn its own catalogue into an offer that carries an
+ * affiliate disclosure and no affiliate relationship.
+ *
+ * Defaulted rather than required: an operator-managed feed is usually just a
+ * feed, and making every caller state the ordinary case is how the unusual one
+ * stops being read.
+ */
+export const createOperatorFeedConfigurationSchema = createFeedConfigurationSchema
+  .extend({
+    sourceKind: z.enum(['feed', 'affiliate_network']).default('feed'),
+  })
+  .strict();
+
+export type CreateOperatorFeedConfigurationBody = z.infer<
+  typeof createOperatorFeedConfigurationSchema
+>;
+
+/**
  * ONE mapping instruction: a column, or a constant. There is no third member.
  *
  * The `superRefine` states the same rule `feed_field_mappings_source_shape_check`

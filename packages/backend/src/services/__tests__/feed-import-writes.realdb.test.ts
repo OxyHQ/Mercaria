@@ -24,6 +24,13 @@ import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { catalogSources } from '../../db/schema/provenance.js';
+import { catalogSourceConfigs } from '../../db/schema/ingestion.js';
+import { createFeedConfiguration } from '../feed-import/configuration.service.js';
+import { listFeedConfigurationsForOwner } from '../../db/feedImport/feedConfigurationRepository.js';
+import {
+  createFeedConfigurationSchema,
+  createOperatorFeedConfigurationSchema,
+} from '../../middleware/feed-import-schemas.js';
 import {
   feedConfigurationVersions,
   feedConfigurations,
@@ -124,8 +131,143 @@ describe('feed importer schema properties (real server)', () => {
     await db
       .delete(feedConfigurations)
       .where(inArray(feedConfigurations.id, safe(createdConfigurationIds)));
+    // The platform cases go through `configureIngestionSource`, which writes a
+    // `catalog_source_configs` row beside the registry row — the fixtures above
+    // insert into `catalog_sources` directly and have none. The FK is
+    // `restrict`, so the registry delete below fails with 23503 rather than
+    // cascading, and it fails in TEARDOWN, where a green test run hides it.
+    await db
+      .delete(catalogSourceConfigs)
+      .where(inArray(catalogSourceConfigs.sourceId, safe(createdSourceIds)));
     await db.delete(catalogSources).where(inArray(catalogSources.id, safe(createdSourceIds)));
     await closePostgres();
+  });
+
+  /**
+   * The PLATFORM owner, which had no writer before #986.
+   *
+   * `createFeedConfiguration` has always written `operator` when `storeId` is
+   * null; its only caller supplied a store, so the branch was unreachable from
+   * any route. These drive the service directly, which is what the branch has
+   * to be correct for before a route can offer it.
+   */
+  describe('a feed the platform owns rather than a store', () => {
+    it('writes owner_kind `operator` and carries the source kind it was asked for', async () => {
+      const configuration = await createFeedConfiguration({
+        storeId: null,
+        sourceKind: 'affiliate_network',
+        sourceName: `platform affiliate ${RUN}`,
+        label: 'A directly-signed shop',
+        identityKeyFields: ['id'],
+        actorOxyUserId: `operator-${RUN}`,
+      });
+      createdConfigurationIds.push(configuration.id);
+      createdSourceIds.push(configuration.sourceId);
+
+      expect(configuration.ownerKind).toBe('operator');
+      expect(configuration.storeId).toBeNull();
+
+      // The whole reason `sourceKind` exists. `offerKindFor` grants the
+      // `affiliate` offer kind only on `affiliate_network`, and
+      // `commercial-presentation` derives `affiliateDisclosureRequired` from
+      // that offer kind — so a feed that earns a commission under a `feed`
+      // source would show a shopper no affiliate disclosure at all.
+      const [source] = await db
+        .select({ kind: catalogSources.kind })
+        .from(catalogSources)
+        .where(eq(catalogSources.id, configuration.sourceId));
+      expect(source?.kind).toBe('affiliate_network');
+    });
+
+    it('defaults the source kind to `feed`, so an ordinary operator feed is ordinary', async () => {
+      const configuration = await createFeedConfiguration({
+        storeId: null,
+        sourceName: `platform plain ${RUN}`,
+        label: 'A plain operator feed',
+        identityKeyFields: ['id'],
+        actorOxyUserId: `operator-${RUN}`,
+      });
+      createdConfigurationIds.push(configuration.id);
+      createdSourceIds.push(configuration.sourceId);
+
+      const [source] = await db
+        .select({ kind: catalogSources.kind })
+        .from(catalogSources)
+        .where(eq(catalogSources.id, configuration.sourceId));
+      expect(source?.kind).toBe('feed');
+    });
+
+    it('is listed for the platform and NOT for a store', async () => {
+      // The `isNull` fix, which is invisible any other way: `eq(column, null)`
+      // renders `= NULL`, which is never true, so the platform list came back
+      // EMPTY — an operator would be told they had no feeds immediately after
+      // creating one, and nothing would have raised.
+      const configuration = await createFeedConfiguration({
+        storeId: null,
+        sourceName: `platform listed ${RUN}`,
+        label: 'A listed operator feed',
+        identityKeyFields: ['id'],
+        actorOxyUserId: `operator-${RUN}`,
+      });
+      createdConfigurationIds.push(configuration.id);
+      createdSourceIds.push(configuration.sourceId);
+
+      // A FLOOR, never an equality: this database is shared and a sibling file
+      // may own platform feeds of its own.
+      const platformFeeds = await listFeedConfigurationsForOwner(db, null);
+      expect(platformFeeds.map((row) => row.id)).toContain(configuration.id);
+      for (const row of platformFeeds) expect(row.storeId).toBeNull();
+
+      // The other direction, against a store id that owns nothing: a platform
+      // feed must not leak into any store's list. Without it the case above
+      // would also pass on a query that ignored the owner entirely.
+      const strangerFeeds = await listFeedConfigurationsForOwner(db, `store-${RUN}`);
+      expect(strangerFeeds.map((row) => row.id)).not.toContain(configuration.id);
+    });
+  });
+
+  describe('which surface may declare a source an affiliate network', () => {
+    const base = {
+      sourceName: 'A shop',
+      label: 'A shop feed',
+      identityKeyFields: ['id'],
+    };
+
+    it('refuses `sourceKind` on the MERCHANT body', () => {
+      // `affiliate_network` says Mercaria links out to somebody else's shop and
+      // earns a commission on the click. A store must not be able to say that
+      // about its own catalogue: it would put an affiliate disclosure on an
+      // offer with no affiliate relationship behind it.
+      const parsed = createFeedConfigurationSchema.safeParse({
+        ...base,
+        sourceKind: 'affiliate_network',
+      });
+      expect(parsed.success).toBe(false);
+    });
+
+    it('accepts it on the OPERATOR body, and defaults it to `feed`', () => {
+      const declared = createOperatorFeedConfigurationSchema.safeParse({
+        ...base,
+        sourceKind: 'affiliate_network',
+      });
+      expect(declared.success).toBe(true);
+      if (declared.success) expect(declared.data.sourceKind).toBe('affiliate_network');
+
+      const omitted = createOperatorFeedConfigurationSchema.safeParse(base);
+      expect(omitted.success).toBe(true);
+      if (omitted.success) expect(omitted.data.sourceKind).toBe('feed');
+    });
+
+    it('still refuses a kind neither surface knows', () => {
+      // The floor under both cases: an enum that accepted anything would make
+      // the merchant refusal above a fact about the field being unknown rather
+      // than about the value being forbidden.
+      const parsed = createOperatorFeedConfigurationSchema.safeParse({
+        ...base,
+        sourceKind: 'connector',
+      });
+      expect(parsed.success).toBe(false);
+    });
   });
 
   /** A registry row plus its feed configuration. */
