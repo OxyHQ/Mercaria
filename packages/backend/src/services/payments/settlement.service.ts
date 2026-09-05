@@ -51,6 +51,7 @@ import {
   claimTransferProviderObject,
   createOrGetTransfer,
   findPaymentById,
+  markTransferHeld,
   type PaymentRow,
 } from '../../db/payments/paymentRepository.js';
 import { insertLedgerTransaction } from '../../db/payments/ledgerRepository.js';
@@ -68,6 +69,8 @@ import {
 import { resolvePaymentProvider } from './registry.js';
 import { redactProviderMessage } from './redact.js';
 import { log } from '../../lib/logger.js';
+import { config } from '../../config/index.js';
+import { highValueHoldFor } from './high-value-hold.js';
 
 /** What one settlement run did, for the caller's log line and its tests. */
 export interface SettlementOutcome {
@@ -179,7 +182,7 @@ async function settleOneOrder(input: {
   const { payment, order, amount, sourcePaymentObjectId } = input;
   const db = getDb();
 
-  const row = await createOrGetTransfer(db, {
+  const { row, created } = await createOrGetTransfer(db, {
     paymentId: payment.id,
     orderId: order.id,
     provider: payment.provider,
@@ -205,6 +208,47 @@ async function settleOneOrder(input: {
       reason: account
         ? `the seller's payment account is '${account.onboardingState}', not 'ready'`
         : 'the seller has no payment account on this rail',
+    });
+    return 'withheld';
+  }
+
+  // A HIGH-VALUE share waits before it leaves (see `high-value-hold.ts`).
+  //
+  // After the readiness gate rather than before it, because "this seller cannot
+  // be paid at all" and "this seller is not paid YET" are different facts and
+  // an operator reading the exception needs the first one when both are true.
+  //
+  // ## Decided ONCE, when the transfer row is born; never re-decided
+  //
+  // `created` gates the policy call, and `transfers.held_until` is the durable
+  // answer from then on. Re-evaluating the policy on every re-entry would be
+  // the same computation with a moving `now`, and it would make a review's
+  // decision impossible to act on: an operator clearing the hold would have it
+  // silently re-imposed by the very settlement they ran to release it.
+  //
+  // Anchored on the transfer row's own `created_at` — the instant this seller's
+  // share became settleable. The payment's `updatedAt` would restart the window
+  // on every unrelated write, which is a hold that never expires.
+  const heldUntil = created
+    ? holdReleasableAt({ amount, settleableSince: row.createdAt })
+    : row.heldUntil;
+  if (heldUntil && heldUntil.getTime() > Date.now()) {
+    // The column BEFORE the exception, because the column is what the release
+    // sweep reads and the exception is what a person reads. A crash between
+    // them leaves a transfer that releases itself on schedule with no case
+    // open; the reverse order would leave a case nothing ever closes.
+    //
+    // On a re-entry both writes are no-ops — `markTransferHeld` rewrites the
+    // same instant and the outbox row already exists — which is what makes an
+    // outbox retry of a held settlement cost nothing.
+    await markTransferHeld(db, { transferId: row.id, heldUntil });
+    await recordWithheld({
+      payment,
+      order,
+      amount,
+      reason:
+        'a high-value transfer waits for review; it becomes releasable at ' +
+        heldUntil.toISOString(),
     });
     return 'withheld';
   }
@@ -267,6 +311,24 @@ async function settleOneOrder(input: {
     '[Payments] seller order settled',
   );
   return 'created';
+}
+
+/**
+ * When this share becomes releasable, or `undefined` when it is not held.
+ *
+ * The single place the hold POLICY is consulted. Everything downstream reads
+ * `transfers.held_until` instead, which is why a threshold or window changed
+ * later never moves a hold already in force.
+ */
+function holdReleasableAt(input: { amount: Money; settleableSince: Date }): Date | undefined {
+  const decision = highValueHoldFor({
+    amount: input.amount,
+    settleableSince: input.settleableSince,
+    now: new Date(),
+    thresholds: config.payments.stripe.highValueHoldThresholds,
+    windowMs: config.payments.stripe.highValueHoldWindowMs,
+  });
+  return decision.outcome === 'hold' ? decision.releasableAt : undefined;
 }
 
 /**

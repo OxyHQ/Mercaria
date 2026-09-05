@@ -37,6 +37,7 @@ import {
 import { tmpdir } from 'node:os';
 import { PRINTFUL_BASE_URL } from '../services/printful/transport-contract.js';
 import { parseThreeDSecureThresholds } from '../services/payments/stripe/three-d-secure.js';
+import { parseHighValueHoldThresholds } from '../services/payments/high-value-hold.js';
 import { join } from 'node:path';
 import { log } from '../lib/logger.js';
 
@@ -658,6 +659,29 @@ function resolveThreeDSecureThresholds(): Readonly<Partial<Record<CurrencyCode, 
       { rejected },
       '[Stripe] STRIPE_3DS_THRESHOLDS has entries Mercaria cannot read; they are dropped, ' +
         'and a currency with no threshold requests authentication on EVERY payment.',
+    );
+  }
+  return Object.freeze(thresholds as Partial<Record<CurrencyCode, number>>);
+}
+
+/**
+ * Parse `STRIPE_HIGH_VALUE_HOLD_THRESHOLDS`. See the config field.
+ *
+ * A rejected entry leaves its currency with NO hold, which settles — the same
+ * direction as the missing-entry default, because the protective direction is
+ * only a default when the failure it causes is cheaper than the one it
+ * prevents, and freezing an unconfigured deployment's payouts is not.
+ */
+function resolveHighValueHoldThresholds(): Readonly<Partial<Record<CurrencyCode, number>>> {
+  const { thresholds, rejected } = parseHighValueHoldThresholds(
+    strEnv('STRIPE_HIGH_VALUE_HOLD_THRESHOLDS', ''),
+    (code): code is CurrencyCode => (ALL_CURRENCY_CODES as readonly string[]).includes(code),
+  );
+  if (rejected.length > 0) {
+    log.general.error(
+      { rejected },
+      '[Stripe] STRIPE_HIGH_VALUE_HOLD_THRESHOLDS has entries Mercaria cannot read; they are ' +
+        'dropped, and a currency with no threshold settles immediately.',
     );
   }
   return Object.freeze(thresholds as Partial<Record<CurrencyCode, number>>);
@@ -1343,6 +1367,26 @@ export interface StripeConfig {
    * acquiring entity serving EEA cards.
    */
   readonly threeDSecureThresholds: Readonly<Partial<Record<CurrencyCode, number>>>;
+  /**
+   * The transfer amount, PER CURRENCY, above which a seller's share waits
+   * before it leaves — `STRIPE_HIGH_VALUE_HOLD_THRESHOLDS`, minor units.
+   *
+   * EMPTY by default, and that is the opposite default from
+   * {@link threeDSecureThresholds} on purpose: an unconfigured currency there
+   * costs friction, and here it would freeze every payout on a deployment
+   * nobody configured. See `services/payments/high-value-hold.ts`.
+   */
+  readonly highValueHoldThresholds: Readonly<Partial<Record<CurrencyCode, number>>>;
+  /**
+   * How long a held transfer waits — `STRIPE_HIGH_VALUE_HOLD_WINDOW_MS`.
+   *
+   * A REVIEW window, not a dispute window. A chargeback can arrive 120 days
+   * later and no marketplace holds a payout that long; this is the span in
+   * which most card fraud actually surfaces. Zero disables the hold outright,
+   * which is the same lever as an empty threshold map and is stated separately
+   * so an incident can stop holding without editing a per-currency list.
+   */
+  readonly highValueHoldWindowMs: number;
 }
 
 /**
@@ -4265,6 +4309,8 @@ export const config: AppConfig = Object.freeze({
       platformCurrency: resolveStripePlatformCurrency(),
       presentmentCurrencies: Object.freeze(resolveStripePresentmentCurrencies()),
       threeDSecureThresholds: resolveThreeDSecureThresholds(),
+      highValueHoldThresholds: resolveHighValueHoldThresholds(),
+      highValueHoldWindowMs: intEnv('STRIPE_HIGH_VALUE_HOLD_WINDOW_MS', 72 * 60 * 60 * 1_000),
       eventMaxAttempts: intEnv('STRIPE_EVENT_MAX_ATTEMPTS', 8),
       eventBatchSize: intEnv('STRIPE_EVENT_BATCH_SIZE', 50),
       eventPollIntervalMs: intEnv('STRIPE_EVENT_POLL_INTERVAL_MS', 5_000),

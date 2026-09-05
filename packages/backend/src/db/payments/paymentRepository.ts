@@ -850,18 +850,36 @@ export interface UpsertTransferInput {
   providerObjectId?: string;
 }
 
+/** A transfer, and whether THIS call is the one that made it. */
+export interface CreatedOrExistingTransfer {
+  row: TransferRow;
+  /**
+   * `true` only for the caller whose insert won.
+   *
+   * Load-bearing, not informational: settlement decides the high-value hold
+   * exactly once, at the moment the money became settleable, and re-deciding it
+   * on every re-entry is what would make a review's release un-releasable — the
+   * recompute would simply hold it again. See `high-value-hold.ts`.
+   */
+  created: boolean;
+}
+
 /**
  * Create the transfer for a (payment, order), or return the existing one.
  *
  * The same insert-then-read shape as `createOrGetPayment`, against
  * `UNIQUE(payment_id, order_id)`. A retry of the transfer step must never make
  * a second one: two transfers for one order is money leaving twice.
+ *
+ * `DO NOTHING ... RETURNING` returns no row on conflict, which is what
+ * distinguishes the winner from every later caller — including two tasks racing
+ * the same outbox row, where exactly one gets `created: true`.
  */
 export async function createOrGetTransfer(
   db: DatabaseOrTransaction,
   input: UpsertTransferInput,
-): Promise<TransferRow> {
-  await db
+): Promise<CreatedOrExistingTransfer> {
+  const [inserted] = await db
     .insert(transfers)
     .values({
       id: uuidv7(),
@@ -873,7 +891,9 @@ export async function createOrGetTransfer(
       status: input.status ?? ('pending' as const),
       ...(input.providerObjectId ? { providerObjectId: input.providerObjectId } : {}),
     })
-    .onConflictDoNothing({ target: [transfers.paymentId, transfers.orderId] });
+    .onConflictDoNothing({ target: [transfers.paymentId, transfers.orderId] })
+    .returning();
+  if (inserted) return { row: inserted, created: true };
 
   const [row] = await db
     .select()
@@ -885,7 +905,7 @@ export async function createOrGetTransfer(
       `Transfer for payment ${input.paymentId} order ${input.orderId} could not be read back.`,
     );
   }
-  return row;
+  return { row, created: false };
 }
 
 /**
@@ -915,6 +935,99 @@ export async function claimTransferProviderObject(
     .where(and(eq(transfers.id, input.transferId), isNull(transfers.providerObjectId)))
     .returning();
   return row;
+}
+
+/**
+ * Stamp when a held high-value transfer becomes releasable.
+ *
+ * Idempotent by construction: `highValueHoldFor` derives the instant from the
+ * transfer row's OWN `created_at`, so a settlement the outbox retries computes
+ * the same value and rewrites it unchanged.
+ *
+ * Guarded on `provider_object_id IS NULL`, the same compare-and-swap
+ * `claimTransferProviderObject` uses and for the same reason: a transfer that
+ * has already left must never acquire a hold behind a racing caller, which
+ * would make the release sweep offer money that is already gone.
+ */
+export async function markTransferHeld(
+  db: DatabaseOrTransaction,
+  input: { transferId: string; heldUntil: Date },
+): Promise<TransferRow | undefined> {
+  const [row] = await db
+    .update(transfers)
+    .set({ heldUntil: input.heldUntil, updatedAt: new Date() })
+    .where(and(eq(transfers.id, input.transferId), isNull(transfers.providerObjectId)))
+    .returning();
+  return row;
+}
+
+/**
+ * Spend a hold: clear `held_until` now that the wait has been acted on.
+ *
+ * This is what makes the release sweep TERMINATE. Without it a transfer whose
+ * release then failed permanently — the seller's account lapsed while it waited,
+ * the rail refused it — would still match the sweep's predicate on the next
+ * pass, and on every pass after that, which is the retry-forever the column was
+ * added to prevent. Cleared, it becomes an ordinary withheld transfer with an
+ * open exception, which is what it now is.
+ *
+ * Guarded on the hold's own VALUE, not just on the transfer id, so it cannot
+ * undo a decision made after the sweep read the row: settlement that re-held it
+ * (a deployment that widened the window mid-flight) has stamped a later instant
+ * and this matches nothing, and settlement that PAID it has set the provider
+ * object and this matches nothing. Both are the correct no-op.
+ *
+ * @returns The row when the hold was cleared — which is also the proof that the
+ *   transfer did NOT leave, since a paid one cannot match.
+ */
+export async function clearTransferHold(
+  db: DatabaseOrTransaction,
+  input: { transferId: string; heldUntil: Date },
+): Promise<TransferRow | undefined> {
+  const [row] = await db
+    .update(transfers)
+    .set({ heldUntil: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(transfers.id, input.transferId),
+        isNull(transfers.providerObjectId),
+        eq(transfers.heldUntil, input.heldUntil),
+      ),
+    )
+    .returning();
+  return row;
+}
+
+/**
+ * One page of held transfers whose wait is over.
+ *
+ * `held_until IS NOT NULL` is what makes this query safe to run on a timer. The
+ * other reasons a transfer sits `pending` with no provider object — an account
+ * that lost readiness, a rail that refused — are PERMANENT, and a sweep that
+ * selected on the pending state alone would retry each of them once per pass
+ * for the life of the row. Only a transfer this deployment deliberately held
+ * carries the column, so only those come back.
+ *
+ * Ordered by id (uuid v7, so insertion order) rather than by `held_until`, to
+ * give the runner the same stable `>` cursor every other sweep uses.
+ */
+export async function findReleasableTransfers(
+  db: DatabaseOrTransaction,
+  input: { now: Date; afterId?: string; limit: number },
+): Promise<TransferRow[]> {
+  return await db
+    .select()
+    .from(transfers)
+    .where(
+      and(
+        isNotNull(transfers.heldUntil),
+        isNull(transfers.providerObjectId),
+        lte(transfers.heldUntil, input.now),
+        ...(input.afterId ? [gt(transfers.id, input.afterId)] : []),
+      ),
+    )
+    .orderBy(transfers.id)
+    .limit(input.limit);
 }
 
 /**

@@ -1058,6 +1058,13 @@
       "when": 1788631759357,
       "tag": "0150_volatile_nuke",
       "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1788646490188,
+      "tag": "0151_amazing_hellfire_club",
+      "breakpoints": true
     }
   ]
 }
