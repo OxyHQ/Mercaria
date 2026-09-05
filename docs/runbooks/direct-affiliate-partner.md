@@ -5,36 +5,11 @@ the shop supplies a product feed and its own tracking URL, and Mercaria sends it
 shoppers and is paid a commission under that contract.
 
 Everything below is read off the shipped code. **Nothing here has been run
-against a real deployment**, and this sentence stays until step 8 has been
+against a real deployment**, and this sentence stays until step 7 has been
 completed once — the `HANDOFF.md` rule, for the same reason.
 
-## 0. The one blocking gap, before anything else
-
-**Step 4 has no HTTP surface.** A feed configuration whose owner is the
-platform rather than a store is supported by the service —
-`services/feed-import/configuration.service.ts:113` writes
-`ownerKind: 'operator'` when `storeId` is null, and
-`feed_configurations_owner_shape_check` admits exactly that row — and
-`createFeedConfiguration`'s only caller is `routes/admin/feeds.ts`, which is
-mounted under `/admin/stores/:storeId/feeds` and therefore always supplies a
-store.
-
-So a partner that is not a Mercaria store cannot have a feed configured through
-any route today. This is the shape #867 item 2, #855, #863 and #864 each record:
-a capability that exists at the service layer, passes its tests because they
-drive it directly, and has no route a person can reach.
-
-Filed as **#986**, which carries the three options and their costs. Two of
-them, in short:
-
-- **Mirror the sixteen `/admin/stores/:storeId/feeds` routes onto
-  `/internal/feed-imports`** on the catalogue-operator allow-list. Complete, and
-  the larger piece of work.
-- **Represent each partner as a Mercaria store** and use the existing routes.
-  Works mechanically — the catalog source and the feed configuration are
-  separate rows, so the source can still be `affiliate_network` while the feed
-  belongs to a store — but it gives every partner a store identity, a checkout
-  surface and a payments onboarding path it will never use.
+The operator half of step 2 and step 4 lands with #987; before it, a
+platform-owned feed configuration is reachable from no route at all (#986).
 
 ## 1. Deployment configuration
 
@@ -63,50 +38,68 @@ OUTBOUND_TOKEN_SECRET     # openssl rand -hex 32
 boot (`config/index.ts`'s half-configuration rule). Without the expiry sweep a
 withdrawn offer stays on sale forever, which is the one failure a shopper sees.
 
-## 2. Create the source
+## 2. Create the feed configuration, and with it the source
 
-`POST /internal/ingestion/sources`:
+`POST /internal/feed-imports/platform` — the operator surface, on
+`CATALOG_OPERATOR_OXY_USER_IDS`:
 
 ```json
 {
-  "name": "<Shop>",
-  "kind": "affiliate_network",
-  "provider": "product_feed",
-  "sourceAccountRef": "<feed configuration id from step 4>",
+  "sourceName": "<Shop> product feed",
+  "label": "<Shop>",
+  "identityKeyFields": ["id"],
+  "sourceKind": "affiliate_network",
   "merchantId": "<merchant id>",
   "fetchCadenceSeconds": 86400,
   "freshnessTtlSeconds": 172800
 }
 ```
 
-**`kind: 'affiliate_network'` with `provider: 'product_feed'` is the whole
-trick, and it is not a loophole.** `offerKindFor` reads
-`resolved.source.sourceKind`, which `catalogSourceConfigRepository` selects from
-`catalog_sources.kind` — an operator-set column. `CatalogSourceAdapter.kind` is
-a separate, descriptive field and nothing compares the two. The kind is a
-statement about the commercial RELATIONSHIP; the adapter is a statement about
-the TRANSPORT. `ingestion-rules.test.ts` §"which offer kind a source produces"
-holds the matrix, and a mutation removing the `sourceKind` condition fails it.
+**One request creates both**: `createFeedConfiguration` calls
+`configureIngestionSource` itself, so there is no separate "create the source"
+step and `sourceAccountRef` is wired for you. `storeId` is null because this is
+a platform-owned feed — the owner scope is declared by the router, never
+inferred.
 
-## 3. Publish the rights
+**`sourceKind: 'affiliate_network'` is not cosmetic and cannot be corrected
+later.** `offerKindFor` grants the `affiliate` offer kind only on that source
+kind, and `commercial-presentation` derives `affiliateDisclosureRequired` from
+the offer kind — so a feed that earns a commission under a `feed` source shows
+the shopper NO affiliate disclosure. And `ensureCatalogSource` is
+`onConflictDoNothing` on the source's name: a source created `feed` stays `feed`
+forever, and no later call updates it. Get it right here or delete the
+configuration and start again.
 
+The field is absent from the merchant surface by design: a store may not declare
+its own catalogue an affiliate relationship.
+
+`identityKeyFields` is **frozen** once written — re-keying a feed re-mints every
+object and retires the catalogue behind the old ids.
+
+## 3. Publish the rights on the source it created
+
+Read the configuration back for its `sourceId`, then
 `POST /internal/ingestion/sources/:sourceId/policies`, granting at least:
 
 | Right | Why |
 |---|---|
 | `store`, `cache`, `display_price`, `display_media` | to show the product at all |
 | `outbound_link` | without it the offer is `informational` and a CHECK refuses it a destination |
-| `affiliate_params` | without it the offer is `external`, not `affiliate` — the plain link, which is the honest degradation |
+| `affiliate_params` | without it no tracking URL is stored, the offer is `external`, and the plain link is handed over — the honest degradation, and no commission |
 
 Then `POST /internal/ingestion/sources/:sourceId/status` with `active`.
 
-## 4. Configure the feed — SEE §0
+## 4. Map the feed and activate it
 
-The mapping from the shop's columns onto `NormalizedSourceRecord`. The shop's
-tracking URL maps onto `affiliateUrl` and its plain product URL onto
-`sourceUrl`; `ingest.service.ts` writes the first to
+`POST /internal/feed-imports/platform/:configurationId/versions` to draft the
+mapping, `.../versions/:versionId/validate` to produce the report an activation
+must cite, then `.../versions/:versionId/activate`.
+
+The shop's tracking URL maps onto `affiliateUrl` and its plain product URL onto
+`sourceUrl`. `ingest.service.ts` writes the first to
 `affiliate_tracking_template` and the second to `destination_url`, and **never
-composes or rewrites either**.
+composes or rewrites either** — the URL handed over at redirect time is the
+provider's own, verbatim.
 
 ## 5. Approve the destination host
 
@@ -154,6 +147,8 @@ counts in step 7 are what Mercaria can prove it delivered.
 | Claim | How it is held |
 |---|---|
 | `affiliate_network` + `product_feed` yields `affiliate` offers | `ingestion-rules.test.ts`, mutation-checked |
+| A platform-owned feed carries the source kind it asked for | `feed-import-writes.realdb.test.ts` (#987) |
+| The platform's feeds list for the platform and not for a store | same file, mutation-checked on `isNull` |
 | `direct` may name a commission record | `reconciliation.realdb.test.ts`, with a negative control on the CHECK |
 | The redirect admits an `external` offer too | `destination.ts`'s own docblock |
 | Everything else here | read off the code; **not run** |
