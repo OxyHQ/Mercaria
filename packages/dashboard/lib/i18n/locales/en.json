@@ -1273,7 +1273,7 @@
         "min": "Minimum fee %{amount}",
         "max": "Maximum fee %{amount}",
         "basis": "Charged on item prices after discounts. Delivery and tax are never included.",
-        "refundPolicy": "Refunded in proportion to any refund you issue.",
+        "refundProportional": "Refunded in proportion to any refund you issue.",
         "taxUnknown": "Tax treatment: not stated.",
         "taxExclusive": "Tax is charged on top of this fee.",
         "taxInclusive": "Tax is included in this fee.",
