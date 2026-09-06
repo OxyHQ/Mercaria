@@ -380,13 +380,16 @@ export async function listStripeBalanceTransactions(input: {
  *   from request-scoped randomness — so a retried onboarding click converges on
  *   the account the first one made instead of opening a second one at Stripe.
  *   That is the outer half of the guarantee whose inner half is the
- *   `UNIQUE(provider, owner_type, owner_id)` index.
+ *   `UNIQUE(provider, owner_type, owner_id)` index. `POST /v2/core/accounts`
+ *   replays the key: two requests carrying one key returned the same `acct_…`
+ *   (ADR 0008 D2-A, measured), so the guarantee survived the port rather than
+ *   being assumed to.
  */
 export async function createStripeConnectedAccount(
-  params: Stripe.AccountCreateParams,
+  params: Stripe.V2.Core.AccountCreateParams,
   idempotencyKey: string,
-): Promise<Stripe.Account> {
-  return await getStripeClient().accounts.create(params, { idempotencyKey });
+): Promise<Stripe.V2.Core.Account> {
+  return await getStripeClient().v2.core.accounts.create(params, { idempotencyKey });
 }
 
 /**

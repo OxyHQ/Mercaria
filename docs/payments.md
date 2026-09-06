@@ -2467,8 +2467,17 @@ The seller's Mercaria receivable is **not** reopened and must not be: it was
 settled when the transfer was created (ADR 0001 D6), and the money is on their
 own Stripe balance. A failed payout is between them and Stripe — the usual causes
 are `account_closed`, `no_account` and `debit_not_authorized`, all fixed by the
-seller updating their bank details in the Express dashboard, after which Stripe
-retries on its own schedule.
+seller updating their bank details, after which Stripe retries on its own
+schedule.
+
+**Where they do that is an open gap, not the Express dashboard.** This paragraph
+used to say "in the Express dashboard", and that was never what the code does:
+`createLoginLink` and `dashboard.stripe.com` have ZERO occurrences repo-wide, and
+the `ready`-state control in `dashboard/app/(app)/settings/payments.tsx` mints
+another ONBOARDING link. Under `requirement_collection=stripe` Stripe will not
+issue `account_update` links either (ADR 0001 D2). So today a seller whose bank
+account closes has no self-service path, and telling them there is one sends
+support looking for a screen that does not exist.
 
 What Mercaria owes here is an explanation, not a movement. If a payout row is
 missing entirely for a payout the seller can see, the Connect endpoint's secret
