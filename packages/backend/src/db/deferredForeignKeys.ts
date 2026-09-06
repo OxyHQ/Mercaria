@@ -2165,4 +2165,22 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'catalog_governance_role_grants.granted_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'catalog_governance_role_grants.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'catalog_governance_definition_snapshots.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+
+  // ── Discovery counts ──────────────────────────────────────────────────────
+  {
+    column: 'discovery_signals.subject_id',
+    reason:
+      'POLYMORPHIC: a listing id or a store id, discriminated by subject_type. ' +
+      'No single table to reference, and two nullable columns with a CHECK ' +
+      'would double the index surface for a row nothing joins from — the sweep ' +
+      'writes it and one indexed read consumes it.',
+  },
+  {
+    column: 'discovery_signals.category_id',
+    reason:
+      'The ROOT scope is the empty string, which is not a category id, so no ' +
+      'foreign key can cover this column. `analytics_rollups` uses the same ' +
+      'sentinel for the same reason: a NULLable dimension breaks the bucket ' +
+      'unique because Postgres treats NULLs as distinct.',
+  },
 ];
