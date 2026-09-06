@@ -16,7 +16,7 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "lint": "echo \"No lint configured for shared-types\" && exit 0",
-    "test": "echo \"No tests specified\" && exit 0",
+    "test": "vitest run",
     "prepublishOnly": "bun run build"
   },
   "keywords": [

@@ -50,6 +50,11 @@ export * from './tax';
 // Discount DTOs (Discount, DiscountAllocation, DiscountMethod, DiscountValueType, …).
 export * from './discount';
 
+// Discovery feed DTOs — the explore, category and deals surfaces (one contract,
+// three scopes). Follows `./discount`, whose `DiscountSummary` counterpart it
+// projects, and `./product`, whose ProductSummary/StoreSummary it carries.
+export * from './discovery';
+
 // Store (shop) admin-facing DTOs (Store, StoreMember, StoreRole, StorePermission).
 export * from './store';
 

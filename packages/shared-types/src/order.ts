@@ -54,6 +54,18 @@ export type OrderStatus =
   | 'refunded'
   | 'partially_refunded';
 
+/** {@link OrderStatus} as the tuple the column types and CHECKs read. */
+export const ORDER_STATUSES: readonly OrderStatus[] = [
+  'pending_payment',
+  'paid',
+  'processing',
+  'shipped',
+  'delivered',
+  'cancelled',
+  'refunded',
+  'partially_refunded',
+];
+
 /**
  * The buyer-safe payment projection carried on an order.
  *
