@@ -816,6 +816,47 @@ loop deliberately continues past a failure:
 A retryable rail failure is different: it is rethrown, the outbox retries the
 whole settlement with backoff, and the orders already settled are skipped.
 
+### The DELIBERATE hold on a high-value transfer
+
+The same withheld shape, reached for the opposite reason: nothing has gone
+wrong, and Mercaria is choosing to wait. `services/payments/high-value-hold.ts`
+holds a seller's share whose amount reaches
+`STRIPE_HIGH_VALUE_HOLD_THRESHOLDS` for that currency, for
+`STRIPE_HIGH_VALUE_HOLD_WINDOW_MS` (72 h by default) from the moment the money
+became settleable.
+
+It is a REVIEW hold and not a dispute-window hold, and calling it the latter
+would be false. A card chargeback can arrive 120 days later and no marketplace
+holds a payout that long. What the window buys is the period in which most card
+fraud actually surfaces — the cardholder reads a statement, Radar scores the
+charge, a delivery fails — during which the transfer has not left and Mercaria
+loses the goods rather than the goods AND the cash. ADR 0001 D2 puts those
+losses on Mercaria, which is why the hold exists at all.
+
+Three properties are worth stating because each of them is easy to break:
+
+- **The default is NO hold** — the deliberate opposite of `three-d-secure.ts`,
+  whose default authenticates everything. A currency with no 3DS threshold costs
+  friction, which is recoverable; a currency with no hold threshold that froze
+  every payout would be an outage that reads as caution.
+- **The decision is made ONCE**, by whichever caller's `createOrGetTransfer`
+  insert won, and recorded in `transfers.held_until`. Settlement re-entered by
+  an outbox retry reads the column instead of re-deciding. Without that, a
+  reviewer's release would be silently re-imposed by the very settlement they
+  ran to apply it, and a threshold changed later would move a hold already in
+  force.
+- **A hold with no releaser is a payout that never arrives**, so the two ship
+  together. Two things end one: the `withheld_transfers` sweep once the window
+  passes, and `retry_withheld_transfer`, which IS the review and releases early.
+  Readiness still applies either way — a released hold is permission to pay a
+  seller who can be paid, not permission to skip the gate that says whether they
+  can.
+
+`transfers.held_until` is cleared when the hold is spent, whatever settlement
+then decided. That is what makes the sweep terminate: a release that runs into a
+permanent failure leaves an ordinary withheld transfer with an open exception,
+which the sweep never selects again.
+
 ### Client integration
 
 The storefront's payment step is platform-split, following the app's existing
@@ -1774,7 +1815,7 @@ None of them is registered in `db/expiryTargets.ts` and none carries an
 `expires_at`, deliberately — sweeping an audit trail on a timer is the one thing
 that registry must not be used for.
 
-### The four jobs
+### The five jobs
 
 Each is bounded to one page per tick, resumable from its cursor and idempotent on
 a replayed page. Those last two are the same property from two sides: the cursor
@@ -1788,6 +1829,7 @@ upsert, which bumps `occurrences` and creates nothing.
 | `provider_objects` | Does Mercaria have a row for every movement on the platform balance? | Stripe's own `starting_after` |
 | `ledger_audit` | Is the book complete, balanced, and explained? | the last payment id checked |
 | `account_readiness` | Which connected accounts has nobody re-read lately? | none — #46's `last_synced_at` IS the cursor |
+| `withheld_transfers` | Which deliberately held transfers have waited long enough? | the last transfer id read (uuid v7) |
 
 `account_readiness` REUSES `reconcileStaleAccounts` rather than sweeping accounts
 a second time. What #50 changed there was the return: it now reports which
@@ -2615,17 +2657,21 @@ account at all. Read `detail.error`; a `permission_error` means the seller
 deauthorized the platform and the row should have been revoked instead.
 
 When a seller recovers a restricted account, their withheld transfers do not
-retry on their own — see §16.
+retry on their own — see §16. A deliberate HIGH-VALUE hold is the one exception:
+it is the only withheld transfer that releases itself, and the
+`withheld_transfers` sweep is what does it.
 
 ### 16. A withheld transfer, a failed refund, a failed payout
 
 The three exception queues, all readable from
 `GET /internal/payments/exceptions` and all with the same shape: a durable outbox
-row naming a condition only a person can close.
+row naming a condition only a person can close — with one exception, stated
+because it changes what an operator should do: a `transfer_withheld` row raised
+by a high-value HOLD closes itself when its window passes.
 
 | Condition | Repair | Detail |
 |---|---|---|
-| `transfer_withheld` | `retry_withheld_transfer` | §4 above for why the account was unready. The repair RE-READS the account from the rail first, so a stale local row cannot make it refuse or misfire. |
+| `transfer_withheld` | `retry_withheld_transfer`, or nothing | Read `transfers.held_until` FIRST (the operator trace projects it). Non-null and in the future means this is a deliberate high-value hold and the `withheld_transfers` sweep releases it on its own — the repair is only for releasing it EARLY, which is what a completed review is. Null means the account was unready or the rail refused; §4 above. The repair RE-READS the account from the rail either way, so a stale local row cannot make it refuse or misfire. |
 | `refund_failed` | `retry_provider_refund` | Read `provider_failure_code` FIRST. `charge_already_refunded` means somebody refunded in the dashboard — re-issuing would refund the buyer twice. |
 | `reversal_failed` | `retry_transfer_reversal` | The buyer is fine and must not be touched. If the seller's balance still cannot cover it, `book_reconciling_entry` is how the gap is written off. |
 | `payout.failed` | none | Between the seller and Stripe (§7). Mercaria's receivable is NOT reopened and must not be. |
@@ -2650,7 +2696,7 @@ Run these four, in order, before letting the task serve traffic:
    restore is torn — stop and go back to infra.
 2. **A full discrepancy sweep has run.** Force one by restarting a task
    (`PAYMENT_RECONCILIATION_ENABLED=true`) and watch
-   `reconciliation.cursors[].lastCompletedAt` advance for all four jobs. The
+   `reconciliation.cursors[].lastCompletedAt` advance for all five jobs. The
    `provider_objects` window must be widened for this pass — set
    `PAYMENT_RECONCILIATION_LOOKBACK_MS` past the restore gap, since the cursor
    row's own `window_start_at` was restored with everything else and would skip
@@ -2729,6 +2775,54 @@ in ADR 0001 — so this list is also the record of what "live" will require.
       queue, the surface and the audit trail are known to work before an incident
       needs them.
 
+**Fraud posture — Radar, and how it divides with the code**
+
+Three protections cover one risk and each covers a different part of it. Getting
+the division wrong means either paying twice for one thing or leaving a gap:
+
+| Protection | Where it lives | What it removes |
+|---|---|---|
+| 3-D Secure | `services/payments/stripe/three-d-secure.ts` | LIABILITY. An authenticated payment shifts the fraud chargeback to the issuer |
+| The high-value hold | `services/payments/high-value-hold.ts` | EXPOSURE. The transfer has not left, so a fraud caught in the window costs the goods and not the goods AND the cash |
+| Radar | Stripe's dashboard, no code | The TRANSACTION. A blocked charge never happens |
+
+Radar rules are account configuration and deliberately not in this repository:
+they are tuned against live decline data, they change weekly at first, and a
+rule change through a deploy would be a rule nobody tunes.
+
+- [ ] Confirm which Radar tier the account has — **Settings → Radar**. The base
+      tier (included) offers a handful of toggles; **Radar for Fraud Teams**
+      (usage-priced) is what allows custom rules, a manual review queue and
+      allow/block lists. Custom rules below need the paid tier.
+- [ ] Base toggles, whatever the tier: keep **block if risk level is highest**
+      ON. Leave the **postal code check** OFF for a Spain-facing marketplace —
+      AVS is largely a US mechanism and many EU issuers do not answer it, so it
+      declines good cards. **CVC check fails** is safe to block on.
+- [ ] With Fraud Teams, the rule that pairs with the code is a REVIEW rule and
+      not a block: `Review if :risk_level: = 'elevated'`. A payment placed in
+      review still succeeds, so Mercaria settles the order normally — and the
+      high-value hold is what keeps the seller's transfer from leaving while a
+      person reads it. The window is 72 h by default, which is what makes the
+      review actionable rather than decorative.
+- [ ] Do NOT add a blanket block on a large amount. Mercaria deliberately has no
+      price cap — cars, art and anything else are in scope; the only ceiling
+      `assertSafeMoneyAmount` enforces is `MAX_MONEY_MINOR_UNITS`, which is
+      `Number.MAX_SAFE_INTEGER`, a representational bound and not a business
+      one — so an amount rule blocks the transactions worth the most. The hold
+      is the right tool for a large amount, because it delays rather than
+      refuses.
+- [ ] Do NOT block on `:card_country: != :ip_country:`. It reads as fraud and is
+      mostly expatriates and travellers, which for a marketplace selling into
+      Spain is a large share of legitimate demand.
+
+**What Radar's verdict is NOT wired to.** Mercaria subscribes to no `review.*`
+event and stores no `charge.outcome.risk_level`, so a held transfer's Radar
+verdict is only readable in Stripe's dashboard, and closing a review does not
+release a hold — an operator does, with `retry_withheld_transfer`. Wiring the
+two would let a review closed as safe release the hold automatically and one
+closed as fraudulent refund instead; it is a real improvement and it is not
+built. Recorded here rather than left to be discovered.
+
 **Test transactions**
 
 - [ ] A single-seller checkout, paid with a real card, reaching `paid` with a
@@ -2737,6 +2831,12 @@ in ADR 0001 — so this list is also the record of what "live" will require.
 - [ ] A partial refund, with its transfer reversal.
 - [ ] A withheld transfer (onboard a seller, take the payment, restrict them at
       the rail before settlement), then `retry_withheld_transfer` to clear it.
+- [ ] A high-value HOLD: set `STRIPE_HIGH_VALUE_HOLD_THRESHOLDS` below the test
+      order's seller share, take the payment, and confirm the transfer sits
+      `pending` with `held_until` set and no `transfers.create` call at the rail.
+      Then both exits — `retry_withheld_transfer` on one (releases early), and a
+      short `STRIPE_HIGH_VALUE_HOLD_WINDOW_MS` plus a sweep tick on another
+      (releases on schedule).
 - [ ] A dispute raised through Stripe's test card, closed both won and lost.
 - [ ] `stripe events resend` on a `payment_intent.succeeded`, confirming the
       redelivery is a no-op.

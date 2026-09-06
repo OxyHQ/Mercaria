@@ -57,6 +57,7 @@ import type {
 } from '@mercaria/shared-types';
 import { getDb } from '../../../db/postgres.js';
 import {
+  clearTransferHold,
   findPaymentById,
   findTransferForOrder,
   type PaymentRow,
@@ -186,6 +187,15 @@ export async function runRepair(request: RepairRequest): Promise<RepairResult> {
  * `restricted` would refuse a transfer the rail would now accept, while a stale
  * local `ready` would send money at an account the rail will refuse. The
  * re-read makes "requires readiness NOW" literal.
+ *
+ * ## It also RELEASES a high-value hold, because it is the review
+ *
+ * `high-value-hold.ts` delays a large transfer so a person can look at it; this
+ * repair is a person having looked. Clearing the hold here is what gives the
+ * wait an early exit, and `services/payments/reconciliation/withheld-transfers.job.ts`
+ * is what gives it a late one. Readiness is still required either way — a
+ * released hold is permission to pay a seller who can be paid, not permission
+ * to skip the gate that says whether they can.
  */
 async function retryWithheldTransfer(
   request: Extract<RepairRequest, { action: 'retry_withheld_transfer' }>,
@@ -232,6 +242,19 @@ async function retryWithheldTransfer(
         'same withheld transfer.',
       { paymentId: payment.id, orderId: order.id, onboardingState: account.onboardingState },
     );
+  }
+
+  // An operator running this repair IS the review a high-value hold waits for,
+  // so the hold is spent here rather than made to run its clock out. Without
+  // this the repair could not do the one thing it exists for: settlement would
+  // read `held_until` back and withhold the transfer again, and the reviewer's
+  // decision would have no effect until the window expired on its own.
+  //
+  // Only ever a release, never an extension — there is deliberately no operator
+  // action that holds a transfer, because "do not pay this seller" is a refund
+  // or a dispute, not a longer wait.
+  if (existing?.heldUntil) {
+    await clearTransferHold(db, { transferId: existing.id, heldUntil: existing.heldUntil });
   }
 
   // The whole payment, not just this order. `settlePaymentTransfers` is

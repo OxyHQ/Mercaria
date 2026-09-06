@@ -403,6 +403,12 @@ describe('StripePaymentProvider — the PaymentIntent it creates', () => {
       // `automatic_payment_methods`, which would move the decision into a Stripe
       // dashboard toggle that could enable an asynchronous method.
       payment_method_types: ['card'],
+      // The 3-D Secure request. `any` on this deployment because the suite runs
+      // with no `STRIPE_3DS_THRESHOLDS`, and a currency with no threshold asks
+      // on every payment — the fail-closed direction. `three-d-secure.test.ts`
+      // holds the matrix; this assertion exists so the OPTION cannot silently
+      // stop being sent, which is how a liability shift disappears.
+      payment_method_options: { card: { request_three_d_secure: 'any' } },
       // D3/D4: one charge per checkout group, tying every seller transfer to it.
       transfer_group: 'group-1',
       // D11: the correlation the webhook resolver reads. Server-issued ids only.

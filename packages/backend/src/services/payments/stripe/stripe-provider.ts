@@ -93,6 +93,8 @@ import {
   toProviderEventEnvelope,
   verifyStripeEvent,
 } from './verify.js';
+import { threeDSecureRequestFor } from './three-d-secure.js';
+import { config } from '../../../config/index.js';
 
 /**
  * The launch payment method set — ADR 0001 D3. See this file's docblock for why
@@ -212,6 +214,22 @@ export class StripePaymentProvider implements SettlingPaymentProvider, Resumable
           // here rather than in a docs table.
           capture_method: 'automatic',
           payment_method_types: [...PAYMENT_METHOD_TYPES],
+          // ASK THE ISSUER TO AUTHENTICATE, above this currency's threshold.
+          //
+          // A loss control, not a friction setting: an authenticated payment
+          // shifts liability for a fraudulent chargeback to the issuer, and
+          // ADR 0001 D2 puts the losses on Mercaria. Leaving it to Stripe's
+          // `automatic` behaviour means "when the issuer or a regulation
+          // demands it" — and on a US acquiring entity serving EEA cards, SCA
+          // is one-leg-out and demands nothing. See `three-d-secure.ts`.
+          payment_method_options: {
+            card: {
+              request_three_d_secure: threeDSecureRequestFor(
+                request.amount,
+                config.payments.stripe.threeDSecureThresholds,
+              ),
+            },
+          },
           transfer_group: request.checkoutGroupId,
           metadata: { ...request.metadata },
         },

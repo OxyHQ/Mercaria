@@ -660,6 +660,31 @@ export const transfers = pgTable(
      * this schema is one: a signed `integer` tops out at 21.47 ⊜.
      */
     reversedAmount: bigint({ mode: 'number' }).notNull().default(0),
+    /**
+     * When a high-value transfer held for review becomes releasable
+     * (`services/payments/high-value-hold.ts`).
+     *
+     * Read it only ALONGSIDE `provider_object_id`, which is how every query
+     * here does: a hold is in force when this is set, in the future, and the
+     * transfer has not left. Once it has left, the stamp is history — the
+     * instant a wait ended — and the two release paths deliberately leave it
+     * differently. The sweep pays first and then finds its compare-and-swap
+     * matches nothing, so the stamp survives; the operator repair must clear it
+     * BEFORE re-entering settlement, or settlement reads it back and withholds
+     * the transfer again, so a reviewer-released one ends NULL. Neither is
+     * ambiguous with a transfer that was never held, because both are paid.
+     *
+     * A column rather than a re-derivation, because the two reasons a transfer
+     * sits `pending` with no provider object are NOT interchangeable: an
+     * account that lost readiness or a rail that refused outright is permanent
+     * and must never be retried on a timer, while this one is a wait that ends
+     * by itself. Deriving the difference from the amount would sweep the
+     * permanent failures back in on every pass, one retry per pass, forever.
+     *
+     * Set to the releasable instant, so the sweep's predicate is a comparison
+     * against `now()` and needs neither the thresholds nor the window.
+     */
+    heldUntil: timestamptz(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -680,6 +705,11 @@ export const transfers = pgTable(
       .on(t.provider, t.providerObjectId)
       .where(sql`${t.providerObjectId} is not null`),
     index('transfers_status_created_at_idx').on(t.status, t.createdAt),
+    // The release sweep's only query. Partial, because a held transfer is a
+    // handful of rows against every transfer Mercaria has ever made.
+    index('transfers_held_until_idx')
+      .on(t.heldUntil)
+      .where(sql`${t.heldUntil} is not null and ${t.providerObjectId} is null`),
   ],
 );
 

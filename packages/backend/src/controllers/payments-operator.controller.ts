@@ -482,6 +482,14 @@ function projectTransfer(row: TransferRow) {
     amount: { amount: row.amountAmount, currency: row.amountCurrency },
     reversedAmount: row.reversedAmount,
     providerObjectId: row.providerObjectId,
+    /**
+     * When a high-value hold on this transfer ends, or `null` when none is in
+     * force. Projected because `status: 'pending'` with no provider object is
+     * the SAME shape for a hold, a seller whose account lapsed and a rail that
+     * refused — and only this field tells an operator which, without making
+     * them go and read the outbox exception.
+     */
+    heldUntil: row.heldUntil?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   };
 }
