@@ -57,7 +57,7 @@ export function CartPanel({ storeId }: { storeId: string }) {
             onPress={clear}
             accessibilityRole="button"
             accessibilityLabel={t("cart.clearCart")}
-            className="h-9 flex-row items-center gap-1.5 rounded-lg px-2 active:bg-secondary"
+            className="h-9 flex-row items-center gap-1.5 rounded-lg px-2 active:bg-accent"
           >
             <Trash2 size={16} color="#ef4444" />
             <Text className="text-sm font-medium text-destructive">{t("cart.clear")}</Text>
@@ -69,9 +69,9 @@ export function CartPanel({ storeId }: { storeId: string }) {
       <Pressable
         onPress={() => router.push("/customer")}
         accessibilityRole="button"
-        className="flex-row items-center gap-3 border-b border-border px-4 py-3 active:bg-secondary"
+        className="flex-row items-center gap-3 border-b border-border px-4 py-3 active:bg-accent"
       >
-        <View className="h-9 w-9 items-center justify-center rounded-full bg-secondary">
+        <View className="h-9 w-9 items-center justify-center rounded-full bg-muted">
           <UserIcon size={18} color={colors.mutedForeground} />
         </View>
         <View className="flex-1">
@@ -149,7 +149,7 @@ function CartLineRow({ line }: { line: RegisterCartLine }) {
           onPress={() => removeLine(line.variantId)}
           accessibilityRole="button"
           accessibilityLabel={t("cart.removeItem")}
-          className="h-9 w-9 items-center justify-center rounded-lg active:bg-secondary"
+          className="h-9 w-9 items-center justify-center rounded-lg active:bg-accent"
         >
           <X size={16} color={colors.mutedForeground} />
         </Pressable>
@@ -160,7 +160,7 @@ function CartLineRow({ line }: { line: RegisterCartLine }) {
             onPress={() => setQuantity(line.variantId, line.quantity - 1)}
             accessibilityRole="button"
             accessibilityLabel={t("cart.decreaseQuantity")}
-            className="h-9 w-9 items-center justify-center rounded-lg border border-border active:bg-secondary"
+            className="h-9 w-9 items-center justify-center rounded-lg border border-border active:bg-accent"
           >
             <Minus size={16} color={colors.foreground} />
           </Pressable>
@@ -172,7 +172,7 @@ function CartLineRow({ line }: { line: RegisterCartLine }) {
             disabled={line.quantity >= line.available}
             accessibilityRole="button"
             accessibilityLabel={t("cart.increaseQuantity")}
-            className="h-9 w-9 items-center justify-center rounded-lg border border-border active:bg-secondary disabled:opacity-40"
+            className="h-9 w-9 items-center justify-center rounded-lg border border-border active:bg-accent disabled:opacity-40"
           >
             <Plus size={16} color={colors.foreground} />
           </Pressable>

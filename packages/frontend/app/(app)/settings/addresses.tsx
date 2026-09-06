@@ -36,7 +36,7 @@ function AddressCard({
               {address.label ?? address.recipientName}
             </Text>
             {address.isDefault ? (
-              <View className="rounded-full bg-secondary px-2 py-0.5">
+              <View className="rounded-full bg-muted px-2 py-0.5">
                 <Text className="text-[11px] font-medium text-muted-foreground">
                   {t("address.list.default")}
                 </Text>

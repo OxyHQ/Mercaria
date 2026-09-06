@@ -50,7 +50,7 @@ const ACCOUNT_BENEFIT_KEYS = [
 function CartEmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <View className="items-center px-8 py-24">
-      <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-secondary">
+      <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-muted">
         <ShoppingBag size={28} className="text-muted-foreground" />
       </View>
       <Text className="text-center text-lg font-bold text-foreground">{title}</Text>
@@ -162,7 +162,7 @@ function CartGroupCard({
         className="flex-row items-center gap-3"
       >
         <View
-          className="overflow-hidden rounded-full bg-secondary"
+          className="overflow-hidden rounded-full bg-muted"
           style={{ width: VENDOR_LOGO_SIZE, height: VENDOR_LOGO_SIZE }}
         >
           {vendor.logoUrl ? (
@@ -248,7 +248,7 @@ function CartGroupCard({
 function GuestGroupBlockedNotice({ vendorName }: { vendorName: string }) {
   const { t } = useTranslation();
   return (
-    <View className="mt-4 rounded-2xl border border-border bg-secondary p-4">
+    <View className="mt-4 rounded-2xl border border-border bg-muted p-4">
       <Text className="text-sm font-semibold text-foreground">{t("cart.guestBlocked.title")}</Text>
       <Text className="mt-1 text-sm text-muted-foreground">
         {t("cart.guestBlocked.body", { seller: vendorName })}

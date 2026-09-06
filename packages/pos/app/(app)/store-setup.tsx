@@ -148,14 +148,14 @@ function LocationStep({ storeId }: { storeId: string }) {
               onPress={() => onSelect(location)}
               className="min-h-[72px] flex-row items-center gap-4 rounded-2xl border border-border bg-surface p-4 active:opacity-80 web:hover:border-primary"
             >
-              <View className="h-12 w-12 items-center justify-center rounded-xl bg-secondary">
+              <View className="h-12 w-12 items-center justify-center rounded-xl bg-muted">
                 <MapPin size={22} color={colors.primary} />
               </View>
               <View className="flex-1">
                 <View className="flex-row items-center gap-2">
                   <Text className="text-base font-semibold text-foreground">{location.name}</Text>
                   {location.isDefault ? (
-                    <View className="rounded-full bg-secondary px-2 py-0.5">
+                    <View className="rounded-full bg-muted px-2 py-0.5">
                       <Text className="text-xs font-medium text-muted-foreground">
                         {t("storeSetup.defaultLocation")}
                       </Text>

@@ -48,7 +48,7 @@ export function VariantPickerSheet({ listing, onClose, onPick }: VariantPickerSh
                   accessibilityState={{ disabled }}
                   className={
                     disabled
-                      ? "min-h-[64px] rounded-2xl border border-border bg-secondary p-4 opacity-50"
+                      ? "min-h-[64px] rounded-2xl border border-border bg-muted p-4 opacity-50"
                       : "min-h-[64px] rounded-2xl border border-border bg-surface p-4 active:opacity-80 web:hover:border-primary"
                   }
                 >

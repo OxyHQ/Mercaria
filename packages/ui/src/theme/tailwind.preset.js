@@ -112,8 +112,12 @@ module.exports = {
         "text-placeholder": "var(--muted-foreground)",
         bg: "var(--background)",
         "bg-fill": "var(--card)",
-        "bg-fill-secondary": "var(--secondary)",
-        "bg-fill-secondary-hover": "var(--secondary)",
+        // `--secondary` is Bloom's secondary ACCENT family (a hue rotated off
+        // the seed, consumed only by Bloom's FAB), not a quiet surface — on a
+        // cool seed it lands on red. Bloom spells this slot
+        // `fill-secondary: var(--muted)` / `fill-hover: var(--accent)`.
+        "bg-fill-secondary": "var(--muted)",
+        "bg-fill-secondary-hover": "var(--accent)",
         "bg-fill-brand": "var(--primary)",
         "bg-fill-brand-hover": "var(--primary)",
         "bg-fill-inverse": "var(--foreground)",

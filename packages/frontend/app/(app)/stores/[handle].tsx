@@ -141,7 +141,7 @@ function CollectionPill({
       style={glassStyle(store)}
     >
       {imageUrl ? (
-        <View className="h-8 w-8 overflow-hidden rounded-full bg-secondary">
+        <View className="h-8 w-8 overflow-hidden rounded-full bg-muted">
           <Image source={{ uri: imageUrl }} contentFit="cover" className="h-8 w-8 rounded-full" />
         </View>
       ) : null}
@@ -277,7 +277,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
   return (
     // Scopes the store's brand palette to the whole page via `themeVars` (the
     // shadcn theme tokens are remapped so `bg-background` is the brand color,
-    // `bg-card`/`bg-secondary` become glassy translucent fills, and text tokens
+    // `bg-card`/`bg-muted` become glassy translucent fills, and text tokens
     // take the store's tone). Every shared component below inherits the palette.
     // The enclosing `ScreenShell` paints the brand color across the full panel
     // (incl. its `pb-24` and rounded bottom) via `surfaceStyle`, so no surface
@@ -417,7 +417,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
                       accessibilityRole="button"
                       accessibilityLabel={collection.title}
                       onPress={() => selectCollection(isActive ? undefined : collection.id)}
-                      className={`group overflow-hidden rounded-2xl border bg-secondary web:shadow-sm web:transition-transform web:duration-300 web:hover:-translate-y-1 ${
+                      className={`group overflow-hidden rounded-2xl border bg-muted web:shadow-sm web:transition-transform web:duration-300 web:hover:-translate-y-1 ${
                         isActive ? "border-foreground" : "border-border"
                       }`}
                     >
@@ -465,7 +465,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
               value={searchInput}
               onChangeText={onChangeSearch}
               placeholder={t("store.products.searchPlaceholder", { store: store.name })}
-              className="h-11 rounded-full bg-secondary ps-9"
+              className="h-11 rounded-full bg-muted ps-9"
               returnKeyType="search"
             />
           </View>
@@ -478,7 +478,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t("store.sort.label")}
-                className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-secondary px-4"
+                className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-muted px-4"
               >
                 <SlidersHorizontal size={15} className="text-foreground" />
                 <Text className="text-sm font-medium text-foreground">{t(activeSortLabelKey)}</Text>
@@ -499,7 +499,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
 
-          <View className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-secondary px-4">
+          <View className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-muted px-4">
             <Text className="text-sm font-medium text-foreground">{t("store.filters.inStock")}</Text>
             <Switch value={inStockOnly} onValueChange={onToggleInStock} />
           </View>
@@ -541,7 +541,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
               accessibilityRole="button"
               accessibilityLabel={t("store.products.loadMoreLabel")}
               onPress={() => setPage((p) => p + 1)}
-              className="rounded-full border border-border bg-secondary px-6 py-3 web:shadow-sm"
+              className="rounded-full border border-border bg-muted px-6 py-3 web:shadow-sm"
             >
               <Text className="text-sm font-semibold text-foreground">
                 {t("store.products.loadMore")}

@@ -53,7 +53,7 @@ export function MerchantCartCard({ group, onPressVendor, onCheckout }: MerchantC
           className="flex-1 flex-row items-center gap-2"
         >
           <View
-            className="overflow-hidden rounded-full bg-secondary"
+            className="overflow-hidden rounded-full bg-muted"
             style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
           >
             {group.vendor.logoUrl ? (
@@ -114,7 +114,7 @@ export function MerchantCartCard({ group, onPressVendor, onCheckout }: MerchantC
       <Pressable
         accessibilityRole="button"
         onPress={() => onCheckout(group.vendor)}
-        className="mt-3 items-center rounded-full bg-secondary py-3"
+        className="mt-3 items-center rounded-full bg-muted py-3"
       >
         <Text className="text-sm font-semibold text-foreground">
           {t(MERCHANT_CART_CHECKOUT_KEY)}

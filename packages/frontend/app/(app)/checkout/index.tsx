@@ -89,7 +89,7 @@ function AddressOption({
       accessibilityLabel={t("checkout.address.shipTo", { name: address.recipientName })}
       onPress={onSelect}
       className={`flex-row items-start gap-3 rounded-2xl border p-4 ${
-        selected ? "border-primary bg-secondary/40" : "border-border bg-card"
+        selected ? "border-primary bg-muted/40" : "border-border bg-card"
       }`}
     >
       <View

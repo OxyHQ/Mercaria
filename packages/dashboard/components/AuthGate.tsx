@@ -38,7 +38,7 @@ function SignInScreen() {
   return (
     <View className="flex-1 items-center justify-center bg-background px-6">
       <View className="w-full max-w-sm items-center">
-        <View className="mb-6 h-16 w-16 items-center justify-center rounded-3xl bg-secondary">
+        <View className="mb-6 h-16 w-16 items-center justify-center rounded-3xl bg-muted">
           <Logo size={36} />
         </View>
         <Text className="text-center text-2xl font-bold text-foreground">
