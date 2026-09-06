@@ -1,6 +1,15 @@
 # ADR 0008: Connect Accounts v2, because v1 account creation is refused
 
-- **Status:** Accepted
+> **SUPERSEDED 2026-09-06 by [ADR 0009](0009-peable-payment-rail.md).** Mercaria
+> no longer calls Stripe at all: the rail is Peable, and account creation lives
+> there. Everything measured below is still TRUE of Stripe and still binds
+> whoever ports `account.service.ts` — in particular D2-C and D2-D are ONE
+> decision, and dropping the "unnecessary" `card_payments` capability silently
+> stops `account.updated` firing, which is the only readiness trigger. Read this
+> file as the specification of what the port must preserve, not as a description
+> of what this repository does.
+
+- **Status:** Superseded by ADR 0009
 - **Date:** 2026-09-06
 - **Issue:** part of epic
   [#35](https://github.com/OxyHQ/Mercaria/issues/35)
