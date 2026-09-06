@@ -164,8 +164,15 @@
   --color-text-placeholder: var(--muted-foreground);
   --color-bg: var(--background);
   --color-bg-fill: var(--card);
-  --color-bg-fill-secondary: var(--secondary);
-  --color-bg-fill-secondary-hover: var(--secondary);
+  /* `--secondary` is Bloom's secondary ACCENT family — a hue rotated off the
+     preset seed, whose only Bloom consumer is the FAB — NOT a quiet surface. On
+     every cool seed (Mercaria ships `blue`) that rotation lands on red, so
+     pointing a fill at it painted the app's quiet surfaces the same red as
+     `--destructive`. Bloom's own vocabulary for this slot is
+     `--color-fill-secondary: var(--muted)` with `--color-fill-hover:
+     var(--accent)`; these mirror it. */
+  --color-bg-fill-secondary: var(--muted);
+  --color-bg-fill-secondary-hover: var(--accent);
   --color-bg-fill-brand: var(--primary);
   --color-bg-fill-brand-hover: var(--primary);
   --color-bg-fill-inverse: var(--foreground);

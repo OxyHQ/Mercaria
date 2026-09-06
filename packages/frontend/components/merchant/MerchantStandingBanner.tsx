@@ -62,9 +62,9 @@ export function MerchantStandingBanner({
   return (
     <View className="gap-2 px-4 pt-4">
       <View className="flex-row flex-wrap items-center gap-2">
-        <View className="rounded-full bg-secondary px-3 py-1">
+        <View className="rounded-full bg-muted px-3 py-1">
           <Text
-            className="text-xs font-semibold text-secondary-foreground"
+            className="text-xs font-semibold text-muted-foreground"
             accessibilityRole="text"
             accessibilityLabel={t("merchants.standing.a11yLabel", { status: label })}
           >

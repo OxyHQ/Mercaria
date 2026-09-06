@@ -153,7 +153,7 @@ export default function SavedScreen() {
 function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <View className="items-center px-8 py-24">
-      <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-secondary">
+      <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-muted">
         <Heart size={EMPTY_ICON_SIZE} className="text-muted-foreground" />
       </View>
       <Text className="text-center text-lg font-bold text-foreground">{title}</Text>
