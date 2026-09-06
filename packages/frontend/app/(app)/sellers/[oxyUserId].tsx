@@ -152,8 +152,8 @@ function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
               {identity.displayName}
             </Text>
             {profile.marketplace?.isVerified ? (
-              <View className="rounded-full bg-secondary px-2 py-0.5">
-                <Text className="text-xs font-semibold text-secondary-foreground">
+              <View className="rounded-full bg-muted px-2 py-0.5">
+                <Text className="text-xs font-semibold text-muted-foreground">
                   {t("sellers.verifiedBadge")}
                 </Text>
               </View>
@@ -384,7 +384,7 @@ export default function SellerScreen() {
                   accessibilityLabel={t("sellers.listings.loadMoreLabel")}
                   disabled={isFetchingNextPage}
                   onPress={() => void fetchNextPage()}
-                  className="rounded-full border border-border bg-secondary px-6 py-3 web:shadow-sm"
+                  className="rounded-full border border-border bg-muted px-6 py-3 web:shadow-sm"
                 >
                   <Text className="text-sm font-semibold text-foreground">
                     {isFetchingNextPage

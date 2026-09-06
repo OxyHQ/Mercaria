@@ -557,11 +557,11 @@ export async function listReviewsForStoreHandle(
   for (const listing of listingDocs) {
     const gallery = children.images.get(listing.id) ?? [];
     const firstImage = gallery.find((img) => img.position === 0) ?? gallery[0];
-    products.set(listing.id, {
-      id: listing.id,
-      title: listing.title,
-      imageUrl: firstImage ? resolveMedia(firstImage.fileId, 'thumb') : '',
-    });
+    const product: ReviewProduct = { id: listing.id, title: listing.title };
+    if (firstImage) {
+      product.imageUrl = resolveMedia(firstImage.fileId, 'thumb');
+    }
+    products.set(listing.id, product);
   }
 
   return hydrate(rows, total, products);

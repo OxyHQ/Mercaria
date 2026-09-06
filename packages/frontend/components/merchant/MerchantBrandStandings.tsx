@@ -112,12 +112,12 @@ export function MerchantBrandStandings({
               </Text>
               <View
                 className={`rounded-full px-2 py-0.5 ${
-                  standing.badge === null ? "bg-muted" : "bg-secondary"
+                  standing.badge === null ? "bg-muted" : "bg-success-subtle"
                 }`}
               >
                 <Text
                   className={`text-xs font-semibold ${
-                    standing.badge === null ? "text-muted-foreground" : "text-secondary-foreground"
+                    standing.badge === null ? "text-muted-foreground" : "text-success-text"
                   }`}
                 >
                   {t(STANDING_LABEL_KEYS[standing.standing])}

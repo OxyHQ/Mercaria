@@ -62,7 +62,7 @@ export function CategoryCard({
           {category.name}
         </Text>
         <View
-          className="items-center justify-center rounded-full bg-secondary"
+          className="items-center justify-center rounded-full bg-muted"
           style={{ height: CHEVRON_CIRCLE_SIZE, width: CHEVRON_CIRCLE_SIZE }}
         >
           <ChevronRight size={CHEVRON_ICON_SIZE} color={colors.foreground} />
@@ -131,20 +131,22 @@ function CategoryTileCell({
   onPressTile,
 }: CategoryTileCellProps) {
   if (!tile) {
-    return <View className="flex-1 bg-secondary" />;
+    return <View className="flex-1 bg-muted" />;
   }
   return (
     <Pressable
       accessibilityRole="link"
       accessibilityLabel={tile.name}
       onPress={() => onPressTile?.(categoryId, tile)}
-      className="group relative flex-1 overflow-hidden bg-secondary"
+      className="group relative flex-1 overflow-hidden bg-muted"
     >
-      <Image
-        source={{ uri: tile.imageUrl }}
-        contentFit="cover"
-        className="absolute inset-0 h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-110"
-      />
+      {tile.imageUrl ? (
+        <Image
+          source={{ uri: tile.imageUrl }}
+          contentFit="cover"
+          className="absolute inset-0 h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-110"
+        />
+      ) : null}
       <View className="absolute inset-0 justify-end p-2">
         <Text
           numberOfLines={1}

@@ -135,7 +135,7 @@ export function ReportSellerDialog({
                     accessibilityLabel={t(CATEGORY_LABEL_KEYS[category])}
                     onPress={() => toggle(category)}
                     className={`rounded-full border px-4 py-2 ${
-                      active ? "border-foreground bg-secondary" : "border-border"
+                      active ? "border-foreground bg-muted" : "border-border"
                     }`}
                   >
                     <Text className="text-sm text-foreground">

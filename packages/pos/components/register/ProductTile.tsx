@@ -37,7 +37,7 @@ export function ProductTile({ listing, imageUri, onPress }: ProductTileProps) {
           : "overflow-hidden rounded-2xl border border-border bg-surface active:opacity-80 web:transition-colors web:hover:border-primary"
       }
     >
-      <View className="aspect-square w-full bg-secondary">
+      <View className="aspect-square w-full bg-muted">
         {imageUri ? (
           <Image
             source={{ uri: imageUri }}
