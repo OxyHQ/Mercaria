@@ -2760,6 +2760,28 @@ export interface MerchantClaimsConfig {
   readonly maxChallengesPerDomainPerHour: number;
 }
 
+export interface DiscoveryConfig {
+  /** How often a task attempts the sweep. Every task ticks; one wins the lease. */
+  readonly sweepIntervalMs: number;
+  /** How long a sweep run may hold the lease before another task may reclaim it. */
+  readonly leaseMs: number;
+  /** The rolling window, in days. Must agree with `DISCOVERY_WINDOWS`' member. */
+  readonly windowDays: number;
+  /**
+   * How many subjects are stored per category per window. This is also the
+   * paging depth of `best-selling` and `most-viewed`: nothing below it was
+   * counted, so nothing below it can be shown.
+   */
+  readonly topNPerCategory: number;
+  /**
+   * The review count a listing needs before `top-rated` will consider it. A
+   * single five-star review must not outrank four thousand.
+   */
+  readonly topRatedMinReviews: number;
+  /** How many cards a shelf carries in the feed. */
+  readonly shelfSize: number;
+}
+
 export interface FeedConfig {
   /** TTL (seconds) of the assembled home feed cached in Redis. */
   readonly cacheTtlSeconds: number;
@@ -3749,6 +3771,7 @@ export interface AppConfig {
   readonly moovo: MoovoConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
+  readonly discovery: DiscoveryConfig;
   readonly cart: CartConfig;
   readonly checkout: CheckoutConfig;
   readonly orders: OrdersConfig;
@@ -4209,6 +4232,14 @@ export const config: AppConfig = Object.freeze({
     categoriesSize: intEnv('FEED_CATEGORIES_SIZE', 8),
     categoryTilesPerCard: intEnv('FEED_CATEGORY_TILES_PER_CARD', 4),
     storeCardThumbnails: intEnv('FEED_STORE_CARD_THUMBNAILS', 3),
+  }),
+  discovery: Object.freeze({
+    sweepIntervalMs: intEnv('DISCOVERY_SWEEP_INTERVAL_MS', 15 * 60 * 1_000),
+    leaseMs: intEnv('DISCOVERY_LEASE_MS', 10 * 60 * 1_000),
+    windowDays: intEnv('DISCOVERY_WINDOW_DAYS', 30),
+    topNPerCategory: intEnv('DISCOVERY_TOP_N_PER_CATEGORY', 60),
+    topRatedMinReviews: intEnv('DISCOVERY_TOP_RATED_MIN_REVIEWS', 5),
+    shelfSize: intEnv('DISCOVERY_SHELF_SIZE', 12),
   }),
   cart: Object.freeze({
     maxQuantityPerItem: intEnv('CART_MAX_QUANTITY_PER_ITEM', 99),
