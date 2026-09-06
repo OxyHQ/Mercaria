@@ -20,8 +20,14 @@ export interface ProductSummary {
   title: string;
   /** Brand / seller short name shown above the title. */
   brand: string;
-  /** Resolvable image URL for the product card. */
-  imageUrl: string;
+  /**
+   * Resolvable image URL, ABSENT when the subject has no image.
+   *
+   * Optional rather than `''`: an empty string is an absent value wearing the
+   * type of a present one, so `<Image source={{ uri: '' }} />` typechecked and
+   * shipped a blank card. Every renderer must branch and draw the placeholder.
+   */
+  imageUrl?: string;
   /** Average rating, 0–5. */
   rating: number;
   /** Number of reviews contributing to `rating`. */
@@ -40,8 +46,14 @@ export interface ProductThumbnail {
   id: string;
   /** Product title (for accessibility / alt text). */
   title: string;
-  /** Resolvable square thumbnail image URL. */
-  imageUrl: string;
+  /**
+   * Resolvable image URL, ABSENT when the subject has no image.
+   *
+   * Optional rather than `''`: an empty string is an absent value wearing the
+   * type of a present one, so `<Image source={{ uri: '' }} />` typechecked and
+   * shipped a blank card. Every renderer must branch and draw the placeholder.
+   */
+  imageUrl?: string;
 }
 
 /** Text/foreground tone to use over a merchant's cover/brand color. */
@@ -76,7 +88,7 @@ export interface StoreSummary {
   /** Optional white logo/wordmark PNG (resolvable URL) shown over the cover. */
   logoUrl?: string;
   /** Cover image filling the card background (object-cover). */
-  coverImageUrl: string;
+  coverImageUrl?: string;
   /** Solid brand color behind/over the cover (full CSS color string, e.g. `#1D4ED8`). */
   brandColor: string;
   /** Average rating, 0–5. */
@@ -110,8 +122,14 @@ export interface CategoryTile {
   name: string;
   /** URL slug used to build the `/categories/<categoryId>/<slug>` route. */
   slug: string;
-  /** Background image URL for the tile. */
-  imageUrl: string;
+  /**
+   * Resolvable image URL, ABSENT when the subject has no image.
+   *
+   * Optional rather than `''`: an empty string is an absent value wearing the
+   * type of a present one, so `<Image source={{ uri: '' }} />` typechecked and
+   * shipped a blank card. Every renderer must branch and draw the placeholder.
+   */
+  imageUrl?: string;
 }
 
 /** A top-level category with a small grid of featured subcategories. */
@@ -165,8 +183,14 @@ export interface CategoryPill {
   name: string;
   /** Category slug for the `/categories/<id>` route. */
   slug: string;
-  /** Circular pill image URL. */
-  imageUrl: string;
+  /**
+   * Resolvable image URL, ABSENT when the subject has no image.
+   *
+   * Optional rather than `''`: an empty string is an absent value wearing the
+   * type of a present one, so `<Image source={{ uri: '' }} />` typechecked and
+   * shipped a blank card. Every renderer must branch and draw the placeholder.
+   */
+  imageUrl?: string;
 }
 
 /** A home-feed section holding a single horizontal row of category pills. */

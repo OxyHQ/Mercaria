@@ -59,11 +59,13 @@ function CategoryPillChip({ pill, onPressPill }: CategoryPillChipProps) {
     >
       {/* Round 32px category image with a 1px border ring. */}
       <View className="relative h-8 w-8 overflow-hidden rounded-full bg-muted">
-        <Image
-          source={{ uri: pill.imageUrl }}
-          contentFit="cover"
-          className="h-8 w-8 rounded-full"
-        />
+        {pill.imageUrl ? (
+          <Image
+            source={{ uri: pill.imageUrl }}
+            contentFit="cover"
+            className="h-8 w-8 rounded-full"
+          />
+        ) : null}
         <View
           pointerEvents="none"
           className="absolute inset-0 rounded-full border border-border"

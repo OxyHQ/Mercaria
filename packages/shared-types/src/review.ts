@@ -393,8 +393,14 @@ export interface ReviewProduct {
   id: string;
   /** The reviewed product/variant title shown on the card. */
   title: string;
-  /** Resolved URL of the listing's first image (empty string when none). */
-  imageUrl: string;
+  /**
+   * Resolved URL of the listing's first image, ABSENT when it has none.
+   *
+   * Optional rather than `''`: an empty string is an absent value wearing the
+   * type of a present one, which is what let a review card render a blank
+   * thumbnail with no branch required of the caller.
+   */
+  imageUrl?: string;
 }
 
 /** One structured sub-rating on a review. */
