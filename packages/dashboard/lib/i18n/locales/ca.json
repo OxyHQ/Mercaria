@@ -1291,7 +1291,7 @@
         "min": "Comissió mínima %{amount}",
         "max": "Comissió màxima %{amount}",
         "basis": "Es cobra sobre el preu dels articles després dels descomptes. L'enviament i els impostos mai s'hi inclouen.",
-        "refundPolicy": "Es retorna en proporció a qualsevol reemborsament que emetis.",
+        "refundProportional": "Es retorna en proporció a qualsevol reemborsament que emetis.",
         "taxUnknown": "Tractament fiscal: sense especificar.",
         "taxExclusive": "Els impostos es cobren a part d'aquesta comissió.",
         "taxInclusive": "Els impostos estan inclosos en aquesta comissió.",

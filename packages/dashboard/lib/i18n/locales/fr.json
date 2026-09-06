@@ -1291,7 +1291,7 @@
         "min": "Commission minimale %{amount}",
         "max": "Commission maximale %{amount}",
         "basis": "Facturée sur le prix des articles après remises. La livraison et les taxes ne sont jamais incluses.",
-        "refundPolicy": "Restituée au prorata de tout remboursement que vous effectuez.",
+        "refundProportional": "Restituée au prorata de tout remboursement que vous effectuez.",
         "taxUnknown": "Traitement fiscal : non précisé.",
         "taxExclusive": "La taxe s'ajoute à cette commission.",
         "taxInclusive": "La taxe est comprise dans cette commission.",

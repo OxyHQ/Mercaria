@@ -1273,7 +1273,7 @@
         "min": "最低佣金 %{amount}",
         "max": "最高佣金 %{amount}",
         "basis": "按折扣后的商品价格计收。配送费和税费从不计入。",
-        "refundPolicy": "按你发起的退款金额比例退还。",
+        "refundProportional": "按你发起的退款金额比例退还。",
         "taxUnknown": "税务处理：未说明。",
         "taxExclusive": "税费在此佣金之外另行收取。",
         "taxInclusive": "税费已包含在此佣金内。",

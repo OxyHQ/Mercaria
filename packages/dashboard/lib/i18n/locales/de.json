@@ -1273,7 +1273,7 @@
         "min": "Mindestgebühr %{amount}",
         "max": "Höchstgebühr %{amount}",
         "basis": "Berechnet auf die Artikelpreise nach Rabatten. Versand und Steuern sind nie enthalten.",
-        "refundPolicy": "Wird anteilig zu jeder von Ihnen ausgestellten Rückerstattung erstattet.",
+        "refundProportional": "Wird anteilig zu jeder von Ihnen ausgestellten Rückerstattung erstattet.",
         "taxUnknown": "Steuerliche Behandlung: nicht angegeben.",
         "taxExclusive": "Die Steuer wird zusätzlich zu dieser Gebühr berechnet.",
         "taxInclusive": "Die Steuer ist in dieser Gebühr enthalten.",
