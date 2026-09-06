@@ -1,6 +1,15 @@
 # ADR 0001: Stripe Connect architecture — separate charges and transfers, Mercaria as merchant of record
 
-- **Status:** Accepted
+> **The RAIL changed 2026-09-06 ([ADR 0009](0009-peable-payment-rail.md)); the
+> ARCHITECTURE did not.** Mercaria reaches Stripe through Peable rather than
+> directly, so D2's account mechanics are no longer this repository's. **D1 and
+> D3–D12 below are inherited unchanged** and still bind: Mercaria is merchant of
+> record, one payment per checkout group, separate charges and transfers,
+> immediate capture, the ledger as the sole record of commission, and D11's
+> idempotency table. The last consequence of this ADR — "a future rail plugs
+> into the same seams" — is what ADR 0009 exercised.
+
+- **Status:** Accepted (rail superseded by ADR 0009; D1 and D3–D12 stand)
 - **Date:** 2026-08-08
 - **Issue:** [#43](https://github.com/OxyHQ/Mercaria/issues/43), part of epic [#35](https://github.com/OxyHQ/Mercaria/issues/35)
 - **Stripe docs current as of:** 2026-08-08, API release train **Dahlia** (`2026-07-29.dahlia`)
