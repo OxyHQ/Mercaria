@@ -60,6 +60,7 @@ import {
   CONNECTED_MARKETPLACE_SELLER_TYPES,
   FEE_BASES,
   FEE_CLAMPS,
+  FEE_DECISION_AUTHORITIES,
   FEE_REFUND_POLICIES,
   FEE_SCHEDULE_STATUSES,
   FEE_SNAPSHOT_RESULTS,
@@ -131,16 +132,58 @@ export const feeSchedules = pgTable(
     status: text({ enum: asEnumValues(FEE_SCHEDULE_STATUSES) }).notNull().default('draft'),
     /** The terms document version a merchant accepts alongside this schedule. */
     termsVersion: text().notNull(),
-    /** The operator who drafted it — an Oxy account id, no foreign key. */
-    createdByOxyUserId: text().notNull(),
-    /** The operator who activated it — the audit half of "publish a new version". */
-    approvedByOxyUserId: text(),
+    /**
+     * WHO decided this rate — the kind of authority, then its opaque handle.
+     *
+     * A pair rather than one id, because the answer is not always a person and a
+     * column that could only hold a person forced one to exist. Mercaria's
+     * commission is authored by a REVIEWED CHANGE: the rate is defined in the
+     * repository and published by `scripts/provision-fee-schedule.ts`, so this
+     * reads `deployment` + the commit that introduced it. `crowdsource_decision`
+     * is the same column answering a jury id when fee policy moves there, which
+     * is why the vocabulary is closed rather than free text.
+     *
+     * No foreign key: an Oxy user id is a foreign service's primary key, and a
+     * commit sha and a decision id are not rows in this database at all.
+     */
+    draftedByAuthority: text({ enum: asEnumValues(FEE_DECISION_AUTHORITIES) }).notNull(),
+    draftedByRef: text().notNull(),
+    /**
+     * The same pair for the ACTIVATION — the audit half of "publish a new
+     * version", and null until it happens.
+     *
+     * Separate from the drafting pair on purpose: drafting a rate costs nothing
+     * and activating one takes every unaccepted store offline
+     * (`checkout-gate.ts` refuses `seller_not_activated`), so they are two
+     * decisions and a record that conflated them could not say who took the
+     * dangerous one.
+     */
+    approvedByAuthority: text({ enum: asEnumValues(FEE_DECISION_AUTHORITIES) }),
+    approvedByRef: text(),
     activatedAt: timestamptz(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     checkOneOf('fee_schedules_status_check', t.status, FEE_SCHEDULE_STATUSES),
+    checkOneOf(
+      'fee_schedules_drafted_by_authority_check',
+      t.draftedByAuthority,
+      FEE_DECISION_AUTHORITIES,
+    ),
+    checkOneOf(
+      'fee_schedules_approved_by_authority_check',
+      t.approvedByAuthority,
+      FEE_DECISION_AUTHORITIES,
+    ),
+    // The approval pair is present together or absent together. Half of it is a
+    // row that names an authority with nothing to point at, or a reference
+    // belonging to nobody — and both read as "activated" to anything that only
+    // checks one column.
+    check(
+      'fee_schedules_approved_by_pair_check',
+      sql`(${t.approvedByAuthority} is null) = (${t.approvedByRef} is null)`,
+    ),
     checkOneOf('fee_schedules_tax_treatment_check', t.taxTreatment, FEE_TAX_TREATMENTS),
     checkOneOf('fee_schedules_refund_policy_check', t.refundPolicy, FEE_REFUND_POLICIES),
     checkOneOf('fee_schedules_eligible_seller_type_check', t.eligibleSellerType, CONNECTED_MARKETPLACE_SELLER_TYPES),
@@ -189,11 +232,15 @@ export const feeSchedules = pgTable(
       'fee_schedules_effective_window_check',
       sql`${t.effectiveEnd} is null or ${t.effectiveEnd} > ${t.effectiveStart}`,
     ),
-    // An active schedule carries its activation audit; nothing active is anonymous.
+    // An active schedule carries its activation audit; nothing active is
+    // anonymous. It names the AUTHORITY rather than the reference because
+    // `fee_schedules_approved_by_pair_check` already binds the two, so checking
+    // the ref here as well would be one fact asserted twice — and the pair check
+    // is the one that would notice half a record.
     check(
       'fee_schedules_activation_audit_check',
       sql`${t.status} not in ('active', 'superseded')
-          or (${t.approvedByOxyUserId} is not null and ${t.activatedAt} is not null)`,
+          or (${t.approvedByAuthority} is not null and ${t.activatedAt} is not null)`,
     ),
     uniqueIndex('fee_schedules_key_version_key').on(t.scheduleKey, t.version),
     // THE structural half of "active versions are immutable; publish a new
