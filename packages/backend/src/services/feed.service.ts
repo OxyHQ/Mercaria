@@ -140,12 +140,13 @@ async function toProductSummaries(listings: ListingRecord[]): Promise<ProductSum
 
 /** Build the top "category-pills" section from top-level categories. */
 function buildCategoryPills(topLevel: CategoryRecord[]): CategoryPill[] {
-  return topLevel.map((c) => ({
-    id: c.id,
-    name: c.name,
-    slug: c.slug,
-    imageUrl: c.imageUrl ?? '',
-  }));
+  return topLevel.map((c) => {
+    const pill: CategoryPill = { id: c.id, name: c.name, slug: c.slug };
+    if (c.imageUrl) {
+      pill.imageUrl = c.imageUrl;
+    }
+    return pill;
+  });
 }
 
 /**
@@ -172,12 +173,13 @@ function buildShopByCategory(
   return topLevel.map((parent) => {
     const tiles: CategoryTile[] = (childrenByParent.get(parent.id) ?? [])
       .slice(0, config.feed.categoryTilesPerCard)
-      .map((child) => ({
-        id: child.id,
-        name: child.name,
-        slug: child.slug,
-        imageUrl: child.imageUrl ?? '',
-      }));
+      .map((child) => {
+        const tile: CategoryTile = { id: child.id, name: child.name, slug: child.slug };
+        if (child.imageUrl) {
+          tile.imageUrl = child.imageUrl;
+        }
+        return tile;
+      });
     return { id: parent.id, name: parent.name, slug: parent.slug, subcategories: tiles };
   });
 }

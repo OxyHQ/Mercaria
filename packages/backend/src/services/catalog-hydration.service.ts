@@ -308,24 +308,26 @@ export function toStoreSummary(
     .slice(0, config.feed.storeCardThumbnails)
     .map((listing) => {
       const [firstImage] = imagesByListing.get(listing.id) ?? [];
-      return {
-        id: listing.id,
-        title: listing.title,
-        imageUrl: firstImage ? resolveMedia(firstImage.fileId, 'thumb') : '',
-      };
+      const thumbnail: ProductThumbnail = { id: listing.id, title: listing.title };
+      if (firstImage) {
+        thumbnail.imageUrl = resolveMedia(firstImage.fileId, 'thumb');
+      }
+      return thumbnail;
     });
 
   const summary: StoreSummary = {
     id: store.id,
     handle: store.handle,
     name: store.name,
-    coverImageUrl: store.coverFileId ? resolveMedia(store.coverFileId) : '',
     brandColor: store.brandColor,
     rating: store.rating,
     reviewCount: store.reviewCount,
     textTone: store.textTone,
     products,
   };
+  if (store.coverFileId) {
+    summary.coverImageUrl = resolveMedia(store.coverFileId);
+  }
   if (store.logoFileId) {
     summary.logoUrl = resolveMedia(store.logoFileId);
   }
@@ -354,11 +356,13 @@ export function toProductSummary(
     id: listing.id,
     title: listing.title,
     brand,
-    imageUrl: firstImage ? resolveMedia(firstImage.fileId) : '',
     rating: listing.rating,
     reviewCount: listing.reviewCount,
     price,
   };
+  if (firstImage) {
+    summary.imageUrl = resolveMedia(firstImage.fileId);
+  }
   const compareAt = cheapest ? variantCompareAtPrice(cheapest) : null;
   if (compareAt) {
     summary.compareAtPrice = compareAt;

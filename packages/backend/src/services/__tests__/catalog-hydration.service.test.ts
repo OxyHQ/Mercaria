@@ -15,7 +15,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { uuidv7 } from '@oxyhq/db';
-import type { ListingRecord } from '../../db/catalog/listingRepository.js';
+import type {
+  ListingImageRecord,
+  ListingRecord,
+} from '../../db/catalog/listingRepository.js';
+import type { StoreRow } from '../../db/stores/storeRepository.js';
 
 const findVariantsByListingIds = vi.fn();
 const findVariantOptionValues = vi.fn();
@@ -78,7 +82,11 @@ vi.mock('../../lib/logger.js', () => ({
   log: { general: { warn: vi.fn(), error: vi.fn() } },
 }));
 
-import { hydrateListings } from '../catalog-hydration.service.js';
+import {
+  hydrateListings,
+  toProductSummary,
+  toStoreSummary,
+} from '../catalog-hydration.service.js';
 
 /** The empty batch `findListingChildren` returns for listings with no children. */
 function noChildren() {
@@ -194,5 +202,120 @@ describe('catalog-hydration.service.hydrateListings — connector provenance', (
     const [dto] = await hydrateListings([listingRow(SYNCED_SOURCE)]);
 
     expect(dto.source).toBeUndefined();
+  });
+});
+
+/**
+ * An absent image must reach the client as an ABSENT FIELD.
+ *
+ * These previously emitted `''`, which is an absent value wearing the type of a
+ * present one: `ProductSummary.imageUrl` was declared `string`, so
+ * `<Image source={{ uri: product.imageUrl }} />` typechecked and every card
+ * whose listing had no images rendered blank. The DTO now omits the key, which
+ * is what makes the renderers' `imageUrl ? … : placeholder` branch reachable.
+ *
+ * Each case is paired with its opposite. An absence assertion on its own goes
+ * vacuous the moment the builder stops emitting the field at all, so the
+ * present-image case is what proves these tests can tell the two apart.
+ */
+/**
+ * A full `listing_images` row. The partial object literal these tests used
+ * first typechecked nowhere else in this file, because every other fixture
+ * reaches the service through a mocked repository whose return type is never
+ * compared against the real record.
+ */
+function imageRow(listingId: string, fileId: string): ListingImageRecord {
+  return {
+    id: uuidv7(),
+    listingId,
+    fileId,
+    alt: null,
+    position: 0,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+  };
+}
+
+/** A full `stores` row; the two media columns are what each test varies. */
+function storeRow(media: Pick<StoreRow, 'coverFileId' | 'logoFileId'>): StoreRow {
+  return {
+    id: 'store-1',
+    handle: 'acme',
+    name: 'Acme',
+    description: '',
+    brandColor: '#111111',
+    textTone: 'light',
+    status: 'active',
+    policiesReturnWindowDays: 30,
+    policiesShippingNote: null,
+    policiesRefundPolicy: null,
+    policiesPrivacyPolicy: null,
+    policiesTermsOfService: null,
+    defaultCurrency: 'FAIR',
+    taxSettingsPricesIncludeTax: false,
+    taxSettingsTaxRegistrationId: null,
+    taxSettingsChargeTaxOnProducts: true,
+    notificationSettingsLowStockAlerts: true,
+    notificationSettingsOrderEmails: true,
+    notificationSettingsLowStockThreshold: null,
+    rating: 0,
+    reviewCount: 0,
+    productCount: 0,
+    salesCount: 0,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    ...media,
+  };
+}
+
+describe('catalog-hydration.service — an absent image is an absent field, never an empty string', () => {
+  it('omits ProductSummary.imageUrl when the listing has no images', () => {
+    const summary = toProductSummary(listingRow(), [], 'Acme', []);
+
+    expect('imageUrl' in summary).toBe(false);
+    expect(summary.imageUrl).toBeUndefined();
+  });
+
+  it('emits ProductSummary.imageUrl when the listing HAS one', () => {
+    const listing = listingRow();
+    const summary = toProductSummary(listing, [], 'Acme', [
+      imageRow(listing.id, 'https://cdn.example/file-1.jpg'),
+    ]);
+
+    expect(summary.imageUrl).toBe('https://cdn.example/file-1.jpg');
+  });
+
+  it('omits StoreSummary.coverImageUrl when the store has no cover file', () => {
+    const summary = toStoreSummary(storeRow({ coverFileId: null, logoFileId: null }), []);
+
+    expect('coverImageUrl' in summary).toBe(false);
+  });
+
+  it('emits StoreSummary.coverImageUrl when the store HAS one', () => {
+    const summary = toStoreSummary(
+      storeRow({ coverFileId: 'https://cdn.example/cover-1.jpg', logoFileId: null }),
+      [],
+    );
+
+    expect(summary.coverImageUrl).toBe('https://cdn.example/cover-1.jpg');
+  });
+
+  it('omits imageUrl on a featured thumbnail whose listing has no images', () => {
+    const listing = listingRow();
+    const summary = toStoreSummary(storeRow({ coverFileId: null, logoFileId: null }), [listing]);
+
+    expect(summary.products).toHaveLength(1);
+    expect('imageUrl' in summary.products[0]).toBe(false);
+  });
+
+  it('emits imageUrl on a featured thumbnail whose listing HAS one', () => {
+    const listing = listingRow();
+    const summary = toStoreSummary(
+      storeRow({ coverFileId: null, logoFileId: null }),
+      [listing],
+      new Map([[listing.id, [imageRow(listing.id, 'https://cdn.example/thumb-1.jpg')]]]),
+    );
+
+    expect(summary.products[0].imageUrl).toBe('https://cdn.example/thumb-1.jpg');
   });
 });

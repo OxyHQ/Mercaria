@@ -140,11 +140,13 @@ function CategoryTileCell({
       onPress={() => onPressTile?.(categoryId, tile)}
       className="group relative flex-1 overflow-hidden bg-muted"
     >
-      <Image
-        source={{ uri: tile.imageUrl }}
-        contentFit="cover"
-        className="absolute inset-0 h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-110"
-      />
+      {tile.imageUrl ? (
+        <Image
+          source={{ uri: tile.imageUrl }}
+          contentFit="cover"
+          className="absolute inset-0 h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-110"
+        />
+      ) : null}
       <View className="absolute inset-0 justify-end p-2">
         <Text
           numberOfLines={1}
