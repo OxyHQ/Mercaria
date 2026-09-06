@@ -1429,8 +1429,6 @@
       "brand": "Mercaria",
       "copyright": "© %{year} Oxy の Mercaria",
       "links": {
-        "about": "概要",
-        "help": "ヘルプ",
         "privacy": "プライバシー",
         "terms": "利用規約"
       }

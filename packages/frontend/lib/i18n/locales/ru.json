@@ -1463,8 +1463,6 @@
       "brand": "Mercaria",
       "copyright": "© %{year} Mercaria от Oxy",
       "links": {
-        "about": "О нас",
-        "help": "Помощь",
         "privacy": "Конфиденциальность",
         "terms": "Условия"
       }
