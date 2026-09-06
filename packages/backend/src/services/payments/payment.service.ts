@@ -146,6 +146,12 @@ const PROVIDER_BOOKS_LEDGER: Record<PaymentProviderId, boolean> = {
   // The dev seam. It books, because the ledger is what it exists to exercise —
   // and it is hard-gated off in production by `config.orders.mockPayEnabled`.
   mock: true,
+  // The Peable rail (ADR 0009). It books for exactly the same reason `stripe`
+  // does, and the ADR is explicit that this is unchanged: Mercaria remains
+  // merchant of record (ADR 0001 D1 is inherited), the money still arrives on
+  // the platform balance, and the commission is still `gross − Σnets` in the
+  // ledger. Only WHO Mercaria calls to move it changed.
+  peable: true,
   // The card rail. Mercaria is merchant of record (ADR 0001 D1): the money
   // arrives on the platform balance, Mercaria owes each seller their share, and
   // the difference is its commission — which exists nowhere but this ledger.
