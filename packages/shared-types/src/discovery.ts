@@ -173,38 +173,45 @@ interface DiscoverySectionBase {
   layout: 'carousel' | 'grid';
 }
 
+/** The 2.35:1 action-card row: explore's first section and the category page's hero rows. */
 export interface HeroSection extends DiscoverySectionBase {
   kind: 'hero';
   cards: HeroCard[];
 }
 
+/** Scrollable category tiles with text: browse by category at root. */
 export interface CategoryTilesSection extends DiscoverySectionBase {
   kind: 'category-tiles';
   tiles: CategoryTile[];
 }
 
+/** Scrollable category tiles with images: category pages' header and deals page. */
 export interface CategoryImagesSection extends DiscoverySectionBase {
   kind: 'category-images';
   tiles: CategoryTile[];
 }
 
+/** Horizontal scrollable filter pills: category pages' filter bar. */
 export interface PillsSection extends DiscoverySectionBase {
   kind: 'pills';
   tiles: CategoryTile[];
 }
 
+/** Grid of product cards: all explore shelves (signals), category pages, and deals page. */
 export interface ProductsSection extends DiscoverySectionBase {
   kind: 'products';
   products: ProductSummary[];
   pageDepth: DiscoverySectionPageDepth;
 }
 
+/** Grid of store cards: explore's recommended stores section. */
 export interface StoresSection extends DiscoverySectionBase {
   kind: 'stores';
   stores: StoreSummary[];
   variant: 'large' | 'compact';
 }
 
+/** Store with automatic discount and featured products: explore's shop offers section. */
 export interface StoreOfferSection extends DiscoverySectionBase {
   kind: 'store-offer';
   store: StoreSummary;
@@ -212,6 +219,7 @@ export interface StoreOfferSection extends DiscoverySectionBase {
   products: ProductSummary[];
 }
 
+/** Multiple product sections rendered as bordered cards, two per row: deals page editorial groupings. */
 export interface CardGroupSection extends DiscoverySectionBase {
   kind: 'card-group';
   /** Each renders inside its own bordered card, two per row. */

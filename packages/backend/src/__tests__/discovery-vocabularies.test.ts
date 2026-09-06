@@ -1,3 +1,14 @@
+/**
+ * Discovery feed shared-type contracts.
+ *
+ * These tests verify the shared-types discovery vocabularies live in the backend
+ * suite rather than shared-types' own package because shared-types has no runner
+ * by design (`ci.yml:306-307` states that reason). Shared-type tests execute in
+ * the "Run API tests" step via the package imports that every backend module
+ * already makes. This is the same reason `validate:catalog-identity-contracts`
+ * gates the catalog surface from outside the package.
+ */
+
 import { describe, expect, it } from 'vitest';
 import {
   DISCOVERY_COUNTED_ORDER_STATUSES,
@@ -5,8 +16,8 @@ import {
   DISCOVERY_SIGNALS_FROM_LISTINGS,
   DISCOVERY_SIGNALS_FROM_COUNTS,
   DISCOVERY_WINDOWS,
-} from '../discovery';
-import { ORDER_STATUSES } from '../order';
+  ORDER_STATUSES,
+} from '@mercaria/shared-types';
 
 describe('discovery vocabularies', () => {
   it('splits the signals into exactly the two storage sources, with no overlap and no orphan', () => {
