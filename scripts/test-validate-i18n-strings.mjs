@@ -36,6 +36,50 @@ const validator = resolve(repositoryRoot, "scripts/validate-i18n-strings.mjs");
  * of four files would otherwise fail for a reason that has nothing to do with
  * i18n.
  */
+/**
+ * Run the guard, and REFUSE to read a crash as a verdict.
+ *
+ * `Bun.spawnSync` reports a process killed by a signal as a non-zero exit, and
+ * every assertion in this file is written against the guard's exit code. So a
+ * runtime crash — Bun 1.3.14 segfaults this guard on some hosts, measured here
+ * at 6 runs in 20 — arrives looking exactly like the guard having gone red, and
+ * the harness then explains it with whichever message fits: `expected exit 0,
+ * got 1`, or `it went red for some other reason`, or — the worst of them — `the
+ * working tree was left mutated`, which sends somebody hunting a corruption that
+ * did not happen while the tree is in fact clean.
+ *
+ * A signal is therefore a THIRD outcome and not a verdict at all. It is retried
+ * once, because the crash is intermittent rather than deterministic, and a
+ * second crash aborts the run with a message naming the signal instead of
+ * blaming the guard. Retrying is safe: this spawn has no effect the next one
+ * would double, and the real-tree case restores its file in a `finally`
+ * regardless.
+ */
+function spawnGuard({ guardPath, cwd, env }) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const proc = Bun.spawnSync({ cmd: ["bun", guardPath], cwd, env, stdout: "pipe", stderr: "pipe" });
+    if (proc.signalCode == null) {
+      return { exitCode: proc.exitCode, output: `${proc.stdout.toString()}${proc.stderr.toString()}` };
+    }
+    if (attempt === 1) {
+      return { crashed: proc.signalCode, exitCode: proc.exitCode, output: "" };
+    }
+  }
+  throw new Error("unreachable");
+}
+
+/** Abort the whole run rather than let a crash be scored as a case. */
+function refuseOnCrash(result, where) {
+  if (!result.crashed) return;
+  console.error(
+    `FATAL  the guard was killed by ${result.crashed} twice while running ${where}.\n`
+    + "       This is a RUNTIME crash, not a verdict — nothing about the guard's\n"
+    + "       correctness or the working tree follows from it. Re-run; if it\n"
+    + "       persists, the Bun version is the subject, not this repository.",
+  );
+  process.exit(2);
+}
+
 async function runAgainst(files, { realFloors = false, removeAfterAdd = [], patchGuard } = {}) {
   const root = await mkdtemp(join(tmpdir(), "i18n-string-validator-"));
   // A case may run a PATCHED copy of the guard. The guard resolves the tree it
@@ -79,14 +123,7 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [], patc
     const environment = { ...process.env, I18N_VALIDATOR_ROOT: root };
     if (!realFloors) environment.I18N_VALIDATOR_FIXTURE_FLOORS = "1";
 
-    const proc = Bun.spawnSync({
-      cmd: ["bun", guardPath],
-      cwd: repositoryRoot,
-      env: environment,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    return { exitCode: proc.exitCode, output: `${proc.stdout.toString()}${proc.stderr.toString()}` };
+    return spawnGuard({ guardPath, cwd: repositoryRoot, env: environment });
   } finally {
     await rm(root, { recursive: true, force: true });
     if (guardPath !== validator) await rm(guardPath, { force: true });
@@ -1263,14 +1300,13 @@ async function assertCheckFCatchesTheRealDefect() {
       return "the mutation applied but does not carry #442's shape";
     }
 
-    const proc = Bun.spawnSync({
-      cmd: ["bun", validator],
+    const proc = spawnGuard({
+      guardPath: validator,
       cwd: repositoryRoot,
       env: { ...process.env, I18N_VALIDATOR_ROOT: repositoryRoot },
-      stdout: "pipe",
-      stderr: "pipe",
     });
-    const output = `${proc.stdout.toString()}${proc.stderr.toString()}`;
+    refuseOnCrash(proc, "check F's mutation of the real tree");
+    const { output } = proc;
     if (proc.exitCode === 0) {
       return "check F did not fail on #442's own defect, reintroduced into its own file";
     }
@@ -1296,13 +1332,12 @@ async function assertCheckFCatchesTheRealDefect() {
   // The restore is only proven by the guard going green again: a file that was
   // rewritten wrongly would still differ from `original` in ways this test's own
   // string comparison happens to miss.
-  const after = Bun.spawnSync({
-    cmd: ["bun", validator],
+  const after = spawnGuard({
+    guardPath: validator,
     cwd: repositoryRoot,
     env: { ...process.env, I18N_VALIDATOR_ROOT: repositoryRoot },
-    stdout: "pipe",
-    stderr: "pipe",
   });
+  refuseOnCrash(after, "check F's restore verification");
   if (after.exitCode !== 0) {
     return "the guard is still red after the restore — the working tree was left mutated";
   }
@@ -1312,11 +1347,13 @@ async function assertCheckFCatchesTheRealDefect() {
 let failed = 0;
 
 for (const testCase of cases) {
-  const { exitCode, output } = await runAgainst(testCase.files, {
+  const result = await runAgainst(testCase.files, {
     realFloors: testCase.realFloors,
     removeAfterAdd: testCase.removeAfterAdd,
     patchGuard: testCase.patchGuard,
   });
+  refuseOnCrash(result, `case ${JSON.stringify(testCase.name)}`);
+  const { exitCode, output } = result;
 
   const problems = [];
   if (exitCode !== testCase.expectExit) {
