@@ -71,7 +71,7 @@ function draft(
     eligibleCurrency,
     percentageBps: 1_000,
     termsVersion: 'terms-v1',
-    createdByOxyUserId: 'operator-1',
+    draftedBy: { authority: 'deployment', ref: 'operator-1' },
     ...overrides,
   };
 }
@@ -204,9 +204,13 @@ describe('fee schedule versions are immutable once active', () => {
     // A draft IS editable — the policy is still being written.
     await db.update(feeSchedules).set({ percentageBps: 500 }).where(eq(feeSchedules.id, row.id));
 
-    const active = await activateFeeSchedule(db, { id: row.id, approvedByOxyUserId: 'operator-2' });
+    const active = await activateFeeSchedule(db, { id: row.id, approvedBy: { authority: 'deployment', ref: 'operator-2' } });
     expect(active?.status).toBe('active');
-    expect(active?.approvedByOxyUserId).toBe('operator-2');
+    // The PAIR, not one half of it: `fee_schedules_approved_by_pair_check`
+    // refuses a row carrying only one, and asserting one column would pass on a
+    // row that names an authority pointing at nothing.
+    expect(active?.approvedByAuthority).toBe('deployment');
+    expect(active?.approvedByRef).toBe('operator-2');
     expect(active?.activatedAt).toBeInstanceOf(Date);
 
     // The trigger, not the repository: a direct UPDATE of an economic column is
@@ -221,10 +225,10 @@ describe('fee schedule versions are immutable once active', () => {
   it('activating a second version supersedes the first — one active per key, enforced', async () => {
     const scheduleKey = `sched-${uuidv7()}`;
     const v1 = await insertFeeSchedule(db, draft('NOK', { scheduleKey, version: 1 }));
-    await activateFeeSchedule(db, { id: v1.id, approvedByOxyUserId: 'op' });
+    await activateFeeSchedule(db, { id: v1.id, approvedBy: { authority: 'deployment', ref: 'op' } });
 
     const v2 = await insertFeeSchedule(db, draft('NOK', { scheduleKey, version: 2, percentageBps: 500 }));
-    const activated = await activateFeeSchedule(db, { id: v2.id, approvedByOxyUserId: 'op' });
+    const activated = await activateFeeSchedule(db, { id: v2.id, approvedBy: { authority: 'deployment', ref: 'op' } });
     expect(activated?.status).toBe('active');
 
     const [v1After] = await db.select().from(feeSchedules).where(eq(feeSchedules.id, v1.id));
@@ -248,18 +252,18 @@ describe('fee schedule versions are immutable once active', () => {
   it('activation is a CAS: a non-draft target reports nothing-to-do and supersedes nothing', async () => {
     const scheduleKey = `sched-${uuidv7()}`;
     const v1 = await insertFeeSchedule(db, draft('NOK', { scheduleKey, version: 1 }));
-    await activateFeeSchedule(db, { id: v1.id, approvedByOxyUserId: 'op' });
+    await activateFeeSchedule(db, { id: v1.id, approvedBy: { authority: 'deployment', ref: 'op' } });
 
     // Activating the already-active row again: no-op, and v1 is STILL active.
-    expect(await activateFeeSchedule(db, { id: v1.id, approvedByOxyUserId: 'op2' })).toBeUndefined();
+    expect(await activateFeeSchedule(db, { id: v1.id, approvedBy: { authority: 'deployment', ref: 'op2' } })).toBeUndefined();
     const [after] = await db.select().from(feeSchedules).where(eq(feeSchedules.id, v1.id));
     expect(after.status).toBe('active');
-    expect(after.approvedByOxyUserId).toBe('op');
+    expect(after.approvedByRef).toBe('op');
   });
 
   it('retire withdraws an active version without a replacement', async () => {
     const row = await insertFeeSchedule(db, draft('SEK'));
-    await activateFeeSchedule(db, { id: row.id, approvedByOxyUserId: 'op' });
+    await activateFeeSchedule(db, { id: row.id, approvedBy: { authority: 'deployment', ref: 'op' } });
     const retired = await retireFeeSchedule(db, row.id);
     expect(retired?.status).toBe('retired');
     const stillListed = await listActiveFeeSchedules(db, new Date('2026-06-01T00:00:00Z'));
@@ -381,7 +385,7 @@ describe('planConnectedMarketplaceFee against real schedules', () => {
       db,
       draft(currency, { scheduleKey, version: 1, percentageBps: 1_000 }),
     );
-    await activateFeeSchedule(db, { id: v1.id, approvedByOxyUserId: 'op' });
+    await activateFeeSchedule(db, { id: v1.id, approvedBy: { authority: 'deployment', ref: 'op' } });
 
     const context1 = { at: new Date(), schedules: await listActiveFeeSchedules(db, new Date()) };
     const plan1 = await planConnectedMarketplaceFee({
@@ -402,7 +406,7 @@ describe('planConnectedMarketplaceFee against real schedules', () => {
       db,
       draft(currency, { scheduleKey, version: 2, percentageBps: 500 }),
     );
-    await activateFeeSchedule(db, { id: v2.id, approvedByOxyUserId: 'op' });
+    await activateFeeSchedule(db, { id: v2.id, approvedBy: { authority: 'deployment', ref: 'op' } });
 
     const context2 = { at: new Date(), schedules: await listActiveFeeSchedules(db, new Date()) };
     const plan2 = await planConnectedMarketplaceFee({
@@ -426,7 +430,7 @@ describe('planConnectedMarketplaceFee against real schedules', () => {
       db,
       draft(currency, { scheduleKey, version: 1, termsVersion: 'terms-7' }),
     );
-    await activateFeeSchedule(db, { id: row.id, approvedByOxyUserId: 'op' });
+    await activateFeeSchedule(db, { id: row.id, approvedBy: { authority: 'deployment', ref: 'op' } });
     await insertFeeScheduleAcceptance(db, {
       scheduleKey,
       scheduleVersion: 1,

@@ -1065,6 +1065,20 @@
       "when": 1788646490188,
       "tag": "0151_amazing_hellfire_club",
       "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1788693678726,
+      "tag": "0152_giant_nitro",
+      "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1788693740064,
+      "tag": "0153_cute_excalibur",
+      "breakpoints": true
     }
   ]
 }

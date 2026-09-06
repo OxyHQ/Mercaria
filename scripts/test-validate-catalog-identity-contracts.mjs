@@ -219,7 +219,14 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // `FacetRange` moved the exported types by ONE and the property signatures
     // by FIVE (one interface, its four members, and the field carrying it), and
     // left the module count alone. Re-derived from the tool's own output line.
-    "walked 126 contract module(s), 2265 exported type(s), 7654 property signature(s)",
+    // A sixth instance, `FeeDecisionAuthority`: exported types moved by ONE and
+    // the property signatures NOT AT ALL, because it is a union of string
+    // literals rather than an interface — a type with no members contributes no
+    // property signature. That asymmetry is worth recording, because the four
+    // instances above all moved both figures and a reader deriving the delta
+    // from them would expect this one to move the second number too.
+    // Re-derived from the tool's own output line.
+    "walked 126 contract module(s), 2266 exported type(s), 7654 property signature(s)",
     "check A arms exercised by real declarations: 5/9",
   ],
 });

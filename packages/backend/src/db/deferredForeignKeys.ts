@@ -296,8 +296,6 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'customers.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'draft_orders.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'fee_schedule_acceptances.accepted_by_oxy_user_id', reason: OXY_ACCOUNT },
-  { column: 'fee_schedules.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
-  { column: 'fee_schedules.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'favorites.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'feedback.oxy_user_id', reason: OXY_ACCOUNT },
   // The #104/#109 conversion audit stamp. An Oxy id like every other row in

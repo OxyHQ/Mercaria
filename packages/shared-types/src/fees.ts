@@ -100,6 +100,41 @@ export type FeeRefundPolicy = 'proportional';
 export const FEE_REFUND_POLICIES: readonly FeeRefundPolicy[] = ['proportional'];
 
 /**
+ * WHO decided a fee schedule — the kind of authority, not a person.
+ *
+ * Mercaria's commission is a policy, and a policy needs an author on the record.
+ * What it does NOT need is a named administrator: Oxy is not meant to have
+ * those, and an allow-list of user ids in an env var was the stand-in that this
+ * vocabulary replaces.
+ *
+ * - `deployment` — the rate was defined in the repository and applied by a
+ *   deploy. The reference is the commit that introduced it, so "who decided
+ *   this" resolves to a reviewed change rather than to a person with a
+ *   credential. This is how every schedule is authored today.
+ * - `crowdsource_decision` — a jury decided it, and the reference is the
+ *   decision id. Mercaria already consumes CrowdSource decisions for moderation
+ *   (`services/moderation/`), so the machinery this names is built, not planned.
+ *   Nothing produces this value yet, and that is deliberate: the column can
+ *   record the answer before the vote exists, which is what makes the vote a
+ *   change of author rather than a change of schema.
+ * - `oxy_user` — a named person. Retained because a fee schedule may one day be
+ *   corrected by hand during an incident, and a record that could not say so
+ *   would be a record that lies. It is the exception, not the route.
+ *
+ * The REFERENCE is deliberately untyped beyond `string`: a commit sha, a
+ * decision id and an Oxy user id have nothing in common but being an opaque
+ * handle, and a shared format would be a format that fits none of them.
+ */
+export type FeeDecisionAuthority = 'deployment' | 'crowdsource_decision' | 'oxy_user';
+
+/** {@link FeeDecisionAuthority} as the tuple the column types and CHECKs read. */
+export const FEE_DECISION_AUTHORITIES: readonly FeeDecisionAuthority[] = [
+  'deployment',
+  'crowdsource_decision',
+  'oxy_user',
+];
+
+/**
  * The EXPLICIT fee base. One value exists: the presentment-side item subtotal
  * AFTER item-level discount allocations. Tax, delivery and shipping-targeted
  * discounts are excluded structurally — the calculator is handed line totals
