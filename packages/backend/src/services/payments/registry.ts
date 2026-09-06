@@ -21,11 +21,13 @@
 import type { PaymentProviderId } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import type { PaymentProvider } from './provider.js';
+import { PeablePaymentProvider } from './peable/peable-provider.js';
 import { StripePaymentProvider } from './stripe/stripe-provider.js';
 import { SyntheticPaymentProvider } from './synthetic-provider.js';
 
 let instance: SyntheticPaymentProvider | undefined;
 let stripeInstance: StripePaymentProvider | undefined;
+let peableInstance: PeablePaymentProvider | undefined;
 
 /**
  * The process-wide synthetic rail.
@@ -45,6 +47,12 @@ export function resetMockPaymentProvider(): void {
   instance = undefined;
 }
 
+/** Drop the rail adapters. Test support, and what a config change in a suite needs. */
+export function resetRailPaymentProviders(): void {
+  stripeInstance = undefined;
+  peableInstance = undefined;
+}
+
 /**
  * The adapter for a rail, if it has one and it is available.
  *
@@ -61,6 +69,15 @@ export function resetMockPaymentProvider(): void {
  * through a lookup either.
  */
 export function resolvePaymentProvider(provider: PaymentProviderId): PaymentProvider | undefined {
+  if (provider === 'peable') {
+    if (!config.payments.peable.enabled) return undefined;
+    // One instance per process, for the same reason Stripe's is: the adapter is
+    // cheap and holds no connection — the token cache it calls through is a
+    // module singleton in `peable/client.ts` — and a fresh one per call would
+    // mint a service token per request against Oxy's own rate limit.
+    peableInstance ??= new PeablePaymentProvider();
+    return peableInstance;
+  }
   if (provider === 'stripe') {
     if (!config.payments.stripe.enabled) return undefined;
     // One instance per process. The adapter is cheap and holds no connection —

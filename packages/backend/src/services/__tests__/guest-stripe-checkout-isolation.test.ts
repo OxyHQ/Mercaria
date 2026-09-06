@@ -134,8 +134,32 @@ const DURABLE_PAYMENT_PATHS = walkOwnedDirectory('services/payments').map(
  * `FAIR` the CURRENCY CODE is excluded from the pattern deliberately: it is the
  * marketplace's preferred presentment currency. What is forbidden is FairCoin as
  * a payment rail.
+ *
+ * **This applies to the GUEST half only, since ADR 0009.** That ADR is the
+ * "Future OxyPay" this rule was written against arriving: OxyPay is Peable, and
+ * Peable is now Mercaria's card rail. A durable payment module may therefore
+ * NAME the gateway and its other rail — `services/payments/peable/verify.ts`
+ * maps the gateway's chain-progress event, and has to say what it is mapping.
+ * The guest rule is untouched and is the sharper one anyway: a guest has no Oxy
+ * identity, so a chain payment is not a thing they could complete.
  */
 const OXYPAY_OR_FAIRCOIN_REFERENCE = /oxy_?[Pp]ay|OxyPay|[Ff]air[Cc]oin/;
+
+/**
+ * What the durable half is still forbidden from doing, now that naming the
+ * gateway is legitimate.
+ *
+ * The rule that survives ADR 0009 is not "do not say FairCoin" — it is **do not
+ * BUILD the FairCoin rail here**. Mercaria creates `rail: 'card'` intents and
+ * nothing else; the chain rail is the gateway's, and a Mercaria module that
+ * minted a `faircoin` intent or offered one as a selectable option would be
+ * building a second definition of a payment method Mercaria does not operate.
+ *
+ * Narrower than the guest pattern and deliberately so: a wall that forbids a
+ * WORD stops being about the thing it was protecting the moment the word
+ * becomes legitimate, and then it is only ever satisfied by rewording.
+ */
+const FAIRCOIN_RAIL_CONSTRUCTION = /rail:\s*['"]faircoin['"]|['"]faircoin['"]\s*(?:as const)?\s*,?\s*\/\/\s*provider|PAYMENT_PROVIDER_IDS[^;]*faircoin/;
 
 /**
  * ADR 0006 G4/G5: a guest payment creates NO Stripe Customer and saves NO
@@ -275,16 +299,37 @@ describe('the guest Stripe checkout path cannot reach what it must not', () => {
     }
   });
 
-  it('no module names OxyPay or FairCoin, in code OR in copy', () => {
+  it('no GUEST module names OxyPay or FairCoin, in code OR in copy', () => {
     let scanned = 0;
-    for (const relative of [...GUEST_PAYMENT_PATHS, ...DURABLE_PAYMENT_PATHS]) {
+    for (const relative of GUEST_PAYMENT_PATHS) {
       expect(
         OXYPAY_OR_FAIRCOIN_REFERENCE.test(readSource(relative)),
-        `${relative} names OxyPay or FairCoin; #107 excludes both outright`,
+        `${relative} names OxyPay or FairCoin; #107 excludes both from the guest path outright`,
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBe(GUEST_PAYMENT_PATHS.length + DURABLE_PAYMENT_PATHS.length);
+    expect(scanned).toBe(GUEST_PAYMENT_PATHS.length);
+  });
+
+  /**
+   * The durable half's rule after ADR 0009: Mercaria may TALK to a gateway that
+   * serves FairCoin and may not BUILD that rail itself.
+   *
+   * The word was the proxy; this is the thing. Mercaria mints `rail: 'card'`
+   * and nothing else, so a module constructing a `faircoin` intent or adding
+   * one to the provider set is a second definition of a payment method this
+   * marketplace does not operate — which is what #107 was actually protecting.
+   */
+  it('no durable payment module BUILDS the FairCoin rail', () => {
+    let scanned = 0;
+    for (const relative of DURABLE_PAYMENT_PATHS) {
+      expect(
+        FAIRCOIN_RAIL_CONSTRUCTION.test(readSource(relative)),
+        `${relative} constructs a FairCoin rail; Mercaria mints card intents only (ADR 0009)`,
+      ).toBe(false);
+      scanned += 1;
+    }
+    expect(scanned).toBe(DURABLE_PAYMENT_PATHS.length);
   });
 
   it('creates no Stripe Customer and offers no payment-method saving', () => {
