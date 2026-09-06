@@ -1446,8 +1446,6 @@
       "brand": "Mercaria",
       "copyright": "© %{year} Mercaria par Oxy",
       "links": {
-        "about": "À propos",
-        "help": "Aide",
         "privacy": "Confidentialité",
         "terms": "Conditions"
       }
