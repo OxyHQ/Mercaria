@@ -22,35 +22,13 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
 
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: hsl(0 0% 100%);
-
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-
-  --color-surface: var(--surface);
-  --color-surface-foreground: var(--surface-foreground);
+  /* Bloom's imported theme.css above is the single source of truth for the
+     colour aliases (`--color-primary`, `--color-card`, `--color-muted`, …), so
+     they are NOT re-declared here. Re-declaring them is what let
+     `--color-bg-fill-secondary` point at the accent family and paint the app's
+     quiet surfaces red while every gate stayed green: a duplicate cannot
+     disagree loudly, it just wins. Only tokens Bloom does not own, or the two
+     deliberate overrides below, belong in this block. */
 
   /* ── Shopify "Shop" design tokens (additive) ───────────────────────────────
    * Mirrors @mercaria/ui/theme/global.css (and its JS preset). These power the
@@ -148,18 +126,27 @@
   --font-weight-buttonLarge: 600;
 
   /* Colors — Shopify semantic names mapped to Mercaria runtime vars. */
-  --color-text: var(--foreground);
-  --color-text-secondary: var(--muted-foreground);
-  --color-text-tertiary: var(--muted-foreground);
   --color-text-brand: var(--primary);
+  /* Two deliberate overrides of a Bloom alias, kept because Bloom's value is
+     wrong for the name in THIS app's vocabulary:
+       - `text-inverse` is the on-colour for `bg-fill-inverse`, which Mercaria
+         maps to `var(--foreground)`; Bloom aliases it to `--primary-foreground`,
+         the on-colour of a PRIMARY fill.
+       - `text-fixed-light` must stay light in both modes; `--primary-foreground`
+         is BLACK in dark. */
   --color-text-inverse: var(--background);
   --color-text-fixed-light: #ffffff;
   --color-text-fixed-dark: #111111;
-  --color-text-placeholder: var(--muted-foreground);
-  --color-bg: var(--background);
   --color-bg-fill: var(--card);
-  --color-bg-fill-secondary: var(--secondary);
-  --color-bg-fill-secondary-hover: var(--secondary);
+  /* `--secondary` is Bloom's secondary ACCENT family — a hue rotated off the
+     preset seed, whose only Bloom consumer is the FAB — NOT a quiet surface. On
+     every cool seed (Mercaria ships `blue`) that rotation lands on red, so
+     pointing a fill at it painted the app's quiet surfaces the same red as
+     `--destructive`. Bloom's own vocabulary for this slot is
+     `--color-fill-secondary: var(--muted)` with `--color-fill-hover:
+     var(--accent)`; these mirror it. */
+  --color-bg-fill-secondary: var(--muted);
+  --color-bg-fill-secondary-hover: var(--accent);
   --color-bg-fill-brand: var(--primary);
   --color-bg-fill-brand-hover: var(--primary);
   --color-bg-fill-inverse: var(--foreground);
@@ -168,11 +155,7 @@
   --color-brand: var(--primary);
   --color-fill-fixed-dark: #111111;
   --color-fill-fixed-light: #ffffff;
-  --color-border-secondary: var(--border);
   --color-border-tertiary: var(--border);
-  --color-border-input: var(--border);
-  --color-border-input-active: var(--ring);
-  --color-border-image: var(--border);
   --color-overlay-inverse-04: rgba(0, 0, 0, 0.04);
   --color-overlay-inverse-06: rgba(0, 0, 0, 0.06);
   --color-overlay-fixed-icon: rgba(0, 0, 0, 0.45);

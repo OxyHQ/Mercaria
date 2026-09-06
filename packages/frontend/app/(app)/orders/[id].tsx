@@ -136,7 +136,7 @@ function RetailProgressCard({ retail }: { retail: RetailOrderExperience }) {
 function StatusPill({ status }: { status: OrderStatus }) {
   const { t } = useTranslation();
   return (
-    <View className="self-start rounded-full bg-secondary px-3 py-1">
+    <View className="self-start rounded-full bg-muted px-3 py-1">
       <Text className="text-xs font-semibold text-foreground">{t(ORDER_STATUS_LABEL_KEYS[status])}</Text>
     </View>
   );
