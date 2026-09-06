@@ -343,20 +343,29 @@ function validateSellerCountry(country: string): string {
 function accountCreateParams(input: {
   owner: SellerAccountOwner;
   country: string;
-}): Stripe.AccountCreateParams {
+}): Stripe.V2.Core.AccountCreateParams {
   return {
-    country: input.country,
-    controller: {
-      losses: { payments: 'application' },
-      fees: { payer: 'application' },
-      requirement_collection: 'stripe',
-      stripe_dashboard: { type: 'express' },
+    identity: {
+      // LOWERCASE: `validateSellerCountry` normalises to upper for Mercaria's own
+      // closed set, and v2 wants the ISO alpha-2 code lowercased. Measured — the
+      // probe that created the reference account sent `es`.
+      country: input.country.toLowerCase(),
+      // A store is a business and a P2P seller is a person. Stripe refines this
+      // during onboarding (a sole trader may end up `individual` either way), so
+      // it is a starting point that shortens the hosted flow, not an assertion.
+      entity_type: input.owner.ownerType === 'store' ? 'company' : 'individual',
     },
-    capabilities: { transfers: { requested: true } },
-    // A store is a business and a P2P seller is a person. Stripe refines this
-    // during onboarding (a sole trader may end up `individual` either way), so
-    // it is a starting point that shortens the hosted flow, not an assertion.
-    business_type: input.owner.ownerType === 'store' ? 'company' : 'individual',
+    dashboard: 'express',
+    defaults: {
+      responsibilities: { losses_collector: 'application', fees_collector: 'application' },
+    },
+    configuration: {
+      // Both, and not by preference — see the docblock. `recipient` is what
+      // receives D3's transfers; `merchant` is forced beside it outside the US
+      // and is what makes the account emit `account.updated`.
+      recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } },
+      merchant: { capabilities: { card_payments: { requested: true } } },
+    },
     // The owner, and NOT the `provider_accounts` row id. Two racing callers mint
     // two row ids and Stripe replays the first request's metadata, so a row id
     // here would name the loser's row on one of the two paths — a pointer that
@@ -411,13 +420,22 @@ export async function ensureConnectedAccount(input: {
   );
   await recordAccountChange({ row, previousState: 'not_connected', reason: 'created' });
 
-  // The account Stripe just described is already worth storing: it carries the
+  // The account is READ BACK rather than snapshotted from the create response,
+  // and under Accounts v2 that is not belt-and-braces — it is the only way to
+  // get the fields at all (ADR 0008 D2-B). `v2.core.account` carries no
+  // `payouts_enabled`, `charges_enabled`, `disabled_reason` or
+  // `default_currency`, which is half of D9's readiness conjunction; the SAME
+  // account read through `GET /v1/accounts` carries every one of them. The
+  // typechecker found this rather than a reviewer: passing the create response
+  // to `snapshotStripeAccount` fails naming exactly those fields.
+  //
+  // Still worth doing at creation time for the original reason: it carries the
   // capability's initial state and the requirements the seller will be asked
   // for, so the dashboard's first render is the real thing rather than a row of
-  // defaults that a webhook will correct in a few seconds.
+  // defaults a webhook will correct seconds later.
   const synced = await applyAccountSnapshot({
     row,
-    snapshot: snapshotStripeAccount(account),
+    snapshot: snapshotStripeAccount(await retrieveStripeAccount(account.id)),
     syncedAt: new Date(),
   });
   return synced;

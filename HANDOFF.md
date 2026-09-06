@@ -185,6 +185,39 @@ failure is the control. Flag any edit made outside these steps.
 - **#220 — FIXED.** The webhook path COMPLETES a delivery before normalizing (`expandWebhookProduct`: a no-op on Shopify, a `GET /products/{id}/variations` on WooCommerce), the pure normalizer REFUSES a payload declaring variations it does not carry rather than collapsing it, and a variant the platform ADDED is created on the next sync — so an earlier collapse is self-healing. A refused delivery fails the run and writes nothing; the safety net is the scheduled reconcile sweep, not a platform re-delivery. A variant the platform REMOVED is unsold (stock zero, tracking on) and never deleted, because a variant id cascades into carts, saves and offers. **Still unverified against a real store:** the wire shape of a real `product.updated` delivery, and whether the variations call completes inside the webhook job's lifetime for a product with many variations.
 - **#221 — FIXED.** An import's provenance no longer lands in a second statement. The four `source_*` columns, the `draft`/`active` status and the variants' own `source_*` columns are all arguments to `createStoreProduct`, written by `insertStoreProductWithin` — so the window that stranded a listing with no `source_external_id`, invisible to every later match while still holding the handle, does not exist. The variant insert rides the same transaction on purpose: `convergeVariants` returns early on a listing with zero variants, so fixing only the provenance window would have traded a loudly-failing listing for a permanently empty one. `listings_store_id_source_key_idx` became UNIQUE (migration `0070`, a `post` phase that also collapses any duplicate the old race produced), because two concurrent deliveries could both read null and both create; the loser now converges by re-reading, matched by constraint NAME so a handle collision still surfaces as the merchant conflict it is. Provider timestamps go through one parse that appends `Z` only to a value carrying no zone — omitting a legitimately-zoned value would ERASE the stored freshness the next sync compares against, since `buildSource` writes `?? null` on every sync — and Shopify's `fx_rate_as_of` is validated and kept in the platform's own spelling rather than rewritten. **Still unverified against a real store:** the timestamp shapes are measured against what the platforms document, not against what they emit — whether a real WordPress site's `*_gmt` fields and a real Shopify order's `updated_at` arrive in those shapes, and whether anything upstream of them rewrites the response.
 
+## 5.5 Connect Accounts v2 — what is done and what is left
+
+`POST /v1/accounts` is REFUSED on this platform account for every input
+(measured 2026-09-06, test mode). Before the port, `ensureConnectedAccount` threw
+for every seller, so no seller could reach `ready` and
+`assertSellerGroupsPaymentReady` refused every native checkout group: **native
+checkout was not un-onboarded, it was DOWN.** Nothing said so anywhere, because
+there has never been a connected account, so no test or deploy could notice.
+
+Done (ADR 0008): creation ported to `POST /v2/core/accounts`, the capability set
+amended with `card_payments`, and the account read back through `GET /v1/accounts`
+because `v2.core.account` carries none of D9's readiness fields.
+
+Left, in order:
+
+- [ ] **One browser onboarding run.** No settling transfer has ever executed. The
+      account cannot be driven to `active` by API — under
+      `requirements_collector: stripe` the platform is refused ToS acceptance
+      (`tos_acceptance_on_behalf_not_allowed`), which is exactly the property D2
+      wants. Only a real hosted-onboarding run closes it.
+- [ ] **A third webhook endpoint for v2 events** (ADR 0008 D2-E). NOT blocking —
+      `account.updated` still fires — but mandatory before onboarding a seller in
+      a country where a recipient-only account is expressible (the US), because
+      such a seller emits no `account.updated` at all.
+- [ ] **Ask Stripe support whether a recipient-only account is enablable for ES.**
+      The `card_payments` coupling is country-specific and undocumented; if it can
+      be lifted, ADR 0008 D2-C's 33-requirement onboarding form gets shorter —
+      but D2-D must be re-read first, because `card_payments` is also what makes
+      the readiness event fire.
+- [ ] `transfer.canceled` is subscribed on the test platform webhook endpoint and
+      is in neither code tuple. Drift introduced during rehearsal; remove it or
+      adopt it deliberately.
+
 ## 6. Known limitations (code, not blockers)
 - FX static rates for the 15 new currencies are dev defaults — need a real feed for accuracy.
 - `collectionMapping` populates from Shopify collects on backfill; a webhook-driven single-product update carries no collection context (reconciled at the next backfill).

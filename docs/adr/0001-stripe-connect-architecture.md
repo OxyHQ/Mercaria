@@ -108,6 +108,16 @@ capabilities                      = transfers     # the only capability separate
   model is the same, and it avoids straddling two account APIs for payout
   settings. Revisit when v2 reaches parity.
 
+  > **SUPERSEDED 2026-09-06 by [ADR 0008](0008-connect-accounts-v2.md).** The
+  > revisit condition fired from the other side: `POST /v1/accounts` is now
+  > REFUSED on this platform account for every input, so "v1 is fully supported"
+  > is no longer true and this bullet cannot be acted on. Accounts are created
+  > with `POST /v2/core/accounts`; the controller properties above are unchanged
+  > and now DERIVED rather than sent. The capability set is amended there too —
+  > `card_payments` is requested alongside transfers, which Stripe requires
+  > outside the US. **Everything else in this ADR stands**, including the rest of
+  > D2 and the whole of D1 and D3–D12.
+
 ### D3. Charge model: separate charges and transfers, exclusively
 
 No destination charges, no mixed model. The flow for every native checkout:
