@@ -440,7 +440,17 @@ async function buildCategoryFeed(handle: string): Promise<DiscoveryFeed> {
   return { sections };
 }
 
-/** A discount row projected to the wire `DiscountSummary`, in the store's own native currency. */
+/**
+ * A discount row projected to the wire `DiscountSummary`, in the store's own
+ * native currency.
+ *
+ * Only two of the four `DiscountValueType`s reach here: `findStoresWithLiveDiscounts`
+ * projects nothing a card cannot state a saving for, and that filter — not this
+ * function's shape — is where a fifth value type becomes a compile error
+ * (`STATES_ITS_OWN_SAVING`). Without it a live BOGO produced a summary with
+ * neither `percentOff` nor `amountOff`, which the compiler cannot see because
+ * both are optional on the DTO.
+ */
 function toDiscountSummary(discount: DiscountRow, currency: CurrencyCode): DiscountSummary {
   const summary: DiscountSummary = {
     id: discount.id,

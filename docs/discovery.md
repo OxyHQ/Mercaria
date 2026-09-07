@@ -179,6 +179,17 @@ bucket back to its own discount's targets, because the reads are batched
 across stores. A card whose covered set is empty is dropped, like every other
 empty section.
 
+`bogo` and `free_item` are excluded at the same read, for the same reason
+`code` is. `DiscountSummary` carries `percentOff` and `amountOff` and has no
+field that could state "buy one, get one", so those two projected to a summary
+with NEITHER — a card promising a saving it never names. Excluding them in the
+read rather than after `onePerStore` matters: a store running a live BOGO
+alongside a live percentage keeps its card and falls back to the percentage,
+instead of losing the card to a discount that could not be stated.
+`STATES_ITS_OWN_SAVING` (`db/discovery/discoveryReadRepository.ts`) is a
+`Record` over the whole `DiscountValueType` union, so a fifth member is a
+compile error there rather than a silent arrival on the shelf.
+
 ## KNOWN LIMITATION (2026-09-07)
 
 `buildStoresSection` (`services/discovery/feed.service.ts`) reuses

@@ -563,6 +563,51 @@ describe('getDiscoveryFeed', () => {
     expect(section?.products.map((p) => p.id)).not.toContain(outsider);
   });
 
+  it('a bogo discount produces no card, because no card could state its saving', async () => {
+    // `DiscountSummary` carries `percentOff` and `amountOff` and nothing that
+    // could express "buy one, get one", so a BOGO projected to a summary with
+    // NEITHER — a card headed by a store and a saving it never states. Both
+    // fields are optional on the DTO, which is why the compiler could not see
+    // it, and nothing downstream dropped the section.
+    const storeId = await makeStore();
+    await makeStoreListing(storeId);
+    await makeLiveDiscount(storeId, { valueType: 'bogo', value: 0 });
+
+    const feed = await getDiscoveryFeed({ kind: 'deals' });
+
+    expect(
+      feed.sections.filter((s) => s.kind === 'store-offer' && s.store.id === storeId),
+    ).toHaveLength(0);
+  });
+
+  it('an unstatable discount does not displace the statable one beside it', async () => {
+    // The half that makes the exclusion a FILTER rather than a drop. This
+    // store runs a `free_item` that STARTED more recently than its
+    // percentage discount, so `onePerStore` picks the newer one — and if the
+    // exclusion happened after that pick instead of inside the read, the
+    // store would lose its card entirely rather than fall back to the
+    // discount it can actually advertise.
+    const storeId = await makeStore();
+    await makeStoreListing(storeId);
+    const percentage = await makeLiveDiscount(storeId, {
+      startsAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      value: 2500,
+    });
+    await makeLiveDiscount(storeId, {
+      valueType: 'free_item',
+      value: 0,
+      startsAt: new Date(Date.now() - 1000),
+    });
+
+    const feed = await getDiscoveryFeed({ kind: 'deals' });
+
+    const section = feed.sections.find(
+      (s): s is StoreOfferSection => s.kind === 'store-offer' && s.store.id === storeId,
+    );
+    expect(section?.discount.id).toBe(percentage);
+    expect(section?.discount.percentOff).toBe(25);
+  });
+
   it('a scoped discount covering nothing active renders no card at all', async () => {
     // The "no empty section" rule, at the one place the scope filter can empty
     // a card that the store-level read said was populated.

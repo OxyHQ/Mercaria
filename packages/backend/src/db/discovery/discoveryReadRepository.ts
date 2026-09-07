@@ -27,18 +27,52 @@
  */
 
 import { and, desc, eq, getTableColumns, gt, gte, inArray, isNull, lte, or } from 'drizzle-orm';
-import { DISCOVERY_WINDOWS, type DiscoverySignal } from '@mercaria/shared-types';
+import {
+  DISCOVERY_WINDOWS,
+  type DiscoverySignal,
+  type DiscountValueType,
+} from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { findOnSaleListings, type ListingRecord } from '../catalog/listingRepository.js';
 import { type DiscountRow } from '../merchandising/discountRepository.js';
 import { getDb } from '../postgres.js';
 import { listings } from '../schema/catalog.js';
 import { discoverySignals } from '../schema/discovery.js';
-import { discounts } from '../schema/merchandising.js';
+import { DISCOUNT_VALUE_TYPES, discounts } from '../schema/merchandising.js';
 import { stores } from '../schema/stores.js';
 
 /** The one counting window this repository reads. See `DISCOVERY_WINDOWS`. */
 const WINDOW = DISCOVERY_WINDOWS[0];
+
+/**
+ * Whether a discount's value type can STATE its saving on a deals card.
+ *
+ * `DiscountSummary` (`@mercaria/shared-types`) carries `percentOff` and
+ * `amountOff` and nothing else that could express a saving, so a `bogo` or a
+ * `free_item` projects to a summary with neither — a card headed by a store
+ * and a discount that promises no number at all. Both fields being optional on
+ * the DTO is exactly why the compiler could not see it.
+ *
+ * Excluded rather than projected, on the same grounds `method = 'code'` is:
+ * advertising a saving the shopper cannot read off the card is a false price,
+ * and there is no honest way to spell "buy one, get one" in a field that holds
+ * a percentage. Adding one is a shared-types change, and then this map's `false`
+ * becomes the thing to revisit.
+ *
+ * A `Record` over the whole union rather than a hand-written tuple: a FIFTH
+ * value type is then a compile error here (the object literal stops satisfying
+ * `Record<DiscountValueType, boolean>`) rather than a new member silently
+ * inheriting "statable" — measured by deleting a key, which fails `tsc`.
+ */
+const STATES_ITS_OWN_SAVING: Record<DiscountValueType, boolean> = {
+  percentage: true,
+  fixed_amount: true,
+  bogo: false,
+  free_item: false,
+};
+
+/** The value types a `store-offer` card can carry, derived from the map above. */
+const STATABLE_VALUE_TYPES = DISCOUNT_VALUE_TYPES.filter((type) => STATES_ITS_OWN_SAVING[type]);
 
 export interface FindListingsBySignalInput {
   signal: DiscoverySignal;
@@ -199,9 +233,13 @@ export async function findStoresBySignal(input: {
 }
 
 /**
- * Stores with a LIVE `automatic` discount — the deals scope's store-offer
- * cards. `method: 'code'` is never projected: a shelf advertising a saving
- * the shopper cannot get without a code they do not have is a false price.
+ * Stores with a LIVE `automatic` discount whose saving a card can STATE — the
+ * deals scope's store-offer cards. `method: 'code'` is never projected: a
+ * shelf advertising a saving the shopper cannot get without a code they do not
+ * have is a false price. `bogo` and `free_item` are excluded on the same
+ * grounds and by the same test — see {@link STATES_ITS_OWN_SAVING}, which is
+ * also what makes a fifth `DiscountValueType` a compile error rather than a
+ * silent arrival on the shelf.
  *
  * Filters the discount's method, active flag and scheduled window
  * (`starts_at <= now <= coalesce(ends_at, 'infinity')`, read here as
@@ -223,6 +261,7 @@ export async function findStoresWithLiveDiscounts(
     .where(
       and(
         eq(discounts.method, 'automatic'),
+        inArray(discounts.valueType, STATABLE_VALUE_TYPES),
         eq(discounts.isActive, true),
         lte(discounts.startsAt, now),
         or(isNull(discounts.endsAt), gte(discounts.endsAt, now)),
