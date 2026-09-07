@@ -2,13 +2,15 @@ import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { MoreHorizontal, Star } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
   MARKETPLACE_VISIT_MERCHANT_KEY,
   MERCHANT_HEADER_MORE_OPTIONS_KEY,
   MERCHANT_HEADER_VISIT_STORE_KEY,
+  PRODUCT_CARD_DISCOUNT_KEY,
 } from "../../lib/marketplace-labels";
 import { useFormatters } from "../../lib/use-formatters";
+import { formatPercent } from "../../lib/format";
 import { IncentiveHalo } from "./IncentiveHalo";
 
 /** Fixed gold star fill (mirrors ReviewStars / MerchantCard constant). */
@@ -38,6 +40,12 @@ export interface MerchantHeaderProps {
   /** Number of reviews contributing to `rating`. */
   reviewCount?: number;
   /** Tap the identity (logo + name) — typically navigates to the store. */
+  /**
+   * A store-wide discount, in WHOLE percent. Rendered in the same words
+   * `ProductCard` uses for a product's own sale badge, so a shopper meets one
+   * vocabulary for "off" across the page rather than two.
+   */
+  discountPercent?: number;
   onPress: () => void;
   /**
    * Visual variant:
@@ -81,6 +89,9 @@ function HeaderRating({
   );
 }
 
+/** `formatPercent` reads BASIS POINTS; a whole percent is one hundred of them. */
+const BASIS_POINTS_PER_PERCENT = 100;
+
 /** Halo-wrapped merchant logo at a fixed edge length. */
 function HeaderLogo({ logoUrl, size }: { logoUrl?: string; size: number }) {
   return (
@@ -116,9 +127,11 @@ export function MerchantHeader({
   onPress,
   size = "compact",
   scopeLabel = "Seller service",
+  discountPercent,
 }: MerchantHeaderProps) {
   const isLarge = size === "large";
   const t = useSharedUiTranslation();
+  const locale = useSharedUiLocale();
 
   return (
     <View className="flex-row items-center gap-space-8">
@@ -146,6 +159,17 @@ export function MerchantHeader({
               reviewCount={reviewCount}
               scopeLabel={scopeLabel}
             />
+          ) : null}
+          {discountPercent !== undefined && discountPercent > 0 ? (
+            <Text className="text-captionBold text-text-brand">
+              {t(PRODUCT_CARD_DISCOUNT_KEY, {
+                percent: formatPercent(
+                  discountPercent * BASIS_POINTS_PER_PERCENT,
+                  locale,
+                  0,
+                ),
+              })}
+            </Text>
           ) : null}
         </View>
       </Pressable>

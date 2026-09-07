@@ -146,9 +146,8 @@ export interface CategoryTile {
    * same rule `imageUrl` states above. Whole field absent when no child has an
    * image at all — same convention as every other optional image field here.
    *
-   * Only populated on a `category-tiles` section's tiles; a `pills` or
-   * `category-images` tile carries this field unset because nothing reads it
-   * there.
+   * Only populated on a `category-tiles` section's tiles; a `pills` tile
+   * carries this field unset because nothing reads it there.
    */
   sampleImageUrls?: string[];
 }

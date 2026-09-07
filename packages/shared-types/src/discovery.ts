@@ -101,7 +101,6 @@ export type DiscoverySectionPageDepth =
 export type DiscoverySectionKind =
   | 'hero'
   | 'category-tiles'
-  | 'category-images'
   | 'pills'
   | 'products'
   | 'stores'
@@ -112,7 +111,6 @@ export type DiscoverySectionKind =
 export const DISCOVERY_SECTION_KINDS: readonly DiscoverySectionKind[] = [
   'hero',
   'category-tiles',
-  'category-images',
   'pills',
   'products',
   'stores',
@@ -187,10 +185,10 @@ interface DiscoverySectionBase {
    * a shelf's heading needs the name to interpolate
    * (`discovery.shelf.topRated` → "Top rated in {{category}}"). The client
    * cannot always recover it from a sibling section's tiles either: on a
-   * CATEGORY scope, every tile-bearing section (`category-tiles`,
-   * `category-images`, `pills`) carries the scope's SUBcategories, never the
-   * scope's own category, so that page's own shelves would have nothing in
-   * the feed itself to resolve their heading's name from.
+   * CATEGORY scope, every tile-bearing section (`category-tiles`, `pills`)
+   * carries the scope's SUBcategories, never the scope's own category, so that
+   * page's own shelves would have nothing in the feed itself to resolve their
+   * heading's name from.
    */
   categoryName?: string;
   layout: 'carousel' | 'grid';
@@ -205,12 +203,6 @@ export interface HeroSection extends DiscoverySectionBase {
 /** Scrollable category tiles with text: browse by category at root. */
 export interface CategoryTilesSection extends DiscoverySectionBase {
   kind: 'category-tiles';
-  tiles: CategoryTile[];
-}
-
-/** Scrollable category tiles with images: category pages' header and deals page. */
-export interface CategoryImagesSection extends DiscoverySectionBase {
-  kind: 'category-images';
   tiles: CategoryTile[];
 }
 
@@ -253,7 +245,6 @@ export interface CardGroupSection extends DiscoverySectionBase {
 export type DiscoverySection =
   | HeroSection
   | CategoryTilesSection
-  | CategoryImagesSection
   | PillsSection
   | ProductsSection
   | StoresSection

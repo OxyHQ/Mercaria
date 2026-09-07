@@ -55,7 +55,6 @@ import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import type {
   CardGroupSection,
-  CategoryImagesSection,
   CategoryTilesSection,
   DiscountScope,
   DiscountValueType,
@@ -335,7 +334,6 @@ function sectionItemCount(section: DiscoverySection): number {
     case 'hero':
       return section.cards.length;
     case 'category-tiles':
-    case 'category-images':
     case 'pills':
       return section.tiles.length;
     case 'products':
@@ -409,13 +407,18 @@ afterAll(async () => {
 });
 
 describe('getDiscoveryFeed', () => {
-  it('root leads with a hero row and browse-category tiles', async () => {
+  it('root leads with browse-category tiles and emits no hero section', async () => {
     await makeCategory(); // guarantee at least one active top-level category
 
     const feed = await getDiscoveryFeed({ kind: 'root' });
 
-    expect(feed.sections[0]?.kind).toBe('hero');
-    expect(feed.sections[1]?.kind).toBe('category-tiles');
+    // The server builds no `hero` section for root: it used to map the same
+    // top-level categories `category-tiles` already carries, so explore drew
+    // every category twice. The `hero` kind stays on the wire for real
+    // editorial content, which does not exist yet — see `feed.service.ts`'s
+    // own docblock.
+    expect(feed.sections.map((s) => s.kind)).not.toContain('hero');
+    expect(feed.sections[0]?.kind).toBe('category-tiles');
   });
 
   it('a category scope carries pills, then a card group, then a stores section, then shelves', async () => {
@@ -569,11 +572,11 @@ describe('getDiscoveryFeed', () => {
   });
 
   it('a category scope names its own shelves and stores section, even though its own name is never among its own subcategory tiles', async () => {
-    // The subtlety Task 4's renderer found: `pills`/`category-images` carry
-    // this scope's SUBcategories, never the scope itself, so a client could
-    // never recover "Beauty"'s own name by reading this same feed's tiles.
+    // The subtlety Task 4's renderer found: `pills` carries this scope's
+    // SUBcategories, never the scope itself, so a client could never recover
+    // "Beauty"'s own name by reading this same feed's tiles.
     const category = await makeCategory({ position: -2_000_000_000 });
-    await makeCategory({ parentId: category.id, ancestorIds: [category.id] }); // gives pills/category-images something to carry
+    await makeCategory({ parentId: category.id, ancestorIds: [category.id] }); // gives pills something to carry
     await makeListing(category.id, { rating: 4.8, reviewCount: 999 }); // `top-rated`, into the card group
     const storeId = await makeStore();
     await seedStoreSignal({ storeId, categoryId: category.id, unitsSold: 5 });
@@ -590,34 +593,6 @@ describe('getDiscoveryFeed', () => {
 
     const pills = feed.sections.find((s): s is PillsSection => s.kind === 'pills');
     expect(pills?.tiles.some((t) => t.name === category.name)).toBe(false);
-    const categoryImages = feed.sections.find(
-      (s): s is CategoryImagesSection => s.kind === 'category-images',
-    );
-    expect(categoryImages?.tiles.some((t) => t.name === category.name)).toBe(false);
-  });
-
-  it('a category scope with subcategories renders a category-images section previewing them', async () => {
-    const category = await makeCategory({ position: -2_000_000_000 });
-    const child = await makeCategory({ parentId: category.id, ancestorIds: [category.id] });
-
-    const feed = await getDiscoveryFeed({ kind: 'category', handle: category.slug });
-
-    const categoryImages = feed.sections.find(
-      (s): s is CategoryImagesSection => s.kind === 'category-images',
-    );
-    expect(categoryImages).toBeDefined();
-    expect(categoryImages?.tiles.map((t) => t.slug)).toContain(child.slug);
-  });
-
-  it('a category scope with no subcategories renders no category-images section', async () => {
-    // The "no empty section" rule, at the one kind that previously never
-    // appeared at all — this pins that the ABSENCE is a real decision
-    // (nothing to preview) and not the same bug this suite otherwise catches.
-    const category = await makeCategory({ position: -2_000_000_000 });
-
-    const feed = await getDiscoveryFeed({ kind: 'category', handle: category.slug });
-
-    expect(feed.sections.map((s) => s.kind)).not.toContain('category-images');
   });
 
   it('a store running two live discounts still produces exactly one store-offer section', async () => {

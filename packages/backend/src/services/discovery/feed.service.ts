@@ -19,10 +19,10 @@
  *
  * `categoryName` travels beside `signal` on every section that carries one
  * (`products`, `stores`): a slug is not a name, and a category scope's own
- * shelves are about a category that is never among that scope's own
- * `pills`/`category-images` tiles (those are its SUBcategories) — so without
- * this, the client would have nothing in the feed itself to resolve that
- * page's own heading's name from.
+ * shelves are about a category that is never among that scope's own `pills`
+ * tiles (those are its SUBcategories) — so without this, the client would
+ * have nothing in the feed itself to resolve that page's own heading's name
+ * from.
  *
  * ## The browse-category tile's sample images, which NO CLIENT READS TODAY
  *
@@ -42,14 +42,27 @@
  * slugs, not bare URLs), and that is the shape this section wants to grow
  * into rather than shrink away from.
  *
- * ## `category-images`: the same subcategories as `pills`, once
+ * ## `category-images` is gone: it could only ever repeat `pills`
  *
  * The reference renders this kind twice on a category page (§4 and §7) with
  * two different-looking groups of tiles. This service has exactly one
  * grouping of a category's subcategories available — the same `children`
- * `buildPillsSection` already resolves — and no second query is added to
- * invent a distinct one, so it is emitted ONCE, ahead of that scope's product
- * shelves rather than threaded between them.
+ * `buildPillsSection` already resolves — so a second section built from it
+ * could only ever repeat the first, and it did: a category page showed the
+ * same subcategory row twice. The `category-images` kind, its DTO and the
+ * emit are removed together rather than kept as vocabulary for a duplicate.
+ *
+ * ## `hero` is emitted by nobody, on purpose
+ *
+ * `buildRootFeed` used to map the same top-level categories into `hero` cards
+ * it then handed to `buildCategoryTilesSection` two lines later — explore
+ * rendered all seven categories twice, once as hero cards and once as tiles.
+ * The reference's own hero row is three EDITORIAL cards with their own copy
+ * ("Bar cart basics", "The pocket perfumery", "Taco Tuesday favorites"), not a
+ * second pass over the category list, and this service has no editorial
+ * content to put there yet. The `hero` KIND, its DTO and the client's
+ * rendering branch stay, ready for that content when it exists — but nothing
+ * here constructs one.
  *
  * ## No empty section
  *
@@ -111,10 +124,7 @@ import type {
   DiscoverySectionPageDepth,
   DiscoverySignal,
   CardGroupSection,
-  CategoryImagesSection,
   CategoryTilesSection,
-  HeroCard,
-  HeroSection,
   PillsSection,
   ProductsSection,
   StoresSection,
@@ -164,9 +174,6 @@ export const CARD_GROUP_SIGNALS: readonly DiscoverySignal[] = ['top-rated', 'new
 
 /** The three signals a category page renders as full-width shelves. */
 export const SHELF_SIGNALS: readonly DiscoverySignal[] = ['on-sale', 'best-selling', 'most-viewed'];
-
-/** The single signal driving the root scope's hero — new arrivals, category by category. */
-const HERO_SIGNAL: DiscoverySignal = 'new';
 
 /** Basis points per whole percentage point — `discounts.value`'s own unit for `valueType: 'percentage'`. */
 const BASIS_POINTS_PER_PERCENT = 100;
@@ -376,26 +383,6 @@ async function buildStoresSection(input: {
   };
 }
 
-/** The root scope's hero row: one card per top-level category. */
-function buildHeroSection(topLevel: CategoryRecord[]): HeroSection | null {
-  const cards: HeroCard[] = topLevel.map((category) => {
-    const card: HeroCard = {
-      id: category.id,
-      title: category.name,
-      categoryHandle: category.slug,
-      signal: HERO_SIGNAL,
-    };
-    if (category.imageUrl) {
-      card.imageUrl = category.imageUrl;
-    }
-    return card;
-  });
-  if (cards.length === 0) {
-    return null;
-  }
-  return { kind: 'hero', id: 'hero', layout: 'carousel', cards };
-}
-
 /**
  * The root scope's "browse by category" row — each tile carrying up to
  * {@link CATEGORY_SAMPLE_SLOTS} preview images drawn from ITS OWN children
@@ -422,25 +409,12 @@ function buildCategoryTilesSection(
 }
 
 /**
- * A category page's secondary "browse deeper" row: the SAME immediate
- * children `buildPillsSection` already resolves, rendered as image tiles
- * instead of round pills (`category-images`, the reference's §4/§7 — see this
- * file's own docblock for why it is emitted once rather than twice). `null`
- * when the category has no children, the same "no empty section" rule as
- * every other builder here.
- */
-function buildCategoryImagesSection(children: CategoryRecord[]): CategoryImagesSection | null {
-  const tiles = children.map(toCategoryTile);
-  if (tiles.length === 0) {
-    return null;
-  }
-  return { kind: 'category-images', id: 'category-images', layout: 'grid', tiles };
-}
-
-/**
- * The root scope: a hero row, browse-category tiles, one product shelf per
- * top-level category (rotating through the three sweep-free signals) and one
- * `stores` section per top-level category.
+ * The root scope: browse-category tiles, one product shelf per top-level
+ * category (rotating through the three sweep-free signals) and one `stores`
+ * section per top-level category.
+ *
+ * No `hero` section — see this file's own docblock for why nothing here
+ * constructs one.
  */
 async function buildRootFeed(): Promise<DiscoveryFeed> {
   const allCategories = await findActiveCategories();
@@ -449,10 +423,6 @@ async function buildRootFeed(): Promise<DiscoveryFeed> {
     .slice(0, config.discovery.shelfSize);
 
   const sections: DiscoverySection[] = [];
-  const hero = buildHeroSection(topLevel);
-  if (hero) {
-    sections.push(hero);
-  }
   const tiles = buildCategoryTilesSection(topLevel, allCategories);
   if (tiles) {
     sections.push(tiles);
@@ -530,8 +500,8 @@ async function buildCardGroupSection(
 }
 
 /**
- * A category scope: pills, a card group, a `stores` section, a
- * `category-images` row, then the remaining shelves.
+ * A category scope: pills, a card group, a `stores` section, then the
+ * remaining shelves.
  *
  * `handle` resolves by id OR slug (ADR 0007 D1, `findActiveCategoryByIdOrSlug`'s
  * own docblock) — the same mechanism a category page's link survives a rename
@@ -572,11 +542,6 @@ async function buildCategoryFeed(handle: string): Promise<DiscoveryFeed> {
   });
   if (stores) {
     sections.push(stores);
-  }
-
-  const categoryImages = buildCategoryImagesSection(children);
-  if (categoryImages) {
-    sections.push(categoryImages);
   }
 
   for (const signal of SHELF_SIGNALS) {

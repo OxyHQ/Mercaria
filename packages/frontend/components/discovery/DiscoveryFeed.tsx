@@ -172,10 +172,10 @@ export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
   }
 
   /**
-   * Category tiles, whatever the kind. `category-tiles`, `category-images` and
-   * `pills` all carry the identical `CategoryTile[]` payload — id, name, slug
-   * and an optional image — and `CategoryPills` is the app's own component for
-   * exactly that, already rendering the home feed's category row.
+   * Category tiles, whatever the kind. `category-tiles` and `pills` both carry
+   * the identical `CategoryTile[]` payload — id, name, slug and an optional
+   * image — and `CategoryPills` is the app's own component for exactly that,
+   * already rendering the home feed's category row.
    *
    * They are NOT rendered as `CategoryCarousel`/`CategoryCard`: that card is a
    * category above a 2×2 grid of its NAMED subcategories (`Category`), and the
@@ -203,28 +203,21 @@ export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
        * Deliberately nothing, and the case stays so the switch stays
        * exhaustive.
        *
-       * `hero` reaches a client from exactly one place — `buildRootFeed`,
-       * which maps the top-level categories to hero cards and then hands the
-       * SAME `topLevel` list to `buildCategoryTilesSection` two lines later.
-       * Explore therefore drew all seven categories twice, one row after the
-       * other. The reference this feed was modelled on does not do that: its
-       * first row is three EDITORIAL cards ("Bar cart basics", "The pocket
-       * perfumery", "Taco Tuesday favorites" — each with its own copy), and
-       * "Browse categories" is a separate row below it. Mercaria has no
-       * editorial collection to put there, so the row it emits is a copy of
-       * the row beneath it and nothing else.
-       *
-       * The duplicate is the SERVER's to stop emitting; suppressing it here
-       * only keeps it off the screen meanwhile. Nothing is lost by it: every
-       * hero card's destination is the same `/categories/:handle/s/:signal`
-       * that the tile beneath it, and that category's own shelf heading,
-       * already reach.
+       * The server no longer builds a `hero` section for the root scope (it
+       * used to map the same top-level categories `buildCategoryTilesSection`
+       * already turns into tiles, so explore drew all seven categories
+       * twice). The KIND survives on the wire for the reference's real first
+       * row — three EDITORIAL cards with their own copy ("Bar cart basics",
+       * "The pocket perfumery", "Taco Tuesday favorites") — which Mercaria has
+       * no content for yet. This branch is what renders that content once it
+       * exists; until then a `hero` section should never arrive, and if one
+       * ever does, dropping it is still correct rather than showing a
+       * duplicate category row.
        */
       case 'hero':
         return null;
 
       case 'category-tiles':
-      case 'category-images':
       case 'pills':
         return renderCategoryTiles(section.id, section.tiles);
 
@@ -256,6 +249,7 @@ export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
                 reviewCount={section.store.reviewCount}
                 onPress={() => onPressStore(section.store.handle)}
                 size="large"
+                discountPercent={section.discount.percentOff}
               />
             </View>
             <ProductCarousel items={section.products} onPressItem={onPressProduct} />
