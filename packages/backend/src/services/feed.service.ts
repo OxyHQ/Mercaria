@@ -26,13 +26,12 @@
 import type {
   Feed,
   FeedSection,
-  ProductSummary,
   StoreSummary,
   Category,
   CategoryTile,
   CategoryPill,
 } from '@mercaria/shared-types';
-import { findStoresByIds, findTopActiveStores } from '../db/stores/storeRepository.js';
+import { findTopActiveStores } from '../db/stores/storeRepository.js';
 import {
   findActiveCategories,
   type CategoryRecord,
@@ -45,12 +44,7 @@ import {
   type ListingImageRecord,
   type ListingRecord,
 } from '../db/catalog/listingRepository.js';
-import {
-  findVariantsByListingIds,
-  type VariantRecord,
-} from '../db/catalog/variantRepository.js';
-import { toProductSummary, toStoreSummary } from './catalog-hydration.service.js';
-import { getProfiles } from './oxy-user.service.js';
+import { toProductSummaries, toStoreSummary } from './catalog-hydration.service.js';
 import { config } from '../config/index.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { log } from '../lib/logger.js';
@@ -60,82 +54,6 @@ const FEED_CACHE_VERSION = 'v1';
 
 function feedCacheKey(viewerId: string | undefined): string {
   return `feed:home:${FEED_CACHE_VERSION}:${viewerId ?? 'anon'}`;
-}
-
-/** Group a flat list of variants by their listing id. */
-function groupVariants(variants: VariantRecord[]): Map<string, VariantRecord[]> {
-  const map = new Map<string, VariantRecord[]>();
-  for (const v of variants) {
-    const bucket = map.get(v.listingId);
-    if (bucket) {
-      bucket.push(v);
-    } else {
-      map.set(v.listingId, [v]);
-    }
-  }
-  return map;
-}
-
-/**
- * Resolve the brand label for a product card: the store name for store listings,
- * or the seller's Oxy display name for P2P listings.
- */
-async function buildBrandResolver(
-  listings: ListingRecord[],
-): Promise<(listing: ListingRecord) => string> {
-  const storeIds = [
-    ...new Set(
-      listings.flatMap((l) => (l.ownerType === 'store' && l.storeId ? [l.storeId] : [])),
-    ),
-  ];
-  const userIds = [
-    ...new Set(
-      listings.flatMap((l) => (l.ownerType === 'user' && l.oxyUserId ? [l.oxyUserId] : [])),
-    ),
-  ];
-
-  const [storeDocs, oxyProfiles] = await Promise.all([
-    findStoresByIds(storeIds),
-    getProfiles(userIds),
-  ]);
-
-  const storeNameById = new Map(storeDocs.map((s) => [s.id, s.name]));
-
-  return (listing: ListingRecord): string => {
-    if (listing.ownerType === 'store' && listing.storeId) {
-      return storeNameById.get(listing.storeId) ?? '';
-    }
-    if (listing.ownerType === 'user' && listing.oxyUserId) {
-      return oxyProfiles.get(listing.oxyUserId)?.displayName ?? '';
-    }
-    return '';
-  };
-}
-
-/**
- * Build `ProductSummary[]` for a set of listings, loading their variants and
- * gallery images in two batched queries for the whole shelf.
- */
-async function toProductSummaries(listings: ListingRecord[]): Promise<ProductSummary[]> {
-  if (listings.length === 0) {
-    return [];
-  }
-  const listingIds = listings.map((l) => l.id);
-  const [variants, children, brandOf] = await Promise.all([
-    findVariantsByListingIds(listingIds),
-    findListingChildren(listingIds),
-    buildBrandResolver(listings),
-  ]);
-  const variantsByListing = groupVariants(variants);
-
-  return listings.map((listing) =>
-    toProductSummary(
-      listing,
-      variantsByListing.get(listing.id) ?? [],
-      brandOf(listing),
-      children.images.get(listing.id) ?? [],
-    ),
-  );
 }
 
 /** Build the top "category-pills" section from top-level categories. */
