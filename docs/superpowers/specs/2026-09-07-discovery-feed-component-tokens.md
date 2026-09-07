@@ -94,10 +94,16 @@ Category §4 and §7.
 | scrim | `absolute inset-0 bg-bg-overlay-fixed-dark-20` | |
 | label box | `absolute inset-0 z-10 flex items-center justify-center p-space-8 text-center` | |
 | label, small | `font-bodyTitleSmall text-bodyTitleSmall text-text-fixed-light text-center md:hidden` | |
-| label, large | `font-bodyTitleLarge text-bodyTitleLarge text-text-fixed-light text-center hidden md:block` | |
+| label, large | `font-bodyTitleLarge text-bodyTitleLarge text-text-fixed-light text-center hidden md:block` | `hidden md:flex` — see below |
 
 The reference renders BOTH labels and hides one per breakpoint. Keep that — it is
 how the type ramp changes without a JS media query.
+
+**`md:block` becomes `md:flex`, and it is not a style choice.** React Native's
+`display` accepts only `none` and `flex`; `block` is not a value it has, so
+`md:block` resolves to nothing and the large label never reappears. The repo
+already spells this pattern `md:flex` for the same reason — `CartLineItem.tsx:106`.
+Measured and applied by the implementer of Plan B Task 2, not by the capture.
 
 Grid slot: `px-space-4 md:px-space-8 w-1/2 md:w-1/3 lg:w-1/4`.
 
