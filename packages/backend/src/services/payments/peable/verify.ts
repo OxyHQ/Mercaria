@@ -31,8 +31,17 @@ import type { PaymentStatus } from '@mercaria/shared-types';
  */
 const TOLERANCE_SECONDS = 300;
 
-/** What the gateway's event types mean for a payment. */
-const PAYMENT_STATUS_FOR_EVENT: Readonly<Record<string, PaymentStatus>> = {
+/**
+ * What the gateway's event types mean for a payment.
+ *
+ * EXPORTED, and `event-router.ts` derives its handler table from this one rather
+ * than restating it. Two maps of the same fact drift — that is exactly how the
+ * ledger audit stopped covering an entire rail — and here the drift would be
+ * worse than silent: a type this verifier annotates with a status but the router
+ * has no handler for is stored, found unhandled, and marked processed. A real
+ * settlement, filed as understood.
+ */
+export const PAYMENT_STATUS_FOR_EVENT: Readonly<Record<string, PaymentStatus>> = {
   'payment_intent.settled': 'succeeded',
   'payment_intent.failed': 'failed',
   'payment_intent.rejected': 'canceled',

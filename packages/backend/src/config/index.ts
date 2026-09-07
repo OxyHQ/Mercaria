@@ -1492,6 +1492,18 @@ export interface PeableConfig {
   readonly webhookSecretPrevious?: string;
   /** Derived from the environment, never configured. */
   readonly livemode: boolean;
+  /**
+   * The inbound event drain, mirroring Stripe's four.
+   *
+   * Its OWN keys rather than borrowing `stripe.event*`, because the two rails
+   * are drained by two pollers with two claim scopes and the day one of them
+   * needs a longer lease or a bigger batch is the day a shared key becomes a
+   * change to the other rail nobody asked for.
+   */
+  readonly eventMaxAttempts: number;
+  readonly eventBatchSize: number;
+  readonly eventPollIntervalMs: number;
+  readonly eventLeaseMs: number;
 }
 
 export interface PaymentsConfig {
@@ -4373,6 +4385,10 @@ export const config: AppConfig = Object.freeze({
        * `sk_live_` prefix.
        */
       livemode: strEnv('NODE_ENV', 'development') === 'production',
+      eventMaxAttempts: intEnv('PEABLE_EVENT_MAX_ATTEMPTS', 8),
+      eventBatchSize: intEnv('PEABLE_EVENT_BATCH_SIZE', 50),
+      eventPollIntervalMs: intEnv('PEABLE_EVENT_POLL_INTERVAL_MS', 5_000),
+      eventLeaseMs: intEnv('PEABLE_EVENT_LEASE_MS', 60_000),
     }),
     stripe: Object.freeze({
       enabled: resolveStripeEnabled(),

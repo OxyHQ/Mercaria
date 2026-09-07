@@ -539,6 +539,16 @@ connectPostgres()
         .then(({ startStripeEventDispatcher }) => startStripeEventDispatcher())
         .catch((err) => log.general.error({ err }, 'Stripe event dispatcher import failed'));
 
+      // The same loop for the Peable rail (ADR 0009). A SECOND dispatcher rather
+      // than a widened first one, because each claims only the rail its router
+      // can interpret — an unscoped claim would hand this drain a Stripe event,
+      // find no handler for it, and mark a real charge processed. The two poll
+      // the same table and never collide. No-ops entirely when Peable is not
+      // configured.
+      import('./services/payments/peable/event-dispatcher.js')
+        .then(({ startPeableEventDispatcher }) => startPeableEventDispatcher())
+        .catch((err) => log.general.error({ err }, 'Peable event dispatcher import failed'));
+
       // Re-read connected accounts Stripe has not told us about lately. A missed
       // `account.updated` is silent by construction — nothing here knows about
       // an event it never received — so the only thing that can notice is a
