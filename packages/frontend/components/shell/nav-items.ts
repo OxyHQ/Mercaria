@@ -71,8 +71,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/cart",
     available: true,
   },
-  // No `href`: `/offers` is not a route.
-  { key: "deals", labelKey: "nav.deals", icon: Tag, available: false },
+  { key: "deals", labelKey: "nav.deals", icon: Tag, href: "/deals", available: true },
   // #80 shipped `app/(app)/saved.tsx`, so this is navigable now. It stays a
   // real route rather than a modal because a saved list is a place a buyer
   // returns to and links to.
