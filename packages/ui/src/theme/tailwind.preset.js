@@ -31,6 +31,7 @@ module.exports = {
         "radius-12": "12px",
         "radius-16": "16px",
         "radius-20": "20px",
+        "radius-24": "24px",
         "radius-28": "28px",
         "radius-max": "9999px",
       },
@@ -74,6 +75,10 @@ module.exports = {
         buttonSmall: ["13px", { lineHeight: "16px", fontWeight: "600" }],
         buttonMedium: ["14px", { lineHeight: "20px", fontWeight: "600" }],
         buttonLarge: ["16px", { lineHeight: "20px", fontWeight: "600" }],
+        // The category page's poster headline (md breakpoint up) — bigger than
+        // any size the ramp above carries, so it is its own token rather than a
+        // variant of `header`.
+        posterXS: ["40px", { lineHeight: "44px", fontWeight: "700" }],
       },
       fontWeight: {
         // Matching `font-<key>` weight tokens so the original's `font-X text-X`
@@ -95,6 +100,9 @@ module.exports = {
         buttonSmall: "600",
         buttonMedium: "600",
         buttonLarge: "600",
+        // Matches `fontSize.posterXS` so `font-posterXS text-posterXS` resolves
+        // verbatim, same as every other pair in this block.
+        posterXS: "700",
       },
       colors: {
         // ── Shopify "Shop" semantic color names ──────────────────────────────
@@ -123,6 +131,9 @@ module.exports = {
         "bg-fill-inverse": "var(--foreground)",
         "bg-fill-inverse-hover": "var(--foreground)",
         "bg-fill-hover": "var(--muted)",
+        // The discovery feed's pagination-dot / scrim fill — a third surface
+        // beside `bg-fill`/`bg-fill-secondary`, same muted var as the others.
+        "bg-fill-tertiary": "var(--muted)",
         brand: "var(--primary)",
         "fill-fixed-dark": "#111111",
         "fill-fixed-light": "#ffffff",
@@ -137,6 +148,15 @@ module.exports = {
         "overlay-fixed-dark-20": "rgba(0,0,0,0.20)",
         "overlay-fixed-dark-40": "rgba(0,0,0,0.40)",
         "overlay-highlight": "rgba(255,255,255,0.6)",
+        // Scrim and pagination-dot values from the discovery capture, filling
+        // out the `dark`/`light` ramp beside `overlay-fixed-dark-20`/`-40`
+        // above. Theme-independent constants by design, like every other
+        // `fixed`/`overlay` token in this block.
+        "overlay-fixed-dark-04": "rgba(0,0,0,0.04)",
+        "overlay-fixed-dark-10": "rgba(0,0,0,0.10)",
+        "overlay-fixed-light-20": "rgba(255,255,255,0.20)",
+        "overlay-fixed-light-40": "rgba(255,255,255,0.40)",
+        "overlay-fixed-light-75": "rgba(255,255,255,0.75)",
         // ── Existing Mercaria tokens (unchanged) ─────────────────────────────
         border: "var(--border)",
         input: "var(--input)",
@@ -195,6 +215,13 @@ module.exports = {
           border: "var(--sidebar-border)",
           ring: "var(--sidebar-ring)",
         },
+      },
+      boxShadow: {
+        // The reference names `shadow-s`/`shadow-m`; components here reach for
+        // Tailwind's own `shadow-md`/`shadow-lg` today, which is a different ramp.
+        s: "0 1px 2px rgba(0,0,0,.06)",
+        m: "0 2px 8px rgba(0,0,0,.10)",
+        l: "0 8px 24px rgba(0,0,0,.14)",
       },
     },
   },
