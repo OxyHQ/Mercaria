@@ -23,6 +23,13 @@ const DEFAULT_CONTENT_PADDING = 16;
 const PAGE_FRACTION = 0.9;
 /** Arrow button icon size. */
 const ARROW_ICON_SIZE = 20;
+/**
+ * Inter-item gap every card row uses: 8px, stepping to 16px at `sm` on web.
+ * The step is `web:`-prefixed because the reference it was measured from is a
+ * web capture — there is no native evidence for a breakpoint change, and the
+ * arrows above make the same call for the same reason.
+ */
+const DEFAULT_GAP_CLASSNAME = "gap-2 web:sm:gap-4";
 
 export interface CarouselProps<T> {
   /** Items rendered left-to-right in the horizontal scroller. */
@@ -35,9 +42,17 @@ export interface CarouselProps<T> {
    * Tailwind classes that set each slot's FIXED, responsive width (and any
    * inter-item gap). No JS measuring — the width is purely class-driven, e.g.
    * `"w-[154px] md:w-[192px] me-3"`. (Shop sizes cards by class, not by layout
-   * math.)
+   * math.) A margin here ADDS to `gapClassName` and can never subtract from it,
+   * so a row needing a gap TIGHTER than the default must set `gapClassName`.
    */
   slotClassName: string;
+  /**
+   * Tailwind gap classes for the space between items. Defaults to
+   * `DEFAULT_GAP_CLASSNAME`, which every card row uses. The feed's pill row is
+   * the one override: its measured gap is 4px/8px, tighter than the default,
+   * and the `slotClassName` margin route above can only widen a gap.
+   */
+  gapClassName?: string;
   /** Horizontal padding of the scroll content, in px. */
   contentPadding?: number;
   /**
@@ -65,6 +80,7 @@ export function Carousel<T>({
   keyExtractor,
   renderItem,
   slotClassName,
+  gapClassName = DEFAULT_GAP_CLASSNAME,
   contentPadding = DEFAULT_CONTENT_PADDING,
   showArrows,
 }: CarouselProps<T>) {
@@ -145,7 +161,7 @@ export function Carousel<T>({
           contentWidth.current = w;
           syncCanScroll();
         }}
-        contentContainerClassName="gap-2 web:sm:gap-4"
+        contentContainerClassName={gapClassName}
         contentContainerStyle={{ paddingHorizontal: contentPadding }}
       >
         {safeItems.map((item) => (
