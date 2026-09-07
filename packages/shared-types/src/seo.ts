@@ -88,7 +88,19 @@ export type PublicRouteId =
    * It carries no `sitemapCollection`: there is one of it, so the sitemap needs
    * no collection to enumerate.
    */
-  | 'category_index';
+  | 'category_index'
+  /**
+   * `/deals` — one `store-offer` section per store with a live automatic
+   * discount (the discovery feed's `scope=deals`,
+   * `docs/superpowers/specs/2026-09-07-discovery-feed-design.md`).
+   *
+   * Indexable for the same reason `category_index` is: the same content for
+   * every visitor, backed by editorially-independent facts (which stores
+   * currently discount, not a shopper-assembled combination), and reached from
+   * the storefront's own navigation. It carries no `sitemapCollection` for the
+   * same reason too — there is one of it.
+   */
+  | 'deals';
 
 export const PUBLIC_ROUTE_IDS: readonly PublicRouteId[] = [
   'home',
@@ -102,6 +114,7 @@ export const PUBLIC_ROUTE_IDS: readonly PublicRouteId[] = [
   'seller',
   'category_browse',
   'category_index',
+  'deals',
 ];
 
 /**
@@ -598,6 +611,12 @@ export interface SeoSitemapIndexEntry {
 export const SEO_ROBOTS_DISALLOWED_PATHS: readonly string[] = [
   // Internal search: infinite, thin and duplicative of the browse pages.
   '/search',
+  // One category's listings resliced by a signal (the discovery feed's
+  // `/categories/:handle/s/:signal`) — the SAME listings the category page
+  // already carries, sorted five different ways. Near-duplicate of the page it
+  // hangs off by construction, the `/search` class above, and wildcarded
+  // because both the category and the signal vary.
+  '/categories/*/s/',
   // Grounded comparison (#96): one page per shopper-assembled TUPLE of
   // products, and its `?watchlist=` names a private list (#81).
   '/compare',

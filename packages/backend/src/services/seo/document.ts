@@ -135,6 +135,8 @@ function structuredDataFor(
     case 'seller':
     case 'category_browse':
     case 'native_store_legacy':
+    case 'category_index':
+    case 'deals':
       break;
   }
 

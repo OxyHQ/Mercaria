@@ -142,7 +142,7 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = Object.freeze([
    * Category and filtered browse — LIVE since #367 workstream 9.
    *
    * The row was `planned` for as long as no screen rendered one. When
-   * `app/(app)/categories/[handle].tsx` landed, DIRECTION 3 of
+   * `app/(app)/categories/[handle]/index.tsx` landed, DIRECTION 3 of
    * `seo-routes.test.ts` refused the tree — which is the gate doing exactly its
    * job, and it caught a half-done acceptance criterion rather than a typo: the
    * storefront asks `GET /seo/resolve` for this page's canonical URL and
@@ -155,7 +155,7 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = Object.freeze([
     pattern: '/categories/:handle',
     identity: 'handle',
     availability: 'live',
-    screen: 'app/(app)/categories/[handle].tsx',
+    screen: 'app/(app)/categories/[handle]/index.tsx',
     sitemapCollection: 'categories',
   },
   /**
@@ -179,6 +179,22 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = Object.freeze([
     identity: 'none',
     availability: 'live',
     screen: 'app/(app)/categories/index.tsx',
+  },
+  /**
+   * The deals hub — one `store-offer` section per store with a live automatic
+   * discount. The reasoning is on `PublicRouteId`'s own member.
+   *
+   * NO `sitemapCollection`, for `category_index`'s own reason: there is one of
+   * it, so there is no collection to enumerate. It reaches a crawler through
+   * the sitemap index's static entries and through the storefront's own
+   * navigation (the `nav.deals` item), exactly as `category_index` does.
+   */
+  {
+    id: 'deals',
+    pattern: '/deals',
+    identity: 'none',
+    availability: 'live',
+    screen: 'app/(app)/deals.tsx',
   },
 ] satisfies readonly PublicRoute[]);
 
