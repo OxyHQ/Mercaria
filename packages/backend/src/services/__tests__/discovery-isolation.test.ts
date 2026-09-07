@@ -14,10 +14,17 @@
  *
  * Five properties:
  *
- * 1. **No file under `services/offer*`, `services/ranking*`, `db/offers/` or
- *    `db/ranking/` imports `db/discovery/` or `services/discovery/`.** Merchant
- *    and brand popularity have nowhere to be read from if the ranking and offer
- *    domains cannot reach the module that computes them.
+ * 1. **No file under `services/offer*`, `services/ranking*`, `db/offer*` or
+ *    `db/ranking*` imports `db/discovery/` or `services/discovery/`.** Both
+ *    roots use the SAME prefix glob for the same name — `offer` reaches
+ *    `services/offers`, `services/offer-freshness`, `db/offers` AND
+ *    `db/offerFreshness` alike — so the wall's coverage cannot depend on which
+ *    of two equivalent spellings a brief happened to use for a given root.
+ *    `observation_freshness` is one of the eleven allowed
+ *    `OFFER_RANKING_SIGNALS`, so offer freshness is squarely this domain and
+ *    belongs behind the same wall as the rest of it. Merchant and brand
+ *    popularity have nowhere to be read from if the ranking and offer domains
+ *    cannot reach the module that computes them.
  * 2. **The reverse direction too.** No file under `services/discovery/` or
  *    `db/discovery/` imports `db/offers/`, `services/offer*` or
  *    `db/schema/ranking.js`. A shelf one join from a weighted ordering is a
@@ -60,31 +67,42 @@ import { discoverySignals } from '../../db/schema/discovery.js';
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
- * Every directory under `services/` whose name STARTS WITH `prefix`.
+ * Every directory directly under `parent` whose name STARTS WITH `prefix`.
  *
- * `services/offer*` in the brief is a glob, not two hand-named directories:
- * `services/offers` and `services/offer-freshness` both qualify today, and a
- * THIRD `services/offer-…` directory added tomorrow must fall under this wall
- * without an edit here. `services/ranking*` is the same device applied to one
- * name. `db/offers/` and `db/ranking/` are written as exact paths in the brief
- * (no `*`), so they stay a hand list of two below rather than a prefix scan —
- * `db/offerFreshness/` exists and is deliberately NOT swept in, matching the
- * brief's literal wording.
+ * `services/offer*` and `services/ranking*` in the brief are GLOBS, not
+ * hand-named directories, and the coverage they buy must not depend on
+ * whichever spelling the brief happened to use for a given root. Applied to
+ * BOTH `services/` and `db/`: `services/offers`, `services/offer-freshness`
+ * and `services/ranking` qualify today on the services side, and
+ * `db/offers`, `db/offerFreshness` and `db/ranking` qualify on the db side —
+ * `db/offerFreshness/` was originally left out because the brief spelled the
+ * db paths as two exact strings, and that was an inconsistency in how the
+ * brief was typed rather than a decision that offer freshness (#68,
+ * `observation_freshness` — one of the eleven allowed `OFFER_RANKING_SIGNALS`)
+ * sits outside the offer domain. A fourth `db/offer-…` or `services/ranking-…`
+ * directory added tomorrow falls under this wall with no edit here.
  */
-function servicesDirectoriesStartingWith(prefix: string, readDir: DirectoryReader): string[] {
-  return readDir('services')
+function directoriesStartingWith(parent: string, prefix: string, readDir: DirectoryReader): string[] {
+  return readDir(parent)
     .filter((entry) => entry.isDirectory() && entry.name !== '__tests__')
     .filter((entry) => entry.name.startsWith(prefix))
-    .map((entry) => `services/${entry.name}`);
+    .map((entry) => `${parent}/${entry.name}`);
 }
 
-/** The offer- and ranking-owned directories this wall applies to. */
+/**
+ * The offer- and ranking-owned directories this wall applies to.
+ *
+ * ONE prefix per name, applied to BOTH roots — `offer` on `services/` reaches
+ * `services/offers` and `services/offer-freshness`, and the same `offer` on
+ * `db/` reaches `db/offers` and `db/offerFreshness`. Two prefixes, not four
+ * hand-picked strings, so the services and db sides cannot drift back apart.
+ */
 function offerRankingOwnedDirectories(readDir: DirectoryReader = readSrcDirectory): string[] {
   return [
-    ...servicesDirectoriesStartingWith('offer', readDir),
-    ...servicesDirectoriesStartingWith('ranking', readDir),
-    'db/offers',
-    'db/ranking',
+    ...directoriesStartingWith('services', 'offer', readDir),
+    ...directoriesStartingWith('services', 'ranking', readDir),
+    ...directoriesStartingWith('db', 'offer', readDir),
+    ...directoriesStartingWith('db', 'ranking', readDir),
   ];
 }
 
@@ -192,7 +210,7 @@ describe('the two populations are not vacuous', () => {
     // The floor catches a renamed directory, which would otherwise make WALL 1
     // pass against an empty list.
     const domain = offerRankingSources();
-    expect(domain.length, 'the offer/ranking walk found too few files').toBeGreaterThanOrEqual(20);
+    expect(domain.length, 'the offer/ranking walk found too few files').toBeGreaterThanOrEqual(25);
     const from = (prefix: string) => domain.filter((f) => f.relative.startsWith(prefix)).length;
     expect(from('services/offers/'), 'the offers service walk found nothing').toBeGreaterThanOrEqual(3);
     expect(
@@ -203,6 +221,10 @@ describe('the two populations are not vacuous', () => {
       6,
     );
     expect(from('db/offers/'), 'the offers repository walk found nothing').toBeGreaterThanOrEqual(2);
+    expect(
+      from('db/offerFreshness/'),
+      'the offer-freshness repository walk found nothing',
+    ).toBeGreaterThanOrEqual(4);
     expect(from('db/ranking/'), 'the ranking repository walk found nothing').toBeGreaterThanOrEqual(1);
     for (const file of domain) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(50);
@@ -233,7 +255,7 @@ describe('the two populations are not vacuous', () => {
 });
 
 describe('WALL 1: the offer and ranking domains cannot reach the discovery counts', () => {
-  it('no file under services/offer*, services/ranking*, db/offers/ or db/ranking/ imports discovery', () => {
+  it('no file under services/offer*, services/ranking*, db/offer* or db/ranking* imports discovery', () => {
     let scanned = 0;
     for (const file of offerRankingSources()) {
       expect(
@@ -244,7 +266,7 @@ describe('WALL 1: the offer and ranking domains cannot reach the discovery count
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBeGreaterThanOrEqual(20);
+    expect(scanned).toBeGreaterThanOrEqual(25);
   });
 });
 
