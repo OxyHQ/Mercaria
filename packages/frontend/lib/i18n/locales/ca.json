@@ -248,6 +248,7 @@
     "category": {
       "fallbackTitle": "Categoria",
       "notFound": "No hem trobat aquesta categoria.",
+      "loadError": "No hem pogut carregar aquesta categoria. Torna-ho a provar.",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {
@@ -1526,6 +1527,7 @@
     },
     "signal": {
       "notFound": "No hem trobat aquesta llista.",
+      "loadError": "No hem pogut carregar aquesta llista. Torna-ho a provar.",
       "cappedNotice": "Mostrant la nostra selecció principal d'aquesta llista; és possible que hi falti algun article.",
       "empty": "Encara no hi ha res a mostrar aquí.",
       "loadMore": "Carrega'n més",
@@ -1534,7 +1536,8 @@
     },
     "deals": {
       "title": "Ofertes",
-      "empty": "No hi ha ofertes actives ara mateix."
+      "empty": "No hi ha ofertes actives ara mateix.",
+      "loadError": "No hem pogut carregar les ofertes. Torna-ho a provar."
     }
   }
 }

@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
 import { Text } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
@@ -36,7 +36,27 @@ export default function DealsScreen() {
           <Text className="text-body text-text-tertiary">{t('common.loading')}</Text>
         ) : null}
 
-        {!feed.isLoading && sections.length === 0 ? (
+        {/* A FAILED request is not "no active deals" — that is a real state
+            (nothing live to show), and this one is a fetch that never
+            answered. Checked before the empty branch so a failure cannot
+            fall through and read as the confident, unrelated claim. */}
+        {feed.isError && feed.data === undefined ? (
+          <View className="items-center px-8 py-16">
+            <Text className="text-center text-body text-text-tertiary">
+              {t('discovery.deals.loadError')}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('common.tryAgain')}
+              onPress={() => feed.refetch()}
+              className="mt-4 rounded-full border border-border px-5 py-2"
+            >
+              <Text className="text-sm font-semibold text-foreground">{t('common.tryAgain')}</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {!feed.isLoading && !feed.isError && sections.length === 0 ? (
           <Text className="text-body text-text-tertiary">{t('discovery.deals.empty')}</Text>
         ) : null}
 

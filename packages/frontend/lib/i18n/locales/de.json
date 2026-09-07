@@ -246,6 +246,7 @@
     "category": {
       "fallbackTitle": "Kategorie",
       "notFound": "Diese Kategorie konnten wir nicht finden.",
+      "loadError": "Diese Kategorie konnte nicht geladen werden. Versuche es erneut.",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {
@@ -1509,6 +1510,7 @@
     },
     "signal": {
       "notFound": "Diese Liste konnten wir nicht finden.",
+      "loadError": "Diese Liste konnte nicht geladen werden. Versuche es erneut.",
       "cappedNotice": "Hier zeigen wir unsere Top-Auswahl für diese Liste — einige passende Artikel fehlen eventuell noch.",
       "empty": "Hier gibt es noch nichts zu zeigen.",
       "loadMore": "Mehr laden",
@@ -1517,7 +1519,8 @@
     },
     "deals": {
       "title": "Angebote",
-      "empty": "Derzeit keine aktiven Angebote."
+      "empty": "Derzeit keine aktiven Angebote.",
+      "loadError": "Angebote konnten nicht geladen werden. Versuche es erneut."
     }
   }
 }

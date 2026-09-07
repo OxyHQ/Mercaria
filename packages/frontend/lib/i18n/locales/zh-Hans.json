@@ -246,6 +246,7 @@
     "category": {
       "fallbackTitle": "类目",
       "notFound": "没有找到这个类目。",
+      "loadError": "无法加载这个类目，请重试。",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {
@@ -1509,6 +1510,7 @@
     },
     "signal": {
       "notFound": "没有找到这个列表。",
+      "loadError": "无法加载这个列表，请重试。",
       "cappedNotice": "正在展示这份列表的精选内容，部分符合条件的商品可能暂未显示。",
       "empty": "这里暂时没有可显示的内容。",
       "loadMore": "加载更多",
@@ -1517,7 +1519,8 @@
     },
     "deals": {
       "title": "优惠",
-      "empty": "目前没有正在进行的优惠。"
+      "empty": "目前没有正在进行的优惠。",
+      "loadError": "无法加载优惠，请重试。"
     }
   }
 }

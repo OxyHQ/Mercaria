@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import type { SeoBreadcrumb } from '@mercaria/shared-types';
@@ -188,6 +188,34 @@ export default function CategoryScreen() {
     );
   }
 
+  // A FAILED tree fetch is not a not-found — `category` is `undefined` in
+  // both cases (the lookup has nothing to search), but they are different
+  // things and the copy must say so: this one can be retried, and a shopper
+  // who followed a good link during a blip must not be told the category is
+  // gone.
+  if (tree.isError && tree.data === undefined) {
+    return (
+      <ScreenShell contentClassName="pt-6">
+        {head}
+        <View className="items-center justify-center px-8 py-16">
+          <Text className="text-center text-body text-text-tertiary">
+            {t('catalog.category.loadError')}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.tryAgain')}
+            onPress={() => tree.refetch()}
+            className="mt-4 rounded-full border border-border px-5 py-2"
+          >
+            <Text className="text-sm font-semibold text-foreground">{t('common.tryAgain')}</Text>
+          </Pressable>
+        </View>
+      </ScreenShell>
+    );
+  }
+
+  // The tree fetch SUCCEEDED and the lookup still found nothing — a genuine
+  // not-found, only reachable once the branch above has ruled out a failure.
   if (category === undefined) {
     return (
       <ScreenShell contentClassName="pt-6">
@@ -217,7 +245,26 @@ export default function CategoryScreen() {
           <Text className="text-body text-text-tertiary">{t('common.loading')}</Text>
         ) : null}
 
-        {!feed.isLoading && sections.length === 0 ? (
+        {/* A FAILED feed request is not "nothing to show" — checked before
+            the empty branch so a failure cannot fall through and read as
+            that unrelated, confident claim. */}
+        {feed.isError && feed.data === undefined ? (
+          <View className="items-center px-8 py-16">
+            <Text className="text-center text-body text-text-tertiary">
+              {t('discovery.signal.loadError')}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('common.tryAgain')}
+              onPress={() => feed.refetch()}
+              className="mt-4 rounded-full border border-border px-5 py-2"
+            >
+              <Text className="text-sm font-semibold text-foreground">{t('common.tryAgain')}</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {!feed.isLoading && !feed.isError && sections.length === 0 ? (
           <Text className="text-body text-text-tertiary">{t('discovery.signal.empty')}</Text>
         ) : null}
 

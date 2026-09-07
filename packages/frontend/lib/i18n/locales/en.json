@@ -246,6 +246,7 @@
     "category": {
       "fallbackTitle": "Category",
       "notFound": "We couldn't find this category.",
+      "loadError": "Couldn't load this category. Try again.",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {
@@ -1509,6 +1510,7 @@
     },
     "signal": {
       "notFound": "We couldn't find this list.",
+      "loadError": "Couldn't load this list. Try again.",
       "cappedNotice": "Showing our top picks for this list — some matching items may not appear yet.",
       "empty": "Nothing to show here yet.",
       "loadMore": "Load more",
@@ -1517,7 +1519,8 @@
     },
     "deals": {
       "title": "Deals",
-      "empty": "No active deals right now."
+      "empty": "No active deals right now.",
+      "loadError": "Couldn't load deals. Try again."
     }
   }
 }

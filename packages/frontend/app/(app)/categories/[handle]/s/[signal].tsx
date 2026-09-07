@@ -87,6 +87,32 @@ export default function SignalScreen() {
     );
   }
 
+  // A FAILED tree fetch is not a not-found — `category` is `undefined` in
+  // both cases, but they are different things and the copy must say so: this
+  // one can be retried, and a shopper who followed a good link during a blip
+  // must not be told the category is gone.
+  if (tree.isError && tree.data === undefined) {
+    return (
+      <ScreenShell contentClassName="pt-6">
+        <View className="items-center justify-center px-8 py-16">
+          <Text className="text-center text-body text-text-tertiary">
+            {t('catalog.category.loadError')}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.tryAgain')}
+            onPress={() => tree.refetch()}
+            className="mt-4 rounded-full border border-border px-5 py-2"
+          >
+            <Text className="text-sm font-semibold text-foreground">{t('common.tryAgain')}</Text>
+          </Pressable>
+        </View>
+      </ScreenShell>
+    );
+  }
+
+  // The tree fetch SUCCEEDED and the lookup still found nothing — a genuine
+  // not-found, only reachable once the branch above has ruled out a failure.
   if (category === undefined) {
     return (
       <ScreenShell contentClassName="pt-6">
@@ -131,7 +157,26 @@ export default function SignalScreen() {
           <Text className="text-body text-text-tertiary">{t('common.loading')}</Text>
         ) : null}
 
-        {!signalPage.isLoading && products.length === 0 ? (
+        {/* A FAILED request is not "nothing to show" — checked before the
+            empty branch so a failure cannot fall through and read as that
+            unrelated, confident claim. */}
+        {signalPage.isError && products.length === 0 ? (
+          <View className="items-center px-8 py-16">
+            <Text className="text-center text-body text-text-tertiary">
+              {t('discovery.signal.loadError')}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('common.tryAgain')}
+              onPress={() => signalPage.refetch()}
+              className="mt-4 rounded-full border border-border px-5 py-2"
+            >
+              <Text className="text-sm font-semibold text-foreground">{t('common.tryAgain')}</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {!signalPage.isLoading && !signalPage.isError && products.length === 0 ? (
           <Text className="text-body text-text-tertiary">{t('discovery.signal.empty')}</Text>
         ) : null}
 
