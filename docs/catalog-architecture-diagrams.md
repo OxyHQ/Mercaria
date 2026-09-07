@@ -748,8 +748,8 @@ erDiagram
 
 | Table | Created by | Written by |
 |---|---|---|
-| `discovery_signals` | `0154` | `db/discovery` (delete/insert) |
-| `discovery_sweep_cursors` | `0154` | `db/discovery` (insert/update) |
+| `discovery_signals` | `0155` | `db/discovery` (delete/insert) |
+| `discovery_sweep_cursors` | `0155` | `db/discovery` (insert/update) |
 
 ## 4. What the derivation found
 
