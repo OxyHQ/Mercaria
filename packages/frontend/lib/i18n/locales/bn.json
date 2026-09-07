@@ -1506,7 +1506,8 @@
       "new": "%{category}-এ নতুন",
       "onSale": "%{category}-এ বিশেষ ছাড়",
       "bestSelling": "%{category}-এ সবচেয়ে বেশি বিক্রিত",
-      "mostViewed": "%{category}-এ সবচেয়ে বেশি দেখা"
+      "mostViewed": "%{category}-এ সবচেয়ে বেশি দেখা",
+      "stores": "%{category}-এ দোকান"
     },
     "signal": {
       "notFound": "আমরা এই তালিকাটি খুঁজে পাইনি।",

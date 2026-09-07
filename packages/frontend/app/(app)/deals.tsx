@@ -68,8 +68,13 @@ export default function DealsScreen() {
           />
         )}
       </Head>
-      <View className="web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
-        <Text className="text-titleMedium text-text" accessibilityRole="header">
+      {/*
+       * Page chrome only — the feed renders below, outside this container, so
+       * its carousels get the full scroll width instead of clipping inside a
+       * centred column. `categories/index.tsx` says the same thing at length.
+       */}
+      <View className="mb-space-32 web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
+        <Text className="text-headerBold text-text" accessibilityRole="header">
           {t('discovery.deals.title')}
         </Text>
 
@@ -100,11 +105,11 @@ export default function DealsScreen() {
         {!feed.isLoading && !feed.isError && sections.length === 0 ? (
           <Text className="text-body text-text-tertiary">{t('discovery.deals.empty')}</Text>
         ) : null}
-
-        <DiscoveryFeed sections={sections} />
-
-        <Footer />
       </View>
+
+      <DiscoveryFeed sections={sections} />
+
+      <Footer />
     </ScreenShell>
   );
 }

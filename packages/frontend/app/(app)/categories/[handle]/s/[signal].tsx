@@ -15,8 +15,8 @@ import { findCategoryByHandle, useCategoryTree } from '@/lib/catalog/category-tr
 
 /**
  * `/categories/:handle/s/:signal` — one signal, one scope, paginated: the
- * "see all" destination every hero card and `SectionCard` on the feed links
- * to (`docs/superpowers/specs/2026-09-07-discovery-feed-design.md`).
+ * "see all" destination every shelf heading on the feed links to
+ * (`docs/superpowers/specs/2026-09-07-discovery-feed-design.md`).
  *
  * ## An unknown signal is a not-found, never a default
  *
@@ -140,7 +140,7 @@ export default function SignalScreen() {
     <ScreenShell contentClassName="pt-6">
       {head}
       <View className="web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
-        <Text className="text-titleMedium text-text" accessibilityRole="header">
+        <Text className="text-headerBold text-text" accessibilityRole="header">
           {title}
         </Text>
 

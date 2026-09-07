@@ -1506,7 +1506,8 @@
       "new": "%{category}の新着商品",
       "onSale": "%{category}のセール品",
       "bestSelling": "%{category}の売れ筋商品",
-      "mostViewed": "%{category}の人気商品"
+      "mostViewed": "%{category}の人気商品",
+      "stores": "%{category}のショップ"
     },
     "signal": {
       "notFound": "このリストは見つかりませんでした。",

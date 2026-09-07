@@ -1506,7 +1506,8 @@
       "new": "جديد في %{category}",
       "onSale": "عروض في %{category}",
       "bestSelling": "الأكثر مبيعًا في %{category}",
-      "mostViewed": "الأكثر مشاهدة في %{category}"
+      "mostViewed": "الأكثر مشاهدة في %{category}",
+      "stores": "متاجر في %{category}"
     },
     "signal": {
       "notFound": "لم نتمكن من العثور على هذه القائمة.",

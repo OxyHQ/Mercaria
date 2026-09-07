@@ -822,10 +822,6 @@
     "category": {
       "browse": "%{category} durchsuchen"
     },
-    "discountBadge": {
-      "save": "Spare %{amount}",
-      "saveA11y": "Spare %{amount} mit deinem Angebot"
-    },
     "merchantCart": {
       "checkout": "Weiter zur Kasse",
       "subtotal": "Zwischensumme:"
@@ -876,10 +872,6 @@
       "chipRemove": "Entfernen: %{origin} %{label}",
       "modeModel": "Mithilfe eines Modells interpretiert",
       "modeRules": "Nach unseren eigenen Regeln interpretiert"
-    },
-    "storeOfferHeader": {
-      "save": "Spare %{amount}",
-      "minimum": "bei Bestellungen ab %{minimum}"
     },
     "variantSwatches": {
       "showMoreA11y": "Weitere Optionen für %{option} (%{more})",

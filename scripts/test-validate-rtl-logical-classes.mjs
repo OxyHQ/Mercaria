@@ -138,11 +138,6 @@ function migratedTree(extra = {}) {
       'export const I = () => <View className="h-full w-2.5 border-l border-l-transparent" />;\n',
     "packages/ui/src/components/ui/dialog.tsx":
       "export const J = () => <View className={cn('flex-col gap-2 text-center sm:text-left')} />;\n",
-    // `text-left` x1: the browse-category tile's name label, over a per-category
-    // flat background colour rather than an image (the discovery feed
-    // component-tokens appendix names it verbatim for this reason).
-    "packages/ui/src/components/marketplace/CategorySampleTile.tsx":
-      'export const J2 = () => <Text className="relative text-left text-bodyTitleLarge text-text-inverse" />;\n',
     // `border-l` x1 (#434): the POS cart-panel divider, the one physical utility
     // left in either app after the migration. `md:border-border` deliberately
     // sits beside it — it is NOT a border SIDE, so a rule that matched it would

@@ -629,41 +629,16 @@ export {
 } from "./components/marketplace/PickupCollectionPanel";
 
 // ---------------------------------------------------------------------------
-// Discovery feed (explore, category and deals) presentational components.
-// `docs/superpowers/specs/2026-09-07-discovery-feed-component-tokens.md` is
-// their class-by-class authority, read off Shop's own captured markup rather
-// than estimated. `SectionHeader`'s trailing-chevron change lives with its
-// existing export above; everything below is new.
+// The discovery feed (explore, category and deals) renders through the
+// marketplace components exported above — `ProductShelf`, `CategoryPills`,
+// `MerchantCarousel`, `MerchantHeader`, `ProductCarousel` — because the
+// storefront was built from the same reference and those already resolve it
+// into this app's widths, card sizes and heading scale. Nine bespoke feed
+// cards were added here and removed again: they re-derived their measurements
+// from the raw capture and produced pages that matched no other screen.
 //
-// `categoryPaletteColor` (`./lib/category-palette`) is deliberately NOT
-// exported: it is `CategorySampleTile`'s own per-category colour derivation,
-// consumed only there, and no screen calls it directly — a caller hands the
-// tile a `CategoryTile`, not a colour.
+// `FeedGrid` is the one that stayed. It is not a feed card; it is the wrapping
+// grid the "see all" page (`/categories/:handle/s/:signal`) lays its product
+// cards out in, and that screen is its only caller.
 // ---------------------------------------------------------------------------
-export {
-  ActionHeroCard,
-  type ActionHeroCardProps,
-} from "./components/marketplace/ActionHeroCard";
-export {
-  CategorySampleTile,
-  type CategorySampleTileProps,
-} from "./components/marketplace/CategorySampleTile";
-export {
-  CategoryImageTile,
-  type CategoryImageTileProps,
-} from "./components/marketplace/CategoryImageTile";
-export {
-  FeedActionPill,
-  type FeedActionPillProps,
-} from "./components/marketplace/FeedActionPill";
-export { SectionCard, type SectionCardProps } from "./components/marketplace/SectionCard";
 export { FeedGrid, type FeedGridProps } from "./components/marketplace/FeedGrid";
-export {
-  StoreProductCard,
-  type StoreProductCardProps,
-} from "./components/marketplace/StoreProductCard";
-export { DiscountBadge, type DiscountBadgeProps } from "./components/marketplace/DiscountBadge";
-export {
-  StoreOfferHeader,
-  type StoreOfferHeaderProps,
-} from "./components/marketplace/StoreOfferHeader";

@@ -159,13 +159,22 @@ export default function CategoryIndexScreen() {
   return (
     <ScreenShell contentClassName="pt-6">
       {head}
-      <View className="web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
+      {/*
+       * Page chrome only. The feed below sits OUTSIDE this container on
+       * purpose: its shelves are horizontally scrolling carousels, and a
+       * centred, max-width column gives them a viewport narrower than the
+       * screen — the row then clips inside it and leaves the rest of the page
+       * empty. `app/(app)/index.tsx` wraps its shelves in nothing at all for
+       * the same reason, and each `@mercaria/ui` shelf already carries its own
+       * horizontal padding.
+       */}
+      <View className="mb-space-32 web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
         <CatalogBreadcrumbs
           crumbs={document?.breadcrumbs ?? []}
           hrefForPath={hubHrefForPath}
         />
 
-        <Text className="text-titleMedium text-text" accessibilityRole="header">
+        <Text className="text-headerBold text-text" accessibilityRole="header">
           {t('catalog.categoryIndex.title')}
         </Text>
 
@@ -181,10 +190,11 @@ export default function CategoryIndexScreen() {
           <Text className="text-body text-text-tertiary">
             {t('catalog.categoryIndex.empty')}
           </Text>
-        ) : (
-          <DiscoveryFeed sections={sections} />
-        )}
+        ) : null}
       </View>
+
+      {sections.length === 0 ? null : <DiscoveryFeed sections={sections} />}
+
       <Footer />
     </ScreenShell>
   );

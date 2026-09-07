@@ -18,9 +18,8 @@ export interface FeedGridProps<T> {
   slotClassName: string;
   /**
    * Row gap between wrapped rows, e.g. `"gap-y-space-8 md:gap-y-space-16"`
-   * (the default shelf rhythm) or `"gap-y-space-40"` (the `SectionCard`
-   * group). Caller-supplied because it differs per family, same reasoning as
-   * `slotClassName`.
+   * (the default shelf rhythm). Caller-supplied because it differs per family,
+   * same reasoning as `slotClassName`.
    */
   rowGapClassName: string;
 }
