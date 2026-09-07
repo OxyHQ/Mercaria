@@ -28,6 +28,7 @@
 
 import { and, asc, eq, or, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
+import { isLiveEntityId } from '@oxyhq/db';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { categories } from '../schema/catalog.js';
 
@@ -69,6 +70,39 @@ export async function findActiveCategoryBySlug(
     .where(and(eq(categories.slug, slug), eq(categories.isActive, true)))
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * One ACTIVE category by id OR slug (ADR 0007 D1) — the shared resolution
+ * every `:handle`-shaped category route uses, so a category page and this
+ * feed's `category:<handle>` scope keep working across a rename: the id
+ * never changes, only the slug does.
+ *
+ * `isLiveEntityId` decides the branch by SHAPE, not by trying one then the
+ * other and hoping — the same discriminator `merchant.service.ts`'s
+ * `findByIdOrSlug` and `storefront.service.ts` already use for the identical
+ * `idOrSlug` shape one domain over. A category id and a category slug cannot
+ * collide under it: an id is UUID-shaped and a slug is lowercase-hyphenated
+ * text, so `isLiveEntityId` accepts one shape and a real slug can never
+ * satisfy it. There is no second resolution order to decide between.
+ *
+ * `isActive` is checked on BOTH branches, not just the slug one it already
+ * guarded — a suppressed category must not become reachable through the id
+ * path just because the slug path already refused it.
+ */
+export async function findActiveCategoryByIdOrSlug(
+  idOrSlug: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<CategoryRecord | null> {
+  if (isLiveEntityId(idOrSlug)) {
+    const [byId] = await db
+      .select()
+      .from(categories)
+      .where(and(eq(categories.id, idOrSlug), eq(categories.isActive, true)))
+      .limit(1);
+    if (byId) return byId;
+  }
+  return findActiveCategoryBySlug(idOrSlug, db);
 }
 
 /** Whether a slug names a category at all — the connector's category guard. */

@@ -64,7 +64,7 @@ import type {
 } from '@mercaria/shared-types';
 import {
   findActiveCategories,
-  findActiveCategoryBySlug,
+  findActiveCategoryByIdOrSlug,
 } from '../../db/catalog/categoryRepository.js';
 import { findListingsBySignal } from '../../db/discovery/discoveryReadRepository.js';
 import { toProductSummaries } from '../catalog-hydration.service.js';
@@ -101,7 +101,10 @@ export async function getDiscoverySignalPage(
   if (input.scope.kind === 'root') {
     categoryIds = allCategories.map((category) => category.id);
   } else {
-    const category = await findActiveCategoryBySlug(input.scope.handle);
+    // Id OR slug, matching `feed.service.ts`'s own category scope — the
+    // shared resolution lives in `findActiveCategoryByIdOrSlug`, not
+    // duplicated here.
+    const category = await findActiveCategoryByIdOrSlug(input.scope.handle);
     if (!category) {
       throw notFound('Category not found');
     }

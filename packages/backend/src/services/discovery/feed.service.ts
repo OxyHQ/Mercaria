@@ -117,7 +117,7 @@ import {
 } from '@mercaria/shared-types';
 import {
   findActiveCategories,
-  findActiveCategoryBySlug,
+  findActiveCategoryByIdOrSlug,
   type CategoryRecord,
 } from '../../db/catalog/categoryRepository.js';
 import {
@@ -506,9 +506,13 @@ async function buildCardGroupSection(
 /**
  * A category scope: pills, a card group, a `stores` section, a
  * `category-images` row, then the remaining shelves.
+ *
+ * `handle` resolves by id OR slug (ADR 0007 D1, `findActiveCategoryByIdOrSlug`'s
+ * own docblock) — the same mechanism a category page's link survives a rename
+ * with, whether the caller is holding the current slug or a stable id.
  */
 async function buildCategoryFeed(handle: string): Promise<DiscoveryFeed> {
-  const category = await findActiveCategoryBySlug(handle);
+  const category = await findActiveCategoryByIdOrSlug(handle);
   if (!category) {
     throw notFound('Category not found');
   }

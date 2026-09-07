@@ -302,4 +302,33 @@ describe('getDiscoverySignalPage', () => {
       }),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
+
+  it('a category scope resolves by ID too, matching the feed\'s own id-or-slug rule', async () => {
+    const category = await makeCategory();
+    const listing = await makeListing(category.id, { publishedAt: new Date('2022-01-01') });
+
+    const page = await getDiscoverySignalPage({
+      signal: 'new',
+      scope: { kind: 'category', handle: category.id },
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(page.categoryHandle).toBe(category.slug);
+    expect(page.categoryName).toBe(category.name);
+    expect(page.products.map((p) => p.id)).toContain(listing);
+  });
+
+  it('a suppressed category 404s by id exactly like it does by slug', async () => {
+    const suppressed = await makeCategory({ isActive: false });
+
+    await expect(
+      getDiscoverySignalPage({
+        signal: 'new',
+        scope: { kind: 'category', handle: suppressed.id },
+        limit: 10,
+        offset: 0,
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
 });

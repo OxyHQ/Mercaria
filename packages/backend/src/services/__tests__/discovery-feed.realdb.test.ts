@@ -745,6 +745,29 @@ describe('getDiscoveryFeed', () => {
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
+  it('a category scope resolves by ID too, not only by slug — a link must survive a rename', async () => {
+    // ADR 0007 D1: a category page's own `handle` param accepts an id or the
+    // current slug, both resolving, which is what keeps a link stable across
+    // a category rename. `getDiscoveryFeed` must not be the one place that
+    // still only takes the slug.
+    const category = await makeCategory();
+
+    const bySlug = await getDiscoveryFeed({ kind: 'category', handle: category.slug });
+    const byId = await getDiscoveryFeed({ kind: 'category', handle: category.id });
+
+    expect(byId.sections.map((s) => s.kind)).toEqual(bySlug.sections.map((s) => s.kind));
+  });
+
+  it('a suppressed category 404s by id exactly like it does by slug', async () => {
+    // The id path must not become a back door around the same `isActive`
+    // guard the slug path already enforces.
+    const suppressed = await makeCategory({ isActive: false });
+
+    await expect(
+      getDiscoveryFeed({ kind: 'category', handle: suppressed.id }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
   it('deals carries one store-offer section per discounted store and nothing else', async () => {
     const storeId = await makeStore();
     await makeStoreListing(storeId);
