@@ -20,8 +20,16 @@ import {
  * the standing #469 decision recorded in `vitest.config.ts`. That config's own
  * rule is the one followed here: extract the logic rather than mount the
  * component. So the entrypoint half reads the screen's source, which is a
- * weaker instrument, and it carries a positive control and a self-test because
- * of it.
+ * weaker instrument, and it carries a positive control because of it.
+ *
+ * ## The grid itself is gone, not just re-gated
+ *
+ * The discovery-feed redesign (`docs/superpowers/specs/2026-09-07-discovery-
+ * feed-design.md`) replaced the manual `useListings` + `CategoryListingCard`
+ * grid this screen used to render with the feed's own `products` sections,
+ * which carry no facet-selection parameter at all. So the second block below
+ * no longer asserts a GATED `<FacetRail` mount — there is no mount, gated or
+ * not, and that is the stronger form of #637's fix: nothing left to gate.
  */
 
 /**
@@ -61,66 +69,29 @@ describe('the category grid cannot act on a facet selection', () => {
   });
 });
 
-/**
- * Every `<FacetRail` mount whose own JSX expression does not test the guard.
- *
- * Deliberately NOT line-based: the guard opens the conditional and the mount is
- * on the next line, so a per-line test reports every correct mount as a
- * violation. The unit is the JSX expression container — the text from the `{`
- * that opens it to the mount inside it — which is what actually decides whether
- * the mount renders.
- */
-function unguardedFacetRailMounts(source: string): readonly string[] {
-  const mounts: string[] = [];
-  for (let at = source.indexOf('<FacetRail'); at !== -1; at = source.indexOf('<FacetRail', at + 1)) {
-    const opener = source.lastIndexOf('{', at);
-    const expression = opener === -1 ? source.slice(0, at) : source.slice(opener, at);
-    if (!expression.includes('mayOfferFilters')) {
-      mounts.push(expression.split('\n')[0].trim());
-    }
-  }
-  return mounts;
-}
-
-describe('the screen does not mount a rail it has not gated', () => {
+describe('the category screen mounts no facet rail at all', () => {
   const source = readFileSync(CATEGORY_SCREEN, 'utf8');
 
   /**
-   * The vacuity floor. An absence assertion over a file that was not read, was
-   * renamed, or no longer renders a grid at all reports exactly what a correct
-   * one reports, so the subject is asserted PRESENT first.
+   * The vacuity floor. An absence assertion over a file that was not read or
+   * was renamed reports exactly what a correct one reports, so the subject is
+   * asserted PRESENT first — this screen still renders the discovery feed
+   * body that replaced #637's grid.
    */
-  it('is reading the category screen, which still renders a listings grid', () => {
+  it('is reading the category screen, which still renders the discovery feed', () => {
     expect(source.length).toBeGreaterThan(2000);
-    expect(source).toContain('useListings(');
-    expect(source).toContain('<FacetRail');
-  });
-
-  it('consults the consumption derivation', () => {
-    expect(source).toContain('mayOfferFacetRail');
-    expect(source).toContain('deriveCategoryGridFacetConsumption');
-  });
-
-  it('gates every mount on it', () => {
-    expect(unguardedFacetRailMounts(source)).toEqual([]);
+    expect(source).toContain('useDiscoveryFeed(');
+    expect(source).toContain('<DiscoveryFeed');
   });
 
   /**
-   * The self-test. `unguardedFacetRailMounts` returning `[]` is also what a
-   * detector that matches nothing returns, so it is run against the shape it
-   * exists to catch — the pre-#637 line, which mounted the rail on the facet
-   * response alone.
+   * Not "gated" — ABSENT. The grid `FacetRail` used to sit over is gone, so a
+   * mount here (gated or not) would be offering a rail over content that
+   * cannot be selection-filtered by construction, which is the same defect
+   * #637 fixed in a different shape.
    */
-  it('detects an ungated mount', () => {
-    const regressed = [
-      '{facets.data === undefined ? null : (',
-      '  <FacetRail',
-      '    response={facets.data}',
-      '  />',
-      ')}',
-    ].join('\n');
-    expect(unguardedFacetRailMounts(regressed)).toEqual([
-      '{facets.data === undefined ? null : (',
-    ]);
+  it('mounts no facet rail and reads no facets', () => {
+    expect(source).not.toContain('<FacetRail');
+    expect(source).not.toContain('useFacets(');
   });
 });

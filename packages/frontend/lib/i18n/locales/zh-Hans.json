@@ -221,7 +221,6 @@
       "unavailableHere": "仍在生效，但当前结果不提供：",
       "removeFilter": "移除此筛选条件",
       "unknownCount": "%{count} 项未标注",
-      "droppedFromLink": "此链接中有 %{count} 个筛选条件无法应用。",
       "pricesNotConverted": "部分价格未包含在内：%{currencies} 无法换算。"
     },
     "specs": {
@@ -247,8 +246,6 @@
     "category": {
       "fallbackTitle": "类目",
       "notFound": "没有找到这个类目。",
-      "subcategories": "子类目",
-      "empty": "暂时没有符合这些筛选条件的内容。",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {

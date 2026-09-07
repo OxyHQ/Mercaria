@@ -221,7 +221,6 @@
       "unavailableHere": "अब भी लागू हैं, पर इन नतीजों के लिए उपलब्ध नहीं:",
       "removeFilter": "यह फ़िल्टर हटाएँ",
       "unknownCount": "%{count} में जानकारी नहीं दी गई",
-      "droppedFromLink": "इस लिंक के %{count} फ़िल्टर लागू नहीं हो सके।",
       "pricesNotConverted": "कुछ कीमतें यहाँ शामिल नहीं हैं: %{currencies} को परिवर्तित नहीं किया जा सका।"
     },
     "specs": {
@@ -247,8 +246,6 @@
     "category": {
       "fallbackTitle": "श्रेणी",
       "notFound": "हमें यह श्रेणी नहीं मिली।",
-      "subcategories": "उपश्रेणियाँ",
-      "empty": "इन फ़िल्टरों से मेल खाता अभी कुछ नहीं है।",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {

@@ -223,7 +223,6 @@
       "unavailableHere": "Ainda aplicados, mas não oferecidos para estes resultados:",
       "removeFilter": "Remover este filtro",
       "unknownCount": "%{count} sem informação",
-      "droppedFromLink": "Não foi possível aplicar %{count} filtros deste link.",
       "pricesNotConverted": "Alguns preços não estão incluídos aqui: não foi possível converter %{currencies}."
     },
     "specs": {
@@ -249,8 +248,6 @@
     "category": {
       "fallbackTitle": "Categoria",
       "notFound": "Não encontramos esta categoria.",
-      "subcategories": "Subcategorias",
-      "empty": "Ainda não há nada que corresponda a estes filtros.",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {

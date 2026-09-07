@@ -221,7 +221,6 @@
       "unavailableHere": "Weiterhin aktiv, aber für diese Ergebnisse nicht angeboten:",
       "removeFilter": "Diesen Filter entfernen",
       "unknownCount": "%{count} ohne Angabe",
-      "droppedFromLink": "%{count} Filter aus diesem Link konnten nicht angewendet werden.",
       "pricesNotConverted": "Einige Preise fehlen hier: %{currencies} konnte nicht umgerechnet werden."
     },
     "specs": {
@@ -247,8 +246,6 @@
     "category": {
       "fallbackTitle": "Kategorie",
       "notFound": "Diese Kategorie konnten wir nicht finden.",
-      "subcategories": "Unterkategorien",
-      "empty": "Zu diesen Filtern passt hier noch nichts.",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {

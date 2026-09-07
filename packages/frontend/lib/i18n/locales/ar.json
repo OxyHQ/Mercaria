@@ -221,7 +221,6 @@
       "unavailableHere": "ما زالت مطبَّقة، لكنها غير متاحة لهذه النتائج:",
       "removeFilter": "إزالة عامل التصفية هذا",
       "unknownCount": "%{count} غير مذكورة",
-      "droppedFromLink": "تعذّر تطبيق %{count} من عوامل التصفية في هذا الرابط.",
       "pricesNotConverted": "بعض الأسعار غير مُدرجة هنا: تعذّر تحويل %{currencies}."
     },
     "specs": {
@@ -247,8 +246,6 @@
     "category": {
       "fallbackTitle": "الفئة",
       "notFound": "لم نتمكن من العثور على هذه الفئة.",
-      "subcategories": "الفئات الفرعية",
-      "empty": "لا يوجد بعد ما يطابق عوامل التصفية هذه.",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {
