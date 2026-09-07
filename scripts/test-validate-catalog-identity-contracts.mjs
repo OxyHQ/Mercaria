@@ -278,7 +278,7 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // `search.ts`'s `SearchResultBase`, two members), neither carrying an
     // identity-shaped name. Read off the guard against this branch after every
     // one of these landed, not derived by arithmetic.
-    "walked 127 contract module(s), 2285 exported type(s), 7709 property signature(s)",
+    "walked 127 contract module(s), 2284 exported type(s), 7707 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });
