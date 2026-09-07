@@ -173,8 +173,24 @@ Over `StoreProductCard`'s image, and on the deals shelves.
 | text | `font-badgeBold text-badgeBold text-text-fixed-light` | |
 
 The reference also renders an `sr-only` full sentence beside the abbreviated
-visible text ("Save €25 with your offer" / "Save €25"). Keep that split: the
-visible string is a fragment and a screen reader needs the whole claim.
+visible text ("Save €25 with your offer" / "Save €25"). **Keep the split; do not
+keep the mechanism.**
+
+`sr-only` is a CSS visually-hidden recipe — `position:absolute`, a 1px box,
+`clip`, `white-space:nowrap`. React Native has neither `clip` nor `white-space`,
+so on native the text is not hidden at all: the badge renders "Save €25" and
+"Save €25 with your offer" stacked. It appears nowhere else in this repository,
+and that absence is the tell — the mechanism here is `accessibilityLabel` on the
+container, which `MerchantCard.tsx:108,155` shows and the whole package follows.
+
+The split itself is right and is the reason this note exists: the visible string
+is a fragment, and a screen reader needs the whole claim.
+
+**Related, same component:** the reference marks inactive carousel slides
+`inert`. React Native Web's `View` `pickProps` whitelist excludes that prop
+entirely, so it never reaches the DOM — do not try to add it back. Both platforms
+need the same mechanism: only the ACTIVE slide is wrapped in a `Pressable`.
+Measured by the implementer of Plan B Task 4.
 
 ## 8. `StoreOfferHeader` — the deals section header
 
