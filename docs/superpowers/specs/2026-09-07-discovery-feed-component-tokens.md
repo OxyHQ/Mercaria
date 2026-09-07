@@ -211,10 +211,22 @@ The split itself is right and is the reason this note exists: the visible string
 is a fragment, and a screen reader needs the whole claim.
 
 **Related, same component:** the reference marks inactive carousel slides
-`inert`. React Native Web's `View` `pickProps` whitelist excludes that prop
-entirely, so it never reaches the DOM — do not try to add it back. Both platforms
-need the same mechanism: only the ACTIVE slide is wrapped in a `Pressable`.
-Measured by the implementer of Plan B Task 4.
+`inert`. Do not add it — but **not for the reason this note first gave.**
+
+The mechanism here is that only the ACTIVE slide is ever wrapped in a
+`Pressable`, so there is no always-mounted interactive element left to disable
+on either platform. That is correct and is what ships.
+
+What was wrong was the justification: this note claimed react-native-web's
+forwarded-props whitelist excludes `inert`, so it never reaches the DOM. It does
+not exclude it — `react-native-web@0.21.2`'s
+`dist/modules/forwardedProps/index.js:58` carries `inert: true`, and the
+re-reviewer of Plan B disproved the claim empirically rather than reading it.
+`inert` would reach the DOM on web perfectly well; it is simply unnecessary here.
+
+Recorded rather than quietly edited, because a false technical justification is
+the kind of thing that gets cited as fact later — and this one had already been
+repeated from an implementer's report into this document before anyone checked.
 
 ## 8. `StoreOfferHeader` — the deals section header
 
