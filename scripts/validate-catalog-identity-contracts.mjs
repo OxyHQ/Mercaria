@@ -61,6 +61,23 @@
  *      option or an axis. That is the epic's "key it on the use, not the
  *      spelling" applied to a field whose own spelling carries nothing.
  *
+ * ## A field declared only on a non-exported base is still resolved
+ *
+ * The population is "every exported type's own property signatures" — but an
+ * exported interface's `extends` clause can name a base that is NOT itself
+ * exported (`DiscoverySectionBase` in Mercaria's `discovery.ts`, extended by
+ * eight published section kinds and never exported on its own). Scanning only
+ * each declaration's OWN body missed that entirely: a bare identity-shaped
+ * string on such a base rode on every published type that extended it while
+ * this file reported a clean tree, which is worse than the renamed-to-dodge-it
+ * case two paragraphs up — nobody auditing a green run would even know a
+ * spelling needed reviewing. `findAmbiguousContracts` now resolves a
+ * non-exported same-file base once, under the BASE's own name, deduplicated so
+ * five sibling types extending one base report one occurrence rather than
+ * five. Cross-file bases need no resolution of their own: a base reachable
+ * only through an import is by definition exported from wherever it lives, so
+ * the top-level walk already scans it on that file's own pass.
+ *
  * ## Everything found today is EXCUSED, at an exact count, with a disposition
  *
  * Both checks compare against `LEGACY_AMBIGUOUS_CONTRACTS` — an exact set with
@@ -142,7 +159,9 @@ const MINIMUM_EXPORTED_TYPES = 2000;
  * Every PROPERTY SIGNATURE anywhere under an exported interface or type alias,
  * in the 121 non-`index` modules of `packages/shared-types/src`, nested type
  * literals and generic type arguments included, counted once per declaration
- * site.
+ * site — and, since the inherited-member fix, a non-exported same-file base's
+ * own members too, counted once per BASE regardless of how many exported
+ * types extend it.
  *
  * The population is spelled out because the number is not self-describing and
  * three defensible rules give three different answers over the same files:
@@ -278,6 +297,17 @@ const LEGACY_AMBIGUOUS_CONTRACTS = [
       + "`findActiveCategoryBySlug`. This exists only so a shelf heading can interpolate a display "
       + "name (\"Top rated in Belleza\", never \"en belleza-y-cuidado\"); nothing looks this string "
       + "up by anything but a person reading it.",
+  },
+  {
+    file: "discovery.ts",
+    path: "DiscoverySignalPage.categoryName",
+    count: 1,
+    disposition: "presentation",
+    supersededBy: null,
+    why:
+      "The same field, the same reason, on the paged `GET /discovery/signal` response: identity is "
+      + "the `categoryHandle` carried beside it on this same DTO, and `categoryName` exists only so "
+      + "a client can render that page's own heading without a second lookup.",
   },
   {
     file: "integration.ts",
@@ -571,8 +601,8 @@ const LEGACY_AMBIGUOUS_CONTRACTS = [
   },
 ];
 
-/** Exact, so a thirty-fourth entry is a deliberate edit rather than a wildcard. */
-const EXPECTED_EXCUSED_ENTRIES = 33;
+/** Exact, so a thirty-fifth entry is a deliberate edit rather than a wildcard. */
+const EXPECTED_EXCUSED_ENTRIES = 34;
 
 /* -------------------------------------------------------------------------- */
 /*  Check B's vocabulary — an option-shaped owner, a generic member             */
@@ -732,6 +762,73 @@ function findAmbiguousContracts(fileName, text, vocabulary) {
     if (declaration.type !== undefined) walk(declaration.type);
   };
 
+  /**
+   * Every interface this file declares, by name — a first pass so an
+   * `extends` clause can look one up regardless of which the source declares
+   * first.
+   */
+  const interfacesByName = new Map();
+  const collectInterfaces = (node) => {
+    if (ts.isInterfaceDeclaration(node)) {
+      interfacesByName.set(node.name.text, node);
+    }
+    ts.forEachChild(node, collectInterfaces);
+  };
+  collectInterfaces(source);
+
+  /**
+   * A NON-EXPORTED base an exported interface `extends`, scanned under the
+   * BASE's own name — `DiscoverySectionBase.categoryName`, not
+   * `ProductsSection.categoryName` repeated once per sibling that extends it.
+   *
+   * Measured (not assumed) as a real hole, not a hypothetical one: this
+   * walker used to see only each exported declaration's OWN members, so a
+   * field declared solely on an unexported base was invisible to check A no
+   * matter its name — worse than the renamed-to-dodge-it case this file's own
+   * docblock warns about, because nobody auditing a clean run would even know
+   * a spelling needed reviewing.
+   *
+   * `scannedBases` deduplicates PER FILE: `DiscoverySectionBase` is
+   * `extends`ed by eight section kinds, and resolving it eight times would
+   * both inflate `members` eightfold and need an `EXPECTED_EXCUSED_ENTRIES`
+   * entry that repeats the same path eight ways for one real field.
+   *
+   * SAME-FILE ONLY, deliberately. A base reached only through an IMPORT is by
+   * definition exported from wherever it lives (TypeScript cannot import an
+   * unexported binding), so the top-level exported-declaration walk already
+   * scans it directly on its own file's pass — there is nothing a cross-file
+   * resolution here would find that the walk does not already find. Measured
+   * against the real tree: every `Timestamps`-style cross-file `extends` in
+   * `packages/shared-types/src` targets an exported base; the only
+   * NON-exported bases anywhere in the package are declared in the same file
+   * as what extends them (`constraint.ts`'s `ConstraintBase`, `search.ts`'s
+   * `SearchResultBase`, this file's `DiscoverySectionBase`).
+   *
+   * Chases a CHAIN of non-exported bases (a base extending another
+   * non-exported base) rather than stopping one level up, so a second hop
+   * added later is resolved by the same mechanism instead of needing a
+   * second one written for it.
+   */
+  const scannedBases = new Set();
+  const resolveInheritedBases = (interfaceNode) => {
+    for (const heritage of interfaceNode.heritageClauses ?? []) {
+      if (heritage.token !== ts.SyntaxKind.ExtendsKeyword) continue;
+      for (const type of heritage.types) {
+        if (!ts.isIdentifier(type.expression)) continue;
+        const baseName = type.expression.text;
+        const base = interfacesByName.get(baseName);
+        if (base === undefined || scannedBases.has(baseName)) continue;
+        const baseExported = (base.modifiers ?? []).some(
+          (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+        );
+        if (baseExported) continue; // already scanned on its own, at its own top-level visit
+        scannedBases.add(baseName);
+        scanDeclaration(base, baseName);
+        resolveInheritedBases(base);
+      }
+    }
+  };
+
   const visit = (node) => {
     if (ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) {
       const exported = (node.modifiers ?? []).some(
@@ -740,6 +837,9 @@ function findAmbiguousContracts(fileName, text, vocabulary) {
       if (exported) {
         exportedTypes += 1;
         scanDeclaration(node, node.name.text);
+        if (ts.isInterfaceDeclaration(node)) {
+          resolveInheritedBases(node);
+        }
       }
       return;
     }

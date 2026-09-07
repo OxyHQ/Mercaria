@@ -38,7 +38,8 @@
  *
  * Measured: six of the nine identity-shaped names in the shared vocabulary
  * (`category`, `productType`, `brand`, `brandName`, `controlledValue`,
- * `categoryName` — the discovery feed's `DiscoverySectionBase.categoryName`)
+ * `categoryName` — the discovery feed's `DiscoverySectionBase.categoryName`,
+ * resolved through the inherited-member fix, AND `DiscoverySignalPage.categoryName`)
  * match real declarations in the scanned tree. The other three — `optionName`,
  * `attributeName`, `productTypeName` — match nothing, and an arm that is
  * unfired AND unmutated is indistinguishable from one that is misspelled,
@@ -227,17 +228,27 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // instances above all moved both figures and a reader deriving the delta
     // from them would expect this one to move the second number too.
     // Re-derived from the tool's own output line.
-    // A seventh instance, in two steps, against this same branch's own earlier
-    // `discovery.ts` work (already at 127/2284/7690 before either step — an
-    // existing module, so neither step moves the module count). Step one added
-    // `CategoryTile.sampleImageUrls` (`product.ts`, an already-exported type):
-    // one property signature, no new type — 127/2284/7691. Step two exported
-    // `DiscoverySectionBase` itself (`discovery.ts`) so its `categoryName` field
-    // stopped being invisible to check A: one new exported type (the interface)
-    // plus its own six member signatures (`id`, `title`, `categoryHandle`,
-    // `signal`, `categoryName`, `layout`) — 127/2285/7697. Read off the guard
-    // against this branch at each step, not derived by arithmetic.
-    "walked 127 contract module(s), 2285 exported type(s), 7697 property signature(s)",
+    // A seventh instance, against this same branch's own earlier `discovery.ts`
+    // work (already at 127/2284/7690 — an existing module, so the module count
+    // never moves across any of it). `product.ts` gained `CategoryTile.sampleImageUrls`
+    // on an already-exported type (one property, no new type — 127/2284/7691),
+    // and `discovery.ts` gained a SECOND `categoryName` field, on the new
+    // `DiscoverySignalPage` (one new exported type plus its own seven members:
+    // `signal`, `scope`, `categoryHandle`, `categoryName`, `pageDepth`,
+    // `products`, `hasMore`).
+    //
+    // The bigger move is the inherited-member fix itself (this file's own
+    // docblock, "the arms with no live match"): `findAmbiguousContracts` now
+    // resolves a non-exported same-file base's members once, under the base's
+    // own name, so `DiscoverySectionBase.categoryName` (extended by eight
+    // section kinds, never exported on its own) is finally counted — six
+    // members, no new exported type, since resolving a base is not exporting
+    // it. The SAME fix also newly counts the other two non-exported bases the
+    // whole package has (`constraint.ts`'s `ConstraintBase`, three members;
+    // `search.ts`'s `SearchResultBase`, two members), neither carrying an
+    // identity-shaped name. Read off the guard against this branch after every
+    // one of these landed, not derived by arithmetic.
+    "walked 127 contract module(s), 2285 exported type(s), 7709 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });
@@ -301,6 +312,49 @@ check(
     );
   },
   { expect: "green" },
+);
+
+// The other half of the case directly above: an unexported type is invisible
+// ALONE, but not once an exported type `extends` it — `DiscoverySectionBase`'s
+// real shape (never exported on its own, extended by eight published section
+// kinds). Named under the BASE, `MutantBase.category`, never the extending
+// `MutantSurface` — resolving inheritance is not re-homing the field.
+check(
+  "check A — a NEW ambiguous field on a NON-EXPORTED base an exported type extends turns it RED",
+  (root) => {
+    mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
+      append(
+        source,
+        "interface MutantBase {\n  category: string;\n}\n"
+          + "export interface MutantSurface extends MutantBase {\n  id: string;\n}",
+      ),
+    );
+  },
+  {
+    expect: "red",
+    mentions: ["NEW ambiguous public catalog contract", "product.ts:MutantBase.category"],
+  },
+);
+
+// An EXPORTED base is scanned once, at its OWN top-level visit — the
+// inheritance resolution explicitly skips an already-exported base (see
+// `resolveInheritedBases`), so this must not report the field twice or under
+// the wrong owner.
+check(
+  "check A — an EXPORTED base an exported type extends is scanned under its own name, not the subtype's",
+  (root) => {
+    mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
+      append(
+        source,
+        "export interface MutantExportedBase {\n  category: string;\n}\n"
+          + "export interface MutantSurface extends MutantExportedBase {\n  id: string;\n}",
+      ),
+    );
+  },
+  {
+    expect: "red",
+    mentions: ["product.ts:MutantExportedBase.category"],
+  },
 );
 
 check(

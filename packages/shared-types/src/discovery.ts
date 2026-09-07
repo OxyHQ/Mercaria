@@ -165,13 +165,14 @@ export interface DiscountSummary {
 /**
  * Fields every section carries.
  *
- * Exported (not just `extends`ed) so `categoryName` below is a declaration
- * `validate:catalog-identity-contracts` can actually see and excuse — an
- * unexported base would hide the field from that gate's walk entirely, which
- * is worse than the renamed-to-dodge-it case its own docblock warns against:
- * nobody would even know there was a spelling to review.
+ * Deliberately NOT exported — every one of its eight `extends`ing section
+ * kinds is the actual public surface, and this shape exists only to declare
+ * their shared fields once. Not exporting it used to mean
+ * `validate:catalog-identity-contracts` could not see `categoryName` below at
+ * all (the walk resolved no `extends` chain); that was a hole in the WALK,
+ * fixed there rather than by exporting a type nothing needs on its own.
  */
-export interface DiscoverySectionBase {
+interface DiscoverySectionBase {
   id: string;
   /** The heading. Absent on sections the reference renders headless. */
   title?: string;
