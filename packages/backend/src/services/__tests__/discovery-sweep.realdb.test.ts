@@ -90,14 +90,22 @@ async function makeStore(): Promise<string> {
   return row.id;
 }
 
-/** A one-line order for `listingId`, in `status`, at `createdAt`. */
+/**
+ * An order for `listingId`, in `status`, at `createdAt`.
+ *
+ * `quantity` is one line by default. Pass an ARRAY to give the order several
+ * lines of the SAME listing instead — the shape that distinguishes a
+ * DISTINCT-order count from an `order_items` row count: two lines in one
+ * order is one order.
+ */
 async function makeOrder(input: {
   listingId: string;
-  quantity: number;
+  quantity: number | number[];
   status: OrderStatus;
   createdAt?: Date;
 }): Promise<string> {
   const orderId = uuidv7();
+  const lineQuantities = Array.isArray(input.quantity) ? input.quantity : [input.quantity];
   await db.insert(orders).values({
     id: orderId,
     orderNumber: `DISC-${orderId.slice(-10)}`,
@@ -139,23 +147,28 @@ async function makeOrder(input: {
     createdAt: input.createdAt ?? new Date(),
   });
   ownedOrderIds.push(orderId);
-  await db.insert(orderItems).values({
-    id: uuidv7(),
-    orderId,
-    listingId: input.listingId,
-    variantId: uuidv7(),
-    title: 'A thing',
-    variantTitle: 'Default',
-    quantity: input.quantity,
-    unitPriceShopAmount: 1000,
-    unitPriceShopCurrency: 'EUR',
-    unitPricePresentmentAmount: 1000,
-    unitPricePresentmentCurrency: 'EUR',
-    lineTotalShopAmount: 1000 * input.quantity,
-    lineTotalShopCurrency: 'EUR',
-    lineTotalPresentmentAmount: 1000 * input.quantity,
-    lineTotalPresentmentCurrency: 'EUR',
-  });
+  await db.insert(orderItems).values(
+    lineQuantities.map(
+      (quantity) =>
+        ({
+          id: uuidv7(),
+          orderId,
+          listingId: input.listingId,
+          variantId: uuidv7(),
+          title: 'A thing',
+          variantTitle: 'Default',
+          quantity,
+          unitPriceShopAmount: 1000,
+          unitPriceShopCurrency: 'EUR',
+          unitPricePresentmentAmount: 1000,
+          unitPricePresentmentCurrency: 'EUR',
+          lineTotalShopAmount: 1000 * quantity,
+          lineTotalShopCurrency: 'EUR',
+          lineTotalPresentmentAmount: 1000 * quantity,
+          lineTotalPresentmentCurrency: 'EUR',
+        }) as const,
+    ),
+  );
   return orderId;
 }
 
@@ -288,6 +301,21 @@ describe('countListingSales', () => {
 
     const counted = await countListingSales(recently());
     expect(counted.find((row) => row.listingId === listingId)).toBeUndefined();
+  });
+
+  it('counts one order with two lines of the same listing as ONE order, not two', async () => {
+    // `orderCount` is DISTINCT orders, not `order_items` rows: two lines of
+    // the same listing in one order (two variants bought together, say) is
+    // one order. A row-count implementation scores this 2; asserting
+    // `unitsSold: 2` alongside it proves the two counts were actually
+    // distinguished rather than both quietly counting rows.
+    const listingId = await makeListing();
+    await makeOrder({ listingId, quantity: [1, 1], status: 'paid' });
+
+    const counted = await countListingSales(recently());
+    const mine = counted.find((row) => row.listingId === listingId);
+    expect(mine?.unitsSold).toBe(2);
+    expect(mine?.orderCount).toBe(1);
   });
 });
 
