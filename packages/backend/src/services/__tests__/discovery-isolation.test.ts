@@ -25,10 +25,19 @@
  *    belongs behind the same wall as the rest of it. Merchant and brand
  *    popularity have nowhere to be read from if the ranking and offer domains
  *    cannot reach the module that computes them.
- * 2. **The reverse direction too.** No file under `services/discovery/` or
- *    `db/discovery/` imports `db/offers/`, `services/offer*` or
- *    `db/schema/ranking.js`. A shelf one join from a weighted ordering is a
- *    sponsored-placement surface nobody decided to build.
+ * 2. **The reverse direction too, over the WHOLE discovery population** — not
+ *    just `services/discovery/` and `db/discovery/`, but the HTTP surface
+ *    those two owned directories sit behind: `routes/discovery.ts`,
+ *    `routes/internal-discovery.ts`, `controllers/discovery.controller.ts`,
+ *    `controllers/discovery-operator.controller.ts` and
+ *    `db/schema/discovery.ts` (`discoveryPopulation()`, the same population
+ *    the `#460` sweep below already keeps complete). None of them imports
+ *    `db/offers/`, `services/offer*` or `db/schema/ranking.js`. A shelf one
+ *    join from a weighted ordering is a sponsored-placement surface nobody
+ *    decided to build, and a controller sits exactly as close to that join
+ *    as the service it delegates to — scanning only the owned directories
+ *    left the five files closest to the HTTP boundary unscanned by this
+ *    wall.
  * 3. **`discovery_signals` carries no `score`, `weight` or `rank` column** —
  *    walked from the REAL drizzle table, not read out of the file. One column
  *    per shelf, named by the shelf (`unitsSold`, `viewCount`).
@@ -175,6 +184,18 @@ function discoveryPopulation(readDir: DirectoryReader = readSrcDirectory): strin
   ];
 }
 
+/**
+ * `discoveryPopulation()`, with each module's source — WALL 2's population,
+ * so the wall the #460 sweep keeps complete is the same wall the ranking
+ * reference is checked against.
+ */
+function discoveryPopulationSources(): { relative: string; source: string }[] {
+  return discoveryPopulation().map((relative) => ({
+    relative,
+    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+  }));
+}
+
 /** Comment-stripped source: these modules DOCUMENT what they refuse to do. */
 function withoutComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
@@ -278,9 +299,9 @@ describe('WALL 1: the offer and ranking domains cannot reach the discovery count
 });
 
 describe('WALL 2: the discovery domain cannot reach offer or ranking', () => {
-  it('no file under services/discovery/ or db/discovery/ imports offers, offer-freshness or ranking', () => {
+  it('no file in the discovery population imports offers, offer-freshness or ranking', () => {
     let scanned = 0;
-    for (const file of discoverySources()) {
+    for (const file of discoveryPopulationSources()) {
       expect(
         OFFER_RANKING_REFERENCE.test(withoutComments(file.source)),
         `${file.relative} reaches #74's ranking or #57's offer domain; a shelf one join from a ` +
@@ -288,9 +309,14 @@ describe('WALL 2: the discovery domain cannot reach offer or ranking', () => {
       ).toBe(false);
       scanned += 1;
     }
-    // FIVE, the real population — see WALL 5's floors for why this is not the
-    // `>= 1` it started as.
-    expect(scanned).toBeGreaterThanOrEqual(5);
+    // ELEVEN, the real population (`discoveryPopulation()`: the two owned
+    // directories' six files plus the five-file HTTP surface —
+    // `routes/discovery.ts`, `routes/internal-discovery.ts`,
+    // `controllers/discovery.controller.ts`,
+    // `controllers/discovery-operator.controller.ts`,
+    // `db/schema/discovery.ts`), measured by running it — not the `>= 5`
+    // this wall checked before it scanned only `discoverySources()`.
+    expect(scanned).toBeGreaterThanOrEqual(11);
   });
 });
 
