@@ -162,8 +162,16 @@ export interface DiscountSummary {
   exclusive: boolean;
 }
 
-/** Fields every section carries. */
-interface DiscoverySectionBase {
+/**
+ * Fields every section carries.
+ *
+ * Exported (not just `extends`ed) so `categoryName` below is a declaration
+ * `validate:catalog-identity-contracts` can actually see and excuse — an
+ * unexported base would hide the field from that gate's walk entirely, which
+ * is worse than the renamed-to-dodge-it case its own docblock warns against:
+ * nobody would even know there was a spelling to review.
+ */
+export interface DiscoverySectionBase {
   id: string;
   /** The heading. Absent on sections the reference renders headless. */
   title?: string;

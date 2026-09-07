@@ -36,15 +36,16 @@
  *
  * ## The arms with no live match
  *
- * Measured: five of the nine identity-shaped names in the shared vocabulary
- * (`category`, `productType`, `brand`, `brandName`, `controlledValue`) match
- * real declarations in the scanned tree. The other four — `categoryName`,
- * `optionName`, `attributeName`, `productTypeName` — match nothing, and an arm
- * that is unfired AND unmutated is indistinguishable from one that is
- * misspelled, mis-anchored or pointed at the wrong population: both print a
- * clean zero. The guard itself derives a positive control per vocabulary member
- * on every run; the cases below additionally drive all four through the REAL
- * file walk, so the arms are proven end to end and not only inside the matcher.
+ * Measured: six of the nine identity-shaped names in the shared vocabulary
+ * (`category`, `productType`, `brand`, `brandName`, `controlledValue`,
+ * `categoryName` — the discovery feed's `DiscoverySectionBase.categoryName`)
+ * match real declarations in the scanned tree. The other three — `optionName`,
+ * `attributeName`, `productTypeName` — match nothing, and an arm that is
+ * unfired AND unmutated is indistinguishable from one that is misspelled,
+ * mis-anchored or pointed at the wrong population: both print a clean zero.
+ * The guard itself derives a positive control per vocabulary member on every
+ * run; the cases below additionally drive all three through the REAL file
+ * walk, so the arms are proven end to end and not only inside the matcher.
  *
  * Usage:  bun scripts/test-validate-catalog-identity-contracts.mjs
  */
@@ -226,8 +227,18 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // instances above all moved both figures and a reader deriving the delta
     // from them would expect this one to move the second number too.
     // Re-derived from the tool's own output line.
-    "walked 126 contract module(s), 2266 exported type(s), 7654 property signature(s)",
-    "check A arms exercised by real declarations: 5/9",
+    // A seventh instance, in two steps, against this same branch's own earlier
+    // `discovery.ts` work (already at 127/2284/7690 before either step — an
+    // existing module, so neither step moves the module count). Step one added
+    // `CategoryTile.sampleImageUrls` (`product.ts`, an already-exported type):
+    // one property signature, no new type — 127/2284/7691. Step two exported
+    // `DiscoverySectionBase` itself (`discovery.ts`) so its `categoryName` field
+    // stopped being invisible to check A: one new exported type (the interface)
+    // plus its own six member signatures (`id`, `title`, `categoryHandle`,
+    // `signal`, `categoryName`, `layout`) — 127/2285/7697. Read off the guard
+    // against this branch at each step, not derived by arithmetic.
+    "walked 127 contract module(s), 2285 exported type(s), 7697 property signature(s)",
+    "check A arms exercised by real declarations: 6/9",
   ],
 });
 
@@ -235,8 +246,8 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
 /*  check A — every vocabulary arm, driven through the REAL file walk           */
 /* -------------------------------------------------------------------------- */
 
-const LIVE_ARMS = ["category", "productType", "brand", "brandName", "controlledValue"];
-const CONTROL_ONLY_ARMS = ["categoryName", "optionName", "attributeName", "productTypeName"];
+const LIVE_ARMS = ["category", "productType", "brand", "brandName", "controlledValue", "categoryName"];
+const CONTROL_ONLY_ARMS = ["optionName", "attributeName", "productTypeName"];
 
 for (const field of [...LIVE_ARMS, ...CONTROL_ONLY_ARMS]) {
   const live = LIVE_ARMS.includes(field);

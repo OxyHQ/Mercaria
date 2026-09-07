@@ -268,6 +268,18 @@ const LEGACY_AMBIGUOUS_CONTRACTS = [
       + "so an id here would be unpublishable; the identity behind the page is `BrandPage.brandId`.",
   },
   {
+    file: "discovery.ts",
+    path: "DiscoverySectionBase.categoryName",
+    count: 1,
+    disposition: "presentation",
+    supersededBy: null,
+    why:
+      "The section's identity is `categoryHandle` beside it — a slug resolved server-side by "
+      + "`findActiveCategoryBySlug`. This exists only so a shelf heading can interpolate a display "
+      + "name (\"Top rated in Belleza\", never \"en belleza-y-cuidado\"); nothing looks this string "
+      + "up by anything but a person reading it.",
+  },
+  {
     file: "integration.ts",
     path: "IngestProduct.productType",
     count: 1,
@@ -559,8 +571,8 @@ const LEGACY_AMBIGUOUS_CONTRACTS = [
   },
 ];
 
-/** Exact, so a thirty-third entry is a deliberate edit rather than a wildcard. */
-const EXPECTED_EXCUSED_ENTRIES = 32;
+/** Exact, so a thirty-fourth entry is a deliberate edit rather than a wildcard. */
+const EXPECTED_EXCUSED_ENTRIES = 33;
 
 /* -------------------------------------------------------------------------- */
 /*  Check B's vocabulary — an option-shaped owner, a generic member             */
