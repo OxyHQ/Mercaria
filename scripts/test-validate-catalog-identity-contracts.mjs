@@ -101,6 +101,17 @@ function mutate(root, relativePath, transform) {
   }
 }
 
+/**
+ * `exitCode` is `null`, not a number, when the child died on a SIGNAL rather
+ * than exiting — `Bun.spawnSync`'s own contract. `signalCode` is a truthy
+ * string (`"SIGSEGV"`, …) in exactly that case and `undefined` — NOT `null`
+ * — on a normal exit, measured directly rather than assumed: a caller that
+ * reads only `exitCode` cannot tell "the guard ran and exited 1" from "the
+ * guard never got the chance to exit at all", and `!== 0` reads `null` as
+ * red either way. `check()` below tests `signalCode` for TRUTHINESS, not
+ * `!== null` — `undefined !== null` is `true` in JS, so that comparison
+ * would have read every ordinary, successful run as a crash.
+ */
 function runAgainst(root) {
   const proc = Bun.spawnSync({
     cmd: ["bun", validator],
@@ -111,6 +122,7 @@ function runAgainst(root) {
   });
   return {
     exitCode: proc.exitCode,
+    signalCode: proc.signalCode,
     output: `${proc.stdout.toString()}${proc.stderr.toString()}`,
   };
 }
@@ -125,7 +137,25 @@ function check(name, arrange, expectation) {
   const root = makeTree();
   try {
     arrange(root);
-    const { exitCode, output } = runAgainst(root);
+    const { exitCode, signalCode, output } = runAgainst(root);
+    // A crash is its OWN outcome, checked before red/green at all — this
+    // machine's documented bun/tsc SIGSEGV flakiness used to fall through
+    // into `red = exitCode !== 0` (a `null` exit code reads as `!== 0`, i.e.
+    // "red", same as a real failure) and then into the "did not name X"
+    // branch below, which asserts the guard RAN and got its message wrong.
+    // It did not run at all. Reporting the crash plainly, as its own
+    // failure, is what turns a wild goose chase through the guard's
+    // formatting into "child crashed, signal N, no output to check" — the
+    // true cause, on the machine where it actually happened.
+    if (signalCode) {
+      failures.push(
+        `${name}: the guard's child process CRASHED (${signalCode}) rather than exiting — there is `
+          + "no output to check and no verdict to compare against `expect`. This is not a wrong "
+          + "message; the guard never produced one. Retry the run rather than reading this as a "
+          + `guard defect.\n${output.split("\n").map((line) => `      ${line}`).join("\n")}`,
+      );
+      return;
+    }
     const red = exitCode !== 0;
     if (red !== (expectation.expect === "red")) {
       failures.push(
