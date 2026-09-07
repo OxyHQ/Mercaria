@@ -29,7 +29,11 @@
  * consults it rather than keeping a second copy of the same three gates.
  */
 
-import { PAYMENT_PROVIDER_IDS, type PaymentProviderId } from '@mercaria/shared-types';
+import {
+  PAYMENT_PROVIDER_IDS,
+  type CurrencyCode,
+  type PaymentProviderId,
+} from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 
 /**
@@ -103,4 +107,35 @@ export const NATIVE_RAIL_PREFERENCE: readonly PaymentProviderId[] = PAYMENT_PROV
  */
 export function resolveNativeRail(): PaymentProviderId | undefined {
   return NATIVE_RAIL_PREFERENCE.find((provider) => isRailConfigured(provider));
+}
+
+/**
+ * What a card checkout on each rail may be denominated in — ADR 0001 D8.
+ *
+ * TOTAL over `PaymentProviderId` for the same reason the two records above are:
+ * a sixth rail must answer, and answering `[]` is a real answer meaning "this
+ * rail charges nothing", which `assertCheckoutCurrencyEligible` reads as a
+ * refusal rather than as a pass.
+ *
+ * `external`, `manual_pos` and `mock` never reach that gate — none of them is a
+ * native rail — so their empty sets are unreachable rather than restrictive.
+ */
+const PRESENTMENT_CURRENCIES: Record<PaymentProviderId, () => readonly CurrencyCode[]> = {
+  external: () => [],
+  manual_pos: () => [],
+  mock: () => [],
+  peable: () => config.payments.peable.presentmentCurrencies,
+  stripe: () => config.payments.stripe.presentmentCurrencies,
+};
+
+/**
+ * The currencies THIS deployment's native rail can be charged in.
+ *
+ * Empty when there is no rail, which is the honest answer and not a hazard:
+ * `resolveCheckoutRail` has already returned `none` in that case, so the gate
+ * that reads this is unreachable.
+ */
+export function nativeRailPresentmentCurrencies(): readonly CurrencyCode[] {
+  const rail = resolveNativeRail();
+  return rail ? PRESENTMENT_CURRENCIES[rail]() : [];
 }

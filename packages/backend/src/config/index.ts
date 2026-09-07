@@ -642,18 +642,24 @@ function resolveStripeSellerCountries(): readonly string[] {
 }
 
 /**
- * Split `STRIPE_PRESENTMENT_CURRENCIES` into the currencies a card checkout may
- * be denominated in — ADR 0001 D8, `EUR` and `USD` at launch.
+ * Split a presentment-currency variable into the currencies a card checkout on
+ * that rail may be denominated in — ADR 0001 D8, `EUR` and `USD` at launch.
  *
- * VALIDATED against `ALL_CURRENCY_CODES` here, unlike the seller countries
- * above, and the asymmetry is the point: a country is Stripe's vocabulary and
+ * ONE function for both rails rather than one per rail. The two sets are
+ * genuinely independent — each rail's acquirer decides what it can charge, and
+ * ADR 0009 D19 lets a deployment run either — but the PARSING is the same
+ * question, and a second copy is where the validation below silently stops
+ * applying to the newer rail.
+ *
+ * VALIDATED against `ALL_CURRENCY_CODES`, unlike the seller countries above,
+ * and the asymmetry is the point: a country is the acquirer's vocabulary and
  * changes on their schedule, while a currency code has to exist in Mercaria's
  * own closed set or nothing downstream can price, convert or store it. A typo
  * would otherwise become a checkout that refuses every cart with a message
  * naming a currency that does not exist.
  */
-function resolveStripePresentmentCurrencies(): readonly CurrencyCode[] {
-  const configured = strEnv('STRIPE_PRESENTMENT_CURRENCIES', 'EUR,USD')
+function resolvePresentmentCurrencies(variable: string, rail: string): readonly CurrencyCode[] {
+  const configured = strEnv(variable, 'EUR,USD')
     .split(',')
     .map((code) => code.trim().toUpperCase())
     .filter((code) => code !== '');
@@ -664,8 +670,8 @@ function resolveStripePresentmentCurrencies(): readonly CurrencyCode[] {
   const unknown = configured.filter((code) => !(known as readonly string[]).includes(code));
   if (unknown.length > 0) {
     log.general.error(
-      { unknown, known },
-      '[Stripe] STRIPE_PRESENTMENT_CURRENCIES names currencies Mercaria does not know; ' +
+      { unknown, known, variable },
+      `[${rail}] ${variable} names currencies Mercaria does not know; ` +
         'they are ignored. A card checkout accepts only the recognised ones.',
     );
   }
@@ -727,7 +733,7 @@ function resolveHighValueHoldThresholds(): Readonly<Partial<Record<CurrencyCode,
  * — #107's payment-method kill switch. See {@link StripeConfig.paymentSurfaceMethods}.
  *
  * VALIDATED against the closed tuple, for the reason
- * `resolveStripePresentmentCurrencies` validates its own: a surface Mercaria
+ * `resolvePresentmentCurrencies` validates its own: a surface Mercaria
  * does not know is a surface no client can render, so accepting it would put a
  * value into a handoff that every reader would then have to defend against.
  *
@@ -1504,6 +1510,17 @@ export interface PeableConfig {
   readonly eventBatchSize: number;
   readonly eventPollIntervalMs: number;
   readonly eventLeaseMs: number;
+  /**
+   * What a card checkout on THIS rail may be denominated in.
+   *
+   * Its own variable rather than Stripe's, because the two rails have two
+   * acquirers and only one of them may be configured on a given deployment
+   * (ADR 0009 D19). Defaults to ADR 0001 D8's launch set, which is Mercaria
+   * stating what it BELIEVES the gateway can charge — the gateway's own
+   * configuration is the authority, and a disagreement surfaces as a refusal
+   * from Peable rather than as a silently wrong checkout.
+   */
+  readonly presentmentCurrencies: readonly CurrencyCode[];
 }
 
 export interface PaymentsConfig {
@@ -4389,6 +4406,9 @@ export const config: AppConfig = Object.freeze({
       eventBatchSize: intEnv('PEABLE_EVENT_BATCH_SIZE', 50),
       eventPollIntervalMs: intEnv('PEABLE_EVENT_POLL_INTERVAL_MS', 5_000),
       eventLeaseMs: intEnv('PEABLE_EVENT_LEASE_MS', 60_000),
+      presentmentCurrencies: Object.freeze(
+        resolvePresentmentCurrencies('PEABLE_PRESENTMENT_CURRENCIES', 'Peable'),
+      ),
     }),
     stripe: Object.freeze({
       enabled: resolveStripeEnabled(),
@@ -4416,7 +4436,9 @@ export const config: AppConfig = Object.freeze({
         : {}),
       sellerCountries: Object.freeze(resolveStripeSellerCountries()),
       platformCurrency: resolveStripePlatformCurrency(),
-      presentmentCurrencies: Object.freeze(resolveStripePresentmentCurrencies()),
+      presentmentCurrencies: Object.freeze(
+        resolvePresentmentCurrencies('STRIPE_PRESENTMENT_CURRENCIES', 'Stripe'),
+      ),
       threeDSecureThresholds: resolveThreeDSecureThresholds(),
       highValueHoldThresholds: resolveHighValueHoldThresholds(),
       highValueHoldWindowMs: intEnv('STRIPE_HIGH_VALUE_HOLD_WINDOW_MS', 72 * 60 * 60 * 1_000),
