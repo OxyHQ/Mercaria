@@ -105,6 +105,13 @@ module.exports = {
         posterXS: "700",
       },
       colors: {
+        // NOT the source of truth under Tailwind v4: colours are generated from
+        // the `--color-*` variables in `global.css`'s `@theme` block, not from
+        // this object. A key added here alone compiles to nothing — see the six
+        // `bg-bg-overlay-*` classes that shipped broken because this file had
+        // the entry and `global.css` did not. Add new colours to `global.css`
+        // (all four apps' copies) FIRST; this block is legacy and kept for the
+        // pre-v4 entries below, not for adding to.
         // ── Shopify "Shop" semantic color names ──────────────────────────────
         // Class = `<prefix>-<key>` (e.g. `bg-bg-fill`, `text-text`,
         // `border-border-secondary`). Each maps to an existing Mercaria runtime
