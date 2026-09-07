@@ -860,10 +860,28 @@ export const PAYMENT_OUTBOX_STATUSES: readonly PaymentOutboxStatus[] = [
  * request able to name one would be a buyer asserting a payment that never
  * happened.
  */
-export type CheckoutPaymentMethod = 'stripe' | 'mock';
+/**
+ * Which rail a client asks a checkout to fund through.
+ *
+ * `'card'` is the one to send. It names the SURFACE the buyer sees rather than
+ * the acquirer behind it, which is what ADR 0009 D19 made necessary: the rail is
+ * a deployment fact the server resolves, so a client naming a brand would be
+ * asserting something it cannot know.
+ *
+ * `'stripe'` is kept as a deprecated synonym for `'card'`, not removed. It is
+ * what every shipped client sends today, and dropping it would refuse those
+ * checkouts on the deployment that is mid-migration — the exact moment the
+ * vocabulary changed. It carries no meaning of its own any more: a request
+ * naming it gets whichever rail the deployment resolves, Peable included.
+ */
+export type CheckoutPaymentMethod = 'card' | 'stripe' | 'mock';
 
 /** {@link CheckoutPaymentMethod} as the tuple the request schema reads. */
-export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethod[] = ['stripe', 'mock'];
+export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethod[] = [
+  'card',
+  'stripe',
+  'mock',
+];
 
 /**
  * Which payment SURFACES the server permits for one checkout — ADR 0006 G2/G3

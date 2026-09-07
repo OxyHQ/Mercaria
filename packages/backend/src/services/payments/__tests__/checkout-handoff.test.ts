@@ -98,7 +98,7 @@ describe('the PaymentIntent metadata (ADR 0006 G7)', () => {
   it('carries the guest correlation on a guest-origin group', async () => {
     guestCheckoutId.mockResolvedValue(GUEST_CHECKOUT_ID);
 
-    await service.openCheckoutPayment({ rail: 'stripe', checkoutGroupId: GROUP, orders: orders() });
+    await service.openCheckoutPayment({ rail: 'card', checkoutGroupId: GROUP, orders: orders() });
 
     expect(capturedMetadata()).toEqual({
       paymentId: PAYMENT_ID,
@@ -115,7 +115,7 @@ describe('the PaymentIntent metadata (ADR 0006 G7)', () => {
     guestCheckoutId.mockResolvedValue(undefined);
 
     await service.openCheckoutPayment({
-      rail: 'stripe',
+      rail: 'card',
       checkoutGroupId: GROUP,
       buyerOxyUserId: 'buyer-handoff',
       orders: orders(),
@@ -131,7 +131,7 @@ describe('the PaymentIntent metadata (ADR 0006 G7)', () => {
 
   it('never carries a key outside ADR 0006 G7 s allow-list', async () => {
     guestCheckoutId.mockResolvedValue(GUEST_CHECKOUT_ID);
-    await service.openCheckoutPayment({ rail: 'stripe', checkoutGroupId: GROUP, orders: orders() });
+    await service.openCheckoutPayment({ rail: 'card', checkoutGroupId: GROUP, orders: orders() });
 
     for (const key of Object.keys(capturedMetadata())) {
       expect(PAYMENT_METADATA_KEYS as readonly string[], key).toContain(key);
@@ -171,7 +171,7 @@ describe('the handoff (ADR 0006 G10/G14)', () => {
     guestCheckoutId.mockResolvedValue(GUEST_CHECKOUT_ID);
 
     const handoff = await service.openCheckoutPayment({
-      rail: 'stripe',
+      rail: 'card',
       checkoutGroupId: GROUP,
       orders: orders(),
     });
@@ -185,14 +185,14 @@ describe('the handoff (ADR 0006 G10/G14)', () => {
   it('gives a guest and an Oxy buyer the SAME surfaces (ADR 0006 B11)', async () => {
     guestCheckoutId.mockResolvedValue(GUEST_CHECKOUT_ID);
     const guest = await service.openCheckoutPayment({
-      rail: 'stripe',
+      rail: 'card',
       checkoutGroupId: GROUP,
       orders: orders(),
     });
 
     guestCheckoutId.mockResolvedValue(undefined);
     const oxy = await service.openCheckoutPayment({
-      rail: 'stripe',
+      rail: 'card',
       checkoutGroupId: GROUP,
       buyerOxyUserId: 'buyer-handoff',
       orders: orders(),

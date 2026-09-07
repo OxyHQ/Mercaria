@@ -188,6 +188,46 @@ Two boundaries that go with it, because both are easy to get backwards:
   payout is an observation, and the observer is the only thing that knows its
   own rail.
 
+### D20. The client asks for `card`, and `stripe` stays as a synonym
+
+`CheckoutRail` was `'stripe' | 'none'`, and `resolveCheckoutRail` read
+`config.payments.stripe.enabled` directly — so a Peable-only deployment
+answered `'none'`: orders placed, no payment opened, nothing anywhere saying
+why. The type now names the SURFACE (`'card' | 'none'`) and the rail behind it
+is resolved by D19.
+
+On the wire, `CheckoutPaymentMethod` gains `'card'` and **keeps `'stripe'` as a
+deprecated synonym**. That is not tidiness deferred: `'stripe'` is what every
+shipped client sends, and refusing it on the deployment that is mid-migration
+would break checkout at exactly the moment the vocabulary changed. It carries
+no meaning of its own any more — a request naming it gets whichever rail the
+deployment resolves. It is request vocabulary only and renders no CHECK, so
+this is additive with no migration.
+
+Three consequences worth stating, because each was a decision:
+
+- **`publishableKey` is sent only on the Stripe rail.** Peable's `publicKey` is
+  Mercaria's own ApplicationCredential; putting it in a handoff would ship a
+  server credential to every buyer's browser. Absent means "use the key the app
+  was built with", which is the correct instruction on a rail with no
+  server-side key to reconcile against.
+- **Presentment currencies are per rail.** `PEABLE_PRESENTMENT_CURRENCIES`
+  defaults to ADR 0001 D8's launch set. This is Mercaria stating what it
+  BELIEVES the gateway can charge; the gateway's own configuration is the
+  authority, and a disagreement surfaces as a refusal from Peable rather than as
+  a silently wrong checkout. The parser is shared between the two rails rather
+  than copied, because a second copy is where the currency validation silently
+  stops applying to the newer rail.
+- **`STRIPE_PAYMENT_SURFACE_METHODS` and `STRIPE_CHECKOUT_RETURN_URL` are
+  misnamed and are read on EVERY rail.** Which wallets a client may render, and
+  where a buyer lands after authentication, are checkout facts rather than
+  acquirer facts. Gating them on the resolved rail would leave a Peable
+  deployment with no configured surfaces — and the handoff contract says that
+  set is never empty, because a handoff with nothing to render is a checkout
+  that cannot be paid. Renaming them is a task-definition change in
+  `oxy-infra`, which this repository cannot make or verify, so the behaviour is
+  pinned by a test instead of left to be rediscovered.
+
 ## What this does not change
 
 D1 and D3–D12 of ADR 0001. Merchant of record, separate charges and transfers,
