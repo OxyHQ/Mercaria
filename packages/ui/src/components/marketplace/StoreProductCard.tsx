@@ -125,9 +125,11 @@ export function StoreProductCard({
             {/* Edge zones advance the carousel, as the reference does,
                 without stealing the whole-image product link — rendered
                 after it so they capture the press first. A quarter-width
-                zone each side (a documented default; the appendix gives no
-                explicit figure for this split) leaves the wide middle band
-                as the product link. */}
+                zone each side is CHOSEN, not measured: the capture's own
+                edge zones are a mouse-hover affordance with no fixed size
+                that translates to a touch target, so there is no figure in
+                the appendix to copy. Leaves the wide middle band as the
+                product link. */}
             {hasMany ? (
               <>
                 <Pressable
