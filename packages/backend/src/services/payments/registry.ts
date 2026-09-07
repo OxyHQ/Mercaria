@@ -19,7 +19,7 @@
  */
 
 import type { PaymentProviderId } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
+import { isRailConfigured } from './native-rail.js';
 import type { PaymentProvider } from './provider.js';
 import { PeablePaymentProvider } from './peable/peable-provider.js';
 import { StripePaymentProvider } from './stripe/stripe-provider.js';
@@ -63,14 +63,16 @@ export function resetRailPaymentProviders(): void {
  * has not configured, and the dev seam in production — and a caller that needs
  * an adapter says so itself rather than being handed a throw.
  *
- * Each rail is gated on its OWN configuration here rather than at its call
- * sites, so "is this rail available" has one answer. `mock` is gated for the
+ * Each rail is gated through `isRailConfigured` — the same total record
+ * `resolveNativeRail` reads — rather than through its own copy of the config
+ * expression, so "is this rail available" has ONE answer and a rail cannot be
+ * resolvable to an adapter while being invisible to the rail choice. `mock` is gated for the
  * same reason as Stripe: a rail production refuses to fund must not be reachable
  * through a lookup either.
  */
 export function resolvePaymentProvider(provider: PaymentProviderId): PaymentProvider | undefined {
   if (provider === 'peable') {
-    if (!config.payments.peable.enabled) return undefined;
+    if (!isRailConfigured(provider)) return undefined;
     // One instance per process, for the same reason Stripe's is: the adapter is
     // cheap and holds no connection — the token cache it calls through is a
     // module singleton in `peable/client.ts` — and a fresh one per call would
@@ -79,7 +81,7 @@ export function resolvePaymentProvider(provider: PaymentProviderId): PaymentProv
     return peableInstance;
   }
   if (provider === 'stripe') {
-    if (!config.payments.stripe.enabled) return undefined;
+    if (!isRailConfigured(provider)) return undefined;
     // One instance per process. The adapter is cheap and holds no connection —
     // the SDK client it calls is the lazy singleton — but constructing it when
     // the rail is OFF would move `getStripeClient`'s throw from "asked for a
@@ -87,7 +89,7 @@ export function resolvePaymentProvider(provider: PaymentProviderId): PaymentProv
     stripeInstance ??= new StripePaymentProvider();
     return stripeInstance;
   }
-  if (provider === 'mock') return config.orders.mockPayEnabled ? getMockPaymentProvider() : undefined;
+  if (provider === 'mock') return isRailConfigured(provider) ? getMockPaymentProvider() : undefined;
   // `external` and `manual_pos`: payments Mercaria records, never makes.
   return undefined;
 }

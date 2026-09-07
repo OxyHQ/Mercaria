@@ -150,6 +150,44 @@ Beyond the suite, three things no test can establish, in this order:
    three-attempt, 150 ms-backoff dispatcher with a durable outbox before this
    adapter is trusted.
 
+### D19. WHICH rail a native checkout uses is a deployment fact, and Peable wins
+
+`NATIVE_RAIL` was a constant pinned in the type to `'stripe'`, and three
+separate places read `config.payments.stripe.enabled` as a proxy for "does this
+deployment have a native rail at all". The three disagreed the moment this ADR
+made a second rail real, and one of them —
+`assertSellerGroupsPaymentReady` — failed **open**: it returned before looking
+at anything, so a Peable-only deployment's checkout admitted every seller,
+including sellers with no connected account on any rail. ADR 0001 D4 exists to
+refuse exactly that seller. The other two failed closed, so the seller was
+shown "not ready" while checkout sold through them anyway.
+
+`services/payments/native-rail.ts` is now the single answer, with two records
+TOTAL over `PaymentProviderId` — is the rail configured, and can it serve a
+native checkout — so a sixth provider cannot compile without answering both.
+`mock` answers `null` to the second: `POST /orders/:id/mock-pay` funds a group
+AFTER checkout, so a mock deployment must behave like one with no rail.
+
+**Peable outranks Stripe** when both are configured. A deployment with both is
+mid-migration by definition, and a checkout opening today should open on the
+rail the migration is heading to; it also makes `PEABLE_ENABLED=false` the
+complete rollback, with no second switch to remember. `undefined` — no rail —
+stays an ordinary answer: those deployments place orders exactly as they did
+before any of this existed.
+
+Two boundaries that go with it, because both are easy to get backwards:
+
+- **`findSellerAccount` is not gated on the rail being configured.** Which
+  account a seller is connected to is a different question from whether this
+  deployment can charge on it today. Only the second depends on configuration,
+  and turning a rail off during an incident must not make Mercaria forget the
+  account — `resolvePartnerTransferDestination` asks the first question and
+  needs an answer either way.
+- **A payout names the rail that reported it.** `ObservedPayout.provider` is
+  supplied by the webhook router that saw the event, not read from a constant: a
+  payout is an observation, and the observer is the only thing that knows its
+  own rail.
+
 ## What this does not change
 
 D1 and D3–D12 of ADR 0001. Merchant of record, separate charges and transfers,

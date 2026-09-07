@@ -25,7 +25,6 @@
  * parameter to misuse.
  */
 
-import { config } from '../../config/index.js';
 import { findListingById } from '../../db/catalog/listingRepository.js';
 import { findVariantsByListing, type VariantRecord } from '../../db/catalog/variantRepository.js';
 import { findSellerProfilesByUserIds } from '../../db/buyers/sellerProfileRepository.js';
@@ -37,6 +36,7 @@ import { getDb } from '../../db/postgres.js';
 import { UNREFINED_CONDITION_ASSERTIONS } from '@mercaria/shared-types';
 import {
   findSellerAccount,
+  resolveNativeRail,
   readSellerPaymentReadiness,
 } from '../payments/provider-account.service.js';
 import { readSellerTrust } from '../sellers/seller-trust.js';
@@ -114,7 +114,7 @@ export async function readGuestP2PFacts(input: {
     // ADR 0001 D9's ONE stored verdict. With the rail off the map is empty for
     // every key and the question is not merely unanswered but meaningless —
     // `deployment`, not a refusal against a seller who has done nothing wrong.
-    payoutReady: config.payments.stripe.enabled
+    payoutReady: resolveNativeRail()
       ? known(readiness.get(sellerKey) === true)
       : unknown('deployment'),
     // An unresolvable Oxy profile is Oxy's silence, not a verdict: #92's own
