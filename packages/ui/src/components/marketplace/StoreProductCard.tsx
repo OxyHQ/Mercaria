@@ -41,15 +41,26 @@ export interface StoreProductCardProps {
  *
  * The reference keeps every slide always mounted as an `<a>` and marks the
  * inactive ones `inert` so they cannot be focused or clicked despite
- * `opacity-0`. React Native has no `inert` — and checked against the
- * installed `react-native-web`, a bare `View` would not forward it anyway
- * (`View`'s `pickProps` only forwards its own fixed `forwardedProps`
- * allowlist, and `inert` is not on it). Both platforms get the same
- * "unreachable by pointer or keyboard" guarantee a different way here: only
- * the ACTIVE product is ever wrapped in a `Pressable` at all, so there is no
- * always-mounted interactive element left over for `inert` to disable — a
- * hidden-but-pressable slide was never constructible on either platform to
- * begin with, which is a stronger guarantee than the reference's own.
+ * `opacity-0`. React Native has no `inert`, and it is not added back on web
+ * either — not because it is unavailable there but because it is
+ * unnecessary.
+ *
+ * **Correction:** this note previously claimed `react-native-web`'s `View`
+ * excludes `inert` from its forwarded props, so it would never reach the DOM.
+ * That is false. `react-native-web@0.21.2`'s
+ * `dist/modules/forwardedProps/index.js:58` carries `inert: true` —
+ * confirmed both by reading the installed source and by a re-reviewer's
+ * `createDOMProps("div", { inert: true })` → `{"inert":true}`. Recorded here
+ * rather than quietly edited, because the wrong reason had already been
+ * repeated into the design appendix before anyone checked it.
+ *
+ * The mechanism below is what actually does the work and needs no
+ * correction: only the ACTIVE product is ever wrapped in a `Pressable` at
+ * all, so there is no always-mounted interactive element left over for
+ * `inert` to disable — a hidden-but-pressable slide was never constructible
+ * on either platform to begin with, which is a stronger guarantee than the
+ * reference's own. Both platforms get the same "unreachable by pointer or
+ * keyboard" result this way.
  *
  * ## No nested interactives
  *
