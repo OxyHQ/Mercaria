@@ -53,7 +53,10 @@ import {
 import { findLatestSyncRunPerConnection } from '../../db/connectors/syncRunRepository.js';
 import { listFeedConfigurationsForOwner } from '../../db/feedImport/feedConfigurationRepository.js';
 import { listings } from '../../db/schema/catalog.js';
-import { isSellerPaymentReady } from '../payments/provider-account.service.js';
+import {
+  isSellerPaymentReady,
+  resolveNativeRail,
+} from '../payments/provider-account.service.js';
 import { channelTypeForConnection, describeChannel } from './channel-catalog.js';
 
 /**
@@ -125,7 +128,10 @@ export async function deriveChannelReadiness(storeId: string): Promise<ChannelRe
   }
 
   const paymentsReady = await isSellerPaymentReady(`store:${storeId}`);
-  const railEnabled = config.payments.stripe.enabled;
+  // The native rail, whichever it is — `isSellerPaymentReady` above resolves it
+  // the same way, and a second answer here would make `payments_not_ready`
+  // depend on which of the two ran.
+  const railEnabled = resolveNativeRail() !== undefined;
 
   const blockers: ChannelReadinessBlocker[] = [];
   if (connectedChannelTypes.length === 0) {

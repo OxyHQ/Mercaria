@@ -22,6 +22,10 @@ import { closePostgres, connectPostgres, getDb, type Database } from '../../db/p
 import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import { referralPartners, referralTaxProfiles } from '../../db/schema/referrals.js';
 import { providerAccounts } from '../../db/schema/payments.js';
+import {
+  NATIVE_RAIL_PREFERENCE,
+  resolveNativeRail,
+} from '../payments/native-rail.js';
 import { insertPartner } from '../../db/referrals/partnerRepository.js';
 import {
   findLatestTaxProfile,
@@ -314,7 +318,13 @@ describe('identity and payout readiness come from #46, and fail closed', () => {
       .insert(providerAccounts)
       .values({
         id: accountId,
-        provider: 'stripe',
+        // The rail this deployment resolves, not a literal. The subject here is
+        // ADR 0005 D14's "reuses the SAME account" — that the destination is
+        // found by the partner's OWN owner key with no referral-specific id in
+        // the path — and naming a rail would make the case fail on a deployment
+        // whose rail is the other one, for a reason that has nothing to do with
+        // what it asserts.
+        provider: resolveNativeRail() ?? NATIVE_RAIL_PREFERENCE[0]!,
         ownerType: 'user',
         ownerId: partner.ownerId,
         providerAccountId: `acct_${TAG}${partner.ownerId.slice(-4)}`,

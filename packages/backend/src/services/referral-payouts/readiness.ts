@@ -20,9 +20,9 @@
  */
 
 import type { ProviderOnboardingState } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import {
   findSellerAccount,
+  resolveNativeRail,
   type SellerAccountOwner,
 } from '../payments/provider-account.service.js';
 import type {
@@ -51,7 +51,11 @@ import {
 export async function readPartnerPayoutReadiness(
   subject: ReferralPartnerReadinessSubject,
 ): Promise<ReferralPartnerReadiness> {
-  if (!config.payments.stripe.enabled) {
+  // The NATIVE rail, not Stripe specifically. This gate exists to say "this
+  // deployment has no rail", and `findSellerAccount` below resolves the rail the
+  // same way — two different answers to one question is how a Peable-only
+  // deployment ended up reporting `unknown` for a partner who is fully onboarded.
+  if (!resolveNativeRail()) {
     return { identity: 'unknown', payout: 'unknown', payoutBeneficiaryRef: undefined };
   }
 

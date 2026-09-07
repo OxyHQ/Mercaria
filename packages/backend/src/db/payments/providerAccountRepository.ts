@@ -25,16 +25,30 @@
  */
 
 import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
-import type { ProviderAccountOwnerType, ProviderOnboardingState } from '@mercaria/shared-types';
+import type {
+  PaymentProviderId,
+  ProviderAccountOwnerType,
+  ProviderOnboardingState,
+} from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { providerAccounts } from '../schema/payments.js';
 
 /** A provider-account row as the services read it back. */
 export type ProviderAccountRow = typeof providerAccounts.$inferSelect;
 
-/** Which seller, on which rail. The natural key every read starts from. */
+/**
+ * Which seller, on which rail. The natural key every read starts from.
+ *
+ * `provider` was `'stripe'` — narrowed here rather than at a call site, from
+ * when one rail was the only one. That narrowing outlived its premise: ADR 0009
+ * put a second rail on the same table (migration `0154` widened the CHECK to
+ * match), and a repository that cannot NAME the second rail is a repository the
+ * second rail cannot use. Which rails may hold an account is a policy question,
+ * and it is answered above this layer by `native-rail.ts` — not by a type here
+ * that would have to be edited every time the policy moves.
+ */
 export interface ProviderAccountOwnerKey {
-  provider: 'stripe';
+  provider: PaymentProviderId;
   ownerType: ProviderAccountOwnerType;
   ownerId: string;
 }
@@ -106,7 +120,7 @@ export async function findProviderAccountByOwner(
  */
 export async function findProviderAccountsByOwners(
   db: DatabaseOrTransaction,
-  provider: 'stripe',
+  provider: PaymentProviderId,
   owners: readonly { ownerType: ProviderAccountOwnerType; ownerId: string }[],
 ): Promise<ProviderAccountRow[]> {
   if (owners.length === 0) return [];
@@ -137,7 +151,7 @@ export async function findProviderAccountsByOwners(
  */
 export async function findProviderAccountByProviderId(
   db: DatabaseOrTransaction,
-  provider: 'stripe',
+  provider: PaymentProviderId,
   providerAccountId: string,
 ): Promise<ProviderAccountRow | undefined> {
   const [row] = await db
@@ -314,7 +328,7 @@ export async function revokeProviderAccount(
  */
 export async function findStaleProviderAccounts(
   db: DatabaseOrTransaction,
-  input: { provider: 'stripe'; staleBefore: Date; limit: number },
+  input: { provider: PaymentProviderId; staleBefore: Date; limit: number },
 ): Promise<ProviderAccountRow[]> {
   return await db
     .select()
