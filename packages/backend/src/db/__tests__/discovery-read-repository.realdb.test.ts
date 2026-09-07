@@ -15,10 +15,19 @@
  *    `discovery_signals` scope is an empty shelf, never every listing in the
  *    category via a bad join) and HONOUR the scope (a sibling category's row
  *    must never leak in).
- *  - `findStoresWithLiveDiscounts` must apply all three of its predicates
- *    independently: `method`, `is_active` and the scheduled window each get
- *    their own fixture that differs from the live one in exactly that one
- *    dimension, so no single assertion can pass for the wrong reason.
+ *  - `best-selling` / `most-viewed` must also exclude a listing that is no
+ *    longer `active` — `discovery_signals` carries no status of its own, so a
+ *    listing counted while it sold and later archived, sold out or put under
+ *    a moderation hold must not stay on a public shelf until the row ages out
+ *    of the window.
+ *  - `findStoresBySignal` / `findStoresWithLiveDiscounts` must exclude a store
+ *    that is no longer `active`, the same reasoning one level up.
+ *  - `findStoresWithLiveDiscounts` must apply all four of its predicates
+ *    independently: `method`, `is_active`, BOTH halves of the scheduled
+ *    window (a discount that has not started yet, and one whose window has
+ *    closed) each get their own fixture that differs from the live one in
+ *    exactly that one dimension, so no single assertion can pass for the
+ *    wrong reason.
  *
  * ## Scoping, because this database is SHARED
  *
@@ -34,12 +43,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
-import type { DiscountMethod } from '@mercaria/shared-types';
+import type { DiscountMethod, ListingStatus } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { categories, listings } from '../schema/catalog.js';
 import { discoverySignals } from '../schema/discovery.js';
 import { discounts } from '../schema/merchandising.js';
-import { insertStore } from '../stores/storeRepository.js';
+import { insertStore, updateStoreColumns } from '../stores/storeRepository.js';
 import { deleteTestStores } from './store-teardown.js';
 import {
   findListingsBySignal,
@@ -83,7 +92,7 @@ async function makeListing(
     rating?: number;
     reviewCount?: number;
     publishedAt?: Date | null;
-    status?: 'active' | 'draft';
+    status?: ListingStatus;
   } = {},
 ): Promise<string> {
   const [listing] = await db
@@ -293,17 +302,64 @@ describe('findListingsBySignal', () => {
 
     expect(found).toEqual([]);
   });
+
+  it('best-selling excludes a listing whose status is no longer active', async () => {
+    // The restricted listing's count is far HIGHER than the active one's — a
+    // missing status filter would put it FIRST, not merely leave it in
+    // second place, so this fails loudly rather than by omission.
+    const categoryId = await makeCategory();
+    const activeId = await makeListing(categoryId);
+    const restrictedId = await makeListing(categoryId, { status: 'restricted' });
+    await seedSignal({ subjectType: 'listing', subjectId: activeId, categoryId, unitsSold: 5 });
+    await seedSignal({
+      subjectType: 'listing',
+      subjectId: restrictedId,
+      categoryId,
+      unitsSold: 500,
+    });
+
+    const found = await findListingsBySignal({
+      signal: 'best-selling',
+      categoryIds: [categoryId],
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(found.map((l) => l.id)).toEqual([activeId]);
+  });
+
+  it('most-viewed excludes a listing whose status is no longer active', async () => {
+    const categoryId = await makeCategory();
+    const activeId = await makeListing(categoryId);
+    const restrictedId = await makeListing(categoryId, { status: 'restricted' });
+    await seedSignal({ subjectType: 'listing', subjectId: activeId, categoryId, viewCount: 5 });
+    await seedSignal({
+      subjectType: 'listing',
+      subjectId: restrictedId,
+      categoryId,
+      viewCount: 500,
+    });
+
+    const found = await findListingsBySignal({
+      signal: 'most-viewed',
+      categoryIds: [categoryId],
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(found.map((l) => l.id)).toEqual([activeId]);
+  });
 });
 
 describe('findStoresBySignal', () => {
   it('ranks store ids by units_sold and honours the scope', async () => {
     const categoryId = await makeCategory();
     const siblingCategoryId = await makeCategory();
-    const topStoreId = `realdb-discovery-read-store-${uuidv7()}`;
-    const laggardStoreId = `realdb-discovery-read-store-${uuidv7()}`;
+    const topStoreId = await makeStore();
+    const laggardStoreId = await makeStore();
     // Highest count of the three, but in a SIBLING category — a query that
     // ignores the scope puts it first.
-    const siblingStoreId = `realdb-discovery-read-store-${uuidv7()}`;
+    const siblingStoreId = await makeStore();
     await seedSignal({
       subjectType: 'store',
       subjectId: laggardStoreId,
@@ -327,6 +383,31 @@ describe('findStoresBySignal', () => {
 
     expect(found).toEqual([topStoreId, laggardStoreId]);
   });
+
+  it('excludes a store that is no longer active', async () => {
+    // Highest count of the two, but suspended — a missing status filter would
+    // put it first rather than exclude it.
+    const categoryId = await makeCategory();
+    const activeStoreId = await makeStore();
+    const suspendedStoreId = await makeStore();
+    await updateStoreColumns(suspendedStoreId, { status: 'suspended' });
+    await seedSignal({
+      subjectType: 'store',
+      subjectId: activeStoreId,
+      categoryId,
+      unitsSold: 5,
+    });
+    await seedSignal({
+      subjectType: 'store',
+      subjectId: suspendedStoreId,
+      categoryId,
+      unitsSold: 500,
+    });
+
+    const found = await findStoresBySignal({ categoryId, limit: 10 });
+
+    expect(found).toEqual([activeStoreId]);
+  });
 });
 
 describe('findStoresWithLiveDiscounts', () => {
@@ -345,6 +426,18 @@ describe('findStoresWithLiveDiscounts', () => {
     // have is a false price.
     const storeId = await makeStore();
     await makeDiscount(storeId, { method: 'code' });
+
+    const found = await findStoresWithLiveDiscounts(500);
+
+    expect(found.some((row) => row.storeId === storeId)).toBe(false);
+  });
+
+  it('excludes a discount that has not started yet', async () => {
+    // `starts_at` in the future, `ends_at` left open. The converse fixture
+    // below closes the window from the other side; deleting or inverting
+    // either half of the predicate is caught by exactly one of the two.
+    const storeId = await makeStore();
+    await makeDiscount(storeId, { startsAt: new Date(Date.now() + 60 * 60 * 1000) });
 
     const found = await findStoresWithLiveDiscounts(500);
 
@@ -372,6 +465,18 @@ describe('findStoresWithLiveDiscounts', () => {
     // pass for the other's reason.
     const storeId = await makeStore();
     await makeDiscount(storeId, { isActive: false });
+
+    const found = await findStoresWithLiveDiscounts(500);
+
+    expect(found.some((row) => row.storeId === storeId)).toBe(false);
+  });
+
+  it('excludes a discount whose store is no longer active', async () => {
+    // The discount itself is perfectly live — the only thing wrong is the
+    // store underneath it.
+    const storeId = await makeStore();
+    await makeDiscount(storeId);
+    await updateStoreColumns(storeId, { status: 'suspended' });
 
     const found = await findStoresWithLiveDiscounts(500);
 

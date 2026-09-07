@@ -27,6 +27,7 @@ import { getDb } from '../postgres.js';
 import { listings } from '../schema/catalog.js';
 import { discoverySignals } from '../schema/discovery.js';
 import { discounts } from '../schema/merchandising.js';
+import { stores } from '../schema/stores.js';
 
 /** The one counting window this repository reads. See `DISCOVERY_WINDOWS`. */
 const WINDOW = DISCOVERY_WINDOWS[0];
@@ -103,6 +104,12 @@ async function findBestSellingListings(
         eq(discoverySignals.subjectType, 'listing'),
         inArray(discoverySignals.categoryId, input.categoryIds),
         eq(discoverySignals.window, WINDOW),
+        // A listing counted while it sold can be archived, sold out or put
+        // under a moderation hold afterward — `discovery_signals` carries no
+        // status check of its own (Task 4's sweep counts from order/view
+        // history, not from the listing's current state), so this join is
+        // the one place that can still keep it off a public shelf.
+        eq(listings.status, 'active'),
       ),
     )
     .orderBy(desc(discoverySignals.unitsSold), desc(discoverySignals.id))
@@ -124,6 +131,8 @@ async function findMostViewedListings(
         eq(discoverySignals.subjectType, 'listing'),
         inArray(discoverySignals.categoryId, input.categoryIds),
         eq(discoverySignals.window, WINDOW),
+        // See the same predicate in `findBestSellingListings` above.
+        eq(listings.status, 'active'),
       ),
     )
     .orderBy(desc(discoverySignals.viewCount), desc(discoverySignals.id))
@@ -131,7 +140,15 @@ async function findMostViewedListings(
     .offset(input.offset);
 }
 
-/** Store ids ranked by `discovery_signals.units_sold` — the merchant shelf. */
+/**
+ * Store ids ranked by `discovery_signals.units_sold` — the merchant shelf.
+ *
+ * Joined to `stores` for `status = 'active'` — the same reasoning as
+ * `storeRepository.ts`'s `findTopActiveStores`, "since this is a public
+ * storefront read." A store counted while it sold can go `suspended` or
+ * `closed` afterward, and `findStoresByIds` (the batch hydration Task 7 would
+ * call with these ids) does no status filtering of its own.
+ */
 export async function findStoresBySignal(input: {
   categoryId: string;
   limit: number;
@@ -139,11 +156,13 @@ export async function findStoresBySignal(input: {
   const rows = await getDb()
     .select({ subjectId: discoverySignals.subjectId })
     .from(discoverySignals)
+    .innerJoin(stores, eq(discoverySignals.subjectId, stores.id))
     .where(
       and(
         eq(discoverySignals.subjectType, 'store'),
         eq(discoverySignals.categoryId, input.categoryId),
         eq(discoverySignals.window, WINDOW),
+        eq(stores.status, 'active'),
       ),
     )
     .orderBy(desc(discoverySignals.unitsSold), desc(discoverySignals.id))
@@ -156,24 +175,30 @@ export async function findStoresBySignal(input: {
  * cards. `method: 'code'` is never projected: a shelf advertising a saving
  * the shopper cannot get without a code they do not have is a false price.
  *
- * Filters exactly the three things `discounts_store_id_method_window_idx` was
- * built for: the method, the active flag, and the scheduled window
+ * Filters the discount's method, active flag and scheduled window
  * (`starts_at <= now <= coalesce(ends_at, 'infinity')`, read here as
- * `starts_at <= now` and `ends_at is null or ends_at >= now`).
+ * `starts_at <= now` and `ends_at is null or ends_at >= now`), joined to
+ * `stores` for `status = 'active'` — the same reasoning as
+ * `storeRepository.ts`'s `findTopActiveStores`. This is a cross-store read
+ * with no `store_id` predicate, so it does not seek either of `discounts`'
+ * composite indexes by their leading column; both exist for the per-store
+ * reads in `discountRepository.ts`, not this one.
  */
 export async function findStoresWithLiveDiscounts(
   limit: number,
 ): Promise<{ storeId: string; discount: DiscountRow }[]> {
   const now = new Date();
   const rows = await getDb()
-    .select()
+    .select(getTableColumns(discounts))
     .from(discounts)
+    .innerJoin(stores, eq(discounts.storeId, stores.id))
     .where(
       and(
         eq(discounts.method, 'automatic'),
         eq(discounts.isActive, true),
         lte(discounts.startsAt, now),
         or(isNull(discounts.endsAt), gte(discounts.endsAt, now)),
+        eq(stores.status, 'active'),
       ),
     )
     .orderBy(desc(discounts.startsAt), desc(discounts.id))
