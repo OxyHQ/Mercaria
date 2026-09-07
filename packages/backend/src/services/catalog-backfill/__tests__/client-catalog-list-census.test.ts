@@ -146,8 +146,8 @@ const HARDCODED_CATALOG_COMPARISON =
  * `SIZE` flags `FONT_SIZE_TOKENS` (typography) and `COLOR`/`OPTION` flags
  * `COLOR_OPTIONS` (a hex palette in a generic colour picker) — design-system
  * vocabulary a name-matching detector cannot tell from catalog vocabulary. Each
- * would need an allow-list entry, re-growing from zero the list #478 just
- * emptied, to catch strictly less than this probe does.
+ * would need its own allow-list entry, growing `PERMITTED` past the one it
+ * already carries, to catch strictly less than this probe does.
  */
 const HARDCODED_CATALOG_MEMBERSHIP =
   /\.(?:has|includes)\(\s*(?:option|category|productType|facet|attribute)\.(?:name|slug|key)\b/u;
@@ -179,18 +179,23 @@ const PERMITTED: readonly { readonly path: string; readonly disposition: string 
   {
     path: 'packages/ui/src/lib/category-palette.ts',
     disposition:
-      'DECORATION, not a fact about the category: `CATEGORY_PALETTE` picks a browse-tile ' +
-      'BACKGROUND colour from a hash of the category id — nothing renders it as, or beside, a ' +
-      'claim that the category IS that colour. Contrast #478’s `VariantSwatches`, which used the ' +
-      'same fixed-array-plus-hash SHAPE to draw a colour it then presented AS the value a shopper ' +
-      'selected (an `accessibilityLabel` naming the option over an invented hue) — a claim that ' +
-      'could be right or wrong, and often was. Here the tile’s label is the category NAME, always ' +
-      'correct; the colour behind it is chrome, exactly like a fallback tint behind an avatar with ' +
-      'no photo. `categories` carries no colour column, and ' +
-      '`docs/superpowers/specs/2026-09-07-discovery-feed-design.md` §"Tile colour is derived, not ' +
-      'stored" already records why none is being added: no operator surface exists to fill one. ' +
-      '`categoryPaletteColor` is also not exported from `@mercaria/ui` (`packages/ui/src/index.ts`) ' +
-      '— it is `CategorySampleTile`’s own private derivation, consumed nowhere else.',
+      '`CATEGORY_PALETTE` is eight HEX COLOUR STRINGS (`#A6462D` …), not a re-listed catalog ' +
+      'vocabulary — there is no server-owned set of colours it could drift out of sync with, the ' +
+      'way a category/option/facet name list would. It also never trips ' +
+      '`HARDCODED_CATALOG_MEMBERSHIP` above: nothing here does `.has`/`.includes` against an ' +
+      'option/category/productType/facet/attribute’s `.name`/`.slug`/`.key` — the hash key is ' +
+      '`categoryId` alone, used only to pick a fixed array INDEX, never compared against catalog ' +
+      'free text. That is the real reason this is not #478 recurring, not merely a style ' +
+      'difference: #478’s `VariantSwatches` matched free text in one language to choose a widget, ' +
+      'then presented an invented hue AS the value a shopper had selected — a claim about a ' +
+      'specific piece of data that could be right or wrong, and often was. This array makes no ' +
+      'such claim: it is a browse-tile BACKGROUND colour behind a label that is always the ' +
+      'category’s real name, the same shape as a fallback avatar tint. `categories` carries no ' +
+      'colour column, and `docs/superpowers/specs/2026-09-07-discovery-feed-design.md` §"Tile ' +
+      'colour is derived, not stored" already records why none is being added: no operator ' +
+      'surface exists to fill one. `categoryPaletteColor` is also not exported from `@mercaria/ui` ' +
+      '(`packages/ui/src/index.ts`) — it is `CategorySampleTile`’s own private derivation, ' +
+      'consumed nowhere else.',
   },
 ];
 
@@ -374,9 +379,11 @@ describe('the censused client packages', () => {
       );
     }
     // The exact-count assertion on the exemptions themselves. ZERO from #478
-    // until the discovery-feed browse tiles added `category-palette.ts`; it is
-    // not a formality, because the loop above passes at any length and this
-    // line is the only thing that notices a SECOND entry landing unreviewed.
+    // until the discovery-feed browse tiles added `category-palette.ts`, which
+    // also makes the loop above non-vacuous for the first time since #478 — it
+    // now actually checks that one entry's path and disposition. But the loop
+    // has no opinion on its OWN length, so this line is still the only thing
+    // that notices a SECOND entry landing unreviewed.
     expect(PERMITTED).toHaveLength(1);
   });
 
