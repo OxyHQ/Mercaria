@@ -25,26 +25,33 @@ import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
  * none of those. The reasoning is on the `PublicRouteId` member, where the next
  * person to ask will find it.
  *
- * ## It renders the PUBLISHED navigation, not a second taxonomy
+ * ## It must render the PUBLISHED navigation, not a second taxonomy — and does not yet
  *
- * `useCatalogNavigation` answers with the taxonomy-v2 trees when
- * `CATALOG_TAXONOMY_V2_ENABLED` is on and falls back to the v1 category tree
- * when it is not, REPORTING which answered (ADR 0007 D12). This hub therefore
- * shows the same menu the rest of the storefront shows, in the same order
- * somebody published, rather than a private arrangement of the same rows that
- * would disagree with the header the moment an operator reordered one.
+ * That is this page's contract, and it is the reason the hub cannot simply
+ * arrange categories however it likes: it shows the same menu the rest of the
+ * storefront shows, in the order somebody published, rather than a private
+ * arrangement that would disagree with the header the moment an operator
+ * reordered one. `useCatalogNavigation` is what serves it — taxonomy-v2 trees
+ * when `CATALOG_TAXONOMY_V2_ENABLED` is on, the v1 category tree when it is
+ * not, REPORTING which answered (ADR 0007 D12).
  *
- * That hook had no consumer before this screen. Its fallback is what
- * `docs/runbooks/catalog-rollout-rollback.md` promises, and this page is now
- * the surface where turning the lever off is visible.
+ * The body below no longer calls it. It renders the discovery feed at
+ * `scope: 'root'`, and `services/discovery/feed.service.ts` composes that scope
+ * from `categoryRepository` directly, with no reading of `GET /navigation` and
+ * no involvement of the lever. Two things follow, both true today and neither
+ * intended:
  *
- * ## An entry with no destination is a heading, and that is not a defect here
+ * - This page renders identically whether `CATALOG_TAXONOMY_V2_ENABLED` is on
+ *   or off, so the rollback visibility `docs/runbooks/catalog-rollout-rollback.md`
+ *   §3/§6 promises has no surface here.
+ * - The four non-category target kinds (`saved_query`, `collection`,
+ *   `product_type`, `campaign`) have no section kind to render as, so
+ *   taxonomy-v2-only entries do not appear at all.
  *
- * `navigationTargetHref` answers `undefined` for the four target kinds the
- * storefront has no screen for (`saved_query`, `collection`, `product_type`,
- * and `campaign`, which leaves through `Linking` instead).`NavigationMenu`
- * renders those as text. On a hub that is the correct rendering rather than a
- * dead row: the shopper reads the structure and follows the parts that exist.
+ * The fix is server-side and is a merge blocker on the discovery-feed branch:
+ * the root scope reads the published navigation with the v1 fallback, so the
+ * lever keeps a visible surface and those kinds keep a home. When it lands,
+ * this section loses its second half and the contract above is simply true.
  *
  * ## No count, no "N products"
  *
