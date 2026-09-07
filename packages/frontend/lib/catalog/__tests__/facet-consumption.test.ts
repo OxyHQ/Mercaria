@@ -34,7 +34,7 @@ import {
  */
 const CATEGORY_SCREEN = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  '../../../app/(app)/categories/[handle].tsx',
+  '../../../app/(app)/categories/[handle]/index.tsx',
 );
 
 describe('the category grid cannot act on a facet selection', () => {
