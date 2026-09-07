@@ -19,14 +19,20 @@ scope=deals                → /deals
 `routes/discovery.ts`'s Zod schema parses the query string into a
 `DiscoveryScope` discriminated union
 (`{ kind: 'root' } | { kind: 'category'; handle } | { kind: 'deals' }`);
-`services/discovery/feed.service.ts`'s `getDiscoveryFeed(scope, viewerId?)`
-turns that into an ordered `DiscoveryFeed` (`{ sections: DiscoverySection[] }`).
+`services/discovery/feed.service.ts`'s `getDiscoveryFeed(scope)` turns that
+into an ordered `DiscoveryFeed` (`{ sections: DiscoverySection[] }`).
 A fourth screen later is a new `scope`, not a new feed — the section machine
 and the card set (`ProductSummary`, `StoreSummary`, `CategoryTile`) are shared
 with the rest of the catalogue and reused unchanged.
 
-`viewerId` is optional (`optionalAuth`, matching `routes/feed.ts`) and drives
-only `saved`; the route is otherwise public.
+**The feed is NOT personalised.** It takes no viewer, no item is marked
+`saved`, and the Redis key is the scope alone, so every caller — signed in or
+not — is served the same bytes from the same cache entry. `optionalAuth` is
+mounted (matching `routes/feed.ts`) and never blocks anonymous access, but
+nothing downstream reads what it attaches. Marking `saved` would mean
+threading a viewer through `catalog-hydration.service.ts`'s
+`toProductSummaries`, which takes none, and accepting a per-viewer cache on a
+page that reads the whole active taxonomy to build; neither has been decided.
 
 ## Why `discovery`, not `feed`
 

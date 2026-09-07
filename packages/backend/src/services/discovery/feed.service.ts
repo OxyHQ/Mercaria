@@ -51,11 +51,19 @@
  * than repeating one — matching the reference capture's per-category, per-
  * signal shelf titles ("Top rated in home", "New in beauty", …).
  *
- * ## Cached exactly like the home feed
+ * ## Cached exactly like the home feed, but keyed by SCOPE ALONE
  *
  * Same discipline as `services/feed.service.ts`: a Redis error is logged and
  * the feed is built from the database, never thrown, and a cache write is best
- * effort. Keyed per scope AND viewer, on `config.feed.cacheTtlSeconds`.
+ * effort, on `config.feed.cacheTtlSeconds`.
+ *
+ * The key carries no viewer, and that is a statement about this feed rather
+ * than an omission: discovery is the same bytes for everybody. Nothing here
+ * reads a viewer — `toProductSummaries` takes none, so no item is marked
+ * `saved` — and keying on one would give every signed-in shopper a private
+ * entry for an identical feed, so each would pay a full cold build of a page
+ * that reads the whole active taxonomy. The home feed keys on `viewerId`
+ * because it is BECOMING personal by design; this one is explicitly not.
  */
 
 import type {
@@ -123,9 +131,9 @@ const HERO_SIGNAL: DiscoverySignal = 'new';
 /** Basis points per whole percentage point — `discounts.value`'s own unit for `valueType: 'percentage'`. */
 const BASIS_POINTS_PER_PERCENT = 100;
 
-function discoveryFeedCacheKey(scope: DiscoveryScope, viewerId: string | undefined): string {
+function discoveryFeedCacheKey(scope: DiscoveryScope): string {
   const scopeKey = scope.kind === 'category' ? `category:${scope.handle}` : scope.kind;
-  return `discovery:${DISCOVERY_FEED_CACHE_VERSION}:${scopeKey}:${viewerId ?? 'anon'}`;
+  return `discovery:${DISCOVERY_FEED_CACHE_VERSION}:${scopeKey}`;
 }
 
 /** `'capped'` for the two signals paged only as deep as the sweep counted, `'complete'` otherwise. */
@@ -661,18 +669,20 @@ async function buildDiscoveryFeedFromDb(scope: DiscoveryScope): Promise<Discover
 }
 
 /**
- * Get the discovery feed for a scope + viewer, served from Redis when warm.
+ * Get the discovery feed for a scope, served from Redis when warm.
+ *
  * Cache absence or any Redis error falls back to building from the database;
  * cache writes are best effort and never block the response. A `category`
  * scope naming an unknown or inactive handle throws `notFound` — never cached,
  * since only a built feed is ever written to the cache.
+ *
+ * There is no viewer parameter. This feed is identical for every shopper (see
+ * the file docblock), and a parameter that only fragmented the cache key
+ * documented a personalisation that does not exist.
  */
-export async function getDiscoveryFeed(
-  scope: DiscoveryScope,
-  viewerId?: string,
-): Promise<DiscoveryFeed> {
+export async function getDiscoveryFeed(scope: DiscoveryScope): Promise<DiscoveryFeed> {
   const redis = getRedisClient();
-  const key = discoveryFeedCacheKey(scope, viewerId);
+  const key = discoveryFeedCacheKey(scope);
 
   if (redis) {
     try {

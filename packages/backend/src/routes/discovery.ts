@@ -11,9 +11,13 @@ import { getDiscoveryFeedHandler } from '../controllers/discovery.controller.js'
  * ONE contract (`services/discovery/feed.service.ts`'s own docblock).
  *
  * PUBLIC — browsing products is available to anonymous viewers, mirroring
- * `routes/feed.ts`. `optionalAuth` attaches the viewer (when a token is
- * present) so the feed can mark items `saved` for that user; it never blocks
- * anonymous access.
+ * `routes/feed.ts`. `optionalAuth` attaches the viewer when a token is present
+ * and never blocks anonymous access; NOTHING in this feed reads it yet. It is
+ * not personalised — no item is marked `saved`, and the service takes no
+ * viewer at all — so the response and its cache entry are shared by every
+ * caller. Marking `saved` would mean threading a viewer through
+ * `catalog-hydration.service.ts`'s `toProductSummaries`, which takes none, and
+ * accepting a per-viewer cache; neither has been decided.
  *
  * A dedicated `'discovery'` rate-limit scope (`rl:discovery:`) rather than
  * sharing `'feed'`: this surface is three pages plus a paginated signal route,

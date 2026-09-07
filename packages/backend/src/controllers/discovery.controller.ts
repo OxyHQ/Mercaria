@@ -16,13 +16,15 @@ import { log } from '../lib/logger.js';
 /**
  * GET /discovery/feed?scope=root|category:<handle>|deals
  *
- * PUBLIC; viewerId (optional) drives `saved`. `scope` arrives already parsed
- * into a {@link DiscoveryScope} by `routes/discovery.ts`'s Zod schema.
+ * PUBLIC, and the response is the same for every caller — nothing in this feed
+ * is personalised, so no viewer is passed to the service. `scope` arrives
+ * already parsed into a {@link DiscoveryScope} by `routes/discovery.ts`'s Zod
+ * schema.
  */
 export async function getDiscoveryFeedHandler(req: Request, res: Response): Promise<void> {
   const { scope } = req.query as unknown as { scope: DiscoveryScope };
   try {
-    const feed = await getDiscoveryFeed(scope, req.user?.id);
+    const feed = await getDiscoveryFeed(scope);
     sendSuccess(res, feed);
   } catch (err) {
     log.general.error({ err }, 'Failed to build discovery feed');
