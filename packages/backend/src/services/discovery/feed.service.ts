@@ -83,7 +83,6 @@ import {
 import {
   findActiveCategories,
   findActiveCategoryBySlug,
-  findCategorySubtreePaths,
   type CategoryRecord,
 } from '../../db/catalog/categoryRepository.js';
 import {
@@ -132,6 +131,38 @@ function discoveryFeedCacheKey(scope: DiscoveryScope, viewerId: string | undefin
 /** `'capped'` for the two signals paged only as deep as the sweep counted, `'complete'` otherwise. */
 function pageDepthFor(signal: DiscoverySignal): DiscoverySectionPageDepth {
   return DISCOVERY_SIGNALS_FROM_COUNTS.includes(signal) ? 'capped' : 'complete';
+}
+
+/**
+ * Every ACTIVE category of a subtree — the subject plus each active
+ * descendant — as the id list a shelf scopes itself to.
+ *
+ * Deliberately NOT `findCategorySubtreePaths`, whose predicate carries no
+ * `is_active` at all: its docblock states why for the path it was written for
+ * (a write re-deriving browse paths must reach a deprecated or suppressed
+ * node's listings, or exactly the rows a lifecycle change touched keep a stale
+ * path). On a PUBLIC read that same absence is an escape one level ABOVE the
+ * listing status filter every shelf query already carries: `categories.is_active`
+ * is `lifecycle === 'published'` (`db/seo/seoRepository.ts` maps everything
+ * else to `'suppressed'`), and `db/schema/catalog.ts` says suppression "decides
+ * whether shoppers SEE a node" — a connector's imported categories sit
+ * suppressed until somebody reviews them. Reaching into them here would put
+ * their products on a shelf under a category the shopper cannot navigate to.
+ *
+ * Filtered from `findActiveCategories`' result rather than queried: both scopes
+ * already load the whole active taxonomy for their tiles and pills, and
+ * `ancestor_ids` (root-first, excluding the row itself) is the same authority
+ * the subtree query reads — so this is one fewer round trip per category, not a
+ * second implementation of the tree walk.
+ *
+ * `subjectId` is the caller's own already-active category, so it is always in
+ * the list; a category is never its own ancestor.
+ */
+function activeSubtreeIds(activeCategories: CategoryRecord[], subjectId: string): string[] {
+  return [
+    subjectId,
+    ...activeCategories.filter((c) => c.ancestorIds.includes(subjectId)).map((c) => c.id),
+  ];
 }
 
 /** A category record projected to the wire `CategoryTile` shape. */
@@ -287,11 +318,10 @@ async function buildRootFeed(): Promise<DiscoveryFeed> {
 
   for (const [index, category] of topLevel.entries()) {
     const signal = DISCOVERY_SIGNALS_FROM_LISTINGS[index % DISCOVERY_SIGNALS_FROM_LISTINGS.length];
-    const subtree = await findCategorySubtreePaths(category.id);
     const shelf = await buildProductsSection({
       id: `products-${category.slug}-${signal}`,
       signal,
-      categoryIds: subtree.map((row) => row.id),
+      categoryIds: activeSubtreeIds(allCategories, category.id),
       categoryHandle: category.slug,
       layout: 'carousel',
     });
@@ -359,12 +389,11 @@ async function buildCategoryFeed(handle: string): Promise<DiscoveryFeed> {
     throw notFound('Category not found');
   }
 
-  // The subtree, not just the subject: a listing filed under a subcategory is
-  // still part of what this page browses.
-  const subtree = await findCategorySubtreePaths(category.id);
-  const categoryIds = subtree.map((row) => row.id);
-
   const allCategories = await findActiveCategories();
+  // The subtree, not just the subject: a listing filed under a subcategory is
+  // still part of what this page browses — the ACTIVE subtree, because a
+  // suppressed subcategory is not (see `activeSubtreeIds`).
+  const categoryIds = activeSubtreeIds(allCategories, category.id);
   const children = allCategories.filter((c) => c.parentId === category.id);
 
   const sections: DiscoverySection[] = [];

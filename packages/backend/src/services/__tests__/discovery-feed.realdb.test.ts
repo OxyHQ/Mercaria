@@ -50,6 +50,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import type {
   CardGroupSection,
+  DiscoveryFeed,
   DiscoverySection,
   ProductsSection,
   StoreOfferSection,
@@ -80,7 +81,13 @@ function makeUserId(role: string): string {
 
 /** A category unique to this test run. Push order matters: parent before child. */
 async function makeCategory(
-  overrides: { parentId?: string; ancestorIds?: string[]; imageUrl?: string; position?: number } = {},
+  overrides: {
+    parentId?: string;
+    ancestorIds?: string[];
+    imageUrl?: string;
+    position?: number;
+    isActive?: boolean;
+  } = {},
 ): Promise<{ id: string; slug: string }> {
   const suffix = uuidv7().slice(-12);
   const [category] = await db
@@ -93,6 +100,7 @@ async function makeCategory(
       ancestorIds: overrides.ancestorIds ?? [],
       imageUrl: overrides.imageUrl ?? null,
       position: overrides.position ?? 0,
+      isActive: overrides.isActive ?? true,
     })
     .returning({ id: categories.id, slug: categories.slug });
   createdCategoryIds.push(category.id);
@@ -285,6 +293,26 @@ function sectionItemCount(section: DiscoverySection): number {
   }
 }
 
+/**
+ * Every listing id a feed puts in front of a shopper, whatever section kind
+ * carries it — the product shelves, the card group's nested shelves and the
+ * deals cards alike. A visibility assertion that read only one section kind
+ * would pass while the same listing rode in on another.
+ */
+function productIdsIn(feed: DiscoveryFeed): string[] {
+  const ids: string[] = [];
+  for (const section of feed.sections) {
+    if (section.kind === 'products' || section.kind === 'store-offer') {
+      ids.push(...section.products.map((p) => p.id));
+    } else if (section.kind === 'card-group') {
+      for (const card of section.cards) {
+        ids.push(...card.products.map((p) => p.id));
+      }
+    }
+  }
+  return ids;
+}
+
 beforeAll(async () => {
   db = await connectPostgres();
 }, 120_000);
@@ -420,6 +448,36 @@ describe('getDiscoveryFeed', () => {
     expect(offersForStore).toHaveLength(1);
     expect(offersForStore[0]?.discount.id).toBe(newerId);
     expect(offersForStore[0]?.discount.percentOff).toBe(20);
+  });
+
+  it('a suppressed subcategory keeps its listings off the parent scope entirely', async () => {
+    // `categories.is_active` is `lifecycle === 'published'`, so an INACTIVE
+    // child is a draft, deprecated, merged or suppressed one — including the
+    // connector holding pen every imported category sits in until somebody
+    // reviews it. The page gate (`findActiveCategoryBySlug`) and the pills
+    // both already refuse it, which is exactly what makes the leak invisible
+    // from the page: the shopper cannot navigate to the category whose
+    // products they are being shown.
+    //
+    // Adverse by construction, not by luck: the hidden listing outranks the
+    // visible one on `top-rated` (5.0 against 4.8) AND is created later, so it
+    // wins `new`'s `id desc` tiebreak too. An unfiltered subtree puts it
+    // FIRST in both card-group shelves rather than merely somewhere in them.
+    const parent = await makeCategory();
+    const suppressed = await makeCategory({
+      parentId: parent.id,
+      ancestorIds: [parent.id],
+      isActive: false,
+    });
+
+    const visible = await makeListing(parent.id, { rating: 4.8, reviewCount: 999 });
+    const hidden = await makeListing(suppressed.id, { rating: 5, reviewCount: 999 });
+
+    const feed = await getDiscoveryFeed({ kind: 'category', handle: parent.slug });
+
+    const productIds = productIdsIn(feed);
+    expect(productIds).toContain(visible);
+    expect(productIds).not.toContain(hidden);
   });
 
   it('an unknown category handle is refused', async () => {
