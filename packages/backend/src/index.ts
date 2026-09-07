@@ -570,7 +570,13 @@ connectPostgres()
       // On EVERY task, like the dispatchers, but leased per JOB — these sweeps
       // page through a provider list with a shared cursor, so unlike an account
       // sync two tasks running one concurrently would each skip the pages the
-      // other consumed. No-ops entirely when Stripe is not configured.
+      // other consumed.
+      //
+      // The rail requirement is PER SWEEP, not for the loop. It used to no-op
+      // entirely without Stripe, which after ADR 0009 silently withheld the
+      // ledger audit and the withheld-transfer release from a Peable
+      // deployment — and those two read only Mercaria's own rows. See
+      // `JOB_REQUIRES_RAIL` in the runner.
       import('./services/payments/reconciliation/runner.js')
         .then(({ startPaymentReconciler }) => startPaymentReconciler())
         .catch((err) => log.general.error({ err }, 'Payment reconciler import failed'));
