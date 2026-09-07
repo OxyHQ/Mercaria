@@ -170,6 +170,20 @@ interface DiscoverySectionBase {
   /** Where the heading links. */
   categoryHandle?: string;
   signal?: DiscoverySignal;
+  /**
+   * `categoryHandle`'s display name (e.g. "Women" for `women`), populated
+   * WHENEVER `signal` is — always together, never one without the other.
+   *
+   * A slug is not a name: it is lowercase, hyphenated and in one language, and
+   * a shelf's heading needs the name to interpolate
+   * (`discovery.shelf.topRated` → "Top rated in {{category}}"). The client
+   * cannot always recover it from a sibling section's tiles either: on a
+   * CATEGORY scope, every tile-bearing section (`category-tiles`,
+   * `category-images`, `pills`) carries the scope's SUBcategories, never the
+   * scope's own category, so that page's own shelves would have nothing in
+   * the feed itself to resolve their heading's name from.
+   */
+  categoryName?: string;
   layout: 'carousel' | 'grid';
 }
 

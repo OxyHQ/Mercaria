@@ -50,10 +50,13 @@ import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import type {
   CardGroupSection,
+  CategoryImagesSection,
+  CategoryTilesSection,
   DiscountScope,
   DiscountValueType,
   DiscoveryFeed,
   DiscoverySection,
+  PillsSection,
   ProductsSection,
   StoreOfferSection,
   StoresSection,
@@ -95,7 +98,7 @@ async function makeCategory(
     position?: number;
     isActive?: boolean;
   } = {},
-): Promise<{ id: string; slug: string }> {
+): Promise<{ id: string; slug: string; name: string }> {
   const suffix = uuidv7().slice(-12);
   const [category] = await db
     .insert(categories)
@@ -109,7 +112,7 @@ async function makeCategory(
       position: overrides.position ?? 0,
       isActive: overrides.isActive ?? true,
     })
-    .returning({ id: categories.id, slug: categories.slug });
+    .returning({ id: categories.id, slug: categories.slug, name: categories.name });
   createdCategoryIds.push(category.id);
   return category;
 }
@@ -473,6 +476,105 @@ describe('getDiscoveryFeed', () => {
     );
     expect(stores?.variant).toBe('compact');
     expect(stores?.stores.length).toBeGreaterThan(0);
+  });
+
+  it('the browse-category tile previews its own children as sample images, capped at two', async () => {
+    // Positions pin the order deterministically — `findActiveCategories`
+    // sorts by `(parentId, position, slug)` and every child here shares a
+    // `parentId`, so a random slug suffix would leave sample order (and thus
+    // which two survive the cap) to chance.
+    const category = await makeCategory({ position: -2_000_000_000 });
+    await makeCategory({
+      parentId: category.id,
+      ancestorIds: [category.id],
+      position: 0,
+      imageUrl: 'https://example.com/discovery-sample-1.jpg',
+    });
+    await makeCategory({ parentId: category.id, ancestorIds: [category.id], position: 1 }); // no image — a skipped entry, never a blank slot
+    await makeCategory({
+      parentId: category.id,
+      ancestorIds: [category.id],
+      position: 2,
+      imageUrl: 'https://example.com/discovery-sample-2.jpg',
+    });
+    await makeCategory({
+      parentId: category.id,
+      ancestorIds: [category.id],
+      position: 3,
+      imageUrl: 'https://example.com/discovery-sample-3.jpg',
+    }); // a third available image — never reached, the tile has exactly two slots
+
+    const feed = await getDiscoveryFeed({ kind: 'root' });
+
+    const tiles = feed.sections.find((s): s is CategoryTilesSection => s.kind === 'category-tiles');
+    const tile = tiles?.tiles.find((t) => t.slug === category.slug);
+    expect(tile?.sampleImageUrls).toEqual([
+      'https://example.com/discovery-sample-1.jpg',
+      'https://example.com/discovery-sample-2.jpg',
+    ]);
+  });
+
+  it('a browse-category tile with no imaged children carries no sample images at all', async () => {
+    const category = await makeCategory({ position: -2_000_000_000 });
+    await makeCategory({ parentId: category.id, ancestorIds: [category.id] }); // a child, but no image
+
+    const feed = await getDiscoveryFeed({ kind: 'root' });
+
+    const tiles = feed.sections.find((s): s is CategoryTilesSection => s.kind === 'category-tiles');
+    const tile = tiles?.tiles.find((t) => t.slug === category.slug);
+    expect(tile?.sampleImageUrls).toBeUndefined();
+  });
+
+  it('a category scope names its own shelves and stores section, even though its own name is never among its own subcategory tiles', async () => {
+    // The subtlety Task 4's renderer found: `pills`/`category-images` carry
+    // this scope's SUBcategories, never the scope itself, so a client could
+    // never recover "Beauty"'s own name by reading this same feed's tiles.
+    const category = await makeCategory({ position: -2_000_000_000 });
+    await makeCategory({ parentId: category.id, ancestorIds: [category.id] }); // gives pills/category-images something to carry
+    await makeListing(category.id, { rating: 4.8, reviewCount: 999 }); // `top-rated`, into the card group
+    const storeId = await makeStore();
+    await seedStoreSignal({ storeId, categoryId: category.id, unitsSold: 5 });
+
+    const feed = await getDiscoveryFeed({ kind: 'category', handle: category.slug });
+
+    const cardGroup = feed.sections.find((s): s is CardGroupSection => s.kind === 'card-group');
+    const topRated = cardGroup?.cards.find((c) => c.signal === 'top-rated');
+    expect(topRated?.categoryHandle).toBe(category.slug);
+    expect(topRated?.categoryName).toBe(category.name);
+
+    const stores = feed.sections.find((s): s is StoresSection => s.kind === 'stores');
+    expect(stores?.categoryName).toBe(category.name);
+
+    const pills = feed.sections.find((s): s is PillsSection => s.kind === 'pills');
+    expect(pills?.tiles.some((t) => t.name === category.name)).toBe(false);
+    const categoryImages = feed.sections.find(
+      (s): s is CategoryImagesSection => s.kind === 'category-images',
+    );
+    expect(categoryImages?.tiles.some((t) => t.name === category.name)).toBe(false);
+  });
+
+  it('a category scope with subcategories renders a category-images section previewing them', async () => {
+    const category = await makeCategory({ position: -2_000_000_000 });
+    const child = await makeCategory({ parentId: category.id, ancestorIds: [category.id] });
+
+    const feed = await getDiscoveryFeed({ kind: 'category', handle: category.slug });
+
+    const categoryImages = feed.sections.find(
+      (s): s is CategoryImagesSection => s.kind === 'category-images',
+    );
+    expect(categoryImages).toBeDefined();
+    expect(categoryImages?.tiles.map((t) => t.slug)).toContain(child.slug);
+  });
+
+  it('a category scope with no subcategories renders no category-images section', async () => {
+    // The "no empty section" rule, at the one kind that previously never
+    // appeared at all — this pins that the ABSENCE is a real decision
+    // (nothing to preview) and not the same bug this suite otherwise catches.
+    const category = await makeCategory({ position: -2_000_000_000 });
+
+    const feed = await getDiscoveryFeed({ kind: 'category', handle: category.slug });
+
+    expect(feed.sections.map((s) => s.kind)).not.toContain('category-images');
   });
 
   it('a store running two live discounts still produces exactly one store-offer section', async () => {

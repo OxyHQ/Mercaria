@@ -10,11 +10,37 @@
  * ## No composed sentences
  *
  * A section never carries a `title` here. Every section names its heading by
- * `signal` + `categoryHandle` (or, for a headless section like `hero`, by
- * neither), and the CLIENT resolves the actual copy from those keys. A string
- * assembled on the server ("Best selling in Electronics") is a string that
- * cannot be translated — the same rule `AGENTS.md` states for `@mercaria/ui`'s
- * module-scope copy, applied to a wire DTO instead of a source file.
+ * `signal` + `categoryHandle` + `categoryName` (or, for a headless section
+ * like `hero`, by none of the three), and the CLIENT resolves the actual copy
+ * from those keys. A string assembled on the server ("Best selling in
+ * Electronics") is a string that cannot be translated — the same rule
+ * `AGENTS.md` states for `@mercaria/ui`'s module-scope copy, applied to a wire
+ * DTO instead of a source file.
+ *
+ * `categoryName` travels beside `signal` on every section that carries one
+ * (`products`, `stores`): a slug is not a name, and a category scope's own
+ * shelves are about a category that is never among that scope's own
+ * `pills`/`category-images` tiles (those are its SUBcategories) — so without
+ * this, the client would have nothing in the feed itself to resolve that
+ * page's own heading's name from.
+ *
+ * ## The browse-category tile's sample images
+ *
+ * `category-tiles`' `CategorySampleTile` previews what is INSIDE a top-level
+ * category with two sample images drawn from its own CHILDREN — never its own
+ * `imageUrl` (that would be the category's own picture, not a preview of what
+ * it contains). `buildCategoryTilesSection` reads them off `allCategories`,
+ * the same array already loaded for the tiles themselves, so this costs no
+ * extra query.
+ *
+ * ## `category-images`: the same subcategories as `pills`, once
+ *
+ * The reference renders this kind twice on a category page (§4 and §7) with
+ * two different-looking groups of tiles. This service has exactly one
+ * grouping of a category's subcategories available — the same `children`
+ * `buildPillsSection` already resolves — and no second query is added to
+ * invent a distinct one, so it is emitted ONCE, ahead of that scope's product
+ * shelves rather than threaded between them.
  *
  * ## No empty section
  *
@@ -76,6 +102,7 @@ import type {
   DiscoverySectionPageDepth,
   DiscoverySignal,
   CardGroupSection,
+  CategoryImagesSection,
   CategoryTilesSection,
   HeroCard,
   HeroSection,
@@ -135,6 +162,9 @@ const HERO_SIGNAL: DiscoverySignal = 'new';
 /** Basis points per whole percentage point — `discounts.value`'s own unit for `valueType: 'percentage'`. */
 const BASIS_POINTS_PER_PERCENT = 100;
 
+/** `CategorySampleTile`'s own slot count — exactly two sample images, never more. */
+const CATEGORY_SAMPLE_SLOTS = 2;
+
 function discoveryFeedCacheKey(scope: DiscoveryScope): string {
   const scopeKey = scope.kind === 'category' ? `category:${scope.handle}` : scope.kind;
   return `discovery:${DISCOVERY_FEED_CACHE_VERSION}:${scopeKey}`;
@@ -187,6 +217,30 @@ function toCategoryTile(category: CategoryRecord): CategoryTile {
 }
 
 /**
+ * Up to {@link CATEGORY_SAMPLE_SLOTS} image URLs drawn from `categoryId`'s own
+ * CHILDREN, in their existing order — `CategorySampleTile`'s preview of what
+ * is inside the category.
+ *
+ * A child with no image is skipped rather than represented by `''`: the
+ * result is a SHORTER array, never a hole standing in for a missing sample —
+ * `CategoryTile.sampleImageUrls`'s own docstring states the same rule every
+ * other image field in that file follows.
+ */
+function sampleImageUrlsFor(categoryId: string, allCategories: CategoryRecord[]): string[] {
+  const urls: string[] = [];
+  for (const candidate of allCategories) {
+    if (candidate.parentId !== categoryId || !candidate.imageUrl) {
+      continue;
+    }
+    urls.push(candidate.imageUrl);
+    if (urls.length === CATEGORY_SAMPLE_SLOTS) {
+      break;
+    }
+  }
+  return urls;
+}
+
+/**
  * One `products` shelf for a signal, scoped to a category subtree — `null`
  * when the signal has nothing to show, so the caller never has to.
  */
@@ -195,6 +249,7 @@ async function buildProductsSection(input: {
   signal: DiscoverySignal;
   categoryIds: string[];
   categoryHandle: string;
+  categoryName: string;
   layout: 'carousel' | 'grid';
 }): Promise<ProductsSection | null> {
   const rows = await findListingsBySignal({
@@ -211,6 +266,7 @@ async function buildProductsSection(input: {
     kind: 'products',
     id: input.id,
     categoryHandle: input.categoryHandle,
+    categoryName: input.categoryName,
     signal: input.signal,
     layout: input.layout,
     products,
@@ -227,6 +283,7 @@ async function buildStoresSection(input: {
   id: string;
   categoryId: string;
   categoryHandle: string;
+  categoryName: string;
   variant: 'large' | 'compact';
 }): Promise<StoresSection | null> {
   const storeIds = await findStoresBySignal({
@@ -277,6 +334,7 @@ async function buildStoresSection(input: {
     kind: 'stores',
     id: input.id,
     categoryHandle: input.categoryHandle,
+    categoryName: input.categoryName,
     signal: 'best-selling',
     layout: 'carousel',
     stores,
@@ -304,13 +362,45 @@ function buildHeroSection(topLevel: CategoryRecord[]): HeroSection | null {
   return { kind: 'hero', id: 'hero', layout: 'carousel', cards };
 }
 
-/** The root scope's "browse by category" row. */
-function buildCategoryTilesSection(topLevel: CategoryRecord[]): CategoryTilesSection | null {
-  const tiles = topLevel.map(toCategoryTile);
+/**
+ * The root scope's "browse by category" row — each tile carrying up to
+ * {@link CATEGORY_SAMPLE_SLOTS} preview images drawn from ITS OWN children
+ * (see {@link sampleImageUrlsFor}), so a top-level category with none gets no
+ * `sampleImageUrls` at all, same "absent field, not an empty one" rule as
+ * every other tile image.
+ */
+function buildCategoryTilesSection(
+  topLevel: CategoryRecord[],
+  allCategories: CategoryRecord[],
+): CategoryTilesSection | null {
+  const tiles = topLevel.map((category) => {
+    const tile = toCategoryTile(category);
+    const samples = sampleImageUrlsFor(category.id, allCategories);
+    if (samples.length > 0) {
+      tile.sampleImageUrls = samples;
+    }
+    return tile;
+  });
   if (tiles.length === 0) {
     return null;
   }
   return { kind: 'category-tiles', id: 'category-tiles', layout: 'grid', tiles };
+}
+
+/**
+ * A category page's secondary "browse deeper" row: the SAME immediate
+ * children `buildPillsSection` already resolves, rendered as image tiles
+ * instead of round pills (`category-images`, the reference's §4/§7 — see this
+ * file's own docblock for why it is emitted once rather than twice). `null`
+ * when the category has no children, the same "no empty section" rule as
+ * every other builder here.
+ */
+function buildCategoryImagesSection(children: CategoryRecord[]): CategoryImagesSection | null {
+  const tiles = children.map(toCategoryTile);
+  if (tiles.length === 0) {
+    return null;
+  }
+  return { kind: 'category-images', id: 'category-images', layout: 'grid', tiles };
 }
 
 /**
@@ -329,7 +419,7 @@ async function buildRootFeed(): Promise<DiscoveryFeed> {
   if (hero) {
     sections.push(hero);
   }
-  const tiles = buildCategoryTilesSection(topLevel);
+  const tiles = buildCategoryTilesSection(topLevel, allCategories);
   if (tiles) {
     sections.push(tiles);
   }
@@ -341,6 +431,7 @@ async function buildRootFeed(): Promise<DiscoveryFeed> {
       signal,
       categoryIds: activeSubtreeIds(allCategories, category.id),
       categoryHandle: category.slug,
+      categoryName: category.name,
       layout: 'carousel',
     });
     if (shelf) {
@@ -353,6 +444,7 @@ async function buildRootFeed(): Promise<DiscoveryFeed> {
       id: `stores-${category.slug}`,
       categoryId: category.id,
       categoryHandle: category.slug,
+      categoryName: category.name,
       variant: 'compact',
     });
     if (stores) {
@@ -380,6 +472,7 @@ function buildPillsSection(children: CategoryRecord[]): PillsSection | null {
 async function buildCardGroupSection(
   categoryIds: string[],
   categoryHandle: string,
+  categoryName: string,
 ): Promise<CardGroupSection | null> {
   const cards: ProductsSection[] = [];
   for (const signal of CARD_GROUP_SIGNALS) {
@@ -388,6 +481,7 @@ async function buildCardGroupSection(
       signal,
       categoryIds,
       categoryHandle,
+      categoryName,
       layout: 'grid',
     });
     if (card) {
@@ -400,7 +494,10 @@ async function buildCardGroupSection(
   return { kind: 'card-group', id: 'card-group', layout: 'grid', cards };
 }
 
-/** A category scope: pills, a card group, a `stores` section, then the remaining shelves. */
+/**
+ * A category scope: pills, a card group, a `stores` section, a
+ * `category-images` row, then the remaining shelves.
+ */
 async function buildCategoryFeed(handle: string): Promise<DiscoveryFeed> {
   const category = await findActiveCategoryBySlug(handle);
   if (!category) {
@@ -421,7 +518,7 @@ async function buildCategoryFeed(handle: string): Promise<DiscoveryFeed> {
     sections.push(pills);
   }
 
-  const cardGroup = await buildCardGroupSection(categoryIds, category.slug);
+  const cardGroup = await buildCardGroupSection(categoryIds, category.slug, category.name);
   if (cardGroup) {
     sections.push(cardGroup);
   }
@@ -430,10 +527,16 @@ async function buildCategoryFeed(handle: string): Promise<DiscoveryFeed> {
     id: 'stores',
     categoryId: category.id,
     categoryHandle: category.slug,
+    categoryName: category.name,
     variant: 'large',
   });
   if (stores) {
     sections.push(stores);
+  }
+
+  const categoryImages = buildCategoryImagesSection(children);
+  if (categoryImages) {
+    sections.push(categoryImages);
   }
 
   for (const signal of SHELF_SIGNALS) {
@@ -442,6 +545,7 @@ async function buildCategoryFeed(handle: string): Promise<DiscoveryFeed> {
       signal,
       categoryIds,
       categoryHandle: category.slug,
+      categoryName: category.name,
       layout: 'carousel',
     });
     if (shelf) {
