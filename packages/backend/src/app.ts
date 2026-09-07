@@ -23,6 +23,7 @@ import feedbackRouter from './routes/feedback.js';
 import notificationsRouter from './routes/notifications.js';
 import listingsRouter from './routes/listings.js';
 import feedRouter from './routes/feed.js';
+import discoveryRouter from './routes/discovery.js';
 import categoriesRouter from './routes/categories.js';
 import storesRouter from './routes/stores.js';
 import favoritesRouter from './routes/favorites.js';
@@ -264,6 +265,7 @@ export function createApp(): express.Express {
   app.use('/notifications', notificationsRouter);
   app.use('/listings', listingsRouter);
   app.use('/feed', feedRouter);
+  app.use('/discovery', discoveryRouter);
   app.use('/categories', categoriesRouter);
   /**
    * The catalog authoring drafts (#367 step 5, ADR 0007 D10), at the path D10

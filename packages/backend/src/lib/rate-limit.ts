@@ -37,6 +37,13 @@ export type RateLimitScope =
   | 'feedback'
   | 'listings'
   | 'feed'
+  // The discovery surface — explore, category and deals pages, plus a
+  // paginated signal route (#367 discovery epic). Its own bucket
+  // (`rl:discovery:`) rather than sharing `'feed'`: this is three pages plus a
+  // paginated read, and sharing the home feed's budget would let a crawler
+  // working `/discovery/feed?scope=deals` exhaust the home feed's allowance
+  // for everyone.
+  | 'discovery'
   | 'stores'
   // The PUBLIC P2P seller profile (#92, privacy rule 5). Its own bucket
   // (`rl:sellers:`) rather than sharing `'stores'`, because the risk is
