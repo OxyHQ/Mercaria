@@ -80,7 +80,7 @@ function makeUserId(role: string): string {
 
 /** A category unique to this test run. Push order matters: parent before child. */
 async function makeCategory(
-  overrides: { parentId?: string; ancestorIds?: string[]; imageUrl?: string } = {},
+  overrides: { parentId?: string; ancestorIds?: string[]; imageUrl?: string; position?: number } = {},
 ): Promise<{ id: string; slug: string }> {
   const suffix = uuidv7().slice(-12);
   const [category] = await db
@@ -92,6 +92,7 @@ async function makeCategory(
       parentId: overrides.parentId ?? null,
       ancestorIds: overrides.ancestorIds ?? [],
       imageUrl: overrides.imageUrl ?? null,
+      position: overrides.position ?? 0,
     })
     .returning({ id: categories.id, slug: categories.slug });
   createdCategoryIds.push(category.id);
@@ -362,7 +363,16 @@ describe('getDiscoveryFeed', () => {
   });
 
   it('root renders a product shelf and a compact stores section per top-level category', async () => {
-    const category = await makeCategory();
+    // `buildRootFeed` reads EVERY active root category, ordered by
+    // `(parentId, position, slug)`, and slices to `shelfSize` (12) — so on
+    // the shared database, whether THIS category survives that slice would
+    // otherwise depend on how many other root categories other test files
+    // happen to have live at the same moment, and where their slugs happen
+    // to fall in sort order. A very negative `position` sorts ahead of every
+    // other root category (they all default to 0), so this category's
+    // presence in the slice is decided by a row this file owns, not by
+    // concurrent state it doesn't.
+    const category = await makeCategory({ position: -2_000_000_000 });
     // Data for all three sweep-free signals, so the test does not depend on
     // WHICH one root's per-category rotation happens to assign this category.
     await makeListing(category.id); // `new`
