@@ -1,27 +1,47 @@
 /**
- * The counting passes, against a real server.
+ * The counting passes and the sweep, against a real server.
  *
  * The arithmetic is the whole point: excluding a status and forgetting one
  * look identical inside a `WHERE`, so each is asserted by a fixture that would
- * move the number if it were wrong.
+ * move the number if it were wrong. Likewise the ancestor-chain test — a sweep
+ * that wrote only the leaf category passes every single-category assertion
+ * and fails exactly that one.
+ *
+ * ## Scoping, because this database is SHARED
+ *
+ * `countListingSales`/`countListingViews` read `order_items`/`analytics_events`
+ * GLOBALLY (no category scope exists yet at that layer), so every fixture's
+ * assertion looks up its OWN listing id rather than asserting on the full
+ * result set. The sweep tests mint a fresh, never-reused category chain per
+ * case, so no other file's listing can ever land in one of THESE scopes — the
+ * one scope that is genuinely shared is the root (`''`), which every counted
+ * subject in the whole database belongs to; nothing here asserts on its
+ * CONTENTS, only on whether this file's own subject is present in it.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { ANALYTICS_ENVELOPE_VERSION, ORDER_STATUSES, type OrderStatus } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { listings } from '../../db/schema/catalog.js';
 import { orderItems, orders } from '../../db/schema/orders.js';
 import { analyticsEvents } from '../../db/schema/analytics.js';
+import { discoverySignals, discoverySweepCursors } from '../../db/schema/discovery.js';
+import { stores } from '../../db/schema/stores.js';
+import { insertCategory } from '../../db/taxonomy/taxonomyRepository.js';
+import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import {
   countListingSales,
   countListingViews,
 } from '../../db/discovery/discoveryCountRepository.js';
+import { DISCOVERY_SWEEP_JOB, runDiscoverySweepOnce } from '../discovery/sweep.js';
 
 let db: Database;
 const ownedListingIds: string[] = [];
 const ownedOrderIds: string[] = [];
 const ownedEventIds: string[] = [];
+const ownedCategoryIds: string[] = [];
+const ownedStoreIds: string[] = [];
 
 /** Yesterday — inside any window this suite asks for. */
 function recently(): Date {
@@ -33,20 +53,41 @@ function longAgo(): Date {
   return new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 }
 
-async function makeListing(): Promise<string> {
+async function makeListing(
+  overrides: { categoryId?: string; storeId?: string; status?: 'active' | 'draft' } = {},
+): Promise<string> {
   const [listing] = await db
     .insert(listings)
     .values({
-      ownerType: 'user',
-      oxyUserId: `realdb-discovery-seller-${uuidv7()}`,
+      ownerType: overrides.storeId ? 'store' : 'user',
+      oxyUserId: overrides.storeId ? null : `realdb-discovery-seller-${uuidv7()}`,
+      storeId: overrides.storeId ?? null,
       title: 'Realdb counted thing',
       description: '',
       condition: 'new',
       conditionAssertion: 'seller_declared',
+      categoryId: overrides.categoryId ?? null,
+      status: overrides.status ?? 'draft',
     })
     .returning({ id: listings.id });
   ownedListingIds.push(listing.id);
   return listing.id;
+}
+
+/** A minimal native store row — the store-rollup fixtures' owner. */
+async function makeStore(): Promise<string> {
+  const suffix = uuidv7();
+  const [row] = await db
+    .insert(stores)
+    .values({
+      handle: `discovery-sweep-${suffix}`,
+      name: 'Discovery sweep store',
+      description: '',
+      brandColor: '#123456',
+    })
+    .returning({ id: stores.id });
+  ownedStoreIds.push(row.id);
+  return row.id;
 }
 
 /** A one-line order for `listingId`, in `status`, at `createdAt`. */
@@ -144,6 +185,25 @@ async function makeEvent(input: {
   ownedEventIds.push(event.id);
 }
 
+/** A category chain, unique to this run: `insertCategory` derives its ancestry. */
+async function makeCategoryChain(depth: number): Promise<string[]> {
+  const ids: string[] = [];
+  let parentId: string | undefined;
+  for (let level = 0; level < depth; level += 1) {
+    const suffix = uuidv7();
+    const category = await insertCategory({
+      key: `discovery-sweep-${suffix}`,
+      name: `Discovery sweep ${suffix}`,
+      slug: `discovery-sweep-${suffix}`,
+      parentId,
+    });
+    ids.push(category.id);
+    ownedCategoryIds.push(category.id);
+    parentId = category.id;
+  }
+  return ids;
+}
+
 beforeAll(async () => {
   db = await connectPostgres();
 }, 120_000);
@@ -161,6 +221,18 @@ afterEach(async () => {
     await db.delete(listings).where(inArray(listings.id, ownedListingIds));
     ownedListingIds.length = 0;
   }
+  if (ownedCategoryIds.length > 0) {
+    // No FK ties a `discovery_signals` row to a category — it is a
+    // polymorphic scope key — so nothing but this scoped delete cleans it up.
+    await db.delete(discoverySignals).where(inArray(discoverySignals.categoryId, ownedCategoryIds));
+  }
+  if (ownedStoreIds.length > 0) {
+    await deleteTestStores(db, ownedStoreIds);
+    ownedStoreIds.length = 0;
+  }
+  // Categories are left standing — nothing deletes a category (`restrict`
+  // everywhere), and this is a throwaway per-run database.
+  await db.delete(discoverySweepCursors).where(inArray(discoverySweepCursors.id, [DISCOVERY_SWEEP_JOB]));
 });
 
 afterAll(async () => {
@@ -212,5 +284,75 @@ describe('countListingViews', () => {
 
     const counted = await countListingViews(recently());
     expect(counted.find((row) => row.listingId === listingId)?.viewCount).toBe(2);
+  });
+});
+
+describe('runDiscoverySweepOnce', () => {
+  it('writes a row for every ancestor of the listing category, and for the root', async () => {
+    // A three-level chain: root '' + grandparent + parent + leaf = four rows
+    // for one listing. A sweep that wrote only the leaf passes every
+    // single-category assertion and fails exactly this one.
+    const [grandparentId, parentId, leafId] = await makeCategoryChain(3);
+    const listingId = await makeListing({ categoryId: leafId, status: 'active' });
+    await makeOrder({ listingId, quantity: 1, status: 'paid' });
+
+    const outcome = await runDiscoverySweepOnce();
+    expect(outcome).toBeDefined();
+
+    const rows = await db
+      .select({ categoryId: discoverySignals.categoryId })
+      .from(discoverySignals)
+      .where(inArray(discoverySignals.subjectId, [listingId]));
+    expect(rows.map((r) => r.categoryId).sort()).toEqual(
+      ['', grandparentId, parentId, leafId].sort(),
+    );
+  });
+
+  it('sums two listings of the same store into one store row per scope', async () => {
+    // Dedup's other half: two DIFFERENT listings, same store, same scope. A
+    // sweep that wrote one store row per contributing listing rather than
+    // summing them would hit the unique index on `(store, category, window)`.
+    const [categoryId] = await makeCategoryChain(1);
+    const storeId = await makeStore();
+    const listingA = await makeListing({ categoryId, storeId, status: 'active' });
+    const listingB = await makeListing({ categoryId, storeId, status: 'active' });
+    await makeOrder({ listingId: listingA, quantity: 3, status: 'paid' });
+    await makeOrder({ listingId: listingB, quantity: 2, status: 'paid' });
+
+    await runDiscoverySweepOnce();
+
+    // Scoped to THIS category, not the root: the store also gets a root-scope
+    // row (every counted subject does), which is a second, equally legitimate
+    // row for a DIFFERENT scope — not the duplicate under test here.
+    const storeRows = await db
+      .select({
+        unitsSold: discoverySignals.unitsSold,
+        orderCount: discoverySignals.orderCount,
+      })
+      .from(discoverySignals)
+      .where(and(eq(discoverySignals.subjectId, storeId), eq(discoverySignals.categoryId, categoryId)));
+    expect(storeRows).toHaveLength(1);
+    expect(storeRows[0]?.unitsSold).toBe(5);
+    expect(storeRows[0]?.orderCount).toBe(2);
+  });
+
+  it('returns undefined while another task holds the lease', async () => {
+    // Take the lease out from under it by hand, then tick.
+    await db
+      .insert(discoverySweepCursors)
+      .values({
+        id: DISCOVERY_SWEEP_JOB,
+        leaseOwner: 'someone-else',
+        leaseExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      })
+      .onConflictDoUpdate({
+        target: discoverySweepCursors.id,
+        set: {
+          leaseOwner: 'someone-else',
+          leaseExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        },
+      });
+
+    expect(await runDiscoverySweepOnce()).toBeUndefined();
   });
 });
