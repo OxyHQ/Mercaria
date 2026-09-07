@@ -15,10 +15,17 @@
  *    `categoryHandle`, and a sentence assembled here could never be
  *    translated.
  *
- * `best-selling` and `most-viewed` read `discovery_signals`, and Task 4's
- * sweep that POPULATES that table has not landed yet, so every fixture that
- * needs one of those two shelves writes the row directly — the sweep's own
- * output shape, not a bug in the shelf being empty otherwise.
+ * `best-selling`, `most-viewed` and every `stores` section read
+ * `discovery_signals`, and Task 4's sweep that POPULATES that table has not
+ * landed yet, so every fixture that needs one of those writes the row
+ * directly — the sweep's own output shape, not a bug in the shelf being
+ * empty otherwise.
+ *
+ * Fix round 1 (review) added: the `stores` section for both scopes, root's
+ * per-category product shelves, the card-group/shelf split corrected to the
+ * reference capture's measured shape (`top-rated` + `new` in the card group,
+ * `on-sale` as a full shelf), and one `store-offer` section per store even
+ * when it runs two simultaneously live discounts.
  *
  * ## Scoping, because this database is SHARED
  *
@@ -41,7 +48,13 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
-import type { DiscoverySection, ProductsSection } from '@mercaria/shared-types';
+import type {
+  CardGroupSection,
+  DiscoverySection,
+  ProductsSection,
+  StoreOfferSection,
+  StoresSection,
+} from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { categories, listings } from '../../db/schema/catalog.js';
 import { discoverySignals } from '../../db/schema/discovery.js';
@@ -165,6 +178,24 @@ async function seedSignal(values: {
   });
 }
 
+/** A `discovery_signals` row for a STORE — the `stores` section's shape. */
+async function seedStoreSignal(values: {
+  storeId: string;
+  categoryId: string;
+  unitsSold?: number;
+}): Promise<void> {
+  await db.insert(discoverySignals).values({
+    subjectType: 'store',
+    subjectId: values.storeId,
+    categoryId: values.categoryId,
+    window: '30d',
+    unitsSold: values.unitsSold ?? 0,
+    orderCount: 0,
+    viewCount: 0,
+    computedAt: new Date(),
+  });
+}
+
 /** A store, for the deals-scope fixtures — `discounts.store_id` cascades on delete. */
 async function makeStore(): Promise<string> {
   const suffix = uuidv7();
@@ -183,25 +214,33 @@ async function makeStore(): Promise<string> {
 }
 
 /** A LIVE automatic discount (started, active, no end) — `findStoresWithLiveDiscounts`'s shape. */
-async function makeLiveDiscount(storeId: string): Promise<void> {
-  await db.insert(discounts).values({
-    storeId,
-    title: 'Realdb discovery feed discount',
-    method: 'automatic',
-    valueType: 'percentage',
-    value: 1500,
-    appliesToScope: 'order',
-    startsAt: new Date(Date.now() - 60 * 1000),
-    isActive: true,
-  });
+async function makeLiveDiscount(
+  storeId: string,
+  overrides: { startsAt?: Date; value?: number } = {},
+): Promise<string> {
+  const [discount] = await db
+    .insert(discounts)
+    .values({
+      storeId,
+      title: 'Realdb discovery feed discount',
+      method: 'automatic',
+      valueType: 'percentage',
+      value: overrides.value ?? 1500,
+      appliesToScope: 'order',
+      startsAt: overrides.startsAt ?? new Date(Date.now() - 60 * 1000),
+      isActive: true,
+    })
+    .returning({ id: discounts.id });
+  return discount.id;
 }
 
 /**
- * Seed a category carrying real data for all five signals: a `new` listing, a
- * `top-rated` one (above the review floor), an `on-sale` one, and
+ * Seed a category carrying real data for all five signals — a `new` listing,
+ * a `top-rated` one (above the review floor), an `on-sale` one, and
  * `discovery_signals` rows for `best-selling` and `most-viewed` (Task 4's
- * sweep has not landed, so these are written directly). Returns the handle
- * `getDiscoveryFeed` is called with.
+ * sweep has not landed, so these are written directly) — PLUS a store-type
+ * `discovery_signals` row, so the category's `stores` section has data too.
+ * Returns the handle `getDiscoveryFeed` is called with.
  */
 async function seedFullCategoryScope(): Promise<{ handle: string; categoryId: string }> {
   const parent = await makeCategory();
@@ -218,6 +257,9 @@ async function seedFullCategoryScope(): Promise<{ handle: string; categoryId: st
 
   const mostViewedId = await makeListing(parent.id);
   await seedSignal({ subjectId: mostViewedId, categoryId: parent.id, viewCount: 10 });
+
+  const storeId = await makeStore();
+  await seedStoreSignal({ storeId, categoryId: parent.id, unitsSold: 10 }); // `stores`
 
   return { handle: parent.slug, categoryId: parent.id };
 }
@@ -284,15 +326,90 @@ describe('getDiscoveryFeed', () => {
     expect(feed.sections[1]?.kind).toBe('category-tiles');
   });
 
-  it('a category scope carries pills, then a card group, then shelves', async () => {
+  it('a category scope carries pills, then a card group, then a stores section, then shelves', async () => {
     const { handle } = await seedFullCategoryScope();
 
     const feed = await getDiscoveryFeed({ kind: 'category', handle });
 
     expect(feed.sections.map((s) => s.kind)).toContain('pills');
     expect(feed.sections.map((s) => s.kind)).toContain('card-group');
+    expect(feed.sections.map((s) => s.kind)).toContain('stores');
     expect(feed.sections[0]?.kind).toBe('pills');
     expect(feed.sections[1]?.kind).toBe('card-group');
+    expect(feed.sections[2]?.kind).toBe('stores');
+
+    const stores = feed.sections.find((s): s is StoresSection => s.kind === 'stores');
+    expect(stores?.variant).toBe('large');
+    expect(stores?.stores.length).toBeGreaterThan(0);
+  });
+
+  it('the card group holds top-rated and new; on-sale renders as a full shelf', async () => {
+    // The reference capture's own measured shape: `card-group` = ['Top
+    // rated', "What's new"], and "Bestsellers" (best-selling) is a
+    // full-width shelf, not a card-group member. `on-sale` follows the same
+    // rule as best-selling: a full shelf.
+    const { handle } = await seedFullCategoryScope();
+
+    const feed = await getDiscoveryFeed({ kind: 'category', handle });
+
+    const cardGroup = feed.sections.find((s): s is CardGroupSection => s.kind === 'card-group');
+    expect(cardGroup?.cards.map((c) => c.signal).sort()).toEqual(['new', 'top-rated']);
+
+    const onSaleShelf = feed.sections.find(
+      (s): s is ProductsSection => s.kind === 'products' && s.signal === 'on-sale',
+    );
+    expect(onSaleShelf).toBeDefined();
+  });
+
+  it('root renders a product shelf and a compact stores section per top-level category', async () => {
+    const category = await makeCategory();
+    // Data for all three sweep-free signals, so the test does not depend on
+    // WHICH one root's per-category rotation happens to assign this category.
+    await makeListing(category.id); // `new`
+    await makeListing(category.id, { rating: 4.8, reviewCount: 999 }); // `top-rated`
+    const onSaleId = await makeListing(category.id);
+    await makeOnSaleVariant(onSaleId); // `on-sale`
+
+    const storeId = await makeStore();
+    await seedStoreSignal({ storeId, categoryId: category.id, unitsSold: 5 });
+
+    const feed = await getDiscoveryFeed({ kind: 'root' });
+
+    const shelf = feed.sections.find(
+      (s): s is ProductsSection => s.kind === 'products' && s.categoryHandle === category.slug,
+    );
+    expect(shelf).toBeDefined();
+
+    const stores = feed.sections.find(
+      (s): s is StoresSection => s.kind === 'stores' && s.id === `stores-${category.slug}`,
+    );
+    expect(stores?.variant).toBe('compact');
+    expect(stores?.stores.length).toBeGreaterThan(0);
+  });
+
+  it('a store running two live discounts still produces exactly one store-offer section', async () => {
+    // `discounts.combinesWith*` lets a store run more than one simultaneously
+    // LIVE automatic discount — `findStoresWithLiveDiscounts` returns one row
+    // per discount, so the service must collapse them to one section itself.
+    const storeId = await makeStore();
+    await makeStoreListing(storeId);
+    await makeLiveDiscount(storeId, {
+      startsAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      value: 500,
+    });
+    const newerId = await makeLiveDiscount(storeId, {
+      startsAt: new Date(Date.now() - 1000),
+      value: 2000,
+    });
+
+    const feed = await getDiscoveryFeed({ kind: 'deals' });
+
+    const offersForStore = feed.sections.filter(
+      (s): s is StoreOfferSection => s.kind === 'store-offer' && s.store.id === storeId,
+    );
+    expect(offersForStore).toHaveLength(1);
+    expect(offersForStore[0]?.discount.id).toBe(newerId);
+    expect(offersForStore[0]?.discount.percentOff).toBe(20);
   });
 
   it('an unknown category handle is refused', async () => {
@@ -312,9 +429,10 @@ describe('getDiscoveryFeed', () => {
   });
 
   it('reports the page depth honestly per section', async () => {
-    // `best-selling` is capped at what the sweep stored; `new` is complete. A
-    // section that claimed `complete` for a capped signal would send the
-    // paginated route past the end of the data.
+    // `best-selling` is capped at what the sweep stored; `on-sale` (a
+    // top-level shelf, unlike `new` which lives in the card group) is
+    // complete. A section that claimed `complete` for a capped signal would
+    // send the paginated route past the end of the data.
     const { handle } = await seedFullCategoryScope();
 
     const feed = await getDiscoveryFeed({ kind: 'category', handle });
@@ -324,10 +442,10 @@ describe('getDiscoveryFeed', () => {
     );
     expect(bestSelling?.pageDepth).toBe('capped');
 
-    const newest = feed.sections.find(
-      (s): s is ProductsSection => s.kind === 'products' && s.signal === 'new',
+    const onSale = feed.sections.find(
+      (s): s is ProductsSection => s.kind === 'products' && s.signal === 'on-sale',
     );
-    expect(newest?.pageDepth).toBe('complete');
+    expect(onSale?.pageDepth).toBe('complete');
   });
 
   it('emits no empty section', async () => {
