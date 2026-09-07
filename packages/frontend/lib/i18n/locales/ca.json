@@ -253,7 +253,8 @@
     "categoryIndex": {
       "title": "Totes les categories",
       "documentTitle": "%{title} — Mercaria",
-      "empty": "Encara no s'ha publicat cap categoria."
+      "empty": "Encara no s'ha publicat cap categoria.",
+      "loadError": "No hem pogut carregar les categories. Torna-ho a provar."
     }
   },
   "cart": {

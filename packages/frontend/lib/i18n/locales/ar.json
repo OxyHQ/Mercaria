@@ -251,7 +251,8 @@
     "categoryIndex": {
       "title": "جميع الفئات",
       "documentTitle": "%{title} — Mercaria",
-      "empty": "لم تُنشر أي فئة بعد."
+      "empty": "لم تُنشر أي فئة بعد.",
+      "loadError": "تعذّر تحميل الفئات. حاول مرة أخرى."
     }
   },
   "cart": {

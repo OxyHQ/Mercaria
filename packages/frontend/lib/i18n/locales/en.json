@@ -251,7 +251,8 @@
     "categoryIndex": {
       "title": "All categories",
       "documentTitle": "%{title} — Mercaria",
-      "empty": "No categories have been published yet."
+      "empty": "No categories have been published yet.",
+      "loadError": "Couldn't load categories. Try again."
     }
   },
   "cart": {

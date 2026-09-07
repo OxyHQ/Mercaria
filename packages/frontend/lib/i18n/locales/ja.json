@@ -251,7 +251,8 @@
     "categoryIndex": {
       "title": "すべてのカテゴリ",
       "documentTitle": "%{title} — Mercaria",
-      "empty": "カテゴリはまだ公開されていません。"
+      "empty": "カテゴリはまだ公開されていません。",
+      "loadError": "カテゴリを読み込めませんでした。もう一度お試しください。"
     }
   },
   "cart": {

@@ -251,7 +251,8 @@
     "categoryIndex": {
       "title": "全部分类",
       "documentTitle": "%{title} — Mercaria",
-      "empty": "尚未发布任何分类。"
+      "empty": "尚未发布任何分类。",
+      "loadError": "无法加载分类，请重试。"
     }
   },
   "cart": {

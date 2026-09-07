@@ -253,7 +253,8 @@
     "categoryIndex": {
       "title": "Todas as categorias",
       "documentTitle": "%{title} — Mercaria",
-      "empty": "Nenhuma categoria foi publicada ainda."
+      "empty": "Nenhuma categoria foi publicada ainda.",
+      "loadError": "Não foi possível carregar as categorias. Tente novamente."
     }
   },
   "cart": {
