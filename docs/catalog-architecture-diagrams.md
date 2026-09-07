@@ -175,7 +175,7 @@ the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test mo
 
 **14 modules**, **14 writing directories**,
 **4 tables written from more than one directory** and
-**5 written by no application code at all**. The exceptions are drawn by name,
+**4 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
 "one module owns a table", and these are the places where more than one directory issues the
 statements.
@@ -220,7 +220,7 @@ flowchart LR
     W_db_catalogProposals -->|"4"| M_Proposals
     W_db_catalogProposals -->|"1"| M_Variant_axes_and_claims
     W_db_compatibility -->|"7"| M_Compatibility
-    W_db_discovery -->|"1"| M_Discovery
+    W_db_discovery -->|"2"| M_Discovery
     W_db_navigation -->|"5"| M_Navigation
     W_db_productTypes -->|"5"| M_Product_types
     W_db_taxonomy -->|"2"| M_Classification
@@ -248,7 +248,6 @@ flowchart LR
         T_canonical_product_family_localizations[("canonical_product_family_localizations")]
         T_canonical_product_localizations[("canonical_product_localizations")]
         T_catalog_localization_revisions[("catalog_localization_revisions")]
-        T_discovery_sweep_cursors[("discovery_sweep_cursors")]
         T_product_type_aliases[("product_type_aliases")]
     end
 ```
@@ -275,7 +274,6 @@ acquire a writer nobody argues about, so it is named here rather than left as an
 | `canonical_product_family_localizations` | Localization | a database trigger, or nothing yet |
 | `canonical_product_localizations` | Localization | a database trigger, or nothing yet |
 | `catalog_localization_revisions` | Localization | a database trigger, or nothing yet |
-| `discovery_sweep_cursors` | Discovery | a database trigger, or nothing yet |
 | `product_type_aliases` | Product types | a database trigger, or nothing yet |
 
 **What this scan cannot see**, stated so an empty result is never read as proof of absence: a
@@ -751,7 +749,7 @@ erDiagram
 | Table | Created by | Written by |
 |---|---|---|
 | `discovery_signals` | `0154` | `db/discovery` (delete/insert) |
-| `discovery_sweep_cursors` | `0154` | — *no application writer* |
+| `discovery_sweep_cursors` | `0154` | `db/discovery` (insert/update) |
 
 ## 4. What the derivation found
 
@@ -769,7 +767,7 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 | Relationships whose parent is optional (nullable FK) | 66 |
 | Directories that write an epic table | 14 |
 | Tables written from more than one directory | 4 |
-| Tables no application code writes | 5 |
+| Tables no application code writes | 4 |
 
 `ON DELETE` across those 126 foreign keys: **42** `cascade`, **2** `no action`, **82** `restrict`.
 

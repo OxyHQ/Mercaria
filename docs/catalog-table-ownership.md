@@ -68,7 +68,7 @@ it and can only rise.
 | External mappings | `db/schema/catalogExternalMappings.ts` | `db/catalogExternalMappings/` (2) | `catalog_external_mappings`, `catalog_external_mapping_reviews`, `catalog_external_token_observations`, `catalog_external_mapping_runs`, `catalog_external_mapping_run_items` |
 | Connector pins | `db/schema/connectorPins.ts` | — | `listing_pin_releases` |
 | Native variant images | `db/schema/catalog.ts` | `db/catalog/variantRepository.ts` | `product_variant_images` |
-| Discovery | `db/schema/discovery.ts` | `db/discovery/` (2) | `discovery_signals`, `discovery_sweep_cursors` |
+| Discovery | `db/schema/discovery.ts` | `db/discovery/` (3) | `discovery_signals`, `discovery_sweep_cursors` |
 
 Two tables in that list are owned by a module their NAME does not name, and both
 were argued rather than assumed:
@@ -100,17 +100,17 @@ to a shared, pre-existing schema module is exactly the one a file-scoped
 derivation misses, and it is also the one most likely to acquire a second
 writer.
 
-**Four of these tables have no application writer today**, which is a fact
-about the map rather than a gap in it:
+**Three of these tables have no application writer today**, which is a fact
+about the map rather than a gap in it. `discovery_sweep_cursors` was a fourth
+until the periodic sweep landed: it is now written by
+`db/discovery/discoverySignalRepository.ts`'s `claimDiscoverySweepRun` /
+`completeDiscoverySweepRun`, the lease claim/complete pair
+`services/discovery/sweep.ts` calls once per run.
 
 - **`product_type_aliases`** has neither a reader nor a writer.
   `db/__tests__/product-type-alias-seam.test.ts` (#732) is the gate that records
   why and states the prerequisite — a product-type member on `SearchFilters` —
   so the day one arrives, that test goes red rather than the table staying quiet.
-- **`discovery_sweep_cursors`** has neither a reader nor a writer either: it is
-  the sweep's lease row, one per job (`db/schema/discovery.ts`), staged ahead of
-  the periodic sweep that leases and writes it. The day that job lands, this
-  table stops being unwritten.
 - **`canonical_product_localizations`** and
   **`canonical_product_family_localizations`** are read by
   `services/catalog-localization/side-by-side.service.ts` and
