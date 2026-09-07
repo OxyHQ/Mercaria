@@ -470,6 +470,31 @@ describe('findStoresBySignal', () => {
     expect(found).toEqual([topStoreId, laggardStoreId]);
   });
 
+  it('excludes a store whose units_sold is zero', async () => {
+    // The sweep can seat a store in a scope through the VIEW-COUNT arm of its
+    // union with `unitsSold: 0` — a real `discovery_signals` row, not an
+    // absent one — so a shelf labelled best-selling must not show it.
+    const categoryId = await makeCategory();
+    const soldStoreId = await makeStore();
+    const unsoldStoreId = await makeStore();
+    await seedSignal({
+      subjectType: 'store',
+      subjectId: soldStoreId,
+      categoryId,
+      unitsSold: 5,
+    });
+    await seedSignal({
+      subjectType: 'store',
+      subjectId: unsoldStoreId,
+      categoryId,
+      unitsSold: 0,
+    });
+
+    const found = await findStoresBySignal({ categoryId, limit: 10 });
+
+    expect(found).toEqual([soldStoreId]);
+  });
+
   it('excludes a store that is no longer active', async () => {
     // Highest count of the two, but suspended — a missing status filter would
     // put it first rather than exclude it.

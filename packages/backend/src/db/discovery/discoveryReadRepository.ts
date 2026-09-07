@@ -17,11 +17,13 @@
  * (`config.discovery.topNPerCategory`): an empty scope in that table is an
  * empty shelf, never every listing in the category via a bad join.
  *
- * `best-selling` and `most-viewed` both additionally require their own
- * ranking column to be greater than zero: every counted subject earns an
- * unconditional row in the root scope regardless of whether it ever sold or
- * was viewed, so an ORDER BY with no floor presents an arbitrary ordering of
- * zero-count rows under a heading that claims they are the best or the most.
+ * `best-selling`, `most-viewed` and `findStoresBySignal` all additionally
+ * require their own ranking column to be greater than zero: every counted
+ * subject earns an unconditional row in the root scope regardless of whether
+ * it ever sold or was viewed — and a store can be seated in a scope through
+ * the VIEW-COUNT arm of the sweep's union with `unitsSold: 0` — so an
+ * ORDER BY with no floor presents an arbitrary ordering of zero-count rows
+ * under a heading that claims they are the best or the most.
  */
 
 import { and, desc, eq, getTableColumns, gt, gte, inArray, isNull, lte, or } from 'drizzle-orm';
@@ -167,6 +169,12 @@ async function findMostViewedListings(
  * storefront read." A store counted while it sold can go `suspended` or
  * `closed` afterward, and `findStoresByIds` (the batch hydration Task 7 would
  * call with these ids) does no status filtering of its own.
+ *
+ * Same zero-count guard as `findBestSellingListings`/`findMostViewedListings`:
+ * the sweep's `selectTopByUnion` can seat a store in a scope through the
+ * VIEW-COUNT arm of its union with `unitsSold: 0` (stores carry no view count
+ * of their own, but still earn a row), which would otherwise put a store that
+ * sold nothing onto a shelf labelled best-selling.
  */
 export async function findStoresBySignal(input: {
   categoryId: string;
@@ -182,6 +190,7 @@ export async function findStoresBySignal(input: {
         eq(discoverySignals.categoryId, input.categoryId),
         eq(discoverySignals.window, WINDOW),
         eq(stores.status, 'active'),
+        gt(discoverySignals.unitsSold, 0),
       ),
     )
     .orderBy(desc(discoverySignals.unitsSold), desc(discoverySignals.id))
