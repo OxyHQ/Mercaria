@@ -1523,7 +1523,8 @@
       "new": "Novetats a %{category}",
       "onSale": "Rebaixes a %{category}",
       "bestSelling": "El més venut a %{category}",
-      "mostViewed": "El més vist a %{category}"
+      "mostViewed": "El més vist a %{category}",
+      "stores": "Botigues a %{category}"
     },
     "signal": {
       "notFound": "No hem trobat aquesta llista.",

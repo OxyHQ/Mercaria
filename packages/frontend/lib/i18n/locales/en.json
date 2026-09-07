@@ -1506,7 +1506,8 @@
       "new": "New in %{category}",
       "onSale": "On sale in %{category}",
       "bestSelling": "Best selling in %{category}",
-      "mostViewed": "Most viewed in %{category}"
+      "mostViewed": "Most viewed in %{category}",
+      "stores": "Shops in %{category}"
     },
     "signal": {
       "notFound": "We couldn't find this list.",

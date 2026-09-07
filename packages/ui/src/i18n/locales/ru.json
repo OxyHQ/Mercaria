@@ -836,10 +836,6 @@
     "category": {
       "browse": "Смотреть раздел «%{category}»"
     },
-    "discountBadge": {
-      "save": "Экономия %{amount}",
-      "saveA11y": "Экономия %{amount} по вашему предложению"
-    },
     "merchantCart": {
       "checkout": "Перейти к оформлению",
       "subtotal": "Промежуточный итог:"
@@ -890,10 +886,6 @@
       "chipRemove": "Убрать: %{origin} %{label}",
       "modeModel": "Распознано с помощью модели",
       "modeRules": "Распознано нашими собственными правилами"
-    },
-    "storeOfferHeader": {
-      "save": "Экономия %{amount}",
-      "minimum": "при заказе от %{minimum}"
     },
     "variantSwatches": {
       "showMoreA11y": "Ещё варианты «%{option}» (%{more})",

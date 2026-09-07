@@ -68,10 +68,6 @@ export const CATEGORY_BROWSE_KEY = "ui.category.browse";
 /** `ComparisonExplanationBlock`. */
 export const COMPARISON_NO_SUMMARY_KEY = "ui.comparison.noSummary";
 
-/** `DiscountBadge`. */
-export const DISCOUNT_BADGE_SAVE_KEY = "ui.discountBadge.save";
-export const DISCOUNT_BADGE_SAVE_A11Y_KEY = "ui.discountBadge.saveA11y";
-
 /** `MerchantCartCard`. */
 export const MERCHANT_CART_CHECKOUT_KEY = "ui.merchantCart.checkout";
 export const MERCHANT_CART_SUBTOTAL_KEY = "ui.merchantCart.subtotal";
@@ -122,10 +118,6 @@ export const SEARCH_CHIP_PREFERENCE_KEY = "ui.searchInterpretation.chipPreferenc
 export const SEARCH_CHIP_REMOVE_KEY = "ui.searchInterpretation.chipRemove";
 export const SEARCH_MODE_MODEL_KEY = "ui.searchInterpretation.modeModel";
 export const SEARCH_MODE_RULES_KEY = "ui.searchInterpretation.modeRules";
-
-/** `StoreOfferHeader`. */
-export const STORE_OFFER_HEADER_SAVE_KEY = "ui.storeOfferHeader.save";
-export const STORE_OFFER_HEADER_MINIMUM_KEY = "ui.storeOfferHeader.minimum";
 
 /** `VariantSwatches`. */
 export const SWATCH_SHOW_MORE_A11Y_KEY = "ui.variantSwatches.showMoreA11y";

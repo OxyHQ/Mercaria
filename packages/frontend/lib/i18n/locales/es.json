@@ -1523,7 +1523,8 @@
       "new": "Novedades en %{category}",
       "onSale": "Rebajas en %{category}",
       "bestSelling": "Los más vendidos en %{category}",
-      "mostViewed": "Los más vistos en %{category}"
+      "mostViewed": "Los más vistos en %{category}",
+      "stores": "Tiendas en %{category}"
     },
     "signal": {
       "notFound": "No hemos encontrado esta lista.",

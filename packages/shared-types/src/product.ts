@@ -132,10 +132,14 @@ export interface CategoryTile {
   imageUrl?: string;
   /**
    * Up to two preview images drawn from this category's own CHILDREN, for the
-   * discovery feed's "browse categories" tile (`CategorySampleTile`) — the
-   * tile's whole point is to preview what is INSIDE the category, which is why
-   * this is never `imageUrl` (the category's own single image) duplicated into
-   * two slots. `CategorySampleTile`'s own docstring forbids that substitution.
+   * discovery feed's "browse categories" tile — the tile's whole point is to
+   * preview what is INSIDE the category, which is why this is never `imageUrl`
+   * (the category's own single image) duplicated into two slots.
+   *
+   * NO CLIENT READS THIS TODAY. The storefront renders every tile-bearing
+   * discovery section through `CategoryPills`, which shows one image per
+   * category; `services/discovery/feed.service.ts`'s own docblock records why
+   * the field is kept rather than dropped.
    *
    * A missing child image is a SHORTER array, never a hole filled with `''`:
    * an empty string is an absent value wearing the type of a present one, the

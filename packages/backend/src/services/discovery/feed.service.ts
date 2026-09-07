@@ -24,14 +24,23 @@
  * this, the client would have nothing in the feed itself to resolve that
  * page's own heading's name from.
  *
- * ## The browse-category tile's sample images
+ * ## The browse-category tile's sample images, which NO CLIENT READS TODAY
  *
- * `category-tiles`' `CategorySampleTile` previews what is INSIDE a top-level
- * category with two sample images drawn from its own CHILDREN — never its own
- * `imageUrl` (that would be the category's own picture, not a preview of what
- * it contains). `buildCategoryTilesSection` reads them off `allCategories`,
- * the same array already loaded for the tiles themselves, so this costs no
- * extra query.
+ * A `category-tiles` tile carries two sample images drawn from the category's
+ * own CHILDREN — never its own `imageUrl` (that would be the category's own
+ * picture, not a preview of what it contains). `buildCategoryTilesSection`
+ * reads them off `allCategories`, the same array already loaded for the tiles
+ * themselves, so this costs no extra query.
+ *
+ * The tile that previewed them is gone: the storefront renders every
+ * tile-bearing section through `CategoryPills`, the component the home feed
+ * already used, and a pill shows one image, not a preview strip. So
+ * `sampleImageUrls` is currently emitted and read by nobody. It is left in
+ * place rather than removed because the richer treatment the storefront DOES
+ * have — `CategoryCarousel`/`CategoryCard`, a category above a 2x2 grid of its
+ * named subcategories — needs strictly MORE than this field carries (names and
+ * slugs, not bare URLs), and that is the shape this section wants to grow
+ * into rather than shrink away from.
  *
  * ## `category-images`: the same subcategories as `pills`, once
  *
@@ -162,7 +171,7 @@ const HERO_SIGNAL: DiscoverySignal = 'new';
 /** Basis points per whole percentage point — `discounts.value`'s own unit for `valueType: 'percentage'`. */
 const BASIS_POINTS_PER_PERCENT = 100;
 
-/** `CategorySampleTile`'s own slot count — exactly two sample images, never more. */
+/** The browse tile's slot count — exactly two sample images, never more. */
 const CATEGORY_SAMPLE_SLOTS = 2;
 
 function discoveryFeedCacheKey(scope: DiscoveryScope): string {
@@ -227,8 +236,8 @@ function toCategoryTile(category: CategoryRecord): CategoryTile {
 
 /**
  * Up to {@link CATEGORY_SAMPLE_SLOTS} image URLs drawn from `categoryId`'s own
- * CHILDREN, in their existing order — `CategorySampleTile`'s preview of what
- * is inside the category.
+ * CHILDREN, in their existing order — a preview of what is inside the
+ * category. See this file's own docblock for why nothing renders it today.
  *
  * A child with no image is skipped rather than represented by `''`: the
  * result is a SHORTER array, never a hole standing in for a missing sample —

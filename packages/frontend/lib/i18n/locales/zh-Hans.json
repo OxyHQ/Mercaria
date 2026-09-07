@@ -1506,7 +1506,8 @@
       "new": "%{category}新品",
       "onSale": "%{category}特惠商品",
       "bestSelling": "%{category}畅销商品",
-      "mostViewed": "%{category}热门商品"
+      "mostViewed": "%{category}热门商品",
+      "stores": "%{category}店铺"
     },
     "signal": {
       "notFound": "没有找到这个列表。",

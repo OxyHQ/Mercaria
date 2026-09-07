@@ -822,10 +822,6 @@
     "category": {
       "browse": "%{category} देखें"
     },
-    "discountBadge": {
-      "save": "%{amount} बचाएं",
-      "saveA11y": "अपने ऑफ़र के साथ %{amount} बचाएं"
-    },
     "merchantCart": {
       "checkout": "भुगतान पर आगे बढ़ें",
       "subtotal": "उप-योग:"
@@ -876,10 +872,6 @@
       "chipRemove": "हटाएँ: %{origin} %{label}",
       "modeModel": "एक मॉडल की मदद से समझा गया",
       "modeRules": "हमारे अपने नियमों से समझा गया"
-    },
-    "storeOfferHeader": {
-      "save": "%{amount} बचाएं",
-      "minimum": "%{minimum} से ज़्यादा के ऑर्डर पर"
     },
     "variantSwatches": {
       "showMoreA11y": "%{option} के और विकल्प (%{more})",

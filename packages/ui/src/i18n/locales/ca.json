@@ -829,10 +829,6 @@
     "category": {
       "browse": "Explora %{category}"
     },
-    "discountBadge": {
-      "save": "Estalvia %{amount}",
-      "saveA11y": "Estalvia %{amount} amb la teva oferta"
-    },
     "merchantCart": {
       "checkout": "Continua amb el pagament",
       "subtotal": "Subtotal:"
@@ -883,10 +879,6 @@
       "chipRemove": "Treu: %{origin} %{label}",
       "modeModel": "Interpretat amb l'ajuda d'un model",
       "modeRules": "Interpretat amb les nostres pròpies regles"
-    },
-    "storeOfferHeader": {
-      "save": "Estalvia %{amount}",
-      "minimum": "en comandes de més de %{minimum}"
     },
     "variantSwatches": {
       "showMoreA11y": "Més opcions de %{option} (%{more})",

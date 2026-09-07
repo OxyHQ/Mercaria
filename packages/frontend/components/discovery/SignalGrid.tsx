@@ -6,16 +6,19 @@ import { FeedGrid, ProductCard } from '@mercaria/ui';
  *
  * A wrapping grid rather than `ProductCarousel`: the shelf on the feed and
  * category pages is a preview (`config.discovery.shelfSize`), and this is the
- * "see all" destination every hero card and `SectionCard` links to — the
- * reference's `ListSection`, which is what `FeedGrid` is
+ * "see all" destination every shelf heading links to — the reference's
+ * `ListSection`, which is what `FeedGrid` is
  * (`packages/ui/src/components/marketplace/FeedGrid.tsx`).
+ *
+ * `FeedGrid` is the only survivor of the nine components the discovery feed
+ * briefly added to `@mercaria/ui`, and this is its only caller: it is a
+ * layout, not a card, and there was no wrapping grid in the kit before it.
  *
  * The per-item card is `@mercaria/ui`'s own `ProductCard` (the one
  * `ProductCarousel` renders internally), never a local copy.
  */
 
-/** Two columns on a phone, widening to five from `lg` — the same density
- *  `DiscoveryFeed`'s `category-tiles` section uses for its own wrapping grid. */
+/** Two columns on a phone, widening to five from `lg`. */
 const PRODUCT_GRID_SLOT_CLASS = 'px-space-4 md:px-space-8 w-1/2 sm:w-1/3 md:w-1/4 lg:w-1/5';
 
 /** `FeedGrid`'s own documented default shelf rhythm. */

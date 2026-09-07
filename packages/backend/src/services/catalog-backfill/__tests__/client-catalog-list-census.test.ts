@@ -171,33 +171,15 @@ const HARDCODED_CATALOG_MEMBERSHIP =
  * list holds anything, so a future entry landing here does not silently
  * retire it.
  *
- * ONE entry again as of the discovery-feed browse tiles (#367 workstream 13):
- * see the disposition below for why `category-palette.ts` trips the list
- * probe but is not the #478 defect recurring.
+ * EMPTY AGAIN. Its one later entry, `packages/ui/src/lib/category-palette.ts`,
+ * went with the browse tile it derived a background colour for: the discovery
+ * feed's nine bespoke cards were replaced by the marketplace components the
+ * rest of the storefront already renders, and that file had no other caller.
+ * Nothing was re-dispositioned to empty this list — the source it named is
+ * gone, so an exact-identity comparison against a list still naming it would
+ * fail, which is the check working.
  */
-const PERMITTED: readonly { readonly path: string; readonly disposition: string }[] = [
-  {
-    path: 'packages/ui/src/lib/category-palette.ts',
-    disposition:
-      '`CATEGORY_PALETTE` is eight HEX COLOUR STRINGS (`#A6462D` …), not a re-listed catalog ' +
-      'vocabulary — there is no server-owned set of colours it could drift out of sync with, the ' +
-      'way a category/option/facet name list would. It also never trips ' +
-      '`HARDCODED_CATALOG_MEMBERSHIP` above: nothing here does `.has`/`.includes` against an ' +
-      'option/category/productType/facet/attribute’s `.name`/`.slug`/`.key` — the hash key is ' +
-      '`categoryId` alone, used only to pick a fixed array INDEX, never compared against catalog ' +
-      'free text. That is the real reason this is not #478 recurring, not merely a style ' +
-      'difference: #478’s `VariantSwatches` matched free text in one language to choose a widget, ' +
-      'then presented an invented hue AS the value a shopper had selected — a claim about a ' +
-      'specific piece of data that could be right or wrong, and often was. This array makes no ' +
-      'such claim: it is a browse-tile BACKGROUND colour behind a label that is always the ' +
-      'category’s real name, the same shape as a fallback avatar tint. `categories` carries no ' +
-      'colour column, and `docs/superpowers/specs/2026-09-07-discovery-feed-design.md` §"Tile ' +
-      'colour is derived, not stored" already records why none is being added: no operator ' +
-      'surface exists to fill one. `categoryPaletteColor` is also not exported from `@mercaria/ui` ' +
-      '(`packages/ui/src/index.ts`) — it is `CategorySampleTile`’s own private derivation, ' +
-      'consumed nowhere else.',
-  },
-];
+const PERMITTED: readonly { readonly path: string; readonly disposition: string }[] = [];
 
 describe('the censused client packages', () => {
   it('reads a real, non-trivial set of client sources', () => {
@@ -379,12 +361,17 @@ describe('the censused client packages', () => {
       );
     }
     // The exact-count assertion on the exemptions themselves. ZERO from #478
-    // until the discovery-feed browse tiles added `category-palette.ts`, which
-    // also makes the loop above non-vacuous for the first time since #478 — it
-    // now actually checks that one entry's path and disposition. But the loop
-    // has no opinion on its OWN length, so this line is still the only thing
-    // that notices a SECOND entry landing unreviewed.
-    expect(PERMITTED).toHaveLength(1);
+    // until the discovery-feed browse tiles added `category-palette.ts`, and
+    // ZERO again now that those tiles were replaced by the marketplace
+    // components the storefront already had and that file went with them.
+    //
+    // At zero the loop above is vacuous — it checks nothing — which is exactly
+    // why this line stays: it is the only thing that notices an entry landing
+    // unreviewed, and at a length of 0 that is the whole of its job. The
+    // dedicated positive control ('still catches a hardcoded list in a source
+    // the walk really read') is what keeps the PROBE honest meanwhile, and it
+    // is deliberately independent of this list's length.
+    expect(PERMITTED).toHaveLength(0);
   });
 
   it('imports nothing from a client package', () => {

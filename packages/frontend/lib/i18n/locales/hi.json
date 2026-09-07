@@ -1506,7 +1506,8 @@
       "new": "%{category} में नया",
       "onSale": "%{category} में सेल पर",
       "bestSelling": "%{category} में सबसे ज़्यादा बिकने वाले",
-      "mostViewed": "%{category} में सबसे ज़्यादा देखे गए"
+      "mostViewed": "%{category} में सबसे ज़्यादा देखे गए",
+      "stores": "%{category} में दुकानें"
     },
     "signal": {
       "notFound": "हमें यह सूची नहीं मिली।",

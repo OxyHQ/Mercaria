@@ -28,8 +28,8 @@ export function useDiscoveryFeed(scope: DiscoveryScope) {
 
 /**
  * One signal's full, offset-paged listing for one scope — the
- * `/categories/:handle/s/:signal` "see all" destination every hero card and
- * `SectionCard` on the feed links to.
+ * `/categories/:handle/s/:signal` "see all" destination every shelf heading on
+ * the feed links to.
  *
  * `signal` is `undefined` while the route's own `:signal` segment hasn't been
  * validated yet; the query stays disabled rather than the caller inventing a

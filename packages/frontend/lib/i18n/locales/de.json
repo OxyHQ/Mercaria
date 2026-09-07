@@ -1506,7 +1506,8 @@
       "new": "Neu in %{category}",
       "onSale": "Im Angebot in %{category}",
       "bestSelling": "Meistverkauft in %{category}",
-      "mostViewed": "Meistgesehen in %{category}"
+      "mostViewed": "Meistgesehen in %{category}",
+      "stores": "Shops in %{category}"
     },
     "signal": {
       "notFound": "Diese Liste konnten wir nicht finden.",

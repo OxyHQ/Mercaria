@@ -1540,7 +1540,8 @@
       "new": "Новинки в %{category}",
       "onSale": "Скидки в %{category}",
       "bestSelling": "Хиты продаж в %{category}",
-      "mostViewed": "Популярное в %{category}"
+      "mostViewed": "Популярное в %{category}",
+      "stores": "Магазины в %{category}"
     },
     "signal": {
       "notFound": "Мы не нашли этот список.",
