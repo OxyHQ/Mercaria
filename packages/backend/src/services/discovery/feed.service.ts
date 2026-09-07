@@ -170,8 +170,13 @@ function discoveryFeedCacheKey(scope: DiscoveryScope): string {
   return `discovery:${DISCOVERY_FEED_CACHE_VERSION}:${scopeKey}`;
 }
 
-/** `'capped'` for the two signals paged only as deep as the sweep counted, `'complete'` otherwise. */
-function pageDepthFor(signal: DiscoverySignal): DiscoverySectionPageDepth {
+/**
+ * `'capped'` for the two signals paged only as deep as the sweep counted,
+ * `'complete'` otherwise. Exported: `services/discovery/signal.service.ts`'s
+ * paginated single-signal read reports the same fact on the same rule — one
+ * definition, not two that could drift apart on a third signal.
+ */
+export function pageDepthFor(signal: DiscoverySignal): DiscoverySectionPageDepth {
   return DISCOVERY_SIGNALS_FROM_COUNTS.includes(signal) ? 'capped' : 'complete';
 }
 
@@ -199,8 +204,12 @@ function pageDepthFor(signal: DiscoverySignal): DiscoverySectionPageDepth {
  *
  * `subjectId` is the caller's own already-active category, so it is always in
  * the list; a category is never its own ancestor.
+ *
+ * Exported for `services/discovery/signal.service.ts`'s `category:<handle>`
+ * scope — the same suppressed-subtree escape this docblock states applies
+ * there just as much as it does to a shelf built for the feed.
  */
-function activeSubtreeIds(activeCategories: CategoryRecord[], subjectId: string): string[] {
+export function activeSubtreeIds(activeCategories: CategoryRecord[], subjectId: string): string[] {
   return [
     subjectId,
     ...activeCategories.filter((c) => c.ancestorIds.includes(subjectId)).map((c) => c.id),

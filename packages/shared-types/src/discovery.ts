@@ -263,3 +263,37 @@ export type DiscoverySection =
 export interface DiscoveryFeed {
   sections: DiscoverySection[];
 }
+
+/**
+ * One page of `GET /discovery/signal` — the "see all" a shelf's heading links
+ * to. A DIFFERENT shape from {@link DiscoveryFeed} on purpose: the feed
+ * returns SECTIONS, this returns one paged list, and folding the two together
+ * would give one handler two return types.
+ */
+export interface DiscoverySignalPage {
+  signal: DiscoverySignal;
+  /** The scope this page was read within — `deals` never reaches this route. */
+  scope: DiscoveryScope;
+  /** Absent on `scope: { kind: 'root' }`, which spans every active category. */
+  categoryHandle?: string;
+  /** {@link categoryHandle}'s display name — see `DiscoverySectionBase.categoryName`. */
+  categoryName?: string;
+  /**
+   * `'capped'` for `best-selling`/`most-viewed`: the signal ranks only within
+   * what the sweep counted, so paging can exhaust the ranked set before
+   * `hasMore` goes false for any other reason. `'complete'` otherwise. This is
+   * a DIFFERENT fact from `hasMore` — `hasMore: false` means "no more rows
+   * right now"; `pageDepth: 'capped'` means "the end you can reach is the end
+   * of what was COUNTED, not the end of the catalogue."
+   */
+  pageDepth: DiscoverySectionPageDepth;
+  products: ProductSummary[];
+  /**
+   * Whether a further page exists. Computed by the server from whether a
+   * `limit + 1`-row read actually returned the extra row — never from
+   * arithmetic against a total, and never by a `pageDepth`-specific rule: a
+   * `capped` signal's read exhausts itself at the real edge instead of a
+   * predicted number, so the same computation is honest for both.
+   */
+  hasMore: boolean;
+}

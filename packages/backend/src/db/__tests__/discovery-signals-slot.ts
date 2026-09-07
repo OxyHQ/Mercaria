@@ -40,10 +40,11 @@
  * that does — the sweep itself (`services/__tests__/discovery-sweep.realdb.test.ts`,
  * `routes/__tests__/internal-discovery.realdb.test.ts`, which forces a run over
  * HTTP), `replaceWindow` directly (`db/__tests__/discovery-signal-repository.realdb.test.ts`),
- * and the three files that seed rows and read them back
+ * and the four files that seed rows and read them back
  * (`db/__tests__/discovery-read-repository.realdb.test.ts`,
  * `db/__tests__/discovery-schema.realdb.test.ts`,
- * `services/__tests__/discovery-feed.realdb.test.ts`).
+ * `services/__tests__/discovery-feed.realdb.test.ts`,
+ * `services/__tests__/discovery-signal.realdb.test.ts`).
  *
  * `routes/__tests__/discovery-route.realdb.test.ts` deliberately does NOT: it
  * asserts status codes and section-array shapes and never seeds a signal, so an

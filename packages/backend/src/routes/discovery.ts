@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import type { DiscoveryScope } from '@mercaria/shared-types';
+import { DISCOVERY_SIGNALS, type DiscoveryScope, type DiscoverySignal } from '@mercaria/shared-types';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { validateQuery } from '../middleware/validate.js';
-import { getDiscoveryFeedHandler } from '../controllers/discovery.controller.js';
+import {
+  getDiscoveryFeedHandler,
+  getDiscoverySignalPageHandler,
+} from '../controllers/discovery.controller.js';
 
 /**
  * Discovery API — the explore (`root`), category and deals pages served from
@@ -75,5 +78,42 @@ const discoveryFeedQuerySchema = z.object({ scope: scopeSchema }).strict();
  * The explore, category or deals feed, selected by `?scope=`.
  */
 router.get('/feed', validateQuery(discoveryFeedQuerySchema), getDiscoveryFeedHandler);
+
+const SIGNAL_VALUES = DISCOVERY_SIGNALS as readonly [DiscoverySignal, ...DiscoverySignal[]];
+
+/**
+ * `deals` refused here, not just left unhandled: it has no per-signal shelf to
+ * page (`store-offer` sections carry no `signal`), so a `scope=deals` request
+ * is a 400 naming exactly that, the same way an unrecognised `signal` value
+ * is — never a silent 200 for a scope this route cannot serve.
+ */
+const discoverySignalScopeSchema = scopeSchema.refine(
+  (scope): scope is Exclude<DiscoveryScope, { kind: 'deals' }> => scope.kind !== 'deals',
+  { message: 'scope must be "root" or "category:<handle>" — deals has no per-signal shelf to page' },
+);
+
+/**
+ * `limit`/`offset` are bounded here at the SCHEMA, not left to the controller
+ * to clamp: an unbounded `limit` from a public route is the whole reason to
+ * have a bound, and a negative or fractional `offset` is refused rather than
+ * coerced into something that happens to work.
+ */
+const discoverySignalQuerySchema = z
+  .object({
+    signal: z.enum(SIGNAL_VALUES),
+    scope: discoverySignalScopeSchema,
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+    offset: z.coerce.number().int().min(0).optional(),
+  })
+  .strict();
+
+/**
+ * GET /discovery/signal
+ * One page of a single signal's listings, within `scope` — the "see all" a
+ * shelf's heading links to. See `services/discovery/signal.service.ts`'s own
+ * docblock for why this is a separate route from `/feed` rather than a
+ * parameter on it.
+ */
+router.get('/signal', validateQuery(discoverySignalQuerySchema), getDiscoverySignalPageHandler);
 
 export default router;
