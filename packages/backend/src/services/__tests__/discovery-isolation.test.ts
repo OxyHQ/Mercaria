@@ -135,7 +135,8 @@ const DISCOVERY_SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db
  * `offer-isolation.test.ts`: eBay's advertiser cohort (#65), Awin's advertiser
  * and feed pass (#66), and P2P's proximity search (#93) each use the word for
  * something this issue never touches. Measured on this branch: a whole-tree
- * sweep for `/discovery/i` selects 11 modules, and five of them are these.
+ * sweep for `/discovery/i` selects 15 modules (via `sweepSrcTreeForDomain`,
+ * `../../__tests__/domain-population.js`), and five of them are these.
  */
 const SIBLING_DOMAIN_MODULES = [
   {
@@ -323,11 +324,13 @@ describe('the detectors themselves', () => {
       DISCOVERY_REFERENCE.test("import { getDiscoveryFeed } from '../discovery/feed.service.js';"),
     ).toBe(true);
     expect(DISCOVERY_REFERENCE.test('const rows = await findStoresBySignal(input);')).toBe(true);
-    // The measured false positive it must NOT produce: `comparison.service.ts`'s
-    // own docblock names the domain in prose, with no path segment around it.
+    // The measured false positive it must NOT produce: `comparison.service.ts:2`'s
+    // own docblock names the domain in prose, with no path segment around it —
+    // quoted verbatim, not paraphrased, because this self-test's whole job is
+    // to prove the stripper works against REAL text.
     expect(
       DISCOVERY_REFERENCE.test(
-        'the offer comparison entry point is the ONE function a discovery surface calls',
+        'The offer comparison entry point (#74) — the ONE function a discovery surface',
       ),
     ).toBe(false);
     expect(DISCOVERY_REFERENCE.test("import { getDb } from '../postgres.js';")).toBe(false);
