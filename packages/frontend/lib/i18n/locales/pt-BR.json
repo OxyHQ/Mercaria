@@ -1517,5 +1517,16 @@
       "title": "Entre para salvar um agente de compra",
       "body": "Os agentes ficam na sua conta, então acompanham você de um dispositivo para outro."
     }
+  },
+  "discovery": {
+    "signal": {
+      "notFound": "Não encontramos esta lista.",
+      "cappedNotice": "Mostrando nossa seleção principal desta lista; alguns itens correspondentes podem não aparecer ainda.",
+      "empty": "Ainda não há nada para mostrar aqui."
+    },
+    "deals": {
+      "title": "Ofertas",
+      "empty": "Nenhuma oferta ativa no momento."
+    }
   }
 }

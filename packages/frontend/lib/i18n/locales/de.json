@@ -1500,5 +1500,16 @@
       "title": "Melde dich an, um einen Einkaufsagenten zu speichern",
       "body": "Agenten gehören zu deinem Konto und begleiten dich von einem Gerät zum nächsten."
     }
+  },
+  "discovery": {
+    "signal": {
+      "notFound": "Diese Liste konnten wir nicht finden.",
+      "cappedNotice": "Hier zeigen wir unsere Top-Auswahl für diese Liste — einige passende Artikel fehlen eventuell noch.",
+      "empty": "Hier gibt es noch nichts zu zeigen."
+    },
+    "deals": {
+      "title": "Angebote",
+      "empty": "Derzeit keine aktiven Angebote."
+    }
   }
 }

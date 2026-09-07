@@ -1500,5 +1500,16 @@
       "title": "Sign in to save a shopping agent",
       "body": "Agents live with your account, so they follow you between devices."
     }
+  },
+  "discovery": {
+    "signal": {
+      "notFound": "We couldn't find this list.",
+      "cappedNotice": "Showing our top picks for this list — some matching items may not appear yet.",
+      "empty": "Nothing to show here yet."
+    },
+    "deals": {
+      "title": "Deals",
+      "empty": "No active deals right now."
+    }
   }
 }

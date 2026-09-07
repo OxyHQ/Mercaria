@@ -1517,5 +1517,16 @@
       "title": "Inicia la sessió per desar un agent de compra",
       "body": "Els agents viuen al teu compte, així que et segueixen d'un dispositiu a l'altre."
     }
+  },
+  "discovery": {
+    "signal": {
+      "notFound": "No hem trobat aquesta llista.",
+      "cappedNotice": "Mostrant la nostra selecció principal d'aquesta llista; és possible que hi falti algun article.",
+      "empty": "Encara no hi ha res a mostrar aquí."
+    },
+    "deals": {
+      "title": "Ofertes",
+      "empty": "No hi ha ofertes actives ara mateix."
+    }
   }
 }

@@ -1517,5 +1517,16 @@
       "title": "Inicia sesión para guardar un agente de compra",
       "body": "Los agentes viven en tu cuenta, así que te acompañan de un dispositivo a otro."
     }
+  },
+  "discovery": {
+    "signal": {
+      "notFound": "No hemos encontrado esta lista.",
+      "cappedNotice": "Mostrando nuestra selección principal de esta lista; puede que falten artículos.",
+      "empty": "Todavía no hay nada que mostrar aquí."
+    },
+    "deals": {
+      "title": "Ofertas",
+      "empty": "No hay ofertas activas en este momento."
+    }
   }
 }

@@ -1517,5 +1517,16 @@
       "title": "Connectez-vous pour enregistrer un agent d'achat",
       "body": "Les agents sont liés à votre compte, ils vous suivent donc d'un appareil à l'autre."
     }
+  },
+  "discovery": {
+    "signal": {
+      "notFound": "Nous n'avons pas trouvé cette liste.",
+      "cappedNotice": "Voici notre sélection principale pour cette liste ; certains articles peuvent manquer.",
+      "empty": "Rien à afficher ici pour le moment."
+    },
+    "deals": {
+      "title": "Bons plans",
+      "empty": "Aucun bon plan actif pour le moment."
+    }
   }
 }
