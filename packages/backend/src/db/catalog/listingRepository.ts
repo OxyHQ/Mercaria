@@ -1718,6 +1718,22 @@ export async function findOnSaleListings(
  * explicitly EMPTY set reads as "nothing qualifies" rather than "no
  * restriction" — `findOnSaleListings` treats an empty `categoryIds` the same
  * way, for the same reason.
+ *
+ * **`categoryIds` is the third restriction, and it is here for the reason the
+ * other two are**: a `stores` section on a discovery CATEGORY page claims "top
+ * performer in this category", and every sibling section there is scoped to
+ * that category's active subtree — so an unscoped card contradicted the premise
+ * it was shown under, drawing its thumbnails from the store's whole catalogue.
+ * Being inside the window matters more for this one than for either of the
+ * others: a store whose newest listings are all filed elsewhere would otherwise
+ * spend its entire `perStoreLimit` on rows this scope discards, and the card
+ * would come back with no thumbnails while the store has products in the
+ * category.
+ *
+ * The deals scope passes none of it, deliberately — `/deals` has no category
+ * context to contradict, so its cards are bounded by what the discount covers
+ * and by nothing else, and `services/feed.service.ts`'s store-wide merchant
+ * shelf omits it for the same reason.
  */
 export async function findActiveListingsForStores(
   options: {
@@ -1727,12 +1743,15 @@ export async function findActiveListingsForStores(
     readonly listingIds?: readonly string[];
     /** Restrict to members of these collections — `discounts.applies_to_collection_ids`'. */
     readonly collectionIds?: readonly string[];
+    /** Restrict to these categories — a discovery category scope's ACTIVE subtree. */
+    readonly categoryIds?: readonly string[];
   },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ListingRecord[]> {
   if (options.storeIds.length === 0) return [];
   if (options.listingIds !== undefined && options.listingIds.length === 0) return [];
   if (options.collectionIds !== undefined && options.collectionIds.length === 0) return [];
+  if (options.categoryIds !== undefined && options.categoryIds.length === 0) return [];
 
   const predicates: SQL[] = [
     eq(listings.ownerType, 'store'),
@@ -1753,6 +1772,9 @@ export async function findActiveListingsForStores(
         where ${inArray(listingCollections.collectionId, [...options.collectionIds])}
       )`,
     );
+  }
+  if (options.categoryIds !== undefined) {
+    predicates.push(inArray(listings.categoryId, [...options.categoryIds]));
   }
 
   const ranked = db

@@ -1,5 +1,10 @@
 # Discovery Feed — UI Kit Implementation Plan (Plan B of 3)
 
+> **EXECUTED — merged in #1004 (`main`, 2026-09-07).** The unticked boxes below
+> are the plan as it was written, not work outstanding; read the merged code and
+> `docs/discovery.md` for what actually shipped.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add to `@mercaria/ui` the nine components the discovery feed's eight section kinds need, rendering pixel-for-pixel like the captured Shop reference, with Bloom's colours.

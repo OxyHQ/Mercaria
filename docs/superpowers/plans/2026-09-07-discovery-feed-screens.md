@@ -1,5 +1,14 @@
 # Discovery Feed — Screens Implementation Plan (Plan C of 3)
 
+> **EXECUTED — merged in #1004 (`main`, 2026-09-07).** The unticked boxes below
+> are the plan as it was written, not work outstanding; read the merged code and
+> `docs/discovery.md` for what actually shipped.
+>
+> **One step never ran: Task 5 Step 4**, the comparison against the three
+> captured references in `~/Downloads/`. It is the only appearance check in
+> all three plans, so nothing else covers it and no gate can.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Turn `GET /discovery/feed` into the three storefront screens the user asked for — explore, a category landing, and deals — plus the paginated signal route their headings link to.

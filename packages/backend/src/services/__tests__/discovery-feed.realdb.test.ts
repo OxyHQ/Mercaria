@@ -14,6 +14,11 @@
  *    `title` — the client resolves the heading from `signal` +
  *    `categoryHandle`, and a sentence assembled here could never be
  *    translated.
+ *  - **the `stores` card's CONTENTS on a category page**, the one place this
+ *    file leaves shape behind. The card shipped drawing its thumbnails from
+ *    the store's whole catalogue while every sibling section was scoped to the
+ *    category, and no shape assertion could see it: the section, the card and
+ *    the thumbnail count were all exactly right.
  *
  * `best-selling`, `most-viewed` and every `stores` section read
  * `discovery_signals`, and Task 4's sweep that POPULATES that table has not
@@ -142,8 +147,12 @@ async function makeListing(
   return listing.id;
 }
 
-/** A store-owned listing, for the deals scope's featured products. */
-async function makeStoreListing(storeId: string): Promise<string> {
+/**
+ * A store-owned listing, for the deals scope's featured products and for the
+ * `stores` card's thumbnails. `categoryId` is optional because the deals scope
+ * does not care where a listing is filed; a category scope does.
+ */
+async function makeStoreListing(storeId: string, categoryId?: string): Promise<string> {
   const [listing] = await db
     .insert(listings)
     .values({
@@ -155,6 +164,7 @@ async function makeStoreListing(storeId: string): Promise<string> {
       conditionAssertion: 'seller_declared',
       status: 'active',
       publishedAt: new Date(),
+      categoryId: categoryId ?? null,
     })
     .returning({ id: listings.id });
   createdListingIds.push(listing.id);
@@ -423,6 +433,39 @@ describe('getDiscoveryFeed', () => {
     const stores = feed.sections.find((s): s is StoresSection => s.kind === 'stores');
     expect(stores?.variant).toBe('large');
     expect(stores?.stores.length).toBeGreaterThan(0);
+  });
+
+  it("a category page's store card shows that category's products, subtree included", async () => {
+    // The card says "top performer in this category" and every sibling section
+    // on the page is scoped to the subtree, so a thumbnail from outside it
+    // contradicts the premise the card is shown under. Contents, not shape,
+    // because the shape was identical while this was wrong.
+    //
+    // The CHILD's listing is half the assertion: `categoryIds` is the active
+    // subtree, not the subject, exactly as the page's own shelves are — a
+    // product filed one level down is still part of what this page browses.
+    // That the cap is spent on the category rather than on the store is one
+    // layer down, in `store-shelf-listings.realdb.test.ts`.
+    const parent = await makeCategory();
+    const child = await makeCategory({ parentId: parent.id, ancestorIds: [parent.id] });
+    const unrelated = await makeCategory();
+
+    const storeId = await makeStore();
+    await seedStoreSignal({ storeId, categoryId: parent.id, unitsSold: 10 });
+
+    const inParent = await makeStoreListing(storeId, parent.id);
+    const inChild = await makeStoreListing(storeId, child.id);
+    const elsewhere = await makeStoreListing(storeId, unrelated.id);
+
+    const feed = await getDiscoveryFeed({ kind: 'category', handle: parent.slug });
+
+    const stores = feed.sections.find((s): s is StoresSection => s.kind === 'stores');
+    const card = stores?.stores.find((store) => store.id === storeId);
+    expect(card).toBeDefined();
+    expect(card?.products.map((product) => product.id).sort()).toEqual(
+      [inParent, inChild].sort(),
+    );
+    expect(card?.products.map((product) => product.id)).not.toContain(elsewhere);
   });
 
   it('the card group holds top-rated and new; on-sale renders as a full shelf', async () => {
