@@ -164,7 +164,7 @@ export function StoreProductCard({
                   key={product.id}
                   className={cn(
                     "size-space-6 rounded-full",
-                    i === index ? "bg-bg-overlay-fixed-light-75" : "bg-bg-overlay-fixed-light-40",
+                    i === index ? "bg-overlay-fixed-light-75" : "bg-overlay-fixed-light-40",
                   )}
                 />
               ))}

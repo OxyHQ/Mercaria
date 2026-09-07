@@ -35,7 +35,7 @@ export function CategoryImageTile({ tile, onPress }: CategoryImageTileProps) {
           <View className="flex-1 bg-bg-fill-tertiary" />
         )}
 
-        <View pointerEvents="none" className="absolute inset-0 bg-bg-overlay-fixed-dark-20" />
+        <View pointerEvents="none" className="absolute inset-0 bg-overlay-fixed-dark-20" />
 
         <View
           pointerEvents="none"

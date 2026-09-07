@@ -65,7 +65,7 @@ export function ActionHeroCard({ card, onPress }: ActionHeroCardProps) {
             </Text>
           ) : null}
         </View>
-        <View className="size-space-32 shrink-0 items-center justify-center rounded-full bg-bg-overlay-fixed-light-20">
+        <View className="size-space-32 shrink-0 items-center justify-center rounded-full bg-overlay-fixed-light-20">
           <ArrowRight size={ARROW_ICON_SIZE} color={FIXED_LIGHT} />
         </View>
       </View>

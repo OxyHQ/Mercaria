@@ -36,7 +36,7 @@ export function CategorySampleTile({ tile, samples, onPress }: CategorySampleTil
       {/* Hover wash (web only) — decorative, sits above the flat colour and
           below the label/samples below (both `relative` so they win the
           stacking order against this `absolute` layer on web). */}
-      <View className="web:absolute web:inset-0 web:bg-bg-overlay-fixed-dark-10 web:opacity-0 web:transition-opacity web:group-hover:opacity-100" />
+      <View className="web:absolute web:inset-0 web:bg-overlay-fixed-dark-10 web:opacity-0 web:transition-opacity web:group-hover:opacity-100" />
 
       <Text
         numberOfLines={1}

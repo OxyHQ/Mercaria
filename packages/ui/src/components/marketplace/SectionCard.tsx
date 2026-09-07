@@ -33,7 +33,7 @@ export function SectionCard({ title, onPress, children }: SectionCardProps) {
       >
         {title}
       </Text>
-      <View className="size-space-36 shrink-0 items-center justify-center rounded-radius-max bg-bg-overlay-fixed-dark-04">
+      <View className="size-space-36 shrink-0 items-center justify-center rounded-radius-max bg-overlay-fixed-dark-04">
         <ChevronRight size={CHEVRON_ICON_SIZE} color={colors.foreground} />
       </View>
     </>
