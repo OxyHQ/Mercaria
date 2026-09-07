@@ -97,15 +97,44 @@ function sharingTypeFor(routeId: PublicRouteId): SeoSharingMetadata['type'] {
   return routeId === 'canonical_product' || routeId === 'legacy_listing' ? 'product' : 'website';
 }
 
+/** Builds the entity-specific schema.org node(s) for one route, given its facts. */
+type StructuredDataBuilder = (facts: SeoVisibleFacts, canonicalUrl: string, origin: string) => SeoJsonLdNode;
+
 /**
- * The structured-data graph for one page.
+ * Which entity node each route emits — a `Record<PublicRouteId, ...>` rather
+ * than a `switch`, for `SECTION_TITLE_KEYS`'s own reason
+ * (`packages/frontend/lib/discovery/section-title.ts`): exhaustiveness is then
+ * the COMPILER's job, so a route added to the union fails to build here rather
+ * than silently falling through to an empty array. A `switch` with no
+ * `default` looked closed but wasn't — it type-checks whether or not every
+ * case is listed, because this function accumulates into an array and returns
+ * unconditionally, so a route the switch never mentioned produced no
+ * structured data with no error anywhere. `category_index` shipped exactly
+ * that way and nothing caught it.
  *
- * A closed switch over the route id with no `default`, so a new public route
- * cannot quietly inherit somebody else's schema.org type. The routes that emit
- * nothing emit nothing on purpose: a seller profile is a person Oxy owns the
- * identity of, and publishing a `Person` node for them from a marketplace is a
- * claim Mercaria has no standing to make.
+ * `null` is a DECISION, not an omission: a seller profile is a person Oxy owns
+ * the identity of, and publishing a `Person` node for them from a marketplace
+ * is a claim Mercaria has no standing to make. A hub page (`category_index`,
+ * `deals`) has no entity of its own to describe. Every `null` here is argued
+ * where it sits, exactly as `ROUTE_RESOLVERS`' `null` is in `seo.service.ts`.
  */
+const STRUCTURED_DATA_BY_ROUTE: Readonly<Record<PublicRouteId, StructuredDataBuilder | null>> =
+  Object.freeze({
+    home: (_facts, _canonicalUrl, origin) => webSiteNode(SITE_NAME, origin),
+    canonical_product: (facts, canonicalUrl) => productNode(facts, canonicalUrl),
+    legacy_listing: (facts, canonicalUrl) => productNode(facts, canonicalUrl),
+    brand: (facts, canonicalUrl) => organizationNode('Brand', facts, canonicalUrl),
+    merchant: (facts, canonicalUrl) => organizationNode('Organization', facts, canonicalUrl),
+    native_store: (facts, canonicalUrl) => organizationNode('OnlineStore', facts, canonicalUrl),
+    product_family: null,
+    seller: null,
+    category_browse: null,
+    native_store_legacy: null,
+    category_index: null,
+    deals: null,
+  });
+
+/** The structured-data graph for one page. */
 function structuredDataFor(
   routeId: PublicRouteId,
   facts: SeoVisibleFacts,
@@ -114,31 +143,8 @@ function structuredDataFor(
 ): readonly SeoJsonLdNode[] {
   const nodes: SeoJsonLdNode[] = [];
 
-  switch (routeId) {
-    case 'home':
-      nodes.push(webSiteNode(SITE_NAME, origin));
-      break;
-    case 'canonical_product':
-    case 'legacy_listing':
-      nodes.push(productNode(facts, canonicalUrl));
-      break;
-    case 'brand':
-      nodes.push(organizationNode('Brand', facts, canonicalUrl));
-      break;
-    case 'merchant':
-      nodes.push(organizationNode('Organization', facts, canonicalUrl));
-      break;
-    case 'native_store':
-      nodes.push(organizationNode('OnlineStore', facts, canonicalUrl));
-      break;
-    case 'product_family':
-    case 'seller':
-    case 'category_browse':
-    case 'native_store_legacy':
-    case 'category_index':
-    case 'deals':
-      break;
-  }
+  const builder = STRUCTURED_DATA_BY_ROUTE[routeId];
+  if (builder !== null) nodes.push(builder(facts, canonicalUrl, origin));
 
   const breadcrumbs = breadcrumbNode(facts, origin);
   if (breadcrumbs !== undefined) nodes.push(breadcrumbs);
