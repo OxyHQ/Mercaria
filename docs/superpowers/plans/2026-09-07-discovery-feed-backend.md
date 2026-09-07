@@ -1,5 +1,10 @@
 # Discovery Feed — Backend Implementation Plan (Plan A of 3)
 
+> **EXECUTED — merged in #1004 (`main`, 2026-09-07).** The unticked boxes below
+> are the plan as it was written, not work outstanding; read the merged code and
+> `docs/discovery.md` for what actually shipped.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship `GET /discovery/feed?scope=` serving the explore, category and deals feeds from Postgres, with the sales/views aggregation that two of its five signals need.
