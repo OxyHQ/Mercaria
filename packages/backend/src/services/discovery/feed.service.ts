@@ -237,7 +237,13 @@ async function buildStoresSection(input: {
     return null;
   }
 
-  const featured = await findActiveListingsForStores(ranked.map((s) => s.id));
+  // Exactly the thumbnails the card renders and no more: `toStoreSummary`
+  // slices each store's gallery to `storeCardThumbnails`, and this section is
+  // built once per top-level category on the root feed.
+  const featured = await findActiveListingsForStores({
+    storeIds: ranked.map((s) => s.id),
+    perStoreLimit: config.feed.storeCardThumbnails,
+  });
   const featuredByStore = new Map<string, ListingRecord[]>();
   for (const listing of featured) {
     if (!listing.storeId) continue;
@@ -501,7 +507,9 @@ async function buildDealsFeed(): Promise<DiscoveryFeed> {
   const storeIds = storeDiscounts.map((d) => d.storeId);
   const [stores, featured] = await Promise.all([
     findStoresByIds(storeIds),
-    findActiveListingsForStores(storeIds),
+    // The card's own product row is `shelfSize` wide; anything past it was
+    // read and then sliced away.
+    findActiveListingsForStores({ storeIds, perStoreLimit: config.discovery.shelfSize }),
   ]);
   const storeById = new Map(stores.map((s) => [s.id, s]));
 

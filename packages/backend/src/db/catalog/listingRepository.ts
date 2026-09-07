@@ -78,6 +78,7 @@ import {
   arrayContains,
   asc,
   eq,
+  getTableColumns,
   gte,
   inArray,
   isNotNull,
@@ -1688,22 +1689,57 @@ export async function findOnSaleListings(
     .offset(options.offset ?? 0);
 }
 
-/** Every ACTIVE listing of a batch of stores, newest first — the merchant shelf. */
+/**
+ * The newest `perStoreLimit` ACTIVE listings of each of a batch of stores —
+ * the merchant shelf.
+ *
+ * **`perStoreLimit` is required, and a shared total would not do.** Every
+ * caller renders a handful of thumbnails per card and this read had no LIMIT
+ * at all: the discovery root feed calls it once per top-level category, so one
+ * uncached explore request pulled EVERY active listing of up to
+ * `shelfSize × shelfSize` stores into memory — and then their whole galleries
+ * — to show three images per card. A single `LIMIT` over the batch would not
+ * fix it either: the order is global, so one prolific store would spend the
+ * budget and the rest of the shelf would silently lose its thumbnails.
+ *
+ * So the bound is PER STORE, via `row_number() over (partition by store_id
+ * order by <newest first>)` — `db/search/searchOfferRepository.ts`'s
+ * `rankProductOfferIds` is the same shape one domain over, and carries the
+ * measurement that chose a partitioned pass over a lateral join per subject.
+ * The window and the outer `orderBy` share `NEWEST_FIRST` rather than spelling
+ * it twice, so the rows kept and the order they arrive in cannot drift apart.
+ */
 export async function findActiveListingsForStores(
-  storeIds: readonly string[],
+  options: {
+    readonly storeIds: readonly string[];
+    readonly perStoreLimit: number;
+  },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ListingRecord[]> {
-  if (storeIds.length === 0) return [];
-  return db
-    .select()
+  if (options.storeIds.length === 0) return [];
+  const ranked = db
+    .select({
+      id: listings.id,
+      position: sql<number>`row_number() over (
+        partition by ${listings.storeId}
+        order by ${sql.join(NEWEST_FIRST, sql`, `)}
+      )`.as('position'),
+    })
     .from(listings)
     .where(
       and(
         eq(listings.ownerType, 'store'),
-        inArray(listings.storeId, [...storeIds]),
+        inArray(listings.storeId, [...options.storeIds]),
         eq(listings.status, 'active'),
       ),
     )
+    .as('ranked');
+
+  return db
+    .select(getTableColumns(listings))
+    .from(listings)
+    .innerJoin(ranked, eq(ranked.id, listings.id))
+    .where(sql`${ranked.position} <= ${options.perStoreLimit}`)
     .orderBy(...NEWEST_FIRST);
 }
 

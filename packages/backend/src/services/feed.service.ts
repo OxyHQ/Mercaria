@@ -109,7 +109,13 @@ async function buildMerchants(): Promise<StoreSummary[]> {
     return [];
   }
 
-  const featured = await findActiveListingsForStores(stores.map((s) => s.id));
+  // Exactly the thumbnails the card renders: `toStoreSummary` slices the
+  // gallery to `storeCardThumbnails`, so anything beyond that was loaded and
+  // dropped.
+  const featured = await findActiveListingsForStores({
+    storeIds: stores.map((s) => s.id),
+    perStoreLimit: config.feed.storeCardThumbnails,
+  });
 
   const featuredByStore = new Map<string, ListingRecord[]>();
   for (const l of featured) {
