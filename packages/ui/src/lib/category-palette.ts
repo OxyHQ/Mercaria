@@ -11,14 +11,21 @@
  *
  * Every palette entry is chosen for contrast against `text-text-inverse`
  * (`CategorySampleTile`'s label is always inverse): each clears a WCAG
- * contrast ratio of at least 5.9:1 against white, comfortably past the
+ * contrast ratio of at least 5.9:1 against WHITE, comfortably past the
  * 4.5:1 "normal text" AA floor even though the label (`bodyTitleLarge`,
- * 18px/700) only needs 3:1 as "large text". One caveat this palette cannot
- * close statically: `text-inverse` resolves to Bloom's `--background`
- * custom property, which is white in Mercaria's default light theme but is
- * a Bloom-managed, seed-dependent value in dark mode — not necessarily
- * white. Contrast is verified against white; it is not verified against
- * every Bloom theme/seed combination.
+ * 18px/700) only needs 3:1 as "large text".
+ *
+ * **This is a stated limit, not a guarantee that holds everywhere.**
+ * `text-inverse` resolves to Bloom's `--background` custom property, which is
+ * white in Mercaria's default light theme but a Bloom-managed, seed- and
+ * mode-dependent value otherwise — a dark-seeded theme's `--background` is
+ * not necessarily white, or even light. The contrast guarantee above holds
+ * against a LIGHT background; a dark-seeded theme is NOT covered by it. This
+ * module has no business reading the active seed at runtime to compensate —
+ * that would make a "pure function of an id" secretly depend on global
+ * theme state, which is a worse defect than an unverified dark-mode contrast.
+ * Closing this gap, if it needs closing, is a decision for whoever owns
+ * theme/seed selection, not a fix to bury here.
  */
 const CATEGORY_PALETTE = [
   "#A6462D", // clay

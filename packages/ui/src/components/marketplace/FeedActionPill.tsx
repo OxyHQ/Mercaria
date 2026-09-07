@@ -12,27 +12,30 @@ import type { CategoryTile } from "@mercaria/shared-types";
 const PILL_SHADOW =
   "rgba(255,255,255,0.2) 0 1px 0 0 inset, rgba(0,0,0,0.12) 0 0 1px 0, rgba(0,0,0,0.12) 0 4px 8px 0";
 
-export interface CategoryPillProps {
+export interface FeedActionPillProps {
   tile: CategoryTile;
   onPress?: (tile: CategoryTile) => void;
 }
 
 /**
- * A single "browse category" pill: a round category image beside its name,
- * inside a rounded-full elevated chip. One press target — the whole pill is
- * the link.
+ * A single discovery-feed "browse category" pill (the reference's
+ * `feed-action-card-pill`): a round category image beside its name, inside a
+ * rounded-full elevated chip. One press target — the whole pill is the link.
  *
- * The reference names no root fill for this chip; `bg-bg-fill` is added here
- * so the multi-stop shadow (and its white inset highlight) reads against a
- * surface rather than the page background, matching every other elevated
- * card in this file.
+ * Not `CategoryPills`/`CategoryPillChip` — that component is Mercaria's own
+ * `bg-muted` chip row at the top of the HOME feed. This is the reference's
+ * glassy shadowed pill for the CATEGORY page's feed. Two treatments of one
+ * concept, on two surfaces; do not merge them.
  */
-export function CategoryPill({ tile, onPress }: CategoryPillProps) {
+export function FeedActionPill({ tile, onPress }: FeedActionPillProps) {
   return (
     <Pressable
       accessibilityRole="link"
       accessibilityLabel={tile.name}
-      onPress={() => onPress?.(tile)}
+      // The reference names no root fill for this chip (it sits over the
+      // capture's page background). `bg-bg-fill` gives the multi-stop shadow's
+      // white inset highlight a surface to read against instead — the same
+      // reason `IncentiveHalo`'s wrapper carries `bg-bg-fill`.
       className="relative min-w-0 rounded-radius-max bg-bg-fill p-space-12 pb-space-4 ps-space-4 pt-space-4 font-buttonMedium text-buttonMedium web:active:scale-[0.99]"
       style={{ boxShadow: PILL_SHADOW }}
     >
