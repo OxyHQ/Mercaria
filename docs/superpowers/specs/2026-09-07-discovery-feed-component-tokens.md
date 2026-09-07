@@ -199,8 +199,16 @@ Everything in `@mercaria/ui` today is a carousel; this is the wrapping grid.
 
 | Part | Reference | Here |
 | --- | --- | --- |
-| items | `flex flex-wrap -mx-space-4 md:-mx-space-8 gap-y-space-8 md:gap-y-space-16` | |
-| items, card-group variant | same, with `gap-y-space-40` | |
+| items | `flex flex-wrap -mx-space-4 md:-mx-space-8 gap-y-space-8 md:gap-y-space-16` | add `flex-row` — see below |
+| items, card-group variant | same, with `gap-y-space-40` | add `flex-row` |
+
+**`flex-row` is not in the reference and must be added, and this is the quietest
+of the RN divergences.** CSS defaults `flex-direction` to `row`, so the capture
+never needs to say it. React Native defaults it to `column`. Copied verbatim,
+`flex flex-wrap` stacks every card vertically — a layout that is wrong in a way
+that typechecks, passes every gate, and is only visible when somebody opens the
+page. Every sibling flex-wrap row already in this repository spells `flex-row`.
+Measured and applied by the implementer of Plan B Task 3.
 
 The negative horizontal margin cancels each slot's own `px-space-4`, so the row's
 outer edge aligns with the page gutter. Slot widths are the per-component values
