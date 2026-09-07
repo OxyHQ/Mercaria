@@ -221,7 +221,6 @@
       "unavailableHere": "適用中ですが、この結果には表示されません:",
       "removeFilter": "この絞り込みを外す",
       "unknownCount": "%{count} 件は記載なし",
-      "droppedFromLink": "このリンクの絞り込み %{count} 件を適用できませんでした。",
       "pricesNotConverted": "一部の価格は含まれていません: %{currencies} を換算できませんでした。"
     },
     "specs": {
@@ -247,14 +246,14 @@
     "category": {
       "fallbackTitle": "カテゴリー",
       "notFound": "このカテゴリーは見つかりませんでした。",
-      "subcategories": "サブカテゴリー",
-      "empty": "この絞り込みに合うものはまだありません。",
+      "loadError": "このカテゴリーを読み込めませんでした。もう一度お試しください。",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {
       "title": "すべてのカテゴリ",
       "documentTitle": "%{title} — Mercaria",
-      "empty": "カテゴリはまだ公開されていません。"
+      "empty": "カテゴリはまだ公開されていません。",
+      "loadError": "カテゴリを読み込めませんでした。もう一度お試しください。"
     }
   },
   "cart": {
@@ -1499,6 +1498,30 @@
     "signedOut": {
       "title": "ショッピングエージェントを保存するにはログインしてください",
       "body": "エージェントはアカウントに保存されるため、デバイスをまたいで引き継がれます。"
+    }
+  },
+  "discovery": {
+    "shelf": {
+      "topRated": "%{category}の高評価商品",
+      "new": "%{category}の新着商品",
+      "onSale": "%{category}のセール品",
+      "bestSelling": "%{category}の売れ筋商品",
+      "mostViewed": "%{category}の人気商品"
+    },
+    "signal": {
+      "notFound": "このリストは見つかりませんでした。",
+      "loadError": "このリストを読み込めませんでした。もう一度お試しください。",
+      "cappedNotice": "このリストのおすすめ上位を表示しています。該当する商品がまだ表示されない場合があります。",
+      "empty": "ここに表示できるものはまだありません。",
+      "loadMore": "もっと見る",
+      "loadMoreLabel": "商品をもっと読み込む",
+      "loadingMore": "読み込み中…"
+    },
+    "deals": {
+      "title": "セール",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "現在有効なセールはありません。",
+      "loadError": "セールを読み込めませんでした。もう一度お試しください。"
     }
   }
 }

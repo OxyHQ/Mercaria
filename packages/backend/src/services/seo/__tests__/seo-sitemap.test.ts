@@ -203,7 +203,7 @@ describe('a catalogue page is judged by its catalogue', () => {
 
 describe('categories reach the sitemap now their screen exists', () => {
   it('emits a category URL under its own route pattern', () => {
-    // #367 workstream 9 shipped `app/(app)/categories/[handle].tsx`,
+    // #367 workstream 9 shipped `app/(app)/categories/[handle]/index.tsx`,
     // `seo-routes.test.ts` forced `category_browse` to `live`, and the
     // collection woke up — which is the registry's `availability` reaching the
     // sitemap, the same path #72 and #73 took before it.

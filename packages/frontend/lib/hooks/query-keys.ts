@@ -1,4 +1,4 @@
-import type { ListingQuery } from '@mercaria/shared-types';
+import type { DiscoveryScope, DiscoverySignal, ListingQuery } from '@mercaria/shared-types';
 
 export const queryKeys = {
   notifications: {
@@ -6,6 +6,22 @@ export const queryKeys = {
   },
   feed: {
     all: ["feed"] as const,
+  },
+  /**
+   * The discovery feed — explore, category and deals, one contract with
+   * three scopes
+   * (`docs/superpowers/specs/2026-09-07-discovery-feed-design.md`).
+   *
+   * Keyed on the whole SCOPE object rather than a flat name: the `category`
+   * branch carries a handle that is part of the request's identity, so two
+   * different handles must land in two different cache entries the same way
+   * `root` and `deals` already do not share one.
+   */
+  discovery: {
+    feed: (scope: DiscoveryScope) => ["discovery", "feed", scope] as const,
+    /** The `/categories/:handle/s/:signal` offset-paged listing for one signal. */
+    signalPage: (scope: DiscoveryScope, signal: DiscoverySignal) =>
+      ["discovery", "signalPage", scope, signal] as const,
   },
   /**
    * Natural-language search (#95). The RESULTS key carries the filters, so

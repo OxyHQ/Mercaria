@@ -223,7 +223,6 @@
       "unavailableHere": "Encara s'apliquen, però no s'ofereixen per a aquests resultats:",
       "removeFilter": "Elimina aquest filtre",
       "unknownCount": "%{count} sense indicar",
-      "droppedFromLink": "No s'han pogut aplicar %{count} filtres d'aquest enllaç.",
       "pricesNotConverted": "Alguns preus no s'inclouen aquí: no s'han pogut convertir %{currencies}."
     },
     "specs": {
@@ -249,14 +248,14 @@
     "category": {
       "fallbackTitle": "Categoria",
       "notFound": "No hem trobat aquesta categoria.",
-      "subcategories": "Subcategories",
-      "empty": "Encara no hi ha res que coincideixi amb aquests filtres.",
+      "loadError": "No hem pogut carregar aquesta categoria. Torna-ho a provar.",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {
       "title": "Totes les categories",
       "documentTitle": "%{title} — Mercaria",
-      "empty": "Encara no s'ha publicat cap categoria."
+      "empty": "Encara no s'ha publicat cap categoria.",
+      "loadError": "No hem pogut carregar les categories. Torna-ho a provar."
     }
   },
   "cart": {
@@ -1516,6 +1515,30 @@
     "signedOut": {
       "title": "Inicia la sessió per desar un agent de compra",
       "body": "Els agents viuen al teu compte, així que et segueixen d'un dispositiu a l'altre."
+    }
+  },
+  "discovery": {
+    "shelf": {
+      "topRated": "El més ben valorat a %{category}",
+      "new": "Novetats a %{category}",
+      "onSale": "Rebaixes a %{category}",
+      "bestSelling": "El més venut a %{category}",
+      "mostViewed": "El més vist a %{category}"
+    },
+    "signal": {
+      "notFound": "No hem trobat aquesta llista.",
+      "loadError": "No hem pogut carregar aquesta llista. Torna-ho a provar.",
+      "cappedNotice": "Mostrant la nostra selecció principal d'aquesta llista; és possible que hi falti algun article.",
+      "empty": "Encara no hi ha res a mostrar aquí.",
+      "loadMore": "Carrega'n més",
+      "loadMoreLabel": "Carrega més productes",
+      "loadingMore": "S'està carregant…"
+    },
+    "deals": {
+      "title": "Ofertes",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "No hi ha ofertes actives ara mateix.",
+      "loadError": "No hem pogut carregar les ofertes. Torna-ho a provar."
     }
   }
 }

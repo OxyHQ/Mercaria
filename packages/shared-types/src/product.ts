@@ -130,6 +130,23 @@ export interface CategoryTile {
    * shipped a blank card. Every renderer must branch and draw the placeholder.
    */
   imageUrl?: string;
+  /**
+   * Up to two preview images drawn from this category's own CHILDREN, for the
+   * discovery feed's "browse categories" tile (`CategorySampleTile`) — the
+   * tile's whole point is to preview what is INSIDE the category, which is why
+   * this is never `imageUrl` (the category's own single image) duplicated into
+   * two slots. `CategorySampleTile`'s own docstring forbids that substitution.
+   *
+   * A missing child image is a SHORTER array, never a hole filled with `''`:
+   * an empty string is an absent value wearing the type of a present one, the
+   * same rule `imageUrl` states above. Whole field absent when no child has an
+   * image at all — same convention as every other optional image field here.
+   *
+   * Only populated on a `category-tiles` section's tiles; a `pills` or
+   * `category-images` tile carries this field unset because nothing reads it
+   * there.
+   */
+  sampleImageUrls?: string[];
 }
 
 /** A top-level category with a small grid of featured subcategories. */

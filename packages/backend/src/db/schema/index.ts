@@ -572,6 +572,14 @@ export * from './catalogAuthoring';
 // adds NO entry to `services/curation/merge-plan.ts`.
 export * from './catalogProposals';
 
+// Discovery — the explore, category and deals feed's counted signals
+// (`discovery_signals`, `discovery_sweep_cursors`). References nothing: the
+// subject pointer is polymorphic over listings and stores, and the category
+// scope carries no foreign key either (the root scope is `''`, not a real
+// category id). Placed here, ahead of catalog governance, so that domain keeps
+// its own "LAST export" claim.
+export * from './discovery';
+
 // Catalog administration and governance (#367 Workstream 12) — the LAST export,
 // because it references nothing and is referenced by nothing. Its five tables
 // hold decisions ABOUT the definitions above (change requests, their measured

@@ -146,8 +146,8 @@ const HARDCODED_CATALOG_COMPARISON =
  * `SIZE` flags `FONT_SIZE_TOKENS` (typography) and `COLOR`/`OPTION` flags
  * `COLOR_OPTIONS` (a hex palette in a generic colour picker) — design-system
  * vocabulary a name-matching detector cannot tell from catalog vocabulary. Each
- * would need an allow-list entry, re-growing from zero the list #478 just
- * emptied, to catch strictly less than this probe does.
+ * would need its own allow-list entry, growing `PERMITTED` past the one it
+ * already carries, to catch strictly less than this probe does.
  */
 const HARDCODED_CATALOG_MEMBERSHIP =
   /\.(?:has|includes)\(\s*(?:option|category|productType|facet|attribute)\.(?:name|slug|key)\b/u;
@@ -159,17 +159,45 @@ const HARDCODED_CATALOG_MEMBERSHIP =
  * `merge-plan-census.test.ts`'s ruling. An exact array rather than a prefix rule,
  * so it cannot be widened by accident.
  *
- * EMPTY as of #478, which removed the last entry rather than re-dispositioning
+ * EMPTIED at #478, which removed its last entry rather than re-dispositioning
  * it: `VariantSwatches` picked a widget from `COLOR_OPTION_NAMES`, three English
  * words, and drew a colour it had invented — no `attribute_enum_values` colour
  * column and no per-value image exists, so the swatch showed a cycled gallery
  * photo or a hash of the value string. It now renders pills for every option.
  *
- * An empty list costs this census the positive control the entry was doubling
+ * That emptying cost this census the positive control the entry was doubling
  * as — see `still catches a hardcoded list in a source the walk really read`,
- * which replaces it at the same seam.
+ * which replaced it at the same seam and is kept regardless of whether this
+ * list holds anything, so a future entry landing here does not silently
+ * retire it.
+ *
+ * ONE entry again as of the discovery-feed browse tiles (#367 workstream 13):
+ * see the disposition below for why `category-palette.ts` trips the list
+ * probe but is not the #478 defect recurring.
  */
-const PERMITTED: readonly { readonly path: string; readonly disposition: string }[] = [];
+const PERMITTED: readonly { readonly path: string; readonly disposition: string }[] = [
+  {
+    path: 'packages/ui/src/lib/category-palette.ts',
+    disposition:
+      '`CATEGORY_PALETTE` is eight HEX COLOUR STRINGS (`#A6462D` …), not a re-listed catalog ' +
+      'vocabulary — there is no server-owned set of colours it could drift out of sync with, the ' +
+      'way a category/option/facet name list would. It also never trips ' +
+      '`HARDCODED_CATALOG_MEMBERSHIP` above: nothing here does `.has`/`.includes` against an ' +
+      'option/category/productType/facet/attribute’s `.name`/`.slug`/`.key` — the hash key is ' +
+      '`categoryId` alone, used only to pick a fixed array INDEX, never compared against catalog ' +
+      'free text. That is the real reason this is not #478 recurring, not merely a style ' +
+      'difference: #478’s `VariantSwatches` matched free text in one language to choose a widget, ' +
+      'then presented an invented hue AS the value a shopper had selected — a claim about a ' +
+      'specific piece of data that could be right or wrong, and often was. This array makes no ' +
+      'such claim: it is a browse-tile BACKGROUND colour behind a label that is always the ' +
+      'category’s real name, the same shape as a fallback avatar tint. `categories` carries no ' +
+      'colour column, and `docs/superpowers/specs/2026-09-07-discovery-feed-design.md` §"Tile ' +
+      'colour is derived, not stored" already records why none is being added: no operator ' +
+      'surface exists to fill one. `categoryPaletteColor` is also not exported from `@mercaria/ui` ' +
+      '(`packages/ui/src/index.ts`) — it is `CategorySampleTile`’s own private derivation, ' +
+      'consumed nowhere else.',
+  },
+];
 
 describe('the censused client packages', () => {
   it('reads a real, non-trivial set of client sources', () => {
@@ -202,12 +230,11 @@ describe('the censused client packages', () => {
     // Exact identity, never containment: an allow-list that may only grow is the
     // gate switching itself off one defensible entry at a time.
     //
-    // While PERMITTED held an entry this was ALSO its own positive control — it
-    // could only pass by having FOUND that list. #478 emptied it, so this
-    // assertion now passes two ways: because no client package hardcodes a
-    // catalog vocabulary, or because the walk and the probe stopped composing.
-    // The test below restores the control; do not delete it while this list is
-    // empty.
+    // While PERMITTED holds an entry it is ALSO a positive control for this
+    // probe — it can only pass by having FOUND `category-palette.ts`. But that
+    // stops being true the moment PERMITTED is emptied again (#478 did exactly
+    // that), so the dedicated control below does not depend on this list's
+    // length and must not be deleted alongside a future entry.
     expect(
       offenders,
       'a client package outside the two scanned by WS8/WS9 hardcodes a catalog vocabulary. ' +
@@ -351,10 +378,13 @@ describe('the censused client packages', () => {
         80,
       );
     }
-    // The exact-count assertion on the exemptions themselves. ZERO as of #478;
-    // it is not a formality, because the loop above is vacuous at this length
-    // and this line is the only thing that notices an entry coming back.
-    expect(PERMITTED).toHaveLength(0);
+    // The exact-count assertion on the exemptions themselves. ZERO from #478
+    // until the discovery-feed browse tiles added `category-palette.ts`, which
+    // also makes the loop above non-vacuous for the first time since #478 — it
+    // now actually checks that one entry's path and disposition. But the loop
+    // has no opinion on its OWN length, so this line is still the only thing
+    // that notices a SECOND entry landing unreviewed.
+    expect(PERMITTED).toHaveLength(1);
   });
 
   it('imports nothing from a client package', () => {

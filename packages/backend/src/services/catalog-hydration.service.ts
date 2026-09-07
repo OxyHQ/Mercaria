@@ -370,6 +370,73 @@ export function toProductSummary(
   return summary;
 }
 
+/**
+ * Resolve the brand label for a batch of product cards: the store name for
+ * store listings, or the seller's Oxy display name for P2P listings.
+ *
+ * Moved here from `feed.service.ts` (#7): the home feed and the discovery feed
+ * both build shelves of `ProductSummary` cards and both need this resolver, so
+ * it lives beside {@link toProductSummary} rather than in either caller.
+ */
+async function buildBrandResolver(
+  listings: ListingRecord[],
+): Promise<(listing: ListingRecord) => string> {
+  const storeIds = [
+    ...new Set(
+      listings.flatMap((l) => (l.ownerType === 'store' && l.storeId ? [l.storeId] : [])),
+    ),
+  ];
+  const userIds = [
+    ...new Set(
+      listings.flatMap((l) => (l.ownerType === 'user' && l.oxyUserId ? [l.oxyUserId] : [])),
+    ),
+  ];
+
+  const [storeDocs, oxyProfiles] = await Promise.all([
+    findStoresByIds(storeIds),
+    getProfiles(userIds),
+  ]);
+
+  const storeNameById = new Map(storeDocs.map((s) => [s.id, s.name]));
+
+  return (listing: ListingRecord): string => {
+    if (listing.ownerType === 'store' && listing.storeId) {
+      return storeNameById.get(listing.storeId) ?? '';
+    }
+    if (listing.ownerType === 'user' && listing.oxyUserId) {
+      return oxyProfiles.get(listing.oxyUserId)?.displayName ?? '';
+    }
+    return '';
+  };
+}
+
+/**
+ * Build `ProductSummary[]` for a set of listings, loading their variants and
+ * gallery images in two batched queries for the whole shelf — the home feed's
+ * and the discovery feed's shared shelf builder.
+ */
+export async function toProductSummaries(listings: ListingRecord[]): Promise<ProductSummary[]> {
+  if (listings.length === 0) {
+    return [];
+  }
+  const listingIds = listings.map((l) => l.id);
+  const [variants, children, brandOf] = await Promise.all([
+    findVariantsByListingIds(listingIds),
+    findListingChildren(listingIds),
+    buildBrandResolver(listings),
+  ]);
+  const variantsByListing = groupVariants(variants);
+
+  return listings.map((listing) =>
+    toProductSummary(
+      listing,
+      variantsByListing.get(listing.id) ?? [],
+      brandOf(listing),
+      children.images.get(listing.id) ?? [],
+    ),
+  );
+}
+
 /** Options for hydrating listings. */
 export interface HydrateOptions {
   /** When set, drives the `saved` flag from the viewer's favorites. */

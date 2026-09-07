@@ -457,3 +457,28 @@ export function categoryIndexFacts(title: string, description: string): SeoVisib
     variantNames: [],
   };
 }
+
+/**
+ * The deals hub's own facts. Static, for `categoryIndexFacts`'s own reason: it
+ * does NOT enumerate which stores currently discount — that is served by
+ * `GET /discovery/feed?scope=deals` and rendered by the screen, so composing it
+ * again here would be a second copy that goes stale silently.
+ *
+ * It carries a breadcrumb to Home, for the same reason `categoryIndexFacts`
+ * does.
+ */
+export function dealsFacts(title: string, description: string): SeoVisibleFacts {
+  return {
+    title,
+    description,
+    imageUrls: [],
+    breadcrumbs: [
+      { name: 'Home', path: buildRoutePath('home') },
+      { name: title, path: buildRoutePath('deals') },
+    ],
+    entityName: title,
+    gtins: [],
+    offers: [],
+    variantNames: [],
+  };
+}

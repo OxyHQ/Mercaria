@@ -158,6 +158,7 @@
   --color-bg-fill-inverse: var(--foreground);
   --color-bg-fill-inverse-hover: var(--foreground);
   --color-bg-fill-hover: var(--muted);
+  --color-bg-fill-tertiary: var(--muted);
   --color-brand: var(--primary);
   --color-fill-fixed-dark: #111111;
   --color-fill-fixed-light: #ffffff;
@@ -165,8 +166,13 @@
   --color-overlay-inverse-04: rgba(0, 0, 0, 0.04);
   --color-overlay-inverse-06: rgba(0, 0, 0, 0.06);
   --color-overlay-fixed-icon: rgba(0, 0, 0, 0.45);
+  --color-overlay-fixed-dark-04: rgba(0, 0, 0, 0.04);
+  --color-overlay-fixed-dark-10: rgba(0, 0, 0, 0.1);
   --color-overlay-fixed-dark-20: rgba(0, 0, 0, 0.2);
   --color-overlay-fixed-dark-40: rgba(0, 0, 0, 0.4);
+  --color-overlay-fixed-light-20: rgba(255, 255, 255, 0.2);
+  --color-overlay-fixed-light-40: rgba(255, 255, 255, 0.4);
+  --color-overlay-fixed-light-75: rgba(255, 255, 255, 0.75);
   --color-overlay-highlight: rgba(255, 255, 255, 0.6);
 }
 

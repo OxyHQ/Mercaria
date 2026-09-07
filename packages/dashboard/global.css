@@ -29,6 +29,18 @@
      disagree loudly, it just wins. Only tokens Bloom does not own, or the two
      deliberate overrides below, belong in this block. */
 
+  /* This app does not otherwise mirror @mercaria/ui/theme/global.css's Shopify
+     token block (no --spacing-space-*, --radius-radius-*, etc.) — it renders no
+     marketplace component that needs them today. These six ARE needed: they
+     back `bg-overlay-*`/`bg-bg-fill-tertiary`, the classes the discovery-feed
+     card set (@mercaria/ui, watched via @source above) already ships with. Keep
+     in sync with the shared package copy. */
+  --color-bg-fill-tertiary: var(--muted);
+  --color-overlay-fixed-dark-04: rgba(0, 0, 0, 0.04);
+  --color-overlay-fixed-dark-10: rgba(0, 0, 0, 0.1);
+  --color-overlay-fixed-light-20: rgba(255, 255, 255, 0.2);
+  --color-overlay-fixed-light-40: rgba(255, 255, 255, 0.4);
+  --color-overlay-fixed-light-75: rgba(255, 255, 255, 0.75);
 }
 
 @layer base {

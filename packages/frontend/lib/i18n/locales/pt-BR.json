@@ -223,7 +223,6 @@
       "unavailableHere": "Ainda aplicados, mas não oferecidos para estes resultados:",
       "removeFilter": "Remover este filtro",
       "unknownCount": "%{count} sem informação",
-      "droppedFromLink": "Não foi possível aplicar %{count} filtros deste link.",
       "pricesNotConverted": "Alguns preços não estão incluídos aqui: não foi possível converter %{currencies}."
     },
     "specs": {
@@ -249,14 +248,14 @@
     "category": {
       "fallbackTitle": "Categoria",
       "notFound": "Não encontramos esta categoria.",
-      "subcategories": "Subcategorias",
-      "empty": "Ainda não há nada que corresponda a estes filtros.",
+      "loadError": "Não foi possível carregar esta categoria. Tente novamente.",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {
       "title": "Todas as categorias",
       "documentTitle": "%{title} — Mercaria",
-      "empty": "Nenhuma categoria foi publicada ainda."
+      "empty": "Nenhuma categoria foi publicada ainda.",
+      "loadError": "Não foi possível carregar as categorias. Tente novamente."
     }
   },
   "cart": {
@@ -1516,6 +1515,30 @@
     "signedOut": {
       "title": "Entre para salvar um agente de compra",
       "body": "Os agentes ficam na sua conta, então acompanham você de um dispositivo para outro."
+    }
+  },
+  "discovery": {
+    "shelf": {
+      "topRated": "Mais bem avaliados em %{category}",
+      "new": "Novidades em %{category}",
+      "onSale": "Em promoção em %{category}",
+      "bestSelling": "Mais vendidos em %{category}",
+      "mostViewed": "Mais vistos em %{category}"
+    },
+    "signal": {
+      "notFound": "Não encontramos esta lista.",
+      "loadError": "Não foi possível carregar esta lista. Tente novamente.",
+      "cappedNotice": "Mostrando nossa seleção principal desta lista; alguns itens correspondentes podem não aparecer ainda.",
+      "empty": "Ainda não há nada para mostrar aqui.",
+      "loadMore": "Carregar mais",
+      "loadMoreLabel": "Carregar mais produtos",
+      "loadingMore": "Carregando…"
+    },
+    "deals": {
+      "title": "Ofertas",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "Nenhuma oferta ativa no momento.",
+      "loadError": "Não foi possível carregar as ofertas. Tente novamente."
     }
   }
 }

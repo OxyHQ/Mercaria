@@ -221,7 +221,6 @@
       "unavailableHere": "仍在生效，但当前结果不提供：",
       "removeFilter": "移除此筛选条件",
       "unknownCount": "%{count} 项未标注",
-      "droppedFromLink": "此链接中有 %{count} 个筛选条件无法应用。",
       "pricesNotConverted": "部分价格未包含在内：%{currencies} 无法换算。"
     },
     "specs": {
@@ -247,14 +246,14 @@
     "category": {
       "fallbackTitle": "类目",
       "notFound": "没有找到这个类目。",
-      "subcategories": "子类目",
-      "empty": "暂时没有符合这些筛选条件的内容。",
+      "loadError": "无法加载这个类目，请重试。",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {
       "title": "全部分类",
       "documentTitle": "%{title} — Mercaria",
-      "empty": "尚未发布任何分类。"
+      "empty": "尚未发布任何分类。",
+      "loadError": "无法加载分类，请重试。"
     }
   },
   "cart": {
@@ -1499,6 +1498,30 @@
     "signedOut": {
       "title": "登录后即可保存购物助手",
       "body": "助手保存在你的账户里，因此可以在不同设备之间跟随你。"
+    }
+  },
+  "discovery": {
+    "shelf": {
+      "topRated": "%{category}好评商品",
+      "new": "%{category}新品",
+      "onSale": "%{category}特惠商品",
+      "bestSelling": "%{category}畅销商品",
+      "mostViewed": "%{category}热门商品"
+    },
+    "signal": {
+      "notFound": "没有找到这个列表。",
+      "loadError": "无法加载这个列表，请重试。",
+      "cappedNotice": "正在展示这份列表的精选内容，部分符合条件的商品可能暂未显示。",
+      "empty": "这里暂时没有可显示的内容。",
+      "loadMore": "加载更多",
+      "loadMoreLabel": "加载更多商品",
+      "loadingMore": "加载中…"
+    },
+    "deals": {
+      "title": "优惠",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "目前没有正在进行的优惠。",
+      "loadError": "无法加载优惠，请重试。"
     }
   }
 }

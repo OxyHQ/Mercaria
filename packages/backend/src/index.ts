@@ -669,6 +669,13 @@ connectPostgres()
         .then(({ startAnalyticsRollup }) => startAnalyticsRollup())
         .catch((err) => log.general.error({ err }, 'Analytics rollup import failed'));
 
+      // Recount the discovery signals. Leased per RUN like the analytics
+      // rollup, so N tasks share it — and for the same reason: the numbers are
+      // written before the analytics rows they came from expire.
+      import('./services/discovery/sweep.js')
+        .then(({ startDiscoverySweep }) => startDiscoverySweep())
+        .catch((err) => log.general.error({ err }, 'Discovery sweep import failed'));
+
       // Null expired search-query text in place. The one retention operation the
       // shared expiry sweep cannot perform — it deletes rows, and this is a
       // redaction that leaves the row and its normalized tokens standing.
@@ -779,6 +786,8 @@ connectPostgres()
         const { stopFeedStageSweeper } = await import('./services/feed-import/register.js');
         stopFeedStageSweeper();
         stopExpirySweeper();
+        const { stopDiscoverySweep } = await import('./services/discovery/sweep.js');
+        stopDiscoverySweep();
         // Analytics last of the loops, and the sink's stop AWAITS one final
         // flush — the only place in this domain anything waits on telemetry.
         // Safe because the flush's own failure is already swallowed and the

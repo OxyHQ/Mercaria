@@ -221,7 +221,6 @@
       "unavailableHere": "ما زالت مطبَّقة، لكنها غير متاحة لهذه النتائج:",
       "removeFilter": "إزالة عامل التصفية هذا",
       "unknownCount": "%{count} غير مذكورة",
-      "droppedFromLink": "تعذّر تطبيق %{count} من عوامل التصفية في هذا الرابط.",
       "pricesNotConverted": "بعض الأسعار غير مُدرجة هنا: تعذّر تحويل %{currencies}."
     },
     "specs": {
@@ -247,14 +246,14 @@
     "category": {
       "fallbackTitle": "الفئة",
       "notFound": "لم نتمكن من العثور على هذه الفئة.",
-      "subcategories": "الفئات الفرعية",
-      "empty": "لا يوجد بعد ما يطابق عوامل التصفية هذه.",
+      "loadError": "تعذّر تحميل هذه الفئة. حاول مرة أخرى.",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {
       "title": "جميع الفئات",
       "documentTitle": "%{title} — Mercaria",
-      "empty": "لم تُنشر أي فئة بعد."
+      "empty": "لم تُنشر أي فئة بعد.",
+      "loadError": "تعذّر تحميل الفئات. حاول مرة أخرى."
     }
   },
   "cart": {
@@ -1499,6 +1498,30 @@
     "signedOut": {
       "title": "سجّل الدخول لحفظ وكيل تسوق",
       "body": "يرتبط الوكلاء بحسابك، لذا يتنقلون معك بين الأجهزة."
+    }
+  },
+  "discovery": {
+    "shelf": {
+      "topRated": "الأعلى تقييمًا في %{category}",
+      "new": "جديد في %{category}",
+      "onSale": "عروض في %{category}",
+      "bestSelling": "الأكثر مبيعًا في %{category}",
+      "mostViewed": "الأكثر مشاهدة في %{category}"
+    },
+    "signal": {
+      "notFound": "لم نتمكن من العثور على هذه القائمة.",
+      "loadError": "تعذّر تحميل هذه القائمة. حاول مرة أخرى.",
+      "cappedNotice": "نعرض أبرز اختياراتنا لهذه القائمة، وقد لا تظهر بعض العناصر المطابقة بعد.",
+      "empty": "لا يوجد ما نعرضه هنا بعد.",
+      "loadMore": "تحميل المزيد",
+      "loadMoreLabel": "تحميل مزيد من المنتجات",
+      "loadingMore": "جارٍ التحميل…"
+    },
+    "deals": {
+      "title": "العروض",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "لا توجد عروض نشطة حاليًا.",
+      "loadError": "تعذّر تحميل العروض. حاول مرة أخرى."
     }
   }
 }

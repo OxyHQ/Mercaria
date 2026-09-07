@@ -822,6 +822,10 @@
     "category": {
       "browse": "浏览 %{category}"
     },
+    "discountBadge": {
+      "save": "省 %{amount}",
+      "saveA11y": "凭优惠省 %{amount}"
+    },
     "merchantCart": {
       "checkout": "继续结算",
       "subtotal": "小计："
@@ -872,6 +876,10 @@
       "chipRemove": "移除：%{origin} %{label}",
       "modeModel": "借助模型理解",
       "modeRules": "由我们自己的规则理解"
+    },
+    "storeOfferHeader": {
+      "save": "省 %{amount}",
+      "minimum": "订单满 %{minimum} 可用"
     },
     "variantSwatches": {
       "showMoreA11y": "查看更多 %{option} 选项（%{more}）",

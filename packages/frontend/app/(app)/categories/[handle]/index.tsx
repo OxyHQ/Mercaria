@@ -1,56 +1,60 @@
 import { useEffect, useMemo } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import type { FacetScope, FacetSelectionEntry, SeoBreadcrumb } from '@mercaria/shared-types';
+import type { SeoBreadcrumb } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
 import { CatalogBreadcrumbs } from '@/components/catalog/CatalogBreadcrumbs';
-import { CategoryListingCard } from '@/components/catalog/CategoryListingCard';
-import { FacetRail } from '@/components/catalog/FacetRail';
-import { NavigationMenu } from '@/components/catalog/NavigationMenu';
+import { DiscoveryFeed } from '@/components/discovery/DiscoveryFeed';
 import { useTranslation } from '@/lib/i18n';
-import { useListings } from '@/lib/hooks/use-listings';
+import { useDiscoveryFeed } from '@/lib/hooks/use-discovery-feed';
 import { categoryHref } from '@/lib/catalog/routes';
 import {
   categoryAncestors,
   findCategoryByHandle,
   useCategoryTree,
 } from '@/lib/catalog/category-tree';
-import {
-  deriveCategoryGridFacetConsumption,
-  mayOfferFacetRail,
-} from '@/lib/catalog/facet-consumption';
-import {
-  parseFacetSelection,
-  serializeFacetSelection,
-} from '@/lib/catalog/facet-selection';
 import { renderJsonLd } from '@/lib/catalog/structured-data';
 import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
-import { useFacets } from '@/lib/catalog/use-facets';
 
 /**
- * A category landing page (#367 workstream 9 §"Categories and navigation").
+ * A category landing page (#367 workstream 9 §"Categories and navigation"),
+ * rebuilt against the discovery feed
+ * (`docs/superpowers/specs/2026-09-07-discovery-feed-design.md`).
  *
- * Four server surfaces compose it and this file composes none of them:
+ * Three server surfaces compose it and this file composes none of them:
  *
  * | What | Where it comes from |
  * | --- | --- |
- * | identity, children | `GET /categories` — see `lib/catalog/category-tree.ts` for why |
+ * | identity, breadcrumb ancestry (fallback only) | `GET /categories` — see `lib/catalog/category-tree.ts` for why |
  * | breadcrumbs, canonical URL, `hreflang`, redirects | `GET /seo/resolve` |
- * | the filter rail | `POST /facets`, scoped to this category — NOT offered here, see below |
- * | the products | `GET /listings?category=` |
+ * | the header art, subcategories and products | `GET /discovery/feed?scope=category:<handle>` |
  *
- * ## The filter rail is NOT offered, because this grid cannot act on it (#637)
+ * ## There is no facet rail here — there never could have been (#637)
  *
- * `POST /facets` counts over the canonical graph and `GET /listings` serves the
- * listing-first catalogue, so a selection made in the rail has nothing to reach:
- * `ListingQuery` has no attribute filter, and the counts would describe a
- * different set of rows from the grid even where it has a comparable field.
- * `lib/catalog/facet-consumption.ts` derives that from the grid's own query type
- * and is what gates both the fetch and the render here — so the rail returns by
- * the capability arriving, never by somebody deleting a condition.
+ * `FacetSelectionConsumption` (`lib/catalog/facet-consumption.ts`) has
+ * exactly ONE member, the unsupported one, so `mayOfferFacetRail` can never
+ * return `true` for this grid's query — "this screen offers a working filter
+ * rail" is unrepresentable, not merely false today, per that module's own
+ * docblock. A `FacetRail` mount here was always gated by a branch that
+ * could not be taken, on any deployment, even before this redesign.
+ *
+ * The manual `useListings`-backed grid that mount used to sit over is gone
+ * now too, replaced by the feed's own `products` sections, which carry no
+ * facet-selection parameter at all — a smaller claim than "removing the grid
+ * reopens #637": there was never a live path to reopen.
+ *
+ * That leaves `FacetRail`, `useFacets` and `lib/catalog/facet-selection.ts`
+ * with no remaining SYNTACTIC reference anywhere in the app — removed here,
+ * not orphaned here; they had no live caller before this file changed
+ * either. They are left in place, deliberately: the backend `/facets`
+ * surface and `FACETS_ENABLED` are untouched (and were never reachable from
+ * this screen regardless), and `facet-consumption.ts`'s own docblock
+ * describes the future grid (`GET /search` or `/catalog-pages`) that is
+ * meant to consume that rail. Deleting the component now would make that
+ * future task rebuild it from nothing.
  *
  * ## The address is `/categories/:handle`, which is the registry's own pattern
  *
@@ -60,6 +64,13 @@ import { useFacets } from '@/lib/catalog/use-facets';
  * working across a rename — a slug is presentation and identity is an id
  * (ADR 0007 D1).
  *
+ * The discovery feed's category scope resolves by ID OR SLUG
+ * (`findActiveCategoryByIdOrSlug`, `services/discovery/feed.service.ts`), so
+ * this screen fetches it on the raw route param `handle` directly — no
+ * client-side slug resolution needed, and no second fetch once the v1 tree
+ * answers. `[signal].tsx` fetches its own scope the same way, on `handle`
+ * with no fallback, for the same reason.
+ *
  * ## A deprecated or localized slug is a REDIRECT, applied with `replace`
  *
  * `GET /seo/resolve` owns the redirect registry, so a withdrawn slug answers
@@ -68,25 +79,16 @@ import { useFacets } from '@/lib/catalog/use-facets';
  * history would let the back button walk into it again. This is the client half;
  * the HTTP 301 a crawler needs is #75's.
  *
- * ## The filter selection lives in the URL, in STABLE KEYS
- *
- * `?filters=` carries origins, facet keys and bucket keys — never a translated
- * word — so a shopper sharing a filtered category shares the same filter into
- * any language. `lib/catalog/facet-selection.ts` owns the grammar.
- *
  * ## There is no category-specific anything in this file
  *
  * No filter list, no spec list, no controlled value and no branch on a category
  * id. `scripts/validate-storefront-catalog-driven.mjs` fails the build if one
  * appears here or anywhere else under `packages/frontend`.
  */
-/** How many listings one page of the grid asks for. */
-const CATEGORY_PAGE_SIZE = 24;
-
 export default function CategoryScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const params = useLocalSearchParams<{ handle: string; filters?: string | string[] }>();
+  const params = useLocalSearchParams<{ handle: string }>();
   const handle = params.handle ?? '';
 
   const tree = useCategoryTree();
@@ -114,37 +116,7 @@ export default function CategoryScreen() {
     router.replace(categoryHref(next));
   }, [redirectTarget, handle, router]);
 
-  const selection = useMemo(
-    () => parseFacetSelection(params.filters),
-    [params.filters],
-  );
-
-  const scope = useMemo<FacetScope | undefined>(
-    () => (category === undefined ? undefined : { kind: 'category', categoryId: category.id }),
-    [category],
-  );
-  /**
-   * The rail is offered only where the grid below it can act on the selection
-   * (#637), which today it cannot — see `lib/catalog/facet-consumption.ts` for
-   * the measurement and for what closing it looks like.
-   *
-   * The SCOPE is what carries the refusal, so nothing is fetched either: a
-   * facet read whose counts no surface will render is a request with no reader,
-   * and `useFacets` is already disabled by an absent scope.
-   */
-  const mayOfferFilters = mayOfferFacetRail(deriveCategoryGridFacetConsumption());
-  const facets = useFacets({
-    scope: mayOfferFilters ? scope : undefined,
-    selection: selection.entries,
-  });
-
-  // Disabled until the category names its slug. An empty `ListingQuery` means
-  // "every listing", not "nothing", so passing one while the taxonomy loads
-  // would fetch the whole catalogue and discard it.
-  const listings = useListings(
-    category === undefined ? {} : { category: category.slug, limit: CATEGORY_PAGE_SIZE },
-    { enabled: category !== undefined },
-  );
+  const feed = useDiscoveryFeed({ kind: 'category', handle });
 
   const breadcrumbs = useMemo<readonly SeoBreadcrumb[]>(() => {
     const fromRegistry = seo.data?.document?.breadcrumbs;
@@ -161,11 +133,6 @@ export default function CategoryScreen() {
       { name: category.name, path: `/categories/${category.slug}` },
     ];
   }, [seo.data, tree.data, category]);
-
-  const onSelectionChange = (next: readonly FacetSelectionEntry[]) => {
-    const serialized = serializeFacetSelection(next);
-    router.setParams(serialized === undefined ? { filters: '' } : { filters: serialized });
-  };
 
   const title = category?.name ?? t('catalog.category.fallbackTitle');
   const document = seo.data?.document;
@@ -220,6 +187,34 @@ export default function CategoryScreen() {
     );
   }
 
+  // A FAILED tree fetch is not a not-found — `category` is `undefined` in
+  // both cases (the lookup has nothing to search), but they are different
+  // things and the copy must say so: this one can be retried, and a shopper
+  // who followed a good link during a blip must not be told the category is
+  // gone.
+  if (tree.isError && tree.data === undefined) {
+    return (
+      <ScreenShell contentClassName="pt-6">
+        {head}
+        <View className="items-center justify-center px-8 py-16">
+          <Text className="text-center text-body text-text-tertiary">
+            {t('catalog.category.loadError')}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.tryAgain')}
+            onPress={() => tree.refetch()}
+            className="mt-4 rounded-full border border-border px-5 py-2"
+          >
+            <Text className="text-sm font-semibold text-foreground">{t('common.tryAgain')}</Text>
+          </Pressable>
+        </View>
+      </ScreenShell>
+    );
+  }
+
+  // The tree fetch SUCCEEDED and the lookup still found nothing — a genuine
+  // not-found, only reachable once the branch above has ruled out a failure.
   if (category === undefined) {
     return (
       <ScreenShell contentClassName="pt-6">
@@ -233,8 +228,7 @@ export default function CategoryScreen() {
     );
   }
 
-  const children = category.children ?? [];
-  const products = listings.data?.data ?? [];
+  const sections = feed.data?.sections ?? [];
 
   return (
     <ScreenShell contentClassName="pt-6">
@@ -242,64 +236,38 @@ export default function CategoryScreen() {
       <View className="web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
         <CatalogBreadcrumbs crumbs={breadcrumbs} hrefForPath={categoryHrefForPath} />
 
-        <Text className="text-titleMedium text-text" accessibilityRole="header">
+        <Text className="text-header text-text md:text-posterXS" accessibilityRole="header">
           {category.name}
         </Text>
 
-        {children.length > 0 ? (
-          <NavigationMenu
-            tree={{
-              key: `children:${category.id}`,
-              surface: 'category_tree',
-              entries: children.map((child) => ({
-                key: child.id,
-                label: child.name,
-                href: categoryHref(child.slug.length > 0 ? child.slug : child.id),
-                children: [],
-              })),
-            }}
-            accessibilityLabel={t('catalog.category.subcategories')}
-          />
-        ) : null}
-
-        {/* Gated on the same capability as the rail: this notice says which
-            entries a link could NOT restore, which asserts that the rest WERE.
-            With no rail offered, none of them were, so showing it alone would
-            be the more misleading half of what #637 is about. */}
-        {mayOfferFilters && selection.droppedEntryCount > 0 ? (
-          <Text className="text-caption text-text-tertiary">
-            {t('catalog.filters.droppedFromLink', { count: selection.droppedEntryCount })}
-          </Text>
-        ) : null}
-
-        {mayOfferFilters && facets.data !== undefined ? (
-          <FacetRail
-            response={facets.data}
-            selection={selection.entries}
-            onSelectionChange={onSelectionChange}
-          />
-        ) : null}
-
-        {listings.isLoading && listings.data === undefined ? (
+        {feed.isLoading && feed.data === undefined ? (
           <Text className="text-body text-text-tertiary">{t('common.loading')}</Text>
         ) : null}
 
-        {!listings.isLoading && products.length === 0 ? (
-          <Text className="text-body text-text-tertiary">{t('catalog.category.empty')}</Text>
+        {/* A FAILED feed request is not "nothing to show" — checked before
+            the empty branch so a failure cannot fall through and read as
+            that unrelated, confident claim. */}
+        {feed.isError && feed.data === undefined ? (
+          <View className="items-center px-8 py-16">
+            <Text className="text-center text-body text-text-tertiary">
+              {t('discovery.signal.loadError')}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('common.tryAgain')}
+              onPress={() => feed.refetch()}
+              className="mt-4 rounded-full border border-border px-5 py-2"
+            >
+              <Text className="text-sm font-semibold text-foreground">{t('common.tryAgain')}</Text>
+            </Pressable>
+          </View>
         ) : null}
 
-        <View className="flex-row flex-wrap gap-4">
-          {products.map((listing) => (
-            <View key={listing.id} className="w-40">
-              <CategoryListingCard
-                listing={listing}
-                onPress={(listingId) =>
-                  router.push({ pathname: '/products/[id]', params: { id: listingId } })
-                }
-              />
-            </View>
-          ))}
-        </View>
+        {!feed.isLoading && !feed.isError && sections.length === 0 ? (
+          <Text className="text-body text-text-tertiary">{t('discovery.signal.empty')}</Text>
+        ) : null}
+
+        <DiscoveryFeed sections={sections} />
 
         <Footer />
       </View>

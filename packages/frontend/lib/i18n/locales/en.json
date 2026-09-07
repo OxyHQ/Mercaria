@@ -221,7 +221,6 @@
       "unavailableHere": "Still applied, but not offered for these results:",
       "removeFilter": "Remove this filter",
       "unknownCount": "%{count} not stated",
-      "droppedFromLink": "%{count} filters in this link could not be applied.",
       "pricesNotConverted": "Some prices are not included here: %{currencies} could not be converted."
     },
     "specs": {
@@ -247,14 +246,14 @@
     "category": {
       "fallbackTitle": "Category",
       "notFound": "We couldn't find this category.",
-      "subcategories": "Subcategories",
-      "empty": "Nothing here matches these filters yet.",
+      "loadError": "Couldn't load this category. Try again.",
       "documentTitle": "%{title} — Mercaria"
     },
     "categoryIndex": {
       "title": "All categories",
       "documentTitle": "%{title} — Mercaria",
-      "empty": "No categories have been published yet."
+      "empty": "No categories have been published yet.",
+      "loadError": "Couldn't load categories. Try again."
     }
   },
   "cart": {
@@ -1499,6 +1498,30 @@
     "signedOut": {
       "title": "Sign in to save a shopping agent",
       "body": "Agents live with your account, so they follow you between devices."
+    }
+  },
+  "discovery": {
+    "shelf": {
+      "topRated": "Top rated in %{category}",
+      "new": "New in %{category}",
+      "onSale": "On sale in %{category}",
+      "bestSelling": "Best selling in %{category}",
+      "mostViewed": "Most viewed in %{category}"
+    },
+    "signal": {
+      "notFound": "We couldn't find this list.",
+      "loadError": "Couldn't load this list. Try again.",
+      "cappedNotice": "Showing our top picks for this list — some matching items may not appear yet.",
+      "empty": "Nothing to show here yet.",
+      "loadMore": "Load more",
+      "loadMoreLabel": "Load more products",
+      "loadingMore": "Loading…"
+    },
+    "deals": {
+      "title": "Deals",
+      "documentTitle": "%{title} — Mercaria",
+      "empty": "No active deals right now.",
+      "loadError": "Couldn't load deals. Try again."
     }
   }
 }

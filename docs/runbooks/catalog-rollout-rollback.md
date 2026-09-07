@@ -138,6 +138,34 @@ on the result rather than inferred: `CatalogNavigationSource` is
 `'navigation_trees' | 'category_tree_fallback'`
 (`lib/api/catalog-navigation.ts:34`).
 
+**The mechanism has NO STOREFRONT CONSUMER since the discovery-feed redesign
+(2026-09-07), and that is deliberate.** `/categories` was the only screen calling
+`useCatalogNavigation`; it now renders the discovery feed at `scope: 'root'`, which
+`services/discovery/feed.service.ts` composes from `categoryRepository` directly.
+So this page renders identically with the lever on or off, and the four
+non-category node kinds (`saved_query`, `collection`, `product_type`, `campaign`)
+do not appear on it at all.
+
+Restoring it was investigated and rejected on cost, not overlooked. It needs a new
+`DiscoverySection` kind — `navigationTargetHref` answers `undefined` for all four,
+and every existing tile section hard-navigates via `categoryHref` — plus `market`
+and `locale` on `GET /discovery/feed`, because `readPublishedNavigation` requires
+both and neither reaches the server. Without them `resolveCatalogNavigation`'s own
+rule is "market undefined, skip to v1", so a faithful server-side port would take
+the fallback branch every time and change nothing observable.
+
+What that costs an operator, stated plainly so nobody rehearses against a promise
+this file no longer keeps: **step 3 of the section 6 rehearsal — load the storefront
+with the flag off and confirm the menu still lists categories — no longer
+distinguishes the two states.** Use `/internal/navigation` instead, which the lever
+table above already names as the surface where every tree, node and label stays
+readable. The FALLBACK ITSELF is unaffected and still covered by
+`lib/catalog/__tests__/navigation-fallback.test.ts`; what was retired is the
+storefront's visible reflection of it, which section 3 notes had never been
+rehearsed in production and had "nothing behaviourally to assert without a
+renderer" anyway. The four kinds it also retired rendered as inert,
+non-navigable text.
+
 **The facet rail degrades to absence.** `lib/catalog/use-facets.ts` deliberately
 does not condition `enabled` on the flag (`:73`) and carries `retry: false`
 (`:75`); its docblock (`:18-22`) states the rule — "a 404 is 'no rail', never an

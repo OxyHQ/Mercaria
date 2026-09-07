@@ -829,6 +829,10 @@
     "category": {
       "browse": "Parcourir %{category}"
     },
+    "discountBadge": {
+      "save": "Économisez %{amount}",
+      "saveA11y": "Économisez %{amount} avec votre offre"
+    },
     "merchantCart": {
       "checkout": "Passer au paiement",
       "subtotal": "Sous-total :"
@@ -879,6 +883,10 @@
       "chipRemove": "Retirer : %{origin} %{label}",
       "modeModel": "Interprété avec l’aide d’un modèle",
       "modeRules": "Interprété par nos propres règles"
+    },
+    "storeOfferHeader": {
+      "save": "Économisez %{amount}",
+      "minimum": "pour les commandes de plus de %{minimum}"
     },
     "variantSwatches": {
       "showMoreA11y": "Plus d’options de %{option} (%{more})",

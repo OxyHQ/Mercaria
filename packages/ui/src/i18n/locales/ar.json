@@ -822,6 +822,10 @@
     "category": {
       "browse": "تصفّح %{category}"
     },
+    "discountBadge": {
+      "save": "وفّر %{amount}",
+      "saveA11y": "وفّر %{amount} مع عرضك"
+    },
     "merchantCart": {
       "checkout": "المتابعة إلى الدفع",
       "subtotal": "المجموع الفرعي:"
@@ -872,6 +876,10 @@
       "chipRemove": "إزالة: %{origin} %{label}",
       "modeModel": "فُهم بمساعدة نموذج",
       "modeRules": "فُهم بقواعدنا الخاصة"
+    },
+    "storeOfferHeader": {
+      "save": "وفّر %{amount}",
+      "minimum": "على الطلبات التي تزيد عن %{minimum}"
     },
     "variantSwatches": {
       "showMoreA11y": "خيارات %{option} إضافية (%{more})",

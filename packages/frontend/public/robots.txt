@@ -19,6 +19,7 @@ Disallow: /
 User-agent: *
 Allow: /
 Disallow: /search
+Disallow: /categories/*/s/
 Disallow: /compare
 Disallow: /settings/
 Disallow: /cart

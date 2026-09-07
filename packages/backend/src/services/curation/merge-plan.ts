@@ -2222,6 +2222,11 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     reason: '`asserted_by_kind` is an actor role, as in `automotive_fitments`; the subject columns are FK.',
   },
   {
+    table: 'discovery_signals',
+    disposition: 'not_an_entity_reference',
+    reason: POLYMORPHIC_OUTSIDE_THE_SEVEN,
+  },
+  {
     table: 'disputes',
     disposition: 'not_an_entity_reference',
     reason: PAYMENT_COMMERCE_CORRELATION,

@@ -730,6 +730,81 @@ const cases = [
     expectOutput: "names no key in",
   },
   {
+    // #598: `sectionTitleKey` is `function sectionTitleKey(signal) { return
+    // SECTION_TITLE_KEYS[signal]; }`, called as `t(sectionTitleKey(signal))` —
+    // and the five keys it named were absent from every locale while this
+    // guard reported 0 findings, because a CallExpression argument was neither
+    // resolved nor counted. This is that exact shape, reduced to one call
+    // site, with its map's key ABSENT from the bundle: the adverse case a
+    // healthy alias resolver must fail on.
+    name: "a t() call through a map-alias function naming a key that does not exist fails",
+    files: migratedTree({
+      "packages/dashboard/lib/labels.ts":
+        'export const STATUS_KEYS = { paid: "orders.status.doesNotExist" };\n'
+        + "export function statusKey(status) {\n"
+        + "  return STATUS_KEYS[status];\n"
+        + "}\n",
+      "packages/dashboard/components/StatusBadge.tsx":
+        'import { useTranslation } from "@/lib/i18n";\n'
+        + 'import { statusKey } from "../lib/labels";\n'
+        + "export function StatusBadge({ status }) {\n"
+        + "  const { t } = useTranslation();\n"
+        + "  return <Text>{t(statusKey(status))}</Text>;\n"
+        + "}\n",
+    }),
+    expectExit: 1,
+    expectOutput: "names no key in",
+  },
+  {
+    // The positive control's twin: the identical shape, but the map's key
+    // EXISTS (an already-referenced key, so part C's OWN dead-key direction
+    // has nothing to say either). Proves the alias resolving is not itself
+    // what fails the case above — the missing key is.
+    name: "a t() call through a map-alias function passes when the key exists",
+    files: migratedTree({
+      "packages/dashboard/lib/labels.ts":
+        'export const STATUS_KEYS = { paid: "orders.status.paid" };\n'
+        + "export function statusKey(status) {\n"
+        + "  return STATUS_KEYS[status];\n"
+        + "}\n",
+      "packages/dashboard/components/StatusBadge.tsx":
+        'import { useTranslation } from "@/lib/i18n";\n'
+        + 'import { statusKey } from "../lib/labels";\n'
+        + "export function StatusBadge({ status }) {\n"
+        + "  const { t } = useTranslation();\n"
+        + "  return <Text>{t(statusKey(status))}</Text>;\n"
+        + "}\n",
+    }),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  {
+    // The alias resolver's own precision: `statusKey` here returns key
+    // LITERALS from an `if` chain rather than indexing a map — a different
+    // shape, exactly like the real `directionSummaryKey` and
+    // `savedItemNoOfferKey` this tree already ships. One branch names a key
+    // that does not exist, and the guard must NOT resolve it (which would be
+    // guessing at which branch runs) — it must stay green, counting the call
+    // as unreadable rather than either failing on it or vouching for it.
+    name: "a multi-branch key-returning helper is not treated as an alias and does not fail",
+    files: migratedTree({
+      "packages/dashboard/lib/labels.ts":
+        "export function statusKey(status) {\n"
+        + '  if (status === "paid") return "orders.status.paid";\n'
+        + '  return "orders.status.doesNotExist";\n'
+        + "}\n",
+      "packages/dashboard/components/StatusBadge.tsx":
+        'import { useTranslation } from "@/lib/i18n";\n'
+        + 'import { statusKey } from "../lib/labels";\n'
+        + "export function StatusBadge({ status }) {\n"
+        + "  const { t } = useTranslation();\n"
+        + "  return <Text>{t(statusKey(status))}</Text>;\n"
+        + "}\n",
+    }),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  {
     name: "a key nothing references fails — the label-map regression",
     // The shape a reviewer would not catch: the map goes back to English, the
     // JSX still renders, and the key it used to name is now dead.

@@ -36,15 +36,17 @@
  *
  * ## The arms with no live match
  *
- * Measured: five of the nine identity-shaped names in the shared vocabulary
- * (`category`, `productType`, `brand`, `brandName`, `controlledValue`) match
- * real declarations in the scanned tree. The other four — `categoryName`,
- * `optionName`, `attributeName`, `productTypeName` — match nothing, and an arm
- * that is unfired AND unmutated is indistinguishable from one that is
- * misspelled, mis-anchored or pointed at the wrong population: both print a
- * clean zero. The guard itself derives a positive control per vocabulary member
- * on every run; the cases below additionally drive all four through the REAL
- * file walk, so the arms are proven end to end and not only inside the matcher.
+ * Measured: six of the nine identity-shaped names in the shared vocabulary
+ * (`category`, `productType`, `brand`, `brandName`, `controlledValue`,
+ * `categoryName` — the discovery feed's `DiscoverySectionBase.categoryName`,
+ * resolved through the inherited-member fix, AND `DiscoverySignalPage.categoryName`)
+ * match real declarations in the scanned tree. The other three — `optionName`,
+ * `attributeName`, `productTypeName` — match nothing, and an arm that is
+ * unfired AND unmutated is indistinguishable from one that is misspelled,
+ * mis-anchored or pointed at the wrong population: both print a clean zero.
+ * The guard itself derives a positive control per vocabulary member on every
+ * run; the cases below additionally drive all three through the REAL file
+ * walk, so the arms are proven end to end and not only inside the matcher.
  *
  * Usage:  bun scripts/test-validate-catalog-identity-contracts.mjs
  */
@@ -99,6 +101,17 @@ function mutate(root, relativePath, transform) {
   }
 }
 
+/**
+ * `exitCode` is `null`, not a number, when the child died on a SIGNAL rather
+ * than exiting — `Bun.spawnSync`'s own contract. `signalCode` is a truthy
+ * string (`"SIGSEGV"`, …) in exactly that case and `undefined` — NOT `null`
+ * — on a normal exit, measured directly rather than assumed: a caller that
+ * reads only `exitCode` cannot tell "the guard ran and exited 1" from "the
+ * guard never got the chance to exit at all", and `!== 0` reads `null` as
+ * red either way. `check()` below tests `signalCode` for TRUTHINESS, not
+ * `!== null` — `undefined !== null` is `true` in JS, so that comparison
+ * would have read every ordinary, successful run as a crash.
+ */
 function runAgainst(root) {
   const proc = Bun.spawnSync({
     cmd: ["bun", validator],
@@ -109,6 +122,7 @@ function runAgainst(root) {
   });
   return {
     exitCode: proc.exitCode,
+    signalCode: proc.signalCode,
     output: `${proc.stdout.toString()}${proc.stderr.toString()}`,
   };
 }
@@ -123,7 +137,25 @@ function check(name, arrange, expectation) {
   const root = makeTree();
   try {
     arrange(root);
-    const { exitCode, output } = runAgainst(root);
+    const { exitCode, signalCode, output } = runAgainst(root);
+    // A crash is its OWN outcome, checked before red/green at all — this
+    // machine's documented bun/tsc SIGSEGV flakiness used to fall through
+    // into `red = exitCode !== 0` (a `null` exit code reads as `!== 0`, i.e.
+    // "red", same as a real failure) and then into the "did not name X"
+    // branch below, which asserts the guard RAN and got its message wrong.
+    // It did not run at all. Reporting the crash plainly, as its own
+    // failure, is what turns a wild goose chase through the guard's
+    // formatting into "child crashed, signal N, no output to check" — the
+    // true cause, on the machine where it actually happened.
+    if (signalCode) {
+      failures.push(
+        `${name}: the guard's child process CRASHED (${signalCode}) rather than exiting — there is `
+          + "no output to check and no verdict to compare against `expect`. This is not a wrong "
+          + "message; the guard never produced one. Retry the run rather than reading this as a "
+          + `guard defect.\n${output.split("\n").map((line) => `      ${line}`).join("\n")}`,
+      );
+      return;
+    }
     const red = exitCode !== 0;
     if (red !== (expectation.expect === "red")) {
       failures.push(
@@ -226,8 +258,28 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // instances above all moved both figures and a reader deriving the delta
     // from them would expect this one to move the second number too.
     // Re-derived from the tool's own output line.
-    "walked 126 contract module(s), 2266 exported type(s), 7654 property signature(s)",
-    "check A arms exercised by real declarations: 5/9",
+    // A seventh instance, against this same branch's own earlier `discovery.ts`
+    // work (already at 127/2284/7690 — an existing module, so the module count
+    // never moves across any of it). `product.ts` gained `CategoryTile.sampleImageUrls`
+    // on an already-exported type (one property, no new type — 127/2284/7691),
+    // and `discovery.ts` gained a SECOND `categoryName` field, on the new
+    // `DiscoverySignalPage` (one new exported type plus its own seven members:
+    // `signal`, `scope`, `categoryHandle`, `categoryName`, `pageDepth`,
+    // `products`, `hasMore`).
+    //
+    // The bigger move is the inherited-member fix itself (this file's own
+    // docblock, "the arms with no live match"): `findAmbiguousContracts` now
+    // resolves a non-exported same-file base's members once, under the base's
+    // own name, so `DiscoverySectionBase.categoryName` (extended by eight
+    // section kinds, never exported on its own) is finally counted — six
+    // members, no new exported type, since resolving a base is not exporting
+    // it. The SAME fix also newly counts the other two non-exported bases the
+    // whole package has (`constraint.ts`'s `ConstraintBase`, three members;
+    // `search.ts`'s `SearchResultBase`, two members), neither carrying an
+    // identity-shaped name. Read off the guard against this branch after every
+    // one of these landed, not derived by arithmetic.
+    "walked 127 contract module(s), 2285 exported type(s), 7709 property signature(s)",
+    "check A arms exercised by real declarations: 6/9",
   ],
 });
 
@@ -235,8 +287,8 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
 /*  check A — every vocabulary arm, driven through the REAL file walk           */
 /* -------------------------------------------------------------------------- */
 
-const LIVE_ARMS = ["category", "productType", "brand", "brandName", "controlledValue"];
-const CONTROL_ONLY_ARMS = ["categoryName", "optionName", "attributeName", "productTypeName"];
+const LIVE_ARMS = ["category", "productType", "brand", "brandName", "controlledValue", "categoryName"];
+const CONTROL_ONLY_ARMS = ["optionName", "attributeName", "productTypeName"];
 
 for (const field of [...LIVE_ARMS, ...CONTROL_ONLY_ARMS]) {
   const live = LIVE_ARMS.includes(field);
@@ -290,6 +342,49 @@ check(
     );
   },
   { expect: "green" },
+);
+
+// The other half of the case directly above: an unexported type is invisible
+// ALONE, but not once an exported type `extends` it — `DiscoverySectionBase`'s
+// real shape (never exported on its own, extended by eight published section
+// kinds). Named under the BASE, `MutantBase.category`, never the extending
+// `MutantSurface` — resolving inheritance is not re-homing the field.
+check(
+  "check A — a NEW ambiguous field on a NON-EXPORTED base an exported type extends turns it RED",
+  (root) => {
+    mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
+      append(
+        source,
+        "interface MutantBase {\n  category: string;\n}\n"
+          + "export interface MutantSurface extends MutantBase {\n  id: string;\n}",
+      ),
+    );
+  },
+  {
+    expect: "red",
+    mentions: ["NEW ambiguous public catalog contract", "product.ts:MutantBase.category"],
+  },
+);
+
+// An EXPORTED base is scanned once, at its OWN top-level visit — the
+// inheritance resolution explicitly skips an already-exported base (see
+// `resolveInheritedBases`), so this must not report the field twice or under
+// the wrong owner.
+check(
+  "check A — an EXPORTED base an exported type extends is scanned under its own name, not the subtype's",
+  (root) => {
+    mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
+      append(
+        source,
+        "export interface MutantExportedBase {\n  category: string;\n}\n"
+          + "export interface MutantSurface extends MutantExportedBase {\n  id: string;\n}",
+      ),
+    );
+  },
+  {
+    expect: "red",
+    mentions: ["product.ts:MutantExportedBase.category"],
+  },
 );
 
 check(

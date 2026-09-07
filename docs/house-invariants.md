@@ -132,7 +132,7 @@ records two that were refused on exactly that test (there is deliberately no
 | `PAYMENT_OPERATOR_OXY_USER_IDS` | `/internal/payments/*` (incl. fee schedules, retail-pricing policies) |
 | `CATALOG_OPERATOR_OXY_USER_IDS` | every catalogue surface: commerce-graph, offers, matching, ingestion, backfill, attributes, condition, eBay, Awin, feed-imports, offer-freshness, product-saves, price-history, price-alerts, price-signals, search, search-intent, SEO |
 | `GUEST_OPERATOR_OXY_USER_IDS` | `/internal/guest-commerce/*` (cart merge, portal, claims, buyer requests, P2P) |
-| `ANALYTICS_OPERATOR_OXY_USER_IDS` | `/internal/analytics/*`, and the merchant-demand acquisition pipeline |
+| `ANALYTICS_OPERATOR_OXY_USER_IDS` | `/internal/analytics/*`, `/internal/discovery/*`, and the merchant-demand acquisition pipeline |
 | `RETAIL_OPERATOR_OXY_USER_IDS` | `/internal/retail-eligibility/*` |
 | `PROCUREMENT_OPERATOR_OXY_USER_IDS` | `/internal/supplier-preflight/*`, `/internal/procurement/*`, `/internal/retail-pilot/*` |
 | `REFERRAL_OPERATOR_OXY_USER_IDS` | `/internal/referrals/*` — pausing attribution stops partners EARNING, and approving a payout batch is ADR 0005 D14's second pair of eyes (`approved_by <> created_by`, so one populated account cannot approve its own batch) |

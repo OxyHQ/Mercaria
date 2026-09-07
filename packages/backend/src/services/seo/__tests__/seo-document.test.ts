@@ -90,6 +90,9 @@ describe('which schema.org type each route emits', () => {
     // one question.
     category_index: ['BreadcrumbList'],
     native_store_legacy: ['BreadcrumbList'],
+    // The same as `category_index`, for the same reason: one page, no entity
+    // node of its own to emit.
+    deals: ['BreadcrumbList'],
   };
 
   it('is a closed decision with no default', () => {

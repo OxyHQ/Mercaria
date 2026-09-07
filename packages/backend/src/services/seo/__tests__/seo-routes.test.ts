@@ -70,6 +70,15 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   // `SEO_ROBOTS_DISALLOWED_PATHS`. A crawlable one is a crawl budget spent on
   // result pages nobody links to.
   'app/(app)/search.tsx',
+  // One category's listings resliced by a signal (the discovery feed's
+  // `/categories/:handle/s/:signal`,
+  // `docs/superpowers/specs/2026-09-07-discovery-feed-design.md`) — the SAME
+  // listings `category_browse` already carries, sorted five different ways.
+  // Near-duplicate of the category page it hangs off by construction, exactly
+  // the '`/search` is infinite, thin and duplicative of the browse pages' class
+  // above, so it is excused here for the same reason and also in
+  // `SEO_ROBOTS_DISALLOWED_PATHS`.
+  'app/(app)/categories/[handle]/s/[signal].tsx',
   // Grounded comparison (#96) — `?p=<handles>` is a shopper-assembled
   // COMBINATION, which is the page class #75's policy rule 8 refuses to index
   // by the combination, and `?watchlist=` can name a PRIVATE #81 list. A
@@ -243,7 +252,7 @@ describe('DIRECTION 3: a planned route has NOT quietly shipped', () => {
     }
     // Floor DOWN from 3 to 2 with #72 (`product_family` and `brand` flipped to
     // `live` with their screens), and from 2 to 1 with #367 workstream 9
-    // (`category_browse` flipped with `app/(app)/categories/[handle].tsx`). A
+    // (`category_browse` flipped with `app/(app)/categories/[handle]/index.tsx`). A
     // floor that could never drop would forbid exactly the flip this test
     // exists to force.
     //

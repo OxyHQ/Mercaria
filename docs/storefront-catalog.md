@@ -46,7 +46,7 @@ different properties and neither analyser is a superset of the other.
 | Compatibility (a fail-closed seam) | `lib/catalog/compatibility.ts` |
 | The ONE route composer | `lib/catalog/routes.ts` |
 | Components | `components/catalog/` (7 files) |
-| Screen | `app/(app)/categories/[handle].tsx` |
+| Screen | `app/(app)/categories/[handle]/index.tsx` |
 | The gate | `scripts/validate-storefront-catalog-driven.mjs` + its self-test |
 | The runner | `packages/frontend/vitest.config.ts`, `lib/catalog/__tests__/composition.test.ts` |
 | The runner | `packages/frontend/vitest.config.ts`, `lib/catalog/__tests__/composition.test.ts` |
