@@ -239,12 +239,18 @@ describe('the two populations are not vacuous', () => {
     const domain = discoverySources();
     const from = (prefix: string) => domain.filter((f) => f.relative.startsWith(prefix)).length;
     // A rename that empties either directory must fail here rather than make
-    // WALL 2 pass against an empty list.
+    // WALL 2 pass against an empty list — and the floors are the REAL counts
+    // (2 and 3, measured by running them against an impossible number and
+    // reading what they report), not the `>= 1` they were set to when this
+    // domain held two files in total. A floor of one against a population of
+    // five clears a scan that lost four fifths of the domain, in a gate whose
+    // whole purpose is to notice exactly that. WALL 1's per-directory floors
+    // (3/5/6/2/4/1 against 33) are the calibration this side now matches.
     expect(from('services/discovery/'), 'the discovery service walk found nothing').toBeGreaterThanOrEqual(
-      1,
+      2,
     );
     expect(from('db/discovery/'), 'the discovery repository walk found nothing').toBeGreaterThanOrEqual(
-      1,
+      3,
     );
     for (const file of domain) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(50);
@@ -282,7 +288,9 @@ describe('WALL 2: the discovery domain cannot reach offer or ranking', () => {
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBeGreaterThanOrEqual(1);
+    // FIVE, the real population — see WALL 5's floors for why this is not the
+    // `>= 1` it started as.
+    expect(scanned).toBeGreaterThanOrEqual(5);
   });
 });
 
