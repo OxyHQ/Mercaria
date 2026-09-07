@@ -396,7 +396,7 @@ New keys in all 13 locale bundles under
 hardcoded strings and unreferenced keys.
 
 Shelf titles are keys with a parameter — `discovery.shelf.topRated` →
-`"Lo mejor valorado en {{category}}"` — resolved on the CLIENT. The server sends
+`"Lo mejor valorado en %{category}"` — resolved on the CLIENT. The server sends
 a signal and a scope, never a composed sentence: a sentence assembled in the
 backend is a sentence that cannot be translated, and `AGENTS.md` already requires
 module-scope data to hold keys rather than text.

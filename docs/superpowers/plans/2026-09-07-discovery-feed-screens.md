@@ -35,7 +35,7 @@ router.push({ pathname: '/categories/[handle]/s/[signal]', params: { handle, sig
 
 - `bun run validate:rtl-classes` gates all four client packages. Logical utilities only: `ps-`, `pe-`, `start-`, `end-`, `ms-`, `me-`, `rounded-s-`. `border-s-*` and `text-start` stay physical with a `KNOWN_EXCEPTIONS` entry — that is measured, not preference.
 - `bun run validate:i18n-strings` gates hardcoded strings, key parity across the 12 locales, and unreferenced keys, in all three apps.
-- **Shelf titles are resolved on the CLIENT.** The server sends a `signal` and a `categoryHandle`, never a sentence — `discovery.shelf.topRated` → `"Lo mejor valorado en {{category}}"`. A sentence assembled server-side cannot be translated, and Plan A's feed service has a test pinning that no section carries a composed title.
+- **Shelf titles are resolved on the CLIENT.** The server sends a `signal` and a `categoryHandle`, never a sentence — `discovery.shelf.topRated` → `"Lo mejor valorado en %{category}"`. A sentence assembled server-side cannot be translated, and Plan A's feed service has a test pinning that no section carries a composed title.
 - App copy lives in the app's own bundles; `@mercaria/ui`'s copy lives in ITS bundles under the reserved `ui` namespace, for the locales that app SHIPS — never the union, or the dashboard gains an `ar` it cannot mirror.
 
 ### Everything else
@@ -279,7 +279,7 @@ This is the most visible change to an existing user in the whole three plans. Do
 
 Every new key in `packages/frontend/lib/i18n/locales/`. `validate:i18n-strings` enforces parity, so a key added to `en.json` alone fails the build — which is the point.
 
-The shelf titles take a parameter: `discovery.shelf.topRated` → `"Lo mejor valorado en {{category}}"`, and the equivalents for `new`, `onSale`, `bestSelling`, `mostViewed`. Also the page titles, the deals heading, the signal route's "see all" and its capped-depth notice.
+The shelf titles take a parameter: `discovery.shelf.topRated` → `"Lo mejor valorado en %{category}"`, and the equivalents for `new`, `onSale`, `bestSelling`, `mostViewed`. Also the page titles, the deals heading, the signal route's "see all" and its capped-depth notice.
 
 - [ ] **Step 3: Verify — the whole gate set, since this is the last task**
 
