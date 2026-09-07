@@ -209,6 +209,15 @@ beforeAll(async () => {
 }, 120_000);
 
 afterEach(async () => {
+  // Captured before anything below clears the arrays: every subject THIS
+  // FILE ran through the sweep also earns an UNCONDITIONAL row in the shared
+  // root scope ('') alongside its ancestor-chain scopes, and `discovery_signals`
+  // carries no FK to either a listing or a store (polymorphic subject), so
+  // neither the listing/store delete below nor the category-scoped delete
+  // reaches that root row. Deleting by subject id below does, because it is
+  // not scoped to a category at all.
+  const subjectIds = [...ownedListingIds, ...ownedStoreIds];
+
   if (ownedEventIds.length > 0) {
     await db.delete(analyticsEvents).where(inArray(analyticsEvents.id, ownedEventIds));
     ownedEventIds.length = 0;
@@ -217,6 +226,9 @@ afterEach(async () => {
     await db.delete(orders).where(inArray(orders.id, ownedOrderIds));
     ownedOrderIds.length = 0;
   }
+  if (subjectIds.length > 0) {
+    await db.delete(discoverySignals).where(inArray(discoverySignals.subjectId, subjectIds));
+  }
   if (ownedListingIds.length > 0) {
     await db.delete(listings).where(inArray(listings.id, ownedListingIds));
     ownedListingIds.length = 0;
@@ -224,6 +236,10 @@ afterEach(async () => {
   if (ownedCategoryIds.length > 0) {
     // No FK ties a `discovery_signals` row to a category — it is a
     // polymorphic scope key — so nothing but this scoped delete cleans it up.
+    // Kept alongside the subject-id delete above as a second net: this one
+    // clears rows in a category this file minted for ANY subject, the one
+    // above clears rows for a SUBJECT this file created in ANY scope
+    // (root included).
     await db.delete(discoverySignals).where(inArray(discoverySignals.categoryId, ownedCategoryIds));
   }
   if (ownedStoreIds.length > 0) {
@@ -292,9 +308,20 @@ describe('runDiscoverySweepOnce', () => {
     // A three-level chain: root '' + grandparent + parent + leaf = four rows
     // for one listing. A sweep that wrote only the leaf passes every
     // single-category assertion and fails exactly this one.
+    //
+    // The root scope ('') is shared by every counted subject in the whole
+    // database, and `selectTopByUnion` keeps only the top `topNPerCategory`
+    // (60) by `unitsSold` there — so a quantity of 1 would make this
+    // assertion's outcome depend on how many OTHER subjects happen to be
+    // live in the root scope's top 60 at the same moment, the same shape of
+    // flake fixed in `discovery-feed.realdb.test.ts` (07989dd6). A sentinel
+    // quantity no real fixture would plausibly reach keeps this listing
+    // unconditionally the top seller in every scope it touches, root
+    // included, so the assertion is decided entirely by a row this file owns.
+    const SENTINEL_QUANTITY = 2_000_000_000;
     const [grandparentId, parentId, leafId] = await makeCategoryChain(3);
     const listingId = await makeListing({ categoryId: leafId, status: 'active' });
-    await makeOrder({ listingId, quantity: 1, status: 'paid' });
+    await makeOrder({ listingId, quantity: SENTINEL_QUANTITY, status: 'paid' });
 
     const outcome = await runDiscoverySweepOnce();
     expect(outcome).toBeDefined();
