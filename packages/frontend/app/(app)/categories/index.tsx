@@ -1,5 +1,5 @@
 import Head from 'expo-router/head';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import type { Href } from 'expo-router';
 import { Text } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
@@ -48,10 +48,25 @@ import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
  *   `product_type`, `campaign`) have no section kind to render as, so
  *   taxonomy-v2-only entries do not appear at all.
  *
- * The fix is server-side and is a merge blocker on the discovery-feed branch:
- * the root scope reads the published navigation with the v1 fallback, so the
- * lever keeps a visible surface and those kinds keep a home. When it lands,
- * this section loses its second half and the contract above is simply true.
+ * This was investigated as a server-side fix and DELIBERATELY RETIRED rather
+ * than built, once its real cost was measured. It needs a new
+ * `DiscoverySection` kind — `navigationTargetHref` answers `undefined` for
+ * all four, so no existing tile section, which hard-navigates via
+ * `categoryHref`, can carry them — plus `market` and `locale` on
+ * `GET /discovery/feed`, since `readPublishedNavigation` requires both and
+ * neither reaches the server today. Without them, `resolveCatalogNavigation`'s
+ * own rule is "market undefined, skip to v1", so a faithful port would take
+ * the fallback branch every time and leave the lever exactly as invisible as
+ * it is now.
+ *
+ * Against that: `docs/runbooks/catalog-rollout-rollback.md`'s lever table says
+ * every tree, node and label stays readable through `/internal/navigation`
+ * with the lever off, its section 3 storefront rehearsal has never been run,
+ * and `lib/catalog/navigation-fallback.test.ts` covers the mechanism either
+ * way. The four kinds rendered as inert, non-navigable TEXT before this
+ * redesign. Two contract changes and new client render logic to restore four
+ * text labels and an unrehearsed check with another surface is not a trade
+ * worth making, and the runbook records the retirement.
  *
  * ## No count, no "N products"
  *
@@ -111,6 +126,34 @@ export default function CategoryIndexScreen() {
     );
   }
 
+  // A FAILED request is not the empty state below — that one is a real,
+  // published-but-empty taxonomy and is not an error. Before `useDiscoveryFeed`
+  // replaced it, `useCatalogNavigation` had its own v1 fallback, so only a
+  // total failure of both reached the empty branch; this hook has no such
+  // fallback, so one failed request lands here directly and needs its own
+  // branch rather than inheriting the empty one's confident "nothing published"
+  // text.
+  if (feed.isError && feed.data === undefined) {
+    return (
+      <ScreenShell contentClassName="pt-6">
+        {head}
+        <View className="items-center px-8 py-16">
+          <Text className="text-center text-body text-text-tertiary">
+            {t('catalog.categoryIndex.loadError')}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.tryAgain')}
+            onPress={() => feed.refetch()}
+            className="mt-4 rounded-full border border-border px-5 py-2"
+          >
+            <Text className="text-sm font-semibold text-foreground">{t('common.tryAgain')}</Text>
+          </Pressable>
+        </View>
+      </ScreenShell>
+    );
+  }
+
   const sections = feed.data?.sections ?? [];
 
   return (
@@ -131,7 +174,9 @@ export default function CategoryIndexScreen() {
            * A real state, and it is not an error. A deployment with no active
            * taxonomy yet composes an empty feed rather than failing — and a
            * page that showed a spinner forever, or "something went wrong",
-           * would misreport a configuration as a fault.
+           * would misreport a configuration as a fault. A FAILED request is
+           * caught above, before `sections` is even read, precisely so it
+           * cannot fall through and be told apart from this one.
            */
           <Text className="text-body text-text-tertiary">
             {t('catalog.categoryIndex.empty')}
