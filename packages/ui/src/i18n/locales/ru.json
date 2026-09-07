@@ -836,6 +836,10 @@
     "category": {
       "browse": "Смотреть раздел «%{category}»"
     },
+    "discountBadge": {
+      "save": "Экономия %{amount}",
+      "saveA11y": "Экономия %{amount} по вашему предложению"
+    },
     "merchantCart": {
       "checkout": "Перейти к оформлению",
       "subtotal": "Промежуточный итог:"

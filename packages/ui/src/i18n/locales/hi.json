@@ -822,6 +822,10 @@
     "category": {
       "browse": "%{category} देखें"
     },
+    "discountBadge": {
+      "save": "%{amount} बचाएं",
+      "saveA11y": "अपने ऑफ़र के साथ %{amount} बचाएं"
+    },
     "merchantCart": {
       "checkout": "भुगतान पर आगे बढ़ें",
       "subtotal": "उप-योग:"

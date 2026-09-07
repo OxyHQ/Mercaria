@@ -829,6 +829,10 @@
     "category": {
       "browse": "Explora %{category}"
     },
+    "discountBadge": {
+      "save": "Estalvia %{amount}",
+      "saveA11y": "Estalvia %{amount} amb la teva oferta"
+    },
     "merchantCart": {
       "checkout": "Continua amb el pagament",
       "subtotal": "Subtotal:"

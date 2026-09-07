@@ -822,6 +822,10 @@
     "category": {
       "browse": "%{category} を見る"
     },
+    "discountBadge": {
+      "save": "%{amount}節約",
+      "saveA11y": "特典で%{amount}節約できます"
+    },
     "merchantCart": {
       "checkout": "支払いに進む",
       "subtotal": "小計:"

@@ -68,6 +68,10 @@ export const CATEGORY_BROWSE_KEY = "ui.category.browse";
 /** `ComparisonExplanationBlock`. */
 export const COMPARISON_NO_SUMMARY_KEY = "ui.comparison.noSummary";
 
+/** `DiscountBadge`. */
+export const DISCOUNT_BADGE_SAVE_KEY = "ui.discountBadge.save";
+export const DISCOUNT_BADGE_SAVE_A11Y_KEY = "ui.discountBadge.saveA11y";
+
 /** `MerchantCartCard`. */
 export const MERCHANT_CART_CHECKOUT_KEY = "ui.merchantCart.checkout";
 export const MERCHANT_CART_SUBTOTAL_KEY = "ui.merchantCart.subtotal";

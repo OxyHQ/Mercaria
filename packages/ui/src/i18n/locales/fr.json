@@ -829,6 +829,10 @@
     "category": {
       "browse": "Parcourir %{category}"
     },
+    "discountBadge": {
+      "save": "Économisez %{amount}",
+      "saveA11y": "Économisez %{amount} avec votre offre"
+    },
     "merchantCart": {
       "checkout": "Passer au paiement",
       "subtotal": "Sous-total :"

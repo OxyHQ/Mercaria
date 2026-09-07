@@ -822,6 +822,10 @@
     "category": {
       "browse": "Browse %{category}"
     },
+    "discountBadge": {
+      "save": "Save %{amount}",
+      "saveA11y": "Save %{amount} with your offer"
+    },
     "merchantCart": {
       "checkout": "Continue to checkout",
       "subtotal": "Subtotal:"

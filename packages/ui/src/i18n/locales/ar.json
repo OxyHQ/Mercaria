@@ -822,6 +822,10 @@
     "category": {
       "browse": "تصفّح %{category}"
     },
+    "discountBadge": {
+      "save": "وفّر %{amount}",
+      "saveA11y": "وفّر %{amount} مع عرضك"
+    },
     "merchantCart": {
       "checkout": "المتابعة إلى الدفع",
       "subtotal": "المجموع الفرعي:"
