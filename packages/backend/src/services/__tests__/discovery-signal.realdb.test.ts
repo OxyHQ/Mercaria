@@ -214,6 +214,38 @@ describe('getDiscoverySignalPage', () => {
     expect(page3.hasMore).toBe(false);
   });
 
+  it('root counts a listing once even though it earns a discovery_signals row at every one of its ancestor scopes', async () => {
+    // `sweep.ts` writes one row per subject PER ANCESTOR (leaf, every
+    // ancestor, and root), all carrying the SAME units_sold. `root`'s
+    // `categoryIds` is every active category id, so a listing two levels
+    // below any one of them (`top`/`mid`/`leaf` here) matches three rows —
+    // the exact fanout `discoveryReadRepository.ts` now collapses. This is
+    // the ROOT-scope half of that fix, proven through the service rather than
+    // the repository directly.
+    const top = await makeCategory({ position: -2_000_000_000 });
+    const mid = await makeCategory({ parentId: top.id, ancestorIds: [top.id] });
+    const leaf = await makeCategory({ parentId: mid.id, ancestorIds: [top.id, mid.id] });
+    const deepId = await makeListing(leaf.id);
+    const shallowId = await makeListing(top.id);
+    await seedSignal({ subjectId: deepId, categoryId: leaf.id, unitsSold: 60 });
+    await seedSignal({ subjectId: deepId, categoryId: mid.id, unitsSold: 60 });
+    await seedSignal({ subjectId: deepId, categoryId: top.id, unitsSold: 60 });
+    await seedSignal({ subjectId: shallowId, categoryId: top.id, unitsSold: 100 });
+
+    const page = await getDiscoverySignalPage({
+      signal: 'best-selling',
+      scope: { kind: 'root' },
+      limit: 50,
+      offset: 0,
+    });
+
+    const ids = page.products.map((p) => p.id);
+    expect(ids.filter((id) => id === deepId)).toHaveLength(1);
+    // Ranking, not just de-duplication: summed across its three duplicate
+    // rows `deepId` would read 180 and wrongly outrank `shallowId`'s real 100.
+    expect(ids.indexOf(shallowId)).toBeLessThan(ids.indexOf(deepId));
+  });
+
   it('a listing archived after being counted is unreachable through this route', async () => {
     // The non-negotiable this test exists for: `discovery_signals` carries no
     // status of its own, so a listing counted while it sold and archived

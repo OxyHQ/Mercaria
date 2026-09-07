@@ -447,6 +447,76 @@ describe('findListingsBySignal', () => {
 
     expect(found.map((l) => l.id)).toEqual([activeId]);
   });
+
+  it('best-selling counts a listing once even when a SUBTREE query matches its row at every ancestor level', async () => {
+    // `sweep.ts` writes ONE row per subject PER ANCESTOR SCOPE, and every one
+    // of them carries the SAME units_sold — the listing's own total,
+    // duplicated so a query at any single depth finds it. A `categoryIds`
+    // naming more than one level of that same chain (`activeSubtreeIds`, or
+    // `root`'s whole taxonomy) must not multiply that listing's count by how
+    // many levels matched.
+    //
+    // `deep` sits at least TWO levels below the query's own top scope — its
+    // row is seeded at `leaf`, `mid` AND `top` (three matches, not two), so a
+    // fix that only deduplicates a PAIR is not enough to pass this. Adverse
+    // by construction against the wrong fix (SUM instead of MAX): `deep`'s
+    // TRUE count is 60, but summed across its three duplicate rows it would
+    // read 180 — enough to wrongly outrank `shallow`'s real 100. Grouped
+    // correctly, `shallow` (100, a single un-duplicated row at `top` alone)
+    // ranks first.
+    const top = await makeCategory();
+    const mid = await makeCategory();
+    const leaf = await makeCategory();
+    const deepId = await makeListing(top); // the row's own category is irrelevant to this read
+    const shallowId = await makeListing(top);
+    await seedSignal({ subjectType: 'listing', subjectId: deepId, categoryId: leaf, unitsSold: 60 });
+    await seedSignal({ subjectType: 'listing', subjectId: deepId, categoryId: mid, unitsSold: 60 });
+    await seedSignal({ subjectType: 'listing', subjectId: deepId, categoryId: top, unitsSold: 60 });
+    await seedSignal({
+      subjectType: 'listing',
+      subjectId: shallowId,
+      categoryId: top,
+      unitsSold: 100,
+    });
+
+    const found = await findListingsBySignal({
+      signal: 'best-selling',
+      categoryIds: [top, mid, leaf],
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(found.map((l) => l.id)).toEqual([shallowId, deepId]);
+    expect(found.map((l) => l.id)).toHaveLength(new Set(found.map((l) => l.id)).size);
+  });
+
+  it('most-viewed counts a listing once even when a SUBTREE query matches its row at every ancestor level', async () => {
+    // Same defect as the best-selling case above, the other column.
+    const top = await makeCategory();
+    const mid = await makeCategory();
+    const leaf = await makeCategory();
+    const deepId = await makeListing(top);
+    const shallowId = await makeListing(top);
+    await seedSignal({ subjectType: 'listing', subjectId: deepId, categoryId: leaf, viewCount: 60 });
+    await seedSignal({ subjectType: 'listing', subjectId: deepId, categoryId: mid, viewCount: 60 });
+    await seedSignal({ subjectType: 'listing', subjectId: deepId, categoryId: top, viewCount: 60 });
+    await seedSignal({
+      subjectType: 'listing',
+      subjectId: shallowId,
+      categoryId: top,
+      viewCount: 100,
+    });
+
+    const found = await findListingsBySignal({
+      signal: 'most-viewed',
+      categoryIds: [top, mid, leaf],
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(found.map((l) => l.id)).toEqual([shallowId, deepId]);
+    expect(found.map((l) => l.id)).toHaveLength(new Set(found.map((l) => l.id)).size);
+  });
 });
 
 describe('findStoresBySignal', () => {

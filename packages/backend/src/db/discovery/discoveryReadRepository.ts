@@ -26,7 +26,7 @@
  * under a heading that claims they are the best or the most.
  */
 
-import { and, desc, eq, getTableColumns, gt, gte, inArray, isNull, lte, or } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, gt, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import {
   DISCOVERY_WINDOWS,
   type DiscoverySignal,
@@ -137,20 +137,59 @@ async function findNewestListings(input: FindListingsBySignalInput): Promise<Lis
     .offset(input.offset);
 }
 
-/** `best-selling` — `discovery_signals` joined to `listings`, ordered by `units_sold`. */
+/**
+ * `best-selling` — `discovery_signals` grouped by subject, joined to `listings`,
+ * ordered by `units_sold`.
+ *
+ * GROUPED, not a plain join: `discovery_signals` carries one row per subject
+ * PER ANCESTOR SCOPE (`sweep.ts`'s own docblock, "one row per ancestor"), and
+ * every one of a listing's ancestor rows carries the SAME `units_sold` — the
+ * listing's own total, duplicated so a query at any single depth finds it
+ * with one indexed read. A `categoryIds` naming more than one level of the
+ * SAME subtree (`activeSubtreeIds`, or `root`'s whole taxonomy) therefore
+ * matches that listing's row MORE THAN ONCE — a listing two levels below the
+ * queried scope matched three times (its own category, the mid-level
+ * ancestor, and the scope itself), not two, before this fix. `MAX`, not
+ * `SUM`: the duplicate rows carry the IDENTICAL value by construction (see
+ * `sweep.ts`'s per-listing candidate, computed once before the per-scope
+ * loop), so summing them would multiply one true count by however many
+ * ancestor levels matched rather than reporting it once. `SUM` is the right
+ * verb for a STORE subject's row (`sweep.ts`'s `storeAggregates`, which really
+ * does add several LISTINGS' counts together within one scope) — it is the
+ * wrong one here, where every matched row is the same fact repeated, and
+ * `findStoresBySignal` below is untouched because it is never called with
+ * more than one `categoryId`, so it never had this fanout to begin with.
+ *
+ * The tiebreak moves to `listings.id`: grouping collapses the several
+ * `discovery_signals.id`s a listing could have contributed into no single
+ * row to break a tie on.
+ */
 async function findBestSellingListings(
   input: FindListingsBySignalInput,
 ): Promise<ListingRecord[]> {
   if (input.categoryIds.length === 0) return [];
-  return getDb()
-    .select(getTableColumns(listings))
+  const ranked = getDb()
+    .select({
+      subjectId: discoverySignals.subjectId,
+      unitsSold: sql<number>`max(${discoverySignals.unitsSold})`.as('units_sold'),
+    })
     .from(discoverySignals)
-    .innerJoin(listings, eq(discoverySignals.subjectId, listings.id))
     .where(
       and(
         eq(discoverySignals.subjectType, 'listing'),
         inArray(discoverySignals.categoryId, input.categoryIds),
         eq(discoverySignals.window, WINDOW),
+      ),
+    )
+    .groupBy(discoverySignals.subjectId)
+    .as('ranked_best_selling');
+
+  return getDb()
+    .select(getTableColumns(listings))
+    .from(ranked)
+    .innerJoin(listings, eq(ranked.subjectId, listings.id))
+    .where(
+      and(
         // A listing counted while it sold can be archived, sold out or put
         // under a moderation hold afterward — `discovery_signals` carries no
         // status check of its own (Task 4's sweep counts from order/view
@@ -161,36 +200,56 @@ async function findBestSellingListings(
         // root-scope row for every counted subject regardless of whether it
         // ever sold anything, so an unguarded ORDER BY presents listings
         // nobody bought under a heading that says they are the best-selling.
-        gt(discoverySignals.unitsSold, 0),
+        gt(ranked.unitsSold, 0),
       ),
     )
-    .orderBy(desc(discoverySignals.unitsSold), desc(discoverySignals.id))
+    .orderBy(desc(ranked.unitsSold), desc(listings.id))
     .limit(input.limit)
     .offset(input.offset);
 }
 
-/** `most-viewed` — `discovery_signals` joined to `listings`, ordered by `view_count`. */
+/**
+ * `most-viewed` — `discovery_signals` grouped by subject, joined to
+ * `listings`, ordered by `view_count`. Same subtree-fanout fix as
+ * `findBestSellingListings` above, for the same reason: a listing's
+ * `view_count` is duplicated identically across its ancestor-scope rows, so a
+ * multi-category `categoryIds` needs `MAX` grouped by subject, not a plain
+ * join.
+ */
 async function findMostViewedListings(
   input: FindListingsBySignalInput,
 ): Promise<ListingRecord[]> {
   if (input.categoryIds.length === 0) return [];
-  return getDb()
-    .select(getTableColumns(listings))
+  const ranked = getDb()
+    .select({
+      subjectId: discoverySignals.subjectId,
+      viewCount: sql<number>`max(${discoverySignals.viewCount})`.as('view_count'),
+    })
     .from(discoverySignals)
-    .innerJoin(listings, eq(discoverySignals.subjectId, listings.id))
     .where(
       and(
         eq(discoverySignals.subjectType, 'listing'),
         inArray(discoverySignals.categoryId, input.categoryIds),
         eq(discoverySignals.window, WINDOW),
+      ),
+    )
+    .groupBy(discoverySignals.subjectId)
+    .as('ranked_most_viewed');
+
+  return getDb()
+    .select(getTableColumns(listings))
+    .from(ranked)
+    .innerJoin(listings, eq(ranked.subjectId, listings.id))
+    .where(
+      and(
         // See the same predicate in `findBestSellingListings` above.
         eq(listings.status, 'active'),
         // See the same predicate in `findBestSellingListings` above: a shelf
         // named for a column must not show rows where it is zero.
-        gt(discoverySignals.viewCount, 0),
+        gt(ranked.viewCount, 0),
       ),
     )
-    .orderBy(desc(discoverySignals.viewCount), desc(discoverySignals.id))
+    .orderBy(desc(ranked.viewCount), desc(listings.id))
     .limit(input.limit)
     .offset(input.offset);
 }
