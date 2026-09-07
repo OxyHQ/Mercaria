@@ -23,6 +23,12 @@ export interface CategorySampleTileProps {
  * in this file, even though the prop is typed as a plain string array: a
  * caller can still hand back fewer than two, and a missing sample draws the
  * placeholder rather than an empty `<Image>`.
+ *
+ * `tile.imageUrl` is never read here, and that is BY DESIGN, not a missed
+ * wire-up: this tile shows two SAMPLE images passed in separately via
+ * `samples`, never the category's own single image (that is
+ * `CategoryImageTile`'s job). Do not "fix" this by threading `tile.imageUrl`
+ * into a sample slot.
  */
 export function CategorySampleTile({ tile, samples, onPress }: CategorySampleTileProps) {
   return (

@@ -123,6 +123,10 @@ export const SEARCH_CHIP_REMOVE_KEY = "ui.searchInterpretation.chipRemove";
 export const SEARCH_MODE_MODEL_KEY = "ui.searchInterpretation.modeModel";
 export const SEARCH_MODE_RULES_KEY = "ui.searchInterpretation.modeRules";
 
+/** `StoreOfferHeader`. */
+export const STORE_OFFER_HEADER_SAVE_KEY = "ui.storeOfferHeader.save";
+export const STORE_OFFER_HEADER_MINIMUM_KEY = "ui.storeOfferHeader.minimum";
+
 /** `VariantSwatches`. */
 export const SWATCH_SHOW_MORE_A11Y_KEY = "ui.variantSwatches.showMoreA11y";
 export const SWATCH_SHOW_MORE_KEY = "ui.variantSwatches.showMore";

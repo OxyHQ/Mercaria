@@ -884,6 +884,10 @@
       "modeModel": "Interpretat amb l'ajuda d'un model",
       "modeRules": "Interpretat amb les nostres pròpies regles"
     },
+    "storeOfferHeader": {
+      "save": "Estalvia %{amount}",
+      "minimum": "en comandes de més de %{minimum}"
+    },
     "variantSwatches": {
       "showMoreA11y": "Més opcions de %{option} (%{more})",
       "showMore": "+%{more} més"

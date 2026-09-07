@@ -877,6 +877,10 @@
       "modeModel": "একটি মডেলের সহায়তায় বোঝা হয়েছে",
       "modeRules": "আমাদের নিজস্ব নিয়মে বোঝা হয়েছে"
     },
+    "storeOfferHeader": {
+      "save": "%{amount} সাশ্রয় করুন",
+      "minimum": "%{minimum}-এর বেশি অর্ডারে"
+    },
     "variantSwatches": {
       "showMoreA11y": "%{option}-এর আরও বিকল্প (%{more})",
       "showMore": "+%{more} আরও"

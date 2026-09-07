@@ -877,6 +877,10 @@
       "modeModel": "モデルの助けを借りて解釈しました",
       "modeRules": "独自のルールで解釈しました"
     },
+    "storeOfferHeader": {
+      "save": "%{amount}節約",
+      "minimum": "%{minimum}以上のご注文で"
+    },
     "variantSwatches": {
       "showMoreA11y": "%{option} の選択肢をもっと見る（%{more}）",
       "showMore": "+%{more} 件"

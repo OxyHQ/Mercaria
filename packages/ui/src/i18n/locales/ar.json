@@ -877,6 +877,10 @@
       "modeModel": "فُهم بمساعدة نموذج",
       "modeRules": "فُهم بقواعدنا الخاصة"
     },
+    "storeOfferHeader": {
+      "save": "وفّر %{amount}",
+      "minimum": "على الطلبات التي تزيد عن %{minimum}"
+    },
     "variantSwatches": {
       "showMoreA11y": "خيارات %{option} إضافية (%{more})",
       "showMore": "+%{more} إضافية"

@@ -877,6 +877,10 @@
       "modeModel": "Interpreted with help from a model",
       "modeRules": "Interpreted by our own rules"
     },
+    "storeOfferHeader": {
+      "save": "Save %{amount}",
+      "minimum": "on orders over %{minimum}"
+    },
     "variantSwatches": {
       "showMoreA11y": "More %{option} options (%{more})",
       "showMore": "+%{more} more"

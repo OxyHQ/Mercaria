@@ -627,3 +627,43 @@ export {
   PickupCollectionPanel,
   type PickupCollectionPanelProps,
 } from "./components/marketplace/PickupCollectionPanel";
+
+// ---------------------------------------------------------------------------
+// Discovery feed (explore, category and deals) presentational components.
+// `docs/superpowers/specs/2026-09-07-discovery-feed-component-tokens.md` is
+// their class-by-class authority, read off Shop's own captured markup rather
+// than estimated. `SectionHeader`'s trailing-chevron change lives with its
+// existing export above; everything below is new.
+//
+// `categoryPaletteColor` (`./lib/category-palette`) is deliberately NOT
+// exported: it is `CategorySampleTile`'s own per-category colour derivation,
+// consumed only there, and no screen calls it directly — a caller hands the
+// tile a `CategoryTile`, not a colour.
+// ---------------------------------------------------------------------------
+export {
+  ActionHeroCard,
+  type ActionHeroCardProps,
+} from "./components/marketplace/ActionHeroCard";
+export {
+  CategorySampleTile,
+  type CategorySampleTileProps,
+} from "./components/marketplace/CategorySampleTile";
+export {
+  CategoryImageTile,
+  type CategoryImageTileProps,
+} from "./components/marketplace/CategoryImageTile";
+export {
+  FeedActionPill,
+  type FeedActionPillProps,
+} from "./components/marketplace/FeedActionPill";
+export { SectionCard, type SectionCardProps } from "./components/marketplace/SectionCard";
+export { FeedGrid, type FeedGridProps } from "./components/marketplace/FeedGrid";
+export {
+  StoreProductCard,
+  type StoreProductCardProps,
+} from "./components/marketplace/StoreProductCard";
+export { DiscountBadge, type DiscountBadgeProps } from "./components/marketplace/DiscountBadge";
+export {
+  StoreOfferHeader,
+  type StoreOfferHeaderProps,
+} from "./components/marketplace/StoreOfferHeader";

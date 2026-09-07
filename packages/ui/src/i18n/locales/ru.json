@@ -891,6 +891,10 @@
       "modeModel": "Распознано с помощью модели",
       "modeRules": "Распознано нашими собственными правилами"
     },
+    "storeOfferHeader": {
+      "save": "Экономия %{amount}",
+      "minimum": "при заказе от %{minimum}"
+    },
     "variantSwatches": {
       "showMoreA11y": "Ещё варианты «%{option}» (%{more})",
       "showMore": "+%{more} ещё"
