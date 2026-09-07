@@ -212,18 +212,29 @@ instead of losing the card to a discount that could not be stated.
 `Record` over the whole `DiscountValueType` union, so a fifth member is a
 compile error there rather than a silent arrival on the shelf.
 
-## KNOWN LIMITATION (2026-09-07)
+## The store card is scoped where it makes a claim, and not where it does not
 
-`buildStoresSection` (`services/discovery/feed.service.ts`) reuses
-`findActiveListingsForStores` (`db/catalog/listingRepository.ts`), which is
-not category-scoped, so a category page's large merchant card shows a store's
-WHOLE-CATALOG thumbnails rather than that category's products. Two
-independent reviews judged this wrong on a category page specifically — every
-sibling section there is category-scoped and the card's premise is "top
-performer in this category", so an off-category thumbnail contradicts why the
-card is shown. The deals page has no category context to contradict, which is
-why the same behaviour is fine there.
+`buildStoresSection` takes TWO category inputs and they are different sets.
+`categoryId` is the subject alone, because `discovery_signals` holds one row
+per ANCESTOR and an exact match there already covers the subtree.
+`categoryIds` is the ACTIVE subtree, because the card's thumbnails come from
+`listings.category_id`, where a product filed under a child is still part of
+what the page browses — the same set every sibling section on that page is
+built from.
 
-**Fix:** give `findActiveListingsForStores` an optional category scope, the
-same shape `findOnSaleListings` already takes (`categoryIds?: readonly
-string[]`).
+The card shipped without the second one, drawing its thumbnails from the
+store's whole catalogue. Two independent reviews judged that wrong on a
+category page specifically: the card's premise is "top performer in this
+category", every section beside it is scoped, so an off-category thumbnail
+contradicts the reason the card is shown. The deals page has no category
+context to contradict, so `buildDealsFeed` passes no categories at all and its
+cards stay bounded by what the discount covers; `services/feed.service.ts`'s
+store-wide merchant shelf omits it for the same reason.
+
+Two consequences worth stating. The restriction is a predicate of
+`findActiveListingsForStores` rather than a filter its caller applies
+afterwards, so `perStoreLimit` is spent on the listings that qualify — a store
+whose newest products are filed elsewhere would otherwise come back with no
+thumbnails at all. And a store with nothing active in the subtree keeps its
+place on the shelf, because it earned that place by selling here, and renders
+without thumbnails rather than with borrowed ones.

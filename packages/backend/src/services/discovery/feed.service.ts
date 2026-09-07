@@ -287,10 +287,18 @@ async function buildProductsSection(input: {
  * One `stores` section for a category: the top stores by `units_sold` within
  * it (`findStoresBySignal`, the same counted-signal mechanism as
  * `best-selling`'s products) — `null` when the sweep has nothing counted yet.
+ *
+ * **Two category inputs, and they are not the same set.** `categoryId` is the
+ * subject alone, because `discovery_signals` already holds one row per ANCESTOR
+ * so an exact match there covers the whole subtree. `categoryIds` is that
+ * subtree, because the card's THUMBNAILS come from `listings.category_id`,
+ * where a product filed under a child is still part of what this page browses —
+ * the same set every sibling section on the page is built from.
  */
 async function buildStoresSection(input: {
   id: string;
   categoryId: string;
+  categoryIds: string[];
   categoryHandle: string;
   categoryName: string;
   variant: 'large' | 'compact';
@@ -318,9 +326,17 @@ async function buildStoresSection(input: {
   // Exactly the thumbnails the card renders and no more: `toStoreSummary`
   // slices each store's gallery to `storeCardThumbnails`, and this section is
   // built once per top-level category on the root feed.
+  //
+  // Scoped to the subtree, so the card shows what this store sells HERE. The
+  // card's claim is "top performer in this category"; unscoped, it drew from
+  // the store's whole catalogue and put products from elsewhere under that
+  // claim. A store with nothing active in the subtree keeps its place on the
+  // shelf — it earned it by selling here — and renders without thumbnails,
+  // which is the honest answer rather than a borrowed one.
   const featured = await findActiveListingsForStores({
     storeIds: ranked.map((s) => s.id),
     perStoreLimit: config.feed.storeCardThumbnails,
+    categoryIds: input.categoryIds,
   });
   const featuredByStore = new Map<string, ListingRecord[]>();
   for (const listing of featured) {
@@ -452,6 +468,7 @@ async function buildRootFeed(): Promise<DiscoveryFeed> {
     const stores = await buildStoresSection({
       id: `stores-${category.slug}`,
       categoryId: category.id,
+      categoryIds: activeSubtreeIds(allCategories, category.id),
       categoryHandle: category.slug,
       categoryName: category.name,
       variant: 'compact',
@@ -539,6 +556,7 @@ async function buildCategoryFeed(handle: string): Promise<DiscoveryFeed> {
   const stores = await buildStoresSection({
     id: 'stores',
     categoryId: category.id,
+    categoryIds,
     categoryHandle: category.slug,
     categoryName: category.name,
     variant: 'large',

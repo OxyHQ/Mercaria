@@ -18,6 +18,13 @@
  * store B's two, against a `perStoreLimit` of 2: an unbounded read returns four
  * of A's, and a global `LIMIT 4` returns four of A's and none of B's.
  *
+ * `categoryIds` is under test for the SAME property one restriction over: the
+ * store's newest listings are filed in another category, so a cap spent before
+ * the category is considered leaves the card empty. Its control is the case
+ * that omits `categoryIds` entirely — the deals scope and the home feed's
+ * merchant shelf both call this read that way and must keep seeing every
+ * category.
+ *
  * ## Scoping, because this database is SHARED
  *
  * Every assertion is scoped to the two store ids this file creates, and the
@@ -28,7 +35,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
-import { listings } from '../schema/catalog.js';
+import { categories, listings } from '../schema/catalog.js';
 import { insertStore } from '../stores/storeRepository.js';
 import { findActiveListingsForStores } from '../catalog/listingRepository.js';
 import { deleteTestStores } from './store-teardown.js';
@@ -37,6 +44,7 @@ let db: Database;
 
 const createdListingIds: string[] = [];
 const createdStoreIds: string[] = [];
+const createdCategoryIds: string[] = [];
 
 /** A store, unique to this run. */
 async function makeStore(): Promise<string> {
@@ -61,11 +69,30 @@ async function makeStore(): Promise<string> {
   return store.id;
 }
 
+/** A flat category, unique to this run — `categoryIds`' population. */
+async function makeCategory(): Promise<string> {
+  const suffix = uuidv7().slice(-12);
+  const [category] = await db
+    .insert(categories)
+    .values({
+      key: `store-shelf-${suffix}`,
+      name: `Store shelf ${suffix}`,
+      slug: `store-shelf-${suffix}`,
+      ancestorIds: [],
+      position: 0,
+      isActive: true,
+    })
+    .returning({ id: categories.id });
+  createdCategoryIds.push(category.id);
+  return category.id;
+}
+
 /** A store-owned listing published at an explicit moment — the shelf's ordering key. */
 async function makeStoreListing(input: {
   storeId: string;
   publishedAt: Date;
   status?: 'active' | 'draft';
+  categoryId?: string;
 }): Promise<string> {
   const [listing] = await db
     .insert(listings)
@@ -78,6 +105,7 @@ async function makeStoreListing(input: {
       conditionAssertion: 'seller_declared',
       status: input.status ?? 'active',
       publishedAt: input.publishedAt,
+      categoryId: input.categoryId ?? null,
     })
     .returning({ id: listings.id });
   createdListingIds.push(listing.id);
@@ -97,6 +125,12 @@ afterEach(async () => {
   const listingIds = createdListingIds.splice(0);
   if (listingIds.length > 0) {
     await db.delete(listings).where(inArray(listings.id, listingIds));
+  }
+  // AFTER the listings: `listings.category_id` is RESTRICT, so a category with
+  // a listing still pointing at it cannot be deleted.
+  const categoryIds = createdCategoryIds.splice(0);
+  if (categoryIds.length > 0) {
+    await db.delete(categories).where(inArray(categories.id, categoryIds));
   }
   const storeIds = createdStoreIds.splice(0);
   if (storeIds.length > 0) {
@@ -156,5 +190,82 @@ describe('findActiveListingsForStores', () => {
 
   it('reads nothing for an empty store list', async () => {
     expect(await findActiveListingsForStores({ storeIds: [], perStoreLimit: 3 })).toEqual([]);
+  });
+
+  it('spends the cap on the CATEGORY, not on the store', async () => {
+    // The adverse shape, and the whole reason `categoryIds` is a predicate of
+    // this read rather than a filter its caller applies afterwards. The store's
+    // three NEWEST listings are all filed elsewhere, so a cap spent before the
+    // category is considered returns the wanted category's products — none of
+    // them — and the card renders empty for a store that plainly sells here.
+    const storeId = await makeStore();
+    const wanted = await makeCategory();
+    const other = await makeCategory();
+
+    const newestElsewhere = await makeStoreListing({
+      storeId,
+      publishedAt: minutesAgo(1),
+      categoryId: other,
+    });
+    await makeStoreListing({ storeId, publishedAt: minutesAgo(2), categoryId: other });
+    await makeStoreListing({ storeId, publishedAt: minutesAgo(3), categoryId: other });
+    const wantedNewest = await makeStoreListing({
+      storeId,
+      publishedAt: minutesAgo(4),
+      categoryId: wanted,
+    });
+    const wantedOldest = await makeStoreListing({
+      storeId,
+      publishedAt: minutesAgo(5),
+      categoryId: wanted,
+    });
+
+    const rows = await findActiveListingsForStores({
+      storeIds: [storeId],
+      perStoreLimit: 2,
+      categoryIds: [wanted],
+    });
+
+    expect(rows.map((row) => row.id)).toEqual([wantedNewest, wantedOldest]);
+    expect(rows.map((row) => row.id)).not.toContain(newestElsewhere);
+  });
+
+  it('leaves the whole catalogue alone when no category is named', async () => {
+    // The control for the case above, and the property the deals scope and the
+    // home feed's merchant shelf depend on: both call this read with no
+    // `categoryIds` at all, and must keep seeing every category. Without this,
+    // the case above passes just as well against a read that scoped ALWAYS.
+    const storeId = await makeStore();
+    const wanted = await makeCategory();
+    const other = await makeCategory();
+
+    const newestElsewhere = await makeStoreListing({
+      storeId,
+      publishedAt: minutesAgo(1),
+      categoryId: other,
+    });
+    const inWanted = await makeStoreListing({
+      storeId,
+      publishedAt: minutesAgo(2),
+      categoryId: wanted,
+    });
+
+    const rows = await findActiveListingsForStores({ storeIds: [storeId], perStoreLimit: 3 });
+
+    expect(rows.map((row) => row.id)).toEqual([newestElsewhere, inWanted]);
+  });
+
+  it('reads nothing for an explicitly empty category list', async () => {
+    // "Nothing qualifies", never "no restriction" — the same convention
+    // `listingIds`, `collectionIds` and `findOnSaleListings` already follow. A
+    // caller that resolved a scope to zero categories must not be answered with
+    // the store's whole catalogue.
+    const storeId = await makeStore();
+    const category = await makeCategory();
+    await makeStoreListing({ storeId, publishedAt: minutesAgo(1), categoryId: category });
+
+    expect(
+      await findActiveListingsForStores({ storeIds: [storeId], perStoreLimit: 3, categoryIds: [] }),
+    ).toEqual([]);
   });
 });
