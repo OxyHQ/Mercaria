@@ -12,8 +12,7 @@ import { renderJsonLd } from '@/lib/catalog/structured-data';
 import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
 
 /**
- * The taxonomy index hub — `/categories`. Renders the discovery feed at
- * `scope: 'root'` (`docs/superpowers/specs/2026-09-07-discovery-feed-design.md`).
+ * The taxonomy index hub — `/categories`.
  *
  * ## The SEO decision this page needed, and what was decided
  *
@@ -26,30 +25,26 @@ import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
  * none of those. The reasoning is on the `PublicRouteId` member, where the next
  * person to ask will find it.
  *
- * The page's value to a crawler is that it is a page of links to category
- * pages, and that did not change with this redesign — the tiles and section
- * headers the feed renders ARE those links. The markup changed; the link
- * graph did not.
+ * ## It renders the PUBLISHED navigation, not a second taxonomy
  *
- * ## This retired the hub's only reader of the taxonomy-v2 fallback
+ * `useCatalogNavigation` answers with the taxonomy-v2 trees when
+ * `CATALOG_TAXONOMY_V2_ENABLED` is on and falls back to the v1 category tree
+ * when it is not, REPORTING which answered (ADR 0007 D12). This hub therefore
+ * shows the same menu the rest of the storefront shows, in the same order
+ * somebody published, rather than a private arrangement of the same rows that
+ * would disagree with the header the moment an operator reordered one.
  *
- * Before this redesign this screen rendered `useCatalogNavigation` — the hook
- * that answers with the taxonomy-v2 trees when `CATALOG_TAXONOMY_V2_ENABLED`
- * is on and falls back to the v1 category tree when it is not, REPORTING
- * which answered (ADR 0007 D12) — and was its only app consumer. That is what
- * `docs/runbooks/catalog-rollout-rollback.md` §3/§6 point at when they say the
- * storefront menu visibly falls back when the lever goes off.
+ * That hook had no consumer before this screen. Its fallback is what
+ * `docs/runbooks/catalog-rollout-rollback.md` promises, and this page is now
+ * the surface where turning the lever off is visible.
  *
- * The discovery feed does not read `GET /navigation` at all:
- * `services/discovery/feed.service.ts`'s root scope composes its sections
- * from `categoryRepository` directly, the same source the v1 fallback reads,
- * regardless of the flag. So this hub now renders identically whether
- * taxonomy-v2 is on or off, and a taxonomy-v2 entry with no destination in
- * this app (`saved_query`, `collection`, `product_type`, `campaign` — the
- * four kinds `NavigationMenu` used to render as text) has no section kind to
- * appear in here anymore. Flagged rather than silently dropped; the runbook's
- * rehearsal step and this consequence need a follow-up decision this task did
- * not make.
+ * ## An entry with no destination is a heading, and that is not a defect here
+ *
+ * `navigationTargetHref` answers `undefined` for the four target kinds the
+ * storefront has no screen for (`saved_query`, `collection`, `product_type`,
+ * and `campaign`, which leaves through `Linking` instead).`NavigationMenu`
+ * renders those as text. On a hub that is the correct rendering rather than a
+ * dead row: the shopper reads the structure and follows the parts that exist.
  *
  * ## No count, no "N products"
  *

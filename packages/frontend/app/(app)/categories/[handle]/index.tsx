@@ -32,20 +32,29 @@ import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
  * | breadcrumbs, canonical URL, `hreflang`, redirects | `GET /seo/resolve` |
  * | the header art, subcategories and products | `GET /discovery/feed?scope=category:<slug>` |
  *
- * ## There is no facet rail here, and the whole apparatus is now dead code (#637)
+ * ## There is no facet rail here — there never could have been (#637)
  *
- * The manual `useListings`-backed grid this screen used to render is gone,
- * replaced by the feed's own `products` sections. `POST /facets` counted over
- * a different catalogue from that grid to begin with —
- * `lib/catalog/facet-consumption.ts` derives that from the grid's own query
- * type — so removing the grid does not reopen anything #637 closed.
+ * `FacetSelectionConsumption` (`lib/catalog/facet-consumption.ts`) has
+ * exactly ONE member, the unsupported one, so `mayOfferFacetRail` can never
+ * return `true` for this grid's query — "this screen offers a working filter
+ * rail" is unrepresentable, not merely false today, per that module's own
+ * docblock. A `FacetRail` mount here was always gated by a branch that
+ * could not be taken, on any deployment, even before this redesign.
  *
- * It does mean `FacetRail`, `useFacets` and `lib/catalog/facet-selection.ts`
- * lose their only app-level caller. They are left in place, deliberately: the
- * backend `/facets` surface and `FACETS_ENABLED` are untouched, and
- * `facet-consumption.ts`'s own docblock describes the future grid (`GET
- * /search` or `/catalog-pages`) that is meant to consume that rail. Deleting
- * the component now would make that future task rebuild it from nothing.
+ * The manual `useListings`-backed grid that mount used to sit over is gone
+ * now too, replaced by the feed's own `products` sections, which carry no
+ * facet-selection parameter at all — a smaller claim than "removing the grid
+ * reopens #637": there was never a live path to reopen.
+ *
+ * That leaves `FacetRail`, `useFacets` and `lib/catalog/facet-selection.ts`
+ * with no remaining SYNTACTIC reference anywhere in the app — removed here,
+ * not orphaned here; they had no live caller before this file changed
+ * either. They are left in place, deliberately: the backend `/facets`
+ * surface and `FACETS_ENABLED` are untouched (and were never reachable from
+ * this screen regardless), and `facet-consumption.ts`'s own docblock
+ * describes the future grid (`GET /search` or `/catalog-pages`) that is
+ * meant to consume that rail. Deleting the component now would make that
+ * future task rebuild it from nothing.
  *
  * ## The address is `/categories/:handle`, which is the registry's own pattern
  *

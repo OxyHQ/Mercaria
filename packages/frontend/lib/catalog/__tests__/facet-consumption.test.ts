@@ -22,14 +22,26 @@ import {
  * component. So the entrypoint half reads the screen's source, which is a
  * weaker instrument, and it carries a positive control because of it.
  *
- * ## The grid itself is gone, not just re-gated
+ * ## The mount was never live, and the grid it sat over is gone too
+ *
+ * `FacetSelectionConsumption` (`../facet-consumption.ts`) has exactly ONE
+ * member and it is the unsupported one — "so 'this screen offers a working
+ * filter rail' is unrepresentable rather than merely false today", per that
+ * module's own docblock. `mayOfferFacetRail` is `consumption.kind !==
+ * 'unsupported'`, which this type can never satisfy. So `<FacetRail>` was
+ * gated by a branch that could not be taken, not by one that happened to be
+ * false — the mount never rendered, on any deployment, before this redesign
+ * either.
  *
  * The discovery-feed redesign (`docs/superpowers/specs/2026-09-07-discovery-
- * feed-design.md`) replaced the manual `useListings` + `CategoryListingCard`
- * grid this screen used to render with the feed's own `products` sections,
- * which carry no facet-selection parameter at all. So the second block below
- * no longer asserts a GATED `<FacetRail` mount — there is no mount, gated or
- * not, and that is the stronger form of #637's fix: nothing left to gate.
+ * feed-design.md`) then replaced the manual `useListings` +
+ * `CategoryListingCard` grid this screen used to render with the feed's own
+ * `products` sections, which carry no facet-selection parameter at all. That
+ * removed the last SYNTACTIC reference to a mount that already had no live
+ * path — a smaller claim than "the redesign orphaned this rail", and the
+ * correct one. So the second block below no longer asserts a GATED
+ * `<FacetRail` mount — there is no mount, gated or not, which is what an
+ * always-untakeable branch looks like once nothing still points at it.
  */
 
 /**
@@ -85,10 +97,13 @@ describe('the category screen mounts no facet rail at all', () => {
   });
 
   /**
-   * Not "gated" — ABSENT. The grid `FacetRail` used to sit over is gone, so a
-   * mount here (gated or not) would be offering a rail over content that
-   * cannot be selection-filtered by construction, which is the same defect
-   * #637 fixed in a different shape.
+   * Not "gated" — ABSENT. `mayOfferFacetRail` could never return `true` for
+   * this grid even before the redesign (see the file docblock above), so a
+   * `<FacetRail` mount here — gated or not — would be offering a rail over
+   * content that cannot be selection-filtered by construction. The feed's
+   * `products` sections carry no facet-selection parameter at all, which is
+   * the same underlying fact #637 first found, in a form with no rail left
+   * to gate.
    */
   it('mounts no facet rail and reads no facets', () => {
     expect(source).not.toContain('<FacetRail');
