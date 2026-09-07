@@ -570,6 +570,41 @@ function resolveReferralOperatorIds(): readonly string[] {
  * There is no `STRIPE_ACCOUNT_ID`: the platform account is implied by the key,
  * and connected-account ids live only in provider-account records (#46).
  */
+/**
+ * The Peable rail is ON only when the operator asked for it AND every secret it
+ * cannot work without is present.
+ *
+ * A CONJUNCTION, not a flag, and the same shape every other integration in this
+ * file uses: a half-configured rail that accepted a checkout and failed
+ * mid-request on the first missing secret is strictly worse than one that stayed
+ * off and said so at boot.
+ *
+ * `PEABLE_WEBHOOK_SECRET` is in the required set even though nothing is charged
+ * without it: Mercaria reaches `paid` ONLY from a verified event (ADR 0001), so
+ * a rail that can create a payment and cannot verify its settlement takes money
+ * and leaves every order unpaid.
+ */
+function resolvePeableEnabled(): boolean {
+  if (!boolEnv('PEABLE_ENABLED', false)) return false;
+
+  const missing = (
+    [
+      'PEABLE_BASE_URL',
+      'PEABLE_APP_PUBLIC_KEY',
+      'PEABLE_APP_SECRET',
+      'PEABLE_WEBHOOK_SECRET',
+    ] as const
+  ).filter((name) => (process.env[name]?.trim() ?? '') === '');
+  if (missing.length === 0) return true;
+
+  log.general.error(
+    { missing },
+    '[Peable] PEABLE_ENABLED is set but the integration is incomplete; staying OFF. ' +
+      'No payment can be created on this rail and no webhook endpoint is mounted.',
+  );
+  return false;
+}
+
 function resolveStripeEnabled(): boolean {
   if (!boolEnv('STRIPE_ENABLED', false)) return false;
 
@@ -1432,6 +1467,45 @@ export interface ReconciliationConfig {
   readonly lookbackMs: number;
 }
 
+/**
+ * The Peable gateway.
+ *
+ * There is deliberately NO seller-country or presentment-currency list here:
+ * those are the gateway's constraints now, and a second copy in this file would
+ * refuse a country Peable had started supporting, with no way for anyone here
+ * to notice.
+ */
+export interface PeableConfig {
+  /** True only when `PEABLE_ENABLED` is set AND every required secret is present. */
+  readonly enabled: boolean;
+  readonly baseUrl: string;
+  readonly oxyApiUrl: string;
+  readonly publicKey: string;
+  readonly secret: string;
+  readonly webhookSecret: string;
+  /**
+   * The rotation window. A gateway cannot atomically swap a webhook secret, so
+   * a rotation is: add the new one here as the previous, switch, remove.
+   * Without it every in-flight delivery during the swap is rejected as a
+   * forgery.
+   */
+  readonly webhookSecretPrevious?: string;
+  /** Derived from the environment, never configured. */
+  readonly livemode: boolean;
+  /**
+   * The inbound event drain, mirroring Stripe's four.
+   *
+   * Its OWN keys rather than borrowing `stripe.event*`, because the two rails
+   * are drained by two pollers with two claim scopes and the day one of them
+   * needs a longer lease or a bigger batch is the day a shared key becomes a
+   * change to the other rail nobody asked for.
+   */
+  readonly eventMaxAttempts: number;
+  readonly eventBatchSize: number;
+  readonly eventPollIntervalMs: number;
+  readonly eventLeaseMs: number;
+}
+
 export interface PaymentsConfig {
   /**
    * Whether the payment outbox DISPATCHER runs. The durable record is never
@@ -1457,6 +1531,12 @@ export interface PaymentsConfig {
   readonly outboxLeaseMs: number;
   /** The Stripe rail (ADR 0001, issues #46–#50). */
   readonly stripe: StripeConfig;
+  /**
+   * The Peable rail (ADR 0009 D13) — the Oxy gateway Mercaria's card payments
+   * go through. `stripe` stays beside it until the new rail is verified end to
+   * end, which is what keeps checkout up across the move.
+   */
+  readonly peable: PeableConfig;
   /** Reconciliation and the operator surface (#50). */
   readonly reconciliation: ReconciliationConfig;
   /**
@@ -4312,6 +4392,35 @@ export const config: AppConfig = Object.freeze({
     outboxBatchSize: intEnv('PAYMENT_OUTBOX_BATCH_SIZE', 50),
     outboxPollIntervalMs: intEnv('PAYMENT_OUTBOX_POLL_INTERVAL_MS', 5_000),
     outboxLeaseMs: intEnv('PAYMENT_OUTBOX_LEASE_MS', 60_000),
+    peable: Object.freeze({
+      enabled: resolvePeableEnabled(),
+      /** The gateway's origin, no trailing slash. */
+      baseUrl: strEnv('PEABLE_BASE_URL', 'https://api.peable.to').replace(/\/+$/, ''),
+      /** Where the service token is minted. The SAME oxy-api every Oxy service uses. */
+      oxyApiUrl: strEnv('OXY_API_URL', 'https://api.oxy.so').replace(/\/+$/, ''),
+      /** Mercaria's own ApplicationCredential. Never sent to Peable — only the minted token is. */
+      publicKey: strEnv('PEABLE_APP_PUBLIC_KEY', ''),
+      secret: strEnv('PEABLE_APP_SECRET', ''),
+      webhookSecret: strEnv('PEABLE_WEBHOOK_SECRET', ''),
+      // Spread-when-present, like Stripe's rotation secrets: absent rather than
+      // `''`, so the verifier iterates the secrets it actually has instead of
+      // computing an HMAC against an empty key that can never match.
+      ...(process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS?.trim()
+        ? { webhookSecretPrevious: process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS.trim() }
+        : {}),
+      /**
+       * DERIVED from the environment, never configured.
+       *
+       * A deployment cannot claim one mode while holding the other's
+       * credentials, which is the same property `stripe.livemode` gets from the
+       * `sk_live_` prefix.
+       */
+      livemode: strEnv('NODE_ENV', 'development') === 'production',
+      eventMaxAttempts: intEnv('PEABLE_EVENT_MAX_ATTEMPTS', 8),
+      eventBatchSize: intEnv('PEABLE_EVENT_BATCH_SIZE', 50),
+      eventPollIntervalMs: intEnv('PEABLE_EVENT_POLL_INTERVAL_MS', 5_000),
+      eventLeaseMs: intEnv('PEABLE_EVENT_LEASE_MS', 60_000),
+    }),
     stripe: Object.freeze({
       enabled: resolveStripeEnabled(),
       secretKey: strEnv('STRIPE_SECRET_KEY', ''),

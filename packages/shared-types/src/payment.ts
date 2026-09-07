@@ -42,6 +42,12 @@ import type { Money } from './money';
  *    implementation of the whole `PaymentProvider` interface. It is what the
  *    contract test suite runs and what the dev-only `mockPay` seam uses,
  *    hard-gated by `config.orders.mockPayEnabled` and off in production.
+ *  - `peable` — the card rail of ADR 0009, and the rail every Oxy payment now
+ *    takes. Mercaria talks to the Peable gateway, which serves fiat through
+ *    providers (Stripe first) that Mercaria never names. Added HERE together
+ *    with `services/payments/peable/`, which is the whole of this set's rule —
+ *    the adapter that can produce a `peable` row ships in the same change as
+ *    the id and the migration widening the CHECK.
  *  - `stripe` — the card rail of ADR 0001. Added by #48, which builds the
  *    webhook ingress: a verified Stripe event is written to
  *    `payment_provider_events` under this id, so the id has to exist before the
@@ -55,13 +61,19 @@ import type { Money } from './money';
  * Nothing is authorized, captured or refunded through them, and neither books a
  * ledger entry — no Mercaria money moved.
  */
-export type PaymentProviderId = 'external' | 'manual_pos' | 'mock' | 'stripe';
+export type PaymentProviderId = 'external' | 'manual_pos' | 'mock' | 'peable' | 'stripe';
 
 /** {@link PaymentProviderId} as the tuple the column types and CHECKs read. */
 export const PAYMENT_PROVIDER_IDS: readonly PaymentProviderId[] = [
   'external',
   'manual_pos',
   'mock',
+  'peable',
+  // `stripe` STAYS for now, and its removal is a separate change (ADR 0009
+  // D13). The two rails coexist behind `resolvePaymentProvider` for exactly as
+  // long as it takes to verify the new one end to end — which is what keeps
+  // checkout up across the move, and what makes a rollback a config change
+  // rather than a migration.
   'stripe',
 ];
 

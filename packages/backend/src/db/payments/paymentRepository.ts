@@ -578,6 +578,21 @@ export async function findProviderEventById(
 export interface ClaimProviderEventOptions {
   leaseOwner: string;
   leaseMs: number;
+  /**
+   * Which rails' events this caller is willing to interpret. REQUIRED.
+   *
+   * Not optional, and not defaulted to "all", because a drain claims a row and
+   * then hands it to ITS OWN router. Before ADR 0009 there was one rail and the
+   * question could not arise; with two, an unfiltered claim takes the oldest due
+   * row of EITHER rail — so the Stripe drain would claim a `peable` event, find
+   * no handler for `payment_intent.settled` (the two rails do not share type
+   * names), and mark it `processed` with "no handler in this version". A real
+   * settlement, swallowed, with the event row saying it was handled.
+   *
+   * Making it required means a third rail cannot be added without its author
+   * being asked this question by the compiler.
+   */
+  providers: readonly PaymentProviderId[];
   /** Claim this ONE row if it is due, instead of the oldest — the inline path. */
   eventId?: string;
   now?: Date;
@@ -603,6 +618,10 @@ export interface ClaimProviderEventOptions {
  * Ordered by `received_at` so the oldest goes first: an event stream that
  * processed its newest arrivals first would starve its own head under load,
  * which for a payment stream means the oldest unfunded order waits longest.
+ *
+ * Scoped to `options.providers` — see that field for why it is required rather
+ * than defaulted. An empty list claims nothing, which is the honest answer for a
+ * caller that interprets no rail.
  */
 export async function claimProviderEvent(
   db: DatabaseOrTransaction,
@@ -611,6 +630,13 @@ export async function claimProviderEvent(
   const now = options.now ?? new Date();
   const leaseUntil = new Date(now.getTime() + Math.max(1_000, options.leaseMs));
 
+  // Empty means nothing is claimable. `inArray(col, [])` renders `false` in
+  // drizzle, so this is belt-and-braces — but a caller that passed an empty list
+  // and got the OLDEST EVENT OF EVERY RAIL would be the exact bug this parameter
+  // exists to prevent, so it is stated rather than inferred from the SQL.
+  if (options.providers.length === 0) return undefined;
+
+  const rail = inArray(paymentProviderEvents.provider, [...options.providers]);
   const due = or(
     and(
       inArray(paymentProviderEvents.status, ['received', 'failed']),
@@ -632,7 +658,11 @@ export async function claimProviderEvent(
   const candidate = db
     .select({ id: paymentProviderEvents.id })
     .from(paymentProviderEvents)
-    .where(options.eventId ? and(eq(paymentProviderEvents.id, options.eventId), due) : due)
+    .where(
+      options.eventId
+        ? and(eq(paymentProviderEvents.id, options.eventId), rail, due)
+        : and(rail, due),
+    )
     .orderBy(paymentProviderEvents.receivedAt)
     .limit(1)
     .for('update', { skipLocked: true });

@@ -1,6 +1,6 @@
 {
-  "id": "2dac534d-ea0a-45e1-819c-f03b55ca64e4",
-  "prevId": "81b30aeb-7fe9-4735-adb4-53b0b0f42557",
+  "id": "e650d759-61f8-4022-a308-5e02a8fe14ea",
+  "prevId": "2dac534d-ea0a-45e1-819c-f03b55ca64e4",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -99564,6 +99564,253 @@
         "catalog_review_events_actor_presence_check": {
           "name": "catalog_review_events_actor_presence_check",
           "value": "(\"catalog_review_events\".\"actor_kind\" = 'system') = (\"catalog_review_events\".\"actor_oxy_user_id\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.discovery_signals": {
+      "name": "discovery_signals",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "subject_type": {
+          "name": "subject_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_id": {
+          "name": "subject_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "window": {
+          "name": "window",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "units_sold": {
+          "name": "units_sold",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "order_count": {
+          "name": "order_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "view_count": {
+          "name": "view_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "computed_at": {
+          "name": "computed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        }
+      },
+      "indexes": {
+        "discovery_signals_subject_scope_key": {
+          "name": "discovery_signals_subject_scope_key",
+          "columns": [
+            {
+              "expression": "subject_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "subject_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "window",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "discovery_signals_units_sold_idx": {
+          "name": "discovery_signals_units_sold_idx",
+          "columns": [
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "window",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "units_sold",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "discovery_signals_view_count_idx": {
+          "name": "discovery_signals_view_count_idx",
+          "columns": [
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "window",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "view_count",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "discovery_signals_subject_type_check": {
+          "name": "discovery_signals_subject_type_check",
+          "value": "\"discovery_signals\".\"subject_type\" in ('listing', 'store')"
+        },
+        "discovery_signals_window_check": {
+          "name": "discovery_signals_window_check",
+          "value": "\"discovery_signals\".\"window\" in ('30d')"
+        },
+        "discovery_signals_counts_check": {
+          "name": "discovery_signals_counts_check",
+          "value": "\"discovery_signals\".\"units_sold\" >= 0 and \"discovery_signals\".\"order_count\" >= 0 and \"discovery_signals\".\"view_count\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.discovery_sweep_cursors": {
+      "name": "discovery_sweep_cursors",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "lease_owner": {
+          "name": "lease_owner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_run_at": {
+          "name": "last_run_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "discovery_sweep_cursors_lease_check": {
+          "name": "discovery_sweep_cursors_lease_check",
+          "value": "num_nonnulls(\"discovery_sweep_cursors\".\"lease_owner\", \"discovery_sweep_cursors\".\"lease_expires_at\") in (0, 2)"
         }
       },
       "isRLSEnabled": false

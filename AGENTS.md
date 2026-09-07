@@ -132,11 +132,11 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
 
 ## Things that break silently if you change them
 
-- **Four routers must stay mounted BEFORE `express.json()`** — the CrowdSource,
-  Stripe (two), channel and supplier webhooks, plus the feed-import upload route,
-  which buffers its own body. Listed in `docs/house-invariants.md`, asserted
-  against the real middleware chain by
-  `routes/__tests__/stripe-webhook.integration.test.ts`.
+- **Five routers must stay mounted BEFORE `express.json()`** — the CrowdSource,
+  Stripe (two), Peable, channel and supplier webhooks, plus the feed-import
+  upload route, which buffers its own body. Listed in `docs/house-invariants.md`,
+  asserted against the real middleware chain PER MOUNT — a sixth mount brings a
+  sixth test file.
 - **Three moderation ESCAPES are closed in pre-existing commerce code**, and a
   reviewer reading `services/moderation/` would never see them:
   `catalog-write.service.updateListing` refuses to set `restricted` or to move a

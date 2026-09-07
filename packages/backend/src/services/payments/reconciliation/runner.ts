@@ -30,14 +30,33 @@
  * reason: switching a loop off during an incident should park work, not lose the
  * record of it.
  *
- * The sweeps additionally require the RAIL, because four of the five cannot ask
- * their question without it. The ledger audit is the exception and it is not
- * treated as one: a deployment with no Stripe has no payments to audit, so
- * running it alone would be a timer with nothing to find.
+ * ## The rail is required PER JOB, not for the loop
+ *
+ * This used to be `if (!config.payments.stripe.enabled) return;` — the whole
+ * timer, off, silently, on any deployment without Stripe. The reasoning was
+ * sound while Stripe was the only rail that could produce a payment: four of the
+ * five sweeps cannot ask their question without it, and a deployment with no
+ * Stripe had nothing to audit.
+ *
+ * ADR 0009 made that premise false. A Peable deployment has payments, they book
+ * the ledger (`PROVIDER_BOOKS_LEDGER`), and `mock` books it too — so the audit
+ * that exists to notice a succeeded payment with no charge behind it had a real
+ * question to ask and a timer that never started to ask it. Two of the five
+ * sweeps read only Mercaria's own rows and work on any deployment.
+ *
+ * So the requirement moved to where it belongs. `JOB_REQUIRES_RAIL` names what
+ * each sweep reads, the loop runs whenever reconciliation is enabled, and a
+ * sweep whose rail is off is SKIPPED WITH A REASON rather than silently absent.
+ * A skip an operator can see is the point: "not configured" and "never ran"
+ * looked identical before, and the second is the one that hides a finding.
  */
 
 import { randomUUID } from 'node:crypto';
-import { PAYMENT_RECONCILIATION_JOBS, type ReconciliationJob } from '@mercaria/shared-types';
+import {
+  PAYMENT_RECONCILIATION_JOBS,
+  type PaymentProviderId,
+  type ReconciliationJob,
+} from '@mercaria/shared-types';
 import { config } from '../../../config/index.js';
 import { getDb } from '../../../db/postgres.js';
 import {
@@ -57,8 +76,69 @@ import { auditLedgerPage } from './ledger-audit.job.js';
 import { reconcileAccountReadiness } from './account-readiness.job.js';
 import { releaseWithheldTransfersPage } from './withheld-transfers.job.js';
 
+/**
+ * Which rail each sweep READS, or `null` when it reads only Mercaria's rows.
+ *
+ * A total record over `ReconciliationJob`, so a sixth sweep cannot be added
+ * without its author answering this — the alternative is a job that silently
+ * runs on a deployment whose rail cannot serve it, which fails as a page of
+ * provider errors rather than as a skip.
+ *
+ * The two `null`s are not "rail-agnostic by luck". `ledger_audit` compares
+ * Mercaria's payments against Mercaria's ledger and derives its provider list
+ * from `PROVIDER_BOOKS_LEDGER`, so it covers every booking rail including
+ * `mock`. `withheld_transfers` re-enters settlement through the provider PORT,
+ * which resolves whichever rail the payment names.
+ */
+const JOB_REQUIRES_RAIL: Readonly<Record<ReconciliationJob, PaymentProviderId | null>> = {
+  // Re-reads the provider's own payment object to converge a status Mercaria
+  // was never told about.
+  open_payments: 'stripe',
+  // Pages the provider's settled-movement ledger. ADR 0009 D16: Peable has no
+  // equivalent surface yet, which is why this stays named to `stripe` rather
+  // than being widened optimistically.
+  provider_objects: 'stripe',
+  ledger_audit: null,
+  // Re-reads connected accounts. Also Stripe-shaped until the gateway's account
+  // surface is consumed here.
+  account_readiness: 'stripe',
+  withheld_transfers: null,
+  // NOT dispatched by this runner — `retail_reconciliation` shares the cursor
+  // TABLE and not the runner (#128: `role-separation.test.ts` forbids anything
+  // under `services/payments/` from importing the procurement domain), so it
+  // lives in `services/retail-reconciliation/runner.ts` and this file refuses it
+  // by name. It is listed only because the record is TOTAL over
+  // `ReconciliationJob`, which is what makes a genuinely new sweep answer this
+  // question at compile time. The value is unreachable from here.
+  retail_reconciliation: null,
+};
+
+/** Whether this deployment can serve what the sweep needs to read. */
+export function reconciliationJobIsServable(job: ReconciliationJob): boolean {
+  const rail = JOB_REQUIRES_RAIL[job];
+  if (rail === null) return true;
+  if (rail === 'stripe') return config.payments.stripe.enabled;
+  if (rail === 'peable') return config.payments.peable.enabled;
+  // Every other `PaymentProviderId` is a rail with no configuration to check —
+  // `external`, `manual_pos` and `mock` are always "available" in the sense this
+  // predicate asks about. Reached only if a future job names one.
+  return true;
+}
+
 let timer: NodeJS.Timeout | undefined;
 let running = false;
+
+/**
+ * Whether the sweep loop is ticking on this task.
+ *
+ * Exported because "started" was previously unobservable, and the change that
+ * made this file worth revisiting was a loop that did not start and said
+ * nothing. An operator asking the question — and the test that pins the
+ * behaviour — both need an answer that is not "read the logs".
+ */
+export function isPaymentReconcilerRunning(): boolean {
+  return timer !== undefined;
+}
 
 /** What one job's page did, in the shape the runner needs from all five. */
 interface JobPageOutcome {
@@ -83,6 +163,16 @@ export async function runReconciliationJob(
   job: ReconciliationJob,
   options?: { limit?: number; now?: Date },
 ): Promise<JobPageOutcome | undefined> {
+  // NOT gated on the rail, deliberately, unlike the tick.
+  //
+  // `reconciliationJobIsServable` asks whether this DEPLOYMENT has the rail
+  // configured, which is the right question for an automatic loop that would
+  // otherwise retry provider errors every five minutes forever. It is the wrong
+  // question here: this is the deliberate entry point — an operator driving one
+  // sweep, or a suite that has substituted the provider client — and "the
+  // deployment has no live credentials" does not mean the caller's job cannot
+  // run. Gating it broke exactly that, by making a directly-driven
+  // `provider_objects` return `undefined` against a mocked rail.
   const db = getDb();
   const now = options?.now ?? new Date();
   const limit = options?.limit ?? config.payments.reconciliation.batchSize;
@@ -251,6 +341,10 @@ async function tick(): Promise<void> {
   running = true;
   try {
     for (const job of JOB_ORDER) {
+      // Skipped rather than attempted. A sweep whose rail is off would fail as a
+      // page of provider errors, move no cursor, and retry every tick forever —
+      // noise that looks like an outage instead of a configuration.
+      if (!reconciliationJobIsServable(job)) continue;
       try {
         await runReconciliationJob(job);
       } catch (error: unknown) {
@@ -275,7 +369,6 @@ export function startPaymentReconciler(): void {
     );
     return;
   }
-  if (!config.payments.stripe.enabled) return;
 
   timer = setInterval(() => {
     void tick();
@@ -283,14 +376,29 @@ export function startPaymentReconciler(): void {
   // Never hold the event loop open for the poll — see `~/Oxy/AGENTS.md`.
   timer.unref?.();
 
+  const skipped = JOB_ORDER.filter((job) => !reconciliationJobIsServable(job));
+
   log.general.info(
     {
       intervalMs: config.payments.reconciliation.intervalMs,
       batchSize: config.payments.reconciliation.batchSize,
       openPaymentMinAgeMs: config.payments.reconciliation.openPaymentMinAgeMs,
+      running: JOB_ORDER.filter((job) => reconciliationJobIsServable(job)),
     },
     '[Reconciliation] payment reconciliation started',
   );
+
+  // Said ONCE, at boot, and at warn level. The whole reason this file changed is
+  // that a sweep which never ran was indistinguishable from one that ran and
+  // found nothing; a deployment that is missing four of its five sweeps should
+  // have to have decided that, not discover it during an incident.
+  if (skipped.length > 0) {
+    log.general.warn(
+      { skipped: skipped.map((job) => ({ job, needs: JOB_REQUIRES_RAIL[job] })) },
+      '[Reconciliation] some sweeps are NOT running because their rail is not configured ' +
+        'on this deployment; the discrepancies they would find will not be detected',
+    );
+  }
 }
 
 /**
