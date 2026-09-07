@@ -119,11 +119,15 @@ const DISCOVERY_FEED_CACHE_VERSION = 'v1';
  * The two signals a category page renders as compact two-per-row cards —
  * `top-rated` and `new`, the reference capture's own measured shape (NOT
  * `best-selling`, which the capture renders as a full-width shelf instead).
+ *
+ * Exported, with {@link SHELF_SIGNALS}, so `__tests__/discovery-vocabularies.test.ts`
+ * can bind the pair to `DISCOVERY_SIGNALS`: this is the RENDER split, and it is
+ * as much a partition of the five signals as the storage split beside it there.
  */
-const CARD_GROUP_SIGNALS: readonly DiscoverySignal[] = ['top-rated', 'new'];
+export const CARD_GROUP_SIGNALS: readonly DiscoverySignal[] = ['top-rated', 'new'];
 
 /** The three signals a category page renders as full-width shelves. */
-const SHELF_SIGNALS: readonly DiscoverySignal[] = ['on-sale', 'best-selling', 'most-viewed'];
+export const SHELF_SIGNALS: readonly DiscoverySignal[] = ['on-sale', 'best-selling', 'most-viewed'];
 
 /** The single signal driving the root scope's hero — new arrivals, category by category. */
 const HERO_SIGNAL: DiscoverySignal = 'new';

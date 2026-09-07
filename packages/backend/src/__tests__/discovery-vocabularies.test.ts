@@ -18,6 +18,10 @@ import {
   DISCOVERY_WINDOWS,
   ORDER_STATUSES,
 } from '@mercaria/shared-types';
+import {
+  CARD_GROUP_SIGNALS,
+  SHELF_SIGNALS,
+} from '../services/discovery/feed.service.js';
 
 describe('discovery vocabularies', () => {
   it('splits the signals into exactly the two storage sources, with no overlap and no orphan', () => {
@@ -25,6 +29,20 @@ describe('discovery vocabularies', () => {
     // `discovery_signals`. A signal in neither has no query behind it; a signal
     // in both has two that can disagree.
     const union = [...DISCOVERY_SIGNALS_FROM_LISTINGS, ...DISCOVERY_SIGNALS_FROM_COUNTS];
+    expect([...union].sort()).toEqual([...DISCOVERY_SIGNALS].sort());
+    expect(new Set(union).size).toBe(union.length);
+  });
+
+  it('splits the signals into exactly the two RENDER groups, with no overlap and no orphan', () => {
+    // The same shape one layer up, and the second partition of the same five.
+    // `feed.service.ts` renders a category page from these two lists — the
+    // card group's two compact cards and the three full-width shelves — so a
+    // sixth signal added to NEITHER renders nowhere at all, and one added to
+    // BOTH renders twice under two different headings. Both are silent: every
+    // existing shelf keeps working, and there is no page anybody would think
+    // to check. `DISCOVERY_SIGNALS` renders a database CHECK, so adding a
+    // member is already a deliberate act; this is what makes placing it one.
+    const union = [...CARD_GROUP_SIGNALS, ...SHELF_SIGNALS];
     expect([...union].sort()).toEqual([...DISCOVERY_SIGNALS].sort());
     expect(new Set(union).size).toBe(union.length);
   });
