@@ -495,7 +495,66 @@ function onePerStore(
   );
 }
 
-/** The deals scope: one `store-offer` card per store with a live automatic discount, nothing else. */
+/**
+ * The listings of one store's candidate set that its discount actually
+ * REDUCES.
+ *
+ * The read below already restricts each store's query to the right population;
+ * this is the second net, and it is not redundant — the three reads are
+ * batched across stores, so a store whose listing sits in ANOTHER store's
+ * targeted collection (or is named by another store's `applies_to_product_ids`)
+ * would otherwise arrive in this store's bucket and be advertised under a
+ * discount that cannot touch it.
+ *
+ * Exhaustive over `DISCOUNT_SCOPES` through the `never` default, and that
+ * default is load-bearing rather than decorative: this package compiles with
+ * `strict: false`, so a switch missing an arm falls out of the bottom and
+ * returns `undefined` with no diagnostic at all — measured, not assumed. With
+ * it, a fourth scope is a compile error here rather than a silent
+ * fall-through to "everything the store sells".
+ */
+function coveredByDiscount(
+  candidates: readonly ListingRecord[],
+  discount: DiscountRow,
+  collectionIdsByListing: ReadonlyMap<string, string[]>,
+): ListingRecord[] {
+  switch (discount.appliesToScope) {
+    case 'order':
+      return [...candidates];
+    case 'products': {
+      const targeted = new Set(discount.appliesToProductIds ?? []);
+      return candidates.filter((listing) => targeted.has(listing.id));
+    }
+    case 'collections': {
+      const targeted = new Set(discount.appliesToCollectionIds ?? []);
+      return candidates.filter((listing) =>
+        (collectionIdsByListing.get(listing.id) ?? []).some((id) => targeted.has(id)),
+      );
+    }
+    default: {
+      const unreachable: never = discount.appliesToScope;
+      throw new Error(`unhandled discount scope: ${String(unreachable)}`);
+    }
+  }
+}
+
+/**
+ * The deals scope: one `store-offer` card per store with a live automatic
+ * discount, showing the products that discount COVERS.
+ *
+ * `discounts.applies_to_scope` is `notNull` and has three members, and two of
+ * them target a subset (`applies_to_product_ids`, `applies_to_collection_ids`)
+ * — the columns the design maps to "which products the shelf shows". Filling
+ * every card with the store's newest listings regardless would put products the
+ * discount cannot reduce under a header that says "20% off", which is the same
+ * false price the `method = 'code'` exclusion already refuses one layer down in
+ * `findStoresWithLiveDiscounts`.
+ *
+ * One bounded read per scope rather than one per store: the stores are
+ * partitioned by what their discount targets, and each partition's restriction
+ * is the union of its stores' targets, resolved back to the right store by
+ * `coveredByDiscount`.
+ */
 async function buildDealsFeed(): Promise<DiscoveryFeed> {
   const discounted = await findStoresWithLiveDiscounts(config.discovery.shelfSize);
   if (discounted.length === 0) {
@@ -503,16 +562,34 @@ async function buildDealsFeed(): Promise<DiscoveryFeed> {
   }
 
   const storeDiscounts = onePerStore(discounted);
+  const perStoreLimit = config.discovery.shelfSize;
 
-  const storeIds = storeDiscounts.map((d) => d.storeId);
-  const [stores, featured] = await Promise.all([
-    findStoresByIds(storeIds),
-    // The card's own product row is `shelfSize` wide; anything past it was
+  const orderScoped = storeDiscounts.filter((d) => d.discount.appliesToScope === 'order');
+  const productScoped = storeDiscounts.filter((d) => d.discount.appliesToScope === 'products');
+  const collectionScoped = storeDiscounts.filter((d) => d.discount.appliesToScope === 'collections');
+
+  const [stores, wholeCatalogue, targetedProducts, targetedCollections] = await Promise.all([
+    findStoresByIds(storeDiscounts.map((d) => d.storeId)),
+    // The card's own product row is `shelfSize` wide; anything past it would be
     // read and then sliced away.
-    findActiveListingsForStores({ storeIds, perStoreLimit: config.discovery.shelfSize }),
+    findActiveListingsForStores({
+      storeIds: orderScoped.map((d) => d.storeId),
+      perStoreLimit,
+    }),
+    findActiveListingsForStores({
+      storeIds: productScoped.map((d) => d.storeId),
+      perStoreLimit,
+      listingIds: productScoped.flatMap((d) => d.discount.appliesToProductIds ?? []),
+    }),
+    findActiveListingsForStores({
+      storeIds: collectionScoped.map((d) => d.storeId),
+      perStoreLimit,
+      collectionIds: collectionScoped.flatMap((d) => d.discount.appliesToCollectionIds ?? []),
+    }),
   ]);
   const storeById = new Map(stores.map((s) => [s.id, s]));
 
+  const featured = [...wholeCatalogue, ...targetedProducts, ...targetedCollections];
   const featuredByStore = new Map<string, ListingRecord[]>();
   for (const listing of featured) {
     if (!listing.storeId) continue;
@@ -524,12 +601,13 @@ async function buildDealsFeed(): Promise<DiscoveryFeed> {
     }
   }
 
-  // The card thumbnails come from the featured listings' galleries, batched
-  // once for every store on the shelf rather than per store.
-  const images: Map<string, ListingImageRecord[]> =
+  // The card thumbnails come from the featured listings' galleries — and the
+  // memberships that decide a `collections`-scoped card's products come from
+  // the SAME batched read, so honouring the scope costs no extra query.
+  const children =
     featured.length > 0
-      ? (await findListingChildren(featured.map((l) => l.id))).images
-      : new Map();
+      ? await findListingChildren(featured.map((l) => l.id))
+      : { images: new Map<string, ListingImageRecord[]>(), collectionIds: new Map<string, string[]>() };
 
   const sections: DiscoverySection[] = [];
   for (const { storeId, discount } of storeDiscounts) {
@@ -537,10 +615,14 @@ async function buildDealsFeed(): Promise<DiscoveryFeed> {
     if (!store) {
       continue;
     }
-    const storeListings = (featuredByStore.get(storeId) ?? []).slice(0, config.discovery.shelfSize);
+    const storeListings = coveredByDiscount(
+      featuredByStore.get(storeId) ?? [],
+      discount,
+      children.collectionIds,
+    );
     if (storeListings.length === 0) {
-      // No products means no offer to show — the same "no empty section" rule
-      // every other section builder follows.
+      // No products the discount covers means no offer to show — the same "no
+      // empty section" rule every other section builder follows.
       continue;
     }
     const products = await toProductSummaries(storeListings);
@@ -548,7 +630,7 @@ async function buildDealsFeed(): Promise<DiscoveryFeed> {
       kind: 'store-offer',
       id: `store-offer-${storeId}`,
       layout: 'grid',
-      store: toStoreSummary(store, storeListings, images),
+      store: toStoreSummary(store, storeListings, children.images),
       discount: toDiscountSummary(discount, store.defaultCurrency as CurrencyCode),
       products,
     });

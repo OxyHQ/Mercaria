@@ -169,6 +169,16 @@ never touches `discovery_signals` — `findStoresWithLiveDiscounts` selects one
 (a `method = 'code'` discount is excluded: a shelf advertising a saving the
 shopper cannot get without a code they do not have is a false price).
 
+A card shows the products its discount can actually REDUCE, not the store's
+newest. `applies_to_scope` is `notNull` and two of its three members target a
+subset, so `buildDealsFeed` partitions the shelf's stores by scope and gives
+each partition's read the union of its targets —
+`applies_to_product_ids` as listing ids, `applies_to_collection_ids` resolved
+through `listing_collections` — then `coveredByDiscount` filters each store's
+bucket back to its own discount's targets, because the reads are batched
+across stores. A card whose covered set is empty is dropped, like every other
+empty section.
+
 ## KNOWN LIMITATION (2026-09-07)
 
 `buildStoresSection` (`services/discovery/feed.service.ts`) reuses

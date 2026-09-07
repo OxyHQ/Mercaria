@@ -1708,15 +1708,53 @@ export async function findOnSaleListings(
  * measurement that chose a partitioned pass over a lateral join per subject.
  * The window and the outer `orderBy` share `NEWEST_FIRST` rather than spelling
  * it twice, so the rows kept and the order they arrive in cannot drift apart.
+ *
+ * **The two restrictions are applied INSIDE the window**, not after it, which
+ * is the whole reason they are here rather than in the caller: the cap has to
+ * be spent on the listings that qualify, or a card asking for twelve products
+ * out of a restricted set gets however many of a store's twelve newest happen
+ * to be in it. `listingIds` and `collectionIds` are the two shapes
+ * `discounts.applies_to_*` takes (`db/schema/merchandising.ts`), and an
+ * explicitly EMPTY set reads as "nothing qualifies" rather than "no
+ * restriction" — `findOnSaleListings` treats an empty `categoryIds` the same
+ * way, for the same reason.
  */
 export async function findActiveListingsForStores(
   options: {
     readonly storeIds: readonly string[];
     readonly perStoreLimit: number;
+    /** Restrict to these listing ids — `discounts.applies_to_product_ids`' population. */
+    readonly listingIds?: readonly string[];
+    /** Restrict to members of these collections — `discounts.applies_to_collection_ids`'. */
+    readonly collectionIds?: readonly string[];
   },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ListingRecord[]> {
   if (options.storeIds.length === 0) return [];
+  if (options.listingIds !== undefined && options.listingIds.length === 0) return [];
+  if (options.collectionIds !== undefined && options.collectionIds.length === 0) return [];
+
+  const predicates: SQL[] = [
+    eq(listings.ownerType, 'store'),
+    inArray(listings.storeId, [...options.storeIds]),
+    eq(listings.status, 'active'),
+  ];
+  if (options.listingIds !== undefined) {
+    predicates.push(inArray(listings.id, [...options.listingIds]));
+  }
+  if (options.collectionIds !== undefined) {
+    // UNCORRELATED, the same shape and the same index
+    // (`listing_collections_collection_id_position_idx`) `findListings`'
+    // `collectionId` filter uses below.
+    predicates.push(
+      sql`${listings.id} in (
+        select ${listingCollections.listingId}
+        from ${listingCollections}
+        where ${inArray(listingCollections.collectionId, [...options.collectionIds])}
+      )`,
+    );
+  }
+
   const ranked = db
     .select({
       id: listings.id,
@@ -1726,13 +1764,7 @@ export async function findActiveListingsForStores(
       )`.as('position'),
     })
     .from(listings)
-    .where(
-      and(
-        eq(listings.ownerType, 'store'),
-        inArray(listings.storeId, [...options.storeIds]),
-        eq(listings.status, 'active'),
-      ),
-    )
+    .where(and(...predicates))
     .as('ranked');
 
   return db

@@ -50,6 +50,8 @@ import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import type {
   CardGroupSection,
+  DiscountScope,
+  DiscountValueType,
   DiscoveryFeed,
   DiscoverySection,
   ProductsSection,
@@ -59,7 +61,7 @@ import type {
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { categories, listings } from '../../db/schema/catalog.js';
 import { discoverySignals } from '../../db/schema/discovery.js';
-import { discounts } from '../../db/schema/merchandising.js';
+import { collections, discounts, listingCollections } from '../../db/schema/merchandising.js';
 import { insertStore } from '../../db/stores/storeRepository.js';
 import { insertVariants } from '../../db/catalog/variantRepository.js';
 import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
@@ -225,7 +227,14 @@ async function makeStore(): Promise<string> {
 /** A LIVE automatic discount (started, active, no end) — `findStoresWithLiveDiscounts`'s shape. */
 async function makeLiveDiscount(
   storeId: string,
-  overrides: { startsAt?: Date; value?: number } = {},
+  overrides: {
+    startsAt?: Date;
+    value?: number;
+    valueType?: DiscountValueType;
+    appliesToScope?: DiscountScope;
+    appliesToProductIds?: string[];
+    appliesToCollectionIds?: string[];
+  } = {},
 ): Promise<string> {
   const [discount] = await db
     .insert(discounts)
@@ -233,14 +242,43 @@ async function makeLiveDiscount(
       storeId,
       title: 'Realdb discovery feed discount',
       method: 'automatic',
-      valueType: 'percentage',
+      valueType: overrides.valueType ?? 'percentage',
       value: overrides.value ?? 1500,
-      appliesToScope: 'order',
+      appliesToScope: overrides.appliesToScope ?? 'order',
+      appliesToProductIds: overrides.appliesToProductIds ?? null,
+      appliesToCollectionIds: overrides.appliesToCollectionIds ?? null,
       startsAt: overrides.startsAt ?? new Date(Date.now() - 60 * 1000),
       isActive: true,
     })
     .returning({ id: discounts.id });
   return discount.id;
+}
+
+/**
+ * A MANUAL collection holding `listingIds` — the population a
+ * `collections`-scoped discount targets. `collections.store_id` cascades from
+ * the store, and `listing_collections` cascades from both sides, so teardown
+ * needs nothing of its own.
+ */
+async function makeCollection(storeId: string, listingIds: string[]): Promise<string> {
+  const suffix = uuidv7();
+  const [collection] = await db
+    .insert(collections)
+    .values({
+      storeId,
+      title: 'Discovery feed collection',
+      handle: `discovery-feed-${suffix}`,
+      type: 'manual',
+    })
+    .returning({ id: collections.id });
+  await db.insert(listingCollections).values(
+    listingIds.map((listingId, position) => ({
+      listingId,
+      collectionId: collection.id,
+      position,
+    })),
+  );
+  return collection.id;
 }
 
 /**
@@ -478,6 +516,68 @@ describe('getDiscoveryFeed', () => {
     const productIds = productIdsIn(feed);
     expect(productIds).toContain(visible);
     expect(productIds).not.toContain(hidden);
+  });
+
+  it('a products-scoped discount advertises only the products it covers', async () => {
+    // `applies_to_scope` is `notNull` with three members, and two of them
+    // target a SUBSET. A card filled with the store's newest listings
+    // regardless states a saving on products the discount cannot reduce —
+    // the same false price the `method = 'code'` exclusion already refuses.
+    //
+    // Adverse by construction: the UNCOVERED listing is created last, so it
+    // is the newest and wins the shelf's `id desc` tiebreak. A card that
+    // ignores the scope leads with it.
+    const storeId = await makeStore();
+    const covered = await makeStoreListing(storeId);
+    const uncovered = await makeStoreListing(storeId);
+    await makeLiveDiscount(storeId, {
+      appliesToScope: 'products',
+      appliesToProductIds: [covered],
+    });
+
+    const feed = await getDiscoveryFeed({ kind: 'deals' });
+
+    const section = feed.sections.find(
+      (s): s is StoreOfferSection => s.kind === 'store-offer' && s.store.id === storeId,
+    );
+    expect(section?.products.map((p) => p.id)).toEqual([covered]);
+    expect(section?.products.map((p) => p.id)).not.toContain(uncovered);
+  });
+
+  it('a collections-scoped discount advertises only that collection members', async () => {
+    const storeId = await makeStore();
+    const member = await makeStoreListing(storeId);
+    const outsider = await makeStoreListing(storeId);
+    const collectionId = await makeCollection(storeId, [member]);
+    await makeLiveDiscount(storeId, {
+      appliesToScope: 'collections',
+      appliesToCollectionIds: [collectionId],
+    });
+
+    const feed = await getDiscoveryFeed({ kind: 'deals' });
+
+    const section = feed.sections.find(
+      (s): s is StoreOfferSection => s.kind === 'store-offer' && s.store.id === storeId,
+    );
+    expect(section?.products.map((p) => p.id)).toEqual([member]);
+    expect(section?.products.map((p) => p.id)).not.toContain(outsider);
+  });
+
+  it('a scoped discount covering nothing active renders no card at all', async () => {
+    // The "no empty section" rule, at the one place the scope filter can empty
+    // a card that the store-level read said was populated.
+    const storeId = await makeStore();
+    await makeStoreListing(storeId);
+    await makeLiveDiscount(storeId, {
+      appliesToScope: 'products',
+      appliesToProductIds: [`no-such-listing-${uuidv7()}`],
+    });
+
+    const feed = await getDiscoveryFeed({ kind: 'deals' });
+
+    expect(
+      feed.sections.filter((s) => s.kind === 'store-offer' && s.store.id === storeId),
+    ).toHaveLength(0);
   });
 
   it('an unknown category handle is refused', async () => {
