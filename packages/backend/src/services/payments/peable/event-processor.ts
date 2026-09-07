@@ -1,33 +1,33 @@
 /**
- * Turning a stored Stripe event into Mercaria state — the durable half.
+ * Turning a stored Peable event into Mercaria state — the durable half.
  *
- * RECEIPT is `ingress.ts`: verify, filter, store, answer 200. PROCESSING is
- * here, and the split is the point (#48 ingress behavior 5). A 200 from the
- * webhook means "stored", never "understood": Stripe's redelivery schedule is
- * finite and a bug in a handler must retry against Mercaria's own durable copy
- * rather than depend on the provider still being willing to send it again.
+ * RECEIPT is `ingress.ts`: verify, store, answer 200. PROCESSING is here, and
+ * the split is the point. A 200 from the webhook means "stored", never
+ * "understood": the gateway's redelivery schedule reaches about eight hours and
+ * then stops, and a bug in a handler must retry against Mercaria's own durable
+ * copy rather than depend on the gateway still being willing to send it again.
  *
- * ## The row IS the job
+ * ## The row IS the job, and the claim is SCOPED TO THIS RAIL
  *
- * `payment_provider_events` carries `status`, `attempts`, `next_attempt_at`,
- * `lease_owner` and `lease_until`, so claiming one is the same
- * `for update skip locked` claim the payment outbox uses. No second table, no
- * queue, no detached promise. See the table's docblock for why an outbox row
- * pointing at an event row was rejected.
+ * `payment_provider_events` carries the lease columns, so claiming one is the
+ * same `for update skip locked` claim the Stripe drain and the payment outbox
+ * use. The scope is what makes two drains safe over one table: without it this
+ * loop would claim the oldest due row of EITHER rail and hand a Stripe event to
+ * `routePeableEvent`, which — the two rails not sharing type names — would find
+ * no handler and mark it processed. See `ClaimProviderEventOptions.providers`
+ * and `providerEventClaim.realdb.test.ts`.
  *
- * ## There is no lease heartbeat, unlike the outbox
+ * ## No settlement re-read, unlike Stripe
  *
- * The outbox renews its lease mid-handler because a handler that outlives its
- * lease could complete work another task has already redone. Here that cannot
- * hurt: every effect below is idempotent by compare-and-swap — a second task
- * reprocessing a reclaimed event applies the same status to the same payment and
- * the CAS discards it. The owner check on the terminal update is kept anyway, so
- * a task whose lease expired cannot record an outcome for work it no longer
- * owns, and the row stays claimable instead of being falsely marked done.
+ * Stripe's processor hands the verified event through to its router so the
+ * handler reads what Stripe actually sent. Here there is nothing to hand
+ * through: `event-router.ts` acts on the event TYPE and the stored `objectIds`,
+ * both of which survive redaction and a restart, so the inline path and a replay
+ * three days later run identically. That is why `processStoredPeableEvent` takes
+ * only an id where its Stripe counterpart also takes the payload.
  */
 
 import { randomUUID } from 'node:crypto';
-import type Stripe from 'stripe';
 import {
   claimProviderEvent,
   completeProviderEvent,
@@ -44,10 +44,10 @@ import { log } from '../../../lib/logger.js';
 import { isRetryableProviderError } from '../provider.js';
 import { redactProviderMessage } from '../redact.js';
 import {
-  routeStripeEvent,
-  type StripeEventContext,
-  type StripeEventOutcome,
-} from './stripe-event-router.js';
+  routePeableEvent,
+  type PeableEventContext,
+  type PeableEventOutcome,
+} from './event-router.js';
 
 /** Longest a retryable failure is backed off for. */
 const MAX_BACKOFF_MS = 60 * 60 * 1_000;
@@ -55,15 +55,24 @@ const MAX_BACKOFF_MS = 60 * 60 * 1_000;
 /** Never claim more than this in one drain, whatever configuration says. */
 const MAX_BATCH_SIZE = 500;
 
+/**
+ * The one rail this drain interprets.
+ *
+ * A named constant rather than a literal at each call site, so the three claims
+ * below cannot disagree — and so a reader can see at a glance that this loop is
+ * scoped at all.
+ */
+const RAIL = ['peable'] as const;
+
 /** What one drain did. */
-export interface StripeEventDrainResult {
+export interface PeableEventDrainResult {
   processed: number;
   failed: number;
   deadLettered: number;
 }
 
 /** Options for a drain. */
-export interface DrainStripeEventsOptions {
+export interface DrainPeableEventsOptions {
   /** Drain only this row, if it is due — the post-receipt inline path. */
   eventId?: string;
   batchSize?: number;
@@ -84,14 +93,9 @@ function nextAttemptAt(attempts: number, now: Date): Date {
  * `objectIds` is what makes this possible without the payload: it is stored in
  * its own column, verbatim and UNREDACTED, precisely so correlation never
  * depends on `payload_summary` — which is an operator's redacted view and would
- * hand a handler `[redacted]` where a field it reads used to be.
- *
- * `delivered` is attached only by the inline path, where the verified event
- * genuinely exists. Everywhere else its absence tells the handler to re-read
- * from Stripe, which is also the more correct answer: by the time a dead letter
- * is replayed, the snapshot in the original delivery is history.
+ * hand a handler `[redacted]` where the intent id used to be.
  */
-function contextFromRow(row: PaymentProviderEventRow, delivered?: Stripe.Event): StripeEventContext {
+function contextFromRow(row: PaymentProviderEventRow): PeableEventContext {
   const stored: unknown = row.objectIds;
   const objectIds =
     typeof stored === 'object' && stored !== null ? (stored as Record<string, string>) : {};
@@ -101,30 +105,22 @@ function contextFromRow(row: PaymentProviderEventRow, delivered?: Stripe.Event):
     providerEventId: row.providerEventId,
     type: row.type,
     objectIds,
-    ...(row.providerAccountId ? { account: row.providerAccountId } : {}),
-    ...(delivered ? { delivered } : {}),
   };
 }
 
-/**
- * Run one claimed event, and record what it did.
- *
- * @param event The Stripe event as it arrived, when the caller has it. The
- *   inline path after receipt does; the poller and a replay do not.
- */
+/** Run one claimed event, and record what it did. */
 async function processClaimedEvent(input: {
   row: PaymentProviderEventRow;
   leaseOwner: string;
-  event?: Stripe.Event;
 }): Promise<{ ok: boolean; deadLettered: boolean }> {
   const db = getDb();
   const { row, leaseOwner } = input;
-  const handler = routeStripeEvent(row.type);
+  const handler = routePeableEvent(row.type);
 
   if (!handler) {
     // Authentic, stored, and nothing in this version acts on it. Marked
-    // processed rather than failed: retrying it would never produce a handler,
-    // and #45's rule is that an uninterpretable event is evidence, not an error.
+    // processed rather than failed: retrying would never produce a handler, and
+    // an uninterpretable event is evidence, not an error.
     await completeProviderEvent(db, {
       eventId: row.id,
       leaseOwner,
@@ -133,12 +129,12 @@ async function processClaimedEvent(input: {
     return { ok: true, deadLettered: false };
   }
 
-  let outcome: StripeEventOutcome;
+  let outcome: PeableEventOutcome;
   try {
-    outcome = await handler(contextFromRow(row, input.event));
+    outcome = await handler(contextFromRow(row));
   } catch (error: unknown) {
     const retryable = isRetryableProviderError(error);
-    const deadLetter = !retryable || row.attempts >= config.payments.stripe.eventMaxAttempts;
+    const deadLetter = !retryable || row.attempts >= config.payments.peable.eventMaxAttempts;
     const message = redactProviderMessage(
       error instanceof Error ? error.message : String(error),
     );
@@ -161,9 +157,9 @@ async function processClaimedEvent(input: {
       // A dead-lettered payment event is money whose consequences have not
       // happened and will not without a person, so it must not be discoverable
       // only in a warn-level line.
-      log.general.error(context, '[Stripe] event dead-lettered');
+      log.general.error(context, '[Peable] event dead-lettered');
     } else {
-      log.general.warn(context, '[Stripe] event processing failed, will retry');
+      log.general.warn(context, '[Peable] event processing failed, will retry');
     }
     return { ok: false, deadLettered: deadLetter };
   }
@@ -180,7 +176,7 @@ async function processClaimedEvent(input: {
     // must not claim the outcome, and the row stays where the owner left it.
     log.general.warn(
       { eventId: row.id, providerEventId: row.providerEventId, type: row.type },
-      '[Stripe] lease lost before the event outcome could be recorded',
+      '[Peable] lease lost before the event outcome could be recorded',
     );
     return { ok: false, deadLettered: false };
   }
@@ -193,7 +189,7 @@ async function processClaimedEvent(input: {
       outcome: outcome.kind,
       paymentId: outcome.paymentId,
     },
-    '[Stripe] event processed',
+    '[Peable] event processed',
   );
   return { ok: true, deadLettered: false };
 }
@@ -206,19 +202,19 @@ async function processClaimedEvent(input: {
  * status changes go through `applyPaymentStatus`'s compare-and-swap — so a redo
  * converges rather than duplicating.
  */
-export async function drainStripeEvents(
-  options: DrainStripeEventsOptions = {},
-): Promise<StripeEventDrainResult> {
+export async function drainPeableEvents(
+  options: DrainPeableEventsOptions = {},
+): Promise<PeableEventDrainResult> {
   const db = getDb();
-  const leaseOwner = options.leaseOwner ?? `stripe-events:${String(process.pid)}:${randomUUID()}`;
+  const leaseOwner = options.leaseOwner ?? `peable-events:${String(process.pid)}:${randomUUID()}`;
   const batchSize = options.eventId
     ? 1
     : Math.min(
-        Math.max(1, options.batchSize ?? config.payments.stripe.eventBatchSize),
+        Math.max(1, options.batchSize ?? config.payments.peable.eventBatchSize),
         MAX_BATCH_SIZE,
       );
-  const leaseMs = Math.max(1_000, options.leaseMs ?? config.payments.stripe.eventLeaseMs);
-  const result: StripeEventDrainResult = { processed: 0, failed: 0, deadLettered: 0 };
+  const leaseMs = Math.max(1_000, options.leaseMs ?? config.payments.peable.eventLeaseMs);
+  const result: PeableEventDrainResult = { processed: 0, failed: 0, deadLettered: 0 };
 
   for (let index = 0; index < batchSize; index += 1) {
     // Shutdown stops claiming NEW work but lets the row already in flight reach
@@ -228,10 +224,7 @@ export async function drainStripeEvents(
     const row = await claimProviderEvent(db, {
       leaseOwner,
       leaseMs,
-      // This drain's router only knows Stripe's type names. Without the scope it
-      // would claim a `peable` row, find no handler, and mark it processed —
-      // see `ClaimProviderEventOptions.providers`.
-      providers: ['stripe'],
+      providers: RAIL,
       ...(options.eventId ? { eventId: options.eventId } : {}),
     });
     if (!row) break;
@@ -249,52 +242,42 @@ export async function drainStripeEvents(
 }
 
 /**
- * Process ONE just-stored event with the payload still in hand.
+ * Process ONE just-stored event.
  *
- * Called by the ingress immediately after the envelope commits, for the same
- * reason `applyPaymentStatus` drains its own outbox row inline: it claims the
+ * Called by the ingress immediately after the envelope commits. It claims the
  * SAME lease the poller would, so the two can never both run the handler, and if
  * this process dies first the poller picks it up. It exists only so a payment's
  * consequences are not held up by a poll interval.
- *
- * The verified event is passed through rather than rebuilt from the stored
- * redacted summary — this is the one moment the full payload legitimately
- * exists, and using it means the handler reads what Stripe actually sent.
  */
-export async function processStoredStripeEvent(input: {
+export async function processStoredPeableEvent(input: {
   storedEventId: string;
-  event: Stripe.Event;
 }): Promise<void> {
   const db = getDb();
-  const leaseOwner = `stripe-ingress:${String(process.pid)}:${randomUUID()}`;
+  const leaseOwner = `peable-ingress:${String(process.pid)}:${randomUUID()}`;
   const row = await claimProviderEvent(db, {
     leaseOwner,
-    leaseMs: Math.max(1_000, config.payments.stripe.eventLeaseMs),
-    providers: ['stripe'],
+    leaseMs: Math.max(1_000, config.payments.peable.eventLeaseMs),
+    providers: RAIL,
     eventId: input.storedEventId,
   });
   // Not claimable means another task already holds it, or it is already
   // processed. Both are fine and neither is this caller's problem.
   if (!row) return;
-  await processClaimedEvent({ row, leaseOwner, event: input.event });
+  await processClaimedEvent({ row, leaseOwner });
 }
 
 /**
  * Re-claim a failed or dead-lettered event and run it again.
  *
- * The service half of #48's replay requirement (security and operations 9); the
- * operator HTTP surface that calls it, with its own authorization, is #50's.
- *
  * Original idempotency is preserved because nothing about the stored event
- * changes: the same `(provider, account, event id)` row is reused, `attempts`
- * keeps counting, and every effect still runs through the same compare-and-swap.
- * So replaying an event whose work already landed is a no-op, which is exactly
- * what makes replay safe to reach for during an incident.
+ * changes: the same row is reused, `attempts` keeps counting, and every effect
+ * still runs through the same compare-and-swap. So replaying an event whose work
+ * already landed is a no-op, which is what makes replay safe during an incident.
  *
  * @returns Whether the event was reopened and run. `false` means it was not in a
  *   replayable state — already processed, or claimed by a live task.
  */
-export async function replayProviderEvent(eventId: string): Promise<boolean> {
+export async function replayPeableEvent(eventId: string): Promise<boolean> {
   const db = getDb();
   const existing = await findProviderEventById(db, eventId);
   if (!existing) {
@@ -303,20 +286,20 @@ export async function replayProviderEvent(eventId: string): Promise<boolean> {
   if (!(await reopenProviderEvent(db, eventId))) {
     log.general.warn(
       { eventId, status: existing.status },
-      '[Stripe] event is not in a replayable state',
+      '[Peable] event is not in a replayable state',
     );
     return false;
   }
 
   log.general.info(
     { eventId, providerEventId: existing.providerEventId, type: existing.type },
-    '[Stripe] event reopened for replay',
+    '[Peable] event reopened for replay',
   );
-  const result = await drainStripeEvents({ eventId });
+  const result = await drainPeableEvents({ eventId });
   return result.processed + result.failed > 0;
 }
 
-/** Queue depth, failures and lag for the inbound Stripe stream. */
-export async function stripeWebhookStats(): Promise<ProviderEventStats> {
-  return await providerEventStats(getDb(), 'stripe');
+/** Queue depth, failures and lag for the inbound Peable stream. */
+export async function peableWebhookStats(): Promise<ProviderEventStats> {
+  return await providerEventStats(getDb(), 'peable');
 }
