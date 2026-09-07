@@ -1645,28 +1645,47 @@ export async function findNewestActiveListings(
 
 /**
  * The newest ACTIVE listings that have a variant carrying a `compare_at_price` —
- * the feed's "On sale" shelf.
+ * the home feed's store-wide "On sale" shelf AND the discovery feed's
+ * category-scoped `on-sale` signal.
  *
  * ONE query. The Mongo path read every active listing with a non-zero price,
  * then read every variant of those listings that had a `compareAtPrice`, then
  * intersected the two sets IN THE PROCESS and sliced the shelf out — so rendering
  * eight cards read the entire active catalogue twice.
+ *
+ * `categoryIds` is `undefined` for the home feed's store-wide shelf — today's
+ * exact behaviour, unchanged. PROVIDED (discovery's category scope), it
+ * filters, and an EMPTY array filters to nothing, matching the
+ * `categoryIds.length === 0 → []` convention `discoveryReadRepository.ts`'s
+ * other four signals already follow: a discovery category page must not fall
+ * back to a store-wide "on sale" shelf that ignores which category the shopper
+ * is browsing.
  */
 export async function findOnSaleListings(
-  limit: number,
+  options: {
+    readonly limit: number;
+    readonly categoryIds?: readonly string[];
+    readonly offset?: number;
+  },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ListingRecord[]> {
+  if (options.categoryIds !== undefined && options.categoryIds.length === 0) {
+    return [];
+  }
+  const predicates: SQL[] = [
+    eq(listings.status, 'active'),
+    variantExistsPredicate(sql`${productVariants.compareAtPriceAmount} is not null`),
+  ];
+  if (options.categoryIds !== undefined) {
+    predicates.push(inArray(listings.categoryId, [...options.categoryIds]));
+  }
   return db
     .select()
     .from(listings)
-    .where(
-      and(
-        eq(listings.status, 'active'),
-        variantExistsPredicate(sql`${productVariants.compareAtPriceAmount} is not null`),
-      ),
-    )
+    .where(and(...predicates))
     .orderBy(...NEWEST_FIRST)
-    .limit(limit);
+    .limit(options.limit)
+    .offset(options.offset ?? 0);
 }
 
 /** Every ACTIVE listing of a batch of stores, newest first — the merchant shelf. */

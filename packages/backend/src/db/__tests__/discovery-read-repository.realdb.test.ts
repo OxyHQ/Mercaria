@@ -49,6 +49,7 @@ import { categories, listings } from '../schema/catalog.js';
 import { discoverySignals } from '../schema/discovery.js';
 import { discounts } from '../schema/merchandising.js';
 import { insertStore, updateStoreColumns } from '../stores/storeRepository.js';
+import { insertVariants } from '../catalog/variantRepository.js';
 import { deleteTestStores } from './store-teardown.js';
 import {
   findListingsBySignal,
@@ -250,6 +251,52 @@ describe('findListingsBySignal', () => {
     });
 
     expect(found.map((l) => l.id)).toEqual([publishedLaterId, publishedEarlierId]);
+  });
+
+  it('on-sale honours the category scope (#7 ruling 7)', async () => {
+    // A discounted listing in a SIBLING category must not leak onto this
+    // category's shelf — `findOnSaleListings` used to accept no category
+    // filter at all, so a category page's `on-sale` shelf was really a
+    // store-wide one.
+    const categoryId = await makeCategory();
+    const siblingCategoryId = await makeCategory();
+    const onSaleInScopeId = await makeListing(categoryId);
+    await insertVariants(onSaleInScopeId, [
+      {
+        title: 'Default Title',
+        priceAmount: 4000,
+        priceCurrency: 'FAIR',
+        compareAtPriceAmount: 9000,
+        compareAtPriceCurrency: 'FAIR',
+        inventoryTracked: true,
+        inventoryAvailable: 2,
+        position: 0,
+        optionValues: [],
+      },
+    ]);
+    const onSaleOutOfScopeId = await makeListing(siblingCategoryId);
+    await insertVariants(onSaleOutOfScopeId, [
+      {
+        title: 'Default Title',
+        priceAmount: 4000,
+        priceCurrency: 'FAIR',
+        compareAtPriceAmount: 9000,
+        compareAtPriceCurrency: 'FAIR',
+        inventoryTracked: true,
+        inventoryAvailable: 2,
+        position: 0,
+        optionValues: [],
+      },
+    ]);
+
+    const found = await findListingsBySignal({
+      signal: 'on-sale',
+      categoryIds: [categoryId],
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(found.map((l) => l.id)).toEqual([onSaleInScopeId]);
   });
 
   it('best-selling reads the counted rows and honours the scope', async () => {

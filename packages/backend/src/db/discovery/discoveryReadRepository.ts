@@ -49,10 +49,15 @@ export async function findListingsBySignal(
     case 'new':
       return findNewestListings(input);
     case 'on-sale':
-      // A store-wide shelf with no category scope or paging depth of its
-      // own — this signal delegates whole to the existing query rather than
-      // reimplementing it.
-      return findOnSaleListings(input.limit);
+      // Delegates to the existing query rather than reimplementing it, but
+      // scoped and paged exactly like the other four signals — an unscoped
+      // on-sale shelf inside a category page would leak every discounted
+      // listing in the marketplace, not just this category's.
+      return findOnSaleListings({
+        limit: input.limit,
+        categoryIds: input.categoryIds,
+        offset: input.offset,
+      });
     case 'best-selling':
       return findBestSellingListings(input);
     case 'most-viewed':

@@ -144,7 +144,7 @@ async function buildFeedFromDb(): Promise<Feed> {
 
   const [newArrivalsListings, onSaleListings] = await Promise.all([
     findNewestActiveListings(config.feed.newArrivalsSize),
-    findOnSaleListings(config.feed.onSaleSize),
+    findOnSaleListings({ limit: config.feed.onSaleSize }),
   ]);
 
   const [newArrivals, onSale, merchants] = await Promise.all([
