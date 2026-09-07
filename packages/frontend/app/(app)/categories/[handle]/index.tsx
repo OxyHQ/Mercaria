@@ -30,7 +30,7 @@ import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
  * | --- | --- |
  * | identity, breadcrumb ancestry (fallback only) | `GET /categories` — see `lib/catalog/category-tree.ts` for why |
  * | breadcrumbs, canonical URL, `hreflang`, redirects | `GET /seo/resolve` |
- * | the header art, subcategories and products | `GET /discovery/feed?scope=category:<slug>` |
+ * | the header art, subcategories and products | `GET /discovery/feed?scope=category:<handle>` |
  *
  * ## There is no facet rail here — there never could have been (#637)
  *
@@ -64,13 +64,12 @@ import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
  * working across a rename — a slug is presentation and identity is an id
  * (ADR 0007 D1).
  *
- * The discovery feed's category scope resolves by SLUG alone
- * (`findActiveCategoryBySlug`, `services/discovery/feed.service.ts`), so this
- * screen fetches it on `category.slug` once the v1 tree has resolved `handle`
- * — never the raw route param — to keep an id-based link working. Until the
- * tree resolves, the raw `handle` is used as a best guess (correct whenever
- * `handle` already IS the slug, which is the common case); an id-based visit
- * self-corrects to the right fetch the moment the tree answers.
+ * The discovery feed's category scope resolves by ID OR SLUG
+ * (`findActiveCategoryByIdOrSlug`, `services/discovery/feed.service.ts`), so
+ * this screen fetches it on the raw route param `handle` directly — no
+ * client-side slug resolution needed, and no second fetch once the v1 tree
+ * answers. `[signal].tsx` fetches its own scope the same way, on `handle`
+ * with no fallback, for the same reason.
  *
  * ## A deprecated or localized slug is a REDIRECT, applied with `replace`
  *
@@ -117,7 +116,7 @@ export default function CategoryScreen() {
     router.replace(categoryHref(next));
   }, [redirectTarget, handle, router]);
 
-  const feed = useDiscoveryFeed({ kind: 'category', handle: category?.slug ?? handle });
+  const feed = useDiscoveryFeed({ kind: 'category', handle });
 
   const breadcrumbs = useMemo<readonly SeoBreadcrumb[]>(() => {
     const fromRegistry = seo.data?.document?.breadcrumbs;
