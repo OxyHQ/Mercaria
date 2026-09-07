@@ -422,10 +422,22 @@ resolves each against the real route tree.
 - **Real-DB suites, not mocks**, for the sweep and every read
   (`*.realdb.test.ts`). A mocked insert accepts statements the server rejects,
   and the CHECKs on the signal and window tuples have no mocked counterpart.
-- **The shared test database**: the sweep's per-window delete/insert would take
-  sibling files' rows with it. Every sweep case scopes to a category id the file
-  owns, and the window replace is exercised against that scope rather than the
-  whole table.
+- **The shared test database**: the sweep's per-window delete/insert takes
+  sibling files' rows with it, and there is no way to scope around that — the
+  window replace is GLOBAL by design (§"The sweep": a run replaces the whole
+  window, so a category that goes quiet is cleared rather than serving
+  month-old counts forever). This bullet used to say each sweep case "scopes to
+  a category id the file owns"; that was written before the consequence was
+  understood, and the implementation briefly matched it — narrowing the delete
+  to the scopes a run touched, which is the bug the final review caught.
+
+  The real remedy is coarser and is a property of the SUITE rather than of a
+  case: every file whose test can write `discovery_signals` holds one shared
+  advisory-lock slot, registered in `slot-teardown-census`, so the sweep and any
+  sibling writer are serialised instead of racing. Six files hold it today. The
+  cost is real — roughly ten seconds of wall clock and genuine coupling between
+  files that share nothing else — and it is the price of a sweep whose delete is
+  honest.
 - **The isolation gate** gets its own positive control: a fixture import from
   `services/offers` to `db/discovery` must make the gate fail. A gate that has
   never failed has not been measured.
