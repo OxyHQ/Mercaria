@@ -131,7 +131,24 @@ screens.
 | root | `flex flex-col rounded-radius-28 border-[0.5px] border-border-image p-space-24 pb-space-0 shadow-s hover:shadow-m` | `web:hover:shadow-m` |
 | header link | `mb-space-16 flex items-center justify-between gap-space-16 md:mb-space-24` | |
 | title | `font-headerBold text-headerBold text-text` | |
-| chevron disc | `flex size-space-36 shrink-0 items-center justify-center rounded-radius-max bg-bg-overlay-fixed-dark-04` | |
+| header link | `mb-space-16 flex items-center justify-between gap-space-16 md:mb-space-24` | add `flex-row` — same RN default as `FeedGrid`'s row |
+| chevron disc | `flex size-space-36 shrink-0 items-center justify-center rounded-radius-max bg-bg-overlay-fixed-dark-04` | `bg-overlay-fixed-dark-04` — ONE `bg-`, see below |
+| chevron icon | not specified by the capture | `colors.foreground`, following `SectionHeader.tsx:54` — the same family, an icon over a theme surface. NOT `ActionHeroCard`'s fixed white, which is white because its disc sits over a photograph. |
+
+**`bg-bg-overlay-*` is wrong everywhere and always was.** Under Tailwind v4 a
+colour comes from a `--color-<name>` variable in `@theme`, and
+`--color-overlay-fixed-dark-04` generates `.bg-overlay-fixed-dark-04` — one
+`bg-`. The JS preset's key would generate the same single form. Nothing emits the
+doubled class, so it renders no background at all.
+
+The trap is the sibling family: `--color-bg-fill-secondary` DOES generate
+`bg-bg-fill-secondary`, because there the `bg-` is part of the token's own name.
+For `overlay-*` it is not. `ReviewSummaryCard.tsx`'s `bg-overlay-inverse-06` is
+the one pre-existing correct use; six components on this branch and one older
+one (`ProductCard.tsx`) had the doubled form and rendered nothing.
+
+Found by the Task 3 reviewer, who compiled a synthetic stylesheet through the
+repo's installed `@tailwindcss/postcss` rather than reasoning about it.
 
 Grid slot: `px-space-4 md:px-space-8 w-full min-[1025px]:w-1/2`, row gap
 `gap-y-space-40`. The nested shelf is 1.3 → 2 → 3 items.
