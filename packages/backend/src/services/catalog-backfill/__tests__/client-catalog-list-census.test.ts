@@ -159,17 +159,40 @@ const HARDCODED_CATALOG_MEMBERSHIP =
  * `merge-plan-census.test.ts`'s ruling. An exact array rather than a prefix rule,
  * so it cannot be widened by accident.
  *
- * EMPTY as of #478, which removed the last entry rather than re-dispositioning
+ * EMPTIED at #478, which removed its last entry rather than re-dispositioning
  * it: `VariantSwatches` picked a widget from `COLOR_OPTION_NAMES`, three English
  * words, and drew a colour it had invented — no `attribute_enum_values` colour
  * column and no per-value image exists, so the swatch showed a cycled gallery
  * photo or a hash of the value string. It now renders pills for every option.
  *
- * An empty list costs this census the positive control the entry was doubling
+ * That emptying cost this census the positive control the entry was doubling
  * as — see `still catches a hardcoded list in a source the walk really read`,
- * which replaces it at the same seam.
+ * which replaced it at the same seam and is kept regardless of whether this
+ * list holds anything, so a future entry landing here does not silently
+ * retire it.
+ *
+ * ONE entry again as of the discovery-feed browse tiles (#367 workstream 13):
+ * see the disposition below for why `category-palette.ts` trips the list
+ * probe but is not the #478 defect recurring.
  */
-const PERMITTED: readonly { readonly path: string; readonly disposition: string }[] = [];
+const PERMITTED: readonly { readonly path: string; readonly disposition: string }[] = [
+  {
+    path: 'packages/ui/src/lib/category-palette.ts',
+    disposition:
+      'DECORATION, not a fact about the category: `CATEGORY_PALETTE` picks a browse-tile ' +
+      'BACKGROUND colour from a hash of the category id — nothing renders it as, or beside, a ' +
+      'claim that the category IS that colour. Contrast #478’s `VariantSwatches`, which used the ' +
+      'same fixed-array-plus-hash SHAPE to draw a colour it then presented AS the value a shopper ' +
+      'selected (an `accessibilityLabel` naming the option over an invented hue) — a claim that ' +
+      'could be right or wrong, and often was. Here the tile’s label is the category NAME, always ' +
+      'correct; the colour behind it is chrome, exactly like a fallback tint behind an avatar with ' +
+      'no photo. `categories` carries no colour column, and ' +
+      '`docs/superpowers/specs/2026-09-07-discovery-feed-design.md` §"Tile colour is derived, not ' +
+      'stored" already records why none is being added: no operator surface exists to fill one. ' +
+      '`categoryPaletteColor` is also not exported from `@mercaria/ui` (`packages/ui/src/index.ts`) ' +
+      '— it is `CategorySampleTile`’s own private derivation, consumed nowhere else.',
+  },
+];
 
 describe('the censused client packages', () => {
   it('reads a real, non-trivial set of client sources', () => {
@@ -202,12 +225,11 @@ describe('the censused client packages', () => {
     // Exact identity, never containment: an allow-list that may only grow is the
     // gate switching itself off one defensible entry at a time.
     //
-    // While PERMITTED held an entry this was ALSO its own positive control — it
-    // could only pass by having FOUND that list. #478 emptied it, so this
-    // assertion now passes two ways: because no client package hardcodes a
-    // catalog vocabulary, or because the walk and the probe stopped composing.
-    // The test below restores the control; do not delete it while this list is
-    // empty.
+    // While PERMITTED holds an entry it is ALSO a positive control for this
+    // probe — it can only pass by having FOUND `category-palette.ts`. But that
+    // stops being true the moment PERMITTED is emptied again (#478 did exactly
+    // that), so the dedicated control below does not depend on this list's
+    // length and must not be deleted alongside a future entry.
     expect(
       offenders,
       'a client package outside the two scanned by WS8/WS9 hardcodes a catalog vocabulary. ' +
@@ -351,10 +373,11 @@ describe('the censused client packages', () => {
         80,
       );
     }
-    // The exact-count assertion on the exemptions themselves. ZERO as of #478;
-    // it is not a formality, because the loop above is vacuous at this length
-    // and this line is the only thing that notices an entry coming back.
-    expect(PERMITTED).toHaveLength(0);
+    // The exact-count assertion on the exemptions themselves. ZERO from #478
+    // until the discovery-feed browse tiles added `category-palette.ts`; it is
+    // not a formality, because the loop above passes at any length and this
+    // line is the only thing that notices a SECOND entry landing unreviewed.
+    expect(PERMITTED).toHaveLength(1);
   });
 
   it('imports nothing from a client package', () => {
