@@ -402,6 +402,7 @@ describe('the model is anchored to things that exist', () => {
       'canonical_product_family_localizations',
       'canonical_product_localizations',
       'catalog_localization_revisions',
+      'discovery_sweep_cursors',
       'product_type_aliases',
     ]);
 

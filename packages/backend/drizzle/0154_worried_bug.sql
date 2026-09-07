@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 CREATE TABLE "discovery_signals" (
 	"id" text PRIMARY KEY NOT NULL,
 	"subject_type" text NOT NULL,
