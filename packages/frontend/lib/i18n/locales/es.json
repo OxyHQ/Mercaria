@@ -1516,6 +1516,13 @@
     }
   },
   "discovery": {
+    "shelf": {
+      "topRated": "Lo mejor valorado en %{category}",
+      "new": "Novedades en %{category}",
+      "onSale": "Rebajas en %{category}",
+      "bestSelling": "Los más vendidos en %{category}",
+      "mostViewed": "Los más vistos en %{category}"
+    },
     "signal": {
       "notFound": "No hemos encontrado esta lista.",
       "cappedNotice": "Mostrando nuestra selección principal de esta lista; puede que falten artículos.",

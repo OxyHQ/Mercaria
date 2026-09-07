@@ -1499,6 +1499,13 @@
     }
   },
   "discovery": {
+    "shelf": {
+      "topRated": "الأعلى تقييمًا في %{category}",
+      "new": "جديد في %{category}",
+      "onSale": "عروض في %{category}",
+      "bestSelling": "الأكثر مبيعًا في %{category}",
+      "mostViewed": "الأكثر مشاهدة في %{category}"
+    },
     "signal": {
       "notFound": "لم نتمكن من العثور على هذه القائمة.",
       "cappedNotice": "نعرض أبرز اختياراتنا لهذه القائمة، وقد لا تظهر بعض العناصر المطابقة بعد.",

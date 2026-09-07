@@ -1499,6 +1499,13 @@
     }
   },
   "discovery": {
+    "shelf": {
+      "topRated": "%{category}-এ সেরা রেটিং",
+      "new": "%{category}-এ নতুন",
+      "onSale": "%{category}-এ বিশেষ ছাড়",
+      "bestSelling": "%{category}-এ সবচেয়ে বেশি বিক্রিত",
+      "mostViewed": "%{category}-এ সবচেয়ে বেশি দেখা"
+    },
     "signal": {
       "notFound": "আমরা এই তালিকাটি খুঁজে পাইনি।",
       "cappedNotice": "এই তালিকার জন্য আমাদের সেরা নির্বাচন দেখানো হচ্ছে; কিছু মিলে যাওয়া আইটেম এখনো দেখা নাও যেতে পারে।",

@@ -1499,6 +1499,13 @@
     }
   },
   "discovery": {
+    "shelf": {
+      "topRated": "%{category}の高評価商品",
+      "new": "%{category}の新着商品",
+      "onSale": "%{category}のセール品",
+      "bestSelling": "%{category}の売れ筋商品",
+      "mostViewed": "%{category}の人気商品"
+    },
     "signal": {
       "notFound": "このリストは見つかりませんでした。",
       "cappedNotice": "このリストのおすすめ上位を表示しています。該当する商品がまだ表示されない場合があります。",

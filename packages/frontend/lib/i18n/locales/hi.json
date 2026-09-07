@@ -1499,6 +1499,13 @@
     }
   },
   "discovery": {
+    "shelf": {
+      "topRated": "%{category} में शीर्ष रेटिंग",
+      "new": "%{category} में नया",
+      "onSale": "%{category} में सेल पर",
+      "bestSelling": "%{category} में सबसे ज़्यादा बिकने वाले",
+      "mostViewed": "%{category} में सबसे ज़्यादा देखे गए"
+    },
     "signal": {
       "notFound": "हमें यह सूची नहीं मिली।",
       "cappedNotice": "यहाँ इस सूची की हमारी शीर्ष पसंद दिखाई जा रही है; कुछ मेल खाने वाले आइटम अभी नहीं दिख सकते।",

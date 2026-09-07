@@ -1516,6 +1516,13 @@
     }
   },
   "discovery": {
+    "shelf": {
+      "topRated": "El més ben valorat a %{category}",
+      "new": "Novetats a %{category}",
+      "onSale": "Rebaixes a %{category}",
+      "bestSelling": "El més venut a %{category}",
+      "mostViewed": "El més vist a %{category}"
+    },
     "signal": {
       "notFound": "No hem trobat aquesta llista.",
       "cappedNotice": "Mostrant la nostra selecció principal d'aquesta llista; és possible que hi falti algun article.",

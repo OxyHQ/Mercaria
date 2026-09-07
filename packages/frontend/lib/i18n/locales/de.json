@@ -1499,6 +1499,13 @@
     }
   },
   "discovery": {
+    "shelf": {
+      "topRated": "Am besten bewertet in %{category}",
+      "new": "Neu in %{category}",
+      "onSale": "Im Angebot in %{category}",
+      "bestSelling": "Meistverkauft in %{category}",
+      "mostViewed": "Meistgesehen in %{category}"
+    },
     "signal": {
       "notFound": "Diese Liste konnten wir nicht finden.",
       "cappedNotice": "Hier zeigen wir unsere Top-Auswahl für diese Liste — einige passende Artikel fehlen eventuell noch.",

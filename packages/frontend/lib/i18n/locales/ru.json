@@ -1533,6 +1533,13 @@
     }
   },
   "discovery": {
+    "shelf": {
+      "topRated": "Лучшие по рейтингу в %{category}",
+      "new": "Новинки в %{category}",
+      "onSale": "Скидки в %{category}",
+      "bestSelling": "Хиты продаж в %{category}",
+      "mostViewed": "Популярное в %{category}"
+    },
     "signal": {
       "notFound": "Мы не нашли этот список.",
       "cappedNotice": "Показана наша основная подборка для этого списка — часть подходящих товаров может пока не отображаться.",

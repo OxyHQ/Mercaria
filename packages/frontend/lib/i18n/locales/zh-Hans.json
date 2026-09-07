@@ -1499,6 +1499,13 @@
     }
   },
   "discovery": {
+    "shelf": {
+      "topRated": "%{category}好评商品",
+      "new": "%{category}新品",
+      "onSale": "%{category}特惠商品",
+      "bestSelling": "%{category}畅销商品",
+      "mostViewed": "%{category}热门商品"
+    },
     "signal": {
       "notFound": "没有找到这个列表。",
       "cappedNotice": "正在展示这份列表的精选内容，部分符合条件的商品可能暂未显示。",
