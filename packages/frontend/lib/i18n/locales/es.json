@@ -1536,6 +1536,7 @@
     },
     "deals": {
       "title": "Ofertas",
+      "documentTitle": "%{title} — Mercaria",
       "empty": "No hay ofertas activas en este momento.",
       "loadError": "No hemos podido cargar las ofertas. Inténtalo de nuevo."
     }

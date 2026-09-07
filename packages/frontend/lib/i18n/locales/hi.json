@@ -1519,6 +1519,7 @@
     },
     "deals": {
       "title": "डील",
+      "documentTitle": "%{title} — Mercaria",
       "empty": "अभी कोई सक्रिय डील नहीं है।",
       "loadError": "डील लोड नहीं हो सकीं। दोबारा कोशिश करें।"
     }

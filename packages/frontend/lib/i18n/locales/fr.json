@@ -1536,6 +1536,7 @@
     },
     "deals": {
       "title": "Bons plans",
+      "documentTitle": "%{title} — Mercaria",
       "empty": "Aucun bon plan actif pour le moment.",
       "loadError": "Impossible de charger les bons plans. Réessayez."
     }

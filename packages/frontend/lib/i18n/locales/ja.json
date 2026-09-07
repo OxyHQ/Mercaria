@@ -1519,6 +1519,7 @@
     },
     "deals": {
       "title": "セール",
+      "documentTitle": "%{title} — Mercaria",
       "empty": "現在有効なセールはありません。",
       "loadError": "セールを読み込めませんでした。もう一度お試しください。"
     }

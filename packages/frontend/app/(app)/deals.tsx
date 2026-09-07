@@ -6,6 +6,8 @@ import { Footer } from '@/components/shell/Footer';
 import { DiscoveryFeed } from '@/components/discovery/DiscoveryFeed';
 import { useTranslation } from '@/lib/i18n';
 import { useDiscoveryFeed } from '@/lib/hooks/use-discovery-feed';
+import { renderJsonLd } from '@/lib/catalog/structured-data';
+import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
 
 /**
  * `/deals` — `scope: 'deals'`: one `store-offer` section per store with a
@@ -16,16 +18,55 @@ import { useDiscoveryFeed } from '@/lib/hooks/use-discovery-feed';
  * signal shelf (`store-offer` sections name neither `categoryHandle` nor
  * `signal`), so there is nothing here for that prop to resolve — see
  * `DiscoveryFeed`'s own docblock.
+ *
+ * `routes.ts` registers `deals` as `availability: 'live'` and indexable, and
+ * `resolveDealsPage` composes a full `SeoDocument` for it — same shape,
+ * same reasons, as `resolveCategoryIndex` for `/categories`. This screen
+ * consumes it the same way `categories/index.tsx` does.
  */
 export default function DealsScreen() {
   const { t } = useTranslation();
   const feed = useDiscoveryFeed({ kind: 'deals' });
+  const seo = useCatalogSeo('/deals');
   const sections = feed.data?.sections ?? [];
+
+  const document = seo.data?.document;
+  const jsonLd = renderJsonLd(document?.structuredData ?? []);
+  const title = document?.title ?? t('discovery.deals.title');
 
   return (
     <ScreenShell contentClassName="pt-6">
       <Head>
-        <title>{t('discovery.deals.title')}</title>
+        <title>{t('discovery.deals.documentTitle', { title })}</title>
+        {document?.description === undefined ? null : (
+          <meta name="description" content={document.description} />
+        )}
+        {/* The canonical URL and the alternates are the registry's, exactly as
+            on `/categories`. With the SEO surface unmounted neither tag is
+            emitted, which leaves the address as its own canonical — what it in
+            fact is — rather than asserting an indexing decision composed
+            here. */}
+        {document?.canonicalUrl === undefined ? null : (
+          <link rel="canonical" href={document.canonicalUrl} />
+        )}
+        {(document?.localeAlternates ?? []).map((alternate) => (
+          <link
+            key={alternate.hreflang}
+            rel="alternate"
+            hrefLang={alternate.hreflang}
+            href={alternate.href}
+          />
+        ))}
+        {document?.robots === undefined ? null : (
+          <meta name="robots" content={document.robots} />
+        )}
+        {jsonLd === undefined ? null : (
+          <script
+            type="application/ld+json"
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{ __html: jsonLd }}
+          />
+        )}
       </Head>
       <View className="web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
         <Text className="text-titleMedium text-text" accessibilityRole="header">

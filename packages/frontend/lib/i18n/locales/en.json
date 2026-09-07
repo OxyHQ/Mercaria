@@ -1519,6 +1519,7 @@
     },
     "deals": {
       "title": "Deals",
+      "documentTitle": "%{title} — Mercaria",
       "empty": "No active deals right now.",
       "loadError": "Couldn't load deals. Try again."
     }

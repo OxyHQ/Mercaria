@@ -1519,6 +1519,7 @@
     },
     "deals": {
       "title": "优惠",
+      "documentTitle": "%{title} — Mercaria",
       "empty": "目前没有正在进行的优惠。",
       "loadError": "无法加载优惠，请重试。"
     }

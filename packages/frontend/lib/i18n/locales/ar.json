@@ -1519,6 +1519,7 @@
     },
     "deals": {
       "title": "العروض",
+      "documentTitle": "%{title} — Mercaria",
       "empty": "لا توجد عروض نشطة حاليًا.",
       "loadError": "تعذّر تحميل العروض. حاول مرة أخرى."
     }
