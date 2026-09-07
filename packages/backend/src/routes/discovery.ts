@@ -27,8 +27,8 @@ router.use(makeRateLimiter('discovery'), optionalAuth);
 
 const CATEGORY_SCOPE_PREFIX = 'category:';
 
-/** A category handle, bound the same way `catalog-page-schemas.ts`'s `categorySlug` is. */
-const categoryHandleSchema = z.string().trim().min(1).max(256);
+/** A category handle, bound the same shape `catalog-page-schemas.ts`'s `categorySlug` is — trimmed, non-empty, ceilinged. */
+const categoryHandleSchema = z.string().trim().min(1).max(128);
 
 /**
  * `scope=root|deals|category:<handle>` parsed into the {@link DiscoveryScope}

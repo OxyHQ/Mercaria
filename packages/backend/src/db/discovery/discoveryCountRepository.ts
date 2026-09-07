@@ -8,7 +8,7 @@
  * memory are both cheaper and impossible to get wrong that way.
  */
 
-import { and, count, eq, gte, inArray, sum } from 'drizzle-orm';
+import { and, count, countDistinct, eq, gte, inArray, sum } from 'drizzle-orm';
 import { DISCOVERY_COUNTED_ORDER_STATUSES } from '@mercaria/shared-types';
 import { getDb } from '../postgres.js';
 import { orderItems, orders } from '../schema/orders.js';
@@ -27,7 +27,10 @@ export async function countListingSales(since: Date): Promise<ListingSalesCount[
     .select({
       listingId: orderItems.listingId,
       unitsSold: sum(orderItems.quantity),
-      orderCount: count(),
+      // DISTINCT orders, not order_items rows: a listing bought twice in one
+      // order is one order, and a row-count here would over-state it for any
+      // order carrying more than one line of the same listing.
+      orderCount: countDistinct(orderItems.orderId),
     })
     .from(orderItems)
     .innerJoin(orders, eq(orders.id, orderItems.orderId))

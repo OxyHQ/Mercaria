@@ -106,6 +106,7 @@ import guestSessionRouter from './routes/guest-session.js';
 import guestOrdersRouter from './routes/guest-orders.js';
 import analyticsRouter from './routes/analytics.js';
 import internalAnalyticsRouter from './routes/internal-analytics.js';
+import internalDiscoveryRouter from './routes/internal-discovery.js';
 import merchantDemandRouter from './routes/merchant-demand.js';
 import internalMerchantDemandRouter from './routes/internal-merchant-demand.js';
 import internalRetailEligibilityRouter from './routes/internal-retail-eligibility.js';
@@ -957,6 +958,14 @@ export function createApp(): express.Express {
   // the incident that turned them off.
   if (config.analytics.operatorSurfaceEnabled) {
     app.use('/internal/merchant-demand', internalMerchantDemandRouter);
+  }
+  // …and the discovery-sweep trigger, on the SAME analytics allow-list —
+  // forcing a recomputation of counts derived from analytics events is the
+  // power that list already holds, so this is a second surface joining it
+  // rather than an eighth list. Empty = not mounted, 404 — see
+  // middleware/analytics-operator-authz.ts.
+  if (config.analytics.operatorSurfaceEnabled) {
+    app.use('/internal/discovery', internalDiscoveryRouter);
   }
   // …and the retail compliance surface, on its OWN allow-list — a FIFTH list,
   // for the fifth instance of the same reason: approving a resale
