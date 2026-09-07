@@ -144,8 +144,15 @@ doubled class, so it renders no background at all.
 The trap is the sibling family: `--color-bg-fill-secondary` DOES generate
 `bg-bg-fill-secondary`, because there the `bg-` is part of the token's own name.
 For `overlay-*` it is not. `ReviewSummaryCard.tsx`'s `bg-overlay-inverse-06` is
-the one pre-existing correct use; six components on this branch and one older
-one (`ProductCard.tsx`) had the doubled form and rendered nothing.
+the one pre-existing correct use; **six components, all added on this branch**,
+had the doubled form and rendered nothing.
+
+`ProductCard.tsx` is NOT one of them, though a grep says otherwise: the string
+`bg-bg-overlay-inverse-04` appears there only inside a COMMENT naming Shop's own
+class, while the live class one line below is `bg-black/[0.04]` — which works and
+is the same 4% wash. I claimed it was a seventh broken instance from a grep that
+did not check whether the match sat inside a `className`, and the Task fixer
+checked and pushed back rather than editing a component that was never wrong.
 
 Found by the Task 3 reviewer, who compiled a synthetic stylesheet through the
 repo's installed `@tailwindcss/postcss` rather than reasoning about it.
