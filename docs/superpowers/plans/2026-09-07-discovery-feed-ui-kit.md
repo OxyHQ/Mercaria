@@ -141,10 +141,16 @@ bun run --filter @mercaria/frontend typecheck
 Expected: both exit 0. A preset error surfaces here as a Tailwind config parse failure, not as a type error, so also confirm the file still parses:
 
 ```bash
-node -e "const p=require('./packages/ui/theme/tailwind.preset.js'); const t=p.theme.extend; console.log(t.borderRadius['radius-24'], t.fontSize.posterXS[0], t.colors['overlay-fixed-light-75'], t.boxShadow.s)"
+node -e "const p=require('./packages/ui/src/theme/tailwind.preset.js'); const t=p.theme.extend; console.log(t.borderRadius['radius-24'], t.fontSize.posterXS[0], t.colors['overlay-fixed-light-75'], t.boxShadow.s)"
 ```
 
 Expected: `24px 40px rgba(255,255,255,0.75) 0 1px 2px rgba(0,0,0,.06)`.
+
+The path is `src/theme/`, not `theme/` — apps reach it through the package export
+`"./theme/tailwind.preset": "./src/theme/tailwind.preset.js"`, so the import
+specifier and the file path differ. Run this before your change too: all four
+print `undefined` today, which is what makes the after-value evidence rather
+than decoration.
 
 - [ ] **Step 3: Commit**
 
