@@ -16,9 +16,15 @@
  * so a page never reaches past what the sweep counted
  * (`config.discovery.topNPerCategory`): an empty scope in that table is an
  * empty shelf, never every listing in the category via a bad join.
+ *
+ * `best-selling` and `most-viewed` both additionally require their own
+ * ranking column to be greater than zero: every counted subject earns an
+ * unconditional row in the root scope regardless of whether it ever sold or
+ * was viewed, so an ORDER BY with no floor presents an arbitrary ordering of
+ * zero-count rows under a heading that claims they are the best or the most.
  */
 
-import { and, desc, eq, getTableColumns, gte, inArray, isNull, lte, or } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, gt, gte, inArray, isNull, lte, or } from 'drizzle-orm';
 import { DISCOVERY_WINDOWS, type DiscoverySignal } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { findOnSaleListings, type ListingRecord } from '../catalog/listingRepository.js';
@@ -115,6 +121,11 @@ async function findBestSellingListings(
         // history, not from the listing's current state), so this join is
         // the one place that can still keep it off a public shelf.
         eq(listings.status, 'active'),
+        // A zero count is an absent fact, not a ranking. The seed emits a
+        // root-scope row for every counted subject regardless of whether it
+        // ever sold anything, so an unguarded ORDER BY presents listings
+        // nobody bought under a heading that says they are the best-selling.
+        gt(discoverySignals.unitsSold, 0),
       ),
     )
     .orderBy(desc(discoverySignals.unitsSold), desc(discoverySignals.id))
@@ -138,6 +149,9 @@ async function findMostViewedListings(
         eq(discoverySignals.window, WINDOW),
         // See the same predicate in `findBestSellingListings` above.
         eq(listings.status, 'active'),
+        // See the same predicate in `findBestSellingListings` above: a shelf
+        // named for a column must not show rows where it is zero.
+        gt(discoverySignals.viewCount, 0),
       ),
     )
     .orderBy(desc(discoverySignals.viewCount), desc(discoverySignals.id))

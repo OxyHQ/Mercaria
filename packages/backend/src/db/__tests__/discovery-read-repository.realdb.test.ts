@@ -332,6 +332,27 @@ describe('findListingsBySignal', () => {
     expect(found.map((l) => l.id)).toEqual([bestSellerId, laggardId]);
   });
 
+  it('best-selling excludes a listing whose units_sold is zero', async () => {
+    // Unlike the vacuity case above, `unsoldId` DOES have a `discovery_signals`
+    // row — every counted subject earns one in every scope it belongs to,
+    // whether or not it ever sold anything. A shelf named for units sold must
+    // not show a row where that column is zero.
+    const categoryId = await makeCategory();
+    const soldId = await makeListing(categoryId);
+    const unsoldId = await makeListing(categoryId);
+    await seedSignal({ subjectType: 'listing', subjectId: soldId, categoryId, unitsSold: 5 });
+    await seedSignal({ subjectType: 'listing', subjectId: unsoldId, categoryId, unitsSold: 0 });
+
+    const found = await findListingsBySignal({
+      signal: 'best-selling',
+      categoryIds: [categoryId],
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(found.map((l) => l.id)).toEqual([soldId]);
+  });
+
   it('best-selling returns nothing when nothing was counted', async () => {
     // The vacuity floor's counterpart: an active listing exists in the
     // category, but the sweep never wrote a `discovery_signals` row for it. A
@@ -373,6 +394,24 @@ describe('findListingsBySignal', () => {
     });
 
     expect(found.map((l) => l.id)).toEqual([activeId]);
+  });
+
+  it('most-viewed excludes a listing whose view_count is zero', async () => {
+    // Same defect as the best-selling case above, the other column.
+    const categoryId = await makeCategory();
+    const viewedId = await makeListing(categoryId);
+    const unviewedId = await makeListing(categoryId);
+    await seedSignal({ subjectType: 'listing', subjectId: viewedId, categoryId, viewCount: 5 });
+    await seedSignal({ subjectType: 'listing', subjectId: unviewedId, categoryId, viewCount: 0 });
+
+    const found = await findListingsBySignal({
+      signal: 'most-viewed',
+      categoryIds: [categoryId],
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(found.map((l) => l.id)).toEqual([viewedId]);
   });
 
   it('most-viewed excludes a listing whose status is no longer active', async () => {
