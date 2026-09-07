@@ -34,6 +34,10 @@ export function SectionCard({ title, onPress, children }: SectionCardProps) {
         {title}
       </Text>
       <View className="size-space-36 shrink-0 items-center justify-center rounded-radius-max bg-overlay-fixed-dark-04">
+        {/* `colors.foreground` follows `SectionHeader`'s own chevron
+            (`SectionHeader.tsx`) — the right precedent for an icon over a
+            themed card surface, unlike `ActionHeroCard`'s disc, which
+            hardcodes a fixed light colour because it sits over a photo. */}
         <ChevronRight size={CHEVRON_ICON_SIZE} color={colors.foreground} />
       </View>
     </>
