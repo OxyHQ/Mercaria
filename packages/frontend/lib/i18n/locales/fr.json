@@ -1519,7 +1519,10 @@
     "signal": {
       "notFound": "Nous n'avons pas trouvé cette liste.",
       "cappedNotice": "Voici notre sélection principale pour cette liste ; certains articles peuvent manquer.",
-      "empty": "Rien à afficher ici pour le moment."
+      "empty": "Rien à afficher ici pour le moment.",
+      "loadMore": "Charger plus",
+      "loadMoreLabel": "Charger plus de produits",
+      "loadingMore": "Chargement…"
     },
     "deals": {
       "title": "Bons plans",

@@ -1519,7 +1519,10 @@
     "signal": {
       "notFound": "No hem trobat aquesta llista.",
       "cappedNotice": "Mostrant la nostra selecció principal d'aquesta llista; és possible que hi falti algun article.",
-      "empty": "Encara no hi ha res a mostrar aquí."
+      "empty": "Encara no hi ha res a mostrar aquí.",
+      "loadMore": "Carrega'n més",
+      "loadMoreLabel": "Carrega més productes",
+      "loadingMore": "S'està carregant…"
     },
     "deals": {
       "title": "Ofertes",

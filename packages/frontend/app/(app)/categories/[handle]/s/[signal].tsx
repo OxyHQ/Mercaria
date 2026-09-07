@@ -1,22 +1,22 @@
 import { useMemo } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import type { DiscoverySection, DiscoverySignal, ProductsSection } from '@mercaria/shared-types';
+import type { DiscoverySignal } from '@mercaria/shared-types';
 import { DISCOVERY_SIGNALS } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
 import { SignalGrid } from '@/components/discovery/SignalGrid';
 import { useTranslation } from '@/lib/i18n';
-import { useDiscoveryFeed } from '@/lib/hooks/use-discovery-feed';
+import { useDiscoverySignalPage } from '@/lib/hooks/use-discovery-feed';
 import { sectionTitleKey, sectionTitleParams } from '@/lib/discovery/section-title';
 import { findCategoryByHandle, useCategoryTree } from '@/lib/catalog/category-tree';
 
 /**
- * `/categories/:handle/s/:signal` — one signal, one scope: the "see all"
- * destination every hero card and `SectionCard` on the feed links to
- * (`docs/superpowers/specs/2026-09-07-discovery-feed-design.md`).
+ * `/categories/:handle/s/:signal` — one signal, one scope, paginated: the
+ * "see all" destination every hero card and `SectionCard` on the feed links
+ * to (`docs/superpowers/specs/2026-09-07-discovery-feed-design.md`).
  *
  * ## An unknown signal is a not-found, never a default
  *
@@ -30,40 +30,22 @@ import { findCategoryByHandle, useCategoryTree } from '@/lib/catalog/category-tr
  * `top-rated`, `new` and `on-sale` read `listings` directly and are
  * `pageDepth: 'complete'`; `best-selling` and `most-viewed` are answered from
  * `discovery_signals` and are `'capped'` — only as deep as the sweep counted
- * (`config.discovery.topNPerCategory`). The section the feed already returns
- * carries its own `pageDepth`, so this screen reads it rather than inferring
- * it from the signal a second time, and shows a notice on the capped case
+ * (`config.discovery.topNPerCategory`). Every page `useDiscoverySignalPage`
+ * fetches carries the same `pageDepth` for a fixed signal+scope, so this
+ * screen reads it off the first page and shows a notice on the capped case
  * rather than a shopper discovering the edge on their own.
  *
- * ## Where the products come from
+ * ## `hasMore`, never a client-side cap
  *
- * The category-scoped discovery feed already builds one `products` section
- * per shelf signal (`on-sale`, `best-selling`, `most-viewed`) and folds
- * `top-rated`/`new` into its `card-group` section — see
- * `services/discovery/feed.service.ts`'s `CARD_GROUP_SIGNALS`/`SHELF_SIGNALS`
- * split. `findSignalSection` below reads whichever of the two shapes carries
- * the requested signal, so this screen needs no endpoint of its own.
+ * `GET /discovery/signal` computes `hasMore` by reading one row past `limit`
+ * server-side (team-lead ruling, `task-4-report.md`), so a `'capped'` signal's
+ * "Load more" disappears at the real edge of what the sweep counted, and a
+ * `'complete'` one at the real edge of `listings` — this screen never
+ * predicts either number itself.
  */
 
 function isDiscoverySignal(value: string): value is DiscoverySignal {
   return (DISCOVERY_SIGNALS as readonly string[]).includes(value);
-}
-
-/** The one `products` section naming `signal`, wherever the feed put it. */
-function findSignalSection(
-  sections: readonly DiscoverySection[],
-  signal: DiscoverySignal,
-): ProductsSection | undefined {
-  for (const section of sections) {
-    if (section.kind === 'products' && section.signal === signal) {
-      return section;
-    }
-    if (section.kind === 'card-group') {
-      const nested = section.cards.find((card) => card.signal === signal);
-      if (nested) return nested;
-    }
-  }
-  return undefined;
 }
 
 export default function SignalScreen() {
@@ -79,12 +61,13 @@ export default function SignalScreen() {
     [tree.data, handle],
   );
 
-  const feed = useDiscoveryFeed({ kind: 'category', handle });
+  const signal = isDiscoverySignal(rawSignal) ? rawSignal : undefined;
+  const signalPage = useDiscoverySignalPage({ kind: 'category', handle }, signal);
 
   const onPressProduct = (id: string) =>
     router.push({ pathname: '/products/[id]', params: { id } });
 
-  if (!isDiscoverySignal(rawSignal)) {
+  if (signal === undefined) {
     return (
       <ScreenShell contentClassName="pt-6">
         <View className="items-center justify-center px-8 py-16">
@@ -95,7 +78,6 @@ export default function SignalScreen() {
       </ScreenShell>
     );
   }
-  const signal = rawSignal;
 
   if (tree.isLoading && tree.data === undefined) {
     return (
@@ -118,8 +100,9 @@ export default function SignalScreen() {
   }
 
   const title = t(sectionTitleKey(signal), sectionTitleParams(category.name));
-  const section =
-    feed.data === undefined ? undefined : findSignalSection(feed.data.sections, signal);
+  const pages = signalPage.data ?? [];
+  const products = pages.flatMap((page) => page.products);
+  const pageDepth = pages[0]?.pageDepth;
 
   const head = (
     <Head>
@@ -138,22 +121,40 @@ export default function SignalScreen() {
         {/* Reported rather than implied: a capped shelf says so, up front,
             instead of letting the shopper find the edge on their own. The
             complete case needs no caveat — it is the unqualified default. */}
-        {section?.pageDepth === 'capped' ? (
+        {pageDepth === 'capped' ? (
           <Text className="text-caption text-text-tertiary">
             {t('discovery.signal.cappedNotice')}
           </Text>
         ) : null}
 
-        {feed.isLoading && feed.data === undefined ? (
+        {signalPage.isLoading && products.length === 0 ? (
           <Text className="text-body text-text-tertiary">{t('common.loading')}</Text>
         ) : null}
 
-        {!feed.isLoading && (section === undefined || section.products.length === 0) ? (
+        {!signalPage.isLoading && products.length === 0 ? (
           <Text className="text-body text-text-tertiary">{t('discovery.signal.empty')}</Text>
         ) : null}
 
-        {section !== undefined && section.products.length > 0 ? (
-          <SignalGrid products={section.products} onPressProduct={onPressProduct} />
+        {products.length > 0 ? (
+          <SignalGrid products={products} onPressProduct={onPressProduct} />
+        ) : null}
+
+        {signalPage.hasNextPage ? (
+          <View className="items-center px-4 py-6">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('discovery.signal.loadMoreLabel')}
+              disabled={signalPage.isFetchingNextPage}
+              onPress={() => void signalPage.fetchNextPage()}
+              className="rounded-full border border-border bg-muted px-6 py-3 web:shadow-sm"
+            >
+              <Text className="text-sm font-semibold text-foreground">
+                {signalPage.isFetchingNextPage
+                  ? t('discovery.signal.loadingMore')
+                  : t('discovery.signal.loadMore')}
+              </Text>
+            </Pressable>
+          </View>
         ) : null}
 
         <Footer />

@@ -1,4 +1,4 @@
-import type { DiscoveryScope, ListingQuery } from '@mercaria/shared-types';
+import type { DiscoveryScope, DiscoverySignal, ListingQuery } from '@mercaria/shared-types';
 
 export const queryKeys = {
   notifications: {
@@ -19,6 +19,9 @@ export const queryKeys = {
    */
   discovery: {
     feed: (scope: DiscoveryScope) => ["discovery", "feed", scope] as const,
+    /** The `/categories/:handle/s/:signal` offset-paged listing for one signal. */
+    signalPage: (scope: DiscoveryScope, signal: DiscoverySignal) =>
+      ["discovery", "signalPage", scope, signal] as const,
   },
   /**
    * Natural-language search (#95). The RESULTS key carries the filters, so

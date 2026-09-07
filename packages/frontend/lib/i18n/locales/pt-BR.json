@@ -1519,7 +1519,10 @@
     "signal": {
       "notFound": "Não encontramos esta lista.",
       "cappedNotice": "Mostrando nossa seleção principal desta lista; alguns itens correspondentes podem não aparecer ainda.",
-      "empty": "Ainda não há nada para mostrar aqui."
+      "empty": "Ainda não há nada para mostrar aqui.",
+      "loadMore": "Carregar mais",
+      "loadMoreLabel": "Carregar mais produtos",
+      "loadingMore": "Carregando…"
     },
     "deals": {
       "title": "Ofertas",

@@ -1502,7 +1502,10 @@
     "signal": {
       "notFound": "We couldn't find this list.",
       "cappedNotice": "Showing our top picks for this list — some matching items may not appear yet.",
-      "empty": "Nothing to show here yet."
+      "empty": "Nothing to show here yet.",
+      "loadMore": "Load more",
+      "loadMoreLabel": "Load more products",
+      "loadingMore": "Loading…"
     },
     "deals": {
       "title": "Deals",

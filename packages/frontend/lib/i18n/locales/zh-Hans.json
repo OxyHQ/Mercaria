@@ -1502,7 +1502,10 @@
     "signal": {
       "notFound": "没有找到这个列表。",
       "cappedNotice": "正在展示这份列表的精选内容，部分符合条件的商品可能暂未显示。",
-      "empty": "这里暂时没有可显示的内容。"
+      "empty": "这里暂时没有可显示的内容。",
+      "loadMore": "加载更多",
+      "loadMoreLabel": "加载更多商品",
+      "loadingMore": "加载中…"
     },
     "deals": {
       "title": "优惠",
