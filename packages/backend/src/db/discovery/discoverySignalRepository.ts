@@ -3,7 +3,7 @@
  * side. Its only caller is the sweep.
  *
  * Split from the read repository because they share no statement and sit on
- * different paths: this one runs on a timer and rewrites whole scopes, the
+ * different paths: this one runs on a timer and rewrites the whole window, the
  * reader runs on every request and reads one indexed slice.
  *
  * The lease pair below is `analytics/rollupRepository.ts`'s
@@ -14,7 +14,7 @@
  * failed run has nothing to resume.
  */
 
-import { and, eq, inArray, isNull, lte, or } from 'drizzle-orm';
+import { and, eq, isNull, lte, or } from 'drizzle-orm';
 import type { DiscoverySubjectType, DiscoveryWindow } from '@mercaria/shared-types';
 import { getDb } from '../postgres.js';
 import { discoverySignals, discoverySweepCursors } from '../schema/discovery.js';
@@ -31,44 +31,43 @@ export interface DiscoverySignalInput {
 
 export interface ReplaceWindowInput {
   window: DiscoveryWindow;
-  /**
-   * The scopes this call OWNS. Every existing row in these scopes is removed
-   * and replaced by `rows`; every other scope is untouched.
-   *
-   * Explicit rather than derived from `rows`, because a scope whose subjects
-   * have all gone must end up EMPTY, and a scope derived from an empty input
-   * is no scope at all.
-   */
-  scopeCategoryIds: string[];
   rows: DiscoverySignalInput[];
   computedAt: Date;
 }
 
 /**
- * Replace the given scopes' rows for one window, atomically.
+ * Replace THE WHOLE WINDOW, atomically.
  *
  * DELETE + INSERT in one transaction rather than an upsert plus a cleanup:
  * Postgres MVCC makes the pair invisible to readers until it commits, so no
  * request ever sees a half-written window, and a subject that stopped selling
  * disappears instead of keeping last month's figure forever.
  *
+ * ## The delete is not scoped, and that is the point
+ *
+ * It used to take a `scopeCategoryIds` list and delete only those scopes'
+ * rows, which the sweep filled with the scopes it had TOUCHED. A category
+ * whose every listing fell out of the rolling window contributes no key, so
+ * nothing ever deleted its rows: its `best-selling` and `most-viewed` shelves
+ * kept serving last month's counts indefinitely, past the `> 0` floors the
+ * reads apply, with no `computed_at` check anywhere to notice. In a
+ * marketplace with a long tail of quiet categories that is the ordinary case,
+ * not the edge one — and it made this docblock's own promise false in exactly
+ * the situation it was written for.
+ *
+ * A run recomputes the whole rolling window (there is no day cursor to
+ * advance), so the window's rows ARE this run's output and anything else in it
+ * is stale by construction. An EMPTY `rows` therefore clears the window rather
+ * than being a no-op: nothing sold and nothing was viewed in the last N days
+ * is a real answer, and the previous run's figures are not.
+ *
  * @returns how many rows were inserted.
  */
 export async function replaceWindow(input: ReplaceWindowInput): Promise<number> {
   const db = getDb();
-  if (input.scopeCategoryIds.length === 0) {
-    return 0;
-  }
 
   return db.transaction(async (tx) => {
-    await tx
-      .delete(discoverySignals)
-      .where(
-        and(
-          eq(discoverySignals.window, input.window),
-          inArray(discoverySignals.categoryId, input.scopeCategoryIds),
-        ),
-      );
+    await tx.delete(discoverySignals).where(eq(discoverySignals.window, input.window));
 
     if (input.rows.length === 0) {
       return 0;

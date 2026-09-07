@@ -30,6 +30,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import type express from 'express';
+import type { Database } from '../../db/postgres.js';
+import {
+  acquireDiscoverySignalsSlot,
+  type DiscoverySignalsSlot,
+} from '../../db/__tests__/discovery-signals-slot.js';
 
 const ANALYTICS_OPERATOR = 'oxy-user-discovery-sweep-operator';
 const PAYMENTS_OPERATOR = 'oxy-user-discovery-sweep-payments-operator';
@@ -73,11 +78,22 @@ vi.mock('../../lib/rate-limit.js', () => ({
 interface Deployment {
   readonly url: string;
   readonly server: Server;
-  readonly close: () => Promise<void>;
+  /** The pool this deployment opened, when it has one — the slot needs a handle. */
+  readonly db: Database | null;
+  readonly closeServer: () => Promise<void>;
+  /**
+   * Ends this deployment's pool, or does nothing when it never opened one.
+   *
+   * Separate from `closeServer` because the slot is held on a connection
+   * reserved out of THIS pool: the release has to run after the servers stop
+   * and before the pool ends, which one combined `close()` cannot express.
+   */
+  readonly closePostgres: () => Promise<void>;
 }
 
 let enabled: Deployment;
 let disabled: Deployment;
+let slot: DiscoverySignalsSlot | undefined;
 
 function listen(app: express.Express): Promise<{ server: Server; url: string }> {
   return new Promise((resolve) => {
@@ -101,15 +117,16 @@ async function build(options: {
   process.env.STRIPE_ENABLED = 'false';
 
   const graph = options.withDatabase ? await import('../../db/postgres.js') : null;
-  if (graph) await graph.connectPostgres();
+  const db = graph ? await graph.connectPostgres() : null;
   const { createApp } = await import('../../app.js');
   const { server, url } = await listen(createApp());
 
   return {
     url,
     server,
-    close: async () => {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+    db,
+    closeServer: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    closePostgres: async () => {
       if (graph) await graph.closePostgres();
     },
   };
@@ -122,13 +139,28 @@ beforeAll(async () => {
   // the `catalog-rollout.realdb.test.ts` / `search-rollout.realdb.test.ts`
   // reasoning for a database this suite shares with every other file.
   disabled = await build({ operators: '', withDatabase: false });
-}, 60_000);
+  // The sweep this file forces REPLACES the whole `discovery_signals` window,
+  // so for as long as it may run one, that table is exclusively ours — see
+  // `db/__tests__/discovery-signals-slot.ts` for what collides.
+  if (enabled.db) slot = await acquireDiscoverySignalsSlot(enabled.db);
+}, 120_000);
 
 afterAll(async () => {
-  delete process.env.ANALYTICS_OPERATOR_OXY_USER_IDS;
-  delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
-  delete process.env.STRIPE_ENABLED;
-  await Promise.all([enabled, disabled].map((deployment) => deployment.close()));
+  // The WHOLE teardown sits inside the region that ends the pool: the slot is
+  // held on a connection reserved out of `enabled`'s, and returning that
+  // connection does NOT end the hold (#272) — so anything that throws above
+  // the release, the release included, must still reach `closePostgres`.
+  // `db/__tests__/slot-teardown-census.test.ts` fails the build otherwise.
+  try {
+    delete process.env.ANALYTICS_OPERATOR_OXY_USER_IDS;
+    delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
+    delete process.env.STRIPE_ENABLED;
+    await Promise.all([enabled, disabled].map((deployment) => deployment.closeServer()));
+    if (slot) await slot.release();
+  } finally {
+    await enabled.closePostgres();
+    await disabled.closePostgres();
+  }
 });
 
 describe('the /internal/discovery operator gate', () => {

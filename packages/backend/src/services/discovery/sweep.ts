@@ -137,7 +137,12 @@ function selectTopByUnion(
 }
 
 /**
- * Run the two counting passes and replace every scope they touch.
+ * Run the two counting passes and replace the whole window with their result.
+ *
+ * The window, not the scopes this run happened to fill: a category whose every
+ * listing has fallen out of the rolling window contributes no scope, so a
+ * touched-scopes delete would leave its rows — and their month-old counts —
+ * standing forever. See `replaceWindow`'s own docblock.
  *
  * @returns how many rows `replaceWindow` inserted.
  */
@@ -173,7 +178,11 @@ async function computeAndReplaceSignals(now: Date): Promise<number> {
 
   const listingIds = [...countsByListing.keys()];
   if (listingIds.length === 0) {
-    return replaceWindow({ window: WINDOW, scopeCategoryIds: [], rows: [], computedAt: now });
+    // Not a no-op: nothing sold and nothing was viewed inside the rolling
+    // window is a real answer, and `replaceWindow` clears the window rather
+    // than leaving the previous run's figures standing as if they were still
+    // true.
+    return replaceWindow({ window: WINDOW, rows: [], computedAt: now });
   }
 
   const [listingRecords, categoryRecords] = await Promise.all([
@@ -254,17 +263,12 @@ async function computeAndReplaceSignals(now: Date): Promise<number> {
     }
   }
 
-  return replaceWindow({
-    window: WINDOW,
-    scopeCategoryIds: [...scopeCandidates.keys()],
-    rows,
-    computedAt: now,
-  });
+  return replaceWindow({ window: WINDOW, rows, computedAt: now });
 }
 
 /**
- * Count sales and views over the rolling window and replace every scope they
- * touch, if this task can take the lease.
+ * Count sales and views over the rolling window and replace the window with
+ * what they found, if this task can take the lease.
  *
  * @returns How many rows were written, or `undefined` when another task holds
  *   the lease.

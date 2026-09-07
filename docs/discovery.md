@@ -112,9 +112,25 @@ sales pass and the views pass keeps ONE candidate per `(scope, listingId)`,
 and several listings of the same store landing in the same scope are SUMMED
 into one store row rather than becoming one row each — both via `Map`s keyed
 on the unique index's own columns, so a duplicate can only overwrite a key,
-never append a second row for it. `replaceWindow` itself deletes and
-re-inserts a run's touched scopes in ONE transaction, so no reader ever sees
-a half-written window.
+never append a second row for it. `replaceWindow` itself deletes THE WHOLE
+WINDOW and re-inserts the run's output in ONE transaction, so no reader ever
+sees a half-written window.
+
+The delete is the whole window and not the scopes a run touched, and the
+difference is the long tail. A category whose every listing has fallen out of
+the rolling window contributes no candidate, so it is in no run's touched set:
+a narrowed delete could never reach it, and its month-old `units_sold` and
+`view_count` would stay on `best-selling` and `most-viewed` forever, past the
+`> 0` floors the reads apply, with nothing consulting `computed_at` to notice.
+A run recomputes the whole rolling window, so the window's rows ARE its output
+and anything else in it is stale by construction — which is also why an empty
+input CLEARS the window rather than being a no-op.
+
+That makes the window a global resource, and the isolation it needs belongs in
+the fixtures rather than in the production predicate: every realdb file that
+writes a `discovery_signals` row, or drives something that does, holds the
+session-level mutex in `db/__tests__/discovery-signals-slot.ts` for its whole
+run.
 
 The sweep is leased per run on `discovery_sweep_cursors`
 (`analytics_rollup_cursors`' shape: an upsert whose conflict branch takes the

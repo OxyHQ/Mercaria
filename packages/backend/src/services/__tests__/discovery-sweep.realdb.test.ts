@@ -35,8 +35,13 @@ import {
   countListingViews,
 } from '../../db/discovery/discoveryCountRepository.js';
 import { DISCOVERY_SWEEP_JOB, runDiscoverySweepOnce } from '../discovery/sweep.js';
+import {
+  acquireDiscoverySignalsSlot,
+  type DiscoverySignalsSlot,
+} from '../../db/__tests__/discovery-signals-slot.js';
 
 let db: Database;
+let slot: DiscoverySignalsSlot | undefined;
 const ownedListingIds: string[] = [];
 const ownedOrderIds: string[] = [];
 const ownedEventIds: string[] = [];
@@ -219,6 +224,7 @@ async function makeCategoryChain(depth: number): Promise<string[]> {
 
 beforeAll(async () => {
   db = await connectPostgres();
+  slot = await acquireDiscoverySignalsSlot(db);
 }, 120_000);
 
 afterEach(async () => {
@@ -265,7 +271,13 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  await closePostgres();
+  // Release BEFORE closing the pool, and NESTED: `release()` can throw and
+  // `closePostgres` is what actually ends the hold.
+  try {
+    if (slot) await slot.release();
+  } finally {
+    await closePostgres();
+  }
 });
 
 describe('countListingSales', () => {
@@ -361,6 +373,58 @@ describe('runDiscoverySweepOnce', () => {
     expect(rows.map((r) => r.categoryId).sort()).toEqual(
       ['', grandparentId, parentId, leafId].sort(),
     );
+  });
+
+  it('clears a scope that went QUIET, not only the scopes it counted', async () => {
+    // The long tail. A category whose every listing has fallen out of the
+    // rolling window contributes no candidate, so it is in no run's touched
+    // set — and a delete narrowed to the touched scopes can never reach it.
+    // Its month-old counts then sit on `best-selling` and `most-viewed`
+    // forever, past the `> 0` floors the reads apply, with nothing reading
+    // `computed_at` to notice. This is the SWEEP's half of that property: the
+    // repository can delete the whole window and still be handed a narrowed
+    // scope list by its only caller.
+    const [quietCategoryId] = await makeCategoryChain(1);
+    const staleListingId = await makeListing({ categoryId: quietCategoryId, status: 'active' });
+    await db.insert(discoverySignals).values({
+      subjectType: 'listing',
+      subjectId: staleListingId,
+      categoryId: quietCategoryId,
+      window: '30d',
+      unitsSold: 99,
+      orderCount: 9,
+      viewCount: 9,
+      computedAt: longAgo(),
+    });
+
+    // Something for THIS run to count, so the case exercises a real run rather
+    // than the nothing-was-counted path — and so the assertion below cannot
+    // pass by the sweep having written nothing at all.
+    const [busyCategoryId] = await makeCategoryChain(1);
+    const soldListingId = await makeListing({ categoryId: busyCategoryId, status: 'active' });
+    await makeOrder({ listingId: soldListingId, quantity: 4, status: 'paid' });
+
+    const outcome = await runDiscoverySweepOnce();
+    expect(outcome).toBeDefined();
+
+    expect(
+      await db
+        .select({ id: discoverySignals.id })
+        .from(discoverySignals)
+        .where(eq(discoverySignals.subjectId, staleListingId)),
+    ).toEqual([]);
+    // The control: the run DID write, in the scope it counted.
+    expect(
+      await db
+        .select({ unitsSold: discoverySignals.unitsSold })
+        .from(discoverySignals)
+        .where(
+          and(
+            eq(discoverySignals.subjectId, soldListingId),
+            eq(discoverySignals.categoryId, busyCategoryId),
+          ),
+        ),
+    ).toEqual([{ unitsSold: 4 }]);
   });
 
   it('sums two listings of the same store into one store row per scope', async () => {

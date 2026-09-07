@@ -56,8 +56,13 @@ import {
   findStoresBySignal,
   findStoresWithLiveDiscounts,
 } from '../discovery/discoveryReadRepository.js';
+import {
+  acquireDiscoverySignalsSlot,
+  type DiscoverySignalsSlot,
+} from './discovery-signals-slot.js';
 
 let db: Database;
+let slot: DiscoverySignalsSlot | undefined;
 
 const createdCategoryIds: string[] = [];
 const createdListingIds: string[] = [];
@@ -186,6 +191,7 @@ async function makeDiscount(
 
 beforeAll(async () => {
   db = await connectPostgres();
+  slot = await acquireDiscoverySignalsSlot(db);
 }, 120_000);
 
 afterEach(async () => {
@@ -209,7 +215,13 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  await closePostgres();
+  // Release BEFORE closing the pool, and NESTED: `release()` can throw and
+  // `closePostgres` is what actually ends the hold.
+  try {
+    if (slot) await slot.release();
+  } finally {
+    await closePostgres();
+  }
 });
 
 describe('findListingsBySignal', () => {

@@ -15,8 +15,13 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { discoverySignals, discoverySweepCursors } from '../schema/discovery.js';
+import {
+  acquireDiscoverySignalsSlot,
+  type DiscoverySignalsSlot,
+} from './discovery-signals-slot.js';
 
 let db: Database;
+let slot: DiscoverySignalsSlot | undefined;
 
 /** Category scopes this file invented. The database is SHARED — never widen. */
 const ownedCategoryIds: string[] = [];
@@ -30,7 +35,8 @@ function makeCategoryId(): string {
 
 beforeAll(async () => {
   db = await connectPostgres();
-});
+  slot = await acquireDiscoverySignalsSlot(db);
+}, 120_000);
 
 afterEach(async () => {
   if (ownedCategoryIds.length > 0) {
@@ -44,7 +50,13 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  await closePostgres();
+  // Release BEFORE closing the pool, and NESTED: `release()` can throw and
+  // `closePostgres` is what actually ends the hold.
+  try {
+    if (slot) await slot.release();
+  } finally {
+    await closePostgres();
+  }
 });
 
 describe('discovery_signals', () => {

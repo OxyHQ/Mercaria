@@ -1,12 +1,30 @@
 /**
  * The per-window replace, against a real server.
  *
- * The property under test is ATOMICITY plus SCOPE: the replace must remove the
- * previous run's rows for the window it owns and nothing else, in one
- * transaction, so a reader never sees a half-written window.
+ * The property under test is ATOMICITY plus REACH: the replace must remove the
+ * previous run's rows for the window it owns — ALL of them, not only the
+ * scopes the caller happened to fill — in one transaction, so a reader never
+ * sees a half-written window and a scope that has gone quiet cannot keep
+ * serving last month's figures.
+ *
+ * The reach half is the one that changed. `replaceWindow` used to take a
+ * `scopeCategoryIds` list and delete only those scopes, and the sweep passed
+ * the scopes it had TOUCHED — so a category whose every listing fell out of the
+ * rolling window contributed no key and was never cleared. The old third case
+ * here pinned the narrow behaviour as if it were the requirement; its
+ * replacement pins the opposite, which is what the design and this
+ * repository's own docblock both state.
+ *
+ * ## Scoping, because this database is SHARED
+ *
+ * A window-wide delete cannot be scoped by the caller, so this file holds the
+ * `discovery_signals` slot for its whole run — see `discovery-signals-slot.ts`
+ * for what collides and why the isolation belongs here rather than in the
+ * production predicate. Its own rows still carry file-owned category ids so
+ * teardown removes exactly what it made.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { discoverySignals } from '../schema/discovery.js';
@@ -14,8 +32,13 @@ import {
   replaceWindow,
   type DiscoverySignalInput,
 } from '../discovery/discoverySignalRepository.js';
+import {
+  acquireDiscoverySignalsSlot,
+  type DiscoverySignalsSlot,
+} from './discovery-signals-slot.js';
 
 let db: Database;
+let slot: DiscoverySignalsSlot | undefined;
 const ownedCategoryIds: string[] = [];
 
 function makeCategoryId(): string {
@@ -30,7 +53,8 @@ function row(categoryId: string, subjectId: string, unitsSold: number): Discover
 
 beforeAll(async () => {
   db = await connectPostgres();
-});
+  slot = await acquireDiscoverySignalsSlot(db);
+}, 120_000);
 
 afterEach(async () => {
   if (ownedCategoryIds.length > 0) {
@@ -40,7 +64,13 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  await closePostgres();
+  // Release BEFORE closing the pool, and NESTED: `release()` can throw and
+  // `closePostgres` is what actually ends the hold.
+  try {
+    if (slot) await slot.release();
+  } finally {
+    await closePostgres();
+  }
 });
 
 describe('replaceWindow', () => {
@@ -49,7 +79,6 @@ describe('replaceWindow', () => {
     const written = await replaceWindow({
       window: '30d',
       computedAt: new Date(),
-      scopeCategoryIds: [categoryId],
       rows: [row(categoryId, 'listing-a', 5), row(categoryId, 'listing-b', 3)],
     });
     expect(written).toBe(2);
@@ -63,13 +92,11 @@ describe('replaceWindow', () => {
     await replaceWindow({
       window: '30d',
       computedAt: new Date(),
-      scopeCategoryIds: [categoryId],
       rows: [row(categoryId, 'listing-a', 5), row(categoryId, 'listing-b', 3)],
     });
     await replaceWindow({
       window: '30d',
       computedAt: new Date(),
-      scopeCategoryIds: [categoryId],
       rows: [row(categoryId, 'listing-a', 9)],
     });
 
@@ -81,50 +108,54 @@ describe('replaceWindow', () => {
     expect(remaining).toEqual([{ subjectId: 'listing-a', unitsSold: 9 }]);
   });
 
-  it('touches no scope outside the ones it was given', async () => {
-    // The shared test database makes this load-bearing, and so does production:
-    // a replace written as `delete where window = $1` takes every category with
-    // it, which no single-category assertion would notice.
-    const mine = makeCategoryId();
-    const neighbour = makeCategoryId();
+  it('clears a scope the new run does not mention at all', async () => {
+    // The quiet category. Nothing in `rows` names it, so a delete derived from
+    // the input — or from the scopes a sweep touched — cannot reach it, and its
+    // stale counts stay on a public shelf past every `> 0` floor the reads
+    // apply, with no `computed_at` check anywhere to notice. It is not an edge
+    // case: in a marketplace with a long tail of categories it is what happens
+    // to most of them most of the time.
+    const wentQuiet = makeCategoryId();
+    const stillSelling = makeCategoryId();
     await replaceWindow({
       window: '30d',
       computedAt: new Date(),
-      scopeCategoryIds: [neighbour],
-      rows: [row(neighbour, 'listing-n', 7)],
-    });
-    await replaceWindow({
-      window: '30d',
-      computedAt: new Date(),
-      scopeCategoryIds: [mine],
-      rows: [row(mine, 'listing-m', 1)],
+      rows: [row(wentQuiet, 'listing-q', 7), row(stillSelling, 'listing-s', 2)],
     });
 
-    const survivors = await db
-      .select({ subjectId: discoverySignals.subjectId })
-      .from(discoverySignals)
-      .where(
-        and(eq(discoverySignals.categoryId, neighbour), eq(discoverySignals.window, '30d')),
-      );
-    expect(survivors).toEqual([{ subjectId: 'listing-n' }]);
+    await replaceWindow({
+      window: '30d',
+      computedAt: new Date(),
+      rows: [row(stillSelling, 'listing-s', 4)],
+    });
+
+    expect(
+      await db
+        .select({ subjectId: discoverySignals.subjectId })
+        .from(discoverySignals)
+        .where(eq(discoverySignals.categoryId, wentQuiet)),
+    ).toEqual([]);
+    // The control: the scope the run DID fill is rewritten, not merely spared,
+    // so this cannot pass by deleting everything and inserting nothing.
+    expect(
+      await db
+        .select({ subjectId: discoverySignals.subjectId, unitsSold: discoverySignals.unitsSold })
+        .from(discoverySignals)
+        .where(eq(discoverySignals.categoryId, stillSelling)),
+    ).toEqual([{ subjectId: 'listing-s', unitsSold: 4 }]);
   });
 
-  it('an empty input clears the scope rather than being a no-op', async () => {
-    // A category whose last listing was archived must EMPTY, not freeze. An
-    // early `if (rows.length === 0) return 0` is the bug this pins.
+  it('an empty input clears the window rather than being a no-op', async () => {
+    // Nothing sold and nothing was viewed in the whole rolling window is a real
+    // answer, and the previous run's figures are not. An early
+    // `if (rows.length === 0) return 0` is the bug this pins.
     const categoryId = makeCategoryId();
     await replaceWindow({
       window: '30d',
       computedAt: new Date(),
-      scopeCategoryIds: [categoryId],
       rows: [row(categoryId, 'listing-a', 5)],
     });
-    await replaceWindow({
-      window: '30d',
-      computedAt: new Date(),
-      scopeCategoryIds: [categoryId],
-      rows: [],
-    });
+    await replaceWindow({ window: '30d', computedAt: new Date(), rows: [] });
     const remaining = await db
       .select({ subjectId: discoverySignals.subjectId })
       .from(discoverySignals)
