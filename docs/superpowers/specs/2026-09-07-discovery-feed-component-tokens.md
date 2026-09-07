@@ -239,11 +239,25 @@ One per store on `/deals`.
 | halo wrapper | `-my-space-4 overflow-hidden rounded-radius-max p-space-2` | wraps the existing `IncentiveHalo`; rendered only when the discount is exclusive |
 | logo | `w-[44px] h-[44px]` inside `rounded-radius-max` with a hairline border | 44px here, against 32px on `StoreProductCard` |
 | title | `font-subtitle text-subtitle text-text md:text-sectionTitle` | |
-| offer amount | `font-bodySmall text-bodySmall whitespace-nowrap text-text-brand` | |
+| offer amount | `font-bodySmall text-bodySmall whitespace-nowrap text-text-brand` | drop `whitespace-nowrap`, use `numberOfLines` — see below | |
 | offer condition | `font-bodySmall text-bodySmall whitespace-nowrap text-text-tertiary` | |
 
 Two spans, two colours, one line: the saving is brand-coloured, the threshold
 that qualifies it is tertiary. A percentage discount renders only the first.
+
+**`whitespace-nowrap` compiles to no style — the sixth RN divergence.** The
+installed `react-native-css` has no handler for the `white-space` PROPERTY, so
+the class is dropped silently. Use nested `<Text>` with `numberOfLines={1}` on
+the outer node, which is the guarantee `whitespace-nowrap` was standing in for.
+
+A grep for `white-space` in that compiler returns three hits and they are all a
+false positive: they are the CSS TOKENIZER's `white-space` token TYPE — the
+characters between tokens — not the property. I nearly contradicted the
+implementer on the strength of that count before reading the lines, which is the
+same shape of error as the `ProductCard` grep earlier in this document.
+
+`button.tsx:39` uses `web:whitespace-nowrap`, web-prefixed, which is the honest
+way to spell a class that only means something on one platform.
 
 ## 9. `FeedGrid` — `ListSection`
 
