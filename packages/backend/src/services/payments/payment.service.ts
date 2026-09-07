@@ -134,8 +134,15 @@ function sourcesFor(next: PaymentStatus): PaymentStatus[] {
  * money", and those come apart the moment a third non-booking rail appears.
  * Both `false` entries are #45 acceptance 5 and ADR 0001 D12: the payment is
  * VISIBLE and creates no false Mercaria cash.
+ *
+ * EXPORTED, and it did not use to be. `ledger-audit.job.ts` restated this set as
+ * a literal and called the restatement "an ASSERTION, not a copy" — but nothing
+ * asserted anything, and when `peable` was added here it was not added there, so
+ * the audit silently stopped covering an entire booking rail. That is the exact
+ * failure the comment predicted. Two lists that must agree need a mechanism, not
+ * a paragraph, so the audit now derives its set from this one.
  */
-const PROVIDER_BOOKS_LEDGER: Record<PaymentProviderId, boolean> = {
+export const PROVIDER_BOOKS_LEDGER: Record<PaymentProviderId, boolean> = {
   // Captured on Shopify/WooCommerce. Mercaria never held these funds.
   external: false,
   // Cash or a card terminal at a register. The money is in the merchant's
