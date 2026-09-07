@@ -324,6 +324,17 @@ const KNOWN_EXCEPTIONS = [
       "react-native-css rejects text-align: start outright (parseTextAlign allows only "
       + "auto|left|right|center|justify), so text-start compiles to nothing at all.",
   },
+  {
+    file: "packages/ui/src/components/marketplace/CategorySampleTile.tsx",
+    pattern: "text-left",
+    count: 1,
+    reason:
+      "The browse-category tile's name label, over a per-category flat background colour rather than "
+      + "an image — the discovery feed component-tokens appendix (2026-09-07) names `text-left` "
+      + "verbatim for exactly this reason. Same react-native-css limitation as the dialog.tsx entry "
+      + "above: text-start is rejected outright by parseTextAlign (auto|left|right|center|justify "
+      + "only), so the logical spelling compiles to nothing at all.",
+  },
 ];
 
 /**
