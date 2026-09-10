@@ -43,7 +43,7 @@
  */
 
 import type { CreateCollectionInput, UpdateCollectionInput } from '@mercaria/shared-types';
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import {
   deleteCollection as deleteCollectionRow,
   findAutomatedCollections,

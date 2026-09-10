@@ -28,7 +28,7 @@
 
 import { and, asc, eq, or, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
-import { isLiveEntityId } from '@oxyhq/db';
+import { isLiveEntityId } from '@oxy.so/db';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { categories } from '../schema/catalog.js';
 

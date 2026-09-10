@@ -4,11 +4,11 @@ import { Stack } from "expo-router";
 import {
   preventNativeSplashAutoHide,
   useHideNativeSplashWhenReady,
-} from "@oxyhq/expo-splash";
+} from "@oxy.so/expo-splash";
 import { useCallback, useEffect } from "react";
-import { OxyProvider, useOxy } from "@oxyhq/services";
-import { BloomThemeProvider } from "@oxyhq/bloom/theme";
-import { ImageResolverProvider } from "@oxyhq/bloom/image-resolver";
+import { OxyProvider, useOxy } from "@oxy.so/services";
+import { BloomThemeProvider } from "@oxy.so/bloom/theme";
+import { ImageResolverProvider } from "@oxy.so/bloom/image-resolver";
 import * as Linking from "expo-linking";
 import { Platform } from "react-native";
 
@@ -36,7 +36,7 @@ export const unstable_settings = {
 
 // Hold the native OS splash (Oxy family "Instagram, from Meta" pattern): Mercaria's
 // own logo centered on the dark brand background with the Oxy symbol pinned to the
-// bottom — configured by `@oxyhq/expo-splash` in `app.config.js`. The custom
+// bottom — configured by `@oxy.so/expo-splash` in `app.config.js`. The custom
 // `AppSplashScreen` React overlay is gated to web only. No-op on web (the helper
 // guards `Platform.OS === 'web'`).
 preventNativeSplashAutoHide();

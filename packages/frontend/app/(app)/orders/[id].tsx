@@ -24,7 +24,7 @@ import {
   retailOrderProgressLabel,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import { useOrder, useCancelOrder } from "@/lib/hooks/use-orders";
 import { useOrderCollection } from "@/lib/hooks/use-nearby";
 import { ORDER_STATUS_LABEL_KEYS } from "@/lib/order-status";

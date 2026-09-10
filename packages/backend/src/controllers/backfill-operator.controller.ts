@@ -27,7 +27,7 @@
  */
 
 import type { Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import type { CatalogBackfillMode, CatalogBackfillOutcome } from '@mercaria/shared-types';
 import { CATALOG_BACKFILL_MODES } from '@mercaria/shared-types';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';

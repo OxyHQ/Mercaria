@@ -12,7 +12,7 @@
  */
 
 import type { Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import type { CurrencyCode, ReferralEarningDiscrepancyStatus } from '@mercaria/shared-types';
 import { sendSuccess } from '../utils/api-response.js';
 import { notFound, respondWithError, validationError } from '../lib/errors/error-codes.js';

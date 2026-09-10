@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { getTableColumns, getTableName } from 'drizzle-orm';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import {
   SHOPPING_AGENT_FORBIDDEN_ACTIONS,
   SHOPPING_AGENT_FORBIDDEN_NOTIFICATION_FIELDS,

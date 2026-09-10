@@ -31,7 +31,7 @@
  */
 
 import { getTableConfig, type AnyPgColumn } from 'drizzle-orm/pg-core';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import type { CatalogMergeConflictKind, CatalogMergePhase, MergeableEntityType } from '@mercaria/shared-types';
 import {
   bundleComponents,

@@ -33,7 +33,7 @@ import {
   type AnalyticsEventType,
   type CurrencyCode,
 } from '@mercaria/shared-types';
-import { inList } from '@oxyhq/db';
+import { inList } from '@oxy.so/db';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { analyticsEvents } from '../schema/analytics.js';
 import { canonicalVariants } from '../schema/canonicalCatalog.js';

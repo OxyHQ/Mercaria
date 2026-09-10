@@ -151,7 +151,7 @@ export function classifyTraffic(input: {
  * Whether the declared internal token matches the configured one.
  *
  * Constant-time, and refusing when nothing is configured. `verifySecret`'s rule
- * from `@oxyhq/core/server` applied locally: this token decides whether traffic
+ * from `@oxy.so/core/server` applied locally: this token decides whether traffic
  * is excluded from every quality metric, so a `===` here is a way to discover
  * the value one character at a time and then hide arbitrary traffic from every
  * dashboard.

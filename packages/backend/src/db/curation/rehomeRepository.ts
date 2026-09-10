@@ -17,14 +17,14 @@
  * not in that statement's own `FROM` — which is exactly the case inside these
  * correlated `EXISTS` subqueries. A bare reference then resolves against the
  * SUBQUERY's table, so the predicate compares two of its own columns, matches
- * nothing, and returns success with no error at all. `@oxyhq/db`'s `qualified`
+ * nothing, and returns success with no error at all. `@oxy.so/db`'s `qualified`
  * exists for this trap and its doc comment records that it shipped in a
  * production consumer. Every correlated reference below goes through it.
  */
 
 import { getTableColumns, getTableName, sql, type Column } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { qualified, sqlColumnName } from '@oxyhq/db';
+import { qualified, sqlColumnName } from '@oxy.so/db';
 import type { BareArrayRehome, RehomeTarget } from '../../services/curation/merge-plan.js';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 

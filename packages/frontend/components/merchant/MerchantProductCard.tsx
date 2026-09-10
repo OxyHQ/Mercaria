@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import { ALL_CURRENCY_CODES } from "@mercaria/shared-types";
 import type { CurrencyCode, MerchantCatalogEntry, Money } from "@mercaria/shared-types";
 import { PriceDisplay, Text } from "@mercaria/ui";

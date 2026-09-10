@@ -26,7 +26,7 @@
 
 import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
+import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../postgres.js';
 import {
   retailEligibilityAudits,

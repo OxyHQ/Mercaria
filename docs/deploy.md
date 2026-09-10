@@ -192,7 +192,7 @@ written (300/41/36 became 298/42/37 inside twenty minutes), so "the last four
 weeks" reproduces nothing.
 
 **Why the concurrency block was not the thing changed.** Per-sha groups (the
-`ci.yml` shape) would let two runs migrate CONCURRENTLY, and `@oxyhq/db`'s
+`ci.yml` shape) would let two runs migrate CONCURRENTLY, and `@oxy.so/db`'s
 migrator takes no lock — the interlock is exactly what that group is. And
 sparing a migration-carrying run from eviction needs a fact that is only
 readable after checkout, which is after the eviction has happened. So the

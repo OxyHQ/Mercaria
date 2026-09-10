@@ -38,7 +38,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parse } from 'yaml';
-import { POST_PHASE_GREP_PATTERN } from '@oxyhq/db/migrate';
+import { POST_PHASE_GREP_PATTERN } from '@oxy.so/db/migrate';
 import { MIGRATIONS_FOLDER } from '../migrationsFolder.js';
 
 /** The repo root, from this file: `packages/backend/src/db/__tests__` is five deep. */
@@ -270,7 +270,7 @@ describe('the coverage workflow is wired to the workflows it claims to watch', (
 });
 
 describe('the script and the migrator agree about what a post migration is', () => {
-  it('spells the phase marker the way @oxyhq/db does', () => {
+  it('spells the phase marker the way @oxy.so/db does', () => {
     // Vacuity floor, matching `deployWorkflow.test.ts`: an empty constant would
     // make the containment below pass against anything.
     expect(coverage.POST_PHASE_MARKER.length).toBeGreaterThan(10);
@@ -1103,7 +1103,7 @@ describe('#672 — migration containment is decided by content, never by history
 
   it('the phase markers match the ones the migrator and the workflow really use', () => {
     // The same reasoning as `POST_PHASE_MARKER`'s existing assertion: this
-    // script cannot import `@oxyhq/db`, so it carries a copy, and a copy that
+    // script cannot import `@oxy.so/db`, so it carries a copy, and a copy that
     // drifts silently stops classifying anything.
     expect(POST_PHASE_GREP_PATTERN).toContain(coverage.POST_PHASE_MARKER);
     const migrations = readdirSync(MIGRATIONS_FOLDER).filter((name) => name.endsWith('.sql'));

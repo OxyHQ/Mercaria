@@ -38,7 +38,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { ExternalCollection } from '@mercaria/shared-types';
 import type { ConnectorProvider, NormalizedProduct } from '../../connectors/types.js';
 import { wooCommerceProvider } from '../../connectors/woocommerce/index.js';

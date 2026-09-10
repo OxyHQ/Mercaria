@@ -45,7 +45,7 @@ import type {
   ReviewTargetType,
   ScopedRatingAggregate,
 } from '@mercaria/shared-types';
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import {
   aggregatePublishedReviews,
   authorHasReviewedTarget,

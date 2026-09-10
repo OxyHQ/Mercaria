@@ -1,4 +1,4 @@
-import { appCapabilityCatalogSchema } from '@oxyhq/contracts';
+import { appCapabilityCatalogSchema } from '@oxy.so/contracts';
 
 import { MERCARIA_CAPABILITY_CATALOG } from './capabilities/mercaria.catalog.js';
 import { requiredOxyServiceToken } from './capabilities/oxy-service-client.js';

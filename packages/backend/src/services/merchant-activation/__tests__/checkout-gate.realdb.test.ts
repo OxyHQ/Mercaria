@@ -31,7 +31,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { insertFeeScheduleAcceptance } from '../../../db/fees/feeScheduleRepository.js';
 import { isCheckoutRefusal } from '../../checkout/refusal.js';

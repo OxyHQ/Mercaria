@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   constructed: vi.fn(),
 }));
 
-vi.mock('@oxyhq/core', () => ({
+vi.mock('@oxy.so/core', () => ({
   OxyServices: class {
     constructor(options: unknown) {
       mocks.constructed(options);

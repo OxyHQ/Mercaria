@@ -137,7 +137,7 @@ export async function replaceSyncRunRecordFailures(
  * Ordered by the stored `ordinal` and by nothing else, which is the whole reason
  * that column exists. `(created_at, id)` was the obvious spelling and it is
  * WRONG here in a way that looks right: one multi-row insert gives every row of
- * a run the same `created_at`, and `@oxyhq/db`'s uuid v7 is not monotonic within
+ * a run the same `created_at`, and `@oxy.so/db`'s uuid v7 is not monotonic within
  * a millisecond, so the tiebreak is a coin toss and a run's refusals come back
  * shuffled — measured on this table's own first run, where the third record
  * arrived second and the write cap's "first 200" started at record 79.

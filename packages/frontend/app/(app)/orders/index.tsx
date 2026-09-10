@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import { ChevronRight, Package } from "lucide-react-native";
 import type { OrderStatus, OrderSummary } from "@mercaria/shared-types";
 import {

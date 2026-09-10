@@ -19,7 +19,7 @@
  */
 
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
-import { publicColumns } from '@oxyhq/db/assert';
+import { publicColumns } from '@oxy.so/db/assert';
 import type {
   SupportMessageAuthorKind,
   SupportRedactionKind,

@@ -157,7 +157,7 @@ import {
 import { insertOrderPickup } from '../db/pickup/orderPickupRepository.js';
 import { addMoney, multiplyMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
-import { uuidv7, isUniqueViolation } from '@oxyhq/db';
+import { uuidv7, isUniqueViolation } from '@oxy.so/db';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { enqueueOrderEvent } from '../queue/producers.js';
 import { conflict, isMercariaError } from '../lib/errors/error-codes.js';

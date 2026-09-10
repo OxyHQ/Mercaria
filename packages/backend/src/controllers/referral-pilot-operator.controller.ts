@@ -16,7 +16,7 @@
  */
 
 import type { NextFunction, Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import {
   ALL_CURRENCY_CODES,
   REFERRAL_PILOT_REVIEW_DECISIONS,

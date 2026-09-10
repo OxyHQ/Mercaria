@@ -42,8 +42,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
 import { eq, and, isNull, isNotNull } from 'drizzle-orm';
-import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
-import { findSchemaInvariantViolations, findUnsupportedExpiryColumns } from '@oxyhq/db/assert';
+import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
+import { findSchemaInvariantViolations, findUnsupportedExpiryColumns } from '@oxy.so/db/assert';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { EXPIRY_TARGETS } from '../expiryTargets.js';
 import {

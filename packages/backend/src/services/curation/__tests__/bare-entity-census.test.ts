@@ -53,7 +53,7 @@
 import { describe, expect, it } from 'vitest';
 import { getTableName, is } from 'drizzle-orm';
 import { getTableConfig, PgTable } from 'drizzle-orm/pg-core';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import { MERGEABLE_ENTITY_TYPES } from '@mercaria/shared-types';
 import * as schema from '../../../db/schema/index.js';
 import {

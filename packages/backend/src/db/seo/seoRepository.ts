@@ -42,7 +42,7 @@
  */
 
 import { and, asc, count, eq, inArray, isNotNull, max, sql } from 'drizzle-orm';
-import { qualified } from '@oxyhq/db';
+import { qualified } from '@oxy.so/db';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import {
   canonicalFieldProvenance,

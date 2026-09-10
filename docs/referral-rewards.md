@@ -198,7 +198,7 @@ The pipeline, and the order matters:
 "Never pay more than the eligible funding/budget or configured cap" (#144
 acceptance 7) is three separate bounds, and each needed its own answer. This
 backend runs at Postgres's default READ COMMITTED — there is no isolation-level
-override anywhere in it or in `@oxyhq/db` — so none of them is safe by
+override anywhere in it or in `@oxy.so/db` — so none of them is safe by
 inheritance.
 
 | Bound | Mechanism | Why not the other one |
@@ -243,7 +243,7 @@ REFUSED, never summed.
 
 The funding "version" is the id of the last contributing ledger transaction,
 ordered by `(created_at, id)` and never by the key alone —
-`@oxyhq/db`'s uuid v7 is not monotonic within a millisecond.
+`@oxy.so/db`'s uuid v7 is not monotonic within a millisecond.
 
 ---
 

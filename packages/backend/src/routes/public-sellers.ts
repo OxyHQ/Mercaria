@@ -25,7 +25,7 @@
  *
  * There is deliberately NO write route and no follow route. Following a seller
  * is `kind: 'oxy.user'` in Oxy's user-owned graph and the client talks to it
- * directly through `@oxyhq/services`; a Mercaria endpoint that proxied it would
+ * directly through `@oxy.so/services`; a Mercaria endpoint that proxied it would
  * be a second copy of somebody else's authority, and one that STORED it would
  * be the app-local person identity #26 exists to prevent.
  */

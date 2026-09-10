@@ -69,7 +69,7 @@ import {
   uniqueIndex,
   type PgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   BUYER_REQUEST_ACTOR_KINDS,
   BUYER_REQUEST_COMPLETION_FAILURES,

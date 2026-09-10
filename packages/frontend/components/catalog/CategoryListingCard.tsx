@@ -1,6 +1,6 @@
 import { Pressable, View } from 'react-native';
 import { Image } from 'expo-image';
-import { useOxy } from '@oxyhq/services';
+import { useOxy } from '@oxy.so/services';
 import type { Listing } from '@mercaria/shared-types';
 import { ConditionBadge, PriceDisplay, Text } from '@mercaria/ui';
 

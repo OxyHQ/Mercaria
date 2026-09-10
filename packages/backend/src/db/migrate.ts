@@ -24,7 +24,7 @@
  *
  * ## What `runMigrations` enforces on every run
  *
- * The ordering below is `@oxyhq/db`'s, not this file's — each step was added
+ * The ordering below is `@oxy.so/db`'s, not this file's — each step was added
  * after a real incident in an Oxy service that composed them by hand and got
  * the order wrong. In summary, and in this order: read the journal and every
  * migration's deploy-phase marker from disk (no connection yet); open one
@@ -35,7 +35,7 @@
  *
  * ## `--target-database=<name>` is REQUIRED, on every run including a dry run
  *
- * `expectedDatabase` is optional in `@oxyhq/db` so a consumer can adopt the
+ * `expectedDatabase` is optional in `@oxy.so/db` so a consumer can adopt the
  * package without changing every invocation site. Mercaria adopts it from day
  * one, because this is the guard whose absence does not fail loudly: pointed at
  * the wrong database a migrator finds an empty ledger, applies the entire
@@ -74,7 +74,7 @@ import {
   runMigrations,
   type MigrationRun,
   type RequiredExtension,
-} from '@oxyhq/db/migrate';
+} from '@oxy.so/db/migrate';
 import { MIGRATIONS_FOLDER } from './migrationsFolder.js';
 import { log } from '../lib/logger.js';
 
@@ -123,7 +123,7 @@ function isDryRun(): boolean {
 /**
  * Read `--phase=<pre|post|all>` out of an argument list, defaulting to `all`.
  *
- * Parsed here rather than in `@oxyhq/db` because the package takes a `run`
+ * Parsed here rather than in `@oxy.so/db` because the package takes a `run`
  * OPTION, not a flag — how a caller spells it on its own command line is the
  * caller's business. An unrecognised value throws rather than falling back:
  * silently running `all` for someone who typed `--phase=pre-deploy` is exactly

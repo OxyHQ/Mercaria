@@ -74,7 +74,7 @@ export async function insertCapabilityEvents(
  *
  * `distinct on (capability)` ordered by `created_at desc, id desc`. The id
  * tiebreak is load-bearing rather than defensive: one observation writes several
- * rows in one statement, so they share an instant — and `@oxyhq/db`'s uuid v7 is
+ * rows in one statement, so they share an instant — and `@oxy.so/db`'s uuid v7 is
  * not monotonic within a millisecond, which is why the ORDER is `id desc` and the
  * comparison never assumes a later row sorts later by key alone.
  */

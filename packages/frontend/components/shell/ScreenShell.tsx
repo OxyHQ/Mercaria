@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 import { Platform, ScrollView, View } from "react-native";
-import { ContentPanel } from "@oxyhq/bloom/content-panel";
+import { ContentPanel } from "@oxy.so/bloom/content-panel";
 import { cn } from "@mercaria/ui";
 
 interface ScreenShellProps {

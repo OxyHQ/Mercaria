@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { User } from '@oxyhq/core';
+import type { User } from '@oxy.so/core';
 import {
   SELLER_FORBIDDEN_FOLLOW_KINDS,
   SELLER_FOLLOW_KIND,

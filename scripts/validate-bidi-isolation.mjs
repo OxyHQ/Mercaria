@@ -36,7 +36,7 @@
  * All three collect from `lib` only, run `environment: 'node'` and mount no
  * renderer, by the standing #469 decision recorded in each `vitest.config.ts`.
  * Importing `react-native` — which every component
- * reaches, directly or through `@mercaria/ui`, `@oxyhq/bloom` or `expo-router`
+ * reaches, directly or through `@mercaria/ui`, `@oxy.so/bloom` or `expo-router`
  * — dies at `react-native/index.js:27` with `RollupError: Parse failure:
  * Expected 'from', got 'typeOf'`, because RN ships Flow source Rollup cannot
  * parse. Measured in all three packages separately rather than inferred from

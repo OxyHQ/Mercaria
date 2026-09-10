@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { ActivityIndicator, View } from "react-native";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Search } from "@oxyhq/bloom/search";
+import { Search } from "@oxy.so/bloom/search";
 import {
   SearchClarification,
   SearchInterpretation,

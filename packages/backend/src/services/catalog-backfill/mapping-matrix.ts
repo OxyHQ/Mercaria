@@ -27,7 +27,7 @@
  */
 
 import { getTableColumns, getTableName } from 'drizzle-orm';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import type { AnyPgTable } from 'drizzle-orm/pg-core';
 import type { LegacyCatalogSubjectKind } from '@mercaria/shared-types';
 import {
@@ -139,7 +139,7 @@ export function targetColumn<T extends AnyPgTable, K extends keyof T['_']['colum
  * Through `sqlColumnName`, never `column.name`: schema modules declare columns
  * in camelCase and drizzle applies `DATABASE_CASING` when SQL is BUILT, so
  * `column.name` is the TypeScript property (`ancestorSlugs`) rather than the SQL
- * name (`ancestor_slugs`). `@oxyhq/db` owns that conversion and is the one
+ * name (`ancestor_slugs`). `@oxy.so/db` owns that conversion and is the one
  * authority for it — deriving it here would be a second implementation of the
  * casing rule, which is the thing that authority exists to prevent.
  */

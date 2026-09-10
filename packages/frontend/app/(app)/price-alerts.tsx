@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Bell } from "lucide-react-native";
-import { openAccountDialog, useOxy } from "@oxyhq/services";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { PriceAlertCard, Text, useFormatters, useFx } from "@mercaria/ui";
 import {
   CURRENCY_PRECISION,

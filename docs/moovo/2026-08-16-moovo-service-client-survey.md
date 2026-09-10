@@ -15,7 +15,7 @@ the wrong way while it is open.
 
 ## 1. The SDK cannot mint an audience-bound token
 
-Measured against the installed `@oxyhq/core@19.1.0` and against
+Measured against the installed `@oxy.so/core@19.1.0` and against
 `OxyHQServices@origin/main` (`fea6d1bc`, confirmed equal to
 `git ls-remote origin refs/heads/main` — the local checkout was stale and was
 not read).
@@ -46,7 +46,7 @@ greps over the same trees, as a positive control.
 
 **`OxyHQ/oxy#878` is OPEN and unstarted** (created 2026-08-08; `updatedAt`
 equals `createdAt`). Its body proposes exactly the API #156 cites and uses
-**Moovo as its worked example**. Bumping `@oxyhq/core` to the published 21.0.0
+**Moovo as its worked example**. Bumping `@oxy.so/core` to the published 21.0.0
 would not help — this is unwritten, not unpublished.
 
 ## 2. Moovo has no service-authenticated surface

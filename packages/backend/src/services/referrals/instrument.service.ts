@@ -20,7 +20,7 @@
  */
 
 import { randomBytes } from 'node:crypto';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { ReferralDestinationType } from '@mercaria/shared-types';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { getDb } from '../../db/postgres.js';

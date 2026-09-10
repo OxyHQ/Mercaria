@@ -18,7 +18,7 @@
  * fails at `react-native/index.js` with `Parse failure: Expected 'from', got
  * 'typeOf'` — React Native ships Flow source Rollup does not parse — and every
  * component in all three apps reaches `react-native` directly or through
- * `@mercaria/ui`, `@oxyhq/bloom` or `expo-router`. Clearing it means aliasing
+ * `@mercaria/ui`, `@oxy.so/bloom` or `expo-router`. Clearing it means aliasing
  * to `react-native-web`, adding a Flow-stripping transform and reproducing
  * Metro's platform-extension resolution inside vitest, producing a THIRD module
  * graph that is neither the native build nor the Workers build. That config's

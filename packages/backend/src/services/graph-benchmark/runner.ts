@@ -4,7 +4,7 @@
  *
  * ## The statement measured is the statement the reader sent
  *
- * `createCapturingDatabase` builds a drizzle handle through `@oxyhq/db`'s
+ * `createCapturingDatabase` builds a drizzle handle through `@oxy.so/db`'s
  * `createDatabase` — the same casing authority `connectPostgres()` uses — with
  * postgres.js's `debug` hook attached. Calling a repository function against
  * that handle therefore RECORDS the exact SQL and bound parameters the driver
@@ -28,7 +28,7 @@
  * latencies that look like a warming cache and are actually a shrinking table.
  */
 
-import { createDatabase } from '@oxyhq/db';
+import { createDatabase } from '@oxy.so/db';
 import { sql, TransactionRollbackError } from 'drizzle-orm';
 import type postgres from 'postgres';
 import type { Database, Transaction } from '../../db/postgres.js';

@@ -336,7 +336,7 @@ describe('the domain makes no outbound call and reads no lever', () => {
 
   it('both detectors actually detect — the mutation self-test', () => {
     expect(detects(OUTBOUND_CALL, 'const res = await fetch(url);')).toBe(true);
-    expect(detects(OUTBOUND_CALL, "import { safeFetch } from '@oxyhq/core/server';")).toBe(true);
+    expect(detects(OUTBOUND_CALL, "import { safeFetch } from '@oxy.so/core/server';")).toBe(true);
     expect(detects(OUTBOUND_CALL, 'const rows = await listProductTypeFields(db, id, flow);')).toBe(
       false,
     );

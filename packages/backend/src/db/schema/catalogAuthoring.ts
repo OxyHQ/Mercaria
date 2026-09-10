@@ -74,7 +74,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   ATTRIBUTE_COMPONENT_AXES,
   AUTHORING_CANONICAL_REF_KINDS,

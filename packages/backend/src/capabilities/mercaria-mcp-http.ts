@@ -1,4 +1,4 @@
-import { createCatalogMcpHttpService } from '@oxyhq/mcp';
+import { createCatalogMcpHttpService } from '@oxy.so/mcp';
 
 import { log } from '../lib/logger.js';
 import { authorizeMercariaCatalogInvocation } from './mercaria-domain-authority.js';

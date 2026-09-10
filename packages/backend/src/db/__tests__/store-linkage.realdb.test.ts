@@ -34,7 +34,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
+import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { stores } from '../schema/stores.js';
 import { deleteTestStores } from './store-teardown.js';
@@ -221,7 +221,7 @@ const REASON = 'linking this merchant to the store its owner operates';
  * `"Failed query: update …"` and FAILS — while a test asserting only
  * `rejects.toThrow()` would pass on any error at all, including the wrong one.
  * Walking the cause chain is what makes the assertion name the trigger it means.
- * `isUniqueViolation`/`isCheckViolation` from `@oxyhq/db` walk the same chain
+ * `isUniqueViolation`/`isCheckViolation` from `@oxy.so/db` walk the same chain
  * for the same reason.
  */
 async function expectTriggerRefusal(

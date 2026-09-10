@@ -20,7 +20,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns, getTableName } from 'drizzle-orm';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import {
   ANALYTICS_DEFERRED_EVENT_TYPES,
   ANALYTICS_ENVELOPE_VERSION,
@@ -178,7 +178,7 @@ describe('#77 — the analytics schema can hold no identity beyond a pseudonym',
       out.push({
         table: getTableName(table),
         // `sqlColumnName`, never `column.name`. The casing authority is
-        // `@oxyhq/db`'s `DATABASE_CASING` and drizzle converts at query time, so
+        // `@oxy.so/db`'s `DATABASE_CASING` and drizzle converts at query time, so
         // `column.name` is the TypeScript PROPERTY name — this gate's previous
         // pattern was matching `ip_address`, `user_agent` and `order_note`
         // against strings that read `ipAddress`, `userAgent` and `orderNote`,

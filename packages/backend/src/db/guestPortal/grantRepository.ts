@@ -383,7 +383,7 @@ export async function countLivePostCheckoutGrants(
  * that proves the sweep's predicate matches the column the registry names.
  *
  * The shared expiry sweep does the deleting; this exists so a test can assert
- * WHICH rows it will take without reaching into `@oxyhq/db`'s internals.
+ * WHICH rows it will take without reaching into `@oxy.so/db`'s internals.
  */
 export async function countGrantsDueForPurge(
   db: DatabaseOrTransaction,

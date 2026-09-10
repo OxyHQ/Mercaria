@@ -10,7 +10,7 @@
 
 import type { Request, Response } from 'express';
 import type { UpdateSyncSettingsInput } from '@mercaria/shared-types';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import type { ConnectKeyChannelInput } from '../../middleware/channels-schemas.js';
 import {
   listConnections,

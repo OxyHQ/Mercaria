@@ -1,6 +1,6 @@
 import { generateKeyPairSync } from 'node:crypto';
-import type { CapabilityTicketClaims } from '@oxyhq/contracts';
-import { issueCapabilityTicket } from '@oxyhq/core/server';
+import type { CapabilityTicketClaims } from '@oxy.so/contracts';
+import { issueCapabilityTicket } from '@oxy.so/core/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ requiredOxyServiceToken: vi.fn() }));

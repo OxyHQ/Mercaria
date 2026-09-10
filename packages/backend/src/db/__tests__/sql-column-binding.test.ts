@@ -80,7 +80,7 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { getTableColumns, is, sql, Table } from 'drizzle-orm';
-import { DATABASE_CASING, qualified } from '@oxyhq/db';
+import { DATABASE_CASING, qualified } from '@oxy.so/db';
 import * as schema from '../schema/index';
 import { listings } from '../schema/catalog';
 
@@ -435,7 +435,7 @@ describe('#313 — a column object in a selection-position sql template', () => 
       'A selection-position `sql` template interpolates a drizzle column into a ' +
         'correlated subquery. drizzle renders that column BARE, so it binds to ' +
         "the subquery's own table and the query silently returns the wrong " +
-        'answer with no error. Wrap the column in `qualified()` from `@oxyhq/db`.',
+        'answer with no error. Wrap the column in `qualified()` from `@oxy.so/db`.',
     ).toEqual([]);
   });
 });

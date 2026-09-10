@@ -38,7 +38,7 @@
  */
 
 import type { Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import type { ReferralProgramOperatorView } from '@mercaria/shared-types';
 import { notFound, respondWithError } from '../lib/errors/error-codes.js';
 import { getDb } from '../db/postgres.js';

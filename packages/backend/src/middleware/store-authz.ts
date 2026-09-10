@@ -14,7 +14,7 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { isLiveEntityId } from '@oxyhq/db';
+import { isLiveEntityId } from '@oxy.so/db';
 import type { StoreRole, StorePermission } from '@mercaria/shared-types';
 import { STORE_PERMISSIONS } from '../db/schema/stores.js';
 import {

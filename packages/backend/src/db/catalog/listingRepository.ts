@@ -91,7 +91,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
-import { qualified } from '@oxyhq/db';
+import { qualified } from '@oxy.so/db';
 import {
   LISTING_BASE_TEXT_SEARCH_CONFIGURATION,
   MERCARIA_BASE_LOCALE,

@@ -13,7 +13,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import {
   REFERRAL_TAX_FORBIDDEN_FIELDS,
   REFERRAL_TAX_QUESTIONNAIRE_VERSIONS,

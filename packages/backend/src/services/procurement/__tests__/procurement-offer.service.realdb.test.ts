@@ -15,7 +15,7 @@
  */
 
 import { beforeAll, afterAll, describe, expect, it } from 'vitest';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres } from '../../../db/postgres.js';
 import {
   createSupplier,

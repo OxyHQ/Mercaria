@@ -62,7 +62,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql, TransactionRollbackError } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { LegacyMappingReason } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { brandAliases, brands } from '../../../db/schema/organizations.js';

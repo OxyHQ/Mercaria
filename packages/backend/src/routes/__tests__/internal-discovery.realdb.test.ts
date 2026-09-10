@@ -43,8 +43,8 @@ const ORDINARY_USER = 'oxy-user-discovery-sweep-ordinary';
 /** Whichever caller the current request is acting as. */
 let currentUser = ANALYTICS_OPERATOR;
 
-vi.mock('@oxyhq/core/server', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@oxyhq/core/server')>()),
+vi.mock('@oxy.so/core/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => currentUser,
 }));
 vi.mock('../../middleware/auth.js', () => ({

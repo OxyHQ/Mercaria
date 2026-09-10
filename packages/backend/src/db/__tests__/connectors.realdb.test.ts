@@ -53,7 +53,7 @@ import {
   isForeignKeyViolation,
   isUniqueViolation,
   uuidv7,
-} from '@oxyhq/db';
+} from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import {
   channelApiKeys,

@@ -30,7 +30,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { fixtureGtinBody } from '../../../__tests__/fixture-gtin.js';
 import type { CatalogRefreshMode } from '@mercaria/shared-types';
 import { EBAY_BROWSE_PROVIDER } from '@mercaria/shared-types';

@@ -81,7 +81,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import {
   AFFILIATE_OUTBOUND_TOKEN_PREFIX,
   OUTBOUND_REDIRECT_REFUSAL_REASONS,

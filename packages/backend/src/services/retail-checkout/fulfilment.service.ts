@@ -39,7 +39,7 @@
  */
 
 import type { CurrencyCode, RetailProcurementFailureKind } from '@mercaria/shared-types';
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import { getDb } from '../../db/postgres.js';
 import { findOrderById } from '../../db/orders/orderRepository.js';
 import { insertRefund, type NewRefundLineItem } from '../../db/orders/refundRepository.js';

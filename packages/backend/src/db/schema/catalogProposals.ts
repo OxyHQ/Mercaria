@@ -77,7 +77,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   CATALOG_PROPOSAL_DUPLICATE_CANDIDATE_KINDS,
   CATALOG_PROPOSAL_DUPLICATE_DETECTORS,
@@ -600,7 +600,7 @@ export const catalogReviewEvents = pgTable(
      * `at` is not enough and that is not a rounding problem: a submission and
      * its duplicate scan are written in ONE transaction from ONE `now`, so they
      * share the column exactly. The tiebreak was the uuid v7 primary key, which
-     * `@oxyhq/db` does not make monotonic within a millisecond — so the trail's
+     * `@oxy.so/db` does not make monotonic within a millisecond — so the trail's
      * order was decided by the low bits of a random id (#775), in the operator
      * TIMELINE as well as in a test.
      *

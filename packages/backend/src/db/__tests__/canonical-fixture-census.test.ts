@@ -79,7 +79,7 @@ import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { getTableName } from 'drizzle-orm';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import { canonicalProducts, canonicalVariants } from '../schema/canonicalCatalog.js';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';

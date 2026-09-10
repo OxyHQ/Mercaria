@@ -3,7 +3,7 @@ import type {
   OrderStatus,
   RefundLineInput,
 } from '@mercaria/shared-types';
-import type { CatalogToolHandlers } from '@oxyhq/mcp';
+import type { CatalogToolHandlers } from '@oxy.so/mcp';
 
 import { config } from '../config/index.js';
 import { notFound, validationError } from '../lib/errors/error-codes.js';

@@ -47,7 +47,7 @@
  * recommendation the human is being asked about.
  */
 
-import type { Decision, RecommendedAction, Severity } from '@oxyhq/crowdsource-contracts';
+import type { Decision, RecommendedAction, Severity } from '@oxy.so/crowdsource-contracts';
 import type { ModerationEnforcementAction } from '@mercaria/shared-types';
 
 export interface PlannedEnforcementAction {

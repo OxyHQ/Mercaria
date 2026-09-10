@@ -47,7 +47,7 @@
  */
 
 import { TransactionRollbackError } from 'drizzle-orm';
-import { isForeignKeyViolation } from '@oxyhq/db';
+import { isForeignKeyViolation } from '@oxy.so/db';
 import type {
   VariantAxisAttributeRefusal,
   VariantAxisBackfillReport,

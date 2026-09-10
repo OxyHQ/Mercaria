@@ -240,7 +240,7 @@ sweep's finding can never be attributed to whoever triggered it).
 
 ONE table, `merchant_activation_capability_events`. "What is it now" is the
 LATEST row, read with an ordering that tie-breaks on `id` because one observation
-writes several rows in one statement and `@oxyhq/db`'s uuid v7 is not monotonic
+writes several rows in one statement and `@oxy.so/db`'s uuid v7 is not monotonic
 within a millisecond. A second current-state table would be derivable from this
 one and could therefore disagree with it.
 

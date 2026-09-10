@@ -5,7 +5,7 @@
  *
  * A Mercaria primary key is `text` holding a 24-char ObjectId hex for every row
  * that survived the Postgres cutover and a uuid v7 for every row created since —
- * both live, both permanent. `isLiveEntityId` (`@oxyhq/db`) is the one predicate
+ * both live, both permanent. `isLiveEntityId` (`@oxy.so/db`) is the one predicate
  * that knows that, and `validate.ts` already routes every path param through it.
  *
  * A hand-written `/^[a-f\d]{24}$/` in a BODY schema looks identical in review and
@@ -21,7 +21,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { generateChannelKeySchema } from '../channels-schemas.js';
 import { updateSyncSettingsSchema } from '../schemas.js';
 

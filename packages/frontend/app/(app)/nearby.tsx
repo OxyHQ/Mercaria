@@ -4,7 +4,7 @@ import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import type { Cart, NearbyLocationResult } from "@mercaria/shared-types";
 import { Button, Text } from "@mercaria/ui";
-import { openAccountDialog, useOxy } from "@oxyhq/services";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { Footer } from "@/components/shell/Footer";
 import { NearbyAvailability } from "@/components/nearby/NearbyAvailability";

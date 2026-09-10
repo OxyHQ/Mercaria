@@ -41,8 +41,8 @@ let currentUser = OPERATOR;
 // The Oxy SDK's own user resolution, stubbed to whatever the test is acting as.
 // Everything downstream — the allow-list comparison, the mount check, the zod
 // bodies — is the production chain.
-vi.mock('@oxyhq/core/server', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@oxyhq/core/server')>()),
+vi.mock('@oxy.so/core/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => currentUser,
 }));
 vi.mock('../../middleware/auth.js', () => ({

@@ -17,7 +17,7 @@
  * evidence for review, never an identity.
  */
 
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import type {
   CanonicalAlias,
   PaginatedResponse,

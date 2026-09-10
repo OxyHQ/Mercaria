@@ -95,7 +95,7 @@ import {
   unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   RETAIL_CATEGORY_ADMISSIBILITIES,
   RETAIL_COMPLIANCE_EVIDENCE_KINDS,

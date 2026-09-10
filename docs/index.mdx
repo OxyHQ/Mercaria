@@ -14,14 +14,14 @@ schema decision. `HANDOFF.md` holds deferred work.
 - `packages/frontend/` · `packages/dashboard/` · `packages/pos/` — Expo apps
   (React Native + Web), expo-router, NativeWind
 - `packages/ui/` — shared components, consumed from source with no dist. Built
-  on `@oxyhq/bloom` (Oxy's cross-app UI primitives) plus `@mercaria/ui`'s own
+  on `@oxy.so/bloom` (Oxy's cross-app UI primitives) plus `@mercaria/ui`'s own
   marketplace-specific components; do not duplicate what Bloom already provides.
 - `packages/backend/` — Express API (TypeScript, PostgreSQL via drizzle-orm +
-  `@oxyhq/db`, Socket.IO)
+  `@oxy.so/db`, Socket.IO)
 - `packages/shared-types/` — DTOs and every closed value set
 
-Auth and SSO are handled entirely by the Oxy SDK (`@oxyhq/core`,
-`@oxyhq/services`); the backend uses `@oxyhq/core/server` middleware, and there
+Auth and SSO are handled entirely by the Oxy SDK (`@oxy.so/core`,
+`@oxy.so/services`); the backend uses `@oxy.so/core/server` middleware, and there
 is no Mercaria service principal — see [auth.md](auth.md).
 
 ## Local development

@@ -845,7 +845,7 @@ sequenceDiagram
 
 ## Migration plan
 
-Ten stages, additive-first, in `@oxyhq/db` deploy-phase discipline
+Ten stages, additive-first, in `@oxy.so/db` deploy-phase discipline
 (`-- oxy:deploy-phase=pre|post`, applied only by `db/migrate.ts`). Real
 column and index names throughout; every stage leaves the previous image
 correct.

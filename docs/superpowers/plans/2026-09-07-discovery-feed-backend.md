@@ -11,7 +11,7 @@
 
 **Architecture:** One feed contract with three scopes. Three of the five orderings read `listings` directly and need no new storage; `best-selling` and `most-viewed` read `discovery_signals`, a bounded table replaced per run by a leased sweep modelled on `services/analytics/rollup.ts`. An isolation gate keeps the popularity counts out of the offer-ranking domain, where they are forbidden inputs.
 
-**Tech Stack:** TypeScript, Express, drizzle-orm + `@oxyhq/db`, PostgreSQL 17, vitest (including `*.realdb.test.ts` against a real server), bun.
+**Tech Stack:** TypeScript, Express, drizzle-orm + `@oxy.so/db`, PostgreSQL 17, vitest (including `*.realdb.test.ts` against a real server), bun.
 
 **Spec:** `docs/superpowers/specs/2026-09-07-discovery-feed-design.md`
 
@@ -28,7 +28,7 @@
 - **The test database is SHARED across parallel files.** Scope every aggregate to ids your file owns; floor every count equality; never delete rows your file did not create.
 - Column naming: camelCase in TypeScript, snake_case in SQL, derived by drizzle. Do not pass an explicit column name.
 - Never `as any`, `@ts-ignore`, `any` params/returns, `!` assertions, `console.log`, TODO/FIXME/HACK, `catch {}`, or hardcoded magic numbers.
-- In `sql` templates: qualify every correlated column reference with `qualified()` from `@oxyhq/db`. A bare drizzle column in a SELECTION position of a single-table statement renders unqualified and silently returns nothing.
+- In `sql` templates: qualify every correlated column reference with `qualified()` from `@oxy.so/db`. A bare drizzle column in a SELECTION position of a single-table statement renders unqualified and silently returns nothing.
 - Every new `*_id` column with no `.references()` needs an entry in `ID_COLUMNS_WITHOUT_FOREIGN_KEY` in `src/db/deferredForeignKeys.ts`, or `db/__tests__/schema-conventions.test.ts` fails the build.
 
 ---
@@ -455,7 +455,7 @@ Create `packages/backend/src/db/__tests__/discovery-schema.realdb.test.ts`:
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
-import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
+import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { discoverySignals, discoverySweepCursors } from '../schema/discovery.js';
 
@@ -677,7 +677,7 @@ Create `packages/backend/src/db/schema/discovery.ts`:
 
 import { sql } from 'drizzle-orm';
 import { check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   DISCOVERY_SUBJECT_TYPES,
   DISCOVERY_WINDOWS,
@@ -886,7 +886,7 @@ Create `packages/backend/src/db/__tests__/discovery-signal-repository.realdb.tes
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { discoverySignals } from '../schema/discovery.js';
 import {
@@ -1207,7 +1207,7 @@ Create `packages/backend/src/services/__tests__/discovery-sweep.realdb.test.ts`:
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { listings } from '../../db/schema/catalog.js';
 import { orderItems, orders } from '../../db/schema/orders.js';

@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import { Router, type RequestHandler } from 'express';
-import type { CapabilityTicketClaims, CatalogTool } from '@oxyhq/contracts';
+import type { CapabilityTicketClaims, CatalogTool } from '@oxy.so/contracts';
 import {
   CapabilityTicketError,
   inputSatisfiesCapabilityLimits,
   readCapabilityAuthorization,
-} from '@oxyhq/core/server';
-import { jsonObjectSchemaToZod } from '@oxyhq/mcp';
+} from '@oxy.so/core/server';
+import { jsonObjectSchemaToZod } from '@oxy.so/mcp';
 
 import {
   auditMercariaCapabilityTicket,

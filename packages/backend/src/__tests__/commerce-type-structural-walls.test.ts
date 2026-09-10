@@ -36,7 +36,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { getTableConfig } from 'drizzle-orm/pg-core';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import {
   COMMERCE_TYPE_PREREQUISITES,
   ITEM_CONDITION_KEYS,

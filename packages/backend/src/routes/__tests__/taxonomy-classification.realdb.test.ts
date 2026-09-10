@@ -28,7 +28,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import type express from 'express';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 
 import type { Database } from '../../db/postgres.js';
 
@@ -36,8 +36,8 @@ import type { Database } from '../../db/postgres.js';
 const RUN = uuidv7().slice(-12).replace(/\W/gu, '').toLowerCase();
 const OPERATOR = `oxy-user-cls-${RUN}`;
 
-vi.mock('@oxyhq/core/server', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@oxyhq/core/server')>()),
+vi.mock('@oxy.so/core/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => OPERATOR,
 }));
 vi.mock('../../middleware/auth.js', () => ({

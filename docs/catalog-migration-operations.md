@@ -599,7 +599,7 @@ capability gap. The second has since been built — see the update inside it.**
 1. **Nothing scans migration SQL for write targets.**
    `db/__tests__/migration-handwritten-markers.test.ts` reads the whole `drizzle/`
    directory and gates the `oxy:handwritten-*` pairing and the
-   `oxy:deploy-phase` marker through `@oxyhq/db`'s `readMigrationPhases` — it says
+   `oxy:deploy-phase` marker through `@oxy.so/db`'s `readMigrationPhases` — it says
    nothing about what a statement writes. No `validate:*` script in the root
    `package.json` points at SQL. Positive control that the device is house
    standard: `validate-no-mongo.mjs` and `validate-money-formatting.mjs` are

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { useMutation } from "@tanstack/react-query";
-import { toast } from "@oxyhq/bloom/toast";
-import { openAccountDialog, useOxy } from "@oxyhq/services";
+import { toast } from "@oxy.so/bloom/toast";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import {
   ABUSE_REPORT_CATEGORIES,
   type AbuseReportCategory,

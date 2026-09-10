@@ -64,7 +64,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { and, eq, like, lt, max } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { PaymentDiscrepancyKind } from '@mercaria/shared-types';
 import {
   acquireReconciliationSweepSlot,
@@ -287,7 +287,7 @@ beforeEach(() => {
  * ledger audit's payment scan at this file's own fixture.
  *
  * Computed against the fixture's own id rather than as a `max(id)` taken before
- * it, because `@oxyhq/db`'s uuid v7 keys are NOT monotonic within a millisecond
+ * it, because `@oxy.so/db`'s uuid v7 keys are NOT monotonic within a millisecond
  * (~50% inversion measured): a floor minted moments earlier can sort ABOVE the
  * row it is supposed to sit below, which would silently scan nothing. Comparing
  * against the id that exists is exact and needs no monotonicity.

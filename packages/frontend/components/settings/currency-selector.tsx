@@ -1,5 +1,5 @@
 import { View, Pressable } from "react-native";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import { Coins, Check } from "lucide-react-native";
 import {
   ALL_CURRENCY_CODES,
@@ -9,7 +9,7 @@ import {
 import { Text } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import {
   useCurrencyPreferenceQuery,
   useUpdateCurrencyPreference,

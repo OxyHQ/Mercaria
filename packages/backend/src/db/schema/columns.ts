@@ -1,9 +1,9 @@
 /**
  * Mercaria-Specific Column Shapes
  *
- * `@oxyhq/db` owns the shapes every Oxy backend shares — `timestamptz`,
+ * `@oxy.so/db` owns the shapes every Oxy backend shares — `timestamptz`,
  * `createdAt`, `updatedAt`, `generatedId`, `tsvector`, `geography`, `inList`.
- * Import those DIRECTLY from `@oxyhq/db`; this module never re-exports them.
+ * Import those DIRECTLY from `@oxy.so/db`; this module never re-exports them.
  *
  * What lives here is the handful of shapes that are Mercaria's own, each
  * repeated across many tables and each encoding a decision a hand-written column
@@ -23,7 +23,7 @@
 
 import { sql } from 'drizzle-orm';
 import { bigint, check, text, type PgColumn } from 'drizzle-orm/pg-core';
-import { inList, sqlColumnName, textArrayLiteral } from '@oxyhq/db';
+import { inList, sqlColumnName, textArrayLiteral } from '@oxy.so/db';
 import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
 
 /**

@@ -53,7 +53,7 @@ const SERVICE_SECRET_REFERENCE = /\bSERVICE_SECRET\b|\bTELEGRAM_BOT_SECRET\b/;
 /**
  * The retired middleware exports.
  *
- * `requireScope` is Mercaria's local one over `req.apiKey`. `@oxyhq/core`
+ * `requireScope` is Mercaria's local one over `req.apiKey`. `@oxy.so/core`
  * ships its own `oxy.requireScope(...)` for a real service token's scopes; if
  * that is ever mounted it arrives as a method ON the client, which is why the
  * pattern is anchored to a bare identifier and the mutation self-test pins the
@@ -168,7 +168,7 @@ describe('the legacy service-auth surface is gone and stays gone (#164)', () => 
     );
     expect(
       offenders,
-      'credential verification belongs to @oxyhq/core/server, not to a Mercaria middleware',
+      'credential verification belongs to @oxy.so/core/server, not to a Mercaria middleware',
     ).toEqual([]);
   });
 

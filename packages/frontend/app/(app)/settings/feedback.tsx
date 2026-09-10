@@ -2,12 +2,12 @@ import { View, Platform, Pressable, ActivityIndicator } from "react-native";
 import { KeyboardAwareScrollView } from "@/lib/keyboard";
 import { Button, Text, Textarea } from "@mercaria/ui";
 import { useState } from "react";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import { useRouter } from "expo-router";
 import { generateAPIUrl } from "@/lib/generate-api-url";
 import { MessageSquare, Bug, Lightbulb, Sparkles, Star } from "lucide-react-native";
 import { SettingsHeader } from "@/components/settings/settings-header";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import { useTranslation } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 

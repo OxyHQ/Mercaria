@@ -7,7 +7,7 @@
  * thing doing the work was never in this codebase to be seen going missing.
  *
  * Three of the entries below carried a TTL index before the port and all three
- * are represented. `@oxyhq/db`'s `sweepAllExpiredRows` takes this list;
+ * are represented. `@oxy.so/db`'s `sweepAllExpiredRows` takes this list;
  * `db/expirySweeper.ts` schedules it, beside the outbox dispatcher it runs next
  * to.
  *
@@ -68,7 +68,7 @@
  * longer a redelivery by then), and the notification feed filters by status.
  */
 
-import type { ExpirySweepTarget } from '@oxyhq/db/expiry';
+import type { ExpirySweepTarget } from '@oxy.so/db/expiry';
 import {
   analyticsEvents,
   analyticsExperimentExposures,
@@ -353,7 +353,7 @@ const FEED_IMPORT_REPORT_ENTRY_RETENTION_SECONDS = 30 * 24 * 60 * 60;
  * IS the deadline, so zero is the whole rule, not a missing value.
  *
  * Each column has a supporting leading btree index; `findUnsupportedExpiryColumns`
- * from `@oxyhq/db/assert` checks that against the real catalogue once the
+ * from `@oxy.so/db/assert` checks that against the real catalogue once the
  * Postgres test harness is wired in, because a convention ("index the column you
  * register") does not notice a migration dropping the index later.
  */

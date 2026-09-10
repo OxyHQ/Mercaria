@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
-import { openAccountDialog, useOxy } from "@oxyhq/services";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { Check, Plus } from "lucide-react-native";
 import { nanoid } from "nanoid/non-secure";
 import type {
@@ -34,7 +34,7 @@ import {
   isDraftComplete,
   type CheckoutDestinationDraft,
 } from "@/components/checkout/CheckoutDestinationForm";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import { useCart } from "@/lib/hooks/use-cart";
 import { useAddresses } from "@/lib/hooks/use-addresses";
 import { useCheckout, useCheckoutPaymentStatus } from "@/lib/hooks/use-checkout";

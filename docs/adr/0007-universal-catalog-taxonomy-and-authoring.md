@@ -590,7 +590,7 @@ older record; a migration is offered as a preview and applied deliberately.
 > expire visibly** — hence every figure in this note carries one.
 >
 > **And the instrument could not have found the column anyway — which is the
-> sharper defect.** Drizzle declares columns in **camelCase** and `@oxyhq/db`'s
+> sharper defect.** Drizzle declares columns in **camelCase** and `@oxy.so/db`'s
 > casing authority derives the snake_case name, so a schema file legitimately
 > never spells `product_type_definition_id` for a *declaration*; the property is
 > `productTypeDefinitionId` (`db/schema/catalog.ts:415`). Measured 2026-08-21, the

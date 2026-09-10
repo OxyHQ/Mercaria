@@ -14,7 +14,7 @@
  * sub-app parsers inherit.
  *
  * Instead this sends a REAL request and reads which of two mutually exclusive
- * outcomes the SDK produced, because `@oxyhq/crowdsource-express` distinguishes
+ * outcomes the SDK produced, because `@oxy.so/crowdsource-express` distinguishes
  * them itself:
  *
  *   * **No parser ran** — it reads the stream, verifies, and answers

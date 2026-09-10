@@ -56,7 +56,7 @@
  * a property of a payment system, not of any store it happens to run on.
  */
 
-import type { DeferredForeignKey } from '@oxyhq/db/assert';
+import type { DeferredForeignKey } from '@oxy.so/db/assert';
 
 /**
  * Relations decided but not yet expressible — each one owes a `.references()`.

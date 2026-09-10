@@ -45,7 +45,7 @@ import {
   type RefundLineItem,
   type CreateRefundInput,
 } from '@mercaria/shared-types';
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import {
   findRefundForStoreOrderReplay,
   findRefundById,

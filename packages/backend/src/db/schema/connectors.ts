@@ -24,7 +24,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   CHANNEL_API_KEY_SCOPES,
   CHANNEL_DISCONNECT_POLICIES,
@@ -495,7 +495,7 @@ export const syncRunRecordFailures = pgTable(
      * A stored fact rather than an ordering derived from the row's own id or
      * timestamp, and the difference is not theoretical: every row of one run is
      * written by ONE multi-row insert, so they share `created_at` to the
-     * millisecond, and `@oxyhq/db`'s uuid v7 primary key is NOT monotonic within
+     * millisecond, and `@oxy.so/db`'s uuid v7 primary key is NOT monotonic within
      * a millisecond (~50% inversion). Ordering by `(created_at, id)` therefore
      * returns a run's refusals SHUFFLED — measured, on the first run of this
      * table's own suite — which makes "the first 200 we met" mean nothing and

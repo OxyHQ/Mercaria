@@ -31,8 +31,8 @@
  */
 
 import { Router } from 'express';
-import { crowdsourceWebhooks } from '@oxyhq/crowdsource-express';
-import type { WebhookEventEnvelope } from '@oxyhq/crowdsource-contracts';
+import { crowdsourceWebhooks } from '@oxy.so/crowdsource-express';
+import type { WebhookEventEnvelope } from '@oxy.so/crowdsource-contracts';
 import { getDb } from '../db/postgres.js';
 import { enqueueModerationOutboxEvent } from '../db/moderation/moderationOutboxRepository.js';
 import { decisionApplyEventId } from '../services/moderation/moderation-outbox.service.js';

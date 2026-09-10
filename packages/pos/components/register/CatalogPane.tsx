@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { View, Pressable, ScrollView } from "react-native";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import { Barcode, Search } from "lucide-react-native";
 import type { Listing, ProductVariantDTO } from "@mercaria/shared-types";
 import { Text, Input, Button, useColorScheme } from "@mercaria/ui";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import { ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { useCatalog, useCategories, type CatalogFilters } from "@/lib/hooks/use-catalog";
 import { lookupByCode } from "@/lib/api/catalog";

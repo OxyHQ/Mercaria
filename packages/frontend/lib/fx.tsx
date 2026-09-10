@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getLocales } from "expo-localization";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import {
   ALL_CURRENCY_CODES,
   type CurrencyCode,

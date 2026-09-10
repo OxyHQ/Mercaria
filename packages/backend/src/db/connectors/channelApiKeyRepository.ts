@@ -20,7 +20,7 @@
  * stored form is a comparison whose timing and whose very success depend on the
  * secret; the narrowing is done on the PUBLIC `prefix` instead (its own index),
  * and the accept/reject decision is made by the caller with `verifySecret` from
- * `@oxyhq/core/server` over the full digest. This module returns candidates and
+ * `@oxy.so/core/server` over the full digest. This module returns candidates and
  * makes no decision at all — which is why it cannot be the place a `!==` creeps
  * back in.
  *
@@ -42,8 +42,8 @@
  */
 
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import { type SelectedRow } from '@oxyhq/db';
-import { publicColumns } from '@oxyhq/db/assert';
+import { type SelectedRow } from '@oxy.so/db';
+import { publicColumns } from '@oxy.so/db/assert';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
 import { channelApiKeys } from '../schema/connectors.js';

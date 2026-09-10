@@ -1,6 +1,6 @@
 /**
  * Mercaria's HTTP authentication surface — three exports, all composed from
- * `@oxyhq/core/server`, and NOTHING locally implemented (#164).
+ * `@oxy.so/core/server`, and NOTHING locally implemented (#164).
  *
  * There is deliberately no Mercaria service principal, no shared-secret bearer
  * path, no local scope check and no synthetic user. What used to be here was
@@ -19,7 +19,7 @@
  * environment variable impersonated any Oxy account. Also unmounted. Also gone.
  *
  * How a real Oxy-to-Oxy service caller is authenticated when one arrives (#156,
- * #158): mount `oxyClient.serviceAuth(...)` from `@oxyhq/core` on the route that
+ * #158): mount `oxyClient.serviceAuth(...)` from `@oxy.so/core` on the route that
  * needs it, against a credential issued to a registered Application, and read
  * the principal off the SDK's own `OxyAuthRequest`. There is deliberately no
  * pre-exported, unmounted service-auth middleware sitting here for somebody to
@@ -35,12 +35,12 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { OxyServices } from '@oxyhq/core';
+import { OxyServices } from '@oxy.so/core';
 import {
   createOptionalOxyAuth,
   createOxyAuthMiddleware,
   type OxyRequestUser,
-} from '@oxyhq/core/server';
+} from '@oxy.so/core/server';
 
 // Initialize Oxy client
 const OXY_API_URL = process.env.OXY_API_URL || 'https://api.oxy.so';
@@ -79,7 +79,7 @@ declare global {
 }
 
 /**
- * Oxy authentication middleware (official @oxyhq/core/server)
+ * Oxy authentication middleware (official @oxy.so/core/server)
  * Validates JWT tokens (including service tokens) and sets req.userId, req.user, req.accessToken
  */
 export const authenticateToken = createOxyAuthMiddleware(oxyClient, {
@@ -106,6 +106,6 @@ export function optionalAuth(
   res: Response,
   next: NextFunction
 ): void {
-  // Uses @oxyhq/core/server optional auth — attaches user if valid, continues if not.
+  // Uses @oxy.so/core/server optional auth — attaches user if valid, continues if not.
   oxyOptionalAuth(req, res, next);
 }

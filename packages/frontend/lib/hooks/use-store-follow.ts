@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useOxy } from '@oxyhq/services';
+import { useOxy } from '@oxy.so/services';
 import type { StoreSummary } from '@mercaria/shared-types';
 import { ensureStoreFollowKind, STORE_FOLLOW_KIND, storeFollowUri } from '../follow-graph';
 import { queryKeys } from './query-keys';

@@ -35,7 +35,7 @@ import {
   type LedgerOwnerType,
   type LedgerTransactionKind,
 } from '@mercaria/shared-types';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { ledgerEntries, ledgerTransactions } from '../schema/ledger.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 
@@ -159,7 +159,7 @@ export function findUnbalancedCurrencies(entries: readonly LedgerEntryInput[]): 
  * one, for two independent reasons that are both properties of the schema
  * rather than of any caller:
  *
- *  1. `@oxyhq/db`'s `createdAt()` defaults to `date_trunc('milliseconds',
+ *  1. `@oxy.so/db`'s `createdAt()` defaults to `date_trunc('milliseconds',
  *     now())`, and `now()` is `transaction_timestamp()` — CONSTANT for a whole
  *     database transaction. Two ledger transactions booked in one `db.transaction`
  *     therefore carry the SAME instant, to the microsecond.
@@ -173,7 +173,7 @@ export function findUnbalancedCurrencies(entries: readonly LedgerEntryInput[]): 
  *
  * The tiebreak is the primary key, which makes the order TOTAL and therefore
  * deterministic for a given set of rows. It does **not** make it chronological:
- * `@oxyhq/db`'s uuid v7 is not monotonic within a millisecond, and it is not
+ * `@oxy.so/db`'s uuid v7 is not monotonic within a millisecond, and it is not
  * close — measured over 5,000 samples, 96% of same-millisecond groups of four
  * ids come back in an order that is not the order they were minted in, and half
  * of all adjacent pairs are inversions. So within one millisecond this order is

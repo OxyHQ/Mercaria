@@ -18,7 +18,7 @@
 #   NETWORK_CONFIGURATION         the service's awsvpc config, as compact JSON
 set -euo pipefail
 
-# The three values `@oxyhq/db` accepts as a `run` (its MIGRATION_RUNS). `all` is
+# The three values `@oxy.so/db` accepts as a `run` (its MIGRATION_RUNS). `all` is
 # the cutover escape hatch, not a normal release: it applies destructive
 # migrations while the previous image is still serving, which is only safe when
 # there is no previous image serving this schema.

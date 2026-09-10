@@ -1,6 +1,6 @@
 import React from "react";
 import { View } from "react-native";
-import { useOxy, openAccountDialog } from "@oxyhq/services";
+import { useOxy, openAccountDialog } from "@oxy.so/services";
 import { Text, Button } from "@mercaria/ui";
 import { Logo } from "@/components/Logo";
 import { ScreenLoading } from "@/components/shell/Screen";

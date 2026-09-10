@@ -28,7 +28,7 @@
  */
 
 import { createHmac, randomBytes } from 'node:crypto';
-import { verifySecret } from '@oxyhq/core/server';
+import { verifySecret } from '@oxy.so/core/server';
 import { z } from 'zod';
 import type { ConnectorProviderId } from '@mercaria/shared-types';
 import { getOAuthStateSecret } from './config.js';

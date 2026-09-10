@@ -39,7 +39,7 @@
  *   NODE_ENV=development DATABASE_URL=… bun src/scripts/seed.ts
  */
 
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { sql } from 'drizzle-orm';
 import {
   CONDITION_DISCLOSURE_KINDS,

@@ -15,7 +15,7 @@
  */
 
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import type { ReferralDestinationType, ReferralInstrumentStatus } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { referralCodes, referralLinks } from '../schema/referrals.js';

@@ -11,7 +11,7 @@
  */
 
 import { z } from 'zod';
-import { isLiveEntityId } from '@oxyhq/db';
+import { isLiveEntityId } from '@oxy.so/db';
 import {
   ABUSE_REPORT_CATEGORIES,
   ABUSE_REPORTED_TYPES,

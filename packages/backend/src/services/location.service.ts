@@ -28,7 +28,7 @@
  */
 
 import type { CreateLocationInput, UpdateLocationInput } from '@mercaria/shared-types';
-import { isForeignKeyViolation } from '@oxyhq/db';
+import { isForeignKeyViolation } from '@oxy.so/db';
 import {
   countLocations,
   deleteLocation as deleteLocationRow,

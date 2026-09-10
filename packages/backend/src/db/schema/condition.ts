@@ -45,7 +45,7 @@ import {
   unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   CONDITION_DETAIL_KINDS,
   CONDITION_DETAIL_KINDS_REQUIRING_NOTE,

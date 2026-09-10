@@ -24,7 +24,7 @@
  */
 
 import { and, eq } from 'drizzle-orm';
-import { type SelectedRow } from '@oxyhq/db';
+import { type SelectedRow } from '@oxy.so/db';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { webPushSubscriptions } from '../schema/notifications.js';
 

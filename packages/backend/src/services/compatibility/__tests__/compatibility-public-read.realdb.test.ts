@@ -30,7 +30,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 import { COMPATIBILITY_FORBIDDEN_VIEW_FIELDS } from '@mercaria/shared-types';

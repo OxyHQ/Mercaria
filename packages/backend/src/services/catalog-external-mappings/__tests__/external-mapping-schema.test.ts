@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
 import { getTableConfig, type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import {
   catalogExternalMappingReviews,
   catalogExternalMappingRunItems,
@@ -169,7 +169,7 @@ function renderSql(node: unknown): string {
   // A `StringChunk` carries `value: string[]`.
   if (Array.isArray(record['value'])) return (record['value'] as unknown[]).map(renderSql).join('');
   // A `Column`. Rendered through `sqlColumnName`, never `column.name`: the
-  // latter is the TypeScript property, because `@oxyhq/db` applies the casing at
+  // latter is the TypeScript property, because `@oxy.so/db` applies the casing at
   // query time — so an assertion against `column.name` would be an assertion
   // about the editor rather than about the emitted DDL.
   if (typeof record['name'] === 'string' && record['table'] !== undefined) {

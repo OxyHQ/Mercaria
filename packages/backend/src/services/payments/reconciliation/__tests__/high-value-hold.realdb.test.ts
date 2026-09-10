@@ -70,7 +70,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { CurrencyCode } from '@mercaria/shared-types';
 
 /** Unique per run, so parallel files and repeated runs never collide on an id. */

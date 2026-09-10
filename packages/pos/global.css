@@ -2,7 +2,7 @@
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css";
 @import "nativewind/theme";
-@import "@oxyhq/bloom/design-tokens/theme.css";
+@import "@oxy.so/bloom/design-tokens/theme.css";
 
 @source "./app/**/*.{js,jsx,ts,tsx}";
 @source "./components/**/*.{js,jsx,ts,tsx}";
@@ -11,8 +11,8 @@
    @theme/:root token block below mirrors @mercaria/ui/theme/global.css; keep the
    two in sync (a cross-package CSS @import through Metro/NativeWind is fragile). */
 @source "../ui/src/**/*.{js,jsx,ts,tsx}";
-@source "../../node_modules/@oxyhq/services/lib/**/*.{js,jsx}";
-@source "../../node_modules/@oxyhq/bloom/lib/**/*.{js,jsx}";
+@source "../../node_modules/@oxy.so/services/lib/**/*.{js,jsx}";
+@source "../../node_modules/@oxy.so/bloom/lib/**/*.{js,jsx}";
 
 @theme {
   --font-sans: Inter, sans-serif;

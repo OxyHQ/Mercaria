@@ -92,7 +92,7 @@ import {
   type AnyPgColumn,
   type PgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   CATALOG_JOB_STATUSES,
   CATALOG_MERGE_CLOSE_RELATION_CONFLICT_KINDS,

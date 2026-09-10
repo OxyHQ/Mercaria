@@ -26,7 +26,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { getTableColumns, getTableName } from 'drizzle-orm';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import { BUYER_REQUEST_FORBIDDEN_IDENTIFIERS } from '@mercaria/shared-types';
 import {
   allowListedColumnCount,
@@ -87,7 +87,7 @@ describe('#110 — the buyer-request schema can hold no way to identify a buyer'
   });
 
   it('the traversal yields SQL identifiers, which is the defect this gate was born from', () => {
-    // `column.name` is the TypeScript PROPERTY name; `@oxyhq/db` owns the
+    // `column.name` is the TypeScript PROPERTY name; `@oxy.so/db` owns the
     // casing authority and drizzle converts at query time. A gate reading
     // `column.name` compares `buyer_email` to `buyerEmail` and cannot fire.
     for (const { table, columns } of buyerRequestTables()) {

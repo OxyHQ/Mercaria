@@ -50,7 +50,7 @@
 
 import { and, asc, desc, eq, isNull, ne, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
-import { publicColumns } from '@oxyhq/db/assert';
+import { publicColumns } from '@oxy.so/db/assert';
 import type {
   ConditionGroup,
   ConstraintSet,

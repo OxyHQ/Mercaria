@@ -59,7 +59,7 @@
  * improvement, never a repair.
  */
 
-import { constraintNameOf, isUniqueViolation, sqlStateOf } from '@oxyhq/db';
+import { constraintNameOf, isUniqueViolation, sqlStateOf } from '@oxy.so/db';
 import type { SyncRecordFailureReason } from '@mercaria/shared-types';
 import { isMercariaError } from './error-codes.js';
 import { sanitizeMessage } from './sanitize.js';

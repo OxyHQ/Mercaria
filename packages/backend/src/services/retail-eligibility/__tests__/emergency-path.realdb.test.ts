@@ -23,7 +23,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { canonicalProducts, canonicalVariants } from '../../../db/schema/canonicalCatalog.js';
 import { brands } from '../../../db/schema/organizations.js';

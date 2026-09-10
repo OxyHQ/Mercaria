@@ -8,7 +8,7 @@
  */
 
 import { createHmac } from 'node:crypto';
-import { verifySecret } from '@oxyhq/core/server';
+import { verifySecret } from '@oxy.so/core/server';
 import { getShopifyClientSecret } from './config.js';
 
 /** Render a query value the way it appears in Shopify's HMAC message. */

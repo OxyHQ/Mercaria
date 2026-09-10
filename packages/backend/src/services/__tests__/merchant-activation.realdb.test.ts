@@ -29,7 +29,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import {
   applyPlatformHold,
@@ -482,7 +482,7 @@ describe('the capability trail', () => {
 
   it('reads the LATEST state per capability, tie-broken by id', async () => {
     const storeId = await seedStore('trail-latest');
-    // One statement, so every row shares an instant — and `@oxyhq/db`'s uuid v7
+    // One statement, so every row shares an instant — and `@oxy.so/db`'s uuid v7
     // is not monotonic within a millisecond, which is exactly why the read
     // orders by `id desc` as well as by `created_at desc`. Two statements in
     // sequence make the ordering unambiguous, which is what this asserts.

@@ -47,8 +47,8 @@ vi.mock('../../db/postgres.js', () => ({ getDb: () => ({}) }));
 vi.mock('../../services/payments/stripe/client.js', () => ({
   createStripeAccountLink: (...args: unknown[]) => createStripeAccountLink(...args),
 }));
-vi.mock('@oxyhq/core/server', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@oxyhq/core/server')>()),
+vi.mock('@oxy.so/core/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => OWNER_USER,
 }));
 vi.mock('../../middleware/auth.js', () => ({

@@ -27,8 +27,8 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
-import { DecisionSchema } from '@oxyhq/crowdsource-contracts';
+import { uuidv7 } from '@oxy.so/db';
+import { DecisionSchema } from '@oxy.so/crowdsource-contracts';
 import type { Database } from '../../db/postgres.js';
 import { listings } from '../../db/schema/catalog.js';
 import { moderationEnforcements } from '../../db/schema/moderation.js';

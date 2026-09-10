@@ -40,7 +40,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import { describe, expect, it } from 'vitest';
 import {
   CHANNEL_ENTITY_ABSENCE_REASONS,

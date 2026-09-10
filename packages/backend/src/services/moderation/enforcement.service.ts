@@ -31,8 +31,8 @@
  * takedown.
  */
 
-import type { Decision } from '@oxyhq/crowdsource-contracts';
-import { isLiveEntityId } from '@oxyhq/db';
+import type { Decision } from '@oxy.so/crowdsource-contracts';
+import { isLiveEntityId } from '@oxy.so/db';
 import type {
   AbuseReportedType,
   ListingStatus,
