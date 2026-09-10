@@ -182,7 +182,7 @@ const COMMERCIAL_REFERENCE =
   /\bfees\/|\breferrals\/|\bretail-pricing\/|\bledger|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee|referralProgram|referral_programs|retailCostQuote|retail_cost_quotes|merchantPlan|commissionRate|affiliate_commission/;
 
 /** Naming a currency. FAIR is the one that matters — the display default. */
-const CURRENCY_NAME_REFERENCE = /\bFAIR\b|FairCoin|faircoin|OxyPay|oxy_pay|oxyPay/;
+const CURRENCY_NAME_REFERENCE = /\bFAIR\b|FairCoin|faircoin|OxyPay|oxy_pay|oxyPay|Peable|peable/;
 
 /** Reading review sentiment, which may never become a specification. */
 const REVIEW_REFERENCE =
@@ -317,7 +317,7 @@ function sourceOutsideForbiddenTopic(source: string): string {
 }
 
 describe('WALL 2: the domain names no currency', () => {
-  it('no module carries a FAIR, FairCoin or OxyPay spelling', () => {
+  it('no module carries currency or payment-rail policy', () => {
     let scanned = 0;
     for (const file of [...domainSources(), ...outerSources()]) {
       // RAW source, comments included: a comparison that documented a currency
@@ -350,6 +350,7 @@ describe('WALL 2: the domain names no currency', () => {
     expect(CURRENCY_NAME_REFERENCE.test("const preferred = 'FAIR';")).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('// FairCoin is the display default')).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('import { OxyPay } from "x";')).toBe(true);
+    expect(CURRENCY_NAME_REFERENCE.test('import { peableClient } from "x";')).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test("const currency: CurrencyCode = request.currency;")).toBe(false);
     expect(CURRENCY_NAME_REFERENCE.test('const fair = isFairComparison();')).toBe(false);
   });

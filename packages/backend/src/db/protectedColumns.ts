@@ -57,7 +57,7 @@ export const PROTECTED_COLUMNS = {
 
   /**
    * The payment provider's own transaction reference, snapshotted at checkout.
-   * It identifies a real movement of money in Oxy Pay and is not the buyer's to
+   * It identifies a real movement of money through Peable and is not the buyer's to
    * hold; nothing in any order DTO needs it.
    */
   orders: ['paymentReference'],

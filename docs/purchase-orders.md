@@ -7,7 +7,7 @@ Binding decisions: **ADR 0004** (`docs/adr/0004-mercaria-retail-dropship.md`),
 particularly D4 steps 4–5 (procurement after funding, compensating refund on
 failure), D6.6 (the purchase-order id is the external reference every draw
 carries), D9.2 (the state machine), D9.5 (a substitution is never a success),
-D10 (the security and privacy boundaries) and D11 (no OxyPay, no FairCoin).
+D10 (the security and privacy boundaries) and D11 (no payment-rail or FairCoin leakage).
 Schema decisions: `packages/backend/src/db/schema/CONVENTIONS.md` §"The supplier
 order orchestration". Neighbours: **#118** (`suppliers`, agreements, offers,
 purchase orders), **#122** (`docs/supplier-preflight.md` — what a supplier says

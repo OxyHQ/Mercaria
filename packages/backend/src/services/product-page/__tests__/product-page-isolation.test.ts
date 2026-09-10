@@ -294,7 +294,7 @@ const MERCARIA_REDIRECT_PATH_REFERENCE = /redirectPath/;
 const WRITE_REFERENCE = /\.insert\(|\.update\(|\.delete\(|INSERT INTO|UPDATE \w+ SET|DELETE FROM/;
 
 /** Naming a currency — the display default belongs to `user-preference.service`. */
-const CURRENCY_NAME_REFERENCE = /\bFAIR\b|FairCoin|faircoin|OxyPay|oxy_pay|oxyPay/;
+const CURRENCY_NAME_REFERENCE = /\bFAIR\b|FairCoin|faircoin|OxyPay|oxy_pay|oxyPay|Peable|peable/;
 
 /** Reaching an offer's checkout ids around the outbound union. */
 const OFFER_ID_BYPASS_REFERENCE = /offer\.(productVariantId|listingId)|offer\.destinationUrl/;
@@ -634,7 +634,7 @@ describe('WALL 6: the page links the identities it decided to link', () => {
 });
 
 describe('WALL 5: the page names no currency', () => {
-  it('no module names FAIR, FairCoin or OxyPay', () => {
+  it('no module names currency or payment-rail policy', () => {
     let scanned = 0;
     for (const file of [...domainSources(), ...outerSources()]) {
       // RAW source, comments included: a currency named in a comment here is a
@@ -654,6 +654,7 @@ describe('WALL 5: the page names no currency', () => {
   it('the currency detector actually detects — the mutation self-test', () => {
     expect(CURRENCY_NAME_REFERENCE.test("const currency = 'FAIR';")).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('// FairCoin is the default')).toBe(true);
+    expect(CURRENCY_NAME_REFERENCE.test('const rail = peable;')).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test("const currency = request.comparisonCurrency;")).toBe(false);
   });
 });

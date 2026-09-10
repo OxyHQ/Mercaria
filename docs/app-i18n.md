@@ -777,7 +777,7 @@ anecdote:
 |---|---|---|
 | `services/__tests__/connector-pin-visibility.test.ts` (#427) | `ui/src/lib/connector-labels.ts` | "no revert/restore/undo promise" — nothing stores the platform's previous value, so offering to restore one is a promise the data cannot keep. Caught and re-pointed in #502, in the same commit that caused it. |
 | `services/watchlists/__tests__/watchlist-isolation.test.ts` (#492) | storefront source | no *cheapest basket* claim, from `WATCHLIST_FORBIDDEN_CLAIMS`. Fixed. |
-| `services/__tests__/commercial-presentation-isolation.test.ts` | the same screens | no OxyPay/FairCoin reference. Found only because the agent on #492 noticed its own name-keyed census had missed it — unlike the row above, that guard has no `*_FORBIDDEN_CLAIMS` constant to grep for. |
+| `services/__tests__/commercial-presentation-isolation.test.ts` | the same screens | no legacy payment-brand/FairCoin reference. Found only because the agent on #492 noticed its own name-keyed census had missed it — unlike the row above, that guard has no `*_FORBIDDEN_CLAIMS` constant to grep for. |
 
 ### The two directions fail differently, and the second is the nastier one
 

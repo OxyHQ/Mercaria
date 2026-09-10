@@ -147,7 +147,7 @@ candidate with otherwise identical facts score identically.
 **FAIR gets no advantage because the domain names no currency at all.** Every
 comparison names ONE currency, the CALLER supplies it, and every price is
 converted into it with the `FxRateSnapshot` captured. A scanned gate fails the
-build on any FAIR, FairCoin or OxyPay spelling under `services/ranking/`; the
+build on any FAIR, FairCoin or payment-rail spelling under `services/ranking/`; the
 display default lives in `user-preference.service`, where the policy is stated.
 
 ### Missing data, per signal

@@ -225,6 +225,7 @@ describe('the validator refuses every way a summary stops being one', () => {
       'Alpha pays Mercaria a commission, cited at 299.00 EUR.',
       'This retailer is on a premium merchant plan.',
       'Alpha accepts FAIR.',
+      'Alpha offers a discount when buyers pay with Peable.',
     ]) {
       const result = validateExplanationDraft(pkg, draft({ summary: [{ text, citedRefs: ['p1'] }] }));
       expect(result.state, text).toBe('rejected');
