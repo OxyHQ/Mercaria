@@ -85,6 +85,7 @@ bun run build            # shared-types, then backend, then frontend
 bun run build:dashboard  # Expo web export for the dashboard
 bun run build:pos        # Expo web export for the POS
 bun run lint             # every workspace
+bun run doctor:oxy       # verify canonical Oxy package versions and scopes
 
 bun run --filter @mercaria/backend test        # Vitest
 bun run --filter @mercaria/backend typecheck   # tsc --noEmit
@@ -99,6 +100,10 @@ docker compose -f docker-compose.postgres.yml up -d postgres
 ```
 
 The suite never writes to that database. `TEST_DATABASE_URL` (falling back to `DATABASE_URL`, and defaulting to the compose server) names a SERVER, on which the harness creates a throwaway, fully-migrated database per run and drops it afterwards.
+
+Oxy ecosystem dependencies are checked read-only with `bun run doctor:oxy`.
+The same check runs immediately after CI installs the frozen lockfile. See
+[`docs/dependencies.md`](docs/dependencies.md) for the update policy.
 
 </details>
 

@@ -39,6 +39,7 @@
     "validate:catalog-identity-contracts": "bun ./scripts/validate-catalog-identity-contracts.mjs && bun ./scripts/test-validate-catalog-identity-contracts.mjs",
     "validate:no-content-revert": "bun ./scripts/validate-no-content-revert.mjs",
     "validate:no-content-revert-controls": "bun ./scripts/test-validate-no-content-revert.mjs",
+    "doctor:oxy": "oxy-doctor --ci",
     "android": "bun run --filter @mercaria/frontend android",
     "ios": "bun run --filter @mercaria/frontend ios",
     "web": "bun run --filter @mercaria/frontend web",
@@ -54,6 +55,7 @@
   ],
   "author": "",
   "devDependencies": {
+    "@oxy.so/doctor": "1.0.0",
     "typescript": "^5.9.3"
   },
   "overrides": {
