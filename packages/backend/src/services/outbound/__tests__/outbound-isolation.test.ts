@@ -305,8 +305,8 @@ const REFERRAL_REFERENCE = /referrals\//;
  */
 const REFERRAL_SEAMS = [/referrals\/traffic\.js/, /referrals\/rewards\/funding\.js/];
 
-/** WALL 7 — a FairCoin or OxyPay assumption, in code OR in copy. */
-const FAIRCOIN_REFERENCE = /FairCoin|faircoin|OxyPay|oxy_pay|oxyPay|⊜/;
+/** WALL 7 — a currency or payment-rail assumption, in code OR in copy. */
+const FAIRCOIN_REFERENCE = /FairCoin|faircoin|OxyPay|oxy_pay|oxyPay|Peable|peable|⊜/;
 
 describe('outbound isolation (#67)', () => {
   const files = readDomain();
@@ -321,7 +321,7 @@ describe('outbound isolation (#67)', () => {
     { name: 'compares a host loosely', pattern: LOOSE_HOST_MATCH },
     { name: 'reaches a ranking module', pattern: RANKING_REFERENCE },
     { name: 'defines a local freshness rule', pattern: LOCAL_FRESHNESS_REFERENCE },
-    { name: 'names FairCoin or OxyPay', pattern: FAIRCOIN_REFERENCE },
+    { name: 'names a currency or payment rail', pattern: FAIRCOIN_REFERENCE },
   ];
   // #723: the loop below is its only reader, so emptying this list makes it a no-op and
   // nothing goes red. The floor is today's count: an addition passes it freely, while a
@@ -444,6 +444,7 @@ describe('outbound isolation (#67)', () => {
     expect(RANKING_REFERENCE.test("import { rankOffers } from '../ranking/rank.js';")).toBe(true);
     expect(LOCAL_FRESHNESS_REFERENCE.test('const OUTBOUND_TTL_SECONDS = 3600;')).toBe(true);
     expect(FAIRCOIN_REFERENCE.test('// settles in FairCoin')).toBe(true);
+    expect(FAIRCOIN_REFERENCE.test('// pay through Peable')).toBe(true);
     expect(REFERRAL_REFERENCE.test("import { attribute } from '../referrals/attribution.service.js';")).toBe(
       true,
     );

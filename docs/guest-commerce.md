@@ -111,7 +111,7 @@ there is nothing guest-shaped to fork, and no `GuestCart` model.
 - **What the merge cannot reach** is a test, not a promise —
   `services/__tests__/cart-merge-isolation.test.ts` scans the whole cart path
   for the payment domain, the referral domain, inventory writers, discount
-  redemption and any OxyPay/FairCoin reference. Guest CHECKOUT (#105–#107),
+  redemption and any payment-rail/FairCoin reference. Guest CHECKOUT (#105–#107),
   referral attribution (#141/#143) and a "discard instead of merge" mode (which
   ADR 0003 does not grant — not calling the endpoint IS the choice) are all
   deliberately absent.
@@ -213,7 +213,7 @@ widening on `db/schema/orders.ts`. Schema decisions:
   itself. Marketing consent is its own column defaulting to false, so a
   transactional send can never be mistaken for consent to market.
 - **Isolation is a test:** `services/__tests__/checkout-contact-isolation.test.ts`
-  fails the build on any OxyPay/FairCoin spelling (COPY included, so it scans
+  fails the build on any legacy payment-brand/FairCoin spelling (COPY included, so it scans
   raw source), any referral reference, any geocoding client, any address-book
   write from a guest module, and any contact-based buyer lookup. The
   reachability detectors scan COMMENT-STRIPPED source, because the modules
@@ -221,4 +221,3 @@ widening on `db/schema/orders.ts`. Schema decisions:
 - Deferred and NOT built here: #106 (landed — see below), #107 (the guest
   Stripe client surfaces and the portal), #108 (verification, magic links,
   transactional mail), #109 (claiming), #93 (pickup), #112 (guest P2P).
-

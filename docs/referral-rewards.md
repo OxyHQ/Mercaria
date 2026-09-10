@@ -324,7 +324,7 @@ self-test per wall.
 | Do not alter organic ranking (I1) | No import of `services/ranking`, `services/search` or a feed — and the reverse wall already exists in `offer-ranking-isolation.test.ts` |
 | No discount, cart or checkout write | No import of `discount.service`, `services/checkout` or `catalog-write` |
 
-Two more walls beside them: no `fx.service`, and no OxyPay/FairCoin spelling
+Two more walls beside them: no `fx.service`, and no payment-rail/FairCoin spelling
 anywhere (raw source, comments included).
 
 **The payment exceptions are named, and — since #145's earnings ledger — there

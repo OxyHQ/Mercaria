@@ -28,8 +28,8 @@ import type { Money } from './money';
  * A closed set, and deliberately a SHORT one: a provider is added here together
  * with the code that can produce a row for it and its migration widening the
  * CHECK, never in advance. FairCoin is not listed because nothing can write one:
- * it is not a payment method in this roadmap, and if it is introduced it arrives
- * through OxyPay — the Oxy gateway that accepts FairCoin — under its own ADR. A
+ * it is not a payment method in this roadmap. A future currency or settlement
+ * capability must arrive through Peable under its own ADR. A
  * value the database accepts but no code can produce is an invitation to write a
  * row nothing can ever reconcile.
  *

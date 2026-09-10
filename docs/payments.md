@@ -10,8 +10,9 @@ checkout group. This document describes what was BUILT for it (issue #45); the
 ADR describes why, and where the two disagree the ADR wins and this file is
 wrong.
 
-FairCoin is not a payment method in this roadmap — if it is introduced it arrives
-through OxyPay, the Oxy gateway that accepts FairCoin, under its own ADR, and
+Peable is Mercaria's current Oxy payment gateway and keeps provider details
+behind one rail-neutral interface. FairCoin is not a payment method in this
+roadmap; a future currency or settlement capability requires its own ADR and
 nothing here anticipates it. Stripe is complete end to end: #48 built the
 event ingress, #46 the connected accounts and the readiness gate, #47 the
 checkout and the per-seller settlement, #49 the money coming back — refunds,

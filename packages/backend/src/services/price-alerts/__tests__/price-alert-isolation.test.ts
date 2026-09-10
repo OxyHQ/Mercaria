@@ -10,7 +10,7 @@
  *
  * The reachability detectors scan COMMENT-STRIPPED source — `checkout-contact-isolation.test.ts`'s
  * rule — because these modules document what they refuse to do in exactly the
- * vocabulary the detectors look for. The FairCoin/OxyPay detector is the
+ * vocabulary the detectors look for. The currency/payment-rail detector is the
  * exception and scans RAW source, COPY included, for #78's reason: a hard-coded
  * currency name in a comment or a string is how one arrives.
  */
@@ -119,8 +119,8 @@ function stripComments(source: string): string {
 const COMMERCIAL_REFERENCE =
   /\/fees\/|fee_schedules|\/referrals\/|referral_touches|commissionAmount|merchant_plans?\b|sponsored|\/ledger|ledger_entries/;
 
-/** A FairCoin or OxyPay assumption, in code OR in copy. */
-const FAIRCOIN_REFERENCE = /FairCoin|faircoin|OxyPay|oxy_pay|oxyPay|\bFAIR\b|⊜/;
+/** A currency or payment-rail assumption, in code OR in copy. */
+const FAIRCOIN_REFERENCE = /FairCoin|faircoin|OxyPay|oxy_pay|oxyPay|Peable|peable|\bFAIR\b|⊜/;
 
 /** A CONTACT of any kind. The transactional channel is Oxy's own feed. */
 const CONTACT_REFERENCE =
@@ -223,11 +223,11 @@ describe('the price-alert domain cannot reach what it must not', () => {
     }
   });
 
-  it('names no FairCoin or OxyPay assumption, in code or in copy', () => {
+  it('names no currency or payment-rail assumption, in code or in copy', () => {
     for (const file of files) {
       expect(
         FAIRCOIN_REFERENCE.test(readFileSync(file, 'utf8')),
-        `${file} names FairCoin or OxyPay; an alert names ONE currency and the caller supplies it`,
+        `${file} names a currency or payment rail; an alert names ONE currency and the caller supplies it`,
       ).toBe(false);
     }
   });
@@ -389,6 +389,7 @@ describe('the detectors actually detect — the mutation self-tests', () => {
   it('the FairCoin detector sees the code name, the symbol and the copy', () => {
     expect(FAIRCOIN_REFERENCE.test("const base: CurrencyCode = 'FAIR';")).toBe(true);
     expect(FAIRCOIN_REFERENCE.test('// FairCoin alerts are shown first')).toBe(true);
+    expect(FAIRCOIN_REFERENCE.test('// Peable alerts are shown first')).toBe(true);
     expect(FAIRCOIN_REFERENCE.test('label: `⊜ 12.00`')).toBe(true);
     expect(FAIRCOIN_REFERENCE.test("const base: CurrencyCode = 'EUR';")).toBe(false);
     expect(FAIRCOIN_REFERENCE.test('a fairly ordinary comparison')).toBe(false);

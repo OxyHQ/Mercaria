@@ -123,7 +123,7 @@ const FORBIDDEN_COMMERCIAL_REFERENCES: readonly { signal: string; pattern: RegEx
     signal: 'retail_margin',
     pattern: /retail-pricing\/|retail_cost|retailCost|absorption_cap|retailMargin/i,
   },
-  { signal: 'payment_rail_preference', pattern: /faircoin|oxypay|oxy_pay|acceptsFair|stripe/i },
+  { signal: 'payment_rail_preference', pattern: /faircoin|oxypay|oxy_pay|acceptsFair|stripe|peable/i },
   {
     // #74 is the ONE ordering authority. A facet module importing it would make
     // this one a second, and a facet rail is where that would be least visible.

@@ -19,8 +19,8 @@
  * `comparisonCurrency` is REQUIRED. FAIR is Mercaria's display default and that
  * is a product policy stated where the policy lives (`user-preference.service`);
  * a ranking module that reached for it would make the default a ranking fact,
- * and `offer-ranking-isolation.test.ts` fails the build on any FAIR or OxyPay
- * spelling in this domain — the `retail-pricing` device, for the same reason.
+ * and `offer-ranking-isolation.test.ts` fails the build on currency or payment-rail
+ * policy leaking into this domain — the `retail-pricing` device, for the same reason.
  *
  * ## The SQL filter is a PRE-FILTER; eligibility is the authority
  *

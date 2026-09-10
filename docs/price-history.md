@@ -246,7 +246,7 @@ derived live from the same function with no series row at all.
   the display currency would leave a total whose `native` half does not exist in
   any currency.
 - **No module in this domain names a particular currency**, and an isolation
-  test scans raw source — COPY included — for the FairCoin and OxyPay spellings.
+  test scans raw source — COPY included — for FairCoin and legacy payment-brand spellings.
   `PRICE_HISTORY_SERIES_CURRENCIES` is empty by default for the same reason: a
   default would put one currency into the contract.
 
@@ -313,7 +313,7 @@ the prohibition as a VALUE that a realdb case walks a REAL emitted response
 against. Two gates, because the static one catches a declared field and the
 runtime one catches a field a serializer spread in.
 
-The same file holds four more walls: no FairCoin or OxyPay spelling (raw source,
+The same file holds four more walls: no FairCoin or legacy payment-brand spelling (raw source,
 copy included), no price alert or subscription (#79's — this domain still
 imports none of it, though #79 has since shipped and closed #80's
 `ProductSavePriceAlert` seam), no ranking module (#74's, and the reverse
