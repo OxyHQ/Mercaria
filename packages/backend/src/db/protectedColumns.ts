@@ -6,7 +6,7 @@
  * of them. So the guard has to be data plus a gate, decided once per table
  * rather than remembered at each call site.
  *
- * Read this registry through `publicColumns` from `@oxyhq/db/assert`:
+ * Read this registry through `publicColumns` from `@oxy.so/db/assert`:
  *
  *     db.select(publicColumns(orders, PROTECTED_COLUMNS)).from(orders)
  *
@@ -45,7 +45,7 @@
  * something", which is the distinction that keeps the list worth reading.
  */
 
-import type { ProtectedColumnRegistry } from '@oxyhq/db/assert';
+import type { ProtectedColumnRegistry } from '@oxy.so/db/assert';
 
 export const PROTECTED_COLUMNS = {
   /**

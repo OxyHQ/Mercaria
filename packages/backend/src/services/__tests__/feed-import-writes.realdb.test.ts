@@ -21,7 +21,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { catalogSources } from '../../db/schema/provenance.js';
 import { catalogSourceConfigs } from '../../db/schema/ingestion.js';

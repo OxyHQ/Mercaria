@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { openAccountDialog, useOxy } from "@oxyhq/services";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { Text, formatDateTime } from "@mercaria/ui";
 import type { SellerDraftEntryPath } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";

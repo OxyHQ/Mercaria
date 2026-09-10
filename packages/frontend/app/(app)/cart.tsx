@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
-import { openAccountDialog, useOxy } from "@oxyhq/services";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { ShoppingBag } from "lucide-react-native";
 import {
   CartLineItem,

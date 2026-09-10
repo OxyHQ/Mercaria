@@ -80,7 +80,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableName, is } from 'drizzle-orm';
 import { PgTable, getTableConfig } from 'drizzle-orm/pg-core';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import { CATALOG_GOVERNANCE_ACTIONS } from '@mercaria/shared-types';
 import * as schema from '../schema/index.js';
 import { MIGRATIONS_FOLDER } from '../migrationsFolder.js';

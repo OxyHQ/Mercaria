@@ -48,7 +48,7 @@ import {
   formatDateTime,
   type Translate,
 } from "@mercaria/ui";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { CollectionMapping } from "@/components/channels/CollectionMapping";

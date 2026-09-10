@@ -62,7 +62,7 @@ describe('SSRF and protocol (security 1 and 2)', () => {
 
   it('hand-rolls no URL check: every hop is `safeFetch`’s to validate', () => {
     const source = readFileSync(join(HERE, '..', 'fetch.ts'), 'utf8');
-    expect(source).toContain("from '@oxyhq/core/server'");
+    expect(source).toContain("from '@oxy.so/core/server'");
     expect(source).toContain('safeFetch(');
     // The shapes an app-local re-implementation would take. A second answer to
     // "is this address safe" is the hazard, not the safeguard.

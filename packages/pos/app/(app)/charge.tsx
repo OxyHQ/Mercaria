@@ -5,7 +5,7 @@ import Head from "expo-router/head";
 import { useQueryClient } from "@tanstack/react-query";
 import { Banknote, CreditCard } from "lucide-react-native";
 import { Text, Button, PriceDisplay, useColorScheme } from "@mercaria/ui";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { RequirePos } from "@/components/shell/RequirePos";
 import { useChargeSale } from "@/lib/hooks/use-sale";

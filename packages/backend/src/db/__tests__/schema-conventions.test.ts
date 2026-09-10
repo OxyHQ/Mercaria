@@ -1,7 +1,7 @@
 /**
  * Schema-Convention Gates — the half that needs no database.
  *
- * `@oxyhq/db/assert` ships four gates and they split cleanly in two:
+ * `@oxy.so/db/assert` ships four gates and they split cleanly in two:
  *
  *  - STATIC — `findIdColumnViolations` (walks the drizzle table objects) and
  *    `findImplicitWholeRowReads` (reads `.ts` files off disk). Neither opens a
@@ -36,8 +36,8 @@ import { getTableColumns, getTableName, is } from 'drizzle-orm';
 import { getTableConfig, PgTable } from 'drizzle-orm/pg-core';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { findIdColumnViolations, findImplicitWholeRowReads } from '@oxyhq/db/assert';
-import { sqlColumnName } from '@oxyhq/db';
+import { findIdColumnViolations, findImplicitWholeRowReads } from '@oxy.so/db/assert';
+import { sqlColumnName } from '@oxy.so/db';
 import { describe, expect, it } from 'vitest';
 import { DEFERRED_FOREIGN_KEYS, ID_COLUMNS_WITHOUT_FOREIGN_KEY } from '../deferredForeignKeys.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';

@@ -122,7 +122,7 @@
 
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   SECONDARY_CLASSIFICATION_CITED_REASONS,
   SECONDARY_CLASSIFICATION_REASONS,

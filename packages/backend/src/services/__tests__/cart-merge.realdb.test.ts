@@ -25,7 +25,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
-import { isCheckViolation } from '@oxyhq/db';
+import { isCheckViolation } from '@oxy.so/db';
 
 let db: import('../../db/postgres.js').Database;
 let closePostgres: typeof import('../../db/postgres.js').closePostgres;

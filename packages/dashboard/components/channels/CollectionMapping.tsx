@@ -46,7 +46,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@mercaria/ui";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import { useTranslation } from "@/lib/i18n";
 import { useChannelCollections, useUpdateChannelSettings } from "@/lib/hooks/use-channels";
 

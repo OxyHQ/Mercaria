@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
 import { Heart } from "lucide-react-native";
-import { openAccountDialog, useOxy } from "@oxyhq/services";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { SavedItemCard, Text } from "@mercaria/ui";
 import type { ProductSaveSplitResolution, SavedItem } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";

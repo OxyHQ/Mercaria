@@ -34,7 +34,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 
 const RUN = Math.random().toString(36).slice(2, 10);
 const DAY_MS = 24 * 60 * 60 * 1_000;

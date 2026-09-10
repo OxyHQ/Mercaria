@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getTableColumns } from 'drizzle-orm';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import {
   CATALOG_PROPOSAL_BLOCKING_DETECTORS,
   CATALOG_PROPOSAL_DUPLICATE_DETECTORS,

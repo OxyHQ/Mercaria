@@ -21,7 +21,7 @@
  * them anyway.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 
 const rails = { peable: false, stripe: false };
 

@@ -23,7 +23,7 @@ import type {
   MerchantPublicProfile,
   MerchantType,
 } from '@mercaria/shared-types';
-import { isLiveEntityId, isUniqueViolation } from '@oxyhq/db';
+import { isLiveEntityId, isUniqueViolation } from '@oxy.so/db';
 import { getDb } from '../../db/postgres.js';
 import {
   findMerchantById,

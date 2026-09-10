@@ -42,7 +42,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableConfig } from 'drizzle-orm/pg-core';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import {
   REFERRAL_APPLICATION_FORBIDDEN_DISCLOSURES,
   REFERRAL_APPLICATION_ITEMS,

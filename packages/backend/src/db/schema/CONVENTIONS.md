@@ -14,7 +14,7 @@ silently.
 
 Several of these are enforced by tests, not by discipline — see the bottom.
 
-The mechanics behind most of this ship in **`@oxyhq/db`** (column builders, the
+The mechanics behind most of this ship in **`@oxy.so/db`** (column builders, the
 casing authority, the migration ledger and deploy phases, the throwaway-database
 harness, the convention gates). Read it before hand-rolling any of them; a
 Mercaria-local copy of something that package already owns is a second thing to
@@ -52,7 +52,7 @@ map; write it out, one entry per table.
 not pass an explicit column name unless the SQL name genuinely differs from the
 property.
 
-**`DATABASE_CASING` from `@oxyhq/db` is the naming authority.** It is read by
+**`DATABASE_CASING` from `@oxy.so/db` is the naming authority.** It is read by
 `createDatabase()` in `db/postgres.ts` (what queries reference) and by
 `drizzle.config.ts` (what the DDL creates). One setting, not two copies.
 
@@ -61,7 +61,7 @@ property.
 > built. Using it in hand-written SQL throws `column "sellerId" does not exist`;
 > using it in a catalogue query or an `endsWith('_id')` filter silently matches
 > nothing and the check passes vacuously. Always `sqlColumnName(column)` from
-> `@oxyhq/db`, or interpolate the Column itself into `sql` and let drizzle
+> `@oxy.so/db`, or interpolate the Column itself into `sql` and let drizzle
 > render it.
 
 > **Trap, second guise — the one that costs data, not a crash (#313):** a drizzle
@@ -73,7 +73,7 @@ property.
 > query returns 0/`[]` **with no error at all**. Measured against a real server:
 > an independent raw-SQL control confirmed four rows existed, the query returned
 > 0 for every row, and `qualified()` returned 4. Qualify every correlated
-> reference with `qualified(column)` from `@oxyhq/db`, and treat "a correlated
+> reference with `qualified(column)` from `@oxy.so/db`, and treat "a correlated
 > subquery returned nothing" as a bug in the SQL until proven otherwise.
 >
 > **The mechanism is narrower and nastier than "the table is not in the `FROM`",
@@ -117,7 +117,7 @@ quotes every identifier it emits. Hand-written SQL must quote it too.
 ## Primary keys
 
 `text`, holding the 24-char ObjectId hex verbatim for pre-cutover rows and a
-**uuid v7** for new ones — `generatedId()` from `@oxyhq/db`. This is not a
+**uuid v7** for new ones — `generatedId()` from `@oxy.so/db`. This is not a
 convenience, it is what makes the backfill possible at all:
 
 - Every cross-collection reference in Mercaria's Mongo model is already a
@@ -234,7 +234,7 @@ it.
 tuple from `@mercaria/shared-types` wherever one exists** — `ALL_CURRENCY_CODES`
 is the canonical case, with `ListingCondition` and the order/enforcement modes
 beside it. Render the CHECK with `inList()` / `textArrayLiteral()` from
-`@oxyhq/db` so the constraint text is generated from the tuple rather than
+`@oxy.so/db` so the constraint text is generated from the tuple rather than
 retyped.
 
 **This is what "adding a currency code propagates" now means, and it CHANGES.**
@@ -263,7 +263,7 @@ element is in range" is written as array CONTAINMENT, never `unnest`.
 
 ## Timestamps
 
-Always `timestamptz`, always `mode: 'date'` — `timestamptz()` from `@oxyhq/db`.
+Always `timestamptz`, always `mode: 'date'` — `timestamptz()` from `@oxy.so/db`.
 `timestamp` without a time zone reinterprets the value in the session's
 `TimeZone` on every read, silently changing what a Mongo `Date` meant.
 
@@ -473,7 +473,7 @@ reference snapshotted on an order, can leave the process in a response nobody
 audited.
 
 `db/protectedColumns.ts` holds the registry; `publicColumns(table, REGISTRY)`
-from `@oxyhq/db/assert` is the sanctioned read. The exclusion is at the TYPE
+from `@oxy.so/db/assert` is the sanctioned read. The exclusion is at the TYPE
 level — the row type has no such property, so a serializer that reads one fails
 `tsc` rather than shipping it — **provided the registry is declared `as const`
 and never re-annotated with `ProtectedColumnRegistry`.** Annotating it widens the
@@ -533,7 +533,7 @@ expression cannot reproduce. The stored total is the record of what was charged.
 
 A Mongo text index becomes a `tsvector` GENERATED column plus a GIN index —
 never `LIKE '%…%'`, which is not a port of a text index but a table scan wearing
-one's clothes. Use `tsvector` from `@oxyhq/db` and the two-argument
+one's clothes. Use `tsvector` from `@oxy.so/db` and the two-argument
 `to_tsvector('<config>', …)` with a literal configuration.
 
 Note that catalogue search changes SHAPE where Mongo indexed a multikey field on
@@ -591,7 +591,7 @@ the exact bug.
 drizzle-kit cannot emit the `(Point,4326)` typmod (its `parseType` quotes any
 type name outside a hardcoded list, and `geography` is not on it as of
 drizzle-kit 0.31.10), so the column is declared bare — hence `geography` from
-`@oxyhq/db`. The typmod would only constrain WRITES, and a generated column has
+`@oxy.so/db`. The typmod would only constrain WRITES, and a generated column has
 none; that the stored value really is a Point at SRID 4326 is asserted against
 real rows instead.
 
@@ -5428,7 +5428,7 @@ record a connector run refused, and why — durably, one row per record.
   merchant to search their product list for an inventory-item id.
 - **`ordinal` exists because BOTH halves of the obvious ordering key are
   degenerate here.** Every row of a run is written by ONE multi-row insert, so
-  they share `created_at` to the millisecond, and `@oxyhq/db`'s uuid v7 primary
+  they share `created_at` to the millisecond, and `@oxy.so/db`'s uuid v7 primary
   key is not monotonic within a millisecond. Ordering on `(created_at, id)`
   returns a run's refusals SHUFFLED — measured on this table's own first suite
   run, where the write cap's "first 200 we met" came back starting at record 79
@@ -5645,7 +5645,7 @@ no readiness column and no activation verdict anywhere in the file.
   `merchant_activation_capability_events_latest_idx`. A second table holding the
   current value would be derivable from this one and could therefore disagree
   with it. The index tie-breaks on `id desc` because one observation writes
-  several rows in one statement and `@oxyhq/db`'s uuid v7 is not monotonic within
+  several rows in one statement and `@oxy.so/db`'s uuid v7 is not monotonic within
   a millisecond.
 - **It is a RECORDING and never an authority.** Nothing that decides anything
   reads it — a cached `granted` survives exactly the restriction that should have

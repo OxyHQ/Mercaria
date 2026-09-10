@@ -57,7 +57,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   RELATIONSHIP_ASSERTED_BY_KINDS,
   RELATIONSHIP_EVIDENCE_KINDS,

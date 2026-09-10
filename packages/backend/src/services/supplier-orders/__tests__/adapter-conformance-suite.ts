@@ -35,7 +35,7 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { CurrencyCode } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, getDb, type Database } from '../../../db/postgres.js';
 import { orders } from '../../../db/schema/orders.js';

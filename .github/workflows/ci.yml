@@ -103,6 +103,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Verify Oxy ecosystem dependencies
+        run: bun run doctor:oxy
+
       # Runs BEFORE lint and the typechecks, and needs neither: it reads the
       # tracked file listing, so it costs a couple of seconds and answers the
       # one question a green build cannot — whether Mongo came back. Mongo does

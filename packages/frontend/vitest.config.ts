@@ -25,7 +25,7 @@ import { defineConfig } from 'vitest/config';
  * `react-native/index.js` with `Parse failure: Expected 'from', got 'typeOf'`:
  * React Native ships Flow source that Rollup does not parse. Every component in
  * all three apps reaches `react-native`, directly or through `@mercaria/ui`,
- * `@oxyhq/bloom` or `expo-router`, so this is the floor and not one bad file.
+ * `@oxy.so/bloom` or `expo-router`, so this is the floor and not one bad file.
  *
  * Clearing it means aliasing `react-native` to `react-native-web`, adding a
  * Flow-stripping transform for the RN-ecosystem packages that ship untranspiled,

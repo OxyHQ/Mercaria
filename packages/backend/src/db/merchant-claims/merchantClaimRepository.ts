@@ -18,8 +18,8 @@
  */
 
 import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
-import { publicColumns } from '@oxyhq/db/assert';
-import type { SelectedRow } from '@oxyhq/db';
+import { publicColumns } from '@oxy.so/db/assert';
+import type { SelectedRow } from '@oxy.so/db';
 import type {
   MerchantClaimActorKind,
   MerchantClaimChallengeCloseReason,

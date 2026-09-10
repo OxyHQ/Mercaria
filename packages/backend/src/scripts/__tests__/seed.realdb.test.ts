@@ -44,7 +44,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createDatabase } from '@oxyhq/db';
+import { createDatabase } from '@oxy.so/db';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type postgres from 'postgres';
 import * as schema from '../../db/schema/index.js';
@@ -169,7 +169,7 @@ describe('the dev seed runs to completion against an empty migrated database', (
     // #313 measured the mechanism this comment first stated too broadly: the
     // rewrite is `buildSelection`'s, and it applies only when `isSingleTable`
     // is true — so a JOIN would have hidden it and a `.where()` is never
-    // affected. `qualified()` from `@oxyhq/db` is the one-call alternative to
+    // affected. `qualified()` from `@oxy.so/db` is the one-call alternative to
     // the second statement; both are correct and the second statement stays,
     // because it is what was measured against this fixture. Full reasoning and
     // the gate: `db/schema/CONVENTIONS.md` §Naming and

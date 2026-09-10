@@ -50,7 +50,7 @@
 
 import type { CurrencyCode, RetailRefundAllocation } from '@mercaria/shared-types';
 import { retailRefundAllocationTotal } from '@mercaria/shared-types';
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import { insertRefund, type NewRefundLineItem } from '../../db/orders/refundRepository.js';
 import type { OrderRecord } from '../../db/orders/orderRepository.js';
 import { findRetailRefundSuspension } from '../../db/retailServiceRequests/policyRepository.js';

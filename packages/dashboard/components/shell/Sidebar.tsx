@@ -2,7 +2,7 @@ import React, { useCallback, useMemo } from "react";
 import { View, Pressable } from "react-native";
 import { useRouter, usePathname } from "expo-router";
 import { ChevronsLeft, ChevronsRight } from "lucide-react-native";
-import { ProfileButton, openAccountDialog } from "@oxyhq/services";
+import { ProfileButton, openAccountDialog } from "@oxy.so/services";
 import {
   AppSidebar,
   GhostIconButton,

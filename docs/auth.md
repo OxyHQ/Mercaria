@@ -2,7 +2,7 @@
 
 
 `middleware/auth.ts` is three exports — `oxyClient`, `authenticateToken`,
-`optionalAuth` — all composed from `@oxyhq/core/server`, with nothing locally
+`optionalAuth` — all composed from `@oxy.so/core/server`, with nothing locally
 implemented. #164 deleted the whole legacy surface as a clean cut:
 `SERVICE_SECRET` and its `authenticateTokenOrApiKey` (a shared-secret bearer
 compare that set `req.userId = 'system'` and an `appId: 'internal'` no Oxy

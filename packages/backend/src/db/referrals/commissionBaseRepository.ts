@@ -124,7 +124,7 @@ export async function readRealizedCommissionForPayment(
         eq(ledgerEntries.account, 'commission_revenue'),
       ),
     )
-    // `(created_at, id)` and never the id alone: `@oxyhq/db`'s uuid v7 is NOT
+    // `(created_at, id)` and never the id alone: `@oxy.so/db`'s uuid v7 is NOT
     // monotonic within a millisecond, so ordering by the key would make the
     // recorded version flicker between two postings booked in one statement.
     .orderBy(desc(ledgerTransactions.createdAt), desc(ledgerTransactions.id))

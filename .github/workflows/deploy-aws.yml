@@ -51,7 +51,7 @@ on:
           - pre-post
           - all
 
-# `@oxyhq/db`'s migrator takes NO lock against a second concurrent migrator, and
+# `@oxy.so/db`'s migrator takes NO lock against a second concurrent migrator, and
 # says so in its own runner: drizzle reads the ledger's high-water mark OUTSIDE
 # its transaction, so two runs both read the same mark and both attempt the same
 # DDL. The runner explicitly assigns the interlock to the caller, naming this
@@ -397,7 +397,7 @@ jobs:
 
       # ── Migrations run as one-shot ECS tasks, around the rollout ─────────────
       #
-      # Two phases, and the split is the whole point (see @oxyhq/db's phases.ts):
+      # Two phases, and the split is the whole point (see @oxy.so/db's phases.ts):
       # `pre` is additive and safe while the OLD image still serves, so it runs
       # BEFORE the service update; `post` drops and narrows, which would 500 the
       # old image, so it runs AFTER the new one is live. Every migration file
@@ -511,7 +511,7 @@ jobs:
           echo "network=$(echo "$NET" | jq -c .)" >> "$GITHUB_OUTPUT"
 
       # Does the JOURNAL contain a post-rollout migration? Grepped with the
-      # pattern @oxyhq/db EXPORTS (`POST_PHASE_GREP_PATTERN`), never a copy —
+      # pattern @oxy.so/db EXPORTS (`POST_PHASE_GREP_PATTERN`), never a copy —
       # `src/db/__tests__/deployWorkflow.test.ts` asserts this workflow contains
       # that exact string, so the two cannot drift. The grep is sound only
       # because the migrator separately proves every file carries exactly one

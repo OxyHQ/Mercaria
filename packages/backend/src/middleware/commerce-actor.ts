@@ -44,7 +44,7 @@
  */
 
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import { getOxyUserId } from '@oxyhq/core/server';
+import { getOxyUserId } from '@oxy.so/core/server';
 import type { GuestClientClass } from '@mercaria/shared-types';
 import { GUEST_CLIENT_CLASSES } from '@mercaria/shared-types';
 import { config } from '../config/index.js';

@@ -9,8 +9,8 @@ import {
   APP_COLOR_NAMES,
   useBloomTheme,
   type AppColorName,
-} from "@oxyhq/bloom/theme";
-import { getPresetVars } from "@oxyhq/bloom/design-tokens";
+} from "@oxy.so/bloom/theme";
+import { getPresetVars } from "@oxy.so/bloom/design-tokens";
 import { cn } from "@/lib/utils";
 
 /** Miniature app layout using real theme tokens via NativeWind vars() */

@@ -20,8 +20,8 @@ import * as Haptics from "expo-haptics";
 
 import { UserAvatar } from "@/components/user-avatar";
 import { Text, useColorScheme } from "@mercaria/ui";
-import { useTheme } from "@oxyhq/bloom/theme";
-import { useOxy, openAccountDialog } from "@oxyhq/services";
+import { useTheme } from "@oxy.so/bloom/theme";
+import { useOxy, openAccountDialog } from "@oxy.so/services";
 import { useCart } from "@/lib/hooks/use-cart";
 import { useTranslation } from "@/lib/i18n";
 import {

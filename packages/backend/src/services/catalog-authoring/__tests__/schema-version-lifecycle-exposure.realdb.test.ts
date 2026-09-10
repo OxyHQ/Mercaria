@@ -71,7 +71,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import {
   MAX_VALUES_PER_VARIANT_AXIS,
   MAX_VARIANT_AXES_PER_PRODUCT,

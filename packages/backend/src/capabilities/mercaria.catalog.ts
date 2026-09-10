@@ -1,4 +1,4 @@
-import type { AppCapabilityCatalog, CatalogTool } from '@oxyhq/contracts';
+import type { AppCapabilityCatalog, CatalogTool } from '@oxy.so/contracts';
 
 const TOOL_VERSION = '1.0.0';
 const MAX_SAFE_MINOR_UNITS = Number.MAX_SAFE_INTEGER;

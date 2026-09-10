@@ -14,7 +14,7 @@ must not be copied into Alia or into a second MCP-only registry.
   decision before invoking domain code.
 - External clients call `/mcp` with an OAuth access token issued by Oxy for the
   exact `https://mcp.mercaria.oxy.so` resource and selected Oxy account. The
-  shared `@oxyhq/mcp` transport performs live token introspection and protocol
+  shared `@oxy.so/mcp` transport performs live token introspection and protocol
   validation before Mercaria checks current store membership and permissions.
 
 Both paths use the effective account to read or operate Mercaria resources. An

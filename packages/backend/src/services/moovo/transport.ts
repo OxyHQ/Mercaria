@@ -13,7 +13,7 @@
  * #156 cannot be finished by this repository alone, which is why
  * {@link MOOVO_TRANSPORT_BLOCKERS} is a list rather than a sentence:
  *
- *  - **`OxyHQ/oxy#878`** — `@oxyhq/core` has no audience-aware service client.
+ *  - **`OxyHQ/oxy#878`** — `@oxy.so/core` has no audience-aware service client.
  *    Measured on the installed 19.1.0 and on `OxyHQServices@origin/main`:
  *    `createServiceClient` does not exist, and `getServiceToken()` POSTs
  *    `{apiKey, apiSecret}` to `/auth/service-token` with no parameter that
@@ -53,7 +53,7 @@ import type { MoovoTransport } from './transport-contract.js';
  * to the logistics port and this extends to the reason it is unregistered.
  */
 export const MOOVO_TRANSPORT_BLOCKERS: readonly string[] = [
-  'OxyHQ/oxy#878 (audience-aware service client in @oxyhq/core)',
+  'OxyHQ/oxy#878 (audience-aware service client in @oxy.so/core)',
   'OxyHQ/Moovo#27 (accept Oxy Application principals on Moovo service routes)',
   'OxyHQ/Moovo#28 (versioned Moovo logistics service API)',
 ];

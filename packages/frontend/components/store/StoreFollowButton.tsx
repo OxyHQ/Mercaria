@@ -1,5 +1,5 @@
-import { Button } from "@oxyhq/bloom/button";
-import { FollowTargetButton, openAccountDialog, useOxy } from "@oxyhq/services";
+import { Button } from "@oxy.so/bloom/button";
+import { FollowTargetButton, openAccountDialog, useOxy } from "@oxy.so/services";
 import type { StoreSummary } from "@mercaria/shared-types";
 import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
 import { useTranslation } from "@/lib/i18n";

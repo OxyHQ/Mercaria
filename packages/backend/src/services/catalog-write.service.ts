@@ -48,7 +48,7 @@ import {
   MERCHANT_ARCHIVABLE_LISTING_STATUSES,
   SELLER_SETTABLE_LISTING_STATUSES,
 } from '@mercaria/shared-types';
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import {
   findListingById,
   findListingCategoryPathsPage,

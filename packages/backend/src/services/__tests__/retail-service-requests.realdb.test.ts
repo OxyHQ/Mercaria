@@ -25,7 +25,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { CurrencyCode } from '@mercaria/shared-types';
 import { RETAIL_SERVICE_FORBIDDEN_CUSTOMER_INPUTS } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';

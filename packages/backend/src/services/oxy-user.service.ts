@@ -19,7 +19,7 @@
  * here.
  */
 
-import { getNormalizedUserHandle, type User } from '@oxyhq/core';
+import { getNormalizedUserHandle, type User } from '@oxy.so/core';
 import { oxyClient } from '../middleware/auth.js';
 import { log } from '../lib/logger.js';
 

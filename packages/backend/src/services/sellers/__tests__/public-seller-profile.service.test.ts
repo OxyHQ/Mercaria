@@ -12,7 +12,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { User } from '@oxyhq/core';
+import type { User } from '@oxy.so/core';
 import { SELLER_PROFILE_FORBIDDEN_FIELDS } from '@mercaria/shared-types';
 
 const readSellerOxyUser = vi.fn();

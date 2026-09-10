@@ -20,7 +20,7 @@ import {
   RETAIL_RECONCILIATION_DEFAULT_TOLERANCE_MINOR,
   type RetailAdjustmentFinalityDisposition,
 } from '@mercaria/shared-types';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import {
   retailReconciliationPolicies,

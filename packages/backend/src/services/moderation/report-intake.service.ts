@@ -29,7 +29,7 @@
  * missing row months later.
  */
 
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import {
   ABUSE_REPORT_CATEGORIES,
   ABUSE_REPORTED_TYPES,

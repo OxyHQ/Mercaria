@@ -738,7 +738,7 @@ source history intact).
 
 ### D20. Table boundaries, primary keys, foreign keys, deletion, uniques, temporal storage, JSONB
 
-- **Primary keys:** `generatedId()` from `@oxyhq/db` (uuid v7 text,
+- **Primary keys:** `generatedId()` from `@oxy.so/db` (uuid v7 text,
   application-generated) on every table, per `CONVENTIONS.md`. **No provider,
   marketplace or source id is ever a Mercaria primary key** — external keys
   are plain indexed columns on `source_records` (the payments invariant,
@@ -772,7 +772,7 @@ source history intact).
 - **Temporal relationship/evidence storage** is `valid_from`/`valid_to`
   `timestamptz` pairs with the partial-unique-open-row rule (D17) — plain
   columns, not ranges, because every read is either "current" (an indexable
-  `valid_to IS NULL`) or "as of" (a btree range scan), and `@oxyhq/db`'s
+  `valid_to IS NULL`) or "as of" (a btree range scan), and `@oxy.so/db`'s
   `timestamptz()` keeps the `mode: 'date'` / millisecond-truncation
   conventions.
 - **JSONB boundary:** exactly three jsonb columns in the whole graph, each

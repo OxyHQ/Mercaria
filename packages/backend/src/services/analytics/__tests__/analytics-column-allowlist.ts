@@ -38,7 +38,7 @@
  *
  * ## Names are SQL identifiers, and that is not cosmetic
  *
- * `column.name` is the TypeScript PROPERTY name — `@oxyhq/db` owns the casing
+ * `column.name` is the TypeScript PROPERTY name — `@oxy.so/db` owns the casing
  * authority (`DATABASE_CASING`) and drizzle converts at query time — so the
  * previous gate was matching `/ip_address|user_agent|order_note/` against
  * strings that read `ipAddress`, `userAgent` and `orderNote`. Three of its

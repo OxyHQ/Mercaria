@@ -19,7 +19,7 @@
  *      that entire namespace and points it only at Shopify infrastructure, so a
  *      value in this set can never address an internal/metadata IP. This is the
  *      primary control and it applies to every request (GET and POST).
- *   2. `@oxyhq/core/server` SSRF primitives — GET goes through `safeFetch`
+ *   2. `@oxy.so/core/server` SSRF primitives — GET goes through `safeFetch`
  *      (validates every hop against the private/metadata denylist AND pins the
  *      connection to the validated IP, closing the DNS-rebind window). POST
  *      (which `safeFetch` cannot carry a body for) validates via
@@ -35,7 +35,7 @@ import {
   assertSafePublicUrl,
   SsrfRejection,
   UpstreamError,
-} from '@oxyhq/core/server';
+} from '@oxy.so/core/server';
 import { log } from '../../lib/logger.js';
 
 /** A normalized HTTP response (status + headers + fully-buffered text body). */

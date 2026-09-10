@@ -75,7 +75,7 @@ import {
   unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, textArrayLiteral, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, textArrayLiteral, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   PRODUCT_TYPE_ALIAS_KINDS,
   PRODUCT_TYPE_AUTHORING_FLOWS,

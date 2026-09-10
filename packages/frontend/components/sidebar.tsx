@@ -22,7 +22,7 @@ import { useRouter, usePathname, useNavigation } from "expo-router";
 import type { DrawerNavigationProp } from "@react-navigation/drawer";
 import { SettingsSidebar } from "@/components/settings/settings-sidebar";
 import { UserAvatar } from "@/components/user-avatar";
-import { useOxy, openAccountDialog } from "@oxyhq/services";
+import { useOxy, openAccountDialog } from "@oxy.so/services";
 import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
 import { Logo } from "@/components/Logo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

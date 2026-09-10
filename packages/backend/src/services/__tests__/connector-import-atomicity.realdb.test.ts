@@ -42,7 +42,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
-import { isForeignKeyViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
+import { isForeignKeyViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import type { ConnectorProvider, NormalizedProduct } from '../../connectors/types.js';
 import { wooCommerceProvider } from '../../connectors/woocommerce/index.js';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';

@@ -10,7 +10,7 @@
  */
 
 import type { Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError, validationError } from '../lib/errors/error-codes.js';
 import { routeParam } from '../utils/request.js';

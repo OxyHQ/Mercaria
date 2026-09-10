@@ -4,8 +4,8 @@ import {
   capabilityTicketClaimsSchema,
   policyDecisionSchema,
   type CapabilityTicketClaims,
-} from '@oxyhq/contracts';
-import { CapabilityTicketError, verifyCapabilityTicket } from '@oxyhq/core/server';
+} from '@oxy.so/contracts';
+import { CapabilityTicketError, verifyCapabilityTicket } from '@oxy.so/core/server';
 import { z } from 'zod';
 
 import { requiredOxyServiceToken } from './oxy-service-client.js';

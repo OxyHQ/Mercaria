@@ -5,7 +5,7 @@
  *
  * `.github/workflows/deploy-aws.yml` decides whether a release needs a
  * post-rollout migration task by GREPPING the migration files for a phase
- * marker. That grep is a second copy of syntax `@oxyhq/db` owns — and the
+ * marker. That grep is a second copy of syntax `@oxy.so/db` owns — and the
  * failure mode of a stale copy is silent and total: a pattern that no longer
  * matches reads as "no post migration in this release", the drop is never
  * applied by anything, and the deploy goes green. Nothing else in the repo would
@@ -30,7 +30,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
-import { MIGRATION_RUNS, POST_PHASE_GREP_PATTERN } from '@oxyhq/db/migrate';
+import { MIGRATION_RUNS, POST_PHASE_GREP_PATTERN } from '@oxy.so/db/migrate';
 import { MIGRATIONS_FOLDER } from '../migrationsFolder.js';
 
 /** Only the shape these assertions read — not a schema for GitHub Actions. */
@@ -57,7 +57,7 @@ const script = readFileSync(SCRIPT_PATH, 'utf8');
 const ecsTaskScript = readFileSync(ECS_TASK_SCRIPT_PATH, 'utf8');
 
 describe('the deploy workflow and the migrator agree', () => {
-  it('greps migrations with the pattern @oxyhq/db exports, not a copy of it', () => {
+  it('greps migrations with the pattern @oxy.so/db exports, not a copy of it', () => {
     // Vacuity floor: if the constant were ever exported as an empty string this
     // assertion would pass against any workflow at all.
     expect(POST_PHASE_GREP_PATTERN.length).toBeGreaterThan(10);

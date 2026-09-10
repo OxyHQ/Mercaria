@@ -95,7 +95,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   SUPPLIER_ACCOUNT_ENVIRONMENTS,
   SUPPLIER_ADAPTER_CAPABILITIES,

@@ -45,7 +45,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableConfig } from 'drizzle-orm/pg-core';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import {
   COMPATIBILITY_APPLICABILITIES,
   COMPATIBILITY_FORBIDDEN_SUBJECT_FACTS,

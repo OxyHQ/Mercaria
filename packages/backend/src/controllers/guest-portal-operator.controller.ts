@@ -25,7 +25,7 @@
 
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { log } from '../lib/logger.js';
 import { routeParam } from '../utils/request.js';
 import {

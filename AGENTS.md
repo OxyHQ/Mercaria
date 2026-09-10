@@ -109,7 +109,7 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
 ## Auth and the identity surfaces
 
 - **There is no Mercaria service principal.** `middleware/auth.ts` is three
-  exports composed from `@oxyhq/core/server`. A real Oxy-to-Oxy caller mounts
+  exports composed from `@oxy.so/core/server`. A real Oxy-to-Oxy caller mounts
   `oxyClient.serviceAuth(...)` on the route that needs it; there is deliberately
   no pre-exported unmounted service-auth middleware. **Never build a second
   verifier.** A provider webhook is a different principal and verifies its own

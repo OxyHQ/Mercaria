@@ -41,7 +41,7 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import type express from 'express';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import {
   LOCALIZATION_PROVENANCES,
   SELLER_LOCALIZATION_PROVENANCE,
@@ -57,8 +57,8 @@ const RUN = uuidv7().slice(-12).replace(/\W/gu, '').toLowerCase();
 const SELLER = `oxy-user-l10n-write-${RUN}`;
 const STRANGER = `oxy-user-l10n-other-${RUN}`;
 
-vi.mock('@oxyhq/core/server', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@oxyhq/core/server')>()),
+vi.mock('@oxy.so/core/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => SELLER,
 }));
 vi.mock('../../middleware/auth.js', () => ({

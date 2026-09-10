@@ -56,8 +56,8 @@ import { CATALOG_ROLLOUT_DIMENSIONS } from '@mercaria/shared-types';
 import { SRC_ROOT } from '../../__tests__/domain-population.js';
 import { stripComments } from '../../__tests__/package-barrel-symbols.js';
 
-vi.mock('@oxyhq/core/server', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@oxyhq/core/server')>()),
+vi.mock('@oxy.so/core/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => 'oxy-user-catalog-cohort-probe',
 }));
 vi.mock('../../middleware/auth.js', () => ({

@@ -35,7 +35,7 @@ Selling is not a bolted on mode. A listing can be owned by a person or by a stor
 
 ### 🔑 Identity comes from Oxy
 
-There is no Mercaria account. Sign in is the device first Oxy session, handled end to end by [`@oxyhq/services`](https://www.npmjs.com/package/@oxyhq/services) on the client and [`@oxyhq/core`](https://www.npmjs.com/package/@oxyhq/core) on the server.
+There is no Mercaria account. Sign in is the device first Oxy session, handled end to end by [`@oxy.so/services`](https://www.npmjs.com/package/@oxy.so/services) on the client and [`@oxy.so/core`](https://www.npmjs.com/package/@oxy.so/core) on the server.
 
 No local token providers, no auth interceptors, no hand rolled bearer parsing. See the [Oxy platform repo](https://github.com/OxyHQ/oxy) for how the session itself works.
 
@@ -54,7 +54,7 @@ No local token providers, no auth interceptors, no hand rolled bearer parsing. S
 | `@mercaria/backend` | [`packages/backend/`](packages/backend/) | Express API: TypeScript, PostgreSQL via Drizzle, Socket.IO |
 | `@mercaria/shared-types` | [`packages/shared-types/`](packages/shared-types/) | Domain DTOs every package imports |
 
-Every app renders [`@oxyhq/bloom`](https://www.npmjs.com/package/@oxyhq/bloom) primitives with NativeWind on top of `@mercaria/ui`.
+Every app renders [`@oxy.so/bloom`](https://www.npmjs.com/package/@oxy.so/bloom) primitives with NativeWind on top of `@mercaria/ui`.
 
 > `@mercaria/ui` is never built to `dist`. Apps resolve it through Metro `watchFolders`, a Tailwind preset and a tsconfig path alias, which is what keeps `formatMoney`, `PriceDisplay` and `FxContext` from being copied into three apps.
 
@@ -85,6 +85,7 @@ bun run build            # shared-types, then backend, then frontend
 bun run build:dashboard  # Expo web export for the dashboard
 bun run build:pos        # Expo web export for the POS
 bun run lint             # every workspace
+bun run doctor:oxy       # verify canonical Oxy package versions and scopes
 
 bun run --filter @mercaria/backend test        # Vitest
 bun run --filter @mercaria/backend typecheck   # tsc --noEmit
@@ -99,6 +100,10 @@ docker compose -f docker-compose.postgres.yml up -d postgres
 ```
 
 The suite never writes to that database. `TEST_DATABASE_URL` (falling back to `DATABASE_URL`, and defaulting to the compose server) names a SERVER, on which the harness creates a throwaway, fully-migrated database per run and drops it afterwards.
+
+Oxy ecosystem dependencies are checked read-only with `bun run doctor:oxy`.
+The same check runs immediately after CI installs the frozen lockfile. See
+[`docs/dependencies.md`](docs/dependencies.md) for the update policy.
 
 </details>
 
@@ -149,7 +154,7 @@ Mercaria does not run a moderation panel. Abuse reports are committed locally wi
 
 CrowdSource owns cases and decisions, Oxy Trust owns reputation, and Mercaria only ever enforces against its own catalogue: restricting a listing, holding an order, or sending a listing back to draft for the seller to fix. Enforcement defaults to `observe`, which computes and records the identical plan without changing anything.
 
-Built on [`@oxyhq/crowdsource`](https://www.npmjs.com/package/@oxyhq/crowdsource) and [`@oxyhq/crowdsource-express`](https://www.npmjs.com/package/@oxyhq/crowdsource-express).
+Built on [`@oxy.so/crowdsource`](https://www.npmjs.com/package/@oxy.so/crowdsource) and [`@oxy.so/crowdsource-express`](https://www.npmjs.com/package/@oxy.so/crowdsource-express).
 
 </details>
 
@@ -174,7 +179,7 @@ The web apps are Workers with static assets rather than Pages, so only the custo
 
 ## Conventions
 
-TypeScript first, with no `as any`, no `@ts-ignore` and no non null assertions. Styling is NativeWind classes rather than inline styles. State is Zustand, data fetching is TanStack Query, routing is expo-router. Backend auth is `@oxyhq/core/server` middleware and is never hand rolled.
+TypeScript first, with no `as any`, no `@ts-ignore` and no non null assertions. Styling is NativeWind classes rather than inline styles. State is Zustand, data fetching is TanStack Query, routing is expo-router. Backend auth is `@oxy.so/core/server` middleware and is never hand rolled.
 
 Longer form docs live in [`docs/`](docs/), the full working agreement in [`AGENTS.md`](AGENTS.md), and setup details in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 

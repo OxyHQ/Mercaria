@@ -11,8 +11,8 @@
 
 import { and, asc, desc, eq, gt } from 'drizzle-orm';
 import type { SupplierSourcingOutcome, SupplierSourcingReason } from '@mercaria/shared-types';
-import { type SelectedRow } from '@oxyhq/db';
-import { publicColumns } from '@oxyhq/db/assert';
+import { type SelectedRow } from '@oxy.so/db';
+import { publicColumns } from '@oxy.so/db/assert';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
 import { supplierSourcingAttempts } from '../schema/supplierPreflight.js';

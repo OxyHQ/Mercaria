@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { appCapabilityCatalogSchema } from '@oxyhq/contracts';
-import { createCatalogMcpToolDefinitions } from '@oxyhq/mcp';
+import { appCapabilityCatalogSchema } from '@oxy.so/contracts';
+import { createCatalogMcpToolDefinitions } from '@oxy.so/mcp';
 
 import { MERCARIA_CAPABILITY_CATALOG } from '../mercaria.catalog.js';
 import { MERCARIA_MCP_HANDLERS } from '../mercaria.handlers.js';

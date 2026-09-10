@@ -8,7 +8,7 @@
  */
 
 import type { Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import type { ListingSaveIntent } from '@mercaria/shared-types';
 import { parsePagination } from '../utils/pagination.js';
 import { sendSuccess, sendPaginated } from '../utils/api-response.js';

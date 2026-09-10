@@ -20,8 +20,8 @@
  * user asked.
  */
 
-import { OxyServices } from '@oxyhq/core';
-import type { User } from '@oxyhq/core';
+import { OxyServices } from '@oxy.so/core';
+import type { User } from '@oxy.so/core';
 import { oxyClient } from '../../middleware/auth.js';
 import { log } from '../../lib/logger.js';
 

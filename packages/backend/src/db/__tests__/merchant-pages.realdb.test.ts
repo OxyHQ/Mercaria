@@ -35,7 +35,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { MERCHANT_PAGE_FORBIDDEN_FIELDS } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { declaredOfferCondition } from '../../services/condition/condition-mapping.service.js';

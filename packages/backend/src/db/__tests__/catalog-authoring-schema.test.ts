@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import { getTableName, is } from 'drizzle-orm';
 import { getTableConfig, PgDialect, PgTable } from 'drizzle-orm/pg-core';
-import { DATABASE_CASING, sqlColumnName } from '@oxyhq/db';
+import { DATABASE_CASING, sqlColumnName } from '@oxy.so/db';
 import { MERGEABLE_ENTITY_TYPES } from '@mercaria/shared-types';
 import {
   catalogAuthoringDraftValues,

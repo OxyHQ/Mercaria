@@ -172,7 +172,7 @@ over that order failed CI once and passed on the re-run with no change.
 The property the key provides is **stability** — one valid answer, so no planner
 can decide the sequence. It is **not** chronology, and nothing below a
 millisecond recovers it: the timestamp is truncated at the source (so
-`created_at` keysets stay correct) and `@oxyhq/db`'s uuid v7 is not monotonic
+`created_at` keysets stay correct) and `@oxy.so/db`'s uuid v7 is not monotonic
 within a millisecond — measured, 96% of same-millisecond id groups come back in
 an order that is not the order they were minted in. **No reader may infer write
 order from this sequence**, and none does.

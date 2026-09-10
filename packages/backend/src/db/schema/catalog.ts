@@ -33,7 +33,7 @@ import {
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
-import { createdAt, generatedId, geography, timestamptz, tsvector, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, geography, timestamptz, tsvector, updatedAt } from '@oxy.so/db';
 import {
   ALL_LISTING_STATUSES,
   CATEGORY_KEY_PATTERN,

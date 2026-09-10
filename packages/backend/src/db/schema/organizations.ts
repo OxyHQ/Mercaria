@@ -47,7 +47,7 @@
 import { sql } from 'drizzle-orm';
 import { check, index, integer, pgTable, text, uniqueIndex, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
-import { generatedId, tsvector } from '@oxyhq/db';
+import { generatedId, tsvector } from '@oxy.so/db';
 import {
   CANONICAL_ALIAS_KINDS,
   CANONICAL_ENTITY_STATUSES,

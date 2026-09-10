@@ -47,7 +47,7 @@
  * is not proved is the sentence each returns, and that is the honest state.
  */
 
-import { constraintNameOf, sqlStateOf } from '@oxyhq/db';
+import { constraintNameOf, sqlStateOf } from '@oxy.so/db';
 import type {
   ClassificationSubjectKind,
   ProductClassification,
@@ -86,7 +86,7 @@ const FOREIGN_KEY_VIOLATION = '23503';
  */
 const RESTRICT_VIOLATION = '23001';
 
-/** How far down a `cause` chain to look. `@oxyhq/db`'s own depth, for its reason. */
+/** How far down a `cause` chain to look. `@oxy.so/db`'s own depth, for its reason. */
 const MAX_CAUSE_DEPTH = 8;
 
 /**

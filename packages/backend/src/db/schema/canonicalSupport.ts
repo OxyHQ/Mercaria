@@ -18,7 +18,7 @@
 
 import { sql } from 'drizzle-orm';
 import { doublePrecision, text } from 'drizzle-orm/pg-core';
-import { createdAt, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   CANONICAL_ALIAS_KINDS,
   CANONICAL_ENTITY_STATUSES,

@@ -11,7 +11,7 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { useQueryClient } from '@tanstack/react-query';
-import { useOxy } from '@oxyhq/services';
+import { useOxy } from '@oxy.so/services';
 import { io as socketIO } from 'socket.io-client';
 import config from '@/lib/config';
 import apiClient from '@/lib/api/client';

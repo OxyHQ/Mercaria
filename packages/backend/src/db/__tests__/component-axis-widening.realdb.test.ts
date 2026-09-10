@@ -34,7 +34,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { inArray, is, sql } from 'drizzle-orm';
 import { PgTable, getTableConfig } from 'drizzle-orm/pg-core';
-import { isCheckViolation, uuidv7 } from '@oxyhq/db';
+import { isCheckViolation, uuidv7 } from '@oxy.so/db';
 import {
   ATTRIBUTE_COMPONENT_AXES,
   GARMENT_COMPONENT_AXES,

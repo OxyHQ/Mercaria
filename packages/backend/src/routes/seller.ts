@@ -20,7 +20,7 @@ import {
   createSellerOnboardingLinkHandler,
   getSellerPaymentAccountHandler,
 } from '../controllers/payments.controller.js';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import {
   listMyListings,
   createMyListing,

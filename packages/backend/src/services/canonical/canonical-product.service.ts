@@ -26,7 +26,7 @@
  * repointed children and the redirect history.
  */
 
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import type {
   CanonicalAlias,
   CanonicalAttributeAssignment,

@@ -81,7 +81,7 @@ import { applyPaymentStatus, ensurePayment } from './payments/payment.service.js
 import { hydrateOrders } from './order-hydration.service.js';
 import { getRates } from './fx.service.js';
 import { multiplyMoney, zeroMoney } from '../utils/money.js';
-import { uuidv7, isUniqueViolation } from '@oxyhq/db';
+import { uuidv7, isUniqueViolation } from '@oxy.so/db';
 import { conflict, notFound } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 

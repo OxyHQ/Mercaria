@@ -11,7 +11,7 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { isLiveEntityId } from '@oxyhq/db';
+import { isLiveEntityId } from '@oxy.so/db';
 import { z } from 'zod';
 import { sendError, ErrorCodes } from '../utils/api-response.js';
 

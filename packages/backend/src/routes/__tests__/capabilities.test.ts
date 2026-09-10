@@ -1,6 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import express from 'express';
-import type { CapabilityTicketClaims } from '@oxyhq/contracts';
+import type { CapabilityTicketClaims } from '@oxy.so/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({

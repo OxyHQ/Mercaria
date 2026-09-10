@@ -44,7 +44,7 @@
 
 import { afterEach, beforeAll, afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { catalogSources } from '../../../db/schema/provenance.js';
 import { catalogExternalMappings } from '../../../db/schema/catalogExternalMappings.js';

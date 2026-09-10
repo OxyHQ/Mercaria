@@ -87,7 +87,7 @@ import {
   CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS,
   MODERATION_HELD_LISTING_STATUSES,
 } from '@mercaria/shared-types';
-import { isForeignKeyViolation, isUniqueViolation } from '@oxyhq/db';
+import { isForeignKeyViolation, isUniqueViolation } from '@oxy.so/db';
 import {
   claimConnectionWebhookRegistration,
   completeConnectionWebhookRegistration,

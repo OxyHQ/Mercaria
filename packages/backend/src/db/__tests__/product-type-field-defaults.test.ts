@@ -52,7 +52,7 @@
 import { describe, expect, it } from 'vitest';
 import { is } from 'drizzle-orm';
 import { PgTable, getTableConfig, pgTable, text } from 'drizzle-orm/pg-core';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import * as productTypeSchema from '../schema/productTypes.js';
 
 /**
@@ -116,7 +116,7 @@ const PRODUCT_TYPE_TABLES = Object.values(productTypeSchema).flatMap((value) =>
  * its TypeScript PROPERTY name — `valuePolicy`, not `value_policy` — so a scan
  * comparing that against snake_case spellings can never fire, on any input, and
  * reports a clean zero forever. Measured: the first version of this file did
- * exactly that, and both self-tests below are what caught it. `@oxyhq/db`'s helper
+ * exactly that, and both self-tests below are what caught it. `@oxy.so/db`'s helper
  * applies `DATABASE_CASING`, the same setting `drizzle.config.ts` reads, so the
  * string compared here is the string the migration writes.
  */

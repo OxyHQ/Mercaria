@@ -31,7 +31,7 @@
  * read in another is a wrong number, not a partial migration.
  */
 
-import type { OxyServices } from '@oxyhq/core';
+import type { OxyServices } from '@oxy.so/core';
 import type {
   Listing,
   ListingImage,

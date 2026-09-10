@@ -34,7 +34,7 @@ import { useEffect } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { View } from "react-native";
-import { openAccountDialog, useOxy } from "@oxyhq/services";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { Button, SectionHeader, Text } from "@mercaria/ui";
 import type { GuestClaimBlockReason, GuestClaimOrderRef } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";

@@ -46,7 +46,7 @@ vi.hoisted(() => {
   process.env['MERCHANT_DEMAND_PREVIEW_ENABLED'] = 'true';
 });
 
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import {
   ANALYTICS_ENVELOPE_VERSION,
   MERCHANT_DEMAND_AGGREGATE_MIN_COUNT,

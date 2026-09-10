@@ -97,7 +97,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   CATALOG_EXTERNAL_MAPPING_DIMENSIONS,
   CATALOG_EXTERNAL_MAPPING_PROVENANCES,

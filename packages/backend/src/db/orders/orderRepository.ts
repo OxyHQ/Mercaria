@@ -45,8 +45,8 @@
 
 import { and, asc, count, eq, inArray, isNotNull, lt, or, sql } from 'drizzle-orm';
 import type { InferSelectModel, SQL } from 'drizzle-orm';
-import { type SelectedRow } from '@oxyhq/db';
-import { publicColumns } from '@oxyhq/db/assert';
+import { type SelectedRow } from '@oxy.so/db';
+import { publicColumns } from '@oxy.so/db/assert';
 import type {
   AddressSnapshot,
   CommercialMode,

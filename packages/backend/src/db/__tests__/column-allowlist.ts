@@ -4,7 +4,7 @@
  * ## Why this module exists at all
  *
  * A drizzle traversal's `column.name` is the TypeScript PROPERTY name.
- * `@oxyhq/db` owns the casing authority (`DATABASE_CASING`) and drizzle
+ * `@oxy.so/db` owns the casing authority (`DATABASE_CASING`) and drizzle
  * converts at query time, so a gate matching a `snake_case` prohibition against
  * `column.name` is comparing it to `camelCase` and **cannot fire** — while
  * staying green and reading as coverage.
@@ -45,7 +45,7 @@
  */
 
 import { getTableColumns, getTableName } from 'drizzle-orm';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 
 /** One reason, and the columns it covers. */
 export interface ColumnGroup {

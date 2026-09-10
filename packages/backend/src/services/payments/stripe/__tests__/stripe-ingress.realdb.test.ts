@@ -40,7 +40,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import Stripe from 'stripe';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Database } from '../../../../db/postgres.js';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { listings } from '../../../../db/schema/catalog.js';
 
 const PLATFORM_SECRET = 'whsec_realdb_platform_not_a_real_one';

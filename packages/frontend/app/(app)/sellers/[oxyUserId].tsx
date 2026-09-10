@@ -3,7 +3,7 @@ import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import type {
   Listing,
   ProductSummary,

@@ -14,7 +14,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 
 /**
  * A fixed rate set: 1 USD = 0.918 EUR, quoted with USD as the BASE — which is

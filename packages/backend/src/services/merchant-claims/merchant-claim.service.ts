@@ -55,7 +55,7 @@
  * to delete when an operator loses their claim.
  */
 
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import type {
   MerchantClaim,
   MerchantClaimChallengeInstructions,

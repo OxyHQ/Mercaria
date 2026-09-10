@@ -53,7 +53,7 @@
  * one artefact read as text is the glossary, and only for the term→table
  * citation CLAUSE 1 binds.
  *
- * `sqlColumnName` from `@oxyhq/db`, never `column.name`: under `DATABASE_CASING`
+ * `sqlColumnName` from `@oxy.so/db`, never `column.name`: under `DATABASE_CASING`
  * drizzle's `.name` is the TypeScript property (`categoryId`), so a set built
  * from it contains no snake_case name at all and every probe below would report
  * a clean, constant absence. `commerce-type-structural-walls.test.ts` records
@@ -66,7 +66,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableName, is } from 'drizzle-orm';
 import { PgTable, getTableConfig } from 'drizzle-orm/pg-core';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import * as schema from '../schema/index.js';
 
 const GLOSSARY = join(

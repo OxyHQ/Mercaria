@@ -14,14 +14,14 @@ schema decision. `HANDOFF.md` holds deferred work.
 - `packages/frontend/` · `packages/dashboard/` · `packages/pos/` — Expo apps
   (React Native + Web), expo-router, NativeWind
 - `packages/ui/` — shared components, consumed from source with no dist. Built
-  on `@oxyhq/bloom` (Oxy's cross-app UI primitives) plus `@mercaria/ui`'s own
+  on `@oxy.so/bloom` (Oxy's cross-app UI primitives) plus `@mercaria/ui`'s own
   marketplace-specific components; do not duplicate what Bloom already provides.
 - `packages/backend/` — Express API (TypeScript, PostgreSQL via drizzle-orm +
-  `@oxyhq/db`, Socket.IO)
+  `@oxy.so/db`, Socket.IO)
 - `packages/shared-types/` — DTOs and every closed value set
 
-Auth and SSO are handled entirely by the Oxy SDK (`@oxyhq/core`,
-`@oxyhq/services`); the backend uses `@oxyhq/core/server` middleware, and there
+Auth and SSO are handled entirely by the Oxy SDK (`@oxy.so/core`,
+`@oxy.so/services`); the backend uses `@oxy.so/core/server` middleware, and there
 is no Mercaria service principal — see [auth.md](auth.md).
 
 ## Local development
@@ -35,6 +35,11 @@ bun run dev:frontend   # storefront (also dev:dashboard, dev:pos)
 ```
 
 The full command list is in `AGENTS.md`.
+
+Run `bun run doctor:oxy` to verify that manifests and the lockfile use the
+canonical Oxy package scope and current supported releases. Dependency update
+automation and the clean-cut migration policy are documented in
+[dependencies.md](dependencies.md).
 
 ## Binding decisions (ADRs)
 
@@ -62,6 +67,7 @@ The full command list is in `AGENTS.md`.
 | API compatibility: what a v1 wire contract is, and what retires one (#437) | [api-compatibility.md](api-compatibility.md) |
 | Postgres: shared-test-database traps, migration rebase protocol | [postgres-testing-and-migrations.md](postgres-testing-and-migrations.md) |
 | Deploy topology and the launch handoff | [deploy.md](deploy.md) |
+| Oxy dependency health and update automation | [dependencies.md](dependencies.md) |
 | Agent capability tickets, MCP and financial bounds | [agent-capabilities.md](agent-capabilities.md) |
 | Graph query benchmarks and the indexes they justified (#61) | [performance/](performance/) |
 | Isolation gates: populations, floors, and censusing them (#460) | [isolation-gates.md](isolation-gates.md) |

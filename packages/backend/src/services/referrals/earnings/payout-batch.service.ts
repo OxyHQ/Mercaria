@@ -38,7 +38,7 @@
  * questionnaire COLLECTS, never what this ledger holds.
  */
 
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import {
   REFERRAL_RETRYABLE_PAYOUT_FAILURES,
   type CurrencyCode,

@@ -53,7 +53,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { fixtureGtinBody } from '../../../__tests__/fixture-gtin.js';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';

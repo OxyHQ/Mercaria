@@ -14,7 +14,7 @@ import {
   ABUSE_REPORTED_TYPES,
   type AbuseReportCategory,
 } from '@mercaria/shared-types';
-import { UNIVERSAL_TAXONOMY_CODES } from '@oxyhq/crowdsource-contracts';
+import { UNIVERSAL_TAXONOMY_CODES } from '@oxy.so/crowdsource-contracts';
 import { toTaxonomyCodes } from '../moderation/report-taxonomy.js';
 import { deliverableTypes, subjectProviderFor } from '../moderation/subjects/registry.js';
 

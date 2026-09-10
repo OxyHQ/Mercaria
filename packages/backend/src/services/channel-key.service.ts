@@ -11,7 +11,7 @@
  * afterward. Verification never trusts a database equality match as the auth
  * decision: it narrows candidates by the (public, low-entropy) prefix, then
  * makes the accept/reject call with a CONSTANT-TIME compare of the full sha256
- * hash (`verifySecret` from `@oxyhq/core/server`), so it leaks no timing signal
+ * hash (`verifySecret` from `@oxy.so/core/server`), so it leaks no timing signal
  * about the secret. Revocation stamps `revokedAt`; revoked keys never verify.
  *
  * All writes are mass-assignment-safe: inputs are destructured into explicit,
@@ -40,7 +40,7 @@
  */
 
 import crypto from 'node:crypto';
-import { verifySecret } from '@oxyhq/core/server';
+import { verifySecret } from '@oxy.so/core/server';
 import type {
   ChannelApiKey as ChannelApiKeyDTO,
   ChannelApiKeyScope,

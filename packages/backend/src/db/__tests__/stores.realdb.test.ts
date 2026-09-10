@@ -26,7 +26,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { isForeignKeyViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
+import { isForeignKeyViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { inventoryLevels, listings, productVariants } from '../schema/catalog.js';
 import { draftOrders } from '../schema/pos.js';

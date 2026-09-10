@@ -6,9 +6,9 @@ import {
     ColorEngine,
     type AppColorName,
     type PersistedThemeState,
-} from '@oxyhq/bloom/theme';
+} from '@oxy.so/bloom/theme';
 import { Logo } from '@/components/Logo';
-import { Loading } from '@oxyhq/bloom/loading';
+import { Loading } from '@oxy.so/bloom/loading';
 import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
 
 interface AppSplashScreenProps {

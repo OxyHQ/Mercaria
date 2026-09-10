@@ -28,8 +28,8 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq, getTableName, inArray } from 'drizzle-orm';
-import { isCheckViolation, uuidv7 } from '@oxyhq/db';
-import { sweepExpiredRows } from '@oxyhq/db/expiry';
+import { isCheckViolation, uuidv7 } from '@oxy.so/db';
+import { sweepExpiredRows } from '@oxy.so/db/expiry';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { EXPIRY_TARGETS } from '../expiryTargets.js';
 import { notifications, pushTokens } from '../schema/notifications.js';

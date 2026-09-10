@@ -31,16 +31,16 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { eq } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 
 /** The Oxy user the stubbed admin auth acts as. */
 const OWNER_USER = 'oxy-user-channel-push';
 
-vi.mock('@oxyhq/core/server', async () => {
+vi.mock('@oxy.so/core/server', async () => {
   // Everything except the identity read is the REAL module: `verifySecret` IS the
   // constant-time compare under test in scenario 5, and stubbing it would make
   // "a revoked key is rejected" pass against a comparison that does not exist.
-  const actual = await vi.importActual<typeof import('@oxyhq/core/server')>('@oxyhq/core/server');
+  const actual = await vi.importActual<typeof import('@oxy.so/core/server')>('@oxy.so/core/server');
   return { ...actual, getRequiredOxyUserId: () => OWNER_USER };
 });
 

@@ -15,8 +15,8 @@ import {
   Store as StoreIcon,
   X,
 } from "lucide-react-native";
-import { Dialog } from "@oxyhq/bloom/dialog";
-import { openAccountDialog, useFollowTarget, useOxy } from "@oxyhq/services";
+import { Dialog } from "@oxy.so/bloom/dialog";
+import { openAccountDialog, useFollowTarget, useOxy } from "@oxy.so/services";
 import {
   ReviewStars,
   Text,

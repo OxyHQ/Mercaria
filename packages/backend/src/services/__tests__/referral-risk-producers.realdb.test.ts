@@ -28,7 +28,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
-import { constraintNameOf, uuidv7 } from '@oxyhq/db';
+import { constraintNameOf, uuidv7 } from '@oxy.so/db';
 import type { ReferralRewardRefusalReason, ReferralTouchKind } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import {
@@ -566,7 +566,7 @@ describe('referral_events.reward_refusal_reason — the constraints', () => {
   /**
    * The refusal, by CONSTRAINT NAME.
    *
-   * `constraintNameOf` (`@oxyhq/db`) walks the cause chain — a drizzle error's
+   * `constraintNameOf` (`@oxy.so/db`) walks the cause chain — a drizzle error's
    * SQLSTATE and constraint live on `cause`, never on the error itself, so a
    * message-substring assertion passes on ANY refusal and would go on passing
    * if these three rows started being refused by something else entirely.

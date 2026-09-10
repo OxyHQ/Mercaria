@@ -20,7 +20,7 @@
  * it reads as a guarantee. So the gate is the point, and the marker is how it
  * finds what to guard.
  *
- * ## The deploy-phase rule reads `@oxyhq/db`'s OWN parser
+ * ## The deploy-phase rule reads `@oxy.so/db`'s OWN parser
  *
  * `readMigrationPhases` is what `migrate.ts` calls at apply time. Re-implementing
  * "exactly one marker" here would be a SECOND authority over one fact, and the
@@ -63,7 +63,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readMigrationPhases } from '@oxyhq/db/migrate';
+import { readMigrationPhases } from '@oxy.so/db/migrate';
 import { describe, expect, it } from 'vitest';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -569,7 +569,7 @@ describe('the deploy-phase marker', () => {
     const tags = journal.entries.map((entry) => entry.tag);
     expect(tags.length).toBeGreaterThanOrEqual(88);
 
-    // `@oxyhq/db`'s own reader, not a second regex: it is what `migrate.ts`
+    // `@oxy.so/db`'s own reader, not a second regex: it is what `migrate.ts`
     // calls at apply time, so this gate and the deploy cannot disagree. It also
     // reports a journal tag whose `.sql` is missing, which a directory scan
     // cannot see.

@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
-import { Search } from "@oxyhq/bloom/search";
+import { Search } from "@oxy.so/bloom/search";
 import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
 import { useColorScheme } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";

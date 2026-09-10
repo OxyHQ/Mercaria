@@ -25,7 +25,7 @@
  */
 
 import type { Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import type { EbayDiscoveryQueryKind, EbayMarketplaceId } from '@mercaria/shared-types';
 import { config } from '../config/index.js';
 import { sendSuccess } from '../utils/api-response.js';

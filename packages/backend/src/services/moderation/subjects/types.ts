@@ -5,7 +5,7 @@
  * Everything downstream of a snapshot — resource ids, relations, digests,
  * pseudonymous principal refs, the identity binding proof, the pinned policy
  * version, privacy terms, the idempotency key, the envelope — is composed by
- * `@oxyhq/crowdsource` and is IDENTICAL for every application. What is left for
+ * `@oxy.so/crowdsource` and is IDENTICAL for every application. What is left for
  * Mercaria is a translation problem, and this file is the whole of it:
  *
  *     "given one of MY nouns and its id, describe the material"
@@ -27,7 +27,7 @@
  *    what happens to the report. Those belong to callers that are shared.
  */
 
-import type { ContextInput, ReportSubjectInput, ResourceInput } from '@oxyhq/crowdsource';
+import type { ContextInput, ReportSubjectInput, ResourceInput } from '@oxy.so/crowdsource';
 
 /**
  * The SDK's resource description, unchanged.

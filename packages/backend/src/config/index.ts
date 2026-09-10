@@ -3569,7 +3569,7 @@ export type MoovoEnvironment = (typeof MOOVO_ENVIRONMENTS)[number];
  * **There is deliberately NO client id or client secret variable, and adding
  * one today would be a security regression rather than progress.** #156 item 5
  * asks that they come from the deployment secret manager, and they will — but
- * `@oxyhq/core` cannot yet mint a token bound to another application's
+ * `@oxy.so/core` cannot yet mint a token bound to another application's
  * audience (`OxyHQ/oxy#878`, open): `getServiceToken()` POSTs `{apiKey,
  * apiSecret}` and every token it returns carries the hardcoded `oxy-api`
  * audience. A credential configured now could therefore only be used to send a

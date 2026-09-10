@@ -18,7 +18,7 @@
  */
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { PAYMENT_METADATA_KEYS } from '@mercaria/shared-types';
 import type { OrderRecord } from '../../../db/orders/orderRepository.js';
 

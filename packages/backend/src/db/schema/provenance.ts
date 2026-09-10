@@ -31,7 +31,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import { CATALOG_SOURCE_KINDS, SOURCE_RECORD_EXTERNAL_TYPES } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf } from './columns';
 import { connections } from './connectors';

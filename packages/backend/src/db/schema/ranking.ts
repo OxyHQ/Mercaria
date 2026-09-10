@@ -50,7 +50,7 @@
 
 import { sql } from 'drizzle-orm';
 import { check, doublePrecision, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import { ANALYTICS_METRIC_KEYS, RANKING_POLICY_STATUSES } from '@mercaria/shared-types';
 import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
 

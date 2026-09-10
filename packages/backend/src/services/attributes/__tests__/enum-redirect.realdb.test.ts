@@ -20,7 +20,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
-import { isCheckViolation, uuidv7 } from '@oxyhq/db';
+import { isCheckViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import {
   attributeDefinitions,

@@ -23,7 +23,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import {
   REFERRAL_APPLICATION_EDITABLE_STATES,
   REFERRAL_ENROLLMENT_MODE_RULES,

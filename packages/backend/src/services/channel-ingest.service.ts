@@ -45,7 +45,7 @@ import type {
   UpdateListingInput,
 } from '@mercaria/shared-types';
 import { CONNECTOR_PROVIDER_IDS, type SyncRunCounts } from '@mercaria/shared-types';
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import {
   findConnection,
   findConnectionByProvider,

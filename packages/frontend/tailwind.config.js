@@ -12,7 +12,7 @@ module.exports = {
     "./hooks/**/*.{js,jsx,ts,tsx}",
     // Scan the source-consumed shared UI package for its component classes.
     "../ui/src/**/*.{js,jsx,ts,tsx}",
-    "../../node_modules/@oxyhq/services/lib/**/*.{js,jsx}",
-    "../../node_modules/@oxyhq/bloom/lib/**/*.{js,jsx}",
+    "../../node_modules/@oxy.so/services/lib/**/*.{js,jsx}",
+    "../../node_modules/@oxy.so/bloom/lib/**/*.{js,jsx}",
   ],
 };
