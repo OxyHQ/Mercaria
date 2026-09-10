@@ -1,5 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
+import { MAX_TEST_WORKERS } from './vitest.connection-budget.js';
+
 export default defineConfig({
   test: {
     globals: true,
@@ -36,6 +38,22 @@ export default defineConfig({
      * is the slowest possible no-op.
      */
     globalSetup: ['./vitest.pg.globalSetup.ts'],
+    /**
+     * The connection budget, not a performance knob (#610).
+     *
+     * This file previously set NO pool option, so parallelism was however many
+     * cores the box had and the suite was configured to hold
+     * `cores x TEST_POOL_SIZE` connections — ~128 on a 32-core box against a
+     * `max_connections` of 100. It stayed under only because workers do not all
+     * hold full pools at once, so the failure arrived as `53300 sorry, too many
+     * clients already` attributed to whichever innocent file happened to be
+     * connecting.
+     *
+     * `MAX_TEST_WORKERS` is `CONNECTION_BUDGET / TEST_POOL_SIZE` — see
+     * `vitest.connection-budget.ts` for both numbers and why the POOL is not the
+     * half that was reduced. Change either there, never here.
+     */
+    maxWorkers: MAX_TEST_WORKERS,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
