@@ -561,6 +561,34 @@ describe('the enumerator refuses what it does not understand', () => {
      * quadratic — a fixpoint that stopped converging, or a resolver that began
      * re-walking `node_modules` — not to police a hundred milliseconds on a
      * loaded CI runner.
+     *
+     * ## It was 20s, and it had stopped being loose — measured, #1015
+     *
+     * #1015 added six storefront screens and a handful of `@mercaria/ui`
+     * components, which is an ordinary feature's worth of modules, and this
+     * assertion went red at **20,725 ms** against the 20,000 bound. The A/B:
+     *
+     * | tree | local median |
+     * |---|---|
+     * | `main` (c857c2c) | 4,296 ms |
+     * | #1015's branch | 4,520 ms |
+     *
+     * So the change itself cost **+5%**, and the runner was roughly 4.6× slower
+     * than the machine those were taken on. Scale the 5% by that factor and
+     * `main` was already consuming about 19.7s of its own 20s budget: the next
+     * pull request to add a screen was going to fail here whatever it contained,
+     * and the failure would have landed in a file its author never touched.
+     *
+     * That is the failure mode the paragraph above disclaims, arriving as a
+     * CEILING set just above today's cost rather than as a floor set at it. So
+     * the bound is re-derived to 60s, which still does the job it names: an
+     * accidental quadratic over ~800 modules is multiples over, not 3% over, and
+     * 60s remains far below the point where anybody would skip the gate.
+     *
+     * Re-derive this the same way if it goes red again — by A/B against the base
+     * branch on one machine — and raise it only when the measurement says the
+     * growth is ordinary. A run that is MANY times over is the quadratic this
+     * exists to catch, and the answer to that is never a bigger number.
      */
     clearSourceFileCache();
     const started = Date.now();
@@ -574,6 +602,6 @@ describe('the enumerator refuses what it does not understand', () => {
         suppressEdgesTo: new Set(['/__not-a-route__']),
       });
     }
-    expect(Date.now() - started).toBeLessThan(20_000);
+    expect(Date.now() - started).toBeLessThan(60_000);
   });
 });
