@@ -278,7 +278,16 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // `search.ts`'s `SearchResultBase`, two members), neither carrying an
     // identity-shaped name. Read off the guard against this branch after every
     // one of these landed, not derived by arithmetic.
-    "walked 127 contract module(s), 2284 exported type(s), 7707 property signature(s)",
+    //
+    // An eighth instance, #1015 (ADR 0010): FOUR new contract modules —
+    // `digital-asset.ts`, `digital-licence.ts`, `digital-right.ts`,
+    // `digital-supply.ts` — which is the first time the MODULE count has moved
+    // across any of the eight. 131/2315/7760, and none of the 31 new exported
+    // types carries an identity-shaped name: a digital asset names a
+    // `canonicalProductId` and never a `category`, which is the whole of why this
+    // domain sits on top of the catalogue rather than beside it. Read off the
+    // guard's own output line against this branch, not derived by arithmetic.
+    "walked 131 contract module(s), 2315 exported type(s), 7760 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });

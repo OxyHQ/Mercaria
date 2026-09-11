@@ -590,3 +590,16 @@ export * from './discovery';
 // (`services/catalog-governance/impact-plan.ts`) names those columns, and a
 // schema-level dependency would be a second place the reference graph is stated.
 export * from './catalogGovernance';
+
+// The digital-commerce foundation (#1015, ADR 0010). After everything above,
+// because it sits ON TOP of the canonical graph and the order domain and adds no
+// column to either: a digital product is a `canonical_products` row with
+// `canonical_variants` exactly like a physical one, and what this adds is what
+// gets HANDED OVER, which the catalogue has never modelled for anything.
+//
+// `digitalAssets` owns the DELIVERABLE and carries no price, no stock and no
+// public URL; `digitalRights` owns the licence terms and the buyer's durable
+// right, and is deliberately not called an entitlement — #89's
+// `entitlement_grants` already owns that word for Mercaria billing a merchant.
+export * from './digitalAssets';
+export * from './digitalRights';

@@ -337,6 +337,7 @@
       "processing": "En preparació",
       "shipped": "Enviada",
       "delivered": "Lliurada",
+      "digitallyDelivered": "Lliurat",
       "cancelled": "Cancel·lada",
       "refunded": "Reemborsada",
       "partiallyRefunded": "Reemborsada parcialment"
@@ -369,7 +370,8 @@
       "failed": "El pagament ha fallat."
     },
     "shipTo": {
-      "title": "Envia a"
+      "title": "Envia a",
+      "none": "Sense adreça d'enviament: aquesta comanda és una descàrrega"
     },
     "cancel": {
       "action": "Cancel·la la comanda",

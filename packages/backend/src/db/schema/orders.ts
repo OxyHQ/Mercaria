@@ -56,7 +56,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
+import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   CONDITION_ASSERTIONS,
   CONNECTOR_PROVIDER_IDS,
@@ -74,15 +74,19 @@ import {
   type RefundStatus,
   type RefundType,
   type ShippingMethod,
+  CONSENT_REQUIRING_DIGITAL_WITHDRAWAL_BASES,
+  DIGITAL_LICENCE_UPDATE_POLICIES,
+  DIGITAL_SUPPLY_EVIDENCE_KINDS,
+  DIGITAL_WITHDRAWAL_BASES,
 } from '@mercaria/shared-types';
 import {
-  addressColumns,
   asEnumValues,
   checkOneOf,
   currencyChecks,
   CURRENCY_CODE_VALUES,
   dualMoney,
   money,
+  optionalAddressColumns,
   optionalDualMoney,
   optionalMoney,
 } from './columns';
@@ -91,20 +95,38 @@ import { guestCheckouts } from './guests';
 import { DISCOUNT_VALUE_TYPES } from './merchandising';
 import { customers, stores } from './stores';
 
-/** `Order.status`. */
+/**
+ * `Order.status`.
+ *
+ * `digitally_delivered` since #1015 (ADR 0010 D9) — the completion signal for a
+ * digital order, which never reaches `processing` or `shipped` because there is
+ * nothing to pick, pack or carry.
+ */
 export const ORDER_STATUSES: readonly OrderStatus[] = [
   'pending_payment',
   'paid',
   'processing',
   'shipped',
   'delivered',
+  'digitally_delivered',
   'cancelled',
   'refunded',
   'partially_refunded',
 ];
 
-/** `Order.shipping.method` — `SHIPPING_METHODS`. */
-export const SHIPPING_METHODS: readonly ShippingMethod[] = ['standard', 'express', 'pickup'];
+/**
+ * `Order.shipping.method` — `SHIPPING_METHODS`.
+ *
+ * A FULFILMENT vocabulary under a legacy name: `pickup` has been a non-shipping
+ * member since #93, and `digital` joins it on the same footing rather than making
+ * `orders.shipping_method` nullable (ADR 0010 D9).
+ */
+export const SHIPPING_METHODS: readonly ShippingMethod[] = [
+  'standard',
+  'express',
+  'pickup',
+  'digital',
+];
 
 /**
  * `Order.sellerType` — `SELLER_TYPES`, re-exported from the shared tuple.
@@ -283,9 +305,20 @@ export const orders = pgTable(
 
     /**
      * The shipping destination, SNAPSHOTTED so a later edit of the saved address
-     * cannot mutate a placed order. Required on every order, hence NOT NULL.
+     * cannot mutate a placed order.
+     *
+     * `optionalAddressColumns` since #1015, and the NOT NULL it replaced is now a
+     * CHECK that says MORE: `orders_shipping_address_digital_check` requires the
+     * five required fields to be ALL NULL on a `digital` order and ALL NOT NULL on
+     * every other one. The NOT NULL could be satisfied by a fabricated street —
+     * which is exactly what a digital order would have had to write — and the
+     * CHECK cannot (#1015 boundary 16, ADR 0010 D8).
+     *
+     * A physical order is therefore no less constrained than it was. What changed
+     * is that the constraint is now stated where the exception is, instead of the
+     * exception being unrepresentable.
      */
-    ...addressColumns('shippingAddress'),
+    ...optionalAddressColumns('shippingAddress'),
 
     // `shipping` — the chosen method, its label, its cost and a tracking number.
     shippingMethod: text({ enum: asEnumValues(SHIPPING_METHODS) }).notNull(),
@@ -341,6 +374,34 @@ export const orders = pgTable(
     // currency a payment settles in is a property of the payment PROVIDER, and
     // now lives with the payment rather than on every order (ADR 0001 D6/D8).
 
+    /**
+     * Where this order's DIGITAL lines were supplied, and on what terms (#1015
+     * W11, ADR 0010 D10/D11). All four columns are absent together on a
+     * physical-only order.
+     *
+     * On the ORDER rather than on the line because both are properties of the
+     * BUYER and this checkout: two digital lines in one order cannot have been
+     * supplied in two countries, and a per-line column would make that
+     * representable.
+     *
+     * There is no region, no postal code and nothing IP-derived.
+     * `FORBIDDEN_DIGITAL_SUPPLY_EVIDENCE_KINDS` names what may never establish
+     * the country, so the absence of an `ip_country` column reads as a decision
+     * rather than as something nobody got round to.
+     */
+    digitalSupplyCountry: text(),
+    digitalSupplyEvidence: text({ enum: asEnumValues(DIGITAL_SUPPLY_EVIDENCE_KINDS) }),
+    digitalWithdrawalBasis: text({ enum: asEnumValues(DIGITAL_WITHDRAWAL_BASES) }),
+    /**
+     * When the buyer acknowledged losing the withdrawal right, so supply could
+     * begin immediately.
+     *
+     * Paired with `digital_withdrawal_basis = 'waived_on_immediate_supply'` by a
+     * CHECK rather than by the service that writes it: a waiver nobody can date
+     * is, in a dispute, the same as no waiver.
+     */
+    digitalSupplyConsentAt: timestamptz(),
+
     status: text({ enum: asEnumValues(ORDER_STATUSES) }).notNull().default('pending_payment'),
 
     // `payment` — the buyer-safe projection, flattened. `reference` is the
@@ -393,6 +454,80 @@ export const orders = pgTable(
     checkOneOf('orders_source_provider_check', t.sourceProvider, CONNECTOR_PROVIDER_IDS),
     checkOneOf('orders_shipping_method_check', t.shippingMethod, SHIPPING_METHODS),
     checkOneOf('orders_status_check', t.status, ORDER_STATUSES),
+    checkOneOf(
+      'orders_digital_supply_evidence_check',
+      t.digitalSupplyEvidence,
+      DIGITAL_SUPPLY_EVIDENCE_KINDS,
+    ),
+    checkOneOf(
+      'orders_digital_withdrawal_basis_check',
+      t.digitalWithdrawalBasis,
+      DIGITAL_WITHDRAWAL_BASES,
+    ),
+    /**
+     * The wall that replaced five NOT NULLs, and it is STRICTER than they were
+     * (#1015 boundary 16, ADR 0010 D8).
+     *
+     * Both directions, because only one of them is the new case and the other is
+     * the one that already mattered: a `digital` order may have NO address at all
+     * — not an address of empty strings, which is what a `digital` order would
+     * have written under NOT NULL — and every other order must have the whole of
+     * one. `line2`, `region`, `phone` and `label` stay freely nullable on both
+     * sides; they were always optional and a digital order simply has none.
+     */
+    check(
+      'orders_shipping_address_digital_check',
+      sql`case when ${t.shippingMethod} = 'digital'
+            then ${t.shippingAddressRecipientName} is null
+             and ${t.shippingAddressLine1} is null
+             and ${t.shippingAddressCity} is null
+             and ${t.shippingAddressPostalCode} is null
+             and ${t.shippingAddressCountry} is null
+             and ${t.shippingAddressLine2} is null
+             and ${t.shippingAddressRegion} is null
+             and ${t.shippingAddressPhone} is null
+             and ${t.shippingAddressLabel} is null
+            else ${t.shippingAddressRecipientName} is not null
+             and ${t.shippingAddressLine1} is not null
+             and ${t.shippingAddressCity} is not null
+             and ${t.shippingAddressPostalCode} is not null
+             and ${t.shippingAddressCountry} is not null
+          end`,
+    ),
+    /**
+     * A digital supply is a country PLUS the evidence for it PLUS a withdrawal
+     * basis, or it is none of the three. Two of three is an order whose tax
+     * treatment cannot be explained.
+     */
+    check(
+      'orders_digital_supply_pairing_check',
+      sql`(${t.digitalSupplyCountry} is null) = (${t.digitalSupplyEvidence} is null)
+          and (${t.digitalSupplyCountry} is null) = (${t.digitalWithdrawalBasis} is null)`,
+    ),
+    /** ISO 3166-1 alpha-2, uppercased. The same shape `addressColumns` carries. */
+    check(
+      'orders_digital_supply_country_check',
+      sql`${t.digitalSupplyCountry} is null or ${t.digitalSupplyCountry} ~ '^[A-Z]{2}$'`,
+    ),
+    /**
+     * A waiver exists exactly when it is dated. The basis that needs a timestamp
+     * is rendered from `CONSENT_REQUIRING_DIGITAL_WITHDRAWAL_BASES` so the tuple
+     * and the constraint cannot drift.
+     */
+    check(
+      'orders_digital_withdrawal_consent_check',
+      sql`coalesce(${t.digitalWithdrawalBasis} in (${sql.raw(inList(CONSENT_REQUIRING_DIGITAL_WITHDRAWAL_BASES))}), false)
+          = (${t.digitalSupplyConsentAt} is not null)`,
+    ),
+    /**
+     * A `digital` order has a digital supply. The converse is NOT asserted: a
+     * MIXED order ships and still carries one, because its digital lines are
+     * supplied somewhere.
+     */
+    check(
+      'orders_digital_method_supply_check',
+      sql`${t.shippingMethod} <> 'digital' or ${t.digitalSupplyCountry} is not null`,
+    ),
     checkOneOf('orders_payment_status_check', t.paymentStatus, ORDER_PAYMENT_STATUSES),
     checkOneOf('orders_payment_provider_check', t.paymentProvider, PAYMENT_PROVIDER_IDS),
     ...currencyChecks('orders', [
@@ -614,6 +749,31 @@ export const orderItems = pgTable(
     conditionAssertion: text({ enum: asEnumValues(CONDITION_ASSERTIONS) }),
     /** The listing's disclosed condition notes, flattened at purchase. */
     conditionNotes: text(),
+    /**
+     * What this line bought, when it is DIGITAL — the snapshot #1015 boundary 9
+     * and acceptance criterion 5 require. All four columns absent together on a
+     * physical line.
+     *
+     * Their PRESENCE is what makes a line digital. There is no `is_digital`
+     * column, for the reason ADR 0007 D15 refuses a `commerce_type` one: a flag
+     * and these ids are two representations of one fact and can disagree, and the
+     * ids alone cannot.
+     *
+     * Snapshotted by IDENTITY, not by copy: the rows they name are immutable once
+     * published, so the id IS the frozen term. Copying the licence text here would
+     * create a second record of it, and in a dispute somebody would compare them.
+     *
+     * No foreign key, and deliberately — the same choice `listing_id` and
+     * `variant_id` above make, for the same reason `CONVENTIONS.md` §Foreign keys
+     * gives: an order line must survive its catalogue ancestry with its snapshot
+     * intact, because the order is the record of what was actually sold. A
+     * `restrict` here would make withdrawing an asset fail against every historical
+     * sale of it; a `cascade` would delete the sale.
+     */
+    digitalPackageId: text(),
+    digitalAssetVersionId: text(),
+    digitalLicenceVersionId: text(),
+    digitalUpdatePolicy: text({ enum: asEnumValues(DIGITAL_LICENCE_UPDATE_POLICIES) }),
     /** Preserves the line's order within the order, which Mongo got from the array. */
     position: integer().notNull().default(0),
     createdAt: createdAt(),
@@ -651,7 +811,39 @@ export const orderItems = pgTable(
     index('order_items_order_id_position_idx').on(t.orderId, t.position),
     // Sales reporting groups purchased lines by product.
     index('order_items_listing_id_idx').on(t.listingId),
+    checkOneOf(
+      'order_items_digital_update_policy_check',
+      t.digitalUpdatePolicy,
+      DIGITAL_LICENCE_UPDATE_POLICIES,
+    ),
+    /**
+     * A digital snapshot is whole or absent. Three of four is a line whose
+     * deliverable, terms or update rule cannot be named, and every one of those is
+     * something a buyer is entitled to be told.
+     */
+    check(
+      'order_items_digital_snapshot_complete_check',
+      sql`num_nonnulls(${t.digitalPackageId}, ${t.digitalAssetVersionId}, ${t.digitalLicenceVersionId}, ${t.digitalUpdatePolicy}) in (0, 4)`,
+    ),
+    /**
+     * `condition_semantics`, discharged (ADR 0010 D11). A digital line carries NO
+     * condition: `ITEM_CONDITION_KEYS`' nine members all describe the state of an
+     * object, and there is nothing for them to describe here.
+     *
+     * A tenth `not_applicable` member was the other way to say this and is worse:
+     * it would have given every PHYSICAL listing a way to decline to describe
+     * itself, which is the erosion #90 exists to prevent. A CHECK on the digital
+     * lines alone leaves the physical vocabulary exactly as it was.
+     */
+    check(
+      'order_items_digital_no_condition_check',
+      sql`${t.digitalAssetVersionId} is null or ${t.conditionKey} is null`,
+    ),
     index('order_items_variant_id_idx').on(t.variantId),
+    /** The paid-order sweep that creates rights reads lines BY asset version. */
+    index('order_items_digital_version_idx')
+      .on(t.digitalAssetVersionId)
+      .where(sql`digital_asset_version_id is not null`),
   ],
 );
 

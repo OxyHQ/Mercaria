@@ -224,3 +224,111 @@ Left, in order:
 - Fulfillment holds/cancellations beyond line-level partial fulfillment are not mapped.
 - A no-change resync tallies as `updated`, not `skipped` — the listing patch is built from every unpinned connector-managed field whether or not it changed.
 - **Radar's verdict is not wired to the high-value hold.** Mercaria subscribes to no `review.*` event and stores no `charge.outcome.risk_level`, so a held transfer's risk assessment is readable only in Stripe's dashboard, and closing a Radar review neither releases the hold nor refunds. The hold is purely time-based (`STRIPE_HIGH_VALUE_HOLD_WINDOW_MS`) and an operator's `retry_withheld_transfer` is the only early exit. Wiring it means two new platform event types — and `STRIPE_PLATFORM_EVENT_TYPES` is transcribed by hand in a test against ADR 0001 deliberately, so they belong in their own tuple beside `STRIPE_BILLING_EVENT_TYPES` rather than appended to that list.
+
+---
+
+# Mercaria Digital (#1015) — what is built, what is inert, and what Phases B–E still need
+
+**Status: Phase A is code-complete, CI-green and INERT.** Four of the five feature
+levers default OFF and nothing has run against real object storage, a real asset
+file or a real buyer. Binding decisions: [ADR 0010](docs/adr/0010-digital-commerce.md).
+Design: [docs/digital-commerce.md](docs/digital-commerce.md).
+
+## 0. What is deployed vs what is inert
+
+Migration `0156` creates fifteen tables and seven triggers and runs with the normal
+pipeline, so the schema is live on every deployment. **Nothing uses it** until the
+levers below are set, and a deployment that sets none behaves exactly as it did
+before #1015 — including the address constraint, which is stricter for physical
+orders and otherwise invisible.
+
+## 1. Env / levers (SSM `/oxy/mercaria/*`, via GitHub Actions repo secrets)
+
+| Var | Default | Notes |
+|---|---|---|
+| `DIGITAL_UPLOADS_ENABLED` | `false` | gates the creator upload surface. Off does not touch a published asset. |
+| `DIGITAL_PUBLICATION_ENABLED` | `false` | gates a version becoming sellable. Separate from uploads so work can be staged while publication is paused. |
+| `DIGITAL_PAID_CHECKOUT_ENABLED` | `false` | **the launch gate — see §3.** A free claim still works with it off. |
+| `DIGITAL_DOWNLOADS_ENABLED` | **`true`** | the INCIDENT lever. Off refuses new grants with `downloads_disabled` and leaves every right `active`, so flipping it back restores access with nothing to repair. **Never use it as a rollout lever.** |
+| `DIGITAL_ENABLED_VERTICALS` | empty | comma-separated `DigitalVertical` keys; an ALLOW-list. `three_d` is the only one with a format registry today. |
+
+## 2. Object storage is NOT wired, and this is the largest remaining unknown
+
+`asset_files.storage_key` is an opaque key and the domain never resolves it to a
+transport. **There is no storage client, no bucket, no upload endpoint and no
+byte-serving route in this change.** What exists is the authorization that must run
+BEFORE one: `redeemDownloadGrant` returns a storage key and a media type to its
+caller, and the caller that streams it does not exist yet.
+
+What wiring it needs, and the order that matters:
+
+1. A private bucket with no public read, per #1015 W1 storage rules 1–2.
+2. A resumable/multipart upload path for large files (W1 rule 6) that computes the
+   SHA-256 **server-side** (rule 7) — never from the client, or the duplicate
+   detector in W8 becomes a value an attacker controls.
+3. A serving route that mints a short-lived provider URL from the key AFTER
+   `redeemDownloadGrant` returns `ready`, supports byte-range requests (rule 5),
+   and **logs neither the key nor the URL** (rule 4).
+4. A `completed` download event with `bytes_transferred`, which nothing writes today.
+
+## 3. The paid-launch gate (ADR 0010 D15) — three sign-offs, per market
+
+`DIGITAL_PAID_CHECKOUT_ENABLED` must stay off in a market until all three are
+recorded here with a date and a name:
+
+| Gate | What it has to establish | Status |
+|---|---|---|
+| Payment provider | Peable (and the provider settling behind it) permits a third-party digital-goods marketplace on this account | **NOT DONE** |
+| Tax | electronically-supplied-service rates exist for the market, scoped to a COUNTRY — a digital line matches nothing narrower, and a market with no country-scoped rate is taxed at ZERO | **NOT DONE** |
+| Consumer law | the withdrawal-waiver copy reviewed for the market, and the waiver presented before payment rather than after | **NOT DONE** |
+
+The code cannot hold these. What it holds is that the lever defaults off and that a
+missing rate is a visible zero rather than a plausible one.
+
+## 4. Phase B — the Mercaria 3D MVP, and what each piece still needs
+
+| Piece | State | What it needs |
+|---|---|---|
+| **Asset inspection workers** (W4) | domain built (`asset_file_inspections`, `recordFileInspection`, the `ASSET_INSPECTION_VERDICTS` vocabulary); **no worker exists** | a SANDBOXED processor with explicit CPU/memory/time/file-count limits (W12: treat every uploaded 3D file as hostile input). `blend` is declared unmeasurable on purpose — do not add a Blender-in-the-worker path without a threat model. |
+| **Malware scanning** (W1 rule 12) | `asset_files.scan_verdict` defaults `pending` and `everyFileScannedClean` gates publication | an actual scanner. **Until one exists, nothing can be published**, which is the safe failure and is why publication is a separate lever. |
+| **`web_derivative` generation** | `ASSET_FILE_VISIBILITIES.preview_only` and the role exist; the authorizer already refuses to hand one over as a file | a glTF/GLB derivative generator, and a viewer route that streams it without exposing the source |
+| **The 3D viewer** (W4) | nothing | orbit/pan/zoom, fullscreen, reset, animation selector, mobile fallback, accessible static fallback. Must never require the paid source file to render. |
+| **3D product profiles** (W3) | `DIGITAL_VERTICALS` and `ASSET_FORMAT_REGISTRY` exist; **no product-type definitions are seeded** | the seven reference profiles through #367's authoring path (`docs/catalog-cookbook.md`) — NOT as frontend truth (#1015 acceptance 18) |
+| **Creator authoring UI** | nothing; the repositories and services are callable | a dashboard surface for upload → package → licence → publish |
+| **Storefront surfaces** (W5) | nothing | `/3d`, `/3d/printable`, `/3d/game-assets`, `/creators/:slug`, and facets driven by the profile registry rather than hard-coded components |
+| **Buyer library + download UI** (W9) | `listBuyerLibrary` returns the full projection including the file inventory and an `updateAvailable` flag | the screens, and update notifications per communication preferences |
+| **Reference licences** | `MERCARIA_REFERENCE_LICENCES` is data in shared-types | a seeding path that writes them as `authorship: 'mercaria_reference'` rows on a fresh deployment |
+
+## 5. Phases C–E, and the seams that exist for them
+
+- **Bundles and memberships** (W7): `asset_packages` already separates "the thing
+  sold" from "the files", so a bundle is a package naming more than one asset's
+  files. Nothing is built.
+- **Re-upload detection** (W8): `asset_provenance_signals` stores the evidence and
+  `findMatchingProvenanceSignals` reads it. **There is no sweep, no geometry
+  fingerprinter and no review queue integration**, and the table deliberately holds
+  no verdict — a hash match is evidence, not proof, and nothing may accuse
+  automatically.
+- **The physical print bridge** (W10): not started. ADR 0010 does not decide the
+  royalty architecture, and #1015 is explicit that royalties must NOT be built on
+  referral commission or marketplace fees — that needs its own ADR.
+- **A second digital vertical** (W14 Phase E): the four steps are in
+  `docs/digital-commerce.md` §"Adding a second digital vertical". The only genuinely
+  new piece per vertical is a processor.
+
+## 6. Known gaps a reviewer should not mistake for oversights
+
+- **No creator-facing or buyer-facing HTTP routes ship in this change.** The domain
+  is reachable from the service layer only. That is deliberate: a route is the thing
+  that needs the storage wiring in §2, and shipping one that 500s on the last step
+  would be worse than not shipping it.
+- **`listBuyerLibrary` does N queries for N rights.** Correct and not fast; it is
+  fine for a pilot-sized library and wants batching before a creator with a thousand
+  buyers looks at it.
+- **`asset_download_grants` has no sweeper wired.** `deleteExpiredGrants` exists and
+  nothing calls it on a schedule. An expired grant opens nothing, so this is growth
+  rather than a hole.
+- **Guest rights are keyed on a SESSION**, which expires. The claim path carries them
+  to an Oxy account (ADR 0010 D9.5) — a guest who never claims and whose session
+  lapses keeps the right row and loses the way to reach it. That is #101's
+  recovery surface, and it is not extended here.

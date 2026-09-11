@@ -764,6 +764,20 @@ const checkoutDestinationSchema = z.discriminatedUnion('type', [
       pickupContact: checkoutContactSchema,
     })
     .strict(),
+  /**
+   * Nothing is delivered anywhere (#1015, ADR 0010 D8).
+   *
+   * No field, and `.strict()` keeps it that way: the two things a digital checkout
+   * needs are top-level, because a MIXED cart needs both and has a shipping
+   * destination. A field here would make a mixed cart unable to express them, and
+   * the obvious repair for that is two ways to say one thing.
+   *
+   * Whether this destination is PERMISSIBLE is the service's question, not the
+   * schema's — the same split the docblock above describes for the actor rules. A
+   * cart holding a physical line is refused in `checkout.service`, which is the only
+   * place that has read the cart.
+   */
+  z.object({ type: z.literal('digital_delivery') }).strict(),
 ]);
 
 export const checkoutSchema = z
@@ -779,6 +793,16 @@ export const checkoutSchema = z
     paymentMethod: z
       .enum(CHECKOUT_PAYMENT_METHODS as unknown as [string, ...string[]])
       .optional(),
+    /**
+     * The consumer's country for a digital supply (#1015 W11, ADR 0010 D10).
+     *
+     * Length and case only here. Membership of the real ISO-3166 list is
+     * `services/checkout/contact.ts`'s, exactly as it is for `country` above — one
+     * policy, and a second copy in a schema is a second policy.
+     */
+    digitalSupplyCountry: z.string().length(2).optional(),
+    /** Express consent to immediate supply, and the loss of the withdrawal right. */
+    digitalSupplyConsent: z.boolean().optional(),
   })
   .strict();
 

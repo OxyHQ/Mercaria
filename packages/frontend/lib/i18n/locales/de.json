@@ -334,6 +334,7 @@
       "processing": "In Bearbeitung",
       "shipped": "Versandt",
       "delivered": "Zugestellt",
+      "digitallyDelivered": "Geliefert",
       "cancelled": "Storniert",
       "refunded": "Erstattet",
       "partiallyRefunded": "Teilweise erstattet"
@@ -366,7 +367,8 @@
       "failed": "Zahlung fehlgeschlagen."
     },
     "shipTo": {
-      "title": "Lieferadresse"
+      "title": "Lieferadresse",
+      "none": "Keine Lieferadresse – diese Bestellung ist ein Download"
     },
     "cancel": {
       "action": "Bestellung stornieren",

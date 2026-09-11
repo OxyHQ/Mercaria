@@ -123,6 +123,7 @@
     "status": {
       "cancelled": "বাতিল",
       "delivered": "ডেলিভার হয়েছে",
+      "digitallyDelivered": "বিতরণ করা হয়েছে",
       "paid": "পেমেন্ট হয়েছে",
       "partiallyRefunded": "আংশিক রিফান্ড",
       "pendingPayment": "পেমেন্ট বাকি",

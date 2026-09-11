@@ -334,6 +334,7 @@
       "processing": "备货中",
       "shipped": "已发货",
       "delivered": "已送达",
+      "digitallyDelivered": "已交付",
       "cancelled": "已取消",
       "refunded": "已退款",
       "partiallyRefunded": "已部分退款"
@@ -366,7 +367,8 @@
       "failed": "付款失败。"
     },
     "shipTo": {
-      "title": "收货地址"
+      "title": "收货地址",
+      "none": "无收货地址 — 此订单为下载商品"
     },
     "cancel": {
       "action": "取消订单",

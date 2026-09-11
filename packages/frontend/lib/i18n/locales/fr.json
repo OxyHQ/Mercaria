@@ -337,6 +337,7 @@
       "processing": "En préparation",
       "shipped": "Expédiée",
       "delivered": "Livrée",
+      "digitallyDelivered": "Livré",
       "cancelled": "Annulée",
       "refunded": "Remboursée",
       "partiallyRefunded": "Partiellement remboursée"
@@ -369,7 +370,8 @@
       "failed": "Le paiement a échoué."
     },
     "shipTo": {
-      "title": "Livrer à"
+      "title": "Livrer à",
+      "none": "Aucune adresse de livraison — cette commande est un téléchargement"
     },
     "cancel": {
       "action": "Annuler la commande",

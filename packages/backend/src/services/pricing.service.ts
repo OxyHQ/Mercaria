@@ -78,6 +78,15 @@ export interface PricingLine {
   unitPrice: Money;
   /** Units of this variant. */
   quantity: number;
+  /**
+   * Whether this line is a DIGITAL supply (#1015 W11, ADR 0010 D10).
+   *
+   * Set per LINE rather than per order, and that is the whole point: a mixed
+   * physical + digital cart has two places of supply, and an order-level flag
+   * would force one of its halves to borrow the other's evidence. Absent means
+   * physical, which keeps every existing caller correct without an edit.
+   */
+  digitalSupply?: boolean;
 }
 
 /** The buyer's shipping destination, used to match tax-rate regions. */
@@ -85,6 +94,21 @@ export interface PricingShippingAddress {
   country?: string;
   region?: string;
   postalCode?: string;
+}
+
+/**
+ * Where a DIGITAL line is supplied — the consumer's country, and nothing else.
+ *
+ * A separate type from {@link PricingShippingAddress} rather than a reuse with two
+ * fields left empty, because the two are different rules and a shared shape would
+ * invite a rate scoped to a region to match a digital supply that has no evidence
+ * for one. `docs/commerce-types.md` named exactly this: the goods place-of-supply
+ * rule reads three inputs and is *"structurally the wrong one for a digital
+ * supply"*.
+ */
+export interface PricingDigitalPlaceOfSupply {
+  /** ISO 3166-1 alpha-2, uppercased. */
+  country: string;
 }
 
 /** Everything `calculateTotals` needs to price a single seller group. */
@@ -124,6 +148,16 @@ export interface PricingInput {
   customerGroupTags?: string[];
   /** The shipping destination, for tax-region matching. */
   shippingAddress?: PricingShippingAddress;
+  /**
+   * Where any DIGITAL line is supplied (#1015 W11, ADR 0010 D10).
+   *
+   * Required whenever a line carries `digitalSupply`, and its absence then is NOT
+   * silently tolerated: `applyTaxes` refuses to match any rate against a digital
+   * line with no place of supply, so such a line is taxed at zero LOUDLY — it is
+   * the checkout service that must never construct this input, and
+   * `digital-place-of-supply.test.ts` is what holds it.
+   */
+  digitalPlaceOfSupply?: PricingDigitalPlaceOfSupply;
   /** Preview mode is read-only (no usage increments happen here regardless). */
   preview?: boolean;
 }
@@ -267,6 +301,7 @@ export async function calculateTotals(input: PricingInput): Promise<PricingResul
     taxRates,
     taxSettings,
     shippingAddress: input.shippingAddress,
+    digitalPlaceOfSupply: input.digitalPlaceOfSupply,
     currency,
   });
 
@@ -689,6 +724,7 @@ interface ApplyTaxesArgs {
   taxRates: TaxRateRecord[];
   taxSettings: TaxSettings;
   shippingAddress?: PricingShippingAddress;
+  digitalPlaceOfSupply?: PricingDigitalPlaceOfSupply;
   currency: CurrencyCode;
 }
 
@@ -709,7 +745,15 @@ interface ApplyTaxesResult {
  * zero). `chargeTaxOnProducts === false` short-circuits to no tax at all.
  */
 function applyTaxes(args: ApplyTaxesArgs): ApplyTaxesResult {
-  const { lines, taxableBase, taxRates, taxSettings, shippingAddress, currency } = args;
+  const {
+    lines,
+    taxableBase,
+    taxRates,
+    taxSettings,
+    shippingAddress,
+    digitalPlaceOfSupply,
+    currency,
+  } = args;
   const perLineTax = lines.map(() => 0);
 
   if (taxSettings.chargeTaxOnProducts === false) {
@@ -717,16 +761,26 @@ function applyTaxes(args: ApplyTaxesArgs): ApplyTaxesResult {
   }
 
   // The repository already returns them `priority desc, id asc`, which is the
-  // order the Mongo path sorted into after loading — so only the region filter
-  // is left here.
-  const matched = taxRates.filter((rate) => rateMatchesRegion(rate, shippingAddress));
-
+  // order the Mongo path sorted into after loading.
+  //
+  // The region filter used to live HERE, over the whole rate list, and #1015 had
+  // to move it INSIDE the line loop (ADR 0010 D10). A filter applied once per
+  // order can only ask one place-of-supply question, and a mixed physical +
+  // digital order has two — the shipping destination for the goods and the
+  // consumer's country for the supply. Filtering per (rate, line) is the only
+  // shape in which each half of such an order is taxed by its own rule.
+  //
+  // It is not a cost worth optimizing away: a rate list is a handful of rows per
+  // store and the inner predicate is three comparisons.
   const taxLines: TaxLine[] = [];
   let taxTotal = 0;
 
-  for (const rate of matched) {
+  for (const rate of taxRates) {
     let lineAccrued = 0;
     for (let i = 0; i < lines.length; i += 1) {
+      if (!rateMatchesPlaceOfSupply(rate, lines[i], shippingAddress, digitalPlaceOfSupply)) {
+        continue;
+      }
       if (!rateAppliesToLine(rate, lines[i])) {
         continue;
       }
@@ -760,6 +814,43 @@ function applyTaxes(args: ApplyTaxesArgs): ApplyTaxesResult {
     perLineTax,
     taxTotal,
   };
+}
+
+/**
+ * Whether a tax rate applies to ONE line, by that line's own place-of-supply rule.
+ *
+ * The dispatch #1015 added, and the reason it is a function rather than a ternary
+ * at the call site: the two rules are genuinely different — three inputs versus
+ * one — and naming the dispatch is what lets a test assert that a digital line
+ * never reads a postal code and a physical one never reads the supply country.
+ *
+ * A digital line with NO place of supply matches NOTHING. That is deliberate and
+ * is the loud failure, not a quiet zero: a checkout that reached pricing without
+ * establishing where a digital supply happened has a bug, and taxing it at the
+ * shipping address would hide that bug behind a plausible invoice.
+ */
+function rateMatchesPlaceOfSupply(
+  rate: TaxRateRecord,
+  line: PricingLine,
+  shippingAddress: PricingShippingAddress | undefined,
+  digitalPlaceOfSupply: PricingDigitalPlaceOfSupply | undefined,
+): boolean {
+  if (line.digitalSupply !== true) {
+    return rateMatchesRegion(rate, shippingAddress);
+  }
+  if (!digitalPlaceOfSupply) {
+    return false;
+  }
+  // Country only. A rate scoped to a region or a postal code cannot apply to an
+  // electronically supplied service, because nothing establishes either for one —
+  // so such a rate does not match rather than matching vacuously on a NULL.
+  if (rate.regionRegion || rate.regionPostalCodePattern) {
+    return false;
+  }
+  if (rate.regionCountry && rate.regionCountry !== digitalPlaceOfSupply.country) {
+    return false;
+  }
+  return true;
 }
 
 /** Whether a tax rate's region matches the shipping destination. */

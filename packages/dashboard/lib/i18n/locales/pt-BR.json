@@ -769,6 +769,7 @@
     "orderStatus": {
       "cancelled": "Cancelado",
       "delivered": "Entregue",
+      "digitallyDelivered": "Entregue",
       "paid": "Pago",
       "partiallyRefunded": "Reembolsado parcialmente",
       "pendingPayment": "Pagamento pendente",
@@ -830,6 +831,7 @@
       "refundFallbackLabel": "Reembolso",
       "refunds": "Reembolsos",
       "shipTo": "Enviar para",
+      "shipToNone": "Sem endereço de entrega — este pedido é um download",
       "subtitle": "Detalhes do pedido",
       "title": "Pedido",
       "trackingLabel": "Código de rastreamento (opcional)",
@@ -911,6 +913,7 @@
     "status": {
       "cancelled": "Cancelado",
       "delivered": "Entregue",
+      "digitallyDelivered": "Entregue",
       "paid": "Pago",
       "partiallyRefunded": "Reemb. parcial",
       "pendingPayment": "Pendente",

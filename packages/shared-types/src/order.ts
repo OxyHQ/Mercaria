@@ -34,6 +34,8 @@ import type { DiscountAllocation, DiscountValueType } from './discount';
 import type { TaxLine } from './tax';
 import type { ConnectorProviderId } from './integration';
 import type { OrderItemConditionSnapshot } from './condition';
+import type { DigitalLicenceUpdatePolicy } from './digital-licence';
+import type { DigitalSupplyEvidenceKind, DigitalWithdrawalBasis } from './digital-supply';
 
 /**
  * Lifecycle status of an order.
@@ -43,6 +45,19 @@ import type { OrderItemConditionSnapshot } from './condition';
  * terminal exits. `partially_refunded` is a non-terminal partial-refund state: a
  * paid/delivered order with SOME amount refunded that can still progress to a
  * full `refunded`. Allowed transitions are enforced server-side.
+ *
+ * `digitally_delivered` is the completion signal for a DIGITAL order (#1015, ADR
+ * 0010 D9), and it is a ninth member rather than a reuse of `delivered` because
+ * the two are answerable by different evidence: `delivered` is a carrier scan
+ * and `digitally_delivered` is "every asset right this order owes exists and is
+ * active". A digital order never reaches `processing` or `shipped` — there is
+ * nothing to pick, pack or carry — so it goes `paid` → `digitally_delivered`,
+ * and `order.service`'s transition table is what refuses the physical states to
+ * it rather than a convention.
+ *
+ * `docs/commerce-types.md` listed `digitally_delivered` as the shape a
+ * non-physical completion would arrive in and asked that it arrive visibly. This
+ * is that arrival.
  */
 export type OrderStatus =
   | 'pending_payment'
@@ -50,6 +65,7 @@ export type OrderStatus =
   | 'processing'
   | 'shipped'
   | 'delivered'
+  | 'digitally_delivered'
   | 'cancelled'
   | 'refunded'
   | 'partially_refunded';
@@ -61,6 +77,7 @@ export const ORDER_STATUSES: readonly OrderStatus[] = [
   'processing',
   'shipped',
   'delivered',
+  'digitally_delivered',
   'cancelled',
   'refunded',
   'partially_refunded',
@@ -117,8 +134,27 @@ export interface OrderSource {
   externalUpdatedAt?: string;
 }
 
-/** A shipping speed/option the buyer may pick per seller at checkout. */
-export type ShippingMethod = 'standard' | 'express' | 'pickup';
+/**
+ * How one order is FULFILLED — a shipping speed, a collection, or bytes.
+ *
+ * The name is legacy and the tuple is not: `pickup` has been a non-shipping
+ * member since #93, so this has been a fulfilment vocabulary under a shipping
+ * name for as long as collection has existed. `digital` joins it on the same
+ * footing (#1015, ADR 0010 D9).
+ *
+ * The alternative was making `orders.shipping_method` nullable for a digital
+ * order, and it is worse: every existing read of that column is typed
+ * non-nullable, so a `NULL` would reach four hydration paths that have no branch
+ * for it, and "this order has no fulfilment method" is not what a digital order
+ * means — it has one, and it is this.
+ *
+ * A `digital` order carries NO shipping address. That is enforced by
+ * `orders_shipping_address_digital_check`, which requires all five required
+ * address columns to be NULL when the method is `digital` and NOT NULL
+ * otherwise — the NOT NULL it replaced could be satisfied by a fabricated
+ * street, and this cannot.
+ */
+export type ShippingMethod = 'standard' | 'express' | 'pickup' | 'digital';
 
 /** The chosen shipping method, its human label, cost and (later) tracking. */
 export interface ShippingInfo {
@@ -173,6 +209,39 @@ export interface OrderItem {
    * evidence can cite it (#90 propagation rule 3).
    */
   condition: OrderItemConditionSnapshot;
+  /**
+   * What was bought, when this line is DIGITAL — the snapshot #1015 boundary 9
+   * and acceptance criterion 5 require.
+   *
+   * Absent on a physical line, and its presence is what MAKES a line digital:
+   * there is no `isDigital` flag, for the reason ADR 0007 D15 refuses a
+   * `commerce_type` column. A flag and these columns are two representations of
+   * one fact and can disagree; the columns alone cannot.
+   *
+   * Every field is a pinned id, never a live lookup. A creator publishing v2 or
+   * editing tomorrow's licence terms changes nothing here, because the rows these
+   * ids name are immutable once published (ADR 0010 D3, D4).
+   */
+  digital?: OrderItemDigitalSnapshot;
+}
+
+/**
+ * The deliverable, licence and update policy one digital order line bought.
+ *
+ * A snapshot by IDENTITY rather than by copy: the licence TEXT is not duplicated
+ * here, because `asset_licence_versions` is append-only and the id is therefore
+ * a stable reference to wording nothing can change. Copying the text would
+ * create a second record of one fact, and the two would be compared in a dispute.
+ */
+export interface OrderItemDigitalSnapshot {
+  /** The `asset_packages` row sold — the named deliverable. */
+  packageId: string;
+  /** The `asset_versions` row PINNED at purchase. Never the asset's newest. */
+  assetVersionId: string;
+  /** The `asset_licence_versions` row whose terms the buyer is held to. */
+  licenceVersionId: string;
+  /** Whether later versions are included, frozen at purchase. */
+  updatePolicy: DigitalLicenceUpdatePolicy;
 }
 
 /**
@@ -407,10 +476,26 @@ export interface Order extends Timestamps {
   store?: StoreSummary;
   /** Immutable line item snapshots. */
   items: OrderItem[];
-  /** Immutable shipping destination snapshot. */
-  shippingAddress: AddressSnapshot;
+  /**
+   * Immutable shipping destination snapshot.
+   *
+   * ABSENT on a digital order, and absent rather than blank: #1015 boundary 16
+   * forbids a fake shipping record, so there is no address object with empty
+   * strings in it for a client to render. A client reading this field must
+   * branch, and the optionality is what forces the branch to exist.
+   */
+  shippingAddress?: AddressSnapshot;
   /** Chosen shipping method + cost (+ tracking once shipped). */
   shipping: ShippingInfo;
+  /**
+   * Place of supply and withdrawal basis, present only when the order has a
+   * digital line (#1015 W11).
+   *
+   * Carried on the order rather than per line because both are properties of the
+   * BUYER and this checkout, not of a deliverable: two digital lines in one
+   * order cannot be supplied in two countries.
+   */
+  digitalSupply?: OrderDigitalSupply;
   /** Money totals for the order, each carried in shop + presentment currency. */
   totals: {
     /** Sum of every line total. */
@@ -642,6 +727,60 @@ export interface CheckoutInput {
    * with a 201 has been told the wrong thing.
    */
   paymentMethod?: CheckoutPaymentMethod;
+  /**
+   * The country the buyer is in, for the place of supply of any DIGITAL line
+   * (#1015 W11, ADR 0010 D10). ISO 3166-1 alpha-2.
+   *
+   * **Required** when the destination is `digital_delivery`: that checkout has no
+   * address, so there is nothing to derive a country from and a digital supply
+   * with no place of supply cannot be taxed. **Optional** for a mixed
+   * physical + digital checkout, where absence derives it from the fulfilment
+   * country — the shipping address's, or the pickup location's — and records the
+   * evidence as `saved_address_country` rather than as a declaration the buyer
+   * never made.
+   *
+   * One field with one documented fallback, deliberately. A second spelling
+   * (a field on the destination, say) would need a precedence rule, and a
+   * precedence rule between two names for one value is the thing
+   * `destinationFromInput` refuses to have for `addressId`.
+   */
+  digitalSupplyCountry?: string;
+  /**
+   * Express consent to immediate digital supply, and acknowledgement that the
+   * statutory withdrawal right is lost with it (#1015 W11 requirement 6).
+   *
+   * Required when the checkout contains any digital line, because without it the
+   * order's withdrawal basis is `statutory_cooling_off` and supply may not begin
+   * — which for a download means the thing the buyer came for does not happen.
+   * Refusing the checkout is the honest outcome: an order that takes the money
+   * and withholds the file is worse than one that explains what the tick box is.
+   */
+  digitalSupplyConsent?: boolean;
+}
+
+/**
+ * What a digital order records about where it was supplied and on what terms.
+ *
+ * Three fields and no fourth. There is no region, no postal code, no locale and
+ * no IP-derived anything: an electronically supplied service is taxed at the
+ * member-state level, and `FORBIDDEN_DIGITAL_SUPPLY_EVIDENCE_KINDS` names what
+ * may never establish the country so the absence reads as a decision.
+ */
+export interface OrderDigitalSupply {
+  /** ISO 3166-1 alpha-2, uppercased. */
+  country: string;
+  /** What established the country — never an IP geolocation. */
+  evidence: DigitalSupplyEvidenceKind;
+  /** Which withdrawal regime this order's digital lines fall under. */
+  withdrawalBasis: DigitalWithdrawalBasis;
+  /**
+   * When the buyer acknowledged the immediate-supply waiver, ISO-8601.
+   *
+   * Present exactly when `withdrawalBasis` is `waived_on_immediate_supply`,
+   * paired by a database CHECK: a waiver nobody can date is, in a dispute, the
+   * same as no waiver.
+   */
+  consentAt?: string;
 }
 
 /** Result of a successful checkout: the group id + a summary of each new order. */

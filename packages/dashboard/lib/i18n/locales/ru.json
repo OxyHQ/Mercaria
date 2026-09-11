@@ -782,6 +782,7 @@
     "orderStatus": {
       "cancelled": "Отменён",
       "delivered": "Доставлен",
+      "digitallyDelivered": "Доставлено",
       "paid": "Оплачен",
       "partiallyRefunded": "Частично возвращён",
       "pendingPayment": "Ожидает оплаты",
@@ -844,6 +845,7 @@
       "refundFallbackLabel": "Возврат",
       "refunds": "Возвраты",
       "shipTo": "Адрес доставки",
+      "shipToNone": "Адрес доставки не нужен — этот заказ является загрузкой",
       "subtitle": "Карточка заказа",
       "title": "Заказ",
       "trackingLabel": "Трек-номер (необязательно)",
@@ -926,6 +928,7 @@
     "status": {
       "cancelled": "Отменён",
       "delivered": "Доставлен",
+      "digitallyDelivered": "Доставлено",
       "paid": "Оплачен",
       "partiallyRefunded": "Част. возврат",
       "pendingPayment": "Ожидает",

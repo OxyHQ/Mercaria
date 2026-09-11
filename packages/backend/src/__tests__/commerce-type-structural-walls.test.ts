@@ -1,6 +1,6 @@
 /**
  * The walls that make ADR 0007 D15's exclusions TRUE, pinned so relaxing one is
- * a visible act (#367 line 144).
+ * a visible act (#367 line 144), as amended by #1015 / ADR 0010.
  *
  * ## Why this file exists at all
  *
@@ -32,6 +32,21 @@
  * `digitally_delivered` member, an `ITEM_CONDITION_KEYS` grown a `not_applicable`.
  * Where the wall is a throw, the control is the accepting case beside it, so
  * "it throws" cannot be satisfied by a function that throws on everything.
+ *
+ * ## #1015 moved three of these, and the exactness is why you can see that
+ *
+ * `digitally_delivered` and `digital` are now MEMBERS, and the five required
+ * address columns are no longer NOT NULL. Every one of those changes turned this
+ * file red and had to be edited here, in the diff that admitted `digital_good` —
+ * which is precisely what the paragraph above predicted would happen and asked
+ * for. The walls did not weaken: the address wall became a CHECK that says more
+ * than the NOT NULLs did, `ITEM_CONDITION_KEYS` is untouched at nine members, and
+ * every remaining exclusion (`service`, `stored_value`, `event_admission`,
+ * `consumer_subscription`) is still held by the same tuples.
+ *
+ * What each assertion now guards is stated per test: the members #1015 added are
+ * named, and the members it did NOT add — `performed`, `redeemed`, `activated`,
+ * `not_applicable` — are still absent by the same `toEqual`.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -95,11 +110,19 @@ describe('the walls that exclude a service and a digital good', () => {
       ).toEqual({ type: 'saved_address', addressId: 'addr_1' });
     });
 
-    it('admits exactly three destination shapes, all of them places', () => {
+    it('admits exactly four destination shapes: three places and one absence', () => {
       // Asserted through the shipped request schema rather than through the
       // type, because a union member is invisible at runtime and this is what an
       // HTTP caller actually meets.
-      for (const type of ['saved_address', 'inline_shipping_address', 'pickup']) {
+      for (const type of [
+        'saved_address',
+        'inline_shipping_address',
+        'pickup',
+        // #1015's, and the only one that is not a place. `checkout.service` is
+        // what refuses it for a cart holding a physical line — a schema cannot
+        // see a cart, which is the same split the actor rules take.
+        'digital_delivery',
+      ]) {
         const parsed = checkoutSchema.safeParse({ destination: { type } });
         // Each is REACHED — it fails on its own missing fields, never on the
         // discriminant. Without this the loop below would pass against a schema
@@ -109,6 +132,8 @@ describe('the walls that exclude a service and a digital good', () => {
           `${type} is no longer a destination shape`,
         ).not.toContain('invalid_union_discriminator');
       }
+      // Still refused, and `digital` among them: the admitted spelling is
+      // `digital_delivery`, and a near-miss must not be quietly accepted.
       for (const type of ['digital', 'download', 'no_delivery', 'email']) {
         const parsed = checkoutSchema.safeParse({ destination: { type } });
         expect(parsed.success, `\`${type}\` is now an accepted destination`).toBe(false);
@@ -117,10 +142,15 @@ describe('the walls that exclude a service and a digital good', () => {
   });
 
   describe('order_address_snapshot — a placed order carries a real postal address', () => {
-    it('keeps every required address column NOT NULL on `orders`', () => {
+    it('replaces the five NOT NULLs with a CHECK that says MORE than they did', () => {
+      // #1015 / ADR 0010 D8. The NOT NULLs are gone and this is not a weakening:
+      // a NOT NULL could be satisfied by a fabricated street — which is exactly
+      // what a digital order would have had to write — and
+      // `orders_shipping_address_digital_check` cannot be. It requires all nine
+      // address columns NULL on a `digital` order and the five required ones NOT
+      // NULL on every other, so a `service` or an `event_admission` still has no
+      // way to reach `orders` without inventing an address.
       const required = notNullColumns(orders);
-      // `optionalAddressColumns` exists and `draft_orders` uses it, so this is a
-      // choice `orders` makes rather than the only shape available.
       for (const column of [
         'shipping_address_recipient_name',
         'shipping_address_line1',
@@ -128,12 +158,18 @@ describe('the walls that exclude a service and a digital good', () => {
         'shipping_address_postal_code',
         'shipping_address_country',
       ]) {
-        expect(required, `orders.${column} is no longer NOT NULL`).toContain(column);
+        expect(required, `orders.${column} is unexpectedly NOT NULL again`).not.toContain(column);
       }
-      // The control: the OPTIONAL half of the same address is still nullable, so
-      // the assertion above is reading `notNull` rather than every column.
+      const checks = getTableConfig(orders).checks.map((check) => check.name);
+      expect(
+        checks,
+        'the CHECK that replaced the five NOT NULLs is gone; `orders` now accepts an address-less order of ANY fulfilment kind',
+      ).toContain('orders_shipping_address_digital_check');
+      // The control: a column that was always nullable still is, so the negative
+      // assertions above are reading `notNull` rather than an empty set.
       expect(required).not.toContain('shipping_address_line2');
-      expect(required).not.toContain('shipping_address_phone');
+      // And the positive control: `orders` still has NOT NULL columns at all.
+      expect(required).toContain('order_number');
     });
   });
 
@@ -148,20 +184,27 @@ describe('the walls that exclude a service and a digital good', () => {
   });
 
   describe('fulfilment_completion_signal — an order completes by being carried', () => {
-    it('admits exactly the physical shipping methods', () => {
-      expect([...SHIPPING_METHODS]).toEqual(['standard', 'express', 'pickup']);
+    it('admits exactly the physical methods plus `digital`', () => {
+      // `digital` is #1015's, and `pickup` has been a non-shipping member since
+      // #93 — so this tuple has been a FULFILMENT vocabulary under a legacy name
+      // for as long as collection has existed. Still EXACT: a `performed` or a
+      // `redeemed` member is how a service or a stored-value redemption would
+      // arrive, and containment would welcome either silently.
+      expect([...SHIPPING_METHODS]).toEqual(['standard', 'express', 'pickup', 'digital']);
     });
 
-    it('admits exactly the statuses of a physical order', () => {
-      // EXACT. A `digitally_delivered`, `activated`, `redeemed` or `performed`
-      // member is the shape in which a non-physical completion arrives, and
-      // containment would welcome it silently.
+    it('admits the physical statuses plus `digitally_delivered`, and nothing else', () => {
+      // Still EXACT, and `digitally_delivered` arrived HERE, in the diff that
+      // admitted `digital_good` — which is what this assertion existed to force.
+      // `activated`, `redeemed` and `performed` are still absent, and each is the
+      // shape one of the REMAINING excluded types would arrive in.
       expect([...ORDER_STATUSES]).toEqual([
         'pending_payment',
         'paid',
         'processing',
         'shipped',
         'delivered',
+        'digitally_delivered',
         'cancelled',
         'refunded',
         'partially_refunded',

@@ -676,6 +676,24 @@ export * from './product-type';
 // disposition map is total, so a commerce type cannot be added anywhere without
 // a decision compiling beside it.
 export * from './commerce-type';
+// The digital-commerce foundation (#1015, ADR 0010). Immediately after
+// `./commerce-type`, because that is the module whose `digital_good` disposition
+// these three discharge, and a reader arriving at the admission should meet the
+// domain that paid for it next.
+//
+// `./digital-asset` is the DELIVERABLE (asset -> version -> file -> package) and
+// owns no price and no stock; `./digital-licence` is what a buyer may DO and owns
+// no price either, because a licence is not a variant (#1015 boundary 5);
+// `./digital-right` is what a buyer OWNS and is deliberately not called an
+// entitlement — `./merchant-plan` already owns that word for Mercaria billing a
+// merchant, and two domains one adjective apart is how a service resolves the
+// wrong one. `./digital-supply` carries the place-of-supply and withdrawal
+// vocabulary, which are compliance facts about an ORDER rather than about a
+// deliverable, and names the evidence kinds that may never establish a country.
+export * from './digital-asset';
+export * from './digital-licence';
+export * from './digital-right';
+export * from './digital-supply';
 // Navigation trees and the merchandising separation (#367 step 7, ADR 0007 D3).
 // LAST, and it defines no vocabulary any domain above it owns: a node POINTS at
 // `./condition`'s groups, `./offer`'s kinds and availability and `./money`'s

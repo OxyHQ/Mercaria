@@ -114,6 +114,11 @@ import {
   assertSellerGroupsAcceptDestination,
   resolveShippingCostMinor,
 } from './checkout/fulfilment-eligibility.js';
+import {
+  assertDigitalCheckoutCoherent,
+  resolveDigitalLines,
+  type ResolvedDigitalLine,
+} from './checkout/digital-lines.js';
 import { assertGuestCheckoutRolloutAllowed } from './checkout/guest-rollout.js';
 import {
   assertGuestP2PCheckoutAllowed,
@@ -163,11 +168,28 @@ import { enqueueOrderEvent } from '../queue/producers.js';
 import { conflict, isMercariaError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
+/**
+ * The destination address, asserted present.
+ *
+ * A named throw rather than a `!` or a cast, so the two physical-only call sites
+ * say WHY they may assume one: a Mercaria-retail line is physical by definition
+ * (ADR 0004), so `retailLines.length > 0` implies a destination. If that ever
+ * stops being true the failure is this message rather than a `TypeError` three
+ * frames down.
+ */
+function requireDestinationAddress(snapshot: AddressSnapshot | undefined): AddressSnapshot {
+  if (!snapshot) {
+    throw conflict('This order needs a delivery address.');
+  }
+  return snapshot;
+}
+
 /** Human label shown for each shipping method on the order. */
 const SHIPPING_LABELS: Record<ShippingMethod, string> = {
   standard: 'Standard shipping',
   express: 'Express shipping',
   pickup: 'Pickup',
+  digital: 'Digital delivery',
 };
 
 /** Sentinel value held in the Redis idempotency key while a checkout is in flight. */
@@ -391,6 +413,7 @@ function buildItems(
   rates: FxRates,
   conditionNotesByListing: ReadonlyMap<string, string>,
   pickupLocationId: string | undefined,
+  digitalByVariant: ReadonlyMap<string, ResolvedDigitalLine>,
 ): NewOrderItem[] {
   return group.lines.map(({ cartItem, listing, variant, images, optionValues }, index) => {
     const shopUnit = convert(nativeUnitPrice(variant), shopCurrency, rates);
@@ -416,6 +439,27 @@ function buildItems(
       conditionKey: narrowStoredCondition(listing.condition),
       conditionAssertion: listing.conditionAssertion,
     };
+    /**
+     * The DIGITAL snapshot, frozen here with the title, the variant and the price
+     * and never re-read afterwards (#1015 boundary 9, acceptance criterion 5).
+     *
+     * It also CLEARS the condition, because `order_items_digital_no_condition_check`
+     * refuses the pairing and a digital line has no state of an object to describe.
+     * `narrowStoredCondition(listing.condition)` above would otherwise carry the
+     * `new` a seller's listing inevitably claims — which is how a green build would
+     * have produced a constraint violation at the end of a real checkout.
+     */
+    const digital = digitalByVariant.get(variant.id);
+    if (digital) {
+      item.digital = {
+        packageId: digital.packageId,
+        assetVersionId: digital.assetVersionId,
+        licenceVersionId: digital.licenceVersionId,
+        updatePolicy: digital.updatePolicy,
+      };
+      delete item.conditionKey;
+      delete item.conditionAssertion;
+    }
     // The line remembers WHERE its units were taken from, and for a collection
     // that is the location the buyer chose. It is what `transition('paid')`
     // commits against and what a refund restocks against — both already read
@@ -446,7 +490,10 @@ function buildItems(
  * preserved). Uses the variant's NATIVE price — the pricing engine converts it to
  * the shop currency.
  */
-function buildPricingLines(group: SellerGroup): PricingLine[] {
+function buildPricingLines(
+  group: SellerGroup,
+  digitalByVariant: ReadonlyMap<string, ResolvedDigitalLine>,
+): PricingLine[] {
   return group.lines.map(({ cartItem, listing, variant, collectionIds }) => {
     const line: PricingLine = {
       listingId: listing.id,
@@ -457,6 +504,11 @@ function buildPricingLines(group: SellerGroup): PricingLine[] {
     };
     if (listing.productType) {
       line.productType = listing.productType;
+    }
+    // The per-LINE place-of-supply selector (#1015 W11, ADR 0010 D10). Set only
+    // when true, so a physical line's pricing input is byte-for-byte what it was.
+    if (digitalByVariant.has(variant.id)) {
+      line.digitalSupply = true;
     }
     return line;
   });
@@ -992,6 +1044,30 @@ export async function checkout(
   // `resolvePickupForCheckout`, which runs immediately after this gate) and a
   // per-seller shipping selection this deployment cannot price — an unpriced
   // method is refused rather than shipped for nothing.
+  // 4d-pre. Which lines are DIGITAL (#1015, ADR 0010), resolved before every
+  // eligibility gate and before the reservation loop — the property 4c-4f all
+  // share: a question that needs no stock must never have taken any.
+  //
+  // It is also the LAST question that can be answered purely from the catalogue,
+  // which is why it comes before the geography gate rather than after: a buyer
+  // whose cart cannot be fulfilled the way they asked is told about the ITEM
+  // ("one of these has to be delivered") rather than about a postcode.
+  const checkoutVariantIds = [...groups.values()].flatMap((group) =>
+    group.lines.map((line) => line.cartItem.variantId),
+  );
+  const digitalByVariant = await resolveDigitalLines(checkoutVariantIds);
+  assertDigitalCheckoutCoherent({
+    fulfilment: contract.fulfilment,
+    variantIds: checkoutVariantIds,
+    digitalByVariant,
+    consent: contract.digitalSupplyConsent,
+    // A rail being engaged is what makes this a PAID digital supply. A free claim
+    // reaches the same code with no rail, and the paid-checkout lever and the
+    // withdrawal waiver both correctly do not apply to it (#1015 W7).
+    chargesMoney: rail !== undefined,
+  });
+  const hasDigitalLines = digitalByVariant.size > 0;
+
   const eligibilityGroups = [...groups.entries()].map(([sellerKey, group]) => ({
     sellerKey,
     sellerType: group.sellerType,
@@ -1044,18 +1120,65 @@ export async function checkout(
         })
       : undefined;
 
-  // Past the two gates there are exactly two shapes, and the `else` is a
-  // `throw` rather than a cast: a third fulfilment kind added without a
-  // snapshot would fail loudly here instead of writing an order with a
-  // fabricated address.
+  // Past the two gates there are exactly THREE shapes, and the `else` is still a
+  // `throw` rather than a cast: a fourth fulfilment kind added without a snapshot
+  // decision would fail loudly here instead of writing an order with a fabricated
+  // address.
+  //
+  // The third, `digital`, produces NO address snapshot at all (#1015, ADR 0010 D8).
+  // That is the one thing a collection does not do — pickup has a location whose
+  // own published address it snapshots, so even the non-shipped physical path puts
+  // a real street on the order — and it is why
+  // `orders_shipping_address_digital_check` had to replace five NOT NULLs rather
+  // than something here deriving a placeholder.
   const shippingFulfilment: ShippingFulfilment | undefined =
     contract.fulfilment.kind === 'shipping' ? contract.fulfilment : undefined;
-  if (!pickup && !shippingFulfilment) {
+  const isDigitalFulfilment = contract.fulfilment.kind === 'digital';
+  if (!pickup && !shippingFulfilment && !isDigitalFulfilment) {
     throw conflict('This delivery option cannot be completed yet.');
   }
-  const shippingAddressSnapshot = pickup
+  const shippingAddressSnapshot: AddressSnapshot | undefined = pickup
     ? snapshotPickupAddress(pickup)
-    : snapshotAddress((shippingFulfilment as ShippingFulfilment).address);
+    : shippingFulfilment
+      ? snapshotAddress(shippingFulfilment.address)
+      : undefined;
+
+  /**
+   * The place of supply for every digital line, and the withdrawal basis with it
+   * (#1015 W11, ADR 0010 D10/D11).
+   *
+   * ONE field with ONE documented fallback. A `digital_delivery` checkout must have
+   * declared a country — `resolveCheckoutContract` refuses it otherwise, because
+   * there is nothing to fall back ON — and a MIXED checkout falls back to the
+   * fulfilment country here, recording the evidence as `saved_address_country`
+   * rather than as a declaration the buyer never made.
+   *
+   * Nothing IP-derived is read, here or anywhere:
+   * `FORBIDDEN_DIGITAL_SUPPLY_EVIDENCE_KINDS` names what may never establish this
+   * and `digital-place-of-supply.test.ts` asserts the two sets stay disjoint.
+   */
+  const digitalSupply: NewOrder['digitalSupply'] | undefined = hasDigitalLines
+    ? (() => {
+        const declared = contract.digitalSupplyCountry;
+        const country = declared ?? shippingAddressSnapshot?.country;
+        if (!country) {
+          // Unreachable: a digital-only checkout is refused without a declaration
+          // and a mixed one has an address. A throw rather than a default, because
+          // a default here would be a fabricated tax jurisdiction.
+          throw conflict('This order needs the country you are buying from.');
+        }
+        return {
+          country: country.toUpperCase(),
+          evidence: declared
+            ? ('buyer_declared' as const)
+            : ('saved_address_country' as const),
+          withdrawalBasis: contract.digitalSupplyConsent
+            ? ('waived_on_immediate_supply' as const)
+            : ('statutory_cooling_off' as const),
+          ...(contract.digitalSupplyConsent ? { consentAt: new Date() } : {}),
+        };
+      })()
+    : undefined;
 
   // 4d-ter. The guest-checkout ROLLOUT kill switches and the #85 merchant
   // activation seam (#107). Still before the reservation loop, for the reason
@@ -1071,7 +1194,11 @@ export async function checkout(
   // configured no lever, which is the default.
   await assertGuestCheckoutRolloutAllowed({
     actor,
-    destinationCountry: shippingFulfilment.address.country,
+    // A digital-only order has no destination; the lever's question is which
+    // MARKET the buyer is in, and the place of supply is exactly that. The
+    // `as string` rests on `digitalSupply` being present whenever there is no
+    // address, which the throw above guarantees.
+    destinationCountry: shippingAddressSnapshot?.country ?? (digitalSupply?.country as string),
     groups: eligibilityGroups,
   });
 
@@ -1152,9 +1279,13 @@ export async function checkout(
       checkoutGroupId,
       lines: retailLines,
       destination: {
-        country: shippingCountryForRetail(shippingFulfilment.address.country),
-        ...(shippingFulfilment.address.region
-          ? { region: shippingFulfilment.address.region }
+        // Mercaria-retail lines are physical by definition (ADR 0004), so an
+        // address is present whenever this branch runs — `retailLines.length > 0`
+        // implies a physical line, and a physical line implies a destination. The
+        // throw states that rather than asserting it.
+        country: shippingCountryForRetail(requireDestinationAddress(shippingAddressSnapshot).country),
+        ...(requireDestinationAddress(shippingAddressSnapshot).region
+          ? { region: requireDestinationAddress(shippingAddressSnapshot).region as string }
           : {}),
       },
       presentmentCurrency: cart.currency,
@@ -1203,9 +1334,11 @@ export async function checkout(
         .filter((code) => code.length > 0),
     ),
   ];
-  const shippingCountry = shippingFulfilment.address.country;
-  const shippingRegion = shippingFulfilment.address.region;
-  const shippingPostal = shippingFulfilment.address.postalCode;
+  // Absent on a digital-only order, which has no address at all. The pricing stage
+  // reads the place of supply for its digital lines instead, per line.
+  const shippingCountry = shippingAddressSnapshot?.country;
+  const shippingRegion = shippingAddressSnapshot?.region;
+  const shippingPostal = shippingAddressSnapshot?.postalCode;
 
   // 5c. Resolve the buyer's PRESENTMENT currency (the cart's display currency) and
   // each seller group's SHOP currency — a store's `defaultCurrency`, falling back
@@ -1304,7 +1437,13 @@ export async function checkout(
         : null;
 
     for (const [sellerKey, group] of groupEntries) {
-      const method = input.shippingSelections?.[sellerKey] ?? 'standard';
+      // `digital` overrides any selection, because a digital-only order has nothing
+      // to post and `fulfilment-eligibility` has already refused a cart that mixed
+      // the two. Scoped to the digital case deliberately: the pickup path's own
+      // handling of this line is pre-existing and is not #1015's to change.
+      const method: ShippingMethod = isDigitalFulfilment
+        ? 'digital'
+        : (input.shippingSelections?.[sellerKey] ?? 'standard');
       const shopCurrency = shopCurrencyForGroup(group);
       // Shipping cost is a flat SHOP-currency amount; convert to presentment.
       // Resolved through `resolveShippingCostMinor` rather than indexed off the
@@ -1323,13 +1462,26 @@ export async function checkout(
       // wearing an Oxy id's parameter — I1).
       const pricing: PricingResult = await calculateTotals({
         ...(group.storeId ? { storeId: group.storeId } : {}),
-        lines: buildPricingLines(group),
+        lines: buildPricingLines(group, digitalByVariant),
         currency: shopCurrency,
         presentmentCurrency,
         rates,
         discountCodes: group.storeId ? discountCodes : [],
         ...(owner.kind === 'oxy_user' ? { customerId: owner.oxyUserId } : {}),
-        shippingAddress: { country: shippingCountry, region: shippingRegion, postalCode: shippingPostal },
+        // Omitted entirely on a digital-only order rather than passed with three
+        // `undefined`s: `rateMatchesRegion` treats a missing country as "no match",
+        // which is right, and an object of undefineds says the same thing less
+        // legibly.
+        ...(shippingCountry
+          ? {
+              shippingAddress: {
+                country: shippingCountry,
+                region: shippingRegion,
+                postalCode: shippingPostal,
+              },
+            }
+          : {}),
+        ...(digitalSupply ? { digitalPlaceOfSupply: { country: digitalSupply.country } } : {}),
       });
 
       for (const allocation of pricing.appliedDiscounts) {
@@ -1346,6 +1498,7 @@ export async function checkout(
         rates,
         conditionNotesByListing,
         pickup?.locationId,
+        digitalByVariant,
       );
       // grandTotal = (subtotal − discount + tax) from pricing, plus flat shipping,
       // added on each of the shop + presentment sides. Both sides are asserted
@@ -1399,7 +1552,12 @@ export async function checkout(
         ...(group.sellerOxyUserId ? { sellerOxyUserId: group.sellerOxyUserId } : {}),
         ...(group.storeId ? { storeId: group.storeId } : {}),
         items,
-        shippingAddress: shippingAddressSnapshot,
+        // Spread, so a digital order's insert has no `shippingAddress` key at all
+        // rather than one holding `undefined` — the repository writes nine NULLs
+        // from its absence, which is what
+        // `orders_shipping_address_digital_check` requires.
+        ...(shippingAddressSnapshot ? { shippingAddress: shippingAddressSnapshot } : {}),
+        ...(digitalSupply ? { digitalSupply } : {}),
         shippingMethod: method,
         shippingLabel: SHIPPING_LABELS[method],
         shippingCost: cost,

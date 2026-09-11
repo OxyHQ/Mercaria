@@ -334,6 +334,7 @@
       "processing": "準備中",
       "shipped": "発送済み",
       "delivered": "配達済み",
+      "digitallyDelivered": "配信済み",
       "cancelled": "キャンセル済み",
       "refunded": "返金済み",
       "partiallyRefunded": "一部返金済み"
@@ -366,7 +367,8 @@
       "failed": "支払いに失敗しました。"
     },
     "shipTo": {
-      "title": "お届け先"
+      "title": "お届け先",
+      "none": "お届け先住所はありません — このご注文はダウンロードです"
     },
     "cancel": {
       "action": "注文をキャンセル",

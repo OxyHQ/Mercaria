@@ -22,6 +22,7 @@ export const ORDER_STATUS_LABEL_KEYS: Record<OrderStatus, string> = {
   processing: "orders.status.processing",
   shipped: "orders.status.shipped",
   delivered: "orders.status.delivered",
+  digitally_delivered: "orders.status.digitallyDelivered",
   cancelled: "orders.status.cancelled",
   refunded: "orders.status.refunded",
   partially_refunded: "orders.status.partiallyRefunded",
@@ -34,6 +35,9 @@ const STYLES: Record<OrderStatus, string> = {
   processing: "bg-primary/10 text-primary",
   shipped: "bg-primary/10 text-primary",
   delivered: "bg-primary/10 text-primary",
+  // The same pill as `delivered`: both mean the buyer has what they paid for, and
+  // a different colour would imply a difference a merchant has to act on.
+  digitally_delivered: "bg-primary/10 text-primary",
   cancelled: "bg-muted text-muted-foreground",
   refunded: "bg-destructive/10 text-destructive",
   partially_refunded: "bg-destructive/10 text-destructive",

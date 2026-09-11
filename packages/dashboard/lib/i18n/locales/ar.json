@@ -756,6 +756,7 @@
     "orderStatus": {
       "cancelled": "ملغى",
       "delivered": "تم التسليم",
+      "digitallyDelivered": "تم التسليم",
       "paid": "مدفوع",
       "partiallyRefunded": "مُسترد جزئيًا",
       "pendingPayment": "بانتظار الدفع",
@@ -816,6 +817,7 @@
       "refundFallbackLabel": "استرداد",
       "refunds": "المبالغ المستردة",
       "shipTo": "الشحن إلى",
+      "shipToNone": "لا يوجد عنوان تسليم — هذا الطلب عبارة عن تنزيل",
       "subtitle": "تفاصيل الطلب",
       "title": "الطلب",
       "trackingLabel": "رقم التتبّع (اختياري)",
@@ -896,6 +898,7 @@
     "status": {
       "cancelled": "ملغى",
       "delivered": "تم التسليم",
+      "digitallyDelivered": "تم التسليم",
       "paid": "مدفوع",
       "partiallyRefunded": "مُسترد جزئيًا",
       "pendingPayment": "قيد الانتظار",

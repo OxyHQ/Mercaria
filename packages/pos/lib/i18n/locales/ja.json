@@ -123,6 +123,7 @@
     "status": {
       "cancelled": "キャンセル済み",
       "delivered": "配達済み",
+      "digitallyDelivered": "配信済み",
       "paid": "支払い済み",
       "partiallyRefunded": "一部返金済み",
       "pendingPayment": "支払い待ち",

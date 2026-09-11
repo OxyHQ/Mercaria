@@ -337,6 +337,7 @@
       "processing": "Em preparação",
       "shipped": "Enviado",
       "delivered": "Entregue",
+      "digitallyDelivered": "Entregue",
       "cancelled": "Cancelado",
       "refunded": "Reembolsado",
       "partiallyRefunded": "Parcialmente reembolsado"
@@ -369,7 +370,8 @@
       "failed": "O pagamento falhou."
     },
     "shipTo": {
-      "title": "Enviar para"
+      "title": "Enviar para",
+      "none": "Sem endereço de entrega — este pedido é um download"
     },
     "cancel": {
       "action": "Cancelar pedido",

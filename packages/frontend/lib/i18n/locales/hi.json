@@ -334,6 +334,7 @@
       "processing": "तैयार हो रहा है",
       "shipped": "भेज दिया गया",
       "delivered": "पहुँच गया",
+      "digitallyDelivered": "वितरित",
       "cancelled": "रद्द",
       "refunded": "रिफंड हो गया",
       "partiallyRefunded": "आंशिक रिफंड"
@@ -366,7 +367,8 @@
       "failed": "भुगतान विफल रहा।"
     },
     "shipTo": {
-      "title": "यहाँ भेजें"
+      "title": "यहाँ भेजें",
+      "none": "कोई डिलीवरी पता नहीं — यह ऑर्डर एक डाउनलोड है"
     },
     "cancel": {
       "action": "ऑर्डर रद्द करें",

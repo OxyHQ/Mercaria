@@ -756,6 +756,7 @@
     "orderStatus": {
       "cancelled": "Cancelled",
       "delivered": "Delivered",
+      "digitallyDelivered": "Delivered",
       "paid": "Paid",
       "partiallyRefunded": "Partially refunded",
       "pendingPayment": "Pending payment",
@@ -816,6 +817,7 @@
       "refundFallbackLabel": "Refund",
       "refunds": "Refunds",
       "shipTo": "Ship to",
+      "shipToNone": "No delivery address — this order is a download",
       "subtitle": "Order detail",
       "title": "Order",
       "trackingLabel": "Tracking number (optional)",
@@ -896,6 +898,7 @@
     "status": {
       "cancelled": "Cancelled",
       "delivered": "Delivered",
+      "digitallyDelivered": "Delivered",
       "paid": "Paid",
       "partiallyRefunded": "Part. refunded",
       "pendingPayment": "Pending",

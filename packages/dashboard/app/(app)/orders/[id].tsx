@@ -195,6 +195,21 @@ function TotalsCard({ order }: { order: MerchantOrder }) {
 function ShippingAddressCard({ order }: { order: MerchantOrder }) {
   const { t, locale } = useTranslation();
   const a = order.shippingAddress;
+  if (!a) {
+    /**
+     * A DIGITAL order has no address at all (#1015, ADR 0010 D8) — absent, not
+     * blank. Saying so beats an empty card: a merchant looking at a download order
+     * needs to know nothing is missing.
+     */
+    return (
+      <View className="rounded-2xl border border-border bg-surface p-4">
+        <Text className="mb-2 text-sm font-semibold text-foreground">
+          {t("orders.detail.shipTo")}
+        </Text>
+        <Text className="text-sm text-muted-foreground">{t("orders.detail.shipToNone")}</Text>
+      </View>
+    );
+  }
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <Text className="mb-2 text-sm font-semibold text-foreground">{t("orders.detail.shipTo")}</Text>

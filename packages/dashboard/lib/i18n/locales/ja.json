@@ -756,6 +756,7 @@
     "orderStatus": {
       "cancelled": "キャンセル済み",
       "delivered": "配達済み",
+      "digitallyDelivered": "配信済み",
       "paid": "支払い済み",
       "partiallyRefunded": "一部返金済み",
       "pendingPayment": "支払い待ち",
@@ -816,6 +817,7 @@
       "refundFallbackLabel": "返金",
       "refunds": "返金",
       "shipTo": "配送先",
+      "shipToNone": "お届け先住所はありません — このご注文はダウンロードです",
       "subtitle": "注文の詳細",
       "title": "注文",
       "trackingLabel": "追跡番号（任意）",
@@ -896,6 +898,7 @@
     "status": {
       "cancelled": "キャンセル済み",
       "delivered": "配達済み",
+      "digitallyDelivered": "配信済み",
       "paid": "支払い済み",
       "partiallyRefunded": "一部返金",
       "pendingPayment": "支払い待ち",

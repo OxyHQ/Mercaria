@@ -334,6 +334,7 @@
       "processing": "Processing",
       "shipped": "Shipped",
       "delivered": "Delivered",
+      "digitallyDelivered": "Delivered",
       "cancelled": "Cancelled",
       "refunded": "Refunded",
       "partiallyRefunded": "Partially refunded"
@@ -366,7 +367,8 @@
       "failed": "Payment failed."
     },
     "shipTo": {
-      "title": "Ship to"
+      "title": "Ship to",
+      "none": "No delivery address — this order is a download"
     },
     "cancel": {
       "action": "Cancel order",

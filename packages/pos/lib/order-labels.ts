@@ -22,6 +22,11 @@ export const ORDER_STATUS_LABEL_KEYS: Record<OrderStatus, string> = {
   processing: "orders.status.processing",
   shipped: "orders.status.shipped",
   delivered: "orders.status.delivered",
+  // #1015: a digital order's completion signal (ADR 0010 D9). A POS never places
+  // one — there is nothing to hand over at a counter — but the map is exhaustive
+  // over the union on purpose, so it arrives here rather than rendering a blank
+  // line at a till.
+  digitally_delivered: "orders.status.digitallyDelivered",
   cancelled: "orders.status.cancelled",
   refunded: "orders.status.refunded",
   partially_refunded: "orders.status.partiallyRefunded",

@@ -92,6 +92,8 @@ flowchart LR
         M_Connector_pins["Connector pins"]
         M_Native_variant_images["Native variant images"]
         M_Discovery["Discovery"]
+        M_Digital_deliverables["Digital deliverables"]
+        M_Digital_licences_and_buyer_rights["Digital licences and buyer rights"]
     end
     subgraph outside["Pre-existing tables the epic attaches to"]
         direction TB
@@ -107,6 +109,8 @@ flowchart LR
         X_connections[("connections")]
         X_listing_images[("listing_images")]
         X_listings[("listings")]
+        X_order_items[("order_items")]
+        X_orders[("orders")]
         X_product_variants[("product_variants")]
         X_source_records[("source_records")]
         X_stores[("stores")]
@@ -118,6 +122,7 @@ flowchart LR
     M_Proposals --> M_Product_types
     M_Proposals --> M_Variant_axes_and_claims
     M_External_mappings --> M_Product_types
+    M_Digital_licences_and_buyer_rights --> M_Digital_deliverables
     M_Taxonomy --> X_catalog_sources
     M_Taxonomy --> X_categories
     M_Classification --> X_canonical_products
@@ -159,6 +164,12 @@ flowchart LR
     M_Native_variant_images --> X_listing_images
     M_Native_variant_images --> X_listings
     M_Native_variant_images --> X_product_variants
+    M_Digital_deliverables --> X_canonical_products
+    M_Digital_deliverables --> X_canonical_variants
+    M_Digital_deliverables --> X_stores
+    M_Digital_licences_and_buyer_rights --> X_order_items
+    M_Digital_licences_and_buyer_rights --> X_orders
+    M_Digital_licences_and_buyer_rights --> X_stores
 ```
 
 **2 foreign keys point the other way** — from a table outside the epic into
@@ -173,7 +184,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**14 modules**, **14 writing directories**,
+**16 modules**, **15 writing directories**,
 **4 tables written from more than one directory** and
 **4 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -189,6 +200,7 @@ flowchart LR
     W_db_catalogLocalization["db/catalogLocalization"]
     W_db_catalogProposals["db/catalogProposals"]
     W_db_compatibility["db/compatibility"]
+    W_db_digital["db/digital"]
     W_db_discovery["db/discovery"]
     W_db_navigation["db/navigation"]
     W_db_productTypes["db/productTypes"]
@@ -210,6 +222,8 @@ flowchart LR
     M_Connector_pins(["Connector pins"])
     M_Native_variant_images(["Native variant images"])
     M_Discovery(["Discovery"])
+    M_Digital_deliverables(["Digital deliverables"])
+    M_Digital_licences_and_buyer_rights(["Digital licences and buyer rights"])
     W_db_catalog -->|"1"| M_Connector_pins
     W_db_catalog -->|"1"| M_Native_variant_images
     W_db_catalogAuthoring -->|"4"| M_Authoring
@@ -220,6 +234,8 @@ flowchart LR
     W_db_catalogProposals -->|"4"| M_Proposals
     W_db_catalogProposals -->|"1"| M_Variant_axes_and_claims
     W_db_compatibility -->|"7"| M_Compatibility
+    W_db_digital -->|"7"| M_Digital_deliverables
+    W_db_digital -->|"8"| M_Digital_licences_and_buyer_rights
     W_db_discovery -->|"2"| M_Discovery
     W_db_navigation -->|"5"| M_Navigation
     W_db_productTypes -->|"5"| M_Product_types
@@ -284,7 +300,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 59 tables created by a migration at or after `0088`
+All 74 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -751,6 +767,105 @@ erDiagram
 | `discovery_signals` | `0155` | `db/discovery` (delete/insert) |
 | `discovery_sweep_cursors` | `0155` | `db/discovery` (insert/update) |
 
+### Digital deliverables
+
+```mermaid
+erDiagram
+    digital_assets {
+    }
+    asset_versions {
+    }
+    asset_files {
+    }
+    asset_packages {
+    }
+    asset_package_files {
+    }
+    asset_file_inspections {
+    }
+    asset_provenance_signals {
+    }
+    asset_files ||--o{ asset_file_inspections : "file_id · cascade"
+    asset_versions ||--o{ asset_files : "version_id · restrict"
+    asset_files ||--o{ asset_package_files : "file_id · restrict"
+    asset_packages ||--o{ asset_package_files : "package_id · cascade"
+    asset_versions ||--o{ asset_package_files : "version_id · restrict"
+    digital_assets ||--o{ asset_packages : "asset_id · restrict"
+    asset_files |o--o{ asset_provenance_signals : "file_id · set null"
+    asset_versions ||--o{ asset_provenance_signals : "version_id · restrict"
+    canonical_variants |o--o{ asset_versions : "canonical_variant_id · restrict"
+    digital_assets ||--o{ asset_versions : "asset_id · restrict"
+    canonical_products |o--o{ digital_assets : "canonical_product_id · restrict"
+    stores ||--o{ digital_assets : "store_id · restrict"
+```
+
+Also names, from outside the epic: `canonical_products`, `canonical_variants`, `stores`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `digital_assets` | `0156` | `db/digital` (insert/update) |
+| `asset_versions` | `0156` | `db/digital` (insert/update) |
+| `asset_files` | `0156` | `db/digital` (insert/update) |
+| `asset_packages` | `0156` | `db/digital` (insert) |
+| `asset_package_files` | `0156` | `db/digital` (insert) |
+| `asset_file_inspections` | `0156` | `db/digital` (insert) |
+| `asset_provenance_signals` | `0156` | `db/digital` (insert) |
+
+### Digital licences and buyer rights
+
+```mermaid
+erDiagram
+    asset_licences {
+    }
+    asset_licence_versions {
+    }
+    asset_licence_options {
+    }
+    asset_rights {
+    }
+    asset_right_events {
+    }
+    asset_download_grants {
+    }
+    asset_download_events {
+    }
+    asset_variant_bindings {
+    }
+    asset_download_grants |o--o{ asset_download_events : "grant_id · set null"
+    asset_files |o--o{ asset_download_events : "file_id · set null"
+    asset_rights |o--o{ asset_download_events : "right_id · restrict"
+    asset_files ||--o{ asset_download_grants : "file_id · restrict"
+    asset_rights ||--o{ asset_download_grants : "right_id · restrict"
+    asset_licence_versions ||--o{ asset_licence_options : "licence_version_id · restrict"
+    asset_packages ||--o{ asset_licence_options : "package_id · restrict"
+    digital_assets ||--o{ asset_licence_options : "asset_id · restrict"
+    asset_licences ||--o{ asset_licence_versions : "licence_id · restrict"
+    stores |o--o{ asset_licences : "store_id · restrict"
+    asset_rights ||--o{ asset_right_events : "right_id · restrict"
+    asset_licence_versions ||--o{ asset_rights : "licence_version_id · restrict"
+    asset_packages ||--o{ asset_rights : "package_id · restrict"
+    asset_versions ||--o{ asset_rights : "purchased_version_id · restrict"
+    digital_assets ||--o{ asset_rights : "asset_id · restrict"
+    order_items |o--o{ asset_rights : "order_item_id · restrict"
+    orders |o--o{ asset_rights : "order_id · restrict"
+    asset_licence_options ||--o{ asset_variant_bindings : "licence_option_id · restrict"
+```
+
+Also names, from other #367 modules: `asset_files`, `asset_packages`, `asset_versions`, `digital_assets`.
+
+Also names, from outside the epic: `order_items`, `orders`, `stores`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `asset_licences` | `0156` | `db/digital` (insert) |
+| `asset_licence_versions` | `0156` | `db/digital` (insert/update) |
+| `asset_licence_options` | `0156` | `db/digital` (insert) |
+| `asset_rights` | `0156` | `db/digital` (insert/update) |
+| `asset_right_events` | `0156` | `db/digital` (insert) |
+| `asset_download_grants` | `0156` | `db/digital` (delete/insert/update) |
+| `asset_download_events` | `0156` | `db/digital` (insert) |
+| `asset_variant_bindings` | `0156` | `db/digital` (insert) |
+
 ## 4. What the derivation found
 
 Counts, so that a diagram that quietly stopped measuring anything is visible as a number that
@@ -758,18 +873,18 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 59 |
-| Modules they are grouped into | 14 |
-| Foreign keys out of an epic table | 126 |
+| Tables in the population | 74 |
+| Modules they are grouped into | 16 |
+| Foreign keys out of an epic table | 156 |
 | Foreign keys into one, from outside the epic | 2 |
-| Pre-existing tables the epic attaches to | 15 |
+| Pre-existing tables the epic attaches to | 17 |
 | Relationships the schema proves are 1:1 | 1 |
-| Relationships whose parent is optional (nullable FK) | 66 |
-| Directories that write an epic table | 14 |
+| Relationships whose parent is optional (nullable FK) | 75 |
+| Directories that write an epic table | 15 |
 | Tables written from more than one directory | 4 |
 | Tables no application code writes | 4 |
 
-`ON DELETE` across those 126 foreign keys: **42** `cascade`, **2** `no action`, **82** `restrict`.
+`ON DELETE` across those 156 foreign keys: **44** `cascade`, **2** `no action`, **107** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 

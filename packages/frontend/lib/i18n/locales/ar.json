@@ -334,6 +334,7 @@
       "processing": "قيد التجهيز",
       "shipped": "تم الشحن",
       "delivered": "تم التسليم",
+      "digitallyDelivered": "تم التسليم",
       "cancelled": "ملغى",
       "refunded": "مسترد",
       "partiallyRefunded": "مسترد جزئيًا"
@@ -366,7 +367,8 @@
       "failed": "فشل الدفع."
     },
     "shipTo": {
-      "title": "الشحن إلى"
+      "title": "الشحن إلى",
+      "none": "لا يوجد عنوان تسليم — هذا الطلب عبارة عن تنزيل"
     },
     "cancel": {
       "action": "إلغاء الطلب",
