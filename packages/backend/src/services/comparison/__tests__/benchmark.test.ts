@@ -59,6 +59,23 @@ function line(lineId: string, quantity = 1): BasketRequestLine {
   return { lineId, canonicalProductId: `prod-${lineId}`, quantity };
 }
 
+/**
+ * The budget the exhaustive-search case runs under, and the bound it asserts.
+ *
+ * ONE constant for both so they cannot drift apart. If the search ever costs more
+ * than this, the solver stops at the deadline AND the elapsed assertion fails —
+ * which is the honest pair of symptoms. Two numbers would let the budget sit above
+ * the bound, where the search completes and the assertion still fails, or below it,
+ * where the deadline expires and the status assertion fails for a reason the
+ * message does not mention.
+ *
+ * Deliberately NOT `SOLVER_TIME_BUDGET_MS`: that is the production figure, 750ms,
+ * chosen for a live request. A test that reads it is asserting that this search
+ * fits a request budget on whatever machine CI happened to give it, which is not
+ * the claim this case makes.
+ */
+const EXHAUSTIVE_SEARCH_BUDGET_MS = 10_000;
+
 function basketRequest(
   lines: readonly BasketRequestLine[],
   overrides: Partial<BasketRequest> = {},
@@ -608,7 +625,28 @@ describe('scenario 11 — high candidate counts and the time limit', () => {
     );
 
     const started = Date.now();
-    const { results } = solveAll(basketRequest(lines), candidates);
+    // The budget is INJECTED, and the two assertions below are why.
+    //
+    // This case names a question about the SEARCH — does an exhaustive pass over
+    // the merchant cap prove optimality — and with the production
+    // `SOLVER_TIME_BUDGET_MS` (750ms) in force it was answering a question about
+    // the RUNNER instead. The solver degrades to `approximate` /
+    // `time_limit_reached` when the clock passes its budget, which is correct
+    // production behaviour and a false negative here: measured on #1015's branch,
+    // this went red twice on CI with `approximate` while passing locally, because
+    // that branch added ~20 parallel test files and the contention pushed one
+    // solve past 750ms. Nothing about the search had changed.
+    //
+    // So correctness and affordability are measured SEPARATELY, which is strictly
+    // more than the single assertion did: the status below cannot be reached by a
+    // deadline expiring, and `elapsed` below still fails if the search becomes
+    // expensive. Both read the same constant, so a runner slow enough to break the
+    // second cannot quietly weaken the first.
+    //
+    // The degradation branch is not left untested — `solver.test.ts` drives it
+    // deterministically with `timeBudgetMs: -1`, which is the established spelling
+    // for "the deadline has already passed" and needs no clock at all.
+    const { results } = solveAll(basketRequest(lines), candidates, EXHAUSTIVE_SEARCH_BUDGET_MS);
     const elapsed = Date.now() - started;
 
     const cheapest = resultFor(results, 'cheapest_known_item_prices');
@@ -617,7 +655,7 @@ describe('scenario 11 — high candidate counts and the time limit', () => {
     expect(cheapest.plan.coveredLineIds).toHaveLength(6);
     // The complexity boundary is documented as affordable; this is the number
     // behind that claim. Generous, because CI shares a runner.
-    expect(elapsed).toBeLessThan(10_000);
+    expect(elapsed).toBeLessThan(EXHAUSTIVE_SEARCH_BUDGET_MS);
   });
 
   it('past the merchant cap it reports `approximate` and still returns a plan', () => {
