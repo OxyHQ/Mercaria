@@ -10,9 +10,12 @@
 import { Queue, type QueueOptions } from 'bullmq';
 import { getQueueConnection, isQueueEnabled } from './connection.js';
 import {
+  MARKETPLACE_DIGITAL_QUEUE,
   MARKETPLACE_EVENTS_QUEUE,
   MARKETPLACE_MAINTENANCE_QUEUE,
   MARKETPLACE_SYNC_QUEUE,
+  DIGITAL_BACKOFF_BASE_MS,
+  DIGITAL_JOB_ATTEMPTS,
   EVENTS_JOB_ATTEMPTS,
   EVENTS_BACKOFF_BASE_MS,
   MAINTENANCE_JOB_ATTEMPTS,
@@ -22,6 +25,7 @@ import {
   REMOVE_ON_FAIL_COUNT,
 } from './constants.js';
 import type {
+  MarketplaceDigitalJobData,
   MarketplaceEventJobData,
   MaintenanceJobData,
   MarketplaceSyncJobData,
@@ -43,6 +47,7 @@ function baseQueueOptions(attempts: number, backoffDelayMs: number): QueueOption
 let eventsQueue: Queue<MarketplaceEventJobData> | null = null;
 let maintenanceQueue: Queue<MaintenanceJobData> | null = null;
 let syncQueue: Queue<MarketplaceSyncJobData> | null = null;
+let digitalQueue: Queue<MarketplaceDigitalJobData> | null = null;
 
 /** Get the events queue, or null when Redis is not configured. */
 export function getEventsQueue(): Queue<MarketplaceEventJobData> | null {
@@ -72,6 +77,22 @@ export function getSyncQueue(): Queue<MarketplaceSyncJobData> | null {
 }
 
 /**
+ * Get the digital-inspection queue (#1015 W4), or null when Redis is not
+ * configured. Producers fall back to running the handler inline, which is what
+ * keeps an upload inspectable at all on a deployment with no Redis.
+ */
+export function getDigitalQueue(): Queue<MarketplaceDigitalJobData> | null {
+  if (!isQueueEnabled()) return null;
+  if (!digitalQueue) {
+    digitalQueue = new Queue<MarketplaceDigitalJobData>(
+      MARKETPLACE_DIGITAL_QUEUE,
+      baseQueueOptions(DIGITAL_JOB_ATTEMPTS, DIGITAL_BACKOFF_BASE_MS),
+    );
+  }
+  return digitalQueue;
+}
+
+/**
  * Get the maintenance (repeatable-job) queue, or null when Redis is not
  * configured. Repeatable schedules are registered onto this queue by
  * `scheduler.ts`.
@@ -90,15 +111,20 @@ export function getMaintenanceQueue(): Queue<MaintenanceJobData> | null {
 /** Close all open producer queues and null them. Used by {@link shutdownQueues}. */
 export async function closeQueues(): Promise<void> {
   const open: Array<
-    Queue<MarketplaceEventJobData> | Queue<MaintenanceJobData> | Queue<MarketplaceSyncJobData>
+    | Queue<MarketplaceEventJobData>
+    | Queue<MaintenanceJobData>
+    | Queue<MarketplaceSyncJobData>
+    | Queue<MarketplaceDigitalJobData>
   > = [];
   if (eventsQueue) open.push(eventsQueue);
   if (maintenanceQueue) open.push(maintenanceQueue);
   if (syncQueue) open.push(syncQueue);
+  if (digitalQueue) open.push(digitalQueue);
 
   await Promise.allSettled(open.map((q) => q.close()));
 
   eventsQueue = null;
   maintenanceQueue = null;
   syncQueue = null;
+  digitalQueue = null;
 }

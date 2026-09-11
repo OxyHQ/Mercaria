@@ -69,6 +69,8 @@ it and can only rise.
 | Connector pins | `db/schema/connectorPins.ts` | — | `listing_pin_releases` |
 | Native variant images | `db/schema/catalog.ts` | `db/catalog/variantRepository.ts` | `product_variant_images` |
 | Discovery | `db/schema/discovery.ts` | `db/discovery/` (3) | `discovery_signals`, `discovery_sweep_cursors` |
+| Digital deliverables | `db/schema/digitalAssets.ts` | `db/digital/assetRepository.ts` | `digital_assets`, `asset_versions`, `asset_files`, `asset_packages`, `asset_package_files`, `asset_file_inspections`, `asset_provenance_signals` |
+| Digital licences and buyer rights | `db/schema/digitalRights.ts` | `db/digital/licenceRepository.ts`, `rightRepository.ts`, `downloadRepository.ts`, `bindingRepository.ts` | `asset_licences`, `asset_licence_versions`, `asset_licence_options`, `asset_rights`, `asset_right_events`, `asset_download_grants`, `asset_download_events`, `asset_variant_bindings` |
 
 Two tables in that list are owned by a module their NAME does not name, and both
 were argued rather than assumed:
@@ -86,12 +88,36 @@ The registry itself was **not** forked: `attribute_definitions` and its seven
 siblings stay #94's, extended in place. There is one attribute registry
 (`db/schema/attributeRegistry.ts`).
 
-**Two rows are not #367's, and they are here anyway.** `listing_pin_releases`
-came from #427 (`0099`) and `product_variant_images` from #850 (`0133`). A
-reader arriving with the question "who owns this table" does not know which
-issue number it landed under, so scoping the map to one issue would answer them
-with silence — which is the failure this document just had. The census is
-scoped by MIGRATION BOUNDARY for the same reason.
+**Four rows are not #367's, and they are here anyway.** `listing_pin_releases`
+came from #427 (`0099`), `product_variant_images` from #850 (`0133`), and the two
+DIGITAL rows from #1015 (`0156`). A reader arriving with the question "who owns
+this table" does not know which issue number it landed under, so scoping the map
+to one issue would answer them with silence — which is the failure this document
+just had. The census is scoped by MIGRATION BOUNDARY for the same reason.
+
+**The two digital rows are fifteen tables of a domain that is not the catalogue**,
+and they are in this map rather than exempted from it for exactly the reason the
+paragraph above gives. They sit ON TOP of the canonical graph and add no column to
+it: a digital product is a `canonical_products` row with `canonical_variants` like
+any other, and what these tables add is what gets HANDED OVER, which the catalogue
+has never modelled for anything. Their own design document is
+[`digital-commerce.md`](digital-commerce.md) and the binding decision is
+[ADR 0010](adr/0010-digital-commerce.md); what this map contributes is the one
+answer it exists to give, which is who issues the statements.
+
+Two of the fifteen are worth calling out here because their owner is not the one
+their name suggests:
+
+- **`asset_variant_bindings` is the digital domain's, not the catalogue's**, even
+  though its `variant_id` names a `product_variants` row. The binding is what makes
+  a catalogue variant sell a licence option, and it carries no foreign key
+  precisely so a connector re-keying a variant cannot fail against it (ADR 0010).
+  Putting it in `db/schema/catalog.ts` would have made every physical variant's
+  schema file mention a digital concept.
+- **`asset_download_grants` has a sweeper, not a lifecycle.** It is the only table
+  in these two rows whose rows are DELETED, and
+  `asset_download_events.grant_id` is `ON DELETE SET NULL` so the audit survives
+  the sweep. Everything else here is append-only or status-only.
 
 **`product_variant_images` lives in `db/schema/catalog.ts`, not in a schema file
 of its own** — the `categories` situation one row up, and the reason a

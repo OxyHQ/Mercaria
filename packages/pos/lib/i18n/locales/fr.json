@@ -126,6 +126,7 @@
     "status": {
       "cancelled": "Annulée",
       "delivered": "Livrée",
+      "digitallyDelivered": "Livré",
       "paid": "Payée",
       "partiallyRefunded": "Partiellement remboursée",
       "pendingPayment": "En attente de paiement",

@@ -3893,7 +3893,75 @@ export interface AppConfig {
   readonly pickup: PickupConfig;
   readonly catalogAuthoring: CatalogAuthoringConfig;
   readonly catalogProposals: CatalogProposalsConfig;
+  readonly digital: DigitalCommerceConfig;
   readonly postgres: PostgresConfig;
+}
+
+/**
+ * The digital-commerce levers (#1015 acceptance criterion 19, ADR 0010 D13).
+ *
+ * FIVE independent switches, and the independence is the requirement rather than
+ * a nicety: *"feature flags can independently disable uploads, publication, paid
+ * checkout, downloads or a digital vertical WITHOUT STRANDING PRIOR PURCHASES"*.
+ * One master flag could not do that — turning it off to stop new uploads would
+ * also stop every existing buyer re-downloading what they already own, which is
+ * the one outcome none of these levers may cause.
+ *
+ * So they are ordered by how much they take away, and `downloadsEnabled` is the
+ * only one that touches an existing right. It defaults TRUE and is an INCIDENT
+ * lever, not a rollout one — the shape `guest.issuanceEnabled` has, and for the
+ * same reason: the thing you reach for mid-incident must not be the thing that
+ * destroys what buyers hold.
+ *
+ * Everything else defaults FALSE, because digital commerce has a launch gate in
+ * front of it that is not a code review: #1015 W11 requirement 9 and acceptance
+ * criterion 15 require payment-provider, tax and legal sign-off PER MARKET, and a
+ * deployment that shipped this enabled would be selling electronically supplied
+ * services before that happened.
+ */
+export interface DigitalCommerceConfig {
+  /**
+   * Whether a creator may upload asset files at all — `DIGITAL_UPLOADS_ENABLED`.
+   *
+   * Gates the MOUNT of the creator upload routes (404 when off, the
+   * `STRIPE_ENABLED` rule: an unconfigured surface does not exist rather than
+   * answering 401). Off does not touch a published asset.
+   */
+  readonly uploadsEnabled: boolean;
+  /**
+   * Whether a version may move to `published` — `DIGITAL_PUBLICATION_ENABLED`.
+   *
+   * Separate from uploads so a creator can stage work while publication is
+   * paused, which is what a moderation backlog actually needs.
+   */
+  readonly publicationEnabled: boolean;
+  /**
+   * Whether a digital offer may be CHECKED OUT for money —
+   * `DIGITAL_PAID_CHECKOUT_ENABLED`.
+   *
+   * The launch gate. Off, a digital listing is browsable and a FREE claim still
+   * works; on, it is a tax and consumer-law surface in every market it is on in.
+   */
+  readonly paidCheckoutEnabled: boolean;
+  /**
+   * Whether download grants may be minted — `DIGITAL_DOWNLOADS_ENABLED`,
+   * default TRUE.
+   *
+   * The only lever that reaches an existing right, hence the only one defaulting
+   * on. Turning it off refuses new grants with `downloads_disabled` and leaves
+   * every right `active`, so flipping it back restores access with nothing to
+   * repair.
+   */
+  readonly downloadsEnabled: boolean;
+  /**
+   * The verticals this deployment sells — `DIGITAL_ENABLED_VERTICALS`, a
+   * comma-separated list of {@link DigitalVertical} keys, default empty.
+   *
+   * An ALLOW-list, never a block-list, for `services/payments/redact.ts`'s
+   * reason: a block-list is correct only until a new vertical is added, and the
+   * new one would then be live in every market on the day it merged.
+   */
+  readonly enabledVerticals: readonly string[];
 }
 
 /**
@@ -4778,6 +4846,18 @@ export const config: AppConfig = Object.freeze({
     duplicateNearThreshold: numEnv('CATALOG_PROPOSAL_DUPLICATE_NEAR_THRESHOLD', 0.45),
     backfillPageSize: intEnv('CATALOG_PROPOSAL_BACKFILL_PAGE_SIZE', 100),
     pageSize: intEnv('CATALOG_PROPOSAL_PAGE_SIZE', 50),
+  }),
+  digital: Object.freeze({
+    uploadsEnabled: boolEnv('DIGITAL_UPLOADS_ENABLED', false),
+    publicationEnabled: boolEnv('DIGITAL_PUBLICATION_ENABLED', false),
+    paidCheckoutEnabled: boolEnv('DIGITAL_PAID_CHECKOUT_ENABLED', false),
+    downloadsEnabled: boolEnv('DIGITAL_DOWNLOADS_ENABLED', true),
+    enabledVerticals: Object.freeze(
+      strEnv('DIGITAL_ENABLED_VERTICALS', '')
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => value !== ''),
+    ),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

@@ -769,6 +769,7 @@
     "orderStatus": {
       "cancelled": "Cancel·lada",
       "delivered": "Lliurada",
+      "digitallyDelivered": "Lliurat",
       "paid": "Pagada",
       "partiallyRefunded": "Reemborsada parcialment",
       "pendingPayment": "Pagament pendent",
@@ -830,6 +831,7 @@
       "refundFallbackLabel": "Reemborsament",
       "refunds": "Reemborsaments",
       "shipTo": "Enviament a",
+      "shipToNone": "Sense adreça d'enviament: aquesta comanda és una descàrrega",
       "subtitle": "Detall de la comanda",
       "title": "Comanda",
       "trackingLabel": "Número de seguiment (opcional)",
@@ -911,6 +913,7 @@
     "status": {
       "cancelled": "Cancel·lada",
       "delivered": "Lliurada",
+      "digitallyDelivered": "Lliurat",
       "paid": "Pagada",
       "partiallyRefunded": "Reemb. parcial",
       "pendingPayment": "Pendent",

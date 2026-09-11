@@ -1,6 +1,18 @@
 # What Mercaria's catalogue classifies (#367 line 144, ADR 0007 D15)
 
-A physical good, and nothing else.
+A physical good or a digital good, and nothing else.
+
+> **Amended by [ADR 0010](adr/0010-digital-commerce.md) on 2026-09-11.** This
+> document was written when the answer was *"a physical good, and nothing else"*,
+> and #1015 admitted `digital_good` through the procedure the last section
+> describes — discharging all seven prerequisites its exclusion named, moving the
+> exact-membership assertion, and removing its detector. **It is kept in its
+> original voice below**, because the walls it measured are what the admission had
+> to pay for and a rewritten document would hide the price. Every sentence about
+> `service`, `stored_value`, `event_admission` and `consumer_subscription` is still
+> current. Every sentence about a digital good is HISTORY, and
+> [digital-commerce.md](digital-commerce.md) is what replaced it; the table below
+> marks each row that moved.
 
 Epic #367 line 144 asks to *"define how bundles, services, digital goods and
 non-standard future commerce types fit or are intentionally excluded"*. This is
@@ -21,7 +33,8 @@ pins) · `PRODUCT_TYPE_COMPOSITION_AXIS_KEYS` in
 |---|---|---|
 | **Bundles** | **FIT.** No product type of their own. | ADR 0002 D15's `bundle_components`, already built. Composition may never become a variant axis — a rendered CHECK on two tables. |
 | **Multipacks** | **FIT.** No product type of their own. | A `pack_count` variant of the same product with its own GTIN. `pack_count` is deliberately absent from the forbidden-axis tuple, and a test pins the absence. |
-| **Services, digital goods, stored value, event admissions, consumer subscriptions** | **EXCLUDED.** | Six comment-stripped detectors over both source trees, plus six existing structural walls now pinned. |
+| **Services, stored value, event admissions, consumer subscriptions** | **EXCLUDED.** | Five comment-stripped detectors over both source trees, plus the structural walls pinned by `commerce-type-structural-walls.test.ts`. |
+| **Digital goods** | ~~EXCLUDED~~ → **CLASSIFIED** since #1015 (ADR 0010). | The seven prerequisites its exclusion named, discharged; `DIGITAL_GOOD_PREREQUISITE_DISCHARGES` is the ledger and `digital-commerce-walls.test.ts` binds every citation to something that exists. |
 | **Future types** | **A procedure, not an extension point.** | A closed prerequisite vocabulary and a total disposition map. |
 
 ---
@@ -100,10 +113,13 @@ The walls, each measured rather than assumed:
 | Tax is the goods place-of-supply rule | `rateMatchesRegion` reads the shipping country, region and postal code and nothing else. No billing country, residence or other consumer-location evidence is read anywhere | A digital supply, whose place of supply is the consumer's location |
 
 And the two facts about representation, established by walking rather than by
-recall: **nothing in the repository delivers a non-physical item** — no download,
-licence key, redemption, entitlement or activation code exists in any table,
-type, DTO or migration in the schema's whole history — and **nothing represents
-a service sold to a buyer**: no duration, no schedulable resource, no
+recall. The first was true when this was written and **is no longer** — #1015 built
+exactly the download delivery it describes as absent, and
+[digital-commerce.md](digital-commerce.md) is where it lives; the second still
+holds. As written: **nothing in the repository delivers a non-physical item** — no
+download, licence key, redemption, entitlement or activation code exists in any
+table, type, DTO or migration in the schema's whole history — and **nothing
+represents a service sold to a buyer**: no duration, no schedulable resource, no
 unit-of-measure, no appointment. `services/retail-service-requests/` is a
 post-sale remedy queue and models nothing sellable.
 
@@ -168,7 +184,11 @@ only until the provider adds a field. ADR 0007 D14 already bounds JSONB to three
 named uses.
 
 So the future is a procedure. `COMMERCE_TYPE_PREREQUISITES` is a CLOSED
-nine-member tuple, each member naming one of the walls above:
+nine-member tuple, each member naming one of the walls above. **It has been walked
+once, by #1015 for `digital_good`**, and the walk found one hole worth recording:
+step 1 deletes the very list step 3 is measured against, because a classified type
+carries no `prerequisites` field. `DIGITAL_GOOD_PREREQUISITES` preserves it, and a
+future admission should do the same. The members:
 
 `delivery_destination` · `order_address_snapshot` ·
 `fulfilment_completion_signal` · `entitlement_delivery` · `inventory_semantics` ·

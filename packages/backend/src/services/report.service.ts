@@ -50,6 +50,7 @@ function zeroStatusCounts(): Record<OrderStatus, number> {
     processing: 0,
     shipped: 0,
     delivered: 0,
+    digitally_delivered: 0,
     cancelled: 0,
     refunded: 0,
     partially_refunded: 0,

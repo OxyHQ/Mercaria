@@ -449,6 +449,33 @@ export const PROTECTED_COLUMNS = {
    */
   guest_abuse_counters: ['subjectHash'],
   guest_abuse_interventions: ['subjectHash'],
+
+  /**
+   * The object-storage key of a digital asset file (#1015, ADR 0010).
+   *
+   * Not a credential and worse than one in a way `channel_api_keys.hash` is not:
+   * it is the INPUT a signed URL is minted from, so a key that reaches a client
+   * turns the download authorizer into an optional step for anybody who can read
+   * a response body. The buyer library, the creator's own asset screen and the
+   * public product page all read these rows whole, and #1015 boundary 3 — a file
+   * URL is never the ownership record — is unholdable if the thing a URL is made
+   * of ships with the row.
+   *
+   * The one path that needs it is `services/digital/download.service.ts`, which
+   * names it explicitly after authorizing. That read is the greppable opt-in.
+   */
+  asset_files: ['storageKey'],
+
+  /**
+   * The digest of a download-grant token (#1015 W12 threat 3).
+   *
+   * `merchant_claim_challenges`' reason exactly: the digest is irreversible and
+   * handing it out still hands an attacker an OFFLINE oracle to test guessed
+   * tokens against, with no rate limit in front of it. The grant is redeemed by
+   * re-hashing what the caller presents and comparing, so nothing outside
+   * `download.service.ts` ever needs to read the stored value.
+   */
+  asset_download_grants: ['tokenHash'],
 } as const satisfies ProtectedColumnRegistry;
 
 /**

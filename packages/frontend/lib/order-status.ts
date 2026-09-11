@@ -23,6 +23,10 @@ import type { OrderStatus } from "@mercaria/shared-types";
  * the locale store has rehydrated, so a sentence here would freeze whichever
  * language loaded first — the keys are resolved with `t(...)` at the render
  * site.
+ *
+ * NINE since #1015: `digitally_delivered` is a digital order's completion signal
+ * (ADR 0010 D9) and arrived here because the `Record` above refuses to compile
+ * without it, which is the whole reason it is a `Record`.
  */
 export const ORDER_STATUS_LABEL_KEYS: Readonly<Record<OrderStatus, string>> = {
   pending_payment: "orders.status.pendingPayment",
@@ -30,6 +34,7 @@ export const ORDER_STATUS_LABEL_KEYS: Readonly<Record<OrderStatus, string>> = {
   processing: "orders.status.processing",
   shipped: "orders.status.shipped",
   delivered: "orders.status.delivered",
+  digitally_delivered: "orders.status.digitallyDelivered",
   cancelled: "orders.status.cancelled",
   refunded: "orders.status.refunded",
   partially_refunded: "orders.status.partiallyRefunded",

@@ -756,6 +756,7 @@
     "orderStatus": {
       "cancelled": "Storniert",
       "delivered": "Zugestellt",
+      "digitallyDelivered": "Geliefert",
       "paid": "Bezahlt",
       "partiallyRefunded": "Teilweise erstattet",
       "pendingPayment": "Zahlung ausstehend",
@@ -816,6 +817,7 @@
       "refundFallbackLabel": "Rückerstattung",
       "refunds": "Rückerstattungen",
       "shipTo": "Lieferadresse",
+      "shipToNone": "Keine Lieferadresse – diese Bestellung ist ein Download",
       "subtitle": "Bestelldetails",
       "title": "Bestellung",
       "trackingLabel": "Sendungsnummer (optional)",
@@ -896,6 +898,7 @@
     "status": {
       "cancelled": "Storniert",
       "delivered": "Zugestellt",
+      "digitallyDelivered": "Geliefert",
       "paid": "Bezahlt",
       "partiallyRefunded": "Teilw. erstattet",
       "pendingPayment": "Ausstehend",

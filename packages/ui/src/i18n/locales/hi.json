@@ -876,6 +876,104 @@
     "variantSwatches": {
       "showMoreA11y": "%{option} के और विकल्प (%{more})",
       "showMore": "+%{more} और"
+    },
+    "assetViewer": {
+      "previewA11y": "%{title} की झलक",
+      "noPreview": "इस कृति की कोई सार्वजनिक झलक नहीं है।",
+      "staticOnly": "स्थिर छवि दिखाई जा रही है। यहाँ इंटरैक्टिव व्यूअर उपलब्ध नहीं है।",
+      "staticOnSmallScreen": "स्थिर छवि दिखाई जा रही है। इंटरैक्टिव व्यूअर के लिए चौड़ी स्क्रीन चाहिए।",
+      "neverTheSourceFile": "झलक बनाई गई प्रतियाँ हैं। आप जो फ़ाइलें खरीदते हैं, उन्हें इसे दिखाने के लिए कभी इस्तेमाल नहीं किया जाता।",
+      "streamedOnly": "यह झलक केवल देखने के लिए स्ट्रीम होती है और फ़ाइल के रूप में कभी नहीं दी जाती।",
+      "controls": "झलक के नियंत्रण",
+      "gestures": "घुमाने के लिए खींचें, ज़ूम के लिए स्क्रॉल या पिंच करें, खिसकाने के लिए दो उँगलियों से खींचें।",
+      "reset": "दृश्य रीसेट करें",
+      "fullscreenOpen": "झलक को पूरी स्क्रीन पर खोलें",
+      "fullscreenClose": "पूरी स्क्रीन बंद करें",
+      "wireframe": "वायरफ़्रेम",
+      "statistics": "रेंडर आँकड़े",
+      "animation": "एनिमेशन",
+      "animationOff": "कोई नहीं",
+      "refused": {
+        "role_is_not_publicly_viewable": "यह फ़ाइल खरीद का हिस्सा है, इसलिए सार्वजनिक झलक में नहीं दिखाई जाती।",
+        "visibility_requires_a_right": "यह फ़ाइल केवल खरीदने वालों के लिए है, इसलिए सार्वजनिक झलक में नहीं दिखाई जाती।"
+      }
+    },
+    "assetFacts": {
+      "measuredTitle": "Mercaria द्वारा मापा गया",
+      "measuredNote": "Mercaria ने प्रकाशित फ़ाइलों से इन्हें मापा है।",
+      "measuredBy": "%{processor} %{version} से %{date} को मापा गया",
+      "measuredBadge": "मापा गया",
+      "claimedTitle": "विक्रेता का विवरण",
+      "claimedNote": "यह विक्रेता ने लिखा है। Mercaria ने इसे मापा नहीं है।",
+      "claimedBadge": "विक्रेता का कथन",
+      "notMeasured": "मापा नहीं गया",
+      "verdict": {
+        "pending": "माप अभी पूरा नहीं हुआ है।",
+        "measured": "ये आँकड़े फ़ाइलों से मापे गए हैं।",
+        "unsupported": "इस फ़ॉर्मैट को स्वचालित रूप से मापा नहीं जा सकता।",
+        "corrupt": "फ़ाइल पढ़ी नहीं जा सकी।",
+        "missing_resources": "फ़ाइल उन संसाधनों का संदर्भ देती है जो दिए नहीं गए।",
+        "failed": "माप पूरा नहीं हुआ।",
+        "refused_too_large": "फ़ाइल मापने के लिए बहुत बड़ी थी।"
+      }
+    },
+    "assetLicence": {
+      "title": "लाइसेंस",
+      "grantedTitle": "आप क्या कर सकते हैं",
+      "notGrantedTitle": "यह लाइसेंस क्या शामिल नहीं करता",
+      "attributionTitle": "श्रेय",
+      "updatesTitle": "अपडेट",
+      "limitsTitle": "सीमाएँ",
+      "additionalTermsTitle": "विक्रेता की अपनी शर्तें",
+      "seats": "%{seats} लोगों तक इसका उपयोग कर सकते हैं",
+      "seatsUnlimited": "उपयोग करने वालों की संख्या पर कोई सीमा नहीं",
+      "projects": "%{projects} तैयार उत्पादों तक",
+      "projectsUnlimited": "तैयार उत्पादों की संख्या पर कोई सीमा नहीं",
+      "revenue": "%{amount} तक की आय",
+      "revenueUnlimited": "आय की कोई सीमा नहीं",
+      "right": {
+        "personal_use": "अपने निजी कामों में इसका उपयोग करना",
+        "commercial_project_use": "व्यावसायिक परियोजनाओं में इसका उपयोग करना",
+        "commercial_physical_production": "भौतिक प्रतियाँ बनाना और बेचना",
+        "modification": "इसमें बदलाव करना",
+        "derivative_redistribution": "तैयार कृति के भीतर बदली हुई प्रति साझा करना",
+        "source_redistribution": "फ़ाइलें जैसी दी गई थीं, वैसी ही साझा करना",
+        "sublicensing": "लाइसेंस किसी ग्राहक को आगे देना",
+        "extended_enterprise_use": "लोगों और आय की सीमाओं से आगे इसका उपयोग करना"
+      },
+      "attribution": {
+        "required": "आपको रचनाकार को श्रेय देना होगा।",
+        "optional": "श्रेय देना अच्छा है, पर ज़रूरी नहीं।",
+        "not_required": "श्रेय देना ज़रूरी नहीं है।"
+      },
+      "updatePolicy": {
+        "purchased_version_only": "आपने जो संस्करण खरीदा है वह आपके पास रहेगा। बाद का संस्करण नई खरीद होगी।",
+        "same_major_version": "बाद के वे संस्करण शामिल हैं जिनका मुख्य क्रमांक आपकी खरीद वाला ही है।",
+        "all_future_versions": "आगे आने वाले सभी संस्करण शामिल हैं।"
+      },
+      "authorship": {
+        "mercaria_reference": "Mercaria का मानक लाइसेंस पाठ",
+        "creator": "रचनाकार का अपना लाइसेंस पाठ"
+      }
+    },
+    "assetLibrary": {
+      "filesTitle": "फ़ाइलें",
+      "downloadAction": "डाउनलोड",
+      "downloadA11y": "%{file} डाउनलोड करें",
+      "notDownloadable": "केवल देखने के लिए — फ़ाइल के रूप में नहीं दी जाती",
+      "downloadsPaused": "डाउनलोड रोके गए हैं। इस खरीद की स्थिति: %{status}।",
+      "grantedOn": "%{date} को जोड़ा गया",
+      "licence": "लाइसेंस: %{licence}",
+      "purchasedVersion": "आपने %{version} खरीदा",
+      "availableVersion": "डाउनलोड के लिए उपलब्ध नवीनतम संस्करण: %{version}",
+      "updateAvailable": "अपडेट उपलब्ध",
+      "status": {
+        "active": "सक्रिय",
+        "refunded": "धन वापस किया गया",
+        "disputed_hold": "विवाद के दौरान रोका गया",
+        "revoked_for_policy": "कानूनी कारणों से वापस लिया गया",
+        "superseded": "बाद की खरीद से बदला गया"
+      }
     }
   }
 }

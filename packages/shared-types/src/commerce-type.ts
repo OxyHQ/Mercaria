@@ -1,10 +1,21 @@
 /**
- * What kind of thing Mercaria's catalogue classifies (#367, ADR 0007 D15).
+ * What kind of thing Mercaria's catalogue classifies (#367, ADR 0007 D15 as
+ * amended by ADR 0010).
  *
- * The answer is **a physical good, and nothing else**, and this module is the
- * one place that is written down. It closes the open item ADR 0007 carried:
- * *"whether bundles, services and digital goods get their own product-type
- * scopes or are excluded at launch"*.
+ * The answer is **a physical good or a digital good, and nothing else**, and this
+ * module is the one place that is written down. It closes the open item ADR 0007
+ * carried: *"whether bundles, services and digital goods get their own
+ * product-type scopes or are excluded at launch"*.
+ *
+ * ## `digital_good` was EXCLUDED until #1015, and that history is the mechanism
+ *
+ * It is admitted here under the procedure this file describes rather than by
+ * widening a tuple: its old disposition named seven prerequisites, and
+ * {@link DIGITAL_GOOD_PREREQUISITE_DISCHARGES} is a total map over exactly those
+ * seven saying what discharged each one. The map is not documentation — it is
+ * how the admission stays checkable after the exclusion it replaced is gone,
+ * because the prerequisites a classified type no longer states are otherwise
+ * unrecoverable from the diff.
  *
  * ## The four verdicts, in one sentence each
  *
@@ -17,8 +28,12 @@
  *   product with their own GTIN (ADR 0002 D15) — which is why `pack_count` is
  *   deliberately absent from `PRODUCT_TYPE_COMPOSITION_AXIS_KEYS` and a test
  *   pins that absence.
- * - **Services and digital goods are EXCLUDED**, and so are the three
- *   neighbours the repository already names in the same breath.
+ * - **Digital goods are CLASSIFIED**, since #1015 and ADR 0010: a 3D asset sold
+ *   as bytes is a canonical product with canonical variants, and what makes it
+ *   deliverable is the asset/licence/right domain rather than a second commerce
+ *   stack. See {@link DIGITAL_GOOD_PREREQUISITE_DISCHARGES}.
+ * - **Services are EXCLUDED**, and so are the three neighbours the repository
+ *   already names in the same breath.
  * - **A future type arrives through a PROCEDURE, not an extension point.**
  *   {@link COMMERCE_TYPE_DISPOSITIONS} is a total `Record`, so a member added to
  *   the tuples below fails `tsc` here until somebody says what happens to it,
@@ -56,14 +71,20 @@
 /**
  * The commerce types Mercaria's catalogue classifies.
  *
- * One member, deliberately. A tuple rather than a bare literal because the
- * disjointness test below needs two sets to compare, and because widening it is
- * then a diff that reads as what it is.
+ * TWO members since #1015. It was one for the whole of the catalogue epic, and
+ * the second arrived through the procedure at the bottom of this file rather than
+ * by an edit here — which is the only reason widening it is safe to do at all.
+ * A tuple rather than a bare union because the disjointness test below needs two
+ * sets to compare, and because widening it is then a diff that reads as what it
+ * is.
  */
-export type MercariaCommerceType = 'physical_good';
+export type MercariaCommerceType = 'physical_good' | 'digital_good';
 
 /** The tuple {@link COMMERCE_TYPE_DISPOSITIONS} and the gate both read. */
-export const MERCARIA_COMMERCE_TYPES: readonly MercariaCommerceType[] = ['physical_good'];
+export const MERCARIA_COMMERCE_TYPES: readonly MercariaCommerceType[] = [
+  'physical_good',
+  'digital_good',
+];
 
 /**
  * The commerce types Mercaria deliberately does not classify.
@@ -80,8 +101,6 @@ export const MERCARIA_COMMERCE_TYPES: readonly MercariaCommerceType[] = ['physic
 export type ExcludedCommerceType =
   /** Labour, an appointment, an installation, a repair sold as such. */
   | 'service'
-  /** A download, a licence key, a media file — anything delivered as bytes. */
-  | 'digital_good'
   /** A gift card, a voucher, store credit — a claim on future value. */
   | 'stored_value'
   /** A ticket to a dated event, admission, a seat. */
@@ -92,7 +111,6 @@ export type ExcludedCommerceType =
 /** The tuple {@link COMMERCE_TYPE_DISPOSITIONS} and the gate both read. */
 export const EXCLUDED_COMMERCE_TYPES: readonly ExcludedCommerceType[] = [
   'service',
-  'digital_good',
   'stored_value',
   'event_admission',
   'consumer_subscription',
@@ -329,18 +347,9 @@ export const COMMERCE_TYPE_DISPOSITIONS: Readonly<
       'Nothing in the repository represents a service sold to a buyer: no duration, no schedulable resource, no unit of measure, and no line shape other than a catalog variant — `order_items.variantId` is NOT NULL. `services/retail-service-requests/` is a post-sale remedy queue and models nothing sellable; a purchasable warranty does not exist, and `RETAIL_WARRANTY_BASES` carries only a statutory guarantee and a published commercial one.',
   },
   digital_good: {
-    verdict: 'excluded',
-    prerequisites: [
-      'delivery_destination',
-      'order_address_snapshot',
-      'fulfilment_completion_signal',
-      'entitlement_delivery',
-      'tax_place_of_supply',
-      'condition_semantics',
-      'withdrawal_and_guarantee_terms',
-    ],
-    evidence:
-      'No download, licence key, entitlement or redemption exists in any table, type or migration, and `digital-goods` appears in this repository only as an EXCLUDED category slug on the guest-P2P bounded scope. The tax engine matches a rate on the shipping country, region and postal code alone, which is the goods place-of-supply rule and structurally the wrong one for a digital supply.',
+    verdict: 'classified',
+    mechanism:
+      'The same catalogue graph as a physical good — category, product type, canonical product, canonical variant, listing, offer — with the DELIVERABLE modelled beside it rather than inside it: `digital_assets` -> `asset_versions` -> `asset_files`, assembled into `asset_packages`, licensed by `asset_licence_versions`, and owned by the buyer as an `asset_rights` row (#1015, ADR 0010). A materially different deliverable is a canonical VARIANT (printable, game-ready, source-files); a file format is not, because several formats belong to one purchased package. Admitted by discharging the seven prerequisites its former exclusion named — DIGITAL_GOOD_PREREQUISITE_DISCHARGES.',
   },
   stored_value: {
     verdict: 'excluded',
@@ -376,5 +385,117 @@ export const COMMERCE_TYPE_DISPOSITIONS: Readonly<
     ],
     evidence:
       "A buyer paying on a schedule has no representation: an order is placed once, and `orders` has no recurrence, term or renewal. The subscription machinery that DOES exist is #89's merchant plans — Mercaria billing a merchant for its own software — which is why `merchant_subscription_plan` and `merchant_subscription_tier` are named as FORBIDDEN inputs by the comparison and supplier-preflight domains rather than as products.",
+  },
+};
+
+/* -------------------------------------------------------------------------- */
+/* The admission that was actually performed — `digital_good` (#1015)          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The seven prerequisites `digital_good`'s exclusion named, preserved after the
+ * exclusion itself was removed.
+ *
+ * This tuple is a LEDGER ENTRY, not a live constraint, and it exists because the
+ * admission procedure has a hole that only becomes visible the first time
+ * somebody walks it: step 1 deletes the very list step 3 is measured against.
+ * Once `digital_good` is `classified`, its `prerequisites` field is gone, so
+ * "every prerequisite was discharged" is a claim nothing in the repository can
+ * check — the next reader would have to dig the old disposition out of git to
+ * find out what was promised.
+ *
+ * Copied VERBATIM from the disposition this change replaced, in the order it
+ * stated them. `inventory_semantics` and `pricing_basis` are deliberately absent
+ * because that disposition did not name them: a digital line IS a catalog
+ * variant bought in whole units, so `order_items.variant_id` and the `quantity > 0`
+ * CHECK are untouched by #1015. ADR 0010 D12 still answers what stock means for
+ * an asset, because #1015 boundary 1 asks even though the procedure did not.
+ */
+export const DIGITAL_GOOD_PREREQUISITES = [
+  'delivery_destination',
+  'order_address_snapshot',
+  'fulfilment_completion_signal',
+  'entitlement_delivery',
+  'tax_place_of_supply',
+  'condition_semantics',
+  'withdrawal_and_guarantee_terms',
+] as const satisfies readonly CommerceTypePrerequisite[];
+
+/** One of {@link DIGITAL_GOOD_PREREQUISITES}. */
+export type DigitalGoodPrerequisite = (typeof DIGITAL_GOOD_PREREQUISITES)[number];
+
+/** What discharged ONE prerequisite, and where to check it. */
+export interface CommerceTypePrerequisiteDischarge {
+  /** What now exists that did not, in one sentence a reviewer can disagree with. */
+  readonly mechanism: string;
+  /** The symbol, table or module that IS the discharge, so it is checkable. */
+  readonly citation: string;
+  /**
+   * The ADR decision that authorised it.
+   *
+   * Every entry cites ADR 0010 rather than #1015 directly: an issue records what
+   * somebody asked for and an ADR records what was decided, and a discharge is
+   * the second kind of fact.
+   */
+  readonly decision: string;
+}
+
+/**
+ * How each of {@link DIGITAL_GOOD_PREREQUISITES} was discharged.
+ *
+ * Total over the tuple, which is the `CHANNEL_ENTITY_POLICY` device again: a
+ * prerequisite that was never discharged cannot be left out of this map without
+ * failing `tsc`, so "we did six of the seven" is not a state this file can be
+ * in. `digital-commerce-walls.test.ts` asserts each citation still resolves to a
+ * real exported symbol or a real table, so an entry cannot survive the thing it
+ * cites being deleted.
+ */
+export const DIGITAL_GOOD_PREREQUISITE_DISCHARGES: Readonly<
+  Record<DigitalGoodPrerequisite, CommerceTypePrerequisiteDischarge>
+> = {
+  delivery_destination: {
+    mechanism:
+      'A fourth checkout destination, `digital_delivery`, which carries no place at all — not an address with empty fields. It is REFUSED for any checkout containing a physical line, so it cannot become a way to buy a chair with no address, and the refusal is the server\'s own check against the resolved cart rather than a client assertion.',
+    citation:
+      "CHECKOUT_DESTINATION_TYPES `digital_delivery`; services/checkout/destination.ts `DigitalFulfilment`; services/checkout.service.ts `refuseDigitalDestinationForPhysicalLines`",
+    decision: 'ADR 0010 D8',
+  },
+  order_address_snapshot: {
+    mechanism:
+      "The five required address columns on `orders` became nullable and a CHECK took their place: a `digital` order must have them ALL NULL and every other order must have them ALL NOT NULL. That is stronger than the NOT NULL it replaces, because NOT NULL permitted a fabricated street and the CHECK forbids one — #1015 boundary 16's 'no fake shipping records' is now a constraint rather than a convention.",
+    citation: "orders_shipping_address_digital_check; db/schema/orders.ts",
+    decision: 'ADR 0010 D8',
+  },
+  fulfilment_completion_signal: {
+    mechanism:
+      "A ninth order status, `digitally_delivered`, and a fourth fulfilment method, `digital`. The method joins SHIPPING_METHODS rather than making `orders.shipping_method` nullable, following `pickup` — which has been a non-shipping member of that tuple since #93 and makes the tuple a FULFILMENT vocabulary under a legacy name.",
+    citation: "ORDER_STATUSES `digitally_delivered`; SHIPPING_METHODS `digital`",
+    decision: 'ADR 0010 D9',
+  },
+  entitlement_delivery: {
+    mechanism:
+      'The whole of #1015 Workstream 2: an `asset_rights` row is the durable thing a buyer holds, created idempotently from the paid order state, and a download is authorized against it and served through a short-lived grant that is never logged. No permanent URL exists anywhere in the domain.',
+    citation: "db/schema/digitalRights.ts `assetRights`; services/digital/right.service.ts",
+    decision: 'ADR 0010 D5',
+  },
+  tax_place_of_supply: {
+    mechanism:
+      "A place of supply per LINE rather than per order: a physical line is still matched on the shipping country, region and postal code, and a digital line is matched on the consumer's country alone. The two rules are selected by the line, so a mixed order taxes each half correctly and neither borrows the other's evidence.",
+    citation:
+      "DigitalPlaceOfSupply; services/pricing.service.ts `rateMatchesPlaceOfSupply`; orders.digital_supply_country",
+    decision: 'ADR 0010 D10',
+  },
+  condition_semantics: {
+    mechanism:
+      "A digital line carries NO condition, and a CHECK says so: `order_items.condition_key` must be NULL when the line names an asset version. ITEM_CONDITION_KEYS is untouched — adding a `not_applicable` member would have given every PHYSICAL listing a way to decline to describe itself, which is exactly the erosion #90 was built against.",
+    citation: "order_items_digital_no_condition_check; db/schema/orders.ts",
+    decision: 'ADR 0010 D11',
+  },
+  withdrawal_and_guarantee_terms: {
+    mechanism:
+      "A closed DIGITAL_WITHDRAWAL_BASES vocabulary plus a consent timestamp on the order, paired by a CHECK: a `waived_on_immediate_supply` order cannot exist without the instant the buyer acknowledged the waiver. The goods conformity guarantee is replaced by conformity with the DESCRIBED deliverable, which is answerable only because measured facts and seller claims are separate tables.",
+    citation:
+      "DIGITAL_WITHDRAWAL_BASES; DIGITAL_CONFORMITY_BASIS; orders_digital_withdrawal_consent_check",
+    decision: 'ADR 0010 D11',
   },
 };

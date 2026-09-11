@@ -467,13 +467,49 @@ describe('analytics cannot read commercial standing', () => {
       return paths.filter((relative) => !population.has(relative));
     };
     const outside = outsidePopulation(swept);
-    // EXACT and empty. An exclusion list needs its own count in both directions
-    // (#448), and this one is empty because it was measured empty: every
-    // analytics-named module in the tree is a module of this domain. A future
-    // `search-analytics.ts` owned by discovery goes here WITH its reason, and
-    // the count moves in the same edit.
+    // EXACT, with a counted exclusion list. It was empty until #1015, which is the
+    // case the paragraph above predicted: `services/digital/analytics/` is the
+    // DIGITAL domain's creator analytics (W13) and shares nothing with this one but
+    // the word. It is not a module of this domain and must not join this
+    // population — doing so would make the fee and referral wall claim to cover a
+    // directory it has never read.
+    //
+    // The wall it IS under is stricter than this one and lives in its own file:
+    // `digital-analytics-boundaries` asserts that directory imports no ranking,
+    // search, fee, plan or referral module, AND that no ranking surface imports it
+    // — both directions, where this gate only asserts one.
+    const DIGITAL_CREATOR_ANALYTICS: readonly { path: string; why: string }[] = [
+      'creator-analytics.ts',
+      'facts.ts',
+      'geography.ts',
+      'launch-metrics.ts',
+      'metrics.ts',
+    ].map((file) => ({
+      path: `services/digital/analytics/${file}`,
+      why: "#1015 W13's creator analytics — the digital domain, walled from ranking in "
+        + 'both directions by its own boundary gate.',
+    }));
+    const DIGITAL_CREATOR_ANALYTICS_COUNT = 5;
+
+    // The count, in both directions (#448): an entry that appeared is a decision
+    // somebody has to record, and an entry removed puts the module back under this
+    // wall — usually right, never something to discover from a passing build.
     expect(
-      outside,
+      DIGITAL_CREATOR_ANALYTICS.length,
+      'the exclusion list moved; declare the new count in the same diff',
+    ).toBe(DIGITAL_CREATOR_ANALYTICS_COUNT);
+    // Each excused path must actually BE outside the population and actually be
+    // REACHED by the sweep — otherwise it excuses nothing while reading as a
+    // decision.
+    const sweptSet = new Set(swept);
+    for (const entry of DIGITAL_CREATOR_ANALYTICS) {
+      expect(sweptSet.has(entry.path), `${entry.path} is not reached by the sweep`).toBe(true);
+      expect(entry.why.length, `${entry.path} carries no reason`).toBeGreaterThan(20);
+    }
+
+    const excused = new Set(DIGITAL_CREATOR_ANALYTICS.map((entry) => entry.path));
+    expect(
+      outside.filter((relative) => !excused.has(relative)),
       'an analytics-named module sits outside the scanned population, so the fee and referral ' +
         'wall does not cover it — add its directory to ANALYTICS_SHARED_DIRECTORIES, or excuse ' +
         'it here with a reason and move the count',
@@ -495,8 +531,12 @@ describe('analytics cannot read commercial standing', () => {
         : readDirectory(requested),
     );
     expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
+    // The excused paths are subtracted here too, for the same reason the wall
+    // subtracts them: the control is asking whether the PLANT is reported, and a
+    // real, already-decided exclusion appearing beside it would make this compare
+    // the exclusion list instead of the probe.
     expect(
-      outsidePopulation(seeded),
+      outsidePopulation(seeded).filter((relative) => !excused.has(relative)),
       'a module the population does not cover was NOT reported outside it — the empty result ' +
         'above is a probe that cannot fail rather than a measurement',
     ).toEqual([planted]);

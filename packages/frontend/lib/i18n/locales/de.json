@@ -21,7 +21,8 @@
     "deals": "Angebote",
     "saved": "Gemerkt",
     "account": "Konto",
-    "signIn": "Anmelden"
+    "signIn": "Anmelden",
+    "threeD": "3D"
   },
   "login": {
     "signInButton": "Anmelden",
@@ -334,6 +335,7 @@
       "processing": "In Bearbeitung",
       "shipped": "Versandt",
       "delivered": "Zugestellt",
+      "digitallyDelivered": "Geliefert",
       "cancelled": "Storniert",
       "refunded": "Erstattet",
       "partiallyRefunded": "Teilweise erstattet"
@@ -366,7 +368,8 @@
       "failed": "Zahlung fehlgeschlagen."
     },
     "shipTo": {
-      "title": "Lieferadresse"
+      "title": "Lieferadresse",
+      "none": "Keine Lieferadresse – diese Bestellung ist ein Download"
     },
     "cancel": {
       "action": "Bestellung stornieren",
@@ -1523,6 +1526,59 @@
       "documentTitle": "%{title} — Mercaria",
       "empty": "Derzeit keine aktiven Angebote.",
       "loadError": "Angebote konnten nicht geladen werden. Versuche es erneut."
+    }
+  },
+  "digital": {
+    "documentTitle": "%{title} — Mercaria",
+    "browseOther": "Auch in 3D",
+    "threeD": {
+      "title": "3D",
+      "description": "Modelle zum Drucken, für Spiele und für Visualisierung – von den Menschen, die sie gemacht haben."
+    },
+    "printable": {
+      "title": "Druckbare Modelle",
+      "description": "Modelle, die für den 3D-Druck vorbereitet sind."
+    },
+    "gameAssets": {
+      "title": "Spiele-Assets",
+      "description": "Modelle, die für Spiel-Engines und Echtzeit-Darstellung vorbereitet sind."
+    },
+    "unavailable": {
+      "title": "Hier noch nicht verfügbar",
+      "body": "Digitale Produkte sind in dieser Installation abgeschaltet, deshalb gibt es nichts zu zeigen. Was Sie bereits besitzen, ist davon nicht betroffen."
+    },
+    "grid": {
+      "empty": "Hier wurde noch nichts veröffentlicht.",
+      "emptyFiltered": "Kein Werk passt zu diesen Filtern. Nehmen Sie einen heraus, um mehr zu sehen.",
+      "emptyPricesWithdrawn": "Preise sind gerade nicht verfügbar, deshalb kann hier nichts aufgeführt werden."
+    },
+    "library": {
+      "title": "Ihre Bibliothek",
+      "description": "Alles, was Sie gekauft oder eingelöst haben, mit den Dateien, die zu jedem Kauf gehören.",
+      "empty": "Sie haben noch nichts Digitales gekauft oder eingelöst.",
+      "signedOut": {
+        "title": "Melden Sie sich an, um Ihre Bibliothek zu öffnen",
+        "body": "Ihre Käufe, ihre Lizenzen und ihre Dateien liegen in Ihrem Konto.",
+        "signIn": "Anmelden"
+      }
+    },
+    "creator": {
+      "fallbackTitle": "Urheberin oder Urheber",
+      "worksTitle": "Werke"
+    },
+    "asset": {
+      "fallbackTitle": "Werk",
+      "creatorLine": "Von %{creator}",
+      "viewCreator": "Alles von %{creator} ansehen",
+      "previewTitle": "Vorschau",
+      "packagesTitle": "Das bekommen Sie",
+      "technicalTitle": "Technische Angaben",
+      "guidanceTitle": "Hinweise der Verkäuferseite",
+      "versionsTitle": "Versionen und Änderungen",
+      "reviewsTitle": "Bewertungen",
+      "currentVersion": "Aktuell",
+      "formatsLabel": "Enthält %{formats}",
+      "notForSale": "Nicht im Verkauf"
     }
   }
 }

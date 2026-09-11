@@ -21,7 +21,8 @@
     "deals": "Ofertas",
     "saved": "Salvos",
     "account": "Conta",
-    "signIn": "Entrar"
+    "signIn": "Entrar",
+    "threeD": "3D"
   },
   "login": {
     "signInButton": "Entrar",
@@ -337,6 +338,7 @@
       "processing": "Em preparação",
       "shipped": "Enviado",
       "delivered": "Entregue",
+      "digitallyDelivered": "Entregue",
       "cancelled": "Cancelado",
       "refunded": "Reembolsado",
       "partiallyRefunded": "Parcialmente reembolsado"
@@ -369,7 +371,8 @@
       "failed": "O pagamento falhou."
     },
     "shipTo": {
-      "title": "Enviar para"
+      "title": "Enviar para",
+      "none": "Sem endereço de entrega — este pedido é um download"
     },
     "cancel": {
       "action": "Cancelar pedido",
@@ -1540,6 +1543,59 @@
       "documentTitle": "%{title} — Mercaria",
       "empty": "Nenhuma oferta ativa no momento.",
       "loadError": "Não foi possível carregar as ofertas. Tente novamente."
+    }
+  },
+  "digital": {
+    "documentTitle": "%{title} — Mercaria",
+    "browseOther": "Também em 3D",
+    "threeD": {
+      "title": "3D",
+      "description": "Modelos para impressão, jogos e visualização, feitos por quem os criou."
+    },
+    "printable": {
+      "title": "Modelos para impressão",
+      "description": "Modelos preparados para impressão 3D."
+    },
+    "gameAssets": {
+      "title": "Recursos para jogos",
+      "description": "Modelos preparados para motores de jogos e renderização em tempo real."
+    },
+    "unavailable": {
+      "title": "Ainda não disponível aqui",
+      "body": "Os produtos digitais estão desligados nesta instalação, por isso não há nada a mostrar. O que você já tem não é afetado."
+    },
+    "grid": {
+      "empty": "Nada foi publicado aqui ainda.",
+      "emptyFiltered": "Nenhum trabalho corresponde a estes filtros. Remova um para ver mais.",
+      "emptyPricesWithdrawn": "Os preços não estão disponíveis agora, por isso nada pode ser listado aqui."
+    },
+    "library": {
+      "title": "Sua biblioteca",
+      "description": "Tudo o que você comprou ou resgatou, com os arquivos que cada compra inclui.",
+      "empty": "Você ainda não comprou nem resgatou nada digital.",
+      "signedOut": {
+        "title": "Entre para abrir sua biblioteca",
+        "body": "Suas compras, suas licenças e seus arquivos ficam na sua conta.",
+        "signIn": "Entrar"
+      }
+    },
+    "creator": {
+      "fallbackTitle": "Criador",
+      "worksTitle": "Trabalhos"
+    },
+    "asset": {
+      "fallbackTitle": "Trabalho",
+      "creatorLine": "De %{creator}",
+      "viewCreator": "Ver tudo de %{creator}",
+      "previewTitle": "Pré-visualização",
+      "packagesTitle": "O que você recebe",
+      "technicalTitle": "Dados técnicos",
+      "guidanceTitle": "Observações do vendedor",
+      "versionsTitle": "Versões e mudanças",
+      "reviewsTitle": "Avaliações",
+      "currentVersion": "Atual",
+      "formatsLabel": "Inclui %{formats}",
+      "notForSale": "Não está à venda"
     }
   }
 }

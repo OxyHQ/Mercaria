@@ -21,7 +21,8 @@
     "deals": "Ofertas",
     "saved": "Guardados",
     "account": "Cuenta",
-    "signIn": "Iniciar sesión"
+    "signIn": "Iniciar sesión",
+    "threeD": "3D"
   },
   "login": {
     "signInButton": "Iniciar sesión",
@@ -337,6 +338,7 @@
       "processing": "En preparación",
       "shipped": "Enviado",
       "delivered": "Entregado",
+      "digitallyDelivered": "Entregado",
       "cancelled": "Cancelado",
       "refunded": "Reembolsado",
       "partiallyRefunded": "Reembolsado parcialmente"
@@ -369,7 +371,8 @@
       "failed": "El pago ha fallado."
     },
     "shipTo": {
-      "title": "Enviar a"
+      "title": "Enviar a",
+      "none": "Sin dirección de envío: este pedido es una descarga"
     },
     "cancel": {
       "action": "Cancelar el pedido",
@@ -1540,6 +1543,59 @@
       "documentTitle": "%{title} — Mercaria",
       "empty": "No hay ofertas activas en este momento.",
       "loadError": "No hemos podido cargar las ofertas. Inténtalo de nuevo."
+    }
+  },
+  "digital": {
+    "documentTitle": "%{title} — Mercaria",
+    "browseOther": "También en 3D",
+    "threeD": {
+      "title": "3D",
+      "description": "Modelos para imprimir, para videojuegos y para visualización, de quienes los crearon."
+    },
+    "printable": {
+      "title": "Modelos imprimibles",
+      "description": "Modelos preparados para impresión 3D."
+    },
+    "gameAssets": {
+      "title": "Recursos para videojuegos",
+      "description": "Modelos preparados para motores de videojuegos y renderizado en tiempo real."
+    },
+    "unavailable": {
+      "title": "Todavía no disponible aquí",
+      "body": "Los productos digitales están desactivados en esta instalación, así que no hay nada que mostrar. Lo que ya tienes no se ve afectado."
+    },
+    "grid": {
+      "empty": "Aquí todavía no se ha publicado nada.",
+      "emptyFiltered": "Ninguna obra coincide con estos filtros. Quita uno para ver más.",
+      "emptyPricesWithdrawn": "Ahora mismo no hay precios disponibles, así que no se puede mostrar nada aquí."
+    },
+    "library": {
+      "title": "Tu biblioteca",
+      "description": "Todo lo que has comprado o reclamado, con los archivos que incluye cada compra.",
+      "empty": "Todavía no has comprado ni reclamado nada digital.",
+      "signedOut": {
+        "title": "Inicia sesión para abrir tu biblioteca",
+        "body": "Tus compras, sus licencias y sus archivos están en tu cuenta.",
+        "signIn": "Iniciar sesión"
+      }
+    },
+    "creator": {
+      "fallbackTitle": "Creador",
+      "worksTitle": "Obras"
+    },
+    "asset": {
+      "fallbackTitle": "Obra",
+      "creatorLine": "De %{creator}",
+      "viewCreator": "Ver todo lo de %{creator}",
+      "previewTitle": "Vista previa",
+      "packagesTitle": "Lo que recibes",
+      "technicalTitle": "Datos técnicos",
+      "guidanceTitle": "Notas del vendedor",
+      "versionsTitle": "Versiones y cambios",
+      "reviewsTitle": "Opiniones",
+      "currentVersion": "Actual",
+      "formatsLabel": "Incluye %{formats}",
+      "notForSale": "No está a la venta"
     }
   }
 }

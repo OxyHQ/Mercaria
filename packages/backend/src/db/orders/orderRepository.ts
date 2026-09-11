@@ -69,6 +69,9 @@ import type {
   PaymentInfo,
   PaymentProviderId,
   ShippingMethod,
+  DigitalLicenceUpdatePolicy,
+  DigitalSupplyEvidenceKind,
+  DigitalWithdrawalBasis,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
@@ -159,6 +162,24 @@ export interface NewOrderItem {
   conditionKey?: ItemConditionKey;
   conditionAssertion?: ConditionAssertion;
   conditionNotes?: string;
+  /**
+   * What this line bought, when it is DIGITAL (#1015 boundary 9, ADR 0010).
+   *
+   * All four or none — `order_items_digital_snapshot_complete_check` refuses a
+   * partial one — so it is ONE optional object rather than four optional fields,
+   * which is what makes "three of four" fail to type-check rather than fail a
+   * constraint at the end of a checkout.
+   *
+   * A digital line may carry no `conditionKey`:
+   * `order_items_digital_no_condition_check` refuses the pairing, because nine
+   * conditions describing the state of an object have nothing to describe here.
+   */
+  digital?: {
+    packageId: string;
+    assetVersionId: string;
+    licenceVersionId: string;
+    updatePolicy: DigitalLicenceUpdatePolicy;
+  };
 }
 
 /**
@@ -277,7 +298,15 @@ export interface NewOrder {
   customerId?: string;
   sourceChannel?: OrderSourceChannel;
   source?: NewOrderSource;
-  shippingAddress: AddressSnapshot;
+  /**
+   * The destination snapshot, ABSENT on a digital order (#1015, ADR 0010 D8).
+   *
+   * Optional since #1015, and the optionality is enforced in the direction that
+   * matters by `orders_shipping_address_digital_check`: a `digital` order must have
+   * none and every other order must have a whole one. So omitting it on a physical
+   * order is not a silent empty address — it is a constraint violation.
+   */
+  shippingAddress?: AddressSnapshot;
   shippingMethod: ShippingMethod;
   shippingLabel: string;
   shippingCost: DualMoney;
@@ -289,6 +318,19 @@ export interface NewOrder {
     grandTotal: DualMoney;
   };
   fxRate?: FxRateSnapshot;
+  /**
+   * Place of supply and withdrawal basis for a DIGITAL line (#1015 W11).
+   *
+   * Present on a digital-only order and on a MIXED one; absent on a
+   * physical-only order. One object for the same reason the item snapshot is:
+   * `orders_digital_supply_pairing_check` refuses a partial set.
+   */
+  digitalSupply?: {
+    country: string;
+    evidence: DigitalSupplyEvidenceKind;
+    withdrawalBasis: DigitalWithdrawalBasis;
+    consentAt?: Date;
+  };
   status: OrderStatus;
   paymentStatus: PaymentInfo['status'];
   /**
@@ -1129,15 +1171,22 @@ export async function insertOrder(
         sourceExternalId: input.source?.externalId ?? null,
         sourceExternalUpdatedAt: input.source?.externalUpdatedAt ?? null,
 
-        shippingAddressLabel: input.shippingAddress.label ?? null,
-        shippingAddressRecipientName: input.shippingAddress.recipientName,
-        shippingAddressLine1: input.shippingAddress.line1,
-        shippingAddressLine2: input.shippingAddress.line2 ?? null,
-        shippingAddressCity: input.shippingAddress.city,
-        shippingAddressRegion: input.shippingAddress.region ?? null,
-        shippingAddressPostalCode: input.shippingAddress.postalCode,
-        shippingAddressCountry: input.shippingAddress.country,
-        shippingAddressPhone: input.shippingAddress.phone ?? null,
+        // Every one of the nine columns NULL when there is no address, never a
+        // blank string: `orders_shipping_address_digital_check` requires all nine
+        // absent on a `digital` order, and `''` is not absent.
+        shippingAddressLabel: input.shippingAddress?.label ?? null,
+        shippingAddressRecipientName: input.shippingAddress?.recipientName ?? null,
+        shippingAddressLine1: input.shippingAddress?.line1 ?? null,
+        shippingAddressLine2: input.shippingAddress?.line2 ?? null,
+        shippingAddressCity: input.shippingAddress?.city ?? null,
+        shippingAddressRegion: input.shippingAddress?.region ?? null,
+        shippingAddressPostalCode: input.shippingAddress?.postalCode ?? null,
+        shippingAddressCountry: input.shippingAddress?.country ?? null,
+        shippingAddressPhone: input.shippingAddress?.phone ?? null,
+        digitalSupplyCountry: input.digitalSupply?.country ?? null,
+        digitalSupplyEvidence: input.digitalSupply?.evidence ?? null,
+        digitalWithdrawalBasis: input.digitalSupply?.withdrawalBasis ?? null,
+        digitalSupplyConsentAt: input.digitalSupply?.consentAt ?? null,
 
         shippingMethod: input.shippingMethod,
         shippingLabel: input.shippingLabel,
@@ -1239,6 +1288,14 @@ async function insertOrderChildren(
           conditionKey: item.conditionKey ?? null,
           conditionAssertion: item.conditionAssertion ?? null,
           conditionNotes: item.conditionNotes ?? null,
+          // #1015: the digital snapshot, written ONCE and frozen by
+          // `order_items_digital_snapshot_immutable` — the condition snapshot's
+          // treatment exactly, for the same reason: this is what the buyer is owed,
+          // and a snapshot an UPDATE can move is not one.
+          digitalPackageId: item.digital?.packageId ?? null,
+          digitalAssetVersionId: item.digital?.assetVersionId ?? null,
+          digitalLicenceVersionId: item.digital?.licenceVersionId ?? null,
+          digitalUpdatePolicy: item.digital?.updatePolicy ?? null,
           position,
         })),
       )

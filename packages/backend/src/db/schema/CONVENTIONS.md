@@ -6934,3 +6934,164 @@ HTTP surface creates a field. `ATTRIBUTE_VERSION_CARRY_FORWARD` is a census over
 `attribute_definitions` COLUMNS, so this table owes it no disposition. The rows
 key on `product_type_field_id`, so a clone would move them with the field by
 construction.
+
+## Digital commerce — assets, licences and buyer rights (#1015, ADR 0010)
+
+Fifteen tables, and the whole domain sits ON TOP of the canonical graph without
+adding a column to it. A digital product is a `canonical_products` row with
+`canonical_variants` exactly like a physical one; what these tables add is what
+gets HANDED OVER, which the catalogue has never modelled for anything.
+
+The design document is `docs/digital-commerce.md`. What follows is the decision
+and the reason for each shape a reader would otherwise have to guess at.
+
+### The asset owns no bytes, and that is what makes a version immutable
+
+`digital_assets` is the commercial identity; `asset_versions` is one release;
+`asset_files` belong to a VERSION. #1015 boundary 8 requires that publishing v2
+never silently mutate what v1 was, and the only structure that holds it without a
+rule somebody follows is for the bytes to belong to a row nothing updates.
+
+`asset_versions_immutable_once_published` and
+`asset_files_immutable_once_published` are what make it true. A comment would not
+have: #402 is the precedent in this repository — two ordinary calls laundered a
+moderation decision because the guard lived in one service and the second call
+reached the row another way.
+
+The file trigger leaves the SCAN columns writable and freezes `visibility` with
+the content. A security withdrawal discovered after publication has to be
+recordable on the row it is about; widening a visibility would hand every existing
+right-holder a file their licence never covered.
+
+### `digital_assets.current_version_id` carries no foreign key, and the reason is circularity
+
+`asset_versions.asset_id` already references `digital_assets`, so a constraint back
+would make inserting the first version impossible without a deferred constraint
+nothing else here uses. It is DENORMALIZED on purpose — resolving "what would I buy
+right now" by scanning for the newest published row is a sort on every product
+page, and the answer has to be a single value anyway because two concurrent
+publications must not both become current. `publishAssetVersion` writes it, demotes
+the outgoing version and stamps `published_at` with a SQL `coalesce` in ONE
+transaction, which is `listings.published_at`'s device for the same reason: two
+concurrent first publications must not each decide the column is empty.
+
+### There is no `*_url` column anywhere, and a test enforces the absence
+
+#1015 boundary 3: a file URL is never the buyer's ownership record.
+`asset_files.storage_key` is an opaque object-storage key and a PROTECTED column,
+because the first naive `select().from(assetFiles)` on a buyer-library route is the
+first time the INPUT a signed URL is minted from leaves the process.
+`digital-commerce-walls.test.ts` fails the build on a `url`/`uri`/`href`-shaped
+column in these fifteen tables, because the cheap repair for "the client needs the
+file" is a permanent URL and it would look like a convenience.
+
+### `asset_licence_versions.rights` is a `text[]`, and that is not a lapse
+
+§Arrays says an array of IDS or entities is a junction table. This is neither: it
+is a set of four-ish closed VALUES, read in its entirety on every product page and
+every download authorization and never queried by element. A child table here is
+the over-normalization that section names. The CHECK is element containment
+(`<@ array[...]`), which is the one spelling a scalar enum cannot express.
+
+The dependency rule between rights (`derivative_redistribution` needs
+`modification`) is enforced at WRITE time by `unmetLicenceRightDependencies` and
+deliberately not as a CHECK: a CHECK comparing two elements of one array column
+reads as an accident and the next reader simplifies it away.
+
+### `asset_rights.buyer_key` is one column for two id spaces
+
+`oxy:<oxyUserId>` or `guest:<guestSessionId>` — the spelling `cartOwnerForActor`
+already uses, with a CHECKed prefix. Two nullable columns would make "which buyer"
+a question with two answers and one of them always NULL, and every read would carry
+an `or`. One column makes the buyer addressable by a single equality, which is what
+the buyer-library index is, and makes passing a guest session id where an Oxy id
+belongs find nothing rather than find somebody else's rights.
+
+The prefix CHECK uses `[^[:space:]]+`, not `.+`:
+`check-regex-literal-dot.realdb.test.ts` refuses a bare `.` in a live CHECK (#477),
+and nothing here wants a dot at all.
+
+**Both are foreign services' primary keys and carry no foreign key** — §no `users`
+table, unchanged.
+
+### The idempotency is TWO partial unique indexes, not one
+
+`UNIQUE(order_item_id, package_id) WHERE order_item_id IS NOT NULL` is the purchase
+half; `UNIQUE(buyer_key, package_id) WHERE order_item_id IS NULL` is the free-claim
+half. Postgres treats NULLs as DISTINCT, so a plain UNIQUE on the first pair would
+be vacuous for exactly the rows the second covers (§Unique constraints). The
+repository inserts with an UNTARGETED `ON CONFLICT DO NOTHING`, because naming one
+target would leave the other raising and every constraint on the table encodes
+"this right already exists".
+
+### `asset_download_grants` stores a token DIGEST and is the one table here that is swept
+
+`token_hash` is SHA-256 of a token handed to the buyer once; redeeming re-hashes
+and compares. A dump opens nothing — the `pickup_collection_credentials` device.
+Redemption is ONE statement (`UPDATE … SET redemptions = redemptions + 1 …`
+guarded by the expiry and the cap), so there is no window in which a grant is read
+as usable and then used after expiring.
+
+Expired grants are DELETED by a sweeper, which is why
+`asset_download_events.grant_id` is `ON DELETE SET NULL`: the door is disposable
+and the audit is not.
+
+### `asset_variant_bindings.variant_id` carries no foreign key, deliberately
+
+It names a real `product_variants` row, so the absence needs a reason and has one:
+variant rows are created, replaced and re-keyed by connector imports and by the
+catalogue authoring path, and a `restrict` here would make a routine variant
+replacement fail against a binding the merchant never knew existed. The binding is
+resolved at checkout and a miss means "not a digital line", which is the safe
+answer. Ledgered in `deferredForeignKeys.ts`.
+
+### `orders`: five NOT NULLs became a CHECK that says MORE
+
+`addressColumns('shippingAddress')` became `optionalAddressColumns`, and
+`orders_shipping_address_digital_check` took their place:
+
+```
+digital      -> all NINE address columns NULL
+anything else-> the five required ones NOT NULL
+```
+
+**That is stricter than the NOT NULLs**, which is the only reading under which this
+is not a weakening: a NOT NULL could be satisfied by a fabricated street — exactly
+what a digital order would have had to write — and the CHECK cannot. #1015 boundary
+16 is now a constraint rather than a convention.
+
+`digital` joins `SHIPPING_METHODS` rather than making `shipping_method` nullable.
+`pickup` has been a non-shipping member since #93, so the tuple has been a
+FULFILMENT vocabulary under a legacy name for as long as collection has existed;
+the alternative reaches four hydration paths with a `NULL` they have no branch for.
+
+### `order_items`: the digital snapshot is four columns, all-or-nothing
+
+`digital_package_id`, `digital_asset_version_id`, `digital_licence_version_id`,
+`digital_update_policy`. Their PRESENCE is what makes a line digital — there is no
+`is_digital` column, for the reason ADR 0007 D15 refuses a `commerce_type` one: a
+flag and these ids are two representations of one fact and can disagree.
+
+All four carry NO foreign key, the treatment `listing_id` and `variant_id` beside
+them already have: an order line must survive its catalogue ancestry with its
+snapshot intact. A `restrict` would make withdrawing an asset fail against every
+historical sale of it; a `cascade` would delete the sale.
+
+`order_items_digital_no_condition_check` is `condition_semantics` discharged: a
+digital line's `condition_key` must be NULL. A tenth `not_applicable` member of
+`ITEM_CONDITION_KEYS` was the other way to say it and is worse — it would have given
+every PHYSICAL listing a way to decline to describe itself.
+
+### Measured and claimed are different TABLES
+
+`asset_file_inspections` holds what the pipeline measured, keyed
+`(file_id, processor_name, processor_version)` so a recomputation is
+distinguishable from the original measurement. A creator's claims are product-type
+attribute values #367 already owns. One table with a provenance flag would let a
+write path set the flag wrongly; two tables cannot be confused by a write path at
+all.
+
+Every geometry column is nullable and NULL means NOT MEASURED, which is why
+`verdict` exists beside them. The bounding box is all three dimensions or none — a
+CHECK — because two of three is a measurement a product page would print as
+`42 × 17 × —`.

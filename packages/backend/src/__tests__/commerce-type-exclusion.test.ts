@@ -149,15 +149,24 @@ interface Detector {
   readonly notLookingFor: string;
 }
 
+/**
+ * ## `digital_good`'s detector was REMOVED by #1015, and that is the procedure
+ *
+ * It read
+ * `/\b(download_url|downloadUrl|licence_key|…|is_digital|digital_good)\b/i`, and
+ * its removal is step 4 of the admission procedure this file's docblock
+ * describes: a classified type's detector has nothing left to detect, and leaving
+ * it would fail the build on the domain that discharged it.
+ *
+ * The absence is not a hole. What replaced it is NARROWER and keyed on the real
+ * hazard rather than on the word: `digital-commerce-walls.test.ts` forbids a
+ * `*_url` column anywhere in the digital schema, asserts every
+ * `DIGITAL_GOOD_PREREQUISITE_DISCHARGES` citation still resolves, and pins the
+ * CHECKs that hold #1015's boundaries. A wall that said "no digital anything" and
+ * a wall that says "no permanent public URL to a paid file" are not the same
+ * wall, and only the second one is still true of this repository.
+ */
 const EXCLUDED_TYPE_DETECTORS: readonly Detector[] = [
-  {
-    type: 'digital_good',
-    pattern:
-      /\b(download_url|downloadUrl|licence_key|licenseKey|licence_code|redemption_code|redemptionCode|activation_code|activationCode|entitlement_delivery|entitlementDelivery|digital_delivery|digitalDelivery|is_digital|isDigital|digital_good|digitalGood)\b/i,
-    positiveControl: 'downloadUrl: text().notNull(),',
-    notLookingFor:
-      'the bare word `digital`, which is `digital_storage`, the unit family every RAM and storage attribute is measured in; and `download`, which here is a CSV error report and a thumbnail.',
-  },
   {
     type: 'stored_value',
     pattern:
@@ -333,7 +342,10 @@ describe('the commerce-type decision (ADR 0007 D15)', () => {
     // EXACT, not containment. A list that can only grow is the
     // `WOOCOMMERCE_OPEN_DEFECTS` failure: admitting a second type has to move
     // this line, in the diff that admits it, where a reviewer sees it.
-    expect([...MERCARIA_COMMERCE_TYPES]).toEqual(['physical_good']);
+    // Moved by #1015 (ADR 0010), which is the line this assertion exists to
+    // force: admitting `digital_good` had to be a deliberate edit here, beside
+    // the seven discharges, rather than a tuple quietly growing.
+    expect([...MERCARIA_COMMERCE_TYPES]).toEqual(['physical_good', 'digital_good']);
   });
 
   it('keeps the admitted and excluded tuples DISJOINT', () => {
@@ -344,7 +356,8 @@ describe('the commerce-type decision (ADR 0007 D15)', () => {
     ).toEqual([]);
     // The vacuity floor for the clause above: over an empty excluded tuple the
     // filter returns `[]` for a reason that has nothing to do with disjointness.
-    expect(EXCLUDED_COMMERCE_TYPES.length).toBeGreaterThanOrEqual(5);
+    // Four since #1015 moved `digital_good` to the admitted tuple.
+    expect(EXCLUDED_COMMERCE_TYPES.length).toBeGreaterThanOrEqual(4);
   });
 
   it('has a disposition for every declared type, and no orphan', () => {
@@ -356,7 +369,7 @@ describe('the commerce-type decision (ADR 0007 D15)', () => {
   });
 
   it('gives every excluded type a stated cost, drawn from the closed vocabulary', () => {
-    assertEachOf(EXCLUDED_COMMERCE_TYPES, 5, (type) => {
+    assertEachOf(EXCLUDED_COMMERCE_TYPES, 4, (type) => {
       const disposition = COMMERCE_TYPE_DISPOSITIONS[type];
       expect(disposition.verdict, `${type} is in the excluded tuple`).toBe('excluded');
       if (disposition.verdict !== 'excluded') return;
@@ -449,7 +462,7 @@ describe('no module represents an excluded commerce type', () => {
     expect(nonEmpty.length).toBeGreaterThanOrEqual(1400);
   });
 
-  assertEachOf(ALL_DETECTORS, 6, (detector) => {
+  assertEachOf(ALL_DETECTORS, 5, (detector) => {
     it(`finds no ${detector.type} representation`, () => {
       const findings = findingsIn(MODULES, detector);
       expect(
@@ -482,7 +495,7 @@ describe('the scan can see a violation', () => {
 
   // Every detector, in every unit, SEPARATELY — `~/Oxy/AGENTS.md`: mutate each
   // detector on its own, or you have measured one of them.
-  assertEachOf(ALL_DETECTORS, 6, (detector) => {
+  assertEachOf(ALL_DETECTORS, 5, (detector) => {
     describe(`the ${detector.type} detector`, () => {
       assertEachOf(UNITS, 11, (unit) => {
         it(`fires on a violation planted in ${unit}`, () => {
@@ -519,7 +532,7 @@ describe('the scan can see a violation', () => {
     });
   });
 
-  assertEachOf(ALL_DETECTORS, 6, (detector) => {
+  assertEachOf(ALL_DETECTORS, 5, (detector) => {
     it(`ignores a ${detector.type} spelling that is only in a COMMENT`, () => {
       const victim = victimIn('shared-types/src');
       expect(victim).not.toBeNull();

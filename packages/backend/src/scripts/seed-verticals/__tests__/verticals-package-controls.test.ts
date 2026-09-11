@@ -727,8 +727,16 @@ describe('the smartphone axes and facts are on opposite sides of one line', () =
  * shape". There is no production database on a developer's machine to count,
  * and a count taken once would not stay true. What makes the answer durable is
  * that the population is bounded and checked in: `insertProductTypeDefinition`
- * is the table's only production writer, `apply.ts` is its only production
- * caller, and the key it writes is `nsKey(namespaceFor(token), pkg.key)`.
+ * is the table's only production writer, its callers are a CLOSED SET of three
+ * seed/observability modules (this one, `services/digital/profiles/apply.ts` for
+ * #1015's 3D profiles, and `services/catalog-observability/category-index-coverage.ts`),
+ * there is no `POST /product-types` by which a request could author one, and the
+ * key THIS caller writes is `nsKey(namespaceFor(token), pkg.key)`.
+ *
+ * The argument is unchanged by the other two callers: each bounds its own keys the
+ * same way, and #1015's are asserted against this very CHECK in
+ * `services/digital/profiles/__tests__` — which is where the leading-digit finding
+ * came from (`3d_print_model` is an ILLEGAL key; the profiles are `three_d_*`).
  *
  * So the safety argument reduces to two facts, and both are asserted below
  * rather than reasoned about: every shipped package key is legal, and

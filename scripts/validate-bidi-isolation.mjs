@@ -108,6 +108,8 @@ import * as formatModule from "../packages/ui/src/lib/format.ts";
 // answering that question could disagree about it.
 import * as dateModule from "../packages/ui/src/lib/date.ts";
 import * as regionModule from "../packages/ui/src/lib/region.ts";
+import * as byteSizeModule from "../packages/ui/src/lib/byte-size.ts";
+import * as plainNumberModule from "../packages/ui/src/lib/plain-number.ts";
 import { isolateBidi } from "../packages/ui/src/lib/bidi.ts";
 
 /**
@@ -144,6 +146,13 @@ const FORMATTER_MODULES = [
   { path: "packages/ui/src/lib/format.ts", module: formatModule, minimum: 6 },
   { path: "packages/ui/src/lib/date.ts", module: dateModule, minimum: 3 },
   { path: "packages/ui/src/lib/region.ts", module: regionModule, minimum: 1 },
+  // #1015's two. They arrived outside this census — it enumerates modules by
+  // name and a new file is invisible to it — so a digital product page was
+  // rendering two formatters this gate had never seen. Exactly the narrowing the
+  // docblock above describes, arriving from the other direction: not a module
+  // shrinking, a population growing past the list.
+  { path: "packages/ui/src/lib/byte-size.ts", module: byteSizeModule, minimum: 1 },
+  { path: "packages/ui/src/lib/plain-number.ts", module: plainNumberModule, minimum: 1 },
 ];
 
 /** `"abc"` → `"U+0061 U+0062 U+0063"`, so a failure message names what it saw. */
@@ -660,6 +669,62 @@ check(
 // A fifth formatter added there fails this until it is covered above.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// #1015's two: a byte size and a whole count, both on a digital product page
+// ---------------------------------------------------------------------------
+
+// `style: "unit"` puts the number and the unit in one token, and that token is
+// what must not reorder: inside an Arabic sentence an un-isolated `1.25 GB`
+// renders the unit on the wrong side of the digits. The four-byte case is the
+// floor of the unit table, pinned because it is the one value whose unit is
+// `byte` rather than a prefix and therefore the one most likely to be special-
+// cased away by a future edit.
+checkIsolatedExactly(
+  "formatByteSize",
+  "bytes/en",
+  byteSizeModule.formatByteSize(512, EN),
+  "512 byte",
+);
+checkIsolatedExactly(
+  "formatByteSize",
+  "megabytes/en",
+  byteSizeModule.formatByteSize(4_500_000, EN),
+  "4.5 MB",
+);
+// An 8 GiB deliverable is `MAX_ASSET_FILE_BYTES`, so this is the real ceiling a
+// buyer sees rather than an invented large number.
+checkIsolatedExactly(
+  "formatByteSize",
+  "gigabytes/en",
+  byteSizeModule.formatByteSize(1_250_000_000, EN),
+  "1.3 GB",
+);
+// Zero is a real answer — a file row carries a measured size and a preview can be
+// tiny — and it must still be isolated: an unwrapped "0" beside an Arabic label
+// is the same reordering bug at its least visible.
+checkIsolatedExactly(
+  "formatByteSize",
+  "zero/en",
+  byteSizeModule.formatByteSize(0, EN),
+  "0 byte",
+);
+
+// A triangle count. Grouped, and the GROUPING is the thing isolation protects:
+// the separator is a weak character, so an un-isolated "42,180" next to Arabic
+// text can have its groups visually rearranged.
+checkIsolatedExactly(
+  "formatWholeNumber",
+  "grouped/en",
+  plainNumberModule.formatWholeNumber(42_180, EN),
+  "42,180",
+);
+checkIsolatedExactly(
+  "formatWholeNumber",
+  "zero/en",
+  plainNumberModule.formatWholeNumber(0, EN),
+  "0",
+);
+
 const coveredFormatters = Array.from(exercisedFormatters);
 
 /**
@@ -722,7 +787,7 @@ for (const { path, module, minimum } of FORMATTER_MODULES) {
  * neither floor below can see: removing one takes its formatters and its own
  * minimum away together, so every remaining comparison still balances.
  */
-const MINIMUM_FORMATTER_MODULES = 3;
+const MINIMUM_FORMATTER_MODULES = 5;
 check(
   `the census covers at least ${MINIMUM_FORMATTER_MODULES} modules`,
   FORMATTER_MODULES.length >= MINIMUM_FORMATTER_MODULES,
@@ -742,7 +807,7 @@ check(
  * branches can raise this on different lines, merge with no conflict, and
  * silently keep one number.
  */
-const MINIMUM_EXPORTED_FORMATTERS = 9;
+const MINIMUM_EXPORTED_FORMATTERS = 11;
 check(
   `at least ${MINIMUM_EXPORTED_FORMATTERS} formatters were found (vacuity floor on the census)`,
   exportedFormatters.length >= MINIMUM_EXPORTED_FORMATTERS,
@@ -767,10 +832,11 @@ check(
  * list, this reports it rather than passing with two checks — the census needs
  * its own census.
  */
-// 189 run today. Was 40 while 97 ran — the same omission as the formatter floor
+// 272 run today (189 before #1015's two modules joined the census). Was 40 while
+// 97 ran — the same omission as the formatter floor
 // above: #513 added cases and left the number where it was. Both are
 // hand-written on purpose, and both must be re-derived when the case list moves.
-const MINIMUM_ASSERTIONS = 180;
+const MINIMUM_ASSERTIONS = 260;
 check(
   `at least ${MINIMUM_ASSERTIONS} assertions ran (vacuity floor on the gate itself)`,
   assertionCount >= MINIMUM_ASSERTIONS,

@@ -883,6 +883,104 @@
     "variantSwatches": {
       "showMoreA11y": "Más opciones de %{option} (%{more})",
       "showMore": "+%{more} más"
+    },
+    "assetViewer": {
+      "previewA11y": "Vista previa de %{title}",
+      "noPreview": "Esta obra no tiene vista previa pública.",
+      "staticOnly": "Se muestra una imagen fija. El visor interactivo no está disponible aquí.",
+      "staticOnSmallScreen": "Se muestra una imagen fija. El visor interactivo necesita una pantalla más ancha.",
+      "neverTheSourceFile": "Las vistas previas son copias generadas. Los archivos que compras nunca se usan para mostrar esto.",
+      "streamedOnly": "Esta vista previa se transmite solo para verla y nunca se entrega como archivo.",
+      "controls": "Controles de la vista previa",
+      "gestures": "Arrastra para girar, usa la rueda o pellizca para acercar, arrastra con dos dedos para desplazar.",
+      "reset": "Restablecer la vista",
+      "fullscreenOpen": "Abrir la vista previa a pantalla completa",
+      "fullscreenClose": "Cerrar la pantalla completa",
+      "wireframe": "Malla",
+      "statistics": "Estadísticas de representación",
+      "animation": "Animación",
+      "animationOff": "Ninguna",
+      "refused": {
+        "role_is_not_publicly_viewable": "Este archivo forma parte de la compra, así que no se muestra en la vista previa pública.",
+        "visibility_requires_a_right": "Este archivo solo está disponible para quien lo compra, así que no se muestra en la vista previa pública."
+      }
+    },
+    "assetFacts": {
+      "measuredTitle": "Medido por Mercaria",
+      "measuredNote": "Mercaria midió estos datos a partir de los archivos publicados.",
+      "measuredBy": "Medido con %{processor} %{version} el %{date}",
+      "measuredBadge": "Medido",
+      "claimedTitle": "Descrito por el vendedor",
+      "claimedNote": "Lo escribió el vendedor. Mercaria no lo ha medido.",
+      "claimedBadge": "Descripción del vendedor",
+      "notMeasured": "Sin medir",
+      "verdict": {
+        "pending": "La medición aún no ha terminado.",
+        "measured": "Estas cifras se midieron a partir de los archivos.",
+        "unsupported": "Este formato no se puede medir automáticamente.",
+        "corrupt": "No se pudo leer el archivo.",
+        "missing_resources": "El archivo hace referencia a recursos que no se entregaron.",
+        "failed": "La medición no se completó.",
+        "refused_too_large": "El archivo era demasiado grande para medirlo."
+      }
+    },
+    "assetLicence": {
+      "title": "Licencia",
+      "grantedTitle": "Lo que puedes hacer",
+      "notGrantedTitle": "Lo que esta licencia no cubre",
+      "attributionTitle": "Crédito",
+      "updatesTitle": "Actualizaciones",
+      "limitsTitle": "Límites",
+      "additionalTermsTitle": "Condiciones propias del vendedor",
+      "seats": "Hasta %{seats} personas pueden usarlo",
+      "seatsUnlimited": "Sin límite de personas que pueden usarlo",
+      "projects": "Hasta %{projects} productos terminados",
+      "projectsUnlimited": "Sin límite de productos terminados",
+      "revenue": "Hasta %{amount} de ingresos",
+      "revenueUnlimited": "Sin tope de ingresos",
+      "right": {
+        "personal_use": "Usarlo en tus proyectos personales",
+        "commercial_project_use": "Usarlo en proyectos comerciales",
+        "commercial_physical_production": "Fabricar y vender copias físicas",
+        "modification": "Modificarlo",
+        "derivative_redistribution": "Compartir una versión modificada dentro de una obra terminada",
+        "source_redistribution": "Compartir los archivos tal como se entregaron",
+        "sublicensing": "Ceder la licencia a un cliente",
+        "extended_enterprise_use": "Usarlo más allá de los límites de personas e ingresos"
+      },
+      "attribution": {
+        "required": "Debes dar crédito a quien lo creó.",
+        "optional": "El crédito se agradece, pero no es obligatorio.",
+        "not_required": "No hace falta dar crédito."
+      },
+      "updatePolicy": {
+        "purchased_version_only": "Conservas la versión que compraste. Una versión posterior es una compra nueva.",
+        "same_major_version": "Se incluyen las versiones posteriores que comparten el número principal que compraste.",
+        "all_future_versions": "Se incluyen todas las versiones futuras."
+      },
+      "authorship": {
+        "mercaria_reference": "Texto de licencia estándar de Mercaria",
+        "creator": "Texto de licencia propio de quien lo creó"
+      }
+    },
+    "assetLibrary": {
+      "filesTitle": "Archivos",
+      "downloadAction": "Descargar",
+      "downloadA11y": "Descargar %{file}",
+      "notDownloadable": "Solo para ver: no se entrega como archivo",
+      "downloadsPaused": "Las descargas están en pausa. Esta compra está: %{status}.",
+      "grantedOn": "Añadido el %{date}",
+      "licence": "Licencia: %{licence}",
+      "purchasedVersion": "Compraste %{version}",
+      "availableVersion": "Versión más reciente que puedes descargar: %{version}",
+      "updateAvailable": "Actualización disponible",
+      "status": {
+        "active": "Activa",
+        "refunded": "Reembolsada",
+        "disputed_hold": "En espera por una disputa",
+        "revoked_for_policy": "Retirada por motivos legales",
+        "superseded": "Reemplazada por una compra posterior"
+      }
     }
   }
 }

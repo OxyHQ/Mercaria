@@ -123,6 +123,7 @@
     "status": {
       "cancelled": "已取消",
       "delivered": "已送达",
+      "digitallyDelivered": "已交付",
       "paid": "已付款",
       "partiallyRefunded": "部分退款",
       "pendingPayment": "待付款",

@@ -2183,4 +2183,48 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'sentinel for the same reason: a NULLable dimension breaks the bucket ' +
       'unique because Postgres treats NULLs as distinct.',
   },
+
+  // ── Digital commerce (#1015, ADR 0010) ────────────────────────────────────
+  {
+    column: 'order_items.digital_package_id',
+    reason:
+      'SNAPSHOT provenance, the treatment `order_items.listing_id` and ' +
+      '`.variant_id` already have and for the identical reason: an order line ' +
+      'is the record of what was actually sold and must survive its catalogue ' +
+      'ancestry. A `restrict` would make withdrawing an asset fail against ' +
+      'every historical sale of it; a `cascade` would delete the sale.',
+  },
+  {
+    column: 'order_items.digital_asset_version_id',
+    reason:
+      'SNAPSHOT provenance — see `digital_package_id` above. This is also the ' +
+      'column whose PRESENCE makes a line digital, so a foreign key refusing ' +
+      'the insert would take the whole order with it.',
+  },
+  {
+    column: 'order_items.digital_licence_version_id',
+    reason:
+      'SNAPSHOT provenance — see `digital_package_id`. The licence version it ' +
+      'names is append-only and never deleted, so the constraint would buy ' +
+      'nothing it does not already have by construction.',
+  },
+  {
+    column: 'digital_assets.current_version_id',
+    reason:
+      'CIRCULAR: `asset_versions.asset_id` already references this table, and a ' +
+      'foreign key back would make inserting the first version impossible ' +
+      'without a deferred constraint nothing else here uses. ' +
+      '`digital-commerce.realdb.test.ts` is what holds it instead — the ' +
+      '`listings.published_at` chokepoint arrangement, one domain over.',
+  },
+  {
+    column: 'asset_variant_bindings.variant_id',
+    reason:
+      'A `product_variants` id deliberately carrying no constraint (#1015, ADR ' +
+      '0010). Variant rows are created, replaced and re-keyed by connector ' +
+      'imports and by the catalogue authoring path, and a `restrict` would make ' +
+      'a routine variant replacement fail against a binding the merchant never ' +
+      'knew existed. The binding is resolved at checkout and a miss means "not ' +
+      'a digital line", which is the safe answer.',
+  },
 ];

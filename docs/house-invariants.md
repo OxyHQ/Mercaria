@@ -142,3 +142,26 @@ construction, so none can express "may see all stores' money" without becoming
 one an owner could grant themselves. `resolvePaymentOperatorIds` and
 `requirePaymentOperator` are the two places that change when Oxy grows a platform
 operator role.
+
+## The digital-commerce chokepoints (#1015, ADR 0010)
+
+The same shape every domain in this file has: one writer, one authorizer, and the
+refusal stated where a second one would otherwise grow.
+
+| Invariant | Held by | What it prevents |
+|---|---|---|
+| **An `asset_rights` row is the ONLY thing that authorizes a download.** Not a payment, not a signed URL, not an order status. | `services/digital/download.service.ts`, six checks in a fixed order | #1015 boundary 4 — a paid payment proving the right to arbitrary files |
+| **`asset_files.storage_key` is read in exactly ONE place**, after the last refusal. | `PROTECTED_COLUMNS.asset_files`, `findAssetFileStorageKey` | the input a signed URL is minted from leaving the process in a response body |
+| **A download grant's token is never stored and never logged.** Only a SHA-256 of it. | `asset_download_grants.token_hash` + its shape CHECK | a dump or a log line opening somebody's paid files |
+| **A published version, file or licence version cannot be edited or deleted.** | four triggers in `0156` | v2 mutating what v1 was; a creator swapping bytes after a sale |
+| **A right's COMMERCIAL half cannot be rewritten and the row cannot be deleted.** Only `status` and the revocation basis move. | `asset_rights_commercial_half_immutable` | a buyer's licence being upgraded in place |
+| **A `digital` order has NO address and every other order has a whole one.** | `orders_shipping_address_digital_check` | a fabricated street — #1015 boundary 16 |
+| **Place of supply is resolved PER LINE.** | `rateMatchesPlaceOfSupply` in `pricing.service.ts` | a digital supply taxed at the shipping address, or silently at zero |
+| **No IP, raw or derived, establishes a supply country.** | `FORBIDDEN_DIGITAL_SUPPLY_EVIDENCE_KINDS`, asserted disjoint | the obvious cheap answer, which is the one piece of evidence Mercaria may not keep |
+| **A digital line produces NO inventory movement.** | `metaForMutation` short-circuits an untracked variant; no stock column exists in the digital schema | #1015 boundary 1 — fake stock |
+
+**Two refusals are the service's rather than the database's, and both are the
+server's own reading of the cart**: `digital_delivery` is refused for a cart holding
+a physical line, and a digital line is refused when the withdrawal waiver is absent.
+Neither can be a schema rule, because a schema cannot see a cart — the same split
+`services/checkout/destination.ts` documents for the actor rules.

@@ -158,6 +158,34 @@ export interface RebuildReviewAggregatesJob {
 /** One bounded pass of the #76 legacy-review classification. No payload. */
 export type ClassifyLegacyReviewsJob = Record<string, never>;
 
+// --- Digital-asset inspection payloads (#1015 W4) ----------------------------
+
+/**
+ * Inspect ONE uploaded asset file.
+ *
+ * Both ids travel and both are re-resolved server-side: the file is looked up among
+ * the VERSION's files, so a payload pairing a file id with a version that does not
+ * own it resolves to nothing rather than to somebody else's file. That is the
+ * `storeId`-scoped-lookup device the connector jobs carry, applied to the pair that
+ * matters here — and it is also what gives the inspection the sibling file NAMES it
+ * needs to answer "is the MTL this OBJ references actually in the version".
+ */
+export interface AssetFileInspectJob {
+  versionId: string;
+  fileId: string;
+}
+
+/**
+ * Fan one asset version out to one {@link AssetFileInspectJob} per file.
+ *
+ * No file list in the payload: the handler enumerates the version itself, so a job
+ * enqueued before the last upload completed still inspects what is actually there
+ * when it runs.
+ */
+export interface AssetVersionInspectJob {
+  versionId: string;
+}
+
 /** Job names enqueued onto the events queue. */
 export type MarketplaceEventJobName =
   | 'recompute-aggregates'
@@ -199,6 +227,14 @@ export type MarketplaceEventJobData =
   | RecomputeAggregatesJob
   | OrderEventNotificationJob
   | LowInventoryAlertJob;
+
+/** Job names enqueued onto the digital-inspection queue (#1015 W4). */
+export type MarketplaceDigitalJobName =
+  | 'digital.asset-file-inspect'
+  | 'digital.asset-version-inspect';
+
+/** Union of every digital-inspection-queue job payload. */
+export type MarketplaceDigitalJobData = AssetFileInspectJob | AssetVersionInspectJob;
 
 /** Union of every maintenance-queue job payload. */
 export type MaintenanceJobData =

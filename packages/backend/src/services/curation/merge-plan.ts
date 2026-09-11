@@ -123,6 +123,7 @@ import {
 } from '../../db/schema/shoppingAgents.js';
 import { navigationSavedQueries } from '../../db/schema/navigation.js';
 import { navigationNodes } from '../../db/schema/navigation.js';
+import { assetVersions, digitalAssets } from '../../db/schema/digitalAssets.js';
 
 /**
  * What the merge does with one referencing column.
@@ -1400,6 +1401,17 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       disposition: 'retained_by_tombstone',
       note: SHOPPING_AGENT_FINDING_LINE_NOTE,
     },
+    {
+      column: digitalAssets.canonicalProductId,
+      phase: 'children',
+      disposition: 'repoint',
+      note:
+        'A digital asset names the canonical product it is sold as (#1015, ADR 0010). Nothing ' +
+        'is unique on the column, so the move is unconditional — two catalogue entries merging ' +
+        'does not change which work a creator uploaded, and leaving the asset on the loser ' +
+        'would make it unreachable from the surviving product page while every buyer right ' +
+        'over it stayed valid.',
+    },
   ],
 
   canonical_variant: [
@@ -1735,6 +1747,17 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       phase: 'agents',
       disposition: 'repoint',
       note: SHOPPING_AGENT_LINE_VARIANT_NOTE,
+    },
+    {
+      column: assetVersions.canonicalVariantId,
+      phase: 'children',
+      disposition: 'repoint',
+      note:
+        'An asset version names the canonical variant its deliverable configuration IS ' +
+        '(#1015 boundary 7 — printable, game-ready, source-files). Nothing is unique on the ' +
+        'column and the version itself is immutable in its CONTENT, not in this pointer: what ' +
+        'the merge changes is which catalogue row describes the configuration, never which ' +
+        'bytes the version holds, so no buyer right is affected.',
     },
   ],
 };
@@ -2079,6 +2102,17 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     table: 'catalog_authoring_schema_invalidations',
     disposition: 'not_an_entity_reference',
     reason: POLYMORPHIC_OUTSIDE_THE_SEVEN,
+  },
+  {
+    table: 'digital_assets',
+    disposition: 'discriminates_foreign_keys',
+    reason:
+      '`vertical` and `state` are a vocabulary and a lifecycle, not discriminators of a ' +
+      'polymorphic reference — the detector pairs them with the id column beside them, which is ' +
+      'the right thing for it to do. The one mergeable reference this table carries is ' +
+      '`canonical_product_id`, which is a real foreign key and is in MERGE_REHOMING_PLAN as a ' +
+      '`repoint` (#1015, ADR 0010), so `merge-plan-census.test.ts` already forces the decision. ' +
+      '`current_version_id` names an `asset_versions` row, which is not one of the seven.',
   },
   {
     table: 'catalog_backfill_records',

@@ -123,6 +123,7 @@
     "status": {
       "cancelled": "ملغى",
       "delivered": "تم التسليم",
+      "digitallyDelivered": "تم التسليم",
       "paid": "مدفوع",
       "partiallyRefunded": "مُسترد جزئيًا",
       "pendingPayment": "بانتظار الدفع",

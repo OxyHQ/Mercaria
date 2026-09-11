@@ -123,6 +123,7 @@
     "status": {
       "cancelled": "Cancelled",
       "delivered": "Delivered",
+      "digitallyDelivered": "Delivered",
       "paid": "Paid",
       "partiallyRefunded": "Partially refunded",
       "pendingPayment": "Pending payment",

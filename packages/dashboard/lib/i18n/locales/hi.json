@@ -756,6 +756,7 @@
     "orderStatus": {
       "cancelled": "रद्द किया गया",
       "delivered": "डिलीवर हो गया",
+      "digitallyDelivered": "वितरित",
       "paid": "पेमेंट हुआ",
       "partiallyRefunded": "आंशिक रिफंड",
       "pendingPayment": "पेमेंट बाकी",
@@ -816,6 +817,7 @@
       "refundFallbackLabel": "रिफंड",
       "refunds": "रिफंड",
       "shipTo": "इस पते पर भेजें",
+      "shipToNone": "कोई डिलीवरी पता नहीं — यह ऑर्डर एक डाउनलोड है",
       "subtitle": "ऑर्डर की जानकारी",
       "title": "ऑर्डर",
       "trackingLabel": "ट्रैकिंग नंबर (वैकल्पिक)",
@@ -896,6 +898,7 @@
     "status": {
       "cancelled": "रद्द",
       "delivered": "डिलीवर",
+      "digitallyDelivered": "वितरित",
       "paid": "पेमेंट हुआ",
       "partiallyRefunded": "आंशिक रिफंड",
       "pendingPayment": "बाकी",

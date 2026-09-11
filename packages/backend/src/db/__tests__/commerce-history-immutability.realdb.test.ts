@@ -288,7 +288,20 @@ begin
             target, col.name, col.typname;
       end case;
 
-      execute 'delete from pg_temp.probe_clone';
+      -- TRUNCATE, not DELETE, and the difference is load-bearing (#1015).
+      --
+      -- This is HOUSEKEEPING — emptying the clone between column probes — and NOT
+      -- the delete disposition, which the row probe above measures on its own
+      -- clone and still measures with a real DELETE. A row-level BEFORE DELETE
+      -- trigger fires on this statement from the SECOND column onwards (the first
+      -- iteration finds the clone empty, so nothing fires), and for a table that
+      -- legitimately refuses one (asset_rights: what a buyer owns is never
+      -- deleted, only transitioned) the housekeeping raised and took every
+      -- frozen-column verdict on that table down with it. TRUNCATE fires no row
+      -- trigger, so a table may now be BOTH column-frozen and delete-refusing,
+      -- which is a combination the ledger could always express and this probe
+      -- could not measure.
+      execute 'truncate pg_temp.probe_clone';
       execute format('insert into pg_temp.probe_clone (%I) values (%s)', col.name, first_value);
       begin
         execute format('update pg_temp.probe_clone set %I = %s', col.name, second_value);

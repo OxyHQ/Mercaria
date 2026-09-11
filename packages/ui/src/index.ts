@@ -642,3 +642,120 @@ export {
 // cards out in, and that screen is its only caller.
 // ---------------------------------------------------------------------------
 export { FeedGrid, type FeedGridProps } from "./components/marketplace/FeedGrid";
+
+// ---------------------------------------------------------------------------
+// Digital commerce (#1015, ADR 0010) — the 3D preview, the technical panel, the
+// licence summary and one line of a buyer's library.
+//
+// Here rather than in an app for the reason every taxonomy above is: the COPY
+// these render (`./lib/digital-asset-labels`) lives here, keyed off
+// `@mercaria/shared-types` unions, and every map is an exhaustive `Record` — so
+// a ninth `DigitalLicenceRight` or a sixth `AssetRightStatus` fails THIS
+// package's typecheck rather than rendering a blank row to a buyer.
+//
+// `AssetPreviewSource` is the one export here that is not a component or a copy
+// map, and it is the load-bearing one: the public viewer's `source` prop takes
+// NOTHING ELSE, and `admitAssetPreview` is the only constructor (the brand is a
+// module-private symbol). That is how "#1015 W4: the public viewer must never
+// require the paid source file to render" is held — by the type, at the call
+// site — rather than by a `.filter()` inside a component that would have to be
+// handed the paid files in order to drop them. `isPubliclyViewableAssetRole`
+// and `isAssetPreviewFile` read the shared tuples and restate neither.
+// ---------------------------------------------------------------------------
+export {
+  admitAssetPreview,
+  assetPreviewKind,
+  isAssetPreviewFile,
+  isPubliclyViewableAssetRole,
+  type AssetPreviewAdmission,
+  type AssetPreviewCandidate,
+  type AssetPreviewRefusalReason,
+  type AssetPreviewSource,
+} from "./lib/asset-preview";
+export {
+  AssetPreviewViewer,
+  type AssetModelRenderer,
+  type AssetPreviewViewerProps,
+  type AssetViewerViewState,
+} from "./components/marketplace/AssetPreviewViewer";
+export {
+  AssetTechnicalPanel,
+  type AssetMeasuredFactRow,
+  type AssetMeasuredFacts,
+  type AssetSellerClaimRow,
+  type AssetTechnicalPanelProps,
+} from "./components/marketplace/AssetTechnicalPanel";
+export {
+  AssetLicenceSummary,
+  type AssetLicenceSummaryProps,
+} from "./components/marketplace/AssetLicenceSummary";
+export {
+  BuyerAssetRightCard,
+  type BuyerAssetRightCardProps,
+} from "./components/marketplace/BuyerAssetRightCard";
+// A file size and a bare count, each spelled for the reader's locale and each
+// bidi-isolated (#429/#500). Their own modules rather than `./lib/format`,
+// because `validate:bidi-isolation` censuses that file function-by-function and
+// fails on one it has no case for — which this change cannot add. Both are
+// therefore OUTSIDE that census: a stated residual, not a gap nobody noticed.
+export { formatByteSize } from "./lib/byte-size";
+export { formatWholeNumber } from "./lib/plain-number";
+// The digital copy maps, exported for the same reason the condition and pickup
+// maps are: an app resolves one with its own `t`, and `validate:facet-label-copy`'s
+// sibling rule — a client never renders a machine key — needs somewhere to
+// resolve it from.
+export {
+  ASSET_FACTS_CLAIMED_BADGE_KEY,
+  ASSET_FACTS_CLAIMED_NOTE_KEY,
+  ASSET_FACTS_CLAIMED_TITLE_KEY,
+  ASSET_FACTS_MEASURED_BADGE_KEY,
+  ASSET_FACTS_MEASURED_BY_KEY,
+  ASSET_FACTS_MEASURED_NOTE_KEY,
+  ASSET_FACTS_MEASURED_TITLE_KEY,
+  ASSET_FACTS_NOT_MEASURED_KEY,
+  ASSET_INSPECTION_VERDICT_KEYS,
+  ASSET_LIBRARY_AVAILABLE_VERSION_KEY,
+  ASSET_LIBRARY_DOWNLOADS_PAUSED_KEY,
+  ASSET_LIBRARY_DOWNLOAD_A11Y_KEY,
+  ASSET_LIBRARY_DOWNLOAD_ACTION_KEY,
+  ASSET_LIBRARY_FILES_TITLE_KEY,
+  ASSET_LIBRARY_GRANTED_ON_KEY,
+  ASSET_LIBRARY_LICENCE_KEY,
+  ASSET_LIBRARY_NOT_DOWNLOADABLE_KEY,
+  ASSET_LIBRARY_PURCHASED_VERSION_KEY,
+  ASSET_LIBRARY_UPDATE_AVAILABLE_KEY,
+  ASSET_LICENCE_ADDITIONAL_TERMS_TITLE_KEY,
+  ASSET_LICENCE_ATTRIBUTION_TITLE_KEY,
+  ASSET_LICENCE_GRANTED_TITLE_KEY,
+  ASSET_LICENCE_LIMITS_TITLE_KEY,
+  ASSET_LICENCE_NOT_GRANTED_TITLE_KEY,
+  ASSET_LICENCE_PROJECTS_KEY,
+  ASSET_LICENCE_PROJECTS_UNLIMITED_KEY,
+  ASSET_LICENCE_REVENUE_KEY,
+  ASSET_LICENCE_REVENUE_UNLIMITED_KEY,
+  ASSET_LICENCE_SEATS_KEY,
+  ASSET_LICENCE_SEATS_UNLIMITED_KEY,
+  ASSET_LICENCE_TITLE_KEY,
+  ASSET_LICENCE_UPDATES_TITLE_KEY,
+  ASSET_PREVIEW_REFUSAL_KEYS,
+  ASSET_RIGHT_STATUS_KEYS,
+  ASSET_VIEWER_ANIMATION_KEY,
+  ASSET_VIEWER_ANIMATION_OFF_KEY,
+  ASSET_VIEWER_CONTROLS_KEY,
+  ASSET_VIEWER_FULLSCREEN_CLOSE_KEY,
+  ASSET_VIEWER_FULLSCREEN_OPEN_KEY,
+  ASSET_VIEWER_GESTURES_KEY,
+  ASSET_VIEWER_NEVER_SOURCE_KEY,
+  ASSET_VIEWER_NO_PREVIEW_KEY,
+  ASSET_VIEWER_PREVIEW_A11Y_KEY,
+  ASSET_VIEWER_RESET_KEY,
+  ASSET_VIEWER_STATIC_ONLY_KEY,
+  ASSET_VIEWER_STATIC_SMALL_SCREEN_KEY,
+  ASSET_VIEWER_STATISTICS_KEY,
+  ASSET_VIEWER_STREAMED_ONLY_KEY,
+  ASSET_VIEWER_WIREFRAME_KEY,
+  DIGITAL_LICENCE_ATTRIBUTION_KEYS,
+  DIGITAL_LICENCE_AUTHORSHIP_KEYS,
+  DIGITAL_LICENCE_RIGHT_KEYS,
+  DIGITAL_LICENCE_UPDATE_POLICY_KEYS,
+} from "./lib/digital-asset-labels";
