@@ -21,7 +21,8 @@
     "deals": "优惠",
     "saved": "已保存",
     "account": "账户",
-    "signIn": "登录"
+    "signIn": "登录",
+    "threeD": "3D"
   },
   "login": {
     "signInButton": "登录",
@@ -1525,6 +1526,59 @@
       "documentTitle": "%{title} — Mercaria",
       "empty": "目前没有正在进行的优惠。",
       "loadError": "无法加载优惠，请重试。"
+    }
+  },
+  "digital": {
+    "documentTitle": "%{title} — Mercaria",
+    "browseOther": "3D 的其他页面",
+    "threeD": {
+      "title": "3D",
+      "description": "用于打印、游戏和可视化的模型，来自制作它们的人。"
+    },
+    "printable": {
+      "title": "可打印模型",
+      "description": "为 3D 打印准备好的模型。"
+    },
+    "gameAssets": {
+      "title": "游戏素材",
+      "description": "为游戏引擎和实时渲染准备好的模型。"
+    },
+    "unavailable": {
+      "title": "此处尚不可用",
+      "body": "本部署已关闭数字商品，因此没有可显示的内容。你已拥有的内容不受影响。"
+    },
+    "grid": {
+      "empty": "这里还没有发布任何内容。",
+      "emptyFiltered": "没有作品符合这些筛选条件。去掉一个就能看到更多。",
+      "emptyPricesWithdrawn": "目前无法获取价格，因此这里无法列出任何内容。"
+    },
+    "library": {
+      "title": "你的资料库",
+      "description": "你买到或领取的全部内容，以及每笔购买所含的文件。",
+      "empty": "你还没有购买或领取任何数字内容。",
+      "signedOut": {
+        "title": "登录后打开你的资料库",
+        "body": "你的购买、对应的许可和文件都保存在你的账号里。",
+        "signIn": "登录"
+      }
+    },
+    "creator": {
+      "fallbackTitle": "创作者",
+      "worksTitle": "作品"
+    },
+    "asset": {
+      "fallbackTitle": "作品",
+      "creatorLine": "作者：%{creator}",
+      "viewCreator": "查看 %{creator} 的全部作品",
+      "previewTitle": "预览",
+      "packagesTitle": "你将获得",
+      "technicalTitle": "技术细节",
+      "guidanceTitle": "卖家的说明",
+      "versionsTitle": "版本与变更",
+      "reviewsTitle": "评价",
+      "currentVersion": "当前",
+      "formatsLabel": "包含 %{formats}",
+      "notForSale": "未在售"
     }
   }
 }

@@ -35,6 +35,7 @@ import type {
 } from '@mercaria/shared-types';
 import {
   ACQUIRABLE_ASSET_VERSION_STATES,
+  PUBLISHABLE_ASSET_INSPECTION_VERDICTS,
   PUBLISHABLE_ASSET_SCAN_VERDICTS,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
@@ -596,4 +597,57 @@ export async function everyFileScannedClean(
   const files = await findVersionFiles(versionId, tx);
   if (files.length === 0) return false;
   return files.every((file) => PUBLISHABLE_ASSET_SCAN_VERDICTS.includes(file.scanVerdict));
+}
+
+/**
+ * Whether every file of a version has been INSPECTED to an acceptable verdict.
+ *
+ * `everyFileScannedClean`'s sibling, and the gate it was missing. That one asks
+ * only whether a file is malicious, so a `corrupt` file — an `.stl` whose header
+ * declares more triangles than it holds, a `.3mf` part with no `<model>` root —
+ * was publishable the moment a scanner called it clean, and nothing else stood
+ * between it and a buyer. `PUBLISHABLE_ASSET_INSPECTION_VERDICTS` carries which
+ * verdicts pass and why each membership is a decision; `unsupported` and
+ * `missing_resources` deliberately DO pass.
+ *
+ * The judgement the query itself makes is WHICH inspection counts: the LATEST run
+ * per file, by `measured_at`. Inspections are append-only and a re-run writes a
+ * new row, so a file that was `corrupt`, was fixed and re-inspected carries both
+ * rows — and an `every()` over all of them would keep the creator's old mistake
+ * blocking them forever, with no way to clear it.
+ *
+ * A file with NO inspection row at all answers `false`, and so does a version with
+ * no files. Both are the same refusal `everyFileScannedClean` makes for the same
+ * reason: `every()` over an empty list is `true`, which is how an uninspected
+ * deliverable becomes publishable.
+ */
+export async function everyFileInspectionAcceptable(
+  versionId: string,
+  tx?: DatabaseOrTransaction,
+): Promise<boolean> {
+  const files = await findVersionFiles(versionId, tx);
+  if (files.length === 0) return false;
+  const inspections = await findVersionInspections(versionId, tx);
+
+  // The latest run per file. Ordered by `measured_at`, with the row's own
+  // `created_at` breaking a tie — two runs can share an instant on a fast
+  // processor, and a non-deterministic winner would make this gate flap.
+  const latest = new Map<string, (typeof inspections)[number]>();
+  for (const inspection of inspections) {
+    const held = latest.get(inspection.fileId);
+    if (
+      !held
+      || inspection.measuredAt > held.measuredAt
+      || (inspection.measuredAt.getTime() === held.measuredAt.getTime()
+        && inspection.createdAt > held.createdAt)
+    ) {
+      latest.set(inspection.fileId, inspection);
+    }
+  }
+
+  return files.every((file) => {
+    const inspection = latest.get(file.id);
+    if (!inspection) return false;
+    return PUBLISHABLE_ASSET_INSPECTION_VERDICTS.includes(inspection.verdict);
+  });
 }

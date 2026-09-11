@@ -248,13 +248,46 @@ A geometric analyzer reports MEASURED properties. It must never present an unsaf
 or uncertain model as guaranteed printable, which is why `watertight` is nullable
 and `NULL` is "not determined" rather than "no".
 
+## What Phases B and C added
+
+- **The inspection pipeline** (`services/digital/inspection/`): format sniffing and
+  geometry measurement for STL, OBJ, glTF/GLB and 3MF, container-bomb refusals for
+  zip-shaped packages, a fail-closed malware-scanner seam, and a fourth BullMQ
+  queue (`marketplace-digital`) because an inspection is CPU- and memory-bound
+  while everything on `marketplace-sync` waits on a supplier. Every other format in
+  the registry answers `unsupported` rather than a weak measurement.
+- **A publication gate on inspections.** `everyFileInspectionAcceptable` is
+  `everyFileScannedClean`'s sibling and closes the escape it left: a `corrupt` file
+  is not malicious, so a scanner calls it clean and nothing else stood between it
+  and a buyer. `unsupported` and `missing_resources` deliberately pass — see
+  `PUBLISHABLE_ASSET_INSPECTION_VERDICTS`.
+- **Re-upload detection** (`services/digital/provenance/`): content hashes,
+  quantised geometry fingerprints and preview perceptual hashes, swept against the
+  evidence table and escalated to the EXISTING abuse-report path, with an operator
+  id required and no default — a machine can never file. Nothing is stored: a
+  persisted candidate list is a verdict-shaped row.
+- **Creator analytics** (`services/digital/analytics/`): six projections of rows
+  that already exist, with a ten-sale cohort floor on geographic revenue that
+  suppresses rather than rounds, and no path by which ranking can read it.
+- **Seven 3D product profiles** and the reference licence seed
+  (`services/digital/profiles/`, `scripts/seed-digital-3d.ts`,
+  `docs/verticals/3d.md`).
+- **The viewer and storefront surfaces** (`@mercaria/ui`, `packages/frontend`),
+  including the branded `AssetPreviewSource` that makes handing a paid file to the
+  viewer a compile error rather than a runtime check.
+- **The storage port** (`services/digital/storage.ts`, `byte-source.ts`): an asset
+  file is a private Oxy object, resolved through Oxy's service-token mint. ADR 0010
+  D17 records why the obvious user-scoped call is wrong.
+
 ## What is NOT built yet
 
-Phases B–E of #1015, and `HANDOFF.md` carries what each still needs: the sandboxed
-processing workers, the 3D viewer and storefront surfaces, the creator dashboard,
-bundles and memberships, re-upload detection beyond the evidence tables, and the
-physical print bridge. The foundation is built so none of them is a second commerce
-stack; none of them is in place today.
+Phases D and E of #1015, and `HANDOFF.md` carries what each still needs: creator
+royalties and payout splits (which #1015 forbids building on referral commission or
+marketplace fees, and which wants an economic ADR of its own), bundles and
+memberships, the physical print bridge, and the dashboard authoring surfaces. The
+analytics engine is complete and UNWIRED — its `DigitalAnalyticsFactReader` seam
+has no SQL behind it yet. The foundation is built so none of them is a second
+commerce stack; none of them is in place today.
 
 **Gift cards, licence keys and third-party redemption codes are still excluded**
 (ADR 0010 D16). A redemption code is not a creator file download and must never be

@@ -84,11 +84,19 @@ script and nothing else.
 
 ## Add or version a product type
 
-**A product type version is created in exactly one place:**
-`scripts/seed-verticals/apply.ts:536`, through `insertProductTypeDefinition`.
-Over HTTP that is reachable only as `vertical_package_apply`. There is no
-`POST /product-types` — `routes/product-types.ts` is a public read-only surface
-with one GET.
+**A product type version is created by THREE callers, all of them seed or
+observability code**, each through `insertProductTypeDefinition`:
+
+| Caller | What it seeds |
+|---|---|
+| `scripts/seed-verticals/apply.ts` | the footwear/smartphone/brake-pad packages |
+| `services/digital/profiles/apply.ts` | the seven 3D profiles (#1015) |
+| `services/catalog-observability/category-index-coverage.ts` | the coverage probe's own type |
+
+Over HTTP the first is reachable only as `vertical_package_apply`. **There is
+still no `POST /product-types`** — `routes/product-types.ts` is a public
+read-only surface with one GET — and that, not the caller count, is the claim
+this section exists to make: a product type is never authored by a request.
 
 So the procedure is:
 

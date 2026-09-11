@@ -136,12 +136,39 @@ describe('assertNothingOutsideDomainPopulation', () => {
     ),
   ];
 
+  /**
+   * `services/digital/analytics/` is a DIFFERENT domain that shares the word.
+   *
+   * It is #1015 W13's creator analytics — six projections of digital commerce rows
+   * for the creator who made them — and it has nothing to do with the platform
+   * analytics domain this fixture measures. The two are deliberately unreachable
+   * from each other: `analytics-ranking-isolation.test.ts` asserts that the digital
+   * directory imports no ranking, search, fee, plan or referral module, and that no
+   * ranking surface imports it.
+   *
+   * So they are EXCLUSIONS with a reason rather than additions to the population.
+   * Adding them would make this fixture claim the platform analytics gates cover
+   * modules they have never read — which is the opposite of what the gate is for.
+   */
+  const DIGITAL_CREATOR_ANALYTICS = [
+    'creator-analytics.ts',
+    'facts.ts',
+    'geography.ts',
+    'launch-metrics.ts',
+    'metrics.ts',
+  ].map((file) => ({
+    path: `services/digital/analytics/${file}`,
+    why: "#1015 W13's creator analytics — the DIGITAL domain, which shares the word "
+      + 'and nothing else. Unreachable from this one in both directions, asserted by '
+      + 'analytics-ranking-isolation.test.ts.',
+  }));
+
   it('passes on a population that really covers the tree', () => {
     assertNothingOutsideDomainPopulation({
       population: analyticsPopulation,
       pattern: /analytics/i,
-      notThisDomain: [],
-      expectedExclusions: 0,
+      notThisDomain: DIGITAL_CREATOR_ANALYTICS,
+      expectedExclusions: DIGITAL_CREATOR_ANALYTICS.length,
       sweepFloor: 20,
       plantIn: 'lib',
       plantName: 'analytics-cache.ts',
@@ -198,8 +225,11 @@ describe('assertNothingOutsideDomainPopulation', () => {
       assertNothingOutsideDomainPopulation({
         population: walksLibWhole,
         pattern: /analytics/i,
-        notThisDomain: [],
-        expectedExclusions: 0,
+        // The real tree's exclusions, carried into every negative case whose
+        // intended failure comes AFTER the outside-population clause: without them
+        // that clause fires first and the case stops measuring what it names.
+        notThisDomain: DIGITAL_CREATOR_ANALYTICS,
+        expectedExclusions: DIGITAL_CREATOR_ANALYTICS.length,
         sweepFloor: 20,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
@@ -297,8 +327,8 @@ describe('assertNothingOutsideDomainPopulation', () => {
       assertNothingOutsideDomainPopulation({
         population: analyticsPopulation,
         pattern: /analytics/i,
-        notThisDomain: [],
-        expectedExclusions: 0,
+        notThisDomain: DIGITAL_CREATOR_ANALYTICS,
+        expectedExclusions: DIGITAL_CREATOR_ANALYTICS.length,
         sweepFloor: 20,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
@@ -327,9 +357,10 @@ describe('assertNothingOutsideDomainPopulation', () => {
         population: analyticsPopulation,
         pattern: /analytics/i,
         notThisDomain: [
+          ...DIGITAL_CREATOR_ANALYTICS,
           { path: 'services/analytics-that-never-existed.ts', why: 'a stale exemption, by construction' },
         ],
-        expectedExclusions: 1,
+        expectedExclusions: DIGITAL_CREATOR_ANALYTICS.length + 1,
         sweepFloor: 20,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
@@ -343,9 +374,10 @@ describe('assertNothingOutsideDomainPopulation', () => {
         population: analyticsPopulation,
         pattern: /analytics/i,
         notThisDomain: [
+          ...DIGITAL_CREATOR_ANALYTICS,
           { path: 'db/schema/analytics.ts', why: 'excused and covered at the same time' },
         ],
-        expectedExclusions: 1,
+        expectedExclusions: DIGITAL_CREATOR_ANALYTICS.length + 1,
         sweepFloor: 20,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
@@ -401,8 +433,8 @@ describe('assertNothingOutsideDomainPopulation', () => {
       assertNothingOutsideDomainPopulation({
         population: analyticsPopulation,
         pattern: /analytics/i,
-        notThisDomain: [],
-        expectedExclusions: 0,
+        notThisDomain: DIGITAL_CREATOR_ANALYTICS,
+        expectedExclusions: DIGITAL_CREATOR_ANALYTICS.length,
         sweepFloor: 20,
         plantIn: 'db/schema',
         plantName: 'analytics.ts',

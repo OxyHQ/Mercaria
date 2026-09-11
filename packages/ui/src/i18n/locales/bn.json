@@ -876,6 +876,104 @@
     "variantSwatches": {
       "showMoreA11y": "%{option}-এর আরও বিকল্প (%{more})",
       "showMore": "+%{more} আরও"
+    },
+    "assetViewer": {
+      "previewA11y": "%{title}-এর প্রিভিউ",
+      "noPreview": "এই কাজের কোনো সর্বজনীন প্রিভিউ নেই।",
+      "staticOnly": "স্থির ছবি দেখানো হচ্ছে। এখানে ইন্টারঅ্যাক্টিভ ভিউয়ার পাওয়া যায় না।",
+      "staticOnSmallScreen": "স্থির ছবি দেখানো হচ্ছে। ইন্টারঅ্যাক্টিভ ভিউয়ারের জন্য আরও চওড়া পর্দা দরকার।",
+      "neverTheSourceFile": "প্রিভিউ হলো তৈরি করা অনুলিপি। আপনি যে ফাইল কেনেন, সেগুলো এটি দেখানোর জন্য কখনও ব্যবহার হয় না।",
+      "streamedOnly": "এই প্রিভিউ কেবল দেখার জন্য স্ট্রিম করা হয় এবং কখনও ফাইল হিসেবে দেওয়া হয় না।",
+      "controls": "প্রিভিউয়ের নিয়ন্ত্রণ",
+      "gestures": "ঘোরাতে টানুন, জুম করতে স্ক্রল বা পিঞ্চ করুন, সরাতে দুই আঙুলে টানুন।",
+      "reset": "দৃশ্য আবার আগের মতো করুন",
+      "fullscreenOpen": "প্রিভিউ পূর্ণ পর্দায় খুলুন",
+      "fullscreenClose": "পূর্ণ পর্দা বন্ধ করুন",
+      "wireframe": "ওয়্যারফ্রেম",
+      "statistics": "রেন্ডারের পরিসংখ্যান",
+      "animation": "অ্যানিমেশন",
+      "animationOff": "কোনোটিই নয়",
+      "refused": {
+        "role_is_not_publicly_viewable": "এই ফাইলটি কেনার অংশ, তাই সর্বজনীন প্রিভিউতে দেখানো হয় না।",
+        "visibility_requires_a_right": "এই ফাইলটি শুধু ক্রেতাদের জন্য, তাই সর্বজনীন প্রিভিউতে দেখানো হয় না।"
+      }
+    },
+    "assetFacts": {
+      "measuredTitle": "Mercaria মেপেছে",
+      "measuredNote": "প্রকাশিত ফাইল থেকে Mercaria এগুলো মেপেছে।",
+      "measuredBy": "%{processor} %{version} দিয়ে %{date} তারিখে মাপা",
+      "measuredBadge": "মাপা",
+      "claimedTitle": "বিক্রেতার বর্ণনা",
+      "claimedNote": "এগুলো বিক্রেতা লিখেছেন। Mercaria এগুলো মাপেনি।",
+      "claimedBadge": "বিক্রেতার বর্ণনা",
+      "notMeasured": "মাপা হয়নি",
+      "verdict": {
+        "pending": "মাপা এখনও শেষ হয়নি।",
+        "measured": "এই সংখ্যাগুলো ফাইল থেকে মাপা হয়েছে।",
+        "unsupported": "এই ফরম্যাট স্বয়ংক্রিয়ভাবে মাপা যায় না।",
+        "corrupt": "ফাইলটি পড়া যায়নি।",
+        "missing_resources": "ফাইলটি এমন উপকরণের উল্লেখ করে যা দেওয়া হয়নি।",
+        "failed": "মাপা সম্পূর্ণ হয়নি।",
+        "refused_too_large": "ফাইলটি মাপার জন্য খুব বড় ছিল।"
+      }
+    },
+    "assetLicence": {
+      "title": "লাইসেন্স",
+      "grantedTitle": "আপনি কী করতে পারেন",
+      "notGrantedTitle": "এই লাইসেন্স যা অনুমোদন করে না",
+      "attributionTitle": "কৃতজ্ঞতা স্বীকার",
+      "updatesTitle": "হালনাগাদ",
+      "limitsTitle": "সীমা",
+      "additionalTermsTitle": "বিক্রেতার নিজের শর্ত",
+      "seats": "%{seats} জন পর্যন্ত ব্যবহার করতে পারবেন",
+      "seatsUnlimited": "কতজন ব্যবহার করতে পারবেন, তার কোনো সীমা নেই",
+      "projects": "%{projects}টি সমাপ্ত পণ্য পর্যন্ত",
+      "projectsUnlimited": "সমাপ্ত পণ্যের সংখ্যায় কোনো সীমা নেই",
+      "revenue": "%{amount} পর্যন্ত আয়",
+      "revenueUnlimited": "আয়ের কোনো সীমা নেই",
+      "right": {
+        "personal_use": "নিজের ব্যক্তিগত কাজে ব্যবহার করা",
+        "commercial_project_use": "বাণিজ্যিক প্রকল্পে ব্যবহার করা",
+        "commercial_physical_production": "বাস্তব অনুলিপি বানানো ও বিক্রি করা",
+        "modification": "পরিবর্তন করা",
+        "derivative_redistribution": "সমাপ্ত কাজের ভেতরে পরিবর্তিত রূপ ভাগ করা",
+        "source_redistribution": "ফাইলগুলো যেমন দেওয়া হয়েছে, তেমনই ভাগ করা",
+        "sublicensing": "লাইসেন্স কোনো ক্লায়েন্টকে দিয়ে দেওয়া",
+        "extended_enterprise_use": "ব্যবহারকারী ও আয়ের সীমা ছাড়িয়ে ব্যবহার করা"
+      },
+      "attribution": {
+        "required": "আপনাকে নির্মাতার নাম উল্লেখ করতে হবে।",
+        "optional": "নাম উল্লেখ করলে ভালো, তবে বাধ্যতামূলক নয়।",
+        "not_required": "নাম উল্লেখ করার দরকার নেই।"
+      },
+      "updatePolicy": {
+        "purchased_version_only": "আপনি যে সংস্করণ কিনেছেন তা আপনার থাকবে। পরের সংস্করণ নতুন কেনা।",
+        "same_major_version": "আপনার কেনা সংস্করণের মূল নম্বর যেসব পরের সংস্করণে একই, সেগুলো অন্তর্ভুক্ত।",
+        "all_future_versions": "ভবিষ্যতের সব সংস্করণ অন্তর্ভুক্ত।"
+      },
+      "authorship": {
+        "mercaria_reference": "Mercaria-র আদর্শ লাইসেন্সের পাঠ",
+        "creator": "নির্মাতার নিজের লাইসেন্সের পাঠ"
+      }
+    },
+    "assetLibrary": {
+      "filesTitle": "ফাইল",
+      "downloadAction": "ডাউনলোড",
+      "downloadA11y": "%{file} ডাউনলোড করুন",
+      "notDownloadable": "কেবল দেখার জন্য — ফাইল হিসেবে দেওয়া হয় না",
+      "downloadsPaused": "ডাউনলোড থামানো আছে। এই কেনার অবস্থা: %{status}।",
+      "grantedOn": "%{date} তারিখে যোগ হয়েছে",
+      "licence": "লাইসেন্স: %{licence}",
+      "purchasedVersion": "আপনি %{version} কিনেছেন",
+      "availableVersion": "ডাউনলোড করা যায় এমন নতুন সংস্করণ: %{version}",
+      "updateAvailable": "হালনাগাদ আছে",
+      "status": {
+        "active": "সক্রিয়",
+        "refunded": "টাকা ফেরত দেওয়া হয়েছে",
+        "disputed_hold": "বিরোধ চলাকালীন স্থগিত",
+        "revoked_for_policy": "আইনি কারণে প্রত্যাহার করা",
+        "superseded": "পরের কেনা দিয়ে প্রতিস্থাপিত"
+      }
     }
   }
 }

@@ -21,7 +21,8 @@
     "deals": "セール",
     "saved": "保存済み",
     "account": "アカウント",
-    "signIn": "ログイン"
+    "signIn": "ログイン",
+    "threeD": "3D"
   },
   "login": {
     "signInButton": "ログイン",
@@ -1525,6 +1526,59 @@
       "documentTitle": "%{title} — Mercaria",
       "empty": "現在有効なセールはありません。",
       "loadError": "セールを読み込めませんでした。もう一度お試しください。"
+    }
+  },
+  "digital": {
+    "documentTitle": "%{title} — Mercaria",
+    "browseOther": "3D のほかのページ",
+    "threeD": {
+      "title": "3D",
+      "description": "印刷・ゲーム・ビジュアライゼーションのためのモデルを、作った人から。"
+    },
+    "printable": {
+      "title": "印刷向けモデル",
+      "description": "3D プリント用に準備されたモデル。"
+    },
+    "gameAssets": {
+      "title": "ゲーム向けアセット",
+      "description": "ゲームエンジンとリアルタイム描画のために準備されたモデル。"
+    },
+    "unavailable": {
+      "title": "ここではまだ利用できません",
+      "body": "この環境ではデジタル商品が無効になっているため、表示できるものがありません。すでに購入したものには影響しません。"
+    },
+    "grid": {
+      "empty": "ここにはまだ何も公開されていません。",
+      "emptyFiltered": "この絞り込みに合う作品はありません。条件を 1 つ外すと増えます。",
+      "emptyPricesWithdrawn": "現在価格を取得できないため、ここには何も表示できません。"
+    },
+    "library": {
+      "title": "あなたのライブラリ",
+      "description": "購入または受け取ったものと、それぞれに含まれるファイル。",
+      "empty": "デジタル商品をまだ購入も受け取りもしていません。",
+      "signedOut": {
+        "title": "ライブラリを開くにはサインインしてください",
+        "body": "購入したもの、そのライセンスとファイルはアカウントに保存されます。",
+        "signIn": "サインイン"
+      }
+    },
+    "creator": {
+      "fallbackTitle": "制作者",
+      "worksTitle": "作品"
+    },
+    "asset": {
+      "fallbackTitle": "作品",
+      "creatorLine": "制作: %{creator}",
+      "viewCreator": "%{creator} の作品をすべて見る",
+      "previewTitle": "プレビュー",
+      "packagesTitle": "受け取るもの",
+      "technicalTitle": "技術情報",
+      "guidanceTitle": "出品者からのメモ",
+      "versionsTitle": "バージョンと変更点",
+      "reviewsTitle": "レビュー",
+      "currentVersion": "最新",
+      "formatsLabel": "含まれる形式: %{formats}",
+      "notForSale": "販売していません"
     }
   }
 }

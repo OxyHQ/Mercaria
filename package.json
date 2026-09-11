@@ -44,6 +44,7 @@
     "ios": "bun run --filter @mercaria/frontend ios",
     "web": "bun run --filter @mercaria/frontend web",
     "seed:verticals": "bun run --cwd packages/backend src/scripts/seed-verticals/index.ts",
+    "seed:digital-3d": "bun run --cwd packages/backend src/scripts/seed-digital-3d.ts",
   "postinstall": "bun run --filter @mercaria/shared-types build"
   },
   "keywords": [

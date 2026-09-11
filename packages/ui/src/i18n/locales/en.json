@@ -876,6 +876,104 @@
     "variantSwatches": {
       "showMoreA11y": "More %{option} options (%{more})",
       "showMore": "+%{more} more"
+    },
+    "assetViewer": {
+      "previewA11y": "Preview of %{title}",
+      "noPreview": "There is no public preview for this work.",
+      "staticOnly": "Showing a still preview. The interactive viewer is not available here.",
+      "staticOnSmallScreen": "Showing a still preview. The interactive viewer needs a wider screen.",
+      "neverTheSourceFile": "Previews are generated copies. The files you buy are never used to render this.",
+      "streamedOnly": "This preview is streamed for viewing only and is never supplied as a file.",
+      "controls": "Preview controls",
+      "gestures": "Drag to orbit, scroll or pinch to zoom, drag with two fingers to pan.",
+      "reset": "Reset the view",
+      "fullscreenOpen": "Open the preview full screen",
+      "fullscreenClose": "Close the full-screen preview",
+      "wireframe": "Wireframe",
+      "statistics": "Render statistics",
+      "animation": "Animation",
+      "animationOff": "Off",
+      "refused": {
+        "role_is_not_publicly_viewable": "This file is part of the purchase, so it is not shown in the public preview.",
+        "visibility_requires_a_right": "This file is available to buyers only, so it is not shown in the public preview."
+      }
+    },
+    "assetFacts": {
+      "measuredTitle": "Measured by Mercaria",
+      "measuredNote": "Mercaria measured these from the published files.",
+      "measuredBy": "Measured with %{processor} %{version} on %{date}",
+      "measuredBadge": "Measured",
+      "claimedTitle": "Described by the seller",
+      "claimedNote": "The seller wrote these. Mercaria has not measured them.",
+      "claimedBadge": "Seller's description",
+      "notMeasured": "Not measured",
+      "verdict": {
+        "pending": "The measurement has not finished yet.",
+        "measured": "These figures were measured from the files.",
+        "unsupported": "This format cannot be measured automatically.",
+        "corrupt": "The file could not be read.",
+        "missing_resources": "The file refers to resources that were not supplied.",
+        "failed": "The measurement did not complete.",
+        "refused_too_large": "The file was too large to measure."
+      }
+    },
+    "assetLicence": {
+      "title": "Licence",
+      "grantedTitle": "What you may do",
+      "notGrantedTitle": "What this licence does not cover",
+      "attributionTitle": "Credit",
+      "updatesTitle": "Updates",
+      "limitsTitle": "Limits",
+      "additionalTermsTitle": "The seller's own terms",
+      "seats": "Up to %{seats} people may use it",
+      "seatsUnlimited": "No limit on how many people may use it",
+      "projects": "Up to %{projects} finished products",
+      "projectsUnlimited": "No limit on how many finished products",
+      "revenue": "Up to %{amount} of revenue",
+      "revenueUnlimited": "No revenue ceiling",
+      "right": {
+        "personal_use": "Use it in your own personal projects",
+        "commercial_project_use": "Use it in commercial projects",
+        "commercial_physical_production": "Make and sell physical copies",
+        "modification": "Modify it",
+        "derivative_redistribution": "Share a modified version inside a finished work",
+        "source_redistribution": "Share the files themselves as they were supplied",
+        "sublicensing": "Pass the licence on to a client",
+        "extended_enterprise_use": "Use it beyond the seat and revenue limits"
+      },
+      "attribution": {
+        "required": "You must credit the creator.",
+        "optional": "Credit is welcome but not required.",
+        "not_required": "No credit is required."
+      },
+      "updatePolicy": {
+        "purchased_version_only": "You keep the version you bought. A later version is a new purchase.",
+        "same_major_version": "Later versions that share the major number you bought are included.",
+        "all_future_versions": "Every future version is included."
+      },
+      "authorship": {
+        "mercaria_reference": "Mercaria's standard licence text",
+        "creator": "The creator's own licence text"
+      }
+    },
+    "assetLibrary": {
+      "filesTitle": "Files",
+      "downloadAction": "Download",
+      "downloadA11y": "Download %{file}",
+      "notDownloadable": "For viewing only — not supplied as a file",
+      "downloadsPaused": "Downloads are paused. This purchase is: %{status}.",
+      "grantedOn": "Added on %{date}",
+      "licence": "Licence: %{licence}",
+      "purchasedVersion": "You bought %{version}",
+      "availableVersion": "Newest version you can download: %{version}",
+      "updateAvailable": "Update available",
+      "status": {
+        "active": "Active",
+        "refunded": "Refunded",
+        "disputed_hold": "On hold during a dispute",
+        "revoked_for_policy": "Withdrawn for legal reasons",
+        "superseded": "Replaced by a later purchase"
+      }
     }
   }
 }

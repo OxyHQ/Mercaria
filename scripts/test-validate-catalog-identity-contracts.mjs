@@ -287,7 +287,22 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // `canonicalProductId` and never a `category`, which is the whole of why this
     // domain sits on top of the catalogue rather than beside it. Read off the
     // guard's own output line against this branch, not derived by arithmetic.
-    "walked 131 contract module(s), 2315 exported type(s), 7760 property signature(s)",
+    // A ninth instance, #1015 Workstream 3: ONE new contract module,
+    // `digital-3d-profile.ts`. 132/2321/7766 — +1 module, +6 exported types, +6
+    // property signatures, READ OFF the guard's own output line against this
+    // branch rather than added up. The two deltas being EQUAL is the tell that
+    // the change is the one intended: all six new exported types are string-union
+    // or tuple-derived ALIASES, which contribute no property signature at all
+    // (the `FeeDecisionAuthority` asymmetry, two instances above), and all six new
+    // property signatures come from the three members of ONE discriminated union,
+    // `ThreeDMeasuredFactOrigin`, at two properties each. Had the type count moved
+    // further, an interface had arrived — and an interface in this module would
+    // most likely be the authoring FORM that `THREE_D_FORBIDDEN_PROFILE_SHAPES`
+    // exists to keep out of the published package (#1015 acceptance criterion 18).
+    // None of the six names a category, a brand or a product type: a 3D profile is
+    // a set of attribute KEYS, which is why this domain sits on top of #367's
+    // registry rather than restating it.
+    "walked 132 contract module(s), 2321 exported type(s), 7766 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });

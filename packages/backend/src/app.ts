@@ -35,6 +35,7 @@ import cartRouter from './routes/cart.js';
 import addressesRouter from './routes/addresses.js';
 import checkoutRouter from './routes/checkout.js';
 import ordersRouter from './routes/orders.js';
+import digitalRouter from './routes/digital.routes.js';
 import reviewsRouter from './routes/reviews.js';
 import sellerRouter from './routes/seller.js';
 import referralPartnerSelfRouter from './routes/referral-partner.js';
@@ -374,6 +375,27 @@ export function createApp(): express.Express {
   // order.
   app.use('/guest/orders', guestOrdersRouter);
   app.use('/orders', ordersRouter);
+  /**
+   * Digital commerce (#1015, ADR 0010). ONE mount carrying two routers: the
+   * creator surface under `/digital/stores/:storeId/*`, whose own mount is gated
+   * on `DIGITAL_UPLOADS_ENABLED` inside the router (the `STRIPE_ENABLED` rule —
+   * an unconfigured deployment answers 404, never 401), and the buyer surface
+   * (`/digital/library`, `/digital/downloads`, `/digital/claims`).
+   *
+   * This mount itself is NOT gated, deliberately, and the contrast with the
+   * creator half is the decision. ADR 0010 D13 requires every lever to be
+   * pullable *"without stranding prior purchases"*: gating the whole prefix would
+   * mean that switching creator uploads off also took away the library of
+   * everybody who had already paid. `DIGITAL_DOWNLOADS_ENABLED` is the one lever
+   * that reaches an existing right, it defaults ON, and it is applied inside
+   * `download.service` where it refuses a new grant and leaves every right
+   * `active`.
+   *
+   * Well after `express.json()`: nothing here carries a signed raw body. A
+   * creator uploads bytes to Oxy directly and posts the file id, so this is not a
+   * sixth pre-parser mount and must not become one.
+   */
+  app.use('/digital', digitalRouter);
   app.use('/reviews', reviewsRouter);
   // Abuse reports. Unrelated to the store SALES ANALYTICS at
   // /admin/stores/:storeId/reports/* — same word, different domain.

@@ -9,8 +9,10 @@
  */
 
 import { createHash } from 'node:crypto';
-import { getEventsQueue, getSyncQueue } from './queues.js';
+import { getDigitalQueue, getEventsQueue, getSyncQueue } from './queues.js';
 import {
+  JOB_ASSET_FILE_INSPECT,
+  JOB_ASSET_VERSION_INSPECT,
   JOB_RECOMPUTE_AGGREGATES,
   JOB_ORDER_EVENT_NOTIFICATION,
   JOB_LOW_INVENTORY_ALERT,
@@ -24,6 +26,8 @@ import {
   JOB_FULFILLMENT_PUSH,
 } from './constants.js';
 import {
+  handleAssetFileInspect,
+  handleAssetVersionInspect,
   handleRecomputeAggregates,
   handleOrderEventNotification,
   handleLowInventoryAlert,
@@ -38,6 +42,8 @@ import {
 } from './handlers.js';
 import { log } from '../lib/logger.js';
 import type {
+  AssetFileInspectJob,
+  AssetVersionInspectJob,
   RecomputeAggregatesJob,
   OrderEventNotificationJob,
   LowInventoryAlertJob,
@@ -253,5 +259,55 @@ export async function enqueueFulfillmentPush(data: FulfillmentPushJob): Promise<
   }
   await queue.add(JOB_FULFILLMENT_PUSH, data, {
     jobId: hashJobId(JOB_FULFILLMENT_PUSH, data.orderId),
+  });
+}
+
+/**
+ * Enqueue the inspection of ONE uploaded asset file (#1015 W4).
+ *
+ * A stable hashed `jobId` per FILE dedupes an overlapping request: a creator
+ * re-submitting a version, a fan-out that raced a manual re-inspection and a
+ * retried upload-completion callback all produce one job. The durable half of the
+ * same property is `recordFileInspection`'s upsert on
+ * `(file_id, processor_name, processor_version)` — a `jobId` only dedupes what is
+ * still pending or active, and the upsert converges across a Redis that forgot.
+ *
+ * **The inline fallback holds an HTTP request, and that is why the time budget is
+ * seconds.** Without Redis there is no worker, so this branch is the only thing
+ * that inspects anything at all — and a deployment whose files were never inspected
+ * can never publish a version, which is a worse failure than a slow request. The
+ * ceilings in `services/digital/inspection/limits.ts` are what make the branch
+ * survivable: the worst case is `INSPECTION_TIME_BUDGET_MS`, not the size of the
+ * file.
+ */
+export async function enqueueAssetFileInspection(data: AssetFileInspectJob): Promise<void> {
+  const queue = getDigitalQueue();
+  if (!queue) {
+    await runInline(JOB_ASSET_FILE_INSPECT, () => handleAssetFileInspect(data));
+    return;
+  }
+  await queue.add(JOB_ASSET_FILE_INSPECT, data, {
+    jobId: hashJobId(JOB_ASSET_FILE_INSPECT, data.fileId),
+  });
+}
+
+/**
+ * Enqueue the fan-out that inspects every file of one asset version (#1015 W4).
+ *
+ * A stable hashed `jobId` per VERSION, so two submissions of the same version do not
+ * each enumerate it. Falls back to running the fan-out inline for the reason above —
+ * and note that the inline fan-out then calls the inline per-file producer, so a
+ * Redis-less deployment inspects a version's files one after another inside the
+ * caller. Bounded by the time budget per file, which is the only bound that matters
+ * to the request holding it.
+ */
+export async function enqueueAssetVersionInspection(data: AssetVersionInspectJob): Promise<void> {
+  const queue = getDigitalQueue();
+  if (!queue) {
+    await runInline(JOB_ASSET_VERSION_INSPECT, () => handleAssetVersionInspect(data));
+    return;
+  }
+  await queue.add(JOB_ASSET_VERSION_INSPECT, data, {
+    jobId: hashJobId(JOB_ASSET_VERSION_INSPECT, data.versionId),
   });
 }

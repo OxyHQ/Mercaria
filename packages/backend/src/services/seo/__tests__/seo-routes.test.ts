@@ -49,6 +49,27 @@ const APP_ROOT = join(STOREFRONT_ROOT, 'app');
  * true. Being in NEITHER this list nor the registry is what FAILS.
  */
 const NON_PUBLIC_SCREENS: readonly string[] = [
+  // The buyer's digital library (#1015 W9) — one account's own purchases and the
+  // files behind them, resolved from the credential. Account-private by
+  // construction, the `shopping-agents.tsx` class exactly.
+  'app/(app)/library.tsx',
+  // #1015's digital storefront, and THIS BLOCK IS MEANT TO EXPIRE. Unlike every
+  // other entry in this list, these five are not excused because of what they are
+  // — they are ordinary public browse and creator pages and they belong in the
+  // route registry. They are excused because of what they currently CONTAIN:
+  // `lib/digital/source.ts`'s four producers all answer `unavailable` (no
+  // client-reachable digital read ships yet), so each renders a notice saying the
+  // surface is switched off. An indexed page that says that is worse than an
+  // unindexed one, and a registry row would claim a canonical for it.
+  //
+  // Move them to the registry in the change that lands the reads, and delete this
+  // block rather than editing it. `HANDOFF.md` §6 carries the obligation, and they
+  // are correspondingly in `SEO_ROBOTS_DISALLOWED_PATHS`.
+  'app/(app)/3d/index.tsx',
+  'app/(app)/3d/printable.tsx',
+  'app/(app)/3d/game-assets.tsx',
+  'app/(app)/3d/[slug].tsx',
+  'app/(app)/creators/[slug].tsx',
   'app/(app)/notifications.tsx',
   'app/(app)/price-alerts.tsx',
   // The referral partner dashboard (#147) — one account's own instruments,

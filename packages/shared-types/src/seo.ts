@@ -651,4 +651,16 @@ export const SEO_ROBOTS_DISALLOWED_PATHS: readonly string[] = [
   // Operator surfaces. Behind an allow-list already; a crawler has no business
   // discovering that they exist.
   '/internal/',
+  // The buyer's digital library (#1015 W9): one account's own purchases and the
+  // files behind them, resolved from the credential. An anonymous fetch reaches
+  // nothing.
+  '/library',
+  // #1015's digital storefront, and this entry is MEANT TO EXPIRE. These four are
+  // genuinely public pages and belong in the route registry; they are disallowed
+  // today because they have no CONTENT — `lib/digital/source.ts`'s producers all
+  // answer `unavailable`, so every one renders "switched off here". Indexing a page
+  // that says that is worse than not indexing it. Move them to the registry in the
+  // change that lands the reads; `HANDOFF.md` §6 carries the obligation.
+  '/3d',
+  '/creators/',
 ];

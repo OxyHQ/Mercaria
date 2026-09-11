@@ -21,7 +21,8 @@
     "deals": "Ofertes",
     "saved": "Desats",
     "account": "Compte",
-    "signIn": "Inicia la sessió"
+    "signIn": "Inicia la sessió",
+    "threeD": "3D"
   },
   "login": {
     "signInButton": "Inicia la sessió",
@@ -1542,6 +1543,59 @@
       "documentTitle": "%{title} — Mercaria",
       "empty": "No hi ha ofertes actives ara mateix.",
       "loadError": "No hem pogut carregar les ofertes. Torna-ho a provar."
+    }
+  },
+  "digital": {
+    "documentTitle": "%{title} — Mercaria",
+    "browseOther": "També en 3D",
+    "threeD": {
+      "title": "3D",
+      "description": "Models per imprimir, per a videojocs i per a visualització, de qui els ha creat."
+    },
+    "printable": {
+      "title": "Models imprimibles",
+      "description": "Models preparats per a la impressió 3D."
+    },
+    "gameAssets": {
+      "title": "Recursos per a videojocs",
+      "description": "Models preparats per a motors de videojocs i renderització en temps real."
+    },
+    "unavailable": {
+      "title": "Encara no disponible aquí",
+      "body": "Els productes digitals estan desactivats en aquesta instal·lació, així que no hi ha res a mostrar. El que ja tens no es veu afectat."
+    },
+    "grid": {
+      "empty": "Aquí encara no s'ha publicat res.",
+      "emptyFiltered": "Cap obra coincideix amb aquests filtres. Treu-ne un per veure'n més.",
+      "emptyPricesWithdrawn": "Ara mateix no hi ha preus disponibles, així que no es pot mostrar res aquí."
+    },
+    "library": {
+      "title": "La teva biblioteca",
+      "description": "Tot el que has comprat o reclamat, amb els fitxers que inclou cada compra.",
+      "empty": "Encara no has comprat ni reclamat res digital.",
+      "signedOut": {
+        "title": "Inicia la sessió per obrir la teva biblioteca",
+        "body": "Les teves compres, les seves llicències i els seus fitxers són al teu compte.",
+        "signIn": "Iniciar la sessió"
+      }
+    },
+    "creator": {
+      "fallbackTitle": "Creador",
+      "worksTitle": "Obres"
+    },
+    "asset": {
+      "fallbackTitle": "Obra",
+      "creatorLine": "De %{creator}",
+      "viewCreator": "Veure tot el de %{creator}",
+      "previewTitle": "Vista prèvia",
+      "packagesTitle": "Què reps",
+      "technicalTitle": "Dades tècniques",
+      "guidanceTitle": "Notes del venedor",
+      "versionsTitle": "Versions i canvis",
+      "reviewsTitle": "Opinions",
+      "currentVersion": "Actual",
+      "formatsLabel": "Inclou %{formats}",
+      "notForSale": "No està a la venda"
     }
   }
 }

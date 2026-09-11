@@ -683,6 +683,16 @@ connectPostgres()
         .then(({ startAnalyticsRetention }) => startAnalyticsRetention())
         .catch((err) => log.general.error({ err }, 'Analytics retention import failed'));
 
+      // Register the digital-asset byte source BEFORE any worker can pick up an
+      // inspection job, and before the inline fallback can run one in-process.
+      // Unregistered, `inspect.service` records one honest `failed` row naming the
+      // missing port — correct, and not what a configured deployment wants. It is
+      // a call rather than an import side effect so that refusing state stays
+      // reachable for the tests that assert it.
+      import('./services/digital/byte-source.js')
+        .then(({ registerDigitalByteSource }) => registerDigitalByteSource())
+        .catch((err) => log.general.error({ err }, 'Digital byte source import failed'));
+
       // Start marketplace queue workers when Redis is configured; otherwise
       // async jobs run inline via the producers.
       import('./queue/connection.js').then(({ isQueueEnabled }) => {

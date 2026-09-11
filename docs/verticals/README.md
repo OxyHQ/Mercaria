@@ -1,8 +1,8 @@
 # Reference vertical packages (#367 Workstream 14)
 
-Three seeded catalogues — **footwear**, **smartphone**, **brake pad** — whose
-job is to prove the universal catalogue architecture on the domains that break
-naive ones. They are not demo data. Each exists because a specific modelling
+Four seeded catalogues — **footwear**, **smartphone**, **brake pad**, **3D** —
+whose job is to prove the universal catalogue architecture on the domains that
+break naive ones. They are not demo data. Each exists because a specific modelling
 mistake is tempting in that domain and expensive afterwards, and each is paired
 with a real-database test that measures whether the architecture actually
 prevents it.
@@ -12,6 +12,7 @@ prevents it.
 | Footwear | Collapsing five size systems into one `size` field | [`footwear.md`](./footwear.md) |
 | Smartphone | Letting a spec-sheet fact become a variant axis | [`smartphone.md`](./smartphone.md) |
 | Brake pad | Modelling fitment as variants — 400 SKUs for one part | [`brake-pad.md`](./brake-pad.md) |
+| 3D | Letting a MEASURED fact be claimed, or a format be a variant axis | [`3d.md`](./3d.md) |
 
 The MERCHANT journeys on top of these catalogues — two locales, two markets,
 locale switching mid-draft, missing-translation fallback and publication

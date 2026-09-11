@@ -21,7 +21,8 @@
     "deals": "Deals",
     "saved": "Saved",
     "account": "Account",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "threeD": "3D"
   },
   "login": {
     "signInButton": "Sign in",
@@ -1525,6 +1526,59 @@
       "documentTitle": "%{title} — Mercaria",
       "empty": "No active deals right now.",
       "loadError": "Couldn't load deals. Try again."
+    }
+  },
+  "digital": {
+    "documentTitle": "%{title} — Mercaria",
+    "browseOther": "Also in 3D",
+    "threeD": {
+      "title": "3D",
+      "description": "Models for printing, games and visualisation, from the people who made them."
+    },
+    "printable": {
+      "title": "Printable models",
+      "description": "Models prepared for 3D printing."
+    },
+    "gameAssets": {
+      "title": "Game assets",
+      "description": "Models prepared for game engines and real-time rendering."
+    },
+    "unavailable": {
+      "title": "Not available here yet",
+      "body": "Digital goods are switched off on this deployment, so there is nothing to show. Anything you already own is unaffected."
+    },
+    "grid": {
+      "empty": "Nothing has been published here yet.",
+      "emptyFiltered": "No work matches these filters. Remove one to see more.",
+      "emptyPricesWithdrawn": "Prices are unavailable right now, so nothing can be listed here."
+    },
+    "library": {
+      "title": "Your library",
+      "description": "Everything you have bought or claimed, with the files each purchase includes.",
+      "empty": "You have not bought or claimed anything digital yet.",
+      "signedOut": {
+        "title": "Sign in to open your library",
+        "body": "Your purchases, their licences and their files live in your account.",
+        "signIn": "Sign in"
+      }
+    },
+    "creator": {
+      "fallbackTitle": "Creator",
+      "worksTitle": "Works"
+    },
+    "asset": {
+      "fallbackTitle": "Work",
+      "creatorLine": "By %{creator}",
+      "viewCreator": "See everything by %{creator}",
+      "previewTitle": "Preview",
+      "packagesTitle": "What you get",
+      "technicalTitle": "Technical details",
+      "guidanceTitle": "Notes from the seller",
+      "versionsTitle": "Versions and changes",
+      "reviewsTitle": "Reviews",
+      "currentVersion": "Current",
+      "formatsLabel": "Includes %{formats}",
+      "notForSale": "Not on sale"
     }
   }
 }

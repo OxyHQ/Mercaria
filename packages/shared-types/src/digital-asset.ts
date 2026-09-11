@@ -416,6 +416,47 @@ export type AssetScanVerdict = (typeof ASSET_SCAN_VERDICTS)[number];
 export const PUBLISHABLE_ASSET_SCAN_VERDICTS: readonly AssetScanVerdict[] = ['clean'];
 
 /**
+ * The inspection verdicts a publishable file may carry.
+ *
+ * The scan gate's sibling, and it was missing: `PUBLISHABLE_ASSET_SCAN_VERDICTS`
+ * only asks whether a file is MALICIOUS, so a `corrupt` one — an `.stl` whose
+ * header declares more triangles than the file holds, a `.3mf` part with no
+ * `<model>` root — was publishable the moment a scanner called it clean. Nothing
+ * else stood between that file and a buyer.
+ *
+ * Each membership is a decision rather than a default:
+ *
+ * - `measured` — inspected and understood. The ordinary case.
+ * - `unsupported` — PUBLISHABLE, and this is the important one. `blend`, `fbx`,
+ *   `pdf` and every raster are legitimate deliverables that this processor
+ *   version cannot measure (`ASSET_FORMAT_REGISTRY.geometryMeasurable` says so for
+ *   most of them). Blocking on it would make half the registry unsellable in order
+ *   to express "we did not look".
+ * - `missing_resources` — PUBLISHABLE, and the one genuine judgement call. An OBJ
+ *   naming an absent `.mtl`, a 3MF naming an absent texture part: the platform
+ *   cannot tell a forgotten upload from a reference the creator means to satisfy
+ *   externally, and blocking on a guess makes legitimate packs unpublishable with
+ *   no override. It is DISCLOSED instead — it is a measured fact the technical
+ *   panel renders before a purchase — which is what makes withholding the block
+ *   honest rather than lenient.
+ * - `pending` — blocked. Nothing has looked at the file yet.
+ * - `corrupt` — blocked. The file is not what it says it is.
+ * - `failed` — blocked. Inspection itself could not run, so there is no evidence
+ *   either way, and "we could not look" must not read like "we looked and it was
+ *   fine".
+ * - `refused_too_large` — blocked. Above the inspection ceiling, so also above
+ *   what any later measurement will manage.
+ *
+ * A blocked verdict is not permanent: re-inspection writes a new row, so a
+ * creator's remedy is to fix the file and let the pipeline run again.
+ */
+export const PUBLISHABLE_ASSET_INSPECTION_VERDICTS: readonly AssetInspectionVerdict[] = [
+  'measured',
+  'unsupported',
+  'missing_resources',
+];
+
+/**
  * Whether a stated fact was MEASURED by Mercaria or CLAIMED by the seller.
  *
  * #1015 W4: *"store measured metadata separately from seller claims"*. The two

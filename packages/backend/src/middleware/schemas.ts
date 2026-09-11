@@ -16,10 +16,18 @@ import {
   ABUSE_REPORT_CATEGORIES,
   ABUSE_REPORTED_TYPES,
   ALL_CURRENCY_CODES,
+  ASSET_FILE_ROLES,
+  ASSET_FILE_VISIBILITIES,
+  ASSET_FORMAT_KEYS,
   CHECKOUT_PAYMENT_METHODS,
   CHECKOUT_TEXT_LIMITS,
   CONDITION_DETAIL_KINDS,
   CONDITION_DETAIL_SEVERITIES,
+  DIGITAL_LICENCE_ATTRIBUTION_MODES,
+  DIGITAL_LICENCE_RIGHTS,
+  DIGITAL_LICENCE_TEXT_LIMITS,
+  DIGITAL_LICENCE_UPDATE_POLICIES,
+  DIGITAL_VERTICALS,
   ITEM_CONDITION_KEYS,
   LEGACY_BINARY_CONDITIONS,
   MAX_MONEY_MINOR_UNITS,
@@ -27,9 +35,15 @@ import {
   // symbols — one definition, so the served number cannot drift from this one.
   MAX_VALUES_PER_VARIANT_AXIS,
   MAX_VARIANT_AXES_PER_PRODUCT,
+  type AssetFileRole,
+  type AssetFileVisibility,
   type ConditionDetailKind,
   type ConditionDetailSeverity,
   type CurrencyCode,
+  type DigitalLicenceAttributionMode,
+  type DigitalLicenceRight,
+  type DigitalLicenceUpdatePolicy,
+  type DigitalVertical,
   type ItemConditionKey,
   type LegacyBinaryCondition,
 } from '@mercaria/shared-types';
@@ -1333,4 +1347,219 @@ export const ingestInventorySchema = z.object({
     )
     .min(1)
     .max(INGEST_INVENTORY_MAX),
+});
+
+/* -------------------------------------------------------------------------- */
+/* Digital commerce — the creator and buyer request bodies (#1015, ADR 0010)   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * An id a row could carry, shape-checked with the one predicate that knows both
+ * live shapes (a 24-hex ObjectId for a pre-cutover row, a uuid v7 since).
+ *
+ * Declared here rather than reaching for `validateId`, which is a MIDDLEWARE over
+ * a route param: every id below arrives in a BODY, and the two are not
+ * interchangeable — a body field refused by zod produces the same 400 with the
+ * field named, which is what a creator's dashboard needs to highlight.
+ */
+const digitalRowIdSchema = z
+  .string()
+  .trim()
+  .refine(isLiveEntityId, 'Must be a valid id');
+
+/** The closed value sets, narrowed to the non-empty tuple `z.enum` requires. */
+const DIGITAL_VERTICAL_VALUES = conditionEnumValues<DigitalVertical>(DIGITAL_VERTICALS);
+const ASSET_FILE_ROLE_VALUES = conditionEnumValues<AssetFileRole>(ASSET_FILE_ROLES);
+const ASSET_FILE_VISIBILITY_VALUES =
+  conditionEnumValues<AssetFileVisibility>(ASSET_FILE_VISIBILITIES);
+const ASSET_FORMAT_KEY_VALUES = conditionEnumValues<string>(ASSET_FORMAT_KEYS);
+const DIGITAL_LICENCE_RIGHT_VALUES =
+  conditionEnumValues<DigitalLicenceRight>(DIGITAL_LICENCE_RIGHTS);
+const DIGITAL_LICENCE_ATTRIBUTION_VALUES = conditionEnumValues<DigitalLicenceAttributionMode>(
+  DIGITAL_LICENCE_ATTRIBUTION_MODES,
+);
+const DIGITAL_LICENCE_UPDATE_POLICY_VALUES = conditionEnumValues<DigitalLicenceUpdatePolicy>(
+  DIGITAL_LICENCE_UPDATE_POLICIES,
+);
+
+/**
+ * Body for `POST /digital/stores/:storeId/assets`.
+ *
+ * No `state` and no `currentVersionId`: both are the publication path's to write
+ * (`publishAssetVersion` moves them together, in one transaction, because they
+ * are one fact), and a body field for either would be a second author of a
+ * column whose whole point is having one.
+ */
+export const createDigitalAssetSchema = z.object({
+  vertical: z.enum(DIGITAL_VERTICAL_VALUES),
+  title: z.string().trim().min(1).max(300),
+  canonicalProductId: digitalRowIdSchema.optional(),
+});
+
+/**
+ * Body for `POST /digital/stores/:storeId/assets/:assetId/versions`.
+ *
+ * `majorVersion` is absent deliberately. It is the leading integer of `label`
+ * and the server parses it with `majorVersionOf` — the one implementation — so a
+ * client cannot ship a label and a major that disagree, which would make
+ * `same_major_version` mean whatever the client said rather than what the label
+ * says (ADR 0010 D4).
+ */
+export const createAssetVersionSchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  changelog: z.string().trim().max(20_000).optional(),
+  canonicalVariantId: digitalRowIdSchema.optional(),
+});
+
+/**
+ * Body for `POST /digital/…/versions/:versionId/files` — registering a file the
+ * creator uploaded STRAIGHT TO OXY.
+ *
+ * There is no `byteSize`, no `mediaType` and no `contentHash`, and their absence
+ * is the security property rather than an omission. `asset_files.content_hash`
+ * is documented as computed server-side and *"never taken from the client, which
+ * would make it an attacker-chosen value and the duplicate detector in W8 a
+ * thing an attacker controls"* (#1015 W1 requirement 7). The server reads all
+ * three from the asset service through
+ * `services/digital/storage.ts` `describeAssetObject`. A field for any of them
+ * here would be the exact value that rule forbids, arriving politely validated.
+ *
+ * `storageKey` is the Oxy `file_id` and is NOT `digitalRowIdSchema`: it is a
+ * foreign service's identifier, not a Mercaria row id, and shape-checking it
+ * against our own id conventions would refuse perfectly good Oxy assets.
+ */
+export const registerAssetFileSchema = z.object({
+  storageKey: z.string().trim().min(1).max(255),
+  fileName: z.string().trim().min(1).max(255),
+  format: z.enum(ASSET_FORMAT_KEY_VALUES),
+  role: z.enum(ASSET_FILE_ROLE_VALUES),
+  visibility: z.enum(ASSET_FILE_VISIBILITY_VALUES),
+});
+
+/** Body for `POST /digital/stores/:storeId/assets/:assetId/packages`. */
+export const createAssetPackageSchema = z.object({
+  key: z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .regex(/^[a-z0-9][a-z0-9-]*$/, 'Must be a lowercase machine key'),
+  name: z.string().trim().min(1).max(200),
+  summary: z.string().trim().max(2_000).optional(),
+});
+
+/**
+ * Body for `POST /digital/…/packages/:packageId/files`.
+ *
+ * A BATCH, because a package is assembled as a set: adding `printable`'s three
+ * files one request at a time means three windows in which the deliverable is a
+ * different thing from the one the creator meant, and the membership rows are
+ * idempotent on `(package, file)` so a retried batch converges.
+ */
+export const addAssetPackageFilesSchema = z.object({
+  versionId: digitalRowIdSchema,
+  fileIds: z.array(digitalRowIdSchema).min(1).max(200),
+});
+
+/**
+ * Body for `POST /digital/stores/:storeId/licences`.
+ *
+ * `authorship` is absent: a licence created through this surface is the
+ * creator's, and `mercaria_reference` is the platform's own seeded text
+ * (`MERCARIA_REFERENCE_LICENCES`). A body field would let a creator's licence
+ * present itself as Mercaria's standard one, which is precisely the distinction
+ * a buyer comparing two "Commercial" licences is relying on.
+ */
+export const createAssetLicenceSchema = z.object({
+  slug: z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .regex(/^[a-z0-9][a-z0-9-]*$/, 'Must be a lowercase slug'),
+  name: z.string().trim().min(1).max(DIGITAL_LICENCE_TEXT_LIMITS.name),
+});
+
+/**
+ * Body for `POST /digital/stores/:storeId/licences/:licenceId/versions`.
+ *
+ * Creates a DRAFT. The terms freeze at publication
+ * (`asset_licence_versions_immutable_once_published`), which is why this and the
+ * publish call are two requests: a creator who cannot read a draft back before
+ * it becomes permanent is a creator who freezes a typo into every purchase made
+ * under it (ADR 0010 D3).
+ *
+ * `version` is absent — monotonic per licence and the server's to assign, since
+ * two creators' tabs both sending `2` is a unique-index violation rather than a
+ * decision anybody made.
+ */
+export const createAssetLicenceVersionSchema = z.object({
+  summary: z.string().trim().min(1).max(DIGITAL_LICENCE_TEXT_LIMITS.summary),
+  rights: z.array(z.enum(DIGITAL_LICENCE_RIGHT_VALUES)).min(1),
+  attribution: z.enum(DIGITAL_LICENCE_ATTRIBUTION_VALUES),
+  /** NULL is unbounded and is the ordinary case — never defaulted to 1. */
+  seatLimit: z.number().int().positive().max(1_000_000).optional(),
+  projectLimit: z.number().int().positive().max(1_000_000).optional(),
+  /**
+   * The one money field in the domain, and it is a CEILING on the buyer's use
+   * rather than an amount anybody is charged. `moneySchema` rather than a loose
+   * pair, so `MAX_MONEY_MINOR_UNITS` applies — `z.number().int()` alone accepts
+   * `1e300`.
+   */
+  revenueLimit: moneySchema.optional(),
+  additionalTerms: z.string().trim().max(DIGITAL_LICENCE_TEXT_LIMITS.additionalTerms).optional(),
+});
+
+/**
+ * Body for `POST /digital/stores/:storeId/assets/:assetId/licence-options`.
+ *
+ * No price. #1015 boundary 5: an option is the RIGHTS half of a purchasable
+ * thing and the catalogue's offer is the money half, and a price column here
+ * would be a second answer to what something costs.
+ */
+export const createAssetLicenceOptionSchema = z.object({
+  packageId: digitalRowIdSchema,
+  licenceVersionId: digitalRowIdSchema,
+  updatePolicy: z.enum(DIGITAL_LICENCE_UPDATE_POLICY_VALUES),
+  position: z.number().int().nonnegative().max(10_000).optional(),
+});
+
+/**
+ * Body for `POST /digital/stores/:storeId/variant-bindings` — the one join
+ * between the catalogue and the digital domain.
+ *
+ * `asset_variant_bindings.variant_id` carries no foreign key by design, so the
+ * controller checks BOTH sides belong to the store: a binding is what makes a
+ * line digital at checkout, and an unchecked one would let a member of store A
+ * attach store B's licence option to their own variant.
+ */
+export const bindAssetVariantSchema = z.object({
+  variantId: digitalRowIdSchema,
+  licenceOptionId: digitalRowIdSchema,
+});
+
+/**
+ * Body for `POST /digital/downloads` — minting a grant.
+ *
+ * Three ids and no buyer key. Who is asking comes from the resolved
+ * `CommerceActor` and never from the body: `buyerKeyForActor` is the one
+ * translation, and a body field naming the buyer would make the id the whole of
+ * the authorization (ADR 0010 D5).
+ */
+export const mintAssetDownloadGrantSchema = z.object({
+  rightId: digitalRowIdSchema,
+  versionId: digitalRowIdSchema,
+  fileId: digitalRowIdSchema,
+});
+
+/**
+ * Body for `POST /digital/claims` — claiming a FREE asset.
+ *
+ * A VARIANT id, not a package or an option id. The variant is where price lives,
+ * and "free" is a fact about the offer rather than about the deliverable — so the
+ * claim names the thing that can be zero-priced and the server resolves the rest
+ * through the binding.
+ */
+export const claimFreeAssetSchema = z.object({
+  variantId: digitalRowIdSchema,
 });

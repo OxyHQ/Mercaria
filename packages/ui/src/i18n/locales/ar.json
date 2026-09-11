@@ -876,6 +876,104 @@
     "variantSwatches": {
       "showMoreA11y": "خيارات %{option} إضافية (%{more})",
       "showMore": "+%{more} إضافية"
+    },
+    "assetViewer": {
+      "previewA11y": "معاينة %{title}",
+      "noPreview": "لا توجد معاينة عامة لهذا العمل.",
+      "staticOnly": "تُعرض صورة ثابتة. العارض التفاعلي غير متاح هنا.",
+      "staticOnSmallScreen": "تُعرض صورة ثابتة. العارض التفاعلي يحتاج شاشة أوسع.",
+      "neverTheSourceFile": "المعاينات نسخ مُولّدة. الملفات التي تشتريها لا تُستخدم أبدًا لعرض هذا.",
+      "streamedOnly": "تُبَث هذه المعاينة للمشاهدة فقط ولا تُسلَّم أبدًا كملف.",
+      "controls": "أدوات التحكم بالمعاينة",
+      "gestures": "اسحب للدوران، استخدم التمرير أو التقريب بإصبعين للتكبير، واسحب بإصبعين للتحريك.",
+      "reset": "إعادة ضبط العرض",
+      "fullscreenOpen": "فتح المعاينة بملء الشاشة",
+      "fullscreenClose": "إغلاق ملء الشاشة",
+      "wireframe": "الإطار السلكي",
+      "statistics": "إحصاءات العرض",
+      "animation": "الحركة",
+      "animationOff": "بدون",
+      "refused": {
+        "role_is_not_publicly_viewable": "هذا الملف جزء من الشراء، لذلك لا يظهر في المعاينة العامة.",
+        "visibility_requires_a_right": "هذا الملف متاح للمشترين فقط، لذلك لا يظهر في المعاينة العامة."
+      }
+    },
+    "assetFacts": {
+      "measuredTitle": "قياس من Mercaria",
+      "measuredNote": "قاست Mercaria هذه الأرقام من الملفات المنشورة.",
+      "measuredBy": "قيس بواسطة %{processor} %{version} في %{date}",
+      "measuredBadge": "مقيس",
+      "claimedTitle": "وصف البائع",
+      "claimedNote": "كتب البائع هذا. لم تقسه Mercaria.",
+      "claimedBadge": "وصف البائع",
+      "notMeasured": "غير مقيس",
+      "verdict": {
+        "pending": "القياس لم ينته بعد.",
+        "measured": "قيست هذه الأرقام من الملفات.",
+        "unsupported": "لا يمكن قياس هذه الصيغة تلقائيًا.",
+        "corrupt": "لم نتمكن من قراءة الملف.",
+        "missing_resources": "يشير الملف إلى موارد لم تُرفق معه.",
+        "failed": "لم يكتمل القياس.",
+        "refused_too_large": "الملف أكبر من أن يُقاس."
+      }
+    },
+    "assetLicence": {
+      "title": "الترخيص",
+      "grantedTitle": "ما يمكنك فعله",
+      "notGrantedTitle": "ما لا يشمله هذا الترخيص",
+      "attributionTitle": "نسبة العمل",
+      "updatesTitle": "التحديثات",
+      "limitsTitle": "الحدود",
+      "additionalTermsTitle": "شروط البائع الخاصة",
+      "seats": "يمكن أن يستخدمه %{seats} من الأشخاص كحد أقصى",
+      "seatsUnlimited": "لا حد لعدد من يستخدمه",
+      "projects": "حتى %{projects} من المنتجات النهائية",
+      "projectsUnlimited": "لا حد لعدد المنتجات النهائية",
+      "revenue": "حتى %{amount} من الإيرادات",
+      "revenueUnlimited": "لا سقف للإيرادات",
+      "right": {
+        "personal_use": "استخدامه في مشاريعك الشخصية",
+        "commercial_project_use": "استخدامه في مشاريع تجارية",
+        "commercial_physical_production": "تصنيع نسخ مادية وبيعها",
+        "modification": "تعديله",
+        "derivative_redistribution": "مشاركة نسخة معدّلة داخل عمل نهائي",
+        "source_redistribution": "مشاركة الملفات نفسها كما سُلِّمت",
+        "sublicensing": "تمرير الترخيص إلى عميل",
+        "extended_enterprise_use": "استخدامه بما يتجاوز حدود الأشخاص والإيرادات"
+      },
+      "attribution": {
+        "required": "عليك نسبة العمل إلى صاحبه.",
+        "optional": "نسبة العمل مرحَّب بها لكنها غير مطلوبة.",
+        "not_required": "نسبة العمل غير مطلوبة."
+      },
+      "updatePolicy": {
+        "purchased_version_only": "تبقى لك النسخة التي اشتريتها. أي نسخة لاحقة شراء جديد.",
+        "same_major_version": "تشمل النسخ اللاحقة التي تحمل الرقم الرئيسي نفسه لما اشتريته.",
+        "all_future_versions": "تشمل كل النسخ المستقبلية."
+      },
+      "authorship": {
+        "mercaria_reference": "نص الترخيص القياسي من Mercaria",
+        "creator": "نص الترخيص الخاص بصاحب العمل"
+      }
+    },
+    "assetLibrary": {
+      "filesTitle": "الملفات",
+      "downloadAction": "تنزيل",
+      "downloadA11y": "تنزيل %{file}",
+      "notDownloadable": "للعرض فقط — لا يُسلَّم كملف",
+      "downloadsPaused": "التنزيلات متوقفة. حالة هذا الشراء: %{status}.",
+      "grantedOn": "أُضيف في %{date}",
+      "licence": "الترخيص: %{licence}",
+      "purchasedVersion": "اشتريت %{version}",
+      "availableVersion": "أحدث نسخة يمكنك تنزيلها: %{version}",
+      "updateAvailable": "يتوفر تحديث",
+      "status": {
+        "active": "سارٍ",
+        "refunded": "مُستردّ",
+        "disputed_hold": "موقوف أثناء نزاع",
+        "revoked_for_policy": "مسحوب لأسباب قانونية",
+        "superseded": "مستبدل بشراء لاحق"
+      }
     }
   }
 }

@@ -1,4 +1,5 @@
 import {
+  Box,
   Home,
   LayoutGrid,
   ShoppingCart,
@@ -62,6 +63,20 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.explore",
     icon: LayoutGrid,
     href: "/categories",
+    available: true,
+  },
+  // #1015 Workstream 5's storefront surface. A top-level destination rather than
+  // a category row, because it is a VERTICAL with its own refinements
+  // (`/3d/printable`, `/3d/game-assets`) and its own product page shape — and
+  // because an unlinked screen is the one defect with no symptom:
+  // `route-reachability.test.ts` computes reachability transitively from the app
+  // root, so `/3d` being here is what makes the four digital routes reachable at
+  // all. Everything the page shows is still the server's (`lib/digital/`).
+  {
+    key: "threeD",
+    labelKey: "nav.threeD",
+    icon: Box,
+    href: "/3d",
     available: true,
   },
   {

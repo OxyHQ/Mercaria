@@ -370,6 +370,58 @@ epic. **A redemption code is not a creator file download** and must never be
 modelled as one — there is no `redemption_code` column and the `stored_value`
 detector in `commerce-type-exclusion.test.ts` still forbids one.
 
+### D17. Oxy stores the bytes, and a BUYER is not a viewer
+
+`asset_files.storage_key` holds an Oxy `file_id`. Mercaria has no S3 client, has
+never had one, and is not getting one: its media is Oxy files, and a second
+storage system means two dedup domains, two deletion stories, and the same fork
+again for every later vertical that sells a file.
+
+**The resolution is Oxy's service-token mint, `POST /assets/service/linked-url`
+(Oxy ADR 0021), and NEVER a user-scoped resolver.** That distinction is the whole
+decision, and the first implementation got it wrong in a way that typechecked,
+passed its tests and would have failed in production:
+
+- `oxyClient.getFileDownloadUrlAsync(fileId)` resolves a URL for the CURRENT USER
+  against Oxy's `canUserAccessFile`. It asks *may this viewer read this file*. A
+  Mercaria buyer has no relationship to the seller's private file in Oxy at all,
+  so Oxy refuses them — correctly. Mocking the SDK proved the port called it,
+  never that the call could work.
+- An Oxy media token fails for the same reason, measured rather than assumed:
+  `verifyMediaToken` returns a `uid` and the stream route re-runs the same ACL, so
+  the token names a VIEWER. It would be minted and then refused.
+- `resolveMedia` / the synchronous `getFileDownloadUrl` build the public CDN form,
+  which 404s a private object while looking exactly like it worked.
+
+The fact that authorizes a download is a row in `asset_rights` (D5). Oxy does not
+hold it and must not be given it. So the question is split, and neither half is
+derivable from the other: **Oxy answers *did this file's owner attach it to the
+`mercaria` application*; this service answers *may this person have it*.** Oxy's
+half is `file_links.created_by = files.owner_user_id` — not "a link exists", which
+is forgeable by any account, because `assetService.linkFile` checks no ownership.
+
+Consequences taken deliberately:
+
+- **The creator must attach the file themselves**, with their own Oxy session, or
+  it is unservable. `putAssetObject` does it for an object this service uploads
+  (it owns what it uploaded, so its own link satisfies the predicate); an upload
+  that went straight to Oxy from the dashboard carries the obligation client-side.
+- **Registration reads the mint, not the metadata route.** One response carries
+  both the URL and the three measured facts (`sha256`, `size`, `mime`), so "not
+  attached here" becomes a refusal the CREATOR meets in the register call. The
+  metadata route answers for any file id, so using it would have accepted an
+  unattached file and surfaced the failure months later, to a buyer, as a download
+  that does not work. The cost is a 300-second credential minted and discarded;
+  the alternative is a failure whose only witness is somebody who already paid.
+- **An unservable file is not a revocation.** If a creator unlinks a file a buyer
+  holds a right to, the download fails and the RIGHT is untouched (D6). Reporting
+  it as a revocation would take a right away over an act in a different product.
+- **The URL is bearer authority** for 300 seconds with no further check, so it is
+  never logged, never put on an error, and never returned by a describe call.
+  `services/digital/storage.ts` is the only module in the domain that may name the
+  Oxy asset client at all, and `digital-storage-port.test.ts` fails the build on a
+  second one — including on any reappearance of the user-scoped spellings above.
+
 ## What this does not change
 
 - **The catalogue.** No new product-type mechanism, no second authoring path, no

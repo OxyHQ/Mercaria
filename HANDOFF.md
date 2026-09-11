@@ -252,24 +252,56 @@ orders and otherwise invisible.
 | `DIGITAL_DOWNLOADS_ENABLED` | **`true`** | the INCIDENT lever. Off refuses new grants with `downloads_disabled` and leaves every right `active`, so flipping it back restores access with nothing to repair. **Never use it as a rollout lever.** |
 | `DIGITAL_ENABLED_VERTICALS` | empty | comma-separated `DigitalVertical` keys; an ALLOW-list. `three_d` is the only one with a format registry today. |
 
-## 2. Object storage is NOT wired, and this is the largest remaining unknown
+## 2. Object storage IS wired now — and the part that is NOT is upload
 
-`asset_files.storage_key` is an opaque key and the domain never resolves it to a
-transport. **There is no storage client, no bucket, no upload endpoint and no
-byte-serving route in this change.** What exists is the authorization that must run
-BEFORE one: `redeemDownloadGrant` returns a storage key and a media type to its
-caller, and the caller that streams it does not exist yet.
+`asset_files.storage_key` holds an **Oxy `file_id`**, and `services/digital/storage.ts`
+is the one module that resolves one. ADR 0010 D17 records the mechanism and, more
+usefully, the mechanism it is not: the obvious `oxyClient.getFileDownloadUrlAsync`
+resolves a URL for the CURRENT USER against Oxy's ACL, and a Mercaria buyer is not a
+user Oxy knows anything about. The resolution is Oxy's service-token mint
+(`POST /assets/service/linked-url`, **Oxy ADR 0021**), authorized by the file's own
+owner having attached it to the `mercaria` application.
 
-What wiring it needs, and the order that matters:
+**This needs the Oxy side deployed.** It is implemented and pushed on Oxy's
+`claude/pensive-fermat-wi3gcq`, and it requires, in order:
 
-1. A private bucket with no public read, per #1015 W1 storage rules 1–2.
-2. A resumable/multipart upload path for large files (W1 rule 6) that computes the
-   SHA-256 **server-side** (rule 7) — never from the client, or the duplicate
-   detector in W8 becomes a value an attacker controls.
-3. A serving route that mints a short-lived provider URL from the key AFTER
-   `redeemDownloadGrant` returns `ready`, supports byte-range requests (rule 5),
-   and **logs neither the key nor the URL** (rule 4).
-4. A `completed` download event with `bytes_transferred`, which nothing writes today.
+1. That branch merged and released.
+2. The `mercaria` Oxy application granted the **`files:linked:read`** scope. It is
+   NOT implied by `files:read` — deliberately, because `files:read` is metadata-only
+   and spelling byte access as a widening of it would have handed byte access to
+   every application already holding the smaller one.
+3. `OXY_APPLICATION_KEY` / `OXY_APPLICATION_SECRET` set (they already are, for the
+   capability catalogue).
+4. **A swap in `storage.ts`:** it calls the route through `makeServiceRequest`
+   because Mercaria consumes `@oxy.so/core` from npm and the release carrying
+   `getServiceLinkedDownloadUrls` lands after this one. Switch to the SDK method at
+   the next bump — the wrapper is where the batch cap of 25 lives, so a future caller
+   wanting a whole version's files must go through it.
+
+Until step 2, every download answers `absent`, which surfaces as *"your purchase is
+unaffected — please contact support"* rather than a revocation. `downloadsEnabled`
+defaults **on** (it is the incident lever), so the gate that actually holds is
+`publicationEnabled`.
+
+### What is still missing: UPLOAD
+
+There is **no creator upload endpoint**. `putAssetObject` exists and works for an
+object this service uploads, but the real flow is the creator uploading STRAIGHT TO
+OXY (an 8 GiB `MAX_ASSET_FILE_BYTES` and a 10 MB `express.json()` limit are not
+reconcilable), and that flow carries a client-side obligation:
+
+- **The creator must call Oxy's `POST /assets/:id/links` with their OWN session**,
+  `app: 'mercaria'`, before registering the file here. Oxy admits a file only when
+  `file_links.created_by = files.owner_user_id`, so a link created by this backend on
+  the creator's behalf would NOT satisfy it. A file that was not attached is refused
+  at **registration**, with the same wording as "no such file" — which is deliberate
+  (distinguishing them is a probe for which Oxy file ids exist) and is why the
+  dashboard has to get the link right rather than discover it later.
+- Oxy computes the SHA-256 server-side and this service reads it from the mint
+  (#1015 W1 rule 7), so no client-reported digest is ever written.
+- A `completed` download event with `bytes_transferred` is still written by nothing:
+  the redirect hands the transfer to S3, which does not report back. Closing it needs
+  either a proxying route or an S3 access-log consumer.
 
 ## 3. The paid-launch gate (ADR 0010 D15) — three sign-offs, per market
 
@@ -289,26 +321,56 @@ missing rate is a visible zero rather than a plausible one.
 
 | Piece | State | What it needs |
 |---|---|---|
-| **Asset inspection workers** (W4) | domain built (`asset_file_inspections`, `recordFileInspection`, the `ASSET_INSPECTION_VERDICTS` vocabulary); **no worker exists** | a SANDBOXED processor with explicit CPU/memory/time/file-count limits (W12: treat every uploaded 3D file as hostile input). `blend` is declared unmeasurable on purpose — do not add a Blender-in-the-worker path without a threat model. |
-| **Malware scanning** (W1 rule 12) | `asset_files.scan_verdict` defaults `pending` and `everyFileScannedClean` gates publication | an actual scanner. **Until one exists, nothing can be published**, which is the safe failure and is why publication is a separate lever. |
+| **Asset inspection workers** (W4) | **BUILT** — `services/digital/inspection/` parses STL (binary + ASCII), OBJ, glTF/GLB and 3MF; a fourth BullMQ queue (`marketplace-digital`, concurrency 2) because an inspection is CPU-bound while `marketplace-sync` waits on suppliers; bytes arrive through `byte-source.ts` and the storage port | the limits are in-process, not a SANDBOX. Every ceiling W12 asks for is enforced (256 MiB read, 32 MiB JSON, 512 MiB declared expansion, 200:1 ratio, nesting depth 1 by having no recursion, a 20 s cooperative budget) but it runs in the API's own worker. A `blend`/`fbx` parser must NOT be added without a real sandbox and a threat model — both answer `unsupported` today, and that is the safe answer. |
+| **Malware scanning** (W1 rule 12) | `scan_verdict` defaults `pending`; `everyFileScannedClean` gates publication; `inspection/scanner.ts` is the seam and answers **`error`, never `clean`** | an actual scanner. **Until one exists, nothing can be published**, which is the safe failure and is why publication is a separate lever. |
+| **Inspection publication gate** | **BUILT** — `everyFileInspectionAcceptable` closes the escape the scan gate left: a `corrupt` file is not malicious, so a scanner calls it clean and nothing else stood between it and a buyer. `unsupported` and `missing_resources` deliberately PASS (`PUBLISHABLE_ASSET_INSPECTION_VERDICTS` says why each membership is a decision) | nothing |
 | **`web_derivative` generation** | `ASSET_FILE_VISIBILITIES.preview_only` and the role exist; the authorizer already refuses to hand one over as a file | a glTF/GLB derivative generator, and a viewer route that streams it without exposing the source |
-| **The 3D viewer** (W4) | nothing | orbit/pan/zoom, fullscreen, reset, animation selector, mobile fallback, accessible static fallback. Must never require the paid source file to render. |
-| **3D product profiles** (W3) | `DIGITAL_VERTICALS` and `ASSET_FORMAT_REGISTRY` exist; **no product-type definitions are seeded** | the seven reference profiles through #367's authoring path (`docs/catalog-cookbook.md`) — NOT as frontend truth (#1015 acceptance 18) |
+| **The 3D viewer** (W4) | **BUILT, rendererless.** `AssetPreviewViewer` has the full chrome and the accessible static path; `AssetPreviewSource` is branded with a module-private `unique symbol` so handing it a paid file is a COMPILE error, not a runtime check | a WebGL renderer through the `renderer?: AssetModelRenderer` prop. **No three.js/expo-gl dependency was added** — that is a human decision with `expo.install.exclude` and native-version consequences across three apps. |
+| **3D product profiles** (W3) | **BUILT** — seven profiles, 9 categories, 17 claim attributes, 96 fields, seeded through #367's authoring path (`bun run seed:digital-3d`, `docs/verticals/3d.md`). Keys are `three_d_*`: a LEADING DIGIT is illegal under `PRODUCT_TYPE_KEY_PATTERN`, so `3d_print_model` would never have inserted | nothing |
 | **Creator authoring UI** | nothing; the repositories and services are callable | a dashboard surface for upload → package → licence → publish |
-| **Storefront surfaces** (W5) | nothing | `/3d`, `/3d/printable`, `/3d/game-assets`, `/creators/:slug`, and facets driven by the profile registry rather than hard-coded components |
+| **Storefront surfaces** (W5) | **BUILT** — `/3d`, `/3d/printable`, `/3d/game-assets`, `/3d/[slug]`, `/creators/[slug]`, `/library`, with facets coming FROM the read and a rail that renders only when the read reports `selectionApplied` | the reads behind them. `lib/digital/source.ts` is the single seam and all four producers answer `unavailable`, so every screen renders an honest notice today. See §6. |
 | **Buyer library + download UI** (W9) | `listBuyerLibrary` returns the full projection including the file inventory and an `updateAvailable` flag | the screens, and update notifications per communication preferences |
-| **Reference licences** | `MERCARIA_REFERENCE_LICENCES` is data in shared-types | a seeding path that writes them as `authorship: 'mercaria_reference'` rows on a fresh deployment |
+| **Reference licences** | **BUILT** — `applyReferenceLicences` writes each as an `authorship: 'mercaria_reference'` row plus a published version 1, converging on a re-run including the awkward state (version 1 left in `draft` by an interrupted run, which `findPublishedLicenceVersion` answers NULL for) | nothing |
 
 ## 5. Phases C–E, and the seams that exist for them
 
 - **Bundles and memberships** (W7): `asset_packages` already separates "the thing
   sold" from "the files", so a bundle is a package naming more than one asset's
   files. Nothing is built.
-- **Re-upload detection** (W8): `asset_provenance_signals` stores the evidence and
-  `findMatchingProvenanceSignals` reads it. **There is no sweep, no geometry
-  fingerprinter and no review queue integration**, and the table deliberately holds
-  no verdict — a hash match is evidence, not proof, and nothing may accuse
-  automatically.
+- **Re-upload detection** (W8): **BUILT** (`services/digital/provenance/`) — content
+  hash, a quantised geometry fingerprint (`gfp1:q1024:…`, readers for STL and OBJ
+  only; every other format answers `unsupported` rather than a weak fingerprint), and
+  a preview perceptual hash over a Mercaria-generated raster. The sweep escalates to
+  the EXISTING abuse-report path with `reportedType: 'listing'` and
+  `category: 'stolen_goods'`, requires an `operatorOxyUserId` with no default and no
+  sentinel (so a machine can never file), and **stores nothing** — a persisted
+  candidate list is a verdict-shaped row.
+  - **The one real limitation, measured:** an equality-indexed digest cannot be
+    noise-tolerant. A float32 round-trip survives the fingerprint with p≈0.002 and a
+    3-decimal rewrite with p≈1e-270, and no grid choice fixes that — failure is
+    linear in vertex count. Closing it needs a DISTANCE-capable retrieval (an LSH
+    banding column, a `bit(64)` Hamming index, a vector index), i.e. a schema change.
+  - **Upstream ask:** the CrowdSource `commerce` family has no rights-infringement
+    code. `stolen_goods → commerce.prohibited_item` is the closest honest fit and
+    `counterfeit` is wrong — a re-upload is a genuine copy sold by the wrong person.
+    Worth raising as `commerce.rights_infringement`.
+- **Creator analytics** (W13): **BUILT and deliberately UNWIRED.**
+  `services/digital/analytics/` is six pure projections with a ten-sale cohort floor
+  on geographic revenue that SUPPRESSES rather than rounds, and no path by which
+  ranking can read it (`DIGITAL_METRIC_SCOPES` has exactly two members, neither of
+  them a listing or an offer). `DigitalAnalyticsFactReader` is the seam and **has no
+  SQL behind it**, which is not an oversight — two of its six fact types cannot be
+  projected yet:
+  - `DigitalViewFact` has **no source table**. Nothing records an asset view.
+  - `DigitalSaleFact.creatorEarningsAmount` is a **Phase D decision**. #1015 forbids
+    building creator royalties on referral commission or marketplace fees, and ADR
+    0010 does not decide the royalty architecture. Projecting it from the ledger
+    today would be inventing that decision in a repository.
+    The other four (`downloads`, `rights`, `processing`, `publications`) are
+    straightforward reads of existing tables and could ship independently.
+  - `findMatchingProvenanceSignals` returns no `created_at`, so the sweep re-reads
+    each candidate version to answer "which came first" — N round trips a repository
+    change would remove.
 - **The physical print bridge** (W10): not started. ADR 0010 does not decide the
   royalty architecture, and #1015 is explicit that royalties must NOT be built on
   referral commission or marketplace fees — that needs its own ADR.
@@ -318,10 +380,17 @@ missing rate is a visible zero rather than a plausible one.
 
 ## 6. Known gaps a reviewer should not mistake for oversights
 
-- **No creator-facing or buyer-facing HTTP routes ship in this change.** The domain
-  is reachable from the service layer only. That is deliberate: a route is the thing
-  that needs the storage wiring in §2, and shipping one that 500s on the last step
-  would be worse than not shipping it.
+- **The creator and buyer HTTP routes DO ship** (`routes/digital.routes.ts`,
+  `controllers/digital-{creator,buyer}.controller.ts`) now that §2's storage is
+  wired. What does NOT ship is the **client-reachable read the new storefront screens
+  want**: `lib/digital/source.ts`'s four producers all answer `unavailable`, so every
+  screen renders "switched off here; anything you already own is unaffected". The
+  reads still needed are a browse read scoped by `DigitalVertical` (returning
+  `CatalogProductBrowsePage[]` plus its `FacetScope`), an asset-page read carrying a
+  SERVER-FILTERED public preview descriptor, a creator read, and `listBuyerLibrary`
+  behind an authenticated route with a grant-mint endpoint beside it.
+- **No SEO registry entries for the new routes.** `PublicRouteId` / `/seo/resolve` is
+  #75's, so the new pages emit a title and description and claim no canonical.
 - **`listBuyerLibrary` does N queries for N rights.** Correct and not fast; it is
   fine for a pilot-sized library and wants batching before a creator with a thousand
   buyers looks at it.

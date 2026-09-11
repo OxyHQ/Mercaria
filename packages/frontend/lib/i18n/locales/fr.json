@@ -21,7 +21,8 @@
     "deals": "Bons plans",
     "saved": "Enregistrés",
     "account": "Compte",
-    "signIn": "Se connecter"
+    "signIn": "Se connecter",
+    "threeD": "3D"
   },
   "login": {
     "signInButton": "Se connecter",
@@ -1542,6 +1543,59 @@
       "documentTitle": "%{title} — Mercaria",
       "empty": "Aucun bon plan actif pour le moment.",
       "loadError": "Impossible de charger les bons plans. Réessayez."
+    }
+  },
+  "digital": {
+    "documentTitle": "%{title} — Mercaria",
+    "browseOther": "Aussi en 3D",
+    "threeD": {
+      "title": "3D",
+      "description": "Des modèles pour l'impression, le jeu vidéo et la visualisation, proposés par ceux qui les ont faits."
+    },
+    "printable": {
+      "title": "Modèles imprimables",
+      "description": "Des modèles préparés pour l'impression 3D."
+    },
+    "gameAssets": {
+      "title": "Ressources de jeu",
+      "description": "Des modèles préparés pour les moteurs de jeu et le rendu en temps réel."
+    },
+    "unavailable": {
+      "title": "Pas encore disponible ici",
+      "body": "Les produits numériques sont désactivés sur cette installation : il n'y a donc rien à afficher. Ce que vous possédez déjà n'est pas touché."
+    },
+    "grid": {
+      "empty": "Rien n'a encore été publié ici.",
+      "emptyFiltered": "Aucune œuvre ne correspond à ces filtres. Retirez-en un pour en voir davantage.",
+      "emptyPricesWithdrawn": "Les prix ne sont pas disponibles pour le moment : rien ne peut être listé ici."
+    },
+    "library": {
+      "title": "Votre bibliothèque",
+      "description": "Tout ce que vous avez acheté ou réclamé, avec les fichiers inclus dans chaque achat.",
+      "empty": "Vous n'avez encore rien acheté ni réclamé en numérique.",
+      "signedOut": {
+        "title": "Connectez-vous pour ouvrir votre bibliothèque",
+        "body": "Vos achats, leurs licences et leurs fichiers sont dans votre compte.",
+        "signIn": "Se connecter"
+      }
+    },
+    "creator": {
+      "fallbackTitle": "Auteur",
+      "worksTitle": "Œuvres"
+    },
+    "asset": {
+      "fallbackTitle": "Œuvre",
+      "creatorLine": "Par %{creator}",
+      "viewCreator": "Voir tout de %{creator}",
+      "previewTitle": "Aperçu",
+      "packagesTitle": "Ce que vous recevez",
+      "technicalTitle": "Détails techniques",
+      "guidanceTitle": "Remarques du vendeur",
+      "versionsTitle": "Versions et changements",
+      "reviewsTitle": "Avis",
+      "currentVersion": "Actuelle",
+      "formatsLabel": "Comprend %{formats}",
+      "notForSale": "Pas en vente"
     }
   }
 }

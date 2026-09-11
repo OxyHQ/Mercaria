@@ -64,6 +64,7 @@ import { orderItems, orders } from '../../schema/orders.js';
 import {
   addFileToPackage,
   findAcquirableVersion,
+  everyFileInspectionAcceptable,
   everyFileScannedClean,
   insertAssetFile,
   insertAssetPackage,
@@ -481,6 +482,172 @@ describe('a creator publishes an asset, and the version is then immutable', () =
     expect(await everyFileScannedClean(version.id)).toBe(false);
     await recordAssetFileScan(file.id, 'clean', new Date());
     expect(await everyFileScannedClean(version.id)).toBe(true);
+  });
+
+  it('reports a version unpublishable while a file is uninspected, corrupt or unreadable', async () => {
+    // The scan gate's sibling, and the escape it leaves open: a `corrupt` file is
+    // not malicious, so a scanner calls it `clean` and until this gate landed
+    // nothing else stood between that file and a buyer.
+    const storeId = await mintStore('uninspected');
+    const asset = await insertDigitalAsset({ storeId, vertical: 'three_d', title: 'Uninspected' });
+    createdAssetIds.push(asset.id);
+    const version = await insertAssetVersion({ assetId: asset.id, label: '1.0', majorVersion: 1 });
+    // No files: `false`, for the same reason the scan gate answers `false` —
+    // `every()` over an empty list is `true`, which is how an uninspected
+    // deliverable becomes publishable.
+    expect(await everyFileInspectionAcceptable(version.id)).toBe(false);
+
+    const file = await insertAssetFile({
+      versionId: version.id,
+      fileName: 'model.stl',
+      format: 'stl',
+      mediaType: 'model/stl',
+      role: 'mesh',
+      visibility: 'rightful_download_only',
+      byteSize: 10,
+      contentHash: hash('uninspected'),
+      storageKey: `private/${RUN}/uninspected.stl`,
+    });
+    // A file with NO inspection row at all. Nothing has looked at it.
+    expect(await everyFileInspectionAcceptable(version.id)).toBe(false);
+
+    // `corrupt` — the header declares more triangles than the file holds. A
+    // scanner would call this clean.
+    const firstRun = new Date(Date.now() - 60_000);
+    await recordFileInspection({
+      fileId: file.id,
+      verdict: 'corrupt',
+      processorName: 'mercaria-mesh-inspect',
+      processorVersion: '1.0.0',
+      failureDetail: 'declares 900 triangles and holds 12',
+      measuredAt: firstRun,
+    });
+    expect(await everyFileInspectionAcceptable(version.id)).toBe(false);
+
+    // The creator fixes the file and the pipeline runs again. Inspections are
+    // append-only, so BOTH rows exist — and an `every()` over all of them would
+    // keep the old mistake blocking them forever with no way to clear it.
+    await recordFileInspection({
+      fileId: file.id,
+      verdict: 'measured',
+      processorName: 'mercaria-mesh-inspect',
+      processorVersion: '2.0.0',
+      triangleCount: 12,
+      measuredAt: new Date(),
+    });
+    expect(await everyFileInspectionAcceptable(version.id)).toBe(true);
+  });
+
+  it('publishes an UNSUPPORTED or resource-missing file, and refuses an unread one', async () => {
+    // Three memberships that are decisions rather than defaults. `unsupported` and
+    // `missing_resources` PASS: blocking the first makes `blend`/`fbx`/`pdf`
+    // unsellable in order to express "we did not look", and blocking the second
+    // makes a pack whose texture reference is satisfied externally unpublishable
+    // on a guess — it is disclosed on the technical panel instead. `failed` does
+    // NOT pass: "we could not look" must not read like "we looked and it was fine".
+    const storeId = await mintStore('verdicts');
+    const asset = await insertDigitalAsset({ storeId, vertical: 'three_d', title: 'Verdicts' });
+    createdAssetIds.push(asset.id);
+
+    const cases = [
+      { verdict: 'unsupported' as const, publishable: true },
+      { verdict: 'missing_resources' as const, publishable: true },
+      { verdict: 'failed' as const, publishable: false },
+      { verdict: 'refused_too_large' as const, publishable: false },
+      { verdict: 'pending' as const, publishable: false },
+    ];
+
+    for (const [index, probe] of cases.entries()) {
+      const version = await insertAssetVersion({
+        assetId: asset.id,
+        label: `1.${index}`,
+        majorVersion: 1,
+      });
+      const file = await insertAssetFile({
+        versionId: version.id,
+        fileName: `asset-${index}.blend`,
+        format: 'blend',
+        mediaType: 'application/octet-stream',
+        role: 'source',
+        visibility: 'rightful_download_only',
+        byteSize: 10,
+        contentHash: hash(`verdict-${index}`),
+        storageKey: `private/${RUN}/verdict-${index}.blend`,
+      });
+      await recordFileInspection({
+        fileId: file.id,
+        verdict: probe.verdict,
+        processorName: 'mercaria-mesh-inspect',
+        processorVersion: '1.0.0',
+        measuredAt: new Date(),
+      });
+      expect(
+        await everyFileInspectionAcceptable(version.id),
+        `${probe.verdict} should ${probe.publishable ? 'pass' : 'be refused'}`,
+      ).toBe(probe.publishable);
+    }
+  });
+
+  it('refuses a version where ONE of several files is unacceptable', async () => {
+    // The gate is over every file, not any file. A two-file version with one good
+    // mesh would pass a `some()` and is exactly the shape a real deliverable has.
+    const storeId = await mintStore('mixed');
+    const asset = await insertDigitalAsset({ storeId, vertical: 'three_d', title: 'Mixed' });
+    createdAssetIds.push(asset.id);
+    const version = await insertAssetVersion({ assetId: asset.id, label: '1.0', majorVersion: 1 });
+
+    const good = await insertAssetFile({
+      versionId: version.id,
+      fileName: 'good.stl',
+      format: 'stl',
+      mediaType: 'model/stl',
+      role: 'mesh',
+      visibility: 'rightful_download_only',
+      byteSize: 10,
+      contentHash: hash('mixed-good'),
+      storageKey: `private/${RUN}/mixed-good.stl`,
+    });
+    const bad = await insertAssetFile({
+      versionId: version.id,
+      fileName: 'bad.stl',
+      format: 'stl',
+      mediaType: 'model/stl',
+      role: 'mesh',
+      visibility: 'rightful_download_only',
+      byteSize: 10,
+      contentHash: hash('mixed-bad'),
+      storageKey: `private/${RUN}/mixed-bad.stl`,
+    });
+    const measuredAt = new Date();
+    await recordFileInspection({
+      fileId: good.id,
+      verdict: 'measured',
+      processorName: 'mercaria-mesh-inspect',
+      processorVersion: '1.0.0',
+      triangleCount: 12,
+      measuredAt,
+    });
+    await recordFileInspection({
+      fileId: bad.id,
+      verdict: 'corrupt',
+      processorName: 'mercaria-mesh-inspect',
+      processorVersion: '1.0.0',
+      measuredAt,
+    });
+
+    expect(await everyFileInspectionAcceptable(version.id)).toBe(false);
+
+    // The control: clearing the one bad file flips it, so the refusal above was
+    // about that file and not about the version having two.
+    await recordFileInspection({
+      fileId: bad.id,
+      verdict: 'measured',
+      processorName: 'mercaria-mesh-inspect',
+      processorVersion: '2.0.0',
+      triangleCount: 12,
+      measuredAt: new Date(Date.now() + 1_000),
+    });
+    expect(await everyFileInspectionAcceptable(version.id)).toBe(true);
   });
 
   it('keeps measured metadata separate from anything a seller claimed', async () => {

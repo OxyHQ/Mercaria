@@ -694,6 +694,17 @@ export * from './digital-asset';
 export * from './digital-licence';
 export * from './digital-right';
 export * from './digital-supply';
+// The 3D product profiles (#1015 Workstream 3, ADR 0010 D12). LAST of the
+// digital modules, because it is the only one that reads BOTH halves of the
+// domain: it names the facts `./digital-asset`'s inspection table measures and
+// the claims `./product-type`'s registry carries, and its whole job is to keep
+// those two populations DISJOINT so nothing is recorded twice and nothing can
+// say which copy is true. It defines no vocabulary either owns — a profile is a
+// set of KEYS, and it carries no requirement, flow, group, position, label or
+// visibility rule, because every one of those is a property of the authoring
+// FORM and reaches a client as an `AuthoringSchema` composed per locale, market
+// and flow (#1015 acceptance criterion 18).
+export * from './digital-3d-profile';
 // Navigation trees and the merchandising separation (#367 step 7, ADR 0007 D3).
 // LAST, and it defines no vocabulary any domain above it owns: a node POINTS at
 // `./condition`'s groups, `./offer`'s kinds and availability and `./money`'s

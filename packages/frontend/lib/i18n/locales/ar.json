@@ -21,7 +21,8 @@
     "deals": "العروض",
     "saved": "المحفوظات",
     "account": "الحساب",
-    "signIn": "تسجيل الدخول"
+    "signIn": "تسجيل الدخول",
+    "threeD": "3D"
   },
   "login": {
     "signInButton": "تسجيل الدخول",
@@ -1525,6 +1526,59 @@
       "documentTitle": "%{title} — Mercaria",
       "empty": "لا توجد عروض نشطة حاليًا.",
       "loadError": "تعذّر تحميل العروض. حاول مرة أخرى."
+    }
+  },
+  "digital": {
+    "documentTitle": "%{title} — Mercaria",
+    "browseOther": "المزيد في قسم 3D",
+    "threeD": {
+      "title": "3D",
+      "description": "مجسمات للطباعة والألعاب والتصوير التخيلي، من صانعيها أنفسهم."
+    },
+    "printable": {
+      "title": "مجسمات قابلة للطباعة",
+      "description": "مجسمات مهيأة للطباعة ثلاثية الأبعاد."
+    },
+    "gameAssets": {
+      "title": "أصول الألعاب",
+      "description": "مجسمات مهيأة لمحركات الألعاب والعرض الفوري."
+    },
+    "unavailable": {
+      "title": "غير متاح هنا بعد",
+      "body": "المنتجات الرقمية معطّلة في هذا التثبيت، فلا يوجد ما يُعرض. ولا يتأثر أي شيء تملكه بالفعل."
+    },
+    "grid": {
+      "empty": "لم يُنشر شيء هنا بعد.",
+      "emptyFiltered": "لا يوجد عمل يطابق هذه المرشحات. أزل واحدًا لترى المزيد.",
+      "emptyPricesWithdrawn": "الأسعار غير متاحة الآن، فلا يمكن عرض شيء هنا."
+    },
+    "library": {
+      "title": "مكتبتك",
+      "description": "كل ما اشتريته أو حصلت عليه، مع الملفات التي يشملها كل شراء.",
+      "empty": "لم تشترِ أو تحصل على أي شيء رقمي بعد.",
+      "signedOut": {
+        "title": "سجّل الدخول لفتح مكتبتك",
+        "body": "مشترياتك وتراخيصها وملفاتها محفوظة في حسابك.",
+        "signIn": "تسجيل الدخول"
+      }
+    },
+    "creator": {
+      "fallbackTitle": "صاحب العمل",
+      "worksTitle": "الأعمال"
+    },
+    "asset": {
+      "fallbackTitle": "العمل",
+      "creatorLine": "من %{creator}",
+      "viewCreator": "عرض كل أعمال %{creator}",
+      "previewTitle": "المعاينة",
+      "packagesTitle": "ما ستحصل عليه",
+      "technicalTitle": "التفاصيل التقنية",
+      "guidanceTitle": "ملاحظات البائع",
+      "versionsTitle": "النسخ والتغييرات",
+      "reviewsTitle": "التقييمات",
+      "currentVersion": "الحالية",
+      "formatsLabel": "يشمل %{formats}",
+      "notForSale": "ليس للبيع"
     }
   }
 }

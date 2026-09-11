@@ -36,5 +36,8 @@ Disallow: /guest-orders/
 Disallow: /nearby
 Disallow: /out/
 Disallow: /internal/
+Disallow: /library
+Disallow: /3d
+Disallow: /creators/
 
 Sitemap: https://mercaria.co/sitemap.xml
