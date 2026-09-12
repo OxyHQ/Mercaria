@@ -441,12 +441,20 @@ export const DIGITAL_PURCHASE_ORDER_LIVE_STATUSES: readonly DigitalPurchaseOrder
  *   recovered ambiguous order rejoins the machine at `accepted`, which is where
  *   its artifact is fetched from provider truth — so an artifact can never appear
  *   without a fetch that proves it.
+ *
+ * `pending -> rejected` and `preflighted -> rejected` are present because a
+ * supplier can answer "no" at PREFLIGHT — out of stock, unknown SKU, a cost above
+ * the order's ceiling — and that is a rejection, not an integration failure. The
+ * first version of this map omitted them, and the consequence was not a bad
+ * label: the transition was refused, the attempt stayed `pending`, and the
+ * partial unique over the non-terminal statuses then blocked that order line
+ * forever. A state machine missing an edge does not merely mislabel; it strands.
  */
 export const DIGITAL_PURCHASE_ORDER_TRANSITIONS: Readonly<
   Record<DigitalPurchaseOrderStatus, readonly DigitalPurchaseOrderStatus[]>
 > = {
-  pending: ['preflighted', 'cancelled', 'failed'],
-  preflighted: ['submitting', 'cancelled', 'failed'],
+  pending: ['preflighted', 'rejected', 'cancelled', 'failed'],
+  preflighted: ['submitting', 'rejected', 'cancelled', 'failed'],
   submitting: ['accepted', 'ambiguous', 'rejected', 'failed'],
   ambiguous: ['accepted', 'rejected', 'cancelled', 'failed'],
   accepted: ['fulfilled', 'cancelled', 'credited', 'failed'],
