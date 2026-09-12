@@ -11,8 +11,9 @@
  * (`ui`, `shared-types`) defined `echo "No lint configured…" && exit 0`, so the
  * command exited 0 having really linted ONE package with nothing anywhere
  * saying so. #496 moved the three Expo apps into the real set and
- * `EXPECTED_NO_SCRIPT` is now empty; the current answer is 4 of 6, which the
- * summary prints on every run. The hazard is unchanged — a package falling back
+ * `EXPECTED_NO_SCRIPT` is now empty. #1017 added `packages/sdk` with a real
+ * linter, so the current answer is 5 of 7, which the summary prints on every
+ * run. The hazard is unchanged — a package falling back
  * out is silent — which is why the empty set is kept as a category.
  *
  * #607 added the other half of the question: `bun run lint` covering a package
@@ -135,7 +136,7 @@ const GATING_JOB = "lint-and-test";
 // ------------------------------------------------------- expected state -----
 
 /** Packages whose `lint` script runs a real linter. */
-const EXPECTED_REAL = ["backend", "dashboard", "frontend", "pos"];
+const EXPECTED_REAL = ["backend", "dashboard", "frontend", "pos", "sdk"];
 
 /** Packages whose `lint` script is an `exit 0` placeholder. */
 const EXPECTED_PLACEHOLDER = ["shared-types", "ui"];
@@ -153,8 +154,14 @@ const EXPECTED_PLACEHOLDER = ["shared-types", "ui"];
  */
 const EXPECTED_NO_SCRIPT = [];
 
-/** Workspace packages named by a `--filter <pkg> lint` step in the workflow. */
+/**
+ * Workspace packages named by a `--filter <pkg> lint` step in the workflow, in
+ * sorted order. `@mercaria.co/sdk` is the one PUBLISHED package and carries the
+ * public scope, which is why it sorts first and why a CI target is checked
+ * against each package's manifest `name` rather than `@mercaria/<directory>`.
+ */
 const EXPECTED_CI_LINT_TARGETS = [
+  "@mercaria.co/sdk",
   "@mercaria/backend",
   "@mercaria/dashboard",
   "@mercaria/frontend",
@@ -179,7 +186,7 @@ const EXPECTED_CI_LINT_TARGETS = [
 const EXPECTED_ESLINT_RANGE = "^9.39.5";
 
 /** Packages that must carry it — DERIVED from the walk, never a hand list. */
-const MINIMUM_ESLINT_PACKAGES = 4;
+const MINIMUM_ESLINT_PACKAGES = 5;
 
 /**
  * Below this the `packages/` walk is broken. See the docblock: this does NOT
@@ -187,7 +194,7 @@ const MINIMUM_ESLINT_PACKAGES = 4;
  * it names the cause instead of leaving three set mismatches to be read as three
  * unlinted packages.
  */
-const MINIMUM_PACKAGES = 6;
+const MINIMUM_PACKAGES = 7;
 
 const failures = [];
 
@@ -472,8 +479,11 @@ if (!sameSet(ciLintTargets, EXPECTED_CI_LINT_TARGETS)) {
 }
 
 // Every package CI names must actually have a linter to run, or the step is a
-// named filter that exits 1 — loud, but only once somebody pushes.
-const realNames = new Set(real.map((directory) => `@mercaria/${directory}`));
+// named filter that exits 1 — loud, but only once somebody pushes. Keyed on the
+// manifest NAME: the directory is not the name (`packages/sdk` publishes as
+// `@mercaria.co/sdk`), and deriving `@mercaria/<directory>` would refuse a
+// correct step and accept one naming a package that does not exist.
+const realNames = new Set(real.map((directory) => manifests.get(directory).name));
 for (const target of ciLintTargets) {
   if (!realNames.has(target)) {
     failures.push(
