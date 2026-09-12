@@ -2227,4 +2227,46 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'knew existed. The binding is resolved at checkout and a miss means "not ' +
       'a digital line", which is the safe answer.',
   },
+  // ── #1016 / ADR 0011: authorized digital retail ───────────────────────────
+  //
+  // The procurement domain's own invariants, applied to its digital sibling.
+  // Three families, and none of them is a gap to close later:
+  //
+  //  * the customer-order correlations, which carry `PROCUREMENT_CORRELATION`
+  //    for the reason `purchase_orders.order_id` already does — a B2B record
+  //    must stay writable and readable independently of the commerce row it
+  //    names, and it outlives anything that happens to it;
+  //  * the SNAPSHOT provenance columns, frozen at purchase and readable without
+  //    their target, where the target legitimately refreshes in place or merges;
+  //  * the foreign key spaces — a supplier's catalogue id, its order id, its
+  //    request correlation, the artifact id it allocated — which are somebody
+  //    else's primary keys and must never become Mercaria's.
+  { column: 'digital_supply_terms.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'digital_retail_pricing_policies.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'digital_retail_pricing_policies.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'digital_fulfilment_artifacts.operator_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'digital_fulfilment_reveals.operator_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'digital_fulfilment_incidents.operator_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'digital_procurement_offers.supplier_external_id', reason: SUPPLIER_PLATFORM },
+  { column: 'digital_purchase_orders.provider_order_id', reason: SUPPLIER_PLATFORM },
+  { column: 'digital_purchase_order_attempts.provider_request_id', reason: SUPPLIER_PLATFORM },
+  { column: 'digital_fulfilment_artifacts.provider_artifact_id', reason: SUPPLIER_PLATFORM },
+  { column: 'digital_purchase_orders.order_id', reason: PROCUREMENT_CORRELATION },
+  { column: 'digital_purchase_orders.order_item_id', reason: PROCUREMENT_CORRELATION },
+  { column: 'digital_fulfilments.order_id', reason: PROCUREMENT_CORRELATION },
+  { column: 'digital_fulfilments.order_item_id', reason: PROCUREMENT_CORRELATION },
+  { column: 'digital_purchase_orders.digital_procurement_offer_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'digital_purchase_orders.canonical_variant_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'digital_fulfilments.canonical_variant_id', reason: COMMERCE_SNAPSHOT },
+  {
+    column: 'digital_fulfilment_artifacts.incident_id',
+    reason:
+      'The support incident that authorized a manual or replacement artifact, ' +
+      'deliberately unconstrained in THIS direction (ADR 0011 D12). The ' +
+      'artifact is the record of what was handed to a buyer and must be ' +
+      'insertable and readable independently of any support row; ' +
+      '`digital_fulfilment_incidents` points back with a real `restrict` ' +
+      'reference, so the pair is constrained exactly once and in the direction ' +
+      'where the evidence is the parent.',
+  },
 ];

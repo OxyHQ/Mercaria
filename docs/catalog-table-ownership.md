@@ -71,6 +71,16 @@ it and can only rise.
 | Discovery | `db/schema/discovery.ts` | `db/discovery/` (3) | `discovery_signals`, `discovery_sweep_cursors` |
 | Digital deliverables | `db/schema/digitalAssets.ts` | `db/digital/assetRepository.ts` | `digital_assets`, `asset_versions`, `asset_files`, `asset_packages`, `asset_package_files`, `asset_file_inspections`, `asset_provenance_signals` |
 | Digital licences and buyer rights | `db/schema/digitalRights.ts` | `db/digital/licenceRepository.ts`, `rightRepository.ts`, `downloadRepository.ts`, `bindingRepository.ts` | `asset_licences`, `asset_licence_versions`, `asset_licence_options`, `asset_rights`, `asset_right_events`, `asset_download_grants`, `asset_download_events`, `asset_variant_bindings` |
+| Digital retail supply | `db/schema/digitalRetail.ts` | `db/digitalRetail/supplyTermsRepository.ts`, `digitalProcurementOfferRepository.ts`, `retailPricingPolicyRepository.ts` | `digital_supply_terms`, `digital_supplier_capabilities`, `digital_procurement_offers`, `digital_retail_pricing_policies` |
+| Digital retail procurement and fulfilment | `db/schema/digitalRetail.ts` | `db/digitalRetail/digitalPurchaseOrderRepository.ts`, `digitalFulfilmentRepository.ts` | `digital_purchase_orders`, `digital_purchase_order_attempts`, `digital_fulfilments`, `digital_fulfilment_artifacts`, `digital_fulfilment_reveals`, `digital_fulfilment_incidents` |
+
+**#1016's ten tables are split across TWO rows of one schema module, and the split
+is the ownership decision** (ADR 0011). The supply half — what a counterparty has
+authorized, what it can do, what it offers and what Mercaria prices it at — is
+read by the selector and written by catalogue sync. The procurement and fulfilment
+half is written only by the orchestrator and the reveal path, and three of its
+tables refuse DELETE by trigger. Two repositories that could reach the same table
+would make "who may hand a buyer a key" a question with two answers.
 
 Two tables in that list are owned by a module their NAME does not name, and both
 were argued rather than assumed:

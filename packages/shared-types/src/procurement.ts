@@ -27,13 +27,26 @@
  * SHAPE is the security property: a type with no cost field cannot leak one.
  */
 
-/** What kind of supply relationship a supplier is (#118 supplier model 7). */
+/**
+ * What kind of supply relationship a supplier is (#118 supplier model 7).
+ *
+ * `digital_distributor` was added by #1016 (ADR 0011 D2), and adding it here
+ * rather than minting a second supplier table is the decision: a kill switch that
+ * exists twice is a kill switch that gets thrown once. The counterparty record,
+ * its risk assessment, its credential reference and its `state = 'killed'`
+ * emergency stop are the ones the physical side already has.
+ *
+ * What it does NOT mean is that a digital supplier can be procured from through
+ * the physical path. The two purchase-order machines are separate tables (ADR
+ * 0011 D5) and the digital capability vocabulary is its own tuple.
+ */
 export type SupplierType =
   | 'wholesaler'
   | 'dropship_distributor'
   | 'manufacturer_direct'
   | 'print_on_demand'
-  | 'fulfilment_partner';
+  | 'fulfilment_partner'
+  | 'digital_distributor';
 
 /** {@link SupplierType} as the tuple the column types and CHECKs read. */
 export const SUPPLIER_TYPES: readonly SupplierType[] = [
@@ -42,6 +55,7 @@ export const SUPPLIER_TYPES: readonly SupplierType[] = [
   'manufacturer_direct',
   'print_on_demand',
   'fulfilment_partner',
+  'digital_distributor',
 ];
 
 /**
