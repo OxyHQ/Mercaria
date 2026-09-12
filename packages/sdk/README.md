@@ -290,7 +290,7 @@ Every failure is a `MercariaError` with a stable `code`, the HTTP `status`
 | `MercariaForbiddenError` | 403 | no |
 | `MercariaValidationError` | 400, or refused before sending (empty id, bad limit) | no |
 | `MercariaResponseError` | the response was not the contract | no |
-| `MercariaApiError` | any other non-2xx | usually no |
+| `MercariaApiError` | any other non-2xx — including 404 `UNKNOWN_ROUTE` (this SDK version and the server disagree about a route) and a 404/410 with no Mercaria error body (a proxy); neither ever means the entity is gone | usually no |
 
 ```ts
 import { MercariaGoneError, MercariaNotFoundError, isMercariaError } from '@mercaria.co/sdk';
@@ -444,4 +444,4 @@ does. See `CHANGELOG.md`.
 
 ## License
 
-MIT
+Apache-2.0 — see `LICENSE` and `NOTICE`.

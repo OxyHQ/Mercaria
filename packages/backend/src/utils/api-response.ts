@@ -81,6 +81,13 @@ export const ErrorCodes = {
    * a fact another application may read.
    */
   GONE: 'GONE',
+  /**
+   * The request named a path or method the public integration surface
+   * (`/public/v1`) does not serve (#1017). Distinct from `NOT_FOUND` so that a
+   * client/server route mismatch can never be read as "this entity does not
+   * exist" by a consumer holding a persisted reference.
+   */
+  UNKNOWN_ROUTE: 'UNKNOWN_ROUTE',
   CONFLICT: 'CONFLICT',
   RATE_LIMITED: 'RATE_LIMITED',
   OUT_OF_STOCK: 'OUT_OF_STOCK',

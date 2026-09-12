@@ -26,7 +26,7 @@
  *
  * ## What is checked
  *
- *  1. The tarball holds exactly dist + README + CHANGELOG + LICENSE + manifest.
+ *  1. The tarball holds exactly dist + README + CHANGELOG + LICENSE + NOTICE + manifest.
  *  2. No shipped file mentions the private package scope or `workspace:`, and
  *     no JavaScript file imports a Node built-in.
  *  3. Node ESM `import` and CJS `require` of the INSTALLED package: create a
@@ -61,6 +61,7 @@ const PRIVATE_SCOPE = '@mercaria/';
 const EXPECTED_FILES = [
   'package/CHANGELOG.md',
   'package/LICENSE',
+  'package/NOTICE',
   'package/README.md',
   'package/dist/index.cjs',
   'package/dist/index.d.cts',
@@ -112,7 +113,7 @@ async function main() {
     const stage = join(scratch, 'stage');
     await mkdir(stage, { recursive: true });
     await cp(join(root, 'dist'), join(stage, 'dist'), { recursive: true });
-    for (const doc of ['README.md', 'CHANGELOG.md', 'LICENSE']) await cp(join(root, doc), join(stage, doc));
+    for (const doc of ['README.md', 'CHANGELOG.md', 'LICENSE', 'NOTICE']) await cp(join(root, doc), join(stage, doc));
     const published = Object.fromEntries(PUBLISHED_FIELDS.filter((key) => key in manifest).map((key) => [key, manifest[key]]));
     await writeFile(join(stage, 'package.json'), `${JSON.stringify(published, null, 2)}\n`);
 

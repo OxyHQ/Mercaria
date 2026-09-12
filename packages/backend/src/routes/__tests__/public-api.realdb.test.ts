@@ -1037,11 +1037,11 @@ describe('collections', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('the envelope at the edges', () => {
-  it('answers an unmatched path, and a non-GET method, with a JSON NOT_FOUND', async () => {
-    expectFailure(await call(api('/x')), 404, 'NOT_FOUND');
-    expectFailure(await call(MERCARIA_PUBLIC_API_BASE_PATH), 404, 'NOT_FOUND');
-    expectFailure(await call(api('/products'), { method: 'POST' }), 404, 'NOT_FOUND');
-    expectFailure(await call(api(`/products/${ids.inStock}`), { method: 'DELETE' }), 404, 'NOT_FOUND');
+  it('answers an unmatched path, and a non-GET method, with a JSON UNKNOWN_ROUTE, never NOT_FOUND', async () => {
+    expectFailure(await call(api('/x')), 404, 'UNKNOWN_ROUTE');
+    expectFailure(await call(MERCARIA_PUBLIC_API_BASE_PATH), 404, 'UNKNOWN_ROUTE');
+    expectFailure(await call(api('/products'), { method: 'POST' }), 404, 'UNKNOWN_ROUTE');
+    expectFailure(await call(api(`/products/${ids.inStock}`), { method: 'DELETE' }), 404, 'UNKNOWN_ROUTE');
   });
 
   it('answers a body that will not parse with a JSON envelope, not the global 500 body', async () => {

@@ -245,6 +245,11 @@ export interface MercariaPage<T> {
  * closed or suspended). It is deliberately distinct from
  * `NOT_FOUND`, so a post attachment can say "no longer available" rather than
  * "broken link" — and it deliberately says nothing about WHY.
+ *
+ * `UNKNOWN_ROUTE` (404) answers a path or method the public surface does not
+ * serve at all. It is NOT `NOT_FOUND`: a client and a server that disagree about
+ * the route table must never read as "this entity does not exist", or a consumer
+ * would discard a perfectly valid persisted reference.
  */
 export const MERCARIA_PUBLIC_ERROR_CODES = [
   'VALIDATION_ERROR',
@@ -252,6 +257,7 @@ export const MERCARIA_PUBLIC_ERROR_CODES = [
   'FORBIDDEN',
   'NOT_FOUND',
   'GONE',
+  'UNKNOWN_ROUTE',
   'RATE_LIMITED',
   'INTERNAL_ERROR',
   'SERVICE_UNAVAILABLE',

@@ -24,6 +24,7 @@ const DEFAULT_HTTP_STATUS: Record<ErrorCode, number> = {
   // 410, not 404: the entity existed and is no longer publicly available (#1017).
   // A consumer holding a persisted reference acts differently on each.
   [ErrorCodes.GONE]: 410,
+  [ErrorCodes.UNKNOWN_ROUTE]: 404,
   [ErrorCodes.CONFLICT]: 409,
   [ErrorCodes.RATE_LIMITED]: 429,
   [ErrorCodes.OUT_OF_STOCK]: 409,

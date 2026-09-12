@@ -55,6 +55,15 @@ describe('HTTP status and envelope mapping', () => {
     assertNoSecret(error);
   });
 
+  it('reads UNKNOWN_ROUTE as a route mismatch, never as a missing entity', async () => {
+    const error = await errorFor(failure(404, 'UNKNOWN_ROUTE', 'No such public API route'));
+    expect(error).toBeInstanceOf(MercariaApiError);
+    expect(error).not.toBeInstanceOf(MercariaNotFoundError);
+    expect(error.code).toBe('UNKNOWN_ROUTE');
+    expect(error.status).toBe(404);
+    expect(error.retryable).toBe(false);
+  });
+
   it('distinguishes not found, gone and unavailable without reading strings', async () => {
     const notFound = await errorFor(failure(404, 'NOT_FOUND'));
     const gone = await errorFor(failure(410, 'GONE'));

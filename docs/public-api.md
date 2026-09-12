@@ -46,7 +46,8 @@ consumer branches on `error`, never on `message`.
 | Status | `error` | When |
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | a query the schema refuses, a foreign or malformed cursor, a body that will not parse |
-| 404 | `NOT_FOUND` | see the status rules; also any unmatched path or non-GET method under `/public/v1` |
+| 404 | `NOT_FOUND` | see the status rules |
+| 404 | `UNKNOWN_ROUTE` | any unmatched path or non-GET method under `/public/v1` — never `NOT_FOUND`, so a client/server route mismatch cannot read as a missing entity |
 | 410 | `GONE` | see the status rules |
 | 500 | `INTERNAL_ERROR` | anything unexpected — the message is a fixed generic string |
 

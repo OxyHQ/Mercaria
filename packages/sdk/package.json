@@ -2,7 +2,7 @@
   "name": "@mercaria.co/sdk",
   "version": "0.1.0",
   "description": "The canonical, headless TypeScript client for Mercaria's public commerce API \u2014 product, store and collection reads, portable references, typed errors and canonical links for Node, Bun, browsers and React Native.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "author": "The Oxy Collective, Inc.",
   "homepage": "https://github.com/OxyHQ/Mercaria/tree/main/packages/sdk#readme",
   "repository": {
@@ -52,7 +52,8 @@
     "dist",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "engines": {
     "node": ">=18.0.0"

@@ -174,6 +174,10 @@ export function errorForResponse(status: number, headers: MercariaHeadersLike | 
       return new MercariaNotFoundError(message, options);
     case 'GONE':
       return new MercariaGoneError(message, options);
+    case 'UNKNOWN_ROUTE':
+      // The SDK and the server disagree about the route table. NEVER NotFound:
+      // that would tell a consumer a valid persisted reference is dead.
+      return new MercariaApiError(message, options);
     case 'RATE_LIMITED':
       return new MercariaRateLimitError(message, { ...options, retryAfterSeconds: parseRetryAfterSeconds(headers) });
     case 'INTERNAL_ERROR':

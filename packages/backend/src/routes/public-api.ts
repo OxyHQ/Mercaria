@@ -47,11 +47,12 @@ router.get('/collections/:id/products', listCollectionProducts);
 
 /**
  * Anything else under the prefix — an unknown path, or a known path with a
- * method other than GET/HEAD — is a JSON `NOT_FOUND`, never Express's HTML 404
- * page, because the contract promises a consumer an envelope on every answer.
+ * method other than GET/HEAD — is a JSON `UNKNOWN_ROUTE` 404, never Express's
+ * HTML 404 page, because the contract promises a consumer an envelope on every
+ * answer. Never `NOT_FOUND`: a route mismatch must not read as a missing entity.
  */
 router.use((_req: Request, res: Response) => {
-  sendError(res, ErrorCodes.NOT_FOUND, 'No such public API route', 404);
+  sendError(res, ErrorCodes.UNKNOWN_ROUTE, 'No such public API route', 404);
 });
 
 /**
