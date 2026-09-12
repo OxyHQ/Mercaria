@@ -1100,6 +1100,13 @@
       "when": 1789089842342,
       "tag": "0156_brave_silhouette",
       "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1789191557154,
+      "tag": "0157_bright_scrambler",
+      "breakpoints": true
     }
   ]
 }

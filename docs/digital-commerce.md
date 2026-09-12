@@ -289,6 +289,14 @@ analytics engine is complete and UNWIRED — its `DigitalAnalyticsFactReader` se
 has no SQL behind it yet. The foundation is built so none of them is a second
 commerce stack; none of them is in place today.
 
-**Gift cards, licence keys and third-party redemption codes are still excluded**
-(ADR 0010 D16). A redemption code is not a creator file download and must never be
-modelled as one.
+**Gift cards are still excluded; licence keys and third-party redemption codes are
+not, since #1016.** ADR 0010 D16 gave two reasons and
+[ADR 0011](adr/0011-authorized-digital-retail.md) answers exactly one of them: a
+third-party activation code is now a fulfilment artifact of a digital good, in a
+domain of its own ([digital-retail.md](digital-retail.md)), and it is still true
+that **a redemption code is not a creator file download** — there is no
+`redemption_code` column anywhere in THIS domain and an artifact is never modelled
+as an `asset_package`. The stored-value half is untouched: `stored_value` remains
+in `EXCLUDED_COMMERCE_TYPES`, `DIGITAL_RETAIL_PRODUCT_CLASSES` mints no member for
+a gift card, and the `stored_value` detector in `commerce-type-exclusion.test.ts`
+still runs.

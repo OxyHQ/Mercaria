@@ -7095,3 +7095,110 @@ Every geometry column is nullable and NULL means NOT MEASURED, which is why
 `verdict` exists beside them. The bounding box is all three dimensions or none — a
 CHECK — because two of three is a measurement a product page would print as
 `42 × 17 × —`.
+
+## Authorized digital retail (#1016, ADR 0011)
+
+Ten tables, one widened CHECK on `suppliers`, five hand-written triggers, and one
+decision that shapes the rest: the SUPPLIER SPINE is reused. `suppliers`,
+`supplier_accounts` and `supplier_agreements` stay the one counterparty record,
+and the digital half rides as `digital_supply_terms` (a rider on one agreement
+version) plus `digital_supplier_capabilities` (one row per account × operation).
+
+### Why not a second supplier table
+
+A kill switch that exists twice is a kill switch that gets thrown once.
+`supplier_accounts.state = 'killed'` is the emergency stop the physical-side
+tooling already reads, and the credential a compromise compromises is the one
+`credential_reference` already names. A `digital_suppliers` table would mean an
+incident response that disables a counterparty on one side and leaves it
+procuring on the other.
+
+### Why the capability is a TABLE and not an array element
+
+`supplier_accounts.api_capabilities` is a `text[]`, and an array carries no
+per-element pause, no per-element health check and no per-element reason.
+Removing an element to pause it would also lose the record that the capability
+exists. The epic requires catalog sync and procurement to pause independently, so
+the grain has to be a row.
+
+### The two live-ness indexes, and which one is load-bearing
+
+`digital_purchase_orders` carries `UNIQUE(idempotency_key)` and a PARTIAL
+`UNIQUE(order_item_id) WHERE status IN (…non-terminal…)`. The first is ordinary
+idempotency. The second is the one the domain rests on: it makes two live
+procurement attempts for one order line unrepresentable, which is how "never buy
+a second key after a timeout" becomes a property of the database rather than an
+ordering in a service.
+
+Its complement is rendered from `DIGITAL_PURCHASE_ORDER_LIVE_STATUSES`, which is
+itself DERIVED by subtraction from the terminal tuple — so adding a status
+without deciding whether it is terminal cannot quietly widen the index.
+
+### Every non-terminal status needs a terminal exit, and that is a schema concern
+
+Because of that partial unique, a status with no edge out of it does not merely
+mislabel an attempt — it blocks that order line forever. The transition map lives
+in `@mercaria/shared-types` and is NOT duplicated in plpgsql: two authorities over
+one machine disagree exactly once, and the trigger freezes the identity and cost
+columns instead.
+
+### The secret-presence CHECK is a BICONDITIONAL, and both directions are real
+
+`(capability IN (secret-bearing…)) = (sealed_secret IS NOT NULL)`. One direction
+refuses an `activation_key` with nothing in it; the other refuses a
+`direct_account_activation` carrying a key nobody should ever be shown. Either
+half alone admits a row that contradicts itself, and the tuple it is rendered
+from is `SECRET_BEARING_FULFILMENT_CAPABILITIES` — so adding a capability forces a
+decision about which side of the line it falls on.
+
+### `masked_hint` is stored in CLEAR, deliberately, and bounded by CHECK
+
+Four characters of the plaintext's TAIL. Support's commonest question is *"is the
+key you are holding the key we sold you"*, and answering it without a hint means
+revealing the whole secret to an operator on every enquiry. Four characters
+reconstruct nothing. It is NOT in `PROTECTED_COLUMNS` for that reason, and it IS
+frozen by the seal trigger — a changed hint would describe a key the buyer was
+never given.
+
+### `plaintext_sha256` is protected even though it is irreversible
+
+`channel_api_keys.hash`'s reasoning, one domain over: a digest handed out is an
+OFFLINE oracle to test guessed keys against, with no rate limit and no log line.
+For a key space this small that is not theoretical.
+
+### The artifact ↔ incident pair is constrained in ONE direction
+
+`digital_fulfilment_incidents.artifact_id` and `.replacement_artifact_id` are real
+`restrict` references. `digital_fulfilment_artifacts.incident_id` is a plain
+column with NO foreign key, and the direction is the decision: the artifact is the
+record of what was handed to a buyer and must be insertable and readable
+independently of any support row, while an incident without its artifact is
+meaningless. Constraining both would also make the pair a cycle at insert time.
+
+### Two array semantics, side by side, and they are OPPOSITE on purpose
+
+`digital_supply_terms.permitted_territories` empty means NONE — a rider GRANTS,
+and a grant naming no territory grants none (the `supplier_agreements` rule).
+`digital_procurement_offers.activation_territories` empty means UNRESTRICTED — an
+offer DESCRIBES where the thing works. Both are asserted by
+`eligibility.test.ts`, because the two arrays sit two columns apart in the same
+query and reading either as the other publishes something nobody authorized.
+
+### `digital_retail_pricing_policies` is not `retail_pricing_policies`
+
+ADR 0004 D3 is a COST-ONLY formula, and its table is shaped around proving the
+total is the exact sum of approved components with no margin at all. Digital
+retail carries a margin by decision, so the two differ in the one direction a
+shared table cannot absorb: one exists to prove margin is ZERO and the other to
+bound it between a floor and a ceiling. One ACTIVE policy per market × product
+class, by partial unique index, so "which policy priced this" has exactly one
+answer.
+
+### The margin is basis points of RETAIL, and rounding may overshoot the ceiling
+
+`retail = (cost + fixed) / (1 - (margin + payment) / 10000)`, and the CHECK keeps
+both rates under 10 000 so the denominator stays positive. Rounding is UP and
+last, because rounding down is the only direction that can cross the floor — so a
+price computed at exactly the ceiling can realize a basis point above it. The
+band bounds the REQUESTED margin; a sub-minor-unit overshoot is arithmetic, and
+`pricing.ts` says so rather than leaving it to be discovered.

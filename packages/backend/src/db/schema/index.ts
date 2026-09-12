@@ -603,3 +603,16 @@ export * from './catalogGovernance';
 // `entitlement_grants` already owns that word for Mercaria billing a merchant.
 export * from './digitalAssets';
 export * from './digitalRights';
+
+// Authorized digital retail (#1016, ADR 0011) — the private supply, procurement
+// and fulfilment domain behind a game, software licence or other authorized
+// third-party digital product Mercaria sells as the seller of record.
+//
+// LAST, because it is the only module that reads BOTH the procurement spine and
+// the digital half of the commerce model: its riders hang off `supplierAgreements`
+// and its offers map onto `canonicalVariants`, while what it hands a buyer is a
+// sealed artifact rather than a creator's file. It adds no column to either side
+// — a second supplier table would be a second kill switch (ADR 0011 D2), and a
+// digital purchase order on `purchase_orders` would need a shipment that never
+// arrives (ADR 0011 D5).
+export * from './digitalRetail';

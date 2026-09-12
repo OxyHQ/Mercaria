@@ -683,14 +683,40 @@ describe('the reconciliation probes', () => {
             'both readings must be taken in ONE snapshot',
           ).toBe('repeatable read');
 
-          clean = await runLegacyCatalogReconciliation(tx, { cohort, listingLimit: 500 });
+          // The page has to REACH this file's own category, and the default
+          // `categoryLimit` of 100 does not guarantee it: the probe pages
+          // `categories` by `id ASC`, ids are uuid v7 and therefore time-ordered,
+          // and the test database is shared — so every category any earlier file
+          // created sorts BEFORE this one's. Once a full suite run has created a
+          // hundred of them the target falls off the page, the mutation is never
+          // examined, and the delta is 0 rather than 1. Measured: this file
+          // passes alone and failed twice in a row inside a full run, on a tree
+          // whose only change was adding test files elsewhere.
+          //
+          // Counting first and paging to that count makes the assertion
+          // independent of how many files ran before this one. The count is
+          // taken INSIDE the same snapshot, so it cannot move between the two
+          // readings either.
+          const [categoryCount] = await tx.execute<{ readonly total: number }>(
+            sql`select count(*)::int as total from categories`,
+          );
+          const categoryLimit = (categoryCount?.total ?? 0) + 1;
+          clean = await runLegacyCatalogReconciliation(tx, {
+            cohort,
+            listingLimit: 500,
+            categoryLimit,
+          });
           const updated = await tx
             .update(categories)
             .set({ isActive: false })
             .where(eq(categories.id, target))
             .returning({ id: categories.id });
           if (updated.length !== 1) throw new Error('the mutation did not land');
-          dirty = await runLegacyCatalogReconciliation(tx, { cohort, listingLimit: 500 });
+          dirty = await runLegacyCatalogReconciliation(tx, {
+            cohort,
+            listingLimit: 500,
+            categoryLimit,
+          });
           tx.rollback();
         },
         { isolationLevel: 'repeatable read' },

@@ -165,3 +165,26 @@ server's own reading of the cart**: `digital_delivery` is refused for a cart hol
 a physical line, and a digital line is refused when the withdrawal waiver is absent.
 Neither can be a schema rule, because a schema cannot see a cart — the same split
 `services/checkout/destination.ts` documents for the actor rules.
+
+## The digital-retail chokepoints (#1016, ADR 0011)
+
+The same shape again, for a domain where the thing being handled is a bearer
+secret bought with real money at the moment a customer pays.
+
+| Invariant | Held by | What it prevents |
+|---|---|---|
+| **At most ONE live procurement attempt exists per order line, ever.** | `digital_purchase_orders_live_line_key`, a partial unique over the non-terminal statuses | the double-buy: a fallback stepping over an ambiguous attempt that may already have bought a key |
+| **A timeout can only reach `ambiguous`, never `failed`.** | `DIGITAL_PURCHASE_ORDER_TRANSITIONS` has no such edge, and the repository refuses one before issuing SQL | a claim that nothing was bought, which nothing on this side of the wire can make |
+| **Only provider truth leaves `ambiguous`.** A failed recovery leaves it exactly where it was. | `recoverAmbiguousPurchaseOrder`'s three branches | "I could not reach them" being read as "nothing happened" |
+| **Every non-terminal status has a terminal exit.** | the transition map, asserted by `digital-retail-walls.test.ts` | an attempt with no way out, which the live-line index turns into an order line blocked forever |
+| **A purchase order's identity and cost snapshot are frozen.** | `digital_purchase_orders_snapshot_immutable` | a catalogue refresh rewriting what a submitted order was quoted |
+| **No order line can pay more than its ceiling.** | `max_accepted_cost`, inherited by every fallback, plus two CHECKs | a cost increase reaching a customer who never agreed to it |
+| **An ambiguous or unmapped offer can never fulfil.** | `mapping_status`, and `deriveDigitalProcurementEligibility` | the wrong edition, platform or region being substituted silently |
+| **Nothing procures without an agreement RIDER.** | `digital_supply_terms`, and `digital_purchase_orders.digital_supply_terms_id` NOT NULL | an API account being mistaken for a resale right |
+| **Exactly one artifact is active per fulfilment.** | `digital_fulfilment_artifacts_active_key` | the original and the replacement both working |
+| **The plaintext has no column, and the sealed three cannot be read by a whole-row select.** | `PROTECTED_COLUMNS.digital_fulfilment_artifacts`, and the seal-immutability trigger | a dump, a log line or a serializer opening every key Mercaria has sold |
+| **A reveal is not a redemption.** | two columns, and no operator path to `redeemed` | an operator making a refund ineligible by typing |
+| **An operator cannot fabricate a fulfilment.** | `digital_fulfilment_artifacts_operator_check` — a manual artifact REQUIRES an operator and an incident | value being manufactured with no audit |
+| **A machine cannot file an operator incident.** | `digital_fulfilment_incidents_operator_check` | an automated escalation with nobody accountable for it |
+| **The reveal audit carries no IP, device or session.** | the absence, asserted against the real `information_schema` | the fraud-shaped reason for building a tracker |
+| **Ranking cannot read supplier economics.** | no shared module, table or type; asserted by an import census | margin buying organic placement |

@@ -94,6 +94,8 @@ flowchart LR
         M_Discovery["Discovery"]
         M_Digital_deliverables["Digital deliverables"]
         M_Digital_licences_and_buyer_rights["Digital licences and buyer rights"]
+        M_Digital_retail_supply["Digital retail supply"]
+        M_Digital_retail_procurement_and_fulfilment["Digital retail procurement and fulfilment"]
     end
     subgraph outside["Pre-existing tables the epic attaches to"]
         direction TB
@@ -114,6 +116,9 @@ flowchart LR
         X_product_variants[("product_variants")]
         X_source_records[("source_records")]
         X_stores[("stores")]
+        X_supplier_accounts[("supplier_accounts")]
+        X_supplier_agreements[("supplier_agreements")]
+        X_suppliers[("suppliers")]
     end
     M_Localization --> M_Product_types
     M_Variant_axes_and_claims --> M_Product_types
@@ -123,6 +128,7 @@ flowchart LR
     M_Proposals --> M_Variant_axes_and_claims
     M_External_mappings --> M_Product_types
     M_Digital_licences_and_buyer_rights --> M_Digital_deliverables
+    M_Digital_retail_procurement_and_fulfilment --> M_Digital_retail_supply
     M_Taxonomy --> X_catalog_sources
     M_Taxonomy --> X_categories
     M_Classification --> X_canonical_products
@@ -170,6 +176,13 @@ flowchart LR
     M_Digital_licences_and_buyer_rights --> X_order_items
     M_Digital_licences_and_buyer_rights --> X_orders
     M_Digital_licences_and_buyer_rights --> X_stores
+    M_Digital_retail_supply --> X_canonical_products
+    M_Digital_retail_supply --> X_canonical_variants
+    M_Digital_retail_supply --> X_supplier_accounts
+    M_Digital_retail_supply --> X_supplier_agreements
+    M_Digital_retail_supply --> X_suppliers
+    M_Digital_retail_procurement_and_fulfilment --> X_supplier_accounts
+    M_Digital_retail_procurement_and_fulfilment --> X_suppliers
 ```
 
 **2 foreign keys point the other way** — from a table outside the epic into
@@ -184,7 +197,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**16 modules**, **15 writing directories**,
+**18 modules**, **16 writing directories**,
 **4 tables written from more than one directory** and
 **4 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -201,6 +214,7 @@ flowchart LR
     W_db_catalogProposals["db/catalogProposals"]
     W_db_compatibility["db/compatibility"]
     W_db_digital["db/digital"]
+    W_db_digitalRetail["db/digitalRetail"]
     W_db_discovery["db/discovery"]
     W_db_navigation["db/navigation"]
     W_db_productTypes["db/productTypes"]
@@ -224,6 +238,8 @@ flowchart LR
     M_Discovery(["Discovery"])
     M_Digital_deliverables(["Digital deliverables"])
     M_Digital_licences_and_buyer_rights(["Digital licences and buyer rights"])
+    M_Digital_retail_supply(["Digital retail supply"])
+    M_Digital_retail_procurement_and_fulfilment(["Digital retail procurement and fulfilment"])
     W_db_catalog -->|"1"| M_Connector_pins
     W_db_catalog -->|"1"| M_Native_variant_images
     W_db_catalogAuthoring -->|"4"| M_Authoring
@@ -236,6 +252,8 @@ flowchart LR
     W_db_compatibility -->|"7"| M_Compatibility
     W_db_digital -->|"7"| M_Digital_deliverables
     W_db_digital -->|"8"| M_Digital_licences_and_buyer_rights
+    W_db_digitalRetail -->|"6"| M_Digital_retail_procurement_and_fulfilment
+    W_db_digitalRetail -->|"4"| M_Digital_retail_supply
     W_db_discovery -->|"2"| M_Discovery
     W_db_navigation -->|"5"| M_Navigation
     W_db_productTypes -->|"5"| M_Product_types
@@ -300,7 +318,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 74 tables created by a migration at or after `0088`
+All 84 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -866,6 +884,81 @@ Also names, from outside the epic: `order_items`, `orders`, `stores`.
 | `asset_download_events` | `0156` | `db/digital` (insert) |
 | `asset_variant_bindings` | `0156` | `db/digital` (insert) |
 
+### Digital retail supply
+
+```mermaid
+erDiagram
+    digital_supply_terms {
+    }
+    digital_supplier_capabilities {
+    }
+    digital_procurement_offers {
+    }
+    digital_retail_pricing_policies {
+    }
+    canonical_products |o--o{ digital_procurement_offers : "canonical_product_id · restrict"
+    canonical_variants |o--o{ digital_procurement_offers : "canonical_variant_id · restrict"
+    digital_supply_terms |o--o{ digital_procurement_offers : "digital_supply_terms_id · restrict"
+    supplier_accounts ||--o{ digital_procurement_offers : "supplier_account_id · restrict"
+    suppliers ||--o{ digital_procurement_offers : "supplier_id · restrict"
+    supplier_accounts ||--o{ digital_supplier_capabilities : "supplier_account_id · restrict"
+    supplier_agreements ||--o| digital_supply_terms : "agreement_id · restrict"
+    suppliers ||--o{ digital_supply_terms : "supplier_id · restrict"
+```
+
+Also names, from outside the epic: `canonical_products`, `canonical_variants`, `supplier_accounts`, `supplier_agreements`, `suppliers`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `digital_supply_terms` | `0157` | `db/digitalRetail` (insert/update) |
+| `digital_supplier_capabilities` | `0157` | `db/digitalRetail` (insert/update) |
+| `digital_procurement_offers` | `0157` | `db/digitalRetail` (insert/update) |
+| `digital_retail_pricing_policies` | `0157` | `db/digitalRetail` (insert/update) |
+
+### Digital retail procurement and fulfilment
+
+```mermaid
+erDiagram
+    digital_purchase_orders {
+    }
+    digital_purchase_order_attempts {
+    }
+    digital_fulfilments {
+    }
+    digital_fulfilment_artifacts {
+    }
+    digital_fulfilment_reveals {
+    }
+    digital_fulfilment_incidents {
+    }
+    digital_fulfilment_artifacts |o--o{ digital_fulfilment_artifacts : "replaces_artifact_id · restrict"
+    digital_fulfilments ||--o{ digital_fulfilment_artifacts : "fulfilment_id · restrict"
+    digital_fulfilment_artifacts |o--o{ digital_fulfilment_incidents : "artifact_id · restrict"
+    digital_fulfilment_artifacts |o--o{ digital_fulfilment_incidents : "replacement_artifact_id · restrict"
+    digital_fulfilments ||--o{ digital_fulfilment_incidents : "fulfilment_id · restrict"
+    digital_fulfilment_artifacts ||--o{ digital_fulfilment_reveals : "artifact_id · restrict"
+    digital_fulfilments ||--o{ digital_fulfilment_reveals : "fulfilment_id · restrict"
+    digital_purchase_orders ||--o| digital_fulfilments : "purchase_order_id · restrict"
+    digital_purchase_orders ||--o{ digital_purchase_order_attempts : "purchase_order_id · restrict"
+    digital_purchase_orders |o--o{ digital_purchase_orders : "previous_purchase_order_id · restrict"
+    digital_supply_terms ||--o{ digital_purchase_orders : "digital_supply_terms_id · restrict"
+    supplier_accounts ||--o{ digital_purchase_orders : "supplier_account_id · restrict"
+    suppliers ||--o{ digital_purchase_orders : "supplier_id · restrict"
+```
+
+Also names, from other #367 modules: `digital_supply_terms`.
+
+Also names, from outside the epic: `supplier_accounts`, `suppliers`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `digital_purchase_orders` | `0157` | `db/digitalRetail` (insert/update) |
+| `digital_purchase_order_attempts` | `0157` | `db/digitalRetail` (insert) |
+| `digital_fulfilments` | `0157` | `db/digitalRetail` (insert/update) |
+| `digital_fulfilment_artifacts` | `0157` | `db/digitalRetail` (insert/update) |
+| `digital_fulfilment_reveals` | `0157` | `db/digitalRetail` (insert) |
+| `digital_fulfilment_incidents` | `0157` | `db/digitalRetail` (insert/update) |
+
 ## 4. What the derivation found
 
 Counts, so that a diagram that quietly stopped measuring anything is visible as a number that
@@ -873,19 +966,21 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 74 |
-| Modules they are grouped into | 16 |
-| Foreign keys out of an epic table | 156 |
+| Tables in the population | 84 |
+| Modules they are grouped into | 18 |
+| Foreign keys out of an epic table | 177 |
 | Foreign keys into one, from outside the epic | 2 |
-| Pre-existing tables the epic attaches to | 17 |
-| Relationships the schema proves are 1:1 | 1 |
-| Relationships whose parent is optional (nullable FK) | 75 |
-| Directories that write an epic table | 15 |
+| Pre-existing tables the epic attaches to | 20 |
+| Relationships the schema proves are 1:1 | 3 |
+| Relationships whose parent is optional (nullable FK) | 82 |
+| Directories that write an epic table | 16 |
 | Tables written from more than one directory | 4 |
 | Tables no application code writes | 4 |
 
-`ON DELETE` across those 156 foreign keys: **44** `cascade`, **2** `no action`, **107** `restrict`, **3** `set null`.
+`ON DELETE` across those 177 foreign keys: **44** `cascade`, **2** `no action`, **128** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 
+- `digital_purchase_orders` → `digital_fulfilments` on `purchase_order_id`, because a unique constraint covers those columns.
+- `supplier_agreements` → `digital_supply_terms` on `agreement_id`, because a unique constraint covers those columns.
 - `product_variants` → `native_variant_signatures` on `variant_id`, because a unique constraint covers those columns.

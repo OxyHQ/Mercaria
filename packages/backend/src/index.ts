@@ -458,6 +458,28 @@ connectPostgres()
           log.general.error({ err }, 'Retail procurement port registration failed'),
         );
 
+      // Register the digital supplier adapters this deployment ships (#1016,
+      // ADR 0011).
+      //
+      // UNCONDITIONAL, and inert by construction on every deployment today: the
+      // only adapter registered is the SANDBOX conformance fixture, and an
+      // adapter sells nothing until a `supplier_accounts` row names its slug.
+      // Registering it anyway is what makes the conformance suite runnable from
+      // an ops script against a real account without a second wiring path.
+      //
+      // NOT behind `DIGITAL_RETAIL_PROCUREMENT_ENABLED`, for the reason the
+      // retail ports above are not behind `MERCARIA_RETAIL_ENABLED`: that lever
+      // gates SUBMITTING to a supplier, and an in-flight attempt still has to be
+      // recoverable after it is turned off — a purchase order stuck in
+      // `ambiguous` with no adapter to ask is a paid customer nobody can serve.
+      import('./services/digital-retail/adapter-registry.js')
+        .then(({ registerBuiltInDigitalSupplierAdapters }) =>
+          registerBuiltInDigitalSupplierAdapters(),
+        )
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Digital supplier adapter registration failed'),
+        );
+
       // Install Mercaria's Moovo logistics client (#156).
       //
       // A no-op on every deployment today, and visibly so: `MOOVO_ENABLED`

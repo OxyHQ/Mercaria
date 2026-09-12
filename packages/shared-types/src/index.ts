@@ -705,6 +705,16 @@ export * from './digital-supply';
 // FORM and reaches a client as an `AuthoringSchema` composed per locale, market
 // and flow (#1015 acceptance criterion 18).
 export * from './digital-3d-profile';
+// Authorized digital retail (#1016, ADR 0011) — the OTHER digital shape: a
+// game, software licence or other third-party product Mercaria does not own and
+// buys from an approved distributor at the moment somebody buys it. AFTER
+// `./digital-3d-profile` because it reads none of the creator vocabulary and is
+// not a specialization of it: an `asset_package` is a thing a creator uploaded,
+// and an activation key is a thing a supplier allocated, which is why ADR 0011
+// D16 amends only half of ADR 0010 D16 and mints no gift-card vocabulary at all.
+// `./procurement` is its sibling, not its parent — the supplier spine is shared
+// and the purchase-order machines are not.
+export * from './digital-retail';
 // Navigation trees and the merchandising separation (#367 step 7, ADR 0007 D3).
 // LAST, and it defines no vocabulary any domain above it owns: a node POINTS at
 // `./condition`'s groups, `./offer`'s kinds and availability and `./money`'s

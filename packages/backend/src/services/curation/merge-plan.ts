@@ -82,6 +82,7 @@ import { channelOnboardingSessions } from '../../db/schema/channels.js';
 import { reviewAggregates, reviewEligibilities, reviews } from '../../db/schema/reviews.js';
 import { matchBlockedPairs, matchDecisionCandidates, matchDecisions } from '../../db/schema/matching.js';
 import { procurementOffers, suppliers } from '../../db/schema/procurement.js';
+import { digitalProcurementOffers } from '../../db/schema/digitalRetail.js';
 import { catalogMergeConflicts } from '../../db/schema/curation.js';
 import {
   automotiveFitments,
@@ -1283,6 +1284,16 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       note: "#118's supplier offer mapping. It names what Mercaria can buy, and that follows the surviving product.",
     },
     {
+      column: digitalProcurementOffers.canonicalProductId,
+      phase: 'offers',
+      disposition: 'repoint',
+      note:
+        "#1016's digital supplier offer mapping, and the same answer as #118's for the same " +
+        'reason: it names what Mercaria can buy, and that follows the surviving product. The ' +
+        'unique on this table is (supplier_account_id, supplier_sku), which no merge touches, ' +
+        'so the move is unconditional.',
+    },
+    {
       column: retailComplianceEvidence.canonicalProductId,
       phase: 'offers',
       disposition: 'repoint',
@@ -1595,6 +1606,12 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
     },
     {
       column: procurementOffers.canonicalVariantId,
+      phase: 'offers',
+      disposition: 'repoint',
+      note: 'See the product entry.',
+    },
+    {
+      column: digitalProcurementOffers.canonicalVariantId,
       phase: 'offers',
       disposition: 'repoint',
       note: 'See the product entry.',
@@ -2536,6 +2553,33 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     reason: OWNER_STORE_OR_OXY_ACCOUNT,
   },
   {
+    table: 'digital_fulfilment_artifacts',
+    disposition: 'not_an_entity_reference',
+    reason:
+      "#1016's sealed artifact. Its `incident_id` names a row in THIS database — a " +
+      '`digital_fulfilment_incidents` support record — which is not one of the seven, and the ' +
+      'enum columns beside it (`source`, `state`, `capability`, `redemption_state`) are ' +
+      'lifecycle facts rather than a discriminator over entity kinds. Nothing here addresses a ' +
+      'mergeable entity, so no merge can act on this table at all.',
+  },
+  {
+    table: 'digital_fulfilments',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['order_id', 'order_item_id', 'canonical_variant_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'digital_purchase_orders',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: [
+      'order_id',
+      'order_item_id',
+      'canonical_variant_id',
+      'digital_procurement_offer_id',
+    ],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
     table: 'purchase_order_documents',
     disposition: 'not_an_entity_reference',
     reason: FOREIGN_KEY_SPACE_BESPOKE,
@@ -3111,6 +3155,27 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
   },
   { column: 'purchase_order_lines.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
   { column: 'purchase_orders.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  // #1016's digital procurement and fulfilment. The same two answers as #118's
+  // physical side, for the same reasons: an order correlation names something a
+  // merge cannot act on, and a snapshot of what was bought must not be rewritten
+  // to name a product the buyer never saw.
+  { column: 'digital_purchase_orders.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'digital_purchase_orders.order_item_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'digital_purchase_orders.digital_procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'digital_purchase_orders.canonical_variant_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_variant'],
+    reason: SNAPSHOT_UNTOUCHED,
+  },
+  { column: 'digital_fulfilments.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'digital_fulfilments.order_item_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'digital_fulfilments.canonical_variant_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_variant'],
+    reason: SNAPSHOT_UNTOUCHED,
+  },
   {
     column: 'retail_cost_quotes.canonical_product_id',
     disposition: 'untouched',

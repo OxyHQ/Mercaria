@@ -302,7 +302,18 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // None of the six names a category, a brand or a product type: a 3D profile is
     // a set of attribute KEYS, which is why this domain sits on top of #367's
     // registry rather than restating it.
-    "walked 132 contract module(s), 2321 exported type(s), 7766 property signature(s)",
+    // A tenth instance, #1016 (ADR 0011): ONE new contract module,
+    // `digital-retail.ts`. 133/2350/7807 — +1 module, +29 exported types, +41
+    // property signatures, READ OFF the guard's own output line against this
+    // branch rather than added up. The type count moves far because the module is
+    // mostly closed VOCABULARIES — a union and its tuple per value set — and the
+    // property count moves further because of the four shapes that carry data: the
+    // eligibility verdict, the remedy verdict, the two public projections and the
+    // pricing result. None of the 29 carries an identity-shaped name: a digital
+    // retail offer names a `canonicalVariantId` and a `productClass`, and never a
+    // `category`, a `brand` or a `productType` — the supplier half of the domain
+    // has no public type at all, which is the point of ADR 0011 D13.
+    "walked 133 contract module(s), 2350 exported type(s), 7807 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });

@@ -476,6 +476,25 @@ export const PROTECTED_COLUMNS = {
    * `download.service.ts` ever needs to read the stored value.
    */
   asset_download_grants: ['tokenHash'],
+
+  /**
+   * A delivered retail artifact's SEAL (#1016, ADR 0011 D10).
+   *
+   * `sealedSecret` is the ciphertext of bearer secret material — a key or code
+   * worth its face value to whoever reads it — and it is the first third-party
+   * secret Mercaria has ever stored. `keyReference` is the secret-store PATH the
+   * envelope key lives at, protected for `supplier_accounts.credentialReference`'s
+   * reason: the pointer names the target of an attack. `plaintextSha256` is
+   * irreversible and still protected for `channel_api_keys.hash`'s reason — a
+   * digest handed out is an OFFLINE oracle to test guessed keys against, with no
+   * rate limit and no log line, and for a key space this small that is not
+   * theoretical.
+   *
+   * `maskedHint` is deliberately NOT here. Four characters cannot reconstruct a
+   * key, support renders it by default, and protecting it would push every
+   * "is this the key we sold you" enquiry through a real reveal.
+   */
+  digital_fulfilment_artifacts: ['sealedSecret', 'keyReference', 'plaintextSha256'],
 } as const satisfies ProtectedColumnRegistry;
 
 /**

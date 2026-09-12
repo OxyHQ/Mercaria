@@ -3894,6 +3894,7 @@ export interface AppConfig {
   readonly catalogAuthoring: CatalogAuthoringConfig;
   readonly catalogProposals: CatalogProposalsConfig;
   readonly digital: DigitalCommerceConfig;
+  readonly digitalRetail: DigitalRetailConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -3962,6 +3963,66 @@ export interface DigitalCommerceConfig {
    * new one would then be live in every market on the day it merged.
    */
   readonly enabledVerticals: readonly string[];
+}
+
+/**
+ * The authorized digital retail levers (#1016 Workstream 22, ADR 0011 D14).
+ *
+ * FIVE, mirroring {@link DigitalCommerceConfig} exactly, and for its reason:
+ * disabling new sales must never strand an existing purchase. They are ordered by
+ * how much they take away, and `revealEnabled` is the only one that reaches
+ * something a buyer already holds — so it defaults ON and is an INCIDENT lever
+ * rather than a rollout one.
+ *
+ * These are DEPLOYMENT levers and they do not replace the per-row kill switches:
+ * `supplier_accounts.state = 'killed'` and `digital_supplier_capabilities.state`
+ * are what an incident about ONE supplier reaches for, because a deployment lever
+ * cannot be that precise. The epic asks for eleven independent switches; five are
+ * here and the rest are rows.
+ */
+export interface DigitalRetailConfig {
+  /** Whether supplier catalogues may be pulled — `DIGITAL_RETAIL_CATALOG_SYNC_ENABLED`. */
+  readonly catalogSyncEnabled: boolean;
+  /** Whether a retail offer may become publishable — `DIGITAL_RETAIL_PUBLICATION_ENABLED`. */
+  readonly publicationEnabled: boolean;
+  /** Whether a digital-retail line may be checked out — `DIGITAL_RETAIL_CHECKOUT_ENABLED`. */
+  readonly checkoutEnabled: boolean;
+  /**
+   * Whether anything may be SUBMITTED to a supplier — `DIGITAL_RETAIL_PROCUREMENT_ENABLED`.
+   *
+   * Separate from checkout so an order already taken can still be fulfilled after
+   * checkout is closed, and so a supplier-side incident stops buying without
+   * stopping the orders already paid for from being recovered.
+   */
+  readonly procurementEnabled: boolean;
+  /**
+   * Whether a buyer may reveal an artifact they already own —
+   * `DIGITAL_RETAIL_REVEAL_ENABLED`, default TRUE.
+   *
+   * The only lever that reaches something a buyer already holds, hence the only
+   * one defaulting on. Turning it off refuses new reveals and leaves every
+   * fulfilment intact, so flipping it back restores access with nothing to repair.
+   */
+  readonly revealEnabled: boolean;
+  /**
+   * The secret-store path of the key new artifacts are sealed with —
+   * `DIGITAL_RETAIL_SEAL_KEY_REFERENCE`.
+   *
+   * A PATH, never a key; the shape is checked at the sealing boundary and by the
+   * column's own CHECK. Empty means this deployment can seal nothing, which is
+   * why `procurementEnabled` defaults off: a deployment that procured without a
+   * key configured would fail after spending money.
+   */
+  readonly sealKeyReference: string;
+  /**
+   * How long an attempt may sit in `ambiguous` before the recovery sweep picks it
+   * up — `DIGITAL_RETAIL_RECOVERY_DELAY_SECONDS`, default 60.
+   *
+   * Not zero: an ambiguous attempt is frequently a slow response rather than a
+   * lost one, and asking the supplier "did you get my order" while they are still
+   * answering it is how a recovery reads a half-written state.
+   */
+  readonly recoveryDelaySeconds: number;
 }
 
 /**
@@ -4858,6 +4919,15 @@ export const config: AppConfig = Object.freeze({
         .map((value) => value.trim().toLowerCase())
         .filter((value) => value !== ''),
     ),
+  }),
+  digitalRetail: Object.freeze({
+    catalogSyncEnabled: boolEnv('DIGITAL_RETAIL_CATALOG_SYNC_ENABLED', false),
+    publicationEnabled: boolEnv('DIGITAL_RETAIL_PUBLICATION_ENABLED', false),
+    checkoutEnabled: boolEnv('DIGITAL_RETAIL_CHECKOUT_ENABLED', false),
+    procurementEnabled: boolEnv('DIGITAL_RETAIL_PROCUREMENT_ENABLED', false),
+    revealEnabled: boolEnv('DIGITAL_RETAIL_REVEAL_ENABLED', true),
+    sealKeyReference: strEnv('DIGITAL_RETAIL_SEAL_KEY_REFERENCE', ''),
+    recoveryDelaySeconds: intEnv('DIGITAL_RETAIL_RECOVERY_DELAY_SECONDS', 60),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

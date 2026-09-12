@@ -594,6 +594,15 @@ const SCRIPT_COVERAGE_EXEMPTIONS: readonly ScriptCoverageExemption[] = [
     note: 'Normalizes a HOSTNAME, which reaches this code already punycoded (LDH-only).',
   },
   {
+    module: 'backend/src/services/digital-retail/secrets.ts',
+    reason: 'machine_alphabet',
+    construct: "replace(/[^A-Za-z0-9]/g, '_')",
+    note: 'Folds a SECRET-STORE PATH SEGMENT into the environment-variable name it maps to. '
+      + 'The input is `/oxy/mercaria/digital-retail/seal/<name>` and the column it comes from '
+      + 'carries a CHECK admitting only `[A-Za-z0-9/_.-]`, so a non-Latin character cannot '
+      + 'reach it; a reference outside that prefix THROWS before this line runs.',
+  },
+  {
     module: 'backend/src/services/digital/inspection/threemf.ts',
     reason: 'machine_alphabet',
     construct: "const unitKey = (unit ?? DEFAULT_THREEMF_UNIT).toLowerCase();",

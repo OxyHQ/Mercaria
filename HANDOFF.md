@@ -401,3 +401,89 @@ missing rate is a visible zero rather than a plausible one.
   to an Oxy account (ADR 0010 D9.5) — a guest who never claims and whose session
   lapses keeps the right row and loses the way to reach it. That is #101's
   recovery surface, and it is not extended here.
+
+---
+
+# Authorized digital retail (#1016) — what Phase A built, and what is deliberately inert
+
+ADR 0011 is binding for the whole epic; the code that landed with it is items 1–8
+of the epic's own recommended order plus the library projection. Read
+`docs/digital-retail.md` first — this section is only what is NOT done and what
+each remaining piece needs.
+
+## What is live-but-inert, and the levers that hold it
+
+Everything defaults OFF except the incident lever:
+
+| Variable | Default | Stops |
+|---|---|---|
+| `DIGITAL_RETAIL_CATALOG_SYNC_ENABLED` | off | pulling supplier catalogues |
+| `DIGITAL_RETAIL_PUBLICATION_ENABLED` | off | an offer becoming publishable |
+| `DIGITAL_RETAIL_CHECKOUT_ENABLED` | off | buying |
+| `DIGITAL_RETAIL_PROCUREMENT_ENABLED` | off | submitting anything to a supplier |
+| `DIGITAL_RETAIL_REVEAL_ENABLED` | **on** | revealing something a buyer already owns |
+
+`DIGITAL_RETAIL_SEAL_KEY_REFERENCE` must name a path under
+`/oxy/mercaria/digital-retail/seal/`, and the key itself is 32 base64 bytes in
+`DIGITAL_RETAIL_SEAL_KEY_<LAST_SEGMENT>`. **Treat it as durable: rotating it makes
+every artifact sealed under it unopenable.** A deployment with no key can seal
+nothing, which is the reason procurement defaults off rather than failing after
+money has been spent.
+
+## What is NOT built, and what each needs
+
+- **The public offer surface and the checkout wiring (#57).** Mercaria's unified
+  offer domain does not exist, so this domain exposes `DigitalRetailSourcingSeam`
+  the way #118 did for physical retail. Until #57 lands there is no path from a
+  cart to `procureDigitalLine`, and building a parallel one would be the second
+  commerce stack #1015 acceptance criterion 20 refuses. What it needs: #57's offer
+  kind, a variant→offer binding equivalent to `asset_variant_bindings`, and a
+  checkout refusal message for a line whose supply went dark between browse and
+  pay.
+- **A named provider adapter.** The epic forbids coding against guessed
+  capabilities. The verification list is in `docs/digital-retail.md` ("Adding an
+  authorized digital supplier") and step 1 is commercial, not technical. The
+  sandbox adapter is a conformance fixture and is registered on every deployment
+  — it can sell nothing, because no `supplier_accounts` row points at it.
+- **The catalogue sync worker.** `upsertProcurementOffer` and
+  `retireUnconfirmedOffers` exist and nothing schedules them. It wants a queue job
+  per account, a run cursor, and an operator queue for `mapping_status =
+  'ambiguous'` — which is where every unmapped supplier SKU currently accumulates,
+  visible only by SQL.
+- **The ambiguity recovery sweeper.** `findAmbiguousPurchaseOrders` and
+  `recoverAmbiguousPurchaseOrder` exist and nothing runs them on a schedule. This
+  is the highest-priority gap of the list: an ambiguous attempt BLOCKS its order
+  line by construction, so without the sweep a supplier timeout strands a paid
+  customer until somebody notices. `DIGITAL_RETAIL_RECOVERY_DELAY_SECONDS` is the
+  interval it should respect.
+- **Ledger postings.** ADR 0011 states the accounting treatment — buyer revenue,
+  supplier procurement cost, processing cost, tax and realized retail margin — and
+  none of it posts. The procurement cost and the customer receipt are separate
+  financial events settling on different days, which is #128's reconciliation
+  domain and is not wired to this one.
+- **Refund execution.** `deriveDigitalRemedy` answers WHAT should happen and
+  nothing performs it. A `refund_customer` outcome does not call the rail, a
+  `replace_artifact` outcome does not re-procure, and a `supplier_credit_pending`
+  outcome records nothing to chase.
+- **Direct account activation.** The capability is in the vocabulary and an
+  artifact of that kind stores no secret, correctly. The reviewed OAuth
+  account-linking flow it would need is its own issue, and until it exists such an
+  offer is eligible only if a rider names the capability — which no rider should.
+- **Gift cards and stored value.** ADR 0011 D16: unrepresentable, not disabled.
+  Admitting one is a new ADR answering the epic's Workstream 13 list, plus the
+  tuple, plus a migration in the same PR.
+- **Per-supplier reliability.** The selector reads a `reliabilityByAccount` map the
+  caller supplies, and nothing computes one; every supplier therefore ranks at
+  `RELIABILITY_WITHOUT_HISTORY`. The inputs are all on
+  `digital_purchase_orders` already.
+- **Operator surfaces.** No route, no controller and no DTO exists for any table in
+  this domain — deliberately for now (the private tables are private WHOLE), but
+  the support view ADR 0011 D12 describes has to be built before a real pilot: an
+  operator resolving an invalid-key case today has psql and nothing else.
+
+## The one number worth knowing before a pilot
+
+`DEFAULT_MAX_PROCUREMENT_ATTEMPTS` is 3. Three suppliers may be tried for one
+order line, each inheriting the same `max_accepted_cost`. It is a constant rather
+than a policy row because nothing yet has an opinion about it; the moment a second
+real supplier exists it should become one.
