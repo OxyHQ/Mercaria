@@ -68,6 +68,19 @@ export const ErrorCodes = {
   UNAUTHORIZED: 'UNAUTHORIZED',
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
+  /**
+   * The entity EXISTED and is no longer publicly available — archived, withdrawn
+   * by moderation, unpublished after publication, or its store closed or
+   * suspended (#1017).
+   *
+   * Emitted by the public integration surface (`/public/v1`), whose contract
+   * (`MERCARIA_PUBLIC_ERROR_CODES`) makes it distinct from `NOT_FOUND` so a
+   * foreign application holding a persisted reference can say "no longer
+   * available" rather than "broken link". It deliberately carries no reason: why
+   * a listing left the catalogue is the seller's and moderation's business, not
+   * a fact another application may read.
+   */
+  GONE: 'GONE',
   CONFLICT: 'CONFLICT',
   RATE_LIMITED: 'RATE_LIMITED',
   OUT_OF_STOCK: 'OUT_OF_STOCK',
