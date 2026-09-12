@@ -20,6 +20,8 @@
     "build:dashboard": "bun run --filter @mercaria/dashboard build",
     "build:pos": "bun run --filter @mercaria/pos build",
     "build:backend": "bun run build:shared-types && bun run --filter @mercaria/backend build",
+    "build:sdk": "bun run build:shared-types && bun run --filter @mercaria.co/sdk build",
+    "smoke:sdk": "bun run build:sdk && bun run --filter @mercaria.co/sdk smoke",
     "start:frontend": "bun run --filter @mercaria/frontend start",
     "start:backend": "bun run --filter @mercaria/backend start",
     "typecheck:ui": "bun run --filter @mercaria/ui typecheck",

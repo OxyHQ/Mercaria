@@ -19,6 +19,8 @@ schema decision. `HANDOFF.md` holds deferred work.
 - `packages/backend/` — Express API (TypeScript, PostgreSQL via drizzle-orm +
   `@oxy.so/db`, Socket.IO)
 - `packages/shared-types/` — DTOs and every closed value set
+- `packages/sdk/` — `@mercaria.co/sdk`, the published client other Oxy apps
+  integrate through ([sdk.md](sdk.md))
 
 Auth and SSO are handled entirely by the Oxy SDK (`@oxy.so/core`,
 `@oxy.so/services`); the backend uses `@oxy.so/core/server` middleware, and there
@@ -68,6 +70,7 @@ automation and the clean-cut migration policy are documented in
 | The patterns every domain here follows | [house-invariants.md](house-invariants.md) |
 | API compatibility: what a v1 wire contract is, and what retires one (#437) | [api-compatibility.md](api-compatibility.md) |
 | The public integration API (`/public/v1`) `@mercaria.co/sdk` calls: routes, 404 vs 410, projection, URLs, CORS (#1017) | [public-api.md](public-api.md) |
+| `@mercaria.co/sdk`: the published integration client, its release policy and how publishing is gated (#1017) | [sdk.md](sdk.md) |
 | Postgres: shared-test-database traps, migration rebase protocol | [postgres-testing-and-migrations.md](postgres-testing-and-migrations.md) |
 | Deploy topology and the launch handoff | [deploy.md](deploy.md) |
 | Oxy dependency health and update automation | [dependencies.md](dependencies.md) |
