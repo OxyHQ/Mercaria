@@ -1,0 +1,132 @@
+name: Publish SDK
+
+# Publishes `@mercaria.co/sdk` (packages/sdk, #1017) to npm.
+#
+# WHAT IS VERIFIED BEFORE THIS PUBLISHES: the whole of `ci.yml` for THIS commit,
+# asserted by the `gate` job exactly as every deploy asserts it (#505,
+# `docs/deploy.md` §"What gates a deploy"). `ci.yml` already typechecks, tests,
+# builds and smoke-tests the SDK, so nothing here re-runs the suite (#518). The
+# build and smoke below exist to PRODUCE the tarball, and the smoke runs again
+# only because the tarball it keeps is the one published — never a re-pack.
+#
+# IDEMPOTENT: a version already on the registry is skipped, so a re-run, a
+# docs-only change under packages/sdk or a `workflow_dispatch` without a version
+# bump publishes nothing and succeeds. Releasing is bumping `version` in
+# packages/sdk/package.json with a CHANGELOG entry; see `docs/sdk.md`.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-sdk.yml'
+      - '.github/scripts/require-ci-success.mjs'
+      - 'packages/sdk/**'
+      - 'packages/shared-types/src/public-api.ts'
+
+permissions:
+  contents: read
+  actions: read
+
+# ONE publish at a time, and an in-flight one is never cancelled: `npm publish`
+# is not transactional from the workflow's point of view, and a run killed after
+# the registry accepted the tarball but before the job concluded reads as a
+# failure for a version that is in fact live. Queued runs wait instead; the
+# version check makes whichever runs second a no-op.
+concurrency:
+  group: publish-sdk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: CI passed for this commit
+    runs-on: ubuntu-latest
+    # Above the script's own 30-minute wait for a run to conclude, so a genuine
+    # refusal is reported by the script with its reason rather than by the runner
+    # killing the job.
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.20.0'
+      - name: Require a green CI run for this commit
+        run: node .github/scripts/require-ci-success.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: Publish @mercaria.co/sdk
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # npm provenance: the registry records which workflow run built the
+      # tarball, signed through the job's OIDC token.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.20.0'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build:sdk
+
+      # Packs the staged tarball (a manifest with no dependencies, no scripts and
+      # no `workspace:`), tests it from every runtime, and keeps it in
+      # `sdk-release/` so the step below publishes exactly what was tested.
+      - name: Smoke-test and keep the tarball
+        run: bun run --filter @mercaria.co/sdk smoke -- --out "$GITHUB_WORKSPACE/sdk-release"
+
+      - name: Decide whether this version is new
+        id: version
+        run: |
+          set -euo pipefail
+          NAME=$(node -p "require('./packages/sdk/package.json').name")
+          VERSION=$(node -p "require('./packages/sdk/package.json').version")
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # `npm view` of a version that does not exist prints nothing and exits
+          # 0 when the package exists, and fails with E404 when it does not yet.
+          # Any OTHER failure (registry down, auth) must stop the job rather than
+          # be read as "not published".
+          if published=$(npm view "$NAME@$VERSION" version 2> npm-view.err); then
+            if [ "$published" = "$VERSION" ]; then
+              echo "$NAME@$VERSION is already on npm; nothing to publish."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          elif ! grep -q 'E404' npm-view.err; then
+            cat npm-view.err
+            exit 1
+          fi
+          echo "$NAME@$VERSION is not on npm yet; publishing."
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        if: steps.version.outputs.publish == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          tarballs=(sdk-release/*.tgz)
+          [ "${#tarballs[@]}" -eq 1 ] || { echo "expected exactly one tested tarball, found ${#tarballs[@]}"; exit 1; }
+          case "${tarballs[0]}" in
+            *"-$EXPECTED_VERSION.tgz") ;;
+            *) echo "tarball ${tarballs[0]} is not version $EXPECTED_VERSION"; exit 1 ;;
+          esac
+          npm publish "${tarballs[0]}" --provenance --access public
