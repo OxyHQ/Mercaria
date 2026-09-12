@@ -199,7 +199,16 @@ function GridSkeleton() {
 }
 
 /** Body of the store page — only rendered once `store` is present. */
-function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
+function StoreBody({
+  handle,
+  store,
+  linkedCollectionId,
+}: {
+  handle: string;
+  store: StoreSummary;
+  /** The `?collection=` deep link, when the page was opened on one collection. */
+  linkedCollectionId: string | undefined;
+}) {
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
   const router = useRouter();
@@ -218,12 +227,25 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
   };
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeCollectionId, setActiveCollectionId] = useState<string | undefined>(undefined);
+  const [activeCollectionId, setActiveCollectionId] = useState<string | undefined>(
+    linkedCollectionId,
+  );
   const [searchInput, setSearchInput] = useState("");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<SortValue>("best");
   const [inStockOnly, setInStockOnly] = useState(false);
   const [page, setPage] = useState(1);
+
+  // `/stores/<handle>?collection=<id>` opens on that collection — the URL the
+  // public integration API serves for a collection (#1017). A later link to the
+  // same store naming a different collection moves the selection too, adjusted
+  // during render rather than in an effect so no frame shows the stale grid.
+  const [appliedLink, setAppliedLink] = useState(linkedCollectionId);
+  if (appliedLink !== linkedCollectionId) {
+    setAppliedLink(linkedCollectionId);
+    setActiveCollectionId(linkedCollectionId);
+    setPage(1);
+  }
 
   const commitSearch = useDebouncedCallback((value: string) => {
     setQ(value);
@@ -250,9 +272,25 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
     setPage(1);
   };
 
+  const publishedCollections = useMemo(
+    () => (collections ?? []).filter((c) => c.isPublished),
+    [collections],
+  );
+
+  // A linked id that names no PUBLISHED collection of this store filters nothing:
+  // the grid must never become a way to list an unpublished collection's members.
+  // While the collections are still loading the link is trusted, so a valid deep
+  // link does not first render the whole store.
+  const filterCollectionId =
+    activeCollectionId !== undefined &&
+    collections !== undefined &&
+    !publishedCollections.some((c) => c.id === activeCollectionId)
+      ? undefined
+      : activeCollectionId;
+
   const { data, isLoading, isError } = useListings({
     storeId: store.id,
-    collectionId: activeCollectionId,
+    collectionId: filterCollectionId,
     q: q || undefined,
     sort: toQuerySort(sort),
     inStock: inStockOnly ? true : undefined,
@@ -263,11 +301,6 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
   const products = useMemo(
     () => (data?.data ?? []).map((listing) => toProductSummary(listing, store.name)),
     [data, store.name],
-  );
-
-  const publishedCollections = useMemo(
-    () => (collections ?? []).filter((c) => c.isPublished),
-    [collections],
   );
 
   const hasNextPage = data?.pagination.hasNextPage ?? false;
@@ -570,7 +603,9 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
 
 export default function StoreScreen() {
   const { t } = useTranslation();
-  const { handle } = useLocalSearchParams<{ handle: string }>();
+  const { handle, collection } = useLocalSearchParams<{ handle: string; collection?: string }>();
+  const linkedCollectionId =
+    typeof collection === "string" && collection !== "" ? collection : undefined;
   const { data, isLoading, isError } = useStore(handle ?? "");
 
   const head = (
@@ -617,7 +652,11 @@ export default function StoreScreen() {
       surfaceStyle={{ backgroundColor: data.store.brandColor }}
     >
       {head}
-      <StoreBody handle={handle ?? ""} store={data.store} />
+      <StoreBody
+        handle={handle ?? ""}
+        store={data.store}
+        linkedCollectionId={linkedCollectionId}
+      />
     </ScreenShell>
   );
 }
