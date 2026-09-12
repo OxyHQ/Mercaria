@@ -153,6 +153,20 @@ export async function findStoreRow(
 }
 
 /**
+ * ONE store's public face by HANDLE, WITHOUT members (#1017) — the public
+ * integration surface's store lookup. {@link findStoreByHandle} attaches the
+ * membership, which no public read has any business loading; this is
+ * {@link findStoreRow}'s reasoning applied to the handle.
+ */
+export async function findStoreRowByHandle(
+  handle: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<StoreRow | null> {
+  const [row] = await db.select().from(stores).where(eq(stores.handle, handle)).limit(1);
+  return row ?? null;
+}
+
+/**
  * The feed's "Worth the hype" shelf: the best-rated ACTIVE stores, WITHOUT
  * members — the same reasoning as {@link findStoresByIds}, since this is a
  * public storefront read.

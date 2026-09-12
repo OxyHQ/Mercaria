@@ -192,7 +192,18 @@ export type RateLimitScope =
   // `referral-redirect` reason — one shared product page is unfurled and
   // clicked in bursts by real people — and the real bound on a poisoned link is
   // the destination allow-list, which a limiter cannot be.
-  | 'outbound';
+  | 'outbound'
+  // The PUBLIC integration surface (#1017, `/public/v1`). Its own bucket
+  // (`rl:public-api:`) rather than sharing `'listings'` or `'stores'`, because
+  // the caller is a DIFFERENT population: other Oxy applications and agents
+  // reading through `@mercaria.co/sdk`, often server-side from one address, and
+  // keyed on ids and handles they can iterate. Sharing the storefront's bucket
+  // would let an integration's backfill exhaust shopping for the people behind
+  // the same address, or bound the integration by the storefront's shape.
+  // At the defaults it is dominated by `general` above every route (#784's
+  // reading), so what the scope buys today is the ability to tune this surface
+  // without re-metering the storefront — stated rather than implied.
+  | 'public-api';
 
 /** The shared, prefixed Redis store for a scope, or `undefined` without Redis. */
 function scopeStore(scope: RateLimitScope): RedisStore | undefined {

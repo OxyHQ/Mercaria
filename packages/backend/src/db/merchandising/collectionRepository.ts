@@ -113,6 +113,49 @@ export async function findCollectionsByStore(
 }
 
 /**
+ * One collection by id, in ANY store, WITHOUT its rules (#1017).
+ *
+ * The public integration surface resolves a collection from a portable
+ * reference that names no store, and then applies its own visibility rules to
+ * the row. The rules are deliberately not loaded: an automated collection's
+ * rule set is merchant configuration no public read may carry, and a value that
+ * is never loaded cannot be serialized by mistake.
+ */
+export async function findCollectionRowById(
+  collectionId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<CollectionRow | null> {
+  const [row] = await db
+    .select()
+    .from(collections)
+    .where(eq(collections.id, collectionId))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * One OFFSET slice of a store's PUBLISHED collections, WITHOUT rules, in the
+ * order {@link findCollectionsByStore} serves them (#1017). Reads `limit + 1`
+ * rows so the caller can answer "is there more" without a count.
+ */
+export async function findPublishedCollectionsSlice(
+  storeId: string,
+  offset: number,
+  limit: number,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<{ rows: CollectionRow[]; hasMore: boolean }> {
+  const rows = await db
+    .select()
+    .from(collections)
+    .where(and(eq(collections.storeId, storeId), eq(collections.isPublished, true)))
+    .orderBy(sql`${collections.createdAt} desc`, sql`${collections.id} desc`)
+    .limit(limit + 1)
+    .offset(offset);
+  const hasMore = rows.length > limit;
+  return { rows: hasMore ? rows.slice(0, limit) : rows, hasMore };
+}
+
+/**
  * The identity a connector's collection mapping needs to resolve ONE target:
  * does it exist in this store, what is it called, and is it MANUAL.
  *
@@ -581,4 +624,31 @@ export async function findCollectionProductsPage(
   ]);
 
   return { rows: rows.map((row) => row.listing), total: totals?.count ?? 0 };
+}
+
+/**
+ * One OFFSET slice of a collection's ACTIVE listings, in the collection's own
+ * sort order, with no count (#1017) — {@link findCollectionProductsPage}'s
+ * predicate and order, reading `limit + 1` rows to answer "is there more".
+ */
+export async function findCollectionProductsSlice(
+  collectionId: string,
+  sortOrder: CollectionSortOrder,
+  manual: boolean,
+  offset: number,
+  limit: number,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<{ rows: ListingRecord[]; hasMore: boolean }> {
+  const rows = await db
+    .select({ listing: listings })
+    .from(listingCollections)
+    .innerJoin(listings, eq(listings.id, listingCollections.listingId))
+    .where(
+      and(eq(listingCollections.collectionId, collectionId), eq(listings.status, 'active')),
+    )
+    .orderBy(...collectionOrder(sortOrder, manual))
+    .limit(limit + 1)
+    .offset(offset);
+  const hasMore = rows.length > limit;
+  return { rows: (hasMore ? rows.slice(0, limit) : rows).map((row) => row.listing), hasMore };
 }

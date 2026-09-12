@@ -131,6 +131,8 @@ import internalCatalogMetricsRouter from './routes/internal-catalog-metrics.js';
 import internalCatalogLocalizationRouter from './routes/internal-catalog-localization.js';
 import compatibilityRouter from './routes/compatibility.js';
 import productTypesRouter from './routes/product-types.js';
+import publicApiRouter, { publicApiErrorHandler } from './routes/public-api.js';
+import { MERCARIA_PUBLIC_API_BASE_PATH } from '@mercaria/shared-types';
 import { catalogObservability } from './middleware/catalog-observability.js';
 import { config } from './config/index.js';
 import {
@@ -139,7 +141,12 @@ import {
   resolveOfferComparisonMode,
 } from './services/backfill/read-mode.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
-import { ALLOWED_ORIGINS } from './lib/allowed-origins.js';
+import {
+  ALLOWED_ORIGINS,
+  PUBLIC_READ_CORS_ALLOWED_HEADERS,
+  PUBLIC_READ_CORS_METHODS,
+  isPublicReadCorsRequest,
+} from './lib/allowed-origins.js';
 import capabilitiesRouter from './routes/capabilities.js';
 import { createMercariaMcpHttpService } from './capabilities/mercaria-mcp-http.js';
 
@@ -174,7 +181,24 @@ export function createApp(): express.Express {
   // authority (ADR 0003 D10): one list, nothing to drift.
   const allowedOrigins = ALLOWED_ORIGINS;
 
+  // The PUBLIC integration surface (#1017) takes a different policy: any origin,
+  // GET/HEAD/preflight only, never credentialed. The decision — and why it is
+  // safe for exactly that population — lives in `lib/allowed-origins.ts` beside
+  // the list it deliberately does not widen.
+  const publicReadCors = cors({
+    origin: '*',
+    credentials: false,
+    methods: [...PUBLIC_READ_CORS_METHODS],
+    allowedHeaders: [...PUBLIC_READ_CORS_ALLOWED_HEADERS],
+    optionsSuccessStatus: 204,
+    maxAge: 600,
+  });
+
   app.use((req, res, next) => {
+    if (isPublicReadCorsRequest(req.method, req.path)) {
+      publicReadCors(req, res, next);
+      return;
+    }
     cors({
       origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl)
@@ -1137,6 +1161,25 @@ export function createApp(): express.Express {
    * nothing exposes nothing.
    */
   app.use('/product-types', productTypesRouter);
+  /**
+   * The PUBLIC integration surface (#1017) — the only routes `@mercaria.co/sdk`
+   * calls, and the canonical boundary another Oxy application reads Mercaria
+   * through. GET-only, anonymous or bearer-authenticated, and projected FIELD BY
+   * FIELD to `@mercaria/shared-types` `public-api.ts`, never a spread storefront
+   * DTO. `docs/public-api.md` is the reference.
+   *
+   * Mounted UNCONDITIONALLY: it serves nothing `/listings`, `/stores` and the
+   * store collection reads do not already serve to anybody, so a lever here
+   * could only withdraw a projection of catalogue that stays public through
+   * those routes. Well after `express.json()` — no signed raw body.
+   *
+   * The path-scoped error handler right behind it is what keeps every failure
+   * on this prefix a JSON envelope: an error raised above the router (a body
+   * that would not parse) would otherwise reach the global handler's
+   * non-contract `{ error: 'Something went wrong!' }`.
+   */
+  app.use(MERCARIA_PUBLIC_API_BASE_PATH, publicApiRouter);
+  app.use(MERCARIA_PUBLIC_API_BASE_PATH, publicApiErrorHandler);
   // (Inbound connector webhooks are mounted above, before express.json.)
 
   // Root route
@@ -1181,6 +1224,7 @@ export function createApp(): express.Express {
         '/analytics',
         '/compatibility',
         '/product-types',
+        '/public/v1',
         // `/internal/payments`, `/internal/commerce-graph`,
         // `/internal/canonical-catalog`, `/internal/offers`,
         // `/internal/catalog-attributes`, `/internal/analytics`,
