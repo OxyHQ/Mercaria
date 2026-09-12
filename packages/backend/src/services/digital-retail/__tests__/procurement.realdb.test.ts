@@ -30,6 +30,7 @@ import { canonicalProducts, canonicalVariants } from '../../../db/schema/canonic
 import {
   digitalProcurementOffers,
   digitalPurchaseOrders,
+  digitalRetailPricingPolicies,
   digitalSupplierCapabilities,
   digitalSupplyTerms,
 } from '../../../db/schema/digitalRetail.js';
@@ -55,6 +56,13 @@ import {
 } from '../procurement.service.js';
 import { revealArtifactForBuyer, revealArtifactForOperator } from '../reveal.service.js';
 import { buildBuyerLibrary } from '../library.js';
+import { composeDigitalRetailOffer, projectDigitalRetailSourcingSeam } from '../retail-offer.js';
+import { deriveDigitalProcurementEligibility } from '../eligibility.js';
+import { findProcurementCandidates } from '../../../db/digitalRetail/digitalProcurementOfferRepository.js';
+import {
+  activatePricingPolicy,
+  createPricingPolicyDraft,
+} from '../../../db/digitalRetail/pricingPolicyRepository.js';
 
 let db: Database;
 
@@ -66,7 +74,7 @@ afterAll(async () => {
   await closePostgres();
 });
 
-const NOW = new Date('2026-09-12T10:00:00.000Z');
+const NOW = new Date('2026-08-01T10:00:00.000Z');
 
 interface Chain {
   provider: string;
@@ -558,5 +566,124 @@ describe('the attempt log', () => {
     expect(attempts[0]?.errorKind).toBe('sku_unknown');
     expect(attempts[0]?.status).toBe('rejected');
     unregisterDigitalSupplierAdapter(chain.provider);
+  });
+});
+
+describe('the #57 seam', () => {
+  it('projects a candidate carrying identity and a verdict, and NOTHING else', async () => {
+    const chain = await makeChain();
+    await makeOffer(chain, `SKU-${uuidv7()}`);
+    const [candidate] = await findProcurementCandidates(chain.variantId);
+    const seam = projectDigitalRetailSourcingSeam(
+      candidate!,
+      deriveDigitalProcurementEligibility({
+        supplier: { status: candidate!.supplierStatus, riskLevel: candidate!.supplierRiskLevel },
+        account: { state: candidate!.accountState, purchaseCapabilityState: 'enabled' },
+        terms: null,
+        offer: {
+          id: candidate!.offerId,
+          status: candidate!.offerStatus,
+          mappingStatus: candidate!.mappingStatus,
+          availability: candidate!.availability,
+          canonicalProductId: candidate!.canonicalProductId,
+          canonicalVariantId: candidate!.canonicalVariantId,
+          productClass: candidate!.productClass,
+          fulfilmentCapability: candidate!.fulfilmentCapability,
+          brandSlug: candidate!.brandSlug,
+          activationTerritories: candidate!.activationTerritories,
+          costAmount: candidate!.costAmount,
+          costCurrency: candidate!.costCurrency,
+          quoteTtlSeconds: candidate!.quoteTtlSeconds,
+          expiresAt: candidate!.offerExpiresAt,
+          lastConfirmedAt: candidate!.lastConfirmedAt,
+          expectedFulfilmentSeconds: candidate!.expectedFulfilmentSeconds,
+        },
+      }),
+    );
+    // The privacy property, asserted on a REAL projection of a REAL row rather
+    // than on the type: a serializer cannot ship what is not there.
+    const serialized = JSON.stringify(seam);
+    expect(serialized).not.toContain(candidate!.supplierId);
+    expect(serialized).not.toContain(candidate!.supplierAccountId);
+    expect(serialized).not.toContain(candidate!.supplierSku);
+    expect(serialized).not.toContain(String(candidate!.costAmount));
+    expect(seam.canonicalVariantId).toBe(chain.variantId);
+    unregisterDigitalSupplierAdapter(chain.provider);
+  });
+
+  it('refuses to compose a public offer while publication is off', async () => {
+    // The lever is read at module load and this deployment has it OFF, which is
+    // the state every deployment is in until a market's sign-offs are recorded.
+    const chain = await makeChain();
+    await makeOffer(chain, `SKU-${uuidv7()}`);
+    const result = await composeDigitalRetailOffer([], 'ES');
+    expect(result).toEqual({ composed: false, refusal: 'publication_disabled' });
+    unregisterDigitalSupplierAdapter(chain.provider);
+  });
+});
+
+describe('pricing policies', () => {
+  it('activates one version per market and class, superseding the last', async () => {
+    const key = `digital-retail-${uuidv7()}`;
+    const market = 'ES';
+    const first = await createPricingPolicyDraft({
+      policyKey: key,
+      version: 1,
+      name: 'Launch',
+      summary: 'The launch band for digital games in Spain.',
+      market,
+      productClass: 'digital_game',
+      currency: 'EUR',
+      marginFloorBps: 1_000,
+      marginCeilingBps: 2_000,
+      effectiveStart: new Date(Date.now() - 60_000),
+      createdByOxyUserId: 'oxy-operator',
+    });
+    const activated = await activatePricingPolicy(first.id, 'oxy-approver', new Date());
+    expect(activated?.status).toBe('active');
+
+    const second = await createPricingPolicyDraft({
+      policyKey: key,
+      version: 2,
+      name: 'Wider band',
+      summary: 'Raises the ceiling after the first month of trading.',
+      market,
+      productClass: 'digital_game',
+      currency: 'EUR',
+      marginFloorBps: 1_000,
+      marginCeilingBps: 3_000,
+      effectiveStart: new Date(),
+      createdByOxyUserId: 'oxy-operator',
+    });
+    // The supersede has to happen FIRST, or the partial unique refuses the write.
+    const promoted = await activatePricingPolicy(second.id, 'oxy-approver', new Date());
+    expect(promoted?.status).toBe('active');
+
+    const rows = await db
+      .select({ id: digitalRetailPricingPolicies.id, status: digitalRetailPricingPolicies.status })
+      .from(digitalRetailPricingPolicies)
+      .where(eq(digitalRetailPricingPolicies.policyKey, key));
+    expect(rows).toHaveLength(2);
+    expect(rows.find((row) => row.id === first.id)?.status).toBe('superseded');
+    expect(rows.find((row) => row.id === second.id)?.status).toBe('active');
+  });
+
+  it('refuses to activate a version that is not a draft', async () => {
+    const key = `digital-retail-${uuidv7()}`;
+    const draft = await createPricingPolicyDraft({
+      policyKey: key,
+      version: 1,
+      name: 'Once',
+      summary: 'A policy activated twice would have two activation records.',
+      market: 'FR',
+      productClass: 'software_licence',
+      currency: 'EUR',
+      marginFloorBps: 500,
+      marginCeilingBps: 500,
+      effectiveStart: new Date(),
+      createdByOxyUserId: 'oxy-operator',
+    });
+    await activatePricingPolicy(draft.id, 'oxy-approver', new Date());
+    expect(await activatePricingPolicy(draft.id, 'oxy-approver', new Date())).toBeNull();
   });
 });

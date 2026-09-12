@@ -64,7 +64,7 @@ afterAll(async () => {
 });
 
 const RUN = uuidv7().slice(0, 8);
-const NOW = new Date('2026-09-12T10:00:00.000Z');
+const NOW = new Date('2026-08-01T10:00:00.000Z');
 
 /** Assert a write is refused by the named CLASS of constraint. */
 async function expectRefused(
@@ -221,6 +221,38 @@ async function makeOffer(
     })
     .returning({ id: digitalProcurementOffers.id });
   return row!.id;
+}
+
+/**
+ * The raw COLUMN values of a purchase order, for the tests that write one
+ * directly rather than through the repository.
+ *
+ * Separate from {@link purchaseOrderInput} because that one carries `now` and
+ * other repository-level fields that are not columns — spreading it into
+ * `.values()` is a TS2769 the suite would only meet at `tsc` time.
+ */
+function purchaseOrderRow(fixture: Fixture, orderItemId: string) {
+  return {
+    idempotencyKey: `dpo:${orderItemId}:1`,
+    attemptOrdinal: 1,
+    orderId: `order-${orderItemId}`,
+    orderItemId,
+    supplierId: fixture.supplierId,
+    supplierAccountId: fixture.accountId,
+    digitalSupplyTermsId: fixture.termsId,
+    canonicalVariantId: fixture.variantId,
+    supplierSku: 'SKU-1',
+    productClass: 'digital_game' as const,
+    fulfilmentCapability: 'activation_key' as const,
+    platform: 'pc',
+    activationEcosystem: 'sandbox-store',
+    edition: 'standard',
+    quotedCostAmount: 1_000,
+    quotedCostCurrency: 'EUR' as const,
+    maxAcceptedCostAmount: 1_200,
+    maxAcceptedCostCurrency: 'EUR' as const,
+    statusChangedAt: NOW,
+  };
 }
 
 /** A purchase-order input for one order line. */
@@ -440,10 +472,8 @@ describe('exactly-once procurement — ADR 0011 D6', () => {
     await expectRefused(
       () =>
         db.insert(digitalPurchaseOrders).values({
-          ...purchaseOrderInput(fixture, `line-${uuidv7()}`),
+          ...purchaseOrderRow(fixture, `line-${uuidv7()}`),
           idempotencyKey: 'whatever-i-typed',
-          maxAcceptedCostCurrency: 'EUR',
-          statusChangedAt: NOW,
         }),
       'check',
     );
@@ -542,11 +572,8 @@ describe('the frozen purchase order', () => {
     await expectRefused(
       () =>
         db.insert(digitalPurchaseOrders).values({
-          ...purchaseOrderInput(fixture, `line-${uuidv7()}`),
-          idempotencyKey: `dpo:line-${uuidv7()}:1`,
+          ...purchaseOrderRow(fixture, `line-${uuidv7()}`),
           maxAcceptedCostAmount: 500,
-          maxAcceptedCostCurrency: 'EUR',
-          statusChangedAt: NOW,
         }),
       'check',
     );

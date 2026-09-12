@@ -19,7 +19,12 @@
 
 import { and, eq } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
-import type { DigitalSupplierApiCapability } from '@mercaria/shared-types';
+import type {
+  DigitalFulfilmentCapability,
+  DigitalRetailProductClass,
+  DigitalSupplierApiCapability,
+  DigitalSupplyProvenance,
+} from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import {
   digitalSupplierCapabilities,
@@ -28,6 +33,132 @@ import {
 
 export type DigitalSupplyTermsRow = InferSelectModel<typeof digitalSupplyTerms>;
 export type DigitalSupplierCapabilityRow = InferSelectModel<typeof digitalSupplierCapabilities>;
+
+/**
+ * What an operator records when a digital rider is signed.
+ *
+ * Every field is a term somebody agreed to, and the ones with no default are the
+ * ones an approval cannot be recorded without: the evidence, the approver and
+ * the date. The CHECKs repeat that, so a rider written by any other path is
+ * refused rather than being merely unreviewed.
+ */
+export interface NewDigitalSupplyTerms {
+  readonly agreementId: string;
+  readonly supplierId: string;
+  readonly provenance: DigitalSupplyProvenance;
+  readonly permittedProductClasses: readonly DigitalRetailProductClass[];
+  readonly permittedFulfilmentCapabilities: readonly DigitalFulfilmentCapability[];
+  /** ISO-3166-1 alpha-2. Upper-cased here; empty GRANTS none. */
+  readonly permittedTerritories: readonly string[];
+  readonly excludedBrands?: readonly string[];
+  readonly excludedProductRefs?: readonly string[];
+  readonly resaleRightsGranted: boolean;
+  readonly catalogDataRightsGranted?: boolean;
+  readonly replacementSupported?: boolean;
+  readonly creditSupported?: boolean;
+  readonly cancellationSupported?: boolean;
+  readonly maxOrderCostAmount?: number;
+  readonly maxOrderCostCurrency?: string;
+  readonly evidenceLocation: string;
+  readonly approvedByOxyUserId: string;
+  readonly approvedAt: Date;
+  readonly expiresAt?: Date | null;
+  readonly supportEscalationNote?: string | null;
+}
+
+/**
+ * Record one signed rider. ONE per agreement version, by unique index.
+ *
+ * Territories and brands are normalized HERE rather than at the call site — the
+ * Mongoose-behaviour rule in `CONVENTIONS.md`: `lowercase`/`uppercase` do not
+ * survive the port, and the eligibility derivation compares an upper-cased
+ * territory and a lower-cased brand.
+ */
+export async function createSupplyTerms(
+  input: NewDigitalSupplyTerms,
+  tx?: DatabaseOrTransaction,
+): Promise<DigitalSupplyTermsRow> {
+  const db = tx ?? getDb();
+  const [row] = await db
+    .insert(digitalSupplyTerms)
+    .values({
+      agreementId: input.agreementId,
+      supplierId: input.supplierId,
+      provenance: input.provenance,
+      permittedProductClasses: [...input.permittedProductClasses],
+      permittedFulfilmentCapabilities: [...input.permittedFulfilmentCapabilities],
+      permittedTerritories: input.permittedTerritories.map((value) => value.toUpperCase()),
+      excludedBrands: (input.excludedBrands ?? []).map((value) => value.toLowerCase()),
+      excludedProductRefs: [...(input.excludedProductRefs ?? [])],
+      resaleRightsGranted: input.resaleRightsGranted,
+      catalogDataRightsGranted: input.catalogDataRightsGranted ?? false,
+      replacementSupported: input.replacementSupported ?? false,
+      creditSupported: input.creditSupported ?? false,
+      cancellationSupported: input.cancellationSupported ?? false,
+      maxOrderCostAmount: input.maxOrderCostAmount ?? null,
+      maxOrderCostCurrency:
+        (input.maxOrderCostCurrency as DigitalSupplyTermsRow['maxOrderCostCurrency']) ?? null,
+      evidenceLocation: input.evidenceLocation,
+      approvedByOxyUserId: input.approvedByOxyUserId,
+      approvedAt: input.approvedAt,
+      expiresAt: input.expiresAt ?? null,
+      supportEscalationNote: input.supportEscalationNote ?? null,
+    })
+    .returning();
+  if (!row) throw new Error(`digital supply terms for agreement ${input.agreementId} were not written`);
+  return row;
+}
+
+/**
+ * End a rider early, without touching the agreement it hangs off.
+ *
+ * The withdrawal of a digital permission is frequently NOT the end of the
+ * commercial relationship — a publisher pulls one territory, a distributor loses
+ * one brand — so this exists rather than making an operator terminate the whole
+ * agreement to stop digital supply.
+ */
+export async function expireSupplyTerms(
+  termsId: string,
+  expiresAt: Date,
+  tx?: DatabaseOrTransaction,
+): Promise<DigitalSupplyTermsRow | null> {
+  const db = tx ?? getDb();
+  const [row] = await db
+    .update(digitalSupplyTerms)
+    .set({ expiresAt, updatedAt: new Date() })
+    .where(eq(digitalSupplyTerms.id, termsId))
+    .returning();
+  return row ?? null;
+}
+
+/**
+ * Create or refresh one capability row for an account.
+ *
+ * Upsert rather than insert, because the set an adapter advertises changes with
+ * its version and the row carries state an operator set — a delete-and-recreate
+ * would silently lift a pause somebody put there during an incident.
+ */
+export async function upsertAccountCapability(
+  supplierAccountId: string,
+  capability: DigitalSupplierApiCapability,
+  adapterVersion: string,
+  tx?: DatabaseOrTransaction,
+): Promise<DigitalSupplierCapabilityRow> {
+  const db = tx ?? getDb();
+  const [row] = await db
+    .insert(digitalSupplierCapabilities)
+    .values({ supplierAccountId, capability, adapterVersion })
+    .onConflictDoUpdate({
+      target: [
+        digitalSupplierCapabilities.supplierAccountId,
+        digitalSupplierCapabilities.capability,
+      ],
+      set: { adapterVersion, updatedAt: new Date() },
+    })
+    .returning();
+  if (!row) throw new Error(`capability ${capability} for ${supplierAccountId} was not written`);
+  return row;
+}
 
 /** The rider governing one agreement version, or null when none does. */
 export async function findSupplyTermsByAgreement(

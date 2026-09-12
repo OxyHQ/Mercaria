@@ -54,7 +54,7 @@ every closed value set).
 
 ## Money
 
-- **The catalog stores NATIVE currency** and converts nothing. **`paid` converts
+- **The catalog stores NATIVE currency** and converts nothing; **`paid` converts
   NOTHING** — no FX call in `order.service.transition('paid')`.
 - **`DualMoney { shop, presentment }`** carries every TRANSACTED amount, with an
   `FxRateSnapshot` that identifies the conversion completely; a later rate move
@@ -80,13 +80,13 @@ every closed value set).
 ## PostgreSQL
 
 `DATABASE_URL` is **required to boot**. There is no second store: legacy
-Mongo/Mongoose is GONE (PR #136, database dropped 2026-08-08) — no `src/models/`,
-no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
+Mongo/Mongoose is GONE (PR #136) — no `src/models/`, no `mongoose`, no
+`MONGODB_URI`, no rollback target.
 
 - **`bun run db:generate` writes migrations; `src/db/migrate.ts` is the ONLY
   thing that applies them** — never `drizzle-kit migrate`. Every generated `.sql`
-  needs exactly one `-- oxy:deploy-phase=pre` (additive) or `=post`
-  (drops/renames/narrows) marker; no default.
+  needs exactly one `-- oxy:deploy-phase=pre` (additive) or `=post` (drops,
+  renames, narrows) marker; no default.
 - **`bun run build:shared-types` BEFORE `db:generate`, always.** drizzle-kit renders
   every closed-value-set CHECK from the BUILT `@mercaria/shared-types`, so a stale
   `dist/` silently emits `DROP`/`ADD CONSTRAINT` pairs narrowing a sibling branch's
@@ -134,11 +134,11 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
 - **Three moderation ESCAPES are closed in pre-existing commerce code**, invisible
   from `services/moderation/`: `catalog-write.service.updateListing` refuses to set
   `restricted` or to leave it; `archiveListing` refuses a restricted listing at all
-  (DELETE-then-PATCH laundered a jury's decision in two ordinary calls — #402,
-  `docs/moderation.md`); `order.service.transition` refuses a held order. Keep all
-  three, and `restoreSubject` relists from `archived` too;
-  `listing-archive-census.test.ts` fails the build on a new archiver.
-- **"Report" is two unrelated things here.** `report.service.ts` and
+  (DELETE-then-PATCH laundered a jury's decision in two calls — #402); and
+  `order.service.transition` refuses a held order. Keep all three, and
+  `restoreSubject` relists from `archived` too; `listing-archive-census.test.ts`
+  fails the build on a new archiver. `docs/moderation.md`.
+- **"Report" is two unrelated things.** `report.service.ts` and
   `/admin/stores/:storeId/reports/*` are SALES ANALYTICS; abuse reports are
   `AbuseReport` + `services/moderation/`. Never merge them.
 - **`product_variants.sku` and `.barcode` are unique at NO grain and must not be
@@ -153,26 +153,26 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
   at import time — the second catches a target made automatic after a valid mapping
   was stored. `docs/channels.md`.
 - **`listings.published_at` is the FIRST activation, never the row's birthday.**
-  `db/catalog/listingRepository.ts` is its only author and
+  `db/catalog/listingRepository.ts` is its only author;
   `listing-publication-chokepoint.test.ts` fails the build on a fourth writer.
-- **Digital goods are a commerce type since #1015 (ADR 0010).** A `digital` order has
-  ALL NINE address columns NULL and every other order the five required ones —
-  `orders_shipping_address_digital_check` replaced those NOT NULLs and says MORE, so
-  never "fix" it with a placeholder street. Place of supply is PER LINE (a digital
-  line on the consumer COUNTRY alone, matching NO rate without one), `asset_rights`
-  alone authorizes a download, and `DIGITAL_DOWNLOADS_ENABLED` defaults ON while the
-  other four levers default OFF. `docs/digital-commerce.md`.
-- **Shipping UI is HIDDEN everywhere and Moovo owns logistics entirely** — do NOT
-  build shipping zones or rates, and the Moovo logistics port is registered on no
-  deployment. Pickup/collection is a different thing and IS built
-  (`docs/pickup.md`).
+- **Digital goods are a commerce type since #1015 (ADR 0010); #1016 (ADR 0011) added
+  authorized RETAIL of third-party keys.** A `digital` order has ALL NINE address
+  columns NULL — `orders_shipping_address_digital_check` says MORE than the NOT NULLs
+  it replaced, so never "fix" it with a placeholder street — place of supply is PER
+  LINE on the consumer COUNTRY alone, and `asset_rights` alone authorizes a download.
+  Retail: a partial unique bounds ONE live purchase order per order line, a timeout
+  only reaches `ambiguous`, a key has no plaintext column, a gift card is
+  unrepresentable. `DIGITAL_DOWNLOADS_ENABLED` and `DIGITAL_RETAIL_REVEAL_ENABLED`
+  default ON, the other eight OFF. `docs/digital-{commerce,retail}.md`.
+- **Shipping UI is HIDDEN and Moovo owns logistics entirely** — do NOT build
+  shipping zones or rates, and the Moovo port is registered on no deployment.
+  Pickup/collection is a different thing and IS built (`docs/pickup.md`).
 - **ONE locale registry, `@mercaria/ui/src/i18n/`**; module-scope data holds KEYS,
   never sentences. App copy is per app; **`@mercaria/ui`'s own copy is in ITS
   bundles**, merged under the reserved `ui` namespace for the locales that app SHIPS
   — never the union, or the dashboard gains an `ar` it cannot mirror — and read
   through `SharedUiTranslationProvider` at every app root. `validate:i18n-strings`
-  gates that plus hardcoded strings, parity and unreferenced keys in all three apps.
-  `docs/app-i18n.md`; #437.
+  gates that plus hardcoded strings, parity and unreferenced keys. `docs/app-i18n.md`.
 - **All four client packages mirror for Arabic from LOGICAL utilities only**
   (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `rounded-s-`), gated by
   `validate:rtl-classes`; a physical `ml-2` half-mirrors its screen with every build
@@ -185,10 +185,9 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
   `node-gyp` in the builder stage; `ws`'s optional native accelerators have no
   musl-arm64 prebuild and an on-demand `bunx node-gyp@latest` fails intermittently
   on ARM. Do NOT remove it.
-- **`ci.yml`'s `Lint & Test` must stay on x86** (`deploy-aws.yml` builds on ARM) —
+- **`ci.yml`'s `Lint & Test` must stay on x86** though `deploy-aws.yml` builds ARM:
   ARM runners support no service containers and `postgis/postgis` is amd64-only.
-  Don't "fix" the mismatch.
 - **Web apps deploy to Cloudflare Workers, NOT Pages**, via **`bunx wrangler`
   directly, never `cloudflare/wrangler-action`** — its `npm i wrangler` chokes on
-  `workspace:*`. All four deploys gate on `ci.yml`'s verdict for that commit; none
-  may run a copy of the suite (#518). `docs/deploy.md`.
+  `workspace:*`. All four deploys gate on `ci.yml`'s verdict for that commit;
+  none may run a copy of the suite (#518). `docs/deploy.md`.

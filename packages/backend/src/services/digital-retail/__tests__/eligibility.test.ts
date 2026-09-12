@@ -17,7 +17,7 @@ import {
   type DigitalEligibilityInput,
 } from '../eligibility.js';
 
-const NOW = new Date('2026-09-12T12:00:00.000Z');
+const NOW = new Date('2026-08-01T12:00:00.000Z');
 const HOUR = 3_600_000;
 
 /** An eligible everything. Each test mutates exactly one part of it. */
