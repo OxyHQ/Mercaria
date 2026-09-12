@@ -1,0 +1,27 @@
+{
+  // The SDK's SOURCE program.
+  //
+  // `lib` is ES2020 with NO `DOM` and `types` is empty, on purpose: the same
+  // entry ships to Node, Bun, browsers and React Native, so nothing in `src/`
+  // may lean on a global that only one of them has. `fetch`, `AbortController`
+  // and the timers are reached through the structural types in
+  // `src/runtime.ts`, which is also what keeps the emitted `.d.ts` compiling in
+  // a consumer whose own `lib` has no DOM (Mention's backend, for one).
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "types": [],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts"]
+}
