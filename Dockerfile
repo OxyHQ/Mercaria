@@ -60,6 +60,13 @@ COPY packages/shared-types/package.json ./packages/shared-types/package.json
 COPY packages/ui/package.json ./packages/ui/package.json
 COPY packages/dashboard/package.json ./packages/dashboard/package.json
 COPY packages/pos/package.json ./packages/pos/package.json
+# `@mercaria.co/sdk` (#1017) joined the workspace graph too. Without its manifest
+# the lockfile names a member this context does not have and
+# `bun install --frozen-lockfile` refuses with "lockfile had changes" — measured
+# against a copy of exactly the files this stage copies, which installs on
+# `main` and fails with the SDK merged. The API never imports the SDK and its
+# source is not copied.
+COPY packages/sdk/package.json ./packages/sdk/package.json
 
 # Copy shared-types source before install so its `postinstall` (tsc) can build
 # the package's dist during `bun install`.
