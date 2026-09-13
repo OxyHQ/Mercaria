@@ -107,7 +107,8 @@
     "tailwindcss-animate": "^1.0.7",
     "zeego": "^3.0.6",
     "zustand": "^5.0.14",
-    "zustand-persist": "^0.4.0"
+    "zustand-persist": "^0.4.0",
+    "@oxy.so/telemetry": "1.1.0"
   },
   "devDependencies": {
     "@babel/plugin-syntax-dynamic-import": "^7.8.3",
