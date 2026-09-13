@@ -299,16 +299,27 @@ export function parseProduct(value: unknown, path: string): MercariaProduct {
 
 const HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 
+/**
+ * An average rating from 0 to 5, or `null`. `null` is returned BEFORE the type
+ * test (rather than `value !== null && typeof value !== 'number'`), so the
+ * narrowing holds without `strictNullChecks`: the backend's SDK contract suite
+ * compiles this source inside its own `strict: false` program.
+ */
+function nullableRating(value: unknown, path: string): number | null {
+  if (value === null) return null;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 5) {
+    fail(path, 'a number from 0 to 5, or null');
+  }
+  return value;
+}
+
 export function parseStore(value: unknown, path: string): MercariaStore {
   const record = object(value, path);
   const brandColor = record.brandColor;
   if (typeof brandColor !== 'string' || !HEX_COLOR.test(brandColor)) {
     fail(`${path}.brandColor`, 'a CSS hex colour');
   }
-  const rating = record.rating;
-  if (rating !== null && (typeof rating !== 'number' || !Number.isFinite(rating) || rating < 0 || rating > 5)) {
-    fail(`${path}.rating`, 'a number from 0 to 5, or null');
-  }
+  const rating = nullableRating(record.rating, `${path}.rating`);
   return {
     ref: parseStoreRef(record.ref, `${path}.ref`),
     handle: nonEmptyString(record.handle, `${path}.handle`),
@@ -337,15 +348,19 @@ export function parseCollection(value: unknown, path: string): MercariaCollectio
 
 // ── Pages ───────────────────────────────────────────────────────────────────
 
+/** An opaque page cursor: a non-empty string, or `null` on the last page. Shaped as {@link nullableRating} is. */
+function nullableCursor(value: unknown, path: string): string | null {
+  if (value === null) return null;
+  if (typeof value !== 'string' || value.length === 0) fail(path, 'a non-empty string or null');
+  return value;
+}
+
 export function parsePage<T>(
   value: unknown,
   path: string,
   item: (entry: unknown, path: string) => T,
 ): MercariaPage<T> {
   const record = object(value, path);
-  const nextCursor = record.nextCursor;
-  if (nextCursor !== null && (typeof nextCursor !== 'string' || nextCursor.length === 0)) {
-    fail(`${path}.nextCursor`, 'a non-empty string or null');
-  }
+  const nextCursor = nullableCursor(record.nextCursor, `${path}.nextCursor`);
   return { items: array(record.items, `${path}.items`, item), nextCursor };
 }
