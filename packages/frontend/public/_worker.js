@@ -1,3 +1,5 @@
+import { observeEdgeRequest } from '@oxy.so/telemetry/edge';
+
 /**
  * The Mercaria storefront's Cloudflare Worker (Static Assets, advanced mode).
  *
@@ -194,7 +196,7 @@ async function fetchCrawlArtefact(apiOrigin, apiPath) {
   }
 }
 
-export default {
+const assetWorker = {
   async fetch(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
@@ -295,5 +297,11 @@ export default {
       status: 200,
       headers,
     });
+  },
+};
+
+export default {
+  fetch(request, env, ctx) {
+    return observeEdgeRequest({ service: 'mercaria', request, env, ctx, next: () => assetWorker.fetch(request, env, ctx) });
   },
 };

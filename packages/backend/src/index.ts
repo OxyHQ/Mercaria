@@ -1,3 +1,4 @@
+import { startEcosystemActivity, stopEcosystemActivity } from './ecosystemActivity';
 import http from 'http';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -63,6 +64,7 @@ server.on('connection', (socket) => {
   socket.setKeepAlive(true, 60000);
 });
 
+startEcosystemActivity(() => server.listening);
 initSocket(server);
 
 // The middleware chain and routes live in `app.ts` so they can be built without
@@ -842,6 +844,7 @@ connectPostgres()
         log.general.info('PostgreSQL pool closed');
 
         clearTimeout(forceTimeout);
+        await stopEcosystemActivity();
         log.general.info('Graceful shutdown complete');
         process.exit(0);
       } catch (error) {

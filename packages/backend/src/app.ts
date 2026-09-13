@@ -1,3 +1,4 @@
+import { ecosystemActivityMiddleware } from './ecosystemActivity';
 /**
  * The Express application, built without listening.
  *
@@ -161,6 +162,7 @@ import { createMercariaMcpHttpService } from './capabilities/mercaria-mcp-http.j
  */
 export function createApp(): express.Express {
   const app = express();
+  app.use(ecosystemActivityMiddleware);
   const mercariaMcpHttpService = createMercariaMcpHttpService();
 
   // MCP owns its raw request body, exact protected-resource identity and OAuth
