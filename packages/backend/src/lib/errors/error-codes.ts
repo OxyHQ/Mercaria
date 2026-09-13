@@ -21,6 +21,10 @@ const DEFAULT_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCodes.UNAUTHORIZED]: 401,
   [ErrorCodes.FORBIDDEN]: 403,
   [ErrorCodes.NOT_FOUND]: 404,
+  // 410, not 404: the entity existed and is no longer publicly available (#1017).
+  // A consumer holding a persisted reference acts differently on each.
+  [ErrorCodes.GONE]: 410,
+  [ErrorCodes.UNKNOWN_ROUTE]: 404,
   [ErrorCodes.CONFLICT]: 409,
   [ErrorCodes.RATE_LIMITED]: 429,
   [ErrorCodes.OUT_OF_STOCK]: 409,
@@ -77,6 +81,14 @@ export function toMercariaError(err: unknown): MercariaError {
 /** A not-found domain error (404). */
 export function notFound(message: string): MercariaError {
   return new MercariaError({ code: ErrorCodes.NOT_FOUND, message });
+}
+
+/**
+ * A gone domain error (410) — the entity existed and is no longer publicly
+ * available. The message must not say WHY (#1017).
+ */
+export function gone(message: string): MercariaError {
+  return new MercariaError({ code: ErrorCodes.GONE, message });
 }
 
 /** A forbidden domain error (403). */

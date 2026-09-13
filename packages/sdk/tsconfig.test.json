@@ -1,0 +1,11 @@
+{
+  // The tests run under Node (vitest), where `Response`, `Headers` and
+  // `AbortController` are real globals, so this program adds `DOM` for their
+  // types. `src/` is compiled a second time here only as an import; its own
+  // no-DOM constraint is enforced by `tsconfig.json`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+}

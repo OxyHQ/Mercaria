@@ -313,7 +313,13 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // retail offer names a `canonicalVariantId` and a `productClass`, and never a
     // `category`, a `brand` or a `productType` — the supplier half of the domain
     // has no public type at all, which is the point of ADR 0011 D13.
-    "walked 133 contract module(s), 2350 exported type(s), 7807 property signature(s)",
+    // An eleventh instance, #1017: ONE new contract module, `public-api.ts`, the
+    // integration contract `@mercaria.co/sdk` publishes. 134/2370/7877, READ OFF
+    // the guard's own output line against this branch. None of its types carries
+    // an identity-shaped name: a public product names its `ref` and a condition
+    // KEY, and the storefront's `category`/`productType`/`vendor` strings are
+    // exactly what the field-by-field projection declines to publish.
+    "walked 134 contract module(s), 2370 exported type(s), 7877 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });

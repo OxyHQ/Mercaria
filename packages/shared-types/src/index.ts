@@ -897,3 +897,8 @@ export * from './catalog-governance';
 // its `unmeasured` branch carries no value, numerator or denominator, so a metric
 // nobody measured cannot be rendered as a number rather than merely should not be.
 export * from './catalog-metrics';
+
+// The PUBLIC integration contract (#1017) — portable references and the
+// field-by-field public projections `@mercaria.co/sdk` publishes to other Oxy
+// applications. Nothing here is a storefront DTO, and nothing spreads one.
+export * from './public-api';

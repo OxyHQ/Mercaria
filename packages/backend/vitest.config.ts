@@ -1,8 +1,39 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import { defineConfig } from 'vitest/config';
 
 import { MAX_TEST_WORKERS } from './vitest.connection-budget.js';
 
+/**
+ * `tsconfig.json`'s `paths`, as vitest aliases — the runtime half of that one
+ * mapping, READ from it rather than restated, so what `tsc` type-checks and what
+ * vitest runs cannot name two different files.
+ *
+ * Today the only entry is `@mercaria.co/sdk` from SOURCE, for the SDK contract
+ * suite (#1017, `public-api-sdk-contract.realdb.test.ts`): the package's own
+ * exports name `dist/`, which exists only after `bun run build:sdk`, so
+ * resolving it there would either fail on a clean checkout or, worse, test a
+ * stale build. Exact specifiers only; a wildcard entry would need a pattern
+ * alias, so it fails here rather than silently not applying.
+ */
+function tsconfigPathAliases(): Record<string, string> {
+  const tsconfigPath = fileURLToPath(new URL('./tsconfig.json', import.meta.url));
+  const { config, error } = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+  if (error) throw new Error(ts.flattenDiagnosticMessageText(error.messageText, '\n'));
+  const paths = (config.compilerOptions?.paths ?? {}) as Record<string, string[]>;
+  return Object.fromEntries(
+    Object.entries(paths).map(([specifier, targets]) => {
+      if (specifier.includes('*') || targets.length !== 1) {
+        throw new Error(`tsconfig.json paths entry ${specifier} is not an exact, single-target mapping`);
+      }
+      return [specifier, resolve(dirname(tsconfigPath), targets[0])];
+    }),
+  );
+}
+
 export default defineConfig({
+  resolve: { alias: tsconfigPathAliases() },
   test: {
     globals: true,
     environment: 'node',

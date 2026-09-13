@@ -112,6 +112,7 @@ import { listingImages, listingOptions, listings, productVariants } from '../sch
 import { listingLocalizations } from '../schema/catalogLocalization.js';
 import { connections } from '../schema/connectors.js';
 import { listingCollections } from '../schema/merchandising.js';
+import { stores } from '../schema/stores.js';
 
 /** One row of `listings` — no children joined. */
 export type ListingRecord = InferSelectModel<typeof listings>;
@@ -1171,6 +1172,16 @@ export interface ListingSearchFilters {
    */
   locale?: string;
   near?: { lng: number; lat: number; radiusM: number };
+  /**
+   * Exclude every STORE-owned listing whose store is not `active` (#1017).
+   *
+   * The storefront browse has never applied this — a suspended or closed store's
+   * active listings still match `GET /listings` — and that is left exactly as it
+   * is here. The public integration surface sets it, because a foreign
+   * application must not be handed a product whose own detail read answers 410.
+   * A person-owned listing has no store and is unaffected.
+   */
+  liveStoresOnly?: boolean;
 }
 
 /**
@@ -1238,6 +1249,20 @@ function buildSearchWhere(filters: ListingSearchFilters): SQL | undefined {
     predicates.push(textMatch(filters.text.trim(), filters.locale));
   }
 
+  if (filters.liveStoresOnly) {
+    // `qualified()` on the OUTER column: a drizzle column interpolated into a
+    // sub-statement whose FROM does not name its table renders BARE, so
+    // `${listings.storeId}` would resolve against `stores` — see
+    // `variantExistsPredicate` below for the measured version of that trap.
+    predicates.push(
+      sql`(${listings.ownerType} = 'user' or exists (
+        select 1 from ${stores}
+        where ${qualified(stores.id)} = ${qualified(listings.storeId)}
+          and ${qualified(stores.status)} = 'active'
+      ))`,
+    );
+  }
+
   if (filters.near) {
     predicates.push(
       sql`${listings.geo} is not null and st_dwithin(
@@ -1299,6 +1324,34 @@ export async function searchListingsPage(
   ]);
 
   return { rows, total: totals?.count ?? 0 };
+}
+
+/**
+ * One OFFSET slice of a browse, with no count (#1017).
+ *
+ * The public integration surface pages by an opaque cursor that encodes an
+ * offset, so it needs neither the page arithmetic nor the `count(*)`
+ * {@link searchListingsPage} runs beside every page: it reads `limit + 1` rows
+ * and answers "is there more" from the extra one. Same predicates, same order —
+ * both come from the two builders above, so the two reads cannot disagree about
+ * what matches or where it sorts.
+ */
+export async function searchListingsSlice(
+  filters: ListingSearchFilters,
+  sort: ListingQuery['sort'],
+  offset: number,
+  limit: number,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<{ rows: ListingRecord[]; hasMore: boolean }> {
+  const rows = await db
+    .select()
+    .from(listings)
+    .where(buildSearchWhere(filters))
+    .orderBy(...buildSearchOrder(sort))
+    .limit(limit + 1)
+    .offset(offset);
+  const hasMore = rows.length > limit;
+  return { rows: hasMore ? rows.slice(0, limit) : rows, hasMore };
 }
 
 /** The boundary a keyset page resumes from. */

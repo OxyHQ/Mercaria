@@ -12,7 +12,7 @@ or Wallapop style. A Shopify-grade commerce backend serving three Expo apps
 >
 > **This file carries only RULES — things that break silently.** Design notes and
 > per-issue write-ups go in `docs/`. Org-wide standards are in `~/AGENTS.md` and
-> `~/Oxy/AGENTS.md`; do not repeat them. Versions live in `package.json`.
+> `~/Oxy/AGENTS.md`; do not repeat them.
 >
 > **Budget: under 12 KB**, enforced by `scripts/check-agents-md-size.mjs`. An
 > addition that pushes it over is paid for in the SAME edit.
@@ -28,7 +28,7 @@ bun run build:shared-types                # ALWAYS before db:generate
 bun run --cwd packages/backend test        # vitest, incl. the *.realdb.test.ts suites
 bun run --cwd packages/backend typecheck   # also --filter @mercaria/{ui,frontend,dashboard,pos}
 bun run --filter @mercaria/backend lint
-bun run validate:agents-md                # budget; ci.yml names all 15
+bun run validate:agents-md                # budget
 bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 ```
 
@@ -36,7 +36,7 @@ bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 
 `packages/` — `frontend` (mercaria.co) · `dashboard` · `pos` (Expo apps) · `ui`
 (shared components) · `backend` (Express + PostgreSQL) · `shared-types` (DTOs and
-every closed value set).
+every closed value set) · `sdk` (`@mercaria.co/sdk`, published; `docs/sdk.md`).
 
 - **`@mercaria/ui` is NOT built to dist.** Apps consume it through Metro
   `watchFolders`, the `@mercaria/ui/theme/tailwind.preset` preset and a
@@ -65,10 +65,10 @@ every closed value set).
 - **Adding a `CurrencyCode` is a code change PLUS `bun run db:generate` PLUS an
   additive (`pre`) migration in the same PR.** Every currency column carries a CHECK
   rendered from the shared-types tuple, so skipping the migration makes the first
-  write of the new code fail in production with a green build.
-- **The ledger is the ONLY record of Mercaria's commission** (ADR 0001 D3 gives up
-  Stripe's `application_fee_amount` reporting). `db/payments/ledgerRepository.ts` is
-  its only writer and refuses an unbalanced set; a trigger raises on UPDATE and
+  write of the new code fail in production with a green build. It, or a condition
+  key, also breaks every installed `@mercaria.co/sdk` — release that first.
+- **The ledger is the ONLY record of Mercaria's commission** (ADR 0001 D3).
+  `db/payments/ledgerRepository.ts` is its only writer and refuses an unbalanced set; a trigger raises on UPDATE and
   DELETE. A correction is a REVERSING transaction — there is deliberately no
   `reverseTransaction(id)`. Positive is a debit, negative a credit, every
   transaction sums to zero PER CURRENCY.
@@ -181,10 +181,9 @@ Mongo/Mongoose is GONE (PR #136) — no `src/models/`, no `mongoose`, no
   physical, as do a panel's `translateX` sign and divider edge (LOGICAL `side` in
   `ui/src/lib/logical-side.ts`); `validate-rtl-upstream-premises.mjs` re-measures both
   premises against INSTALLED packages. Arabic is NOT fully supported — #429 item 2.
-- **Dockerfile node-gyp pin.** The API Dockerfile is at the repo ROOT and pins
-  `node-gyp` in the builder stage; `ws`'s optional native accelerators have no
-  musl-arm64 prebuild and an on-demand `bunx node-gyp@latest` fails intermittently
-  on ARM. Do NOT remove it.
+- **Dockerfile node-gyp pin.** The repo-ROOT API Dockerfile pins `node-gyp` in the
+  builder: `ws`'s native accelerators have no musl-arm64 prebuild, and an on-demand
+  `bunx node-gyp@latest` flakes on ARM. Do NOT remove it.
 - **`ci.yml`'s `Lint & Test` must stay on x86** though `deploy-aws.yml` builds ARM:
   ARM runners support no service containers and `postgis/postgis` is amd64-only.
 - **Web apps deploy to Cloudflare Workers, NOT Pages**, via **`bunx wrangler`
