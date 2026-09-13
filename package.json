@@ -47,7 +47,7 @@
     "web": "bun run --filter @mercaria/frontend web",
     "seed:verticals": "bun run --cwd packages/backend src/scripts/seed-verticals/index.ts",
     "seed:digital-3d": "bun run --cwd packages/backend src/scripts/seed-digital-3d.ts",
-  "postinstall": "bun run --filter @mercaria/shared-types build"
+    "postinstall": "bun run --filter @mercaria/shared-types build"
   },
   "keywords": [
     "monorepo",
@@ -83,16 +83,20 @@
     "@react-native/babel-preset": "0.85.3",
     "@react-native/metro-babel-transformer": "0.85.3",
     "@react-native/metro-config": "0.85.3",
-    "@oxy.so/core": "^1.0.1",
+    "@oxy.so/core": "1.1.0",
     "lightningcss": "1.30.1",
     "lightningcss-linux-x64-gnu": "1.30.1",
-    "lightningcss-linux-x64-musl": "1.30.1"
+    "lightningcss-linux-x64-musl": "1.30.1",
+    "@oxy.so/telemetry": "1.1.0"
   },
   "dependencies": {
-    "@oxy.so/core": "^1.0.1"
+    "@oxy.so/core": "1.1.0"
   },
   "trustedDependencies": [
     "@parcel/watcher",
     "@swc/core"
-  ]
+  ],
+  "resolutions": {
+    "@oxy.so/telemetry": "1.1.0"
+  }
 }
