@@ -123,7 +123,11 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          tarballs=(sdk-release/*.tgz)
+          # `./`-prefixed, and it must stay so: npm reads a bare `dir/file.tgz` as
+          # the GitHub shorthand `owner/repo` and tries `git ls-remote
+          # ssh://git@github.com/sdk-release/…` — measured on the first publish
+          # (run 34727917301), which failed with `Permission denied (publickey)`.
+          tarballs=(./sdk-release/*.tgz)
           [ "${#tarballs[@]}" -eq 1 ] || { echo "expected exactly one tested tarball, found ${#tarballs[@]}"; exit 1; }
           case "${tarballs[0]}" in
             *"-$EXPECTED_VERSION.tgz") ;;
