@@ -16,7 +16,7 @@ header is the contract's own statement of why it exists.
 | URL builders | `packages/backend/src/services/public-api/urls.ts` |
 | Cursor | `packages/backend/src/services/public-api/cursor.ts` |
 | CORS decision | `isPublicReadCorsRequest` in `packages/backend/src/lib/allowed-origins.ts` |
-| Proof | `routes/__tests__/public-api.realdb.test.ts`, `services/public-api/__tests__/urls-and-cursor.test.ts` |
+| Proof | `routes/__tests__/public-api.realdb.test.ts` (the wire), `routes/__tests__/public-api-sdk-contract.realdb.test.ts` (the SDK against it), `services/public-api/__tests__/urls-and-cursor.test.ts` |
 
 ## Routes
 

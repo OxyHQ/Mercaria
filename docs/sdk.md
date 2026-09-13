@@ -71,7 +71,8 @@ every response that carries it. Widening is therefore released SDK-first:
 3. only then let the public projection emit it.
 
 A server change that would emit a new value before that is a contract break,
-and the contract test (below) is where it must be caught.
+and the contract test ([below](#the-contract-test-against-the-real-backend))
+is where it must be caught.
 
 ### How a contract change flows
 
@@ -120,6 +121,36 @@ The concurrency group never cancels an in-flight publish.
 `npm publish` from `packages/sdk`, but that path publishes the unstaged
 manifest; the workflow is the supported release path.
 
+## The contract test against the real backend
+
+`packages/backend/src/routes/__tests__/public-api-sdk-contract.realdb.test.ts`
+boots the real `createApp()` over the real test database and reads every public
+route EXCLUSIVELY through `createMercariaClient` — the SDK's serialiser,
+transport, error mapping and parser, from source. It runs in the API test job,
+so route or DTO drift between the backend and the SDK fails `ci.yml`. It proves:
+
+- every result parses and its key set EQUALS the contract's, recursively, and no
+  seeded private value (SKU, barcode, connector id, tags, a non-active manual
+  member id, …) appears in any result;
+- cursor pagination (`iterateMercariaPages` and a hand loop) walks every page
+  with no duplicate and no gap;
+- `MercariaNotFoundError`, `MercariaGoneError`, a sold product (a successful
+  read with `availability: 'sold'`) and `MercariaNetworkError` for a base URL
+  nothing listens on are distinguishable, and a route the server does not serve
+  is a `MercariaApiError` with `UNKNOWN_ROUTE`, never `NotFound`;
+- `getAccessToken` is forwarded as `Authorization: Bearer`, making
+  `viewer.saved` true for the user who saved the product and `viewer` null
+  anonymously;
+- `links.product`, `links.store` and `links.collection` rebuild exactly the
+  `url` the server serves.
+
+The SDK resolves from `packages/sdk/src/index.ts` through the backend's
+`tsconfig.json` `paths` (which `vitest.config.ts` reads as its alias), not from
+`dist/`. The consequence for SDK authors: `src/` must also type-check inside the
+backend's `strict: false` program. It shares its fixture world and key-set table
+with the wire suite, `public-api.realdb.test.ts`, through
+`routes/__tests__/public-api-fixtures.ts`.
+
 ## Local commands
 
 ```bash
@@ -128,13 +159,12 @@ bun run smoke:sdk                                 # build + pack + runtime smoke
 bun run --filter @mercaria.co/sdk test            # vitest, no network
 bun run --filter @mercaria.co/sdk typecheck
 bun run --filter @mercaria.co/sdk lint
+# the contract test (Postgres up; see docs/postgres-testing-and-migrations.md)
+bun run --cwd packages/backend test -- src/routes/__tests__/public-api-sdk-contract.realdb.test.ts
 ```
 
 ## Not yet done
 
-- **Contract test against the real backend** — runs the SDK against the public
-  routes so DTO or route drift fails the build. Owned by the merge of #1017's
-  backend and SDK halves.
 - **Authenticated buyer surfaces** (#1017 phase 2) and **seller integrations**
   (phase 3) — each needs an explicit contract and permission review first.
 - **Service-to-service authority** — waits on an Oxy service-auth contract for

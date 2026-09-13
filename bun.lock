@@ -45,6 +45,7 @@
       },
       "devDependencies": {
         "@eslint/js": "^9.39.5",
+        "@mercaria.co/sdk": "workspace:*",
         "@swc/cli": "^0.5.2",
         "@swc/core": "^1.15.43",
         "@types/cors": "^2.8.19",
