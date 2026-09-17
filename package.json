@@ -63,7 +63,7 @@
     "typescript": "^5.9.3"
   },
   "overrides": {
-    "@oxy.so/contracts": "^1.1.1",
+    "@oxy.so/contracts": "^1.2.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.85.3",
@@ -99,7 +99,7 @@
     "@swc/core"
   ],
   "resolutions": {
-    "@oxy.so/contracts": "^1.1.1",
+    "@oxy.so/contracts": "^1.2.0",
     "@oxy.so/telemetry": "^1.1.1"
   }
 }
