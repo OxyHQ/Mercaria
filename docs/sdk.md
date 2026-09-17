@@ -112,10 +112,26 @@ contract the backend at that commit does not serve.
    succeeds and publishes nothing**, so re-runs and doc-only changes are safe.
    A registry error other than 404 stops the job rather than being read as
    "not published".
-4. `npm publish <tested tarball> --provenance --access public`, authenticated by
-   the org-wide `NPM_TOKEN` secret, with `id-token: write` for provenance.
+4. `npm publish ./<tested tarball> --provenance --access public`, with
+   `id-token: write`. The `./` is load-bearing: npm reads a bare
+   `sdk-release/x.tgz` as the GitHub shorthand `owner/repo` (#1021).
 
 The concurrency group never cancels an in-flight publish.
+
+### Authentication
+
+**0.1.0 was published by hand** (2026-09-13), from the exact tarball
+`smoke.mjs --out` produced at `main` `5547181e` — the way the other Oxy SDKs
+are released. The workflow could not: the org-wide `NPM_TOKEN` has no write
+access to the `@mercaria.co` scope, and the registry answers that with
+`404 PUT`, not `403` — the same 404 a missing scope gives, so read it as "no
+permission" first.
+
+For the workflow to publish, `NPM_TOKEN` needs write access to `@mercaria.co`.
+Until then a release is a manual `npm publish ./<tarball> --access public` of
+the tarball `bun run smoke:sdk -- --out <dir>` keeps. npm now warns that tokens
+which bypass 2FA are being restricted for direct publishing; if that lands,
+this section is where the replacement gets written down.
 
 `prepublishOnly` (typecheck, test, build, smoke) guards a manual
 `npm publish` from `packages/sdk`, but that path publishes the unstaged
