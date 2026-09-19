@@ -12,7 +12,7 @@
 
 import { getTableConfig, PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
-import { DATABASE_CASING } from '@oxyhq/db';
+import { DATABASE_CASING } from '@oxy.so/db';
 import {
   PRODUCT_TYPE_FIELD_SCOPES,
   PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS,

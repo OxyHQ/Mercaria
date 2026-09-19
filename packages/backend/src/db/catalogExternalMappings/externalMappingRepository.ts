@@ -23,7 +23,7 @@
  * published that value".
  */
 
-import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type {
   CatalogExternalMappingDimension,
   CatalogExternalMappingProvenance,
@@ -209,7 +209,17 @@ export async function readLiveMappings(
         lte(catalogExternalMappings.validFrom, at),
         or(
           isNull(catalogExternalMappings.validTo),
-          sql`${catalogExternalMappings.validTo} > ${at}`,
+          // `gt`, never a `sql` template. A bare `Date` interpolated into a
+          // template is NOT passed through the column's mapper, so postgres.js
+          // is handed a `Date` object and throws `ERR_INVALID_ARG_TYPE` — while
+          // the `lte(validFrom, at)` on the line above, over the same value,
+          // binds correctly. So the statement failed on every call for every
+          // dimension and the two halves of one window disagreed about how to
+          // send one instant. Invisible until #367's size-system registry gave
+          // the resolver its first real-server test: nothing calls
+          // `resolveExternalToken` yet, and the existing realdb suite exercises
+          // the schema rather than this read.
+          gt(catalogExternalMappings.validTo, at),
         ),
       ),
     )
@@ -242,7 +252,10 @@ export async function readLiveMappingsForDimension(
         lte(catalogExternalMappings.validFrom, at),
         or(
           isNull(catalogExternalMappings.validTo),
-          sql`${catalogExternalMappings.validTo} > ${at}`,
+          // `gt` rather than a `sql` template, for the reason spelled out in
+          // `readLiveMappings` above: a bare `Date` in a template bypasses the
+          // column mapper and the driver refuses it.
+          gt(catalogExternalMappings.validTo, at),
         ),
       ),
     )

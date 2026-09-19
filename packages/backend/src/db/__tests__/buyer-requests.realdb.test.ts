@@ -39,7 +39,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { asc, eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { connectPostgres, type Database } from '../postgres.js';
 import { insertOrder } from '../orders/orderRepository.js';
 import { orders } from '../schema/orders.js';

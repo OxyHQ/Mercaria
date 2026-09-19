@@ -8,7 +8,7 @@
  */
 
 import type { Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { sendSuccess, sendPaginated } from '../utils/api-response.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import { parsePagination, buildPagination } from '../utils/pagination.js';

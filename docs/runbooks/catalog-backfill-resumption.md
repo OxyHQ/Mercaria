@@ -266,11 +266,25 @@ Two cautions specific to F, both from
 Everything here is on `GET /internal/catalog-metrics`
 (`CATALOG_OPERATOR_OXY_USER_IDS`, empty ⇒ 404):
 `backfill_progress`, `backfill_failed_run_count`, `backfill_retry_count`,
-`reindex_pending_count`, and `backfill_dead_letter_count` — which answers
-**`unmeasured` with reason `no_dead_letter_state`, and that is correct**: none of
-#367's own queues has a dead-letter state, so a run that has given up is
-indistinguishable from one still retrying, and a zero there would be a
-permanently green tile for a condition that cannot occur. Definitions:
+`reindex_pending_count`, and `backfill_dead_letter_count`, which is **measured**
+and counts runs that EXHAUSTED the bounded retry.
+
+**Read those last two together, because they answer different questions about
+the same rows.** `backfill_failed_run_count` is every `failed` run and is what
+tells you how much is waiting for a person — it covers both producers, which is
+right, because an operator cancellation is also waiting for somebody.
+`backfill_dead_letter_count` is the subset the system gave up on by itself, and
+it is always the SMALLER of the two; the gap between them is cancellations, not
+a discrepancy. If you are triaging, the failed count is your workload and the
+dead-letter count is your incident.
+
+**And read the `by` buckets before you trust either.** `unrecorded` is the closed
+population of runs that ended before `terminal_cause` existed (migration `0146`);
+they cannot be classified because nothing captured why, and they are not a
+backlog you can act on. `cause_missing` must be **zero** — a non-zero value means
+either that `0147` has not applied yet on this deployment, or that something is
+writing `failed` without naming a cause, and in both cases the dead-letter number
+is an undercount rather than good news. Definitions:
 [`../catalog-migration-operations.md`](../catalog-migration-operations.md) §Box 5.
 
 `GET /internal/catalog-metrics/integrity` carries `stalled_queue_lease`. **Read

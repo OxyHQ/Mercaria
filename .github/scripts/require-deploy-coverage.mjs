@@ -196,7 +196,7 @@ export const DEPLOY_OUTCOME_STEPS = Object.freeze([
 /**
  * The phase marker a `post` migration carries.
  *
- * A copy of `@oxyhq/db`'s `POST_PHASE_GREP_PATTERN` without the anchors, for
+ * A copy of `@oxy.so/db`'s `POST_PHASE_GREP_PATTERN` without the anchors, for
  * the same reason `deploy-aws.yml` carries a copy of the pattern itself: this
  * script cannot import the package. `deployCoverage.test.ts` asserts the two
  * agree, exactly as `deployWorkflow.test.ts` does for the workflow.

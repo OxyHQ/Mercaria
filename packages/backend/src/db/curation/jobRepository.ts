@@ -177,8 +177,9 @@ export interface ClaimJobOptions {
  * Claim a bounded batch of merge jobs.
  *
  * `blocked` is NOT claimable, which is the whole reason it is a separate status
- * from `failed`: a job waiting on an operator's conflict decision must not be
- * retried, or the dispatcher spins against a judgement only a person can make.
+ * from `dead_letter`: a job waiting on an operator's conflict decision must not
+ * be retried, or the dispatcher spins against a judgement only a person can
+ * make.
  */
 export async function claimMergeJobs(
   options: ClaimJobOptions,

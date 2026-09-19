@@ -27,7 +27,7 @@
  */
 
 import { and, asc, eq, sql } from 'drizzle-orm';
-import { publicColumns } from '@oxyhq/db/assert';
+import { publicColumns } from '@oxy.so/db/assert';
 import type {
   RetailReturnCaseState,
   RetailReturnDestination,

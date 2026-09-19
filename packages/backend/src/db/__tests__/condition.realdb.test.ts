@@ -40,7 +40,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray } from 'drizzle-orm';
-import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
+import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { CONDITION_MAPPING_CONFIDENCE_FLOOR } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { insertOrder } from '../orders/orderRepository.js';

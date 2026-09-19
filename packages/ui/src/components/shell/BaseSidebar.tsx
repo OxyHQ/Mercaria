@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { View, ScrollView, type NativeSyntheticEvent, type NativeScrollEvent } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { withAlpha } from "@oxyhq/bloom/theme";
+import { withAlpha } from "@oxy.so/bloom/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cn } from "../../lib/cn";
 import { useColorScheme } from "../../lib/useColorScheme";

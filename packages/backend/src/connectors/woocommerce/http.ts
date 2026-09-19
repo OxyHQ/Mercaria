@@ -27,7 +27,7 @@
  *   1. HTTPS-ONLY — WooCommerce's over-HTTPS Basic auth requires TLS, and rejecting
  *      `http:` also removes the cleartext downgrade that would expose the consumer
  *      secret. A malformed or non-https URL is rejected before any DNS lookup.
- *   2. `@oxyhq/core/server` `safeFetch` — validates every hop (including redirects)
+ *   2. `@oxy.so/core/server` `safeFetch` — validates every hop (including redirects)
  *      against the private/link-local/metadata denylist AND pins the connection to
  *      the validated IP, closing the DNS-rebind window. The pull path is read-only
  *      (GET), which is exactly what `safeFetch` carries.
@@ -40,7 +40,7 @@ import {
   assertSafePublicUrl,
   SsrfRejection,
   UpstreamError,
-} from '@oxyhq/core/server';
+} from '@oxy.so/core/server';
 
 /** A normalized HTTP response (status + headers + fully-buffered text body). */
 export interface WooCommerceHttpResponse {

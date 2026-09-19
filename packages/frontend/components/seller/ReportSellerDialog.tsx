@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { useMutation } from "@tanstack/react-query";
-import { toast } from "@oxyhq/bloom/toast";
-import { openAccountDialog, useOxy } from "@oxyhq/services";
+import { toast } from "@oxy.so/bloom/toast";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import {
   ABUSE_REPORT_CATEGORIES,
   type AbuseReportCategory,
@@ -135,7 +135,7 @@ export function ReportSellerDialog({
                     accessibilityLabel={t(CATEGORY_LABEL_KEYS[category])}
                     onPress={() => toggle(category)}
                     className={`rounded-full border px-4 py-2 ${
-                      active ? "border-foreground bg-secondary" : "border-border"
+                      active ? "border-foreground bg-muted" : "border-border"
                     }`}
                   >
                     <Text className="text-sm text-foreground">

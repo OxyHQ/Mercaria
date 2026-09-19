@@ -104,8 +104,23 @@ export interface PickupFulfilment {
   pickupContact: NormalizedCheckoutContact;
 }
 
+/**
+ * Nothing is carried anywhere: every line is digital (#1015, ADR 0010 D8).
+ *
+ * Carries NO address and no location, by construction — the `pickup` branch's
+ * property, taken one step further. #105 actor rule 5 already established that a
+ * fulfilment shape may legitimately produce no `NormalizedCheckoutAddress`, and
+ * the pickup branch then snapshots the LOCATION's own address so even collection
+ * puts a real street on the order. A digital order has no third thing to borrow
+ * from, which is why `orders_shipping_address_digital_check` had to exist rather
+ * than the snapshot being derived from something.
+ */
+export interface DigitalFulfilment {
+  kind: 'digital';
+}
+
 /** Where this checkout's goods go, resolved and validated. */
-export type ResolvedFulfilment = ShippingFulfilment | PickupFulfilment;
+export type ResolvedFulfilment = ShippingFulfilment | PickupFulfilment | DigitalFulfilment;
 
 /** Everything #105 resolves out of a checkout body before pricing starts. */
 export interface ResolvedCheckoutContract {
@@ -122,6 +137,16 @@ export interface ResolvedCheckoutContract {
   marketingOptIn: boolean;
   /** The shipping method this fulfilment implies, before per-seller selection. */
   impliedShippingMethod: ShippingMethod | undefined;
+  /**
+   * The country the buyer declared for a digital supply, uppercased (#1015 W11).
+   *
+   * Absent when the body carried none, which is legal for a MIXED cart and is NOT
+   * legal for a `digital_delivery` destination — refused below, because that
+   * checkout has no address for the fallback to read.
+   */
+  digitalSupplyCountry?: string;
+  /** Whether the buyer gave express consent to immediate digital supply. */
+  digitalSupplyConsent: boolean;
 }
 
 /**
@@ -172,11 +197,30 @@ export async function resolveCheckoutContract(
 
   const fulfilment = await resolveFulfilment(actor, destination);
 
+  /**
+   * The place of supply, normalized here so the country is uppercase everywhere
+   * downstream — `orders_digital_supply_country_check` requires `^[A-Z]{2}$`, and
+   * a lowercase `es` from a client would otherwise fail a constraint at the end of
+   * a checkout rather than at its validation.
+   *
+   * A `digital_delivery` checkout with no declared country is REFUSED, not
+   * defaulted: there is no address to fall back on, and a digital supply with no
+   * place of supply cannot be taxed. Mixed carts fall back in
+   * `checkout.service`, which is the only place that knows the fulfilment country.
+   */
+  const digitalSupplyCountry = input.digitalSupplyCountry?.trim().toUpperCase();
+  if (fulfilment.kind === 'digital' && !digitalSupplyCountry) {
+    throw validationError('A digital purchase needs the country you are buying from.');
+  }
+
   return {
     fulfilment,
     ...(contact ? { contact } : {}),
     marketingOptIn: input.marketingOptIn === true,
-    impliedShippingMethod: fulfilment.kind === 'pickup' ? 'pickup' : undefined,
+    impliedShippingMethod:
+      fulfilment.kind === 'pickup' ? 'pickup' : fulfilment.kind === 'digital' ? 'digital' : undefined,
+    ...(digitalSupplyCountry ? { digitalSupplyCountry } : {}),
+    digitalSupplyConsent: input.digitalSupplyConsent === true,
   };
 }
 
@@ -244,6 +288,18 @@ async function resolveFulfilment(
           ? { saveToAddressBook: label ? { label } : {} }
           : {}),
       };
+    }
+
+    case 'digital_delivery': {
+      if (actor.kind === 'anonymous') {
+        throw forbidden('Add something to your cart before checking out.');
+      }
+      if (actor.kind === 'guest' && !config.guest.inlineDestinationEnabled) {
+        // The same lever the other two non-saved branches read. A digital cart is
+        // not a reason to let a guest through a gate that is closed for parcels.
+        throw forbidden('Guest checkout is temporarily unavailable. Sign in to place this order.');
+      }
+      return { kind: 'digital' };
     }
 
     case 'pickup': {

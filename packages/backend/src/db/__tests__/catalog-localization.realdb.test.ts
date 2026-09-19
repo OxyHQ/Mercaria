@@ -24,7 +24,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, getTableColumns, getTableName, inArray, is, sql } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
-import { isCheckViolation, isUniqueViolation, sqlColumnName, uuidv7 } from '@oxyhq/db';
+import { isCheckViolation, isUniqueViolation, sqlColumnName, uuidv7 } from '@oxy.so/db';
 import { HUMAN_SETTLED_LOCALIZATION_STATUSES } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import * as schema from '../schema/index.js';

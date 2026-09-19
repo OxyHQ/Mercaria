@@ -38,17 +38,16 @@ import {
   type ProviderAccountRow,
 } from '../../db/payments/providerAccountRepository.js';
 import { checkoutRefusal } from '../checkout/refusal.js';
+import { NATIVE_RAIL_PREFERENCE, resolveNativeRail } from './native-rail.js';
 
 /**
- * The rail a native checkout funds through.
+ * The rail a native checkout funds through — see `native-rail.ts`.
  *
- * A constant rather than a parameter because there is exactly one today and
- * pretending otherwise would be an abstraction with a single implementation.
- * A second rail would bring its own eligibility, and the seam it needs is a
- * seller-and-listing-aware CHOICE of rail — which is a different function from
- * this one, not a wider signature on it.
+ * Re-exported rather than imported directly by this module's callers so that
+ * `NATIVE_RAIL`'s former readers keep one import site while the question they
+ * ask changes from a constant to a resolution.
  */
-export const NATIVE_RAIL: Extract<PaymentProviderId, 'stripe'> = 'stripe';
+export { resolveNativeRail } from './native-rail.js';
 
 /** Which seller a group belongs to, decomposed from its key. */
 export interface SellerAccountOwner {
@@ -84,7 +83,14 @@ export function sellerKeyFor(owner: SellerAccountOwner): string {
 export async function findSellerAccount(
   owner: SellerAccountOwner,
 ): Promise<ProviderAccountRow | undefined> {
-  return await findProviderAccountByOwner(getDb(), { provider: NATIVE_RAIL, ...owner });
+  // Deliberately NOT gated on the rail being configured. Which account a seller
+  // is connected to is a different question from whether this deployment can
+  // charge on it today, and only the second is configuration-dependent: turning
+  // a rail off during an incident must not make Mercaria forget the account, and
+  // `resolvePartnerTransferDestination` asks exactly the first question. The
+  // gates above and below DO return early, which is where that property belongs.
+  const rail = resolveNativeRail() ?? NATIVE_RAIL_PREFERENCE[0]!;
+  return await findProviderAccountByOwner(getDb(), { provider: rail, ...owner });
 }
 
 /**
@@ -127,7 +133,8 @@ export async function readSellerPaymentReadiness(
   sellerKeys: readonly string[],
 ): Promise<Map<string, boolean>> {
   const readiness = new Map<string, boolean>();
-  if (!config.payments.stripe.enabled || sellerKeys.length === 0) return readiness;
+  const rail = resolveNativeRail();
+  if (!rail || sellerKeys.length === 0) return readiness;
 
   const owners = sellerKeys.flatMap((sellerKey) => {
     const owner = parseSellerKey(sellerKey);
@@ -137,7 +144,7 @@ export async function readSellerPaymentReadiness(
 
   const rows = await findProviderAccountsByOwners(
     getDb(),
-    NATIVE_RAIL,
+    rail,
     owners.map(({ owner }) => owner),
   );
   const byKey = new Map(rows.map((row) => [sellerKeyFor(row), row.onboardingState]));
@@ -168,7 +175,7 @@ export async function readSellerPaymentReadiness(
  * and it is pinned from both sides in the checkout suite.
  */
 export async function assertSellerGroupsPaymentReady(sellerKeys: readonly string[]): Promise<void> {
-  if (!config.payments.stripe.enabled) return;
+  if (!resolveNativeRail()) return;
 
   const unready: string[] = [];
   for (const sellerKey of sellerKeys) {
@@ -245,7 +252,12 @@ export function toProviderAccountStatus(row: ProviderAccountRow): ProviderAccoun
  */
 export function notConnectedStatus(owner: SellerAccountOwner): ProviderAccountStatus {
   return {
-    provider: NATIVE_RAIL,
+    // The rail they WOULD connect to. On a deployment with no rail at all there
+    // is no true answer and every other field in this DTO already says so, so
+    // naming the preferred rail is the stable one — a seller reading this is
+    // being shown a connect call to action, and the first rail this codebase
+    // would connect them to is the honest subject of it.
+    provider: resolveNativeRail() ?? NATIVE_RAIL_PREFERENCE[0]!,
     ownerType: owner.ownerType,
     ownerId: owner.ownerId,
     onboardingState: 'not_connected',

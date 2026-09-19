@@ -47,7 +47,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { categories } from '../schema/catalog.js';
 import {

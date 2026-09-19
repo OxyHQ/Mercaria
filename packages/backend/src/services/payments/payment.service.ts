@@ -134,8 +134,15 @@ function sourcesFor(next: PaymentStatus): PaymentStatus[] {
  * money", and those come apart the moment a third non-booking rail appears.
  * Both `false` entries are #45 acceptance 5 and ADR 0001 D12: the payment is
  * VISIBLE and creates no false Mercaria cash.
+ *
+ * EXPORTED, and it did not use to be. `ledger-audit.job.ts` restated this set as
+ * a literal and called the restatement "an ASSERTION, not a copy" — but nothing
+ * asserted anything, and when `peable` was added here it was not added there, so
+ * the audit silently stopped covering an entire booking rail. That is the exact
+ * failure the comment predicted. Two lists that must agree need a mechanism, not
+ * a paragraph, so the audit now derives its set from this one.
  */
-const PROVIDER_BOOKS_LEDGER: Record<PaymentProviderId, boolean> = {
+export const PROVIDER_BOOKS_LEDGER: Record<PaymentProviderId, boolean> = {
   // Captured on Shopify/WooCommerce. Mercaria never held these funds.
   external: false,
   // Cash or a card terminal at a register. The money is in the merchant's
@@ -146,6 +153,12 @@ const PROVIDER_BOOKS_LEDGER: Record<PaymentProviderId, boolean> = {
   // The dev seam. It books, because the ledger is what it exists to exercise —
   // and it is hard-gated off in production by `config.orders.mockPayEnabled`.
   mock: true,
+  // The Peable rail (ADR 0009). It books for exactly the same reason `stripe`
+  // does, and the ADR is explicit that this is unchanged: Mercaria remains
+  // merchant of record (ADR 0001 D1 is inherited), the money still arrives on
+  // the platform balance, and the commission is still `gross − Σnets` in the
+  // ledger. Only WHO Mercaria calls to move it changed.
+  peable: true,
   // The card rail. Mercaria is merchant of record (ADR 0001 D1): the money
   // arrives on the platform balance, Mercaria owes each seller their share, and
   // the difference is its commission — which exists nowhere but this ledger.

@@ -558,7 +558,7 @@ stating the opposite of the code it sits on.
 - `POST /guest/session` carries `makeRateLimiter('guest-issue')`
   (`routes/guest-session.ts:205`) with no options, so it resolves to the SDK's
   `anonymousMax = 600` per 15 minutes, keyed on a hashed IP
-  (`node_modules/@oxyhq/core/dist/cjs/server/rateLimit.js:159`).
+  (`node_modules/@oxy.so/core/dist/cjs/server/rateLimit.js:159`).
 - `POST /cart/items` — which is the *real* issuance path since #104
   (`controllers/cart.controller.ts:135` calls `issueGuestActor`) — carries
   `makeActorRateLimiter('cart')` (`routes/cart.ts:66`), **not** the dedicated

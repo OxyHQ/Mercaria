@@ -22,7 +22,7 @@
  */
 
 import type { Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import type { AuthoringPermissionContext, ProductTypeAuthoringFlow } from '@mercaria/shared-types';
 import { config } from '../config/index.js';
 import { getDb } from '../db/postgres.js';

@@ -71,7 +71,36 @@ export type PublicRouteId =
   /** `/sellers/:oxyUserId` — a P2P seller's public profile (#92). */
   | 'seller'
   /** `/categories/:handle` — category and filtered browse. */
-  | 'category_browse';
+  | 'category_browse'
+  /**
+   * `/categories` — the taxonomy index hub.
+   *
+   * Public and indexable, and the decision is worth stating because
+   * `docs/storefront-catalog.md` §Seams left it open on the grounds that a page
+   * whose entire content is links to pages each indexed on their own might be
+   * thin. Every route excused from indexing is excused for one of three
+   * reasons — it is account-private, it is a shopper-assembled combination or
+   * position-dependent, or it is a step in a transaction — and a taxonomy root
+   * is none of them. It is the same content for every visitor, backed by
+   * editorially owned entities rather than generated combinations, and it is
+   * the top of the storefront's own internal link graph.
+   *
+   * It carries no `sitemapCollection`: there is one of it, so the sitemap needs
+   * no collection to enumerate.
+   */
+  | 'category_index'
+  /**
+   * `/deals` — one `store-offer` section per store with a live automatic
+   * discount (the discovery feed's `scope=deals`,
+   * `docs/superpowers/specs/2026-09-07-discovery-feed-design.md`).
+   *
+   * Indexable for the same reason `category_index` is: the same content for
+   * every visitor, backed by editorially-independent facts (which stores
+   * currently discount, not a shopper-assembled combination), and reached from
+   * the storefront's own navigation. It carries no `sitemapCollection` for the
+   * same reason too — there is one of it.
+   */
+  | 'deals';
 
 export const PUBLIC_ROUTE_IDS: readonly PublicRouteId[] = [
   'home',
@@ -84,6 +113,8 @@ export const PUBLIC_ROUTE_IDS: readonly PublicRouteId[] = [
   'legacy_listing',
   'seller',
   'category_browse',
+  'category_index',
+  'deals',
 ];
 
 /**
@@ -580,6 +611,12 @@ export interface SeoSitemapIndexEntry {
 export const SEO_ROBOTS_DISALLOWED_PATHS: readonly string[] = [
   // Internal search: infinite, thin and duplicative of the browse pages.
   '/search',
+  // One category's listings resliced by a signal (the discovery feed's
+  // `/categories/:handle/s/:signal`) — the SAME listings the category page
+  // already carries, sorted five different ways. Near-duplicate of the page it
+  // hangs off by construction, the `/search` class above, and wildcarded
+  // because both the category and the signal vary.
+  '/categories/*/s/',
   // Grounded comparison (#96): one page per shopper-assembled TUPLE of
   // products, and its `?watchlist=` names a private list (#81).
   '/compare',
@@ -614,4 +651,16 @@ export const SEO_ROBOTS_DISALLOWED_PATHS: readonly string[] = [
   // Operator surfaces. Behind an allow-list already; a crawler has no business
   // discovering that they exist.
   '/internal/',
+  // The buyer's digital library (#1015 W9): one account's own purchases and the
+  // files behind them, resolved from the credential. An anonymous fetch reaches
+  // nothing.
+  '/library',
+  // #1015's digital storefront, and this entry is MEANT TO EXPIRE. These four are
+  // genuinely public pages and belong in the route registry; they are disallowed
+  // today because they have no CONTENT — `lib/digital/source.ts`'s producers all
+  // answer `unavailable`, so every one renders "switched off here". Indexing a page
+  // that says that is worse than not indexing it. Move them to the registry in the
+  // change that lands the reads; `HANDOFF.md` §6 carries the obligation.
+  '/3d',
+  '/creators/',
 ];

@@ -32,7 +32,7 @@
 
 import { sql } from 'drizzle-orm';
 import { check, text, type AnyPgColumn } from 'drizzle-orm/pg-core';
-import { timestamptz } from '@oxyhq/db';
+import { timestamptz } from '@oxy.so/db';
 import {
   LOCALIZATION_PROVENANCES,
   LOCALIZATION_STATUSES,

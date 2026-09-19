@@ -20,7 +20,7 @@ asked of whom, in what shape.
 
 ---
 
-## The four tables
+## The five tables
 
 | Table | What one row is |
 |---|---|
@@ -28,6 +28,7 @@ asked of whom, in what shape.
 | `product_type_category_scopes` | This version may be used under this category (optionally its subtree). |
 | `product_type_field_groups` | An ordered section of the form and the spec table. |
 | `product_type_fields` | One attribute, in one authoring flow, of one version. |
+| `product_type_field_allowed_values` | One value of the cited attribute that THIS field permits (#367 line 235). |
 
 ### Identity: two stable identifiers and no third (D1)
 
@@ -141,6 +142,68 @@ the schema file as a deliberate absence: it removes the repetition and makes D5'
 own shape unrepresentable, because order and group would then have to be
 identical across flows. They are not — a P2P form is a shorter form in a
 different order.
+
+---
+
+## Allowed value subsets (epic line 235)
+
+A phone form offers three of `storage_capacity`'s twenty values; a drive form
+offers eight others. `product_type_field_allowed_values` is that narrowing, and
+its whole design is decided by the clause it has to honour — *"without copying
+value records"*.
+
+**Until this landed the clause held vacuously.** `schema.service.ts` composed
+`controlledValues: valuesByDefinition.get(field.attributeDefinitionId) ?? []` —
+every field got the cited definition's FULL set. Nothing subsetted, so nothing
+copied; the clause was satisfied by the absence of the capability rather than by
+anything designed.
+
+**A subset is a JOIN onto `attribute_enum_values.id`, never a list of value
+strings.** The obvious implementation is a `text[]` of permitted spellings on the
+field, and it is #56's `allowed_values text[]` again — the column that was
+REMOVED rather than kept beside the value rows, because two representations of
+the permitted set disagree the moment one is edited and an alias would resolve
+against whichever the writer remembered. `product_type_field_allowed_values` has
+no column that could hold a spelling, which a realdb case asserts over a real row
+rather than over the type.
+
+**Empty means EVERY value.** Two conventions are live in this schema and
+deliberately opposed — absence in `attribute_definition_categories` means
+everywhere, absence in `product_type_field_categories` means nowhere — and this
+one follows the first, for a reason that is not stylistic: every field that
+exists has zero subset rows, so "nowhere" would take every published version to
+zero offered values on the deploy that created the table.
+
+**Which values, never their ORDER.** No `position` column. The registry's own
+`attribute_enum_values.position` orders them, and the composition filters that
+ordered list, so there is one ordering authority.
+
+**A value from another attribute is UNREPRESENTABLE.** Two NOT NULL composite
+foreign keys share `attribute_definition_id` — the `match_category_gates`
+device — pinning the field's cited definition and the value's owning definition
+to the same row. Both needed a `unique()` on their target, and both targets are
+`(id, <other column>)` over a primary key, so neither could fail to apply.
+
+**A published version's subset is frozen with the rest of its contract**
+(`mercaria_product_type_allowed_value_frozen`), which is
+`mercaria_product_type_child_frozen`'s reasoning one hop further out: a schema
+whose contract could change after publication is a mutable document wearing a
+version number. Without it, the permitted values would be the ONE piece of a
+published schema that could still move under a merchant.
+
+**What is deliberately NOT modelled: a category-only subset.** Narrowing values
+per category, independent of a product type, would be a fourth representation of
+where an attribute applies, and a schema composed for one (product type,
+category) pair would have to intersect the two — making the answer depend on
+which was applied first.
+
+**Carry-forward: nothing carries, because nothing clones.**
+`insertProductTypeField` has one production caller, the vertical seed script;
+there is no create-v2-from-v1 path and no HTTP surface that creates a field.
+`ATTRIBUTE_VERSION_CARRY_FORWARD` is a census over `attribute_definitions`
+columns and owes this table nothing. The rows key on `product_type_field_id`, so
+a clone would carry them with the field by construction rather than by somebody
+remembering.
 
 ---
 

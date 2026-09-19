@@ -23,7 +23,7 @@
 
 import { and, asc, count, eq, inArray, max, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
-import { publicColumns } from '@oxyhq/db/assert';
+import { publicColumns } from '@oxy.so/db/assert';
 import type { ConditionGroup, CurrencyCode } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';

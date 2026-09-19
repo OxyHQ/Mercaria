@@ -48,6 +48,7 @@ import type {
 } from '@mercaria/shared-types';
 import { assertSafeMoneyAmount } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
+import { nativeRailPresentmentCurrencies } from '../payments/native-rail.js';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   findLiveRetailBindingsForVariants,
@@ -344,10 +345,12 @@ export async function planRetailCheckout<TLine>(
   // `assertCheckoutCurrencyEligible` because a retail line's cost quote is
   // composed IN this currency and an unchargeable one would produce a locked
   // amount nobody can pay.
-  if (
-    config.payments.stripe.enabled &&
-    !config.payments.stripe.presentmentCurrencies.includes(input.presentmentCurrency)
-  ) {
+  const eligible = nativeRailPresentmentCurrencies();
+  // The RESOLVED rail's set, not Stripe's. An empty set means no rail is
+  // configured — `nativeRailPresentmentCurrencies` answers `[]` there — which
+  // is the same "no rail, nothing to check" the `stripe.enabled` conjunct used
+  // to express, without naming a rail this deployment may not run.
+  if (eligible.length > 0 && !eligible.includes(input.presentmentCurrency)) {
     refuseRetail('currency_unsupported', first.binding.id);
   }
 

@@ -28,6 +28,10 @@ import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError, validationError } from '../lib/errors/error-codes.js';
 import { resolveFacets } from '../services/facets/facet.service.js';
 import type { FacetRequestBody } from '../middleware/facet-schemas.js';
+import {
+  measurementSystemForMarket,
+  type MeasurementSystem,
+} from '../services/canonical/display-units.js';
 
 /**
  * The display currency when a caller names none.
@@ -94,6 +98,32 @@ function toScope(body: FacetRequestBody): FacetScope {
       };
 }
 
+/**
+ * The measurement system this request prefers, or `null` (#367 line 598).
+ *
+ * The SAME rule `catalog-attributes.controller.ts` states, and deliberately the
+ * same three lines rather than a second convention: an explicit `unitSystem`
+ * wins over a `market`, because the first is what the shopper's DEVICE reports
+ * and the second is only where they are. Two surfaces deciding differently about
+ * one shopper is the divergence #941 is about, one domain over.
+ *
+ * `null` is a real answer, not a missing one. `measurementSystemForMarket`
+ * returns `null` for an absent or malformed market rather than `metric`, and
+ * `metric` for a well-formed one CLDR does not override — two different
+ * outcomes, and only the first means "nothing was stated". With `null` every
+ * range is served in its base unit exactly as it was before this parameter
+ * existed.
+ *
+ * `body.locale` is NOT consulted and must not be. A shopper reading Spanish in
+ * Ohio is in a US-customary market; taking the system off the reading language
+ * is the collapse ADR 0007 D4 forbids, and it is why `market` is a second
+ * parameter rather than something derived here.
+ */
+function preferredSystem(body: FacetRequestBody): MeasurementSystem | null {
+  if (body.unitSystem !== undefined) return body.unitSystem;
+  return measurementSystemForMarket(body.market);
+}
+
 export async function facetsHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as FacetRequestBody;
@@ -103,6 +133,7 @@ export async function facetsHandler(req: Request, res: Response): Promise<void> 
         selection: toSelection(body),
         locale: body.locale ?? MERCARIA_BASE_LOCALE,
         displayCurrency: (body.currency as CurrencyCode | undefined) ?? DEFAULT_FACET_CURRENCY,
+        measurementSystem: preferredSystem(body),
         ...(body.sort === undefined ? {} : { sort: body.sort }),
       },
       getDb(),

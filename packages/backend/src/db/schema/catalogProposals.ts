@@ -77,7 +77,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   CATALOG_PROPOSAL_DUPLICATE_CANDIDATE_KINDS,
   CATALOG_PROPOSAL_DUPLICATE_DETECTORS,
@@ -147,6 +147,15 @@ export const catalogProposals = pgTable(
      * vocabulary that may deepen, and a generated column's rewrite drops indexes.
      */
     normalizedLabel: text().notNull(),
+    /**
+     * Which {@link normalizeEntityName} version folded `normalizedLabel` (#915).
+     *
+     * Not `normalization_version`: `canonical_attribute_values.normalization_rule_version`
+     * is a DIFFERENT fold over different values. See `NAME_FOLD_VERSION` for what
+     * a bump obliges — the fold runs on both sides, so a query folded under a
+     * newer version misses a row folded under an older one SILENTLY.
+     */
+    nameFoldVersion: integer().notNull().default(1),
     /**
      * The SEARCH form — accent-folded and lower-cased, the space the trigram
      * index lives in. Separate from `normalized_label` because the two answer
@@ -591,7 +600,7 @@ export const catalogReviewEvents = pgTable(
      * `at` is not enough and that is not a rounding problem: a submission and
      * its duplicate scan are written in ONE transaction from ONE `now`, so they
      * share the column exactly. The tiebreak was the uuid v7 primary key, which
-     * `@oxyhq/db` does not make monotonic within a millisecond — so the trail's
+     * `@oxy.so/db` does not make monotonic within a millisecond — so the trail's
      * order was decided by the low bits of a random id (#775), in the operator
      * TIMELINE as well as in a test.
      *

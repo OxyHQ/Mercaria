@@ -15,7 +15,7 @@
  * application from opening cases in another's name.
  */
 
-import { CrowdSource } from '@oxyhq/crowdsource';
+import { CrowdSource } from '@oxy.so/crowdsource';
 import { config } from '../../config/index.js';
 
 let client: CrowdSource | undefined;

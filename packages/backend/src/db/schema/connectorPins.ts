@@ -36,7 +36,7 @@
 
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId } from '@oxyhq/db';
+import { createdAt, generatedId } from '@oxy.so/db';
 import { listings } from './catalog';
 
 export const listingPinReleases = pgTable(

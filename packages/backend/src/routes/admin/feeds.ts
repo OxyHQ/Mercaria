@@ -8,21 +8,22 @@ import {
   draftFeedVersionSchema,
 } from '../../middleware/feed-import-schemas.js';
 import {
-  activateStoreFeedVersionHandler,
-  createStoreFeedHandler,
-  downloadStoreFeedReportHandler,
-  draftStoreFeedVersionHandler,
-  getStoreFeedHandler,
-  getStoreFeedReportHandler,
-  getStoreFeedStatusHandler,
-  listStoreFeedReportsHandler,
-  listStoreFeedUploadsHandler,
-  listStoreFeedsHandler,
-  previewStoreFeedVersionHandler,
-  revertStoreFeedVersionHandler,
-  syncStoreFeedHandler,
-  uploadStoreFeedHandler,
-  validateStoreFeedVersionHandler,
+  activateFeedVersionHandler,
+  declareFeedOwnerScope,
+  createFeedHandler,
+  downloadFeedReportHandler,
+  draftFeedVersionHandler,
+  getFeedHandler,
+  getFeedReportHandler,
+  getFeedStatusHandler,
+  listFeedReportsHandler,
+  listFeedUploadsHandler,
+  listFeedsHandler,
+  previewFeedVersionHandler,
+  revertFeedVersionHandler,
+  syncFeedHandler,
+  uploadFeedHandler,
+  validateFeedVersionHandler,
 } from '../../controllers/feed-import.controller.js';
 
 /**
@@ -76,93 +77,105 @@ const fetchLimiter = makeRateLimiter('feed-import-fetch', { authenticatedMax: 30
 
 router.use(feedLimiter);
 
-router.get('/', requireStorePermission('channels:write'), listStoreFeedsHandler);
+/**
+ * Whose feeds these handlers act on.
+ *
+ * The same handlers serve `/internal/feed-imports`, where there is no store at
+ * all. The scope is DECLARED here rather than read off `req.store`, because
+ * "no store loaded means the platform" is one missing `loadStore` away from
+ * turning this router into an operator one — and `feedOwnerStoreId` throws
+ * rather than defaulting, so a router that forgets this line fails loudly on
+ * its first request instead of quietly serving the wrong owner's rows.
+ */
+router.use(declareFeedOwnerScope('merchant'));
+
+router.get('/', requireStorePermission('channels:write'), listFeedsHandler);
 
 router.post(
   '/',
   requireStorePermission('channels:write'),
   validateBody(createFeedConfigurationSchema),
-  createStoreFeedHandler,
+  createFeedHandler,
 );
 
-router.get('/:configurationId', requireStorePermission('channels:write'), getStoreFeedHandler);
+router.get('/:configurationId', requireStorePermission('channels:write'), getFeedHandler);
 
 router.get(
   '/:configurationId/status',
   requireStorePermission('channels:write'),
-  getStoreFeedStatusHandler,
+  getFeedStatusHandler,
 );
 
 router.post(
   '/:configurationId/versions',
   requireStorePermission('channels:write'),
   validateBody(draftFeedVersionSchema),
-  draftStoreFeedVersionHandler,
+  draftFeedVersionHandler,
 );
 
 router.post(
   '/:configurationId/versions/:versionId/preview',
   requireStorePermission('channels:write'),
   fetchLimiter,
-  previewStoreFeedVersionHandler,
+  previewFeedVersionHandler,
 );
 
 router.post(
   '/:configurationId/versions/:versionId/validate',
   requireStorePermission('channels:write'),
   fetchLimiter,
-  validateStoreFeedVersionHandler,
+  validateFeedVersionHandler,
 );
 
 router.post(
   '/:configurationId/versions/:versionId/activate',
   requireStorePermission('channels:write'),
   validateBody(activateFeedVersionSchema),
-  activateStoreFeedVersionHandler,
+  activateFeedVersionHandler,
 );
 
 router.post(
   '/:configurationId/versions/:versionId/revert',
   requireStorePermission('channels:write'),
-  revertStoreFeedVersionHandler,
+  revertFeedVersionHandler,
 );
 
 router.get(
   '/:configurationId/uploads',
   requireStorePermission('channels:write'),
-  listStoreFeedUploadsHandler,
+  listFeedUploadsHandler,
 );
 
 router.post(
   '/:configurationId/uploads',
   requireStorePermission('channels:write'),
   fetchLimiter,
-  uploadStoreFeedHandler,
+  uploadFeedHandler,
 );
 
 router.get(
   '/:configurationId/reports',
   requireStorePermission('channels:write'),
-  listStoreFeedReportsHandler,
+  listFeedReportsHandler,
 );
 
 router.get(
   '/:configurationId/reports/:reportId',
   requireStorePermission('channels:write'),
-  getStoreFeedReportHandler,
+  getFeedReportHandler,
 );
 
 router.get(
   '/:configurationId/reports/:reportId/download',
   requireStorePermission('channels:write'),
-  downloadStoreFeedReportHandler,
+  downloadFeedReportHandler,
 );
 
 router.post(
   '/:configurationId/sync',
   requireStorePermission('channels:write'),
   fetchLimiter,
-  syncStoreFeedHandler,
+  syncFeedHandler,
 );
 
 export default router;

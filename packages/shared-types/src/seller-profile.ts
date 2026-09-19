@@ -279,7 +279,7 @@ export interface PublicSellerMarketplace {
  * a different fact from a tier of `new` and must stay distinguishable.
  */
 export interface PublicSellerTrust {
-  /** Oxy Trust's tier for this account. A `TrustTier` from `@oxyhq/contracts`. */
+  /** Oxy Trust's tier for this account. A `TrustTier` from `@oxy.so/contracts`. */
   tier: string;
   /** Net lifetime reputation total. */
   total: number;

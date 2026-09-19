@@ -1,6 +1,6 @@
 import { View } from "react-native";
 import { useRouter } from "expo-router";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import type { CatalogProductBrowsePage } from "@mercaria/shared-types";
 import { Button, CanonicalProductCard, Skeleton, Text } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";

@@ -25,7 +25,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, desc, eq, sql, TransactionRollbackError } from 'drizzle-orm';
-import { createDatabase, uuidv7 } from '@oxyhq/db';
+import { createDatabase, uuidv7 } from '@oxy.so/db';
 import type postgres from 'postgres';
 import {
   CATALOG_LOCALIZED_FIELDS,

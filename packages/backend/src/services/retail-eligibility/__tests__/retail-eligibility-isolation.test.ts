@@ -143,7 +143,7 @@ const DECISION_REPOSITORY_REFERENCE =
   /decisionRepository|retailEligibilityDecisions|recordRetailEligibilityDecision/;
 
 /** Naming a currency as special, or converting between two. */
-const FX_REFERENCE = /\bFairCoin\b|\bOxyPay\b|'FAIR'|"FAIR"|fx\.service|convertToFair|toDualMoney|getRates\(/;
+const FX_REFERENCE = /\bFairCoin\b|\bOxyPay\b|\bPeable\b|'FAIR'|"FAIR"|fx\.service|convertToFair|toDualMoney|getRates\(/;
 
 /** A field by which a caller could override the verdict. */
 const OVERRIDE_FIELD =
@@ -223,7 +223,7 @@ describe('the derivation never reads a stored verdict', () => {
 });
 
 describe('this domain does no FX and names no currency as special', () => {
-  it('no module converts a currency or names FairCoin or OxyPay', () => {
+  it('no module converts a currency or names payment-rail policy', () => {
     let scanned = 0;
     for (const path of domainFiles()) {
       // The COPY is scanned too, comments included: ADR 0004 D11 forbids the
@@ -275,6 +275,7 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     expect(DECISION_REPOSITORY_REFERENCE.test('const decision = derive(input);')).toBe(false);
 
     expect(FX_REFERENCE.test("import { convert } from '../fx.service.js';")).toBe(true);
+    expect(FX_REFERENCE.test("import { Peable } from '../payments.js';")).toBe(true);
     expect(FX_REFERENCE.test("const currency = 'EUR';")).toBe(false);
 
     expect(OVERRIDE_FIELD.test('if (input.force) return { verdict: "eligible" };')).toBe(true);

@@ -25,7 +25,7 @@
  * that stringifies a request. Nothing here logs a URL, a header or a body.
  */
 
-import { safeFetch, SsrfRejection, UpstreamError } from '@oxyhq/core/server';
+import { safeFetch, SsrfRejection, UpstreamError } from '@oxy.so/core/server';
 import type { IncomingMessage } from 'node:http';
 
 /** How large an Awin transactions response may be before it is a fault. */

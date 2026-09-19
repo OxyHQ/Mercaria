@@ -17,7 +17,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import {
   MERCHANT_COMPETITIVENESS_FORBIDDEN_FIELDS,
   PRICE_SIGNAL_MIN_DISTINCT_SELLERS_FLOOR,

@@ -46,6 +46,16 @@ export interface FacetDefinitionInput {
   readonly cardinality: AttributeCardinality;
   readonly baseUnit: string | null;
   readonly filterable: boolean;
+  /**
+   * `display_policy = 'public'` — #94's "displayable" capability.
+   *
+   * A facet publishes the attribute's label and every bucket's value, so an
+   * `operator_only` attribute offered here is a public rendering of exactly what
+   * the display policy withheld. This domain does not decide it and does not
+   * re-derive it; it reads the ACTIVE definition's verdict, for the reason
+   * stated on `definitionVersion` below.
+   */
+  readonly publiclyDisplayable: boolean;
   readonly sortable: boolean;
   readonly hardConstraintCapable: boolean;
   readonly variantDefining: boolean;
@@ -230,9 +240,14 @@ export function planFacets(
  * Why this attribute is not offered, or `undefined` when it is.
  *
  * The order of the tests is the order a reader would want the reason in: the
- * registry's own refusal first, then the product type's, then the shape. A
+ * registry's own refusals first, then the product type's, then the shape. A
  * `filterable: false` attribute that also has no facetable shape should report
  * the decision somebody made, not the one the code noticed.
+ *
+ * `not_publicly_displayable` comes FIRST of the two registry refusals, because
+ * it is the stronger statement: `filterable: false` says this attribute is not
+ * useful to filter on, and `operator_only` says its values are not the
+ * shopper's to see at all. An attribute that is both should report the second.
  */
 function suppressionFor(
   definition: FacetDefinitionInput,
@@ -240,6 +255,7 @@ function suppressionFor(
   shape: FacetValueShape | null,
   level: FacetLevel | 'refused',
 ): FacetSuppressionReason | undefined {
+  if (!definition.publiclyDisplayable) return 'not_publicly_displayable';
   if (!definition.filterable) return 'not_filterable';
   if (field !== undefined && FACET_WITHHOLDING_REQUIREMENTS.includes(field.requirement)) {
     return 'hidden_by_product_type';

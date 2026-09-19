@@ -50,6 +50,11 @@ export * from './tax';
 // Discount DTOs (Discount, DiscountAllocation, DiscountMethod, DiscountValueType, …).
 export * from './discount';
 
+// Discovery feed DTOs — the explore, category and deals surfaces (one contract,
+// three scopes). Follows `./discount`, whose `DiscountSummary` counterpart it
+// projects, and `./product`, whose ProductSummary/StoreSummary it carries.
+export * from './discovery';
+
 // Store (shop) admin-facing DTOs (Store, StoreMember, StoreRole, StorePermission).
 export * from './store';
 
@@ -671,6 +676,45 @@ export * from './product-type';
 // disposition map is total, so a commerce type cannot be added anywhere without
 // a decision compiling beside it.
 export * from './commerce-type';
+// The digital-commerce foundation (#1015, ADR 0010). Immediately after
+// `./commerce-type`, because that is the module whose `digital_good` disposition
+// these three discharge, and a reader arriving at the admission should meet the
+// domain that paid for it next.
+//
+// `./digital-asset` is the DELIVERABLE (asset -> version -> file -> package) and
+// owns no price and no stock; `./digital-licence` is what a buyer may DO and owns
+// no price either, because a licence is not a variant (#1015 boundary 5);
+// `./digital-right` is what a buyer OWNS and is deliberately not called an
+// entitlement — `./merchant-plan` already owns that word for Mercaria billing a
+// merchant, and two domains one adjective apart is how a service resolves the
+// wrong one. `./digital-supply` carries the place-of-supply and withdrawal
+// vocabulary, which are compliance facts about an ORDER rather than about a
+// deliverable, and names the evidence kinds that may never establish a country.
+export * from './digital-asset';
+export * from './digital-licence';
+export * from './digital-right';
+export * from './digital-supply';
+// The 3D product profiles (#1015 Workstream 3, ADR 0010 D12). LAST of the
+// digital modules, because it is the only one that reads BOTH halves of the
+// domain: it names the facts `./digital-asset`'s inspection table measures and
+// the claims `./product-type`'s registry carries, and its whole job is to keep
+// those two populations DISJOINT so nothing is recorded twice and nothing can
+// say which copy is true. It defines no vocabulary either owns — a profile is a
+// set of KEYS, and it carries no requirement, flow, group, position, label or
+// visibility rule, because every one of those is a property of the authoring
+// FORM and reaches a client as an `AuthoringSchema` composed per locale, market
+// and flow (#1015 acceptance criterion 18).
+export * from './digital-3d-profile';
+// Authorized digital retail (#1016, ADR 0011) — the OTHER digital shape: a
+// game, software licence or other third-party product Mercaria does not own and
+// buys from an approved distributor at the moment somebody buys it. AFTER
+// `./digital-3d-profile` because it reads none of the creator vocabulary and is
+// not a specialization of it: an `asset_package` is a thing a creator uploaded,
+// and an activation key is a thing a supplier allocated, which is why ADR 0011
+// D16 amends only half of ADR 0010 D16 and mints no gift-card vocabulary at all.
+// `./procurement` is its sibling, not its parent — the supplier spine is shared
+// and the purchase-order machines are not.
+export * from './digital-retail';
 // Navigation trees and the merchandising separation (#367 step 7, ADR 0007 D3).
 // LAST, and it defines no vocabulary any domain above it owns: a node POINTS at
 // `./condition`'s groups, `./offer`'s kinds and availability and `./money`'s
@@ -853,3 +897,8 @@ export * from './catalog-governance';
 // its `unmeasured` branch carries no value, numerator or denominator, so a metric
 // nobody measured cannot be rendered as a number rather than merely should not be.
 export * from './catalog-metrics';
+
+// The PUBLIC integration contract (#1017) — portable references and the
+// field-by-field public projections `@mercaria.co/sdk` publishes to other Oxy
+// applications. Nothing here is a storefront DTO, and nothing spreads one.
+export * from './public-api';

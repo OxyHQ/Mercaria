@@ -9,7 +9,7 @@
 
 import { sql } from 'drizzle-orm';
 import { boolean, check, index, jsonb, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   asEnumValues,
   checkEveryElementOf,
@@ -112,7 +112,7 @@ export const PUSH_TOKEN_PLATFORMS = ['ios', 'android', 'web'] as const;
  *
  * Mongo reaped with `{createdAt: 1}, expireAfterSeconds: 90d,
  * partialFilterExpression: {status: 'dismissed'}` — a CONDITIONAL delete.
- * `@oxyhq/db`'s expiry registry takes `{table, column, retentionSeconds}` and has
+ * `@oxy.so/db`'s expiry registry takes `{table, column, retentionSeconds}` and has
  * no filter, so the condition cannot be passed to it.
  *
  * `dismissed_at` is the answer, and it is a better statement of the same rule

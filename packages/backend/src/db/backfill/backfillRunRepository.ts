@@ -24,6 +24,7 @@ import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type {
   CatalogBackfillCohortKind,
   CatalogBackfillMode,
+  CatalogBackfillProducerTerminalCause,
   CatalogBackfillStage,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
@@ -276,6 +277,12 @@ export async function advanceBackfillRun(
       unmatched: sql`${catalogBackfillRuns.unmatched} + ${counters.unmatched}`,
       skipped: sql`${catalogBackfillRuns.skipped} + ${counters.skipped}`,
       failed: sql`${catalogBackfillRuns.failed} + ${counters.failed}`,
+      // A page that advanced is a page that worked, so the consecutive-failure
+      // budget starts over. This is what makes the count CONSECUTIVE rather
+      // than a lifetime one, and it is the right shape for a pass whose cursor
+      // survives every failure: a run that fails once, recovers and fails again
+      // six pages later has not exhausted anything.
+      consecutiveFailures: 0,
     })
     .where(
       and(
@@ -288,21 +295,144 @@ export async function advanceBackfillRun(
 }
 
 /**
+ * Record a page-level failure and say whether the run may be retried
+ * (#367 W16 line 759).
+ *
+ * Increments `consecutive_failures` and releases the lease, choosing the status
+ * from the incremented value against `maxAttempts`:
+ *
+ * - **below the ceiling** → `paused`, which IS in `RESUMABLE`, so the
+ *   dispatcher picks the run up on its next tick and re-reads the same page.
+ *   The cursor was never moved, so the retry is exact.
+ *
+ *   `paused` and NOT `pending`:
+ *   `catalog_backfill_runs_started_shape_check` is the biconditional
+ *   `(status = 'pending') = (started_at is null)`, so `pending` means NEVER
+ *   STARTED rather than ready-to-run. A claimed run has a `started_at`, so
+ *   `pending` is unrepresentable for it — the database refuses the write, and
+ *   it is right to: `paused` already means started, holding a cursor, waiting
+ *   for its next page, which is exactly what a retryable failure leaves
+ *   behind. It is also the state a SUCCESSFUL non-final page releases to, so
+ *   a retry and an ordinary pause are the same shape to every reader.
+ * - **at or above it** → `failed`, which is NOT in `RESUMABLE` and therefore
+ *   terminal. That is the dead-letter this domain already had; what it lacked
+ *   was anything before it.
+ *
+ * ## Why this is not "make `failed` claimable"
+ *
+ * Because `failed` has a SECOND producer. `cancelCatalogBackfillRun` releases
+ * to `failed` with the operator's reason in `last_error`, deliberately, since a
+ * cancelled pass and a broken one are the same fact to every reader of this
+ * table. Widening the claim predicate to include `failed` would make the
+ * dispatcher restart a run an operator had just stopped — silently, within
+ * fifteen seconds. So the retry happens BEFORE the terminal state, never out of
+ * it, and cancellation keeps working unchanged because it does not come through
+ * this function at all.
+ *
+ * The owner check is the same one `releaseBackfillRun` applies: a task whose
+ * lease was reclaimed mid-page must not write its verdict over the new owner's.
+ *
+ * @returns The status it settled on, or `undefined` when the lease was gone.
+ */
+export async function recordBackfillPageFailure(
+  input: {
+    runId: string;
+    leaseOwner: string;
+    maxAttempts: number;
+    error: string;
+    now?: Date;
+  },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<'paused' | 'failed' | undefined> {
+  const now = input.now ?? new Date();
+  // ONE statement: the increment and the decision are the same write, so two
+  // tasks cannot both read `consecutive_failures` and both decide to retry.
+  //
+  // `least(...)` is not defending against a race — the claim predicate already
+  // makes one impossible, because a run that reached the ceiling is `failed`,
+  // `failed` is not claimable, and no lease means no increment. What it defends
+  // against is the CEILING MOVING: `maxAttempts` is an env var, so a run sitting
+  // at 5 when somebody lowers it from 8 to 3 would otherwise store 6 — a count
+  // above the ceiling it was judged by, which reads as having spent more budget
+  // than exists. The clamp keeps the number meaning "how far into the budget"
+  // under a ceiling that changed.
+  const rows = await db
+    .update(catalogBackfillRuns)
+    .set({
+      consecutiveFailures: sql`least(${catalogBackfillRuns.consecutiveFailures} + 1, ${input.maxAttempts})`,
+      status: sql`case
+        when ${catalogBackfillRuns.consecutiveFailures} + 1 >= ${input.maxAttempts} then 'failed'
+        else 'paused'
+      end`,
+      // The SAME `case`, so the status and the cause cannot disagree: two
+      // expressions over one condition can be edited apart, and the row would
+      // then violate `catalog_backfill_runs_terminal_cause_shape_check` rather
+      // than silently mis-classify — but only after somebody deployed it. This
+      // is the exhaustion producer, so the only cause it can name is
+      // `retry_exhausted`; the `paused` branch writes NULL because a run that
+      // has not ended has not ended for a reason.
+      terminalCause: sql`case
+        when ${catalogBackfillRuns.consecutiveFailures} + 1 >= ${input.maxAttempts} then 'retry_exhausted'
+        else null
+      end`,
+      leaseOwner: null,
+      leaseUntil: null,
+      lastError: input.error.slice(0, CATALOG_BACKFILL_MAX_TEXT_LENGTH),
+      lastRunAt: now,
+    })
+    .where(
+      and(
+        eq(catalogBackfillRuns.id, input.runId),
+        eq(catalogBackfillRuns.leaseOwner, input.leaseOwner),
+      ),
+    )
+    .returning({ status: catalogBackfillRuns.status });
+  const settled = rows[0];
+  if (settled === undefined) return undefined;
+  return settled.status === 'failed' ? 'failed' : 'paused';
+}
+
+/**
  * Give the lease back.
  *
  * Only a COMPLETED pass clears the cursor and stamps `completed_at`; an
  * incomplete release keeps the cursor, which is the whole of "resumable". A
  * FAILED release keeps it too — the page that raised is retried from where it
  * started, not skipped.
+ *
+ * A page-level FAILURE does not come through here any more: it goes to
+ * {@link recordBackfillPageFailure}, which counts it first. This function still
+ * accepts `failed` because operator CANCELLATION uses it, and a cancellation is
+ * terminal on the first and only attempt.
+ *
+ * **A `failed` release must NAME its cause, and that is the input TYPE rather
+ * than a check.** `ReleaseBackfillRunInput` is a union whose `failed` member
+ * carries a non-optional `terminalCause`, so a third producer of `failed`
+ * cannot be written without deciding what it means — the compiler asks before
+ * the constraint does, and before a reviewer has to notice. The type is spelled
+ * as two whole object shapes rather than a common half intersected with a
+ * union, because this package compiles with `strict: false` and narrowing an
+ * intersection is exactly where that bites.
  */
+export type ReleaseBackfillRunInput =
+  | {
+      runId: string;
+      leaseOwner: string;
+      outcome: 'paused' | 'completed';
+      error?: string;
+      now?: Date;
+    }
+  | {
+      runId: string;
+      leaseOwner: string;
+      outcome: 'failed';
+      terminalCause: CatalogBackfillProducerTerminalCause;
+      error?: string;
+      now?: Date;
+    };
+
 export async function releaseBackfillRun(
-  input: {
-    runId: string;
-    leaseOwner: string;
-    outcome: 'paused' | 'completed' | 'failed';
-    error?: string;
-    now?: Date;
-  },
+  input: ReleaseBackfillRunInput,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<boolean> {
   const now = input.now ?? new Date();
@@ -314,6 +444,13 @@ export async function releaseBackfillRun(
       leaseUntil: null,
       lastError:
         input.error === undefined ? null : input.error.slice(0, CATALOG_BACKFILL_MAX_TEXT_LENGTH),
+      // Written on EVERY release, including the two that write NULL. Nothing
+      // reachable can leave a stale cause behind — `failed` is not claimable,
+      // so a run carrying one cannot be released again — but stating it makes
+      // the statement satisfy `..._terminal_cause_shape_check` on its face,
+      // instead of satisfying it via an argument about reachability that a
+      // later change to `RESUMABLE` would quietly invalidate.
+      terminalCause: input.outcome === 'failed' ? input.terminalCause : null,
       ...(input.outcome === 'completed' ? { cursor: null, completedAt: now } : {}),
     })
     .where(

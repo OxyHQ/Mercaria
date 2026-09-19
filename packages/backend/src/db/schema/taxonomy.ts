@@ -23,7 +23,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   CATEGORY_ALIAS_KINDS,
   CATEGORY_MAPPING_DECIDED_STATES,

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 
 const listingFindById = vi.fn();
 const updateListingColumns = vi.fn().mockResolvedValue(null);

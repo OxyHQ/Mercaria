@@ -11,6 +11,7 @@ import {
   Plug,
   CreditCard,
   Sparkles,
+  Receipt,
   ChevronRight,
   type LucideIcon,
 } from "lucide-react-native";
@@ -100,6 +101,19 @@ const ITEMS: SettingsItem[] = [
     descriptionKey: "settings.sections.payments.description",
     icon: CreditCard,
     href: "/settings/payments",
+    permission: "store:manage",
+  },
+  // A third money row, and the one a store does not choose: "Payments & payouts"
+  // is money coming IN, "Plan & billing" is what the store buys, and this is
+  // what Mercaria takes from each sale. It sits beside them rather than inside
+  // either, because accepting these terms is a precondition of selling at all —
+  // an unaccepted schedule refuses the store's checkouts.
+  {
+    key: "fees",
+    labelKey: "settings.sections.fees.label",
+    descriptionKey: "settings.sections.fees.description",
+    icon: Receipt,
+    href: "/settings/fees",
     permission: "store:manage",
   },
   // A sibling of "Payments & payouts" and deliberately worded the other way

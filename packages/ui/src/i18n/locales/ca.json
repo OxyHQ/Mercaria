@@ -883,6 +883,104 @@
     "variantSwatches": {
       "showMoreA11y": "Més opcions de %{option} (%{more})",
       "showMore": "+%{more} més"
+    },
+    "assetViewer": {
+      "previewA11y": "Vista prèvia de %{title}",
+      "noPreview": "Aquesta obra no té vista prèvia pública.",
+      "staticOnly": "Es mostra una imatge fixa. El visor interactiu no està disponible aquí.",
+      "staticOnSmallScreen": "Es mostra una imatge fixa. El visor interactiu necessita una pantalla més ampla.",
+      "neverTheSourceFile": "Les vistes prèvies són còpies generades. Els fitxers que compres no s'utilitzen mai per mostrar això.",
+      "streamedOnly": "Aquesta vista prèvia es transmet només per veure-la i no es lliura mai com a fitxer.",
+      "controls": "Controls de la vista prèvia",
+      "gestures": "Arrossega per girar, fes servir la roda o pessiga per acostar, arrossega amb dos dits per desplaçar.",
+      "reset": "Restablir la vista",
+      "fullscreenOpen": "Obrir la vista prèvia a pantalla completa",
+      "fullscreenClose": "Tancar la pantalla completa",
+      "wireframe": "Malla",
+      "statistics": "Estadístiques de representació",
+      "animation": "Animació",
+      "animationOff": "Cap",
+      "refused": {
+        "role_is_not_publicly_viewable": "Aquest fitxer forma part de la compra, així que no es mostra a la vista prèvia pública.",
+        "visibility_requires_a_right": "Aquest fitxer només està disponible per a qui el compra, així que no es mostra a la vista prèvia pública."
+      }
+    },
+    "assetFacts": {
+      "measuredTitle": "Mesurat per Mercaria",
+      "measuredNote": "Mercaria ha mesurat aquestes dades a partir dels fitxers publicats.",
+      "measuredBy": "Mesurat amb %{processor} %{version} el %{date}",
+      "measuredBadge": "Mesurat",
+      "claimedTitle": "Descrit pel venedor",
+      "claimedNote": "Ho ha escrit el venedor. Mercaria no ho ha mesurat.",
+      "claimedBadge": "Descripció del venedor",
+      "notMeasured": "Sense mesurar",
+      "verdict": {
+        "pending": "La mesura encara no ha acabat.",
+        "measured": "Aquestes xifres s'han mesurat a partir dels fitxers.",
+        "unsupported": "Aquest format no es pot mesurar automàticament.",
+        "corrupt": "No s'ha pogut llegir el fitxer.",
+        "missing_resources": "El fitxer fa referència a recursos que no s'han lliurat.",
+        "failed": "La mesura no s'ha completat.",
+        "refused_too_large": "El fitxer era massa gran per mesurar-lo."
+      }
+    },
+    "assetLicence": {
+      "title": "Llicència",
+      "grantedTitle": "Què pots fer",
+      "notGrantedTitle": "Què no cobreix aquesta llicència",
+      "attributionTitle": "Crèdit",
+      "updatesTitle": "Actualitzacions",
+      "limitsTitle": "Límits",
+      "additionalTermsTitle": "Condicions pròpies del venedor",
+      "seats": "Fins a %{seats} persones el poden fer servir",
+      "seatsUnlimited": "Sense límit de persones que el poden fer servir",
+      "projects": "Fins a %{projects} productes acabats",
+      "projectsUnlimited": "Sense límit de productes acabats",
+      "revenue": "Fins a %{amount} d'ingressos",
+      "revenueUnlimited": "Sense sostre d'ingressos",
+      "right": {
+        "personal_use": "Fer-lo servir en els teus projectes personals",
+        "commercial_project_use": "Fer-lo servir en projectes comercials",
+        "commercial_physical_production": "Fabricar i vendre còpies físiques",
+        "modification": "Modificar-lo",
+        "derivative_redistribution": "Compartir una versió modificada dins d'una obra acabada",
+        "source_redistribution": "Compartir els fitxers tal com s'han lliurat",
+        "sublicensing": "Cedir la llicència a un client",
+        "extended_enterprise_use": "Fer-lo servir més enllà dels límits de persones i d'ingressos"
+      },
+      "attribution": {
+        "required": "Has de donar crèdit a qui ho ha creat.",
+        "optional": "El crèdit s'agraeix, però no és obligatori.",
+        "not_required": "No cal donar crèdit."
+      },
+      "updatePolicy": {
+        "purchased_version_only": "Conserves la versió que has comprat. Una versió posterior és una compra nova.",
+        "same_major_version": "S'inclouen les versions posteriors que comparteixen el número principal que has comprat.",
+        "all_future_versions": "S'inclouen totes les versions futures."
+      },
+      "authorship": {
+        "mercaria_reference": "Text de llicència estàndard de Mercaria",
+        "creator": "Text de llicència propi de qui ho ha creat"
+      }
+    },
+    "assetLibrary": {
+      "filesTitle": "Fitxers",
+      "downloadAction": "Baixar",
+      "downloadA11y": "Baixar %{file}",
+      "notDownloadable": "Només per veure: no es lliura com a fitxer",
+      "downloadsPaused": "Les baixades estan en pausa. Aquesta compra està: %{status}.",
+      "grantedOn": "Afegit el %{date}",
+      "licence": "Llicència: %{licence}",
+      "purchasedVersion": "Has comprat %{version}",
+      "availableVersion": "Versió més recent que pots baixar: %{version}",
+      "updateAvailable": "Actualització disponible",
+      "status": {
+        "active": "Activa",
+        "refunded": "Reemborsada",
+        "disputed_hold": "En espera per una disputa",
+        "revoked_for_policy": "Retirada per motius legals",
+        "superseded": "Substituïda per una compra posterior"
+      }
     }
   }
 }

@@ -26,10 +26,10 @@
  * prohibition as a value, and `seller-identity-isolation.test.ts` scans this
  * file and fails the build on it.
  *
- * See `@oxyhq/services` `docs/FOLLOWS.md` for the design this joins.
+ * See `@oxy.so/services` `docs/FOLLOWS.md` for the design this joins.
  */
 
-import type { OxyServices } from '@oxyhq/core';
+import type { OxyServices } from '@oxy.so/core';
 
 /** Mercaria's namespace in the shared graph. Claimed once; ours permanently. */
 const FOLLOW_NAMESPACE = 'mercaria';

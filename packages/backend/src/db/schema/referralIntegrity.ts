@@ -53,7 +53,7 @@
 
 import { sql } from 'drizzle-orm';
 import { check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz } from '@oxy.so/db';
 import {
   REFERRAL_BASES_PERMITTING_FORFEITURE,
   REFERRAL_CONDUCT_POLICY_STATUSES,

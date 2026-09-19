@@ -13,7 +13,7 @@ import apiClient from './client';
  * authenticated seller's own management surface and is not reachable from here.
  *
  * There is no follow endpoint and there will not be one: follow state lives in
- * Oxy's user-owned graph and `@oxyhq/services` talks to it directly.
+ * Oxy's user-owned graph and `@oxy.so/services` talks to it directly.
  */
 
 /** Fetch a seller's public profile. Throws on an unresolvable or hidden seller (404). */

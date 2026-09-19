@@ -358,7 +358,7 @@ export default function MerchantScreen() {
               accessibilityLabel={t("merchants.catalog.loadMoreLabel")}
               disabled={isFetchingNextPage}
               onPress={() => void fetchNextPage()}
-              className="rounded-full border border-border bg-secondary px-6 py-3 web:shadow-sm"
+              className="rounded-full border border-border bg-muted px-6 py-3 web:shadow-sm"
             >
               <Text className="text-sm font-semibold text-foreground">
                 {isFetchingNextPage

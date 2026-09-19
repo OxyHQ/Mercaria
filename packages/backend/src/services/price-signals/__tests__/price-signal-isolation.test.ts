@@ -10,7 +10,7 @@
  *
  * The reachability detectors scan COMMENT-STRIPPED source, because these modules
  * document what they refuse to do in exactly the vocabulary the detectors look
- * for. The FairCoin/OxyPay detector is the exception and scans RAW source, COPY
+ * for. The currency/payment-rail detector is the exception and scans RAW source, COPY
  * included: a hard-coded currency name in a comment or a string is how a
  * currency-generic domain acquires a favourite.
  *
@@ -142,8 +142,8 @@ function stripComments(source: string): string {
 const COMMERCIAL_REFERENCE =
   /services\/fees\/|\.\.\/fees\/|services\/referrals\/|\.\.\/referrals\/|services\/retail-pricing\/|\.\.\/retail-pricing\/|db\/fees\/|db\/ledger|ledger_entries|ledgerRepository|feeSchedule|fee_schedules|commissionAmount|commissionRate|merchantPlan|planTier|affiliateEarnings|sponsoredPlacement/;
 
-/** A FairCoin or OxyPay assumption, in code OR in copy. */
-const FAIRCOIN_REFERENCE = /FairCoin|faircoin|OxyPay|oxy_pay|oxyPay|\bFAIR\b|⊜/;
+/** A currency or payment-rail assumption, in code OR in copy. */
+const FAIRCOIN_REFERENCE = /FairCoin|faircoin|OxyPay|oxy_pay|oxyPay|Peable|peable|\bFAIR\b|⊜/;
 
 /**
  * A catalogue WRITE — "do not automatically change merchant prices".
@@ -268,11 +268,11 @@ describe('the price-signal domain cannot reach what it must not', () => {
     }
   });
 
-  it('names no FairCoin or OxyPay assumption, in code or in copy', () => {
+  it('names no currency or payment-rail assumption, in code or in copy', () => {
     for (const file of files) {
       expect(
         FAIRCOIN_REFERENCE.test(readFileSync(file, 'utf8')),
-        `${file} names FairCoin or OxyPay; a signal names the currency its CALLER asked for`,
+        `${file} names a currency or payment rail; a signal names the currency its CALLER asked for`,
       ).toBe(false);
     }
   });
@@ -484,6 +484,7 @@ describe('the detectors actually detect — the mutation self-tests', () => {
   it('the FairCoin detector sees the code name, the symbol and the copy', () => {
     expect(FAIRCOIN_REFERENCE.test("const base: CurrencyCode = 'FAIR';")).toBe(true);
     expect(FAIRCOIN_REFERENCE.test('// FairCoin prices are labelled first')).toBe(true);
+    expect(FAIRCOIN_REFERENCE.test('// Peable prices are labelled first')).toBe(true);
     expect(FAIRCOIN_REFERENCE.test('label: `⊜ 12.00`')).toBe(true);
     expect(FAIRCOIN_REFERENCE.test("const base: CurrencyCode = 'EUR';")).toBe(false);
     // `FAIRLY` and `AFFAIR` are not the currency — a bare substring test would

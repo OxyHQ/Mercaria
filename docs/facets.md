@@ -33,28 +33,62 @@ perfectly; the shopper finds out at the size chart.
 A price from the cheapest seller and availability from a different one is the
 same failure a layer down, and it is the one a shopper discovers at checkout.
 
-### How they are held — on THIS rail, and the scope is load-bearing
+### How they are held — on THIS rail, and on the two list rails
 
-> **Read this before quoting either guarantee elsewhere.** Everything below is
-> true of the **facet rail** (`POST /facets`). It is **not** true of the two rails
-> a shopper's result LIST comes from: canonical search
-> (`services/search/canonical-search.service.ts:487`, which loops one statement
-> per variant constraint) and category browse
-> (`services/catalog-pages/product-browse.service.ts:205`, which intersects
-> PRODUCT id sets one constraint at a time). Neither correlates to a single
-> variant: the candidate reader resolves a match through
-> `coalesce(v.product_id, cv.product_id)`
-> (`db/search/searchCandidateRepository.ts:1011`, `:1015`). That is
-> [#567](https://github.com/OxyHQ/Mercaria/issues/567), and the sharp edge is that
-> the correlated rail produces the **count** while an uncorrelated rail produces
-> the **list** — so a page can render `matchedProductCount: 1` above a result set
-> containing the crossed product.
+> **This blockquote documented an open defect that has since been FIXED, and read
+> as open for as long as it stood.** It was true when written:
+> `a647dff4` (*docs(search): cite #567 at both sites that AND variant filters per
+> product*) is an ancestor of `9b4797fb` (*fix(search): satisfy variant-level
+> filters within ONE variant on both rails* — [#567](https://github.com/OxyHQ/Mercaria/issues/567),
+> now CLOSED), and nobody swept this page. It is kept rather than deleted for the
+> reason the same-offer observation at the end of this file gives: a reader who
+> remembers the caveat has to be able to tell that it was resolved rather than
+> that they imagined it.
 >
-> So the epic-level invariant *"filters and constraints are variant-aware"* is
-> **unmet** today, on the ordinary filtered-search path and behind no flag. This
-> document previously stated the guarantee without that qualification, which is
-> how a domain-scoped truth gets read as a system-wide one. Same-OFFER is
-> genuinely held on both rails (see the fixed observation at the end of this file).
+> **It is the second time this page has carried a repaired defect as live** —
+> `dd0dc2ad` retired the first. The failure has a direction worth naming: a
+> caveat reads as caution, caution reads as correct, and nobody re-checks it. An
+> over-claim gets caught because somebody tests the claim; an under-claim tells
+> readers not to rely on something they can rely on, and there is nothing to run.
+
+**What was wrong.** Canonical search looped one statement per variant constraint
+and category browse intersected PRODUCT id sets one constraint at a time. Both
+AND the requirements per PRODUCT: a product survived when a red variant existed
+**and** a size-43 variant existed, with no single variant being both. The facet
+rail never had it, and that is the sharp edge — **the correlated rail produced
+the COUNT and an uncorrelated rail produced the LIST**, so a page could render
+`matchedProductCount: 1` above a result set containing the crossed product.
+
+**What it is now.** ONE function —
+`findProductIdsSatisfyingAttributes`
+(`db/search/searchCandidateRepository.ts:1082`) — called verbatim by both rails,
+at `services/search/canonical-search.service.ts:505` and
+`services/catalog-pages/product-browse.service.ts:220`. Its `atVariant` half
+correlates every constraint to the same `cv.id`, and its own comment says so:
+*"Both correlate to `cv.id`, so the requirement set is still answered by ONE
+variant (#567)"*, with *"requiring every one at product grain … restores the
+#567 bug"* beside it. `f3374654` asserts the facet rail and the result rails
+agree over one filter set.
+
+**What that covers, exactly.** `filters.attributes` — and on both rails that is
+the ONLY variant-grain filter there is. Enumerated rather than assumed:
+
+| filter | grain | held by |
+| --- | --- | --- |
+| `attributes` | **variant** | the correlated statement above (#567) |
+| `market`, `price`, `conditionGroups`, `availability`, `offerKinds`, `officialChannelOnly`, `merchantIds` | offer | same-offer (#438) — see the end of this file |
+| `categorySlugs` / `categories`, `families`, `brandIds` | product | no variant grain to cross |
+| `nearby` | — | #93's seam; nothing consumes it |
+
+Browse carries `categories`, `families`, `conditionGroups`, `availability`,
+`market`, `attributes`, and its own comment states the grain of the middle three:
+*"An availability or condition filter narrows the OFFERS"*
+(`product-browse.service.ts:283`).
+
+**So a variant-grain filter added later owes this correlation**, and the place it
+is owed is `findProductIdsSatisfyingAttributes` rather than a second pass beside
+it. Splitting that call back into a loop reintroduces the defect silently: every
+predicate is individually true and the page renders perfectly.
 
 `buildEntityPredicate` in `db/facets/facetRepository.ts` is the **only** place a
 selection becomes SQL, and it takes the variant and offer requirement sets

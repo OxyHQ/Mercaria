@@ -126,6 +126,7 @@
     "status": {
       "cancelled": "Cancel·lada",
       "delivered": "Lliurada",
+      "digitallyDelivered": "Lliurat",
       "paid": "Pagada",
       "partiallyRefunded": "Reemborsada parcialment",
       "pendingPayment": "Pagament pendent",

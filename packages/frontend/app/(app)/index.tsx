@@ -1,14 +1,7 @@
 import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
-import {
-  CartShelf,
-  CategoryCarousel,
-  CategoryPills,
-  MerchantCarousel,
-  ProductShelf,
-  Text,
-} from "@mercaria/ui";
+import { CartShelf, CategoryPills, ProductShelf, Text } from "@mercaria/ui";
 import type { CartVendor } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { HeroSearch } from "@/components/shell/HeroSearch";
@@ -135,24 +128,11 @@ function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
             />
           );
         }
-        if (section.kind === "categories") {
-          return (
-            <CategoryCarousel
-              key={section.id}
-              categories={section.categories ?? []}
-            />
-          );
-        }
-        return (
-          <MerchantCarousel
-            key={section.id}
-            title={section.title}
-            merchants={section.merchants ?? []}
-            onPressMerchant={(handle) =>
-              router.push(`/stores/${handle}`)
-            }
-          />
-        );
+        // `shop-by-category` (kind "categories") and `worth-the-hype` (kind
+        // "merchants") duplicate what the explore page now owns. The home
+        // stays a personal feed and no longer renders either — `GET /feed`
+        // still serves both sections; only this screen stops drawing them.
+        return null;
       })}
 
       <Footer />

@@ -101,6 +101,49 @@ export function normalizeEntityName(value: string): string {
 }
 
 /**
+ * Which version of {@link normalizeEntityName} a stored value was folded under
+ * (#915, epic #367 line 580).
+ *
+ * Stamped as `name_fold_version` on every column this fold WRITES — five, in
+ * `canonical_products`, `canonical_product_families`, `organizations`, `brands`
+ * and `catalog_proposals` — and `name-fold-version-census.test.ts` fails the
+ * build if a sixth write site appears without one.
+ *
+ * ## What versions this, and what does not
+ *
+ * THIS fold and no other. `canonical_attribute_values.normalization_rule_version`
+ * versions a different fold over different values, and `match_decisions.policy_version`
+ * and `analytics_search_queries`' redaction version are not folds at all — three
+ * columns that look like this one and answer other questions. Hence the name:
+ * it says which fold, not merely that something was normalized.
+ *
+ * ## What a bump OBLIGES, which is more than "rows are stale"
+ *
+ * This fold runs on BOTH sides. Of its production call sites only nine write a
+ * stored column; the rest fold a QUERY at read time to compare against one. So
+ * changing it does not merely age the stored values:
+ *
+ * 1. every stored value is folded under the old rules;
+ * 2. a query folded under the NEW rules cannot match a row folded under the old
+ *    one — **lookups miss silently rather than erroring**, which on the trigram
+ *    columns means a candidate search quietly returns less;
+ * 3. so a bump obliges EITHER an immediate re-fold of all five columns, OR a
+ *    consumer that re-folds progressively AND a read path that tolerates both
+ *    versions for the duration.
+ *
+ * The third option is the one this column exists to make available: without it
+ * nothing can tell which rows are in which state, so the only safe bump is an
+ * all-at-once one.
+ *
+ * **Bumping this is therefore a decision with work attached, not a constant
+ * edit.** `attribute_reindex_requests` already carries
+ * `normalization_rules_changed` as an enqueue reason; it has no consumer (#903),
+ * and it can only name canonical products and variants, so it covers one of the
+ * five.
+ */
+export const NAME_FOLD_VERSION = 1;
+
+/**
  * The `lower(btrim(...))` the alias tables' GENERATED `normalized_alias` column
  * applies, stated here so service-side lookups compare in exactly the space the
  * unique index and the btree lookup live in.

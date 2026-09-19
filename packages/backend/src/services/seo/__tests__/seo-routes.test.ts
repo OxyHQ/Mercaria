@@ -49,6 +49,27 @@ const APP_ROOT = join(STOREFRONT_ROOT, 'app');
  * true. Being in NEITHER this list nor the registry is what FAILS.
  */
 const NON_PUBLIC_SCREENS: readonly string[] = [
+  // The buyer's digital library (#1015 W9) — one account's own purchases and the
+  // files behind them, resolved from the credential. Account-private by
+  // construction, the `shopping-agents.tsx` class exactly.
+  'app/(app)/library.tsx',
+  // #1015's digital storefront, and THIS BLOCK IS MEANT TO EXPIRE. Unlike every
+  // other entry in this list, these five are not excused because of what they are
+  // — they are ordinary public browse and creator pages and they belong in the
+  // route registry. They are excused because of what they currently CONTAIN:
+  // `lib/digital/source.ts`'s four producers all answer `unavailable` (no
+  // client-reachable digital read ships yet), so each renders a notice saying the
+  // surface is switched off. An indexed page that says that is worse than an
+  // unindexed one, and a registry row would claim a canonical for it.
+  //
+  // Move them to the registry in the change that lands the reads, and delete this
+  // block rather than editing it. `HANDOFF.md` §6 carries the obligation, and they
+  // are correspondingly in `SEO_ROBOTS_DISALLOWED_PATHS`.
+  'app/(app)/3d/index.tsx',
+  'app/(app)/3d/printable.tsx',
+  'app/(app)/3d/game-assets.tsx',
+  'app/(app)/3d/[slug].tsx',
+  'app/(app)/creators/[slug].tsx',
   'app/(app)/notifications.tsx',
   'app/(app)/price-alerts.tsx',
   // The referral partner dashboard (#147) — one account's own instruments,
@@ -70,6 +91,15 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   // `SEO_ROBOTS_DISALLOWED_PATHS`. A crawlable one is a crawl budget spent on
   // result pages nobody links to.
   'app/(app)/search.tsx',
+  // One category's listings resliced by a signal (the discovery feed's
+  // `/categories/:handle/s/:signal`,
+  // `docs/superpowers/specs/2026-09-07-discovery-feed-design.md`) — the SAME
+  // listings `category_browse` already carries, sorted five different ways.
+  // Near-duplicate of the category page it hangs off by construction, exactly
+  // the '`/search` is infinite, thin and duplicative of the browse pages' class
+  // above, so it is excused here for the same reason and also in
+  // `SEO_ROBOTS_DISALLOWED_PATHS`.
+  'app/(app)/categories/[handle]/s/[signal].tsx',
   // Grounded comparison (#96) — `?p=<handles>` is a shopper-assembled
   // COMBINATION, which is the page class #75's policy rule 8 refuses to index
   // by the combination, and `?watchlist=` can name a PRIVATE #81 list. A
@@ -243,7 +273,7 @@ describe('DIRECTION 3: a planned route has NOT quietly shipped', () => {
     }
     // Floor DOWN from 3 to 2 with #72 (`product_family` and `brand` flipped to
     // `live` with their screens), and from 2 to 1 with #367 workstream 9
-    // (`category_browse` flipped with `app/(app)/categories/[handle].tsx`). A
+    // (`category_browse` flipped with `app/(app)/categories/[handle]/index.tsx`). A
     // floor that could never drop would forbid exactly the flip this test
     // exists to force.
     //

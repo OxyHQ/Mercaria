@@ -83,7 +83,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { VariantAxisBackfillReport } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import {

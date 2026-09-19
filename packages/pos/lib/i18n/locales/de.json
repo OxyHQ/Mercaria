@@ -123,6 +123,7 @@
     "status": {
       "cancelled": "Storniert",
       "delivered": "Zugestellt",
+      "digitallyDelivered": "Geliefert",
       "paid": "Bezahlt",
       "partiallyRefunded": "Teilweise erstattet",
       "pendingPayment": "Zahlung ausstehend",

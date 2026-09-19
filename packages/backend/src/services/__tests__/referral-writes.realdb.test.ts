@@ -20,7 +20,7 @@
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, inArray, isNotNull, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, getDb, type Database } from '../../db/postgres.js';
 import {
   referralAttributions,

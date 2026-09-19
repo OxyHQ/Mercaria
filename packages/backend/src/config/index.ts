@@ -19,6 +19,7 @@ import type {
   ModerationEnforcementMode,
   SavedItemsReadMode,
   SeoIndexingMode,
+  VariantAxisReadMode,
 } from '@mercaria/shared-types';
 import {
   ALL_CURRENCY_CODES,
@@ -31,9 +32,12 @@ import {
   MERCHANT_DEMAND_WINDOW_DAYS,
   SAVED_ITEMS_READ_MODES,
   SEO_INDEXING_MODES,
+  VARIANT_AXIS_READ_MODES,
 } from '@mercaria/shared-types';
 import { tmpdir } from 'node:os';
 import { PRINTFUL_BASE_URL } from '../services/printful/transport-contract.js';
+import { parseThreeDSecureThresholds } from '../services/payments/stripe/three-d-secure.js';
+import { parseHighValueHoldThresholds } from '../services/payments/high-value-hold.js';
 import { join } from 'node:path';
 import { log } from '../lib/logger.js';
 
@@ -566,6 +570,41 @@ function resolveReferralOperatorIds(): readonly string[] {
  * There is no `STRIPE_ACCOUNT_ID`: the platform account is implied by the key,
  * and connected-account ids live only in provider-account records (#46).
  */
+/**
+ * The Peable rail is ON only when the operator asked for it AND every secret it
+ * cannot work without is present.
+ *
+ * A CONJUNCTION, not a flag, and the same shape every other integration in this
+ * file uses: a half-configured rail that accepted a checkout and failed
+ * mid-request on the first missing secret is strictly worse than one that stayed
+ * off and said so at boot.
+ *
+ * `PEABLE_WEBHOOK_SECRET` is in the required set even though nothing is charged
+ * without it: Mercaria reaches `paid` ONLY from a verified event (ADR 0001), so
+ * a rail that can create a payment and cannot verify its settlement takes money
+ * and leaves every order unpaid.
+ */
+function resolvePeableEnabled(): boolean {
+  if (!boolEnv('PEABLE_ENABLED', false)) return false;
+
+  const missing = (
+    [
+      'PEABLE_BASE_URL',
+      'PEABLE_APP_PUBLIC_KEY',
+      'PEABLE_APP_SECRET',
+      'PEABLE_WEBHOOK_SECRET',
+    ] as const
+  ).filter((name) => (process.env[name]?.trim() ?? '') === '');
+  if (missing.length === 0) return true;
+
+  log.general.error(
+    { missing },
+    '[Peable] PEABLE_ENABLED is set but the integration is incomplete; staying OFF. ' +
+      'No payment can be created on this rail and no webhook endpoint is mounted.',
+  );
+  return false;
+}
+
 function resolveStripeEnabled(): boolean {
   if (!boolEnv('STRIPE_ENABLED', false)) return false;
 
@@ -603,18 +642,24 @@ function resolveStripeSellerCountries(): readonly string[] {
 }
 
 /**
- * Split `STRIPE_PRESENTMENT_CURRENCIES` into the currencies a card checkout may
- * be denominated in — ADR 0001 D8, `EUR` and `USD` at launch.
+ * Split a presentment-currency variable into the currencies a card checkout on
+ * that rail may be denominated in — ADR 0001 D8, `EUR` and `USD` at launch.
  *
- * VALIDATED against `ALL_CURRENCY_CODES` here, unlike the seller countries
- * above, and the asymmetry is the point: a country is Stripe's vocabulary and
+ * ONE function for both rails rather than one per rail. The two sets are
+ * genuinely independent — each rail's acquirer decides what it can charge, and
+ * ADR 0009 D19 lets a deployment run either — but the PARSING is the same
+ * question, and a second copy is where the validation below silently stops
+ * applying to the newer rail.
+ *
+ * VALIDATED against `ALL_CURRENCY_CODES`, unlike the seller countries above,
+ * and the asymmetry is the point: a country is the acquirer's vocabulary and
  * changes on their schedule, while a currency code has to exist in Mercaria's
  * own closed set or nothing downstream can price, convert or store it. A typo
  * would otherwise become a checkout that refuses every cart with a message
  * naming a currency that does not exist.
  */
-function resolveStripePresentmentCurrencies(): readonly CurrencyCode[] {
-  const configured = strEnv('STRIPE_PRESENTMENT_CURRENCIES', 'EUR,USD')
+function resolvePresentmentCurrencies(variable: string, rail: string): readonly CurrencyCode[] {
+  const configured = strEnv(variable, 'EUR,USD')
     .split(',')
     .map((code) => code.trim().toUpperCase())
     .filter((code) => code !== '');
@@ -625,8 +670,8 @@ function resolveStripePresentmentCurrencies(): readonly CurrencyCode[] {
   const unknown = configured.filter((code) => !(known as readonly string[]).includes(code));
   if (unknown.length > 0) {
     log.general.error(
-      { unknown, known },
-      '[Stripe] STRIPE_PRESENTMENT_CURRENCIES names currencies Mercaria does not know; ' +
+      { unknown, known, variable },
+      `[${rail}] ${variable} names currencies Mercaria does not know; ` +
         'they are ignored. A card checkout accepts only the recognised ones.',
     );
   }
@@ -634,11 +679,61 @@ function resolveStripePresentmentCurrencies(): readonly CurrencyCode[] {
 }
 
 /**
+ * Parse `STRIPE_3DS_THRESHOLDS` — `EUR:50000,USD:50000`, in MINOR units.
+ *
+ * The parsing itself is `three-d-secure.ts`'s, so the rule and its tests live
+ * with the policy rather than in this file, and both branches stay reachable
+ * from a test whatever this deployment is configured with.
+ *
+ * A rejected entry is LOGGED and dropped, which leaves its currency with no
+ * threshold — and no threshold means authenticate every payment. So a typo
+ * costs friction and never exposure, which is the only direction worth
+ * defaulting.
+ */
+function resolveThreeDSecureThresholds(): Readonly<Partial<Record<CurrencyCode, number>>> {
+  const { thresholds, rejected } = parseThreeDSecureThresholds(
+    strEnv('STRIPE_3DS_THRESHOLDS', ''),
+    (code): code is CurrencyCode => (ALL_CURRENCY_CODES as readonly string[]).includes(code),
+  );
+  if (rejected.length > 0) {
+    log.general.error(
+      { rejected },
+      '[Stripe] STRIPE_3DS_THRESHOLDS has entries Mercaria cannot read; they are dropped, ' +
+        'and a currency with no threshold requests authentication on EVERY payment.',
+    );
+  }
+  return Object.freeze(thresholds as Partial<Record<CurrencyCode, number>>);
+}
+
+/**
+ * Parse `STRIPE_HIGH_VALUE_HOLD_THRESHOLDS`. See the config field.
+ *
+ * A rejected entry leaves its currency with NO hold, which settles — the same
+ * direction as the missing-entry default, because the protective direction is
+ * only a default when the failure it causes is cheaper than the one it
+ * prevents, and freezing an unconfigured deployment's payouts is not.
+ */
+function resolveHighValueHoldThresholds(): Readonly<Partial<Record<CurrencyCode, number>>> {
+  const { thresholds, rejected } = parseHighValueHoldThresholds(
+    strEnv('STRIPE_HIGH_VALUE_HOLD_THRESHOLDS', ''),
+    (code): code is CurrencyCode => (ALL_CURRENCY_CODES as readonly string[]).includes(code),
+  );
+  if (rejected.length > 0) {
+    log.general.error(
+      { rejected },
+      '[Stripe] STRIPE_HIGH_VALUE_HOLD_THRESHOLDS has entries Mercaria cannot read; they are ' +
+        'dropped, and a currency with no threshold settles immediately.',
+    );
+  }
+  return Object.freeze(thresholds as Partial<Record<CurrencyCode, number>>);
+}
+
+/**
  * Split `STRIPE_PAYMENT_SURFACE_METHODS` into the surfaces a client may render
  * — #107's payment-method kill switch. See {@link StripeConfig.paymentSurfaceMethods}.
  *
  * VALIDATED against the closed tuple, for the reason
- * `resolveStripePresentmentCurrencies` validates its own: a surface Mercaria
+ * `resolvePresentmentCurrencies` validates its own: a surface Mercaria
  * does not know is a surface no client can render, so accepting it would put a
  * value into a handoff that every reader would then have to defend against.
  *
@@ -816,6 +911,25 @@ function resolveSavedItemsReadMode(): SavedItemsReadMode {
   log.general.error(
     { variable: 'PRODUCT_SAVE_READS', value: raw, allowed: SAVED_ITEMS_READ_MODES },
     "[config] saved-items read mode is not recognised; falling back to 'off'",
+  );
+  return 'off';
+}
+
+/**
+ * `VARIANT_AXIS_READS` → typed axes or the legacy option tables (#367 line 324).
+ *
+ * Falls back to `off` — today's behaviour — and the fallback is the whole of
+ * the safety here: an unrecognised value must not roll a deployment FORWARD
+ * onto a representation it has not shadowed, because the forward direction is
+ * the one that changes what a shopper reads.
+ */
+function resolveVariantAxisReadMode(): VariantAxisReadMode {
+  const raw = strEnv('VARIANT_AXIS_READS', 'off').trim().toLowerCase();
+  const mode = VARIANT_AXIS_READ_MODES.find((candidate) => candidate === raw);
+  if (mode !== undefined) return mode;
+  log.general.error(
+    { variable: 'VARIANT_AXIS_READS', value: raw, allowed: VARIANT_AXIS_READ_MODES },
+    "[config] variant axis read mode is not recognised; falling back to 'off'",
   );
   return 'off';
 }
@@ -1276,6 +1390,44 @@ export interface StripeConfig {
    * the whole rail down over a URL typo.
    */
   readonly checkoutReturnUrl?: string;
+  /**
+   * The order value, PER CURRENCY, above which Mercaria asks the issuer to
+   * authenticate the card — `STRIPE_3DS_THRESHOLDS`, minor units.
+   *
+   * A loss control rather than a friction setting: an authenticated payment
+   * shifts liability for a fraudulent chargeback to the ISSUER, and ADR 0001 D2
+   * puts the losses on Mercaria (`controller.losses.payments = 'application'`).
+   *
+   * Per currency because a minor-unit amount is meaningless without one — JPY
+   * has no minor unit and FAIR has eight, so one global integer would mean
+   * three different real amounts across the presentment set.
+   *
+   * A currency ABSENT from this map asks on every payment. See
+   * `services/payments/stripe/three-d-secure.ts` for why that direction, and
+   * for why relying on Stripe's `automatic` behaviour does not work on a US
+   * acquiring entity serving EEA cards.
+   */
+  readonly threeDSecureThresholds: Readonly<Partial<Record<CurrencyCode, number>>>;
+  /**
+   * The transfer amount, PER CURRENCY, above which a seller's share waits
+   * before it leaves — `STRIPE_HIGH_VALUE_HOLD_THRESHOLDS`, minor units.
+   *
+   * EMPTY by default, and that is the opposite default from
+   * {@link threeDSecureThresholds} on purpose: an unconfigured currency there
+   * costs friction, and here it would freeze every payout on a deployment
+   * nobody configured. See `services/payments/high-value-hold.ts`.
+   */
+  readonly highValueHoldThresholds: Readonly<Partial<Record<CurrencyCode, number>>>;
+  /**
+   * How long a held transfer waits — `STRIPE_HIGH_VALUE_HOLD_WINDOW_MS`.
+   *
+   * A REVIEW window, not a dispute window. A chargeback can arrive 120 days
+   * later and no marketplace holds a payout that long; this is the span in
+   * which most card fraud actually surfaces. Zero disables the hold outright,
+   * which is the same lever as an empty threshold map and is stated separately
+   * so an incident can stop holding without editing a per-currency list.
+   */
+  readonly highValueHoldWindowMs: number;
 }
 
 /**
@@ -1321,6 +1473,56 @@ export interface ReconciliationConfig {
   readonly lookbackMs: number;
 }
 
+/**
+ * The Peable gateway.
+ *
+ * There is deliberately NO seller-country or presentment-currency list here:
+ * those are the gateway's constraints now, and a second copy in this file would
+ * refuse a country Peable had started supporting, with no way for anyone here
+ * to notice.
+ */
+export interface PeableConfig {
+  /** True only when `PEABLE_ENABLED` is set AND every required secret is present. */
+  readonly enabled: boolean;
+  readonly baseUrl: string;
+  readonly oxyApiUrl: string;
+  readonly publicKey: string;
+  readonly secret: string;
+  readonly webhookSecret: string;
+  /**
+   * The rotation window. A gateway cannot atomically swap a webhook secret, so
+   * a rotation is: add the new one here as the previous, switch, remove.
+   * Without it every in-flight delivery during the swap is rejected as a
+   * forgery.
+   */
+  readonly webhookSecretPrevious?: string;
+  /** Derived from the environment, never configured. */
+  readonly livemode: boolean;
+  /**
+   * The inbound event drain, mirroring Stripe's four.
+   *
+   * Its OWN keys rather than borrowing `stripe.event*`, because the two rails
+   * are drained by two pollers with two claim scopes and the day one of them
+   * needs a longer lease or a bigger batch is the day a shared key becomes a
+   * change to the other rail nobody asked for.
+   */
+  readonly eventMaxAttempts: number;
+  readonly eventBatchSize: number;
+  readonly eventPollIntervalMs: number;
+  readonly eventLeaseMs: number;
+  /**
+   * What a card checkout on THIS rail may be denominated in.
+   *
+   * Its own variable rather than Stripe's, because the two rails have two
+   * acquirers and only one of them may be configured on a given deployment
+   * (ADR 0009 D19). Defaults to ADR 0001 D8's launch set, which is Mercaria
+   * stating what it BELIEVES the gateway can charge — the gateway's own
+   * configuration is the authority, and a disagreement surfaces as a refusal
+   * from Peable rather than as a silently wrong checkout.
+   */
+  readonly presentmentCurrencies: readonly CurrencyCode[];
+}
+
 export interface PaymentsConfig {
   /**
    * Whether the payment outbox DISPATCHER runs. The durable record is never
@@ -1346,6 +1548,12 @@ export interface PaymentsConfig {
   readonly outboxLeaseMs: number;
   /** The Stripe rail (ADR 0001, issues #46–#50). */
   readonly stripe: StripeConfig;
+  /**
+   * The Peable rail (ADR 0009 D13) — the Oxy gateway Mercaria's card payments
+   * go through. `stripe` stays beside it until the new rail is verified end to
+   * end, which is what keeps checkout up across the move.
+   */
+  readonly peable: PeableConfig;
   /** Reconciliation and the operator surface (#50). */
   readonly reconciliation: ReconciliationConfig;
   /**
@@ -1982,8 +2190,9 @@ export interface CatalogConfig {
    * above are switched on FOR (ADR 0007 D12, epic Workstream 0 line 117).
    *
    * The levers decide WHETHER a catalog surface exists; this decides WHO it
-   * exists for, over five dimensions — market, locale, store, category, product
-   * type (`CATALOG_ROLLOUT_DIMENSIONS`). Raw `<dimension>:<value>` entries; the
+   * exists for, over six dimensions — market, locale, store, category, product
+   * type and internal_user (`CATALOG_ROLLOUT_DIMENSIONS`). Raw
+   * `<dimension>:<value>` entries; the
    * union, the parser and the matcher are `services/catalog-rollout/cohort.ts`
    * and the gate is `middleware/catalog-rollout.ts`.
    *
@@ -2044,6 +2253,27 @@ export interface SellYoursConfig {
   readonly draftListLimit: number;
   /** How many canonical candidates an identify-step search offers. */
   readonly candidateLimit: number;
+}
+
+export interface VariantAxesConfig {
+  /**
+   * `VARIANT_AXIS_READS` — `off | shadow | on`, which representation a
+   * hydration read serves a listing's options FROM (#367 line 324).
+   *
+   * Defaults to `off`, which is today's behaviour exactly: the typed axes are
+   * written by the authoring publish path and by the backfill script and are
+   * read by no serving path, so a deployment adopting this image serves the
+   * legacy free-text tables as it always has.
+   *
+   * `shadow` is the instrument rather than the change — it computes both and
+   * counts how they compared, then serves LEGACY. It is what measures the
+   * desync `db/catalog/variantRepository.ts` `updateVariant` can create: that
+   * write replaces `product_variant_option_values` and touches no typed axis,
+   * so a connector re-sync or a merchant edit leaves the two disagreeing with
+   * nothing to notice. Run `shadow` before `on`, or the first thing `on`
+   * changes is which of the two a shopper is served during that disagreement.
+   */
+  readonly reads: VariantAxisReadMode;
 }
 
 export interface ProductSavesConfig {
@@ -2556,6 +2786,34 @@ export interface CanonicalRolloutConfig {
   readonly backfillBatchSize: number;
   /** How often the backfill dispatcher polls, in milliseconds. */
   readonly backfillPollIntervalMs: number;
+  /**
+   * `CATALOG_BACKFILL_MAX_ATTEMPTS` — consecutive failed pages before a run is
+   * released `failed` and stops being claimable (#367 W16 line 759).
+   *
+   * 8 is INHERITED, not chosen: `STRIPE_EVENT_MAX_ATTEMPTS`,
+   * `GUEST_PORTAL_MESSAGE_MAX_ATTEMPTS`, `GUEST_CLAIM_JOB_MAX_ATTEMPTS`,
+   * `PRICE_ALERT_NOTIFICATION_MAX_ATTEMPTS` and both `SHOPPING_AGENT_*` all say
+   * 8. The outliers have reasons that do not transfer — `MOOVO_MAX_ATTEMPTS` is
+   * an in-request HTTP retry rather than a durable job, and
+   * `MERCHANT_CLAIM_MAX_ATTEMPTS_PER_CHALLENGE` is an abuse limit.
+   *
+   * It is also independently right for THIS system, which is what makes it
+   * defensible rather than merely consistent: the dispatcher ticks every
+   * `backfillPollIntervalMs` (15s) and these rows carry NO backoff column, so 8
+   * is about two minutes — longer than an RDS failover, and short enough that a
+   * deterministic fault reaches an operator in two minutes instead of never.
+   *
+   * The caveat that comes with having no backoff: eight attempts at a flat 15s
+   * is eight failing queries against a database that may be struggling. That is
+   * negligible per run; the exposure is the number of concurrently failing runs,
+   * which nothing here bounds. Adding backoff is a second column and a second
+   * decision.
+   *
+   * An env var rather than a constant because the moment it matters is an
+   * incident, and raising a ceiling to get a stuck pass through a bad hour
+   * should not need a deploy.
+   */
+  readonly backfillMaxAttempts: number;
 }
 
 /**
@@ -2597,6 +2855,28 @@ export interface MerchantClaimsConfig {
   readonly maxChallengesPerUserPerHour: number;
   readonly maxChallengesPerMerchantPerHour: number;
   readonly maxChallengesPerDomainPerHour: number;
+}
+
+export interface DiscoveryConfig {
+  /** How often a task attempts the sweep. Every task ticks; one wins the lease. */
+  readonly sweepIntervalMs: number;
+  /** How long a sweep run may hold the lease before another task may reclaim it. */
+  readonly leaseMs: number;
+  /** The rolling window, in days. Must agree with `DISCOVERY_WINDOWS`' member. */
+  readonly windowDays: number;
+  /**
+   * How many subjects are stored per category per window. This is also the
+   * paging depth of `best-selling` and `most-viewed`: nothing below it was
+   * counted, so nothing below it can be shown.
+   */
+  readonly topNPerCategory: number;
+  /**
+   * The review count a listing needs before `top-rated` will consider it. A
+   * single five-star review must not outrank four thousand.
+   */
+  readonly topRatedMinReviews: number;
+  /** How many cards a shelf carries in the feed. */
+  readonly shelfSize: number;
 }
 
 export interface FeedConfig {
@@ -3289,7 +3569,7 @@ export type MoovoEnvironment = (typeof MOOVO_ENVIRONMENTS)[number];
  * **There is deliberately NO client id or client secret variable, and adding
  * one today would be a security regression rather than progress.** #156 item 5
  * asks that they come from the deployment secret manager, and they will — but
- * `@oxyhq/core` cannot yet mint a token bound to another application's
+ * `@oxy.so/core` cannot yet mint a token bound to another application's
  * audience (`OxyHQ/oxy#878`, open): `getServiceToken()` POSTs `{apiKey,
  * apiSecret}` and every token it returns carries the hardcoded `oxy-api`
  * audience. A credential configured now could therefore only be used to send a
@@ -3564,6 +3844,7 @@ export interface CatalogProposalsConfig {
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
+  readonly variantAxes: VariantAxesConfig;
   readonly productSaves: ProductSavesConfig;
   readonly watchlists: WatchlistsConfig;
   readonly sellYours: SellYoursConfig;
@@ -3587,6 +3868,7 @@ export interface AppConfig {
   readonly moovo: MoovoConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
+  readonly discovery: DiscoveryConfig;
   readonly cart: CartConfig;
   readonly checkout: CheckoutConfig;
   readonly orders: OrdersConfig;
@@ -3611,7 +3893,136 @@ export interface AppConfig {
   readonly pickup: PickupConfig;
   readonly catalogAuthoring: CatalogAuthoringConfig;
   readonly catalogProposals: CatalogProposalsConfig;
+  readonly digital: DigitalCommerceConfig;
+  readonly digitalRetail: DigitalRetailConfig;
   readonly postgres: PostgresConfig;
+}
+
+/**
+ * The digital-commerce levers (#1015 acceptance criterion 19, ADR 0010 D13).
+ *
+ * FIVE independent switches, and the independence is the requirement rather than
+ * a nicety: *"feature flags can independently disable uploads, publication, paid
+ * checkout, downloads or a digital vertical WITHOUT STRANDING PRIOR PURCHASES"*.
+ * One master flag could not do that — turning it off to stop new uploads would
+ * also stop every existing buyer re-downloading what they already own, which is
+ * the one outcome none of these levers may cause.
+ *
+ * So they are ordered by how much they take away, and `downloadsEnabled` is the
+ * only one that touches an existing right. It defaults TRUE and is an INCIDENT
+ * lever, not a rollout one — the shape `guest.issuanceEnabled` has, and for the
+ * same reason: the thing you reach for mid-incident must not be the thing that
+ * destroys what buyers hold.
+ *
+ * Everything else defaults FALSE, because digital commerce has a launch gate in
+ * front of it that is not a code review: #1015 W11 requirement 9 and acceptance
+ * criterion 15 require payment-provider, tax and legal sign-off PER MARKET, and a
+ * deployment that shipped this enabled would be selling electronically supplied
+ * services before that happened.
+ */
+export interface DigitalCommerceConfig {
+  /**
+   * Whether a creator may upload asset files at all — `DIGITAL_UPLOADS_ENABLED`.
+   *
+   * Gates the MOUNT of the creator upload routes (404 when off, the
+   * `STRIPE_ENABLED` rule: an unconfigured surface does not exist rather than
+   * answering 401). Off does not touch a published asset.
+   */
+  readonly uploadsEnabled: boolean;
+  /**
+   * Whether a version may move to `published` — `DIGITAL_PUBLICATION_ENABLED`.
+   *
+   * Separate from uploads so a creator can stage work while publication is
+   * paused, which is what a moderation backlog actually needs.
+   */
+  readonly publicationEnabled: boolean;
+  /**
+   * Whether a digital offer may be CHECKED OUT for money —
+   * `DIGITAL_PAID_CHECKOUT_ENABLED`.
+   *
+   * The launch gate. Off, a digital listing is browsable and a FREE claim still
+   * works; on, it is a tax and consumer-law surface in every market it is on in.
+   */
+  readonly paidCheckoutEnabled: boolean;
+  /**
+   * Whether download grants may be minted — `DIGITAL_DOWNLOADS_ENABLED`,
+   * default TRUE.
+   *
+   * The only lever that reaches an existing right, hence the only one defaulting
+   * on. Turning it off refuses new grants with `downloads_disabled` and leaves
+   * every right `active`, so flipping it back restores access with nothing to
+   * repair.
+   */
+  readonly downloadsEnabled: boolean;
+  /**
+   * The verticals this deployment sells — `DIGITAL_ENABLED_VERTICALS`, a
+   * comma-separated list of {@link DigitalVertical} keys, default empty.
+   *
+   * An ALLOW-list, never a block-list, for `services/payments/redact.ts`'s
+   * reason: a block-list is correct only until a new vertical is added, and the
+   * new one would then be live in every market on the day it merged.
+   */
+  readonly enabledVerticals: readonly string[];
+}
+
+/**
+ * The authorized digital retail levers (#1016 Workstream 22, ADR 0011 D14).
+ *
+ * FIVE, mirroring {@link DigitalCommerceConfig} exactly, and for its reason:
+ * disabling new sales must never strand an existing purchase. They are ordered by
+ * how much they take away, and `revealEnabled` is the only one that reaches
+ * something a buyer already holds — so it defaults ON and is an INCIDENT lever
+ * rather than a rollout one.
+ *
+ * These are DEPLOYMENT levers and they do not replace the per-row kill switches:
+ * `supplier_accounts.state = 'killed'` and `digital_supplier_capabilities.state`
+ * are what an incident about ONE supplier reaches for, because a deployment lever
+ * cannot be that precise. The epic asks for eleven independent switches; five are
+ * here and the rest are rows.
+ */
+export interface DigitalRetailConfig {
+  /** Whether supplier catalogues may be pulled — `DIGITAL_RETAIL_CATALOG_SYNC_ENABLED`. */
+  readonly catalogSyncEnabled: boolean;
+  /** Whether a retail offer may become publishable — `DIGITAL_RETAIL_PUBLICATION_ENABLED`. */
+  readonly publicationEnabled: boolean;
+  /** Whether a digital-retail line may be checked out — `DIGITAL_RETAIL_CHECKOUT_ENABLED`. */
+  readonly checkoutEnabled: boolean;
+  /**
+   * Whether anything may be SUBMITTED to a supplier — `DIGITAL_RETAIL_PROCUREMENT_ENABLED`.
+   *
+   * Separate from checkout so an order already taken can still be fulfilled after
+   * checkout is closed, and so a supplier-side incident stops buying without
+   * stopping the orders already paid for from being recovered.
+   */
+  readonly procurementEnabled: boolean;
+  /**
+   * Whether a buyer may reveal an artifact they already own —
+   * `DIGITAL_RETAIL_REVEAL_ENABLED`, default TRUE.
+   *
+   * The only lever that reaches something a buyer already holds, hence the only
+   * one defaulting on. Turning it off refuses new reveals and leaves every
+   * fulfilment intact, so flipping it back restores access with nothing to repair.
+   */
+  readonly revealEnabled: boolean;
+  /**
+   * The secret-store path of the key new artifacts are sealed with —
+   * `DIGITAL_RETAIL_SEAL_KEY_REFERENCE`.
+   *
+   * A PATH, never a key; the shape is checked at the sealing boundary and by the
+   * column's own CHECK. Empty means this deployment can seal nothing, which is
+   * why `procurementEnabled` defaults off: a deployment that procured without a
+   * key configured would fail after spending money.
+   */
+  readonly sealKeyReference: string;
+  /**
+   * How long an attempt may sit in `ambiguous` before the recovery sweep picks it
+   * up — `DIGITAL_RETAIL_RECOVERY_DELAY_SECONDS`, default 60.
+   *
+   * Not zero: an ambiguous attempt is frequently a slow response rather than a
+   * lost one, and asking the supplier "did you get my order" while they are still
+   * answering it is how a recovery reads a half-written state.
+   */
+  readonly recoveryDelaySeconds: number;
 }
 
 /**
@@ -3776,6 +4187,9 @@ export const config: AppConfig = Object.freeze({
     draftListLimit: intEnv('SELL_YOURS_DRAFT_LIST_LIMIT', 25),
     candidateLimit: intEnv('SELL_YOURS_CANDIDATE_LIMIT', 10),
   }),
+  variantAxes: Object.freeze({
+    reads: resolveVariantAxisReadMode(),
+  }),
   productSaves: Object.freeze({
     enabled: boolEnv('PRODUCT_SAVES_ENABLED', false),
     readMode: resolveSavedItemsReadMode(),
@@ -3808,6 +4222,7 @@ export const config: AppConfig = Object.freeze({
     readCohorts: Object.freeze(resolveCanonicalReadCohorts()),
     backfillBatchSize: intEnv('CANONICAL_BACKFILL_BATCH_SIZE', 200),
     backfillPollIntervalMs: intEnv('CANONICAL_BACKFILL_POLL_INTERVAL_MS', 15_000),
+    backfillMaxAttempts: intEnv('CATALOG_BACKFILL_MAX_ATTEMPTS', 8),
   }),
   catalogIngestion: Object.freeze({
     enabled: boolEnv('CATALOG_INGESTION_ENABLED', false),
@@ -4044,6 +4459,14 @@ export const config: AppConfig = Object.freeze({
     categoryTilesPerCard: intEnv('FEED_CATEGORY_TILES_PER_CARD', 4),
     storeCardThumbnails: intEnv('FEED_STORE_CARD_THUMBNAILS', 3),
   }),
+  discovery: Object.freeze({
+    sweepIntervalMs: intEnv('DISCOVERY_SWEEP_INTERVAL_MS', 15 * 60 * 1_000),
+    leaseMs: intEnv('DISCOVERY_LEASE_MS', 10 * 60 * 1_000),
+    windowDays: intEnv('DISCOVERY_WINDOW_DAYS', 30),
+    topNPerCategory: intEnv('DISCOVERY_TOP_N_PER_CATEGORY', 60),
+    topRatedMinReviews: intEnv('DISCOVERY_TOP_RATED_MIN_REVIEWS', 5),
+    shelfSize: intEnv('DISCOVERY_SHELF_SIZE', 12),
+  }),
   cart: Object.freeze({
     maxQuantityPerItem: intEnv('CART_MAX_QUANTITY_PER_ITEM', 99),
   }),
@@ -4115,6 +4538,38 @@ export const config: AppConfig = Object.freeze({
     outboxBatchSize: intEnv('PAYMENT_OUTBOX_BATCH_SIZE', 50),
     outboxPollIntervalMs: intEnv('PAYMENT_OUTBOX_POLL_INTERVAL_MS', 5_000),
     outboxLeaseMs: intEnv('PAYMENT_OUTBOX_LEASE_MS', 60_000),
+    peable: Object.freeze({
+      enabled: resolvePeableEnabled(),
+      /** The gateway's origin, no trailing slash. */
+      baseUrl: strEnv('PEABLE_BASE_URL', 'https://api.peable.to').replace(/\/+$/, ''),
+      /** Where the service token is minted. The SAME oxy-api every Oxy service uses. */
+      oxyApiUrl: strEnv('OXY_API_URL', 'https://api.oxy.so').replace(/\/+$/, ''),
+      /** Mercaria's own ApplicationCredential. Never sent to Peable — only the minted token is. */
+      publicKey: strEnv('PEABLE_APP_PUBLIC_KEY', ''),
+      secret: strEnv('PEABLE_APP_SECRET', ''),
+      webhookSecret: strEnv('PEABLE_WEBHOOK_SECRET', ''),
+      // Spread-when-present, like Stripe's rotation secrets: absent rather than
+      // `''`, so the verifier iterates the secrets it actually has instead of
+      // computing an HMAC against an empty key that can never match.
+      ...(process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS?.trim()
+        ? { webhookSecretPrevious: process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS.trim() }
+        : {}),
+      /**
+       * DERIVED from the environment, never configured.
+       *
+       * A deployment cannot claim one mode while holding the other's
+       * credentials, which is the same property `stripe.livemode` gets from the
+       * `sk_live_` prefix.
+       */
+      livemode: strEnv('NODE_ENV', 'development') === 'production',
+      eventMaxAttempts: intEnv('PEABLE_EVENT_MAX_ATTEMPTS', 8),
+      eventBatchSize: intEnv('PEABLE_EVENT_BATCH_SIZE', 50),
+      eventPollIntervalMs: intEnv('PEABLE_EVENT_POLL_INTERVAL_MS', 5_000),
+      eventLeaseMs: intEnv('PEABLE_EVENT_LEASE_MS', 60_000),
+      presentmentCurrencies: Object.freeze(
+        resolvePresentmentCurrencies('PEABLE_PRESENTMENT_CURRENCIES', 'Peable'),
+      ),
+    }),
     stripe: Object.freeze({
       enabled: resolveStripeEnabled(),
       secretKey: strEnv('STRIPE_SECRET_KEY', ''),
@@ -4141,7 +4596,12 @@ export const config: AppConfig = Object.freeze({
         : {}),
       sellerCountries: Object.freeze(resolveStripeSellerCountries()),
       platformCurrency: resolveStripePlatformCurrency(),
-      presentmentCurrencies: Object.freeze(resolveStripePresentmentCurrencies()),
+      presentmentCurrencies: Object.freeze(
+        resolvePresentmentCurrencies('STRIPE_PRESENTMENT_CURRENCIES', 'Stripe'),
+      ),
+      threeDSecureThresholds: resolveThreeDSecureThresholds(),
+      highValueHoldThresholds: resolveHighValueHoldThresholds(),
+      highValueHoldWindowMs: intEnv('STRIPE_HIGH_VALUE_HOLD_WINDOW_MS', 72 * 60 * 60 * 1_000),
       eventMaxAttempts: intEnv('STRIPE_EVENT_MAX_ATTEMPTS', 8),
       eventBatchSize: intEnv('STRIPE_EVENT_BATCH_SIZE', 50),
       eventPollIntervalMs: intEnv('STRIPE_EVENT_POLL_INTERVAL_MS', 5_000),
@@ -4447,6 +4907,27 @@ export const config: AppConfig = Object.freeze({
     duplicateNearThreshold: numEnv('CATALOG_PROPOSAL_DUPLICATE_NEAR_THRESHOLD', 0.45),
     backfillPageSize: intEnv('CATALOG_PROPOSAL_BACKFILL_PAGE_SIZE', 100),
     pageSize: intEnv('CATALOG_PROPOSAL_PAGE_SIZE', 50),
+  }),
+  digital: Object.freeze({
+    uploadsEnabled: boolEnv('DIGITAL_UPLOADS_ENABLED', false),
+    publicationEnabled: boolEnv('DIGITAL_PUBLICATION_ENABLED', false),
+    paidCheckoutEnabled: boolEnv('DIGITAL_PAID_CHECKOUT_ENABLED', false),
+    downloadsEnabled: boolEnv('DIGITAL_DOWNLOADS_ENABLED', true),
+    enabledVerticals: Object.freeze(
+      strEnv('DIGITAL_ENABLED_VERTICALS', '')
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => value !== ''),
+    ),
+  }),
+  digitalRetail: Object.freeze({
+    catalogSyncEnabled: boolEnv('DIGITAL_RETAIL_CATALOG_SYNC_ENABLED', false),
+    publicationEnabled: boolEnv('DIGITAL_RETAIL_PUBLICATION_ENABLED', false),
+    checkoutEnabled: boolEnv('DIGITAL_RETAIL_CHECKOUT_ENABLED', false),
+    procurementEnabled: boolEnv('DIGITAL_RETAIL_PROCUREMENT_ENABLED', false),
+    revealEnabled: boolEnv('DIGITAL_RETAIL_REVEAL_ENABLED', true),
+    sealKeyReference: strEnv('DIGITAL_RETAIL_SEAL_KEY_REFERENCE', ''),
+    recoveryDelaySeconds: intEnv('DIGITAL_RETAIL_RECOVERY_DELAY_SECONDS', 60),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

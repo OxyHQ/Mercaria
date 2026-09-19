@@ -71,19 +71,24 @@ const FIXTURES: Record<CatalogRolloutDimension, DimensionFixture> = {
     outside: 'phone.smartphone',
     subject: (productTypeKey) => ({ productTypeKey }),
   },
+  internal_user: {
+    inside: 'oxy-user-alpha',
+    outside: 'oxy-user-beta',
+    subject: (internalUserOxyUserId) => ({ internalUserOxyUserId }),
+  },
 };
 
 /** Nothing at all — the subject a surface hands over when it can state no dimension. */
 const SILENT_SUBJECT: CatalogRolloutSubject = {};
 
 describe('the dimension tuple is the population, and it is not empty', () => {
-  it('names the five #367 line 117 dimensions and has a fixture for each', () => {
+  it('names the six #367 line 117 dimensions and has a fixture for each', () => {
     // A floor AND an exact membership assertion. The floor alone would pass on a
     // tuple that lost `product_type` and gained something else; the membership
     // alone would pass on an EMPTY tuple if it were written as a subset check.
-    expect(CATALOG_ROLLOUT_DIMENSIONS.length).toBeGreaterThanOrEqual(5);
+    expect(CATALOG_ROLLOUT_DIMENSIONS.length).toBeGreaterThanOrEqual(6);
     expect([...CATALOG_ROLLOUT_DIMENSIONS].sort()).toEqual(
-      ['category', 'locale', 'market', 'product_type', 'store'].sort(),
+      ['category', 'internal_user', 'locale', 'market', 'product_type', 'store'].sort(),
     );
     expect(Object.keys(FIXTURES).sort()).toEqual([...CATALOG_ROLLOUT_DIMENSIONS].sort());
   });

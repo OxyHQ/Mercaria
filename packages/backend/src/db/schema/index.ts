@@ -572,6 +572,14 @@ export * from './catalogAuthoring';
 // adds NO entry to `services/curation/merge-plan.ts`.
 export * from './catalogProposals';
 
+// Discovery — the explore, category and deals feed's counted signals
+// (`discovery_signals`, `discovery_sweep_cursors`). References nothing: the
+// subject pointer is polymorphic over listings and stores, and the category
+// scope carries no foreign key either (the root scope is `''`, not a real
+// category id). Placed here, ahead of catalog governance, so that domain keeps
+// its own "LAST export" claim.
+export * from './discovery';
+
 // Catalog administration and governance (#367 Workstream 12) — the LAST export,
 // because it references nothing and is referenced by nothing. Its five tables
 // hold decisions ABOUT the definitions above (change requests, their measured
@@ -582,3 +590,29 @@ export * from './catalogProposals';
 // (`services/catalog-governance/impact-plan.ts`) names those columns, and a
 // schema-level dependency would be a second place the reference graph is stated.
 export * from './catalogGovernance';
+
+// The digital-commerce foundation (#1015, ADR 0010). After everything above,
+// because it sits ON TOP of the canonical graph and the order domain and adds no
+// column to either: a digital product is a `canonical_products` row with
+// `canonical_variants` exactly like a physical one, and what this adds is what
+// gets HANDED OVER, which the catalogue has never modelled for anything.
+//
+// `digitalAssets` owns the DELIVERABLE and carries no price, no stock and no
+// public URL; `digitalRights` owns the licence terms and the buyer's durable
+// right, and is deliberately not called an entitlement — #89's
+// `entitlement_grants` already owns that word for Mercaria billing a merchant.
+export * from './digitalAssets';
+export * from './digitalRights';
+
+// Authorized digital retail (#1016, ADR 0011) — the private supply, procurement
+// and fulfilment domain behind a game, software licence or other authorized
+// third-party digital product Mercaria sells as the seller of record.
+//
+// LAST, because it is the only module that reads BOTH the procurement spine and
+// the digital half of the commerce model: its riders hang off `supplierAgreements`
+// and its offers map onto `canonicalVariants`, while what it hands a buyer is a
+// sealed artifact rather than a creator's file. It adds no column to either side
+// — a second supplier table would be a second kill switch (ADR 0011 D2), and a
+// digital purchase order on `purchase_orders` would need a shipment that never
+// arrives (ADR 0011 D5).
+export * from './digitalRetail';

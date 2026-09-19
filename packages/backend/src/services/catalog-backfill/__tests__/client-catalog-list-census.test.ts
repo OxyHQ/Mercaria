@@ -146,8 +146,8 @@ const HARDCODED_CATALOG_COMPARISON =
  * `SIZE` flags `FONT_SIZE_TOKENS` (typography) and `COLOR`/`OPTION` flags
  * `COLOR_OPTIONS` (a hex palette in a generic colour picker) — design-system
  * vocabulary a name-matching detector cannot tell from catalog vocabulary. Each
- * would need an allow-list entry, re-growing from zero the list #478 just
- * emptied, to catch strictly less than this probe does.
+ * would need its own allow-list entry, growing `PERMITTED` past the one it
+ * already carries, to catch strictly less than this probe does.
  */
 const HARDCODED_CATALOG_MEMBERSHIP =
   /\.(?:has|includes)\(\s*(?:option|category|productType|facet|attribute)\.(?:name|slug|key)\b/u;
@@ -159,15 +159,25 @@ const HARDCODED_CATALOG_MEMBERSHIP =
  * `merge-plan-census.test.ts`'s ruling. An exact array rather than a prefix rule,
  * so it cannot be widened by accident.
  *
- * EMPTY as of #478, which removed the last entry rather than re-dispositioning
+ * EMPTIED at #478, which removed its last entry rather than re-dispositioning
  * it: `VariantSwatches` picked a widget from `COLOR_OPTION_NAMES`, three English
  * words, and drew a colour it had invented — no `attribute_enum_values` colour
  * column and no per-value image exists, so the swatch showed a cycled gallery
  * photo or a hash of the value string. It now renders pills for every option.
  *
- * An empty list costs this census the positive control the entry was doubling
+ * That emptying cost this census the positive control the entry was doubling
  * as — see `still catches a hardcoded list in a source the walk really read`,
- * which replaces it at the same seam.
+ * which replaced it at the same seam and is kept regardless of whether this
+ * list holds anything, so a future entry landing here does not silently
+ * retire it.
+ *
+ * EMPTY AGAIN. Its one later entry, `packages/ui/src/lib/category-palette.ts`,
+ * went with the browse tile it derived a background colour for: the discovery
+ * feed's nine bespoke cards were replaced by the marketplace components the
+ * rest of the storefront already renders, and that file had no other caller.
+ * Nothing was re-dispositioned to empty this list — the source it named is
+ * gone, so an exact-identity comparison against a list still naming it would
+ * fail, which is the check working.
  */
 const PERMITTED: readonly { readonly path: string; readonly disposition: string }[] = [];
 
@@ -202,12 +212,11 @@ describe('the censused client packages', () => {
     // Exact identity, never containment: an allow-list that may only grow is the
     // gate switching itself off one defensible entry at a time.
     //
-    // While PERMITTED held an entry this was ALSO its own positive control — it
-    // could only pass by having FOUND that list. #478 emptied it, so this
-    // assertion now passes two ways: because no client package hardcodes a
-    // catalog vocabulary, or because the walk and the probe stopped composing.
-    // The test below restores the control; do not delete it while this list is
-    // empty.
+    // While PERMITTED holds an entry it is ALSO a positive control for this
+    // probe — it can only pass by having FOUND `category-palette.ts`. But that
+    // stops being true the moment PERMITTED is emptied again (#478 did exactly
+    // that), so the dedicated control below does not depend on this list's
+    // length and must not be deleted alongside a future entry.
     expect(
       offenders,
       'a client package outside the two scanned by WS8/WS9 hardcodes a catalog vocabulary. ' +
@@ -351,9 +360,17 @@ describe('the censused client packages', () => {
         80,
       );
     }
-    // The exact-count assertion on the exemptions themselves. ZERO as of #478;
-    // it is not a formality, because the loop above is vacuous at this length
-    // and this line is the only thing that notices an entry coming back.
+    // The exact-count assertion on the exemptions themselves. ZERO from #478
+    // until the discovery-feed browse tiles added `category-palette.ts`, and
+    // ZERO again now that those tiles were replaced by the marketplace
+    // components the storefront already had and that file went with them.
+    //
+    // At zero the loop above is vacuous — it checks nothing — which is exactly
+    // why this line stays: it is the only thing that notices an entry landing
+    // unreviewed, and at a length of 0 that is the whole of its job. The
+    // dedicated positive control ('still catches a hardcoded list in a source
+    // the walk really read') is what keeps the PROBE honest meanwhile, and it
+    // is deliberately independent of this list's length.
     expect(PERMITTED).toHaveLength(0);
   });
 

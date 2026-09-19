@@ -14,7 +14,7 @@ silently.
 
 Several of these are enforced by tests, not by discipline — see the bottom.
 
-The mechanics behind most of this ship in **`@oxyhq/db`** (column builders, the
+The mechanics behind most of this ship in **`@oxy.so/db`** (column builders, the
 casing authority, the migration ledger and deploy phases, the throwaway-database
 harness, the convention gates). Read it before hand-rolling any of them; a
 Mercaria-local copy of something that package already owns is a second thing to
@@ -52,7 +52,7 @@ map; write it out, one entry per table.
 not pass an explicit column name unless the SQL name genuinely differs from the
 property.
 
-**`DATABASE_CASING` from `@oxyhq/db` is the naming authority.** It is read by
+**`DATABASE_CASING` from `@oxy.so/db` is the naming authority.** It is read by
 `createDatabase()` in `db/postgres.ts` (what queries reference) and by
 `drizzle.config.ts` (what the DDL creates). One setting, not two copies.
 
@@ -61,7 +61,7 @@ property.
 > built. Using it in hand-written SQL throws `column "sellerId" does not exist`;
 > using it in a catalogue query or an `endsWith('_id')` filter silently matches
 > nothing and the check passes vacuously. Always `sqlColumnName(column)` from
-> `@oxyhq/db`, or interpolate the Column itself into `sql` and let drizzle
+> `@oxy.so/db`, or interpolate the Column itself into `sql` and let drizzle
 > render it.
 
 > **Trap, second guise — the one that costs data, not a crash (#313):** a drizzle
@@ -73,7 +73,7 @@ property.
 > query returns 0/`[]` **with no error at all**. Measured against a real server:
 > an independent raw-SQL control confirmed four rows existed, the query returned
 > 0 for every row, and `qualified()` returned 4. Qualify every correlated
-> reference with `qualified(column)` from `@oxyhq/db`, and treat "a correlated
+> reference with `qualified(column)` from `@oxy.so/db`, and treat "a correlated
 > subquery returned nothing" as a bug in the SQL until proven otherwise.
 >
 > **The mechanism is narrower and nastier than "the table is not in the `FROM`",
@@ -117,7 +117,7 @@ quotes every identifier it emits. Hand-written SQL must quote it too.
 ## Primary keys
 
 `text`, holding the 24-char ObjectId hex verbatim for pre-cutover rows and a
-**uuid v7** for new ones — `generatedId()` from `@oxyhq/db`. This is not a
+**uuid v7** for new ones — `generatedId()` from `@oxy.so/db`. This is not a
 convenience, it is what makes the backfill possible at all:
 
 - Every cross-collection reference in Mercaria's Mongo model is already a
@@ -234,7 +234,7 @@ it.
 tuple from `@mercaria/shared-types` wherever one exists** — `ALL_CURRENCY_CODES`
 is the canonical case, with `ListingCondition` and the order/enforcement modes
 beside it. Render the CHECK with `inList()` / `textArrayLiteral()` from
-`@oxyhq/db` so the constraint text is generated from the tuple rather than
+`@oxy.so/db` so the constraint text is generated from the tuple rather than
 retyped.
 
 **This is what "adding a currency code propagates" now means, and it CHANGES.**
@@ -263,7 +263,7 @@ element is in range" is written as array CONTAINMENT, never `unnest`.
 
 ## Timestamps
 
-Always `timestamptz`, always `mode: 'date'` — `timestamptz()` from `@oxyhq/db`.
+Always `timestamptz`, always `mode: 'date'` — `timestamptz()` from `@oxy.so/db`.
 `timestamp` without a time zone reinterprets the value in the session's
 `TimeZone` on every read, silently changing what a Mongo `Date` meant.
 
@@ -473,7 +473,7 @@ reference snapshotted on an order, can leave the process in a response nobody
 audited.
 
 `db/protectedColumns.ts` holds the registry; `publicColumns(table, REGISTRY)`
-from `@oxyhq/db/assert` is the sanctioned read. The exclusion is at the TYPE
+from `@oxy.so/db/assert` is the sanctioned read. The exclusion is at the TYPE
 level — the row type has no such property, so a serializer that reads one fails
 `tsc` rather than shipping it — **provided the registry is declared `as const`
 and never re-annotated with `ProtectedColumnRegistry`.** Annotating it widens the
@@ -533,7 +533,7 @@ expression cannot reproduce. The stored total is the record of what was charged.
 
 A Mongo text index becomes a `tsvector` GENERATED column plus a GIN index —
 never `LIKE '%…%'`, which is not a port of a text index but a table scan wearing
-one's clothes. Use `tsvector` from `@oxyhq/db` and the two-argument
+one's clothes. Use `tsvector` from `@oxy.so/db` and the two-argument
 `to_tsvector('<config>', …)` with a literal configuration.
 
 Note that catalogue search changes SHAPE where Mongo indexed a multikey field on
@@ -591,7 +591,7 @@ the exact bug.
 drizzle-kit cannot emit the `(Point,4326)` typmod (its `parseType` quotes any
 type name outside a hardcoded list, and `geography` is not on it as of
 drizzle-kit 0.31.10), so the column is declared bare — hence `geography` from
-`@oxyhq/db`. The typmod would only constrain WRITES, and a generated column has
+`@oxy.so/db`. The typmod would only constrain WRITES, and a generated column has
 none; that the stored value really is a Point at SRID 4326 is asserted against
 real rows instead.
 
@@ -1136,6 +1136,41 @@ natural-unique idempotency the four sections above state. What is #57's own:
   branch is load-bearing for the reason `commerce_relationships`' is: an
   unrecognised kind is unrepresentable even with the kind CHECK dropped, so
   widening the tuple without widening the CHECK fails the first write.
+- **An external offer never BECOMES a native listing, and the conversion is
+  blocked in the type before the database sees it** (#367 line 633). The CHECK
+  above is the second half: its `native` arm requires `listing_id is not null`
+  as well as `product_variant_id`, and all three non-native arms force BOTH
+  NULL — so becoming native means acquiring a listing and a variant that the
+  row's own kind forbids it to hold. The FIRST half is `OfferPatch` in
+  `db/offers/offerRepository.ts`, which is
+  `Partial<Omit<InsertOfferInput, 'id' | 'kind' | …>>`: **`kind` is omitted, so
+  an update that changed it does not compile.** Its docblock states the reason
+  — *"an offer that changed kind or variant is a DIFFERENT offer and must be a
+  new row"* — and stating it as a type is what stops a caller widening it by
+  accident. Retirement and re-observation are the supported transitions; an
+  external offer that later becomes sellable natively is a NEW native row whose
+  listing the converger owns, and #58's `native_listing_links` is the seam that
+  associates the two without merging them.
+
+  What is ENFORCED above is the type and the CHECK. What is only MEASURED is
+  that nothing exercises the gap between them. Counting **non-test lines calling
+  the symbol, excluding its own definition**, over `packages/backend/src`:
+  `updateOffer` — the one writer taking a free-form patch — has **0**, against
+  **2** for `upsertExternalOffer` as the control that the count can find a
+  caller at all.
+
+  ```
+  grep -rn '<symbol>(' packages/backend/src --include=*.ts \
+    | grep -v 'export async' | grep -v '__tests__' | wc -l
+  ```
+
+  Both figures come from that one command, and naming it is the point rather
+  than pedantry: `upsertExternalOffer` reads as 2, 3, 6, 7, 11 or 17 depending
+  on whether tests, the defining file, whole files or occurrences are counted,
+  and a control nobody can reproduce takes the zero beside it down with it.
+  A control measured by a different instrument from its subject is not a
+  control. That is a fact about today with a date on it, where the two layers
+  above are properties of the code.
 - **There is NO stored checkout-eligibility verdict, and that is the deliberate
   divergence from the `onboarding_state` one-verdict rule.** Payment readiness
   is one stored verdict because its inputs are all on the row being verdicted;
@@ -1284,6 +1319,30 @@ shape looks arbitrary answerable:
 - **Only an `objective` attribute may be `hard_constraint_capable`, and it must
   be `filterable`.** An opinion must not be able to EXCLUDE a product, and a
   requirement nobody can see as a filter is a rule they cannot check.
+- **A `searchable` attribute must be `display_policy = 'public'`** (#367 line
+  277). `searchable` decides whether a shopper's own WORDS may resolve to the
+  attribute, and the deterministic interpreter echoes the matched attribute's
+  LABEL and its controlled value's LABEL back in the explanation it attaches to
+  every requirement — so an interpretation IS a public DTO, and recognising a
+  term publishes exactly what `operator_only` withheld. `0141` backfills
+  `searchable` from `display_policy` in the statement before the CHECK, which is
+  what lets it be added VALIDATED with a proof rather than a hope.
+  **The two SIBLING implications are deliberately NOT CHECKs**: `filterable` and
+  `comparable` already hold values that branch could not count, and the repair
+  available in a migration would be to rewrite the frozen meaning of a published
+  version. They are enforced at the READ instead — `facets/metadata.ts` suppresses
+  with `not_publicly_displayable`, `comparison.service.ts` withholds the key from
+  both the declaration and the fact map — and what is owed is a count of the rows
+  that would fail, then the two checks. The `attribute_labels` locale decision one
+  table over, for the same reason.
+- **Every capability column is FROZEN with the version**, and
+  `ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS` in `attributeRegistry.ts` is the list
+  `attribute-registry.realdb.test.ts` drives an UPDATE of, column by column,
+  against a published version. A capability that can be flipped on a live version
+  is a capability whose version stamp means nothing: a stored value cites the
+  version it was read under, so "was this reachable from a shopper's words under
+  v3" has to stay answerable from v3. The trigger's frozen list is hand-written
+  SQL no compiler reads, which is why the list exists as a value.
 - **`include_descendants` is per SCOPE row, not per definition.** That IS the
   inheritance rule: "screen size, everywhere under Electronics" and "shoe width,
   in Shoes and not in Shoe care" are both correct, and one global policy would
@@ -5369,7 +5428,7 @@ record a connector run refused, and why — durably, one row per record.
   merchant to search their product list for an inventory-item id.
 - **`ordinal` exists because BOTH halves of the obvious ordering key are
   degenerate here.** Every row of a run is written by ONE multi-row insert, so
-  they share `created_at` to the millisecond, and `@oxyhq/db`'s uuid v7 primary
+  they share `created_at` to the millisecond, and `@oxy.so/db`'s uuid v7 primary
   key is not monotonic within a millisecond. Ordering on `(created_at, id)`
   returns a run's refusals SHUFFLED — measured on this table's own first suite
   run, where the write cap's "first 200 we met" came back starting at record 79
@@ -5586,7 +5645,7 @@ no readiness column and no activation verdict anywhere in the file.
   `merchant_activation_capability_events_latest_idx`. A second table holding the
   current value would be derivable from this one and could therefore disagree
   with it. The index tie-breaks on `id desc` because one observation writes
-  several rows in one statement and `@oxyhq/db`'s uuid v7 is not monotonic within
+  several rows in one statement and `@oxy.so/db`'s uuid v7 is not monotonic within
   a millisecond.
 - **It is a RECORDING and never an authority.** Nothing that decides anything
   reads it — a cached `granted` survives exactly the restriction that should have
@@ -6805,3 +6864,341 @@ variant-scoped fact (`selectedVariant?.price ?? listing.price`).
 `findVariantImages` OMITS a variant with no selections rather than returning an
 empty array, so a caller cannot mistake "chose nothing" for "was not in the
 batch"; the repository never substitutes the gallery itself.
+
+---
+
+## Allowed value subsets per product-type field (#367 W7, epic line 235)
+
+`product_type_field_allowed_values` — which of a cited attribute's controlled
+values one product-type field permits. One table, three foreign-keyed columns,
+no CHECK and one trigger.
+
+**The clause is "without copying value records", and it held VACUOUSLY before
+this.** Nothing subsetted, so nothing copied. The way somebody satisfies its
+words and breaks its intent is a `text[]` of permitted value spellings on
+`product_type_fields` — which is #56's `allowed_values text[]` again. That column
+is GONE rather than kept beside `attribute_enum_values`, because *"keeping both
+would be two representations of the permitted set, and the one an alias resolved
+against would be whichever the writer remembered to update."* So a subset is a
+JOIN onto `attribute_enum_values.id`, and the table carries no column that could
+hold a spelling.
+
+**The grain is the FIELD, not the category.** Every other per-context narrowing
+of a cited attribute is already a column on `product_type_fields`
+(`requirement`, `valuePolicy`, `variantCapable`, `visibilityRule`, the four copy
+columns). A per-CATEGORY subset is deliberately NOT modelled: it would be a
+fourth representation of where an attribute applies — after
+`attribute_definition_categories`, `product_type_category_scopes` and
+`product_type_field_categories` — and because a schema is composed for ONE
+(product type, category) pair, it would additionally have to be intersected with
+this one, making the answer depend on which was applied first.
+
+**An EMPTY subset means EVERY value**, `attribute_definition_categories`'
+convention and not `product_type_field_categories`'. The two are not arbitrary
+opposites: absence THERE narrows something somebody added deliberately, while
+absence HERE is the state of every field that exists. Read as "nowhere", the
+migration creating this table would take every published product-type version to
+zero offered values at once. That is an outage, not a convention.
+
+**The subset says WHICH values, never their ORDER.** No `position` column;
+`attribute_enum_values.position` already orders them, and a second ordering is
+two answers to what a form renders.
+
+**Two NOT NULL composite foreign keys sharing `attribute_definition_id`** are the
+invariant — the `match_category_gates` device. `(product_type_field_id,
+attribute_definition_id)` → `product_type_fields`, and `(attribute_definition_id,
+attribute_enum_value_id)` → `attribute_enum_values`. A subset naming a value
+belonging to a different attribute than its field cites is UNREPRESENTABLE rather
+than refused by a service. Both targets needed a `unique()` — never a
+`uniqueIndex()`, which Postgres refuses as an FK target — and both are
+`(id, <other column>)` over a primary key, so they are unique by construction and
+could not fail to apply.
+
+**`on delete no action` on the value key, not `restrict`**, the measurement
+already recorded on `product_type_fields_group_fk`: `restrict` is checked
+immediately, so a delete cascading to both a subset row and its enum value in one
+statement raises on whichever cascade ran first.
+
+**`mercaria_product_type_allowed_value_frozen`** freezes a published version's
+subsets with the rest of its contract. It is a THIRD function rather than a
+fourth trigger on `mercaria_product_type_child_frozen`, because that one reads
+`NEW.product_type_definition_id` and this table is one hop further out — its
+parent is a FIELD. Its reasoning is the existing one verbatim: a schema whose
+contract could change after publication is a mutable document wearing a version
+number, and without this the subset is the one piece of a published schema that
+could still move under a merchant.
+
+**Carry-forward: nothing carries.** `insertProductTypeField` has one production
+caller (the vertical seed script); no clone-from-previous-version path and no
+HTTP surface creates a field. `ATTRIBUTE_VERSION_CARRY_FORWARD` is a census over
+`attribute_definitions` COLUMNS, so this table owes it no disposition. The rows
+key on `product_type_field_id`, so a clone would move them with the field by
+construction.
+
+## Digital commerce — assets, licences and buyer rights (#1015, ADR 0010)
+
+Fifteen tables, and the whole domain sits ON TOP of the canonical graph without
+adding a column to it. A digital product is a `canonical_products` row with
+`canonical_variants` exactly like a physical one; what these tables add is what
+gets HANDED OVER, which the catalogue has never modelled for anything.
+
+The design document is `docs/digital-commerce.md`. What follows is the decision
+and the reason for each shape a reader would otherwise have to guess at.
+
+### The asset owns no bytes, and that is what makes a version immutable
+
+`digital_assets` is the commercial identity; `asset_versions` is one release;
+`asset_files` belong to a VERSION. #1015 boundary 8 requires that publishing v2
+never silently mutate what v1 was, and the only structure that holds it without a
+rule somebody follows is for the bytes to belong to a row nothing updates.
+
+`asset_versions_immutable_once_published` and
+`asset_files_immutable_once_published` are what make it true. A comment would not
+have: #402 is the precedent in this repository — two ordinary calls laundered a
+moderation decision because the guard lived in one service and the second call
+reached the row another way.
+
+The file trigger leaves the SCAN columns writable and freezes `visibility` with
+the content. A security withdrawal discovered after publication has to be
+recordable on the row it is about; widening a visibility would hand every existing
+right-holder a file their licence never covered.
+
+### `digital_assets.current_version_id` carries no foreign key, and the reason is circularity
+
+`asset_versions.asset_id` already references `digital_assets`, so a constraint back
+would make inserting the first version impossible without a deferred constraint
+nothing else here uses. It is DENORMALIZED on purpose — resolving "what would I buy
+right now" by scanning for the newest published row is a sort on every product
+page, and the answer has to be a single value anyway because two concurrent
+publications must not both become current. `publishAssetVersion` writes it, demotes
+the outgoing version and stamps `published_at` with a SQL `coalesce` in ONE
+transaction, which is `listings.published_at`'s device for the same reason: two
+concurrent first publications must not each decide the column is empty.
+
+### There is no `*_url` column anywhere, and a test enforces the absence
+
+#1015 boundary 3: a file URL is never the buyer's ownership record.
+`asset_files.storage_key` is an opaque object-storage key and a PROTECTED column,
+because the first naive `select().from(assetFiles)` on a buyer-library route is the
+first time the INPUT a signed URL is minted from leaves the process.
+`digital-commerce-walls.test.ts` fails the build on a `url`/`uri`/`href`-shaped
+column in these fifteen tables, because the cheap repair for "the client needs the
+file" is a permanent URL and it would look like a convenience.
+
+### `asset_licence_versions.rights` is a `text[]`, and that is not a lapse
+
+§Arrays says an array of IDS or entities is a junction table. This is neither: it
+is a set of four-ish closed VALUES, read in its entirety on every product page and
+every download authorization and never queried by element. A child table here is
+the over-normalization that section names. The CHECK is element containment
+(`<@ array[...]`), which is the one spelling a scalar enum cannot express.
+
+The dependency rule between rights (`derivative_redistribution` needs
+`modification`) is enforced at WRITE time by `unmetLicenceRightDependencies` and
+deliberately not as a CHECK: a CHECK comparing two elements of one array column
+reads as an accident and the next reader simplifies it away.
+
+### `asset_rights.buyer_key` is one column for two id spaces
+
+`oxy:<oxyUserId>` or `guest:<guestSessionId>` — the spelling `cartOwnerForActor`
+already uses, with a CHECKed prefix. Two nullable columns would make "which buyer"
+a question with two answers and one of them always NULL, and every read would carry
+an `or`. One column makes the buyer addressable by a single equality, which is what
+the buyer-library index is, and makes passing a guest session id where an Oxy id
+belongs find nothing rather than find somebody else's rights.
+
+The prefix CHECK uses `[^[:space:]]+`, not `.+`:
+`check-regex-literal-dot.realdb.test.ts` refuses a bare `.` in a live CHECK (#477),
+and nothing here wants a dot at all.
+
+**Both are foreign services' primary keys and carry no foreign key** — §no `users`
+table, unchanged.
+
+### The idempotency is TWO partial unique indexes, not one
+
+`UNIQUE(order_item_id, package_id) WHERE order_item_id IS NOT NULL` is the purchase
+half; `UNIQUE(buyer_key, package_id) WHERE order_item_id IS NULL` is the free-claim
+half. Postgres treats NULLs as DISTINCT, so a plain UNIQUE on the first pair would
+be vacuous for exactly the rows the second covers (§Unique constraints). The
+repository inserts with an UNTARGETED `ON CONFLICT DO NOTHING`, because naming one
+target would leave the other raising and every constraint on the table encodes
+"this right already exists".
+
+### `asset_download_grants` stores a token DIGEST and is the one table here that is swept
+
+`token_hash` is SHA-256 of a token handed to the buyer once; redeeming re-hashes
+and compares. A dump opens nothing — the `pickup_collection_credentials` device.
+Redemption is ONE statement (`UPDATE … SET redemptions = redemptions + 1 …`
+guarded by the expiry and the cap), so there is no window in which a grant is read
+as usable and then used after expiring.
+
+Expired grants are DELETED by a sweeper, which is why
+`asset_download_events.grant_id` is `ON DELETE SET NULL`: the door is disposable
+and the audit is not.
+
+### `asset_variant_bindings.variant_id` carries no foreign key, deliberately
+
+It names a real `product_variants` row, so the absence needs a reason and has one:
+variant rows are created, replaced and re-keyed by connector imports and by the
+catalogue authoring path, and a `restrict` here would make a routine variant
+replacement fail against a binding the merchant never knew existed. The binding is
+resolved at checkout and a miss means "not a digital line", which is the safe
+answer. Ledgered in `deferredForeignKeys.ts`.
+
+### `orders`: five NOT NULLs became a CHECK that says MORE
+
+`addressColumns('shippingAddress')` became `optionalAddressColumns`, and
+`orders_shipping_address_digital_check` took their place:
+
+```
+digital      -> all NINE address columns NULL
+anything else-> the five required ones NOT NULL
+```
+
+**That is stricter than the NOT NULLs**, which is the only reading under which this
+is not a weakening: a NOT NULL could be satisfied by a fabricated street — exactly
+what a digital order would have had to write — and the CHECK cannot. #1015 boundary
+16 is now a constraint rather than a convention.
+
+`digital` joins `SHIPPING_METHODS` rather than making `shipping_method` nullable.
+`pickup` has been a non-shipping member since #93, so the tuple has been a
+FULFILMENT vocabulary under a legacy name for as long as collection has existed;
+the alternative reaches four hydration paths with a `NULL` they have no branch for.
+
+### `order_items`: the digital snapshot is four columns, all-or-nothing
+
+`digital_package_id`, `digital_asset_version_id`, `digital_licence_version_id`,
+`digital_update_policy`. Their PRESENCE is what makes a line digital — there is no
+`is_digital` column, for the reason ADR 0007 D15 refuses a `commerce_type` one: a
+flag and these ids are two representations of one fact and can disagree.
+
+All four carry NO foreign key, the treatment `listing_id` and `variant_id` beside
+them already have: an order line must survive its catalogue ancestry with its
+snapshot intact. A `restrict` would make withdrawing an asset fail against every
+historical sale of it; a `cascade` would delete the sale.
+
+`order_items_digital_no_condition_check` is `condition_semantics` discharged: a
+digital line's `condition_key` must be NULL. A tenth `not_applicable` member of
+`ITEM_CONDITION_KEYS` was the other way to say it and is worse — it would have given
+every PHYSICAL listing a way to decline to describe itself.
+
+### Measured and claimed are different TABLES
+
+`asset_file_inspections` holds what the pipeline measured, keyed
+`(file_id, processor_name, processor_version)` so a recomputation is
+distinguishable from the original measurement. A creator's claims are product-type
+attribute values #367 already owns. One table with a provenance flag would let a
+write path set the flag wrongly; two tables cannot be confused by a write path at
+all.
+
+Every geometry column is nullable and NULL means NOT MEASURED, which is why
+`verdict` exists beside them. The bounding box is all three dimensions or none — a
+CHECK — because two of three is a measurement a product page would print as
+`42 × 17 × —`.
+
+## Authorized digital retail (#1016, ADR 0011)
+
+Ten tables, one widened CHECK on `suppliers`, five hand-written triggers, and one
+decision that shapes the rest: the SUPPLIER SPINE is reused. `suppliers`,
+`supplier_accounts` and `supplier_agreements` stay the one counterparty record,
+and the digital half rides as `digital_supply_terms` (a rider on one agreement
+version) plus `digital_supplier_capabilities` (one row per account × operation).
+
+### Why not a second supplier table
+
+A kill switch that exists twice is a kill switch that gets thrown once.
+`supplier_accounts.state = 'killed'` is the emergency stop the physical-side
+tooling already reads, and the credential a compromise compromises is the one
+`credential_reference` already names. A `digital_suppliers` table would mean an
+incident response that disables a counterparty on one side and leaves it
+procuring on the other.
+
+### Why the capability is a TABLE and not an array element
+
+`supplier_accounts.api_capabilities` is a `text[]`, and an array carries no
+per-element pause, no per-element health check and no per-element reason.
+Removing an element to pause it would also lose the record that the capability
+exists. The epic requires catalog sync and procurement to pause independently, so
+the grain has to be a row.
+
+### The two live-ness indexes, and which one is load-bearing
+
+`digital_purchase_orders` carries `UNIQUE(idempotency_key)` and a PARTIAL
+`UNIQUE(order_item_id) WHERE status IN (…non-terminal…)`. The first is ordinary
+idempotency. The second is the one the domain rests on: it makes two live
+procurement attempts for one order line unrepresentable, which is how "never buy
+a second key after a timeout" becomes a property of the database rather than an
+ordering in a service.
+
+Its complement is rendered from `DIGITAL_PURCHASE_ORDER_LIVE_STATUSES`, which is
+itself DERIVED by subtraction from the terminal tuple — so adding a status
+without deciding whether it is terminal cannot quietly widen the index.
+
+### Every non-terminal status needs a terminal exit, and that is a schema concern
+
+Because of that partial unique, a status with no edge out of it does not merely
+mislabel an attempt — it blocks that order line forever. The transition map lives
+in `@mercaria/shared-types` and is NOT duplicated in plpgsql: two authorities over
+one machine disagree exactly once, and the trigger freezes the identity and cost
+columns instead.
+
+### The secret-presence CHECK is a BICONDITIONAL, and both directions are real
+
+`(capability IN (secret-bearing…)) = (sealed_secret IS NOT NULL)`. One direction
+refuses an `activation_key` with nothing in it; the other refuses a
+`direct_account_activation` carrying a key nobody should ever be shown. Either
+half alone admits a row that contradicts itself, and the tuple it is rendered
+from is `SECRET_BEARING_FULFILMENT_CAPABILITIES` — so adding a capability forces a
+decision about which side of the line it falls on.
+
+### `masked_hint` is stored in CLEAR, deliberately, and bounded by CHECK
+
+Four characters of the plaintext's TAIL. Support's commonest question is *"is the
+key you are holding the key we sold you"*, and answering it without a hint means
+revealing the whole secret to an operator on every enquiry. Four characters
+reconstruct nothing. It is NOT in `PROTECTED_COLUMNS` for that reason, and it IS
+frozen by the seal trigger — a changed hint would describe a key the buyer was
+never given.
+
+### `plaintext_sha256` is protected even though it is irreversible
+
+`channel_api_keys.hash`'s reasoning, one domain over: a digest handed out is an
+OFFLINE oracle to test guessed keys against, with no rate limit and no log line.
+For a key space this small that is not theoretical.
+
+### The artifact ↔ incident pair is constrained in ONE direction
+
+`digital_fulfilment_incidents.artifact_id` and `.replacement_artifact_id` are real
+`restrict` references. `digital_fulfilment_artifacts.incident_id` is a plain
+column with NO foreign key, and the direction is the decision: the artifact is the
+record of what was handed to a buyer and must be insertable and readable
+independently of any support row, while an incident without its artifact is
+meaningless. Constraining both would also make the pair a cycle at insert time.
+
+### Two array semantics, side by side, and they are OPPOSITE on purpose
+
+`digital_supply_terms.permitted_territories` empty means NONE — a rider GRANTS,
+and a grant naming no territory grants none (the `supplier_agreements` rule).
+`digital_procurement_offers.activation_territories` empty means UNRESTRICTED — an
+offer DESCRIBES where the thing works. Both are asserted by
+`eligibility.test.ts`, because the two arrays sit two columns apart in the same
+query and reading either as the other publishes something nobody authorized.
+
+### `digital_retail_pricing_policies` is not `retail_pricing_policies`
+
+ADR 0004 D3 is a COST-ONLY formula, and its table is shaped around proving the
+total is the exact sum of approved components with no margin at all. Digital
+retail carries a margin by decision, so the two differ in the one direction a
+shared table cannot absorb: one exists to prove margin is ZERO and the other to
+bound it between a floor and a ceiling. One ACTIVE policy per market × product
+class, by partial unique index, so "which policy priced this" has exactly one
+answer.
+
+### The margin is basis points of RETAIL, and rounding may overshoot the ceiling
+
+`retail = (cost + fixed) / (1 - (margin + payment) / 10000)`, and the CHECK keeps
+both rates under 10 000 so the denominator stays positive. Rounding is UP and
+last, because rounding down is the only direction that can cross the floor — so a
+price computed at exactly the ceiling can realize a basis point above it. The
+band bounds the REQUESTED margin; a sub-minor-unit overshoot is arithmetic, and
+`pricing.ts` says so rather than leaving it to be discovered.

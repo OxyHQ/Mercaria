@@ -13,12 +13,16 @@ import { getQueueConnection, isQueueEnabled, closeQueueConnection } from './conn
 import { closeQueues } from './queues.js';
 import { registerSchedules, removeSchedules } from './scheduler.js';
 import {
+  MARKETPLACE_DIGITAL_QUEUE,
   MARKETPLACE_EVENTS_QUEUE,
   MARKETPLACE_MAINTENANCE_QUEUE,
   MARKETPLACE_SYNC_QUEUE,
+  DIGITAL_WORKER_CONCURRENCY,
   EVENTS_WORKER_CONCURRENCY,
   MAINTENANCE_WORKER_CONCURRENCY,
   SYNC_WORKER_CONCURRENCY,
+  JOB_ASSET_FILE_INSPECT,
+  JOB_ASSET_VERSION_INSPECT,
   JOB_RECOMPUTE_AGGREGATES,
   JOB_ORDER_EVENT_NOTIFICATION,
   JOB_LOW_INVENTORY_ALERT,
@@ -38,6 +42,8 @@ import {
   JOB_FULFILLMENT_PUSH,
 } from './constants.js';
 import {
+  handleAssetFileInspect,
+  handleAssetVersionInspect,
   handleRecomputeAggregates,
   handleReviewClassificationSweep,
   handleScopedAggregateSweep,
@@ -58,11 +64,14 @@ import {
 } from './handlers.js';
 import { log } from '../lib/logger.js';
 import type {
+  MarketplaceDigitalJobData,
   MarketplaceEventJobData,
   MaintenanceJobData,
   MarketplaceSyncJobData,
 } from './types.js';
 import type {
+  AssetFileInspectJob,
+  AssetVersionInspectJob,
   RecomputeAggregatesJob,
   OrderEventNotificationJob,
   LowInventoryAlertJob,
@@ -79,6 +88,7 @@ import type {
 let eventsWorker: Worker<MarketplaceEventJobData> | null = null;
 let maintenanceWorker: Worker<MaintenanceJobData> | null = null;
 let syncWorker: Worker<MarketplaceSyncJobData> | null = null;
+let digitalWorker: Worker<MarketplaceDigitalJobData> | null = null;
 let workersStarted = false;
 
 /** Process one events-queue job, dispatching on its job name. */
@@ -159,6 +169,27 @@ async function processSyncJob(job: Job<MarketplaceSyncJobData>): Promise<void> {
 }
 
 /**
+ * Process one digital-inspection job, dispatching on its job name (#1015 W4).
+ *
+ * Its own queue and its own worker, because the work is CPU-bound and memory-heavy
+ * where everything on the sync queue waits on an external API —
+ * `DIGITAL_WORKER_CONCURRENCY` is derived from `MAX_INSPECTED_FILE_BYTES` and says
+ * so.
+ */
+async function processDigitalJob(job: Job<MarketplaceDigitalJobData>): Promise<void> {
+  switch (job.name) {
+    case JOB_ASSET_FILE_INSPECT:
+      await handleAssetFileInspect(job.data as AssetFileInspectJob);
+      return;
+    case JOB_ASSET_VERSION_INSPECT:
+      await handleAssetVersionInspect(job.data as AssetVersionInspectJob);
+      return;
+    default:
+      throw new UnrecoverableError(`Unknown digital inspection job: ${job.name}`);
+  }
+}
+
+/**
  * Start the marketplace queue workers for this process. Idempotent; a no-op when
  * Redis is not configured (jobs run inline via the producers).
  */
@@ -190,7 +221,13 @@ export function startWorkers(): void {
     concurrency: SYNC_WORKER_CONCURRENCY,
   });
 
-  for (const worker of [eventsWorker, maintenanceWorker, syncWorker]) {
+  digitalWorker = new Worker<MarketplaceDigitalJobData>(
+    MARKETPLACE_DIGITAL_QUEUE,
+    processDigitalJob,
+    { connection, concurrency: DIGITAL_WORKER_CONCURRENCY },
+  );
+
+  for (const worker of [eventsWorker, maintenanceWorker, syncWorker, digitalWorker]) {
     worker.on('failed', (job, err) => {
       const jobId = job?.id ?? 'unknown';
       log.general.warn({ queue: worker.name, jobId, err: err.message }, 'Queue job failed');
@@ -226,17 +263,22 @@ export async function shutdownQueues(): Promise<void> {
   }
 
   const workers: Array<
-    Worker<MarketplaceEventJobData> | Worker<MaintenanceJobData> | Worker<MarketplaceSyncJobData>
+    | Worker<MarketplaceEventJobData>
+    | Worker<MaintenanceJobData>
+    | Worker<MarketplaceSyncJobData>
+    | Worker<MarketplaceDigitalJobData>
   > = [];
   if (eventsWorker) workers.push(eventsWorker);
   if (maintenanceWorker) workers.push(maintenanceWorker);
   if (syncWorker) workers.push(syncWorker);
+  if (digitalWorker) workers.push(digitalWorker);
 
   await Promise.allSettled(workers.map((w) => w.close()));
 
   eventsWorker = null;
   maintenanceWorker = null;
   syncWorker = null;
+  digitalWorker = null;
   workersStarted = false;
 
   await closeQueues();

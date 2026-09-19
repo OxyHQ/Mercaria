@@ -160,10 +160,10 @@ const COMMERCIAL_REFERENCE =
 
 /**
  * Naming a currency. FAIR is the one that matters — the display default a
- * ranking module must not reach for — and OxyPay is named for the same reason
+ * ranking module must not reach for — and payment rails are named for the same reason
  * the retail-pricing gate names it.
  */
-const CURRENCY_NAME_REFERENCE = /\bFAIR\b|FairCoin|faircoin|OxyPay|oxy_pay|oxyPay/;
+const CURRENCY_NAME_REFERENCE = /\bFAIR\b|FairCoin|faircoin|OxyPay|oxy_pay|oxyPay|Peable|peable/;
 
 /** Comment-stripped source: these modules DOCUMENT what they refuse to do. */
 function withoutComments(source: string): string {
@@ -302,7 +302,7 @@ describe('WALL 3: a forbidden signal has nowhere to live', () => {
 });
 
 describe('WALL 4: the domain names no currency', () => {
-  it('no module in `services/ranking/` names FAIR, FairCoin or OxyPay', () => {
+  it('no module in `services/ranking/` names currency or payment-rail policy', () => {
     // A comparison names ONE currency and the CALLER supplies it. The default
     // lives in `user-preference.service`, which is where the policy is stated.
     let scanned = 0;
@@ -319,6 +319,7 @@ describe('WALL 4: the domain names no currency', () => {
   it('the currency detector actually detects — the mutation self-test', () => {
     expect(CURRENCY_NAME_REFERENCE.test("const fallback: CurrencyCode = 'FAIR';")).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('import { oxyPayClient } from "./x.js";')).toBe(true);
+    expect(CURRENCY_NAME_REFERENCE.test('import { peableClient } from "./x.js";')).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('const currency = request.comparisonCurrency;')).toBe(false);
   });
 });

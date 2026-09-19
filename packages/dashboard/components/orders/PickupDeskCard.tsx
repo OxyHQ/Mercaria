@@ -12,7 +12,7 @@ import {
   formatDateTime,
   formatPublicAddress,
 } from "@mercaria/ui";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import {
   useOrderPickup,
   usePickupDeskAction,

@@ -73,7 +73,7 @@
 
 import { sql } from 'drizzle-orm';
 import { bigint, check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   AFFILIATE_COMMISSION_POSTING_KINDS,
   AFFILIATE_MATCH_STATES,
@@ -273,7 +273,7 @@ export const affiliateOutboundClicks = pgTable(
      * sweep is the only deleter.
      *
      * A COLUMN rather than a policy the sweep interprets, because
-     * `@oxyhq/db`'s sweep takes `{table, column, retentionSeconds}` and has no
+     * `@oxy.so/db`'s sweep takes `{table, column, retentionSeconds}` and has no
      * predicate — a conditional retention expressed anywhere but a column
      * cannot be handed to it.
      */

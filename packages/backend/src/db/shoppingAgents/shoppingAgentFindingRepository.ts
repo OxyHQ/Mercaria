@@ -222,7 +222,7 @@ export async function findShoppingAgentFindingById(
  * newest finding of any outcome would compare today's price against an evaluation
  * that concluded nothing.
  *
- * Ties break on the id after `created_at` because `@oxyhq/db`'s uuid v7 key is
+ * Ties break on the id after `created_at` because `@oxy.so/db`'s uuid v7 key is
  * not monotonic within a millisecond, so two findings written in one tick would
  * otherwise order arbitrarily — and the ordering decides which amount the next
  * notification is measured against.

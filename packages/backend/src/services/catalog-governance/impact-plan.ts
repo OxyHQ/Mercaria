@@ -195,7 +195,7 @@ export type GovernedReference =
 /**
  * The table a reference lives on, as drizzle names it.
  *
- * `@oxyhq/db` sets `DATABASE_CASING`, so drizzle holds the TypeScript spelling
+ * `@oxy.so/db` sets `DATABASE_CASING`, so drizzle holds the TypeScript spelling
  * and converts on the wire. Both the plan and the census read `.name` through
  * these two helpers, so they compare one spelling — which is the property that
  * matters. A hand-written snake_case conversion here would be a third spelling

@@ -26,7 +26,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { createHmac } from 'node:crypto';
 import express from 'express';
 import { eq, inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import {
@@ -35,7 +35,7 @@ import {
   WEBHOOK_SIGNATURE_HEADER,
   WEBHOOK_SIGNATURE_VERSION,
   WEBHOOK_TIMESTAMP_HEADER,
-} from '@oxyhq/crowdsource-contracts';
+} from '@oxy.so/crowdsource-contracts';
 
 const SECRET = 'test-secret-not-a-real-one';
 const servers: Server[] = [];

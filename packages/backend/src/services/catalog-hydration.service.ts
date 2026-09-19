@@ -31,7 +31,7 @@
  * read in another is a wrong number, not a partial migration.
  */
 
-import type { OxyServices } from '@oxyhq/core';
+import type { OxyServices } from '@oxy.so/core';
 import type {
   Listing,
   ListingImage,
@@ -76,6 +76,20 @@ import {
   type VariantOptionValueRecord,
   type VariantRecord,
 } from '../db/catalog/variantRepository.js';
+import {
+  listVariantAxesForListings,
+  listVariantAxisAssignments,
+  type NativeVariantAxisAssignmentRow,
+  type NativeVariantAxisWithLabel,
+} from '../db/variantAxes/variantAxisRepository.js';
+import { getDb } from '../db/postgres.js';
+import {
+  classifyVariantAxisShadow,
+  projectTypedListingAxes,
+  recordVariantAxisShadow,
+  type ProjectedTypedAxes,
+  type ProjectedVariantOptionValue,
+} from './variant-axes/projection.js';
 import { config } from '../config/index.js';
 import { log } from '../lib/logger.js';
 import { oxyClient } from '../middleware/auth.js';
@@ -126,10 +140,18 @@ function variantCompareAtPrice(variant: VariantRecord): Money | null {
 /** The zero price a listing with no priced variant renders as. */
 const NO_PRICE: Money = { amount: 0, currency: 'FAIR' };
 
-/** Map a variant row to the wire `ProductVariantDTO` (never exposes `committed`). */
+/**
+ * Map a variant row to the wire `ProductVariantDTO` (never exposes `committed`).
+ *
+ * `optionValues` arrives ALREADY PROJECTED, so this function does not know
+ * which table the pairs came from — #367 line 324's whole point is that the
+ * representation is a decision one layer up, taken once per page in
+ * {@link resolveListingOptionSource}, rather than a branch in every builder
+ * that renders a pair.
+ */
 function toVariantDTO(
   variant: VariantRecord,
-  optionValues: VariantOptionValueRecord[],
+  optionValues: readonly ProjectedVariantOptionValue[],
   variantImages: VariantImageRecord[],
   listingGallery: ListingImage[],
   commercial?: CommercialPresentation,
@@ -286,24 +308,26 @@ export function toStoreSummary(
     .slice(0, config.feed.storeCardThumbnails)
     .map((listing) => {
       const [firstImage] = imagesByListing.get(listing.id) ?? [];
-      return {
-        id: listing.id,
-        title: listing.title,
-        imageUrl: firstImage ? resolveMedia(firstImage.fileId, 'thumb') : '',
-      };
+      const thumbnail: ProductThumbnail = { id: listing.id, title: listing.title };
+      if (firstImage) {
+        thumbnail.imageUrl = resolveMedia(firstImage.fileId, 'thumb');
+      }
+      return thumbnail;
     });
 
   const summary: StoreSummary = {
     id: store.id,
     handle: store.handle,
     name: store.name,
-    coverImageUrl: store.coverFileId ? resolveMedia(store.coverFileId) : '',
     brandColor: store.brandColor,
     rating: store.rating,
     reviewCount: store.reviewCount,
     textTone: store.textTone,
     products,
   };
+  if (store.coverFileId) {
+    summary.coverImageUrl = resolveMedia(store.coverFileId);
+  }
   if (store.logoFileId) {
     summary.logoUrl = resolveMedia(store.logoFileId);
   }
@@ -332,16 +356,85 @@ export function toProductSummary(
     id: listing.id,
     title: listing.title,
     brand,
-    imageUrl: firstImage ? resolveMedia(firstImage.fileId) : '',
     rating: listing.rating,
     reviewCount: listing.reviewCount,
     price,
   };
+  if (firstImage) {
+    summary.imageUrl = resolveMedia(firstImage.fileId);
+  }
   const compareAt = cheapest ? variantCompareAtPrice(cheapest) : null;
   if (compareAt) {
     summary.compareAtPrice = compareAt;
   }
   return summary;
+}
+
+/**
+ * Resolve the brand label for a batch of product cards: the store name for
+ * store listings, or the seller's Oxy display name for P2P listings.
+ *
+ * Moved here from `feed.service.ts` (#7): the home feed and the discovery feed
+ * both build shelves of `ProductSummary` cards and both need this resolver, so
+ * it lives beside {@link toProductSummary} rather than in either caller.
+ */
+async function buildBrandResolver(
+  listings: ListingRecord[],
+): Promise<(listing: ListingRecord) => string> {
+  const storeIds = [
+    ...new Set(
+      listings.flatMap((l) => (l.ownerType === 'store' && l.storeId ? [l.storeId] : [])),
+    ),
+  ];
+  const userIds = [
+    ...new Set(
+      listings.flatMap((l) => (l.ownerType === 'user' && l.oxyUserId ? [l.oxyUserId] : [])),
+    ),
+  ];
+
+  const [storeDocs, oxyProfiles] = await Promise.all([
+    findStoresByIds(storeIds),
+    getProfiles(userIds),
+  ]);
+
+  const storeNameById = new Map(storeDocs.map((s) => [s.id, s.name]));
+
+  return (listing: ListingRecord): string => {
+    if (listing.ownerType === 'store' && listing.storeId) {
+      return storeNameById.get(listing.storeId) ?? '';
+    }
+    if (listing.ownerType === 'user' && listing.oxyUserId) {
+      return oxyProfiles.get(listing.oxyUserId)?.displayName ?? '';
+    }
+    return '';
+  };
+}
+
+/**
+ * Build `ProductSummary[]` for a set of listings, loading their variants and
+ * gallery images in two batched queries for the whole shelf — the home feed's
+ * and the discovery feed's shared shelf builder.
+ */
+export async function toProductSummaries(listings: ListingRecord[]): Promise<ProductSummary[]> {
+  if (listings.length === 0) {
+    return [];
+  }
+  const listingIds = listings.map((l) => l.id);
+  const [variants, children, brandOf] = await Promise.all([
+    findVariantsByListingIds(listingIds),
+    findListingChildren(listingIds),
+    buildBrandResolver(listings),
+  ]);
+  const variantsByListing = groupVariants(variants);
+
+  return listings.map((listing) =>
+    toProductSummary(
+      listing,
+      variantsByListing.get(listing.id) ?? [],
+      brandOf(listing),
+      children.images.get(listing.id) ?? [],
+    ),
+  );
 }
 
 /** Options for hydrating listings. */
@@ -402,6 +495,8 @@ async function loadBatches(
   children: ListingChildren;
   conditionDetailsByListing: Map<string, ConditionDetailRecord[]>;
   conditionPhotosByListing: Map<string, ConditionPhotoRecord[]>;
+  typedAxesByListing: Map<string, NativeVariantAxisWithLabel[]>;
+  typedAssignmentsByVariant: Map<string, NativeVariantAxisAssignmentRow[]>;
 }> {
   const [variants, children, conditionDetails, conditionPhotos] = await Promise.all([
     findVariantsByListingIds(listingIds),
@@ -410,10 +505,21 @@ async function loadBatches(
     findConditionPhotosForListings(listingIds),
   ]);
   const variantIds = variants.map((v) => v.id);
-  const [optionValuesByVariant, variantImagesByVariant] = await Promise.all([
-    findVariantOptionValues(variantIds),
-    findVariantImages(variantIds),
-  ]);
+  // #367 line 324. Two more batched statements for the whole page, and ONLY
+  // when a mode needs them: with `VARIANT_AXIS_READS=off` — the default, and
+  // today's behaviour — this loads nothing and the read is byte-for-byte what
+  // it was. The batching is not an optimisation but the condition of the
+  // feature existing here at all: hydration's contract is zero queries per
+  // listing, so a typed read that cost one would be a regression the DTO could
+  // not show.
+  const typedAxesWanted = config.variantAxes.reads !== 'off';
+  const [optionValuesByVariant, variantImagesByVariant, typedAxes, typedAssignments] =
+    await Promise.all([
+      findVariantOptionValues(variantIds),
+      findVariantImages(variantIds),
+      typedAxesWanted ? listVariantAxesForListings(getDb(), listingIds) : [],
+      typedAxesWanted ? listVariantAxisAssignments(getDb(), variantIds) : [],
+    ]);
   return {
     variantsByListing: groupVariants(variants),
     optionValuesByVariant,
@@ -421,7 +527,57 @@ async function loadBatches(
     children,
     conditionDetailsByListing: groupByListingId(conditionDetails),
     conditionPhotosByListing: groupByListingId(conditionPhotos),
+    typedAxesByListing: groupByListingId(typedAxes),
+    typedAssignmentsByVariant: groupTypedAssignments(typedAssignments),
   };
+}
+
+/** Bucket typed assignments by their variant, preserving the query's own order. */
+function groupTypedAssignments(
+  rows: readonly NativeVariantAxisAssignmentRow[],
+): Map<string, NativeVariantAxisAssignmentRow[]> {
+  const grouped = new Map<string, NativeVariantAxisAssignmentRow[]>();
+  for (const row of rows) {
+    const bucket = grouped.get(row.variantId);
+    if (bucket) bucket.push(row);
+    else grouped.set(row.variantId, [row]);
+  }
+  return grouped;
+}
+
+/** One listing's option pairs, and which representation they came from. */
+interface ListingOptionSource {
+  readonly options: ListingOption[];
+  readonly valuesByVariant: ReadonlyMap<string, readonly ProjectedVariantOptionValue[]>;
+}
+
+/**
+ * Decide which representation ONE listing's options are served from
+ * (#367 line 324).
+ *
+ * This is the only place the decision is taken, and it is taken per LISTING
+ * rather than per variant: a listing whose two variants were served from two
+ * different tables would carry an option list matching neither.
+ *
+ * - `off` — legacy, exactly as before the lever existed.
+ * - `shadow` — project both, count how they compared, serve LEGACY. Shadow
+ *   never changes a byte of the response; it exists so the divergence
+ *   `updateVariant` can create is a number before it is a shopper's problem.
+ * - `on` — serve the typed projection when the listing declares axes, else fall
+ *   back to legacy. That fallback IS line 324's "compatibility projection or
+ *   fallback"; an un-migrated listing is the ordinary case, not a failure.
+ */
+function resolveListingOptionSource(
+  legacy: ListingOptionSource,
+  typed: ProjectedTypedAxes | null,
+): ListingOptionSource {
+  const mode = config.variantAxes.reads;
+  if (mode === 'off') return legacy;
+  if (mode === 'shadow') {
+    recordVariantAxisShadow(classifyVariantAxisShadow(typed, legacy.valuesByVariant));
+    return legacy;
+  }
+  return typed === null ? legacy : typed;
 }
 
 /** Bucket condition rows by their listing, preserving the query's own order. */
@@ -458,6 +614,8 @@ export async function hydrateListings(
     children,
     conditionDetailsByListing,
     conditionPhotosByListing,
+    typedAxesByListing,
+    typedAssignmentsByVariant,
   } = await loadBatches(listingIds);
 
   // 3. Split by ownerType; batch-load seller profiles and stores.
@@ -528,10 +686,39 @@ export async function hydrateListings(
     // the listing's own `images` is built from it. Two `toListingImages` calls
     // over one row set would be two arrays a client could find differing.
     const gallery = toListingImages(children.images.get(id) ?? []);
+
+    // #367 line 324: both halves of the answer — the listing's option list and
+    // every variant's pairs — come from ONE decision, so they can never be
+    // served from different tables.
+    const variantIdsHere = variants.map((v) => v.id);
+    const legacySource: ListingOptionSource = {
+      options: (children.options.get(id) ?? []).map((o) => ({
+        name: o.name,
+        values: [...o.values],
+      })),
+      valuesByVariant: new Map(
+        variantIdsHere.map((variantId) => [
+          variantId,
+          (optionValuesByVariant.get(variantId) ?? []).map((o) => ({
+            name: o.name,
+            value: o.value,
+          })),
+        ]),
+      ),
+    };
+    const optionSource = resolveListingOptionSource(
+      legacySource,
+      projectTypedListingAxes(
+        typedAxesByListing.get(id) ?? [],
+        variantIdsHere.flatMap((variantId) => typedAssignmentsByVariant.get(variantId) ?? []),
+        variantIdsHere,
+      ),
+    );
+
     const variantDTOs = variants.map((v) =>
       toVariantDTO(
         v,
-        optionValuesByVariant.get(v.id) ?? [],
+        optionSource.valuesByVariant.get(v.id) ?? [],
         variantImagesByVariant.get(v.id) ?? [],
         gallery,
         commercialByVariant.get(v.id),
@@ -546,10 +733,7 @@ export async function hydrateListings(
     const price = (cheapest ? variantPrice(cheapest) : null) ?? priceFallback;
     const quantity = variants.reduce((sum, v) => sum + Math.max(0, v.inventoryAvailable), 0);
 
-    const options: ListingOption[] = (children.options.get(id) ?? []).map((o) => ({
-      name: o.name,
-      values: [...o.values],
-    }));
+    const options: ListingOption[] = optionSource.options;
 
     // #90: `itemCondition` is the authoritative field and `condition` is the
     // derived v1 projection of it. Both come from ONE key, so a v1 client's

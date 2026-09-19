@@ -23,16 +23,28 @@
  * no seller for a consumer to tell.
  */
 
-import type { Money, PayoutStatus } from '@mercaria/shared-types';
+import type { Money, PaymentProviderId, PayoutStatus } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import { upsertPayout, type PayoutRow } from '../../db/payments/paymentRepository.js';
 import { findProviderAccountByProviderId } from '../../db/payments/providerAccountRepository.js';
 import { enqueuePaymentEvent, payoutChangedEventId } from './payment-outbox.service.js';
-import { NATIVE_RAIL, sellerKeyFor } from './provider-account.service.js';
+import { sellerKeyFor } from './provider-account.service.js';
 import { log } from '../../lib/logger.js';
 
 /** A payout exactly as the rail reported it, in Mercaria's vocabulary. */
 export interface ObservedPayout {
+  /**
+   * WHICH rail reported it.
+   *
+   * Required, and supplied by the webhook router that saw the event, because a
+   * payout is an OBSERVATION and the observer knows its own rail. This used to
+   * read `NATIVE_RAIL`, a constant pinned to `'stripe'`: on a deployment where
+   * the native rail is Peable that would have looked the seller up on a rail
+   * they have no account on, found nothing, and filed a real payout as evidence
+   * with no seller to announce it to — a warning log where a seller should have
+   * been told their money moved.
+   */
+  provider: PaymentProviderId;
   /** The connected account the payout is FROM — the seller's, not the platform's. */
   providerAccountId: string;
   providerObjectId: string;
@@ -68,7 +80,7 @@ export interface RecordedPayout {
 export async function recordPayout(observed: ObservedPayout): Promise<RecordedPayout> {
   const db = getDb();
   const row = await upsertPayout(db, {
-    provider: NATIVE_RAIL,
+    provider: observed.provider,
     providerAccountRef: observed.providerAccountId,
     providerObjectId: observed.providerObjectId,
     amount: observed.amount,
@@ -79,7 +91,7 @@ export async function recordPayout(observed: ObservedPayout): Promise<RecordedPa
 
   const account = await findProviderAccountByProviderId(
     db,
-    NATIVE_RAIL,
+    observed.provider,
     observed.providerAccountId,
   );
   if (!account) {

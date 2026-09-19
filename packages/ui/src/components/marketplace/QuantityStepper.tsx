@@ -46,7 +46,7 @@ export function QuantityStepper({
   const decrementDisabled = atMin && !onRemove;
 
   return (
-    <View className="flex-row items-center rounded-full bg-secondary md:border md:border-border md:bg-card">
+    <View className="flex-row items-center rounded-full bg-muted md:border md:border-border md:bg-card">
       {/* Left button: Trash when at minimum and onRemove provided; Minus otherwise. */}
       {showRemove ? (
         <Pressable

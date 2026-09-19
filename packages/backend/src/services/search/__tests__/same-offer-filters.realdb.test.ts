@@ -44,7 +44,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { SearchFilters, SearchResult } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { declaredOfferCondition } from '../../condition/condition-mapping.service.js';

@@ -157,7 +157,7 @@ const FORBIDDEN_REFERENCES: readonly { wall: string; pattern: RegExp }[] = [
   {
     wall: 'commercial_signal',
     pattern:
-      /commission|fees\/|feeSchedule|order_fee_snapshots|referrals\/|referral_|retail-pricing\/|retailCost|sponsor|proPlan|acceptsFair|faircoin|oxypay/i,
+      /commission|fees\/|feeSchedule|order_fee_snapshots|referrals\/|referral_|retail-pricing\/|retailCost|sponsor|proPlan|acceptsFair|faircoin|oxypay|peable/i,
   },
   {
     wall: 'provider_sdk_or_credential',

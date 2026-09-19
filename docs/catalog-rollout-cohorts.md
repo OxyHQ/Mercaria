@@ -1,4 +1,4 @@
-# Catalog rollout cohorts — market, locale, store, category, product type
+# Catalog rollout cohorts — market, locale, store, category, product type, internal user
 
 The operational half of ADR 0007 **D12** is
 [`catalog-migration-operations.md`](catalog-migration-operations.md) and the
@@ -8,9 +8,9 @@ This file is about the fifth lever: **which slice of a deployment the four
 catalog levers are switched on FOR**.
 
 #367 Workstream 0 asks for "feature flags by market, locale, store, category and
-product type". D12 decided a rollout order that needs exactly those five —
-*internal users → selected stores → selected product types and categories →
-locales and markets → general availability* — named a lever for it
+product type". D12 decided a rollout order that needs those five **plus one the
+list does not contain** — *internal users → selected stores → selected product
+types and categories → locales and markets → general availability* — named a lever for it
 (`CATALOG_AUTHORING_COHORTS`), and then recorded, in its own text, that nobody
 built it and that **"selected stores" was therefore not a state this system
 could be in**.
@@ -317,6 +317,17 @@ error.
   under a differently-named config namespace would not be. That is the same
   shape as `catalog-rollout.realdb.test.ts`'s nine-surface hand list, recorded
   here rather than left to be discovered.
+- **`internal_user` is answerable only on the three AUTHENTICATED surfaces**
+  (`product-drafts`, `catalog-proposals`, `catalog-authoring`). `facets`,
+  `navigation` and `taxonomy` carry no auth middleware, so while that dimension
+  is the only enabled cohort they refuse every request, internal callers
+  included. That is the accurate rendering of "not rolled out" for a public,
+  ETag-validated, per-`(market, locale)` surface — stage 1 means it is not yet
+  public — and it is pinned by `an ANONYMOUS surface refuses every request while
+  the dimension is enabled`. The alternative was rejected: giving `/navigation`
+  an `optionalAuth` to identify a caller would buy this dimension with what that
+  router's own docblock defends, *"a payload that varied per caller could not be
+  validated across them"*.
 - **`product_type` is answerable on two surfaces** (the authoring schema route
   and a draft's body). A rollout that wanted to stage the storefront by product
   type would need a surface that states one, and none does today.

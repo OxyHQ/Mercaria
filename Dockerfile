@@ -2,7 +2,7 @@
 #
 # Production image for the @mercaria/backend service.
 #
-# Multi-stage, multi-arch. `node:22-alpine` and `oven/bun` are multi-arch
+# Multi-stage, multi-arch. `node:24-alpine` and `oven/bun` are multi-arch
 # manifests, so this image builds natively on AWS Graviton (linux/arm64) as well
 # as x86_64 — Docker selects the right base layer per target platform.
 #
@@ -19,13 +19,13 @@
 # @mercaria/shared-types is a first-party workspace package; the API bundle
 # INLINES it (see packages/backend/build.ts), so the runtime image needs neither
 # its dist nor its build-time devDependencies. Everything else — third-party
-# node_modules AND @oxyhq/* — stays EXTERNAL and is resolved from the production
+# node_modules AND @oxy.so/* — stays EXTERNAL and is resolved from the production
 # node_modules copied into the runtime stage.
 
 # ---------------------------------------------------------------------------
 # Stage 1: builder — install the full dependency graph and bundle the API.
 # ---------------------------------------------------------------------------
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 # Toolchain for any dependency that needs a node-gyp fallback when a prebuilt
 # binary is unavailable for the target arch (e.g. ws's optional native
@@ -60,6 +60,13 @@ COPY packages/shared-types/package.json ./packages/shared-types/package.json
 COPY packages/ui/package.json ./packages/ui/package.json
 COPY packages/dashboard/package.json ./packages/dashboard/package.json
 COPY packages/pos/package.json ./packages/pos/package.json
+# `@mercaria.co/sdk` (#1017) joined the workspace graph too. Without its manifest
+# the lockfile names a member this context does not have and
+# `bun install --frozen-lockfile` refuses with "lockfile had changes" — measured
+# against a copy of exactly the files this stage copies, which installs on
+# `main` and fails with the SDK merged. The API never imports the SDK and its
+# source is not copied.
+COPY packages/sdk/package.json ./packages/sdk/package.json
 
 # Copy shared-types source before install so its `postinstall` (tsc) can build
 # the package's dist during `bun install`.
@@ -75,9 +82,9 @@ COPY packages/backend ./packages/backend
 
 # Build shared-types then bundle the API with esbuild ->
 # packages/backend/dist/index.js (externalizes third-party node_modules INCLUDING
-# @oxyhq/*, inlines only @mercaria/*; see packages/backend/build.ts).
+# @oxy.so/*, inlines only @mercaria/*; see packages/backend/build.ts).
 #
-# @oxyhq/* being external is what makes the production install below load-bearing:
+# @oxy.so/* being external is what makes the production install below load-bearing:
 # the bundle `import`s those packages by name, so they MUST be present in the
 # runtime node_modules. They are all in @mercaria/backend's `dependencies` (not
 # devDependencies), so `--production` keeps them. Moving one to devDependencies
@@ -93,6 +100,8 @@ RUN test -f packages/backend/dist/index.js \
  || (echo "ERROR: packages/backend/dist/index.js was not produced by the build" && exit 1)
 RUN test -f packages/backend/dist/db/migrate.js \
  || (echo "ERROR: packages/backend/dist/db/migrate.js was not produced by the build" && exit 1)
+RUN test -f packages/backend/dist/register-capability-catalog.js \
+ || (echo "ERROR: packages/backend/dist/register-capability-catalog.js was not produced by the build" && exit 1)
 # The taxonomy provisioner is checked for the migrator's reason, one step
 # further: it is run by hand as a one-shot ECS task, so a missing emit would be
 # discovered by an operator holding an incident rather than by this build.
@@ -103,14 +112,14 @@ RUN test -f packages/backend/dist/scripts/provision-taxonomy.js \
 # image (bun has no `prune`; a clean production install from the same lockfile is
 # the deterministic equivalent). The API bundle inlines first-party code, so the
 # shared-types dist is no longer needed at runtime — but every EXTERNAL import
-# (all third-party deps plus @oxyhq/*) must survive this step.
+# (all third-party deps plus @oxy.so/*) must survive this step.
 RUN rm -rf node_modules \
  && bun install --frozen-lockfile --production
 
 # ---------------------------------------------------------------------------
 # Stage 2: runner — minimal runtime with production deps and the bundle.
 # ---------------------------------------------------------------------------
-FROM node:22-alpine AS runner
+FROM node:24-alpine AS runner
 
 ENV NODE_ENV=production \
     PORT=3001

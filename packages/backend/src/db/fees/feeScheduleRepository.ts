@@ -20,6 +20,7 @@
 import { and, asc, eq, gt, isNull, lte, or } from 'drizzle-orm';
 import type {
   CurrencyCode,
+  FeeDecisionAuthority,
   FeeRefundPolicy,
   FeeTaxTreatment,
   OrderSellerType,
@@ -51,7 +52,47 @@ export interface NewFeeSchedule {
   taxTreatment?: FeeTaxTreatment;
   refundPolicy?: FeeRefundPolicy;
   termsVersion: string;
-  createdByOxyUserId: string;
+  draftedBy: FeeDecisionRef;
+}
+
+/**
+ * WHO decided something about a fee schedule, and under what kind of authority.
+ *
+ * A pair, because the answer is not always a person: a rate authored by a
+ * reviewed change in the repository is `deployment` plus the commit that
+ * introduced it, and a rate a jury sets will be `crowdsource_decision` plus the
+ * decision id. A single `oxyUserId` column forced a person to exist and is what
+ * `PAYMENT_OPERATOR_OXY_USER_IDS` was invented to supply.
+ */
+export interface FeeDecisionRef {
+  authority: FeeDecisionAuthority;
+  ref: string;
+}
+
+/**
+ * One exact version of one schedule, if it has been published.
+ *
+ * The read `provision-fee-schedule.ts` uses to decide whether to insert. It asks
+ * for the PAIR rather than for the key, because "does this schedule exist" and
+ * "does this VERSION exist" are different questions and only the second one may
+ * skip a write: a key with an active v1 must still accept a draft v2, which is
+ * how a rate changes at all.
+ */
+export async function findFeeScheduleVersion(
+  db: DatabaseOrTransaction,
+  input: { scheduleKey: string; version: number },
+): Promise<FeeScheduleRow | undefined> {
+  const [row] = await db
+    .select()
+    .from(feeSchedules)
+    .where(
+      and(
+        eq(feeSchedules.scheduleKey, input.scheduleKey),
+        eq(feeSchedules.version, input.version),
+      ),
+    )
+    .limit(1);
+  return row;
 }
 
 /** Insert one draft version. The CHECKs and unique indexes do the arguing. */
@@ -79,7 +120,8 @@ export async function insertFeeSchedule(
       ...(input.taxTreatment ? { taxTreatment: input.taxTreatment } : {}),
       ...(input.refundPolicy ? { refundPolicy: input.refundPolicy } : {}),
       termsVersion: input.termsVersion,
-      createdByOxyUserId: input.createdByOxyUserId,
+      draftedByAuthority: input.draftedBy.authority,
+      draftedByRef: input.draftedBy.ref,
     })
     .returning();
   if (!row) {
@@ -142,7 +184,7 @@ export async function listActiveFeeSchedules(
  */
 export async function activateFeeSchedule(
   db: DatabaseOrTransaction,
-  input: { id: string; approvedByOxyUserId: string; at?: Date },
+  input: { id: string; approvedBy: FeeDecisionRef; at?: Date },
 ): Promise<FeeScheduleRow | undefined> {
   return await db.transaction(async (tx) => {
     // Lock the target row FIRST and re-read its status inside the transaction:
@@ -173,7 +215,8 @@ export async function activateFeeSchedule(
       .update(feeSchedules)
       .set({
         status: 'active',
-        approvedByOxyUserId: input.approvedByOxyUserId,
+        approvedByAuthority: input.approvedBy.authority,
+        approvedByRef: input.approvedBy.ref,
         activatedAt: input.at ?? new Date(),
       })
       .where(and(eq(feeSchedules.id, input.id), eq(feeSchedules.status, 'draft')))

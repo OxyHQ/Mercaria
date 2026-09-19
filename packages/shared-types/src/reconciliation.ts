@@ -264,7 +264,7 @@ export const PAYMENT_REPAIR_OUTCOMES: readonly PaymentRepairOutcome[] = [
  * `role-separation.test.ts` (#118) forbids anything under `services/payments/`
  * from importing the procurement domain. So it lives in
  * `services/retail-reconciliation/runner.ts` and claims only its own row, while
- * `services/payments/reconciliation/runner.ts` dispatches only the four it owns
+ * `services/payments/reconciliation/runner.ts` dispatches only the five it owns
  * and REFUSES any other job by name rather than falling through to one of them.
  */
 export type ReconciliationJob =
@@ -277,7 +277,18 @@ export type ReconciliationJob =
   /** Connected-account readiness, independently of onboarding redirects (jobs 6). */
   | 'account_readiness'
   /** Retail orders against their supplier and provider evidence (#128). */
-  | 'retail_reconciliation';
+  | 'retail_reconciliation'
+  /**
+   * Seller transfers held back for review, released once their window passes.
+   *
+   * The other half of `services/payments/high-value-hold.ts`, and it is not
+   * optional: NOTHING else re-drives a settlement. `handleTransferWithheld`
+   * records the exception and `handleProviderAccountChanged` only logs, so
+   * before this job the single way out of a hold was an operator running the
+   * `retry_withheld_transfer` repair. A hold with no releaser is a payout that
+   * never arrives.
+   */
+  | 'withheld_transfers';
 
 /** {@link ReconciliationJob} as the tuple the column type and CHECK read. */
 export const RECONCILIATION_JOBS: readonly ReconciliationJob[] = [
@@ -286,6 +297,7 @@ export const RECONCILIATION_JOBS: readonly ReconciliationJob[] = [
   'ledger_audit',
   'account_readiness',
   'retail_reconciliation',
+  'withheld_transfers',
 ];
 
 /**
@@ -303,4 +315,5 @@ export const PAYMENT_RECONCILIATION_JOBS: readonly ReconciliationJob[] = [
   'provider_objects',
   'ledger_audit',
   'account_readiness',
+  'withheld_transfers',
 ];

@@ -64,7 +64,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, tsvector, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, tsvector, updatedAt } from '@oxy.so/db';
 import {
   CANONICAL_ALIAS_KINDS,
   CANONICAL_ENTITY_STATUSES,

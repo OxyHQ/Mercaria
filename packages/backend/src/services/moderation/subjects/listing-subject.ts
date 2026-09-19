@@ -47,7 +47,7 @@
  * different version and the decision must stay attached to the one reviewed.
  */
 
-import { isLiveEntityId } from '@oxyhq/db';
+import { isLiveEntityId } from '@oxy.so/db';
 import {
   findListingById,
   findListingChildren,

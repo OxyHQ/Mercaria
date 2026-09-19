@@ -56,7 +56,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   MERCHANT_CLAIM_ACTIVE_STATES,
   MERCHANT_CLAIM_ACTOR_KINDS,

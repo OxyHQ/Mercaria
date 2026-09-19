@@ -66,7 +66,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   REFERRAL_CAMPAIGN_BUDGET_STATUSES,
   REFERRAL_CONVERSION_TYPES,

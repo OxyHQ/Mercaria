@@ -9,7 +9,7 @@ import type {
   AuthoringProductTypeOption,
 } from "@mercaria/shared-types";
 import { Button, Input, Label, Skeleton, Text, useColorScheme } from "@mercaria/ui";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { CanonicalSearchPanel } from "@/components/catalog-authoring/CanonicalSearchPanel";

@@ -145,6 +145,9 @@ const STATUS_LABEL_KEYS: Record<OrderStatus, string> = {
   processing: "home.orderStatus.processing",
   shipped: "home.orderStatus.shipped",
   delivered: "home.orderStatus.delivered",
+  // #1015: a digital order's completion signal (ADR 0010 D9). Here because the
+  // `Record` refuses to compile without it, which is why it is a `Record`.
+  digitally_delivered: "home.orderStatus.digitallyDelivered",
   cancelled: "home.orderStatus.cancelled",
   refunded: "home.orderStatus.refunded",
   partially_refunded: "home.orderStatus.partiallyRefunded",

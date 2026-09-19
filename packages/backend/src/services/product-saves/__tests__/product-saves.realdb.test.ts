@@ -46,7 +46,7 @@ vi.hoisted(() => {
   process.env['PRODUCT_SAVE_MIGRATION_ENABLED'] = 'true';
 });
 
-import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
+import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';
 import { listings, productVariants } from '../../../db/schema/catalog.js';

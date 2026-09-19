@@ -54,7 +54,7 @@ vi.mock('../../queue/producers.js', () => ({
   enqueueLowInventoryAlert: vi.fn(async () => undefined),
   enqueueRecomputeAggregate: vi.fn(async () => undefined),
 }));
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { locations } from '../../db/schema/stores.js';
 import { deleteTestStores } from '../../db/__tests__/store-teardown.js';

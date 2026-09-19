@@ -15,7 +15,7 @@
  * restricted — a case in a unit test rather than a network fixture.
  */
 
-import type { User } from '@oxyhq/core';
+import type { User } from '@oxy.so/core';
 import {
   SELLER_TRUST_RESTRICTED_TIERS,
   type PublicSellerTrust,

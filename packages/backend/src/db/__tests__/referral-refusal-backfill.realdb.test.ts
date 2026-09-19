@@ -49,7 +49,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { REFERRAL_REWARD_REFUSAL_REASONS } from '@mercaria/shared-types';
 import {
   closePostgres,

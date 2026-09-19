@@ -249,13 +249,13 @@ The gate's own positive control is that the walk really sees
 `supplierFulfilmentDisclosureKey` — the one supplier word a buyer IS told — so
 "no matches" cannot mean "walked nothing".
 
-## OxyPay and FairCoin
+## Peable and FairCoin
 
-Neither exists as a payment option, a placeholder, a teaser, a disabled row or a
-feature flag, and the gate scans RAW source including copy because #129's
-§"Future OxyPay copy boundary" forbids a *coming soon* string as firmly as a
-provider branch. Stripe is the only implemented native rail; a future FairCoin
-integration arrives through OxyPay under its own ADR.
+Peable exists as the payment-domain rail, but commercial presentation must not
+advertise payment providers, placeholders, teasers, disabled rows or feature
+flags. The gate scans RAW source including copy, retaining probes for the legacy
+brand spelling and FairCoin so stale or speculative copy cannot return. A future
+FairCoin capability requires its own ADR and would remain behind Peable.
 
 ## What #129 did NOT build, and why
 

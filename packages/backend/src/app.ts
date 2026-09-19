@@ -1,3 +1,4 @@
+import { ecosystemActivityMiddleware } from './ecosystemActivity';
 /**
  * The Express application, built without listening.
  *
@@ -23,6 +24,7 @@ import feedbackRouter from './routes/feedback.js';
 import notificationsRouter from './routes/notifications.js';
 import listingsRouter from './routes/listings.js';
 import feedRouter from './routes/feed.js';
+import discoveryRouter from './routes/discovery.js';
 import categoriesRouter from './routes/categories.js';
 import storesRouter from './routes/stores.js';
 import favoritesRouter from './routes/favorites.js';
@@ -34,6 +36,7 @@ import cartRouter from './routes/cart.js';
 import addressesRouter from './routes/addresses.js';
 import checkoutRouter from './routes/checkout.js';
 import ordersRouter from './routes/orders.js';
+import digitalRouter from './routes/digital.routes.js';
 import reviewsRouter from './routes/reviews.js';
 import sellerRouter from './routes/seller.js';
 import referralPartnerSelfRouter from './routes/referral-partner.js';
@@ -47,6 +50,7 @@ import channelsIngestRouter from './routes/channels-ingest.js';
 import reportsRouter from './routes/reports.js';
 import crowdSourceWebhookRouter from './routes/crowdsource-webhook.js';
 import stripeWebhookRouter from './routes/stripe-webhook.js';
+import peableWebhookRouter from './routes/peable-webhook.js';
 import supplierWebhookRouter from './routes/supplier-webhook.js';
 import stripeOnboardingRouter from './routes/stripe-onboarding.js';
 import internalPaymentsRouter from './routes/internal-payments.js';
@@ -105,6 +109,7 @@ import guestSessionRouter from './routes/guest-session.js';
 import guestOrdersRouter from './routes/guest-orders.js';
 import analyticsRouter from './routes/analytics.js';
 import internalAnalyticsRouter from './routes/internal-analytics.js';
+import internalDiscoveryRouter from './routes/internal-discovery.js';
 import merchantDemandRouter from './routes/merchant-demand.js';
 import internalMerchantDemandRouter from './routes/internal-merchant-demand.js';
 import internalRetailEligibilityRouter from './routes/internal-retail-eligibility.js';
@@ -127,6 +132,8 @@ import internalCatalogMetricsRouter from './routes/internal-catalog-metrics.js';
 import internalCatalogLocalizationRouter from './routes/internal-catalog-localization.js';
 import compatibilityRouter from './routes/compatibility.js';
 import productTypesRouter from './routes/product-types.js';
+import publicApiRouter, { publicApiErrorHandler } from './routes/public-api.js';
+import { MERCARIA_PUBLIC_API_BASE_PATH } from '@mercaria/shared-types';
 import { catalogObservability } from './middleware/catalog-observability.js';
 import { config } from './config/index.js';
 import {
@@ -135,7 +142,14 @@ import {
   resolveOfferComparisonMode,
 } from './services/backfill/read-mode.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
-import { ALLOWED_ORIGINS } from './lib/allowed-origins.js';
+import {
+  ALLOWED_ORIGINS,
+  PUBLIC_READ_CORS_ALLOWED_HEADERS,
+  PUBLIC_READ_CORS_METHODS,
+  isPublicReadCorsRequest,
+} from './lib/allowed-origins.js';
+import capabilitiesRouter from './routes/capabilities.js';
+import { createMercariaMcpHttpService } from './capabilities/mercaria-mcp-http.js';
 
 /**
  * Build the application.
@@ -148,13 +162,45 @@ import { ALLOWED_ORIGINS } from './lib/allowed-origins.js';
  */
 export function createApp(): express.Express {
   const app = express();
+  app.use(ecosystemActivityMiddleware);
+  const mercariaMcpHttpService = createMercariaMcpHttpService();
+
+  // MCP owns its raw request body, exact protected-resource identity and OAuth
+  // challenge. Keep it above every app parser and webhook router so no shared
+  // middleware can consume or reinterpret the protocol request.
+  app.all(
+    mercariaMcpHttpService.protectedResourceMetadataPath,
+    (request, response) => {
+      mercariaMcpHttpService.handleProtectedResourceMetadata(request, response);
+    },
+  );
+  app.all(mercariaMcpHttpService.mcpPath, (request, response) => {
+    void mercariaMcpHttpService.handleMcp(request, response);
+  });
 
   // CORS — restricted to known origins. The list lives in
   // `lib/allowed-origins.ts` because it is ALSO the guest CSRF gate's
   // authority (ADR 0003 D10): one list, nothing to drift.
   const allowedOrigins = ALLOWED_ORIGINS;
 
+  // The PUBLIC integration surface (#1017) takes a different policy: any origin,
+  // GET/HEAD/preflight only, never credentialed. The decision — and why it is
+  // safe for exactly that population — lives in `lib/allowed-origins.ts` beside
+  // the list it deliberately does not widen.
+  const publicReadCors = cors({
+    origin: '*',
+    credentials: false,
+    methods: [...PUBLIC_READ_CORS_METHODS],
+    allowedHeaders: [...PUBLIC_READ_CORS_ALLOWED_HEADERS],
+    optionsSuccessStatus: 204,
+    maxAge: 600,
+  });
+
   app.use((req, res, next) => {
+    if (isPublicReadCorsRequest(req.method, req.path)) {
+      publicReadCors(req, res, next);
+      return;
+    }
     cors({
       origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl)
@@ -168,7 +214,7 @@ export function createApp(): express.Express {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Service-Name', 'X-Timestamp', 'X-Signature', 'X-Session-Id', 'X-Device-Info', 'X-Oxy-User-Id', 'X-Workspace-Id', 'X-Mercaria-Guest-Token', 'X-Mercaria-Guest-Transport', 'X-Mercaria-Guest-Client'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Service-Name', 'X-Timestamp', 'X-Signature', 'X-Session-Id', 'X-Device-Info', 'X-Oxy-User-Id', 'X-Workspace-Id', 'X-Mercaria-Guest-Token', 'X-Mercaria-Guest-Transport', 'X-Mercaria-Guest-Client', 'X-Oxy-Edge-Region', 'X-Oxy-Activity-Id'],
       optionsSuccessStatus: 200,
     })(req, res, next);
   });
@@ -219,6 +265,18 @@ export function createApp(): express.Express {
     app.use('/webhooks/stripe', stripeWebhookRouter);
   }
 
+  // Inbound PEABLE webhooks (ADR 0009). The FIFTH raw-body mount, gated on its
+  // own rail for the same reasons the Stripe one is: a deployment with no
+  // gateway configuration answers 404, which is truthful and stops an endpoint
+  // being registered against a deployment that has no secret and could never
+  // tell a real delivery from a forged one.
+  //
+  // ONE path where Stripe has two — the gateway signs everything with a single
+  // secret, so there is no scope to get wrong. See `routes/peable-webhook.ts`.
+  if (config.payments.peable.enabled) {
+    app.use('/webhooks/peable', peableWebhookRouter);
+  }
+
   // Inbound SUPPLIER webhooks (#124). The FOURTH raw-body mount, and the same
   // rule: a supplier signs the bytes it sent, so a parser reaching the stream
   // first breaks every delivery. The router mounts its own express.raw.
@@ -241,12 +299,14 @@ export function createApp(): express.Express {
   app.use(makeRateLimiter('general'));
 
   // Routes
+  app.use('/_oxy/capabilities', capabilitiesRouter);
   app.use('/health', healthRouter);
   app.use('/auth', authRouter);
   app.use('/feedback', feedbackRouter);
   app.use('/notifications', notificationsRouter);
   app.use('/listings', listingsRouter);
   app.use('/feed', feedRouter);
+  app.use('/discovery', discoveryRouter);
   app.use('/categories', categoriesRouter);
   /**
    * The catalog authoring drafts (#367 step 5, ADR 0007 D10), at the path D10
@@ -341,6 +401,27 @@ export function createApp(): express.Express {
   // order.
   app.use('/guest/orders', guestOrdersRouter);
   app.use('/orders', ordersRouter);
+  /**
+   * Digital commerce (#1015, ADR 0010). ONE mount carrying two routers: the
+   * creator surface under `/digital/stores/:storeId/*`, whose own mount is gated
+   * on `DIGITAL_UPLOADS_ENABLED` inside the router (the `STRIPE_ENABLED` rule —
+   * an unconfigured deployment answers 404, never 401), and the buyer surface
+   * (`/digital/library`, `/digital/downloads`, `/digital/claims`).
+   *
+   * This mount itself is NOT gated, deliberately, and the contrast with the
+   * creator half is the decision. ADR 0010 D13 requires every lever to be
+   * pullable *"without stranding prior purchases"*: gating the whole prefix would
+   * mean that switching creator uploads off also took away the library of
+   * everybody who had already paid. `DIGITAL_DOWNLOADS_ENABLED` is the one lever
+   * that reaches an existing right, it defaults ON, and it is applied inside
+   * `download.service` where it refuses a new grant and leaves every right
+   * `active`.
+   *
+   * Well after `express.json()`: nothing here carries a signed raw body. A
+   * creator uploads bytes to Oxy directly and posts the file id, so this is not a
+   * sixth pre-parser mount and must not become one.
+   */
+  app.use('/digital', digitalRouter);
   app.use('/reviews', reviewsRouter);
   // Abuse reports. Unrelated to the store SALES ANALYTICS at
   // /admin/stores/:storeId/reports/* — same word, different domain.
@@ -939,6 +1020,14 @@ export function createApp(): express.Express {
   if (config.analytics.operatorSurfaceEnabled) {
     app.use('/internal/merchant-demand', internalMerchantDemandRouter);
   }
+  // …and the discovery-sweep trigger, on the SAME analytics allow-list —
+  // forcing a recomputation of counts derived from analytics events is the
+  // power that list already holds, so this is a second surface joining it
+  // rather than an eighth list. Empty = not mounted, 404 — see
+  // middleware/analytics-operator-authz.ts.
+  if (config.analytics.operatorSurfaceEnabled) {
+    app.use('/internal/discovery', internalDiscoveryRouter);
+  }
   // …and the retail compliance surface, on its OWN allow-list — a FIFTH list,
   // for the fifth instance of the same reason: approving a resale
   // authorization, verifying a product-safety certificate and LIFTING A RECALL
@@ -1074,6 +1163,25 @@ export function createApp(): express.Express {
    * nothing exposes nothing.
    */
   app.use('/product-types', productTypesRouter);
+  /**
+   * The PUBLIC integration surface (#1017) — the only routes `@mercaria.co/sdk`
+   * calls, and the canonical boundary another Oxy application reads Mercaria
+   * through. GET-only, anonymous or bearer-authenticated, and projected FIELD BY
+   * FIELD to `@mercaria/shared-types` `public-api.ts`, never a spread storefront
+   * DTO. `docs/public-api.md` is the reference.
+   *
+   * Mounted UNCONDITIONALLY: it serves nothing `/listings`, `/stores` and the
+   * store collection reads do not already serve to anybody, so a lever here
+   * could only withdraw a projection of catalogue that stays public through
+   * those routes. Well after `express.json()` — no signed raw body.
+   *
+   * The path-scoped error handler right behind it is what keeps every failure
+   * on this prefix a JSON envelope: an error raised above the router (a body
+   * that would not parse) would otherwise reach the global handler's
+   * non-contract `{ error: 'Something went wrong!' }`.
+   */
+  app.use(MERCARIA_PUBLIC_API_BASE_PATH, publicApiRouter);
+  app.use(MERCARIA_PUBLIC_API_BASE_PATH, publicApiErrorHandler);
   // (Inbound connector webhooks are mounted above, before express.json.)
 
   // Root route
@@ -1118,6 +1226,7 @@ export function createApp(): express.Express {
         '/analytics',
         '/compatibility',
         '/product-types',
+        '/public/v1',
         // `/internal/payments`, `/internal/commerce-graph`,
         // `/internal/canonical-catalog`, `/internal/offers`,
         // `/internal/catalog-attributes`, `/internal/analytics`,

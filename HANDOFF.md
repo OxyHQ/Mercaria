@@ -185,8 +185,305 @@ failure is the control. Flag any edit made outside these steps.
 - **#220 — FIXED.** The webhook path COMPLETES a delivery before normalizing (`expandWebhookProduct`: a no-op on Shopify, a `GET /products/{id}/variations` on WooCommerce), the pure normalizer REFUSES a payload declaring variations it does not carry rather than collapsing it, and a variant the platform ADDED is created on the next sync — so an earlier collapse is self-healing. A refused delivery fails the run and writes nothing; the safety net is the scheduled reconcile sweep, not a platform re-delivery. A variant the platform REMOVED is unsold (stock zero, tracking on) and never deleted, because a variant id cascades into carts, saves and offers. **Still unverified against a real store:** the wire shape of a real `product.updated` delivery, and whether the variations call completes inside the webhook job's lifetime for a product with many variations.
 - **#221 — FIXED.** An import's provenance no longer lands in a second statement. The four `source_*` columns, the `draft`/`active` status and the variants' own `source_*` columns are all arguments to `createStoreProduct`, written by `insertStoreProductWithin` — so the window that stranded a listing with no `source_external_id`, invisible to every later match while still holding the handle, does not exist. The variant insert rides the same transaction on purpose: `convergeVariants` returns early on a listing with zero variants, so fixing only the provenance window would have traded a loudly-failing listing for a permanently empty one. `listings_store_id_source_key_idx` became UNIQUE (migration `0070`, a `post` phase that also collapses any duplicate the old race produced), because two concurrent deliveries could both read null and both create; the loser now converges by re-reading, matched by constraint NAME so a handle collision still surfaces as the merchant conflict it is. Provider timestamps go through one parse that appends `Z` only to a value carrying no zone — omitting a legitimately-zoned value would ERASE the stored freshness the next sync compares against, since `buildSource` writes `?? null` on every sync — and Shopify's `fx_rate_as_of` is validated and kept in the platform's own spelling rather than rewritten. **Still unverified against a real store:** the timestamp shapes are measured against what the platforms document, not against what they emit — whether a real WordPress site's `*_gmt` fields and a real Shopify order's `updated_at` arrive in those shapes, and whether anything upstream of them rewrites the response.
 
+## 5.5 Connect Accounts v2 — what is done and what is left
+
+`POST /v1/accounts` is REFUSED on this platform account for every input
+(measured 2026-09-06, test mode). Before the port, `ensureConnectedAccount` threw
+for every seller, so no seller could reach `ready` and
+`assertSellerGroupsPaymentReady` refused every native checkout group: **native
+checkout was not un-onboarded, it was DOWN.** Nothing said so anywhere, because
+there has never been a connected account, so no test or deploy could notice.
+
+Done (ADR 0008): creation ported to `POST /v2/core/accounts`, the capability set
+amended with `card_payments`, and the account read back through `GET /v1/accounts`
+because `v2.core.account` carries none of D9's readiness fields.
+
+Left, in order:
+
+- [ ] **One browser onboarding run.** No settling transfer has ever executed. The
+      account cannot be driven to `active` by API — under
+      `requirements_collector: stripe` the platform is refused ToS acceptance
+      (`tos_acceptance_on_behalf_not_allowed`), which is exactly the property D2
+      wants. Only a real hosted-onboarding run closes it.
+- [ ] **A third webhook endpoint for v2 events** (ADR 0008 D2-E). NOT blocking —
+      `account.updated` still fires — but mandatory before onboarding a seller in
+      a country where a recipient-only account is expressible (the US), because
+      such a seller emits no `account.updated` at all.
+- [ ] **Ask Stripe support whether a recipient-only account is enablable for ES.**
+      The `card_payments` coupling is country-specific and undocumented; if it can
+      be lifted, ADR 0008 D2-C's 33-requirement onboarding form gets shorter —
+      but D2-D must be re-read first, because `card_payments` is also what makes
+      the readiness event fire.
+- [ ] `transfer.canceled` is subscribed on the test platform webhook endpoint and
+      is in neither code tuple. Drift introduced during rehearsal; remove it or
+      adopt it deliberately.
+
 ## 6. Known limitations (code, not blockers)
 - FX static rates for the 15 new currencies are dev defaults — need a real feed for accuracy.
 - `collectionMapping` populates from Shopify collects on backfill; a webhook-driven single-product update carries no collection context (reconciled at the next backfill).
 - Fulfillment holds/cancellations beyond line-level partial fulfillment are not mapped.
 - A no-change resync tallies as `updated`, not `skipped` — the listing patch is built from every unpinned connector-managed field whether or not it changed.
+- **Radar's verdict is not wired to the high-value hold.** Mercaria subscribes to no `review.*` event and stores no `charge.outcome.risk_level`, so a held transfer's risk assessment is readable only in Stripe's dashboard, and closing a Radar review neither releases the hold nor refunds. The hold is purely time-based (`STRIPE_HIGH_VALUE_HOLD_WINDOW_MS`) and an operator's `retry_withheld_transfer` is the only early exit. Wiring it means two new platform event types — and `STRIPE_PLATFORM_EVENT_TYPES` is transcribed by hand in a test against ADR 0001 deliberately, so they belong in their own tuple beside `STRIPE_BILLING_EVENT_TYPES` rather than appended to that list.
+
+---
+
+# Mercaria Digital (#1015) — what is built, what is inert, and what Phases B–E still need
+
+**Status: Phase A is code-complete, CI-green and INERT.** Four of the five feature
+levers default OFF and nothing has run against real object storage, a real asset
+file or a real buyer. Binding decisions: [ADR 0010](docs/adr/0010-digital-commerce.md).
+Design: [docs/digital-commerce.md](docs/digital-commerce.md).
+
+## 0. What is deployed vs what is inert
+
+Migration `0156` creates fifteen tables and seven triggers and runs with the normal
+pipeline, so the schema is live on every deployment. **Nothing uses it** until the
+levers below are set, and a deployment that sets none behaves exactly as it did
+before #1015 — including the address constraint, which is stricter for physical
+orders and otherwise invisible.
+
+## 1. Env / levers (SSM `/oxy/mercaria/*`, via GitHub Actions repo secrets)
+
+| Var | Default | Notes |
+|---|---|---|
+| `DIGITAL_UPLOADS_ENABLED` | `false` | gates the creator upload surface. Off does not touch a published asset. |
+| `DIGITAL_PUBLICATION_ENABLED` | `false` | gates a version becoming sellable. Separate from uploads so work can be staged while publication is paused. |
+| `DIGITAL_PAID_CHECKOUT_ENABLED` | `false` | **the launch gate — see §3.** A free claim still works with it off. |
+| `DIGITAL_DOWNLOADS_ENABLED` | **`true`** | the INCIDENT lever. Off refuses new grants with `downloads_disabled` and leaves every right `active`, so flipping it back restores access with nothing to repair. **Never use it as a rollout lever.** |
+| `DIGITAL_ENABLED_VERTICALS` | empty | comma-separated `DigitalVertical` keys; an ALLOW-list. `three_d` is the only one with a format registry today. |
+
+## 2. Object storage IS wired now — and the part that is NOT is upload
+
+`asset_files.storage_key` holds an **Oxy `file_id`**, and `services/digital/storage.ts`
+is the one module that resolves one. ADR 0010 D17 records the mechanism and, more
+usefully, the mechanism it is not: the obvious `oxyClient.getFileDownloadUrlAsync`
+resolves a URL for the CURRENT USER against Oxy's ACL, and a Mercaria buyer is not a
+user Oxy knows anything about. The resolution is Oxy's service-token mint
+(`POST /assets/service/linked-url`, **Oxy ADR 0021**), authorized by the file's own
+owner having attached it to the `mercaria` application.
+
+**This needs the Oxy side deployed.** It is implemented and pushed on Oxy's
+`claude/pensive-fermat-wi3gcq`, and it requires, in order:
+
+1. That branch merged and released.
+2. The `mercaria` Oxy application granted the **`files:linked:read`** scope. It is
+   NOT implied by `files:read` — deliberately, because `files:read` is metadata-only
+   and spelling byte access as a widening of it would have handed byte access to
+   every application already holding the smaller one.
+3. `OXY_APPLICATION_KEY` / `OXY_APPLICATION_SECRET` set (they already are, for the
+   capability catalogue).
+4. **A swap in `storage.ts`:** it calls the route through `makeServiceRequest`
+   because Mercaria consumes `@oxy.so/core` from npm and the release carrying
+   `getServiceLinkedDownloadUrls` lands after this one. Switch to the SDK method at
+   the next bump — the wrapper is where the batch cap of 25 lives, so a future caller
+   wanting a whole version's files must go through it.
+
+Until step 2, every download answers `absent`, which surfaces as *"your purchase is
+unaffected — please contact support"* rather than a revocation. `downloadsEnabled`
+defaults **on** (it is the incident lever), so the gate that actually holds is
+`publicationEnabled`.
+
+### What is still missing: UPLOAD
+
+There is **no creator upload endpoint**. `putAssetObject` exists and works for an
+object this service uploads, but the real flow is the creator uploading STRAIGHT TO
+OXY (an 8 GiB `MAX_ASSET_FILE_BYTES` and a 10 MB `express.json()` limit are not
+reconcilable), and that flow carries a client-side obligation:
+
+- **The creator must call Oxy's `POST /assets/:id/links` with their OWN session**,
+  `app: 'mercaria'`, before registering the file here. Oxy admits a file only when
+  `file_links.created_by = files.owner_user_id`, so a link created by this backend on
+  the creator's behalf would NOT satisfy it. A file that was not attached is refused
+  at **registration**, with the same wording as "no such file" — which is deliberate
+  (distinguishing them is a probe for which Oxy file ids exist) and is why the
+  dashboard has to get the link right rather than discover it later.
+- Oxy computes the SHA-256 server-side and this service reads it from the mint
+  (#1015 W1 rule 7), so no client-reported digest is ever written.
+- A `completed` download event with `bytes_transferred` is still written by nothing:
+  the redirect hands the transfer to S3, which does not report back. Closing it needs
+  either a proxying route or an S3 access-log consumer.
+
+## 3. The paid-launch gate (ADR 0010 D15) — three sign-offs, per market
+
+`DIGITAL_PAID_CHECKOUT_ENABLED` must stay off in a market until all three are
+recorded here with a date and a name:
+
+| Gate | What it has to establish | Status |
+|---|---|---|
+| Payment provider | Peable (and the provider settling behind it) permits a third-party digital-goods marketplace on this account | **NOT DONE** |
+| Tax | electronically-supplied-service rates exist for the market, scoped to a COUNTRY — a digital line matches nothing narrower, and a market with no country-scoped rate is taxed at ZERO | **NOT DONE** |
+| Consumer law | the withdrawal-waiver copy reviewed for the market, and the waiver presented before payment rather than after | **NOT DONE** |
+
+The code cannot hold these. What it holds is that the lever defaults off and that a
+missing rate is a visible zero rather than a plausible one.
+
+## 4. Phase B — the Mercaria 3D MVP, and what each piece still needs
+
+| Piece | State | What it needs |
+|---|---|---|
+| **Asset inspection workers** (W4) | **BUILT** — `services/digital/inspection/` parses STL (binary + ASCII), OBJ, glTF/GLB and 3MF; a fourth BullMQ queue (`marketplace-digital`, concurrency 2) because an inspection is CPU-bound while `marketplace-sync` waits on suppliers; bytes arrive through `byte-source.ts` and the storage port | the limits are in-process, not a SANDBOX. Every ceiling W12 asks for is enforced (256 MiB read, 32 MiB JSON, 512 MiB declared expansion, 200:1 ratio, nesting depth 1 by having no recursion, a 20 s cooperative budget) but it runs in the API's own worker. A `blend`/`fbx` parser must NOT be added without a real sandbox and a threat model — both answer `unsupported` today, and that is the safe answer. |
+| **Malware scanning** (W1 rule 12) | `scan_verdict` defaults `pending`; `everyFileScannedClean` gates publication; `inspection/scanner.ts` is the seam and answers **`error`, never `clean`** | an actual scanner. **Until one exists, nothing can be published**, which is the safe failure and is why publication is a separate lever. |
+| **Inspection publication gate** | **BUILT** — `everyFileInspectionAcceptable` closes the escape the scan gate left: a `corrupt` file is not malicious, so a scanner calls it clean and nothing else stood between it and a buyer. `unsupported` and `missing_resources` deliberately PASS (`PUBLISHABLE_ASSET_INSPECTION_VERDICTS` says why each membership is a decision) | nothing |
+| **`web_derivative` generation** | `ASSET_FILE_VISIBILITIES.preview_only` and the role exist; the authorizer already refuses to hand one over as a file | a glTF/GLB derivative generator, and a viewer route that streams it without exposing the source |
+| **The 3D viewer** (W4) | **BUILT, rendererless.** `AssetPreviewViewer` has the full chrome and the accessible static path; `AssetPreviewSource` is branded with a module-private `unique symbol` so handing it a paid file is a COMPILE error, not a runtime check | a WebGL renderer through the `renderer?: AssetModelRenderer` prop. **No three.js/expo-gl dependency was added** — that is a human decision with `expo.install.exclude` and native-version consequences across three apps. |
+| **3D product profiles** (W3) | **BUILT** — seven profiles, 9 categories, 17 claim attributes, 96 fields, seeded through #367's authoring path (`bun run seed:digital-3d`, `docs/verticals/3d.md`). Keys are `three_d_*`: a LEADING DIGIT is illegal under `PRODUCT_TYPE_KEY_PATTERN`, so `3d_print_model` would never have inserted | nothing |
+| **Creator authoring UI** | nothing; the repositories and services are callable | a dashboard surface for upload → package → licence → publish |
+| **Storefront surfaces** (W5) | **BUILT** — `/3d`, `/3d/printable`, `/3d/game-assets`, `/3d/[slug]`, `/creators/[slug]`, `/library`, with facets coming FROM the read and a rail that renders only when the read reports `selectionApplied` | the reads behind them. `lib/digital/source.ts` is the single seam and all four producers answer `unavailable`, so every screen renders an honest notice today. See §6. |
+| **Buyer library + download UI** (W9) | `listBuyerLibrary` returns the full projection including the file inventory and an `updateAvailable` flag | the screens, and update notifications per communication preferences |
+| **Reference licences** | **BUILT** — `applyReferenceLicences` writes each as an `authorship: 'mercaria_reference'` row plus a published version 1, converging on a re-run including the awkward state (version 1 left in `draft` by an interrupted run, which `findPublishedLicenceVersion` answers NULL for) | nothing |
+
+## 5. Phases C–E, and the seams that exist for them
+
+- **Bundles and memberships** (W7): `asset_packages` already separates "the thing
+  sold" from "the files", so a bundle is a package naming more than one asset's
+  files. Nothing is built.
+- **Re-upload detection** (W8): **BUILT** (`services/digital/provenance/`) — content
+  hash, a quantised geometry fingerprint (`gfp1:q1024:…`, readers for STL and OBJ
+  only; every other format answers `unsupported` rather than a weak fingerprint), and
+  a preview perceptual hash over a Mercaria-generated raster. The sweep escalates to
+  the EXISTING abuse-report path with `reportedType: 'listing'` and
+  `category: 'stolen_goods'`, requires an `operatorOxyUserId` with no default and no
+  sentinel (so a machine can never file), and **stores nothing** — a persisted
+  candidate list is a verdict-shaped row.
+  - **The one real limitation, measured:** an equality-indexed digest cannot be
+    noise-tolerant. A float32 round-trip survives the fingerprint with p≈0.002 and a
+    3-decimal rewrite with p≈1e-270, and no grid choice fixes that — failure is
+    linear in vertex count. Closing it needs a DISTANCE-capable retrieval (an LSH
+    banding column, a `bit(64)` Hamming index, a vector index), i.e. a schema change.
+  - **Upstream ask:** the CrowdSource `commerce` family has no rights-infringement
+    code. `stolen_goods → commerce.prohibited_item` is the closest honest fit and
+    `counterfeit` is wrong — a re-upload is a genuine copy sold by the wrong person.
+    Worth raising as `commerce.rights_infringement`.
+- **Creator analytics** (W13): **BUILT and deliberately UNWIRED.**
+  `services/digital/analytics/` is six pure projections with a ten-sale cohort floor
+  on geographic revenue that SUPPRESSES rather than rounds, and no path by which
+  ranking can read it (`DIGITAL_METRIC_SCOPES` has exactly two members, neither of
+  them a listing or an offer). `DigitalAnalyticsFactReader` is the seam and **has no
+  SQL behind it**, which is not an oversight — two of its six fact types cannot be
+  projected yet:
+  - `DigitalViewFact` has **no source table**. Nothing records an asset view.
+  - `DigitalSaleFact.creatorEarningsAmount` is a **Phase D decision**. #1015 forbids
+    building creator royalties on referral commission or marketplace fees, and ADR
+    0010 does not decide the royalty architecture. Projecting it from the ledger
+    today would be inventing that decision in a repository.
+    The other four (`downloads`, `rights`, `processing`, `publications`) are
+    straightforward reads of existing tables and could ship independently.
+  - `findMatchingProvenanceSignals` returns no `created_at`, so the sweep re-reads
+    each candidate version to answer "which came first" — N round trips a repository
+    change would remove.
+- **The physical print bridge** (W10): not started. ADR 0010 does not decide the
+  royalty architecture, and #1015 is explicit that royalties must NOT be built on
+  referral commission or marketplace fees — that needs its own ADR.
+- **A second digital vertical** (W14 Phase E): the four steps are in
+  `docs/digital-commerce.md` §"Adding a second digital vertical". The only genuinely
+  new piece per vertical is a processor.
+
+## 6. Known gaps a reviewer should not mistake for oversights
+
+- **The creator and buyer HTTP routes DO ship** (`routes/digital.routes.ts`,
+  `controllers/digital-{creator,buyer}.controller.ts`) now that §2's storage is
+  wired. What does NOT ship is the **client-reachable read the new storefront screens
+  want**: `lib/digital/source.ts`'s four producers all answer `unavailable`, so every
+  screen renders "switched off here; anything you already own is unaffected". The
+  reads still needed are a browse read scoped by `DigitalVertical` (returning
+  `CatalogProductBrowsePage[]` plus its `FacetScope`), an asset-page read carrying a
+  SERVER-FILTERED public preview descriptor, a creator read, and `listBuyerLibrary`
+  behind an authenticated route with a grant-mint endpoint beside it.
+- **No SEO registry entries for the new routes.** `PublicRouteId` / `/seo/resolve` is
+  #75's, so the new pages emit a title and description and claim no canonical.
+- **`listBuyerLibrary` does N queries for N rights.** Correct and not fast; it is
+  fine for a pilot-sized library and wants batching before a creator with a thousand
+  buyers looks at it.
+- **`asset_download_grants` has no sweeper wired.** `deleteExpiredGrants` exists and
+  nothing calls it on a schedule. An expired grant opens nothing, so this is growth
+  rather than a hole.
+- **Guest rights are keyed on a SESSION**, which expires. The claim path carries them
+  to an Oxy account (ADR 0010 D9.5) — a guest who never claims and whose session
+  lapses keeps the right row and loses the way to reach it. That is #101's
+  recovery surface, and it is not extended here.
+
+---
+
+# Authorized digital retail (#1016) — what Phase A built, and what is deliberately inert
+
+ADR 0011 is binding for the whole epic; the code that landed with it is items 1–8
+of the epic's own recommended order plus the library projection. Read
+`docs/digital-retail.md` first — this section is only what is NOT done and what
+each remaining piece needs.
+
+## What is live-but-inert, and the levers that hold it
+
+Everything defaults OFF except the incident lever:
+
+| Variable | Default | Stops |
+|---|---|---|
+| `DIGITAL_RETAIL_CATALOG_SYNC_ENABLED` | off | pulling supplier catalogues |
+| `DIGITAL_RETAIL_PUBLICATION_ENABLED` | off | an offer becoming publishable |
+| `DIGITAL_RETAIL_CHECKOUT_ENABLED` | off | buying |
+| `DIGITAL_RETAIL_PROCUREMENT_ENABLED` | off | submitting anything to a supplier |
+| `DIGITAL_RETAIL_REVEAL_ENABLED` | **on** | revealing something a buyer already owns |
+
+`DIGITAL_RETAIL_SEAL_KEY_REFERENCE` must name a path under
+`/oxy/mercaria/digital-retail/seal/`, and the key itself is 32 base64 bytes in
+`DIGITAL_RETAIL_SEAL_KEY_<LAST_SEGMENT>`. **Treat it as durable: rotating it makes
+every artifact sealed under it unopenable.** A deployment with no key can seal
+nothing, which is the reason procurement defaults off rather than failing after
+money has been spent.
+
+## What is NOT built, and what each needs
+
+- **The public offer surface and the checkout wiring (#57).** Mercaria's unified
+  offer domain does not exist, so this domain exposes `DigitalRetailSourcingSeam`
+  the way #118 did for physical retail. Until #57 lands there is no path from a
+  cart to `procureDigitalLine`, and building a parallel one would be the second
+  commerce stack #1015 acceptance criterion 20 refuses. What it needs: #57's offer
+  kind, a variant→offer binding equivalent to `asset_variant_bindings`, and a
+  checkout refusal message for a line whose supply went dark between browse and
+  pay.
+- **A named provider adapter.** The epic forbids coding against guessed
+  capabilities. The verification list is in `docs/digital-retail.md` ("Adding an
+  authorized digital supplier") and step 1 is commercial, not technical. The
+  sandbox adapter is a conformance fixture and is registered on every deployment
+  — it can sell nothing, because no `supplier_accounts` row points at it.
+- **The catalogue sync worker.** `upsertProcurementOffer` and
+  `retireUnconfirmedOffers` exist and nothing schedules them. It wants a queue job
+  per account, a run cursor, and an operator queue for `mapping_status =
+  'ambiguous'` — which is where every unmapped supplier SKU currently accumulates,
+  visible only by SQL.
+- **The ambiguity recovery sweeper.** `findAmbiguousPurchaseOrders` and
+  `recoverAmbiguousPurchaseOrder` exist and nothing runs them on a schedule. This
+  is the highest-priority gap of the list: an ambiguous attempt BLOCKS its order
+  line by construction, so without the sweep a supplier timeout strands a paid
+  customer until somebody notices. `DIGITAL_RETAIL_RECOVERY_DELAY_SECONDS` is the
+  interval it should respect.
+- **Ledger postings.** ADR 0011 states the accounting treatment — buyer revenue,
+  supplier procurement cost, processing cost, tax and realized retail margin — and
+  none of it posts. The procurement cost and the customer receipt are separate
+  financial events settling on different days, which is #128's reconciliation
+  domain and is not wired to this one.
+- **Refund execution.** `deriveDigitalRemedy` answers WHAT should happen and
+  nothing performs it. A `refund_customer` outcome does not call the rail, a
+  `replace_artifact` outcome does not re-procure, and a `supplier_credit_pending`
+  outcome records nothing to chase.
+- **Direct account activation.** The capability is in the vocabulary and an
+  artifact of that kind stores no secret, correctly. The reviewed OAuth
+  account-linking flow it would need is its own issue, and until it exists such an
+  offer is eligible only if a rider names the capability — which no rider should.
+- **Gift cards and stored value.** ADR 0011 D16: unrepresentable, not disabled.
+  Admitting one is a new ADR answering the epic's Workstream 13 list, plus the
+  tuple, plus a migration in the same PR.
+- **Per-supplier reliability.** The selector reads a `reliabilityByAccount` map the
+  caller supplies, and nothing computes one; every supplier therefore ranks at
+  `RELIABILITY_WITHOUT_HISTORY`. The inputs are all on
+  `digital_purchase_orders` already.
+- **Operator surfaces.** No route, no controller and no DTO exists for any table in
+  this domain — deliberately for now (the private tables are private WHOLE), but
+  the support view ADR 0011 D12 describes has to be built before a real pilot: an
+  operator resolving an invalid-key case today has psql and nothing else.
+
+## The one number worth knowing before a pilot
+
+`DEFAULT_MAX_PROCUREMENT_ATTEMPTS` is 3. Three suppliers may be tried for one
+order line, each inheriting the same `max_accepted_cost`. It is a constant rather
+than a policy row because nothing yet has an opinion about it; the moment a second
+real supplier exists it should become one.

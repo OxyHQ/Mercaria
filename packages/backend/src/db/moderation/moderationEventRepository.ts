@@ -1,7 +1,7 @@
 /**
  * `moderation_events` — the webhook dedupe claim, shared across tasks.
  *
- * `@oxyhq/crowdsource-express` defaults to an IN-PROCESS store and says exactly
+ * `@oxy.so/crowdsource-express` defaults to an IN-PROCESS store and says exactly
  * when that is not enough: two instances behind a load balancer each keep their
  * own, so a redelivery landing on the OTHER instance is not deduplicated.
  * Mercaria's API runs several ECS Fargate tasks behind one ALB, so that is the

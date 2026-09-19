@@ -876,6 +876,104 @@
     "variantSwatches": {
       "showMoreA11y": "%{option} の選択肢をもっと見る（%{more}）",
       "showMore": "+%{more} 件"
+    },
+    "assetViewer": {
+      "previewA11y": "%{title} のプレビュー",
+      "noPreview": "この作品に公開プレビューはありません。",
+      "staticOnly": "静止画を表示しています。ここではインタラクティブビューアを利用できません。",
+      "staticOnSmallScreen": "静止画を表示しています。インタラクティブビューアには、より広い画面が必要です。",
+      "neverTheSourceFile": "プレビューは生成されたコピーです。購入するファイルがこの表示に使われることはありません。",
+      "streamedOnly": "このプレビューは閲覧のために配信されるだけで、ファイルとして渡されることはありません。",
+      "controls": "プレビューの操作",
+      "gestures": "ドラッグで回転、スクロールまたはピンチで拡大縮小、2 本指のドラッグで移動します。",
+      "reset": "表示を元に戻す",
+      "fullscreenOpen": "プレビューを全画面で開く",
+      "fullscreenClose": "全画面を閉じる",
+      "wireframe": "ワイヤーフレーム",
+      "statistics": "描画の統計",
+      "animation": "アニメーション",
+      "animationOff": "なし",
+      "refused": {
+        "role_is_not_publicly_viewable": "このファイルは購入に含まれるため、公開プレビューには表示されません。",
+        "visibility_requires_a_right": "このファイルは購入者のみが利用できるため、公開プレビューには表示されません。"
+      }
+    },
+    "assetFacts": {
+      "measuredTitle": "Mercaria が計測",
+      "measuredNote": "公開されたファイルから Mercaria が計測しました。",
+      "measuredBy": "%{processor} %{version} で %{date} に計測",
+      "measuredBadge": "計測値",
+      "claimedTitle": "出品者による説明",
+      "claimedNote": "出品者が書いた内容です。Mercaria は計測していません。",
+      "claimedBadge": "出品者の説明",
+      "notMeasured": "未計測",
+      "verdict": {
+        "pending": "計測はまだ終わっていません。",
+        "measured": "これらの数値はファイルから計測したものです。",
+        "unsupported": "この形式は自動で計測できません。",
+        "corrupt": "ファイルを読み取れませんでした。",
+        "missing_resources": "ファイルが参照しているリソースが提供されていません。",
+        "failed": "計測は完了しませんでした。",
+        "refused_too_large": "ファイルが大きすぎて計測できませんでした。"
+      }
+    },
+    "assetLicence": {
+      "title": "ライセンス",
+      "grantedTitle": "できること",
+      "notGrantedTitle": "このライセンスに含まれないこと",
+      "attributionTitle": "クレジット",
+      "updatesTitle": "更新",
+      "limitsTitle": "上限",
+      "additionalTermsTitle": "出品者独自の条件",
+      "seats": "%{seats} 人まで使用できます",
+      "seatsUnlimited": "使用できる人数に上限はありません",
+      "projects": "完成品 %{projects} 件まで",
+      "projectsUnlimited": "完成品の数に上限はありません",
+      "revenue": "売上 %{amount} まで",
+      "revenueUnlimited": "売上の上限はありません",
+      "right": {
+        "personal_use": "自分の個人的な制作に使う",
+        "commercial_project_use": "商用のプロジェクトに使う",
+        "commercial_physical_production": "実物を作って販売する",
+        "modification": "改変する",
+        "derivative_redistribution": "完成作品の一部として改変版を配布する",
+        "source_redistribution": "受け取ったままのファイルを配布する",
+        "sublicensing": "クライアントにライセンスを引き渡す",
+        "extended_enterprise_use": "人数と売上の上限を超えて使う"
+      },
+      "attribution": {
+        "required": "制作者のクレジットを表示してください。",
+        "optional": "クレジットの表示は歓迎しますが、必須ではありません。",
+        "not_required": "クレジットの表示は必要ありません。"
+      },
+      "updatePolicy": {
+        "purchased_version_only": "購入したバージョンはそのまま使えます。後のバージョンは新しい購入になります。",
+        "same_major_version": "購入したものとメジャー番号が同じ後続バージョンが含まれます。",
+        "all_future_versions": "今後のすべてのバージョンが含まれます。"
+      },
+      "authorship": {
+        "mercaria_reference": "Mercaria の標準ライセンス文",
+        "creator": "制作者独自のライセンス文"
+      }
+    },
+    "assetLibrary": {
+      "filesTitle": "ファイル",
+      "downloadAction": "ダウンロード",
+      "downloadA11y": "%{file} をダウンロード",
+      "notDownloadable": "閲覧専用 — ファイルとしては渡されません",
+      "downloadsPaused": "ダウンロードは停止中です。この購入の状態: %{status}。",
+      "grantedOn": "追加日: %{date}",
+      "licence": "ライセンス: %{licence}",
+      "purchasedVersion": "購入したのは %{version} です",
+      "availableVersion": "ダウンロードできる最新バージョン: %{version}",
+      "updateAvailable": "更新があります",
+      "status": {
+        "active": "有効",
+        "refunded": "返金済み",
+        "disputed_hold": "異議申し立てにより一時停止",
+        "revoked_for_policy": "法的な理由により取り消し",
+        "superseded": "後の購入で置き換え"
+      }
     }
   }
 }

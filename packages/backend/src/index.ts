@@ -1,3 +1,4 @@
+import { startEcosystemActivity, stopEcosystemActivity } from './ecosystemActivity';
 import http from 'http';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -7,6 +8,7 @@ import { startExpirySweeper, stopExpirySweeper } from './db/expirySweeper.js';
 import { createApp } from './app.js';
 import { log } from './lib/logger.js';
 import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';
+import { registerSizeSystemConceptRegistry } from './services/canonical/size-system-registry.js';
 
 
 // Socket.io
@@ -18,6 +20,19 @@ const __dirname = dirname(__filename);
 
 // Load .env from the api directory (not the monorepo root)
 dotenv.config({ path: join(__dirname, '../.env') });
+
+// Publish the size-system code registry to the external-mapping resolver
+// (#367 Workstream 11), closing `concept-registry.port.ts`'s `size_system`
+// seam. A STATIC import and a direct call, rather than the deferred
+// `import(...).then(...)` every dispatcher below uses, and the difference is
+// load-bearing: those start LOOPS, which may begin a tick late with no
+// consequence, while this answers a QUESTION the first request can ask. A
+// resolution arriving before a deferred registration landed would be told
+// `registry_unavailable` — indistinguishable from a deployment that has no
+// registry at all — and the mapping would block for a reason that was not
+// true. There is nothing to gate and nothing to fail: the reader holds a code
+// table, opens no connection and reads no config.
+registerSizeSystemConceptRegistry();
 
 const app = createApp();
 // Local dev default only — ECS injects PORT explicitly (oxy-infra
@@ -49,6 +64,7 @@ server.on('connection', (socket) => {
   socket.setKeepAlive(true, 60000);
 });
 
+startEcosystemActivity(() => server.listening);
 initSocket(server);
 
 // The middleware chain and routes live in `app.ts` so they can be built without
@@ -444,6 +460,28 @@ connectPostgres()
           log.general.error({ err }, 'Retail procurement port registration failed'),
         );
 
+      // Register the digital supplier adapters this deployment ships (#1016,
+      // ADR 0011).
+      //
+      // UNCONDITIONAL, and inert by construction on every deployment today: the
+      // only adapter registered is the SANDBOX conformance fixture, and an
+      // adapter sells nothing until a `supplier_accounts` row names its slug.
+      // Registering it anyway is what makes the conformance suite runnable from
+      // an ops script against a real account without a second wiring path.
+      //
+      // NOT behind `DIGITAL_RETAIL_PROCUREMENT_ENABLED`, for the reason the
+      // retail ports above are not behind `MERCARIA_RETAIL_ENABLED`: that lever
+      // gates SUBMITTING to a supplier, and an in-flight attempt still has to be
+      // recoverable after it is turned off — a purchase order stuck in
+      // `ambiguous` with no adapter to ask is a paid customer nobody can serve.
+      import('./services/digital-retail/adapter-registry.js')
+        .then(({ registerBuiltInDigitalSupplierAdapters }) =>
+          registerBuiltInDigitalSupplierAdapters(),
+        )
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Digital supplier adapter registration failed'),
+        );
+
       // Install Mercaria's Moovo logistics client (#156).
       //
       // A no-op on every deployment today, and visibly so: `MOOVO_ENABLED`
@@ -525,6 +563,16 @@ connectPostgres()
         .then(({ startStripeEventDispatcher }) => startStripeEventDispatcher())
         .catch((err) => log.general.error({ err }, 'Stripe event dispatcher import failed'));
 
+      // The same loop for the Peable rail (ADR 0009). A SECOND dispatcher rather
+      // than a widened first one, because each claims only the rail its router
+      // can interpret — an unscoped claim would hand this drain a Stripe event,
+      // find no handler for it, and mark a real charge processed. The two poll
+      // the same table and never collide. No-ops entirely when Peable is not
+      // configured.
+      import('./services/payments/peable/event-dispatcher.js')
+        .then(({ startPeableEventDispatcher }) => startPeableEventDispatcher())
+        .catch((err) => log.general.error({ err }, 'Peable event dispatcher import failed'));
+
       // Re-read connected accounts Stripe has not told us about lately. A missed
       // `account.updated` is silent by construction — nothing here knows about
       // an event it never received — so the only thing that can notice is a
@@ -546,7 +594,13 @@ connectPostgres()
       // On EVERY task, like the dispatchers, but leased per JOB — these sweeps
       // page through a provider list with a shared cursor, so unlike an account
       // sync two tasks running one concurrently would each skip the pages the
-      // other consumed. No-ops entirely when Stripe is not configured.
+      // other consumed.
+      //
+      // The rail requirement is PER SWEEP, not for the loop. It used to no-op
+      // entirely without Stripe, which after ADR 0009 silently withheld the
+      // ledger audit and the withheld-transfer release from a Peable
+      // deployment — and those two read only Mercaria's own rows. See
+      // `JOB_REQUIRES_RAIL` in the runner.
       import('./services/payments/reconciliation/runner.js')
         .then(({ startPaymentReconciler }) => startPaymentReconciler())
         .catch((err) => log.general.error({ err }, 'Payment reconciler import failed'));
@@ -639,12 +693,29 @@ connectPostgres()
         .then(({ startAnalyticsRollup }) => startAnalyticsRollup())
         .catch((err) => log.general.error({ err }, 'Analytics rollup import failed'));
 
+      // Recount the discovery signals. Leased per RUN like the analytics
+      // rollup, so N tasks share it — and for the same reason: the numbers are
+      // written before the analytics rows they came from expire.
+      import('./services/discovery/sweep.js')
+        .then(({ startDiscoverySweep }) => startDiscoverySweep())
+        .catch((err) => log.general.error({ err }, 'Discovery sweep import failed'));
+
       // Null expired search-query text in place. The one retention operation the
       // shared expiry sweep cannot perform — it deletes rows, and this is a
       // redaction that leaves the row and its normalized tokens standing.
       import('./services/analytics/retention.js')
         .then(({ startAnalyticsRetention }) => startAnalyticsRetention())
         .catch((err) => log.general.error({ err }, 'Analytics retention import failed'));
+
+      // Register the digital-asset byte source BEFORE any worker can pick up an
+      // inspection job, and before the inline fallback can run one in-process.
+      // Unregistered, `inspect.service` records one honest `failed` row naming the
+      // missing port — correct, and not what a configured deployment wants. It is
+      // a call rather than an import side effect so that refusing state stays
+      // reachable for the tests that assert it.
+      import('./services/digital/byte-source.js')
+        .then(({ registerDigitalByteSource }) => registerDigitalByteSource())
+        .catch((err) => log.general.error({ err }, 'Digital byte source import failed'));
 
       // Start marketplace queue workers when Redis is configured; otherwise
       // async jobs run inline via the producers.
@@ -749,6 +820,8 @@ connectPostgres()
         const { stopFeedStageSweeper } = await import('./services/feed-import/register.js');
         stopFeedStageSweeper();
         stopExpirySweeper();
+        const { stopDiscoverySweep } = await import('./services/discovery/sweep.js');
+        stopDiscoverySweep();
         // Analytics last of the loops, and the sink's stop AWAITS one final
         // flush — the only place in this domain anything waits on telemetry.
         // Safe because the flush's own failure is already swallowed and the
@@ -771,6 +844,7 @@ connectPostgres()
         log.general.info('PostgreSQL pool closed');
 
         clearTimeout(forceTimeout);
+        await stopEcosystemActivity();
         log.general.info('Graceful shutdown complete');
         process.exit(0);
       } catch (error) {

@@ -26,7 +26,7 @@
 import type { Request, RequestHandler } from 'express';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
-import { createOxyRateLimit, type OxyRateLimitOptions } from '@oxyhq/core/server';
+import { createOxyRateLimit, type OxyRateLimitOptions } from '@oxy.so/core/server';
 import { oxyClient } from '../middleware/auth.js';
 import { actorRateKey } from '../services/commerce-actor.js';
 import { getRedisClient } from './redis.js';
@@ -37,6 +37,13 @@ export type RateLimitScope =
   | 'feedback'
   | 'listings'
   | 'feed'
+  // The discovery surface — explore, category and deals pages, plus a
+  // paginated signal route (#367 discovery epic). Its own bucket
+  // (`rl:discovery:`) rather than sharing `'feed'`: this is three pages plus a
+  // paginated read, and sharing the home feed's budget would let a crawler
+  // working `/discovery/feed?scope=deals` exhaust the home feed's allowance
+  // for everyone.
+  | 'discovery'
   | 'stores'
   // The PUBLIC P2P seller profile (#92, privacy rule 5). Its own bucket
   // (`rl:sellers:`) rather than sharing `'stores'`, because the risk is
@@ -185,7 +192,18 @@ export type RateLimitScope =
   // `referral-redirect` reason — one shared product page is unfurled and
   // clicked in bursts by real people — and the real bound on a poisoned link is
   // the destination allow-list, which a limiter cannot be.
-  | 'outbound';
+  | 'outbound'
+  // The PUBLIC integration surface (#1017, `/public/v1`). Its own bucket
+  // (`rl:public-api:`) rather than sharing `'listings'` or `'stores'`, because
+  // the caller is a DIFFERENT population: other Oxy applications and agents
+  // reading through `@mercaria.co/sdk`, often server-side from one address, and
+  // keyed on ids and handles they can iterate. Sharing the storefront's bucket
+  // would let an integration's backfill exhaust shopping for the people behind
+  // the same address, or bound the integration by the storefront's shape.
+  // At the defaults it is dominated by `general` above every route (#784's
+  // reading), so what the scope buys today is the ability to tune this surface
+  // without re-metering the storefront — stated rather than implied.
+  | 'public-api';
 
 /** The shared, prefixed Redis store for a scope, or `undefined` without Redis. */
 function scopeStore(scope: RateLimitScope): RedisStore | undefined {

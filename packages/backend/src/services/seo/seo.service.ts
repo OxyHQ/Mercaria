@@ -74,6 +74,8 @@ import { indexingPermittedFor } from './rollout.js';
 import {
   catalogueEntityFacts,
   categoryPageFacts,
+  categoryIndexFacts,
+  dealsFacts,
   homeFacts,
   listingPageFacts,
   merchantPageFacts,
@@ -85,6 +87,27 @@ import {
 const HOME_TAGLINE =
   'Buy and sell new and secondhand items from shops and people — one page per product, ' +
   'every seller compared.';
+
+/**
+ * The category hub's title and description.
+ *
+ * English, static, and beside the home tagline rather than in a locale bundle,
+ * because that is where every other server-composed document string in this
+ * domain lives — `homeFacts`, `nativeStoreFacts` and the breadcrumb literal
+ * `'Home'` are all English here. Localising one of them alone would make the
+ * page half-translated in a way only a crawler sees. Whether this domain
+ * composes localized documents at all is `SeoDocument`'s question, not this
+ * route's.
+ */
+const CATEGORY_INDEX_TITLE = 'All categories';
+const CATEGORY_INDEX_DESCRIPTION =
+  'Every category on Mercaria — new items from shops and secondhand from people, ' +
+  'with every seller compared on one page per product.';
+
+/** The deals hub's title and description. English and static, for `CATEGORY_INDEX_TITLE`'s own reason. */
+const DEALS_TITLE = 'Deals';
+const DEALS_DESCRIPTION =
+  'Stores currently running an automatic discount on Mercaria, gathered on one page.';
 
 /**
  * The listing statuses whose public detail page resolves.
@@ -231,6 +254,8 @@ const ROUTE_RESOLVERS: Readonly<Record<PublicRouteId, RouteResolver | null>> = O
    */
   seller: null,
   category_browse: ({ handle, request, origin }) => resolveCategoryPage(handle, request, origin),
+  category_index: ({ origin }) => resolveCategoryIndex(origin),
+  deals: ({ origin }) => resolveDealsPage(origin),
   /** Reserved patterns: `planned` and `redirect_only` are answered above. */
   native_store_legacy: null,
 });
@@ -273,6 +298,86 @@ function resolveHome(origin: string): SeoDiagnosis {
         routeId: 'home',
         facts,
         canonicalUrl: buildCanonicalUrl(origin, buildRoutePath('home')),
+        origin,
+        indexability: verdict,
+      }),
+    },
+    indexability: verdict,
+  };
+}
+
+/**
+ * `/categories` — the taxonomy index hub.
+ *
+ * Static facts and the home page's indexability inputs, for the home page's
+ * reasons. It reads NOTHING: the categories it links to are fetched by the
+ * screen, and a document composed from a tree read here would be a second copy
+ * of the taxonomy that goes stale where staleness is invisible.
+ *
+ * `indexingPermittedFor(null)` — the hub belongs to no single category, so a
+ * `canary` withholds it, exactly as it withholds the front page. A canary that
+ * published the whole taxonomy would not be a canary.
+ */
+function resolveCategoryIndex(origin: string): SeoDiagnosis {
+  const facts = categoryIndexFacts(CATEGORY_INDEX_TITLE, CATEGORY_INDEX_DESCRIPTION);
+  const verdict = decideIndexability({
+    routeAvailability: 'live',
+    indexingPermitted: indexingPermittedFor(null),
+    identity: 'canonical',
+    moderation: 'clear',
+    sourceIndexRight: 'granted',
+    content: 'sufficient',
+    offerInformation: 'not_applicable',
+    locale: 'complete',
+    filterUniqueness: 'not_a_filter_page',
+  });
+  return {
+    resolution: {
+      outcome: 'document',
+      document: composeDocument({
+        routeId: 'category_index',
+        facts,
+        canonicalUrl: buildCanonicalUrl(origin, buildRoutePath('category_index')),
+        origin,
+        indexability: verdict,
+      }),
+    },
+    indexability: verdict,
+  };
+}
+
+/**
+ * `/deals` — one `store-offer` section per store with a live automatic
+ * discount.
+ *
+ * Static facts and `resolveCategoryIndex`'s own indexability inputs, for the
+ * same reasons: it reads NOTHING (which stores currently discount is fetched
+ * by the screen from `GET /discovery/feed?scope=deals`, and composing that
+ * list again here would be a second copy that goes stale exactly where
+ * staleness is invisible), and `indexingPermittedFor(null)` because the hub
+ * belongs to no single category — a canary that published every current
+ * discount would not be a canary.
+ */
+function resolveDealsPage(origin: string): SeoDiagnosis {
+  const facts = dealsFacts(DEALS_TITLE, DEALS_DESCRIPTION);
+  const verdict = decideIndexability({
+    routeAvailability: 'live',
+    indexingPermitted: indexingPermittedFor(null),
+    identity: 'canonical',
+    moderation: 'clear',
+    sourceIndexRight: 'granted',
+    content: 'sufficient',
+    offerInformation: 'not_applicable',
+    locale: 'complete',
+    filterUniqueness: 'not_a_filter_page',
+  });
+  return {
+    resolution: {
+      outcome: 'document',
+      document: composeDocument({
+        routeId: 'deals',
+        facts,
+        canonicalUrl: buildCanonicalUrl(origin, buildRoutePath('deals')),
         origin,
         indexability: verdict,
       }),

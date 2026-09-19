@@ -78,7 +78,7 @@ jobs:
           --health-retries 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # FULL history, for the content revert detector (#735) below. It asks
           # whether a changed file's blob reproduces an EARLIER blob of that same
@@ -96,12 +96,15 @@ jobs:
         with:
           bun-version: 1.3.14
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24.20.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Verify Oxy ecosystem dependencies
+        run: bun run doctor:oxy
 
       # Runs BEFORE lint and the typechecks, and needs neither: it reads the
       # tracked file listing, so it costs a couple of seconds and answers the
@@ -110,6 +113,16 @@ jobs:
       # hoisted, and every other step here passes while it does.
       - name: Guard against MongoDB returning
         run: bun run validate:no-mongo
+
+      - name: Verify production deployment gate fixtures
+        run: |
+          bash -n \
+            .github/scripts/smoke-mcp.sh \
+            .github/scripts/test-smoke-mcp.sh \
+            .github/scripts/wait-for-ecs-deployment.sh \
+            .github/scripts/test-wait-for-ecs-deployment.sh
+          bash .github/scripts/test-smoke-mcp.sh
+          bash .github/scripts/test-wait-for-ecs-deployment.sh
 
       # #735 — a stale-base branch that silently reverts merged work.
       #
@@ -151,7 +164,7 @@ jobs:
       # file listing and nothing else.
       - name: Guard the AGENTS.md budget
         run: bun run validate:agents-md
-      - name: Lint coverage is pinned (bun run lint covers 4 of 6 packages)
+      - name: Lint coverage is pinned (bun run lint covers 5 of 7 packages)
         run: bun run validate:lint-coverage
 
       # Every realdb file that creates its OWN throwaway database migrates it
@@ -322,6 +335,13 @@ jobs:
       - name: Lint POS
         run: bun run --filter @mercaria/pos lint
 
+      # `@mercaria.co/sdk` (#1017) keeps its own rule set (`packages/sdk/eslint.config.js`):
+      # it is the one package whose `src/` must run unchanged on Node, Bun,
+      # browsers and React Native, so it refuses Node built-ins and `console`
+      # there on top of the house rules.
+      - name: Lint SDK
+        run: bun run --filter @mercaria.co/sdk lint
+
       - name: Typecheck API
         run: bun run --filter @mercaria/backend typecheck
 
@@ -383,6 +403,34 @@ jobs:
       # cannot end up registered with zero callers.
       - name: Test POS
         run: bun run --filter @mercaria/pos test
+
+      # `@mercaria.co/sdk` (#1017), the one package this repository PUBLISHES.
+      # Its source compiles with no DOM lib and no Node types, so a global only
+      # one runtime has fails here rather than in a consumer's app; the second
+      # program type-checks the tests, which use the real `Response`.
+      - name: Typecheck SDK
+        run: bun run --filter @mercaria.co/sdk typecheck
+
+      # No network: every request goes to a fetch double. Carries the parser
+      # walls (a leaked `sku` or supplier field never reaches a DTO), the error
+      # mapping a consumer branches on (404 vs 410 vs unavailable) and the
+      # guarantee that the access token appears in no error.
+      - name: Test SDK
+        run: bun run --filter @mercaria.co/sdk test
+
+      # The tests above exercise `src/`; nothing a consumer installs is `src/`.
+      # This builds the ESM/CJS bundles and bundled declarations, packs the
+      # tarball exactly as `publish-sdk.yml` publishes it, and uses the
+      # INSTALLED tarball from Node ESM and CJS, Bun, an esbuild browser bundle,
+      # a React Native bundle and a no-DOM `nodenext` type-check. It also fails
+      # if any shipped file names the private contract package, which the
+      # build bundles and a consumer could never resolve. Here rather than only
+      # in the publish workflow so a change that breaks the artefact is red on
+      # its own pull request, not on the merge that tries to release it.
+      - name: Build and smoke-test SDK
+        run: |
+          bun run --filter @mercaria.co/sdk build
+          bun run --filter @mercaria.co/sdk smoke
 
       # The same lock ceiling docker-compose.postgres.yml sets, by the only
       # mechanism a service container leaves open.
@@ -454,15 +502,15 @@ jobs:
     needs: lint-and-test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24.20.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -477,15 +525,15 @@ jobs:
     needs: lint-and-test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24.20.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -503,15 +551,15 @@ jobs:
     needs: lint-and-test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24.20.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -529,15 +577,15 @@ jobs:
     needs: lint-and-test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24.20.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile

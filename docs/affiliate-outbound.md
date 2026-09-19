@@ -177,13 +177,48 @@ it means.
 
 ---
 
+## The three networks, and why one of them is not a network
+
+`AFFILIATE_NETWORK_IDS` is `awin`, `ebay` and `direct`.
+
+**`direct` is a shop Mercaria signed itself** — it supplies a feed and its own
+tracking URL and pays a commission under a contract rather than through a
+publisher programme. It is a member because every other part of #67 is
+network-neutral: the click row, the destination allow-list, the observation
+trail, the postings and the ledger accounts all key on this id, so modelling a
+direct partner as anything else would mean a second copy of all of them.
+
+**The tuple governs the COMMISSION records only** — it renders the CHECKs on
+`affiliate_report_runs.network` and `affiliate_transactions.network`. `offers`'
+`affiliate_network` is free text carrying `catalog_source_configs.provider`, an
+adapter slug, so an offer never names a member of this tuple by that route.
+
+So `direct` buys one thing: a signed shop's commission can be booked under its
+own name, told apart from Awin's and eBay's, which is what per-source
+`affiliate_commission_revenue` reporting needs.
+
+It does NOT let a feed produce an `affiliate` OFFER for such a shop.
+`offerKindFor` grants that kind only where the source's `sourceKind` is
+`affiliate_network`, and only `adapters/awin-feed.ts` declares it —
+`adapters/product-feed.ts` declares `feed`. A direct shop's feed imported
+through `product_feed` today yields `external` offers, which DO carry a
+destination and DO redirect and record clicks (see `destination.ts`: "no
+`affiliate_params` right ⇒ … the offer is `external` rather than `affiliate` and
+the plain link is correct"), under the provider slug rather than under this
+name. Closing that is a feed adapter declaring `affiliate_network`, and it is a
+separate piece of work.
+
 ## Attribution, and the honest state of it
 
 **Every network-reported transaction is `unmatched` today, under
 `network_supplies_no_reference`.** That is not a gap in the matching code; it is
 a consequence of #65 and #66.
 
-`AFFILIATE_CLICK_REFERENCE_SUPPORT` records both networks as `not_supported`.
+`AFFILIATE_CLICK_REFERENCE_SUPPORT` records all three as `not_supported`, and
+`direct` for a different reason from the other two: theirs is the network's own
+terms, and `direct`'s is this repository's — Mercaria hands over the stored URL
+verbatim whoever wrote it, which `outbound-isolation.test.ts` enforces over the
+whole domain.
 Mercaria may not compose or mutate an affiliate link, so there is no per-click
 parameter it can add and therefore no reference for the network to echo back.
 eBay's publisher reference is sent in an INGESTION header, once per read, not per
@@ -244,6 +279,16 @@ the evidence must be readable during the incident that switched it off.
   `AffiliateReportFailureReason` that exists for exactly this. It is deliberately
   NOT a stub returning an empty list — an empty list is indistinguishable from
   "no conversions" and would report a healthy zero forever.
+- **`direct` commission booking.** The same refusal and a DIFFERENT seam.
+  eBay's waits on an account and an API that both exist; a directly-signed shop
+  is not an API at all, so its statements arrive as documents and booking one is
+  an operator action. What would close it is
+  `POST /internal/affiliate/reports/direct` on the payment-operator allow-list,
+  opening a run for the window the operator states and driving the SAME
+  `applyReportedTransaction` the Awin poll drives — which needs `runOneWindow`'s
+  read step to become a value rather than a call, and a state map read off a
+  signed contract rather than guessed. `resolveRefusalAccountRef` names no
+  publisher for `direct`, so the hourly tick writes no refused-run row for it.
 - **`resolveChannelOutbound` (#73's merchant channel page)** still refuses
   unconditionally, and that is left rather than closed: a channel visit is not
   an offer click. There is no offer to revalidate, no per-offer source right to

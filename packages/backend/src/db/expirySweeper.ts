@@ -2,7 +2,7 @@
  * The loop that runs the expiry sweep — Mercaria's replacement for the Mongo TTL
  * monitor.
  *
- * `expiryTargets.ts` says WHAT expires; `@oxyhq/db`'s `sweepAllExpiredRows` says
+ * `expiryTargets.ts` says WHAT expires; `@oxy.so/db`'s `sweepAllExpiredRows` says
  * HOW a target is swept. Neither of them runs on its own, and that gap is the
  * whole reason this file exists: Mongo's reaper was a property of the SERVER, so
  * porting a TTL index leaves nothing behind that a reviewer would notice going
@@ -35,7 +35,7 @@
  */
 
 import { getTableName } from 'drizzle-orm';
-import { sweepAllExpiredRows, type ExpirySweepResult } from '@oxyhq/db/expiry';
+import { sweepAllExpiredRows, type ExpirySweepResult } from '@oxy.so/db/expiry';
 import { getDb } from './postgres.js';
 import { EXPIRY_TARGETS } from './expiryTargets.js';
 import { log } from '../lib/logger.js';

@@ -66,7 +66,13 @@ import {
   readUseTags,
   readsAsDeliveredTotal,
 } from './dictionaries.js';
-import { languageOf, readCurrency, readLocalizedNumber, toMinorUnits } from './locale.js';
+import {
+  labelForLocale,
+  languageOf,
+  readCurrency,
+  readLocalizedNumber,
+  toMinorUnits,
+} from './locale.js';
 
 /** One requirement, already bound to a registry definition VERSION. */
 export interface InterpretedRequirement {
@@ -577,14 +583,17 @@ export function interpretDeterministically(
             phrase: boundedPhrase(magnitude.whole),
             candidates: candidates
               .slice(0, 3)
-              .map((candidate) => ({ key: candidate.row.key, label: candidate.row.label })),
+              .map((candidate) => ({
+                key: candidate.row.key,
+                label: labelForLocale(candidate.row.label, candidate.labels, input.locale),
+              })),
           });
           unresolved.push({
             kind: 'ambiguous_phrase',
             phrase: boundedPhrase(magnitude.whole),
             explanation: `"${boundedPhrase(magnitude.whole)}" could describe ${candidates
               .slice(0, 3)
-              .map((candidate) => candidate.row.label)
+              .map((candidate) => labelForLocale(candidate.row.label, candidate.labels, input.locale))
               .join(', ')}, so we did not pick one.`,
           });
           continue;
@@ -617,7 +626,7 @@ export function interpretDeterministically(
       unresolved.push({
         kind: 'unsupported_by_retrieval',
         phrase: boundedPhrase(magnitude.whole),
-        explanation: `${definition.row.label} is not recorded reliably enough to exclude products on, so we treated it as a preference.`,
+        explanation: `${labelForLocale(definition.row.label, definition.labels, input.locale)} is not recorded reliably enough to exclude products on, so we treated it as a preference.`,
       });
     }
     const usable: ConstraintStrength =
@@ -633,7 +642,11 @@ export function interpretDeterministically(
       },
       origin: 'deterministic_rule',
       sourcePhrase: boundedPhrase(magnitude.whole),
-      explanation: describeBound(definition.row.label, operator, magnitude.whole),
+      explanation: describeBound(
+        labelForLocale(definition.row.label, definition.labels, input.locale),
+        operator,
+        magnitude.whole,
+      ),
     });
     consumed.push(magnitude.whole);
   }
@@ -655,7 +668,7 @@ export function interpretDeterministically(
           predicate: { op: 'eq', value: { type: 'string', value: enumValue.value } },
           origin: 'deterministic_rule',
           sourcePhrase: boundedPhrase(matched),
-          explanation: `${definition.row.label} is ${enumValue.label}`,
+          explanation: `${labelForLocale(definition.row.label, definition.labels, input.locale)} is ${enumValue.label}`,
         });
         consumed.push(matched);
         break;

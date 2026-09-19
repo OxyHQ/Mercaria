@@ -78,7 +78,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, geography, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, geography, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   LOCATION_AVAILABILITY_STATES,
   LOCATION_GEOCODE_PROVENANCES,
@@ -176,7 +176,7 @@ export const locationPublications = pgTable(
      * The PostGIS point, GENERATED so it can never disagree with the pair above.
      *
      * `geography(Point,4326)` semantics come from the cast; drizzle-kit cannot
-     * emit the typmod (see `geography` in `@oxyhq/db`), and a generated column
+     * emit the typmod (see `geography` in `@oxy.so/db`), and a generated column
      * has no writes for a typmod to constrain anyway. `ST_SetSRID` and the
      * geometry→geography cast are both IMMUTABLE, which a STORED generated
      * column requires.

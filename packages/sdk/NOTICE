@@ -1,0 +1,19 @@
+============================================================================
+ NOTICE
+ @mercaria.co/sdk
+ Copyright (c) 2026-present The Oxy Collective, Inc.
+============================================================================
+
+This product is licensed under the Apache License, Version 2.0. See the
+LICENSE file in this directory.
+
+The rest of the OxyHQ/Mercaria repository is licensed separately (see the
+LICENSE file at its root). The public contract declarations and values that
+the build bundles into this package from that repository are published here
+by the same licensor under the Apache License, Version 2.0.
+
+----------------------------------------------------------------------------
+ THIRD PARTY COMPONENTS
+----------------------------------------------------------------------------
+
+This package contains no third party source and has no runtime dependencies.

@@ -78,7 +78,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   MERCHANT_ACQUISITION_ACTIONS,
   MERCHANT_ACQUISITION_CONTACT_SOURCE_KINDS,

@@ -61,7 +61,7 @@ import { numericTokens } from './package.js';
  * retail-pricing gates already use.
  */
 const FORBIDDEN_TOPIC =
-  /\bcommission\b|\baffiliate\b|\bkickback\b|\bsubscription\b|\bmerchant plan\b|\bsponsored\b|\bpaid placement\b|\bFAIR\b|FairCoin|faircoin|OxyPay|oxy_?pay|\bmargin\b|\bmarkup\b/i;
+  /\bcommission\b|\baffiliate\b|\bkickback\b|\bsubscription\b|\bmerchant plan\b|\bsponsored\b|\bpaid placement\b|\bFAIR\b|FairCoin|faircoin|OxyPay|oxy_?pay|Peable|\bmargin\b|\bmarkup\b/i;
 
 /** The outcome of checking a draft. A STRING discriminant; `strict: false` applies. */
 export type ExplanationValidation =

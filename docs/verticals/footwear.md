@@ -28,8 +28,14 @@ around — it is a decision the facet domain already enforces:
 `FACET_FORBIDDEN_EQUIVALENCES` names `size_system_conversion` and
 `size_system_merge` as prohibitions, and `facet-isolation.test.ts` fails the
 build on any function shaped like one. `catalog_external_mappings` can record
-that a source's token MEANS a size system, and states in its own header that the
-mapping "never resolves", because there is nothing to resolve to.
+that a source's token MEANS a size system, and such a mapping now RESOLVES —
+against `services/canonical/size-systems.ts`, a code registry that IDENTIFIES a
+convention by key and relates nothing to anything
+(`docs/catalog-external-mappings.md` §"The size-system registry"). Its keys are a
+namespace of their own (`size.shoe_eu`), disjoint from the attribute keys below,
+and it holds no chart and no conversion. So there
+is still no size-system table, no audience column and nothing that could relate
+an EU 42 to a UK 8.
 
 So the epic's "EU/US/UK/CM size systems with audience/department context" is
 modelled with the three mechanisms that exist:

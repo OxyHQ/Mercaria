@@ -32,7 +32,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns, getTableName, is } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import { describe, expect, it } from 'vitest';
 import {
   CATALOG_LOCALIZATION_TEXT_TABLES,

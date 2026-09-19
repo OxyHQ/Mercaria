@@ -76,6 +76,7 @@ import type { CatalogMergeJobRow } from '../../db/schema/curation.js';
 import { estimateMergeImpact, impactColumnValues } from './impact.js';
 import { CURATED_ENTITIES } from './entity-registry.js';
 import { bareArrayRehomesFor, MERGE_REHOMING_PLAN, targetsForPhase } from './merge-plan.js';
+import { closeJobReviewItem } from './job-review-item.js';
 import {
   applyConflictResolution,
   detectMergeConflicts,
@@ -1196,7 +1197,36 @@ export async function runMergeJob(
     job = refreshed;
   }
 
-  const completed = await completeMergeJob(job.id, leaseOwner, db);
+  /**
+   * Completion and the closure of the item this job was requested from, in ONE
+   * transaction (#893).
+   *
+   * Together, because the alternative has a window: a job marked `done` with the
+   * question it answered still open in the inbox is precisely the state measured
+   * before this existed, and a crash between two statements would reproduce it
+   * permanently.
+   *
+   * Ordered completion-first and gated on its result, because
+   * `completeMergeJob` is a CAS on the OWNED LEASE. A worker whose lease was
+   * reclaimed mid-run must close nothing: the job now belongs to somebody else,
+   * and that worker will close the item when it finishes.
+   */
+  const completed = await db.transaction(async (tx) => {
+    const won = await completeMergeJob(job.id, leaseOwner, tx);
+    if (won) {
+      await closeJobReviewItem(
+        {
+          reviewItemId: job.reviewItemId,
+          requestedByOxyUserId: job.requestedByOxyUserId,
+          reason: job.reason,
+          mergeJobId: job.id,
+        },
+        'merged',
+        tx,
+      );
+    }
+    return won;
+  });
   return {
     jobId: job.id,
     finalPhase: 'done',

@@ -24,7 +24,7 @@
 import type { MergeableEntityType } from '@mercaria/shared-types';
 import { sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import type { CatalogMergeConflictKind } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { commerceRelationships } from '../schema/relationships.js';

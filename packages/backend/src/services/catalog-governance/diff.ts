@@ -222,7 +222,11 @@ export interface DiffableAttributeVersion {
   readonly decimalPlaces: number | null;
   readonly variantDefining: boolean;
   readonly filterable: boolean;
+  readonly sortable: boolean;
+  readonly comparable: boolean;
+  readonly searchable: boolean;
   readonly hardConstraintCapable: boolean;
+  readonly displayPolicy: string;
   readonly enumValues: readonly string[];
   readonly categoryIds: readonly string[];
 }
@@ -297,19 +301,32 @@ export function diffAttributeVersions(
   }
 
   // Withdrawing a capability strands whatever used it; granting one strands
-  // nothing. `filterable` is presentation and is neither.
+  // nothing. All seven of #367 line 277's capabilities are reported, because a
+  // diff that shows three of them is how a withdrawal reaches production
+  // unremarked — and the whole point of a governance diff is that an operator
+  // approving a new version sees what the version DOES differently.
+  //
+  // The BREAKING half is where they part company, and it is not a formality.
+  // `variantDefining`, `hardConstraintCapable` and `searchable` strand something
+  // concrete when withdrawn: an axis a variant matrix is built on, a shopper
+  // requirement that used to exclude, a phrase the interpreter used to
+  // understand. `filterable`, `sortable` and `comparable` are PRESENTATION — the
+  // rail stops offering a control and nothing stored becomes uninterpretable —
+  // so they are reported and not breaking. `displayPolicy` is breaking in
+  // exactly one direction: `public` → `operator_only` withdraws every stored
+  // value from every public surface at once, while the reverse only adds.
   capability('variantDefining', from.variantDefining, to.variantDefining, entries);
   capability('hardConstraintCapable', from.hardConstraintCapable, to.hardConstraintCapable, entries);
-  if (from.filterable !== to.filterable) {
-    entries.push({
-      change: 'changed',
-      key: 'filterable',
-      property: 'filterable',
-      before: String(from.filterable),
-      after: String(to.filterable),
-      breaking: false,
-    });
-  }
+  capability('searchable', from.searchable, to.searchable, entries);
+  presentation('filterable', from.filterable, to.filterable, entries);
+  presentation('sortable', from.sortable, to.sortable, entries);
+  presentation('comparable', from.comparable, to.comparable, entries);
+  scalar(
+    'displayPolicy',
+    from.displayPolicy,
+    to.displayPolicy,
+    from.displayPolicy === 'public' && to.displayPolicy !== 'public',
+  );
 
   for (const value of from.enumValues) {
     if (to.enumValues.includes(value)) continue;
@@ -349,6 +366,31 @@ function capability(
     before: String(before),
     after: String(after),
     breaking: before && !after,
+  });
+}
+
+/**
+ * A capability whose withdrawal strands no stored value.
+ *
+ * Reported like any other change and never `breaking` — a control the rail
+ * stops offering leaves every recorded fact exactly as interpretable as it was.
+ * A separate function from {@link capability} rather than a boolean parameter,
+ * so the call sites read as the two different statements they are.
+ */
+function presentation(
+  property: string,
+  before: boolean,
+  after: boolean,
+  entries: CatalogDefinitionDiffEntry[],
+): void {
+  if (before === after) return;
+  entries.push({
+    change: 'changed',
+    key: property,
+    property,
+    before: String(before),
+    after: String(after),
+    breaking: false,
   });
 }
 

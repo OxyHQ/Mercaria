@@ -84,11 +84,19 @@ script and nothing else.
 
 ## Add or version a product type
 
-**A product type version is created in exactly one place:**
-`scripts/seed-verticals/apply.ts:536`, through `insertProductTypeDefinition`.
-Over HTTP that is reachable only as `vertical_package_apply`. There is no
-`POST /product-types` — `routes/product-types.ts` is a public read-only surface
-with one GET.
+**A product type version is created by THREE callers, all of them seed or
+observability code**, each through `insertProductTypeDefinition`:
+
+| Caller | What it seeds |
+|---|---|
+| `scripts/seed-verticals/apply.ts` | the footwear/smartphone/brake-pad packages |
+| `services/digital/profiles/apply.ts` | the seven 3D profiles (#1015) |
+| `services/catalog-observability/category-index-coverage.ts` | the coverage probe's own type |
+
+Over HTTP the first is reachable only as `vertical_package_apply`. **There is
+still no `POST /product-types`** — `routes/product-types.ts` is a public
+read-only surface with one GET — and that, not the caller count, is the claim
+this section exists to make: a product type is never authored by a request.
 
 So the procedure is:
 
@@ -229,6 +237,45 @@ Two consequences, both worth saying out loud:
   `shoe_size_us_mens` is scoped to the men's category, so a women's listing's
   authoring schema and a women's facet list cannot offer that key at all — which
   is what stops `9` under one definition being read beside `9` under the other.
+
+#### …and a SECOND, disjoint key namespace, for external mappings only
+
+`catalog_external_mappings` records that a source's token means a size system,
+and its `target_size_system_key` is a different column with a different CHECK —
+so a size system also has a key in `services/canonical/size-systems.ts`:
+`size.shoe_eu`, `size.shoe_us_mens`, `size.shoe_cm`.
+
+Adding one is a code change and nothing else — no table, no migration:
+
+1. Append an entry to `DECLARED_SIZE_SYSTEMS` in
+   `services/canonical/size-systems.ts` with a short opaque key in the `size.`
+   namespace and all four facets — `domain`, `region`, `audience`,
+   `measurementBasis` — plus a `valueShape`.
+2. That is the whole procedure. The build refuses two entries under one key, and
+   `size-system-registry.test.ts` asserts every entry declares all four facets.
+
+**The subject is in the key because the facets are not** — `size.dress_uk`, not
+`size.uk`. A key must be unique across every size system forever and the facets
+cannot supply that (two systems may share all four), so the key carries enough
+of WHAT is sized to keep a shoe apart from a dress. A bare `size.uk` collides on
+the second vertical and a key is frozen, so the remedy would be a rename, which
+ADR 0007 D1 forbids.
+
+**Do not compose the key from the facets, and never parse one.** Two systems
+agreeing on all four facets and differing only in key is the aliasing relation
+`no_sourced_mapping` exists to express, and a derived key would make it
+unrepresentable. Two gates fail the build on it. Note `size.shoe_cm` rather than
+`size.cm`: centimetres are a unit, the system is a foot length measured in them.
+
+**Correcting a facet is a NEW entry under a NEW key**, never an edit: an entry
+is frozen the way its key is. Full reasoning:
+`docs/catalog-external-mappings.md` §"Minting a key".
+
+Add a system only when Mercaria's catalogue can actually express it. A key the
+registry holds makes a mapping RESOLVE, so seeding a convention no listing can
+carry points reviewed mappings at nothing. And do **not** relate these keys to
+the attribute keys above: a gate scans both modules against the footwear seed's
+own key list and fails the build on one.
 
 ### A colour is a controlled value, and its marketing name is a different field
 

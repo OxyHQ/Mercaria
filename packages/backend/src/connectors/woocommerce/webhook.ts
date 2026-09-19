@@ -12,7 +12,7 @@
  */
 
 import { createHmac } from 'node:crypto';
-import { verifySecret } from '@oxyhq/core/server';
+import { verifySecret } from '@oxy.so/core/server';
 import type { WebhookEventKind } from '../types.js';
 
 /**

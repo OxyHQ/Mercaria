@@ -51,7 +51,7 @@ on:
           - pre-post
           - all
 
-# `@oxyhq/db`'s migrator takes NO lock against a second concurrent migrator, and
+# `@oxy.so/db`'s migrator takes NO lock against a second concurrent migrator, and
 # says so in its own runner: drizzle reads the ledger's high-water mark OUTSIDE
 # its transaction, so two runs both read the same mark and both attempt the same
 # DDL. The runner explicitly assigns the interlock to the caller, naming this
@@ -173,10 +173,10 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24.20.0'
       - name: Require a green CI run for this commit
         run: node .github/scripts/require-ci-success.mjs
         env:
@@ -201,10 +201,10 @@ jobs:
     # run needs a human to approve it, not a runner change.
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configure AWS credentials (OIDC, no stored keys)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::237343248947:role/oxy-github-deploy
           aws-region: ${{ env.AWS_REGION }}
@@ -247,6 +247,10 @@ jobs:
           SYNC_SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
           SYNC_CONNECTOR_ENCRYPTION_KEY: ${{ secrets.CONNECTOR_ENCRYPTION_KEY }}
           SYNC_CONNECTOR_OAUTH_STATE_SECRET: ${{ secrets.CONNECTOR_OAUTH_STATE_SECRET }}
+          SYNC_STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          SYNC_STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          SYNC_STRIPE_CONNECT_WEBHOOK_SECRET: ${{ secrets.STRIPE_CONNECT_WEBHOOK_SECRET }}
+          SYNC_STRIPE_ONBOARDING_STATE_SECRET: ${{ secrets.STRIPE_ONBOARDING_STATE_SECRET }}
         run: |
           # WHAT THIS REPO OWNS AND CONSUMES — deliberately NOT a mirror of the
           # live task definition, in BOTH directions.
@@ -308,8 +312,26 @@ jobs:
           # definition" — until step 2 lands, the live task definition naming it
           # is exactly the state being retired. src/db/__tests__/deployWorkflow.test.ts
           # pins this list.
+          # The four STRIPE_* names are the payment rail's secret half (#35).
+          # `STRIPE_ENABLED` and every URL, country and currency list beside it
+          # are plain CONFIGURATION and belong in the task definition's
+          # `environment`, not here — and so does STRIPE_PUBLISHABLE_KEY, which
+          # is `pk_live_…`: the checkout handoff serves it to every browser
+          # (`services/payments/checkout-payment.service.ts:240`), so storing it
+          # as a SecureString would only make it harder to read, never safer.
+          #
+          # `config/index.ts:571` refuses to arm the rail unless the secret key
+          # and BOTH webhook secrets are present, so these four land or the rail
+          # stays off — there is no half-configured state to leak through.
+          #
+          # STRIPE_WEBHOOK_SECRET_PREVIOUS and its connect twin are deliberately
+          # ABSENT. They exist only inside a rotation window, and a name on this
+          # list with no value behind it warns on EVERY deploy forever, which is
+          # how a real warning stops being read. A rotation adds the name here
+          # AND to the task definition in the same pair of PRs, in that order,
+          # and removes both when the window closes.
           SHARED_SECRETS="REDIS_URL"
-          APP_SECRETS="DATABASE_URL VAPID_PRIVATE_KEY VAPID_PUBLIC_KEY VAPID_SUBJECT SHOPIFY_CLIENT_ID SHOPIFY_CLIENT_SECRET CONNECTOR_ENCRYPTION_KEY CONNECTOR_OAUTH_STATE_SECRET"
+          APP_SECRETS="DATABASE_URL VAPID_PRIVATE_KEY VAPID_PUBLIC_KEY VAPID_SUBJECT SHOPIFY_CLIENT_ID SHOPIFY_CLIENT_SECRET CONNECTOR_ENCRYPTION_KEY CONNECTOR_OAUTH_STATE_SECRET STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_CONNECT_WEBHOOK_SECRET STRIPE_ONBOARDING_STATE_SECRET"
 
           # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are deliberately absent,
           # though oxy-mercaria:3 reads both from /oxy/_shared/. Mercaria
@@ -345,9 +367,10 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and push (linux/arm64)
+        id: image
         run: |
           IMG=$ECR_REGISTRY/oxy/$APP
           docker buildx build \
@@ -359,29 +382,38 @@ jobs:
             -t "$IMG:latest" \
             --push \
             .
+          DIGEST=$(aws ecr describe-images \
+            --repository-name "oxy/$APP" \
+            --image-ids "imageTag=$GITHUB_SHA" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)
+          if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::ECR returned an invalid image digest: $DIGEST"
+            exit 1
+          fi
+          IMAGE_URI="$IMG@$DIGEST"
+          echo "uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "built immutable image $IMAGE_URI"
 
       # ── Migrations run as one-shot ECS tasks, around the rollout ─────────────
       #
-      # Two phases, and the split is the whole point (see @oxyhq/db's phases.ts):
+      # Two phases, and the split is the whole point (see @oxy.so/db's phases.ts):
       # `pre` is additive and safe while the OLD image still serves, so it runs
       # BEFORE the service update; `post` drops and narrows, which would 500 the
       # old image, so it runs AFTER the new one is live. Every migration file
       # declares its own side, and the migrator refuses to guess for one that
       # does not.
       #
-      # The task REUSES the service's live task definition and network
-      # configuration rather than registering its own, which is what gives the
-      # migrator the same DATABASE_URL secret, subnets and security groups the
-      # service has. Only the command is overridden. That also means it runs the
-      # image the task definition points at — the `:latest` tag this workflow
-      # just pushed — so `run-task` gets the NEW image without a second revision.
-      # If the task definition is ever pinned to an immutable tag, this step must
-      # register a revision instead, or it will migrate using the OLD image.
+      # Register one task revision pinned to the digest built above. Migrations,
+      # the rollout and catalog registration all use that same revision, so the
+      # database, registry and serving service cannot silently consume different
+      # contents through a mutable tag.
       - name: Resolve the ECS one-shot shape
         id: ecs
         env:
           # Absent on a `push` trigger, where only the default is ever right.
           REQUESTED_PHASE: ${{ github.event.inputs.migration_phase }}
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
         run: |
           echo "phase_mode=${REQUESTED_PHASE:-pre-post}" >> "$GITHUB_OUTPUT"
           # A FAILED QUERY AND AN ABSENT SERVICE ARE DIFFERENT FACTS (#608).
@@ -418,16 +450,68 @@ jobs:
             echo "ECS service $APP reported status '$STATUS' — the query SUCCEEDED and found no active service, so there is nothing to migrate or deploy against"
             exit 0
           fi
+
+          # Oxy provisions this service identity directly into SSM. Refuse to
+          # register a release revision unless both halves exist; ECS resolves
+          # these references before the container starts.
+          for PARAMETER in OXY_APPLICATION_KEY OXY_APPLICATION_SECRET; do
+            aws ssm get-parameter \
+              --name "/oxy/$APP/$PARAMETER" \
+              --query 'Parameter.Name' --output text >/dev/null
+          done
+
           TD=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].taskDefinition' --output text)
+          echo "previous_task_definition=$TD" >> "$GITHUB_OUTPUT"
           NET=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].networkConfiguration' --output json)
-          CONTAINER=$(aws ecs describe-task-definition --task-definition "$TD" --query 'taskDefinition.containerDefinitions[0].name' --output text)
-          echo "task_definition=$TD" >> "$GITHUB_OUTPUT"
+          DEFINITION=$(aws ecs describe-task-definition --task-definition "$TD" --query taskDefinition --output json)
+          CONTAINER=$(jq -er '.containerDefinitions[0].name' <<<"$DEFINITION")
+          MATCHES=$(jq --arg name "$CONTAINER" '[.containerDefinitions[] | select(.name == $name)] | length' <<<"$DEFINITION")
+          if [ "$MATCHES" != "1" ]; then
+            echo "::error::expected exactly one ECS container named $CONTAINER; found $MATCHES"
+            exit 1
+          fi
+          PAYLOAD=$(jq \
+            --arg name "$CONTAINER" \
+            --arg image "$IMAGE_URI" \
+            --arg oxy_api_url "https://api.oxy.so" \
+            --arg oxy_key "arn:aws:ssm:$AWS_REGION:237343248947:parameter/oxy/$APP/OXY_APPLICATION_KEY" \
+            --arg oxy_secret "arn:aws:ssm:$AWS_REGION:237343248947:parameter/oxy/$APP/OXY_APPLICATION_SECRET" \
+            '{family, taskRoleArn, executionRoleArn, networkMode,
+              containerDefinitions, volumes, placementConstraints,
+              requiresCompatibilities, cpu, memory, tags, pidMode, ipcMode,
+              proxyConfiguration, inferenceAccelerators, ephemeralStorage,
+              runtimePlatform, enableFaultInjection}
+             | with_entries(select(.value != null))
+             | .containerDefinitions |= map(
+                 if .name == $name then
+                   .image = $image
+                   | .environment = (
+                       ((.environment // []) | map(select(.name != "OXY_API_URL")))
+                       + [{name: "OXY_API_URL", value: $oxy_api_url}]
+                     )
+                   | .secrets = (
+                       ((.secrets // []) | map(select(
+                         .name != "OXY_APPLICATION_KEY" and
+                         .name != "OXY_APPLICATION_SECRET"
+                       ))) + [
+                         {name: "OXY_APPLICATION_KEY", valueFrom: $oxy_key},
+                         {name: "OXY_APPLICATION_SECRET", valueFrom: $oxy_secret}
+                       ]
+                     )
+                 else . end
+               )' \
+            <<<"$DEFINITION")
+          IMMUTABLE_TD=$(aws ecs register-task-definition \
+            --cli-input-json "$PAYLOAD" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "task_definition=$IMMUTABLE_TD" >> "$GITHUB_OUTPUT"
           echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
           # JSON on one line: a GITHUB_OUTPUT value cannot span lines unhelped.
           echo "network=$(echo "$NET" | jq -c .)" >> "$GITHUB_OUTPUT"
 
       # Does the JOURNAL contain a post-rollout migration? Grepped with the
-      # pattern @oxyhq/db EXPORTS (`POST_PHASE_GREP_PATTERN`), never a copy —
+      # pattern @oxy.so/db EXPORTS (`POST_PHASE_GREP_PATTERN`), never a copy —
       # `src/db/__tests__/deployWorkflow.test.ts` asserts this workflow contains
       # that exact string, so the two cannot drift. The grep is sound only
       # because the migrator separately proves every file carries exactly one
@@ -510,11 +594,114 @@ jobs:
       - name: Deploy to ECS (rolling)
         id: rollout
         if: steps.ecs.outputs.status == 'ACTIVE'
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
         run: |
-          aws ecs update-service --cluster "$CLUSTER" --service "$APP" --force-new-deployment >/dev/null
-          aws ecs wait services-stable --cluster "$CLUSTER" --services "$APP"
+          update_json=$(aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$APP" \
+            --task-definition "$TASK_DEFINITION")
+          echo "deployment_started=true" >> "$GITHUB_OUTPUT"
+          deployment_id=$(jq -r --arg task_definition "$TASK_DEFINITION" \
+            '[
+              .service.deployments[]
+              | select(.status == "PRIMARY" and .taskDefinition == $task_definition)
+            ] | if length == 1 then .[0].id else "" end' \
+            <<<"$update_json")
+          if [ -z "$deployment_id" ]; then
+            echo "::error::ECS returned no primary deployment for $TASK_DEFINITION"
+            exit 1
+          fi
+
+          bash .github/scripts/wait-for-ecs-deployment.sh "$CLUSTER" "$APP" "$deployment_id"
+
+          service_json=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --output json)
+          live_task_definition=$(jq -r '.services[0].taskDefinition' <<<"$service_json")
+          if [ "$live_task_definition" != "$TASK_DEFINITION" ]; then
+            echo "::error::ECS serves $live_task_definition instead of $TASK_DEFINITION"
+            exit 1
+          fi
+          live_image=$(aws ecs describe-task-definition \
+            --task-definition "$live_task_definition" \
+            --query "taskDefinition.containerDefinitions[?name=='$CONTAINER_NAME'].image | [0]" \
+            --output text)
+          if [ "$live_image" != "$IMAGE_URI" ]; then
+            echo "::error::ECS serves $live_image instead of $IMAGE_URI"
+            exit 1
+          fi
+
           echo "performed=true" >> "$GITHUB_OUTPUT"
-          echo "deployed $APP"
+          echo "deployed $APP as $live_task_definition ($live_image)"
+
+      - name: Verify live Mercaria MCP and central OAuth contract
+        id: mcp_smoke
+        if: steps.rollout.outputs.performed == 'true'
+        run: |
+          set +e
+          bash .github/scripts/smoke-mcp.sh
+          smoke_status=$?
+          external_dependency_exit=42
+          echo "status=$smoke_status" >> "$GITHUB_OUTPUT"
+          if [ "$smoke_status" = "$external_dependency_exit" ]; then
+            echo "rollback_safe=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "rollback_safe=true" >> "$GITHUB_OUTPUT"
+          fi
+          exit "$smoke_status"
+
+      # Only additive `pre` migrations have run when this step is reached. A
+      # failed candidate can therefore return to the exact previous revision.
+      # The manually selected `all` cutover is excluded because it may already
+      # have applied destructive migrations before the rollout. A central Oxy
+      # outage is excluded too: changing Mercaria revisions cannot repair it.
+      - name: Roll back a failed candidate before post migration
+        if: >-
+          ${{
+            failure() &&
+            steps.ecs.outputs.phase_mode != 'all' &&
+            steps.rollout.outputs.deployment_started == 'true' &&
+            steps.mcp_smoke.outputs.rollback_safe != 'false'
+          }}
+        env:
+          PREVIOUS_TASK_DEFINITION: ${{ steps.ecs.outputs.previous_task_definition }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PREVIOUS_TASK_DEFINITION" ]; then
+            echo "::error::No previous task definition was recorded for rollback"
+            exit 1
+          fi
+
+          rollback_json=$(aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$APP" \
+            --task-definition "$PREVIOUS_TASK_DEFINITION")
+          rollback_deployment_id=$(jq -r --arg task_definition "$PREVIOUS_TASK_DEFINITION" \
+            '[
+              .service.deployments[]
+              | select(.status == "PRIMARY" and .taskDefinition == $task_definition)
+            ] | if length == 1 then .[0].id else "" end' \
+            <<<"$rollback_json")
+          if [ -z "$rollback_deployment_id" ]; then
+            echo "::error::ECS returned no primary rollback deployment for $PREVIOUS_TASK_DEFINITION"
+            exit 1
+          fi
+
+          bash .github/scripts/wait-for-ecs-deployment.sh \
+            "$CLUSTER" "$APP" "$rollback_deployment_id"
+          live_task_definition=$(aws ecs describe-services \
+            --cluster "$CLUSTER" \
+            --services "$APP" \
+            --query 'services[0].taskDefinition' \
+            --output text)
+          if [ "$live_task_definition" != "$PREVIOUS_TASK_DEFINITION" ]; then
+            echo "::error::Rollback left $live_task_definition live instead of $PREVIOUS_TASK_DEFINITION"
+            exit 1
+          fi
+
+          bash .github/scripts/smoke-mcp.sh
+          echo "Rolled back to $PREVIOUS_TASK_DEFINITION before post migrations or catalog publication"
 
       # Runs on every ordinary release, because `has_post` is true whenever the
       # journal holds a post migration at all (see the Detect step). That is
@@ -537,6 +724,18 @@ jobs:
           && steps.phases.outputs.has_post == 'true'
         run: |
           .github/scripts/run-migration-task.sh post
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}
+
+      - name: Register the deployed capability catalog
+        if: steps.ecs.outputs.status == 'ACTIVE'
+        run: |
+          COMMAND_JSON='["node","packages/backend/dist/register-capability-catalog.js"]' \
+          TASK_LABEL='capability catalog registration' \
+          STARTED_BY='deploy-capability-catalog' \
+          .github/scripts/run-ecs-task.sh
         env:
           TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
           CONTAINER_NAME: ${{ steps.ecs.outputs.container }}

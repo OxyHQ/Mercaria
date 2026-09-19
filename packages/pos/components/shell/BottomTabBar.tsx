@@ -7,7 +7,7 @@ import * as Haptics from "expo-haptics";
 import { type LucideIcon } from "lucide-react-native";
 
 import { useColorScheme } from "@mercaria/ui";
-import { useTheme } from "@oxyhq/bloom/theme";
+import { useTheme } from "@oxy.so/bloom/theme";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { useTranslation } from "@/lib/i18n";
 import { NAV_ITEMS, isNavItemActive, type NavItem } from "./nav-items";

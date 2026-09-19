@@ -39,6 +39,21 @@ export const MARKETPLACE_MAINTENANCE_QUEUE = 'marketplace-maintenance';
  */
 export const MARKETPLACE_SYNC_QUEUE = 'marketplace-sync';
 
+/**
+ * Digital-asset inspection (#1015 W4): reading an uploaded file's bytes and
+ * measuring what is genuinely derivable from them.
+ *
+ * A FOURTH queue rather than a job on the sync queue, and the reason is the shape
+ * of the work rather than tidiness. Everything on `marketplace-sync` is
+ * IO-bound — it waits on Shopify — so three of them overlap happily. An
+ * inspection is CPU-bound and memory-heavy: it holds up to
+ * `MAX_INSPECTED_FILE_BYTES` of a creator's file and spends seconds walking it,
+ * on a runtime with one thread. Sharing a queue would make a single 200 MB upload
+ * the reason a merchant's catalogue stopped re-pricing, and the concurrency that
+ * is right for one is wrong for the other.
+ */
+export const MARKETPLACE_DIGITAL_QUEUE = 'marketplace-digital';
+
 // --- Events worker tunables -------------------------------------------------
 
 /** Total attempts for an event job (1 initial + retries). */
@@ -79,6 +94,43 @@ export const SYNC_BACKOFF_BASE_MS = 10 * MS_PER_SECOND;
  * them while still overlapping a backfill with live webhook processing.
  */
 export const SYNC_WORKER_CONCURRENCY = 3;
+
+// --- Digital-inspection worker tunables (#1015 W4) ---------------------------
+
+/**
+ * Total attempts for a digital-inspection job (1 initial + retries).
+ *
+ * Three, and they are for INFRASTRUCTURE only. Every conclusion about the file
+ * itself — corrupt, too large, unsupported, a format that is not what the row
+ * claims — is recorded as a verdict and the job SUCCEEDS, because a deterministic
+ * parse refusal would produce the identical refusal twice more and record it
+ * nowhere. What is worth retrying is a storage timeout or a database blip, which
+ * is exactly the split `services/digital/inspection/bytes.ts` documents as the
+ * port's contract.
+ */
+export const DIGITAL_JOB_ATTEMPTS = 3;
+
+/**
+ * Base delay for the digital-inspection exponential backoff (ms).
+ *
+ * Longer than the sync base: the failures that reach a retry here are an object
+ * store or a database under pressure, and re-reading a 200 MB object five seconds
+ * after the last attempt failed is how a worker turns a blip into a load problem.
+ */
+export const DIGITAL_BACKOFF_BASE_MS = 15 * MS_PER_SECOND;
+
+/**
+ * Concurrency for the digital-inspection worker (per process) — TWO, and the
+ * number is derived rather than chosen.
+ *
+ * An inspection holds at most `MAX_INSPECTED_FILE_BYTES` (256 MiB) of file bytes,
+ * plus the working set of the geometry census. Two concurrent jobs is therefore
+ * ~512 MiB of worst-case resident file data, which a container sized for this API
+ * survives; four would not, and one would make a single large upload block every
+ * other creator's queue. The ceiling and this number are a PAIR — change either
+ * and re-derive the other.
+ */
+export const DIGITAL_WORKER_CONCURRENCY = 2;
 
 // --- Job retention ----------------------------------------------------------
 
@@ -195,3 +247,22 @@ export const JOB_ORDER_SYNC = 'order.sync';
 export const JOB_INVENTORY_SYNC = 'inventory.sync';
 /** Job name: push a Mercaria order's fulfillment OUT to its origin connection. */
 export const JOB_FULFILLMENT_PUSH = 'fulfillment.push';
+
+/**
+ * Job name: inspect ONE uploaded asset file (#1015 W4).
+ *
+ * The unit of work, of failure and of idempotence is a FILE: `recordFileInspection`
+ * upserts on `(file_id, processor_name, processor_version)`, so a retried job
+ * converges on one row, and one corrupt file cannot cost its siblings their
+ * measurements.
+ */
+export const JOB_ASSET_FILE_INSPECT = 'digital.asset-file-inspect';
+
+/**
+ * Job name: fan one asset VERSION out to one inspection job per file (#1015 W4).
+ *
+ * A separate job rather than a loop at the call site, so the caller that finishes
+ * an upload enqueues one thing and the enumeration happens on a worker. It
+ * deliberately does not advance the version's state — see `inspectAssetVersion`.
+ */
+export const JOB_ASSET_VERSION_INSPECT = 'digital.asset-version-inspect';

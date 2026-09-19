@@ -86,7 +86,7 @@
 -- LOCKING, and why there is no `CONCURRENTLY` here.
 --
 -- `CREATE INDEX CONCURRENTLY` may not run inside a transaction block, and this
--- migration has no way to leave one: `@oxyhq/db`'s runner delegates to drizzle's
+-- migration has no way to leave one: `@oxy.so/db`'s runner delegates to drizzle's
 -- `migrate()`, which executes every statement of every pending migration inside
 -- ONE `session.transaction(...)` (`drizzle-orm/pg-core/dialect.js`). So the
 -- honest statement is not "the index build takes a lock" but the stronger one:

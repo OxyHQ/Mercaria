@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { isLiveEntityId } from '@oxyhq/db';
+import { isLiveEntityId } from '@oxy.so/db';
 import {
   CHANNEL_DISCONNECT_POLICIES,
   CHANNEL_ONBOARDING_STEPS,

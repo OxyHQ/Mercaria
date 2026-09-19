@@ -14,7 +14,7 @@
  *
  * ## SSRF, and why there is no hand-rolled URL check here
  *
- * `safeFetch` from `@oxyhq/core/server` is the whole defence, exactly as the
+ * `safeFetch` from `@oxy.so/core/server` is the whole defence, exactly as the
  * WooCommerce transport uses it: every hop — including each redirect — is
  * validated against the private/link-local/metadata denylist with a real DNS
  * resolution, and the TCP connection is PINNED to the validated address, which
@@ -42,7 +42,7 @@
  */
 
 import { Resolver } from 'node:dns/promises';
-import { safeFetch, SsrfRejection, UpstreamError } from '@oxyhq/core/server';
+import { safeFetch, SsrfRejection, UpstreamError } from '@oxy.so/core/server';
 import {
   CLAIM_DNS_RECORD_LABEL,
   CLAIM_META_TAG_NAME,

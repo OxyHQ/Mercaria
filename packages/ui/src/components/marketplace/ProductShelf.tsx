@@ -6,6 +6,13 @@ import type { ProductSummary } from "../../lib/format";
 export interface ProductShelfProps {
   title: string;
   items: ProductSummary[];
+  /**
+   * Makes the heading a link to the shelf's "see all", with the trailing
+   * chevron `SectionHeader` already draws for that mode. Omitted, the heading
+   * is the plain text node it has always been — a shelf whose whole content is
+   * already on screen has nowhere to send anyone.
+   */
+  onPressTitle?: () => void;
   onPressItem?: (id: string) => void;
   onToggleSaveItem?: (id: string, nextSaved: boolean) => void;
 }
@@ -19,6 +26,7 @@ export interface ProductShelfProps {
 export function ProductShelf({
   title,
   items,
+  onPressTitle,
   onPressItem,
   onToggleSaveItem,
 }: ProductShelfProps) {
@@ -26,7 +34,11 @@ export function ProductShelf({
 
   return (
     <View className="mb-6">
-      <SectionHeader title={title} />
+      <SectionHeader
+        title={title}
+        onPress={onPressTitle}
+        showChevron={onPressTitle !== undefined}
+      />
       <ProductCarousel
         items={items}
         onPressItem={onPressItem}

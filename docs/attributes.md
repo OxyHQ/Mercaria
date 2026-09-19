@@ -49,8 +49,45 @@ stable when labels change".
 | `component_axes` | The named axes of a `structured` value, in order |
 | `min/max_value`, `decimal_places`, `max_length` | Validation and precision rules |
 | `implausible_above/below` | The scale-error detector, deliberately NOT the same as min/max |
-| `variant_defining`, `filterable`, `sortable`, `comparable`, `hard_constraint_capable` | What may be done with it |
+| `variant_defining`, `filterable`, `sortable`, `comparable`, `searchable`, `hard_constraint_capable` | What may be done with it |
 | `display_policy`, `evidence_policy` | Whether values may be shown publicly, and what backing they need |
+
+### Capability metadata (#367 line 277)
+
+Seven capabilities, six columns here and one a grain down, each with the reader
+that gives it effect:
+
+| Capability | Where | Reader |
+|---|---|---|
+| filterable | `attribute_definitions.filterable` | `facets/metadata.ts` (`not_filterable`), `search-intent/model-boundary.ts` |
+| sortable | `attribute_definitions.sortable` | `facets/sorting.ts`, which also refuses a suppressed facet's sort |
+| comparable | `attribute_definitions.comparable` | `comparison/table.ts` (`attribute_not_comparable`) |
+| searchable | `attribute_definitions.searchable` | `search-intent/plan.service.ts` — `loadDefinitions`, the one gate |
+| displayable | `attribute_definitions.display_policy` | `catalog-attributes.controller.ts`, `facets/metadata.ts`, `comparison.service.ts` |
+| hard-constraint-capable | `attribute_definitions.hard_constraint_capable` | `search-intent/deterministic.ts`, `facets/metadata.ts` |
+| variant-capable | `product_type_fields.variant_capable` | `facets/metadata.ts`, `catalog-authoring/validation.ts` |
+
+**"Displayable" is `display_policy`, not a boolean**, because `operator_only`
+names WHO may see the value rather than merely withholding it. It is the one
+capability whose absence was not a missing column: it existed and only ONE of
+the three public renderings of an attribute value consulted it. The facet rail
+and the comparison table now do; the CHECK that would make the combination
+unrepresentable is discussed in `CONVENTIONS.md` §"The versioned attribute
+registry" and is deliberately not added yet.
+
+**`variant_capable` is NOT duplicated onto `attribute_definitions`**, and
+`variant_defining` is not the same fact: whether an attribute CAN distinguish
+two variants is a property of the attribute WITHIN a product type — colour
+varies a shirt, an ISBN varies nothing — while `variant_defining` is the
+registry's default for an attribute no published product type mentions.
+`facets/metadata.ts`'s `levelFor` reads exactly that: the type's answer when
+there is one, the registry's when there is not.
+
+**`searchable` is not `filterable`.** One decides whether the rail OFFERS the
+attribute as a control to pick from; the other decides whether a shopper's own
+words may resolve to it. An attribute can be either without the other — a facet
+nobody would ever type, or a term that is understood and applied as a PREFERENCE
+where no facet exists — so neither implies the other and no CHECK says so.
 | `lifecycle_state` | `draft → active → deprecated → retired`, one active per key |
 
 Enum values and their aliases are child tables (`attribute_enum_values`,
@@ -283,6 +320,181 @@ specification and have a price filter find it.
   definition publication/deprecation, with a deterministic id so a repeat
   converges. The CONSUMER is #61's; the record is written now.
 
+## Who reads a definition, and how the six surfaces reach one (#367 line 1034)
+
+Line 1034 asks that **category pages, menus, search interpretation, facets, PDP
+specs and comparisons use the same IDs/definitions.** On today's code they do.
+This section records how, because the *how* is the part that is easy to get
+wrong and was got wrong three times before it was measured.
+
+**A surface is a frontend composition over several backend rails, and the
+relation is many-to-many.** There is no module per surface. Two independent
+attempts to write one down produced two different wrong mappings — one by
+concept word (`taxonomy` because it contains the idea of a category), one by the
+nearest-looking route (`catalog-pages`, which serves brand and family pages) —
+and neither is a careless reading. **The module whose name shares a word with a
+surface is the one to check hardest, not the one to assume.**
+
+### What each surface composes
+
+Measured from the screen's own imports outward to the endpoint each hook calls.
+
+| surface | frontend entry | backend rails | definition-bearing rail |
+| --- | --- | --- | --- |
+| category pages | `app/(app)/categories/[handle]/index.tsx` | `/categories`, `/listings`, `/facets`, `/navigation` | `services/facets` |
+| menus | `components/catalog/NavigationMenu.tsx` → `/navigation` | `services/navigation` | **none** |
+| search interpretation | `app/(app)/search.tsx` | `/search-intent`, `/search` | `services/search-intent` |
+| facets | `components/catalog/FacetRail.tsx` → `/facets` | `services/facets` | `services/facets` |
+| PDP specs | `app/(app)/p/[handle].tsx` | `/product-page`, `/catalog-attributes/{definitions,values}` | `controllers/catalog-attributes.controller.ts` |
+| comparisons | `app/(app)/compare.tsx` | `/comparison` | `services/comparison` |
+
+Two of these are worth reading twice. **A category page never calls
+`/taxonomy`** — `lib/catalog/category-tree.ts` resolves to `GET /categories`,
+which is `db/catalog/categoryRepository` plus `services/search.service`. And
+**the PDP composes its specification table client-side** from
+`/catalog-attributes/definitions` and `/catalog-attributes/values/...`
+(`lib/catalog/use-specifications.ts`, whose own docblock calls them *"the
+registry reads a product page needs"*), so its definition rail is a CONTROLLER
+and not a service. `services/product-page` reads no definition at all, which is
+#71's *"composes and does not decide"* holding completely.
+
+### Where each rail obtains a definition
+
+**Every definition read on the six compositions, by any route**, given as call
+sites rather than counts — a count over a symbol list is the thing that went
+wrong here three times, and a file:line cannot be off by a population.
+
+| rail | definition reads | resolves via |
+| --- | --- | --- |
+| `services/facets` | `facet.service.ts:162` | registry service |
+| `services/search-intent` | `plan.service.ts:407-408` | registry service |
+| `services/comparison` | `comparison.service.ts:498`, plus `listOperatorOnlyAttributeKeys` (`:50`) | registry service, and the registry's OWN repository |
+| `controllers/catalog-attributes.controller.ts` | `:69`, `:70`, `:78`, `:79`, `:180` | registry service |
+| `services/navigation` | none | — |
+| `services/product-page` | none | — |
+| `services/search` | none | — |
+| `/categories` → `categoryRepository`, `search.service` | none | — |
+| **`/categories` and `/listings` → `services/catalog-hydration.service.ts:84`** | **`listVariantAxesForListings`** | **the TABLE, directly** |
+
+`services/product-page`'s zero is measurable rather than argued. Over its
+**non-test** modules — occurrences on non-test lines, one instrument for every
+row — `attribute` is **1** (the English word *attributed*, in a comment about an
+affiliate link, `outbound.ts:34`) and `attributeDefinitionId`, `projection`,
+`specification` and `spec` are each **0**, against a control of **148** for
+`offer`.
+
+```
+grep -rn --include=*.ts '<word>' packages/backend/src/services/product-page \
+  | grep -v __tests__ | grep -o '<word>' | wc -l
+```
+
+### The one rail that is not the registry
+
+**`db/variantAxes/variantAxisRepository.ts` INNER JOINs `attribute_definitions`
+and selects its base `label` column.** `catalog-hydration.service.ts:449` calls
+it and `services/variant-axes/projection.ts:149` renders the result as the
+axis's user-visible `name`; that module's own docblock states it — *"The axis
+NAME is `attribute_definitions.label`, resolved at read time."*
+
+**On line 1034's actual question this is clean, structurally rather than by
+convention.** The join is on `attribute_definition_id`, which is `notNull` with
+an `ON DELETE restrict` edge to `attribute_definitions.id`, and the join is
+INNER. It cannot cite a definition that does not exist and it cannot cite a
+different one. The repository argues the INNER join for that reason in its own
+comment.
+
+**What it cannot do is localize, and that is the finding rather than a
+footnote.** The registry's DTO carries `label: row.label` *and* `labels:
+resolved.labels`; this rail reads the base column and never touches
+`attribute_labels` — **0** occurrences across all three of its files
+(`catalog-hydration.service.ts`, `variantAxisRepository.ts`, `projection.ts`)
+against a `label` control of 1, 5 and 9. So on a category page the facet rail is
+locale-resolved and the listing card's axis names are not, from the same
+definition row.
+
+> **One rail reads the definition table directly, and a change to how the
+> registry answers will not reach it.**
+
+*Resolves to the same row* and *resolves through the registry* are different
+guarantees, and the difference is already live: the registry grew a localized
+label chain and this rail did not follow, **because nothing makes it.** Anyone
+changing how the registry answers needs this paragraph, not the tick above it.
+
+The gap itself belongs to **line 69** (*"Make all UI labels … localizable"*),
+which is open. It does not touch lines 542 or 559 — those sit under *Product
+detail pages* and *Product comparison*, and both rails resolve labels through
+the registry, the PDP through ADR 0007 D4's chain in
+`lib/catalog/variant-axes.ts:121-141`.
+
+### The population was wrong three times and the conclusion never moved
+
+The first census here answered *"who calls the two registry entry points, under
+`services/<surface>`"*. It was under-specified in three independent dimensions,
+each found only by looking where there was no reason to expect an answer:
+
+| dimension | the miss | effect |
+| --- | --- | --- |
+| population layer | scoped to `services/`; one rail is a **controller** | a surface's whole definition rail invisible, its row read `0` |
+| symbol set | grepped **2** symbols; the registry service exports **5** read resolvers | 9 files → **17** |
+| depth | entry points only | missed a repository that joins the table two layers down |
+
+**Derive an entry-point census from the module's EXPORT SURFACE, not from the
+symbols you have seen called** — `resolveActiveDefinition`,
+`resolveDefinitionVersion`, `resolveAllActiveDefinitions`,
+`resolveDefinitionsForCategory` and `listDefinitionHistory`, all five:
+
+```
+grep -rlE 'resolveActiveDefinition|resolveDefinitionVersion|resolveAllActiveDefinitions|resolveDefinitionsForCategory|listDefinitionHistory' \
+  packages/backend/src --include=*.ts | grep -v __tests__ | wc -l      # 17
+```
+
+**Every widening left the verdict where it was**, and it also simplified it: none
+of the eight files the wider symbol set adds is on any of the six compositions
+(the internal controller, a seed script, `attribute-observation`,
+`value-extension`, `catalog-governance/definition-diff` and the two
+`variant-axes` modules), and `services/taxonomy` — which an earlier draft of this
+table listed as the category-page rail — is on **no** surface composition at all.
+A repeatedly-corrected instrument with a stable answer is evidence; a
+right-first-time one is a claim.
+
+## Why a gate here would be wrong, not merely unnecessary
+
+A gate asserting all six call the registry **would fail three rails for being
+correctly designed** — `navigation`, `product-page` and `search` obtain no
+definition because they need none. It is the same shape as demanding an
+`accessibilityLabel` on a control already named by its own text: the check goes
+red on correct code, and whoever hits it deletes the check rather than the
+design.
+
+**And the honest question is not "do all six call it" but "does any rail obtain a
+definition by a route that could disagree with the registry".** One rail obtains
+one by a route the registry does not own, and it is pinned to the same row by a
+foreign key — so the scan a gate would run has exactly one hit and that hit is
+correct. A census whose only finding is a true positive it must then exempt
+reads as coverage and measures nothing.
+
+## What would change this, and why it is a fact about today
+
+**The absence of a second answer is not a structural guarantee.** Six
+repositories read `attribute_definitions` directly — `definitionRepository`,
+`schemaSourceRepository`, `conceptReadRepository`, `completenessRepository`,
+`duplicateRepository` and `variantAxisRepository` — so a rail obtaining a
+definition without going through the registry is writable, and one already does.
+Four services read the table directly too (`catalog-backfill`,
+`catalog-governance`, `catalog-localization`, `catalog-observability`); all four
+are back-office and none is on a surface composition.
+
+So the condition that turns this decision into a gate is one of:
+
+1. a rail reading a definition through a repository other than
+   `db/attributes/definitionRepository`, where the read is not pinned to the
+   definition id by a foreign key; or
+2. a rail declaring an attribute key, a field list or a definition id as a
+   literal rather than resolving one.
+
+Either makes a violating line writable AND present, at which point there is
+something for a scan to find that is not already correct.
+
 ## API
 
 Public — `/catalog-attributes`, no auth, `listings` rate-limit scope:
@@ -364,6 +576,15 @@ two bucket sets — and what this adds is the four facts that were implicit in t
 spelling of the key: **domain**, **region**, **audience** and **measurement
 basis**, as four closed tuples.
 
+- **There is now a SECOND key namespace, and it is disjoint from this one.**
+  `catalog_external_mappings.target_size_system_key` is a different column with a
+  different CHECK, so `services/canonical/size-systems.ts` mints keys for it
+  (`size.shoe_eu`). The key there is OPAQUE and the four facets are required
+  FIELDS on the entry — the `unit.gigabyte` shape, where the family is a column
+  and not a key segment — which is what keeps `no_sourced_mapping` reachable.
+  Nothing relates the two namespaces and a gate says so;
+  `docs/catalog-external-mappings.md` §"The size-system registry" carries the
+  reasoning and the cost.
 - **`compareSizeDeclarations` is the only comparison over sizes, and it does not
   convert.** It answers `equal`, `different_value` (one system, two values) or
   `refused` naming the facet that differs. There is no return value in which

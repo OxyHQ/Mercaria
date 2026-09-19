@@ -129,6 +129,7 @@
     "status": {
       "cancelled": "Отменён",
       "delivered": "Доставлен",
+      "digitallyDelivered": "Доставлено",
       "paid": "Оплачен",
       "partiallyRefunded": "Частично возвращён",
       "pendingPayment": "Ожидает оплаты",

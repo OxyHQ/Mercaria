@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { Image } from "expo-image";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import type { CatalogStructuredData } from "@mercaria/shared-types";
 import { SectionHeader, Skeleton, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";

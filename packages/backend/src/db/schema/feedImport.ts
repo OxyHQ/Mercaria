@@ -74,7 +74,7 @@
 
 import { sql } from 'drizzle-orm';
 import { bigint, boolean, check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   FEED_AUTH_KINDS,
   FEED_COMPRESSIONS,
@@ -96,7 +96,7 @@ import {
   FEED_TOKEN_BEARING_ISSUE_CODES,
   FEED_UPLOAD_STATUSES,
 } from '@mercaria/shared-types';
-import { inList } from '@oxyhq/db';
+import { inList } from '@oxy.so/db';
 import { asEnumValues, checkOneOf } from './columns';
 import { catalogSources } from './provenance';
 import { stores } from './stores';

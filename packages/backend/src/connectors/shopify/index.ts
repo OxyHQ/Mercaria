@@ -9,7 +9,7 @@
  * `page_info` cursor.
  *
  * ALL network I/O goes through the injected {@link ShopifyTransport}, which is
- * SSRF-guarded (`*.myshopify.com` allowlist + `@oxyhq/core/server` primitives).
+ * SSRF-guarded (`*.myshopify.com` allowlist + `@oxy.so/core/server` primitives).
  * The transport is injectable so the provider is unit-testable without Shopify.
  * `normalizeProduct` is a PURE mapping (Shopify JSON → `NormalizedProduct`),
  * pricing every variant in the shop's native currency (no FAIR conversion).

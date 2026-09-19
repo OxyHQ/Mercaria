@@ -43,7 +43,7 @@
  */
 
 import { Router, type Request, type Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import {
   MERCARIA_BASE_LOCALE,
   SELLER_LOCALIZATION_PROVENANCE,

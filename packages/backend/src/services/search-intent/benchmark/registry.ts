@@ -78,6 +78,10 @@ function definition(spec: DefinitionSpec): ResolvedAttributeDefinition {
       filterable: true,
       sortable: false,
       comparable: true,
+      // Every benchmark definition is searchable: the cases exist to measure
+      // INTERPRETATION, and a definition the loader would have filtered out is
+      // one the interpreter never sees in production either.
+      searchable: true,
       hardConstraintCapable: spec.hardConstraintCapable ?? true,
       displayPolicy: 'public',
       evidencePolicy: 'source_required',
@@ -94,6 +98,10 @@ function definition(spec: DefinitionSpec): ResolvedAttributeDefinition {
       value: value.value,
       label: value.label,
       position: index,
+      // #367 line 280. Null in every fixture: these catalogues exist to be
+      // matched and searched against, and a value that redirected somewhere
+      // else would measure the redirect rather than the thing under test.
+      replacesEnumValueId: null,
       createdAt: EPOCH,
       updatedAt: EPOCH,
     })),

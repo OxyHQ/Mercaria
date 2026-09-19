@@ -96,7 +96,7 @@ export const LOSSY_POSTURES: readonly RollbackPosture[] = ROLLBACK_POSTURES.filt
 /**
  * The one accepted spelling: `-- oxy:rollback=<value>`, at column 0, one space.
  *
- * Shaped after `@oxyhq/db`'s own `/^-- oxy:deploy-phase=(.*)$/` on purpose, in
+ * Shaped after `@oxy.so/db`'s own `/^-- oxy:deploy-phase=(.*)$/` on purpose, in
  * two respects that both matter.
  *
  * **No leading-whitespace tolerance.** `0134_red_silver_fox.sql` documents its

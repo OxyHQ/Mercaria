@@ -39,6 +39,12 @@ import { adjustStoreSalesCount, findStoreRow } from '../db/stores/storeRepositor
 import { commit, release, restock } from './inventory.service.js';
 import { upsertOnPaid as upsertCustomerOnPaid } from './customer.service.js';
 import { grantEligibilitiesForOrder } from './reviews/review-eligibility.service.js';
+import {
+  grantRightsForPaidOrder,
+  refundRightsForOrder,
+} from './digital/right.service.js';
+import { resolveBuyerKeyForOrder } from './digital/buyer-key.js';
+import { orderHasDigitalLines } from '../db/digital/orderLineRepository.js';
 import { notifyGuestOrderLifecycle } from './guest-portal/message.service.js';
 import {
   hydrateOrders,
@@ -56,13 +62,42 @@ import { log } from '../lib/logger.js';
 /**
  * The allowed status transitions. A transition NOT listed under the current
  * status is a CONFLICT. `cancelled`/`refunded` are terminal.
+ *
+ * ## The digital path is DISJOINT from the physical one (#1015, ADR 0010 D9)
+ *
+ * `paid` gained `digitally_delivered` and nothing else changed. A digital order
+ * therefore goes `pending_payment -> paid -> digitally_delivered` and can never
+ * reach `processing`, `shipped` or `delivered`, because no physical status lists
+ * `digitally_delivered` as a predecessor and `paid` is the only one that lists it
+ * as a successor.
+ *
+ * That disjointness is the whole safety property, and it is held by this table
+ * rather than by a check on the order's fulfilment method — which is why there is
+ * no such check. A digital order cannot be marked `shipped` because `paid` does
+ * not offer it... and neither can a PHYSICAL one be marked `digitally_delivered`
+ * for the same reason in reverse, which a method check would have had to state
+ * separately. What the table cannot hold is which KIND of order is at `paid`, so
+ * `transition` refuses the pairing it cannot express: see
+ * `refuseFulfilmentMismatchedTransition`.
+ *
+ * `digitally_delivered` exits to the two refund states and nowhere else. A
+ * delivered download cannot be un-delivered, and a refund is the remedy that
+ * exists — it moves the buyer's `asset_rights` row to `refunded` and leaves the
+ * history intact (ADR 0010 D6).
  */
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending_payment: ['paid', 'cancelled'],
-  paid: ['processing', 'cancelled', 'refunded', 'partially_refunded'],
+  paid: [
+    'processing',
+    'digitally_delivered',
+    'cancelled',
+    'refunded',
+    'partially_refunded',
+  ],
   processing: ['shipped', 'cancelled'],
   shipped: ['delivered'],
   delivered: ['refunded', 'partially_refunded'],
+  digitally_delivered: ['refunded', 'partially_refunded'],
   cancelled: [],
   refunded: [],
   partially_refunded: ['refunded'],
@@ -266,6 +301,61 @@ export async function transition(
         'Review eligibility grant failed after payment (best-effort)',
       );
     }
+
+    /**
+     * #1015 W9 requirement 1: the buyer's digital rights, created from the
+     * AUTHORITATIVE paid state. `paid` is the first moment Mercaria knows the
+     * deliverable was bought, and the grant is idempotent because
+     * `asset_rights` carries a unique index on `(order_item_id, package_id)` —
+     * so a redelivered webhook, an operator repair and a retry all converge.
+     *
+     * Best-effort with respect to the TRANSITION, for the review grant's reason:
+     * failing here would re-enter this whole block on the retry and commit stock
+     * twice. It is NOT best-effort with respect to the buyer — a failure leaves the
+     * order at `paid` rather than `digitally_delivered`, which is the honest state
+     * (the money is taken, the bytes are not handed over) and any later call
+     * finishes the job.
+     *
+     * A digital-only order is then advanced to `digitally_delivered` through
+     * `transition` itself rather than by patching the column here, so the CAS, the
+     * status history and the notification all happen exactly as they do for every
+     * other status.
+     */
+    try {
+      const buyerKey = await resolveBuyerKeyForOrder(order);
+      if (buyerKey) {
+        const granted = await grantRightsForPaidOrder(order.id, buyerKey);
+        if (granted.complete && granted.digitalLineCount > 0 && order.shippingMethod === 'digital') {
+          /**
+           * Re-entered deliberately, with the status the CAS just wrote.
+           *
+           * The local `order` still holds the status it had on the way IN —
+           * `transitionOrderStatus` reports a boolean, not a fresh record — so
+           * passing it unchanged would be refused by the transition table for the
+           * right reason. Correcting the one field is cheaper and more legible than
+           * a second read, and it is safe: `digitally_delivered` runs none of the
+           * side-effect branches above, so the recursion is one level deep by
+           * construction rather than by luck.
+           */
+          await transition({ ...order, status: 'paid' }, 'digitally_delivered', {
+            actor: opts.actor,
+          });
+        }
+      } else if (await orderHasDigitalLines(order.id)) {
+        // A digital order whose buyer cannot be addressed. Loud, because the buyer
+        // has paid for something no right can reach and no retry will fix it
+        // without an operator: an `external` order or an anonymized guest checkout.
+        log.general.error(
+          { orderId: order.id, buyerOrigin: order.buyerOrigin },
+          'Paid order has digital lines but no resolvable buyer key; no rights granted',
+        );
+      }
+    } catch (err) {
+      log.general.error(
+        { err, orderId: order.id },
+        'Digital right grant failed after payment; order stays at `paid`',
+      );
+    }
   } else if (next === 'cancelled' || next === 'refunded') {
     if (wasPaid) {
       // A `refund.service` refund may have ALREADY restocked some units per-line.
@@ -285,6 +375,35 @@ export async function transition(
       for (const item of order.items) {
         await release(item.variantId, item.quantity, item.locationId ?? undefined);
       }
+    }
+
+    /**
+     * #1015 / ADR 0010 D6: a refund stops access and keeps the history.
+     *
+     * Every right this order produced moves to `refunded` and appends an event.
+     * The move is a CAS from `active` or `disputed_hold`, so a right already
+     * `revoked_for_policy` is NOT quietly downgraded to a refund — the stronger
+     * state wins, and it matters because a revocation records a legal basis a
+     * refund does not.
+     *
+     * Best-effort for the transition's sake, like the grant on the way in. The
+     * asymmetry is deliberate and is the safe direction: a right that stays
+     * `active` one sweep too long is a buyer keeping a file they were refunded
+     * for, and a transition that failed here would instead leave the refund
+     * itself unrecorded.
+     */
+    try {
+      await refundRightsForOrder(
+        order.id,
+        opts.actor.kind === 'oxy' || opts.actor.kind === 'operator'
+          ? `${opts.actor.kind === 'operator' ? 'operator' : 'oxy'}:${opts.actor.oxyUserId}`
+          : 'system',
+      );
+    } catch (err) {
+      log.general.error(
+        { err, orderId: order.id },
+        'Digital right refund failed; rights stay active until a later sweep',
+      );
     }
   }
 
@@ -618,6 +737,7 @@ function zeroCounts(): Record<OrderStatus, number> {
     processing: 0,
     shipped: 0,
     delivered: 0,
+    digitally_delivered: 0,
     cancelled: 0,
     refunded: 0,
     partially_refunded: 0,

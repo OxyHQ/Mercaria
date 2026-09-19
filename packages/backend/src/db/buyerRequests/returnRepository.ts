@@ -13,7 +13,7 @@
  */
 
 import { and, asc, desc, eq, inArray, lt, sql } from 'drizzle-orm';
-import { publicColumns } from '@oxyhq/db/assert';
+import { publicColumns } from '@oxy.so/db/assert';
 import type {
   BuyerRequestActorKind,
   BuyerRequestCompletionFailure,

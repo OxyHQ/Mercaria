@@ -74,7 +74,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { PgColumn } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   CATALOG_BACKFILL_COHORT_KINDS,
   CATALOG_BACKFILL_MODES,
@@ -84,6 +84,7 @@ import {
   CATALOG_BACKFILL_RUN_STATUSES,
   CATALOG_BACKFILL_STAGES,
   CATALOG_BACKFILL_SUBJECT_KINDS,
+  CATALOG_BACKFILL_TERMINAL_CAUSES,
   CATALOG_CONSISTENCY_FINDING_KINDS,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf } from './columns';
@@ -177,6 +178,70 @@ export const catalogBackfillRuns = pgTable(
     lastRunAt: timestamptz(),
     lastError: text(),
 
+    /**
+     * How many page attempts have failed IN A ROW (#367 W16 line 759).
+     *
+     * Reset to 0 by any page that advances, so this is a CONSECUTIVE count and
+     * not a lifetime one: a pass that fails once, recovers and fails again six
+     * pages later gets a fresh budget, which is the right thing for a run whose
+     * cursor survives every failure.
+     *
+     * **Deliberately not called `attempts`**, and the two-level statement
+     * belongs here because getting it wrong is what cost two separate lanes a
+     * conclusion each:
+     *
+     * - **RUNS** — this table — had NO retry at all before #367 line 759.
+     *   `RESUMABLE` excludes `failed`, and a page-level error released straight
+     *   to it, so one dropped connection ended a pass holding a good cursor.
+     *   This column is what stands between the two.
+     * - **RECORDS** — `catalog_backfill_records.attempts` — carries an
+     *   UNBOUNDED re-examination count for ONE SUBJECT across runs an operator
+     *   started. Cumulative, never reset, measured by `backfill_retry_count`,
+     *   and nothing exhausts it because nothing bounds it. It is a
+     *   poison-record signal, not a retry loop.
+     *
+     * Neither yielded an exhaustion event, and the reason differs at each
+     * level. So "no attempts column anywhere" is FALSE and a reader who checks
+     * will find `catalog_backfill_records.attempts` and conclude the finding
+     * was wrong; "runs do not retry" is true and is what this column changes.
+     *
+     * Two columns called `attempts` in one domain with opposite semantics is
+     * also what put a false sentence into `catalog-metrics.ts` ("the three
+     * tables record `attempts` and `last_error` only" — this one records
+     * `last_error` only). The name is the fix at the source.
+     *
+     * Bounded by `CATALOG_BACKFILL_MAX_ATTEMPTS`, and the bound is applied in
+     * `services/backfill/backfill.service.ts` rather than here: a CHECK would
+     * make the ceiling a schema migration, and it is an incident lever.
+     */
+    consecutiveFailures: integer().notNull().default(0),
+
+    /**
+     * WHY this run ended in `failed`, written by the producer that ended it.
+     *
+     * NULL for every run that has not ended in `failed` — a biconditional CHECK
+     * (`catalog_backfill_runs_terminal_cause_shape_check`, added by `0147`), so
+     * a `running`, `paused` or `completed` row cannot carry one and a `failed`
+     * row cannot lack one.
+     *
+     * The vocabulary and the argument for storing this rather than deriving it
+     * are on `CatalogBackfillTerminalCause` in `@mercaria/shared-types`. The
+     * short version: `failed` has two producers, `recordBackfillPageFailure` at
+     * the ceiling and `cancelCatalogBackfillRun`, and once both have written
+     * `failed` nothing downstream can recover which one it was. Every candidate
+     * derivation keys on `consecutive_failures`, whose ceiling is a MUTABLE env
+     * var — so the derived population moves when an operator turns an incident
+     * knob, in the direction that reports FEWER dead letters at exactly the
+     * moment somebody is looking for them.
+     *
+     * Two migrations, and the split is the deploy-phase rule doing its job:
+     * `0146` (`pre`) adds the nullable column, the implication CHECK and the
+     * backfill; `0147` (`post`) narrows it to the biconditional, which breaks
+     * the write the PREVIOUS image performs — `releaseBackfillRun` releasing
+     * `failed` with no cause — and therefore cannot land before the rollout.
+     */
+    terminalCause: text({ enum: asEnumValues(CATALOG_BACKFILL_TERMINAL_CAUSES) }),
+
     /** Which task holds the page lease. An opaque worker identity — no FK. */
     leaseOwner: text(),
     leaseUntil: timestamptz(),
@@ -195,6 +260,33 @@ export const catalogBackfillRuns = pgTable(
     checkOneOf('catalog_backfill_runs_stage_check', t.stage, CATALOG_BACKFILL_STAGES),
     checkOneOf('catalog_backfill_runs_mode_check', t.mode, CATALOG_BACKFILL_MODES),
     checkOneOf('catalog_backfill_runs_status_check', t.status, CATALOG_BACKFILL_RUN_STATUSES),
+    checkOneOf(
+      'catalog_backfill_runs_terminal_cause_check',
+      t.terminalCause,
+      CATALOG_BACKFILL_TERMINAL_CAUSES,
+    ),
+    /**
+     * `failed` ⟺ a terminal cause, written as ONE biconditional over two
+     * never-NULL operands (`status` is `notNull`, and `is null` never yields
+     * NULL), so neither direction can be satisfied by a NULL the way a naive
+     * pair of implications would be.
+     *
+     * `0146` (`pre`) shipped only the `cause → failed` half, because the
+     * serving image releases `failed` with no cause and a `pre` migration may
+     * not break the previous image. `0147` (`post`) re-backfills the rows that
+     * image wrote during the rollout and then narrows to this — a textbook
+     * `post` statement, in that it breaks a write the previous image performs.
+     *
+     * The narrowing is what makes `unrecorded` mean something FINITE: after it,
+     * a `failed` row always has a cause, so `unrecorded` is exactly "ended
+     * before the column existed" — a closed population that cannot grow. Left
+     * at the implication, a future writer producing `failed` with no cause
+     * would be indistinguishable from history.
+     */
+    check(
+      'catalog_backfill_runs_terminal_cause_shape_check',
+      sql`(${t.terminalCause} is null) = (${t.status} <> 'failed')`,
+    ),
     checkOneOf(
       'catalog_backfill_runs_cohort_kind_check',
       t.cohortKind,
@@ -228,6 +320,15 @@ export const catalogBackfillRuns = pgTable(
       'catalog_backfill_runs_counters_total_check',
       sql`${t.scanned} = ${t.unchanged} + ${t.matched} + ${t.created} + ${t.enqueued}
           + ${t.reviewRequired} + ${t.unmatched} + ${t.skipped} + ${t.failed}`,
+    ),
+    /**
+     * A consecutive-failure count is a count. The CHECK is here and the CEILING
+     * is not: the ceiling is an incident lever and a CHECK would make raising it
+     * a migration, which is the one thing you cannot do at 3am.
+     */
+    check(
+      'catalog_backfill_runs_consecutive_failures_check',
+      sql`${t.consecutiveFailures} >= 0`,
     ),
     /** A completed pass has an end time and no cursor left to resume from. */
     check(

@@ -1,4 +1,5 @@
 import {
+  Box,
   Home,
   LayoutGrid,
   ShoppingCart,
@@ -53,12 +54,31 @@ export type NavItem =
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { key: "home", labelKey: "nav.home", icon: Home, href: "/", available: true },
-  // No `href`: `/categories` is not a route. #367 workstream 9 built the
-  // category LANDING page (`/categories/:handle`) and deliberately did not ship
-  // an index hub — whether a page whose entire content is links to pages each
-  // indexed on their own earns a `PublicRouteId` of its own is an SEO decision,
-  // and it is not made yet. See `docs/storefront-catalog.md` §Seams.
-  { key: "explore", labelKey: "nav.explore", icon: LayoutGrid, available: false },
+  // The SEO decision `docs/storefront-catalog.md` §Seams was waiting on is
+  // made: `/categories` is a public indexable route, registered as
+  // `category_index`, and the hub renders the published navigation trees. See
+  // the `PublicRouteId` member for the reasoning.
+  {
+    key: "explore",
+    labelKey: "nav.explore",
+    icon: LayoutGrid,
+    href: "/categories",
+    available: true,
+  },
+  // #1015 Workstream 5's storefront surface. A top-level destination rather than
+  // a category row, because it is a VERTICAL with its own refinements
+  // (`/3d/printable`, `/3d/game-assets`) and its own product page shape — and
+  // because an unlinked screen is the one defect with no symptom:
+  // `route-reachability.test.ts` computes reachability transitively from the app
+  // root, so `/3d` being here is what makes the four digital routes reachable at
+  // all. Everything the page shows is still the server's (`lib/digital/`).
+  {
+    key: "threeD",
+    labelKey: "nav.threeD",
+    icon: Box,
+    href: "/3d",
+    available: true,
+  },
   {
     key: "cart",
     labelKey: "nav.cart",
@@ -66,8 +86,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/cart",
     available: true,
   },
-  // No `href`: `/offers` is not a route.
-  { key: "deals", labelKey: "nav.deals", icon: Tag, available: false },
+  { key: "deals", labelKey: "nav.deals", icon: Tag, href: "/deals", available: true },
   // #80 shipped `app/(app)/saved.tsx`, so this is navigable now. It stays a
   // real route rather than a modal because a saved list is a place a buyer
   // returns to and links to.

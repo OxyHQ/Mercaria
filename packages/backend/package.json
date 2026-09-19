@@ -4,6 +4,9 @@
   "description": "Mercaria API \u2014 buy/sell marketplace backend by Oxy",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24.20.0"
+  },
   "main": "dist/index.js",
   "scripts": {
     "dev": "bun --watch src/index.ts",
@@ -18,21 +21,24 @@
     "architecture:diagrams": "bun run scripts/generate-architecture-diagrams.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun run src/db/migrate.ts",
-    "db:rollback-plan": "bun run scripts/rollback-plan.ts"
+    "db:rollback-plan": "bun run scripts/rollback-plan.ts",
+    "fees:provision": "bun run src/scripts/provision-fee-schedule.ts"
   },
   "dependencies": {
     "@mercaria/shared-types": "workspace:*",
-    "@oxyhq/core": "^19.1.0",
-    "@oxyhq/crowdsource": "0.3.0",
-    "@oxyhq/crowdsource-contracts": "0.3.0",
-    "@oxyhq/crowdsource-express": "0.3.0",
-    "@oxyhq/db": "^0.1.2",
+    "@oxy.so/contracts": "^1.2.0",
+    "@oxy.so/core": "^1.3.1",
+    "@oxy.so/crowdsource": "^1.0.0",
+    "@oxy.so/crowdsource-contracts": "^1.0.0",
+    "@oxy.so/crowdsource-express": "^1.0.0",
+    "@oxy.so/db": "^1.0.0",
+    "@oxy.so/mcp": "^1.0.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "bullmq": "^5.80.4",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "drizzle-orm": "0.45.2",
-    "esbuild": "^0.27.7",
+    "esbuild": "^0.28.2",
     "expo-server-sdk": "^6.1.0",
     "express": "^4.22.2",
     "express-rate-limit": "^8.3.1",
@@ -44,10 +50,11 @@
     "socket.io": "^4.8.3",
     "stripe": "^22.4.0",
     "web-push": "^3.6.7",
-    "zod": "^3.25.76"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@mercaria.co/sdk": "workspace:*",
     "@swc/cli": "^0.5.2",
     "@swc/core": "^1.15.43",
     "@types/cors": "^2.8.19",

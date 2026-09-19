@@ -60,7 +60,7 @@
 
 import { sql, type SQL } from 'drizzle-orm';
 import { check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   STORE_LINKAGE_BLOCK_REASONS,
   STORE_LINKAGE_CANDIDATE_DISPOSITIONS,

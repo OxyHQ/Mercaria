@@ -71,7 +71,7 @@ function nextAttemptAt(attempts: number, now: Date): Date {
 /**
  * Whether trying the same payload again could ever work.
  *
- * Every error `@oxyhq/crowdsource` throws carries `retryable`, which is the only
+ * Every error `@oxy.so/crowdsource` throws carries `retryable`, which is the only
  * thing a delivery worker needs from it. Anything else — a bug here, a database
  * error — is treated as retryable, because assuming a defect is permanent is how a
  * recoverable outage becomes lost moderation work.

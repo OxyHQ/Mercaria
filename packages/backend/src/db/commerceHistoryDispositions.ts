@@ -191,6 +191,65 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       'REVERSING posting, never an edit, which is the rule the whole ledger layer is built on.',
   },
   {
+    table: 'asset_download_events',
+    rowUpdate: 'refused',
+    rowDelete: 'allowed',
+    frozenColumns: [],
+    reason:
+      "#1015's access audit, append-only against UPDATE by `asset_download_events_append_only`. " +
+      'DELETE is ALLOWED and that is a decision, not an omission: the row names a grant, and ' +
+      '`asset_download_grants.expires_at` sweeps expired grants away with `ON DELETE SET NULL` ' +
+      'on this column — so refusing DELETE here would make the sweep impossible while buying ' +
+      'nothing, because an access log is operational evidence and a right\'s own history lives ' +
+      'in `asset_right_events`, which refuses both.',
+  },
+  {
+    table: 'asset_download_grants',
+    rowUpdate: 'allowed',
+    rowDelete: 'allowed',
+    frozenColumns: [],
+    reason:
+      'A short-lived door, not a record (#1015 W12). Its `redemptions` counter is incremented by ' +
+      'design and the whole row is swept once it expires; nothing about a purchase is stored in ' +
+      'it, and the token itself is never stored at all — only a SHA-256 of it, so a dump opens ' +
+      'nothing. What must survive is the EVENT, which is the row above.',
+  },
+  {
+    table: 'asset_right_events',
+    rowUpdate: 'refused',
+    rowDelete: 'refused',
+    frozenColumns: [],
+    reason:
+      "#1015's audit of what happened to a buyer's right, append-only by " +
+      '`asset_right_events_append_only` — `ledger_transactions`\' treatment, for the same reason: ' +
+      'this is what a chargeback and a takedown dispute are answered from, and a row that can be ' +
+      'edited is not evidence.',
+  },
+  {
+    table: 'asset_rights',
+    rowUpdate: 'allowed',
+    rowDelete: 'refused',
+    frozenColumns: [
+      'buyer_key',
+      'asset_id',
+      'package_id',
+      'purchased_version_id',
+      'licence_version_id',
+      'update_policy',
+      'source',
+      'order_item_id',
+      'order_id',
+      'granted_at',
+    ],
+    reason:
+      'What a buyer OWNS (#1015 W2, ADR 0010 D6). The row must stay mutable because a refund, a ' +
+      'dispute and a revocation all move its `status` — and the COMMERCIAL half is frozen by ' +
+      '`asset_rights_commercial_half_immutable`, because the shape that would make "buyer claims ' +
+      'a higher licence than purchased" real is an UPDATE of `licence_version_id`. DELETE is ' +
+      'refused outright: history survives a refund as a state transition plus an event, never as ' +
+      'an absence.',
+  },
+  {
     table: 'buyer_request_events',
     rowUpdate: 'refused',
     rowDelete: 'refused',

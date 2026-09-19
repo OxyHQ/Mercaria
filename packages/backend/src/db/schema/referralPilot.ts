@@ -58,7 +58,7 @@
 import { sql } from 'drizzle-orm';
 import { bigint, boolean, check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   REFERRAL_PILOT_COHORT_STATUSES,
   REFERRAL_PILOT_REVIEW_DECISIONS,

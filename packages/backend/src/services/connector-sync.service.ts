@@ -87,7 +87,7 @@ import {
   CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS,
   MODERATION_HELD_LISTING_STATUSES,
 } from '@mercaria/shared-types';
-import { isForeignKeyViolation, isUniqueViolation } from '@oxyhq/db';
+import { isForeignKeyViolation, isUniqueViolation } from '@oxy.so/db';
 import {
   claimConnectionWebhookRegistration,
   completeConnectionWebhookRegistration,
@@ -3822,7 +3822,7 @@ function toOrderTaxLines(order: NormalizedOrder): NewOrderTaxLine[] {
  * Build the full persisted order document for a first-time import of an external
  * order. Store order (`sellerType: 'store'`), stamped with `source` provenance; the
  * buyer id is synthetic (an external order has no Oxy user), the payment provider is
- * `external` (settled off Oxy Pay), and money is preserved as `DualMoney`.
+ * `external` (settled outside Peable), and money is preserved as `DualMoney`.
  */
 function buildExternalOrderDoc(
   conn: ConnectionRow,

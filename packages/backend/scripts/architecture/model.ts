@@ -28,7 +28,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DATABASE_CASING } from '@oxyhq/db';
+import { DATABASE_CASING } from '@oxy.so/db';
 import { Column, getTableName, is } from 'drizzle-orm';
 import { CasingCache } from 'drizzle-orm/casing';
 import { PgTable, getTableConfig } from 'drizzle-orm/pg-core';

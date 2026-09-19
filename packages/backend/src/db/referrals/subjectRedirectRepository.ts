@@ -9,7 +9,7 @@
  */
 
 import { and, eq } from 'drizzle-orm';
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import type { ReferralEventActorKind, ReferralSubjectKind } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { referralSubjectRedirects } from '../schema/referrals.js';

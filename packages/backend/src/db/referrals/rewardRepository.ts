@@ -467,7 +467,7 @@ export async function setRewardState(
  * sweep's page.
  *
  * Ordered by `hold_until_at` so the oldest obligation vests first, and keyset
- * paged on it rather than on the id: `@oxyhq/db`'s uuid v7 is not monotonic
+ * paged on it rather than on the id: `@oxy.so/db`'s uuid v7 is not monotonic
  * within a millisecond, and a batch insert of several rewards shares an instant.
  *
  * `partnerId` NARROWS the page to one partner. The loop never passes it; the

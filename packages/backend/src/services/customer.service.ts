@@ -28,7 +28,7 @@ import type {
   CurrencyCode,
   OrderSummary,
 } from '@mercaria/shared-types';
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import {
   decrementCustomerOnRefund,
   findCustomer,

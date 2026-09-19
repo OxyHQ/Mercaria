@@ -32,7 +32,7 @@
  */
 
 import { createHmac, randomBytes } from 'node:crypto';
-import { verifySecret } from '@oxyhq/core/server';
+import { verifySecret } from '@oxy.so/core/server';
 import { z } from 'zod';
 import {
   AFFILIATE_OUTBOUND_TOKEN_PREFIX,

@@ -97,6 +97,10 @@ function enumValueRow(
     value,
     label,
     position,
+    // #367 line 280. Null in every fixture: these catalogues exist to be
+    // matched and searched against, and a value that redirected somewhere
+    // else would measure the redirect rather than the thing under test.
+    replacesEnumValueId: null,
     createdAt: new Date('2020-01-01T00:00:00Z'),
     updatedAt: new Date('2020-01-01T00:00:00Z'),
   };

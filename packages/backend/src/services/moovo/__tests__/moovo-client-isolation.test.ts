@@ -6,7 +6,7 @@
  * These are the criteria that CAN be enforced today. The ones that cannot —
  * "Mercaria authenticates as its existing Oxy Application" (2), "environment
  * and audience are enforced by default" (5) — need an audience-aware service
- * client that `@oxyhq/core` does not have, and a service-authenticated surface
+ * client that `@oxy.so/core` does not have, and a service-authenticated surface
  * Moovo does not expose. `docs/moovo/2026-08-16-moovo-service-client-survey.md`
  * records both measurements; this file makes sure that while they are open,
  * nobody closes them the wrong way.
@@ -144,7 +144,7 @@ describe('#156 — the Moovo client is the only way out, and it holds no credent
     for (const path of domainModules()) {
       expect(
         DUPLICATE_SERVICE_AUTH.test(readCode(path)),
-        `${path} re-implements service auth — it belongs to @oxyhq/core`,
+        `${path} re-implements service auth — it belongs to @oxy.so/core`,
       ).toBe(false);
     }
   });

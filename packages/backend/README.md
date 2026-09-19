@@ -11,7 +11,7 @@ is built on top of it (see `HANDOFF.md` in the repo root).
 - Express bootstrap with graceful shutdown, process-level error handling, and CORS
 - PostgreSQL via drizzle (`src/db/postgres.ts`), opened once at boot from `DATABASE_URL`
 - Redis client (optional) for rate-limit store + Socket.IO scaling
-- Oxy auth via `@oxyhq/core/server` (`src/middleware/auth.ts`)
+- Oxy auth via `@oxy.so/core/server` (`src/middleware/auth.ts`)
 - Socket.IO with authenticated per-user rooms (`src/socket.ts`)
 - Notification service: in-app (socket), Expo push, and web push (`src/lib/notification-service.ts`)
 - Structured logging (pino) and a typed error system (`src/lib/errors`)

@@ -28,7 +28,7 @@
  */
 
 import { createHash, randomBytes } from 'node:crypto';
-import { verifySecret } from '@oxyhq/core/server';
+import { verifySecret } from '@oxy.so/core/server';
 
 /** Human-visible marker + namespace for every merchant-claim challenge token. */
 const TOKEN_PREFIX = 'mcc_';

@@ -264,6 +264,12 @@ const FUTURE_DATED_FIXTURES: readonly FutureDatedFixture[] = [
     reason:
       'A never-expires value inside a body the recovery endpoint must REFUSE uniformly; the case asserts the refusal, not the date.',
   },
+  {
+    file: 'src/services/__tests__/discovery-signal.realdb.test.ts',
+    date: '2099-01-01',
+    reason:
+      "A `publishedAt` sentinel for the `new` signal's root-scope fixtures, chosen to outrank any listing any concurrent file on the shared database could plausibly publish, so the adverse case wins deterministically. Nothing compares it to the wall clock or treats it as an expiry — it is read back only as `>= every other publishedAt`.",
+  },
 ];
 
 /**
@@ -469,7 +475,7 @@ describe('test fixtures carry no unexplained future date', () => {
  * The register's size, stated separately so a diff that adds an entry has to
  * touch this line too.
  */
-const FUTURE_DATED_FIXTURE_COUNT = 25;
+const FUTURE_DATED_FIXTURE_COUNT = 26;
 
 describe('the census can actually see what it claims to', () => {
   // Probe dates are assembled from parts so this file's own controls cannot be

@@ -937,14 +937,60 @@ export function collectKeyMaps(relativePath, text) {
 }
 
 /**
+ * A translation-key ALIAS: `function name(param) { return MAP[param]; }` —
+ * the shape `sectionTitleKey` and thirty-five others in this tree already use
+ * to wrap a module-scope key map behind a named function, so a screen writes
+ * `t(sectionTitleKey(signal))` instead of `t(SECTION_TITLE_KEYS[signal])`
+ * (#598: the wrapped form was invisible to every part of this guard, and the
+ * five keys it named were absent from every locale with 0 findings reported).
+ *
+ * Matched structurally — a function whose ENTIRE body is one `return`,
+ * indexing an identifier by its own sole parameter — so a new alias needs no
+ * registration anywhere: the shape a function already has to be useful IS the
+ * registration, and unlike a hand-maintained list it cannot go stale.
+ *
+ * Deliberately narrow. `directionSummaryKey` and `savedItemNoOfferKey` (real
+ * functions in this tree) return key LITERALS from an `if` chain or a
+ * `switch` — a different shape, not a map lookup at all — and
+ * `nativeBlockTextKey` does the same. None of those is registered: resolving
+ * "one of the branches this function could take" from its literals would be a
+ * WIDER claim than `MAP[expr]` itself makes, and a `t()` call through one of
+ * them stays unreadable rather than guessed at. Only a `function` DECLARATION
+ * is matched, not an arrow assigned to a `const` — every real instance in this
+ * tree is a declaration, and widening the shape before something needs it
+ * would be inventing coverage rather than measuring it.
+ */
+export function collectKeyMapAliases(relativePath, text) {
+  const sourceFile = ts.createSourceFile(
+    relativePath, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX,
+  );
+  const aliases = new Map();
+  for (const statement of sourceFile.statements) {
+    if (!ts.isFunctionDeclaration(statement) || !statement.name || !statement.body) continue;
+    if (statement.parameters.length !== 1) continue;
+    const [parameter] = statement.parameters;
+    if (!ts.isIdentifier(parameter.name)) continue;
+    const [only, ...rest] = statement.body.statements;
+    if (rest.length > 0 || !only || !ts.isReturnStatement(only) || !only.expression) continue;
+    const returnExpr = only.expression;
+    if (!ts.isElementAccessExpression(returnExpr) || !ts.isIdentifier(returnExpr.expression)) continue;
+    if (!ts.isIdentifier(returnExpr.argumentExpression)) continue;
+    if (returnExpr.argumentExpression.text !== parameter.name.text) continue;
+    aliases.set(statement.name.text, returnExpr.expression.text);
+  }
+  return aliases;
+}
+
+/**
  * Which keys can a `t(…)` argument resolve to?
  *
  * `null` means "this guard cannot read it" — a key held in a local alias
- * (`s.labelKey`) or returned by a function. Those are COUNTED by the caller
- * rather than treated as zero, because "F found no violation" and "F could not
- * see the argument" are the same output otherwise.
+ * (`s.labelKey`) or returned by a function this is not the shape of. Those are
+ * COUNTED by the caller rather than treated as zero, because "F found no
+ * violation" and "F could not see the argument" are the same output
+ * otherwise.
  */
-function resolveTranslateKeys(argument, maps) {
+function resolveTranslateKeys(argument, maps, aliases = new Map()) {
   if (!argument) return null;
   if (ts.isStringLiteralLike(argument)) return [argument.text];
   // t(MAP[expr])
@@ -966,6 +1012,14 @@ function resolveTranslateKeys(argument, maps) {
       const bucket = found?.byProp.get(argument.name.text);
       return bucket && bucket.length > 0 ? bucket : null;
     }
+  }
+  // t(aliasFn(expr)) — `aliasFn` is ITSELF `function aliasFn(k) { return MAP[k]; }`,
+  // so this resolves exactly as `t(MAP[expr])` above does, through the same map.
+  if (ts.isCallExpression(argument) && ts.isIdentifier(argument.expression)) {
+    const mapName = aliases.get(argument.expression.text);
+    if (mapName === undefined) return null;
+    const found = maps.get(mapName);
+    return found && found.flat.length > 0 ? found.flat : null;
   }
   return null;
 }
@@ -1040,6 +1094,7 @@ function actionControlAncestor(node) {
  */
 export function analyseSource(
   relativePath, text, knownKeys, sharedKeyMaps = new Map(), keyMapNames = new Set(),
+  sharedKeyMapAliases = new Map(),
 ) {
   const sourceFile = ts.createSourceFile(
     relativePath,
@@ -1067,11 +1122,24 @@ export function analyseSource(
   const wireIdentifierRenderSites = [];
   /** J': `{ line, map, key, text }` for every lookup that falls back to its own subscript. */
   const wireIdentifierFallbackSites = [];
+  /** C: `{ line, source }` for every non-literal `t()` argument this file could not resolve
+   *  to a key at all — literal, `MAP[expr]`/`MAP.x` and an alias function all resolve;
+   *  anything else lands here, counted rather than silently passed over (#598). */
+  const referentialUnreadableSources = [];
+  /** C: how many `t(aliasFn(...))` call sites this file resolved through an alias. */
+  let aliasResolvedCallSites = 0;
 
   // A file's OWN maps win over the app-wide bag, so a control fixture with no
   // siblings resolves exactly as production does.
   const keyMaps = new Map(sharedKeyMaps);
   for (const [name, value] of collectKeyMaps(relativePath, text)) keyMaps.set(name, value);
+
+  // Same reasoning as keyMaps, for the functions that wrap one: a file's own
+  // alias wins over the app-wide bag, and `sectionTitleKey` (declared in
+  // `section-title.ts`) still resolves from `DiscoveryFeed.tsx`, which only
+  // reads the shared bag.
+  const keyMapAliases = new Map(sharedKeyMapAliases);
+  for (const [name, mapName] of collectKeyMapAliases(relativePath, text)) keyMapAliases.set(name, mapName);
 
   // I: which of those maps hold KEYS rather than anything else a module-scope
   // record might hold. The caller supplies the app-wide answer (a map is
@@ -1221,11 +1289,30 @@ export function analyseSource(
       }
     }
 
-    // C. every `t('literal')` names a key the bundle must hold.
+    // C. every `t(...)` names a key the bundle must hold — a literal directly,
+    // or `MAP[expr]`/`MAP.x`/an alias function resolved the same way `F` below
+    // resolves them. Anything else is UNREADABLE, counted here rather than
+    // silently passed over the way a bare `t(sectionTitleKey(signal))` was
+    // before this existed (#598) — check C had nothing to say about it in
+    // EITHER direction, not even a count.
     if (isTranslateCall(node)) {
       const first = node.arguments[0];
       if (first && ts.isStringLiteral(first)) {
         translateKeys.push({ key: first.text, line: lineOf(first) });
+      } else {
+        const keys = resolveTranslateKeys(first, keyMaps, keyMapAliases);
+        // Only the alias branch of `resolveTranslateKeys` accepts a
+        // CallExpression, so a non-null result here IS an alias resolving —
+        // counted for the report line team lead asked to see, not inferred.
+        if (keys !== null && first && ts.isCallExpression(first)) aliasResolvedCallSites += 1;
+        if (keys === null) {
+          referentialUnreadableSources.push({
+            line: lineOf(node),
+            source: first ? first.getText(sourceFile) : "<none>",
+          });
+        } else {
+          for (const key of keys) translateKeys.push({ key, line: lineOf(node) });
+        }
       }
     }
 
@@ -1234,7 +1321,7 @@ export function analyseSource(
     if (isTranslateCall(node)) {
       const tag = actionControlAncestor(node);
       if (tag !== null) {
-        const keys = resolveTranslateKeys(node.arguments[0], keyMaps);
+        const keys = resolveTranslateKeys(node.arguments[0], keyMaps, keyMapAliases);
         if (keys === null) {
           unreadableKeySources.push({
             line: lineOf(node), role: "control-label",
@@ -1261,7 +1348,7 @@ export function analyseSource(
             && !isTranslateCall(value)
           ) value = value.expression.expression;
           if (!isTranslateCall(value)) continue;
-          const keys = resolveTranslateKeys(value.arguments[0], keyMaps);
+          const keys = resolveTranslateKeys(value.arguments[0], keyMaps, keyMapAliases);
           if (keys === null) {
             unreadableKeySources.push({
               line: lineOf(node), role: "interpolated",
@@ -1367,6 +1454,8 @@ export function analyseSource(
     controlLabelSites,
     interpolatedSites,
     unreadableKeySources,
+    referentialUnreadableSources,
+    aliasResolvedCallSites,
     deviceLocaleFormatSites,
     rawKeyRenderSites,
     wireIdentifierFallbackSites,
@@ -2279,6 +2368,89 @@ for (const control of ACTION_LABEL_MUST_NOT_FIND) {
   }
 }
 
+// --------------------------------------- check C's alias controls (#598) ---
+
+/**
+ * Controls for check C's alias resolution, run on every invocation.
+ *
+ * The real tree's healthy answer is dozens of call sites resolving and zero
+ * failures, which a resolver that never fired at all would also produce —
+ * "resolved nothing, found nothing wrong" and "resolved everything, found
+ * nothing wrong" render identically otherwise. These tell the two apart.
+ */
+const ALIAS_MAP_SOURCE = 'const M = { p: "a.b", q: "c.d" };\n';
+const aliasResolution = (body) => analyseSource("control/alias.tsx", ALIAS_MAP_SOURCE + body, CONTROL_KEYS);
+
+const ALIAS_MUST_RESOLVE = [
+  {
+    // sectionTitleKey's exact real shape.
+    id: "function-declaration",
+    body: 'function keyOf(k) { return M[k]; }\nconst A = () => <Text>{t(keyOf("p"))}</Text>;',
+  },
+];
+
+const ALIAS_MUST_NOT_RESOLVE = [
+  {
+    // `directionSummaryKey` and `savedItemNoOfferKey`'s real shape: key
+    // LITERALS from an `if` chain, not a map lookup. Resolving "one of the
+    // branches this function could take" would be a WIDER claim than
+    // `MAP[expr]` itself makes.
+    id: "multi-branch-return",
+    body: 'function keyOf(k) { if (k === "p") return "a.b"; return "c.d"; }\n'
+      + 'const A = () => <Text>{t(keyOf("p"))}</Text>;',
+  },
+  {
+    // Indexes a DIFFERENT identifier than its own sole parameter — not a
+    // pass-through, so not this shape even though it superficially reads M.
+    id: "indexes-a-different-name",
+    body: 'const OTHER = { p: "a.b" };\n'
+      + "function keyOf(k) { return OTHER[k.length]; }\n"
+      + 'const A = () => <Text>{t(keyOf("p"))}</Text>;',
+  },
+  {
+    // More than one statement in the body — narrower than "the entire body is
+    // one return", deliberately, so a helper that validates or logs first
+    // does not get guessed at.
+    id: "two-statement-body",
+    body: "function keyOf(k) { const v = M[k]; return v; }\n"
+      + 'const A = () => <Text>{t(keyOf("p"))}</Text>;',
+  },
+  {
+    // An arrow function is not matched at all — every real instance in this
+    // tree is a `function` declaration, and this control is what keeps that
+    // true rather than assumed.
+    id: "arrow-function",
+    body: 'const keyOf = (k) => M[k];\nconst A = () => <Text>{t(keyOf("p"))}</Text>;',
+  },
+];
+
+for (const control of ALIAS_MUST_RESOLVE) {
+  const result = aliasResolution(control.body);
+  if (!result.translateKeys.some((site) => site.key === "a.b")) {
+    failures.push(
+      `positive control failed: check C's alias resolver did not resolve ${control.id} to "a.b" — `
+      + "a function whose entire body is `return MAP[param];` must resolve exactly as `MAP[param]` "
+      + "itself does",
+    );
+  }
+  if (result.referentialUnreadableSources.length > 0) {
+    failures.push(
+      `positive control failed: check C's alias resolver marked ${control.id} unreadable instead of `
+      + "resolving it",
+    );
+  }
+}
+for (const control of ALIAS_MUST_NOT_RESOLVE) {
+  const result = aliasResolution(control.body);
+  if (result.referentialUnreadableSources.length === 0) {
+    failures.push(
+      `negative control failed: check C's alias resolver resolved ${control.id} — only a function whose `
+      + "entire body indexes a map by its own sole parameter is this shape, and guessing at anything "
+      + "wider is the false confidence #598 traced in the first place",
+    );
+  }
+}
+
 // ------------------------------------------------- check K's controls (#436) ---
 
 /**
@@ -2561,6 +2733,17 @@ const wireIdentifierFallbacksByApp = new Map(OWNERS.map((owner) => [owner.name, 
 const pinnedHardcodedByApp = new Map(OWNERS.map((owner) => [owner.name, 0]));
 /** F: how many `t()` arguments it could not read, per owner. Reported, never assumed zero. */
 const unreadableKeySourcesByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
+/**
+ * C: how many `t()` arguments it could not resolve to any key at all, per
+ * owner. Unlike F's bag above, this runs for EVERY owner — `packages/ui`
+ * DEFINES the alias functions the other two call, and is itself the heaviest
+ * user of them (`ConditionBadge`, `BasketPlanCard`, `OfferLabelBadge`…), so
+ * gating this behind `actionLabelCopy` the way F does would leave it silent on
+ * exactly the owner with the most call sites to check.
+ */
+const referentialUnreadableByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
+/** C: how many `t(aliasFn(...))` call sites resolved through an alias, per owner. */
+const aliasResolvedByApp = new Map(OWNERS.map((owner) => [owner.name, 0]));
 
 // Check F needs every owner's module-scope key maps BEFORE any file is
 // analysed: a label record is routinely declared in one file and used in
@@ -2591,6 +2774,25 @@ for (const [path, text] of textByPath) {
 for (const owner of OWNERS) {
   const bag = keyMapsByApp.get(owner.name);
   for (const name of collidingKeyMapNames.get(owner.name)) bag.delete(name);
+}
+
+// The alias half of the same bag, built and de-ambiguated the identical way:
+// `sectionTitleKey` is declared in `section-title.ts` and called from
+// `DiscoveryFeed.tsx` and `[signal].tsx`, so this ALSO has to exist before any
+// file is analysed, or both call sites would see it as unreadable.
+const keyMapAliasesByApp = new Map(OWNERS.map((owner) => [owner.name, new Map()]));
+const collidingKeyMapAliasNames = new Map(OWNERS.map((owner) => [owner.name, new Set()]));
+for (const [path, text] of textByPath) {
+  const app = OWNERS.find((candidate) => path.startsWith(candidate.prefix));
+  const bag = keyMapAliasesByApp.get(app.name);
+  for (const [name, mapName] of collectKeyMapAliases(path, text)) {
+    if (bag.has(name)) collidingKeyMapAliasNames.get(app.name).add(name);
+    bag.set(name, mapName);
+  }
+}
+for (const owner of OWNERS) {
+  const bag = keyMapAliasesByApp.get(owner.name);
+  for (const name of collidingKeyMapAliasNames.get(owner.name)) bag.delete(name);
 }
 
 /**
@@ -2636,7 +2838,7 @@ for (const [path, text] of textByPath) {
   const app = OWNERS.find((candidate) => path.startsWith(candidate.prefix));
   const result = analyseSource(
     path, text, knownKeysByApp.get(app.name), keyMapsByApp.get(app.name),
-    renderableKeyMapsByApp.get(app.name),
+    renderableKeyMapsByApp.get(app.name), keyMapAliasesByApp.get(app.name),
   );
   filesByApp.set(app.name, filesByApp.get(app.name) + 1);
   // H, I and J run for EVERY owner, including the one whose `actionLabelCopy` is
@@ -2675,6 +2877,13 @@ for (const [path, text] of textByPath) {
     const unreadable = unreadableKeySourcesByApp.get(app.name);
     for (const site of result.unreadableKeySources) unreadable.push({ ...site, file: path });
   }
+  // Check C's own unreadable count and alias-resolved count, UNGATED —
+  // deliberately outside the `actionLabelCopy` branch above. `packages/ui`
+  // both defines and is the heaviest caller of these alias functions, and
+  // gating this the way F's bag is gated would leave it uncounted there.
+  const referentialUnreadable = referentialUnreadableByApp.get(app.name);
+  for (const site of result.referentialUnreadableSources) referentialUnreadable.push({ ...site, file: path });
+  aliasResolvedByApp.set(app.name, aliasResolvedByApp.get(app.name) + result.aliasResolvedCallSites);
   // An owner that is only PART way through extraction contributes its literals
   // (part C needs them) and none of its check-A findings — but the findings are
   // COUNTED, and that count is pinned below. Discarding them outright is what
@@ -3295,11 +3504,25 @@ const actionLabelSummary = OWNERS
   })
   .join(", ");
 
+// Check C's alias resolution, for EVERY owner (never gated by
+// `actionLabelCopy` — see `referentialUnreadableByApp`'s own comment). Printed
+// as a count that resolved rather than only a pass, because "found no bad key"
+// and "resolved nothing and found no bad key" render identically otherwise —
+// exactly the gap #598 traced.
+const referentialSummary = OWNERS
+  .map((owner) => {
+    const unreadable = referentialUnreadableByApp.get(owner.name).length;
+    return `${owner.name} ${aliasResolvedByApp.get(owner.name)}`
+      + (unreadable > 0 ? ` (${unreadable} unreadable)` : "");
+  })
+  .join(", ");
+
 console.log(
   `i18n string guard passed — ${sources.length} source files scanned across `
   + `${OWNERS.map((owner) => owner.prefix).join(", ")}; ${translatedPositions} translated positions seen; `
   + `${appBundlePaths.length} app bundles and ${rootLayouts.length} app roots checked for the `
   + `reserved "${SHARED_UI_NAMESPACE}" namespace and <${SHARED_UI_PROVIDER}>; `
+  + `check C resolved ${referentialSummary} key-alias call site(s); `
   + `check F intersected ${actionLabelSummary}; `
   // Check I's population, reported for check F's reason: its finding count is
   // ZERO on a healthy tree, so the only number that says the check was pointed
@@ -3316,11 +3539,12 @@ console.log(
   + "locale/category pairs; "
   + `${CONTROL_MUST_FIND.length + PROVIDER_CONTROL_MOUNTED.length + ACTION_LABEL_MUST_FIND.length
     + DEVICE_LOCALE_MUST_FIND.length + RAW_KEY_MUST_FIND.length
-    + WIRE_IDENTIFIER_MUST_FIND.length} `
+    + WIRE_IDENTIFIER_MUST_FIND.length + ALIAS_MUST_RESOLVE.length} `
   + "positive and "
   + `${CONTROL_MUST_NOT_FIND.length + PROVIDER_CONTROL_NOT_MOUNTED.length
     + ACTION_LABEL_MUST_NOT_FIND.length + DEVICE_LOCALE_MUST_NOT_FIND.length
-    + RAW_KEY_MUST_NOT_FIND.length + WIRE_IDENTIFIER_MUST_NOT_FIND.length} `
+    + RAW_KEY_MUST_NOT_FIND.length + WIRE_IDENTIFIER_MUST_NOT_FIND.length
+    + ALIAS_MUST_NOT_RESOLVE.length} `
   + "negative controls run.",
 );
 

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import type { Store, StorePermission } from "@mercaria/shared-types";
 import { fetchMyStores, fetchStore } from "../api/stores";
 import { queryKeys } from "../queryKeys";

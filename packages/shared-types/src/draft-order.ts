@@ -122,7 +122,7 @@ export interface UpdateDraftOrderInput {
 
 /**
  * Body for `POST .../complete` — take the POS sale. Empty for now: payment is an
- * Oxy Pay seam, so completion reserves stock + converts the draft to a paid order
+ * Peable seam, so completion reserves stock + converts the draft to a paid order
  * without any additional client input.
  */
 export type CompleteDraftOrderInput = Record<string, never>;

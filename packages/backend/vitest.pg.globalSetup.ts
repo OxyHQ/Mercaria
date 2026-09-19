@@ -26,9 +26,8 @@
 import postgres from 'postgres';
 
 import { createMercariaTestDatabase, dropMercariaTestDatabase } from './src/db/testDatabase.js';
+import { TEST_POOL_SIZE } from './vitest.connection-budget.js';
 
-/** Pool ceiling per vitest worker. See the header for why the default is unsafe here. */
-const TEST_POOL_SIZE = '4';
 
 /**
  * The `max_locks_per_transaction` this suite requires of whatever server it is
@@ -199,7 +198,7 @@ export async function setup(): Promise<void> {
   }
 
   process.env.DATABASE_URL = databaseUrl;
-  process.env.PG_MAX_POOL_SIZE = TEST_POOL_SIZE;
+  process.env.PG_MAX_POOL_SIZE = String(TEST_POOL_SIZE);
 }
 
 export async function teardown(): Promise<void> {

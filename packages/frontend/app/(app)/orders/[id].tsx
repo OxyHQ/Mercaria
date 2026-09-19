@@ -24,7 +24,7 @@ import {
   retailOrderProgressLabel,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import { useOrder, useCancelOrder } from "@/lib/hooks/use-orders";
 import { useOrderCollection } from "@/lib/hooks/use-nearby";
 import { ORDER_STATUS_LABEL_KEYS } from "@/lib/order-status";
@@ -136,7 +136,7 @@ function RetailProgressCard({ retail }: { retail: RetailOrderExperience }) {
 function StatusPill({ status }: { status: OrderStatus }) {
   const { t } = useTranslation();
   return (
-    <View className="self-start rounded-full bg-secondary px-3 py-1">
+    <View className="self-start rounded-full bg-muted px-3 py-1">
       <Text className="text-xs font-semibold text-foreground">{t(ORDER_STATUS_LABEL_KEYS[status])}</Text>
     </View>
   );
@@ -219,6 +219,22 @@ function PaymentCard({ order }: { order: Order }) {
 function ShippingAddressCard({ order }: { order: Order }) {
   const { t, locale } = useTranslation();
   const a = order.shippingAddress;
+  if (!a) {
+    /**
+     * A DIGITAL order has no address at all (#1015, ADR 0010 D8) — absent, not
+     * blank, which is why the DTO field is optional and this branch has to exist.
+     * Saying so beats rendering an empty card: a buyer looking at a download
+     * wants to know the address is not missing, it is not needed.
+     */
+    return (
+      <View className="rounded-2xl border border-border bg-card p-4">
+        <Text className="mb-2 text-sm font-semibold text-foreground">
+          {t("orders.shipTo.title")}
+        </Text>
+        <Text className="text-sm text-muted-foreground">{t("orders.shipTo.none")}</Text>
+      </View>
+    );
+  }
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
       <Text className="mb-2 text-sm font-semibold text-foreground">{t("orders.shipTo.title")}</Text>

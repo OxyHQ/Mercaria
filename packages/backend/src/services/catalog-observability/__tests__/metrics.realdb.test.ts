@@ -53,6 +53,16 @@ import {
 } from '../../../db/postgres.js';
 import { collectCatalogMetrics } from '../metrics.service.js';
 import {
+  readAuthoringPublicationCounters,
+  recordPublicationAttempt,
+  resetAuthoringPublicationCounters,
+} from '../../catalog-authoring/publication-observation.js';
+import {
+  readLocalizationReadCounters,
+  recordLocalizedResolution,
+  resetLocalizationReadCounters,
+} from '../../catalog-localization/read-observation.js';
+import {
   observeCatalogRoute,
   resetCatalogRouteObservations,
 } from '../route-observations.js';
@@ -94,6 +104,9 @@ const QUANTITY_PROPERTIES: readonly string[] = [
 
 /** An observed route template with three metrics behind it. */
 const SCHEMA_ROUTE = '/catalog-authoring/schemas/:productTypeKey';
+const FACETS_ROUTE = '/facets';
+const CATEGORIES_ROUTE = '/categories';
+const SEARCH_ROUTE = '/search';
 
 let baseline: CatalogMetricsReport;
 
@@ -455,6 +468,7 @@ describe('the collector really reads the route store', () => {
       'authoring_schema_error_rate',
       'authoring_schema_client_cache_hit_rate',
       'facet_generation_latency',
+      'facet_generation_error_rate',
     ]) {
       const entry = reading(off, key);
       expect(entry?.state, `${key} reported a population instead of an unmounted surface`).toBe(
@@ -468,6 +482,144 @@ describe('the collector really reads the route store', () => {
         // And it carries no quantity, so it cannot be rendered as zero.
         expect(Object.keys(entry)).not.toContain('numerator');
       }
+    }
+  });
+
+  it('the two unconditional routes report 5xx, exclude 4xx, and need no mount flag', async () => {
+    // #913: four routes carry a latency budget and are therefore observed, and
+    // two of them reached no metric at all — a 5xx on `/categories` or
+    // `/search` was recorded by the middleware and read by nothing.
+    resetCatalogRouteObservations();
+    // BOTH flags OFF, deliberately. These two routes are mounted
+    // unconditionally, so unlike the authoring and facet rates they must still
+    // be MEASURED here. A producer that copied a `mounted` guard across would
+    // answer `surface_not_mounted` and this case is what catches it.
+    const collect = () =>
+      collectCatalogMetrics({
+        facetSampleSize: NO_FACET_SAMPLE,
+        mounted: { catalogAuthoring: false, facets: false },
+      });
+
+    for (const key of ['taxonomy_read_error_rate', 'search_read_error_rate']) {
+      const before = reading(await collect(), key);
+      expect(before?.state, `${key} is gated on a flag it has no business reading`).toBe(
+        'measured',
+      );
+      if (before?.state === 'measured') {
+        expect(before.denominator).toBe(0);
+        expect(Object.keys(before), `${key}: 0 / 0 was rendered as a ratio`).not.toContain('ratio');
+      }
+    }
+
+    // `/categories`: one 500 and one 404 of four. The 404 is the load-bearing
+    // one — a bad handle is a correct answer, and a producer counting every
+    // non-2xx would report 2/4.
+    observeCatalogRoute({ method: 'GET', route: CATEGORIES_ROUTE, statusCode: 200, durationMs: 5 });
+    observeCatalogRoute({ method: 'GET', route: CATEGORIES_ROUTE, statusCode: 200, durationMs: 6 });
+    observeCatalogRoute({ method: 'GET', route: CATEGORIES_ROUTE, statusCode: 404, durationMs: 2 });
+    observeCatalogRoute({ method: 'GET', route: CATEGORIES_ROUTE, statusCode: 500, durationMs: 9 });
+    // `/search`: TWO 404s and no 5xx — the shape a default deployment actually
+    // has, because `CANONICAL_SEARCH` is `off` and every request is a 404. It
+    // must read `0 / 2` and NOT an empty population: mounted and refusing is a
+    // different state from not mounted.
+    observeCatalogRoute({ method: 'GET', route: SEARCH_ROUTE, statusCode: 404, durationMs: 3 });
+    observeCatalogRoute({ method: 'GET', route: SEARCH_ROUTE, statusCode: 404, durationMs: 4 });
+
+    const after = await collect();
+
+    const taxonomy = reading(after, 'taxonomy_read_error_rate');
+    expect(taxonomy?.state).toBe('measured');
+    if (taxonomy?.state === 'measured') {
+      expect(taxonomy.numerator).toBe(1);
+      expect(taxonomy.denominator).toBe(4);
+      expect(taxonomy.ratio).toBe(0.25);
+    }
+
+    const search = reading(after, 'search_read_error_rate');
+    expect(search?.state).toBe('measured');
+    if (search?.state === 'measured') {
+      expect(search.numerator).toBe(0);
+      expect(search.denominator).toBe(2);
+      // A ratio of exactly 0 over a REAL population, which is a different
+      // reading from the no-ratio `0 / 0` above and is the whole point of
+      // counting a refusing surface's requests.
+      expect(search.ratio).toBe(0);
+    }
+  });
+
+  it('counts a facet 5xx and NOT a facet 4xx, and answers `0 / 0` with no ratio', async () => {
+    // The live half of W17's "invalid facet generation". The data was always
+    // being collected — `POST /facets` is one of the four routes with a latency
+    // budget, so `requests`/`serverErrors`/`clientErrors` were recorded for it
+    // and only `latency` was ever read.
+    resetCatalogRouteObservations();
+    const collect = () =>
+      collectCatalogMetrics({
+        facetSampleSize: NO_FACET_SAMPLE,
+        mounted: { catalogAuthoring: true, facets: true },
+      });
+
+    const before = reading(await collect(), 'facet_generation_error_rate');
+    expect(before?.state).toBe('measured');
+    if (before?.state === 'measured') {
+      // A task that has served no facet request is MEASURED with an empty
+      // population, not a confident zero error rate.
+      expect(before.denominator).toBe(0);
+      expect(before.numerator).toBe(0);
+      expect(Object.keys(before), '0 / 0 was rendered as a ratio').not.toContain('ratio');
+    }
+
+    observeCatalogRoute({ method: 'POST', route: FACETS_ROUTE, statusCode: 200, durationMs: 7 });
+    observeCatalogRoute({ method: 'POST', route: FACETS_ROUTE, statusCode: 400, durationMs: 3 });
+    observeCatalogRoute({ method: 'POST', route: FACETS_ROUTE, statusCode: 500, durationMs: 31 });
+
+    const after = reading(await collect(), 'facet_generation_error_rate');
+    expect(after?.state).toBe('measured');
+    if (after?.state === 'measured') {
+      // 1 of 3, and the 400 is the load-bearing one. A refused sort key and a
+      // malformed body are 4xx and are CORRECT answers; a producer counting
+      // every non-2xx would report 2/3 here and make a stale client read as a
+      // server fault. That is the whole content of this metric's attribution
+      // limit, driven rather than described.
+      expect(after.numerator).toBe(1);
+      expect(after.denominator).toBe(3);
+      expect(after.ratio).toBeCloseTo(1 / 3, 10);
+    }
+  });
+
+  it('publishes the sweep failure count against `drawn`, beside the empty rate on `sampled`', async () => {
+    // What this pins and what it does not, stated because the difference is not
+    // visible from the assertions.
+    //
+    // PINS: the metric exists, is wired to the sweep, is MEASURED rather than a
+    // seam, and its denominator is the one the empty rate EXCLUDES its failures
+    // from — `drawn === sampled + failed`, expressed across the two published
+    // numbers rather than re-read from the sweep.
+    //
+    // DOES NOT PIN: the field choice under a real failure. Mutating the producer's
+    // denominator from `drawn` to `sampled` leaves this GREEN — measured, not
+    // assumed — because no failing scope is reachable here and the two fields
+    // are then equal.
+    //
+    // Closing it was ATTEMPTED and abandoned for a reason worth recording, since
+    // the obvious next attempt runs into the same wall. The failing scope lives
+    // in `facet-scope-sweep.realdb.test.ts`, whose fixture raises by pricing an
+    // offer above `MAX_MONEY_MINOR_UNITS`; running `collectCatalogMetrics({ db: tx })`
+    // inside that fixture's transaction draws the category and reports
+    // `failed: 0` anyway, because that fixture's offers carry `stale_at` a day
+    // after its frozen `NOW` and **`collectCatalogMetrics` takes no clock** — it
+    // uses the real one, so every fixture offer is long stale, no price facet is
+    // planned, and nothing raises. The two ways out are a `now` option on the
+    // collector (a production seam existing only for a test) or real-future
+    // dates in a fixture ten other cases depend on. Neither is worth it for a
+    // two-line producer whose identity is already pinned on the sweep RESULT.
+    const collected = await collectCatalogMetrics({ facetSampleSize: FACET_SAMPLE_SIZE });
+    const failure = reading(collected, 'facet_scope_generation_failure_rate');
+    const empty = reading(collected, 'facet_scope_empty_rate');
+    expect(failure?.state, 'the sweep failure rate is not published').toBe('measured');
+    expect(empty?.state).toBe('measured');
+    if (failure?.state === 'measured' && empty?.state === 'measured') {
+      expect(failure.denominator).toBe((empty.denominator ?? 0) + failure.numerator);
     }
   });
 
@@ -541,6 +693,162 @@ describe('the collector really reads the route store', () => {
 /* -------------------------------------------------------------------------- */
 /* Positive control 2: Postgres                                                */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * The two in-process counters #367 W17 lines 768 and 771 closed.
+ *
+ * A THIRD positive control with nothing in common with the other two: the route
+ * store is HTTP timings, the Postgres one is a row, and these are counters two
+ * different services increment. All three would have to be broken at once for
+ * the collector to be returning constants.
+ *
+ * Both are deterministically zero in a process that has published nothing and
+ * resolved nothing, which is what makes the `0 / 0` branch assertable here
+ * rather than hoped for.
+ */
+describe('the collector really reads the publication and localization counters', () => {
+  beforeAll(() => {
+    resetAuthoringPublicationCounters();
+    resetLocalizationReadCounters();
+  });
+
+  async function collect() {
+    return collectCatalogMetrics({ facetSampleSize: NO_FACET_SAMPLE });
+  }
+
+  it('reports 0 / 0 before anything happens — no ratio, and NOT a seam', () => {
+    // The distinction the registry exists to keep: "nothing has been published
+    // in this process" is MEASURED with an empty population, not unmeasured.
+    // Reading it as a seam would tell an operator the metric was never built.
+    const before = readAuthoringPublicationCounters();
+    expect(before.attempts).toBe(0);
+    expect(readLocalizationReadCounters().resolutions).toBe(0);
+  });
+
+  it('moves both by exactly what was recorded, and the buckets partition', async () => {
+    const before = await collect();
+    for (const key of [
+      'draft_validation_failure_rate',
+      'draft_validation_failure_code_share',
+      'translation_fallback_use_rate',
+    ]) {
+      const entry = reading(before, key);
+      expect(entry?.state, `${key} is not measured`).toBe('measured');
+      // Through the file's own helper, which asserts MEASURED first: reading a
+      // denominator off the union directly is a type error, which is the
+      // `unmeasured` branch carrying no quantity doing its job.
+      expect(
+        measuredDenominator(before, key),
+        `${key} reported a population before anything ran`,
+      ).toBe(0);
+      // `0 / 0` keeps `denominator: 0` in the measured branch and omits `ratio`.
+      expect(Object.keys(entry ?? {}), `${key} rendered a ratio over nothing`).not.toContain(
+        'ratio',
+      );
+    }
+
+    // THREE publication attempts: one clean, two refused, the refusals carrying
+    // FOUR error findings between them across two codes — so attempts, refusals
+    // and findings are three different numbers and no assertion below can pass
+    // by reading the wrong one.
+    recordPublicationAttempt({ publishable: true, findings: [], schemaEtag: 'e' });
+    recordPublicationAttempt({
+      publishable: false,
+      schemaEtag: 'e',
+      findings: [
+        { code: 'required_field_missing', severity: 'error', path: 'a' },
+        { code: 'required_field_missing', severity: 'error', path: 'b' },
+        // A WARNING, which refuses nothing and must not be counted — otherwise
+        // the code shares describe advice nobody was blocked by.
+        { code: 'value_implausible', severity: 'warning', path: 'c' },
+      ],
+    });
+    recordPublicationAttempt({
+      publishable: false,
+      schemaEtag: 'e',
+      findings: [
+        { code: 'required_field_missing', severity: 'error', path: 'd' },
+        { code: 'value_not_in_controlled_set', severity: 'error', path: 'e' },
+      ],
+    });
+
+    // Localized reads: two exact, one language fallback, one base, one that
+    // could not be answered at all.
+    for (const step of ['exact', 'exact', 'language', 'base'] as const) {
+      recordLocalizedResolution({
+        outcome: 'resolved',
+        basis: 'localization_row',
+        value: 'x',
+        requestedLocale: 'es-mx',
+        effectiveLocale: 'es',
+        step,
+        status: 'approved',
+        provenance: 'mercaria',
+      } as never);
+    }
+    recordLocalizedResolution({
+      outcome: 'unavailable',
+      reason: 'no_text_in_locale',
+      requestedLocale: 'es-mx',
+    } as never);
+
+    const after = await collect();
+
+    // 768: two refusals out of three attempts.
+    const failure = reading(after, 'draft_validation_failure_rate');
+    expect(failure?.state).toBe('measured');
+    if (failure?.state === 'measured') {
+      expect(failure.numerator).toBe(2);
+      expect(failure.denominator).toBe(3);
+      expect(failure.ratio).toBeCloseTo(2 / 3);
+      // NO breakdown, deliberately — a refusal carries several codes, so codes
+      // do not partition attempts. Asserted rather than left to the docblock.
+      expect(Object.keys(failure), 'the rate grew a breakdown it cannot partition').not.toContain(
+        'by',
+      );
+    }
+
+    // …and the codes, over FOUR error findings: three of one, one of another,
+    // and the warning excluded. A producer counting findings-per-attempt or
+    // including warnings gets a different number here.
+    const shares = reading(after, 'draft_validation_failure_code_share');
+    expect(shares?.state).toBe('measured');
+    if (shares?.state === 'measured') {
+      expect(shares.numerator).toBe(4);
+      expect(shares.denominator).toBe(4);
+      const by = new Map((shares.by ?? []).map((entry) => [entry.key, entry.numerator]));
+      expect(by.get('required_field_missing')).toBe(3);
+      expect(by.get('value_not_in_controlled_set')).toBe(1);
+      expect(by.has('value_implausible'), 'a warning was counted as a refusal reason').toBe(false);
+      // Only codes that OCCURRED get a bucket — thirty zeroes would bury these.
+      expect(shares.by).toHaveLength(2);
+    }
+
+    // 771: two of five resolutions were fallbacks; `unavailable` is in the
+    // denominator and in no fallback bucket.
+    const fallback = reading(after, 'translation_fallback_use_rate');
+    expect(fallback?.state).toBe('measured');
+    if (fallback?.state === 'measured') {
+      expect(fallback.numerator).toBe(2);
+      expect(fallback.denominator).toBe(5);
+      const by = new Map((fallback.by ?? []).map((entry) => [entry.key, entry]));
+      expect(by.get('exact')?.numerator, 'an exact read was counted as a fallback').toBe(0);
+      expect(by.get('exact')?.denominator).toBe(2);
+      expect(by.get('language')?.numerator).toBe(1);
+      expect(by.get('base')?.numerator).toBe(1);
+      expect(by.get('unavailable')?.numerator, 'an unanswerable field read as a fallback').toBe(0);
+      expect(by.get('unavailable')?.denominator).toBe(1);
+      // THE IDENTITY: the buckets sum to the reading, both halves.
+      expect(expectBucketsSumToReading(fallback), 'the step breakdown is empty').toBeGreaterThanOrEqual(
+        4,
+      );
+    }
+
+    expect(after.mustStayZero.metricCollectionFailures).toBe(
+      before.mustStayZero.metricCollectionFailures,
+    );
+  });
+});
 
 describe('the collector really reads Postgres', () => {
   it('moves the proposal metrics by exactly the row this file inserted', async () => {

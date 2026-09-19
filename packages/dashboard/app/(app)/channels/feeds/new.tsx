@@ -18,7 +18,7 @@ import { View } from "react-native";
 import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { Button, Input, Label, Text } from "@mercaria/ui";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useTranslation } from "@/lib/i18n";

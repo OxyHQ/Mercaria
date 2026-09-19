@@ -35,7 +35,7 @@
  */
 
 import { createHash, randomBytes } from 'node:crypto';
-import { verifySecret } from '@oxyhq/core/server';
+import { verifySecret } from '@oxy.so/core/server';
 
 /** The EXCHANGE token prefix — the one that travels in a link's fragment. */
 export const EXCHANGE_TOKEN_PREFIX = 'mgx_';

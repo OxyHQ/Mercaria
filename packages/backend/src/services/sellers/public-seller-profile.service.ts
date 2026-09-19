@@ -26,14 +26,14 @@
  *
  * Mercaria stores no follow relationship, exposes no follower count and serves
  * no follower list. Following a seller is `kind: 'oxy.user'` in Oxy's own
- * user-owned graph, which `@oxyhq/services` reads and writes directly from the
+ * user-owned graph, which `@oxy.so/services` reads and writes directly from the
  * client — so a Mercaria endpoint carrying follow state would be a second,
  * staler copy of somebody else's authority.
  */
 
 import type { Listing, PublicSellerProfile, ScopedRatingAggregate } from '@mercaria/shared-types';
 import { oxyUserFollowUri } from '@mercaria/shared-types';
-import type { User } from '@oxyhq/core';
+import type { User } from '@oxy.so/core';
 import {
   countActiveSellerListings,
   findActiveSellerListingsKeyset,

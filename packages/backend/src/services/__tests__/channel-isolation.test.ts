@@ -278,7 +278,7 @@ describe('#87 — no credential COLUMN on an onboarding session', () => {
    * key, a consumer pair.
    *
    * `getTableColumns` reports the drizzle PROPERTY name (`consumerSecret`), not
-   * the SQL name — `@oxyhq/db`'s `DATABASE_CASING` converts at statement time —
+   * the SQL name — `@oxy.so/db`'s `DATABASE_CASING` converts at statement time —
    * so the pattern is case-insensitive and matches both spellings of every
    * separator, or `api_key` would miss `apiKey`.
    */

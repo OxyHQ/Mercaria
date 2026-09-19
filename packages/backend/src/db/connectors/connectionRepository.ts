@@ -63,8 +63,8 @@
 
 import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import { type SelectedRow } from '@oxyhq/db';
-import { publicColumns } from '@oxyhq/db/assert';
+import { type SelectedRow } from '@oxy.so/db';
+import { publicColumns } from '@oxy.so/db/assert';
 import type {
   ChannelDisconnectPolicy,
   ChannelPauseScope,

@@ -27,7 +27,7 @@ import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import { findConnectionsByStore, type ConnectionRow } from '../../db/connectors/connectionRepository.js';
 import { findLatestSyncRunPerConnection } from '../../db/connectors/syncRunRepository.js';
-import { listFeedConfigurationsForStore } from '../../db/feedImport/feedConfigurationRepository.js';
+import { listFeedConfigurationsForOwner } from '../../db/feedImport/feedConfigurationRepository.js';
 import { findStoreById } from '../../db/stores/storeRepository.js';
 import { CONNECTOR_RECONCILE_INTERVAL_MS } from '../../queue/constants.js';
 import { isQueueEnabled } from '../../queue/connection.js';
@@ -78,7 +78,7 @@ export async function listStoreChannels(storeId: string): Promise<ChannelSummary
   });
 
   if (config.feedImport.enabled) {
-    for (const feed of await listFeedConfigurationsForStore(getDb(), storeId)) {
+    for (const feed of await listFeedConfigurationsForOwner(getDb(), storeId)) {
       summaries.push({
         id: feed.id,
         channelType: 'product_feed',

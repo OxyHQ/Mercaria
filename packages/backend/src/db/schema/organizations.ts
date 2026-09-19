@@ -47,7 +47,7 @@
 import { sql } from 'drizzle-orm';
 import { check, index, integer, pgTable, text, uniqueIndex, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
-import { generatedId, tsvector } from '@oxyhq/db';
+import { generatedId, tsvector } from '@oxy.so/db';
 import {
   CANONICAL_ALIAS_KINDS,
   CANONICAL_ENTITY_STATUSES,
@@ -69,6 +69,15 @@ export const organizations = pgTable(
     name: text().notNull(),
     /** Service-maintained normalization of `name`, for candidate generation. */
     normalizedName: text().notNull(),
+    /**
+     * Which {@link normalizeEntityName} version folded `normalizedName` (#915).
+     *
+     * Not `normalization_version`: `canonical_attribute_values.normalization_rule_version`
+     * is a DIFFERENT fold over different values. See `NAME_FOLD_VERSION` for what
+     * a bump obliges — the fold runs on both sides, so a query folded under a
+     * newer version misses a row folded under an older one SILENTLY.
+     */
+    nameFoldVersion: integer().notNull().default(1),
     /** Legal or operating name when known ("Apple Inc."). */
     legalName: text(),
     websiteUrl: text(),
@@ -128,6 +137,15 @@ export const brands = pgTable(
     name: text().notNull(),
     /** Service-maintained normalization of `name`, for candidate generation. */
     normalizedName: text().notNull(),
+    /**
+     * Which {@link normalizeEntityName} version folded `normalizedName` (#915).
+     *
+     * Not `normalization_version`: `canonical_attribute_values.normalization_rule_version`
+     * is a DIFFERENT fold over different values. See `NAME_FOLD_VERSION` for what
+     * a bump obliges — the fold runs on both sides, so a query folded under a
+     * newer version misses a row folded under an older one SILENTLY.
+     */
+    nameFoldVersion: integer().notNull().default(1),
     description: text(),
     websiteUrl: text(),
     /** Observed domains — accumulated facts, explicitly NOT ownership proof. */

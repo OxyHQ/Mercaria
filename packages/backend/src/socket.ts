@@ -1,7 +1,8 @@
+import { observeEcosystemSocket } from './ecosystemActivity';
 import { Server, type Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import http from 'http';
-import { isLiveEntityId } from '@oxyhq/db';
+import { isLiveEntityId } from '@oxy.so/db';
 import { getSocketAdapterClients } from './lib/redis.js';
 import { oxyClient } from './middleware/auth.js';
 import { findStoreMember } from './db/stores/storeRepository.js';
@@ -88,6 +89,7 @@ export function initSocket(server: http.Server) {
   socketServer.use(oxyClient.authSocket());
 
   socketServer.on('connection', (socket) => {
+    observeEcosystemSocket(socket);
     const userId = (socket.data as { userId?: string }).userId;
     if (!userId) {
       // authSocket() guarantees userId, but fail closed if it is ever missing.

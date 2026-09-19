@@ -71,7 +71,7 @@ defensible line at a time.
 One thing the rewrite fixed silently and is worth stating: the names compared
 are now SQL identifiers (`sqlColumnName`), where the old pattern was matching
 `ip_address`, `user_agent` and `order_note` against strings that read
-`ipAddress`, `userAgent` and `orderNote`. `@oxyhq/db` owns the casing authority
+`ipAddress`, `userAgent` and `orderNote`. `@oxy.so/db` owns the casing authority
 and drizzle converts at query time, so `column.name` is the TypeScript property
 name — three of the eighteen tokens could never have fired, and the self-test
 could not show it because it fed the pattern snake_case literals the scan never

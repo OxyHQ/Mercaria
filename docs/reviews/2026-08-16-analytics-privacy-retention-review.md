@@ -69,9 +69,9 @@ name: measuring the retirement clock from closure rather than from opening is
    **`opened_at + 45 days`**.
 2. `db/expiryTargets.ts:551` (pre-fix) set
    `retentionSeconds: ANALYTICS_SALT_RETENTION_SECONDS`, i.e. **45 days again**.
-3. `@oxyhq/db`'s sweep predicate is
+3. `@oxy.so/db`'s sweep predicate is
    `column <= now() - make_interval(secs => retentionSeconds)`
-   (`node_modules/@oxyhq/db/dist/esm/expiry.js:90`).
+   (`node_modules/@oxy.so/db/dist/esm/expiry.js:90`).
 
 So the delete fires when `opened_at + 45d <= now - 45d` — **`opened_at + 90
 days`**. That is exactly the shape `identity.ts` says it is avoiding, arriving

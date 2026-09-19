@@ -19,7 +19,7 @@
  * why the commerce half of the taxonomy needed a marketplace to exercise it.
  */
 
-import type { TaxonomyCode } from '@oxyhq/crowdsource-contracts';
+import type { TaxonomyCode } from '@oxy.so/crowdsource-contracts';
 import type { AbuseReportCategory } from '@mercaria/shared-types';
 
 /**

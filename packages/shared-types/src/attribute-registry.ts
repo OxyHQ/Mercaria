@@ -493,6 +493,23 @@ export const NORMALIZATION_RULE_VERSION = 'nr-2';
 
 /** One permitted value of an `enum` attribute, with its display label. */
 export interface AttributeEnumValue {
+  /**
+   * The row's own id.
+   *
+   * Published so {@link replacesEnumValueId} can be FOLLOWED — a pointer no
+   * consumer of this shape could resolve would be a mechanism with no caller.
+   */
+  id: string;
+  /**
+   * The value of a PREVIOUS version that this one replaces (#367 line 280).
+   *
+   * Points BACKWARD — the successor names its predecessor — because a retired
+   * value's row belongs to a published version and can never be written again.
+   * ONE HOP: if the value it replaces itself replaced something, this still
+   * names only what an operator chose, and a consumer wanting the terminal
+   * value walks the chain and bounds the walk.
+   */
+  replacesEnumValueId?: string;
   /** The canonical, normalized value stored and compared. */
   value: string;
   /** What a shopper reads. Changing it never moves a stored value. */
@@ -585,6 +602,17 @@ export interface AttributeDefinition {
   filterable: boolean;
   sortable: boolean;
   comparable: boolean;
+  /**
+   * Whether a shopper's own WORDS may resolve to this attribute.
+   *
+   * Not the same question as `filterable`, which is whether the rail offers it
+   * as a facet to pick from. A `searchable: false` attribute contributes no term
+   * to natural-language interpretation and no entry to what a model may name,
+   * so its label and its controlled-value spellings are never matched in free
+   * text — which is what keeps an `operator_only` attribute's label out of the
+   * explanation an interpretation shows the shopper.
+   */
+  searchable: boolean;
   /** Whether a shopper's requirement on this attribute may EXCLUDE a product. */
   hardConstraintCapable: boolean;
   displayPolicy: AttributeDisplayPolicy;

@@ -33,7 +33,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
-import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
+import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 
 /**
  * `recomputeAggregate` lives in `review.service`, whose module graph reaches the

@@ -69,6 +69,27 @@ import { decryptFeedCredential, encryptFeedCredential } from './auth.js';
 export interface CreateFeedConfigurationInput {
   /** `null` for an operator-managed feed; a store id for a merchant-managed one. */
   storeId: string | null;
+  /**
+   * The KIND of catalog source this feed's rows arrive through — the
+   * commercial relationship, not the transport.
+   *
+   * `feed` (the default, and the only value a merchant's own feed may take) is
+   * a store's catalogue arriving by file. `affiliate_network` is a shop
+   * Mercaria contracted with, whose offers link out and earn a commission.
+   *
+   * It is settable only here, at CREATION, because `ensureCatalogSource` is
+   * `onConflictDoNothing` on the source's name — it never updates an existing
+   * row's kind, so a source created `feed` stays `feed` forever and no later
+   * call could correct it.
+   *
+   * The kind is not cosmetic. `offerKindFor` grants the `affiliate` offer kind
+   * only where it is `affiliate_network`, and
+   * `commercial-presentation/presentation.ts` derives
+   * `affiliateDisclosureRequired` from that offer kind. So a feed that earns a
+   * commission while its source says `feed` would show a shopper NO affiliate
+   * disclosure, which is the one thing a disclosure rule exists to prevent.
+   */
+  sourceKind?: 'feed' | 'affiliate_network';
   /** The `catalog_sources` name. Unique across the registry. */
   sourceName: string;
   label: string;
@@ -95,7 +116,7 @@ export async function createFeedConfiguration(
 
   const source = await configureIngestionSource({
     name: input.sourceName,
-    kind: 'feed',
+    kind: input.sourceKind ?? 'feed',
     provider: PRODUCT_FEED_PROVIDER,
     ...(input.merchantId === undefined ? {} : { merchantId: input.merchantId }),
     ...(input.territories === undefined ? {} : { territories: input.territories }),

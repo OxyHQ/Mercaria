@@ -3,7 +3,7 @@ import { Switch, Text } from "@mercaria/ui";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Bell, BellOff, CheckCheck, Zap, Clock, Eye, AlertTriangle, MessageSquare, X } from "lucide-react-native";
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@oxyhq/services";
+import { useAuth } from "@oxy.so/services";
 import * as ExpoNotifications from "expo-notifications";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 

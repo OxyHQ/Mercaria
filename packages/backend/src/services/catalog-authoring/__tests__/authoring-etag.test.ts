@@ -66,6 +66,26 @@ describe('the authoring ETag is deterministic', () => {
     );
   });
 
+  it('a moved matrix ceiling changes the tag (#367 line 405)', () => {
+    // `matrix.maxVariants` is composed from `MAX_VARIANTS_PER_PRODUCT`, so a
+    // deployment that changes it must invalidate every cached schema rather
+    // than serve the old ceiling until eviction. That holds because the hash is
+    // over the WHOLE body — which is exactly why it is worth an assertion: it
+    // would stop holding the day somebody hashed a hand-listed subset of
+    // fields, and nothing else would notice.
+    const withMatrix = { ...BODY, matrix: { maxAxes: 16, maxValuesPerAxis: 64, maxVariants: 100 } };
+    const moved = { ...withMatrix, matrix: { ...withMatrix.matrix, maxVariants: 101 } };
+    expect(authoringEtag(KEY, moved)).not.toBe(authoringEtag(KEY, withMatrix));
+    // …and the two constants too, each on its own, so a subset that happened to
+    // include `maxVariants` and drop the others still fails.
+    expect(
+      authoringEtag(KEY, { ...withMatrix, matrix: { ...withMatrix.matrix, maxAxes: 15 } }),
+    ).not.toBe(authoringEtag(KEY, withMatrix));
+    expect(
+      authoringEtag(KEY, { ...withMatrix, matrix: { ...withMatrix.matrix, maxValuesPerAxis: 63 } }),
+    ).not.toBe(authoringEtag(KEY, withMatrix));
+  });
+
   it('the tag is quoted, as RFC 9110 requires of a strong validator', () => {
     const tag = authoringEtag(KEY, BODY);
     expect(tag.startsWith('"')).toBe(true);

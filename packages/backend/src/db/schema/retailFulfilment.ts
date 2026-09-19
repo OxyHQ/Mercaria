@@ -94,7 +94,7 @@
 
 import { sql } from 'drizzle-orm';
 import { check, index, integer, pgTable, text, uniqueIndex, type AnyPgColumn } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   RETAIL_DELIVERY_OBSERVATION_OUTCOMES,
   RETAIL_DELIVERY_PROMISE_BASES,

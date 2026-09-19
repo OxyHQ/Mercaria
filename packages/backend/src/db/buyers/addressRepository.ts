@@ -35,7 +35,7 @@
 
 import { and, desc, eq } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { addresses } from '../schema/buyers.js';
 

@@ -14,7 +14,7 @@
  */
 
 import { and, count, desc, eq, gte, isNull, sql } from 'drizzle-orm';
-import type { SelectedRow } from '@oxyhq/db';
+import type { SelectedRow } from '@oxy.so/db';
 import type {
   CurrencyCode,
   ReferralPilotCohortStatus,

@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import type { Seller } from "@mercaria/shared-types";
 import { ReviewStars, Text, useFormatters } from "@mercaria/ui";
 import { SellerFollowButton } from "@/components/seller/SellerFollowButton";

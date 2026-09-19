@@ -37,6 +37,11 @@ import type {
   CurationSubjectType,
 } from '@mercaria/shared-types';
 import { CURATION_DISMISSAL_RESOLUTIONS } from '@mercaria/shared-types';
+import {
+  findMergedSubjects,
+  subjectRedirectKey,
+  type CurationSubjectRedirect,
+} from './subject-redirect.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
@@ -476,8 +481,54 @@ export async function raiseReviewItem(input: {
   return item;
 }
 
-export async function listQueue(filter: ReviewQueueFilter): Promise<readonly CatalogReviewItemRow[]> {
-  return listReviewItems(filter, getDb());
+/**
+ * One queue item, with what its two subjects have BECOME (#893).
+ *
+ * The row is spread verbatim and the two annotations are added beside it, rather
+ * than the row being replaced by a wrapper: every existing reader keeps working,
+ * and a reader that has not learned about tombstones is unchanged rather than
+ * broken. `null` is the ordinary case — a live subject — and is DISTINCT from
+ * the field being absent, which would mean nobody looked.
+ */
+export type CatalogReviewItemWithRedirects = CatalogReviewItemRow & {
+  readonly subjectRedirect: CurationSubjectRedirect | null;
+  readonly counterpartRedirect: CurationSubjectRedirect | null;
+};
+
+/**
+ * Annotate a page of items with the tombstone state of both their subjects.
+ *
+ * ONE pass over the page collecting every `(type, id)`, then one statement per
+ * distinct mergeable type — never a lookup per item. See `subject-redirect.ts`
+ * for why an item is annotated rather than repointed.
+ */
+export async function annotateSubjectRedirects(
+  items: readonly CatalogReviewItemRow[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<readonly CatalogReviewItemWithRedirects[]> {
+  const subjects: { type: CurationSubjectType; id: string }[] = [];
+  for (const item of items) {
+    subjects.push({ type: item.subjectType, id: item.subjectId });
+    if (item.counterpartType && item.counterpartId) {
+      subjects.push({ type: item.counterpartType, id: item.counterpartId });
+    }
+  }
+  const merged = await findMergedSubjects(subjects, db);
+  return items.map((item) => ({
+    ...item,
+    subjectRedirect: merged.get(subjectRedirectKey(item.subjectType, item.subjectId)) ?? null,
+    counterpartRedirect:
+      item.counterpartType && item.counterpartId
+        ? (merged.get(subjectRedirectKey(item.counterpartType, item.counterpartId)) ?? null)
+        : null,
+  }));
+}
+
+export async function listQueue(
+  filter: ReviewQueueFilter,
+): Promise<readonly CatalogReviewItemWithRedirects[]> {
+  const db = getDb();
+  return annotateSubjectRedirects(await listReviewItems(filter, db), db);
 }
 
 export async function queueSummary(): ReturnType<typeof summarizeReviewQueue> {
@@ -555,10 +606,17 @@ export async function resolveItem(input: ResolveReviewItemInput): Promise<Catalo
   return closed;
 }
 
-/** One item plus everything a reviewer needs to decide it. */
+/**
+ * One item plus everything a reviewer needs to decide it.
+ *
+ * `item` and `priorItems` are BOTH annotated, and the second matters as much as
+ * the first: "every other item ever raised about this row" is exactly the list
+ * that goes stale after a merge, and an operator reading it without the
+ * annotation cannot tell which of those subjects still exists (#893).
+ */
 export async function getItemWithContext(id: string): Promise<{
-  readonly item: CatalogReviewItemRow;
-  readonly priorItems: readonly CatalogReviewItemRow[];
+  readonly item: CatalogReviewItemWithRedirects;
+  readonly priorItems: readonly CatalogReviewItemWithRedirects[];
 }> {
   const db = getDb();
   const item = await findReviewItemById(id, db);
@@ -575,7 +633,12 @@ export async function getItemWithContext(id: string): Promise<{
     )
     .orderBy(desc(catalogReviewItems.createdAt))
     .limit(20);
-  return { item, priorItems };
+  // ONE annotation pass over the item and its context together, so the two
+  // cannot disagree about whether a subject they share is a tombstone.
+  const annotated = await annotateSubjectRedirects([item, ...priorItems], db);
+  const [annotatedItem, ...annotatedPrior] = annotated;
+  if (!annotatedItem) throw notFound(`No review item ${id}.`);
+  return { item: annotatedItem, priorItems: annotatedPrior };
 }
 
 /** Every open item about one subject — the "is this already being worked on" read. */

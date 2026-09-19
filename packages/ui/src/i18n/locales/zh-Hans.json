@@ -876,6 +876,104 @@
     "variantSwatches": {
       "showMoreA11y": "查看更多 %{option} 选项（%{more}）",
       "showMore": "+%{more} 个"
+    },
+    "assetViewer": {
+      "previewA11y": "%{title} 的预览",
+      "noPreview": "这件作品没有公开预览。",
+      "staticOnly": "正在显示静态图。此处无法使用可交互查看器。",
+      "staticOnSmallScreen": "正在显示静态图。可交互查看器需要更宽的屏幕。",
+      "neverTheSourceFile": "预览是生成的副本。你购买的文件绝不会用来渲染它。",
+      "streamedOnly": "该预览仅以流式播放供观看，绝不会作为文件交付。",
+      "controls": "预览控件",
+      "gestures": "拖动可旋转，滚动或双指捏合可缩放，双指拖动可平移。",
+      "reset": "重置视角",
+      "fullscreenOpen": "全屏打开预览",
+      "fullscreenClose": "退出全屏",
+      "wireframe": "线框",
+      "statistics": "渲染统计",
+      "animation": "动画",
+      "animationOff": "无",
+      "refused": {
+        "role_is_not_publicly_viewable": "该文件属于购买内容，因此不会出现在公开预览中。",
+        "visibility_requires_a_right": "该文件仅向购买者提供，因此不会出现在公开预览中。"
+      }
+    },
+    "assetFacts": {
+      "measuredTitle": "由 Mercaria 测量",
+      "measuredNote": "Mercaria 依据已发布的文件测得这些数据。",
+      "measuredBy": "使用 %{processor} %{version} 于 %{date} 测量",
+      "measuredBadge": "测量值",
+      "claimedTitle": "卖家的描述",
+      "claimedNote": "这些内容由卖家填写，Mercaria 未作测量。",
+      "claimedBadge": "卖家描述",
+      "notMeasured": "未测量",
+      "verdict": {
+        "pending": "测量尚未完成。",
+        "measured": "这些数值依据文件测得。",
+        "unsupported": "该格式无法自动测量。",
+        "corrupt": "无法读取该文件。",
+        "missing_resources": "文件引用了未随附的资源。",
+        "failed": "测量没有完成。",
+        "refused_too_large": "文件过大，无法测量。"
+      }
+    },
+    "assetLicence": {
+      "title": "许可",
+      "grantedTitle": "你可以做什么",
+      "notGrantedTitle": "此许可不包含的内容",
+      "attributionTitle": "署名",
+      "updatesTitle": "更新",
+      "limitsTitle": "限额",
+      "additionalTermsTitle": "卖家自订的条款",
+      "seats": "最多 %{seats} 人可以使用",
+      "seatsUnlimited": "使用人数不受限制",
+      "projects": "最多 %{projects} 件成品",
+      "projectsUnlimited": "成品数量不受限制",
+      "revenue": "收入上限 %{amount}",
+      "revenueUnlimited": "收入没有上限",
+      "right": {
+        "personal_use": "用于你自己的个人项目",
+        "commercial_project_use": "用于商业项目",
+        "commercial_physical_production": "制作并销售实物",
+        "modification": "进行修改",
+        "derivative_redistribution": "在成品作品中分发修改后的版本",
+        "source_redistribution": "按交付原样分发文件本身",
+        "sublicensing": "将许可转交给客户",
+        "extended_enterprise_use": "超出人数与收入限额使用"
+      },
+      "attribution": {
+        "required": "你必须署名创作者。",
+        "optional": "欢迎署名，但并非必须。",
+        "not_required": "无需署名。"
+      },
+      "updatePolicy": {
+        "purchased_version_only": "你保留所购买的版本。之后的版本需要重新购买。",
+        "same_major_version": "包含与所购版本主版本号相同的后续版本。",
+        "all_future_versions": "包含未来的所有版本。"
+      },
+      "authorship": {
+        "mercaria_reference": "Mercaria 的标准许可文本",
+        "creator": "创作者自订的许可文本"
+      }
+    },
+    "assetLibrary": {
+      "filesTitle": "文件",
+      "downloadAction": "下载",
+      "downloadA11y": "下载 %{file}",
+      "notDownloadable": "仅供查看 — 不作为文件交付",
+      "downloadsPaused": "下载已暂停。此笔购买的状态：%{status}。",
+      "grantedOn": "加入时间：%{date}",
+      "licence": "许可：%{licence}",
+      "purchasedVersion": "你购买的是 %{version}",
+      "availableVersion": "可下载的最新版本：%{version}",
+      "updateAvailable": "有可用更新",
+      "status": {
+        "active": "有效",
+        "refunded": "已退款",
+        "disputed_hold": "争议期间暂停",
+        "revoked_for_policy": "因法律原因撤回",
+        "superseded": "已被后来的购买取代"
+      }
     }
   }
 }

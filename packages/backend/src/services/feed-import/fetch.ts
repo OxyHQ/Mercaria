@@ -3,7 +3,7 @@
  *
  * ## `safeFetch` is the WHOLE SSRF defence, and nothing here is hand-rolled
  *
- * `@oxyhq/core/server`'s `safeFetch` resolves the host, refuses every
+ * `@oxy.so/core/server`'s `safeFetch` resolves the host, refuses every
  * private/link-local/metadata range, PINS the TCP connection to the validated
  * address (so there is no DNS-rebind window between the check and the connect)
  * and re-validates every redirect hop, destroying redirect bodies rather than
@@ -38,7 +38,7 @@
  */
 
 import type { IncomingHttpHeaders } from 'node:http';
-import { safeFetch, SsrfRejection, UpstreamError } from '@oxyhq/core/server';
+import { safeFetch, SsrfRejection, UpstreamError } from '@oxy.so/core/server';
 import { FeedImportRefusal } from './errors.js';
 import { authorizeFeedRequest, type FeedAuthorization } from './auth.js';
 

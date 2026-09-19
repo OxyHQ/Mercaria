@@ -20,7 +20,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
-import { constraintNameOf, uuidv7 } from '@oxyhq/db';
+import { constraintNameOf, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { merchants, nativeStoreLinks } from '../schema/merchants.js';
 import { stores } from '../schema/stores.js';

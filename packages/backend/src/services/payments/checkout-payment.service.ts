@@ -54,6 +54,7 @@ import { log } from '../../lib/logger.js';
 import { findGuestCheckoutIdForGroup } from './guest-correlation.js';
 import { ensurePayment } from './payment.service.js';
 import { isResumableProvider } from './provider.js';
+import { nativeRailPresentmentCurrencies, resolveNativeRail } from './native-rail.js';
 import { resolvePaymentProvider } from './registry.js';
 
 /**
@@ -63,7 +64,7 @@ import { resolvePaymentProvider } from './registry.js';
  * places orders exactly as it did before any of this existed, and the dev
  * `mock` seam funds a group from its own endpoint rather than at checkout.
  */
-export type CheckoutRail = 'stripe' | 'none';
+export type CheckoutRail = 'card' | 'none';
 
 /**
  * Decide the rail, or refuse.
@@ -83,11 +84,11 @@ export type CheckoutRail = 'stripe' | 'none';
  * the deployment simply cannot serve it.
  */
 export function resolveCheckoutRail(requested: CheckoutPaymentMethod | undefined): CheckoutRail {
-  if (requested === 'stripe') {
-    if (!config.payments.stripe.enabled) {
+  if (requested === 'card' || requested === 'stripe') {
+    if (!resolveNativeRail()) {
       throw conflict('Card payments are not available on this deployment.');
     }
-    return 'stripe';
+    return 'card';
   }
   if (requested === 'mock') {
     if (!config.orders.mockPayEnabled) {
@@ -101,7 +102,7 @@ export function resolveCheckoutRail(requested: CheckoutPaymentMethod | undefined
     // this checkout behaves exactly like one on a deployment with no rail.
     return 'none';
   }
-  return config.payments.stripe.enabled ? 'stripe' : 'none';
+  return resolveNativeRail() ? 'card' : 'none';
 }
 
 /**
@@ -118,8 +119,13 @@ export function resolveCheckoutRail(requested: CheckoutPaymentMethod | undefined
  * conversion, so a local copy of that rule would be a second, drifting one.
  */
 export function assertCheckoutCurrencyEligible(rail: CheckoutRail, currency: CurrencyCode): void {
-  if (rail !== 'stripe') return;
-  const eligible = config.payments.stripe.presentmentCurrencies;
+  if (rail !== 'card') return;
+  const eligible = nativeRailPresentmentCurrencies();
+  // An empty set means the deployment configured its rail's currencies away
+  // entirely, and refusing every card checkout is the correct reading of that —
+  // NOT the vacuous pass an `if (eligible.length === 0) return;` would give. The
+  // message below names the empty set, which is the operator's own doing and
+  // the only remedy anyone can act on.
   if (eligible.includes(currency)) return;
 
   throw conflict(
@@ -173,13 +179,18 @@ export async function openCheckoutPayment(input: {
    */
   orders: readonly OrderRecord[];
 }): Promise<CheckoutPaymentHandoff | undefined> {
-  if (input.rail !== 'stripe') return undefined;
+  if (input.rail !== 'card') return undefined;
 
   const amount = groupPresentmentTotal(input.orders);
   const orderIds = input.orders.map((order) => order.id);
 
-  const provider = resolvePaymentProvider('stripe');
-  if (!provider) {
+  // Resolved ONCE and reused for the adapter, the payment row and the handoff.
+  // Three separate resolutions could disagree if configuration changed between
+  // them, and the row would then name a rail the charge was not opened on —
+  // which is the correlation every webhook afterwards depends on.
+  const rail = resolveNativeRail();
+  const provider = rail ? resolvePaymentProvider(rail) : undefined;
+  if (!rail || !provider) {
     // `resolveCheckoutRail` already refused this case. Reaching here means the
     // configuration changed mid-request, which is worth a loud failure rather
     // than a silent order with no payment.
@@ -187,7 +198,7 @@ export async function openCheckoutPayment(input: {
   }
 
   const payment = await ensurePayment({
-    provider: 'stripe',
+    provider: rail,
     checkoutGroupId: input.checkoutGroupId,
     presentment: amount,
     ...(input.buyerOxyUserId !== undefined ? { buyerOxyUserId: input.buyerOxyUserId } : {}),
@@ -231,13 +242,19 @@ export async function openCheckoutPayment(input: {
     throw conflict('The payment rail did not return client material for this checkout.');
   }
 
-  const stripe = config.payments.stripe;
+  // A PUBLISHABLE key is a Stripe fact, so it is sent only when Stripe is the
+  // rail. Peable's `publicKey` is Mercaria's own ApplicationCredential and is
+  // never sent to anyone — putting it here would ship a server credential to
+  // every buyer's browser. Absent means "use the key the app was built with",
+  // which is the correct instruction on a rail that has no server-side key to
+  // reconcile against.
+  const publishableKey = rail === 'stripe' ? config.payments.stripe.publishableKey : '';
   const returnUrl = checkoutReturnUrl(input.checkoutGroupId);
   return {
     paymentId: payment.id,
-    provider: 'stripe',
+    provider: rail,
     clientSecret: result.clientAction.value,
-    ...(stripe.publishableKey ? { publishableKey: stripe.publishableKey } : {}),
+    ...(publishableKey ? { publishableKey } : {}),
     amount,
     methods: checkoutPaymentSurfaces(),
     ...(returnUrl !== undefined ? { returnUrl } : {}),
@@ -263,6 +280,19 @@ export async function openCheckoutPayment(input: {
  * offered a smaller set of ways to pay than an account holder would be exactly
  * the second-class checkout ADR 0003 refuses. It takes no arguments at all,
  * which is the version of that promise a reviewer can check.
+ *
+ * ## `STRIPE_PAYMENT_SURFACE_METHODS` is MISNAMED, and read on every rail
+ *
+ * Which wallets a client may render is a checkout fact, not an acquirer fact:
+ * the same list is correct whether the deployment charges through Stripe or
+ * through Peable, and an operator switching Apple Pay off mid-incident means it
+ * off, full stop. So this deliberately does NOT gate on the resolved rail —
+ * doing so would leave a Peable deployment with no configured surfaces at all.
+ *
+ * The variable keeps its name because renaming it is a task-definition change
+ * in `oxy-infra`, which this repository cannot make or verify. Stated here
+ * rather than left to be rediscovered, and pinned by
+ * `checkout-rail.test.ts` so nobody "fixes" it into a Stripe-only read.
  */
 export function checkoutPaymentSurfaces(): readonly CheckoutPaymentSurfaceMethod[] {
   return config.payments.stripe.paymentSurfaceMethods;
@@ -286,6 +316,10 @@ export function checkoutPaymentSurfaces(): readonly CheckoutPaymentSurfaceMethod
  * instead be handed to Stripe and fail inside their sheet.
  */
 export function checkoutReturnUrl(checkoutGroupId: string): string | undefined {
+  // `STRIPE_CHECKOUT_RETURN_URL` is misnamed for the same reason
+  // `checkoutPaymentSurfaces` is, and read on every rail for the same reason:
+  // where a buyer lands after authentication is Mercaria's own origin, and no
+  // acquirer has an opinion about it.
   const configured = config.payments.stripe.checkoutReturnUrl;
   if (configured === undefined) return undefined;
   try {

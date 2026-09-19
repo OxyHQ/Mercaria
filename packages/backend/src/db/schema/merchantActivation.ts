@@ -36,7 +36,7 @@
 
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   MERCHANT_ACTIVATION_ACTOR_KINDS,
   MERCHANT_ACTIVATION_CAUSES,

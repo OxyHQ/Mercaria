@@ -39,8 +39,10 @@
  */
 
 import {
+  AUTHORING_VALIDATION_CODES,
   CATALOG_METRICS,
   CATALOG_METRIC_KEYS,
+  LOCALIZATION_FALLBACK_STEPS,
   type CatalogLatencySample,
   type CatalogMetricBucket,
   type CatalogMetricDefinition,
@@ -51,6 +53,9 @@ import {
   SUPPORTED_LOCALES,
 } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
+import { readVariantAxisShadowCounters } from '../variant-axes/projection.js';
+import { readAuthoringPublicationCounters } from '../catalog-authoring/publication-observation.js';
+import { readLocalizationReadCounters } from '../catalog-localization/read-observation.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { summarizeMatchQueue } from '../../db/matching/matchQueueRepository.js';
 import { readCatalogQuality } from '../catalog-governance/quality.service.js';
@@ -71,6 +76,7 @@ import {
   countPendingReindexRequests,
   tallyAttributeLocalizedLabels,
   tallyBackfillRetries,
+  backfillCauseCountsAgree,
   tallyBackfillRuns,
   tallyDraftOutcomes,
   tallyExternalMappingCoverage,
@@ -648,12 +654,83 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
     return latency(definition, readRouteObservation('POST', '/facets')?.latency);
   },
 
+  /**
+   * A facet request this process ANSWERED 5xx — the live half of W17's
+   * "invalid facet generation".
+   *
+   * Mirrors `authoring_schema_error_rate` exactly, on the other observed route
+   * that has a producer. The data was already being collected: `POST /facets`
+   * is one of the four `CATALOG_LATENCY_BUDGETS` routes, so the middleware has
+   * always recorded `requests`, `serverErrors` and `clientErrors` for it, and
+   * only `latency` was ever read.
+   *
+   * `mounted.facets` first, for `facet_generation_latency`'s reason: with
+   * `FACETS_ENABLED` off the route is not mounted, and a `0 / 0` there would say
+   * "this task served no failing facet requests" about a surface that cannot be
+   * requested at all.
+   */
+  /**
+   * The two unconditionally-mounted observed routes, which had NO metric at all
+   * (#913).
+   *
+   * Four routes carry a latency budget and are therefore observed for
+   * `requests`, `serverErrors`, `clientErrors`, `notModified` and `latency`.
+   * Before this, two of them were read by a metric and two were read only by
+   * the latency BUDGET report — so a 5xx on `/categories` or `/search` reached
+   * no surface at all.
+   *
+   * No `mounted` guard on either, and that is not an omission: `MountedSurfaces`
+   * carries the two FLAG-GATED surfaces, and neither of these has a lever that
+   * can withdraw the route. `/search`'s lever decides what it ANSWERS, which is
+   * a different thing and is why its own attribution limit says so.
+   *
+   * Latency for both is deliberately NOT published as a metric — the budget
+   * report at `GET /internal/catalog-metrics/latency` already walks every entry
+   * in `CATALOG_LATENCY_BUDGETS` and is served, so a metric would be a second
+   * representation of a fact that already has a reader.
+   */
+  taxonomy_read_error_rate: async (definition) => {
+    const observed = readRouteObservation('GET', '/categories');
+    return ratio(definition, observed?.serverErrors ?? 0, observed?.requests ?? 0);
+  },
+
+  search_read_error_rate: async (definition) => {
+    const observed = readRouteObservation('GET', '/search');
+    return ratio(definition, observed?.serverErrors ?? 0, observed?.requests ?? 0);
+  },
+
+  facet_generation_error_rate: async (definition, { mounted }) => {
+    if (!mounted.facets) return notMounted(definition, 'FACETS_ENABLED');
+    const observed = readRouteObservation('POST', '/facets');
+    return ratio(definition, observed?.serverErrors ?? 0, observed?.requests ?? 0);
+  },
+
   facet_scope_empty_rate: async (definition, { shared }) => {
     if (!shared.facetScopes) return unavailable(definition);
     // `sampled` is the denominator and `population` is not: a scope whose
     // generation raised has no verdict and is excluded from both halves, which
     // is why the sweep reports the two numbers separately.
     return ratio(definition, shared.facetScopes.empty, shared.facetScopes.sampled);
+  },
+
+  /**
+   * A scope whose facet generation RAISED — the batch half of the same item.
+   *
+   * The sweep has always counted this (`failed`) and sampled the offending
+   * category ids (`failedSample`); nothing read either, so the module's own
+   * comment — it logs at `warn` rather than `error` because "the count is the
+   * aggregate signal" — described a signal that reached nobody. This publishes
+   * the count.
+   *
+   * The denominator is `drawn`, NOT `sampled`. `facet_scope_empty_rate`
+   * deliberately excludes these scopes from its denominator because they have
+   * no empty-or-populated verdict, so the two metrics partition `drawn` between
+   * them and neither dilutes the other. `drawn === sampled + failed` is the
+   * sweep's own stated identity.
+   */
+  facet_scope_generation_failure_rate: async (definition, { shared }) => {
+    if (!shared.facetScopes) return unavailable(definition);
+    return ratio(definition, shared.facetScopes.failed, shared.facetScopes.drawn);
   },
 
   /* ---- External mappings ------------------------------------------------- */
@@ -702,8 +779,117 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
     return count(definition, shared.backfillRuns.failed);
   },
 
+  /**
+   * Runs the system gave up on BY ITSELF — the exhaustion subset of `failed`.
+   *
+   * Reads the stored `terminal_cause` rather than deriving from
+   * `consecutive_failures`, because `failed` has two producers and the count
+   * this answers must exclude the one that is a person's decision. The whole
+   * `failed` population is reported as buckets beside the number, so what the
+   * numerator LEAVES OUT is visible rather than inferred — and `cause_missing`
+   * in particular, which must be zero once the `0147` biconditional is in force
+   * and is the only thing that tells a genuine zero apart from a count taken
+   * while the rollout was mid-flight.
+   *
+   * `backfillCauseCountsAgree` is a conserved total, not a floor: the four
+   * buckets are disjoint and exhaustive over `failed` by construction, so a
+   * mismatch means the cause vocabulary and this query have diverged and the
+   * reading is refused rather than published short. Refusing is right because
+   * the failure mode it catches is a dead-letter count that is quietly LOW,
+   * which no threshold on the number itself could ever notice.
+   */
+  backfill_dead_letter_count: async (definition, { shared }) => {
+    const tally = shared.backfillRuns;
+    if (!tally) return unavailable(definition);
+    if (!backfillCauseCountsAgree(tally)) return unavailable(definition);
+    // Each bucket is ONE cause: its denominator is that cause's share of the
+    // `failed` population and its numerator is how much of the dead-letter
+    // count came from it — which is all of it for `retry_exhausted` and none of
+    // it for the other three. So the buckets partition the numerator AND the
+    // denominator, which is the shape every other breakdown here has, and the
+    // three zero-numerator buckets are carrying their DENOMINATORS: that is
+    // where `cause_missing` becomes visible.
+    return ratio(definition, tally.retryExhausted, tally.failed, [
+      {
+        key: 'retry_exhausted',
+        numerator: tally.retryExhausted,
+        denominator: tally.retryExhausted,
+      },
+      { key: 'operator_cancelled', numerator: 0, denominator: tally.operatorCancelled },
+      { key: 'unrecorded', numerator: 0, denominator: tally.unrecorded },
+      { key: 'cause_missing', numerator: 0, denominator: tally.causeMissing },
+    ]);
+  },
+
   reindex_pending_count: async (definition, { db }) =>
     count(definition, await countPendingReindexRequests(db)),
+
+  /* ---- Typed variant axes on the catalogue read (#367 line 324) ----------- */
+  //
+  // Both read the SAME process-local counters, and neither checks the lever: a
+  // zero denominator already says it is off, and `ratio` keeps a zero
+  // denominator in the MEASURED branch (its own docblock's `0 / 0` rule). A
+  // `notMounted` branch here would report "we did not look" for a deployment
+  // that simply has not turned shadow on, which is a different sentence.
+  variant_axis_typed_coverage: async (definition) => {
+    const counters = readVariantAxisShadowCounters();
+    return ratio(definition, counters.listings - counters.typedAbsent, counters.listings);
+  },
+
+  /* ---- Publication attempts (#367 W17 line 768) -------------------------- */
+  //
+  // Both read the SAME process-local counters and neither checks a flag: a zero
+  // denominator already says this task has published nothing, and `ratio` keeps
+  // a zero denominator in the MEASURED branch. The two are separate metrics
+  // rather than one with a breakdown because a refusal carries any number of
+  // findings, so a CODE partitions findings exactly and attempts not at all —
+  // see `publication-observation.ts`.
+  draft_validation_failure_rate: async (definition) => {
+    const counters = readAuthoringPublicationCounters();
+    return ratio(definition, counters.refused, counters.attempts);
+  },
+
+  draft_validation_failure_code_share: async (definition) => {
+    const counters = readAuthoringPublicationCounters();
+    const by: CatalogMetricBucket[] = [];
+    // One bucket per code that OCCURRED, not one per member of the tuple: thirty
+    // zero buckets would bury the two that are biting. The order is the tuple's,
+    // so two readings of the same counters render identically.
+    for (const code of AUTHORING_VALIDATION_CODES) {
+      const found = counters.findingsByCode[code] ?? 0;
+      if (found === 0) continue;
+      by.push(bucket(code, found, counters.findings));
+    }
+    return ratio(definition, counters.findings, counters.findings, by);
+  },
+
+  /* ---- Localized reads (#367 W17 line 771) ------------------------------- */
+  translation_fallback_use_rate: async (definition) => {
+    const counters = readLocalizationReadCounters();
+    const fallback = LOCALIZATION_FALLBACK_STEPS.filter((step) => step !== 'exact').reduce(
+      (total, step) => total + counters.byStep[step],
+      0,
+    );
+    const by: CatalogMetricBucket[] = LOCALIZATION_FALLBACK_STEPS.map((step) =>
+      // `exact` contributes a numerator of ZERO and its full denominator: it is
+      // part of the population and is not a fallback. Dropping it would make the
+      // buckets sum to less than the reading, which the bucket identity refuses.
+      bucket(step, step === 'exact' ? 0 : counters.byStep[step], counters.byStep[step]),
+    );
+    // …and the fourth outcome, which is not a step at all. A field the chain
+    // could not answer is in the denominator and in no fallback bucket, or the
+    // rate would rise when text is MISSING rather than merely untranslated.
+    by.push(bucket('unavailable', 0, counters.unavailable));
+    return ratio(definition, fallback, counters.resolutions, by);
+  },
+
+  variant_axis_shadow_divergence: async (definition) => {
+    const counters = readVariantAxisShadowCounters();
+    // `agreed + diverged` — the listings where both representations carried
+    // something. Using `listings` would make the rate track the migration
+    // backlog rather than the drift, and it would FALL as coverage rose.
+    return ratio(definition, counters.diverged, counters.agreed + counters.diverged);
+  },
 };
 
 /**

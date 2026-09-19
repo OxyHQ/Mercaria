@@ -89,6 +89,7 @@ import {
   grantIsStillLive,
   revokeGroupGrants,
 } from '../../db/guestPortal/grantRepository.js';
+import { carryRightsToClaimant } from '../digital/right.service.js';
 import { findGuestCheckoutByGroupForUpdate } from '../../db/guests/guestCheckoutRepository.js';
 import {
   findActiveClaimForGroup,
@@ -395,6 +396,19 @@ async function runClaim(
       },
       tx,
     );
+  }
+
+  // (7.5) Carry any DIGITAL rights over to the claiming account (#1015 W9
+  // requirement 9, ADR 0010 D9.5). A guest's right is keyed on their session, and
+  // a session expires; a claim is the moment that access can be made durable.
+  //
+  // Inside the claim's own transaction, so a rolled-back claim cannot leave a
+  // buyer holding two rights to one deliverable. NOT best-effort, for the same
+  // reason the stamp above is not: a claim that moved the orders and not the
+  // downloads is a half-claim, and step 8 is about to revoke the emailed access
+  // the guest right depended on.
+  for (const order of orders) {
+    await carryRightsToClaimant(order.id, input.oxyUserId, tx);
   }
 
   // (8) Revoke the group's outstanding portal credentials, INCLUDING the one

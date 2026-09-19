@@ -72,13 +72,15 @@ export function MerchantCard({
       style={{ height: CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: merchant.brandColor }}
     >
       {/* Layer 1 — cover image, bleeds the whole card (the visual anchor). */}
-      <Image
-        source={{ uri: merchant.coverImageUrl }}
-        contentFit="cover"
-        pointerEvents="none"
-        className="web:transition-transform web:duration-300 web:group-hover:scale-105"
-        style={StyleSheet.absoluteFill}
-      />
+      {merchant.coverImageUrl ? (
+        <Image
+          source={{ uri: merchant.coverImageUrl }}
+          contentFit="cover"
+          pointerEvents="none"
+          className="web:transition-transform web:duration-300 web:group-hover:scale-105"
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
 
       {/* Layer 2 — fixed dark tint (~20%). */}
       <View
@@ -152,14 +154,16 @@ export function MerchantCard({
               accessibilityRole="link"
               accessibilityLabel={thumb.title}
               onPress={() => onPressProduct?.(thumb.id)}
-              className="overflow-hidden web:shadow-sm"
+              className="overflow-hidden bg-muted web:shadow-sm"
               style={{ width: THUMB_SIZE, height: THUMB_SIZE, borderRadius: THUMB_RADIUS }}
             >
-              <Image
-                source={{ uri: thumb.imageUrl }}
-                contentFit="cover"
-                style={StyleSheet.absoluteFill}
-              />
+              {thumb.imageUrl ? (
+                <Image
+                  source={{ uri: thumb.imageUrl }}
+                  contentFit="cover"
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : null}
               <View
                 pointerEvents="none"
                 className="absolute inset-0 border border-border"

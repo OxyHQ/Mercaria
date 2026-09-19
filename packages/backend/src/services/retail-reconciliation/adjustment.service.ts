@@ -37,7 +37,7 @@
  * made in `notifications.ts`, and not a difference in what is owed.
  */
 
-import { isUniqueViolation } from '@oxyhq/db';
+import { isUniqueViolation } from '@oxy.so/db';
 import { getDb } from '../../db/postgres.js';
 import { insertLedgerTransaction } from '../../db/payments/ledgerRepository.js';
 import { findPaymentById } from '../../db/payments/paymentRepository.js';

@@ -206,7 +206,7 @@ const FORBIDDEN_REFERENCES: readonly { signal: string; pattern: RegExp }[] = [
     signal: 'merchant_pro_plan',
     pattern: /proPlan|pro_plan|merchantPlan|subscriptionTier|billingPlan/i,
   },
-  { signal: 'fair_acceptance', pattern: /faircoin|oxypay|oxy_pay|acceptsFair/i },
+  { signal: 'payment_rail_acceptance', pattern: /faircoin|oxypay|oxy_pay|acceptsFair|peable/i },
   {
     signal: 'retail_cost_variance',
     pattern: /retail-pricing\/|retail_cost|retailCost|costVariance|retail_cost_variance|absorption_cap/i,
@@ -327,7 +327,7 @@ describe('canonical search cannot rank by a commercial payment', () => {
       marketplace_fee: "import { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';",
       referral_reward: "const boost = referralReward(candidate);",
       merchant_pro_plan: "if (merchant.subscriptionTier === 'pro') score += 0.2;",
-      fair_acceptance: "if (merchant.acceptsFair) score += 0.1;",
+      payment_rail_acceptance: "if (merchant.acceptsPeable) score += 0.1;",
       retail_cost_variance: "import { readRetailCostQuote } from '../retail-pricing/quote.js';",
       sponsored_payment: "const bid = await readSponsoredBid(productId);",
     };

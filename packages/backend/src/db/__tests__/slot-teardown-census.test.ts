@@ -64,18 +64,21 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * floor below would then be met by a file that holds nothing.
  */
 const ACQUIRES_SLOT = new RegExp(
-  `=\\s*await\\s+${'acquire'}(${'ActivePolicySlot'}|${'ReconciliationSweepSlot'})\\s*\\(`,
+  `=\\s*await\\s+${'acquire'}(${'ActivePolicySlot'}|${'ReconciliationSweepSlot'}|${'DiscoverySignalsSlot'})\\s*\\(`,
   'u',
 );
 
 /**
  * Floor on the holders found, not an exact count.
  *
- * Seven files hold a slot today. Five leaves room for one to legitimately stop
- * needing one without a build failure, and is far enough above zero to catch a
- * broken walk, a moved directory or a detector that stopped matching. It
- * retires when the last slot does; a commit lowering it must name the file that
- * stopped holding one and why.
+ * Thirteen files hold a slot today — seven, plus the six that joined when
+ * `discovery_signals` gained a third mutex (its `replaceWindow` deletes the
+ * whole window, which is global by construction; see
+ * `db/__tests__/discovery-signals-slot.ts`). Five leaves room for one to
+ * legitimately stop needing one without a build failure, and is far enough
+ * above zero to catch a broken walk, a moved directory or a detector that
+ * stopped matching. It retires when the last slot does; a commit lowering it
+ * must name the file that stopped holding one and why.
  */
 const HOLDER_FLOOR = 5;
 

@@ -34,7 +34,7 @@ import type {
   CatalogProposalDuplicateScan,
   CatalogProposalType,
 } from '@mercaria/shared-types';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   probeControlledValues,

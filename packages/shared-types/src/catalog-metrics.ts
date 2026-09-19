@@ -95,9 +95,59 @@ export const CATALOG_METRIC_SOURCES = [
   'analytics_search_queries',
   'facet_scope_sweep',
   'route_observations',
+  /**
+   * The in-process record of what a PUBLICATION attempt was refused for
+   * (#367 W17 line 768). Counted where `publish.service.ts` calls
+   * `validateDraftRow`, which is the one site a publication is decided at —
+   * `draft.service.ts`'s standalone validate is NOT an attempt and is not
+   * counted, or the rate would report every keystroke a form validated.
+   */
+  'authoring_publication_attempts',
+  /**
+   * The in-process record of how a localized field was answered (#367 W17
+   * line 771) — exact, a language truncation, the base locale, or not at all.
+   * Counted in the SERVING path and never in `resolve.ts`, whose purity is
+   * load-bearing and argued in its own header.
+   */
+  'localization_resolutions',
+  /**
+   * The shadow comparison in `services/variant-axes/projection.ts` (#367 line
+   * 324), counted as each listing is hydrated.
+   *
+   * Process-local like `route_observations`, and it resets on deploy for the
+   * same reason. It differs in one way worth naming here rather than in every
+   * metric that reads it: it records NOTHING unless `VARIANT_AXIS_READS` is
+   * `shadow` or `on`, so a zero denominator means the lever is off rather than
+   * that nobody browsed.
+   */
+  'variant_axis_shadow',
 ] as const;
 
 export type CatalogMetricSource = (typeof CATALOG_METRIC_SOURCES)[number];
+
+/**
+ * The sources that are MODULE-SCOPE COUNTERS in this process rather than a read
+ * of something durable.
+ *
+ * A subset of `CATALOG_METRIC_SOURCES`, and the reason it is named rather than
+ * spelled at each use is the biconditional `contract-gates.test.ts` holds:
+ * `freshnessSeconds === 0` exactly when the source is one of these. A metric
+ * over a Postgres aggregate declaring zero staleness would tell a dashboard its
+ * number is never stale; an in-process counter declaring 300 would suggest a
+ * cache in front of an integer. Written as ONE tuple so a third in-process
+ * source joins both halves of that rule in a single edit, rather than passing a
+ * gate keyed on a literal.
+ *
+ * They share the other property worth stating once: **they reset on deploy and
+ * on every task restart**, so a fleet reading is the sum over tasks and no
+ * single task's number is the answer.
+ */
+export const CATALOG_IN_PROCESS_METRIC_SOURCES: readonly CatalogMetricSource[] = [
+  'route_observations',
+  'variant_axis_shadow',
+  'authoring_publication_attempts',
+  'localization_resolutions',
+];
 
 /**
  * The window a metric is computed over.
@@ -179,10 +229,20 @@ export interface CatalogMetricDefinition {
  * Why a metric this registry defines could not be produced.
  *
  * Closed, because the whole point is that an operator can tell the six apart.
- * `no_dead_letter_state` is the one to read: #367's queues record `attempts` and
- * `last_error` and have no dead-letter state at all, so "zero dead letters" is
- * not a healthy reading — it is a category error, and reporting it as `0` would
- * put a permanently green tile on a dashboard for a condition that cannot occur.
+ *
+ * TWO are deliberately used by NO definition, for different reasons.
+ * `source_unavailable` belongs to the COLLECTOR — a registry entry claiming it
+ * would make an incident indistinguishable from a designed gap.
+ * `no_dead_letter_state` was retired from `backfill_dead_letter_count` in two
+ * steps, and the sequence is the useful part. Line 759 gave
+ * `catalog_backfill_runs` a bounded retry, so the condition the reason names
+ * ("cannot arise") became REACHABLE and the metric moved to
+ * `dimension_absent_from_source` — the table recorded no cause, and `failed`
+ * has two producers. `catalog_backfill_runs.terminal_cause` then supplied that
+ * dimension and the metric became MEASURED. Neither step was a relabelling to
+ * make something pass: each followed a change in what the database records.
+ * Both members stay unused because the distinctions they draw are real, and an
+ * unused reason is cheaper than a metric filed under an inaccurate one.
  */
 export const CATALOG_UNMEASURED_REASONS = [
   /** Nothing records the fact. A column or a counter is owed. */
@@ -191,7 +251,15 @@ export const CATALOG_UNMEASURED_REASONS = [
   'client_signal_absent',
   /** The queue this would measure has no consumer, so throughput is undefined. */
   'no_consumer_registered',
-  /** The state this counts does not exist in the schema. Not the same as zero. */
+  /**
+   * The condition this counts cannot arise. Not the same as zero.
+   *
+   * Named for the state because #58's `match_queue` carries a `dead_letter`
+   * status. Used by NO definition today: #367's backfill runs had no retry to
+   * exhaust until line 759 gave them one, and now that they have it what they
+   * lack is the CAUSE dimension rather than the state. Kept for the next queue
+   * that reaches a terminal condition it can never actually enter.
+   */
   'no_dead_letter_state',
   /** The dimension asked for is not on the source table. */
   'dimension_absent_from_source',
@@ -587,24 +655,45 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
   },
   {
     key: 'draft_validation_failure_rate',
-    title: 'Draft validation failures by field code',
+    title: 'Publication attempts refused by validation',
     kind: 'ratio',
-    numerator: 'Publication attempts refused by validation, bucketed by the failing field code.',
-    denominator: 'All publication attempts.',
-    window: 'rolling_7d',
-    source: 'catalog_authoring_drafts',
-    freshnessSeconds: 300,
+    numerator: 'Publication attempts this process refused because the draft did not validate.',
+    denominator:
+      'Publication attempts this process made. An attempt is a call that reached '
+      + "`validateDraftRow` from the PUBLISH path; `draft.service.ts`'s standalone validate is "
+      + 'not one, or the rate would report every keystroke a form validated.',
+    window: 'since_process_start',
+    source: 'authoring_publication_attempts',
+    freshnessSeconds: 0,
     attributionLimit:
-      'Would name the field that stops merchants, which is the one thing the abandonment rate '
-      + 'cannot. Bucketed by FIELD CODE and never by field label, which is localized.',
-    unmeasured: {
-      reason: 'not_instrumented',
-      seam:
-        'No table records a validation outcome. publish.service.ts:191 computes '
-        + 'AuthoringValidationResult and returns it to the caller; nothing persists it and the '
-        + 'refused branch logs nothing. Closing it is an append-only counter table keyed on '
-        + '(field code, day), written on the refusal path.',
-    },
+      'PROCESS-LOCAL and RESET BY EVERY DEPLOY — several tasks each count their own traffic, '
+      + 'and a deploy zeroes all of them. Read it as a rate, never as a total. It carries NO '
+      + 'per-code breakdown, deliberately: one refusal can carry several findings with '
+      + 'different codes, so codes do not PARTITION attempts and a `by` here would count one '
+      + 'refusal in several buckets while claiming to sum to the denominator. '
+      + 'draft_validation_failure_code_share answers "which codes" over the population where '
+      + 'they do partition. It also says nothing about whether the author fixed it: a merchant '
+      + 'who corrects a field and republishes is two attempts and one refusal.',
+  },
+  {
+    key: 'draft_validation_failure_code_share',
+    title: 'Validation findings by code',
+    kind: 'ratio',
+    numerator:
+      'Findings of one AuthoringValidationCode on refused publication attempts, per bucket.',
+    denominator:
+      'All findings on refused publication attempts. FINDINGS and not attempts, which is the '
+      + 'whole reason this is a second metric: a code partitions findings exactly, and an '
+      + 'attempt it does not partition at all.',
+    window: 'since_process_start',
+    source: 'authoring_publication_attempts',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'A SHARE of findings, so it cannot be read as "how many drafts failed this way" — one '
+      + 'draft missing four required fields contributes four. Bucketed by the closed '
+      + 'AUTHORING_VALIDATION_CODES tuple and never by attribute key, whose cardinality grows '
+      + 'with the registry; a per-attribute instrument is a different one with its own '
+      + 'disclosure argument. Process-local and reset by every deploy.',
   },
 
   /* ---- Resolution mix (W17 item 3) --------------------------------------- */
@@ -672,11 +761,18 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'match_queue',
     freshnessSeconds: 60,
     attributionLimit:
-      'The ONE dead-letter state anywhere in this chain, and it belongs to #58\'s match queue '
-      + "rather than to any of #367's own tables — which is why "
-      + 'backfill_dead_letter_count next to it is unmeasured rather than zero. A subject here has '
-      + 'exhausted its retries and will never be matched without an operator; it does not '
-      + 'disappear from the catalogue, so the listing is live and unattached.',
+      'The only dead-letter STATE reachable BY NAME in this chain, and it belongs to #58\'s match '
+      + "queue rather than to any of #367's own tables. It is no longer the only place a bounded "
+      + 'retry can be EXHAUSTED — #367 line 759 gave `catalog_backfill_runs` one — so the '
+      + 'difference from a `failed` backfill run is not that this queue retries and that one does '
+      + 'not. It is that this state is NAMED: a subject here has exhausted its retries and will '
+      + 'never be matched without an operator, and the status column says exactly that. A backfill '
+      + 'run names its cause in `terminal_cause`, so backfill_dead_letter_count beside this one '
+      + 'counts the same KIND of event over a different queue and the two are comparable. The '
+      + 'distinction that remains is where the fact lives: a dead-lettered subject here is a '
+      + 'STATUS, and there it is a status plus a cause, because that queue also ends in `failed` '
+      + 'when an operator stops a run. A dead-lettered subject does not disappear from the '
+      + 'catalogue, so the listing is live and unattached.',
   },
   {
     key: 'proposal_creation_count',
@@ -931,28 +1027,63 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
   },
   {
     key: 'translation_fallback_use_rate',
-    title: 'Translation fallback use rate',
+    title: 'Localized reads answered by a fallback',
     kind: 'ratio',
-    numerator: 'Localized reads answered from a fallback locale rather than the requested one.',
-    denominator: 'All localized reads.',
-    window: 'rolling_24h',
-    source: 'category_localizations',
-    freshnessSeconds: 300,
+    numerator:
+      'Field resolutions this process answered from a LANGUAGE truncation or the BASE locale '
+      + 'rather than the locale asked for.',
+    denominator:
+      'Field resolutions this process performed, including the ones that resolved EXACTLY and '
+      + 'the ones that could not be answered at all. Traffic, not catalogue size — so the rate '
+      + 'falls when translation coverage rises rather than tracking how much catalogue exists.',
+    window: 'since_process_start',
+    source: 'localization_resolutions',
+    freshnessSeconds: 0,
     attributionLimit:
-      'The only metric here that measures what shoppers actually HIT rather than what the '
-      + 'catalogue contains. Coverage cannot substitute: an untranslated category nobody visits '
-      + 'costs nothing, and a translated one whose locale variant is missing costs every visit.',
-    unmeasured: {
-      reason: 'not_instrumented',
-      seam:
-        'services/catalog-localization/read.service.ts resolves the fallback chain per read and '
-        + 'records nothing. Closing it is a counter incremented where the chain selects a locale '
-        + 'other than the requested one — a `void` emitter, the recordAnalyticsEvent shape, so it '
-        + 'can never join the read path.',
-    },
+      'PROCESS-LOCAL and RESET BY EVERY DEPLOY. It counts FIELD resolutions, not requests: one '
+      + 'category page is many, so a page with one untranslated description is not "one '
+      + 'fallback read". `unavailable` is in the denominator and in no fallback bucket — a '
+      + 'field nobody could answer is not a fallback, and folding it in would make the rate '
+      + 'rise when text is MISSING rather than when it is merely untranslated. '
+      + 'translation_missing_count is the metric for that.',
+  },
+
+  /* ---- Taxonomy read (#913) ---------------------------------------------- */
+  {
+    key: 'taxonomy_read_error_rate',
+    title: 'Category read error rate',
+    kind: 'ratio',
+    numerator: 'GET /categories responses with status >= 500.',
+    denominator: 'All GET /categories responses this process served.',
+    window: 'since_process_start',
+    source: 'route_observations',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'The route every shopper hits and the one with the TIGHTEST latency budget (150 ms), '
+      + 'mounted unconditionally — so unlike the authoring and facet rates beside it there is no '
+      + '`surface_not_mounted` branch, because there is no lever that can withdraw it. '
+      + 'Counts only 5xx, the `authoring_schema_error_rate` decision for the third and fourth time. A 4xx on this route is a CORRECT answer — a malformed request, an unknown handle, or a rollout lever answering 404 — and folding those in would make a stale client and a deliberately-off surface raise the same number a server fault does. `clientErrors` is recorded by the middleware for every observed route and is deliberately published by nothing (#913). Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it. `0 / 0` — a task that has served none of these — reports NO ratio, which is not a zero error rate.',
   },
 
   /* ---- Search (W17 item 6) ----------------------------------------------- */
+  {
+    key: 'search_read_error_rate',
+    title: 'Search read error rate',
+    kind: 'ratio',
+    numerator: 'GET /search responses with status >= 500.',
+    denominator: 'All GET /search responses this process served.',
+    window: 'since_process_start',
+    source: 'route_observations',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'The ROUTE is mounted unconditionally; `CANONICAL_SEARCH` decides what it ANSWERS, and '
+      + 'with the default `off` — and under `shadow` — every request is a 404. So a default '
+      + 'deployment reads `0 / N` rather than an empty population, and that is the honest '
+      + 'reading: mounted and refusing is a different state from not mounted, and the requests '
+      + 'are real. A 5xx here is a genuine fault whatever the lever says, because `shadow` runs '
+      + 'the canonical query and the legacy one before answering 404. '
+      + 'Counts only 5xx, the `authoring_schema_error_rate` decision for the third and fourth time. A 4xx on this route is a CORRECT answer — a malformed request, an unknown handle, or a rollout lever answering 404 — and folding those in would make a stale client and a deliberately-off surface raise the same number a server fault does. `clientErrors` is recorded by the middleware for every observed route and is deliberately published by nothing (#913). Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it. `0 / 0` — a task that has served none of these — reports NO ratio, which is not a zero error rate.',
+  },
   {
     key: 'search_zero_result_rate_by_market',
     title: 'Search zero-result rate by market',
@@ -1006,6 +1137,29 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
       + 'one number.',
   },
   {
+    key: 'facet_generation_error_rate',
+    title: 'Facet generation error rate',
+    kind: 'ratio',
+    numerator: 'POST /facets responses with status >= 500.',
+    denominator: 'All POST /facets responses this process served.',
+    window: 'since_process_start',
+    source: 'route_observations',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'The LIVE half of W17\'s "invalid facet generation", and it is deliberately not the whole '
+      + 'of it: this counts a generation that RAISED, which the controller answers 5xx. It cannot '
+      + 'see a facet that was generated, returned, and is unusable — nothing validates facet '
+      + 'OUTPUT anywhere in the domain, so that half of the item stays open rather than being '
+      + 'quietly reported as zero here. '
+      + 'Counts only 5xx. A refused sort key and a malformed request body are 4xx and are correct '
+      + 'answers, so folding them in would make a stale client read as a server fault — the '
+      + 'authoring_schema_error_rate decision, same reasoning one route over. '
+      + 'Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it, and '
+      + 'it answers "is this process failing facet requests now" rather than anything about last '
+      + 'week. `0 / 0` — a task that has served no facet request — reports NO ratio, which is not '
+      + 'a zero error rate.',
+  },
+  {
     key: 'facet_scope_empty_rate',
     title: 'Category scopes generating no facets',
     kind: 'ratio',
@@ -1018,6 +1172,26 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
       'A property of the CATALOGUE, not of traffic: it says which categories would render a bare '
       + 'filter rail if somebody visited them, and nothing about whether anybody does. It is '
       + 'sampled, so it is an estimate with a stated population.',
+  },
+  {
+    key: 'facet_scope_generation_failure_rate',
+    title: 'Category scopes whose facet generation raised',
+    kind: 'ratio',
+    numerator: 'Sampled categories whose facet planning threw rather than returning a verdict.',
+    denominator: 'Every category the sweep DREW, which is the sampled ones plus these.',
+    window: 'instant',
+    source: 'facet_scope_sweep',
+    freshnessSeconds: 3600,
+    attributionLimit:
+      'The BATCH half of W17\'s "invalid facet generation", and the denominator is the point: it '
+      + 'is `drawn` and NOT `sampled`, because a scope that raised has no empty-or-populated '
+      + 'verdict and is excluded from `facet_scope_empty_rate`\'s denominator entirely. So these '
+      + 'two metrics partition the drawn set between them and neither dilutes the other. '
+      + 'The sweep captures a bounded sample of the offending category ids beside this count; it '
+      + 'is NOT published here, because a metric breakdown must be a closed set of values and a '
+      + 'category id is neither closed nor a value — it is in the sweep result and the warn log. '
+      + 'A property of the CATALOGUE rather than of traffic, sampled, so it is an estimate with a '
+      + 'stated population.',
   },
   {
     key: 'facet_usage_rate',
@@ -1116,33 +1290,47 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_backfill_runs',
     freshnessSeconds: 300,
     attributionLimit:
-      'A failed run keeps its cursor and is resumable, so this is work outstanding rather than '
-      + 'work lost.',
+      'A failed run keeps its cursor and an operator must RESTART it — nothing picks it up again. '
+      + "`RESUMABLE` is ['pending', 'paused'] and the claim admits only those or a `running` row "
+      + 'whose lease expired, so `failed` is terminal and UNCLAIMABLE. This is therefore work '
+      + 'STOPPED rather than work outstanding, and it is the number that answers "how many runs are '
+      + 'waiting for a person" — no retry clears a `failed` row, because since #367 line 759 '
+      + '`failed` is where the bounded retry STOPS rather than where it never began. It MIXES two '
+      + 'producers and that is deliberate: a run that exhausted `CATALOG_BACKFILL_MAX_ATTEMPTS` '
+      + 'consecutive failed pages, and one `cancelCatalogBackfillRun` stopped. Both are waiting for '
+      + 'a person, which is the question asked. Telling them apart is what `terminal_cause` '
+      + 'records, and backfill_dead_letter_count beside this one reads it — so this number is '
+      + 'always the LARGER of the two, and a gap between them is operator cancellations rather '
+      + 'than a discrepancy.',
   },
   {
     key: 'backfill_dead_letter_count',
     title: 'Backfill dead letters',
-    kind: 'count',
-    numerator: 'Queue rows abandoned after exhausting their retries.',
-    denominator: 'Not a ratio.',
+    kind: 'ratio',
+    numerator:
+      "catalog_backfill_runs rows with status = 'failed' and terminal_cause = 'retry_exhausted'.",
+    denominator: "All catalog_backfill_runs rows with status = 'failed'.",
     window: 'instant',
     source: 'catalog_backfill_runs',
     freshnessSeconds: 300,
     attributionLimit:
-      'Would separate "still retrying" from "given up". Reporting this as zero would put a '
-      + 'permanently green tile on a dashboard for a condition that cannot occur.',
-    unmeasured: {
-      reason: 'no_dead_letter_state',
-      seam:
-        "None of #367's own queues has a dead-letter state: catalog_backfill_runs, "
-        + 'catalog_external_mapping_runs and catalog_external_token_observations record attempts '
-        + 'and last_error only, so a run that has given up is indistinguishable from one still '
-        + 'retrying. #58\'s match_queue DOES have one and is measured as '
-        + 'match_queue_dead_letter_count — which is why this is unmeasured rather than zero: the '
-        + 'concept exists one domain over, so a zero here would read as "none" instead of "not a '
-        + 'state these tables have". Closing it is a terminal state on those three tables, or the '
-        + 'explicit decision that their retries are unbounded — recorded either way.',
-    },
+      'The NUMERATOR is the dead-letter COUNT and the ratio is its share of `failed`; the key '
+      + 'keeps its `_count` name because dashboards and runbooks cite it, and the number they '
+      + 'cite is the numerator. It is a ratio rather than a bare count because the breakdown is '
+      + 'what makes a zero readable, and in this registry a breakdown partitions a numerator and '
+      + 'a denominator. '
+      + 'RUNS that exhausted the bounded retry, and ONLY those. `failed` has a second producer — '
+      + '`cancelCatalogBackfillRun` — and counting an operator stopping a run as a dead letter '
+      + "would report a person's decision as a system failure, so the cause is a stored column and "
+      + 'this number reads it. It is not derivable: both candidate predicates over '
+      + '`consecutive_failures` are silently wrong, one because its ceiling is a mutable incident '
+      + 'lever and the other because a run cancelled after two bad pages carries a non-zero count. '
+      + 'The `by` breakdown carries every `failed` run, so what this number EXCLUDES is visible '
+      + 'beside it rather than inferred: `unrecorded` is the closed, finite population that ended '
+      + 'before the cause column existed (migration 0146), and `cause_missing` MUST BE ZERO once '
+      + '0147 has applied — a non-zero value there means either a rollout still in progress or a '
+      + 'producer of `failed` that does not name its cause, and it is the reason a zero here '
+      + 'cannot be mistaken for an instrument that stopped working.',
   },
   {
     key: 'reindex_pending_count',
@@ -1179,6 +1367,47 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
         + '#61 declined to build the drain because the refresh semantics belong to a projection '
         + 'nobody has adopted. Closing it is that consumer.',
     },
+  },
+
+  /* ---- Typed variant axes on the catalogue read (#367 line 324) ----------- */
+  {
+    key: 'variant_axis_typed_coverage',
+    title: 'Typed variant axis coverage',
+    kind: 'ratio',
+    numerator:
+      'Listings hydrated while VARIANT_AXIS_READS was shadow or on that DECLARED at least one '
+      + 'native_listing_variant_axes row.',
+    denominator: 'All listings hydrated while that lever was shadow or on.',
+    window: 'since_process_start',
+    source: 'variant_axis_shadow',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'This is the migration backlog weighted by TRAFFIC, not by catalogue size: a listing '
+      + 'nobody views is never counted. That is deliberate — it answers "how much of what '
+      + 'people actually read is typed" — and it is why it is not a substitute for counting '
+      + 'listing_options rows. Zero denominator means the lever is off, not that nobody '
+      + 'browsed.',
+  },
+  {
+    key: 'variant_axis_shadow_divergence',
+    title: 'Typed vs legacy option divergence',
+    kind: 'ratio',
+    numerator:
+      'Hydrated listings whose typed axes and legacy option values rendered DIFFERENT ordered '
+      + 'value sequences for some variant.',
+    denominator:
+      'Hydrated listings where BOTH representations carried something — agreed plus diverged. A '
+      + 'listing with no typed axes is not a disagreement and is excluded, or the rate would '
+      + 'track the backlog instead of the drift.',
+    window: 'since_process_start',
+    source: 'variant_axis_shadow',
+    freshnessSeconds: 0,
+    attributionLimit:
+      'Compares VALUES only. An axis NAME differing is ADR 0007 D6 working — one definition '
+      + 'behind Color, Colour and Tono — so counting it would make every backfilled listing '
+      + 'permanently diverged and hide the drift this exists to find. Non-zero means a write '
+      + 'path moved product_variant_option_values without moving the typed axis (#905), which '
+      + 'is what VARIANT_AXIS_READS=on would then serve.',
   },
 ];
 

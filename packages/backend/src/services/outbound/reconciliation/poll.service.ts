@@ -49,6 +49,7 @@ import {
 import { applyReportedTransaction, type AffiliateApplyRefusal } from './apply.js';
 import { awinReportReader, awinReportWindows, logRejectedAwinRow } from './awin.js';
 import { EBAY_REPORT_READER_UNAVAILABLE } from './ebay.js';
+import { DIRECT_REPORT_READER_UNAVAILABLE } from './direct.js';
 import type { AffiliateReportReader, AffiliateReportReaderResolution } from './reader.js';
 
 /**
@@ -68,6 +69,8 @@ export function resolveAffiliateReportReader(
       return { outcome: 'reader', reader: overrides.awin ?? awinReportReader };
     case 'ebay':
       return EBAY_REPORT_READER_UNAVAILABLE;
+    case 'direct':
+      return DIRECT_REPORT_READER_UNAVAILABLE;
   }
 }
 

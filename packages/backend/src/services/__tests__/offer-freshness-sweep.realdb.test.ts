@@ -49,7 +49,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createDatabase, uuidv7 } from '@oxyhq/db';
+import { createDatabase, uuidv7 } from '@oxy.so/db';
 import type postgres from 'postgres';
 import * as schema from '../../db/schema/index.js';
 import type { Database } from '../../db/postgres.js';

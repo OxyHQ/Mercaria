@@ -24,6 +24,8 @@ import { sendNotification } from '../lib/notification-service.js';
 import { config } from '../config/index.js';
 import { log } from '../lib/logger.js';
 import type {
+  AssetFileInspectJob,
+  AssetVersionInspectJob,
   RecomputeAggregatesJob,
   OrderEventNotificationJob,
   OrderEvent,
@@ -507,4 +509,35 @@ export async function handleInventorySync(job: InventorySyncJob): Promise<void> 
 export async function handleFulfillmentPush(job: FulfillmentPushJob): Promise<void> {
   const { pushOrderFulfillment } = await import('../services/connector-sync.service.js');
   await pushOrderFulfillment(job.orderId);
+}
+
+/**
+ * Inspect ONE uploaded asset file (#1015 W4).
+ *
+ * Delegates by dynamic import, the same cycle-breaking device as
+ * {@link handleConnectionBackfill} — `inspectAssetVersion` reaches back into
+ * `producers.ts` to fan out, so a static edge from here would be a module-load
+ * cycle.
+ *
+ * It does not swallow: a thrown error here is an INFRASTRUCTURE failure (storage,
+ * database) and BullMQ's retry is the right response. Everything the service
+ * concluded about the FILE — corrupt, too large, unsupported, not the format the row
+ * claims — is already a recorded verdict and a successful job, so a failure reaching
+ * this point is never "the upload was bad".
+ */
+export async function handleAssetFileInspect(job: AssetFileInspectJob): Promise<void> {
+  const { inspectAssetFile } = await import('../services/digital/inspection/inspect.service.js');
+  await inspectAssetFile({ versionId: job.versionId, fileId: job.fileId });
+}
+
+/**
+ * Fan one asset version out to one per-file inspection (#1015 W4).
+ *
+ * The handler enumerates the version's files itself rather than trusting a list in
+ * the payload, so a job enqueued while the last upload was still in flight inspects
+ * what is actually there when it runs. Dynamic import for the reason above.
+ */
+export async function handleAssetVersionInspect(job: AssetVersionInspectJob): Promise<void> {
+  const { inspectAssetVersion } = await import('../services/digital/inspection/inspect.service.js');
+  await inspectAssetVersion({ versionId: job.versionId });
 }

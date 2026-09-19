@@ -362,7 +362,7 @@ describe('a web deploy does not park runners waiting for the CI it depends on', 
  *    than preventing it (measured in Allo, 2026-08-09).
  *  - **A group keyed on the SHA** — the `ci.yml` shape, and the tempting
  *    "fix" for #574 since it stops evictions — would let two deploys migrate
- *    CONCURRENTLY. `@oxyhq/db`'s migrator takes no lock and assigns the
+ *    CONCURRENTLY. `@oxy.so/db`'s migrator takes no lock and assigns the
  *    interlock to its caller; this group IS that interlock. Evictions are the
  *    price of it, which is why #574 was answered by reporting them
  *    (`deploy-coverage.yml`) rather than by preventing them.

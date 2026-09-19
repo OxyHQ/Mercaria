@@ -178,7 +178,7 @@ test proves it by trying to smuggle an inflated total past it.
 - **The FX base is the SOURCE currency, never a pivot.** `getRates(source,
   [presentment])`. Which currency the configured providers publish against is
   `fx.service`'s private business. No module in `services/retail-pricing/` names
-  FairCoin or OxyPay, and a test asserts it — there is no conversion bridge, and
+  FairCoin or payment-rail policy, and a test asserts it — there is no conversion bridge, and
   neither is implemented (ADR 0004 D11).
 - **Rates are fetched once per distinct source currency**, so several components
   from one supplier convert at ONE rate rather than at rates taken microseconds
@@ -374,7 +374,7 @@ Nothing here creates an order, moves money, or writes a ledger entry.
 
 `services/retail-pricing/__tests__/` — the pure engine (formula, completeness,
 variance, forbidden components) plus the three structural gates (fee boundary,
-ranking/referral isolation, no FairCoin/OxyPay mention).
+ranking/referral isolation, no FairCoin/payment-rail mention).
 `db/retailPricing/__tests__/retailPricing.realdb.test.ts` and
 `services/retail-pricing/__tests__/retail-cost-quote.service.realdb.test.ts` run
 against a REAL Postgres server, because the triggers, the CHECKs, the unique

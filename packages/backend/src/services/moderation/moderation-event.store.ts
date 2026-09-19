@@ -1,7 +1,7 @@
 /**
  * The webhook dedupe claim, backed by Postgres instead of process memory.
  *
- * `@oxyhq/crowdsource-express` defaults to an in-process map, and its own doc
+ * `@oxy.so/crowdsource-express` defaults to an in-process map, and its own doc
  * comment names the condition that makes that wrong: two instances behind a load
  * balancer each keep their own, so a redelivery landing on the OTHER instance is
  * not deduped. Mercaria's API runs several ECS Fargate tasks behind one ALB, so
@@ -28,7 +28,7 @@
  * leaves the event on the sender's retry schedule.
  */
 
-import type { ProcessedEventStore } from '@oxyhq/crowdsource-express';
+import type { ProcessedEventStore } from '@oxy.so/crowdsource-express';
 import {
   claimModerationEvent,
   releaseModerationEvent,

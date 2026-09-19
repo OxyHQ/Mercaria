@@ -2,7 +2,7 @@
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css";
 @import "nativewind/theme";
-@import "@oxyhq/bloom/design-tokens/theme.css";
+@import "@oxy.so/bloom/design-tokens/theme.css";
 
 @source "./app/**/*.{js,jsx,ts,tsx}";
 @source "./components/**/*.{js,jsx,ts,tsx}";
@@ -11,8 +11,8 @@
    @theme/:root token block below mirrors @mercaria/ui/theme/global.css; keep the
    two in sync (a cross-package CSS @import through Metro/NativeWind is fragile). */
 @source "../ui/src/**/*.{js,jsx,ts,tsx}";
-@source "../../node_modules/@oxyhq/services/lib/**/*.{js,jsx}";
-@source "../../node_modules/@oxyhq/bloom/lib/**/*.{js,jsx}";
+@source "../../node_modules/@oxy.so/services/lib/**/*.{js,jsx}";
+@source "../../node_modules/@oxy.so/bloom/lib/**/*.{js,jsx}";
 
 @theme {
   --font-sans: Inter, sans-serif;
@@ -21,35 +21,26 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
 
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Bloom's imported theme.css above is the single source of truth for the
+     colour aliases (`--color-primary`, `--color-card`, `--color-muted`, …), so
+     they are NOT re-declared here. Re-declaring them is what let
+     `--color-bg-fill-secondary` point at the accent family and paint the app's
+     quiet surfaces red while every gate stayed green: a duplicate cannot
+     disagree loudly, it just wins. Only tokens Bloom does not own, or the two
+     deliberate overrides below, belong in this block. */
 
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: hsl(0 0% 100%);
-
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-
-  --color-surface: var(--surface);
-  --color-surface-foreground: var(--surface-foreground);
+  /* This app does not otherwise mirror @mercaria/ui/theme/global.css's Shopify
+     token block (no --spacing-space-*, --radius-radius-*, etc.) — it renders no
+     marketplace component that needs them today. These six ARE needed: they
+     back `bg-overlay-*`/`bg-bg-fill-tertiary`, the classes the discovery-feed
+     card set (@mercaria/ui, watched via @source above) already ships with. Keep
+     in sync with the shared package copy. */
+  --color-bg-fill-tertiary: var(--muted);
+  --color-overlay-fixed-dark-04: rgba(0, 0, 0, 0.04);
+  --color-overlay-fixed-dark-10: rgba(0, 0, 0, 0.1);
+  --color-overlay-fixed-light-20: rgba(255, 255, 255, 0.2);
+  --color-overlay-fixed-light-40: rgba(255, 255, 255, 0.4);
+  --color-overlay-fixed-light-75: rgba(255, 255, 255, 0.75);
 }
 
 @layer base {

@@ -53,7 +53,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { eq, inArray } from 'drizzle-orm';
-import { constraintNameOf, createDatabase, uuidv7 } from '@oxyhq/db';
+import { constraintNameOf, createDatabase, uuidv7 } from '@oxy.so/db';
 import type postgres from 'postgres';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import * as schema from '../schema/index.js';
@@ -332,7 +332,7 @@ async function seedProductWithVariant(label: string): Promise<SeededFixture> {
 /**
  * Two fixtures of this file's own, labelled by the order the LOCK reaches them.
  *
- * The helper's lock statements order by `id`, and `@oxyhq/db`'s uuid v7 is not
+ * The helper's lock statements order by `id`, and `@oxy.so/db`'s uuid v7 is not
  * monotonic within a millisecond — measured at roughly 50% inversion — so which
  * of two rows minted a moment apart sorts first is not knowable from the order
  * they were created in. Every barrier below needs "the one the teardown reaches

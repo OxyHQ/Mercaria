@@ -27,6 +27,8 @@ import {
   AUTHORING_CANONICAL_REF_KINDS,
   AUTHORING_DRAFT_STATUSES,
   MAX_MONEY_MINOR_UNITS,
+  MAX_VALUES_PER_VARIANT_AXIS,
+  MAX_VARIANT_AXES_PER_PRODUCT,
   PRODUCT_TYPE_AUTHORING_FLOWS,
 } from '@mercaria/shared-types';
 import { sanitizeAuthoredText } from '../lib/authored-text.js';
@@ -148,9 +150,28 @@ const answer = z
     { message: 'an answer carries exactly one of text, number, boolean, enumValueId or canonicalRef' },
   );
 
+/*
+ * `MAX_VARIANT_AXES_PER_PRODUCT` and `MAX_VALUES_PER_VARIANT_AXIS` used to be
+ * DEFINED here and are now imported from `@mercaria/shared-types` — a clean cut,
+ * not a re-export.
+ *
+ * The reason they moved is #367 line 405: a bound the server enforces and no
+ * client can read is a bound the dashboard has to guess, and the guess is a
+ * literal that nothing keeps in step. They are published on `AuthoringSchema`
+ * as `matrix.maxAxes` / `matrix.maxValuesPerAxis`, composed from these exact
+ * symbols, so the served number and the enforced number are the same binding
+ * rather than two that agree today.
+ *
+ * What did NOT move is what they mean here — they are still the answer for the
+ * legacy store-product write (`middleware/schemas.ts`) as well as the authoring
+ * path, and both are still CHOSEN rather than measured: 16 and 64 are what the
+ * wizard generates within before it refuses, neither derived from a measurement
+ * of server cost. That provenance is restated on the shared-types declaration.
+ */
+
 /** The answers for one field. An empty `values` CLEARS it — a real request. */
 const fieldAnswers = z
-  .object({ attributeKey, values: z.array(answer).max(64) })
+  .object({ attributeKey, values: z.array(answer).max(MAX_VALUES_PER_VARIANT_AXIS) })
   .strict();
 
 const variantInput = z
@@ -162,7 +183,7 @@ const variantInput = z
     compareAtPrice: money.optional(),
     inventoryTracked: z.boolean().optional(),
     inventoryAvailable: z.number().int().min(0).max(1_000_000),
-    axes: z.array(fieldAnswers).max(16),
+    axes: z.array(fieldAnswers).max(MAX_VARIANT_AXES_PER_PRODUCT),
     selectedCanonicalVariantId: entityId.nullable().optional(),
   })
   .strict();

@@ -8,7 +8,7 @@
  */
 
 import type { Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import type { UpdateCurrencyPreferenceInput } from '@mercaria/shared-types';
 import { getOrCreate, update } from '../services/user-preference.service.js';
 import { sendSuccess } from '../utils/api-response.js';

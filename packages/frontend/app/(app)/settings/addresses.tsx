@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { View, ScrollView, Pressable } from "react-native";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import { Check, Plus, Trash2 } from "lucide-react-native";
 import type { Address, CreateAddressInput } from "@mercaria/shared-types";
 import { Button, Text, formatRegionName } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 import { SettingsHeader } from "@/components/settings/settings-header";
 import { AddressForm } from "@/components/address/AddressForm";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import {
   useAddresses,
   useCreateAddress,
@@ -36,7 +36,7 @@ function AddressCard({
               {address.label ?? address.recipientName}
             </Text>
             {address.isDefault ? (
-              <View className="rounded-full bg-secondary px-2 py-0.5">
+              <View className="rounded-full bg-muted px-2 py-0.5">
                 <Text className="text-[11px] font-medium text-muted-foreground">
                   {t("address.list.default")}
                 </Text>

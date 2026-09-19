@@ -48,7 +48,7 @@
  * script TRUNCATES its own scratch tables and DROPS AND RECREATES a real index.
  */
 
-import { createDatabase } from '@oxyhq/db';
+import { createDatabase } from '@oxy.so/db';
 import { sql } from 'drizzle-orm';
 import * as schema from '../src/db/schema/index.js';
 

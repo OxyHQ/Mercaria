@@ -23,7 +23,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { OrderAccessFacts, OrderAccessSubject } from '../../../services/orders/order-access.service.js';
 
 const RUN = Math.random().toString(36).slice(2, 10);

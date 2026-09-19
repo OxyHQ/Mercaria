@@ -343,6 +343,68 @@ export interface AuthoringStep {
   readonly available: boolean;
 }
 
+/* -------------------------------------------------------------------------- */
+/* The matrix rules (#367 line 405)                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How many axes one product may vary along.
+ *
+ * Lives here rather than in the backend's request schemas because a bound the
+ * server ENFORCES and the client cannot READ is a bound the client has to
+ * guess. It is imported by `middleware/catalog-authoring-schemas.ts` and
+ * `middleware/schemas.ts` — the authoring path and the legacy store-product
+ * path both — so there is ONE definition and no possibility of the served
+ * number and the enforced number disagreeing.
+ */
+export const MAX_VARIANT_AXES_PER_PRODUCT = 16;
+
+/** How many values one axis may carry. Same reasoning, same single definition. */
+export const MAX_VALUES_PER_VARIANT_AXIS = 64;
+
+/**
+ * The matrix rules a client needs before it generates anything (#367 line 405).
+ *
+ * `AuthoringField.variantCapable` is the CAPABILITIES half of that line — which
+ * attributes may become an axis at all. This is the RULES half: how many, how
+ * wide, and how many variants the product they multiply out to may have.
+ *
+ * ## Why these are on the schema when none of them varies by schema
+ *
+ * All three are deployment-wide today — two are the code constants above and
+ * the third is `MAX_VARIANTS_PER_PRODUCT` in the environment. Carried per
+ * composition anyway, for two reasons and not for tidiness. The wizard already
+ * fetches exactly one of these per (product type, category, market, locale) and
+ * a separate limits endpoint would be a second request with its own cache and
+ * its own staleness. And a product type that wants to permit FEWER axes than the
+ * deployment allows becomes expressible without a contract change — the numbers
+ * are already where such a narrowing would be published.
+ *
+ * They enter the ETag automatically: `authoringEtag` hashes the whole composed
+ * body, so a deployment that changes `MAX_VARIANTS_PER_PRODUCT` invalidates
+ * every cached schema rather than serving the old ceiling until eviction.
+ */
+export interface AuthoringMatrixRules {
+  /** At most this many axes on one product. {@link MAX_VARIANT_AXES_PER_PRODUCT}. */
+  readonly maxAxes: number;
+  /** At most this many values on one axis. {@link MAX_VALUES_PER_VARIANT_AXIS}. */
+  readonly maxValuesPerAxis: number;
+  /**
+   * At most this many variants on the PUBLISHED product.
+   *
+   * The number that decides whether the work succeeds, which is why it is this
+   * one and not the draft's own storage cap. A draft may hold more (the PATCH
+   * schema's own `variants` bound); publication runs through
+   * `createStoreProductWithin`, which refuses above
+   * `config.catalog.maxVariantsPerProduct`. A client generating a matrix is
+   * deciding what it can eventually sell, so it needs the publishing bound.
+   *
+   * Deployment-configurable (`MAX_VARIANTS_PER_PRODUCT`), which is the whole
+   * reason it cannot be a constant beside the two above and has to be composed.
+   */
+  readonly maxVariants: number;
+}
+
 /** The product type this schema was composed from, pinned to its exact version. */
 export interface AuthoringProductTypeRef {
   readonly definitionId: string;
@@ -372,6 +434,8 @@ export interface AuthoringSchema {
   readonly steps: readonly AuthoringStep[];
   readonly groups: readonly AuthoringGroup[];
   readonly fields: readonly AuthoringField[];
+  /** The matrix rules — #367 line 405's second half. @see AuthoringMatrixRules */
+  readonly matrix: AuthoringMatrixRules;
   readonly text: AuthoringSchemaText;
   readonly etag: string;
 }

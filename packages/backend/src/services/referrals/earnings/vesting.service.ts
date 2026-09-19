@@ -67,7 +67,7 @@ export interface VestingSweepResult {
  * Move every reward whose hold has elapsed from `held` to `vested`.
  *
  * The sweep is BOUNDED and RESUMABLE: one page per call, keyset paged on
- * `hold_until_at` (never on the id — `@oxyhq/db`'s uuid v7 is not monotonic
+ * `hold_until_at` (never on the id — `@oxy.so/db`'s uuid v7 is not monotonic
  * within a millisecond, and one accrual batch shares an instant).
  *
  * Each reward is its own transaction. One transaction over the page would make a

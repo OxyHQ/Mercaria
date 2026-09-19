@@ -59,7 +59,7 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm';
-import { inList } from '@oxyhq/db';
+import { inList } from '@oxy.so/db';
 import type {
   CatalogIntegrityCheckKind,
   CatalogIntegrityReport,

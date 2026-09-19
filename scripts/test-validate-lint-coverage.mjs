@@ -55,7 +55,7 @@ async function runAgainst(files) {
   }
 }
 
-/** A workflow carrying the gating job and the four real lint steps. */
+/** A workflow carrying the gating job and the five real lint steps. */
 const CI_YML = "name: CI\n"
   + "on: [push, pull_request]\n"
   + "jobs:\n"
@@ -70,13 +70,16 @@ const CI_YML = "name: CI\n"
   + "        run: bun run --filter @mercaria/dashboard lint\n"
   + "      - name: Lint POS\n"
   + "        run: bun run --filter @mercaria/pos lint\n"
+  + "      - name: Lint SDK\n"
+  + "        run: bun run --filter @mercaria.co/sdk lint\n"
   + "      - name: Test the backend\n"
   + "        run: bun run --filter @mercaria/backend test\n";
 
 /**
- * The repository as it stands: FOUR real linters, two placeholders, and no
+ * The repository as it stands: FIVE real linters, two placeholders, and no
  * package without a `lint` script at all (#496 moved the three Expo apps into
- * the first group).
+ * the first group; #1017 added the SDK, whose manifest name is NOT
+ * `@mercaria/<directory>`).
  *
  * Every package also carries an unrelated script or two, so a case can change one
  * without touching `lint` and prove the gate stays silent.
@@ -112,6 +115,11 @@ function tree(extra = {}) {
       scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
       devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
     },
+    "packages/sdk/package.json": {
+      name: "@mercaria.co/sdk",
+      scripts: { lint: "eslint src test scripts", test: "vitest run", typecheck: "tsc --noEmit" },
+      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
+    },
     ".github/workflows/ci.yml": CI_YML,
     ...extra,
   };
@@ -145,8 +153,8 @@ const cases = [
     name: "a package LOSING its lint script fails",
     files: withPackage("backend", { name: "@mercaria/backend", scripts: { test: "vitest run" } }),
     expectExit: 1,
-    expectOutput: "packages running a REAL linter are [dashboard, frontend, pos], expected "
-      + "[backend, dashboard, frontend, pos]",
+    expectOutput: "packages running a REAL linter are [dashboard, frontend, pos, sdk], expected "
+      + "[backend, dashboard, frontend, pos, sdk]",
   },
   {
     // The silent one: the script survives, the linting does not. A name-keyed
@@ -157,8 +165,8 @@ const cases = [
       scripts: { lint: 'echo "skip for now" && exit 0', test: "vitest run" },
     }),
     expectExit: 1,
-    expectOutput: "packages running a REAL linter are [dashboard, frontend, pos], expected "
-      + "[backend, dashboard, frontend, pos]",
+    expectOutput: "packages running a REAL linter are [dashboard, frontend, pos, sdk], expected "
+      + "[backend, dashboard, frontend, pos, sdk]",
   },
   {
     name: "a placeholder becoming a real linter fails, because that is coverage too",
@@ -187,8 +195,8 @@ const cases = [
       scripts: { lint: "biome check .", typecheck: "tsc --noEmit" },
     }),
     expectExit: 1,
-    expectOutput: "packages running a REAL linter are [backend, dashboard, frontend, pos, ui], "
-      + "expected [backend, dashboard, frontend, pos]",
+    expectOutput: "packages running a REAL linter are [backend, dashboard, frontend, pos, sdk, ui], "
+      + "expected [backend, dashboard, frontend, pos, sdk]",
   },
 
   // ------------------------------------------------------- the root script ---
@@ -220,7 +228,8 @@ const cases = [
         .replace("      - name: Lint the backend\n        run: bun run --filter @mercaria/backend lint\n", "")
         .replace("      - name: Lint Storefront\n        run: bun run --filter @mercaria/frontend lint\n", "")
         .replace("      - name: Lint Dashboard\n        run: bun run --filter @mercaria/dashboard lint\n", "")
-        .replace("      - name: Lint POS\n        run: bun run --filter @mercaria/pos lint\n", ""),
+        .replace("      - name: Lint POS\n        run: bun run --filter @mercaria/pos lint\n", "")
+        .replace("      - name: Lint SDK\n        run: bun run --filter @mercaria.co/sdk lint\n", ""),
     }),
     expectExit: 1,
     expectOutput: "no `--filter <pkg> lint` step was found in ci.yml at all",
@@ -232,6 +241,19 @@ const cases = [
     }),
     expectExit: 1,
     expectOutput: "ci.yml runs `--filter @mercaria/ui lint` but that package has no script running "
+      + "a real linter",
+  },
+  {
+    // #1017. The published package's name is not `@mercaria/<directory>`, so a
+    // guard that derived CI target names from directories would call the real
+    // `--filter @mercaria.co/sdk lint` step unlinted and wave through a step
+    // naming `@mercaria/sdk`, which does not exist and exits 1 in CI.
+    name: "a CI lint target is matched against the manifest NAME, not the directory",
+    files: tree({
+      ".github/workflows/ci.yml": CI_YML.replace("--filter @mercaria.co/sdk lint", "--filter @mercaria/sdk lint"),
+    }),
+    expectExit: 1,
+    expectOutput: "ci.yml runs `--filter @mercaria/sdk lint` but that package has no script running "
       + "a real linter",
   },
   {
@@ -255,7 +277,7 @@ const cases = [
       ".github/workflows/ci.yml": CI_YML,
     },
     expectExit: 1,
-    expectOutput: "0 workspace packages found under packages/, below the 6 floor",
+    expectOutput: "0 workspace packages found under packages/, below the 7 floor",
   },
   {
     // #494's shape, aimed at this gate: `validate-rtl-logical-classes.mjs` has a
@@ -273,8 +295,8 @@ const cases = [
       return files;
     })(),
     expectExit: 1,
-    expectOutput: "packages running a REAL linter are [backend, dashboard, frontend], expected "
-      + "[backend, dashboard, frontend, pos]",
+    expectOutput: "packages running a REAL linter are [backend, dashboard, frontend, sdk], expected "
+      + "[backend, dashboard, frontend, pos, sdk]",
   },
   {
     name: "a package whose manifest is not valid JSON fails loudly",
@@ -371,7 +393,7 @@ const cases = [
       scripts: { lint: "biome check .", typecheck: "tsc --noEmit" },
     }),
     expectExit: 1,
-    expectOutput: "packages running a REAL linter are [backend, dashboard, frontend, pos, ui]",
+    expectOutput: "packages running a REAL linter are [backend, dashboard, frontend, pos, sdk, ui]",
     rejectOutput: "packages/ui runs eslint",
   },
 ];

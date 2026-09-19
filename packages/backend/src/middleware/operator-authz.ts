@@ -41,7 +41,7 @@
  */
 
 import type { NextFunction, Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { config } from '../config/index.js';
 import { sendError, ErrorCodes } from '../utils/api-response.js';
 import { log } from '../lib/logger.js';

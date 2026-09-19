@@ -603,18 +603,32 @@ export function nextSplitPhase(phase: CatalogSplitPhase): CatalogSplitPhase | nu
 /**
  * The lifecycle of a curation job.
  *
- * `blocked` is separate from `failed` on purpose: a job waiting on an operator
- * to resolve a conflict is not an error and must not be retried, while a job
- * that threw is and must. Collapsing them would either spin the dispatcher
- * against a decision only a person can make, or bury a real fault in a queue of
- * things "waiting for review".
+ * `blocked` is separate from `dead_letter` on purpose: a job waiting on an
+ * operator to resolve a conflict is not an error and must not be retried, while
+ * a job that threw is and must. Collapsing them would either spin the
+ * dispatcher against a decision only a person can make, or bury a real fault in
+ * a queue of things "waiting for review".
+ *
+ * ## Every member here is WRITTEN by something, and that is the invariant
+ *
+ * There was a seventh, `failed`, and nothing ever wrote it (#704). It was
+ * CHECK-permitted on both job tables and returned by the repository's status
+ * filter, so it read as a state the system could reach — and
+ * `mergeJobBlockingState` renders a child job's CURRENT status into an
+ * operator-facing refusal, which meant that sentence could name a state no
+ * write in this codebase produces. An operator reading it would take it for a
+ * real diagnosis.
+ *
+ * A retry-exhausted job is `dead_letter` and a released one is `pending`; there
+ * was never a third failure meaning, which is why `failed` was cut rather than
+ * made reachable. Adding a member here is therefore adding a WRITER in the same
+ * change — `db/curation/jobRepository.ts` is the only place that may be.
  */
 export type CatalogJobStatus =
   | 'pending'
   | 'processing'
   | 'blocked'
   | 'completed'
-  | 'failed'
   | 'dead_letter'
   | 'cancelled';
 
@@ -623,7 +637,6 @@ export const CATALOG_JOB_STATUSES: readonly CatalogJobStatus[] = [
   'processing',
   'blocked',
   'completed',
-  'failed',
   'dead_letter',
   'cancelled',
 ];

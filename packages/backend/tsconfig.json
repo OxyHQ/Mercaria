@@ -18,7 +18,28 @@
     // and `build` is esbuild (`build.ts`), which computes its own base from its
     // three entry points — so `outDir` and `rootDir` describe no artefact
     // anybody ships and widening the second changes no output.
-    "rootDir": ".",
+    //
+    // `packages/`, not the package root, since #1017: the SDK contract suite
+    // (`src/routes/__tests__/public-api-sdk-contract.realdb.test.ts`) imports
+    // `@mercaria.co/sdk` from its SOURCE through `paths` below, and a `.ts`
+    // file outside `rootDir` is a TS6059 that refuses the whole program — at the
+    // package root it reported one per SDK module. Still no output, for the
+    // reason above.
+    "rootDir": "..",
+    // The published SDK, from SOURCE, for the contract suite only.
+    // `vitest.config.ts` READS this entry and applies it as its runtime alias,
+    // so the two cannot name different files. Its `package.json` exports
+    // point at `dist/`, which does not exist until the SDK is built, and a
+    // contract test against a stale build would prove the wrong artefact. The
+    // SDK's own strict, no-DOM program is `packages/sdk/tsconfig.json`; here it
+    // is only an import — but it is compiled under THIS program's options, so
+    // SDK source must also type-check with `strict: false` (a
+    // `x !== null && typeof x !== …` narrowing needs `strictNullChecks`; see
+    // `nullableRating` in `packages/sdk/src/parse.ts`). No production module
+    // imports it.
+    "paths": {
+      "@mercaria.co/sdk": ["../sdk/src/index.ts"]
+    },
     "declaration": false,
     "sourceMap": false,
     "types": ["node"],

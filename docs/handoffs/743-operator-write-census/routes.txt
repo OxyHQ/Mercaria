@@ -1,0 +1,187 @@
+
+## internal-awin.ts  (6)
+  POST   /accounts                                          registerAwinAccountHandler
+  POST   /accounts/:accountId/state                         changeAwinAccountStateHandler
+  POST   /accounts/:accountId/discover                      discoverAwinHandler
+  POST   /advertisers/:advertiserId/source                  registerAwinSourceHandler
+  POST   /advertisers/:advertiserId/activation              changeAwinActivationHandler
+  POST   /advertisers/:advertiserId/samples                 recordAwinSampleHandler
+
+## internal-backfill.ts  (3)
+  POST   /runs                                              openBackfillRunHandler
+  POST   /runs/:id/page                                     runBackfillPageHandler
+  POST   /runs/:id/cancel                                   cancelBackfillRunHandler
+
+## internal-canonical-catalog.ts  (6)
+  POST   /product-families                                  createProductFamilyHandler
+  POST   /products                                          createCanonicalProductHandler
+  POST   /products/:productId/variants                      createCanonicalVariantHandler
+  POST   /products/:productId/observations                  applyProductObservationHandler
+  POST   /identifiers                                       assignIdentifierHandler
+  POST   /identifiers/:id/correct                           correctIdentifierHandler
+
+## internal-catalog-attributes.ts  (7)
+  POST   /definitions                                       draftDefinitionHandler
+  POST   /definitions/:key/versions/:version/publish        publishDefinitionHandler
+  POST   /definitions/:key/versions/:version/deprecate      deprecateDefinitionHandler
+  POST   /definitions/:key/versions/:version/retire         retireDefinitionHandler
+  POST   /source-mappings                                   upsertSourceMappingHandler
+  POST   /observations                                      applyObservationHandler
+  POST   /reviews/:id/resolve                               resolveReviewHandler
+
+## internal-catalog-condition.ts  (5)
+  POST   /mapping-rulesets                                  createConditionRulesetHandler
+  PUT    /mapping-rulesets/:id/mappings                     putConditionRulesetMappingsHandler
+  POST   /mapping-rulesets/:id/publish                      publishConditionRulesetHandler
+  PUT    /category-policies                                 putConditionCategoryPolicyHandler
+  DELETE /category-policies/:categoryId/:conditionKey       deleteConditionCategoryPolicyHandler
+
+## internal-catalog-governance.ts  (15)
+  POST   /changes                                           planChangeHandler
+  POST   /changes/:changeId/approve                         approveChangeHandler
+  POST   /changes/:changeId/apply                           applyChangeHandler
+  POST   /changes/:changeId/reject                          rejectChangeHandler
+  POST   /changes/:changeId/withdraw                        withdrawChangeHandler
+  POST   /roles                                             grantRoleHandler
+  POST   /roles/revoke                                      revokeRoleHandler
+  POST   /snapshots                                         exportSnapshotHandler
+  POST   /snapshots/:snapshotId/restore                     restoreSnapshotHandler
+  POST   /vertical-packages/:packageName                    verticalPackageHandler
+  POST   /reviews/localization                              reviewLocalizationHandler
+  POST   /reviews/external-mappings/:mappingId              reviewExternalMappingHandler
+  POST   /reviews/attribute-claims/:claimId                 settleAttributeClaimHandler
+  POST   /reviews/compatibility-claims/:claimId             reviewCompatibilityClaimHandler
+  POST   /reviews/compatibility-claims/:claimId/fitment     promoteCompatibilityClaimHandler
+
+## internal-catalog-proposals.ts  (7)
+  POST   /:proposalId/approve                               approveCatalogProposalHandler
+  POST   /:proposalId/merge                                 mergeCatalogProposalHandler
+  POST   /:proposalId/reject                                rejectCatalogProposalHandler
+  POST   /:proposalId/request-information                   requestCatalogProposalInformationHandler
+  POST   /:proposalId/defer                                 deferCatalogProposalHandler
+  POST   /:proposalId/redirect                              redirectCatalogProposalHandler
+  POST   /:proposalId/backfill                              backfillCatalogProposalHandler
+
+## internal-commerce-graph.ts  (39)
+  POST   /native-store-links                                createNativeStoreLinkHandler
+  POST   /native-store-links/:id/revoke                     revokeNativeStoreLinkHandler
+  POST   /relationships                                     assertRelationshipHandler
+  POST   /relationships/:id/evidence                        attachEvidenceHandler
+  POST   /relationships/:id/evidence/:evidenceId/revoke     revokeEvidenceHandler
+  POST   /relationships/:id/approve                         approveRelationshipHandler
+  POST   /relationships/:id/verify                          verifyRelationshipHandler
+  POST   /relationships/:id/reject                          rejectRelationshipHandler
+  POST   /relationships/:id/request-evidence                requestEvidenceHandler
+  POST   /relationships/:id/expire                          expireRelationshipHandler
+  POST   /relationships/:id/revoke                          revokeRelationshipHandler
+  POST   /relationships/:id/correct                         correctRelationshipHandler
+  POST   /claims/:id/decision                               decideClaimHandler
+  POST   /claims/:id/revoke                                 revokeClaimHandler
+  POST   /claims/:id/revoke-and-unlink                      revokeClaimAndUnlinkHandler
+  POST   /store-linkage/corrections                         openLinkageCorrectionHandler
+  POST   /store-linkage/requests/:id/decision               decideLinkageRequestHandler
+  POST   /store-linkage/requests/:id/candidates             proposeLinkageCandidateHandler
+  POST   /review-items                                      raiseReviewItemHandler
+  POST   /review-items/scan                                 runDetectorsHandler
+  POST   /review-items/:id/claim                            claimReviewItemHandler
+  POST   /review-items/:id/release                          releaseReviewItemHandler
+  POST   /review-items/:id/resolve                          resolveReviewItemHandler
+  POST   /merge-jobs                                        requestMergeHandler
+  POST   /merge-jobs/:id/approve                            approveMergeHandler
+  POST   /merge-jobs/:id/cancel                             cancelMergeHandler
+  POST   /merge-jobs/:id/conflicts/:conflictId/resolve      resolveConflictHandler
+  POST   /split-jobs                                        requestSplitHandler
+  POST   /split-jobs/:id/approve                            approveSplitHandler
+  POST   /split-jobs/:id/cancel                             cancelSplitHandler
+  POST   /curation-jobs/drain                               drainCurationJobsHandler
+  POST   /identifiers/:id/reassign                          reassignIdentifierHandler
+  POST   /attribute-values/:id/select                       selectAttributeValueHandler
+  POST   /suppressions                                      suppressEntityHandler
+  POST   /suppressions/lift                                 liftSuppressionHandler
+  POST   /revisions/:id/compensate                          compensateRevisionHandler
+  POST   /activation/:storeId/hold                          holdActivationHandler
+  DELETE /activation/:storeId/hold                          releaseActivationHoldHandler
+  POST   /activation/:storeId/observe                       observeActivationHandler
+
+## internal-ebay.ts  (2)
+  POST   /sources/:sourceId/discovery-queries               upsertEbayDiscoveryQueryHandler
+  POST   /sources/:sourceId/reconcile                       reconcileEbaySourceHandler
+
+## internal-ingestion.ts  (6)
+  POST   /sources                                           configureSourceHandler
+  POST   /drain                                             drainIngestionHandler
+  POST   /sources/:sourceId/policies                        publishSourcePolicyHandler
+  POST   /sources/:sourceId/status                          changeSourceStatusHandler
+  POST   /sources/:sourceId/runs                            openSourceRunHandler
+  POST   /objects/:objectId/release                         releaseQuarantineHandler
+
+## internal-matching.ts  (10)
+  POST   /policies                                          createMatchPolicyHandler
+  POST   /policies/:id/activate                             activateMatchPolicyHandler
+  POST   /gates                                             openCategoryGateHandler
+  POST   /gates/:id/close                                   closeCategoryGateHandler
+  POST   /blocked-pairs                                     rejectMatchPairHandler
+  POST   /blocked-pairs/:id/clear                           clearBlockedPairHandler
+  POST   /evaluate                                          evaluateSubjectHandler
+  POST   /drain                                             drainMatchQueueHandler
+  POST   /sweep                                             runMatchSweepHandler
+  POST   /decisions/:id/review                              reviewMatchDecisionHandler
+
+## internal-navigation.ts  (6)
+  POST   /trees                                             createNavigationTreeHandler
+  PUT    /trees/:treeId/nodes                               replaceNavigationNodesHandler
+  POST   /trees/:treeId/publish                             publishNavigationTreeHandler
+  POST   /trees/:treeId/archive                             archiveNavigationTreeHandler
+  DELETE /trees/:treeId                                     deleteNavigationTreeHandler
+  POST   /saved-queries                                     createNavigationSavedQueryHandler
+
+## internal-offer-freshness.ts  (4)
+  POST   /drain                                             drainOfferFreshnessHandler
+  POST   /sources/:sourceId/policies                        publishFreshnessPolicyHandler
+  POST   /sources/:sourceId/refresh                         requestRefreshHandler
+  POST   /quarantines/:quarantineId/release                 releaseQuarantineHandler
+
+## internal-offers.ts  (2)
+  POST   /listings/:listingId/converge                      convergeListingOffersHandler
+  POST   /:id/retire                                        retireOfferHandler
+
+## internal-pickup.ts  (1)
+  POST   /publications/:id/restriction                      setPublicationRestrictionHandler
+
+## internal-price-alerts.ts  (1)
+  POST   /alerts/:alertId/evaluate                          priceAlertReevaluateHandler
+
+## internal-price-history.ts  (1)
+  POST   /series/rebuild                                    priceHistoryRebuildHandler
+
+## internal-price-signals.ts  (5)
+  POST   /policies                                          createPriceSignalPolicyHandler
+  POST   /policies/:id/activate                             activatePriceSignalPolicyHandler
+  POST   /policies/:id/archive                              archivePriceSignalPolicyHandler
+  POST   /runs                                              createPriceSignalRunHandler
+  POST   /feedback/:id/close                                closePriceSignalFeedbackHandler
+
+## internal-product-saves.ts  (3)
+  POST   /counters/rebuild                                  rebuildCountersHandler
+  POST   /migrations                                        runMigrationHandler
+  DELETE /subjects/:oxyUserId                               eraseSubjectSavesHandler
+
+## internal-ranking.ts  (5)
+  POST   /policies                                          createRankingPolicyHandler
+  POST   /policies/:id/canary                               canaryRankingPolicyHandler
+  DELETE /policies/:id/canary                               stopRankingCanaryHandler
+  POST   /policies/:id/activate                             activateRankingPolicyHandler
+  POST   /policies/:id/archive                              archiveRankingPolicyHandler
+
+## internal-search-intent.ts  (2)
+  POST   /benchmark-runs                                    runIntentBenchmarkHandler
+  POST   /enablements                                       publishIntentEnablementHandler
+
+## internal-search.ts  (1)
+  POST   /explain                                           searchExplainHandler
+
+## internal-taxonomy.ts  (2)
+  POST   /classifications/:subjectKind/:subjectId           createSecondaryClassificationHandler
+  DELETE /classifications/:subjectKind/:subjectId/:categoryId deleteSecondaryClassificationHandler
+
+files: 23  routes: 139

@@ -264,12 +264,12 @@ terminal cold‑boot step `sso-bounce` unconditionally redirected anonymous web 
 
 Per project rules (fix shared behavior in the SDK, never patch the app), we traced it with
 evidence (Mention only *tolerates* one bounce; no existing opt‑out anywhere) and added an
-**additive, default‑false `disableAutoSso` prop** to `@oxyhq/services`' `OxyProvider`
+**additive, default‑false `disableAutoSso` prop** to `@oxy.so/services`' `OxyProvider`
 (threads into `runColdBoot`, skips **only** the terminal bounce; callback‑consume / FedCM
 / stored‑session restore still run, so a returning user is silently restored).
 
-- Published: **`@oxyhq/services@10.4.0`** (core unchanged 3.7.1). Later migrated to device-first `@oxyhq/services@19` (zero-cookie; legacy web auth package removed).
-- Mercaria: bumped `@oxyhq/services ^10.4.0` and passed `disableAutoSso` in
+- Published: **`@oxy.so/services@10.4.0`** (core unchanged 3.7.1). Later migrated to device-first `@oxy.so/services@19` (zero-cookie; legacy web auth package removed).
+- Mercaria: bumped `@oxy.so/services ^10.4.0` and passed `disableAutoSso` in
   `app/_layout.tsx`. Superseded by the device-first cutover (no SSO bounce).
 
 ---
@@ -306,8 +306,8 @@ reset (so document scroll works on the served app, not just via hand‑applied C
 identified and verified in‑browser, being applied.
 
 **Not pushed.** Everything is in the working tree pending the user's visual sign‑off; SDK
-packages were published as the upstream fix. Device-first migration (`@oxyhq/services@19`,
-`@oxyhq/core@9`, legacy web auth package removed) completed separately.
+packages were published as the upstream fix. Device-first migration (`@oxy.so/services@19`,
+`@oxy.so/core@9`, legacy web auth package removed) completed separately.
 
 **Reference files:** `/tmp/mercaria-shop-shell.md` (Shop shell mapped to NativeWind),
 `/tmp/mercaria-real-mock.md` (real Shopify image catalog).

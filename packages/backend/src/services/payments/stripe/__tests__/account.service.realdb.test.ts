@@ -30,6 +30,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
+import type Stripe from 'stripe';
 import type { Database } from '../../../../db/postgres.js';
 
 /**
@@ -40,8 +41,16 @@ import type { Database } from '../../../../db/postgres.js';
 const stripeApi = vi.hoisted(() => ({
   /** Account id → what `retrieve` should answer with. */
   accounts: new Map<string, Record<string, unknown>>(),
-  /** Every `accounts.create` this test provoked, params and idempotency key. */
-  created: [] as { params: Record<string, unknown>; idempotencyKey: string }[],
+  /**
+   * Every `accounts.create` this test provoked, params and idempotency key.
+   *
+   * Typed as the REAL v2 params rather than `Record<string, unknown>`, so a
+   * field the ADR pins is read through the SDK's own shape: a rename in a future
+   * Stripe version fails `tsc` here instead of turning an assertion into
+   * `undefined === undefined`. It is `Partial` because the fake captures whatever
+   * the caller sent, which is the thing under test.
+   */
+  created: [] as { params: Partial<Stripe.V2.Core.AccountCreateParams>; idempotencyKey: string }[],
   /** Every `accountLinks.create` this test provoked. */
   links: [] as Record<string, unknown>[],
   /** Every account id `retrieve` was asked for, so an EXCLUSION can be asserted. */
@@ -62,7 +71,10 @@ vi.mock('../client.js', () => ({
   retrieveStripeTransfer: () => {
     throw new Error('No fake Transfer in this suite.');
   },
-  createStripeConnectedAccount: (params: Record<string, unknown>, idempotencyKey: string) => {
+  createStripeConnectedAccount: (
+    params: Partial<Stripe.V2.Core.AccountCreateParams>,
+    idempotencyKey: string,
+  ) => {
     stripeApi.created.push({ params, idempotencyKey });
     const id = stripeApi.nextAccountId;
     const account = { id, object: 'account', ...NEW_ACCOUNT_STATE };
@@ -230,43 +242,60 @@ async function readRow(accountRowId: string) {
 }
 
 describe('ensureConnectedAccount', () => {
-  it('sends ADR 0001 D2 controller properties EXACTLY', async () => {
+  it('sends ADR 0001 D2 responsibilities EXACTLY, in Accounts v2 spelling', async () => {
     const seller = owner('d2');
     expectAccountId('d2');
     await accountService.ensureConnectedAccount({ owner: seller, country: 'ES' });
 
     expect(stripeApi.created).toHaveLength(1);
     const [call] = stripeApi.created;
-    // Compared whole, not field by field: an EXTRA controller property is as
-    // wrong as a missing one, and `toMatchObject` would wave it through. These
-    // are immutable at Stripe once an account exists — `stripe_dashboard.type`
-    // explicitly so — which is why this is pinned rather than reviewed.
-    expect(call?.params.controller).toEqual({
-      losses: { payments: 'application' },
-      fees: { payer: 'application' },
-      requirement_collection: 'stripe',
-      stripe_dashboard: { type: 'express' },
+    // Compared whole, not field by field: an EXTRA responsibility is as wrong as
+    // a missing one, and `toMatchObject` would wave it through. D2's properties
+    // are immutable at Stripe once an account exists — `dashboard` explicitly so
+    // — which is why this is pinned rather than reviewed.
+    //
+    // `requirement_collection` is deliberately ABSENT here: under v2 it is
+    // DERIVED from these two plus `dashboard`, never sent. The case below is
+    // what proves it comes out right, and this one would pass just as happily if
+    // it came out wrong — so neither case is sufficient alone.
+    expect(call?.params.defaults?.responsibilities).toEqual({
+      losses_collector: 'application',
+      fees_collector: 'application',
     });
-    // `transfers` and NOTHING else. Requesting `card_payments` would couple both
-    // capabilities' disablement, so a card-side problem would stop transfers.
-    expect(call?.params.capabilities).toEqual({ transfers: { requested: true } });
-    expect(call?.params.country).toBe('ES');
-    expect(call?.params.business_type).toBe('company');
+    expect(call?.params.dashboard).toBe('express');
+    // BOTH configurations, and `card_payments` is not optional (ADR 0008 D2-C):
+    // outside the US Stripe refuses `stripe_transfers` without it. It also
+    // carries D2-D — a recipient-only v2 account never emits `account.updated`,
+    // Mercaria's only readiness trigger — so a future reader deleting it as
+    // surplus does not break onboarding, it makes every seller six hours late.
+    expect(call?.params.configuration).toEqual({
+      recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } },
+      merchant: { capabilities: { card_payments: { requested: true } } },
+    });
+    // LOWERCASE. `validateSellerCountry` normalises to upper for Mercaria's own
+    // closed set and v2 wants ISO alpha-2 lowercased, so the boundary converts.
+    expect(call?.params.identity?.country).toBe('es');
+    expect(call?.params.identity?.entity_type).toBe('company');
     expect(call?.params.metadata).toEqual({
       ownerType: seller.ownerType,
       ownerId: seller.ownerId,
     });
-    // The legacy `type` field must never appear beside controller properties —
-    // Stripe rejects the combination, and an account created with it is a
-    // different account shape from the one the ADR decided on.
+    // The v1 spellings must be GONE, not merely unused. A `controller` block or
+    // a legacy `type` sent to `/v2/core/accounts` is rejected, and an account
+    // created with either is a different account shape from the one the ADRs
+    // decided on.
+    expect(call?.params).not.toHaveProperty('controller');
+    expect(call?.params).not.toHaveProperty('capabilities');
     expect(call?.params).not.toHaveProperty('type');
+    expect(call?.params).not.toHaveProperty('country');
+    expect(call?.params).not.toHaveProperty('business_type');
   });
 
   it('asks for an individual account for a P2P seller', async () => {
     const seller = owner('p2p', 'user');
     expectAccountId('p2p');
     await accountService.ensureConnectedAccount({ owner: seller, country: 'ES' });
-    expect(stripeApi.created[0]?.params.business_type).toBe('individual');
+    expect(stripeApi.created[0]?.params.identity?.entity_type).toBe('individual');
   });
 
   it('derives the Stripe idempotency key from the owner, not from a fresh id', async () => {

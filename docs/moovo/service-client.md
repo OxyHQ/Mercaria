@@ -12,7 +12,7 @@ survey with citations and timestamps:
 it, plus the measurement of why it cannot yet.
 
 - **#156 acceptance 2 is UNBUILDABLE on BOTH sides, measured 2026-08-16.**
-  `@oxyhq/core@19.1.0` has no `createServiceClient` and no audience-aware mint:
+  `@oxy.so/core@19.1.0` has no `createServiceClient` and no audience-aware mint:
   `getServiceToken()` POSTs `{apiKey, apiSecret}` to `/auth/service-token` and
   every token it returns carries the hardcoded `oxy-api` audience, with
   `audience` appearing only as the VERIFICATION-side `expectedAudience`.

@@ -27,7 +27,7 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
-import { constraintNameOf, isUniqueViolation, uuidv7 } from '@oxyhq/db';
+import { constraintNameOf, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { resolveVariantImages } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import {

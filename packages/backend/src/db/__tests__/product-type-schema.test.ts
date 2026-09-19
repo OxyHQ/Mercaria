@@ -18,7 +18,7 @@
 
 import { is } from 'drizzle-orm';
 import { getTableConfig, PgDialect, PgTable } from 'drizzle-orm/pg-core';
-import { DATABASE_CASING, sqlColumnName } from '@oxyhq/db';
+import { DATABASE_CASING, sqlColumnName } from '@oxy.so/db';
 import { describe, expect, it } from 'vitest';
 import {
   PRODUCT_TYPE_AUTHORING_FLOWS,

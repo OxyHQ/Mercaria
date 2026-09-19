@@ -18,7 +18,7 @@
  * than the question needs.
  */
 
-import { isLiveEntityId } from '@oxyhq/db';
+import { isLiveEntityId } from '@oxy.so/db';
 import { findReviewById, type ReviewRecord } from '../../../db/reviews/reviewRepository.js';
 import { config } from '../../../config/index.js';
 import type {

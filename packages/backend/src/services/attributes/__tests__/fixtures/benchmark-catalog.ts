@@ -360,6 +360,10 @@ export function fixtureDefinition(
     value: value.value,
     label: value.label,
     position,
+    // #367 line 280. Null in every fixture: these catalogues exist to be
+    // matched and searched against, and a value that redirected somewhere
+    // else would measure the redirect rather than the thing under test.
+    replacesEnumValueId: null,
     createdAt: new Date(0),
     updatedAt: new Date(0),
   }));
@@ -402,6 +406,7 @@ export function fixtureDefinition(
       filterable: input.filterable ?? true,
       sortable: input.sortable ?? false,
       comparable: input.comparable ?? true,
+      searchable: input.searchable ?? true,
       hardConstraintCapable: input.hardConstraintCapable ?? false,
       displayPolicy: input.displayPolicy ?? 'public',
       evidencePolicy: input.evidencePolicy ?? 'source_required',

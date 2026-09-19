@@ -69,7 +69,7 @@ import {
   type AnyPgColumn,
   type PgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   OPEN_RETAIL_SERVICE_REQUEST_STATES,
   RETAIL_CUSTOMER_OUTCOMES,

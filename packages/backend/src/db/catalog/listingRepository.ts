@@ -78,6 +78,7 @@ import {
   arrayContains,
   asc,
   eq,
+  getTableColumns,
   gte,
   inArray,
   isNotNull,
@@ -90,7 +91,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
-import { qualified } from '@oxyhq/db';
+import { qualified } from '@oxy.so/db';
 import {
   LISTING_BASE_TEXT_SEARCH_CONFIGURATION,
   MERCARIA_BASE_LOCALE,
@@ -111,6 +112,7 @@ import { listingImages, listingOptions, listings, productVariants } from '../sch
 import { listingLocalizations } from '../schema/catalogLocalization.js';
 import { connections } from '../schema/connectors.js';
 import { listingCollections } from '../schema/merchandising.js';
+import { stores } from '../schema/stores.js';
 
 /** One row of `listings` — no children joined. */
 export type ListingRecord = InferSelectModel<typeof listings>;
@@ -1170,6 +1172,16 @@ export interface ListingSearchFilters {
    */
   locale?: string;
   near?: { lng: number; lat: number; radiusM: number };
+  /**
+   * Exclude every STORE-owned listing whose store is not `active` (#1017).
+   *
+   * The storefront browse has never applied this — a suspended or closed store's
+   * active listings still match `GET /listings` — and that is left exactly as it
+   * is here. The public integration surface sets it, because a foreign
+   * application must not be handed a product whose own detail read answers 410.
+   * A person-owned listing has no store and is unaffected.
+   */
+  liveStoresOnly?: boolean;
 }
 
 /**
@@ -1237,6 +1249,20 @@ function buildSearchWhere(filters: ListingSearchFilters): SQL | undefined {
     predicates.push(textMatch(filters.text.trim(), filters.locale));
   }
 
+  if (filters.liveStoresOnly) {
+    // `qualified()` on the OUTER column: a drizzle column interpolated into a
+    // sub-statement whose FROM does not name its table renders BARE, so
+    // `${listings.storeId}` would resolve against `stores` — see
+    // `variantExistsPredicate` below for the measured version of that trap.
+    predicates.push(
+      sql`(${listings.ownerType} = 'user' or exists (
+        select 1 from ${stores}
+        where ${qualified(stores.id)} = ${qualified(listings.storeId)}
+          and ${qualified(stores.status)} = 'active'
+      ))`,
+    );
+  }
+
   if (filters.near) {
     predicates.push(
       sql`${listings.geo} is not null and st_dwithin(
@@ -1298,6 +1324,34 @@ export async function searchListingsPage(
   ]);
 
   return { rows, total: totals?.count ?? 0 };
+}
+
+/**
+ * One OFFSET slice of a browse, with no count (#1017).
+ *
+ * The public integration surface pages by an opaque cursor that encodes an
+ * offset, so it needs neither the page arithmetic nor the `count(*)`
+ * {@link searchListingsPage} runs beside every page: it reads `limit + 1` rows
+ * and answers "is there more" from the extra one. Same predicates, same order —
+ * both come from the two builders above, so the two reads cannot disagree about
+ * what matches or where it sorts.
+ */
+export async function searchListingsSlice(
+  filters: ListingSearchFilters,
+  sort: ListingQuery['sort'],
+  offset: number,
+  limit: number,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<{ rows: ListingRecord[]; hasMore: boolean }> {
+  const rows = await db
+    .select()
+    .from(listings)
+    .where(buildSearchWhere(filters))
+    .orderBy(...buildSearchOrder(sort))
+    .limit(limit + 1)
+    .offset(offset);
+  const hasMore = rows.length > limit;
+  return { rows: hasMore ? rows.slice(0, limit) : rows, hasMore };
 }
 
 /** The boundary a keyset page resumes from. */
@@ -1645,46 +1699,154 @@ export async function findNewestActiveListings(
 
 /**
  * The newest ACTIVE listings that have a variant carrying a `compare_at_price` —
- * the feed's "On sale" shelf.
+ * the home feed's store-wide "On sale" shelf AND the discovery feed's
+ * category-scoped `on-sale` signal.
  *
  * ONE query. The Mongo path read every active listing with a non-zero price,
  * then read every variant of those listings that had a `compareAtPrice`, then
  * intersected the two sets IN THE PROCESS and sliced the shelf out — so rendering
  * eight cards read the entire active catalogue twice.
+ *
+ * `categoryIds` is `undefined` for the home feed's store-wide shelf — today's
+ * exact behaviour, unchanged. PROVIDED (discovery's category scope), it
+ * filters, and an EMPTY array filters to nothing, matching the
+ * `categoryIds.length === 0 → []` convention `discoveryReadRepository.ts`'s
+ * other four signals already follow: a discovery category page must not fall
+ * back to a store-wide "on sale" shelf that ignores which category the shopper
+ * is browsing.
  */
 export async function findOnSaleListings(
-  limit: number,
+  options: {
+    readonly limit: number;
+    readonly categoryIds?: readonly string[];
+    readonly offset?: number;
+  },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ListingRecord[]> {
+  if (options.categoryIds !== undefined && options.categoryIds.length === 0) {
+    return [];
+  }
+  const predicates: SQL[] = [
+    eq(listings.status, 'active'),
+    variantExistsPredicate(sql`${productVariants.compareAtPriceAmount} is not null`),
+  ];
+  if (options.categoryIds !== undefined) {
+    predicates.push(inArray(listings.categoryId, [...options.categoryIds]));
+  }
   return db
     .select()
     .from(listings)
-    .where(
-      and(
-        eq(listings.status, 'active'),
-        variantExistsPredicate(sql`${productVariants.compareAtPriceAmount} is not null`),
-      ),
-    )
+    .where(and(...predicates))
     .orderBy(...NEWEST_FIRST)
-    .limit(limit);
+    .limit(options.limit)
+    .offset(options.offset ?? 0);
 }
 
-/** Every ACTIVE listing of a batch of stores, newest first — the merchant shelf. */
+/**
+ * The newest `perStoreLimit` ACTIVE listings of each of a batch of stores —
+ * the merchant shelf.
+ *
+ * **`perStoreLimit` is required, and a shared total would not do.** Every
+ * caller renders a handful of thumbnails per card and this read had no LIMIT
+ * at all: the discovery root feed calls it once per top-level category, so one
+ * uncached explore request pulled EVERY active listing of up to
+ * `shelfSize × shelfSize` stores into memory — and then their whole galleries
+ * — to show three images per card. A single `LIMIT` over the batch would not
+ * fix it either: the order is global, so one prolific store would spend the
+ * budget and the rest of the shelf would silently lose its thumbnails.
+ *
+ * So the bound is PER STORE, via `row_number() over (partition by store_id
+ * order by <newest first>)` — `db/search/searchOfferRepository.ts`'s
+ * `rankProductOfferIds` is the same shape one domain over, and carries the
+ * measurement that chose a partitioned pass over a lateral join per subject.
+ * The window and the outer `orderBy` share `NEWEST_FIRST` rather than spelling
+ * it twice, so the rows kept and the order they arrive in cannot drift apart.
+ *
+ * **The two restrictions are applied INSIDE the window**, not after it, which
+ * is the whole reason they are here rather than in the caller: the cap has to
+ * be spent on the listings that qualify, or a card asking for twelve products
+ * out of a restricted set gets however many of a store's twelve newest happen
+ * to be in it. `listingIds` and `collectionIds` are the two shapes
+ * `discounts.applies_to_*` takes (`db/schema/merchandising.ts`), and an
+ * explicitly EMPTY set reads as "nothing qualifies" rather than "no
+ * restriction" — `findOnSaleListings` treats an empty `categoryIds` the same
+ * way, for the same reason.
+ *
+ * **`categoryIds` is the third restriction, and it is here for the reason the
+ * other two are**: a `stores` section on a discovery CATEGORY page claims "top
+ * performer in this category", and every sibling section there is scoped to
+ * that category's active subtree — so an unscoped card contradicted the premise
+ * it was shown under, drawing its thumbnails from the store's whole catalogue.
+ * Being inside the window matters more for this one than for either of the
+ * others: a store whose newest listings are all filed elsewhere would otherwise
+ * spend its entire `perStoreLimit` on rows this scope discards, and the card
+ * would come back with no thumbnails while the store has products in the
+ * category.
+ *
+ * The deals scope passes none of it, deliberately — `/deals` has no category
+ * context to contradict, so its cards are bounded by what the discount covers
+ * and by nothing else, and `services/feed.service.ts`'s store-wide merchant
+ * shelf omits it for the same reason.
+ */
 export async function findActiveListingsForStores(
-  storeIds: readonly string[],
+  options: {
+    readonly storeIds: readonly string[];
+    readonly perStoreLimit: number;
+    /** Restrict to these listing ids — `discounts.applies_to_product_ids`' population. */
+    readonly listingIds?: readonly string[];
+    /** Restrict to members of these collections — `discounts.applies_to_collection_ids`'. */
+    readonly collectionIds?: readonly string[];
+    /** Restrict to these categories — a discovery category scope's ACTIVE subtree. */
+    readonly categoryIds?: readonly string[];
+  },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ListingRecord[]> {
-  if (storeIds.length === 0) return [];
-  return db
-    .select()
+  if (options.storeIds.length === 0) return [];
+  if (options.listingIds !== undefined && options.listingIds.length === 0) return [];
+  if (options.collectionIds !== undefined && options.collectionIds.length === 0) return [];
+  if (options.categoryIds !== undefined && options.categoryIds.length === 0) return [];
+
+  const predicates: SQL[] = [
+    eq(listings.ownerType, 'store'),
+    inArray(listings.storeId, [...options.storeIds]),
+    eq(listings.status, 'active'),
+  ];
+  if (options.listingIds !== undefined) {
+    predicates.push(inArray(listings.id, [...options.listingIds]));
+  }
+  if (options.collectionIds !== undefined) {
+    // UNCORRELATED, the same shape and the same index
+    // (`listing_collections_collection_id_position_idx`) `findListings`'
+    // `collectionId` filter uses below.
+    predicates.push(
+      sql`${listings.id} in (
+        select ${listingCollections.listingId}
+        from ${listingCollections}
+        where ${inArray(listingCollections.collectionId, [...options.collectionIds])}
+      )`,
+    );
+  }
+  if (options.categoryIds !== undefined) {
+    predicates.push(inArray(listings.categoryId, [...options.categoryIds]));
+  }
+
+  const ranked = db
+    .select({
+      id: listings.id,
+      position: sql<number>`row_number() over (
+        partition by ${listings.storeId}
+        order by ${sql.join(NEWEST_FIRST, sql`, `)}
+      )`.as('position'),
+    })
     .from(listings)
-    .where(
-      and(
-        eq(listings.ownerType, 'store'),
-        inArray(listings.storeId, [...storeIds]),
-        eq(listings.status, 'active'),
-      ),
-    )
+    .where(and(...predicates))
+    .as('ranked');
+
+  return db
+    .select(getTableColumns(listings))
+    .from(listings)
+    .innerJoin(ranked, eq(ranked.id, listings.id))
+    .where(sql`${ranked.position} <= ${options.perStoreLimit}`)
     .orderBy(...NEWEST_FIRST);
 }
 

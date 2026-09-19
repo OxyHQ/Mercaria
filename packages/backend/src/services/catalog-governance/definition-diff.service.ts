@@ -111,7 +111,11 @@ async function hydrateAttribute(
     decimalPlaces: resolved.row.decimalPlaces ?? null,
     variantDefining: resolved.row.variantDefining,
     filterable: resolved.row.filterable,
+    sortable: resolved.row.sortable,
+    comparable: resolved.row.comparable,
+    searchable: resolved.row.searchable,
     hardConstraintCapable: resolved.row.hardConstraintCapable,
+    displayPolicy: resolved.row.displayPolicy,
     enumValues: resolved.enumValues.map((value) => value.value).sort(),
     categoryIds: resolved.categoryScopes.map((scope) => scope.categoryId).sort(),
   };

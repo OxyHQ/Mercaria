@@ -99,6 +99,70 @@ export const CATALOG_BACKFILL_RUN_STATUSES: readonly CatalogBackfillRunStatus[] 
 ];
 
 /**
+ * WHY a run ended in `failed`, recorded by the producer that ended it.
+ *
+ * `failed` has TWO producers that mean different things and, before this
+ * column, were indistinguishable once written:
+ *
+ * - `recordBackfillPageFailure` at the ceiling — the run spent
+ *   `CATALOG_BACKFILL_MAX_ATTEMPTS` consecutive failed pages. That is a DEAD
+ *   LETTER: automatic recovery was attempted and exhausted.
+ * - `cancelCatalogBackfillRun` — an operator stopped it, with a reason. That is
+ *   not a dead letter at all, and counting it as one reports a person's decision
+ *   as a system failure.
+ *
+ * **The cause is a COLUMN and not a derived predicate**, because the only two
+ * candidate derivations are both silently wrong. `consecutive_failures >=
+ * CATALOG_BACKFILL_MAX_ATTEMPTS` keys the population on a MUTABLE env var that
+ * is deliberately an incident lever, so raising the ceiling from 8 to 16
+ * un-counts every run that already exhausted at 8 — at exactly the moment
+ * somebody raised it in order to read the number. `consecutive_failures > 0`
+ * counts a run cancelled after two bad pages as a dead letter. More simply:
+ * once both producers have written `failed`, nothing downstream can recover
+ * which one it was, and a derivation cannot reconstruct information the write
+ * threw away.
+ *
+ * `unrecorded` is a REAL member and not a sentinel. Runs that ended before this
+ * column existed cannot be classified — the information was never captured —
+ * and they are backfilled to it rather than to either real cause, so a
+ * deployment whose failed runs all predate the column reports
+ * `unrecorded: N` beside `retry_exhausted: 0`. **A count of zero and a
+ * population nobody could classify must not look alike**, and that is the whole
+ * reason this value is stored rather than left NULL.
+ */
+export type CatalogBackfillTerminalCause =
+  /** The bounded retry was exhausted. This, and only this, is a dead letter. */
+  | 'retry_exhausted'
+  /** An operator stopped the run. Their reason is in `last_error`. */
+  | 'operator_cancelled'
+  /** The run ended before Mercaria recorded why. Never written by a producer. */
+  | 'unrecorded';
+
+export const CATALOG_BACKFILL_TERMINAL_CAUSES: readonly CatalogBackfillTerminalCause[] = [
+  'retry_exhausted',
+  'operator_cancelled',
+  'unrecorded',
+];
+
+/**
+ * The causes a PRODUCER may write. `unrecorded` is excluded deliberately: it
+ * describes rows the MIGRATION classified, so a code path able to write it
+ * could file a run whose cause is perfectly well known under "we do not know".
+ *
+ * **Spelled out rather than derived as `Exclude<CatalogBackfillTerminalCause,
+ * 'unrecorded'>`.** A subtractive type admits every future member by DEFAULT,
+ * and the members this vocabulary is likeliest to grow are more
+ * we-cannot-classify-this buckets — exactly the ones a producer must not be
+ * able to write. Listing them makes adding a cause a decision about which side
+ * it belongs on; subtracting makes it a decision nobody is asked to take.
+ * `backfill-terminal-cause.test.ts` pins containment and the exclusion.
+ */
+export type CatalogBackfillProducerTerminalCause = 'retry_exhausted' | 'operator_cancelled';
+
+export const CATALOG_BACKFILL_PRODUCER_TERMINAL_CAUSES: readonly CatalogBackfillProducerTerminalCause[] =
+  ['retry_exhausted', 'operator_cancelled'];
+
+/**
  * Which slice of the catalogue a run addresses — the issue's "source or category
  * cohorts" flag, at the grain a rollout actually uses.
  *

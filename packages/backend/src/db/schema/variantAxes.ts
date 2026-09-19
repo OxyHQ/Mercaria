@@ -80,7 +80,7 @@ import {
   uniqueIndex,
   type PgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, textArrayLiteral, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, textArrayLiteral, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   NATIVE_ATTRIBUTE_CLAIM_KINDS,
   NATIVE_ATTRIBUTE_CLAIM_PROVENANCES,

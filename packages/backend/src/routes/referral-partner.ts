@@ -21,7 +21,7 @@
  */
 
 import { Router } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { authenticateToken } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { makeReferralPartnerRouter } from '../controllers/referral-partner.controller.js';

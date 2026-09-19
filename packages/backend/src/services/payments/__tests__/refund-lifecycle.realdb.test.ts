@@ -32,7 +32,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import Stripe from 'stripe';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 
 const PLATFORM_SECRET = 'whsec_refund_lifecycle_not_a_real_one';
 const CONNECT_SECRET = 'whsec_refund_lifecycle_connect';

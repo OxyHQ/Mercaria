@@ -4,7 +4,7 @@ import { Text } from "../ui/text";
 import { useColorScheme } from "../../lib/useColorScheme";
 
 /** Trailing chevron icon size (px). */
-const CHEVRON_ICON_SIZE = 18;
+const CHEVRON_ICON_SIZE = 20;
 
 export interface SectionHeaderProps {
   title: string;
@@ -19,7 +19,7 @@ export interface SectionHeaderProps {
  *    that existing shelves use — byte-identical layout to the old inline heading
  *    so the refactor is visually safe.
  * 2. Interactive (has `onPress`): wraps the heading row in a Pressable link.
- * 3. With chevron (has `showChevron`): adds a bordered icon button at the end.
+ * 3. With chevron (has `showChevron`): adds a filled disc icon button at the end.
  *
  * When `onPress` or `showChevron` is present the row switches to a `flex-row
  * items-center justify-between` wrapper and the title's own padding moves to the
@@ -50,7 +50,7 @@ export function SectionHeader({ title, onPress, showChevron = false }: SectionHe
         {title}
       </Text>
       {showChevron ? (
-        <View className="h-8 w-8 items-center justify-center rounded-full border border-border">
+        <View className="flex aspect-square h-8 w-8 items-center justify-center overflow-hidden rounded-radius-max bg-bg-fill-secondary">
           <ChevronRight size={CHEVRON_ICON_SIZE} color={colors.foreground} />
         </View>
       ) : null}

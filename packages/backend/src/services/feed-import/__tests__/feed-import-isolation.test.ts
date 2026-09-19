@@ -253,29 +253,87 @@ describe('the importer writes into the commerce graph nowhere', () => {
 });
 
 describe('tenant ownership (security 6)', () => {
-  it('one function is the ONLY path from a route parameter to a merchant’s feed', () => {
+  it('one function is the ONLY path from a route parameter to a feed', () => {
     const controller = readDomainFile('controllers/feed-import.controller.ts');
-    expect(controller).toContain('async function assertConfigurationBelongsToStore(');
-    // Every merchant handler goes through it. A handler that read the
-    // configuration itself would be a second answer to "may this store see this
-    // feed", and the second answer is the one that gets it wrong.
-    const merchantHandlers = controller.match(/export async function \w*Store\w+Handler/gu) ?? [];
-    expect(merchantHandlers.length).toBeGreaterThanOrEqual(10);
-    const withoutTheGate = controller
+    expect(controller).toContain('async function assertConfigurationOwnedByRequester(');
+
+    // Keyed on the USE, not on a naming convention.
+    //
+    // This gate used to census `\w*Store\w+Handler` and require each to call the
+    // ownership function. That was defeated the moment the handlers stopped
+    // being merchant-only and were renamed — a rename cannot be allowed to
+    // silently empty a population, and an empty population satisfies "every
+    // member does X" for free. Reading the route parameter is what actually
+    // creates the exposure, so it is what the census is drawn from: a handler
+    // that reads `:configurationId` and does not go through the one owner check
+    // is a second answer to "may this requester see this feed", and the second
+    // answer is the one that gets it wrong.
+    const bodies = controller
       .split(/export async function /u)
-      .filter((body) => /^\w*Store\w+Handler/u.test(body))
-      .filter((body) => !body.includes('assertConfigurationBelongsToStore'))
-      // The two collection routes take no `:configurationId` at all.
-      .filter((body) => !body.startsWith('listStoreFeedsHandler') && !body.startsWith('createStoreFeedHandler'));
-    expect(withoutTheGate.map((body) => body.slice(0, 40))).toEqual([]);
+      .filter((body) => body.includes("routeParam(req, 'configurationId')"));
+
+    // A vacuity floor with a REASON rather than a round number: every route in
+    // both routers that carries `:configurationId` needs a handler here, and
+    // there are thirteen such routes across the two surfaces today.
+    expect(bodies.length).toBeGreaterThanOrEqual(13);
+
+    const withoutTheGate = bodies
+      .filter((body) => !body.includes('assertConfigurationOwnedByRequester'))
+      // `traceFeedHandler` is the operator's CROSS-OWNER read and is the one
+      // handler that is meant to see a configuration whoever owns it — the
+      // evidence has to be readable during the incident that turned the
+      // importer off. It is exempt by name, and the case below is what stops
+      // that exemption from being a hole: the name buys nothing unless the
+      // handler is also mounted where only an operator can reach it.
+      .filter((body) => !body.startsWith('traceFeedHandler'))
+      .map((body) => body.slice(0, 40));
+    expect(withoutTheGate).toEqual([]);
   });
 
-  it('every merchant route demands `channels:write`', () => {
+  it('the one exempt handler is mounted ONLY behind the operator allow-list', () => {
+    // The exemption above is a name in a filter, and a name in a filter is
+    // worth exactly as much as the property it stands for. This is that
+    // property: `traceFeedHandler` skips the ownership check, so it must be
+    // unreachable from any surface a store member can call.
+    const operatorRouter = readDomainFile('routes/internal-feed-imports.ts');
+    expect(operatorRouter).toContain('requireCatalogOperator');
+    expect(operatorRouter).toContain('traceFeedHandler');
+
+    const merchantRouter = readDomainFile('routes/admin/feeds.ts');
+    expect(merchantRouter).not.toContain('traceFeedHandler');
+    expect(merchantRouter).not.toContain('listAllFeedsHandler');
+  });
+
+  it('every merchant route demands `channels:write` and declares the merchant scope', () => {
     const router = readDomainFile('routes/admin/feeds.ts');
     const routes = router.match(/router\.(get|post)\(/gu) ?? [];
     const permissions = router.match(/requireStorePermission\('channels:write'\)/gu) ?? [];
     expect(routes.length).toBeGreaterThanOrEqual(14);
     expect(permissions.length).toBe(routes.length);
+    // Without this line every handler here would read the PLATFORM's feeds:
+    // `feedOwnerStoreId` throws on an undeclared scope rather than defaulting,
+    // so the failure is loud — but only a gate keeps the line from being
+    // deleted as noise.
+    expect(router).toContain("declareFeedOwnerScope('merchant')");
+  });
+
+  it('every operator write route is scoped to the platform, and the reads stay cross-owner', () => {
+    const router = readDomainFile('routes/internal-feed-imports.ts');
+    // The whole file is behind the catalogue-operator allow-list; empty means
+    // the router is not mounted at all.
+    expect(router).toContain('requireCatalogOperator');
+
+    // Every write is on the `platform` sub-router, which declares the scope.
+    // A write mounted on the parent would reach a MERCHANT's configuration,
+    // which is the one thing this surface has always refused to do.
+    expect(router).toContain("platform.use(declareFeedOwnerScope('platform'))");
+    const parentWrites = router.match(/^router\.post\(/gmu) ?? [];
+    expect(parentWrites).toEqual([]);
+
+    // And the two cross-owner reads are still there: the evidence has to be
+    // readable during the incident that turned the importer off.
+    expect(router).toContain("router.get('/', listAllFeedsHandler)");
+    expect(router).toContain("router.get('/:configurationId', traceFeedHandler)");
   });
 });
 

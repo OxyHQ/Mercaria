@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { Decision, RecommendedAction } from '@oxyhq/crowdsource-contracts';
+import type { Decision, RecommendedAction } from '@oxy.so/crowdsource-contracts';
 import { planEnforcement } from '../moderation/enforcement-plan.js';
 
 function decision(overrides: Partial<Decision> = {}): Decision {

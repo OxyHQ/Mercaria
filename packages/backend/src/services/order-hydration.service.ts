@@ -28,6 +28,10 @@ import type {
   ShippingInfo,
   PaymentInfo,
   AddressSnapshot,
+  DigitalLicenceUpdatePolicy,
+  DigitalSupplyEvidenceKind,
+  DigitalWithdrawalBasis,
+  OrderDigitalSupply,
   OrderStatusEvent,
   OrderDiscountAllocation,
   OrderTaxLine,
@@ -168,6 +172,22 @@ export function toOrderItemDTO(item: OrderItemRecord): OrderItem {
   if (item.locationId) {
     dto.locationId = item.locationId;
   }
+  /**
+   * The digital snapshot, when this line is one (#1015 boundary 9).
+   *
+   * One column tested and the rest narrowed from it, because
+   * `order_items_digital_snapshot_complete_check` makes a partial snapshot
+   * unrepresentable — the same reasoning `toAddressSnapshot` uses, and the reason
+   * neither needs a four-way guard.
+   */
+  if (item.digitalPackageId) {
+    dto.digital = {
+      packageId: item.digitalPackageId,
+      assetVersionId: item.digitalAssetVersionId as string,
+      licenceVersionId: item.digitalLicenceVersionId as string,
+      updatePolicy: item.digitalUpdatePolicy as DigitalLicenceUpdatePolicy,
+    };
+  }
   return dto;
 }
 
@@ -211,14 +231,30 @@ function toTaxLine(line: OrderTaxLineRow): OrderTaxLine {
   return dto;
 }
 
-/** Map the snapshotted shipping address columns to the `AddressSnapshot` DTO. */
-function toAddressSnapshot(order: OrderRecord): AddressSnapshot {
+/**
+ * Map the snapshotted shipping address columns to the `AddressSnapshot` DTO.
+ *
+ * `null` for a DIGITAL order, which has none (#1015, ADR 0010 D8). Returning
+ * `null` rather than an object of empty strings is what makes the DTO field
+ * optional and forces every client to branch — a blank address would render as a
+ * delivery to nowhere, which is #1015 boundary 16's fake shipping record arriving
+ * through the serializer instead of through the database.
+ *
+ * The five required columns are all-NULL-or-all-present by
+ * `orders_shipping_address_digital_check`, so testing ONE is testing all five.
+ * `recipient_name` is the one tested, and the constraint is what makes that
+ * sufficient rather than optimistic.
+ */
+function toAddressSnapshot(order: OrderRecord): AddressSnapshot | null {
+  if (order.shippingAddressRecipientName === null) {
+    return null;
+  }
   const dto: AddressSnapshot = {
     recipientName: order.shippingAddressRecipientName,
-    line1: order.shippingAddressLine1,
-    city: order.shippingAddressCity,
-    postalCode: order.shippingAddressPostalCode,
-    country: order.shippingAddressCountry,
+    line1: order.shippingAddressLine1 as string,
+    city: order.shippingAddressCity as string,
+    postalCode: order.shippingAddressPostalCode as string,
+    country: order.shippingAddressCountry as string,
   };
   if (order.shippingAddressLabel) {
     dto.label = order.shippingAddressLabel;
@@ -231,6 +267,29 @@ function toAddressSnapshot(order: OrderRecord): AddressSnapshot {
   }
   if (order.shippingAddressPhone) {
     dto.phone = order.shippingAddressPhone;
+  }
+  return dto;
+}
+
+/**
+ * Map the digital-supply columns to the DTO, or `null` on a physical-only order.
+ *
+ * The four columns are all-present-or-all-absent by
+ * `orders_digital_supply_pairing_check` plus
+ * `orders_digital_withdrawal_consent_check`, so one test decides and the casts
+ * below rest on the constraints rather than on hope.
+ */
+function toDigitalSupply(order: OrderRecord): OrderDigitalSupply | null {
+  if (order.digitalSupplyCountry === null) {
+    return null;
+  }
+  const dto: OrderDigitalSupply = {
+    country: order.digitalSupplyCountry,
+    evidence: order.digitalSupplyEvidence as DigitalSupplyEvidenceKind,
+    withdrawalBasis: order.digitalWithdrawalBasis as DigitalWithdrawalBasis,
+  };
+  if (order.digitalSupplyConsentAt) {
+    dto.consentAt = order.digitalSupplyConsentAt.toISOString();
   }
   return dto;
 }
@@ -492,8 +551,13 @@ export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> 
       // the default during the backfill rather than at every read.
       sourceChannel: order.sourceChannel,
       items: order.items.map(toOrderItemDTO),
-      shippingAddress: toAddressSnapshot(order),
+      // Spread rather than assigned, so a digital order's DTO has NO
+      // `shippingAddress` key at all instead of an explicit `undefined` — the
+      // treatment `buyerOxyUserId` above already gets, for the same reason: a key
+      // present with no value reads to a client as "unknown", and this is "none".
+      ...(toAddressSnapshot(order) ? { shippingAddress: toAddressSnapshot(order) as AddressSnapshot } : {}),
       shipping: toShippingInfo(order),
+      ...(toDigitalSupply(order) ? { digitalSupply: toDigitalSupply(order) as OrderDigitalSupply } : {}),
       totals: {
         subtotal: dual(
           order.totalsSubtotalShopAmount,

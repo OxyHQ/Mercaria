@@ -6,6 +6,7 @@ import { Heart } from "lucide-react-native";
 import { Text } from "../ui/text";
 import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
+  MARKETPLACE_NO_IMAGE_KEY,
   PRODUCT_CARD_DISCOUNT_KEY,
   PRODUCT_CARD_SAVE_KEY,
 } from "../../lib/marketplace-labels";
@@ -77,11 +78,17 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
           onPress={() => onPress?.(product.id)}
           className="absolute inset-0"
         >
-          <Image
-            source={{ uri: product.imageUrl }}
-            contentFit="cover"
-            className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105"
-          />
+          {product.imageUrl ? (
+            <Image
+              source={{ uri: product.imageUrl }}
+              contentFit="cover"
+              className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105"
+            />
+          ) : (
+            <View className="h-full w-full items-center justify-center bg-muted">
+              <Text className="text-xs text-muted-foreground">{t(MARKETPLACE_NO_IMAGE_KEY)}</Text>
+            </View>
+          )}
         </Pressable>
 
         {/* Subtle dark wash over the image (Shop bg-bg-overlay-inverse-04). */}

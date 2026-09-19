@@ -7,7 +7,7 @@
 ## The test database is built by shelling out to the real migrator
 
 Each suite run gets its own throwaway, fully-migrated database (name pattern
-`oxydb_test_<16 hex>`, from `@oxyhq/db/testing`), created and dropped by
+`oxydb_test_<16 hex>`, from `@oxy.so/db/testing`), created and dropped by
 `packages/backend/src/db/testDatabase.ts` — which SHELLS OUT
 (`node:child_process` `spawn`) to the real `src/db/migrate.ts` entrypoint rather
 than composing `runMigrations` a second time in-process. A second, in-test

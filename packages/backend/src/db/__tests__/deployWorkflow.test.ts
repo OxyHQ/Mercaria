@@ -5,7 +5,7 @@
  *
  * `.github/workflows/deploy-aws.yml` decides whether a release needs a
  * post-rollout migration task by GREPPING the migration files for a phase
- * marker. That grep is a second copy of syntax `@oxyhq/db` owns — and the
+ * marker. That grep is a second copy of syntax `@oxy.so/db` owns — and the
  * failure mode of a stale copy is silent and total: a pattern that no longer
  * matches reads as "no post migration in this release", the drop is never
  * applied by anything, and the deploy goes green. Nothing else in the repo would
@@ -30,7 +30,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
-import { MIGRATION_RUNS, POST_PHASE_GREP_PATTERN } from '@oxyhq/db/migrate';
+import { MIGRATION_RUNS, POST_PHASE_GREP_PATTERN } from '@oxy.so/db/migrate';
 import { MIGRATIONS_FOLDER } from '../migrationsFolder.js';
 
 /** Only the shape these assertions read — not a schema for GitHub Actions. */
@@ -50,12 +50,14 @@ interface WorkflowFile {
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..', '..');
 const WORKFLOW_PATH = join(REPO_ROOT, '.github', 'workflows', 'deploy-aws.yml');
 const SCRIPT_PATH = join(REPO_ROOT, '.github', 'scripts', 'run-migration-task.sh');
+const ECS_TASK_SCRIPT_PATH = join(REPO_ROOT, '.github', 'scripts', 'run-ecs-task.sh');
 
 const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
 const script = readFileSync(SCRIPT_PATH, 'utf8');
+const ecsTaskScript = readFileSync(ECS_TASK_SCRIPT_PATH, 'utf8');
 
 describe('the deploy workflow and the migrator agree', () => {
-  it('greps migrations with the pattern @oxyhq/db exports, not a copy of it', () => {
+  it('greps migrations with the pattern @oxy.so/db exports, not a copy of it', () => {
     // Vacuity floor: if the constant were ever exported as an empty string this
     // assertion would pass against any workflow at all.
     expect(POST_PHASE_GREP_PATTERN.length).toBeGreaterThan(10);
@@ -68,6 +70,76 @@ describe('the deploy workflow and the migrator agree', () => {
     // run there. `build.ts` emits this path as a second entry point.
     expect(script).toContain('packages/backend/dist/db/migrate.js');
     expect(script).toContain('"node"');
+  });
+
+  it('pins migrations, rollout and catalog registration to one immutable image', () => {
+    const jobs = (parse(workflow) as WorkflowFile).jobs;
+    const register = jobs.deploy.steps.find((step) =>
+      step.name?.startsWith('Resolve the ECS one-shot shape'),
+    );
+    const rollout = jobs.deploy.steps.find((step) => step.name?.startsWith('Deploy to ECS'));
+    const catalog = jobs.deploy.steps.find((step) =>
+      step.name?.startsWith('Register the deployed capability catalog'),
+    );
+
+    expect(workflow).toContain("--query 'imageDetails[0].imageDigest'");
+    expect(register?.run).toContain('aws ecs register-task-definition');
+    expect(register?.run).toContain(
+      '{family, taskRoleArn, executionRoleArn, networkMode,',
+    );
+    expect(register?.run).toContain('runtimePlatform, enableFaultInjection}');
+    expect(register?.run).not.toContain('del(.taskDefinitionArn');
+    expect(register?.run).toContain('.image = $image');
+    expect(register?.run).toContain('/oxy/$APP/OXY_APPLICATION_KEY');
+    expect(register?.run).toContain('/oxy/$APP/OXY_APPLICATION_SECRET');
+    expect(register?.run).toContain('.name != "OXY_APPLICATION_KEY"');
+    expect(register?.run).toContain('.name != "OXY_APPLICATION_SECRET"');
+    expect(register?.run).toContain('{name: "OXY_API_URL", value: $oxy_api_url}');
+    expect(rollout?.run).toContain('--task-definition');
+    expect(catalog?.run).toContain('packages/backend/dist/register-capability-catalog.js');
+    expect(catalog?.env?.TASK_DEFINITION).toBe('${{ steps.ecs.outputs.task_definition }}');
+    expect(ecsTaskScript).toContain("--task-definition \"$TASK_DEFINITION\"");
+    expect(ecsTaskScript).toContain("EXIT_CODE");
+  });
+
+  it('verifies the exact ECS candidate before destructive migrations or catalog publication', () => {
+    const steps = (parse(workflow) as WorkflowFile).jobs.deploy.steps;
+    const resolve = steps.find((step) => step.name?.startsWith('Resolve the ECS one-shot shape'));
+    const rolloutIndex = steps.findIndex((step) => step.name?.startsWith('Deploy to ECS'));
+    const smokeIndex = steps.findIndex((step) => step.name?.startsWith('Verify live Mercaria MCP'));
+    const rollbackIndex = steps.findIndex((step) =>
+      step.name?.startsWith('Roll back a failed candidate'),
+    );
+    const postIndex = steps.findIndex((step) => step.name?.startsWith('Migrate (post)'));
+    const catalogIndex = steps.findIndex((step) =>
+      step.name?.startsWith('Register the deployed capability catalog'),
+    );
+    const rollout = steps[rolloutIndex];
+    const smoke = steps[smokeIndex];
+    const rollback = steps[rollbackIndex];
+
+    expect(resolve?.run).toContain('previous_task_definition=$TD');
+    expect(rollout?.run).toContain('deployment_started=true');
+    expect(rollout?.run).toContain('.github/scripts/wait-for-ecs-deployment.sh');
+    expect(rollout?.run).not.toContain('aws ecs wait services-stable');
+    expect(rollout?.run).toContain('live_task_definition');
+    expect(rollout?.run).toContain('live_image');
+    expect(smoke?.run).toContain('.github/scripts/smoke-mcp.sh');
+
+    expect(rollback?.if).toContain('failure()');
+    expect(rollback?.if).toContain("phase_mode != 'all'");
+    expect(rollback?.if).toContain("rollback_safe != 'false'");
+    expect(rollback?.env?.PREVIOUS_TASK_DEFINITION).toBe(
+      '${{ steps.ecs.outputs.previous_task_definition }}',
+    );
+    expect(rollback?.run).toContain('--task-definition "$PREVIOUS_TASK_DEFINITION"');
+    expect(rollback?.run).toContain('.github/scripts/wait-for-ecs-deployment.sh');
+
+    expect(rolloutIndex).toBeGreaterThan(-1);
+    expect(smokeIndex).toBeGreaterThan(rolloutIndex);
+    expect(rollbackIndex).toBeGreaterThan(smokeIndex);
+    expect(postIndex).toBeGreaterThan(rollbackIndex);
+    expect(catalogIndex).toBeGreaterThan(postIndex);
   });
 
   it('passes only phase values the migrator accepts', () => {
@@ -259,6 +331,14 @@ describe('the deploy workflow syncs an explicit allowlist, never the whole conte
     'SHOPIFY_CLIENT_SECRET',
     'CONNECTOR_ENCRYPTION_KEY',
     'CONNECTOR_OAUTH_STATE_SECRET',
+    // The payment rail's secret half (#35). Not STRIPE_PUBLISHABLE_KEY, which
+    // is public by construction, and not the two `_PREVIOUS` rotation slots,
+    // which have no value outside a rotation window — see the step's own
+    // comment for why an always-empty name on this list is worse than absent.
+    'STRIPE_SECRET_KEY',
+    'STRIPE_WEBHOOK_SECRET',
+    'STRIPE_CONNECT_WEBHOOK_SECRET',
+    'STRIPE_ONBOARDING_STATE_SECRET',
   ];
 
   const syncStep = (parse(workflow) as WorkflowFile).jobs.deploy.steps.find((step) =>

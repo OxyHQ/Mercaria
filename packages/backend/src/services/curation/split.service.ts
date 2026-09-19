@@ -97,10 +97,11 @@ import {
   productIdentifiers,
 } from '../../db/schema/canonicalCatalog.js';
 import { nativeListingLinks, offers } from '../../db/schema/offers.js';
-import { normalizeEntityName } from '../canonical/normalization.js';
+import { NAME_FOLD_VERSION, normalizeEntityName } from '../canonical/normalization.js';
 import { splitImpactFromAssignments, impactColumnValues } from './impact.js';
 import { CURATED_ENTITIES } from './entity-registry.js';
 import { rebuildEntityRollups } from './rollups.js';
+import { closeJobReviewItem } from './job-review-item.js';
 import { recordRevision } from './revision.js';
 
 /**
@@ -627,6 +628,10 @@ async function runMintPhase(
       slug,
       name,
       normalizedName: normalizeEntityName(name),
+      // #915: a split MINTS a canonical product, so it folds and must stamp.
+      // Leaving it to the column default is correct only while the constant is
+      // 1 — after a bump this row would claim a fold it was not built under.
+      nameFoldVersion: NAME_FOLD_VERSION,
       brandId: parent?.brandId ?? null,
       familyId: parent?.familyId ?? null,
       categoryId: parent?.categoryId ?? null,
@@ -942,7 +947,25 @@ export async function runSplitJob(jobId: string, leaseOwner: string): Promise<Ru
     job = refreshed;
   }
 
-  const completed = await completeSplitJob(job.id, leaseOwner, db);
+  // Completion and the closure of the originating item together — `runMergeJob`
+  // carries the reasoning, and the two paths use ONE implementation because two
+  // copies of "what does a finished job do with its question" is two answers.
+  const completed = await db.transaction(async (tx) => {
+    const won = await completeSplitJob(job.id, leaseOwner, tx);
+    if (won) {
+      await closeJobReviewItem(
+        {
+          reviewItemId: job.reviewItemId,
+          requestedByOxyUserId: job.requestedByOxyUserId,
+          reason: job.reason,
+          splitJobId: job.id,
+        },
+        'split',
+        tx,
+      );
+    }
+    return won;
+  });
   await recordRevision(
     {
       entityType: job.entityType,

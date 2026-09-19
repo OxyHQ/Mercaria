@@ -53,7 +53,7 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import type express from 'express';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import type { AttributeReindexReason } from '@mercaria/shared-types';
 import type { Database } from '../../db/postgres.js';
@@ -74,8 +74,8 @@ const ALL_KEYS = [KEY_SELECT, KEY_MAPPED, KEY_REPOINTED];
 
 const SOURCE_FIELD = `emit_field_${RUN}`;
 
-vi.mock('@oxyhq/core/server', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@oxyhq/core/server')>()),
+vi.mock('@oxy.so/core/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => OPERATOR,
 }));
 vi.mock('../../middleware/auth.js', () => ({

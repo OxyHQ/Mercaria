@@ -429,3 +429,56 @@ export function homeFacts(tagline: string): SeoVisibleFacts {
     variantNames: [],
   };
 }
+
+/**
+ * The category index hub's own facts. Static, like the home page's.
+ *
+ * It does NOT enumerate the categories, and that is the point rather than an
+ * omission: the tree is served by `GET /categories` and rendered by the screen,
+ * so listing it again here would be a second copy that goes stale the moment an
+ * operator publishes — in the one place (a `<title>`, a description, structured
+ * data) where staleness is invisible until a crawler has already cached it.
+ *
+ * It carries a breadcrumb to Home, which the home page itself does not: a hub
+ * one level down has a parent, and `BreadcrumbList` is what says so.
+ */
+export function categoryIndexFacts(title: string, description: string): SeoVisibleFacts {
+  return {
+    title,
+    description,
+    imageUrls: [],
+    breadcrumbs: [
+      { name: 'Home', path: buildRoutePath('home') },
+      { name: title, path: buildRoutePath('category_index') },
+    ],
+    entityName: title,
+    gtins: [],
+    offers: [],
+    variantNames: [],
+  };
+}
+
+/**
+ * The deals hub's own facts. Static, for `categoryIndexFacts`'s own reason: it
+ * does NOT enumerate which stores currently discount — that is served by
+ * `GET /discovery/feed?scope=deals` and rendered by the screen, so composing it
+ * again here would be a second copy that goes stale silently.
+ *
+ * It carries a breadcrumb to Home, for the same reason `categoryIndexFacts`
+ * does.
+ */
+export function dealsFacts(title: string, description: string): SeoVisibleFacts {
+  return {
+    title,
+    description,
+    imageUrls: [],
+    breadcrumbs: [
+      { name: 'Home', path: buildRoutePath('home') },
+      { name: title, path: buildRoutePath('deals') },
+    ],
+    entityName: title,
+    gtins: [],
+    offers: [],
+    variantNames: [],
+  };
+}

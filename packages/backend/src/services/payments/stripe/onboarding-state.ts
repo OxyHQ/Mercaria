@@ -33,7 +33,7 @@
  */
 
 import { createHmac, randomBytes } from 'node:crypto';
-import { verifySecret } from '@oxyhq/core/server';
+import { verifySecret } from '@oxy.so/core/server';
 import { z } from 'zod';
 import type { ProviderAccountOwnerType } from '@mercaria/shared-types';
 import { validationError } from '../../../lib/errors/error-codes.js';

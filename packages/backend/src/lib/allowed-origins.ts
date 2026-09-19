@@ -58,3 +58,65 @@ export const ALLOWED_ORIGINS: readonly string[] = Object.freeze([
 export function isAllowedBrowserOrigin(origin: string | undefined): boolean {
   return origin !== undefined && ALLOWED_ORIGINS.includes(origin);
 }
+
+// ── The public integration surface (#1017) ──────────────────────────────────
+
+/**
+ * The path prefix the credential-less, any-origin CORS allowance applies under.
+ *
+ * Spelled out rather than imported from `@mercaria/shared-types`
+ * (`MERCARIA_PUBLIC_API_BASE_PATH`) so this module stays dependency-free — and
+ * `routes/__tests__/public-api.realdb.test.ts` asserts the two are equal, so a
+ * contract that moved its base path fails the build rather than leaving the
+ * allowance behind on a path nothing serves.
+ */
+export const PUBLIC_READ_CORS_BASE_PATH = '/public/v1';
+
+/** The only methods the public allowance covers. `OPTIONS` is the preflight. */
+export const PUBLIC_READ_CORS_METHODS: readonly string[] = Object.freeze(['GET', 'HEAD', 'OPTIONS']);
+
+/**
+ * Request headers a foreign browser client may send to the public surface.
+ * `Authorization` carries an Oxy bearer token — never a cookie — so a caller's
+ * own session can forward authority (`viewer.saved`) without credentials mode.
+ */
+export const PUBLIC_READ_CORS_ALLOWED_HEADERS: readonly string[] = Object.freeze([
+  'Authorization',
+  'Content-Type',
+  'Accept',
+  'Accept-Language',
+]);
+
+/**
+ * Whether a request takes the PUBLIC read CORS policy instead of the
+ * credentialed allow-list above.
+ *
+ * Another Oxy web application (Mention at `mention.earth`, Goway, an agent's
+ * browser) reads Mercaria products through `@mercaria.co/sdk`, so the public
+ * integration GETs must be readable from ANY origin. That is safe for exactly
+ * the population this function admits, and the reasons are what the three
+ * conditions are:
+ *
+ *  - **Under the public base path only.** Every route there is a GET over
+ *    publicly live catalogue facts; nothing under it writes or reads a cart, an
+ *    order or an account.
+ *  - **GET, HEAD and the preflight only.** A preflight asking for any other
+ *    method is answered with this policy's method list, which the browser then
+ *    refuses — so no write anywhere can borrow the allowance.
+ *  - **Never credentialed.** The allowance is `Access-Control-Allow-Origin: *`
+ *    with NO `Access-Control-Allow-Credentials`, and a browser refuses to attach
+ *    cookies to a wildcard response. Authority travels only as a bearer token the
+ *    calling application already holds.
+ *
+ * It widens NOTHING else: {@link ALLOWED_ORIGINS} and
+ * {@link isAllowedBrowserOrigin} are unchanged, so the guest CSRF gate — which
+ * guards cookie-authenticated writes, none of which live under this path — reads
+ * exactly the list it read before. The prefix match is case-SENSITIVE while
+ * Express routing is not; a request spelled `/PUBLIC/v1/...` therefore reaches
+ * the public router under the credentialed policy, which is the restrictive
+ * direction.
+ */
+export function isPublicReadCorsRequest(method: string, path: string): boolean {
+  if (!PUBLIC_READ_CORS_METHODS.includes(method.toUpperCase())) return false;
+  return path === PUBLIC_READ_CORS_BASE_PATH || path.startsWith(`${PUBLIC_READ_CORS_BASE_PATH}/`);
+}

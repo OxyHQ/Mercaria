@@ -31,6 +31,7 @@ import {
   nativeVariantAxisAssignments,
   nativeVariantSignatures,
 } from '../schema/variantAxes.js';
+import { attributeDefinitions } from '../schema/attributeRegistry.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 
 export type NativeVariantAxisRow = typeof nativeListingVariantAxes.$inferSelect;
@@ -114,6 +115,81 @@ export async function listVariantAxesForListing(
     .from(nativeListingVariantAxes)
     .where(eq(nativeListingVariantAxes.listingId, listingId))
     .orderBy(asc(nativeListingVariantAxes.position), asc(nativeListingVariantAxes.attributeKey));
+}
+
+/**
+ * One listing's declared axis, carrying the DISPLAY name a shopper reads.
+ *
+ * The label comes from `attribute_definitions.label` rather than from the axis
+ * row, and that is the whole point of typing an axis: #94 freezes a
+ * definition's MEANING once published and deliberately does NOT freeze its
+ * label, because stored keys are what has to stay stable. So the display name
+ * is resolved at read time and a copy-edit reaches every listing at once.
+ *
+ * `legacyOptionName` is PROVENANCE — the verbatim `listing_options.name` a
+ * backfilled axis was resolved FROM — and is deliberately not the display name.
+ * Rendering it would reproduce the exact defect ADR 0007 D6 exists to remove:
+ * `Color`, `Colour`, `color ` and `Tono` as four separate axes for one shoe. It
+ * is returned so a caller can SHOW what a claim said, never so a caller can
+ * fall back to it.
+ */
+export interface NativeVariantAxisWithLabel {
+  readonly id: string;
+  readonly listingId: string;
+  readonly attributeKey: string;
+  readonly attributeDefinitionId: string;
+  readonly attributeDefinitionVersion: number;
+  /** `attribute_definitions.label` — the default-locale display name. */
+  readonly label: string;
+  /** The verbatim legacy option name this axis was resolved from, if any. */
+  readonly legacyOptionName: string | null;
+  readonly position: number;
+}
+
+/**
+ * Every axis declared by a SET of listings, in display order.
+ *
+ * The batched sibling of {@link listVariantAxesForListing}, for
+ * `catalog-hydration.service.ts`, which loads a whole page's children in
+ * batches and must not acquire an N+1 to gain a typed read. Ordered by
+ * `(listing_id, position, attribute_key)` so a caller can bucket in one pass
+ * and the axis order is stable across pages — `native_listing_variant_axes_listing_position_idx`
+ * serves the first two, and the key breaks the tie `position` allows (it
+ * defaults to 0, so a backfilled listing can declare several axes all at zero).
+ */
+export async function listVariantAxesForListings(
+  db: DatabaseOrTransaction,
+  listingIds: readonly string[],
+): Promise<NativeVariantAxisWithLabel[]> {
+  if (listingIds.length === 0) return [];
+  return db
+    .select({
+      id: nativeListingVariantAxes.id,
+      listingId: nativeListingVariantAxes.listingId,
+      attributeKey: nativeListingVariantAxes.attributeKey,
+      attributeDefinitionId: nativeListingVariantAxes.attributeDefinitionId,
+      attributeDefinitionVersion: nativeListingVariantAxes.attributeDefinitionVersion,
+      label: attributeDefinitions.label,
+      legacyOptionName: nativeListingVariantAxes.legacyOptionName,
+      position: nativeListingVariantAxes.position,
+    })
+    .from(nativeListingVariantAxes)
+    // INNER join: `attribute_definition_id` is NOT NULL with an `ON DELETE
+    // restrict` edge, so a definition a live axis cites cannot be deleted and a
+    // missing row is unrepresentable. A left join would add a `null` branch
+    // whose only reachable meaning is "the database broke its own constraint",
+    // and the honest handling of that is a loud absence rather than a listing
+    // rendered with a blank option name.
+    .innerJoin(
+      attributeDefinitions,
+      eq(attributeDefinitions.id, nativeListingVariantAxes.attributeDefinitionId),
+    )
+    .where(inArray(nativeListingVariantAxes.listingId, [...listingIds]))
+    .orderBy(
+      asc(nativeListingVariantAxes.listingId),
+      asc(nativeListingVariantAxes.position),
+      asc(nativeListingVariantAxes.attributeKey),
+    );
 }
 
 /**

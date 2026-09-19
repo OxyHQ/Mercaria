@@ -380,6 +380,23 @@ const WALLS: readonly Wall[] = [
           'predicted, which is why the specific lever wall is kept beside it rather than ' +
           'replaced by it.',
       },
+      {
+        path: 'services/catalog-authoring/schema.service.ts',
+        why:
+          'The wall\'s prediction arriving a SECOND time, and this is the case it describes: ' +
+          '"if a legitimate bound ever moves from the controller into a service". #367 line 405 ' +
+          'publishes the matrix rules on `AuthoringSchema`, and one of the three — the PUBLISHED ' +
+          'product\'s variant ceiling — is `config.catalog.maxVariantsPerProduct` ' +
+          '(`MAX_VARIANTS_PER_PRODUCT`), the number `createStoreProductWithin` refuses above. ' +
+          'It is a BOUND and not a lever: it cannot refuse a draft somebody already saved, ' +
+          'because nothing here branches on it — it is copied into the response. Passing it in ' +
+          'as a composition input was tried and is worse: five of the six production call sites ' +
+          'are INSIDE this domain (`draft.service.ts` x4, `publish.service.ts`), so threading it ' +
+          'would put the same config read into five more modules this wall covers, or push it ' +
+          'onto their callers. The prohibition that matters survives untouched — the lever wall ' +
+          'above still covers this module with no exemption, so `config.catalogAuthoring` ' +
+          'remains unreachable from here.',
+      },
     ],
   },
 ];
@@ -620,12 +637,19 @@ describe('every per-wall exemption is real, in BOTH directions (#448)', () => {
     (wall.exempt ?? []).map((entry) => ({ wall, entry })),
   );
 
-  it('there are some, and they are the two this conversion had to add', () => {
+  it('there are some, and they are exactly the three the domain has argued for', () => {
     // The vacuity floor on the checks below. An empty list would make every one
     // of them pass by iterating nothing.
-    expect(exemptions.length).toBe(2);
+    //
+    // Two on the controller (both config walls) and one on `schema.service.ts`
+    // (#367 line 405's published variant ceiling — the general wall only; the
+    // LEVER wall still covers that module with no exemption).
+    expect(exemptions.length).toBe(3);
     expect(new Set(exemptions.map(({ entry }) => entry.path))).toEqual(
-      new Set(['controllers/catalog-authoring.controller.ts']),
+      new Set([
+        'controllers/catalog-authoring.controller.ts',
+        'services/catalog-authoring/schema.service.ts',
+      ]),
     );
   });
 
@@ -650,7 +674,15 @@ describe('every per-wall exemption is real, in BOTH directions (#448)', () => {
       const wall = WALLS.find((candidate) => candidate.name === name);
       expect(wall, 'the wall named by the exemption is gone').toBeDefined();
       if (wall === undefined) return;
-      const withoutExemption: Wall = { ...wall, exempt: [] };
+      // Drop ONLY the exemption under test and keep the wall's others. Dropping
+      // them all reports every excused module on a wall that has more than one,
+      // which is not a fact about the exemption being examined — the general
+      // config wall now excuses two modules, and the all-or-nothing form said
+      // each of them was doing nothing.
+      const withoutExemption: Wall = {
+        ...wall,
+        exempt: (wall.exempt ?? []).filter((entry) => entry.path !== path),
+      };
       expect(
         offendingPaths(withoutExemption, SOURCES),
         `${path} no longer trips ${name}, so excusing it is doing nothing`,

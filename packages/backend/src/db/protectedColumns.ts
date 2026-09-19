@@ -6,7 +6,7 @@
  * of them. So the guard has to be data plus a gate, decided once per table
  * rather than remembered at each call site.
  *
- * Read this registry through `publicColumns` from `@oxyhq/db/assert`:
+ * Read this registry through `publicColumns` from `@oxy.so/db/assert`:
  *
  *     db.select(publicColumns(orders, PROTECTED_COLUMNS)).from(orders)
  *
@@ -45,7 +45,7 @@
  * something", which is the distinction that keeps the list worth reading.
  */
 
-import type { ProtectedColumnRegistry } from '@oxyhq/db/assert';
+import type { ProtectedColumnRegistry } from '@oxy.so/db/assert';
 
 export const PROTECTED_COLUMNS = {
   /**
@@ -57,7 +57,7 @@ export const PROTECTED_COLUMNS = {
 
   /**
    * The payment provider's own transaction reference, snapshotted at checkout.
-   * It identifies a real movement of money in Oxy Pay and is not the buyer's to
+   * It identifies a real movement of money through Peable and is not the buyer's to
    * hold; nothing in any order DTO needs it.
    */
   orders: ['paymentReference'],
@@ -449,6 +449,52 @@ export const PROTECTED_COLUMNS = {
    */
   guest_abuse_counters: ['subjectHash'],
   guest_abuse_interventions: ['subjectHash'],
+
+  /**
+   * The object-storage key of a digital asset file (#1015, ADR 0010).
+   *
+   * Not a credential and worse than one in a way `channel_api_keys.hash` is not:
+   * it is the INPUT a signed URL is minted from, so a key that reaches a client
+   * turns the download authorizer into an optional step for anybody who can read
+   * a response body. The buyer library, the creator's own asset screen and the
+   * public product page all read these rows whole, and #1015 boundary 3 — a file
+   * URL is never the ownership record — is unholdable if the thing a URL is made
+   * of ships with the row.
+   *
+   * The one path that needs it is `services/digital/download.service.ts`, which
+   * names it explicitly after authorizing. That read is the greppable opt-in.
+   */
+  asset_files: ['storageKey'],
+
+  /**
+   * The digest of a download-grant token (#1015 W12 threat 3).
+   *
+   * `merchant_claim_challenges`' reason exactly: the digest is irreversible and
+   * handing it out still hands an attacker an OFFLINE oracle to test guessed
+   * tokens against, with no rate limit in front of it. The grant is redeemed by
+   * re-hashing what the caller presents and comparing, so nothing outside
+   * `download.service.ts` ever needs to read the stored value.
+   */
+  asset_download_grants: ['tokenHash'],
+
+  /**
+   * A delivered retail artifact's SEAL (#1016, ADR 0011 D10).
+   *
+   * `sealedSecret` is the ciphertext of bearer secret material — a key or code
+   * worth its face value to whoever reads it — and it is the first third-party
+   * secret Mercaria has ever stored. `keyReference` is the secret-store PATH the
+   * envelope key lives at, protected for `supplier_accounts.credentialReference`'s
+   * reason: the pointer names the target of an attack. `plaintextSha256` is
+   * irreversible and still protected for `channel_api_keys.hash`'s reason — a
+   * digest handed out is an OFFLINE oracle to test guessed keys against, with no
+   * rate limit and no log line, and for a key space this small that is not
+   * theoretical.
+   *
+   * `maskedHint` is deliberately NOT here. Four characters cannot reconstruct a
+   * key, support renders it by default, and protecting it would push every
+   * "is this the key we sold you" enquiry through a real reveal.
+   */
+  digital_fulfilment_artifacts: ['sealedSecret', 'keyReference', 'plaintextSha256'],
 } as const satisfies ProtectedColumnRegistry;
 
 /**

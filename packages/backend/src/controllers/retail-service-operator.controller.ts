@@ -38,7 +38,7 @@ import {
   RETAIL_SERVICE_NOTE_MAX_LENGTH,
   SUPPLIER_RECOVERY_KINDS,
 } from '@mercaria/shared-types';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import { ErrorCodes, sendError, sendSuccess } from '../utils/api-response.js';
 import { findRetailServiceRequest, listOpenRetailServiceRequests, listRetailServiceEvents } from '../db/retailServiceRequests/requestRepository.js';

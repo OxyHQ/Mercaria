@@ -36,6 +36,50 @@ const validator = resolve(repositoryRoot, "scripts/validate-i18n-strings.mjs");
  * of four files would otherwise fail for a reason that has nothing to do with
  * i18n.
  */
+/**
+ * Run the guard, and REFUSE to read a crash as a verdict.
+ *
+ * `Bun.spawnSync` reports a process killed by a signal as a non-zero exit, and
+ * every assertion in this file is written against the guard's exit code. So a
+ * runtime crash — Bun 1.3.14 segfaults this guard on some hosts, measured here
+ * at 6 runs in 20 — arrives looking exactly like the guard having gone red, and
+ * the harness then explains it with whichever message fits: `expected exit 0,
+ * got 1`, or `it went red for some other reason`, or — the worst of them — `the
+ * working tree was left mutated`, which sends somebody hunting a corruption that
+ * did not happen while the tree is in fact clean.
+ *
+ * A signal is therefore a THIRD outcome and not a verdict at all. It is retried
+ * once, because the crash is intermittent rather than deterministic, and a
+ * second crash aborts the run with a message naming the signal instead of
+ * blaming the guard. Retrying is safe: this spawn has no effect the next one
+ * would double, and the real-tree case restores its file in a `finally`
+ * regardless.
+ */
+function spawnGuard({ guardPath, cwd, env }) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const proc = Bun.spawnSync({ cmd: ["bun", guardPath], cwd, env, stdout: "pipe", stderr: "pipe" });
+    if (proc.signalCode == null) {
+      return { exitCode: proc.exitCode, output: `${proc.stdout.toString()}${proc.stderr.toString()}` };
+    }
+    if (attempt === 1) {
+      return { crashed: proc.signalCode, exitCode: proc.exitCode, output: "" };
+    }
+  }
+  throw new Error("unreachable");
+}
+
+/** Abort the whole run rather than let a crash be scored as a case. */
+function refuseOnCrash(result, where) {
+  if (!result.crashed) return;
+  console.error(
+    `FATAL  the guard was killed by ${result.crashed} twice while running ${where}.\n`
+    + "       This is a RUNTIME crash, not a verdict — nothing about the guard's\n"
+    + "       correctness or the working tree follows from it. Re-run; if it\n"
+    + "       persists, the Bun version is the subject, not this repository.",
+  );
+  process.exit(2);
+}
+
 async function runAgainst(files, { realFloors = false, removeAfterAdd = [], patchGuard } = {}) {
   const root = await mkdtemp(join(tmpdir(), "i18n-string-validator-"));
   // A case may run a PATCHED copy of the guard. The guard resolves the tree it
@@ -79,14 +123,7 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [], patc
     const environment = { ...process.env, I18N_VALIDATOR_ROOT: root };
     if (!realFloors) environment.I18N_VALIDATOR_FIXTURE_FLOORS = "1";
 
-    const proc = Bun.spawnSync({
-      cmd: ["bun", guardPath],
-      cwd: repositoryRoot,
-      env: environment,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    return { exitCode: proc.exitCode, output: `${proc.stdout.toString()}${proc.stderr.toString()}` };
+    return spawnGuard({ guardPath, cwd: repositoryRoot, env: environment });
   } finally {
     await rm(root, { recursive: true, force: true });
     if (guardPath !== validator) await rm(guardPath, { force: true });
@@ -693,6 +730,81 @@ const cases = [
     expectOutput: "names no key in",
   },
   {
+    // #598: `sectionTitleKey` is `function sectionTitleKey(signal) { return
+    // SECTION_TITLE_KEYS[signal]; }`, called as `t(sectionTitleKey(signal))` —
+    // and the five keys it named were absent from every locale while this
+    // guard reported 0 findings, because a CallExpression argument was neither
+    // resolved nor counted. This is that exact shape, reduced to one call
+    // site, with its map's key ABSENT from the bundle: the adverse case a
+    // healthy alias resolver must fail on.
+    name: "a t() call through a map-alias function naming a key that does not exist fails",
+    files: migratedTree({
+      "packages/dashboard/lib/labels.ts":
+        'export const STATUS_KEYS = { paid: "orders.status.doesNotExist" };\n'
+        + "export function statusKey(status) {\n"
+        + "  return STATUS_KEYS[status];\n"
+        + "}\n",
+      "packages/dashboard/components/StatusBadge.tsx":
+        'import { useTranslation } from "@/lib/i18n";\n'
+        + 'import { statusKey } from "../lib/labels";\n'
+        + "export function StatusBadge({ status }) {\n"
+        + "  const { t } = useTranslation();\n"
+        + "  return <Text>{t(statusKey(status))}</Text>;\n"
+        + "}\n",
+    }),
+    expectExit: 1,
+    expectOutput: "names no key in",
+  },
+  {
+    // The positive control's twin: the identical shape, but the map's key
+    // EXISTS (an already-referenced key, so part C's OWN dead-key direction
+    // has nothing to say either). Proves the alias resolving is not itself
+    // what fails the case above — the missing key is.
+    name: "a t() call through a map-alias function passes when the key exists",
+    files: migratedTree({
+      "packages/dashboard/lib/labels.ts":
+        'export const STATUS_KEYS = { paid: "orders.status.paid" };\n'
+        + "export function statusKey(status) {\n"
+        + "  return STATUS_KEYS[status];\n"
+        + "}\n",
+      "packages/dashboard/components/StatusBadge.tsx":
+        'import { useTranslation } from "@/lib/i18n";\n'
+        + 'import { statusKey } from "../lib/labels";\n'
+        + "export function StatusBadge({ status }) {\n"
+        + "  const { t } = useTranslation();\n"
+        + "  return <Text>{t(statusKey(status))}</Text>;\n"
+        + "}\n",
+    }),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  {
+    // The alias resolver's own precision: `statusKey` here returns key
+    // LITERALS from an `if` chain rather than indexing a map — a different
+    // shape, exactly like the real `directionSummaryKey` and
+    // `savedItemNoOfferKey` this tree already ships. One branch names a key
+    // that does not exist, and the guard must NOT resolve it (which would be
+    // guessing at which branch runs) — it must stay green, counting the call
+    // as unreadable rather than either failing on it or vouching for it.
+    name: "a multi-branch key-returning helper is not treated as an alias and does not fail",
+    files: migratedTree({
+      "packages/dashboard/lib/labels.ts":
+        "export function statusKey(status) {\n"
+        + '  if (status === "paid") return "orders.status.paid";\n'
+        + '  return "orders.status.doesNotExist";\n'
+        + "}\n",
+      "packages/dashboard/components/StatusBadge.tsx":
+        'import { useTranslation } from "@/lib/i18n";\n'
+        + 'import { statusKey } from "../lib/labels";\n'
+        + "export function StatusBadge({ status }) {\n"
+        + "  const { t } = useTranslation();\n"
+        + "  return <Text>{t(statusKey(status))}</Text>;\n"
+        + "}\n",
+    }),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  {
     name: "a key nothing references fails — the label-map regression",
     // The shape a reviewer would not catch: the map goes back to English, the
     // JSX still renders, and the key it used to name is now dead.
@@ -1263,14 +1375,13 @@ async function assertCheckFCatchesTheRealDefect() {
       return "the mutation applied but does not carry #442's shape";
     }
 
-    const proc = Bun.spawnSync({
-      cmd: ["bun", validator],
+    const proc = spawnGuard({
+      guardPath: validator,
       cwd: repositoryRoot,
       env: { ...process.env, I18N_VALIDATOR_ROOT: repositoryRoot },
-      stdout: "pipe",
-      stderr: "pipe",
     });
-    const output = `${proc.stdout.toString()}${proc.stderr.toString()}`;
+    refuseOnCrash(proc, "check F's mutation of the real tree");
+    const { output } = proc;
     if (proc.exitCode === 0) {
       return "check F did not fail on #442's own defect, reintroduced into its own file";
     }
@@ -1296,13 +1407,12 @@ async function assertCheckFCatchesTheRealDefect() {
   // The restore is only proven by the guard going green again: a file that was
   // rewritten wrongly would still differ from `original` in ways this test's own
   // string comparison happens to miss.
-  const after = Bun.spawnSync({
-    cmd: ["bun", validator],
+  const after = spawnGuard({
+    guardPath: validator,
     cwd: repositoryRoot,
     env: { ...process.env, I18N_VALIDATOR_ROOT: repositoryRoot },
-    stdout: "pipe",
-    stderr: "pipe",
   });
+  refuseOnCrash(after, "check F's restore verification");
   if (after.exitCode !== 0) {
     return "the guard is still red after the restore — the working tree was left mutated";
   }
@@ -1312,11 +1422,13 @@ async function assertCheckFCatchesTheRealDefect() {
 let failed = 0;
 
 for (const testCase of cases) {
-  const { exitCode, output } = await runAgainst(testCase.files, {
+  const result = await runAgainst(testCase.files, {
     realFloors: testCase.realFloors,
     removeAfterAdd: testCase.removeAfterAdd,
     patchGuard: testCase.patchGuard,
   });
+  refuseOnCrash(result, `case ${JSON.stringify(testCase.name)}`);
+  const { exitCode, output } = result;
 
   const problems = [];
   if (exitCode !== testCase.expectExit) {

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import Head from "expo-router/head";
 import { Users } from "lucide-react-native";
-import { openAccountDialog, useOxy } from "@oxyhq/services";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import {
   REFERRAL_OUTSTANDING_KEYS,
   REFERRAL_PAYOUT_STATUS_KEYS,

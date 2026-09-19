@@ -3,14 +3,14 @@
  *
  * Creates one uniquely-named, fully-migrated database per suite run on the
  * server `TEST_DATABASE_URL` (or `DATABASE_URL`) points at, and drops it
- * afterwards. `@oxyhq/db/testing` owns the create/drop mechanics — including
+ * afterwards. `@oxy.so/db/testing` owns the create/drop mechanics — including
  * the name it generates (`oxydb_test_<16 hex>`) and the pattern
  * `dropTestDatabase` refuses to drop outside of, which is what stops a stray
  * connection string from turning teardown into `DROP DATABASE mercaria`.
  *
  * ## Why the migration shells out instead of calling `runMigrations` in-process
  *
- * `@oxyhq/db/testing` takes `migrate` as a callback precisely so a caller can
+ * `@oxy.so/db/testing` takes `migrate` as a callback precisely so a caller can
  * pass `(url) => runMigrations({ … })` directly, and that would be one fewer
  * moving part. It is deliberately NOT what happens here.
  *
@@ -36,7 +36,7 @@
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createTestDatabase, dropTestDatabase } from '@oxyhq/db/testing';
+import { createTestDatabase, dropTestDatabase } from '@oxy.so/db/testing';
 
 /** This package's root — where `package.json` and `drizzle.config.ts` live. */
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -90,7 +90,7 @@ async function applyMigrations(databaseUrl: string): Promise<void> {
  * Create a fully-migrated throwaway database and return its connection string.
  *
  * @param adminUrl A Postgres connection string on a server this may create and
- *   drop databases on. No default — see `@oxyhq/db/testing`, which refuses
+ *   drop databases on. No default — see `@oxy.so/db/testing`, which refuses
  *   rather than inventing a server to connect to.
  */
 export async function createMercariaTestDatabase(adminUrl: string): Promise<string> {
@@ -103,7 +103,7 @@ export async function createMercariaTestDatabase(adminUrl: string): Promise<stri
  * A thin pass-through so the harness has one import for both halves; the guard
  * that makes this safe (the name pattern, checked BEFORE any connection is
  * opened, plus `WITH (FORCE)` so a leaked handle cannot hang teardown) lives in
- * `@oxyhq/db/testing` and is deliberately not reimplemented here.
+ * `@oxy.so/db/testing` and is deliberately not reimplemented here.
  */
 export async function dropMercariaTestDatabase(databaseUrl: string): Promise<void> {
   await dropTestDatabase(databaseUrl);

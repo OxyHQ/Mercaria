@@ -182,7 +182,7 @@ const COMMERCIAL_REFERENCE =
   /\bfees\/|\breferrals\/|\bretail-pricing\/|\bledger|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee|referralProgram|referral_programs|retailCostQuote|retail_cost_quotes|merchantPlan|commissionRate|affiliate_commission/;
 
 /** Naming a currency. FAIR is the one that matters — the display default. */
-const CURRENCY_NAME_REFERENCE = /\bFAIR\b|FairCoin|faircoin|OxyPay|oxy_pay|oxyPay/;
+const CURRENCY_NAME_REFERENCE = /\bFAIR\b|FairCoin|faircoin|OxyPay|oxy_pay|oxyPay|Peable|peable/;
 
 /** Reading review sentiment, which may never become a specification. */
 const REVIEW_REFERENCE =
@@ -317,7 +317,7 @@ function sourceOutsideForbiddenTopic(source: string): string {
 }
 
 describe('WALL 2: the domain names no currency', () => {
-  it('no module carries a FAIR, FairCoin or OxyPay spelling', () => {
+  it('no module carries currency or payment-rail policy', () => {
     let scanned = 0;
     for (const file of [...domainSources(), ...outerSources()]) {
       // RAW source, comments included: a comparison that documented a currency
@@ -350,6 +350,7 @@ describe('WALL 2: the domain names no currency', () => {
     expect(CURRENCY_NAME_REFERENCE.test("const preferred = 'FAIR';")).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('// FairCoin is the display default')).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('import { OxyPay } from "x";')).toBe(true);
+    expect(CURRENCY_NAME_REFERENCE.test('import { peableClient } from "x";')).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test("const currency: CurrencyCode = request.currency;")).toBe(false);
     expect(CURRENCY_NAME_REFERENCE.test('const fair = isFairComparison();')).toBe(false);
   });
@@ -618,6 +619,52 @@ describe('WALL 7: #95 is consumed through #94\u2019s language, with no adapter',
       scanned += 1;
     }
     expect(scanned).toBeGreaterThanOrEqual(19);
+  });
+});
+
+describe("#94's display policy reaches this surface", () => {
+  it('the comparison service applies it, and applies it to BOTH maps', () => {
+    // #367 line 277's "displayable" capability. `/comparison` is public and
+    // unauthenticated, and a table row publishes the attribute's LABEL and its
+    // normalized VALUE, so an `operator_only` attribute reaching it is a public
+    // rendering of exactly what the policy withheld. Before this it did: the
+    // service read `comparable` off every definition and never `display_policy`.
+    //
+    // A GREEN-AND-INERT mechanism is the failure mode this asserts against —
+    // `listOperatorOnlyAttributeKeys` existing and nothing calling it — so it
+    // asserts the ENTRYPOINT calls it rather than that the read exists. What the
+    // read ITSELF answers is measured against a real server in
+    // `db/__tests__/attribute-registry.realdb.test.ts`.
+    const service = readFileSync(join(SRC_ROOT, 'services/comparison/comparison.service.ts'), 'utf8');
+    const code = withoutComments(service);
+    expect(code).toContain('listOperatorOnlyAttributeKeys');
+    expect(code).toContain('withholdOperatorOnlyAttributes(db, declared, facts)');
+
+    // Both maps, and the second is the one that is easy to miss.
+    // `buildComparisonTable` builds a row for every key appearing in EITHER, so
+    // a fact whose definition sits outside the subject's category reaches the
+    // table under its own key even when nothing declares it — which is what
+    // `attributeKeysOf` and `toAttributeFact` in this domain say out loud.
+    const withhold = code.slice(code.indexOf('async function withholdOperatorOnlyAttributes'));
+    expect(withhold).toContain('declared.keys()');
+    expect(withhold).toContain('facts.keys()');
+    expect(withhold.slice(0, 1200)).toContain('(declared as Map<string, DeclaredAttribute>).delete(key)');
+    expect(withhold.slice(0, 1200)).toContain('(facts as Map<string, TableAttributeFact>).delete(key)');
+  });
+
+  it('the entrypoint detector actually detects — the mutation self-test', () => {
+    // Every assertion above is a `toContain` over source, and a `toContain` that
+    // matched a string nobody removed would go on passing after the call site
+    // was deleted. Both mutations below are the deletion this gate exists to
+    // catch, and both make the assertions fail.
+    const service = readFileSync(join(SRC_ROOT, 'services/comparison/comparison.service.ts'), 'utf8');
+    const withoutCall = withoutComments(service).replace(
+      'withholdOperatorOnlyAttributes(db, declared, facts)',
+      '',
+    );
+    expect(withoutCall).not.toContain('withholdOperatorOnlyAttributes(db, declared, facts)');
+    const withoutFacts = withoutComments(service).replace('facts.keys()', 'declared.keys()');
+    expect(withoutFacts).not.toContain('facts.keys()');
   });
 });
 

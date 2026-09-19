@@ -11,7 +11,7 @@
  */
 
 import type { Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import type { GenerateChannelApiKeyInput } from '@mercaria/shared-types';
 import { generateKey, listKeys, revokeKey } from '../../services/channel-key.service.js';
 import { sendSuccess } from '../../utils/api-response.js';

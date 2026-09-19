@@ -19,7 +19,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns, getTableName } from 'drizzle-orm';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import { describe, expect, it } from 'vitest';
 import {
   ALL_REPORTABLE_LOCALES,

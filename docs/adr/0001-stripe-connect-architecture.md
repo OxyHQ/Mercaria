@@ -1,6 +1,15 @@
 # ADR 0001: Stripe Connect architecture — separate charges and transfers, Mercaria as merchant of record
 
-- **Status:** Accepted
+> **The RAIL changed 2026-09-06 ([ADR 0009](0009-peable-payment-rail.md)); the
+> ARCHITECTURE did not.** Mercaria reaches Stripe through Peable rather than
+> directly, so D2's account mechanics are no longer this repository's. **D1 and
+> D3–D12 below are inherited unchanged** and still bind: Mercaria is merchant of
+> record, one payment per checkout group, separate charges and transfers,
+> immediate capture, the ledger as the sole record of commission, and D11's
+> idempotency table. The last consequence of this ADR — "a future rail plugs
+> into the same seams" — is what ADR 0009 exercised.
+
+- **Status:** Accepted (rail superseded by ADR 0009; D1 and D3–D12 stand)
 - **Date:** 2026-08-08
 - **Issue:** [#43](https://github.com/OxyHQ/Mercaria/issues/43), part of epic [#35](https://github.com/OxyHQ/Mercaria/issues/35)
 - **Stripe docs current as of:** 2026-08-08, API release train **Dahlia** (`2026-07-29.dahlia`)
@@ -107,6 +116,16 @@ capabilities                      = transfers     # the only capability separate
   default in Stripe's guides (fact 6): v1 is fully supported, the controller
   model is the same, and it avoids straddling two account APIs for payout
   settings. Revisit when v2 reaches parity.
+
+  > **SUPERSEDED 2026-09-06 by [ADR 0008](0008-connect-accounts-v2.md).** The
+  > revisit condition fired from the other side: `POST /v1/accounts` is now
+  > REFUSED on this platform account for every input, so "v1 is fully supported"
+  > is no longer true and this bullet cannot be acted on. Accounts are created
+  > with `POST /v2/core/accounts`; the controller properties above are unchanged
+  > and now DERIVED rather than sent. The capability set is amended there too —
+  > `card_payments` is requested alongside transfers, which Stripe requires
+  > outside the US. **Everything else in this ADR stands**, including the rest of
+  > D2 and the whole of D1 and D3–D12.
 
 ### D3. Charge model: separate charges and transfers, exclusively
 

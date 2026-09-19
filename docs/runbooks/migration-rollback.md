@@ -3,7 +3,7 @@
 You are rolling an image back and you need to know whether the database has to
 move with it. Reference: `packages/backend/src/db/migrate.ts` (the only thing
 that applies a migration), `packages/backend/src/db/migrationRollback.ts` (the
-classifier) and `@oxyhq/db`'s `migrate/phases` (the deploy-phase contract).
+classifier) and `@oxy.so/db`'s `migrate/phases` (the deploy-phase contract).
 
 **This runbook is about SCHEMA migrations.** Rolling the #367 catalog rollout
 back by flipping read levers is a different operation with a different runbook:
@@ -145,7 +145,7 @@ migration's journal timestamp. Two consequences.
   `db:migrate` reports a clean run over it. Delete the row in the same
   transaction as the inverse.
 - **Undo newest-first and delete newest-first**, or you create the state
-  `@oxyhq/db`'s `unreachableEntries` exists to name: a journal entry with no
+  `@oxy.so/db`'s `unreachableEntries` exists to name: a journal entry with no
   ledger row sitting BELOW the high-water mark, which nothing will ever apply
   and nothing reports as pending. `migrate.ts` refuses to run at all in that
   state, which is the loud failure rather than the silent one — but it is still

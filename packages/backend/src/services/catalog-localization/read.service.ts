@@ -38,7 +38,11 @@ import { attributeEnumValues } from '../../db/schema/attributeRegistry.js';
 import { attributeValueLocalizations } from '../../db/schema/catalogLocalization.js';
 import { findCategoryLocalizations } from '../../db/catalogLocalization/categoryLocalizationRepository.js';
 import { findCurrentCategoryLocalizedSlugs } from '../../db/catalogLocalization/categoryLocalizedSlugRepository.js';
-import { localeFallbackChain, resolveLocalizedField, resolveLocalizedSlug } from './resolve.js';
+import { localeFallbackChain, resolveLocalizedSlug } from './resolve.js';
+// The OBSERVED resolver, never `resolve.ts`'s pure one — see
+// `read-observation.ts` on why the counter lives outside the pure module and
+// why a serving path may not reach past the wrapper (#367 W17 line 771).
+import { resolveObservedLocalizedField } from './read-observation.js';
 
 /**
  * Present a set of categories in a reader's locale.
@@ -112,13 +116,13 @@ export async function readLocalizedCategories(
     if (base === undefined) continue;
     presented.push({
       categoryId,
-      name: resolveLocalizedField({
+      name: resolveObservedLocalizedField({
         field: 'category.name',
         requestedLocale,
         candidates: textByCategory.get(categoryId) ?? [],
         baseValue: base.name,
       }),
-      description: resolveLocalizedField({
+      description: resolveObservedLocalizedField({
         field: 'category.description',
         requestedLocale,
         candidates: descriptionByCategory.get(categoryId) ?? [],
@@ -198,7 +202,7 @@ export async function readLocalizedAttributeValues(
     if (baseLabel === undefined) continue;
     presented.push({
       attributeEnumValueId: id,
-      label: resolveLocalizedField({
+      label: resolveObservedLocalizedField({
         field: 'attribute_value.label',
         requestedLocale,
         candidates: byValue.get(id) ?? [],

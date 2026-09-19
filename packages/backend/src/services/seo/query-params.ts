@@ -108,6 +108,13 @@ const CANONICAL_PARAMS_BY_ROUTE: Readonly<Record<PublicRouteId, readonly SeoCano
     legacy_listing: [],
     seller: ['page'],
     category_browse: ['page'],
+    // The hub renders the whole tree in one document — the taxonomy is a few
+    // dozen nodes, not a feed — so there is no second page for `?page=` to
+    // name, and `/categories?page=2` is a duplicate of `/categories`.
+    category_index: [],
+    // One document listing every store currently discounting, for
+    // `category_index`'s own reason: no second page for `?page=` to name.
+    deals: [],
   });
 
 /** The canonical parameter kinds one route recognises. */

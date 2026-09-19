@@ -27,7 +27,7 @@
 -- ## `ordinal` and its UNIQUE index are one decision
 --
 -- Every row of a run is written by ONE multi-row insert, so they share
--- `created_at` to the millisecond, and `@oxyhq/db`'s uuid v7 primary key is not
+-- `created_at` to the millisecond, and `@oxy.so/db`'s uuid v7 primary key is not
 -- monotonic within a millisecond. Ordering on `(created_at, id)` therefore
 -- returns a run's refusals SHUFFLED — measured, on this table's own first test
 -- run, where the write cap's "first 200 we met" came back starting at record 79.

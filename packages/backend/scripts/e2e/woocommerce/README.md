@@ -220,7 +220,7 @@ characters.
 
 `verify.sh` uses `curl`. `verify-transport.ts` uses
 `connectors/woocommerce/http.ts` — the real thing, https-only, through
-`@oxyhq/core/server`'s `safeFetch`, which re-validates every hop and pins the
+`@oxy.so/core/server`'s `safeFetch`, which re-validates every hop and pins the
 connection to the validated IP. A site `curl` can reach and `safeFetch` refuses
 looks exactly like a working site until the first sync fails, so both are run.
 

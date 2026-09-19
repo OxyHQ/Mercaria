@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { useOxy } from '@oxyhq/services';
+import { useOxy } from '@oxy.so/services';
 import type { Order, OrderSummary, PaginatedResponse } from '@mercaria/shared-types';
 import { fetchOrders, fetchOrder, cancelOrder } from '../api/orders';
 import { queryKeys } from './query-keys';

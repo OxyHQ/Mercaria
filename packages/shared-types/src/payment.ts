@@ -28,8 +28,8 @@ import type { Money } from './money';
  * A closed set, and deliberately a SHORT one: a provider is added here together
  * with the code that can produce a row for it and its migration widening the
  * CHECK, never in advance. FairCoin is not listed because nothing can write one:
- * it is not a payment method in this roadmap, and if it is introduced it arrives
- * through OxyPay — the Oxy gateway that accepts FairCoin — under its own ADR. A
+ * it is not a payment method in this roadmap. A future currency or settlement
+ * capability must arrive through Peable under its own ADR. A
  * value the database accepts but no code can produce is an invitation to write a
  * row nothing can ever reconcile.
  *
@@ -42,6 +42,12 @@ import type { Money } from './money';
  *    implementation of the whole `PaymentProvider` interface. It is what the
  *    contract test suite runs and what the dev-only `mockPay` seam uses,
  *    hard-gated by `config.orders.mockPayEnabled` and off in production.
+ *  - `peable` — the card rail of ADR 0009, and the rail every Oxy payment now
+ *    takes. Mercaria talks to the Peable gateway, which serves fiat through
+ *    providers (Stripe first) that Mercaria never names. Added HERE together
+ *    with `services/payments/peable/`, which is the whole of this set's rule —
+ *    the adapter that can produce a `peable` row ships in the same change as
+ *    the id and the migration widening the CHECK.
  *  - `stripe` — the card rail of ADR 0001. Added by #48, which builds the
  *    webhook ingress: a verified Stripe event is written to
  *    `payment_provider_events` under this id, so the id has to exist before the
@@ -55,13 +61,19 @@ import type { Money } from './money';
  * Nothing is authorized, captured or refunded through them, and neither books a
  * ledger entry — no Mercaria money moved.
  */
-export type PaymentProviderId = 'external' | 'manual_pos' | 'mock' | 'stripe';
+export type PaymentProviderId = 'external' | 'manual_pos' | 'mock' | 'peable' | 'stripe';
 
 /** {@link PaymentProviderId} as the tuple the column types and CHECKs read. */
 export const PAYMENT_PROVIDER_IDS: readonly PaymentProviderId[] = [
   'external',
   'manual_pos',
   'mock',
+  'peable',
+  // `stripe` STAYS for now, and its removal is a separate change (ADR 0009
+  // D13). The two rails coexist behind `resolvePaymentProvider` for exactly as
+  // long as it takes to verify the new one end to end — which is what keeps
+  // checkout up across the move, and what makes a rollback a config change
+  // rather than a migration.
   'stripe',
 ];
 
@@ -848,10 +860,28 @@ export const PAYMENT_OUTBOX_STATUSES: readonly PaymentOutboxStatus[] = [
  * request able to name one would be a buyer asserting a payment that never
  * happened.
  */
-export type CheckoutPaymentMethod = 'stripe' | 'mock';
+/**
+ * Which rail a client asks a checkout to fund through.
+ *
+ * `'card'` is the one to send. It names the SURFACE the buyer sees rather than
+ * the acquirer behind it, which is what ADR 0009 D19 made necessary: the rail is
+ * a deployment fact the server resolves, so a client naming a brand would be
+ * asserting something it cannot know.
+ *
+ * `'stripe'` is kept as a deprecated synonym for `'card'`, not removed. It is
+ * what every shipped client sends today, and dropping it would refuse those
+ * checkouts on the deployment that is mid-migration — the exact moment the
+ * vocabulary changed. It carries no meaning of its own any more: a request
+ * naming it gets whichever rail the deployment resolves, Peable included.
+ */
+export type CheckoutPaymentMethod = 'card' | 'stripe' | 'mock';
 
 /** {@link CheckoutPaymentMethod} as the tuple the request schema reads. */
-export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethod[] = ['stripe', 'mock'];
+export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethod[] = [
+  'card',
+  'stripe',
+  'mock',
+];
 
 /**
  * Which payment SURFACES the server permits for one checkout — ADR 0006 G2/G3

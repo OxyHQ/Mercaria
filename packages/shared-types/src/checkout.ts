@@ -22,18 +22,27 @@
  *
  * No payment field of any kind. No provider, no token, no amount, no billing
  * address — billing details belong to the Stripe element (ADR 0006 G6) and
- * never reach a Mercaria server. No OxyPay, no FairCoin: they are not payment
- * rails in this roadmap and #105 adds no field, flag or copy that anticipates
- * one (`checkout-contact-isolation.test.ts` fails the build over the spelling).
+ * never reach a Mercaria server. Peable is integrated behind the payment-domain
+ * boundary, while FairCoin is not a rail in this roadmap; #105 adds no field,
+ * flag or copy that leaks either concern into contact capture
+ * (`checkout-contact-isolation.test.ts` enforces that boundary).
  * No referral field: attribution is #142/#143's own model and can never be
  * derived from an email, a phone or an address.
  */
 
-/** The three destination kinds a checkout may name. */
+/**
+ * The four destination kinds a checkout may name.
+ *
+ * Three of them are PLACES and the fourth is the absence of one.
+ * `digital_delivery` is not an address with empty fields and not a sentinel
+ * location — it is a distinct branch, which is the only shape that cannot
+ * accidentally be read as a place (#1015, ADR 0010 D8).
+ */
 export const CHECKOUT_DESTINATION_TYPES = [
   'saved_address',
   'inline_shipping_address',
   'pickup',
+  'digital_delivery',
 ] as const;
 
 /** One of {@link CHECKOUT_DESTINATION_TYPES}. */
@@ -153,13 +162,35 @@ export interface PickupDestination {
 }
 
 /**
+ * Nothing is delivered anywhere: every line in this checkout is digital.
+ *
+ * Carries no field at all, and the emptiness is load-bearing. The two things a
+ * digital checkout genuinely needs — the consumer's country for place of supply,
+ * and the immediate-supply consent — are TOP-LEVEL fields of
+ * {@link CheckoutInput}, because a mixed physical + digital cart needs both and
+ * has a shipping destination. Putting them here would mean a mixed cart could
+ * not express them, and the obvious repair for that is two ways to say one
+ * thing.
+ *
+ * **The server decides whether this destination is permissible**, not the
+ * client. A cart holding any physical line is REFUSED here: `checkout.service`
+ * resolves the cart first and checks every line against its asset version, so a
+ * client cannot buy a chair with no address by naming this type (#1015
+ * boundary 2).
+ */
+export interface DigitalDeliveryDestination {
+  type: 'digital_delivery';
+}
+
+/**
  * Where this checkout's goods go — a discriminated union, so the compiler
  * forces every consumer to say which case it is handling.
  */
 export type CheckoutDestination =
   | SavedAddressDestination
   | InlineShippingAddressDestination
-  | PickupDestination;
+  | PickupDestination
+  | DigitalDeliveryDestination;
 
 /**
  * Whether the contact inbox was proven BEFORE the payment or is still

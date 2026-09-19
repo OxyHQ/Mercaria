@@ -96,16 +96,27 @@
 
 ## Raw-body mounts
 
-Four routers must stay mounted BEFORE `express.json()` in `app.ts`, and one more
+Five routers must stay mounted BEFORE `express.json()` in `app.ts`, and one more
 route buffers its own body:
 
 `/channels/webhooks` · `/webhooks/crowdsource` · `/webhooks/stripe` and
-`/webhooks/stripe/connect` · `/webhooks/suppliers/:supplierAccountId`, plus the
-feed-import upload route (`express.raw`, refuses a JSON content type).
+`/webhooks/stripe/connect` · `/webhooks/peable` (ADR 0009) ·
+`/webhooks/suppliers/:supplierAccountId`, plus the feed-import upload route
+(`express.raw`, refuses a JSON content type).
 
 Asserted against the REAL middleware chain by
-`routes/__tests__/stripe-webhook.integration.test.ts`. `app.ts` exists so the app
+`routes/__tests__/stripe-webhook.integration.test.ts` and
+`routes/__tests__/peable-webhook.integration.test.ts`. `app.ts` exists so the app
 can be built without listening, which is what makes that assertion possible.
+
+**The assertion is PER MOUNT, and that is why there are two files rather than a
+shared one.** A raw-body test proves something about the router it sends bytes
+to; the Stripe file staying green says nothing about a router added afterwards,
+which is exactly how a new webhook acquires a parser above it and nobody notices.
+Each has its own vacuity guard — the same router mounted behind `express.json()`,
+required to REFUSE the identical delivery — so an accepted delivery is positive
+evidence the handler read raw bytes rather than a green that cannot fail. A sixth
+mount brings a sixth file.
 
 ## Operator allow-lists
 
@@ -121,7 +132,7 @@ records two that were refused on exactly that test (there is deliberately no
 | `PAYMENT_OPERATOR_OXY_USER_IDS` | `/internal/payments/*` (incl. fee schedules, retail-pricing policies) |
 | `CATALOG_OPERATOR_OXY_USER_IDS` | every catalogue surface: commerce-graph, offers, matching, ingestion, backfill, attributes, condition, eBay, Awin, feed-imports, offer-freshness, product-saves, price-history, price-alerts, price-signals, search, search-intent, SEO |
 | `GUEST_OPERATOR_OXY_USER_IDS` | `/internal/guest-commerce/*` (cart merge, portal, claims, buyer requests, P2P) |
-| `ANALYTICS_OPERATOR_OXY_USER_IDS` | `/internal/analytics/*`, and the merchant-demand acquisition pipeline |
+| `ANALYTICS_OPERATOR_OXY_USER_IDS` | `/internal/analytics/*`, `/internal/discovery/*`, and the merchant-demand acquisition pipeline |
 | `RETAIL_OPERATOR_OXY_USER_IDS` | `/internal/retail-eligibility/*` |
 | `PROCUREMENT_OPERATOR_OXY_USER_IDS` | `/internal/supplier-preflight/*`, `/internal/procurement/*`, `/internal/retail-pilot/*` |
 | `REFERRAL_OPERATOR_OXY_USER_IDS` | `/internal/referrals/*` — pausing attribution stops partners EARNING, and approving a payout batch is ADR 0005 D14's second pair of eyes (`approved_by <> created_by`, so one populated account cannot approve its own batch) |
@@ -131,3 +142,49 @@ construction, so none can express "may see all stores' money" without becoming
 one an owner could grant themselves. `resolvePaymentOperatorIds` and
 `requirePaymentOperator` are the two places that change when Oxy grows a platform
 operator role.
+
+## The digital-commerce chokepoints (#1015, ADR 0010)
+
+The same shape every domain in this file has: one writer, one authorizer, and the
+refusal stated where a second one would otherwise grow.
+
+| Invariant | Held by | What it prevents |
+|---|---|---|
+| **An `asset_rights` row is the ONLY thing that authorizes a download.** Not a payment, not a signed URL, not an order status. | `services/digital/download.service.ts`, six checks in a fixed order | #1015 boundary 4 — a paid payment proving the right to arbitrary files |
+| **`asset_files.storage_key` is read in exactly ONE place**, after the last refusal. | `PROTECTED_COLUMNS.asset_files`, `findAssetFileStorageKey` | the input a signed URL is minted from leaving the process in a response body |
+| **A download grant's token is never stored and never logged.** Only a SHA-256 of it. | `asset_download_grants.token_hash` + its shape CHECK | a dump or a log line opening somebody's paid files |
+| **A published version, file or licence version cannot be edited or deleted.** | four triggers in `0156` | v2 mutating what v1 was; a creator swapping bytes after a sale |
+| **A right's COMMERCIAL half cannot be rewritten and the row cannot be deleted.** Only `status` and the revocation basis move. | `asset_rights_commercial_half_immutable` | a buyer's licence being upgraded in place |
+| **A `digital` order has NO address and every other order has a whole one.** | `orders_shipping_address_digital_check` | a fabricated street — #1015 boundary 16 |
+| **Place of supply is resolved PER LINE.** | `rateMatchesPlaceOfSupply` in `pricing.service.ts` | a digital supply taxed at the shipping address, or silently at zero |
+| **No IP, raw or derived, establishes a supply country.** | `FORBIDDEN_DIGITAL_SUPPLY_EVIDENCE_KINDS`, asserted disjoint | the obvious cheap answer, which is the one piece of evidence Mercaria may not keep |
+| **A digital line produces NO inventory movement.** | `metaForMutation` short-circuits an untracked variant; no stock column exists in the digital schema | #1015 boundary 1 — fake stock |
+
+**Two refusals are the service's rather than the database's, and both are the
+server's own reading of the cart**: `digital_delivery` is refused for a cart holding
+a physical line, and a digital line is refused when the withdrawal waiver is absent.
+Neither can be a schema rule, because a schema cannot see a cart — the same split
+`services/checkout/destination.ts` documents for the actor rules.
+
+## The digital-retail chokepoints (#1016, ADR 0011)
+
+The same shape again, for a domain where the thing being handled is a bearer
+secret bought with real money at the moment a customer pays.
+
+| Invariant | Held by | What it prevents |
+|---|---|---|
+| **At most ONE live procurement attempt exists per order line, ever.** | `digital_purchase_orders_live_line_key`, a partial unique over the non-terminal statuses | the double-buy: a fallback stepping over an ambiguous attempt that may already have bought a key |
+| **A timeout can only reach `ambiguous`, never `failed`.** | `DIGITAL_PURCHASE_ORDER_TRANSITIONS` has no such edge, and the repository refuses one before issuing SQL | a claim that nothing was bought, which nothing on this side of the wire can make |
+| **Only provider truth leaves `ambiguous`.** A failed recovery leaves it exactly where it was. | `recoverAmbiguousPurchaseOrder`'s three branches | "I could not reach them" being read as "nothing happened" |
+| **Every non-terminal status has a terminal exit.** | the transition map, asserted by `digital-retail-walls.test.ts` | an attempt with no way out, which the live-line index turns into an order line blocked forever |
+| **A purchase order's identity and cost snapshot are frozen.** | `digital_purchase_orders_snapshot_immutable` | a catalogue refresh rewriting what a submitted order was quoted |
+| **No order line can pay more than its ceiling.** | `max_accepted_cost`, inherited by every fallback, plus two CHECKs | a cost increase reaching a customer who never agreed to it |
+| **An ambiguous or unmapped offer can never fulfil.** | `mapping_status`, and `deriveDigitalProcurementEligibility` | the wrong edition, platform or region being substituted silently |
+| **Nothing procures without an agreement RIDER.** | `digital_supply_terms`, and `digital_purchase_orders.digital_supply_terms_id` NOT NULL | an API account being mistaken for a resale right |
+| **Exactly one artifact is active per fulfilment.** | `digital_fulfilment_artifacts_active_key` | the original and the replacement both working |
+| **The plaintext has no column, and the sealed three cannot be read by a whole-row select.** | `PROTECTED_COLUMNS.digital_fulfilment_artifacts`, and the seal-immutability trigger | a dump, a log line or a serializer opening every key Mercaria has sold |
+| **A reveal is not a redemption.** | two columns, and no operator path to `redeemed` | an operator making a refund ineligible by typing |
+| **An operator cannot fabricate a fulfilment.** | `digital_fulfilment_artifacts_operator_check` — a manual artifact REQUIRES an operator and an incident | value being manufactured with no audit |
+| **A machine cannot file an operator incident.** | `digital_fulfilment_incidents_operator_check` | an automated escalation with nobody accountable for it |
+| **The reveal audit carries no IP, device or session.** | the absence, asserted against the real `information_schema` | the fraud-shaped reason for building a tracker |
+| **Ranking cannot read supplier economics.** | no shared module, table or type; asserted by an import census | margin buying organic placement |

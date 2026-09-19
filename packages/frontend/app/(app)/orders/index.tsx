@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import { ChevronRight, Package } from "lucide-react-native";
 import type { OrderStatus, OrderSummary } from "@mercaria/shared-types";
 import {
@@ -22,7 +22,7 @@ import { useTranslation } from "@/lib/i18n";
 function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <View className="items-center px-8 py-24">
-      <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-secondary">
+      <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-muted">
         <Package size={28} className="text-muted-foreground" />
       </View>
       <Text className="text-center text-lg font-bold text-foreground">{title}</Text>

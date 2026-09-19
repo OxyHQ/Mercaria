@@ -198,7 +198,7 @@ The pipeline, and the order matters:
 "Never pay more than the eligible funding/budget or configured cap" (#144
 acceptance 7) is three separate bounds, and each needed its own answer. This
 backend runs at Postgres's default READ COMMITTED — there is no isolation-level
-override anywhere in it or in `@oxyhq/db` — so none of them is safe by
+override anywhere in it or in `@oxy.so/db` — so none of them is safe by
 inheritance.
 
 | Bound | Mechanism | Why not the other one |
@@ -243,7 +243,7 @@ REFUSED, never summed.
 
 The funding "version" is the id of the last contributing ledger transaction,
 ordered by `(created_at, id)` and never by the key alone —
-`@oxyhq/db`'s uuid v7 is not monotonic within a millisecond.
+`@oxy.so/db`'s uuid v7 is not monotonic within a millisecond.
 
 ---
 
@@ -324,7 +324,7 @@ self-test per wall.
 | Do not alter organic ranking (I1) | No import of `services/ranking`, `services/search` or a feed — and the reverse wall already exists in `offer-ranking-isolation.test.ts` |
 | No discount, cart or checkout write | No import of `discount.service`, `services/checkout` or `catalog-write` |
 
-Two more walls beside them: no `fx.service`, and no OxyPay/FairCoin spelling
+Two more walls beside them: no `fx.service`, and no payment-rail/FairCoin spelling
 anywhere (raw source, comments included).
 
 **The payment exceptions are named, and — since #145's earnings ledger — there

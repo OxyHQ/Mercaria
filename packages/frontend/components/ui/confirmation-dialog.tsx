@@ -43,7 +43,7 @@ export function ConfirmationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeButton={true} className="max-w-sm">
+      <DialogContent showCloseButton={true} className="max-w-sm">
         <DialogHeader className="gap-1">
           <DialogTitle className="text-lg">{title}</DialogTitle>
           <DialogDescription className="text-sm">{description}</DialogDescription>

@@ -49,7 +49,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { canonicalProducts, canonicalVariants } from '../../../db/schema/canonicalCatalog.js';
 import { merchants } from '../../../db/schema/merchants.js';
@@ -60,6 +60,8 @@ import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardow
 import { declaredOfferCondition } from '../../condition/condition-mapping.service.js';
 import { listOffers } from '../../offers/offer.service.js';
 import { getPublicCanonicalProduct } from '../../canonical/canonical-product.service.js';
+import { readCanonicalProductPage } from '../../product-page/product-page.service.js';
+import { runCanonicalSearch } from '../../search/canonical-search.service.js';
 import { suppressEntity, liftEntitySuppression } from '../correction.service.js';
 
 const RUN = uuidv7().slice(-12);
@@ -357,6 +359,116 @@ describe('the visibility predicate is exactly the shopper-visible set', () => {
 
 // ── Tombstone resolution happens BEFORE the visibility check ────────────────
 
+describe('the ENTITY reads stop serving a suppressed product too (#888)', () => {
+  /**
+   * `listOffersForComparison` was fixed first, so a suppressed product served no
+   * offers and reported no "from" price. It still RESOLVED: five public surfaces
+   * reach a product through `getPublicCanonicalProduct`, which applied no status
+   * filter at all — both `/canonical-products/:idOrSlug` handlers, the #71
+   * product page, the #96 comparison subject loader, and `seo.service.ts`'s
+   * `readProductSlug`.
+   *
+   * The SEO one is why this is a separate describe rather than a footnote on the
+   * offers cases. The other four SERVE a withdrawn product and can stop; that
+   * one PUBLISHES it — a `rel=canonical` pointing a crawler at a product an
+   * operator withdrew, which outlives the suppression by however long the index
+   * takes to forget.
+   */
+  it('hides a suppressed PRODUCT from the shared entity read, and resolved it before', async () => {
+    const seeded = await seedProductWithOffer('entity');
+
+    // The control, for this file's stated reason: "returns undefined" is
+    // satisfied by a fixture that never existed.
+    const before = await getPublicCanonicalProduct(seeded.productId);
+    expect(before?.id).toBe(seeded.productId);
+
+    await suppressEntity({
+      entityType: 'canonical_product',
+      entityId: seeded.productId,
+      reason: 'pending_investigation',
+      note: null,
+      actorOxyUserId: OPERATOR,
+    });
+
+    expect(await getPublicCanonicalProduct(seeded.productId)).toBeUndefined();
+    // By SLUG as well as by id. The two are separate lookups in that function
+    // and a filter applied to one branch would leave every shared link working.
+    expect(await getPublicCanonicalProduct(seeded.slug)).toBeUndefined();
+  });
+
+  it('keeps a DISCONTINUED product served through the same read', async () => {
+    // The inverse control, and the one that fails if anybody later narrows the
+    // predicate to `status = 'active'`. A discontinued product is a real-world
+    // fact rather than a decision to hide, and its page, history and offers all
+    // stay. This is the hazard neither reading the diff nor a suppression case
+    // can catch, because both look more careful when they are wrong.
+    const seeded = await seedProductWithOffer('discontinued-entity');
+
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'discontinued' })
+      .where(eq(canonicalProducts.id, seeded.productId));
+
+    const served = await getPublicCanonicalProduct(seeded.productId);
+    expect(served?.id, 'a discontinued product stopped resolving').toBe(seeded.productId);
+  });
+
+  it('drops a suppressed VARIANT from the product page configuration picker', async () => {
+    // The variant half, and a genuinely separate defect from the offer one.
+    // `listOffersForComparison` already refuses a suppressed variant's offers,
+    // so the picker offered a configuration with NO price behind it — the
+    // shopper selects the withdrawn option and the page scopes itself to an
+    // empty comparison. `readPageVariants` skipped `merged` only.
+    const seeded = await seedProductWithOffer('picker');
+    const page = () =>
+      readCanonicalProductPage({
+        handle: seeded.productId,
+        comparisonCurrency: 'EUR',
+        limit: 10,
+        offerComparisonPermitted: true,
+      });
+
+    const before = await page();
+    expect(
+      before?.page.variants.map((variant) => variant.id),
+      'the picker did not offer the configuration to begin with',
+    ).toContain(seeded.variantId);
+
+    await suppressEntity({
+      entityType: 'canonical_variant',
+      entityId: seeded.variantId,
+      reason: 'data_quality',
+      note: null,
+      actorOxyUserId: OPERATOR,
+    });
+
+    const after = await page();
+    // The PRODUCT is untouched, so the page still renders — this is the
+    // configuration leaving the picker, not the page disappearing.
+    expect(after?.page.product.id).toBe(seeded.productId);
+    expect(after?.page.variants.map((variant) => variant.id)).not.toContain(seeded.variantId);
+  });
+
+  it('checks visibility AFTER following a tombstone, so an old link still works', async () => {
+    // The ordering guard. `merged` is not in `SHOPPER_VISIBLE_CATALOG_STATUSES`,
+    // so a check placed BEFORE `resolveProductRow` would 404 every shared link
+    // to a merged product — which ADR 0002 D12/D16 keep working forever. The
+    // winner's visibility is what the check is about.
+    const loser = await seedProductWithOffer('tombstone-entity-loser');
+    const winner = await seedProductWithOffer('tombstone-entity-winner');
+
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'merged', mergedIntoId: winner.productId })
+      .where(eq(canonicalProducts.id, loser.productId));
+
+    const resolved = await getPublicCanonicalProduct(loser.slug);
+    expect(resolved?.id, 'an old link to a merged product stopped resolving').toBe(
+      winner.productId,
+    );
+  });
+});
+
 describe('a merged loser still reaches its winner', () => {
   it('resolves an old link to the winner, whose offers are still served', async () => {
     // The ordering this pins: `resolveProductRow` walks the merge chain, and the
@@ -396,5 +508,74 @@ describe('a merged loser still reaches its winner', () => {
     // 3. …and the tombstone's OWN offers are not served, even though it still
     //    holds one. Non-vacuous by construction — see the note above.
     expect(await servedForProduct(loser.productId)).toEqual([]);
+  });
+
+  /**
+   * The SEARCH read — #367 line 1056's fourth noun.
+   *
+   * That line asks a merge to preserve "redirects, references, provenance and
+   * search behavior". The first three are held elsewhere: references by
+   * `merge-plan-census.test.ts`, provenance by the `source_links` phase, and the
+   * redirect by the case above. **Search was the one nothing drove.**
+   *
+   * `searchCandidateRepository.ts` states the property — "Tombstones and
+   * suppressions are excluded HERE, not later… a brand with 400 merged
+   * tombstones would return a page of nothing" — and no test in this repository
+   * searched for a merged product. `SHOPPER_VISIBLE_CATALOG_STATUSES` omits
+   * `merged`, so the behaviour is structural; what was missing is the assertion
+   * that the structure is wired to the read a shopper actually uses.
+   *
+   * ## Why the winner is searched too
+   *
+   * "The tombstone is not in the results" is satisfied by a search that returns
+   * nothing at all — a broken term, an empty fixture, a teardown that ran early.
+   * The winner is searched under its OWN name in the same two directions, so
+   * the assertion below is about the tombstone rather than about search having
+   * stopped answering. That is this file's convention, applied to a third read.
+   *
+   * ## What this deliberately does NOT assert, and why
+   *
+   * The merge is simulated with an UPDATE, as every case in this file does — the
+   * subject is the READ predicate, not the merge runner. A simulated merge mints
+   * no `former_name` alias, so this case makes no claim about the loser's old
+   * NAME reaching the winner through the alias stage. The alias row a real merge
+   * writes is asserted in `curation-writes.realdb.test.ts`; driving it through
+   * `runCanonicalSearch` needs the merge job and belongs beside it.
+   */
+  it('drops the tombstone from SEARCH, while the winner is still found', async () => {
+    const winner = await seedProductWithOffer('search-winner');
+    const loser = await seedProductWithOffer('search-loser');
+
+    /**
+     * By ID and never by count: both fixtures share the words `Suppression` and
+     * this run's token, so each name reaches the other through the fuzzy stage.
+     */
+    const found = async (term: string, productId: string): Promise<boolean> => {
+      const outcome = await runCanonicalSearch(
+        { term, kinds: ['product'], filters: {}, limit: 50 },
+        db,
+      );
+      return outcome.response.results.some(
+        (entry) => entry.kind === 'product' && entry.canonicalProductId === productId,
+      );
+    };
+
+    const loserTerm = `Suppression search-loser ${RUN}`;
+    const winnerTerm = `Suppression search-winner ${RUN}`;
+
+    // Both directions before anything is merged.
+    expect(await found(loserTerm, loser.productId), 'the loser was not searchable to begin with').toBe(true);
+    expect(await found(winnerTerm, winner.productId), 'the winner was not searchable to begin with').toBe(true);
+
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'merged', mergedIntoId: winner.productId })
+      .where(eq(canonicalProducts.id, loser.productId));
+
+    expect(await found(loserTerm, loser.productId), 'a merged tombstone was returned by search').toBe(false);
+    expect(
+      await found(winnerTerm, winner.productId),
+      'the winner stopped being searchable, so the assertion above measures nothing',
+    ).toBe(true);
   });
 });

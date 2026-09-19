@@ -36,15 +36,17 @@
  *
  * ## The arms with no live match
  *
- * Measured: five of the nine identity-shaped names in the shared vocabulary
- * (`category`, `productType`, `brand`, `brandName`, `controlledValue`) match
- * real declarations in the scanned tree. The other four — `categoryName`,
- * `optionName`, `attributeName`, `productTypeName` — match nothing, and an arm
- * that is unfired AND unmutated is indistinguishable from one that is
- * misspelled, mis-anchored or pointed at the wrong population: both print a
- * clean zero. The guard itself derives a positive control per vocabulary member
- * on every run; the cases below additionally drive all four through the REAL
- * file walk, so the arms are proven end to end and not only inside the matcher.
+ * Measured: six of the nine identity-shaped names in the shared vocabulary
+ * (`category`, `productType`, `brand`, `brandName`, `controlledValue`,
+ * `categoryName` — the discovery feed's `DiscoverySectionBase.categoryName`,
+ * resolved through the inherited-member fix, AND `DiscoverySignalPage.categoryName`)
+ * match real declarations in the scanned tree. The other three — `optionName`,
+ * `attributeName`, `productTypeName` — match nothing, and an arm that is
+ * unfired AND unmutated is indistinguishable from one that is misspelled,
+ * mis-anchored or pointed at the wrong population: both print a clean zero.
+ * The guard itself derives a positive control per vocabulary member on every
+ * run; the cases below additionally drive all three through the REAL file
+ * walk, so the arms are proven end to end and not only inside the matcher.
  *
  * Usage:  bun scripts/test-validate-catalog-identity-contracts.mjs
  */
@@ -99,6 +101,17 @@ function mutate(root, relativePath, transform) {
   }
 }
 
+/**
+ * `exitCode` is `null`, not a number, when the child died on a SIGNAL rather
+ * than exiting — `Bun.spawnSync`'s own contract. `signalCode` is a truthy
+ * string (`"SIGSEGV"`, …) in exactly that case and `undefined` — NOT `null`
+ * — on a normal exit, measured directly rather than assumed: a caller that
+ * reads only `exitCode` cannot tell "the guard ran and exited 1" from "the
+ * guard never got the chance to exit at all", and `!== 0` reads `null` as
+ * red either way. `check()` below tests `signalCode` for TRUTHINESS, not
+ * `!== null` — `undefined !== null` is `true` in JS, so that comparison
+ * would have read every ordinary, successful run as a crash.
+ */
 function runAgainst(root) {
   const proc = Bun.spawnSync({
     cmd: ["bun", validator],
@@ -109,6 +122,7 @@ function runAgainst(root) {
   });
   return {
     exitCode: proc.exitCode,
+    signalCode: proc.signalCode,
     output: `${proc.stdout.toString()}${proc.stderr.toString()}`,
   };
 }
@@ -123,7 +137,25 @@ function check(name, arrange, expectation) {
   const root = makeTree();
   try {
     arrange(root);
-    const { exitCode, output } = runAgainst(root);
+    const { exitCode, signalCode, output } = runAgainst(root);
+    // A crash is its OWN outcome, checked before red/green at all — this
+    // machine's documented bun/tsc SIGSEGV flakiness used to fall through
+    // into `red = exitCode !== 0` (a `null` exit code reads as `!== 0`, i.e.
+    // "red", same as a real failure) and then into the "did not name X"
+    // branch below, which asserts the guard RAN and got its message wrong.
+    // It did not run at all. Reporting the crash plainly, as its own
+    // failure, is what turns a wild goose chase through the guard's
+    // formatting into "child crashed, signal N, no output to check" — the
+    // true cause, on the machine where it actually happened.
+    if (signalCode) {
+      failures.push(
+        `${name}: the guard's child process CRASHED (${signalCode}) rather than exiting — there is `
+          + "no output to check and no verdict to compare against `expect`. This is not a wrong "
+          + "message; the guard never produced one. Retry the run rather than reading this as a "
+          + `guard defect.\n${output.split("\n").map((line) => `      ${line}`).join("\n")}`,
+      );
+      return;
+    }
     const red = exitCode !== 0;
     if (red !== (expectation.expect === "red")) {
       failures.push(
@@ -189,8 +221,106 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // an age band three twice over and the two percentile branches nine between
     // them — while the module count moving by exactly one says a single contract
     // module arrived rather than a directory.
-    "walked 126 contract module(s), 2260 exported type(s), 7640 property signature(s)",
-    "check A arms exercised by real declarations: 5/9",
+    // #367 line 277 added `AttributeDefinition.searchable` to the EXISTING
+    // `attribute-registry.ts`, so ONLY the property count moves, by one. READ
+    // OFF the guard against this branch AND against `origin/main` in a separate
+    // worktree, so the delta is a measured difference between two trees rather
+    // than an increment of the line above. The two figures that did NOT move
+    // are what makes this a check: the same change also added a member to
+    // `FacetSuppressionReason` and a tuple entry beside it, and a union alias
+    // declares no property signature and no exported type — had either of those
+    // figures moved, something other than one property had arrived.
+    //
+    // Measured three times across three rebases, which is the whole argument for
+    // the method. Behind #892 NEITHER side of the conflict carried the right
+    // figures and the arithmetic answer — main's module count plus this branch's
+    // property delta — was wrong on TWO of the three, because #892 moved the
+    // exported-type and property counts as well. Behind #894 and #897 the
+    // baseline did not move at all, and carrying the previous figure forward
+    // would have been RIGHT — by luck, and indistinguishable at the time from
+    // the #892 case. A pin that is only re-derived when somebody expects it to
+    // have moved is a pin nobody re-derives.
+    //
+    // A fourth instance, #367 line 405: `AuthoringMatrixRules` plus `matrix` on
+    // `AuthoringSchema` moved the exported types by ONE and the property
+    // signatures by FOUR (one interface, its three members, and the field that
+    // carries it), and left the module count alone — the shape of an addition to
+    // an existing contract module, which is what it was. Re-derived from the
+    // tool's own output line rather than added up.
+    // A fifth instance, #367 line 598: `FacetRangeDisplay` plus `display` on
+    // `FacetRange` moved the exported types by ONE and the property signatures
+    // by FIVE (one interface, its four members, and the field carrying it), and
+    // left the module count alone. Re-derived from the tool's own output line.
+    // A sixth instance, `FeeDecisionAuthority`: exported types moved by ONE and
+    // the property signatures NOT AT ALL, because it is a union of string
+    // literals rather than an interface — a type with no members contributes no
+    // property signature. That asymmetry is worth recording, because the four
+    // instances above all moved both figures and a reader deriving the delta
+    // from them would expect this one to move the second number too.
+    // Re-derived from the tool's own output line.
+    // A seventh instance, against this same branch's own earlier `discovery.ts`
+    // work (already at 127/2284/7690 — an existing module, so the module count
+    // never moves across any of it). `product.ts` gained `CategoryTile.sampleImageUrls`
+    // on an already-exported type (one property, no new type — 127/2284/7691),
+    // and `discovery.ts` gained a SECOND `categoryName` field, on the new
+    // `DiscoverySignalPage` (one new exported type plus its own seven members:
+    // `signal`, `scope`, `categoryHandle`, `categoryName`, `pageDepth`,
+    // `products`, `hasMore`).
+    //
+    // The bigger move is the inherited-member fix itself (this file's own
+    // docblock, "the arms with no live match"): `findAmbiguousContracts` now
+    // resolves a non-exported same-file base's members once, under the base's
+    // own name, so `DiscoverySectionBase.categoryName` (extended by eight
+    // section kinds, never exported on its own) is finally counted — six
+    // members, no new exported type, since resolving a base is not exporting
+    // it. The SAME fix also newly counts the other two non-exported bases the
+    // whole package has (`constraint.ts`'s `ConstraintBase`, three members;
+    // `search.ts`'s `SearchResultBase`, two members), neither carrying an
+    // identity-shaped name. Read off the guard against this branch after every
+    // one of these landed, not derived by arithmetic.
+    //
+    // An eighth instance, #1015 (ADR 0010): FOUR new contract modules —
+    // `digital-asset.ts`, `digital-licence.ts`, `digital-right.ts`,
+    // `digital-supply.ts` — which is the first time the MODULE count has moved
+    // across any of the eight. 131/2315/7760, and none of the 31 new exported
+    // types carries an identity-shaped name: a digital asset names a
+    // `canonicalProductId` and never a `category`, which is the whole of why this
+    // domain sits on top of the catalogue rather than beside it. Read off the
+    // guard's own output line against this branch, not derived by arithmetic.
+    // A ninth instance, #1015 Workstream 3: ONE new contract module,
+    // `digital-3d-profile.ts`. 132/2321/7766 — +1 module, +6 exported types, +6
+    // property signatures, READ OFF the guard's own output line against this
+    // branch rather than added up. The two deltas being EQUAL is the tell that
+    // the change is the one intended: all six new exported types are string-union
+    // or tuple-derived ALIASES, which contribute no property signature at all
+    // (the `FeeDecisionAuthority` asymmetry, two instances above), and all six new
+    // property signatures come from the three members of ONE discriminated union,
+    // `ThreeDMeasuredFactOrigin`, at two properties each. Had the type count moved
+    // further, an interface had arrived — and an interface in this module would
+    // most likely be the authoring FORM that `THREE_D_FORBIDDEN_PROFILE_SHAPES`
+    // exists to keep out of the published package (#1015 acceptance criterion 18).
+    // None of the six names a category, a brand or a product type: a 3D profile is
+    // a set of attribute KEYS, which is why this domain sits on top of #367's
+    // registry rather than restating it.
+    // A tenth instance, #1016 (ADR 0011): ONE new contract module,
+    // `digital-retail.ts`. 133/2350/7807 — +1 module, +29 exported types, +41
+    // property signatures, READ OFF the guard's own output line against this
+    // branch rather than added up. The type count moves far because the module is
+    // mostly closed VOCABULARIES — a union and its tuple per value set — and the
+    // property count moves further because of the four shapes that carry data: the
+    // eligibility verdict, the remedy verdict, the two public projections and the
+    // pricing result. None of the 29 carries an identity-shaped name: a digital
+    // retail offer names a `canonicalVariantId` and a `productClass`, and never a
+    // `category`, a `brand` or a `productType` — the supplier half of the domain
+    // has no public type at all, which is the point of ADR 0011 D13.
+    // An eleventh instance, #1017: ONE new contract module, `public-api.ts`, the
+    // integration contract `@mercaria.co/sdk` publishes. 134/2370/7877, READ OFF
+    // the guard's own output line against this branch. None of its types carries
+    // an identity-shaped name: a public product names its `ref` and a condition
+    // KEY, and the storefront's `category`/`productType`/`vendor` strings are
+    // exactly what the field-by-field projection declines to publish.
+    "walked 134 contract module(s), 2370 exported type(s), 7877 property signature(s)",
+    "check A arms exercised by real declarations: 6/9",
   ],
 });
 
@@ -198,8 +328,8 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
 /*  check A — every vocabulary arm, driven through the REAL file walk           */
 /* -------------------------------------------------------------------------- */
 
-const LIVE_ARMS = ["category", "productType", "brand", "brandName", "controlledValue"];
-const CONTROL_ONLY_ARMS = ["categoryName", "optionName", "attributeName", "productTypeName"];
+const LIVE_ARMS = ["category", "productType", "brand", "brandName", "controlledValue", "categoryName"];
+const CONTROL_ONLY_ARMS = ["optionName", "attributeName", "productTypeName"];
 
 for (const field of [...LIVE_ARMS, ...CONTROL_ONLY_ARMS]) {
   const live = LIVE_ARMS.includes(field);
@@ -253,6 +383,49 @@ check(
     );
   },
   { expect: "green" },
+);
+
+// The other half of the case directly above: an unexported type is invisible
+// ALONE, but not once an exported type `extends` it — `DiscoverySectionBase`'s
+// real shape (never exported on its own, extended by eight published section
+// kinds). Named under the BASE, `MutantBase.category`, never the extending
+// `MutantSurface` — resolving inheritance is not re-homing the field.
+check(
+  "check A — a NEW ambiguous field on a NON-EXPORTED base an exported type extends turns it RED",
+  (root) => {
+    mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
+      append(
+        source,
+        "interface MutantBase {\n  category: string;\n}\n"
+          + "export interface MutantSurface extends MutantBase {\n  id: string;\n}",
+      ),
+    );
+  },
+  {
+    expect: "red",
+    mentions: ["NEW ambiguous public catalog contract", "product.ts:MutantBase.category"],
+  },
+);
+
+// An EXPORTED base is scanned once, at its OWN top-level visit — the
+// inheritance resolution explicitly skips an already-exported base (see
+// `resolveInheritedBases`), so this must not report the field twice or under
+// the wrong owner.
+check(
+  "check A — an EXPORTED base an exported type extends is scanned under its own name, not the subtype's",
+  (root) => {
+    mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
+      append(
+        source,
+        "export interface MutantExportedBase {\n  category: string;\n}\n"
+          + "export interface MutantSurface extends MutantExportedBase {\n  id: string;\n}",
+      ),
+    );
+  },
+  {
+    expect: "red",
+    mentions: ["product.ts:MutantExportedBase.category"],
+  },
 );
 
 check(

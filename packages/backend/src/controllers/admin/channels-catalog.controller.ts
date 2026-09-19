@@ -16,7 +16,7 @@
 
 import type { Request, Response } from 'express';
 import type { ChannelDisconnectPolicy, ChannelPauseScope } from '@mercaria/shared-types';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { findConnection, setConnectionPause } from '../../db/connectors/connectionRepository.js';
 import { listSyncRunsForConnection } from '../../db/connectors/syncRunRepository.js';
 import { recordChannelAuditEvent, listChannelAuditEvents } from '../../db/channels/channelAuditRepository.js';

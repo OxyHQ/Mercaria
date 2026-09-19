@@ -18,6 +18,7 @@
  * service turns `null` into a 409 that names the state the row is actually in.
  */
 
+import { NAME_FOLD_VERSION } from '../../services/canonical/normalization.js';
 import { and, asc, count, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
 import type {
   CatalogProposalRejectionReason,
@@ -88,6 +89,9 @@ export async function insertProposal(
       proposedLabel: input.proposedLabel,
       sourceLocale: input.sourceLocale,
       normalizedLabel: input.normalizedLabel,
+      // #915: this repository is the ONE writer of the column, so stamping
+      // here covers every caller rather than each remembering.
+      nameFoldVersion: NAME_FOLD_VERSION,
       searchLabel: input.searchLabel,
       proposedDescription: input.proposedDescription,
       submitterNote: input.submitterNote,

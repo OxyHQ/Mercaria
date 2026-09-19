@@ -35,7 +35,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createDatabase } from '@oxyhq/db';
+import { createDatabase } from '@oxy.so/db';
 import { eq } from 'drizzle-orm';
 import type postgres from 'postgres';
 import * as schema from '../../db/schema/index.js';

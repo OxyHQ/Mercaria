@@ -31,7 +31,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 
 import { connectPostgres, type Database } from '../postgres.js';
 import {
@@ -85,7 +85,7 @@ async function revisions(): Promise<RevisionRow[]> {
  * rows — which is what the first draft of this file did, and it failed by
  * reporting a stale row's status rather than by looking obviously wrong.
  *
- * An id diff is also the only correct form here for a second reason: `@oxyhq/db`
+ * An id diff is also the only correct form here for a second reason: `@oxy.so/db`
  * mints uuid v7, which is NOT monotonic within a millisecond, so "the newest N
  * by id" is not reliable either.
  */

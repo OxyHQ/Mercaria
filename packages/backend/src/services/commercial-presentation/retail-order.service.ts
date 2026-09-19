@@ -67,7 +67,20 @@ export function deriveRetailOrderProgressStage(input: {
       return 'confirmed';
     case 'shipped':
       return 'on_the_way';
+    /**
+     * `digitally_delivered` shares `delivered`'s arm, and is answered rather than
+     * omitted because this switch is TOTAL over `OrderStatus` — `tsc` said so the
+     * moment #1015 added the member. A status with no arm would make this return
+     * `undefined` for a state some future retail line could reach, and a buyer
+     * would be shown nothing.
+     *
+     * A retail order should never reach it: Mercaria-retail sells physical goods
+     * (ADR 0004) and the digital path never enters this function. `delivered` is
+     * the right answer if it ever does — the buyer has the thing they paid for,
+     * which is what this vocabulary reports.
+     */
     case 'delivered':
+    case 'digitally_delivered':
       return 'delivered';
     case 'cancelled':
       return 'cancelled';

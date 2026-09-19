@@ -45,10 +45,11 @@ import {
   integer,
   pgTable,
   text,
+  unique,
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   ATTRIBUTE_CARDINALITIES,
   ATTRIBUTE_COMPONENT_AXES,
@@ -103,9 +104,21 @@ import { catalogSources } from './provenance';
  * - only an `objective` attribute may be `hard_constraint_capable`, which is
  *   what stops an editorial opinion from being able to EXCLUDE a product.
  *
- * `hard_constraint_capable ⇒ filterable` is the last of them: a requirement that
+ * `hard_constraint_capable ⇒ filterable` is one of them: a requirement that
  * excludes but cannot be offered as a filter is a rule with no way for a shopper
- * to see it, which #94's explanation requirements rule out.
+ * to see it, which #94's explanation requirements rule out. `searchable ⇒
+ * display_policy = 'public'` is the other, and it is the same shape one surface
+ * over — see its own comment for why an interpretation is a public DTO.
+ *
+ * ## The capability family
+ *
+ * {@link ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS} names what may be DONE with an
+ * attribute, as against what its values mean. Every member is frozen with the
+ * version, every member has a reader that is named beside it, and the ones that
+ * IMPLY each other say so as CHECKs rather than as prose — the two above are the
+ * whole set, and the two that are conspicuously missing (`filterable ⇒ public`,
+ * `comparable ⇒ public`) are missing for a stated reason rather than by
+ * oversight.
  */
 export const attributeDefinitions = pgTable(
   'attribute_definitions',
@@ -153,6 +166,21 @@ export const attributeDefinitions = pgTable(
     filterable: boolean().notNull().default(true),
     sortable: boolean().notNull().default(false),
     comparable: boolean().notNull().default(true),
+    /**
+     * Whether a shopper's own WORDS may resolve to this attribute (#367 line
+     * 277).
+     *
+     * Distinct from `filterable`, which decides whether the rail OFFERS it as a
+     * facet somebody picks from. This decides whether the natural-language
+     * interpreter may recognise its label, its localized labels and its
+     * controlled-value spellings in free text at all — so an attribute can be
+     * one without the other: a facet nobody would ever type, or a term that is
+     * understood and applied as a PREFERENCE where no facet exists.
+     *
+     * Default `true`, matching `filterable`: the registry's posture is that an
+     * attribute is usable and an operator NARROWS it.
+     */
+    searchable: boolean().notNull().default(true),
     hardConstraintCapable: boolean().notNull().default(false),
     displayPolicy: text({ enum: asEnumValues(ATTRIBUTE_DISPLAY_POLICIES) })
       .notNull()
@@ -291,6 +319,26 @@ export const attributeDefinitions = pgTable(
       'attribute_definitions_hard_constraint_check',
       sql`${t.hardConstraintCapable} is false or (${t.objectivity} = 'objective' and ${t.filterable})`,
     ),
+    // An `operator_only` attribute's values never reach a public DTO, and an
+    // interpretation IS one: the deterministic interpreter echoes the matched
+    // attribute's LABEL and its controlled value's LABEL back to the shopper in
+    // the explanation it attaches to every requirement it raises. So recognising
+    // a term for such an attribute publishes exactly what `display_policy`
+    // withheld.
+    //
+    // Added VALIDATED, and provably so: `0141` backfills `searchable` from
+    // `display_policy` in the statement before this one, so no stored row can
+    // violate it. The two SIBLING implications — `filterable ⇒ public` and
+    // `comparable ⇒ public` — are deliberately NOT stated here, because those
+    // columns already hold values this branch cannot prove and rewriting them
+    // would edit the frozen meaning of a published version. They are enforced at
+    // the READ instead (`facets/metadata.ts`, `comparison.service.ts`), and what
+    // is owed is a count of the rows that would fail, then the two checks — the
+    // `attribute_labels` locale decision one table over, for the same reason.
+    check(
+      'attribute_definitions_searchable_display_check',
+      sql`${t.searchable} is false or ${t.displayPolicy} = 'public'`,
+    ),
     // A published version records who published it and when; a draft records
     // neither. The `fee_schedules` activation-audit shape.
     check(
@@ -311,6 +359,47 @@ export const attributeDefinitions = pgTable(
     index('attribute_definitions_lifecycle_idx').on(t.lifecycleState, t.key),
   ],
 );
+
+/**
+ * The capability columns of `attribute_definitions` — what may be DONE with an
+ * attribute, as opposed to what its values MEAN (#367 line 277).
+ *
+ * Six of epic #367's seven capabilities live here. The seventh,
+ * variant-capability, is deliberately absent and is NOT a column on this table:
+ * whether an attribute can distinguish two variants is a property of the
+ * attribute WITHIN a product type — colour varies a shirt and an ISBN varies
+ * nothing — so it is `product_type_fields.variant_capable` (ADR 0007 D6), one
+ * grain down. {@link attributeDefinitions.variantDefining} is the registry's own
+ * default for an attribute the product type does not mention, which is a
+ * different fact from the binding and is why both exist. A `variant_capable`
+ * column here would be a second representation of the binding, and two
+ * representations of one fact can disagree.
+ *
+ * `display_policy` is this list's odd member and belongs in it: it IS #367's
+ * "displayable", spelled as a two-value closed set rather than a boolean
+ * because `operator_only` names WHO may see the value rather than merely
+ * withholding it.
+ *
+ * The list has one consumer — `attribute-registry.realdb.test.ts`, which drives
+ * an UPDATE of every member against a published version and asserts the freeze
+ * trigger refuses it. A capability that can be flipped on a live version is a
+ * capability whose version stamp means nothing, and the trigger's column list
+ * is hand-maintained SQL that no compiler reads. A member added here without
+ * being added there turns that test red.
+ */
+export const ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS = [
+  'variantDefining',
+  'filterable',
+  'sortable',
+  'comparable',
+  'searchable',
+  'hardConstraintCapable',
+  'displayPolicy',
+] as const;
+
+/** One of {@link ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS}. */
+export type AttributeDefinitionCapabilityColumn =
+  (typeof ATTRIBUTE_DEFINITION_CAPABILITY_COLUMNS)[number];
 
 /**
  * `attribute_labels` — localized labels for a definition version
@@ -438,6 +527,48 @@ export const attributeEnumValues = pgTable(
     /** What a shopper reads. Changing it never moves a stored value. */
     label: text().notNull(),
     position: integer().notNull().default(0),
+    /**
+     * The value of a PREVIOUS version that this one replaces — "use this instead
+     * of `gray`" (#367 line 280).
+     *
+     * ## Why this points BACKWARD where `attribute_definitions` points forward
+     *
+     * #367 line 237 put a FORWARD pointer on `attribute_definitions`, because
+     * there the successor is published before the predecessor is deprecated, so
+     * the deprecated row could still be written. **Neither is true here**, and
+     * the asymmetry is forced rather than chosen:
+     *
+     * `mercaria_attribute_enum_frozen` refuses INSERT, UPDATE *and* DELETE on
+     * this table for any definition that has left `draft`. A retired value's row
+     * belongs to a published version, so it can never be written again — a
+     * forward pointer would need that freeze weakened, and the freeze is what
+     * keeps a published version's value vocabulary immutable.
+     *
+     * The successor, by contrast, is being drafted when the redirect is known:
+     * retiring a value means drafting version N+1 that carries everything except
+     * it, and the row naming what it replaces is inserted in that same draft.
+     * So this is the classic case the house idiom was built for —
+     * `product_identifiers.supersedes_identifier_id`'s *"the successor names its
+     * predecessor, so it always resolves"* — and pointing forward here would
+     * cost a trigger change to buy a worse write ordering.
+     *
+     * ## ONE HOP, and it is not chased
+     *
+     * `attribute_definitions.replaced_by_definition_id` states the reasoning in
+     * full and it holds unchanged: a replacement records what an operator
+     * decided at one moment, and if `a` was replaced by `b` and `b` later by
+     * `c`, nobody decided that `c` replaces `a`. A consumer wanting the terminal
+     * value walks the chain itself and bounds the walk.
+     *
+     * ## What it does NOT do
+     *
+     * It does not move stored assignments. Those cite the version they were
+     * recorded under and keep resolving through `resolveDefinitionVersion`,
+     * which is the whole reason the `restrict` below exists.
+     */
+    replacesEnumValueId: text().references((): AnyPgColumn => attributeEnumValues.id, {
+      onDelete: 'restrict',
+    }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -447,7 +578,36 @@ export const attributeEnumValues = pgTable(
       sql`${t.value} = lower(btrim(${t.value})) and ${t.value} <> ''`,
     ),
     uniqueIndex('attribute_enum_values_value_key').on(t.attributeDefinitionId, t.value),
+    // A value cannot replace itself — the `<> id` shape every supersession
+    // pointer in this schema carries.
+    check(
+      'attribute_enum_values_replaces_self_check',
+      sql`${t.replacesEnumValueId} is null or ${t.replacesEnumValueId} <> ${t.id}`,
+    ),
+    // At most ONE successor per retired value: "use X instead" has to be
+    // unambiguous, and two rows claiming to replace `gray` is a question with no
+    // answer. PARTIAL with the predicate spelled out rather than relying on
+    // Postgres treating NULLs as distinct — the behaviour is the same and the
+    // intent is not readable from the plain form.
+    uniqueIndex('attribute_enum_values_replaces_key')
+      .on(t.replacesEnumValueId)
+      .where(sql`${t.replacesEnumValueId} is not null`),
     index('attribute_enum_values_position_idx').on(t.attributeDefinitionId, t.position),
+    /**
+     * The target of `product_type_field_allowed_values`' composite foreign key
+     * (#367 W7, epic line 235).
+     *
+     * `unique()` and NOT `uniqueIndex()`: a foreign key may only reference a
+     * unique CONSTRAINT or a primary key, and `uniqueIndex` emits an index,
+     * which Postgres refuses as an FK target.
+     *
+     * It can never fail to apply. `id` is the primary key, so `(attribute_
+     * definition_id, id)` is unique by construction for every row that exists or
+     * could exist — no scan, no duplicate risk, no backfill. It adds no NEW
+     * invariant; it exists so a subset's composite key can pin the value and its
+     * owning definition together.
+     */
+    unique('attribute_enum_values_definition_id_key').on(t.attributeDefinitionId, t.id),
   ],
 );
 

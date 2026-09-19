@@ -26,7 +26,7 @@
  */
 
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import type { PricingResult } from '../pricing.service.js';
 import type { DualMoney, Money } from '@mercaria/shared-types';
 import type {
@@ -105,6 +105,14 @@ vi.mock('../../db/retailCheckout/retailCheckoutRepository.js', () => ({
   insertRetailProcurementIntents: vi.fn(async () => []),
 }));
 
+// #1015: the catalogue↔digital join. Empty, because every fixture in this file
+// is a physical listing — which is what makes the absence of a digital snapshot on
+// the orders it places a real assertion rather than a side effect of nothing
+// having been configured.
+vi.mock('../../db/digital/bindingRepository.js', () => ({
+  findDigitalBindings: vi.fn(async () => []),
+  upsertDigitalBinding: vi.fn(async () => undefined),
+}));
 vi.mock('../../db/orders/orderRepository.js', () => ({
   insertOrder: (...args: unknown[]) => insertOrder(...args),
   findOrdersByCheckoutGroup: (...args: unknown[]) => findOrdersByCheckoutGroup(...args),

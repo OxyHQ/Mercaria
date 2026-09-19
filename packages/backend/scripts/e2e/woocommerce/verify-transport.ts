@@ -5,7 +5,7 @@
  * `verify.sh` establishes that the host resolves publicly and that the REST API
  * answers. That is necessary and it is not the same claim: the WooCommerce
  * provider dispatches through `woocommerce/http.ts`, which refuses any non-https
- * URL before a lookup and routes every call through `@oxyhq/core/server`'s
+ * URL before a lookup and routes every call through `@oxy.so/core/server`'s
  * `safeFetch` — which re-validates each hop against the private/link-local/
  * metadata denylist and PINS the connection to the validated IP. A site curl can
  * reach and `safeFetch` refuses looks exactly like a working site until the

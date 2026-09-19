@@ -4,7 +4,7 @@ import type {
   ReviewEligibility,
   ReviewScope,
 } from '@mercaria/shared-types';
-import { useOxy } from '@oxyhq/services';
+import { useOxy } from '@oxy.so/services';
 import {
   createReview,
   fetchMerchantReviews,

@@ -141,7 +141,7 @@ function CollectionPill({
       style={glassStyle(store)}
     >
       {imageUrl ? (
-        <View className="h-8 w-8 overflow-hidden rounded-full bg-secondary">
+        <View className="h-8 w-8 overflow-hidden rounded-full bg-muted">
           <Image source={{ uri: imageUrl }} contentFit="cover" className="h-8 w-8 rounded-full" />
         </View>
       ) : null}
@@ -199,7 +199,16 @@ function GridSkeleton() {
 }
 
 /** Body of the store page — only rendered once `store` is present. */
-function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
+function StoreBody({
+  handle,
+  store,
+  linkedCollectionId,
+}: {
+  handle: string;
+  store: StoreSummary;
+  /** The `?collection=` deep link, when the page was opened on one collection. */
+  linkedCollectionId: string | undefined;
+}) {
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
   const router = useRouter();
@@ -218,12 +227,25 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
   };
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeCollectionId, setActiveCollectionId] = useState<string | undefined>(undefined);
+  const [activeCollectionId, setActiveCollectionId] = useState<string | undefined>(
+    linkedCollectionId,
+  );
   const [searchInput, setSearchInput] = useState("");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<SortValue>("best");
   const [inStockOnly, setInStockOnly] = useState(false);
   const [page, setPage] = useState(1);
+
+  // `/stores/<handle>?collection=<id>` opens on that collection — the URL the
+  // public integration API serves for a collection (#1017). A later link to the
+  // same store naming a different collection moves the selection too, adjusted
+  // during render rather than in an effect so no frame shows the stale grid.
+  const [appliedLink, setAppliedLink] = useState(linkedCollectionId);
+  if (appliedLink !== linkedCollectionId) {
+    setAppliedLink(linkedCollectionId);
+    setActiveCollectionId(linkedCollectionId);
+    setPage(1);
+  }
 
   const commitSearch = useDebouncedCallback((value: string) => {
     setQ(value);
@@ -250,9 +272,25 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
     setPage(1);
   };
 
+  const publishedCollections = useMemo(
+    () => (collections ?? []).filter((c) => c.isPublished),
+    [collections],
+  );
+
+  // A linked id that names no PUBLISHED collection of this store filters nothing:
+  // the grid must never become a way to list an unpublished collection's members.
+  // While the collections are still loading the link is trusted, so a valid deep
+  // link does not first render the whole store.
+  const filterCollectionId =
+    activeCollectionId !== undefined &&
+    collections !== undefined &&
+    !publishedCollections.some((c) => c.id === activeCollectionId)
+      ? undefined
+      : activeCollectionId;
+
   const { data, isLoading, isError } = useListings({
     storeId: store.id,
-    collectionId: activeCollectionId,
+    collectionId: filterCollectionId,
     q: q || undefined,
     sort: toQuerySort(sort),
     inStock: inStockOnly ? true : undefined,
@@ -265,11 +303,6 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
     [data, store.name],
   );
 
-  const publishedCollections = useMemo(
-    () => (collections ?? []).filter((c) => c.isPublished),
-    [collections],
-  );
-
   const hasNextPage = data?.pagination.hasNextPage ?? false;
   const activeSortLabelKey =
     SORT_OPTIONS.find((o) => o.value === sort)?.labelKey ?? SORT_OPTIONS[0].labelKey;
@@ -277,7 +310,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
   return (
     // Scopes the store's brand palette to the whole page via `themeVars` (the
     // shadcn theme tokens are remapped so `bg-background` is the brand color,
-    // `bg-card`/`bg-secondary` become glassy translucent fills, and text tokens
+    // `bg-card`/`bg-muted` become glassy translucent fills, and text tokens
     // take the store's tone). Every shared component below inherits the palette.
     // The enclosing `ScreenShell` paints the brand color across the full panel
     // (incl. its `pb-24` and rounded bottom) via `surfaceStyle`, so no surface
@@ -417,7 +450,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
                       accessibilityRole="button"
                       accessibilityLabel={collection.title}
                       onPress={() => selectCollection(isActive ? undefined : collection.id)}
-                      className={`group overflow-hidden rounded-2xl border bg-secondary web:shadow-sm web:transition-transform web:duration-300 web:hover:-translate-y-1 ${
+                      className={`group overflow-hidden rounded-2xl border bg-muted web:shadow-sm web:transition-transform web:duration-300 web:hover:-translate-y-1 ${
                         isActive ? "border-foreground" : "border-border"
                       }`}
                     >
@@ -465,7 +498,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
               value={searchInput}
               onChangeText={onChangeSearch}
               placeholder={t("store.products.searchPlaceholder", { store: store.name })}
-              className="h-11 rounded-full bg-secondary ps-9"
+              className="h-11 rounded-full bg-muted ps-9"
               returnKeyType="search"
             />
           </View>
@@ -478,7 +511,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t("store.sort.label")}
-                className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-secondary px-4"
+                className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-muted px-4"
               >
                 <SlidersHorizontal size={15} className="text-foreground" />
                 <Text className="text-sm font-medium text-foreground">{t(activeSortLabelKey)}</Text>
@@ -499,7 +532,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
 
-          <View className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-secondary px-4">
+          <View className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-muted px-4">
             <Text className="text-sm font-medium text-foreground">{t("store.filters.inStock")}</Text>
             <Switch value={inStockOnly} onValueChange={onToggleInStock} />
           </View>
@@ -541,7 +574,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
               accessibilityRole="button"
               accessibilityLabel={t("store.products.loadMoreLabel")}
               onPress={() => setPage((p) => p + 1)}
-              className="rounded-full border border-border bg-secondary px-6 py-3 web:shadow-sm"
+              className="rounded-full border border-border bg-muted px-6 py-3 web:shadow-sm"
             >
               <Text className="text-sm font-semibold text-foreground">
                 {t("store.products.loadMore")}
@@ -570,7 +603,9 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
 
 export default function StoreScreen() {
   const { t } = useTranslation();
-  const { handle } = useLocalSearchParams<{ handle: string }>();
+  const { handle, collection } = useLocalSearchParams<{ handle: string; collection?: string }>();
+  const linkedCollectionId =
+    typeof collection === "string" && collection !== "" ? collection : undefined;
   const { data, isLoading, isError } = useStore(handle ?? "");
 
   const head = (
@@ -617,7 +652,11 @@ export default function StoreScreen() {
       surfaceStyle={{ backgroundColor: data.store.brandColor }}
     >
       {head}
-      <StoreBody handle={handle ?? ""} store={data.store} />
+      <StoreBody
+        handle={handle ?? ""}
+        store={data.store}
+        linkedCollectionId={linkedCollectionId}
+      />
     </ScreenShell>
   );
 }

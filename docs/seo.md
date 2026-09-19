@@ -44,7 +44,7 @@ same read the page renders.
 
 ## The route registry
 
-`services/seo/routes.ts` is the ONE place a public path is spelled. Ten
+`services/seo/routes.ts` is the ONE place a public path is spelled. Twelve
 patterns, each with its identity scheme, its availability, the expo-router
 screen that renders it and its sitemap collection.
 
@@ -59,7 +59,9 @@ screen that renders it and its sitemap collection.
 | `brand` | `/brands/:handle` | id or slug | live | `brands` |
 | `product_family` | `/families/:handle` | id or slug | live | — |
 | `merchant` | `/merchants/:handle` | id or slug | live | `merchants` |
-| `category_browse` | `/categories/:handle` | id or slug | planned | `categories` |
+| `category_browse` | `/categories/:handle` | id or slug | live | `categories` |
+| `category_index` | `/categories` | — | live | — |
+| `deals` | `/deals` | — | live | — |
 
 **`availability` is the honesty column.** A `planned` pattern is recorded and
 reserved and is never indexable, never in a sitemap and never served metadata:
@@ -432,10 +434,6 @@ credential.
 
 ## Deliberately not built
 
-- **A category / filtered browse page.** The route pattern and its sitemap
-  collection are RESERVED and emit nothing. No storefront screen renders one, in
-  this repository or in either page issue in flight, and a browse surface is a
-  product decision rather than a routing one.
 - **`rel="sponsored nofollow"` on affiliate links** — #37 owns the outbound
   redirect and no page links outward today. `robots.txt` already refuses `/out/`.
 - **Crawl-error monitoring** (#75 sitemap rule 6). Crawl errors and Google's own

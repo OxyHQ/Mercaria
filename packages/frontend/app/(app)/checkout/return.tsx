@@ -38,7 +38,7 @@ import { useEffect } from "react";
 import Head from "expo-router/head";
 import { View } from "react-native";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import { track } from "../../../lib/analytics";
 import { Button, SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";

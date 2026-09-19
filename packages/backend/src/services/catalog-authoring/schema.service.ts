@@ -50,6 +50,8 @@ import {
   ATTRIBUTE_COMPONENT_AXES,
   AUTHORING_SCHEMA_CONTRACT_VERSION,
   AUTHORING_STEP_KINDS,
+  MAX_VALUES_PER_VARIANT_AXIS,
+  MAX_VARIANT_AXES_PER_PRODUCT,
   MERCARIA_BASE_LOCALE,
   PRODUCT_TYPE_AUTHORING_FLOWS,
   type AuthoringCategoryOption,
@@ -73,6 +75,7 @@ import {
   type SupportedLocale,
 } from '@mercaria/shared-types';
 import { inArray } from 'drizzle-orm';
+import { config } from '../../config/index.js';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
 import { listAttributeEnumValues } from '../../db/attributes/definitionRepository.js';
 import { attributeEnumValues } from '../../db/schema/attributeRegistry.js';
@@ -81,6 +84,7 @@ import { findCategoryLocalizations } from '../../db/catalogLocalization/category
 import { findProductTypeLocalizations } from '../../db/catalogLocalization/productTypeLocalizationRepository.js';
 import {
   listProductTypeFieldGroups,
+  listProductTypeFieldAllowedValues,
   listProductTypeFields,
 } from '../../db/productTypes/productTypeFieldRepository.js';
 import { findProductTypeDefinitionById } from '../../db/productTypes/productTypeRepository.js';
@@ -102,7 +106,9 @@ import {
   readAuthoringSchemaRevisions,
   type AuthoringInvalidationRef,
 } from '../../db/catalogAuthoring/schemaInvalidationRepository.js';
-import { localeFallbackChain, resolveLocalizedField } from '../catalog-localization/resolve.js';
+import { localeFallbackChain } from '../catalog-localization/resolve.js';
+// The OBSERVED resolver — see `read-observation.ts` (#367 W17 line 771).
+import { resolveObservedLocalizedField } from '../catalog-localization/read-observation.js';
 import { authoringEtag, authoringSchemaCacheKey, type AuthoringSchemaKey } from './etag.js';
 
 /** The declared component axes, as a set, for the narrowing below. */
@@ -460,9 +466,10 @@ async function composeForDefinition(
     if (hit !== undefined) return { outcome: 'composed', schema: hit };
   }
 
-  const [definitions, enumValues] = await Promise.all([
+  const [definitions, enumValues, allowedValues] = await Promise.all([
     listAttributeDefinitionsByIds(db, attributeDefinitionIds),
     listAttributeEnumValues(db, attributeDefinitionIds),
+    listProductTypeFieldAllowedValues(db, fields.map((field) => field.id)),
   ]);
   const definitionById = new Map(definitions.map((row) => [row.id, row]));
 
@@ -471,6 +478,24 @@ async function composeForDefinition(
     const bucket = valuesByDefinition.get(value.attributeDefinitionId) ?? [];
     bucket.push({ id: value.id, value: value.value, position: value.position });
     valuesByDefinition.set(value.attributeDefinitionId, bucket);
+  }
+
+  /**
+   * The permitted subset per field, or ABSENT for a field nobody narrowed
+   * (#367 W7, epic line 235).
+   *
+   * `undefined` and an empty set are kept apart deliberately: absence means the
+   * field permits every value its definition defines, which is the state of
+   * every field that has ever existed. An empty subset is unrepresentable — a
+   * row IS a permission, so "permits none" has no shape — and collapsing the two
+   * would make the first deploy of this table offer nothing anywhere. See the
+   * table's own doc.
+   */
+  const permittedByField = new Map<string, Set<string>>();
+  for (const row of allowedValues) {
+    const bucket = permittedByField.get(row.productTypeFieldId) ?? new Set<string>();
+    bucket.add(row.attributeEnumValueId);
+    permittedByField.set(row.productTypeFieldId, bucket);
   }
 
   const composedGroups: AuthoringGroup[] = groups.map((group) => ({
@@ -506,7 +531,14 @@ async function composeForDefinition(
       position: field.position,
       visibilityRule: field.visibilityRule ?? null,
       validation: toValidation(attribute),
-      controlledValues: valuesByDefinition.get(field.attributeDefinitionId) ?? [],
+      // NARROWED by the field's subset when it has one, and the registry's own
+      // order is preserved because `definitionValues` is already ordered by
+      // `attribute_enum_values.position` — the subset says WHICH values, never
+      // in what order, so there is only ever one ordering authority.
+      controlledValues: permittedValues(
+        valuesByDefinition.get(field.attributeDefinitionId) ?? [],
+        permittedByField.get(field.id),
+      ),
     });
   }
 
@@ -517,7 +549,14 @@ async function composeForDefinition(
     fields: composedFields,
     groups,
     definitionById,
-    enumValueIds: enumValues.map((value) => value.id),
+    // The values the composed fields actually RENDER, not every value of every
+    // cited definition. Before subsets existed the two sets were identical; now
+    // a narrowed field must not pull localized labels for values no form shows,
+    // and the union is taken across fields because two fields citing one
+    // definition may permit different subsets of it.
+    enumValueIds: composedFields.flatMap((field) =>
+      field.controlledValues.map((value) => value.id),
+    ),
   });
 
   const body = {
@@ -531,6 +570,18 @@ async function composeForDefinition(
     steps: composeSteps(input.permissions),
     groups: composedGroups,
     fields: composedFields,
+    // #367 line 405's matrix RULES. `AuthoringField.variantCapable` above is
+    // its capabilities half; these are the three numbers a client needs before
+    // it generates anything. Composed from the SAME symbols the request
+    // schemas enforce with (`MAX_VARIANT_AXES_PER_PRODUCT`,
+    // `MAX_VALUES_PER_VARIANT_AXIS`) and the SAME config the publish path
+    // refuses on (`config.catalog.maxVariantsPerProduct`), so a served number
+    // and an enforced number are one binding rather than two that agree today.
+    matrix: {
+      maxAxes: MAX_VARIANT_AXES_PER_PRODUCT,
+      maxValuesPerAxis: MAX_VALUES_PER_VARIANT_AXIS,
+      maxVariants: config.catalog.maxVariantsPerProduct,
+    },
     text: text.text,
   };
   const schema: AuthoringSchema = { ...body, etag: authoringEtag(key, body) };
@@ -580,6 +631,29 @@ interface ComposeTextInput {
  * there resolves a slug this surface has no use for, and a schema needs the
  * attribute labels it does not carry.
  */
+/**
+ * The values a field permits: its subset when it has one, every value otherwise.
+ *
+ * PURE, and separated from the composition so the empty-versus-absent decision
+ * has one place a test can drive and one place a reader can check. The filter
+ * preserves `definitionValues`' order, which is the registry's own — a subset
+ * narrows WHICH values, never their order.
+ *
+ * A subset naming a value the definition no longer defines contributes nothing
+ * rather than a hole: the intersection is taken over the registry's rows, so a
+ * stale row cannot conjure a value into a form. It cannot arise today —
+ * `product_type_field_allowed_values` pins the value and its owning definition
+ * with one composite key — and the filter direction is what keeps that true if
+ * it ever could.
+ */
+function permittedValues(
+  definitionValues: readonly AuthoringControlledValue[],
+  permitted: ReadonlySet<string> | undefined,
+): AuthoringControlledValue[] {
+  if (permitted === undefined) return [...definitionValues];
+  return definitionValues.filter((value) => permitted.has(value.id));
+}
+
 async function composeText(
   db: DatabaseOrTransaction,
   input: ComposeTextInput,
@@ -595,7 +669,7 @@ async function composeText(
   ]);
 
   const productTypeName = toText(
-    resolveLocalizedField({
+    resolveObservedLocalizedField({
       field: 'product_type.name',
       requestedLocale: input.requestedLocale,
       candidates: productTypeRows.map((row) => ({
@@ -608,7 +682,7 @@ async function composeText(
     }),
   );
   const productTypeDescription = toText(
-    resolveLocalizedField({
+    resolveObservedLocalizedField({
       field: 'product_type.description',
       requestedLocale: input.requestedLocale,
       candidates: productTypeRows.map((row) => ({
@@ -621,7 +695,7 @@ async function composeText(
     }),
   );
   const categoryName = toText(
-    resolveLocalizedField({
+    resolveObservedLocalizedField({
       field: 'category.name',
       requestedLocale: input.requestedLocale,
       candidates: categoryRows.map((row) => ({
@@ -779,7 +853,7 @@ async function readLocalizedValueLabels(
   for (const base of baseRows) {
     resolved.set(
       base.id,
-      resolveLocalizedField({
+      resolveObservedLocalizedField({
         field: 'attribute_value.label',
         requestedLocale: chain[0] ?? MERCARIA_BASE_LOCALE,
         candidates: candidatesByValue.get(base.id) ?? [],
@@ -790,9 +864,13 @@ async function readLocalizedValueLabels(
   return resolved;
 }
 
-type LocalizedCandidateStatus = Parameters<typeof resolveLocalizedField>[0]['candidates'][number]['status'];
+// Off the OBSERVED resolver, whose signature is the pure one's unchanged — so
+// these describe exactly what this serving path passes, and a widening of the
+// pure resolver that the wrapper did not adopt would be a type error here.
+type LocalizedCandidateStatus =
+  Parameters<typeof resolveObservedLocalizedField>[0]['candidates'][number]['status'];
 type LocalizedCandidateProvenance = Parameters<
-  typeof resolveLocalizedField
+  typeof resolveObservedLocalizedField
 >[0]['candidates'][number]['provenance'];
 
 /* -------------------------------------------------------------------------- */
@@ -830,7 +908,7 @@ export async function listAuthoringCategories(
 
   return rows.map((row) => {
     const name = toText(
-      resolveLocalizedField({
+      resolveObservedLocalizedField({
         field: 'category.name',
         requestedLocale: options.requestedLocale,
         candidates: byCategory.get(row.id) ?? [],
@@ -877,7 +955,7 @@ export async function listAuthoringProductTypes(
 
   return scoped.map((entry) => {
     const name = toText(
-      resolveLocalizedField({
+      resolveObservedLocalizedField({
         field: 'product_type.name',
         requestedLocale: options.requestedLocale,
         candidates: byDefinition.get(entry.definition.id) ?? [],

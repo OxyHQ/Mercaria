@@ -9,14 +9,19 @@ import type { StoreSummary } from "@mercaria/shared-types";
 const MERCHANT_SLOT_CLASS = "w-[330px]";
 
 export interface MerchantCarouselProps {
-  title: string;
+  /**
+   * Optional, exactly as `ProductCarousel`'s is: a caller with no heading to
+   * show renders the row headless rather than composing a sentence to fill the
+   * slot. Absent, no `SectionHeader` is drawn at all.
+   */
+  title?: string;
   merchants: StoreSummary[];
   onPressMerchant?: (handle: string) => void;
   onPressProduct?: (id: string) => void;
 }
 
 /**
- * A titled merchant (shop) section: a bold heading above a horizontally
+ * A merchant (shop) section: an optional bold heading above a horizontally
  * scrollable row of large `MerchantCard`s. Reuses the generic `Carousel`, so
  * the scroll + web-arrow logic is shared, not duplicated. Returns `null` when
  * there are no merchants or they are unavailable, so the heading never appears
@@ -32,7 +37,7 @@ export function MerchantCarousel({
 
   return (
     <View className="mb-6">
-      <SectionHeader title={title} />
+      {title ? <SectionHeader title={title} /> : null}
       <Carousel
         items={merchants}
         keyExtractor={(merchant) => merchant.id}

@@ -57,7 +57,7 @@ it and can only rise.
 |---|---|---|---|
 | Taxonomy | `db/schema/taxonomy.ts` | `db/taxonomy/taxonomyRepository.ts` | `category_aliases`, `category_redirects`, `category_external_mappings` — plus `categories` itself, which lives in `db/schema/catalog.ts:128` and was widened in place (D2) |
 | Classification | `db/schema/taxonomyClassification.ts` | `db/taxonomy/classificationRepository.ts` | `listing_secondary_categories`, `canonical_product_secondary_categories` — the JUSTIFIED secondary filings (#367 W1). There is deliberately no primary table: the primary category IS `listings.category_id` / `canonical_products.category_id`, so "exactly one" is held by a scalar column rather than by a partial unique on an `is_primary` flag |
-| Product types | `db/schema/productTypes.ts` | `db/productTypes/productTypeRepository.ts`, `productTypeFieldRepository.ts` | `product_type_definitions`, `product_type_category_scopes`, `product_type_field_groups`, `product_type_fields`, `product_type_aliases` |
+| Product types | `db/schema/productTypes.ts` | `db/productTypes/productTypeRepository.ts`, `productTypeFieldRepository.ts` | `product_type_definitions`, `product_type_category_scopes`, `product_type_field_groups`, `product_type_fields`, `product_type_field_allowed_values`, `product_type_aliases` |
 | Localization | `db/schema/catalogLocalization.ts` | `db/catalogLocalization/` (7) | `category_localizations`, `category_localized_slugs`, `product_type_localizations`, `product_type_field_localizations`, `attribute_value_localizations`, `listing_localizations`, `canonical_product_localizations`, `canonical_product_family_localizations`, `catalog_localization_revisions` |
 | Variant axes and claims | `db/schema/variantAxes.ts` | `db/variantAxes/` (3) | `native_listing_variant_axes`, `native_variant_axis_assignments`, `native_variant_signatures`, `native_listing_attribute_claims`, `native_variant_attribute_claims` |
 | Authoring | `db/schema/catalogAuthoring.ts` | `db/catalogAuthoring/` (4) | `catalog_authoring_drafts`, `catalog_authoring_draft_variants`, `catalog_authoring_draft_values`, `catalog_authoring_schema_invalidations` |
@@ -68,6 +68,19 @@ it and can only rise.
 | External mappings | `db/schema/catalogExternalMappings.ts` | `db/catalogExternalMappings/` (2) | `catalog_external_mappings`, `catalog_external_mapping_reviews`, `catalog_external_token_observations`, `catalog_external_mapping_runs`, `catalog_external_mapping_run_items` |
 | Connector pins | `db/schema/connectorPins.ts` | — | `listing_pin_releases` |
 | Native variant images | `db/schema/catalog.ts` | `db/catalog/variantRepository.ts` | `product_variant_images` |
+| Discovery | `db/schema/discovery.ts` | `db/discovery/` (3) | `discovery_signals`, `discovery_sweep_cursors` |
+| Digital deliverables | `db/schema/digitalAssets.ts` | `db/digital/assetRepository.ts` | `digital_assets`, `asset_versions`, `asset_files`, `asset_packages`, `asset_package_files`, `asset_file_inspections`, `asset_provenance_signals` |
+| Digital licences and buyer rights | `db/schema/digitalRights.ts` | `db/digital/licenceRepository.ts`, `rightRepository.ts`, `downloadRepository.ts`, `bindingRepository.ts` | `asset_licences`, `asset_licence_versions`, `asset_licence_options`, `asset_rights`, `asset_right_events`, `asset_download_grants`, `asset_download_events`, `asset_variant_bindings` |
+| Digital retail supply | `db/schema/digitalRetail.ts` | `db/digitalRetail/supplyTermsRepository.ts`, `digitalProcurementOfferRepository.ts`, `pricingPolicyRepository.ts` | `digital_supply_terms`, `digital_supplier_capabilities`, `digital_procurement_offers`, `digital_retail_pricing_policies` |
+| Digital retail procurement and fulfilment | `db/schema/digitalRetail.ts` | `db/digitalRetail/digitalPurchaseOrderRepository.ts`, `digitalFulfilmentRepository.ts` | `digital_purchase_orders`, `digital_purchase_order_attempts`, `digital_fulfilments`, `digital_fulfilment_artifacts`, `digital_fulfilment_reveals`, `digital_fulfilment_incidents` |
+
+**#1016's ten tables are split across TWO rows of one schema module, and the split
+is the ownership decision** (ADR 0011). The supply half — what a counterparty has
+authorized, what it can do, what it offers and what Mercaria prices it at — is
+read by the selector and written by catalogue sync. The procurement and fulfilment
+half is written only by the orchestrator and the reveal path, and three of its
+tables refuse DELETE by trigger. Two repositories that could reach the same table
+would make "who may hand a buyer a key" a question with two answers.
 
 Two tables in that list are owned by a module their NAME does not name, and both
 were argued rather than assumed:
@@ -85,12 +98,36 @@ The registry itself was **not** forked: `attribute_definitions` and its seven
 siblings stay #94's, extended in place. There is one attribute registry
 (`db/schema/attributeRegistry.ts`).
 
-**Two rows are not #367's, and they are here anyway.** `listing_pin_releases`
-came from #427 (`0099`) and `product_variant_images` from #850 (`0133`). A
-reader arriving with the question "who owns this table" does not know which
-issue number it landed under, so scoping the map to one issue would answer them
-with silence — which is the failure this document just had. The census is
-scoped by MIGRATION BOUNDARY for the same reason.
+**Four rows are not #367's, and they are here anyway.** `listing_pin_releases`
+came from #427 (`0099`), `product_variant_images` from #850 (`0133`), and the two
+DIGITAL rows from #1015 (`0156`). A reader arriving with the question "who owns
+this table" does not know which issue number it landed under, so scoping the map
+to one issue would answer them with silence — which is the failure this document
+just had. The census is scoped by MIGRATION BOUNDARY for the same reason.
+
+**The two digital rows are fifteen tables of a domain that is not the catalogue**,
+and they are in this map rather than exempted from it for exactly the reason the
+paragraph above gives. They sit ON TOP of the canonical graph and add no column to
+it: a digital product is a `canonical_products` row with `canonical_variants` like
+any other, and what these tables add is what gets HANDED OVER, which the catalogue
+has never modelled for anything. Their own design document is
+[`digital-commerce.md`](digital-commerce.md) and the binding decision is
+[ADR 0010](adr/0010-digital-commerce.md); what this map contributes is the one
+answer it exists to give, which is who issues the statements.
+
+Two of the fifteen are worth calling out here because their owner is not the one
+their name suggests:
+
+- **`asset_variant_bindings` is the digital domain's, not the catalogue's**, even
+  though its `variant_id` names a `product_variants` row. The binding is what makes
+  a catalogue variant sell a licence option, and it carries no foreign key
+  precisely so a connector re-keying a variant cannot fail against it (ADR 0010).
+  Putting it in `db/schema/catalog.ts` would have made every physical variant's
+  schema file mention a digital concept.
+- **`asset_download_grants` has a sweeper, not a lifecycle.** It is the only table
+  in these two rows whose rows are DELETED, and
+  `asset_download_events.grant_id` is `ON DELETE SET NULL` so the audit survives
+  the sweep. Everything else here is append-only or status-only.
 
 **`product_variant_images` lives in `db/schema/catalog.ts`, not in a schema file
 of its own** — the `categories` situation one row up, and the reason a
@@ -100,7 +137,11 @@ derivation misses, and it is also the one most likely to acquire a second
 writer.
 
 **Three of these tables have no application writer today**, which is a fact
-about the map rather than a gap in it:
+about the map rather than a gap in it. `discovery_sweep_cursors` was a fourth
+until the periodic sweep landed: it is now written by
+`db/discovery/discoverySignalRepository.ts`'s `claimDiscoverySweepRun` /
+`completeDiscoverySweepRun`, the lease claim/complete pair
+`services/discovery/sweep.ts` calls once per run.
 
 - **`product_type_aliases`** has neither a reader nor a writer.
   `db/__tests__/product-type-alias-seam.test.ts` (#732) is the gate that records

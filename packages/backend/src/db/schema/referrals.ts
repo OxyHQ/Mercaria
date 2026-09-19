@@ -63,7 +63,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   ALL_CURRENCY_CODES,
   REFERRAL_ACTOR_KINDS,
@@ -431,7 +431,7 @@ export const referralPartners = pgTable(
  *
  * **`revision` is a stored INTEGER, not an ordering over `(created_at, id)`.**
  * Both halves of that pair are degenerate here: a correction submitted in the
- * same millisecond shares an instant, and `@oxyhq/db`'s uuid v7 is not monotonic
+ * same millisecond shares an instant, and `@oxy.so/db`'s uuid v7 is not monotonic
  * within one — so ordering by it would pick a winner at random on exactly the
  * resubmission this table exists to keep. `UNIQUE(partner_id, revision)` then
  * makes two racing submissions collide rather than both claiming to be latest

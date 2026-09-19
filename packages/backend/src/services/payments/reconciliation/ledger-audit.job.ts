@@ -46,6 +46,8 @@ import {
   paymentsMissingLedgerKind,
 } from '../../../db/payments/ledgerRepository.js';
 import { findSettledPaymentsForReconciliation } from '../../../db/payments/paymentRepository.js';
+import { PROVIDER_BOOKS_LEDGER } from '../payment.service.js';
+import { PAYMENT_PROVIDER_IDS } from '@mercaria/shared-types';
 import { explainOpenPayable } from './payable-explanations.js';
 import { config } from '../../../config/index.js';
 import { reportDiscrepancy, resolveDetectedDiscrepancy } from './discrepancy.service.js';
@@ -54,15 +56,24 @@ import { listDiscrepanciesOfKind } from '../../../db/payments/discrepancyReposit
 /**
  * The rails whose payments MUST have booked a charge.
  *
- * The same set `PROVIDER_BOOKS_LEDGER` marks `true` in `payment.service.ts`, and
- * it is restated rather than imported because that table is private to the state
- * machine — but it is restated as an ASSERTION, not a copy: a rail that books
- * and is missing here would make this audit silently skip it, so the two lists
- * being one line apart in meaning is worth the explicit mention. `external` and
- * `manual_pos` book nothing by design (ADR 0001 D12), so an absent transaction
- * for one of them is correct rather than missing.
+ * DERIVED from `PROVIDER_BOOKS_LEDGER`, which is the table
+ * `payment.service.transition` actually branches on when it decides to book. It
+ * used to be a hand-written literal — `['stripe', 'mock']` — justified by a
+ * comment claiming the restatement was "an ASSERTION, not a copy". Nothing
+ * asserted it. When ADR 0009 added `peable` to the booking table, this list was
+ * not updated, so every Peable payment became invisible to the one audit whose
+ * job is to notice a succeeded payment with no charge behind it: it would have
+ * found nothing wrong, forever, because it never looked.
+ *
+ * Deriving it means the audit's coverage cannot drift from the writer's
+ * behaviour again — a new booking rail joins both at once or neither. `external`
+ * and `manual_pos` are `false` there by design (ADR 0001 D12), so they drop out
+ * here for the same reason they always did: an absent transaction for one of
+ * them is correct rather than missing.
  */
-const BOOKING_PROVIDERS = ['stripe', 'mock'] as const;
+export const BOOKING_PROVIDERS = PAYMENT_PROVIDER_IDS.filter(
+  (provider) => PROVIDER_BOOKS_LEDGER[provider],
+);
 
 /** What one page of this job did. */
 export interface LedgerAuditPageResult {

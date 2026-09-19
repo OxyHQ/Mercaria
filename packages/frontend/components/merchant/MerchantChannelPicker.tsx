@@ -55,7 +55,7 @@ export function MerchantChannelPicker({
             onPress={() => onSelect(undefined)}
             className={`rounded-full border px-4 py-2 ${
               selectedStorefrontId === undefined
-                ? "border-foreground bg-secondary"
+                ? "border-foreground bg-muted"
                 : "border-border"
             }`}
           >
@@ -85,7 +85,7 @@ export function MerchantChannelPicker({
                 onPress={() => onSelect(channel.storefront.id)}
                 className={`rounded-full border px-4 py-2 ${
                   selectedStorefrontId === channel.storefront.id
-                    ? "border-foreground bg-secondary"
+                    ? "border-foreground bg-muted"
                     : "border-border"
                 }`}
               >

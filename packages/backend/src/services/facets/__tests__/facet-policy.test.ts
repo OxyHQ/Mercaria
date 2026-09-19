@@ -44,6 +44,7 @@ function definition(overrides: Partial<FacetDefinitionInput> = {}): FacetDefinit
     cardinality: 'single',
     baseUnit: null,
     filterable: true,
+    publiclyDisplayable: true,
     sortable: false,
     hardConstraintCapable: true,
     variantDefining: true,
@@ -85,6 +86,28 @@ describe('facets are generated from metadata, never from a list', () => {
   it('withholds an attribute the registry says is not filterable', () => {
     const [entry] = planFacets([definition({ filterable: false })], [field()]);
     expect(entry?.suppression).toBe('not_filterable');
+  });
+
+  it('withholds an attribute whose values are operator-only', () => {
+    const [entry] = planFacets([definition({ publiclyDisplayable: false })], [field()]);
+    // A facet publishes the attribute's LABEL and every bucket's value, so
+    // offering an `operator_only` attribute here is a public rendering of
+    // exactly what #94's display policy withheld. Before #367 line 277 this
+    // domain never saw the policy and offered one.
+    expect(entry?.suppression).toBe('not_publicly_displayable');
+    // …and the ordinary case is admitted, so the check is not vacuous.
+    expect(planFacets([definition()], [field()])[0]?.suppression).toBeUndefined();
+  });
+
+  it('reports the display policy ahead of filterability when both refuse', () => {
+    const [entry] = planFacets(
+      [definition({ publiclyDisplayable: false, filterable: false })],
+      [field()],
+    );
+    // Both are true of this attribute and only one reason is reported. The
+    // stronger statement wins: `filterable: false` says it is not useful to
+    // filter on, `operator_only` says its values are not the shopper's to see.
+    expect(entry?.suppression).toBe('not_publicly_displayable');
   });
 
   it('withholds a field the product type hides or forbids', () => {

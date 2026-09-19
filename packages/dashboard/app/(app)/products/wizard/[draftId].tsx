@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import type { AuthoringDraft, AuthoringSchema } from "@mercaria/shared-types";
 import { Button, Input, Label, Text, Textarea } from "@mercaria/ui";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { CanonicalSearchPanel } from "@/components/catalog-authoring/CanonicalSearchPanel";

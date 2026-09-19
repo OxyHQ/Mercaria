@@ -228,6 +228,10 @@ export async function drainStripeEvents(
     const row = await claimProviderEvent(db, {
       leaseOwner,
       leaseMs,
+      // This drain's router only knows Stripe's type names. Without the scope it
+      // would claim a `peable` row, find no handler, and mark it processed —
+      // see `ClaimProviderEventOptions.providers`.
+      providers: ['stripe'],
       ...(options.eventId ? { eventId: options.eventId } : {}),
     });
     if (!row) break;
@@ -266,6 +270,7 @@ export async function processStoredStripeEvent(input: {
   const row = await claimProviderEvent(db, {
     leaseOwner,
     leaseMs: Math.max(1_000, config.payments.stripe.eventLeaseMs),
+    providers: ['stripe'],
     eventId: input.storedEventId,
   });
   // Not claimable means another task already holds it, or it is already

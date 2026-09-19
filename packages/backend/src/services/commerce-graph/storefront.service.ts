@@ -12,7 +12,7 @@ import type {
   StorefrontChannelKind,
   StorefrontPublicProfile,
 } from '@mercaria/shared-types';
-import { isLiveEntityId } from '@oxyhq/db';
+import { isLiveEntityId } from '@oxy.so/db';
 import { getDb } from '../../db/postgres.js';
 import { findMerchantById } from '../../db/commerce-graph/merchantRepository.js';
 import {

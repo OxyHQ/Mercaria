@@ -564,7 +564,7 @@ export function deriveSeedPlan(scale: BenchmarkScale): SeededGraph {
  * The two database-name shapes this generator will TRUNCATE.
  *
  * `bench` is the operator's own scratch database, named by hand. The second is
- * the throwaway `@oxyhq/db/testing` mints for a suite run — the plan-regression
+ * the throwaway `@oxy.so/db/testing` mints for a suite run — the plan-regression
  * test creates ITS OWN rather than sharing the suite's, precisely because this
  * generator truncates and the shared one carries every other realdb test's
  * fixtures. That pattern is the same one `dropTestDatabase` refuses to drop

@@ -99,6 +99,28 @@ export function catalogRolloutSubjectFromRequest(req: Request): CatalogRolloutSu
     storeId: pick('storeId'),
     categoryId: pick('categoryId'),
     productTypeKey: pick('productTypeKey'),
+    // NOT `pick`, and this is the one line in the file where that matters.
+    //
+    // The five above are claims the REQUEST makes about itself, and reading
+    // them defensively from params/query/body is fine because widening your own
+    // market or locale during a rollout changes which surface you see and
+    // nothing else — the docblock above says outright that this is not a
+    // security boundary.
+    //
+    // `internal_user` is a claim about the CALLER. Its entire meaning is "staff
+    // only", so a value taken from the request would let any client send a
+    // known staff id and admit itself to an unreleased surface. It comes from
+    // the authenticated actor or it is absent.
+    //
+    // Absent is the normal case on three of the six gated routers — `facets`,
+    // `navigation` and `taxonomy` carry no auth middleware at all — so with
+    // this dimension enabled they refuse every request. That is deliberate and
+    // is the accurate rendering of "not rolled out": a public, ETag-validated,
+    // per-(market, locale) surface has no internal-only meaning. Giving
+    // `/navigation` an `optionalAuth` to identify a caller would buy this
+    // dimension with what its own docblock defends — "a payload that varied per
+    // caller could not be validated across them".
+    internalUserOxyUserId: firstString(req.user?.id),
   };
 }
 

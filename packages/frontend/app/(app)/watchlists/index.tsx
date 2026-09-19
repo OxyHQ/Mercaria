@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, View } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
-import { openAccountDialog, useOxy } from "@oxyhq/services";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { Text } from "@mercaria/ui";
 import { WATCHLIST_MAX_LISTS_PER_OWNER } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";

@@ -55,15 +55,17 @@ function CategoryPillChip({ pill, onPressPill }: CategoryPillChipProps) {
       accessibilityRole="link"
       accessibilityLabel={pill.name}
       onPress={() => onPressPill?.(pill.id, pill.slug)}
-      className="h-11 flex-row items-center gap-2 rounded-full bg-secondary py-2 ps-1.5 pe-3"
+      className="h-11 flex-row items-center gap-2 rounded-full bg-muted py-2 ps-1.5 pe-3"
     >
       {/* Round 32px category image with a 1px border ring. */}
-      <View className="relative h-8 w-8 overflow-hidden rounded-full bg-secondary">
-        <Image
-          source={{ uri: pill.imageUrl }}
-          contentFit="cover"
-          className="h-8 w-8 rounded-full"
-        />
+      <View className="relative h-8 w-8 overflow-hidden rounded-full bg-muted">
+        {pill.imageUrl ? (
+          <Image
+            source={{ uri: pill.imageUrl }}
+            contentFit="cover"
+            className="h-8 w-8 rounded-full"
+          />
+        ) : null}
         <View
           pointerEvents="none"
           className="absolute inset-0 rounded-full border border-border"

@@ -46,7 +46,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { eq, inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 import { categories } from '../../../db/schema/catalog.js';

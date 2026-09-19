@@ -4,7 +4,7 @@ import type {
   ShoppingAgentFinding,
   ShoppingAgentSplitResolution,
 } from '@mercaria/shared-types';
-import { useOxy } from '@oxyhq/services';
+import { useOxy } from '@oxy.so/services';
 import {
   deleteShoppingAgent,
   fetchShoppingAgent,

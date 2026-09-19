@@ -66,13 +66,6 @@ import {
   retailServiceReleaseSuspensionHandler,
   retailServiceTraceHandler,
 } from '../controllers/retail-service-operator.controller.js';
-import { feeScheduleCreateSchema } from '../middleware/fees-schemas.js';
-import {
-  activateFeeScheduleHandler,
-  createFeeScheduleHandler,
-  listFeeSchedulesHandler,
-  retireFeeScheduleHandler,
-} from '../controllers/fee-schedules-operator.controller.js';
 import {
   entitlementGrantCreateSchema,
   entitlementGrantRevokeSchema,
@@ -147,16 +140,12 @@ router.post(
 // database trigger, not by this router.
 
 /** Every version of every schedule, with audit columns. */
-router.get('/fee-schedules', listFeeSchedulesHandler);
 
 /** Draft a new schedule version. */
-router.post('/fee-schedules', validateBody(feeScheduleCreateSchema), createFeeScheduleHandler);
 
 /** Publish a draft, superseding the key's current active version. */
-router.post('/fee-schedules/:id/activate', activateFeeScheduleHandler);
 
 /** Withdraw an active version (or abandon a draft) without a replacement. */
-router.post('/fee-schedules/:id/retire', retireFeeScheduleHandler);
 
 // ── Retail pricing policies (#120) ──────────────────────────────────────────
 //

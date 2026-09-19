@@ -38,7 +38,7 @@ import {
   type GuestRolloutStage,
   type GuestSignoffDiscipline,
 } from '@mercaria/shared-types';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { ErrorCodes, sendError, sendSuccess } from '../utils/api-response.js';
 import { getDb } from '../db/postgres.js';
 import {

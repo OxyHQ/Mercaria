@@ -594,6 +594,31 @@ const SCRIPT_COVERAGE_EXEMPTIONS: readonly ScriptCoverageExemption[] = [
     note: 'Normalizes a HOSTNAME, which reaches this code already punycoded (LDH-only).',
   },
   {
+    module: 'backend/src/services/digital-retail/secrets.ts',
+    reason: 'machine_alphabet',
+    construct: "replace(/[^A-Za-z0-9]/g, '_')",
+    note: 'Folds a SECRET-STORE PATH SEGMENT into the environment-variable name it maps to. '
+      + 'The input is `/oxy/mercaria/digital-retail/seal/<name>` and the column it comes from '
+      + 'carries a CHECK admitting only `[A-Za-z0-9/_.-]`, so a non-Latin character cannot '
+      + 'reach it; a reference outside that prefix THROWS before this line runs.',
+  },
+  {
+    module: 'backend/src/services/digital/inspection/threemf.ts',
+    reason: 'machine_alphabet',
+    construct: "const unitKey = (unit ?? DEFAULT_THREEMF_UNIT).toLowerCase();",
+    note: 'Folds 3MF SPEC TOKENS — the `unit` attribute, XML tag names, and archive '
+      + 'part paths. All are ASCII identifiers the format defines; an unrecognised unit '
+      + 'is refused as corrupt rather than folded onto a default.',
+  },
+  {
+    module: 'backend/src/services/digital/profiles/apply.ts',
+    reason: 'machine_alphabet',
+    construct: ".replace(/[^a-z0-9]+/gu, '_')",
+    note: 'Folds a TEST-RUN NAMESPACE TOKEN into `[a-z0-9_]`, the alphabet '
+      + '`product_type_definitions_key_shape_check` permits, and throws rather than '
+      + 'folding when nothing survives. Same shape as the supplier-preflight entry.',
+  },
+  {
     module: 'backend/src/services/feed-import/mapping.ts',
     reason: 'machine_alphabet',
     construct: "readCode('country'",

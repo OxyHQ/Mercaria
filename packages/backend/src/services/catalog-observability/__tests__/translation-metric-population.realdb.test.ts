@@ -31,7 +31,7 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { categories } from '../../../db/schema/catalog.js';
 import { productTypeDefinitions } from '../../../db/schema/productTypes.js';

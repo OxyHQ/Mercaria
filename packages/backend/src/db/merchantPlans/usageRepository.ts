@@ -24,7 +24,7 @@
  */
 
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import type { MerchantEntitlementCapability } from '@mercaria/shared-types';
 import { entitlementUsageCounters } from '../schema/merchantPlans.js';
 import type { DatabaseOrTransaction } from '../postgres.js';

@@ -15,8 +15,8 @@
  */
 
 import type { Request, Response } from 'express';
-import { getRequiredOxyUserId } from '@oxyhq/core/server';
-import { isUniqueViolation } from '@oxyhq/db';
+import { getRequiredOxyUserId } from '@oxy.so/core/server';
+import { isUniqueViolation } from '@oxy.so/db';
 import { getDb } from '../db/postgres.js';
 import {
   activateRetailPricingPolicy,

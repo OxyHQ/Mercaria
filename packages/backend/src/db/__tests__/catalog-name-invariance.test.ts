@@ -25,7 +25,7 @@
  */
 
 import { getTableColumns, getTableName } from 'drizzle-orm';
-import { sqlColumnName } from '@oxyhq/db';
+import { sqlColumnName } from '@oxy.so/db';
 import { describe, expect, it } from 'vitest';
 import {
   CANONICAL_PRODUCT_INVARIANT_FIELDS,

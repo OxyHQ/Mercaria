@@ -53,7 +53,7 @@
 
 import { sql } from 'drizzle-orm';
 import { boolean, check, date, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   EBAY_DISCOVERY_QUERY_KINDS,
   EBAY_MARKETPLACE_IDS,

@@ -72,7 +72,7 @@
 
 import { sql } from 'drizzle-orm';
 import { check, date, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   ANALYTICS_ACTOR_KINDS,
   ANALYTICS_BUYER_ORIGINS,
@@ -96,7 +96,7 @@ import {
   ANALYTICS_TRAFFIC_CLASSES,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
-import { inList } from '@oxyhq/db';
+import { inList } from '@oxy.so/db';
 
 /**
  * `analytics_events` — one row per event, the versioned envelope in columns.

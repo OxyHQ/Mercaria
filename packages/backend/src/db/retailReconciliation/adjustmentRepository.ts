@@ -30,7 +30,7 @@ import type {
   RetailAdjustmentMethod,
   RetailAdjustmentState,
 } from '@mercaria/shared-types';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { retailCustomerAdjustments } from '../schema/retailReconciliation.js';
 

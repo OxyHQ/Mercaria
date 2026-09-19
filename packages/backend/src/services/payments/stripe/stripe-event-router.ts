@@ -970,6 +970,9 @@ async function handlePayout(context: StripeEventContext): Promise<StripeEventOut
 
   const payout = await retrieveStripePayout(payoutId, accountId);
   const recorded = await recordPayout({
+    // This router only ever sees Stripe events, so it is the observer that can
+    // state the rail — see `ObservedPayout.provider`.
+    provider: 'stripe',
     providerAccountId: accountId,
     providerObjectId: payout.id,
     amount: {

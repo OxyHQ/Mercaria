@@ -129,7 +129,7 @@ export function computeSupplierRequestFingerprint(request: FingerprintedRequest)
  *
  * Constant time because the comparison is against a value an operator supplied,
  * and a length-varying or short-circuiting compare over a keyed digest is the
- * shape that leaks it byte by byte. `verifySecret` from `@oxyhq/core/server` is
+ * shape that leaks it byte by byte. `verifySecret` from `@oxy.so/core/server` is
  * the same rule one layer up; this stays local because both sides here are
  * always 64 hex characters and the length check is part of the answer.
  */

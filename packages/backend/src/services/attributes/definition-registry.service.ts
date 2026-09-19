@@ -98,10 +98,17 @@ export interface DraftAttributeDefinitionInput {
   filterable?: boolean;
   sortable?: boolean;
   comparable?: boolean;
+  searchable?: boolean;
   hardConstraintCapable?: boolean;
   displayPolicy?: AttributeDisplayPolicy;
   evidencePolicy?: AttributeEvidencePolicy;
-  enumValues?: { value: string; label: string; aliases?: string[] }[];
+  enumValues?: {
+    value: string;
+    label: string;
+    aliases?: string[];
+    /** #367 line 280 — the previous version's value this one replaces. */
+    replacesEnumValueId?: string;
+  }[];
   labels?: { locale: string; label: string; description?: string }[];
   categoryScopes?: { categoryId: string; includeDescendants?: boolean }[];
   actorOxyUserId: string;
@@ -155,6 +162,14 @@ export async function draftAttributeDefinition(
       filterable: input.filterable ?? true,
       sortable: input.sortable ?? false,
       comparable: input.comparable ?? true,
+      // The default follows the DISPLAY POLICY rather than being a flat `true`.
+      // An `operator_only` attribute may not be searchable at all
+      // (`attribute_definitions_searchable_display_check`), so a flat default
+      // would refuse an operator drafting one for something they never said.
+      // This is choosing the default, not coercing a stated value: an explicit
+      // `searchable: true` beside `operator_only` still reaches the refusal in
+      // `assertDefinitionShape`.
+      searchable: input.searchable ?? (input.displayPolicy ?? 'public') === 'public',
       hardConstraintCapable: input.hardConstraintCapable ?? false,
       displayPolicy: input.displayPolicy ?? 'public',
       evidencePolicy: input.evidencePolicy ?? 'source_required',
@@ -169,6 +184,7 @@ export async function draftAttributeDefinition(
         canonicalValue,
         enumValue.label.trim(),
         position,
+        enumValue.replacesEnumValueId,
       );
       if (!stored) continue;
       for (const alias of enumValue.aliases ?? []) {
@@ -515,10 +531,17 @@ export function toAttributeDefinitionDto(
       ? {}
       : { replacedByDefinitionId: row.replacedByDefinitionId }),
     enumValues: resolved.enumValues.map((value) => ({
+      id: value.id,
       value: value.value,
       label: value.label,
       position: value.position,
       aliases: aliasesFor(value.value),
+      // #367 line 280. Emitted beside `id` so the pointer can be FOLLOWED — a
+      // redirect no consumer of this shape could resolve would be a mechanism
+      // with no caller.
+      ...(value.replacesEnumValueId === null
+        ? {}
+        : { replacesEnumValueId: value.replacesEnumValueId }),
     })),
     componentAxes: row.componentAxes.filter(isComponentAxis),
     validation: {
@@ -533,6 +556,7 @@ export function toAttributeDefinitionDto(
     filterable: row.filterable,
     sortable: row.sortable,
     comparable: row.comparable,
+    searchable: row.searchable,
     hardConstraintCapable: row.hardConstraintCapable,
     displayPolicy: row.displayPolicy,
     evidencePolicy: row.evidencePolicy,
@@ -614,6 +638,11 @@ function assertDefinitionShape(key: string, input: DraftAttributeDefinitionInput
   if (input.hardConstraintCapable === true && input.filterable === false) {
     throw validationError(
       'A hard-constraint-capable attribute must be filterable — a requirement a shopper cannot see is a rule they cannot check.',
+    );
+  }
+  if (input.searchable === true && input.displayPolicy === 'operator_only') {
+    throw validationError(
+      'An operator-only attribute cannot be searchable: recognising a shopper word for it puts its label in the explanation shown back to them.',
     );
   }
 }

@@ -157,6 +157,33 @@ export function assertSellerGroupsAcceptDestination(input: {
     return;
   }
 
+  /**
+   * A digital checkout has no destination country to support and no shipping rate
+   * to price (#1015, ADR 0010 D8/D9).
+   *
+   * The same early return the pickup branch takes, and the mirror check with it: a
+   * buyer whose whole order is digital must not also have chosen a postal method
+   * for one seller, or honouring either half alone would be guessing — which is
+   * exactly what the pickup branch above says, for the same reason.
+   *
+   * `assertDestinationCountrySupported` is deliberately NOT called. It answers
+   * "will Mercaria ship to this place", and a digital supply has no place. The
+   * question a digital order DOES have to answer — which markets digital commerce
+   * is legally enabled in — is `config.digital` plus the launch gate, and it is
+   * asked in `checkout.service`, not here.
+   */
+  if (input.fulfilment.kind === 'digital') {
+    const posted = input.groups.filter((group) => group.shippingMethod !== 'digital');
+    if (posted.length > 0) {
+      throw checkoutRefusal(
+        'destination_incomplete',
+        `A delivery option was chosen for ${describeSellers(posted)} but every item in this ` +
+          'order is a download. Remove the delivery option, or add a delivery address.',
+      );
+    }
+    return;
+  }
+
   assertDestinationCountrySupported(input.fulfilment.address.country);
 
   // Every group's METHOD must be one this deployment can actually price, and

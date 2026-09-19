@@ -44,7 +44,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../src/db/postgres.js';
 import { canonicalProducts, canonicalVariants } from '../src/db/schema/canonicalCatalog.js';
 import { merchants } from '../src/db/schema/merchants.js';

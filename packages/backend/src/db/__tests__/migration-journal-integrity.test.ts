@@ -4,7 +4,7 @@
  *
  * ## What this gates that nothing else does
  *
- * `migration-handwritten-markers.test.ts` drives `@oxyhq/db`'s own
+ * `migration-handwritten-markers.test.ts` drives `@oxy.so/db`'s own
  * `readMigrationPhases(tags, dir)` from the journal's tags, so it already catches
  * **a journal entry whose `.sql` is missing**. That is one of the six ways the
  * chain comes apart, and it is the only one anything read before this file. The

@@ -118,7 +118,7 @@ export function normalizeCollectionCode(presented: string): string {
  * `timingSafeEqual` rather than `!==`, and the length guard first because
  * `timingSafeEqual` throws on a length mismatch. It is arguably belt and braces
  * for a ten-character code checked at a counter — but the same reasoning that
- * put `verifySecret` in `@oxyhq/core/server` applies, and a comparison that is
+ * put `verifySecret` in `@oxy.so/core/server` applies, and a comparison that is
  * correct by habit costs nothing.
  *
  * An OLDER rotation is refused, deliberately and without saying so. Accepting

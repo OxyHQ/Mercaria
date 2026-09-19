@@ -38,7 +38,7 @@ import {
 import { CURATION_MAX_TEXT_LENGTH } from '../db/schema/curation.js';
 
 /** A tuple as a zod enum, so the wire vocabulary and the CHECK share one source. */
-function enumOf<T extends string>(values: readonly T[]): z.ZodEnum<[T, ...T[]]> {
+function enumOf<T extends string>(values: readonly T[]) {
   const [first, ...rest] = values;
   if (first === undefined) throw new Error('enumOf received an empty tuple');
   return z.enum([first, ...rest]);
