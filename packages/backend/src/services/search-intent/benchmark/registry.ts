@@ -54,6 +54,10 @@ function definition(spec: DefinitionSpec): ResolvedAttributeDefinition {
       key: spec.key,
       version: 1,
       lifecycleState: 'active',
+      // #367 line 237. Null by construction — every definition here is `active`,
+      // and `attribute_definitions_replaced_by_lifecycle_check` permits a
+      // replacement only on a deprecated or retired one.
+      replacedByDefinitionId: null,
       label: spec.label,
       description: null,
       valueType: spec.valueType,

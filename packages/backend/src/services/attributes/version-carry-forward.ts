@@ -66,6 +66,13 @@ export const ATTRIBUTE_VERSION_CARRY_FORWARD: Readonly<
 
   // ── Publication facts, which the new version has not earned ─────────────
   publishedAt: { notCarried: 'The new version is unpublished; a date here would assert it is not.' },
+  replacedByDefinitionId: {
+    notCarried:
+      'A new version is not replaced by anything — it IS the replacement. Carrying the ' +
+      'predecessor pointer would make a freshly drafted version arrive already claiming to be ' +
+      'superseded, and `attribute_definitions_replaced_by_lifecycle_check` refuses it outright ' +
+      'on a draft, so this is unrepresentable rather than merely wrong (#367 line 237).',
+  },
   publishedByOxyUserId: {
     notCarried: 'Nobody has published the new version. Naming the previous publisher would ' +
       'attribute an act they did not perform.',
