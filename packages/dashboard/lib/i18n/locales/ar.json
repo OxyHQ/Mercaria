@@ -791,12 +791,11 @@
   },
   "nav": {
     "channels": "قنوات البيع",
-    "collapseSidebar": "طيّ الشريط الجانبي",
     "collections": "المجموعات",
     "customers": "العملاء",
     "dashboard": "لوحة التحكم",
     "discounts": "الخصومات",
-    "expandSidebar": "توسيع الشريط الجانبي",
+    "openNavigation": "فتح التنقل",
     "orders": "الطلبات",
     "products": "المنتجات",
     "settings": "الإعدادات"

@@ -819,12 +819,11 @@
   },
   "nav": {
     "channels": "Каналы продаж",
-    "collapseSidebar": "Свернуть боковую панель",
     "collections": "Коллекции",
     "customers": "Клиенты",
     "dashboard": "Обзор",
     "discounts": "Скидки",
-    "expandSidebar": "Развернуть боковую панель",
+    "openNavigation": "Открыть навигацию",
     "orders": "Заказы",
     "products": "Товары",
     "settings": "Настройки"

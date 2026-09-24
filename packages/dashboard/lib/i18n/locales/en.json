@@ -791,12 +791,11 @@
   },
   "nav": {
     "channels": "Sales channels",
-    "collapseSidebar": "Collapse sidebar",
     "collections": "Collections",
     "customers": "Customers",
     "dashboard": "Dashboard",
     "discounts": "Discounts",
-    "expandSidebar": "Expand sidebar",
+    "openNavigation": "Open navigation",
     "orders": "Orders",
     "products": "Products",
     "settings": "Settings"

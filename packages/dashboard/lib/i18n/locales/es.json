@@ -805,12 +805,11 @@
   },
   "nav": {
     "channels": "Canales de venta",
-    "collapseSidebar": "Contraer la barra lateral",
     "collections": "Colecciones",
     "customers": "Clientes",
     "dashboard": "Panel",
     "discounts": "Descuentos",
-    "expandSidebar": "Expandir la barra lateral",
+    "openNavigation": "Abrir navegación",
     "orders": "Pedidos",
     "products": "Productos",
     "settings": "Ajustes"

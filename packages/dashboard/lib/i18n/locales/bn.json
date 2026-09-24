@@ -791,12 +791,11 @@
   },
   "nav": {
     "channels": "সেলস চ্যানেল",
-    "collapseSidebar": "সাইডবার সংকুচিত করুন",
     "collections": "কালেকশন",
     "customers": "গ্রাহক",
     "dashboard": "ড্যাশবোর্ড",
     "discounts": "ডিসকাউন্ট",
-    "expandSidebar": "সাইডবার প্রসারিত করুন",
+    "openNavigation": "নেভিগেশন খুলুন",
     "orders": "অর্ডার",
     "products": "পণ্য",
     "settings": "সেটিংস"

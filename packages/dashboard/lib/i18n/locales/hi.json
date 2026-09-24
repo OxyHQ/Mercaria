@@ -791,12 +791,11 @@
   },
   "nav": {
     "channels": "सेल्स चैनल",
-    "collapseSidebar": "साइडबार समेटें",
     "collections": "कलेक्शन",
     "customers": "ग्राहक",
     "dashboard": "डैशबोर्ड",
     "discounts": "डिस्काउंट",
-    "expandSidebar": "साइडबार फैलाएँ",
+    "openNavigation": "नेविगेशन खोलें",
     "orders": "ऑर्डर",
     "products": "प्रोडक्ट",
     "settings": "सेटिंग्स"
