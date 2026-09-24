@@ -10,10 +10,12 @@ import {
 import type { RoutePath } from "expo-router";
 
 /**
- * Canonical navigation model for the Shop-style shell, shared by the desktop
- * {@link Sidebar} and the mobile {@link BottomTabBar} so both render the exact
- * same set of destinations — including the ones whose screen nobody has built,
- * which render as dimmed, non-interactive rows rather than disappearing.
+ * Canonical navigation model for the storefront shell, shared by the desktop
+ * sidebar (`useStorefrontSidebar`, Bloom's `Sidebar`) and the mobile
+ * {@link BottomTabBar} (Bloom's `BottomBar`) so both render the exact same set
+ * of destinations. A destination whose screen nobody has built
+ * (`available: false`) is left out of both: Bloom's rows have no disabled state,
+ * and a row that does nothing when pressed is worse than no row.
  */
 interface NavItemBase {
   key: string;

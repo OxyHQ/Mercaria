@@ -312,9 +312,9 @@ function StoreBody({
     // shadcn theme tokens are remapped so `bg-background` is the brand color,
     // `bg-card`/`bg-muted` become glassy translucent fills, and text tokens
     // take the store's tone). Every shared component below inherits the palette.
-    // The enclosing `ScreenShell` paints the brand color across the full panel
-    // (incl. its `pb-24` and rounded bottom) via `surfaceStyle`, so no surface
-    // peeks below the hero — this wrapper only carries the themed token scope.
+    // The enclosing `ScreenShell` paints the brand color across the page via
+    // `surfaceStyle`, so no surface peeks below the hero — this wrapper only
+    // carries the themed token scope.
     <View style={themeVars}>
       {/* ---- Hero ---- */}
       <View className="relative w-full overflow-hidden" style={{ height: HERO_HEIGHT }}>
