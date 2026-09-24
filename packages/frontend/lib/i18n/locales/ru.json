@@ -22,7 +22,8 @@
     "saved": "Сохранённое",
     "account": "Аккаунт",
     "signIn": "Войти",
-    "threeD": "3D"
+    "threeD": "3D",
+    "mainNavigation": "Основная навигация"
   },
   "login": {
     "signInButton": "Войти",

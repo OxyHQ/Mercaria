@@ -6,11 +6,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 /**
  * Persisted app-shell sidebar state, shared by every Mercaria app.
  *
- * `sidebarOpen` drives the desktop {@link AppSidebar} between its expanded form
- * and the collapsed icon rail. The {@link AppShell} web layout reads the same
- * flag to animate the rail column width, so this store is the single source of
- * truth for the collapse state. Only this flag survives reloads. Each app is a
- * separate origin / native bundle, so persistence is naturally isolated per app.
+ * `sidebarOpen` drives Bloom's in-flow `Sidebar` (inside `AppShell`) between
+ * its expanded panel and the collapsed icon column: each app's sidebar hook
+ * hands it to the sidebar as the CONTROLLED `collapsed` / `onCollapsedChange`
+ * pair, because Bloom's own collapse state is in-memory and would reset on every
+ * reload. Only this flag survives reloads. Each app is a separate origin /
+ * native bundle, so persistence is naturally isolated per app.
  */
 interface SidebarState {
   /** Desktop sidebar expanded (true) vs collapsed to an icon rail (false). */
@@ -35,10 +36,9 @@ const useSidebarStore = create<SidebarState>()(
 );
 
 /**
- * Desktop icon-rail collapse state, shared by the {@link AppSidebar} and the
- * {@link AppShell} web layout (which sizes the rail column off the same flag).
- * Returns the derived `collapsed` boolean plus stable collapse/expand/toggle
- * actions.
+ * Desktop sidebar collapse state, persisted per app. Returns the derived
+ * `collapsed` boolean, a `setCollapsed` setter shaped for Bloom's
+ * `onCollapsedChange`, and stable collapse/expand/toggle actions.
  */
 export function useSidebarCollapse() {
   const sidebarOpen = useSidebarStore((s) => s.sidebarOpen);
@@ -48,6 +48,10 @@ export function useSidebarCollapse() {
   const collapsed = !sidebarOpen;
   const collapse = useCallback(() => setSidebarOpen(false), [setSidebarOpen]);
   const expand = useCallback(() => setSidebarOpen(true), [setSidebarOpen]);
+  const setCollapsed = useCallback(
+    (next: boolean) => setSidebarOpen(!next),
+    [setSidebarOpen],
+  );
 
-  return { collapsed, collapse, expand, toggle: toggleSidebar };
+  return { collapsed, setCollapsed, collapse, expand, toggle: toggleSidebar };
 }

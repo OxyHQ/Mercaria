@@ -12,7 +12,11 @@ schema decision. `HANDOFF.md` holds deferred work.
 ## Architecture
 
 - `packages/frontend/` · `packages/dashboard/` · `packages/pos/` — Expo apps
-  (React Native + Web), expo-router, NativeWind
+  (React Native + Web), expo-router, NativeWind. Each app's frame is Bloom's
+  `AppShell` (`@oxy.so/bloom/app-shell`), mounted in `app/(app)/_layout.tsx` with
+  a `use*Sidebar()` hook and a Bloom `BottomBar`, both built from that app's
+  `components/shell/nav-items.ts`; pages render inside `ScreenShell` / `Screen`,
+  never a `ContentPanel` of their own
 - `packages/ui/` — shared components, consumed from source with no dist. Built
   on `@oxy.so/bloom` (Oxy's cross-app UI primitives) plus `@mercaria/ui`'s own
   marketplace-specific components; do not duplicate what Bloom already provides.

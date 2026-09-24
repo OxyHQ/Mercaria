@@ -805,15 +805,19 @@
   },
   "nav": {
     "channels": "Canaux de vente",
-    "collapseSidebar": "Réduire le menu latéral",
     "collections": "Collections",
     "customers": "Clients",
     "dashboard": "Tableau de bord",
     "discounts": "Réductions",
-    "expandSidebar": "Déployer le menu latéral",
+    "openNavigation": "Ouvrir la navigation",
     "orders": "Commandes",
     "products": "Produits",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "mainNavigation": "Navigation principale",
+    "collapseSidebar": "Réduire le menu latéral",
+    "expandSidebar": "Déployer le menu latéral",
+    "closeSidebar": "Fermer la barre latérale",
+    "closeNavigation": "Fermer la navigation"
   },
   "orders": {
     "detail": {

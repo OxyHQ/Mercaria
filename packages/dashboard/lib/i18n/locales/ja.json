@@ -791,15 +791,19 @@
   },
   "nav": {
     "channels": "販売チャネル",
-    "collapseSidebar": "サイドバーを折りたたむ",
     "collections": "コレクション",
     "customers": "顧客",
     "dashboard": "ダッシュボード",
     "discounts": "割引",
-    "expandSidebar": "サイドバーを展開",
+    "openNavigation": "ナビゲーションを開く",
     "orders": "注文",
     "products": "商品",
-    "settings": "設定"
+    "settings": "設定",
+    "mainNavigation": "メインナビゲーション",
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "expandSidebar": "サイドバーを展開",
+    "closeSidebar": "サイドバーを閉じる",
+    "closeNavigation": "ナビゲーションを閉じる"
   },
   "orders": {
     "detail": {

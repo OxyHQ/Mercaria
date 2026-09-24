@@ -1,6 +1,6 @@
 import React from "react";
-import { View, ScrollView, ActivityIndicator } from "react-native";
-import { Text, useColorScheme } from "@mercaria/ui";
+import { View, ActivityIndicator } from "react-native";
+import { ScreenShell, Text, cn, useColorScheme } from "@mercaria/ui";
 
 interface ScreenProps {
   title: string;
@@ -13,9 +13,12 @@ interface ScreenProps {
 }
 
 /**
- * Standard page chrome for a dashboard screen: a max-width content column with a
- * title/subtitle header and an optional right-aligned action, plus comfortable
- * padding. The web shell scrolls the document, so screens flow in normal flow.
+ * Standard page chrome for a POS screen: a max-width content column with a
+ * title/subtitle header and an optional right-aligned action, inside the shared
+ * {@link ScreenShell} (the platform scroll split — document scroll on web, one
+ * `ScrollView` on native). The frame around it — navigation, drawer, bottom bar
+ * and the clearance under that bar — is Bloom's `AppShell`, mounted in
+ * `app/(app)/_layout.tsx`.
  */
 export function Screen({ title, subtitle, action, children, scroll = true }: ScreenProps) {
   const header = (
@@ -30,27 +33,13 @@ export function Screen({ title, subtitle, action, children, scroll = true }: Scr
     </View>
   );
 
-  if (!scroll) {
-    return (
-      <View className="flex-1 bg-background px-4 pt-6 md:px-8">
-        <View className="mx-auto w-full max-w-5xl flex-1">
-          {header}
-          {children}
-        </View>
-      </View>
-    );
-  }
-
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerClassName="px-4 pt-6 pb-24 md:px-8"
-    >
-      <View className="mx-auto w-full max-w-5xl">
+    <ScreenShell surfaceClassName="bg-background" scroll={scroll}>
+      <View className={cn("mx-auto w-full max-w-5xl px-4 pt-6 md:px-8", !scroll && "flex-1")}>
         {header}
         {children}
       </View>
-    </ScrollView>
+    </ScreenShell>
   );
 }
 

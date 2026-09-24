@@ -113,12 +113,16 @@
     }
   },
   "nav": {
-    "collapseSidebar": "Свернуть боковую панель",
-    "expandSidebar": "Развернуть боковую панель",
+    "openNavigation": "Открыть навигацию",
     "register": "Касса",
     "sales": "Продажи",
     "selectStore": "Выберите магазин",
-    "switchStore": "Сменить магазин"
+    "switchStore": "Сменить магазин",
+    "mainNavigation": "Основная навигация",
+    "collapseSidebar": "Свернуть боковую панель",
+    "expandSidebar": "Развернуть боковую панель",
+    "closeSidebar": "Закрыть боковую панель",
+    "closeNavigation": "Закрыть навигацию"
   },
   "orders": {
     "channel": {

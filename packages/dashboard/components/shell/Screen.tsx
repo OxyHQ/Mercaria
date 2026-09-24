@@ -1,6 +1,6 @@
 import React from "react";
 import { View, ActivityIndicator } from "react-native";
-import { ScreenShell, Text, useColorScheme } from "@mercaria/ui";
+import { ScreenShell, Text, cn, useColorScheme } from "@mercaria/ui";
 
 interface ScreenProps {
   title: string;
@@ -13,12 +13,12 @@ interface ScreenProps {
 }
 
 /**
- * Standard page chrome for a dashboard screen: the shared {@link ScreenShell}
- * mask surface (Bloom's `ContentPanel` — rounded panel, web sticky bleed-mask +
- * border frame, platform scroll split) wrapping a max-width content column with a
- * title/subtitle header and an optional right-aligned action. The dashboard keeps
- * its `bg-background` surface (so `bg-surface` cards still contrast) while gaining
- * the storefront's framed panel.
+ * Standard page chrome for a dashboard screen: a max-width content column with a
+ * title/subtitle header and an optional right-aligned action, inside the shared
+ * {@link ScreenShell} (the platform scroll split — document scroll on web, one
+ * `ScrollView` on native). The frame around it — navigation, drawer, bottom bar
+ * and the clearance under that bar — is Bloom's `AppShell`, mounted in
+ * `app/(app)/_layout.tsx`.
  */
 export function Screen({ title, subtitle, action, children, scroll = true }: ScreenProps) {
   const header = (
@@ -35,7 +35,7 @@ export function Screen({ title, subtitle, action, children, scroll = true }: Scr
 
   return (
     <ScreenShell surfaceClassName="bg-background" scroll={scroll}>
-      <View className="mx-auto w-full max-w-5xl px-4 pt-6 md:px-8">
+      <View className={cn("mx-auto w-full max-w-5xl px-4 pt-6 md:px-8", !scroll && "flex-1")}>
         {header}
         {children}
       </View>

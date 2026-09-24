@@ -107,12 +107,16 @@
     }
   },
   "nav": {
-    "collapseSidebar": "Collapse sidebar",
-    "expandSidebar": "Expand sidebar",
+    "openNavigation": "Open navigation",
     "register": "Register",
     "sales": "Sales",
     "selectStore": "Select store",
-    "switchStore": "Switch store"
+    "switchStore": "Switch store",
+    "mainNavigation": "Main navigation",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "closeSidebar": "Close sidebar",
+    "closeNavigation": "Close navigation"
   },
   "orders": {
     "channel": {

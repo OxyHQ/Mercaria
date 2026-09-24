@@ -107,12 +107,16 @@
     }
   },
   "nav": {
-    "collapseSidebar": "साइडबार समेटें",
-    "expandSidebar": "साइडबार फैलाएँ",
+    "openNavigation": "नेविगेशन खोलें",
     "register": "रजिस्टर",
     "sales": "बिक्री",
     "selectStore": "स्टोर चुनें",
-    "switchStore": "स्टोर बदलें"
+    "switchStore": "स्टोर बदलें",
+    "mainNavigation": "मुख्य नेविगेशन",
+    "collapseSidebar": "साइडबार समेटें",
+    "expandSidebar": "साइडबार फैलाएँ",
+    "closeSidebar": "साइडबार बंद करें",
+    "closeNavigation": "नेविगेशन बंद करें"
   },
   "orders": {
     "channel": {

@@ -1,18 +1,17 @@
 import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 import { Platform, ScrollView, View } from "react-native";
-import { ContentPanel } from "@oxy.so/bloom/content-panel";
+import { useBottomEdgeInset } from "@oxy.so/bloom/layout";
 import { cn } from "../../lib/cn";
 
 export interface ScreenShellProps {
   children: ReactNode;
-  /** Override the panel surface bg (default "bg-card"). Lets a caller recolor
-   *  the whole surface (e.g. a store's brand tint, or an app's own background). */
+  /** Classes for the page surface (e.g. `bg-background`). Unset, the page is
+   *  transparent and the app shell's own surface shows through. */
   surfaceClassName?: string;
-  /** Inline style for the panel surface, applied alongside `surfaceClassName`.
+  /** Inline style for the page surface, applied alongside `surfaceClassName`.
    *  An inline `backgroundColor` wins over the className bg, letting a caller
-   *  paint the whole surface a dynamic color (e.g. a store's runtime brand
-   *  color). */
+   *  paint the page a dynamic color (e.g. a store's runtime brand color). */
   surfaceStyle?: StyleProp<ViewStyle>;
   /** Extra classes merged onto the inner centered content wrapper. */
   contentClassName?: string;
@@ -23,46 +22,44 @@ export interface ScreenShellProps {
 }
 
 /**
- * The shared page shell: a thin wrapper over Bloom's `ContentPanel` (the framed
- * app-content surface). Every page renders its body inside this so the rounded
- * panel, the web sticky bleed-mask + border frame, and the centered content
- * column stay identical across screens — only the nav rail lives outside it.
+ * The per-page wrapper every screen renders its body in.
  *
- * `ContentPanel` owns the surface, the corner radius, and (on web) the sticky
- * gutter mask + continuous border. Scroll, however, is an app concern that
- * `ContentPanel` deliberately does NOT own, so the platform split lives here:
+ * The FRAME is not this component's any more: Bloom's `AppShell`
+ * (`@oxy.so/bloom/app-shell`, mounted in each app's `(app)/_layout.tsx`) owns
+ * the navigation, the framed `ContentPanel` where the app asks for one, and the
+ * clearance under its bottom bar. A page must not render a `ContentPanel` of its
+ * own — Bloom's nesting guard rejects one inside the shell's.
  *
- * - WEB: the BODY scrolls (document-scroll model). `ContentPanel` frames the
- *   content responsively on its own (full-bleed below the `md` breakpoint,
- *   framed at `md` and up) and pins its sticky overlays to the viewport — an
- *   inner `ScrollView` would break that, so the web path has none.
- * - NATIVE: there is no document scroll, so the body lives in a single
- *   full-height `ScrollView` inside the panel (unless `scroll` is false, for a
- *   body that scrolls itself).
+ * What stays here is the platform scroll split, which the shell leaves to the
+ * page by design:
+ *
+ * - WEB: the DOCUMENT scrolls (`AppShell scroll="document"`), so there is no
+ *   inner `ScrollView` — one would pin the sticky navigation to a box that never
+ *   scrolls. The content is centered (`mx-auto max-w-[2000px]`); the shell
+ *   reserves the bottom bar's measured height itself.
+ * - NATIVE: the shell is a fixed frame (`scroll="fixed"`) and the page owns its
+ *   scroller, so the body lives in one full-height `ScrollView` (unless `scroll`
+ *   is false, for a body that scrolls itself), padded by the bottom edge the
+ *   shell's bar has claimed (`useBottomEdgeInset`).
  *
  * Pages keep their own `<Head>` — the shell never renders one.
  */
 export function ScreenShell({
   children,
-  surfaceClassName = "bg-card",
+  surfaceClassName,
   surfaceStyle,
   contentClassName,
   scroll = true,
 }: ScreenShellProps) {
-  // NATIVE: there is no document scroll. Wrap the body in a single full-height
-  // ScrollView unless the caller owns scrolling (`scroll={false}`, e.g. a
-  // FlashList body that must not be nested inside another scroll view).
+  const bottomInset = useBottomEdgeInset();
+
   if (Platform.OS !== "web") {
     return (
-      <ContentPanel
-        framed={false}
-        surfaceClassName={surfaceClassName}
-        surfaceStyle={surfaceStyle}
-      >
+      <View className={cn("flex-1", surfaceClassName)} style={surfaceStyle}>
         {scroll ? (
           <ScrollView
             className="flex-1"
-            contentContainerClassName="pb-24"
+            contentContainerStyle={{ paddingBottom: bottomInset }}
             keyboardShouldPersistTaps="handled"
           >
             <View className={contentClassName}>{children}</View>
@@ -70,24 +67,15 @@ export function ScreenShell({
         ) : (
           <View className={cn("flex-1", contentClassName)}>{children}</View>
         )}
-      </ContentPanel>
+      </View>
     );
   }
 
-  // WEB: the content flows in the document and scrolls with the body, passing
-  // under the panel's sticky frame. The content is centered (`mx-auto
-  // max-w-[2000px]`) with the bottom clearance (`pb-24`) the rail / bottom bar
-  // need.
   return (
-    <ContentPanel
-      surfaceClassName={surfaceClassName}
-      surfaceStyle={surfaceStyle}
-      contentClassName={cn(
-        "web:mx-auto web:w-full web:max-w-[2000px] pb-24",
-        contentClassName,
-      )}
-    >
-      {children}
-    </ContentPanel>
+    <View className={cn("grow", surfaceClassName)} style={surfaceStyle}>
+      <View className={cn("web:mx-auto web:w-full web:max-w-[2000px]", contentClassName)}>
+        {children}
+      </View>
+    </View>
   );
 }

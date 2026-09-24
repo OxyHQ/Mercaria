@@ -791,15 +791,19 @@
   },
   "nav": {
     "channels": "Vertriebskanäle",
-    "collapseSidebar": "Seitenleiste einklappen",
     "collections": "Kollektionen",
     "customers": "Kunden",
     "dashboard": "Dashboard",
     "discounts": "Rabatte",
-    "expandSidebar": "Seitenleiste ausklappen",
+    "openNavigation": "Navigation öffnen",
     "orders": "Bestellungen",
     "products": "Produkte",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "mainNavigation": "Hauptnavigation",
+    "collapseSidebar": "Seitenleiste einklappen",
+    "expandSidebar": "Seitenleiste ausklappen",
+    "closeSidebar": "Seitenleiste schließen",
+    "closeNavigation": "Navigation schließen"
   },
   "orders": {
     "detail": {

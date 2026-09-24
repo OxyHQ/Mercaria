@@ -107,12 +107,16 @@
     }
   },
   "nav": {
-    "collapseSidebar": "收起侧边栏",
-    "expandSidebar": "展开侧边栏",
+    "openNavigation": "打开导航",
     "register": "收银",
     "sales": "销售记录",
     "selectStore": "选择店铺",
-    "switchStore": "切换店铺"
+    "switchStore": "切换店铺",
+    "mainNavigation": "主导航",
+    "collapseSidebar": "收起侧边栏",
+    "expandSidebar": "展开侧边栏",
+    "closeSidebar": "关闭侧边栏",
+    "closeNavigation": "关闭导航"
   },
   "orders": {
     "channel": {

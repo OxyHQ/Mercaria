@@ -805,15 +805,19 @@
   },
   "nav": {
     "channels": "Canals de venda",
-    "collapseSidebar": "Redueix la barra lateral",
     "collections": "Col·leccions",
     "customers": "Clients",
     "dashboard": "Tauler",
     "discounts": "Descomptes",
-    "expandSidebar": "Amplia la barra lateral",
+    "openNavigation": "Obre la navegació",
     "orders": "Comandes",
     "products": "Productes",
-    "settings": "Configuració"
+    "settings": "Configuració",
+    "mainNavigation": "Navegació principal",
+    "collapseSidebar": "Redueix la barra lateral",
+    "expandSidebar": "Amplia la barra lateral",
+    "closeSidebar": "Tanca la barra lateral",
+    "closeNavigation": "Tanca la navegació"
   },
   "orders": {
     "detail": {

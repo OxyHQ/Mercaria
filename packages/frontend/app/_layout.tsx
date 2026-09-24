@@ -1,10 +1,11 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Slot, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect } from 'react';
 import { OxyProvider, useOxy } from '@oxy.so/services';
-import { BloomThemeProvider } from '@oxy.so/bloom/theme';
+import { BloomProvider } from '@oxy.so/bloom/provider';
+import { expoRouterScrollAdapter } from '@oxy.so/bloom/scroll/expo-router';
 import { ImageResolverProvider } from '@oxy.so/bloom/image-resolver';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
@@ -72,15 +73,23 @@ function AppContent() {
   return (
     <AuthSetup>
       <KeyboardProvider>
-        <Stack
-          screenOptions={{
-            contentStyle: {
-              backgroundColor: colors.background,
-            },
-          }}
-        >
-          <Stack.Screen name="(app)" options={{ headerShown: false }} />
-        </Stack>
+        {/* WEB: <Slot/>, so the matched route stays in normal document flow and
+            Bloom's AppShell can scroll the DOCUMENT (sticky navigation, scroll
+            restoration). A web Stack wraps every scene in a viewport-clamped
+            card, which is a scroll container between the root and the shell. */}
+        {Platform.OS === 'web' ? (
+          <Slot />
+        ) : (
+          <Stack
+            screenOptions={{
+              contentStyle: {
+                backgroundColor: colors.background,
+              },
+            }}
+          >
+            <Stack.Screen name="(app)" options={{ headerShown: false }} />
+          </Stack>
+        )}
       </KeyboardProvider>
     </AuthSetup>
   );
@@ -112,7 +121,11 @@ function RootLayout() {
   return (
     <AppErrorBoundary>
       <SharedUiTranslationProvider t={t} locale={locale}>
-        <BloomThemeProvider
+        {/* The single Bloom root: theme, haptics, scroll restoration (keyed by
+            expo-router through the module-level adapter) and the bottom-edge
+            registry the app shell's bar publishes its height through. */}
+        <BloomProvider
+          scrollAdapter={expoRouterScrollAdapter}
           defaultMode="system"
           defaultColorPreset="blue"
           persistKey={BLOOM_THEME_PERSIST_KEY}
@@ -131,7 +144,7 @@ function RootLayout() {
           >
             <AppContent />
           </OxyProvider>
-        </BloomThemeProvider>
+        </BloomProvider>
       </SharedUiTranslationProvider>
     </AppErrorBoundary>
   );

@@ -264,30 +264,15 @@ export {
 } from "./lib/commercial-copy";
 
 // ---------------------------------------------------------------------------
-// App shell — the shared responsive layout, sidebar rail, and page mask
+// App shell — the per-page wrapper, and lucide glyphs in Bloom's chrome. The
+// layout itself (navigation, drawer, bottom bar, content panel) is Bloom's
+// `AppShell` (`@oxy.so/bloom/app-shell`), mounted by each app's `(app)` layout.
 // ---------------------------------------------------------------------------
-export { AppShell, type AppShellProps } from "./components/shell/AppShell";
-export {
-  AppSidebar,
-  type AppSidebarProps,
-  type AppSidebarItem,
-} from "./components/shell/AppSidebar";
-export {
-  BaseSidebar,
-  type BaseSidebarProps,
-} from "./components/shell/BaseSidebar";
-export {
-  SidebarRow,
-  GhostIconButton,
-  useRailTooltip,
-  type SidebarRowProps,
-  type GhostIconButtonProps,
-  type RailTooltipHandle,
-} from "./components/shell/sidebar-primitives";
 export {
   ScreenShell,
   type ScreenShellProps,
 } from "./components/shell/ScreenShell";
+export { toBloomIcon, LucideGlyph, type LucideGlyphProps } from "./lib/bloom-icon";
 
 // ---------------------------------------------------------------------------
 // Dual-currency display

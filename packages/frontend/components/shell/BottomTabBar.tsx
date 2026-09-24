@@ -1,27 +1,13 @@
-import React, { useCallback, useMemo, useRef } from "react";
-import {
-  View,
-  Pressable,
-  Platform,
-  StyleSheet,
-  type LayoutChangeEvent,
-  type ViewStyle,
-} from "react-native";
-import { useRouter, usePathname } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
-import { BlurView } from "expo-blur";
-import { LogIn, type LucideIcon } from "lucide-react-native";
+import React, { useCallback, useMemo } from "react";
+import { Platform, View } from "react-native";
+import { usePathname, useRouter } from "expo-router";
+import { LogIn, ShoppingCart } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
+import { BottomBar, type BottomBarProps } from "@oxy.so/bloom/bottom-bar";
+import { useOxy, openAccountDialog } from "@oxy.so/services";
+import { LucideGlyph, Text } from "@mercaria/ui";
 
 import { UserAvatar } from "@/components/user-avatar";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { useTheme } from "@oxy.so/bloom/theme";
-import { useOxy, openAccountDialog } from "@oxy.so/services";
 import { useCart } from "@/lib/hooks/use-cart";
 import { useTranslation } from "@/lib/i18n";
 import {
@@ -31,323 +17,109 @@ import {
   type NavItem,
 } from "./nav-items";
 
-/**
- * Floating-pill bottom tab bar — a faithful port of Mention's `BottomBar`
- * adapted to Mercaria's data-driven nav model, lucide icons, theme hook and
- * avatar/sign-in auth tab. The bar is an absolutely-positioned rounded pill
- * that floats over the content (frosted glass via `expo-blur` on native and a
- * CSS `backdrop-filter` over a translucent `bg-card/80` surface on web), with
- * an animated sliding indicator behind the active tab.
- */
+/** The destinations that have a screen; an unbuilt one has no route to push. */
+type AvailableNavItem = Extract<NavItem, { available: true }>;
 
-/** Subtle frosted-glass blur radius for the web bar (medium, not extreme). */
-const WEB_BLUR_RADIUS = "12px";
+/** The trailing account tab's value — not a {@link NAV_ITEMS} key. */
+const ACCOUNT_TAB = "account";
 
-/**
- * Web-only style extension. React Native's `ViewStyle` does not declare the CSS
- * backdrop-filter props, but on web (react-native-web) unknown style keys are
- * forwarded to the DOM, so these render as real CSS. Gated behind the web branch
- * so they never reach native.
- */
-interface WebBackdropStyle extends ViewStyle {
-  backdropFilter?: string;
-  WebkitBackdropFilter?: string;
-}
+/** Maximum badge count shown numerically; above this threshold "9+" is shown. */
+const MAX_BADGE_COUNT = 9;
 
-const SPRING_CONFIG = {
-  damping: 20,
-  stiffness: 200,
-  mass: 0.5,
-};
-
-// One slot per nav destination plus the trailing auth/avatar tab.
-const TAB_COUNT = NAV_ITEMS.length + 1;
-const AUTH_TAB_INDEX = NAV_ITEMS.length;
-const ICON_SIZE = 22;
-const AVATAR_SIZE = ICON_SIZE + 4;
-
-// Floating-pill geometry (mirrors Mention's BottomBar).
-const BAR_BOTTOM = 12;
-const BAR_INSET = 16;
-const BAR_HEIGHT = 56;
-const BAR_RADIUS = 28;
-const INDICATOR_INSET = 4;
-const INDICATOR_RADIUS = 22;
-
-// Opacity applied to inactive lucide icons (no active/inactive SVG pairs in
-// Mercaria, so active/inactive is a color + opacity swap on a single icon).
-const INACTIVE_ICON_OPACITY = 0.5;
-
-const tabStyle = {
-  flex: 1,
-  alignItems: "center" as const,
-  justifyContent: "center" as const,
-  height: "100%" as const,
-  ...(Platform.OS === "web" ? { cursor: "pointer" as const } : {}),
-};
+const AVATAR_SIZE = 26;
 
 function triggerHaptic() {
   if (Platform.OS === "web") return;
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 }
 
-/* ================================================================
-   Tab icon — lucide single icon, color/opacity swap for active state
-   ================================================================ */
-
-interface TabIconProps {
-  icon: LucideIcon;
-  isActive: boolean;
-}
-
-function TabIcon({ icon: Icon, isActive }: TabIconProps) {
-  const { colors } = useColorScheme();
+/**
+ * The cart glyph with its item-count badge. Bloom clones the glyph with the
+ * crossfade layer's `fill`, which is forwarded to the icon; the badge keeps its
+ * own primary fill in both layers.
+ */
+function CartGlyph({ count, fill }: { count: number; fill?: string }) {
   return (
-    <Icon
-      size={ICON_SIZE}
-      color={isActive ? colors.primary : colors.mutedForeground}
-      style={isActive ? undefined : { opacity: INACTIVE_ICON_OPACITY }}
-    />
-  );
-}
-
-/* ================================================================
-   Auth tab (avatar when authenticated, sign-in otherwise) — last slot
-   ================================================================ */
-
-interface AuthTabProps {
-  isActive: boolean;
-}
-
-function AuthTab({ isActive }: AuthTabProps) {
-  const { colors } = useColorScheme();
-  const { isAuthenticated } = useOxy();
-  const { t } = useTranslation();
-
-  // Resolved through `t` rather than held as a literal: the i18n guard reads
-  // JSX positions and cannot follow a string through a local variable, so this
-  // pair is one of its documented blind spots rather than something it cleared.
-  const label = isAuthenticated ? t("nav.account") : t("nav.signIn");
-
-  const onPress = useCallback(() => {
-    triggerHaptic();
-    if (!isAuthenticated) openAccountDialog();
-  }, [isAuthenticated]);
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={tabStyle}
-      accessibilityRole="tab"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: isActive }}
-    >
-      {isAuthenticated ? (
-        <UserAvatar size={AVATAR_SIZE} />
-      ) : (
-        <LogIn
-          size={ICON_SIZE}
-          color={colors.mutedForeground}
-          style={{ opacity: INACTIVE_ICON_OPACITY }}
-        />
-      )}
-    </Pressable>
-  );
-}
-
-/* ================================================================
-   BottomTabBar — floating rounded pill (mobile <768 / native)
-   ================================================================ */
-
-export function BottomTabBar() {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const pathname = usePathname();
-  const insets = useSafeAreaInsets();
-  const theme = useTheme();
-
-  // Animated sliding indicator. `tabWidth` is derived from the measured bar
-  // width / tab count (onLayout); `indicatorX` springs to the active slot.
-  const tabWidth = useSharedValue(0);
-  const indicatorX = useSharedValue(0);
-
-  // Active slot: the last index belongs to the auth tab, which is "active" on
-  // any /@profile route (mirrors Mention); otherwise the matching nav item.
-  const navActiveIndex = NAV_ITEMS.findIndex((item) =>
-    isNavItemActive(item, pathname),
-  );
-  const activeIndex =
-    navActiveIndex >= 0
-      ? navActiveIndex
-      : isAuthTabActive(pathname)
-        ? AUTH_TAB_INDEX
-        : -1;
-
-  const prevActiveIndexRef = useRef(activeIndex);
-
-  const onBarLayout = useCallback(
-    (e: LayoutChangeEvent) => {
-      const width = e.nativeEvent.layout.width;
-      tabWidth.value = width / TAB_COUNT;
-      if (activeIndex >= 0) {
-        indicatorX.value = withSpring(
-          (width / TAB_COUNT) * activeIndex,
-          SPRING_CONFIG,
-        );
-      }
-    },
-    [activeIndex, indicatorX, tabWidth],
-  );
-
-  // Animate the indicator when the active tab changes (computed during render,
-  // not in an effect — mirrors Mention).
-  if (prevActiveIndexRef.current !== activeIndex) {
-    prevActiveIndexRef.current = activeIndex;
-    if (tabWidth.value > 0 && activeIndex >= 0) {
-      indicatorX.value = withSpring(tabWidth.value * activeIndex, SPRING_CONFIG);
-    }
-  }
-
-  // Position/size are animated; the fill color is the theme primary at ~10%
-  // applied via the `bg-primary/10` NativeWind class on the indicator view so
-  // it stays reactive to the Bloom preset/mode.
-  const indicatorStyle = useAnimatedStyle(() => ({
-    position: "absolute" as const,
-    top: INDICATOR_INSET,
-    bottom: INDICATOR_INSET,
-    width: tabWidth.value ? tabWidth.value - INDICATOR_INSET * 2 : 0,
-    left: indicatorX.value + INDICATOR_INSET,
-    borderRadius: INDICATOR_RADIUS,
-  }));
-
-  const { data: cart } = useCart();
-  const cartCount = cart?.items.reduce((n, i) => n + i.quantity, 0) ?? 0;
-
-  /** Maximum badge count shown numerically; above this threshold "9+" is shown. */
-  const MAX_BADGE_COUNT = 9;
-
-  // Tab-root switch. Only navigate to routes that actually exist today;
-  // pressing an unavailable item is a safe no-op (no missing-route navigation).
-  const handlePress = useCallback(
-    (item: NavItem) => {
-      triggerHaptic();
-      if (item.available) router.push(item.href);
-    },
-    [router],
-  );
-
-  // Layout + shadow only. The border and background colors are driven by
-  // NativeWind theme classes (`border-border`, `bg-card/80`) so they stay
-  // reactive to the Bloom preset/mode. `theme.colors.shadow` is already a valid
-  // `rgba(...)` string from the Bloom theme (no NativeWind equivalent). The
-  // floating pill clears the OS gesture bar / home indicator by folding the
-  // bottom safe-area inset into its `bottom` offset.
-  const containerStyle = useMemo<ViewStyle>(
-    () => ({
-      position: "absolute",
-      bottom: BAR_BOTTOM + insets.bottom,
-      left: BAR_INSET,
-      right: BAR_INSET,
-      height: BAR_HEIGHT,
-      borderRadius: BAR_RADIUS,
-      overflow: "hidden",
-      zIndex: 1000,
-      ...(Platform.OS === "web"
-        ? { boxShadow: `0 2px 16px ${theme.colors.shadow}` }
-        : {
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.15,
-            shadowRadius: 12,
-            elevation: 8,
-          }),
-    }),
-    [insets.bottom, theme.colors.shadow],
-  );
-
-  const innerContent = (
-    <>
-      <Animated.View className="bg-primary/10" style={indicatorStyle} />
-      {NAV_ITEMS.map((item) => (
-        <Pressable
-          key={item.key}
-          onPress={() => handlePress(item)}
-          style={tabStyle}
-          accessibilityRole="tab"
-          accessibilityLabel={t(item.labelKey)}
-          accessibilityState={{ selected: isNavItemActive(item, pathname) }}
+    <View className="relative items-center justify-center">
+      <LucideGlyph icon={ShoppingCart} fill={fill} />
+      {count > 0 ? (
+        <View
+          pointerEvents="none"
+          className="absolute -end-0.5 -top-0.5 h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1"
         >
-          <View className="relative items-center justify-center">
-            <TabIcon
-              icon={item.icon}
-              isActive={isNavItemActive(item, pathname)}
-            />
-            {item.key === "cart" && cartCount > 0 ? (
-              <View
-                pointerEvents="none"
-                className="absolute -end-0.5 -top-0.5 h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1"
-              >
-                <Text className="text-[10px] font-bold text-primary-foreground">
-                  {cartCount > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : cartCount}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        </Pressable>
-      ))}
-      <AuthTab isActive={activeIndex === AUTH_TAB_INDEX} />
-    </>
-  );
-
-  // Web frosted-glass surface: a subtle CSS backdrop blur over the translucent
-  // `bg-card/80` token (applied via NativeWind className below) so the content
-  // behind the bar blurs through, mirroring the native BlurView. The backdrop
-  // props are web-only CSS, gated behind the `Platform.OS === 'web'` branch.
-  const webContainerStyle = useMemo<WebBackdropStyle>(
-    () => ({
-      ...containerStyle,
-      backdropFilter: `blur(${WEB_BLUR_RADIUS})`,
-      WebkitBackdropFilter: `blur(${WEB_BLUR_RADIUS})`,
-      flexDirection: "row",
-      alignItems: "center",
-    }),
-    [containerStyle],
-  );
-
-  if (Platform.OS === "web") {
-    return (
-      <View
-        className="border border-border bg-card/80"
-        style={webContainerStyle}
-        onLayout={onBarLayout}
-      >
-        {innerContent}
-      </View>
-    );
-  }
-
-  return (
-    <View
-      className="border border-border"
-      style={containerStyle}
-      onLayout={onBarLayout}
-    >
-      <BlurView
-        intensity={80}
-        tint={theme.isDark ? "dark" : "light"}
-        experimentalBlurMethod="dimezisBlurView"
-        style={styles.blurContent}
-      >
-        {innerContent}
-      </BlurView>
+          <Text className="text-[10px] font-bold text-primary-foreground">
+            {count > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : count}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  blurContent: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-});
+/**
+ * The storefront's phone navigation: Bloom's `BottomBar` in `AppShell`'s
+ * `bottomBar` slot, which pins it, applies the bottom safe area and reserves
+ * its measured height under the content. Mercaria owns the destinations —
+ * the same {@link NAV_ITEMS} the sidebar reads — plus the trailing account tab:
+ * the signed-in user's avatar, or a sign-in glyph that opens the account dialog.
+ */
+export function BottomTabBar() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { isAuthenticated } = useOxy();
+  const { data: cart } = useCart();
+  const cartCount = cart?.items.reduce((n, i) => n + i.quantity, 0) ?? 0;
+
+  const available = useMemo(
+    () => NAV_ITEMS.filter((item): item is AvailableNavItem => item.available),
+    [],
+  );
+
+  const items = useMemo<BottomBarProps["items"]>(
+    () => [
+      ...available.map((item) => ({
+        name: item.key,
+        label: t(item.labelKey),
+        icon:
+          item.key === "cart" ? (
+            <CartGlyph count={cartCount} />
+          ) : (
+            <LucideGlyph icon={item.icon} />
+          ),
+      })),
+      {
+        name: ACCOUNT_TAB,
+        // Resolved through `t` rather than held as a literal: the i18n guard
+        // reads JSX positions and cannot follow a string through a local.
+        label: isAuthenticated ? t("nav.account") : t("nav.signIn"),
+        icon: isAuthenticated ? <UserAvatar size={AVATAR_SIZE} /> : <LucideGlyph icon={LogIn} />,
+      },
+    ],
+    [available, cartCount, isAuthenticated, t],
+  );
+
+  // The settled selection: the matching destination, the account tab on a
+  // `/@profile` route, or no tab at all on a pushed screen with no home here.
+  const value =
+    available.find((item) => isNavItemActive(item, pathname))?.key ??
+    (isAuthTabActive(pathname) ? ACCOUNT_TAB : "");
+
+  const onValueChange = useCallback(
+    (name: string) => {
+      triggerHaptic();
+      if (name === ACCOUNT_TAB) {
+        // Signed out, the account tab is the way in. Signed in it only marks
+        // where you are, as it always has.
+        if (!isAuthenticated) openAccountDialog();
+        return;
+      }
+      // The route is read from the typed table, never from the tab's name.
+      const destination = available.find((item) => item.key === name);
+      if (destination) router.push(destination.href);
+    },
+    [available, isAuthenticated, router],
+  );
+
+  return <BottomBar items={items} value={value} onValueChange={onValueChange} />;
+}

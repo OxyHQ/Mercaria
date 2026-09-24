@@ -110,12 +110,16 @@
     }
   },
   "nav": {
-    "collapseSidebar": "Recolher barra lateral",
-    "expandSidebar": "Expandir barra lateral",
+    "openNavigation": "Abrir navegação",
     "register": "Caixa",
     "sales": "Vendas",
     "selectStore": "Selecionar loja",
-    "switchStore": "Trocar de loja"
+    "switchStore": "Trocar de loja",
+    "mainNavigation": "Navegação principal",
+    "collapseSidebar": "Recolher barra lateral",
+    "expandSidebar": "Expandir barra lateral",
+    "closeSidebar": "Fechar a barra lateral",
+    "closeNavigation": "Fechar a navegação"
   },
   "orders": {
     "channel": {

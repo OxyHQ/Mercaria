@@ -4,7 +4,8 @@ import type { StorePermission } from "@mercaria/shared-types";
 
 /**
  * Canonical navigation model for the POS shell, shared by the desktop
- * {@link Sidebar} and the mobile {@link BottomTabBar} so both render the same
+ * sidebar (`usePosSidebar`, Bloom's `Sidebar`) and the mobile {@link BottomTabBar}
+ * (Bloom's `BottomBar`) so both render the same
  * destinations. Each item is gated by a `permission`: the item is shown only
  * when the caller holds that permission on the active store (the server is the
  * authority — gating here just hides affordances that would 403).

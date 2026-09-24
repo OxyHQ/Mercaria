@@ -22,7 +22,8 @@
     "saved": "المحفوظات",
     "account": "الحساب",
     "signIn": "تسجيل الدخول",
-    "threeD": "3D"
+    "threeD": "3D",
+    "mainNavigation": "التنقل الرئيسي"
   },
   "login": {
     "signInButton": "تسجيل الدخول",
