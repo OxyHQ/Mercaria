@@ -107,8 +107,7 @@
     }
   },
   "nav": {
-    "collapseSidebar": "সাইডবার সংকুচিত করুন",
-    "expandSidebar": "সাইডবার প্রসারিত করুন",
+    "openNavigation": "নেভিগেশন খুলুন",
     "register": "রেজিস্টার",
     "sales": "বিক্রয়",
     "selectStore": "স্টোর নির্বাচন করুন",

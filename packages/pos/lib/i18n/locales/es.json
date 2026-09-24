@@ -110,8 +110,7 @@
     }
   },
   "nav": {
-    "collapseSidebar": "Contraer la barra lateral",
-    "expandSidebar": "Expandir la barra lateral",
+    "openNavigation": "Abrir navegación",
     "register": "Caja",
     "sales": "Ventas",
     "selectStore": "Selecciona una tienda",

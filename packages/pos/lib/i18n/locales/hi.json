@@ -107,8 +107,7 @@
     }
   },
   "nav": {
-    "collapseSidebar": "साइडबार समेटें",
-    "expandSidebar": "साइडबार फैलाएँ",
+    "openNavigation": "नेविगेशन खोलें",
     "register": "रजिस्टर",
     "sales": "बिक्री",
     "selectStore": "स्टोर चुनें",

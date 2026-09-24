@@ -113,8 +113,7 @@
     }
   },
   "nav": {
-    "collapseSidebar": "Свернуть боковую панель",
-    "expandSidebar": "Развернуть боковую панель",
+    "openNavigation": "Открыть навигацию",
     "register": "Касса",
     "sales": "Продажи",
     "selectStore": "Выберите магазин",

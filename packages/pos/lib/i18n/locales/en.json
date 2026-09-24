@@ -107,8 +107,7 @@
     }
   },
   "nav": {
-    "collapseSidebar": "Collapse sidebar",
-    "expandSidebar": "Expand sidebar",
+    "openNavigation": "Open navigation",
     "register": "Register",
     "sales": "Sales",
     "selectStore": "Select store",

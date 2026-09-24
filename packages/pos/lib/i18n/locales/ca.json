@@ -110,8 +110,7 @@
     }
   },
   "nav": {
-    "collapseSidebar": "Redueix la barra lateral",
-    "expandSidebar": "Amplia la barra lateral",
+    "openNavigation": "Obre la navegació",
     "register": "Caixa",
     "sales": "Vendes",
     "selectStore": "Selecciona una botiga",

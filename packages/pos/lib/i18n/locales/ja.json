@@ -107,8 +107,7 @@
     }
   },
   "nav": {
-    "collapseSidebar": "サイドバーを折りたたむ",
-    "expandSidebar": "サイドバーを展開",
+    "openNavigation": "ナビゲーションを開く",
     "register": "レジ",
     "sales": "売上",
     "selectStore": "ストアを選択",

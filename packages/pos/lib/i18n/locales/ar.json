@@ -107,8 +107,7 @@
     }
   },
   "nav": {
-    "collapseSidebar": "طيّ الشريط الجانبي",
-    "expandSidebar": "توسيع الشريط الجانبي",
+    "openNavigation": "فتح التنقل",
     "register": "الصندوق",
     "sales": "المبيعات",
     "selectStore": "اختيار المتجر",

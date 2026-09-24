@@ -107,8 +107,7 @@
     }
   },
   "nav": {
-    "collapseSidebar": "Seitenleiste einklappen",
-    "expandSidebar": "Seitenleiste ausklappen",
+    "openNavigation": "Navigation öffnen",
     "register": "Kasse",
     "sales": "Verkäufe",
     "selectStore": "Shop auswählen",

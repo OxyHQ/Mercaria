@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { View, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import Head from "expo-router/head";
+import { useBottomEdgeInset } from "@oxy.so/bloom/layout";
 import { Text, PriceDisplay } from "@mercaria/ui";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequirePos } from "@/components/shell/RequirePos";
@@ -53,7 +54,7 @@ function Register({ storeId }: { storeId: string }) {
         </View>
       </View>
 
-      {/* Narrow only: sticky Charge bar above the floating bottom tab bar. */}
+      {/* Narrow only: sticky Charge bar above the shell's bottom bar. */}
       <NarrowChargeBar />
     </View>
   );
@@ -61,8 +62,9 @@ function Register({ storeId }: { storeId: string }) {
 
 /**
  * Compact bottom bar (item count + total + Charge) shown only below `md:` and
- * only when the cart has items. It sits above the area the `(app)` shell
- * reserves for the floating tab bar, so the two never overlap. The count/total
+ * only when the cart has items. It sits on the bottom edge the `(app)` shell's
+ * bottom bar has claimed (`useBottomEdgeInset` — the bar's MEASURED height,
+ * safe area included), so the two never overlap. The count/total
  * region opens the full-screen cart review (`/cart`); the Charge button goes
  * straight to the tender step (`/charge`).
  */
@@ -72,11 +74,15 @@ function NarrowChargeBar() {
   const count = useRegisterCartCount();
   const lines = useRegisterCart((s) => s.lines);
   const subtotal = useMemo(() => computeCartSubtotal(lines), [lines]);
+  const bottomEdge = useBottomEdgeInset();
 
   if (count === 0) return null;
 
   return (
-    <View className="absolute inset-x-0 bottom-[88px] z-50 border-t border-border bg-surface px-4 py-3 md:hidden web:fixed">
+    <View
+      className="absolute inset-x-0 z-50 border-t border-border bg-surface px-4 py-3 md:hidden web:fixed"
+      style={{ bottom: bottomEdge }}
+    >
       <View className="flex-row items-center justify-between gap-3">
         <Pressable
           onPress={() => router.push("/cart")}
