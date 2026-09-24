@@ -111,7 +111,12 @@
     "register": "レジ",
     "sales": "売上",
     "selectStore": "ストアを選択",
-    "switchStore": "ストアを切り替え"
+    "switchStore": "ストアを切り替え",
+    "mainNavigation": "メインナビゲーション",
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "expandSidebar": "サイドバーを展開",
+    "closeSidebar": "サイドバーを閉じる",
+    "closeNavigation": "ナビゲーションを閉じる"
   },
   "orders": {
     "channel": {

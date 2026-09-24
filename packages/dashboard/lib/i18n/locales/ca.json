@@ -812,7 +812,12 @@
     "openNavigation": "Obre la navegació",
     "orders": "Comandes",
     "products": "Productes",
-    "settings": "Configuració"
+    "settings": "Configuració",
+    "mainNavigation": "Navegació principal",
+    "collapseSidebar": "Redueix la barra lateral",
+    "expandSidebar": "Amplia la barra lateral",
+    "closeSidebar": "Tanca la barra lateral",
+    "closeNavigation": "Tanca la navegació"
   },
   "orders": {
     "detail": {

@@ -826,7 +826,12 @@
     "openNavigation": "Открыть навигацию",
     "orders": "Заказы",
     "products": "Товары",
-    "settings": "Настройки"
+    "settings": "Настройки",
+    "mainNavigation": "Основная навигация",
+    "collapseSidebar": "Свернуть боковую панель",
+    "expandSidebar": "Развернуть боковую панель",
+    "closeSidebar": "Закрыть боковую панель",
+    "closeNavigation": "Закрыть навигацию"
   },
   "orders": {
     "detail": {

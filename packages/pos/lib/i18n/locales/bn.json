@@ -111,7 +111,12 @@
     "register": "রেজিস্টার",
     "sales": "বিক্রয়",
     "selectStore": "স্টোর নির্বাচন করুন",
-    "switchStore": "স্টোর বদলান"
+    "switchStore": "স্টোর বদলান",
+    "mainNavigation": "প্রধান নেভিগেশন",
+    "collapseSidebar": "সাইডবার সংকুচিত করুন",
+    "expandSidebar": "সাইডবার প্রসারিত করুন",
+    "closeSidebar": "সাইডবার বন্ধ করুন",
+    "closeNavigation": "নেভিগেশন বন্ধ করুন"
   },
   "orders": {
     "channel": {

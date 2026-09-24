@@ -22,7 +22,8 @@
     "saved": "保存済み",
     "account": "アカウント",
     "signIn": "ログイン",
-    "threeD": "3D"
+    "threeD": "3D",
+    "mainNavigation": "メインナビゲーション"
   },
   "login": {
     "signInButton": "ログイン",

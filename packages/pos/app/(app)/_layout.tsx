@@ -43,6 +43,7 @@ function Shell() {
       header={<AppShellMenuButton accessibilityLabel={t("nav.openNavigation")} />}
       bottomBar={<BottomTabBar />}
       navFrom="md"
+      drawerCloseLabel={t("nav.closeNavigation")}
     >
       {routed}
     </AppShell>

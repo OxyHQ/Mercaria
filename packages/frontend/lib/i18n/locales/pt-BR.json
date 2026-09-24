@@ -22,7 +22,8 @@
     "saved": "Salvos",
     "account": "Conta",
     "signIn": "Entrar",
-    "threeD": "3D"
+    "threeD": "3D",
+    "mainNavigation": "Navegação principal"
   },
   "login": {
     "signInButton": "Entrar",

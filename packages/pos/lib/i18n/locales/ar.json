@@ -111,7 +111,12 @@
     "register": "الصندوق",
     "sales": "المبيعات",
     "selectStore": "اختيار المتجر",
-    "switchStore": "تبديل المتجر"
+    "switchStore": "تبديل المتجر",
+    "mainNavigation": "التنقل الرئيسي",
+    "collapseSidebar": "طيّ الشريط الجانبي",
+    "expandSidebar": "توسيع الشريط الجانبي",
+    "closeSidebar": "إغلاق الشريط الجانبي",
+    "closeNavigation": "إغلاق التنقل"
   },
   "orders": {
     "channel": {

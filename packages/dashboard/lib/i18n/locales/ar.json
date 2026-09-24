@@ -798,7 +798,12 @@
     "openNavigation": "فتح التنقل",
     "orders": "الطلبات",
     "products": "المنتجات",
-    "settings": "الإعدادات"
+    "settings": "الإعدادات",
+    "mainNavigation": "التنقل الرئيسي",
+    "collapseSidebar": "طيّ الشريط الجانبي",
+    "expandSidebar": "توسيع الشريط الجانبي",
+    "closeSidebar": "إغلاق الشريط الجانبي",
+    "closeNavigation": "إغلاق التنقل"
   },
   "orders": {
     "detail": {

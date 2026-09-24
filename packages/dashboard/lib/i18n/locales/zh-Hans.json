@@ -798,7 +798,12 @@
     "openNavigation": "打开导航",
     "orders": "订单",
     "products": "商品",
-    "settings": "设置"
+    "settings": "设置",
+    "mainNavigation": "主导航",
+    "collapseSidebar": "收起侧边栏",
+    "expandSidebar": "展开侧边栏",
+    "closeSidebar": "关闭侧边栏",
+    "closeNavigation": "关闭导航"
   },
   "orders": {
     "detail": {

@@ -37,6 +37,12 @@ export function useDashboardSidebar(): SidebarProps {
     () => ({
       surface: "plain",
       showSearch: false,
+      // Bloom's own chrome labels default to English; every one it draws here
+      // is passed translated.
+      accessibilityLabel: t("nav.mainNavigation"),
+      collapseLabel: t("nav.collapseSidebar"),
+      expandLabel: t("nav.expandSidebar"),
+      closeLabel: t("nav.closeSidebar"),
       showThemeToggle: false,
       collapsed,
       onCollapsedChange: setCollapsed,

@@ -798,7 +798,12 @@
     "openNavigation": "नेविगेशन खोलें",
     "orders": "ऑर्डर",
     "products": "प्रोडक्ट",
-    "settings": "सेटिंग्स"
+    "settings": "सेटिंग्स",
+    "mainNavigation": "मुख्य नेविगेशन",
+    "collapseSidebar": "साइडबार समेटें",
+    "expandSidebar": "साइडबार फैलाएँ",
+    "closeSidebar": "साइडबार बंद करें",
+    "closeNavigation": "नेविगेशन बंद करें"
   },
   "orders": {
     "detail": {

@@ -22,7 +22,8 @@
     "saved": "সংরক্ষিত",
     "account": "অ্যাকাউন্ট",
     "signIn": "সাইন ইন",
-    "threeD": "3D"
+    "threeD": "3D",
+    "mainNavigation": "প্রধান নেভিগেশন"
   },
   "login": {
     "signInButton": "সাইন ইন করুন",

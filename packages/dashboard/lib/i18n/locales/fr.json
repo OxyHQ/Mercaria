@@ -812,7 +812,12 @@
     "openNavigation": "Ouvrir la navigation",
     "orders": "Commandes",
     "products": "Produits",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "mainNavigation": "Navigation principale",
+    "collapseSidebar": "Réduire le menu latéral",
+    "expandSidebar": "Déployer le menu latéral",
+    "closeSidebar": "Fermer la barre latérale",
+    "closeNavigation": "Fermer la navigation"
   },
   "orders": {
     "detail": {

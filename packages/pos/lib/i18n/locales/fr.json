@@ -114,7 +114,12 @@
     "register": "Caisse",
     "sales": "Ventes",
     "selectStore": "Sélectionner une boutique",
-    "switchStore": "Changer de boutique"
+    "switchStore": "Changer de boutique",
+    "mainNavigation": "Navigation principale",
+    "collapseSidebar": "Réduire le menu latéral",
+    "expandSidebar": "Déployer le menu latéral",
+    "closeSidebar": "Fermer la barre latérale",
+    "closeNavigation": "Fermer la navigation"
   },
   "orders": {
     "channel": {

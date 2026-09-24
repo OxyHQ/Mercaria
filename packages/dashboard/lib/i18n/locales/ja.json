@@ -798,7 +798,12 @@
     "openNavigation": "ナビゲーションを開く",
     "orders": "注文",
     "products": "商品",
-    "settings": "設定"
+    "settings": "設定",
+    "mainNavigation": "メインナビゲーション",
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "expandSidebar": "サイドバーを展開",
+    "closeSidebar": "サイドバーを閉じる",
+    "closeNavigation": "ナビゲーションを閉じる"
   },
   "orders": {
     "detail": {

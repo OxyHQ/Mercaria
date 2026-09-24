@@ -41,6 +41,11 @@ export function useStorefrontSidebar(): SidebarProps {
     () => ({
       surface: "plain",
       showSearch: false,
+      // Bloom's own chrome labels default to English; every one it draws here
+      // is passed translated.
+      accessibilityLabel: t("nav.mainNavigation"),
+      collapseLabel: t("shell.sidebar.collapse"),
+      expandLabel: t("shell.sidebar.expand"),
       showThemeToggle: false,
       collapsed,
       onCollapsedChange: setCollapsed,

@@ -114,7 +114,12 @@
     "register": "Caixa",
     "sales": "Vendes",
     "selectStore": "Selecciona una botiga",
-    "switchStore": "Canvia de botiga"
+    "switchStore": "Canvia de botiga",
+    "mainNavigation": "Navegació principal",
+    "collapseSidebar": "Redueix la barra lateral",
+    "expandSidebar": "Amplia la barra lateral",
+    "closeSidebar": "Tanca la barra lateral",
+    "closeNavigation": "Tanca la navegació"
   },
   "orders": {
     "channel": {
