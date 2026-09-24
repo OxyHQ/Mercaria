@@ -288,6 +288,7 @@ export {
   ScreenShell,
   type ScreenShellProps,
 } from "./components/shell/ScreenShell";
+export { toBloomIcon, LucideGlyph, type LucideGlyphProps } from "./lib/bloom-icon";
 
 // ---------------------------------------------------------------------------
 // Dual-currency display
