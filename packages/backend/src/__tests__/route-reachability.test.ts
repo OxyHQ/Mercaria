@@ -39,7 +39,8 @@
  *    known intermittency is Postgres contention.
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
@@ -344,18 +345,49 @@ describe('NEGATIVE CONTROLS: the extractor is context-sensitive, not a literal s
 
   it('an unimported module contributes nothing, however many routes it names', () => {
     // #363's finding, and the reason reachability is a fixpoint rather than a
-    // set of edges: `components/sidebar.tsx` (with `settings-sidebar.tsx`) is a
-    // whole second sidebar carrying a five-entry route table that NOTHING
-    // imports. Its edges are dead. If it ever enters the closure this control
-    // fails, and whoever wired it can retire the control knowingly.
-    const orphan = join(PACKAGES_ROOT, 'frontend', 'components', 'sidebar.tsx');
-    expect(existsSync(orphan), 'the orphan sidebar was deleted; retire this control').toBe(true);
-    expect(navTargetsOf(orphan).length, 'the orphan sidebar names no routes any more').toBeGreaterThan(0);
-    expect(
-      reachabilityOf('frontend').modulesScanned,
-      'components/sidebar.tsx is now imported by something reachable. Its five route entries ' +
-        'are live edges — re-derive the unreachable set before retiring this control.',
-    ).not.toContain(orphan);
+    // set of edges: the storefront once carried a whole second sidebar
+    // (`components/sidebar.tsx` + `settings-sidebar.tsx`) with a five-entry
+    // route table that NOTHING imported. A file-level grep counted those edges
+    // and reported the routes reachable. That orphan has since been deleted, so
+    // the control runs against a synthetic app rather than waiting for the
+    // next one: an unimported module that names `/hidden` must neither enter
+    // the closure nor make `/hidden` reachable.
+    const packagesRoot = mkdtempSync(join(tmpdir(), 'route-reachability-orphan-'));
+    try {
+      const appRoot = join(packagesRoot, 'fixture');
+      mkdirSync(join(appRoot, 'app'), { recursive: true });
+      mkdirSync(join(appRoot, 'components'), { recursive: true });
+      writeFileSync(
+        join(appRoot, 'app', 'index.tsx'),
+        'export default function Home() { return null; }\n',
+      );
+      writeFileSync(
+        join(appRoot, 'app', 'hidden.tsx'),
+        'export default function Hidden() { return null; }\n',
+      );
+      const orphan = join(appRoot, 'components', 'orphan.tsx');
+      writeFileSync(
+        orphan,
+        'import { useRouter } from "expo-router";\n' +
+          'export function Orphan() {\n' +
+          '  const router = useRouter();\n' +
+          '  return () => router.push("/hidden");\n' +
+          '}\n',
+      );
+      expect(navTargetsOf(orphan).length, 'the orphan fixture names no route').toBeGreaterThan(0);
+      const result = analyzeApp({ app: 'fixture', appRoot, packagesRoot });
+      expect(
+        result.modulesScanned,
+        'an unimported module entered the closure — the walk is no longer following imports',
+      ).not.toContain(orphan);
+      expect(
+        result.unreachable,
+        'a route named only by an unimported module reads as reachable — the gate is counting ' +
+          'edges from dead code, which is the exact failure #363 found',
+      ).toContain('/hidden');
+    } finally {
+      rmSync(packagesRoot, { recursive: true, force: true });
+    }
   });
 });
 

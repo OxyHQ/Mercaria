@@ -4,9 +4,7 @@
     "cancel": "Cancelar",
     "confirm": "Confirmar",
     "back": "Voltar",
-    "user": "Usuário",
-    "tryAgain": "Tentar de novo",
-    "processing": "Processando..."
+    "tryAgain": "Tentar de novo"
   },
   "home": {
     "title": "Mercaria",
@@ -15,7 +13,6 @@
   },
   "nav": {
     "home": "Início",
-    "settings": "Configurações",
     "explore": "Explorar",
     "cart": "Carrinho",
     "deals": "Ofertas",
@@ -26,11 +23,9 @@
     "mainNavigation": "Navegação principal"
   },
   "login": {
-    "signInButton": "Entrar",
-    "footerLink": "Criar conta"
+    "signInButton": "Entrar"
   },
   "settings": {
-    "title": "Configurações",
     "account": {
       "title": "Configurações da conta"
     },
@@ -53,7 +48,6 @@
       "general": "Geral",
       "orders": "Pedidos",
       "addresses": "Endereços",
-      "feedback": "Feedback",
       "watchlists": "Listas de interesse",
       "shoppingAgents": "Assistentes de compra",
       "referralPartner": "Programa de indicação"
@@ -64,12 +58,6 @@
       "signedOut": "Entre para salvar sua moeda de exibição preferida.",
       "updateFailed": "Não foi possível atualizar sua moeda de exibição"
     }
-  },
-  "sidebar": {
-    "account": "Conta",
-    "settings": "Configurações",
-    "logOut": "Sair",
-    "privacyPolicy": "Política de Privacidade"
   },
   "feedback": {
     "title": "Enviar feedback",
@@ -1315,10 +1303,6 @@
     "wordmark": "Mercaria"
   },
   "sell": {
-    "sellYours": {
-      "thisOne": "Vender um igual",
-      "yours": "Vender o seu"
-    },
     "fact": {
       "fromProduct": "Do produto — não é uma afirmação sobre o seu item",
       "yourAnswer": "Sua resposta",
@@ -1442,8 +1426,7 @@
   "shell": {
     "sidebar": {
       "expand": "Expandir barra lateral",
-      "collapse": "Recolher barra lateral",
-      "accountMenu": "Menu da conta"
+      "collapse": "Recolher barra lateral"
     },
     "footer": {
       "brand": "Mercaria",

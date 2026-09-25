@@ -4,9 +4,9 @@
  * The question this answers is "can a user get to this screen by tapping from
  * the app root", and the reason it is computed transitively rather than by grep
  * is #363's own finding: `components/sidebar.tsx` and
- * `components/settings/settings-sidebar.tsx` are a second sidebar carrying a
- * five-entry route table that NOTHING imports. A file-level grep counts those
- * five edges and reports the routes reachable. A screen linked only from an
+ * `components/settings/settings-sidebar.tsx` were a second sidebar carrying a
+ * five-entry route table that NOTHING imported (both since deleted). A
+ * file-level grep counted those five edges and reported the routes reachable. A screen linked only from an
  * unreachable screen is still unreachable, so reachability is a fixpoint from
  * the roots, not a set of edges.
  *

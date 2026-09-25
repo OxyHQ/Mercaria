@@ -4,9 +4,7 @@
     "cancel": "Cancel·la",
     "confirm": "Confirma",
     "back": "Enrere",
-    "user": "Usuari",
-    "tryAgain": "Torna-ho a provar",
-    "processing": "Processant..."
+    "tryAgain": "Torna-ho a provar"
   },
   "home": {
     "title": "Mercaria",
@@ -15,7 +13,6 @@
   },
   "nav": {
     "home": "Inici",
-    "settings": "Configuració",
     "explore": "Explora",
     "cart": "Cistella",
     "deals": "Ofertes",
@@ -26,11 +23,9 @@
     "mainNavigation": "Navegació principal"
   },
   "login": {
-    "signInButton": "Inicia la sessió",
-    "footerLink": "Registra't"
+    "signInButton": "Inicia la sessió"
   },
   "settings": {
-    "title": "Configuració",
     "account": {
       "title": "Configuració del compte"
     },
@@ -53,7 +48,6 @@
       "general": "General",
       "orders": "Comandes",
       "addresses": "Adreces",
-      "feedback": "Comentaris",
       "watchlists": "Llistes de seguiment",
       "shoppingAgents": "Agents de compra",
       "referralPartner": "Programa de recomanació"
@@ -64,12 +58,6 @@
       "signedOut": "Inicia la sessió per desar la teva moneda de visualització preferida.",
       "updateFailed": "No s'ha pogut actualitzar la teva moneda de visualització"
     }
-  },
-  "sidebar": {
-    "account": "Compte",
-    "settings": "Configuració",
-    "logOut": "Tanca la sessió",
-    "privacyPolicy": "Política de privadesa"
   },
   "feedback": {
     "title": "Envia comentaris",
@@ -1315,10 +1303,6 @@
     "wordmark": "Mercaria"
   },
   "sell": {
-    "sellYours": {
-      "thisOne": "Ven-ne un d'igual",
-      "yours": "Ven el teu"
-    },
     "fact": {
       "fromProduct": "Del producte — no és una afirmació sobre el teu article",
       "yourAnswer": "La teva resposta",
@@ -1442,8 +1426,7 @@
   "shell": {
     "sidebar": {
       "expand": "Amplia la barra lateral",
-      "collapse": "Replega la barra lateral",
-      "accountMenu": "Menú del compte"
+      "collapse": "Replega la barra lateral"
     },
     "footer": {
       "brand": "Mercaria",

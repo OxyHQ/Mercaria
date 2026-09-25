@@ -4,9 +4,7 @@
     "cancel": "إلغاء",
     "confirm": "تأكيد",
     "back": "رجوع",
-    "user": "المستخدم",
-    "tryAgain": "إعادة المحاولة",
-    "processing": "جارٍ المعالجة..."
+    "tryAgain": "إعادة المحاولة"
   },
   "home": {
     "title": "Mercaria",
@@ -15,7 +13,6 @@
   },
   "nav": {
     "home": "الرئيسية",
-    "settings": "الإعدادات",
     "explore": "استكشاف",
     "cart": "السلة",
     "deals": "العروض",
@@ -26,11 +23,9 @@
     "mainNavigation": "التنقل الرئيسي"
   },
   "login": {
-    "signInButton": "تسجيل الدخول",
-    "footerLink": "إنشاء حساب"
+    "signInButton": "تسجيل الدخول"
   },
   "settings": {
-    "title": "الإعدادات",
     "account": {
       "title": "إعدادات الحساب"
     },
@@ -53,7 +48,6 @@
       "general": "عام",
       "orders": "الطلبات",
       "addresses": "العناوين",
-      "feedback": "الملاحظات",
       "watchlists": "قوائم المتابعة",
       "shoppingAgents": "مساعدو التسوّق",
       "referralPartner": "برنامج الإحالة"
@@ -64,12 +58,6 @@
       "signedOut": "سجّل الدخول لحفظ عملة العرض المفضّلة لديك.",
       "updateFailed": "تعذّر تحديث عملة العرض"
     }
-  },
-  "sidebar": {
-    "account": "الحساب",
-    "settings": "الإعدادات",
-    "logOut": "تسجيل الخروج",
-    "privacyPolicy": "سياسة الخصوصية"
   },
   "feedback": {
     "title": "إرسال ملاحظات",
@@ -1299,10 +1287,6 @@
     "wordmark": "Mercaria"
   },
   "sell": {
-    "sellYours": {
-      "thisOne": "بِع مثل هذه",
-      "yours": "بِع ما لديك"
-    },
     "fact": {
       "fromProduct": "من بيانات المنتج — وليست وصفًا لقطعتك",
       "yourAnswer": "إجابتك",
@@ -1425,8 +1409,7 @@
   "shell": {
     "sidebar": {
       "expand": "توسيع الشريط الجانبي",
-      "collapse": "طي الشريط الجانبي",
-      "accountMenu": "قائمة الحساب"
+      "collapse": "طي الشريط الجانبي"
     },
     "footer": {
       "brand": "Mercaria",

@@ -4,9 +4,7 @@
     "cancel": "キャンセル",
     "confirm": "確認",
     "back": "戻る",
-    "user": "ユーザー",
-    "tryAgain": "再試行",
-    "processing": "処理中…"
+    "tryAgain": "再試行"
   },
   "home": {
     "title": "Mercaria",
@@ -15,7 +13,6 @@
   },
   "nav": {
     "home": "ホーム",
-    "settings": "設定",
     "explore": "さがす",
     "cart": "カート",
     "deals": "セール",
@@ -26,11 +23,9 @@
     "mainNavigation": "メインナビゲーション"
   },
   "login": {
-    "signInButton": "ログイン",
-    "footerLink": "新規登録"
+    "signInButton": "ログイン"
   },
   "settings": {
-    "title": "設定",
     "account": {
       "title": "アカウント設定"
     },
@@ -53,7 +48,6 @@
       "general": "一般",
       "orders": "注文",
       "addresses": "住所",
-      "feedback": "フィードバック",
       "watchlists": "ウォッチリスト",
       "shoppingAgents": "ショッピングアシスタント",
       "referralPartner": "紹介プログラム"
@@ -64,12 +58,6 @@
       "signedOut": "表示通貨の設定を保存するにはログインしてください。",
       "updateFailed": "表示通貨を更新できませんでした"
     }
-  },
-  "sidebar": {
-    "account": "アカウント",
-    "settings": "設定",
-    "logOut": "ログアウト",
-    "privacyPolicy": "プライバシーポリシー"
   },
   "feedback": {
     "title": "フィードバックを送る",
@@ -1299,10 +1287,6 @@
     "wordmark": "Mercaria"
   },
   "sell": {
-    "sellYours": {
-      "thisOne": "これを出品する",
-      "yours": "自分のものを出品する"
-    },
     "fact": {
       "fromProduct": "商品情報から — あなたの品物についての記述ではありません",
       "yourAnswer": "あなたの回答",
@@ -1425,8 +1409,7 @@
   "shell": {
     "sidebar": {
       "expand": "サイドバーを開く",
-      "collapse": "サイドバーを閉じる",
-      "accountMenu": "アカウントメニュー"
+      "collapse": "サイドバーを閉じる"
     },
     "footer": {
       "brand": "Mercaria",

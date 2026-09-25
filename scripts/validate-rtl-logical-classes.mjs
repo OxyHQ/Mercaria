@@ -259,14 +259,6 @@ const KNOWN_EXCEPTIONS = [
       + "native — width and colour alike. Waiting on upstream support.",
   },
   {
-    file: "packages/frontend/components/sidebar.tsx",
-    pattern: "border-r",
-    count: 2,
-    reason:
-      "Sidebar divider, once in each of the component's two return branches — collapsed (desktop rail) "
-      + "and expanded. One divider, two renderings. Same borderInline* limitation as above.",
-  },
-  {
     file: "packages/ui/src/lib/logical-side.ts",
     pattern: "border-",
     count: 2,

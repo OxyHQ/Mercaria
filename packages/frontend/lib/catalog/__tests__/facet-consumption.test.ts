@@ -34,8 +34,8 @@ import {
  * either.
  *
  * The discovery-feed redesign (`docs/superpowers/specs/2026-09-07-discovery-
- * feed-design.md`) then replaced the manual `useListings` +
- * `CategoryListingCard` grid this screen used to render with the feed's own
+ * feed-design.md`) then replaced the manual `useListings` + listing-card
+ * grid this screen used to render (its card component is since deleted) with the feed's own
  * `products` sections, which carry no facet-selection parameter at all. That
  * removed the last SYNTACTIC reference to a mount that already had no live
  * path — a smaller claim than "the redesign orphaned this rail", and the

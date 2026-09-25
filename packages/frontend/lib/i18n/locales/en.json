@@ -4,9 +4,7 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "back": "Back",
-    "user": "User",
-    "tryAgain": "Try Again",
-    "processing": "Processing..."
+    "tryAgain": "Try Again"
   },
   "home": {
     "title": "Mercaria",
@@ -15,7 +13,6 @@
   },
   "nav": {
     "home": "Home",
-    "settings": "Settings",
     "explore": "Explore",
     "cart": "Cart",
     "deals": "Deals",
@@ -26,11 +23,9 @@
     "mainNavigation": "Main navigation"
   },
   "login": {
-    "signInButton": "Sign in",
-    "footerLink": "Sign up"
+    "signInButton": "Sign in"
   },
   "settings": {
-    "title": "Settings",
     "account": {
       "title": "Account Settings"
     },
@@ -53,7 +48,6 @@
       "general": "General",
       "orders": "Orders",
       "addresses": "Addresses",
-      "feedback": "Feedback",
       "watchlists": "Watchlists",
       "shoppingAgents": "Shopping agents",
       "referralPartner": "Referral partner"
@@ -64,12 +58,6 @@
       "signedOut": "Sign in to save your preferred display currency.",
       "updateFailed": "Couldn't update your display currency"
     }
-  },
-  "sidebar": {
-    "account": "Account",
-    "settings": "Settings",
-    "logOut": "Log out",
-    "privacyPolicy": "Privacy Policy"
   },
   "feedback": {
     "title": "Send Feedback",
@@ -1299,10 +1287,6 @@
     "wordmark": "Mercaria"
   },
   "sell": {
-    "sellYours": {
-      "thisOne": "Sell this one",
-      "yours": "Sell yours"
-    },
     "fact": {
       "fromProduct": "From the product — not a statement about your item",
       "yourAnswer": "Your answer",
@@ -1425,8 +1409,7 @@
   "shell": {
     "sidebar": {
       "expand": "Expand sidebar",
-      "collapse": "Collapse sidebar",
-      "accountMenu": "Account menu"
+      "collapse": "Collapse sidebar"
     },
     "footer": {
       "brand": "Mercaria",

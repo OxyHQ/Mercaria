@@ -4,9 +4,7 @@
     "cancel": "取消",
     "confirm": "确认",
     "back": "返回",
-    "user": "用户",
-    "tryAgain": "重试",
-    "processing": "处理中…"
+    "tryAgain": "重试"
   },
   "home": {
     "title": "Mercaria",
@@ -15,7 +13,6 @@
   },
   "nav": {
     "home": "首页",
-    "settings": "设置",
     "explore": "发现",
     "cart": "购物车",
     "deals": "优惠",
@@ -26,11 +23,9 @@
     "mainNavigation": "主导航"
   },
   "login": {
-    "signInButton": "登录",
-    "footerLink": "注册"
+    "signInButton": "登录"
   },
   "settings": {
-    "title": "设置",
     "account": {
       "title": "账号设置"
     },
@@ -53,7 +48,6 @@
       "general": "通用",
       "orders": "订单",
       "addresses": "收货地址",
-      "feedback": "意见反馈",
       "watchlists": "关注清单",
       "shoppingAgents": "购物助手",
       "referralPartner": "推荐伙伴"
@@ -64,12 +58,6 @@
       "signedOut": "登录后即可保存你偏好的显示货币。",
       "updateFailed": "无法更新你的显示货币"
     }
-  },
-  "sidebar": {
-    "account": "账号",
-    "settings": "设置",
-    "logOut": "退出登录",
-    "privacyPolicy": "隐私政策"
   },
   "feedback": {
     "title": "发送反馈",
@@ -1299,10 +1287,6 @@
     "wordmark": "Mercaria"
   },
   "sell": {
-    "sellYours": {
-      "thisOne": "卖这一款",
-      "yours": "卖你的"
-    },
     "fact": {
       "fromProduct": "来自商品信息 —— 不代表你这件东西的情况",
       "yourAnswer": "你的填写",
@@ -1425,8 +1409,7 @@
   "shell": {
     "sidebar": {
       "expand": "展开侧边栏",
-      "collapse": "收起侧边栏",
-      "accountMenu": "账户菜单"
+      "collapse": "收起侧边栏"
     },
     "footer": {
       "brand": "Mercaria",
