@@ -50,7 +50,7 @@
  * import the REAL module and run it, rather than scan the source for a spelling.
  *
  * `packages/ui/src/lib/logical-side.ts` is importable here precisely because it
- * imports nothing itself. Its sibling `use-layout-direction.ts` needs
+ * imports nothing itself. The direction READ (Bloom's `useIsRtl`) needs
  * `I18nManager` and cannot run outside a bundler — which is why READING the
  * direction was split from DECIDING what follows from it, the same split
  * `rtl-locales.ts` and `layout-direction.ts` already have.

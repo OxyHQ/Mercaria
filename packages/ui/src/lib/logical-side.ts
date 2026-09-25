@@ -44,7 +44,7 @@
  * only place a property of theirs can be asserted — and a guard can only run a
  * module a plain `bun scripts/…` can import. Anything touching `I18nManager` or
  * `react-native` is unreachable from there, which is why READING the direction
- * lives in `./use-layout-direction` and DECIDING what follows from it lives
+ * lives in Bloom's `useIsRtl` and DECIDING what follows from it lives
  * here. `scripts/validate-logical-side.mjs` executes these four functions.
  *
  * ## What it cannot tell you
