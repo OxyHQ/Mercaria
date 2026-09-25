@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, View } from "react-native";
 import { Plus, X } from "lucide-react-native";
+import { Badge } from "@oxy.so/bloom/badge";
 import type { AuthoringField, AuthoringSchema, ProductTypeFieldRequirement } from "@mercaria/shared-types";
 import { Input, Label, Switch, Text, Textarea, useColorScheme } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
@@ -157,16 +158,22 @@ function RequirementBadge({ requirement }: { requirement: ProductTypeFieldRequir
   const { t } = useTranslation();
   if (requirement === "required") {
     return (
-      <Text className="text-xs font-medium text-destructive">
-        {t("products.wizard.fields.required")}
-      </Text>
+      <Badge
+        size="label-small"
+        variant="subtle"
+        color="error"
+        content={t("products.wizard.fields.required")}
+      />
     );
   }
   if (requirement === "recommended") {
     return (
-      <Text className="text-xs font-medium text-muted-foreground">
-        {t("products.wizard.fields.recommended")}
-      </Text>
+      <Badge
+        size="label-small"
+        variant="subtle"
+        color="default"
+        content={t("products.wizard.fields.recommended")}
+      />
     );
   }
   return null;

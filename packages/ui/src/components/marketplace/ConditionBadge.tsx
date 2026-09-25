@@ -1,4 +1,5 @@
 import { View } from "react-native";
+import { Badge } from "@oxy.so/bloom/badge";
 import { Text } from "../ui/text";
 import {
   CONDITION_A11Y_LABEL_KEY,
@@ -45,7 +46,7 @@ export function ConditionBadge({ condition, showExplanation = false }: Condition
   return (
     <View className="gap-space-4">
       <View
-        className="self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6"
+        className="self-start"
         accessibilityRole="text"
         // The label alone would announce "Good" with no subject. Naming what it
         // is ABOUT is the `ReviewStars` `scopeLabel` decision, one component
@@ -53,7 +54,7 @@ export function ConditionBadge({ condition, showExplanation = false }: Condition
         // screen reader cannot tell them apart from the value alone.
         accessibilityLabel={t(CONDITION_A11Y_LABEL_KEY, { label })}
       >
-        <Text className="text-captionBold text-text">{label}</Text>
+        <Badge size="label-medium" variant="subtle" color="default" content={label} />
       </View>
       {showExplanation ? (
         <Text className="text-caption text-text-secondary">

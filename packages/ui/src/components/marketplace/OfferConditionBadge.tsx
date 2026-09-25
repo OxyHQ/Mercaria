@@ -1,4 +1,5 @@
 import { View } from "react-native";
+import { Badge } from "@oxy.so/bloom/badge";
 import type { OfferConditionDTO } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import {
@@ -51,11 +52,11 @@ export function OfferConditionBadge({
   return (
     <View className="gap-space-4">
       <View
-        className="self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6"
+        className="self-start"
         accessibilityRole="text"
         accessibilityLabel={key === "unknown" ? label : t(CONDITION_A11Y_LABEL_KEY, { label })}
       >
-        <Text className="text-captionBold text-text">{label}</Text>
+        <Badge size="label-medium" variant="subtle" color="default" content={label} />
       </View>
       {showExplanation && key !== "unknown" ? (
         <Text className="text-caption text-text-secondary">{t(conditionExplanationKey(key))}</Text>

@@ -25,6 +25,7 @@ import {
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { toast } from "@oxy.so/bloom/toast";
+import { Badge } from "@oxy.so/bloom/badge";
 import { useOrder, useCancelOrder } from "@/lib/hooks/use-orders";
 import { useOrderCollection } from "@/lib/hooks/use-nearby";
 import { ORDER_STATUS_LABEL_KEYS } from "@/lib/order-status";
@@ -132,12 +133,17 @@ function RetailProgressCard({ retail }: { retail: RetailOrderExperience }) {
   );
 }
 
-/** Small status chip. */
+/** Small status pill: a neutral Bloom `Badge` — the words carry the status. */
 function StatusPill({ status }: { status: OrderStatus }) {
   const { t } = useTranslation();
   return (
-    <View className="self-start rounded-full bg-muted px-3 py-1">
-      <Text className="text-xs font-semibold text-foreground">{t(ORDER_STATUS_LABEL_KEYS[status])}</Text>
+    <View className="self-start">
+      <Badge
+        size="label-medium"
+        variant="subtle"
+        color="default"
+        content={t(ORDER_STATUS_LABEL_KEYS[status])}
+      />
     </View>
   );
 }

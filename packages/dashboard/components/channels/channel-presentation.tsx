@@ -15,6 +15,8 @@
 import React from "react";
 import { View } from "react-native";
 import { AlertTriangle, Info, ShieldAlert } from "lucide-react-native";
+import { Badge } from "@oxy.so/bloom/badge";
+import type { AccentTone } from "@oxy.so/bloom/theme";
 import type {
   ChannelConnectionState,
   ChannelEntityAbsenceReason,
@@ -35,18 +37,15 @@ import { Text, formatDate, formatDateTime, useColorScheme, type Translate } from
 import { useTranslation } from "@/lib/i18n";
 
 /**
- * The five states a channel row can be in, and their colours.
- *
- * The dashboard has no `Badge` primitive; the convention is a `Record<State,
- * string>` of Tailwind classes on an inline `View`, which is what the products
- * list and the pre-#87 channels list both do.
+ * The five states a channel row can be in, and their tones — painted as a
+ * `subtle` Bloom `Badge`, the fleet's pill for a status that is READ.
  */
-const STATE_STYLES: Record<ChannelConnectionState, string> = {
-  healthy: "bg-primary/10 text-primary",
-  attention: "bg-destructive/10 text-destructive",
-  paused: "bg-muted text-muted-foreground",
-  error: "bg-destructive/10 text-destructive",
-  not_connected: "bg-muted text-muted-foreground",
+const STATE_TONES: Record<ChannelConnectionState, AccentTone> = {
+  healthy: "primary",
+  attention: "error",
+  paused: "default",
+  error: "error",
+  not_connected: "default",
 };
 
 /**
@@ -69,13 +68,13 @@ const STATE_LABEL_KEYS: Record<ChannelConnectionState, string> = {
 /** A channel's current state, as a pill. */
 export function ChannelStateBadge({ state }: { state: ChannelConnectionState }) {
   const { t } = useTranslation();
-  const classes = STATE_STYLES[state];
   return (
-    <View className={`rounded-full px-2 py-0.5 ${classes}`}>
-      <Text className={`text-[10px] font-semibold ${classes.split(" ")[1]}`}>
-        {t(STATE_LABEL_KEYS[state])}
-      </Text>
-    </View>
+    <Badge
+      size="label-small"
+      variant="subtle"
+      color={STATE_TONES[state]}
+      content={t(STATE_LABEL_KEYS[state])}
+    />
   );
 }
 
@@ -88,18 +87,13 @@ export function ChannelStateBadge({ state }: { state: ChannelConnectionState }) 
  */
 export function NativeCheckoutBadge({ supported }: { supported: boolean }) {
   const { t } = useTranslation();
-  return supported ? (
-    <View className="rounded-full bg-primary/10 px-2 py-0.5">
-      <Text className="text-[10px] font-semibold text-primary">
-        {t("channels.badge.sellsOnMercaria")}
-      </Text>
-    </View>
-  ) : (
-    <View className="rounded-full bg-muted px-2 py-0.5">
-      <Text className="text-[10px] font-semibold text-muted-foreground">
-        {t("channels.badge.comparisonOnly")}
-      </Text>
-    </View>
+  return (
+    <Badge
+      size="label-small"
+      variant="subtle"
+      color={supported ? "primary" : "default"}
+      content={supported ? t("channels.badge.sellsOnMercaria") : t("channels.badge.comparisonOnly")}
+    />
   );
 }
 
