@@ -6,12 +6,13 @@ import { ChevronLeft, Plus, Trash2, ShieldCheck } from "lucide-react-native";
 import type { StoreMember, StoreRole } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
   Input,
   Label,
   useColorScheme,
   formatDate,
+  toBloomIcon,
 } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import {
   SegmentedControl,
@@ -72,13 +73,12 @@ function MembersBody({ storeId }: { storeId: string }) {
         <ChevronLeft size={16} color={colors.foreground} />
         <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
       </Pressable>
-      <Button onPress={() => inviteControl.open()}>
-        <View className="flex-row items-center gap-2">
-          <Plus size={16} color={colors.primaryForeground} />
-          <Text className="font-semibold text-primary-foreground">
-            {t("settings.members.invite")}
-          </Text>
-        </View>
+      <Button
+        tone="accent"
+        leadingIcon={toBloomIcon(Plus)}
+        onPress={() => inviteControl.open()}
+      >
+        {t("settings.members.invite")}
       </Button>
     </View>
   );
@@ -248,10 +248,8 @@ function InviteMemberDialog({
             ))}
           </SegmentedControl>
         </View>
-        <Button onPress={submit} isLoading={inviteMember.isPending} className="mt-1">
-          <Text className="font-semibold text-primary-foreground">
-            {t("settings.members.addMember")}
-          </Text>
+        <Button tone="accent" onPress={submit} loading={inviteMember.isPending} className="mt-1">
+          {t("settings.members.addMember")}
         </Button>
       </View>
     </Dialog>

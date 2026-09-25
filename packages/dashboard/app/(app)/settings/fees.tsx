@@ -12,7 +12,8 @@ import {
   type FeeTaxTreatment,
   type StoreFeeScheduleView,
 } from "@mercaria/shared-types";
-import { Text, Button, formatDate, useColorScheme, useFormatters } from "@mercaria/ui";
+import { Text, formatDate, useColorScheme, useFormatters } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -291,8 +292,8 @@ function AcceptAction({
   }
 
   return (
-    <Button className="mt-3" isLoading={accept.isPending} disabled={accept.isPending} onPress={onAccept}>
-      <Text>{t("settings.fees.pending.action")}</Text>
+    <Button tone="accent" className="mt-3" loading={accept.isPending} disabled={accept.isPending} onPress={onAccept}>
+      {t("settings.fees.pending.action")}
     </Button>
   );
 }
@@ -338,14 +339,13 @@ function FeeExample({ storeId, schedule }: { storeId: string; schedule: FeeSched
         {EXAMPLE_MAJOR_UNITS.map((major) => (
           <Button
             key={major}
-            variant="outline"
+            appearance="outline"
+            tone="neutral"
             size="sm"
             disabled={preview.isPending}
             onPress={() => onPreview(major, currency)}
           >
-            <Text>
-              {formatMoney({ amount: major * 10 ** CURRENCY_PRECISION[currency], currency })}
-            </Text>
+            {formatMoney({ amount: major * 10 ** CURRENCY_PRECISION[currency], currency })}
           </Button>
         ))}
       </View>

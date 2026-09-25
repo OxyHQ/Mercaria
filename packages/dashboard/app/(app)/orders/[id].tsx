@@ -8,7 +8,6 @@ import { ChevronLeft } from "lucide-react-native";
 import type { MerchantOrder, OrderItem, Refund, RefundProviderState } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
   Input,
   Label,
   PriceDisplay,
@@ -17,6 +16,7 @@ import {
   formatRegionName,
   useColorScheme,
 } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
@@ -410,17 +410,12 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
               <Button
                 key={s.key}
                 size="sm"
-                variant={s.key === "cancelled" ? "outline" : "default"}
+                appearance={s.key === "cancelled" ? "outline" : "solid"}
+                tone={s.key === "cancelled" ? "neutral" : "accent"}
                 onPress={() => transition(s.key)}
-                isLoading={patch.isPending}
+                loading={patch.isPending}
               >
-                <Text
-                  className={`text-sm font-medium ${
-                    s.key === "cancelled" ? "text-foreground" : "text-primary-foreground"
-                  }`}
-                >
-                  {t(s.labelKey)}
-                </Text>
+                {t(s.labelKey)}
               </Button>
             ))}
           </View>
@@ -428,10 +423,8 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
       ) : null}
 
       {canRefund ? (
-        <Button variant="destructive" className="mt-4 self-start" size="sm" onPress={() => refundControl.open()}>
-          <Text className="text-sm font-semibold text-destructive-foreground">
-            {t("orders.detail.refund")}
-          </Text>
+        <Button tone="danger" className="mt-4 self-start" size="sm" onPress={() => refundControl.open()}>
+          {t("orders.detail.refund")}
         </Button>
       ) : null}
 
@@ -521,10 +514,8 @@ function RefundDialog({
             placeholder={t("orders.refund.reasonPlaceholder")}
           />
         </View>
-        <Button variant="destructive" onPress={submit} isLoading={createRefund.isPending} className="mt-1">
-          <Text className="font-semibold text-destructive-foreground">
-            {t("orders.refund.submit")}
-          </Text>
+        <Button tone="danger" onPress={submit} loading={createRefund.isPending} className="mt-1">
+          {t("orders.refund.submit")}
         </Button>
       </View>
     </Dialog>

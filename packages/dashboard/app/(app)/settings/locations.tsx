@@ -6,11 +6,12 @@ import { ChevronLeft, Plus, Trash2, MapPin } from "lucide-react-native";
 import type { Location, LocationType } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
   Input,
   Label,
   useColorScheme,
+  toBloomIcon,
 } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import {
   SegmentedControl,
@@ -72,11 +73,12 @@ function LocationsBody({ storeId }: { storeId: string }) {
         <ChevronLeft size={16} color={colors.foreground} />
         <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
       </Pressable>
-      <Button onPress={() => createControl.open()}>
-        <View className="flex-row items-center gap-2">
-          <Plus size={16} color={colors.primaryForeground} />
-          <Text className="font-semibold text-primary-foreground">{t("common.new")}</Text>
-        </View>
+      <Button
+        tone="accent"
+        leadingIcon={toBloomIcon(Plus)}
+        onPress={() => createControl.open()}
+      >
+        {t("common.new")}
       </Button>
     </View>
   );
@@ -204,8 +206,8 @@ function CreateLocationDialog({
             ))}
           </SegmentedControl>
         </View>
-        <Button onPress={submit} isLoading={createLocation.isPending} className="mt-1">
-          <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
+        <Button tone="accent" onPress={submit} loading={createLocation.isPending} className="mt-1">
+          {t("common.create")}
         </Button>
       </View>
     </Dialog>

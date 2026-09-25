@@ -6,11 +6,12 @@ import { ChevronLeft, Plus, Trash2, Percent } from "lucide-react-native";
 import type { TaxRate } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
   Input,
   Label,
   useColorScheme,
+  toBloomIcon,
 } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
@@ -51,13 +52,12 @@ function TaxBody({ storeId }: { storeId: string }) {
         <ChevronLeft size={16} color={colors.foreground} />
         <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
       </Pressable>
-      <Button onPress={() => createControl.open()}>
-        <View className="flex-row items-center gap-2">
-          <Plus size={16} color={colors.primaryForeground} />
-          <Text className="font-semibold text-primary-foreground">
-            {t("settings.tax.newRate")}
-          </Text>
-        </View>
+      <Button
+        tone="accent"
+        leadingIcon={toBloomIcon(Plus)}
+        onPress={() => createControl.open()}
+      >
+        {t("settings.tax.newRate")}
       </Button>
     </View>
   );
@@ -198,8 +198,8 @@ function CreateTaxRateDialog({
             />
           </View>
         </View>
-        <Button onPress={submit} isLoading={createTaxRate.isPending} className="mt-1">
-          <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
+        <Button tone="accent" onPress={submit} loading={createTaxRate.isPending} className="mt-1">
+          {t("common.create")}
         </Button>
       </View>
     </Dialog>

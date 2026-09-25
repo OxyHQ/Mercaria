@@ -4,7 +4,8 @@ import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft } from "lucide-react-native";
 import type { Store } from "@mercaria/shared-types";
-import { Text, Button, Input, Label, Textarea, useColorScheme } from "@mercaria/ui";
+import { Text, Input, Label, Textarea, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Switch } from "@oxy.so/bloom/switch";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
@@ -160,10 +161,8 @@ function PoliciesForm({ storeId, store }: { storeId: string; store: Store }) {
         </View>
       </View>
 
-      <Button onPress={save} isLoading={updateSettings.isPending} className="self-start">
-        <Text className="font-semibold text-primary-foreground">
-          {t("settings.policies.saveSettings")}
-        </Text>
+      <Button tone="accent" onPress={save} loading={updateSettings.isPending} className="self-start">
+        {t("settings.policies.saveSettings")}
       </Button>
     </View>
   );

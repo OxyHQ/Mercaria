@@ -8,11 +8,12 @@ import { Check, Plus, Store as StoreIcon } from "lucide-react-native";
 import type { Store } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
   Input,
   Label,
   useColorScheme,
+  toBloomIcon,
 } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
@@ -35,11 +36,12 @@ export default function StoresScreen() {
   };
 
   const action = (
-    <Button onPress={() => createControl.open()}>
-      <View className="flex-row items-center gap-2">
-        <Plus size={16} color={colors.primaryForeground} />
-        <Text className="font-semibold text-primary-foreground">{t("stores.newStore")}</Text>
-      </View>
+    <Button
+      tone="accent"
+      leadingIcon={toBloomIcon(Plus)}
+      onPress={() => createControl.open()}
+    >
+      {t("stores.newStore")}
     </Button>
   );
 
@@ -157,10 +159,8 @@ function CreateStoreDialog({
             placeholder={t("stores.create.descriptionPlaceholder")}
           />
         </View>
-        <Button onPress={submit} isLoading={createStore.isPending} className="mt-2">
-          <Text className="font-semibold text-primary-foreground">
-            {t("stores.createStore")}
-          </Text>
+        <Button tone="accent" onPress={submit} loading={createStore.isPending} className="mt-2">
+          {t("stores.createStore")}
         </Button>
       </View>
     </Dialog>

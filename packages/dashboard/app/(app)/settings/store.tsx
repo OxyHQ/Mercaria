@@ -4,7 +4,8 @@ import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft } from "lucide-react-native";
 import type { Store } from "@mercaria/shared-types";
-import { Text, Button, Input, Label, Textarea, ColorPicker, useColorScheme } from "@mercaria/ui";
+import { Text, Input, Label, Textarea, ColorPicker, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -103,10 +104,8 @@ function StoreProfileForm({ storeId, store }: { storeId: string; store: Store })
         onSelect={setBrandColor}
       />
 
-      <Button onPress={save} isLoading={updateStore.isPending} className="self-start">
-        <Text className="font-semibold text-primary-foreground">
-          {t("settings.store.saveChanges")}
-        </Text>
+      <Button tone="accent" onPress={save} loading={updateStore.isPending} className="self-start">
+        {t("settings.store.saveChanges")}
       </Button>
     </View>
   );

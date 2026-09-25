@@ -10,12 +10,13 @@ import type {
 } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
   Input,
   Label,
   useColorScheme,
   type Translate,
+  toBloomIcon,
 } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import {
   SegmentedControl,
@@ -48,7 +49,6 @@ export default function DiscountsScreen() {
 }
 
 function DiscountsBody({ storeId }: { storeId: string }) {
-  const { colors } = useColorScheme();
   const { t } = useTranslation();
   const { data, isPending, isError } = useDiscounts(storeId);
   const deleteDiscount = useDeleteDiscount(storeId);
@@ -57,11 +57,12 @@ function DiscountsBody({ storeId }: { storeId: string }) {
   const action = (
     <View className="flex-row items-center gap-2">
       <StoreSwitcher />
-      <Button onPress={() => createControl.open()}>
-        <View className="flex-row items-center gap-2">
-          <Plus size={16} color={colors.primaryForeground} />
-          <Text className="font-semibold text-primary-foreground">{t("common.new")}</Text>
-        </View>
+      <Button
+        tone="accent"
+        leadingIcon={toBloomIcon(Plus)}
+        onPress={() => createControl.open()}
+      >
+        {t("common.new")}
       </Button>
     </View>
   );
@@ -280,8 +281,8 @@ function CreateDiscountDialog({
           </Label>
           <Input value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder={valueType === "percentage" ? "20" : "10.00"} />
         </View>
-        <Button onPress={submit} isLoading={createDiscount.isPending} className="mt-1">
-          <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
+        <Button tone="accent" onPress={submit} loading={createDiscount.isPending} className="mt-1">
+          {t("common.create")}
         </Button>
       </View>
     </Dialog>

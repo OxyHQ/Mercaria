@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { View } from "react-native";
 import type { PickupCollectionEventKind } from "@mercaria/shared-types";
 import {
-  Button,
   Input,
   Label,
   ORDER_PICKUP_STATE_EXPLANATION_KEYS,
@@ -12,6 +11,7 @@ import {
   formatDateTime,
   formatPublicAddress,
 } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import {
   useOrderPickup,
@@ -124,12 +124,11 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
         <View className="gap-3">
           {pickup.state === "awaiting_preparation" ? (
             <Button
+              tone="accent"
               disabled={act.isPending}
               onPress={() => run({ kind: "ready" }, t("orders.pickup.toast.markedReady"))}
             >
-              <Text className="text-sm font-semibold text-primary-foreground">
-                {t("orders.pickup.markReady")}
-              </Text>
+              {t("orders.pickup.markReady")}
             </Button>
           ) : null}
 
@@ -145,15 +144,14 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               autoCorrect={false}
             />
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={act.isPending || code.trim().length === 0}
               onPress={() =>
                 run({ kind: "collect", code: code.trim() }, t("orders.pickup.toast.collected"))
               }
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("orders.pickup.checkCodeAndHandOver")}
-              </Text>
+              {t("orders.pickup.checkCodeAndHandOver")}
             </Button>
           </View>
 
@@ -173,7 +171,8 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               placeholder={t("orders.pickup.overridePlaceholder")}
             />
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={act.isPending || overrideReason.trim().length === 0}
               onPress={() =>
                 run(
@@ -182,9 +181,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
                 )
               }
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("orders.pickup.handOverWithOverride")}
-              </Text>
+              {t("orders.pickup.handOverWithOverride")}
             </Button>
             <Text className="text-xs text-muted-foreground">
               {t("orders.pickup.overrideNote")}
@@ -201,7 +198,8 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               placeholder={t("orders.pickup.rotatePlaceholder")}
             />
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={rotate.isPending || rotateReason.trim().length === 0}
               onPress={() =>
                 rotate.mutate(rotateReason.trim(), {
@@ -213,9 +211,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
                 })
               }
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("orders.pickup.rotate")}
-              </Text>
+              {t("orders.pickup.rotate")}
             </Button>
             {/*
               Shown ONCE, right here, because the shop has to read it to the
@@ -245,7 +241,8 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               placeholder={t("orders.pickup.cancelPlaceholder")}
             />
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={act.isPending || cancelReason.trim().length === 0}
               onPress={() =>
                 run(
@@ -254,9 +251,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
                 )
               }
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("orders.pickup.cancelCollection")}
-              </Text>
+              {t("orders.pickup.cancelCollection")}
             </Button>
             <Text className="text-xs text-muted-foreground">
               {t("orders.pickup.cancelNote")}

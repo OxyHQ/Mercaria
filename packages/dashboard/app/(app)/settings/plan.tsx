@@ -10,7 +10,8 @@ import type {
   MerchantPlanStatusView,
   MerchantSubscriptionStatus,
 } from "@mercaria/shared-types";
-import { Text, Button, formatDate, useColorScheme, useFormatters } from "@mercaria/ui";
+import { Text, formatDate, useColorScheme, useFormatters } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -244,12 +245,13 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
 
       {status.portalAvailable ? (
         <View className="mt-4 flex-row gap-2">
-          <Button onPress={openPortal} disabled={portal.isPending || opening}>
+          <Button tone="accent" onPress={openPortal} disabled={portal.isPending || opening}>
             {t("settings.plan.manageBilling")}
           </Button>
           {subscription && !subscription.cancelAt ? (
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               onPress={() => {
                 cancel.mutate(undefined, {
                   onError: () => toast.error(t("settings.plan.cancelFailed")),
@@ -422,7 +424,7 @@ function UpgradeAction({ storeId, plan }: { storeId: string; plan: MerchantPlanC
 
   return (
     <View className="mt-3">
-      <Button onPress={upgrade} disabled={checkout.isPending || opening}>
+      <Button tone="accent" onPress={upgrade} disabled={checkout.isPending || opening}>
         {t("settings.plan.choosePlan", { plan: plan.name })}
       </Button>
     </View>

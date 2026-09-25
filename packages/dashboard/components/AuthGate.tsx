@@ -1,7 +1,8 @@
 import React from "react";
 import { View } from "react-native";
 import { useOxy, openAccountDialog } from "@oxy.so/services";
-import { Text, Button } from "@mercaria/ui";
+import { Text } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Logo } from "@/components/Logo";
 import { ScreenLoading } from "@/components/shell/Screen";
 import { useTranslation } from "@/lib/i18n";
@@ -47,8 +48,8 @@ function SignInScreen() {
         <Text className="mt-2 text-center text-sm text-muted-foreground">
           {t("auth.signInBody")}
         </Text>
-        <Button className="mt-8 w-full" onPress={() => openAccountDialog()}>
-          <Text className="font-semibold text-primary-foreground">{t("auth.signInAction")}</Text>
+        <Button tone="accent" className="mt-8 w-full" onPress={() => openAccountDialog()}>
+          {t("auth.signInAction")}
         </Button>
       </View>
     </View>
