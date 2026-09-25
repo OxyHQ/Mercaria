@@ -1,5 +1,6 @@
 import { View } from "react-native";
-import { Button, Text } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
+import { Text, toBloomIcon } from "@mercaria/ui";
 import { useOxy } from "@oxy.so/services";
 import { useRouter, type RoutePath } from "expo-router";
 import { useTranslation } from "@/lib/i18n";
@@ -39,26 +40,24 @@ export function AccountSection() {
       {/* Commerce shortcuts */}
       <View className="gap-2">
         <Button
-          variant="outline"
+          appearance="outline"
+          tone="neutral"
           onPress={go("/(app)/orders")}
-          className="flex-row items-center justify-between"
+          leadingIcon={toBloomIcon(Package)}
+          trailingIcon={toBloomIcon(ChevronRight)}
+          textStyle={{ flex: 1 }}
         >
-          <View className="flex-row items-center gap-2">
-            <Package size={16} className="text-muted-foreground" />
-            <Text className="text-sm font-medium">{t("settings.sections.orders")}</Text>
-          </View>
-          <ChevronRight size={16} className="text-muted-foreground" />
+          {t("settings.sections.orders")}
         </Button>
         <Button
-          variant="outline"
+          appearance="outline"
+          tone="neutral"
           onPress={go("/(app)/settings/addresses")}
-          className="flex-row items-center justify-between"
+          leadingIcon={toBloomIcon(MapPin)}
+          trailingIcon={toBloomIcon(ChevronRight)}
+          textStyle={{ flex: 1 }}
         >
-          <View className="flex-row items-center gap-2">
-            <MapPin size={16} className="text-muted-foreground" />
-            <Text className="text-sm font-medium">{t("settings.sections.addresses")}</Text>
-          </View>
-          <ChevronRight size={16} className="text-muted-foreground" />
+          {t("settings.sections.addresses")}
         </Button>
         {/*
           The three rows below are the ONLY inbound edge each of these screens
@@ -75,26 +74,24 @@ export function AccountSection() {
           unreachable, and giving it an entry point is a separate decision.
         */}
         <Button
-          variant="outline"
+          appearance="outline"
+          tone="neutral"
           onPress={go("/(app)/watchlists")}
-          className="flex-row items-center justify-between"
+          leadingIcon={toBloomIcon(ListChecks)}
+          trailingIcon={toBloomIcon(ChevronRight)}
+          textStyle={{ flex: 1 }}
         >
-          <View className="flex-row items-center gap-2">
-            <ListChecks size={16} className="text-muted-foreground" />
-            <Text className="text-sm font-medium">{t("settings.sections.watchlists")}</Text>
-          </View>
-          <ChevronRight size={16} className="text-muted-foreground" />
+          {t("settings.sections.watchlists")}
         </Button>
         <Button
-          variant="outline"
+          appearance="outline"
+          tone="neutral"
           onPress={go("/(app)/shopping-agents")}
-          className="flex-row items-center justify-between"
+          leadingIcon={toBloomIcon(Bot)}
+          trailingIcon={toBloomIcon(ChevronRight)}
+          textStyle={{ flex: 1 }}
         >
-          <View className="flex-row items-center gap-2">
-            <Bot size={16} className="text-muted-foreground" />
-            <Text className="text-sm font-medium">{t("settings.sections.shoppingAgents")}</Text>
-          </View>
-          <ChevronRight size={16} className="text-muted-foreground" />
+          {t("settings.sections.shoppingAgents")}
         </Button>
         {/*
           Shown to every signed-in account, enrolled or not, because that is
@@ -105,26 +102,26 @@ export function AccountSection() {
           Gating this row on enrolment would make enrolment unreachable.
         */}
         <Button
-          variant="outline"
+          appearance="outline"
+          tone="neutral"
           onPress={go("/(app)/referral-partner")}
-          className="flex-row items-center justify-between"
+          leadingIcon={toBloomIcon(Users)}
+          trailingIcon={toBloomIcon(ChevronRight)}
+          textStyle={{ flex: 1 }}
         >
-          <View className="flex-row items-center gap-2">
-            <Users size={16} className="text-muted-foreground" />
-            <Text className="text-sm font-medium">{t("settings.sections.referralPartner")}</Text>
-          </View>
-          <ChevronRight size={16} className="text-muted-foreground" />
+          {t("settings.sections.referralPartner")}
         </Button>
       </View>
 
       {/* Manage Account */}
       <Button
-        variant="outline"
+        appearance="outline"
+        tone="neutral"
         onPress={() => showBottomSheet?.("ManageAccount")}
-        className="flex-row items-center justify-between"
+        trailingIcon={toBloomIcon(ChevronRight)}
+        textStyle={{ flex: 1 }}
       >
-        <Text className="text-sm font-medium">{t("settings.account.title")}</Text>
-        <ChevronRight size={16} className="text-muted-foreground" />
+        {t("settings.account.title")}
       </Button>
     </View>
   );

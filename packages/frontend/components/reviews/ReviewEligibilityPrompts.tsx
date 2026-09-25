@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { Button } from "@oxy.so/bloom/button";
 import { View } from "react-native";
 import { RatingInput } from "@oxy.so/bloom/rating";
 import type { ReviewEligibility, ReviewScope } from "@mercaria/shared-types";
-import { Button, Text, Textarea } from "@mercaria/ui";
+import { Text, Textarea } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 import { REVIEW_SCOPE_HEADING_KEYS, useCreateReview, useReviewEligibilities } from "@/lib/hooks/use-reviews";
 
@@ -183,12 +184,14 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
       ) : null}
 
       <Button
+
+        tone="accent"
         size="sm"
         disabled={rating === null || createReview.isPending}
-        isLoading={createReview.isPending}
+        loading={createReview.isPending}
         onPress={submit}
       >
-        <Text className="text-sm font-medium">{t("reviews.publishAction")}</Text>
+        {t("reviews.publishAction")}
       </Button>
     </View>
   );

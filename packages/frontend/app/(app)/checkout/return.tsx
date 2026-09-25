@@ -35,12 +35,13 @@
  */
 
 import { useEffect } from "react";
+import { Button } from "@oxy.so/bloom/button";
 import Head from "expo-router/head";
 import { View } from "react-native";
-import { Link, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useOxy } from "@oxy.so/services";
 import { track } from "../../../lib/analytics";
-import { Button, SectionHeader, Text } from "@mercaria/ui";
+import { SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { useCheckoutPaymentStatus } from "@/lib/hooks/use-checkout";
 import { usePortalConfirmation } from "@/lib/hooks/use-guest-portal";
@@ -111,8 +112,8 @@ function CheckoutReturnBody() {
         <SectionHeader title={t("payment.title")} />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">{t("payment.return.missingGroup")}</Text>
-          <Button variant="outline" onPress={leave}>
-            <Text className="text-sm font-medium text-foreground">{t("payment.continue")}</Text>
+          <Button appearance="outline" tone="neutral" onPress={leave}>
+            {t("payment.continue")}
           </Button>
         </View>
       </View>
@@ -141,23 +142,20 @@ function CheckoutReturnBody() {
           */}
           {!isAuthenticated ? (
             <>
-              <Link
-                href={{ pathname: "/guest-orders/claim", params: { group: checkoutGroupId } }}
-                asChild
+              <Button
+                appearance="outline"
+                tone="neutral"
+                onPress={() =>
+                  router.push({ pathname: "/guest-orders/claim", params: { group: checkoutGroupId } })
+                }
               >
-                <Button variant="outline">
-                  <Text className="text-sm font-medium text-foreground">
-                    {t("checkout.claim.saveToOxy")}
-                  </Text>
-                </Button>
-              </Link>
+                {t("checkout.claim.saveToOxy")}
+              </Button>
               <Text className="text-sm text-muted-foreground">{t("checkout.claim.optional")}</Text>
             </>
           ) : null}
-          <Button onPress={leave}>
-            <Text className="text-sm font-semibold text-primary-foreground">
-              {isAuthenticated ? t("checkout.viewOrders") : t("checkout.keepShopping")}
-            </Text>
+          <Button tone="accent" onPress={leave}>
+            {isAuthenticated ? t("checkout.viewOrders") : t("checkout.keepShopping")}
           </Button>
         </View>
       </View>
@@ -170,8 +168,8 @@ function CheckoutReturnBody() {
         <SectionHeader title={t("payment.cancelled.title")} />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">{t("payment.cancelled.body")}</Text>
-          <Button variant="outline" onPress={leave}>
-            <Text className="text-sm font-medium text-foreground">{t("payment.continue")}</Text>
+          <Button appearance="outline" tone="neutral" onPress={leave}>
+            {t("payment.continue")}
           </Button>
         </View>
       </View>
@@ -184,8 +182,8 @@ function CheckoutReturnBody() {
         <SectionHeader title={t("payment.unreadable.title")} />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">{t("payment.unreadable.body")}</Text>
-          <Button variant="outline" onPress={leave}>
-            <Text className="text-sm font-medium text-foreground">{t("payment.continue")}</Text>
+          <Button appearance="outline" tone="neutral" onPress={leave}>
+            {t("payment.continue")}
           </Button>
         </View>
       </View>
@@ -197,10 +195,8 @@ function CheckoutReturnBody() {
       <SectionHeader title={t("payment.confirming.title")} />
       <View className="gap-4">
         <Text className="text-sm text-muted-foreground">{t("payment.confirming.returnBody")}</Text>
-        <Button variant="outline" onPress={leave}>
-          <Text className="text-sm font-medium text-foreground">
-            {t("payment.confirming.continueWithoutWaiting")}
-          </Text>
+        <Button appearance="outline" tone="neutral" onPress={leave}>
+          {t("payment.confirming.continueWithoutWaiting")}
         </Button>
       </View>
     </View>

@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { Button } from "@oxy.so/bloom/button";
 import { View, ScrollView, Pressable } from "react-native";
 import { useOxy } from "@oxy.so/services";
 import { Check, Plus, Trash2 } from "lucide-react-native";
 import type { Address, CreateAddressInput } from "@mercaria/shared-types";
-import { Button, Text, formatRegionName } from "@mercaria/ui";
+import { Text, formatRegionName, toBloomIcon } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 import { SettingsHeader } from "@/components/settings/settings-header";
 import { AddressForm } from "@/components/address/AddressForm";
@@ -68,16 +69,15 @@ function AddressCard({
       </View>
       {!address.isDefault ? (
         <Button
-          variant="outline"
+          appearance="outline"
+          tone="neutral"
           size="sm"
           className="mt-3 self-start"
           disabled={isMutating}
           onPress={onSetDefault}
+          leadingIcon={toBloomIcon(Check)}
         >
-          <Check size={14} className="text-foreground" />
-          <Text className="ms-1 text-sm font-medium text-foreground">
-            {t("address.list.setDefault")}
-          </Text>
+          {t("address.list.setDefault")}
         </Button>
       ) : null}
     </View>
@@ -163,11 +163,14 @@ function AddressesBody() {
               />
             </View>
           ) : (
-            <Button variant="outline" className="self-start" onPress={() => setAdding(true)}>
-              <Plus size={16} className="text-foreground" />
-              <Text className="ms-1 text-sm font-medium text-foreground">
-                {t("address.list.addAddress")}
-              </Text>
+            <Button
+              appearance="outline"
+              tone="neutral"
+              className="self-start"
+              onPress={() => setAdding(true)}
+              leadingIcon={toBloomIcon(Plus)}
+            >
+              {t("address.list.addAddress")}
             </Button>
           )}
         </>

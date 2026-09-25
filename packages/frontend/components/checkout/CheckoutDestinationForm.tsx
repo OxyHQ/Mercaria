@@ -1,7 +1,8 @@
 import { useMemo } from "react";
+import { Button } from "@oxy.so/bloom/button";
 import { View } from "react-native";
 import type { CheckoutAddressInput, CheckoutContactInput } from "@mercaria/shared-types";
-import { Button, Input, Label, Text } from "@mercaria/ui";
+import { Input, Label, Text } from "@mercaria/ui";
 import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 
@@ -175,22 +176,22 @@ export function CheckoutDestinationForm({
           </Text>
           <View className="flex-row gap-2">
             <Button
-              variant={collecting ? "outline" : "default"}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: !collecting }}
+              appearance={collecting ? "outline" : "solid"}
+              tone={collecting ? "neutral" : "accent"}
+              pressed={!collecting}
               onPress={() => onChangePickupLocation?.(undefined)}
             >
-              <Text className="text-sm font-medium">{t("checkout.form.deliverToAddress")}</Text>
+              {t("checkout.form.deliverToAddress")}
             </Button>
             {pickupLocations.map((location) => (
               <Button
                 key={location.id}
-                variant={pickupLocationId === location.id ? "default" : "outline"}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: pickupLocationId === location.id }}
+                appearance={pickupLocationId === location.id ? "solid" : "outline"}
+                tone={pickupLocationId === location.id ? "accent" : "neutral"}
+                pressed={pickupLocationId === location.id}
                 onPress={() => onChangePickupLocation?.(location.id)}
               >
-                <Text className="text-sm font-medium">{location.name}</Text>
+                {location.name}
               </Button>
             ))}
           </View>

@@ -24,9 +24,10 @@
  */
 
 import { useState } from "react";
+import { Button } from "@oxy.so/bloom/button";
 import { View } from "react-native";
 import Head from "expo-router/head";
-import { Button, Input, SectionHeader, Text } from "@mercaria/ui";
+import { Input, SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { usePortalRecoveryRequest } from "@/lib/hooks/use-guest-portal";
 import { useTranslation } from "@/lib/i18n";
@@ -88,10 +89,8 @@ function RecoverBody() {
         accessibilityLabel={t("guestOrders.recover.orderNumberLabel")}
       />
 
-      <Button onPress={submit} disabled={request.isPending || email.trim().length < 3}>
-        <Text className="text-sm font-semibold text-primary-foreground">
-          {request.isPending ? t("guestOrders.recover.sending") : t("guestOrders.sendAccessLink")}
-        </Text>
+      <Button tone="accent" onPress={submit} disabled={request.isPending || email.trim().length < 3}>
+        {request.isPending ? t("guestOrders.recover.sending") : t("guestOrders.sendAccessLink")}
       </Button>
 
       {request.isError ? (

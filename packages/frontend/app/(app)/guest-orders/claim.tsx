@@ -31,11 +31,12 @@
  */
 
 import { useEffect } from "react";
+import { Button } from "@oxy.so/bloom/button";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { View } from "react-native";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
-import { Button, SectionHeader, Text } from "@mercaria/ui";
+import { SectionHeader, Text } from "@mercaria/ui";
 import type { GuestClaimBlockReason, GuestClaimOrderRef } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { useGuestClaim, useGuestClaimPreview } from "@/lib/hooks/use-guest-claim";
@@ -126,10 +127,8 @@ function ClaimBody() {
         <Text className="text-sm text-muted-foreground">
           {t("guestOrders.claim.signInBody")}
         </Text>
-        <Button onPress={() => openAccountDialog()}>
-          <Text className="text-sm font-semibold text-primary-foreground">
-            {t("guestOrders.claim.signInAction")}
-          </Text>
+        <Button tone="accent" onPress={() => openAccountDialog()}>
+          {t("guestOrders.claim.signInAction")}
         </Button>
       </View>
     );
@@ -150,10 +149,8 @@ function ClaimBody() {
             ? t("guestOrders.claim.alreadySavedBody")
             : t("guestOrders.claim.savedBody")}
         </Text>
-        <Button onPress={() => router.replace("/orders")}>
-          <Text className="text-sm font-semibold text-primary-foreground">
-            {t("guestOrders.claim.goToOrders")}
-          </Text>
+        <Button tone="accent" onPress={() => router.replace("/orders")}>
+          {t("guestOrders.claim.goToOrders")}
         </Button>
       </View>
     );
@@ -175,10 +172,8 @@ function ClaimBody() {
         <Text className="text-sm text-muted-foreground" accessibilityRole="alert">
           {t("guestOrders.claim.failedBody")}
         </Text>
-        <Button variant="outline" onPress={() => router.replace("/guest-orders/recover")}>
-          <Text className="text-sm font-medium text-foreground">
-            {t("guestOrders.sendAccessLink")}
-          </Text>
+        <Button appearance="outline" tone="neutral" onPress={() => router.replace("/guest-orders/recover")}>
+          {t("guestOrders.sendAccessLink")}
         </Button>
       </View>
     );
@@ -240,12 +235,11 @@ function ClaimBody() {
       {/* UX rule 6: an explicit confirmation, and nothing that presses it. */}
       <View className="gap-3">
         <Button
+          tone="accent"
           onPress={() => claim.mutate(checkoutGroupId)}
           disabled={!claimable || claim.isPending}
         >
-          <Text className="text-sm font-semibold text-primary-foreground">
-            {alreadyClaimedByYou ? t("common.confirm") : t("guestOrders.claim.submit")}
-          </Text>
+          {alreadyClaimedByYou ? t("common.confirm") : t("guestOrders.claim.submit")}
         </Button>
         {/*
           UX rule 9: declining leaves purchase access exactly as it was.
@@ -257,16 +251,15 @@ function ClaimBody() {
           their password. An explicit dismissal is the only decline there is.
         */}
         <Button
-          variant="outline"
+          appearance="outline"
+          tone="neutral"
           onPress={() => {
             track("guest_claim_declined");
             router.back();
           }}
           disabled={claim.isPending}
         >
-          <Text className="text-sm font-medium text-foreground">
-            {t("guestOrders.claim.decline")}
-          </Text>
+          {t("guestOrders.claim.decline")}
         </Button>
       </View>
     </View>

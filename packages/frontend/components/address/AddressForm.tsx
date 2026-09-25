@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { Button } from "@oxy.so/bloom/button";
 import { View } from "react-native";
 import type { CreateAddressInput } from "@mercaria/shared-types";
-import { Button, Input, Label, Text } from "@mercaria/ui";
+import { Input, Label } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 
 /** Required fields per `CreateAddressInput` (server enforces the same set). */
@@ -146,16 +147,17 @@ export function AddressForm({
       </View>
       <View className="flex-row items-center gap-3">
         <Button
+          tone="accent"
           className="flex-1"
           disabled={!complete}
-          isLoading={isSubmitting}
+          loading={isSubmitting}
           onPress={() => onSubmit(clean(draft))}
         >
-          <Text className="text-sm font-semibold text-primary-foreground">{cta}</Text>
+          {cta}
         </Button>
         {onCancel ? (
-          <Button variant="outline" onPress={onCancel}>
-            <Text className="text-sm font-medium text-foreground">{t("common.cancel")}</Text>
+          <Button appearance="outline" tone="neutral" onPress={onCancel}>
+            {t("common.cancel")}
           </Button>
         ) : null}
       </View>
