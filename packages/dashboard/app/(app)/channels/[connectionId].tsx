@@ -33,8 +33,6 @@ import type {
 import { CHANNEL_DISCONNECT_POLICIES } from "@mercaria/shared-types";
 import {
   Text,
-  Input,
-  Label,
   toBloomIcon,
   useColorScheme,
   formatDateTime,
@@ -46,6 +44,8 @@ import {
   SegmentedControlItemText,
 } from "@oxy.so/bloom/segmented-control";
 import { Button } from "@oxy.so/bloom/button";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Switch } from "@oxy.so/bloom/switch";
 import { toast } from "@oxy.so/bloom/toast";
 import { AlertDialog } from "@oxy.so/bloom/alert-dialog";
@@ -1321,16 +1321,16 @@ function GenerateKeyDialog({
       description={t("channels.keys.generateBody")}
     >
       <View className="gap-4">
-        <View className="gap-1.5">
-          <Label>{t("channels.keys.labelField")}</Label>
-          <Input
+        <Field label={t("channels.keys.labelField")}>
+          <TextFieldInput
+            label={t("channels.keys.labelField")}
             value={label}
-            onChangeText={setLabel}
+            onValueChange={setLabel}
             placeholder={t("channels.keys.labelPlaceholder")}
             autoCapitalize="none"
             autoCorrect={false}
           />
-        </View>
+        </Field>
         <Button tone="accent" onPress={submit} loading={generate.isPending} className="mt-1">
           {t("channels.keys.generate")}
         </Button>

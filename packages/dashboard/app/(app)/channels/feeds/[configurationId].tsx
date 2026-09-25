@@ -36,7 +36,9 @@ import type {
   FeedFormat,
   FeedImportReportMode,
 } from "@mercaria/shared-types";
-import { Input, Label, Text, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Text, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Button } from "@oxy.so/bloom/button";
 import {
   SegmentedControl,
@@ -521,25 +523,22 @@ function DraftVersion({
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-foreground">{t("feeds.draft.title")}</Text>
 
-      <View className="gap-1.5">
-        <Label>{t("feeds.draft.urlLabel")}</Label>
-        <Input
+      <Field label={t("feeds.draft.urlLabel")} description={t("feeds.draft.urlHint")}>
+        <TextFieldInput
+          label={t("feeds.draft.urlLabel")}
           value={feedUrl}
-          onChangeText={setFeedUrl}
+          onValueChange={setFeedUrl}
           placeholder={t("feeds.draft.urlPlaceholder")}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
         />
-        <Text className="text-xs text-muted-foreground">{t("feeds.draft.urlHint")}</Text>
-      </View>
+      </Field>
 
-      <View className="gap-1.5">
-        <Label>{t("feeds.draft.formatLabel")}</Label>
+      <Field label={t("feeds.draft.formatLabel")}>
         <SegmentedControl
           type="radio"
           size="sm"
-          label={t("feeds.draft.formatLabel")}
           value={format}
           onValueChange={setFormat}
         >
@@ -549,14 +548,15 @@ function DraftVersion({
             </SegmentedControlItem>
           ))}
         </SegmentedControl>
-      </View>
+      </Field>
 
-      <View className="gap-1.5">
-        <Label>{t("feeds.draft.deliveryLabel")}</Label>
+      <Field
+        label={t("feeds.draft.deliveryLabel")}
+        description={t("feeds.draft.deliveryHint")}
+      >
         <SegmentedControl
           type="radio"
           size="sm"
-          label={t("feeds.draft.deliveryLabel")}
           value={deliveryMode ?? ""}
           onValueChange={(next) => {
             if (next !== "") setDeliveryMode(next);
@@ -569,27 +569,28 @@ function DraftVersion({
             <SegmentedControlItemText>{t("feeds.draft.deliveryDelta")}</SegmentedControlItemText>
           </SegmentedControlItem>
         </SegmentedControl>
-        <Text className="text-xs text-muted-foreground">{t("feeds.draft.deliveryHint")}</Text>
-      </View>
+      </Field>
 
-      <View className="gap-2">
-        <Label>{t("feeds.draft.columnsLabel")}</Label>
-        {COMMON_ROLES.map((role) => (
-          <View key={role} className="gap-1">
-            <Text className="text-xs font-medium text-muted-foreground">
-              {role.replace(/_/g, " ")}
-              {role === "title" ? t("feeds.draft.requiredSuffix") : ""}
-            </Text>
-            <Input
-              value={columns[role] ?? ""}
-              onChangeText={(value) => setColumns((prev) => ({ ...prev, [role]: value }))}
-              placeholder={t("feeds.draft.columnPlaceholder")}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-        ))}
-      </View>
+      <Field label={t("feeds.draft.columnsLabel")} multiple>
+        <View className="gap-2">
+          {COMMON_ROLES.map((role) => (
+            <View key={role} className="gap-1">
+              <Text className="text-xs font-medium text-muted-foreground">
+                {role.replace(/_/g, " ")}
+                {role === "title" ? t("feeds.draft.requiredSuffix") : ""}
+              </Text>
+              <TextFieldInput
+                label={role.replace(/_/g, " ")}
+                value={columns[role] ?? ""}
+                onValueChange={(value) => setColumns((prev) => ({ ...prev, [role]: value }))}
+                placeholder={t("feeds.draft.columnPlaceholder")}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          ))}
+        </View>
+      </Field>
 
       <Button tone="accent" onPress={submit} loading={draft.isPending}>
         {t("feeds.draft.save")}

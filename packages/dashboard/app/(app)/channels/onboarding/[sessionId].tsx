@@ -36,7 +36,9 @@ import type {
   ChannelTypeDescriptor,
 } from "@mercaria/shared-types";
 import { CHANNEL_ONBOARDING_STEPS } from "@mercaria/shared-types";
-import { Input, Label, Text, useColorScheme } from "@mercaria/ui";
+import { Text, useColorScheme } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
@@ -444,17 +446,17 @@ function ShopifyConnect({
       <Text className="text-sm font-semibold text-foreground">
         {t("channels.wizard.shopify.title")}
       </Text>
-      <View className="gap-1.5">
-        <Label>{t("channels.wizard.shopify.domainLabel")}</Label>
-        <Input
+      <Field label={t("channels.wizard.shopify.domainLabel")}>
+        <TextFieldInput
+          label={t("channels.wizard.shopify.domainLabel")}
           value={shopDomain}
-          onChangeText={setShopDomain}
+          onValueChange={setShopDomain}
           placeholder={t("channels.wizard.shopify.domainPlaceholder")}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
         />
-      </View>
+      </Field>
       <View className="flex-row items-start gap-2 rounded-xl bg-muted p-3">
         <ExternalLink size={14} color={colors.mutedForeground} />
         <Text className="flex-1 text-xs text-muted-foreground">
@@ -540,38 +542,38 @@ function WooCommerceConnect({
         {t("channels.wizard.woo.title")}
       </Text>
       <Text className="text-xs text-muted-foreground">{t("channels.wizard.woo.body")}</Text>
-      <View className="gap-1.5">
-        <Label>{t("channels.wizard.woo.siteUrlLabel")}</Label>
-        <Input
+      <Field label={t("channels.wizard.woo.siteUrlLabel")}>
+        <TextFieldInput
+          label={t("channels.wizard.woo.siteUrlLabel")}
           value={siteUrl}
-          onChangeText={setSiteUrl}
+          onValueChange={setSiteUrl}
           placeholder={t("channels.wizard.woo.siteUrlPlaceholder")}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
         />
-      </View>
-      <View className="gap-1.5">
-        <Label>{t("channels.wizard.woo.consumerKeyLabel")}</Label>
-        <Input
+      </Field>
+      <Field label={t("channels.wizard.woo.consumerKeyLabel")}>
+        <TextFieldInput
+          label={t("channels.wizard.woo.consumerKeyLabel")}
           value={consumerKey}
-          onChangeText={setConsumerKey}
+          onValueChange={setConsumerKey}
           placeholder={t("channels.wizard.woo.consumerKeyPlaceholder")}
           autoCapitalize="none"
           autoCorrect={false}
         />
-      </View>
-      <View className="gap-1.5">
-        <Label>{t("channels.wizard.woo.consumerSecretLabel")}</Label>
-        <Input
+      </Field>
+      <Field label={t("channels.wizard.woo.consumerSecretLabel")}>
+        <TextFieldInput
+          label={t("channels.wizard.woo.consumerSecretLabel")}
           value={consumerSecret}
-          onChangeText={setConsumerSecret}
+          onValueChange={setConsumerSecret}
           placeholder={t("channels.wizard.woo.consumerSecretPlaceholder")}
           autoCapitalize="none"
           autoCorrect={false}
           secureTextEntry
         />
-      </View>
+      </Field>
       <Button tone="accent" onPress={submit} loading={connect.isPending}>
         {t("channels.wizard.woo.connect")}
       </Button>
