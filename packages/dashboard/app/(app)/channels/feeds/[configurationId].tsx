@@ -20,6 +20,7 @@
  */
 
 import { EmptyState } from "@oxy.so/bloom/empty-state";
+import { Badge } from "@oxy.so/bloom/badge";
 import React, { useMemo, useState } from "react";
 import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -341,19 +342,12 @@ function Versions({
             <Text className="text-sm font-semibold text-foreground">
               {t("feeds.versions.version", { version: version.version })}
             </Text>
-            <View
-              className={`rounded-full px-2 py-0.5 ${
-                version.status === "active" ? "bg-primary/10" : "bg-muted"
-              }`}
-            >
-              <Text
-                className={`text-[10px] font-semibold ${
-                  version.status === "active" ? "text-primary" : "text-muted-foreground"
-                }`}
-              >
-                {t(VERSION_STATUS_LABEL_KEYS[version.status])}
-              </Text>
-            </View>
+            <Badge
+              size="label-small"
+              variant="subtle"
+              color={version.status === "active" ? "primary" : "default"}
+              content={t(VERSION_STATUS_LABEL_KEYS[version.status])}
+            />
           </View>
           <Text className="text-xs text-muted-foreground">
             {t("feeds.versions.summary", {
