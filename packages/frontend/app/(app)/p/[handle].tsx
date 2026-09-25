@@ -9,6 +9,7 @@ import type {
 } from '@mercaria/shared-types';
 import { OFFER_COMPARISON_INTENTS } from '@mercaria/shared-types';
 import { OfferLabelBadge, Text } from '@mercaria/ui';
+import * as Skeleton from '@oxy.so/bloom/skeleton';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
 import { NearbyAvailability } from '@/components/nearby/NearbyAvailability';
@@ -605,12 +606,13 @@ function ProductPageSkeleton() {
     <View
       className="web:mx-auto web:w-full web:max-w-[1200px] gap-space-16 md:px-5"
       accessibilityLabel={t('product.loadingA11y')}
+      aria-busy
     >
-      <View className="h-[180px] w-full rounded-radius-28 bg-bg-fill-hover" />
-      <View className="h-8 w-2/3 rounded bg-bg-fill-hover" />
-      <View className="h-6 w-1/3 rounded bg-bg-fill-hover" />
-      <View className="h-32 w-full rounded-radius-28 bg-bg-fill-hover" />
-      <View className="h-32 w-full rounded-radius-28 bg-bg-fill-hover" />
+      <Skeleton.Box width="100%" height={180} borderRadius={28} />
+      <Skeleton.Box width="66%" height={32} borderRadius={4} />
+      <Skeleton.Box width="33%" height={24} borderRadius={4} />
+      <Skeleton.Box width="100%" height={128} borderRadius={28} />
+      <Skeleton.Box width="100%" height={128} borderRadius={28} />
     </View>
   );
 }

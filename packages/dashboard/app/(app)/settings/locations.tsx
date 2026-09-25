@@ -9,11 +9,14 @@ import {
   Button,
   Input,
   Label,
-  ToggleGroup,
-  ToggleGroupItem,
   useColorScheme,
 } from "@mercaria/ui";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+  SegmentedControlItemText,
+} from "@oxy.so/bloom/segmented-control";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -186,19 +189,20 @@ function CreateLocationDialog({
         </View>
         <View className="gap-1.5">
           <Label>{t("common.type")}</Label>
-          <ToggleGroup
-            type="single"
+          <SegmentedControl
+            type="radio"
+            label={t("common.type")}
             value={type}
-            onValueChange={(v) => typeof v === "string" && v && setType(v as LocationType)}
+            onValueChange={setType}
           >
             {TYPES.map((locationType) => (
-              <ToggleGroupItem key={locationType} value={locationType}>
-                <Text className="text-sm capitalize text-foreground">
+              <SegmentedControlItem key={locationType} value={locationType}>
+                <SegmentedControlItemText>
                   {t(LOCATION_TYPE_LABEL_KEYS[locationType])}
-                </Text>
-              </ToggleGroupItem>
+                </SegmentedControlItemText>
+              </SegmentedControlItem>
             ))}
-          </ToggleGroup>
+          </SegmentedControl>
         </View>
         <Button onPress={submit} isLoading={createLocation.isPending} className="mt-1">
           <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>

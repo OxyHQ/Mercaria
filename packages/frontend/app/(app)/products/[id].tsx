@@ -24,6 +24,7 @@ import {
   type RatingDistribution,
   type ProductSummary,
 } from "@mercaria/ui";
+import * as Skeleton from "@oxy.so/bloom/skeleton";
 import type {
   Listing,
   ListingOption,
@@ -851,15 +852,18 @@ function ProductSkeleton() {
     <View
       className="web:mx-auto web:w-full web:max-w-[1600px] md:px-5"
       accessibilityLabel={t("product.loadingA11y")}
+      aria-busy
     >
       <View className="flex-col gap-space-16 md:flex-row">
-        <View className="aspect-square flex-1 rounded-radius-28 bg-bg-fill-hover" />
+        <View className="aspect-square flex-1">
+          <Skeleton.Box width="100%" height="100%" borderRadius={28} />
+        </View>
         <View className="gap-space-16 md:w-[29em]">
-          <View className="h-8 w-40 rounded bg-bg-fill-hover" />
-          <View className="h-7 w-3/4 rounded bg-bg-fill-hover" />
-          <View className="h-6 w-28 rounded bg-bg-fill-hover" />
-          <View className="h-12 w-full rounded-radius-max bg-bg-fill-hover" />
-          <View className="h-12 w-full rounded-radius-max bg-bg-fill-hover" />
+          <Skeleton.Box width={160} height={32} borderRadius={4} />
+          <Skeleton.Box width="75%" height={28} borderRadius={4} />
+          <Skeleton.Box width={112} height={24} borderRadius={4} />
+          <Skeleton.Box width="100%" height={48} borderRadius={9999} />
+          <Skeleton.Box width="100%" height={48} borderRadius={9999} />
         </View>
       </View>
     </View>

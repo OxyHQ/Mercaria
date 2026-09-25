@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Loading } from "@oxy.so/bloom/loading";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
@@ -105,7 +106,7 @@ export default function SavedScreen() {
           <SignedOutInvitation />
         ) : savedItems.isPending ? (
           <View className="py-24">
-            <ActivityIndicator />
+            <Loading variant="inline" size="sm" />
           </View>
         ) : savedItems.isError ? (
           <EmptyState icon={RiHeartLine} media="circle" title={t("saved.error.title")} description={t("saved.error.subtitle")} />

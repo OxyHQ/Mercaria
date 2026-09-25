@@ -8,11 +8,14 @@ import {
   Button,
   Input,
   Label,
-  ToggleGroup,
-  ToggleGroupItem,
   useColorScheme,
 } from "@mercaria/ui";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+  SegmentedControlItemText,
+} from "@oxy.so/bloom/segmented-control";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
@@ -192,22 +195,21 @@ function CreateCollectionDialog({
         </View>
         <View className="gap-1.5">
           <Label>{t("common.type")}</Label>
-          <ToggleGroup
-            type="single"
+          <SegmentedControl
+            type="radio"
+            label={t("common.type")}
             value={type}
-            onValueChange={(v) => typeof v === "string" && v && setType(v as CollectionType)}
+            onValueChange={setType}
           >
-            <ToggleGroupItem value="manual">
-              <Text className="text-sm text-foreground">
-                {t("collections.create.typeManual")}
-              </Text>
-            </ToggleGroupItem>
-            <ToggleGroupItem value="automated">
-              <Text className="text-sm text-foreground">
+            <SegmentedControlItem value="manual">
+              <SegmentedControlItemText>{t("collections.create.typeManual")}</SegmentedControlItemText>
+            </SegmentedControlItem>
+            <SegmentedControlItem value="automated">
+              <SegmentedControlItemText>
                 {t("collections.create.typeAutomated")}
-              </Text>
-            </ToggleGroupItem>
-          </ToggleGroup>
+              </SegmentedControlItemText>
+            </SegmentedControlItem>
+          </SegmentedControl>
         </View>
         <Button onPress={submit} isLoading={createCollection.isPending} className="mt-1">
           <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>

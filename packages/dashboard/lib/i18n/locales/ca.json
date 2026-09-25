@@ -72,6 +72,7 @@
       "confirmAction": "Desconnecta",
       "confirmTitle": "Vols desconnectar %{provider}?",
       "intro": "Tria què passa amb els productes que ha importat aquest canal. L'historial de preus i tot el que hagi importat un altre canal no es toquen mai.",
+      "policyLabel": "Productes importats",
       "policy": {
         "archiveListings": "Arxiva",
         "keepListings": "Conserva els productes",

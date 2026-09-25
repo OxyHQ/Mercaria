@@ -138,11 +138,13 @@ describe('the symbol map is large, and the floors are absolute', () => {
     expect(resolveBarrelSymbol(UI, 'PriceDisplay')).toBe(
       'packages/ui/src/components/PriceDisplay.tsx',
     );
-    // A namespace re-export (`export * as DropdownMenu from …`) binds the
-    // NAMESPACE, so the symbol a consumer writes is `DropdownMenu`.
-    expect(resolveBarrelSymbol(UI, 'DropdownMenu')).toBe(
-      'packages/ui/src/components/ui/dropdown-menu.tsx',
-    );
+    // `DropdownMenu` was the workspace's one namespace re-export
+    // (`export * as DropdownMenu from …`) until the apps moved to Bloom's menu
+    // and the module was deleted. The map now answers null for it — it reads
+    // the tree, like `MerchantSummary` above. No barrel carries `export * as`
+    // today, so the resolver's namespace arm has no real-tree control; add one
+    // here when a barrel next uses that shape.
+    expect(resolveBarrelSymbol(UI, 'DropdownMenu')).toBeNull();
     // And a renamed default (`export { default as H1 } from …`) publishes the
     // NEW name. No barrel carries that shape since `@mercaria/ui`'s `H1` was
     // deleted as dead, so the clause is read directly rather than through a

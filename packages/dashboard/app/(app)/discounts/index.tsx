@@ -13,12 +13,15 @@ import {
   Button,
   Input,
   Label,
-  ToggleGroup,
-  ToggleGroupItem,
   useColorScheme,
   type Translate,
 } from "@mercaria/ui";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+  SegmentedControlItemText,
+} from "@oxy.so/bloom/segmented-control";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
@@ -224,22 +227,21 @@ function CreateDiscountDialog({
         </View>
         <View className="gap-1.5">
           <Label>{t("discounts.create.methodLabel")}</Label>
-          <ToggleGroup
-            type="single"
+          <SegmentedControl
+            type="radio"
+            label={t("discounts.create.methodLabel")}
             value={method}
-            onValueChange={(v) => typeof v === "string" && v && setMethod(v as DiscountMethod)}
+            onValueChange={setMethod}
           >
-            <ToggleGroupItem value="code">
-              <Text className="text-sm text-foreground">
-                {t("discounts.create.methodCode")}
-              </Text>
-            </ToggleGroupItem>
-            <ToggleGroupItem value="automatic">
-              <Text className="text-sm text-foreground">
+            <SegmentedControlItem value="code">
+              <SegmentedControlItemText>{t("discounts.create.methodCode")}</SegmentedControlItemText>
+            </SegmentedControlItem>
+            <SegmentedControlItem value="automatic">
+              <SegmentedControlItemText>
                 {t("discounts.create.methodAutomatic")}
-              </Text>
-            </ToggleGroupItem>
-          </ToggleGroup>
+              </SegmentedControlItemText>
+            </SegmentedControlItem>
+          </SegmentedControl>
         </View>
         {method === "code" ? (
           <View className="gap-1.5">
@@ -254,24 +256,21 @@ function CreateDiscountDialog({
         ) : null}
         <View className="gap-1.5">
           <Label>{t("discounts.create.valueTypeLabel")}</Label>
-          <ToggleGroup
-            type="single"
+          <SegmentedControl
+            type="radio"
+            label={t("discounts.create.valueTypeLabel")}
             value={valueType}
-            onValueChange={(v) =>
-              typeof v === "string" && v && setValueType(v as "percentage" | "fixed_amount")
-            }
+            onValueChange={setValueType}
           >
-            <ToggleGroupItem value="percentage">
-              <Text className="text-sm text-foreground">
+            <SegmentedControlItem value="percentage">
+              <SegmentedControlItemText>
                 {t("discounts.create.valueTypePercentage")}
-              </Text>
-            </ToggleGroupItem>
-            <ToggleGroupItem value="fixed_amount">
-              <Text className="text-sm text-foreground">
-                {t("discounts.create.valueTypeFixed")}
-              </Text>
-            </ToggleGroupItem>
-          </ToggleGroup>
+              </SegmentedControlItemText>
+            </SegmentedControlItem>
+            <SegmentedControlItem value="fixed_amount">
+              <SegmentedControlItemText>{t("discounts.create.valueTypeFixed")}</SegmentedControlItemText>
+            </SegmentedControlItem>
+          </SegmentedControl>
         </View>
         <View className="gap-1.5">
           <Label>

@@ -71,6 +71,7 @@
       "confirmAction": "接続解除",
       "confirmTitle": "%{provider}を接続解除しますか？",
       "intro": "このチャネルがインポートした商品をどう扱うかを選択します。価格履歴と、他のチャネルがインポートしたものには一切影響しません。",
+      "policyLabel": "インポートした商品",
       "policy": {
         "archiveListings": "アーカイブ",
         "keepListings": "商品を残す",

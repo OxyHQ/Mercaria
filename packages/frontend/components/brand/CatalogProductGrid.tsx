@@ -2,7 +2,8 @@ import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { useOxy } from "@oxy.so/services";
 import type { CatalogProductBrowsePage } from "@mercaria/shared-types";
-import { Button, CanonicalProductCard, Skeleton, Text } from "@mercaria/ui";
+import { Button, CanonicalProductCard, Text } from "@mercaria/ui";
+import * as Skeleton from "@oxy.so/bloom/skeleton";
 import { useTranslation } from "@/lib/i18n";
 
 /**
@@ -55,7 +56,7 @@ export function CatalogProductGrid({
     return (
       <View className="flex-row flex-wrap gap-4">
         {Array.from({ length: SKELETON_TILE_COUNT }).map((_, index) => (
-          <Skeleton key={index} className="h-56 w-40 rounded-[20px]" />
+          <Skeleton.Box key={index} width={160} height={224} borderRadius={20} />
         ))}
       </View>
     );

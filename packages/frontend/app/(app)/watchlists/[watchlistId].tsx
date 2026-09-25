@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Loading } from "@oxy.so/bloom/loading";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Text } from "@mercaria/ui";
@@ -52,7 +53,7 @@ export default function WatchlistDetailScreen() {
       <View className="gap-space-16 px-space-16 py-space-20">
         {detail.isPending ? (
           <View className="py-24">
-            <ActivityIndicator />
+            <Loading variant="inline" size="sm" />
           </View>
         ) : detail.isError || !list ? (
           <Text className="text-sm text-text-secondary">{t("watchlists.detail.loadError")}</Text>
@@ -68,7 +69,7 @@ export default function WatchlistDetailScreen() {
 
             {basket.isPending ? (
               <View className="py-space-16">
-                <ActivityIndicator />
+                <Loading variant="inline" size="sm" />
               </View>
             ) : basket.isError || !basket.data ? (
               <View className="gap-space-4 rounded-radius-lg border border-border-secondary p-space-16">

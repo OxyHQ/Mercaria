@@ -9,12 +9,15 @@ import {
   Button,
   Input,
   Label,
-  ToggleGroup,
-  ToggleGroupItem,
   useColorScheme,
   formatDate,
 } from "@mercaria/ui";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+  SegmentedControlItemText,
+} from "@oxy.so/bloom/segmented-control";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -165,21 +168,20 @@ function MemberRow({
         ) : null}
       </View>
       <View className="mt-3">
-        <ToggleGroup
-          type="single"
+        <SegmentedControl
+          type="radio"
+          label={t("settings.members.roleLabel")}
           value={member.role}
-          onValueChange={(v) => {
-            if (typeof v === "string" && v && v !== member.role) {
-              onChangeRole(v as StoreRole);
-            }
+          onValueChange={(next) => {
+            if (next !== member.role) onChangeRole(next);
           }}
         >
           {ROLES.map((role) => (
-            <ToggleGroupItem key={role} value={role}>
-              <Text className="text-sm capitalize text-foreground">{t(ROLE_LABEL_KEYS[role])}</Text>
-            </ToggleGroupItem>
+            <SegmentedControlItem key={role} value={role}>
+              <SegmentedControlItemText>{t(ROLE_LABEL_KEYS[role])}</SegmentedControlItemText>
+            </SegmentedControlItem>
           ))}
-        </ToggleGroup>
+        </SegmentedControl>
         <Text className="mt-2 text-xs text-muted-foreground">
           {t("settings.members.explicitPermissions", { count: member.permissions.length })}
         </Text>
@@ -233,17 +235,18 @@ function InviteMemberDialog({
         </View>
         <View className="gap-1.5">
           <Label>{t("settings.members.roleLabel")}</Label>
-          <ToggleGroup
-            type="single"
+          <SegmentedControl
+            type="radio"
+            label={t("settings.members.roleLabel")}
             value={role}
-            onValueChange={(v) => typeof v === "string" && v && setRole(v as StoreRole)}
+            onValueChange={setRole}
           >
             {(["admin", "staff"] as StoreRole[]).map((r) => (
-              <ToggleGroupItem key={r} value={r}>
-                <Text className="text-sm capitalize text-foreground">{t(ROLE_LABEL_KEYS[r])}</Text>
-              </ToggleGroupItem>
+              <SegmentedControlItem key={r} value={r}>
+                <SegmentedControlItemText>{t(ROLE_LABEL_KEYS[r])}</SegmentedControlItemText>
+              </SegmentedControlItem>
             ))}
-          </ToggleGroup>
+          </SegmentedControl>
         </View>
         <Button onPress={submit} isLoading={inviteMember.isPending} className="mt-1">
           <Text className="font-semibold text-primary-foreground">

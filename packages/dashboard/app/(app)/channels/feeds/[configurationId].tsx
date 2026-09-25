@@ -36,7 +36,12 @@ import type {
   FeedFormat,
   FeedImportReportMode,
 } from "@mercaria/shared-types";
-import { Button, Input, Label, Text, ToggleGroup, ToggleGroupItem, useColorScheme } from "@mercaria/ui";
+import { Button, Input, Label, Text, useColorScheme } from "@mercaria/ui";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+  SegmentedControlItemText,
+} from "@oxy.so/bloom/segmented-control";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -536,37 +541,39 @@ function DraftVersion({
 
       <View className="gap-1.5">
         <Label>{t("feeds.draft.formatLabel")}</Label>
-        <ToggleGroup
-          type="single"
+        <SegmentedControl
+          type="radio"
+          size="sm"
+          label={t("feeds.draft.formatLabel")}
           value={format}
-          onValueChange={(next) => {
-            if (typeof next === "string" && next !== "") setFormat(next as FeedFormat);
-          }}
+          onValueChange={setFormat}
         >
           {FORMATS.map((option) => (
-            <ToggleGroupItem key={option} value={option}>
-              <Text className="text-xs font-medium">{option.toUpperCase()}</Text>
-            </ToggleGroupItem>
+            <SegmentedControlItem key={option} value={option}>
+              <SegmentedControlItemText>{option.toUpperCase()}</SegmentedControlItemText>
+            </SegmentedControlItem>
           ))}
-        </ToggleGroup>
+        </SegmentedControl>
       </View>
 
       <View className="gap-1.5">
         <Label>{t("feeds.draft.deliveryLabel")}</Label>
-        <ToggleGroup
-          type="single"
+        <SegmentedControl
+          type="radio"
+          size="sm"
+          label={t("feeds.draft.deliveryLabel")}
           value={deliveryMode ?? ""}
           onValueChange={(next) => {
-            if (typeof next === "string" && next !== "") setDeliveryMode(next as FeedDeliveryMode);
+            if (next !== "") setDeliveryMode(next);
           }}
         >
-          <ToggleGroupItem value="snapshot">
-            <Text className="text-xs font-medium">{t("feeds.draft.deliverySnapshot")}</Text>
-          </ToggleGroupItem>
-          <ToggleGroupItem value="delta">
-            <Text className="text-xs font-medium">{t("feeds.draft.deliveryDelta")}</Text>
-          </ToggleGroupItem>
-        </ToggleGroup>
+          <SegmentedControlItem value="snapshot">
+            <SegmentedControlItemText>{t("feeds.draft.deliverySnapshot")}</SegmentedControlItemText>
+          </SegmentedControlItem>
+          <SegmentedControlItem value="delta">
+            <SegmentedControlItemText>{t("feeds.draft.deliveryDelta")}</SegmentedControlItemText>
+          </SegmentedControlItem>
+        </SegmentedControl>
         <Text className="text-xs text-muted-foreground">{t("feeds.draft.deliveryHint")}</Text>
       </View>
 

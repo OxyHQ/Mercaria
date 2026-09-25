@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Loading } from "@oxy.so/bloom/loading";
 import Head from "expo-router/head";
 import { Users } from "lucide-react-native";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
@@ -164,7 +165,7 @@ export default function ReferralPartnerScreen() {
           <SignedOutInvitation />
         ) : dashboard.isPending ? (
           <View className="items-center py-space-32">
-            <ActivityIndicator />
+            <Loading variant="inline" size="sm" />
           </View>
         ) : dashboard.isError ? (
           <Text className="text-sm text-destructive">{t("referral.loadError")}</Text>
@@ -464,7 +465,7 @@ function PerformanceCard(props: {
       </View>
 
       {props.loading || !performance ? (
-        <ActivityIndicator />
+        <Loading variant="inline" size="sm" />
       ) : (
         <>
           <Text className="text-sm text-foreground">

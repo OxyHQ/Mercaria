@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { View } from "react-native";
+import { Loading } from "@oxy.so/bloom/loading";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
@@ -115,7 +116,7 @@ export default function ShoppingAgentsScreen() {
           <>
             {agents.isPending ? (
               <View className="items-center py-space-24">
-                <ActivityIndicator />
+                <Loading variant="inline" size="sm" />
               </View>
             ) : null}
 
@@ -213,7 +214,7 @@ function FindingsTimeline({
 
       {pending ? (
         <View className="items-center py-space-16">
-          <ActivityIndicator />
+          <Loading variant="inline" size="sm" />
         </View>
       ) : null}
 

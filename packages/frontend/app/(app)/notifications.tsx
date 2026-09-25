@@ -1,5 +1,6 @@
 import { View, ScrollView, Pressable, Platform } from "react-native";
-import { Switch, Text } from "@mercaria/ui";
+import { Text } from "@mercaria/ui";
+import { Switch } from "@oxy.so/bloom/switch";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Bell, BellOff, CheckCheck, Zap, Clock, Eye, AlertTriangle, MessageSquare, X } from "lucide-react-native";
 import { useState, useEffect, useCallback } from "react";
@@ -174,9 +175,10 @@ export default function NotificationsScreen() {
                 </View>
               </View>
               <Switch
-                value={pushEnabled}
-                onValueChange={handleTogglePush}
+                checked={pushEnabled}
+                onCheckedChange={handleTogglePush}
                 disabled={pushLoading}
+                accessibilityLabel={t('notifications.pushNotifications')}
               />
             </View>
             {permissionDenied && (

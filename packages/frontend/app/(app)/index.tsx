@@ -2,6 +2,7 @@ import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
 import { CartShelf, CategoryPills, ProductShelf, Text } from "@mercaria/ui";
+import * as Skeleton from "@oxy.so/bloom/skeleton";
 import type { CartVendor } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { HeroSearch } from "@/components/shell/HeroSearch";
@@ -19,18 +20,20 @@ const SKELETON_CARD_COUNT = 3;
 function FeedSkeleton() {
   const { t } = useTranslation();
   return (
-    <View accessibilityLabel={t("home.loadingProducts")}>
+    <View accessibilityLabel={t("home.loadingProducts")} aria-busy>
       {Array.from({ length: SKELETON_SHELF_COUNT }).map((_, shelfIndex) => (
         <View key={shelfIndex} className="mb-6">
           {/* Heading placeholder */}
-          <View className="mx-4 mb-3 h-5 w-40 rounded-md bg-muted" />
+          <View className="mx-4 mb-3">
+            <Skeleton.Box width={160} height={20} borderRadius={6} />
+          </View>
           {/* Card row placeholder */}
           <View className="flex-row gap-3 px-4">
             {Array.from({ length: SKELETON_CARD_COUNT }).map((__, cardIndex) => (
               <View key={cardIndex} className="flex-1 gap-2">
-                <View className="aspect-square w-full rounded-2xl bg-muted" />
-                <View className="h-3 w-1/2 rounded bg-muted" />
-                <View className="h-3 w-3/4 rounded bg-muted" />
+                <Skeleton.Box width="100%" borderRadius={16} style={{ aspectRatio: 1 }} />
+                <Skeleton.Box width="50%" height={12} borderRadius={4} />
+                <Skeleton.Box width="75%" height={12} borderRadius={4} />
               </View>
             ))}
           </View>

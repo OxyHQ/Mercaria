@@ -17,6 +17,7 @@ import { MerchantChannelPicker } from "@/components/merchant/MerchantChannelPick
 import { MerchantProductCard } from "@/components/merchant/MerchantProductCard";
 import { MerchantStandingBanner } from "@/components/merchant/MerchantStandingBanner";
 import { useTranslation } from "@/lib/i18n";
+import { ProductGridSkeleton } from "@/components/catalog/ProductGridSkeleton";
 import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 import { useMerchantCatalog, useMerchantPage } from "@/lib/hooks/use-merchant-page";
 
@@ -49,9 +50,6 @@ import { useMerchantCatalog, useMerchantPage } from "@/lib/hooks/use-merchant-pa
  * ones — so there is nothing here to leave out by accident.
  */
 
-/** Loading-grid placeholder count. */
-const SKELETON_TILE_COUNT = 8;
-
 /**
  * What an empty catalogue means, in words a shopper can act on.
  *
@@ -68,25 +66,6 @@ const EMPTY_COPY_KEYS: Readonly<Record<MerchantCatalogEmptyReason, string>> = {
   filtered_out: "merchants.catalog.empty.filteredOut",
 };
 Object.freeze(EMPTY_COPY_KEYS);
-
-/** Loading placeholder grid matching the products grid rhythm. */
-function GridSkeleton() {
-  const { t } = useTranslation();
-
-  return (
-    <View className="flex-row flex-wrap" accessibilityLabel={t("merchants.catalog.loadingLabel")}>
-      {Array.from({ length: SKELETON_TILE_COUNT }).map((_, index) => (
-        <View key={index} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
-          <View className="gap-2">
-            <View className="aspect-square w-full rounded-2xl bg-muted" />
-            <View className="h-3 w-1/2 rounded bg-muted" />
-            <View className="h-3 w-3/4 rounded bg-muted" />
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
 
 /** One counted chip from the offer mix. */
 function MixChip({ label, count }: { label: string; count: number }) {
@@ -211,7 +190,7 @@ export default function MerchantScreen() {
           <View className="h-8 w-2/3 rounded bg-muted" />
         </View>
         <View className="pt-6">
-          <GridSkeleton />
+          <ProductGridSkeleton accessibilityLabel={t("merchants.catalog.loadingLabel")} />
         </View>
       </ScreenShell>
     );
@@ -333,7 +312,7 @@ export default function MerchantScreen() {
       <View className="pt-8">
         <SectionHeader title={t("merchants.catalog.title")} />
 
-        {catalogLoading && entries.length === 0 ? <GridSkeleton /> : null}
+        {catalogLoading && entries.length === 0 ? <ProductGridSkeleton accessibilityLabel={t("merchants.catalog.loadingLabel")} /> : null}
 
         {!catalogLoading && entries.length === 0 ? (
           <EmptyState description={t(emptyReason ? EMPTY_COPY_KEYS[emptyReason] : EMPTY_COPY_KEYS.no_offers)} />

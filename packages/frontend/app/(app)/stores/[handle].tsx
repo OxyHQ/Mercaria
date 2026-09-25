@@ -6,18 +6,24 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronDown, Search, SlidersHorizontal } from "lucide-react-native";
+import { Check, ChevronDown, Search, SlidersHorizontal } from "lucide-react-native";
 import {
-  DropdownMenu,
   Input,
   ProductCard,
   ReviewStars,
   SectionHeader,
-  Switch,
   Text,
   useFormatters,
   type ProductSummary,
 } from "@mercaria/ui";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@oxy.so/bloom/dropdown-menu";
+import { Switch } from "@oxy.so/bloom/switch";
 import type { Listing, StoreSummary } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { StoreFollowButton } from "@/components/store/StoreFollowButton";
@@ -29,6 +35,7 @@ import { useListings } from "@/lib/hooks/use-listings";
 import { useDebouncedCallback } from "@/lib/hooks/use-debounced-callback";
 import { useWindowScrollY } from "@/lib/hooks/use-window-scroll";
 import { useTranslation } from "@/lib/i18n";
+import { ProductGridSkeleton } from "@/components/catalog/ProductGridSkeleton";
 
 /** Hero height (px) — full-bleed brand cover with the centered wordmark. */
 const HERO_HEIGHT = 360;
@@ -54,8 +61,6 @@ const HERO_GRADIENT_LOCATIONS = [0.35, 1] as const;
 const PAGE_LIMIT = 24;
 /** Debounce (ms) before a search keystroke commits to the listings query. */
 const SEARCH_DEBOUNCE_MS = 300;
-/** Loading-grid placeholder count. */
-const SKELETON_TILE_COUNT = 8;
 
 type SortValue = "best" | "newest" | "price_asc" | "price_desc";
 
@@ -178,24 +183,6 @@ function ParallaxCover({ uri }: { uri: string }) {
         transform: [{ translateY }],
       }}
     />
-  );
-}
-
-/** Loading placeholder grid matching the products grid rhythm. */
-function GridSkeleton() {
-  const { t } = useTranslation();
-  return (
-    <View className="flex-row flex-wrap" accessibilityLabel={t("store.products.loadingLabel")}>
-      {Array.from({ length: SKELETON_TILE_COUNT }).map((_, i) => (
-        <View key={i} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
-          <View className="gap-2">
-            <View className="aspect-square w-full rounded-2xl bg-muted" />
-            <View className="h-3 w-1/2 rounded bg-muted" />
-            <View className="h-3 w-3/4 rounded bg-muted" />
-          </View>
-        </View>
-      ))}
-    </View>
   );
 }
 
@@ -507,8 +494,8 @@ function StoreBody({
 
         {/* Filter bar: Sort dropdown + In-stock toggle */}
         <View className="mb-4 flex-row flex-wrap items-center gap-3 px-4">
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild label={t("store.sort.label")}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t("store.sort.label")}
@@ -518,29 +505,40 @@ function StoreBody({
                 <Text className="text-sm font-medium text-foreground">{t(activeSortLabelKey)}</Text>
                 <ChevronDown size={16} className="text-muted-foreground" />
               </Pressable>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content>
-              {SORT_OPTIONS.map((option) => (
-                <DropdownMenu.CheckboxItem
-                  key={option.value}
-                  value={sort === option.value ? "on" : "off"}
-                  onValueChange={() => onSelectSort(option.value)}
-                >
-                  <DropdownMenu.ItemIndicator />
-                  <DropdownMenu.ItemTitle>{t(option.labelKey)}</DropdownMenu.ItemTitle>
-                </DropdownMenu.CheckboxItem>
-              ))}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent label={t("store.sort.label")}>
+              <DropdownMenuRadioGroup
+                value={sort}
+                onValueChange={(next) => {
+                  const option = SORT_OPTIONS.find((o) => o.value === next);
+                  if (option) onSelectSort(option.value);
+                }}
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <DropdownMenuRadioItem
+                    key={option.value}
+                    value={option.value}
+                    indicator={<Check size={16} className="text-foreground" />}
+                  >
+                    {t(option.labelKey)}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <View className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-muted px-4">
             <Text className="text-sm font-medium text-foreground">{t("store.filters.inStock")}</Text>
-            <Switch value={inStockOnly} onValueChange={onToggleInStock} />
+            <Switch
+              checked={inStockOnly}
+              onCheckedChange={onToggleInStock}
+              accessibilityLabel={t("store.filters.inStock")}
+            />
           </View>
         </View>
 
         {/* Products grid */}
-        {isLoading && !data ? <GridSkeleton /> : null}
+        {isLoading && !data ? <ProductGridSkeleton accessibilityLabel={t("store.products.loadingLabel")} /> : null}
 
         {isError && !data ? (
           <View className="items-center px-8 py-16">
@@ -624,7 +622,7 @@ export default function StoreScreen() {
         {head}
         <View className="w-full bg-muted" style={{ height: HERO_HEIGHT }} />
         <View className="pt-5">
-          <GridSkeleton />
+          <ProductGridSkeleton accessibilityLabel={t("store.products.loadingLabel")} />
         </View>
       </ScreenShell>
     );

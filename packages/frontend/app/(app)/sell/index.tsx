@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
+import { Pressable, TextInput, View } from "react-native";
+import { Loading } from "@oxy.so/bloom/loading";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
@@ -118,7 +119,7 @@ export default function SellIndexScreen() {
 
         {arrivedFromProduct ? (
           <View className="flex-row items-center gap-3">
-            <ActivityIndicator />
+            <Loading variant="inline" size="sm" />
             <Text className="text-muted-foreground">{t("sell.index.startingDraft")}</Text>
           </View>
         ) : null}
@@ -151,7 +152,7 @@ export default function SellIndexScreen() {
           />
         </View>
 
-        {candidates.isFetching ? <ActivityIndicator /> : null}
+        {candidates.isFetching ? <Loading variant="inline" size="sm" /> : null}
 
         {(candidates.data ?? []).map((candidate) => (
           <Pressable

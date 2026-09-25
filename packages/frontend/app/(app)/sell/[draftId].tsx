@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
+import { Pressable, TextInput, View } from "react-native";
+import { Loading } from "@oxy.so/bloom/loading";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Text } from "@mercaria/ui";
@@ -80,7 +81,7 @@ export default function SellDraftScreen() {
     return (
       <ScreenShell>
         <View className="items-center py-16">
-          <ActivityIndicator />
+          <Loading variant="inline" size="sm" />
         </View>
       </ScreenShell>
     );

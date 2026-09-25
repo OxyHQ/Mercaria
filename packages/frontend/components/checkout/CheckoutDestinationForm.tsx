@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { View } from "react-native";
 import type { CheckoutAddressInput, CheckoutContactInput } from "@mercaria/shared-types";
-import { Button, Input, Label, Switch, Text } from "@mercaria/ui";
+import { Button, Input, Label, Text } from "@mercaria/ui";
+import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 
 /**
@@ -343,8 +344,8 @@ export function CheckoutDestinationForm({
         <View className="flex-row items-center justify-between gap-3">
           <Text className="flex-1 text-sm text-foreground">{t("checkout.form.saveAddress")}</Text>
           <Switch
-            value={draft.saveToAddressBook}
-            onValueChange={(next) => onChange({ ...draft, saveToAddressBook: next })}
+            checked={draft.saveToAddressBook}
+            onCheckedChange={(next) => onChange({ ...draft, saveToAddressBook: next })}
             accessibilityLabel={t("checkout.form.saveAddress")}
           />
         </View>
@@ -361,8 +362,8 @@ export function CheckoutDestinationForm({
           {t("checkout.form.marketingOptIn")}
         </Text>
         <Switch
-          value={draft.marketingOptIn}
-          onValueChange={(next) => onChange({ ...draft, marketingOptIn: next })}
+          checked={draft.marketingOptIn}
+          onCheckedChange={(next) => onChange({ ...draft, marketingOptIn: next })}
           accessibilityLabel={t("checkout.form.marketingOptInA11y")}
         />
       </View>

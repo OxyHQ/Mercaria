@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
+import { Loading } from "@oxy.so/bloom/loading";
 import Head from "expo-router/head";
 import { useLocalSearchParams } from "expo-router";
 import {
@@ -204,7 +205,9 @@ export default function CompareScreen() {
         ) : null}
 
         {comparison.isLoading ? (
-          <ActivityIndicator accessibilityLabel={t("compare.comparingA11y")} />
+          <View accessible role="progressbar" accessibilityLabel={t("compare.comparingA11y")}>
+            <Loading variant="inline" size="sm" />
+          </View>
         ) : null}
         {comparison.error ? (
           <Text className="text-body text-text-secondary">
@@ -275,7 +278,9 @@ export default function CompareScreen() {
         )}
 
         {basket.isLoading ? (
-          <ActivityIndicator accessibilityLabel={t("compare.planningA11y")} />
+          <View accessible role="progressbar" accessibilityLabel={t("compare.planningA11y")}>
+            <Loading variant="inline" size="sm" />
+          </View>
         ) : null}
         {basket.error ? (
           <Text className="text-body text-text-secondary">

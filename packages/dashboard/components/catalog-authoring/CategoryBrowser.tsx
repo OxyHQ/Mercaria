@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { Pressable, View } from "react-native";
 import { ChevronRight } from "lucide-react-native";
 import type { AuthoringCategoryOption } from "@mercaria/shared-types";
-import { Button, Skeleton, Text, useColorScheme } from "@mercaria/ui";
+import { Button, Text, useColorScheme } from "@mercaria/ui";
+import * as Skeleton from "@oxy.so/bloom/skeleton";
 import { useTranslation } from "@/lib/i18n";
 import { useAuthoringCategories } from "@/lib/authoring/hooks";
 import { authoringLabel } from "@/lib/authoring/untranslated";
@@ -95,9 +96,9 @@ export function CategoryBrowser({ locale, selectedId, onSelect }: CategoryBrowse
 
       {categories.isPending ? (
         <View className="gap-2">
-          <Skeleton className="h-11 w-full rounded-xl" />
-          <Skeleton className="h-11 w-full rounded-xl" />
-          <Skeleton className="h-11 w-full rounded-xl" />
+          <Skeleton.Box width="100%" height={44} borderRadius={12} />
+          <Skeleton.Box width="100%" height={44} borderRadius={12} />
+          <Skeleton.Box width="100%" height={44} borderRadius={12} />
         </View>
       ) : null}
 

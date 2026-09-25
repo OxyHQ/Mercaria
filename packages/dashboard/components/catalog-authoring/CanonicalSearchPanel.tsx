@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { Pressable, View } from "react-native";
 import { BadgeCheck, Search } from "lucide-react-native";
 import type { AuthoringCanonicalCandidate } from "@mercaria/shared-types";
-import { Input, Skeleton, Text, useColorScheme } from "@mercaria/ui";
+import { Input, Text, useColorScheme } from "@mercaria/ui";
+import * as Skeleton from "@oxy.so/bloom/skeleton";
 import { useTranslation } from "@/lib/i18n";
 import { useCanonicalSearch } from "@/lib/authoring/hooks";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
@@ -69,8 +70,8 @@ export function CanonicalSearchPanel({
 
       {search.isPending && debounced.trim().length >= 2 ? (
         <View className="gap-2">
-          <Skeleton className="h-16 w-full rounded-xl" />
-          <Skeleton className="h-16 w-full rounded-xl" />
+          <Skeleton.Box width="100%" height={64} borderRadius={12} />
+          <Skeleton.Box width="100%" height={64} borderRadius={12} />
         </View>
       ) : null}
 

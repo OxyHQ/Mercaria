@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Pressable, View } from "react-native";
 import type { AuthoringSchema } from "@mercaria/shared-types";
-import { Button, Input, Label, Switch, Text, type Translate } from "@mercaria/ui";
+import { Button, Input, Label, Text, type Translate } from "@mercaria/ui";
+import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 import { useCanonicalVariants } from "@/lib/authoring/hooks";
 import { applyBarcodeToAll, applySkuPrefix, setAllSold } from "@/lib/authoring/bulk";
@@ -217,8 +218,8 @@ export function VariantRows({
                   {t("products.wizard.variants.sold")}
                 </Text>
                 <Switch
-                  value={row.enabled}
-                  onValueChange={(enabled: boolean) => update(row.key, { enabled })}
+                  checked={row.enabled}
+                  onCheckedChange={(enabled: boolean) => update(row.key, { enabled })}
                   disabled={disabled}
                   accessibilityLabel={t("products.wizard.variants.sold")}
                 />

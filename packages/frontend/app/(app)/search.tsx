@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { View } from "react-native";
+import { Loading } from "@oxy.so/bloom/loading";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Search } from "@oxy.so/bloom/search";
@@ -177,7 +178,7 @@ export default function SearchScreen() {
 
         {interpret.isPending ? (
           <View className="items-center py-4">
-            <ActivityIndicator />
+            <Loading variant="inline" size="sm" />
           </View>
         ) : null}
 
@@ -217,7 +218,7 @@ export default function SearchScreen() {
 
         {results.isPending && term.trim().length > 0 ? (
           <View className="items-center py-6">
-            <ActivityIndicator />
+            <Loading variant="inline" size="sm" />
           </View>
         ) : null}
 

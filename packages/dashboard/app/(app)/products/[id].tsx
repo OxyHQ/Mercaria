@@ -18,10 +18,13 @@ import {
   Textarea,
   PriceDisplay,
   SourceBadge,
-  ToggleGroup,
-  ToggleGroupItem,
   useColorScheme,
 } from "@mercaria/ui";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+  SegmentedControlItemText,
+} from "@oxy.so/bloom/segmented-control";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -259,21 +262,19 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
               {t("products.detail.restrictedNotice")}
             </Text>
           ) : null}
-          <ToggleGroup
-            type="single"
+          <SegmentedControl
+            type="radio"
+            label={t("common.status")}
             value={status}
-            onValueChange={(v) => {
-              if (canWrite && !restricted && typeof v === "string" && v) {
-                setStatus(v as SellerSettableListingStatus);
-              }
-            }}
+            onValueChange={setStatus}
+            disabled={!canWrite || restricted}
           >
             {STATUSES.map((s) => (
-              <ToggleGroupItem key={s} value={s}>
-                <Text className="text-sm capitalize text-foreground">{t(STATUS_LABEL_KEYS[s])}</Text>
-              </ToggleGroupItem>
+              <SegmentedControlItem key={s} value={s}>
+                <SegmentedControlItemText>{t(STATUS_LABEL_KEYS[s])}</SegmentedControlItemText>
+              </SegmentedControlItem>
             ))}
-          </ToggleGroup>
+          </SegmentedControl>
         </View>
 
         {canWrite ? (

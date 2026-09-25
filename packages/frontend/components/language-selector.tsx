@@ -1,7 +1,14 @@
 import { View, Pressable } from 'react-native';
-import { DropdownMenu, LOCALE_ENDONYMS, Text } from '@mercaria/ui';
+import { LOCALE_ENDONYMS, Text } from '@mercaria/ui';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@oxy.so/bloom/dropdown-menu';
 import { STOREFRONT_LOCALES, useTranslation } from '@/lib/i18n';
-import { ChevronDown, Globe2 } from 'lucide-react-native';
+import { Check, ChevronDown, Globe2 } from 'lucide-react-native';
 
 /**
  * Choose the storefront's language.
@@ -37,28 +44,35 @@ export function LanguageSelector() {
       <Text className="text-sm text-muted-foreground">
         {t('settings.appLanguage.description')}
       </Text>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild label={t('settings.appLanguage.title')}>
           <Pressable className="border border-border rounded-lg px-4 py-3 bg-background flex-row items-center justify-between">
             <Text className="text-foreground">
               {currentLocale ? LOCALE_ENDONYMS[currentLocale] : LOCALE_ENDONYMS.en}
             </Text>
             <ChevronDown size={20} className="text-muted-foreground" />
           </Pressable>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content>
-          {STOREFRONT_LOCALES.map((code) => (
-            <DropdownMenu.CheckboxItem
-              key={code}
-              value={code === currentLocale ? 'on' : 'off'}
-              onValueChange={() => setLocale(code)}
-            >
-              <DropdownMenu.ItemIndicator />
-              <DropdownMenu.ItemTitle>{LOCALE_ENDONYMS[code]}</DropdownMenu.ItemTitle>
-            </DropdownMenu.CheckboxItem>
-          ))}
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent label={t('settings.appLanguage.title')}>
+          <DropdownMenuRadioGroup
+            value={currentLocale ?? ''}
+            onValueChange={(next) => {
+              const code = STOREFRONT_LOCALES.find((candidate) => candidate === next);
+              if (code) setLocale(code);
+            }}
+          >
+            {STOREFRONT_LOCALES.map((code) => (
+              <DropdownMenuRadioItem
+                key={code}
+                value={code}
+                indicator={<Check size={16} className="text-foreground" />}
+              >
+                {LOCALE_ENDONYMS[code]}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
       {/* Native applies a layout-direction change on the next launch, so the
           strings switch to Arabic while the layout stays as it was. Without
           this line that reads as a bug rather than as a pending restart. Web

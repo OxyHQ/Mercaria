@@ -1,7 +1,8 @@
 import React from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View } from "react-native";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { ScreenShell, Text, cn, useColorScheme } from "@mercaria/ui";
+import { Loading } from "@oxy.so/bloom/loading";
+import { ScreenShell, Text, cn } from "@mercaria/ui";
 
 interface ScreenProps {
   title: string;
@@ -46,10 +47,9 @@ export function Screen({ title, subtitle, action, children, scroll = true }: Scr
 
 /** Centered loading spinner for a screen-level pending state. */
 export function ScreenLoading() {
-  const { colors } = useColorScheme();
   return (
     <View className="items-center justify-center py-20">
-      <ActivityIndicator color={colors.primary} />
+      <Loading variant="inline" size="sm" />
     </View>
   );
 }

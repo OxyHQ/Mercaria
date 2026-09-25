@@ -36,13 +36,16 @@ import {
   Button,
   Input,
   Label,
-  Switch,
-  ToggleGroup,
-  ToggleGroupItem,
   useColorScheme,
   formatDateTime,
   type Translate,
 } from "@mercaria/ui";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+  SegmentedControlItemText,
+} from "@oxy.so/bloom/segmented-control";
+import { Switch } from "@oxy.so/bloom/switch";
 import { toast } from "@oxy.so/bloom/toast";
 import { AlertDialog } from "@oxy.so/bloom/alert-dialog";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
@@ -135,10 +138,6 @@ const DIRECTION_LABEL_KEYS: Record<SyncResourceDirection, string> = {
   push: "channels.syncDirection.push",
   bidirectional: "channels.syncDirection.both",
 };
-
-function isSyncDirection(value: string): value is SyncResourceDirection {
-  return value === "off" || value === "pull" || value === "push" || value === "bidirectional";
-}
 
 /**
  * Human-readable timestamp, or a fallback when a channel has never synced.
@@ -363,7 +362,11 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
               {t("channels.settings.autoPublishHint")}
             </Text>
           </View>
-          <Switch value={autoPublish} onValueChange={setAutoPublish} />
+          <Switch
+            checked={autoPublish}
+            onCheckedChange={setAutoPublish}
+            accessibilityLabel={t("channels.settings.autoPublish")}
+          />
         </View>
       </View>
 
@@ -377,7 +380,11 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
               {t("channels.settings.keepLocalEditsHint")}
             </Text>
           </View>
-          <Switch value={respectOverrides} onValueChange={setRespectOverrides} />
+          <Switch
+            checked={respectOverrides}
+            onCheckedChange={setRespectOverrides}
+            accessibilityLabel={t("channels.settings.keepLocalEdits")}
+          />
         </View>
       </View>
 
@@ -408,19 +415,13 @@ function DirectionField({
         <Text className="text-sm font-medium text-foreground">{label}</Text>
         <Text className="text-xs text-muted-foreground">{hint}</Text>
       </View>
-      <ToggleGroup
-        type="single"
-        value={value}
-        onValueChange={(next) => {
-          if (typeof next === "string" && isSyncDirection(next)) onChange(next);
-        }}
-      >
+      <SegmentedControl type="radio" label={label} value={value} onValueChange={onChange}>
         {DIRECTIONS.map((direction) => (
-          <ToggleGroupItem key={direction} value={direction}>
-            {t(DIRECTION_LABEL_KEYS[direction])}
-          </ToggleGroupItem>
+          <SegmentedControlItem key={direction} value={direction}>
+            <SegmentedControlItemText>{t(DIRECTION_LABEL_KEYS[direction])}</SegmentedControlItemText>
+          </SegmentedControlItem>
         ))}
-      </ToggleGroup>
+      </SegmentedControl>
     </View>
   );
 }
@@ -893,8 +894,9 @@ function PauseControls({ storeId, connection }: { storeId: string; connection: C
             </Text>
           </View>
           <Switch
-            value={paused.has("fetch")}
-            onValueChange={(next) => toggle("fetch", next)}
+            checked={paused.has("fetch")}
+            onCheckedChange={(next) => toggle("fetch", next)}
+            accessibilityLabel={t("channels.pause.importing")}
           />
         </View>
         <View className="flex-row items-center justify-between gap-3">
@@ -907,8 +909,9 @@ function PauseControls({ storeId, connection }: { storeId: string; connection: C
             </Text>
           </View>
           <Switch
-            value={paused.has("publication")}
-            onValueChange={(next) => toggle("publication", next)}
+            checked={paused.has("publication")}
+            onCheckedChange={(next) => toggle("publication", next)}
+            accessibilityLabel={t("channels.pause.publishing")}
           />
         </View>
       </View>
@@ -1027,21 +1030,21 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
         <Text className="text-xs text-muted-foreground">
           {t("channels.disconnect.intro")}
         </Text>
-        <ToggleGroup
-          type="single"
+        <SegmentedControl
+          type="radio"
+          size="sm"
+          label={t("channels.disconnect.policyLabel")}
           value={policy}
-          onValueChange={(next) => {
-            if (typeof next === "string" && next !== "") {
-              setPolicy(next as ChannelDisconnectPolicy);
-            }
-          }}
+          onValueChange={setPolicy}
         >
           {CHANNEL_DISCONNECT_POLICIES.map((option) => (
-            <ToggleGroupItem key={option} value={option}>
-              <Text className="text-xs font-medium">{t(DISCONNECT_POLICY_LABEL_KEYS[option])}</Text>
-            </ToggleGroupItem>
+            <SegmentedControlItem key={option} value={option}>
+              <SegmentedControlItemText>
+                {t(DISCONNECT_POLICY_LABEL_KEYS[option])}
+              </SegmentedControlItemText>
+            </SegmentedControlItem>
           ))}
-        </ToggleGroup>
+        </SegmentedControl>
         <Text className="text-xs text-muted-foreground">
           {t(DISCONNECT_POLICY_HELP_KEYS[policy])}
         </Text>
