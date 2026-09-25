@@ -3,7 +3,8 @@ import { View, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { RiShoppingCartLine } from "@oxy.so/bloom/icons/RiShoppingCartLine";
-import { ChevronRight, Minus, Plus, Tag, Trash2, User as UserIcon, X } from "lucide-react-native";
+import { ChevronRight, Tag, Trash2, User as UserIcon, X } from "lucide-react-native";
+import { Stepper } from "@oxy.so/bloom/stepper";
 import { Text, PriceDisplay, toBloomFieldIcon, useColorScheme } from "@mercaria/ui";
 import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
 import { useCustomers } from "@/lib/hooks/use-customers";
@@ -127,7 +128,15 @@ export function CartPanel({ storeId }: { storeId: string }) {
   );
 }
 
-/** A single cart line: thumbnail-less name + variant, qty stepper, line total. */
+/**
+ * A single cart line: thumbnail-less name + variant, qty stepper, line total.
+ *
+ * The stepper is Bloom's, floored at 1 with `onRemove`: at quantity 1 its `−`
+ * becomes a trash button that removes the line, which is the till's long-standing
+ * "− at 1 removes the line". The separate ✕ stays, because an operator voiding a
+ * line of six should not have to press `−` six times — which is also why this is
+ * not Bloom's `CartLine`, whose `removeInStepper` drops that control.
+ */
 function CartLineRow({ line }: { line: RegisterCartLine }) {
   const { colors } = useColorScheme();
   const { t } = useTranslation();
@@ -161,28 +170,18 @@ function CartLineRow({ line }: { line: RegisterCartLine }) {
         </Pressable>
       </View>
       <View className="mt-2 flex-row items-center justify-between">
-        <View className="flex-row items-center gap-2">
-          <Pressable
-            onPress={() => setQuantity(line.variantId, line.quantity - 1)}
-            accessibilityRole="button"
-            accessibilityLabel={t("cart.decreaseQuantity")}
-            className="h-9 w-9 items-center justify-center rounded-lg border border-border active:bg-accent"
-          >
-            <Minus size={16} color={colors.foreground} />
-          </Pressable>
-          <Text className="min-w-[28px] text-center text-base font-semibold text-foreground">
-            {line.quantity}
-          </Text>
-          <Pressable
-            onPress={() => setQuantity(line.variantId, line.quantity + 1)}
-            disabled={line.quantity >= line.available}
-            accessibilityRole="button"
-            accessibilityLabel={t("cart.increaseQuantity")}
-            className="h-9 w-9 items-center justify-center rounded-lg border border-border active:bg-accent disabled:opacity-40"
-          >
-            <Plus size={16} color={colors.foreground} />
-          </Pressable>
-        </View>
+        <Stepper
+          value={line.quantity}
+          min={1}
+          max={Math.max(1, line.available)}
+          onValueChange={(quantity) => setQuantity(line.variantId, quantity)}
+          onRemove={() => removeLine(line.variantId)}
+          removeLabel={t("cart.removeItem")}
+          decrementLabel={t("cart.decreaseQuantity")}
+          incrementLabel={t("cart.increaseQuantity")}
+          accessibilityLabel={line.title}
+          size="small"
+        />
         <PriceDisplay price={lineTotal} primaryClassName="text-sm font-bold" />
       </View>
     </View>

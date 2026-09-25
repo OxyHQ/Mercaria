@@ -241,8 +241,8 @@ which is why it kept holding across the change instead of failing it.
 
 **No device has run either app in Arabic.** Whether the mirrored layout RENDERS
 correctly is a property of a real device or a foregrounded tab, and neither
-`validate:rtl-classes`, `validate:rtl-direction` nor `validate:logical-side`
-runs one — they check classes, a pure decision and a pure resolver.
+`validate:rtl-classes` nor `validate:rtl-direction` runs one — they check
+classes and a pure decision.
 
 The residual the bundles could not have fixed on their own is now closed. #429
 item 4 replaced the sliding surfaces' physical `side: 'left' | 'right'` with a
@@ -251,16 +251,19 @@ both. Both of the components that shipped with it — `Panel` and the hand-rolle
 `Sheet` — have since gone: `Panel` was deleted as unused, and the one `Sheet`
 importer moved onto Bloom.
 
-The POS variant picker is a Bloom `Dialog` side-sheet now, and Bloom's
-`placement` is PHYSICAL (`left` / `right`), with the anchor and the parked
-`translateX` both decided inside Bloom from that one value. So
-`packages/pos/components/register/VariantPickerSheet.tsx` asks
-`useLogicalDialogPlacement("end")` (`packages/ui/src/lib/logical-dialog-placement.ts`)
-for the trailing edge, which resolves it through
-`packages/ui/src/lib/logical-side.ts`'s `resolvePhysicalSide`. That is exact on
-web; on a mirrored NATIVE build React Native swaps a `left`/`right` inset but not
-a transform, so Bloom's own anchor and slide disagree there whatever side is
-passed — Bloom's to fix, and inside item 2 below.
+The POS variant picker is a Bloom `Dialog` side-sheet with the LOGICAL
+`placement="end"` (`packages/pos/components/register/VariantPickerSheet.tsx`).
+Since Bloom 4.18, `start` / `end` are resolved INSIDE Bloom from `useIsRtl()`:
+on web the portaled drawer takes the physical edge the direction names, and on
+native the panel is positioned with `insetInlineStart` / `insetInlineEnd`, which
+Yoga resolves against `I18nManager`. Mercaria's own resolver
+(`useLogicalDialogPlacement` over `lib/logical-side.ts`) and its guard
+`validate:logical-side` were deleted with that release — there is no
+direction arithmetic left on our side to assert. A Bloom side-sheet on a
+reading-direction edge takes `start` / `end`. The storefront's store menu
+(`StoreMenuSheet`) is still `{ base: 'bottom', md: 'left' }` with a physical
+nav-rail offset in `containerStyle`; mirroring it means moving the rail offset
+and the inset to the logical edge too, and it is not done.
 
 The direction itself is READ, never re-derived from a locale: Bloom's `useIsRtl`
 (`@oxy.so/bloom/hooks`) returns what `syncLayoutDirection` already applied —
@@ -268,12 +271,9 @@ The direction itself is READ, never re-derived from a locale: Bloom's `useIsRtl`
 changes it mid-session) and `I18nManager.isRTL` on native (constant for the
 process, because `forceRTL` takes effect on the next launch).
 
-`scripts/validate-logical-side.mjs` runs `resolvePhysicalSide` — the module
-imports nothing, for the reason `rtl-locales.ts` imports nothing — and asserts
-the 2×2 table, the mirror property (a resolver that ignored the direction would
-pass every other check), and that the placement hook still imports and calls
-it. **It verifies no rendering.** Whether a mirrored sheet visibly enters from
-the correct edge is #429 item 2, and no device or foregrounded tab has run it.
+**Nothing verifies the rendering.** Whether a mirrored sheet visibly enters
+from the correct edge is #429 item 2, and no device or foregrounded tab has run
+it.
 
 ### The two upstream premises are re-measured now (#429 item 3)
 
@@ -312,8 +312,8 @@ person does not have to re-derive it:
    by construction (`borderInline*` works in a browser and drops on native, and
    `translateX` is mirrored by neither).
 2. **The sliding surfaces specifically** — the variant picker's Bloom
-   side-sheet must enter from the edge it names. `validate:logical-side` proves the arithmetic
-   and cannot prove the animation.
+   side-sheet must enter from the edge it names. Bloom resolves `end` from
+   `useIsRtl()`; nothing here renders the animation.
 3. **The eight excused physical utilities** — each was kept because the logical
    spelling would DROP it on native. Confirm each still renders on a device;
    that is the other half of the premise guard, which reads what upstream ships

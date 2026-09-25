@@ -213,7 +213,7 @@ export function pluralRuleLocaleFor(
  *
  * Importing `Pluralizer` from `i18n-js` would drag the `I18n` class into this
  * module's type graph, and `scripts/validate-i18n-strings.mjs` imports this file
- * DIRECTLY to run the real chain — the `validate-logical-side.mjs` idiom, which
+ * DIRECTLY to run the real chain — the `validate-rtl-direction.mjs` idiom, which
  * works only while this module's imports are things a bare script can resolve.
  * The instance argument is unused here anyway: the locale arrives through the
  * closure, not off the instance.

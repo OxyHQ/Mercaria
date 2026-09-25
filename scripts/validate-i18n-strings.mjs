@@ -213,7 +213,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // The REAL runtime module, imported and RUN rather than described — the
-// `validate-logical-side.mjs` idiom, and the only thing that makes check K's
+// `validate-rtl-direction.mjs` idiom, and the only thing that makes check K's
 // permitted set the same fact as the pluralizer's chain. `plurals.ts` is
 // importable from a bare script precisely because it imports nothing a bundler
 // has to resolve; its sibling `create-app-i18n.ts` needs `expo-localization`

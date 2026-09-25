@@ -171,7 +171,7 @@ function FacetBlock({
       {facet.values.shape === 'buckets' ? (
         <View
           className="flex-row flex-wrap gap-space-8"
-          accessibilityRole={facet.multiSelect ? 'none' : 'radiogroup'}
+          role={facet.multiSelect ? 'group' : 'radiogroup'}
           accessibilityLabel={titleText}
         >
           {facet.values.buckets.map((bucket) => (
@@ -268,9 +268,10 @@ function FacetBucketChip({
     <Chip
       size="xl"
       variant="inverted"
-      // Bloom's Chip has no checkbox role: a multi-select facet is a TOGGLE
-      // button (`aria-pressed`), a single-select one a radio (`aria-checked`).
-      role={multiSelect ? 'button' : 'radio'}
+      // A multi-select facet is a CHECKBOX (any number on at once), a
+      // single-select one a radio — both announce `aria-checked`, so a screen
+      // reader says "checked" rather than "pressed", which is what a filter is.
+      role={multiSelect ? 'checkbox' : 'radio'}
       selected={bucket.selected}
       // The COUNT is in the announced label rather than in a second element:
       // "Black, 12 products" is one thing to hear, and a count rendered as its

@@ -178,8 +178,8 @@ Mongo/Mongoose is GONE (PR #136) — no `src/models/`, no `mongoose`, no
   `ml-2` half-mirrors a screen yet builds green. Direction follows the SHIPPED
   BUNDLES, not the tag (#434). `border-s-*`/`text-start` do NOT survive
   react-native-css/RN 0.85 and stay physical (`validate-rtl-upstream-premises`
-  re-measures both), as does Bloom `Dialog`'s `left`/`right` placement — derive
-  it from a LOGICAL side via `useLogicalDialogPlacement` (`lib/logical-side.ts`).
+  re-measures both). A Bloom `Dialog` side-sheet on a reading-direction edge
+  takes the LOGICAL `placement="start"|"end"`, which Bloom resolves itself.
   Arabic is NOT fully supported — #429 item 2.
 - **Dockerfile node-gyp pin.** The repo-ROOT API Dockerfile pins `node-gyp` in the
   builder: `ws`'s native accelerators have no musl-arm64 prebuild, and an on-demand

@@ -59,6 +59,7 @@
   },
   "common": {
     "all": "Alle",
+    "loading": "Wird geladen…",
     "name": "Name",
     "next": "Weiter",
     "noAccess": "Kein Zugriff",

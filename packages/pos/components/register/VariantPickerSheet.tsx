@@ -2,7 +2,7 @@ import React from "react";
 import { View, Pressable } from "react-native";
 import { Dialog, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import type { Listing, ProductVariantDTO } from "@mercaria/shared-types";
-import { Text, PriceDisplay, useLogicalDialogPlacement } from "@mercaria/ui";
+import { Text, PriceDisplay } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 
 /** Side-sheet width (px) — the old sheet's desktop width. */
@@ -22,19 +22,17 @@ interface VariantPickerSheetProps {
  * when the listing has more than one in-stock SKU. Out-of-stock variants are
  * dimmed and non-interactive. Opened and closed through `control`.
  *
- * Bloom's `Dialog` owns the surface; its side placement is PHYSICAL, so the
- * logical trailing edge is resolved by `useLogicalDialogPlacement("end")` — the
- * sheet enters from the right in a left-to-right till and from the left in a
- * mirrored one (#429).
+ * Bloom's `Dialog` owns the surface and resolves the LOGICAL `end` placement
+ * itself from `useIsRtl()`: the sheet enters from the right in a left-to-right
+ * till and from the left in a mirrored one (#429).
  */
 export function VariantPickerSheet({ control, listing, onPick, onClosed }: VariantPickerSheetProps) {
   const { t } = useTranslation();
-  const trailingEdge = useLogicalDialogPlacement("end");
   const title = listing?.title ?? t("catalog.chooseVariant");
   return (
     <Dialog
       control={control}
-      placement={trailingEdge}
+      placement="end"
       width={SHEET_WIDTH}
       title={title}
       label={title}

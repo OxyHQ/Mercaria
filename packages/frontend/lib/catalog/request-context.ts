@@ -2,7 +2,7 @@
  * The request-context dimensions, and the PURE composition of them (ADR 0007 D4).
  *
  * A LEAF module, like its sibling `locale.ts` and for the same reason stated one
- * layer up in `@mercaria/ui`'s `logical-side.ts`: it imports nothing that needs a
+ * layer up in `@mercaria/ui`'s `i18n/rtl-locales.ts`: it imports nothing that needs a
  * bundler, so a test can run the REAL function. `context.ts` holds the hook —
  * `getLocales`, `useFx` and the i18n store all need a React tree and a
  * transform, and a plain-node runner cannot even parse that module graph
@@ -190,7 +190,7 @@ export interface CatalogContextSources {
  * Compose the six dimensions — PURE, so a guard can run it.
  *
  * Split out of {@link useCatalogContext} for the reason `isRtlLocale` is split
- * from `syncLayoutDirection` and `logical-side.ts` from Bloom's `useIsRtl`:
+ * from `syncLayoutDirection`:
  * the DECISION imports nothing and can be asserted, while the OBSERVATION needs
  * `getLocales` and a React store and cannot run outside a bundler. Before the
  * split, the one property that actually goes wrong here — a market taken off the

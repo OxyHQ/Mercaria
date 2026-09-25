@@ -7,6 +7,7 @@ import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
+import { PriceSummary } from "@oxy.so/bloom/price-breakdown";
 import { Check, Plus } from "lucide-react-native";
 import { nanoid } from "nanoid/non-secure";
 import type {
@@ -18,11 +19,11 @@ import type {
   Money,
 } from "@mercaria/shared-types";
 import {
-  PriceDisplay,
   SectionHeader,
   Text,
   formatRegionName,
   useFormatters,
+  usePriceText,
   CommercialDisclosure,
   commercialSellerLabel,
   toBloomIcon,
@@ -143,9 +144,21 @@ function SignInBenefit() {
   );
 }
 
+/**
+ * What is being bought, per seller, and the subtotal.
+ *
+ * The figures are Bloom's `price-breakdown`: each group's lines are a
+ * `PriceSummary` of rows, and the subtotal is a `PriceSummary` total under the
+ * rule. Every amount is a STRING from `usePriceText` — the formatter
+ * `PriceDisplay` draws — so the primary figure and its `≈` secondary are
+ * exactly what `PriceDisplay` showed here before (`amount` /
+ * `secondaryAmount`). Bloom adds nothing up and converts nothing.
+ */
 function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
   const { t } = useTranslation();
+  const priceText = usePriceText();
   const subtotal = sumSubtotals(groups);
+  const subtotalText = subtotal ? priceText(subtotal) : null;
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
       <Text className="mb-3 text-sm font-semibold text-foreground">
@@ -171,31 +184,37 @@ function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
               (#129 checkout rules 5 and 6).
             */}
             <CommercialDisclosure presentation={group.commercial} showExplanations />
-            {group.items.map((item) => (
-              <View key={item.variantId} className="flex-row items-center justify-between gap-3">
-                <View className="min-w-0 flex-1">
-                  <Text className="text-sm text-foreground" numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    {item.variantTitle} · ×{item.quantity}
-                  </Text>
-                </View>
-                <PriceDisplay price={item.lineTotal} primaryClassName="text-sm" />
-              </View>
-            ))}
+            <PriceSummary
+              accessibilityLabel={commercialSellerLabel(t, group.commercial)}
+              lines={group.items.map((item) => {
+                const line = priceText(item.lineTotal);
+                return {
+                  id: item.variantId,
+                  label: item.title,
+                  sublabel: `${item.variantTitle} · ×${item.quantity}`,
+                  amount: line.primary,
+                  secondaryAmount: line.secondary ?? undefined,
+                };
+              })}
+            />
           </View>
         ))}
-        <View className="my-1 h-px bg-border" />
-        <View className="flex-row items-center justify-between">
-          <Text className="text-sm font-semibold text-foreground">
-            {t("checkout.summary.subtotal")}
+        {subtotalText ? (
+          <PriceSummary
+            accessibilityLabel={t("checkout.summary.title")}
+            lines={[]}
+            total={{
+              label: t("checkout.summary.subtotal"),
+              amount: subtotalText.primary,
+              secondaryAmount: subtotalText.secondary ?? undefined,
+              note: t("checkout.summary.calculatedAtPlacement"),
+            }}
+          />
+        ) : (
+          <Text className="text-xs text-muted-foreground">
+            {t("checkout.summary.calculatedAtPlacement")}
           </Text>
-          {subtotal ? <PriceDisplay price={subtotal} primaryClassName="text-base font-bold" /> : null}
-        </View>
-        <Text className="text-xs text-muted-foreground">
-          {t("checkout.summary.calculatedAtPlacement")}
-        </Text>
+        )}
       </View>
     </View>
   );

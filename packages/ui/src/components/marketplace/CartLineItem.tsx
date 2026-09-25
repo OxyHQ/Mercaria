@@ -3,11 +3,14 @@ import { Image } from "expo-image";
 import type { CartItemDTO, CartLineReviewReason } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { Stepper } from "@oxy.so/bloom/stepper";
+import { PriceDisplay } from "../PriceDisplay";
 import {
   CART_SAVE_FOR_LATER_KEY,
+  QUANTITY_DECREASE_KEY,
+  QUANTITY_INCREASE_KEY,
+  QUANTITY_REMOVE_KEY,
 } from "../../lib/marketplace-labels";
-import { PriceDisplay } from "../PriceDisplay";
-import { QuantityStepper } from "./QuantityStepper";
 
 /** Tailwind class applied to the outer row when the item is stale. */
 const STALE_OPACITY_CLASS = "opacity-60";
@@ -38,7 +41,9 @@ export interface CartLineItemProps {
 
 /**
  * A single line in the cart, rendered as a row: image link | item details +
- * stepper | line total. The image and "Save for later" button are both
+ * stepper | line total. Deliberately NOT Bloom's `CartLine`: that line cannot
+ * hold the image LINK, the review-reason alert, the stale dimming or "Save for
+ * later", so only the quantity control is Bloom's (`Stepper` with `onRemove`). The image and "Save for later" button are both
  * actionable but are siblings, never nested, to avoid illegal nested interactive
  * elements on web.
  */
@@ -90,12 +95,19 @@ export function CartLineItem({
         ) : null}
 
         <View className="mt-3">
-          <QuantityStepper
-            quantity={item.quantity}
-            available={item.available}
-            onIncrement={() => onChangeQuantity(item.variantId, item.quantity + 1)}
-            onDecrement={() => onChangeQuantity(item.variantId, item.quantity - 1)}
+          {/* Bloom's stepper, floored at 1: there its `−` becomes the trash
+              button that removes the line, and `+` stops at what is in stock. */}
+          <Stepper
+            value={item.quantity}
+            min={1}
+            max={item.available === undefined ? undefined : Math.max(1, item.available)}
+            onValueChange={(quantity) => onChangeQuantity(item.variantId, quantity)}
             onRemove={() => onRemove(item.variantId)}
+            removeLabel={t(QUANTITY_REMOVE_KEY)}
+            decrementLabel={t(QUANTITY_DECREASE_KEY)}
+            incrementLabel={t(QUANTITY_INCREASE_KEY)}
+            accessibilityLabel={item.title}
+            size="small"
           />
         </View>
 

@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { View } from "react-native";
 import {
   CURRENCY_PRECISION,
@@ -59,6 +60,53 @@ function convertMoney(
   return { amount: targetMinor, currency: target };
 }
 
+/**
+ * The two figures `PriceDisplay` draws, as STRINGS — for a Bloom component that
+ * takes pre-formatted amounts (`PriceLine.amount` / `secondaryAmount`,
+ * `CartLine.price` / `secondaryPrice`, `CheckoutConfirm.amount` /
+ * `secondaryAmount`). `secondary` already carries the `≈ ` prefix, and is
+ * `null` whenever `PriceDisplay` would draw no second figure.
+ */
+export interface PriceText {
+  primary: string;
+  secondary: string | null;
+}
+
+/**
+ * The formatter behind `PriceDisplay`, for callers that need its figures as
+ * text. Returns a function (not a single price's text) so a list can format
+ * each row without calling a hook in a loop. Same conversion, same fallback to
+ * the native amount, same `formatMoney` — this is the ONE place the display
+ * figures are produced, and `PriceDisplay` draws what it returns.
+ */
+export function usePriceText(): (price: Money) => PriceText {
+  const { primaryCurrency, secondaryCurrency, dualDisplayEnabled, rates } = useFx();
+  const { formatMoney } = useFormatters();
+  return useCallback(
+    (price: Money): PriceText => {
+      // Primary: convert to the shopper's display currency; if a needed rate is
+      // missing, gracefully render the native amount rather than crash or fabricate.
+      const primaryMoney = convertMoney(price, primaryCurrency, rates) ?? price;
+
+      // Secondary: only when enabled, a distinct secondary is chosen (no point
+      // showing the same currency twice), and it can actually be converted.
+      const secondaryMoney =
+        dualDisplayEnabled &&
+        secondaryCurrency !== null &&
+        secondaryCurrency !== primaryMoney.currency
+          ? convertMoney(price, secondaryCurrency, rates)
+          : null;
+
+      return {
+        primary: formatMoney(primaryMoney),
+        secondary:
+          secondaryMoney !== null ? `${APPROX_PREFIX}${formatMoney(secondaryMoney)}` : null,
+      };
+    },
+    [primaryCurrency, secondaryCurrency, dualDisplayEnabled, rates, formatMoney],
+  );
+}
+
 export interface PriceDisplayProps {
   /**
    * The stored price in its NATIVE currency (FAIR, or a store's own fiat). It is
@@ -88,30 +136,16 @@ export function PriceDisplay({
   primaryClassName,
   secondaryClassName,
 }: PriceDisplayProps) {
-  const { primaryCurrency, secondaryCurrency, dualDisplayEnabled, rates } = useFx();
-  const { formatMoney } = useFormatters();
-
-  // Primary: convert to the shopper's display currency; if a needed rate is
-  // missing, gracefully render the native amount rather than crash or fabricate.
-  const primaryMoney = convertMoney(price, primaryCurrency, rates) ?? price;
-
-  // Secondary: only when enabled, a distinct secondary is chosen (no point
-  // showing the same currency twice), and it can actually be converted.
-  const secondaryMoney =
-    dualDisplayEnabled &&
-    secondaryCurrency !== null &&
-    secondaryCurrency !== primaryMoney.currency
-      ? convertMoney(price, secondaryCurrency, rates)
-      : null;
+  const { primary, secondary } = usePriceText()(price);
 
   return (
     <View className={cn("flex-row items-baseline gap-1", className)}>
       <Text className={cn("text-sm font-semibold text-foreground", primaryClassName)}>
-        {formatMoney(primaryMoney)}
+        {primary}
       </Text>
-      {secondaryMoney !== null ? (
+      {secondary !== null ? (
         <Text className={cn("text-xs text-muted-foreground", secondaryClassName)}>
-          {`${APPROX_PREFIX}${formatMoney(secondaryMoney)}`}
+          {secondary}
         </Text>
       ) : null}
     </View>

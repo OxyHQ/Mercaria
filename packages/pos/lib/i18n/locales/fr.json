@@ -62,6 +62,7 @@
   },
   "common": {
     "all": "Tous",
+    "loading": "Chargement…",
     "name": "Nom",
     "next": "Suivant",
     "noAccess": "Accès refusé",

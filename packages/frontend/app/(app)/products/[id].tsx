@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Heart, Minus, Plus, Share2, Star } from "lucide-react-native";
+import { Heart, Minus, Plus, Share2 } from "lucide-react-native";
 import { Rating } from "@oxy.so/bloom/rating";
 import {
   CommercialDisclosure,
@@ -48,7 +48,7 @@ import {
 } from "@/lib/hooks/use-saves";
 import { useTranslation } from "@/lib/i18n";
 
-/** Gold star fill (mirrors ReviewStars / MerchantCard constant). */
+/** Gold star fill (mirrors the MerchantCard constant). */
 const STAR_COLOR = "#FFB800";
 /** Lines of the description shown before "View more" expands it. */
 const DESCRIPTION_CLAMP_LINES = 6;
@@ -209,7 +209,7 @@ function distributionOf(reviews: Review[]): RatingDistribution {
 /** Inline store-link card (brand-bg cover + wordmark + footer name/rating). */
 function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () => void }) {
   const { t } = useTranslation();
-  const { formatReviewCount } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const toneColor = store.textTone === "light" ? "#FFFFFF" : "#111111";
   return (
     <View
@@ -254,12 +254,13 @@ function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () =>
           <Text numberOfLines={1} className="text-sm font-bold" style={{ color: toneColor }}>
             {store.name}
           </Text>
-          <View className="mt-space-2 flex-row items-center gap-space-4">
-            <Star size={11} color={STAR_COLOR} fill={STAR_COLOR} />
-            <Text className="text-caption" style={{ color: toneColor }}>
-              {`${store.rating} (${formatReviewCount(store.reviewCount)})`}
-            </Text>
-          </View>
+          <Rating
+            {...ratingDisplay({ rating: store.rating, reviews: store.reviewCount })}
+            size="small"
+            color={toneColor}
+            starColor={STAR_COLOR}
+            style={{ marginTop: 2 }}
+          />
         </View>
         <StoreFollowButton store={store} size="sm" />
       </View>
