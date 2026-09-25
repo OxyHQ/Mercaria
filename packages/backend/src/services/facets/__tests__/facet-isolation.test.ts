@@ -84,7 +84,8 @@ const MINIMUM_FACET_REPOSITORIES = 2;
 const MINIMUM_FACET_HTTP_MODULES = 3;
 const MINIMUM_FRONTEND_FILES: Readonly<Record<string, number>> = {
   app: 37,
-  components: 58,
+  // 57 since the orphaned sidebar and its unimported siblings were deleted.
+  components: 57,
   lib: 93,
 };
 
