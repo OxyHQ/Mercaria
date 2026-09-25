@@ -11,12 +11,9 @@ import {
   Button,
   Input,
   Label,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   useColorScheme,
 } from "@mercaria/ui";
+import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { useMyStores, useCreateStore } from "@/lib/hooks/use-stores";
@@ -30,7 +27,7 @@ export default function StoresScreen() {
   const { t } = useTranslation();
   const { data: stores, isPending, isError } = useMyStores();
   const { activeStoreId, setActiveStoreId } = useActiveStore();
-  const [createOpen, setCreateOpen] = useState(false);
+  const createControl = useDialogControl();
 
   const onSelect = (store: Store) => {
     setActiveStoreId(store.id);
@@ -38,7 +35,7 @@ export default function StoresScreen() {
   };
 
   const action = (
-    <Button onPress={() => setCreateOpen(true)}>
+    <Button onPress={() => createControl.open()}>
       <View className="flex-row items-center gap-2">
         <Plus size={16} color={colors.primaryForeground} />
         <Text className="font-semibold text-primary-foreground">{t("stores.newStore")}</Text>
@@ -91,15 +88,14 @@ export default function StoresScreen() {
               icon={RiStore2Line}
               title={t("stores.empty.title")}
               description={t("stores.empty.body")}
-              action={{ label: t("stores.createStore"), onPress: () => setCreateOpen(true) }}
+              action={{ label: t("stores.createStore"), onPress: () => createControl.open() }}
             />
           </View>
         )}
       </Screen>
 
       <CreateStoreDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
+        control={createControl}
         onCreated={(store) => {
           setActiveStoreId(store.id);
           router.replace("/");
@@ -110,12 +106,10 @@ export default function StoresScreen() {
 }
 
 function CreateStoreDialog({
-  open,
-  onOpenChange,
+  control,
   onCreated,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  control: DialogControlProps;
   onCreated: (store: Store) => void;
 }) {
   const [name, setName] = useState("");
@@ -135,8 +129,9 @@ function CreateStoreDialog({
           toast.success(t("stores.create.success"));
           setName("");
           setDescription("");
-          onOpenChange(false);
-          onCreated(store);
+          // Navigating away unmounts this dialog, so it waits for the exit
+          // animation to finish rather than racing it.
+          control.close(() => onCreated(store));
         },
         onError: () => toast.error(t("stores.create.error")),
       },
@@ -144,35 +139,30 @@ function CreateStoreDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("stores.create.dialogTitle")}</DialogTitle>
-        </DialogHeader>
-        <View className="gap-4">
-          <View className="gap-1.5">
-            <Label>{t("stores.create.nameLabel")}</Label>
-            <Input
-              value={name}
-              onChangeText={setName}
-              placeholder={t("stores.create.namePlaceholder")}
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>{t("common.description")}</Label>
-            <Input
-              value={description}
-              onChangeText={setDescription}
-              placeholder={t("stores.create.descriptionPlaceholder")}
-            />
-          </View>
-          <Button onPress={submit} isLoading={createStore.isPending} className="mt-2">
-            <Text className="font-semibold text-primary-foreground">
-              {t("stores.createStore")}
-            </Text>
-          </Button>
+    <Dialog control={control} title={t("stores.create.dialogTitle")}>
+      <View className="gap-4">
+        <View className="gap-1.5">
+          <Label>{t("stores.create.nameLabel")}</Label>
+          <Input
+            value={name}
+            onChangeText={setName}
+            placeholder={t("stores.create.namePlaceholder")}
+          />
         </View>
-      </DialogContent>
+        <View className="gap-1.5">
+          <Label>{t("common.description")}</Label>
+          <Input
+            value={description}
+            onChangeText={setDescription}
+            placeholder={t("stores.create.descriptionPlaceholder")}
+          />
+        </View>
+        <Button onPress={submit} isLoading={createStore.isPending} className="mt-2">
+          <Text className="font-semibold text-primary-foreground">
+            {t("stores.createStore")}
+          </Text>
+        </Button>
+      </View>
     </Dialog>
   );
 }

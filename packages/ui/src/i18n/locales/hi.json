@@ -814,10 +814,14 @@
     },
     "carousel": {
       "previous": "पिछली वस्तु पर जाएँ",
-      "next": "अगली वस्तु पर जाएँ"
+      "next": "अगली वस्तु पर जाएँ",
+      "goTo": "आइटम %{position} पर जाएँ",
+      "products": "उत्पाद",
+      "stores": "दुकानें"
     },
     "cart": {
-      "saveForLater": "बाद के लिए सहेजें"
+      "saveForLater": "बाद के लिए सहेजें",
+      "shelfTitle": "आपकी कार्ट में"
     },
     "merchantCart": {
       "checkout": "भुगतान पर आगे बढ़ें",
@@ -861,7 +865,8 @@
       "empty": "अभी तक कोई %{subject} नहीं।",
       "verifiedRatings": "सत्यापित रेटिंग: %{ratings}",
       "unverified": "असत्यापित: %{ratings} · %{rating}",
-      "readMore": "और समीक्षाएँ पढ़ें"
+      "readMore": "और समीक्षाएँ पढ़ें",
+      "none": "अभी तक कोई समीक्षा नहीं"
     },
     "searchInterpretation": {
       "chip": "%{label}",

@@ -15,12 +15,9 @@ import {
   formatDate,
   formatDateTime,
   formatRegionName,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   useColorScheme,
 } from "@mercaria/ui";
+import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -371,7 +368,7 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
   const { can } = useActiveStoreContext();
   const patch = usePatchOrderStatus(storeId, order.id);
   const [tracking, setTracking] = useState(order.shipping.trackingNumber ?? "");
-  const [refundOpen, setRefundOpen] = useState(false);
+  const refundControl = useDialogControl();
 
   const canFulfil = can("orders:fulfill");
   const canRefund = can("refunds:write");
@@ -431,7 +428,7 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
       ) : null}
 
       {canRefund ? (
-        <Button variant="destructive" className="mt-4 self-start" size="sm" onPress={() => setRefundOpen(true)}>
+        <Button variant="destructive" className="mt-4 self-start" size="sm" onPress={() => refundControl.open()}>
           <Text className="text-sm font-semibold text-destructive-foreground">
             {t("orders.detail.refund")}
           </Text>
@@ -441,8 +438,7 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
       <RefundDialog
         storeId={storeId}
         order={order}
-        open={refundOpen}
-        onOpenChange={setRefundOpen}
+        control={refundControl}
       />
     </View>
   );
@@ -451,13 +447,11 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
 function RefundDialog({
   storeId,
   order,
-  open,
-  onOpenChange,
+  control,
 }: {
   storeId: string;
   order: MerchantOrder;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  control: DialogControlProps;
 }) {
   const { t } = useTranslation();
   const createRefund = useCreateRefund(storeId, order.id);
@@ -482,7 +476,7 @@ function RefundDialog({
       {
         onSuccess: () => {
           toast.success(t("orders.refund.processed"));
-          onOpenChange(false);
+          control.close();
           setQuantities({});
           setReason("");
         },
@@ -492,52 +486,47 @@ function RefundDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("orders.refund.dialogTitle")}</DialogTitle>
-        </DialogHeader>
-        <View className="gap-3">
-          {order.items.map((item, idx) => (
-            <View key={`${item.variantId}-${idx}`} className="flex-row items-center justify-between gap-3">
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <Text className="text-xs text-muted-foreground">
-                  {t("orders.refund.itemMax", {
-                    variant: item.variantTitle,
-                    quantity: item.quantity,
-                  })}
-                </Text>
-              </View>
-              <View className="w-20">
-                <Input
-                  value={quantities[item.variantId] ?? ""}
-                  onChangeText={(value) =>
-                    setQuantities((prev) => ({ ...prev, [item.variantId]: value }))
-                  }
-                  keyboardType="number-pad"
-                  placeholder="0"
-                />
-              </View>
+    <Dialog control={control} title={t("orders.refund.dialogTitle")}>
+      <View className="gap-3">
+        {order.items.map((item, idx) => (
+          <View key={`${item.variantId}-${idx}`} className="flex-row items-center justify-between gap-3">
+            <View className="flex-1">
+              <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
+                {item.title}
+              </Text>
+              <Text className="text-xs text-muted-foreground">
+                {t("orders.refund.itemMax", {
+                  variant: item.variantTitle,
+                  quantity: item.quantity,
+                })}
+              </Text>
             </View>
-          ))}
-          <View className="gap-1.5">
-            <Label>{t("orders.refund.reasonLabel")}</Label>
-            <Input
-              value={reason}
-              onChangeText={setReason}
-              placeholder={t("orders.refund.reasonPlaceholder")}
-            />
+            <View className="w-20">
+              <Input
+                value={quantities[item.variantId] ?? ""}
+                onChangeText={(value) =>
+                  setQuantities((prev) => ({ ...prev, [item.variantId]: value }))
+                }
+                keyboardType="number-pad"
+                placeholder="0"
+              />
+            </View>
           </View>
-          <Button variant="destructive" onPress={submit} isLoading={createRefund.isPending} className="mt-1">
-            <Text className="font-semibold text-destructive-foreground">
-              {t("orders.refund.submit")}
-            </Text>
-          </Button>
+        ))}
+        <View className="gap-1.5">
+          <Label>{t("orders.refund.reasonLabel")}</Label>
+          <Input
+            value={reason}
+            onChangeText={setReason}
+            placeholder={t("orders.refund.reasonPlaceholder")}
+          />
         </View>
-      </DialogContent>
+        <Button variant="destructive" onPress={submit} isLoading={createRefund.isPending} className="mt-1">
+          <Text className="font-semibold text-destructive-foreground">
+            {t("orders.refund.submit")}
+          </Text>
+        </Button>
+      </View>
     </Dialog>
   );
 }

@@ -6,6 +6,7 @@ import type { Listing, ProductVariantDTO } from "@mercaria/shared-types";
 import { Text, Input, Button, useColorScheme } from "@mercaria/ui";
 import { Chip } from "@oxy.so/bloom/chip";
 import { toast } from "@oxy.so/bloom/toast";
+import { useDialogControl } from "@oxy.so/bloom/dialog";
 import { ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { useCatalog, useCategories, type CatalogFilters } from "@/lib/hooks/use-catalog";
 import { lookupByCode } from "@/lib/api/catalog";
@@ -50,7 +51,10 @@ export function CatalogPane({ storeId }: { storeId: string }) {
   const [search, setSearch] = useState("");
   const [code, setCode] = useState("");
   const [category, setCategory] = useState("");
+  // Held until the sheet has finished closing (`onClosed`), so its title and
+  // rows do not blank out under the exit animation.
   const [pickerListing, setPickerListing] = useState<Listing | null>(null);
+  const pickerControl = useDialogControl();
 
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 
@@ -91,8 +95,9 @@ export function CatalogPane({ storeId }: { storeId: string }) {
         return;
       }
       setPickerListing(listing);
+      pickerControl.open();
     },
-    [addLine, t],
+    [addLine, pickerControl, t],
   );
 
   const onSubmitCode = useCallback(async () => {
@@ -197,11 +202,12 @@ export function CatalogPane({ storeId }: { storeId: string }) {
       )}
 
       <VariantPickerSheet
+        control={pickerControl}
         listing={pickerListing}
-        onClose={() => setPickerListing(null)}
+        onClosed={() => setPickerListing(null)}
         onPick={(listing, variant) => {
           addLine(lineFromVariant(listing, variant));
-          setPickerListing(null);
+          pickerControl.close();
         }}
       />
     </View>

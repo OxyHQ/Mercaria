@@ -19,8 +19,8 @@ import zhHans from './locales/zh-Hans.json';
  * till mirrored: right-to-left text in a left-to-right till puts the row order
  * one way and the padding, the numeric keypad and the cart totals the other,
  * which is worse than English. #434's layout half landed first, #429 item 4
- * gave `SheetContent` a logical side so the variant picker mirrors with
- * everything else, and this bundle is the last step. `syncLayoutDirection`
+ * gave the variant picker a logical side (now `useLogicalDialogPlacement`) so
+ * it mirrors with everything else, and this bundle is the last step. `syncLayoutDirection`
  * reads these bundles rather than the language tag, so adding `ar` here is what
  * turns mirroring on.
  */

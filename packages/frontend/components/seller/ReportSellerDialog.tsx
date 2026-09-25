@@ -7,17 +7,8 @@ import {
   ABUSE_REPORT_CATEGORIES,
   type AbuseReportCategory,
 } from "@mercaria/shared-types";
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Text,
-  Textarea,
-} from "@mercaria/ui";
+import { Dialog, type DialogControlProps } from "@oxy.so/bloom/dialog";
+import { Text, Textarea } from "@mercaria/ui";
 import { submitAbuseReport } from "@/lib/api/reports";
 import { useTranslation } from "@/lib/i18n";
 
@@ -75,13 +66,11 @@ const MAX_DETAILS = 2000;
 export function ReportSellerDialog({
   oxyUserId,
   displayName,
-  open,
-  onOpenChange,
+  control,
 }: {
   oxyUserId: string;
   displayName: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  control: DialogControlProps;
 }) {
   const { t } = useTranslation();
   const { isAuthenticated } = useOxy();
@@ -101,7 +90,7 @@ export function ReportSellerDialog({
       toast.success(t("sellers.report.received"));
       setSelected([]);
       setDetails("");
-      onOpenChange(false);
+      control.close();
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -115,68 +104,64 @@ export function ReportSellerDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg gap-4">
-        <DialogHeader>
-          <DialogTitle>{t("sellers.report.title", { name: displayName })}</DialogTitle>
-          <DialogDescription>{t("sellers.report.description")}</DialogDescription>
-        </DialogHeader>
+    <Dialog
+      control={control}
+      title={t("sellers.report.title", { name: displayName })}
+      description={t("sellers.report.description")}
+      actions={
+        isAuthenticated
+          ? [
+              {
+                label: submit.isPending ? t("sellers.report.sending") : t("sellers.report.send"),
+                disabled: selected.length === 0 || submit.isPending,
+                // Stays open while the report is in flight; `onSuccess` closes it,
+                // and a failure leaves the reader's choices where they were.
+                shouldCloseOnPress: false,
+                onPress: () => submit.mutate(),
+              },
+            ]
+          : [
+              // A report is attributed to its reporter server-side, so there is
+              // nothing to send without a session — and the honest affordance is
+              // the one that gets them one rather than a form that would 401 on
+              // submit.
+              { label: t("sellers.report.signIn"), onPress: () => openAccountDialog() },
+            ]
+      }
+    >
+      {isAuthenticated ? (
+        <View className="gap-4 pb-4">
+          <View className="flex-row flex-wrap gap-2">
+            {ABUSE_REPORT_CATEGORIES.map((category) => {
+              const active = selected.includes(category);
+              return (
+                <Pressable
+                  key={category}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: active }}
+                  accessibilityLabel={t(CATEGORY_LABEL_KEYS[category])}
+                  onPress={() => toggle(category)}
+                  className={`rounded-full border px-4 py-2 ${
+                    active ? "border-foreground bg-muted" : "border-border"
+                  }`}
+                >
+                  <Text className="text-sm text-foreground">
+                    {t(CATEGORY_LABEL_KEYS[category])}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-        {isAuthenticated ? (
-          <>
-            <View className="flex-row flex-wrap gap-2">
-              {ABUSE_REPORT_CATEGORIES.map((category) => {
-                const active = selected.includes(category);
-                return (
-                  <Pressable
-                    key={category}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: active }}
-                    accessibilityLabel={t(CATEGORY_LABEL_KEYS[category])}
-                    onPress={() => toggle(category)}
-                    className={`rounded-full border px-4 py-2 ${
-                      active ? "border-foreground bg-muted" : "border-border"
-                    }`}
-                  >
-                    <Text className="text-sm text-foreground">
-                      {t(CATEGORY_LABEL_KEYS[category])}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Textarea
-              value={details}
-              onChangeText={setDetails}
-              maxLength={MAX_DETAILS}
-              placeholder={t("sellers.report.detailsPlaceholder")}
-              className="min-h-24"
-            />
-
-            <DialogFooter>
-              <Button
-                variant="default"
-                disabled={selected.length === 0 || submit.isPending}
-                onPress={() => submit.mutate()}
-              >
-                <Text>
-                  {submit.isPending ? t("sellers.report.sending") : t("sellers.report.send")}
-                </Text>
-              </Button>
-            </DialogFooter>
-          </>
-        ) : (
-          // A report is attributed to its reporter server-side, so there is
-          // nothing to send without a session — and the honest affordance is the
-          // one that gets them one rather than a form that would 401 on submit.
-          <DialogFooter>
-            <Button variant="default" onPress={() => openAccountDialog()}>
-              <Text>{t("sellers.report.signIn")}</Text>
-            </Button>
-          </DialogFooter>
-        )}
-      </DialogContent>
+          <Textarea
+            value={details}
+            onChangeText={setDetails}
+            maxLength={MAX_DETAILS}
+            placeholder={t("sellers.report.detailsPlaceholder")}
+            className="min-h-24"
+          />
+        </View>
+      ) : null}
     </Dialog>
   );
 }

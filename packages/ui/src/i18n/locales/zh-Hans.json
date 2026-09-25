@@ -814,10 +814,14 @@
     },
     "carousel": {
       "previous": "转到上一项",
-      "next": "转到下一项"
+      "next": "转到下一项",
+      "goTo": "转到第 %{position} 项",
+      "products": "商品",
+      "stores": "店铺"
     },
     "cart": {
-      "saveForLater": "稍后再买"
+      "saveForLater": "稍后再买",
+      "shelfTitle": "购物车中"
     },
     "merchantCart": {
       "checkout": "继续结算",
@@ -861,7 +865,8 @@
       "empty": "还没有%{subject}。",
       "verifiedRatings": "已核实的评分：%{ratings}",
       "unverified": "未核实：%{ratings} · %{rating}",
-      "readMore": "阅读更多评价"
+      "readMore": "阅读更多评价",
+      "none": "还没有评价"
     },
     "searchInterpretation": {
       "chip": "%{label}",

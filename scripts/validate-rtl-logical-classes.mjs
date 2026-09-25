@@ -233,7 +233,7 @@ const RULES = [
  *
  * Matching on file + text is a PREDICATE, not an identity. Without a count, an
  * entry excuses EVERY occurrence of its shape in its file, so a second physical
- * utility rides in behind the reasoned one — silently, in exactly the seven
+ * utility rides in behind the reasoned one — silently, in exactly the three
  * files most likely to grow one, because they are the ones that legitimately
  * have them. Reproduced against this guard before the count existed: adding an
  * unreasoned `border-l-4 border-l-red-500` to `notifications.tsx`, whose entry
@@ -259,22 +259,6 @@ const KNOWN_EXCEPTIONS = [
       + "native — width and colour alike. Waiting on upstream support.",
   },
   {
-    file: "packages/ui/src/lib/logical-side.ts",
-    pattern: "border-",
-    count: 2,
-    reason:
-      "The divider on the inner face of a sliding surface (SheetContent; its sibling Panel has been "
-      + "deleted), in the one function that resolves a logical side to a physical one. TWO findings, ONE "
-      + "decision: the two arms of a single ternary on the resolved direction. #429 replaced the "
-      + "sliding components' physical "
-      + "side prop with a logical one, so the anchor is now insetInlineStart/insetInlineEnd and the "
-      + "corner is rounded-s-/rounded-e-, both of which mirror on their own. The divider cannot follow "
-      + "them: the logical spellings emit borderInline*, which RN 0.85.3 does not register, so it would "
-      + "vanish on native while looking right on web. Waiting on upstream support, like the storefront "
-      + "entries above — and it is ONE entry rather than three because centralising it is what let the "
-      + "panel.tsx and sheet.tsx entries be deleted.",
-  },
-  {
     file: "packages/dashboard/components/catalog-authoring/ReviewPanel.tsx",
     pattern: "text-right",
     count: 2,
@@ -298,14 +282,6 @@ const KNOWN_EXCEPTIONS = [
       + "borderInlineStartWidth, which RN 0.85.3 does not register, so converting would drop the "
       + "divider entirely on a native till while looking correct on web. Same upstream limitation as "
       + "the storefront entries above.",
-  },
-  {
-    file: "packages/ui/src/components/ui/dialog.tsx",
-    pattern: "text-left",
-    count: 1,
-    reason:
-      "react-native-css rejects text-align: start outright (parseTextAlign allows only "
-      + "auto|left|right|center|justify), so text-start compiles to nothing at all.",
   },
 ];
 

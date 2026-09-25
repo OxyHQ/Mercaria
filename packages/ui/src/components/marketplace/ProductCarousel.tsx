@@ -1,13 +1,18 @@
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
+import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
 import { Text } from "../ui/text";
-import { Carousel } from "./Carousel";
 import { ProductCard } from "./ProductCard";
 import type { ProductSummary } from "../../lib/format";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { CAROUSEL_PRODUCTS_KEY } from "../../lib/marketplace-labels";
+import { uniqueByKey, useShelfCarouselProps } from "../../lib/shelf-carousel";
 
-/** Fixed, responsive product-card slot width (Shop sizes cards by class, not
- *  by layout math): 154px on phones, 192px from md up. The inter-card gap is
- *  owned by the Carousel's content container (gap-2 web:sm:gap-4). */
-const PRODUCT_SLOT_CLASS = "w-[154px] md:w-[192px]";
+/** Product-card slot width (px) on phones. */
+const PRODUCT_SLOT_WIDTH = 154;
+/** Product-card slot width (px) from `md` up. */
+const PRODUCT_SLOT_WIDTH_MD = 192;
+/** Tailwind's `md` breakpoint, where the slot widens. */
+const MD_BREAKPOINT = 768;
 
 export interface ProductCarouselProps {
   items: ProductSummary[];
@@ -18,11 +23,10 @@ export interface ProductCarouselProps {
 }
 
 /**
- * A horizontally scrollable row of product cards. Card width is fixed by
- * Tailwind classes (no JS measuring); the scroll + web-arrow behavior lives
- * entirely in the generic `Carousel`. Returns `null` when there are no items or
- * they are unavailable, so neither the optional heading nor the carousel's web
- * edge arrows paint over an empty row — safe to render always.
+ * A horizontally scrollable row of product cards on Bloom's `Carousel`: 154px
+ * slots on phones, 192px from md up. Returns `null` when there are no items or
+ * they are unavailable, so neither the optional heading nor the carousel's
+ * arrows paint over an empty row — safe to render always.
  */
 export function ProductCarousel({
   items,
@@ -30,7 +34,13 @@ export function ProductCarousel({
   onPressItem,
   onToggleSaveItem,
 }: ProductCarouselProps) {
-  if (!items || items.length === 0) return null;
+  const t = useSharedUiTranslation();
+  const shelf = useShelfCarouselProps();
+  const { width } = useWindowDimensions();
+  const products = uniqueByKey(items, (product) => product.id);
+  if (products.length === 0) return null;
+
+  const slotWidth = width >= MD_BREAKPOINT ? PRODUCT_SLOT_WIDTH_MD : PRODUCT_SLOT_WIDTH;
 
   return (
     <View>
@@ -40,18 +50,17 @@ export function ProductCarousel({
         </Text>
       ) : null}
 
-      <Carousel
-        items={items}
-        keyExtractor={(product) => product.id}
-        slotClassName={PRODUCT_SLOT_CLASS}
-        renderItem={(product) => (
-          <ProductCard
-            product={product}
-            onPress={onPressItem}
-            onToggleSave={onToggleSaveItem}
-          />
-        )}
-      />
+      <Carousel {...shelf} accessibilityLabel={title ?? t(CAROUSEL_PRODUCTS_KEY)}>
+        {products.map((product) => (
+          <CarouselItem key={product.id} width={slotWidth}>
+            <ProductCard
+              product={product}
+              onPress={onPressItem}
+              onToggleSave={onToggleSaveItem}
+            />
+          </CarouselItem>
+        ))}
+      </Carousel>
     </View>
   );
 }

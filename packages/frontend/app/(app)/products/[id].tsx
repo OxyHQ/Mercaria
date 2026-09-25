@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Heart, Minus, Plus, Share2, Star } from "lucide-react-native";
+import { Rating } from "@oxy.so/bloom/rating";
 import {
   CommercialDisclosure,
   ConditionBadge,
@@ -15,7 +16,7 @@ import {
   ProductCarousel,
   ProductGallery,
   PurchaseOptions,
-  RatingLine,
+  useRatingDisplay,
   ReviewSummaryCard,
   Text,
   VariantSwatches,
@@ -301,6 +302,7 @@ function ProductBody({ listing }: ProductBodyProps) {
   const router = useRouter();
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const addToCart = useAddCartItem();
 
   /**
@@ -472,11 +474,18 @@ function ProductBody({ listing }: ProductBodyProps) {
               "arrived scratched" read as the model's quality score.
             */}
             {hasProductReviews && productAggregate ? (
-              <RatingLine
-                rating={productAggregate.rating}
-                count={productAggregate.reviewCount}
-                scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
-              />
+              <View className="flex-row items-center gap-space-8">
+                <Rating
+                  {...ratingDisplay({
+                    rating: productAggregate.rating,
+                    reviews: productAggregate.reviewCount,
+                    subject: t(REVIEW_SCOPE_HEADING_KEYS.product),
+                  })}
+                />
+                <Text className="text-captionMedium text-text-tertiary">
+                  {t(REVIEW_SCOPE_HEADING_KEYS.product)}
+                </Text>
+              </View>
             ) : null}
 
             {/*

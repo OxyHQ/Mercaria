@@ -55,12 +55,23 @@ export const CANONICAL_CARD_PRICE_IN_CURRENCY_KEY = "ui.canonicalCard.priceInCur
 export const CANONICAL_CARD_FROM_PRICE_KEY = "ui.canonicalCard.fromPrice";
 export const CANONICAL_CARD_OFFER_LINE_KEY = "ui.canonicalCard.offerLine";
 
-/** `Carousel`. */
+/**
+ * The card shelves on Bloom's `Carousel` (`lib/shelf-carousel.ts`). The dot
+ * names its target as `%{position}`, never `%{count}` — see the note above on
+ * i18n-js's own option names.
+ */
 export const CAROUSEL_PREVIOUS_KEY = "ui.carousel.previous";
 export const CAROUSEL_NEXT_KEY = "ui.carousel.next";
+export const CAROUSEL_GO_TO_KEY = "ui.carousel.goTo";
+/** A shelf's accessible name when the caller gives it no heading. */
+export const CAROUSEL_PRODUCTS_KEY = "ui.carousel.products";
+export const CAROUSEL_STORES_KEY = "ui.carousel.stores";
 
 /** `CartLineItem`. */
 export const CART_SAVE_FOR_LATER_KEY = "ui.cart.saveForLater";
+
+/** `CartShelf`. */
+export const CART_SHELF_TITLE_KEY = "ui.cart.shelfTitle";
 
 /** `ComparisonExplanationBlock`. */
 export const COMPARISON_NO_SUMMARY_KEY = "ui.comparison.noSummary";
@@ -100,7 +111,7 @@ export const QUANTITY_REMOVE_KEY = "ui.quantity.remove";
 export const QUANTITY_DECREASE_KEY = "ui.quantity.decrease";
 export const QUANTITY_INCREASE_KEY = "ui.quantity.increase";
 
-/** `ReviewStars` and `ReviewSummaryCard`. */
+/** `ReviewStars`, `useRatingDisplay` and `ReviewSummaryCard`. */
 export const REVIEW_DEFAULT_SCOPE_KEY = "ui.review.defaultScope";
 export const REVIEW_STARS_A11Y_KEY = "ui.review.starsA11y";
 export const REVIEW_STARS_SCOPED_A11Y_KEY = "ui.review.starsScopedA11y";
@@ -108,6 +119,8 @@ export const REVIEW_EMPTY_KEY = "ui.review.empty";
 export const REVIEW_VERIFIED_RATINGS_KEY = "ui.review.verifiedRatings";
 export const REVIEW_UNVERIFIED_KEY = "ui.review.unverified";
 export const REVIEW_READ_MORE_KEY = "ui.review.readMore";
+/** Bloom `Rating`'s `newLabel`: nothing rated yet. Never "New" — that is a condition. */
+export const REVIEW_NONE_KEY = "ui.review.none";
 
 /** `SearchInterpretation`. */
 export const SEARCH_CHIP_KEY = "ui.searchInterpretation.chip";

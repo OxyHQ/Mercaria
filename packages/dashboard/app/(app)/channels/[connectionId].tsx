@@ -39,17 +39,13 @@ import {
   Switch,
   ToggleGroup,
   ToggleGroupItem,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
   useColorScheme,
   formatDateTime,
   type Translate,
 } from "@mercaria/ui";
 import { toast } from "@oxy.so/bloom/toast";
+import { AlertDialog } from "@oxy.so/bloom/alert-dialog";
+import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { CollectionMapping } from "@/components/channels/CollectionMapping";
@@ -1056,52 +1052,38 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
         </Button>
       </View>
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {t("channels.disconnect.confirmTitle", {
-                provider: t(PROVIDER_NAME_KEYS[connection.provider]),
-              })}
-            </DialogTitle>
-            <DialogDescription>{t(DISCONNECT_POLICY_HELP_KEYS[policy])}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onPress={() => setConfirmOpen(false)}>
-              <Text className="font-semibold text-foreground">{t("common.cancel")}</Text>
-            </Button>
-            <Button
-              variant="destructive"
-              isLoading={disconnect.isPending}
-              onPress={() =>
-                disconnect.mutate(
-                  { connectionId: connection.id, policy },
-                  {
-                    onSuccess: (result) => {
-                      toast.success(
-                        t("channels.toast.disconnected", {
-                          products: t("channels.disconnect.productsChanged", {
-                            count: result.listingsAffected,
-                          }),
-                          records: t("channels.disconnect.recordsKept", {
-                            count: result.externalOffersPreserved,
-                          }),
-                        }),
-                      );
-                      router.replace("/channels");
-                    },
-                    onError: () => toast.error(t("channels.toast.disconnectFailed")),
-                  },
-                )
-              }
-            >
-              <Text className="font-semibold text-destructive-foreground">
-                {t("channels.disconnect.confirmAction")}
-              </Text>
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog
+        visible={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title={t("channels.disconnect.confirmTitle", {
+          provider: t(PROVIDER_NAME_KEYS[connection.provider]),
+        })}
+        description={t(DISCONNECT_POLICY_HELP_KEYS[policy])}
+        confirmLabel={t("channels.disconnect.confirmAction")}
+        cancelLabel={t("common.cancel")}
+        destructive
+        onConfirm={() =>
+          disconnect.mutate(
+            { connectionId: connection.id, policy },
+            {
+              onSuccess: (result) => {
+                toast.success(
+                  t("channels.toast.disconnected", {
+                    products: t("channels.disconnect.productsChanged", {
+                      count: result.listingsAffected,
+                    }),
+                    records: t("channels.disconnect.recordsKept", {
+                      count: result.externalOffersPreserved,
+                    }),
+                  }),
+                );
+                router.replace("/channels");
+              },
+              onError: () => toast.error(t("channels.toast.disconnectFailed")),
+            },
+          )
+        }
+      />
     </View>
   );
 }
@@ -1139,7 +1121,7 @@ function ChannelApiKeys({ storeId, connection }: { storeId: string; connection: 
   const { colors } = useColorScheme();
   const { t } = useTranslation();
   const { data: keys, isPending, isError } = useChannelKeys(storeId);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const generateControl = useDialogControl();
   const [minted, setMinted] = useState<GenerateChannelApiKeyResult | null>(null);
 
   return (
@@ -1148,7 +1130,7 @@ function ChannelApiKeys({ storeId, connection }: { storeId: string; connection: 
         <Text className="text-sm font-semibold text-muted-foreground">
           {t("channels.keys.title")}
         </Text>
-        <Button variant="outline" size="sm" onPress={() => setDialogOpen(true)}>
+        <Button variant="outline" size="sm" onPress={() => generateControl.open()}>
           <View className="flex-row items-center gap-1.5">
             <Plus size={14} color={colors.foreground} />
             <Text className="text-xs font-semibold text-foreground">
@@ -1204,12 +1186,8 @@ function ChannelApiKeys({ storeId, connection }: { storeId: string; connection: 
       <GenerateKeyDialog
         storeId={storeId}
         connection={connection}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onMinted={(result) => {
-          setMinted(result);
-          setDialogOpen(false);
-        }}
+        control={generateControl}
+        onMinted={setMinted}
       />
     </View>
   );
@@ -1258,10 +1236,7 @@ function KeyRow({ storeId, apiKey }: { storeId: string; apiKey: ChannelApiKey })
 
   const onRevoke = () => {
     revoke.mutate(apiKey.id, {
-      onSuccess: () => {
-        toast.success(t("channels.toast.keyRevoked"));
-        setConfirmOpen(false);
-      },
+      onSuccess: () => toast.success(t("channels.toast.keyRevoked")),
       onError: () => toast.error(t("channels.toast.keyRevokeFailed")),
     });
   };
@@ -1286,26 +1261,16 @@ function KeyRow({ storeId, apiKey }: { storeId: string; apiKey: ChannelApiKey })
         </Text>
       </Pressable>
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("channels.keys.revokeConfirmTitle")}</DialogTitle>
-            <DialogDescription>
-              {t("channels.keys.revokeConfirmBody", { label: apiKey.label })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onPress={() => setConfirmOpen(false)}>
-              <Text className="font-semibold text-foreground">{t("common.cancel")}</Text>
-            </Button>
-            <Button variant="destructive" onPress={onRevoke} isLoading={revoke.isPending}>
-              <Text className="font-semibold text-destructive-foreground">
-                {t("channels.keys.revoke")}
-              </Text>
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog
+        visible={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title={t("channels.keys.revokeConfirmTitle")}
+        description={t("channels.keys.revokeConfirmBody", { label: apiKey.label })}
+        confirmLabel={t("channels.keys.revoke")}
+        cancelLabel={t("common.cancel")}
+        destructive
+        onConfirm={onRevoke}
+      />
     </View>
   );
 }
@@ -1314,14 +1279,12 @@ function KeyRow({ storeId, apiKey }: { storeId: string; apiKey: ChannelApiKey })
 function GenerateKeyDialog({
   storeId,
   connection,
-  open,
-  onOpenChange,
+  control,
   onMinted,
 }: {
   storeId: string;
   connection: Connection;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  control: DialogControlProps;
   onMinted: (result: GenerateChannelApiKeyResult) => void;
 }) {
   const { t } = useTranslation();
@@ -1339,6 +1302,7 @@ function GenerateKeyDialog({
       {
         onSuccess: (result) => {
           setLabel("");
+          control.close();
           onMinted(result);
           toast.success(t("channels.toast.keyGenerated"));
         },
@@ -1348,30 +1312,28 @@ function GenerateKeyDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("channels.keys.generateTitle")}</DialogTitle>
-          <DialogDescription>{t("channels.keys.generateBody")}</DialogDescription>
-        </DialogHeader>
-        <View className="gap-4">
-          <View className="gap-1.5">
-            <Label>{t("channels.keys.labelField")}</Label>
-            <Input
-              value={label}
-              onChangeText={setLabel}
-              placeholder={t("channels.keys.labelPlaceholder")}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-          <Button onPress={submit} isLoading={generate.isPending} className="mt-1">
-            <Text className="font-semibold text-primary-foreground">
-              {t("channels.keys.generate")}
-            </Text>
-          </Button>
+    <Dialog
+      control={control}
+      title={t("channels.keys.generateTitle")}
+      description={t("channels.keys.generateBody")}
+    >
+      <View className="gap-4">
+        <View className="gap-1.5">
+          <Label>{t("channels.keys.labelField")}</Label>
+          <Input
+            value={label}
+            onChangeText={setLabel}
+            placeholder={t("channels.keys.labelPlaceholder")}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
         </View>
-      </DialogContent>
+        <Button onPress={submit} isLoading={generate.isPending} className="mt-1">
+          <Text className="font-semibold text-primary-foreground">
+            {t("channels.keys.generate")}
+          </Text>
+        </Button>
+      </View>
     </Dialog>
   );
 }

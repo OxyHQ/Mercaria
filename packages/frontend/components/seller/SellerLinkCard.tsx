@@ -2,7 +2,8 @@ import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { useOxy } from "@oxy.so/services";
 import type { Seller } from "@mercaria/shared-types";
-import { ReviewStars, Text, useFormatters } from "@mercaria/ui";
+import { Rating } from "@oxy.so/bloom/rating";
+import { Text, useRatingDisplay } from "@mercaria/ui";
 import { SellerFollowButton } from "@/components/seller/SellerFollowButton";
 import { useTranslation } from "@/lib/i18n";
 import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
@@ -41,7 +42,7 @@ export function SellerLinkCard({
   onPress: () => void;
 }) {
   const { t } = useTranslation();
-  const { formatReviewCount } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const { oxyServices } = useOxy();
   const avatarUrl = seller.avatar
     ? oxyServices.getFileDownloadUrl(seller.avatar, "thumb")
@@ -85,14 +86,16 @@ export function SellerLinkCard({
 
       {seller.rating !== undefined && seller.reviewCount !== undefined && seller.reviewCount > 0 ? (
         <View className="flex-row items-center gap-2">
-          <ReviewStars
-            rating={seller.rating}
-            count={seller.reviewCount}
-            size={14}
-            scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.p2p_seller)}
+          <Rating
+            {...ratingDisplay({
+              rating: seller.rating,
+              reviews: seller.reviewCount,
+              subject: t(REVIEW_SCOPE_HEADING_KEYS.p2p_seller),
+            })}
+            size="small"
           />
           <Text className="text-bodySmall text-text-secondary">
-            {`${seller.rating} (${formatReviewCount(seller.reviewCount)}) · ${t(REVIEW_SCOPE_HEADING_KEYS.p2p_seller)}`}
+            {t(REVIEW_SCOPE_HEADING_KEYS.p2p_seller)}
           </Text>
         </View>
       ) : null}

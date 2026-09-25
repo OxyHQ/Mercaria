@@ -174,13 +174,13 @@ Mongo/Mongoose is GONE (PR #136) — no `src/models/`, no `mongoose`, no
   through `SharedUiTranslationProvider` at every app root. `validate:i18n-strings`
   gates that plus hardcoded strings, parity and unreferenced keys. `docs/app-i18n.md`.
 - **All four client packages mirror for Arabic from LOGICAL utilities only**
-  (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `rounded-s-`), gated by
-  `validate:rtl-classes`; a physical `ml-2` half-mirrors its screen with every build
-  green. Direction follows the SHIPPED BUNDLES, never the tag (#434).
-  `border-s-*`/`text-start` do NOT survive react-native-css/RN 0.85 and stay
-  physical, as do a panel's `translateX` sign and divider edge (LOGICAL `side` in
-  `ui/src/lib/logical-side.ts`); `validate-rtl-upstream-premises.mjs` re-measures both
-  premises against INSTALLED packages. Arabic is NOT fully supported — #429 item 2.
+  (`ms-`, `start-`, `rounded-s-`…), gated by `validate:rtl-classes`; a physical
+  `ml-2` half-mirrors a screen yet builds green. Direction follows the SHIPPED
+  BUNDLES, not the tag (#434). `border-s-*`/`text-start` do NOT survive
+  react-native-css/RN 0.85 and stay physical (`validate-rtl-upstream-premises`
+  re-measures both), as does Bloom `Dialog`'s `left`/`right` placement — derive
+  it from a LOGICAL side via `useLogicalDialogPlacement` (`lib/logical-side.ts`).
+  Arabic is NOT fully supported — #429 item 2.
 - **Dockerfile node-gyp pin.** The repo-ROOT API Dockerfile pins `node-gyp` in the
   builder: `ws`'s native accelerators have no musl-arm64 prebuild, and an on-demand
   `bunx node-gyp@latest` flakes on ARM. Do NOT remove it.

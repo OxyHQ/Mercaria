@@ -30,7 +30,8 @@ const STORE_OFFER_HEADING_CLASS = 'px-4 pb-3 md:px-5';
 
 /**
  * The shelf-to-shelf rhythm every `@mercaria/ui` shelf owns for itself
- * (`ProductShelf`, `MerchantCarousel` and `CategoryPills` all end in `mb-6`). The `store-offer` section is assembled here from two
+ * (`ProductShelf`, `MerchantCarousel` and `CategoryPills` all end in
+ * `mb-6`). The `store-offer` section is assembled here from two
  * components rather than one, so this is the only place that has to spell it.
  */
 const SHELF_RHYTHM_CLASS = 'mb-6';

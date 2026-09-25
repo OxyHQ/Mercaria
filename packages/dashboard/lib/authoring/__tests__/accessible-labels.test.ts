@@ -51,7 +51,7 @@
  *
  * Deliberately OUT, each for a reason rather than by oversight:
  *
- * - **`Dialog` / `DialogContent`** — a container. Its name is not what a
+ * - **`Dialog`** — a container. Its name is not what a
  *   listener needs; the controls inside it are, and those are matched on their
  *   own. Its dismissal affordance belongs to Bloom, outside this surface.
  * - **`ScrollView`** — scrollable, not a control that announces a name.

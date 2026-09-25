@@ -828,10 +828,14 @@
     },
     "carousel": {
       "previous": "К предыдущему элементу",
-      "next": "К следующему элементу"
+      "next": "К следующему элементу",
+      "goTo": "К элементу %{position}",
+      "products": "Товары",
+      "stores": "Магазины"
     },
     "cart": {
-      "saveForLater": "Сохранить на потом"
+      "saveForLater": "Сохранить на потом",
+      "shelfTitle": "В вашей корзине"
     },
     "merchantCart": {
       "checkout": "Перейти к оформлению",
@@ -875,7 +879,8 @@
       "empty": "Пока нет: %{subject}.",
       "verifiedRatings": "Подтверждённых оценок: %{ratings}",
       "unverified": "Неподтверждённых: %{ratings} · %{rating}",
-      "readMore": "Читать больше отзывов"
+      "readMore": "Читать больше отзывов",
+      "none": "Отзывов пока нет"
     },
     "searchInterpretation": {
       "chip": "%{label}",

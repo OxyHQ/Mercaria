@@ -821,10 +821,14 @@
     },
     "carousel": {
       "previous": "Ir para o item anterior",
-      "next": "Ir para o próximo item"
+      "next": "Ir para o próximo item",
+      "goTo": "Ir para o item %{position}",
+      "products": "Produtos",
+      "stores": "Lojas"
     },
     "cart": {
-      "saveForLater": "Salvar para depois"
+      "saveForLater": "Salvar para depois",
+      "shelfTitle": "No seu carrinho"
     },
     "merchantCart": {
       "checkout": "Continuar para o pagamento",
@@ -868,7 +872,8 @@
       "empty": "Ainda não há %{subject}.",
       "verifiedRatings": "Notas verificadas: %{ratings}",
       "unverified": "Não verificadas: %{ratings} · %{rating}",
-      "readMore": "Ler mais avaliações"
+      "readMore": "Ler mais avaliações",
+      "none": "Ainda não há avaliações"
     },
     "searchInterpretation": {
       "chip": "%{label}",

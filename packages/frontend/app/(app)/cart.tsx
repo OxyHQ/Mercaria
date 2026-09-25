@@ -6,16 +6,16 @@ import { useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { RiShoppingBag3Line } from "@oxy.so/bloom/icons/RiShoppingBag3Line";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
+import { Rating } from "@oxy.so/bloom/rating";
 import {
   CartLineItem,
   CommercialDisclosure,
   PriceDisplay,
   ProductShelf,
-  ReviewStars,
   SectionHeader,
   Text,
   commercialSellerLabel,
-  useFormatters,
+  useRatingDisplay,
   type ProductSummary,
 } from "@mercaria/ui";
 import type { CartGroup, CartVendor, Money } from "@mercaria/shared-types";
@@ -122,7 +122,7 @@ function CartGroupCard({
   onCheckout: (group: CartGroup) => void;
 }) {
   const { t } = useTranslation();
-  const { formatReviewCount } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const { vendor, commercial } = group;
   // #129 cart rules 1-3: the SELLER a buyer reads comes from the group's
   // commercial presentation, never from `vendor.name`. `vendor` names whose
@@ -164,19 +164,17 @@ function CartGroupCard({
             {sellerName}
           </Text>
           {showRating ? (
-            <View className="mt-0.5 flex-row items-center gap-1.5">
-              {/* Named scope (#76 UI rule 6): this is the SELLER's service
-                  rating, not a rating of what is in the basket. */}
-              <ReviewStars
-                rating={vendor.rating ?? 0}
-                count={vendor.reviewCount}
-                size={12}
-                scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
-              />
-              <Text className="text-xs text-muted-foreground">
-                {`${vendor.rating} (${formatReviewCount(vendor.reviewCount ?? 0)})`}
-              </Text>
-            </View>
+            // Named scope (#76 UI rule 6): this is the SELLER's service
+            // rating, not a rating of what is in the basket.
+            <Rating
+              {...ratingDisplay({
+                rating: vendor.rating ?? 0,
+                reviews: vendor.reviewCount ?? 0,
+                subject: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
+              })}
+              size="small"
+              style={{ marginTop: 2 }}
+            />
           ) : null}
         </View>
       </Pressable>

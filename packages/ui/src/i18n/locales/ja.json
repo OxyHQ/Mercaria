@@ -814,10 +814,14 @@
     },
     "carousel": {
       "previous": "前の項目へ",
-      "next": "次の項目へ"
+      "next": "次の項目へ",
+      "goTo": "項目 %{position} へ",
+      "products": "商品",
+      "stores": "ショップ"
     },
     "cart": {
-      "saveForLater": "あとで購入する"
+      "saveForLater": "あとで購入する",
+      "shelfTitle": "カートの中身"
     },
     "merchantCart": {
       "checkout": "支払いに進む",
@@ -861,7 +865,8 @@
       "empty": "%{subject}はまだありません。",
       "verifiedRatings": "確認済みの評価: %{ratings}",
       "unverified": "未確認: %{ratings} · %{rating}",
-      "readMore": "レビューをもっと読む"
+      "readMore": "レビューをもっと読む",
+      "none": "レビューはまだありません"
     },
     "searchInterpretation": {
       "chip": "%{label}",

@@ -10,12 +10,9 @@ import {
   Label,
   ToggleGroup,
   ToggleGroupItem,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   useColorScheme,
 } from "@mercaria/ui";
+import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
@@ -55,12 +52,12 @@ function CollectionsBody({ storeId }: { storeId: string }) {
   const { t } = useTranslation();
   const { data, isPending, isError } = useCollections(storeId);
   const deleteCollection = useDeleteCollection(storeId);
-  const [createOpen, setCreateOpen] = useState(false);
+  const createControl = useDialogControl();
 
   const action = (
     <View className="flex-row items-center gap-2">
       <StoreSwitcher />
-      <Button onPress={() => setCreateOpen(true)}>
+      <Button onPress={() => createControl.open()}>
         <View className="flex-row items-center gap-2">
           <Plus size={16} color={colors.primaryForeground} />
           <Text className="font-semibold text-primary-foreground">{t("common.new")}</Text>
@@ -94,7 +91,7 @@ function CollectionsBody({ storeId }: { storeId: string }) {
         </View>
       )}
 
-      <CreateCollectionDialog storeId={storeId} open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateCollectionDialog storeId={storeId} control={createControl} />
     </Screen>
   );
 }
@@ -146,12 +143,10 @@ function CollectionRow({
 
 function CreateCollectionDialog({
   storeId,
-  open,
-  onOpenChange,
+  control,
 }: {
   storeId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  control: DialogControlProps;
 }) {
   const createCollection = useCreateCollection(storeId);
   const { t } = useTranslation();
@@ -177,7 +172,7 @@ function CreateCollectionDialog({
           toast.success(t("collections.create.success"));
           setTitle("");
           setType("manual");
-          onOpenChange(false);
+          control.close();
         },
         onError: () => toast.error(t("collections.create.error")),
       },
@@ -185,44 +180,39 @@ function CreateCollectionDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("collections.create.dialogTitle")}</DialogTitle>
-        </DialogHeader>
-        <View className="gap-4">
-          <View className="gap-1.5">
-            <Label>{t("common.title")}</Label>
-            <Input
-              value={title}
-              onChangeText={setTitle}
-              placeholder={t("collections.create.titlePlaceholder")}
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>{t("common.type")}</Label>
-            <ToggleGroup
-              type="single"
-              value={type}
-              onValueChange={(v) => typeof v === "string" && v && setType(v as CollectionType)}
-            >
-              <ToggleGroupItem value="manual">
-                <Text className="text-sm text-foreground">
-                  {t("collections.create.typeManual")}
-                </Text>
-              </ToggleGroupItem>
-              <ToggleGroupItem value="automated">
-                <Text className="text-sm text-foreground">
-                  {t("collections.create.typeAutomated")}
-                </Text>
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </View>
-          <Button onPress={submit} isLoading={createCollection.isPending} className="mt-1">
-            <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
-          </Button>
+    <Dialog control={control} title={t("collections.create.dialogTitle")}>
+      <View className="gap-4">
+        <View className="gap-1.5">
+          <Label>{t("common.title")}</Label>
+          <Input
+            value={title}
+            onChangeText={setTitle}
+            placeholder={t("collections.create.titlePlaceholder")}
+          />
         </View>
-      </DialogContent>
+        <View className="gap-1.5">
+          <Label>{t("common.type")}</Label>
+          <ToggleGroup
+            type="single"
+            value={type}
+            onValueChange={(v) => typeof v === "string" && v && setType(v as CollectionType)}
+          >
+            <ToggleGroupItem value="manual">
+              <Text className="text-sm text-foreground">
+                {t("collections.create.typeManual")}
+              </Text>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="automated">
+              <Text className="text-sm text-foreground">
+                {t("collections.create.typeAutomated")}
+              </Text>
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </View>
+        <Button onPress={submit} isLoading={createCollection.isPending} className="mt-1">
+          <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
+        </Button>
+      </View>
     </Dialog>
   );
 }

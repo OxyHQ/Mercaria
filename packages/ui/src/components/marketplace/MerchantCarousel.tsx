@@ -1,12 +1,14 @@
 import { View } from "react-native";
-import { Carousel } from "./Carousel";
+import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
 import { MerchantCard } from "./MerchantCard";
 import { SectionHeader } from "./SectionHeader";
 import type { StoreSummary } from "@mercaria/shared-types";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { CAROUSEL_STORES_KEY } from "../../lib/marketplace-labels";
+import { uniqueByKey, useShelfCarouselProps } from "../../lib/shelf-carousel";
 
-/** Fixed merchant-card slot width via Tailwind class (no JS measuring). The
- *  inter-card gap is owned by the Carousel's content container. */
-const MERCHANT_SLOT_CLASS = "w-[330px]";
+/** Merchant-card slot width (px). */
+const MERCHANT_SLOT_WIDTH = 330;
 
 export interface MerchantCarouselProps {
   /**
@@ -22,10 +24,9 @@ export interface MerchantCarouselProps {
 
 /**
  * A merchant (shop) section: an optional bold heading above a horizontally
- * scrollable row of large `MerchantCard`s. Reuses the generic `Carousel`, so
- * the scroll + web-arrow logic is shared, not duplicated. Returns `null` when
- * there are no merchants or they are unavailable, so the heading never appears
- * over an empty row — safe to render always.
+ * scrollable row of large `MerchantCard`s on Bloom's `Carousel`. Returns `null`
+ * when there are no merchants or they are unavailable, so the heading never
+ * appears over an empty row — safe to render always.
  */
 export function MerchantCarousel({
   title,
@@ -33,23 +34,25 @@ export function MerchantCarousel({
   onPressMerchant,
   onPressProduct,
 }: MerchantCarouselProps) {
-  if (!merchants || merchants.length === 0) return null;
+  const t = useSharedUiTranslation();
+  const shelf = useShelfCarouselProps();
+  const rows = uniqueByKey(merchants, (merchant) => merchant.id);
+  if (rows.length === 0) return null;
 
   return (
     <View className="mb-6">
       {title ? <SectionHeader title={title} /> : null}
-      <Carousel
-        items={merchants}
-        keyExtractor={(merchant) => merchant.id}
-        slotClassName={MERCHANT_SLOT_CLASS}
-        renderItem={(merchant) => (
-          <MerchantCard
-            merchant={merchant}
-            onPressMerchant={onPressMerchant}
-            onPressProduct={onPressProduct}
-          />
-        )}
-      />
+      <Carousel {...shelf} accessibilityLabel={title ?? t(CAROUSEL_STORES_KEY)}>
+        {rows.map((merchant) => (
+          <CarouselItem key={merchant.id} width={MERCHANT_SLOT_WIDTH}>
+            <MerchantCard
+              merchant={merchant}
+              onPressMerchant={onPressMerchant}
+              onPressProduct={onPressProduct}
+            />
+          </CarouselItem>
+        ))}
+      </Carousel>
     </View>
   );
 }

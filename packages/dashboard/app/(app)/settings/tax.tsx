@@ -9,12 +9,9 @@ import {
   Button,
   Input,
   Label,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   useColorScheme,
 } from "@mercaria/ui";
+import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -43,7 +40,7 @@ function TaxBody({ storeId }: { storeId: string }) {
   const { t } = useTranslation();
   const { data, isPending, isError } = useTaxRates(storeId);
   const deleteTaxRate = useDeleteTaxRate(storeId);
-  const [createOpen, setCreateOpen] = useState(false);
+  const createControl = useDialogControl();
 
   const back = (
     <View className="flex-row items-center gap-2">
@@ -54,7 +51,7 @@ function TaxBody({ storeId }: { storeId: string }) {
         <ChevronLeft size={16} color={colors.foreground} />
         <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
       </Pressable>
-      <Button onPress={() => setCreateOpen(true)}>
+      <Button onPress={() => createControl.open()}>
         <View className="flex-row items-center gap-2">
           <Plus size={16} color={colors.primaryForeground} />
           <Text className="font-semibold text-primary-foreground">
@@ -90,7 +87,7 @@ function TaxBody({ storeId }: { storeId: string }) {
         </View>
       )}
 
-      <CreateTaxRateDialog storeId={storeId} open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateTaxRateDialog storeId={storeId} control={createControl} />
     </Screen>
   );
 }
@@ -121,12 +118,10 @@ function TaxRateRow({ rate, onDelete }: { rate: TaxRate; onDelete: () => void })
 
 function CreateTaxRateDialog({
   storeId,
-  open,
-  onOpenChange,
+  control,
 }: {
   storeId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  control: DialogControlProps;
 }) {
   const createTaxRate = useCreateTaxRate(storeId);
   const { t } = useTranslation();
@@ -162,7 +157,7 @@ function CreateTaxRateDialog({
           setPercent("");
           setCountry("");
           setRegion("");
-          onOpenChange(false);
+          control.close();
         },
         onError: () => toast.error(t("settings.tax.createFailed")),
       },
@@ -170,48 +165,43 @@ function CreateTaxRateDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("settings.tax.newRateTitle")}</DialogTitle>
-        </DialogHeader>
-        <View className="gap-4">
-          <View className="gap-1.5">
-            <Label>{t("common.name")}</Label>
+    <Dialog control={control} title={t("settings.tax.newRateTitle")}>
+      <View className="gap-4">
+        <View className="gap-1.5">
+          <Label>{t("common.name")}</Label>
+          <Input
+            value={name}
+            onChangeText={setName}
+            placeholder={t("settings.tax.namePlaceholder")}
+          />
+        </View>
+        <View className="gap-1.5">
+          <Label>{t("settings.tax.rateLabel")}</Label>
+          <Input value={percent} onChangeText={setPercent} keyboardType="decimal-pad" placeholder="8" />
+        </View>
+        <View className="flex-row gap-2">
+          <View className="flex-1 gap-1.5">
+            <Label>{t("settings.tax.countryLabel")}</Label>
             <Input
-              value={name}
-              onChangeText={setName}
-              placeholder={t("settings.tax.namePlaceholder")}
+              value={country}
+              onChangeText={setCountry}
+              placeholder={t("settings.tax.countryPlaceholder")}
+              autoCapitalize="characters"
             />
           </View>
-          <View className="gap-1.5">
-            <Label>{t("settings.tax.rateLabel")}</Label>
-            <Input value={percent} onChangeText={setPercent} keyboardType="decimal-pad" placeholder="8" />
+          <View className="flex-1 gap-1.5">
+            <Label>{t("settings.tax.regionLabel")}</Label>
+            <Input
+              value={region}
+              onChangeText={setRegion}
+              placeholder={t("settings.tax.regionPlaceholder")}
+            />
           </View>
-          <View className="flex-row gap-2">
-            <View className="flex-1 gap-1.5">
-              <Label>{t("settings.tax.countryLabel")}</Label>
-              <Input
-                value={country}
-                onChangeText={setCountry}
-                placeholder={t("settings.tax.countryPlaceholder")}
-                autoCapitalize="characters"
-              />
-            </View>
-            <View className="flex-1 gap-1.5">
-              <Label>{t("settings.tax.regionLabel")}</Label>
-              <Input
-                value={region}
-                onChangeText={setRegion}
-                placeholder={t("settings.tax.regionPlaceholder")}
-              />
-            </View>
-          </View>
-          <Button onPress={submit} isLoading={createTaxRate.isPending} className="mt-1">
-            <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
-          </Button>
         </View>
-      </DialogContent>
+        <Button onPress={submit} isLoading={createTaxRate.isPending} className="mt-1">
+          <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
+        </Button>
+      </View>
     </Dialog>
   );
 }

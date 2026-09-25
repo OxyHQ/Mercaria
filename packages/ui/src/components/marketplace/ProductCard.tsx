@@ -10,11 +10,12 @@ import {
   PRODUCT_CARD_DISCOUNT_KEY,
   PRODUCT_CARD_SAVE_KEY,
 } from "../../lib/marketplace-labels";
-import { ReviewStars } from "./ReviewStars";
+import { Rating } from "@oxy.so/bloom/rating";
 import { PriceDisplay } from "../PriceDisplay";
 import type { ProductSummary } from "../../lib/format";
 import { formatPercent } from "../../lib/format";
 import { useFormatters } from "../../lib/use-formatters";
+import { useRatingDisplay } from "../../lib/rating-display";
 
 /** Light color used for content drawn over the image (badge text, heart). */
 const ON_IMAGE_LIGHT = "#FFFFFF";
@@ -47,7 +48,8 @@ function isOnSale(product: ProductSummary): boolean {
 export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCardProps) {
   const t = useSharedUiTranslation();
   const [isSaved, setIsSaved] = useState(saved ?? product.saved ?? false);
-  const { formatMoney, formatReviewCount } = useFormatters();
+  const { formatMoney } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const locale = useSharedUiLocale();
   const onSale = isOnSale(product);
   const discountPercent =
@@ -168,12 +170,10 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
         </Text>
 
         {/* Review row */}
-        <View className="flex-row items-center gap-1">
-          <ReviewStars rating={product.rating} count={product.reviewCount} />
-          <Text className="text-xs font-medium text-muted-foreground">
-            {`(${formatReviewCount(product.reviewCount)})`}
-          </Text>
-        </View>
+        <Rating
+          {...ratingDisplay({ rating: product.rating, reviews: product.reviewCount })}
+          size="small"
+        />
 
         {/* Price row. The primary FAIR figure (plus the optional dual-currency
             secondary, driven by FxContext) renders via PriceDisplay; the

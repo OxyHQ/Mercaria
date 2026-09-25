@@ -814,10 +814,14 @@
     },
     "carousel": {
       "previous": "الانتقال إلى العنصر السابق",
-      "next": "الانتقال إلى العنصر التالي"
+      "next": "الانتقال إلى العنصر التالي",
+      "goTo": "الانتقال إلى العنصر %{position}",
+      "products": "المنتجات",
+      "stores": "المتاجر"
     },
     "cart": {
-      "saveForLater": "احفظه لوقت لاحق"
+      "saveForLater": "احفظه لوقت لاحق",
+      "shelfTitle": "في سلتك"
     },
     "merchantCart": {
       "checkout": "المتابعة إلى الدفع",
@@ -861,7 +865,8 @@
       "empty": "لا توجد %{subject} بعد.",
       "verifiedRatings": "التقييمات الموثّقة: %{ratings}",
       "unverified": "غير موثّقة: %{ratings} · %{rating}",
-      "readMore": "اقرأ المزيد من المراجعات"
+      "readMore": "اقرأ المزيد من المراجعات",
+      "none": "لا توجد مراجعات بعد"
     },
     "searchInterpretation": {
       "chip": "%{label}",

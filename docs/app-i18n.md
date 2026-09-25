@@ -228,7 +228,7 @@ So `ar.json` for those two apps was the LAST step of mirroring their layout
 #434 split in two. The LAYOUT half went first: both apps migrated to logical
 utilities, `validate:rtl-classes` widened to all four client packages, and the
 direction bootstrap wired through `createI18nStore`'s `onLocaleApplied` hook.
-#429 item 4 then gave `Panel`/`SheetContent` a logical side, so the POS variant
+#429 item 4 then gave the sliding surfaces (today the POS variant picker) a logical side, so the
 picker mirrors with everything else. The COPY half followed: 1,228 translated
 strings (dashboard 1,088, POS 140) under the parity gate.
 
@@ -242,54 +242,42 @@ which is why it kept holding across the change instead of failing it.
 **No device has run either app in Arabic.** Whether the mirrored layout RENDERS
 correctly is a property of a real device or a foregrounded tab, and neither
 `validate:rtl-classes`, `validate:rtl-direction` nor `validate:logical-side`
-runs one — they check classes, a pure decision and four pure functions.
+runs one — they check classes, a pure decision and a pure resolver.
 
 The residual the bundles could not have fixed on their own is now closed. #429
-item 4 replaced `Panel`'s and `SheetContent`'s physical `side: 'left' | 'right'`
-with a logical `LogicalSide` (`start` / `end`), a clean cut with no alias
-accepting both, and
-`packages/pos/components/register/VariantPickerSheet.tsx` — the one call site in
-the repository — now passes `side="end"`. So the POS variant picker mirrors with
-everything else the moment `ar.json` lands.
+item 4 replaced the sliding surfaces' physical `side: 'left' | 'right'` with a
+logical `LogicalSide` (`start` / `end`), a clean cut with no alias accepting
+both. Both of the components that shipped with it — `Panel` and the hand-rolled
+`Sheet` — have since gone: `Panel` was deleted as unused, and the one `Sheet`
+importer moved onto Bloom.
 
-Most of that surface needed no direction at all. The anchor is
-`insetInlineStart` / `insetInlineEnd` (RN 0.85.3 registers both, and
-react-native-web 0.21.2 passes them through as real CSS logical properties) and
-the inner corner is `rounded-s-` / `rounded-e-`, so all three re-resolve on their
-own. **Two facts cannot**, and they are the whole of
-`packages/ui/src/lib/logical-side.ts`:
+The POS variant picker is a Bloom `Dialog` side-sheet now, and Bloom's
+`placement` is PHYSICAL (`left` / `right`), with the anchor and the parked
+`translateX` both decided inside Bloom from that one value. So
+`packages/pos/components/register/VariantPickerSheet.tsx` asks
+`useLogicalDialogPlacement("end")` (`packages/ui/src/lib/logical-dialog-placement.ts`)
+for the trailing edge, which resolves it through
+`packages/ui/src/lib/logical-side.ts`'s `resolvePhysicalSide`. That is exact on
+web; on a mirrored NATIVE build React Native swaps a `left`/`right` inset but not
+a transform, so Bloom's own anchor and slide disagree there whatever side is
+passed — Bloom's to fix, and inside item 2 below.
 
-* **`translateX` is physical on both platforms.** A CSS transform is never
-  mirrored by `dir`, and React Native consults `I18nManager` nowhere under
-  `Libraries/StyleSheet` or `Libraries/Animated` — Yoga's RTL mirroring is a
-  layout pass and does not reach a transform. So the sign of the parked position
-  is computed.
-* **The divider on the panel's inner face has no logical spelling that
-  survives** — `border-s-*` emits `borderInlineStartWidth`, which RN 0.85.3 does
-  not register (the same measurement as everything else above). Resolving it in
-  ONE function is what let the `panel.tsx` and `sheet.tsx` exception entries be
-  deleted and replaced by a single one.
+The direction itself is READ, never re-derived from a locale: Bloom's `useIsRtl`
+(`@oxy.so/bloom/hooks`) returns what `syncLayoutDirection` already applied —
+`document.documentElement.dir` on web (observed, because a language switch
+changes it mid-session) and `I18nManager.isRTL` on native (constant for the
+process, because `forceRTL` takes effect on the next launch).
 
-The direction itself is READ, never re-derived from a locale:
-Bloom's `useIsRtl` (`@oxy.so/bloom/hooks`) returns what
-`syncLayoutDirection` already applied — `document.documentElement.dir` on web
-(observed, because a language switch changes it mid-session) and
-`I18nManager.isRTL` on native (constant for the process, because `forceRTL`
-takes effect on the next launch). It goes through `useSyncExternalStore`: both
-are external mutable state, the React Compiler is on, and a memoised read would
-leave a panel animating in the previous direction with nothing to blame.
-
-`scripts/validate-logical-side.mjs` runs the four pure functions — the module
+`scripts/validate-logical-side.mjs` runs `resolvePhysicalSide` — the module
 imports nothing, for the reason `rtl-locales.ts` imports nothing — and asserts
 the 2×2 table, the mirror property (a resolver that ignored the direction would
-pass every other check), the transform sign and border edge cross-checked
-against the resolution, and that both components still call it. **It verifies no
-rendering.** Whether a mirrored sheet visibly enters from the correct edge is
-#429 item 2, and no device or foregrounded tab has run it.
+pass every other check), and that the placement hook still imports and calls
+it. **It verifies no rendering.** Whether a mirrored sheet visibly enters from
+the correct edge is #429 item 2, and no device or foregrounded tab has run it.
 
 ### The two upstream premises are re-measured now (#429 item 3)
 
-Fifteen physical directional utilities are excused by seven reasoned
+Eight physical directional utilities are excused by three reasoned
 `KNOWN_EXCEPTIONS` entries, and each says a logical spelling would compile and
 then silently do nothing on a device. Those reasons are facts about UPSTREAM:
 React Native does not register `borderInline*`, and react-native-css's
@@ -323,10 +311,10 @@ person does not have to re-derive it:
    foregrounded web tab AND a real device build — web and native disagree here
    by construction (`borderInline*` works in a browser and drops on native, and
    `translateX` is mirrored by neither).
-2. **The sliding surfaces specifically** — `SheetContent` (the one left; `Panel` was deleted) must enter
-   from the reader's leading edge. `validate:logical-side` proves the arithmetic
+2. **The sliding surfaces specifically** — the variant picker's Bloom
+   side-sheet must enter from the edge it names. `validate:logical-side` proves the arithmetic
    and cannot prove the animation.
-3. **The fifteen excused physical borders** — each was kept because the logical
+3. **The eight excused physical utilities** — each was kept because the logical
    spelling would DROP it on native. Confirm each still renders on a device;
    that is the other half of the premise guard, which reads what upstream ships
    and not what a phone does with it.

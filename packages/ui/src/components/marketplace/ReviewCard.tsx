@@ -2,12 +2,11 @@ import { View } from "react-native";
 import { Image } from "expo-image";
 import type { Review } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
-import { ReviewStars } from "./ReviewStars";
+import { Rating } from "@oxy.so/bloom/rating";
+import { useRatingDisplay } from "../../lib/rating-display";
 import { useSharedUiLocale } from "../../i18n/ui-translation";
 import { formatDate } from "../../lib/date";
 
-/** Star edge length (px) inside a review card. */
-const REVIEW_STAR_SIZE = 14;
 /**
  * Fallback author label when the Oxy profile does not resolve.
  *
@@ -42,14 +41,13 @@ export function ReviewCard({ review, scopeLabel }: ReviewCardProps) {
   const locale = useSharedUiLocale();
   const date = formatDate(review.createdAt, locale);
   const author = review.author?.displayName ?? FALLBACK_AUTHOR;
+  const ratingDisplay = useRatingDisplay();
 
   return (
     <View className="min-h-[140px] w-[280px] shrink-0 gap-space-8 rounded-radius-20 border-[0.5px] border-border-image bg-bg-fill p-space-16">
-      <ReviewStars
-        rating={review.rating}
-        count={1}
-        size={REVIEW_STAR_SIZE}
-        {...(scopeLabel ? { scopeLabel } : {})}
+      <Rating
+        {...ratingDisplay({ rating: review.rating, ...(scopeLabel ? { subject: scopeLabel } : {}) })}
+        size="small"
       />
       {/*
         The verification state comes off the REVIEW, not off whether the author

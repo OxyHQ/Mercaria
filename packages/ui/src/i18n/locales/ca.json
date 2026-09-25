@@ -821,10 +821,14 @@
     },
     "carousel": {
       "previous": "Ves a l'element anterior",
-      "next": "Ves a l'element següent"
+      "next": "Ves a l'element següent",
+      "goTo": "Ves a l'element %{position}",
+      "products": "Productes",
+      "stores": "Botigues"
     },
     "cart": {
-      "saveForLater": "Desa per a més tard"
+      "saveForLater": "Desa per a més tard",
+      "shelfTitle": "Al teu cistell"
     },
     "merchantCart": {
       "checkout": "Continua amb el pagament",
@@ -868,7 +872,8 @@
       "empty": "Encara no hi ha %{subject}.",
       "verifiedRatings": "Valoracions verificades: %{ratings}",
       "unverified": "Sense verificar: %{ratings} · %{rating}",
-      "readMore": "Llegeix més ressenyes"
+      "readMore": "Llegeix més ressenyes",
+      "none": "Encara no hi ha ressenyes"
     },
     "searchInterpretation": {
       "chip": "%{label}",

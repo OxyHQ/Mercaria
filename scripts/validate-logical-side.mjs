@@ -1,28 +1,30 @@
 #!/usr/bin/env bun
 
 /**
- * A sliding panel must come in from the edge the reader's language starts from
+ * A side-sheet must come in from the edge the reader's language names
  * (#429 item 4).
  *
  * ## What can actually go wrong here
  *
  * Almost all of RTL is class names, and `validate-rtl-logical-classes.mjs`
- * gates those. `SheetContent` is the residual that guard could not touch (its
- * sibling `Panel` was deleted as unused), and the reason is that two of its
- * facts have no logical spelling:
+ * gates those. The POS variant picker's Bloom side-sheet is the residual that
+ * guard cannot touch: Bloom's `Dialog` takes a PHYSICAL `placement`
+ * (`left` / `right`) and parks the sheet with a physical `translateX` — a CSS
+ * transform is never mirrored by `dir`, and RN applies transforms after Yoga's
+ * layout pass — so the logical edge has to be resolved to a screen edge from the
+ * direction before it is handed to Bloom. `useLogicalDialogPlacement` does that
+ * through `resolvePhysicalSide`.
  *
- *   * `translateX` is PHYSICAL on both platforms — a CSS transform is never
- *     mirrored by `dir`, and RN applies transforms after Yoga's layout pass — so
- *     the sign of the parked position has to be computed from the direction.
- *   * the divider on the panel's inner face has to stay a physical border
- *     utility, because the logical ones emit `borderInline*` and RN 0.85.3 drops
- *     them on native (#429 item 3, an upstream capability).
+ * (#429 shipped two more computed facts here — the parked sign and the physical
+ * divider class — for the hand-rolled `Panel` and `Sheet`. Both components are
+ * deleted, Bloom owns the slide, and those functions and their assertions went
+ * with them.)
  *
- * Both are ARITHMETIC over a boolean, and arithmetic over a boolean fails in the
- * one way nothing else here can see: the panel renders, animates, and comes in
- * from the wrong side. `tsc` is happy — every wrong answer has the right type.
- * The export succeeds. The class guard sees nothing, because the offending value
- * is a number and a ternary rather than a class name.
+ * The resolution is ARITHMETIC over a boolean, and arithmetic over a boolean
+ * fails in the one way nothing else here can see: the sheet renders, animates,
+ * and comes in from the wrong side. `tsc` is happy — every wrong answer has the
+ * right type. The export succeeds. The class guard sees nothing, because the
+ * offending value is a string chosen by a ternary rather than a class name.
  *
  * ## Why a script rather than a unit test
  *
@@ -31,17 +33,15 @@
  * each have one (`vitest run`, run by `ci.yml`'s `Test Dashboard`, `Test App`
  * and `Test POS` steps), so the claim is not that a test is impossible here; it
  * is that a test cannot live in the package that owns this code, and that the
- * panel/sheet call sites this guard also checks are spread across all four
- * packages.
+ * call sites this guard also checks could live in any of the four packages.
  *
  * And those three runners cannot mount a component, which is the half worth
  * writing down because the tempting inference goes the other way. All three
  * collect from `lib` only under `environment: 'node'` with no renderer (#469,
  * recorded in each `vitest.config.ts`): importing `react-native` dies at its
  * `index.js:27` with `RollupError: Parse failure: Expected 'from', got
- * 'typeOf'`, measured in all three separately. `SheetContent` — the call site
- * below — is a component, so they are not assertable in any app
- * suite today. The usable form is that config's own rule: extract the
+ * 'typeOf'`, measured in all three separately. The call site below is a hook
+ * over `react-native`, so it is not assertable in any app suite today. The usable form is that config's own rule: extract the
  * derivation into `lib/` and assert it by running it, which is exactly what
  * `logical-side.ts` is and why this guard can import and RUN it rather than
  * scan for a spelling.
@@ -69,12 +69,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  innerEdgeBorderClassName,
-  offscreenTranslateX,
-  oppositeLogicalSide,
-  resolvePhysicalSide,
-} from "../packages/ui/src/lib/logical-side.ts";
+import { resolvePhysicalSide } from "../packages/ui/src/lib/logical-side.ts";
 // The same module as a namespace, so the consumer census below can enumerate
 // what it exports rather than repeat a hand-written list of names (#491).
 import * as logicalSideModule from "../packages/ui/src/lib/logical-side.ts";
@@ -149,133 +144,15 @@ if (observedPhysical.size !== 2) {
   );
 }
 
-// ------------------------------------------------------------ the opposite edge ---
-
-for (const side of SIDES) {
-  const opposite = oppositeLogicalSide(side);
-  if (opposite === side) {
-    failures.push(
-      `oppositeLogicalSide(${JSON.stringify(side)}) returned its own input — the inner face of a panel `
-      + "is the edge it is NOT anchored to",
-    );
-    continue;
-  }
-  if (oppositeLogicalSide(opposite) !== side) {
-    failures.push(
-      `oppositeLogicalSide is not an involution: ${JSON.stringify(side)} -> `
-      + `${JSON.stringify(opposite)} -> ${JSON.stringify(oppositeLogicalSide(opposite))}`,
-    );
-  }
-}
-
-// --------------------------------------------------------- the animation sign ---
-
-/**
- * The parked position is off the screen edge the panel OCCUPIES.
- *
- * Cross-checked against `resolvePhysicalSide` rather than against a second
- * hand-written table: a sign flip in one of the two functions is exactly the bug
- * this file exists for, and two independent tables would let them drift apart
- * while both looked right on their own.
- */
-const DISTANCE = 375;
-for (const side of SIDES) {
-  for (const rtl of DIRECTIONS) {
-    const physical = resolvePhysicalSide(side, rtl);
-    const parked = offscreenTranslateX(side, rtl, DISTANCE);
-    const expected = physical === "right" ? DISTANCE : -DISTANCE;
-    if (parked === expected) continue;
-    failures.push(
-      `offscreenTranslateX(${JSON.stringify(side)}, ${rtl}, ${DISTANCE}) returned ${parked}, expected `
-      + `${expected}: the panel resolves to the ${physical} edge, and a positive translateX moves right `
-      + "on BOTH platforms (a CSS transform is not mirrored by dir, and RN applies transforms after "
-      + "layout). The wrong sign parks the panel on top of the content instead of off screen, and it "
-      + "then slides in from the opposite edge.",
-    );
-  }
-}
-
-/** Both signs must occur, or the sign is not a function of the direction at all. */
-const observedSigns = new Set(
-  SIDES.flatMap((side) => DIRECTIONS.map((rtl) => Math.sign(offscreenTranslateX(side, rtl, DISTANCE)))),
-);
-if (observedSigns.size !== 2) {
-  failures.push(
-    `offscreenTranslateX produced ${observedSigns.size} distinct sign(s) across the whole domain — `
-    + "expected both, or the parked position does not depend on the direction",
-  );
-}
-
-/**
- * The caller's sign is not an input. A caller passing a width it had already
- * negated must get the same parked position, or the direction would be decided
- * by whichever variable happened to be in scope.
- */
-for (const side of SIDES) {
-  for (const rtl of DIRECTIONS) {
-    const positive = offscreenTranslateX(side, rtl, DISTANCE);
-    const negative = offscreenTranslateX(side, rtl, -DISTANCE);
-    if (positive === negative) continue;
-    failures.push(
-      `offscreenTranslateX(${JSON.stringify(side)}, ${rtl}, ±${DISTANCE}) answered ${positive} and `
-      + `${negative}. The parked position is a function of the side and the direction; a caller that `
-      + "negated the width first must not be able to flip it.",
-    );
-  }
-}
-
-// ------------------------------------------------------------- the inner border ---
-
-/**
- * The divider sits on the face turned towards the content, which is the edge
- * OPPOSITE the anchor. Asserted against `resolvePhysicalSide` for the same
- * reason the sign is: one table, one place to be wrong.
- */
-for (const side of SIDES) {
-  for (const rtl of DIRECTIONS) {
-    const physical = resolvePhysicalSide(side, rtl);
-    const expected = physical === "right" ? "border-l" : "border-r";
-    const actual = innerEdgeBorderClassName(side, rtl);
-    if (actual === expected) continue;
-    failures.push(
-      `innerEdgeBorderClassName(${JSON.stringify(side)}, ${rtl}) returned ${JSON.stringify(actual)}, `
-      + `expected ${JSON.stringify(expected)}: a panel occupying the ${physical} of the screen is `
-      + "divided from the content on its other side. Drawing it on the anchored edge puts a rule down "
-      + "the outside of the screen, where nothing can see it.",
-    );
-  }
-}
-
-/**
- * It must never emit a LOGICAL border utility, however tempting that reads.
- * `border-s-*` and `border-e-*` compile to `borderInlineStartWidth` and friends,
- * which React Native 0.85.3 does not register — the border renders in a browser
- * and silently disappears on iOS and Android, which is strictly worse than the
- * mis-mirroring it would be fixing. That measurement is #429 item 3 and it is
- * the whole reason this function exists rather than a class.
- */
-for (const side of SIDES) {
-  for (const rtl of DIRECTIONS) {
-    const actual = innerEdgeBorderClassName(side, rtl);
-    if (!/^border-[se](?![\w-])/.test(actual)) continue;
-    failures.push(
-      `innerEdgeBorderClassName(${JSON.stringify(side)}, ${rtl}) returned the LOGICAL utility `
-      + `${JSON.stringify(actual)}. It compiles to borderInline*, which RN 0.85.3 does not register, so `
-      + "the divider would vanish on native while looking correct on web. Keep the physical spelling and "
-      + "the reasoned KNOWN_EXCEPTIONS entry that covers it.",
-    );
-  }
-}
-
-// ------------------------------------------ the components must actually call it ---
+// ------------------------------------------ the consumers must actually call it ---
 
 /**
  * A mechanism can be correct and INERT. Everything above would pass unchanged
- * against a component that had quietly gone back to a hardcoded sign, so each
- * consumer is checked for the calls themselves.
+ * against a placement hook that had quietly gone back to a hardcoded side, so
+ * each consumer is checked for the calls themselves.
  *
- * Read as bytes rather than imported: these are `.tsx` files that pull in
- * `react-native`, which cannot be imported outside a bundler — the same
+ * Read as bytes rather than imported: consumers pull in `react-native` (the
+ * placement hook through Bloom), which cannot be imported outside a bundler — the same
  * constraint that shaped the module split in the first place.
  */
 /**
@@ -351,9 +228,10 @@ const CONSUMERS = scanned
   .sort();
 
 /**
- * Non-zero. #429 shipped two consumers, a panel and a sheet; `Panel` has since
- * been deleted as unused, so the floor is the one left. A consumer that stops
- * importing the module still fails below, through its REQUIRED_CALLS entry.
+ * Non-zero. #429 shipped two consumers, `Panel` and `Sheet`; both are deleted,
+ * and the one consumer left is the placement hook the variant picker calls. A
+ * consumer that stops importing the module still fails below, through its
+ * REQUIRED_CALLS entry, and the reachability check fails with it.
  */
 const MINIMUM_CONSUMERS = 1;
 if (CONSUMERS.length < MINIMUM_CONSUMERS) {
@@ -369,7 +247,7 @@ if (CONSUMERS.length < MINIMUM_CONSUMERS) {
  * Every callable export must be reached by some consumer.
  *
  * Enumerated from the module rather than repeated as a per-file list of call
- * strings, so a FIFTH exported function is covered the day it is added instead
+ * strings, so a SECOND exported function is covered the day it is added instead
  * of being inert until somebody remembers to name it here.
  */
 const EXPORTED_FUNCTIONS = Object.entries(logicalSideModule)
@@ -385,13 +263,12 @@ const EXPORTED_FUNCTIONS = Object.entries(logicalSideModule)
  * has to appear here (below), so an empty map fails once per consumer.
  *
  * It exists because deriving alone is measurably WEAKER than the hand list it
- * replaced. Measured while building this fix: with only "every consumer calls
- * something" and "every export is called by someone", replacing panel.tsx's
- * `offscreenTranslateX(` with a hardcoded sign PASSED — sheet.tsx still called
- * the function, so the export was still reached, and panel still called
- * `innerEdgeBorderClassName`, so it was still a caller. That is precisely the
- * inert-`Panel` this file was written for, and shipping the derivation on its
- * own would have traded one hole for another.
+ * replaced. Measured while building it (against the since-deleted Panel and
+ * Sheet): with only "every consumer calls something" and "every export is
+ * called by someone", replacing panel.tsx's `offscreenTranslateX(` with a
+ * hardcoded sign PASSED — sheet.tsx still called the function, so the export
+ * was still reached. With one consumer today the two checks coincide; the map
+ * is what keeps them apart the day a second consumer arrives.
  *
  * A consumer that appears in the tree and NOT here fails the build until
  * somebody says what it must call — the `merge-plan-census` device. That is a
@@ -399,10 +276,10 @@ const EXPORTED_FUNCTIONS = Object.entries(logicalSideModule)
  * may compute a sign itself.
  */
 const REQUIRED_CALLS = new Map([
-  [
-    "packages/ui/src/components/ui/sheet.tsx",
-    ["offscreenTranslateX", "innerEdgeBorderClassName", "resolvePhysicalSide"],
-  ],
+  // Bloom's `Dialog` takes a PHYSICAL side-sheet placement, so the hook every
+  // logical-edge sheet goes through must keep resolving it here rather than
+  // writing its own `rtl ? … : …`.
+  ["packages/ui/src/lib/logical-dialog-placement.ts", ["resolvePhysicalSide"]],
 ]);
 
 /** A stale entry names a file that no longer imports the module — the exemption-list rule. */
@@ -415,7 +292,7 @@ for (const path of REQUIRED_CALLS.keys()) {
   );
 }
 
-const MINIMUM_EXPORTED_FUNCTIONS = 4;
+const MINIMUM_EXPORTED_FUNCTIONS = 1;
 if (EXPORTED_FUNCTIONS.length < MINIMUM_EXPORTED_FUNCTIONS) {
   failures.push(
     `the module exports ${EXPORTED_FUNCTIONS.length} function(s) (${EXPORTED_FUNCTIONS.join(", ")}), `
@@ -434,7 +311,7 @@ for (const name of EXPORTED_FUNCTIONS) {
   failures.push(
     `${name} is exported by logical-side.ts and CALLED BY NOTHING that imports it `
     + `(checked: ${CONSUMERS.join(", ") || "no consumers"}). Everything asserted above would still pass `
-    + "against a component that had gone back to a hardcoded sign — a mechanism can be correct and "
+    + "against a consumer that had gone back to a hardcoded side — a mechanism can be correct and "
     + "inert, and this is the assertion that can tell the difference.",
   );
 }
@@ -442,7 +319,8 @@ for (const name of EXPORTED_FUNCTIONS) {
 /**
  * Below this a file has been emptied, moved or truncated, and every `includes`
  * assertion over it would fail for a reason that has nothing to do with the
- * property under test. Both components are well over 3 kB.
+ * property under test. The placement hook is ~1.8 kB, most of it the docblock
+ * that says why it exists.
  */
 const MINIMUM_CONSUMER_BYTES = 1500;
 
@@ -483,7 +361,7 @@ for (const consumer of CONSUMERS) {
     if (source.includes(`${name}(`)) continue;
     failures.push(
       `${consumer} no longer calls ${name}(…) — the resolution above is still correct and is no `
-      + "longer reaching the screen. A component that derives its own sign is exactly what this file "
+      + "longer reaching the screen. A consumer that derives its own side is exactly what this file "
       + "exists to stop, and it looks identical to a working one everywhere else.",
     );
   }
@@ -491,8 +369,9 @@ for (const consumer of CONSUMERS) {
   /**
    * The physical prop was a CLEAN CUT, not a rename with the old union left
    * beside it. `tsc` catches a call site passing `side="right"`; it does not
-   * catch the union being widened back on the component itself, because
-   * everything then compiles again.
+   * catch the union being widened back on the consumer itself, because
+   * everything then compiles again. (The placement hook RETURNS a physical side
+   * by design, and spells it `PhysicalSide`, never as an inline union.)
    */
   if (/["']left["']\s*\|\s*["']right["']|["']right["']\s*\|\s*["']left["']/.test(source)) {
     failures.push(
@@ -510,8 +389,8 @@ if (failures.length > 0) {
   console.error("Logical-side guard failed:\n");
   for (const failure of failures) console.error(`  ${failure}\n`);
   console.error(
-    "  A sliding panel is the one part of the mirrored layout that cannot be expressed in logical\n"
-    + "  utilities: the transform sign and the divider edge are both computed. Getting either wrong\n"
+    "  A side-sheet is the one part of the mirrored layout that cannot be expressed in logical\n"
+    + "  utilities: Bloom's placement is physical, so the edge is computed. Getting it wrong\n"
     + "  renders, animates, typechecks and exports — it just comes in from the wrong edge.\n",
   );
   process.exit(1);
@@ -519,8 +398,8 @@ if (failures.length > 0) {
 
 console.log(
   `Logical-side guard passed — ${EXPECTED_PHYSICAL.length} side x direction combinations resolved, `
-  + "mirror property asserted for both sides, translateX sign and inner border edge cross-checked "
-  + `against the resolution, all ${EXPORTED_FUNCTIONS.length} exported functions `
+  + "mirror property asserted for both sides, "
+  + `all ${EXPORTED_FUNCTIONS.length} exported function(s) `
   + `(${EXPORTED_FUNCTIONS.join(", ")}) reached from ${CONSUMERS.length} consumer(s) DERIVED from `
   + `${scanned.length} scanned files (${CONSUMERS.join(", ")}), none declaring a physical side union. `
   + "It does NOT verify that anything renders — #429 item 2 is still open.",

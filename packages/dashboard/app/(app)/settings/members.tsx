@@ -11,13 +11,10 @@ import {
   Label,
   ToggleGroup,
   ToggleGroupItem,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   useColorScheme,
   formatDate,
 } from "@mercaria/ui";
+import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -61,7 +58,7 @@ function MembersBody({ storeId }: { storeId: string }) {
   const { data, isPending, isError } = useMembers(storeId);
   const updateMember = useUpdateMember(storeId);
   const removeMember = useRemoveMember(storeId);
-  const [inviteOpen, setInviteOpen] = useState(false);
+  const inviteControl = useDialogControl();
 
   const back = (
     <View className="flex-row items-center gap-2">
@@ -72,7 +69,7 @@ function MembersBody({ storeId }: { storeId: string }) {
         <ChevronLeft size={16} color={colors.foreground} />
         <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
       </Pressable>
-      <Button onPress={() => setInviteOpen(true)}>
+      <Button onPress={() => inviteControl.open()}>
         <View className="flex-row items-center gap-2">
           <Plus size={16} color={colors.primaryForeground} />
           <Text className="font-semibold text-primary-foreground">
@@ -122,7 +119,7 @@ function MembersBody({ storeId }: { storeId: string }) {
         </View>
       )}
 
-      <InviteMemberDialog storeId={storeId} open={inviteOpen} onOpenChange={setInviteOpen} />
+      <InviteMemberDialog storeId={storeId} control={inviteControl} />
     </Screen>
   );
 }
@@ -193,12 +190,10 @@ function MemberRow({
 
 function InviteMemberDialog({
   storeId,
-  open,
-  onOpenChange,
+  control,
 }: {
   storeId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  control: DialogControlProps;
 }) {
   const inviteMember = useInviteMember(storeId);
   const { t } = useTranslation();
@@ -217,7 +212,7 @@ function InviteMemberDialog({
           toast.success(t("settings.members.added"));
           setOxyUserId("");
           setRole("staff");
-          onOpenChange(false);
+          control.close();
         },
         onError: () => toast.error(t("settings.members.addFailed")),
       },
@@ -225,42 +220,37 @@ function InviteMemberDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("settings.members.inviteTitle")}</DialogTitle>
-        </DialogHeader>
-        <View className="gap-4">
-          <View className="gap-1.5">
-            <Label>{t("settings.members.oxyUserIdLabel")}</Label>
-            <Input
-              value={oxyUserId}
-              onChangeText={setOxyUserId}
-              placeholder={t("settings.members.oxyUserIdPlaceholder")}
-              autoCapitalize="none"
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>{t("settings.members.roleLabel")}</Label>
-            <ToggleGroup
-              type="single"
-              value={role}
-              onValueChange={(v) => typeof v === "string" && v && setRole(v as StoreRole)}
-            >
-              {(["admin", "staff"] as StoreRole[]).map((r) => (
-                <ToggleGroupItem key={r} value={r}>
-                  <Text className="text-sm capitalize text-foreground">{t(ROLE_LABEL_KEYS[r])}</Text>
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </View>
-          <Button onPress={submit} isLoading={inviteMember.isPending} className="mt-1">
-            <Text className="font-semibold text-primary-foreground">
-              {t("settings.members.addMember")}
-            </Text>
-          </Button>
+    <Dialog control={control} title={t("settings.members.inviteTitle")}>
+      <View className="gap-4">
+        <View className="gap-1.5">
+          <Label>{t("settings.members.oxyUserIdLabel")}</Label>
+          <Input
+            value={oxyUserId}
+            onChangeText={setOxyUserId}
+            placeholder={t("settings.members.oxyUserIdPlaceholder")}
+            autoCapitalize="none"
+          />
         </View>
-      </DialogContent>
+        <View className="gap-1.5">
+          <Label>{t("settings.members.roleLabel")}</Label>
+          <ToggleGroup
+            type="single"
+            value={role}
+            onValueChange={(v) => typeof v === "string" && v && setRole(v as StoreRole)}
+          >
+            {(["admin", "staff"] as StoreRole[]).map((r) => (
+              <ToggleGroupItem key={r} value={r}>
+                <Text className="text-sm capitalize text-foreground">{t(ROLE_LABEL_KEYS[r])}</Text>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </View>
+        <Button onPress={submit} isLoading={inviteMember.isPending} className="mt-1">
+          <Text className="font-semibold text-primary-foreground">
+            {t("settings.members.addMember")}
+          </Text>
+        </Button>
+      </View>
     </Dialog>
   );
 }
