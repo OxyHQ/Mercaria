@@ -2,7 +2,8 @@ import { View, ScrollView, Pressable, Platform } from "react-native";
 import { Text } from "@mercaria/ui";
 import { Switch } from "@oxy.so/bloom/switch";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Bell, BellOff, CheckCheck, Zap, Clock, Eye, AlertTriangle, MessageSquare, X } from "lucide-react-native";
+import { ArrowLeft, ArrowRight, Bell, BellOff, CheckCheck, Zap, Clock, Eye, AlertTriangle, MessageSquare, X } from "lucide-react-native";
+import { useIsRtl } from "@oxy.so/bloom/hooks";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@oxy.so/services";
 import { RiNotification3Line } from "@oxy.so/bloom/icons/RiNotification3Line";
@@ -125,6 +126,8 @@ export default function NotificationsScreen() {
   const permissionDenied = permissionStatus === "denied";
 
   const StatusIcon = pushEnabled ? Bell : BellOff;
+  // Back points against the reading direction, so it flips with it.
+  const BackArrow = useIsRtl() ? ArrowRight : ArrowLeft;
 
   return (
     <ScrollView className="flex-1 bg-background">
@@ -132,7 +135,7 @@ export default function NotificationsScreen() {
       <View className="px-6 py-6 border-b border-border">
         <View className="flex-row items-center justify-between mb-4">
           <Pressable onPress={() => router.back()} className="flex-row items-center">
-            <ArrowLeft size={16} className="text-muted-foreground me-2" />
+            <BackArrow size={16} className="text-muted-foreground me-2" />
             <Text className="text-sm text-muted-foreground">{t('common.back')}</Text>
           </Pressable>
           <Pressable onPress={() => setShowSettings(s => !s)} className="p-2">

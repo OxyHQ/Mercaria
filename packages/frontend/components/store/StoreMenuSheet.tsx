@@ -6,6 +6,8 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
+  ArrowRight,
+  ChevronLeft,
   ChevronRight,
   Flag,
   Heart,
@@ -187,13 +189,15 @@ function PolicyRow({
   toneColor: string;
   icon: ReactNode;
 }) {
+  // The chevron points the reading direction, so it flips with it.
+  const Chevron = useIsRtl() ? ChevronLeft : ChevronRight;
   return (
     <View className="flex-row items-center gap-space-12 px-space-16 py-space-12">
       {icon}
       <Text className="flex-1 text-body" style={{ color: toneColor }}>
         {label}
       </Text>
-      <ChevronRight size={ROW_ICON_SIZE} color={toneColor} />
+      <Chevron size={ROW_ICON_SIZE} color={toneColor} />
     </View>
   );
 }
@@ -405,6 +409,8 @@ function MenuPage({
   onSelectCollection: (id?: string) => void;
   onOpenReviews: () => void;
 }) {
+  // The review row's chevron points the reading direction.
+  const Chevron = useIsRtl() ? ChevronLeft : ChevronRight;
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
   const ratingDisplay = useRatingDisplay();
@@ -494,7 +500,7 @@ function MenuPage({
                 })}
               </Text>
             </View>
-            <ChevronRight size={ROW_ICON_SIZE} color={toneColor} />
+            <Chevron size={ROW_ICON_SIZE} color={toneColor} />
           </View>
         ) : (
           <Text className="mt-space-12 text-body" style={{ color: toneColor }}>
@@ -663,7 +669,11 @@ export function StoreMenuSheet({
           </ControlButton>
         ) : (
           <ControlButton label={t("common.back")} onPress={pop}>
-            <ArrowLeft size={CONTROL_ICON_SIZE} color={toneColor} />
+            {rtl ? (
+              <ArrowRight size={CONTROL_ICON_SIZE} color={toneColor} />
+            ) : (
+              <ArrowLeft size={CONTROL_ICON_SIZE} color={toneColor} />
+            )}
           </ControlButton>
         )}
         <View className="flex-row items-center gap-space-12">
