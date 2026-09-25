@@ -347,10 +347,6 @@ export {
   type SectionHeaderProps,
 } from "./components/marketplace/SectionHeader";
 export {
-  QuantityStepper,
-  type QuantityStepperProps,
-} from "./components/marketplace/QuantityStepper";
-export {
   CartLineItem,
   type CartLineItemProps,
 } from "./components/marketplace/CartLineItem";

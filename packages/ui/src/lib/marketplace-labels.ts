@@ -106,7 +106,7 @@ export const GALLERY_VIEW_IMAGE_KEY = "ui.gallery.viewImage";
 export const GALLERY_PREVIOUS_KEY = "ui.gallery.previous";
 export const GALLERY_NEXT_KEY = "ui.gallery.next";
 
-/** `QuantityStepper`. */
+/** `CartLineItem`'s Bloom `Stepper` (its remove, decrement and increment names). */
 export const QUANTITY_REMOVE_KEY = "ui.quantity.remove";
 export const QUANTITY_DECREASE_KEY = "ui.quantity.decrease";
 export const QUANTITY_INCREASE_KEY = "ui.quantity.increase";
