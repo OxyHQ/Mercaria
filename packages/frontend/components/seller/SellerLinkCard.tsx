@@ -104,7 +104,7 @@ export function SellerLinkCard({
         <SellerFollowButton
           oxyUserId={seller.oxyUserId}
           displayName={seller.displayName}
-          size="small"
+          size="sm"
         />
       </View>
     </View>

@@ -3,6 +3,7 @@ import { FollowTargetButton, openAccountDialog, useOxy } from "@oxy.so/services"
 import type { StoreSummary } from "@mercaria/shared-types";
 import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
 import { useTranslation } from "@/lib/i18n";
+import { FOLLOW_TARGET_BUTTON_SIZE, type FollowButtonSize } from "@/lib/follow-graph";
 
 /**
  * Follow a store, backed by Oxy's user-owned follow graph.
@@ -45,10 +46,10 @@ import { useTranslation } from "@/lib/i18n";
  */
 export function StoreFollowButton({
   store,
-  size = "medium",
+  size = "md",
 }: {
   store: StoreSummary;
-  size?: "small" | "medium" | "large";
+  size?: FollowButtonSize;
 }) {
   const { t } = useTranslation();
   const { canUsePrivateApi } = useOxy();
@@ -61,7 +62,7 @@ export function StoreFollowButton({
         verb="follow"
         applicationName="Mercaria"
         durations={false}
-        size={size}
+        size={FOLLOW_TARGET_BUTTON_SIZE[size]}
       />
     );
   }
@@ -76,7 +77,8 @@ export function StoreFollowButton({
   // renders too, so this is the same control in the same palette.
   return (
     <Button
-      variant="primary"
+      appearance="solid"
+      tone="accent"
       size={size}
       onPress={() => openAccountDialog()}
       accessibilityLabel={t("store.follow.followStore", { store: store.name })}

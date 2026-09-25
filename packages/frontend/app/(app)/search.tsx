@@ -170,7 +170,7 @@ export default function SearchScreen() {
           label={t("search.box.label")}
           placeholder={t("search.box.placeholder")}
           value={term}
-          onChangeText={setTerm}
+          onValueChange={setTerm}
           onClearText={() => setTerm("")}
           onSubmitEditing={() => submit(term)}
         />
