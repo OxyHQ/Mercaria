@@ -1,8 +1,9 @@
 import { View } from "react-native";
+import { Button } from "@oxy.so/bloom/button";
 import { useRouter } from "expo-router";
 import { useOxy } from "@oxy.so/services";
 import type { CatalogProductBrowsePage } from "@mercaria/shared-types";
-import { Button, CanonicalProductCard, Text } from "@mercaria/ui";
+import { CanonicalProductCard, Text } from "@mercaria/ui";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
 import { useTranslation } from "@/lib/i18n";
 
@@ -94,10 +95,8 @@ export function CatalogProductGrid({
         ))}
       </View>
       {hasNextPage ? (
-        <Button variant="outline" onPress={onLoadMore} disabled={isFetchingNextPage}>
-          <Text>
-            {isFetchingNextPage ? t("brands.grid.loadingMore") : t("brands.grid.showMore")}
-          </Text>
+        <Button appearance="outline" tone="neutral" onPress={onLoadMore} disabled={isFetchingNextPage}>
+          {isFetchingNextPage ? t("brands.grid.loadingMore") : t("brands.grid.showMore")}
         </Button>
       ) : null}
     </View>

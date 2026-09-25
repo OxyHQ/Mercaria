@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { Pressable, View } from "react-native";
 import type { AuthoringSchema } from "@mercaria/shared-types";
-import { Button, Input, Label, Text, type Translate } from "@mercaria/ui";
+import { Text, type Translate } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 import { useCanonicalVariants } from "@/lib/authoring/hooks";
@@ -114,23 +117,24 @@ export function VariantRows({
           </Text>
 
           <View className="flex-row flex-wrap items-end gap-3">
-            <View className="min-w-[10rem] flex-1 gap-1.5">
-              <Label>{t("products.wizard.variants.bulkSkuPrefix")}</Label>
-              <Input
-                value={skuPrefix}
-                onChangeText={setSkuPrefix}
-                accessibilityLabel={t("products.wizard.variants.bulkSkuPrefix")}
-                editable={!disabled}
-              />
+            <View className="min-w-[10rem] flex-1">
+              <Field label={t("products.wizard.variants.bulkSkuPrefix")}>
+                <TextFieldInput
+                  label={t("products.wizard.variants.bulkSkuPrefix")}
+                  placeholder={null}
+                  value={skuPrefix}
+                  onValueChange={setSkuPrefix}
+                  disabled={disabled}
+                />
+              </Field>
             </View>
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={disabled || soldCount === 0}
               onPress={() => onChange(applySkuPrefix(rows, skuPrefix))}
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("products.wizard.variants.bulkSkuApply")}
-              </Text>
+              {t("products.wizard.variants.bulkSkuApply")}
             </Button>
           </View>
           {/* Says what the control DOES rather than only naming it: a merchant
@@ -142,44 +146,43 @@ export function VariantRows({
           </Text>
 
           <View className="flex-row flex-wrap items-end gap-3">
-            <View className="min-w-[10rem] flex-1 gap-1.5">
-              <Label>{t("products.wizard.variants.barcode")}</Label>
-              <Input
-                value={bulkBarcode}
-                onChangeText={setBulkBarcode}
-                accessibilityLabel={t("products.wizard.variants.barcode")}
-                editable={!disabled}
-              />
+            <View className="min-w-[10rem] flex-1">
+              <Field label={t("products.wizard.variants.barcode")}>
+                <TextFieldInput
+                  label={t("products.wizard.variants.barcode")}
+                  placeholder={null}
+                  value={bulkBarcode}
+                  onValueChange={setBulkBarcode}
+                  disabled={disabled}
+                />
+              </Field>
             </View>
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={disabled || soldCount === 0}
               onPress={() => onChange(applyBarcodeToAll(rows, bulkBarcode))}
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("products.wizard.variants.bulkBarcodeApply")}
-              </Text>
+              {t("products.wizard.variants.bulkBarcodeApply")}
             </Button>
           </View>
 
           <View className="flex-row flex-wrap gap-3">
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={disabled}
               onPress={() => onChange(setAllSold(rows, true))}
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("products.wizard.variants.markAllSold")}
-              </Text>
+              {t("products.wizard.variants.markAllSold")}
             </Button>
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={disabled}
               onPress={() => onChange(setAllSold(rows, false))}
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("products.wizard.variants.markNoneSold")}
-              </Text>
+              {t("products.wizard.variants.markNoneSold")}
             </Button>
           </View>
         </View>
@@ -227,31 +230,34 @@ export function VariantRows({
             </View>
 
             <View className="flex-row flex-wrap gap-3">
-              <View className="min-w-[10rem] flex-1 gap-1.5">
-                <Label>{t("products.wizard.variants.sku")}</Label>
-                <Input
-                  value={row.sku}
-                  onChangeText={(sku) => update(row.key, { sku })}
-                  accessibilityLabel={t("products.wizard.variants.sku")}
-                  editable={!disabled && row.enabled}
-                  autoCapitalize="none"
-                />
+              <View className="min-w-[10rem] flex-1">
+                <Field label={t("products.wizard.variants.sku")}>
+                  <TextFieldInput
+                    label={t("products.wizard.variants.sku")}
+                    placeholder={null}
+                    value={row.sku}
+                    onValueChange={(sku) => update(row.key, { sku })}
+                    disabled={disabled || !row.enabled}
+                    autoCapitalize="none"
+                  />
+                </Field>
               </View>
-              <View className="min-w-[10rem] flex-1 gap-1.5">
-                <Label>{t("products.wizard.variants.barcode")}</Label>
-                <Input
-                  value={row.barcode}
-                  onChangeText={(barcode) => update(row.key, { barcode })}
-                  accessibilityLabel={t("products.wizard.variants.barcode")}
-                  editable={!disabled && row.enabled}
-                  autoCapitalize="none"
-                />
+              <View className="min-w-[10rem] flex-1">
+                <Field label={t("products.wizard.variants.barcode")}>
+                  <TextFieldInput
+                    label={t("products.wizard.variants.barcode")}
+                    placeholder={null}
+                    value={row.barcode}
+                    onValueChange={(barcode) => update(row.key, { barcode })}
+                    disabled={disabled || !row.enabled}
+                    autoCapitalize="none"
+                  />
+                </Field>
               </View>
             </View>
 
             {canonicalProductId === null || variantOptions.length === 0 ? null : (
-              <View className="gap-1.5">
-                <Label>{t("products.wizard.canonical.variantLabel")}</Label>
+              <Field label={t("products.wizard.canonical.variantLabel")} multiple>
                 <ValuePicker
                   options={variantOptions}
                   selectedId={row.selectedCanonicalVariantId}
@@ -274,7 +280,7 @@ export function VariantRows({
                     </Text>
                   </Pressable>
                 )}
-              </View>
+              </Field>
             )}
 
             {rowFindings.map((finding, index) => (

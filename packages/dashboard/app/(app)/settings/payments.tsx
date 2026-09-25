@@ -8,7 +8,8 @@ import type {
   ProviderOnboardingState,
   SellerPaymentSettings,
 } from "@mercaria/shared-types";
-import { Text, Button, Label, formatDate, useColorScheme } from "@mercaria/ui";
+import { Text, formatDate, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -201,8 +202,8 @@ function PaymentsPanel({
         <Text className="mt-1 text-xs text-muted-foreground">{t(copy.bodyKey)}</Text>
 
         {copy.actionKey !== undefined && onboardingAvailable ? (
-          <Button onPress={startOnboarding} isLoading={busy} className="mt-4 self-start">
-            <Text className="font-semibold text-primary-foreground">{t(copy.actionKey)}</Text>
+          <Button tone="accent" onPress={startOnboarding} loading={busy} className="mt-4 self-start">
+            {t(copy.actionKey)}
           </Button>
         ) : null}
 
@@ -327,7 +328,7 @@ function ReasonCodesCard({ settings }: { settings: SellerPaymentSettings }) {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-row items-center justify-between py-1.5">
-      <Label className="text-sm text-muted-foreground">{label}</Label>
+      <Text className="text-sm text-muted-foreground">{label}</Text>
       <Text className="text-sm text-foreground">{value}</Text>
     </View>
   );

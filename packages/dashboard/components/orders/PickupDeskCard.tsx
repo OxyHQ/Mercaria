@@ -2,9 +2,6 @@ import React, { useState } from "react";
 import { View } from "react-native";
 import type { PickupCollectionEventKind } from "@mercaria/shared-types";
 import {
-  Button,
-  Input,
-  Label,
   ORDER_PICKUP_STATE_EXPLANATION_KEYS,
   ORDER_PICKUP_STATE_KEYS,
   PICKUP_IDENTITY_REQUIREMENT_KEYS,
@@ -12,6 +9,9 @@ import {
   formatDateTime,
   formatPublicAddress,
 } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import {
   useOrderPickup,
@@ -124,36 +124,34 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
         <View className="gap-3">
           {pickup.state === "awaiting_preparation" ? (
             <Button
+              tone="accent"
               disabled={act.isPending}
               onPress={() => run({ kind: "ready" }, t("orders.pickup.toast.markedReady"))}
             >
-              <Text className="text-sm font-semibold text-primary-foreground">
-                {t("orders.pickup.markReady")}
-              </Text>
+              {t("orders.pickup.markReady")}
             </Button>
           ) : null}
 
           <View className="gap-1.5">
-            <Label nativeID="pickup-code">{t("orders.pickup.codeLabel")}</Label>
-            <Input
-              aria-labelledby="pickup-code"
-              accessibilityLabel={t("orders.pickup.codeAccessibilityLabel")}
-              value={code}
-              onChangeText={setCode}
-              placeholder={t("orders.pickup.codePlaceholder")}
-              autoCapitalize="characters"
-              autoCorrect={false}
-            />
+            <Field label={t("orders.pickup.codeLabel")}>
+              <TextFieldInput
+                label={t("orders.pickup.codeLabel")}
+                value={code}
+                onValueChange={setCode}
+                placeholder={t("orders.pickup.codePlaceholder")}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+            </Field>
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={act.isPending || code.trim().length === 0}
               onPress={() =>
                 run({ kind: "collect", code: code.trim() }, t("orders.pickup.toast.collected"))
               }
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("orders.pickup.checkCodeAndHandOver")}
-              </Text>
+              {t("orders.pickup.checkCodeAndHandOver")}
             </Button>
           </View>
 
@@ -164,16 +162,17 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
             than a way around verification.
           */}
           <View className="gap-1.5">
-            <Label nativeID="pickup-override">{t("orders.pickup.overrideLabel")}</Label>
-            <Input
-              aria-labelledby="pickup-override"
-              accessibilityLabel={t("orders.pickup.overrideAccessibilityLabel")}
-              value={overrideReason}
-              onChangeText={setOverrideReason}
-              placeholder={t("orders.pickup.overridePlaceholder")}
-            />
+            <Field label={t("orders.pickup.overrideLabel")}>
+              <TextFieldInput
+                label={t("orders.pickup.overrideLabel")}
+                value={overrideReason}
+                onValueChange={setOverrideReason}
+                placeholder={t("orders.pickup.overridePlaceholder")}
+              />
+            </Field>
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={act.isPending || overrideReason.trim().length === 0}
               onPress={() =>
                 run(
@@ -182,9 +181,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
                 )
               }
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("orders.pickup.handOverWithOverride")}
-              </Text>
+              {t("orders.pickup.handOverWithOverride")}
             </Button>
             <Text className="text-xs text-muted-foreground">
               {t("orders.pickup.overrideNote")}
@@ -192,16 +189,17 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
           </View>
 
           <View className="gap-1.5">
-            <Label nativeID="pickup-rotate">{t("orders.pickup.rotateLabel")}</Label>
-            <Input
-              aria-labelledby="pickup-rotate"
-              accessibilityLabel={t("orders.pickup.rotateAccessibilityLabel")}
-              value={rotateReason}
-              onChangeText={setRotateReason}
-              placeholder={t("orders.pickup.rotatePlaceholder")}
-            />
+            <Field label={t("orders.pickup.rotateLabel")}>
+              <TextFieldInput
+                label={t("orders.pickup.rotateLabel")}
+                value={rotateReason}
+                onValueChange={setRotateReason}
+                placeholder={t("orders.pickup.rotatePlaceholder")}
+              />
+            </Field>
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={rotate.isPending || rotateReason.trim().length === 0}
               onPress={() =>
                 rotate.mutate(rotateReason.trim(), {
@@ -213,9 +211,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
                 })
               }
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("orders.pickup.rotate")}
-              </Text>
+              {t("orders.pickup.rotate")}
             </Button>
             {/*
               Shown ONCE, right here, because the shop has to read it to the
@@ -236,16 +232,17 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
           </View>
 
           <View className="gap-1.5">
-            <Label nativeID="pickup-cancel">{t("orders.pickup.cancelLabel")}</Label>
-            <Input
-              aria-labelledby="pickup-cancel"
-              accessibilityLabel={t("orders.pickup.cancelAccessibilityLabel")}
-              value={cancelReason}
-              onChangeText={setCancelReason}
-              placeholder={t("orders.pickup.cancelPlaceholder")}
-            />
+            <Field label={t("orders.pickup.cancelLabel")}>
+              <TextFieldInput
+                label={t("orders.pickup.cancelLabel")}
+                value={cancelReason}
+                onValueChange={setCancelReason}
+                placeholder={t("orders.pickup.cancelPlaceholder")}
+              />
+            </Field>
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={act.isPending || cancelReason.trim().length === 0}
               onPress={() =>
                 run(
@@ -254,9 +251,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
                 )
               }
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("orders.pickup.cancelCollection")}
-              </Text>
+              {t("orders.pickup.cancelCollection")}
             </Button>
             <Text className="text-xs text-muted-foreground">
               {t("orders.pickup.cancelNote")}

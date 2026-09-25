@@ -37,7 +37,8 @@ import type {
   ExternalCollection,
   ExternalTaxonomyNoun,
 } from "@mercaria/shared-types";
-import { Text, Button } from "@mercaria/ui";
+import { Text } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { useTranslation } from "@/lib/i18n";
@@ -252,13 +253,12 @@ export function CollectionMapping({
           </View>
         </ScrollView>
         <Button
-          variant="outline"
+          appearance="outline"
+          tone="neutral"
           disabled={update.isPending}
           onPress={() => picking !== undefined && setTarget(picking, undefined)}
         >
-          <Text className="font-semibold text-foreground">
-            {t("channels.collectionMapping.dontMap")}
-          </Text>
+          {t("channels.collectionMapping.dontMap")}
         </Button>
       </Dialog>
     </View>
@@ -305,14 +305,18 @@ function MappingRow({
                 })}
           </Text>
         </View>
-        <Button variant="outline" size="sm" disabled={disabled} onPress={onPress}>
-          <Text className="text-xs font-semibold text-foreground">
-            {target
-              ? target.title
-              : mappedTo
-                ? t("channels.collectionMapping.fixMapping")
-                : t("channels.collectionMapping.map")}
-          </Text>
+        <Button
+          appearance="outline"
+          tone="neutral"
+          size="sm"
+          disabled={disabled}
+          onPress={onPress}
+        >
+          {target
+            ? target.title
+            : mappedTo
+              ? t("channels.collectionMapping.fixMapping")
+              : t("channels.collectionMapping.map")}
         </Button>
       </View>
 

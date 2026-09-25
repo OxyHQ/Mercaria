@@ -36,13 +36,14 @@
  */
 
 import { useEffect, useState } from 'react';
+import { Button } from "@oxy.so/bloom/button";
 import { View } from 'react-native';
 import {
   PaymentSheetError,
   StripeProvider,
   useStripe,
 } from '@stripe/stripe-react-native';
-import { Button, Text } from '@mercaria/ui';
+import { Text } from '@mercaria/ui';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/config';
 import { track } from '@/lib/analytics';
 import { useTranslation } from '@/lib/i18n';
@@ -180,15 +181,16 @@ function PaymentSheetButton({
   return (
     <View className="gap-3">
       <Button
+        tone="accent"
         onPress={() => void onPay()}
         disabled={!ready || busy}
-        isLoading={busy || !ready}
+        loading={busy || !ready}
         accessibilityLabel={t('payment.card.payNow')}
       >
-        <Text>{t('payment.card.payNow')}</Text>
+        {t('payment.card.payNow')}
       </Button>
-      <Button variant="outline" onPress={onCancelled} disabled={busy}>
-        <Text>{t('common.back')}</Text>
+      <Button appearance="outline" tone="neutral" onPress={onCancelled} disabled={busy}>
+        {t('common.back')}
       </Button>
     </View>
   );

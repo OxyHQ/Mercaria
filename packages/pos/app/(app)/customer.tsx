@@ -4,7 +4,10 @@ import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { UserX } from "lucide-react-native";
 import type { Customer } from "@mercaria/shared-types";
-import { Text, Input, Button, Label, useColorScheme } from "@mercaria/ui";
+import { Text, useColorScheme } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextField, TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -62,12 +65,13 @@ function CustomerPicker({ storeId }: { storeId: string }) {
           </Text>
         </Pressable>
 
-        <Input
-          value={search}
-          onChangeText={setSearch}
-          placeholder={t("customer.searchPlaceholder")}
-          className="h-12"
-        />
+        <TextField style={{ height: 48 }}>
+          <TextFieldInput
+            label={t("customer.searchPlaceholder")}
+            value={search}
+            onValueChange={setSearch}
+          />
+        </TextField>
 
         {isPending ? (
           <ScreenLoading />
@@ -152,40 +156,48 @@ function QuickAddCustomer({
   return (
     <View className="gap-3 rounded-2xl border border-dashed border-border p-4">
       <Text className="text-base font-semibold text-foreground">{t("customer.quickAdd")}</Text>
-      <View className="gap-1.5">
-        <Label>{t("common.name")}</Label>
-        <Input
-          value={displayName}
-          onChangeText={setDisplayName}
-          placeholder={t("customer.namePlaceholder")}
-          className="h-11"
-        />
-      </View>
-      <View className="gap-1.5">
-        <Label>{t("customer.email")}</Label>
-        <Input
-          value={email}
-          onChangeText={setEmail}
-          placeholder={t("customer.emailPlaceholder")}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          className="h-11"
-        />
-      </View>
-      <View className="gap-1.5">
-        <Label>{t("customer.phone")}</Label>
-        <Input
-          value={phone}
-          onChangeText={setPhone}
-          placeholder={t("customer.phonePlaceholder")}
-          keyboardType="phone-pad"
-          className="h-11"
-        />
-      </View>
-      <Button onPress={submit} isLoading={createCustomer.isPending} className="mt-1 h-12">
-        <Text className="font-semibold text-primary-foreground">
-          {t("customer.addAndAttach")}
-        </Text>
+      <Field label={t("common.name")}>
+        <TextField style={{ height: 44 }}>
+          <TextFieldInput
+            label={t("common.name")}
+            value={displayName}
+            onValueChange={setDisplayName}
+            placeholder={t("customer.namePlaceholder")}
+          />
+        </TextField>
+      </Field>
+      <Field label={t("customer.email")}>
+        <TextField style={{ height: 44 }}>
+          <TextFieldInput
+            label={t("customer.email")}
+            value={email}
+            onValueChange={setEmail}
+            placeholder={t("customer.emailPlaceholder")}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+        </TextField>
+      </Field>
+      <Field label={t("customer.phone")}>
+        <TextField style={{ height: 44 }}>
+          <TextFieldInput
+            label={t("customer.phone")}
+            value={phone}
+            onValueChange={setPhone}
+            placeholder={t("customer.phonePlaceholder")}
+            keyboardType="phone-pad"
+          />
+        </TextField>
+      </Field>
+      <Button
+        tone="accent"
+        size="lg"
+        onPress={submit}
+        loading={createCustomer.isPending}
+        className="mt-1"
+        style={{ height: 48 }}
+      >
+        {t("customer.addAndAttach")}
       </Button>
     </View>
   );

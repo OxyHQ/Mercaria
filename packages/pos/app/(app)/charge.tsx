@@ -3,8 +3,9 @@ import { View, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { useQueryClient } from "@tanstack/react-query";
-import { Banknote, CreditCard } from "lucide-react-native";
-import { Text, Button, PriceDisplay, useColorScheme } from "@mercaria/ui";
+import { Banknote, CreditCard, type LucideIcon } from "lucide-react-native";
+import { Text, PriceDisplay, toBloomIcon } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { RequirePos } from "@/components/shell/RequirePos";
@@ -36,7 +37,6 @@ export default function ChargeScreen() {
 function Charge({ storeId, locationId }: { storeId: string; locationId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { colors } = useColorScheme();
   const { t } = useTranslation();
 
   const lines = useRegisterCart((s) => s.lines);
@@ -122,23 +122,27 @@ function Charge({ storeId, locationId }: { storeId: string; locationId: string }
           <View className="flex-row gap-3">
             <TenderButton
               label={t("charge.tenderCash")}
-              icon={<Banknote size={20} color={tender === "cash" ? colors.primaryForeground : colors.foreground} />}
+              icon={Banknote}
               active={tender === "cash"}
               onPress={() => setTender("cash")}
             />
             <TenderButton
               label={t("charge.tenderCard")}
-              icon={<CreditCard size={20} color={tender === "card" ? colors.primaryForeground : colors.foreground} />}
+              icon={CreditCard}
               active={tender === "card"}
               onPress={() => setTender("card")}
             />
           </View>
         </View>
 
-        <Button onPress={onCharge} isLoading={charge.isPending} className="h-16">
-          <Text className="text-lg font-semibold text-primary-foreground">
-            {t("charge.action")}
-          </Text>
+        <Button
+          tone="accent"
+          size="lg"
+          onPress={onCharge}
+          loading={charge.isPending}
+          style={{ height: 64 }}
+        >
+          {t("charge.action")}
         </Button>
       </View>
     </Screen>
@@ -152,23 +156,22 @@ function TenderButton({
   onPress,
 }: {
   label: string;
-  icon: React.ReactNode;
+  icon: LucideIcon;
   active: boolean;
   onPress: () => void;
 }) {
   return (
     <Button
-      variant={active ? "default" : "outline"}
+      appearance={active ? "solid" : "outline"}
+      tone={active ? "accent" : "neutral"}
+      size="lg"
+      pressed={active}
+      leadingIcon={toBloomIcon(icon)}
       onPress={onPress}
-      className="h-16 flex-1"
-      accessibilityState={{ selected: active }}
+      className="flex-1"
+      style={{ height: 64 }}
     >
-      <View className="flex-row items-center gap-2">
-        {icon}
-        <Text className={active ? "text-base font-semibold text-primary-foreground" : "text-base font-semibold text-foreground"}>
-          {label}
-        </Text>
-      </View>
+      {label}
     </Button>
   );
 }

@@ -4,7 +4,8 @@ import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft, ChevronRight, User } from "lucide-react-native";
 import type { Customer } from "@mercaria/shared-types";
-import { Text, Input, PriceDisplay, useColorScheme } from "@mercaria/ui";
+import { Text, PriceDisplay, useColorScheme } from "@mercaria/ui";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -42,9 +43,10 @@ function CustomersBody({ storeId }: { storeId: string }) {
       action={<StoreSwitcher />}
     >
       <View className="mb-4">
-        <Input
+        <TextFieldInput
+          label={t("customers.searchPlaceholder")}
           value={search}
-          onChangeText={(t) => {
+          onValueChange={(t) => {
             setSearch(t);
             setPage(1);
           }}

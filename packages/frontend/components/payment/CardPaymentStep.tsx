@@ -52,6 +52,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from "@oxy.so/bloom/button";
 import { paymentMethodCategoryFor, track } from '../../lib/analytics';
 import { View } from 'react-native';
 import {
@@ -62,7 +63,7 @@ import {
   useStripe,
 } from '@stripe/react-stripe-js';
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
-import { Button, Text } from '@mercaria/ui';
+import { Text } from '@mercaria/ui';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/config';
 import { useTranslation } from '@/lib/i18n';
 import type { CardPaymentStepProps } from './types';
@@ -292,18 +293,19 @@ function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymen
       )}
       <PaymentElement />
       <Button
+        tone="accent"
         onPress={() => {
           track('guest_payment_method_selected', { paymentMethodCategory: 'card' });
           void confirm();
         }}
         disabled={!stripe || submitting}
-        isLoading={submitting}
+        loading={submitting}
         accessibilityLabel={t('payment.card.payNow')}
       >
-        <Text>{t('payment.card.payNow')}</Text>
+        {t('payment.card.payNow')}
       </Button>
-      <Button variant="outline" onPress={onCancelled} disabled={submitting}>
-        <Text>{t('common.back')}</Text>
+      <Button appearance="outline" tone="neutral" onPress={onCancelled} disabled={submitting}>
+        {t('common.back')}
       </Button>
     </View>
   );

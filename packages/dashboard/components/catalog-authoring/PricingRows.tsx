@@ -2,7 +2,10 @@ import React, { useState } from "react";
 import { View } from "react-native";
 import type { AuthoringSchema, CurrencyCode } from "@mercaria/shared-types";
 import { ALL_CURRENCY_CODES } from "@mercaria/shared-types";
-import { Button, Input, Label, Text } from "@mercaria/ui";
+import { Text } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 import { findingMessageKey, findingsForVariant, type LocatedFinding } from "@/lib/authoring/findings";
@@ -79,40 +82,46 @@ export function PricingRows({
             {t("products.wizard.pricing.bulkTitle")}
           </Text>
           <View className="flex-row flex-wrap gap-3">
-            <View className="min-w-[9rem] flex-1 gap-1.5">
-              <Label>{t("products.wizard.pricing.price")}</Label>
-              <Input
-                value={bulkPrice}
-                onChangeText={setBulkPrice}
-                accessibilityLabel={t("products.wizard.pricing.bulkPriceLabel")}
-                keyboardType="decimal-pad"
-                editable={!disabled}
-              />
+            <View className="min-w-[9rem] flex-1">
+              <Field label={t("products.wizard.pricing.price")}>
+                <TextFieldInput
+                  label={t("products.wizard.pricing.bulkPriceLabel")}
+                  placeholder={null}
+                  value={bulkPrice}
+                  onValueChange={setBulkPrice}
+                  keyboardType="decimal-pad"
+                  disabled={disabled}
+                />
+              </Field>
             </View>
-            <View className="min-w-[9rem] flex-1 gap-1.5">
-              <Label>{t("products.wizard.pricing.stock")}</Label>
-              <Input
-                value={bulkStock}
-                onChangeText={setBulkStock}
-                accessibilityLabel={t("products.wizard.pricing.bulkStockLabel")}
-                keyboardType="number-pad"
-                editable={!disabled}
-              />
+            <View className="min-w-[9rem] flex-1">
+              <Field label={t("products.wizard.pricing.stock")}>
+                <TextFieldInput
+                  label={t("products.wizard.pricing.bulkStockLabel")}
+                  placeholder={null}
+                  value={bulkStock}
+                  onValueChange={setBulkStock}
+                  keyboardType="number-pad"
+                  disabled={disabled}
+                />
+              </Field>
             </View>
-            <View className="min-w-[9rem] flex-1 gap-1.5">
-              <Label>{t("products.wizard.pricing.currency")}</Label>
-              <ValuePicker
-                options={currencyOptions}
-                selectedId={firstCurrency}
-                onSelect={(currency) => applyToAll({ currency })}
-                placeholder={firstCurrency}
-                title={t("products.wizard.pricing.currency")}
-                disabled={disabled}
-              />
+            <View className="min-w-[9rem] flex-1">
+              <Field label={t("products.wizard.pricing.currency")}>
+                <ValuePicker
+                  options={currencyOptions}
+                  selectedId={firstCurrency}
+                  onSelect={(currency) => applyToAll({ currency })}
+                  placeholder={firstCurrency}
+                  title={t("products.wizard.pricing.currency")}
+                  disabled={disabled}
+                />
+              </Field>
             </View>
           </View>
           <Button
-            variant="outline"
+            appearance="outline"
+            tone="neutral"
             className="self-start"
             disabled={disabled}
             onPress={() =>
@@ -124,9 +133,7 @@ export function PricingRows({
               })
             }
           >
-            <Text className="text-sm font-medium text-foreground">
-              {t("products.wizard.pricing.applyToAll")}
-            </Text>
+            {t("products.wizard.pricing.applyToAll")}
           </Button>
         </View>
       ) : null}
@@ -146,49 +153,56 @@ export function PricingRows({
             </Text>
 
             <View className="flex-row flex-wrap gap-3">
-              <View className="min-w-[9rem] flex-1 gap-1.5">
-                <Label>{t("products.wizard.pricing.price")}</Label>
-                <Input
-                  value={row.priceMajor}
-                  onChangeText={(priceMajor) => update(row.key, { priceMajor })}
-                  accessibilityLabel={t("products.wizard.pricing.price")}
-                  keyboardType="decimal-pad"
-                  editable={!disabled}
-                />
+              <View className="min-w-[9rem] flex-1">
+                <Field label={t("products.wizard.pricing.price")}>
+                  <TextFieldInput
+                    label={t("products.wizard.pricing.price")}
+                    placeholder={null}
+                    value={row.priceMajor}
+                    onValueChange={(priceMajor) => update(row.key, { priceMajor })}
+                    keyboardType="decimal-pad"
+                    disabled={disabled}
+                  />
+                </Field>
               </View>
-              <View className="min-w-[9rem] flex-1 gap-1.5">
-                <Label>{t("products.wizard.pricing.compareAt")}</Label>
-                <Input
-                  value={row.compareAtMajor}
-                  onChangeText={(compareAtMajor) => update(row.key, { compareAtMajor })}
-                  accessibilityLabel={t("products.wizard.pricing.compareAt")}
-                  keyboardType="decimal-pad"
-                  editable={!disabled}
-                />
+              <View className="min-w-[9rem] flex-1">
+                <Field label={t("products.wizard.pricing.compareAt")}>
+                  <TextFieldInput
+                    label={t("products.wizard.pricing.compareAt")}
+                    placeholder={null}
+                    value={row.compareAtMajor}
+                    onValueChange={(compareAtMajor) => update(row.key, { compareAtMajor })}
+                    keyboardType="decimal-pad"
+                    disabled={disabled}
+                  />
+                </Field>
               </View>
-              <View className="min-w-[9rem] flex-1 gap-1.5">
-                <Label>{t("products.wizard.pricing.currency")}</Label>
-                <ValuePicker
-                  options={currencyOptions}
-                  selectedId={row.currency}
-                  onSelect={(currency) => update(row.key, { currency })}
-                  placeholder={row.currency}
-                  title={t("products.wizard.pricing.currency")}
-                  disabled={disabled}
-                />
+              <View className="min-w-[9rem] flex-1">
+                <Field label={t("products.wizard.pricing.currency")}>
+                  <ValuePicker
+                    options={currencyOptions}
+                    selectedId={row.currency}
+                    onSelect={(currency) => update(row.key, { currency })}
+                    placeholder={row.currency}
+                    title={t("products.wizard.pricing.currency")}
+                    disabled={disabled}
+                  />
+                </Field>
               </View>
             </View>
 
             <View className="flex-row flex-wrap items-end gap-3">
-              <View className="min-w-[9rem] flex-1 gap-1.5">
-                <Label>{t("products.wizard.pricing.stock")}</Label>
-                <Input
-                  value={row.inventoryAvailable}
-                  onChangeText={(inventoryAvailable) => update(row.key, { inventoryAvailable })}
-                  accessibilityLabel={t("products.wizard.pricing.stock")}
-                  keyboardType="number-pad"
-                  editable={!disabled && row.inventoryTracked}
-                />
+              <View className="min-w-[9rem] flex-1">
+                <Field label={t("products.wizard.pricing.stock")}>
+                  <TextFieldInput
+                    label={t("products.wizard.pricing.stock")}
+                    placeholder={null}
+                    value={row.inventoryAvailable}
+                    onValueChange={(inventoryAvailable) => update(row.key, { inventoryAvailable })}
+                    keyboardType="number-pad"
+                    disabled={disabled || !row.inventoryTracked}
+                  />
+                </Field>
               </View>
               <View className="flex-row items-center gap-2 pb-2">
                 <Switch

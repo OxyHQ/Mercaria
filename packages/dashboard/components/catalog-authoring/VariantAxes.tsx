@@ -2,7 +2,9 @@ import React from "react";
 import { Pressable, View } from "react-native";
 import { Plus, X } from "lucide-react-native";
 import type { AuthoringField, AuthoringSchema } from "@mercaria/shared-types";
-import { Button, Input, Text, useColorScheme } from "@mercaria/ui";
+import { Text, useColorScheme } from "@mercaria/ui";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 import { emptyEntry, type DraftFieldEntry } from "@/lib/authoring/answers";
@@ -156,10 +158,14 @@ export function VariantAxes({
         );
       })}
 
-      <Button variant="outline" onPress={onGenerate} disabled={disabled} className="self-start">
-        <Text className="text-sm font-medium text-foreground">
-          {t("products.wizard.variants.generate")}
-        </Text>
+      <Button
+        appearance="outline"
+        tone="neutral"
+        onPress={onGenerate}
+        disabled={disabled}
+        className="self-start"
+      >
+        {t("products.wizard.variants.generate")}
       </Button>
 
       {truncated ? (
@@ -242,23 +248,26 @@ function AxisValueControl({
     const unit = unitAffordance(field);
     return (
       <View className="flex-row items-center gap-2">
-        <Input
-          value={entry.raw}
-          onChangeText={(raw) => onChange({ ...entry, raw })}
-          accessibilityLabel={label}
-          keyboardType="decimal-pad"
-          editable={!disabled}
-          className="flex-1"
-        />
-        {!unit.present ? null : (
-          <Input
-            value={entry.unit ?? ""}
-            onChangeText={(unitText) => onChange({ ...entry, unit: unitText })}
-            placeholder={unit.placeholder}
-            accessibilityLabel={t("products.wizard.fields.unitLabel")}
-            editable={!disabled}
-            className="w-24"
+        <View className="flex-1">
+          <TextFieldInput
+            label={label}
+            placeholder={null}
+            value={entry.raw}
+            onValueChange={(raw) => onChange({ ...entry, raw })}
+            keyboardType="decimal-pad"
+            disabled={disabled}
           />
+        </View>
+        {!unit.present ? null : (
+          <View className="w-24">
+            <TextFieldInput
+              label={t("products.wizard.fields.unitLabel")}
+              value={entry.unit ?? ""}
+              onValueChange={(unitText) => onChange({ ...entry, unit: unitText })}
+              placeholder={unit.placeholder || null}
+              disabled={disabled}
+            />
+          </View>
         )}
       </View>
     );
@@ -266,11 +275,12 @@ function AxisValueControl({
 
   if (entry.kind === "text") {
     return (
-      <Input
+      <TextFieldInput
+        label={label}
+        placeholder={null}
         value={entry.text}
-        onChangeText={(text) => onChange({ ...entry, text })}
-        accessibilityLabel={label}
-        editable={!disabled}
+        onValueChange={(text) => onChange({ ...entry, text })}
+        disabled={disabled}
       />
     );
   }

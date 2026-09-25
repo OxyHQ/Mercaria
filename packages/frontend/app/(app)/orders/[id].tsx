@@ -1,4 +1,5 @@
 import { View } from "react-native";
+import { Button } from "@oxy.so/bloom/button";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import type {
@@ -10,7 +11,6 @@ import type {
   RetailOrderExperience,
 } from "@mercaria/shared-types";
 import {
-  Button,
   CommercialDisclosure,
   PickupCollectionPanel,
   PriceDisplay,
@@ -296,10 +296,8 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
         <Text className="mt-1 text-center text-sm text-muted-foreground">
           {t("orders.detail.errorSubtitle")}
         </Text>
-        <Button variant="outline" className="mt-4" onPress={() => router.replace("/orders")}>
-          <Text className="text-sm font-medium text-foreground">
-            {t("orders.detail.backToOrders")}
-          </Text>
+        <Button appearance="outline" tone="neutral" className="mt-4" onPress={() => router.replace("/orders")}>
+          {t("orders.detail.backToOrders")}
         </Button>
       </View>
     );
@@ -356,14 +354,13 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
 
         {BUYER_CANCELLABLE.has(order.status) ? (
           <Button
-            variant="outline"
+            appearance="outline"
+            tone="neutral"
             className="self-start"
             onPress={onCancel}
-            isLoading={cancel.isPending}
+            loading={cancel.isPending}
           >
-            <Text className="text-sm font-medium text-foreground">
-              {t("orders.cancel.action")}
-            </Text>
+            {t("orders.cancel.action")}
           </Button>
         ) : null}
       </View>

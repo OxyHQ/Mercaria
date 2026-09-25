@@ -272,7 +272,12 @@ export {
   ScreenShell,
   type ScreenShellProps,
 } from "./components/shell/ScreenShell";
-export { toBloomIcon, LucideGlyph, type LucideGlyphProps } from "./lib/bloom-icon";
+export {
+  toBloomIcon,
+  toBloomFieldIcon,
+  LucideGlyph,
+  type LucideGlyphProps,
+} from "./lib/bloom-icon";
 
 // ---------------------------------------------------------------------------
 // Dual-currency display
@@ -288,13 +293,9 @@ export {
 // ---------------------------------------------------------------------------
 // UI primitives
 // ---------------------------------------------------------------------------
-export { Button, type ButtonProps } from "./components/ui/button";
-export { Text, TextClassContext, type TextProps } from "./components/ui/text";
-export { Input } from "./components/ui/input";
-export { Textarea, type TextareaProps } from "./components/ui/textarea";
+export { Text, type TextProps } from "./components/ui/text";
 export { Avatar, AvatarFallback, AvatarImage } from "./components/ui/avatar";
 export { Icon } from "./components/ui/icon";
-export { Label } from "./components/ui/label";
 // The `side` a sliding surface takes. LOGICAL (`start` / `end`), so it mirrors
 // with the rest of the layout; the physical `left` / `right` spelling is gone
 // rather than aliased (#429). Exported because it is in

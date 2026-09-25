@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@oxy.so/bloom/button";
 import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
@@ -8,7 +9,6 @@ import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { ChevronRight } from "lucide-react-native";
 import type { OrderStatus, OrderSummary } from "@mercaria/shared-types";
 import {
-  Button,
   PriceDisplay,
   SectionHeader,
   Text,
@@ -116,14 +116,13 @@ function OrdersBody() {
           {pagination && pagination.pages > 1 ? (
             <View className="mt-2 flex-row items-center justify-between">
               <Button
-                variant="outline"
+                appearance="outline"
+                tone="neutral"
                 size="sm"
                 disabled={!pagination.hasPreviousPage}
                 onPress={() => setPage((p) => Math.max(1, p - 1))}
               >
-                <Text className="text-sm font-medium text-foreground">
-                  {t("orders.pagination.previous")}
-                </Text>
+                {t("orders.pagination.previous")}
               </Button>
               <Text className="text-xs text-muted-foreground">
                 {t("orders.pagination.pageOf", {
@@ -132,14 +131,13 @@ function OrdersBody() {
                 })}
               </Text>
               <Button
-                variant="outline"
+                appearance="outline"
+                tone="neutral"
                 size="sm"
                 disabled={!pagination.hasNextPage}
                 onPress={() => setPage((p) => p + 1)}
               >
-                <Text className="text-sm font-medium text-foreground">
-                  {t("orders.pagination.next")}
-                </Text>
+                {t("orders.pagination.next")}
               </Button>
             </View>
           ) : null}

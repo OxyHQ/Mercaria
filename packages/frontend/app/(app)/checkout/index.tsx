@@ -1,7 +1,10 @@
 import { useMemo, useRef, useState } from "react";
+import { Button } from "@oxy.so/bloom/button";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
-import { Link, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { Check, Plus } from "lucide-react-native";
@@ -15,9 +18,6 @@ import type {
   Money,
 } from "@mercaria/shared-types";
 import {
-  Button,
-  Input,
-  Label,
   PriceDisplay,
   SectionHeader,
   Text,
@@ -25,6 +25,7 @@ import {
   useFormatters,
   CommercialDisclosure,
   commercialSellerLabel,
+  toBloomIcon,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import {
@@ -135,8 +136,8 @@ function SignInBenefit() {
     <View className="rounded-2xl border border-border bg-card p-4">
       <Text className="text-sm font-semibold text-foreground">{t("checkout.signIn.title")}</Text>
       <Text className="mt-1 text-sm text-muted-foreground">{t("checkout.signIn.body")}</Text>
-      <Button variant="outline" className="mt-3 self-start" onPress={() => openAccountDialog()}>
-        <Text className="text-sm font-medium text-foreground">{t("checkout.signIn.action")}</Text>
+      <Button appearance="outline" tone="neutral" className="mt-3 self-start" onPress={() => openAccountDialog()}>
+        {t("checkout.signIn.action")}
       </Button>
     </View>
   );
@@ -245,6 +246,7 @@ function PaymentStep({
 }) {
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
+  const router = useRouter();
   if (status === "succeeded") {
     return (
       // A live region: this screen changes under the buyer while they are not
@@ -283,24 +285,20 @@ function PaymentStep({
                   {t("checkout.orderNumbers.keepToHand")}
                 </Text>
               </View>
-              <Button variant="outline" onPress={onDone}>
-                <Text className="text-sm font-medium text-foreground">
-                  {t("checkout.keepShopping")}
-                </Text>
+              <Button appearance="outline" tone="neutral" onPress={onDone}>
+                {t("checkout.keepShopping")}
               </Button>
-              <Link href="/guest-orders/recover" asChild>
-                <Button variant="outline">
-                  <Text className="text-sm font-medium text-foreground">
-                    {t("checkout.emailMeLink")}
-                  </Text>
-                </Button>
-              </Link>
+              <Button
+                appearance="outline"
+                tone="neutral"
+                onPress={() => router.push("/guest-orders/recover")}
+              >
+                {t("checkout.emailMeLink")}
+              </Button>
             </>
           ) : (
-            <Button onPress={onDone}>
-              <Text className="text-sm font-semibold text-primary-foreground">
-                {t("checkout.viewOrder")}
-              </Text>
+            <Button tone="accent" onPress={onDone}>
+              {t("checkout.viewOrder")}
             </Button>
           )}
         </View>
@@ -316,10 +314,8 @@ function PaymentStep({
           <Text className="text-sm text-muted-foreground">
             {t("payment.cancelled.bodyItemsReturned")}
           </Text>
-          <Button variant="outline" onPress={onDone}>
-            <Text className="text-sm font-medium text-foreground">
-              {isGuest ? t("checkout.keepShopping") : t("checkout.backToOrders")}
-            </Text>
+          <Button appearance="outline" tone="neutral" onPress={onDone}>
+            {isGuest ? t("checkout.keepShopping") : t("checkout.backToOrders")}
           </Button>
         </View>
       </View>
@@ -336,10 +332,8 @@ function PaymentStep({
               ? t("payment.confirming.bankStillCompleting")
               : t("payment.confirming.checkingWithBank")}
           </Text>
-          <Button variant="outline" onPress={onDone}>
-            <Text className="text-sm font-medium text-foreground">
-              {isGuest ? t("checkout.keepShopping") : t("checkout.checkLaterFromOrders")}
-            </Text>
+          <Button appearance="outline" tone="neutral" onPress={onDone}>
+            {isGuest ? t("checkout.keepShopping") : t("checkout.checkLaterFromOrders")}
           </Button>
         </View>
       </View>
@@ -710,16 +704,13 @@ function CheckoutBody() {
               </>
             )}
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               className="self-start"
               onPress={() => setUsingInlineAddress(!usingInlineAddress)}
+              leadingIcon={toBloomIcon(Plus)}
             >
-              <Plus size={16} className="text-foreground" />
-              <Text className="ms-1 text-sm font-medium text-foreground">
-                {usingInlineAddress
-                  ? t("checkout.useSavedAddress")
-                  : t("checkout.deliverElsewhere")}
-              </Text>
+              {usingInlineAddress ? t("checkout.useSavedAddress") : t("checkout.deliverElsewhere")}
             </Button>
           </View>
         ) : null}
@@ -768,18 +759,16 @@ function CheckoutBody() {
         )}
 
         {/* Discount code (optional) */}
-        <View className="gap-1.5">
-          <Label nativeID="checkout-discount">{t("checkout.discount.label")}</Label>
-          <Input
-            aria-labelledby="checkout-discount"
-            accessibilityLabel={t("checkout.discount.accessibilityLabel")}
+        <Field label={t("checkout.discount.label")}>
+          <TextFieldInput
+            label={t("checkout.discount.accessibilityLabel")}
             value={discountCode}
-            onChangeText={setDiscountCode}
+            onValueChange={setDiscountCode}
             placeholder={t("checkout.discount.placeholder")}
             autoCapitalize="characters"
             autoCorrect={false}
           />
-        </View>
+        </Field>
 
         <OrderSummaryCard groups={targetGroups} />
 
@@ -792,10 +781,8 @@ function CheckoutBody() {
           </View>
         ) : null}
 
-        <Button isLoading={checkout.isPending} onPress={onPlaceOrder}>
-          <Text className="text-sm font-semibold text-primary-foreground">
-            {t("checkout.placeOrder")}
-          </Text>
+        <Button tone="accent" loading={checkout.isPending} onPress={onPlaceOrder}>
+          {t("checkout.placeOrder")}
         </Button>
       </View>
       <View className="h-24" />

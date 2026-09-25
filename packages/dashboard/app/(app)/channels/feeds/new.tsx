@@ -17,7 +17,9 @@ import React, { useState } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
 import Head from "expo-router/head";
-import { Button, Input, Label, Text } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -82,38 +84,37 @@ function NewFeedBody({ storeId }: { storeId: string }) {
   return (
     <Screen title={t("feeds.new.title")} subtitle={t("feeds.new.subtitle")}>
       <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
-        <View className="gap-1.5">
-          <Label>{t("feeds.new.nameLabel")}</Label>
-          <Input
+        <Field label={t("feeds.new.nameLabel")}>
+          <TextFieldInput
+            label={t("feeds.new.nameLabel")}
             value={label}
-            onChangeText={setLabel}
+            onValueChange={setLabel}
             placeholder={t("feeds.new.namePlaceholder")}
           />
-        </View>
-        <View className="gap-1.5">
-          <Label>{t("feeds.new.sourceNameLabel")}</Label>
-          <Input
+        </Field>
+        <Field label={t("feeds.new.sourceNameLabel")} description={t("feeds.new.sourceNameHint")}>
+          <TextFieldInput
+            label={t("feeds.new.sourceNameLabel")}
             value={sourceName}
-            onChangeText={setSourceName}
+            onValueChange={setSourceName}
             placeholder={t("feeds.new.sourceNamePlaceholder")}
           />
-          <Text className="text-xs text-muted-foreground">{t("feeds.new.sourceNameHint")}</Text>
-        </View>
-        <View className="gap-1.5">
-          <Label>{t("feeds.new.identityColumnsLabel")}</Label>
-          <Input
+        </Field>
+        <Field
+          label={t("feeds.new.identityColumnsLabel")}
+          description={t("feeds.new.identityColumnsHint")}
+        >
+          <TextFieldInput
+            label={t("feeds.new.identityColumnsLabel")}
             value={identityColumns}
-            onChangeText={setIdentityColumns}
+            onValueChange={setIdentityColumns}
             placeholder={t("feeds.new.identityColumnsPlaceholder")}
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <Text className="text-xs text-muted-foreground">
-            {t("feeds.new.identityColumnsHint")}
-          </Text>
-        </View>
-        <Button onPress={submit} isLoading={create.isPending}>
-          <Text className="font-semibold text-primary-foreground">{t("feeds.new.create")}</Text>
+        </Field>
+        <Button tone="accent" onPress={submit} loading={create.isPending}>
+          {t("feeds.new.create")}
         </Button>
       </View>
     </Screen>

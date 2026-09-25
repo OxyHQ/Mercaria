@@ -1,6 +1,7 @@
 import React from "react";
 import type { LucideIcon } from "lucide-react-native";
-import type { BloomIconComponent } from "@oxy.so/bloom/icons";
+import { StyleSheet } from "react-native";
+import { sizes, type BloomIconComponent, type Props as BloomSvgIconProps } from "@oxy.so/bloom/icons";
 
 /**
  * Lucide glyphs in Bloom's navigation chrome.
@@ -44,4 +45,33 @@ export interface LucideGlyphProps {
  */
 export function LucideGlyph({ icon: Icon, fill, size = 22 }: LucideGlyphProps) {
   return <Icon size={size} color={fill} />;
+}
+
+const FIELD_ICON_CACHE = new Map<LucideIcon, React.ComponentType<BloomSvgIconProps>>();
+
+/**
+ * A lucide icon as a Bloom FIELD adornment (`TextFieldIcon`).
+ *
+ * `TextFieldIcon` does not use the `width`/`fill` convention `toBloomIcon`
+ * translates: it hands its glyph a size KEYWORD (`size="md"`) and the state
+ * colour (rest / invalid / disabled) as `style.color`. Lucide reads neither, so
+ * this reads both back into lucide's `size` and `color`. Cached per icon for the
+ * same stable-identity reason as `toBloomIcon`.
+ */
+export function toBloomFieldIcon(Icon: LucideIcon): React.ComponentType<BloomSvgIconProps> {
+  const cached = FIELD_ICON_CACHE.get(Icon);
+  if (cached) return cached;
+  const Adapted = ({ size, style }: BloomSvgIconProps) => {
+    const color = StyleSheet.flatten(style)?.color;
+    return (
+      <Icon
+        size={sizes[size ?? "md"]}
+        color={typeof color === "string" ? color : undefined}
+        pointerEvents="none"
+      />
+    );
+  };
+  Adapted.displayName = `BloomFieldIcon(${Icon.displayName ?? "Lucide"})`;
+  FIELD_ICON_CACHE.set(Icon, Adapted);
+  return Adapted;
 }

@@ -11,7 +11,8 @@ import {
   Store as StoreIcon,
 } from "lucide-react-native";
 import type { Location, Store } from "@mercaria/shared-types";
-import { Text, Button, useColorScheme } from "@mercaria/ui";
+import { Text, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { useMyStores } from "@/lib/hooks/use-stores";
 import { useLocations } from "@/lib/hooks/use-locations";
@@ -118,11 +119,13 @@ function LocationStep({ storeId }: { storeId: string }) {
   };
 
   const action = (
-    <Button variant="outline" onPress={changeStore}>
-      <View className="flex-row items-center gap-1.5">
-        <ChevronLeft size={16} color={colors.foreground} />
-        <Text className="font-semibold text-foreground">{t("storeSetup.changeStore")}</Text>
-      </View>
+    <Button
+      appearance="outline"
+      tone="neutral"
+      leadingIcon={toBloomIcon(ChevronLeft)}
+      onPress={changeStore}
+    >
+      {t("storeSetup.changeStore")}
     </Button>
   );
 

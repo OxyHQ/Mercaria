@@ -8,7 +8,10 @@ import type {
   AuthoringCategoryOption,
   AuthoringProductTypeOption,
 } from "@mercaria/shared-types";
-import { Button, Input, Label, Text, useColorScheme } from "@mercaria/ui";
+import { Text, useColorScheme } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenMessage } from "@/components/shell/Screen";
@@ -101,10 +104,8 @@ function StartBody({ storeId }: { storeId: string }) {
           title={t("products.wizard.start.unavailableTitle")}
           body={t("products.wizard.start.unavailableBody")}
         />
-        <Button className="self-center" onPress={() => router.replace("/products/new")}>
-          <Text className="font-semibold text-primary-foreground">
-            {t("products.wizard.start.useLegacy")}
-          </Text>
+        <Button tone="accent" className="self-center" onPress={() => router.replace("/products/new")}>
+          {t("products.wizard.start.useLegacy")}
         </Button>
       </Screen>
     );
@@ -276,37 +277,34 @@ function StartBody({ storeId }: { storeId: string }) {
           </View>
         )}
 
-        <View className="gap-1.5 rounded-2xl border border-border bg-surface p-4">
-          <Label>{t("products.wizard.start.marketLabel")}</Label>
-          <Text className="text-xs text-muted-foreground">
-            {t("products.wizard.start.marketHelp")}
-          </Text>
-          <Input
-            value={market}
-            onChangeText={setMarket}
-            placeholder={t("products.wizard.start.marketPlaceholder")}
-            accessibilityLabel={t("products.wizard.start.marketLabel")}
-            autoCapitalize="characters"
-            maxLength={2}
-            className="w-24"
-          />
-          {market.length > 0 && !marketValid ? (
-            <Text className="text-xs text-destructive">
-              {t("products.wizard.start.marketInvalid")}
-            </Text>
-          ) : null}
+        <View className="rounded-2xl border border-border bg-surface p-4">
+          <Field
+            label={t("products.wizard.start.marketLabel")}
+            description={t("products.wizard.start.marketHelp")}
+            error={market.length > 0 && !marketValid ? t("products.wizard.start.marketInvalid") : null}
+          >
+            <View className="w-24">
+              <TextFieldInput
+                label={t("products.wizard.start.marketLabel")}
+                value={market}
+                onValueChange={setMarket}
+                placeholder={t("products.wizard.start.marketPlaceholder")}
+                autoCapitalize="characters"
+                maxLength={2}
+              />
+            </View>
+          </Field>
         </View>
 
         <Button
           onPress={() => {
             void start();
           }}
+          tone="accent"
           disabled={!canCreate}
-          isLoading={createDraft.isPending}
+          loading={createDraft.isPending}
         >
-          <Text className="font-semibold text-primary-foreground">
-            {t("products.wizard.start.begin")}
-          </Text>
+          {t("products.wizard.start.begin")}
         </Button>
       </View>
     </Screen>

@@ -95,7 +95,11 @@ function NarrowChargeBar() {
           </Text>
           <PriceDisplay price={subtotal} primaryClassName="text-base font-bold" />
         </Pressable>
-        <ChargeButton total={subtotal} disabled={count === 0} className="h-12 px-6" />
+        <ChargeButton
+          total={subtotal}
+          disabled={count === 0}
+          style={{ height: 48, paddingHorizontal: 24 }}
+        />
       </View>
     </View>
   );

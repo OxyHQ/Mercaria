@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Field } from "@oxy.so/bloom/field";
 import { Loading } from "@oxy.so/bloom/loading";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Textarea } from "@oxy.so/bloom/textarea";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Text } from "@mercaria/ui";
@@ -161,39 +164,36 @@ export default function SellDraftScreen() {
         <View className="gap-4 rounded-2xl border border-border p-4">
           <Text className="text-base font-medium">{t("sell.draft.item.heading")}</Text>
 
-          <View className="gap-2">
-            <Text className="text-sm font-medium">{t("sell.draft.item.titleLabel")}</Text>
-            <TextInput
-              accessibilityLabel={t("sell.draft.item.titleLabel")}
-              className="rounded-xl border border-border px-4 py-3"
+          <Field
+            label={t("sell.draft.item.titleLabel")}
+            description={
+              draft.titleOverridesCanonical ? t("sell.draft.item.titleOverrideNote") : undefined
+            }
+          >
+            <TextFieldInput
+              label={t("sell.draft.item.titleLabel")}
+              placeholder={null}
               value={title ?? draft.title ?? ""}
-              onChangeText={setTitle}
+              onValueChange={setTitle}
               onBlur={() => {
                 if (title !== null && title !== draft.title) patch.mutate({ title });
               }}
             />
-            {draft.titleOverridesCanonical ? (
-              <Text className="text-xs text-muted-foreground">
-                {t("sell.draft.item.titleOverrideNote")}
-              </Text>
-            ) : null}
-          </View>
+          </Field>
 
-          <View className="gap-2">
-            <Text className="text-sm font-medium">{t("sell.draft.item.descriptionLabel")}</Text>
-            <TextInput
-              accessibilityLabel={t("sell.draft.item.descriptionLabel")}
-              className="min-h-24 rounded-xl border border-border px-4 py-3"
-              multiline
+          <Field label={t("sell.draft.item.descriptionLabel")}>
+            <Textarea
+              rows={4}
+              autoResize
               value={description ?? draft.description ?? ""}
-              onChangeText={setDescription}
+              onValueChange={setDescription}
               onBlur={() => {
                 if (description !== null && description !== draft.description) {
                   patch.mutate({ description });
                 }
               }}
             />
-          </View>
+          </Field>
 
           <View className="gap-2">
             <Text className="text-sm font-medium">{t("sell.draft.item.conditionLabel")}</Text>

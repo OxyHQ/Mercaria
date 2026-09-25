@@ -6,11 +6,12 @@ import { ChevronLeft, Plus, Trash2, MapPin } from "lucide-react-native";
 import type { Location, LocationType } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
-  Input,
-  Label,
   useColorScheme,
+  toBloomIcon,
 } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import {
   SegmentedControl,
@@ -72,11 +73,12 @@ function LocationsBody({ storeId }: { storeId: string }) {
         <ChevronLeft size={16} color={colors.foreground} />
         <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
       </Pressable>
-      <Button onPress={() => createControl.open()}>
-        <View className="flex-row items-center gap-2">
-          <Plus size={16} color={colors.primaryForeground} />
-          <Text className="font-semibold text-primary-foreground">{t("common.new")}</Text>
-        </View>
+      <Button
+        tone="accent"
+        leadingIcon={toBloomIcon(Plus)}
+        onPress={() => createControl.open()}
+      >
+        {t("common.new")}
       </Button>
     </View>
   );
@@ -179,19 +181,17 @@ function CreateLocationDialog({
   return (
     <Dialog control={control} title={t("settings.locations.newTitle")}>
       <View className="gap-4">
-        <View className="gap-1.5">
-          <Label>{t("common.name")}</Label>
-          <Input
+        <Field label={t("common.name")}>
+          <TextFieldInput
+            label={t("common.name")}
             value={name}
-            onChangeText={setName}
+            onValueChange={setName}
             placeholder={t("settings.locations.namePlaceholder")}
           />
-        </View>
-        <View className="gap-1.5">
-          <Label>{t("common.type")}</Label>
+        </Field>
+        <Field label={t("common.type")}>
           <SegmentedControl
             type="radio"
-            label={t("common.type")}
             value={type}
             onValueChange={setType}
           >
@@ -203,9 +203,9 @@ function CreateLocationDialog({
               </SegmentedControlItem>
             ))}
           </SegmentedControl>
-        </View>
-        <Button onPress={submit} isLoading={createLocation.isPending} className="mt-1">
-          <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
+        </Field>
+        <Button tone="accent" onPress={submit} loading={createLocation.isPending} className="mt-1">
+          {t("common.create")}
         </Button>
       </View>
     </Dialog>

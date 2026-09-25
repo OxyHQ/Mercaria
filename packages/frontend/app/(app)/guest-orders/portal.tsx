@@ -41,11 +41,12 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@oxy.so/bloom/button";
 import { View } from "react-native";
 import Head from "expo-router/head";
-import { Link, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import type { OrderStatus } from "@mercaria/shared-types";
-import { Button, PickupCollectionPanel, SectionHeader, Text } from "@mercaria/ui";
+import { PickupCollectionPanel, SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import {
   useGuestPortalSession,
@@ -141,13 +142,9 @@ function PortalBody() {
               ? t("guestOrders.portal.linkRefusedBody")
               : t("guestOrders.portal.noCredentialBody")}
           </Text>
-          <Link href="/guest-orders/recover" asChild>
-            <Button>
-              <Text className="text-sm font-semibold text-primary-foreground">
-                {t("guestOrders.sendAccessLink")}
-              </Text>
-            </Button>
-          </Link>
+          <Button tone="accent" onPress={() => router.push("/guest-orders/recover")}>
+            {t("guestOrders.sendAccessLink")}
+          </Button>
         </View>
       </View>
     );
@@ -186,19 +183,17 @@ function PortalBody() {
         screen says outright.
       */}
       {canClaim && group ? (
-        <Link href={{ pathname: "/guest-orders/claim", params: { group } }} asChild>
-          <Button variant="outline">
-            <Text className="text-sm font-medium text-foreground">
-              {t("guestOrders.portal.claimAction")}
-            </Text>
-          </Button>
-        </Link>
+        <Button
+          appearance="outline"
+          tone="neutral"
+          onPress={() => router.push({ pathname: "/guest-orders/claim", params: { group } })}
+        >
+          {t("guestOrders.portal.claimAction")}
+        </Button>
       ) : null}
 
-      <Button variant="outline" onPress={() => signOut.mutate()} disabled={signOut.isPending}>
-        <Text className="text-sm font-medium text-foreground">
-          {t("guestOrders.portal.signOut")}
-        </Text>
+      <Button appearance="outline" tone="neutral" onPress={() => signOut.mutate()} disabled={signOut.isPending}>
+        {t("guestOrders.portal.signOut")}
       </Button>
     </View>
   );
@@ -315,13 +310,13 @@ function BoundedView(props: {
       <Text className="text-sm text-muted-foreground">
         {t("guestOrders.portal.confirmEmailBody")}
       </Text>
-      <Link href="/guest-orders/recover" asChild>
-        <Button variant="outline">
-          <Text className="text-sm font-medium text-foreground">
-            {t("guestOrders.portal.confirmEmailAction")}
-          </Text>
-        </Button>
-      </Link>
+      <Button
+        appearance="outline"
+        tone="neutral"
+        onPress={() => router.push("/guest-orders/recover")}
+      >
+        {t("guestOrders.portal.confirmEmailAction")}
+      </Button>
     </View>
   );
 }

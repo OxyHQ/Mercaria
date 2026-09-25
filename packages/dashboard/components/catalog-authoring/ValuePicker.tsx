@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { Check, ChevronDown, Search } from "lucide-react-native";
+import { Check, ChevronDown, Search as SearchIcon } from "lucide-react-native";
 import { Dialog, useDialogControl } from "@oxy.so/bloom/dialog";
-import { Input, Text, useColorScheme } from "@mercaria/ui";
+import { Text, toBloomFieldIcon, useColorScheme } from "@mercaria/ui";
+import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
 import { useTranslation } from "@/lib/i18n";
 
 /**
@@ -114,15 +115,16 @@ export function ValuePicker<Id extends string>({
         actions={[{ label: t("common.cancel"), color: "cancel" }]}
       >
         {options.length > FILTER_THRESHOLD ? (
-          <View className="mb-3 flex-row items-center gap-2 rounded-xl border border-input px-3">
-            <Search size={16} color={colors.mutedForeground} />
-            <Input
-              value={query}
-              onChangeText={setQuery}
-              placeholder={t("products.wizard.values.filterPlaceholder")}
-              accessibilityLabel={t("products.wizard.values.filterPlaceholder")}
-              className="flex-1 border-0"
-            />
+          <View className="mb-3">
+            <TextField radius={999}>
+              <TextFieldIcon icon={toBloomFieldIcon(SearchIcon)} />
+              <TextFieldInput
+                label={t("products.wizard.values.filterPlaceholder")}
+                value={query}
+                onValueChange={setQuery}
+                returnKeyType="search"
+              />
+            </TextField>
           </View>
         ) : null}
         <ScrollView className="max-h-80">

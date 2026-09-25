@@ -3,7 +3,9 @@ import { View, ScrollView } from "react-native";
 import { useOxy } from "@oxy.so/services";
 import { Barcode, Search } from "lucide-react-native";
 import type { Listing, ProductVariantDTO } from "@mercaria/shared-types";
-import { Text, Input, Button, useColorScheme } from "@mercaria/ui";
+import { toBloomFieldIcon } from "@mercaria/ui";
+import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import { Chip } from "@oxy.so/bloom/chip";
 import { toast } from "@oxy.so/bloom/toast";
 import { useDialogControl } from "@oxy.so/bloom/dialog";
@@ -43,7 +45,6 @@ function lineFromVariant(
  * variants exist; scanning/entering a code looks the SKU up and adds it.
  */
 export function CatalogPane({ storeId }: { storeId: string }) {
-  const { colors } = useColorScheme();
   const { oxyServices } = useOxy();
   const { t } = useTranslation();
   const addLine = useRegisterCart((s) => s.addLine);
@@ -125,30 +126,35 @@ export function CatalogPane({ storeId }: { storeId: string }) {
     <View className="flex-1">
       {/* Sticky search + SKU/barcode entry + category chips. */}
       <View className="z-10 gap-3 border-b border-border bg-background px-4 pb-3 pt-1 md:px-6 web:sticky web:top-0">
-        <View className="flex-row items-center gap-2 rounded-xl border border-border bg-surface px-3">
-          <Search size={18} color={colors.mutedForeground} />
-          <Input
+        <TextField style={{ height: 48 }}>
+          <TextFieldIcon icon={toBloomFieldIcon(Search)} />
+          <TextFieldInput
+            label={t("catalog.searchPlaceholder")}
             value={search}
-            onChangeText={setSearch}
-            placeholder={t("catalog.searchPlaceholder")}
-            className="h-12 flex-1 border-0 bg-transparent px-0"
+            onValueChange={setSearch}
           />
-        </View>
+        </TextField>
         <View className="flex-row items-center gap-2">
-          <View className="flex-1 flex-row items-center gap-2 rounded-xl border border-border bg-surface px-3">
-            <Barcode size={18} color={colors.mutedForeground} />
-            <Input
-              value={code}
-              onChangeText={setCode}
-              placeholder={t("catalog.codePlaceholder")}
-              autoCapitalize="none"
-              onSubmitEditing={onSubmitCode}
-              returnKeyType="done"
-              className="h-12 flex-1 border-0 bg-transparent px-0"
-            />
+          <View className="flex-1">
+            <TextField style={{ height: 48 }}>
+              <TextFieldIcon icon={toBloomFieldIcon(Barcode)} />
+              <TextFieldInput
+                label={t("catalog.codePlaceholder")}
+                value={code}
+                onValueChange={setCode}
+                autoCapitalize="none"
+                onSubmitEditing={onSubmitCode}
+                returnKeyType="done"
+              />
+            </TextField>
           </View>
-          <Button onPress={onSubmitCode} className="h-12 px-5">
-            <Text className="font-semibold text-primary-foreground">{t("catalog.add")}</Text>
+          <Button
+            tone="accent"
+            size="lg"
+            onPress={onSubmitCode}
+            style={{ height: 48, paddingHorizontal: 20 }}
+          >
+            {t("catalog.add")}
           </Button>
         </View>
 

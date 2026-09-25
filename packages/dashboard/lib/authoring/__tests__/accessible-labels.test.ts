@@ -42,12 +42,14 @@
  * ## What counts as an interactive control, and what does not
  *
  * {@link CONTROL_ELEMENTS} is the vocabulary, and it is deliberately mixed:
- * five members the surface uses today (`Pressable`, `Button`, `Input`,
- * `Textarea`, `Switch`) and three with zero current instances
- * (`TouchableOpacity`, `TouchableHighlight`, `TextInput`) that are the React
- * Native primitives an author reaches for next. A vocabulary arm with no
- * instance is an arm nothing exercises, so the self-test drives **every one of
- * the eight** rather than trusting the tuple.
+ * five members the surface uses today (`Pressable`, Bloom's `Button`,
+ * `TextFieldInput` and `Textarea`, `Switch`) and four with zero current
+ * instances: `TouchableOpacity`, `TouchableHighlight` and `TextInput`, the
+ * React Native primitives an author reaches for next, and `Input`, the
+ * `@mercaria/ui` field this surface used before it moved onto Bloom's
+ * `TextFieldInput`. A vocabulary arm with no instance is an arm nothing
+ * exercises, so the self-test drives **every one of the nine** rather than
+ * trusting the tuple.
  *
  * Deliberately OUT, each for a reason rather than by oversight:
  *
@@ -58,7 +60,13 @@
  * - **Every icon component** (`X`, `Check`, `Plus`, `ChevronRight`, …) — an
  *   icon is a CHILD. The name belongs to the control wrapping it, which is
  *   exactly the case this gate exists to catch.
- * - **`Label`** — it renders the visible text; it is not the control.
+ * - **`Label`** / **`Field`** — they render the visible text; neither is the
+ *   control. (A `Field`'s label DOES become its control's name, but only a
+ *   control inside it that reads Bloom's field context; the control is matched
+ *   on its own `label=` instead, which is required on `TextFieldInput`.)
+ * - **Bloom's `Search`** — it is always named (its `label` defaults to
+ *   "Search"), and the element name collides with lucide's `Search` ICON,
+ *   which this scan cannot tell apart from the control without imports.
  *
  * ## The rule, and why it is a disjunction rather than "declare a label"
  *
@@ -67,17 +75,27 @@
  * children. Both branches are load-bearing, and dropping the second would make
  * this gate actively wrong.
  *
- * `@mercaria/ui`'s `Button` renders `children` inside a `Pressable` carrying
- * `role="button"` (`packages/ui/src/components/ui/button.tsx`), so
- * `<Button><Text>Publish</Text></Button>` is named by its own text. Requiring a
- * label there would fail **sixteen** correct controls and be fixed by adding
- * sixteen redundant labels — a screen reader announcing the sentence twice.
+ * Bloom's `Button` (`@oxy.so/bloom/button`) renders its children as the label
+ * of a control carrying the button role, so `<Button>{t("…publish")}</Button>`
+ * is named by its own text. Requiring a label there would fail every correct
+ * text button and be fixed by adding redundant labels — a screen reader
+ * announcing the sentence twice.
+ *
+ * Bloom takes that label as a STRING child, not a `<Text>` element (on web it
+ * only wraps a string in its styled label span), so "renders text" has three
+ * spellings: a `<Text>` element, a bare literal, and a JSX expression that
+ * renders a TRANSLATION — `{t("…")}`, or a ternary whose every branch is a
+ * `t(…)` call. Any other expression (`{icon}`, `{children}`, `{label}`) is not
+ * read as text: this scan cannot see what it evaluates to, and reading it as a
+ * name would launder exactly the icon-only control the gate exists for.
  *
  * The defect the disjunction leaves reachable is the real one: an icon-only
  * control, which renders no text and announces nothing.
  *
  * Measured on the tree this landed against: 62 controls, of which 29 are named
- * by a label alone, 16 by text alone, 17 by both, and **0 by neither**. So this
+ * by a label alone, 16 by text alone, 17 by both, and **0 by neither**. (Those
+ * figures predate the move to Bloom's controls; the rule, not the split, is
+ * what the assertions pin.) So this
  * gate is green on arrival by design — it pins a property that holds today and
  * fails the day somebody adds an unlabelled icon button, which is what a gate
  * is for. The floors below are what stop "green" and "measured nothing" reading
@@ -113,7 +131,7 @@ const SURFACE_DIRECTORIES = [
   new URL('../../../app/(app)/products/wizard', import.meta.url).pathname,
 ] as const;
 
-/** @see the docblock — five kinds in use, three declared as a forward guard. */
+/** @see the docblock — five kinds in use, four declared as a forward guard. */
 const CONTROL_ELEMENTS = [
   'Pressable',
   'TouchableOpacity',
@@ -121,9 +139,18 @@ const CONTROL_ELEMENTS = [
   'TextInput',
   'Button',
   'Input',
+  'TextFieldInput',
   'Textarea',
   'Switch',
 ] as const;
+
+/**
+ * Bloom's text controls, whose `label` prop IS the accessible name —
+ * `TextFieldInput` requires it and hands it to the input as its
+ * `accessibilityLabel`, `Textarea` draws it above the box and names the input
+ * with it. On every other element `label` is just a prop.
+ */
+const LABEL_NAMED_ELEMENTS: ReadonlySet<string> = new Set(['TextFieldInput', 'Textarea']);
 
 const OPENING_TAG = new RegExp(`<(${CONTROL_ELEMENTS.join('|')})(?=[\\s/>])`, 'gu');
 
@@ -232,18 +259,63 @@ function controlsIn(file: string, source: string): Control[] {
   return found;
 }
 
-/** A declared label that is not the empty string. */
+/**
+ * A declared label that is not the empty string: `accessibilityLabel` /
+ * `aria-label` on anything, or `label` on a {@link LABEL_NAMED_ELEMENTS} member.
+ */
 function declaresLabel(tag: string): boolean {
-  if (/(?:accessibilityLabel|aria-label)\s*=\s*(?:""|''|\{\s*(?:""|''|``)\s*\})/u.test(tag)) {
-    return false;
-  }
-  return /(?:accessibilityLabel|aria-label)\s*=/u.test(tag);
+  const element = /^<([A-Za-z]+)/u.exec(tag)?.[1] ?? '';
+  const names = LABEL_NAMED_ELEMENTS.has(element)
+    ? '(?:accessibilityLabel|aria-label|(?<![\\w-])label)'
+    : '(?:accessibilityLabel|aria-label)';
+  const empty = String.raw`\s*=\s*(?:""|''|\{\s*(?:""|''|` + '``' + String.raw`)\s*\})`;
+  if (new RegExp(names + empty, 'u').test(tag)) return false;
+  return new RegExp(names + String.raw`\s*=`, 'u').test(tag);
 }
 
-/** Text among the children: a `<Text>` element, or a bare non-whitespace string. */
+/**
+ * The top-level `{…}` expressions among a control's children, braces stripped.
+ * Depth-tracked for the same reason as {@link openingTagEnd}: a `t(k, { n })`
+ * call carries braces of its own.
+ */
+function childExpressions(children: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < children.length; i += 1) {
+    const c = children[i];
+    if (c === '{') {
+      if (depth === 0) start = i + 1;
+      depth += 1;
+    } else if (c === '}') {
+      depth -= 1;
+      if (depth === 0 && start !== -1) out.push(children.slice(start, i));
+    }
+  }
+  return out;
+}
+
+/**
+ * Does this expression render a translation? `t(…)` itself, or a ternary whose
+ * every branch is one. JSX inside it (`cond ? <X /> : t(k)`) is refused: one
+ * branch would then render no text at all.
+ */
+function rendersTranslation(expression: string): boolean {
+  const body = expression.trim();
+  if (body.includes('<')) return false;
+  if (/^t\(/u.test(body)) return true;
+  return /\?\s*t\(/u.test(body) && /:\s*t\(/u.test(body);
+}
+
+/**
+ * Text among the children: a `<Text>` element, a bare non-whitespace string, or
+ * an expression rendering a translation (Bloom's `Button` takes its label as a
+ * string child — see the docblock).
+ */
 function rendersText(children: string): boolean {
   if (/<Text(?=[\s/>])/u.test(children)) return true;
-  return /(^|>)\s*[^<>{}\s][^<>{}]*(?=<|$)/u.test(children);
+  if (/(^|>)\s*[^<>{}\s][^<>{}]*(?=<|$)/u.test(children)) return true;
+  return childExpressions(children).some(rendersTranslation);
 }
 
 function everyControl(): Control[] {
@@ -285,9 +357,9 @@ describe('the authoring surface traverses a real population', () => {
       55,
     );
     // And per kind, so losing ONE arm of the alternation cannot hide behind the
-    // total. Only the kinds in use are floored; the other three are guards with
+    // total. Only the kinds in use are floored; the other four are guards with
     // no instances, and are driven in the self-test instead.
-    for (const element of ['Pressable', 'Button', 'Input', 'Textarea', 'Switch']) {
+    for (const element of ['Pressable', 'Button', 'TextFieldInput', 'Textarea', 'Switch']) {
       expect(
         controls.filter((control) => control.element === element).length,
         `no <${element}> found anywhere in the authoring surface — the tag pattern lost an arm`,
@@ -315,7 +387,7 @@ describe('every interactive control in the authoring surface has an accessible n
 
 describe('the detector, driven (self-test)', () => {
   it('reports an icon-only control of EVERY kind in the vocabulary', () => {
-    // Eight arms, eight cases. Three of them have no instance in the surface,
+    // Nine arms, nine cases. Four of them have no instance in the surface,
     // so this is the only thing that proves those arms work at all.
     for (const element of CONTROL_ELEMENTS) {
       const selfClosing = controlsIn('x.tsx', `<${element} onPress={go} />`);
@@ -343,6 +415,49 @@ describe('the detector, driven (self-test)', () => {
 
     const [bare] = controlsIn('x.tsx', '<Button onPress={go}>Publish</Button>');
     expect(rendersText(bare.children), 'a bare string child did not read as a name').toBe(true);
+
+    // Bloom's spelling: the label is a string child, most often a translation.
+    for (const translated of [
+      '<Button onPress={go}>{t("products.wizard.publish.publish")}</Button>',
+      '<Button onPress={go}>\n  {t("feeds.toast.checked", { scanned: n })}\n</Button>',
+      '<Button onPress={go}>{isSelected ? t("a.chosen") : t("a.choose")}</Button>',
+    ]) {
+      const [button] = controlsIn('x.tsx', translated);
+      expect(rendersText(button.children), `${translated} did not read as named`).toBe(true);
+    }
+  });
+
+  it('does NOT read an arbitrary expression child as a name', () => {
+    // The laundering direction of the rule above: an expression the scan
+    // cannot evaluate is not text, and a ternary with a JSX branch renders no
+    // text on that branch.
+    for (const unnamed of [
+      '<Button onPress={go}>{icon}</Button>',
+      '<Button onPress={go}>{children}</Button>',
+      '<Button onPress={go}>{busy ? <Spinner /> : t("a.b")}</Button>',
+      '<Button onPress={go}>{busy ? label : t("a.b")}</Button>',
+    ]) {
+      const [button] = controlsIn('x.tsx', unnamed);
+      expect(
+        declaresLabel(button.tag) || rendersText(button.children),
+        `${unnamed} read as named`,
+      ).toBe(false);
+    }
+  });
+
+  it('reads `label=` as a name on Bloom\'s text controls, and ONLY there', () => {
+    for (const element of LABEL_NAMED_ELEMENTS) {
+      const [named] = controlsIn('x.tsx', `<${element} label={t("a.b")} value={v} />`);
+      expect(declaresLabel(named.tag), `label= on <${element}> did not read as a name`).toBe(true);
+      const [empty] = controlsIn('x.tsx', `<${element} label="" value={v} />`);
+      expect(declaresLabel(empty.tag), `an empty label= on <${element}> read as a name`).toBe(false);
+    }
+    // A `label` prop on a Pressable names nothing, and `accessibilityLabel`'s
+    // tail must not be read as a bare `label=` on a label-named element.
+    const [pressable] = controlsIn('x.tsx', '<Pressable label={t("a.b")} onPress={go} />');
+    expect(declaresLabel(pressable.tag), 'label= on a Pressable read as a name').toBe(false);
+    const [emptyA11y] = controlsIn('x.tsx', '<TextFieldInput accessibilityLabel="" value={v} />');
+    expect(declaresLabel(emptyA11y.tag), 'an empty accessibilityLabel read as a label=').toBe(false);
   });
 
   it('treats an EMPTY label as no label', () => {

@@ -11,11 +11,7 @@ import type {
 } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
   ConnectorPinNotice,
-  Input,
-  Label,
-  Textarea,
   PriceDisplay,
   SourceBadge,
   useColorScheme,
@@ -25,6 +21,10 @@ import {
   SegmentedControlItem,
   SegmentedControlItemText,
 } from "@oxy.so/bloom/segmented-control";
+import { Button } from "@oxy.so/bloom/button";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Textarea } from "@oxy.so/bloom/textarea";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -247,24 +247,27 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
             />
           </View>
         ) : null}
-        <View className="gap-1.5">
-          <Label>{t("common.title")}</Label>
-          <Input value={title} onChangeText={setTitle} editable={canWrite} />
-        </View>
-        <View className="gap-1.5">
-          <Label>{t("common.description")}</Label>
-          <Textarea value={description} onChangeText={setDescription} editable={canWrite} />
-        </View>
-        <View className="gap-1.5">
-          <Label>{t("common.status")}</Label>
-          {restricted ? (
-            <Text className="text-sm text-muted-foreground">
-              {t("products.detail.restrictedNotice")}
-            </Text>
-          ) : null}
+        <Field label={t("common.title")}>
+          <TextFieldInput
+            label={t("common.title")}
+            placeholder={null}
+            value={title}
+            onValueChange={setTitle}
+            disabled={!canWrite}
+          />
+        </Field>
+        <Textarea
+          label={t("common.description")}
+          value={description}
+          onValueChange={setDescription}
+          disabled={!canWrite}
+        />
+        <Field
+          label={t("common.status")}
+          description={restricted ? t("products.detail.restrictedNotice") : undefined}
+        >
           <SegmentedControl
             type="radio"
-            label={t("common.status")}
             value={status}
             onValueChange={setStatus}
             disabled={!canWrite || restricted}
@@ -275,19 +278,15 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
               </SegmentedControlItem>
             ))}
           </SegmentedControl>
-        </View>
+        </Field>
 
         {canWrite ? (
           <View className="flex-row gap-3">
-            <Button className="flex-1" onPress={save} isLoading={updateProduct.isPending}>
-              <Text className="font-semibold text-primary-foreground">
-                {t("products.detail.saveChanges")}
-              </Text>
+            <Button tone="accent" className="flex-1" onPress={save} loading={updateProduct.isPending}>
+              {t("products.detail.saveChanges")}
             </Button>
-            <Button variant="destructive" onPress={archive} isLoading={archiveProduct.isPending}>
-              <Text className="font-semibold text-destructive-foreground">
-                {t("products.detail.archive")}
-              </Text>
+            <Button tone="danger" onPress={archive} loading={archiveProduct.isPending}>
+              {t("products.detail.archive")}
             </Button>
           </View>
         ) : null}
@@ -375,28 +374,48 @@ function VariantsSection({
         <View className="mb-3 rounded-xl border border-border p-3">
           {optionName ? (
             <View className="mb-2">
-              <Label>{optionName}</Label>
-              <Input
-                value={newValue}
-                onChangeText={setNewValue}
-                placeholder={t("products.variants.valuePlaceholder")}
-              />
+              <Field label={optionName}>
+                <TextFieldInput
+                  label={optionName}
+                  value={newValue}
+                  onValueChange={setNewValue}
+                  placeholder={t("products.variants.valuePlaceholder")}
+                />
+              </Field>
             </View>
           ) : null}
           <View className="flex-row gap-2">
             <View className="flex-1">
-              <Label>{t("products.priceLabel")}</Label>
-              <Input value={newPrice} onChangeText={setNewPrice} keyboardType="decimal-pad" placeholder="0.00" />
+              <Field label={t("products.priceLabel")}>
+                <TextFieldInput
+                  label={t("products.priceLabel")}
+                  value={newPrice}
+                  onValueChange={setNewPrice}
+                  keyboardType="decimal-pad"
+                  placeholder="0.00"
+                />
+              </Field>
             </View>
             <View className="flex-1">
-              <Label>{t("products.stockLabel")}</Label>
-              <Input value={newStock} onChangeText={setNewStock} keyboardType="number-pad" placeholder="0" />
+              <Field label={t("products.stockLabel")}>
+                <TextFieldInput
+                  label={t("products.stockLabel")}
+                  value={newStock}
+                  onValueChange={setNewStock}
+                  keyboardType="number-pad"
+                  placeholder="0"
+                />
+              </Field>
             </View>
           </View>
-          <Button size="sm" className="mt-3 self-start" onPress={addVariant} isLoading={createVariant.isPending}>
-            <Text className="text-sm font-semibold text-primary-foreground">
-              {t("products.variants.saveVariant")}
-            </Text>
+          <Button
+            tone="accent"
+            size="sm"
+            className="mt-3 self-start"
+            onPress={addVariant}
+            loading={createVariant.isPending}
+          >
+            {t("products.variants.saveVariant")}
           </Button>
         </View>
       ) : null}
@@ -493,23 +512,51 @@ function VariantRow({
       </View>
       <View className="flex-row items-end gap-2">
         <View className="flex-1">
-          <Label>{t("products.priceLabel")}</Label>
-          <Input value={price} onChangeText={setPrice} keyboardType="decimal-pad" editable={canWrite} />
+          <Field label={t("products.priceLabel")}>
+            <TextFieldInput
+              label={t("products.priceLabel")}
+              placeholder={null}
+              value={price}
+              onValueChange={setPrice}
+              keyboardType="decimal-pad"
+              disabled={!canWrite}
+            />
+          </Field>
         </View>
         {canWrite ? (
-          <Button size="sm" variant="outline" onPress={savePrice} isLoading={updateVariant.isPending}>
-            <Text className="text-sm font-medium text-foreground">{t("common.save")}</Text>
+          <Button
+            appearance="outline"
+            tone="neutral"
+            size="sm"
+            onPress={savePrice}
+            loading={updateVariant.isPending}
+          >
+            {t("common.save")}
           </Button>
         ) : null}
       </View>
       <View className="mt-2 flex-row items-end gap-2">
         <View className="flex-1">
-          <Label>{t("products.variants.available")}</Label>
-          <Input value={stock} onChangeText={setStock} keyboardType="number-pad" editable={canInventory} />
+          <Field label={t("products.variants.available")}>
+            <TextFieldInput
+              label={t("products.variants.available")}
+              placeholder={null}
+              value={stock}
+              onValueChange={setStock}
+              keyboardType="number-pad"
+              disabled={!canInventory}
+            />
+          </Field>
         </View>
         {canInventory ? (
-          <Button size="sm" variant="outline" onPress={saveStock} isLoading={setInventory.isPending}>
-            <Text className="text-sm font-medium text-foreground">{t("products.variants.set")}</Text>
+          <Button
+            appearance="outline"
+            tone="neutral"
+            size="sm"
+            onPress={saveStock}
+            loading={setInventory.isPending}
+          >
+            {t("products.variants.set")}
           </Button>
         ) : null}
       </View>

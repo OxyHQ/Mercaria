@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Button } from "@oxy.so/bloom/button";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { View } from "react-native";
 import type { CreateAddressInput } from "@mercaria/shared-types";
-import { Button, Input, Label, Text } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 
 /** Required fields per `CreateAddressInput` (server enforces the same set). */
@@ -74,88 +76,97 @@ export function AddressForm({
 
   return (
     <View className="gap-3">
-      <View className="gap-1.5">
-        <Label>{t("address.form.recipientNameLabel")}</Label>
-        <Input
+      <Field label={t("address.form.recipientNameLabel")}>
+        <TextFieldInput
+          label={t("address.form.recipientNameLabel")}
           value={draft.recipientName}
-          onChangeText={set("recipientName")}
+          onValueChange={set("recipientName")}
           placeholder={t("address.form.recipientNamePlaceholder")}
         />
-      </View>
-      <View className="gap-1.5">
-        <Label>{t("address.form.line1Label")}</Label>
-        <Input
+      </Field>
+      <Field label={t("address.form.line1Label")}>
+        <TextFieldInput
+          label={t("address.form.line1Label")}
           value={draft.line1}
-          onChangeText={set("line1")}
+          onValueChange={set("line1")}
           placeholder={t("address.form.line1Placeholder")}
         />
-      </View>
-      <View className="gap-1.5">
-        <Label>{t("address.form.line2Label")}</Label>
-        <Input
+      </Field>
+      <Field label={t("address.form.line2Label")}>
+        <TextFieldInput
+          label={t("address.form.line2Label")}
           value={draft.line2 ?? ""}
-          onChangeText={set("line2")}
+          onValueChange={set("line2")}
           placeholder={t("address.form.line2Placeholder")}
         />
+      </Field>
+      <View className="flex-row gap-3">
+        <View className="flex-1">
+          <Field label={t("address.form.cityLabel")}>
+            <TextFieldInput
+              label={t("address.form.cityLabel")}
+              value={draft.city}
+              onValueChange={set("city")}
+              placeholder={t("address.form.cityPlaceholder")}
+            />
+          </Field>
+        </View>
+        <View className="flex-1">
+          <Field label={t("address.form.regionLabel")}>
+            <TextFieldInput
+              label={t("address.form.regionLabel")}
+              value={draft.region ?? ""}
+              onValueChange={set("region")}
+              placeholder={t("address.form.regionPlaceholder")}
+            />
+          </Field>
+        </View>
       </View>
       <View className="flex-row gap-3">
-        <View className="flex-1 gap-1.5">
-          <Label>{t("address.form.cityLabel")}</Label>
-          <Input
-            value={draft.city}
-            onChangeText={set("city")}
-            placeholder={t("address.form.cityPlaceholder")}
-          />
+        <View className="flex-1">
+          <Field label={t("address.form.postalCodeLabel")}>
+            <TextFieldInput
+              label={t("address.form.postalCodeLabel")}
+              value={draft.postalCode}
+              onValueChange={set("postalCode")}
+              placeholder={t("address.form.postalCodePlaceholder")}
+            />
+          </Field>
         </View>
-        <View className="flex-1 gap-1.5">
-          <Label>{t("address.form.regionLabel")}</Label>
-          <Input
-            value={draft.region ?? ""}
-            onChangeText={set("region")}
-            placeholder={t("address.form.regionPlaceholder")}
-          />
-        </View>
-      </View>
-      <View className="flex-row gap-3">
-        <View className="flex-1 gap-1.5">
-          <Label>{t("address.form.postalCodeLabel")}</Label>
-          <Input
-            value={draft.postalCode}
-            onChangeText={set("postalCode")}
-            placeholder={t("address.form.postalCodePlaceholder")}
-          />
-        </View>
-        <View className="flex-1 gap-1.5">
-          <Label>{t("address.form.countryLabel")}</Label>
-          <Input
-            value={draft.country}
-            onChangeText={set("country")}
-            placeholder={t("address.form.countryPlaceholder")}
-            autoCapitalize="characters"
-          />
+        <View className="flex-1">
+          <Field label={t("address.form.countryLabel")}>
+            <TextFieldInput
+              label={t("address.form.countryLabel")}
+              value={draft.country}
+              onValueChange={set("country")}
+              placeholder={t("address.form.countryPlaceholder")}
+              autoCapitalize="characters"
+            />
+          </Field>
         </View>
       </View>
-      <View className="gap-1.5">
-        <Label>{t("address.form.phoneLabel")}</Label>
-        <Input
+      <Field label={t("address.form.phoneLabel")}>
+        <TextFieldInput
+          label={t("address.form.phoneLabel")}
           value={draft.phone ?? ""}
-          onChangeText={set("phone")}
+          onValueChange={set("phone")}
           placeholder={t("address.form.phonePlaceholder")}
           keyboardType="phone-pad"
         />
-      </View>
+      </Field>
       <View className="flex-row items-center gap-3">
         <Button
+          tone="accent"
           className="flex-1"
           disabled={!complete}
-          isLoading={isSubmitting}
+          loading={isSubmitting}
           onPress={() => onSubmit(clean(draft))}
         >
-          <Text className="text-sm font-semibold text-primary-foreground">{cta}</Text>
+          {cta}
         </Button>
         {onCancel ? (
-          <Button variant="outline" onPress={onCancel}>
-            <Text className="text-sm font-medium text-foreground">{t("common.cancel")}</Text>
+          <Button appearance="outline" tone="neutral" onPress={onCancel}>
+            {t("common.cancel")}
           </Button>
         ) : null}
       </View>

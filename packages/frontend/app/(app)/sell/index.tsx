@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Field } from "@oxy.so/bloom/field";
 import { Loading } from "@oxy.so/bloom/loading";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
@@ -124,33 +126,29 @@ export default function SellIndexScreen() {
           </View>
         ) : null}
 
-        <View className="gap-2">
-          <Text className="text-sm font-medium">{t("sell.index.scan.label")}</Text>
-          <TextInput
-            accessibilityLabel={t("sell.index.scan.accessibilityLabel")}
-            className="rounded-xl border border-border px-4 py-3"
+        <Field label={t("sell.index.scan.label")}>
+          <TextFieldInput
+            label={t("sell.index.scan.accessibilityLabel")}
             placeholder={t("sell.index.scan.placeholder")}
             value={scanned}
-            onChangeText={(next) => {
+            onValueChange={(next) => {
               setScanned(next);
               if (next) setQuery("");
             }}
           />
-        </View>
+        </Field>
 
-        <View className="gap-2">
-          <Text className="text-sm font-medium">{t("sell.index.search.label")}</Text>
-          <TextInput
-            accessibilityLabel={t("sell.index.search.accessibilityLabel")}
-            className="rounded-xl border border-border px-4 py-3"
+        <Field label={t("sell.index.search.label")}>
+          <TextFieldInput
+            label={t("sell.index.search.accessibilityLabel")}
             placeholder={t("sell.index.search.placeholder")}
             value={query}
-            onChangeText={(next) => {
+            onValueChange={(next) => {
               setQuery(next);
               if (next) setScanned("");
             }}
           />
-        </View>
+        </Field>
 
         {candidates.isFetching ? <Loading variant="inline" size="sm" /> : null}
 

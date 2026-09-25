@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import type { NearbyPlaceSuggestion } from "@mercaria/shared-types";
-import { Input, Text } from "@mercaria/ui";
+import { Text } from "@mercaria/ui";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { useNearbyPlaces, type NearbyOriginState } from "@/lib/hooks/use-nearby";
 import { useTranslation } from "@/lib/i18n";
 
@@ -163,10 +164,10 @@ export function NearbyOriginControl({
 
       {pickerOpen || refusal !== null ? (
         <View className="gap-space-8">
-          <Input
-            accessibilityLabel={t("nearby.origin.cityField")}
+          <TextFieldInput
+            label={t("nearby.origin.cityField")}
             value={term}
-            onChangeText={setTerm}
+            onValueChange={setTerm}
             placeholder={t("nearby.origin.cityField")}
             autoCapitalize="words"
             autoCorrect={false}

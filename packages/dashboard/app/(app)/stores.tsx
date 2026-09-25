@@ -8,11 +8,12 @@ import { Check, Plus, Store as StoreIcon } from "lucide-react-native";
 import type { Store } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
-  Input,
-  Label,
   useColorScheme,
+  toBloomIcon,
 } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
@@ -35,11 +36,12 @@ export default function StoresScreen() {
   };
 
   const action = (
-    <Button onPress={() => createControl.open()}>
-      <View className="flex-row items-center gap-2">
-        <Plus size={16} color={colors.primaryForeground} />
-        <Text className="font-semibold text-primary-foreground">{t("stores.newStore")}</Text>
-      </View>
+    <Button
+      tone="accent"
+      leadingIcon={toBloomIcon(Plus)}
+      onPress={() => createControl.open()}
+    >
+      {t("stores.newStore")}
     </Button>
   );
 
@@ -141,26 +143,24 @@ function CreateStoreDialog({
   return (
     <Dialog control={control} title={t("stores.create.dialogTitle")}>
       <View className="gap-4">
-        <View className="gap-1.5">
-          <Label>{t("stores.create.nameLabel")}</Label>
-          <Input
+        <Field label={t("stores.create.nameLabel")}>
+          <TextFieldInput
+            label={t("stores.create.nameLabel")}
             value={name}
-            onChangeText={setName}
+            onValueChange={setName}
             placeholder={t("stores.create.namePlaceholder")}
           />
-        </View>
-        <View className="gap-1.5">
-          <Label>{t("common.description")}</Label>
-          <Input
+        </Field>
+        <Field label={t("common.description")}>
+          <TextFieldInput
+            label={t("common.description")}
             value={description}
-            onChangeText={setDescription}
+            onValueChange={setDescription}
             placeholder={t("stores.create.descriptionPlaceholder")}
           />
-        </View>
-        <Button onPress={submit} isLoading={createStore.isPending} className="mt-2">
-          <Text className="font-semibold text-primary-foreground">
-            {t("stores.createStore")}
-          </Text>
+        </Field>
+        <Button tone="accent" onPress={submit} loading={createStore.isPending} className="mt-2">
+          {t("stores.createStore")}
         </Button>
       </View>
     </Dialog>

@@ -5,11 +5,12 @@ import { Plus, FolderTree, Trash2 } from "lucide-react-native";
 import type { Collection, CollectionType } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
-  Input,
-  Label,
   useColorScheme,
+  toBloomIcon,
 } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import {
   SegmentedControl,
@@ -51,7 +52,6 @@ export default function CollectionsScreen() {
 }
 
 function CollectionsBody({ storeId }: { storeId: string }) {
-  const { colors } = useColorScheme();
   const { t } = useTranslation();
   const { data, isPending, isError } = useCollections(storeId);
   const deleteCollection = useDeleteCollection(storeId);
@@ -60,11 +60,12 @@ function CollectionsBody({ storeId }: { storeId: string }) {
   const action = (
     <View className="flex-row items-center gap-2">
       <StoreSwitcher />
-      <Button onPress={() => createControl.open()}>
-        <View className="flex-row items-center gap-2">
-          <Plus size={16} color={colors.primaryForeground} />
-          <Text className="font-semibold text-primary-foreground">{t("common.new")}</Text>
-        </View>
+      <Button
+        tone="accent"
+        leadingIcon={toBloomIcon(Plus)}
+        onPress={() => createControl.open()}
+      >
+        {t("common.new")}
       </Button>
     </View>
   );
@@ -185,19 +186,17 @@ function CreateCollectionDialog({
   return (
     <Dialog control={control} title={t("collections.create.dialogTitle")}>
       <View className="gap-4">
-        <View className="gap-1.5">
-          <Label>{t("common.title")}</Label>
-          <Input
+        <Field label={t("common.title")}>
+          <TextFieldInput
+            label={t("common.title")}
             value={title}
-            onChangeText={setTitle}
+            onValueChange={setTitle}
             placeholder={t("collections.create.titlePlaceholder")}
           />
-        </View>
-        <View className="gap-1.5">
-          <Label>{t("common.type")}</Label>
+        </Field>
+        <Field label={t("common.type")}>
           <SegmentedControl
             type="radio"
-            label={t("common.type")}
             value={type}
             onValueChange={setType}
           >
@@ -210,9 +209,9 @@ function CreateCollectionDialog({
               </SegmentedControlItemText>
             </SegmentedControlItem>
           </SegmentedControl>
-        </View>
-        <Button onPress={submit} isLoading={createCollection.isPending} className="mt-1">
-          <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
+        </Field>
+        <Button tone="accent" onPress={submit} loading={createCollection.isPending} className="mt-1">
+          {t("common.create")}
         </Button>
       </View>
     </Dialog>

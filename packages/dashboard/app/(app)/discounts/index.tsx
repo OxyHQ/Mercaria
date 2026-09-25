@@ -10,12 +10,13 @@ import type {
 } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
-  Input,
-  Label,
   useColorScheme,
   type Translate,
+  toBloomIcon,
 } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import {
   SegmentedControl,
@@ -48,7 +49,6 @@ export default function DiscountsScreen() {
 }
 
 function DiscountsBody({ storeId }: { storeId: string }) {
-  const { colors } = useColorScheme();
   const { t } = useTranslation();
   const { data, isPending, isError } = useDiscounts(storeId);
   const deleteDiscount = useDeleteDiscount(storeId);
@@ -57,11 +57,12 @@ function DiscountsBody({ storeId }: { storeId: string }) {
   const action = (
     <View className="flex-row items-center gap-2">
       <StoreSwitcher />
-      <Button onPress={() => createControl.open()}>
-        <View className="flex-row items-center gap-2">
-          <Plus size={16} color={colors.primaryForeground} />
-          <Text className="font-semibold text-primary-foreground">{t("common.new")}</Text>
-        </View>
+      <Button
+        tone="accent"
+        leadingIcon={toBloomIcon(Plus)}
+        onPress={() => createControl.open()}
+      >
+        {t("common.new")}
       </Button>
     </View>
   );
@@ -214,22 +215,25 @@ function CreateDiscountDialog({
     });
   };
 
+  const amountLabel =
+    valueType === "percentage"
+      ? t("discounts.create.percentOffLabel")
+      : t("discounts.create.amountOffLabel");
+
   return (
     <Dialog control={control} title={t("discounts.create.dialogTitle")}>
       <View className="gap-4">
-        <View className="gap-1.5">
-          <Label>{t("common.title")}</Label>
-          <Input
+        <Field label={t("common.title")}>
+          <TextFieldInput
+            label={t("common.title")}
             value={title}
-            onChangeText={setTitle}
+            onValueChange={setTitle}
             placeholder={t("discounts.create.titlePlaceholder")}
           />
-        </View>
-        <View className="gap-1.5">
-          <Label>{t("discounts.create.methodLabel")}</Label>
+        </Field>
+        <Field label={t("discounts.create.methodLabel")}>
           <SegmentedControl
             type="radio"
-            label={t("discounts.create.methodLabel")}
             value={method}
             onValueChange={setMethod}
           >
@@ -242,23 +246,21 @@ function CreateDiscountDialog({
               </SegmentedControlItemText>
             </SegmentedControlItem>
           </SegmentedControl>
-        </View>
+        </Field>
         {method === "code" ? (
-          <View className="gap-1.5">
-            <Label>{t("discounts.create.codeLabel")}</Label>
-            <Input
+          <Field label={t("discounts.create.codeLabel")}>
+            <TextFieldInput
+              label={t("discounts.create.codeLabel")}
               value={code}
-              onChangeText={setCode}
+              onValueChange={setCode}
               placeholder={t("discounts.create.codePlaceholder")}
               autoCapitalize="characters"
             />
-          </View>
+          </Field>
         ) : null}
-        <View className="gap-1.5">
-          <Label>{t("discounts.create.valueTypeLabel")}</Label>
+        <Field label={t("discounts.create.valueTypeLabel")}>
           <SegmentedControl
             type="radio"
-            label={t("discounts.create.valueTypeLabel")}
             value={valueType}
             onValueChange={setValueType}
           >
@@ -271,17 +273,18 @@ function CreateDiscountDialog({
               <SegmentedControlItemText>{t("discounts.create.valueTypeFixed")}</SegmentedControlItemText>
             </SegmentedControlItem>
           </SegmentedControl>
-        </View>
-        <View className="gap-1.5">
-          <Label>
-            {valueType === "percentage"
-              ? t("discounts.create.percentOffLabel")
-              : t("discounts.create.amountOffLabel")}
-          </Label>
-          <Input value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder={valueType === "percentage" ? "20" : "10.00"} />
-        </View>
-        <Button onPress={submit} isLoading={createDiscount.isPending} className="mt-1">
-          <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
+        </Field>
+        <Field label={amountLabel}>
+          <TextFieldInput
+            label={amountLabel}
+            value={amount}
+            onValueChange={setAmount}
+            keyboardType="decimal-pad"
+            placeholder={valueType === "percentage" ? "20" : "10.00"}
+          />
+        </Field>
+        <Button tone="accent" onPress={submit} loading={createDiscount.isPending} className="mt-1">
+          {t("common.create")}
         </Button>
       </View>
     </Dialog>

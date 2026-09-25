@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Pressable, View } from "react-native";
 import { X } from "lucide-react-native";
-import { Input, Text, useColorScheme } from "@mercaria/ui";
+import { Text, useColorScheme } from "@mercaria/ui";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { useTranslation } from "@/lib/i18n";
 import { useCanonicalSearch } from "@/lib/authoring/hooks";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
@@ -67,14 +68,13 @@ export function CanonicalReferenceField({
 
   return (
     <View className="gap-1.5">
-      <Input
+      <TextFieldInput
+        label={label}
         value={query}
-        onChangeText={setQuery}
+        onValueChange={setQuery}
         placeholder={t("products.wizard.canonical.searchBrandPlaceholder")}
-        accessibilityLabel={label}
-        editable={!disabled}
-        aria-invalid={invalid}
-        className={invalid ? "border-destructive" : undefined}
+        disabled={disabled}
+        invalid={invalid}
       />
       {search.data === undefined || search.data.candidates.length === 0 ? null : (
         <View className="gap-1 rounded-xl border border-border bg-surface p-1">

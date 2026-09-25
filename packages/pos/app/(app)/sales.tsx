@@ -4,7 +4,8 @@ import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronRight } from "lucide-react-native";
 import type { OrderSummary } from "@mercaria/shared-types";
-import { Text, Button, PriceDisplay, formatDateTime, useColorScheme } from "@mercaria/ui";
+import { Text, PriceDisplay, formatDateTime, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -56,23 +57,25 @@ function Sales({ storeId }: { storeId: string }) {
           {(hasPreviousPage || hasNextPage) ? (
             <View className="mt-4 flex-row items-center justify-between gap-3">
               <Button
-                variant="outline"
+                appearance="outline"
+                tone="neutral"
                 onPress={() => setPage((p) => Math.max(FIRST_PAGE, p - 1))}
                 disabled={!hasPreviousPage || isFetching}
                 className="flex-1"
               >
-                <Text className="font-semibold text-foreground">{t("common.previous")}</Text>
+                {t("common.previous")}
               </Button>
               <Text className="text-sm text-muted-foreground">
                 {t("sales.pageNumber", { page })}
               </Text>
               <Button
-                variant="outline"
+                appearance="outline"
+                tone="neutral"
                 onPress={() => setPage((p) => p + 1)}
                 disabled={!hasNextPage || isFetching}
                 className="flex-1"
               >
-                <Text className="font-semibold text-foreground">{t("common.next")}</Text>
+                {t("common.next")}
               </Button>
             </View>
           ) : null}

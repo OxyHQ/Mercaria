@@ -48,7 +48,8 @@ import type {
   ChannelSummary,
   ChannelTypeDescriptor,
 } from "@mercaria/shared-types";
-import { Button, Text, useColorScheme } from "@mercaria/ui";
+import { Text, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
@@ -457,15 +458,14 @@ function AvailableChannels({
                   </View>
                   {descriptor.availability === "available" ? (
                     <Button
-                      variant="outline"
+                      appearance="outline"
+                      tone="neutral"
                       size="sm"
                       disabled={!connectable}
-                      isLoading={startingChannelType === descriptor.channelType}
+                      loading={startingChannelType === descriptor.channelType}
                       onPress={() => onConnect(descriptor)}
                     >
-                      <Text className="text-xs font-semibold text-foreground">
-                        {taken ? t("channels.state.connected") : t("channels.connect")}
-                      </Text>
+                      {taken ? t("channels.state.connected") : t("channels.connect")}
                     </Button>
                   ) : null}
                 </View>

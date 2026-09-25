@@ -3,7 +3,10 @@ import { Pressable, View } from "react-native";
 import { Plus, X } from "lucide-react-native";
 import { Badge } from "@oxy.so/bloom/badge";
 import type { AuthoringField, AuthoringSchema, ProductTypeFieldRequirement } from "@mercaria/shared-types";
-import { Input, Label, Text, Textarea, useColorScheme } from "@mercaria/ui";
+import { Text, useColorScheme } from "@mercaria/ui";
+import { Label } from "@oxy.so/bloom/label";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Textarea } from "@oxy.so/bloom/textarea";
 import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 import {
@@ -281,25 +284,27 @@ function EntryControl({
           <Text className="text-xs text-muted-foreground">{axisLabel}</Text>
         )}
         <View className="flex-row items-center gap-2">
-          <Input
-            value={entry.raw}
-            onChangeText={(raw) => onChange({ ...entry, raw })}
-            placeholder={placeholder}
-            accessibilityLabel={axisLabel === null ? label : `${label} — ${axisLabel}`}
-            keyboardType="decimal-pad"
-            editable={!disabled}
-            aria-invalid={invalid}
-            className={invalid ? "flex-1 border-destructive" : "flex-1"}
-          />
-          {!unit.present ? null : (
-            <Input
-              value={entry.unit ?? ""}
-              onChangeText={(unitText) => onChange({ ...entry, unit: unitText })}
-              placeholder={unit.placeholder}
-              accessibilityLabel={t("products.wizard.fields.unitLabel")}
-              editable={!disabled}
-              className="w-24"
+          <View className="flex-1">
+            <TextFieldInput
+              label={axisLabel === null ? label : `${label} — ${axisLabel}`}
+              value={entry.raw}
+              onValueChange={(raw) => onChange({ ...entry, raw })}
+              placeholder={placeholder.length > 0 ? placeholder : null}
+              keyboardType="decimal-pad"
+              disabled={disabled}
+              invalid={invalid}
             />
+          </View>
+          {!unit.present ? null : (
+            <View className="w-24">
+              <TextFieldInput
+                label={t("products.wizard.fields.unitLabel")}
+                value={entry.unit ?? ""}
+                onValueChange={(unitText) => onChange({ ...entry, unit: unitText })}
+                placeholder={unit.placeholder || null}
+                disabled={disabled}
+              />
+            </View>
           )}
         </View>
       </View>
@@ -312,24 +317,23 @@ function EntryControl({
     if (long) {
       return (
         <Textarea
-          value={entry.text}
-          onChangeText={(text) => onChange({ ...entry, text })}
-          placeholder={placeholder}
           accessibilityLabel={label}
-          editable={!disabled}
-          aria-invalid={invalid}
+          value={entry.text}
+          onValueChange={(text) => onChange({ ...entry, text })}
+          placeholder={placeholder}
+          disabled={disabled}
+          invalid={invalid}
         />
       );
     }
     return (
-      <Input
+      <TextFieldInput
+        label={label}
         value={entry.text}
-        onChangeText={(text) => onChange({ ...entry, text })}
-        placeholder={placeholder}
-        accessibilityLabel={label}
-        editable={!disabled}
-        aria-invalid={invalid}
-        className={invalid ? "border-destructive" : undefined}
+        onValueChange={(text) => onChange({ ...entry, text })}
+        placeholder={placeholder.length > 0 ? placeholder : null}
+        disabled={disabled}
+        invalid={invalid}
       />
     );
   }

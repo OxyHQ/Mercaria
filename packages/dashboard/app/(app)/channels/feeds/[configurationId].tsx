@@ -36,7 +36,10 @@ import type {
   FeedFormat,
   FeedImportReportMode,
 } from "@mercaria/shared-types";
-import { Button, Input, Label, Text, useColorScheme } from "@mercaria/ui";
+import { Text, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -248,8 +251,10 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
             })}
           </Text>
           <Button
-            variant="outline"
-            isLoading={sync.isPending}
+            appearance="outline"
+            tone="neutral"
+            leadingIcon={toBloomIcon(RefreshCw)}
+            loading={sync.isPending}
             disabled={active === undefined}
             onPress={() =>
               sync.mutate(undefined, {
@@ -258,14 +263,9 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
               })
             }
           >
-            <View className="flex-row items-center gap-1.5">
-              <RefreshCw size={14} color={colors.foreground} />
-              <Text className="text-xs font-semibold text-foreground">
-                {active === undefined
-                  ? t("feeds.detail.activateMappingFirst")
-                  : t("feeds.detail.syncNow")}
-              </Text>
-            </View>
+            {active === undefined
+              ? t("feeds.detail.activateMappingFirst")
+              : t("feeds.detail.syncNow")}
           </Button>
         </View>
 
@@ -402,9 +402,10 @@ function Versions({
 
           <View className="flex-row flex-wrap gap-2">
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               size="sm"
-              isLoading={preview.isPending}
+              loading={preview.isPending}
               onPress={() =>
                 preview.mutate(version.id, {
                   onSuccess: (result) => setPreviewed({ versionId: version.id, result }),
@@ -412,14 +413,13 @@ function Versions({
                 })
               }
             >
-              <Text className="text-xs font-semibold text-foreground">
-                {t("feeds.versions.preview")}
-              </Text>
+              {t("feeds.versions.preview")}
             </Button>
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               size="sm"
-              isLoading={validate.isPending}
+              loading={validate.isPending}
               onPress={() =>
                 validate.mutate(version.id, {
                   onSuccess: (report) =>
@@ -433,14 +433,13 @@ function Versions({
                 })
               }
             >
-              <Text className="text-xs font-semibold text-foreground">
-                {t("feeds.versions.checkWholeFeed")}
-              </Text>
+              {t("feeds.versions.checkWholeFeed")}
             </Button>
             {version.status === "draft" ? (
               <Button
+                tone="accent"
                 size="sm"
-                isLoading={activate.isPending}
+                loading={activate.isPending}
                 disabled={version.validatedReportId === null}
                 onPress={() => {
                   if (version.validatedReportId === null) return;
@@ -453,11 +452,9 @@ function Versions({
                   );
                 }}
               >
-                <Text className="text-xs font-semibold text-primary-foreground">
-                  {version.validatedReportId === null
-                    ? t("feeds.versions.checkItFirst")
-                    : t("feeds.versions.activate")}
-                </Text>
+                {version.validatedReportId === null
+                  ? t("feeds.versions.checkItFirst")
+                  : t("feeds.versions.activate")}
               </Button>
             ) : null}
           </View>
@@ -526,25 +523,22 @@ function DraftVersion({
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-foreground">{t("feeds.draft.title")}</Text>
 
-      <View className="gap-1.5">
-        <Label>{t("feeds.draft.urlLabel")}</Label>
-        <Input
+      <Field label={t("feeds.draft.urlLabel")} description={t("feeds.draft.urlHint")}>
+        <TextFieldInput
+          label={t("feeds.draft.urlLabel")}
           value={feedUrl}
-          onChangeText={setFeedUrl}
+          onValueChange={setFeedUrl}
           placeholder={t("feeds.draft.urlPlaceholder")}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
         />
-        <Text className="text-xs text-muted-foreground">{t("feeds.draft.urlHint")}</Text>
-      </View>
+      </Field>
 
-      <View className="gap-1.5">
-        <Label>{t("feeds.draft.formatLabel")}</Label>
+      <Field label={t("feeds.draft.formatLabel")}>
         <SegmentedControl
           type="radio"
           size="sm"
-          label={t("feeds.draft.formatLabel")}
           value={format}
           onValueChange={setFormat}
         >
@@ -554,14 +548,15 @@ function DraftVersion({
             </SegmentedControlItem>
           ))}
         </SegmentedControl>
-      </View>
+      </Field>
 
-      <View className="gap-1.5">
-        <Label>{t("feeds.draft.deliveryLabel")}</Label>
+      <Field
+        label={t("feeds.draft.deliveryLabel")}
+        description={t("feeds.draft.deliveryHint")}
+      >
         <SegmentedControl
           type="radio"
           size="sm"
-          label={t("feeds.draft.deliveryLabel")}
           value={deliveryMode ?? ""}
           onValueChange={(next) => {
             if (next !== "") setDeliveryMode(next);
@@ -574,30 +569,31 @@ function DraftVersion({
             <SegmentedControlItemText>{t("feeds.draft.deliveryDelta")}</SegmentedControlItemText>
           </SegmentedControlItem>
         </SegmentedControl>
-        <Text className="text-xs text-muted-foreground">{t("feeds.draft.deliveryHint")}</Text>
-      </View>
+      </Field>
 
-      <View className="gap-2">
-        <Label>{t("feeds.draft.columnsLabel")}</Label>
-        {COMMON_ROLES.map((role) => (
-          <View key={role} className="gap-1">
-            <Text className="text-xs font-medium text-muted-foreground">
-              {role.replace(/_/g, " ")}
-              {role === "title" ? t("feeds.draft.requiredSuffix") : ""}
-            </Text>
-            <Input
-              value={columns[role] ?? ""}
-              onChangeText={(value) => setColumns((prev) => ({ ...prev, [role]: value }))}
-              placeholder={t("feeds.draft.columnPlaceholder")}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-        ))}
-      </View>
+      <Field label={t("feeds.draft.columnsLabel")} multiple>
+        <View className="gap-2">
+          {COMMON_ROLES.map((role) => (
+            <View key={role} className="gap-1">
+              <Text className="text-xs font-medium text-muted-foreground">
+                {role.replace(/_/g, " ")}
+                {role === "title" ? t("feeds.draft.requiredSuffix") : ""}
+              </Text>
+              <TextFieldInput
+                label={role.replace(/_/g, " ")}
+                value={columns[role] ?? ""}
+                onValueChange={(value) => setColumns((prev) => ({ ...prev, [role]: value }))}
+                placeholder={t("feeds.draft.columnPlaceholder")}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          ))}
+        </View>
+      </Field>
 
-      <Button onPress={submit} isLoading={draft.isPending}>
-        <Text className="font-semibold text-primary-foreground">{t("feeds.draft.save")}</Text>
+      <Button tone="accent" onPress={submit} loading={draft.isPending}>
+        {t("feeds.draft.save")}
       </Button>
     </View>
   );

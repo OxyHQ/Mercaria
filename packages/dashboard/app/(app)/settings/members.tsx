@@ -6,12 +6,13 @@ import { ChevronLeft, Plus, Trash2, ShieldCheck } from "lucide-react-native";
 import type { StoreMember, StoreRole } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
-  Input,
-  Label,
   useColorScheme,
   formatDate,
+  toBloomIcon,
 } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import {
   SegmentedControl,
@@ -72,13 +73,12 @@ function MembersBody({ storeId }: { storeId: string }) {
         <ChevronLeft size={16} color={colors.foreground} />
         <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
       </Pressable>
-      <Button onPress={() => inviteControl.open()}>
-        <View className="flex-row items-center gap-2">
-          <Plus size={16} color={colors.primaryForeground} />
-          <Text className="font-semibold text-primary-foreground">
-            {t("settings.members.invite")}
-          </Text>
-        </View>
+      <Button
+        tone="accent"
+        leadingIcon={toBloomIcon(Plus)}
+        onPress={() => inviteControl.open()}
+      >
+        {t("settings.members.invite")}
       </Button>
     </View>
   );
@@ -224,20 +224,18 @@ function InviteMemberDialog({
   return (
     <Dialog control={control} title={t("settings.members.inviteTitle")}>
       <View className="gap-4">
-        <View className="gap-1.5">
-          <Label>{t("settings.members.oxyUserIdLabel")}</Label>
-          <Input
+        <Field label={t("settings.members.oxyUserIdLabel")}>
+          <TextFieldInput
+            label={t("settings.members.oxyUserIdLabel")}
             value={oxyUserId}
-            onChangeText={setOxyUserId}
+            onValueChange={setOxyUserId}
             placeholder={t("settings.members.oxyUserIdPlaceholder")}
             autoCapitalize="none"
           />
-        </View>
-        <View className="gap-1.5">
-          <Label>{t("settings.members.roleLabel")}</Label>
+        </Field>
+        <Field label={t("settings.members.roleLabel")}>
           <SegmentedControl
             type="radio"
-            label={t("settings.members.roleLabel")}
             value={role}
             onValueChange={setRole}
           >
@@ -247,11 +245,9 @@ function InviteMemberDialog({
               </SegmentedControlItem>
             ))}
           </SegmentedControl>
-        </View>
-        <Button onPress={submit} isLoading={inviteMember.isPending} className="mt-1">
-          <Text className="font-semibold text-primary-foreground">
-            {t("settings.members.addMember")}
-          </Text>
+        </Field>
+        <Button tone="accent" onPress={submit} loading={inviteMember.isPending} className="mt-1">
+          {t("settings.members.addMember")}
         </Button>
       </View>
     </Dialog>
