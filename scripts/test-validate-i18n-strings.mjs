@@ -1388,7 +1388,7 @@ async function assertCheckFCatchesTheRealDefect() {
     for (const expected of [
       "channels.disconnect.policy.keepListings",
       "is BOTH an action control's label and a value interpolated into a sentence",
-      "ToggleGroupItem",
+      "SegmentedControlItem",
     ]) {
       if (!output.includes(expected)) {
         return `the guard failed but never mentioned ${JSON.stringify(expected)} — `

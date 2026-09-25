@@ -660,9 +660,9 @@ const ACTION_CONTROL_ELEMENTS = new Set([
   "Button",
   "DropdownMenuItem",
   "MenuItem",
+  "SegmentedControlItem",
   "SelectItem",
   "TabsTrigger",
-  "ToggleGroupItem",
 ]);
 
 /**
@@ -2313,11 +2313,11 @@ const ACTION_LABEL_MUST_FIND = [
   },
   {
     // #442's exact shape: a record of label keys, indexed, lowercased, and
-    // dropped into a frame — while the same record fills a toggle group.
+    // dropped into a frame — while the same record fills a segmented control.
     id: "indexed-map-lowercased",
     source: 'const M = { one: "a.b", two: "c.d" };\n'
       + 'const A = () => <><Text>{t("frame.x", { v: t(M[k]).toLowerCase() })}</Text>'
-      + "{items.map((o) => <ToggleGroupItem key={o}><Text>{t(M[o])}</Text></ToggleGroupItem>)}</>;",
+      + "{items.map((o) => <SegmentedControlItem key={o}><SegmentedControlItemText>{t(M[o])}</SegmentedControlItemText></SegmentedControlItem>)}</>;",
   },
 ];
 

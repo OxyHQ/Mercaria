@@ -72,6 +72,7 @@
       "confirmAction": "Desconectar",
       "confirmTitle": "¿Desconectar %{provider}?",
       "intro": "Elige qué hacer con los productos que ha importado este canal. Tu histórico de precios y todo lo que haya importado otro canal no se tocan nunca.",
+      "policyLabel": "Productos importados",
       "policy": {
         "archiveListings": "Archivar",
         "keepListings": "Conservar los productos",

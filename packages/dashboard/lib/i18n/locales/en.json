@@ -71,6 +71,7 @@
       "confirmAction": "Disconnect",
       "confirmTitle": "Disconnect %{provider}?",
       "intro": "Choose what happens to the products this channel imported. Your price history and anything another channel imported are never touched.",
+      "policyLabel": "Imported products",
       "policy": {
         "archiveListings": "Archive",
         "keepListings": "Keep products",
