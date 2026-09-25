@@ -20,7 +20,7 @@ const FADE_DURATION = 500;
 const LOGO_SIZE = 100;
 const SPINNER_SIZE = 28;
 
-// The splash renders during font loading via BloomThemeProvider's `onFontsLoading`,
+// The splash renders during font loading via BloomProvider's `onFontsLoading`,
 // i.e. BEFORE the theme context is available — so it must NOT depend on `useTheme()`
 // (which throws outside the provider). Instead it reads the SAME persisted theme key
 // that the provider writes (`BLOOM_THEME_PERSIST_KEY`) and derives a DARK gradient
@@ -32,7 +32,7 @@ const SPINNER_SIZE = 28;
 // unparseable JSON, unknown preset, storage unavailable). Both stops are dark.
 const FALLBACK_GRADIENT: readonly [string, string] = ['#1A1A1A', '#005c67'];
 
-// `defaultColorPreset` passed to BloomThemeProvider in app/_layout.tsx. Used when
+// `defaultColorPreset` passed to BloomProvider in app/_layout.tsx. Used when
 // nothing is persisted yet so the splash matches the provider's eventual default.
 const DEFAULT_PRESET: AppColorName = 'blue';
 
