@@ -294,7 +294,6 @@ export { Input } from "./components/ui/input";
 export { Textarea, type TextareaProps } from "./components/ui/textarea";
 export { Avatar, AvatarFallback, AvatarImage } from "./components/ui/avatar";
 export * as DropdownMenu from "./components/ui/dropdown-menu";
-export { Skeleton } from "./components/ui/skeleton";
 export { Icon } from "./components/ui/icon";
 export { Label } from "./components/ui/label";
 export { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";

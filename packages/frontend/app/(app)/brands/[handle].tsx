@@ -5,7 +5,8 @@ import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useOxy } from "@oxy.so/services";
 import type { CatalogStructuredData } from "@mercaria/shared-types";
-import { SectionHeader, Skeleton, Text } from "@mercaria/ui";
+import { SectionHeader, Text } from "@mercaria/ui";
+import * as Skeleton from "@oxy.so/bloom/skeleton";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { OfficialChannelSection } from "@/components/brand/OfficialChannelSection";
 import { CatalogProductGrid } from "@/components/brand/CatalogProductGrid";
@@ -65,9 +66,9 @@ export default function BrandPageScreen() {
     return (
       <ScreenShell>
         <View className="flex flex-col gap-4 p-4">
-          <Skeleton className="h-20 w-20 rounded-2xl" />
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-full" />
+          <Skeleton.Box width={80} height={80} borderRadius={16} />
+          <Skeleton.Box width={192} height={24} borderRadius={4} />
+          <Skeleton.Box width="100%" height={16} borderRadius={4} />
         </View>
       </ScreenShell>
     );

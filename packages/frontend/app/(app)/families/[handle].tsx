@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { View } from "react-native";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { SectionHeader, Skeleton, Text, useFormatters } from "@mercaria/ui";
+import { SectionHeader, Text, useFormatters } from "@mercaria/ui";
+import * as Skeleton from "@oxy.so/bloom/skeleton";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { CatalogProductGrid } from "@/components/brand/CatalogProductGrid";
 import { useTranslation } from "@/lib/i18n";
@@ -58,8 +59,8 @@ export default function ProductFamilyPageScreen() {
     return (
       <ScreenShell>
         <View className="flex flex-col gap-4 p-4">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-full" />
+          <Skeleton.Box width={192} height={24} borderRadius={4} />
+          <Skeleton.Box width="100%" height={16} borderRadius={4} />
         </View>
       </ScreenShell>
     );

@@ -22,13 +22,12 @@ import { ScreenShell } from "@/components/shell/ScreenShell";
 import { SellerFollowButton } from "@/components/seller/SellerFollowButton";
 import { ReportSellerDialog } from "@/components/seller/ReportSellerDialog";
 import { useTranslation } from "@/lib/i18n";
+import { ProductGridSkeleton } from "@/components/catalog/ProductGridSkeleton";
 import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 import { useSellerListings, useSellerProfile } from "@/lib/hooks/use-seller";
 
 /** Avatar edge length (px) in the profile header. */
 const AVATAR_SIZE = 88;
-/** Loading-grid placeholder count. */
-const SKELETON_TILE_COUNT = 8;
 
 /**
  * What this seller's headline rating is ABOUT (#76 UI rule 6, #92 acceptance 6).
@@ -76,25 +75,6 @@ function toProductSummary(listing: Listing, sellerName: string): ProductSummary 
     compareAtPrice: listing.compareAtPrice,
     saved: listing.saved,
   };
-}
-
-/** Loading placeholder grid matching the products grid rhythm. */
-function GridSkeleton() {
-  const { t } = useTranslation();
-
-  return (
-    <View className="flex-row flex-wrap" accessibilityLabel={t("sellers.listings.loadingLabel")}>
-      {Array.from({ length: SKELETON_TILE_COUNT }).map((_, i) => (
-        <View key={i} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
-          <View className="gap-2">
-            <View className="aspect-square w-full rounded-2xl bg-muted" />
-            <View className="h-3 w-1/2 rounded bg-muted" />
-            <View className="h-3 w-3/4 rounded bg-muted" />
-          </View>
-        </View>
-      ))}
-    </View>
-  );
 }
 
 /** One labelled marketplace figure. */
@@ -319,7 +299,7 @@ export default function SellerScreen() {
           <View className="h-24 w-24 rounded-full bg-muted" />
         </View>
         <View className="pt-6">
-          <GridSkeleton />
+          <ProductGridSkeleton accessibilityLabel={t("sellers.listings.loadingLabel")} />
         </View>
       </ScreenShell>
     );
@@ -353,7 +333,7 @@ export default function SellerScreen() {
           <View className="pt-8">
             <SectionHeader title={t("sellers.listings.title")} />
 
-            {listingsLoading && products.length === 0 ? <GridSkeleton /> : null}
+            {listingsLoading && products.length === 0 ? <ProductGridSkeleton accessibilityLabel={t("sellers.listings.loadingLabel")} /> : null}
 
             {!listingsLoading && products.length === 0 ? (
               <EmptyState description={t("sellers.listings.empty", { name: sellerName })} />

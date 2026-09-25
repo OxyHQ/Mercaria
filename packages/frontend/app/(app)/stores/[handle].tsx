@@ -29,6 +29,7 @@ import { useListings } from "@/lib/hooks/use-listings";
 import { useDebouncedCallback } from "@/lib/hooks/use-debounced-callback";
 import { useWindowScrollY } from "@/lib/hooks/use-window-scroll";
 import { useTranslation } from "@/lib/i18n";
+import { ProductGridSkeleton } from "@/components/catalog/ProductGridSkeleton";
 
 /** Hero height (px) — full-bleed brand cover with the centered wordmark. */
 const HERO_HEIGHT = 360;
@@ -54,8 +55,6 @@ const HERO_GRADIENT_LOCATIONS = [0.35, 1] as const;
 const PAGE_LIMIT = 24;
 /** Debounce (ms) before a search keystroke commits to the listings query. */
 const SEARCH_DEBOUNCE_MS = 300;
-/** Loading-grid placeholder count. */
-const SKELETON_TILE_COUNT = 8;
 
 type SortValue = "best" | "newest" | "price_asc" | "price_desc";
 
@@ -178,24 +177,6 @@ function ParallaxCover({ uri }: { uri: string }) {
         transform: [{ translateY }],
       }}
     />
-  );
-}
-
-/** Loading placeholder grid matching the products grid rhythm. */
-function GridSkeleton() {
-  const { t } = useTranslation();
-  return (
-    <View className="flex-row flex-wrap" accessibilityLabel={t("store.products.loadingLabel")}>
-      {Array.from({ length: SKELETON_TILE_COUNT }).map((_, i) => (
-        <View key={i} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
-          <View className="gap-2">
-            <View className="aspect-square w-full rounded-2xl bg-muted" />
-            <View className="h-3 w-1/2 rounded bg-muted" />
-            <View className="h-3 w-3/4 rounded bg-muted" />
-          </View>
-        </View>
-      ))}
-    </View>
   );
 }
 
@@ -544,7 +525,7 @@ function StoreBody({
         </View>
 
         {/* Products grid */}
-        {isLoading && !data ? <GridSkeleton /> : null}
+        {isLoading && !data ? <ProductGridSkeleton accessibilityLabel={t("store.products.loadingLabel")} /> : null}
 
         {isError && !data ? (
           <View className="items-center px-8 py-16">
@@ -628,7 +609,7 @@ export default function StoreScreen() {
         {head}
         <View className="w-full bg-muted" style={{ height: HERO_HEIGHT }} />
         <View className="pt-5">
-          <GridSkeleton />
+          <ProductGridSkeleton accessibilityLabel={t("store.products.loadingLabel")} />
         </View>
       </ScreenShell>
     );

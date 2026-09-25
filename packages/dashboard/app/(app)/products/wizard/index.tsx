@@ -8,7 +8,8 @@ import type {
   AuthoringCategoryOption,
   AuthoringProductTypeOption,
 } from "@mercaria/shared-types";
-import { Button, Input, Label, Skeleton, Text, useColorScheme } from "@mercaria/ui";
+import { Button, Input, Label, Text, useColorScheme } from "@mercaria/ui";
+import * as Skeleton from "@oxy.so/bloom/skeleton";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -82,8 +83,8 @@ function StartBody({ storeId }: { storeId: string }) {
     return (
       <Screen title={t("products.wizard.start.title")}>
         <View className="gap-3">
-          <Skeleton className="h-24 w-full rounded-2xl" />
-          <Skeleton className="h-24 w-full rounded-2xl" />
+          <Skeleton.Box width="100%" height={96} borderRadius={16} />
+          <Skeleton.Box width="100%" height={96} borderRadius={16} />
         </View>
       </Screen>
     );
@@ -242,7 +243,7 @@ function StartBody({ storeId }: { storeId: string }) {
             <Text className="text-sm font-semibold text-foreground">
               {t("products.wizard.start.typeTitle")}
             </Text>
-            {productTypes.isPending ? <Skeleton className="h-11 w-full rounded-xl" /> : null}
+            {productTypes.isPending ? <Skeleton.Box width="100%" height={44} borderRadius={12} /> : null}
             {productTypes.data !== undefined && productTypes.data.length === 0 ? (
               <Text className="text-sm text-muted-foreground">
                 {t("products.wizard.start.noProductTypes")}
