@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@oxy.so/bloom/button";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
 import { router as appRouter, useLocalSearchParams, useRouter } from "expo-router";
@@ -16,8 +18,6 @@ import type {
   Money,
 } from "@mercaria/shared-types";
 import {
-  Input,
-  Label,
   PriceDisplay,
   SectionHeader,
   Text,
@@ -758,18 +758,16 @@ function CheckoutBody() {
         )}
 
         {/* Discount code (optional) */}
-        <View className="gap-1.5">
-          <Label nativeID="checkout-discount">{t("checkout.discount.label")}</Label>
-          <Input
-            aria-labelledby="checkout-discount"
-            accessibilityLabel={t("checkout.discount.accessibilityLabel")}
+        <Field label={t("checkout.discount.label")}>
+          <TextFieldInput
+            label={t("checkout.discount.accessibilityLabel")}
             value={discountCode}
-            onChangeText={setDiscountCode}
+            onValueChange={setDiscountCode}
             placeholder={t("checkout.discount.placeholder")}
             autoCapitalize="characters"
             autoCorrect={false}
           />
-        </View>
+        </Field>
 
         <OrderSummaryCard groups={targetGroups} />
 

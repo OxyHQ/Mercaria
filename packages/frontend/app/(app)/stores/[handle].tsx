@@ -8,11 +8,11 @@ import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Check, ChevronDown, Search, SlidersHorizontal } from "lucide-react-native";
 import {
-  Input,
   ProductCard,
   ReviewStars,
   SectionHeader,
   Text,
+  toBloomFieldIcon,
   useFormatters,
   type ProductSummary,
 } from "@mercaria/ui";
@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@oxy.so/bloom/dropdown-menu";
 import { Switch } from "@oxy.so/bloom/switch";
+import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
 import type { Listing, StoreSummary } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { StoreFollowButton } from "@/components/store/StoreFollowButton";
@@ -478,18 +479,15 @@ function StoreBody({
 
         {/* Search input */}
         <View className="mb-3 px-4">
-          <View className="relative">
-            <View className="absolute start-3 top-0 bottom-0 z-10 justify-center">
-              <Search size={16} className="text-muted-foreground" />
-            </View>
-            <Input
+          <TextField radius={999}>
+            <TextFieldIcon icon={toBloomFieldIcon(Search)} />
+            <TextFieldInput
+              label={t("store.products.searchPlaceholder", { store: store.name })}
               value={searchInput}
-              onChangeText={onChangeSearch}
-              placeholder={t("store.products.searchPlaceholder", { store: store.name })}
-              className="h-11 rounded-full bg-muted ps-9"
+              onValueChange={onChangeSearch}
               returnKeyType="search"
             />
-          </View>
+          </TextField>
         </View>
 
         {/* Filter bar: Sort dropdown + In-stock toggle */}

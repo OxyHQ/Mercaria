@@ -8,7 +8,8 @@ import {
   type AbuseReportCategory,
 } from "@mercaria/shared-types";
 import { Dialog, type DialogControlProps } from "@oxy.so/bloom/dialog";
-import { Text, Textarea } from "@mercaria/ui";
+import { Text } from "@mercaria/ui";
+import { Textarea } from "@oxy.so/bloom/textarea";
 import { submitAbuseReport } from "@/lib/api/reports";
 import { useTranslation } from "@/lib/i18n";
 
@@ -155,10 +156,11 @@ export function ReportSellerDialog({
 
           <Textarea
             value={details}
-            onChangeText={setDetails}
+            onValueChange={setDetails}
             maxLength={MAX_DETAILS}
             placeholder={t("sellers.report.detailsPlaceholder")}
-            className="min-h-24"
+            rows={4}
+            autoResize
           />
         </View>
       ) : null}

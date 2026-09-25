@@ -1,7 +1,8 @@
 import { View, Platform, Pressable } from "react-native";
 import { Button } from "@oxy.so/bloom/button";
 import { KeyboardAwareScrollView } from "@/lib/keyboard";
-import { Text, Textarea } from "@mercaria/ui";
+import { Text } from "@mercaria/ui";
+import { Textarea } from "@oxy.so/bloom/textarea";
 import { useState } from "react";
 import { useOxy } from "@oxy.so/services";
 import { useRouter } from "expo-router";
@@ -190,10 +191,12 @@ export default function FeedbackScreen() {
               {t('feedback.yourFeedback')}
             </Text>
             <Textarea
+              accessibilityLabel={t('feedback.yourFeedback')}
               placeholder={selectedType ? placeholderMap[selectedType] : t('feedback.otherPlaceholder')}
               value={message}
-              onChangeText={setMessage}
-              className="min-h-[150px]"
+              onValueChange={setMessage}
+              rows={7}
+              autoResize
             />
             <Text className="text-xs text-muted-foreground">
               {t('feedback.characterCount', { count: message.length })}

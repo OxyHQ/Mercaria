@@ -25,9 +25,10 @@
 
 import { useState } from "react";
 import { Button } from "@oxy.so/bloom/button";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { View } from "react-native";
 import Head from "expo-router/head";
-import { Input, SectionHeader, Text } from "@mercaria/ui";
+import { SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { usePortalRecoveryRequest } from "@/lib/hooks/use-guest-portal";
 import { useTranslation } from "@/lib/i18n";
@@ -71,22 +72,22 @@ function RecoverBody() {
         {t("guestOrders.recover.body")}
       </Text>
 
-      <Input
+      <TextFieldInput
         value={email}
-        onChangeText={setEmail}
+        onValueChange={setEmail}
         placeholder={t("guestOrders.recover.emailPlaceholder")}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
-        accessibilityLabel={t("guestOrders.recover.emailLabel")}
+        label={t("guestOrders.recover.emailLabel")}
       />
-      <Input
+      <TextFieldInput
         value={orderNumber}
-        onChangeText={setOrderNumber}
+        onValueChange={setOrderNumber}
         placeholder={t("guestOrders.recover.orderNumberPlaceholder")}
         autoCapitalize="characters"
         autoCorrect={false}
-        accessibilityLabel={t("guestOrders.recover.orderNumberLabel")}
+        label={t("guestOrders.recover.orderNumberLabel")}
       />
 
       <Button tone="accent" onPress={submit} disabled={request.isPending || email.trim().length < 3}>

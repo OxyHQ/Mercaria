@@ -3,7 +3,8 @@ import { Button } from "@oxy.so/bloom/button";
 import { View } from "react-native";
 import { RatingInput } from "@oxy.so/bloom/rating";
 import type { ReviewEligibility, ReviewScope } from "@mercaria/shared-types";
-import { Text, Textarea } from "@mercaria/ui";
+import { Text } from "@mercaria/ui";
+import { Textarea } from "@oxy.so/bloom/textarea";
 import { useTranslation } from "@/lib/i18n";
 import { REVIEW_SCOPE_HEADING_KEYS, useCreateReview, useReviewEligibilities } from "@/lib/hooks/use-reviews";
 
@@ -171,8 +172,9 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
       <Textarea
         placeholder={t("reviews.notePlaceholder")}
         value={body}
-        onChangeText={setBody}
+        onValueChange={setBody}
         accessibilityLabel={t(NOTE_LABEL_KEYS[eligibility.scope])}
+        autoResize
       />
 
       {createReview.isError ? (
