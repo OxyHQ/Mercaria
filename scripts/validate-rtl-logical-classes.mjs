@@ -233,7 +233,7 @@ const RULES = [
  *
  * Matching on file + text is a PREDICATE, not an identity. Without a count, an
  * entry excuses EVERY occurrence of its shape in its file, so a second physical
- * utility rides in behind the reasoned one — silently, in exactly the four
+ * utility rides in behind the reasoned one — silently, in exactly the three
  * files most likely to grow one, because they are the ones that legitimately
  * have them. Reproduced against this guard before the count existed: adding an
  * unreasoned `border-l-4 border-l-red-500` to `notifications.tsx`, whose entry
@@ -257,22 +257,6 @@ const KNOWN_EXCEPTIONS = [
       + "border-s-2 emits borderInlineStartWidth and border-s-red-500 emits borderInlineStartColor, "
       + "neither of which RN 0.85.3 registers, so converting would remove the stripe entirely on "
       + "native — width and colour alike. Waiting on upstream support.",
-  },
-  {
-    file: "packages/ui/src/lib/logical-side.ts",
-    pattern: "border-",
-    count: 2,
-    reason:
-      "The divider on the inner face of a sliding surface (SheetContent; its sibling Panel has been "
-      + "deleted), in the one function that resolves a logical side to a physical one. TWO findings, ONE "
-      + "decision: the two arms of a single ternary on the resolved direction. #429 replaced the "
-      + "sliding components' physical "
-      + "side prop with a logical one, so the anchor is now insetInlineStart/insetInlineEnd and the "
-      + "corner is rounded-s-/rounded-e-, both of which mirror on their own. The divider cannot follow "
-      + "them: the logical spellings emit borderInline*, which RN 0.85.3 does not register, so it would "
-      + "vanish on native while looking right on web. Waiting on upstream support, like the storefront "
-      + "entries above — and it is ONE entry rather than three because centralising it is what let the "
-      + "panel.tsx and sheet.tsx entries be deleted.",
   },
   {
     file: "packages/dashboard/components/catalog-authoring/ReviewPanel.tsx",

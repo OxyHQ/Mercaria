@@ -6,8 +6,8 @@
  *
  * ## The hole this closes
  *
- * `validate-rtl-logical-classes.mjs` excuses ten physical directional
- * utilities, in four reasoned `KNOWN_EXCEPTIONS` entries with exact per-file
+ * `validate-rtl-logical-classes.mjs` excuses eight physical directional
+ * utilities, in three reasoned `KNOWN_EXCEPTIONS` entries with exact per-file
  * counts. Those counts are rigorous and fail in BOTH directions — but they are
  * counts over OUR OWN SOURCE TREE. That guard opens no file outside it, so it
  * measures our drift and cannot see upstream's.
@@ -19,8 +19,8 @@
  * gets noticed."
  *
  * **They would not.** If `react-native-css` added `start` to its allowed set
- * tomorrow, all four entries would keep matching their ten occurrences,
- * the gate would stay green, and ten classes would sit there indefinitely
+ * tomorrow, all three entries would keep matching their eight occurrences,
+ * the gate would stay green, and eight classes would sit there indefinitely
  * with an expired reason. An exception whose justification has quietly lapsed is
  * worse than no exception at all: the count still reconciles, so nothing looks
  * wrong, and the next reader inherits the rationale as settled fact.
@@ -281,7 +281,7 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`  ${failure}\n`);
   console.error(
     "  These premises are the REASON `KNOWN_EXCEPTIONS` in validate-rtl-logical-classes.mjs\n"
-    + "  excuses ten physical directional utilities. That guard reconciles their counts against\n"
+    + "  excuses eight physical directional utilities. That guard reconciles their counts against\n"
     + "  our own source tree and never opens node_modules, so without this check an upstream fix\n"
     + "  would leave every entry green with its justification expired.\n",
   );
@@ -291,7 +291,7 @@ if (failures.length > 0) {
 console.log(
   "RTL upstream-premise guard passed — "
   + `${notes.join("; ")}. `
-  + "Both premises behind KNOWN_EXCEPTIONS still hold, so the ten physical directional "
+  + "Both premises behind KNOWN_EXCEPTIONS still hold, so the eight physical directional "
   + "utilities remain correct. This reads what upstream SHIPS, never what a device RENDERS — "
   + "#429 item 2 is still open.",
 );

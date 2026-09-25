@@ -293,27 +293,21 @@ export { Text, TextClassContext, type TextProps } from "./components/ui/text";
 export { Input } from "./components/ui/input";
 export { Textarea, type TextareaProps } from "./components/ui/textarea";
 export { Avatar, AvatarFallback, AvatarImage } from "./components/ui/avatar";
-export {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "./components/ui/sheet";
 export * as DropdownMenu from "./components/ui/dropdown-menu";
 export { Skeleton } from "./components/ui/skeleton";
 export { Icon } from "./components/ui/icon";
 export { Label } from "./components/ui/label";
 export { Switch, type SwitchProps } from "./components/ui/switch";
 export { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
-// The `side` `SheetContent` takes. LOGICAL (`start` / `end`), so a sliding
-// surface mirrors with the rest of the layout; the physical `left` / `right`
-// spelling is gone rather than aliased (#429). Exported because it is in that
-// public prop signature — a screen holding a side in a variable has to be able
-// to name its type.
+// The `side` a sliding surface takes. LOGICAL (`start` / `end`), so it mirrors
+// with the rest of the layout; the physical `left` / `right` spelling is gone
+// rather than aliased (#429). Exported because it is in
+// `useLogicalDialogPlacement`'s public signature — a screen holding a side in a
+// variable has to be able to name its type.
 export type { LogicalSide } from "./lib/logical-side";
+// Bloom's `Dialog` side placement is PHYSICAL; this resolves a logical edge to
+// it from the direction the platform actually mirrored.
+export { useLogicalDialogPlacement } from "./lib/logical-dialog-placement";
 export { ColorPicker } from "./components/ui/color-picker";
 export { SourceBadge, type SourceBadgeProps } from "./components/ui/source-badge";
 // Connector provenance's other half (#420): which fields a merchant's own edits

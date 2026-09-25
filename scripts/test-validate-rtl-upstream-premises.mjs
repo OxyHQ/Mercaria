@@ -15,7 +15,7 @@
  * reason the guard exists: it is a tripwire for an upstream fix that has not
  * happened yet, so nothing in the real tree will ever exercise them. If they
  * stop firing, the guard becomes a permanent green that reports nothing, and
- * ten physical directional utilities keep an expired justification.
+ * eight physical directional utilities keep an expired justification.
  *
  * Fixtures are real directory trees pointed at by `RTL_PREMISES_MODULES_ROOT`,
  * so the guard's real walk, real extension filter and real parser all run
