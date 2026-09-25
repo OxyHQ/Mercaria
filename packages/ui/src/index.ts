@@ -293,7 +293,6 @@ export { Text, TextClassContext, type TextProps } from "./components/ui/text";
 export { Input } from "./components/ui/input";
 export { Textarea, type TextareaProps } from "./components/ui/textarea";
 export { Avatar, AvatarFallback, AvatarImage } from "./components/ui/avatar";
-export * as DropdownMenu from "./components/ui/dropdown-menu";
 export { Icon } from "./components/ui/icon";
 export { Label } from "./components/ui/label";
 // The `side` a sliding surface takes. LOGICAL (`start` / `end`), so it mirrors

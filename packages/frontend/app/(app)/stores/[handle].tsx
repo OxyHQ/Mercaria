@@ -6,9 +6,8 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronDown, Search, SlidersHorizontal } from "lucide-react-native";
+import { Check, ChevronDown, Search, SlidersHorizontal } from "lucide-react-native";
 import {
-  DropdownMenu,
   Input,
   ProductCard,
   ReviewStars,
@@ -17,6 +16,13 @@ import {
   useFormatters,
   type ProductSummary,
 } from "@mercaria/ui";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@oxy.so/bloom/dropdown-menu";
 import { Switch } from "@oxy.so/bloom/switch";
 import type { Listing, StoreSummary } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
@@ -488,8 +494,8 @@ function StoreBody({
 
         {/* Filter bar: Sort dropdown + In-stock toggle */}
         <View className="mb-4 flex-row flex-wrap items-center gap-3 px-4">
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild label={t("store.sort.label")}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t("store.sort.label")}
@@ -499,20 +505,27 @@ function StoreBody({
                 <Text className="text-sm font-medium text-foreground">{t(activeSortLabelKey)}</Text>
                 <ChevronDown size={16} className="text-muted-foreground" />
               </Pressable>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content>
-              {SORT_OPTIONS.map((option) => (
-                <DropdownMenu.CheckboxItem
-                  key={option.value}
-                  value={sort === option.value ? "on" : "off"}
-                  onValueChange={() => onSelectSort(option.value)}
-                >
-                  <DropdownMenu.ItemIndicator />
-                  <DropdownMenu.ItemTitle>{t(option.labelKey)}</DropdownMenu.ItemTitle>
-                </DropdownMenu.CheckboxItem>
-              ))}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent label={t("store.sort.label")}>
+              <DropdownMenuRadioGroup
+                value={sort}
+                onValueChange={(next) => {
+                  const option = SORT_OPTIONS.find((o) => o.value === next);
+                  if (option) onSelectSort(option.value);
+                }}
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <DropdownMenuRadioItem
+                    key={option.value}
+                    value={option.value}
+                    indicator={<Check size={16} className="text-foreground" />}
+                  >
+                    {t(option.labelKey)}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <View className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-muted px-4">
             <Text className="text-sm font-medium text-foreground">{t("store.filters.inStock")}</Text>
