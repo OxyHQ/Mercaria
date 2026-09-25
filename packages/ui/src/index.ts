@@ -296,15 +296,6 @@ export {
 export { Text, type TextProps } from "./components/ui/text";
 export { Avatar, AvatarFallback, AvatarImage } from "./components/ui/avatar";
 export { Icon } from "./components/ui/icon";
-// The `side` a sliding surface takes. LOGICAL (`start` / `end`), so it mirrors
-// with the rest of the layout; the physical `left` / `right` spelling is gone
-// rather than aliased (#429). Exported because it is in
-// `useLogicalDialogPlacement`'s public signature — a screen holding a side in a
-// variable has to be able to name its type.
-export type { LogicalSide } from "./lib/logical-side";
-// Bloom's `Dialog` side placement is PHYSICAL; this resolves a logical edge to
-// it from the direction the platform actually mirrored.
-export { useLogicalDialogPlacement } from "./lib/logical-dialog-placement";
 export { ColorPicker } from "./components/ui/color-picker";
 export { SourceBadge, type SourceBadgeProps } from "./components/ui/source-badge";
 // Connector provenance's other half (#420): which fields a merchant's own edits

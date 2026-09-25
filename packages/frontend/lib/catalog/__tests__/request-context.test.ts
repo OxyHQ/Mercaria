@@ -24,7 +24,7 @@
  * (`device?.regionCode` → `locale`). It was unassertable while the composition
  * lived inside a hook that needs `getLocales` and a React store, which is why
  * `resolveCatalogRequestContext` was extracted as a pure function — the
- * `logical-side.ts` and `isRtlLocale` split, applied here.
+ * `isRtlLocale` / `syncLayoutDirection` split, applied here.
  *
  * The parameter names carry half the property on their own:
  * `CatalogContextSources` names `locale` and `deviceRegion` as SEPARATE inputs,
