@@ -272,7 +272,12 @@ export {
   ScreenShell,
   type ScreenShellProps,
 } from "./components/shell/ScreenShell";
-export { toBloomIcon, LucideGlyph, type LucideGlyphProps } from "./lib/bloom-icon";
+export {
+  toBloomIcon,
+  toBloomFieldIcon,
+  LucideGlyph,
+  type LucideGlyphProps,
+} from "./lib/bloom-icon";
 
 // ---------------------------------------------------------------------------
 // Dual-currency display
