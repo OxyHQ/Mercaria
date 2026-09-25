@@ -259,8 +259,11 @@ native the panel is positioned with `insetInlineStart` / `insetInlineEnd`, which
 Yoga resolves against `I18nManager`. Mercaria's own resolver
 (`useLogicalDialogPlacement` over `lib/logical-side.ts`) and its guard
 `validate:logical-side` were deleted with that release — there is no
-direction arithmetic left on our side to assert. A Bloom side-sheet takes
-`start` / `end`, never the physical `left` / `right`.
+direction arithmetic left on our side to assert. A Bloom side-sheet on a
+reading-direction edge takes `start` / `end`. The storefront's store menu
+(`StoreMenuSheet`) is still `{ base: 'bottom', md: 'left' }` with a physical
+nav-rail offset in `containerStyle`; mirroring it means moving the rail offset
+and the inset to the logical edge too, and it is not done.
 
 The direction itself is READ, never re-derived from a locale: Bloom's `useIsRtl`
 (`@oxy.so/bloom/hooks`) returns what `syncLayoutDirection` already applied —
