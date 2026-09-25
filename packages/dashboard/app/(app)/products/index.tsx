@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from "react";
+import { RiBox3Line } from "@oxy.so/bloom/icons/RiBox3Line";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { View, Pressable } from "react-native";
 import { useRouter, type RoutePath } from "expo-router";
 import Head from "expo-router/head";
@@ -174,16 +176,13 @@ function ProductRow({ product, onPress }: { product: Listing; onPress: () => voi
 
 function EmptyProducts({ canWrite, onCreate }: { canWrite: boolean; onCreate: () => void }) {
   const { t } = useTranslation();
-  const { colors } = useColorScheme();
   return (
-    <View className="items-center justify-center rounded-2xl border border-dashed border-border py-16">
-      <Package size={36} color={colors.mutedForeground} />
-      <Text className="mt-4 text-base font-semibold text-foreground">{t("products.empty.title")}</Text>
-      {canWrite ? (
-        <Button className="mt-6" onPress={onCreate}>
-          <Text className="font-semibold text-primary-foreground">{t("products.empty.action")}</Text>
-        </Button>
-      ) : null}
+    <View className="rounded-2xl border border-dashed border-border">
+      <EmptyState
+        icon={RiBox3Line}
+        title={t("products.empty.title")}
+        action={canWrite ? { label: t("products.empty.action"), onPress: onCreate } : undefined}
+      />
     </View>
   );
 }

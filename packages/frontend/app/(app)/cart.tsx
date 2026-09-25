@@ -4,7 +4,8 @@ import { Image } from "expo-image";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
-import { ShoppingBag } from "lucide-react-native";
+import { RiShoppingBag3Line } from "@oxy.so/bloom/icons/RiShoppingBag3Line";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import {
   CartLineItem,
   CommercialDisclosure,
@@ -47,17 +48,6 @@ const ACCOUNT_BENEFIT_KEYS = [
 ];
 
 /** Empty state — never crashes, mirrors the home error/empty rhythm. */
-function CartEmptyState({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <View className="items-center px-8 py-24">
-      <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-muted">
-        <ShoppingBag size={28} className="text-muted-foreground" />
-      </View>
-      <Text className="text-center text-lg font-bold text-foreground">{title}</Text>
-      <Text className="mt-1 text-center text-sm text-muted-foreground">{subtitle}</Text>
-    </View>
-  );
-}
 
 /**
  * The signed-out invitation. It sits BELOW the cart and blocks nothing — the
@@ -357,15 +347,19 @@ function CartBody() {
           <View className="h-40 w-full rounded-3xl bg-muted" />
         </View>
       ) : isError && !cart ? (
-        <CartEmptyState
+        <EmptyState
+          icon={RiShoppingBag3Line}
+          media="circle"
           title={t("cart.error.title")}
-          subtitle={t("cart.error.subtitle")}
+          description={t("cart.error.subtitle")}
         />
       ) : groups.length === 0 ? (
         <>
-          <CartEmptyState
+          <EmptyState
+            icon={RiShoppingBag3Line}
+            media="circle"
             title={t("cart.empty.title")}
-            subtitle={t("cart.empty.subtitle")}
+            description={t("cart.empty.subtitle")}
           />
           {!isAuthenticated ? (
             <View className="px-4">

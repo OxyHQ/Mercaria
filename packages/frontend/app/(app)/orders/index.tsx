@@ -3,7 +3,9 @@ import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
 import { useOxy } from "@oxy.so/services";
-import { ChevronRight, Package } from "lucide-react-native";
+import { RiBox3Line } from "@oxy.so/bloom/icons/RiBox3Line";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
+import { ChevronRight } from "lucide-react-native";
 import type { OrderStatus, OrderSummary } from "@mercaria/shared-types";
 import {
   Button,
@@ -19,17 +21,6 @@ import { useOrders } from "@/lib/hooks/use-orders";
 import { ORDER_STATUS_LABEL_KEYS } from "@/lib/order-status";
 import { useTranslation } from "@/lib/i18n";
 
-function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <View className="items-center px-8 py-24">
-      <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-muted">
-        <Package size={28} className="text-muted-foreground" />
-      </View>
-      <Text className="text-center text-lg font-bold text-foreground">{title}</Text>
-      <Text className="mt-1 text-center text-sm text-muted-foreground">{subtitle}</Text>
-    </View>
-  );
-}
 
 function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void }) {
   const { t, locale } = useTranslation();
@@ -92,8 +83,10 @@ function OrdersBody() {
 
       {!isAuthenticated ? (
         <EmptyState
+          icon={RiBox3Line}
+          media="circle"
           title={t("orders.empty.title")}
-          subtitle={t("orders.empty.signedOutSubtitle")}
+          description={t("orders.empty.signedOutSubtitle")}
         />
       ) : isLoading && !data ? (
         <View className="gap-3 px-4 py-6">
@@ -102,7 +95,12 @@ function OrdersBody() {
           <View className="h-20 w-full rounded-2xl bg-muted" />
         </View>
       ) : orders.length === 0 ? (
-        <EmptyState title={t("orders.empty.title")} subtitle={t("orders.empty.subtitle")} />
+        <EmptyState
+          icon={RiBox3Line}
+          media="circle"
+          title={t("orders.empty.title")}
+          description={t("orders.empty.subtitle")}
+        />
       ) : (
         <View className="gap-3 px-4">
           {orders.map((order) => (

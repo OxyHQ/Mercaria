@@ -1,6 +1,8 @@
 import React, { useMemo } from "react";
 import { View, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
+import { RiShoppingCartLine } from "@oxy.so/bloom/icons/RiShoppingCartLine";
 import { ChevronRight, Minus, Plus, Tag, Trash2, User as UserIcon, X } from "lucide-react-native";
 import { Text, Input, PriceDisplay, useColorScheme } from "@mercaria/ui";
 import { useCustomers } from "@/lib/hooks/use-customers";
@@ -87,9 +89,13 @@ export function CartPanel({ storeId }: { storeId: string }) {
 
       {/* Line items. */}
       {isEmpty ? (
-        <View className="flex-1 items-center justify-center gap-1 px-6 py-12">
-          <Text className="text-base font-semibold text-foreground">{t("cart.emptyTitle")}</Text>
-          <Text className="text-center text-sm text-muted-foreground">{t("cart.emptyBody")}</Text>
+        <View className="flex-1 justify-center">
+          <EmptyState
+            icon={RiShoppingCartLine}
+            variant="compact"
+            title={t("cart.emptyTitle")}
+            description={t("cart.emptyBody")}
+          />
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerClassName="gap-2 p-3">

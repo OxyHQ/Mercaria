@@ -28,6 +28,8 @@
  * them is now shared.
  */
 
+import { RiPlugLine } from "@oxy.so/bloom/icons/RiPlugLine";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import React from "react";
 import { View, Pressable } from "react-native";
 import { useRouter } from "expo-router";
@@ -37,7 +39,6 @@ import {
   CheckCircle2,
   CircleAlert,
   FileSpreadsheet,
-  Plug,
   Store as StoreIcon,
 } from "lucide-react-native";
 import type {
@@ -261,14 +262,12 @@ function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
         {t("channels.yourChannels")}
       </Text>
       {external.length === 0 ? (
-        <View className="items-center justify-center rounded-2xl border border-dashed border-border py-12">
-          <Plug size={32} className="text-muted-foreground" />
-          <Text className="mt-4 text-base font-semibold text-foreground">
-            {t("channels.empty.title")}
-          </Text>
-          <Text className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
-            {t("channels.empty.body")}
-          </Text>
+        <View className="rounded-2xl border border-dashed border-border">
+          <EmptyState
+            icon={RiPlugLine}
+            title={t("channels.empty.title")}
+            description={t("channels.empty.body")}
+          />
         </View>
       ) : null}
       <View className="gap-2">

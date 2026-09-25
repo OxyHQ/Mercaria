@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
-import { Clock } from "lucide-react-native";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
+import { RiTimeLine } from "@oxy.so/bloom/icons/RiTimeLine";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import {
   SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY,
   ShoppingAgentCard,
@@ -24,7 +25,6 @@ import {
 } from "@/lib/hooks/use-shopping-agents";
 
 /** Icon size for the empty-state badge. */
-const EMPTY_ICON_SIZE = 28;
 
 /**
  * Saved shopping agents (#97) — what a shopper asked Mercaria to watch, and
@@ -125,7 +125,7 @@ export default function ShoppingAgentsScreen() {
               </Text>
             ) : null}
 
-            {!agents.isPending && !agents.isError && list.length === 0 ? <EmptyState /> : null}
+            {!agents.isPending && !agents.isError && list.length === 0 ? <EmptyAgentsPlaceholder /> : null}
 
             <View className="gap-space-12">
               {list.map((agent) => {
@@ -241,38 +241,27 @@ function FindingsTimeline({
   );
 }
 
-function EmptyState() {
+function EmptyAgentsPlaceholder() {
   const { t } = useTranslation();
   return (
-    <View className="items-center gap-space-8 py-space-24">
-      <View className="rounded-radius-max bg-bg-fill-secondary p-space-12">
-        <Clock size={EMPTY_ICON_SIZE} className="text-text-tertiary" />
-      </View>
-      <Text className="text-bodyTitleSmall text-text">{t("shoppingAgents.empty.title")}</Text>
-      <Text className="text-caption text-text-tertiary">{t("shoppingAgents.empty.body")}</Text>
-    </View>
+    <EmptyState
+      icon={RiTimeLine}
+      media="circle"
+      title={t("shoppingAgents.empty.title")}
+      description={t("shoppingAgents.empty.body")}
+    />
   );
 }
 
 function SignedOutInvitation() {
   const { t } = useTranslation();
   return (
-    <View className="items-center gap-space-8 py-space-24">
-      <View className="rounded-radius-max bg-bg-fill-secondary p-space-12">
-        <Clock size={EMPTY_ICON_SIZE} className="text-text-tertiary" />
-      </View>
-      <Text className="text-bodyTitleSmall text-text">{t("shoppingAgents.signedOut.title")}</Text>
-      <Text className="text-caption text-text-tertiary">
-        {t("shoppingAgents.signedOut.body")}
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t("login.signInButton")}
-        onPress={() => openAccountDialog()}
-        className="rounded-radius-max bg-bg-fill-secondary px-space-16 py-space-8"
-      >
-        <Text className="text-caption text-text">{t("login.signInButton")}</Text>
-      </Pressable>
-    </View>
+    <EmptyState
+      icon={RiTimeLine}
+      media="circle"
+      title={t("shoppingAgents.signedOut.title")}
+      description={t("shoppingAgents.signedOut.body")}
+      action={{ label: t("login.signInButton"), onPress: () => openAccountDialog() }}
+    />
   );
 }

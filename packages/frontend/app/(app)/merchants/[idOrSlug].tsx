@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { Pressable, View } from "react-native";
 import Head from "expo-router/head";
 import { Badge } from "@oxy.so/bloom/badge";
@@ -334,11 +335,7 @@ export default function MerchantScreen() {
         {catalogLoading && entries.length === 0 ? <GridSkeleton /> : null}
 
         {!catalogLoading && entries.length === 0 ? (
-          <View className="items-center px-8 py-16">
-            <Text className="text-center text-base text-muted-foreground">
-              {t(emptyReason ? EMPTY_COPY_KEYS[emptyReason] : EMPTY_COPY_KEYS.no_offers)}
-            </Text>
-          </View>
+          <EmptyState description={t(emptyReason ? EMPTY_COPY_KEYS[emptyReason] : EMPTY_COPY_KEYS.no_offers)} />
         ) : null}
 
         {entries.length > 0 ? (

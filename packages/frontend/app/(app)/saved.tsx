@@ -2,8 +2,9 @@ import { useMemo } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
-import { Heart } from "lucide-react-native";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
+import { RiHeartLine } from "@oxy.so/bloom/icons/RiHeartLine";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { SavedItemCard, Text } from "@mercaria/ui";
 import type { ProductSaveSplitResolution, SavedItem } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
@@ -16,7 +17,6 @@ import {
 import { useTranslation } from "@/lib/i18n";
 
 /** Icon size for the empty-state badge. */
-const EMPTY_ICON_SIZE = 28;
 
 /**
  * The saved list (#80) — canonical product saves and exact listing saves, in
@@ -108,9 +108,9 @@ export default function SavedScreen() {
             <ActivityIndicator />
           </View>
         ) : savedItems.isError ? (
-          <EmptyState title={t("saved.error.title")} subtitle={t("saved.error.subtitle")} />
+          <EmptyState icon={RiHeartLine} media="circle" title={t("saved.error.title")} description={t("saved.error.subtitle")} />
         ) : items.length === 0 ? (
-          <EmptyState title={t("saved.empty.title")} subtitle={t("saved.empty.subtitle")} />
+          <EmptyState icon={RiHeartLine} media="circle" title={t("saved.empty.title")} description={t("saved.empty.subtitle")} />
         ) : (
           <View className="gap-space-12">
             {items.map((item) => (
@@ -150,17 +150,6 @@ export default function SavedScreen() {
   );
 }
 
-function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <View className="items-center px-8 py-24">
-      <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-muted">
-        <Heart size={EMPTY_ICON_SIZE} className="text-muted-foreground" />
-      </View>
-      <Text className="text-center text-lg font-bold text-foreground">{title}</Text>
-      <Text className="mt-1 text-center text-sm text-muted-foreground">{subtitle}</Text>
-    </View>
-  );
-}
 
 function SignedOutInvitation() {
   const { t } = useTranslation();

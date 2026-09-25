@@ -1,4 +1,6 @@
 import React from "react";
+import { RiStore2Line } from "@oxy.so/bloom/icons/RiStore2Line";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { View, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import Head from "expo-router/head";
@@ -39,7 +41,6 @@ export default function StoreSetupScreen() {
 
 /** Step A — pick the store to ring up against. */
 function StoreStep() {
-  const { colors } = useColorScheme();
   const { t } = useTranslation();
   const { data: stores, isPending, isError } = useMyStores();
   const { setActiveStoreId } = useActiveStore();
@@ -82,14 +83,12 @@ function StoreStep() {
           ))}
         </View>
       ) : (
-        <View className="items-center justify-center rounded-2xl border border-dashed border-border py-16">
-          <StoreIcon size={36} color={colors.mutedForeground} />
-          <Text className="mt-4 text-base font-semibold text-foreground">
-            {t("storeSetup.noStoresTitle")}
-          </Text>
-          <Text className="mt-1 max-w-xs text-center text-sm text-muted-foreground">
-            {t("storeSetup.noStoresBody")}
-          </Text>
+        <View className="rounded-2xl border border-dashed border-border">
+          <EmptyState
+            icon={RiStore2Line}
+            title={t("storeSetup.noStoresTitle")}
+            description={t("storeSetup.noStoresBody")}
+          />
         </View>
       )}
     </Screen>

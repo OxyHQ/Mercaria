@@ -19,6 +19,7 @@
  *    file, so the index is what they need.
  */
 
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import React, { useMemo, useState } from "react";
 import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -319,13 +320,12 @@ function Versions({
 
   if (versions.length === 0) {
     return (
-      <View className="items-center justify-center rounded-2xl border border-dashed border-border py-10">
-        <Text className="text-sm font-semibold text-foreground">
-          {t("feeds.versions.empty")}
-        </Text>
-        <Text className="mt-1 max-w-sm text-center text-xs text-muted-foreground">
-          {t("feeds.versions.emptyBody")}
-        </Text>
+      <View className="rounded-2xl border border-dashed border-border">
+        <EmptyState
+          variant="compact"
+          title={t("feeds.versions.empty")}
+          description={t("feeds.versions.emptyBody")}
+        />
       </View>
     );
   }

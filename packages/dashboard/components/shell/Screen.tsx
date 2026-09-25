@@ -1,5 +1,6 @@
 import React from "react";
 import { View, ActivityIndicator } from "react-native";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { ScreenShell, Text, cn, useColorScheme } from "@mercaria/ui";
 
 interface ScreenProps {
@@ -53,14 +54,10 @@ export function ScreenLoading() {
   );
 }
 
-/** Centered empty/error state for a screen body. */
+/**
+ * Centered empty/error state for a screen body — Bloom's `EmptyState` at the
+ * screen rung, text only (the callers' copy is a title and one line).
+ */
 export function ScreenMessage({ title, body }: { title: string; body?: string }) {
-  return (
-    <View className="items-center justify-center py-20">
-      <Text className="text-base font-semibold text-foreground">{title}</Text>
-      {body ? (
-        <Text className="mt-1 max-w-md text-center text-sm text-muted-foreground">{body}</Text>
-      ) : null}
-    </View>
-  );
+  return <EmptyState title={title} description={body} />;
 }

@@ -4,6 +4,8 @@ import { useRouter } from "expo-router";
 import { ArrowLeft, Bell, BellOff, CheckCheck, Zap, Clock, Eye, AlertTriangle, MessageSquare, X } from "lucide-react-native";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@oxy.so/services";
+import { RiNotification3Line } from "@oxy.so/bloom/icons/RiNotification3Line";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import * as ExpoNotifications from "expo-notifications";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
@@ -194,15 +196,11 @@ export default function NotificationsScreen() {
           <Text className="text-sm text-muted-foreground">{t('common.loading')}</Text>
         </View>
       ) : notifications.length === 0 ? (
-        <View className="items-center justify-center py-16 px-6">
-          <Bell size={32} className="text-muted-foreground mb-3" />
-          <Text className="text-base font-medium text-foreground mb-1">
-            {t('notifications.empty.title')}
-          </Text>
-          <Text className="text-sm text-muted-foreground text-center">
-            {t('notifications.empty.body')}
-          </Text>
-        </View>
+        <EmptyState
+          icon={RiNotification3Line}
+          title={t('notifications.empty.title')}
+          description={t('notifications.empty.body')}
+        />
       ) : (
         <View className="py-2">
           {notifications.map((notification) => {
