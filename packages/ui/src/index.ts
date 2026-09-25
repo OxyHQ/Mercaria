@@ -333,7 +333,6 @@ export {
 // Marketplace presentational components
 // ---------------------------------------------------------------------------
 export { ProductCard, type ProductCardProps } from "./components/marketplace/ProductCard";
-export { Carousel, type CarouselProps } from "./components/marketplace/Carousel";
 export { ReviewStars, type ReviewStarsProps } from "./components/marketplace/ReviewStars";
 export {
   ProductCarousel,

@@ -814,10 +814,14 @@
     },
     "carousel": {
       "previous": "আগের আইটেমে যান",
-      "next": "পরের আইটেমে যান"
+      "next": "পরের আইটেমে যান",
+      "goTo": "আইটেম %{position}-এ যান",
+      "products": "পণ্য",
+      "stores": "দোকান"
     },
     "cart": {
-      "saveForLater": "পরে কেনার জন্য রাখুন"
+      "saveForLater": "পরে কেনার জন্য রাখুন",
+      "shelfTitle": "আপনার কার্টে"
     },
     "merchantCart": {
       "checkout": "পেমেন্টে এগিয়ে যান",

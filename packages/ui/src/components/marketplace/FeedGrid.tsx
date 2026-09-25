@@ -33,8 +33,8 @@ export interface FeedGridProps<T> {
  * matching negative margin, so the row's outer edge lines up with the page
  * gutter instead of sitting one slot-padding further in.
  *
- * Mirrors `Carousel`'s two defences for the same reasons that component states
- * them: `items` can arrive `undefined` from a partial/in-transition feed
+ * Mirrors the card shelves' two defences (`uniqueByKey` in
+ * `lib/shelf-carousel.ts`) for the same reasons that helper states them: `items` can arrive `undefined` from a partial/in-transition feed
  * payload, and a backend can return the same listing twice across overlapping
  * feed sections, which would otherwise crash React's duplicate-key check.
  */

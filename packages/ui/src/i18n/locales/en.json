@@ -814,10 +814,14 @@
     },
     "carousel": {
       "previous": "Go to the previous item",
-      "next": "Go to the next item"
+      "next": "Go to the next item",
+      "goTo": "Go to item %{position}",
+      "products": "Products",
+      "stores": "Stores"
     },
     "cart": {
-      "saveForLater": "Save for later"
+      "saveForLater": "Save for later",
+      "shelfTitle": "In your cart"
     },
     "merchantCart": {
       "checkout": "Continue to checkout",

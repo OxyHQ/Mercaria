@@ -821,10 +821,14 @@
     },
     "carousel": {
       "previous": "Ves a l'element anterior",
-      "next": "Ves a l'element següent"
+      "next": "Ves a l'element següent",
+      "goTo": "Ves a l'element %{position}",
+      "products": "Productes",
+      "stores": "Botigues"
     },
     "cart": {
-      "saveForLater": "Desa per a més tard"
+      "saveForLater": "Desa per a més tard",
+      "shelfTitle": "Al teu cistell"
     },
     "merchantCart": {
       "checkout": "Continua amb el pagament",

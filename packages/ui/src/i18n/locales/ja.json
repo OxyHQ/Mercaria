@@ -814,10 +814,14 @@
     },
     "carousel": {
       "previous": "前の項目へ",
-      "next": "次の項目へ"
+      "next": "次の項目へ",
+      "goTo": "項目 %{position} へ",
+      "products": "商品",
+      "stores": "ショップ"
     },
     "cart": {
-      "saveForLater": "あとで購入する"
+      "saveForLater": "あとで購入する",
+      "shelfTitle": "カートの中身"
     },
     "merchantCart": {
       "checkout": "支払いに進む",

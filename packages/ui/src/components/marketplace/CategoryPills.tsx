@@ -18,7 +18,7 @@ export interface CategoryPillsProps {
  * A single horizontal, scrollable row of category "chip" pills (a small round
  * image + the category name, in a rounded-full bordered chip), shown at the very
  * top of the home feed. Chips size to their content, so a plain horizontal
- * `ScrollView` is used rather than the fixed-width `Carousel`. Fully theme/token
+ * `ScrollView` is used rather than Bloom's snapping `Carousel`. Fully theme/token
  * based. Returns `null` when there are no pills or they are unavailable, so the
  * row leaves no gap behind — safe to render always.
  */

@@ -828,10 +828,14 @@
     },
     "carousel": {
       "previous": "К предыдущему элементу",
-      "next": "К следующему элементу"
+      "next": "К следующему элементу",
+      "goTo": "К элементу %{position}",
+      "products": "Товары",
+      "stores": "Магазины"
     },
     "cart": {
-      "saveForLater": "Сохранить на потом"
+      "saveForLater": "Сохранить на потом",
+      "shelfTitle": "В вашей корзине"
     },
     "merchantCart": {
       "checkout": "Перейти к оформлению",

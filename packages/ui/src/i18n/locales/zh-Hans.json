@@ -814,10 +814,14 @@
     },
     "carousel": {
       "previous": "转到上一项",
-      "next": "转到下一项"
+      "next": "转到下一项",
+      "goTo": "转到第 %{position} 项",
+      "products": "商品",
+      "stores": "店铺"
     },
     "cart": {
-      "saveForLater": "稍后再买"
+      "saveForLater": "稍后再买",
+      "shelfTitle": "购物车中"
     },
     "merchantCart": {
       "checkout": "继续结算",
