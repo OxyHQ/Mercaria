@@ -819,9 +819,6 @@
     "cart": {
       "saveForLater": "পরে কেনার জন্য রাখুন"
     },
-    "category": {
-      "browse": "%{category} দেখুন"
-    },
     "merchantCart": {
       "checkout": "পেমেন্টে এগিয়ে যান",
       "subtotal": "উপমোট:"

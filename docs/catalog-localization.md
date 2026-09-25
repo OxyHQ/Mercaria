@@ -115,9 +115,8 @@ than a gap.** `navigation_node_localizations` carries one legitimately because
 `navigation_nodes` has no label column at all — the label IS the localization
 row — so its accessible name has no catalogue string a client could compose
 from. Every entity in this family has one, and the clients already compose
-correctly: `@mercaria/ui`'s `CategoryCard` renders
-`t(CATEGORY_BROWSE_KEY, { category: category.name })` and `ConditionBadge`
-renders `t(CONDITION_A11Y_LABEL_KEY, { label })` — a translated template from
+correctly: `@mercaria/ui`'s `ConditionBadge` renders
+`t(CONDITION_A11Y_LABEL_KEY, { label })` — a translated template from
 the app's own bundle with the already-localized catalogue string interpolated. A
 column here would be a second representation of that string in the same row,
 drifting from it silently while rendering perfectly, audible only to a

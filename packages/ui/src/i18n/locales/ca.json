@@ -826,9 +826,6 @@
     "cart": {
       "saveForLater": "Desa per a més tard"
     },
-    "category": {
-      "browse": "Explora %{category}"
-    },
     "merchantCart": {
       "checkout": "Continua amb el pagament",
       "subtotal": "Subtotal:"

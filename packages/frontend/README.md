@@ -8,7 +8,7 @@ placeholder.
 
 ## What's here
 
-- Provider tree: `OxyProvider` + `BloomThemeProvider` + `ImageResolverProvider` (`app/_layout.tsx`)
+- Provider tree: `OxyProvider` + `BloomProvider` + `ImageResolverProvider` (`app/_layout.tsx`)
 - Oxy SSO callback bootstrap (`app/+html.tsx`)
 - API client with bearer-token injection (`lib/api/client.ts`)
 - TanStack Query + Zustand stores

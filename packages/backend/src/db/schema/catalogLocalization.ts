@@ -812,8 +812,7 @@ function listingLocalizationSearchVector(): SQL {
  * accessible name has no catalogue string a client could compose from. Every
  * entity in THIS family has one. A client builds an accessible name by
  * interpolating it into a translated template from its own bundle —
- * `t(CATEGORY_BROWSE_KEY, { category: category.name })` in
- * `@mercaria/ui`'s `CategoryCard`, `t(CONDITION_A11Y_LABEL_KEY, { label })` in
+ * `t(CONDITION_A11Y_LABEL_KEY, { label })` in `@mercaria/ui`'s
  * `ConditionBadge` — so a column here would be a SECOND representation of the
  * title sitting in the same row as the first, drifting from it silently while
  * rendering perfectly. `catalog-localization.test.ts` censuses the family for

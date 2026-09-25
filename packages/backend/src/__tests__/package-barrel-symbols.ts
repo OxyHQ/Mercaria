@@ -198,7 +198,7 @@ function clauseEntries(clause: string): string[] {
 /**
  * The names an EXPORT clause publishes — `export { A as B }` publishes `B`.
  */
-function exportedNames(clause: string): string[] {
+export function exportedNames(clause: string): string[] {
   return clauseEntries(clause)
     .map((entry) => {
       const renamed = /\bas\s+([A-Za-z_$][\w$]*)$/.exec(entry);

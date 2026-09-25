@@ -833,9 +833,6 @@
     "cart": {
       "saveForLater": "Сохранить на потом"
     },
-    "category": {
-      "browse": "Смотреть раздел «%{category}»"
-    },
     "merchantCart": {
       "checkout": "Перейти к оформлению",
       "subtotal": "Промежуточный итог:"

@@ -819,9 +819,6 @@
     "cart": {
       "saveForLater": "稍后再买"
     },
-    "category": {
-      "browse": "浏览 %{category}"
-    },
     "merchantCart": {
       "checkout": "继续结算",
       "subtotal": "小计："

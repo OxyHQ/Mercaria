@@ -259,7 +259,7 @@ function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () =>
             </Text>
           </View>
         </View>
-        <StoreFollowButton store={store} size="small" />
+        <StoreFollowButton store={store} size="sm" />
       </View>
     </View>
   );

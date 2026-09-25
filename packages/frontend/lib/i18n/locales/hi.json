@@ -4,9 +4,7 @@
     "cancel": "रद्द करें",
     "confirm": "पुष्टि करें",
     "back": "वापस",
-    "user": "उपयोगकर्ता",
-    "tryAgain": "फिर से कोशिश करें",
-    "processing": "प्रोसेस हो रहा है..."
+    "tryAgain": "फिर से कोशिश करें"
   },
   "home": {
     "title": "Mercaria",
@@ -15,7 +13,6 @@
   },
   "nav": {
     "home": "होम",
-    "settings": "सेटिंग्स",
     "explore": "एक्सप्लोर करें",
     "cart": "कार्ट",
     "deals": "डील",
@@ -26,11 +23,9 @@
     "mainNavigation": "मुख्य नेविगेशन"
   },
   "login": {
-    "signInButton": "साइन इन करें",
-    "footerLink": "साइन अप करें"
+    "signInButton": "साइन इन करें"
   },
   "settings": {
-    "title": "सेटिंग्स",
     "account": {
       "title": "खाता सेटिंग्स"
     },
@@ -53,7 +48,6 @@
       "general": "सामान्य",
       "orders": "ऑर्डर",
       "addresses": "पते",
-      "feedback": "फ़ीडबैक",
       "watchlists": "वॉचलिस्ट",
       "shoppingAgents": "शॉपिंग एजेंट",
       "referralPartner": "रेफ़रल पार्टनर"
@@ -64,12 +58,6 @@
       "signedOut": "अपनी पसंदीदा प्रदर्शन मुद्रा सहेजने के लिए साइन इन करें।",
       "updateFailed": "आपकी प्रदर्शन मुद्रा अपडेट नहीं की जा सकी"
     }
-  },
-  "sidebar": {
-    "account": "खाता",
-    "settings": "सेटिंग्स",
-    "logOut": "लॉग आउट",
-    "privacyPolicy": "गोपनीयता नीति"
   },
   "feedback": {
     "title": "फ़ीडबैक भेजें",
@@ -1299,10 +1287,6 @@
     "wordmark": "Mercaria"
   },
   "sell": {
-    "sellYours": {
-      "thisOne": "ऐसा ही बेचें",
-      "yours": "अपना बेचें"
-    },
     "fact": {
       "fromProduct": "प्रोडक्ट से — यह आपकी चीज़ के बारे में नहीं है",
       "yourAnswer": "आपका जवाब",
@@ -1425,8 +1409,7 @@
   "shell": {
     "sidebar": {
       "expand": "साइडबार खोलें",
-      "collapse": "साइडबार बंद करें",
-      "accountMenu": "खाता मेन्यू"
+      "collapse": "साइडबार बंद करें"
     },
     "footer": {
       "brand": "Mercaria",

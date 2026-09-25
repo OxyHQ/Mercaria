@@ -76,9 +76,9 @@ export const ROUTE_DISPOSITIONS: Readonly<
       kind: 'awaiting_product_decision',
       question:
         'Where does selling enter the storefront? The #91 draft flow shipped whole and its ' +
-        'entry point is unowned: components/sell/SellYoursButton.tsx exists and is imported by ' +
-        'NOTHING, and #71 records the product-page "Sell yours" control as deliberately absent ' +
-        'pending #41. The top-level entries (scan, search, "something unique") need no product ' +
+        'entry point is unowned: nothing in the storefront links to /sell (the unplaced ' +
+        'SellYoursButton component was deleted as dead code), and #71 records the ' +
+        'product-page "Sell yours" control as deliberately absent pending #41. The top-level entries (scan, search, "something unique") need no product ' +
         'and belong to nobody. A "Sell" nav item changes the primary navigation model for every ' +
         'user, which is a product call rather than a wiring fix.',
       recordedIn: '#366 (this gate); the flow itself is #91, the product-page control #41',

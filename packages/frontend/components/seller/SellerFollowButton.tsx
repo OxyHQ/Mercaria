@@ -2,6 +2,7 @@ import { Button } from "@oxy.so/bloom/button";
 import { FollowTargetButton, openAccountDialog, useOxy } from "@oxy.so/services";
 import { useTranslation } from "@/lib/i18n";
 import { useSellerFollowTarget } from "@/lib/hooks/use-seller-follow";
+import { FOLLOW_TARGET_BUTTON_SIZE, type FollowButtonSize } from "@/lib/follow-graph";
 
 /**
  * Follow a P2P SELLER — a person — backed by Oxy's user-owned follow graph
@@ -41,11 +42,11 @@ import { useSellerFollowTarget } from "@/lib/hooks/use-seller-follow";
 export function SellerFollowButton({
   oxyUserId,
   displayName,
-  size = "medium",
+  size = "md",
 }: {
   oxyUserId: string;
   displayName: string;
-  size?: "small" | "medium" | "large";
+  size?: FollowButtonSize;
 }) {
   const { t } = useTranslation();
   const { canUsePrivateApi } = useOxy();
@@ -58,7 +59,7 @@ export function SellerFollowButton({
         verb="follow"
         applicationName="Mercaria"
         durations={false}
-        size={size}
+        size={FOLLOW_TARGET_BUTTON_SIZE[size]}
       />
     );
   }
@@ -72,7 +73,8 @@ export function SellerFollowButton({
   // is the one that gets them one.
   return (
     <Button
-      variant="primary"
+      appearance="solid"
+      tone="accent"
       size={size}
       onPress={() => openAccountDialog()}
       accessibilityLabel={t("sellers.follow.actionLabel", { name: displayName })}

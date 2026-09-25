@@ -7,8 +7,9 @@
  * ## What can actually go wrong here
  *
  * Almost all of RTL is class names, and `validate-rtl-logical-classes.mjs`
- * gates those. `Panel` and `SheetContent` are the residual that guard could not
- * touch, and the reason is that two of their facts have no logical spelling:
+ * gates those. `SheetContent` is the residual that guard could not touch (its
+ * sibling `Panel` was deleted as unused), and the reason is that two of its
+ * facts have no logical spelling:
  *
  *   * `translateX` is PHYSICAL on both platforms — a CSS transform is never
  *     mirrored by `dir`, and RN applies transforms after Yoga's layout pass — so
@@ -38,8 +39,8 @@
  * collect from `lib` only under `environment: 'node'` with no renderer (#469,
  * recorded in each `vitest.config.ts`): importing `react-native` dies at its
  * `index.js:27` with `RollupError: Parse failure: Expected 'from', got
- * 'typeOf'`, measured in all three separately. `Panel` and `SheetContent` — the
- * two call sites below — are components, so they are not assertable in any app
+ * 'typeOf'`, measured in all three separately. `SheetContent` — the call site
+ * below — is a component, so they are not assertable in any app
  * suite today. The usable form is that config's own rule: extract the
  * derivation into `lib/` and assert it by running it, which is exactly what
  * `logical-side.ts` is and why this guard can import and RUN it rather than
@@ -49,7 +50,7 @@
  * import the REAL module and run it, rather than scan the source for a spelling.
  *
  * `packages/ui/src/lib/logical-side.ts` is importable here precisely because it
- * imports nothing itself. Its sibling `use-layout-direction.ts` needs
+ * imports nothing itself. The direction READ (Bloom's `useIsRtl`) needs
  * `I18nManager` and cannot run outside a bundler — which is why READING the
  * direction was split from DECIDING what follows from it, the same split
  * `rtl-locales.ts` and `layout-direction.ts` already have.
@@ -270,8 +271,8 @@ for (const side of SIDES) {
 
 /**
  * A mechanism can be correct and INERT. Everything above would pass unchanged
- * against a `Panel` that had quietly gone back to a hardcoded sign, so the two
- * consumers are checked for the calls themselves.
+ * against a component that had quietly gone back to a hardcoded sign, so each
+ * consumer is checked for the calls themselves.
  *
  * Read as bytes rather than imported: these are `.tsx` files that pull in
  * `react-native`, which cannot be imported outside a bundler — the same
@@ -350,11 +351,11 @@ const CONSUMERS = scanned
   .sort();
 
 /**
- * Non-zero, and specifically at least the two components #429 shipped. A floor
- * of 1 would let one of them drop out unnoticed; the guard exists because BOTH
- * a panel and a sheet compute a sign that nothing else can check.
+ * Non-zero. #429 shipped two consumers, a panel and a sheet; `Panel` has since
+ * been deleted as unused, so the floor is the one left. A consumer that stops
+ * importing the module still fails below, through its REQUIRED_CALLS entry.
  */
-const MINIMUM_CONSUMERS = 2;
+const MINIMUM_CONSUMERS = 1;
 if (CONSUMERS.length < MINIMUM_CONSUMERS) {
   failures.push(
     `${CONSUMERS.length} module(s) import logical-side.ts, below the ${MINIMUM_CONSUMERS} floor `
@@ -398,7 +399,6 @@ const EXPORTED_FUNCTIONS = Object.entries(logicalSideModule)
  * may compute a sign itself.
  */
 const REQUIRED_CALLS = new Map([
-  ["packages/ui/src/components/ui/panel.tsx", ["offscreenTranslateX", "innerEdgeBorderClassName"]],
   [
     "packages/ui/src/components/ui/sheet.tsx",
     ["offscreenTranslateX", "innerEdgeBorderClassName", "resolvePhysicalSide"],

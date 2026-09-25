@@ -819,9 +819,6 @@
     "cart": {
       "saveForLater": "Für später speichern"
     },
-    "category": {
-      "browse": "%{category} durchsuchen"
-    },
     "merchantCart": {
       "checkout": "Weiter zur Kasse",
       "subtotal": "Zwischensumme:"

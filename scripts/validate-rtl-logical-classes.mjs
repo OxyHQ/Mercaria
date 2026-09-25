@@ -259,37 +259,20 @@ const KNOWN_EXCEPTIONS = [
       + "native — width and colour alike. Waiting on upstream support.",
   },
   {
-    file: "packages/frontend/components/sidebar.tsx",
-    pattern: "border-r",
-    count: 2,
-    reason:
-      "Sidebar divider, once in each of the component's two return branches — collapsed (desktop rail) "
-      + "and expanded. One divider, two renderings. Same borderInline* limitation as above.",
-  },
-  {
     file: "packages/ui/src/lib/logical-side.ts",
     pattern: "border-",
     count: 2,
     reason:
-      "The divider on the inner face of a sliding surface, for BOTH Panel and Sheet, in the one function "
-      + "that resolves a logical side to a physical one. TWO findings, ONE decision: the two arms of a "
-      + "single ternary on the resolved direction. #429 replaced those components' physical "
+      "The divider on the inner face of a sliding surface (SheetContent; its sibling Panel has been "
+      + "deleted), in the one function that resolves a logical side to a physical one. TWO findings, ONE "
+      + "decision: the two arms of a single ternary on the resolved direction. #429 replaced the "
+      + "sliding components' physical "
       + "side prop with a logical one, so the anchor is now insetInlineStart/insetInlineEnd and the "
       + "corner is rounded-s-/rounded-e-, both of which mirror on their own. The divider cannot follow "
       + "them: the logical spellings emit borderInline*, which RN 0.85.3 does not register, so it would "
       + "vanish on native while looking right on web. Waiting on upstream support, like the storefront "
       + "entries above — and it is ONE entry rather than three because centralising it is what let the "
       + "panel.tsx and sheet.tsx entries be deleted.",
-  },
-  {
-    file: "packages/ui/src/components/ui/scroll-area.tsx",
-    pattern: "border-l",
-    count: 2,
-    reason:
-      "Radix scrollbar gutter, web-only component: the `border-l` width and the `border-l-transparent` "
-      + "colour that makes it a gutter rather than a visible rule, both on the vertical-orientation line. "
-      + "Same borderInline* limitation, and the scrollbar side is decided by the browser from the "
-      + "document direction.",
   },
   {
     file: "packages/dashboard/components/catalog-authoring/ReviewPanel.tsx",

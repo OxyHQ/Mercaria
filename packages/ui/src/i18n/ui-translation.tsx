@@ -55,7 +55,7 @@ const fallbackTranslate: Translate = (key, options) => fallbackI18n.t(key, optio
  * They travel together, in one context, on purpose. The formatters need a
  * locale and there were three places to get one from — a second context, a
  * module-level slot written at boot, or re-deriving it from the platform the
- * way `useIsRtlLayout` reads back `I18nManager.isRTL`. Each is a SECOND answer
+ * way Bloom's `useIsRtl` reads back `I18nManager.isRTL`. Each is a SECOND answer
  * to "what language is this app in", and two answers to that can disagree; the
  * place that must not happen is a price, where the disagreement renders as a
  * decimal separator that does not match the sentence around it. Carrying the

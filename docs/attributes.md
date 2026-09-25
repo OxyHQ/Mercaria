@@ -342,7 +342,7 @@ Measured from the screen's own imports outward to the endpoint each hook calls.
 | surface | frontend entry | backend rails | definition-bearing rail |
 | --- | --- | --- | --- |
 | category pages | `app/(app)/categories/[handle]/index.tsx` | `/categories`, `/listings`, `/facets`, `/navigation` | `services/facets` |
-| menus | `components/catalog/NavigationMenu.tsx` → `/navigation` | `services/navigation` | **none** |
+| menus | `lib/catalog/use-navigation.ts` → `/navigation` | `services/navigation` | **none** |
 | search interpretation | `app/(app)/search.tsx` | `/search-intent`, `/search` | `services/search-intent` |
 | facets | `components/catalog/FacetRail.tsx` → `/facets` | `services/facets` | `services/facets` |
 | PDP specs | `app/(app)/p/[handle].tsx` | `/product-page`, `/catalog-attributes/{definitions,values}` | `controllers/catalog-attributes.controller.ts` |

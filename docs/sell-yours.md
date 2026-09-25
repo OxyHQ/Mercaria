@@ -270,9 +270,11 @@ tie a publication's success to a projection's.
   plan, which owns that vocabulary (#90's precedent). What #91 supplies is the
   EVIDENCE a reviewer needs: the append-only assertion trail says who declared
   what, when, and what the gate said about it.
-- **The canonical product page's `Sell yours` button** is #71's to place.
-  `components/sell/SellYoursButton.tsx` exists so that placing it is one import
-  rather than a decision about the flow's URL shape.
+- **The canonical product page's `Sell yours` button** is #71's to place. The
+  unplaced `SellYoursButton` component was deleted as dead code; whoever places
+  the control pushes `{ pathname: "/sell", params: { canonicalProductId,
+  canonicalVariantId?, entryPath } }`, with `entryPath` `canonical_variant` when a
+  variant is known and `canonical_product` otherwise.
 
 ## Environment
 

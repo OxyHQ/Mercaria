@@ -20,9 +20,8 @@ import { useTranslation } from "@/lib/i18n";
  * while doing nothing at all.
  *
  * Privacy and Terms survived because their destinations exist and are Oxy's
- * canonical ones — the privacy URL is already opened from
- * `components/sidebar.tsx`, so this is the second consumer of a link the app
- * already ships rather than a new claim about where a policy lives.
+ * canonical ones, so each row opens a link Oxy already publishes rather than
+ * making a new claim about where a policy lives.
  *
  * About and Help were REMOVED rather than pointed somewhere. The storefront has
  * no `/about` or `/help` route, and neither has an external destination that

@@ -47,10 +47,10 @@ import {
  * `useSharedUiLocale` reads the value `SharedUiTranslationProvider` was handed
  * at the app root, from the SAME `useTranslation()` call that supplied `t`.
  * That is deliberate: a second source — a context of its own, a module-level
- * slot, or re-deriving it from the platform the way `useIsRtlLayout` reads back
- * `I18nManager.isRTL` — would be a second answer to "what language is this app
- * in", and the two can disagree. `useIsRtlLayout`'s own note is the precedent:
- * it refuses to re-derive direction from a locale for exactly this reason.
+ * slot, or re-deriving it from the platform the way Bloom's `useIsRtl` reads
+ * back `I18nManager.isRTL` — would be a second answer to "what language is this
+ * app in", and the two can disagree. The direction hook is the precedent: it
+ * refuses to re-derive direction from a locale for exactly this reason.
  *
  * Outside a provider the locale is `DEFAULT_LOCALE`, so a component rendered
  * off the root tree formats in English — the same fallback its COPY already

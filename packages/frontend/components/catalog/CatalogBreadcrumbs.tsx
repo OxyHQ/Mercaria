@@ -23,8 +23,7 @@ import { useTranslation } from '@/lib/i18n';
  *
  * `SeoBreadcrumb.path` is a Mercaria path, and the registry records patterns the
  * storefront has not built. Rather than pushing a path the router cannot match,
- * such a crumb renders as plain text — the `NavigationMenu` decision, applied to
- * a trail.
+ * such a crumb renders as plain text: a heading, not a link that goes nowhere.
  */
 
 export interface CatalogBreadcrumbsProps {

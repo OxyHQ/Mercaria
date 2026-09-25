@@ -123,19 +123,12 @@ function migratedTree(extra = {}) {
       "const PRIORITY = { urgent: 'border-l-red-500', high: 'border-l-orange-400',\n"
       + "  normal: 'border-l-blue-400', low: 'border-l-muted-foreground' };\n"
       + 'export const E = () => <View className="border-b border-border border-l-2" />;\n',
-    // `border-r` x2: one divider, rendered in the collapsed and expanded branches.
-    "packages/frontend/components/sidebar.tsx":
-      'export const F1 = () => <View className="h-full border-r border-border" />;\n'
-      + 'export const F2 = () => <View className="h-full w-full border-r border-border" />;\n',
     // `border-` x2 (#429): the two arms of the ONE ternary that resolves a
-    // logical side to the physical divider edge, for Panel and Sheet alike.
-    // Those two components carry no directional class of their own any more,
-    // so they are deliberately absent from this fixture.
+    // logical side to the physical divider edge for the Sheet. It carries no
+    // directional class of its own any more, so it is deliberately absent from
+    // this fixture.
     "packages/ui/src/lib/logical-side.ts":
       'export const G = (side, rtl) => resolve(side, rtl) === "right" ? "border-l" : "border-r";\n',
-    // `border-l` x2: the gutter width and its transparent colour, on one line.
-    "packages/ui/src/components/ui/scroll-area.tsx":
-      'export const I = () => <View className="h-full w-2.5 border-l border-l-transparent" />;\n',
     "packages/ui/src/components/ui/dialog.tsx":
       "export const J = () => <View className={cn('flex-col gap-2 text-center sm:text-left')} />;\n",
     // `border-l` x1 (#434): the POS cart-panel divider, the one physical utility
@@ -338,11 +331,12 @@ const cases = [
     // The other direction, and it must not be reported as the one above: a
     // decrease means the list has stopped describing the tree, and telling that
     // reader to go and find "a new violation" sends them looking for something
-    // that is not there. The sidebar renders its one divider in two branches;
-    // this tree keeps only the collapsed one.
+    // that is not there. The review panel's `text-right` is one decision
+    // matched twice (the class and the comment explaining it); this tree keeps
+    // only the class.
     files: migratedTree({
-      "packages/frontend/components/sidebar.tsx":
-        'export const F1 = () => <View className="h-full border-r border-border" />;\n',
+      "packages/dashboard/components/catalog-authoring/ReviewPanel.tsx":
+        'export const Z2 = () => <Text className="flex-1 text-right text-sm" />;\n',
     }),
     expectExit: 1,
     expectOutput: "the count went DOWN",
@@ -352,11 +346,12 @@ const cases = [
     // A guard that failed with "exception mismatch" would send the next person
     // to read this script instead of their own diff.
     files: migratedTree({
-      "packages/frontend/components/sidebar.tsx":
-        'export const F1 = () => <View className="h-full border-r border-border" />;\n',
+      "packages/dashboard/components/catalog-authoring/ReviewPanel.tsx":
+        'export const Z2 = () => <Text className="flex-1 text-right text-sm" />;\n',
     }),
     expectExit: 1,
-    expectOutput: 'excuses "border-r" in packages/frontend/components/sidebar.tsx 2 time(s), but only 1',
+    expectOutput:
+      'excuses "text-right" in packages/dashboard/components/catalog-authoring/ReviewPanel.tsx 2 time(s), but only 1',
   },
   {
     // The floor #494 added, and the one the old global floor could not provide.

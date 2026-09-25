@@ -117,7 +117,7 @@ around it.
 Since #500 it is handed the `locale` too, from the SAME `useTranslation()` call.
 That is not a convenience: the formatters need a locale, and every other way of
 getting one — a second context, a module-level slot, re-deriving it the way
-`useIsRtlLayout` reads back `I18nManager.isRTL` — is a second answer to "what
+Bloom's `useIsRtl` reads back `I18nManager.isRTL` — is a second answer to "what
 language is this app in". Two answers to that can disagree, and the place it
 shows is a price whose decimal separator does not match the sentence around it.
 
@@ -271,7 +271,7 @@ own. **Two facts cannot**, and they are the whole of
   deleted and replaced by a single one.
 
 The direction itself is READ, never re-derived from a locale:
-`packages/ui/src/lib/use-layout-direction.ts` returns what
+Bloom's `useIsRtl` (`@oxy.so/bloom/hooks`) returns what
 `syncLayoutDirection` already applied — `document.documentElement.dir` on web
 (observed, because a language switch changes it mid-session) and
 `I18nManager.isRTL` on native (constant for the process, because `forceRTL`
@@ -323,7 +323,7 @@ person does not have to re-derive it:
    foregrounded web tab AND a real device build — web and native disagree here
    by construction (`borderInline*` works in a browser and drops on native, and
    `translateX` is mirrored by neither).
-2. **The sliding surfaces specifically** — `Panel` and `SheetContent` must enter
+2. **The sliding surfaces specifically** — `SheetContent` (the one left; `Panel` was deleted) must enter
    from the reader's leading edge. `validate:logical-side` proves the arithmetic
    and cannot prove the animation.
 3. **The fifteen excused physical borders** — each was kept because the logical

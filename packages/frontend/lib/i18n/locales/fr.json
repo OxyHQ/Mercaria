@@ -4,9 +4,7 @@
     "cancel": "Annuler",
     "confirm": "Confirmer",
     "back": "Retour",
-    "user": "Utilisateur",
-    "tryAgain": "Réessayer",
-    "processing": "Traitement..."
+    "tryAgain": "Réessayer"
   },
   "home": {
     "title": "Mercaria",
@@ -15,7 +13,6 @@
   },
   "nav": {
     "home": "Accueil",
-    "settings": "Paramètres",
     "explore": "Explorer",
     "cart": "Panier",
     "deals": "Bons plans",
@@ -26,11 +23,9 @@
     "mainNavigation": "Navigation principale"
   },
   "login": {
-    "signInButton": "Se connecter",
-    "footerLink": "S'inscrire"
+    "signInButton": "Se connecter"
   },
   "settings": {
-    "title": "Paramètres",
     "account": {
       "title": "Paramètres du compte"
     },
@@ -53,7 +48,6 @@
       "general": "Général",
       "orders": "Commandes",
       "addresses": "Adresses",
-      "feedback": "Commentaires",
       "watchlists": "Listes de suivi",
       "shoppingAgents": "Assistants d'achat",
       "referralPartner": "Programme de parrainage"
@@ -64,12 +58,6 @@
       "signedOut": "Connectez-vous pour enregistrer votre devise d'affichage préférée.",
       "updateFailed": "Impossible de mettre à jour votre devise d'affichage"
     }
-  },
-  "sidebar": {
-    "account": "Compte",
-    "settings": "Paramètres",
-    "logOut": "Se déconnecter",
-    "privacyPolicy": "Politique de confidentialité"
   },
   "feedback": {
     "title": "Envoyer un commentaire",
@@ -1315,10 +1303,6 @@
     "wordmark": "Mercaria"
   },
   "sell": {
-    "sellYours": {
-      "thisOne": "Vendre le même",
-      "yours": "Vendre le vôtre"
-    },
     "fact": {
       "fromProduct": "Issu du produit — ce n'est pas une affirmation sur votre article",
       "yourAnswer": "Votre réponse",
@@ -1442,8 +1426,7 @@
   "shell": {
     "sidebar": {
       "expand": "Déplier la barre latérale",
-      "collapse": "Replier la barre latérale",
-      "accountMenu": "Menu du compte"
+      "collapse": "Replier la barre latérale"
     },
     "footer": {
       "brand": "Mercaria",

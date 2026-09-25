@@ -38,7 +38,7 @@ export function HeroSearch() {
           label={t("search.box.label")}
           placeholder={t("search.box.placeholder")}
           value={query}
-          onChangeText={setQuery}
+          onValueChange={setQuery}
           onClearText={() => setQuery("")}
           onSubmitEditing={handleSubmit}
         />

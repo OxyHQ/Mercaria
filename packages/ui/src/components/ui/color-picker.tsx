@@ -3,7 +3,7 @@ import { View, Pressable } from "react-native";
 import { Text } from "./text";
 import { cn } from "../../lib/cn";
 
-export const COLOR_OPTIONS = [
+const COLOR_OPTIONS = [
   "#3b82f6", // blue
   "#8b5cf6", // purple
   "#ec4899", // pink

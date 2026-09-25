@@ -4,9 +4,7 @@
     "cancel": "Отмена",
     "confirm": "Подтвердить",
     "back": "Назад",
-    "user": "Пользователь",
-    "tryAgain": "Повторить",
-    "processing": "Обработка..."
+    "tryAgain": "Повторить"
   },
   "home": {
     "title": "Mercaria",
@@ -15,7 +13,6 @@
   },
   "nav": {
     "home": "Главная",
-    "settings": "Настройки",
     "explore": "Обзор",
     "cart": "Корзина",
     "deals": "Скидки",
@@ -26,11 +23,9 @@
     "mainNavigation": "Основная навигация"
   },
   "login": {
-    "signInButton": "Войти",
-    "footerLink": "Зарегистрироваться"
+    "signInButton": "Войти"
   },
   "settings": {
-    "title": "Настройки",
     "account": {
       "title": "Настройки аккаунта"
     },
@@ -53,7 +48,6 @@
       "general": "Основные",
       "orders": "Заказы",
       "addresses": "Адреса",
-      "feedback": "Отзывы",
       "watchlists": "Списки отслеживания",
       "shoppingAgents": "Помощники по покупкам",
       "referralPartner": "Реферальная программа"
@@ -64,12 +58,6 @@
       "signedOut": "Войдите, чтобы сохранить предпочитаемую валюту отображения.",
       "updateFailed": "Не удалось обновить валюту отображения"
     }
-  },
-  "sidebar": {
-    "account": "Аккаунт",
-    "settings": "Настройки",
-    "logOut": "Выйти",
-    "privacyPolicy": "Политика конфиденциальности"
   },
   "feedback": {
     "title": "Отправить отзыв",
@@ -1331,10 +1319,6 @@
     "wordmark": "Mercaria"
   },
   "sell": {
-    "sellYours": {
-      "thisOne": "Продать такой же",
-      "yours": "Продать свой"
-    },
     "fact": {
       "fromProduct": "Из карточки товара — это не утверждение о вашей вещи",
       "yourAnswer": "Ваш ответ",
@@ -1459,8 +1443,7 @@
   "shell": {
     "sidebar": {
       "expand": "Развернуть боковую панель",
-      "collapse": "Свернуть боковую панель",
-      "accountMenu": "Меню аккаунта"
+      "collapse": "Свернуть боковую панель"
     },
     "footer": {
       "brand": "Mercaria",

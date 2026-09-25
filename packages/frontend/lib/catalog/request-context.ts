@@ -190,7 +190,7 @@ export interface CatalogContextSources {
  * Compose the six dimensions — PURE, so a guard can run it.
  *
  * Split out of {@link useCatalogContext} for the reason `isRtlLocale` is split
- * from `syncLayoutDirection` and `logical-side.ts` from `use-layout-direction`:
+ * from `syncLayoutDirection` and `logical-side.ts` from Bloom's `useIsRtl`:
  * the DECISION imports nothing and can be asserted, while the OBSERVATION needs
  * `getLocales` and a React store and cannot run outside a bundler. Before the
  * split, the one property that actually goes wrong here — a market taken off the
