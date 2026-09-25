@@ -282,7 +282,12 @@ export {
 // ---------------------------------------------------------------------------
 // Dual-currency display
 // ---------------------------------------------------------------------------
-export { PriceDisplay, type PriceDisplayProps } from "./components/PriceDisplay";
+export {
+  PriceDisplay,
+  usePriceText,
+  type PriceDisplayProps,
+  type PriceText,
+} from "./components/PriceDisplay";
 export {
   FxProvider,
   useFx,
