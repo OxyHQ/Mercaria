@@ -2,7 +2,8 @@ import React from "react";
 import { Pressable, View } from "react-native";
 import { Plus, X } from "lucide-react-native";
 import type { AuthoringField, AuthoringSchema } from "@mercaria/shared-types";
-import { Button, Input, Text, useColorScheme } from "@mercaria/ui";
+import { Input, Text, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 import { emptyEntry, type DraftFieldEntry } from "@/lib/authoring/answers";
@@ -156,10 +157,14 @@ export function VariantAxes({
         );
       })}
 
-      <Button variant="outline" onPress={onGenerate} disabled={disabled} className="self-start">
-        <Text className="text-sm font-medium text-foreground">
-          {t("products.wizard.variants.generate")}
-        </Text>
+      <Button
+        appearance="outline"
+        tone="neutral"
+        onPress={onGenerate}
+        disabled={disabled}
+        className="self-start"
+      >
+        {t("products.wizard.variants.generate")}
       </Button>
 
       {truncated ? (

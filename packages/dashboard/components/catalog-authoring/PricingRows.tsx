@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { View } from "react-native";
 import type { AuthoringSchema, CurrencyCode } from "@mercaria/shared-types";
 import { ALL_CURRENCY_CODES } from "@mercaria/shared-types";
-import { Button, Input, Label, Text } from "@mercaria/ui";
+import { Input, Label, Text } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 import { findingMessageKey, findingsForVariant, type LocatedFinding } from "@/lib/authoring/findings";
@@ -112,7 +113,8 @@ export function PricingRows({
             </View>
           </View>
           <Button
-            variant="outline"
+            appearance="outline"
+            tone="neutral"
             className="self-start"
             disabled={disabled}
             onPress={() =>
@@ -124,9 +126,7 @@ export function PricingRows({
               })
             }
           >
-            <Text className="text-sm font-medium text-foreground">
-              {t("products.wizard.pricing.applyToAll")}
-            </Text>
+            {t("products.wizard.pricing.applyToAll")}
           </Button>
         </View>
       ) : null}

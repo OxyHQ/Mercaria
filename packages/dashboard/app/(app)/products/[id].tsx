@@ -11,7 +11,6 @@ import type {
 } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
   ConnectorPinNotice,
   Input,
   Label,
@@ -25,6 +24,7 @@ import {
   SegmentedControlItem,
   SegmentedControlItemText,
 } from "@oxy.so/bloom/segmented-control";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -279,15 +279,11 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
         {canWrite ? (
           <View className="flex-row gap-3">
-            <Button className="flex-1" onPress={save} isLoading={updateProduct.isPending}>
-              <Text className="font-semibold text-primary-foreground">
-                {t("products.detail.saveChanges")}
-              </Text>
+            <Button tone="accent" className="flex-1" onPress={save} loading={updateProduct.isPending}>
+              {t("products.detail.saveChanges")}
             </Button>
-            <Button variant="destructive" onPress={archive} isLoading={archiveProduct.isPending}>
-              <Text className="font-semibold text-destructive-foreground">
-                {t("products.detail.archive")}
-              </Text>
+            <Button tone="danger" onPress={archive} loading={archiveProduct.isPending}>
+              {t("products.detail.archive")}
             </Button>
           </View>
         ) : null}
@@ -393,10 +389,14 @@ function VariantsSection({
               <Input value={newStock} onChangeText={setNewStock} keyboardType="number-pad" placeholder="0" />
             </View>
           </View>
-          <Button size="sm" className="mt-3 self-start" onPress={addVariant} isLoading={createVariant.isPending}>
-            <Text className="text-sm font-semibold text-primary-foreground">
-              {t("products.variants.saveVariant")}
-            </Text>
+          <Button
+            tone="accent"
+            size="sm"
+            className="mt-3 self-start"
+            onPress={addVariant}
+            loading={createVariant.isPending}
+          >
+            {t("products.variants.saveVariant")}
           </Button>
         </View>
       ) : null}
@@ -497,8 +497,14 @@ function VariantRow({
           <Input value={price} onChangeText={setPrice} keyboardType="decimal-pad" editable={canWrite} />
         </View>
         {canWrite ? (
-          <Button size="sm" variant="outline" onPress={savePrice} isLoading={updateVariant.isPending}>
-            <Text className="text-sm font-medium text-foreground">{t("common.save")}</Text>
+          <Button
+            appearance="outline"
+            tone="neutral"
+            size="sm"
+            onPress={savePrice}
+            loading={updateVariant.isPending}
+          >
+            {t("common.save")}
           </Button>
         ) : null}
       </View>
@@ -508,8 +514,14 @@ function VariantRow({
           <Input value={stock} onChangeText={setStock} keyboardType="number-pad" editable={canInventory} />
         </View>
         {canInventory ? (
-          <Button size="sm" variant="outline" onPress={saveStock} isLoading={setInventory.isPending}>
-            <Text className="text-sm font-medium text-foreground">{t("products.variants.set")}</Text>
+          <Button
+            appearance="outline"
+            tone="neutral"
+            size="sm"
+            onPress={saveStock}
+            loading={setInventory.isPending}
+          >
+            {t("products.variants.set")}
           </Button>
         ) : null}
       </View>

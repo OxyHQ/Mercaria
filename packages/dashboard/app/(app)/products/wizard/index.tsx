@@ -8,7 +8,8 @@ import type {
   AuthoringCategoryOption,
   AuthoringProductTypeOption,
 } from "@mercaria/shared-types";
-import { Button, Input, Label, Text, useColorScheme } from "@mercaria/ui";
+import { Input, Label, Text, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenMessage } from "@/components/shell/Screen";
@@ -101,10 +102,8 @@ function StartBody({ storeId }: { storeId: string }) {
           title={t("products.wizard.start.unavailableTitle")}
           body={t("products.wizard.start.unavailableBody")}
         />
-        <Button className="self-center" onPress={() => router.replace("/products/new")}>
-          <Text className="font-semibold text-primary-foreground">
-            {t("products.wizard.start.useLegacy")}
-          </Text>
+        <Button tone="accent" className="self-center" onPress={() => router.replace("/products/new")}>
+          {t("products.wizard.start.useLegacy")}
         </Button>
       </Screen>
     );
@@ -301,12 +300,11 @@ function StartBody({ storeId }: { storeId: string }) {
           onPress={() => {
             void start();
           }}
+          tone="accent"
           disabled={!canCreate}
-          isLoading={createDraft.isPending}
+          loading={createDraft.isPending}
         >
-          <Text className="font-semibold text-primary-foreground">
-            {t("products.wizard.start.begin")}
-          </Text>
+          {t("products.wizard.start.begin")}
         </Button>
       </View>
     </Screen>

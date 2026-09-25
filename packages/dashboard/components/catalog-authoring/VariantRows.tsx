@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Pressable, View } from "react-native";
 import type { AuthoringSchema } from "@mercaria/shared-types";
-import { Button, Input, Label, Text, type Translate } from "@mercaria/ui";
+import { Input, Label, Text, type Translate } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 import { useCanonicalVariants } from "@/lib/authoring/hooks";
@@ -124,13 +125,12 @@ export function VariantRows({
               />
             </View>
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={disabled || soldCount === 0}
               onPress={() => onChange(applySkuPrefix(rows, skuPrefix))}
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("products.wizard.variants.bulkSkuApply")}
-              </Text>
+              {t("products.wizard.variants.bulkSkuApply")}
             </Button>
           </View>
           {/* Says what the control DOES rather than only naming it: a merchant
@@ -152,34 +152,31 @@ export function VariantRows({
               />
             </View>
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={disabled || soldCount === 0}
               onPress={() => onChange(applyBarcodeToAll(rows, bulkBarcode))}
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("products.wizard.variants.bulkBarcodeApply")}
-              </Text>
+              {t("products.wizard.variants.bulkBarcodeApply")}
             </Button>
           </View>
 
           <View className="flex-row flex-wrap gap-3">
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={disabled}
               onPress={() => onChange(setAllSold(rows, true))}
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("products.wizard.variants.markAllSold")}
-              </Text>
+              {t("products.wizard.variants.markAllSold")}
             </Button>
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               disabled={disabled}
               onPress={() => onChange(setAllSold(rows, false))}
             >
-              <Text className="text-sm font-medium text-foreground">
-                {t("products.wizard.variants.markNoneSold")}
-              </Text>
+              {t("products.wizard.variants.markNoneSold")}
             </Button>
           </View>
         </View>

@@ -3,7 +3,8 @@ import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import type { AuthoringDraft, AuthoringSchema } from "@mercaria/shared-types";
-import { Button, Input, Label, Text, Textarea } from "@mercaria/ui";
+import { Input, Label, Text, Textarea } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -176,6 +177,7 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
         />
         {draft.publishedListingId === null ? null : (
           <Button
+            tone="accent"
             className="self-center"
             onPress={() =>
               router.replace({
@@ -184,9 +186,7 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
               })
             }
           >
-            <Text className="font-semibold text-primary-foreground">
-              {t("products.wizard.publish.openListing")}
-            </Text>
+            {t("products.wizard.publish.openListing")}
           </Button>
         )}
       </Screen>
@@ -226,10 +226,13 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
           <Text className="text-xs text-muted-foreground">
             {t("products.wizard.save.conflictBody")}
           </Text>
-          <Button variant="outline" className="self-start" onPress={onReload}>
-            <Text className="text-sm font-medium text-foreground">
-              {t("products.wizard.save.reload")}
-            </Text>
+          <Button
+            appearance="outline"
+            tone="neutral"
+            className="self-start"
+            onPress={onReload}
+          >
+            {t("products.wizard.save.reload")}
           </Button>
         </View>
       ) : null}
@@ -308,7 +311,8 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
             />
             {form.rows.length === 0 ? (
               <Button
-                variant="outline"
+                appearance="outline"
+                tone="neutral"
                 className="self-start"
                 onPress={() =>
                   setForm((current) => ({
@@ -317,9 +321,7 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
                   }))
                 }
               >
-                <Text className="text-sm font-medium text-foreground">
-                  {t("products.wizard.variants.addSingle")}
-                </Text>
+                {t("products.wizard.variants.addSingle")}
               </Button>
             ) : null}
           </View>
@@ -380,26 +382,24 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
             />
             <View className="flex-row flex-wrap gap-3">
               <Button
-                variant="outline"
+                appearance="outline"
+                tone="neutral"
                 onPress={() => {
                   void wizard.validate();
                 }}
-                isLoading={wizard.isValidating}
+                loading={wizard.isValidating}
               >
-                <Text className="font-medium text-foreground">
-                  {t("products.wizard.publish.check")}
-                </Text>
+                {t("products.wizard.publish.check")}
               </Button>
               <Button
+                tone="accent"
                 onPress={() => {
                   void publish();
                 }}
                 disabled={!canEdit || conflicted}
-                isLoading={wizard.isPublishing}
+                loading={wizard.isPublishing}
               >
-                <Text className="font-semibold text-primary-foreground">
-                  {t("products.wizard.publish.publish")}
-                </Text>
+                {t("products.wizard.publish.publish")}
               </Button>
             </View>
             {wizard.validation !== null && wizard.validation.publishable && findings.length === 0 ? (
@@ -418,15 +418,14 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
                 : t("products.wizard.steps.incomplete")}
             </Text>
             <Button
+              tone="accent"
               onPress={() => {
                 const index = WIZARD_STEPS.indexOf(step);
                 const next = WIZARD_STEPS[index + 1];
                 if (next !== undefined) setStep(next);
               }}
             >
-              <Text className="font-semibold text-primary-foreground">
-                {t("products.wizard.steps.next")}
-              </Text>
+              {t("products.wizard.steps.next")}
             </Button>
           </View>
         ) : null}

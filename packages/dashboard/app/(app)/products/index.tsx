@@ -8,7 +8,8 @@ import { useRouter, type RoutePath } from "expo-router";
 import Head from "expo-router/head";
 import { Plus, Package, ChevronLeft, ChevronRight } from "lucide-react-native";
 import type { Listing, ListingStatus } from "@mercaria/shared-types";
-import { Text, Button, Input, PriceDisplay, SourceBadge, useColorScheme } from "@mercaria/ui";
+import { Text, Input, PriceDisplay, SourceBadge, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -49,7 +50,6 @@ export default function ProductsScreen() {
 function ProductsBody({ storeId }: { storeId: string }) {
   const router = useRouter();
   const { t, locale } = useTranslation();
-  const { colors } = useColorScheme();
   const { can } = useActiveStoreContext();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -90,11 +90,8 @@ function ProductsBody({ storeId }: { storeId: string }) {
     can("products:write") ? (
       <View className="flex-row items-center gap-2">
         <StoreSwitcher />
-        <Button onPress={() => router.push(createHref)}>
-          <View className="flex-row items-center gap-2">
-            <Plus size={16} color={colors.primaryForeground} />
-            <Text className="font-semibold text-primary-foreground">{t("products.addProduct")}</Text>
-          </View>
+        <Button tone="accent" leadingIcon={toBloomIcon(Plus)} onPress={() => router.push(createHref)}>
+          {t("products.addProduct")}
         </Button>
       </View>
     ) : (

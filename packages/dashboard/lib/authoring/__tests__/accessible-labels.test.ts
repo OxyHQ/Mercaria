@@ -67,17 +67,27 @@
  * children. Both branches are load-bearing, and dropping the second would make
  * this gate actively wrong.
  *
- * `@mercaria/ui`'s `Button` renders `children` inside a `Pressable` carrying
- * `role="button"` (`packages/ui/src/components/ui/button.tsx`), so
- * `<Button><Text>Publish</Text></Button>` is named by its own text. Requiring a
- * label there would fail **sixteen** correct controls and be fixed by adding
- * sixteen redundant labels — a screen reader announcing the sentence twice.
+ * Bloom's `Button` (`@oxy.so/bloom/button`) renders its children as the label
+ * of a control carrying the button role, so `<Button>{t("…publish")}</Button>`
+ * is named by its own text. Requiring a label there would fail every correct
+ * text button and be fixed by adding redundant labels — a screen reader
+ * announcing the sentence twice.
+ *
+ * Bloom takes that label as a STRING child, not a `<Text>` element (on web it
+ * only wraps a string in its styled label span), so "renders text" has three
+ * spellings: a `<Text>` element, a bare literal, and a JSX expression that
+ * renders a TRANSLATION — `{t("…")}`, or a ternary whose every branch is a
+ * `t(…)` call. Any other expression (`{icon}`, `{children}`, `{label}`) is not
+ * read as text: this scan cannot see what it evaluates to, and reading it as a
+ * name would launder exactly the icon-only control the gate exists for.
  *
  * The defect the disjunction leaves reachable is the real one: an icon-only
  * control, which renders no text and announces nothing.
  *
  * Measured on the tree this landed against: 62 controls, of which 29 are named
- * by a label alone, 16 by text alone, 17 by both, and **0 by neither**. So this
+ * by a label alone, 16 by text alone, 17 by both, and **0 by neither**. (Those
+ * figures predate the move to Bloom's controls; the rule, not the split, is
+ * what the assertions pin.) So this
  * gate is green on arrival by design — it pins a property that holds today and
  * fails the day somebody adds an unlabelled icon button, which is what a gate
  * is for. The floors below are what stop "green" and "measured nothing" reading
@@ -240,10 +250,49 @@ function declaresLabel(tag: string): boolean {
   return /(?:accessibilityLabel|aria-label)\s*=/u.test(tag);
 }
 
-/** Text among the children: a `<Text>` element, or a bare non-whitespace string. */
+/**
+ * The top-level `{…}` expressions among a control's children, braces stripped.
+ * Depth-tracked for the same reason as {@link openingTagEnd}: a `t(k, { n })`
+ * call carries braces of its own.
+ */
+function childExpressions(children: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < children.length; i += 1) {
+    const c = children[i];
+    if (c === '{') {
+      if (depth === 0) start = i + 1;
+      depth += 1;
+    } else if (c === '}') {
+      depth -= 1;
+      if (depth === 0 && start !== -1) out.push(children.slice(start, i));
+    }
+  }
+  return out;
+}
+
+/**
+ * Does this expression render a translation? `t(…)` itself, or a ternary whose
+ * every branch is one. JSX inside it (`cond ? <X /> : t(k)`) is refused: one
+ * branch would then render no text at all.
+ */
+function rendersTranslation(expression: string): boolean {
+  const body = expression.trim();
+  if (body.includes('<')) return false;
+  if (/^t\(/u.test(body)) return true;
+  return /\?\s*t\(/u.test(body) && /:\s*t\(/u.test(body);
+}
+
+/**
+ * Text among the children: a `<Text>` element, a bare non-whitespace string, or
+ * an expression rendering a translation (Bloom's `Button` takes its label as a
+ * string child — see the docblock).
+ */
 function rendersText(children: string): boolean {
   if (/<Text(?=[\s/>])/u.test(children)) return true;
-  return /(^|>)\s*[^<>{}\s][^<>{}]*(?=<|$)/u.test(children);
+  if (/(^|>)\s*[^<>{}\s][^<>{}]*(?=<|$)/u.test(children)) return true;
+  return childExpressions(children).some(rendersTranslation);
 }
 
 function everyControl(): Control[] {
@@ -343,6 +392,34 @@ describe('the detector, driven (self-test)', () => {
 
     const [bare] = controlsIn('x.tsx', '<Button onPress={go}>Publish</Button>');
     expect(rendersText(bare.children), 'a bare string child did not read as a name').toBe(true);
+
+    // Bloom's spelling: the label is a string child, most often a translation.
+    for (const translated of [
+      '<Button onPress={go}>{t("products.wizard.publish.publish")}</Button>',
+      '<Button onPress={go}>\n  {t("feeds.toast.checked", { scanned: n })}\n</Button>',
+      '<Button onPress={go}>{isSelected ? t("a.chosen") : t("a.choose")}</Button>',
+    ]) {
+      const [button] = controlsIn('x.tsx', translated);
+      expect(rendersText(button.children), `${translated} did not read as named`).toBe(true);
+    }
+  });
+
+  it('does NOT read an arbitrary expression child as a name', () => {
+    // The laundering direction of the rule above: an expression the scan
+    // cannot evaluate is not text, and a ternary with a JSX branch renders no
+    // text on that branch.
+    for (const unnamed of [
+      '<Button onPress={go}>{icon}</Button>',
+      '<Button onPress={go}>{children}</Button>',
+      '<Button onPress={go}>{busy ? <Spinner /> : t("a.b")}</Button>',
+      '<Button onPress={go}>{busy ? label : t("a.b")}</Button>',
+    ]) {
+      const [button] = controlsIn('x.tsx', unnamed);
+      expect(
+        declaresLabel(button.tag) || rendersText(button.children),
+        `${unnamed} read as named`,
+      ).toBe(false);
+    }
   });
 
   it('treats an EMPTY label as no label', () => {

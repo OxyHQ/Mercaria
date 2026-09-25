@@ -8,7 +8,8 @@ import type {
   CreateStoreProductVariantInput,
   ListingOption,
 } from "@mercaria/shared-types";
-import { Text, Button, Input, Label, Textarea, useColorScheme } from "@mercaria/ui";
+import { Text, Input, Label, Textarea, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -244,24 +245,23 @@ function NewProductBody({ storeId }: { storeId: string }) {
           </View>
 
           <Button
-            variant="outline"
+            appearance="outline"
+            tone="neutral"
             size="sm"
             className="mt-3 self-start"
+            leadingIcon={toBloomIcon(Plus)}
             onPress={() => setVariants((prev) => [...prev, newVariantDraft()])}
           >
-            <View className="flex-row items-center gap-1.5">
-              <Plus size={14} color={colors.foreground} />
-              <Text className="text-sm font-medium text-foreground">{t("products.new.addVariant")}</Text>
-            </View>
+            {t("products.new.addVariant")}
           </Button>
         </View>
 
         <View className="flex-row gap-3">
-          <Button variant="outline" className="flex-1" onPress={() => router.back()}>
-            <Text className="font-medium text-foreground">{t("common.cancel")}</Text>
+          <Button appearance="outline" tone="neutral" className="flex-1" onPress={() => router.back()}>
+            {t("common.cancel")}
           </Button>
-          <Button className="flex-1" onPress={submit} isLoading={createProduct.isPending}>
-            <Text className="font-semibold text-primary-foreground">{t("products.new.submit")}</Text>
+          <Button tone="accent" className="flex-1" onPress={submit} loading={createProduct.isPending}>
+            {t("products.new.submit")}
           </Button>
         </View>
       </View>

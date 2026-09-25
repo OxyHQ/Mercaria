@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { Pressable, View } from "react-native";
 import { ChevronRight } from "lucide-react-native";
 import type { AuthoringCategoryOption } from "@mercaria/shared-types";
-import { Button, Text, useColorScheme } from "@mercaria/ui";
+import { Text, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
 import { useTranslation } from "@/lib/i18n";
 import { useAuthoringCategories } from "@/lib/authoring/hooks";
@@ -136,18 +137,16 @@ export function CategoryBrowser({ locale, selectedId, onSelect }: CategoryBrowse
                 <ChevronRight size={16} color={colors.mutedForeground} />
               </Pressable>
               {category.selectable ? (
-                <Button size="sm" variant={isSelected ? "default" : "outline"} onPress={() => onSelect(category)}>
-                  <Text
-                    className={
-                      isSelected
-                        ? "text-xs font-semibold text-primary-foreground"
-                        : "text-xs font-medium text-foreground"
-                    }
-                  >
-                    {isSelected
-                      ? t("products.wizard.category.chosen")
-                      : t("products.wizard.category.choose")}
-                  </Text>
+                <Button
+                  size="sm"
+                  appearance={isSelected ? "solid" : "outline"}
+                  tone={isSelected ? "accent" : "neutral"}
+                  pressed={isSelected}
+                  onPress={() => onSelect(category)}
+                >
+                  {isSelected
+                    ? t("products.wizard.category.chosen")
+                    : t("products.wizard.category.choose")}
                 </Button>
               ) : null}
             </View>
