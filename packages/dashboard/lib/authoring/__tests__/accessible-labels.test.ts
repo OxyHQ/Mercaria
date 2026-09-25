@@ -42,12 +42,14 @@
  * ## What counts as an interactive control, and what does not
  *
  * {@link CONTROL_ELEMENTS} is the vocabulary, and it is deliberately mixed:
- * five members the surface uses today (`Pressable`, `Button`, `Input`,
- * `Textarea`, `Switch`) and three with zero current instances
- * (`TouchableOpacity`, `TouchableHighlight`, `TextInput`) that are the React
- * Native primitives an author reaches for next. A vocabulary arm with no
- * instance is an arm nothing exercises, so the self-test drives **every one of
- * the eight** rather than trusting the tuple.
+ * five members the surface uses today (`Pressable`, Bloom's `Button`,
+ * `TextFieldInput` and `Textarea`, `Switch`) and four with zero current
+ * instances: `TouchableOpacity`, `TouchableHighlight` and `TextInput`, the
+ * React Native primitives an author reaches for next, and `Input`, the
+ * `@mercaria/ui` field this surface used before it moved onto Bloom's
+ * `TextFieldInput`. A vocabulary arm with no instance is an arm nothing
+ * exercises, so the self-test drives **every one of the nine** rather than
+ * trusting the tuple.
  *
  * Deliberately OUT, each for a reason rather than by oversight:
  *
@@ -58,7 +60,13 @@
  * - **Every icon component** (`X`, `Check`, `Plus`, `ChevronRight`, …) — an
  *   icon is a CHILD. The name belongs to the control wrapping it, which is
  *   exactly the case this gate exists to catch.
- * - **`Label`** — it renders the visible text; it is not the control.
+ * - **`Label`** / **`Field`** — they render the visible text; neither is the
+ *   control. (A `Field`'s label DOES become its control's name, but only a
+ *   control inside it that reads Bloom's field context; the control is matched
+ *   on its own `label=` instead, which is required on `TextFieldInput`.)
+ * - **Bloom's `Search`** — it is always named (its `label` defaults to
+ *   "Search"), and the element name collides with lucide's `Search` ICON,
+ *   which this scan cannot tell apart from the control without imports.
  *
  * ## The rule, and why it is a disjunction rather than "declare a label"
  *
@@ -123,7 +131,7 @@ const SURFACE_DIRECTORIES = [
   new URL('../../../app/(app)/products/wizard', import.meta.url).pathname,
 ] as const;
 
-/** @see the docblock — five kinds in use, three declared as a forward guard. */
+/** @see the docblock — five kinds in use, four declared as a forward guard. */
 const CONTROL_ELEMENTS = [
   'Pressable',
   'TouchableOpacity',
@@ -131,9 +139,18 @@ const CONTROL_ELEMENTS = [
   'TextInput',
   'Button',
   'Input',
+  'TextFieldInput',
   'Textarea',
   'Switch',
 ] as const;
+
+/**
+ * Bloom's text controls, whose `label` prop IS the accessible name —
+ * `TextFieldInput` requires it and hands it to the input as its
+ * `accessibilityLabel`, `Textarea` draws it above the box and names the input
+ * with it. On every other element `label` is just a prop.
+ */
+const LABEL_NAMED_ELEMENTS: ReadonlySet<string> = new Set(['TextFieldInput', 'Textarea']);
 
 const OPENING_TAG = new RegExp(`<(${CONTROL_ELEMENTS.join('|')})(?=[\\s/>])`, 'gu');
 
@@ -242,12 +259,18 @@ function controlsIn(file: string, source: string): Control[] {
   return found;
 }
 
-/** A declared label that is not the empty string. */
+/**
+ * A declared label that is not the empty string: `accessibilityLabel` /
+ * `aria-label` on anything, or `label` on a {@link LABEL_NAMED_ELEMENTS} member.
+ */
 function declaresLabel(tag: string): boolean {
-  if (/(?:accessibilityLabel|aria-label)\s*=\s*(?:""|''|\{\s*(?:""|''|``)\s*\})/u.test(tag)) {
-    return false;
-  }
-  return /(?:accessibilityLabel|aria-label)\s*=/u.test(tag);
+  const element = /^<([A-Za-z]+)/u.exec(tag)?.[1] ?? '';
+  const names = LABEL_NAMED_ELEMENTS.has(element)
+    ? '(?:accessibilityLabel|aria-label|(?<![\\w-])label)'
+    : '(?:accessibilityLabel|aria-label)';
+  const empty = String.raw`\s*=\s*(?:""|''|\{\s*(?:""|''|` + '``' + String.raw`)\s*\})`;
+  if (new RegExp(names + empty, 'u').test(tag)) return false;
+  return new RegExp(names + String.raw`\s*=`, 'u').test(tag);
 }
 
 /**
@@ -334,9 +357,9 @@ describe('the authoring surface traverses a real population', () => {
       55,
     );
     // And per kind, so losing ONE arm of the alternation cannot hide behind the
-    // total. Only the kinds in use are floored; the other three are guards with
+    // total. Only the kinds in use are floored; the other four are guards with
     // no instances, and are driven in the self-test instead.
-    for (const element of ['Pressable', 'Button', 'Input', 'Textarea', 'Switch']) {
+    for (const element of ['Pressable', 'Button', 'TextFieldInput', 'Textarea', 'Switch']) {
       expect(
         controls.filter((control) => control.element === element).length,
         `no <${element}> found anywhere in the authoring surface — the tag pattern lost an arm`,
@@ -364,7 +387,7 @@ describe('every interactive control in the authoring surface has an accessible n
 
 describe('the detector, driven (self-test)', () => {
   it('reports an icon-only control of EVERY kind in the vocabulary', () => {
-    // Eight arms, eight cases. Three of them have no instance in the surface,
+    // Nine arms, nine cases. Four of them have no instance in the surface,
     // so this is the only thing that proves those arms work at all.
     for (const element of CONTROL_ELEMENTS) {
       const selfClosing = controlsIn('x.tsx', `<${element} onPress={go} />`);
@@ -420,6 +443,21 @@ describe('the detector, driven (self-test)', () => {
         `${unnamed} read as named`,
       ).toBe(false);
     }
+  });
+
+  it('reads `label=` as a name on Bloom\'s text controls, and ONLY there', () => {
+    for (const element of LABEL_NAMED_ELEMENTS) {
+      const [named] = controlsIn('x.tsx', `<${element} label={t("a.b")} value={v} />`);
+      expect(declaresLabel(named.tag), `label= on <${element}> did not read as a name`).toBe(true);
+      const [empty] = controlsIn('x.tsx', `<${element} label="" value={v} />`);
+      expect(declaresLabel(empty.tag), `an empty label= on <${element}> read as a name`).toBe(false);
+    }
+    // A `label` prop on a Pressable names nothing, and `accessibilityLabel`'s
+    // tail must not be read as a bare `label=` on a label-named element.
+    const [pressable] = controlsIn('x.tsx', '<Pressable label={t("a.b")} onPress={go} />');
+    expect(declaresLabel(pressable.tag), 'label= on a Pressable read as a name').toBe(false);
+    const [emptyA11y] = controlsIn('x.tsx', '<TextFieldInput accessibilityLabel="" value={v} />');
+    expect(declaresLabel(emptyA11y.tag), 'an empty accessibilityLabel read as a label=').toBe(false);
   });
 
   it('treats an EMPTY label as no label', () => {

@@ -8,7 +8,10 @@ import type {
   CreateStoreProductVariantInput,
   ListingOption,
 } from "@mercaria/shared-types";
-import { Text, Input, Label, Textarea, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Text, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Textarea } from "@oxy.so/bloom/textarea";
 import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
@@ -147,21 +150,26 @@ function NewProductBody({ storeId }: { storeId: string }) {
     <Screen title={t("products.new.title")} subtitle={t("products.new.subtitle")}>
       <View className="gap-5">
         <Field label={t("common.title")}>
-          <Input value={title} onChangeText={setTitle} placeholder={t("products.new.titlePlaceholder")} />
-        </Field>
-        <Field label={t("common.description")}>
-          <Textarea
-            value={description}
-            onChangeText={setDescription}
-            placeholder={t("products.new.descriptionPlaceholder")}
+          <TextFieldInput
+            label={t("common.title")}
+            value={title}
+            onValueChange={setTitle}
+            placeholder={t("products.new.titlePlaceholder")}
           />
         </Field>
+        <Textarea
+          label={t("common.description")}
+          value={description}
+          onValueChange={setDescription}
+          placeholder={t("products.new.descriptionPlaceholder")}
+        />
         <View className="flex-row gap-3">
           <View className="flex-1">
             <Field label={t("products.new.categoryLabel")}>
-              <Input
+              <TextFieldInput
+                label={t("products.new.categoryLabel")}
                 value={category}
-                onChangeText={setCategory}
+                onValueChange={setCategory}
                 placeholder={t("products.new.categoryPlaceholder")}
                 autoCapitalize="none"
               />
@@ -169,7 +177,12 @@ function NewProductBody({ storeId }: { storeId: string }) {
           </View>
           <View className="flex-1">
             <Field label={t("products.new.vendorLabel")}>
-              <Input value={vendor} onChangeText={setVendor} placeholder={t("products.new.vendorPlaceholder")} />
+              <TextFieldInput
+                label={t("products.new.vendorLabel")}
+                value={vendor}
+                onValueChange={setVendor}
+                placeholder={t("products.new.vendorPlaceholder")}
+              />
             </Field>
           </View>
         </View>
@@ -179,9 +192,10 @@ function NewProductBody({ storeId }: { storeId: string }) {
             {t("products.new.optionsHeading")}
           </Text>
           <Field label={t("products.new.optionNameLabel")}>
-            <Input
+            <TextFieldInput
+              label={t("products.new.optionNameLabel")}
               value={optionName}
-              onChangeText={setOptionName}
+              onValueChange={setOptionName}
               placeholder={t("products.new.optionNamePlaceholder")}
             />
           </Field>
@@ -204,41 +218,49 @@ function NewProductBody({ storeId }: { storeId: string }) {
                 </View>
                 {optionName.trim() ? (
                   <View className="mb-2">
-                    <Label>{t("products.new.optionValueLabel", { option: optionName.trim() })}</Label>
-                    <Input
-                      value={v.title}
-                      onChangeText={(value) => updateVariant(v.key, { title: value })}
-                      placeholder={t("products.new.optionValuePlaceholder")}
-                    />
+                    <Field label={t("products.new.optionValueLabel", { option: optionName.trim() })}>
+                      <TextFieldInput
+                        label={t("products.new.optionValueLabel", { option: optionName.trim() })}
+                        value={v.title}
+                        onValueChange={(value) => updateVariant(v.key, { title: value })}
+                        placeholder={t("products.new.optionValuePlaceholder")}
+                      />
+                    </Field>
                   </View>
                 ) : null}
                 <View className="flex-row gap-2">
                   <View className="flex-1">
-                    <Label>{t("products.priceLabel")}</Label>
-                    <Input
-                      value={v.priceMajor}
-                      onChangeText={(value) => updateVariant(v.key, { priceMajor: value })}
-                      placeholder="0.00"
-                      keyboardType="decimal-pad"
-                    />
+                    <Field label={t("products.priceLabel")}>
+                      <TextFieldInput
+                        label={t("products.priceLabel")}
+                        value={v.priceMajor}
+                        onValueChange={(value) => updateVariant(v.key, { priceMajor: value })}
+                        placeholder="0.00"
+                        keyboardType="decimal-pad"
+                      />
+                    </Field>
                   </View>
                   <View className="flex-1">
-                    <Label>{t("products.stockLabel")}</Label>
-                    <Input
-                      value={v.available}
-                      onChangeText={(value) => updateVariant(v.key, { available: value })}
-                      placeholder="0"
-                      keyboardType="number-pad"
-                    />
+                    <Field label={t("products.stockLabel")}>
+                      <TextFieldInput
+                        label={t("products.stockLabel")}
+                        value={v.available}
+                        onValueChange={(value) => updateVariant(v.key, { available: value })}
+                        placeholder="0"
+                        keyboardType="number-pad"
+                      />
+                    </Field>
                   </View>
                 </View>
                 <View className="mt-2">
-                  <Label>{t("products.new.skuLabel")}</Label>
-                  <Input
-                    value={v.sku}
-                    onChangeText={(value) => updateVariant(v.key, { sku: value })}
-                    placeholder={t("products.new.skuPlaceholder")}
-                  />
+                  <Field label={t("products.new.skuLabel")}>
+                    <TextFieldInput
+                      label={t("products.new.skuLabel")}
+                      value={v.sku}
+                      onValueChange={(value) => updateVariant(v.key, { sku: value })}
+                      placeholder={t("products.new.skuPlaceholder")}
+                    />
+                  </Field>
                 </View>
               </View>
             ))}
@@ -266,14 +288,5 @@ function NewProductBody({ storeId }: { storeId: string }) {
         </View>
       </View>
     </Screen>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View className="gap-1.5">
-      <Label>{label}</Label>
-      {children}
-    </View>
   );
 }

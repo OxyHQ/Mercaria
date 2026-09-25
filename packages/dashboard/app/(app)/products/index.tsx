@@ -8,8 +8,9 @@ import { useRouter, type RoutePath } from "expo-router";
 import Head from "expo-router/head";
 import { Plus, Package, ChevronLeft, ChevronRight } from "lucide-react-native";
 import type { Listing, ListingStatus } from "@mercaria/shared-types";
-import { Text, Input, PriceDisplay, SourceBadge, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Text, PriceDisplay, SourceBadge, toBloomIcon, useColorScheme } from "@mercaria/ui";
 import { Button } from "@oxy.so/bloom/button";
+import { Search } from "@oxy.so/bloom/search";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -101,7 +102,12 @@ function ProductsBody({ storeId }: { storeId: string }) {
   return (
     <Screen title={t("products.title")} subtitle={t("products.subtitle")} action={action}>
       <View className="mb-4">
-        <Input value={search} onChangeText={setSearch} placeholder={t("products.searchPlaceholder")} />
+        <Search
+          label={t("products.searchPlaceholder")}
+          value={search}
+          onValueChange={setSearch}
+          onClearText={() => setSearch("")}
+        />
       </View>
 
       {isPending ? (
