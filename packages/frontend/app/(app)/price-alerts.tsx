@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Loading } from "@oxy.so/bloom/loading";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
@@ -169,13 +170,12 @@ function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }
         </Text>
       )}
 
-      <TextInput
-        accessibilityLabel={t("priceAlerts.create.targetPrice")}
+      <TextFieldInput
+        label={t("priceAlerts.create.targetPrice")}
         inputMode="decimal"
         value={value}
-        onChangeText={setTyped}
+        onValueChange={setTyped}
         placeholder={t("priceAlerts.create.targetPlaceholder", { currency })}
-        className="rounded-radius-12 border border-border-secondary px-space-12 py-space-8 text-text"
       />
 
       <View className="flex-row gap-space-8">
