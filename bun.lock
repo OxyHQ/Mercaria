@@ -88,7 +88,6 @@
         "@tanstack/react-query": "^5.101.2",
         "@tanstack/react-query-persist-client": "^5.101.2",
         "axios": "^1.18.1",
-        "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "event-target-shim": "^6.0.2",
         "expo": "^56.0.11",
@@ -183,7 +182,6 @@
         "@tanstack/react-query": "^5.101.2",
         "@tanstack/react-query-persist-client": "^5.101.2",
         "axios": "^1.18.1",
-        "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "event-target-shim": "^6.0.2",
         "expo": "^56.0.11",
@@ -292,7 +290,6 @@
         "@tanstack/react-query": "^5.101.2",
         "@tanstack/react-query-persist-client": "^5.101.2",
         "axios": "^1.18.1",
-        "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "event-target-shim": "^6.0.2",
         "expo": "^56.0.11",
@@ -395,7 +392,6 @@
       "peerDependencies": {
         "@oxy.so/bloom": "^4.17.0",
         "@react-native-async-storage/async-storage": "^2.2.0",
-        "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "expo-blur": "~56.0.3",
         "expo-image": "~56.0.11",
@@ -1499,8 +1495,6 @@
     "chromium-edge-launcher": ["chromium-edge-launcher@0.3.0", "", { "dependencies": { "@types/node": "*", "escape-string-regexp": "^4.0.0", "is-wsl": "^2.2.0", "lighthouse-logger": "^1.0.0", "mkdirp": "^1.0.4" } }, "sha512-p03azHlGjtyRvFEee3cyvtsRYdniSkwjkzmM/KmVnqT5d7QkkwpJBhis/zCLMYdQMVJ5tt140TBNqqrZPaWeFA=="],
 
     "ci-info": ["ci-info@3.9.0", "", {}, "sha512-NIxF55hv4nSqQswkAeiOi1r83xy8JldOFDTWiug55KBu9Jnblncd2U6ViHmYgHf01TPZS77NJBhBMKdWj9HQMQ=="],
-
-    "class-variance-authority": ["class-variance-authority@0.7.1", "", { "dependencies": { "clsx": "^2.1.1" } }, "sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg=="],
 
     "cli-cursor": ["cli-cursor@2.1.0", "", { "dependencies": { "restore-cursor": "^2.0.0" } }, "sha512-8lgKz8LmCRYZZQDpRyT2m5rKJ08TnU4tR9FFFW2rxpxR1FzWi4PQ/NfyODchAatHaUgnSPVcx/R5w6NuTBzFiw=="],
 
