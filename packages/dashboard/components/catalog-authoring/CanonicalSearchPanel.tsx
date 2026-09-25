@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Pressable, View } from "react-native";
-import { BadgeCheck } from "lucide-react-native";
+import { BadgeCheck, Search as SearchIcon } from "lucide-react-native";
 import type { AuthoringCanonicalCandidate } from "@mercaria/shared-types";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { Search } from "@oxy.so/bloom/search";
+import { Text, toBloomFieldIcon, useColorScheme } from "@mercaria/ui";
+import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
 import { useTranslation } from "@/lib/i18n";
 import { useCanonicalSearch } from "@/lib/authoring/hooks";
@@ -51,13 +51,16 @@ export function CanonicalSearchPanel({
 
   return (
     <View className="gap-3">
-      <Search
-        label={t("products.wizard.canonical.searchPlaceholder")}
-        value={query}
-        onValueChange={setQuery}
-        onClearText={() => setQuery("")}
-        autoCapitalize="none"
-      />
+      <TextField radius={999}>
+        <TextFieldIcon icon={toBloomFieldIcon(SearchIcon)} />
+        <TextFieldInput
+          label={t("products.wizard.canonical.searchPlaceholder")}
+          value={query}
+          onValueChange={setQuery}
+          returnKeyType="search"
+          autoCapitalize="none"
+        />
+      </TextField>
 
       {debounced.trim().length > 0 && debounced.trim().length < 2 ? (
         <Text className="text-xs text-muted-foreground">

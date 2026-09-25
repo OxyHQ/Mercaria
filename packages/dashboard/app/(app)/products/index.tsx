@@ -6,11 +6,11 @@ import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { View, Pressable } from "react-native";
 import { useRouter, type RoutePath } from "expo-router";
 import Head from "expo-router/head";
-import { Plus, Package, ChevronLeft, ChevronRight } from "lucide-react-native";
+import { Plus, Package, ChevronLeft, ChevronRight, Search as SearchIcon } from "lucide-react-native";
 import type { Listing, ListingStatus } from "@mercaria/shared-types";
-import { Text, PriceDisplay, SourceBadge, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Text, PriceDisplay, SourceBadge, toBloomFieldIcon, toBloomIcon, useColorScheme } from "@mercaria/ui";
 import { Button } from "@oxy.so/bloom/button";
-import { Search } from "@oxy.so/bloom/search";
+import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -102,12 +102,15 @@ function ProductsBody({ storeId }: { storeId: string }) {
   return (
     <Screen title={t("products.title")} subtitle={t("products.subtitle")} action={action}>
       <View className="mb-4">
-        <Search
-          label={t("products.searchPlaceholder")}
-          value={search}
-          onValueChange={setSearch}
-          onClearText={() => setSearch("")}
-        />
+        <TextField radius={999}>
+          <TextFieldIcon icon={toBloomFieldIcon(SearchIcon)} />
+          <TextFieldInput
+            label={t("products.searchPlaceholder")}
+            value={search}
+            onValueChange={setSearch}
+            returnKeyType="search"
+          />
+        </TextField>
       </View>
 
       {isPending ? (
