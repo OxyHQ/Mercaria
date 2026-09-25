@@ -1,4 +1,5 @@
 import { Pressable, View } from 'react-native';
+import { Chip } from '@oxy.so/bloom/chip';
 import type {
   Facet,
   FacetBucket,
@@ -264,9 +265,13 @@ function FacetBucketChip({
   text: string;
 }) {
   return (
-    <Pressable
-      accessibilityRole={multiSelect ? 'checkbox' : 'radio'}
-      accessibilityState={{ checked: bucket.selected }}
+    <Chip
+      size="xl"
+      variant="inverted"
+      // Bloom's Chip has no checkbox role: a multi-select facet is a TOGGLE
+      // button (`aria-pressed`), a single-select one a radio (`aria-checked`).
+      role={multiSelect ? 'button' : 'radio'}
+      selected={bucket.selected}
       // The COUNT is in the announced label rather than in a second element:
       // "Black, 12 products" is one thing to hear, and a count rendered as its
       // own node is a second focus stop that reads as another control.
@@ -276,16 +281,9 @@ function FacetBucketChip({
           toggleFacetValue(selection, origin, facetKey, bucket.key, multiSelect),
         )
       }
-      className={
-        bucket.selected
-          ? 'rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6'
-          : 'rounded-radius-max border border-border-secondary px-space-12 py-space-6'
-      }
     >
       {/* The selected state is spelled as well as announced, never colour alone. */}
-      <Text className="text-caption text-text">
-        {bucket.selected ? `${text} ✓` : text} ({bucket.count})
-      </Text>
-    </Pressable>
+      {`${bucket.selected ? `${text} ✓` : text} (${String(bucket.count)})`}
+    </Chip>
   );
 }

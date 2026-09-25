@@ -1,4 +1,5 @@
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
+import { Chip } from '@oxy.so/bloom/chip';
 import { Text } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
 import type {
@@ -110,29 +111,16 @@ function AxisValueChip({
   const visible = suffix === undefined ? value.displayValue : `${value.displayValue} — ${suffix}`;
 
   return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: value.selected, disabled: !value.selectable }}
-      accessibilityLabel={`${axisLabel}: ${visible}`}
+    <Chip
+      size="xl"
+      variant="inverted"
+      role="radio"
+      selected={value.selected}
       disabled={!value.selectable}
+      accessibilityLabel={`${axisLabel}: ${visible}`}
       onPress={() => onChoose(axisKey, value.normalizedValue)}
-      className={chipClassName(value)}
     >
-      <Text
-        className={value.selectable ? 'text-caption text-text' : 'text-caption text-text-tertiary'}
-      >
-        {value.selected ? `${visible} ✓` : visible}
-      </Text>
-    </Pressable>
+      {value.selected ? `${visible} ✓` : visible}
+    </Chip>
   );
-}
-
-function chipClassName(value: VariantAxisValue): string {
-  if (value.selected) {
-    return 'rounded-radius-max border border-text bg-bg-fill px-space-16 py-space-8';
-  }
-  if (!value.selectable) {
-    return 'rounded-radius-max border border-border-secondary px-space-16 py-space-8 opacity-60';
-  }
-  return 'rounded-radius-max border border-border-secondary px-space-16 py-space-8';
 }
