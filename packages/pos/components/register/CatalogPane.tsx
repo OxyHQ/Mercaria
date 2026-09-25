@@ -3,7 +3,8 @@ import { View, ScrollView } from "react-native";
 import { useOxy } from "@oxy.so/services";
 import { Barcode, Search } from "lucide-react-native";
 import type { Listing, ProductVariantDTO } from "@mercaria/shared-types";
-import { Text, Input, Button, useColorScheme } from "@mercaria/ui";
+import { Input, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Chip } from "@oxy.so/bloom/chip";
 import { toast } from "@oxy.so/bloom/toast";
 import { useDialogControl } from "@oxy.so/bloom/dialog";
@@ -147,8 +148,13 @@ export function CatalogPane({ storeId }: { storeId: string }) {
               className="h-12 flex-1 border-0 bg-transparent px-0"
             />
           </View>
-          <Button onPress={onSubmitCode} className="h-12 px-5">
-            <Text className="font-semibold text-primary-foreground">{t("catalog.add")}</Text>
+          <Button
+            tone="accent"
+            size="lg"
+            onPress={onSubmitCode}
+            style={{ height: 48, paddingHorizontal: 20 }}
+          >
+            {t("catalog.add")}
           </Button>
         </View>
 

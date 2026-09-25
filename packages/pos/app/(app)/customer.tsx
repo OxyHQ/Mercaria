@@ -4,7 +4,8 @@ import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { UserX } from "lucide-react-native";
 import type { Customer } from "@mercaria/shared-types";
-import { Text, Input, Button, Label, useColorScheme } from "@mercaria/ui";
+import { Text, Input, Label, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -182,10 +183,15 @@ function QuickAddCustomer({
           className="h-11"
         />
       </View>
-      <Button onPress={submit} isLoading={createCustomer.isPending} className="mt-1 h-12">
-        <Text className="font-semibold text-primary-foreground">
-          {t("customer.addAndAttach")}
-        </Text>
+      <Button
+        tone="accent"
+        size="lg"
+        onPress={submit}
+        loading={createCustomer.isPending}
+        className="mt-1"
+        style={{ height: 48 }}
+      >
+        {t("customer.addAndAttach")}
       </Button>
     </View>
   );

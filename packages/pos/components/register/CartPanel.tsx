@@ -121,7 +121,7 @@ export function CartPanel({ storeId }: { storeId: string }) {
           <Text className="text-sm text-muted-foreground">{t("cart.subtotal")}</Text>
           <PriceDisplay price={subtotal} primaryClassName="text-base font-bold" />
         </View>
-        <ChargeButton total={subtotal} disabled={isEmpty} className="h-14" />
+        <ChargeButton total={subtotal} disabled={isEmpty} style={{ height: 56 }} />
       </View>
     </View>
   );

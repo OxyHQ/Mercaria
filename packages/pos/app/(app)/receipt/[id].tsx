@@ -4,7 +4,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { CheckCircle2 } from "lucide-react-native";
 import type { MerchantOrder } from "@mercaria/shared-types";
-import { Text, Button, PriceDisplay, useColorScheme } from "@mercaria/ui";
+import { Text, PriceDisplay, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useOrder } from "@/lib/hooks/use-orders";
@@ -74,10 +75,13 @@ function Receipt({ storeId, orderId }: { storeId: string; orderId: string }) {
         <OrderLines order={order} />
         <OrderTotals order={order} />
 
-        <Button onPress={() => router.replace("/")} className="h-16">
-          <Text className="text-lg font-semibold text-primary-foreground">
-            {t("receipt.newSale")}
-          </Text>
+        <Button
+          tone="accent"
+          size="lg"
+          onPress={() => router.replace("/")}
+          style={{ height: 64 }}
+        >
+          {t("receipt.newSale")}
         </Button>
       </View>
     </Screen>

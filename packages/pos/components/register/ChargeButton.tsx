@@ -1,8 +1,9 @@
 import React from "react";
-import { View } from "react-native";
+import type { StyleProp, ViewStyle } from "react-native";
 import { useRouter } from "expo-router";
 import type { Money } from "@mercaria/shared-types";
-import { Text, Button, PriceDisplay } from "@mercaria/ui";
+import { PriceDisplay } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { useTranslation } from "@/lib/i18n";
 
 interface ChargeButtonProps {
@@ -10,8 +11,11 @@ interface ChargeButtonProps {
   total: Money;
   /** Disabled when the cart is empty. */
   disabled: boolean;
-  /** Tailwind height/spacing classes for the button (callers size it per slot). */
-  className?: string;
+  /**
+   * The button's box (callers size it per slot). A style rather than classes:
+   * Bloom's Button sets its height inline, which a height class cannot beat.
+   */
+  style?: StyleProp<ViewStyle>;
 }
 
 /**
@@ -19,20 +23,24 @@ interface ChargeButtonProps {
  * narrow bottom bar. Renders "Charge" next to the total (the ⊜ figure always
  * goes through `PriceDisplay`) and navigates to the tender step (`/charge`).
  */
-export function ChargeButton({ total, disabled, className }: ChargeButtonProps) {
+export function ChargeButton({ total, disabled, style }: ChargeButtonProps) {
   const router = useRouter();
   const { t } = useTranslation();
   return (
-    <Button onPress={() => router.push("/charge")} disabled={disabled} className={className}>
-      <View className="flex-row items-center gap-2">
-        <Text className="text-base font-semibold text-primary-foreground">
-          {t("charge.action")}
-        </Text>
+    <Button
+      tone="accent"
+      size="lg"
+      onPress={() => router.push("/charge")}
+      disabled={disabled}
+      style={style}
+      trailing={
         <PriceDisplay
           price={total}
           primaryClassName="text-base font-bold text-primary-foreground"
         />
-      </View>
+      }
+    >
+      {t("charge.action")}
     </Button>
   );
 }
