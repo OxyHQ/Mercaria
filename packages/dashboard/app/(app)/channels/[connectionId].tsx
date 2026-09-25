@@ -33,9 +33,9 @@ import type {
 import { CHANNEL_DISCONNECT_POLICIES } from "@mercaria/shared-types";
 import {
   Text,
-  Button,
   Input,
   Label,
+  toBloomIcon,
   useColorScheme,
   formatDateTime,
   type Translate,
@@ -45,6 +45,7 @@ import {
   SegmentedControlItem,
   SegmentedControlItemText,
 } from "@oxy.so/bloom/segmented-control";
+import { Button } from "@oxy.so/bloom/button";
 import { Switch } from "@oxy.so/bloom/switch";
 import { toast } from "@oxy.so/bloom/toast";
 import { AlertDialog } from "@oxy.so/bloom/alert-dialog";
@@ -388,10 +389,8 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
         </View>
       </View>
 
-      <Button onPress={save} isLoading={update.isPending} className="self-start">
-        <Text className="font-semibold text-primary-foreground">
-          {t("channels.settings.save")}
-        </Text>
+      <Button tone="accent" onPress={save} loading={update.isPending} className="self-start">
+        {t("channels.settings.save")}
       </Button>
     </View>
   );
@@ -621,14 +620,15 @@ function ManualSync({ storeId, connection }: { storeId: string; connection: Conn
           </Text>
         </View>
         <Button
-          variant="outline"
+          appearance="outline"
+          tone="neutral"
           size="sm"
           onPress={run}
-          isLoading={sync.isPending}
+          loading={sync.isPending}
           disabled={blocked !== null}
           className="self-start"
         >
-          <Text className="text-sm font-medium text-foreground">{t("channels.import.now")}</Text>
+          {t("channels.import.now")}
         </Button>
       </View>
     </View>
@@ -835,13 +835,14 @@ function WebhookHealth({ storeId, connection }: { storeId: string; connection: C
         ) : null}
 
         <Button
-          variant="outline"
+          appearance="outline"
+          tone="neutral"
           size="sm"
           onPress={retry}
-          isLoading={reregister.isPending}
+          loading={reregister.isPending}
           className="self-start"
         >
-          <Text className="text-sm font-medium text-foreground">{delivery.actionLabel}</Text>
+          {delivery.actionLabel}
         </Button>
       </View>
     </View>
@@ -1048,10 +1049,8 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
         <Text className="text-xs text-muted-foreground">
           {t(DISCONNECT_POLICY_HELP_KEYS[policy])}
         </Text>
-        <Button variant="destructive" onPress={() => setConfirmOpen(true)}>
-          <Text className="font-semibold text-destructive-foreground">
-            {t("channels.disconnect.action")}
-          </Text>
+        <Button tone="danger" onPress={() => setConfirmOpen(true)}>
+          {t("channels.disconnect.action")}
         </Button>
       </View>
 
@@ -1133,13 +1132,14 @@ function ChannelApiKeys({ storeId, connection }: { storeId: string; connection: 
         <Text className="text-sm font-semibold text-muted-foreground">
           {t("channels.keys.title")}
         </Text>
-        <Button variant="outline" size="sm" onPress={() => generateControl.open()}>
-          <View className="flex-row items-center gap-1.5">
-            <Plus size={14} color={colors.foreground} />
-            <Text className="text-xs font-semibold text-foreground">
-              {t("channels.keys.generate")}
-            </Text>
-          </View>
+        <Button
+          appearance="outline"
+          tone="neutral"
+          size="sm"
+          leadingIcon={toBloomIcon(Plus)}
+          onPress={() => generateControl.open()}
+        >
+          {t("channels.keys.generate")}
         </Button>
       </View>
 
@@ -1223,8 +1223,8 @@ function MintedKeyCard({
         </Text>
         <CopyButton value={result.key} label={t("channels.keys.apiKeySubject")} />
       </View>
-      <Button size="sm" onPress={onDone} className="self-start">
-        <Text className="text-xs font-semibold text-primary-foreground">{t("common.done")}</Text>
+      <Button tone="accent" size="sm" onPress={onDone} className="self-start">
+        {t("common.done")}
       </Button>
     </View>
   );
@@ -1331,10 +1331,8 @@ function GenerateKeyDialog({
             autoCorrect={false}
           />
         </View>
-        <Button onPress={submit} isLoading={generate.isPending} className="mt-1">
-          <Text className="font-semibold text-primary-foreground">
-            {t("channels.keys.generate")}
-          </Text>
+        <Button tone="accent" onPress={submit} loading={generate.isPending} className="mt-1">
+          {t("channels.keys.generate")}
         </Button>
       </View>
     </Dialog>

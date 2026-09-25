@@ -36,7 +36,8 @@ import type {
   FeedFormat,
   FeedImportReportMode,
 } from "@mercaria/shared-types";
-import { Button, Input, Label, Text, useColorScheme } from "@mercaria/ui";
+import { Input, Label, Text, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -248,8 +249,10 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
             })}
           </Text>
           <Button
-            variant="outline"
-            isLoading={sync.isPending}
+            appearance="outline"
+            tone="neutral"
+            leadingIcon={toBloomIcon(RefreshCw)}
+            loading={sync.isPending}
             disabled={active === undefined}
             onPress={() =>
               sync.mutate(undefined, {
@@ -258,14 +261,9 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
               })
             }
           >
-            <View className="flex-row items-center gap-1.5">
-              <RefreshCw size={14} color={colors.foreground} />
-              <Text className="text-xs font-semibold text-foreground">
-                {active === undefined
-                  ? t("feeds.detail.activateMappingFirst")
-                  : t("feeds.detail.syncNow")}
-              </Text>
-            </View>
+            {active === undefined
+              ? t("feeds.detail.activateMappingFirst")
+              : t("feeds.detail.syncNow")}
           </Button>
         </View>
 
@@ -402,9 +400,10 @@ function Versions({
 
           <View className="flex-row flex-wrap gap-2">
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               size="sm"
-              isLoading={preview.isPending}
+              loading={preview.isPending}
               onPress={() =>
                 preview.mutate(version.id, {
                   onSuccess: (result) => setPreviewed({ versionId: version.id, result }),
@@ -412,14 +411,13 @@ function Versions({
                 })
               }
             >
-              <Text className="text-xs font-semibold text-foreground">
-                {t("feeds.versions.preview")}
-              </Text>
+              {t("feeds.versions.preview")}
             </Button>
             <Button
-              variant="outline"
+              appearance="outline"
+              tone="neutral"
               size="sm"
-              isLoading={validate.isPending}
+              loading={validate.isPending}
               onPress={() =>
                 validate.mutate(version.id, {
                   onSuccess: (report) =>
@@ -433,14 +431,13 @@ function Versions({
                 })
               }
             >
-              <Text className="text-xs font-semibold text-foreground">
-                {t("feeds.versions.checkWholeFeed")}
-              </Text>
+              {t("feeds.versions.checkWholeFeed")}
             </Button>
             {version.status === "draft" ? (
               <Button
+                tone="accent"
                 size="sm"
-                isLoading={activate.isPending}
+                loading={activate.isPending}
                 disabled={version.validatedReportId === null}
                 onPress={() => {
                   if (version.validatedReportId === null) return;
@@ -453,11 +450,9 @@ function Versions({
                   );
                 }}
               >
-                <Text className="text-xs font-semibold text-primary-foreground">
-                  {version.validatedReportId === null
-                    ? t("feeds.versions.checkItFirst")
-                    : t("feeds.versions.activate")}
-                </Text>
+                {version.validatedReportId === null
+                  ? t("feeds.versions.checkItFirst")
+                  : t("feeds.versions.activate")}
               </Button>
             ) : null}
           </View>
@@ -596,8 +591,8 @@ function DraftVersion({
         ))}
       </View>
 
-      <Button onPress={submit} isLoading={draft.isPending}>
-        <Text className="font-semibold text-primary-foreground">{t("feeds.draft.save")}</Text>
+      <Button tone="accent" onPress={submit} loading={draft.isPending}>
+        {t("feeds.draft.save")}
       </Button>
     </View>
   );

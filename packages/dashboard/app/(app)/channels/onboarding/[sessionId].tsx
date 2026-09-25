@@ -36,7 +36,8 @@ import type {
   ChannelTypeDescriptor,
 } from "@mercaria/shared-types";
 import { CHANNEL_ONBOARDING_STEPS } from "@mercaria/shared-types";
-import { Button, Input, Label, Text, useColorScheme } from "@mercaria/ui";
+import { Input, Label, Text, useColorScheme } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -163,12 +164,10 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
               ? t("channels.wizard.activeFeedBody")
               : t("channels.wizard.activeConnectionBody")}
           </Text>
-          <Button className="mt-4" onPress={() => router.replace(settingsHref)}>
-            <Text className="font-semibold text-primary-foreground">
-              {current.connectionId === undefined
-                ? t("channels.wizard.backToChannels")
-                : t("channels.wizard.chooseWhatToImport")}
-            </Text>
+          <Button tone="accent" className="mt-4" onPress={() => router.replace(settingsHref)}>
+            {current.connectionId === undefined
+              ? t("channels.wizard.backToChannels")
+              : t("channels.wizard.chooseWhatToImport")}
           </Button>
         </View>
       </Screen>
@@ -387,10 +386,8 @@ function ConnectStep({
         {t("channels.wizard.feed.title")}
       </Text>
       <Text className="text-xs text-muted-foreground">{t("channels.wizard.feed.body")}</Text>
-      <Button variant="outline" onPress={() => router.push("/channels/feeds/new")}>
-        <Text className="text-xs font-semibold text-foreground">
-          {t("channels.wizard.feed.create")}
-        </Text>
+      <Button appearance="outline" tone="neutral" onPress={() => router.push("/channels/feeds/new")}>
+        {t("channels.wizard.feed.create")}
       </Button>
     </View>
   );
@@ -481,12 +478,10 @@ function ShopifyConnect({
           </Text>
         </View>
       ) : null}
-      <Button onPress={submit} isLoading={connect.isPending || redirecting}>
-        <Text className="font-semibold text-primary-foreground">
-          {awaiting
-            ? t("channels.wizard.shopify.openAgain")
-            : t("channels.wizard.shopify.continue")}
-        </Text>
+      <Button tone="accent" onPress={submit} loading={connect.isPending || redirecting}>
+        {awaiting
+          ? t("channels.wizard.shopify.openAgain")
+          : t("channels.wizard.shopify.continue")}
       </Button>
     </View>
   );
@@ -577,10 +572,8 @@ function WooCommerceConnect({
           secureTextEntry
         />
       </View>
-      <Button onPress={submit} isLoading={connect.isPending}>
-        <Text className="font-semibold text-primary-foreground">
-          {t("channels.wizard.woo.connect")}
-        </Text>
+      <Button tone="accent" onPress={submit} loading={connect.isPending}>
+        {t("channels.wizard.woo.connect")}
       </Button>
     </View>
   );
@@ -619,7 +612,8 @@ function PluginConnect({ storeId }: { storeId: string }) {
         </View>
       ) : (
         <Button
-          isLoading={mint.isPending}
+          tone="accent"
+          loading={mint.isPending}
           onPress={() =>
             mint.mutate(
               // The label is stored on the key row and rendered back to the
@@ -633,9 +627,7 @@ function PluginConnect({ storeId }: { storeId: string }) {
             )
           }
         >
-          <Text className="font-semibold text-primary-foreground">
-            {t("channels.wizard.plugin.createKey")}
-          </Text>
+          {t("channels.wizard.plugin.createKey")}
         </Button>
       )}
     </View>
@@ -680,7 +672,8 @@ function PreviewStep({
         </Text>
       )}
       <Button
-        variant="outline"
+        appearance="outline"
+        tone="neutral"
         onPress={() =>
           // A connector's sample is the first page of a real backfill, which the
           // sync action already runs. Until that is wired the merchant records
@@ -691,11 +684,9 @@ function PreviewStep({
           )
         }
       >
-        <Text className="text-xs font-semibold text-foreground">
-          {counts
-            ? t("channels.wizard.preview.rerun")
-            : t("channels.wizard.preview.run")}
-        </Text>
+        {counts
+          ? t("channels.wizard.preview.rerun")
+          : t("channels.wizard.preview.run")}
       </Button>
     </View>
   );
@@ -743,13 +734,11 @@ function ActivationPanel({
         </Text>
       )}
       <View className="flex-row gap-2">
-        <Button disabled={blocked} isLoading={busy} onPress={onActivate}>
-          <Text className="font-semibold text-primary-foreground">
-            {t("channels.wizard.activateChannel")}
-          </Text>
+        <Button tone="accent" disabled={blocked} loading={busy} onPress={onActivate}>
+          {t("channels.wizard.activateChannel")}
         </Button>
-        <Button variant="outline" onPress={onAbandon}>
-          <Text className="font-semibold text-foreground">{t("common.cancel")}</Text>
+        <Button appearance="outline" tone="neutral" onPress={onAbandon}>
+          {t("common.cancel")}
         </Button>
       </View>
     </View>

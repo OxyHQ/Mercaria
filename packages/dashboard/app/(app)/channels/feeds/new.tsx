@@ -17,7 +17,8 @@ import React, { useState } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
 import Head from "expo-router/head";
-import { Button, Input, Label, Text } from "@mercaria/ui";
+import { Input, Label, Text } from "@mercaria/ui";
+import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -112,8 +113,8 @@ function NewFeedBody({ storeId }: { storeId: string }) {
             {t("feeds.new.identityColumnsHint")}
           </Text>
         </View>
-        <Button onPress={submit} isLoading={create.isPending}>
-          <Text className="font-semibold text-primary-foreground">{t("feeds.new.create")}</Text>
+        <Button tone="accent" onPress={submit} loading={create.isPending}>
+          {t("feeds.new.create")}
         </Button>
       </View>
     </Screen>
