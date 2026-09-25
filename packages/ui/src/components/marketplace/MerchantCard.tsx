@@ -1,21 +1,19 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Star } from "lucide-react-native";
+import { Rating } from "@oxy.so/bloom/rating";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
   MARKETPLACE_VISIT_MERCHANT_KEY,
 } from "../../lib/marketplace-labels";
-import { useFormatters } from "../../lib/use-formatters";
+import { useRatingDisplay } from "../../lib/rating-display";
 import type { StoreSummary } from "@mercaria/shared-types";
 
 /** Fixed card height (px) — the carousel sizes the slot width, the card the height. */
 const CARD_HEIGHT = 397;
 /** Card corner radius (px). */
 const CARD_RADIUS = 28;
-/** Rating star size (px). */
-const RATING_STAR_SIZE = 11;
 /**
  * Featured-thumbnail edge length (px). Fixed so each square cell always has a
  * concrete size — an absolute-fill cover image needs a sized parent to show.
@@ -62,7 +60,7 @@ export function MerchantCard({
   onPressMerchant,
   onPressProduct,
 }: MerchantCardProps) {
-  const { formatReviewCount } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const t = useSharedUiTranslation();
   const toneColor = merchant.textTone === "light" ? TONE_LIGHT : TONE_DARK;
 
@@ -135,12 +133,16 @@ export function MerchantCard({
             >
               {merchant.name}
             </Text>
-            <View className="mt-0.5 flex-row items-center gap-1">
-              <Star size={RATING_STAR_SIZE} color={STAR_COLOR} fill={STAR_COLOR} />
-              <Text className="text-xs" style={{ color: toneColor }}>
-                {`${merchant.rating} (${formatReviewCount(merchant.reviewCount)})`}
-              </Text>
-            </View>
+            {/* Bloom's compact rating: the gold star, and the localised figure
+                and count painted in the cover's text tone so they read over
+                any merchant cover. */}
+            <Rating
+              {...ratingDisplay({ rating: merchant.rating, reviews: merchant.reviewCount })}
+              size="small"
+              color={toneColor}
+              starColor={STAR_COLOR}
+              style={{ marginTop: 2 }}
+            />
           </View>
         </View>
 

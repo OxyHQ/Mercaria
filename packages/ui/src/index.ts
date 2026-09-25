@@ -326,11 +326,8 @@ export {
 // Marketplace presentational components
 // ---------------------------------------------------------------------------
 export { ProductCard, type ProductCardProps } from "./components/marketplace/ProductCard";
-// Kept for BRAND-TINTED surfaces only (a store's hero and menu sheet), where the
-// text runs in the store's tone colour: Bloom's `Rating` paints the theme's text
-// colour with no override, which is illegible over a dark brand. Everywhere else
-// renders `@oxy.so/bloom/rating` through `useRatingDisplay`.
-export { ReviewStars, type ReviewStarsProps } from "./components/marketplace/ReviewStars";
+// Every rating renders `@oxy.so/bloom/rating` through `useRatingDisplay`; over a
+// brand colour the caller passes Bloom's `color` / `starColor` / `emptyStarColor`.
 export {
   useRatingDisplay,
   type RatingDisplay,

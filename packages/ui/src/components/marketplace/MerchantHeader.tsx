@@ -1,6 +1,7 @@
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
-import { MoreHorizontal, Star } from "lucide-react-native";
+import { MoreHorizontal } from "lucide-react-native";
+import { Rating } from "@oxy.so/bloom/rating";
 import { Text } from "../ui/text";
 import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
@@ -9,18 +10,16 @@ import {
   MERCHANT_HEADER_VISIT_STORE_KEY,
   PRODUCT_CARD_DISCOUNT_KEY,
 } from "../../lib/marketplace-labels";
-import { useFormatters } from "../../lib/use-formatters";
+import { useRatingDisplay } from "../../lib/rating-display";
 import { formatPercent } from "../../lib/format";
 import { IncentiveHalo } from "./IncentiveHalo";
 
-/** Fixed gold star fill (mirrors ReviewStars / MerchantCard constant). */
+/** Fixed gold star fill (mirrors the MerchantCard constant). */
 const STAR_COLOR = "#FFB800";
 /** Logo edge length (px) for the `large` (mobile sticky bar) variant. */
 const LARGE_LOGO_SIZE = 44;
 /** Logo edge length (px) for the `compact` (desktop buy column) variant. */
 const COMPACT_LOGO_SIZE = 32;
-/** Star glyph size (px) inside the rating row. */
-const HEADER_STAR_SIZE = 13;
 /** Overflow (…) icon size (px). */
 const OVERFLOW_ICON_SIZE = 20;
 
@@ -58,9 +57,10 @@ export interface MerchantHeaderProps {
 }
 
 /**
- * Compact "★ 4.4 (310.6K)" rating row used inside the header.
+ * Compact "★ 4.4 (310.6K)" rating row used inside the header — Bloom's
+ * `Rating` with the gold star, the localised figure and the count.
  *
- * `accessibilityLabel` names the SCOPE (#76 UI rule 6). A PDP carries this
+ * The accessible name names the SCOPE (#76 UI rule 6). A PDP carries this
  * rating and the product rating side by side, and a reader hearing "4.4" twice
  * has no way to tell the seller's service from the model's quality — which is
  * the confusion the whole scope split exists to remove.
@@ -74,18 +74,13 @@ function HeaderRating({
   reviewCount?: number;
   scopeLabel: string;
 }) {
-  const { formatReviewCount } = useFormatters();
-  const figure = `${rating}${reviewCount !== undefined ? ` (${formatReviewCount(reviewCount)})` : ""}`;
+  const ratingDisplay = useRatingDisplay();
   return (
-    <View
-      accessible
-      accessibilityRole="text"
-      accessibilityLabel={`${scopeLabel}: ${figure}`}
-      className="flex-row items-center gap-space-4"
-    >
-      <Star size={HEADER_STAR_SIZE} color={STAR_COLOR} fill={STAR_COLOR} />
-      <Text className="text-captionBold text-text">{figure}</Text>
-    </View>
+    <Rating
+      {...ratingDisplay({ rating, reviews: reviewCount, subject: scopeLabel })}
+      size="small"
+      starColor={STAR_COLOR}
+    />
   );
 }
 

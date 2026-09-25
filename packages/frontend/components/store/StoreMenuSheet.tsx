@@ -16,12 +16,13 @@ import {
   X,
 } from "lucide-react-native";
 import { Dialog } from "@oxy.so/bloom/dialog";
+import { Rating } from "@oxy.so/bloom/rating";
 import { openAccountDialog, useFollowTarget, useOxy } from "@oxy.so/services";
 import {
-  ReviewStars,
   Text,
   formatDate,
   useFormatters,
+  useRatingDisplay,
 } from "@mercaria/ui";
 import type { Collection, StoreSummary, Review } from "@mercaria/shared-types";
 import { storeThemeVars } from "@/lib/store-theme";
@@ -48,10 +49,13 @@ const CONTROL_SIZE = 44;
 const CONTROL_ICON_SIZE = 20;
 /** Trailing affordance / policy-row icon size (px). */
 const ROW_ICON_SIZE = 20;
-/** Star size (px) for the in-sheet review summaries. */
-const SUMMARY_STAR_SIZE = 16;
-/** Star size (px) on an individual review card. */
-const REVIEW_STAR_SIZE = 14;
+/** Gold fill for the rated stars (mirrors the store page and MerchantCard). */
+const STAR_COLOR = "#FFB800";
+/**
+ * Hex alpha suffix (~35%) for the unfilled part of each star: the text tone,
+ * faded, so the empty stars read over the brand panel.
+ */
+const EMPTY_STAR_ALPHA = "59";
 /** Explicit translucent glass fill for cards over the brand panel. */
 const GLASS_FILL = "rgba(255,255,255,0.2)";
 /** Side-sheet width (px) on wide screens. */
@@ -209,6 +213,7 @@ function StoreReviewCard({
   // more deliberate face (#488). The options it passed are what
   // `formatDate`'s `dateStyle: "medium"` now means everywhere.
   const date = formatDate(review.createdAt, locale);
+  const ratingDisplay = useRatingDisplay();
   const author = review.author?.displayName ?? t(FALLBACK_AUTHOR_KEY);
 
   return (
@@ -239,7 +244,14 @@ function StoreReviewCard({
       ) : null}
 
       <View className="flex-1 gap-space-6">
-        <ReviewStars rating={review.rating} count={1} size={REVIEW_STAR_SIZE} />
+        <Rating
+          {...ratingDisplay({ rating: review.rating, variant: "stars" })}
+          variant="stars"
+          size="small"
+          color={toneColor}
+          starColor={STAR_COLOR}
+          emptyStarColor={`${toneColor}${EMPTY_STAR_ALPHA}`}
+        />
         {review.product ? (
           <Text numberOfLines={1} className="text-captionBold" style={{ color: toneColor }}>
             {review.product.title}
@@ -299,6 +311,7 @@ function ReviewsPage({
 }) {
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const { data, isLoading } = useStoreReviews(store.handle);
   const reviews = data?.data ?? [];
   const total = data?.pagination.total ?? store.reviewCount;
@@ -319,17 +332,20 @@ function ReviewsPage({
         separately rather than presented as one number over its own evidence
         (#76 UI rules 5 and 6).
       */}
-      <View className="flex-row items-center gap-space-16">
-        <Text className="text-headerBold" style={{ color: toneColor }}>
-          {`${store.rating}`}
-        </Text>
-        <View className="flex-1 gap-space-4">
-          <ReviewStars
-            rating={store.rating}
-            count={store.reviewCount}
-            size={SUMMARY_STAR_SIZE}
-            scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
-          />
+      <View className="gap-space-4">
+        <Rating
+          {...ratingDisplay({
+            rating: store.rating,
+            reviews: store.reviewCount,
+            subject: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
+            variant: "stars",
+          })}
+          variant="stars"
+          color={toneColor}
+          starColor={STAR_COLOR}
+          emptyStarColor={`${toneColor}${EMPTY_STAR_ALPHA}`}
+        />
+        <View className="gap-space-4">
           <Text className="text-caption" style={{ color: toneColor }}>
             {t("store.reviews.ratingsWithScope", {
               formattedCount: formatReviewCount(store.reviewCount),
@@ -384,6 +400,7 @@ function MenuPage({
 }) {
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const hasReviews = store.reviewCount > 0;
 
   return (
@@ -411,14 +428,12 @@ function MenuPage({
           <Text numberOfLines={2} className="text-headerBold" style={{ color: toneColor }}>
             {store.name}
           </Text>
-          <View className="mt-space-4 flex-row items-center gap-space-6">
-            <Text className="text-captionBold" style={{ color: toneColor }}>
-              {`★ ${store.rating}`}
-            </Text>
-            <Text className="text-captionBold" style={{ color: toneColor }}>
-              {`(${formatReviewCount(store.reviewCount)})`}
-            </Text>
-          </View>
+          <Rating
+            {...ratingDisplay({ rating: store.rating, reviews: store.reviewCount })}
+            size="small"
+            color={toneColor}
+            style={{ marginTop: 4 }}
+          />
         </View>
       </View>
 
@@ -453,15 +468,18 @@ function MenuPage({
         </Text>
         {hasReviews ? (
           <View className="mt-space-12 flex-row items-center gap-space-16">
-            <Text className="text-headerBold" style={{ color: toneColor }}>
-              {`${store.rating}`}
-            </Text>
             <View className="flex-1 gap-space-4">
-              <ReviewStars
-                rating={store.rating}
-                count={store.reviewCount}
-                size={SUMMARY_STAR_SIZE}
-                scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
+              <Rating
+                {...ratingDisplay({
+                  rating: store.rating,
+                  reviews: store.reviewCount,
+                  subject: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
+                  variant: "stars",
+                })}
+                variant="stars"
+                color={toneColor}
+                starColor={STAR_COLOR}
+                emptyStarColor={`${toneColor}${EMPTY_STAR_ALPHA}`}
               />
               <Text className="text-caption" style={{ color: toneColor }}>
                 {t("store.reviews.ratingsCount", {

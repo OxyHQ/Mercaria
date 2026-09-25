@@ -111,7 +111,7 @@ export const QUANTITY_REMOVE_KEY = "ui.quantity.remove";
 export const QUANTITY_DECREASE_KEY = "ui.quantity.decrease";
 export const QUANTITY_INCREASE_KEY = "ui.quantity.increase";
 
-/** `ReviewStars`, `useRatingDisplay` and `ReviewSummaryCard`. */
+/** `useRatingDisplay` and `ReviewSummaryCard`. */
 export const REVIEW_DEFAULT_SCOPE_KEY = "ui.review.defaultScope";
 export const REVIEW_STARS_A11Y_KEY = "ui.review.starsA11y";
 export const REVIEW_STARS_SCOPED_A11Y_KEY = "ui.review.starsScopedA11y";

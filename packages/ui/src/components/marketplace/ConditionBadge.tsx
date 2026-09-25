@@ -49,8 +49,8 @@ export function ConditionBadge({ condition, showExplanation = false }: Condition
         className="self-start"
         accessibilityRole="text"
         // The label alone would announce "Good" with no subject. Naming what it
-        // is ABOUT is the `ReviewStars` `scopeLabel` decision, one component
-        // over and for the same reason: a page carries several chips and a
+        // is ABOUT is `useRatingDisplay`'s `subject` decision, for the
+        // same reason: a page carries several chips and a
         // screen reader cannot tell them apart from the value alone.
         accessibilityLabel={t(CONDITION_A11Y_LABEL_KEY, { label })}
       >

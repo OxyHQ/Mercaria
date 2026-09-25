@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
+import { Rating } from "@oxy.so/bloom/rating";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { vars } from "nativewind";
 import { Image } from "expo-image";
@@ -9,11 +10,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Check, ChevronDown, Search, SlidersHorizontal } from "lucide-react-native";
 import {
   ProductCard,
-  ReviewStars,
   SectionHeader,
   Text,
   toBloomFieldIcon,
   useFormatters,
+  useRatingDisplay,
   type ProductSummary,
 } from "@mercaria/ui";
 import {
@@ -54,8 +55,14 @@ const TONE_DARK = "#111111";
 const GLASS_ALPHA = "D9";
 /** Fixed dark cover overlay (~25%) so the wordmark reads over any cover. */
 const COVER_DARK_OVERLAY = "rgba(0,0,0,0.25)";
-/** Gold star fill (mirrors MerchantCard / ReviewStars constant). */
+/** Gold star fill (mirrors the MerchantCard constant). */
 const STAR_COLOR = "#FFB800";
+/**
+ * Hex alpha suffix (~35%) for the unfilled part of each star: the text tone,
+ * faded, so the empty stars read over any brand colour (the theme border the
+ * hand-drawn stars used to take disappears on a dark brand).
+ */
+const EMPTY_STAR_ALPHA = "59";
 /** Hero gradient stops: transparent at top → opaque brand at the bottom. */
 const HERO_GRADIENT_LOCATIONS = [0.35, 1] as const;
 /** Page size for the products grid (drives "Load more"). */
@@ -200,6 +207,7 @@ function StoreBody({
 }) {
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const router = useRouter();
   const toneColor = store.textTone === "light" ? TONE_LIGHT : TONE_DARK;
   // Scoped shadcn theme tokens derived from the store's palette. Applied to the
@@ -377,17 +385,19 @@ function StoreBody({
             server function that returns one value; an unlinked one is showing
             its own. Never both, never a sum.
           */}
-          <View className="mt-3 flex-row items-center gap-2">
-            <ReviewStars
-              rating={store.rating}
-              count={store.reviewCount}
-              size={16}
-              scopeLabel={t(STORE_RATING_LABEL_KEY)}
-            />
-            <Text className="text-sm font-semibold" style={{ color: toneColor }}>
-              {`${store.rating} (${formatReviewCount(store.reviewCount)})`}
-            </Text>
-          </View>
+          <Rating
+            {...ratingDisplay({
+              rating: store.rating,
+              reviews: store.reviewCount,
+              subject: t(STORE_RATING_LABEL_KEY),
+              variant: "stars",
+            })}
+            variant="stars"
+            color={toneColor}
+            starColor={STAR_COLOR}
+            emptyStarColor={`${toneColor}${EMPTY_STAR_ALPHA}`}
+            style={{ marginTop: 12 }}
+          />
           <Text className="mt-1 text-xs opacity-80" style={{ color: toneColor }}>
             {t(STORE_RATING_LABEL_KEY)}
           </Text>
