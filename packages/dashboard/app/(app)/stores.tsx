@@ -8,11 +8,11 @@ import { Check, Plus, Store as StoreIcon } from "lucide-react-native";
 import type { Store } from "@mercaria/shared-types";
 import {
   Text,
-  Input,
-  Label,
   useColorScheme,
   toBloomIcon,
 } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
@@ -143,22 +143,22 @@ function CreateStoreDialog({
   return (
     <Dialog control={control} title={t("stores.create.dialogTitle")}>
       <View className="gap-4">
-        <View className="gap-1.5">
-          <Label>{t("stores.create.nameLabel")}</Label>
-          <Input
+        <Field label={t("stores.create.nameLabel")}>
+          <TextFieldInput
+            label={t("stores.create.nameLabel")}
             value={name}
-            onChangeText={setName}
+            onValueChange={setName}
             placeholder={t("stores.create.namePlaceholder")}
           />
-        </View>
-        <View className="gap-1.5">
-          <Label>{t("common.description")}</Label>
-          <Input
+        </Field>
+        <Field label={t("common.description")}>
+          <TextFieldInput
+            label={t("common.description")}
             value={description}
-            onChangeText={setDescription}
+            onValueChange={setDescription}
             placeholder={t("stores.create.descriptionPlaceholder")}
           />
-        </View>
+        </Field>
         <Button tone="accent" onPress={submit} loading={createStore.isPending} className="mt-2">
           {t("stores.createStore")}
         </Button>

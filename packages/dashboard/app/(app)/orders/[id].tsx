@@ -8,14 +8,14 @@ import { ChevronLeft } from "lucide-react-native";
 import type { MerchantOrder, OrderItem, Refund, RefundProviderState } from "@mercaria/shared-types";
 import {
   Text,
-  Input,
-  Label,
   PriceDisplay,
   formatDate,
   formatDateTime,
   formatRegionName,
   useColorScheme,
 } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
@@ -397,13 +397,15 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
           only a free-text tracking number is captured on "shipped". */}
       {canFulfil ? (
         <>
-          <View className="mb-3 gap-1.5">
-            <Label>{t("orders.detail.trackingLabel")}</Label>
-            <Input
-              value={tracking}
-              onChangeText={setTracking}
-              placeholder={t("orders.detail.trackingPlaceholder")}
-            />
+          <View className="mb-3">
+            <Field label={t("orders.detail.trackingLabel")}>
+              <TextFieldInput
+                label={t("orders.detail.trackingLabel")}
+                value={tracking}
+                onValueChange={setTracking}
+                placeholder={t("orders.detail.trackingPlaceholder")}
+              />
+            </Field>
           </View>
           <View className="flex-row flex-wrap gap-2">
             {NEXT_STATUSES.map((s) => (
@@ -495,9 +497,10 @@ function RefundDialog({
               </Text>
             </View>
             <View className="w-20">
-              <Input
+              <TextFieldInput
+                label={t("orders.refund.quantityLabel", { item: item.title })}
                 value={quantities[item.variantId] ?? ""}
-                onChangeText={(value) =>
+                onValueChange={(value) =>
                   setQuantities((prev) => ({ ...prev, [item.variantId]: value }))
                 }
                 keyboardType="number-pad"
@@ -506,14 +509,14 @@ function RefundDialog({
             </View>
           </View>
         ))}
-        <View className="gap-1.5">
-          <Label>{t("orders.refund.reasonLabel")}</Label>
-          <Input
+        <Field label={t("orders.refund.reasonLabel")}>
+          <TextFieldInput
+            label={t("orders.refund.reasonLabel")}
             value={reason}
-            onChangeText={setReason}
+            onValueChange={setReason}
             placeholder={t("orders.refund.reasonPlaceholder")}
           />
-        </View>
+        </Field>
         <Button tone="danger" onPress={submit} loading={createRefund.isPending} className="mt-1">
           {t("orders.refund.submit")}
         </Button>

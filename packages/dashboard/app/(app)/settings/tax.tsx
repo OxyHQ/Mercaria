@@ -6,11 +6,11 @@ import { ChevronLeft, Plus, Trash2, Percent } from "lucide-react-native";
 import type { TaxRate } from "@mercaria/shared-types";
 import {
   Text,
-  Input,
-  Label,
   useColorScheme,
   toBloomIcon,
 } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
@@ -167,35 +167,44 @@ function CreateTaxRateDialog({
   return (
     <Dialog control={control} title={t("settings.tax.newRateTitle")}>
       <View className="gap-4">
-        <View className="gap-1.5">
-          <Label>{t("common.name")}</Label>
-          <Input
+        <Field label={t("common.name")}>
+          <TextFieldInput
+            label={t("common.name")}
             value={name}
-            onChangeText={setName}
+            onValueChange={setName}
             placeholder={t("settings.tax.namePlaceholder")}
           />
-        </View>
-        <View className="gap-1.5">
-          <Label>{t("settings.tax.rateLabel")}</Label>
-          <Input value={percent} onChangeText={setPercent} keyboardType="decimal-pad" placeholder="8" />
-        </View>
+        </Field>
+        <Field label={t("settings.tax.rateLabel")}>
+          <TextFieldInput
+            label={t("settings.tax.rateLabel")}
+            value={percent}
+            onValueChange={setPercent}
+            keyboardType="decimal-pad"
+            placeholder="8"
+          />
+        </Field>
         <View className="flex-row gap-2">
-          <View className="flex-1 gap-1.5">
-            <Label>{t("settings.tax.countryLabel")}</Label>
-            <Input
-              value={country}
-              onChangeText={setCountry}
-              placeholder={t("settings.tax.countryPlaceholder")}
-              autoCapitalize="characters"
-            />
+          <View className="flex-1">
+            <Field label={t("settings.tax.countryLabel")}>
+              <TextFieldInput
+                label={t("settings.tax.countryLabel")}
+                value={country}
+                onValueChange={setCountry}
+                placeholder={t("settings.tax.countryPlaceholder")}
+                autoCapitalize="characters"
+              />
+            </Field>
           </View>
-          <View className="flex-1 gap-1.5">
-            <Label>{t("settings.tax.regionLabel")}</Label>
-            <Input
-              value={region}
-              onChangeText={setRegion}
-              placeholder={t("settings.tax.regionPlaceholder")}
-            />
+          <View className="flex-1">
+            <Field label={t("settings.tax.regionLabel")}>
+              <TextFieldInput
+                label={t("settings.tax.regionLabel")}
+                value={region}
+                onValueChange={setRegion}
+                placeholder={t("settings.tax.regionPlaceholder")}
+              />
+            </Field>
           </View>
         </View>
         <Button tone="accent" onPress={submit} loading={createTaxRate.isPending} className="mt-1">

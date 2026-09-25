@@ -4,7 +4,10 @@ import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft } from "lucide-react-native";
 import type { Store } from "@mercaria/shared-types";
-import { Text, Input, Label, Textarea, ColorPicker, useColorScheme } from "@mercaria/ui";
+import { Text, ColorPicker, useColorScheme } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Textarea } from "@oxy.so/bloom/textarea";
 import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
@@ -90,14 +93,17 @@ function StoreProfileForm({ storeId, store }: { storeId: string; store: Store })
 
   return (
     <View className="gap-5">
-      <View className="gap-1.5">
-        <Label>{t("settings.store.nameLabel")}</Label>
-        <Input value={name} onChangeText={setName} />
-      </View>
-      <View className="gap-1.5">
-        <Label>{t("common.description")}</Label>
-        <Textarea value={description} onChangeText={setDescription} />
-      </View>
+      <Field label={t("settings.store.nameLabel")}>
+        <TextFieldInput
+          label={t("settings.store.nameLabel")}
+          value={name}
+          onValueChange={setName}
+          placeholder={null}
+        />
+      </Field>
+      <Field label={t("common.description")}>
+        <Textarea autoResize value={description} onValueChange={setDescription} />
+      </Field>
       <ColorPicker
         label={t("settings.store.brandColorLabel")}
         selected={brandColor}

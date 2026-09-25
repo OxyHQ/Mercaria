@@ -4,7 +4,10 @@ import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft } from "lucide-react-native";
 import type { Store } from "@mercaria/shared-types";
-import { Text, Input, Label, Textarea, useColorScheme } from "@mercaria/ui";
+import { Text, useColorScheme } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Textarea } from "@oxy.so/bloom/textarea";
 import { Button } from "@oxy.so/bloom/button";
 import { Switch } from "@oxy.so/bloom/switch";
 import { toast } from "@oxy.so/bloom/toast";
@@ -106,34 +109,39 @@ function PoliciesForm({ storeId, store }: { storeId: string; store: Store }) {
 
   return (
     <View className="gap-5">
-      <View className="gap-1.5">
-        <Label>{t("settings.policies.returnWindowLabel")}</Label>
-        <Input value={returnWindow} onChangeText={setReturnWindow} keyboardType="number-pad" />
-      </View>
-      <View className="gap-1.5">
-        <Label>{t("settings.policies.refundPolicyLabel")}</Label>
+      <Field label={t("settings.policies.returnWindowLabel")}>
+        <TextFieldInput
+          label={t("settings.policies.returnWindowLabel")}
+          value={returnWindow}
+          onValueChange={setReturnWindow}
+          keyboardType="number-pad"
+          placeholder={null}
+        />
+      </Field>
+      <Field label={t("settings.policies.refundPolicyLabel")}>
         <Textarea
+          autoResize
           value={refundPolicy}
-          onChangeText={setRefundPolicy}
+          onValueChange={setRefundPolicy}
           placeholder={t("settings.policies.refundPolicyPlaceholder")}
         />
-      </View>
-      <View className="gap-1.5">
-        <Label>{t("settings.policies.privacyPolicyLabel")}</Label>
+      </Field>
+      <Field label={t("settings.policies.privacyPolicyLabel")}>
         <Textarea
+          autoResize
           value={privacyPolicy}
-          onChangeText={setPrivacyPolicy}
+          onValueChange={setPrivacyPolicy}
           placeholder={t("settings.policies.privacyPolicyPlaceholder")}
         />
-      </View>
-      <View className="gap-1.5">
-        <Label>{t("settings.policies.termsLabel")}</Label>
+      </Field>
+      <Field label={t("settings.policies.termsLabel")}>
         <Textarea
+          autoResize
           value={termsOfService}
-          onChangeText={setTermsOfService}
+          onValueChange={setTermsOfService}
           placeholder={t("settings.policies.termsPlaceholder")}
         />
-      </View>
+      </Field>
 
       <View className="rounded-2xl border border-border bg-surface p-4">
         <Text className="mb-3 text-sm font-semibold text-foreground">

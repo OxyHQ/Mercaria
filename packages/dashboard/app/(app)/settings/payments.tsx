@@ -8,7 +8,7 @@ import type {
   ProviderOnboardingState,
   SellerPaymentSettings,
 } from "@mercaria/shared-types";
-import { Text, Label, formatDate, useColorScheme } from "@mercaria/ui";
+import { Text, formatDate, useColorScheme } from "@mercaria/ui";
 import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
@@ -328,7 +328,7 @@ function ReasonCodesCard({ settings }: { settings: SellerPaymentSettings }) {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-row items-center justify-between py-1.5">
-      <Label className="text-sm text-muted-foreground">{label}</Label>
+      <Text className="text-sm text-muted-foreground">{label}</Text>
       <Text className="text-sm text-foreground">{value}</Text>
     </View>
   );

@@ -6,12 +6,12 @@ import { ChevronLeft, Plus, Trash2, ShieldCheck } from "lucide-react-native";
 import type { StoreMember, StoreRole } from "@mercaria/shared-types";
 import {
   Text,
-  Input,
-  Label,
   useColorScheme,
   formatDate,
   toBloomIcon,
 } from "@mercaria/ui";
+import { Field } from "@oxy.so/bloom/field";
+import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import {
@@ -224,20 +224,18 @@ function InviteMemberDialog({
   return (
     <Dialog control={control} title={t("settings.members.inviteTitle")}>
       <View className="gap-4">
-        <View className="gap-1.5">
-          <Label>{t("settings.members.oxyUserIdLabel")}</Label>
-          <Input
+        <Field label={t("settings.members.oxyUserIdLabel")}>
+          <TextFieldInput
+            label={t("settings.members.oxyUserIdLabel")}
             value={oxyUserId}
-            onChangeText={setOxyUserId}
+            onValueChange={setOxyUserId}
             placeholder={t("settings.members.oxyUserIdPlaceholder")}
             autoCapitalize="none"
           />
-        </View>
-        <View className="gap-1.5">
-          <Label>{t("settings.members.roleLabel")}</Label>
+        </Field>
+        <Field label={t("settings.members.roleLabel")}>
           <SegmentedControl
             type="radio"
-            label={t("settings.members.roleLabel")}
             value={role}
             onValueChange={setRole}
           >
@@ -247,7 +245,7 @@ function InviteMemberDialog({
               </SegmentedControlItem>
             ))}
           </SegmentedControl>
-        </View>
+        </Field>
         <Button tone="accent" onPress={submit} loading={inviteMember.isPending} className="mt-1">
           {t("settings.members.addMember")}
         </Button>
