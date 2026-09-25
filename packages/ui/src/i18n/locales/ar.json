@@ -865,7 +865,8 @@
       "empty": "لا توجد %{subject} بعد.",
       "verifiedRatings": "التقييمات الموثّقة: %{ratings}",
       "unverified": "غير موثّقة: %{ratings} · %{rating}",
-      "readMore": "اقرأ المزيد من المراجعات"
+      "readMore": "اقرأ المزيد من المراجعات",
+      "none": "لا توجد مراجعات بعد"
     },
     "searchInterpretation": {
       "chip": "%{label}",

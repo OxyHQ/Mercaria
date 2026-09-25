@@ -111,7 +111,7 @@ export const QUANTITY_REMOVE_KEY = "ui.quantity.remove";
 export const QUANTITY_DECREASE_KEY = "ui.quantity.decrease";
 export const QUANTITY_INCREASE_KEY = "ui.quantity.increase";
 
-/** `ReviewStars` and `ReviewSummaryCard`. */
+/** `ReviewStars`, `useRatingDisplay` and `ReviewSummaryCard`. */
 export const REVIEW_DEFAULT_SCOPE_KEY = "ui.review.defaultScope";
 export const REVIEW_STARS_A11Y_KEY = "ui.review.starsA11y";
 export const REVIEW_STARS_SCOPED_A11Y_KEY = "ui.review.starsScopedA11y";
@@ -119,6 +119,8 @@ export const REVIEW_EMPTY_KEY = "ui.review.empty";
 export const REVIEW_VERIFIED_RATINGS_KEY = "ui.review.verifiedRatings";
 export const REVIEW_UNVERIFIED_KEY = "ui.review.unverified";
 export const REVIEW_READ_MORE_KEY = "ui.review.readMore";
+/** Bloom `Rating`'s `newLabel`: nothing rated yet. Never "New" — that is a condition. */
+export const REVIEW_NONE_KEY = "ui.review.none";
 
 /** `SearchInterpretation`. */
 export const SEARCH_CHIP_KEY = "ui.searchInterpretation.chip";

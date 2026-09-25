@@ -865,7 +865,8 @@
       "empty": "এখনও কোনো %{subject} নেই।",
       "verifiedRatings": "যাচাই করা রেটিং: %{ratings}",
       "unverified": "যাচাই না করা: %{ratings} · %{rating}",
-      "readMore": "আরও পর্যালোচনা পড়ুন"
+      "readMore": "আরও পর্যালোচনা পড়ুন",
+      "none": "এখনও কোনো পর্যালোচনা নেই"
     },
     "searchInterpretation": {
       "chip": "%{label}",

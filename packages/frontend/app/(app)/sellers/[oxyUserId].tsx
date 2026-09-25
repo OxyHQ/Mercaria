@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useOxy } from "@oxy.so/services";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { useDialogControl } from "@oxy.so/bloom/dialog";
+import { Rating } from "@oxy.so/bloom/rating";
 import type {
   Listing,
   ProductSummary,
@@ -13,10 +14,9 @@ import type {
 } from "@mercaria/shared-types";
 import {
   ProductCard,
-  ReviewStars,
   SectionHeader,
   Text,
-  useFormatters,
+  useRatingDisplay,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { SellerFollowButton } from "@/components/seller/SellerFollowButton";
@@ -199,7 +199,7 @@ function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
 /** Marketplace activity, the #76 seller aggregate and Oxy Trust — three labelled blocks. */
 function SellerSignals({ profile }: { profile: PublicSellerProfile }) {
   const { t } = useTranslation();
-  const { formatReviewCount } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const marketplace = profile.marketplace;
   const reviews = profile.transactionReviews;
 
@@ -223,19 +223,19 @@ function SellerSignals({ profile }: { profile: PublicSellerProfile }) {
 
       {reviews ? (
         <View className="gap-1">
-          <View className="flex-row items-center gap-2">
-            <ReviewStars
-              rating={reviews.rating}
-              count={reviews.reviewCount}
-              size={16}
-              scopeLabel={t(SELLER_RATING_LABEL_KEY)}
+          {reviews.reviewCount > 0 ? (
+            <Rating
+              {...ratingDisplay({
+                rating: reviews.rating,
+                reviews: reviews.reviewCount,
+                subject: t(SELLER_RATING_LABEL_KEY),
+              })}
             />
+          ) : (
             <Text className="text-sm font-semibold text-foreground">
-              {reviews.reviewCount > 0
-                ? `${reviews.rating} (${formatReviewCount(reviews.reviewCount)})`
-                : t("sellers.reviews.none")}
+              {t("sellers.reviews.none")}
             </Text>
-          </View>
+          )}
           {/* The scope, spelled out. A page can carry several ratings and a
               reader must never have to guess which question one answers. */}
           <Text className="text-xs text-muted-foreground">{t(SELLER_RATING_LABEL_KEY)}</Text>

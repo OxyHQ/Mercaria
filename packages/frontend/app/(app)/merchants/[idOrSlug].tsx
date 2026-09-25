@@ -9,7 +9,8 @@ import type {
   MerchantOfferMixBucket,
   MerchantPage,
 } from "@mercaria/shared-types";
-import { ReviewStars, SectionHeader, Text, useFormatters } from "@mercaria/ui";
+import { Rating } from "@oxy.so/bloom/rating";
+import { SectionHeader, Text, useRatingDisplay } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { MerchantBrandStandings } from "@/components/merchant/MerchantBrandStandings";
 import { MerchantChannelPicker } from "@/components/merchant/MerchantChannelPicker";
@@ -154,7 +155,7 @@ export default function MerchantScreen() {
   const { idOrSlug } = useLocalSearchParams<{ idOrSlug: string }>();
   const router = useRouter();
   const { t } = useTranslation();
-  const { formatReviewCount } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const [storefrontId, setStorefrontId] = useState<string | undefined>(undefined);
 
   const { data: page, isLoading, isError } = useMerchantPage(idOrSlug);
@@ -270,19 +271,19 @@ export default function MerchantScreen() {
 
       {page.reviews ? (
         <View className="gap-1 px-4 pt-6">
-          <View className="flex-row items-center gap-2">
-            <ReviewStars
-              rating={page.reviews.rating}
-              count={page.reviews.reviewCount}
-              size={16}
-              scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
+          {page.reviews.reviewCount > 0 ? (
+            <Rating
+              {...ratingDisplay({
+                rating: page.reviews.rating,
+                reviews: page.reviews.reviewCount,
+                subject: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
+              })}
             />
+          ) : (
             <Text className="text-sm font-semibold text-foreground">
-              {page.reviews.reviewCount > 0
-                ? `${String(page.reviews.rating)} (${formatReviewCount(page.reviews.reviewCount)})`
-                : t("merchants.reviews.none")}
+              {t("merchants.reviews.none")}
             </Text>
-          </View>
+          )}
           {/* The scope, spelled out. A page can carry several ratings and a
               reader must never have to guess which question one answers. */}
           <Text className="text-xs text-muted-foreground">{t(REVIEW_SCOPE_HEADING_KEYS.merchant)}</Text>

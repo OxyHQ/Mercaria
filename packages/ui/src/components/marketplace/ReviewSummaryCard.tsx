@@ -9,16 +9,15 @@ import {
   REVIEW_UNVERIFIED_KEY,
   REVIEW_VERIFIED_RATINGS_KEY,
 } from "../../lib/marketplace-labels";
+import { RatingBar } from "@oxy.so/bloom/rating";
 import { useFormatters } from "../../lib/use-formatters";
-import { ReviewStars } from "./ReviewStars";
+import { useRatingDisplay } from "../../lib/rating-display";
 import { ReviewCard } from "./ReviewCard";
 
 /** Star buckets, high → low, for the rating-distribution bars. */
 const RATING_BUCKETS = [5, 4, 3, 2, 1] as const;
-/** Star edge length (px) next to the big average figure. */
-const SUMMARY_STAR_SIZE = 14;
-/** Full percentage used for the distribution-bar width math. */
-const FULL_PERCENT = 100;
+/** Width (px) of a distribution row's star label, so every bar starts aligned. */
+const BUCKET_LABEL_WIDTH = 12;
 
 /**
  * Count of reviews per star bucket, keyed 5..1. Computed by the screen and
@@ -54,8 +53,8 @@ export interface ReviewSummaryCardProps {
 }
 
 /**
- * The reviews card: a large average + stars, a 5→1 distribution-bar column, and
- * a horizontal carousel of `ReviewCard`s. Shows an empty state when there are no
+ * The reviews card: a large average figure, a 5→1 column of Bloom `RatingBar`s,
+ * and a horizontal carousel of `ReviewCard`s. Shows an empty state when there are no
  * reviews and loading has finished. Fully presentational — the average, total,
  * and distribution are computed by the screen and passed in.
  */
@@ -69,6 +68,7 @@ export function ReviewSummaryCard({
   unverified,
 }: ReviewSummaryCardProps) {
   const { formatRating, formatReviewCount } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const t = useSharedUiTranslation();
   // The default was the English literal `"Reviews"` in the parameter list,
   // which no bundle could reach. Resolved here instead, so a caller that
@@ -84,16 +84,24 @@ export function ReviewSummaryCard({
         </Text>
       ) : (
         <>
-          {/* Summary: big average + stars + distribution bars. */}
+          {/*
+            Summary: the big average + distribution bars. The figure carries the
+            scoped sentence ("Product reviews. Average rating: 4.2. Reviews: 18.")
+            that the star row under it used to announce; Bloom draws no star row.
+          */}
           <View className="flex-row gap-space-24">
             <View className="items-start">
-              <Text className="text-headerBold text-text">{formatRating(average)}</Text>
-              <ReviewStars
-                rating={average}
-                count={total}
-                size={SUMMARY_STAR_SIZE}
-                scopeLabel={scopeText}
-              />
+              <Text
+                accessible
+                accessibilityRole="text"
+                accessibilityLabel={
+                  ratingDisplay({ rating: average, reviews: total, subject: scopeText })
+                    .accessibilityLabel
+                }
+                className="text-headerBold text-text"
+              >
+                {formatRating(average)}
+              </Text>
               <Text className="mt-space-4 text-caption text-text-tertiary">
                 {t(REVIEW_VERIFIED_RATINGS_KEY, { ratings: formatReviewCount(total) })}
               </Text>
@@ -109,17 +117,14 @@ export function ReviewSummaryCard({
             <View className="flex-1 justify-center gap-space-4">
               {RATING_BUCKETS.map((bucket) => {
                 const count = distribution[bucket] ?? 0;
-                const pct = total > 0 ? (count / total) * FULL_PERCENT : 0;
                 return (
-                  <View key={bucket} className="flex-row items-center gap-space-8">
-                    <Text className="w-space-10 text-badgeBold text-text">{bucket}</Text>
-                    <View className="h-2 flex-1 rounded-radius-8 bg-overlay-inverse-06">
-                      <View
-                        className="h-2 rounded-radius-8 bg-bg-fill-inverse"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </View>
-                  </View>
+                  <RatingBar
+                    key={bucket}
+                    label={String(bucket)}
+                    labelWidth={BUCKET_LABEL_WIDTH}
+                    value={total > 0 ? count / total : 0}
+                    max={1}
+                  />
                 );
               })}
             </View>

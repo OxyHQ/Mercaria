@@ -865,7 +865,8 @@
       "empty": "%{subject}はまだありません。",
       "verifiedRatings": "確認済みの評価: %{ratings}",
       "unverified": "未確認: %{ratings} · %{rating}",
-      "readMore": "レビューをもっと読む"
+      "readMore": "レビューをもっと読む",
+      "none": "レビューはまだありません"
     },
     "searchInterpretation": {
       "chip": "%{label}",

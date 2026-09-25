@@ -879,7 +879,8 @@
       "empty": "Пока нет: %{subject}.",
       "verifiedRatings": "Подтверждённых оценок: %{ratings}",
       "unverified": "Неподтверждённых: %{ratings} · %{rating}",
-      "readMore": "Читать больше отзывов"
+      "readMore": "Читать больше отзывов",
+      "none": "Отзывов пока нет"
     },
     "searchInterpretation": {
       "chip": "%{label}",

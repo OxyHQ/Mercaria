@@ -865,7 +865,8 @@
       "empty": "No %{subject} yet.",
       "verifiedRatings": "Verified ratings: %{ratings}",
       "unverified": "Unverified: %{ratings} · %{rating}",
-      "readMore": "Read more reviews"
+      "readMore": "Read more reviews",
+      "none": "No reviews yet"
     },
     "searchInterpretation": {
       "chip": "%{label}",

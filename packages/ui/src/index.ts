@@ -333,7 +333,16 @@ export {
 // Marketplace presentational components
 // ---------------------------------------------------------------------------
 export { ProductCard, type ProductCardProps } from "./components/marketplace/ProductCard";
+// Kept for BRAND-TINTED surfaces only (a store's hero and menu sheet), where the
+// text runs in the store's tone colour: Bloom's `Rating` paints the theme's text
+// colour with no override, which is illegible over a dark brand. Everywhere else
+// renders `@oxy.so/bloom/rating` through `useRatingDisplay`.
 export { ReviewStars, type ReviewStarsProps } from "./components/marketplace/ReviewStars";
+export {
+  useRatingDisplay,
+  type RatingDisplay,
+  type RatingDisplayInput,
+} from "./lib/rating-display";
 export {
   ProductCarousel,
   type ProductCarouselProps,
@@ -373,7 +382,6 @@ export {
 } from "./components/marketplace/MerchantHeader";
 export { DemandPill, type DemandPillProps } from "./components/marketplace/DemandPill";
 export { OfferCard, type OfferCardProps } from "./components/marketplace/OfferCard";
-export { RatingLine, type RatingLineProps } from "./components/marketplace/RatingLine";
 // One row of the saved list (#80) — a canonical PRODUCT save or an exact
 // LISTING save, rendered as visibly different things because they are.
 export {

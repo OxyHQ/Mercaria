@@ -16,8 +16,9 @@ import {
   CANONICAL_CARD_PRICE_IN_CURRENCY_KEY,
   MARKETPLACE_NO_IMAGE_KEY,
 } from "../../lib/marketplace-labels";
-import { ReviewStars } from "./ReviewStars";
+import { Rating } from "@oxy.so/bloom/rating";
 import { useFormatters } from "../../lib/use-formatters";
+import { useRatingDisplay } from "../../lib/rating-display";
 import { cn } from "../../lib/cn";
 
 /**
@@ -78,7 +79,8 @@ export function CanonicalProductCard({
   onPress,
   className,
 }: CanonicalProductCardProps) {
-  const { formatMoney, formatReviewCount } = useFormatters();
+  const { formatMoney } = useFormatters();
+  const ratingDisplay = useRatingDisplay();
   const t = useSharedUiTranslation();
   const asset = product.image;
   const imageUrl =
@@ -130,12 +132,10 @@ export function CanonicalProductCard({
         )}
 
         {product.rating === undefined ? null : (
-          <View className="flex-row items-center gap-1">
-            <ReviewStars rating={product.rating.value} size={12} />
-            <Text className="text-xs text-muted-foreground">
-              {formatReviewCount(product.rating.count)}
-            </Text>
-          </View>
+          <Rating
+            {...ratingDisplay({ rating: product.rating.value, reviews: product.rating.count })}
+            size="small"
+          />
         )}
 
         {!offersIncluded ? (

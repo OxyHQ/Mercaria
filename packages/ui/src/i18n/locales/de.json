@@ -865,7 +865,8 @@
       "empty": "Noch keine %{subject}.",
       "verifiedRatings": "Verifizierte Bewertungen: %{ratings}",
       "unverified": "Nicht verifiziert: %{ratings} · %{rating}",
-      "readMore": "Mehr Bewertungen lesen"
+      "readMore": "Mehr Bewertungen lesen",
+      "none": "Noch keine Bewertungen"
     },
     "searchInterpretation": {
       "chip": "%{label}",

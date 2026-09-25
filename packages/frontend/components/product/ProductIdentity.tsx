@@ -1,7 +1,8 @@
 import { View } from 'react-native';
 import { Image } from 'expo-image';
 import type { CanonicalProduct, CatalogSourceKind } from '@mercaria/shared-types';
-import { formatDate, RatingLine, Text } from '@mercaria/ui';
+import { Rating } from '@oxy.so/bloom/rating';
+import { formatDate, Text, useRatingDisplay } from '@mercaria/ui';
 import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
 import { useTranslation } from '@/lib/i18n';
 
@@ -56,6 +57,7 @@ export interface ProductIdentityProps {
 
 export function ProductIdentity({ product, rating }: ProductIdentityProps) {
   const { t } = useTranslation();
+  const ratingDisplay = useRatingDisplay();
   const images = product.images.filter((image) => image.fileId || image.sourceUrl);
   const specs = product.attributes.slice(0, 8);
   // ACTIVE only: a retired or disputed identifier keeps its row (ADR 0002 D14)
@@ -105,11 +107,18 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
         </Text>
 
         {rating !== undefined && rating.reviewCount > 0 ? (
-          <RatingLine
-            rating={rating.rating}
-            count={rating.reviewCount}
-            scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
-          />
+          <View className="flex-row items-center gap-space-8">
+            <Rating
+              {...ratingDisplay({
+                rating: rating.rating,
+                reviews: rating.reviewCount,
+                subject: t(REVIEW_SCOPE_HEADING_KEYS.product),
+              })}
+            />
+            <Text className="text-captionMedium text-text-tertiary">
+              {t(REVIEW_SCOPE_HEADING_KEYS.product)}
+            </Text>
+          </View>
         ) : null}
 
         {product.description ? (

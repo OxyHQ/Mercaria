@@ -1,16 +1,13 @@
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { RatingInput } from "@oxy.so/bloom/rating";
 import type { ReviewEligibility, ReviewScope } from "@mercaria/shared-types";
-import { Button, ReviewStars, Text, Textarea } from "@mercaria/ui";
+import { Button, Text, Textarea } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 import { REVIEW_SCOPE_HEADING_KEYS, useCreateReview, useReviewEligibilities } from "@/lib/hooks/use-reviews";
 
-/** Star buttons offered by the rating picker, low → high. */
-const RATING_CHOICES = [1, 2, 3, 4, 5] as const;
 /** How many prompts one order-history page shows before "and N more". */
 const VISIBLE_PROMPTS = 4;
-/** Star edge length (px) inside a prompt row. */
-const PROMPT_STAR_SIZE = 16;
 
 /**
  * What each scope ASKS, in the second person.
@@ -152,28 +149,23 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
         </Text>
       </View>
 
-      <View className="flex-row items-center gap-2">
-        {RATING_CHOICES.map((choice) => (
-          <Pressable
-            key={choice}
-            accessibilityRole="button"
-            accessibilityLabel={t("reviews.ratingChoice", {
-              choice,
-              scopeLabel: t(SCOPE_TERM_KEYS[eligibility.scope]),
-            })}
-            accessibilityState={{ selected: rating === choice }}
-            hitSlop={6}
-            onPress={() => setRating(choice)}
-          >
-            <ReviewStars
-              rating={rating !== null && choice <= rating ? 1 : 0}
-              count={1}
-              size={PROMPT_STAR_SIZE}
-              scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS[eligibility.scope])}
-            />
-          </Pressable>
-        ))}
-      </View>
+      {/*
+        A radio group, one star per choice: Bloom's picker is keyboard-operable
+        (arrows, Home/End) and names the group by the scope's heading and each
+        star by the same "N of 5 — scope" sentence the old buttons carried.
+      */}
+      <RatingInput
+        value={rating}
+        onChange={setRating}
+        size="small"
+        accessibilityLabel={t(REVIEW_SCOPE_HEADING_KEYS[eligibility.scope])}
+        formatStarLabel={(choice) =>
+          t("reviews.ratingChoice", {
+            choice,
+            scopeLabel: t(SCOPE_TERM_KEYS[eligibility.scope]),
+          })
+        }
+      />
 
       <Textarea
         placeholder={t("reviews.notePlaceholder")}

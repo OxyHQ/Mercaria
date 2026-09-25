@@ -872,7 +872,8 @@
       "empty": "Todavía no hay %{subject}.",
       "verifiedRatings": "Valoraciones verificadas: %{ratings}",
       "unverified": "Sin verificar: %{ratings} · %{rating}",
-      "readMore": "Leer más reseñas"
+      "readMore": "Leer más reseñas",
+      "none": "Todavía no hay reseñas"
     },
     "searchInterpretation": {
       "chip": "%{label}",
