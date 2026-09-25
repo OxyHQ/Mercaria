@@ -4,7 +4,8 @@ import { useRouter } from "expo-router";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { RiShoppingCartLine } from "@oxy.so/bloom/icons/RiShoppingCartLine";
 import { ChevronRight, Minus, Plus, Tag, Trash2, User as UserIcon, X } from "lucide-react-native";
-import { Text, Input, PriceDisplay, useColorScheme } from "@mercaria/ui";
+import { Text, PriceDisplay, toBloomFieldIcon, useColorScheme } from "@mercaria/ui";
+import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
 import { useCustomers } from "@/lib/hooks/use-customers";
 import {
   useRegisterCart,
@@ -107,16 +108,15 @@ export function CartPanel({ storeId }: { storeId: string }) {
 
       {/* Discount + subtotal + charge footer. */}
       <View className="gap-3 border-t border-border bg-surface p-4">
-        <View className="flex-row items-center gap-2 rounded-xl border border-border bg-background px-3">
-          <Tag size={16} color={colors.mutedForeground} />
-          <Input
+        <TextField style={{ height: 44 }}>
+          <TextFieldIcon icon={toBloomFieldIcon(Tag)} />
+          <TextFieldInput
+            label={t("cart.discountCodePlaceholder")}
             value={discountCode ?? ""}
-            onChangeText={(text) => setDiscountCode(text.trim() === "" ? null : text)}
-            placeholder={t("cart.discountCodePlaceholder")}
+            onValueChange={(text) => setDiscountCode(text.trim() === "" ? null : text)}
             autoCapitalize="characters"
-            className="h-11 flex-1 border-0 bg-transparent px-0"
           />
-        </View>
+        </TextField>
         <View className="flex-row items-center justify-between">
           <Text className="text-sm text-muted-foreground">{t("cart.subtotal")}</Text>
           <PriceDisplay price={subtotal} primaryClassName="text-base font-bold" />
