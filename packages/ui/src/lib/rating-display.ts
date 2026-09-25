@@ -23,14 +23,10 @@ export interface RatingDisplayInput {
    */
   subject?: string;
   /**
-   * `stars` when the result feeds `<Rating variant="stars">`. Bloom fills that
-   * row from `Number(value)`, and a `formatRating` string — localised AND
-   * bidi-isolated (FSI…PDI) — never parses, so it would draw five EMPTY stars.
-   * For `stars` the value is therefore the NUMBER, rounded to one decimal, and
-   * Bloom draws it in ASCII digits ("4.5" even in `de`); the accessible name
-   * stays the translated sentence. A Bloom gap: `Rating` has no separate
-   * fill value beside the drawn string. Default `compact`, which draws the
-   * localised string.
+   * `stars` when the result feeds `<Rating variant="stars">`. The drawn value
+   * stays the localised `formatRating` string, and the row's fill comes from
+   * `fillValue` — the NUMBER — because that string is bidi-isolated (FSI…PDI)
+   * and need not parse. Default `compact`, which draws no fill.
    */
   variant?: "compact" | "stars";
 }
@@ -42,7 +38,7 @@ const RATING_DECIMALS = 10;
 export type RatingDisplay = Required<
   Pick<RatingProps, "value" | "newLabel" | "accessibilityLabel">
 > &
-  Pick<RatingProps, "count">;
+  Pick<RatingProps, "count" | "fillValue">;
 
 /**
  * Turns a rating into the props `@oxy.so/bloom/rating`'s `Rating` needs, in the
@@ -55,9 +51,9 @@ export type RatingDisplay = Required<
  *   `formatReviewCount`, localised and bidi-isolated like every other figure —
  *   which Bloom draws as given.
  * - **`accessibilityLabel` is the translated, scoped sentence** the old
- *   the old hand-drawn `ReviewStars` announced.
- * - **Except for `variant: "stars"`**, whose `value` is a number — see
- *   {@link RatingDisplayInput.variant}.
+ *   hand-drawn `ReviewStars` announced.
+ * - **`variant: "stars"` adds `fillValue`**, the number the five-star row
+ *   fills to — see {@link RatingDisplayInput.variant}.
  * - **Nothing rated yet** (`reviews: 0`) draws `newLabel` — "No reviews yet",
  *   never Bloom's default "New", which on a marketplace reads as an item's
  *   condition.
@@ -73,10 +69,10 @@ export function useRatingDisplay(): (input: RatingDisplayInput) => RatingDisplay
       }
       const figures = { rating: formatRating(rating), reviews: reviews ?? 1 };
       return {
-        value:
-          variant === "stars"
-            ? Math.round(rating * RATING_DECIMALS) / RATING_DECIMALS
-            : figures.rating,
+        value: figures.rating,
+        ...(variant === "stars"
+          ? { fillValue: Math.round(rating * RATING_DECIMALS) / RATING_DECIMALS }
+          : {}),
         ...(reviews === undefined ? {} : { count: formatReviewCount(reviews) }),
         newLabel: none,
         accessibilityLabel: subject

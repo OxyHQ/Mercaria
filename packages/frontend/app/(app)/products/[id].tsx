@@ -4,8 +4,9 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Heart, Minus, Plus, Share2 } from "lucide-react-native";
+import { Heart, Share2 } from "lucide-react-native";
 import { Rating } from "@oxy.so/bloom/rating";
+import { Stepper } from "@oxy.so/bloom/stepper";
 import {
   CommercialDisclosure,
   ConditionBadge,
@@ -56,7 +57,7 @@ const DESCRIPTION_CLAMP_LINES = 6;
 const RELATED_LIMIT = 12;
 /** Reviews fetched for the summary + carousel. */
 const REVIEW_PAGE_LIMIT = 12;
-/** Icon size for the quantity stepper + action-row icons (px). */
+/** Icon size for the action-row icons (px). */
 const ICON_SIZE = 20;
 
 /**
@@ -587,34 +588,19 @@ function ProductBody({ listing }: ProductBodyProps) {
             {/* Quantity selector. */}
             <View className="gap-space-8">
               <Text className="text-captionBold text-text">{t("product.quantity")}</Text>
-              <View className="h-space-40 flex-row items-center self-start rounded-radius-max border border-border-secondary bg-bg-fill p-space-8">
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("product.decreaseQuantity")}
-                  disabled={quantity <= 1}
-                  onPress={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className={`items-center justify-center px-space-4 ${quantity <= 1 ? "opacity-40" : ""}`}
-                >
-                  <Minus size={ICON_SIZE} className="text-text" />
-                </Pressable>
-                <Text className="min-w-[28px] text-center text-bodyTitleSmall text-text">
-                  {quantity}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("product.increaseQuantity")}
-                  disabled={maxQuantity !== undefined && quantity >= maxQuantity}
-                  onPress={() =>
-                    setQuantity((q) =>
-                      maxQuantity !== undefined ? Math.min(maxQuantity, q + 1) : q + 1,
-                    )
-                  }
-                  className={`items-center justify-center px-space-4 ${
-                    maxQuantity !== undefined && quantity >= maxQuantity ? "opacity-40" : ""
-                  }`}
-                >
-                  <Plus size={ICON_SIZE} className="text-text" />
-                </Pressable>
+              {/* Bloom's stepper, floored at 1 with no remove: nothing is in the
+                  cart yet, so there is nothing for a trash button to take away.
+                  `+` stops at what is in stock, as the cart line's does. */}
+              <View className="self-start">
+                <Stepper
+                  value={quantity}
+                  min={1}
+                  max={maxQuantity === undefined ? undefined : Math.max(1, maxQuantity)}
+                  onValueChange={setQuantity}
+                  decrementLabel={t("product.decreaseQuantity")}
+                  incrementLabel={t("product.increaseQuantity")}
+                  accessibilityLabel={t("product.quantity")}
+                />
               </View>
             </View>
 

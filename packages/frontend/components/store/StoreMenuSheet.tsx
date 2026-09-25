@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
+import { Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { vars } from "nativewind";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
+  ArrowRight,
+  ChevronLeft,
   ChevronRight,
   Flag,
   Heart,
@@ -16,6 +18,7 @@ import {
   X,
 } from "lucide-react-native";
 import { Dialog } from "@oxy.so/bloom/dialog";
+import { useIsRtl } from "@oxy.so/bloom/hooks";
 import { Rating } from "@oxy.so/bloom/rating";
 import { openAccountDialog, useFollowTarget, useOxy } from "@oxy.so/services";
 import {
@@ -66,12 +69,18 @@ const RAIL_WIDTH = 76;
 const NAV_BREAKPOINT = 768;
 /**
  * Side-sheet inset (px) from the overlay-container edges. The overlay is offset
- * by the nav rail on desktop (via `containerStyle.left`), and the content shell
- * is inset 8px from the viewport top/bottom (its column gutter), so top/bottom
- * use 16 (8px shell gutter + 8px margin) while left uses 8 — a symmetric 8px gap
- * inside the shell, clear of the rail.
+ * by the nav rail on desktop (see `railOffset`), and the content shell is inset
+ * 8px from the viewport top/bottom (its column gutter), so top/bottom use 16
+ * (8px shell gutter + 8px margin) while the START edge uses 8 — a symmetric 8px
+ * gap inside the shell, clear of the rail.
+ *
+ * Bloom's `inset` keys are PHYSICAL: under a `start` placement it reads
+ * `inset.left` left-to-right and `inset.right` right-to-left, and counts the
+ * opposite side against the sheet's width. So the 8 goes on the physical edge
+ * the start lands on, and only there.
  */
-const SHEET_INSET = { top: 16, bottom: 16, left: 8 } as const;
+const SHEET_VERTICAL_INSET = 16;
+const SHEET_START_INSET = 8;
 /**
  * Fallback author label when the Oxy profile doesn't resolve.
  *
@@ -180,13 +189,15 @@ function PolicyRow({
   toneColor: string;
   icon: ReactNode;
 }) {
+  // The chevron points the reading direction, so it flips with it.
+  const Chevron = useIsRtl() ? ChevronLeft : ChevronRight;
   return (
     <View className="flex-row items-center gap-space-12 px-space-16 py-space-12">
       {icon}
       <Text className="flex-1 text-body" style={{ color: toneColor }}>
         {label}
       </Text>
-      <ChevronRight size={ROW_ICON_SIZE} color={toneColor} />
+      <Chevron size={ROW_ICON_SIZE} color={toneColor} />
     </View>
   );
 }
@@ -398,6 +409,8 @@ function MenuPage({
   onSelectCollection: (id?: string) => void;
   onOpenReviews: () => void;
 }) {
+  // The review row's chevron points the reading direction.
+  const Chevron = useIsRtl() ? ChevronLeft : ChevronRight;
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
   const ratingDisplay = useRatingDisplay();
@@ -487,7 +500,7 @@ function MenuPage({
                 })}
               </Text>
             </View>
-            <ChevronRight size={ROW_ICON_SIZE} color={toneColor} />
+            <Chevron size={ROW_ICON_SIZE} color={toneColor} />
           </View>
         ) : (
           <Text className="mt-space-12 text-body" style={{ color: toneColor }}>
@@ -528,13 +541,14 @@ function MenuPage({
 }
 
 /**
- * A left-anchored, brand-themed store-menu sheet mirroring Shopify's store
+ * A start-anchored, brand-themed store-menu sheet mirroring Shopify's store
  * sheet. The overlay, backdrop, enter/exit animation, responsive side↔bottom
  * switching, and Escape/backdrop dismissal are all owned by Bloom's
  * {@link Dialog} with a responsive `placement` map (`{ base: 'bottom', md:
- * 'left' }`): it renders as a left side-sheet floating inside the content shell
- * on wide screens (>=768px) and as a bottom-sheet (with drag handle) on small
- * screens.
+ * 'start' }`): it renders as a side-sheet on the reading-direction START edge
+ * (left in English, right in Arabic — Bloom resolves it with `useIsRtl()`),
+ * floating inside the content shell on wide screens (>=768px), and as a
+ * bottom-sheet (with drag handle) on small screens.
  *
  * This component supplies only the CONTENTS: an INTERNAL navigation stack
  * (`SheetPage[]`) with the menu as the root, a contextual top bar (Close (X) at
@@ -562,9 +576,28 @@ export function StoreMenuSheet({
   // sit inside the content shell (not over the rail). On small screens the rail
   // is gone and the sheet presents from the bottom, so no offset. Numeric inline
   // style is used (not a responsive className) because it merges last over the
-  // Dialog overlay's own `left: 0`, which a className can't reliably override.
+  // Dialog overlay's own edge, which a className can't reliably override.
+  //
+  // The rail sits on the START edge (the shell's flex row mirrors), so the
+  // offset does too — resolved the way Bloom resolves the panel itself. On web
+  // the overlay is portaled outside any `dir` context, where react-native-web
+  // would resolve a logical key left-to-right, so it takes the physical edge
+  // `useIsRtl()` names. On native it takes `insetInlineStart`, which Yoga
+  // resolves against `I18nManager`; a physical `right` there would be swapped
+  // back by React Native's `swapLeftAndRightInRTL`.
   const { width } = useWindowDimensions();
-  const railOffset = width >= NAV_BREAKPOINT ? { left: RAIL_WIDTH } : null;
+  const rtl = useIsRtl();
+  const railOffset =
+    width < NAV_BREAKPOINT
+      ? null
+      : Platform.OS !== "web"
+        ? { insetInlineStart: RAIL_WIDTH }
+        : rtl
+          ? { right: RAIL_WIDTH }
+          : { left: RAIL_WIDTH };
+  const sheetInset = rtl
+    ? { top: SHEET_VERTICAL_INSET, bottom: SHEET_VERTICAL_INSET, right: SHEET_START_INSET }
+    : { top: SHEET_VERTICAL_INSET, bottom: SHEET_VERTICAL_INSET, left: SHEET_START_INSET };
   // Internal navigation stack: the menu is always the root.
   const [stack, setStack] = useState<SheetPage[]>(["menu"]);
   const current = stack[stack.length - 1];
@@ -617,9 +650,9 @@ export function StoreMenuSheet({
     <Dialog
       open={open}
       onClose={handleClose}
-      placement={{ base: "bottom", md: "left" }}
+      placement={{ base: "bottom", md: "start" }}
       width={SHEET_WIDTH}
-      inset={SHEET_INSET}
+      inset={sheetInset}
       maxHeightRatio={0.9}
       showHandle
       dismissOnBackdrop
@@ -628,7 +661,7 @@ export function StoreMenuSheet({
       panelStyle={{ backgroundColor: store.brandColor }}
       label={t("store.menu.dialogLabel", { store: store.name })}
     >
-      {/* Pinned top bar: contextual Close/Back (left), Follow + Share (right). */}
+      {/* Pinned top bar: contextual Close/Back (start), Follow + Share (end). */}
       <View className="flex-row items-center justify-between px-space-16 pb-space-12 pt-space-16">
         {atRoot ? (
           <ControlButton label={t("store.menu.close", { store: store.name })} onPress={handleClose}>
@@ -636,7 +669,11 @@ export function StoreMenuSheet({
           </ControlButton>
         ) : (
           <ControlButton label={t("common.back")} onPress={pop}>
-            <ArrowLeft size={CONTROL_ICON_SIZE} color={toneColor} />
+            {rtl ? (
+              <ArrowRight size={CONTROL_ICON_SIZE} color={toneColor} />
+            ) : (
+              <ArrowLeft size={CONTROL_ICON_SIZE} color={toneColor} />
+            )}
           </ControlButton>
         )}
         <View className="flex-row items-center gap-space-12">
