@@ -205,9 +205,7 @@ export default function CompareScreen() {
         ) : null}
 
         {comparison.isLoading ? (
-          <View accessible role="progressbar" accessibilityLabel={t("compare.comparingA11y")}>
-            <Loading variant="inline" size="sm" />
-          </View>
+          <Loading variant="inline" size="sm" accessibilityLabel={t("compare.comparingA11y")} />
         ) : null}
         {comparison.error ? (
           <Text className="text-body text-text-secondary">
@@ -278,9 +276,7 @@ export default function CompareScreen() {
         )}
 
         {basket.isLoading ? (
-          <View accessible role="progressbar" accessibilityLabel={t("compare.planningA11y")}>
-            <Loading variant="inline" size="sm" />
-          </View>
+          <Loading variant="inline" size="sm" accessibilityLabel={t("compare.planningA11y")} />
         ) : null}
         {basket.error ? (
           <Text className="text-body text-text-secondary">

@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { Loading } from "@oxy.so/bloom/loading";
 import { ScreenShell, Text, cn } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 interface ScreenProps {
   title: string;
@@ -45,11 +46,16 @@ export function Screen({ title, subtitle, action, children, scroll = true }: Scr
   );
 }
 
-/** Centered loading spinner for a screen-level pending state. */
+/**
+ * Centered loading spinner for a screen-level pending state, named so a screen
+ * reader hears what the spinner is (Bloom makes it an indeterminate
+ * `progressbar` once it has a label).
+ */
 export function ScreenLoading() {
+  const { t } = useTranslation();
   return (
     <View className="items-center justify-center py-20">
-      <Loading variant="inline" size="sm" />
+      <Loading variant="inline" size="sm" accessibilityLabel={t("common.loading")} />
     </View>
   );
 }

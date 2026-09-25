@@ -59,6 +59,7 @@
   },
   "common": {
     "all": "全部",
+    "loading": "加载中…",
     "name": "名称",
     "next": "下一页",
     "noAccess": "无访问权限",
