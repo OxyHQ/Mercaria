@@ -819,9 +819,6 @@
     "cart": {
       "saveForLater": "あとで購入する"
     },
-    "category": {
-      "browse": "%{category} を見る"
-    },
     "merchantCart": {
       "checkout": "支払いに進む",
       "subtotal": "小計:"

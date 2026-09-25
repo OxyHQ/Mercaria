@@ -279,7 +279,6 @@ export { toBloomIcon, LucideGlyph, type LucideGlyphProps } from "./lib/bloom-ico
 // ---------------------------------------------------------------------------
 export { PriceDisplay, type PriceDisplayProps } from "./components/PriceDisplay";
 export {
-  FxContext,
   FxProvider,
   useFx,
   type FxContextValue,
@@ -289,21 +288,8 @@ export {
 // ---------------------------------------------------------------------------
 // UI primitives
 // ---------------------------------------------------------------------------
-export {
-  Button,
-  buttonTextVariants,
-  buttonVariants,
-  type ButtonProps,
-} from "./components/ui/button";
+export { Button, type ButtonProps } from "./components/ui/button";
 export { Text, TextClassContext, type TextProps } from "./components/ui/text";
-export {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "./components/ui/card";
 export { Input } from "./components/ui/input";
 export { Textarea, type TextareaProps } from "./components/ui/textarea";
 export { Avatar, AvatarFallback, AvatarImage } from "./components/ui/avatar";
@@ -328,27 +314,17 @@ export {
 } from "./components/ui/sheet";
 export * as DropdownMenu from "./components/ui/dropdown-menu";
 export { Skeleton } from "./components/ui/skeleton";
-export { Separator } from "./components/ui/separator";
 export { Icon } from "./components/ui/icon";
 export { Label } from "./components/ui/label";
-export { default as H1 } from "./components/ui/h1";
-export { Kbd, KbdGroup } from "./components/ui/kbd";
-export { ScrollArea, ScrollBar } from "./components/ui/scroll-area";
 export { Switch, type SwitchProps } from "./components/ui/switch";
 export { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
-export {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "./components/ui/collapsible";
-export { Panel } from "./components/ui/panel";
-// The `side` both `Panel` and `SheetContent` take. LOGICAL (`start` / `end`), so
-// a sliding surface mirrors with the rest of the layout; the physical
-// `left` / `right` spelling is gone rather than aliased (#429). Exported because
-// it is in those two public prop signatures — a screen holding a side in a
-// variable has to be able to name its type.
+// The `side` `SheetContent` takes. LOGICAL (`start` / `end`), so a sliding
+// surface mirrors with the rest of the layout; the physical `left` / `right`
+// spelling is gone rather than aliased (#429). Exported because it is in that
+// public prop signature — a screen holding a side in a variable has to be able
+// to name its type.
 export type { LogicalSide } from "./lib/logical-side";
-export { ColorPicker, COLOR_OPTIONS } from "./components/ui/color-picker";
+export { ColorPicker } from "./components/ui/color-picker";
 export { SourceBadge, type SourceBadgeProps } from "./components/ui/source-badge";
 // Connector provenance's other half (#420): which fields a merchant's own edits
 // pinned against a later sync, and what that means while the channel's
@@ -380,11 +356,6 @@ export {
   type ProductCarouselProps,
 } from "./components/marketplace/ProductCarousel";
 export { ProductShelf, type ProductShelfProps } from "./components/marketplace/ProductShelf";
-export { CategoryCard, type CategoryCardProps } from "./components/marketplace/CategoryCard";
-export {
-  CategoryCarousel,
-  type CategoryCarouselProps,
-} from "./components/marketplace/CategoryCarousel";
 export { CategoryPills, type CategoryPillsProps } from "./components/marketplace/CategoryPills";
 export { MerchantCard, type MerchantCardProps } from "./components/marketplace/MerchantCard";
 export {

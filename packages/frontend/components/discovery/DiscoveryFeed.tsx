@@ -30,8 +30,7 @@ const STORE_OFFER_HEADING_CLASS = 'px-4 pb-3 md:px-5';
 
 /**
  * The shelf-to-shelf rhythm every `@mercaria/ui` shelf owns for itself
- * (`ProductShelf`, `MerchantCarousel`, `CategoryPills` and `CategoryCarousel`
- * all end in `mb-6`). The `store-offer` section is assembled here from two
+ * (`ProductShelf`, `MerchantCarousel` and `CategoryPills` all end in `mb-6`). The `store-offer` section is assembled here from two
  * components rather than one, so this is the only place that has to spell it.
  */
 const SHELF_RHYTHM_CLASS = 'mb-6';
@@ -177,12 +176,11 @@ export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
    * image — and `CategoryPills` is the app's own component for exactly that,
    * already rendering the home feed's category row.
    *
-   * They are NOT rendered as `CategoryCarousel`/`CategoryCard`: that card is a
-   * category above a 2×2 grid of its NAMED subcategories (`Category`), and the
-   * discovery feed sends no subcategories — a `category-tiles` tile carries at
-   * most two bare image URLs with no names or destinations behind them. See
-   * the branch report for the server change that would let the richer card be
-   * used here.
+   * A richer card (a category above a 2×2 grid of its NAMED subcategories)
+   * would need subcategories the discovery feed does not send — a
+   * `category-tiles` tile carries at most two bare image URLs with no names or
+   * destinations behind them. The unused `CategoryCard`/`CategoryCarousel`
+   * that drew that shape were deleted from `@mercaria/ui`.
    */
   function renderCategoryTiles(id: string, tiles: CategoryTile[]): ReactElement | null {
     if (tiles.length === 0) return null;

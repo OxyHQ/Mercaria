@@ -36,11 +36,11 @@
  * tile-bearing section through `CategoryPills`, the component the home feed
  * already used, and a pill shows one image, not a preview strip. So
  * `sampleImageUrls` is currently emitted and read by nobody. It is left in
- * place rather than removed because the richer treatment the storefront DOES
- * have — `CategoryCarousel`/`CategoryCard`, a category above a 2x2 grid of its
- * named subcategories — needs strictly MORE than this field carries (names and
- * slugs, not bare URLs), and that is the shape this section wants to grow
- * into rather than shrink away from.
+ * place rather than removed because the richer treatment this section wants —
+ * a category above a 2x2 grid of its named subcategories (the storefront once
+ * had one, `CategoryCard`, deleted unused) — needs strictly MORE than this
+ * field carries (names and slugs, not bare URLs), and that is the shape this
+ * section wants to grow into rather than shrink away from.
  *
  * ## `category-images` is gone: it could only ever repeat `pills`
  *

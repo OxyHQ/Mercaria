@@ -24,6 +24,7 @@ import {
   PACKAGE_BARRELS,
   PACKAGES_ROOT,
   REPO_ROOT,
+  exportedNames,
   packageBarrelImportsOf,
   packageModulesReachedBy,
   reachesPackageModule,
@@ -142,8 +143,11 @@ describe('the symbol map is large, and the floors are absolute', () => {
     expect(resolveBarrelSymbol(UI, 'DropdownMenu')).toBe(
       'packages/ui/src/components/ui/dropdown-menu.tsx',
     );
-    // And a renamed default (`export { default as H1 } from …`).
-    expect(resolveBarrelSymbol(UI, 'H1')).toBe('packages/ui/src/components/ui/h1.tsx');
+    // And a renamed default (`export { default as H1 } from …`) publishes the
+    // NEW name. No barrel carries that shape since `@mercaria/ui`'s `H1` was
+    // deleted as dead, so the clause is read directly rather than through a
+    // live symbol.
+    expect(exportedNames(' default as H1, type B, C as D ')).toEqual(['H1', 'B', 'D']);
   });
 });
 

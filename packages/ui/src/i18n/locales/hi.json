@@ -819,9 +819,6 @@
     "cart": {
       "saveForLater": "बाद के लिए सहेजें"
     },
-    "category": {
-      "browse": "%{category} देखें"
-    },
     "merchantCart": {
       "checkout": "भुगतान पर आगे बढ़ें",
       "subtotal": "उप-योग:"

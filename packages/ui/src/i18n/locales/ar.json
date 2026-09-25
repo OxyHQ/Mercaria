@@ -819,9 +819,6 @@
     "cart": {
       "saveForLater": "احفظه لوقت لاحق"
     },
-    "category": {
-      "browse": "تصفّح %{category}"
-    },
     "merchantCart": {
       "checkout": "المتابعة إلى الدفع",
       "subtotal": "المجموع الفرعي:"

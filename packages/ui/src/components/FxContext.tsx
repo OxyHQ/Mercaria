@@ -65,5 +65,3 @@ export function FxProvider({ value, children }: FxProviderProps) {
 export function useFx(): FxContextValue {
   return React.useContext(FxContext);
 }
-
-export { FxContext };

@@ -62,9 +62,6 @@ export const CAROUSEL_NEXT_KEY = "ui.carousel.next";
 /** `CartLineItem`. */
 export const CART_SAVE_FOR_LATER_KEY = "ui.cart.saveForLater";
 
-/** `CategoryCard`. */
-export const CATEGORY_BROWSE_KEY = "ui.category.browse";
-
 /** `ComparisonExplanationBlock`. */
 export const COMPARISON_NO_SUMMARY_KEY = "ui.comparison.noSummary";
 

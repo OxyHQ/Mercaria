@@ -124,14 +124,11 @@ function migratedTree(extra = {}) {
       + "  normal: 'border-l-blue-400', low: 'border-l-muted-foreground' };\n"
       + 'export const E = () => <View className="border-b border-border border-l-2" />;\n',
     // `border-` x2 (#429): the two arms of the ONE ternary that resolves a
-    // logical side to the physical divider edge, for Panel and Sheet alike.
-    // Those two components carry no directional class of their own any more,
-    // so they are deliberately absent from this fixture.
+    // logical side to the physical divider edge for the Sheet. It carries no
+    // directional class of its own any more, so it is deliberately absent from
+    // this fixture.
     "packages/ui/src/lib/logical-side.ts":
       'export const G = (side, rtl) => resolve(side, rtl) === "right" ? "border-l" : "border-r";\n',
-    // `border-l` x2: the gutter width and its transparent colour, on one line.
-    "packages/ui/src/components/ui/scroll-area.tsx":
-      'export const I = () => <View className="h-full w-2.5 border-l border-l-transparent" />;\n',
     "packages/ui/src/components/ui/dialog.tsx":
       "export const J = () => <View className={cn('flex-col gap-2 text-center sm:text-left')} />;\n",
     // `border-l` x1 (#434): the POS cart-panel divider, the one physical utility

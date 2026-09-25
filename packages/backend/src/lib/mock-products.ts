@@ -311,7 +311,7 @@ const WORTH_THE_HYPE_MERCHANTS: StoreSummary[] = [
 
 /**
  * Top-level shop categories, each with exactly four featured subcategory tiles
- * rendered as a 2×2 grid inside a `CategoryCard`. Tile ids are stable
+ * meant for a 2×2 grid under each category. Tile ids are stable
  * (`<categoryId>-<kebab-slug>`) and each tile uses the real Shopify category
  * image for that subcategory.
  */

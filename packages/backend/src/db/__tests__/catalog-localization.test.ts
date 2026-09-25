@@ -445,9 +445,8 @@ describe('the family census', () => {
    *
    * Every entity in this family has a name. A client builds an accessible name
    * by interpolating it into a translated template from its OWN bundle —
-   * `@mercaria/ui`'s `CategoryCard` renders
-   * `t(CATEGORY_BROWSE_KEY, { category: category.name })` and `ConditionBadge`
-   * renders `t(CONDITION_A11Y_LABEL_KEY, { label })`. An
+   * `@mercaria/ui`'s `ConditionBadge` renders
+   * `t(CONDITION_A11Y_LABEL_KEY, { label })`. An
    * `accessibility_label` column beside `name` would be a SECOND
    * representation of the same string in the same row: it would drift from the
    * name the day somebody corrected one and not the other, it would render
