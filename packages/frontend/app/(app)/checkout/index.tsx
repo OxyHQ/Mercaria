@@ -4,7 +4,7 @@ import { Field } from "@oxy.so/bloom/field";
 import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
-import { router as appRouter, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { Check, Plus } from "lucide-react-native";
@@ -246,6 +246,7 @@ function PaymentStep({
 }) {
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
+  const router = useRouter();
   if (status === "succeeded") {
     return (
       // A live region: this screen changes under the buyer while they are not
@@ -290,7 +291,7 @@ function PaymentStep({
               <Button
                 appearance="outline"
                 tone="neutral"
-                onPress={() => appRouter.push("/guest-orders/recover")}
+                onPress={() => router.push("/guest-orders/recover")}
               >
                 {t("checkout.emailMeLink")}
               </Button>
