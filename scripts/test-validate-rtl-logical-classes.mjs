@@ -129,8 +129,6 @@ function migratedTree(extra = {}) {
     // this fixture.
     "packages/ui/src/lib/logical-side.ts":
       'export const G = (side, rtl) => resolve(side, rtl) === "right" ? "border-l" : "border-r";\n',
-    "packages/ui/src/components/ui/dialog.tsx":
-      "export const J = () => <View className={cn('flex-col gap-2 text-center sm:text-left')} />;\n",
     // `border-l` x1 (#434): the POS cart-panel divider, the one physical utility
     // left in either app after the migration. `md:border-border` deliberately
     // sits beside it — it is NOT a border SIDE, so a rule that matched it would

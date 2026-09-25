@@ -27,13 +27,13 @@ records that decision is a `retiresWhen` condition plus a registry entry.
 an annotation is advice to whoever compiles next, and the clients that matter
 here have already shipped.
 
-**Measured rather than asserted**: `@deprecated` appears in four files under
-`packages/`. Three are prose stating the prohibition (`v1-wire-contracts.ts:14`,
-`condition-input.ts:7`, `condition.ts:284`). **One is a live annotation** —
-`packages/ui/src/components/ui/dialog.tsx:56`, `/** @deprecated Use
-showCloseButton instead */` — on a component prop rather than a wire contract,
-so it is outside anything the census can see. It is recorded here rather than
-left to make the sentence above false.
+**Measured rather than asserted**: `@deprecated` appears in three files under
+`packages/` source, and all three are prose stating the prohibition
+(`v1-wire-contracts.ts:14`, `condition-input.ts:7`, `condition.ts:284`). There
+used to be a fourth, a live annotation on a prop of `@mercaria/ui`'s own
+`dialog.tsx` — a component prop rather than a wire contract, so outside anything
+the census can see. That component is gone: every dialog now renders Bloom's
+`Dialog` / `AlertDialog`.
 
 **And it is the distinction this whole file exists for.** A wire contract cannot
 be recalled from a shipped client, so the old spelling keeps being served and a
@@ -42,7 +42,7 @@ renamed in the same commit** — `@mercaria/ui` is consumed from source with no
 dist and no external client — so the rule that applies there is `~/AGENTS.md`'s
 clean cut: delete the old identifier, update every call site. No
 versioned-contract reasoning applies, which is exactly why that annotation
-should not exist.
+should never have existed.
 
 ## What makes a field a v1 contract
 

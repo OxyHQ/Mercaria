@@ -15,13 +15,10 @@ import {
   Label,
   ToggleGroup,
   ToggleGroupItem,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   useColorScheme,
   type Translate,
 } from "@mercaria/ui";
+import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
@@ -52,12 +49,12 @@ function DiscountsBody({ storeId }: { storeId: string }) {
   const { t } = useTranslation();
   const { data, isPending, isError } = useDiscounts(storeId);
   const deleteDiscount = useDeleteDiscount(storeId);
-  const [createOpen, setCreateOpen] = useState(false);
+  const createControl = useDialogControl();
 
   const action = (
     <View className="flex-row items-center gap-2">
       <StoreSwitcher />
-      <Button onPress={() => setCreateOpen(true)}>
+      <Button onPress={() => createControl.open()}>
         <View className="flex-row items-center gap-2">
           <Plus size={16} color={colors.primaryForeground} />
           <Text className="font-semibold text-primary-foreground">{t("common.new")}</Text>
@@ -91,7 +88,7 @@ function DiscountsBody({ storeId }: { storeId: string }) {
         </View>
       )}
 
-      <CreateDiscountDialog storeId={storeId} open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateDiscountDialog storeId={storeId} control={createControl} />
     </Screen>
   );
 }
@@ -150,12 +147,10 @@ function DiscountRow({ discount, onDelete }: { discount: Discount; onDelete: () 
 
 function CreateDiscountDialog({
   storeId,
-  open,
-  onOpenChange,
+  control,
 }: {
   storeId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  control: DialogControlProps;
 }) {
   const createDiscount = useCreateDiscount(storeId);
   const { t } = useTranslation();
@@ -210,91 +205,86 @@ function CreateDiscountDialog({
         setTitle("");
         setCode("");
         setAmount("");
-        onOpenChange(false);
+        control.close();
       },
       onError: () => toast.error(t("discounts.create.error")),
     });
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("discounts.create.dialogTitle")}</DialogTitle>
-        </DialogHeader>
-        <View className="gap-4">
+    <Dialog control={control} title={t("discounts.create.dialogTitle")}>
+      <View className="gap-4">
+        <View className="gap-1.5">
+          <Label>{t("common.title")}</Label>
+          <Input
+            value={title}
+            onChangeText={setTitle}
+            placeholder={t("discounts.create.titlePlaceholder")}
+          />
+        </View>
+        <View className="gap-1.5">
+          <Label>{t("discounts.create.methodLabel")}</Label>
+          <ToggleGroup
+            type="single"
+            value={method}
+            onValueChange={(v) => typeof v === "string" && v && setMethod(v as DiscountMethod)}
+          >
+            <ToggleGroupItem value="code">
+              <Text className="text-sm text-foreground">
+                {t("discounts.create.methodCode")}
+              </Text>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="automatic">
+              <Text className="text-sm text-foreground">
+                {t("discounts.create.methodAutomatic")}
+              </Text>
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </View>
+        {method === "code" ? (
           <View className="gap-1.5">
-            <Label>{t("common.title")}</Label>
+            <Label>{t("discounts.create.codeLabel")}</Label>
             <Input
-              value={title}
-              onChangeText={setTitle}
-              placeholder={t("discounts.create.titlePlaceholder")}
+              value={code}
+              onChangeText={setCode}
+              placeholder={t("discounts.create.codePlaceholder")}
+              autoCapitalize="characters"
             />
           </View>
-          <View className="gap-1.5">
-            <Label>{t("discounts.create.methodLabel")}</Label>
-            <ToggleGroup
-              type="single"
-              value={method}
-              onValueChange={(v) => typeof v === "string" && v && setMethod(v as DiscountMethod)}
-            >
-              <ToggleGroupItem value="code">
-                <Text className="text-sm text-foreground">
-                  {t("discounts.create.methodCode")}
-                </Text>
-              </ToggleGroupItem>
-              <ToggleGroupItem value="automatic">
-                <Text className="text-sm text-foreground">
-                  {t("discounts.create.methodAutomatic")}
-                </Text>
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </View>
-          {method === "code" ? (
-            <View className="gap-1.5">
-              <Label>{t("discounts.create.codeLabel")}</Label>
-              <Input
-                value={code}
-                onChangeText={setCode}
-                placeholder={t("discounts.create.codePlaceholder")}
-                autoCapitalize="characters"
-              />
-            </View>
-          ) : null}
-          <View className="gap-1.5">
-            <Label>{t("discounts.create.valueTypeLabel")}</Label>
-            <ToggleGroup
-              type="single"
-              value={valueType}
-              onValueChange={(v) =>
-                typeof v === "string" && v && setValueType(v as "percentage" | "fixed_amount")
-              }
-            >
-              <ToggleGroupItem value="percentage">
-                <Text className="text-sm text-foreground">
-                  {t("discounts.create.valueTypePercentage")}
-                </Text>
-              </ToggleGroupItem>
-              <ToggleGroupItem value="fixed_amount">
-                <Text className="text-sm text-foreground">
-                  {t("discounts.create.valueTypeFixed")}
-                </Text>
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </View>
-          <View className="gap-1.5">
-            <Label>
-              {valueType === "percentage"
-                ? t("discounts.create.percentOffLabel")
-                : t("discounts.create.amountOffLabel")}
-            </Label>
-            <Input value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder={valueType === "percentage" ? "20" : "10.00"} />
-          </View>
-          <Button onPress={submit} isLoading={createDiscount.isPending} className="mt-1">
-            <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
-          </Button>
+        ) : null}
+        <View className="gap-1.5">
+          <Label>{t("discounts.create.valueTypeLabel")}</Label>
+          <ToggleGroup
+            type="single"
+            value={valueType}
+            onValueChange={(v) =>
+              typeof v === "string" && v && setValueType(v as "percentage" | "fixed_amount")
+            }
+          >
+            <ToggleGroupItem value="percentage">
+              <Text className="text-sm text-foreground">
+                {t("discounts.create.valueTypePercentage")}
+              </Text>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="fixed_amount">
+              <Text className="text-sm text-foreground">
+                {t("discounts.create.valueTypeFixed")}
+              </Text>
+            </ToggleGroupItem>
+          </ToggleGroup>
         </View>
-      </DialogContent>
+        <View className="gap-1.5">
+          <Label>
+            {valueType === "percentage"
+              ? t("discounts.create.percentOffLabel")
+              : t("discounts.create.amountOffLabel")}
+          </Label>
+          <Input value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder={valueType === "percentage" ? "20" : "10.00"} />
+        </View>
+        <Button onPress={submit} isLoading={createDiscount.isPending} className="mt-1">
+          <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
+        </Button>
+      </View>
     </Dialog>
   );
 }

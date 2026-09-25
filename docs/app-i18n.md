@@ -289,7 +289,7 @@ rendering.** Whether a mirrored sheet visibly enters from the correct edge is
 
 ### The two upstream premises are re-measured now (#429 item 3)
 
-Fifteen physical directional utilities are excused by seven reasoned
+Fourteen physical directional utilities are excused by six reasoned
 `KNOWN_EXCEPTIONS` entries, and each says a logical spelling would compile and
 then silently do nothing on a device. Those reasons are facts about UPSTREAM:
 React Native does not register `borderInline*`, and react-native-css's
@@ -326,7 +326,7 @@ person does not have to re-derive it:
 2. **The sliding surfaces specifically** — `SheetContent` (the one left; `Panel` was deleted) must enter
    from the reader's leading edge. `validate:logical-side` proves the arithmetic
    and cannot prove the animation.
-3. **The fifteen excused physical borders** — each was kept because the logical
+3. **The fourteen excused physical utilities** — each was kept because the logical
    spelling would DROP it on native. Confirm each still renders on a device;
    that is the other half of the premise guard, which reads what upstream ships
    and not what a phone does with it.

@@ -11,12 +11,9 @@ import {
   Label,
   ToggleGroup,
   ToggleGroupItem,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   useColorScheme,
 } from "@mercaria/ui";
+import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -61,7 +58,7 @@ function LocationsBody({ storeId }: { storeId: string }) {
   const { t } = useTranslation();
   const { data, isPending, isError } = useLocations(storeId);
   const deleteLocation = useDeleteLocation(storeId);
-  const [createOpen, setCreateOpen] = useState(false);
+  const createControl = useDialogControl();
 
   const back = (
     <View className="flex-row items-center gap-2">
@@ -72,7 +69,7 @@ function LocationsBody({ storeId }: { storeId: string }) {
         <ChevronLeft size={16} color={colors.foreground} />
         <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
       </Pressable>
-      <Button onPress={() => setCreateOpen(true)}>
+      <Button onPress={() => createControl.open()}>
         <View className="flex-row items-center gap-2">
           <Plus size={16} color={colors.primaryForeground} />
           <Text className="font-semibold text-primary-foreground">{t("common.new")}</Text>
@@ -111,7 +108,7 @@ function LocationsBody({ storeId }: { storeId: string }) {
         </View>
       )}
 
-      <CreateLocationDialog storeId={storeId} open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateLocationDialog storeId={storeId} control={createControl} />
     </Screen>
   );
 }
@@ -147,12 +144,10 @@ function LocationRow({ location, onDelete }: { location: Location; onDelete: () 
 
 function CreateLocationDialog({
   storeId,
-  open,
-  onOpenChange,
+  control,
 }: {
   storeId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  control: DialogControlProps;
 }) {
   const createLocation = useCreateLocation(storeId);
   const { t } = useTranslation();
@@ -171,7 +166,7 @@ function CreateLocationDialog({
           toast.success(t("settings.locations.created"));
           setName("");
           setType("warehouse");
-          onOpenChange(false);
+          control.close();
         },
         onError: () => toast.error(t("settings.locations.createFailed")),
       },
@@ -179,41 +174,36 @@ function CreateLocationDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("settings.locations.newTitle")}</DialogTitle>
-        </DialogHeader>
-        <View className="gap-4">
-          <View className="gap-1.5">
-            <Label>{t("common.name")}</Label>
-            <Input
-              value={name}
-              onChangeText={setName}
-              placeholder={t("settings.locations.namePlaceholder")}
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>{t("common.type")}</Label>
-            <ToggleGroup
-              type="single"
-              value={type}
-              onValueChange={(v) => typeof v === "string" && v && setType(v as LocationType)}
-            >
-              {TYPES.map((locationType) => (
-                <ToggleGroupItem key={locationType} value={locationType}>
-                  <Text className="text-sm capitalize text-foreground">
-                    {t(LOCATION_TYPE_LABEL_KEYS[locationType])}
-                  </Text>
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </View>
-          <Button onPress={submit} isLoading={createLocation.isPending} className="mt-1">
-            <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
-          </Button>
+    <Dialog control={control} title={t("settings.locations.newTitle")}>
+      <View className="gap-4">
+        <View className="gap-1.5">
+          <Label>{t("common.name")}</Label>
+          <Input
+            value={name}
+            onChangeText={setName}
+            placeholder={t("settings.locations.namePlaceholder")}
+          />
         </View>
-      </DialogContent>
+        <View className="gap-1.5">
+          <Label>{t("common.type")}</Label>
+          <ToggleGroup
+            type="single"
+            value={type}
+            onValueChange={(v) => typeof v === "string" && v && setType(v as LocationType)}
+          >
+            {TYPES.map((locationType) => (
+              <ToggleGroupItem key={locationType} value={locationType}>
+                <Text className="text-sm capitalize text-foreground">
+                  {t(LOCATION_TYPE_LABEL_KEYS[locationType])}
+                </Text>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </View>
+        <Button onPress={submit} isLoading={createLocation.isPending} className="mt-1">
+          <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
+        </Button>
+      </View>
     </Dialog>
   );
 }

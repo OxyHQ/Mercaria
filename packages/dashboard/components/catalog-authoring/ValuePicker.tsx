@@ -1,16 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { Check, ChevronDown, Search } from "lucide-react-native";
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Text,
-  useColorScheme,
-} from "@mercaria/ui";
+import { Dialog, useDialogControl } from "@oxy.so/bloom/dialog";
+import { Input, Text, useColorScheme } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 
 /**
@@ -68,7 +60,11 @@ export function ValuePicker<Id extends string>({
 }: ValuePickerProps<Id>) {
   const { t } = useTranslation();
   const { colors } = useColorScheme();
-  const [open, setOpen] = useState(false);
+  const control = useDialogControl();
+  // Mirrors the dialog for the trigger's `aria-expanded` only; the dialog itself
+  // is driven by `control`, never by this flag (Bloom's controlled path races
+  // its own exit animation).
+  const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
 
   const selected = options.find((option) => option.id === selectedId) ?? null;
@@ -88,9 +84,12 @@ export function ValuePicker<Id extends string>({
         accessibilityRole="button"
         accessibilityLabel={title}
         accessibilityHint={selected === null ? placeholder : selected.label}
-        aria-expanded={open}
+        aria-expanded={expanded}
         disabled={disabled}
-        onPress={() => setOpen(true)}
+        onPress={() => {
+          setExpanded(true);
+          control.open();
+        }}
         className={[
           "h-11 flex-row items-center justify-between rounded-xl border bg-background px-3.5",
           invalid ? "border-destructive" : "border-input",
@@ -108,60 +107,57 @@ export function ValuePicker<Id extends string>({
         <ChevronDown size={16} color={colors.mutedForeground} />
       </Pressable>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-          </DialogHeader>
-          {options.length > FILTER_THRESHOLD ? (
-            <View className="mb-3 flex-row items-center gap-2 rounded-xl border border-input px-3">
-              <Search size={16} color={colors.mutedForeground} />
-              <Input
-                value={query}
-                onChangeText={setQuery}
-                placeholder={t("products.wizard.values.filterPlaceholder")}
-                accessibilityLabel={t("products.wizard.values.filterPlaceholder")}
-                className="flex-1 border-0"
-              />
-            </View>
-          ) : null}
-          <ScrollView className="max-h-80">
-            <View className="gap-1">
-              {filtered.map((option) => {
-                const isSelected = option.id === selectedId;
-                return (
-                  <Pressable
-                    key={option.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={option.label}
-                    accessibilityState={{ selected: isSelected }}
-                    onPress={() => {
-                      onSelect(option.id);
-                      setOpen(false);
-                    }}
-                    className="flex-row items-center justify-between rounded-xl px-3 py-3 active:bg-muted"
-                  >
-                    <View className="flex-1 pe-3">
-                      <Text className="text-base text-foreground">{option.label}</Text>
-                      {option.detail === undefined ? null : (
-                        <Text className="text-xs text-muted-foreground">{option.detail}</Text>
-                      )}
-                    </View>
-                    {isSelected ? <Check size={16} color={colors.primary} /> : null}
-                  </Pressable>
-                );
-              })}
-              {filtered.length === 0 ? (
-                <Text className="px-3 py-6 text-center text-sm text-muted-foreground">
-                  {t("products.wizard.values.noMatches")}
-                </Text>
-              ) : null}
-            </View>
-          </ScrollView>
-          <Button variant="outline" className="mt-3" onPress={() => setOpen(false)}>
-            <Text className="font-medium text-foreground">{t("common.cancel")}</Text>
-          </Button>
-        </DialogContent>
+      <Dialog
+        control={control}
+        title={title}
+        onClose={() => setExpanded(false)}
+        actions={[{ label: t("common.cancel"), color: "cancel" }]}
+      >
+        {options.length > FILTER_THRESHOLD ? (
+          <View className="mb-3 flex-row items-center gap-2 rounded-xl border border-input px-3">
+            <Search size={16} color={colors.mutedForeground} />
+            <Input
+              value={query}
+              onChangeText={setQuery}
+              placeholder={t("products.wizard.values.filterPlaceholder")}
+              accessibilityLabel={t("products.wizard.values.filterPlaceholder")}
+              className="flex-1 border-0"
+            />
+          </View>
+        ) : null}
+        <ScrollView className="max-h-80">
+          <View className="gap-1">
+            {filtered.map((option) => {
+              const isSelected = option.id === selectedId;
+              return (
+                <Pressable
+                  key={option.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={option.label}
+                  accessibilityState={{ selected: isSelected }}
+                  onPress={() => {
+                    onSelect(option.id);
+                    control.close();
+                  }}
+                  className="flex-row items-center justify-between rounded-xl px-3 py-3 active:bg-muted"
+                >
+                  <View className="flex-1 pe-3">
+                    <Text className="text-base text-foreground">{option.label}</Text>
+                    {option.detail === undefined ? null : (
+                      <Text className="text-xs text-muted-foreground">{option.detail}</Text>
+                    )}
+                  </View>
+                  {isSelected ? <Check size={16} color={colors.primary} /> : null}
+                </Pressable>
+              );
+            })}
+            {filtered.length === 0 ? (
+              <Text className="px-3 py-6 text-center text-sm text-muted-foreground">
+                {t("products.wizard.values.noMatches")}
+              </Text>
+            ) : null}
+          </View>
+        </ScrollView>
       </Dialog>
     </>
   );

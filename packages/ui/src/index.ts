@@ -294,16 +294,6 @@ export { Input } from "./components/ui/input";
 export { Textarea, type TextareaProps } from "./components/ui/textarea";
 export { Avatar, AvatarFallback, AvatarImage } from "./components/ui/avatar";
 export {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "./components/ui/dialog";
-export {
   Sheet,
   SheetContent,
   SheetDescription,

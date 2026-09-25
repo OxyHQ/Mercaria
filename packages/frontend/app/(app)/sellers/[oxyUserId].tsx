@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useOxy } from "@oxy.so/services";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
+import { useDialogControl } from "@oxy.so/bloom/dialog";
 import type {
   Listing,
   ProductSummary,
@@ -117,7 +118,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
   const { t } = useTranslation();
   const { oxyServices } = useOxy();
-  const [reportOpen, setReportOpen] = useState(false);
+  const reportControl = useDialogControl();
   const identity = profile.identity;
 
   if (!identity) return null;
@@ -177,7 +178,7 @@ function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("sellers.report.title", { name: identity.displayName })}
-          onPress={() => setReportOpen(true)}
+          onPress={() => reportControl.open()}
           className="rounded-full border border-border px-4 py-2"
         >
           <Text className="text-sm font-medium text-foreground">
@@ -189,8 +190,7 @@ function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
       <ReportSellerDialog
         oxyUserId={identity.oxyUserId}
         displayName={identity.displayName}
-        open={reportOpen}
-        onOpenChange={setReportOpen}
+        control={reportControl}
       />
     </View>
   );

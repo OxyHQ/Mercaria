@@ -37,15 +37,8 @@ import type {
   ExternalCollection,
   ExternalTaxonomyNoun,
 } from "@mercaria/shared-types";
-import {
-  Text,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@mercaria/ui";
+import { Text, Button } from "@mercaria/ui";
+import { Dialog, useDialogControl } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { useTranslation } from "@/lib/i18n";
 import { useChannelCollections, useUpdateChannelSettings } from "@/lib/hooks/use-channels";
@@ -94,7 +87,17 @@ export function CollectionMapping({
   const { t } = useTranslation();
   const { data, isLoading, isError } = useChannelCollections(storeId, connection.id);
   const update = useUpdateChannelSettings(storeId);
+  /**
+   * The external id being mapped. Cleared by the dialog's `onClose`, which fires
+   * only once the exit animation has settled, so the rows never re-target
+   * mid-animation.
+   */
   const [picking, setPicking] = useState<string | undefined>(undefined);
+  const pickerControl = useDialogControl();
+  const openPicker = (externalId: string) => {
+    setPicking(externalId);
+    pickerControl.open();
+  };
 
   const stored = useMemo(() => connection.syncSettings.collectionMapping ?? {}, [connection]);
 
@@ -110,7 +113,7 @@ export function CollectionMapping({
       { connectionId: connection.id, settings: { collectionMapping: next } },
       {
         onSuccess: () => {
-          setPicking(undefined);
+          pickerControl.close();
           toast.success(t("channels.toast.collectionMappingSaved"));
         },
         // The server refuses a target it cannot honour (an automated collection,
@@ -207,7 +210,7 @@ export function CollectionMapping({
           state={stateByExternalId.get(external.externalId)?.state}
           mappedTo={stored[external.externalId]}
           disabled={update.isPending}
-          onPress={() => setPicking(external.externalId)}
+          onPress={() => openPicker(external.externalId)}
           onClear={() => setTarget(external.externalId, undefined)}
         />
       ))}
@@ -221,46 +224,42 @@ export function CollectionMapping({
           state={row.state}
           mappedTo={row.collectionId}
           disabled={update.isPending}
-          onPress={() => setPicking(row.externalId)}
+          onPress={() => openPicker(row.externalId)}
           onClear={() => setTarget(row.externalId, undefined)}
         />
       ))}
 
       <Dialog
-        open={picking !== undefined}
-        onOpenChange={(open) => setPicking(open ? picking : undefined)}
+        control={pickerControl}
+        title={t("channels.collectionMapping.pickTitle")}
+        description={t("channels.collectionMapping.pickBody")}
+        onClose={() => setPicking(undefined)}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("channels.collectionMapping.pickTitle")}</DialogTitle>
-            <DialogDescription>{t("channels.collectionMapping.pickBody")}</DialogDescription>
-          </DialogHeader>
-          <ScrollView className="max-h-80">
-            <View className="gap-2 py-2">
-              {data.targets.map((target) => (
-                <Pressable
-                  key={target.id}
-                  accessibilityRole="button"
-                  className="rounded-xl border border-border p-3"
-                  disabled={update.isPending}
-                  onPress={() => picking !== undefined && setTarget(picking, target.id)}
-                >
-                  <Text className="text-sm font-medium text-foreground">{target.title}</Text>
-                  <Text className="text-xs text-muted-foreground">/{target.handle}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </ScrollView>
-          <Button
-            variant="outline"
-            disabled={update.isPending}
-            onPress={() => picking !== undefined && setTarget(picking, undefined)}
-          >
-            <Text className="font-semibold text-foreground">
-              {t("channels.collectionMapping.dontMap")}
-            </Text>
-          </Button>
-        </DialogContent>
+        <ScrollView className="max-h-80">
+          <View className="gap-2 py-2">
+            {data.targets.map((target) => (
+              <Pressable
+                key={target.id}
+                accessibilityRole="button"
+                className="rounded-xl border border-border p-3"
+                disabled={update.isPending}
+                onPress={() => picking !== undefined && setTarget(picking, target.id)}
+              >
+                <Text className="text-sm font-medium text-foreground">{target.title}</Text>
+                <Text className="text-xs text-muted-foreground">/{target.handle}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+        <Button
+          variant="outline"
+          disabled={update.isPending}
+          onPress={() => picking !== undefined && setTarget(picking, undefined)}
+        >
+          <Text className="font-semibold text-foreground">
+            {t("channels.collectionMapping.dontMap")}
+          </Text>
+        </Button>
       </Dialog>
     </View>
   );
