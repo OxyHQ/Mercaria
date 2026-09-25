@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
+import { Badge } from "@oxy.so/bloom/badge";
 import type { CartGroup, CartVendor } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
@@ -18,8 +19,6 @@ const THUMB_SIZE = 64;
 const ROT_A = "-3deg";
 /** Second thumbnail rotation for the stacked cluster visual. */
 const ROT_B = "4deg";
-/** Count badge minimum edge length (px) and height. */
-const BADGE_SIZE = 18;
 
 export interface MerchantCartCardProps {
   group: CartGroup;
@@ -102,11 +101,8 @@ export function MerchantCartCard({ group, onPressVendor, onCheckout }: MerchantC
         ) : null}
 
         {/* Quantity badge */}
-        <View
-          className="ms-2 items-center justify-center rounded-full bg-foreground px-1"
-          style={{ minWidth: BADGE_SIZE, height: BADGE_SIZE }}
-        >
-          <Text className="text-[10px] font-bold text-background">{totalQuantity}</Text>
+        <View className="ms-2">
+          <Badge size="medium" variant="solid" color="default" content={totalQuantity} />
         </View>
       </View>
 
