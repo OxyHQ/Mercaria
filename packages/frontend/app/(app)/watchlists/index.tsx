@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Loading } from "@oxy.so/bloom/loading";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
@@ -62,7 +63,7 @@ export default function WatchlistsScreen() {
           </View>
         ) : watchlists.isPending ? (
           <View className="py-24">
-            <ActivityIndicator />
+            <Loading variant="inline" size="sm" />
           </View>
         ) : watchlists.isError ? (
           <Text className="text-sm text-text-secondary">{t("watchlists.loadError")}</Text>

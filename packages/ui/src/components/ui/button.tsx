@@ -1,6 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
-import { Pressable, ActivityIndicator } from "react-native";
+import { Pressable } from "react-native";
+import { Loading } from "@oxy.so/bloom/loading";
 import { TextClassContext } from "./text";
 import { cn } from "../../lib/cn";
 
@@ -90,7 +91,9 @@ const Button = React.forwardRef<
         {...props}
       >
         {isLoading ? (
-          <ActivityIndicator
+          <Loading
+            variant="inline"
+            size="sm"
             color={variant === "outline" ? "black" : "white"}
           />
         ) : (

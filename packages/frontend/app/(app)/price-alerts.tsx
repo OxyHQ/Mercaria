@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
+import { Pressable, TextInput, View } from "react-native";
+import { Loading } from "@oxy.so/bloom/loading";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
@@ -81,7 +82,7 @@ export default function PriceAlertsScreen() {
 
             {alerts.isLoading ? (
               <View className="items-center py-space-24">
-                <ActivityIndicator />
+                <Loading variant="inline" size="sm" />
               </View>
             ) : null}
 
@@ -153,7 +154,7 @@ function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }
 
       {/* UX rule 3 — the current best eligible amount, in the alert's currency. */}
       {suggestion.isLoading ? (
-        <ActivityIndicator />
+        <Loading variant="inline" size="sm" />
       ) : suggestion.data && suggestion.data.eligibleOfferCount > 0 ? (
         <Text className="text-caption text-text-tertiary">
           {suggested

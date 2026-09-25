@@ -1,4 +1,4 @@
-import { View, Platform, Pressable, ActivityIndicator } from "react-native";
+import { View, Platform, Pressable } from "react-native";
 import { KeyboardAwareScrollView } from "@/lib/keyboard";
 import { Button, Text, Textarea } from "@mercaria/ui";
 import { useState } from "react";
@@ -204,14 +204,11 @@ export default function FeedbackScreen() {
             <Button
               onPress={handleSubmit}
               disabled={submitting || !selectedType || !message.trim()}
+              isLoading={submitting}
             >
-              {submitting ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <Text className="text-sm font-medium text-primary-foreground">
-                  {t('feedback.submitButton')}
-                </Text>
-              )}
+              <Text className="text-sm font-medium text-primary-foreground">
+                {t('feedback.submitButton')}
+              </Text>
             </Button>
 
             <Text className="text-xs text-center text-muted-foreground">
