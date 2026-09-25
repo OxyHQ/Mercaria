@@ -3,11 +3,11 @@ import { Platform, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { LogIn, ShoppingCart } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
+import { Avatar } from "@oxy.so/bloom/avatar";
 import { BottomBar, type BottomBarProps } from "@oxy.so/bloom/bottom-bar";
 import { useOxy, openAccountDialog } from "@oxy.so/services";
 import { LucideGlyph, Text } from "@mercaria/ui";
 
-import { UserAvatar } from "@/components/user-avatar";
 import { useCart } from "@/lib/hooks/use-cart";
 import { useTranslation } from "@/lib/i18n";
 import {
@@ -31,6 +31,24 @@ const AVATAR_SIZE = 26;
 function triggerHaptic() {
   if (Platform.OS === "web") return;
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+}
+
+/**
+ * The signed-in user's avatar for the account tab: their Oxy photo at the
+ * `thumb` rendition, or Bloom's initials disc from their display name.
+ */
+function AccountAvatar() {
+  const { user, oxyServices } = useOxy();
+  const avatarUrl = user?.avatar
+    ? oxyServices.getFileDownloadUrl(user.avatar, "thumb")
+    : undefined;
+  return (
+    <Avatar
+      uri={avatarUrl}
+      name={user?.name?.displayName ?? user?.username ?? undefined}
+      size={AVATAR_SIZE}
+    />
+  );
 }
 
 /**
@@ -93,7 +111,7 @@ export function BottomTabBar() {
         // Resolved through `t` rather than held as a literal: the i18n guard
         // reads JSX positions and cannot follow a string through a local.
         label: isAuthenticated ? t("nav.account") : t("nav.signIn"),
-        icon: isAuthenticated ? <UserAvatar size={AVATAR_SIZE} /> : <LucideGlyph icon={LogIn} />,
+        icon: isAuthenticated ? <AccountAvatar /> : <LucideGlyph icon={LogIn} />,
       },
     ],
     [available, cartCount, isAuthenticated, t],
