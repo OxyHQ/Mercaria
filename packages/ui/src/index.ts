@@ -297,7 +297,6 @@ export * as DropdownMenu from "./components/ui/dropdown-menu";
 export { Skeleton } from "./components/ui/skeleton";
 export { Icon } from "./components/ui/icon";
 export { Label } from "./components/ui/label";
-export { Switch, type SwitchProps } from "./components/ui/switch";
 export { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
 // The `side` a sliding surface takes. LOGICAL (`start` / `end`), so it mirrors
 // with the rest of the layout; the physical `left` / `right` spelling is gone

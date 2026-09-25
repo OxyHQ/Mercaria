@@ -2,7 +2,8 @@ import React from "react";
 import { Pressable, View } from "react-native";
 import { Plus, X } from "lucide-react-native";
 import type { AuthoringField, AuthoringSchema } from "@mercaria/shared-types";
-import { Button, Input, Switch, Text, useColorScheme } from "@mercaria/ui";
+import { Button, Input, Text, useColorScheme } from "@mercaria/ui";
+import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 import { emptyEntry, type DraftFieldEntry } from "@/lib/authoring/answers";
 import { axisValueSupport, unitAffordance } from "@/lib/authoring/controls";
@@ -89,8 +90,8 @@ export function VariantAxes({
             <View className="flex-row items-center justify-between gap-3">
               <Text className="flex-1 text-sm font-semibold text-foreground">{label}</Text>
               <Switch
-                value={axis !== null}
-                onValueChange={(on: boolean) => toggle(field, on)}
+                checked={axis !== null}
+                onCheckedChange={(on: boolean) => toggle(field, on)}
                 disabled={disabled}
                 accessibilityLabel={label}
               />

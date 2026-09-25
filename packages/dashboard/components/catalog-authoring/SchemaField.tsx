@@ -3,7 +3,8 @@ import { Pressable, View } from "react-native";
 import { Plus, X } from "lucide-react-native";
 import { Badge } from "@oxy.so/bloom/badge";
 import type { AuthoringField, AuthoringSchema, ProductTypeFieldRequirement } from "@mercaria/shared-types";
-import { Input, Label, Switch, Text, Textarea, useColorScheme } from "@mercaria/ui";
+import { Input, Label, Text, Textarea, useColorScheme } from "@mercaria/ui";
+import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 import {
   emptyEntry,
@@ -217,8 +218,8 @@ function EntryControl({
     return (
       <View className="h-11 flex-row items-center gap-3">
         <Switch
-          value={entry.value}
-          onValueChange={(value: boolean) => onChange({ ...entry, value })}
+          checked={entry.value}
+          onCheckedChange={(value: boolean) => onChange({ ...entry, value })}
           disabled={disabled}
           accessibilityLabel={label}
         />

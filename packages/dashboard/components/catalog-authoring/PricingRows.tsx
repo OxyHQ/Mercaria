@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { View } from "react-native";
 import type { AuthoringSchema, CurrencyCode } from "@mercaria/shared-types";
 import { ALL_CURRENCY_CODES } from "@mercaria/shared-types";
-import { Button, Input, Label, Switch, Text } from "@mercaria/ui";
+import { Button, Input, Label, Text } from "@mercaria/ui";
+import { Switch } from "@oxy.so/bloom/switch";
 import { useTranslation } from "@/lib/i18n";
 import { findingMessageKey, findingsForVariant, type LocatedFinding } from "@/lib/authoring/findings";
 import type { VariantRow } from "@/lib/authoring/matrix";
@@ -191,8 +192,8 @@ export function PricingRows({
               </View>
               <View className="flex-row items-center gap-2 pb-2">
                 <Switch
-                  value={row.inventoryTracked}
-                  onValueChange={(inventoryTracked: boolean) =>
+                  checked={row.inventoryTracked}
+                  onCheckedChange={(inventoryTracked: boolean) =>
                     update(row.key, { inventoryTracked })
                   }
                   disabled={disabled}

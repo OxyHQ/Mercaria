@@ -13,11 +13,11 @@ import {
   ProductCard,
   ReviewStars,
   SectionHeader,
-  Switch,
   Text,
   useFormatters,
   type ProductSummary,
 } from "@mercaria/ui";
+import { Switch } from "@oxy.so/bloom/switch";
 import type { Listing, StoreSummary } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { StoreFollowButton } from "@/components/store/StoreFollowButton";
@@ -535,7 +535,11 @@ function StoreBody({
 
           <View className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-muted px-4">
             <Text className="text-sm font-medium text-foreground">{t("store.filters.inStock")}</Text>
-            <Switch value={inStockOnly} onValueChange={onToggleInStock} />
+            <Switch
+              checked={inStockOnly}
+              onCheckedChange={onToggleInStock}
+              accessibilityLabel={t("store.filters.inStock")}
+            />
           </View>
         </View>
 

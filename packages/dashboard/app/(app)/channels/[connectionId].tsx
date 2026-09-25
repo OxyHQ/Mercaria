@@ -36,13 +36,13 @@ import {
   Button,
   Input,
   Label,
-  Switch,
   ToggleGroup,
   ToggleGroupItem,
   useColorScheme,
   formatDateTime,
   type Translate,
 } from "@mercaria/ui";
+import { Switch } from "@oxy.so/bloom/switch";
 import { toast } from "@oxy.so/bloom/toast";
 import { AlertDialog } from "@oxy.so/bloom/alert-dialog";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
@@ -363,7 +363,11 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
               {t("channels.settings.autoPublishHint")}
             </Text>
           </View>
-          <Switch value={autoPublish} onValueChange={setAutoPublish} />
+          <Switch
+            checked={autoPublish}
+            onCheckedChange={setAutoPublish}
+            accessibilityLabel={t("channels.settings.autoPublish")}
+          />
         </View>
       </View>
 
@@ -377,7 +381,11 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
               {t("channels.settings.keepLocalEditsHint")}
             </Text>
           </View>
-          <Switch value={respectOverrides} onValueChange={setRespectOverrides} />
+          <Switch
+            checked={respectOverrides}
+            onCheckedChange={setRespectOverrides}
+            accessibilityLabel={t("channels.settings.keepLocalEdits")}
+          />
         </View>
       </View>
 
@@ -893,8 +901,9 @@ function PauseControls({ storeId, connection }: { storeId: string; connection: C
             </Text>
           </View>
           <Switch
-            value={paused.has("fetch")}
-            onValueChange={(next) => toggle("fetch", next)}
+            checked={paused.has("fetch")}
+            onCheckedChange={(next) => toggle("fetch", next)}
+            accessibilityLabel={t("channels.pause.importing")}
           />
         </View>
         <View className="flex-row items-center justify-between gap-3">
@@ -907,8 +916,9 @@ function PauseControls({ storeId, connection }: { storeId: string; connection: C
             </Text>
           </View>
           <Switch
-            value={paused.has("publication")}
-            onValueChange={(next) => toggle("publication", next)}
+            checked={paused.has("publication")}
+            onCheckedChange={(next) => toggle("publication", next)}
+            accessibilityLabel={t("channels.pause.publishing")}
           />
         </View>
       </View>

@@ -4,7 +4,8 @@ import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft } from "lucide-react-native";
 import type { Store } from "@mercaria/shared-types";
-import { Text, Button, Input, Label, Textarea, Switch, useColorScheme } from "@mercaria/ui";
+import { Text, Button, Input, Label, Textarea, useColorScheme } from "@mercaria/ui";
+import { Switch } from "@oxy.so/bloom/switch";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -141,13 +142,21 @@ function PoliciesForm({ storeId, store }: { storeId: string; store: Store }) {
           <Text className="flex-1 text-sm text-foreground">
             {t("settings.policies.lowStockAlerts")}
           </Text>
-          <Switch value={lowStockAlerts} onValueChange={setLowStockAlerts} />
+          <Switch
+            checked={lowStockAlerts}
+            onCheckedChange={setLowStockAlerts}
+            accessibilityLabel={t("settings.policies.lowStockAlerts")}
+          />
         </View>
         <View className="flex-row items-center justify-between py-2">
           <Text className="flex-1 text-sm text-foreground">
             {t("settings.policies.orderEmails")}
           </Text>
-          <Switch value={orderEmails} onValueChange={setOrderEmails} />
+          <Switch
+            checked={orderEmails}
+            onCheckedChange={setOrderEmails}
+            accessibilityLabel={t("settings.policies.orderEmails")}
+          />
         </View>
       </View>
 
