@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useOxy } from "@oxy.so/services";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import type {
   Listing,
   ProductSummary,
@@ -355,11 +356,7 @@ export default function SellerScreen() {
             {listingsLoading && products.length === 0 ? <GridSkeleton /> : null}
 
             {!listingsLoading && products.length === 0 ? (
-              <View className="items-center px-8 py-16">
-                <Text className="text-center text-base text-muted-foreground">
-                  {t("sellers.listings.empty", { name: sellerName })}
-                </Text>
-              </View>
+              <EmptyState description={t("sellers.listings.empty", { name: sellerName })} />
             ) : null}
 
             {products.length > 0 ? (

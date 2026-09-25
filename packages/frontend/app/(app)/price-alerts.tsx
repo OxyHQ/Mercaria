@@ -2,8 +2,9 @@ import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Bell } from "lucide-react-native";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
+import { RiNotification3Line } from "@oxy.so/bloom/icons/RiNotification3Line";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { PriceAlertCard, Text, useFormatters, useFx } from "@mercaria/ui";
 import {
   CURRENCY_PRECISION,
@@ -24,7 +25,6 @@ import {
 import { useTranslation } from "@/lib/i18n";
 
 /** Icon size for the empty-state badge. */
-const EMPTY_ICON_SIZE = 28;
 
 /**
  * Price alerts (#79) — the account's own list, and the one place an alert is
@@ -85,7 +85,7 @@ export default function PriceAlertsScreen() {
               </View>
             ) : null}
 
-            {!alerts.isLoading && list.length === 0 ? <EmptyState /> : null}
+            {!alerts.isLoading && list.length === 0 ? <EmptyAlertsPlaceholder /> : null}
 
             <View className="gap-space-12">
               {list.map((alert) => (
@@ -251,36 +251,27 @@ function BasisChoice({
   );
 }
 
-function EmptyState() {
+function EmptyAlertsPlaceholder() {
   const { t } = useTranslation();
   return (
-    <View className="items-center gap-space-8 py-space-24">
-      <View className="rounded-radius-max bg-bg-fill-secondary p-space-12">
-        <Bell size={EMPTY_ICON_SIZE} className="text-text-tertiary" />
-      </View>
-      <Text className="text-bodyTitleSmall text-text">{t("priceAlerts.empty.title")}</Text>
-      <Text className="text-caption text-text-tertiary">{t("priceAlerts.empty.body")}</Text>
-    </View>
+    <EmptyState
+      icon={RiNotification3Line}
+      media="circle"
+      title={t("priceAlerts.empty.title")}
+      description={t("priceAlerts.empty.body")}
+    />
   );
 }
 
 function SignedOutInvitation() {
   const { t } = useTranslation();
   return (
-    <View className="items-center gap-space-8 py-space-24">
-      <View className="rounded-radius-max bg-bg-fill-secondary p-space-12">
-        <Bell size={EMPTY_ICON_SIZE} className="text-text-tertiary" />
-      </View>
-      <Text className="text-bodyTitleSmall text-text">{t("priceAlerts.signedOut.title")}</Text>
-      <Text className="text-caption text-text-tertiary">{t("priceAlerts.signedOut.body")}</Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t("priceAlerts.signedOut.signIn")}
-        onPress={() => openAccountDialog()}
-        className="rounded-radius-max bg-bg-fill-secondary px-space-16 py-space-8"
-      >
-        <Text className="text-caption text-text">{t("priceAlerts.signedOut.signIn")}</Text>
-      </Pressable>
-    </View>
+    <EmptyState
+      icon={RiNotification3Line}
+      media="circle"
+      title={t("priceAlerts.signedOut.title")}
+      description={t("priceAlerts.signedOut.body")}
+      action={{ label: t("priceAlerts.signedOut.signIn"), onPress: () => openAccountDialog() }}
+    />
   );
 }

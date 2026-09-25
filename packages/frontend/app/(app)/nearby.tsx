@@ -3,8 +3,10 @@ import { View } from "react-native";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import type { Cart, NearbyLocationResult } from "@mercaria/shared-types";
-import { Button, Text } from "@mercaria/ui";
+import { Text } from "@mercaria/ui";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
+import { RiMapPin2Line } from "@oxy.so/bloom/icons/RiMapPin2Line";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { Footer } from "@/components/shell/Footer";
 import { NearbyAvailability } from "@/components/nearby/NearbyAvailability";
@@ -100,17 +102,12 @@ export default function NearbyScreen() {
   if (canonicalProductId === undefined && canonicalVariantId === undefined) {
     return (
       <ScreenShell contentClassName="pt-6">
-        <View className="items-center px-8 py-24">
-          <Text className="text-center text-bodyTitleLarge text-text">
-            {t("nearby.screen.emptyTitle")}
-          </Text>
-          <Text className="mt-1 text-center text-caption text-text-secondary">
-            {t("nearby.screen.emptyBody")}
-          </Text>
-          <Button variant="outline" className="mt-4" onPress={() => router.replace("/")}>
-            <Text className="text-buttonSmall text-text">{t("nearby.screen.backToMercaria")}</Text>
-          </Button>
-        </View>
+        <EmptyState
+          icon={RiMapPin2Line}
+          title={t("nearby.screen.emptyTitle")}
+          description={t("nearby.screen.emptyBody")}
+          action={{ label: t("nearby.screen.backToMercaria"), onPress: () => router.replace("/") }}
+        />
       </ScreenShell>
     );
   }

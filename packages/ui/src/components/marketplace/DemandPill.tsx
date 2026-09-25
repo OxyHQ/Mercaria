@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { Text } from "../ui/text";
+import { Badge } from "@oxy.so/bloom/badge";
 
 export interface DemandPillProps {
   /** Static social-proof copy (e.g. "100K+ bought in past month"). */
@@ -13,8 +13,8 @@ export interface DemandPillProps {
  */
 export function DemandPill({ label }: DemandPillProps) {
   return (
-    <View className="self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6">
-      <Text className="text-captionBold text-text">{label}</Text>
+    <View className="self-start">
+      <Badge size="label-medium" variant="subtle" color="default" content={label} />
     </View>
   );
 }

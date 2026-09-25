@@ -1,4 +1,8 @@
 import React, { useMemo, useState } from "react";
+import type { AccentTone } from "@oxy.so/bloom/theme";
+import { Badge } from "@oxy.so/bloom/badge";
+import { RiBox3Line } from "@oxy.so/bloom/icons/RiBox3Line";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { View, Pressable } from "react-native";
 import { useRouter, type RoutePath } from "expo-router";
 import Head from "expo-router/head";
@@ -133,11 +137,13 @@ function ProductsBody({ storeId }: { storeId: string }) {
   );
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  active: "bg-primary/10 text-primary",
-  draft: "bg-muted text-muted-foreground",
-  archived: "bg-muted text-muted-foreground",
-  sold: "bg-muted text-muted-foreground",
+/** Bloom accent tone per listing status, painted as a `subtle` `Badge`. */
+const STATUS_TONES: Record<ListingStatus, AccentTone> = {
+  active: "primary",
+  draft: "default",
+  archived: "default",
+  sold: "default",
+  restricted: "default",
 };
 
 function ProductRow({ product, onPress }: { product: Listing; onPress: () => void }) {
@@ -163,27 +169,25 @@ function ProductRow({ product, onPress }: { product: Listing; onPress: () => voi
         {product.source ? <SourceBadge provider={product.source.provider} /> : null}
       </View>
       <PriceDisplay price={product.price} primaryClassName="text-sm font-semibold" />
-      <View className={`rounded-full px-2 py-1 ${STATUS_STYLES[product.status] ?? "bg-muted"}`}>
-        <Text className={`text-[10px] font-semibold capitalize ${STATUS_STYLES[product.status]?.split(" ")[1] ?? "text-muted-foreground"}`}>
-          {t(STATUS_LABEL_KEYS[product.status])}
-        </Text>
-      </View>
+      <Badge
+        size="label-small"
+        variant="subtle"
+        color={STATUS_TONES[product.status]}
+        content={t(STATUS_LABEL_KEYS[product.status])}
+      />
     </Pressable>
   );
 }
 
 function EmptyProducts({ canWrite, onCreate }: { canWrite: boolean; onCreate: () => void }) {
   const { t } = useTranslation();
-  const { colors } = useColorScheme();
   return (
-    <View className="items-center justify-center rounded-2xl border border-dashed border-border py-16">
-      <Package size={36} color={colors.mutedForeground} />
-      <Text className="mt-4 text-base font-semibold text-foreground">{t("products.empty.title")}</Text>
-      {canWrite ? (
-        <Button className="mt-6" onPress={onCreate}>
-          <Text className="font-semibold text-primary-foreground">{t("products.empty.action")}</Text>
-        </Button>
-      ) : null}
+    <View className="rounded-2xl border border-dashed border-border">
+      <EmptyState
+        icon={RiBox3Line}
+        title={t("products.empty.title")}
+        action={canWrite ? { label: t("products.empty.action"), onPress: onCreate } : undefined}
+      />
     </View>
   );
 }

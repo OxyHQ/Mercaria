@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Badge } from "@oxy.so/bloom/badge";
 import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
@@ -676,19 +677,12 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
                 <Text className="text-sm font-semibold text-foreground">
                   {t(RUN_KIND_LABEL_KEYS[run.kind])}
                 </Text>
-                <View
-                  className={`rounded-full px-2 py-0.5 ${
-                    run.status === "failed" ? "bg-destructive/10" : "bg-muted"
-                  }`}
-                >
-                  <Text
-                    className={`text-[10px] font-semibold ${
-                      run.status === "failed" ? "text-destructive" : "text-muted-foreground"
-                    }`}
-                  >
-                    {t(RUN_STATUS_LABEL_KEYS[run.status])}
-                  </Text>
-                </View>
+                <Badge
+                  size="label-small"
+                  variant="subtle"
+                  color={run.status === "failed" ? "error" : "default"}
+                  content={t(RUN_STATUS_LABEL_KEYS[run.status])}
+                />
               </View>
               <Text className="mt-0.5 text-xs text-muted-foreground">
                 {formatWhen(run.startedAt, t("common.unknown"), locale)}

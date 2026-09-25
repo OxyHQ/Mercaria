@@ -1,7 +1,8 @@
 import { View } from "react-native";
-import { BadgeCheck, ShieldCheck } from "lucide-react-native";
+import { Badge } from "@oxy.so/bloom/badge";
+import { RiShieldCheckLine } from "@oxy.so/bloom/icons/RiShieldCheckLine";
+import { RiVerifiedBadgeLine } from "@oxy.so/bloom/icons/RiVerifiedBadgeLine";
 import type { PublicRelationshipBadge } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
 import { cn } from "../../lib/cn";
 
 /**
@@ -20,9 +21,6 @@ import { cn } from "../../lib/cn";
  * no verified relationship has no badge at all — it holds no relationship row
  * (ADR 0002 D10), which is the NORMAL state and not a missing one.
  */
-
-/** Icon edge length, matched to the badge's text line height. */
-const ICON_SIZE = 14;
 
 /** What each badge SAYS. Separate strings on purpose — see the module doc. */
 const BADGE_TEXT: Readonly<Record<PublicRelationshipBadge, string>> = Object.freeze({
@@ -59,7 +57,6 @@ export function OfficialChannelBadge({
   territories = [],
   className,
 }: OfficialChannelBadgeProps) {
-  const Icon = badge === "official_store" ? BadgeCheck : ShieldCheck;
   const scope =
     territories.length === 0 ? "Worldwide" : `In ${[...territories].sort().join(", ")}`;
 
@@ -67,25 +64,15 @@ export function OfficialChannelBadge({
     <View
       accessibilityRole="text"
       accessibilityLabel={`${BADGE_TEXT[badge]}. ${BADGE_EXPLANATION[badge]}. ${scope}.`}
-      className={cn(
-        "flex-row items-center gap-1 self-start rounded-full px-2 py-1",
-        badge === "official_store" ? "bg-primary/10" : "bg-muted",
-        className,
-      )}
+      className={cn("self-start", className)}
     >
-      <Icon
-        size={ICON_SIZE}
-        className={badge === "official_store" ? "text-primary" : "text-muted-foreground"}
+      <Badge
+        size="label-medium"
+        variant="subtle"
+        color={badge === "official_store" ? "primary" : "default"}
+        icon={badge === "official_store" ? RiVerifiedBadgeLine : RiShieldCheckLine}
+        content={`${BADGE_TEXT[badge]} · ${scope}`}
       />
-      <Text
-        className={cn(
-          "text-xs font-medium",
-          badge === "official_store" ? "text-primary" : "text-muted-foreground",
-        )}
-      >
-        {BADGE_TEXT[badge]}
-      </Text>
-      <Text className="text-xs text-muted-foreground">· {scope}</Text>
     </View>
   );
 }

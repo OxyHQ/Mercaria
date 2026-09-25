@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { RiStore2Line } from "@oxy.so/bloom/icons/RiStore2Line";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { View, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import Head from "expo-router/head";
@@ -84,19 +86,13 @@ export default function StoresScreen() {
             ))}
           </View>
         ) : (
-          <View className="items-center justify-center rounded-2xl border border-dashed border-border py-16">
-            <StoreIcon size={36} color={colors.mutedForeground} />
-            <Text className="mt-4 text-base font-semibold text-foreground">
-              {t("stores.empty.title")}
-            </Text>
-            <Text className="mt-1 max-w-xs text-center text-sm text-muted-foreground">
-              {t("stores.empty.body")}
-            </Text>
-            <Button className="mt-6" onPress={() => setCreateOpen(true)}>
-              <Text className="font-semibold text-primary-foreground">
-                {t("stores.createStore")}
-              </Text>
-            </Button>
+          <View className="rounded-2xl border border-dashed border-border">
+            <EmptyState
+              icon={RiStore2Line}
+              title={t("stores.empty.title")}
+              description={t("stores.empty.body")}
+              action={{ label: t("stores.createStore"), onPress: () => setCreateOpen(true) }}
+            />
           </View>
         )}
       </Screen>

@@ -1,7 +1,7 @@
 import React from "react";
-import { View } from "react-native";
+import { Badge } from "@oxy.so/bloom/badge";
+import type { AccentTone } from "@oxy.so/bloom/theme";
 import type { OrderStatus } from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 
 /**
@@ -28,28 +28,30 @@ export const ORDER_STATUS_LABEL_KEYS: Record<OrderStatus, string> = {
   partially_refunded: "orders.status.partiallyRefunded",
 };
 
-/** Tailwind classes per status: `<bg> <text>`. */
-const STYLES: Record<OrderStatus, string> = {
-  pending_payment: "bg-muted text-muted-foreground",
-  paid: "bg-primary/10 text-primary",
-  processing: "bg-primary/10 text-primary",
-  shipped: "bg-primary/10 text-primary",
-  delivered: "bg-primary/10 text-primary",
+/** Bloom accent tone per status, painted as a `subtle` Bloom `Badge`. */
+const TONES: Record<OrderStatus, AccentTone> = {
+  pending_payment: "default",
+  paid: "primary",
+  processing: "primary",
+  shipped: "primary",
+  delivered: "primary",
   // The same pill as `delivered`: both mean the buyer has what they paid for, and
   // a different colour would imply a difference a merchant has to act on.
-  digitally_delivered: "bg-primary/10 text-primary",
-  cancelled: "bg-muted text-muted-foreground",
-  refunded: "bg-destructive/10 text-destructive",
-  partially_refunded: "bg-destructive/10 text-destructive",
+  digitally_delivered: "primary",
+  cancelled: "default",
+  refunded: "error",
+  partially_refunded: "error",
 };
 
 /** Small pill rendering an order's lifecycle status. */
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {
   const { t } = useTranslation();
-  const [bg, text] = STYLES[status].split(" ");
   return (
-    <View className={`rounded-full px-2 py-1 ${bg}`}>
-      <Text className={`text-[10px] font-semibold ${text}`}>{t(ORDER_STATUS_LABEL_KEYS[status])}</Text>
-    </View>
+    <Badge
+      size="label-small"
+      variant="subtle"
+      color={TONES[status]}
+      content={t(ORDER_STATUS_LABEL_KEYS[status])}
+    />
   );
 }

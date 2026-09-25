@@ -1,4 +1,5 @@
 import { View } from "react-native";
+import { Badge } from "@oxy.so/bloom/badge";
 import type { OfferLabelAward } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { formatDistance, formatMoney } from "../../lib/format";
@@ -52,7 +53,7 @@ export function OfferLabelBadge({ award, showExplanation = false }: OfferLabelBa
   return (
     <View className="gap-space-4">
       <View
-        className="self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6"
+        className="self-start"
         accessibilityRole="text"
         // The label alone announces "Cheapest new" with no subject and no
         // figure. Naming both is the `ConditionBadge` decision: a row carries
@@ -62,9 +63,12 @@ export function OfferLabelBadge({ award, showExplanation = false }: OfferLabelBa
           basis === undefined ? label : t(OFFER_LABEL_A11Y_WITH_BASIS_KEY, { label, basis })
         }
       >
-        <Text className="text-captionBold text-text">
-          {basis === undefined ? label : t(OFFER_LABEL_BADGE_WITH_BASIS_KEY, { label, basis })}
-        </Text>
+        <Badge
+          size="label-medium"
+          variant="subtle"
+          color="default"
+          content={basis === undefined ? label : t(OFFER_LABEL_BADGE_WITH_BASIS_KEY, { label, basis })}
+        />
       </View>
       {showExplanation ? (
         <Text className="text-caption text-text-secondary">{t(offerLabelExplanationKey(award))}</Text>

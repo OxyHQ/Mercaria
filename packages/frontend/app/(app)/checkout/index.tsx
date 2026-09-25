@@ -3,6 +3,7 @@ import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { Check, Plus } from "lucide-react-native";
 import { nanoid } from "nanoid/non-secure";
 import type {
@@ -505,17 +506,11 @@ function CheckoutBody() {
 
   if (targetGroups.length === 0) {
     return (
-      <View className="items-center px-8 py-24">
-        <Text className="text-center text-lg font-bold text-foreground">
-          {t("checkout.empty.title")}
-        </Text>
-        <Text className="mt-1 text-center text-sm text-muted-foreground">
-          {t("checkout.empty.body")}
-        </Text>
-        <Button variant="outline" className="mt-4" onPress={() => router.replace("/cart")}>
-          <Text className="text-sm font-medium text-foreground">{t("checkout.empty.backToCart")}</Text>
-        </Button>
-      </View>
+      <EmptyState
+        title={t("checkout.empty.title")}
+        description={t("checkout.empty.body")}
+        action={{ label: t("checkout.empty.backToCart"), onPress: () => router.replace("/cart") }}
+      />
     );
   }
 

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { vars } from "nativewind";
 import { Image } from "expo-image";
@@ -550,11 +551,7 @@ function StoreBody({
         ) : null}
 
         {!isLoading && products.length === 0 && !isError ? (
-          <View className="items-center px-8 py-16">
-            <Text className="text-center text-base text-muted-foreground">
-              {t("store.products.empty")}
-            </Text>
-          </View>
+          <EmptyState description={t("store.products.empty")} />
         ) : null}
 
         {products.length > 0 ? (

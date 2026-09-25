@@ -1,9 +1,10 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Pressable, ScrollView } from "react-native";
+import { View, ScrollView } from "react-native";
 import { useOxy } from "@oxy.so/services";
 import { Barcode, Search } from "lucide-react-native";
 import type { Listing, ProductVariantDTO } from "@mercaria/shared-types";
 import { Text, Input, Button, useColorScheme } from "@mercaria/ui";
+import { Chip } from "@oxy.so/bloom/chip";
 import { toast } from "@oxy.so/bloom/toast";
 import { ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { useCatalog, useCategories, type CatalogFilters } from "@/lib/hooks/use-catalog";
@@ -217,26 +218,8 @@ function CategoryChip({
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      className={
-        active
-          ? "h-10 items-center justify-center rounded-full bg-primary px-4"
-          : "h-10 items-center justify-center rounded-full border border-border bg-surface px-4 active:opacity-80 web:hover:border-primary"
-      }
-    >
-      <Text
-        numberOfLines={1}
-        className={
-          active
-            ? "text-sm font-semibold text-primary-foreground"
-            : "text-sm font-medium text-foreground"
-        }
-      >
-        {label}
-      </Text>
-    </Pressable>
+    <Chip size="2xl" variant="outlined" selected={active} onPress={onPress}>
+      {label}
+    </Chip>
   );
 }

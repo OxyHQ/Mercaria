@@ -19,6 +19,8 @@
  *    file, so the index is what they need.
  */
 
+import { EmptyState } from "@oxy.so/bloom/empty-state";
+import { Badge } from "@oxy.so/bloom/badge";
 import React, { useMemo, useState } from "react";
 import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -319,13 +321,12 @@ function Versions({
 
   if (versions.length === 0) {
     return (
-      <View className="items-center justify-center rounded-2xl border border-dashed border-border py-10">
-        <Text className="text-sm font-semibold text-foreground">
-          {t("feeds.versions.empty")}
-        </Text>
-        <Text className="mt-1 max-w-sm text-center text-xs text-muted-foreground">
-          {t("feeds.versions.emptyBody")}
-        </Text>
+      <View className="rounded-2xl border border-dashed border-border">
+        <EmptyState
+          variant="compact"
+          title={t("feeds.versions.empty")}
+          description={t("feeds.versions.emptyBody")}
+        />
       </View>
     );
   }
@@ -341,19 +342,12 @@ function Versions({
             <Text className="text-sm font-semibold text-foreground">
               {t("feeds.versions.version", { version: version.version })}
             </Text>
-            <View
-              className={`rounded-full px-2 py-0.5 ${
-                version.status === "active" ? "bg-primary/10" : "bg-muted"
-              }`}
-            >
-              <Text
-                className={`text-[10px] font-semibold ${
-                  version.status === "active" ? "text-primary" : "text-muted-foreground"
-                }`}
-              >
-                {t(VERSION_STATUS_LABEL_KEYS[version.status])}
-              </Text>
-            </View>
+            <Badge
+              size="label-small"
+              variant="subtle"
+              color={version.status === "active" ? "primary" : "default"}
+              content={t(VERSION_STATUS_LABEL_KEYS[version.status])}
+            />
           </View>
           <Text className="text-xs text-muted-foreground">
             {t("feeds.versions.summary", {

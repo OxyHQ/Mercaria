@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import type { AccentTone } from "@oxy.so/bloom/theme";
+import { Badge } from "@oxy.so/bloom/badge";
 import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
@@ -266,15 +268,12 @@ function StatusHistoryCard({ order }: { order: MerchantOrder }) {
  * evaluated at import, before the locale store has rehydrated, so a resolved
  * label would freeze whatever language loaded first.
  */
-const REFUND_STATE_CHIPS: Record<
-  RefundProviderState,
-  { labelKey: string; bg: string; text: string }
-> = {
+const REFUND_STATE_CHIPS: Record<RefundProviderState, { labelKey: string; tone: AccentTone }> = {
   // Approved and moving, but NOT yet in the buyer's hands — muted, not a success tone.
-  pending: { labelKey: "orders.refundState.pending", bg: "bg-muted", text: "text-muted-foreground" },
-  succeeded: { labelKey: "orders.refundState.succeeded", bg: "bg-primary/10", text: "text-primary" },
-  failed: { labelKey: "orders.refundState.failed", bg: "bg-destructive/10", text: "text-destructive" },
-  canceled: { labelKey: "orders.refundState.canceled", bg: "bg-muted", text: "text-muted-foreground" },
+  pending: { labelKey: "orders.refundState.pending", tone: "default" },
+  succeeded: { labelKey: "orders.refundState.succeeded", tone: "primary" },
+  failed: { labelKey: "orders.refundState.failed", tone: "error" },
+  canceled: { labelKey: "orders.refundState.canceled", tone: "default" },
 };
 
 function RefundsCard({ storeId, order }: { storeId: string; order: MerchantOrder }) {
@@ -324,9 +323,7 @@ function RefundRow({ refund }: { refund: Refund }) {
         </View>
         <PriceDisplay price={refund.totalRefunded.shop} primaryClassName="text-sm font-semibold" />
         {chip ? (
-          <View className={`rounded-full px-2 py-1 ${chip.bg}`}>
-            <Text className={`text-[10px] font-semibold ${chip.text}`}>{t(chip.labelKey)}</Text>
-          </View>
+          <Badge size="label-small" variant="subtle" color={chip.tone} content={t(chip.labelKey)} />
         ) : null}
       </View>
       {/* The rail's own code, shown verbatim apart from the underscores: it is a

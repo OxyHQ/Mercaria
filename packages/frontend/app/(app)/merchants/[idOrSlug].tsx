@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
+import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { Pressable, View } from "react-native";
 import Head from "expo-router/head";
+import { Badge } from "@oxy.so/bloom/badge";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import type {
   MerchantCatalogEmptyReason,
@@ -87,10 +89,14 @@ function GridSkeleton() {
 
 /** One counted chip from the offer mix. */
 function MixChip({ label, count }: { label: string; count: number }) {
+  // A count that is READ, not pressed: Bloom's `Badge`, not a `Chip`.
   return (
-    <View className="rounded-full bg-muted px-3 py-1">
-      <Text className="text-xs text-muted-foreground">{`${label} · ${String(count)}`}</Text>
-    </View>
+    <Badge
+      size="label-medium"
+      variant="subtle"
+      color="default"
+      content={`${label} · ${String(count)}`}
+    />
   );
 }
 
@@ -329,11 +335,7 @@ export default function MerchantScreen() {
         {catalogLoading && entries.length === 0 ? <GridSkeleton /> : null}
 
         {!catalogLoading && entries.length === 0 ? (
-          <View className="items-center px-8 py-16">
-            <Text className="text-center text-base text-muted-foreground">
-              {t(emptyReason ? EMPTY_COPY_KEYS[emptyReason] : EMPTY_COPY_KEYS.no_offers)}
-            </Text>
-          </View>
+          <EmptyState description={t(emptyReason ? EMPTY_COPY_KEYS[emptyReason] : EMPTY_COPY_KEYS.no_offers)} />
         ) : null}
 
         {entries.length > 0 ? (
