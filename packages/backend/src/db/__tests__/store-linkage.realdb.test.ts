@@ -357,7 +357,7 @@ describe('acceptance 4 — replaying creates no duplicate store, mapping or foll
     expect(links.filter((row) => row.status === 'active')).toHaveLength(1);
     //  3. ONE follow target, which is the SAME fact as one store whose id never
     //     moves — a `mercaria.store` target's identity is
-    //     `https://mercaria.co/stores/<storeId>` and `ensureFollowTarget` is
+    //     `https://mercaria.co/stores/<storeId>` and `follows.ensureTarget` is
     //     idempotent on it. The backend creates no target, so the guarantee is
     //     the store id being stable, which the write-once CAS gives.
     expect(second.resolvedStoreId).toBe(storeRows[0]?.id);

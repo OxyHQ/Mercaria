@@ -87,7 +87,7 @@ export default function BrandPageScreen() {
 
   const logoUrl =
     brand.logo.state === "displayable"
-      ? oxyServices.getFileDownloadUrl(brand.logo.fileId, "thumb")
+      ? oxyServices.assets.publicUrl(brand.logo.fileId, "thumb")
       : undefined;
 
   return (

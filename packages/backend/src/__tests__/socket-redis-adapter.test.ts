@@ -32,7 +32,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { RedisAdapter } from '@socket.io/redis-adapter';
 
 vi.mock('../middleware/auth.js', () => ({
-  oxyClient: { authSocket: () => (_socket: unknown, next: () => void) => next() },
+  oxyClient: { middleware: { socket: () => (_socket: unknown, next: () => void) => next() } },
 }));
 vi.mock('../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },

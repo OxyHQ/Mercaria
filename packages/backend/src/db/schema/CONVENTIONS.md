@@ -1647,7 +1647,7 @@ one of those rows, reverses one, or corrects one. What is #84's own:
 - **"Exactly one follow target" has no index, and needs none.** A
   `mercaria.store` target's identity is `https://mercaria.co/stores/<storeId>`
   (frontend `lib/follow-graph.ts`), keyed on the store's IMMUTABLE id, and
-  `ensureFollowTarget` is idempotent on that URI — so one target is the SAME
+  `follows.ensureTarget` is idempotent on that URI — so one target is the SAME
   fact as one store whose id never moves, which the open key plus the write-once
   `resolved_store_id` already guarantee. The backend creates no target and
   constructs no URI; `store-linkage-isolation.test.ts` fails the build if that

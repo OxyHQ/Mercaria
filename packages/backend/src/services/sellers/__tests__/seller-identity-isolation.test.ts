@@ -5,7 +5,7 @@
  * comment, because the failure they prevent is unrecoverable by construction:
  *
  *  1. **No Mercaria person kind, anywhere.** A `follow_targets` row carries ONE
- *     kind and `ensureFollowTarget` is idempotent on the URI, so whoever
+ *     kind and `follows.ensureTarget` is idempotent on the URI, so whoever
  *     registers a URI first fixes its kind FOREVER. A person registered under
  *     `mercaria.*` at a `mercaria.co` URI has their followers split from the
  *     identity every other Oxy app already follows, and there is no repair
@@ -25,7 +25,7 @@
  * self-test for every detector — a regex that rotted would otherwise pass every
  * assertion here by matching nothing.
  *
- * It deliberately scans the STOREFRONT as well as the backend. `registerFollowKind`
+ * It deliberately scans the STOREFRONT as well as the backend. `follows.registerKind`
  * is a client call — the capability comes from the signed-in user's session, so
  * it cannot run on a server — which means the one file that could commit this
  * mistake lives in a package with no test runner of its own. A gate that only
@@ -51,7 +51,7 @@ const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 
  * ## Why this gate does NOT use `__tests__/domain-population.ts` (#460)
  *
  * The shared helper resolves every path against `packages/backend/src`, and
- * both populations here are CROSS-PACKAGE: `registerFollowKind` is a client
+ * both populations here are CROSS-PACKAGE: `follows.registerKind` is a client
  * call — the capability comes from the signed-in user's session, so it cannot
  * run on a server — which means the one file that could commit this mistake
  * lives in a package the helper cannot see. `sweepSrcTreeForDomain` would
@@ -144,7 +144,7 @@ function sourceFilesUnder(packageRelative: string): readonly string[] {
  * looks at the file that introduces one.
  */
 const FOLLOW_SYMBOL =
-  /\b(ensureFollowTarget|registerFollowKind|FollowTargetButton|follow_?targets?|followKind|use[A-Z]\w*Follow|[A-Z]\w*FollowButton)\b/;
+  /\b(follows\.ensureTarget|follows\.registerKind|FollowTargetButton|follow_?targets?|followKind|use[A-Z]\w*Follow|[A-Z]\w*FollowButton)\b/;
 
 /**
  * Files the follow predicate matches that are NOT follow surfaces, each with
@@ -197,7 +197,7 @@ const SELLER_DOMAIN_PATHS: readonly string[] = CORPUS.map((file) => file.path).f
 const MERCARIA_PERSON_KIND = /mercaria\.(seller|user|person|buyer|account)\b/;
 
 /** A call that DECLARES a kind — the only operation that can fix one forever. */
-const REGISTER_KIND_CALL = /registerFollowKind\s*\(/;
+const REGISTER_KIND_CALL = /follows\.registerKind\s*\(/;
 
 /** A follow target URI built on a Mercaria host. */
 const MERCARIA_FOLLOW_URI = /['"`]https:\/\/(?:[a-z0-9-]+\.)?mercaria\.co\/(?:users|sellers|people)\//;
@@ -259,7 +259,7 @@ describe('no Mercaria person identity can be registered', () => {
   });
 
   it('registers exactly ONE kind, and it is the STORE', () => {
-    // `registerFollowKind` is what fixes a kind's meaning. Exactly one call
+    // `follows.registerKind` is what fixes a kind's meaning. Exactly one call
     // exists in the storefront, it lives in `follow-graph.ts`, and it registers
     // `mercaria.store` — a Mercaria-local shop with no Oxy account behind it.
     const registering = FOLLOW_SURFACE_PATHS.filter((relative) =>
@@ -273,7 +273,7 @@ describe('no Mercaria person identity can be registered', () => {
     // owned by no application, and Oxy's registry would refuse the claim.
     const sellerHook = stripComments(read('frontend/lib/hooks/use-seller-follow.ts'));
     expect(REGISTER_KIND_CALL.test(sellerHook)).toBe(false);
-    expect(sellerHook).not.toContain('claimFollowNamespace');
+    expect(sellerHook).not.toContain('follows.claimNamespace');
   });
 
   it('follows a seller as `oxy.user` at Oxy’s own origin', () => {
@@ -313,8 +313,8 @@ describe('no Mercaria person identity can be registered', () => {
     for (const kind of SELLER_FORBIDDEN_FOLLOW_KINDS) {
       expect(MERCARIA_PERSON_KIND.test(`kind: '${kind}'`)).toBe(true);
     }
-    expect(REGISTER_KIND_CALL.test('await oxyServices.registerFollowKind({ kind })')).toBe(true);
-    expect(REGISTER_KIND_CALL.test('await oxyServices.ensureFollowTarget({ kind })')).toBe(false);
+    expect(REGISTER_KIND_CALL.test('await oxyServices.follows.registerKind({ kind })')).toBe(true);
+    expect(REGISTER_KIND_CALL.test('await oxyServices.follows.ensureTarget({ kind })')).toBe(false);
     expect(MERCARIA_FOLLOW_URI.test("`https://mercaria.co/users/${id}`")).toBe(true);
     expect(MERCARIA_FOLLOW_URI.test("`https://oxy.so/users/${id}`")).toBe(false);
     // And the comment stripper does not eat code.
@@ -329,7 +329,7 @@ describe('Mercaria stores no follow state of its own', () => {
     // #460: this wall used to scan `FOLLOW_SURFACE_PATHS ∪ SELLER_DOMAIN_PATHS`
     // and that is not the population it needs, because the two vocabularies are
     // DISJOINT. `FOLLOW_SYMBOL` is about REACHING Oxy's graph
-    // (`ensureFollowTarget`, `registerFollowKind`, `FollowTargetButton`); a
+    // (`follows.ensureTarget`, `follows.registerKind`, `FollowTargetButton`); a
     // module that stores a follower COUNT of its own reaches Oxy's graph
     // nowhere, names none of those symbols, and need not sit in the public
     // seller domain either.

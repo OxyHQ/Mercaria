@@ -73,7 +73,7 @@ export function CatalogPane({ storeId }: { storeId: string }) {
     (value: string | undefined): string | undefined => {
       if (!value) return undefined;
       if (value.startsWith("http")) return value;
-      const url = oxyServices.getFileDownloadUrl(value, "thumb");
+      const url = oxyServices.assets.publicUrl(value, "thumb");
       return url && url.startsWith("http") ? url : undefined;
     },
     [oxyServices],

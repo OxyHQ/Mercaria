@@ -58,7 +58,7 @@ export default function FeedbackScreen() {
       setSubmitting(true);
 
       const apiUrl = generateAPIUrl('/feedback');
-      const token = oxyServices.getAccessToken();
+      const token = oxyServices.session.accessToken;
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };

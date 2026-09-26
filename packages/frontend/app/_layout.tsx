@@ -38,7 +38,7 @@ const AUTH_REDIRECT_URI = Linking.createURL('/');
 function AuthSetup({ children }: { children: React.ReactNode }) {
   const { oxyServices } = useOxy();
 
-  setTokenGetter(() => oxyServices.getAccessToken() || null);
+  setTokenGetter(() => oxyServices.session.accessToken || null);
 
   // The guest→Oxy cart merge (#104). Mounted once, at the top, because the
   // trigger is signing IN and that can happen on any screen. It is a React
@@ -52,7 +52,7 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
   // that reads useImageResolver() (e.g. Avatar with a raw file id `source`).
   const resolveImageSource = useCallback(
     (fileId: string): string | undefined => {
-      const url = oxyServices.getFileDownloadUrl(fileId, 'thumb');
+      const url = oxyServices.assets.publicUrl(fileId, 'thumb');
       return url && url.startsWith('http') ? url : undefined;
     },
     [oxyServices]

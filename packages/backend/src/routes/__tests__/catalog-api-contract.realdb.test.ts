@@ -101,11 +101,13 @@ vi.mock('../../middleware/auth.js', () => {
     // `createOxyRateLimit` calls it on every request. `{}` would throw at
     // construction and take the whole app with it.
     oxyClient: {
-      auth:
-        () =>
-        (_req: express.Request, _res: express.Response, next: express.NextFunction): void => {
-          next();
-        },
+      middleware: {
+        auth:
+          () =>
+          (_req: express.Request, _res: express.Response, next: express.NextFunction): void => {
+            next();
+          },
+      },
     },
     authenticateToken: (
       req: express.Request,

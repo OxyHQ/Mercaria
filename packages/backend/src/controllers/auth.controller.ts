@@ -19,7 +19,7 @@ import { log } from '../lib/logger.js';
 export async function getMe(req: Request, res: Response): Promise<void> {
   try {
     const oxyUserId = getRequiredOxyUserId(req);
-    const user = await oxyClient.getUserById(oxyUserId);
+    const user = await oxyClient.users.get(oxyUserId);
     sendSuccess(res, {
       user: {
         id: user.id,

@@ -1,10 +1,10 @@
-import { OxyServices } from '@oxy.so/core';
+import { OxyServer } from '@oxy.so/core/server';
 
 const OXY_API_URL = (process.env.OXY_API_URL ?? 'https://api.oxy.so').replace(/\/$/, '');
 
-let client: OxyServices | null | undefined;
+let client: OxyServer | null | undefined;
 
-export function oxyServiceClient(): OxyServices | null {
+export function oxyServiceClient(): OxyServer | null {
   if (client !== undefined) return client;
   const key = process.env.OXY_APPLICATION_KEY?.trim();
   const secret = process.env.OXY_APPLICATION_SECRET?.trim();
@@ -12,15 +12,14 @@ export function oxyServiceClient(): OxyServices | null {
     client = null;
     return client;
   }
-  client = new OxyServices({ baseURL: OXY_API_URL });
-  client.configureServiceAuth(key, secret);
+  client = new OxyServer({ baseURL: OXY_API_URL, serviceAuth: { apiKey: key, apiSecret: secret } });
   return client;
 }
 
 export async function requiredOxyServiceToken(): Promise<string> {
   const configured = oxyServiceClient();
   if (!configured) throw new Error('Oxy application credentials are not configured');
-  return configured.getServiceToken();
+  return configured.serviceToken();
 }
 
 export function invalidateOxyServiceToken(): void {

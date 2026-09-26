@@ -12,7 +12,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../middleware/auth.js', () => ({
-  oxyClient: { authSocket: () => (_socket: unknown, next: () => void) => next() },
+  oxyClient: { middleware: { socket: () => (_socket: unknown, next: () => void) => next() } },
 }));
 vi.mock('../lib/redis.js', () => ({
   getSocketAdapterClients: () => null,

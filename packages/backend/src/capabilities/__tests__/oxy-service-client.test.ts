@@ -1,24 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  configureServiceAuth: vi.fn(),
-  getServiceToken: vi.fn(),
+  serviceToken: vi.fn(),
   invalidateServiceToken: vi.fn(),
   constructed: vi.fn(),
 }));
 
-vi.mock('@oxy.so/core', () => ({
-  OxyServices: class {
+vi.mock('@oxy.so/core/server', () => ({
+  OxyServer: class {
     constructor(options: unknown) {
       mocks.constructed(options);
     }
 
-    configureServiceAuth(key: string, secret: string): void {
-      mocks.configureServiceAuth(key, secret);
-    }
-
-    getServiceToken(): Promise<string> {
-      return mocks.getServiceToken() as Promise<string>;
+    serviceToken(): Promise<string> {
+      return mocks.serviceToken() as Promise<string>;
     }
 
     invalidateServiceToken(): void {
@@ -55,16 +50,15 @@ describe('Mercaria Oxy service client', () => {
   it('configures one cached application client without handling user tokens', async () => {
     process.env.OXY_APPLICATION_KEY = 'application-key';
     process.env.OXY_APPLICATION_SECRET = 'application-secret';
-    mocks.getServiceToken.mockResolvedValueOnce('service-token');
+    mocks.serviceToken.mockResolvedValueOnce('service-token');
 
     const first = oxyServiceClient();
     const second = oxyServiceClient();
 
     expect(first).toBe(second);
     expect(mocks.constructed).toHaveBeenCalledTimes(1);
-    expect(mocks.configureServiceAuth).toHaveBeenCalledWith(
-      'application-key',
-      'application-secret',
+    expect(mocks.constructed).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceAuth: { apiKey: 'application-key', apiSecret: 'application-secret' } }),
     );
     await expect(requiredOxyServiceToken()).resolves.toBe('service-token');
     invalidateOxyServiceToken();

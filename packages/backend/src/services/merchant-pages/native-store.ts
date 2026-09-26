@@ -19,7 +19,7 @@
  * automatically registered as Oxy follow targets") are the same guarantee from
  * two directions, and both hold because nothing in this domain can register a
  * follow target: no module under `services/merchant-pages/` imports
- * `ensureFollowTarget`, `registerFollowKind` or any follow client, and no
+ * `follows.ensureTarget`, `follows.registerKind` or any follow client, and no
  * merchant-page screen renders a follow control.
  * `merchant-page-isolation.test.ts` fails the build on either, scanning BOTH
  * packages — the same shape #92 used, and for the same reason: the one file

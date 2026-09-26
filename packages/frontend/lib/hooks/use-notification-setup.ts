@@ -24,7 +24,7 @@ export function useNotificationSetup() {
   const queryClient = useQueryClient();
   // Re-establish the notification socket when the access token changes so the
   // handshake always carries a valid token.
-  const accessToken = oxyServices.getAccessToken();
+  const accessToken = oxyServices.session.accessToken;
   const tokenRef = useRef<string | null>(null);
   const webPushRegisteredRef = useRef(false);
 
@@ -183,7 +183,7 @@ export function useNotificationSetup() {
       reconnectionDelayMax: 10000,
       // Callback form so each (re)connect reads a FRESH token; the server
       // verifies it (io.use(authSocket())) and auto-joins the user's room.
-      auth: (cb) => cb({ token: oxyServices.getAccessToken() ?? '' }),
+      auth: (cb) => cb({ token: oxyServices.session.accessToken ?? '' }),
     });
 
     socket.on('notification', () => {

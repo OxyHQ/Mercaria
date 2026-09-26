@@ -6,7 +6,7 @@
  * the seven guard failures that are unrecoverable or invisible:
  *
  *  1. **No follow identity, from anywhere in this domain.** A `follow_targets`
- *     row carries ONE kind and `ensureFollowTarget` is idempotent on the URI,
+ *     row carries ONE kind and `follows.ensureTarget` is idempotent on the URI,
  *     so whoever registers a URI first fixes it forever. A merchant page
  *     minting a second target for a shop that already has one on its store
  *     route splits that shop's followers with no repair short of a data
@@ -174,7 +174,7 @@ const FRONTEND_PATHS = frontendPaths();
 
 /** A follow target being named, registered, rendered or stored. */
 const FOLLOW_REFERENCE =
-  /\b(ensureFollowTarget|registerFollowKind|claimFollowNamespace|FollowTargetButton|StoreFollowButton|SellerFollowButton|useStoreFollow|useSellerFollow|follow_targets|followTargets|STORE_FOLLOW_KIND|SELLER_FOLLOW_KIND)\b|mercaria\.store|oxy\.user/;
+  /\b(follows\.ensureTarget|follows\.registerKind|follows\.claimNamespace|FollowTargetButton|StoreFollowButton|SellerFollowButton|useStoreFollow|useSellerFollow|follow_targets|followTargets|STORE_FOLLOW_KIND|SELLER_FOLLOW_KIND)\b|mercaria\.store|oxy\.user/;
 
 /** Any write, whether a statement or a call into a write service. */
 const GRAPH_WRITE =
@@ -528,7 +528,7 @@ describe('the forbidden-field vocabularies name the prohibitions as values', () 
 
 describe('the detectors actually detect — the mutation self-test', () => {
   it('sees a follow reference', () => {
-    expect(FOLLOW_REFERENCE.test('await oxyServices.ensureFollowTarget({ uri })')).toBe(true);
+    expect(FOLLOW_REFERENCE.test('await oxyServices.follows.ensureTarget({ uri })')).toBe(true);
     expect(FOLLOW_REFERENCE.test("const kind = 'mercaria.store';")).toBe(true);
     expect(FOLLOW_REFERENCE.test('<StoreFollowButton storeId={id} />')).toBe(true);
     expect(FOLLOW_REFERENCE.test('const channels = page.sellingChannels;')).toBe(false);
@@ -600,10 +600,10 @@ describe('the detectors actually detect — the mutation self-test', () => {
   });
 
   it('the comment stripper does not eat code', () => {
-    expect(stripComments('const a = 1; // ensureFollowTarget\n')).not.toContain(
-      'ensureFollowTarget',
+    expect(stripComments('const a = 1; // follows.ensureTarget\n')).not.toContain(
+      'follows.ensureTarget',
     );
-    expect(stripComments("const f = 'ensureFollowTarget';\n")).toContain('ensureFollowTarget');
+    expect(stripComments("const f = 'follows.ensureTarget';\n")).toContain('follows.ensureTarget');
     expect(stripComments("const url = 'https://x/y';\n")).toContain('https://x/y');
   });
 });

@@ -111,7 +111,7 @@ export function resolveMedia(value: string, variant?: string): string {
   if (ABSOLUTE_URL.test(value)) {
     return value;
   }
-  return oxyClient.getFileDownloadUrl(value, variant);
+  return oxyClient.assets.publicUrl(value, variant);
 }
 
 /**
