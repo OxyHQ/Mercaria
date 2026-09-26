@@ -70,7 +70,7 @@ export async function getProfiles(oxyUserIds: string[]): Promise<Map<string, Oxy
   await Promise.all(
     uniqueIds.map(async (id) => {
       try {
-        map.set(id, toOxyProfile(await oxyClient.getUserById(id)));
+        map.set(id, toOxyProfile(await oxyClient.users.get(id)));
       } catch (err) {
         log.general.warn({ err, oxyUserId: id }, 'Failed to load Oxy profile (omitting from batch)');
       }

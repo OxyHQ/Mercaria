@@ -99,7 +99,7 @@ vi.mock('../favorite.service.js', () => ({
 }));
 
 vi.mock('../../middleware/auth.js', () => ({
-  oxyClient: { getFileDownloadUrl: (id: string) => `media:${id}` },
+  oxyClient: { assets: { publicUrl: (id: string) => `media:${id}` } },
 }));
 
 vi.mock('../../config/index.js', () => ({

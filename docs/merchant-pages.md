@@ -100,7 +100,7 @@ of one thing disagree the moment either changes.
 The link keeps ONE follow identity by construction rather than by rule: the
 follow control lives on the store route, this page renders none, and
 `merchant-page-isolation.test.ts` fails the build if any module in the domain —
-in EITHER package — names `ensureFollowTarget`, `registerFollowKind`, a follow
+in EITHER package — names `follows.ensureTarget`, `follows.registerKind`, a follow
 hook, a follow button or the `mercaria.store` / `oxy.user` kinds. That covers
 native-store rule 3 (never a second identity) and rule 6 (an unclaimed external
 merchant is never registered as a follow target) with the same absence.

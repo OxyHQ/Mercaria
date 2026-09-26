@@ -46,7 +46,7 @@ export interface SellerProfileViewer {
 function clientFor(viewer: SellerProfileViewer | null): OxyServices {
   if (!viewer) return oxyClient;
   const client = new OxyServices({ baseURL: OXY_API_URL });
-  client.setTokens(viewer.accessToken);
+  client.session.setAccessToken(viewer.accessToken);
   return client;
 }
 
@@ -73,7 +73,7 @@ export async function readSellerOxyUser(
     // `cache: false` on the viewer path: a block taken thirty seconds ago must
     // take effect on the next page load, and a five-minute TTL is long enough
     // for the person who blocked to see the page again and believe it failed.
-    return await clientFor(viewer).getUserById(oxyUserId, viewer ? { cache: false } : undefined);
+    return await clientFor(viewer).users.get(oxyUserId, viewer ? { cache: false } : undefined);
   } catch (err) {
     log.general.warn({ err, oxyUserId }, '[Sellers] Oxy profile unresolvable — treated as absent');
     return null;
@@ -104,7 +104,7 @@ export async function viewerHasBlocked(
   if (!viewer) return false;
   if (viewer.oxyUserId === oxyUserId) return false;
   try {
-    const graph = await clientFor(viewer).getViewerGraph();
+    const graph = await clientFor(viewer).follows.viewerGraph();
     return graph.blockedIds.includes(oxyUserId);
   } catch (err) {
     log.general.warn({ err }, '[Sellers] viewer graph unavailable — block check skipped');

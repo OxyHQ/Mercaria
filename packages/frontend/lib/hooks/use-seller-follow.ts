@@ -9,12 +9,12 @@ import { queryKeys } from './query-keys';
  *
  * ## What this deliberately does NOT do
  *
- * It does not `claimFollowNamespace`, it does not `registerFollowKind`, and it
+ * It does not `follows.claimNamespace`, it does not `follows.registerKind`, and it
  * builds no `mercaria.co` URI. `oxy.user` is a platform kind seeded by Oxy's own
  * migration and owned by no application — the registry refuses a kind in a
  * namespace the caller does not hold, so registering it would fail, and
  * registering a person under a `mercaria.*` kind INSTEAD would succeed and be
- * far worse: a target row carries one kind and `ensureFollowTarget` is
+ * far worse: a target row carries one kind and `follows.ensureTarget` is
  * idempotent on the URI, so the first registration fixes that human being's
  * kind forever and permanently splits their Mercaria followers from the
  * identity every other Oxy app already follows.
@@ -55,7 +55,7 @@ export function useSellerFollowTarget(oxyUserId: string | undefined) {
     staleTime: Infinity,
     queryFn: async () => {
       if (!oxyUserId) throw new Error('A seller follow target needs an Oxy user id');
-      const target = await oxyServices.ensureFollowTarget({
+      const target = await oxyServices.follows.ensureTarget({
         uri: oxyUserFollowUri(oxyUserId),
         kind: SELLER_FOLLOW_KIND,
         localUserId: oxyUserId,

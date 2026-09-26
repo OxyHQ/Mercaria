@@ -40,7 +40,7 @@ function triggerHaptic() {
 function AccountAvatar() {
   const { user, oxyServices } = useOxy();
   const avatarUrl = user?.avatar
-    ? oxyServices.getFileDownloadUrl(user.avatar, "thumb")
+    ? oxyServices.assets.publicUrl(user.avatar, "thumb")
     : undefined;
   return (
     <Avatar

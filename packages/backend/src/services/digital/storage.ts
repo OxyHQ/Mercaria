@@ -12,7 +12,7 @@
  *
  * ## D17's mechanism, and the user-scoped path it is NOT
  *
- * The obvious call — `oxyClient.getFileDownloadUrlAsync(fileId)` — is WRONG here,
+ * The obvious call — `oxyClient.assets.url(fileId)` — is WRONG here,
  * and it took building it to see why. It resolves a URL for the CURRENT USER
  * through Oxy's `canUserAccessFile`, which asks *may this viewer read this file*.
  * A Mercaria buyer is not a viewer: they have no relationship to the seller's
@@ -80,7 +80,10 @@
  * an unconfigured deployment gets a refusal and never a client-supplied fact.
  */
 
-import type { AssetUploadInput, OxyServices } from '@oxy.so/core';
+import type { AssetUploadInput } from '@oxy.so/core';
+import type { OxyServer } from '@oxy.so/core/server';
+
+type ServiceLinkedDownloadUrl = Awaited<ReturnType<OxyServer['assets']['linkedDownloadUrls']>>[number];
 import { oxyClient } from '../../middleware/auth.js';
 import { oxyServiceClient } from '../../capabilities/oxy-service-client.js';
 import { log } from '../../lib/logger.js';
@@ -209,7 +212,7 @@ export const MERCARIA_ASSET_FILE_ENTITY_TYPE = 'asset_file';
 /**
  * The client the SERVICE-authenticated reads use.
  *
- * `getServiceLinkedDownloadUrls` goes through `makeServiceRequest`, so it is
+ * `assets.linkedDownloadUrls` goes through the service-token lane, so it is
  * authenticated by a service credential rather than by a user session — which is
  * the whole point: there is no user session on this path and the buyer would be
  * the wrong one if there were. `capabilities/oxy-service-client.ts` is the
@@ -217,7 +220,7 @@ export const MERCARIA_ASSET_FILE_ENTITY_TYPE = 'asset_file';
  * adding a second — two places reading one secret is how one of them ends up
  * pointed at the wrong environment.
  */
-function serviceClientOrThrow(): OxyServices {
+function serviceClientOrThrow(): OxyServer {
   const client = oxyServiceClient();
   if (!client) {
     throw new DigitalStorageError(
@@ -227,51 +230,6 @@ function serviceClientOrThrow(): OxyServices {
   }
   return client;
 }
-
-/**
- * The one read: what Oxy will serve under `storageKey`, or `null`.
- *
- * `null` covers every refusal Oxy makes, and they are deliberately not
- * distinguished here because Oxy does not distinguish them either: an unknown id,
- * a deleted one, a system-owned one, one linked by somebody other than its owner,
- * and one never attached to this application all come back as the same absence.
- * Telling them apart is a probe for which Oxy file ids exist (Oxy ADR 0021), and
- * `asset_rights` is what decides entitlement regardless.
- *
- * Every field is validated before it leaves, because what is returned is written
- * into `asset_files`, whose CHECKs are the real floor: `content_hash` is
- * `^[0-9a-f]{64}$` and `byte_size` is positive. Checking here turns an asset
- * service that answered without a digest into a named refusal instead of a
- * constraint violation two layers down.
- */
-interface LinkedDownloadUrlEntry {
-  readonly id: string;
-  readonly url: string;
-  readonly expiresIn: number;
-  readonly mime: string;
-  readonly size: number;
-  readonly sha256: string;
-}
-
-/**
- * The route path, and why this calls it through `makeServiceRequest` rather than
- * through the SDK wrapper that exists for it.
- *
- * `@oxy.so/core` ships `getServiceLinkedDownloadUrls`, which adds chunking at the
- * route's cap of 25 and the throw-rather-than-shorten discipline this file needs.
- * Mercaria consumes that package from npm, and the release carrying the method
- * lands after the release carrying this code, so calling it here would not
- * compile. `makeServiceRequest` is public, typed, and the exact transport the
- * wrapper uses, so the behaviour is identical for the ONE id this module ever
- * sends — n=1 has no chunking to get wrong, and the throw below is the same
- * decision made locally.
- *
- * SWAP THIS for the SDK method at the next `@oxy.so/core` bump. The reason is not
- * tidiness: the wrapper is where the chunk cap lives, so a future caller that
- * asks for a whole version's files must go through it or re-derive a bound that
- * only Oxy knows.
- */
-const LINKED_URL_PATH = '/assets/service/linked-url';
 
 /**
  * The one read: what Oxy will serve under `storageKey`, or `null`.
@@ -302,9 +260,9 @@ async function readServableObject(
     // would register a file with no verified hash, or tell a buyer who paid that
     // their file is gone — and absence is already this route's answer for "not
     // attached here", so the two must not collapse.
-    minted = await client.makeServiceRequest<LinkedDownloadUrlEntry[]>('POST', LINKED_URL_PATH, {
-      ids: [storageKey],
-    });
+    // The SDK method owns the route's chunk cap and throws on a failed chunk
+    // rather than returning a shortened list.
+    minted = await client.assets.linkedDownloadUrls([storageKey]);
   } catch (cause) {
     throw new DigitalStorageError(
       'unresolved',
@@ -313,7 +271,7 @@ async function readServableObject(
     );
   }
   if (!Array.isArray(minted)) return null;
-  const entry = (minted as LinkedDownloadUrlEntry[]).find(
+  const entry = (minted as ServiceLinkedDownloadUrl[]).find(
     (candidate) => candidate?.id === storageKey,
   );
   if (!entry) return null;
@@ -352,7 +310,7 @@ export const oxyAssetStorage: DigitalAssetStoragePort = {
       // default is private, but a default is a thing that changes in somebody
       // else's release, and the difference here is between a paid mesh behind an
       // authorizer and a paid mesh on a CDN.
-      uploaded = await oxyClient.uploadRawFile(input.file, 'private', input.metadata);
+      uploaded = await oxyClient.assets.upload(input.file, { visibility: 'private', metadata: input.metadata });
     } catch (cause) {
       throw new DigitalStorageError('unresolved', 'Storing the asset object failed.', { cause });
     }
@@ -377,12 +335,11 @@ export const oxyAssetStorage: DigitalAssetStoragePort = {
       // a DIFFERENT principal whenever the upload and the registration were not
       // the same caller. Oxy authorizes on `app` and `created_by` only, so the
       // value is a label; a self-reference is the one label that cannot go stale.
-      await oxyClient.assetLink(
-        storageKey,
-        MERCARIA_OXY_APP,
-        MERCARIA_ASSET_FILE_ENTITY_TYPE,
-        storageKey,
-      );
+      await oxyClient.assets.link(storageKey, {
+        app: MERCARIA_OXY_APP,
+        entityType: MERCARIA_ASSET_FILE_ENTITY_TYPE,
+        entityId: storageKey,
+      });
     } catch (cause) {
       throw new DigitalStorageError(
         'unresolved',
@@ -455,7 +412,7 @@ export const oxyAssetStorage: DigitalAssetStoragePort = {
 
   async deleteAssetObject(storageKey: string): Promise<void> {
     try {
-      await oxyClient.assetDelete(storageKey);
+      await oxyClient.assets.delete(storageKey);
     } catch (cause) {
       throw new DigitalStorageError('unresolved', 'Removing the asset object failed.', { cause });
     }

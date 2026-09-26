@@ -28,7 +28,7 @@ export function useStoreFollowTarget(store: StoreSummary) {
     staleTime: Infinity,
     queryFn: async () => {
       await ensureStoreFollowKind(oxyServices);
-      const target = await oxyServices.ensureFollowTarget({
+      const target = await oxyServices.follows.ensureTarget({
         uri: storeFollowUri(store.id),
         kind: STORE_FOLLOW_KIND,
         // The display snapshot other Oxy surfaces render this store with.

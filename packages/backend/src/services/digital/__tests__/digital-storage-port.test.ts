@@ -32,7 +32,7 @@ const getFileDownloadUrl = vi.fn();
 const uploadRawFile = vi.fn();
 const assetLink = vi.fn();
 const assetDelete = vi.fn();
-const makeServiceRequest = vi.fn();
+const linkedDownloadUrls = vi.fn();
 const logError = vi.fn();
 
 vi.mock('../../../middleware/auth.js', () => ({
@@ -41,16 +41,18 @@ vi.mock('../../../middleware/auth.js', () => ({
     // forbids resolving a private deliverable through either — the public CDN
     // builder 404s it, and the async one answers for a VIEWER — and a double that
     // simply omitted them could not tell "never called" from "not callable".
-    getFileDownloadUrlAsync: (...args: unknown[]) => getFileDownloadUrlAsync(...args),
-    getFileDownloadUrl: (...args: unknown[]) => getFileDownloadUrl(...args),
-    uploadRawFile: (...args: unknown[]) => uploadRawFile(...args),
-    assetLink: (...args: unknown[]) => assetLink(...args),
-    assetDelete: (...args: unknown[]) => assetDelete(...args),
+    assets: {
+      url: (...args: unknown[]) => getFileDownloadUrlAsync(...args),
+      publicUrl: (...args: unknown[]) => getFileDownloadUrl(...args),
+      upload: (...args: unknown[]) => uploadRawFile(...args),
+      link: (...args: unknown[]) => assetLink(...args),
+      delete: (...args: unknown[]) => assetDelete(...args),
+    },
   },
 }));
 vi.mock('../../../capabilities/oxy-service-client.js', () => ({
   oxyServiceClient: () => ({
-    makeServiceRequest: (...args: unknown[]) => makeServiceRequest(...args),
+    assets: { linkedDownloadUrls: (...args: unknown[]) => linkedDownloadUrls(...args) },
   }),
 }));
 vi.mock('../../../lib/logger.js', () => ({
@@ -62,7 +64,6 @@ vi.mock('../../../lib/logger.js', () => ({
 const STORAGE_KEY = 'oxyfile_not_a_real_asset_id';
 const DIGEST = 'a'.repeat(64);
 const RESOLVED_URL = `https://s3.oxy.test/private/${STORAGE_KEY}?X-Amz-Signature=not-a-real-signature`;
-const LINKED_URL_PATH = '/assets/service/linked-url';
 
 /** One entry as the mint returns it: the URL and the three measured facts. */
 const mintedEntry = {
@@ -81,12 +82,10 @@ beforeEach(() => {
 describe('resolveAuthorizedUrl mints through the service route, and nothing else', () => {
   it('asks the mint for exactly the one id and returns the URL it answered', async () => {
     const { assetStorage } = await import('../storage.js');
-    makeServiceRequest.mockResolvedValue([mintedEntry]);
+    linkedDownloadUrls.mockResolvedValue([mintedEntry]);
 
     await expect(assetStorage.resolveAuthorizedUrl(STORAGE_KEY)).resolves.toBe(RESOLVED_URL);
-    expect(makeServiceRequest).toHaveBeenCalledWith('POST', LINKED_URL_PATH, {
-      ids: [STORAGE_KEY],
-    });
+    expect(linkedDownloadUrls).toHaveBeenCalledWith([STORAGE_KEY]);
     // The controls for the two absences. This call DID resolve, so "the
     // user-scoped resolvers were not called" is a measurement rather than a
     // consequence of nothing happening at all.
@@ -99,13 +98,13 @@ describe('resolveAuthorizedUrl mints through the service route, and nothing else
     // the object a buyer paid for is the failure nobody would notice until a
     // printer rejected the file.
     const { assetStorage } = await import('../storage.js');
-    makeServiceRequest.mockResolvedValue([mintedEntry]);
+    linkedDownloadUrls.mockResolvedValue([mintedEntry]);
 
     await expect(assetStorage.resolveAuthorizedUrl(STORAGE_KEY, 'poster')).resolves.toBe(
       RESOLVED_URL,
     );
-    const [, , body] = makeServiceRequest.mock.calls[0];
-    expect(JSON.stringify(body)).not.toContain('poster');
+    const [ids] = linkedDownloadUrls.mock.calls[0];
+    expect(JSON.stringify(ids)).not.toContain('poster');
   });
 
   it('REFUSES when the mint omits the id — the file is not attached to this app', async () => {
@@ -115,7 +114,7 @@ describe('resolveAuthorizedUrl mints through the service route, and nothing else
     // (ADR 0010 D6) — and reporting it as one would take a right away over an
     // unlinking somebody did in a different product.
     const { assetStorage, isDigitalStorageError } = await import('../storage.js');
-    makeServiceRequest.mockResolvedValue([]);
+    linkedDownloadUrls.mockResolvedValue([]);
 
     const failure = await assetStorage.resolveAuthorizedUrl(STORAGE_KEY).catch((error) => error);
     expect(isDigitalStorageError(failure)).toBe(true);
@@ -128,7 +127,7 @@ describe('resolveAuthorizedUrl mints through the service route, and nothing else
     // route is not deployed yet. Either way the CDN form is a guaranteed 404, so
     // falling back would hand a buyer a broken URL and swallow the real failure.
     const { assetStorage, isDigitalStorageError } = await import('../storage.js');
-    makeServiceRequest.mockRejectedValue(
+    linkedDownloadUrls.mockRejectedValue(
       Object.assign(new Error('Forbidden'), { status: 403 }),
     );
 
@@ -144,7 +143,7 @@ describe('resolveAuthorizedUrl mints through the service route, and nothing else
     // exists because "transient" is exactly the word that would invite somebody
     // to add the fallback.
     const { assetStorage, isDigitalStorageError } = await import('../storage.js');
-    makeServiceRequest.mockRejectedValue(
+    linkedDownloadUrls.mockRejectedValue(
       Object.assign(new Error('Service Unavailable'), { status: 503 }),
     );
 
@@ -155,7 +154,7 @@ describe('resolveAuthorizedUrl mints through the service route, and nothing else
 
   it('logs the failure WITHOUT the storage key, the URL or the error message', async () => {
     const { assetStorage } = await import('../storage.js');
-    makeServiceRequest.mockRejectedValue(
+    linkedDownloadUrls.mockRejectedValue(
       Object.assign(new Error(`could not sign ${STORAGE_KEY} -> ${RESOLVED_URL}`), {
         status: 500,
       }),
@@ -177,7 +176,7 @@ describe('resolveAuthorizedUrl mints through the service route, and nothing else
     // The `absent` branch has its own log line, and it is the one most likely to
     // be read during an incident — so it must still not carry the door.
     const { assetStorage } = await import('../storage.js');
-    makeServiceRequest.mockResolvedValue([]);
+    linkedDownloadUrls.mockResolvedValue([]);
 
     await assetStorage.resolveAuthorizedUrl(STORAGE_KEY).catch(() => undefined);
 
@@ -189,7 +188,7 @@ describe('resolveAuthorizedUrl mints through the service route, and nothing else
 
   it('carries neither the key nor the URL on the error it throws', async () => {
     const { assetStorage } = await import('../storage.js');
-    makeServiceRequest.mockRejectedValue(new Error(`denied for ${STORAGE_KEY}`));
+    linkedDownloadUrls.mockRejectedValue(new Error(`denied for ${STORAGE_KEY}`));
     const failure = await assetStorage.resolveAuthorizedUrl(STORAGE_KEY).catch((error) => error);
     expect(failure.message).not.toContain(STORAGE_KEY);
     expect(failure.message).not.toContain(RESOLVED_URL);
@@ -202,7 +201,7 @@ describe('resolveAuthorizedUrl mints through the service route, and nothing else
 describe('describeAssetObject reads the SAME mint, and discards the credential', () => {
   it('returns what the asset service measured, and no URL', async () => {
     const { assetStorage } = await import('../storage.js');
-    makeServiceRequest.mockResolvedValue([mintedEntry]);
+    linkedDownloadUrls.mockResolvedValue([mintedEntry]);
 
     const described = await assetStorage.describeAssetObject(STORAGE_KEY);
 
@@ -223,13 +222,11 @@ describe('describeAssetObject reads the SAME mint, and discards the credential',
     // file the creator never attached to Mercaria, and the failure would have
     // surfaced months later to a buyer as a download that does not work.
     const { assetStorage } = await import('../storage.js');
-    makeServiceRequest.mockResolvedValue([mintedEntry]);
+    linkedDownloadUrls.mockResolvedValue([mintedEntry]);
 
     await assetStorage.describeAssetObject(STORAGE_KEY);
 
-    expect(makeServiceRequest).toHaveBeenCalledWith('POST', LINKED_URL_PATH, {
-      ids: [STORAGE_KEY],
-    });
+    expect(linkedDownloadUrls).toHaveBeenCalledWith([STORAGE_KEY]);
   });
 
   it('answers null for every shape the table would refuse', async () => {
@@ -237,43 +234,43 @@ describe('describeAssetObject reads the SAME mint, and discards the credential',
 
     // Not attached to this application, unknown, deleted, system-owned — one
     // absence, deliberately.
-    makeServiceRequest.mockResolvedValue([]);
+    linkedDownloadUrls.mockResolvedValue([]);
     await expect(assetStorage.describeAssetObject(STORAGE_KEY)).resolves.toBeNull();
 
     // An entry for a DIFFERENT id never satisfies this one.
-    makeServiceRequest.mockResolvedValue([{ ...mintedEntry, id: 'some-other-file' }]);
+    linkedDownloadUrls.mockResolvedValue([{ ...mintedEntry, id: 'some-other-file' }]);
     await expect(assetStorage.describeAssetObject(STORAGE_KEY)).resolves.toBeNull();
 
     // `asset_files_content_hash_check` is `^[0-9a-f]{64}$`. Refusing here turns a
     // service that answered without a digest into a named refusal rather than a
     // constraint violation two layers down.
-    makeServiceRequest.mockResolvedValue([{ ...mintedEntry, sha256: 'nope' }]);
+    linkedDownloadUrls.mockResolvedValue([{ ...mintedEntry, sha256: 'nope' }]);
     await expect(assetStorage.describeAssetObject(STORAGE_KEY)).resolves.toBeNull();
 
-    makeServiceRequest.mockResolvedValue([{ ...mintedEntry, size: 0 }]);
+    linkedDownloadUrls.mockResolvedValue([{ ...mintedEntry, size: 0 }]);
     await expect(assetStorage.describeAssetObject(STORAGE_KEY)).resolves.toBeNull();
 
-    makeServiceRequest.mockResolvedValue([{ ...mintedEntry, mime: '   ' }]);
+    linkedDownloadUrls.mockResolvedValue([{ ...mintedEntry, mime: '   ' }]);
     await expect(assetStorage.describeAssetObject(STORAGE_KEY)).resolves.toBeNull();
 
     // An entry with no URL is not servable whatever else it says, and the
     // transport is generic over its return type — these checks are the only thing
     // between a changed wire shape and an `asset_files` insert.
-    makeServiceRequest.mockResolvedValue([{ ...mintedEntry, url: '' }]);
+    linkedDownloadUrls.mockResolvedValue([{ ...mintedEntry, url: '' }]);
     await expect(assetStorage.describeAssetObject(STORAGE_KEY)).resolves.toBeNull();
 
-    makeServiceRequest.mockResolvedValue({ data: [mintedEntry] });
+    linkedDownloadUrls.mockResolvedValue({ data: [mintedEntry] });
     await expect(assetStorage.describeAssetObject(STORAGE_KEY)).resolves.toBeNull();
 
     // The control: the SAME call shape returns a descriptor for a good entry, so
     // the seven nulls above are refusals and not a function that returns null.
-    makeServiceRequest.mockResolvedValue([mintedEntry]);
+    linkedDownloadUrls.mockResolvedValue([mintedEntry]);
     await expect(assetStorage.describeAssetObject(STORAGE_KEY)).resolves.not.toBeNull();
   });
 
   it('raises rather than guessing when the service could not be asked', async () => {
     const { assetStorage, isDigitalStorageError } = await import('../storage.js');
-    makeServiceRequest.mockRejectedValue(new Error('429'));
+    linkedDownloadUrls.mockRejectedValue(new Error('429'));
     const failure = await assetStorage.describeAssetObject(STORAGE_KEY).catch((error) => error);
     expect(isDigitalStorageError(failure)).toBe(true);
     expect(failure.reason).toBe('unresolved');
@@ -285,20 +282,25 @@ describe('putAssetObject stores PRIVATE, ATTACHES, and re-measures what it store
     const { assetStorage } = await import('../storage.js');
     uploadRawFile.mockResolvedValue({ id: STORAGE_KEY });
     assetLink.mockResolvedValue({});
-    makeServiceRequest.mockResolvedValue([mintedEntry]);
+    linkedDownloadUrls.mockResolvedValue([mintedEntry]);
 
     const stored = await assetStorage.putAssetObject({
       file: new Blob(['not a real mesh']),
       metadata: { assetVersionId: 'version-1' },
     });
 
-    expect(uploadRawFile).toHaveBeenCalledWith(expect.anything(), 'private', {
-      assetVersionId: 'version-1',
+    expect(uploadRawFile).toHaveBeenCalledWith(expect.anything(), {
+      visibility: 'private',
+      metadata: { assetVersionId: 'version-1' },
     });
     // The link is the AUTHORIZATION, not bookkeeping: without it the object this
     // call just stored is unservable, because Oxy admits a file only when a link
     // for this app was created by the file's own owner.
-    expect(assetLink).toHaveBeenCalledWith(STORAGE_KEY, 'mercaria', 'asset_file', STORAGE_KEY);
+    expect(assetLink).toHaveBeenCalledWith(STORAGE_KEY, {
+      app: 'mercaria',
+      entityType: 'asset_file',
+      entityId: STORAGE_KEY,
+    });
     expect(stored.contentHash).toBe(DIGEST);
     // Measured, not taken from the caller: the byte size comes back from the
     // service rather than from the length of the buffer handed over.
@@ -318,14 +320,14 @@ describe('putAssetObject stores PRIVATE, ATTACHES, and re-measures what it store
     expect(failure.reason).toBe('unresolved');
     // It did not go on to describe: an object nobody can serve must not be
     // reported as stored.
-    expect(makeServiceRequest).not.toHaveBeenCalled();
+    expect(linkedDownloadUrls).not.toHaveBeenCalled();
   });
 
   it('refuses an upload the service will not describe', async () => {
     const { assetStorage, isDigitalStorageError } = await import('../storage.js');
     uploadRawFile.mockResolvedValue({ id: STORAGE_KEY });
     assetLink.mockResolvedValue({});
-    makeServiceRequest.mockResolvedValue([]);
+    linkedDownloadUrls.mockResolvedValue([]);
     const failure = await assetStorage
       .putAssetObject({ file: new Blob(['x']) })
       .catch((error) => error);
@@ -418,7 +420,7 @@ describe('the digital domain names `oxyClient` in exactly one file', () => {
     // — so it would be called successfully and refuse the person who paid. The
     // previous version of this census carried a negative lookahead exempting it,
     // which is precisely how the wrong mechanism shipped.
-    const userScopedResolver = /\bresolveMedia\b|\bgetFileDownloadUrl(Async)?\b/;
+    const userScopedResolver = /\bresolveMedia\b|\bgetFileDownloadUrl(Async)?\b|\bassets\.(url|publicUrl)\b/;
     const offenders = digitalDomainFiles().filter((file) => userScopedResolver.test(codeOf(file)));
     expect(
       offenders.map((file) => file.slice(SRC.length + 1)),

@@ -86,7 +86,7 @@ vi.mock('../favorite.service.js', () => ({
 }));
 
 vi.mock('../../middleware/auth.js', () => ({
-  oxyClient: { getFileDownloadUrl: (id: string) => `media:${id}` },
+  oxyClient: { assets: { publicUrl: (id: string) => `media:${id}` } },
 }));
 
 // #367 line 324: `off` is the default and today's behaviour, so the v1 wire

@@ -32,7 +32,7 @@
  *    because there is no index to point at. A `mercaria.store` follow target's
  *    identity is `https://mercaria.co/stores/<storeId>` (frontend
  *    `lib/follow-graph.ts`), keyed on the store's IMMUTABLE id, and
- *    `ensureFollowTarget` is idempotent on that URI. So "exactly one follow
+ *    `follows.ensureTarget` is idempotent on that URI. So "exactly one follow
  *    target" is the same fact as "exactly one store, whose id never moves" —
  *    which the first index above already guarantees. Nothing in this domain
  *    constructs a follow URI, creates a target, or changes a store id;

@@ -190,7 +190,7 @@ const OPERATIONAL_WRITE_REFERENCE =
   /insertStoreMember|updateStoreMember|deleteStoreMember|inviteMember|removeMember|updateMember\b|insertLocation|adjustInventory|insertCollection|upsertCustomer|insertOrder|transition\(|refund\.service|report\.service/;
 
 /** The follow graph. Mercaria's backend never touches it, and linkage least of all. */
-const FOLLOW_TARGET_REFERENCE = /ensureFollowTarget|storeFollowUri|STORE_FOLLOW_KIND|followNamespace/;
+const FOLLOW_TARGET_REFERENCE = /follows\.ensureTarget|storeFollowUri|STORE_FOLLOW_KIND|followNamespace/;
 
 function readDomainFile(relative: string): string {
   const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
@@ -437,7 +437,7 @@ describe('linkage leaves operational data and the follow graph alone', () => {
      *
      * A target's identity is `https://mercaria.co/stores/<storeId>` (frontend
      * `lib/follow-graph.ts`), keyed on the store's IMMUTABLE id, and
-     * `ensureFollowTarget` is idempotent on that URI. So "exactly one follow
+     * `follows.ensureTarget` is idempotent on that URI. So "exactly one follow
      * target" is the same fact as "exactly one store, whose id never moves" —
      * which `store_linkage_requests_open_key` plus the write-once
      * `resolved_store_id` already guarantee.
@@ -469,7 +469,7 @@ describe('linkage leaves operational data and the follow graph alone', () => {
   it('detects a seeded violation of the operational and follow detectors', () => {
     expect(OPERATIONAL_WRITE_REFERENCE.test('await insertStoreMember(storeId, member)')).toBe(true);
     expect(OPERATIONAL_WRITE_REFERENCE.test('await insertLocation(store.id, {})')).toBe(true);
-    expect(FOLLOW_TARGET_REFERENCE.test('await oxyServices.ensureFollowTarget({})')).toBe(true);
+    expect(FOLLOW_TARGET_REFERENCE.test('await oxyServices.follows.ensureTarget({})')).toBe(true);
     expect(FOLLOW_TARGET_REFERENCE.test('const uri = storeFollowUri(store.id)')).toBe(true);
   });
 });

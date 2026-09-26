@@ -43,7 +43,7 @@ import { log } from '../../lib/logger.js';
  */
 export async function readSellerTrust(oxyUserId: string): Promise<PublicSellerTrust | null> {
   try {
-    const balance = await oxyClient.getReputationBalance(oxyUserId);
+    const balance = await oxyClient.reputation.balance(oxyUserId);
     return { tier: balance.trustTier, total: balance.total };
   } catch (err) {
     log.general.warn(

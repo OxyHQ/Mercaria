@@ -83,7 +83,7 @@ vi.mock('../../middleware/auth.js', () => ({
     // `resolveMedia` calls this for every non-absolute file id. The real SDK is
     // not reachable here and this surface renders images, so an empty object
     // makes every 200 a 500.
-    getFileDownloadUrl: (fileId: string) => `https://media.test.invalid/${fileId}`,
+    assets: { publicUrl: (fileId: string) => `https://media.test.invalid/${fileId}` },
   },
   optionalAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     req.userId = SELLER;

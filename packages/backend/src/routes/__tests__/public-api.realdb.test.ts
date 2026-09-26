@@ -66,19 +66,23 @@ vi.mock('../../middleware/auth.js', () => {
   };
   return {
     oxyClient: {
-      auth:
-        () =>
-        (_req: express.Request, _res: express.Response, next: express.NextFunction): void => {
-          next();
-        },
-      getFileDownloadUrl: (fileId: string) => `https://media.test.invalid/${fileId}`,
-      getUserById: (id: string) =>
-        Promise.resolve({
-          id,
-          username: `person${id.slice(-6)}`,
-          name: { displayName: 'Pat Seller' },
-          avatar: `avatar-${id}`,
-        }),
+      middleware: {
+        auth:
+          () =>
+          (_req: express.Request, _res: express.Response, next: express.NextFunction): void => {
+            next();
+          },
+      },
+      assets: { publicUrl: (fileId: string) => `https://media.test.invalid/${fileId}` },
+      users: {
+        get: (id: string) =>
+          Promise.resolve({
+            id,
+            username: `person${id.slice(-6)}`,
+            name: { displayName: 'Pat Seller' },
+            avatar: `avatar-${id}`,
+          }),
+      },
     },
     authenticateToken: (
       _req: express.Request,

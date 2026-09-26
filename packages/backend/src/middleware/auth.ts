@@ -19,7 +19,7 @@
  * environment variable impersonated any Oxy account. Also unmounted. Also gone.
  *
  * How a real Oxy-to-Oxy service caller is authenticated when one arrives (#156,
- * #158): mount `oxyClient.serviceAuth(...)` from `@oxy.so/core` on the route that
+ * #158): mount `oxyClient.middleware.service(...)` from `@oxy.so/core/server` on the route that
  * needs it, against a credential issued to a registered Application, and read
  * the principal off the SDK's own `OxyAuthRequest`. There is deliberately no
  * pre-exported, unmounted service-auth middleware sitting here for somebody to
@@ -35,16 +35,16 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { OxyServices } from '@oxy.so/core';
 import {
   createOptionalOxyAuth,
   createOxyAuthMiddleware,
+  OxyServer,
   type OxyRequestUser,
 } from '@oxy.so/core/server';
 
 // Initialize Oxy client
 const OXY_API_URL = process.env.OXY_API_URL || 'https://api.oxy.so';
-export const oxyClient = new OxyServices({
+export const oxyClient = new OxyServer({
   baseURL: OXY_API_URL,
 });
 

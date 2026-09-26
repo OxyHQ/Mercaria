@@ -20,7 +20,7 @@ let io: Server | null = null;
 /**
  * Authorize a socket to join a store's live-progress room and join it on success.
  *
- * `authSocket()` proves only the socket's USER identity — it does NOT prove the
+ * `middleware.socket()` proves only the socket's USER identity — it does NOT prove the
  * user may read a given store's events. So a `subscribe-store` request is
  * re-checked here against store membership (server-side), never trusting the
  * client-supplied `storeId`. Returns true iff the user is a member and the socket
@@ -86,13 +86,13 @@ export function initSocket(server: http.Server) {
   // `handshake.auth.token` and sets `socket.data.userId`. Unauthenticated
   // connections are rejected. This is the ONLY source of the room identity —
   // clients can no longer name the room they join.
-  socketServer.use(oxyClient.authSocket());
+  socketServer.use(oxyClient.middleware.socket());
 
   socketServer.on('connection', (socket) => {
     observeEcosystemSocket(socket);
     const userId = (socket.data as { userId?: string }).userId;
     if (!userId) {
-      // authSocket() guarantees userId, but fail closed if it is ever missing.
+      // middleware.socket() guarantees userId, but fail closed if it is ever missing.
       socket.disconnect(true);
       return;
     }
@@ -105,7 +105,7 @@ export function initSocket(server: http.Server) {
     socket.on('subscribe-notifications', () => {});
 
     // Opt in to a store's live sync-progress room. The server RE-CHECKS store
-    // membership before joining (authSocket only proves user identity), so a
+    // membership before joining (middleware.socket() only proves user identity), so a
     // non-member is rejected and never receives another store's `sync:progress`.
     socket.on('subscribe-store', (storeId: unknown, ack?: (joined: boolean) => void) => {
       authorizeAndJoinStore(socket, userId, storeId)

@@ -58,7 +58,7 @@ export function MerchantProductCard({
   const { oxyServices } = useOxy();
   const fileId = entry.image?.fileId ?? null;
   const imageUri = fileId
-    ? oxyServices.getFileDownloadUrl(fileId, "thumb")
+    ? oxyServices.assets.publicUrl(fileId, "thumb")
     : (entry.image?.sourceUrl ?? null);
   const offerPrice = entry.representativeOffer?.price;
   const price = displayablePrice(offerPrice);

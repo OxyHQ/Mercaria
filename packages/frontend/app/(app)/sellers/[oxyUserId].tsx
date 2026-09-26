@@ -104,7 +104,7 @@ function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
   if (!identity) return null;
 
   const avatarUrl = identity.avatar
-    ? oxyServices.getFileDownloadUrl(identity.avatar, "thumb")
+    ? oxyServices.assets.publicUrl(identity.avatar, "thumb")
     : null;
 
   return (

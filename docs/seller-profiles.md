@@ -31,18 +31,18 @@ deletes their account.
 
 `oxy.user` is a PLATFORM kind, seeded by Oxy's own migration and owned by no
 application. Mercaria neither claims the `oxy` namespace nor calls
-`registerFollowKind` for it — Oxy's registry would refuse
+`follows.registerKind` for it — Oxy's registry would refuse
 (`namespace_not_owned`), and registering a person under a `mercaria.*` kind
 instead would SUCCEED and be far worse.
 
 **Why that is unrecoverable.** A `follow_targets` row carries ONE kind and
-`ensureFollowTarget` is idempotent on the URI, so whoever registers a URI first
+`follows.ensureTarget` is idempotent on the URI, so whoever registers a URI first
 fixes its kind permanently. A person registered under `mercaria.*` at a
 `mercaria.co` URI has their Mercaria followers split from the identity every
 other Oxy application already follows, and "follow once, every app knows" dies
 for them with no repair short of a data migration.
 
-`ensureFollowTarget` is called with BOTH `uri` and `localUserId`. Oxy's registry
+`follows.ensureTarget` is called with BOTH `uri` and `localUserId`. Oxy's registry
 derives the id from the URI (`^https://oxy\.so/users/([^/?#]+)$`) and refuses a
 `localUserId` that disagrees, so passing both is a consistency assertion rather
 than a duplication: a wrong pairing fails loudly instead of minting a target

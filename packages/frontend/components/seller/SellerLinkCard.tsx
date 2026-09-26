@@ -45,7 +45,7 @@ export function SellerLinkCard({
   const ratingDisplay = useRatingDisplay();
   const { oxyServices } = useOxy();
   const avatarUrl = seller.avatar
-    ? oxyServices.getFileDownloadUrl(seller.avatar, "thumb")
+    ? oxyServices.assets.publicUrl(seller.avatar, "thumb")
     : null;
 
   return (

@@ -18,7 +18,7 @@
  * Mercaria neither claims the `oxy` namespace nor registers that kind (the
  * registry would refuse: `namespace_not_owned`), and nothing here may define a
  * `mercaria.*` kind for a person. A `follow_targets` row carries ONE kind and
- * `ensureFollowTarget` is idempotent on the URI, so whoever registers a URI
+ * `follows.ensureTarget` is idempotent on the URI, so whoever registers a URI
  * first fixes its kind permanently: a person registered under `mercaria.*` at a
  * `mercaria.co` URI would have their followers split from the identity every
  * other Oxy app already follows, with no repair short of a data migration.
@@ -107,8 +107,8 @@ export function ensureStoreFollowKind(oxyServices: OxyServices): Promise<void> {
 const STORE_FOLLOW_KIND_REGISTRY_LABEL = 'Store';
 
 async function registerStoreFollowKind(oxyServices: OxyServices): Promise<void> {
-  await oxyServices.claimFollowNamespace(FOLLOW_NAMESPACE);
-  await oxyServices.registerFollowKind({
+  await oxyServices.follows.claimNamespace(FOLLOW_NAMESPACE);
+  await oxyServices.follows.registerKind({
     kind: STORE_FOLLOW_KIND,
     label: STORE_FOLLOW_KIND_REGISTRY_LABEL,
     capabilities: {

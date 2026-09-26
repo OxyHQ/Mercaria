@@ -102,7 +102,7 @@ export type SellerTrustRestrictedTier = (typeof SELLER_TRUST_RESTRICTED_TIERS)[n
  * value rather than an omission somebody can quietly fill in.
  *
  * #92 identity rule 3 and #26's whole argument: a `follow_targets` row carries
- * ONE kind and `ensureFollowTarget` is idempotent on the URI, so whoever
+ * ONE kind and `follows.ensureTarget` is idempotent on the URI, so whoever
  * registers a URI first fixes its kind permanently. Registering a person under
  * a `mercaria.*` kind at a `mercaria.co` URI would split that human being's
  * followers from the identity every other Oxy application already follows, with
@@ -127,7 +127,7 @@ export type SellerForbiddenFollowKind = (typeof SELLER_FORBIDDEN_FOLLOW_KINDS)[n
  * The ONE kind a person is followed under, anywhere in the ecosystem.
  *
  * A PLATFORM kind, owned by no application and seeded by Oxy's own migration —
- * Mercaria must not `claimFollowNamespace('oxy')` or `registerFollowKind` it,
+ * Mercaria must not `follows.claimNamespace('oxy')` or `follows.registerKind` it,
  * and the registry would refuse anyway (`namespace_not_owned`). A native
  * `Store` keeps `mercaria.store`, which Mercaria does own, because a store is a
  * Mercaria-local organisation with no Oxy account behind it.
