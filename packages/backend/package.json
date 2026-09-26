@@ -26,8 +26,8 @@
   },
   "dependencies": {
     "@mercaria/shared-types": "workspace:*",
-    "@oxy.so/contracts": "^2.1.0",
-    "@oxy.so/core": "^1.16.0",
+    "@oxy.so/contracts": "^2.2.0",
+    "@oxy.so/core": "^1.18.0",
     "@oxy.so/crowdsource": "^1.0.0",
     "@oxy.so/crowdsource-contracts": "^1.0.0",
     "@oxy.so/crowdsource-express": "^1.0.0",
