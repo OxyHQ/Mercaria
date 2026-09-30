@@ -77,6 +77,12 @@ jobs:
           --health-timeout 5s
           --health-retries 20
 
+    outputs:
+      build-api: ${{ steps.scope.outputs.api }}
+      build-app: ${{ steps.scope.outputs.app }}
+      build-dashboard: ${{ steps.scope.outputs.dashboard }}
+      build-pos: ${{ steps.scope.outputs.pos }}
+
     steps:
       - uses: actions/checkout@v7
         with:
@@ -91,6 +97,22 @@ jobs:
           # scripts REFUSE rather than skip on a missing commit, so a regression
           # here is loud rather than a silent green.
           fetch-depth: 0
+
+      # Which `Build *` jobs below this change reaches. Pull requests only; any
+      # other event builds everything, and so does any path the script does not
+      # name (.github/scripts/ci-scope.sh, self-tested in the fixtures step).
+      # A step here rather than a separate `changes` job: this job already has
+      # the full history and every build waits for it anyway, so the answer
+      # costs no extra queue slot on a plan with 20 concurrent jobs org-wide.
+      #
+      # `HEAD^1` is the base side of the `pull_request` merge commit, so the
+      # diff is exactly this pull request's change against the tree it is
+      # tested on — never main commits that landed after it branched.
+      - name: Decide which builds this change reaches
+        id: scope
+        env:
+          CI_SCOPE_BASE: HEAD^1
+        run: bash .github/scripts/ci-scope.sh
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -123,6 +145,8 @@ jobs:
             .github/scripts/test-wait-for-ecs-deployment.sh
           bash .github/scripts/test-smoke-mcp.sh
           bash .github/scripts/test-wait-for-ecs-deployment.sh
+          bash -n .github/scripts/ci-scope.sh .github/scripts/test-ci-scope.sh
+          bash .github/scripts/test-ci-scope.sh
 
       # #735 — a stale-base branch that silently reverts merged work.
       #
@@ -497,6 +521,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: lint-and-test
+    if: needs.lint-and-test.outputs.build-api != 'false'
 
     steps:
       - uses: actions/checkout@v7
@@ -520,6 +545,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: lint-and-test
+    if: needs.lint-and-test.outputs.build-app != 'false'
 
     steps:
       - uses: actions/checkout@v7
@@ -546,6 +572,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: lint-and-test
+    if: needs.lint-and-test.outputs.build-dashboard != 'false'
 
     steps:
       - uses: actions/checkout@v7
@@ -572,6 +599,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: lint-and-test
+    if: needs.lint-and-test.outputs.build-pos != 'false'
 
     steps:
       - uses: actions/checkout@v7
@@ -592,3 +620,50 @@ jobs:
         env:
           NODE_OPTIONS: '--max-old-space-size=4096'
           NODE_ENV: production
+
+  # The one check branch protection should require. On a pull request the four
+  # `Build *` jobs run only when ci-scope.sh says the change reaches them, and a
+  # job skipped by its `if:` reports `skipped` — which a required check treats
+  # as PASSING. So requiring the build jobs themselves cannot tell "skipped
+  # because untouched" from "skipped because something upstream broke". This
+  # job can: it reads the scope answer and every result, and it is green only
+  # when Lint & Test passed and each build either passed or was skipped because
+  # the change did not reach it. `if: always()` so it still runs — and still
+  # fails — when something above failed or was cancelled.
+  #
+  # No checkout, no install: it reads `needs` and nothing else.
+  ci-complete:
+    name: CI complete
+    needs: [lint-and-test, build-api, build-app, build-dashboard, build-pos]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every job that had to run to have passed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          failures=()
+          lint="$(jq -r '."lint-and-test".result' <<<"$RESULTS")"
+          [ "$lint" = success ] || failures+=("Lint & Test did not pass: $lint")
+          for job in build-api build-app build-dashboard build-pos; do
+            result="$(jq -r --arg job "$job" '.[$job].result' <<<"$RESULTS")"
+            # A missing answer means the build HAD to run.
+            wanted="$(jq -r --arg job "$job" '."lint-and-test".outputs[$job] // "true"' <<<"$RESULTS")"
+            if [ "$wanted" = false ]; then
+              case "$result" in
+                skipped | success) echo "$job: $result (change does not reach it)" ;;
+                *) failures+=("$job: $result") ;;
+              esac
+            elif [ "$result" = success ]; then
+              echo "$job: success"
+            else
+              failures+=("$job had to run and did not pass: $result")
+            fi
+          done
+          if [ ${#failures[@]} -gt 0 ]; then
+            for failure in "${failures[@]}"; do echo "::error::$failure"; done
+            exit 1
+          fi
+          echo 'Every job that had to run passed.'

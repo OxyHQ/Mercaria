@@ -180,7 +180,7 @@ function CartLineRow({ line }: { line: RegisterCartLine }) {
           decrementLabel={t("cart.decreaseQuantity")}
           incrementLabel={t("cart.increaseQuantity")}
           accessibilityLabel={line.title}
-          size="small"
+          size="sm"
         />
         <PriceDisplay price={lineTotal} primaryClassName="text-sm font-bold" />
       </View>

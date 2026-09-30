@@ -3,7 +3,7 @@ import { FollowTargetButton, openAccountDialog, useOxy } from "@oxy.so/services"
 import type { StoreSummary } from "@mercaria/shared-types";
 import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
 import { useTranslation } from "@/lib/i18n";
-import { FOLLOW_TARGET_BUTTON_SIZE, type FollowButtonSize } from "@/lib/follow-graph";
+import { type FollowButtonSize } from "@/lib/follow-graph";
 
 /**
  * Follow a store, backed by Oxy's user-owned follow graph.
@@ -62,7 +62,7 @@ export function StoreFollowButton({
         verb="follow"
         applicationName="Mercaria"
         durations={false}
-        size={FOLLOW_TARGET_BUTTON_SIZE[size]}
+        size={size}
       />
     );
   }
