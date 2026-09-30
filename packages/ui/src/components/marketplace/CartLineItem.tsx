@@ -107,7 +107,7 @@ export function CartLineItem({
             decrementLabel={t(QUANTITY_DECREASE_KEY)}
             incrementLabel={t(QUANTITY_INCREASE_KEY)}
             accessibilityLabel={item.title}
-            size="small"
+            size="sm"
           />
         </View>
 

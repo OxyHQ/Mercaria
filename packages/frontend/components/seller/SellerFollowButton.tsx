@@ -2,7 +2,7 @@ import { Button } from "@oxy.so/bloom/button";
 import { FollowTargetButton, openAccountDialog, useOxy } from "@oxy.so/services";
 import { useTranslation } from "@/lib/i18n";
 import { useSellerFollowTarget } from "@/lib/hooks/use-seller-follow";
-import { FOLLOW_TARGET_BUTTON_SIZE, type FollowButtonSize } from "@/lib/follow-graph";
+import { type FollowButtonSize } from "@/lib/follow-graph";
 
 /**
  * Follow a P2P SELLER — a person — backed by Oxy's user-owned follow graph
@@ -59,7 +59,7 @@ export function SellerFollowButton({
         verb="follow"
         applicationName="Mercaria"
         durations={false}
-        size={FOLLOW_TARGET_BUTTON_SIZE[size]}
+        size={size}
       />
     );
   }
