@@ -46,8 +46,8 @@ vi.mock('@oxy.so/mcp', async (importOriginal) => {
 });
 
 import { closePostgres, connectPostgres, getDb } from '../../db/postgres.js';
+import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import { orders } from '../../db/schema/orders.js';
-import { stores } from '../../db/schema/stores.js';
 import { deleteStoreMember, insertStore, updateStoreMember } from '../../db/stores/storeRepository.js';
 import { createMercariaMcpHttpService } from '../mercaria-mcp-http.js';
 import { authorizeMercariaCatalogInvocation } from '../mercaria-domain-authority.js';
@@ -104,7 +104,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (server) await new Promise<void>((resolve, reject) => server!.close((error) => error ? reject(error) : resolve()));
   if (orderIds.length) await getDb().delete(orders).where(inArray(orders.id, orderIds));
-  if (storeIds.length) await getDb().delete(stores).where(inArray(stores.id, storeIds));
+  if (storeIds.length) await deleteTestStores(getDb(), storeIds);
   await closePostgres();
   vi.unstubAllGlobals();
   expect(unexpectedFetch).not.toHaveBeenCalled();

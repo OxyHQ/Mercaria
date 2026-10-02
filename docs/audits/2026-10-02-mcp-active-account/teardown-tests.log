@@ -1,0 +1,22 @@
+$ vitest run src/capabilities/__tests__/mercaria-active-account.realdb.test.ts src/capabilities/__tests__/mercaria-domain-authority.test.ts src/capabilities/__tests__/mercaria-handlers.test.ts src/capabilities/__tests__/mercaria-catalog.test.ts src/db/__tests__/store-teardown-census.test.ts src/db/__tests__/store-teardown.realdb.test.ts
+
+ RUN  v4.1.10 /home/nate/Oxy/Mercaria/.worktrees/1519-i11-effective-account/packages/backend
+
+[20:29:24] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+[20:29:24] [32mINFO[39m: [36m[CommerceGraph] native store linked to merchant[39m
+    [35mlinkId[39m: "01a0fe4e-ae8d-7005-95bf-701a41ad82d3"
+    [35mmerchantId[39m: "01a0fe4e-ae7e-785f-b195-07e02c8ca535"
+    [35mstoreId[39m: "01a0fe4e-ae73-7d55-ae37-3dcc5c356d08"
+    [35mmethod[39m: "operator"
+    [35mactorOxyUserId[39m: "owner-0bb9b64945e6-linked"
+    [35mreason[39m: "stands in for the store_merchants backfill stage, which links every active store"
+[20:29:25] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[20:29:25] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[20:29:25] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+
+ Test Files  6 passed (6)
+      Tests  19 passed (19)
+   Start at  23:29:19
+   Duration  6.47s (transform 5.00s, setup 0ms, import 8.39s, tests 505ms, environment 1ms)
