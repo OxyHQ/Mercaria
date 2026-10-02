@@ -70,7 +70,9 @@
     "financialEffects": false,
     "productionActions": false,
     "deployed": false,
-    "internalMcpI04Adopted": false
+    "internalMcpI04Adopted": false,
+    "teardownFollowupSuites": 6,
+    "teardownFollowupTests": 19
   },
   "logs": [
     {
@@ -114,6 +116,34 @@
       "exitCode": 0,
       "rawSha256": "b0a25f08216dd3ec0526346a8d18e0e882f17769397be5c4cd25dc6802cee0e8",
       "normalization": "Trailing horizontal whitespace and blank EOF lines removed; raw output retained in owned evidence directory"
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/ci-first-failed-excerpt.log",
+      "sha256": "09d1eafda8db5c9d61281af2692f48663457ab046b6cf3a67fff555949ece1d1",
+      "rawSha256": "3c2681f50cd55d06dd3f48b0acf1bae556ca7fa7720ffdd3386ec9556a671e9f",
+      "rawPath": "/home/nate/Oxy/.agent-evidence/coverage-1519-20261002/i11-mercaria-ci-first-failed.log",
+      "selection": "Run API tests lines from Failed Tests 1 through job end",
+      "exitCode": 1,
+      "reason": "Only store-teardown-census failed: new fixture deleted stores directly; new five HTTP/PG tests passed; 12191 tests pass, 5 baseline skips",
+      "url": "https://github.com/OxyHQ/Mercaria/actions/runs/37059406425/job/111012026148"
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/teardown-tests.log",
+      "sha256": "83fd79c2f0073dfc0ee6789703d22d071457a8faf6bdb5a6650cebb04ef1c624",
+      "rawSha256": "fa23d6ebde38ec196e582633d94147468e834701745e36075993fb604e9915c6",
+      "exitCode": 0
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/teardown-typescript.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "rawSha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "exitCode": 0
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/teardown-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 0
     }
   ],
   "sourceInputs": [
@@ -127,7 +157,7 @@
     },
     {
       "path": "packages/backend/src/capabilities/__tests__/mercaria-active-account.realdb.test.ts",
-      "sha256": "6386f28743197e2370e107ddfcb19e0a601447494ad1e1ced9908ca2f5eb634a"
+      "sha256": "94f426c1982f7d8001299de104575b110583510f2a510855e54928e7394ce80a"
     },
     {
       "path": "bun.lock",
@@ -148,6 +178,14 @@
     {
       "path": "packages/backend/src/middleware/store-authz.ts",
       "sha256": "783b2df61f2952ff9c4e676042a530094970b4abe6b668c7ac1b4ee591766082"
+    },
+    {
+      "path": "packages/backend/src/db/__tests__/store-teardown.ts",
+      "sha256": "59989eec716004d573cb8eff136b1af4b123fa67fbaf48ecf8e38750f4b62841"
+    },
+    {
+      "path": "packages/backend/src/db/__tests__/store-teardown-census.test.ts",
+      "sha256": "342306eac9cd601ea8304ab3553160727ba09217b90af1affd2566e6f9d60cf0"
     }
   ],
   "limits": [
@@ -160,5 +198,7 @@
     "Initial unknown-tool assertion assumed top-level error; now accepts MCP isError refusal",
     "Initial green run performed public synthetic profile lookups returning404; final fixture stubs getProfiles and rejects/asserts zero unexpected fetch",
     "Initial TypeScript union override included service lane fields; final fixture explicitly omits them"
-  ]
+  ],
+  "baselineFixtureCommit": "aa295efe8d5201519916b5746227682d9baf8f59",
+  "ciFollowup": "Only fixture teardown now uses deleteTestStores(getDb(), ownedIds), preserving canonical-link cleanup and unchanged census. Runtime unchanged. Followup CI pending."
 }
