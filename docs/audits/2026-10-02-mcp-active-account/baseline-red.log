@@ -1,0 +1,101 @@
+$ vitest run src/capabilities/__tests__/mercaria-active-account.realdb.test.ts src/capabilities/__tests__/mercaria-handlers.test.ts
+
+ RUN  v4.1.10 /home/nate/Oxy/Mercaria/.worktrees/1519-i11-effective-account/packages/backend
+
+ ❯ src/capabilities/__tests__/mercaria-handlers.test.ts (3 tests | 1 failed) 7ms
+     × projects OAuth active B into buyer data and retains origin A for actor attribution 5ms
+[19:58:06] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[19:58:06] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+ ❯ src/capabilities/__tests__/mercaria-active-account.realdb.test.ts (5 tests | 4 failed) 149ms
+     × lists B buyer orders through the canonical service, never origin A orders 23ms
+     × reads B buyer order but refuses an A order, retaining both persisted rows 5ms
+     × uses B live store membership and cannot borrow origin A membership 8ms
+     × denies the next call after permission removal and then membership revocation 15ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/capabilities/__tests__/mercaria-active-account.realdb.test.ts > Mercaria OAuth origin A → active B with real domain authority > lists B buyer orders through the canonical service, never origin A orders
+AssertionError: expected true not to be true // Object.is equality
+ ❯ src/capabilities/__tests__/mercaria-active-account.realdb.test.ts:137:44
+    135|     const result = await call('listBuyerOrders');
+    136|     expect(result.status).toBe(200);
+    137|     expect(result.body.result.isError).not.toBe(true);
+       |                                            ^
+    138|     expect(result.body.result.structuredContent.orders.map((order: { i…
+    139|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/capabilities/__tests__/mercaria-active-account.realdb.test.ts > Mercaria OAuth origin A → active B with real domain authority > reads B buyer order but refuses an A order, retaining both persisted rows
+TypeError: Cannot read properties of undefined (reading 'order')
+ ❯ src/capabilities/__tests__/mercaria-active-account.realdb.test.ts:142:94
+    140|
+    141|   it('reads B buyer order but refuses an A order, retaining both persi…
+    142|     expect((await call('readBuyerOrder', { orderId: orderB })).body.re…
+       |                                                                                              ^
+    143|     expect((await call('readBuyerOrder', { orderId: orderA })).body.re…
+    144|     expect(await getDb().select().from(orders).where(inArray(orders.id…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/capabilities/__tests__/mercaria-active-account.realdb.test.ts > Mercaria OAuth origin A → active B with real domain authority > uses B live store membership and cannot borrow origin A membership
+AssertionError: expected true not to be true // Object.is equality
+ ❯ src/capabilities/__tests__/mercaria-active-account.realdb.test.ts:148:90
+    146|
+    147|   it('uses B live store membership and cannot borrow origin A membersh…
+    148|     expect((await call('listStoreOrders', { storeId: storeB })).body.r…
+       |                                                                                          ^
+    149|     expect((await call('listStoreOrders', { storeId: storeA })).body.r…
+    150|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/capabilities/__tests__/mercaria-active-account.realdb.test.ts > Mercaria OAuth origin A → active B with real domain authority > denies the next call after permission removal and then membership revocation
+AssertionError: expected true not to be true // Object.is equality
+ ❯ src/capabilities/__tests__/mercaria-active-account.realdb.test.ts:160:90
+    158|     expect(await authorizeMercariaCatalogInvocation('refundStoreOrder'…
+    159|     expect(refundExecution).not.toHaveBeenCalled();
+    160|     expect((await call('listStoreOrders', { storeId: storeB })).body.r…
+       |                                                                                          ^
+    161|     await deleteStoreMember(storeB, ACCOUNT_B);
+    162|     expect((await call('listStoreOrders', { storeId: storeB })).body.r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/capabilities/__tests__/mercaria-handlers.test.ts > Mercaria catalog handlers > projects OAuth active B into buyer data and retains origin A for actor attribution
+AssertionError: expected "vi.fn()" to be called with arguments: [ 'active-B', { page: 1, limit: 20 } ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   "active-B",
++   "origin-A",
+    {
+      "limit": 20,
+      "page": 1,
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ src/capabilities/__tests__/mercaria-handlers.test.ts:54:34
+     52|     mocks.getBuyerOrders.mockResolvedValueOnce({ data: [], total: 0 });
+     53|     await MERCARIA_MCP_HANDLERS.listBuyerOrders({}, context('listBuyer…
+     54|     expect(mocks.getBuyerOrders).toHaveBeenCalledWith('active-B', { pa…
+       |                                  ^
+     55|     mocks.processRefund.mockResolvedValueOnce({ id: 'synthetic-audit',…
+     56|     const result = await MERCARIA_MCP_HANDLERS.refundStoreOrder({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  5 failed | 3 passed (8)
+   Start at  22:58:00
+   Duration  6.10s (transform 1.89s, setup 0ms, import 2.94s, tests 156ms, environment 0ms)
+
+error: script "test" exited with code 1
