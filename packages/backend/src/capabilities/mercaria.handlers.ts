@@ -146,10 +146,9 @@ export const MERCARIA_MCP_HANDLERS: CatalogToolHandlers = Object.fromEntries(
       structuredContent: await executeMercariaCatalogTool(
         name,
         input,
-        context.principal.accountId,
+        context.principal.activeAccountId,
         context.principal.accountId,
       ),
     }),
   ]),
 );
-

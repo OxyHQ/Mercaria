@@ -1,0 +1,13 @@
+$ vitest run src/capabilities/__tests__/mercaria-active-account.realdb.test.ts src/capabilities/__tests__/mercaria-domain-authority.test.ts src/capabilities/__tests__/mercaria-handlers.test.ts src/capabilities/__tests__/mercaria-catalog.test.ts
+
+ RUN  v4.1.10 /home/nate/Oxy/Mercaria/.worktrees/1519-i11-effective-account/packages/backend
+
+[19:59:08] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[19:59:08] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[19:59:08] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+
+ Test Files  4 passed (4)
+      Tests  14 passed (14)
+   Start at  22:59:01
+   Duration  7.25s (transform 3.23s, setup 0ms, import 5.53s, tests 208ms, environment 0ms)
