@@ -38,10 +38,10 @@ export function createMercariaMcpHttpService() {
       const decision = await authorizeMercariaCatalogInvocation(
         context.tool.name,
         input,
-        context.principal.accountId,
+        context.principal.activeAccountId,
       );
       if (decision.allowed === false) return decision;
-      return { allowed: true, effectiveAccountId: context.principal.accountId };
+      return { allowed: true, effectiveAccountId: context.principal.activeAccountId };
     },
     logger: {
       error(message, error) {
