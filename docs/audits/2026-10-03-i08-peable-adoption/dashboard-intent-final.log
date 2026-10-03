@@ -1,0 +1,10 @@
+$ vitest run lib/billing/__tests__/intent.test.ts
+
+ RUN  v4.1.10 /home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/dashboard
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  09:20:43
+   Duration  112ms (transform 23ms, setup 0ms, import 31ms, tests 4ms, environment 0ms)
+

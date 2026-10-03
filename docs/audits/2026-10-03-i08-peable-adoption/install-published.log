@@ -1,0 +1,9 @@
+bun install v1.4.2 (744846f84)
+Resolving dependencies
+Resolved, downloaded and extracted [280]
+Saved lockfile
+
+$ bun run --filter @mercaria/shared-types build
+@mercaria/shared-types build: Exited with code 0
+
+Checked 1619 installs across 1597 packages (no changes) [5.25s]
