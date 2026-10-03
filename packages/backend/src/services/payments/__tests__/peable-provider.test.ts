@@ -263,6 +263,11 @@ const gateway = createServer(async (req, res) => {
     if (rejectRequests > 0 || forcedStatus !== null) {
       res.statusCode = forcedStatus ?? 401;
       rejectRequests = Math.max(0, rejectRequests - 1);
+      if (dropAfterEffect) {
+        dropAfterEffect = false;
+        res.writeHead(res.statusCode, { 'content-length': '2000' }); res.write('{');
+        setTimeout(() => res.destroy(), 10); return;
+      }
       res.end(JSON.stringify({ error: { type: 'fixture_refusal', message: 'synthetic-sensitive-detail' } }));
       return;
     }
@@ -594,6 +599,14 @@ describe('published SDK HTTP parity', () => {
     await expect(result).rejects.toMatchObject({ provider: 'peable', stage: 'createPayment', retryable: [408,429,503].includes(status) });
     await expect(result).rejects.not.toThrow('synthetic-sensitive-detail');
     expect(wire).toHaveLength(1); expect(intents.size).toBe(0);
+  });
+  test.each([400, 403, 409, 408, 429, 503])('interrupted HTTP%s body preserves known refusal classification', async status => {
+    const provider = new PeablePaymentProvider(); forcedStatus = status; dropAfterEffect = true;
+    const result = provider.createPayment(request);
+    await expect(result).rejects.toMatchObject({ provider: 'peable', stage: 'createPayment', retryable: [408,429,503].includes(status) });
+    await expect(result).rejects.not.toThrow('synthetic-sensitive-detail');
+    expect(wire).toHaveLength(1); expect(intents.size).toBe(0);
+    expect(wire[0]?.idempotencyKey).toBe(request.idempotencyKey);
   });
   test('cancel preserves its durable key', async () => {
     const provider = new PeablePaymentProvider(); const created = await provider.createPayment(request);

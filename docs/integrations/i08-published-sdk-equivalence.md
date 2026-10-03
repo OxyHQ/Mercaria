@@ -1,6 +1,6 @@
 # Published SDK equivalence and remaining Mercaria cutover
 
-Source: Mercaria candidate PR1044 and registry @peable.to/sdk0.2.1 with
+Source: Mercaria candidate PR1044 and registry @peable.to/sdk0.2.2 with
 shared-types0.3.0 (53 SDK +46 shared-types files verified against registry bytes).
 The five recurrent BillingProvider methods already use the published SDK in
 candidate PR1044. This is separate from the one-off/marketplace payment provider.
@@ -20,7 +20,7 @@ not enable the payment rail or change marketplace accounting.
 | createTransfer POST transfers | transfers.create(params,{idempotencyKey}) | externalRef=order ID and exact destination retained; no new split/fee policy |
 | reverseTransfer POST :id/reversals | transfers.reverse(id,params,{idempotencyKey}) | Use cumulative amountReversed on TransferWithReversal, not reversal-leg amount; same key across retry |
 | connected-account onboarding | connectedAccounts namespace exists | No consumer of custom peableRequest outside this provider currently uses connected-account endpoints; do not invent adoption work or create accounts |
-| HMAC verification in verify.ts | webhooks.constructEvent | Not yet equivalent: SDK0.2.1 allows only five payment event types and rejects legitimate refund/transfer/dispute families. Upstream canonical allowlist fix and signed parity tests required before deleting local verifier; current/previous rotation remains consumer configuration |
+| HMAC verification in verify.ts | webhooks.constructEvent | SDK0.2.2 exhaustive published event allowlist; standalone WebhooksResource owns signature/envelope validation. Consumer wrapper retains current/previous rotation and domain normalization; local HMAC/parser removed |
 
 SDK0.2.1 supplies the optional deadline missing in0.2.0. The adapter explicitly
 sets20,000ms per mint/gateway attempt, retaining bounded reads including bodies.
@@ -37,8 +37,10 @@ Coverage includes exact create body/key, one-call resume with action, one401 ref
 second401 refusal, post-effect lost response with explicit same-key recovery,
 status/error redaction, cancel key, duplicate/pending/failed refund lifecycle and
 cumulative reversal totals. No real provider network or commercial effect occurred.
-SQL/domain and webhook route regressions are validated separately. Full I11 remains
-open for canonical webhook replacement, final CI and deployment/adoption acceptance.
+SQL/domain and webhook route regressions are validated separately. SDK0.2.2 now verifies all ten declared event types, including refunds, disputes and
+connected-account updates. Current/previous rotation, stale/bad signatures, unknown
+types and dedup are exercised through the real ingress and SQL. Full I11 remains
+open for final CI and deployment/adoption acceptance.
 
 ## Cohort configuration availability (2026-10-03 inventory)
 
@@ -55,3 +57,20 @@ readiness do not establish a usable commercial or test cohort. Keep config absen
 until namespace/binding gates are satisfied; no automatic legacy fallback for a
 configured cohort. A flag-off rollback preserves its durable ownership/routing
 configuration as described in `i08-billing-cohort.md`.
+
+## Review regressions
+
+A known permanent HTTP400/403/409 remains non-retryable even if its body is
+truncated. The adapter prioritizes received status over the SDK error subclass;
+408/429/5xx, missing headers and interrupted2xx remain retryable/indeterminate.
+Real local HTTP reproduces three failures before the correction and preserves
+one request, original key and zero fake-provider effects for refusals.
+
+Billing cancellation replay is an operation receipt, not current subscription
+state. The adapter validates that receipt and then reads/validates current state
+before returning it for SQL projection. A failed read raises a retryable error,
+retaining the caller's intent and newer SQL state. Two SQL+SDKHTTP regressions
+reproduce historical cancelled overwriting a later active projection and missing
+failure propagation. Recovery uses the same key and one remote mutation. This
+read is a current observation, not an atomic snapshot guarantee across concurrent
+provider changes; no general event-ordering or financial policy changed.
