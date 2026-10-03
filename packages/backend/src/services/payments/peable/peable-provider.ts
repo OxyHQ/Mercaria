@@ -54,22 +54,21 @@ import type {
   ReverseTransferRequest,
   SettlingPaymentProvider,
 } from '../provider.js';
-import { peableRequest } from './client.js';
+import { Peable, PeableApiError, PeableError } from '@peable.to/sdk';
+import { config } from '../../../config/index.js';
 import { verifyPeableSignature } from './verify.js';
 
-/** The gateway's payment-intent shape, narrowed to what this adapter reads. */
-interface GatewayIntent {
-  readonly id: string;
-  readonly status: string;
-  readonly amount: string;
-  readonly currency: string;
-  readonly client_action?: { readonly kind: string; readonly value: string };
-}
-
-interface GatewayTransfer {
-  readonly id: string;
-  readonly status: string;
-  readonly amountReversed: string;
+// SDK response types remain upstream. The gateway's existing create/retrieve
+// compatibility response may contain a client_action not present on list DTOs.
+type GatewayIntent = Awaited<ReturnType<Peable['paymentIntents']['retrieve']>>;
+function clientActionOf(intent: GatewayIntent): ProviderPaymentResult['clientAction'] {
+  if (!('client_action' in intent)) return undefined;
+  const action: unknown = intent.client_action;
+  if (typeof action !== 'object' || action === null || !('kind' in action) || !('value' in action)) return undefined;
+  if ((action.kind === 'client_secret' || action.kind === 'redirect') && typeof action.value === 'string') {
+    return { kind: action.kind, value: action.value };
+  }
+  return undefined;
 }
 
 /**
@@ -160,12 +159,11 @@ function toTransferStatus(status: string): TransferStatus {
 }
 
 function toResult(intent: GatewayIntent, stage: PaymentProviderStage): ProviderPaymentResult {
+  const clientAction = clientActionOf(intent);
   return {
     providerObjectId: intent.id,
     status: toPaymentStatus(intent.status, stage),
-    ...(intent.client_action?.kind === 'client_secret' || intent.client_action?.kind === 'redirect'
-      ? { clientAction: { kind: intent.client_action.kind, value: intent.client_action.value } }
-      : {}),
+    ...(clientAction ? { clientAction } : {}),
   };
 }
 
@@ -183,27 +181,31 @@ export class PeablePaymentProvider
   implements PaymentProvider, SettlingPaymentProvider, ResumablePaymentProvider
 {
   readonly id = 'peable' as const;
+  private readonly client: Peable;
+  constructor(client?: Peable) {
+    const { publicKey, secret, baseUrl, oxyApiUrl } = config.payments.peable;
+    this.client = client ?? new Peable({ publicKey, secret, baseURL: baseUrl, oxyApiUrl, requestTimeoutMs: 20_000 });
+  }
+  private async call<T>(stage: PaymentProviderStage, operation: () => Promise<T>): Promise<T> {
+    try { return await operation(); }
+    catch (error) {
+      if (error instanceof PaymentProviderError) throw error;
+      const status = error instanceof PeableError ? error.statusCode : undefined;
+      throw new PaymentProviderError({ provider: 'peable', stage,
+        message: 'The Peable operation failed; retry only with the original intent.',
+        retryable: !(error instanceof PeableError) || error instanceof PeableApiError || status === 408 || status === 429 || (status !== undefined && status >= 500),
+      });
+    }
+  }
+
 
   async createPayment(request: CreatePaymentRequest): Promise<ProviderPaymentResult> {
-    const intent = await peableRequest<GatewayIntent>({
-      method: 'POST',
-      path: '/v1/payment_intents',
-      stage: 'createPayment',
-      idempotencyKey: request.idempotencyKey,
-      body: {
-        rail: 'card',
-        amount: toGatewayAmount(request.amount, 'createPayment'),
-        currency: request.amount.currency,
-        // Minimal, stable Mercaria ids and nothing else (#45 buyer boundaries
-        // 7). The gateway forwards none of this to its own provider, but a
-        // metadata bag is readable by everyone with gateway access all the same.
-        metadata: {
-          ...request.metadata,
-          mercaria_payment_id: request.paymentId,
-          mercaria_checkout_group_id: request.checkoutGroupId,
-        },
-      },
-    });
+    const currency = request.amount.currency;
+    if (currency !== 'USD' && currency !== 'EUR' && currency !== 'FAIR') throw unsupported('createPayment', 'Currency is not supported by the Peable gateway.');
+    const intent = await this.call('createPayment', () => this.client.paymentIntents.create({
+      rail: 'card', amount: toGatewayAmount(request.amount, 'createPayment'), currency,
+      metadata: { ...request.metadata, mercaria_payment_id: request.paymentId, mercaria_checkout_group_id: request.checkoutGroupId },
+    }, { idempotencyKey: request.idempotencyKey }));
     return toResult(intent, 'createPayment');
   }
 
@@ -231,35 +233,15 @@ export class PeablePaymentProvider
   }
 
   async cancel(request: PaymentOperationRequest): Promise<ProviderPaymentResult> {
-    const intent = await peableRequest<GatewayIntent>({
-      method: 'POST',
-      path: `/v1/payment_intents/${encodeURIComponent(request.providerObjectId)}/reject`,
-      stage: 'cancel',
-      idempotencyKey: request.idempotencyKey,
-    });
+    const intent = await this.call('cancel', () => this.client.paymentIntents.reject(request.providerObjectId, { idempotencyKey: request.idempotencyKey }));
     return toResult(intent, 'getStatus');
   }
 
   async refund(request: RefundRequest): Promise<ProviderRefundResult> {
-    const refund = await peableRequest<{
-      readonly id: string;
-      readonly status: string;
-      readonly paymentStatus: string;
-      readonly failureCode: string | null;
-    }>({
-      method: 'POST',
-      path: '/v1/refunds',
-      stage: 'refund',
-      idempotencyKey: request.idempotencyKey,
-      body: {
-        paymentIntentId: request.providerObjectId,
-        // Mercaria's refund id IS the idempotency, durably. Unlike a header key
-        // it cannot be lost, and a duplicate refund is the one failure here
-        // that nothing reverses and the payer has no reason to report.
-        externalRef: request.refundId,
-        amount: toGatewayAmount(request.amount, 'refund'),
-      },
-    });
+    const refund = await this.call('refund', () => this.client.refunds.create({
+      paymentIntentId: request.providerObjectId, externalRef: request.refundId,
+      amount: toGatewayAmount(request.amount, 'refund'),
+    }, { idempotencyKey: request.idempotencyKey }));
 
     return {
       providerObjectId: refund.id,
@@ -290,11 +272,7 @@ export class PeablePaymentProvider
     providerObjectId: string,
     stage: PaymentProviderStage,
   ): Promise<ProviderPaymentResult> {
-    const intent = await peableRequest<GatewayIntent>({
-      method: 'GET',
-      path: `/v1/payment_intents/${encodeURIComponent(providerObjectId)}`,
-      stage,
-    });
+    const intent = await this.call(stage, () => this.client.paymentIntents.retrieve(providerObjectId));
     return toResult(intent, stage);
   }
 
@@ -319,37 +297,18 @@ export class PeablePaymentProvider
   // -------------------------------------------------------------------------
 
   async createTransfer(request: CreateTransferRequest): Promise<ProviderTransferResult> {
-    const transfer = await peableRequest<GatewayTransfer>({
-      method: 'POST',
-      path: '/v1/transfers',
-      stage: 'transfer',
-      idempotencyKey: request.idempotencyKey,
-      body: {
-        paymentIntentId: request.sourcePaymentObjectId,
-        // The seller's account at the GATEWAY (`ca_…`), which is what
-        // `provider_accounts.provider_account_id` holds on this rail. Mercaria
-        // never learns the acquirer's own id and must not: ADR 0009 D15.
-        connectedAccountId: request.destinationAccountId,
-        // Mercaria's order id IS the idempotency, durably. Unlike a header key
-        // it cannot be lost, so a retried settlement converges on the transfer
-        // that already paid this seller rather than paying them twice.
-        externalRef: request.orderId,
-        amount: toGatewayAmount(request.amount, 'transfer'),
-      },
-    });
+    const transfer = await this.call('transfer', () => this.client.transfers.create({
+      paymentIntentId: request.sourcePaymentObjectId, connectedAccountId: request.destinationAccountId,
+      externalRef: request.orderId, amount: toGatewayAmount(request.amount, 'transfer'),
+    }, { idempotencyKey: request.idempotencyKey }));
     return { providerObjectId: transfer.id, status: toTransferStatus(transfer.status) };
   }
 
   async reverseTransfer(
     request: ReverseTransferRequest,
   ): Promise<ProviderTransferReversalResult> {
-    const transfer = await peableRequest<GatewayTransfer>({
-      method: 'POST',
-      path: `/v1/transfers/${encodeURIComponent(request.transferObjectId)}/reversals`,
-      stage: 'transfer',
-      idempotencyKey: request.idempotencyKey,
-      body: { amount: toGatewayAmount(request.amount, 'transfer') },
-    });
+    const transfer = await this.call('transfer', () => this.client.transfers.reverse(request.transferObjectId,
+      { amount: toGatewayAmount(request.amount, 'transfer') }, { idempotencyKey: request.idempotencyKey }));
 
     // The CUMULATIVE total, read off the transfer — never this leg. A caller
     // deciding whether a transfer is fully reversed must not have to add up
