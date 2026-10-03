@@ -82,6 +82,14 @@ import {
   type SubscriptionSettlement,
 } from './ledger-postings.js';
 
+/** Reject before acceptance/customer effects; replay belongs to a user intent. */
+function requireIntent(provider: BillingProvider, storeId: string, key?: string): void {
+  if (key !== undefined && !/^[A-Za-z0-9:_-]{8,200}$/.test(key)) throw validationError('Invalid Idempotency-Key.');
+  if (provider.requiresExplicitIntent?.(storeId) && !key) {
+    throw validationError('A stable Idempotency-Key is required for this billing action.');
+  }
+}
+
 /** A day, for the grace arithmetic. */
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
@@ -121,6 +129,7 @@ export interface StartMerchantPlanCheckoutInput {
   interval: BillingInterval;
   currency: CurrencyCode;
   actorOxyUserId: string;
+  idempotencyKey?: string;
 }
 
 /**
@@ -137,6 +146,7 @@ export async function startMerchantPlanCheckout(
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();
+  requireIntent(provider, input.storeId, input.idempotencyKey);
   const returnUrl = requireReturnUrl();
   const db = getDb();
 
@@ -198,7 +208,7 @@ export async function startMerchantPlanCheckout(
     returnUrl,
     storeId: input.storeId,
     planId: plan.id,
-    idempotencyKey: `billing-checkout:${input.storeId}:${plan.id}:${input.interval}:${price.unitPriceCurrency}`,
+    idempotencyKey: input.idempotencyKey ?? `billing-checkout:${input.storeId}:${plan.id}:${input.interval}:${price.unitPriceCurrency}`,
   });
   return { url: session.url, expiresAt: session.expiresAt?.toISOString() ?? null };
 }
@@ -206,11 +216,13 @@ export async function startMerchantPlanCheckout(
 /** Open the provider's hosted billing portal for one store. */
 export async function openMerchantBillingPortal(input: {
   storeId: string;
+  idempotencyKey?: string;
 }): Promise<MerchantBillingSessionView> {
   if (!config.merchantBilling.enabled) {
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();
+  requireIntent(provider, input.storeId, input.idempotencyKey);
   const returnUrl = requireReturnUrl();
   const customer = await findBillingCustomer(getDb(), {
     storeId: input.storeId,
@@ -222,6 +234,7 @@ export async function openMerchantBillingPortal(input: {
   const session = await provider.createPortalSession({
     providerCustomerId: customer.providerCustomerId,
     returnUrl,
+    idempotencyKey: input.idempotencyKey,
   });
   return { url: session.url, expiresAt: session.expiresAt?.toISOString() ?? null };
 }
@@ -237,19 +250,21 @@ export async function openMerchantBillingPortal(input: {
  */
 export async function scheduleMerchantSubscriptionCancellation(input: {
   storeId: string;
+  idempotencyKey?: string;
   actorOxyUserId: string;
 }): Promise<MerchantSubscriptionRow> {
   if (!config.merchantBilling.enabled) {
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();
+  requireIntent(provider, input.storeId, input.idempotencyKey);
   const subscription = await findSubscriptionByStore(getDb(), input.storeId);
   if (!subscription) throw notFound('This store has no subscription to cancel.');
   if (subscription.status === 'expired') {
     throw conflict('That subscription has already ended.');
   }
 
-  const snapshot = await provider.cancelAtPeriodEnd(subscription.providerSubscriptionId);
+  const snapshot = await provider.cancelAtPeriodEnd(subscription.providerSubscriptionId, input.idempotencyKey);
   const applied = await applyProviderSubscriptionState({
     snapshot,
     note: 'cancellation scheduled by the merchant',

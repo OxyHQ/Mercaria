@@ -20,7 +20,7 @@
 import type { Request, Response } from 'express';
 import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { log } from '../lib/logger.js';
-import { respondWithError } from '../lib/errors/error-codes.js';
+import { respondWithError, validationError } from '../lib/errors/error-codes.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import {
@@ -32,7 +32,27 @@ import {
   scheduleMerchantSubscriptionCancellation,
   startMerchantPlanCheckout,
 } from '../services/billing/subscription.service.js';
+import { BillingProviderError } from '../services/billing/provider.js';
 import type { MerchantPlanCheckoutBody } from '../middleware/merchant-plans-schemas.js';
+
+/** A conclusively expired owner result permits a new explicit hosted intent. */
+function respondWithBillingError(res: Response, err: unknown, fallback: string): void {
+  if (err instanceof BillingProviderError && err.code === 'billing_result_expired') {
+    respondWithError(res, validationError('The billing link expired. Please try again.'), fallback);
+    return;
+  }
+  respondWithError(res, err, fallback);
+}
+
+/** Optional for legacy callers; selected cohorts require it before effects. */
+function billingIntent(req: Request): string | undefined {
+  const value = req.headers['idempotency-key'];
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !/^[A-Za-z0-9:_-]{8,200}$/.test(value)) {
+    throw validationError('Invalid Idempotency-Key.');
+  }
+  return value;
+}
 
 /** GET /admin/stores/:storeId/plan — this store's plan, entitlements and usage. */
 export async function getStorePlanHandler(req: Request, res: Response): Promise<void> {
@@ -76,21 +96,22 @@ export async function startPlanCheckoutHandler(req: Request, res: Response): Pro
       interval: body.interval,
       currency: body.currency,
       actorOxyUserId: getRequiredOxyUserId(req),
+      idempotencyKey: billingIntent(req),
     });
     sendSuccess(res, session);
   } catch (err) {
     log.general.error({ err }, 'Failed to start a plan checkout');
-    respondWithError(res, err, 'Failed to start the upgrade');
+    respondWithBillingError(res, err, 'Failed to start the upgrade');
   }
 }
 
 /** POST /admin/stores/:storeId/plan/portal — open the hosted billing portal. */
 export async function openPlanPortalHandler(req: Request, res: Response): Promise<void> {
   try {
-    sendSuccess(res, await openMerchantBillingPortal({ storeId: routeParam(req, 'storeId') }));
+    sendSuccess(res, await openMerchantBillingPortal({ storeId: routeParam(req, 'storeId'), idempotencyKey: billingIntent(req) }));
   } catch (err) {
     log.general.error({ err }, 'Failed to open the billing portal');
-    respondWithError(res, err, 'Failed to open the billing portal');
+    respondWithBillingError(res, err, 'Failed to open the billing portal');
   }
 }
 
@@ -107,10 +128,11 @@ export async function cancelStorePlanHandler(req: Request, res: Response): Promi
     await scheduleMerchantSubscriptionCancellation({
       storeId,
       actorOxyUserId: getRequiredOxyUserId(req),
+      idempotencyKey: billingIntent(req),
     });
     sendSuccess(res, await buildMerchantPlanStatus({ storeId }));
   } catch (err) {
     log.general.error({ err }, 'Failed to cancel a subscription');
-    respondWithError(res, err, 'Failed to cancel the subscription');
+    respondWithBillingError(res, err, 'Failed to cancel the subscription');
   }
 }

@@ -206,7 +206,7 @@ export function snapshotFromStripeSubscription(
 }
 
 /** The Stripe Billing rail. */
-class StripeBillingProvider implements BillingProvider {
+export class StripeBillingProvider implements BillingProvider {
   readonly id = 'stripe' as const;
 
   get livemode(): boolean {
