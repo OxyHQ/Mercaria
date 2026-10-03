@@ -1,0 +1,23 @@
+{
+  "head": "93b1c7e0c021129640d4f578a56a1f03ffb508e5",
+  "runId": 37104034560,
+  "url": "https://github.com/OxyHQ/Mercaria/actions/runs/37104034560",
+  "conclusion": "success",
+  "tests": {
+    "backend": 12207,
+    "dashboard": 147,
+    "app": 66,
+    "pos": 25,
+    "sdk": 172,
+    "skipped": 5
+  },
+  "builds": [
+    "API",
+    "App",
+    "Dashboard",
+    "POS"
+  ],
+  "logPrivate": "/home/nate/Oxy/.agent-evidence/i04-handoff-i08-20261003/mercaria/ci-37104034560.log",
+  "logSha256": "88b325603dce7fe12b38168ea7218197f1af7ecccbbd94570378317ed248f64e",
+  "rootIndependentlyVerified": true
+}

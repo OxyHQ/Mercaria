@@ -1,0 +1,181 @@
+{
+  "sourceCommit": "a267c2ef045939b97793d3fc932c553e4119ec23",
+  "sources": [
+    {
+      "path": "bun.lock",
+      "sha256": "ddccc2a5cf7ad4bf3ae73e72660764b01243b03d83482417143b74996b4c520e"
+    },
+    {
+      "path": "docs/adr/0009-peable-payment-rail.md",
+      "sha256": "cc21f07498f29b4da9b8f275ea24603da3fc83d5f3e8331652e0a89ef9084843"
+    },
+    {
+      "path": "docs/integrations/i08-billing-cohort.md",
+      "sha256": "4dc818be1d20fea0ff7d420c2775812cb92b7a8e39da98f9981fe7efa590260a"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "sha256": "d0885c54631d55bdde11609701a4769a91ccaaa24d2451adc776edea02f2923e"
+    },
+    {
+      "path": "packages/backend/src/app.ts",
+      "sha256": "dfb97ca57a1533d7f067c1e90ecab3212e98274d60329f9f4e36dd194a3c733f"
+    },
+    {
+      "path": "packages/backend/src/config/index.ts",
+      "sha256": "ac001a11f95f783ab9cb7e1528d43e96477c7c63b2a2ada2efc4bb82b5ef09de"
+    },
+    {
+      "path": "packages/backend/src/controllers/merchant-plans.controller.ts",
+      "sha256": "9afe03ef225bd8e9e5bcf33aee55baa6792926d8e99f31440ad94e2b922a7697"
+    },
+    {
+      "path": "packages/backend/src/db/merchantPlans/planRepository.ts",
+      "sha256": "571fd14ee51a9ecb6c1ac2fb646da74c610ad64efb0ec180953d5ecc9536b63d"
+    },
+    {
+      "path": "packages/backend/src/index.ts",
+      "sha256": "52084d0d1f4683f3179070a893344c3a4c476a185214be2014c9e97593e71ca8"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/adapter.realdb.test.ts",
+      "sha256": "6ecf93b4617b555f4713c9d39d4027d1bc55ec81fbdd75fd317faa2f93d78cc7",
+      "sourceCommit": "95f58808"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/cors.test.ts",
+      "sha256": "eca2c5eaf74fab8b51c0d6baccd78c0961915b923581ce4494bed4620b545ed0"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/register.test.ts",
+      "sha256": "a91fd46da1009f096af23fb3d70cf1bb39e7900876498300297663294c4483ed"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/adapter.ts",
+      "sha256": "87ed3a68f20d15447602e12e662e9c086814abf0171676eea1205e9fc32adf76"
+    },
+    {
+      "path": "packages/backend/src/services/billing/provider.ts",
+      "sha256": "e4de5b918086941966b14d90159ca902c472f1fe430622fb9bd26395b11a350c"
+    },
+    {
+      "path": "packages/backend/src/services/billing/register.ts",
+      "sha256": "e8b5608102c337a54a8bb98d0dc551e96df0a4b6d7492fecd16d622cf0452c64"
+    },
+    {
+      "path": "packages/backend/src/services/billing/stripe/stripe-billing.ts",
+      "sha256": "42e6805369c124c2627f039e1852a41ddb78bdc56b0e61e2f5c9b5c106d419e8"
+    },
+    {
+      "path": "packages/backend/src/services/billing/subscription.service.ts",
+      "sha256": "e0b627e34be213ee669161bfe09a39f27e1ed671e5c5c980b9d7e8adfe01bd90"
+    },
+    {
+      "path": "packages/dashboard/lib/api/plan.ts",
+      "sha256": "b5866029bdce3b541ec43e33b54cd4e7fe78066e48cbaf2bf5b20398f61f15eb"
+    },
+    {
+      "path": "packages/dashboard/lib/billing/__tests__/intent.test.ts",
+      "sha256": "28b7c4c5c0de2de47dfd66724a035d02c345323a682222e41a3c949a4dad308e"
+    },
+    {
+      "path": "packages/dashboard/lib/billing/intent.ts",
+      "sha256": "e2e61b187a65ea4af948f2c7a2c4c2fb1da487a5a0feaad54136f69058ba5d17"
+    },
+    {
+      "path": "packages/dashboard/lib/billing/persisted-intent.ts",
+      "sha256": "0285dd97bc8e68826392a400a1b78dcea36b4385b16a46b98e6a3f5726b65d0b"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/README.md",
+      "sha256": "7ecce6649140363f5a17c5a600f0ab667f4dab05e191561d10146956e1c86a97"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/adapter-focal.log",
+      "sha256": "54a2c696ce338913c4b85fae7eb39af974a11886c2d7e2e52592881ae3c7b8fb"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/adapter-route-focal.log",
+      "sha256": "7d731d6ac7f700a75aee529852da9445e26a3e31230273ad235476d505510b25"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/backend-build.log",
+      "sha256": "f99c38154e2a7559f26fd3137c20364865ceb924a74314d3f481a751a888ee7b"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/backend-lint-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/baseline-billing-own-pg.log",
+      "sha256": "d17de222e2fdc6d7e3ae973e16aa0599ed3ef704b5f9082781d9850ff6ee4a00"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/cors-green.log",
+      "sha256": "4db6607c497fd6b9a3703152b29d280a07c03315df3ae8df416b9f79720998ae"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/cors-red.log",
+      "sha256": "4376ee312dd55dbe5bdc2cb2feeabbd1063bedb67bb2969d878804998783252f"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/dashboard-intent-final.log",
+      "sha256": "9e4f0c507c749dfc33e7fdb31afb1e06cd3c14c0f684bb3c571402b8ee0565bd"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/dashboard-lint-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/dashboard-typecheck-final.log",
+      "sha256": "d9a951d674af32baf2fa4dcb98bc4f68ad90cf028acc5da7077adcacc154f375"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/database-teardown.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/install-published.log",
+      "sha256": "968723b604a6c4fbf4f8d4d2d86e779a2497363f10d62d9e52d0c1f4573ec251"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/published-backend-focal.log",
+      "sha256": "276dbf8f24e181fa1823ae6e9519ae4ca0f843a66b8bb93315374482c0b12fa9"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/published-backend-typecheck.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/registry-byte-comparison.json",
+      "sha256": "d41998c7024b4403cfa3145e492104221a9c582134dad9173be919ada7db5214"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/ci-37102984755-failed.log",
+      "sha256": "4cc1d2e650bd614c98a0f38fc13faacdd7c533b3d5023393cb3599d3ec313714"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/date-census-final.log",
+      "sha256": "19d8a4390a6164666af8b1442ac405a0f27a3493f85e53cf52393e55b242d21d"
+    },
+    {
+      "path": "docs/integrations/i08-published-sdk-equivalence.md",
+      "sha256": "3b14946339647d5f06c462fb402b4d7ef2ffe25bb254a183b4a8a22d66f9e5c6"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/ci-final.json",
+      "sha256": "c989dfefa6e18cd90ed2b0040d1b22e354ebeadd0a293387f1f1f483077cd510"
+    }
+  ],
+  "checks": {
+    "backendFocal": "68 pass / 6 files",
+    "cors": "1 expected RED then 1 GREEN",
+    "dashboard": "4 pass",
+    "typesBuildLint": "pass",
+    "live": "not activated",
+    "dbTeardown": "no own fixture databases remain"
+  },
+  "fixtureFollowupCommit": "95f58808"
+}
