@@ -50,3 +50,7 @@ No runtime source changed. The date census plus actual SDK/SQL adapter suite
 then passed27 tests in2 files locally. Full CI on the new head remains pending.
 Published-SDK equivalence/cutover gaps are explicit in
 [the method matrix](../../integrations/i08-published-sdk-equivalence.md).
+
+Final CI37104034560 on93b1c7e0 SUCCESS: backend12207PASS/5skip plus410 client/SDK
+tests, four builds and aggregate green. Root independently verified this run.
+`ci-final.json` retains exact head/run and the authenticated full private-log hash.
