@@ -172,7 +172,7 @@ function sign(payload: string, secret: string, timestamp?: number): string {
 
 async function post(
   base: string,
-  payload: string,
+  payload: string | Uint8Array,
   signature: string,
 ): Promise<{ status: number; body: string }> {
   const response = await fetch(`${base}${PATH}`, {
@@ -203,6 +203,21 @@ describe('Peable webhook raw-body mount', () => {
      */
     expect(status).toBe(200);
     expect(body).toContain('"received":true');
+  });
+
+  it('rejects invalid UTF-8 bytes that would decode to a legitimately signed replacement character before SQL', async () => {
+    const id = 'evt_peable_utf8_invalid';
+    const text = eventBody({ id }).replace('synthetic-client-secret', 'synthetic-\uFFFD');
+    const bytes = Buffer.from(text, 'utf8');
+    const index = bytes.indexOf(Buffer.from('\uFFFD'));
+    expect(index).toBeGreaterThan(0);
+    const malformed = Buffer.concat([bytes.subarray(0, index), Buffer.from([0xff]), bytes.subarray(index + 3)]);
+    expect(malformed.toString('utf8')).toBe(text);
+    const base = await listen(createApp());
+    const rejected = await post(base, new Uint8Array(malformed), sign(text, SECRET));
+    expect({ status: rejected.status, storedRows: (await storedEvents(id)).length }).toEqual({ status: 400, storedRows: 0 });
+    expect((await post(base, text, sign(text, SECRET))).status).toBe(200);
+    expect(await storedEvents(id)).toHaveLength(1);
   });
 
   it('the SAME router behind express.json refuses the same delivery (vacuity guard)', async () => {
