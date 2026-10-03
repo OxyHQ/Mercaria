@@ -83,11 +83,14 @@ export async function ingestPeableDelivery(
 ): Promise<PeableIngressResult> {
   let envelope: ProviderEventEnvelope;
   try {
+    const payload = delivery.payload.toString('utf8');
+    // The SDK accepts UTF-8 strings. Refuse lossy decoding before verification
+    // so altered raw bytes cannot authenticate as the same replacement character.
+    if (!Buffer.from(payload, 'utf8').equals(delivery.payload)) {
+      return { outcome: 'rejected', code: 'invalid_signature' };
+    }
     envelope = verifyPeableSignature({
-      // `toString('utf8')` on the RAW buffer, not a re-serialization: the HMAC
-      // is over the exact bytes the gateway signed, and `JSON.stringify` of a
-      // parsed body reproduces them only by luck.
-      payload: delivery.payload.toString('utf8'),
+      payload,
       signature: delivery.signature,
     });
   } catch (error: unknown) {

@@ -611,9 +611,9 @@ connectPostgres()
       // provider events and reconciles subscriptions that already exist — so
       // registering it only when merchants may upgrade would strand every live
       // subscription the moment somebody pulled the incident lever.
-      import('./services/billing/stripe/stripe-billing.js')
-        .then(({ registerStripeBillingProvider }) => registerStripeBillingProvider())
-        .catch((err) => log.general.error({ err }, 'Stripe billing registration failed'));
+      import('./services/billing/register.js')
+        .then(({ registerMerchantBillingProvider }) => registerMerchantBillingProvider())
+        .catch((err) => log.general.error({ err }, 'Merchant billing registration failed'));
 
       // Re-read subscriptions the rail has not told us about lately, and catch
       // the audit trail up on grace periods that have run out. The DEADLINE is

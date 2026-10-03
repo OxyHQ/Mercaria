@@ -1,0 +1,299 @@
+$ vitest run src/services/billing/peable/__tests__/cors.test.ts
+
+ RUN  v4.1.10 /home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend
+
+[06:18:05] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[06:18:05] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[06:18:05] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[06:18:05] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[06:18:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search"
+[06:18:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed"
+[06:18:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "discovery"
+[06:18:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[06:18:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart-merge"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "checkout"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reviews"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "sellers"
+[06:18:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "rates"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "nearby"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search-intent"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "seo"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchantCompetitiveness"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-redirect"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "outbound"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[06:18:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-issue"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-recover"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "analytics-ingest"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-demand"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[06:18:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[06:18:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[06:18:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "public-api"
+[06:18:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  09:18:01
+   Duration  11.10s (transform 5.97s, setup 0ms, import 10ms, tests 8.54s, environment 0ms)
+

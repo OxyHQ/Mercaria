@@ -76,8 +76,15 @@ ADR 0001 already insists has exactly one.
 
 ### D15. Mercaria keeps its Stripe platform account — it is registered inside Peable
 
-Peable holds a `provider_connections` row carrying Mercaria's own encrypted
-Stripe credentials, and calls Stripe **as Mercaria**.
+**2026-10-03 amendment for the approved I08 billing cohort:** Peable uses the
+same existing platform Stripe account/mode as Mercaria, configured server-side.
+No `provider_connections` row or merchant-supplied credential is introduced:
+that earlier proposed mechanism conflicts with Peable ADR 0009. This amendment
+preserves the existing Mercaria flow/MoR and does not decide other merchants'
+commercial model. [Cohort contract and activation gates](../integrations/i08-billing-cohort.md).
+
+The former `provider_connections` description is historical, not an implemented
+or approved credential model.
 
 The reasoning is Peable's ADR 0001 D3 and is not repeated here, but the
 conclusion for this repository is what preserves ADR 0001 D1: **Mercaria remains
@@ -87,9 +94,9 @@ application` that separate charges and transfers forces. Nothing about
 Mercaria's legal position changes, which is why this ADR does not reopen D1 and
 does not need a legal review to ship.
 
-What Mercaria gives up is direct access to those credentials. What it gains is a
-rail it can change without touching its own code: SumUp, Square or a bank API
-arrives as a Peable provider, and `peable-provider.ts` does not know.
+Full removal of direct Stripe access remains a later verified transition. The
+I08 cohort still needs the existing webhook and read paths; no credential or
+financial history is deleted as a side effect of installing the adapter.
 
 ### D16. `getStatus` becomes real, because the read path stops bypassing the port
 
@@ -114,7 +121,7 @@ Recorded so the other two are decisions rather than oversights.
 |---|---|---|
 | Marketplace payments | `services/payments/**` | **This ADR.** |
 | Referral payouts | `services/referral-payouts/rail.ts` → `createStripeTransfer` | **Moves with the settlement work.** It transfers to connected accounts that become Peable's; leaving it behind does not keep it working, it breaks it. |
-| Merchant subscriptions | `services/billing/stripe/**` (#89) | **Stays on Stripe for now**, as an explicit exception. It touches only the platform account and no connected account, so it is not broken by the move; and Peable has no subscriptions surface to receive it. It books `subscription_revenue`, which ADR 0001 D3's commission residual deliberately does not touch, so the ledger is unaffected either way. |
+| Merchant subscriptions | `services/billing/stripe/**` (#89) | **Transitions by an explicit I08 cohort** through Peable SDK billing, preserving the same Stripe platform account. Outside the cohort, the legacy adapter remains. Stripe webhook projection, invoice settlement reads and first-subscription customer classification remain transitional here; they are not a second mutator for the cohort. It books `subscription_revenue`, which ADR 0001 D3's commission residual deliberately does not touch, so the ledger is unaffected either way. |
 
 The exception has a cost and it is named: until billing moves, this repository
 still holds a Stripe secret key and a Stripe SDK for one purpose. "Everything

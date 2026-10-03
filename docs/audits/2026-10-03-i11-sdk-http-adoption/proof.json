@@ -1,0 +1,70 @@
+{
+  "sourceCommit": "f3a011de84056058ffb49d947cd27c5c8e5eff83",
+  "sources": [
+    {
+      "path": "bun.lock",
+      "sha256": "39b4940085468c09c046918b6140e8ffd15ac3d9fc10f66b13ba1f15df74f5d0"
+    },
+    {
+      "path": "docs/integrations/i08-published-sdk-equivalence.md",
+      "sha256": "2d016b7223f3cdf4e28ac0e250e2ad64ef34f2d82d87bd436b10c083561609e9"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "sha256": "660219b17f3b2c01e43201c7b819e0c78ab3e77e6a3d33c7173fc79cd1ce0d98"
+    },
+    {
+      "path": "packages/backend/src/services/payments/__tests__/peable-provider.test.ts",
+      "sha256": "095232b3c74508c54ca1d7b4ff7480db44e346e138f333394e567f748c63af42"
+    },
+    {
+      "path": "packages/backend/src/services/payments/peable/peable-provider.ts",
+      "sha256": "27adcf5b28b2097f62869187b32d7a515e4df9eb4575fef0bb1979ea1d64a138"
+    },
+    {
+      "path": "packages/backend/src/services/payments/peable/verify.ts",
+      "sha256": "fce49620c41d6e45382c42bb442dc9262cf29a7120a30321935aad7a7023a26e"
+    },
+    {
+      "path": "packages/backend/src/services/payments/registry.ts",
+      "sha256": "2cb1f8dcc540f842e8a0d453da4f26820a6a4ba571abbab662e43db31a26b6cd"
+    }
+  ],
+  "deleted": [
+    "packages/backend/src/services/payments/peable/client.ts"
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-http-adoption/README.md",
+      "sha256": "0d78ef56c1056c2a4e47e89d6364e4b89594f1ad8648f25bd0ea366fe759068a"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-http-adoption/installed-byte-comparison.json",
+      "sha256": "a6954e16186e16d25d50e9ef458e7921f4154288bfe38058ce128c3c1b4da166"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-http-adoption/sdk021-install.log",
+      "sha256": "7281b56b6a7c33cdb6f2ba9475c952b67948e0827d585461fad751f75138136e"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-http-adoption/sdk021-lint-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-http-adoption/sdk021-parity-final2.log",
+      "sha256": "5136e3e3de95a1b2d80452c15f152bd893e05fbaa97d60f96800b04cdcf624d1"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-http-adoption/sdk021-provider-first.log",
+      "sha256": "59abd24878de8f800d0b7a6c07ecb28017967b79449b2862258e94d9a6dde6a5"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-http-adoption/sdk021-provider-parity.log",
+      "sha256": "df84499354ad8dfb4ceb7935e5c93302f279c2640d6f2b3691f7f1c9b06a59c1"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-http-adoption/sdk021-types-final.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    }
+  ]
+}

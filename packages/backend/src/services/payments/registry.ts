@@ -74,8 +74,8 @@ export function resolvePaymentProvider(provider: PaymentProviderId): PaymentProv
   if (provider === 'peable') {
     if (!isRailConfigured(provider)) return undefined;
     // One instance per process, for the same reason Stripe's is: the adapter is
-    // cheap and holds no connection — the token cache it calls through is a
-    // module singleton in `peable/client.ts` — and a fresh one per call would
+    // cheap and holds no connection — its published SDK owns token caching
+    // and single-flight minting — and a fresh one per call would
     // mint a service token per request against Oxy's own rate limit.
     peableInstance ??= new PeablePaymentProvider();
     return peableInstance;

@@ -1,0 +1,10 @@
+$ vitest run src/services/payments/__tests__/peable-provider.test.ts
+
+ RUN  v4.1.10 /home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend
+
+
+ Test Files  1 passed (1)
+      Tests  32 passed | 2 skipped (34)
+   Start at  10:34:41
+   Duration  3.26s (transform 406ms, setup 0ms, import 549ms, tests 123ms, environment 0ms)
+
