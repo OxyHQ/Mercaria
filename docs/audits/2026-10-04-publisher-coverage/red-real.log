@@ -1,0 +1,38 @@
+$ vitest run --config ../../.integration-evidence/publisher-census/vitest.config.mjs
+
+ RUN  v4.1.10 /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend
+
+ ❯ src/db/__tests__/deployCoverage.test.ts (48 tests | 1 failed) 54ms
+     × accounts for every credential-holding workflow it does NOT watch 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/db/__tests__/deployCoverage.test.ts > the coverage check watches every workflow that can ship > accounts for every credential-holding workflow it does NOT watch
+AssertionError: expected [ 'publish-reviewed-images.yml', …(2) ] to deeply equal [ 'setup-mention-mcp-dns.yml', …(1) ]
+
+- Expected
++ Received
+
+  [
++   "publish-reviewed-images.yml",
+    "setup-mention-mcp-dns.yml",
+    "setup-mercaria-mcp-dns.yml",
+  ]
+
+ ❯ src/db/__tests__/deployCoverage.test.ts:216:29
+    214|     // which is the half a `push`-trigger filter silently skips.
+    215|     const excluded = CREDENTIAL_FILES.filter((file) => !DEPLOYING_FILE…
+    216|     expect(excluded.sort()).toEqual(Object.keys(DISPATCH_ONLY_WITH_CRE…
+       |                             ^
+    217|   });
+    218|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 47 passed (48)
+   Start at  01:50:25
+   Duration  294ms (transform 48ms, setup 0ms, import 164ms, tests 54ms, environment 0ms)
+
+error: script "test" exited with code 1

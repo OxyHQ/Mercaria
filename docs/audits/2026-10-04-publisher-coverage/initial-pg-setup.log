@@ -1,0 +1,34 @@
+$ vitest run src/db/__tests__/deployCoverage.test.ts
+
+ RUN  v4.1.10 /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend
+
+No test files found, exiting with code 1
+
+filter: src/db/__tests__/deployCoverage.test.ts
+include: src/**/__tests__/**/*.test.ts, src/**/*.test.ts, scripts/**/__tests__/**/*.test.ts
+exclude:  **/node_modules/**, **/.git/**
+
+
+⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
+Error: write CONNECT_TIMEOUT 127.0.0.1:5435
+ ❯ connectTimedOut ../../../../node_modules/postgres/src/connection.js:262:20
+ ❯ Timeout.done [as _onTimeout] ../../../../node_modules/postgres/src/connection.js:1059:8
+ ❯ listOnTimeout node:internal/timers:687:11
+ ❯ processTimers node:internal/timers:618:7
+ ❯ cachedError ../../../../node_modules/postgres/src/query.js:170:23
+ ❯ new Query ../../../../node_modules/postgres/src/query.js:36:24
+ ❯ sql ../../../../node_modules/postgres/src/index.js:112:11
+ ❯ assertLockCeiling vitest.pg.globalSetup.ts:93:25
+     91|   let setting: string;
+     92|   try {
+     93|     const [row] = await sql<{ setting: string }[]>`
+       |                         ^
+     94|       select setting from pg_settings where name = 'max_locks_per_tran…
+     95|     `;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'CONNECT_TIMEOUT', errno: 'CONNECT_TIMEOUT', address: '127.0.0.1', port: 5435, query: undefined, parameters: undefined, args: [], types: null }
+
+
+
+error: script "test" exited with code 1
