@@ -1,0 +1,83 @@
+{
+  "sourceCommit": "134a24687371f9356fef927e2e39e0c63e19cb7a",
+  "sources": [
+    {
+      "path": "bun.lock",
+      "sha256": "c3f24640e2c5cf868b8e600350b58e1310b8a754143faebeadbf43b51ec76016"
+    },
+    {
+      "path": "docs/integrations/i08-published-sdk-equivalence.md",
+      "sha256": "e16c06b646970feae3f6f075aa2393d29ee704d98679050f822b762c7a497adc"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "sha256": "0121dfdcc10bfd777fa62dff13d32a4435004bee6c478368329794503cd17d80"
+    },
+    {
+      "path": "packages/backend/src/routes/__tests__/peable-webhook.integration.test.ts",
+      "sha256": "d2e6ad97910a8d7e0a26d32fa946e0c61e5fe9c80973ab9a54ef6e72562cb5dc"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/adapter.realdb.test.ts",
+      "sha256": "7578b1193896529e81505ffd42d07f89e8c82e67d09d64f438b0ac45815926fd"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/adapter.ts",
+      "sha256": "2f2055e5919f8b416a8933ad449e6b358a429d1d3127b1f46acefaa7a2da77b3"
+    },
+    {
+      "path": "packages/backend/src/services/payments/__tests__/peable-provider.test.ts",
+      "sha256": "dbebe8f43f74dd42bdd18af2784f5718994d9f859770acaff7d4a6e916301a97"
+    },
+    {
+      "path": "packages/backend/src/services/payments/peable/peable-provider.ts",
+      "sha256": "4baccf481459f9dd137adc6707abcd6c2b4e75b7b23d03c0fdab7c163c2db103"
+    },
+    {
+      "path": "packages/backend/src/services/payments/peable/verify.ts",
+      "sha256": "d3ac8f422a5261bf39c01572172c324206259170679792639c9ddf079b514c43"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-webhook-adoption/README.md",
+      "sha256": "2cfaddc5e98c12c1bb11c385caaa43b9e9e6de27a0362964aad5862d5296b5f5"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-webhook-adoption/cancel-replay-green.log",
+      "sha256": "2cfc291d9d928a6a5b4d034ffdad767f6a2b9dee4b201b114383a0669c037514"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-webhook-adoption/cancel-replay-red.log",
+      "sha256": "b5530f96b73469ce543cafa4145f5d9a12e2b11e7149fc1a5fc2cba3cc61b695"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-webhook-adoption/installed-byte-comparison.json",
+      "sha256": "06493db9fbffb8b92e87794ffefda6326b9e0d994ad60db51da37b31cb5205a0"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-webhook-adoption/sdk-error-classification-red.log",
+      "sha256": "1eab2fa7d6b7c2f4d875dea59dd449a98bc81f6bbe6e355bbbada67cba0f5ebc"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-webhook-adoption/sdk022-db-cleanup.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-webhook-adoption/sdk022-final-focals.log",
+      "sha256": "2b840ac9cdb98c4f4e6ece38858c305b60cef157683fc39f16182486607edc23"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-webhook-adoption/sdk022-lint-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-webhook-adoption/sdk022-registry-install.log",
+      "sha256": "be126aa8b161f88a4d515e02b5b0563142daa099d886aad14288af90cfdfad9b"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i11-sdk-webhook-adoption/sdk022-types-final.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    }
+  ]
+}
