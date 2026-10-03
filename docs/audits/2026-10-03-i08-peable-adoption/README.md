@@ -39,3 +39,14 @@ reviewed operations. Existing Stripe webhook/settlement reads stay transitional;
 no claim that all ingress moved. No real Stripe call or money movement was made
 by these tests. Production's empty commercial tables support a historical no-op,
 not an invented merchant or imported rows.
+
+## CI census followup
+
+Root accepted the a267c2ef source and9fba547e local proof. CI37102984755 then
+reported12206 passing/1 failing/5 skipped tests across779 files: the only failure
+was our inert subscription fixture's future literal2026-11-01 in the date census.
+Commit95f58808 pins the period safely in2020 and derives its end from its start.
+No runtime source changed. The date census plus actual SDK/SQL adapter suite
+then passed27 tests in2 files locally. Full CI on the new head remains pending.
+Published-SDK equivalence/cutover gaps are explicit in
+[the method matrix](../../integrations/i08-published-sdk-equivalence.md).
