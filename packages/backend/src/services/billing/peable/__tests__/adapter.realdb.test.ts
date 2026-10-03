@@ -91,7 +91,7 @@ beforeAll(async () => {
 afterAll(async () => { resetBillingProviders(); await new Promise<void>(resolve => routeServer.close(() => resolve())); await new Promise<void>(resolve => server.close(() => resolve())); await closePostgres(); });
 beforeEach(() => {
   behavior = 'normal'; flags.enabled = true; resetBillingProviders(); calls.length = 0; readStripe.mockClear();
-  snapshot = { providerSubscriptionId: sub, providerCustomerId: customer, providerPriceId: price, storeId, planId, livemode: false, status: 'active', interval: 'month', cancelAtPeriodEnd: false, currentPeriodStart: '2026-10-01T00:00:00.000Z', currentPeriodEnd: '2026-11-01T00:00:00.000Z', trialEndsAt: null, cancelAt: null, cancelledAt: null };
+  snapshot = { providerSubscriptionId: sub, providerCustomerId: customer, providerPriceId: price, storeId, planId, livemode: false, status: 'active', interval: 'month', cancelAtPeriodEnd: false, currentPeriodStart: '2020-01-01T00:00:00.000Z', currentPeriodEnd: new Date(Date.parse('2020-01-01T00:00:00.000Z') + 31 * 86400000).toISOString(), trialEndsAt: null, cancelAt: null, cancelledAt: null };
   legacy = { id: 'stripe', livemode: false, ensureCustomer: vi.fn(), createCheckoutSession: vi.fn(), createPortalSession: vi.fn(), retrieveSubscription: vi.fn(), cancelAtPeriodEnd: vi.fn() };
   provider = new CohortBillingProvider(legacy, new Peable({ publicKey: 'fixture-public', secret: 'fixture-secret', baseURL: url, oxyApiUrl: url }), { merchantId: 'merchant-fixture', applicationId: 'app-fixture', environment: 'development', platformAccountId: 'acct_fixture', livemode: false, storeIds: [storeId] }, readStripe);
   registerBillingProvider(provider);
