@@ -39,7 +39,8 @@
     },
     {
       "path": "packages/backend/src/services/billing/peable/__tests__/adapter.realdb.test.ts",
-      "sha256": "830ae6b89f99c467cac830a199ea3d43ede5f48a319ba87635af90043a340e73"
+      "sha256": "6ecf93b4617b555f4713c9d39d4027d1bc55ec81fbdd75fd317faa2f93d78cc7",
+      "sourceCommit": "95f58808"
     },
     {
       "path": "packages/backend/src/services/billing/peable/__tests__/cors.test.ts",
@@ -89,7 +90,7 @@
   "records": [
     {
       "path": "docs/audits/2026-10-03-i08-peable-adoption/README.md",
-      "sha256": "623d08115aebd046f8d837d8fe6fa071a0d071b259e2bf203ffe0882affd2171"
+      "sha256": "8a9b7666676c5a4083989705d760fe18f052ab1f6d4559907f2d735bebc4e886"
     },
     {
       "path": "docs/audits/2026-10-03-i08-peable-adoption/adapter-focal.log",
@@ -150,6 +151,18 @@
     {
       "path": "docs/audits/2026-10-03-i08-peable-adoption/registry-byte-comparison.json",
       "sha256": "d41998c7024b4403cfa3145e492104221a9c582134dad9173be919ada7db5214"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/ci-37102984755-failed.log",
+      "sha256": "4cc1d2e650bd614c98a0f38fc13faacdd7c533b3d5023393cb3599d3ec313714"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/date-census-final.log",
+      "sha256": "19d8a4390a6164666af8b1442ac405a0f27a3493f85e53cf52393e55b242d21d"
+    },
+    {
+      "path": "docs/integrations/i08-published-sdk-equivalence.md",
+      "sha256": "3b14946339647d5f06c462fb402b4d7ef2ffe25bb254a183b4a8a22d66f9e5c6"
     }
   ],
   "checks": {
@@ -159,5 +172,6 @@
     "typesBuildLint": "pass",
     "live": "not activated",
     "dbTeardown": "no own fixture databases remain"
-  }
+  },
+  "fixtureFollowupCommit": "95f58808"
 }
