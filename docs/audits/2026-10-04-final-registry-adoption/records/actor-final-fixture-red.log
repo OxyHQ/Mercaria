@@ -1,0 +1,53 @@
+$ vitest run src/routes/__tests__/capabilities.test.ts
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend[39m
+
+ [31m❯[39m src/routes/__tests__/capabilities.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 148[2mms[22m[39m
+     [32m✓[39m requires a capability ticket and marks every response non-cacheable[32m 23[2mms[22m[39m
+     [32m✓[39m rechecks live authority, executes as the delegated account and audits the real agent[32m 10[2mms[22m[39m
+[31m     [31m×[31m preserves the signed { type: 'requester', accountId: 'requester-account' } actor separately from the effective account[39m[32m 21[2mms[22m[39m
+     [32m✓[39m preserves the signed { type: 'alia', ownerAccountId: 'alia-owner' } actor separately from the effective account[32m 16[2mms[22m[39m
+     [32m✓[39m blocks a ticket revoked between planning and execution[32m 11[2mms[22m[39m
+     [32m✓[39m enforces signed financial limits before introspection or domain effects[32m 22[2mms[22m[39m
+     [32m✓[39m fails closed when Mercaria cannot recalculate live domain authority[32m 21[2mms[22m[39m
+     [32m✓[39m refuses non-schema input before any authority-controlled effect[32m 22[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/routes/__tests__/capabilities.test.ts[2m > [22mMercaria internal capability routes[2m > [22mpreserves the signed { type: 'requester', accountId: 'requester-account' } actor separately from the effective account
+[31m[1mAssertionError[22m: expected "vi.fn()" to be called with arguments: [ 'listBuyerOrders', …(3) ][90m
+
+Received:
+
+[1m  1st vi.fn() call:
+
+[22m[33m@@ -3,7 +3,7 @@[90m
+[2m    {[22m
+[2m      "limit": 20,[22m
+[2m      "page": 1,[22m
+[2m    },[22m
+[2m    "owner-account",[22m
+[32m-   "requester-account",[90m
+[31m+   undefined,[90m
+[2m  ][22m
+[31m[90m
+
+Number of calls: [1m1[22m
+[31m[39m
+[36m [2m❯[22m src/routes/__tests__/capabilities.test.ts:[2m145:27[22m[39m
+    [90m143|[39m     [34mexpect[39m(response[33m.[39mstatus)[33m.[39m[34mtoBe[39m([34m200[39m)[33m;[39m
+    [90m144|[39m     expect(mocks.authorizeDomain).toHaveBeenCalledWith('listBuyerOrder…
+    [90m145|[39m     expect(mocks.execute).toHaveBeenCalledWith('listBuyerOrders', { pa…
+    [90m   |[39m                           [31m^[39m
+    [90m146|[39m   })[33m;[39m
+    [90m147|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m7 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 02:35:26
+[2m   Duration [22m 3.33s[2m (transform 202ms, setup 0ms, import 490ms, tests 148ms, environment 0ms)[22m
+
+error: script "test" exited with code 1

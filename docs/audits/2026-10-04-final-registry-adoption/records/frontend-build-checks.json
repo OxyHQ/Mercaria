@@ -1,0 +1,38 @@
+[
+  {
+    "name": "frontend-build",
+    "cwd": ".",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "build:frontend"
+    ],
+    "exitCode": 0,
+    "seconds": 17.027
+  },
+  {
+    "name": "dashboard-build",
+    "cwd": ".",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "build:dashboard"
+    ],
+    "exitCode": 0,
+    "seconds": 17.38
+  },
+  {
+    "name": "pos-build",
+    "cwd": ".",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "build:pos"
+    ],
+    "exitCode": 0,
+    "seconds": 15.767
+  }
+]

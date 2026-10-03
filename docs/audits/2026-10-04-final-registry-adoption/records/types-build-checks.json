@@ -1,0 +1,26 @@
+[
+  {
+    "name": "backend-build",
+    "cwd": ".",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "build:backend"
+    ],
+    "exitCode": 0,
+    "seconds": 1.367
+  },
+  {
+    "name": "backend-types",
+    "cwd": "packages/backend",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "typecheck"
+    ],
+    "exitCode": 2,
+    "seconds": 27.443
+  }
+]
