@@ -90,7 +90,7 @@
   "records": [
     {
       "path": "docs/audits/2026-10-03-i08-peable-adoption/README.md",
-      "sha256": "8a9b7666676c5a4083989705d760fe18f052ab1f6d4559907f2d735bebc4e886"
+      "sha256": "7ecce6649140363f5a17c5a600f0ab667f4dab05e191561d10146956e1c86a97"
     },
     {
       "path": "docs/audits/2026-10-03-i08-peable-adoption/adapter-focal.log",
@@ -163,6 +163,10 @@
     {
       "path": "docs/integrations/i08-published-sdk-equivalence.md",
       "sha256": "3b14946339647d5f06c462fb402b4d7ef2ffe25bb254a183b4a8a22d66f9e5c6"
+    },
+    {
+      "path": "docs/audits/2026-10-03-i08-peable-adoption/ci-final.json",
+      "sha256": "c989dfefa6e18cd90ed2b0040d1b22e354ebeadd0a293387f1f1f483077cd510"
     }
   ],
   "checks": {
