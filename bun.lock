@@ -24,7 +24,7 @@
         "@oxy.so/crowdsource-express": "^1.0.0",
         "@oxy.so/db": "^1.0.0",
         "@oxy.so/mcp": "^1.0.0",
-        "@peable.to/sdk": "^0.2.0",
+        "@peable.to/sdk": "^0.2.1",
         "@socket.io/redis-adapter": "^8.3.0",
         "bullmq": "^5.80.4",
         "cors": "^2.8.6",
@@ -909,7 +909,7 @@
 
     "@parcel/watcher-win32-x64": ["@parcel/watcher-win32-x64@2.5.6", "", { "os": "win32", "cpu": "x64" }, "sha512-hbQlYcCq5dlAX9Qx+kFb0FHue6vbjlf0FrNzSKdYK2APUf7tGfGxQCk2ihEREmbR6ZMc0MVAD5RIX/41gpUzTw=="],
 
-    "@peable.to/sdk": ["@peable.to/sdk@0.2.0", "", { "dependencies": { "@peable.to/shared-types": "^0.3.0", "qrcode-generator": "^2.0.4", "socket.io-client": "^4.8.3" } }, "sha512-hG3LW2DKYc7CgAAqReWcVsZ55c7e3uOATKGSekue75tKZ63jZn5Xku1VOEhD7JFNWGBa7JqmBR182obt6LGvrg=="],
+    "@peable.to/sdk": ["@peable.to/sdk@0.2.1", "", { "dependencies": { "@peable.to/shared-types": "^0.3.0", "qrcode-generator": "^2.0.4", "socket.io-client": "^4.8.3" } }, "sha512-uza6xW5a7fDkPSA+SDIjNqjDld4XizDGfeUK0iCn1GXiY1OminDjgZ6Y3nBjK98UdUUVl8FgINRTrERDdMAFtA=="],
 
     "@peable.to/shared-types": ["@peable.to/shared-types@0.3.0", "", {}, "sha512-SczFYX93BkY1OghT95oKemixSFsbWI98jeV6gwXBqWtBAuXS6mit2fk0hLyoFQVvSpul1Rq3RCjsBEobygZOaw=="],
 

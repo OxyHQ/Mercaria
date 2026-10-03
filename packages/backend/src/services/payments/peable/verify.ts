@@ -9,11 +9,11 @@
  * luck, so a parser reaching the stream first does not weaken verification, it
  * breaks every delivery.
  *
- * It is reimplemented here rather than imported from `@peable.to/shared-types`
- * for the same reason `client.ts` does not use the published SDK: the gateway's
- * contract is versioned by its deployment, and coupling Mercaria's release to a
- * Peable `npm publish` buys nothing for forty lines of HMAC. The scheme is
- * pinned by `verify.test.ts`, which signs with the gateway's own algorithm.
+ * SDK0.2.1 constructEvent only accepts five payment event types, so it cannot
+ * yet replace this domain boundary for refunds/transfers/disputes. An upstream
+ * canonical event allowlist and signed parity tests are required before removal;
+ * the HTTP adapter already uses the published SDK. Current/previous secret
+ * rotation remains Mercaria configuration, never local token plumbing.
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto';

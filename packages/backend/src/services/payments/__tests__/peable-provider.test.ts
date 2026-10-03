@@ -21,7 +21,8 @@
  * things no test establishes, and this file does not pretend to be any of them.
  */
 
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
+import { createServer } from 'node:http';
 import { createHmac } from 'node:crypto';
 import type { PaymentProviderStage } from '../provider.js';
 import { PaymentProviderError } from '../provider.js';
@@ -43,6 +44,12 @@ const transfersByRef = new Map<string, { id: string; intentId: string; reversedM
 const intentsByKey = new Map<string, string>();
 let nextId = 0;
 let failNextStage: PaymentProviderStage | null = null;
+const wire: FakeRequest[] = [];
+let mintCount = 0;
+let rejectRequests = 0;
+let forcedStatus: number | null = null;
+let dropAfterEffect = false;
+let refundLifecycle: 'pending' | 'failed' | null = null;
 
 const WEBHOOK_SECRET = 'whsec_contract_peable';
 
@@ -53,6 +60,7 @@ function reset(): void {
   intentsByKey.clear();
   nextId = 0;
   failNextStage = null;
+  wire.length = 0; mintCount = 0; rejectRequests = 0; forcedStatus = null; dropAfterEffect = false; refundLifecycle = null;
 }
 
 interface FakeRequest {
@@ -228,10 +236,62 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
   throw new Error(`the fake gateway has no route for ${request.method} ${request.path}`);
 }
 
-vi.mock('../peable/client.js', () => ({
-  peableRequest: (request: FakeRequest) => fakeGateway(request),
-  resetPeableToken: () => undefined,
-}));
+// Exercise the published SDK, including token mint and HTTP serialization.
+// Only the gateway/provider boundary is synthetic; no local client is mocked.
+let gatewayUrl = '';
+const gateway = createServer(async (req, res) => {
+  res.setHeader('content-type', 'application/json');
+  if (req.url === '/auth/service-token') {
+    mintCount += 1;
+    res.end(JSON.stringify({ data: { token: 'synthetic-service-token', expiresIn: 300 } }));
+    return;
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(Buffer.from(chunk));
+  const raw = Buffer.concat(chunks).toString();
+  const path = req.url ?? '';
+  const stage: PaymentProviderStage = path === '/v1/payment_intents' ? 'createPayment'
+    : path.endsWith('/reject') ? 'cancel' : path === '/v1/refunds' ? 'refund'
+    : path.startsWith('/v1/transfers') ? 'transfer' : 'getStatus';
+  const key = req.headers['idempotency-key'];
+  try {
+    const request: FakeRequest = { method: req.method ?? 'GET', path, stage,
+      ...(raw ? { body: JSON.parse(raw) as Record<string, unknown> } : {}),
+      ...(typeof key === 'string' ? { idempotencyKey: key } : {}),
+    };
+    wire.push(request);
+    if (rejectRequests > 0 || forcedStatus !== null) {
+      res.statusCode = forcedStatus ?? 401;
+      rejectRequests = Math.max(0, rejectRequests - 1);
+      res.end(JSON.stringify({ error: { type: 'fixture_refusal', message: 'synthetic-sensitive-detail' } }));
+      return;
+    }
+    const result = await fakeGateway(request);
+    if (dropAfterEffect) {
+      dropAfterEffect = false;
+      res.writeHead(200, { 'content-length': '2000' }); res.write('{');
+      setTimeout(() => res.destroy(), 10); return;
+    }
+    if (refundLifecycle && path === '/v1/refunds' && typeof result === 'object' && result !== null) {
+      res.end(JSON.stringify({ ...result, status: refundLifecycle, failureCode: refundLifecycle === 'failed' ? 'fixture_decline' : null }));
+      return;
+    }
+    res.end(JSON.stringify(result));
+  } catch (error) {
+    res.statusCode = error instanceof PaymentProviderError && !error.retryable ? 400 : 503;
+    res.end(JSON.stringify({ error: { type: 'fixture_error', message: 'Synthetic gateway refusal' } }));
+  }
+});
+beforeAll(async () => {
+  await new Promise<void>((resolve) => gateway.listen(0, '127.0.0.1', resolve));
+  const address = gateway.address();
+  if (!address || typeof address === 'string') throw new Error('Missing local gateway port');
+  gatewayUrl = `http://127.0.0.1:${address.port}`;
+});
+afterAll(async () => {
+  gateway.closeAllConnections();
+  await new Promise<void>((resolve, reject) => gateway.close(error => error ? reject(error) : resolve()));
+});
 
 vi.mock('../../../config/index.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../config/index.js')>();
@@ -243,8 +303,8 @@ vi.mock('../../../config/index.js', async (importOriginal) => {
         ...actual.config.payments,
         peable: {
           enabled: true,
-          baseUrl: 'https://gateway.test',
-          oxyApiUrl: 'https://oxy.test',
+          get baseUrl() { return gatewayUrl; },
+          get oxyApiUrl() { return gatewayUrl; },
           publicKey: 'pk',
           secret: 'sk',
           webhookSecret: WEBHOOK_SECRET,
@@ -431,6 +491,10 @@ describe('PeablePaymentProvider settlement', () => {
     // 5000, not 2000. This is the assertion that fails if the adapter ever
     // starts reporting the leg it just sent.
     expect(second.totalReversedMinor).toBe(5_000);
+    expect(wire.slice(-2).map(row => ({ key: row.idempotencyKey, body: row.body }))).toEqual([
+      { key: 'trr:order-rev:3000', body: { amount: '3000' } },
+      { key: 'trr:order-rev:2000', body: { amount: '2000' } },
+    ]);
   });
 
   /**
@@ -481,5 +545,70 @@ describe('PeablePaymentProvider settlement', () => {
     });
 
     expect(transfersByRef.has('order-naming')).toBe(true);
+    expect(wire.at(-1)).toEqual({ method: 'POST', path: '/v1/transfers', stage: 'transfer',
+      idempotencyKey: 'tr:order-naming', body: { paymentIntentId: sourceId,
+        connectedAccountId: 'ca_seller_naming', externalRef: 'order-naming', amount: '2500' } });
+  });
+});
+
+
+describe('published SDK HTTP parity', () => {
+  const request = {
+    paymentId: 'pay-http', checkoutGroupId: 'group-http',
+    amount: { amount: 1000, currency: 'EUR' as const }, orderIds: ['order-http'],
+    metadata: { stable_ref: 'fixture' }, idempotencyKey: 'pi:pay-http',
+  };
+  test('preserves body/key and one GET resume with optional client action', async () => {
+    const provider = new PeablePaymentProvider();
+    const created = await provider.createPayment(request);
+    expect(wire).toEqual([{ method: 'POST', path: '/v1/payment_intents', stage: 'createPayment',
+      idempotencyKey: request.idempotencyKey, body: { rail: 'card', amount: '1000', currency: 'EUR',
+        metadata: { stable_ref: 'fixture', mercaria_payment_id: 'pay-http', mercaria_checkout_group_id: 'group-http' } } }]);
+    const resumed = await provider.resumePayment(created.providerObjectId);
+    expect(resumed.clientAction).toEqual(created.clientAction);
+    expect(wire.slice(1)).toEqual([{ method: 'GET', path: `/v1/payment_intents/${created.providerObjectId}`, stage: 'getStatus' }]);
+    expect(mintCount).toBe(1);
+  });
+  test('re-mints once on401 with the same operation key; a second401 is final', async () => {
+    const provider = new PeablePaymentProvider(); rejectRequests = 1;
+    await provider.createPayment(request);
+    expect(mintCount).toBe(2); expect(wire).toHaveLength(2);
+    expect(wire.map(row => row.idempotencyKey)).toEqual([request.idempotencyKey, request.idempotencyKey]);
+    expect(intents.size).toBe(1);
+    wire.length = 0; rejectRequests = 2;
+    await expect(provider.createPayment({ ...request, idempotencyKey: 'pi:second' })).rejects.toMatchObject({ retryable: false });
+    expect(wire).toHaveLength(2); expect(mintCount).toBe(3); expect(intents.size).toBe(1);
+  });
+  test('lost response never auto-retries; explicit same-key retry converges on one effect', async () => {
+    const provider = new PeablePaymentProvider(); dropAfterEffect = true;
+    await expect(provider.createPayment(request)).rejects.toMatchObject({ retryable: true, stage: 'createPayment' });
+    expect(wire).toHaveLength(1); expect(intents.size).toBe(1);
+    const recovered = await provider.createPayment(request);
+    expect(recovered.providerObjectId).toBe([...intents.keys()][0]);
+    expect(wire).toHaveLength(2); expect(intents.size).toBe(1);
+    expect(wire[0]).toEqual(wire[1]);
+  });
+  test.each([400, 403, 409, 408, 429, 503])('maps refusal%s without provider text or extra attempts', async status => {
+    const provider = new PeablePaymentProvider(); forcedStatus = status;
+    const result = provider.createPayment(request);
+    await expect(result).rejects.toMatchObject({ provider: 'peable', stage: 'createPayment', retryable: [408,429,503].includes(status) });
+    await expect(result).rejects.not.toThrow('synthetic-sensitive-detail');
+    expect(wire).toHaveLength(1); expect(intents.size).toBe(0);
+  });
+  test('cancel preserves its durable key', async () => {
+    const provider = new PeablePaymentProvider(); const created = await provider.createPayment(request);
+    await provider.cancel({ paymentId: request.paymentId, providerObjectId: created.providerObjectId, idempotencyKey: 'cancel:pay-http' });
+    expect(wire.at(-1)).toEqual({ method: 'POST', path: `/v1/payment_intents/${created.providerObjectId}/reject`, stage: 'cancel', idempotencyKey: 'cancel:pay-http' });
+  });
+  test.each(['pending', 'failed'] as const)('keeps refund%s distinct from payment lifecycle, with externalRef and key', async state => {
+    const provider = new PeablePaymentProvider(); const created = await provider.createPayment(request);
+    intents.get(created.providerObjectId)!.status = 'settled'; refundLifecycle = state;
+    const refundRequest = { paymentId: request.paymentId, providerObjectId: created.providerObjectId, refundId: 'refund-http',
+      amount: { amount: 200, currency: 'EUR' as const }, idempotencyKey: 're:refund-http', metadata: {} };
+    const first = await provider.refund(refundRequest); const second = await provider.refund(refundRequest);
+    expect(first.state).toBe(state); expect(first.status).toBe('partially_refunded');
+    expect(second.providerObjectId).toBe(first.providerObjectId); expect(refundsByRef.size).toBe(1);
+    expect(wire.at(-1)).toEqual({ method: 'POST', path: '/v1/refunds', stage: 'refund', idempotencyKey: 're:refund-http',
+      body: { paymentIntentId: created.providerObjectId, externalRef: 'refund-http', amount: '200' } });
   });
 });
