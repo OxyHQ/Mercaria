@@ -134,6 +134,17 @@ describe('Mercaria internal capability routes', () => {
     });
   });
 
+  it.each([
+    [{ type: 'requester', accountId: 'requester-account' }, 'requester-account'],
+    [{ type: 'alia', ownerAccountId: 'alia-owner' }, 'alia-owner'],
+  ] as const)('preserves the signed %s actor separately from the effective account', async (actor, expectedActor) => {
+    mocks.verify.mockResolvedValueOnce(claims({ actor }));
+    const response = await request('listBuyerOrders', { page: 1, limit: 20 });
+    expect(response.status).toBe(200);
+    expect(mocks.authorizeDomain).toHaveBeenCalledWith('listBuyerOrders', { page: 1, limit: 20 }, 'owner-account');
+    expect(mocks.execute).toHaveBeenCalledWith('listBuyerOrders', { page: 1, limit: 20 }, 'owner-account', expectedActor);
+  });
+
   it('blocks a ticket revoked between planning and execution', async () => {
     mocks.introspect.mockResolvedValueOnce(false);
 
