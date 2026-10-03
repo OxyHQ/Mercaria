@@ -9,7 +9,7 @@ import { connectPostgres, closePostgres, type Database } from '../../../../db/po
 import { stores } from '../../../../db/schema/stores.js';
 import { activateMerchantPlan, insertMerchantPlan, insertMerchantPlanPrice, insertMerchantPlanAcceptance } from '../../../../db/merchantPlans/planRepository.js';
 import { ensureBillingCustomer, findSubscriptionByStore } from '../../../../db/merchantPlans/subscriptionRepository.js';
-import { applyProviderSubscriptionState, recordSubscriptionInvoicePaid } from '../../subscription.service.js';
+import { applyProviderSubscriptionState, recordSubscriptionInvoicePaid, scheduleMerchantSubscriptionCancellation } from '../../subscription.service.js';
 import { CohortBillingProvider } from '../adapter.js';
 import { registerBillingProvider, resetBillingProviders, type BillingProvider } from '../../provider.js';
 import { startPlanCheckoutHandler, openPlanPortalHandler } from '../../../../controllers/merchant-plans.controller.js';
@@ -25,7 +25,7 @@ vi.mock('../../../../config/index.js', async importOriginal => {
 let db: Database, server: Server, routeServer: Server, url: string, routeUrl: string;
 let storeId: string, otherStoreId: string, planId: string;
 let snapshot: BillingSubscription;
-let behavior: 'normal' | 'lost' | 'foreign-merchant' | 'wrong-store' | 'wrong-plan' | 'wrong-mode' | 'expired' | 'unavailable' | 'result-expired' = 'normal';
+let behavior: 'normal' | 'lost' | 'foreign-merchant' | 'wrong-store' | 'wrong-plan' | 'wrong-mode' | 'expired' | 'unavailable' | 'result-expired' | 'lost-cancel' | 'read-unavailable' = 'normal';
 const nonce = randomUUID().replaceAll('-', '');
 const customer = `cus_${nonce}`;
 const price = `price_${nonce}`;
@@ -60,7 +60,16 @@ beforeAll(async () => {
     if (behavior === 'unavailable') return reply({ error: { type: 'api_error', message: 'DO_NOT_LOG https://private.invalid/token' } }, 503);
     if (path.includes('/subscriptions/')) {
       let value = { ...snapshot };
-      if (path.endsWith('/cancel_at_period_end')) value = { ...value, cancelAtPeriodEnd: true, cancelAt: snapshot.currentPeriodEnd };
+      if (path.endsWith('/cancel_at_period_end')) {
+        if (!key) return reply({}, 400);
+        if (!receipts.has(key)) {
+          snapshot = { ...snapshot, cancelAtPeriodEnd: true, cancelAt: snapshot.currentPeriodEnd };
+          receipts.set(key, { ...snapshot }); effects++;
+        }
+        if (behavior === 'lost-cancel') { behavior = 'normal'; res.destroy(); return; }
+        return reply(receipts.get(key));
+      }
+      if (behavior === 'read-unavailable') return reply({ error: { type: 'api_error', message: 'synthetic unavailable' } }, 503);
       if (behavior === 'wrong-store') value.storeId = otherStoreId;
       if (behavior === 'wrong-plan') value.planId = 'foreign';
       if (behavior === 'wrong-mode') value.livemode = true;
@@ -196,5 +205,41 @@ describe('Peable cohort adoption / actual SDK HTTP and SQL', () => {
     const entries = await db.select().from(ledgerEntries).where(eq(ledgerEntries.transactionId, receipt[0]!.ledgerTransactionId!));
     expect(entries.reduce((sum, entry) => sum + entry.amountMinor, 0n)).toBe(0n);
     expect(entries.some(entry => entry.account === 'subscription_revenue')).toBe(true);
+  });
+});
+
+
+describe('cancellation receipt versus current projection', () => {
+  it('replays one cancellation effect while projecting a later verified subscription state', async () => {
+    await applyProviderSubscriptionState({ snapshot: await provider.retrieveSubscription(sub), note: 'fixture initial' });
+    const input = { storeId, idempotencyKey: `cancel-recovery-${randomUUID()}`, actorOxyUserId: `payer-${nonce}` };
+    const before = effects; behavior = 'lost-cancel';
+    await expect(scheduleMerchantSubscriptionCancellation(input)).rejects.toMatchObject({ code: 'billing_outcome_unknown', retryable: true });
+    // A later verified reconciliation sees the cancellation reverted at the provider.
+    snapshot = { ...snapshot, cancelAtPeriodEnd: false, cancelAt: null };
+    await applyProviderSubscriptionState({ snapshot: await provider.retrieveSubscription(sub), note: 'fixture later reconciliation' });
+    expect((await findSubscriptionByStore(db, storeId))?.status).toBe('active');
+    const result = await scheduleMerchantSubscriptionCancellation(input);
+    expect(result.status).toBe('active'); expect(result.cancelAt).toBeNull();
+    expect(effects - before).toBe(1);
+    expect(calls.filter(c => c.path.endsWith('/cancel_at_period_end')).map(c => c.key)).toEqual([input.idempotencyKey, input.idempotencyKey]);
+    expect(legacy.cancelAtPeriodEnd).not.toHaveBeenCalled();
+  });
+  it('keeps the newer SQL projection and original key when current read fails after replay', async () => {
+    await applyProviderSubscriptionState({ snapshot: await provider.retrieveSubscription(sub), note: 'fixture initial' });
+    const input = { storeId, idempotencyKey: `cancel-read-failure-${randomUUID()}`, actorOxyUserId: `payer-${nonce}` };
+    const before = effects; behavior = 'lost-cancel';
+    await expect(scheduleMerchantSubscriptionCancellation(input)).rejects.toMatchObject({ retryable: true });
+    snapshot = { ...snapshot, cancelAtPeriodEnd: false, cancelAt: null };
+    await applyProviderSubscriptionState({ snapshot: await provider.retrieveSubscription(sub), note: 'fixture later reconciliation' });
+    behavior = 'read-unavailable';
+    await expect(scheduleMerchantSubscriptionCancellation(input)).rejects.toMatchObject({ code: 'billing_outcome_unknown', retryable: true });
+    const retained = await findSubscriptionByStore(db, storeId);
+    expect(retained?.status).toBe('active'); expect(retained?.cancelAt).toBeNull();
+    expect(effects - before).toBe(1);
+    behavior = 'normal';
+    expect((await scheduleMerchantSubscriptionCancellation(input)).status).toBe('active');
+    expect(effects - before).toBe(1);
+    expect(calls.filter(c => c.path.endsWith('/cancel_at_period_end')).map(c => c.key)).toEqual([input.idempotencyKey, input.idempotencyKey, input.idempotencyKey]);
   });
 });

@@ -136,21 +136,26 @@ function listen(app: express.Express): Promise<string> {
 
 /** A syntactically complete gateway event body. */
 function eventBody(overrides: { id?: string; type?: string; intentId?: string }): string {
-  return JSON.stringify({
-    id: overrides.id ?? 'evt_peable_1',
-    object: 'event',
-    type: overrides.type ?? 'payment_intent.settled',
-    created: Math.floor(Date.now() / 1000),
-    data: {
-      object: {
-        id: overrides.intentId ?? 'pi_peable_test_1',
-        object: 'payment_intent',
-        status: 'settled',
-        amount: '1000',
-        currency: 'EUR',
-      },
-    },
-  });
+  const type = overrides.type ?? 'payment_intent.settled';
+  const created = new Date().toISOString();
+  const paymentIntentId = overrides.intentId ?? 'pi_peable_test_1';
+  const object = type === 'connected_account.updated' ? {
+    id: 'ca_peable_fixture', object: 'connected_account', externalRef: 'store_fixture',
+    country: 'ES', defaultCurrency: 'EUR', payable: false, payoutsEnabled: false,
+    chargesEnabled: false, transfersCapability: 'pending', cardPaymentsCapability: null,
+    requirements: { currentlyDue: 1, eventuallyDue: 1, pastDue: 0, pendingVerification: 0 },
+    disabledReasonCodes: [], lastSyncedAt: null, createdAt: created, updatedAt: created,
+  } : type === 'payment_intent.disputed' || type === 'payment_intent.dispute_closed' ? {
+    id: 'dp_peable_fixture', object: 'dispute', paymentIntentId, amount: '1000', currency: 'EUR',
+    status: type === 'payment_intent.disputed' ? 'needs_response' : 'won', reason: null,
+    evidenceDueAt: null, evidenceSubmittedAt: null, createdAt: created, updatedAt: created,
+  } : {
+    id: paymentIntentId, object: 'payment_intent', status: 'settled', amount: '1000', currency: 'EUR',
+    rail: 'card', network: null, address: null, merchantId: 'merch_fixture', txid: null,
+    confirmations: 0, clientSecret: 'synthetic-client-secret', metadata: {},
+    expiresAt: created, createdAt: created, updatedAt: created,
+  };
+  return JSON.stringify({ id: overrides.id ?? 'evt_peable_1', object: 'event', type, created, data: { object } });
 }
 
 /**
@@ -313,5 +318,41 @@ describe('Peable webhook signature verification', () => {
     expect(second.status).toBe(200);
     expect(second.body).toContain('"duplicate":true');
     expect(await storedEvents('evt_peable_dupe')).toHaveLength(1);
+  });
+});
+
+
+describe('published SDK webhook families and rotation', () => {
+  for (const type of ['payment_intent.refunded', 'payment_intent.partially_refunded',
+    'payment_intent.disputed', 'payment_intent.dispute_closed', 'connected_account.updated']) {
+    for (const [keyName, secret] of [['current', SECRET], ['previous', SECRET_PREVIOUS]]) {
+      it(`accepts ${type} signed with ${keyName} and persists its verified type once`, async () => {
+        const id = `evt_sdk_family_${type}_${keyName}`;
+        const payload = eventBody({ id, type });
+        const base = await listen(createApp());
+        expect((await post(base, payload, sign(payload, secret!))).status).toBe(200);
+        expect((await post(base, payload, sign(payload, secret!))).status).toBe(200);
+        const rows = await storedEvents(id);
+        expect(rows).toHaveLength(1);
+        expect(rows[0]?.type).toBe(type);
+      });
+    }
+  }
+  it('refuses a signed unknown event before SQL storage', async () => {
+    const id = 'evt_sdk_unknown'; const payload = eventBody({ id, type: 'transfer.invented' });
+    const base = await listen(createApp());
+    expect((await post(base, payload, sign(payload, SECRET))).status).toBe(400);
+    expect(await storedEvents(id)).toHaveLength(0);
+  });
+  it('refuses expired previous-secret and wrong-secret events before SQL storage', async () => {
+    const base = await listen(createApp());
+    for (const [suffix, secret, timestamp] of [
+      ['expired_previous', SECRET_PREVIOUS, Math.floor(Date.now() / 1000) - 301],
+      ['wrong', 'wrong-secret', Math.floor(Date.now() / 1000)],
+    ] as const) {
+      const id = `evt_sdk_${suffix}`; const payload = eventBody({ id, type: 'payment_intent.refunded' });
+      expect((await post(base, payload, sign(payload, secret, timestamp))).status).toBe(400);
+      expect(await storedEvents(id)).toHaveLength(0);
+    }
   });
 });

@@ -142,6 +142,13 @@ export class CohortBillingProvider implements BillingProvider {
     const store = await this.subscriptionStore(ref, 'cancelSubscription');
     if (!this.stores.has(store)) return this.legacy.cancelAtPeriodEnd(ref, idempotencyKey);
     const key = requireKey(idempotencyKey, 'cancelSubscription');
-    return this.call('cancelSubscription', async () => this.snapshot(await this.client.billing.cancelAtPeriodEnd(ref, { idempotencyKey: key }), ref, store, 'cancelSubscription'));
+    return this.call('cancelSubscription', async () => {
+      // An idempotent replay returns the original receipt, which may predate a
+      // later reconciliation. Verify it, then project the current observation.
+      // A failed read leaves the caller's intent pending; never project history
+      // or invent another mutation key to recover the response.
+      await this.snapshot(await this.client.billing.cancelAtPeriodEnd(ref, { idempotencyKey: key }), ref, store, 'cancelSubscription');
+      return this.snapshot(await this.client.billing.retrieveSubscription(ref), ref, store, 'cancelSubscription');
+    });
   }
 }

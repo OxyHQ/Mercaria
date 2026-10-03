@@ -54,7 +54,7 @@ import type {
   ReverseTransferRequest,
   SettlingPaymentProvider,
 } from '../provider.js';
-import { Peable, PeableApiError, PeableError } from '@peable.to/sdk';
+import { Peable, PeableError } from '@peable.to/sdk';
 import { config } from '../../../config/index.js';
 import { verifyPeableSignature } from './verify.js';
 
@@ -193,7 +193,9 @@ export class PeablePaymentProvider
       const status = error instanceof PeableError ? error.statusCode : undefined;
       throw new PaymentProviderError({ provider: 'peable', stage,
         message: 'The Peable operation failed; retry only with the original intent.',
-        retryable: !(error instanceof PeableError) || error instanceof PeableApiError || status === 408 || status === 429 || (status !== undefined && status >= 500),
+        // A truncated error body keeps its known refusal status. A lost 2xx
+        // body or transport without headers remains indeterminate/retryable.
+        retryable: status === undefined || status < 400 || status >= 500 || status === 408 || status === 429,
       });
     }
   }
