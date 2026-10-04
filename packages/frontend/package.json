@@ -19,6 +19,7 @@
   "dependencies": {
     "@expo/html-elements": "^0.13.8",
     "@expo/vector-icons": "^15.1.1",
+    "@goway.to/sdk": "0.3.0",
     "@hugeicons/react-native": "^1.0.15",
     "@mercaria/shared-types": "workspace:*",
     "@mercaria/ui": "workspace:*",
