@@ -1318,33 +1318,72 @@
       }
     },
     "members": {
-      "addFailed": "Couldn't add the member",
-      "addMember": "Add member",
-      "added": "Member added",
-      "documentTitle": "Members | Mercaria Dashboard",
-      "explicitPermissions": {
-        "one": "%{count} explicit permission granted",
-        "other": "%{count} explicit permissions granted"
+      "convert": {
+        "addInvitee": "Add person",
+        "body": "An organization in Oxy will own this store. You become its owner, and the people you invite can act for the store with the role you give them.",
+        "displayNameLabel": "Organization name",
+        "done": "The store now belongs to the organization",
+        "failed": "Couldn't convert the store",
+        "inviteLabel": "Username or email",
+        "invitePlaceholder": "username or email@example.com",
+        "inviteesTitle": "People to invite",
+        "nameRequired": "Enter the organization's name and username",
+        "open": "Convert to organization",
+        "someInvitesFailed": "The store moved, but these invitations failed: %{names}",
+        "submit": "Create organization and move store",
+        "title": "Convert to an organization",
+        "usernameLabel": "Organization username",
+        "warning": "People who could act for this store before and are not in the organization no longer have access to it."
       },
-      "invite": "Invite",
-      "inviteTitle": "Invite member",
-      "joinedOn": "Joined %{date}",
-      "loadFailed": "Couldn't load members",
-      "oxyUserIdLabel": "Oxy user id",
-      "oxyUserIdPlaceholder": "oxy user id",
-      "oxyUserIdRequired": "Enter the member's Oxy user id",
-      "removeFailed": "Couldn't remove the member",
-      "removed": "Member removed",
-      "roleLabel": "Role",
-      "roleUpdateFailed": "Couldn't update the member",
-      "roleUpdated": "Role updated",
+      "documentTitle": "Members | Mercaria Dashboard",
+      "loadFailed": "Couldn't load the people on this store",
+      "noAccess": "No access",
+      "organizationBody": "Who can act for this store is the organization's membership in Oxy. Mercaria only keeps exceptions to each role's permissions.",
+      "outsidersNote": "These people have an exception on this store but are not in the organization, so they have no access until they are added.",
+      "override": {
+        "body": "Each permission follows the person's role unless you add or remove it here. You can only change permissions you hold.",
+        "default": "Role default",
+        "edit": "Exceptions",
+        "grant": "Add",
+        "revoke": "Remove",
+        "save": "Save",
+        "saveFailed": "Couldn't save the exceptions",
+        "saved": "Exceptions saved",
+        "title": "Exceptions for %{name}"
+      },
+      "overrideSummary": "%{granted} added, %{revoked} removed",
+      "ownedBy": "Owned by %{name}",
+      "permissionLabels": {
+        "analyticsRead": "See demand analytics",
+        "channelsWrite": "Manage sales channels",
+        "collectionsWrite": "Edit collections",
+        "customersRead": "See customers",
+        "customersWrite": "Edit customers",
+        "discountsWrite": "Edit discounts",
+        "draftOrdersWrite": "Create draft orders",
+        "inventoryWrite": "Edit inventory",
+        "locationsWrite": "Edit locations",
+        "membersManage": "Manage people and permissions",
+        "ordersFulfill": "Fulfil orders",
+        "ordersRead": "See orders",
+        "productsRead": "See products",
+        "productsWrite": "Edit products",
+        "refundsWrite": "Issue refunds",
+        "settingsWrite": "Edit settings",
+        "statsRead": "See sales stats",
+        "storeManage": "Manage the store"
+      },
+      "personalBody": "This store belongs to a personal Oxy account, so only that account can act for it. Convert it to an organization to work with others.",
       "roles": {
         "admin": "Admin",
+        "billing": "Billing",
+        "developer": "Developer",
+        "editor": "Editor",
         "owner": "Owner",
-        "staff": "Staff"
+        "viewer": "Viewer"
       },
-      "subtitle": "Who can manage this store",
-      "title": "Members & roles"
+      "subtitle": "Who can act for this store, and the exceptions to their role",
+      "title": "People & permissions"
     },
     "payments": {
       "beingReviewed": "Being reviewed",
@@ -1494,8 +1533,8 @@
         "label": "Locations"
       },
       "members": {
-        "description": "Invite, edit roles and permissions",
-        "label": "Members & roles"
+        "description": "Who can act for the store, and exceptions to their role",
+        "label": "People & permissions"
       },
       "payments": {
         "description": "Get paid for orders placed on Mercaria",

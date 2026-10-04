@@ -1318,33 +1318,72 @@
       }
     },
     "members": {
-      "addFailed": "无法添加成员",
-      "addMember": "添加成员",
-      "added": "成员已添加",
-      "documentTitle": "成员 | Mercaria Dashboard",
-      "explicitPermissions": {
-        "one": "已单独授予 %{count} 项权限",
-        "other": "已单独授予 %{count} 项权限"
+      "convert": {
+        "addInvitee": "添加人员",
+        "body": "一个 Oxy 组织将拥有此店铺。你将成为该组织的所有者，你邀请的人可以以你授予的角色代表店铺操作。",
+        "displayNameLabel": "组织名称",
+        "done": "店铺现在属于该组织",
+        "failed": "无法转换店铺",
+        "inviteLabel": "用户名或邮箱",
+        "invitePlaceholder": "用户名或 email@example.com",
+        "inviteesTitle": "要邀请的人",
+        "nameRequired": "请输入组织名称和用户名",
+        "open": "转换为组织",
+        "someInvitesFailed": "店铺已转移，但以下邀请失败：%{names}",
+        "submit": "创建组织并转移店铺",
+        "title": "转换为组织",
+        "usernameLabel": "组织用户名",
+        "warning": "之前可以代表此店铺操作但不在组织中的人将不再有访问权限。"
       },
-      "invite": "邀请",
-      "inviteTitle": "邀请成员",
-      "joinedOn": "加入于 %{date}",
-      "loadFailed": "无法加载成员",
-      "oxyUserIdLabel": "Oxy 用户 ID",
-      "oxyUserIdPlaceholder": "Oxy 用户 ID",
-      "oxyUserIdRequired": "请输入该成员的 Oxy 用户 ID",
-      "removeFailed": "无法移除成员",
-      "removed": "成员已移除",
-      "roleLabel": "角色",
-      "roleUpdateFailed": "无法更新该成员",
-      "roleUpdated": "角色已更新",
+      "documentTitle": "成员 | Mercaria Dashboard",
+      "loadFailed": "无法加载此店铺的人员",
+      "noAccess": "无访问权限",
+      "organizationBody": "谁可以代表此店铺操作由 Oxy 中的组织成员决定。Mercaria 只保存对各角色权限的例外。",
+      "outsidersNote": "这些人在此店铺有例外设置，但不在组织中，因此在被加入之前没有访问权限。",
+      "override": {
+        "body": "每项权限都遵循此人的角色，除非你在这里添加或移除。你只能更改自己拥有的权限。",
+        "default": "按角色",
+        "edit": "例外",
+        "grant": "添加",
+        "revoke": "移除",
+        "save": "保存",
+        "saveFailed": "无法保存例外",
+        "saved": "例外已保存",
+        "title": "%{name} 的例外"
+      },
+      "overrideSummary": "已添加 %{granted} 项，已移除 %{revoked} 项",
+      "ownedBy": "所有者：%{name}",
+      "permissionLabels": {
+        "analyticsRead": "查看需求分析",
+        "channelsWrite": "管理销售渠道",
+        "collectionsWrite": "编辑合集",
+        "customersRead": "查看客户",
+        "customersWrite": "编辑客户",
+        "discountsWrite": "编辑折扣",
+        "draftOrdersWrite": "创建草稿订单",
+        "inventoryWrite": "编辑库存",
+        "locationsWrite": "编辑地点",
+        "membersManage": "管理人员和权限",
+        "ordersFulfill": "履行订单",
+        "ordersRead": "查看订单",
+        "productsRead": "查看商品",
+        "productsWrite": "编辑商品",
+        "refundsWrite": "办理退款",
+        "settingsWrite": "编辑设置",
+        "statsRead": "查看销售统计",
+        "storeManage": "管理店铺"
+      },
+      "personalBody": "此店铺属于个人 Oxy 账户，因此只有该账户可以代表它操作。将其转换为组织即可与他人协作。",
       "roles": {
         "admin": "管理员",
+        "billing": "账单",
+        "developer": "开发者",
+        "editor": "编辑",
         "owner": "所有者",
-        "staff": "员工"
+        "viewer": "查看者"
       },
-      "subtitle": "谁可以管理这家店铺",
-      "title": "成员与角色"
+      "subtitle": "谁可以代表此店铺操作，以及对其角色的例外",
+      "title": "人员和权限"
     },
     "payments": {
       "beingReviewed": "审核中",
@@ -1494,8 +1533,8 @@
         "label": "地点"
       },
       "members": {
-        "description": "邀请成员、编辑角色和权限",
-        "label": "成员与角色"
+        "description": "谁可以代表店铺操作，以及对其角色的例外",
+        "label": "人员和权限"
       },
       "payments": {
         "description": "收取 Mercaria 上订单的货款",

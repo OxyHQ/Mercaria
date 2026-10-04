@@ -1336,34 +1336,72 @@
       }
     },
     "members": {
-      "addFailed": "No s'ha pogut afegir el membre",
-      "addMember": "Afegeix un membre",
-      "added": "Membre afegit",
-      "documentTitle": "Membres | Mercaria Dashboard",
-      "explicitPermissions": {
-        "one": "%{count} permís explícit concedit",
-        "other": "%{count} permisos explícits concedits",
-        "many": "%{count} de permisos explícits concedits"
+      "convert": {
+        "addInvitee": "Afegeix una persona",
+        "body": "Una organització d'Oxy serà la propietària d'aquesta botiga. Tu en passes a ser el propietari i les persones que convidis podran actuar per la botiga amb el rol que els donis.",
+        "displayNameLabel": "Nom de l'organització",
+        "done": "La botiga ara pertany a l'organització",
+        "failed": "No s'ha pogut convertir la botiga",
+        "inviteLabel": "Usuari o correu",
+        "invitePlaceholder": "usuari o correu@exemple.com",
+        "inviteesTitle": "Persones a convidar",
+        "nameRequired": "Escriu el nom i l'usuari de l'organització",
+        "open": "Converteix en organització",
+        "someInvitesFailed": "La botiga s'ha mogut, però aquestes invitacions han fallat: %{names}",
+        "submit": "Crea l'organització i mou la botiga",
+        "title": "Converteix en una organització",
+        "usernameLabel": "Nom d'usuari de l'organització",
+        "warning": "Les persones que abans podien actuar per aquesta botiga i no són a l'organització ja no hi tenen accés."
       },
-      "invite": "Convida",
-      "inviteTitle": "Convida un membre",
-      "joinedOn": "S'hi va incorporar el %{date}",
-      "loadFailed": "No s'han pogut carregar els membres",
-      "oxyUserIdLabel": "Id d'usuari d'Oxy",
-      "oxyUserIdPlaceholder": "id d'usuari d'Oxy",
-      "oxyUserIdRequired": "Introdueix l'id d'usuari d'Oxy del membre",
-      "removeFailed": "No s'ha pogut eliminar el membre",
-      "removed": "Membre eliminat",
-      "roleLabel": "Rol",
-      "roleUpdateFailed": "No s'ha pogut actualitzar el membre",
-      "roleUpdated": "Rol actualitzat",
+      "documentTitle": "Membres | Mercaria Dashboard",
+      "loadFailed": "No s'han pogut carregar les persones d'aquesta botiga",
+      "noAccess": "Sense accés",
+      "organizationBody": "Qui pot actuar per aquesta botiga ho decideix la pertinença a l'organització a Oxy. Mercaria només guarda excepcions als permisos de cada rol.",
+      "outsidersNote": "Aquestes persones tenen una excepció en aquesta botiga però no són a l'organització, així que no hi tenen accés fins que no s'hi afegeixin.",
+      "override": {
+        "body": "Cada permís segueix el rol de la persona tret que l'afegeixis o el treguis aquí. Només pots canviar permisos que tens.",
+        "default": "Segons el rol",
+        "edit": "Excepcions",
+        "grant": "Afegeix",
+        "revoke": "Treu",
+        "save": "Desa",
+        "saveFailed": "No s'han pogut desar les excepcions",
+        "saved": "Excepcions desades",
+        "title": "Excepcions de %{name}"
+      },
+      "overrideSummary": "%{granted} afegits, %{revoked} trets",
+      "ownedBy": "Propietat de %{name}",
+      "permissionLabels": {
+        "analyticsRead": "Veure analítica de demanda",
+        "channelsWrite": "Gestionar canals de venda",
+        "collectionsWrite": "Editar col·leccions",
+        "customersRead": "Veure clients",
+        "customersWrite": "Editar clients",
+        "discountsWrite": "Editar descomptes",
+        "draftOrdersWrite": "Crear comandes esborrany",
+        "inventoryWrite": "Editar inventari",
+        "locationsWrite": "Editar ubicacions",
+        "membersManage": "Gestionar persones i permisos",
+        "ordersFulfill": "Preparar comandes",
+        "ordersRead": "Veure comandes",
+        "productsRead": "Veure productes",
+        "productsWrite": "Editar productes",
+        "refundsWrite": "Fer reemborsaments",
+        "settingsWrite": "Editar la configuració",
+        "statsRead": "Veure estadístiques de vendes",
+        "storeManage": "Gestionar la botiga"
+      },
+      "personalBody": "Aquesta botiga pertany a un compte personal d'Oxy, així que només aquest compte hi pot actuar. Converteix-la en una organització per treballar amb altres persones.",
       "roles": {
         "admin": "Administrador",
+        "billing": "Facturació",
+        "developer": "Desenvolupador",
+        "editor": "Editor",
         "owner": "Propietari",
-        "staff": "Personal"
+        "viewer": "Lector"
       },
-      "subtitle": "Qui pot gestionar aquesta botiga",
-      "title": "Membres i rols"
+      "subtitle": "Qui pot actuar per aquesta botiga i les excepcions al seu rol",
+      "title": "Persones i permisos"
     },
     "payments": {
       "beingReviewed": "En revisió",
@@ -1516,8 +1554,8 @@
         "label": "Ubicacions"
       },
       "members": {
-        "description": "Convida i edita rols i permisos",
-        "label": "Membres i rols"
+        "description": "Qui pot actuar per la botiga i les excepcions al seu rol",
+        "label": "Persones i permisos"
       },
       "payments": {
         "description": "Cobra les comandes fetes a Mercaria",

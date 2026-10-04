@@ -1318,33 +1318,72 @@
       }
     },
     "members": {
-      "addFailed": "تعذّرت إضافة العضو",
-      "addMember": "إضافة عضو",
-      "added": "تمت إضافة العضو",
-      "documentTitle": "الأعضاء | Mercaria Dashboard",
-      "explicitPermissions": {
-        "one": "%{count} إذن صريح ممنوح",
-        "other": "%{count} إذن صريح ممنوح"
+      "convert": {
+        "addInvitee": "إضافة شخص",
+        "body": "ستملك مؤسسة في Oxy هذا المتجر. ستصبح مالكها، ويمكن للأشخاص الذين تدعوهم العمل نيابةً عن المتجر بالدور الذي تمنحه لهم.",
+        "displayNameLabel": "اسم المؤسسة",
+        "done": "أصبح المتجر الآن ملكًا للمؤسسة",
+        "failed": "تعذّر تحويل المتجر",
+        "inviteLabel": "اسم المستخدم أو البريد الإلكتروني",
+        "invitePlaceholder": "اسم المستخدم أو email@example.com",
+        "inviteesTitle": "الأشخاص المدعوون",
+        "nameRequired": "أدخل اسم المؤسسة واسم المستخدم",
+        "open": "التحويل إلى مؤسسة",
+        "someInvitesFailed": "نُقل المتجر، لكن فشلت هذه الدعوات: %{names}",
+        "submit": "إنشاء المؤسسة ونقل المتجر",
+        "title": "التحويل إلى مؤسسة",
+        "usernameLabel": "اسم مستخدم المؤسسة",
+        "warning": "لم يعد للأشخاص الذين كان بإمكانهم العمل نيابةً عن هذا المتجر وليسوا في المؤسسة أي وصول إليه."
       },
-      "invite": "دعوة",
-      "inviteTitle": "دعوة عضو",
-      "joinedOn": "انضم في %{date}",
-      "loadFailed": "تعذّر تحميل الأعضاء",
-      "oxyUserIdLabel": "معرّف مستخدم Oxy",
-      "oxyUserIdPlaceholder": "معرّف مستخدم Oxy",
-      "oxyUserIdRequired": "أدخل معرّف مستخدم Oxy الخاص بالعضو",
-      "removeFailed": "تعذّرت إزالة العضو",
-      "removed": "تمت إزالة العضو",
-      "roleLabel": "الدور",
-      "roleUpdateFailed": "تعذّر تحديث العضو",
-      "roleUpdated": "تم تحديث الدور",
+      "documentTitle": "الأعضاء | Mercaria Dashboard",
+      "loadFailed": "تعذّر تحميل أشخاص هذا المتجر",
+      "noAccess": "لا وصول",
+      "organizationBody": "تحدد عضوية المؤسسة في Oxy من يمكنه العمل نيابةً عن هذا المتجر. لا يحتفظ Mercaria إلا بالاستثناءات من أذونات كل دور.",
+      "outsidersNote": "لدى هؤلاء الأشخاص استثناء في هذا المتجر لكنهم ليسوا في المؤسسة، لذا لا يملكون وصولًا حتى تتم إضافتهم.",
+      "override": {
+        "body": "يتبع كل إذن دور الشخص ما لم تضفه أو تزله هنا. لا يمكنك تغيير إلا الأذونات التي تملكها.",
+        "default": "حسب الدور",
+        "edit": "الاستثناءات",
+        "grant": "إضافة",
+        "revoke": "إزالة",
+        "save": "حفظ",
+        "saveFailed": "تعذّر حفظ الاستثناءات",
+        "saved": "تم حفظ الاستثناءات",
+        "title": "استثناءات %{name}"
+      },
+      "overrideSummary": "أُضيف %{granted}، وأُزيل %{revoked}",
+      "ownedBy": "مملوك لـ %{name}",
+      "permissionLabels": {
+        "analyticsRead": "عرض تحليلات الطلب",
+        "channelsWrite": "إدارة قنوات البيع",
+        "collectionsWrite": "تعديل المجموعات",
+        "customersRead": "عرض العملاء",
+        "customersWrite": "تعديل العملاء",
+        "discountsWrite": "تعديل الخصومات",
+        "draftOrdersWrite": "إنشاء مسودات الطلبات",
+        "inventoryWrite": "تعديل المخزون",
+        "locationsWrite": "تعديل المواقع",
+        "membersManage": "إدارة الأشخاص والأذونات",
+        "ordersFulfill": "تنفيذ الطلبات",
+        "ordersRead": "عرض الطلبات",
+        "productsRead": "عرض المنتجات",
+        "productsWrite": "تعديل المنتجات",
+        "refundsWrite": "إصدار المبالغ المستردة",
+        "settingsWrite": "تعديل الإعدادات",
+        "statsRead": "عرض إحصاءات المبيعات",
+        "storeManage": "إدارة المتجر"
+      },
+      "personalBody": "يتبع هذا المتجر حساب Oxy شخصيًا، لذا لا يمكن لغير هذا الحساب العمل نيابةً عنه. حوّله إلى مؤسسة للعمل مع آخرين.",
       "roles": {
         "admin": "مسؤول",
-        "owner": "مالك",
-        "staff": "موظف"
+        "billing": "الفوترة",
+        "developer": "مطوّر",
+        "editor": "محرر",
+        "owner": "المالك",
+        "viewer": "مشاهد"
       },
-      "subtitle": "من يمكنه إدارة هذا المتجر",
-      "title": "الأعضاء والأدوار"
+      "subtitle": "من يمكنه العمل نيابةً عن هذا المتجر، والاستثناءات من دوره",
+      "title": "الأشخاص والأذونات"
     },
     "payments": {
       "beingReviewed": "قيد المراجعة",
@@ -1494,8 +1533,8 @@
         "label": "المواقع"
       },
       "members": {
-        "description": "ادعُ الأعضاء وعدّل الأدوار والأذونات",
-        "label": "الأعضاء والأدوار"
+        "description": "من يمكنه العمل نيابةً عن المتجر، والاستثناءات من دوره",
+        "label": "الأشخاص والأذونات"
       },
       "payments": {
         "description": "احصل على أموالك مقابل الطلبات المقدَّمة على Mercaria",

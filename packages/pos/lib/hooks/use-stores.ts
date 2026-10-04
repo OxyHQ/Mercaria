@@ -1,11 +1,9 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useOxy } from "@oxy.so/services";
 import type { Store, StorePermission } from "@mercaria/shared-types";
 import { fetchMyStores, fetchStore } from "../api/stores";
 import { queryKeys } from "../queryKeys";
 import { useActiveStore } from "../stores/active-store";
-import { findMembership, effectivePermissions } from "../permissions";
 
 /** All stores the caller belongs to. */
 export function useMyStores() {
@@ -31,12 +29,12 @@ export function useStore(storeId: string | null) {
  *  - `permissions`   — the caller's effective permission set on that store.
  *  - `can(perm)`     — convenience predicate for nav/action gating.
  *
- * Permissions are derived from the store's `members` and the caller's Oxy id;
- * they only HIDE affordances — the server still authorizes every write.
+ * Permissions are the caller's own, resolved by the API through the Oxy
+ * account that owns the store (`Store.access`); they only HIDE affordances —
+ * the server still authorizes every write.
  */
 export function useActiveStoreContext() {
   const { activeStoreId } = useActiveStore();
-  const { user } = useOxy();
   const { data: stores } = useMyStores();
 
   const store = useMemo(
@@ -44,10 +42,10 @@ export function useActiveStoreContext() {
     [stores, activeStoreId],
   );
 
-  const permissions = useMemo<Set<StorePermission>>(() => {
-    const membership = findMembership(store, user?.id);
-    return membership ? effectivePermissions(membership) : new Set<StorePermission>();
-  }, [store, user?.id]);
+  const permissions = useMemo<Set<StorePermission>>(
+    () => new Set<StorePermission>(store?.access.permissions ?? []),
+    [store],
+  );
 
   const can = useMemo(
     () => (perm: StorePermission) => permissions.has(perm),

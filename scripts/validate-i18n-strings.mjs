@@ -373,10 +373,12 @@ const OWNERS = [
     wireIdentifierFallbackSites: 0,
     minimumRenderableKeyMaps: 40,
     // K (#436). Both EXACT, both fail in both directions.
-    // Missing category forms: ar 92 (zero/two/few/many x23) and nothing else.
-    pluralCategoryResidual: 92,
+    // Missing category forms: ar 88 (zero/two/few/many x22) and nothing else.
+    // 92 until the store-ownership cut (ADR 0012) deleted the member screen's
+    // `explicitPermissions` plural with the member list it counted.
+    pluralCategoryResidual: 88,
     // The ja and zh-Hans `one` forms — those locales select only `other`.
-    pluralUnreachableForms: 46,
+    pluralUnreachableForms: 44,
     minimumPluralKeys: 15,
   },
   {
