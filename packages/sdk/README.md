@@ -7,9 +7,11 @@ package instead of knowing Mercaria's HTTP routes, copying its types or
 building its URLs.
 
 - **Headless and isomorphic.** Node 18+, Bun, browsers and React Native (Expo)
-  from one entry. No React, no runtime dependencies.
-- **Typed end to end.** The public contract's types ship with the package;
-  every response is validated field by field before you see it.
+  from one entry. No React; one runtime dependency, `zod`.
+- **Typed end to end.** The public contract's types ship with the package, and
+  every response is parsed with the contract's own zod schemas — the same ones
+  the server validates with — before you see it. TypeScript consumers need the
+  DOM lib or `@types/node` (zod's declarations name `URL`).
 - **Refs are identity; reads are current truth.** Persist a ref, hydrate it
   every time you render.
 
@@ -230,8 +232,9 @@ verbatim, and stop when it is `null`.
 A cursor belongs to the list and the filters that produced it. Send it back
 with the **same** `query`, `inStock`, `sort`, `locale` and store or collection —
 a cursor from a different list or different filters is refused with
-`MercariaValidationError`. Changing `limit` between pages is fine. A list ends
-after 10,000 items; narrow the filters to reach further.
+`MercariaBadRequestError`. Changing `limit` between pages is fine. A list ends
+after 10,000 items (`MERCARIA_PUBLIC_LIST_MAX_OFFSET`); narrow the filters to
+reach further.
 
 ```ts
 const first = await mercaria.stores.products(store.ref, { limit: 50 });
@@ -273,24 +276,33 @@ currency does its own labelled conversion; the SDK will not invent one.
 
 ## Errors
 
-Every failure is a `MercariaError` with a stable `code`, the HTTP `status`
-(or `null`), and `retryable`. Branch on the class or the code — never on
-`message`.
+Every failure is a `MercariaError` with a stable snake_case `code`, the HTTP
+`status` (or `null`), `retryable`, and `details` — the server's scalars, such as
+the refused `field`, or `null`. Branch on the class or the code — never on
+`message`. The server's error body is `{ error: { code, message, details? } }`.
 
 | Class | When | `retryable` |
 | --- | --- | --- |
-| `MercariaNotFoundError` | 404 `NOT_FOUND`: no such entity, never existed | no |
-| `MercariaGoneError` | 410 `GONE`: existed, no longer publicly available (archived, withdrawn, store closed) | no |
-| `MercariaUnavailableError` | 500, 502, 503, 504…: Mercaria is temporarily unable to answer | yes |
-| `MercariaNetworkError` | the request never completed (offline, DNS, reset) | yes |
-| `MercariaTimeoutError` | exceeded `timeoutMs` (a network error) | yes |
-| `MercariaAbortError` | your `signal` aborted it | no |
-| `MercariaRateLimitError` | 429; `retryAfterSeconds` when the server said | yes |
-| `MercariaUnauthorizedError` | 401 | no |
-| `MercariaForbiddenError` | 403 | no |
-| `MercariaValidationError` | 400, or refused before sending (empty id, bad limit) | no |
-| `MercariaResponseError` | the response was not the contract | no |
-| `MercariaApiError` | any other non-2xx — including 404 `UNKNOWN_ROUTE` (this SDK version and the server disagree about a route) and a 404/410 with no Mercaria error body (a proxy); neither ever means the entity is gone | usually no |
+| `MercariaNotFoundError` | 404 `not_found`: no such entity, never existed | no |
+| `MercariaGoneError` | 410 `gone`: existed, no longer publicly available (archived, withdrawn, store closed) | no |
+| `MercariaUnavailableError` | 500 `internal_error`, 503 `service_unavailable`, 502, 504…: Mercaria is temporarily unable to answer | yes |
+| `MercariaNetworkError` | `network_error`: the request never completed (offline, DNS, reset) | yes |
+| `MercariaTimeoutError` | `timeout`: exceeded `timeoutMs` (a network error) | yes |
+| `MercariaAbortError` | `aborted`: your `signal` aborted it | no |
+| `MercariaRateLimitError` | 429 `rate_limited`; `retryAfterSeconds` from the body or `Retry-After` | yes |
+| `MercariaUnauthorizedError` | 401 `unauthorized` | no |
+| `MercariaForbiddenError` | 403 `forbidden` | no |
+| `MercariaConflictError` | 409 `conflict` | no |
+| `MercariaBadRequestError` | 400 `bad_request`: not well-formed — a wrong type, an unknown or repeated parameter, a cursor from another list; or refused before sending | no |
+| `MercariaValidationError` | 422 `validation_failed`: well-formed, but a value is refused (a `limit` out of range, `relevance` without a query, an empty id); or refused before sending | no |
+| `MercariaResponseError` | `malformed_response`: the response was not the contract | no |
+| `MercariaUnknownRouteError` | 404 `unknown_route`: this SDK version and the server disagree about a route — never a missing entity | no |
+| `MercariaApiError` | `http_error`: any other non-2xx, including a 404/410 with no Mercaria error body (a proxy); never means the entity is gone. `MercariaUnknownRouteError` extends it | usually no |
+
+A query the server would refuse is refused before it is sent, by the same
+contract schema the server validates with: `MercariaBadRequestError` or
+`MercariaValidationError` with `status: null` and `details.field` naming the
+parameter.
 
 ```ts
 import { MercariaGoneError, MercariaNotFoundError, isMercariaError } from '@mercaria.co/sdk';
@@ -319,7 +331,7 @@ Cancel with an `AbortSignal` on any call: `{ signal: controller.signal }`.
 
 Messages never contain your token, request headers or response bodies; a
 server message is included only as a bounded single line. `JSON.stringify(error)`
-gives `{ name, code, status, retryable, message }`. `instanceof` works even when
+gives `{ name, code, status, retryable, details, message }`. `instanceof` works even when
 your app loads both the ESM and the CommonJS build.
 
 ## Freshness and caching

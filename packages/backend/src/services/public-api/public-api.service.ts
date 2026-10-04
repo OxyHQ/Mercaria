@@ -10,7 +10,7 @@
  * without is "this never existed" versus "this existed and is gone", and that
  * distinction is decided HERE, once per entity kind:
  *
- * | entity | 200 | 410 `GONE` | 404 `NOT_FOUND` |
+ * | entity | 200 | 410 `gone` | 404 `not_found` |
  * |---|---|---|---|
  * | product | `active`, `sold` | `archived`, `restricted`, a draft that WAS published, or its store not `active` | no row, a malformed id, a draft never published |
  * | store | `active` | `suspended`, `closed` | no row, a malformed id or handle |
@@ -36,17 +36,18 @@
  */
 
 import { isLiveEntityId } from '@oxy.so/db';
+import type { ListingQuery } from '@mercaria/shared-types';
 import type {
-  ListingQuery,
   MercariaCollection,
   MercariaPage,
   MercariaProduct,
   MercariaProductSort,
   MercariaProductSummary,
+  MercariaPublicCursorKind,
   MercariaStore,
-} from '@mercaria/shared-types';
+} from '@mercaria/contracts';
 import { config } from '../../config/index.js';
-import { gone, notFound } from '../../lib/errors/error-codes.js';
+import { gone, notFound } from './errors.js';
 import {
   findListingById,
   searchListingsSlice,
@@ -72,7 +73,6 @@ import {
   nextPublicCursor,
   publicCursorFingerprint,
   resolvePublicCursorOffset,
-  type PublicCursorKind,
 } from './cursor.js';
 import {
   projectCollection,
@@ -195,7 +195,7 @@ async function summarize(rows: ListingRecord[]): Promise<MercariaProductSummary[
 
 /** The shared body of every searched product list. */
 async function searchProductPage(
-  kind: PublicCursorKind,
+  kind: MercariaPublicCursorKind,
   params: PublicProductSearchParams,
 ): Promise<MercariaPage<MercariaProductSummary>> {
   const fingerprint = publicCursorFingerprint(kind, {
@@ -259,7 +259,7 @@ export async function listPublicCollectionProducts(
   params: PublicPageParams,
 ): Promise<MercariaPage<MercariaProductSummary>> {
   const { collection } = await publicCollectionById(collectionId);
-  const kind: PublicCursorKind = 'collection-products';
+  const kind: MercariaPublicCursorKind = 'collection-products';
   const fingerprint = publicCursorFingerprint(kind, { collectionId: collection.id });
   const offset = resolvePublicCursorOffset(params.cursor, kind, fingerprint);
   const { rows, hasMore } = await findCollectionProductsSlice(
@@ -343,7 +343,7 @@ export async function listPublicStoreCollections(
   params: PublicPageParams,
 ): Promise<MercariaPage<MercariaCollection>> {
   const store = await publicStoreById(storeId);
-  const kind: PublicCursorKind = 'store-collections';
+  const kind: MercariaPublicCursorKind = 'store-collections';
   const fingerprint = publicCursorFingerprint(kind, { storeId: store.id });
   const offset = resolvePublicCursorOffset(params.cursor, kind, fingerprint);
   const { rows, hasMore } = await findPublishedCollectionsSlice(

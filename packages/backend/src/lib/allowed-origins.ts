@@ -64,7 +64,7 @@ export function isAllowedBrowserOrigin(origin: string | undefined): boolean {
 /**
  * The path prefix the credential-less, any-origin CORS allowance applies under.
  *
- * Spelled out rather than imported from `@mercaria/shared-types`
+ * Spelled out rather than imported from `@mercaria/contracts`
  * (`MERCARIA_PUBLIC_API_BASE_PATH`) so this module stays dependency-free — and
  * `routes/__tests__/public-api.realdb.test.ts` asserts the two are equal, so a
  * contract that moved its base path fails the build rather than leaving the

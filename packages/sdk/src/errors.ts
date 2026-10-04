@@ -1,20 +1,21 @@
-import type { MercariaPublicErrorCode } from './contract';
+import type { MercariaErrorDetails, MercariaPublicErrorCode } from './contract';
 
 /**
  * Every code a {@link MercariaError} can carry.
  *
- * The server's stable codes (`MERCARIA_PUBLIC_ERROR_CODES`) pass through
- * unchanged when a response names one. The rest describe failures the server
- * never got to report: the request never completed, the caller cancelled it,
- * the body was not the contract, or the status carried no Mercaria error body.
+ * The server's stable codes (`MERCARIA_PUBLIC_ERROR_CODES`, snake_case) pass
+ * through unchanged when a response names one. The rest describe failures the
+ * server never got to report: the request never completed, the caller
+ * cancelled it, the body was not the contract, or the status carried no
+ * Mercaria error body.
  */
 export type MercariaErrorCode =
   | MercariaPublicErrorCode
-  | 'NETWORK_ERROR'
-  | 'TIMEOUT'
-  | 'ABORTED'
-  | 'MALFORMED_RESPONSE'
-  | 'HTTP_ERROR';
+  | 'network_error'
+  | 'timeout'
+  | 'aborted'
+  | 'malformed_response'
+  | 'http_error';
 
 /** Options every error constructor accepts. All optional; each class has defaults. */
 export interface MercariaErrorOptions {
@@ -22,6 +23,8 @@ export interface MercariaErrorOptions {
   status?: number | null;
   code?: MercariaErrorCode;
   retryable?: boolean;
+  /** The server's `error.details` (scalars only), or the SDK's own for a refused input. */
+  details?: MercariaErrorDetails | null;
   cause?: unknown;
 }
 
@@ -74,6 +77,11 @@ export class MercariaError extends Error {
    * retries; this tells a caller whether a retry with backoff is sensible.
    */
   readonly retryable: boolean;
+  /**
+   * Scalars the server attached to its error — `field` on a refused request,
+   * `retryAfterSeconds` on a rate limit — or `null`. Never user content.
+   */
+  readonly details: Readonly<MercariaErrorDetails> | null;
   declare readonly cause?: unknown;
 
   constructor(message: string, options: MercariaErrorOptions = {}) {
@@ -101,14 +109,22 @@ export class MercariaError extends Error {
       Object.defineProperty(this, 'cause', { value: options.cause, enumerable: false, configurable: true });
     }
 
-    this.code = options.code ?? 'HTTP_ERROR';
+    this.code = options.code ?? 'http_error';
     this.status = options.status ?? null;
     this.retryable = options.retryable ?? false;
+    this.details = options.details ? Object.freeze({ ...options.details }) : null;
   }
 
   /** A safe, loggable shape: no cause, no stack, no request data. */
   toJSON(): Record<string, unknown> {
-    return { name: this.name, code: this.code, status: this.status, retryable: this.retryable, message: this.message };
+    return {
+      name: this.name,
+      code: this.code,
+      status: this.status,
+      retryable: this.retryable,
+      details: this.details,
+      message: this.message,
+    };
   }
 }
 
@@ -117,7 +133,7 @@ export class MercariaNetworkError extends MercariaError {
   static override readonly errorName: string = 'MercariaNetworkError';
 
   constructor(message: string, options: MercariaErrorOptions = {}) {
-    super(message, withDefaults(options, { code: 'NETWORK_ERROR', retryable: true }));
+    super(message, withDefaults(options, { code: 'network_error', retryable: true }));
   }
 }
 
@@ -126,7 +142,7 @@ export class MercariaTimeoutError extends MercariaNetworkError {
   static override readonly errorName: string = 'MercariaTimeoutError';
 
   constructor(message: string, options: MercariaErrorOptions = {}) {
-    super(message, withDefaults(options, { code: 'TIMEOUT' }));
+    super(message, withDefaults(options, { code: 'timeout' }));
   }
 }
 
@@ -135,7 +151,7 @@ export class MercariaAbortError extends MercariaError {
   static override readonly errorName: string = 'MercariaAbortError';
 
   constructor(message: string, options: MercariaErrorOptions = {}) {
-    super(message, withDefaults(options, { code: 'ABORTED', retryable: false }));
+    super(message, withDefaults(options, { code: 'aborted', retryable: false }));
   }
 }
 
@@ -144,20 +160,48 @@ export class MercariaApiError extends MercariaError {
   static override readonly errorName: string = 'MercariaApiError';
 
   constructor(message: string, options: MercariaErrorOptions = {}) {
-    super(message, withDefaults(options, { code: 'HTTP_ERROR' }));
+    super(message, withDefaults(options, { code: 'http_error' }));
   }
 }
 
 /**
- * The input was refused: by the server (400), or by the SDK before any request
- * was sent (`status: null`) — an empty id, a `limit` out of range, `relevance`
- * without a query.
+ * 404 `unknown_route`: the server does not serve the route this SDK called —
+ * the SDK and the API disagree about the route table, so one of them is older
+ * than the other. NEVER a {@link MercariaNotFoundError}: that would tell a
+ * consumer a valid persisted reference is dead.
+ */
+export class MercariaUnknownRouteError extends MercariaApiError {
+  static override readonly errorName: string = 'MercariaUnknownRouteError';
+
+  constructor(message: string, options: MercariaErrorOptions = {}) {
+    super(message, withDefaults(options, { code: 'unknown_route' }));
+  }
+}
+
+/**
+ * 400 `bad_request`: the request was not well-formed — a wrong type, a
+ * missing or unknown parameter, a cursor from another list. Raised by the
+ * server, or by the SDK before anything was sent (`status: null`).
+ */
+export class MercariaBadRequestError extends MercariaError {
+  static override readonly errorName: string = 'MercariaBadRequestError';
+
+  constructor(message: string, options: MercariaErrorOptions = {}) {
+    super(message, withDefaults(options, { code: 'bad_request' }));
+  }
+}
+
+/**
+ * 422 `validation_failed`: well-formed, but a value was refused — a `limit`
+ * out of range, `relevance` without a query, an empty id. Raised by the
+ * server, or by the SDK before anything was sent (`status: null`).
+ * `details.field` names the parameter when the server or the contract knows it.
  */
 export class MercariaValidationError extends MercariaError {
   static override readonly errorName: string = 'MercariaValidationError';
 
   constructor(message: string, options: MercariaErrorOptions = {}) {
-    super(message, withDefaults(options, { code: 'VALIDATION_ERROR' }));
+    super(message, withDefaults(options, { code: 'validation_failed' }));
   }
 }
 
@@ -166,7 +210,7 @@ export class MercariaUnauthorizedError extends MercariaError {
   static override readonly errorName: string = 'MercariaUnauthorizedError';
 
   constructor(message: string, options: MercariaErrorOptions = {}) {
-    super(message, withDefaults(options, { code: 'UNAUTHORIZED' }));
+    super(message, withDefaults(options, { code: 'unauthorized' }));
   }
 }
 
@@ -175,12 +219,12 @@ export class MercariaForbiddenError extends MercariaError {
   static override readonly errorName: string = 'MercariaForbiddenError';
 
   constructor(message: string, options: MercariaErrorOptions = {}) {
-    super(message, withDefaults(options, { code: 'FORBIDDEN' }));
+    super(message, withDefaults(options, { code: 'forbidden' }));
   }
 }
 
 /**
- * 404 NOT_FOUND: Mercaria has no such entity — it never existed, or the id is
+ * 404 `not_found`: Mercaria has no such entity — it never existed, or the id is
  * wrong. Only raised when the response is a genuine Mercaria error body (or,
  * for `products.resolveVariant`, when the product has no such variant): a bare
  * 404 from a proxy proves nothing about the entity and is a
@@ -190,12 +234,12 @@ export class MercariaNotFoundError extends MercariaError {
   static override readonly errorName: string = 'MercariaNotFoundError';
 
   constructor(message: string, options: MercariaErrorOptions = {}) {
-    super(message, withDefaults(options, { code: 'NOT_FOUND' }));
+    super(message, withDefaults(options, { code: 'not_found' }));
   }
 }
 
 /**
- * 410 GONE: the entity EXISTED and is no longer publicly available — archived,
+ * 410 `gone`: the entity EXISTED and is no longer publicly available — archived,
  * withdrawn, or its store closed or suspended. Deliberately says nothing about
  * why. Render "no longer available", not "broken link". (A sold one-off product
  * is NOT gone: it reads successfully with `availability: 'sold'`.)
@@ -204,7 +248,16 @@ export class MercariaGoneError extends MercariaError {
   static override readonly errorName: string = 'MercariaGoneError';
 
   constructor(message: string, options: MercariaErrorOptions = {}) {
-    super(message, withDefaults(options, { code: 'GONE' }));
+    super(message, withDefaults(options, { code: 'gone' }));
+  }
+}
+
+/** 409 `conflict`: the request conflicts with current state. */
+export class MercariaConflictError extends MercariaError {
+  static override readonly errorName: string = 'MercariaConflictError';
+
+  constructor(message: string, options: MercariaErrorOptions = {}) {
+    super(message, withDefaults(options, { code: 'conflict' }));
   }
 }
 
@@ -213,15 +266,15 @@ export interface MercariaRateLimitErrorOptions extends MercariaErrorOptions {
   retryAfterSeconds?: number | null;
 }
 
-/** 429: too many requests. Retryable, after `retryAfterSeconds` when the server said. */
+/** 429 `rate_limited`: too many requests. Retryable, after `retryAfterSeconds` when the server said. */
 export class MercariaRateLimitError extends MercariaError {
   static override readonly errorName: string = 'MercariaRateLimitError';
 
-  /** Seconds to wait before retrying, from `Retry-After` / `RateLimit-Reset`, or `null`. */
+  /** Seconds to wait before retrying — `details.retryAfterSeconds`, else `Retry-After` / `RateLimit-Reset` — or `null`. */
   readonly retryAfterSeconds: number | null;
 
   constructor(message: string, options: MercariaRateLimitErrorOptions = {}) {
-    super(message, withDefaults(options, { code: 'RATE_LIMITED', retryable: true }));
+    super(message, withDefaults(options, { code: 'rate_limited', retryable: true }));
     this.retryAfterSeconds = options.retryAfterSeconds ?? null;
   }
 
@@ -231,15 +284,16 @@ export class MercariaRateLimitError extends MercariaError {
 }
 
 /**
- * Mercaria is temporarily unable to answer: 500, 502, 503, 504 and the other
- * server-side statuses except 501 and 505. Retryable. Render "temporarily
- * unavailable" — this is never evidence about the entity itself.
+ * Mercaria is temporarily unable to answer: `internal_error` (500),
+ * `service_unavailable` (503), and the other server-side statuses except 501
+ * and 505. Retryable. Render "temporarily unavailable" — this is never
+ * evidence about the entity itself. `code` says which the server reported.
  */
 export class MercariaUnavailableError extends MercariaError {
   static override readonly errorName: string = 'MercariaUnavailableError';
 
   constructor(message: string, options: MercariaErrorOptions = {}) {
-    super(message, withDefaults(options, { code: 'SERVICE_UNAVAILABLE', retryable: true }));
+    super(message, withDefaults(options, { code: 'service_unavailable', retryable: true }));
   }
 }
 
@@ -252,7 +306,7 @@ export class MercariaResponseError extends MercariaError {
   static override readonly errorName: string = 'MercariaResponseError';
 
   constructor(message: string, options: MercariaErrorOptions = {}) {
-    super(message, withDefaults(options, { code: 'MALFORMED_RESPONSE', retryable: false }));
+    super(message, withDefaults(options, { code: 'malformed_response', retryable: false }));
   }
 }
 

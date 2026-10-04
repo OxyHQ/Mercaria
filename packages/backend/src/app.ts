@@ -132,8 +132,8 @@ import internalCatalogMetricsRouter from './routes/internal-catalog-metrics.js';
 import internalCatalogLocalizationRouter from './routes/internal-catalog-localization.js';
 import compatibilityRouter from './routes/compatibility.js';
 import productTypesRouter from './routes/product-types.js';
-import publicApiRouter, { publicApiErrorHandler } from './routes/public-api.js';
-import { MERCARIA_PUBLIC_API_BASE_PATH } from '@mercaria/shared-types';
+import publicApiRouter from './routes/public-api.js';
+import { MERCARIA_PUBLIC_API_BASE_PATH, mercariaErrorBody } from '@mercaria/contracts';
 import { catalogObservability } from './middleware/catalog-observability.js';
 import { config } from './config/index.js';
 import {
@@ -1167,21 +1167,15 @@ export function createApp(): express.Express {
    * The PUBLIC integration surface (#1017) — the only routes `@mercaria.co/sdk`
    * calls, and the canonical boundary another Oxy application reads Mercaria
    * through. GET-only, anonymous or bearer-authenticated, and projected FIELD BY
-   * FIELD to `@mercaria/shared-types` `public-api.ts`, never a spread storefront
-   * DTO. `docs/public-api.md` is the reference.
+   * FIELD to `@mercaria/contracts`, never a spread storefront DTO; the routes
+   * are that package's registry. `docs/public-api.md` is the reference.
    *
    * Mounted UNCONDITIONALLY: it serves nothing `/listings`, `/stores` and the
    * store collection reads do not already serve to anybody, so a lever here
    * could only withdraw a projection of catalogue that stays public through
    * those routes. Well after `express.json()` — no signed raw body.
-   *
-   * The path-scoped error handler right behind it is what keeps every failure
-   * on this prefix a JSON envelope: an error raised above the router (a body
-   * that would not parse) would otherwise reach the global handler's
-   * non-contract `{ error: 'Something went wrong!' }`.
    */
   app.use(MERCARIA_PUBLIC_API_BASE_PATH, publicApiRouter);
-  app.use(MERCARIA_PUBLIC_API_BASE_PATH, publicApiErrorHandler);
   // (Inbound connector webhooks are mounted above, before express.json.)
 
   // Root route
@@ -1240,11 +1234,30 @@ export function createApp(): express.Express {
     });
   });
 
-  // Error handler
+  /**
+   * The fallback error handler, for an error no route answered itself — a body
+   * `express.json()` refused, a CORS refusal, a middleware that threw.
+   *
+   * It answers in `~/Oxy/docs/api-conventions.md`'s error shape,
+   * `{ error: { code, message } }`, on every path: the public surface speaks
+   * nothing else, and the internal API's own envelope (`utils/api-response.ts`)
+   * is what its ROUTES send — this handler is not one of them. A 4xx raised
+   * here (body-parser's, which carries `status`) is the caller's malformed
+   * request; anything else is a defect, logged, with a fixed message so no
+   * internal text reaches a client.
+   */
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    const status =
+      typeof err === 'object' && err !== null && 'status' in err && typeof err.status === 'number'
+        ? err.status
+        : 500;
+    if (status >= 400 && status < 500) {
+      if (!res.headersSent) res.status(400).json(mercariaErrorBody('bad_request', 'The request could not be read'));
+      return;
+    }
     log.general.error({ err }, 'Unhandled Express error');
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Something went wrong!' });
+      res.status(500).json(mercariaErrorBody('internal_error', 'Something went wrong'));
     }
   });
 

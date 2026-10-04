@@ -319,7 +319,14 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // an identity-shaped name: a public product names its `ref` and a condition
     // KEY, and the storefront's `category`/`productType`/`vendor` strings are
     // exactly what the field-by-field projection declines to publish.
-    "walked 134 contract module(s), 2370 exported type(s), 7877 property signature(s)",
+    // A twelfth, in REVERSE: `public-api.ts` LEFT this package for
+    // `@mercaria/contracts`, where the public shapes are zod schemas and their
+    // types are `z.infer` — no interface for this walk to read. 133/2350/7807,
+    // READ OFF the guard's own output line, is exactly the tenth instance's
+    // line: the module took back what it had added and nothing else moved. The
+    // same vocabulary is walked over the zod shapes by `packages/contracts`'
+    // own suite ("no public shape carries an ambiguous identity string").
+    "walked 133 contract module(s), 2350 exported type(s), 7807 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });

@@ -27,12 +27,19 @@ export interface ChargeSaleInput {
  * Extract a human-readable server message from an axios error's
  * `ApiResponse` body, falling back to the error message. Lets the UI surface a
  * real out-of-stock / pricing error instead of a generic failure.
+ *
+ * Strings only: a 429 or an unhandled 500 answers in the convention's shape
+ * (`{ error: { code, message } }`), whose `error` is an object, and an object
+ * here would reach the UI as a React child.
  */
 function extractServerMessage(error: unknown): string {
   if (axios.isAxiosError<ApiResponse<unknown>>(error)) {
-    const body = error.response?.data;
-    if (body?.message) return body.message;
-    if (body?.error) return body.error;
+    const body: unknown = error.response?.data;
+    if (typeof body === "object" && body !== null) {
+      const { message, error: code } = body as { message?: unknown; error?: unknown };
+      if (typeof message === "string" && message !== "") return message;
+      if (typeof code === "string" && code !== "") return code;
+    }
   }
   if (error instanceof Error) return error.message;
   return "Charge failed";

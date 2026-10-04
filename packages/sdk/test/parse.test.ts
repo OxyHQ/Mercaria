@@ -121,7 +121,7 @@ describe('malformed DTOs fail closed', () => {
     const { client } = fakeClient(() => ok(wire));
     const error = (await rejection(client.products.get('prod_1'))) as MercariaError;
     expect(error).toBeInstanceOf(MercariaResponseError);
-    expect(error.code).toBe('MALFORMED_RESPONSE');
+    expect(error.code).toBe('malformed_response');
     return error;
   }
 
@@ -150,7 +150,7 @@ describe('malformed DTOs fail closed', () => {
     ['missing compareAtPrice (null required)', 'compareAtPrice', undefined],
   ])('%s', async (_name, path, value) => {
     const error = await malformedProduct(withField(productWire(), path, value));
-    expect(error.message).toContain(`data.${path.split('.')[0]}`);
+    expect(error.message).toContain(`: ${path.split('.')[0]}`);
   });
 
   it.each([
@@ -174,7 +174,7 @@ describe('malformed DTOs fail closed', () => {
     const { client } = fakeClient(() => ok(pageWire(rows, 'next')));
     const error = (await rejection(client.products.search({ query: 'x' }))) as MercariaError;
     expect(error).toBeInstanceOf(MercariaResponseError);
-    expect(error.message).toContain('data.items[1].price.currency');
+    expect(error.message).toContain('items[1].price.currency');
   });
 
   it.each([

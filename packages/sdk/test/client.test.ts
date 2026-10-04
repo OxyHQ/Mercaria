@@ -3,6 +3,7 @@ import {
   collectionRef,
   createMercariaClient,
   iterateMercariaPages,
+  MercariaBadRequestError,
   MercariaNotFoundError,
   MercariaResponseError,
   MercariaValidationError,
@@ -150,7 +151,6 @@ describe('client-side validation sends no request', () => {
     ['resolveVariant given a product ref', () => client.products.resolveVariant(productRef('p') as never)],
     ['limit 0', () => client.products.search({ limit: 0 })],
     ['limit 51', () => client.products.search({ limit: 51 })],
-    ['fractional limit', () => client.stores.collections('s', { limit: 1.5 })],
     ['empty cursor', () => client.collections.products('c', { cursor: '' })],
     ['unknown sort', () => client.products.search({ sort: 'cheapest' as never })],
     ['relevance without query', () => client.products.search({ sort: 'relevance' })],
@@ -164,6 +164,23 @@ describe('client-side validation sends no request', () => {
     expect(error).toBeInstanceOf(MercariaValidationError);
     expect((error as MercariaValidationError).status).toBeNull();
     expect(requests).toHaveLength(0);
+  });
+
+  it('refuses a malformed query as a bad request, by the contract’s own classification', async () => {
+    for (const call of [
+      () => client.stores.collections('s', { limit: 1.5 }),
+      () => client.stores.lookup({} as never),
+    ]) {
+      const error = await rejection(call());
+      expect(error).toBeInstanceOf(MercariaBadRequestError);
+      expect((error as MercariaBadRequestError).status).toBeNull();
+    }
+    expect(requests).toHaveLength(0);
+  });
+
+  it('names the refused field in details', async () => {
+    const error = await rejection(client.products.search({ limit: 51 }));
+    expect((error as MercariaValidationError).details).toEqual({ field: 'limit' });
   });
 
   it('accepts relevance with a query and trims the query', async () => {
@@ -357,7 +374,7 @@ describe('the global fetch', () => {
     const seen: string[] = [];
     globalThis.fetch = (async (input: string) => {
       seen.push(input);
-      return new Response(JSON.stringify({ success: true, data: productWire() }), { status: 200 });
+      return new Response(JSON.stringify(productWire()), { status: 200 });
     }) as typeof fetch;
     try {
       await client.products.get('prod_1');

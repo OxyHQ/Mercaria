@@ -1,3 +1,11 @@
+import type { z } from 'zod';
+import {
+  MercariaCollectionRefSchema,
+  MercariaProductRefSchema,
+  MercariaRefSchema,
+  MercariaStoreRefSchema,
+  MercariaVariantRefSchema,
+} from './contract';
 import type {
   MercariaCollectionRef,
   MercariaProductRef,
@@ -11,82 +19,56 @@ import { MercariaValidationError } from './errors';
  * Portable references — what a consumer PERSISTS.
  *
  * A ref is identity and nothing else: no title, no price, no availability, no
- * store handle. Every helper here returns a FRESH, FROZEN object with exactly the
- * contract's keys, so a ref can be stored, compared and passed around without
- * anything mutable riding along.
+ * store handle. Every helper here parses with the contract's ref schemas, which
+ * are STRICT (exactly the contract's keys, non-blank string ids) and return a
+ * FRESH, FROZEN object, so a ref can be stored, compared and passed around
+ * without anything mutable riding along.
  */
 
-/** Whether `value` is a usable id: a string with at least one non-space character. */
-function isId(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function requireId(value: unknown, what: string): string {
-  if (!isId(value)) {
-    throw new MercariaValidationError(`${what} must be a non-empty string`);
-  }
-  return value;
+/** Build a ref from its parts, or throw {@link MercariaValidationError} naming what was wrong. */
+function build<T>(schema: z.ZodType<T>, value: object, what: string): T {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) throw new MercariaValidationError(`${what} must be a non-empty string`);
+  return parsed.data;
 }
 
 /** A product ref. Throws {@link MercariaValidationError} for an empty id. */
 export function productRef(id: string): MercariaProductRef {
-  return Object.freeze({ kind: 'product', id: requireId(id, 'product id') });
+  return build(MercariaProductRefSchema, { kind: 'product', id }, 'product id');
 }
 
 /** A variant (purchase option) ref. Throws {@link MercariaValidationError} for an empty id. */
 export function variantRef(productId: string, variantId: string): MercariaVariantRef {
-  return Object.freeze({
-    kind: 'variant',
-    productId: requireId(productId, 'product id'),
-    variantId: requireId(variantId, 'variant id'),
-  });
+  return build(MercariaVariantRefSchema, { kind: 'variant', productId, variantId }, 'product id and variant id');
 }
 
 /** A store ref. Throws {@link MercariaValidationError} for an empty id. */
 export function storeRef(id: string): MercariaStoreRef {
-  return Object.freeze({ kind: 'store', id: requireId(id, 'store id') });
+  return build(MercariaStoreRefSchema, { kind: 'store', id }, 'store id');
 }
 
 /** A collection ref. Throws {@link MercariaValidationError} for an empty id. */
 export function collectionRef(id: string): MercariaCollectionRef {
-  return Object.freeze({ kind: 'collection', id: requireId(id, 'collection id') });
-}
-
-function hasExactKeys(value: object, keys: readonly string[]): boolean {
-  const own = Object.keys(value);
-  return own.length === keys.length && keys.every((key) => Object.prototype.hasOwnProperty.call(value, key));
+  return build(MercariaCollectionRefSchema, { kind: 'collection', id }, 'collection id');
 }
 
 /**
  * Parse an UNTRUSTED value — typically a ref read back from a consumer's own
  * database or a request body — into a ref.
  *
- * Strict on purpose: a plain object (or a frozen one) with EXACTLY the
- * contract's keys for its kind, and non-empty string ids. Anything else —
- * an extra key, a missing key, an unknown kind, a numeric id, an array — is
- * `null`. The result is a fresh frozen object, never the input.
+ * Strict on purpose: EXACTLY the contract's keys for its kind, and non-blank
+ * string ids. Anything else — an extra key, a missing key, an unknown kind, a
+ * numeric id, an array — is `null`. The result is a fresh frozen object, never
+ * the input.
  */
 export function parseMercariaRef(value: unknown): MercariaRef | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  // Plain data only: a class instance that happens to carry the keys is not a
+  // ref somebody persisted.
+  if (typeof value !== 'object' || value === null) return null;
   const prototype = Object.getPrototypeOf(value) as unknown;
   if (prototype !== Object.prototype && prototype !== null) return null;
-  const record = value as Record<string, unknown>;
-
-  switch (record.kind) {
-    case 'product':
-    case 'store':
-    case 'collection': {
-      if (!hasExactKeys(record, ['kind', 'id']) || !isId(record.id)) return null;
-      return Object.freeze({ kind: record.kind, id: record.id }) as MercariaRef;
-    }
-    case 'variant': {
-      if (!hasExactKeys(record, ['kind', 'productId', 'variantId'])) return null;
-      if (!isId(record.productId) || !isId(record.variantId)) return null;
-      return Object.freeze({ kind: 'variant', productId: record.productId, variantId: record.variantId });
-    }
-    default:
-      return null;
-  }
+  const parsed = MercariaRefSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 /** Whether `value` is a well-formed ref, by exactly the rules of {@link parseMercariaRef}. */
@@ -129,7 +111,7 @@ function decodeCanonical(segment: string): string | null {
   }
   // Only the canonical spelling is accepted, so `mercaria:product:a%62c` and
   // `mercaria:product:abc` cannot both name one product in a uniqueness key.
-  return isId(decoded) && encodeURIComponent(decoded) === segment ? decoded : null;
+  return /\S/.test(decoded) && encodeURIComponent(decoded) === segment ? decoded : null;
 }
 
 /**
@@ -147,14 +129,12 @@ export function parseMercariaRefString(value: unknown): MercariaRef | null {
     if (parts.length !== 4) return null;
     const productId = decodeCanonical(parts[2] ?? '');
     const variantId = decodeCanonical(parts[3] ?? '');
-    return productId === null || variantId === null
-      ? null
-      : Object.freeze({ kind: 'variant', productId, variantId });
+    return productId === null || variantId === null ? null : parseMercariaRef({ kind: 'variant', productId, variantId });
   }
   if (kind === 'product' || kind === 'store' || kind === 'collection') {
     if (parts.length !== 3) return null;
     const id = decodeCanonical(parts[2] ?? '');
-    return id === null ? null : (Object.freeze({ kind, id }) as MercariaRef);
+    return id === null ? null : parseMercariaRef({ kind, id });
   }
   return null;
 }

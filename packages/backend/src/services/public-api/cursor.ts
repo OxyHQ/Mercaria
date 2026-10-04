@@ -24,7 +24,7 @@
  * The fingerprint is a digest of the list KIND, its scope (store or collection
  * id) and its normalized filters and sort. A cursor minted by another list, or
  * by the same list under different filters, would resume from an offset that
- * means nothing there — so it is refused as `VALIDATION_ERROR`. The page SIZE is
+ * means nothing there — so it is refused as `bad_request`. The page SIZE is
  * deliberately NOT in the fingerprint: the offset is an item count, so a caller
  * may change `limit` between pages and still get no duplicate and no gap.
  *
@@ -32,25 +32,18 @@
  *
  * OFFSET cost grows with depth, and an unbounded offset is a sequential scan
  * reachable by following `nextCursor` long enough. A list therefore ends at
- * {@link PUBLIC_CURSOR_MAX_OFFSET} items: the page reaching it is cut short and
+ * `MERCARIA_PUBLIC_LIST_MAX_OFFSET` items: the page reaching it is cut short and
  * carries `nextCursor: null`, and a cursor claiming a deeper offset is refused.
  */
 
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { validationError } from '../../lib/errors/error-codes.js';
-
-/** The deepest item a public list serves. Stated in `docs/public-api.md`. */
-export const PUBLIC_CURSOR_MAX_OFFSET = 10_000;
-
-/** The lists a cursor can belong to. */
-export const PUBLIC_CURSOR_KINDS = [
-  'products',
-  'store-products',
-  'store-collections',
-  'collection-products',
-] as const;
-export type PublicCursorKind = (typeof PUBLIC_CURSOR_KINDS)[number];
+import {
+  MERCARIA_PUBLIC_CURSOR_KINDS,
+  MERCARIA_PUBLIC_LIST_MAX_OFFSET,
+  type MercariaPublicCursorKind,
+} from '@mercaria/contracts';
+import { badRequest } from './errors.js';
 
 const CURSOR_VERSION = 1;
 
@@ -62,7 +55,7 @@ const CURSOR_VERSION = 1;
 export type PublicCursorScope = Readonly<Record<string, string | boolean | undefined>>;
 
 /** A stable digest of a list kind plus its scope. Key order does not matter. */
-export function publicCursorFingerprint(kind: PublicCursorKind, scope: PublicCursorScope): string {
+export function publicCursorFingerprint(kind: MercariaPublicCursorKind, scope: PublicCursorScope): string {
   const entries = Object.entries(scope)
     .filter((entry): entry is [string, string | boolean] => entry[1] !== undefined)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
@@ -75,15 +68,15 @@ export function publicCursorFingerprint(kind: PublicCursorKind, scope: PublicCur
 const payloadSchema = z
   .object({
     v: z.literal(CURSOR_VERSION),
-    k: z.enum(PUBLIC_CURSOR_KINDS),
+    k: z.enum(MERCARIA_PUBLIC_CURSOR_KINDS),
     f: z.string().min(1).max(64),
-    o: z.number().int().min(1).max(PUBLIC_CURSOR_MAX_OFFSET - 1),
+    o: z.number().int().min(1).max(MERCARIA_PUBLIC_LIST_MAX_OFFSET - 1),
   })
   .strict();
 
 /** Encode the cursor that resumes at `offset`. Deterministic for equal inputs. */
 export function encodePublicCursor(
-  kind: PublicCursorKind,
+  kind: MercariaPublicCursorKind,
   fingerprint: string,
   offset: number,
 ): string {
@@ -97,17 +90,17 @@ export function encodePublicCursor(
 /**
  * The offset a request's cursor resumes at — `0` with no cursor.
  *
- * @throws VALIDATION_ERROR for a cursor that is not base64url JSON of the
- * current version, belongs to another list kind, was minted under different
- * filters, or claims an offset outside `1..PUBLIC_CURSOR_MAX_OFFSET - 1`.
+ * @throws `bad_request` for a cursor that is not base64url JSON of the current
+ * version, belongs to another list kind, was minted under different filters, or
+ * claims an offset outside `1..MERCARIA_PUBLIC_LIST_MAX_OFFSET - 1`.
  */
 export function resolvePublicCursorOffset(
   raw: string | undefined,
-  kind: PublicCursorKind,
+  kind: MercariaPublicCursorKind,
   fingerprint: string,
 ): number {
   if (raw === undefined) return 0;
-  const refused = validationError('cursor: not a cursor this list issued');
+  const refused = badRequest('cursor: not a cursor this list issued', { field: 'cursor' });
   if (!/^[A-Za-z0-9_-]+$/u.test(raw)) throw refused;
   let decoded: unknown;
   try {
@@ -124,10 +117,10 @@ export function resolvePublicCursorOffset(
 
 /**
  * How many items a page starting at `offset` may serve: the requested `limit`,
- * cut so no page reaches past {@link PUBLIC_CURSOR_MAX_OFFSET}.
+ * cut so no page reaches past `MERCARIA_PUBLIC_LIST_MAX_OFFSET`.
  */
 export function clampPublicPageLimit(offset: number, limit: number): number {
-  return Math.max(0, Math.min(limit, PUBLIC_CURSOR_MAX_OFFSET - offset));
+  return Math.max(0, Math.min(limit, MERCARIA_PUBLIC_LIST_MAX_OFFSET - offset));
 }
 
 /**
@@ -135,13 +128,13 @@ export function clampPublicPageLimit(offset: number, limit: number): number {
  * `served` items, or `null` when there is none (or the depth ceiling is reached).
  */
 export function nextPublicCursor(
-  kind: PublicCursorKind,
+  kind: MercariaPublicCursorKind,
   fingerprint: string,
   offset: number,
   served: number,
   hasMore: boolean,
 ): string | null {
   const next = offset + served;
-  if (!hasMore || served === 0 || next >= PUBLIC_CURSOR_MAX_OFFSET) return null;
+  if (!hasMore || served === 0 || next >= MERCARIA_PUBLIC_LIST_MAX_OFFSET) return null;
   return encodePublicCursor(kind, fingerprint, next);
 }

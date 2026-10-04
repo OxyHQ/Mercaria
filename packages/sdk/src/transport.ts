@@ -1,8 +1,11 @@
-import { MERCARIA_PUBLIC_API_BASE_PATH, MERCARIA_PUBLIC_ERROR_CODES } from './contract';
+import type { z } from 'zod';
+import { MERCARIA_PUBLIC_API_BASE_PATH, MercariaErrorBodySchema } from './contract';
 import type { MercariaPublicErrorCode } from './contract';
 import {
   MercariaAbortError,
   MercariaApiError,
+  MercariaBadRequestError,
+  MercariaConflictError,
   MercariaError,
   MercariaForbiddenError,
   MercariaGoneError,
@@ -13,9 +16,11 @@ import {
   MercariaTimeoutError,
   MercariaUnauthorizedError,
   MercariaUnavailableError,
+  MercariaUnknownRouteError,
   MercariaValidationError,
+  type MercariaErrorOptions,
+  type MercariaRateLimitErrorOptions,
 } from './errors';
-import { ParseFailure } from './parse';
 import {
   createAbortController,
   globalFetch,
@@ -133,63 +138,63 @@ function parseJson(text: string): unknown {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+type ErrorClass = new (message: string, options: MercariaErrorOptions) => MercariaError;
 
-function knownCode(value: unknown): MercariaPublicErrorCode | undefined {
-  return typeof value === 'string' && (MERCARIA_PUBLIC_ERROR_CODES as readonly string[]).includes(value)
-    ? (value as MercariaPublicErrorCode)
-    : undefined;
-}
+/**
+ * The class for each code the server can answer with. Typed as an exhaustive
+ * `Record`, so a code added to the contract without a class here is a compile
+ * error rather than an error a consumer cannot branch on.
+ */
+const ERROR_CLASS_BY_CODE: Record<MercariaPublicErrorCode, ErrorClass> = {
+  bad_request: MercariaBadRequestError,
+  unauthorized: MercariaUnauthorizedError,
+  forbidden: MercariaForbiddenError,
+  not_found: MercariaNotFoundError,
+  unknown_route: MercariaUnknownRouteError,
+  gone: MercariaGoneError,
+  conflict: MercariaConflictError,
+  validation_failed: MercariaValidationError,
+  rate_limited: MercariaRateLimitError,
+  internal_error: MercariaUnavailableError,
+  service_unavailable: MercariaUnavailableError,
+};
 
 /**
  * The typed error for a non-2xx response.
  *
- * The server's stable code, when the body is a genuine failure envelope naming
- * one, decides the class. Otherwise the status does — with ONE deliberate
- * exception: a 404 or 410 WITHOUT a Mercaria error body is a
- * {@link MercariaApiError}, never `NotFound`/`Gone`. A misrouted proxy or
- * gateway answers 404 for everything, and a consumer told "this product no
- * longer exists" may delete a reference on the strength of it; only Mercaria
- * itself can say that.
+ * A body that IS the contract's error (`{ error: { code, message, details? } }`
+ * with a code from the closed list) decides the class. Otherwise the status
+ * does — with ONE deliberate exception: a 404 or 410 WITHOUT a Mercaria error
+ * body is a {@link MercariaApiError}, never `NotFound`/`Gone`. A misrouted
+ * proxy or gateway answers 404 for everything, and a consumer told "this
+ * product no longer exists" may delete a reference on the strength of it; only
+ * Mercaria itself can say that.
  */
 export function errorForResponse(status: number, headers: MercariaHeadersLike | undefined, body: unknown): MercariaError {
-  const envelope = isRecord(body) && body.success === false ? body : undefined;
-  const code = knownCode(envelope?.error);
-  const serverMessage = safeServerMessage(envelope?.message);
-  const message = serverMessage
-    ? `Mercaria API error (HTTP ${status}): ${serverMessage}`
-    : `Mercaria API responded with HTTP ${status}`;
-  const options = { status, code };
-
-  switch (code) {
-    case 'VALIDATION_ERROR':
-      return new MercariaValidationError(message, options);
-    case 'UNAUTHORIZED':
-      return new MercariaUnauthorizedError(message, options);
-    case 'FORBIDDEN':
-      return new MercariaForbiddenError(message, options);
-    case 'NOT_FOUND':
-      return new MercariaNotFoundError(message, options);
-    case 'GONE':
-      return new MercariaGoneError(message, options);
-    case 'UNKNOWN_ROUTE':
-      // The SDK and the server disagree about the route table. NEVER NotFound:
-      // that would tell a consumer a valid persisted reference is dead.
-      return new MercariaApiError(message, options);
-    case 'RATE_LIMITED':
-      return new MercariaRateLimitError(message, { ...options, retryAfterSeconds: parseRetryAfterSeconds(headers) });
-    case 'INTERNAL_ERROR':
-    case 'SERVICE_UNAVAILABLE':
-      return new MercariaUnavailableError(message, options);
-    default:
-      break;
+  const parsed = MercariaErrorBodySchema.safeParse(body);
+  if (parsed.success) {
+    const { code, details } = parsed.data.error;
+    const serverMessage = safeServerMessage(parsed.data.error.message);
+    const message = serverMessage
+      ? `Mercaria API error (HTTP ${status}): ${serverMessage}`
+      : `Mercaria API responded with HTTP ${status}`;
+    const options: MercariaRateLimitErrorOptions = { status, code, details: details ?? null };
+    if (code === 'rate_limited') {
+      const fromBody = details?.retryAfterSeconds;
+      options.retryAfterSeconds =
+        typeof fromBody === 'number' && Number.isSafeInteger(fromBody) && fromBody >= 0
+          ? fromBody
+          : parseRetryAfterSeconds(headers);
+    }
+    return new ERROR_CLASS_BY_CODE[code](message, options);
   }
 
-  if (status === 400) return new MercariaValidationError(message, { status });
+  const message = `Mercaria API responded with HTTP ${status}`;
+  if (status === 400) return new MercariaBadRequestError(message, { status });
   if (status === 401) return new MercariaUnauthorizedError(message, { status });
   if (status === 403) return new MercariaForbiddenError(message, { status });
+  if (status === 409) return new MercariaConflictError(message, { status });
+  if (status === 422) return new MercariaValidationError(message, { status });
   if (status === 429) {
     return new MercariaRateLimitError(message, { status, retryAfterSeconds: parseRetryAfterSeconds(headers) });
   }
@@ -203,37 +208,56 @@ export function errorForResponse(status: number, headers: MercariaHeadersLike | 
   return new MercariaApiError(message, { status });
 }
 
-/** Turn a completed response into data, or into the typed error it represents. */
+/** The most issues a malformed-response message names. */
+const MAX_REPORTED_ISSUES = 3;
+
+/** `['items', 3, 'price']` → `items[3].price`. */
+function issuePath(path: readonly PropertyKey[]): string {
+  const spelled = path
+    .map((segment) => (typeof segment === 'number' ? `[${segment}]` : `.${String(segment)}`))
+    .join('')
+    .replace(/^\./, '');
+  return spelled === '' ? '(body)' : spelled;
+}
+
+/**
+ * A response body that is not the contract, as a message naming the PATH of
+ * each offending field and what was expected — never the value received, which
+ * may be arbitrary server data.
+ */
+function malformedMessage(issues: readonly { path: readonly PropertyKey[]; message: string }[]): string {
+  const named = issues.slice(0, MAX_REPORTED_ISSUES).map((issue) => `${issuePath(issue.path)}: ${issue.message}`);
+  const more = issues.length > MAX_REPORTED_ISSUES ? ` (and ${issues.length - MAX_REPORTED_ISSUES} more)` : '';
+  return `Mercaria returned a malformed response: ${named.join('; ')}${more}`;
+}
+
+/**
+ * Turn a completed response into data, or into the typed error it represents.
+ *
+ * A success body IS the value (no envelope), parsed with the contract's schema:
+ * a fresh object holding the contract's keys only, so a field the server leaks
+ * cannot reach a DTO, and a missing field, a wrong type or a value outside a
+ * closed set is a {@link MercariaResponseError}. One malformed row fails the
+ * whole page rather than being dropped: dropping would make `items.length` lie
+ * and let a consumer paginate past a product it never learns exists.
+ */
 export function interpretResponse<T>(
   response: { status: number; headers: MercariaHeadersLike | undefined; text: string },
-  parse: (data: unknown, path: string) => T,
+  schema: z.ZodType<T>,
 ): T {
   const { status, headers, text } = response;
   const body = parseJson(text);
 
   if (status < 200 || status >= 300) throw errorForResponse(status, headers, body);
 
-  if (!isRecord(body)) {
-    throw new MercariaResponseError(`Mercaria returned HTTP ${status} with a body that is not a JSON object`, {
-      status,
-    });
+  if (body === undefined) {
+    throw new MercariaResponseError(`Mercaria returned HTTP ${status} with a body that is not JSON`, { status });
   }
-  if (body.success !== true || !Object.prototype.hasOwnProperty.call(body, 'data')) {
-    // Includes `{ success: false }` on a 2xx. A failure body on a success status
-    // contradicts itself, and the SDK does not pick a side.
-    throw new MercariaResponseError(`Mercaria returned HTTP ${status} without a success envelope`, { status });
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    throw new MercariaResponseError(malformedMessage(parsed.error.issues), { status, cause: parsed.error });
   }
-  try {
-    return parse(body.data, 'data');
-  } catch (error) {
-    if (error instanceof ParseFailure) {
-      throw new MercariaResponseError(`Mercaria returned a malformed response: ${error.message}`, {
-        status,
-        cause: error,
-      });
-    }
-    throw error;
-  }
+  return parsed.data;
 }
 
 type Cancellation = 'aborted' | 'timeout';
@@ -251,7 +275,7 @@ export async function request<T>(
   config: TransportConfig,
   path: string,
   query: Readonly<Record<string, QueryValue>>,
-  parse: (data: unknown, path: string) => T,
+  schema: z.ZodType<T>,
   signal: MercariaAbortSignal | undefined,
 ): Promise<T> {
   if (signal?.aborted) throw new MercariaAbortError('The request was aborted before it was sent');
@@ -322,7 +346,7 @@ export async function request<T>(
       });
     }
 
-    return interpretResponse({ status: response.status, headers: response.headers, text }, parse);
+    return interpretResponse({ status: response.status, headers: response.headers, text }, schema);
   } catch (error) {
     // A cancellation that lands while the token getter is pending surfaces as
     // the race's own rejection; normalise so the caller always sees one class.
