@@ -1,0 +1,27 @@
+{
+  "kind": "merchant-billing-actions-config-proposal",
+  "preparedForRootReview": true,
+  "productionWritePerformed": false,
+  "baselineSource": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f",
+  "environmentDelta": {
+    "MERCHANT_BILLING_ENABLED": "true",
+    "MERCHANT_BILLING_RETURN_URL": "https://dashboard.mercaria.co/settings/plan"
+  },
+  "preserve": [
+    "STRIPE_ENABLED=false",
+    "PEABLE_ENABLED=false",
+    "existing exact two-store cohort",
+    "existing Peable/Oxy secret references",
+    "existing platform account/mode and restricted Portal configuration",
+    "service roles, authority scopes and count"
+  ],
+  "authority": "existing authenticated store:manage; payments:read/write do not impersonate the store owner",
+  "readbackPrerequisites": [
+    "fresh existing namespace and registration attestation",
+    "approved callback origin",
+    "checkout: existing active paid plan, exact namespace price and terms",
+    "Portal: existing verified customer binding",
+    "cancel: existing verified subscription binding"
+  ],
+  "commercialLimit": "Previous accepted inventory found commercial rows empty; this proposal does not create products, prices, customers, grants or consent and does not make an absent paid offer purchasable."
+}

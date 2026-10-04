@@ -1,0 +1,101 @@
+{
+  "kind": "mercaria-clean-cut-shared-ci-followup",
+  "sourceCommit": "c3fcee59554d2ae217f10b79786f4f6c8522b40d",
+  "source": [
+    {
+      "path": "packages/backend/src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts",
+      "bytes": 13924,
+      "sha256": "e448228b3a337c0d42798e59515db327752aac0f02b8ce9c87bac5cae6be9179"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/shared-ci-followup/ci-failure-terminal.log",
+      "bytes": 5956,
+      "sha256": "3b9fb3411c7149c78ab19648362ae2f6b5f42036636e4ccbccbb79e14b075035"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/shared-ci-followup/green-shared-run.log",
+      "bytes": 410,
+      "sha256": "ab4d4e41444885ff115c184bcf31d766355d17aad383599cf8d8330a71247022"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/shared-ci-followup/green-shared.log",
+      "bytes": 2720,
+      "sha256": "828896dd7ec8d16944ba6b09c77eba9e0968d680497f97be77cb15f128ac6dea"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/shared-ci-followup/lint-shared.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/shared-ci-followup/owned-pg-shared.py",
+      "bytes": 4132,
+      "sha256": "3d6f6baf893bc307b07ba7b87ea9a18eb188045323eeb0988ac84569b40ae83f"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/shared-ci-followup/red-shared-run.log",
+      "bytes": 408,
+      "sha256": "1c31c166fe29412823f12b90fce9701d4ec4f240a32ceb9f221359dd100a9588"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/shared-ci-followup/red-shared.log",
+      "bytes": 5102,
+      "sha256": "3ec36d6f4a2d1ecf3aee062536c2e4b61714f17f8ea60fccca1ef778259a96ec"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/shared-ci-followup/typecheck-shared.log",
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    }
+  ],
+  "historicalCi": {
+    "runId": 37205371168,
+    "head": "c8716221fecd74f1764944f05854c6d579d19e05",
+    "conclusion": "failure",
+    "backend": {
+      "passed": 12313,
+      "failed": 1,
+      "skipped": 5,
+      "suitesPassed": 783,
+      "suitesFailed": 1
+    },
+    "privateFullLog": {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-full-completion-20261004/mercaria-1049-ci-failed.log",
+      "bytes": 4160395,
+      "sha256": "008009d5bf7b986a103596ac3e9899c6acc4b22064a8d0dd25ec2e69dbd79d62"
+    }
+  },
+  "results": {
+    "sharedFixtureOldAssertion": {
+      "passed": 4,
+      "failed": 1
+    },
+    "sharedFixtureCorrected": {
+      "passed": 5,
+      "failed": 0
+    },
+    "typesExit": 0,
+    "scopedLintExit": 0
+  },
+  "ownedPostgres": [
+    {
+      "run": "red-shared-run.log",
+      "pid": 1292445,
+      "absent": true
+    },
+    {
+      "run": "green-shared-run.log",
+      "pid": 1293474,
+      "absent": true
+    }
+  ],
+  "boundaries": [
+    "Only test assertions/owned synthetic rows changed; shipping runtime and compiled outputs remain byte-identical to original source proof.",
+    "General rail intentionally visits other suites eligible subscriptions; no global count or zero-failure assumption.",
+    "Unknown synthetic external subscription remains fully unchanged; wrong-mode owned row remains fully unchanged; three owned eligible subscriptions become paused.",
+    "Original CI and original RED/GREEN logs remain historical; original fixture hash is not attributed to this followup fixture.",
+    "No whole-suite rerun or provider requests; new full CI remains pending."
+  ]
+}

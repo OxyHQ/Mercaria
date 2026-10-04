@@ -279,17 +279,19 @@ and is worth keeping auditable against the ADR. `platformScopeEventTypes()` is
 the union both the scope check and the dashboard configuration read.
 
 - No handler applies a PAYLOAD — #46's rule. Deliveries are unordered, so every
-  handler re-reads from Stripe and applies THAT.
+  handler re-reads through the registered billing provider. The transitional
+  invoice settlement reader remains bounded to the verified Stripe namespace.
 - **Idempotency has two layers and they answer different questions.**
   `payment_provider_events` dedupes RECEIPT (a redelivery); the partial unique on
   `merchant_subscription_events.provider_event_id` dedupes APPLICATION (an
   operator REPLAY of an already-processed event).
-- **Booking an invoice puts the POSTING first and lets the claim roll it back.**
-  The audit table is append-only by trigger, so the row cannot be written and
-  then stamped with the ledger transaction it booked. The order is therefore
-  posting → claim, and a claim that finds the event already applied THROWS,
-  which rolls the posting back inside the same transaction. That is the only
-  ordering under which a redelivered `invoice.paid` cannot double-book.
+- **Booking an invoice locks its subscription and checks the prior invoice
+  claim before posting.** The current provider/mode/subscription/customer binding
+  must match under that lock. Different event IDs for the same invoice converge
+  on one posting. The append-only event claim follows the ledger insert in the
+  same transaction; a duplicate event ID still rolls both back. Historical invoice
+  collisions are conservatively retained as claimed because old event rows do
+  not attest a complete provider namespace.
 - **The amount comes from the CHARGE's balance transaction**, not from the
   invoice: #47's rule that a charge is booked in the currency the money LANDED in
   applies unchanged. An unavailable balance transaction is RETRYABLE and never
@@ -328,8 +330,7 @@ randomized mixed currencies pins the balance; another pins that
 which is the fee surface's reasoning verbatim: the comparison, the upgrade, the
 portal and the cancellation are one conversation and it is the owner's.
 
-**The router is NOT flag-gated.** `MERCHANT_BILLING_ENABLED` gates the two
-routes that would open a hosted session, inside the service. Gating the MOUNT
+**The router is NOT flag-gated.** `MERCHANT_BILLING_ENABLED` gates checkout, Portal and cancellation inside the service. Gating the MOUNT
 would take the plan screen away from a merchant who already has a subscription
 the moment somebody pulled the incident lever.
 
@@ -357,10 +358,10 @@ be able to ask.
 ## Environment
 
 ```
-MERCHANT_BILLING_ENABLED=false                        # the merchant's ACTIONS; requires STRIPE_ENABLED
+MERCHANT_BILLING_ENABLED=false                        # actions; requires configured Stripe or registered Peable cohort
 MERCHANT_BILLING_RETURN_URL=                          # where a hosted session returns to
 MERCHANT_SUBSCRIPTION_RECONCILIATION_ENABLED=true     # the LOOP only
-MERCHANT_SUBSCRIPTION_RECONCILIATION_INTERVAL_MS=360000
+MERCHANT_SUBSCRIPTION_RECONCILIATION_INTERVAL_MS=21600000
 MERCHANT_SUBSCRIPTION_RECONCILIATION_BATCH_SIZE=50
 ```
 
@@ -375,7 +376,9 @@ capability for every merchant at once with nothing in any audit trail saying so.
 
 ## Production-readiness checklist
 
-Nothing below is done, and none of it can be until there is something to sell.
+The billing transport and explicit Peable cohort have been verified separately.
+A new paid offer still requires the following commercial readiness checks;
+transport registration alone does not prove an offer exists.
 
 1. A paid capability is actually implemented, and its
    `MERCHANT_CAPABILITY_CATALOG` entry moves to `available` in the same change.
@@ -386,7 +389,9 @@ Nothing below is done, and none of it can be until there is something to sell.
 4. A paid plan version is drafted, priced in both modes for every market it is
    sold in, and activated — which will now succeed, because its capability is no
    longer postponed.
-5. `MERCHANT_BILLING_RETURN_URL` is set and `STRIPE_ENABLED` is on.
+5. `MERCHANT_BILLING_RETURN_URL` is set and either general Stripe is configured
+   or the exact Peable cohort is registered. General Stripe remains off for a
+   cohort-only deployment; see [the availability contract](integrations/i08-billing-cohort.md#merchant-action-availability-and-reconciliation).
 6. The Stripe platform webhook endpoint is subscribed to the four
    `STRIPE_BILLING_EVENT_TYPES` in addition to ADR 0001's list.
 7. A terms document exists at the version the plan names.
@@ -400,9 +405,10 @@ Nothing below is done, and none of it can be until there is something to sell.
   are complete, tested against a real server, and called by NOTHING — because
   nothing is gated. The day a paid feature ships, the only new code is the
   feature itself.
-- **A second billing provider.** `BillingProvider` is the boundary #89 asks for;
-  the registry is empty by default and a deployment with no rail answers "no
-  provider" rather than throwing halfway through a merchant's upgrade.
+- **Another financial rail.** `BillingProvider` remains the boundary. The approved
+  Peable cohort adapter carries the existing Stripe namespace, with no general
+  Stripe mutator fallback for its stores. A deployment without a configured
+  general rail or explicit cohort registers no provider.
 - **A downgrade between two paid plans.** Not built, because there is no second
   paid plan to downgrade to, and designing the proration for one that does not
   exist would be designing it twice.

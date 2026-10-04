@@ -1,0 +1,8 @@
+{
+  "baseline": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f",
+  "testSha256": "3d7c45b569d3d01d78221a582dc7e603e4a19b78c3c018a52a9a3d36e77eecad",
+  "records": {
+    "red.log": "91117ccb2f0adda0ae58535246305961b22b187d361ece653eb4dd5706c8688c",
+    "red-run.log": "07e3e8a0b489b791675a1eec7e10007bb921a830877bdeb4018f747c7d354713"
+  }
+}

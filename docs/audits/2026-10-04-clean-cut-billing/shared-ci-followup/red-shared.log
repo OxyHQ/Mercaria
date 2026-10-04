@@ -1,0 +1,95 @@
+$ vitest run src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/nate/Oxy/Mercaria/.worktrees/1519-clean-cut-billing-20261004/packages/backend[39m
+
+[13:39:05] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+[13:39:05] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8001-a5850d90e551"
+    error: {
+      "provider": "stripe",
+      "stage": "retrieveSubscription",
+      "retryable": true,
+      "code": "billing_outcome_unknown",
+      "name": "BillingProviderError"
+    }
+[13:39:05] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mnextAfterId[39m: "00000000-0000-7000-8001-a5850d90e551"
+    [35mgraceAnnounced[39m: 0
+[13:39:05] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 1
+    [35mfailed[39m: 0
+    [35mnextAfterId[39m: "00000000-0000-7000-8002-a5850d90e551"
+    [35mgraceAnnounced[39m: 0
+[13:39:05] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-7fff-a5850d90e551"
+    error: {}
+[13:39:05] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 0
+    [35mapplied[39m: 0
+    [35mfailed[39m: 0
+    [35mnextAfterId[39m: null
+    [35mgraceAnnounced[39m: 1
+[13:39:05] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 0
+    [35mapplied[39m: 0
+    [35mfailed[39m: 0
+    [35mnextAfterId[39m: null
+    [35mgraceAnnounced[39m: 1
+[13:39:05] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 0
+    [35mapplied[39m: 0
+    [35mfailed[39m: 0
+    [35mnextAfterId[39m: null
+    [35mgraceAnnounced[39m: 1
+[13:39:05] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 0
+    [35mapplied[39m: 0
+    [35mfailed[39m: 0
+    [35mnextAfterId[39m: null
+    [35mgraceAnnounced[39m: 1
+ [31m❯[39m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 606[2mms[22m[39m
+   [32m✓[39m selects the registered cohort before LIMIT and does not visit older foreign or other-mode rows[32m 47[2mms[22m[39m
+   [32m✓[39m the actual timer advances beyond a failing first eligible subscription and reaches the next one with actions OFF[32m 116[2mms[22m[39m
+[31m   [31m×[31m keeps general Stripe-enabled reconciliation for noncohort stores while excluding the other key mode[39m[32m 84[2mms[22m[39m
+   [32m✓[39m does no provider read or subscription write before the cohort is registered[32m 8[2mms[22m[39m
+   [32m✓[39m the actual timer advances the local grace audit beyond already-announced rows without a billing provider[32m 190[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts[2m > [22mkeeps general Stripe-enabled reconciliation for noncohort stores while excluding the other key mode
+[31m[1mAssertionError[22m: expected { examined: 4, applied: 3, …(2) } to match object { examined: 3, applied: 3, failed: +0 }
+(1 matching property omitted from actual)[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[2m    "applied": 3,[22m
+[32m-   "examined": 3,[39m
+[32m-   "failed": 0,[39m
+[31m+   "examined": 4,[39m
+[31m+   "failed": 1,[39m
+[2m  }[22m
+
+[36m [2m❯[22m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts:[2m138:63[22m[39m
+    [90m136|[39m   const [foreignBefore] = await db.select().from(merchantSubscriptions…
+    [90m137|[39m   const [wrongModeBefore] = await db.select().from(merchantSubscriptio…
+    [90m138|[39m   expect(await reconcileMerchantSubscriptions({ limit: 10 })).toMatchO…
+    [90m   |[39m                                                               [31m^[39m
+    [90m139|[39m   expect(legacyRead).toHaveBeenCalledWith(refs[0]); expect(calls).not.…
+    [90m140|[39m   [34mexpect[39m(calls)[33m.[39m[34mtoContain[39m(refs[[34m1[39m])[33m;[39m [34mexpect[39m(calls)[33m.[39m[34mtoContain[39m(refs[[34m2[39m])[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m4 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 16:38:58
+[2m   Duration [22m 7.67s[2m (transform 2.37s, setup 0ms, import 3.42s, tests 606ms, environment 0ms)[22m
+
+error: script "test" exited with code 1
