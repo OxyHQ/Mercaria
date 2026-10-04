@@ -10,12 +10,25 @@ evidence of an Oxy payer identity; no optional invented payer field is added.
 ## Execution and routing
 
 `services/billing/register.ts` installs the legacy provider when
-`MERCHANT_BILLING_PEABLE_COHORT` is absent (the default). When present, it parses
+`MERCHANT_BILLING_PEABLE_COHORT` is absent (the default) and the general Stripe
+rail is enabled. With both absent/off it registers no provider. When present, it parses
 strict JSON containing merchantId, applicationId, environment,
 platformAccountId, livemode and nonempty storeIds. It checks the existing Stripe
 key's actual platform account, the key mode and the Peable SDK credential's
 resolved merchant/application/environment before installing any provider.
 Malformed/mismatched configuration leaves no legacy fallback for that process.
+
+An explicit cohort is registered independently of `STRIPE_ENABLED`. The bounded
+reader exposes only platform-account and exact-subscription GETs, checks the
+existing key mode against the cohort environment, and verifies the platform
+account before registering. Both explicit `PEABLE_APP_PUBLIC_KEY` and
+`PEABLE_APP_SECRET` must be configured before any remote read; provisioning may
+reference the existing application credential without copying or rotating it.
+The general client and direct legacy Stripe mutations remain disabled when
+`STRIPE_ENABLED` is off, including stores outside the cohort. A malformed cohort
+also rejects startup in that state. This does not enable checkout actions: the
+existing `MERCHANT_BILLING_ENABLED` flag remains separate. See the
+[cohort registration proof](../audits/2026-10-04-cohort-independent-rail/README.md).
 
 The cohort is durable routing configuration, separate from
 `MERCHANT_BILLING_ENABLED`. Retain it when actions are paused or a deployment is
