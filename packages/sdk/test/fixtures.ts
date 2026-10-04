@@ -90,6 +90,31 @@ export function collectionWire(id = 'col_1', handle = 'night-city-games'): Recor
   };
 }
 
+export function locationWire(id = 'loc_1', handle = 'night-city-games'): Record<string, unknown> {
+  return {
+    ref: { kind: 'location', id },
+    goWayPlaceId: 'plc_night_city',
+    store: {
+      ref: { kind: 'store', id: 'store_1' },
+      handle,
+      name: 'Night City Games',
+      logoUrl: 'https://cdn.mercaria.co/s/logo.png',
+    },
+    pickup: { identityRequirement: 'collection_code', paymentRequirement: 'prepaid', instructions: null },
+    discoverable: true,
+    url: `${WEB}/stores/${encodeURIComponent(handle)}?location=${encodeURIComponent(id)}`,
+  };
+}
+
+export function locationProductWire(id = 'prod_1', exactQuantity?: number): Record<string, unknown> {
+  return {
+    product: productSummaryWire(id),
+    availability: 'low_stock',
+    ...(exactQuantity === undefined ? {} : { exactQuantity }),
+    stockConfirmedAt: '2026-09-01T12:00:00.000Z',
+  };
+}
+
 export function pageWire(items: unknown[], nextCursor: string | null = null): Record<string, unknown> {
   return { items, nextCursor };
 }

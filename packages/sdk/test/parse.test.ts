@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { MercariaResponseError, type MercariaError } from '../src/index';
 import {
   collectionWire,
+  locationProductWire,
+  locationWire,
   pageWire,
   personSellerWire,
   productSummaryWire,
@@ -59,6 +61,28 @@ describe('successful parses', () => {
     const { client } = fakeClient(({ url }) => (url.includes('/collections/') ? ok(collectionWire()) : ok(storeWire())));
     expect(await client.stores.get('store_1')).toEqual(storeWire());
     expect(await client.collections.get('col_1')).toEqual(collectionWire());
+  });
+
+  it('parses a location and a page of location products, an exact count only when sent', async () => {
+    const { client } = fakeClient(({ url }) =>
+      url.includes('/products')
+        ? ok(pageWire([locationProductWire('prod_1'), locationProductWire('prod_2', 2)]))
+        : ok({ ...locationWire(), pickup: null, discoverable: false }),
+    );
+    expect(await client.locations.get('loc_1')).toEqual({ ...locationWire(), pickup: null, discoverable: false });
+    const page = await client.locations.products('loc_1');
+    expect('exactQuantity' in (page.items[0] ?? {})).toBe(false);
+    expect(page.items[1]?.exactQuantity).toBe(2);
+  });
+
+  it('strips a place fact a server leaked into a location, and refuses an unknown availability', async () => {
+    const leaky = { ...locationWire(), address: { line1: 'Carrer 1' }, openingHours: [], pauseReason: 'staff ill' };
+    const { client } = fakeClient(({ url }) =>
+      url.includes('/products') ? ok(pageWire([{ ...locationProductWire(), availability: 'sold' }])) : ok(leaky),
+    );
+    expect(await client.locations.get('loc_1')).toEqual(locationWire());
+    const error = (await rejection(client.locations.products('loc_1'))) as MercariaError;
+    expect(error).toBeInstanceOf(MercariaResponseError);
   });
 
   it('returns frozen refs', async () => {

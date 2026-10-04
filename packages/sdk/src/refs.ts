@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import {
   MercariaCollectionRefSchema,
+  MercariaLocationRefSchema,
   MercariaProductRefSchema,
   MercariaRefSchema,
   MercariaStoreRefSchema,
@@ -8,6 +9,7 @@ import {
 } from './contract';
 import type {
   MercariaCollectionRef,
+  MercariaLocationRef,
   MercariaProductRef,
   MercariaRef,
   MercariaStoreRef,
@@ -52,6 +54,11 @@ export function collectionRef(id: string): MercariaCollectionRef {
   return build(MercariaCollectionRefSchema, { kind: 'collection', id }, 'collection id');
 }
 
+/** A location (shop front) ref. Throws {@link MercariaValidationError} for an empty id. */
+export function locationRef(id: string): MercariaLocationRef {
+  return build(MercariaLocationRefSchema, { kind: 'location', id }, 'location id');
+}
+
 /**
  * Parse an UNTRUSTED value — typically a ref read back from a consumer's own
  * database or a request body — into a ref.
@@ -87,6 +94,7 @@ const REF_STRING_SCHEME = 'mercaria';
  * - `mercaria:variant:<productId>:<variantId>`
  * - `mercaria:store:<id>`
  * - `mercaria:collection:<id>`
+ * - `mercaria:location:<id>`
  *
  * Each id is percent-encoded with `encodeURIComponent` (which encodes `:`), so
  * the form is unambiguous for any id and every ref has exactly ONE string —
@@ -131,7 +139,7 @@ export function parseMercariaRefString(value: unknown): MercariaRef | null {
     const variantId = decodeCanonical(parts[3] ?? '');
     return productId === null || variantId === null ? null : parseMercariaRef({ kind: 'variant', productId, variantId });
   }
-  if (kind === 'product' || kind === 'store' || kind === 'collection') {
+  if (kind === 'product' || kind === 'store' || kind === 'collection' || kind === 'location') {
     if (parts.length !== 3) return null;
     const id = decodeCanonical(parts[2] ?? '');
     return id === null ? null : parseMercariaRef({ kind, id });

@@ -3,6 +3,7 @@ import {
   collectionRef,
   createMercariaClient,
   iterateMercariaPages,
+  locationRef,
   MercariaBadRequestError,
   MercariaNotFoundError,
   MercariaResponseError,
@@ -11,7 +12,15 @@ import {
   storeRef,
   variantRef,
 } from '../src/index';
-import { collectionWire, pageWire, productSummaryWire, productWire, storeWire } from './fixtures';
+import {
+  collectionWire,
+  locationProductWire,
+  locationWire,
+  pageWire,
+  productSummaryWire,
+  productWire,
+  storeWire,
+} from './fixtures';
 import { fakeClient, ok, rejection } from './helpers';
 
 const API = 'https://api.mercaria.co/public/v1';
@@ -22,7 +31,9 @@ describe('request URLs', () => {
       if (url.includes('/collections/col_1/products') || url.includes('/stores/store_1/products')) {
         return ok(pageWire([]));
       }
-      if (url.includes('/stores/store_1/collections')) return ok(pageWire([]));
+      if (url.includes('/stores/store_1/collections') || url.includes('/locations')) {
+        return url.includes('/locations/loc_1') && !url.includes('/products') ? ok(locationWire()) : ok(pageWire([]));
+      }
       if (url.includes('/collections/')) return ok(collectionWire());
       if (url.includes('/stores/')) return ok(storeWire());
       if (url.endsWith('/products') || url.includes('/products?')) return ok(pageWire([]));
@@ -37,6 +48,10 @@ describe('request URLs', () => {
     await client.stores.collections('store_1');
     await client.collections.get('col_1');
     await client.collections.products('col_1');
+    await client.stores.locations('store_1');
+    await client.locations.list({ goWayPlaceId: 'plc_1' });
+    await client.locations.get('loc_1');
+    await client.locations.products('loc_1');
 
     expect(requests.map((request) => request.url)).toEqual([
       `${API}/products/prod_1`,
@@ -47,6 +62,10 @@ describe('request URLs', () => {
       `${API}/stores/store_1/collections`,
       `${API}/collections/col_1`,
       `${API}/collections/col_1/products`,
+      `${API}/stores/store_1/locations`,
+      `${API}/locations?goWayPlaceId=plc_1`,
+      `${API}/locations/loc_1`,
+      `${API}/locations/loc_1/products`,
     ]);
     for (const { init } of requests) {
       expect(init.method).toBe('GET');
@@ -249,6 +268,8 @@ describe('locale context', () => {
     await client.stores.products('store_1');
     await client.stores.products('store_1', { locale: 'de' });
     await client.collections.products('col_1');
+    await client.locations.products('loc_1');
+    await client.stores.locations('store_1');
 
     expect(requests.map((request) => request.url)).toEqual([
       `${API}/products?locale=es&q=x`,
@@ -257,6 +278,9 @@ describe('locale context', () => {
       `${API}/stores/store_1/products?locale=de`,
       // The collection products read has no locale parameter on the wire.
       `${API}/collections/col_1/products`,
+      `${API}/locations/loc_1/products?locale=es`,
+      // Nor has a list of locations: a place's name is GoWay's to localize.
+      `${API}/stores/store_1/locations`,
     ]);
   });
 
@@ -388,5 +412,47 @@ describe('the global fetch', () => {
     // A compile-time assertion as much as a runtime one: `typeof fetch` must be
     // assignable to the `fetch` option under strictFunctionTypes.
     expect(() => createMercariaClient({ fetch: globalThis.fetch })).not.toThrow();
+  });
+});
+
+describe('locations', () => {
+  it('lists a GoWay place’s locations, trimmed, and refuses a missing place before sending', async () => {
+    const { client, requests } = fakeClient(() => ok(pageWire([locationWire()])));
+    const page = await client.locations.list({ goWayPlaceId: ' plc 1 ', limit: 5 });
+    expect(page.items[0]).toEqual(locationWire());
+    expect(requests[0]?.url).toBe(`${API}/locations?goWayPlaceId=plc%201&limit=5`);
+    await expect(client.locations.list({} as never)).rejects.toBeInstanceOf(MercariaBadRequestError);
+    await expect(client.locations.list({ goWayPlaceId: '  ' })).rejects.toBeInstanceOf(MercariaValidationError);
+    expect(requests).toHaveLength(1);
+  });
+
+  it('reads a location by id or ref, and refuses a ref of another kind', async () => {
+    const { client, requests } = fakeClient(() => ok(locationWire()));
+    expect(await client.locations.get(locationRef('loc_1'))).toEqual(locationWire());
+    expect(await client.locations.resolveRef(locationRef('loc_1'))).toEqual(locationWire());
+    await expect(client.locations.get(storeRef('loc_1') as never)).rejects.toBeInstanceOf(MercariaValidationError);
+    expect(requests.map((request) => request.url)).toEqual([`${API}/locations/loc_1`, `${API}/locations/loc_1`]);
+  });
+
+  it('lists a location’s products with the store-list filters, and walks every page', async () => {
+    const { client, requests } = fakeClient(({ url }) =>
+      url.includes('cursor=c2')
+        ? ok(pageWire([locationProductWire('prod_2', 3)], null))
+        : ok(pageWire([locationProductWire('prod_1')], 'c2')),
+    );
+    const items: unknown[] = [];
+    for await (const page of iterateMercariaPages((cursor) =>
+      client.locations.products('loc_1', { inStock: true, sort: 'price_asc', cursor, limit: 1 }),
+    )) {
+      items.push(...page.items);
+    }
+    expect(items).toEqual([locationProductWire('prod_1'), locationProductWire('prod_2', 3)]);
+    expect(requests.map((request) => request.url)).toEqual([
+      `${API}/locations/loc_1/products?inStock=true&limit=1&sort=price_asc`,
+      `${API}/locations/loc_1/products?cursor=c2&inStock=true&limit=1&sort=price_asc`,
+    ]);
+    await expect(client.locations.products('loc_1', { sort: 'relevance' })).rejects.toBeInstanceOf(
+      MercariaValidationError,
+    );
   });
 });
