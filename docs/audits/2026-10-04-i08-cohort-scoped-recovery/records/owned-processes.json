@@ -1,0 +1,47 @@
+{
+  "ownedPids": [
+    {
+      "pid": 1129719,
+      "absent": true,
+      "dataDirectory": "/home/nate/Oxy/.agent-evidence/mcohort-pg-043c6ia4/data",
+      "log": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-recovery-20261004/red-frozen-harness.log"
+    },
+    {
+      "pid": 1128633,
+      "absent": true,
+      "dataDirectory": "/home/nate/Oxy/.agent-evidence/mcohort-pg-c02p0hem/data",
+      "log": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-recovery-20261004/red-final-harness.log"
+    },
+    {
+      "pid": 1130809,
+      "absent": true,
+      "dataDirectory": "/home/nate/Oxy/.agent-evidence/mcohort-pg-dyu6tzmp/data",
+      "log": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-recovery-20261004/red-accepted-fixture-harness.log"
+    },
+    {
+      "pid": 1126164,
+      "absent": true,
+      "dataDirectory": "/home/nate/Oxy/.agent-evidence/mcohort-pg-pc_cm4qq/data",
+      "log": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-recovery-20261004/red-harness.log"
+    },
+    {
+      "pid": 1131710,
+      "absent": true,
+      "dataDirectory": "/home/nate/Oxy/.agent-evidence/mcohort-pg-adcmtv1w/data",
+      "log": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-recovery-20261004/green-accepted-fixture-harness.log"
+    },
+    {
+      "pid": 1127299,
+      "absent": true,
+      "dataDirectory": "/home/nate/Oxy/.agent-evidence/mcohort-pg-dhxbirci/data",
+      "log": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-recovery-20261004/green-harness.log"
+    },
+    {
+      "pid": 1132551,
+      "absent": true,
+      "dataDirectory": "/home/nate/Oxy/.agent-evidence/mcohort-pg-k9ajicdc/data",
+      "log": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-recovery-20261004/regressions/harness.log"
+    }
+  ],
+  "liveAccess": false
+}

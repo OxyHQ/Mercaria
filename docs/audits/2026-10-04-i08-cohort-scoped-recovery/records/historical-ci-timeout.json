@@ -1,0 +1,37 @@
+{
+  "runId": 37192508044,
+  "jobId": 111407490981,
+  "sourceSha": "dbb74603d29357346feb0306c40fb237cee3c754",
+  "conclusion": "cancelled",
+  "jobTimeoutMinutes": 15,
+  "replacementTimeoutMinutes": 20,
+  "rawLog": {
+    "path": "/home/nate/Oxy/.agent-evidence/integration-mercaria-functional-image-20261004/ci-job-decoded.log",
+    "sha256": "6b36f4255ab5be7d56e126a03f39d9deddabc36ceb24b09b6e857ecb168bd98a",
+    "bytes": 4851044
+  },
+  "selectedLines": [
+    "2026-10-04T09:33:33.2706329Z @mercaria/shared-types build: Exited with code 0",
+    "2026-10-04T09:35:52.1182971Z @mercaria/backend lint: Exited with code 0",
+    "2026-10-04T09:35:55.8884213Z @mercaria/frontend lint: Exited with code 0",
+    "2026-10-04T09:35:59.0167581Z @mercaria/dashboard lint: Exited with code 0",
+    "2026-10-04T09:36:00.7570410Z @mercaria/pos lint: Exited with code 0",
+    "2026-10-04T09:36:02.0752341Z @mercaria.co/sdk lint: Exited with code 0",
+    "2026-10-04T09:36:53.7839506Z @mercaria/backend typecheck: Exited with code 0",
+    "2026-10-04T09:36:57.8450831Z @mercaria/ui typecheck: Exited with code 0",
+    "2026-10-04T09:37:09.2614330Z @mercaria/dashboard typecheck: Exited with code 0",
+    "2026-10-04T09:37:11.6885611Z @mercaria/dashboard test: Exited with code 0",
+    "2026-10-04T09:37:24.6930285Z @mercaria/frontend typecheck: Exited with code 0",
+    "2026-10-04T09:37:26.4466640Z @mercaria/frontend test: Exited with code 0",
+    "2026-10-04T09:37:36.4668867Z @mercaria/pos typecheck: Exited with code 0",
+    "2026-10-04T09:37:37.1216068Z @mercaria/pos test: Exited with code 0",
+    "2026-10-04T09:37:39.6821975Z @mercaria.co/sdk typecheck: Exited with code 0",
+    "2026-10-04T09:37:41.7077387Z @mercaria.co/sdk test: Exited with code 0",
+    "2026-10-04T09:37:44.0935221Z @mercaria.co/sdk build: Exited with code 0",
+    "2026-10-04T09:37:45.5532622Z @mercaria.co/sdk smoke: Exited with code 0",
+    "2026-10-04T09:47:57.2037359Z @mercaria/backend test:  Test Files  783 passed (783)",
+    "2026-10-04T09:47:57.2227155Z @mercaria/backend test:       Tests  12306 passed | 5 skipped (12311)",
+    "2026-10-04T09:47:57.9066941Z @mercaria/backend test: Exited with code 0"
+  ],
+  "scope": "Historical full suite on pre-scoped-recovery source: tests exited 0 at the job limit; overall CI was cancelled and subsequent builds skipped. New source CI still required."
+}

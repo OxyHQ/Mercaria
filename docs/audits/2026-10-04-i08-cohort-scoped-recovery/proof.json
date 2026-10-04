@@ -1,0 +1,257 @@
+{
+  "kind": "mercaria-cohort-scoped-recovery-source-proof-v1",
+  "sourceSha": "569bd4d3656eaf989699de3ec5f2bd74a782ba75",
+  "baselineSourceSha": "dbb74603d29357346feb0306c40fb237cee3c754",
+  "sources": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "c1aba7a256daed46170bf5542c36bd54b6c43f60c04d7de8b76edf4d64e6236d",
+      "bytes": 33268
+    },
+    {
+      "path": "packages/backend/src/config/__tests__/billing-cohort.test.ts",
+      "sha256": "e983c1bc219d88c1086d343c69c799a992e469662fbb49040965e9170ecfeb41",
+      "bytes": 3467
+    },
+    {
+      "path": "packages/backend/src/db/payments/paymentRepository.ts",
+      "sha256": "3c6f91baa2e1f0b6d6dc0a9992d5c6a8a296ba035d9e9dce15a39d4e48a137c4",
+      "bytes": 48561
+    },
+    {
+      "path": "packages/backend/src/index.ts",
+      "sha256": "890dbead0050f75f4e17ca7ad1ac5f4ac6ce74ebec04aac751749d6fe85d2d70",
+      "bytes": 47965
+    },
+    {
+      "path": "packages/backend/src/routes/__tests__/billing-cohort-stripe.integration.test.ts",
+      "sha256": "7f28b45e104a77fae92b7ea47ff47d23bc4c3af9bf961365deced965971e114b",
+      "bytes": 32384
+    },
+    {
+      "path": "packages/backend/src/services/billing/cohort-access.ts",
+      "sha256": "e915425f00afb6f082146e96edc929c2cfa1f63ddda08a0fc8d610c7aeac2162",
+      "bytes": 2702
+    },
+    {
+      "path": "packages/backend/src/services/billing/subscription.service.ts",
+      "sha256": "d3471d2444d985bf6e04c1e47e51e9ae5aa7f1f1abec2f8b38d5354ab41f86f9",
+      "bytes": 25462
+    },
+    {
+      "path": "packages/backend/src/services/entitlements/projection.ts",
+      "sha256": "a0ad489b7510bf24b253fc2a77e8ea4f1444ee655bd06840089d184bcf0fa47c",
+      "bytes": 9172
+    },
+    {
+      "path": "packages/backend/src/services/payments/stripe/event-dispatcher.ts",
+      "sha256": "b32ca0b950f6e2cc0ff12f28cd0d35584a7a5fc76a2ee240aeeb5e95cc8cc595",
+      "bytes": 3337
+    },
+    {
+      "path": "packages/backend/src/services/payments/stripe/event-processor.ts",
+      "sha256": "63076f60107b978b47287da9f38f551ffa5b41fe17baf7aa6b93816d69de3e75",
+      "bytes": 12933
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/red-accepted-fixture-actions-false.log",
+      "sha256": "a8e37efaac917def0c1614cdd960dfb66fd8b3b0c1986fce26d50a4c4c676fc6",
+      "bytes": 34731
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/red-accepted-fixture-actions-true.log",
+      "sha256": "9ca9007b073979f02184e7c802c09eb425219c59310459ca0048954c2e020c9a",
+      "bytes": 35300
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/red-accepted-fixture-harness.log",
+      "sha256": "dee90a6927a3b7f6aa8dd1f3cc016796bfad5ee72f8ba98f3eeeb180a3f74c7f",
+      "bytes": 472
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/green-accepted-fixture-actions-false.log",
+      "sha256": "35cc3f855a18b52c24ab97a6821b6656ee2786ff4b9c84cec2846a35d6d1e487",
+      "bytes": 32138
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/green-accepted-fixture-actions-true.log",
+      "sha256": "2539254223413f738b0763f77047c21bb0be5504eb98ec894008c937543552fe",
+      "bytes": 32136
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/green-accepted-fixture-harness.log",
+      "sha256": "baeb14990222c328dce5a116e9e3ccd1471e2f2a90c871935349dc7d0fb44475",
+      "bytes": 476
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/owned-pg.py",
+      "sha256": "e45db4f186747be2ebd809f2457a987a50e4b8b01bfc4522745a9199ae559938",
+      "bytes": 4766
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/regressions-functional-green.log",
+      "sha256": "cc0c0738f5ee6ac432892e8e21a107a1f34b474101c3e7cd91e480e9ca9ae0d1",
+      "bytes": 133635
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/regressions-harness.log",
+      "sha256": "17a7099fba400140eb922b4fbef3ef1bca44f4a7716efc16ad65ba470f4d1ba0",
+      "bytes": 386
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/regressions-owned-pg.py",
+      "sha256": "966a13f817306d9f6c48fe0e80b46cc583ce7d93d352e0ef33ac763fdda768a2",
+      "bytes": 4038
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/types-final.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "bytes": 15
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/lint-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/build-final.log",
+      "sha256": "e5b58eacf664c0e0412eadefe841189a763cf060802ee0d38ca7bf8fa297304e",
+      "bytes": 248
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/owned-processes.json",
+      "sha256": "b1b97cd76630878c42a62476d5ec61de10ddd7e5e7fc257a7c2342555ad1d1fb",
+      "bytes": 1835
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-scoped-recovery/records/historical-ci-timeout.json",
+      "sha256": "0cec85fdeea2d3ef384bc7c13a7d8adde9c674caa04acf5432d54b5a5acda196",
+      "bytes": 2369
+    }
+  ],
+  "compiled": [
+    {
+      "path": "packages/backend/dist/index.js",
+      "sha256": "ca8da831429893af90c5b587373aa9ff61587e863fc70b88a2c62eabb460105a",
+      "bytes": 9782378
+    },
+    {
+      "path": "packages/backend/dist/register-capability-catalog.js",
+      "sha256": "22ce7b279fec3a499fbd9f0cdf1617e6c3069776ee04f2d07f2d284257f38f4f",
+      "bytes": 8793
+    },
+    {
+      "path": "packages/backend/dist/db/migrate.js",
+      "sha256": "f065a7311adee792500bdd04d21e27d361608a23d7a61999890272161d96a73b",
+      "bytes": 3852
+    },
+    {
+      "path": "packages/backend/dist/scripts/provision-taxonomy.js",
+      "sha256": "92d76b0a3682955e7d4419e389a0e122caf44eea55f02dae5d3d4e1f652c2098",
+      "bytes": 2235110
+    }
+  ],
+  "unchangedInputs": [
+    {
+      "path": "packages/backend/drizzle",
+      "gitObject": "c17295f9006835f021514623c91a7602db7d3d57",
+      "baseSame": true,
+      "sourceSame": true
+    },
+    {
+      "path": "packages/backend/src/db/migrate.ts",
+      "gitObject": "5ef632ccfda035efb2b98f2ef8b17069c9d2e48d",
+      "baseSame": true,
+      "sourceSame": true
+    },
+    {
+      "path": "Dockerfile",
+      "gitObject": "3476b20f0a18ecc38c710a7af0ac25641001ee43",
+      "baseSame": true,
+      "sourceSame": true
+    },
+    {
+      "path": "bun.lock",
+      "gitObject": "83d53090cbd3fdc4be48f1896b8cbd3bef8cfa21",
+      "baseSame": true,
+      "sourceSame": true
+    },
+    {
+      "path": "packages/backend/package.json",
+      "gitObject": "04c15d15413c6f4d1f83bb7900294fa484229a3e",
+      "baseSame": true,
+      "sourceSame": true
+    }
+  ],
+  "checks": {
+    "sameFinalFixtures": true,
+    "baselineActionsOff": {
+      "failed": 2,
+      "passed": 27
+    },
+    "baselineActionsOn": {
+      "failed": 3,
+      "passed": 26
+    },
+    "finalActionsOff": 29,
+    "finalActionsOn": 29,
+    "stripeGeneralOnAndExistingRegressions": {
+      "suites": 8,
+      "tests": 104
+    },
+    "typecheck": 0,
+    "scopedLintMaxWarningsZero": 0,
+    "backendBuild": 0,
+    "ownedPidsAbsent": 7
+  },
+  "cases": [
+    "Real dispatcher starts before asynchronous namespace registration; failed registration leaves attempts/expired lease unchanged.",
+    "Transient inline invoice failure retries from its durable row without another webhook, manual replay or manual drain.",
+    "Authorized processing row with expired lease automatically settles once.",
+    "Older marketplace/Connect/wrong-mode/outsider/external-customer rows remain byte-identical and cannot reopen through replay.",
+    "Store-aware projection and checkout/Portal/cancel refuse outsiders before acceptance/customer/provider effects.",
+    "Actual general-Stripe-enabled config preserves non-cohort action admission; existing general Stripe drain/replay tests unchanged."
+  ],
+  "historicalEvidence": {
+    "previousProof": {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/proof.json",
+      "sha256": "7f524cb4772ed3decbb37b292bc4a28a60e93357488a8de0c82322e8b2d951ee",
+      "bytes": 13633
+    },
+    "retainedPreviousCompiled": [
+      {
+        "path": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-recovery-20261004/frozen-9dae/index.js",
+        "sha256": "97c1e0c2236b5a4a0e243ba717fcaa2cb7e0fb610129132581b4859dc401a2ee",
+        "bytes": 9779873,
+        "originalPath": "packages/backend/dist/index.js"
+      },
+      {
+        "path": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-recovery-20261004/frozen-9dae/register-capability-catalog.js",
+        "sha256": "22ce7b279fec3a499fbd9f0cdf1617e6c3069776ee04f2d07f2d284257f38f4f",
+        "bytes": 8793,
+        "originalPath": "packages/backend/dist/register-capability-catalog.js"
+      },
+      {
+        "path": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-recovery-20261004/frozen-9dae/migrate.js",
+        "sha256": "f065a7311adee792500bdd04d21e27d361608a23d7a61999890272161d96a73b",
+        "bytes": 3852,
+        "originalPath": "packages/backend/dist/db/migrate.js"
+      },
+      {
+        "path": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-recovery-20261004/frozen-9dae/provision-taxonomy.js",
+        "sha256": "92d76b0a3682955e7d4419e389a0e122caf44eea55f02dae5d3d4e1f652c2098",
+        "bytes": 2235110,
+        "originalPath": "packages/backend/dist/scripts/provision-taxonomy.js"
+      }
+    ],
+    "preliminaryRuns": "Private earlier logs retain additive-helper test and missing synthetic Connect-key fixture setup failures; only accepted-fixture logs support final RED/GREEN."
+  },
+  "limits": [
+    "All SQL uses normal migrations on owned PG17; all provider/gateway responses are synthetic.",
+    "No production request, provider purchase, permission change, config change, DDL, new price/cohort or event-history rewrite.",
+    "The current live TD61 remains the earlier accepted registration-only checkpoint; I08 stays open until reviewed image-only rollout and negative ingress smoke.",
+    "The CI timeout change preserves every suite/gate; prior cancelled CI is not final-source CI acceptance."
+  ]
+}

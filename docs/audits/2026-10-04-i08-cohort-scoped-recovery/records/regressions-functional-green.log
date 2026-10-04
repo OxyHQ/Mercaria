@@ -1,0 +1,1727 @@
+$ vitest run src/services/billing/peable/__tests__ src/services/billing/stripe/__tests__ src/routes/__tests__/stripe-webhook.integration.test.ts src/services/__tests__/merchant-plan-isolation.test.ts src/services/payments/stripe/__tests__/stripe-ingress.realdb.test.ts
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend[39m
+
+ [32m✓[39m src/services/billing/stripe/__tests__/cohort-reader.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/merchant-plan-isolation.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 286[2mms[22m[39m
+ [32m✓[39m src/services/billing/stripe/__tests__/stripe-billing.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/services/billing/peable/__tests__/register.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+[10:12:06] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+[10:12:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[10:12:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[10:12:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[10:12:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[10:12:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[10:12:06] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[10:12:06] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[10:12:06] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[10:12:06] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+[10:12:06] [31mERROR[39m: [36mFailed to start a plan checkout[39m
+    err: {
+      "type": "MercariaError",
+      "message": "A stable Idempotency-Key is required for this billing action.",
+      "stack":
+          MercariaError: A stable Idempotency-Key is required for this billing action.
+              at validationError (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/lib/errors/error-codes.ts:106:10)
+              at requireIntent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/billing/subscription.service.ts:94:11)
+              at startMerchantPlanCheckout (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/billing/subscription.service.ts:154:3)
+              at startPlanCheckoutHandler (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/controllers/merchant-plans.controller.ts:89:27)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/layer.js:95:5)
+              at next (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/route.js:149:13)
+              at Route.dispatch (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/route.js:119:3)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/layer.js:95:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/index.js:284:15
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/index.js:365:14)
+      "code": "VALIDATION_ERROR",
+      "httpStatus": 400,
+      "name": "MercariaError"
+    }
+[10:12:06] [31mERROR[39m: [36mFailed to start a plan checkout[39m
+    err: {
+      "type": "MercariaError",
+      "message": "Invalid Idempotency-Key.",
+      "stack":
+          MercariaError: Invalid Idempotency-Key.
+              at validationError (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/lib/errors/error-codes.ts:106:10)
+              at billingIntent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/controllers/merchant-plans.controller.ts:52:11)
+              at startPlanCheckoutHandler (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/controllers/merchant-plans.controller.ts:99:23)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/layer.js:95:5)
+              at next (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/route.js:149:13)
+              at Route.dispatch (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/route.js:119:3)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/layer.js:95:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/index.js:284:15
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/index.js:365:14)
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/index.js:376:14)
+      "code": "VALIDATION_ERROR",
+      "httpStatus": 400,
+      "name": "MercariaError"
+    }
+[10:12:06] [31mERROR[39m: [36mFailed to open the billing portal[39m
+    err: {
+      "type": "BillingProviderError",
+      "message": "The hosted billing link expired. Start a new intent.",
+      "stack":
+          BillingProviderError: The hosted billing link expired. Start a new intent.
+              at CohortBillingProvider.call (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/billing/peable/adapter.ts:65:15)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at openMerchantBillingPortal (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/billing/subscription.service.ts:239:19)
+              at openPlanPortalHandler (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/controllers/merchant-plans.controller.ts:111:22)
+      "provider": "stripe",
+      "stage": "createPortalSession",
+      "retryable": false,
+      "code": "billing_result_expired",
+      "name": "BillingProviderError"
+    }
+[10:12:06] [31mERROR[39m: [36mFailed to open the billing portal[39m
+    err: {
+      "type": "MercariaError",
+      "message": "Paid plans are not available on this deployment.",
+      "stack":
+          MercariaError: Paid plans are not available on this deployment.
+              at conflict (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/lib/errors/error-codes.ts:101:10)
+              at openMerchantBillingPortal (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/billing/subscription.service.ts:227:11)
+              at openPlanPortalHandler (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/controllers/merchant-plans.controller.ts:111:28)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/layer.js:95:5)
+              at next (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/route.js:149:13)
+              at Route.dispatch (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/route.js:119:3)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/layer.js:95:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/index.js:284:15
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/index.js:365:14)
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/express/lib/router/index.js:376:14)
+      "code": "CONFLICT",
+      "httpStatus": 409,
+      "name": "MercariaError"
+    }
+ [32m✓[39m src/services/billing/peable/__tests__/adapter.realdb.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 410[2mms[22m[39m
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed"
+[10:12:07] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "discovery"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "discovery"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mOrder transitioned[39m
+    [35morderId[39m: "01a10666-400d-7878-b810-3cbfa3d691c8"
+    [35mstatus[39m: "paid"
+    [35mactorKind[39m: "system"
+[10:12:07] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "buyer-01a10666-3fd5-7a45-8f2a-2af56a83026b"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Payment received"
+[10:12:07] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "seller-01a10666-3fd5-7a45-8f2a-2af56a83026b"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Order paid"
+[10:12:07] [32mINFO[39m: [36m[Payments] payment succeeded applied to its orders[39m
+    [35meventId[39m: "payment:payment_succeeded:01a10666-401a-74a3-99b3-3bdcd4dea579"
+    [35mpaymentId[39m: "01a10666-401a-74a3-99b3-3bdcd4dea579"
+    [35mcheckoutGroupId[39m: "01a10666-3fd5-7665-b74b-8a91ab430c26"
+    [35morders[39m: 1
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36m[Payments] settlement complete[39m
+    [35mpaymentId[39m: "01a10666-401a-74a3-99b3-3bdcd4dea579"
+    [35mcheckoutGroupId[39m: "01a10666-3fd5-7665-b74b-8a91ab430c26"
+    [35mcreated[39m: 0
+    [35malreadySettled[39m: 0
+    [35mwithheld[39m: 1
+[10:12:07] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-4024-7c82-9d29-37f6c09044a0"
+    [35mproviderEventId[39m: "evt_receipt_ok"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-401a-74a3-99b3-3bdcd4dea579"
+[10:12:07] [33mWARN[39m: [36m[Stripe] delivery is for the other mode; acknowledged and dropped[39m
+    [35mscope[39m: "platform"
+    [35mproviderEventId[39m: "evt_livemode_realdb"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35meventLivemode[39m: true
+    [35mdeploymentLivemode[39m: false
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:07] [32mINFO[39m: [36mOrder transitioned[39m
+    [35morderId[39m: "01a10666-41f6-73ac-8e71-41e287afd8ec"
+    [35mstatus[39m: "paid"
+    [35mactorKind[39m: "system"
+[10:12:07] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "buyer-01a10666-41d8-7848-ba59-9c1f490b42cb"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Payment received"
+[10:12:07] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "seller-01a10666-41d8-7848-ba59-9c1f490b42cb"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Order paid"
+[10:12:07] [32mINFO[39m: [36m[Payments] payment succeeded applied to its orders[39m
+    [35meventId[39m: "payment:payment_succeeded:01a10666-4200-7a38-b7b9-6667b6e93711"
+    [35mpaymentId[39m: "01a10666-4200-7a38-b7b9-6667b6e93711"
+    [35mcheckoutGroupId[39m: "01a10666-41d8-73a1-b60f-44cf47aa5eb9"
+    [35morders[39m: 1
+[10:12:07] [32mINFO[39m: [36m[Payments] settlement complete[39m
+    [35mpaymentId[39m: "01a10666-4200-7a38-b7b9-6667b6e93711"
+    [35mcheckoutGroupId[39m: "01a10666-41d8-73a1-b60f-44cf47aa5eb9"
+    [35mcreated[39m: 0
+    [35malreadySettled[39m: 0
+    [35mwithheld[39m: 1
+[10:12:07] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-4208-799a-abb2-f901a2aba34c"
+    [35mproviderEventId[39m: "evt_duplicate"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-4200-7a38-b7b9-6667b6e93711"
+[10:12:07] [34mDEBUG[39m: [36m[Stripe] duplicate delivery acknowledged[39m
+    [35mproviderEventId[39m: "evt_duplicate"
+    [35mtype[39m: "payment_intent.succeeded"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart-merge"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart-merge"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mOrder transitioned[39m
+    [35morderId[39m: "01a10666-4290-7eff-a0c9-9f2134fcb2b7"
+    [35mstatus[39m: "paid"
+    [35mactorKind[39m: "system"
+[10:12:07] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "buyer-01a10666-426f-7c4a-b359-148c07feffe0"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Payment received"
+[10:12:07] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "seller-01a10666-426f-7c4a-b359-148c07feffe0"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Order paid"
+[10:12:07] [32mINFO[39m: [36m[Payments] payment succeeded applied to its orders[39m
+    [35meventId[39m: "payment:payment_succeeded:01a10666-429a-7a3d-82ed-3c6c23258e61"
+    [35mpaymentId[39m: "01a10666-429a-7a3d-82ed-3c6c23258e61"
+    [35mcheckoutGroupId[39m: "01a10666-426f-7819-8000-97aa0d814fda"
+    [35morders[39m: 1
+[10:12:07] [32mINFO[39m: [36m[Payments] settlement complete[39m
+    [35mpaymentId[39m: "01a10666-429a-7a3d-82ed-3c6c23258e61"
+    [35mcheckoutGroupId[39m: "01a10666-426f-7819-8000-97aa0d814fda"
+    [35mcreated[39m: 0
+    [35malreadySettled[39m: 0
+    [35mwithheld[39m: 1
+[10:12:07] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-42a2-79d0-9a90-133542b7ba15"
+    [35mproviderEventId[39m: "evt_double_a"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-429a-7a3d-82ed-3c6c23258e61"
+[10:12:07] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-4302-7011-a0ba-e8afa4fe0cda"
+    [35mproviderEventId[39m: "evt_double_b"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-429a-7a3d-82ed-3c6c23258e61"
+[10:12:07] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-433f-7c10-887c-688d181d1462"
+    [35mproviderEventId[39m: "evt_order_processing"
+    [35mtype[39m: "payment_intent.processing"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-4338-786b-af83-6c7e4b9d9960"
+[10:12:07] [32mINFO[39m: [36mOrder transitioned[39m
+    [35morderId[39m: "01a10666-432f-7cff-adb3-1c43ed48895c"
+    [35mstatus[39m: "paid"
+    [35mactorKind[39m: "system"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "checkout"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "checkout"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "buyer-01a10666-4310-7a70-963e-b82fb77e989f"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Payment received"
+[10:12:07] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "seller-01a10666-4310-7a70-963e-b82fb77e989f"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Order paid"
+[10:12:07] [32mINFO[39m: [36m[Payments] payment succeeded applied to its orders[39m
+    [35meventId[39m: "payment:payment_succeeded:01a10666-4338-786b-af83-6c7e4b9d9960"
+    [35mpaymentId[39m: "01a10666-4338-786b-af83-6c7e4b9d9960"
+    [35mcheckoutGroupId[39m: "01a10666-4310-776f-8008-fd6526c007dd"
+    [35morders[39m: 1
+[10:12:07] [32mINFO[39m: [36m[Payments] settlement complete[39m
+    [35mpaymentId[39m: "01a10666-4338-786b-af83-6c7e4b9d9960"
+    [35mcheckoutGroupId[39m: "01a10666-4310-776f-8008-fd6526c007dd"
+    [35mcreated[39m: 0
+    [35malreadySettled[39m: 0
+    [35mwithheld[39m: 1
+[10:12:07] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-434f-7fcd-ae25-4c1c0fe826c6"
+    [35mproviderEventId[39m: "evt_order_succeeded"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-4338-786b-af83-6c7e4b9d9960"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[10:12:07] [32mINFO[39m: [36mOrder transitioned[39m
+    [35morderId[39m: "01a10666-43dc-7804-b988-9e3a12209af5"
+    [35mstatus[39m: "paid"
+    [35mactorKind[39m: "system"
+[10:12:07] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "buyer-01a10666-43c0-72aa-a095-04a4327f2812"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Payment received"
+[10:12:07] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "seller-01a10666-43c0-72aa-a095-04a4327f2812"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Order paid"
+[10:12:07] [32mINFO[39m: [36m[Payments] payment succeeded applied to its orders[39m
+    [35meventId[39m: "payment:payment_succeeded:01a10666-43e6-72c4-95d2-ec9b8bc88159"
+    [35mpaymentId[39m: "01a10666-43e6-72c4-95d2-ec9b8bc88159"
+    [35mcheckoutGroupId[39m: "01a10666-43c0-740a-8b70-6e3dada5fd25"
+    [35morders[39m: 1
+[10:12:07] [32mINFO[39m: [36m[Payments] settlement complete[39m
+    [35mpaymentId[39m: "01a10666-43e6-72c4-95d2-ec9b8bc88159"
+    [35mcheckoutGroupId[39m: "01a10666-43c0-740a-8b70-6e3dada5fd25"
+    [35mcreated[39m: 0
+    [35malreadySettled[39m: 0
+    [35mwithheld[39m: 1
+[10:12:07] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-43ed-77ee-9894-2eede52f22ef"
+    [35mproviderEventId[39m: "evt_reordered_succeeded"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-43e6-72c4-95d2-ec9b8bc88159"
+[10:12:07] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-444f-7f50-a835-ed96e3484e60"
+    [35mproviderEventId[39m: "evt_reordered_processing"
+    [35mtype[39m: "payment_intent.processing"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-43e6-72c4-95d2-ec9b8bc88159"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reviews"
+[10:12:07] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reviews"
+[10:12:07] [31mERROR[39m: [36m[Payments] provider captured a payment Mercaria had already released; no inventory, order or ledger change was made — this needs an operator decision (refund or manual fulfilment)[39m
+    [35meventId[39m: "payment:payment_succeeded_after_release:01a10666-4482-78e1-8b87-08f642e0937c"
+    [35mpaymentId[39m: "01a10666-4482-78e1-8b87-08f642e0937c"
+    [35mcheckoutGroupId[39m: "01a10666-445c-7751-9361-039935bfeb93"
+    [35mproviderEventId[39m: "evt_after_release"
+    [35mreleasedStatus[39m: "canceled"
+[10:12:07] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-4491-7ff3-b9b7-57b534a7ca5d"
+    [35mproviderEventId[39m: "evt_after_release"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-4482-78e1-8b87-08f642e0937c"
+[10:12:08] [31mERROR[39m: [36m[Payments] provider captured a payment Mercaria had already released; no inventory, order or ledger change was made — this needs an operator decision (refund or manual fulfilment)[39m
+    [35meventId[39m: "payment:payment_succeeded_after_release:01a10666-44d3-7c42-a860-9965ba7e8856"
+    [35mpaymentId[39m: "01a10666-44d3-7c42-a860-9965ba7e8856"
+    [35mcheckoutGroupId[39m: "01a10666-44ad-72cc-9c35-97b461359ccd"
+    [35mproviderEventId[39m: "evt_after_release_1"
+    [35mreleasedStatus[39m: "canceled"
+[10:12:08] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-44e1-7dce-ace7-e1cb16681f92"
+    [35mproviderEventId[39m: "evt_after_release_1"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-44d3-7c42-a860-9965ba7e8856"
+[10:12:08] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-44f7-71c8-898b-999a5c9043e0"
+    [35mproviderEventId[39m: "evt_after_release_2"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-44d3-7c42-a860-9965ba7e8856"
+[10:12:08] [33mWARN[39m: [36m[Payments] payout recorded for a connected account Mercaria has no row for; stored as evidence, with no seller to announce it to[39m
+    [35mpayoutId[39m: "01a10666-450c-7b9a-9c13-af4d1a265b2c"
+    [35mproviderObjectId[39m: "po_seam_mutnw1g71top"
+    [35mstatus[39m: "paid"
+[10:12:08] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-4506-787b-9536-2e9bc6dea664"
+    [35mproviderEventId[39m: "evt_payout_seam_mutnw1g71top"
+    [35mtype[39m: "payout.paid"
+    [35moutcome[39m: "applied"
+[10:12:08] [32mINFO[39m: [36m[Stripe] connected-account readiness changed[39m
+    [35maccountRowId[39m: "01a10666-4518-7087-9ab9-902890c9dd8d"
+    [35mownerType[39m: "store"
+    [35mownerId[39m: "store-ingress-mutnw1g71top"
+    [35mproviderAccountId[39m: "acct_…1top"
+    [35mfrom[39m: "action_required"
+    [35mto[39m: "ready"
+    [35mpayoutsEnabled[39m: true
+    [35mtransfersCapability[39m: "active"
+    [35mcurrentlyDue[39m: 0
+    [35mpastDue[39m: 0
+    [35mdisabledReasonCodes[39m: []
+[10:12:08] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-451c-7091-ae55-9fd1245bf933"
+    [35mproviderEventId[39m: "evt_account_ready_mutnw1g71top"
+    [35mtype[39m: "account.updated"
+    [35moutcome[39m: "applied"
+[10:12:08] [32mINFO[39m: [36m[Stripe] connected-account readiness changed[39m
+    [35maccountRowId[39m: "01a10666-452f-7502-a214-9d001348f556"
+    [35mownerType[39m: "store"
+    [35mownerId[39m: "store-converge-mutnw1g71top"
+    [35mproviderAccountId[39m: "acct_…1top"
+    [35mfrom[39m: "action_required"
+    [35mto[39m: "restricted"
+    [35mpayoutsEnabled[39m: false
+    [35mtransfersCapability[39m: "inactive"
+    [35mcurrentlyDue[39m: 1
+    [35mpastDue[39m: 1
+    [35mdisabledReasonCodes[39m: [
+      "requirements.past_due"
+    ]
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:08] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-4533-7b88-b646-c2bb8a364dac"
+    [35mproviderEventId[39m: "evt_account_converge_mutnw1g71top"
+    [35mtype[39m: "account.updated"
+    [35moutcome[39m: "applied"
+[10:12:08] [33mWARN[39m: [36m[Stripe] connected account deauthorized; the seller can no longer be paid[39m
+    [35maccountRowId[39m: "01a10666-4555-7f70-89ab-6d0cf41ba136"
+    [35mownerType[39m: "store"
+    [35mownerId[39m: "store-deauth-mutnw1g71top"
+    [35mproviderAccountId[39m: "acct_…1top"
+    [35mfrom[39m: "action_required"
+[10:12:08] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-4559-783c-a911-74b9c8042b5c"
+    [35mproviderEventId[39m: "evt_account_deauth_mutnw1g71top"
+    [35mtype[39m: "account.application.deauthorized"
+    [35moutcome[39m: "applied"
+[10:12:08] [33mWARN[39m: [36m[Stripe] account event names a connected account Mercaria has no record of[39m
+    [35mproviderAccountId[39m: "acct_…1top"
+[10:12:08] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-456e-79e9-a234-c43c571a8e2f"
+    [35mproviderEventId[39m: "evt_account_unknown_mutnw1g71top"
+    [35mtype[39m: "account.updated"
+    [35moutcome[39m: "ignored"
+[10:12:08] [33mWARN[39m: [36m[Stripe] event metadata names a payment that does not exist; falling back to the provider object id[39m
+    [35mpaymentId[39m: "payment-that-does-not-exist-yet"
+    [35mproviderObjectId[39m: "pi_dead_letter"
+[10:12:08] [33mWARN[39m: [36m[Stripe] event processing failed, will retry[39m
+    [35meventId[39m: "01a10666-457a-796c-879f-12db0a3e5a78"
+    [35mproviderEventId[39m: "evt_dead_letter"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "No Mercaria payment matches Stripe PaymentIntent pi_dead_letter; it may not be visible yet.",
+      "stack":
+          PaymentProviderError: No Mercaria payment matches Stripe PaymentIntent pi_dead_letter; it may not be visible yet.
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/stripe-event-router.ts:146:10)
+              at handlePaymentIntent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/stripe-event-router.ts:244:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:140:15)
+              at processStoredStripeEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:287:3)
+              at ingestStripeDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/ingress.ts:177:5)
+              at deliver (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/__tests__/stripe-ingress.realdb.test.ts:449:10)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/__tests__/stripe-ingress.realdb.test.ts:1052:23
+              at file:///home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+      "provider": "stripe",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[10:12:08] [33mWARN[39m: [36m[Stripe] event metadata names a payment that does not exist; falling back to the provider object id[39m
+    [35mpaymentId[39m: "payment-that-does-not-exist-yet"
+    [35mproviderObjectId[39m: "pi_dead_letter"
+[10:12:08] [31mERROR[39m: [36m[Stripe] event dead-lettered[39m
+    [35meventId[39m: "01a10666-457a-796c-879f-12db0a3e5a78"
+    [35mproviderEventId[39m: "evt_dead_letter"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35mattempts[39m: 2
+    err: {
+      "type": "PaymentProviderError",
+      "message": "No Mercaria payment matches Stripe PaymentIntent pi_dead_letter; it may not be visible yet.",
+      "stack":
+          PaymentProviderError: No Mercaria payment matches Stripe PaymentIntent pi_dead_letter; it may not be visible yet.
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/stripe-event-router.ts:146:10)
+              at handlePaymentIntent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/stripe-event-router.ts:244:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:140:15)
+              at drainStripeEvents (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:244:21)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/__tests__/stripe-ingress.realdb.test.ts:1087:24
+              at file:///home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+      "provider": "stripe",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[10:12:08] [32mINFO[39m: [36m[Stripe] event reopened for replay[39m
+    [35meventId[39m: "01a10666-457a-796c-879f-12db0a3e5a78"
+    [35mproviderEventId[39m: "evt_dead_letter"
+    [35mtype[39m: "payment_intent.succeeded"
+[10:12:08] [32mINFO[39m: [36mOrder transitioned[39m
+    [35morderId[39m: "01a10666-45b7-725a-9a26-278f84971467"
+    [35mstatus[39m: "paid"
+    [35mactorKind[39m: "system"
+[10:12:08] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "buyer-01a10666-4598-789c-88c7-49b8ca7c5c3b"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Payment received"
+[10:12:08] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "seller-01a10666-4598-789c-88c7-49b8ca7c5c3b"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Order paid"
+[10:12:08] [32mINFO[39m: [36m[Payments] payment succeeded applied to its orders[39m
+    [35meventId[39m: "payment:payment_succeeded:01a10666-45c1-7405-a869-de64218c66f2"
+    [35mpaymentId[39m: "01a10666-45c1-7405-a869-de64218c66f2"
+    [35mcheckoutGroupId[39m: "01a10666-4598-7957-9b5e-ecb7529a22f3"
+    [35morders[39m: 1
+[10:12:08] [32mINFO[39m: [36m[Payments] settlement complete[39m
+    [35mpaymentId[39m: "01a10666-45c1-7405-a869-de64218c66f2"
+    [35mcheckoutGroupId[39m: "01a10666-4598-7957-9b5e-ecb7529a22f3"
+    [35mcreated[39m: 0
+    [35malreadySettled[39m: 0
+    [35mwithheld[39m: 1
+[10:12:08] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-457a-796c-879f-12db0a3e5a78"
+    [35mproviderEventId[39m: "evt_dead_letter"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-45c1-7405-a869-de64218c66f2"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "sellers"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "sellers"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "rates"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "rates"
+[10:12:08] [32mINFO[39m: [36mOrder transitioned[39m
+    [35morderId[39m: "01a10666-4655-73d7-99d9-03b38eb606e8"
+    [35mstatus[39m: "paid"
+    [35mactorKind[39m: "system"
+[10:12:08] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "buyer-01a10666-4637-7641-b023-6be8e6e950f2"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Payment received"
+[10:12:08] [32mINFO[39m: [36mNotification sent[39m
+    [35mtype[39m: "order_paid"
+    [35muserId[39m: "seller-01a10666-4637-7641-b023-6be8e6e950f2"
+    [35mchannels[39m: [
+      "in_app"
+    ]
+    [35mtitle[39m: "Order paid"
+[10:12:08] [32mINFO[39m: [36m[Payments] payment succeeded applied to its orders[39m
+    [35meventId[39m: "payment:payment_succeeded:01a10666-465f-7d9b-abef-aabc9a6bef6a"
+    [35mpaymentId[39m: "01a10666-465f-7d9b-abef-aabc9a6bef6a"
+    [35mcheckoutGroupId[39m: "01a10666-4637-7107-8b6e-e5309292f775"
+    [35morders[39m: 1
+[10:12:08] [32mINFO[39m: [36m[Payments] settlement complete[39m
+    [35mpaymentId[39m: "01a10666-465f-7d9b-abef-aabc9a6bef6a"
+    [35mcheckoutGroupId[39m: "01a10666-4637-7107-8b6e-e5309292f775"
+    [35mcreated[39m: 0
+    [35malreadySettled[39m: 0
+    [35mwithheld[39m: 1
+[10:12:08] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-4666-7448-affa-a5a301a2e6d4"
+    [35mproviderEventId[39m: "evt_replay_processed"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35moutcome[39m: "applied"
+    [35mpaymentId[39m: "01a10666-465f-7d9b-abef-aabc9a6bef6a"
+[10:12:08] [33mWARN[39m: [36m[Stripe] event is not in a replayable state[39m
+    [35meventId[39m: "01a10666-4666-7448-affa-a5a301a2e6d4"
+    [35mstatus[39m: "processed"
+[10:12:08] [33mWARN[39m: [36m[Stripe] event metadata names a payment that does not exist; falling back to the provider object id[39m
+    [35mpaymentId[39m: "payment-that-does-not-exist-for-stats"
+    [35mproviderObjectId[39m: "pi_stats"
+[10:12:08] [33mWARN[39m: [36m[Stripe] event processing failed, will retry[39m
+    [35meventId[39m: "01a10666-46c4-7b04-94ad-5268d4470d8e"
+    [35mproviderEventId[39m: "evt_stats"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "No Mercaria payment matches Stripe PaymentIntent pi_stats; it may not be visible yet.",
+      "stack":
+          PaymentProviderError: No Mercaria payment matches Stripe PaymentIntent pi_stats; it may not be visible yet.
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/stripe-event-router.ts:146:10)
+              at handlePaymentIntent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/stripe-event-router.ts:244:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:140:15)
+              at processStoredStripeEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:287:3)
+              at ingestStripeDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/ingress.ts:177:5)
+              at deliver (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/__tests__/stripe-ingress.realdb.test.ts:449:10)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/__tests__/stripe-ingress.realdb.test.ts:1159:5
+              at file:///home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+      "provider": "stripe",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+ [32m✓[39m src/services/payments/stripe/__tests__/stripe-ingress.realdb.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 3197[2mms[22m[39m
+     [33m[2m✓[22m[39m stores a verified event, applies it, and books exactly one of everything [33m 445[2mms[22m[39m
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[10:12:08] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "nearby"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "nearby"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search-intent"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search-intent"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "seo"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "seo"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchantCompetitiveness"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchantCompetitiveness"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[10:12:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-redirect"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-redirect"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "outbound"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "outbound"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-issue"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-issue"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-recover"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-recover"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "analytics-ingest"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "analytics-ingest"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-demand"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-demand"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "public-api"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "public-api"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+ [32m✓[39m src/services/billing/peable/__tests__/cors.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 8076[2mms[22m[39m
+[10:12:12] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[10:12:12] [33mWARN[39m: [36m[Stripe] event metadata names a payment that does not exist; falling back to the provider object id[39m
+    [35mpaymentId[39m: "mercaria-payment-1"
+    [35mproviderObjectId[39m: "pi_test_1"
+[10:12:12] [33mWARN[39m: [36m[Stripe] event processing failed, will retry[39m
+    [35meventId[39m: "01a10666-56d1-78c6-a4a8-931bc652d258"
+    [35mproviderEventId[39m: "evt_rawbody_ok"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "No Mercaria payment matches Stripe PaymentIntent pi_test_1; it may not be visible yet.",
+      "stack":
+          PaymentProviderError: No Mercaria payment matches Stripe PaymentIntent pi_test_1; it may not be visible yet.
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/stripe-event-router.ts:146:10)
+              at handlePaymentIntent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/stripe-event-router.ts:244:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:140:15)
+              at processStoredStripeEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:287:3)
+              at ingestStripeDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/ingress.ts:177:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/routes/stripe-webhook.ts:103:20
+      "provider": "stripe",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[10:12:12] [33mWARN[39m: [36m[Stripe] event metadata names a payment that does not exist; falling back to the provider object id[39m
+    [35mpaymentId[39m: "mercaria-payment-1"
+    [35mproviderObjectId[39m: "pi_test_1"
+[10:12:12] [33mWARN[39m: [36m[Stripe] event processing failed, will retry[39m
+    [35meventId[39m: "01a10666-5730-7079-8801-2225a0ec118a"
+    [35mproviderEventId[39m: "evt_previous_secret"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "No Mercaria payment matches Stripe PaymentIntent pi_test_1; it may not be visible yet.",
+      "stack":
+          PaymentProviderError: No Mercaria payment matches Stripe PaymentIntent pi_test_1; it may not be visible yet.
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/stripe-event-router.ts:146:10)
+              at handlePaymentIntent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/stripe-event-router.ts:244:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:140:15)
+              at processStoredStripeEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:287:3)
+              at ingestStripeDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/ingress.ts:177:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/routes/stripe-webhook.ts:103:20
+      "provider": "stripe",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[10:12:12] [33mWARN[39m: [36m[Stripe] account event names a connected account Mercaria has no record of[39m
+    [35mproviderAccountId[39m: "acct_…st_1"
+[10:12:12] [34mDEBUG[39m: [36m[Stripe] event processed[39m
+    [35meventId[39m: "01a10666-576e-7349-b78d-fc0ef715649d"
+    [35mproviderEventId[39m: "evt_connect_ok"
+    [35mtype[39m: "account.updated"
+    [35moutcome[39m: "ignored"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "connect"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[10:12:12] [31mERROR[39m: [36m[Stripe] delivery arrived at the wrong endpoint; check the two endpoint subscriptions in the Stripe dashboard[39m
+    [35mscope[39m: "platform"
+    [35mproviderEventId[39m: "evt_scope_mismatch"
+    [35mtype[39m: "payout.paid"
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[10:12:12] [33mWARN[39m: [36m[Stripe] delivery is for the other mode; acknowledged and dropped[39m
+    [35mscope[39m: "platform"
+    [35mproviderEventId[39m: "evt_livemode_mismatch"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35meventLivemode[39m: true
+    [35mdeploymentLivemode[39m: false
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[10:12:12] [33mWARN[39m: [36m[Stripe] event metadata names a payment that does not exist; falling back to the provider object id[39m
+    [35mpaymentId[39m: "mercaria-payment-1"
+    [35mproviderObjectId[39m: "pi_test_1"
+[10:12:12] [33mWARN[39m: [36m[Stripe] event processing failed, will retry[39m
+    [35meventId[39m: "01a10666-57c2-7af5-b686-0abf338e0cc8"
+    [35mproviderEventId[39m: "evt_livemode_match"
+    [35mtype[39m: "payment_intent.succeeded"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "No Mercaria payment matches Stripe PaymentIntent pi_test_1; it may not be visible yet.",
+      "stack":
+          PaymentProviderError: No Mercaria payment matches Stripe PaymentIntent pi_test_1; it may not be visible yet.
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/stripe-event-router.ts:146:10)
+              at handlePaymentIntent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/stripe-event-router.ts:244:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:140:15)
+              at processStoredStripeEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:287:3)
+              at ingestStripeDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/ingress.ts:177:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/routes/stripe-webhook.ts:103:20
+      "provider": "stripe",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[10:12:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:12] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [33mWARN[39m: [36m[Stripe] webhook delivery refused[39m
+    [35mscope[39m: "platform"
+    [35mreason[39m: "No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? \n If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.\n\nLearn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature\n"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[10:12:13] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "discovery"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart-merge"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "checkout"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reviews"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "sellers"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "rates"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "nearby"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search-intent"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "seo"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchantCompetitiveness"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-redirect"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "outbound"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-issue"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-recover"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "analytics-ingest"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-demand"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "public-api"
+[10:12:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+ [32m✓[39m src/routes/__tests__/stripe-webhook.integration.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 8783[2mms[22m[39m
+     [33m[2m✓[22m[39m mounts nothing and answers 404 [33m 510[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m104 passed[39m[22m[90m (104)[39m
+[2m   Start at [22m 13:12:01
+[2m   Duration [22m 11.84s[2m (transform 15.33s, setup 0ms, import 7.24s, tests 20.79s, environment 1ms)[22m
+
