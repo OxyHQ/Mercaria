@@ -181,6 +181,7 @@
         "@expo/vector-icons": "^15.1.1",
         "@goway.to/sdk": "0.3.0",
         "@hugeicons/react-native": "^1.0.15",
+        "@mercaria/contracts": "workspace:*",
         "@mercaria/shared-types": "workspace:*",
         "@mercaria/ui": "workspace:*",
         "@oxy.so/bloom": "6.2.1",
