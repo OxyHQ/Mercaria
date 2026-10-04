@@ -1,0 +1,11 @@
+# Mercaria I08 cohort functional follow-up
+
+The Stripe-off cohort now mounts its signed platform billing ingress and can settle and reconcile existing subscriptions. Checkout, Portal and cancellation retain the actual action flag. General Stripe and Connect remain disabled; outside customers and stores never reach storage or provider calls. Startup without a verified registered namespace returns retryable HTTP 503.
+
+The original three seams reproduce on 80291 with 13 failing and 8 passing tests. Source 39d39568 passes the same 21 tests with actions off and on. An additional financial fixture discovered two real ledger transactions for one invoice under different event IDs. That diagnostic and intermediate failure are preserved. Source 9dae93ed locks and checks the current subscription binding and an existing invoice claim before any posting. The identical 26-case fixture has 4 baseline failures, then passes 26/26 in both action states. Two concurrent canonical SELECTs are observed blocked in PostgreSQL before the held subscription lock is released. Different invoices remain bookable, duplicate event IDs roll back, and zero-settlement claims stay immutable.
+
+The final regression run passes 8 suites and 104 tests. Backend types, scoped zero-warning lint and build pass. The installed Peable 0.2.2 SDK equals all 53 public archive members. No Dockerfile, dependency lock, migrator or Drizzle input changed. All 14 recorded owned PostgreSQL processes are absent.
+
+Gateway authority and provider responses are synthetic; all SQL uses freshly migrated owned databases. No production data, live provider operation or offer is created. Earlier setup, fixture and type-check overlap failures remain private and are not substituted for product RED evidence. Old invoice history lacks namespace columns: prior claims are retained conservatively and no historical mode is inferred.
+
+I08 remains incomplete pending root's image-only promotion, each new serving task's positive exact-cohort registration, and the live mounted-route smoke: POST /webhooks/stripe with body {} and no signature must return HTTP 400 missing_signature before SQL/provider effects. Connect stays HTTP 404. /health and /health/ready must both return HTTP 200. No new live purchase is an acceptance requirement.

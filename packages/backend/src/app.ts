@@ -261,7 +261,7 @@ export function createApp(): express.Express {
   // that has no secret and therefore could never tell a real delivery from a
   // forged one. There is nothing to park, unlike the outbox dispatchers, because
   // without a secret nothing could be verified to park in the first place.
-  if (config.payments.stripe.enabled) {
+  if (config.payments.stripe.enabled || config.merchantBilling.peableCohortJson) {
     app.use('/webhooks/stripe', stripeWebhookRouter);
   }
 

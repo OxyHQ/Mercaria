@@ -558,7 +558,8 @@ connectPostgres()
       // task, same lease shape. The webhook ingress processes inline after
       // storing, so on a healthy path this loop finds nothing — it exists so
       // that "a 200 means stored, never processed" is a mechanism rather than a
-      // comment. No-ops entirely when Stripe is not configured.
+      // comment. A configured billing cohort also polls, but cannot claim until
+      // asynchronous namespace registration succeeds.
       import('./services/payments/stripe/event-dispatcher.js')
         .then(({ startStripeEventDispatcher }) => startStripeEventDispatcher())
         .catch((err) => log.general.error({ err }, 'Stripe event dispatcher import failed'));

@@ -15,30 +15,29 @@
  * the durable half of "a 200 means stored, never processed", and without a
  * poller that promise would be a comment rather than a mechanism.
  *
- * ## The gate is the RAIL, not the loop
- *
- * Unlike the outbox dispatcher — which is gated separately from its record so an
- * incident can park work — this simply does not run when Stripe is off, because
- * in that state no route is mounted, no event can have been stored, and there is
- * nothing to park. The gating decision lives in one place, `STRIPE_ENABLED`.
+ * A configured cohort starts the timer even before asynchronous registration.
+ * Each drain requires its registered namespace and restricts claims in SQL;
+ * turning off new actions never strands existing cohort obligations.
  */
 
+import { parseBillingCohort } from '../../billing/cohort-config.js';
 import { config } from '../../../config/index.js';
 import { log } from '../../../lib/logger.js';
 import { drainStripeEvents } from './event-processor.js';
 
 let timer: NodeJS.Timeout | undefined;
 let running = false;
-const abortController = new AbortController();
+let abortController = new AbortController();
 
 async function tick(): Promise<void> {
   if (running) return;
   running = true;
+  const signal = abortController.signal;
   try {
     const result = await drainStripeEvents({
       batchSize: config.payments.stripe.eventBatchSize,
       leaseMs: config.payments.stripe.eventLeaseMs,
-      signal: abortController.signal,
+      signal,
     });
     if (result.processed > 0 || result.failed > 0) {
       log.general.debug(result, '[Stripe] event queue drained');
@@ -55,7 +54,8 @@ async function tick(): Promise<void> {
 /** Begin draining. Idempotent — a second call is a no-op. */
 export function startStripeEventDispatcher(): void {
   if (timer !== undefined) return;
-  if (!config.payments.stripe.enabled) return;
+  if (!config.payments.stripe.enabled && !parseBillingCohort(config.merchantBilling.peableCohortJson)) return;
+  abortController = new AbortController();
 
   timer = setInterval(() => {
     void tick();

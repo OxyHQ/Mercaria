@@ -47,6 +47,7 @@
 
 import express, { Router, type Request, type Response } from 'express';
 import { ingestStripeDelivery, type StripeIngressResult } from '../services/payments/stripe/ingress.js';
+import { config } from '../config/index.js';
 import type { StripeWebhookScope } from '../services/payments/stripe/event-scopes.js';
 
 const router = Router();
@@ -74,6 +75,9 @@ function respond(res: Response, result: StripeIngressResult): void {
       // that will never be accepted; the `code` says which condition it was.
       res.status(200).json({ received: false, ignored: result.code });
       return;
+    case 'unavailable':
+      res.status(503).json({ received: false, error: result.code });
+      return;
     case 'rejected':
       // 400 and nothing persisted. Not 401: Stripe treats any non-2xx as a
       // failed delivery and retries either way, and a 400 reads correctly in the
@@ -87,6 +91,9 @@ function respond(res: Response, result: StripeIngressResult): void {
 /** One endpoint's handler. Both scopes run identical code with a different secret. */
 function handleDelivery(scope: StripeWebhookScope) {
   return async (req: Request, res: Response): Promise<void> => {
+    if (scope === 'connect' && !config.payments.stripe.enabled) {
+      res.status(404).end(); return;
+    }
     const signature = req.get('Stripe-Signature');
     if (signature === undefined || signature === '') {
       res.status(400).json({ received: false, error: 'missing_signature' });
