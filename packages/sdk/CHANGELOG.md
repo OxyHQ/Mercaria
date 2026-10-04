@@ -54,10 +54,29 @@ upgrade before (or with) the server.
   business — match a place, profile or page to its Mercaria store on it, and
   fetch the account's own facts from Oxy. It is required in the schema, so an
   0.2 client needs a server that sends it.
+- **Locations** — a store's physical shop fronts, each trading from a GoWay
+  place (Mercaria ADR 0013):
+  - `locations.list({ goWayPlaceId })` — the public locations at one GoWay place,
+    for a map's "products at this store"; an empty page when nobody trades there.
+  - `locations.get`, `locations.resolveRef` — a `MercariaLocation`: its ref, its
+    `goWayPlaceId`, its store, its collection terms (`pickup`, or `null`) and
+    `discoverable`. No place fact: read those from GoWay.
+  - `locations.products(location, options)` — a page of `MercariaLocationProduct`:
+    a product summary with its bounded `availability` there
+    (`in_stock | low_stock | out_of_stock`), an `exactQuantity` only where the
+    merchant discloses it and the count is fresh, and `stockConfirmedAt`. The
+    `stores.products` filters, with `inStock` read at the location.
+  - `stores.locations(store)` — a store's public locations.
+  - `locationRef`, the `location` ref kind and its string form
+    `mercaria:location:<id>`; `links.location(location, store)`.
+  - `MERCARIA_LOCATION_AVAILABILITIES` and the `MercariaLocation*` types.
+  - A location read answers `MercariaUnavailableError` (503) when Mercaria could
+    not ask GoWay — never `MercariaGoneError`, so a stored ref is not dropped
+    for an outage.
 
 ### Unchanged
 
-- Every client method and its arguments, refs and their string form, link
+- Every 0.1 client method and its arguments, refs and their string form, link
   helpers, `iterateMercariaPages`, `getAccessToken`, timeouts and cancellation,
   and the cross-copy `instanceof`.
 

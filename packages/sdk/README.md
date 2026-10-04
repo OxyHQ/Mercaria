@@ -2,7 +2,7 @@
 
 The canonical TypeScript client for [Mercaria](https://mercaria.co)'s public
 commerce API. If an Oxy app — Mention, Goway, Nilo, an assistant or a service —
-needs Mercaria products, stores or collections, it reads them through this
+needs Mercaria products, stores, collections or a store's locations, it reads them through this
 package instead of knowing Mercaria's HTTP routes, copying its types or
 building its URLs.
 
@@ -27,6 +27,7 @@ bun add @mercaria.co/sdk     # or: npm install @mercaria.co/sdk
 - [Variants](#variants)
 - [Stores](#stores)
 - [Collections](#collections)
+- [Locations: products at a shop on a map](#locations-products-at-a-shop-on-a-map)
 - [Links](#links)
 - [References](#references)
 - [Pagination](#pagination)
@@ -168,6 +169,7 @@ store.url;
 
 const products = await mercaria.stores.products(store.ref, { sort: 'newest', limit: 24 });
 const collections = await mercaria.stores.collections(store.ref);
+const locations = await mercaria.stores.locations(store.ref); // its public shop fronts
 ```
 
 A closed or suspended store rejects with `MercariaGoneError`.
@@ -183,6 +185,49 @@ collection.image;
 const items = await mercaria.collections.products(collection.ref, { limit: 12 });
 ```
 
+## Locations: products at a shop on a map
+
+A store's physical shop fronts are **locations**. Where a location is — its
+name, address, hours, photos and rating — belongs to the GoWay place it trades
+from, and is read from GoWay with `location.goWayPlaceId`
+(`@goway.to/sdk`); Mercaria serves its own half only: the store, the
+collection terms and what is on the shelf.
+
+```ts
+// A GoWay place page: which Mercaria shop fronts trade from this place?
+const { items } = await mercaria.locations.list({ goWayPlaceId: place.id });
+for (const location of items) {
+  location.ref;            // persist this — { kind: 'location', id }
+  location.store;          // { ref, handle, name, logoUrl }
+  location.pickup;         // { identityRequirement, paymentRequirement, instructions } or null
+  location.discoverable;   // Mercaria's own nearby search routes shoppers here now
+  location.url;            // the store page, opened on this shop front
+
+  // What is on the shelf there, bounded.
+  const page = await mercaria.locations.products(location.ref, { inStock: true, limit: 12 });
+  for (const item of page.items) {
+    item.product;            // a product summary, as everywhere else
+    item.availability;       // 'in_stock' | 'low_stock' | 'out_of_stock' AT THIS LOCATION
+    item.exactQuantity;      // a number ONLY where the merchant discloses it, else absent
+    item.stockConfirmedAt;   // when the shop last confirmed it
+  }
+}
+```
+
+- **A location is listed only while its GoWay place names it back** (as its
+  business, at the claimant's or GoWay's tier). A place nobody trades from is an
+  empty page, never an error.
+- **`locations.get` / `resolveRef` reject with `MercariaGoneError`** once a
+  location is withdrawn, restricted, closed with its store, or its place stops
+  naming it; `MercariaNotFoundError` when it was never public.
+- **`MercariaUnavailableError` (503) means Mercaria could not ask GoWay**, and is
+  NOT a reason to drop a stored ref — retry later.
+- **A stale count is `out_of_stock`.** Availability is derived from counts the
+  shop confirmed within its own declared interval; an older count proves nothing
+  about the shelf and carries no number.
+- `inStock: true` keeps what is on THIS shelf now; `query`, `sort`, `locale`,
+  `limit` and `cursor` work as on `stores.products`.
+
 ## Links
 
 Never build Mercaria URLs by hand. The link helpers produce the same strings the
@@ -192,6 +237,7 @@ server puts in each DTO's `url`:
 mercaria.links.product(product);             // or a product ref, or an id
 mercaria.links.store(store);                 // or a handle, or a store seller
 mercaria.links.collection(collection, store); // a collection needs its store's handle
+mercaria.links.location(location, location.store); // a location, on its store's page
 ```
 
 A store link needs the store's current **handle**, which a ref deliberately
@@ -205,7 +251,7 @@ availability, and no store handle. That is what makes it safe to persist.
 
 ```ts
 import {
-  productRef, variantRef, storeRef, collectionRef,
+  productRef, variantRef, storeRef, collectionRef, locationRef,
   parseMercariaRef, isMercariaRef,
   formatMercariaRef, parseMercariaRefString,
 } from '@mercaria.co/sdk';
@@ -219,6 +265,7 @@ const ref = parseMercariaRef(row.mercariaRef);
 // As a string column or a URL parameter: one canonical string per ref.
 formatMercariaRef(productRef('prod_1'));          // 'mercaria:product:prod_1'
 parseMercariaRefString('mercaria:store:store_1'); // { kind: 'store', id: 'store_1' }
+formatMercariaRef(locationRef('loc_1'));          // 'mercaria:location:loc_1'
 ```
 
 `parseMercariaRef` accepts only a plain object with exactly the keys of its
@@ -265,9 +312,10 @@ await mercaria.products.search({ query: 'zapatillas' });            // locale=es
 await mercaria.stores.products(store.ref, { locale: 'pt-BR' });     // per-call override
 ```
 
-It applies to `products.search` and `stores.products`. Detail reads
-(`products.get`, `stores.get`, `collections.get` and the `resolve*` helpers) and
-collection product pages take no locale, and the SDK never sends one on them.
+It applies to `products.search`, `stores.products` and `locations.products`.
+Detail reads (`products.get`, `stores.get`, `collections.get`, `locations.get`
+and the `resolve*` helpers), collection product pages and the location lists
+take no locale, and the SDK never sends one on them.
 Locale changes presentation only, never which entity a ref names.
 
 **There is no market or currency option, on purpose.** Public reads serve each
@@ -364,6 +412,9 @@ you can never receive:
 - wholesale or supplier cost, supplier identity or supplier references
 - procurement offers, activation keys, license keys or download secrets
 - variant SKUs, barcodes or connector provenance
+- inventory counts, except a location's `exactQuantity` where its merchant
+  chose to disclose it
+- a location's operational name or address, or why it is paused or restricted
 - a manual collection's raw member ids or automation rules
 - moderation evidence, risk or fraud signals
 - payment credentials, guest order-access tokens, or buyer identity

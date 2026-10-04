@@ -150,6 +150,9 @@ to, and a single-interval fixture set could not tell them apart.
 
 ## 5. Availability is a bounded state, never a number by default
 
+`locationAvailabilityState` (`services/pickup/eligibility.ts`) is the one
+spelling of the rule below, shared by nearby and the public location reads.
+
 `LOCATION_AVAILABILITY_STATES` is `in_stock | low_stock | out_of_stock`, and
 `exactQuantity` is present ONLY where `discloses_exact_stock` is on. A consumer
 that wants to render "3 left" has to read a property that is usually absent,
@@ -406,6 +409,17 @@ no member meaning yes.
 | `GET /nearby/places` | The manual fallback: `?q=` a town |
 | `GET /nearby/p2p` | 404 while `P2P_LOCAL_DISCOVERY_ENABLED` is off |
 | `GET /search?nearLatitude=&nearLongitude=` | #70's filter 10, a CONTRACT CHANGE rather than a parameter that was accepted and ignored. A MEMBERSHIP filter, never an ordering |
+
+### Public integration (`/public/v1`)
+
+`GET /public/v1/locations?goWayPlaceId=`, `/locations/:id`,
+`/locations/:id/products` and `/stores/:id/locations` — the shop fronts another
+Oxy application (GoWay's place page, first) reads, gated by the same trust rule
+(§3) and with each product's availability decided by the same
+`inventoryBlockers` and `locationAvailabilityState` as nearby (§4, §5). Status
+rules, the 503 for an unreachable GoWay and the projection are
+`docs/public-api.md`'s. The storefront's store page lists its own shop fronts
+from the same route, so the map and the store cannot disagree.
 
 ### Buyer
 
@@ -760,3 +774,16 @@ claim it for the store's Oxy account, assert `commerce.mercaria.store`, save,
 publish. Mercaria has no service credential to write to GoWay, and a link an
 operator typed for them would fail the trust rule anyway until the store's own
 account holds the claim.
+
+### `0162` ships in the NEXT release, never with `0161`
+
+`0162` (pre) adds `location_publications.published_at` — the first
+publication, which the public location reads tell "withdrawn" (410) from
+"never published" (404) by — and backfills it from the publication trail,
+`0161`'s withdrawals included. A `pre` queued behind an unapplied `post` is
+refused by the migration planner (`@oxy.so/db`'s `planMigrationRun`): the
+ledger is a high-water mark, so `0162` cannot apply before `0161`, and `0161`
+cannot apply before the image that stops reading the dropped columns is
+serving. Deploy the release carrying `0161` first, let its post phase run, then
+the one carrying `0162`. `goway-place-migration.realdb.test.ts` runs them as
+those two releases.

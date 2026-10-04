@@ -9,8 +9,9 @@ people changing the SDK or the contract behind it.
 ## What it is, and what it is not
 
 - **It is** a headless TypeScript client over the public read API mounted at
-  `/public/v1`: products, search, stores, collections, canonical links,
-  portable refs and typed errors. It runs on Node 18+, Bun, browsers and React
+  `/public/v1`: products, search, stores, collections, a store's locations
+  and what is on their shelves, canonical links, portable refs and typed
+  errors. It runs on Node 18+, Bun, browsers and React
   Native from one entry, and has **one runtime dependency, `zod`**.
 - **It is not** a UI kit, a checkout, an admin or operator client, a supplier or
   procurement client (#1016), or a second definition of Mercaria's types.
@@ -44,6 +45,8 @@ is the SDK's one `dependency`. Consumers import only `@mercaria.co/sdk`.
 | An error class per contract error code | a code without a class is a compile error (`ERROR_CLASS_BY_CODE`) | `src/transport.ts` |
 | `NotFound`/`Gone` only from a Mercaria error body | a proxy 404 proves nothing; consumers may act on "gone" | `src/transport.ts` |
 | Detail reads send no query parameters; `inStock=false` is never sent | the server refuses unknown detail params; `false` filters nothing, and one page must have one URL | `src/client.ts` |
+| A location carries no place fact; `goWayPlaceId` is how a consumer reads them | the place is GoWay's (ADR 0013); a copy here would be a second answer to "when does this shop open" | the contract's `locations.ts` |
+| `service_unavailable` on a location read is `MercariaUnavailableError`, never gone | Mercaria could not ask GoWay; a consumer must not drop a good ref for an outage | `src/transport.ts` |
 | Token getter called per request, never cached | Oxy owns the session and its refresh | `src/transport.ts` |
 | No service-to-service auth option | none exists yet; the SDK must not fake one | README |
 | Locale is the only context dimension | public reads serve native currency and convert nothing | README |
@@ -170,8 +173,15 @@ so route or DTO drift between the backend and the SDK fails `ci.yml`. It proves:
 - `getAccessToken` is forwarded as `Authorization: Bearer`, making
   `viewer.saved` true for the user who saved the product and `viewer` null
   anonymously;
-- `links.product`, `links.store` and `links.collection` rebuild exactly the
-  `url` the server serves.
+- `links.product`, `links.store`, `links.collection` and `links.location`
+  rebuild exactly the `url` the server serves;
+- the location reads, against a fake GoWay behind the GoWay SDK's own `fetch`
+  seam (`services/goway/__tests__/fake-goway.ts`): a place's location listed,
+  read by id and by ref to the same value, a store's locations and a location's
+  products walked with `iterateMercariaPages`, bounded availability and an exact
+  count only where disclosed, and never-published, gone and GoWay-unreachable
+  told apart (`MercariaNotFoundError`, `MercariaGoneError`,
+  `MercariaUnavailableError`).
 
 The SDK resolves from `packages/sdk/src/index.ts` through the backend's
 `tsconfig.json` `paths` (which `vitest.config.ts` reads as its alias), not from

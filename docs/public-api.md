@@ -16,11 +16,12 @@ failures with snake_case codes, `{ items, nextCursor }` pages, and an OpenAPI
 | Controller (handler per `operationId`, request parsing, response parsing, defaults) | `packages/backend/src/controllers/public-api.controller.ts` |
 | Refusals in the contract's codes (`PublicApiError`) | `packages/backend/src/services/public-api/errors.ts` |
 | Reads and status rules | `packages/backend/src/services/public-api/public-api.service.ts` |
+| Location rows and per-location stock | `packages/backend/src/db/pickup/publicLocationRepository.ts` |
 | Field-by-field projection | `packages/backend/src/services/public-api/projection.ts` |
 | URL builders | `packages/backend/src/services/public-api/urls.ts` |
 | Cursor | `packages/backend/src/services/public-api/cursor.ts` |
 | CORS decision | `isPublicReadCorsRequest` in `packages/backend/src/lib/allowed-origins.ts` |
-| Proof | `routes/__tests__/public-api.realdb.test.ts` (the wire), `routes/__tests__/public-api-sdk-contract.realdb.test.ts` (the SDK against it), `services/public-api/__tests__/urls-and-cursor.test.ts`, `packages/contracts/test/`, `validate:openapi` and `validate:contract-json-schemas` |
+| Proof | `routes/__tests__/public-api.realdb.test.ts` (the wire), `routes/__tests__/public-api-locations.realdb.test.ts` (the location reads, against a fake GoWay), `routes/__tests__/public-api-sdk-contract.realdb.test.ts` (the SDK against both), `services/public-api/__tests__/urls-and-cursor.test.ts`, `packages/contracts/test/`, `validate:openapi` and `validate:contract-json-schemas` |
 
 ## Routes
 
@@ -39,8 +40,12 @@ handler (the controller's handler map is typed by the registry).
 | `GET /public/v1/stores/:id` | — | `MercariaStore` |
 | `GET /public/v1/stores/:id/products` | `q` `inStock` `sort` `locale` `limit` `cursor` | `MercariaPage<MercariaProductSummary>` |
 | `GET /public/v1/stores/:id/collections` | `limit` `cursor` | `MercariaPage<MercariaCollection>` — published only |
+| `GET /public/v1/stores/:id/locations` | `limit` `cursor` | `MercariaPage<MercariaLocation>` — the store's public shop fronts |
 | `GET /public/v1/collections/:id` | — | `MercariaCollection` |
 | `GET /public/v1/collections/:id/products` | `limit` `cursor` | `MercariaPage<MercariaProductSummary>` — the collection's own sort order |
+| `GET /public/v1/locations` | `goWayPlaceId` (required) `limit` `cursor` | `MercariaPage<MercariaLocation>` — the shop fronts trading from one GoWay place |
+| `GET /public/v1/locations/:id` | — | `MercariaLocation` |
+| `GET /public/v1/locations/:id/products` | `q` `inStock` `sort` `locale` `limit` `cursor` | `MercariaPage<MercariaLocationProduct>` — the store's live products stocked there |
 | `GET /public/v1/openapi.json` | — | this surface's OpenAPI 3.1 document |
 
 `/stores/lookup` is registered before `/stores/:id` (registry order).
@@ -64,6 +69,7 @@ a refused request, `retryAfterSeconds` on a 429) and never user content.
 | 404 | `unknown_route` | any unmatched path or non-GET method under `/public/v1` — never `not_found`, so a client/server route mismatch cannot read as a missing entity |
 | 410 | `gone` | see the status rules |
 | 429 | `rate_limited` | a limiter refused it; `details.retryAfterSeconds` equals the `Retry-After` header |
+| 503 | `service_unavailable` | a location read could not ask GoWay whether the location's place still names it, and nothing recent is cached |
 | 500 | `internal_error` | anything unexpected — the message is a fixed generic string |
 
 The closed list (`MERCARIA_PUBLIC_ERROR_CODES`) is the shared Oxy set; renaming a
@@ -99,10 +105,14 @@ gone". Decided once per kind in `public-api.service.ts`:
 | product | `active`; `sold` (availability `sold`) | `archived`, `restricted`, a `draft` whose `published_at` is set, or its store `suspended`/`closed` | no row, a malformed id, a `draft` never published |
 | store (by id or handle) | `active` | `suspended`, `closed` | no row, a malformed id, an unknown handle |
 | collection | published, store `active` | unpublished with `published_at` set, or store not `active` | no row, a malformed id, never published |
+| location | published, active, unrestricted, store `active`, and its GoWay place names it back | withdrawn or returned to draft after publishing, restricted, deactivated, store not `active`, or its place no longer vouches for it | no row or no publication, a malformed id, never published |
 
 - **"Was published" is a stored fact, not a guess.** `listings.published_at` is
   the FIRST activation (one writer, `listingRepository`), and
   `collections.published_at` is stamped on first publish and never cleared.
+  So is `location_publications.published_at`, stamped by `setPublicationState`
+  on any move into or out of `published` (`0162` backfilled it from the
+  publication trail).
 - **A never-published draft is a 404 even inside a suspended store.** It never
   publicly existed, so no reference to it can have been legitimately minted.
 - **A 410 carries no entity data and does not say why.** Whether a seller
@@ -115,6 +125,37 @@ gone". Decided once per kind in `public-api.service.ts`:
   `/products?storeId=` naming one; `/products?collectionId=` naming an unpublished
   collection is a 404 or 410 — never an empty page, and never a way to enumerate
   the members of a collection its merchant has not published.
+
+### Locations: the trust link, and GoWay down
+
+A location is a shop front trading from a GoWay place (ADR 0013), and it is
+public only while that place names it back: `commerce.mercaria.store` = the
+location id, at `business_asserted` or `oxy_verified` (`docs/pickup.md` §3).
+That clause is checked against GoWay on every location read — through the
+cached place read, fresh for at most a minute — so a place that stops naming
+the location turns its detail read into a 410 and drops it from every list at
+the next read, and a place that names it again brings it back. Nothing is
+stored.
+
+- **A broken link is a 410, not a 404.** The location existed and was public;
+  a consumer holding its ref must learn it is gone, and the 410 does not say
+  whether the merchant withdrew it, an operator restricted it or the place
+  stopped vouching.
+- **GoWay unable to answer is a 503, never a 410.** With nothing recent cached
+  (a last-good place serves for a day), Mercaria cannot say yes or no, and a
+  consumer may act on `gone` by discarding a good ref. The SDK maps it to the
+  retryable `MercariaUnavailableError`.
+- **A place nobody trades from is an empty page.** `?goWayPlaceId=` is a filter
+  over another product's id space; there is no Mercaria entity to 404. A list
+  asks GoWay only when it has a row to ask about — once per distinct place on
+  the page — so a place with no Mercaria location never depends on GoWay, and a
+  page may come back shorter than `limit` with a next cursor.
+- **One place, at most one location today.** A place names one location at its
+  strongest tier, so the place list has at most one item; it is a page so a
+  shared place (a mall) would change nothing for a consumer.
+- **`discoverable`** is the location half of #93's collection conjunction
+  (`locationCollectionBlockers`): collection offered and not paused, the place
+  complete enough to take one. `false` says nothing about which.
 
 **Lists only contain publicly live products.** Every list reads
 `status = 'active'`, and the product search sets `liveStoresOnly`, which drops a
@@ -146,6 +187,12 @@ filtered. A repeated parameter is a 400. Exact spellings, never `z.coerce`:
   1..`MERCARIA_PUBLIC_PAGE_LIMIT_MAX` (50, outside it a 422), default
   `MERCARIA_PUBLIC_PAGE_LIMIT_DEFAULT` (20).
 - `storeId`, `collectionId`, `handle` — opaque strings, resolved by the read.
+- `goWayPlaceId` — GoWay's opaque place id, 1..128 characters after trimming
+  (GoWay's own bound). Required on `GET /locations`: there is no list of every
+  location.
+- On `GET /locations/:id/products`, `inStock=true` keeps products with a fresh,
+  positive count AT THE LOCATION (`in_stock` or `low_stock`), not the listing's
+  stock anywhere.
 
 ## Pagination
 
@@ -194,8 +241,7 @@ and components are sorted, so a regeneration diff is the semantic diff.
   schema is the authority, and a body that passes the JSON Schema is
   well-formed, not accepted.
 
-Adding a route — the coming `locations` reads, for one — is a cursor kind (for a
-list) and any new schema in the contract, an entry in `MERCARIA_PUBLIC_ROUTES`,
+Adding a route is a cursor kind (for a list) and any new schema in the contract, an entry in `MERCARIA_PUBLIC_ROUTES`,
 a handler for its `operationId` in the controller, the operation's name in the
 gate's `EXPECTED_OPERATIONS`, and a regeneration.
 
@@ -228,6 +274,31 @@ drift from the product page a shopper sees:
 | `seller` (person) | the hydrated Oxy identity — `oxyUserId`, display name, username, resolved avatar, `isVerified` |
 | `viewer` | `null` anonymously; `{ saved }` from the caller's favourites when `optionalAuth` verified a session |
 
+### Locations, and availability at one
+
+`MercariaLocation` is Mercaria's half of a shop front: its ref, its
+`goWayPlaceId`, its store (ref, current handle, name, resolved logo), its
+collection terms (`pickup`: identity and payment requirements and the
+merchant's instructions; `null` when collection is not offered),
+`discoverable`, and its `url`. **No place fact is projected** — not the name,
+the address, the hours, the photos or the rating: those are GoWay's, and a
+consumer reads them from GoWay with `goWayPlaceId`. Nothing of the OPERATIONAL
+location (its internal name, type and delivery address) is even selected, nor a
+pause reason, a restriction reason or the operator behind one.
+
+`MercariaLocationProduct` is a product summary plus its availability at the
+location, decided per product by the derivation nearby discovery applies
+(`services/pickup/eligibility.ts`):
+
+| Field | Source |
+|---|---|
+| `availability` | the units the product's FRESH level rows there vouch for (`inventoryBlockers`: a count older than the location's `stock_confirmation_interval_seconds` vouches for nothing), summed across its options and cut by `locationAvailabilityState` at the location's `low_stock_threshold`: `out_of_stock` at 0, `low_stock` up to the threshold, `in_stock` above |
+| `exactQuantity` | that sum — present ONLY where the location's `discloses_exact_stock` is on AND some count is fresh; absent otherwise |
+| `stockConfirmedAt` | the OLDEST fresh confirmation the figure rests on, or the LATEST confirmation when none is fresh |
+
+"Stocked at the location" is a level row there; the list is the store's live
+products with one, in the store list's orders.
+
 Stores: `description` is `null` when empty; `rating` comes from
 `resolveStoreRatingSource` (the merchant aggregate when linked, the store's own
 figures otherwise — the one place the store page chooses it) and is `null` when
@@ -255,6 +326,7 @@ them exactly. `urls.ts` is three pure functions with no config read inside:
 product     ${origin}/products/${encodeURIComponent(productId)}
 store       ${origin}/stores/${encodeURIComponent(storeHandle)}
 collection  ${origin}/stores/${encodeURIComponent(storeHandle)}?collection=${encodeURIComponent(collectionId)}
+location    ${origin}/stores/${encodeURIComponent(storeHandle)}?location=${encodeURIComponent(locationId)}
 ```
 
 - `origin` is `config.web.origin` (`WEB_URL`, default `https://mercaria.co`) with
@@ -264,7 +336,8 @@ collection  ${origin}/stores/${encodeURIComponent(storeHandle)}?collection=${enc
   links from a freshly read `handle`, never a persisted one.
 - `app/(app)/stores/[handle].tsx` honours `?collection=<id>` as the initial
   selection, and filters by it only when it names a published collection of that
-  store.
+  store; and `?location=<id>` by listing that shop front first in its "Visit us"
+  section.
 
 ## CORS
 
@@ -311,7 +384,14 @@ reconstructed from these reads.
 
 ## Deliberately not exposed
 
-- Connector provenance, variant SKUs and barcodes, inventory counts, tags, vendor,
+- **Inventory counts, except by the merchant's choice.** Stock reaches this
+  surface only as a location's BOUNDED availability (`in_stock | low_stock |
+  out_of_stock`), and as a number (`exactQuantity`) only where that location's
+  merchant opted in to disclosing exact stock and the count is fresh. A
+  product's own `availability` is never a count.
+- **A location's place facts** — they are GoWay's (ADR 0013) — and its
+  operational name and address, pause and restriction reasons.
+- Connector provenance, variant SKUs and barcodes, tags, vendor,
   product type, category strings, listing and collection handles, SEO overrides,
   collection type, rules and member ids, store policies, members, currency and
   tax settings, offer, affiliate and retail-binding provenance.
