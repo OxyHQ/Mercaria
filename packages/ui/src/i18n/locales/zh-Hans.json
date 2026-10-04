@@ -485,7 +485,10 @@
         "location_not_active": "此地点已关闭，不分配任何库存。",
         "pickup_paused": "您已暂停此地点的取货。",
         "pickup_not_offered": "此地点不提供取货。",
-        "location_not_geocoded": "此地点没有地图标记，因此无法按距离查找。请添加一个。",
+        "place_not_linked": "此地点未关联 GoWay 地点，因此无法按距离查找。请选择或创建其地点。",
+        "place_unavailable": "此地点的 GoWay 地点已不存在、已停用，或暂时无法读取。",
+        "place_link_unverified": "此地点的 GoWay 地点尚未以你商家的已验证级别指向它。请认领该地点并将此地点添加到其中。",
+        "place_incomplete": "此地点的 GoWay 地点缺少国家或时区，因此无法描述在此自取。请在 GoWay 中补全该地点。",
         "location_restricted": "Mercaria 已限制此地点。请联系客服。",
         "store_unavailable": "门店本身处于非活动或受限状态。",
         "listing_unavailable": "该商品未上架，因此此处没有可取之物。",
@@ -507,6 +510,7 @@
         "hoursNotPublished": "营业时间未公布",
         "openNow": "正在营业",
         "openUntil": "正在营业 — 至 %{time}",
+        "openNote": "营业中 — %{note}",
         "closedNote": "已关闭 — %{note}",
         "closedNow": "当前已关闭",
         "closedOpensAt": "已关闭 — %{time} 开门"
@@ -530,7 +534,9 @@
       "exactQuantity": {
         "one": "此店有 %{count} 件库存。",
         "other": "此店有 %{count} 件库存。"
-      }
+      },
+      "viewOnGoWay": "在 GoWay 上查看",
+      "viewOnGoWayA11y": "在 GoWay 上打开 %{place}"
     },
     "shoppingAgent": {
       "job": {

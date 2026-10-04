@@ -189,7 +189,8 @@ export function formatDateTime(value: Date | string | number, locale: string): s
  * The reference week whose days name the weekdays.
  *
  * 2023-01-01 was a Sunday, so `1 + weekday` lands on the day `Date#getDay`
- * numbers — which is the numbering `LocationOpeningHour.weekday` carries.
+ * numbers — which is the numbering `PickupOpeningInterval.day` carries (GoWay's
+ * own weekday numbering, 0 = Sunday).
  */
 const WEEKDAY_REFERENCE_YEAR = 2023;
 

@@ -1074,7 +1074,7 @@
       "loadingCities": "Procurando cidades…",
       "cityListError": "Não conseguimos carregar a lista de cidades agora.",
       "noCityMatch": "Nenhuma cidade correspondente tem este item em estoque para retirada.",
-      "noStockAnywhere": "Nenhuma loja tem este item para retirada no momento.",
+      "typeATown": "Digite uma cidade ou um CEP para ver onde dá para retirar.",
       "searchNear": "Buscar perto de %{place}",
       "shopsWithStock": {
         "one": "%{count} loja com estoque",
@@ -1397,8 +1397,7 @@
       "placement": {
         "heading": "Onde ele vai aparecer",
         "onProductPage": "Na página do produto, junto com outros vendedores",
-        "ownSurfacesOnly": "Na busca e no seu perfil de vendedor — não em uma página de produto",
-        "localResults": "Nos resultados da sua região, na área aproximada que você escolheu"
+        "ownSurfacesOnly": "Na busca e no seu perfil de vendedor — não em uma página de produto"
       },
       "blocked": {
         "titleMissing": "Dê um título ao seu anúncio.",

@@ -295,10 +295,10 @@ export const queryKeys = {
    */
   nearby: {
     all: ["nearby"] as const,
-    availability: (subject: string, cell: string | null) =>
-      ["nearby", "availability", subject, cell ?? ""] as const,
-    places: (subject: string, term: string) =>
-      ["nearby", "places", subject, term] as const,
+    availability: (subject: string, cell: string | null, locale: string) =>
+      ["nearby", "availability", subject, cell ?? "", locale] as const,
+    places: (subject: string, term: string, locale: string) =>
+      ["nearby", "places", subject, term, locale] as const,
   },
   /**
    * An order's collection snapshot and its code (#93).

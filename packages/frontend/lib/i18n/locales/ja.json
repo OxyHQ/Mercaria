@@ -1063,7 +1063,7 @@
       "loadingCities": "都市を検索しています…",
       "cityListError": "現在、都市リストを読み込めませんでした。",
       "noCityMatch": "一致する都市に、受け取り可能な在庫はありません。",
-      "noStockAnywhere": "現在、この商品を受け取れるショップはありません。",
+      "typeATown": "市区町村名または郵便番号を入力すると、受け取れる場所が表示されます。",
       "searchNear": "%{place} の近くで検索",
       "shopsWithStock": {
         "one": "在庫のあるショップ %{count} 件",
@@ -1380,8 +1380,7 @@
       "placement": {
         "heading": "掲載される場所",
         "onProductPage": "商品ページに、ほかの出品者と並んで表示されます",
-        "ownSurfacesOnly": "検索とあなたの出品者プロフィールに表示され、商品ページには表示されません",
-        "localResults": "選んだおおよその地域で、近くの検索結果に表示されます"
+        "ownSurfacesOnly": "検索とあなたの出品者プロフィールに表示され、商品ページには表示されません"
       },
       "blocked": {
         "titleMissing": "出品にタイトルを付けてください。",

@@ -47,6 +47,7 @@ import Head from "expo-router/head";
 import { router, useLocalSearchParams } from "expo-router";
 import type { OrderStatus } from "@mercaria/shared-types";
 import { PickupCollectionPanel, SectionHeader, Text } from "@mercaria/ui";
+import { openGoWayPlace } from "@/lib/goway";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import {
   useGuestPortalSession,
@@ -264,6 +265,7 @@ function GuestOrderCollection({
   return (
     <PickupCollectionPanel
       pickup={collection.data.pickup}
+      onPressPlace={openGoWayPlace}
       {...(collection.data.code === undefined ? {} : { code: collection.data.code })}
     />
   );

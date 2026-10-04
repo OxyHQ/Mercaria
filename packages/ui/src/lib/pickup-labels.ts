@@ -1,8 +1,8 @@
 import {
   type LocationAvailabilityState,
   type LocationOpenState,
-  type LocationPublicAddress,
   type OrderPickupState,
+  type PickupAddress,
   type PickupBlockReason,
   type PickupDistanceBand,
   type PickupIdentityRequirement,
@@ -163,7 +163,10 @@ export const PICKUP_BLOCK_REASON_KEYS: Readonly<Record<PickupBlockReason, string
   location_not_active: "ui.pickup.blockReason.location_not_active",
   pickup_paused: "ui.pickup.blockReason.pickup_paused",
   pickup_not_offered: "ui.pickup.blockReason.pickup_not_offered",
-  location_not_geocoded: "ui.pickup.blockReason.location_not_geocoded",
+  place_not_linked: "ui.pickup.blockReason.place_not_linked",
+  place_unavailable: "ui.pickup.blockReason.place_unavailable",
+  place_link_unverified: "ui.pickup.blockReason.place_link_unverified",
+  place_incomplete: "ui.pickup.blockReason.place_incomplete",
   location_restricted: "ui.pickup.blockReason.location_restricted",
   store_unavailable: "ui.pickup.blockReason.store_unavailable",
   listing_unavailable: "ui.pickup.blockReason.listing_unavailable",
@@ -245,25 +248,41 @@ export function describeBuyerPickupBlock(
 /**
  * Whether a shop is open, said in one sentence.
  *
- * The `known: false` branch has no `open` property to read, so "we do not know
- * this shop's hours" cannot be rendered as "closed" — the unknown-is-never-zero
- * rule applied to a schedule. It is a real and common state: a merchant may
- * publish a location and never fill its opening hours in.
+ * The state is GoWay's evaluation of the place's own hours and dated
+ * exceptions (ADR 0013), and this only words it. The `known: false` branch has
+ * no `open` property to read, so "we do not know this shop's hours" cannot be
+ * rendered as "closed" — the unknown-is-never-zero rule applied to a schedule.
+ * It is a real and common state: a place may carry no opening hours at all.
+ *
+ * An exception's note (a holiday, a refit, a late night) is the most specific
+ * thing the shop said about today, so it is what the sentence carries.
  */
 export function describeOpenState(t: Translate, state: LocationOpenState): string {
   if (!state.known) return t("ui.pickup.openState.hoursNotPublished");
   if (state.open) {
+    if (state.exceptionNote !== undefined) {
+      return t("ui.pickup.openState.openNote", { note: state.exceptionNote });
+    }
     return state.changesAt === undefined
       ? t("ui.pickup.openState.openNow")
       : t("ui.pickup.openState.openUntil", { time: state.changesAt });
   }
-  if (state.closureNote !== undefined) {
-    return t("ui.pickup.openState.closedNote", { note: state.closureNote });
+  if (state.exceptionNote !== undefined) {
+    return t("ui.pickup.openState.closedNote", { note: state.exceptionNote });
   }
   return state.changesAt === undefined
     ? t("ui.pickup.openState.closedNow")
     : t("ui.pickup.openState.closedOpensAt", { time: state.changesAt });
 }
+
+/**
+ * The link to a collection point's GoWay place, where its hours, photos and
+ * everything else about the building live (ADR 0013). A link, never an
+ * embedded map: this package holds no map provider.
+ */
+export const GOWAY_PLACE_LINK_KEY = "ui.pickup.viewOnGoWay";
+/** Its accessibility label, naming the place. */
+export const GOWAY_PLACE_LINK_A11Y_KEY = "ui.pickup.viewOnGoWayA11y";
 
 /** Seconds, minutes and hours, for the relative-time helper below. */
 const SECOND_MS = 1000;
@@ -302,26 +321,17 @@ export function describeStockConfirmed(t: Translate, isoInstant: string, now: nu
 }
 
 /**
- * A published address as one line.
+ * A collection point's address as one line — a nearby result's, read from its
+ * GoWay place, or an order's frozen snapshot of it.
  *
- * EVERY field is optional except the country (`LocationPublicAddress`), because
- * "the city and nothing else" is a complete answer a merchant may choose — so
- * this joins whatever is present and never renders a separator for a field that
- * is not there. It can legitimately return just a country code.
+ * EVERY field is optional except the country (`PickupAddress`), because GoWay
+ * publishes only the parts a source supports and "the city and nothing else" is
+ * a complete answer — so this joins whatever is present and never renders a
+ * separator for a field that is not there. It can legitimately return just a
+ * country code.
  */
-export function formatPublicAddress(address: LocationPublicAddress): string {
+export function formatPublicAddress(address: PickupAddress): string {
   return [address.line1, address.line2, address.postalCode, address.city, address.region, address.country]
     .filter((part): part is string => part !== undefined && part.trim().length > 0)
     .join(", ");
-}
-
-
-/** Minutes in an hour, for rendering a minute-of-day as a clock time. */
-const MINUTES_PER_HOUR = 60;
-
-/** A minute-of-day as local `HH:MM`. 1440 is a shift ending at midnight. */
-export function formatOpeningMinute(minuteOfDay: number): string {
-  const hour = Math.floor(minuteOfDay / MINUTES_PER_HOUR) % 24;
-  const minute = minuteOfDay % MINUTES_PER_HOUR;
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }

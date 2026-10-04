@@ -485,7 +485,10 @@
         "location_not_active": "This location is switched off and routes no inventory.",
         "pickup_paused": "You have paused collection at this location.",
         "pickup_not_offered": "This location does not offer collection.",
-        "location_not_geocoded": "This location has no map pin, so it cannot be found by distance. Add one to be discoverable.",
+        "place_not_linked": "This location is not linked to a GoWay place, so shoppers cannot find it by distance. Choose or create its place.",
+        "place_unavailable": "This location's GoWay place is gone, inactive or could not be read right now.",
+        "place_link_unverified": "This location's GoWay place does not yet name it at your business's verified level. Claim the place and add this location to it.",
+        "place_incomplete": "This location's GoWay place has no country or timezone, so a collection there cannot be described. Complete the place in GoWay.",
         "location_restricted": "Mercaria has restricted this location. Contact support.",
         "store_unavailable": "The store itself is inactive or restricted.",
         "listing_unavailable": "The listing is not active, so nothing here is collectable.",
@@ -507,6 +510,7 @@
         "hoursNotPublished": "Opening hours not published",
         "openNow": "Open now",
         "openUntil": "Open now — until %{time}",
+        "openNote": "Open — %{note}",
         "closedNote": "Closed — %{note}",
         "closedNow": "Closed now",
         "closedOpensAt": "Closed — opens %{time}"
@@ -530,7 +534,9 @@
       "exactQuantity": {
         "one": "%{count} in stock at this shop.",
         "other": "%{count} in stock at this shop."
-      }
+      },
+      "viewOnGoWay": "View on GoWay",
+      "viewOnGoWayA11y": "Open %{place} on GoWay"
     },
     "shoppingAgent": {
       "job": {

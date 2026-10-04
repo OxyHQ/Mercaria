@@ -488,7 +488,10 @@
         "location_not_active": "Ce point de retrait est désactivé et n'achemine aucun stock.",
         "pickup_paused": "Vous avez suspendu le retrait à ce point de vente.",
         "pickup_not_offered": "Ce point de vente ne propose pas le retrait.",
-        "location_not_geocoded": "Ce point de vente n'a pas de repère sur la carte et ne peut donc pas être trouvé par distance. Ajoutez-en un.",
+        "place_not_linked": "Ce point de vente n'est lié à aucun lieu GoWay, il est donc introuvable par la distance. Choisissez ou créez son lieu.",
+        "place_unavailable": "Le lieu GoWay de ce point de vente a disparu, est inactif ou n'a pas pu être lu pour le moment.",
+        "place_link_unverified": "Le lieu GoWay de ce point de vente ne le désigne pas encore au niveau vérifié de votre entreprise. Revendiquez le lieu et ajoutez-y ce point de vente.",
+        "place_incomplete": "Le lieu GoWay de ce point de vente n'a pas de pays ou de fuseau horaire, un retrait ne peut donc pas y être décrit. Complétez le lieu dans GoWay.",
         "location_restricted": "Mercaria a restreint ce point de vente. Contactez le support.",
         "store_unavailable": "La boutique elle-même est inactive ou restreinte.",
         "listing_unavailable": "L'annonce n'est pas active, rien n'est donc à retirer ici.",
@@ -510,6 +513,7 @@
         "hoursNotPublished": "Horaires non publiés",
         "openNow": "Ouvert maintenant",
         "openUntil": "Ouvert maintenant — jusqu'à %{time}",
+        "openNote": "Ouvert — %{note}",
         "closedNote": "Fermé — %{note}",
         "closedNow": "Fermé actuellement",
         "closedOpensAt": "Fermé — ouvre à %{time}"
@@ -537,7 +541,9 @@
         "one": "%{count} en stock dans cette boutique.",
         "other": "%{count} en stock dans cette boutique.",
         "many": "%{count} d’en stock dans cette boutique."
-      }
+      },
+      "viewOnGoWay": "Voir sur GoWay",
+      "viewOnGoWayA11y": "Ouvrir %{place} sur GoWay"
     },
     "shoppingAgent": {
       "job": {

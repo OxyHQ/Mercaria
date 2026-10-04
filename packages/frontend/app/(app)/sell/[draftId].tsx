@@ -236,11 +236,6 @@ export default function SellDraftScreen() {
               ? t("sell.draft.placement.onProductPage")
               : t("sell.draft.placement.ownSurfacesOnly")}
           </Text>
-          {placement.inLocalResults ? (
-            <Text className="text-sm text-muted-foreground">
-              {t("sell.draft.placement.localResults")}
-            </Text>
-          ) : null}
         </View>
 
         {readiness.warnings.map((warning) => (

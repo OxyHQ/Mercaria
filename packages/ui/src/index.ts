@@ -524,6 +524,8 @@ export {
 // what a buyer-facing surface calls instead (`docs/pickup.md` §2).
 // ---------------------------------------------------------------------------
 export {
+  GOWAY_PLACE_LINK_A11Y_KEY,
+  GOWAY_PLACE_LINK_KEY,
   LOCATION_AVAILABILITY_EXPLANATION_KEYS,
   LOCATION_AVAILABILITY_KEYS,
   ORDER_PICKUP_STATE_EXPLANATION_KEYS,
@@ -535,7 +537,6 @@ export {
   describeBuyerPickupBlock,
   describeOpenState,
   describeStockConfirmed,
-  formatOpeningMinute,
   formatPublicAddress,
   type BuyerPickupBlockCopy,
 } from "./lib/pickup-labels";

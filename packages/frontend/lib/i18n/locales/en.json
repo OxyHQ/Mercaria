@@ -1063,7 +1063,7 @@
       "loadingCities": "Looking for cities…",
       "cityListError": "We could not load the city list just now.",
       "noCityMatch": "No city matching that has this in stock for collection.",
-      "noStockAnywhere": "No shop is currently stocking this for collection.",
+      "typeATown": "Type a town or postcode to see where this can be collected.",
       "searchNear": "Search near %{place}",
       "shopsWithStock": {
         "one": "%{count} shop with stock",
@@ -1380,8 +1380,7 @@
       "placement": {
         "heading": "Where it will appear",
         "onProductPage": "On the product page, alongside other sellers",
-        "ownSurfacesOnly": "In search and on your seller profile — not on a product page",
-        "localResults": "In local results, at the rough area you chose"
+        "ownSurfacesOnly": "In search and on your seller profile — not on a product page"
       },
       "blocked": {
         "titleMissing": "Give your listing a title.",

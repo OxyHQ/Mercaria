@@ -1063,7 +1063,7 @@
       "loadingCities": "Wir suchen Städte…",
       "cityListError": "Wir konnten die Städteliste gerade nicht laden.",
       "noCityMatch": "Keine passende Stadt hat diesen Artikel zur Abholung auf Lager.",
-      "noStockAnywhere": "Derzeit führt kein Geschäft diesen Artikel zur Abholung.",
+      "typeATown": "Gib einen Ort oder eine Postleitzahl ein, um zu sehen, wo du es abholen kannst.",
       "searchNear": "In der Nähe von %{place} suchen",
       "shopsWithStock": {
         "one": "%{count} Geschäft mit Bestand",
@@ -1380,8 +1380,7 @@
       "placement": {
         "heading": "Wo sie erscheint",
         "onProductPage": "Auf der Produktseite, neben anderen Verkäufern",
-        "ownSurfacesOnly": "In der Suche und in deinem Verkäuferprofil — nicht auf einer Produktseite",
-        "localResults": "In lokalen Ergebnissen, in der ungefähren Gegend, die du gewählt hast"
+        "ownSurfacesOnly": "In der Suche und in deinem Verkäuferprofil — nicht auf einer Produktseite"
       },
       "blocked": {
         "titleMissing": "Gib deiner Anzeige einen Titel.",

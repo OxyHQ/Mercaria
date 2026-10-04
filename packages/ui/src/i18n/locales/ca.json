@@ -488,7 +488,10 @@
         "location_not_active": "Aquesta ubicació està desactivada i no encamina inventari.",
         "pickup_paused": "Has pausat la recollida en aquesta ubicació.",
         "pickup_not_offered": "Aquesta ubicació no ofereix recollida.",
-        "location_not_geocoded": "Aquesta ubicació no té punt al mapa, així que no es pot trobar per distància. Afegeix-ne un per ser visible.",
+        "place_not_linked": "Aquest local no està vinculat a un lloc de GoWay, així que no es pot trobar per distància. Tria o crea el seu lloc.",
+        "place_unavailable": "El lloc de GoWay d'aquest local ja no existeix, està inactiu o ara mateix no s'ha pogut llegir.",
+        "place_link_unverified": "El lloc de GoWay d'aquest local encara no l'anomena amb el nivell verificat del teu negoci. Reclama el lloc i afegeix-hi aquest local.",
+        "place_incomplete": "El lloc de GoWay d'aquest local no té país o zona horària, així que no s'hi pot descriure una recollida. Completa'l a GoWay.",
         "location_restricted": "Mercaria ha restringit aquesta ubicació. Contacta amb el suport.",
         "store_unavailable": "La botiga mateixa és inactiva o restringida.",
         "listing_unavailable": "L'anunci no està actiu, així que aquí no hi ha res recollible.",
@@ -510,6 +513,7 @@
         "hoursNotPublished": "Horari no publicat",
         "openNow": "Obert ara",
         "openUntil": "Obert ara — fins a les %{time}",
+        "openNote": "Obert — %{note}",
         "closedNote": "Tancat — %{note}",
         "closedNow": "Tancat ara",
         "closedOpensAt": "Tancat — obre a les %{time}"
@@ -537,7 +541,9 @@
         "one": "%{count} unitat en estoc en aquesta botiga.",
         "other": "%{count} unitats en estoc en aquesta botiga.",
         "many": "%{count} d’unitats en estoc en aquesta botiga."
-      }
+      },
+      "viewOnGoWay": "Veure a GoWay",
+      "viewOnGoWayA11y": "Obre %{place} a GoWay"
     },
     "shoppingAgent": {
       "job": {

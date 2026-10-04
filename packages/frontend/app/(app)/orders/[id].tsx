@@ -23,6 +23,7 @@ import {
   retailOrderProgressExplanation,
   retailOrderProgressLabel,
 } from "@mercaria/ui";
+import { openGoWayPlace } from "@/lib/goway";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { toast } from "@oxy.so/bloom/toast";
 import { Badge } from "@oxy.so/bloom/badge";
@@ -343,6 +344,7 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
         {collection.data === undefined ? null : (
           <PickupCollectionPanel
             pickup={collection.data.pickup}
+            onPressPlace={openGoWayPlace}
             {...(collection.data.code === undefined ? {} : { code: collection.data.code })}
           />
         )}

@@ -1074,7 +1074,7 @@
       "loadingCities": "Cercant ciutats…",
       "cityListError": "Ara mateix no hem pogut carregar la llista de ciutats.",
       "noCityMatch": "Cap ciutat que hi coincideixi ho té en existències per recollir.",
-      "noStockAnywhere": "Ara mateix cap botiga ho té per recollir.",
+      "typeATown": "Escriu una població o un codi postal per veure on es pot recollir.",
       "searchNear": "Cerca a prop de %{place}",
       "shopsWithStock": {
         "one": "%{count} botiga amb existències",
@@ -1397,8 +1397,7 @@
       "placement": {
         "heading": "On apareixerà",
         "onProductPage": "A la pàgina del producte, al costat d'altres venedors",
-        "ownSurfacesOnly": "A la cerca i al teu perfil de venedor — no a una pàgina de producte",
-        "localResults": "Als resultats locals, a la zona aproximada que vas triar"
+        "ownSurfacesOnly": "A la cerca i al teu perfil de venedor — no a una pàgina de producte"
       },
       "blocked": {
         "titleMissing": "Posa un títol al teu anunci.",

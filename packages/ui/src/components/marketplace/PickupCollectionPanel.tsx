@@ -5,10 +5,12 @@ import {
   PICKUP_PANEL_CODE_NOTE_KEY,
   PICKUP_PANEL_HEADING_KEY,
 } from "../../lib/marketplace-labels";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import type { OrderPickup, PickupCollectionCode } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import {
+  GOWAY_PLACE_LINK_A11Y_KEY,
+  GOWAY_PLACE_LINK_KEY,
   ORDER_PICKUP_STATE_EXPLANATION_KEYS,
   ORDER_PICKUP_STATE_KEYS,
   PICKUP_IDENTITY_REQUIREMENT_KEYS,
@@ -51,9 +53,14 @@ export interface PickupCollectionPanelProps {
   pickup: OrderPickup;
   /** Absent for the three legitimate reasons in the doc block above. */
   code?: PickupCollectionCode;
+  /**
+   * Open the collection point's GoWay place. No link renders without it, nor
+   * for a collection placed before the snapshot recorded its place.
+   */
+  onPressPlace?: (goWayPlaceId: string) => void;
 }
 
-export function PickupCollectionPanel({ pickup, code }: PickupCollectionPanelProps) {
+export function PickupCollectionPanel({ pickup, code, onPressPlace }: PickupCollectionPanelProps) {
   const t = useSharedUiTranslation();
   const address = formatPublicAddress(pickup.address);
 
@@ -80,6 +87,18 @@ export function PickupCollectionPanel({ pickup, code }: PickupCollectionPanelPro
         {address.length > 0 ? (
           <Text className="text-caption text-text-secondary">{address}</Text>
         ) : null}
+        {pickup.goWayPlaceId === undefined || onPressPlace === undefined ? null : (
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={t(GOWAY_PLACE_LINK_A11Y_KEY, { place: pickup.displayName })}
+            onPress={() => {
+              if (pickup.goWayPlaceId !== undefined) onPressPlace(pickup.goWayPlaceId);
+            }}
+            className="self-start"
+          >
+            <Text className="text-captionBold text-text">{t(GOWAY_PLACE_LINK_KEY)}</Text>
+          </Pressable>
+        )}
       </View>
 
       {pickup.pickupInstructions === undefined ? null : (

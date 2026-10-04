@@ -21,29 +21,30 @@ import { useTranslation } from "@/lib/i18n";
  * This is the anti-dark-pattern decision and it is the reason the two controls
  * are siblings of equal weight rather than a primary button with a "no thanks"
  * link under it. A shopper who never wants to share a position must not have to
- * refuse a prompt to discover that typing a city works — and a refusal must not
+ * refuse a prompt to discover that typing a town works — and a refusal must not
  * be answered by asking again, which is why a denial swaps the device control
  * for a sentence rather than leaving a button that re-prompts.
  *
- * ## The city list can never be a dead end
+ * ## The town list can never be a dead end
  *
- * `GET /nearby/places` is composed from the published locations that actually
- * hold this item, so a city is offered exactly when something is collectable in
- * it (`docs/pickup.md` §7). Picking one yields a CELL CENTRE — so the manual
- * path never handles a precise coordinate at all, and a shopper who declines
- * the prompt gives up nothing except precision they chose not to give.
+ * `GET /nearby/places` resolves what the shopper typed through GoWay and keeps
+ * a town only when something is collectable around it (`docs/pickup.md` §7).
+ * Picking one yields a CELL CENTRE — so the manual path never handles a precise
+ * coordinate at all, and a shopper who declines the prompt gives up nothing
+ * except precision they chose not to give. Until something is typed there is
+ * nothing to resolve, and the list says so rather than showing an empty one.
  *
  * ## No coordinate reaches a URL, a store or an analytics call
  *
  * #93 client rule 14 and privacy rules 4-6. The origin lives in the state
  * `useNearbyOrigin` holds for as long as the screen is open. This component
  * imports no router-param setter, no storage and no analytics client, and the
- * search TERM a shopper types is a city name rather than a position.
+ * search TERM a shopper types is a town name rather than a position.
  */
 
 export interface NearbyOriginControlProps {
   originState: NearbyOriginState;
-  /** Which canonical entity the city suggestions must actually stock. */
+  /** Which canonical entity the town suggestions must actually stock. */
   canonicalProductId?: string;
   canonicalVariantId?: string;
 }
@@ -66,7 +67,7 @@ export function NearbyOriginControl({
   canonicalProductId,
   canonicalVariantId,
 }: NearbyOriginControlProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { origin, refusal, requesting, requestDeviceOrigin, selectPlace, clearOrigin } = originState;
   const [term, setTerm] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -74,10 +75,10 @@ export function NearbyOriginControl({
   const places = useNearbyPlaces({
     ...(canonicalProductId === undefined ? {} : { canonicalProductId }),
     ...(canonicalVariantId === undefined ? {} : { canonicalVariantId }),
-    ...(term.trim().length > 0 ? { term: term.trim() } : {}),
+    term,
+    locale,
     // The list is fetched when the picker is open OR when a refusal has made it
-    // the only path forward, so the fallback is already populated at the moment
-    // it becomes the answer rather than after another tap.
+    // the only path forward — and, inside the hook, only once a term is typed.
     enabled: pickerOpen || refusal !== null,
   });
 
@@ -174,11 +175,16 @@ export function NearbyOriginControl({
             returnKeyType="search"
           />
           {/*
-            Four states, each its own sentence. "We are still loading" and "no
-            city stocks this" are different facts and rendering the second while
-            the first is true is how an empty list becomes a wrong answer.
+            Five states, each its own sentence. "Type a town", "we are still
+            loading" and "no town matching that stocks this" are different facts,
+            and rendering the last while another is true is how an empty list
+            becomes a wrong answer.
           */}
-          {places.isLoading ? (
+          {term.trim().length === 0 ? (
+            <Text className="text-caption text-text-tertiary">
+              {t("nearby.origin.typeATown")}
+            </Text>
+          ) : places.isLoading ? (
             <Text className="text-caption text-text-tertiary">
               {t("nearby.origin.loadingCities")}
             </Text>
@@ -188,14 +194,12 @@ export function NearbyOriginControl({
             </Text>
           ) : (places.data ?? []).length === 0 ? (
             <Text className="text-caption text-text-tertiary">
-              {term.trim().length > 0
-                ? t("nearby.origin.noCityMatch")
-                : t("nearby.origin.noStockAnywhere")}
+              {t("nearby.origin.noCityMatch")}
             </Text>
           ) : (
             (places.data ?? []).map((place: NearbyPlaceSuggestion) => (
               <Pressable
-                key={`${place.country}:${place.city}:${place.cell.latIndex}:${place.cell.lonIndex}`}
+                key={`${place.label}:${place.cell.latIndex}:${place.cell.lonIndex}`}
                 accessibilityRole="button"
                 accessibilityLabel={t("nearby.origin.searchNear", { place: place.label })}
                 onPress={() => {

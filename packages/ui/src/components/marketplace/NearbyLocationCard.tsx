@@ -13,6 +13,8 @@ import {
   NEARBY_SOLD_BY_KEY,
 } from "../../lib/marketplace-labels";
 import {
+  GOWAY_PLACE_LINK_A11Y_KEY,
+  GOWAY_PLACE_LINK_KEY,
   LOCATION_AVAILABILITY_EXPLANATION_KEYS,
   LOCATION_AVAILABILITY_KEYS,
   PICKUP_DISTANCE_BAND_KEYS,
@@ -61,7 +63,9 @@ import {
  * #93 client rule 8: accessibility does not depend on a map, and every result
  * is available in a list. This component renders no map, holds no map provider
  * and has no coordinate to give one — `NearbyLocationResult` carries a rounded
- * metre count and a band, and nothing else about where anything is.
+ * metre count and a band, and nothing else about where anything is. What it
+ * can offer is a LINK to the place on GoWay, which owns everything about the
+ * building (ADR 0013); the caller decides how to open it.
  */
 
 export interface NearbyLocationCardProps {
@@ -77,6 +81,8 @@ export interface NearbyLocationCardProps {
   now: number;
   /** Visit the merchant behind this place. Absent when the caller cannot route. */
   onPressMerchant?: (merchantSlug: string) => void;
+  /** Open this place on GoWay. Absent renders no link. */
+  onPressPlace?: (goWayPlaceId: string) => void;
   /**
    * Choose this place and go and buy it.
    *
@@ -107,6 +113,7 @@ export function NearbyLocationCard({
   result,
   now,
   onPressMerchant,
+  onPressPlace,
   onSelect,
   selectLabel = "Collect here",
   onSignIn,
@@ -211,6 +218,17 @@ export function NearbyLocationCard({
 
       {location.pickupInstructions === undefined ? null : (
         <Text className="text-caption text-text-secondary">{location.pickupInstructions}</Text>
+      )}
+
+      {onPressPlace === undefined ? null : (
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={t(GOWAY_PLACE_LINK_A11Y_KEY, { place: location.displayName })}
+          onPress={() => onPressPlace(location.goWayPlaceId)}
+          className="self-start"
+        >
+          <Text className="text-captionBold text-text">{t(GOWAY_PLACE_LINK_KEY)}</Text>
+        </Pressable>
       )}
 
       {/*
