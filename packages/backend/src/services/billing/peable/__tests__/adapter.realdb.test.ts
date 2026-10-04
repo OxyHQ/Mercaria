@@ -19,7 +19,7 @@ import { ledgerEntries } from '../../../../db/schema/ledger.js';
 const flags = vi.hoisted(() => ({ enabled: true }));
 vi.mock('../../../../config/index.js', async importOriginal => {
   const original = await importOriginal<typeof import('../../../../config/index.js')>();
-  return { ...original, config: { ...original.config, merchantBilling: { ...original.config.merchantBilling, get enabled() { return flags.enabled; }, returnUrl: 'https://dashboard.mercaria.co/settings/plan' } } };
+  return { ...original, config: { ...original.config, merchantBilling: { ...original.config.merchantBilling, get peableCohortJson() { return JSON.stringify({ merchantId: 'merchant-fixture', applicationId: 'app-fixture', environment: 'development', platformAccountId: 'acct_fixture', livemode: false, storeIds: [storeId] }); }, get enabled() { return flags.enabled; }, returnUrl: 'https://dashboard.mercaria.co/settings/plan' } } };
 });
 
 let db: Database, server: Server, routeServer: Server, url: string, routeUrl: string;
@@ -193,7 +193,7 @@ describe('Peable cohort adoption / actual SDK HTTP and SQL', () => {
     const refreshed = await provider.retrieveSubscription(sub);
     expect(refreshed.status).toBe('past_due');
     const handler = STRIPE_BILLING_EVENT_HANDLERS['customer.subscription.updated']!;
-    const event = { storedEventId: `stored-${nonce}`, providerEventId: `evt_old_${nonce}`, type: 'customer.subscription.updated', objectIds: { subscription: sub } };
+    const event = { storedEventId: `stored-${nonce}`, providerEventId: `evt_old_${nonce}`, type: 'customer.subscription.updated', livemode: false, objectIds: { subscription: sub, customer } };
     expect((await handler(event)).kind).toBe('applied');
     expect((await handler(event)).kind).toBe('applied');
     expect((await findSubscriptionByStore(db, storeId))?.status).toBe('past_due');

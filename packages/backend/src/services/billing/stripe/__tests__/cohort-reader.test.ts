@@ -42,7 +42,7 @@ beforeEach(() => {
 describe('explicit cohort reader with the general Stripe rail disabled', () => {
   it('uses the real SDK for only the platform-account and exact-subscription GETs', async () => {
     const reader = createBillingCohortStripeReader(cohort);
-    expect(Object.keys(reader).sort()).toEqual(['platformAccountId', 'subscription']);
+    expect(Object.keys(reader).sort()).toEqual(['charge', 'invoice', 'platformAccountId', 'subscription']);
     expect(await reader.platformAccountId()).toBe('acct_fixture');
     seam.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'sub_fixture' }), { status: 200 }));
     expect((await reader.subscription('sub_fixture')).id).toBe('sub_fixture');

@@ -100,6 +100,7 @@ function contextFromRow(row: PaymentProviderEventRow, delivered?: Stripe.Event):
     storedEventId: row.id,
     providerEventId: row.providerEventId,
     type: row.type,
+    livemode: row.livemode,
     objectIds,
     ...(row.providerAccountId ? { account: row.providerAccountId } : {}),
     ...(delivered ? { delivered } : {}),

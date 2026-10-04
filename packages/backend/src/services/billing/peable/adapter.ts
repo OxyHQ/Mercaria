@@ -1,6 +1,5 @@
 /** Peable executes the same Stripe billing rail; Mercaria owns its plan semantics. */
 import { Peable, PeableError } from '@peable.to/sdk';
-import { isLiveEntityId } from '@oxy.so/db';
 import { z } from 'zod';
 import { getDb } from '../../../db/postgres.js';
 import { findBillingCustomerByProviderId, findSubscriptionByProviderId } from '../../../db/merchantPlans/subscriptionRepository.js';
@@ -9,13 +8,8 @@ import { BillingProviderError, type BillingProvider, type BillingProviderStage, 
 import { mapStripeSubscriptionStatus } from '../stripe/stripe-billing.js';
 
 const id = z.string().min(1).max(200);
-export const billingCohortSchema = z.object({
-  merchantId: id, applicationId: id,
-  environment: z.enum(['development', 'staging', 'production']),
-  platformAccountId: z.string().regex(/^acct_[A-Za-z0-9]+$/),
-  livemode: z.boolean(), storeIds: z.array(z.string().refine(isLiveEntityId, 'Must be a valid store id')).min(1).max(1000),
-}).strict().refine((v) => v.livemode === (v.environment === 'production'));
-export type BillingCohort = z.infer<typeof billingCohortSchema>;
+import { billingCohortSchema, type BillingCohort } from '../cohort-config.js';
+export { billingCohortSchema, type BillingCohort } from '../cohort-config.js';
 const timestamp = z.string().datetime({ offset: true });
 const subscriptionSchema = z.object({
   providerSubscriptionId: z.string().regex(/^sub_[A-Za-z0-9]+$/),
