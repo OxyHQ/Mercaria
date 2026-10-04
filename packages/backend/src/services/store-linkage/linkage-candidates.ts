@@ -33,9 +33,9 @@ import {
 /**
  * The facts the caller has PROVEN or READ, per store. Ids and roles only.
  *
- * `hasStoreManage` is Mercaria's own membership fact, resolved from
- * `store_members` through the existing effective-permission matrix — not a
- * guess and not a name. `connectedDomains` are the hostnames the store's
+ * `hasStoreManage` is resolved through the store's owning Oxy account and the
+ * role map (ADR 0012), with the claimant's own session — not a guess and not a
+ * name. `connectedDomains` are the hostnames the store's
  * connector connections actually report; `connectionIds` the connections
  * themselves.
  */

@@ -120,6 +120,7 @@ vi.mock('../catalog-hydration.service.js', () => ({
 }));
 
 import { createReview, recomputeAggregate, listReviewsForStoreHandle } from '../review.service.js';
+import type { StoreCaller } from '../store-access.service.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
 
@@ -206,6 +207,15 @@ function uniqueViolation(constraint: string): Error & { code: string; constraint
   });
 }
 
+
+/** The author, in their own session — self-review asks Oxy with it (ADR 0012). */
+const BUYER: StoreCaller = {
+  accountId: 'buyer-1',
+  actorAccountId: 'buyer-1',
+  delegated: false,
+  accessToken: 'bearer-buyer-1',
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   enqueueRecomputeAggregate.mockResolvedValue(undefined);
@@ -234,7 +244,7 @@ describe('review.service.createReview — scope and dimension gates', () => {
     // product reviews. The refusal has to name it, because "unrecognized value"
     // reads like a typo and teaches whoever hit it to look for one.
     await expect(
-      createReview('buyer-1', {
+      createReview(BUYER, {
         // A caller reaching for a scope that does not exist. The union forbids it
         // at compile time, which is the point — this asserts the RUNTIME refusal
         // an untyped HTTP body would hit.
@@ -256,7 +266,7 @@ describe('review.service.createReview — scope and dimension gates', () => {
     // Acceptance criterion 1, at the sub-rating grain: a delivery complaint has
     // nowhere to land on a product's quality.
     await expect(
-      createReview('buyer-1', {
+      createReview(BUYER, {
         scope: 'product',
         canonicalProductId: 'prod-1',
         rating: 5,
@@ -278,7 +288,7 @@ describe('review.service.createReview — scope and dimension gates', () => {
     // every dimension would pass that test and be useless.
     insertReview.mockResolvedValue(reviewRow({ scope: 'product', targetType: 'canonical_product' }));
 
-    await createReview('buyer-1', {
+    await createReview(BUYER, {
       scope: 'product',
       canonicalProductId: 'prod-1',
       rating: 5,
@@ -299,7 +309,7 @@ describe('review.service.createReview — eligibility and verification', () => {
       reviewRow({ verification: 'verified_purchase', eligibilityId: 'elig-1', orderId: 'order-1' }),
     );
 
-    const dto = await createReview('buyer-1', {
+    const dto = await createReview(BUYER, {
       scope: 'p2p_listing',
       listingId: 'listing-1',
       rating: 5,
@@ -331,7 +341,7 @@ describe('review.service.createReview — eligibility and verification', () => {
     resolveEligibilityToSpend.mockResolvedValue(null);
     insertReview.mockResolvedValue(reviewRow({ verification: 'unverified' }));
 
-    const dto = await createReview('buyer-1', {
+    const dto = await createReview(BUYER, {
       scope: 'p2p_listing',
       listingId: 'listing-1',
       rating: 5,
@@ -348,7 +358,7 @@ describe('review.service.createReview — eligibility and verification', () => {
     consumeEligibility.mockResolvedValue(false);
 
     await expect(
-      createReview('buyer-1', { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
+      createReview(BUYER, { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
     ).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
     );
@@ -360,22 +370,22 @@ describe('review.service.createReview — eligibility and verification', () => {
     resolveEligibilityToSpend.mockResolvedValue(null);
     insertReview.mockResolvedValue(reviewRow());
 
-    await createReview('buyer-1', { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 });
+    await createReview(BUYER, { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 });
 
     // No order to read, so layer 1 is skipped — and layer 2 still runs, which is
     // the whole reason the two are independent.
     expect(assertNotSelfPurchase).not.toHaveBeenCalled();
-    expect(assertNotSelfTarget).toHaveBeenCalledWith('buyer-1', 'p2p_listing', 'listing-1');
+    expect(assertNotSelfTarget).toHaveBeenCalledWith(BUYER, 'p2p_listing', 'listing-1');
   });
 
   it('runs the purchase layer when there IS an eligibility', async () => {
     resolveEligibilityToSpend.mockResolvedValue(eligibilityRow());
     insertReview.mockResolvedValue(reviewRow());
 
-    await createReview('buyer-1', { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 });
+    await createReview(BUYER, { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 });
 
-    expect(assertNotSelfPurchase).toHaveBeenCalledWith('buyer-1', 'order-1');
-    expect(assertNotSelfTarget).toHaveBeenCalledWith('buyer-1', 'p2p_listing', 'listing-1');
+    expect(assertNotSelfPurchase).toHaveBeenCalledWith(BUYER, 'order-1');
+    expect(assertNotSelfTarget).toHaveBeenCalledWith(BUYER, 'p2p_listing', 'listing-1');
   });
 
   it('does not write when the self-review guard refuses', async () => {
@@ -385,7 +395,7 @@ describe('review.service.createReview — eligibility and verification', () => {
     );
 
     await expect(
-      createReview('buyer-1', { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
+      createReview(BUYER, { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
     ).rejects.toThrow();
 
     // The eligibility must NOT be spent by a refused write — a self-review
@@ -400,7 +410,7 @@ describe('review.service.createReview — one review per scoped target', () => {
     authorHasReviewedTarget.mockResolvedValue(true);
 
     await expect(
-      createReview('buyer-1', { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
+      createReview(BUYER, { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
     ).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
     );
@@ -420,7 +430,7 @@ describe('review.service.createReview — one review per scoped target', () => {
     insertReview.mockRejectedValue(uniqueViolation('reviews_author_scope_target_key'));
 
     await expect(
-      createReview('buyer-1', { scope: 'product', canonicalProductId: 'prod-1', rating: 5 }),
+      createReview(BUYER, { scope: 'product', canonicalProductId: 'prod-1', rating: 5 }),
     ).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
     );
@@ -432,7 +442,7 @@ describe('review.service.createReview — one review per scoped target', () => {
     insertReview.mockRejectedValue(uniqueViolation('reviews_author_oxy_user_id_listing_id_key'));
 
     await expect(
-      createReview('buyer-1', { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
+      createReview(BUYER, { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
     ).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
     );
@@ -443,7 +453,7 @@ describe('review.service.createReview — one review per scoped target', () => {
     insertReview.mockRejectedValue(uniqueViolation('reviews_eligibility_id_key'));
 
     await expect(
-      createReview('buyer-1', { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
+      createReview(BUYER, { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
     ).rejects.toSatisfy(
       (err: unknown) =>
         isMercariaError(err) &&
@@ -460,7 +470,7 @@ describe('review.service.createReview — one review per scoped target', () => {
     insertReview.mockRejectedValue(other);
 
     await expect(
-      createReview('buyer-1', { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
+      createReview(BUYER, { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
     ).rejects.toBe(other);
   });
 });
@@ -476,7 +486,7 @@ describe('review.service.createReview — notifications', () => {
       title: 'A thing',
     });
 
-    await createReview('buyer-1', { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 });
+    await createReview(BUYER, { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 });
 
     expect(sendNotification).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'seller-9', type: 'review_received' }),
@@ -486,7 +496,7 @@ describe('review.service.createReview — notifications', () => {
   it('notifies NOBODY for a product review — a canonical product has no owner', async () => {
     insertReview.mockResolvedValue(reviewRow({ scope: 'product', targetType: 'canonical_product' }));
 
-    await createReview('buyer-1', { scope: 'product', canonicalProductId: 'prod-1', rating: 5 });
+    await createReview(BUYER, { scope: 'product', canonicalProductId: 'prod-1', rating: 5 });
 
     expect(sendNotification).not.toHaveBeenCalled();
   });

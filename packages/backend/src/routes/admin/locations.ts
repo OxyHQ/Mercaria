@@ -31,7 +31,7 @@ import {
  * Store locations sub-router, mounted at `/admin/stores/:storeId/locations`.
  *
  * `mergeParams` so `:storeId` is visible. The parent router has already run
- * `authenticateToken` → `loadStore`, so `req.store`/`req.storeMembership` are
+ * `authenticateToken` → `loadStore`, so `req.store`/`req.storeAccess` are
  * set. There is no `locations:read` permission; every location route (incl. the
  * read) is gated on `locations:write`. The store-protection invariants (a store
  * keeps ≥1 location; the default cannot be deleted) are enforced in

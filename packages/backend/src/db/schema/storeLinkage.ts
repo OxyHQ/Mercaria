@@ -183,7 +183,6 @@ export const storeLinkageRequests = pgTable(
     impactExternalOffers: integer().notNull().default(0),
     impactStorefronts: integer().notNull().default(0),
     impactPlacedOrders: integer().notNull().default(0),
-    impactStoreMembers: integer().notNull().default(0),
     // ── The resumable-job columns. The row IS the job. ──────────────────────
     attempts: integer().notNull().default(0),
     /** Which task holds the lease. An opaque worker identity — no foreign key. */
@@ -279,7 +278,7 @@ export const storeLinkageRequests = pgTable(
       'store_linkage_requests_impact_check',
       sql`${t.impactActiveListings} >= 0 and ${t.impactNativeOffers} >= 0
           and ${t.impactExternalOffers} >= 0 and ${t.impactStorefronts} >= 0
-          and ${t.impactPlacedOrders} >= 0 and ${t.impactStoreMembers} >= 0`,
+          and ${t.impactPlacedOrders} >= 0`,
     ),
     check(
       'store_linkage_requests_last_error_length_check',

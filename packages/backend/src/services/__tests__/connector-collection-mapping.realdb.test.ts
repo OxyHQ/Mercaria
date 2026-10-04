@@ -154,16 +154,14 @@ function installProvider(
 async function makeFixture(): Promise<Fixture> {
   installProvider([]);
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `collection-mapping-${suffix}`,
-      name: 'Collection mapping store',
-      description: '',
-      brandColor: '#654321',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: `owner-${suffix}`,
+    handle: `collection-mapping-${suffix}`,
+    name: 'Collection mapping store',
+    description: '',
+    brandColor: '#654321',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
 
   const location = await insertLocation(store.id, {

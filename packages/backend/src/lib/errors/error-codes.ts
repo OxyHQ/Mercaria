@@ -45,6 +45,8 @@ const DEFAULT_HTTP_STATUS: Record<ErrorCode, number> = {
   // 409: two clients edited one list and this one lost. The remedy is the
   // client's and it is mechanical — re-read, re-apply, retry (#81).
   [ErrorCodes.WATCHLIST_VERSION_CONFLICT]: 409,
+  // 503: an upstream the answer depends on is down; the request itself is fine.
+  [ErrorCodes.SERVICE_UNAVAILABLE]: 503,
 };
 
 export interface MercariaErrorParams {
@@ -104,6 +106,11 @@ export function conflict(message: string): MercariaError {
 /** A validation domain error (400). */
 export function validationError(message: string): MercariaError {
   return new MercariaError({ code: ErrorCodes.VALIDATION_ERROR, message });
+}
+
+/** A dependency-unavailable error (503) — the request was refused, not answered. */
+export function serviceUnavailable(message: string): MercariaError {
+  return new MercariaError({ code: ErrorCodes.SERVICE_UNAVAILABLE, message });
 }
 
 /** An out-of-stock domain error (409). */

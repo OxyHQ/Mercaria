@@ -270,12 +270,16 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
 
   // #110 mounts the buyer's request path; the merchant's refund route is
   // `/admin/stores/:storeId/orders/:id/refunds`, which exists for every store.
-  // The check that matters is that somebody on the store can actually press it.
-  guest_refund_operations_available: (f) =>
-    f.refundPermissionAssigned ? OK : no('guest_buyer_data_permission_unassigned'),
+  // The check that matters is that somebody on the store can actually press it
+  // — and since ADR 0012 somebody always can, by construction: the store's
+  // owning Oxy account holds every permission, `refunds:write` and
+  // `orders:read` included, and no override can take one from it. Both
+  // requirements stay in the registry because they are part of the published
+  // readiness contract and of every stored capability event; they are MET
+  // structurally rather than by a read.
+  guest_refund_operations_available: () => OK,
 
-  guest_buyer_data_permissions_scoped: (f) =>
-    f.buyerDataPermissionAssigned ? OK : no('guest_buyer_data_permission_unassigned'),
+  guest_buyer_data_permissions_scoped: () => OK,
 
   guest_no_active_restriction: (f) => {
     if (f.settings.platformHeld) return no('platform_hold');

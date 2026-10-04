@@ -22,7 +22,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const findActiveDiscounts = vi.fn();
 const findActiveTaxRates = vi.fn();
-const findStoreRow = vi.fn();
+const findStoreById = vi.fn();
 
 vi.mock('../../db/merchandising/discountRepository.js', () => ({
   findActiveDiscounts: (...args: unknown[]) => findActiveDiscounts(...args),
@@ -33,7 +33,7 @@ vi.mock('../../db/stores/taxRateRepository.js', () => ({
 }));
 
 vi.mock('../../db/stores/storeRepository.js', () => ({
-  findStoreRow: (...args: unknown[]) => findStoreRow(...args),
+  findStoreById: (...args: unknown[]) => findStoreById(...args),
 }));
 
 import { calculateTotals, type PricingLine, type PricingInput } from '../pricing.service.js';
@@ -218,7 +218,7 @@ function assertReconciled(
 beforeEach(() => {
   findActiveDiscounts.mockReset().mockResolvedValue([]);
   findActiveTaxRates.mockReset().mockResolvedValue([]);
-  findStoreRow
+  findStoreById
     .mockReset()
     .mockResolvedValue(
       storeWithTaxSettings({ pricesIncludeTax: false, chargeTaxOnProducts: true }),
@@ -511,7 +511,7 @@ describe('calculateTotals — taxes', () => {
   });
 
   it('backs out inclusive tax informationally without changing the grand total', async () => {
-    findStoreRow.mockResolvedValue(storeWithTaxSettings({ pricesIncludeTax: true, chargeTaxOnProducts: true }));
+    findStoreById.mockResolvedValue(storeWithTaxSettings({ pricesIncludeTax: true, chargeTaxOnProducts: true }));
     findActiveTaxRates.mockResolvedValue([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]);
     const lines = [line({ listingId: L1, amount: 1080, quantity: 1 })];
     const result = await priceGroup({
@@ -529,7 +529,7 @@ describe('calculateTotals — taxes', () => {
   });
 
   it('emits no tax lines when chargeTaxOnProducts is false', async () => {
-    findStoreRow.mockResolvedValue(storeWithTaxSettings({ pricesIncludeTax: false, chargeTaxOnProducts: false }));
+    findStoreById.mockResolvedValue(storeWithTaxSettings({ pricesIncludeTax: false, chargeTaxOnProducts: false }));
     findActiveTaxRates.mockResolvedValue([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
     const result = await priceGroup({

@@ -14,7 +14,7 @@ import {
  * Store customers sub-router, mounted at `/admin/stores/:storeId/customers`.
  *
  * `mergeParams` so `:storeId` is visible. The parent router has already run
- * `authenticateToken` → `loadStore`, so `req.store`/`req.storeMembership` are set.
+ * `authenticateToken` → `loadStore`, so `req.store`/`req.storeAccess` are set.
  * Reads are gated on `customers:read`; writes on `customers:write` (owner, admin
  * and staff all hold both — staff run the POS).
  */

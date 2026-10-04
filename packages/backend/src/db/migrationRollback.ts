@@ -356,6 +356,19 @@ function invert(normalised: string): { inverse: string | null; reason: Irreversi
     }
   }
 
+  // ---- row-level security: a toggle, so the inverse is the other setting ---
+  // drizzle-kit emits `DISABLE ROW LEVEL SECURITY` ahead of every generated
+  // `DROP TABLE` (first met in `0159`, the corpus's first table drop), whatever
+  // the table's setting was. The statement names the setting it leaves, so the
+  // one it replaced is its opposite — a toggle, derivable like a rename.
+  const rowLevelSecurity =
+    /^alter table (?<table>"[^"]+"|\S+) (?<setting>enable|disable) row level security$/iu.exec(sql);
+  if (rowLevelSecurity?.groups !== undefined) {
+    const { table, setting } = rowLevelSecurity.groups;
+    const opposite = setting.toLowerCase() === 'enable' ? 'DISABLE' : 'ENABLE';
+    return { inverse: `ALTER TABLE ${table} ${opposite} ROW LEVEL SECURITY;`, reason: null };
+  }
+
   // ---- hand-written: derivable only on a FIRST definition -----------------
   const replaceFunction = /^create or replace function (?<name>[a-z0-9_]+)\s*\(/iu.exec(sql);
   if (replaceFunction?.groups !== undefined) {

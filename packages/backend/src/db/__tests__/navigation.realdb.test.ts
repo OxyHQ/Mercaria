@@ -80,6 +80,7 @@ async function makeCollection(name: string, isPublished = true): Promise<string>
   const [store] = await db
     .insert(stores)
     .values({
+      oxyAccountId: 'oxy-account-fixture',
       name: `Nav store ${name} ${RUN}`,
       handle: key(`store-${name}`),
       description: 'A store this file owns',

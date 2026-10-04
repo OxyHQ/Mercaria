@@ -53,7 +53,7 @@ import {
   merchantActivationPolicyAcceptances,
   merchantActivationSettings,
 } from '../../db/schema/merchantActivation.js';
-import { storeMembers, stores } from '../../db/schema/stores.js';
+import { stores } from '../../db/schema/stores.js';
 import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import { observeMerchantActivation } from '../merchant-activation/transitions.service.js';
 import { acceptActivationPolicy } from '../merchant-activation/settings.service.js';
@@ -88,7 +88,6 @@ afterAll(async () => {
     await db
       .delete(merchantActivationSettings)
       .where(inArray(merchantActivationSettings.storeId, createdStoreIds));
-    await db.delete(storeMembers).where(inArray(storeMembers.storeId, createdStoreIds));
     await deleteTestStores(db, createdStoreIds);
   }
   await closePostgres();
@@ -139,11 +138,12 @@ async function expectAppendOnlyRefusal(run: () => Promise<unknown>): Promise<voi
   expect(cause?.message).toMatch(/append-only/);
 }
 
-/** Seed a native store with an owner who holds the two guest permissions. */
+/** Seed a native store owned by an Oxy account — which holds every permission. */
 async function seedStore(suffix: string): Promise<string> {
   const [store] = await db
     .insert(stores)
     .values({
+      oxyAccountId: `owner-${RUN}-${suffix}`,
       handle: `act-${RUN}-${suffix}`,
       name: `Activation Store ${suffix}`,
       description: 'seeded by merchant-activation.realdb.test',
@@ -151,13 +151,6 @@ async function seedStore(suffix: string): Promise<string> {
     })
     .returning({ id: stores.id });
   createdStoreIds.push(store.id);
-  await db.insert(storeMembers).values({
-    storeId: store.id,
-    oxyUserId: `owner-${RUN}-${suffix}`,
-    role: 'owner',
-    permissions: ['store:manage', 'refunds:write', 'orders:read'],
-    joinedAt: new Date(),
-  });
   return store.id;
 }
 

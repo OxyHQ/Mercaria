@@ -204,16 +204,14 @@ export function runSupplierAdapterConformanceSuite(
     clientReference: string;
   }> {
     const suffix = uuidv7();
-    const store = await insertStore(
-      {
-        handle: `conformance-${suffix}`,
-        name: 'Conformance store',
-        description: '',
-        brandColor: '#123456',
-        defaultCurrency: CURRENCY,
-      },
-      [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-    );
+    const store = await insertStore({
+      oxyAccountId: `owner-${suffix}`,
+      handle: `conformance-${suffix}`,
+      name: 'Conformance store',
+      description: '',
+      brandColor: '#123456',
+      defaultCurrency: CURRENCY,
+    });
     createdStoreIds.push(store.id);
 
     const dual = (amount: number) => ({

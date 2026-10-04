@@ -69,7 +69,7 @@ import {
   findVariantById,
   findVariantOptionValues,
 } from '../db/catalog/variantRepository.js';
-import { findStoreRow } from '../db/stores/storeRepository.js';
+import { findStoreById } from '../db/stores/storeRepository.js';
 import { findLocation } from '../db/stores/locationRepository.js';
 import { reserve, release } from './inventory.service.js';
 import { resolveDefaultLocationId } from './catalog-write.service.js';
@@ -416,7 +416,7 @@ export async function createDraftOrder(
   createdByOxyUserId: string,
   input: CreateDraftOrderInput,
 ): Promise<DraftOrderRecord> {
-  const store = await findStoreRow(storeId);
+  const store = await findStoreById(storeId);
   const currency = (store?.defaultCurrency as CurrencyCode | undefined) ?? DEFAULT_CURRENCY;
   const locationId = input.locationId ?? (await resolveDefaultLocationId(storeId));
 

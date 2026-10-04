@@ -69,12 +69,7 @@ import {
   findListingsByIds,
   setListingRating,
 } from '../db/catalog/listingRepository.js';
-import {
-  findStoreById,
-  findStoreByHandle,
-  setStoreRating,
-  type StoreMemberRecord,
-} from '../db/stores/storeRepository.js';
+import { findStoreById, findStoreByHandle, setStoreRating } from '../db/stores/storeRepository.js';
 import { setSellerRating } from '../db/buyers/sellerProfileRepository.js';
 import { resolveEligibilityToSpend } from './reviews/review-eligibility.service.js';
 import {
@@ -88,6 +83,7 @@ import {
   scopedTarget,
 } from './reviews/review-scope.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
+import type { StoreCaller } from './store-access.service.js';
 import { resolveMedia } from './catalog-hydration.service.js';
 import { enqueueRecomputeAggregate } from '../queue/producers.js';
 import { sendNotification } from '../lib/notification-service.js';
@@ -274,13 +270,6 @@ export async function recomputeAggregate(
   return { rating, reviewCount };
 }
 
-/** The Oxy accounts that OWN a store — who a review notification reaches. */
-async function storeOwnerIds(storeId: string): Promise<string[]> {
-  const store = await findStoreById(storeId);
-  const owners: StoreMemberRecord[] = (store?.members ?? []).filter((m) => m.role === 'owner');
-  return owners.map((member) => member.oxyUserId);
-}
-
 /**
  * Notify the target owner that a review was received (best-effort; never
  * throws). The author is never notified about their own review.
@@ -305,9 +294,9 @@ async function notifyTargetOwner(
       if (listing?.ownerType === 'user' && listing.oxyUserId) {
         recipients.add(listing.oxyUserId);
       } else if (listing?.ownerType === 'store' && listing.storeId) {
-        for (const ownerId of await storeOwnerIds(listing.storeId)) {
-          recipients.add(ownerId);
-        }
+        // The store's owning Oxy account is its inbox (ADR 0012).
+        const store = await findStoreById(listing.storeId);
+        if (store) recipients.add(store.oxyAccountId);
       }
     } else if (scope === 'p2p_seller') {
       recipients.add(targetId);
@@ -338,9 +327,10 @@ async function notifyTargetOwner(
  * self-review gate → one-per-target → spend → persist → rebuild → notify.
  */
 export async function createReview(
-  authorOxyUserId: string,
+  author: StoreCaller,
   input: CreateReviewInput,
 ): Promise<ReviewDTO> {
+  const authorOxyUserId = author.accountId;
   assertScopeAllowed(input.scope);
   assertDimensionsForScope(input.scope, input.dimensions);
 
@@ -359,9 +349,9 @@ export async function createReview(
   // the target and is what still holds for an unverified review, which has no
   // order to read. Both, always — neither substitutes for the other.
   if (eligibility) {
-    await assertNotSelfPurchase(authorOxyUserId, eligibility.orderId);
+    await assertNotSelfPurchase(author, eligibility.orderId);
   }
-  await assertNotSelfTarget(authorOxyUserId, target.scope, target.targetId);
+  await assertNotSelfTarget(author, target.scope, target.targetId);
 
   const legacyTarget: ReviewTarget = {
     targetType: target.targetType,

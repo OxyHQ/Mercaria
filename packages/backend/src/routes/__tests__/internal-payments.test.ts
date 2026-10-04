@@ -214,7 +214,7 @@ describe('the operator allow-list', () => {
     // for their own store — and which says nothing whatsoever about the
     // platform's money. A store credential must not reach here however
     // privileged it is inside its own store.
-    const { STORE_PERMISSIONS } = await import('../../db/schema/stores.js');
+    const { STORE_PERMISSIONS } = await import('@mercaria/shared-types');
     expect(STORE_PERMISSIONS.length).toBeGreaterThan(0);
 
     const res = await fetch(`${enabledUrl}/internal/payments/exceptions`, {

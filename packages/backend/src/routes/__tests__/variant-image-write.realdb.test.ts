@@ -49,12 +49,14 @@ import { asc, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
 import type { Database } from '../../db/postgres.js';
 import { listingImages, listings, productVariantImages } from '../../db/schema/catalog.js';
-import { storeMembers, stores } from '../../db/schema/stores.js';
+import { stores } from '../../db/schema/stores.js';
 
 /** Unique to this run: the throwaway database is SHARED across parallel files. */
 const RUN = uuidv7().slice(-12).replace(/\W/gu, '').toLowerCase();
 const SELLER = `oxy-user-vimg-write-${RUN}`;
 const STRANGER = `oxy-user-vimg-other-${RUN}`;
+/** The organization that owns SELLER's store; SELLER is an `admin` of it. */
+const SELLER_ORG = `oxy-org-vimg-${RUN}`;
 
 vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
@@ -72,11 +74,12 @@ vi.mock('@oxy.so/core/server', async (importOriginal) => ({
 const mediaUrl = (fileId: string): string => `https://media.test.invalid/${fileId}`;
 
 vi.mock('../../middleware/auth.js', () => ({
-  // `loadStore` reads `req.userId` to find the membership, so a pass-through
-  // that only calls `next()` would 401 the store half in a file whose point is
-  // that the store half works.
+  // `loadStore` reads `req.userId` and the bearer to resolve the caller's role,
+  // so a pass-through that only calls `next()` would 401 the store half in a
+  // file whose point is that the store half works.
   authenticateToken: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     req.userId = SELLER;
+    req.accessToken = 'test-bearer';
     next();
   },
   oxyClient: {
@@ -89,6 +92,20 @@ vi.mock('../../middleware/auth.js', () => ({
     req.userId = SELLER;
     next();
   },
+}));
+/**
+ * Oxy's account graph: SELLER is an `admin` of the organization that owns
+ * `storeId`, and holds no role on any other account.
+ *
+ * `admin`, deliberately, and NOT `owner`. An `admin` holds every permission
+ * EXCEPT `store:manage`, so this role is the one that fails if the mount is
+ * ever re-gated on `store:manage` — which is the exact mistake #855 rejected,
+ * and an `owner` could not notice it.
+ */
+vi.mock('../../services/oxy-account-graph.js', () => ({
+  readCallerAccountRole: async (_bearer: string, accountId: string) =>
+    accountId === SELLER_ORG ? 'admin' : null,
+  listCallerAccountRoles: async () => new Map([[SELLER_ORG, 'admin']]),
 }));
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
@@ -121,7 +138,7 @@ let own: Fixture;
 let foreign: Fixture;
 /** Owned by the store SELLER is an `admin` of. */
 let storeOwned: Fixture;
-/** Owned by a store SELLER is NOT a member of — the 403 target on the store mount. */
+/** Owned by a store SELLER has no role on — the 403 target on the store mount. */
 let otherStoreOwned: Fixture;
 let storeId = '';
 let otherStoreId = '';
@@ -230,27 +247,13 @@ async function makeFixture(input: {
   };
 }
 
-async function createStore(handle: string, member: string | null): Promise<string> {
+async function createStore(handle: string, ownerAccount: string): Promise<string> {
   const [store] = await db
     .insert(stores)
-    .values({ handle, name: `Variant image store ${RUN}`, description: '', brandColor: '#000000' })
+    .values({ oxyAccountId: ownerAccount, handle, name: `Variant image store ${RUN}`, description: '', brandColor: '#000000' })
     .returning({ id: stores.id });
   if (!store) throw new Error('createStore returned no row');
   storeIds.push(store.id);
-  if (member !== null) {
-    await db.insert(storeMembers).values({
-      storeId: store.id,
-      oxyUserId: member,
-      // `admin`, deliberately, and NOT `owner`. An `admin` holds every
-      // permission EXCEPT `store:manage`, so this membership is the one that
-      // fails if the mount is ever re-gated on `store:manage` — which is the
-      // exact mistake #855 rejected, and a fixture with an `owner` could not
-      // notice it.
-      role: 'admin',
-      permissions: ['products:read', 'products:write'],
-      joinedAt: new Date(),
-    });
-  }
   return store.id;
 }
 
@@ -261,8 +264,8 @@ beforeAll(async () => {
 
   own = await makeFixture({ ownerType: 'user', oxyUserId: SELLER, label: 'own' });
   foreign = await makeFixture({ ownerType: 'user', oxyUserId: STRANGER, label: 'foreign' });
-  storeId = await createStore(`vimgstore${RUN}`, SELLER);
-  otherStoreId = await createStore(`vimgother${RUN}`, null);
+  storeId = await createStore(`vimgstore${RUN}`, SELLER_ORG);
+  otherStoreId = await createStore(`vimgother${RUN}`, `oxy-org-vimg-other-${RUN}`);
   storeOwned = await makeFixture({ ownerType: 'store', storeId, label: 'store' });
   otherStoreOwned = await makeFixture({
     ownerType: 'store',
@@ -538,7 +541,7 @@ describe('a store member choosing photographs through the admin mount', () => {
     const before = await storedFor(otherStoreOwned.variantIds[0]);
     expect(before).toHaveLength(0);
 
-    // Reached through the store the caller IS a member of, naming a product that
+    // Reached through the store the caller CAN act for, naming a product that
     // belongs to a different one — so `requireStorePermission` passes and
     // `loadStoreProduct`'s ownership compare is the only thing that can refuse.
     const viaOwnStore = await call('PUT', url(otherStoreOwned, storeId, 0), {
@@ -569,15 +572,14 @@ describe('a store member choosing photographs through the admin mount', () => {
      *
      * ## What that is, measured, and what it is NOT
      *
-     * It is NOT a live permission bug, and this test does not claim to catch
-     * one. `effectivePermissions` is `ROLE_PERMISSIONS[role] ∪ explicit grants`,
-     * and every role that holds `inventory:write` also holds `products:write`
-     * (owner, admin and staff all hold both, and there is no mechanism that
-     * REMOVES a role's permission), so no membership can be constructed that the
-     * extra gate would refuse. The short prefix is a latent hazard the day a
-     * permission is unbundled or a sibling with a different gate is added, not
-     * a reachable defect today — which is exactly why the path spelling is
-     * written down rather than left to be noticed.
+     * It would be a live permission bug, and this test does not claim to catch
+     * it. Effective permissions are `(role defaults ∪ granted) − revoked`
+     * (ADR 0012): every ROLE that holds `inventory:write` also holds
+     * `products:write`, but an override can now REVOKE `products:write` alone,
+     * and a person so narrowed would be refused the inventory sibling by a gate
+     * mounted on the short prefix. The mount names the whole path for exactly
+     * that reason — which is why the path spelling is written down rather than
+     * left to be noticed.
      *
      * What IS observable is ROUTING, and that is what this asserts: each sibling
      * still reaches its own handler. A future mount that swallowed them — a

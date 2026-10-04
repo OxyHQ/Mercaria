@@ -465,7 +465,7 @@ export function createApp(): express.Express {
   // The platform operator surface (#50). Mounted OUTSIDE `/admin` deliberately:
   // that whole tree is scoped to one store by `loadStore` + `requireStorePermission`,
   // and this reads across every store and every P2P seller — so there is no
-  // store whose membership could authorize it, and putting it there would leave
+  // store whose owning account could authorize it, and putting it there would leave
   // a platform-wide read one forgotten permission check away from a merchant
   // session. Issue #50: operator tooling must not be reachable through the
   // merchant dashboard.
@@ -497,8 +497,8 @@ export function createApp(): express.Express {
   // behind it is not, and the projection has no field to carry it.
   app.use('/brand-relationships', brandRelationshipsRouter);
   // Merchant claiming (#83). Mounted OUTSIDE `/admin` deliberately: that tree
-  // is reached through `loadStore`, which establishes a membership in ONE
-  // store, and a claim is made by a person about a merchant that may have no
+  // is reached through `loadStore`, which establishes the caller's access to
+  // ONE store, and a claim is made by a person about a merchant that may have no
   // native store at all. Not gated on any flag — a merchant page that cannot
   // say "claim this" is a dead end for the one person entitled to fix it.
   app.use('/merchant-claims', merchantClaimsRouter);

@@ -67,6 +67,7 @@ import {
 } from '../../services/merchant-claims/merchant-claim.service.js';
 import { challengeTokenMatches, mintChallengeToken } from '../../services/merchant-claims/challenge-token.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
+import type { StoreCaller } from '../../services/store-access.service.js';
 
 let db: Database;
 
@@ -74,6 +75,16 @@ let db: Database;
 const RUN = uuidv7().slice(-12);
 
 const createdMerchantIds: string[] = [];
+
+/**
+ * A claimant in their own, undelegated session. `openClaim`/`verifyClaim` take
+ * the session because naming a store or proving with a connection asks Oxy
+ * which stores the claimant can act for (ADR 0012); none of these cases names
+ * either, so the bearer is never used.
+ */
+function claimantSession(oxyUserId: string): StoreCaller {
+  return { accountId: oxyUserId, actorAccountId: oxyUserId, delegated: false, accessToken: 'unused' };
+}
 
 beforeAll(async () => {
   db = await connectPostgres();
@@ -140,7 +151,7 @@ async function verifiedDocumentClaim(params: {
 }): Promise<string> {
   const claim = await openClaim({
     merchantId: params.merchantId,
-    claimantOxyUserId: params.claimant,
+    claimant: claimantSession(params.claimant),
     method: 'business_document',
   });
   await submitForReview({
@@ -271,9 +282,9 @@ describe('acceptance 4 — two conflicting claimants cannot both be the sole ver
   it('refuses a second LIVE claim by the same claimant on one merchant', async () => {
     const merchantId = await mintMerchant('One Live Claim');
     const claimant = actor('olc');
-    await openClaim({ merchantId, claimantOxyUserId: claimant, method: 'business_document' });
+    await openClaim({ merchantId, claimant: claimantSession(claimant), method: 'business_document' });
     await expect(
-      openClaim({ merchantId, claimantOxyUserId: claimant, method: 'business_document' }),
+      openClaim({ merchantId, claimant: claimantSession(claimant), method: 'business_document' }),
     ).rejects.toSatisfy(
       (error: unknown) => isMercariaError(error) && error.httpStatus === 409,
       'expected a 409 from merchant_claims_merchant_claimant_active_key',
@@ -287,7 +298,7 @@ describe('acceptance 3 — a replayed, stolen or expired challenge verifies noth
     const claimant = actor('su');
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: claimant,
+      claimant: claimantSession(claimant),
       method: 'dns_txt',
       domain: `single-use-${RUN}.example.com`,
     });
@@ -316,7 +327,7 @@ describe('acceptance 3 — a replayed, stolen or expired challenge verifies noth
     const merchantId = await mintMerchant('Expired Challenge');
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: actor('ec'),
+      claimant: claimantSession(actor('ec')),
       method: 'dns_txt',
       domain: `expired-${RUN}.example.com`,
     });
@@ -345,13 +356,13 @@ describe('acceptance 3 — a replayed, stolen or expired challenge verifies noth
 
     const claimA = await openClaim({
       merchantId: merchantA,
-      claimantOxyUserId: claimantA,
+      claimant: claimantSession(claimantA),
       method: 'dns_txt',
       domain: `owner-${RUN}.example.com`,
     });
     const claimB = await openClaim({
       merchantId: merchantB,
-      claimantOxyUserId: claimantB,
+      claimant: claimantSession(claimantB),
       method: 'dns_txt',
       domain: `thief-${RUN}.example.com`,
     });
@@ -371,7 +382,7 @@ describe('acceptance 3 — a replayed, stolen or expired challenge verifies noth
     expect(challengeTokenMatches(instructionsA.token ?? '', digestB?.tokenHash ?? '')).toBe(false);
 
     await expect(
-      verifyClaim({ claimId: claimB.id, claimantOxyUserId: claimantB, token: instructionsA.token }),
+      verifyClaim({ claimId: claimB.id, claimant: claimantSession(claimantB), token: instructionsA.token }),
     ).rejects.toSatisfy(
       (error: unknown) => isMercariaError(error) && error.httpStatus === 400,
       "expected a 400 for another claim's token",
@@ -382,7 +393,7 @@ describe('acceptance 3 — a replayed, stolen or expired challenge verifies noth
     const merchantId = await mintMerchant('Not Yours');
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: actor('ny-owner'),
+      claimant: claimantSession(actor('ny-owner')),
       method: 'business_document',
     });
     await expect(getClaimForClaimant(claim.id, actor('ny-stranger'))).rejects.toSatisfy(
@@ -396,7 +407,7 @@ describe('acceptance 3 — a replayed, stolen or expired challenge verifies noth
     const claimant = actor('sup');
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: claimant,
+      claimant: claimantSession(claimant),
       method: 'meta_tag',
       domain: `supersede-${RUN}.example.com`,
     });
@@ -420,7 +431,7 @@ describe('acceptance 2 — a low-assurance proof cannot complete a claim on its 
     await expect(
       openClaim({
         merchantId,
-        claimantOxyUserId: actor('em'),
+        claimant: claimantSession(actor('em')),
         method: 'role_email',
         domain: `email-${RUN}.example.com`,
       }),
@@ -446,7 +457,7 @@ describe('acceptance 2 — a low-assurance proof cannot complete a claim on its 
     const claimant = actor('dr');
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: claimant,
+      claimant: claimantSession(claimant),
       method: 'business_document',
     });
     expect(claim.state).toBe('draft');
@@ -486,7 +497,7 @@ describe('acceptance 2 — a low-assurance proof cannot complete a claim on its 
     const claimant = actor('rej');
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: claimant,
+      claimant: claimantSession(claimant),
       method: 'business_document',
     });
     await submitForReview({
@@ -670,7 +681,7 @@ describe('the claim state machine and its CHECKs', () => {
     const merchantId = await mintMerchant('Normalizing');
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: actor('nrm'),
+      claimant: claimantSession(actor('nrm')),
       method: 'dns_txt',
       domain: `HTTPS://Normal-${RUN}.Example.COM/some/path`,
     });
@@ -682,7 +693,7 @@ describe('the claim state machine and its CHECKs', () => {
     const claimant = actor('le');
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: claimant,
+      claimant: claimantSession(claimant),
       method: 'business_document',
     });
     // Move the deadline into the past without touching the state — exactly the
@@ -712,7 +723,7 @@ describe('the claim state machine and its CHECKs', () => {
     const domain = `scope-${RUN}.example.com`;
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: actor('sr'),
+      claimant: claimantSession(actor('sr')),
       method: 'dns_txt',
       domain,
     });
@@ -734,7 +745,7 @@ describe('the claim state machine and its CHECKs', () => {
     await expect(
       openClaim({
         merchantId,
-        claimantOxyUserId: actor('so'),
+        claimant: claimantSession(actor('so')),
         method: 'dns_txt',
         domain: `scope-owner-${RUN}.example.com`,
         storefrontIds: [foreign.id],
@@ -763,7 +774,7 @@ describe('eligibility says whether to show `Claim this merchant`, and nothing ab
     const merchantId = await mintMerchant('In Progress');
     await openClaim({
       merchantId,
-      claimantOxyUserId: actor('ip'),
+      claimant: claimantSession(actor('ip')),
       method: 'business_document',
     });
     const eligibility = await getClaimEligibility(merchantId);
@@ -776,7 +787,7 @@ describe('eligibility says whether to show `Claim this merchant`, and nothing ab
     // signal exists to keep honest.
     const second = await openClaim({
       merchantId,
-      claimantOxyUserId: actor('ip-2'),
+      claimant: claimantSession(actor('ip-2')),
       method: 'business_document',
     });
     expect(second.state).toBe('draft');
@@ -802,7 +813,7 @@ describe('evidence is private, and looking at it is audited', () => {
     const claimant = actor('pe');
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: claimant,
+      claimant: claimantSession(claimant),
       method: 'business_document',
     });
     await submitForReview({
@@ -830,7 +841,7 @@ describe('evidence is private, and looking at it is audited', () => {
     const claimant = actor('pd');
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: claimant,
+      claimant: claimantSession(claimant),
       method: 'well_known_file',
       domain: `digest-${RUN}.example.com`,
     });
@@ -849,7 +860,7 @@ describe('evidence is private, and looking at it is audited', () => {
     const merchantId = await mintMerchant('Empty Evidence');
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: actor('ee'),
+      claimant: claimantSession(actor('ee')),
       method: 'business_document',
     });
     await expect(
@@ -895,7 +906,7 @@ describe('the audit timeline is append-only and complete', () => {
     const merchantId = await mintMerchant('Actor Check');
     const claim = await openClaim({
       merchantId,
-      claimantOxyUserId: actor('ac'),
+      claimant: claimantSession(actor('ac')),
       method: 'business_document',
     });
     await expect(

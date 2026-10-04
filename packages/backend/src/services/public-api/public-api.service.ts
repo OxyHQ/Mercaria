@@ -59,8 +59,8 @@ import {
   type CollectionRow,
 } from '../../db/merchandising/collectionRepository.js';
 import {
-  findStoreRow,
-  findStoreRowByHandle,
+  findStoreById,
+  findStoreByHandle,
   findStoresByIds,
   type StoreRow,
 } from '../../db/stores/storeRepository.js';
@@ -119,7 +119,7 @@ function webOrigin(): string {
 /** A store that may be read publicly, or the 404/410 that says why not. */
 async function publicStoreById(storeId: string): Promise<StoreRow> {
   if (!isLiveEntityId(storeId)) throw notFound(STORE_NOT_FOUND);
-  const store = await findStoreRow(storeId);
+  const store = await findStoreById(storeId);
   if (!store) throw notFound(STORE_NOT_FOUND);
   if (store.status !== 'active') throw gone(STORE_GONE);
   return store;
@@ -136,7 +136,7 @@ async function publicCollectionById(
   if (!collection.isPublished && collection.publishedAt === null) {
     throw notFound(COLLECTION_NOT_FOUND);
   }
-  const store = await findStoreRow(collection.storeId);
+  const store = await findStoreById(collection.storeId);
   if (!store || store.status !== 'active') throw gone(COLLECTION_GONE);
   if (!collection.isPublished) throw gone(COLLECTION_GONE);
   return { collection, store };
@@ -294,7 +294,7 @@ export async function getPublicProduct(
 
   let store: StoreRow | undefined;
   if (row.ownerType === 'store') {
-    store = (row.storeId ? await findStoreRow(row.storeId) : null) ?? undefined;
+    store = (row.storeId ? await findStoreById(row.storeId) : null) ?? undefined;
     if (!store || store.status !== 'active') throw gone(PRODUCT_GONE);
   }
   if (row.status !== 'active' && row.status !== 'sold') throw gone(PRODUCT_GONE);
@@ -331,7 +331,7 @@ export async function getPublicStore(storeId: string): Promise<MercariaStore> {
 
 /** `GET /public/v1/stores/lookup?handle=` — the same rules, by CURRENT handle. */
 export async function lookupPublicStore(handle: string): Promise<MercariaStore> {
-  const store = await findStoreRowByHandle(handle);
+  const store = await findStoreByHandle(handle);
   if (!store) throw notFound(STORE_NOT_FOUND);
   if (store.status !== 'active') throw gone(STORE_GONE);
   return storeWithRating(store);

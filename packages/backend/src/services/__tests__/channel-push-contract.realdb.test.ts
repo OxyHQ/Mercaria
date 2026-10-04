@@ -26,6 +26,7 @@
  * added later.
  */
 
+import { STORE_PERMISSIONS } from '@mercaria/shared-types';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import type { AddressInfo } from 'node:net';
@@ -83,11 +84,7 @@ beforeAll(async () => {
     '/admin/stores/:storeId/channel-keys',
     (req, _res, next) => {
       req.store = { id: req.params.storeId } as unknown as typeof req.store;
-      req.storeMembership = {
-        oxyUserId: OWNER_USER,
-        role: 'owner',
-        permissions: ['channels:write'],
-      } as unknown as typeof req.storeMembership;
+      req.storeAccess = { role: 'owner', permissions: [...STORE_PERMISSIONS] };
       next();
     },
     channelKeysRouter,
@@ -122,16 +119,14 @@ afterAll(async () => {
 /** A store with an import category and a default location — what an ingest needs. */
 async function makeStore(): Promise<string> {
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `channel-push-${suffix}`,
-      name: 'Channel push store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: OWNER_USER, role: 'owner', permissions: ['store:manage', 'channels:write'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: OWNER_USER,
+    handle: `channel-push-${suffix}`,
+    name: 'Channel push store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
   await insertLocation(store.id, {
     name: 'Default location',

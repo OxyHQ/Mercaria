@@ -83,6 +83,7 @@ import {
   type StorefrontRow,
 } from '../../db/commerce-graph/storefrontRepository.js';
 import { findStoreById } from '../../db/stores/storeRepository.js';
+import { resolveStoreAccess, type StoreCaller } from '../store-access.service.js';
 import {
   consumeChallenge,
   countChallengesForClaimantSince,
@@ -272,7 +273,11 @@ function ineligibilityReason(
 
 export interface OpenClaimParams {
   merchantId: string;
-  claimantOxyUserId: string;
+  /**
+   * The claimant's own session. Their id is `claimant.accountId`; the session
+   * is what asks Oxy whether they can act for a store they name (ADR 0012).
+   */
+  claimant: StoreCaller;
   method: MerchantClaimMethod;
   /** Required for every domain-subject method; refused for the others. */
   domain?: string;
@@ -298,6 +303,7 @@ export interface OpenClaimParams {
  */
 export async function openClaim(params: OpenClaimParams): Promise<MerchantClaimRow> {
   const db = getDb();
+  const claimantOxyUserId = params.claimant.accountId;
 
   if (!isMethodAvailable(params.method)) {
     throw validationError(
@@ -322,14 +328,14 @@ export async function openClaim(params: OpenClaimParams): Promise<MerchantClaimR
   });
 
   if (params.nativeStoreId !== undefined) {
-    await assertClaimantMayNameStore(params.nativeStoreId, params.claimantOxyUserId);
+    await assertClaimantMayNameStore(params.nativeStoreId, params.claimant);
   }
 
   const now = new Date();
   return db.transaction(async (tx) => {
     const claim = await insertMerchantClaim(tx, {
       merchantId: merchant.id,
-      claimantOxyUserId: params.claimantOxyUserId,
+      claimantOxyUserId: claimantOxyUserId,
       method: params.method,
       ...(subject !== null ? { subject } : {}),
       ...(params.nativeStoreId !== undefined ? { nativeStoreId: params.nativeStoreId } : {}),
@@ -343,7 +349,7 @@ export async function openClaim(params: OpenClaimParams): Promise<MerchantClaimR
       claimId: claim.id,
       action: 'created',
       actorKind: 'claimant',
-      actorOxyUserId: params.claimantOxyUserId,
+      actorOxyUserId: claimantOxyUserId,
       toState: claim.state,
       at: now,
     });
@@ -405,7 +411,7 @@ async function resolveSubject(
     // out after publishing instructions wastes their time and our budget.
     const connection = await resolveClaimantConnection({
       connectionId: params.connectionId,
-      claimantOxyUserId: params.claimantOxyUserId,
+      claimant: params.claimant,
     });
     return { kind: 'connection', ref: connection.id };
   }
@@ -448,19 +454,17 @@ async function buildRequestedScope(params: {
 }
 
 /**
- * A claimant may only name a native store they are actually a member of.
+ * A claimant may only name a native store they can actually act for — through
+ * its owning Oxy account, asked with their own session (ADR 0012).
  *
  * The claim records an INTENT to link (#84 performs the link), and an intent
  * naming somebody else's store is a request to put their store id on a
  * stranger's record — refused with the same 404 an unknown id gets, so the
  * endpoint cannot be used to test whether a store id exists.
  */
-async function assertClaimantMayNameStore(
-  storeId: string,
-  claimantOxyUserId: string,
-): Promise<void> {
+async function assertClaimantMayNameStore(storeId: string, claimant: StoreCaller): Promise<void> {
   const store = await findStoreById(storeId);
-  if (!store || !store.members.some((m) => m.oxyUserId === claimantOxyUserId)) {
+  if (!store || (await resolveStoreAccess(claimant, store)) === null) {
     throw notFound('Store not found');
   }
 }
@@ -625,7 +629,8 @@ function buildInstructions(
 
 export interface VerifyClaimParams {
   claimId: string;
-  claimantOxyUserId: string;
+  /** The claimant's own session; `claimant.accountId` is who must own the claim. */
+  claimant: StoreCaller;
   /** The one-time token, for every method whose proof IS the token. */
   token?: string;
   /** The channel key, for `channel_key`. */
@@ -643,7 +648,7 @@ export interface VerifyClaimParams {
  */
 export async function verifyClaim(params: VerifyClaimParams): Promise<MerchantClaimRow> {
   const db = getDb();
-  const claim = await loadClaimForClaimant(params.claimId, params.claimantOxyUserId);
+  const claim = await loadClaimForClaimant(params.claimId, params.claimant.accountId);
   if (claim.state !== 'challenge_pending') {
     throw conflict(`A claim in state ${claim.state} has no challenge to verify.`);
   }
@@ -669,7 +674,7 @@ export async function verifyClaim(params: VerifyClaimParams): Promise<MerchantCl
     throw conflict('This challenge has expired. Request a new one.');
   }
 
-  const attempts = await recordAttempt(db, claim, digest.id, params.claimantOxyUserId, now);
+  const attempts = await recordAttempt(db, claim, digest.id, params.claimant.accountId, now);
   if (attempts > config.merchantClaims.maxAttemptsPerChallenge) {
     throw conflict('Too many verification attempts on this challenge. Request a new one.');
   }
@@ -764,14 +769,14 @@ async function makeProof(args: {
     case 'platform_oauth': {
       const connection = await resolveClaimantConnection({
         connectionId: claim.subjectRef,
-        claimantOxyUserId: claim.claimantOxyUserId,
+        claimant: params.claimant,
       });
       return connectionProofSubject(connection);
     }
     case 'channel_key': {
       const connection = await resolveChannelKeyConnection({
         channelKey: params.channelKey ?? '',
-        claimantOxyUserId: claim.claimantOxyUserId,
+        claimant: params.claimant,
       });
       // The key must be bound to the connection this CLAIM named. A key for
       // another of the store's sites proves control of that other site, which

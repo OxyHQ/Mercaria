@@ -11,7 +11,7 @@
 
 import type { Request, Response } from 'express';
 import type { Collection as CollectionDTO, Listing, Pagination } from '@mercaria/shared-types';
-import { findStoreByHandle, type StoreRecord } from '../db/stores/storeRepository.js';
+import { findStoreByHandle, type StoreRow } from '../db/stores/storeRepository.js';
 import type { CollectionRecord } from '../db/merchandising/collectionRepository.js';
 import {
   listCollections,
@@ -91,7 +91,7 @@ function toPublicCollectionDTO(
 }
 
 /** Resolve a public store by handle, else NOT_FOUND (closed stores are hidden). */
-async function resolvePublicStore(handle: string): Promise<StoreRecord> {
+async function resolvePublicStore(handle: string): Promise<StoreRow> {
   const store = await findStoreByHandle(handle);
   if (!store || store.status === 'closed') {
     throw notFound('Store not found');

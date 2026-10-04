@@ -3,7 +3,7 @@
  *
  * A `Store` is a seller organization that lists NEW products (Shop/Amazon side),
  * as opposed to an individual P2P seller (`Seller`). This module holds the
- * ADMIN-facing shapes (members, permissions, policies). The PUBLIC projection of
+ * ADMIN-facing shapes (ownership, permissions, policies). The PUBLIC projection of
  * a store rendered in browse/feed surfaces is `StoreSummary` in `./product`.
  */
 
@@ -12,28 +12,31 @@ import type { CurrencyCode } from './money';
 import type { TextTone } from './product';
 import type { TaxSettings, UpdateTaxSettingsInput } from './tax';
 
-/** A member's role within a store. */
-export type StoreRole = 'owner' | 'admin' | 'staff';
-
-/** A granular permission a store member can hold. */
-export type StorePermission =
-  | 'store:manage'
-  | 'members:manage'
-  | 'products:read'
-  | 'products:write'
-  | 'inventory:write'
-  | 'locations:write'
-  | 'collections:write'
-  | 'discounts:write'
-  | 'settings:write'
-  | 'orders:read'
-  | 'orders:fulfill'
-  | 'stats:read'
-  | 'customers:read'
-  | 'customers:write'
-  | 'draft_orders:write'
-  | 'refunds:write'
-  | 'channels:write'
+/**
+ * Every granular permission a store can hold — the closed set, and the ONE
+ * authority for it. The backend renders the CHECK on
+ * `store_permission_overrides.granted`/`.revoked` from this tuple and validates
+ * request bodies against it, so a permission added here reaches the database,
+ * the validator and the role map below together.
+ */
+export const STORE_PERMISSIONS = [
+  'store:manage',
+  'members:manage',
+  'products:read',
+  'products:write',
+  'inventory:write',
+  'locations:write',
+  'collections:write',
+  'discounts:write',
+  'settings:write',
+  'orders:read',
+  'orders:fulfill',
+  'stats:read',
+  'customers:read',
+  'customers:write',
+  'draft_orders:write',
+  'refunds:write',
+  'channels:write',
   /**
    * Merchant DEMAND analytics (#86 privacy 3) — deliberately NOT `stats:read`.
    *
@@ -42,13 +45,148 @@ export type StorePermission =
    * This answers "what is the market doing around my products": how often
    * Mercaria showed them, how many visits it sent, which of them have demand
    * and no offer. That is a commercial-strategy surface rather than a
-   * shop-floor one, and #86 asks for an EXPLICIT permission — a permission
-   * every role already holds by default is not explicit.
-   *
-   * Held by `owner` and `admin` and NOT by `staff`, which is the one place the
-   * role matrix diverges from `stats:read`.
+   * shop-floor one, and #86 asks for an EXPLICIT permission — so only `owner`,
+   * `admin` and `billing` hold it by default, and anyone else needs a grant.
    */
-  | 'analytics:read';
+  'analytics:read',
+] as const;
+
+/** A granular permission on a store. */
+export type StorePermission = (typeof STORE_PERMISSIONS)[number];
+
+/**
+ * The roles an Oxy account membership carries (`AccountRole` in
+ * `@oxy.so/core`). A store is owned by an Oxy account (ADR 0012) and Oxy decides
+ * who belongs to it and in which role; Mercaria only maps that role onto its own
+ * permissions. The backend asserts at compile time that this tuple is exactly
+ * Oxy's, so a role Oxy adds fails `tsc` here instead of resolving to nothing.
+ */
+export const STORE_ACCOUNT_ROLES = ['owner', 'admin', 'editor', 'developer', 'billing', 'viewer'] as const;
+
+/** The caller's role in the Oxy account that owns a store. */
+export type StoreAccountRole = (typeof STORE_ACCOUNT_ROLES)[number];
+
+/** Every permission except `store:manage`, the one an `admin` does not hold. */
+const ADMIN_STORE_PERMISSIONS = STORE_PERMISSIONS.filter((p) => p !== 'store:manage');
+
+/**
+ * Oxy account role → the store permissions it holds by default. The ONE map;
+ * no client keeps a copy, because the API returns each caller's resolved
+ * permissions on the store itself (`Store.access`).
+ *
+ * | permission         | owner | admin | editor | developer | billing | viewer |
+ * |--------------------|:-----:|:-----:|:------:|:---------:|:-------:|:------:|
+ * | store:manage       |   ✓   |       |        |           |         |        |
+ * | members:manage     |   ✓   |   ✓   |        |           |         |        |
+ * | settings:write     |   ✓   |   ✓   |        |           |         |        |
+ * | refunds:write      |   ✓   |   ✓   |        |           |         |        |
+ * | channels:write     |   ✓   |   ✓   |        |     ✓     |         |        |
+ * | analytics:read     |   ✓   |   ✓   |        |           |    ✓    |        |
+ * | discounts:write    |   ✓   |   ✓   |   ✓    |           |         |        |
+ * | locations:write    |   ✓   |   ✓   |   ✓    |           |         |        |
+ * | collections:write  |   ✓   |   ✓   |   ✓    |           |         |        |
+ * | products:write     |   ✓   |   ✓   |   ✓    |           |         |        |
+ * | inventory:write    |   ✓   |   ✓   |   ✓    |           |         |        |
+ * | orders:fulfill     |   ✓   |   ✓   |   ✓    |           |         |        |
+ * | customers:read     |   ✓   |   ✓   |   ✓    |           |         |        |
+ * | customers:write    |   ✓   |   ✓   |   ✓    |           |         |        |
+ * | draft_orders:write |   ✓   |   ✓   |   ✓    |           |         |        |
+ * | products:read      |   ✓   |   ✓   |   ✓    |     ✓     |         |   ✓    |
+ * | orders:read        |   ✓   |   ✓   |   ✓    |           |    ✓    |   ✓    |
+ * | stats:read         |   ✓   |   ✓   |   ✓    |           |    ✓    |   ✓    |
+ *
+ * - `editor` runs the catalogue AND the shop floor. It carries the six
+ *   operational permissions the retired `staff` role held (fulfil orders, serve
+ *   customers, ring up POS draft orders, read the shop's own stats) on top of
+ *   catalogue upkeep, because `staff` is the role every existing non-owner
+ *   member holds and Oxy has no `staff`: converting a store to an organization
+ *   maps `staff` to `editor`, and an editor who could not ring up a sale would
+ *   strand every POS cashier the conversion moves.
+ * - `developer` connects sales channels and reads the catalogue it syncs.
+ * - `billing` reads money in (orders, stats, demand analytics). Payment
+ *   onboarding and fee acceptance are `store:manage` (a binding commercial act)
+ *   and refunds move money out, so neither is billing's by default.
+ * - `viewer` is read-only, and only for the shop's own trading record: it does
+ *   NOT read customers (buyer personal data) or demand analytics (#86 asks for
+ *   an explicit grant).
+ */
+export const STORE_ROLE_PERMISSIONS: Readonly<Record<StoreAccountRole, readonly StorePermission[]>> = {
+  owner: STORE_PERMISSIONS,
+  admin: ADMIN_STORE_PERMISSIONS,
+  editor: [
+    'products:read',
+    'products:write',
+    'inventory:write',
+    'collections:write',
+    'locations:write',
+    'discounts:write',
+    'orders:read',
+    'orders:fulfill',
+    'stats:read',
+    'customers:read',
+    'customers:write',
+    'draft_orders:write',
+  ],
+  developer: ['channels:write', 'products:read'],
+  billing: ['stats:read', 'analytics:read', 'orders:read'],
+  viewer: ['products:read', 'orders:read', 'stats:read'],
+};
+
+/** A per-person exception to the role map: what to add, and what to take away. */
+export interface StorePermissionDelta {
+  granted: readonly StorePermission[];
+  revoked: readonly StorePermission[];
+}
+
+/**
+ * A role's effective permissions: `(role defaults ∪ granted) − revoked`, in
+ * {@link STORE_PERMISSIONS} order. A revoke beats a grant naming the same
+ * permission — the two disagreeing can only be a mistake, and the narrower
+ * reading is the safe one (Oxy resolves its own member deltas the same way).
+ */
+export function effectiveStorePermissions(
+  role: StoreAccountRole,
+  delta: StorePermissionDelta | null,
+): StorePermission[] {
+  const held = new Set<StorePermission>(STORE_ROLE_PERMISSIONS[role]);
+  for (const permission of delta?.granted ?? []) held.add(permission);
+  for (const permission of delta?.revoked ?? []) held.delete(permission);
+  return STORE_PERMISSIONS.filter((permission) => held.has(permission));
+}
+
+/**
+ * What the CALLER may do on a store, resolved by the API: their role in the
+ * owning Oxy account and the permissions that role plus their override yields.
+ * Clients gate affordances on `permissions`; the server authorizes every write.
+ */
+export interface StoreAccess {
+  role: StoreAccountRole;
+  permissions: StorePermission[];
+}
+
+/** One per-person permission exception on a store (`store_permission_overrides`). */
+export interface StorePermissionOverride extends StorePermissionDelta {
+  /** The Oxy account (a person) the exception applies to. */
+  oxyUserId: string;
+  granted: StorePermission[];
+  revoked: StorePermission[];
+  /** The Oxy account that last wrote it, when Oxy reported the actor. */
+  updatedByOxyUserId: string | null;
+  /** ISO-8601. */
+  updatedAt: string;
+}
+
+/** Body of `PUT /admin/stores/:storeId/permission-overrides/:oxyUserId`. */
+export interface SetStorePermissionOverrideInput {
+  granted: StorePermission[];
+  revoked: StorePermission[];
+}
+
+/** Body of `PATCH /admin/stores/:storeId/owner-account`. */
+export interface TransferStoreOwnerAccountInput {
+  /** The Oxy account (usually `kind=organization`) that will own the store. */
+  oxyAccountId: string;
+}
 
 /**
  * Store-wide policy documents + the return window. `returnWindowDays` and
@@ -83,18 +221,6 @@ export interface StoreNotificationSettings {
   lowStockThreshold?: number;
 }
 
-/** A member of a store, backed by an Oxy user account. */
-export interface StoreMember {
-  /** Owning Oxy user account id. */
-  oxyUserId: string;
-  /** Role within the store. */
-  role: StoreRole;
-  /** Granular permissions granted to this member. */
-  permissions: StorePermission[];
-  /** ISO-8601 time the member joined the store. */
-  joinedAt: string;
-}
-
 /** A seller organization (shop). */
 export interface Store extends Timestamps {
   /** Stable store id. */
@@ -115,8 +241,13 @@ export interface Store extends Timestamps {
   textTone: TextTone;
   /** Lifecycle status. */
   status: 'active' | 'suspended' | 'closed';
-  /** Store members and their roles. */
-  members: StoreMember[];
+  /**
+   * The Oxy account that owns the store — usually `kind=organization`. Who may
+   * act for the store is that account's membership, which Oxy owns (ADR 0012).
+   */
+  oxyAccountId: string;
+  /** The caller's own access to this store. */
+  access: StoreAccess;
   /** Store-wide policies. */
   policies: StorePolicies;
   /** Default currency for new products in this store. */
@@ -141,6 +272,11 @@ export interface Store extends Timestamps {
 
 /** Payload accepted when creating a new store. */
 export interface CreateStoreInput {
+  /**
+   * The Oxy account that will own the store. Omitted: the caller's effective
+   * account. Naming another account requires the caller to be its owner or admin.
+   */
+  oxyAccountId?: string;
   name: string;
   description?: string;
   brandColor?: string;
@@ -162,7 +298,7 @@ export type UpdateStorePoliciesInput = {
 export type UpdateStoreNotificationSettingsInput = Partial<StoreNotificationSettings>;
 
 /** Partial payload accepted when updating an existing store's core profile. */
-export type UpdateStoreInput = Partial<CreateStoreInput> & {
+export type UpdateStoreInput = Partial<Omit<CreateStoreInput, 'oxyAccountId'>> & {
   textTone?: TextTone;
   policies?: UpdateStorePoliciesInput;
   status?: Store['status'];
@@ -180,15 +316,3 @@ export interface UpdateStoreSettingsInput {
   taxSettings?: UpdateTaxSettingsInput;
 }
 
-/** Payload accepted when inviting a member to a store. */
-export interface InviteMemberInput {
-  oxyUserId: string;
-  role: StoreRole;
-  permissions?: StorePermission[];
-}
-
-/** Partial payload accepted when updating a store member's role/permissions. */
-export interface UpdateMemberInput {
-  role?: StoreRole;
-  permissions?: StorePermission[];
-}

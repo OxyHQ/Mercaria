@@ -65,7 +65,7 @@ const findDraftOrder = vi.fn();
 const replaceDraftPricing = vi.fn();
 const markDraftConverted = vi.fn();
 const updateDraftOrderRow = vi.fn();
-const findStoreRow = vi.fn();
+const findStoreById = vi.fn();
 const nextOrderNumber = vi.fn();
 
 vi.mock('../inventory.service.js', () => ({
@@ -141,7 +141,7 @@ vi.mock('../../db/pos/draftOrderRepository.js', () => ({
 }));
 
 vi.mock('../../db/stores/storeRepository.js', () => ({
-  findStoreRow: (...args: unknown[]) => findStoreRow(...args),
+  findStoreById: (...args: unknown[]) => findStoreById(...args),
 }));
 
 import { addLine, completeDraftOrder } from '../draft-order.service.js';
@@ -321,7 +321,7 @@ beforeEach(() => {
     );
   markDraftConverted.mockReset().mockResolvedValue(true);
   updateDraftOrderRow.mockReset();
-  findStoreRow.mockReset().mockResolvedValue({ id: STORE, defaultCurrency: 'FAIR' });
+  findStoreById.mockReset().mockResolvedValue({ id: STORE, defaultCurrency: 'FAIR' });
   nextOrderNumber.mockReset().mockResolvedValue(ORDER_NUMBER);
 });
 

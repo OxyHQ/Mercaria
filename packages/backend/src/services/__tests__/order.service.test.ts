@@ -56,7 +56,7 @@ vi.mock('../../db/buyers/sellerProfileRepository.js', () => ({
 
 vi.mock('../../db/stores/storeRepository.js', () => ({
   adjustStoreSalesCount: (...args: unknown[]) => adjustStoreSalesCount(...args),
-  findStoreRow: vi.fn(),
+  findStoreById: vi.fn(),
 }));
 
 vi.mock('../../db/catalog/variantRepository.js', () => ({

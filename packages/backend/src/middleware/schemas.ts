@@ -35,6 +35,7 @@ import {
   // symbols — one definition, so the served number cannot drift from this one.
   MAX_VALUES_PER_VARIANT_AXIS,
   MAX_VARIANT_AXES_PER_PRODUCT,
+  STORE_PERMISSIONS,
   type AssetFileRole,
   type AssetFileVisibility,
   type ConditionDetailKind,
@@ -47,7 +48,6 @@ import {
   type ItemConditionKey,
   type LegacyBinaryCondition,
 } from '@mercaria/shared-types';
-import { STORE_PERMISSIONS } from '../db/schema/stores.js';
 
 /**
  * A shared tuple, narrowed to the non-empty form `z.enum` requires.
@@ -527,6 +527,8 @@ export const updateTaxSettingsSchema = z
 
 /** Body for `POST /admin/stores` (CreateStoreInput). */
 export const createStoreSchema = z.object({
+  /** The owning Oxy account; omitted means the caller's own (ADR 0012). */
+  oxyAccountId: z.string().trim().min(1).optional(),
   name: z.string().trim().min(1).max(120),
   description: z.string().max(5_000).optional(),
   brandColor: z.string().trim().min(1).optional(),
@@ -535,13 +537,12 @@ export const createStoreSchema = z.object({
   defaultCurrency: currencySchema.optional(),
 });
 
-const storeRoleSchema = z.enum(['owner', 'admin', 'staff']);
 /**
- * Read from `db/schema/stores.ts` rather than retyped.
+ * Read from `@mercaria/shared-types` rather than retyped.
  *
- * That tuple is what renders the CHECK on `store_members.permissions`, so a
+ * That tuple is what renders the CHECKs on `store_permission_overrides`, so a
  * hand-copied list here could accept a permission the database then refuses to
- * store — a 500 on an invite, from two lists that merely LOOKED identical. It
+ * store — a 500 on a write, from two lists that merely LOOKED identical. It
  * was a hand-copied list until #86 added an eighteenth permission and had to
  * edit it in three places.
  */
@@ -593,20 +594,20 @@ export const updateStoreSettingsSchema = z
   })
   .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
 
-/** Body for `POST /admin/stores/:storeId/members` (InviteMemberInput). */
-export const inviteMemberSchema = z.object({
-  oxyUserId: z.string().trim().min(1),
-  role: storeRoleSchema,
-  permissions: z.array(storePermissionSchema).optional(),
+/**
+ * Body for `PUT /admin/stores/:storeId/permission-overrides/:oxyUserId`
+ * (SetStorePermissionOverrideInput). Both sets are required: a PUT states the
+ * whole exception, and two empty sets remove it.
+ */
+export const setStorePermissionOverrideSchema = z.object({
+  granted: z.array(storePermissionSchema),
+  revoked: z.array(storePermissionSchema),
 });
 
-/** Body for `PATCH /admin/stores/:storeId/members/:oxyUserId` (UpdateMemberInput). */
-export const updateMemberSchema = z
-  .object({
-    role: storeRoleSchema.optional(),
-    permissions: z.array(storePermissionSchema).optional(),
-  })
-  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+/** Body for `PATCH /admin/stores/:storeId/owner-account` (TransferStoreOwnerAccountInput). */
+export const transferStoreOwnerAccountSchema = z.object({
+  oxyAccountId: z.string().trim().min(1),
+});
 
 // ---------------------------------------------------------------------------
 // Seller profile prefs

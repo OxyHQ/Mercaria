@@ -206,7 +206,7 @@ async function main(): Promise<void> {
       storeId = seeded.store.id;
       collector.note(
         `Store ${redactIdentifier(seeded.store.id)} (${seeded.storeCreated ? 'created' : 'reused'}), ` +
-          `owner membership ${seeded.membershipCreated ? 'created' : 'already present'}, ` +
+          `owner account ${seeded.ownerAccountAssigned ? 'assigned' : 'already the operator'}, ` +
           `category '${seeded.categorySlug}' ${seeded.categoryCreated ? 'created' : 'already present'}.`,
       );
     } catch (err) {

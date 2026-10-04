@@ -41,7 +41,7 @@ import {
   type CustomerRecord,
 } from '../db/stores/customerRepository.js';
 import { findOrders } from '../db/orders/orderRepository.js';
-import { findStoreRow } from '../db/stores/storeRepository.js';
+import { findStoreById } from '../db/stores/storeRepository.js';
 import { summarizeOrders } from './order-hydration.service.js';
 import { conflict, notFound } from '../lib/errors/error-codes.js';
 
@@ -55,7 +55,7 @@ const CUSTOMER_OXY_USER_KEY = 'customers_store_id_oxy_user_id_key';
 
 /** A store's settlement currency, for the `totalSpent` a new record must carry. */
 async function storeCurrency(storeId: string): Promise<CurrencyCode> {
-  const store = await findStoreRow(storeId);
+  const store = await findStoreById(storeId);
   return (store?.defaultCurrency as CurrencyCode | undefined) ?? DEFAULT_CURRENCY;
 }
 

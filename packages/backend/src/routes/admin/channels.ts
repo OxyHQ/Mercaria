@@ -43,7 +43,7 @@ import {
  *
  * `mergeParams` so `:storeId` is visible. The parent router already ran
  * `authenticateToken` → `loadStore` (and the `/admin` root applies the admin
- * rate limiter), so `req.store`/`req.storeMembership` are set. EVERY route is
+ * rate limiter), so `req.store`/`req.storeAccess` are set. EVERY route is
  * gated on `channels:write` (owner + admin only; staff never configure
  * integrations). Credentials never appear in any response.
  *

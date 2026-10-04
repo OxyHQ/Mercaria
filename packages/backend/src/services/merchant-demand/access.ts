@@ -4,15 +4,16 @@
  * ## Two routes in, ONE reason code out
  *
  * A caller is admitted if they are the merchant's CLAIMANT — `claim_state =
- * 'claimed'` plus `claimed_by_oxy_user_id`, ADR 0002 D9's one stored verdict, or if they are a member of the native store an active
- * `native_store_links` row ties to the merchant AND hold `analytics:read`.
- * Both are needed and neither subsumes the other: an affiliate merchant that
- * claimed itself has no native store, and a native store has members other than
- * whoever completed the claim.
+ * 'claimed'` plus `claimed_by_oxy_user_id`, ADR 0002 D9's one stored verdict, or if they can act for the native store an active
+ * `native_store_links` row ties to the merchant AND hold `analytics:read` there
+ * — through the store's owning Oxy account, asked with their own session (ADR
+ * 0012). Both are needed and neither subsumes the other: an affiliate merchant
+ * that claimed itself has no native store, and a native store has people other
+ * than whoever completed the claim.
  *
  * Every refusal is the SAME 404 under the same reason code
  * (`MERCHANT_DEMAND_REFUSAL_REASON`). An unclaimed merchant, a pending claim, a
- * revoked one, a store membership without the permission and a caller who is
+ * revoked one, store access without the permission and a caller who is
  * simply somebody else are indistinguishable — a refusal that varied would let
  * anybody enumerate which merchants have been claimed and by roughly whom, one
  * request at a time. That is #86's "a refusal spanning several conditions gets
@@ -31,7 +32,7 @@ import { MERCHANT_DEMAND_REFUSAL_REASON } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { merchants, nativeStoreLinks } from '../../db/schema/merchants.js';
 import { findStoreById } from '../../db/stores/storeRepository.js';
-import { effectivePermissions } from '../../middleware/store-authz.js';
+import { resolveStoreAccess, type StoreCaller } from '../store-access.service.js';
 
 /**
  * The verdict. A STRING discriminant, not `granted: true | false` — this
@@ -56,9 +57,9 @@ const REFUSED: MerchantDemandAccess = {
   reason: MERCHANT_DEMAND_REFUSAL_REASON,
 };
 
-/** May this Oxy account read this merchant's demand analytics? */
+/** May this caller read this merchant's demand analytics? */
 export async function resolveMerchantDemandAccess(
-  input: { readonly merchantId: string; readonly oxyUserId: string },
+  input: { readonly merchantId: string; readonly caller: StoreCaller },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<MerchantDemandAccess> {
   const merchantRows = await db
@@ -88,7 +89,7 @@ export async function resolveMerchantDemandAccess(
 
   if (
     merchant.claimState === 'claimed' &&
-    merchant.claimedByOxyUserId === input.oxyUserId
+    merchant.claimedByOxyUserId === input.caller.accountId
   ) {
     return {
       outcome: 'granted',
@@ -101,12 +102,12 @@ export async function resolveMerchantDemandAccess(
 
   if (nativeStoreId !== undefined) {
     const store = await findStoreById(nativeStoreId);
-    const membership = store?.members.find((member) => member.oxyUserId === input.oxyUserId);
-    // The permission is checked against the EFFECTIVE set — role defaults union
-    // explicit grants — so a store that wants a staff member to see demand
-    // grants `analytics:read` explicitly, which is what "explicit analytics
-    // permission" means for a role that does not hold it by default.
-    if (membership !== undefined && effectivePermissions(membership).has('analytics:read')) {
+    const access = store ? await resolveStoreAccess(input.caller, store) : null;
+    // The permission is checked against the EFFECTIVE set — role defaults,
+    // plus grants, minus revokes — so a store that wants an editor to see
+    // demand grants `analytics:read` explicitly, which is what "explicit
+    // analytics permission" means for a role that does not hold it by default.
+    if (access !== null && access.permissions.includes('analytics:read')) {
       return {
         outcome: 'granted',
         via: 'linked_store_member',

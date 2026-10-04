@@ -30,7 +30,7 @@ import {
   sumPaidRevenueByBucket,
 } from '../db/orders/orderRepository.js';
 import { sumStoreRefunds } from '../db/orders/refundRepository.js';
-import { findStoreRow } from '../db/stores/storeRepository.js';
+import { findStoreById } from '../db/stores/storeRepository.js';
 import { roundMinorUnits } from '../utils/money.js';
 
 /** Number of days in the default report range when `from`/`to` are omitted. */
@@ -69,7 +69,7 @@ function zeroChannels(): SourceChannelBreakdown {
  * self-describing rather than a bare number) and FILTERS the rows they sum.
  */
 async function storeCurrency(storeId: string): Promise<Money['currency']> {
-  const store = await findStoreRow(storeId);
+  const store = await findStoreById(storeId);
   return (store?.defaultCurrency as Money['currency'] | undefined) ?? 'FAIR';
 }
 

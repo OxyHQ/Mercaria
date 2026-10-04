@@ -33,7 +33,7 @@ import { uuidv7 } from '@oxy.so/db';
 import type { Database } from '../../db/postgres.js';
 import { listingImages, listings } from '../../db/schema/catalog.js';
 import { collectionRules, collections, listingCollections } from '../../db/schema/merchandising.js';
-import { storeMembers, stores } from '../../db/schema/stores.js';
+import { storePermissionOverrides, stores } from '../../db/schema/stores.js';
 import { connections } from '../../db/schema/connectors.js';
 import { favorites } from '../../db/schema/buyers.js';
 
@@ -249,6 +249,7 @@ export function createPublicApiWorld() {
     productType: `ptype-sentinel-${RUN}`,
     ruleValue: `rule-sentinel-${RUN}`,
     seoTitle: `seo-sentinel-${RUN}`,
+    ownerAccountId: `oxy-account-owner-sentinel-${RUN}`,
     memberOxyId: `oxy-user-member-sentinel-${RUN}`,
     collectionHandle: `chandle-sentinel-${RUN}`,
     listingHandle: `lhandle-sentinel-${RUN}`,
@@ -288,6 +289,7 @@ export function createPublicApiWorld() {
     const [row] = await db
       .insert(stores)
       .values({
+        oxyAccountId: label === 'a' ? SENTINEL.ownerAccountId : `oxy-account-${label}-${RUN}`,
         handle: `pubapi-${label}-${RUN}`,
         name: `Public API ${label} ${RUN}`,
         description: label === 'a' ? 'A store that sells things' : '',
@@ -430,12 +432,12 @@ export function createPublicApiWorld() {
     ids.storeA = await insertStore(db, 'a', 'active');
     ids.storeSuspended = await insertStore(db, 'suspended', 'suspended');
     ids.storeClosed = await insertStore(db, 'closed', 'closed');
-    await db.insert(storeMembers).values({
+    // Who owns the store and who holds an exception on it are both private:
+    // neither the owning account nor a person's override may reach a body.
+    await db.insert(storePermissionOverrides).values({
       storeId: ids.storeA,
       oxyUserId: SENTINEL.memberOxyId,
-      role: 'owner',
-      permissions: [],
-      joinedAt: new Date(),
+      granted: ['analytics:read'],
     });
     const [connection] = await db
       .insert(connections)

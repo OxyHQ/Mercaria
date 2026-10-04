@@ -37,6 +37,7 @@ import { routeParam } from '../utils/request.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 // Discovery analytics (#77) — the emitter only.
 import { emitAnalyticsEvent } from '../services/analytics/emit.js';
+import { requireStoreCaller } from '../services/store-access.service.js';
 
 /** One evidence reference as the `.strict()` schemas admit it. */
 interface EvidenceInput {
@@ -59,7 +60,7 @@ export async function openClaimHandler(req: Request, res: Response): Promise<voi
     };
     const claim = await openClaim({
       merchantId: body.merchantId,
-      claimantOxyUserId: getRequiredOxyUserId(req),
+      claimant: requireStoreCaller(req),
       method: body.method,
       ...(body.domain !== undefined ? { domain: body.domain } : {}),
       ...(body.connectionId !== undefined ? { connectionId: body.connectionId } : {}),
@@ -104,7 +105,7 @@ export async function verifyClaimHandler(req: Request, res: Response): Promise<v
     const body = req.body as { token?: string; channelKey?: string };
     const claim = await verifyClaim({
       claimId: routeParam(req, 'id'),
-      claimantOxyUserId: getRequiredOxyUserId(req),
+      claimant: requireStoreCaller(req),
       ...(body.token !== undefined ? { token: body.token } : {}),
       ...(body.channelKey !== undefined ? { channelKey: body.channelKey } : {}),
     });

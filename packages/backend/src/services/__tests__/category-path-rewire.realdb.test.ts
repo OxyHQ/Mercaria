@@ -55,16 +55,14 @@ let storeId: string;
 
 beforeAll(async () => {
   db = await connectPostgres();
-  const store = await insertStore(
-    {
-      handle: `cpr-${RUN}`,
-      name: 'Category path rewire store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: `owner-${RUN}`, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: `owner-${RUN}`,
+    handle: `cpr-${RUN}`,
+    name: 'Category path rewire store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
   storeId = store.id;
 }, 120_000);

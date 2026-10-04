@@ -1,28 +1,24 @@
 /**
  * Store authorization middleware.
  *
- * Composes AFTER `authenticateToken` (so `req.userId` is set) on every
- * `/admin/stores/:storeId/...` route:
- *   1. `loadStore`             — resolve `:storeId`, attach `req.store` +
- *                                `req.storeMembership`, 404/403 as appropriate.
- *   2. `requireStoreRole(...)` — gate on the member's ROLE.
- *   3. `requireStorePermission(perm)` — gate on the member's EFFECTIVE
- *                                permission set (role defaults ∪ explicit grants).
+ * Composes AFTER `authenticateToken` (so `req.userId` and `req.accessToken` are
+ * set) on every `/admin/stores/:storeId/...` route:
+ *   1. `loadStore` — resolve `:storeId`, resolve the caller's access through the
+ *      Oxy account that owns the store, attach `req.store` + `req.storeAccess`.
+ *   2. `requireStorePermission(perm)` — gate on `req.storeAccess.permissions`.
  *
- * Owner-protection rules (cannot remove/demote the last owner; only an owner may
- * change/remove another owner) live in `store.service`, NOT here.
+ * Who belongs to the owning account, and in which role, is Oxy's answer; how a
+ * role becomes permissions is `STORE_ROLE_PERMISSIONS` plus the caller's
+ * override. Both live in `services/store-access.service.ts` (ADR 0012).
  */
 
 import type { Request, Response, NextFunction } from 'express';
 import { isLiveEntityId } from '@oxy.so/db';
-import type { StoreRole, StorePermission } from '@mercaria/shared-types';
-import { STORE_PERMISSIONS } from '../db/schema/stores.js';
-import {
-  findStoreById,
-  type StoreMemberRecord,
-  type StoreRecord,
-} from '../db/stores/storeRepository.js';
+import type { StoreAccess, StorePermission } from '@mercaria/shared-types';
+import { findStoreById, type StoreRow } from '../db/stores/storeRepository.js';
+import { resolveStoreAccess, storeCallerFrom } from '../services/store-access.service.js';
 import { sendError, ErrorCodes } from '../utils/api-response.js';
+import { isMercariaError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
 // Extend Express Request with the loaded store context. The base augmentation
@@ -30,115 +26,21 @@ import { log } from '../lib/logger.js';
 declare global {
   namespace Express {
     interface Request {
-      store?: StoreRecord;
-      storeMembership?: StoreMemberRecord;
+      store?: StoreRow;
+      storeAccess?: StoreAccess;
     }
   }
 }
 
 /**
- * The full set of permissions a store can grant.
- *
- * Read from `db/schema/stores.ts` rather than retyped, because that tuple is
- * also what renders the CHECK constraint on `store_members.permissions`. A
- * hand-copied list here could grant a permission the database then refuses to
- * store — a 500 on an invite, from two lists that merely LOOKED identical.
- */
-const ALL_PERMISSIONS: readonly StorePermission[] = STORE_PERMISSIONS;
-
-/**
- * Permissions an admin holds — everything EXCEPT `store:manage`. `store:manage`
- * is the only store-level destructive op (rename/handle/brand, status, ownership
- * transfer); an admin runs the whole business (members, settings, discounts,
- * refunds, tax, locations, collections) but cannot reconfigure the store itself.
- */
-const ADMIN_PERMISSIONS: readonly StorePermission[] = ALL_PERMISSIONS.filter(
-  (p) => p !== 'store:manage',
-);
-
-/**
- * Permissions staff hold by default — the OPERATIONAL set: run the shop floor +
- * POS, but NOT configure the business. Staff get products/inventory (read+write),
- * orders (read+fulfill), customers (read+write), draft orders (POS), and stats —
- * and are DENIED `members:manage`, `store:manage`, `settings:write`,
- * `discounts:write`, `refunds:write`, `locations:write`, `collections:write`,
- * `channels:write` and `analytics:read`.
- *
- * `analytics:read` is the interesting exclusion, because staff DO hold
- * `stats:read` and the two look alike from a distance. They are not the same
- * question: `stats:read` is this store's own trading record, which a shop floor
- * needs; `analytics:read` (#86) is market demand around the store's products —
- * how often Mercaria showed them, how many visits it sent elsewhere, which of
- * them have demand and no offer. That is commercial strategy, and #86 privacy 3
- * asks for an EXPLICIT permission, which a permission every role already holds
- * would not be. A store that wants a staff member to see it grants it
- * explicitly, which is exactly what the grant union is for.
- */
-const STAFF_PERMISSIONS: readonly StorePermission[] = [
-  'products:read',
-  'products:write',
-  'inventory:write',
-  'orders:read',
-  'orders:fulfill',
-  'stats:read',
-  'customers:read',
-  'customers:write',
-  'draft_orders:write',
-];
-
-/**
- * Final B7 role → default-permission matrix. A member's EFFECTIVE permissions are
- * these defaults UNIONed with their explicit `permissions[]` grants.
- *
- * | permission         | owner | admin | staff |
- * |--------------------|:-----:|:-----:|:-----:|
- * | store:manage       |   ✓   |       |       |
- * | members:manage     |   ✓   |   ✓   |       |
- * | settings:write     |   ✓   |   ✓   |       |
- * | discounts:write    |   ✓   |   ✓   |       |
- * | refunds:write      |   ✓   |   ✓   |       |
- * | locations:write    |   ✓   |   ✓   |       |
- * | collections:write  |   ✓   |   ✓   |       |
- * | channels:write     |   ✓   |   ✓   |       |
- * | analytics:read     |   ✓   |   ✓   |       |
- * | products:read      |   ✓   |   ✓   |   ✓   |
- * | products:write     |   ✓   |   ✓   |   ✓   |
- * | inventory:write    |   ✓   |   ✓   |   ✓   |
- * | orders:read        |   ✓   |   ✓   |   ✓   |
- * | orders:fulfill     |   ✓   |   ✓   |   ✓   |
- * | stats:read         |   ✓   |   ✓   |   ✓   |
- * | customers:read     |   ✓   |   ✓   |   ✓   |
- * | customers:write    |   ✓   |   ✓   |   ✓   |
- * | draft_orders:write |   ✓   |   ✓   |   ✓   |
- *
- * - `owner` — every permission (18/18, incl. `store:manage`).
- * - `admin` — every permission EXCEPT `store:manage` (17/18).
- * - `staff` — the operational shop-floor + POS set (9/18); cannot configure the
- *   business (no manage/settings/discounts/refunds/locations/collections/channels)
- *   and cannot read market demand analytics.
- */
-export const ROLE_PERMISSIONS: Record<StoreRole, StorePermission[]> = {
-  owner: [...ALL_PERMISSIONS],
-  admin: [...ADMIN_PERMISSIONS],
-  staff: [...STAFF_PERMISSIONS],
-};
-
-/** Compute a member's effective permissions: role defaults ∪ explicit grants. */
-export function effectivePermissions(member: StoreMemberRecord): Set<StorePermission> {
-  const effective = new Set<StorePermission>(ROLE_PERMISSIONS[member.role]);
-  for (const perm of member.permissions) {
-    effective.add(perm);
-  }
-  return effective;
-}
-
-/**
- * Resolve `:storeId`, attach `req.store` + `req.storeMembership`. Responds:
+ * Resolve `:storeId`, attach `req.store` + `req.storeAccess`. Responds:
  *   - 400 if the param is missing/malformed,
+ *   - 401 if the request carries no verified caller,
  *   - 404 if no store with that id exists,
- *   - 403 if the caller is authenticated but not a member of the store.
+ *   - 403 if the caller has no role in the account that owns it,
+ *   - 503 if Oxy cannot say — authorization fails CLOSED.
  *
- * MUST run after `authenticateToken` so `req.userId` is present.
+ * MUST run after `authenticateToken`.
  */
 export async function loadStore(req: Request, res: Response, next: NextFunction): Promise<void> {
   const raw = req.params.storeId;
@@ -153,70 +55,50 @@ export async function loadStore(req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  const callerId = req.userId;
-  if (!callerId) {
+  const caller = storeCallerFrom(req);
+  if (!caller) {
     sendError(res, ErrorCodes.UNAUTHORIZED, 'Authentication required', 401);
     return;
   }
 
   try {
-    // ONE read, not two. `findStoreById` already attaches the whole member list
-    // — `req.store.members` is what `GET /members` serves — so looking the
-    // caller up in it costs nothing, while a second indexed
-    // `(store_id, oxy_user_id)` query would add a round trip to every admin
-    // request for a row this one already returned.
     const store = await findStoreById(storeId);
     if (!store) {
       sendError(res, ErrorCodes.NOT_FOUND, 'Store not found', 404);
       return;
     }
 
-    const membership = store.members.find((m) => m.oxyUserId === callerId);
-    if (!membership) {
-      sendError(res, ErrorCodes.FORBIDDEN, 'You are not a member of this store', 403);
+    const access = await resolveStoreAccess(caller, store);
+    if (!access) {
+      sendError(res, ErrorCodes.FORBIDDEN, 'You cannot act for this store', 403);
       return;
     }
 
     req.store = store;
-    req.storeMembership = membership;
+    req.storeAccess = access;
     next();
   } catch (err) {
+    if (isMercariaError(err)) {
+      sendError(res, err.code, err.message, err.httpStatus);
+      return;
+    }
     log.general.error({ err, storeId }, 'Failed to load store for authorization');
     sendError(res, ErrorCodes.INTERNAL_ERROR, 'Failed to load store', 500);
   }
 }
 
 /**
- * Gate a route on the caller holding one of `roles`. MUST run after `loadStore`
- * (which attaches `req.storeMembership`).
- */
-export function requireStoreRole(...roles: StoreRole[]) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const membership = req.storeMembership;
-    if (!membership) {
-      sendError(res, ErrorCodes.FORBIDDEN, 'Store membership required', 403);
-      return;
-    }
-    if (!roles.includes(membership.role)) {
-      sendError(res, ErrorCodes.FORBIDDEN, 'Insufficient role for this action', 403);
-      return;
-    }
-    next();
-  };
-}
-
-/**
- * Gate a route on the caller's EFFECTIVE permission set (role defaults ∪ explicit
- * grants) containing `perm`. MUST run after `loadStore`.
+ * Gate a route on the caller's EFFECTIVE permissions — `(role defaults ∪
+ * granted) − revoked` — containing `perm`. MUST run after `loadStore`.
  */
 export function requireStorePermission(perm: StorePermission) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const membership = req.storeMembership;
-    if (!membership) {
-      sendError(res, ErrorCodes.FORBIDDEN, 'Store membership required', 403);
+    const access = req.storeAccess;
+    if (!access) {
+      sendError(res, ErrorCodes.FORBIDDEN, 'Store access required', 403);
       return;
     }
-    if (!effectivePermissions(membership).has(perm)) {
+    if (!access.permissions.includes(perm)) {
       sendError(res, ErrorCodes.FORBIDDEN, `Missing permission: ${perm}`, 403);
       return;
     }

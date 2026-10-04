@@ -48,7 +48,7 @@ vi.mock('@oxy.so/mcp', async (importOriginal) => {
 import { closePostgres, connectPostgres, getDb } from '../../db/postgres.js';
 import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import { orders } from '../../db/schema/orders.js';
-import { deleteStoreMember, insertStore, updateStoreMember } from '../../db/stores/storeRepository.js';
+import { insertStore, updateStoreColumns } from '../../db/stores/storeRepository.js';
 import { createMercariaMcpHttpService } from '../mercaria-mcp-http.js';
 import { authorizeMercariaCatalogInvocation } from '../mercaria-domain-authority.js';
 import { MERCARIA_CAPABILITY_CATALOG } from '../mercaria.catalog.js';
@@ -88,8 +88,9 @@ beforeAll(async () => {
   await connectPostgres();
   for (const account of [ACCOUNT_A, ACCOUNT_B]) {
     const store = await insertStore({
+      oxyAccountId: account,
       handle: `i11-mcp-${uuidv7()}`, name: 'Fixture store', description: '', brandColor: '#123456', defaultCurrency: 'FAIR',
-    }, [{ oxyUserId: account, role: 'staff', permissions: ['refunds:write'] }]);
+    });
     storeIds.push(store.id);
   }
   [storeA, storeB] = storeIds;
@@ -144,21 +145,21 @@ describe('Mercaria OAuth origin A → active B with real domain authority', () =
     expect(await getDb().select().from(orders).where(inArray(orders.id, orderIds))).toHaveLength(2);
   });
 
-  it('uses B live store membership and cannot borrow origin A membership', async () => {
+  it('acts for the store the ACTIVE account B owns and cannot borrow origin A’s', async () => {
     expect((await call('listStoreOrders', { storeId: storeB })).body.result.isError).not.toBe(true);
     expect((await call('listStoreOrders', { storeId: storeA })).body.result.isError).toBe(true);
   });
 
-  it('denies the next call after permission removal and then membership revocation', async () => {
-    // Every valid role includes orders:read. An empty explicit grant list
-    // cannot revoke that role default. Check the removable refunds permission
-    // via the real domain authorizer only; never execute a financial handler.
+  it('denies the next call once the store moves to another owning account', async () => {
+    // A capability carries the effective account and no session to ask Oxy
+    // with, so only the store's OWNING account may use a store tool (ADR
+    // 0012). Checked through the real domain authorizer only; never execute a
+    // financial handler.
     expect(await authorizeMercariaCatalogInvocation('refundStoreOrder', { storeId: storeB }, ACCOUNT_B)).toEqual({ allowed: true });
-    await updateStoreMember(storeB, ACCOUNT_B, { permissions: [] });
-    expect(await authorizeMercariaCatalogInvocation('refundStoreOrder', { storeId: storeB }, ACCOUNT_B)).toEqual({ allowed: false, reason: 'missing_store_permission:refunds:write' });
     expect(refundExecution).not.toHaveBeenCalled();
     expect((await call('listStoreOrders', { storeId: storeB })).body.result.isError).not.toBe(true);
-    await deleteStoreMember(storeB, ACCOUNT_B);
+    await updateStoreColumns(storeB, { oxyAccountId: `i11-mcp-org-${uuidv7()}` });
+    expect(await authorizeMercariaCatalogInvocation('refundStoreOrder', { storeId: storeB }, ACCOUNT_B)).toEqual({ allowed: false, reason: 'store_owner_account_required' });
     expect((await call('listStoreOrders', { storeId: storeB })).body.result.isError).toBe(true);
   });
 

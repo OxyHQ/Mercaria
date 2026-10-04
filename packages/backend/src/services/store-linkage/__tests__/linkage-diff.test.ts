@@ -18,7 +18,6 @@ const IMPACT: StoreLinkageImpact = {
   externalOffers: 7,
   storefronts: 2,
   placedOrders: 41,
-  storeMembers: 4,
 };
 
 /**

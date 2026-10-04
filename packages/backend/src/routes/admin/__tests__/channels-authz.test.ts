@@ -5,7 +5,7 @@
  * that injects a store membership of a chosen role (standing in for
  * `authenticateToken` + `loadStore`). The `connector-sync.service` is mocked, so
  * the test exercises the REAL middleware chain (`requireStorePermission('channels:write')`)
- * without a DB. Asserts staff are blocked (403) on every route while admins pass
+ * without a DB. Asserts editors are blocked (403) on every route while admins pass
  * the guard and reach the (mocked) service.
  */
 
@@ -13,7 +13,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import express from 'express';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
-import type { StoreRole } from '@mercaria/shared-types';
+import { STORE_ROLE_PERMISSIONS, type StoreAccountRole } from '@mercaria/shared-types';
 
 vi.mock('../../../services/connector-sync.service.js', () => ({
   listConnections: vi.fn().mockResolvedValue([]),
@@ -41,13 +41,9 @@ beforeAll(async () => {
   // Stub the upstream auth + loadStore: role comes from an `x-role` test header.
   app.use((req, _res, next) => {
     req.userId = 'user-1';
-    const role = (req.headers['x-role'] as StoreRole) ?? 'staff';
+    const role = (req.headers['x-role'] as StoreAccountRole) ?? 'editor';
     req.store = { id: STORE_ID } as unknown as typeof req.store;
-    req.storeMembership = {
-      oxyUserId: 'user-1',
-      role,
-      permissions: [],
-    } as unknown as typeof req.storeMembership;
+    req.storeAccess = { role, permissions: [...STORE_ROLE_PERMISSIONS[role]] };
     next();
   });
   app.use('/', channelsRouter);
@@ -63,7 +59,7 @@ afterAll(async () => {
   await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
 });
 
-async function call(path: string, method: string, role: StoreRole, body?: unknown): Promise<number> {
+async function call(path: string, method: string, role: StoreAccountRole, body?: unknown): Promise<number> {
   const res = await fetch(`${baseUrl}${path}`, {
     method,
     headers: { 'x-role': role, 'content-type': 'application/json' },
@@ -74,35 +70,35 @@ async function call(path: string, method: string, role: StoreRole, body?: unknow
 
 const CONNECTION_ID = '1'.repeat(24);
 
-describe('channels router authz — staff lack channels:write', () => {
-  it('403s staff on list', async () => {
-    expect(await call('/', 'GET', 'staff')).toBe(403);
+describe('channels router authz — editors lack channels:write', () => {
+  it('403s editors on list', async () => {
+    expect(await call('/', 'GET', 'editor')).toBe(403);
   });
-  it('403s staff on connect', async () => {
-    expect(await call('/shopify/connect', 'POST', 'staff', { shopDomain: 'acme.myshopify.com' })).toBe(403);
+  it('403s editors on connect', async () => {
+    expect(await call('/shopify/connect', 'POST', 'editor', { shopDomain: 'acme.myshopify.com' })).toBe(403);
   });
-  it('403s staff on connect-key (WooCommerce)', async () => {
+  it('403s editors on connect-key (WooCommerce)', async () => {
     expect(
-      await call('/woocommerce/connect-key', 'POST', 'staff', {
+      await call('/woocommerce/connect-key', 'POST', 'editor', {
         shopDomain: 'https://shop.example.com',
         consumerKey: 'ck_x',
         consumerSecret: 'cs_y',
       }),
     ).toBe(403);
   });
-  it('403s staff on settings patch', async () => {
-    expect(await call(`/${CONNECTION_ID}/settings`, 'PATCH', 'staff', { autoPublish: true })).toBe(403);
+  it('403s editors on settings patch', async () => {
+    expect(await call(`/${CONNECTION_ID}/settings`, 'PATCH', 'editor', { autoPublish: true })).toBe(403);
   });
-  it('403s staff on sync', async () => {
-    expect(await call(`/${CONNECTION_ID}/sync`, 'POST', 'staff')).toBe(403);
+  it('403s editors on sync', async () => {
+    expect(await call(`/${CONNECTION_ID}/sync`, 'POST', 'editor')).toBe(403);
   });
-  it('403s staff on disconnect', async () => {
-    expect(await call(`/${CONNECTION_ID}`, 'DELETE', 'staff')).toBe(403);
+  it('403s editors on disconnect', async () => {
+    expect(await call(`/${CONNECTION_ID}`, 'DELETE', 'editor')).toBe(403);
   });
-  it('403s staff on webhook re-registration (#262)', async () => {
+  it('403s editors on webhook re-registration (#262)', async () => {
     // It makes outbound calls with the store's platform credential, so it belongs
     // to whoever may configure integrations — not to the shop floor.
-    expect(await call(`/${CONNECTION_ID}/webhooks/reregister`, 'POST', 'staff')).toBe(403);
+    expect(await call(`/${CONNECTION_ID}/webhooks/reregister`, 'POST', 'editor')).toBe(403);
   });
 });
 

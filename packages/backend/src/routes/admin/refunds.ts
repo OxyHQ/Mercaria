@@ -7,7 +7,7 @@ import { getStoreRefund } from '../../controllers/admin/refunds-admin.controller
  * Store refunds sub-router, mounted at `/admin/stores/:storeId/refunds`.
  *
  * `mergeParams` so `:storeId` is visible. The parent router has already run
- * `authenticateToken` → `loadStore`, so `req.store`/`req.storeMembership` are set.
+ * `authenticateToken` → `loadStore`, so `req.store`/`req.storeAccess` are set.
  * The order-scoped refund routes (process + list) live on the orders sub-router
  * (`/orders/:id/refunds`); this router serves the standalone single-refund read.
  * Reads are gated on `orders:read`.

@@ -11,6 +11,7 @@
 import type { Request, Response } from 'express';
 import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { sendSuccess, sendPaginated } from '../utils/api-response.js';
+import { requireStoreCaller } from '../services/store-access.service.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import { parsePagination, buildPagination } from '../utils/pagination.js';
 import { routeParam } from '../utils/request.js';
@@ -32,8 +33,9 @@ const ELIGIBILITY_PAGE_LIMIT = 50;
 /** POST /reviews — write a scoped review. */
 export async function createReviewHandler(req: Request, res: Response): Promise<void> {
   try {
-    const oxyUserId = getRequiredOxyUserId(req);
-    const review = await createReview(oxyUserId, req.body);
+    // The author's own session, because refusing a self-review asks Oxy
+    // whether they belong to the account that owns the store (ADR 0012).
+    const review = await createReview(requireStoreCaller(req), req.body);
     sendSuccess(res, review, 201);
   } catch (err) {
     log.general.error({ err }, 'Failed to create review');

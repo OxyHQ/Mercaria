@@ -1,9 +1,10 @@
 /**
- * Unit tests for `store.service` owner-protection invariants.
+ * Unit tests for `store.service`: who may put a store under an Oxy account, who
+ * may move it to another, the rules on a permission override, and that a
+ * settings patch touches only what it names (ADR 0012).
  *
- * The repository is mocked, so nothing here opens a database: what is under test
- * is the DECISION — who may demote whom — which is pure logic over the member
- * list and identical before and after the Postgres port.
+ * The repository and the Oxy account graph are mocked, so nothing here opens a
+ * database or a socket: what is under test is the DECISION.
  *
  * ## What moved OUT of this file, and where it went
  *
@@ -16,164 +17,195 @@
  * service hands the repository, which is the whole of its contribution now. That
  * the defaults really are what the columns carry is a property of the DDL, and
  * is asserted against a real database in `db/__tests__/stores.realdb.test.ts`.
+ *
+ * The owner-protection tests (last owner, owner-touches-owner) went with the
+ * member list: an Oxy account always has an owner, and that is Oxy's invariant.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { StoreMemberRecord, StoreRecord } from '../../db/stores/storeRepository.js';
+import { STORE_ROLE_PERMISSIONS } from '@mercaria/shared-types';
+import type { StoreRow } from '../../db/stores/storeRepository.js';
+import type { StoreCaller } from '../store-access.service.js';
 
-const findStoreById = vi.fn();
+const insertStore = vi.fn();
 const updateStoreColumns = vi.fn();
-const updateStoreMember = vi.fn();
-const deleteStoreMember = vi.fn();
+const upsertStorePermissionOverride = vi.fn();
+const deleteStorePermissionOverride = vi.fn();
+const readCallerAccountRole = vi.fn();
 
 vi.mock('../../db/stores/storeRepository.js', () => ({
-  findStoreById: (...args: unknown[]) => findStoreById(...args),
-  findStoresForMember: vi.fn(),
-  insertStore: vi.fn(),
-  insertStoreMember: vi.fn(),
-  deleteStoreMember: (...args: unknown[]) => deleteStoreMember(...args),
+  findStoreById: vi.fn(),
+  insertStore: (...args: unknown[]) => insertStore(...args),
   storeHandleExists: vi.fn().mockResolvedValue(false),
   updateStoreColumns: (...args: unknown[]) => updateStoreColumns(...args),
-  updateStoreMember: (...args: unknown[]) => updateStoreMember(...args),
+  upsertStorePermissionOverride: (...args: unknown[]) => upsertStorePermissionOverride(...args),
+  deleteStorePermissionOverride: (...args: unknown[]) => deleteStorePermissionOverride(...args),
+  findStorePermissionOverride: vi.fn(),
+  findStorePermissionOverridesForUser: vi.fn(),
+  findStoresByOwnerAccounts: vi.fn(),
 }));
-
 vi.mock('../../db/stores/locationRepository.js', () => ({
   insertLocation: vi.fn(),
 }));
+vi.mock('../oxy-account-graph.js', () => ({
+  readCallerAccountRole: (...args: unknown[]) => readCallerAccountRole(...args),
+  listCallerAccountRoles: vi.fn(),
+}));
 
-import { updateMember, removeMember, updateStoreSettings } from '../store.service.js';
+import {
+  createStoreForCaller,
+  setStorePermissionOverride,
+  transferStoreOwnerAccount,
+  updateStoreSettings,
+} from '../store.service.js';
+import { resetStoreAccessCacheForTests } from '../store-access.service.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
 
 const STORE_ID = '000000000000000000000099';
+const ALICE = 'person-alice';
+const ORG = 'org-acme';
+const OTHER_ORG = 'org-other';
 
-function mkMember(oxyUserId: string, role: StoreMemberRecord['role']): StoreMemberRecord {
-  return {
-    id: `member-${oxyUserId}`,
-    storeId: STORE_ID,
-    oxyUserId,
-    role,
-    permissions: [],
-    invitedBy: null,
-    joinedAt: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-}
+/** A store row carrying only what the service reads. Confined to this cast. */
+const STORE = { id: STORE_ID, name: 'Test store', oxyAccountId: ALICE } as unknown as StoreRow;
 
-/**
- * A store record carrying only what the owner-protection logic reads.
- *
- * Cast rather than spelled out in full: `StoreRecord` has thirty columns and the
- * decision under test reads exactly two of them, so listing the rest would be
- * thirty lines of noise that also has to be maintained every time a column is
- * added. The cast is confined to this helper.
- */
-function mkStore(members: StoreMemberRecord[]): StoreRecord {
-  return { id: STORE_ID, name: 'Test store', members } as unknown as StoreRecord;
+/** Alice in her own, undelegated session. */
+const ALICE_SELF: StoreCaller = {
+  accountId: ALICE,
+  actorAccountId: ALICE,
+  delegated: false,
+  accessToken: 'bearer-alice',
+};
+
+/** Alice operating ORG. */
+const ALICE_AS_ORG: StoreCaller = {
+  accountId: ORG,
+  actorAccountId: ALICE,
+  delegated: true,
+  accessToken: 'bearer-alice-as-org',
+};
+
+function hasCode(code: string) {
+  return (err: unknown) => isMercariaError(err) && err.code === code;
 }
 
 beforeEach(() => {
-  findStoreById.mockReset();
-  updateStoreColumns.mockReset();
-  updateStoreMember.mockReset().mockResolvedValue(undefined);
-  deleteStoreMember.mockReset().mockResolvedValue(undefined);
+  vi.clearAllMocks();
+  resetStoreAccessCacheForTests();
+  insertStore.mockImplementation(async (values: Record<string, unknown>) => ({ id: STORE_ID, ...values }));
+  updateStoreColumns.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({
+    ...STORE,
+    ...patch,
+  }));
+  upsertStorePermissionOverride.mockImplementation(async (input: Record<string, unknown>) => input);
+  deleteStorePermissionOverride.mockResolvedValue(true);
+  readCallerAccountRole.mockResolvedValue(null);
 });
 
-describe('store.service owner protection — removeMember', () => {
-  it('rejects removing the last owner (CONFLICT)', async () => {
-    const owner = mkMember('owner-1', 'owner');
-    findStoreById.mockResolvedValueOnce(mkStore([owner, mkMember('staff-1', 'staff')]));
+describe('createStoreForCaller — which account may be given a store', () => {
+  it('defaults to the caller’s own account, with no round trip to Oxy', async () => {
+    await createStoreForCaller(ALICE_SELF, { name: 'Shop' });
+    expect(insertStore.mock.calls[0]?.[0]).toMatchObject({ oxyAccountId: ALICE });
+    expect(readCallerAccountRole).not.toHaveBeenCalled();
+  });
 
-    await expect(removeMember(STORE_ID, owner, 'owner-1')).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
+  it('places it under an organization the caller administers', async () => {
+    readCallerAccountRole.mockResolvedValue('admin');
+    await createStoreForCaller(ALICE_SELF, { name: 'Shop', oxyAccountId: ORG });
+    expect(readCallerAccountRole).toHaveBeenCalledWith('bearer-alice', ORG);
+    expect(insertStore.mock.calls[0]?.[0]).toMatchObject({ oxyAccountId: ORG });
+  });
+
+  it('refuses an organization where the caller is only an editor', async () => {
+    readCallerAccountRole.mockResolvedValue('editor');
+    await expect(
+      createStoreForCaller(ALICE_SELF, { name: 'Shop', oxyAccountId: ORG }),
+    ).rejects.toSatisfy(hasCode(ErrorCodes.FORBIDDEN));
+    expect(insertStore).not.toHaveBeenCalled();
+  });
+
+  it('checks the DEFAULT too when the session is an operated organization', async () => {
+    // Speaking as ORG is not governing it: an editor can switch in.
+    readCallerAccountRole.mockResolvedValue('editor');
+    await expect(createStoreForCaller(ALICE_AS_ORG, { name: 'Shop' })).rejects.toSatisfy(
+      hasCode(ErrorCodes.FORBIDDEN),
     );
-    expect(deleteStoreMember).not.toHaveBeenCalled();
-  });
-
-  it('rejects a non-owner removing an owner (FORBIDDEN)', async () => {
-    const admin = mkMember('admin-1', 'admin');
-    findStoreById.mockResolvedValueOnce(mkStore([mkMember('owner-1', 'owner'), admin]));
-
-    await expect(removeMember(STORE_ID, admin, 'owner-1')).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.FORBIDDEN,
-    );
-    expect(deleteStoreMember).not.toHaveBeenCalled();
-  });
-
-  it('allows an owner to remove a SECOND owner', async () => {
-    const owner = mkMember('owner-1', 'owner');
-    const store = mkStore([owner, mkMember('owner-2', 'owner')]);
-    // Once for the guard read, once for the re-read the service returns.
-    findStoreById.mockResolvedValue(store);
-
-    await removeMember(STORE_ID, owner, 'owner-2');
-    expect(deleteStoreMember).toHaveBeenCalledWith(STORE_ID, 'owner-2');
-  });
-
-  it('allows an admin to remove staff', async () => {
-    const admin = mkMember('admin-1', 'admin');
-    findStoreById.mockResolvedValue(mkStore([mkMember('owner-1', 'owner'), admin, mkMember('staff-1', 'staff')]));
-
-    await removeMember(STORE_ID, admin, 'staff-1');
-    expect(deleteStoreMember).toHaveBeenCalledWith(STORE_ID, 'staff-1');
-  });
-
-  it('throws NOT_FOUND for a member who is not on the store', async () => {
-    const owner = mkMember('owner-1', 'owner');
-    findStoreById.mockResolvedValueOnce(mkStore([owner]));
-
-    await expect(removeMember(STORE_ID, owner, 'nobody')).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.NOT_FOUND,
-    );
+    readCallerAccountRole.mockResolvedValue('owner');
+    resetStoreAccessCacheForTests();
+    await createStoreForCaller(ALICE_AS_ORG, { name: 'Shop' });
+    expect(insertStore.mock.calls[0]?.[0]).toMatchObject({ oxyAccountId: ORG });
   });
 });
 
-describe('store.service owner protection — updateMember', () => {
-  it('rejects demoting the last owner (CONFLICT)', async () => {
-    const owner = mkMember('owner-1', 'owner');
-    findStoreById.mockResolvedValueOnce(mkStore([owner, mkMember('staff-1', 'staff')]));
-
-    await expect(
-      updateMember(STORE_ID, owner, 'owner-1', { role: 'admin' }),
-    ).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
-    );
-    expect(updateStoreMember).not.toHaveBeenCalled();
+describe('transferStoreOwnerAccount — convert to organization', () => {
+  it('moves the store when the caller administers the target, and drops an override naming it', async () => {
+    readCallerAccountRole.mockResolvedValue('owner');
+    const moved = await transferStoreOwnerAccount(STORE, ALICE_SELF, ORG);
+    expect(updateStoreColumns).toHaveBeenCalledWith(STORE_ID, { oxyAccountId: ORG });
+    expect(deleteStorePermissionOverride).toHaveBeenCalledWith(STORE_ID, ORG);
+    expect(moved.oxyAccountId).toBe(ORG);
   });
 
-  it('rejects a non-owner modifying an owner (FORBIDDEN)', async () => {
-    const admin = mkMember('admin-1', 'admin');
-    findStoreById.mockResolvedValueOnce(mkStore([mkMember('owner-1', 'owner'), admin]));
-
-    await expect(
-      updateMember(STORE_ID, admin, 'owner-1', { role: 'staff' }),
-    ).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.FORBIDDEN,
+  it('refuses a target the caller does not govern', async () => {
+    readCallerAccountRole.mockResolvedValue('viewer');
+    await expect(transferStoreOwnerAccount(STORE, ALICE_SELF, OTHER_ORG)).rejects.toSatisfy(
+      hasCode(ErrorCodes.FORBIDDEN),
     );
-    expect(updateStoreMember).not.toHaveBeenCalled();
+    expect(updateStoreColumns).not.toHaveBeenCalled();
   });
 
-  it('rejects a non-owner GRANTING the owner role (FORBIDDEN)', async () => {
-    const admin = mkMember('admin-1', 'admin');
-    findStoreById.mockResolvedValueOnce(
-      mkStore([mkMember('owner-1', 'owner'), admin, mkMember('staff-1', 'staff')]),
-    );
+  it('is a no-op onto the account that already owns it', async () => {
+    expect(await transferStoreOwnerAccount(STORE, ALICE_SELF, ALICE)).toBe(STORE);
+    expect(updateStoreColumns).not.toHaveBeenCalled();
+  });
+});
 
-    await expect(
-      updateMember(STORE_ID, admin, 'staff-1', { role: 'owner' }),
-    ).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.FORBIDDEN,
-    );
-    expect(updateStoreMember).not.toHaveBeenCalled();
+describe('setStorePermissionOverride — exceptions to the role map', () => {
+  const ADMIN_ACCESS = { role: 'admin' as const, permissions: [...STORE_ROLE_PERMISSIONS.admin] };
+
+  function write(overrides: { oxyUserId?: string; granted?: string[]; revoked?: string[] }) {
+    return setStorePermissionOverride({
+      store: STORE,
+      caller: ALICE_SELF,
+      callerAccess: ADMIN_ACCESS,
+      oxyUserId: overrides.oxyUserId ?? 'person-bob',
+      granted: (overrides.granted ?? []) as never,
+      revoked: (overrides.revoked ?? []) as never,
+    });
+  }
+
+  it('writes the exception, naming the human who wrote it', async () => {
+    await write({ granted: ['refunds:write'], revoked: ['discounts:write'] });
+    expect(upsertStorePermissionOverride).toHaveBeenCalledWith({
+      storeId: STORE_ID,
+      oxyUserId: 'person-bob',
+      granted: ['refunds:write'],
+      revoked: ['discounts:write'],
+      updatedByOxyUserId: ALICE,
+    });
   });
 
-  it('allows an owner to demote a SECOND owner', async () => {
-    const owner = mkMember('owner-1', 'owner');
-    findStoreById.mockResolvedValue(mkStore([owner, mkMember('owner-2', 'owner')]));
+  it('removes it when both sets are empty — "no exception" is the absence of a row', async () => {
+    expect(await write({})).toBeNull();
+    expect(deleteStorePermissionOverride).toHaveBeenCalledWith(STORE_ID, 'person-bob');
+    expect(upsertStorePermissionOverride).not.toHaveBeenCalled();
+  });
 
-    await updateMember(STORE_ID, owner, 'owner-2', { role: 'admin' });
-    expect(updateStoreMember).toHaveBeenCalledWith(STORE_ID, 'owner-2', { role: 'admin' });
+  it('refuses a permission the caller does not hold — no escalation by override', async () => {
+    await expect(write({ granted: ['store:manage'] })).rejects.toSatisfy(hasCode(ErrorCodes.FORBIDDEN));
+  });
+
+  it('refuses one permission both granted and revoked', async () => {
+    await expect(
+      write({ granted: ['refunds:write'], revoked: ['refunds:write'] }),
+    ).rejects.toSatisfy(hasCode(ErrorCodes.VALIDATION_ERROR));
+  });
+
+  it('refuses an override on the owning account itself', async () => {
+    await expect(write({ oxyUserId: ALICE, revoked: ['refunds:write'] })).rejects.toSatisfy(
+      hasCode(ErrorCodes.VALIDATION_ERROR),
+    );
   });
 });
 
@@ -185,7 +217,7 @@ describe('store.service.updateStoreSettings', () => {
   }
 
   beforeEach(() => {
-    updateStoreColumns.mockResolvedValue(mkStore([]));
+    updateStoreColumns.mockResolvedValue(STORE);
   });
 
   it('flattens long-form policies and notification settings into their columns', async () => {

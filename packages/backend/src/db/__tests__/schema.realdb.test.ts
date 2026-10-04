@@ -86,6 +86,7 @@ beforeAll(async () => {
   uuidListingId = uuidv7();
 
   await db.insert(stores).values({
+    oxyAccountId: 'oxy-account-fixture',
     id: storeId,
     handle: `realdb-${storeId.slice(0, 8)}`,
     name: 'Schema realdb store',

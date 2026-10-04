@@ -21,7 +21,7 @@ import {
  *
  * `mergeParams` so `:storeId` is visible. The parent already ran
  * `authenticateToken` → `loadStore` (and `/admin` applies the admin limiter), so
- * `req.store`/`req.storeMembership` are set. Every route is metered on the shared
+ * `req.store`/`req.storeAccess` are set. Every route is metered on the shared
  * `channels` rate-limit scope and gated on `channels:write` (owner + admin only;
  * staff never configure integrations). The external push client authenticates as
  * the store's Oxy user holding that permission.

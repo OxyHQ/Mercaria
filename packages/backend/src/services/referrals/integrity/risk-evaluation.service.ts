@@ -170,7 +170,7 @@ const ORDER_CONVERSION_SOURCE: ReferralConversionSource = 'order';
  *    `relatedPartyDeclared` and `partnerHoldsReferredStoreMembership`. Adding a
  *    second derivation here is the "two spellings of one rule" defect, and the
  *    two would disagree the first time either read changed. Closing them means
- *    EXTRACTING the shared reads (`holdsStoreMembership` and the application
+ *    EXTRACTING the shared reads (`canActForStore` and the application
  *    lookup) into helpers both callers use — a refactor of a live attribution
  *    gate, which is its own change rather than a producer.
  *  - `referredAccountAgeDays` — the referred Oxy account's creation date. #164

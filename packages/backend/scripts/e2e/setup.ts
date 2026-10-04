@@ -3,7 +3,7 @@
  * the REAL repositories.
  *
  * These are ordinary rows written by the same functions the API writes them
- * with — the `createStore` SERVICE, `insertStoreMember`, the real `categories`
+ * with — the `createStore` SERVICE, `updateStoreColumns`, the real `categories`
  * table — not a fixture layer and not raw SQL.
  *
  * The SERVICE rather than the repository, and that distinction cost a run:
@@ -38,12 +38,10 @@ import { connectPostgres, getDb } from '../../src/db/postgres.js';
 import { categories } from '../../src/db/schema/catalog.js';
 import {
   findStoreByHandle,
-  findStoreMember,
-  insertStoreMember,
-  type StoreRecord,
+  updateStoreColumns,
+  type StoreRow,
 } from '../../src/db/stores/storeRepository.js';
 import { findDefaultLocationId } from '../../src/db/stores/locationRepository.js';
-import { ROLE_PERMISSIONS } from '../../src/middleware/store-authz.js';
 import { createStore } from '../../src/services/store.service.js';
 
 /** The handle this run's store is created under. */
@@ -51,12 +49,12 @@ export const E2E_STORE_HANDLE = 'connector-verification-69';
 
 /** What the seed produced, for the evidence document. */
 export interface SeededContext {
-  readonly store: StoreRecord;
+  readonly store: StoreRow;
   readonly categorySlug: string;
   /** True when this run created the store rather than reusing one. */
   readonly storeCreated: boolean;
-  /** True when this run added the operator's membership. */
-  readonly membershipCreated: boolean;
+  /** True when this run made the operator's account the store's owning account. */
+  readonly ownerAccountAssigned: boolean;
   /** True when this run created the default category. */
   readonly categoryCreated: boolean;
 }
@@ -89,13 +87,9 @@ async function ensureCategory(slug: string): Promise<boolean> {
 }
 
 /**
- * Create (or reuse) the store, its owner membership and the default category.
- *
- * The operator is made an `owner`, which holds every permission including
- * `channels:write`. `ROLE_PERMISSIONS` is read from `store-authz.ts` rather than
- * listed here for the reason that module gives about `STORE_PERMISSIONS`: a
- * hand-copied list can grant a permission the database's own CHECK then refuses,
- * which surfaces as a 500 on an insert rather than as a wrong list.
+ * Create (or reuse) the store and the default category, with the operator's
+ * account as the store's owning Oxy account (ADR 0012) — which holds every
+ * permission, `channels:write` included.
  */
 export async function seedVerificationContext(input: {
   readonly oxyUserId: string;
@@ -107,22 +101,16 @@ export async function seedVerificationContext(input: {
 
   const existing = await findStoreByHandle(E2E_STORE_HANDLE);
   if (existing) {
-    const member = await findStoreMember(existing.id, input.oxyUserId);
-    let membershipCreated = false;
-    if (!member) {
-      await insertStoreMember(existing.id, {
-        oxyUserId: input.oxyUserId,
-        role: 'owner',
-        permissions: ROLE_PERMISSIONS.owner,
-      });
-      membershipCreated = true;
-    }
-    const store = await findStoreByHandle(E2E_STORE_HANDLE);
+    const ownerAccountAssigned = existing.oxyAccountId !== input.oxyUserId;
+    const store = ownerAccountAssigned
+      ? await updateStoreColumns(existing.id, { oxyAccountId: input.oxyUserId })
+      : existing;
+    if (!store) throw new Error(`Store ${existing.id} disappeared while it was being seeded`);
     return {
       store,
       categorySlug: input.categorySlug,
       storeCreated: false,
-      membershipCreated,
+      ownerAccountAssigned,
       categoryCreated,
     };
   }
@@ -151,7 +139,7 @@ export async function seedVerificationContext(input: {
     store,
     categorySlug: input.categorySlug,
     storeCreated: true,
-    membershipCreated: true,
+    ownerAccountAssigned: true,
     categoryCreated,
   };
 }

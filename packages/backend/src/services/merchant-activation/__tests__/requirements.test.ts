@@ -167,11 +167,6 @@ describe('each requirement refuses on its own fact', () => {
       reason: 'guest_fulfilment_method_blocked',
     },
     {
-      requirement: 'guest_buyer_data_permissions_scoped',
-      facts: { buyerDataPermissionAssigned: false },
-      reason: 'guest_buyer_data_permission_unassigned',
-    },
-    {
       requirement: 'guest_checkout_not_paused',
       facts: { settings: { guestCheckoutIntent: 'paused' } },
       reason: 'merchant_paused_guest_checkout',

@@ -46,16 +46,14 @@ const createdListingIds: string[] = [];
 
 /** Create a store owned by `oxyUserId` and register it for cleanup. */
 async function makeStoreOwnedBy(oxyUserId: string): Promise<string> {
-  const store = await insertStore(
-    {
-      handle: `seller-listings-${uuidv7()}`,
-      name: 'Seller-listings realdb store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: oxyUserId,
+    handle: `seller-listings-${uuidv7()}`,
+    name: 'Seller-listings realdb store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
   return store.id;
 }

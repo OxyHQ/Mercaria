@@ -12,7 +12,7 @@ import {
  * Store reports sub-router, mounted at `/admin/stores/:storeId/reports`.
  *
  * `mergeParams` so `:storeId` is visible. The parent router has already run
- * `authenticateToken` → `loadStore`, so `req.store`/`req.storeMembership` are set.
+ * `authenticateToken` → `loadStore`, so `req.store`/`req.storeAccess` are set.
  * Every report is read-only and gated on `stats:read` (the same permission the
  * dashboard `orders/stats` uses — owner, admin and staff all hold it).
  */
