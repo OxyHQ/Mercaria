@@ -123,9 +123,35 @@ it('the actual timer advances beyond a failing first eligible subscription and r
 
 it('keeps general Stripe-enabled reconciliation for noncohort stores while excluding the other key mode', async () => {
   flags.stripe = true;
-  expect(await reconcileMerchantSubscriptions({ limit: 10 })).toMatchObject({ examined: 3, applied: 3, failed: 0 });
+  // Another suite's subscription is eligible under the general rail but has no
+  // snapshot in this fixture. Its failure must not become a whole-DB assertion.
+  const foreignStore = nonce.slice(0, 23) + '5';
+  const foreignRef = `sub_shared${nonce}`;
+  await db.insert(stores).values({ id: foreignStore, handle: `reconcile-shared-${nonce}`, name: 'Other fixture', description: '', brandColor: '#101010' });
+  const customer = await ensureBillingCustomer(db, { storeId: foreignStore, provider: 'stripe', livemode: false, providerCustomerId: `cus_shared${nonce}` });
+  await db.insert(merchantSubscriptions).values({ id: `00000000-0000-7000-7fff-${nonce.slice(-12)}`, storeId: foreignStore, planId, billingCustomerId: customer.row.id,
+    provider: 'stripe', livemode: false, providerSubscriptionId: foreignRef, status: 'active', interval: 'monthly',
+    currentPeriodStart: new Date(Date.now() - 60_000), currentPeriodEnd: new Date(Date.now() + 86_400_000),
+    acceptedTermsVersion: 'fixture', acceptedByOxyUserId: `fixture-${nonce}`, acceptedAt: new Date() });
+  const [foreignBefore] = await db.select().from(merchantSubscriptions).where(eq(merchantSubscriptions.storeId, foreignStore));
+  const [wrongModeBefore] = await db.select().from(merchantSubscriptions).where(eq(merchantSubscriptions.storeId, wrongModeStore));
+  let afterId: string | undefined;
+  let exhausted = false;
+  // Traverse the general namespace; other suites may legitimately own rows.
+  // Bound the fixture sweep and assert our effects, not global row counts.
+  for (let page = 0; page < 50; page++) {
+    const result = await reconcileMerchantSubscriptions({ limit: 100, afterId });
+    afterId = result.nextAfterId ?? undefined;
+    if (!afterId) { exhausted = true; break; }
+  }
+  expect(exhausted).toBe(true);
   expect(legacyRead).toHaveBeenCalledWith(refs[0]); expect(calls).not.toContain(`legacy:${refs[3]}`);
   expect(calls).toContain(refs[1]); expect(calls).toContain(refs[2]);
+  expect(legacyRead).toHaveBeenCalledWith(foreignRef);
+  const owned = await db.select().from(merchantSubscriptions).where(inArray(merchantSubscriptions.storeId, [outsiderStore, ...ownedStores]));
+  expect(owned).toHaveLength(3); expect(owned.every(row => row.status === 'paused')).toBe(true);
+  expect(await db.select().from(merchantSubscriptions).where(eq(merchantSubscriptions.storeId, foreignStore))).toEqual([foreignBefore]);
+  expect(await db.select().from(merchantSubscriptions).where(eq(merchantSubscriptions.storeId, wrongModeStore))).toEqual([wrongModeBefore]);
 });
 
 it('does no provider read or subscription write before the cohort is registered', async () => {
