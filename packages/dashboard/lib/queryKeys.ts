@@ -9,7 +9,15 @@ export const queryKeys = {
     all: ["stores"] as const,
     detail: (storeId: string) => ["stores", storeId] as const,
   },
-  members: (storeId: string) => ["stores", storeId, "members"] as const,
+  /** Per-person exceptions to the role map (ADR 0012). */
+  permissionOverrides: (storeId: string) => ["stores", storeId, "permission-overrides"] as const,
+  /**
+   * The Oxy account that owns a store, and its members — read from Oxy with the
+   * caller's own session, never from Mercaria. NOT under `stores`: the same
+   * account can own several stores, and the answer does not vary by store.
+   */
+  oxyAccount: (accountId: string) => ["oxy-account", accountId] as const,
+  oxyAccountMembers: (accountId: string) => ["oxy-account", accountId, "members"] as const,
   products: {
     list: (storeId: string, page: number, search: string) =>
       ["stores", storeId, "products", { page, search }] as const,

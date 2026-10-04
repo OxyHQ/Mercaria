@@ -1336,34 +1336,72 @@
       }
     },
     "members": {
-      "addFailed": "No se ha podido añadir al miembro",
-      "addMember": "Añadir miembro",
-      "added": "Miembro añadido",
-      "documentTitle": "Miembros | Mercaria Dashboard",
-      "explicitPermissions": {
-        "one": "%{count} permiso explícito concedido",
-        "other": "%{count} permisos explícitos concedidos",
-        "many": "%{count} de permisos explícitos concedidos"
+      "convert": {
+        "addInvitee": "Añadir persona",
+        "body": "Una organización de Oxy será la propietaria de esta tienda. Tú pasas a ser su propietario y las personas que invites podrán actuar por la tienda con el rol que les des.",
+        "displayNameLabel": "Nombre de la organización",
+        "done": "La tienda ahora pertenece a la organización",
+        "failed": "No se ha podido convertir la tienda",
+        "inviteLabel": "Usuario o correo",
+        "invitePlaceholder": "usuario o correo@ejemplo.com",
+        "inviteesTitle": "Personas que invitar",
+        "nameRequired": "Escribe el nombre y el usuario de la organización",
+        "open": "Convertir en organización",
+        "someInvitesFailed": "La tienda se ha movido, pero estas invitaciones han fallado: %{names}",
+        "submit": "Crear organización y mover la tienda",
+        "title": "Convertir en una organización",
+        "usernameLabel": "Nombre de usuario de la organización",
+        "warning": "Las personas que antes podían actuar por esta tienda y no están en la organización ya no tienen acceso a ella."
       },
-      "invite": "Invitar",
-      "inviteTitle": "Invitar a un miembro",
-      "joinedOn": "Se unió el %{date}",
-      "loadFailed": "No se han podido cargar los miembros",
-      "oxyUserIdLabel": "Id de usuario de Oxy",
-      "oxyUserIdPlaceholder": "id de usuario de Oxy",
-      "oxyUserIdRequired": "Introduce el id de usuario de Oxy del miembro",
-      "removeFailed": "No se ha podido quitar al miembro",
-      "removed": "Miembro quitado",
-      "roleLabel": "Rol",
-      "roleUpdateFailed": "No se ha podido actualizar al miembro",
-      "roleUpdated": "Rol actualizado",
+      "documentTitle": "Miembros | Mercaria Dashboard",
+      "loadFailed": "No se han podido cargar las personas de esta tienda",
+      "noAccess": "Sin acceso",
+      "organizationBody": "Quién puede actuar por esta tienda lo decide la membresía de la organización en Oxy. Mercaria solo guarda excepciones a los permisos de cada rol.",
+      "outsidersNote": "Estas personas tienen una excepción en esta tienda pero no están en la organización, así que no tienen acceso hasta que se las añada.",
+      "override": {
+        "body": "Cada permiso sigue el rol de la persona salvo que lo añadas o lo quites aquí. Solo puedes cambiar permisos que tienes.",
+        "default": "Según el rol",
+        "edit": "Excepciones",
+        "grant": "Añadir",
+        "revoke": "Quitar",
+        "save": "Guardar",
+        "saveFailed": "No se han podido guardar las excepciones",
+        "saved": "Excepciones guardadas",
+        "title": "Excepciones de %{name}"
+      },
+      "overrideSummary": "%{granted} añadidos, %{revoked} quitados",
+      "ownedBy": "Propiedad de %{name}",
+      "permissionLabels": {
+        "analyticsRead": "Ver analítica de demanda",
+        "channelsWrite": "Gestionar canales de venta",
+        "collectionsWrite": "Editar colecciones",
+        "customersRead": "Ver clientes",
+        "customersWrite": "Editar clientes",
+        "discountsWrite": "Editar descuentos",
+        "draftOrdersWrite": "Crear pedidos en borrador",
+        "inventoryWrite": "Editar inventario",
+        "locationsWrite": "Editar ubicaciones",
+        "membersManage": "Gestionar personas y permisos",
+        "ordersFulfill": "Preparar pedidos",
+        "ordersRead": "Ver pedidos",
+        "productsRead": "Ver productos",
+        "productsWrite": "Editar productos",
+        "refundsWrite": "Hacer reembolsos",
+        "settingsWrite": "Editar ajustes",
+        "statsRead": "Ver estadísticas de ventas",
+        "storeManage": "Gestionar la tienda"
+      },
+      "personalBody": "Esta tienda pertenece a una cuenta personal de Oxy, así que solo esa cuenta puede actuar por ella. Conviértela en una organización para trabajar con otras personas.",
       "roles": {
         "admin": "Administrador",
+        "billing": "Facturación",
+        "developer": "Desarrollador",
+        "editor": "Editor",
         "owner": "Propietario",
-        "staff": "Personal"
+        "viewer": "Lector"
       },
-      "subtitle": "Quién puede gestionar esta tienda",
-      "title": "Miembros y roles"
+      "subtitle": "Quién puede actuar por esta tienda y las excepciones a su rol",
+      "title": "Personas y permisos"
     },
     "payments": {
       "beingReviewed": "En revisión",
@@ -1516,8 +1554,8 @@
         "label": "Ubicaciones"
       },
       "members": {
-        "description": "Invita y edita roles y permisos",
-        "label": "Miembros y roles"
+        "description": "Quién puede actuar por la tienda y las excepciones a su rol",
+        "label": "Personas y permisos"
       },
       "payments": {
         "description": "Cobra los pedidos realizados en Mercaria",

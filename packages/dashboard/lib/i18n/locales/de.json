@@ -1318,33 +1318,72 @@
       }
     },
     "members": {
-      "addFailed": "Das Mitglied konnte nicht hinzugefügt werden",
-      "addMember": "Mitglied hinzufügen",
-      "added": "Mitglied hinzugefügt",
-      "documentTitle": "Mitglieder | Mercaria Dashboard",
-      "explicitPermissions": {
-        "one": "%{count} explizite Berechtigung erteilt",
-        "other": "%{count} explizite Berechtigungen erteilt"
+      "convert": {
+        "addInvitee": "Person hinzufügen",
+        "body": "Eine Organisation in Oxy wird Inhaberin dieses Shops. Du wirst ihr Inhaber, und die Personen, die du einlädst, können mit der Rolle, die du ihnen gibst, für den Shop handeln.",
+        "displayNameLabel": "Name der Organisation",
+        "done": "Der Shop gehört jetzt der Organisation",
+        "failed": "Der Shop konnte nicht umgewandelt werden",
+        "inviteLabel": "Benutzername oder E-Mail",
+        "invitePlaceholder": "benutzername oder email@beispiel.de",
+        "inviteesTitle": "Einzuladende Personen",
+        "nameRequired": "Gib den Namen und den Benutzernamen der Organisation ein",
+        "open": "In Organisation umwandeln",
+        "someInvitesFailed": "Der Shop wurde verschoben, aber diese Einladungen sind fehlgeschlagen: %{names}",
+        "submit": "Organisation erstellen und Shop verschieben",
+        "title": "In eine Organisation umwandeln",
+        "usernameLabel": "Benutzername der Organisation",
+        "warning": "Personen, die bisher für diesen Shop handeln konnten und nicht zur Organisation gehören, haben keinen Zugriff mehr."
       },
-      "invite": "Einladen",
-      "inviteTitle": "Mitglied einladen",
-      "joinedOn": "Beigetreten %{date}",
-      "loadFailed": "Mitglieder konnten nicht geladen werden",
-      "oxyUserIdLabel": "Oxy-Benutzer-ID",
-      "oxyUserIdPlaceholder": "Oxy-Benutzer-ID",
-      "oxyUserIdRequired": "Geben Sie die Oxy-Benutzer-ID des Mitglieds ein",
-      "removeFailed": "Das Mitglied konnte nicht entfernt werden",
-      "removed": "Mitglied entfernt",
-      "roleLabel": "Rolle",
-      "roleUpdateFailed": "Das Mitglied konnte nicht aktualisiert werden",
-      "roleUpdated": "Rolle aktualisiert",
+      "documentTitle": "Mitglieder | Mercaria Dashboard",
+      "loadFailed": "Die Personen dieses Shops konnten nicht geladen werden",
+      "noAccess": "Kein Zugriff",
+      "organizationBody": "Wer für diesen Shop handeln darf, bestimmt die Mitgliedschaft der Organisation in Oxy. Mercaria speichert nur Ausnahmen zu den Berechtigungen jeder Rolle.",
+      "outsidersNote": "Diese Personen haben eine Ausnahme in diesem Shop, gehören aber nicht zur Organisation – sie haben keinen Zugriff, bis sie hinzugefügt werden.",
+      "override": {
+        "body": "Jede Berechtigung folgt der Rolle der Person, außer du fügst sie hier hinzu oder entfernst sie. Du kannst nur Berechtigungen ändern, die du selbst hast.",
+        "default": "Laut Rolle",
+        "edit": "Ausnahmen",
+        "grant": "Hinzufügen",
+        "revoke": "Entfernen",
+        "save": "Speichern",
+        "saveFailed": "Die Ausnahmen konnten nicht gespeichert werden",
+        "saved": "Ausnahmen gespeichert",
+        "title": "Ausnahmen für %{name}"
+      },
+      "overrideSummary": "%{granted} hinzugefügt, %{revoked} entfernt",
+      "ownedBy": "Gehört %{name}",
+      "permissionLabels": {
+        "analyticsRead": "Nachfrageanalysen ansehen",
+        "channelsWrite": "Verkaufskanäle verwalten",
+        "collectionsWrite": "Kollektionen bearbeiten",
+        "customersRead": "Kunden ansehen",
+        "customersWrite": "Kunden bearbeiten",
+        "discountsWrite": "Rabatte bearbeiten",
+        "draftOrdersWrite": "Bestellentwürfe erstellen",
+        "inventoryWrite": "Bestand bearbeiten",
+        "locationsWrite": "Standorte bearbeiten",
+        "membersManage": "Personen und Berechtigungen verwalten",
+        "ordersFulfill": "Bestellungen ausführen",
+        "ordersRead": "Bestellungen ansehen",
+        "productsRead": "Produkte ansehen",
+        "productsWrite": "Produkte bearbeiten",
+        "refundsWrite": "Erstattungen ausführen",
+        "settingsWrite": "Einstellungen bearbeiten",
+        "statsRead": "Verkaufsstatistiken ansehen",
+        "storeManage": "Shop verwalten"
+      },
+      "personalBody": "Dieser Shop gehört einem persönlichen Oxy-Konto, daher kann nur dieses Konto für ihn handeln. Wandle ihn in eine Organisation um, um mit anderen zu arbeiten.",
       "roles": {
         "admin": "Admin",
+        "billing": "Abrechnung",
+        "developer": "Entwickler",
+        "editor": "Bearbeiter",
         "owner": "Inhaber",
-        "staff": "Mitarbeiter"
+        "viewer": "Betrachter"
       },
-      "subtitle": "Wer diesen Shop verwalten darf",
-      "title": "Mitglieder und Rollen"
+      "subtitle": "Wer für diesen Shop handeln darf und Ausnahmen zu ihrer Rolle",
+      "title": "Personen und Berechtigungen"
     },
     "payments": {
       "beingReviewed": "Wird geprüft",
@@ -1494,8 +1533,8 @@
         "label": "Standorte"
       },
       "members": {
-        "description": "Einladen, Rollen und Berechtigungen bearbeiten",
-        "label": "Mitglieder und Rollen"
+        "description": "Wer für den Shop handeln darf und Ausnahmen zu ihrer Rolle",
+        "label": "Personen und Berechtigungen"
       },
       "payments": {
         "description": "Für Bestellungen auf Mercaria bezahlt werden",

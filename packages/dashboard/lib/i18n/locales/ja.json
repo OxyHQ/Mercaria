@@ -1318,33 +1318,72 @@
       }
     },
     "members": {
-      "addFailed": "メンバーを追加できませんでした",
-      "addMember": "メンバーを追加",
-      "added": "メンバーを追加しました",
-      "documentTitle": "メンバー | Mercaria Dashboard",
-      "explicitPermissions": {
-        "one": "個別に付与された権限%{count}件",
-        "other": "個別に付与された権限%{count}件"
+      "convert": {
+        "addInvitee": "人を追加",
+        "body": "Oxy の組織がこのストアの所有者になります。あなたはその組織のオーナーになり、招待した人は付与したロールでストアを操作できます。",
+        "displayNameLabel": "組織名",
+        "done": "ストアは組織の所有になりました",
+        "failed": "ストアを変換できませんでした",
+        "inviteLabel": "ユーザー名またはメール",
+        "invitePlaceholder": "ユーザー名 または email@example.com",
+        "inviteesTitle": "招待する人",
+        "nameRequired": "組織名とユーザー名を入力してください",
+        "open": "組織に変換",
+        "someInvitesFailed": "ストアは移動しましたが、次の招待に失敗しました: %{names}",
+        "submit": "組織を作成してストアを移動",
+        "title": "組織に変換する",
+        "usernameLabel": "組織のユーザー名",
+        "warning": "これまでこのストアを操作できた人で、組織に含まれない人はアクセスできなくなります。"
       },
-      "invite": "招待",
-      "inviteTitle": "メンバーを招待",
-      "joinedOn": "参加日 %{date}",
-      "loadFailed": "メンバーを読み込めませんでした",
-      "oxyUserIdLabel": "OxyユーザーID",
-      "oxyUserIdPlaceholder": "OxyユーザーID",
-      "oxyUserIdRequired": "メンバーのOxyユーザーIDを入力してください",
-      "removeFailed": "メンバーを削除できませんでした",
-      "removed": "メンバーを削除しました",
-      "roleLabel": "役割",
-      "roleUpdateFailed": "メンバーを更新できませんでした",
-      "roleUpdated": "役割を更新しました",
+      "documentTitle": "メンバー | Mercaria Dashboard",
+      "loadFailed": "このストアのメンバーを読み込めませんでした",
+      "noAccess": "アクセス権なし",
+      "organizationBody": "このストアで操作できる人は、Oxy の組織メンバーによって決まります。Mercaria は各ロールの権限に対する例外だけを保存します。",
+      "outsidersNote": "以下の人はこのストアに例外がありますが組織のメンバーではないため、追加されるまでアクセスできません。",
+      "override": {
+        "body": "各権限は、ここで追加または削除しない限りその人のロールに従います。変更できるのは自分が持つ権限だけです。",
+        "default": "ロールのとおり",
+        "edit": "例外",
+        "grant": "追加",
+        "revoke": "削除",
+        "save": "保存",
+        "saveFailed": "例外を保存できませんでした",
+        "saved": "例外を保存しました",
+        "title": "%{name} の例外"
+      },
+      "overrideSummary": "追加 %{granted} 件、削除 %{revoked} 件",
+      "ownedBy": "所有者: %{name}",
+      "permissionLabels": {
+        "analyticsRead": "需要分析の閲覧",
+        "channelsWrite": "販売チャネルの管理",
+        "collectionsWrite": "コレクションの編集",
+        "customersRead": "顧客の閲覧",
+        "customersWrite": "顧客の編集",
+        "discountsWrite": "割引の編集",
+        "draftOrdersWrite": "下書き注文の作成",
+        "inventoryWrite": "在庫の編集",
+        "locationsWrite": "拠点の編集",
+        "membersManage": "メンバーと権限の管理",
+        "ordersFulfill": "注文の処理",
+        "ordersRead": "注文の閲覧",
+        "productsRead": "商品の閲覧",
+        "productsWrite": "商品の編集",
+        "refundsWrite": "返金の実行",
+        "settingsWrite": "設定の編集",
+        "statsRead": "売上統計の閲覧",
+        "storeManage": "ストアの管理"
+      },
+      "personalBody": "このストアは個人の Oxy アカウントが所有しているため、そのアカウントだけが操作できます。ほかの人と作業するには組織に変換してください。",
       "roles": {
         "admin": "管理者",
+        "billing": "請求",
+        "developer": "開発者",
+        "editor": "編集者",
         "owner": "オーナー",
-        "staff": "スタッフ"
+        "viewer": "閲覧者"
       },
-      "subtitle": "このストアを管理できる人",
-      "title": "メンバーと役割"
+      "subtitle": "このストアで操作できる人と、ロールに対する例外",
+      "title": "メンバーと権限"
     },
     "payments": {
       "beingReviewed": "審査中",
@@ -1494,8 +1533,8 @@
         "label": "ロケーション"
       },
       "members": {
-        "description": "招待、役割と権限の編集",
-        "label": "メンバーと役割"
+        "description": "ストアを操作できる人と、ロールに対する例外",
+        "label": "メンバーと権限"
       },
       "payments": {
         "description": "Mercariaで受けた注文の入金を受け取る",
