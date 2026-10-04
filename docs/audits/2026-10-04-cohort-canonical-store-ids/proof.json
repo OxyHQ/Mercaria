@@ -1,0 +1,224 @@
+{
+  "kind": "mercaria-canonical-store-id-cohort-v1",
+  "sourceCommit": "6740ccbe27c87149c969bc3258bb92e141051cc8",
+  "baselineCommit": "fc577db26f81aaaff57909e48872edfed79346d4",
+  "sourceInputs": [
+    {
+      "path": "packages/backend/src/services/billing/peable/adapter.ts",
+      "bytes": 11296,
+      "sha256": "07dc7042cb140d3272527956f5ebadc17159e8d8b16499faf386b9da10037235"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/register.test.ts",
+      "bytes": 9616,
+      "sha256": "b21bcc6781490d5347c0f178ad9c9666c401b22ead7ab6df3e85c81483fd9b23"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/adapter.realdb.test.ts",
+      "bytes": 20542,
+      "sha256": "0e8822cd19b62815a10c19774ea12793202815c3b16e30a3d1ef51f89d13a2ff"
+    },
+    {
+      "path": "packages/backend/src/services/billing/register.ts",
+      "bytes": 2360,
+      "sha256": "6117a4aa3a9a8e345288ef00472941ff021e40edf4fe23d04ee0b2aadd1cd5a7"
+    },
+    {
+      "path": "packages/backend/src/config/index.ts",
+      "bytes": 240179,
+      "sha256": "ac001a11f95f783ab9cb7e1528d43e96477c7c63b2a2ada2efc4bb82b5ef09de"
+    },
+    {
+      "path": "packages/backend/src/services/billing/stripe/cohort-reader.ts",
+      "bytes": 1425,
+      "sha256": "bc3978b9a478fb95642290327b1852d78dcc6fcad1b179e874037c864cbd989f"
+    },
+    {
+      "path": "packages/backend/src/services/payments/stripe/client.ts",
+      "bytes": 19371,
+      "sha256": "60a493e2a8a61886e06181e6b4f2445192798d379179872ab8423c50bf5e6ae0"
+    },
+    {
+      "path": "packages/backend/src/db/schema/stores.ts",
+      "bytes": 13226,
+      "sha256": "404ffc530b1c3447de0b9dd464c5017b41f1b87d0b8f0737080dbc0d87852043"
+    },
+    {
+      "path": "packages/backend/src/middleware/validate.ts",
+      "bytes": 3442,
+      "sha256": "08e2e8f42d0a7a73af3ca37e668d744abe6c977cd462a97e35c15d5771b7e1f4"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "bytes": 2282,
+      "sha256": "4e8d18ac094a03a30b4c2914d7dd7931a4b02da85bac3fbf87432afe5918690d"
+    },
+    {
+      "path": "packages/backend/build.ts",
+      "bytes": 5488,
+      "sha256": "2f5aa2fc20203754a96adcc29f4c21ff2dceab89a79a3082d96083471ab58f78"
+    },
+    {
+      "path": "package.json",
+      "bytes": 5256,
+      "sha256": "f4baa12c8eb65b7a48f62477608815e68f3d74884002236eb1f85a30d5401a7f"
+    },
+    {
+      "path": "bun.lock",
+      "bytes": 472724,
+      "sha256": "f950d4374476c27b2b957c400545aadce0880508bf4caf68422b2155756ddbb7"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/cohort.production.json",
+      "bytes": 283,
+      "sha256": "8dda11bbae9a106642ae5036bad0c83bfb84a3ababfb8ce9e929e8c26ba93d17"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/compiled-config-entry.ts",
+      "bytes": 1590,
+      "sha256": "bd557b6cbabb8422574343c0dcddeda19c6c7f947c77a193d80124dbfa79db05"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/README.md",
+      "bytes": 4022,
+      "sha256": "d9f380e81e56547c090e6d32be5aa2095e8a76409debe085ddf597f0e07a5550"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/run-compiled-config-smoke.mjs",
+      "bytes": 1603,
+      "sha256": "c6390e3ae83dad58f3f731fe752b2d9ff695df3ee23cd6faea4bf3873689861e"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/post-test-inputs.json",
+      "bytes": 428,
+      "sha256": "a9f3f6e61ad25d5b5d9be0779160c0dfb576c980131c4d506cbd4331c01312b3"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/typecheck.log",
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/owned-pg.py",
+      "bytes": 4842,
+      "sha256": "ee10830dedcb6a53a35dfcf9a34c9618dd3831f428b2dcc131f701c213069685"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/compiled-config-smoke.log",
+      "bytes": 621,
+      "sha256": "b39610036832b9f1fbf71b10d49b04ebfbca58fc52fe552061f1f7eed2041c2e"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/build.log",
+      "bytes": 248,
+      "sha256": "9dbe846c619e6e04931bdfa201b8b1549669786e12e7f7545f8efd398544509d"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/compiled-config-path-failure.log",
+      "bytes": 3050,
+      "sha256": "77f0c12c89ef03e0563487888143c10692151381fd29f428d68f94ba9f7f2f61"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/cohort-green.log",
+      "bytes": 66107,
+      "sha256": "e2470c974a066bd2ac11a4a3de8125f72eaac4fee3c72ae9b3cd57291c7509f0"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/compiled-config-setup-failure.log",
+      "bytes": 1288,
+      "sha256": "bea0cae5581d20a8feec46942205ac631d3d9c6d1d215c2986e842ba5ef5a189"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/owned-pg.log",
+      "bytes": 742,
+      "sha256": "ba9ddf05f3f84c1c6eafb9a9038f65f2a5b728ba2525cf39f92ff7193e79a07a"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/compiled-config-missing-db-failure.log",
+      "bytes": 1840,
+      "sha256": "f71d35ae2412fef80a2e71a2a7183a65750ca8941b4049e213879d4199a9b647"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/store-ids-red.log",
+      "bytes": 18111,
+      "sha256": "3bb2e032baf7f08ea5d1f79dca264eade745bd3e2bd540f8e0350330d24583bd"
+    }
+  ],
+  "compiledOutputs": [
+    {
+      "path": "packages/backend/dist/index.js",
+      "bytes": 9771428,
+      "sha256": "41df0e4f3a50639edbe839a1ecd9e7375ef4ef59040ed8fff90765d649ad8131"
+    },
+    {
+      "path": "packages/backend/dist/db/migrate.js",
+      "bytes": 3852,
+      "sha256": "f065a7311adee792500bdd04d21e27d361608a23d7a61999890272161d96a73b"
+    },
+    {
+      "path": "packages/backend/dist/register-capability-catalog.js",
+      "bytes": 8793,
+      "sha256": "22ce7b279fec3a499fbd9f0cdf1617e6c3069776ee04f2d07f2d284257f38f4f"
+    },
+    {
+      "path": "packages/backend/dist/scripts/provision-taxonomy.js",
+      "bytes": 2233673,
+      "sha256": "bbed9c8ce257be846f724cf806d6431f031ff2232eed3e676c80dd1b60f2c94f"
+    },
+    {
+      "path": "packages/backend/dist/cohort-config-smoke.js",
+      "bytes": 2464346,
+      "sha256": "7cd3f325591f2155b43c2b3723ed71c5e5fbfa0b03bc40f6e040176b86fb3445"
+    }
+  ],
+  "canonicalDependency": {
+    "package": "@oxy.so/db",
+    "version": "1.0.0",
+    "path": "/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/node_modules/@oxy.so/db/dist/esm/ids.js",
+    "bytes": 2016,
+    "sha256": "8e82b7d1815fa0c88581d4b4f2bc85c0f5a58b461341e345f04ed9ef1a29ca26",
+    "role": "existing published predicate, accepts 24-hex and UUIDv7; not row-existence proof"
+  },
+  "red": {
+    "testsFailed": 24,
+    "testsPassed": 20,
+    "adapterGitSha256": "2f2055e5919f8b416a8933ad449e6b358a429d1d3127b1f46acefaa7a2da77b3",
+    "fixturesIdenticalToGreen": true,
+    "reason": "UUID-only baseline rejects approved 24-hex IDs and all 16 SQL scenarios; additionally accepts unsupported UUIDv4"
+  },
+  "green": {
+    "suites": 6,
+    "tests": 80,
+    "typescriptExit": 0,
+    "scopedLintExit": 0,
+    "backendBuildExit": 0,
+    "compiledConfigSmokeExit": 0
+  },
+  "ownedPostgres": {
+    "pid": 895765,
+    "port": 5626,
+    "pidAbsent": true,
+    "normalMigrator": true,
+    "postgis": true,
+    "liveConnection": false
+  },
+  "limits": {
+    "remoteAuthority": "synthetic local account/merchant responses; published SDK exercised against local HTTP transport",
+    "compiledConfig": "independently bundled fixture using backend externalization, not shipping leaf dist modules/server bootstrap",
+    "setupFailures": "three local compiled smoke setup failures preserved, excluded from GREEN",
+    "stripeGeneralEnabled": false,
+    "billingActionsEnabled": false,
+    "awsWrites": false,
+    "providerRequests": false,
+    "liveSql": false,
+    "imageReady": false,
+    "publisherHeld": true
+  }
+}

@@ -1,0 +1,42 @@
+✘ [ERROR] Could not resolve "../../../../packages/backend/src/config/index.js"
+
+    docs/audits/2026-10-04-cohort-canonical-store-ids/compiled-config-entry.ts:7:32:
+      7 │ ...= await import('../../../../packages/backend/src/config/index.js');
+        ╵                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+✘ [ERROR] Could not resolve "../../../../packages/backend/src/services/billing/peable/adapter.js"
+
+    docs/audits/2026-10-04-cohort-canonical-store-ids/compiled-config-entry.ts:8:45:
+      8 │ ...ait import('../../../../packages/backend/src/services/billing/pe...
+        ╵               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+✘ [ERROR] Could not resolve "../../../../packages/backend/src/services/payments/stripe/client.js"
+
+    docs/audits/2026-10-04-cohort-canonical-store-ids/compiled-config-entry.ts:9:41:
+      9 │ ...ait import('../../../../packages/backend/src/services/payments/s...
+        ╵               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+3 errors
+/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/node_modules/esbuild/lib/main.js:1752
+  let error = new Error(text);
+              ^
+
+Error: Build failed with 3 errors:
+docs/audits/2026-10-04-cohort-canonical-store-ids/compiled-config-entry.ts:7:32: ERROR: Could not resolve "../../../../packages/backend/src/config/index.js"
+docs/audits/2026-10-04-cohort-canonical-store-ids/compiled-config-entry.ts:8:45: ERROR: Could not resolve "../../../../packages/backend/src/services/billing/peable/adapter.js"
+docs/audits/2026-10-04-cohort-canonical-store-ids/compiled-config-entry.ts:9:41: ERROR: Could not resolve "../../../../packages/backend/src/services/payments/stripe/client.js"
+    at failureErrorWithLog (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/node_modules/esbuild/lib/main.js:1752:15)
+    at /home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/node_modules/esbuild/lib/main.js:1211:25
+    at runOnEndCallbacks (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/node_modules/esbuild/lib/main.js:1592:45)
+    at buildResponseToResult (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/node_modules/esbuild/lib/main.js:1209:7)
+    at /home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/node_modules/esbuild/lib/main.js:1236:16
+    at responseCallbacks.<computed> (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/node_modules/esbuild/lib/main.js:886:9)
+    at handleIncomingPacket (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/node_modules/esbuild/lib/main.js:941:12)
+    at Socket.readFromStdout (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/node_modules/esbuild/lib/main.js:864:7)
+    at Socket.emit (node:events:514:28)
+    at addChunk (node:internal/streams/readable:568:12) {
+  errors: [Getter/Setter],
+  warnings: [Getter/Setter]
+}
+
+Node.js v24.21.0

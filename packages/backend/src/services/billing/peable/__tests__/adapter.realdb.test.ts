@@ -39,7 +39,7 @@ const readStripe = vi.fn(async (ref: string) => ({ id: ref, customerId: customer
 
 beforeAll(async () => {
   db = await connectPostgres();
-  const inserted = await db.insert(stores).values(['cohort', 'other'].map(label => ({ handle: `billing-${nonce}-${label}`, name: label, description: '', brandColor: '#101010' }))).returning();
+  const inserted = await db.insert(stores).values(['cohort', 'other'].map(label => ({ ...(label === 'cohort' ? { id: nonce.slice(0, 24) } : {}), handle: `billing-${nonce}-${label}`, name: label, description: '', brandColor: '#101010' }))).returning();
   storeId = inserted[0]!.id; otherStoreId = inserted[1]!.id;
   const plan = await insertMerchantPlan(db, { planKey: `i08-${nonce}`, version: 1, tier: 'paid', name: 'Fixture', summary: 'synthetic', termsVersion: 'v1', createdByOxyUserId: `operator-${nonce}` });
   planId = plan.id;
@@ -108,6 +108,9 @@ beforeEach(() => {
 const checkout = () => ({ providerCustomerId: customer, providerPriceId: price, trialDays: 0, returnUrl: 'https://dashboard.mercaria.co/settings/plan', storeId, planId, idempotencyKey: `checkout-${randomUUID()}` });
 describe('Peable cohort adoption / actual SDK HTTP and SQL', () => {
   it('preserves the customer/store/plan and maps scheduled cancellation without changing rail identity', async () => {
+    // Owned historical-ID-shaped row plus a generated UUIDv7 noncohort row.
+    expect(storeId).toBe(nonce.slice(0, 24));
+    expect(otherStoreId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7/);
     expect(provider.id).toBe('stripe');
     expect(await provider.ensureCustomer({ storeId, storeName: 'Fixture', idempotencyKey: `customer-${nonce}` })).toEqual({ providerCustomerId: customer });
     const result = await provider.retrieveSubscription(sub);
