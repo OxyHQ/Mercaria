@@ -1,0 +1,31 @@
+{
+  "kind": "mercaria-exact-main-ci-accepted-v1",
+  "sourceSha": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f",
+  "runId": 37195639516,
+  "runUrl": "https://github.com/OxyHQ/Mercaria/actions/runs/37195639516",
+  "status": "completed",
+  "conclusion": "success",
+  "canonicalGate": {
+    "at": "2026-10-04T10:47:34.455700+00:00",
+    "source": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f",
+    "command": [
+      "node",
+      ".github/scripts/require-ci-success.mjs",
+      "--repository=OxyHQ/Mercaria",
+      "--sha=62aa621892bda26f0f9950c6ac8c61c50c5a0a1f"
+    ],
+    "exitCode": 0,
+    "scope": "Canonical exact-commit read-only gate; no duplicated tests or deployment",
+    "mainRun": 37195639516
+  },
+  "retainedRecords": [
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/mercaria-scoped-release/main-ci-final.json",
+      "sha256": "054713773f3a466d0d9b6ea2943f49c11ae50aa7da151b5ea8282c0b586b0f9e"
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/mercaria-scoped-release/canonical-main-ci-gate.json",
+      "sha256": "c66b3cd03f77e75794e89aae17c334812dbee787e1908994d9a52743c91c0be6"
+    }
+  ]
+}

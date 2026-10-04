@@ -1,0 +1,169 @@
+{
+  "kind": "readonly-consumer-ecr-image-verification-v1",
+  "complete": true,
+  "archivePath": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-image-20261004/ecr-oci-layout.tar",
+  "archiveSha256": "15f5eec66766d2f34bfb3780adddb10fb3eeec04a30610ddc5a2f62867e19f30",
+  "archiveSize": 348088320,
+  "manifestSha256": "e749480bde897218b2fd0c8d34d088ce0b92b54804b4deee294eff07c031c027",
+  "configSha256": "fb7ce06453366da2f854a5c459c4edf5779de37ffd7ea22962997c5c7be72896",
+  "sourceSha": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f",
+  "sourceTreeSha": "fa2c37a6d00b85a2b866d50bb32520208efcfcbf",
+  "dockerfileSha256": "5f93c981c46906d9e5cf117566fa173058f15e08023dceea7a2c2fa9c8f6cac2",
+  "platform": "linux/arm64",
+  "expectedInputsSha256": "eb3bb98ca5e57d16d9af91e119827642ee2a7005d288d51bcf90f20f74dfa6a5",
+  "layerChecks": [
+    {
+      "index": 0,
+      "digest": "sha256:a9986cd6f37dbddae7862a6d4be71683472e7c2ea708e87db14f8a6393c00f00",
+      "size": 4187659,
+      "diffID": "sha256:1b349a3334531b575b01d409540dd8aca14ef29abddacd50f36643d7c949db4b",
+      "uncompressedSize": 8941568,
+      "verified": true
+    },
+    {
+      "index": 1,
+      "digest": "sha256:6680b19ad074d7cbe6bf0eb4013d64483980d5cc93bf6774d7effd8bb196df0c",
+      "size": 56602751,
+      "diffID": "sha256:ca6c34abac80817a2fd4e749d471f49c2c87dc6de7c669ddfb902f87d5b8723c",
+      "uncompressedSize": 154517504,
+      "verified": true
+    },
+    {
+      "index": 2,
+      "digest": "sha256:d4a23e25aa718dc5c16fb5935f8683eff024fd67902ef1a4929a42da78d4e9d6",
+      "size": 1262881,
+      "diffID": "sha256:21271b8f9fd4f3dc6f1fe1e94665d59d2f2d4056fda81a8d14ad0dbb6fcb4e27",
+      "uncompressedSize": 5393920,
+      "verified": true
+    },
+    {
+      "index": 3,
+      "digest": "sha256:e2f4a003057d235ec28208b606f2f9524400c06882b1ffa1c89ceda8213f5fb4",
+      "size": 444,
+      "diffID": "sha256:b5bcb225aec4272cad2cf426a4c2b0217a657285712ff6b339758f1462f78410",
+      "uncompressedSize": 3584,
+      "verified": true
+    },
+    {
+      "index": 4,
+      "digest": "sha256:787c1b92abadbcb457e356001eb2bbcd0e69d01ebd7dcc62ce0794f7ee7f1b93",
+      "size": 102531,
+      "diffID": "sha256:854c47c8487f967d00768cd528d5d9ae3cc79197f90012267fb9261d6d5b29cc",
+      "uncompressedSize": 521728,
+      "verified": true
+    },
+    {
+      "index": 5,
+      "digest": "sha256:55977e80ce8eb5c8b02fcd18bf6e4a3bd2872a0fa4ec93410d01a8e8357254e7",
+      "size": 93,
+      "diffID": "sha256:9a2f3001f556d7ab9c6666a7924465cccd18f72b7b5269df294ff215a028a54a",
+      "uncompressedSize": 1536,
+      "verified": true
+    },
+    {
+      "index": 6,
+      "digest": "sha256:6dc8fec051db439656aef1326346c45c209ea391bf025a45a43f91eeedeadbb0",
+      "size": 255407478,
+      "diffID": "sha256:ceb48cd18d29deb95a81288178d346d4f3c1a69c919afba604479ec1bcc391e5",
+      "uncompressedSize": 877283840,
+      "verified": true
+    },
+    {
+      "index": 7,
+      "digest": "sha256:7a09d6a87cce6845a4b57f4cc5cc714249af121b98cf1549ae671f88ee81eeb8",
+      "size": 1435,
+      "diffID": "sha256:5a2568a1d11d61d10f2e3d84d5c0385eebd60274773b54784d55f417634c0303",
+      "uncompressedSize": 7680,
+      "verified": true
+    },
+    {
+      "index": 8,
+      "digest": "sha256:8599dd2cef4cf2868115aeddfb8317d87621b857db13027c1c9a338bd804a3c5",
+      "size": 1043,
+      "diffID": "sha256:c1fcef03d756e069630f6324722e266bda4da4a85e3179eac1b8e655b9f93118",
+      "uncompressedSize": 5632,
+      "verified": true
+    },
+    {
+      "index": 9,
+      "digest": "sha256:1e0cdcc39cc720bb25fc2079507de7c5ef69b0b8db286a2d3c155f3c6f5e77ae",
+      "size": 2681650,
+      "diffID": "sha256:5609e1d32d4bb171f1677c75120ab631e3c15809142bed9975de1bd071dfad56",
+      "uncompressedSize": 12037632,
+      "verified": true
+    },
+    {
+      "index": 10,
+      "digest": "sha256:c109ccb70a74b50cf453a8bfec97fe6afd3995f8032b6f9934c991f2b0b7e033",
+      "size": 27797349,
+      "diffID": "sha256:96f1b78f35aab738d4218f4e98af358645a3f56b17aeda70fcd1d2b4306d2752",
+      "uncompressedSize": 388952064,
+      "verified": true
+    }
+  ],
+  "shippingTrees": [
+    {
+      "name": "canonical-compiled-dist",
+      "files": 4,
+      "allEqual": true,
+      "nonRuntimeCompilerMetadataSha256": {},
+      "metadataByteEqualityClaimed": null
+    },
+    {
+      "name": "source-drizzle",
+      "files": 317,
+      "allEqual": true,
+      "nonRuntimeCompilerMetadataSha256": {},
+      "metadataByteEqualityClaimed": null
+    },
+    {
+      "name": "source-package.json",
+      "files": 1,
+      "allEqual": true,
+      "nonRuntimeCompilerMetadataSha256": {},
+      "metadataByteEqualityClaimed": null
+    },
+    {
+      "name": "source-packages/backend/package.json",
+      "files": 1,
+      "allEqual": true,
+      "nonRuntimeCompilerMetadataSha256": {},
+      "metadataByteEqualityClaimed": null
+    }
+  ],
+  "publishedSDK": [
+    {
+      "package": "core",
+      "archiveSha256": "20fbd2e6fadd5d1e0a6ea9b6ad0ed9f65e77d5289600f6085ebfc16c224d5795",
+      "files": 581,
+      "allEqual": true
+    },
+    {
+      "package": "contracts",
+      "archiveSha256": "d495f3b1aabbfea8da57107e4f4bbee7c8d2e9e34f9e2345923e12a5c080fdaa",
+      "files": 198,
+      "allEqual": true
+    },
+    {
+      "package": "protocol",
+      "archiveSha256": "88498ab28c1aa373f6f725f1625662b47d61e50d8ae25a54c80bfb2ecb65b5db",
+      "files": 145,
+      "allEqual": true
+    },
+    {
+      "package": "mcp",
+      "archiveSha256": "db8e17f533f756574983532bcbb7c154ec618d6a476278132e31dd40adf78c27",
+      "files": 41,
+      "allEqual": true
+    },
+    {
+      "package": "peable-sdk",
+      "archiveSha256": "68687dabc8caddcdb3f60d846d720f5103d29c4d2a0eacb774ebc08ca37f4494",
+      "files": 53,
+      "allEqual": true
+    }
+  ],
+  "allImageLayersVerified": true,
+  "noImageExecuted": true,
+  "noImagePublishedByReviewer": true
+}
