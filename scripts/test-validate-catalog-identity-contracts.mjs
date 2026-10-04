@@ -319,7 +319,14 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // an identity-shaped name: a public product names its `ref` and a condition
     // KEY, and the storefront's `category`/`productType`/`vendor` strings are
     // exactly what the field-by-field projection declines to publish.
-    "walked 134 contract module(s), 2370 exported type(s), 7877 property signature(s)",
+    // ADR 0012 (store ownership is an Oxy account) moved NO module: `store.ts`
+    // lost four types (`StoreRole`, `StoreMember`, the two member inputs) and
+    // gained six (the role and access shapes, the override and its input, the
+    // owner-account move), and `store-linkage.ts` lost one impact field —
+    // 134/2372/7881, READ OFF the guard's own output line. None of the new
+    // names is identity-shaped: an override names an `oxyUserId` and
+    // permission keys.
+    "walked 134 contract module(s), 2372 exported type(s), 7881 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });

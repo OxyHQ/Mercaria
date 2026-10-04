@@ -568,12 +568,6 @@ function exceptionFixture() {
       "  'guest_notifications_unavailable',\n" +
       "];\n" +
       "export const guestOnly = GUEST_ONLY_BLOCK_REASONS;\n",
-    "packages/pos/lib/permissions.ts":
-      "import type { StorePermission } from '@mercaria/shared-types';\n" +
-      "const ALL_PERMISSIONS: readonly StorePermission[] = ['store:manage', 'products:read'];\n" +
-      "const STAFF_PERMISSIONS: readonly StorePermission[] = ['products:read', 'orders:read'];\n" +
-      "export const all = ALL_PERMISSIONS;\n" +
-      "export const staff = STAFF_PERMISSIONS;\n",
     // All five wall-1 entries are COMPARISONS, matched on the exact detail
     // `compared against "<literal>"`. Written as comparisons here for that
     // reason: a `switch` over the same literals would satisfy nothing.
@@ -674,15 +668,17 @@ record(
 
 record(
   "the wall-5 exception list has an exact, asserted size",
-  KNOWN_VOCABULARY_EXCEPTION_COUNT === 4,
-  `KNOWN_VOCABULARY_EXCEPTIONS holds ${KNOWN_VOCABULARY_EXCEPTION_COUNT}, expected 4. ` +
+  KNOWN_VOCABULARY_EXCEPTION_COUNT === 2,
+  `KNOWN_VOCABULARY_EXCEPTIONS holds ${KNOWN_VOCABULARY_EXCEPTION_COUNT}, expected 2. ` +
     "Each entry silences a real finding, so a list that grew silently is a hole. " +
     "Adding one is a decision: state why the declaration is not a catalog vocabulary, " +
     "and give it an integer `count` — an entry without one used to fall through every branch " +
     "of the reconciliation in silence, because `actual < undefined` and `actual > undefined` " +
     "are both false (#494). It went 1 -> 4 at #478's widening, when a gate read " +
     "`packages/ui/src` and `packages/pos` for the first time and found three more policy " +
-    "subsets of server-owned unions.",
+    "subsets of server-owned unions, and 4 -> 2 at ADR 0012, which deleted the POS mirror " +
+    "of the role matrix those two entries excused: shared-types exports STORE_PERMISSIONS " +
+    "now, and the API returns each caller's resolved permissions.",
 );
 
 record(

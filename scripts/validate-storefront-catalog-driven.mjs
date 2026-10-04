@@ -503,26 +503,6 @@ const KNOWN_VOCABULARY_EXCEPTIONS = [
     reason:
       "a policy subset of PickupBlockReason — the refusals a signed-out shopper could fix by signing in (#93 client rule 10) — not a catalog vocabulary; closed by the server publishing that subset",
   },
-  // Both POS entries are one mirror of the backend role → permission matrix.
-  // They CANNOT be closed by importing the vocabulary: `packages/shared-types`
-  // exports `StorePermission` as a TYPE UNION and no runtime tuple, so a client
-  // cannot enumerate it. `packages/pos/lib/__tests__/permissions.test.ts` is
-  // what keeps the mirror in lockstep; closing these entries means shared-types
-  // gaining a `STORE_PERMISSIONS` value the backend matrix is also built from.
-  {
-    file: "packages/pos/lib/permissions.ts",
-    declaration: "ALL_PERMISSIONS",
-    count: 1,
-    reason:
-      "a client mirror of the backend role matrix, not a catalog vocabulary; shared-types exports StorePermission as a type only, so it cannot be enumerated at runtime",
-  },
-  {
-    file: "packages/pos/lib/permissions.ts",
-    declaration: "STAFF_PERMISSIONS",
-    count: 1,
-    reason:
-      "the staff row of the same mirror; same reason, and the same shared-types tuple would close both",
-  },
 ];
 
 export const KNOWN_VOCABULARY_EXCEPTION_COUNT = KNOWN_VOCABULARY_EXCEPTIONS.length;
