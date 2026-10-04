@@ -1,0 +1,220 @@
+{
+  "kind": "mercaria-explicit-cohort-independent-general-rail-v1",
+  "sourceCommit": "c515a45f9e3da040a3e7cf16eff5163a37e556d2",
+  "baselineCommit": "464ef1e29022036afba5c8342480a8c9e18ef3e0",
+  "sourceInputs": [
+    {
+      "path": "docs/integrations/i08-billing-cohort.md",
+      "bytes": 6886,
+      "sha256": "cc6302dcd437467e63efaab19837a6d983f0d4cbca7ee4cd4c42b65b96aed0ff"
+    },
+    {
+      "path": "packages/backend/src/services/billing/register.ts",
+      "bytes": 2360,
+      "sha256": "6117a4aa3a9a8e345288ef00472941ff021e40edf4fe23d04ee0b2aadd1cd5a7"
+    },
+    {
+      "path": "packages/backend/src/services/billing/stripe/cohort-reader.ts",
+      "bytes": 1425,
+      "sha256": "bc3978b9a478fb95642290327b1852d78dcc6fcad1b179e874037c864cbd989f"
+    },
+    {
+      "path": "packages/backend/src/services/billing/stripe/__tests__/cohort-reader.test.ts",
+      "bytes": 5198,
+      "sha256": "f996b2b664fcc2cfeeb739c8843a409ad5050dc260cb9adb691ec373cb574f47"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/register.test.ts",
+      "bytes": 5774,
+      "sha256": "7d0c0c13e697740bcc5aaaad47660fa28565ff34d021cbbb2a557852d21b4642"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/adapter.ts",
+      "bytes": 11207,
+      "sha256": "2f2055e5919f8b416a8933ad449e6b358a429d1d3127b1f46acefaa7a2da77b3"
+    },
+    {
+      "path": "packages/backend/src/services/billing/stripe/stripe-billing.ts",
+      "bytes": 13146,
+      "sha256": "42e6805369c124c2627f039e1852a41ddb78bdc56b0e61e2f5c9b5c106d419e8"
+    },
+    {
+      "path": "packages/backend/src/services/payments/stripe/client.ts",
+      "bytes": 19371,
+      "sha256": "60a493e2a8a61886e06181e6b4f2445192798d379179872ab8423c50bf5e6ae0"
+    },
+    {
+      "path": "packages/backend/src/services/billing/subscription.service.ts",
+      "bytes": 24022,
+      "sha256": "e0b627e34be213ee669161bfe09a39f27e1ed671e5c5c980b9d7e8adfe01bd90"
+    },
+    {
+      "path": "packages/backend/src/config/index.ts",
+      "bytes": 240179,
+      "sha256": "ac001a11f95f783ab9cb7e1528d43e96477c7c63b2a2ada2efc4bb82b5ef09de"
+    },
+    {
+      "path": "packages/backend/src/services/billing/provider.ts",
+      "bytes": 6927,
+      "sha256": "e4de5b918086941966b14d90159ca902c472f1fe430622fb9bd26395b11a350c"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/adapter.realdb.test.ts",
+      "bytes": 20296,
+      "sha256": "7578b1193896529e81505ffd42d07f89e8c82e67d09d64f438b0ac45815926fd"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/cors.test.ts",
+      "bytes": 1193,
+      "sha256": "eca2c5eaf74fab8b51c0d6baccd78c0961915b923581ce4494bed4620b545ed0"
+    },
+    {
+      "path": "packages/backend/src/routes/__tests__/peable-webhook.integration.test.ts",
+      "bytes": 16950,
+      "sha256": "acb7b090e99a8034772a952ee48147c32bf8af895f55eefe1cc682fdedb1243d"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "bytes": 2282,
+      "sha256": "4e8d18ac094a03a30b4c2914d7dd7931a4b02da85bac3fbf87432afe5918690d"
+    },
+    {
+      "path": "packages/backend/build.ts",
+      "bytes": 5488,
+      "sha256": "2f5aa2fc20203754a96adcc29f4c21ff2dceab89a79a3082d96083471ab58f78"
+    },
+    {
+      "path": "package.json",
+      "bytes": 5256,
+      "sha256": "f4baa12c8eb65b7a48f62477608815e68f3d74884002236eb1f85a30d5401a7f"
+    },
+    {
+      "path": "bun.lock",
+      "bytes": 472724,
+      "sha256": "f950d4374476c27b2b957c400545aadce0880508bf4caf68422b2155756ddbb7"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-04-cohort-independent-rail/registration-red.log",
+      "bytes": 6832,
+      "sha256": "a2fa91388a08dea5fa78af72c1badd7de3d38cc4e7710c118cd7d883fe7a15b4"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-independent-rail/historical-green-enospc.log",
+      "bytes": 48016,
+      "sha256": "b27b0fa6c4553c69339aa930189f41933591d95184a80ff07041ff5293711d21"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-independent-rail/historical-owned-pg.log",
+      "bytes": 1819,
+      "sha256": "d129957a15921c581b702a72261784c6d1ab613e175e78c1ef2fe0541f762148"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-independent-rail/historical-owned-pg.py",
+      "bytes": 4319,
+      "sha256": "b75e35adcdf949b95b88d1b2f3fb45b31bf8dc863cbb7dd4829289506285da1c"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-independent-rail/cohort-green.log",
+      "bytes": 66106,
+      "sha256": "be65e989c4638743beb344af7a9a7bbba973b4477a095e02443ee06f4124119e"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-independent-rail/owned-pg.log",
+      "bytes": 368,
+      "sha256": "093d64debcbf784f53b3c5b29137656520ccf7a16de6f5d6a94073b2a6797154"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-independent-rail/owned-pg.py",
+      "bytes": 3697,
+      "sha256": "86e34c978cd0f4ac2c1018020934b8e1807dd7f76a46a80ccbaf012dbe9b5b59"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-independent-rail/typecheck.log",
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-independent-rail/lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-independent-rail/build.log",
+      "bytes": 248,
+      "sha256": "e5b58eacf664c0e0412eadefe841189a763cf060802ee0d38ca7bf8fa297304e"
+    }
+  ],
+  "compiledOutputs": [
+    {
+      "path": "packages/backend/dist/index.js",
+      "bytes": 9771317,
+      "sha256": "6a88e6d298f0bc2470f577db59322c43fc6f5363775106a6b024b41f590300a8"
+    },
+    {
+      "path": "packages/backend/dist/db/migrate.js",
+      "bytes": 3852,
+      "sha256": "f065a7311adee792500bdd04d21e27d361608a23d7a61999890272161d96a73b"
+    },
+    {
+      "path": "packages/backend/dist/register-capability-catalog.js",
+      "bytes": 8793,
+      "sha256": "22ce7b279fec3a499fbd9f0cdf1617e6c3069776ee04f2d07f2d284257f38f4f"
+    }
+  ],
+  "results": {
+    "registrationRed": {
+      "sameFixtureAsGreen": true,
+      "baselineSourceOnly": "packages/backend/src/services/billing/register.ts",
+      "passed": 7,
+      "failed": 5,
+      "exitCode": 1
+    },
+    "finalGreen": {
+      "suites": 6,
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "typecheck": {
+      "exitCode": 0,
+      "sourceStable": true
+    },
+    "lint": {
+      "scope": "four changed TS files",
+      "maxWarnings": 0,
+      "exitCode": 0
+    },
+    "backendBuild": {
+      "exitCode": 0
+    },
+    "historicalAttempt": {
+      "billingTestsPassed": 42,
+      "unexecutedTests": 22,
+      "cause": "ENOSPC: /tmp full during app module transform; teardown error followed incomplete setup",
+      "acceptedAsFinal": false
+    },
+    "ownedPostgres": {
+      "port": 5626,
+      "pids": [
+        687575,
+        693823
+      ],
+      "finalStopped": true,
+      "note": "Actual PID for historical run must be read from historical-owned-pg.log; both logs include stopped+absence readback"
+    }
+  },
+  "boundary": {
+    "providerRequests": 0,
+    "productionDatabaseWrites": 0,
+    "deployment": false,
+    "remoteAuthority": "explicit synthetic Stripe fetch/Peable fixture responses; published SDK request encoding and real local SQL",
+    "newPrices": false,
+    "schemaOrLockChanges": false,
+    "generalStripeEnabled": false,
+    "peableCredentialPair": "explicit existing config pair; no aliases/fallback in runtime",
+    "next": "review source/CI/image, then root applies existing SSM aliases and exact cohort configuration"
+  }
+}
