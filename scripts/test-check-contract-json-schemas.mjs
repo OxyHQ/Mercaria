@@ -53,15 +53,15 @@ report(
 mustFail("a name without a schema", /absent from CONTRACT_SCHEMAS: MercariaStore\b/, (c) => {
   delete c.CONTRACT_SCHEMAS.MercariaStore;
 });
-mustFail("a schema without a name", /not in CONTRACT_JSON_SCHEMA_NAMES: MercariaLocation/, (c) => {
-  c.CONTRACT_SCHEMAS.MercariaLocation = z.object({ id: z.string() });
+mustFail("a schema without a name", /not in CONTRACT_JSON_SCHEMA_NAMES: MercariaCart/, (c) => {
+  c.CONTRACT_SCHEMAS.MercariaCart = z.object({ id: z.string() });
 });
 mustFail("a duplicated name", /duplicate name\(s\): MercariaStore/, (c) => {
   c.CONTRACT_JSON_SCHEMA_NAMES.push("MercariaStore");
 });
-mustFail("a route answering with an undeclared name", /listStoreCollections responds with `MercariaLocationPage`/, (c) => {
+mustFail("a route answering with an undeclared name", /listStoreCollections responds with `MercariaCartPage`/, (c) => {
   c.MERCARIA_PUBLIC_ROUTES.find((route) => route.operationId === "listStoreCollections").response =
-    "MercariaLocationPage";
+    "MercariaCartPage";
 });
 mustFail("a schema zod cannot convert", /mercariaJsonSchema\('MercariaStore'\) THREW/, (c) => {
   c.CONTRACT_SCHEMAS.MercariaStore = z.object({ at: z.date() }).transform((value) => value.at);

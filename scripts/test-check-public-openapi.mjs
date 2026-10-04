@@ -62,8 +62,8 @@ mustFail("a removed path", "layer 1", (d) => {
   delete d.paths["/stores/lookup"];
 });
 mustFail("an undeclared extra operation", "layer 1", (d) => {
-  d.paths["/locations"] = { get: structuredClone(d.paths["/products"].get) };
-  d.paths["/locations"].get.operationId = "listLocations";
+  d.paths["/carts"] = { get: structuredClone(d.paths["/products"].get) };
+  d.paths["/carts"].get.operationId = "listCarts";
 });
 mustFail("a renamed operationId", "layer 1", (d) => {
   d.paths["/products/{id}"].get.operationId = "readProduct";

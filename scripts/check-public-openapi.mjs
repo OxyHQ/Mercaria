@@ -49,8 +49,12 @@ export const EXPECTED_OPERATIONS = [
   ["get", "/stores/{id}", "getStore"],
   ["get", "/stores/{id}/products", "listStoreProducts"],
   ["get", "/stores/{id}/collections", "listStoreCollections"],
+  ["get", "/stores/{id}/locations", "listStoreLocations"],
   ["get", "/collections/{id}", "getCollection"],
   ["get", "/collections/{id}/products", "listCollectionProducts"],
+  ["get", "/locations", "listLocations"],
+  ["get", "/locations/{id}", "getLocation"],
+  ["get", "/locations/{id}/products", "listLocationProducts"],
   ["get", "/openapi.json", "getOpenApiDocument"],
 ];
 

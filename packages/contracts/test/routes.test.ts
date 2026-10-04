@@ -101,6 +101,22 @@ describe('the route registry', () => {
     expect(paths.indexOf('/stores/lookup')).toBeLessThan(paths.indexOf('/stores/{id}'));
   });
 
+  it('lets a GoWay consumer ask for a place’s locations, and only by place', () => {
+    const route = MERCARIA_PUBLIC_ROUTES.find((entry) => entry.operationId === 'listLocations');
+    expect(route?.query.safeParse({ goWayPlaceId: ' plc_1 ' }).data).toEqual({ goWayPlaceId: 'plc_1' });
+    expect(refusal(route!.query, {}).code).toBe('bad_request');
+    expect(refusal(route!.query, { goWayPlaceId: 'x'.repeat(129) })).toMatchObject({
+      code: 'validation_failed',
+      details: { field: 'goWayPlaceId' },
+    });
+  });
+
+  it('answers service_unavailable — never only gone — on every read that asks GoWay', () => {
+    for (const route of MERCARIA_PUBLIC_ROUTES.filter((entry) => entry.tag === 'locations' || entry.path.endsWith('/locations'))) {
+      expect(route.errors as readonly string[], route.operationId).toContain('service_unavailable');
+    }
+  });
+
   it('spells an Express path from a template', () => {
     expect(expressRoutePath('/collections/{id}/products')).toBe('/collections/:id/products');
     expect(expressRoutePath('/products')).toBe('/products');

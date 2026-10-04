@@ -23,7 +23,7 @@ import { z } from 'zod';
 import { MercariaIdSchema } from './primitives';
 
 /** The entity kinds a portable reference can name. */
-export const MERCARIA_REF_KINDS = ['product', 'variant', 'store', 'collection'] as const;
+export const MERCARIA_REF_KINDS = ['product', 'variant', 'store', 'collection', 'location'] as const;
 export type MercariaRefKind = (typeof MERCARIA_REF_KINDS)[number];
 
 /** A sellable product, by its globally unique id. */
@@ -50,11 +50,21 @@ const collectionRef = z.object({ kind: z.literal('collection'), id: MercariaIdSc
 export const MercariaCollectionRefSchema = collectionRef.readonly();
 export type MercariaCollectionRef = z.infer<typeof MercariaCollectionRefSchema>;
 
+/**
+ * One of a store's physical locations — a shop front — by its globally unique
+ * id. Where it IS belongs to the GoWay place it trades from, which the location
+ * names; the ref names the Mercaria location and nothing about the building.
+ */
+const locationRef = z.object({ kind: z.literal('location'), id: MercariaIdSchema });
+export const MercariaLocationRefSchema = locationRef.readonly();
+export type MercariaLocationRef = z.infer<typeof MercariaLocationRefSchema>;
+
 /** Any portable Mercaria reference, as a consumer persisted it: exactly the contract's keys. */
 export const MercariaRefSchema = z.discriminatedUnion('kind', [
   productRef.strict().readonly(),
   variantRef.strict().readonly(),
   storeRef.strict().readonly(),
   collectionRef.strict().readonly(),
+  locationRef.strict().readonly(),
 ]);
 export type MercariaRef = z.infer<typeof MercariaRefSchema>;

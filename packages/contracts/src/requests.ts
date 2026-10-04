@@ -91,6 +91,25 @@ export const MercariaProductSearchQuerySchema = refusingRelevanceWithoutQuery({
 /** `GET /stores/{id}/products`. */
 export const MercariaStoreProductsQuerySchema = refusingRelevanceWithoutQuery(productListShape);
 
+/** `GET /locations/{id}/products`: the store-products filters, with `inStock` read at the location. */
+export const MercariaLocationProductsQuerySchema = refusingRelevanceWithoutQuery({
+  ...productListShape,
+  inStock: productListShape.inStock.describe(
+    '`true` keeps products in stock at this location (`in_stock` or `low_stock`); `false` filters nothing.',
+  ),
+});
+
+/** `GET /locations`. */
+export const MercariaLocationListQuerySchema = z.strictObject({
+  ...pageShape,
+  goWayPlaceId: z
+    .string()
+    .trim()
+    .min(1)
+    .max(128)
+    .describe('The GoWay place whose Mercaria locations to list. Required: there is no list of every location.'),
+});
+
 /** `GET /stores/{id}/collections` and `GET /collections/{id}/products`. */
 export const MercariaPageQuerySchema = z.strictObject(pageShape);
 

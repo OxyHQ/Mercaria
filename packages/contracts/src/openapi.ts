@@ -165,7 +165,7 @@ export function mercariaPublicOpenApiDocument(): OpenApiDocument {
       title: 'Mercaria public API',
       version: MERCARIA_PUBLIC_API_VERSION,
       description:
-        'Read-only commerce data for other Oxy applications: products, stores and collections. ' +
+        'Read-only commerce data for other Oxy applications: products, stores, collections and locations. ' +
         'Success bodies are the value itself; every error is `{ "error": { "code", "message", "details"? } }`. ' +
         `Lists are \`{ items, nextCursor }\` and end at ${MERCARIA_PUBLIC_LIST_MAX_OFFSET} items. ` +
         'Generated from `@mercaria/contracts`; `@mercaria.co/sdk` is the supported client.',

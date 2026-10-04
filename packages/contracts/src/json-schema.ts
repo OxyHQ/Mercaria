@@ -23,10 +23,17 @@ import {
   MercariaStoreSchema,
 } from './catalog';
 import { MercariaErrorBodySchema } from './errors';
-import { MercariaCollectionPageSchema, MercariaProductSummaryPageSchema } from './pagination';
+import { MercariaLocationProductSchema, MercariaLocationSchema } from './locations';
+import {
+  MercariaCollectionPageSchema,
+  MercariaLocationPageSchema,
+  MercariaLocationProductPageSchema,
+  MercariaProductSummaryPageSchema,
+} from './pagination';
 import { MercariaImageSchema, MercariaMoneySchema } from './primitives';
 import {
   MercariaCollectionRefSchema,
+  MercariaLocationRefSchema,
   MercariaProductRefSchema,
   MercariaRefSchema,
   MercariaStoreRefSchema,
@@ -51,6 +58,7 @@ export const CONTRACT_JSON_SCHEMA_NAMES = [
   'MercariaVariantRef',
   'MercariaStoreRef',
   'MercariaCollectionRef',
+  'MercariaLocationRef',
   'MercariaRef',
   'MercariaProductCondition',
   'MercariaSeller',
@@ -59,8 +67,12 @@ export const CONTRACT_JSON_SCHEMA_NAMES = [
   'MercariaProduct',
   'MercariaStore',
   'MercariaCollection',
+  'MercariaLocation',
+  'MercariaLocationProduct',
   'MercariaProductSummaryPage',
   'MercariaCollectionPage',
+  'MercariaLocationPage',
+  'MercariaLocationProductPage',
   'MercariaErrorBody',
   'MercariaOpenApiDocument',
 ] as const;
@@ -79,6 +91,7 @@ export const CONTRACT_SCHEMAS = {
   MercariaVariantRef: MercariaVariantRefSchema,
   MercariaStoreRef: MercariaStoreRefSchema,
   MercariaCollectionRef: MercariaCollectionRefSchema,
+  MercariaLocationRef: MercariaLocationRefSchema,
   MercariaRef: MercariaRefSchema,
   MercariaProductCondition: MercariaProductConditionSchema,
   MercariaSeller: MercariaSellerSchema,
@@ -87,8 +100,12 @@ export const CONTRACT_SCHEMAS = {
   MercariaProduct: MercariaProductSchema,
   MercariaStore: MercariaStoreSchema,
   MercariaCollection: MercariaCollectionSchema,
+  MercariaLocation: MercariaLocationSchema,
+  MercariaLocationProduct: MercariaLocationProductSchema,
   MercariaProductSummaryPage: MercariaProductSummaryPageSchema,
   MercariaCollectionPage: MercariaCollectionPageSchema,
+  MercariaLocationPage: MercariaLocationPageSchema,
+  MercariaLocationProductPage: MercariaLocationProductPageSchema,
   MercariaErrorBody: MercariaErrorBodySchema,
   MercariaOpenApiDocument: MercariaOpenApiDocumentSchema,
 } as const satisfies Record<ContractJsonSchemaName, z.ZodType>;

@@ -16,10 +16,9 @@
  * `/stores/lookup` sits before `/stores/{id}` or `lookup` would be read as an
  * id. Paths are OpenAPI templates relative to {@link MERCARIA_PUBLIC_API_BASE_PATH}.
  *
- * Adding a list (the coming `locations` reads, for one) is a cursor kind in
- * `pagination.ts`, its page schema in `json-schema.ts`, an entry here and a
- * handler in the backend — the compiler and the freshness gate name every
- * place that is missed.
+ * Adding a list is a cursor kind in `pagination.ts`, its page schema in
+ * `json-schema.ts`, an entry here and a handler in the backend — the compiler
+ * and the freshness gate name every place that is missed.
  */
 
 import type { z } from 'zod';
@@ -28,6 +27,8 @@ import type { MercariaPublicErrorCode } from './errors';
 import type { MercariaPublicCursorKind } from './pagination';
 import {
   MercariaIdParamsSchema,
+  MercariaLocationListQuerySchema,
+  MercariaLocationProductsQuerySchema,
   MercariaNoQuerySchema,
   MercariaPageQuerySchema,
   MercariaProductSearchQuerySchema,
@@ -44,7 +45,7 @@ export const MERCARIA_PUBLIC_API_VERSION = '1.0.0' as const;
 /** The production origin the OpenAPI document names as its server. */
 export const MERCARIA_PUBLIC_API_ORIGIN = 'https://api.mercaria.co' as const;
 
-export const MERCARIA_PUBLIC_ROUTE_TAGS = ['products', 'stores', 'collections', 'meta'] as const;
+export const MERCARIA_PUBLIC_ROUTE_TAGS = ['products', 'stores', 'collections', 'locations', 'meta'] as const;
 export type MercariaPublicRouteTag = (typeof MERCARIA_PUBLIC_ROUTE_TAGS)[number];
 
 /** One operation. */
@@ -76,6 +77,14 @@ export interface MercariaPublicRoute {
 export const MERCARIA_PUBLIC_UNIVERSAL_ERRORS = ['bad_request', 'rate_limited', 'internal_error'] as const;
 
 const ENTITY_ERRORS = ['not_found', 'gone'] as const;
+
+/**
+ * A location read asks GoWay whether the location's place still names it back
+ * (Mercaria ADR 0013). When GoWay cannot answer and nothing recent is cached,
+ * the answer is `service_unavailable` — never `gone`, which a consumer may act
+ * on by discarding a reference that is still good.
+ */
+const LOCATION_ERRORS = [...ENTITY_ERRORS, 'service_unavailable'] as const;
 
 export const MERCARIA_PUBLIC_ROUTES = [
   {
@@ -161,6 +170,21 @@ export const MERCARIA_PUBLIC_ROUTES = [
     errors: ['validation_failed', ...ENTITY_ERRORS],
   },
   {
+    operationId: 'listStoreLocations',
+    method: 'get',
+    path: '/stores/{id}/locations',
+    tag: 'stores',
+    summary: 'List a store’s locations',
+    description:
+      'One live store’s public shop fronts: published, live, unrestricted, and named back by their ' +
+      'GoWay place. Read each one’s place facts from GoWay with `goWayPlaceId`.',
+    params: MercariaIdParamsSchema,
+    query: MercariaPageQuerySchema,
+    response: 'MercariaLocationPage',
+    cursorKind: 'store-locations',
+    errors: ['validation_failed', ...LOCATION_ERRORS],
+  },
+  {
     operationId: 'getCollection',
     method: 'get',
     path: '/collections/{id}',
@@ -185,6 +209,52 @@ export const MERCARIA_PUBLIC_ROUTES = [
     response: 'MercariaProductSummaryPage',
     cursorKind: 'collection-products',
     errors: ['validation_failed', ...ENTITY_ERRORS],
+  },
+  {
+    operationId: 'listLocations',
+    method: 'get',
+    path: '/locations',
+    tag: 'locations',
+    summary: 'List the Mercaria locations at a GoWay place',
+    description:
+      'The public shop fronts trading from one GoWay place — what a map shows "products at this store" ' +
+      'from. A place that names no live location answers an empty page, never 404.',
+    params: null,
+    query: MercariaLocationListQuerySchema,
+    response: 'MercariaLocationPage',
+    cursorKind: 'locations',
+    errors: ['validation_failed', 'service_unavailable'],
+  },
+  {
+    operationId: 'getLocation',
+    method: 'get',
+    path: '/locations/{id}',
+    tag: 'locations',
+    summary: 'Read one location',
+    description:
+      'A shop front’s Mercaria half: its store, its collection terms and whether discovery routes ' +
+      'shoppers to it. A withdrawn, restricted or no-longer-linked location, or one whose store is ' +
+      'not live, is a 410; one never published is a 404.',
+    params: MercariaIdParamsSchema,
+    query: MercariaNoQuerySchema,
+    response: 'MercariaLocation',
+    cursorKind: null,
+    errors: LOCATION_ERRORS,
+  },
+  {
+    operationId: 'listLocationProducts',
+    method: 'get',
+    path: '/locations/{id}/products',
+    tag: 'locations',
+    summary: 'List the products at a location',
+    description:
+      'The store’s publicly live products stocked at this location, each with a bounded availability ' +
+      'there. The location’s own gate applies first.',
+    params: MercariaIdParamsSchema,
+    query: MercariaLocationProductsQuerySchema,
+    response: 'MercariaLocationProductPage',
+    cursorKind: 'location-products',
+    errors: ['validation_failed', ...LOCATION_ERRORS],
   },
   {
     operationId: 'getOpenApiDocument',

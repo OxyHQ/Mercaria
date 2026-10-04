@@ -6,6 +6,9 @@ import {
   MERCARIA_PUBLIC_ROUTES,
   MercariaCollectionPageSchema,
   MercariaErrorBodySchema,
+  MercariaLocationProductPageSchema,
+  MercariaLocationProductSchema,
+  MercariaLocationSchema,
   MercariaProductSchema,
   MercariaProductSummaryPageSchema,
   MercariaRefSchema,
@@ -13,6 +16,7 @@ import {
   mercariaErrorBody,
   mercariaJsonSchema,
   type MercariaCollection,
+  type MercariaLocationProduct,
   type MercariaPage,
   type MercariaProductSummary,
 } from '../src/index';
@@ -114,6 +118,48 @@ describe('response schemas', () => {
   });
 });
 
+export function locationWire(id = 'loc_1'): Record<string, unknown> {
+  return {
+    ref: { kind: 'location', id },
+    goWayPlaceId: 'plc_1',
+    store: { ref: { kind: 'store', id: 'store_1' }, handle: 'night-city-games', name: 'Night City Games', logoUrl: null },
+    pickup: { identityRequirement: 'collection_code', paymentRequirement: 'prepaid', instructions: null },
+    discoverable: true,
+    url: `https://mercaria.co/stores/night-city-games?location=${id}`,
+  };
+}
+
+describe('location schemas', () => {
+  it('parse a location and drop what the contract does not name — a place fact included', () => {
+    const parsed = MercariaLocationSchema.parse({ ...locationWire(), address: { line1: 'Leaked' }, openingHours: [] });
+    expect('address' in parsed).toBe(false);
+    expect('openingHours' in parsed).toBe(false);
+    expect(Object.isFrozen(parsed.ref)).toBe(true);
+  });
+
+  it('take null pickup terms for a location that offers no collection, and refuse an unknown requirement', () => {
+    expect(MercariaLocationSchema.safeParse({ ...locationWire(), pickup: null }).success).toBe(true);
+    const wire = locationWire();
+    (wire.pickup as Record<string, unknown>).paymentRequirement = 'pay_in_store';
+    expect(issuePaths(MercariaLocationSchema.safeParse(wire))).toEqual(['pickup.paymentRequirement']);
+  });
+
+  it('bound availability to three words, and the exact count to a non-negative integer that may be absent', () => {
+    const item = { product: productWire(), availability: 'low_stock', stockConfirmedAt: '2026-09-01T12:00:00.000Z' };
+    const parsed: MercariaLocationProduct = MercariaLocationProductSchema.parse(item);
+    expect('exactQuantity' in parsed).toBe(false);
+    expect(MercariaLocationProductSchema.parse({ ...item, exactQuantity: 2 }).exactQuantity).toBe(2);
+    expect(
+      issuePaths(MercariaLocationProductSchema.safeParse({ ...item, availability: 'sold', exactQuantity: -1 })).sort(),
+    ).toEqual(['availability', 'exactQuantity']);
+  });
+
+  it('page like every other list', () => {
+    const item = { product: productWire(), availability: 'in_stock', stockConfirmedAt: '2026-09-01T12:00:00.000Z' };
+    expect(MercariaLocationProductPageSchema.parse({ items: [item], nextCursor: 'abc' }).items).toHaveLength(1);
+  });
+});
+
 describe('refs', () => {
   it('in a response drop an added key, like every response object', () => {
     const parsed = MercariaProductSchema.parse({ ...productWire(), ref: { kind: 'product', id: 'prod_1', handle: 'h' } });
@@ -125,6 +171,8 @@ describe('refs', () => {
     expect(MercariaRefSchema.safeParse({ kind: 'product', id: 'p', title: 'snapshot' }).success).toBe(false);
     expect(MercariaRefSchema.safeParse({ kind: 'product', id: '   ' }).success).toBe(false);
     expect(MercariaRefSchema.safeParse({ kind: 'listing', id: 'p' }).success).toBe(false);
+    expect(MercariaRefSchema.safeParse({ kind: 'location', id: 'l' }).success).toBe(true);
+    expect(MercariaRefSchema.safeParse({ kind: 'location', id: 'l', goWayPlaceId: 'plc' }).success).toBe(false);
   });
 });
 

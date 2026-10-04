@@ -12,6 +12,7 @@
 
 import { z } from 'zod';
 import { MercariaCollectionSchema, MercariaProductSummarySchema } from './catalog';
+import { MercariaLocationProductSchema, MercariaLocationSchema } from './locations';
 
 /** The largest page a public list read serves. */
 export const MERCARIA_PUBLIC_PAGE_LIMIT_MAX = 50;
@@ -30,6 +31,9 @@ export const MERCARIA_PUBLIC_CURSOR_KINDS = [
   'store-products',
   'store-collections',
   'collection-products',
+  'locations',
+  'store-locations',
+  'location-products',
 ] as const;
 export type MercariaPublicCursorKind = (typeof MERCARIA_PUBLIC_CURSOR_KINDS)[number];
 
@@ -59,3 +63,5 @@ export type MercariaPage<Item> = { [Key in keyof PageEnvelope]: Key extends 'ite
 
 export const MercariaProductSummaryPageSchema = mercariaPageSchema(MercariaProductSummarySchema);
 export const MercariaCollectionPageSchema = mercariaPageSchema(MercariaCollectionSchema);
+export const MercariaLocationPageSchema = mercariaPageSchema(MercariaLocationSchema);
+export const MercariaLocationProductPageSchema = mercariaPageSchema(MercariaLocationProductSchema);
