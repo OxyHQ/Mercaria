@@ -38,7 +38,7 @@ vi.mock('../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
 }));
 vi.mock('../db/stores/storeRepository.js', () => ({
-  findStoreMember: vi.fn(),
+  findStoreById: vi.fn(),
 }));
 
 const getSocketAdapterClients = vi.fn();

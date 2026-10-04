@@ -1,7 +1,6 @@
 import type { StorePermission } from '@mercaria/shared-types';
 
 import { findStoreById } from '../db/stores/storeRepository.js';
-import { effectivePermissions } from '../middleware/store-authz.js';
 
 const STORE_TOOL_PERMISSIONS: Readonly<Record<string, StorePermission>> = {
   listStoreOrders: 'orders:read',
@@ -21,10 +20,14 @@ function stringInput(input: Readonly<Record<string, unknown>>, key: string): str
 /**
  * Recalculate Mercaria-owned authority at execution time.
  *
- * Oxy decides who may use the catalog capability. Mercaria remains authoritative
- * for mutable store membership and permissions, so removing a member or their
- * refund permission blocks the next invocation without waiting for a token to
- * expire.
+ * Oxy decides who may use the catalog capability, and who belongs to the Oxy
+ * account that owns a store (ADR 0012). A capability invocation carries the
+ * EFFECTIVE account and no caller session to ask Oxy with, so a store tool is
+ * allowed only when that account IS the store's owning account — which holds
+ * every permission. A person who wants an agent to act for an organization's
+ * store has the agent act as the organization, and Oxy authorizes that act.
+ * Re-read on every invocation, so moving a store to another account blocks the
+ * next call without waiting for a ticket to expire.
  */
 export async function authorizeMercariaCatalogInvocation(
   toolName: string,
@@ -44,10 +47,8 @@ export async function authorizeMercariaCatalogInvocation(
 
   const store = await findStoreById(storeId);
   if (!store) return { allowed: false, reason: 'store_not_found' };
-  const membership = store.members.find(({ oxyUserId }) => oxyUserId === effectiveAccountId);
-  if (!membership) return { allowed: false, reason: 'store_membership_required' };
-  if (!effectivePermissions(membership).has(requiredPermission)) {
-    return { allowed: false, reason: `missing_store_permission:${requiredPermission}` };
+  if (store.oxyAccountId !== effectiveAccountId) {
+    return { allowed: false, reason: 'store_owner_account_required' };
   }
   return { allowed: true };
 }

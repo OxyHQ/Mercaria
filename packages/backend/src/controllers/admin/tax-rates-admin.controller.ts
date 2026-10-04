@@ -89,8 +89,13 @@ export async function deleteStoreTaxRate(req: Request, res: Response): Promise<v
 /** PATCH /admin/stores/:storeId/settings/tax — patch the store's tax settings. */
 export async function patchStoreTaxSettings(req: Request, res: Response): Promise<void> {
   try {
+    const access = req.storeAccess;
+    if (!access) {
+      respondWithError(res, undefined, 'Store not loaded');
+      return;
+    }
     const store = await updateTaxSettings(storeId(req), req.body as UpdateTaxSettingsInput);
-    sendSuccess(res, toStoreDTO(store));
+    sendSuccess(res, toStoreDTO(store, access));
   } catch (err) {
     log.general.error({ err }, 'Failed to update store tax settings');
     respondWithError(res, err, 'Failed to update tax settings');

@@ -14,7 +14,7 @@ import {
  *
  * `mergeParams` so `:storeId` is visible. The parent already ran
  * `authenticateToken` → `loadStore` (and `/admin` applies the admin limiter), so
- * `req.store`/`req.storeMembership` are set. EVERY route is gated on
+ * `req.store`/`req.storeAccess` are set. EVERY route is gated on
  * `channels:write` (owner + admin only; staff never configure integrations) —
  * the same gate as the channels routers. Minting is additionally metered on the
  * shared `channels` scope since it creates a durable credential. The plaintext

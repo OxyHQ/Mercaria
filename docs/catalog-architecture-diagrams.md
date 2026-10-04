@@ -96,6 +96,7 @@ flowchart LR
         M_Digital_licences_and_buyer_rights["Digital licences and buyer rights"]
         M_Digital_retail_supply["Digital retail supply"]
         M_Digital_retail_procurement_and_fulfilment["Digital retail procurement and fulfilment"]
+        M_Store_access["Store access"]
     end
     subgraph outside["Pre-existing tables the epic attaches to"]
         direction TB
@@ -183,6 +184,7 @@ flowchart LR
     M_Digital_retail_supply --> X_suppliers
     M_Digital_retail_procurement_and_fulfilment --> X_supplier_accounts
     M_Digital_retail_procurement_and_fulfilment --> X_suppliers
+    M_Store_access --> X_stores
 ```
 
 **2 foreign keys point the other way** — from a table outside the epic into
@@ -197,7 +199,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**18 modules**, **16 writing directories**,
+**19 modules**, **17 writing directories**,
 **4 tables written from more than one directory** and
 **4 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -218,6 +220,7 @@ flowchart LR
     W_db_discovery["db/discovery"]
     W_db_navigation["db/navigation"]
     W_db_productTypes["db/productTypes"]
+    W_db_stores["db/stores"]
     W_db_taxonomy["db/taxonomy"]
     W_db_variantAxes["db/variantAxes"]
     W_scripts_seed_verticals["scripts/seed-verticals"]
@@ -240,6 +243,7 @@ flowchart LR
     M_Digital_licences_and_buyer_rights(["Digital licences and buyer rights"])
     M_Digital_retail_supply(["Digital retail supply"])
     M_Digital_retail_procurement_and_fulfilment(["Digital retail procurement and fulfilment"])
+    M_Store_access(["Store access"])
     W_db_catalog -->|"1"| M_Connector_pins
     W_db_catalog -->|"1"| M_Native_variant_images
     W_db_catalogAuthoring -->|"4"| M_Authoring
@@ -257,6 +261,7 @@ flowchart LR
     W_db_discovery -->|"2"| M_Discovery
     W_db_navigation -->|"5"| M_Navigation
     W_db_productTypes -->|"5"| M_Product_types
+    W_db_stores -->|"1"| M_Store_access
     W_db_taxonomy -->|"2"| M_Classification
     W_db_taxonomy -->|"3"| M_Taxonomy
     W_db_variantAxes -->|"5"| M_Variant_axes_and_claims
@@ -318,7 +323,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 84 tables created by a migration at or after `0088`
+All 85 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -959,6 +964,21 @@ Also names, from outside the epic: `supplier_accounts`, `suppliers`.
 | `digital_fulfilment_reveals` | `0157` | `db/digitalRetail` (insert) |
 | `digital_fulfilment_incidents` | `0157` | `db/digitalRetail` (insert/update) |
 
+### Store access
+
+```mermaid
+erDiagram
+    store_permission_overrides {
+    }
+    stores ||--o{ store_permission_overrides : "store_id · cascade"
+```
+
+Also names, from outside the epic: `stores`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `store_permission_overrides` | `0158` | `db/stores` (delete/insert) |
+
 ## 4. What the derivation found
 
 Counts, so that a diagram that quietly stopped measuring anything is visible as a number that
@@ -966,18 +986,18 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 84 |
-| Modules they are grouped into | 18 |
-| Foreign keys out of an epic table | 177 |
+| Tables in the population | 85 |
+| Modules they are grouped into | 19 |
+| Foreign keys out of an epic table | 178 |
 | Foreign keys into one, from outside the epic | 2 |
 | Pre-existing tables the epic attaches to | 20 |
 | Relationships the schema proves are 1:1 | 3 |
 | Relationships whose parent is optional (nullable FK) | 82 |
-| Directories that write an epic table | 16 |
+| Directories that write an epic table | 17 |
 | Tables written from more than one directory | 4 |
 | Tables no application code writes | 4 |
 
-`ON DELETE` across those 177 foreign keys: **44** `cascade`, **2** `no action`, **128** `restrict`, **3** `set null`.
+`ON DELETE` across those 178 foreign keys: **45** `cascade`, **2** `no action`, **128** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 

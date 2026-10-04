@@ -439,6 +439,7 @@ describe('seller identity spans two identity systems', () => {
     const [store] = await db
       .insert(stores)
       .values({
+        oxyAccountId: 'oxy-account-fixture',
         handle: `store-${RUN}`,
         name: `Store ${RUN}`,
         description: 'A fixture store',

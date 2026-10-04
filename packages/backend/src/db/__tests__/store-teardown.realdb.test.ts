@@ -58,16 +58,14 @@ afterAll(async () => {
 /** A store with an `owner` member — the shape every fixture in this suite creates. */
 async function seedStore(label: string): Promise<string> {
   const suffix = `${RUN}-${label}`;
-  const store = await insertStore(
-    {
-      handle: `store-teardown-${suffix}`,
-      name: `Store teardown ${suffix}`,
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: `owner-${suffix}`,
+    handle: `store-teardown-${suffix}`,
+    name: `Store teardown ${suffix}`,
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   return store.id;
 }
 

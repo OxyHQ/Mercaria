@@ -151,8 +151,8 @@ function tsOrNull(value: Date | null): SQL {
 async function insertStore(tx: Transaction, scope: string): Promise<string> {
   const storeId = id(scope, 'store');
   await tx.execute(sql`
-    insert into stores (id, handle, name, description, brand_color)
-    values (${storeId}, ${storeId}, ${'Trace probe store'}, ${'A #367 W17 fixture.'}, ${'#123456'})
+    insert into stores (id, oxy_account_id, handle, name, description, brand_color)
+    values (${storeId}, 'oxy-account-fixture', ${storeId}, ${'Trace probe store'}, ${'A #367 W17 fixture.'}, ${'#123456'})
   `);
   return storeId;
 }

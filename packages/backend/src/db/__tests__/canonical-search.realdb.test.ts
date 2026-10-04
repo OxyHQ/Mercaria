@@ -437,6 +437,7 @@ beforeAll(async () => {
   const [store] = await db
     .insert(stores)
     .values({
+      oxyAccountId: 'oxy-account-fixture',
       handle: `zystore-${RUN}`,
       name: `Zystore ${RUN}`,
       description: '',

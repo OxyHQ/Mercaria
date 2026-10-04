@@ -29,7 +29,7 @@ import {
  * `/admin/stores/:storeId/draft-orders`.
  *
  * `mergeParams` so `:storeId` is visible. The parent router has already run
- * `authenticateToken` → `loadStore`, so `req.store`/`req.storeMembership` are set.
+ * `authenticateToken` → `loadStore`, so `req.store`/`req.storeAccess` are set.
  * Every route is gated on the dedicated `draft_orders:write` permission (owner,
  * admin and staff hold it — staff run the POS). `PATCH /:id` updates the draft's
  * note/shipping address; line/discount/customer ops + cancel/complete are explicit

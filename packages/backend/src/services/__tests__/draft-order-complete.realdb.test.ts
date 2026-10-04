@@ -141,16 +141,14 @@ async function seedScenario(quantity = 2): Promise<Scenario> {
   // minted in the same millisecond share their leading characters and a truncated
   // suffix collides with `stores_handle_key`.
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `pos-store-${suffix}`,
-      name: 'POS Test Store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: CURRENCY,
-    },
-    [{ oxyUserId: ACTOR_OXY_USER_ID, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: ACTOR_OXY_USER_ID,
+    handle: `pos-store-${suffix}`,
+    name: 'POS Test Store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: CURRENCY,
+  });
   const storeId = store.id;
   seededStoreIds.push(storeId);
 

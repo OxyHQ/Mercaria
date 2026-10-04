@@ -388,16 +388,14 @@ async function oneDiscrepancy(kind: PaymentDiscrepancyKind, correlationKey: stri
 async function seedSeller(label: string) {
   const suffix = `${label}-${RUN}-${uuidv7()}`;
   const ownerId = `owner-${suffix}`;
-  const store = await insertStore(
-    {
-      handle: `recon-${suffix}`,
-      name: 'Reconciliation store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'EUR',
-    },
-    [{ oxyUserId: ownerId, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: ownerId,
+    handle: `recon-${suffix}`,
+    name: 'Reconciliation store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'EUR',
+  });
   const location = await insertLocation(store.id, {
     name: 'Warehouse',
     type: 'warehouse',

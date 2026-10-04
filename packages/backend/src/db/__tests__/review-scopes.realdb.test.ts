@@ -187,6 +187,7 @@ async function makeStore(): Promise<string> {
   const id = uuidv7();
   const suffix = `${RUN}-${id.slice(-8)}`;
   await db.insert(stores).values({
+    oxyAccountId: 'oxy-account-fixture',
     id,
     name: `RS Store ${suffix}`,
     handle: `rs-store-${suffix}`,

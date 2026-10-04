@@ -19,7 +19,7 @@ import {
  * Store collections sub-router, mounted at `/admin/stores/:storeId/collections`.
  *
  * `mergeParams` so `:storeId` is visible. The parent router has already run
- * `authenticateToken` → `loadStore`, so `req.store`/`req.storeMembership` are set.
+ * `authenticateToken` → `loadStore`, so `req.store`/`req.storeAccess` are set.
  * Reads are gated on `products:read`; writes on the dedicated `collections:write`
  * permission (owner + admin hold it by default). Membership materialization onto
  * `Listing.collectionIds` is enforced in `collection.service`.

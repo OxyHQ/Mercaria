@@ -8,10 +8,10 @@
  * — including the combinations that are hard to construct and easy to get
  * wrong.
  *
- * ## Every query here is a first-party membership or claim
+ * ## Every query here is a first-party ownership or claim
  *
- * A store membership (`store_members`, #142's own admin model) and a VERIFIED
- * merchant claim (`merchant_claims`, #83). Nothing else. There is no email
+ * A store's owning Oxy account and its permission overrides (ADR 0012) and a
+ * VERIFIED merchant claim (`merchant_claims`, #83). Nothing else. There is no email
  * comparison, no address comparison, no card lookup and no payment-domain
  * query, and ADR 0005 D7's *"deliberately nothing else"* is what the
  * `ReferralSelfReferralFacts` return type makes checkable.
@@ -39,7 +39,7 @@ import {
   type ReferralSubjectKind,
 } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../../../db/postgres.js';
-import { storeMembers } from '../../../db/schema/stores.js';
+import { storePermissionOverrides, stores } from '../../../db/schema/stores.js';
 import { merchantClaims } from '../../../db/schema/merchantClaims.js';
 import { referralPartnerApplications } from '../../../db/schema/referrals.js';
 import { referralEnforcementActions } from '../../../db/schema/referralIntegrity.js';
@@ -55,25 +55,43 @@ export interface SelfReferralSubject {
 }
 
 /**
- * Whether an Oxy account holds ANY membership in a store.
+ * Whether an Oxy account can act for a store, AS FAR AS MERCARIA'S OWN ROWS SAY.
  *
- * ADR 0005 D7 says *"any membership (owner/admin/staff)"*, so this asks about
- * the ROW's existence rather than about the role. Narrowing it to `owner` would
- * let a staff member of the referring store buy through their own code, which
- * is the leak D8's hard exclusion exists to close from the other side.
+ * ADR 0005 D7 asks about "any membership (owner/admin/staff)" — a person who can
+ * act for the referring store must not buy through its code. Since ADR 0012 who
+ * can act for a store is the owning Oxy account's membership, which only Oxy
+ * holds, and this directory makes no outbound call (WALL 6 of
+ * `referral-integrity-isolation.test.ts`; the attribution job has no caller's
+ * session to ask with anyway). So the answer has three values:
+ *
+ *  - `true` — the account IS the store's owning account, or holds a permission
+ *    override on it (an exception is only ever recorded for one of the store's
+ *    people);
+ *  - `undefined` — anything else. NOT `false`: a member of an owning
+ *    organization with no override is invisible here, and saying "checked, not
+ *    related" would assert a check nobody could perform.
  */
-async function holdsStoreMembership(
+async function canActForStore(
   db: DatabaseOrTransaction,
   input: { storeId: string; oxyUserId: string },
-): Promise<boolean> {
-  const [row] = await db
+): Promise<true | undefined> {
+  const [owned] = await db
     .select({ one: sql<number>`1` })
-    .from(storeMembers)
+    .from(stores)
+    .where(and(eq(stores.id, input.storeId), eq(stores.oxyAccountId, input.oxyUserId)))
+    .limit(1);
+  if (owned !== undefined) return true;
+  const [override] = await db
+    .select({ one: sql<number>`1` })
+    .from(storePermissionOverrides)
     .where(
-      and(eq(storeMembers.storeId, input.storeId), eq(storeMembers.oxyUserId, input.oxyUserId)),
+      and(
+        eq(storePermissionOverrides.storeId, input.storeId),
+        eq(storePermissionOverrides.oxyUserId, input.oxyUserId),
+      ),
     )
     .limit(1);
-  return row !== undefined;
+  return override !== undefined ? true : undefined;
 }
 
 /**
@@ -105,9 +123,9 @@ async function administersMerchant(
 /**
  * The facts, for one partner and one subject.
  *
- * A `store` partner has no single Oxy account, so `same_oxy_actor` is asked as
- * *"does the converting account hold membership in the partner store"* — which
- * is exactly D7's own wording and is why the same query serves both halves.
+ * A `store` partner is owned by an Oxy account rather than being one, so
+ * `same_oxy_actor` is asked as *"can the converting account act for the
+ * partner store"* — D7's own wording, answered as far as Mercaria can see.
  */
 export async function collectSelfReferralFacts(
   db: DatabaseOrTransaction,
@@ -123,7 +141,7 @@ export async function collectSelfReferralFacts(
     if (partner.ownerType === 'user') {
       facts.subjectIsPartnerOwner = partner.ownerId === subject.oxyUserId;
     } else {
-      facts.subjectIsPartnerOwner = await holdsStoreMembership(db, {
+      facts.subjectIsPartnerOwner = await canActForStore(db, {
         storeId: partner.ownerId,
         oxyUserId: subject.oxyUserId,
       });

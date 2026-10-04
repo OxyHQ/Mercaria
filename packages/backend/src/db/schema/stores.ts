@@ -1,13 +1,14 @@
 /**
  * The seller organization and everything scoped to one: `stores`,
- * `store_members`, `locations`, `tax_rates`, `customers`.
+ * `store_permission_overrides`, `locations`, `tax_rates`, `customers`.
  *
  * A store is the root of most of this schema's foreign keys, so it lands first.
  * Its Mongoose model embedded four things — the member list, the policy set, the
- * tax settings and the notification settings. Only the MEMBER list becomes a
- * table: it is a collection of entities that is queried by element
- * (`{'members.oxyUserId': 1}` is the hot path on every admin request). The other
- * three are single fixed-shape objects and become flat columns.
+ * tax settings and the notification settings. The policy, tax and notification
+ * objects are single fixed-shape objects and became flat columns. The member
+ * list is GONE (ADR 0012): a store is owned by an Oxy account
+ * (`stores.oxy_account_id`), Oxy decides who belongs to that account and in
+ * which role, and Mercaria keeps only per-person EXCEPTIONS to the role map.
  *
  * ## ON DELETE, stated against the real Mongo delete paths
  *
@@ -19,9 +20,10 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { boolean, doublePrecision, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, check, doublePrecision, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
-import type { LocationType, StorePermission, StoreRole, TextTone } from '@mercaria/shared-types';
+import { STORE_PERMISSIONS } from '@mercaria/shared-types';
+import type { LocationType, StorePermission, TextTone } from '@mercaria/shared-types';
 import {
   asEnumValues,
   checkEveryElementOf,
@@ -33,42 +35,6 @@ import {
 
 /** `Store.status`. */
 export const STORE_STATUSES = ['active', 'suspended', 'closed'] as const;
-
-/** `StoreMember.role`. */
-export const STORE_ROLES: readonly StoreRole[] = ['owner', 'admin', 'staff'];
-
-/**
- * `StoreMember.permissions` element.
- *
- * Eighteen values, and THIS list is the authority — the column's CHECK is built
- * from it, and `middleware/schemas.ts` and `middleware/store-authz.ts` both read
- * it rather than restating it.
- *
- * `analytics:read` (#86) is the newest and the only one an ADMIN holds that
- * STAFF does not get by default beside the six configuration permissions: it
- * answers "what is the market doing around my products" rather than "how did my
- * shop trade", which is what `stats:read` answers and what a shop floor needs.
- */
-export const STORE_PERMISSIONS: readonly StorePermission[] = [
-  'store:manage',
-  'members:manage',
-  'products:read',
-  'products:write',
-  'inventory:write',
-  'locations:write',
-  'collections:write',
-  'discounts:write',
-  'settings:write',
-  'orders:read',
-  'orders:fulfill',
-  'stats:read',
-  'customers:read',
-  'customers:write',
-  'draft_orders:write',
-  'refunds:write',
-  'channels:write',
-  'analytics:read',
-];
 
 /** `Store.textTone`. */
 export const TEXT_TONES: readonly TextTone[] = ['light', 'dark'];
@@ -89,6 +55,16 @@ export const stores = pgTable(
   'stores',
   {
     id: generatedId(),
+    /**
+     * The Oxy account that owns the store, usually `kind=organization` (ADR
+     * 0012). An Oxy account id — no foreign key; Oxy owns identity, and its
+     * membership decides who may act for the store.
+     *
+     * Every store that predates the column took its earliest owner's personal
+     * account (`drizzle/0158`, `0159`): a personal account id and an
+     * organization id share one id space, so the backfill is a copy.
+     */
+    oxyAccountId: text().notNull(),
     handle: text().notNull(),
     name: text().notNull(),
     /**
@@ -148,57 +124,66 @@ export const stores = pgTable(
     checkOneOf('stores_status_check', t.status, STORE_STATUSES),
     ...currencyChecks('stores', [t.defaultCurrency]),
     uniqueIndex('stores_handle_key').on(t.handle),
+    // "Which stores does this caller reach" is `oxy_account_id = any(<the
+    // accounts Oxy lists for them>)` on every dashboard load.
+    index('stores_oxy_account_id_idx').on(t.oxyAccountId),
     index('stores_status_created_at_idx').on(t.status, t.createdAt.desc()),
   ],
 );
 
 /**
- * `store_members` — who may act for a store, and with which permissions.
+ * `store_permission_overrides` — per-person EXCEPTIONS to the role map.
  *
- * Embedded in Mongo, a table here: the `{'members.oxyUserId': 1}` multikey index
- * is read on every admin request to answer "may this Oxy user act for this
- * store", and that is a query BY ELEMENT.
+ * Access to a store is decided by Oxy: the caller is the owning account, or a
+ * member of it whose role maps to a default permission set
+ * (`STORE_ROLE_PERMISSIONS`). A row here adjusts that set for ONE person on ONE
+ * store — `(role defaults ∪ granted) − revoked` — and never admits anybody: a
+ * row naming somebody who is not a member of the owning account grants nothing,
+ * because there is no role to adjust.
  *
- * `permissions` stays a `text[]` rather than becoming a third table — it is a
- * scalar set, never queried by element (the permission check loads the member
- * row and tests the array in the service), so a row per permission would be
- * over-normalization. The CHECK is on the ELEMENTS via containment.
+ * `granted`/`revoked` stay `text[]` rather than a row per permission: a scalar
+ * set, never queried by element. The CHECKs hold the vocabulary at the row, keep
+ * the two sets disjoint (a permission both added and removed is a mistake with
+ * no safe reading to store), and refuse an empty override — "no exception" is
+ * the ABSENCE of a row, so the service deletes instead of writing one.
  */
-export const storeMembers = pgTable(
-  'store_members',
+export const storePermissionOverrides = pgTable(
+  'store_permission_overrides',
   {
     id: generatedId(),
     storeId: text()
       .notNull()
       .references(() => stores.id, { onDelete: 'cascade' }),
-    /** An Oxy account id — no foreign key; Oxy owns identity. */
+    /** The person the exception applies to. An Oxy account id — no foreign key. */
     oxyUserId: text().notNull(),
-    role: text({ enum: asEnumValues(STORE_ROLES) }).notNull(),
     /**
      * `$type` rather than a bare `text[]`: drizzle infers `string[]`, which
      * would make every consumer widen a `StorePermission` to `string` and then
-     * narrow it back with a cast. The CHECK below is what actually enforces the
-     * set — the type only stops the compiler from forgetting it exists.
+     * narrow it back with a cast. The CHECK is what enforces the set.
      */
-    permissions: text()
-      .array()
-      .$type<StorePermission[]>()
-      .notNull()
-      .default(sql`'{}'::text[]`),
-    /** An Oxy account id — no foreign key. */
-    invitedBy: text(),
-    joinedAt: timestamptz().notNull(),
+    granted: text().array().$type<StorePermission[]>().notNull().default(sql`'{}'::text[]`),
+    revoked: text().array().$type<StorePermission[]>().notNull().default(sql`'{}'::text[]`),
+    /**
+     * The human who last wrote the row (`getOxyActor().actorAccountId`), which
+     * differs from the session's account when a person acts as an organization.
+     * NULL when Oxy did not report the actor — recorded as unknown rather than
+     * guessed — and on the rows `drizzle/0159` carried over from `store_members`.
+     * An Oxy account id — no foreign key.
+     */
+    updatedByOxyUserId: text(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('store_members_role_check', t.role, STORE_ROLES),
-    checkEveryElementOf('store_members_permissions_check', t.permissions, STORE_PERMISSIONS),
-    // Mongo could not state this: an embedded array happily held the same user
-    // twice. One membership per user per store.
-    uniqueIndex('store_members_store_id_oxy_user_id_key').on(t.storeId, t.oxyUserId),
-    // The hot path — "which stores may this user act for", on every admin request.
-    index('store_members_oxy_user_id_idx').on(t.oxyUserId),
+    checkEveryElementOf('store_permission_overrides_granted_check', t.granted, STORE_PERMISSIONS),
+    checkEveryElementOf('store_permission_overrides_revoked_check', t.revoked, STORE_PERMISSIONS),
+    check('store_permission_overrides_disjoint_check', sql`not (${t.granted} && ${t.revoked})`),
+    check(
+      'store_permission_overrides_nonempty_check',
+      sql`cardinality(${t.granted}) + cardinality(${t.revoked}) > 0`,
+    ),
+    // One exception per person per store, and the read `loadStore` makes.
+    uniqueIndex('store_permission_overrides_store_id_oxy_user_id_key').on(t.storeId, t.oxyUserId),
   ],
 );
 

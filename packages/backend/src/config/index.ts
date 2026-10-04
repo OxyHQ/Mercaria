@@ -802,7 +802,7 @@ function blockedListEnv(name: string, casing: 'upper' | 'lower'): readonly strin
  *
  * Mercaria has exactly one authorization vocabulary — store permissions — and it
  * is scoped to a STORE by construction (`requireStorePermission` reads
- * `req.storeMembership`). The operator surface is the opposite scope: it reads
+ * `req.storeAccess`). The operator surface is the opposite scope: it reads
  * across every store and every P2P seller, and issue #50 is explicit that seller
  * operators must not reach it. There is no store permission that could express
  * "may see all stores' money" without becoming a permission a store owner could

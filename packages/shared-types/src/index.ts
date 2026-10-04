@@ -55,7 +55,7 @@ export * from './discount';
 // projects, and `./product`, whose ProductSummary/StoreSummary it carries.
 export * from './discovery';
 
-// Store (shop) admin-facing DTOs (Store, StoreMember, StoreRole, StorePermission).
+// Store (shop) admin-facing DTOs (Store, StoreAccess, StorePermission, the role map).
 export * from './store';
 
 // Location DTOs (Location, LocationType, LocationAddress, Create/UpdateLocationInput).

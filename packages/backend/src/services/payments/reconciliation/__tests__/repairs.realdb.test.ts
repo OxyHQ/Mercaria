@@ -244,16 +244,14 @@ async function seedScenario(label: string, options: { ready: boolean; settle?: b
   // truncating a `<label>-<run>-<uuid>` suffix from the FRONT makes two
   // scenarios that share a label collide on `UNIQUE(provider, provider_account_id)`.
   const providerAccountId = `acct_${suffix.replace(/-/g, '').slice(-24)}`;
-  const store = await insertStore(
-    {
-      handle: `repair-${suffix}`,
-      name: 'Repair store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'EUR',
-    },
-    [{ oxyUserId: ownerId, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: ownerId,
+    handle: `repair-${suffix}`,
+    name: 'Repair store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'EUR',
+  });
   const location = await insertLocation(store.id, {
     name: 'Warehouse',
     type: 'warehouse',

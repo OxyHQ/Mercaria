@@ -155,8 +155,8 @@ export async function seedVerticalForTest(
 export async function createTestStore(db: Database, token: string): Promise<string> {
   const storeId = `${token}-store`;
   await db.execute(sql`
-    insert into stores (id, name, handle, description, brand_color)
-    values (${storeId}, ${`${token} store`}, ${`${token}-store-handle`}, '', '#101010')
+    insert into stores (id, oxy_account_id, name, handle, description, brand_color)
+    values (${storeId}, 'oxy-account-fixture', ${`${token} store`}, ${`${token}-store-handle`}, '', '#101010')
     on conflict (id) do nothing
   `);
   return storeId;

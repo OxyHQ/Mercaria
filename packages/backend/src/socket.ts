@@ -5,7 +5,8 @@ import http from 'http';
 import { isLiveEntityId } from '@oxy.so/db';
 import { getSocketAdapterClients } from './lib/redis.js';
 import { oxyClient } from './middleware/auth.js';
-import { findStoreMember } from './db/stores/storeRepository.js';
+import { findStoreById } from './db/stores/storeRepository.js';
+import { resolveStoreAccess } from './services/store-access.service.js';
 import { log } from './lib/logger.js';
 
 const ALLOWED_ORIGINS = [
@@ -22,28 +23,48 @@ let io: Server | null = null;
  *
  * `middleware.socket()` proves only the socket's USER identity — it does NOT prove the
  * user may read a given store's events. So a `subscribe-store` request is
- * re-checked here against store membership (server-side), never trusting the
- * client-supplied `storeId`. Returns true iff the user is a member and the socket
- * joined `store:${storeId}`. A malformed id or a non-member returns false WITHOUT
- * joining. Exported for unit testing the guard.
+ * re-checked here, server-side, against the caller's role in the Oxy account
+ * that owns the store (ADR 0012), never trusting the client-supplied `storeId`.
+ * The handshake's own bearer is what asks Oxy; a handshake carries no actor
+ * chain, so the check always goes to Oxy rather than taking the session's
+ * account at its word. Returns true iff the caller can act for the store and
+ * the socket joined `store:${storeId}`. A malformed id, a stranger, or an Oxy
+ * that cannot answer returns false WITHOUT joining. Exported for unit testing
+ * the guard.
  */
 export async function authorizeAndJoinStore(
   socket: Pick<Socket, 'join'>,
-  userId: string,
+  caller: { userId: string; accessToken: string | undefined },
   rawStoreId: unknown,
 ): Promise<boolean> {
   // Shape-only, and it accepts both id shapes the schema stores — a pre-cutover
-  // ObjectId hex and a uuid v7. The membership read below is what actually
+  // ObjectId hex and a uuid v7. The access check below is what actually
   // authorizes; this only avoids a query for input that could name nothing.
   if (typeof rawStoreId !== 'string' || !isLiveEntityId(rawStoreId)) {
     return false;
   }
-  const membership = await findStoreMember(rawStoreId, userId);
-  if (!membership) {
+  if (!caller.accessToken) {
+    return false;
+  }
+  const store = await findStoreById(rawStoreId);
+  if (!store) {
+    return false;
+  }
+  const access = await resolveStoreAccess(
+    { accountId: caller.userId, actorAccountId: null, delegated: false, accessToken: caller.accessToken },
+    store,
+  );
+  if (!access) {
     return false;
   }
   await socket.join(`store:${rawStoreId}`);
   return true;
+}
+
+/** The bearer a handshake presented — where `middleware.socket()` read it from. */
+function handshakeToken(socket: Socket): string | undefined {
+  const token = (socket.handshake.auth as { token?: unknown } | undefined)?.token;
+  return typeof token === 'string' && token.length > 0 ? token : undefined;
 }
 
 export function initSocket(server: http.Server) {
@@ -104,11 +125,12 @@ export function initSocket(server: http.Server) {
     // joins a client-supplied id.
     socket.on('subscribe-notifications', () => {});
 
-    // Opt in to a store's live sync-progress room. The server RE-CHECKS store
-    // membership before joining (middleware.socket() only proves user identity), so a
-    // non-member is rejected and never receives another store's `sync:progress`.
+    // Opt in to a store's live sync-progress room. The server RE-CHECKS the
+    // caller's access to the store before joining (middleware.socket() only
+    // proves user identity), so a stranger is rejected and never receives
+    // another store's `sync:progress`.
     socket.on('subscribe-store', (storeId: unknown, ack?: (joined: boolean) => void) => {
-      authorizeAndJoinStore(socket, userId, storeId)
+      authorizeAndJoinStore(socket, { userId, accessToken: handshakeToken(socket) }, storeId)
         .then((joined) => {
           if (typeof ack === 'function') {
             ack(joined);

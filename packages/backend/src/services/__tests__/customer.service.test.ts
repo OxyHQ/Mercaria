@@ -21,7 +21,7 @@ const upsertCustomerOnPaid = vi.fn();
 const upsertPosCustomer = vi.fn();
 const insertCustomer = vi.fn();
 const findCustomerByEmail = vi.fn();
-const findStoreRow = vi.fn();
+const findStoreById = vi.fn();
 
 vi.mock('../../db/stores/customerRepository.js', () => ({
   upsertCustomerOnPaid: (...args: unknown[]) => upsertCustomerOnPaid(...args),
@@ -35,7 +35,7 @@ vi.mock('../../db/stores/customerRepository.js', () => ({
 }));
 
 vi.mock('../../db/stores/storeRepository.js', () => ({
-  findStoreRow: (...args: unknown[]) => findStoreRow(...args),
+  findStoreById: (...args: unknown[]) => findStoreById(...args),
 }));
 
 vi.mock('../../db/orders/orderRepository.js', () => ({
@@ -56,7 +56,7 @@ beforeEach(() => {
   upsertPosCustomer.mockReset();
   insertCustomer.mockReset();
   findCustomerByEmail.mockReset();
-  findStoreRow.mockReset().mockResolvedValue({ id: STORE, defaultCurrency: 'FAIR' });
+  findStoreById.mockReset().mockResolvedValue({ id: STORE, defaultCurrency: 'FAIR' });
 });
 
 describe('customer.service.upsertOnPaid', () => {
@@ -119,7 +119,7 @@ describe('customer.service.resolveOrCreate', () => {
     // The one thing the service alone decides. A EUR shop's walk-in must not be
     // seeded with a FAIR `totalSpent`, because every order they ever place will
     // be summed in EUR and the two would never meet.
-    findStoreRow.mockResolvedValueOnce({ id: STORE, defaultCurrency: 'EUR' });
+    findStoreById.mockResolvedValueOnce({ id: STORE, defaultCurrency: 'EUR' });
     insertCustomer.mockResolvedValueOnce({ id: 'c3', storeId: STORE, isWalkIn: true });
 
     await resolveOrCreate(STORE, { displayName: 'Walk-in' });

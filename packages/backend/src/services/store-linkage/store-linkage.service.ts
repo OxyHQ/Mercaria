@@ -70,7 +70,6 @@ import { findConnectionsByStore } from '../../db/connectors/connectionRepository
 import { findListingIdsByStore } from '../../db/catalog/listingRepository.js';
 import {
   findStoreById,
-  findStoresForMember,
   updateStoreColumns,
 } from '../../db/stores/storeRepository.js';
 import { findVariantsByListing } from '../../db/catalog/variantRepository.js';
@@ -104,7 +103,11 @@ import {
 import { createStore } from '../store.service.js';
 import { linkNativeStore, revokeLink } from '../commerce-graph/native-store-link.service.js';
 import { requestNativeOfferSync } from '../offers/native-offer.service.js';
-import { effectivePermissions } from '../../middleware/store-authz.js';
+import {
+  listAccessibleStores,
+  resolveStoreAccess,
+  type StoreCaller,
+} from '../store-access.service.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
 import {
@@ -171,7 +174,6 @@ export function toStoreLinkageRequestDTO(row: StoreLinkageRequestRow): StoreLink
       externalOffers: row.impactExternalOffers,
       storefronts: row.impactStorefronts,
       placedOrders: row.impactPlacedOrders,
-      storeMembers: row.impactStoreMembers,
     },
     attempts: row.attempts,
     lastError: row.lastError,
@@ -287,18 +289,18 @@ async function authorizingClaim(
 /**
  * The stores this claimant could possibly link, with the facts discovery reads.
  *
- * Scoped to the claimant's OWN memberships and filtered to `store:manage`
- * before anything else looks at them, so a store they cannot manage never
- * reaches the candidate function at all — not as a rejected proposal, not as a
- * count, not as a 403 that would confirm the id exists.
+ * Scoped to the stores the claimant's OWN Oxy accounts reach (ADR 0012), asked
+ * with the claimant's own session, and filtered to `store:manage` before
+ * anything else looks at them — so a store they cannot manage never reaches
+ * the candidate function at all: not as a rejected proposal, not as a count,
+ * not as a 403 that would confirm the id exists.
  */
-async function manageableStoreFacts(claimantOxyUserId: string): Promise<CandidateStoreFacts[]> {
-  const stores = await findStoresForMember(claimantOxyUserId);
+async function manageableStoreFacts(claimant: StoreCaller): Promise<CandidateStoreFacts[]> {
+  const accessible = await listAccessibleStores(claimant);
   const facts: CandidateStoreFacts[] = [];
 
-  for (const store of stores) {
-    const membership = store.members.find((m) => m.oxyUserId === claimantOxyUserId);
-    if (!membership || !effectivePermissions(membership).has(LINKAGE_PERMISSION)) continue;
+  for (const { store, access } of accessible) {
+    if (!access.permissions.includes(LINKAGE_PERMISSION)) continue;
 
     const connections = await findConnectionsByStore(store.id);
     facts.push({
@@ -316,7 +318,8 @@ async function manageableStoreFacts(claimantOxyUserId: string): Promise<Candidat
 
 export interface OpenLinkageRequestParams {
   claimId: string;
-  claimantOxyUserId: string;
+  /** The claimant's own session — whose stores they may link is Oxy's answer. */
+  claimant: StoreCaller;
   mode: Extract<StoreLinkageMode, 'create_store' | 'link_existing'>;
   /** The store the claimant named. Required for `link_existing`, refused otherwise. */
   storeId?: string;
@@ -354,7 +357,8 @@ export async function openLinkageRequest(
   }
 
   const db = getDb();
-  const authorized = await authorizingClaim(db, params);
+  const claimantOxyUserId = params.claimant.accountId;
+  const authorized = await authorizingClaim(db, { claimId: params.claimId, claimantOxyUserId });
   if (typeof authorized === 'string') {
     throw conflict(BLOCK_MESSAGES[authorized]);
   }
@@ -373,7 +377,7 @@ export async function openLinkageRequest(
   const { request } = await openStoreLinkageRequest(db, {
     merchantId: authorized.merchantId,
     claimId: authorized.claimId,
-    claimantOxyUserId: params.claimantOxyUserId,
+    claimantOxyUserId,
     mode: params.mode,
     requestedStoreId: params.storeId ?? null,
     // The two opening modes end no link, and the CHECK says so — an opening
@@ -388,7 +392,7 @@ export async function openLinkageRequest(
   // against a link this very request wrote.
   if (request.state === 'applied') return request;
 
-  return classifyRequest(db, { request, claim: authorized });
+  return classifyRequest(db, { request, claim: authorized, claimant: params.claimant });
 }
 
 /**
@@ -401,9 +405,9 @@ export async function openLinkageRequest(
  */
 async function classifyRequest(
   db: DatabaseOrTransaction,
-  input: { request: StoreLinkageRequestRow; claim: AuthorizingClaim },
+  input: { request: StoreLinkageRequestRow; claim: AuthorizingClaim; claimant: StoreCaller },
 ): Promise<StoreLinkageRequestRow> {
-  const { request, claim } = input;
+  const { request, claim, claimant } = input;
 
   const merchantLink = await findActiveLinkByMerchant(db, request.merchantId);
   if (merchantLink && merchantLink.storeId !== request.requestedStoreId) {
@@ -419,10 +423,10 @@ async function classifyRequest(
     }
   }
 
-  const facts = await manageableStoreFacts(claim.claimantOxyUserId);
+  const facts = await manageableStoreFacts(claimant);
 
   if (request.requestedStoreId !== null) {
-    // Issue existing-store rule 1, the permission half. The membership scan
+    // Issue existing-store rule 1, the permission half. The access scan
     // above already dropped every store the claimant cannot manage, so a named
     // store missing from it is a store they may not link.
     if (!facts.some((store) => store.storeId === request.requestedStoreId)) {
@@ -678,8 +682,9 @@ async function requireRequest(
  * Create the native store through the EXISTING service (issue store-creation
  * rules 1, 2, 3 and 5).
  *
- * `createStore` is called with the claimant as owner, so they get the ordinary
- * 17/17 owner permission set, the handle comes from the ordinary
+ * `createStore` is called with the claimant's account as the owning Oxy
+ * account (ADR 0012) — the account that authenticated under the verified
+ * claim — so they hold every permission, the handle comes from the ordinary
  * `ensureUniqueSlug` path against `storeHandleExists`, and the default location
  * is created exactly as it is for any other store. Nothing about store creation
  * is special-cased for linkage, which is what rule 1 asks for.
@@ -918,7 +923,6 @@ export async function getLinkageDiff(input: { storeId: string; merchantId: strin
       externalOffers: impact.impactExternalOffers,
       storefronts: impact.impactStorefronts,
       placedOrders: impact.impactPlacedOrders,
-      storeMembers: impact.impactStoreMembers,
     },
   });
 }
@@ -1211,10 +1215,10 @@ export async function getRequestDetail(requestId: string) {
  */
 export async function claimantMayLinkStore(
   storeId: string,
-  claimantOxyUserId: string,
+  claimant: StoreCaller,
 ): Promise<boolean> {
   const store = await findStoreById(storeId);
   if (!store) return false;
-  const membership = store.members.find((m) => m.oxyUserId === claimantOxyUserId);
-  return membership !== undefined && effectivePermissions(membership).has(LINKAGE_PERMISSION);
+  const access = await resolveStoreAccess(claimant, store);
+  return access !== null && access.permissions.includes(LINKAGE_PERMISSION);
 }

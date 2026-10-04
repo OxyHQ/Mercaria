@@ -24,7 +24,7 @@ const sumPaidRevenue = vi.fn();
 const sumPaidRevenueByBucket = vi.fn();
 const findTopProducts = vi.fn();
 const sumStoreRefunds = vi.fn();
-const findStoreRow = vi.fn();
+const findStoreById = vi.fn();
 
 vi.mock('../../db/orders/orderRepository.js', () => ({
   countOrdersByStatus: (...args: unknown[]) => countOrdersByStatus(...args),
@@ -40,7 +40,7 @@ vi.mock('../../db/orders/refundRepository.js', () => ({
 }));
 
 vi.mock('../../db/stores/storeRepository.js', () => ({
-  findStoreRow: (...args: unknown[]) => findStoreRow(...args),
+  findStoreById: (...args: unknown[]) => findStoreById(...args),
 }));
 
 import { getSummary, getSalesReport, getTopProducts } from '../report.service.js';
@@ -49,7 +49,7 @@ const STORE_ID = '000000000000000000000099';
 
 /** Resolve the store row the reports read their settlement currency from. */
 function stubStoreCurrency(currency: string | null): void {
-  findStoreRow.mockResolvedValue(
+  findStoreById.mockResolvedValue(
     currency === null ? null : { id: STORE_ID, defaultCurrency: currency },
   );
 }
@@ -61,7 +61,7 @@ beforeEach(() => {
   sumPaidRevenueByBucket.mockReset().mockResolvedValue([]);
   findTopProducts.mockReset().mockResolvedValue([]);
   sumStoreRefunds.mockReset().mockResolvedValue(0);
-  findStoreRow.mockReset();
+  findStoreById.mockReset();
 });
 
 describe('report.service.getSummary', () => {

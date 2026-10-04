@@ -430,16 +430,14 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
     }): Promise<ContractFixture> {
       const suffix = uuidv7();
       const ownerOxyUserId = `owner-${suffix}`;
-      const store = await insertStore(
-        {
-          handle: `connector-contract-${suffix}`,
-          name: 'Connector contract store',
-          description: '',
-          brandColor: '#123456',
-          defaultCurrency: 'FAIR',
-        },
-        [{ oxyUserId: ownerOxyUserId, role: 'owner', permissions: ['store:manage'] }],
-      );
+      const store = await insertStore({
+        oxyAccountId: ownerOxyUserId,
+        handle: `connector-contract-${suffix}`,
+        name: 'Connector contract store',
+        description: '',
+        brandColor: '#123456',
+        defaultCurrency: 'FAIR',
+      });
       createdStoreIds.push(store.id);
 
       // TWO locations, and the connection's target is deliberately NOT the
@@ -969,16 +967,14 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         // so the shop would stay dark until a person reconnected it.
         const fixture = await makeFixture();
         const suffix = uuidv7();
-        const siblingStore = await insertStore(
-          {
-            handle: `connector-contract-sibling-${suffix}`,
-            name: 'Sibling store on the same shop',
-            description: '',
-            brandColor: '#123456',
-            defaultCurrency: 'FAIR',
-          },
-          [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-        );
+        const siblingStore = await insertStore({
+          oxyAccountId: `owner-${suffix}`,
+          handle: `connector-contract-sibling-${suffix}`,
+          name: 'Sibling store on the same shop',
+          description: '',
+          brandColor: '#123456',
+          defaultCurrency: 'FAIR',
+        });
         createdStoreIds.push(siblingStore.id);
         const siblingConnection = await connectStore(siblingStore.id);
 
@@ -1327,16 +1323,14 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         // got in, so it is measured rather than reasoned about.
         const fixture = await makeFixture();
         const suffix = uuidv7();
-        const siblingStore = await insertStore(
-          {
-            handle: `connector-reregister-sibling-${suffix}`,
-            name: 'Sibling store on the same shop',
-            description: '',
-            brandColor: '#123456',
-            defaultCurrency: 'FAIR',
-          },
-          [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-        );
+        const siblingStore = await insertStore({
+          oxyAccountId: `owner-${suffix}`,
+          handle: `connector-reregister-sibling-${suffix}`,
+          name: 'Sibling store on the same shop',
+          description: '',
+          brandColor: '#123456',
+          defaultCurrency: 'FAIR',
+        });
         createdStoreIds.push(siblingStore.id);
         const siblingConnection = await connectStore(siblingStore.id);
         const siblingBefore = await findConnection(siblingStore.id, siblingConnection.id);

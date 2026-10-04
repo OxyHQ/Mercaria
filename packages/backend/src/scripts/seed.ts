@@ -53,7 +53,7 @@ import type {
 } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../db/postgres.js';
 import { categories, listings, LISTING_OWNER_TYPES } from '../db/schema/catalog.js';
-import { STORE_PERMISSIONS, stores } from '../db/schema/stores.js';
+import { stores } from '../db/schema/stores.js';
 import { orders, refunds } from '../db/schema/orders.js';
 import { draftOrders } from '../db/schema/pos.js';
 import { sellerProfiles } from '../db/schema/buyers.js';
@@ -592,7 +592,7 @@ function buildListingReviews(
  * RESTRICT` reference that would otherwise refuse it: `refunds`, `reviews` and
  * `draft_orders` all restrict `orders`; `orders` and `listings` both restrict
  * `stores`; `orders` restricts `customers`; `listings` restricts `categories`.
- * Everything else in the marketplace set — `store_members`, `locations`,
+ * Everything else in the marketplace set — `store_permission_overrides`, `locations`,
  * `customers`, `tax_rates`, `collections` (+ rules + memberships), `discounts`
  * (+ codes), `listing_images`, `listing_options`, `product_variants` (+ option
  * values), `inventory_levels`, `favorites`, `cart_items`, and every order and
@@ -721,18 +721,16 @@ function toStoreProductInput(
  * collections, discounts, tax rate, customer, orders and refund.
  */
 async function seedStore(storeSpec: StoreSpec, counts: SeedCounts): Promise<void> {
-  const store = await insertStore(
-    {
-      handle: storeSpec.handle,
-      name: storeSpec.name,
-      description: storeSpec.description,
-      brandColor: storeSpec.brandColor,
-      defaultCurrency: SEED_CURRENCY,
-      logoFileId: storeSpec.logoFileId,
-      coverFileId: storeSpec.coverFileId,
-    },
-    [{ oxyUserId: DEV_OWNER_OXY_USER_ID, role: 'owner', permissions: [...STORE_PERMISSIONS] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: DEV_OWNER_OXY_USER_ID,
+    handle: storeSpec.handle,
+    name: storeSpec.name,
+    description: storeSpec.description,
+    brandColor: storeSpec.brandColor,
+    defaultCurrency: SEED_CURRENCY,
+    logoFileId: storeSpec.logoFileId,
+    coverFileId: storeSpec.coverFileId,
+  });
   counts.stores += 1;
 
   // `textTone`, `rating` and `reviewCount` are DISPLAY columns `insertStore` does

@@ -385,7 +385,9 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'review_aggregates.seller_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'review_target_migrations.actor_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'seller_profiles.oxy_user_id', reason: OXY_ACCOUNT },
-  { column: 'store_members.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'store_permission_overrides.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'store_permission_overrides.updated_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'stores.oxy_account_id', reason: OXY_ACCOUNT },
   { column: 'user_preferences.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'web_push_subscriptions.oxy_user_id', reason: OXY_ACCOUNT },
 

@@ -65,16 +65,14 @@ interface Fixture {
 
 async function makeFixture(): Promise<Fixture> {
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `publication-${suffix}`,
-      name: 'Publication store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: `owner-${suffix}`,
+    handle: `publication-${suffix}`,
+    name: 'Publication store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
 
   const location = await insertLocation(store.id, {

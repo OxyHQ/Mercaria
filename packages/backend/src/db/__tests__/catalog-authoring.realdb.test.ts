@@ -98,8 +98,8 @@ async function refusedBy(statement: ReturnType<typeof sql>, constraint: string):
 beforeAll(async () => {
   if (!ready) return;
   await db.execute(sql`
-    insert into stores (id, name, handle, description, brand_color)
-    values (${`${P}-store`}, 'Authoring probe', ${`${P}-store-handle`}, '', '#000000')
+    insert into stores (id, oxy_account_id, name, handle, description, brand_color)
+    values (${`${P}-store`}, 'oxy-account-fixture', 'Authoring probe', ${`${P}-store-handle`}, '', '#000000')
     on conflict (id) do nothing
   `);
   await db.execute(sql`

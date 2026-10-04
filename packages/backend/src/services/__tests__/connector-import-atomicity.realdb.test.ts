@@ -167,16 +167,14 @@ async function makePullFixture(options: { autoPublish?: boolean } = {}): Promise
   // before the run. Each case re-installs with the products it publishes.
   installProviderYielding([]);
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `import-atomicity-${suffix}`,
-      name: 'Import atomicity store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: `owner-${suffix}`,
+    handle: `import-atomicity-${suffix}`,
+    name: 'Import atomicity store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
 
   const location = await insertLocation(store.id, {
@@ -978,16 +976,14 @@ describe('the channel PUSH-IN path strands nothing either (#221)', () => {
    */
   async function makePushInFixture(): Promise<Fixture> {
     const suffix = uuidv7();
-    const store = await insertStore(
-      {
-        handle: `ingest-atomicity-${suffix}`,
-        name: 'Ingest atomicity store',
-        description: '',
-        brandColor: '#123456',
-        defaultCurrency: 'FAIR',
-      },
-      [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-    );
+    const store = await insertStore({
+      oxyAccountId: `owner-${suffix}`,
+      handle: `ingest-atomicity-${suffix}`,
+      name: 'Ingest atomicity store',
+      description: '',
+      brandColor: '#123456',
+      defaultCurrency: 'FAIR',
+    });
     createdStoreIds.push(store.id);
 
     const location = await insertLocation(store.id, {

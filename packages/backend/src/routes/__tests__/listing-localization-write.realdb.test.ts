@@ -50,23 +50,26 @@ import {
 import type { Database } from '../../db/postgres.js';
 import { listings } from '../../db/schema/catalog.js';
 import { listingLocalizations } from '../../db/schema/catalogLocalization.js';
-import { storeMembers, stores } from '../../db/schema/stores.js';
+import { stores } from '../../db/schema/stores.js';
 
 /** Unique to this run: the throwaway database is SHARED across parallel files. */
 const RUN = uuidv7().slice(-12).replace(/\W/gu, '').toLowerCase();
 const SELLER = `oxy-user-l10n-write-${RUN}`;
 const STRANGER = `oxy-user-l10n-other-${RUN}`;
+/** The organization that owns SELLER's store; SELLER is an `admin` of it. */
+const SELLER_ORG = `oxy-org-l10n-${RUN}`;
 
 vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => SELLER,
 }));
 vi.mock('../../middleware/auth.js', () => ({
-  // `loadStore` reads `req.userId` to find the membership, so a pass-through
-  // that only calls `next()` would 401 the store half in a file whose point is
-  // that the store half works.
+  // `loadStore` reads `req.userId` and the bearer to resolve the caller's role,
+  // so a pass-through that only calls `next()` would 401 the store half in a
+  // file whose point is that the store half works.
   authenticateToken: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     req.userId = SELLER;
+    req.accessToken = 'test-bearer';
     next();
   },
   oxyClient: {},
@@ -74,6 +77,20 @@ vi.mock('../../middleware/auth.js', () => ({
     req.userId = SELLER;
     next();
   },
+}));
+/**
+ * Oxy's account graph: SELLER is an `admin` of the organization that owns
+ * `storeId`, and holds no role on any other account.
+ *
+ * `admin`, deliberately, and NOT `owner`. An `admin` holds every permission
+ * EXCEPT `store:manage`, so this role is the one that fails if the mount is
+ * ever re-gated on `store:manage` — which is the exact mistake #814 rejected,
+ * and an `owner` could not notice it.
+ */
+vi.mock('../../services/oxy-account-graph.js', () => ({
+  readCallerAccountRole: async (_bearer: string, accountId: string) =>
+    accountId === SELLER_ORG ? 'admin' : null,
+  listCallerAccountRoles: async () => new Map([[SELLER_ORG, 'admin']]),
 }));
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
@@ -95,9 +112,9 @@ let base: string;
 let ownListingId = '';
 /** Owned by STRANGER — the 403 target on the seller mount. */
 let foreignListingId = '';
-/** Owned by the store SELLER is a member of. */
+/** Owned by the store SELLER can act for. */
 let storeListingId = '';
-/** Owned by a store SELLER is NOT a member of — the 403 target on the store mount. */
+/** Owned by a store SELLER has no role on — the 403 target on the store mount. */
 let otherStoreListingId = '';
 let storeId = '';
 let otherStoreId = '';
@@ -176,27 +193,13 @@ async function createListing(input: {
   return row.id;
 }
 
-async function createStore(handle: string, member: string | null): Promise<string> {
+async function createStore(handle: string, ownerAccount: string): Promise<string> {
   const [store] = await db
     .insert(stores)
-    .values({ handle, name: `L10n store ${RUN}`, description: '', brandColor: '#000000' })
+    .values({ oxyAccountId: ownerAccount, handle, name: `L10n store ${RUN}`, description: '', brandColor: '#000000' })
     .returning({ id: stores.id });
   if (!store) throw new Error('createStore returned no row');
   storeIds.push(store.id);
-  if (member !== null) {
-    await db.insert(storeMembers).values({
-      storeId: store.id,
-      oxyUserId: member,
-      // `admin`, deliberately, and NOT `owner`. An `admin` holds every
-      // permission EXCEPT `store:manage`, so this membership is the one that
-      // fails if the mount is ever re-gated on `store:manage` — which is the
-      // exact mistake #814 rejected, and a fixture with an `owner` could not
-      // notice it.
-      role: 'admin',
-      permissions: ['products:read', 'products:write'],
-      joinedAt: new Date(),
-    });
-  }
   return store.id;
 }
 
@@ -215,8 +218,8 @@ beforeAll(async () => {
     oxyUserId: STRANGER,
     title: `Foreign ${RUN}`,
   });
-  storeId = await createStore(`l10nstore${RUN}`, SELLER);
-  otherStoreId = await createStore(`l10nother${RUN}`, null);
+  storeId = await createStore(`l10nstore${RUN}`, SELLER_ORG);
+  otherStoreId = await createStore(`l10nother${RUN}`, `oxy-org-l10n-other-${RUN}`);
   storeListingId = await createListing({
     ownerType: 'store',
     storeId,
@@ -507,7 +510,7 @@ describe('a store member writing a store product’s translations', () => {
   });
 
   it('refuses a caller with no membership of the store in the path', async () => {
-    // SELLER is a member of `storeId` and of no other store, so this is
+    // SELLER can act for `storeId` and for no other store, so this is
     // `requireStorePermission` answering rather than the ownership compare.
     const reply = await call(
       'PUT',

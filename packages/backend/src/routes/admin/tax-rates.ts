@@ -13,7 +13,7 @@ import {
  * Store tax-rates sub-router, mounted at `/admin/stores/:storeId/tax-rates`.
  *
  * `mergeParams` so `:storeId` is visible. The parent router has already run
- * `authenticateToken` → `loadStore`, so `req.store`/`req.storeMembership` are set.
+ * `authenticateToken` → `loadStore`, so `req.store`/`req.storeAccess` are set.
  * Reads are gated on `products:read`; writes on the dedicated `settings:write`
  * permission (owner + admin hold it by default; staff do not).
  */

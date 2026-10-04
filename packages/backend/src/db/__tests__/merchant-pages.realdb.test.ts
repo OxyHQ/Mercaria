@@ -303,7 +303,7 @@ async function mintOffer(input: {
 async function mintNativeStoreLink(merchantId: string, handle: string): Promise<string> {
   const [store] = await db
     .insert(stores)
-    .values({ handle, name: `MP store ${RUN}`, description: '', brandColor: '#000000' })
+    .values({ oxyAccountId: 'oxy-account-fixture', handle, name: `MP store ${RUN}`, description: '', brandColor: '#000000' })
     .returning({ id: stores.id });
   if (!store) throw new Error('mintNativeStoreLink produced no store');
   created.stores.push(store.id);

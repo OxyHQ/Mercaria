@@ -49,6 +49,7 @@ import {
   recordProvenanceSignal,
 } from '../../../db/digital/assetRepository.js';
 import { findStoreById } from '../../../db/stores/storeRepository.js';
+import { resolveStoreAccess, type StoreCaller } from '../../store-access.service.js';
 import { forbidden, notFound, validationError } from '../../../lib/errors/error-codes.js';
 import { UNSWEPT_PROVENANCE_SIGNAL_KINDS } from './sweep.js';
 
@@ -78,8 +79,11 @@ export const PROVENANCE_APPEAL_STATEMENT_MAX_LENGTH = 2_000;
 export interface RecordProvenanceAppealInput {
   /** The version whose fingerprint was matched — the creator's own. */
   readonly versionId: string;
-  /** The Oxy account filing. Must be a member of the asset's store. */
-  readonly appellantOxyUserId: string;
+  /**
+   * The caller filing, with their own session: they must be able to act for
+   * the asset's store, which is the owning Oxy account's answer (ADR 0012).
+   */
+  readonly appellant: StoreCaller;
   readonly kind: AssetProvenanceSignalKind;
   /**
    * The creator's words, or the reference to where they published first.
@@ -100,17 +104,17 @@ export interface RecordedProvenanceAppeal {
 /**
  * Record a creator's counter-evidence against a provenance signal.
  *
- * The store membership check is the whole authorization: only somebody who can act
+ * The store access check is the whole authorization: only somebody who can act
  * for the store that published the version may append to its provenance record.
  * Without it, anybody could write `prior_publication` rows onto somebody else's
  * version — and because the table is append-only, a forged assertion there could
  * never be removed, only contradicted.
  *
- * `staff` is admitted alongside `owner` and `admin`, deliberately: an appeal is a
- * factual statement about the work, the person who actually modelled it is
- * routinely not the account that owns the shop, and the remedy for a wrong
- * statement is the next statement rather than a narrower allow-list on a record
- * nothing can erase.
+ * ANY role on the owning account is admitted, deliberately — no permission is
+ * asked for: an appeal is a factual statement about the work, the person who
+ * actually modelled it is routinely not the account that owns the shop, and the
+ * remedy for a wrong statement is the next statement rather than a narrower
+ * allow-list on a record nothing can erase.
  *
  * @throws NOT FOUND when the version or its asset is gone, FORBIDDEN when the
  *   appellant cannot act for the store, VALIDATION when the kind is not appealable
@@ -135,9 +139,6 @@ export async function recordProvenanceAppeal(
         `${String(PROVENANCE_APPEAL_STATEMENT_MAX_LENGTH)} characters.`,
     );
   }
-  if (typeof input.appellantOxyUserId !== 'string' || input.appellantOxyUserId.length === 0) {
-    throw validationError('recordProvenanceAppeal: an appellant id is required.');
-  }
 
   const version = await findAssetVersion(input.versionId);
   if (version === null) {
@@ -148,12 +149,11 @@ export async function recordProvenanceAppeal(
     throw notFound(`recordProvenanceAppeal: asset ${version.assetId} does not exist.`);
   }
   const store = await findStoreById(asset.storeId);
-  const isMember =
-    store?.members.some((member) => member.oxyUserId === input.appellantOxyUserId) === true;
-  if (!isMember) {
+  const access = store ? await resolveStoreAccess(input.appellant, store) : null;
+  if (access === null) {
     throw forbidden(
-      'recordProvenanceAppeal: only a member of the store that published this version may add to ' +
-        'its provenance record.',
+      'recordProvenanceAppeal: only somebody who can act for the store that published this ' +
+        'version may add to its provenance record.',
     );
   }
 

@@ -373,16 +373,14 @@ async function seedSettledOrder(
   const suffix = `${label}-${RUN}-${uuidv7()}`;
   const ownerId = `owner-${suffix}`;
   const accountId = `acct_${suffix.replace(/-/g, '').slice(0, 20)}`;
-  const store = await insertStore(
-    {
-      handle: `refund-${suffix}`,
-      name: 'Refund lifecycle store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'EUR',
-    },
-    [{ oxyUserId: ownerId, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: ownerId,
+    handle: `refund-${suffix}`,
+    name: 'Refund lifecycle store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'EUR',
+  });
 
   // A store's inventory is multi-location, so committing stock on `paid` and
   // restocking on a refund both resolve a location. Without one the ORDER

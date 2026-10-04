@@ -75,8 +75,8 @@ beforeAll(async () => {
   db = instance.db;
 
   await db.execute(sql`
-    insert into stores (id, name, handle, description, brand_color)
-    values (${STORE}, 'Published attribute probe', ${`${P}-handle`}, '', '#000000')
+    insert into stores (id, oxy_account_id, name, handle, description, brand_color)
+    values (${STORE}, 'oxy-account-fixture', 'Published attribute probe', ${`${P}-handle`}, '', '#000000')
   `);
 
   // Drafted, filled, THEN published — which is the only order the server

@@ -108,6 +108,7 @@ async function mintStore(): Promise<string> {
   const [row] = await db
     .insert(stores)
     .values({
+      oxyAccountId: 'oxy-account-fixture',
       handle: `graph-store-${RUN}-${createdStoreIds.length}`,
       name: `Graph Store ${RUN}`,
       description: '',

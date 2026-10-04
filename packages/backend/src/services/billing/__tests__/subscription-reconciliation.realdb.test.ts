@@ -55,7 +55,7 @@ const legacy: BillingProvider = { id: 'stripe', livemode: false,
 
 beforeAll(async () => {
   db = await connectPostgres();
-  await db.insert(stores).values([...ownedStores, outsiderStore, wrongModeStore].map((id, index) => ({ id, handle: `reconcile-${nonce}-${index}`, name: 'Own fixture', description: '', brandColor: '#101010' })));
+  await db.insert(stores).values([...ownedStores, outsiderStore, wrongModeStore].map((id, index) => ({ id, oxyAccountId: `fixture-${nonce}`, handle: `reconcile-${nonce}-${index}`, name: 'Own fixture', description: '', brandColor: '#101010' })));
   const plan = await insertMerchantPlan(db, { planKey: `reconcile-${nonce}`, version: 1, tier: 'paid', name: 'Synthetic fixture', summary: 'Not for sale', termsVersion: 'fixture', createdByOxyUserId: `fixture-${nonce}` });
   planId = plan.id;
   for (const livemode of [false, true]) await insertMerchantPlanPrice(db, { planId, provider: 'stripe', livemode, interval: 'monthly', unitPrice: { amount: 100, currency: 'USD' }, providerPriceId: `price_${livemode ? 'live' : 'test'}${nonce}` });
@@ -127,7 +127,7 @@ it('keeps general Stripe-enabled reconciliation for noncohort stores while exclu
   // snapshot in this fixture. Its failure must not become a whole-DB assertion.
   const foreignStore = nonce.slice(0, 23) + '5';
   const foreignRef = `sub_shared${nonce}`;
-  await db.insert(stores).values({ id: foreignStore, handle: `reconcile-shared-${nonce}`, name: 'Other fixture', description: '', brandColor: '#101010' });
+  await db.insert(stores).values({ id: foreignStore, oxyAccountId: `fixture-${nonce}`, handle: `reconcile-shared-${nonce}`, name: 'Other fixture', description: '', brandColor: '#101010' });
   const customer = await ensureBillingCustomer(db, { storeId: foreignStore, provider: 'stripe', livemode: false, providerCustomerId: `cus_shared${nonce}` });
   await db.insert(merchantSubscriptions).values({ id: `00000000-0000-7000-7fff-${nonce.slice(-12)}`, storeId: foreignStore, planId, billingCustomerId: customer.row.id,
     provider: 'stripe', livemode: false, providerSubscriptionId: foreignRef, status: 'active', interval: 'monthly',

@@ -35,7 +35,7 @@ import {
 import { sumRestockedQuantities } from '../db/orders/refundRepository.js';
 import { countLowStockVariantsForStore } from '../db/catalog/variantRepository.js';
 import { adjustSellerSalesCount } from '../db/buyers/sellerProfileRepository.js';
-import { adjustStoreSalesCount, findStoreRow } from '../db/stores/storeRepository.js';
+import { adjustStoreSalesCount, findStoreById } from '../db/stores/storeRepository.js';
 import { commit, release, restock } from './inventory.service.js';
 import { upsertOnPaid as upsertCustomerOnPaid } from './customer.service.js';
 import { grantEligibilitiesForOrder } from './reviews/review-eligibility.service.js';
@@ -758,7 +758,7 @@ function zeroCounts(): Record<OrderStatus, number> {
  * the store does not settle in. The fallback is FAIR, matching the column default.
  */
 export async function storeStats(storeId: string): Promise<StoreStats> {
-  const store = await findStoreRow(storeId);
+  const store = await findStoreById(storeId);
   const currency = (store?.defaultCurrency as CurrencyCode | undefined) ?? 'FAIR';
 
   const [statusCounts, paid, lowStockVariantCount] = await Promise.all([

@@ -18,7 +18,7 @@
  * one that would diverge is the newer one.
  *
  * `products:write` is the permission, the SAME one the authoring drafts use, and
- * for the reason `routes/product-drafts.ts` states: `store_members_permissions_check`
+ * for the reason `routes/product-drafts.ts` states: `store_permission_overrides_granted_check`
  * renders the tuple, so an unlisted permission string is a refusal at the row —
  * and a merchant proposing a missing colour is doing exactly what that permission
  * names.

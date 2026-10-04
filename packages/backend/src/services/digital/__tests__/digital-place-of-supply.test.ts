@@ -24,7 +24,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const findActiveDiscounts = vi.fn();
 const findActiveTaxRates = vi.fn();
-const findStoreRow = vi.fn();
+const findStoreById = vi.fn();
 
 vi.mock('../../../db/merchandising/discountRepository.js', () => ({
   findActiveDiscounts: (...args: unknown[]) => findActiveDiscounts(...args),
@@ -33,7 +33,7 @@ vi.mock('../../../db/stores/taxRateRepository.js', () => ({
   findActiveTaxRates: (...args: unknown[]) => findActiveTaxRates(...args),
 }));
 vi.mock('../../../db/stores/storeRepository.js', () => ({
-  findStoreRow: (...args: unknown[]) => findStoreRow(...args),
+  findStoreById: (...args: unknown[]) => findStoreById(...args),
 }));
 
 import {
@@ -89,7 +89,7 @@ function line(id: string, amount: number, digital = false): PricingLine {
 beforeEach(() => {
   vi.clearAllMocks();
   findActiveDiscounts.mockResolvedValue([]);
-  findStoreRow.mockResolvedValue({
+  findStoreById.mockResolvedValue({
     taxSettingsPricesIncludeTax: false,
     taxSettingsChargeTaxOnProducts: true,
   } as StoreRow);

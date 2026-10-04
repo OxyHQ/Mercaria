@@ -147,16 +147,14 @@ async function makeStore(): Promise<string> {
   // The WHOLE uuid: v7 is time-ordered, so a truncated suffix collides with
   // `stores_handle_key` for two stores minted in the same millisecond.
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `oauth-wizard-${suffix}`,
-      name: 'OAuth wizard store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: `owner-${suffix}`,
+    handle: `oauth-wizard-${suffix}`,
+    name: 'OAuth wizard store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
   return store.id;
 }

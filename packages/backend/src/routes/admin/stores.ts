@@ -4,6 +4,7 @@ import { validateBody, validateId } from '../../middleware/validate.js';
 import { loadStore, requireStorePermission } from '../../middleware/store-authz.js';
 import {
   createStoreSchema,
+  transferStoreOwnerAccountSchema,
   updateStoreSchema,
   updateStoreSettingsSchema,
   updateTaxSettingsSchema,
@@ -12,11 +13,12 @@ import {
   createStoreHandler,
   listMyStores,
   getStoreHandler,
+  transferStoreOwnerAccountHandler,
   updateStoreHandler,
   updateStoreSettingsHandler,
 } from '../../controllers/admin/store-admin.controller.js';
 import { patchStoreTaxSettings } from '../../controllers/admin/tax-rates-admin.controller.js';
-import membersRouter from './members.js';
+import permissionOverridesRouter from './permission-overrides.js';
 import productsRouter from './products.js';
 import ordersRouter from './orders.js';
 import locationsRouter from './locations.js';
@@ -41,11 +43,12 @@ import analyticsRouter from './analytics.js';
 /**
  * Store-admin router, mounted at `/admin/stores`.
  *
- * `POST /` (create — caller becomes owner) and `GET /` (caller's stores) do NOT
- * use `loadStore`. Everything under `/:storeId` runs `loadStore` first (resolve
- * + member check, attaching `req.store`/`req.storeMembership`), then per-route
- * role/permission guards. The members + products sub-routers inherit the loaded
- * store via `mergeParams`.
+ * `POST /` (create under an Oxy account the caller governs) and `GET /` (the
+ * stores the caller's Oxy accounts reach) do NOT use `loadStore`. Everything
+ * under `/:storeId` runs `loadStore` first (resolve the store, resolve the
+ * caller's access through the owning Oxy account, attach
+ * `req.store`/`req.storeAccess`), then per-route permission guards. The
+ * sub-routers inherit the loaded store via `mergeParams`.
  */
 const router = Router();
 
@@ -80,7 +83,18 @@ router.patch(
   updateStoreSettingsHandler,
 );
 
-router.use('/:storeId/members', membersRouter);
+// Move the store to another owning Oxy account — "convert to organization".
+// `store:manage` on the store here; owner/admin of the target in the service.
+router.patch(
+  '/:storeId/owner-account',
+  requireStorePermission('store:manage'),
+  validateBody(transferStoreOwnerAccountSchema),
+  transferStoreOwnerAccountHandler,
+);
+
+// Per-person exceptions to the role map. WHO belongs to the store is the owning
+// Oxy account's membership, which the dashboard reads from Oxy (ADR 0012).
+router.use('/:storeId/permission-overrides', permissionOverridesRouter);
 router.use('/:storeId/products', productsRouter);
 router.use('/:storeId/orders', ordersRouter);
 router.use('/:storeId/locations', locationsRouter);

@@ -143,8 +143,9 @@ export type StoreLinkageBlockReason = (typeof STORE_LINKAGE_BLOCK_REASONS)[numbe
  *    still hold `store:manage` on it). An intent, not a proof.
  *  - `claim_native_store_intent` — #83's `merchant_claims.native_store_id`, the
  *    store the claimant named when they OPENED the claim, carried forward.
- *  - `claimant_store_membership` — the claimant is a member of this store with
- *    `store:manage`. Membership is a fact Mercaria owns.
+ *  - `claimant_store_membership` — the claimant holds `store:manage` on this
+ *    store through the Oxy account that owns it (ADR 0012). Oxy owns the
+ *    membership; Mercaria resolves it with the claimant's own session.
  *  - `claim_verified_domain` — the store's connected channel is on a domain the
  *    claim actually PROVED (#83's domain-control mechanism).
  *  - `claim_platform_connection` — the store owns the connector connection whose
@@ -318,8 +319,6 @@ export interface StoreLinkageImpact {
   storefronts: number;
   /** Orders already placed on this store. They never migrate (revocation rule 3). */
   placedOrders: number;
-  /** Members of the store. Unchanged by linkage (existing-store rule 4). */
-  storeMembers: number;
 }
 
 /** One native store proposed for a merchant, with the evidence that proposed it. */

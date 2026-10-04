@@ -41,16 +41,14 @@ const ACTOR = { oxyUserId: 'oxy-release-actor' };
 
 async function makeStore(): Promise<string> {
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `pin-release-${suffix}`,
-      name: 'Pin release realdb store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: `owner-${suffix}`,
+    handle: `pin-release-${suffix}`,
+    name: 'Pin release realdb store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
   return store.id;
 }

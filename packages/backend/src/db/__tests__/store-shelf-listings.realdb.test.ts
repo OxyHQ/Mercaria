@@ -49,22 +49,14 @@ const createdCategoryIds: string[] = [];
 /** A store, unique to this run. */
 async function makeStore(): Promise<string> {
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `store-shelf-${suffix}`,
-      name: 'Store shelf fixture',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [
-      {
-        oxyUserId: `realdb-store-shelf-owner-${uuidv7()}`,
-        role: 'owner',
-        permissions: ['store:manage'],
-      },
-    ],
-  );
+  const store = await insertStore({
+    oxyAccountId: `realdb-store-shelf-owner-${uuidv7()}`,
+    handle: `store-shelf-${suffix}`,
+    name: 'Store shelf fixture',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
   return store.id;
 }

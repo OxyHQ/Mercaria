@@ -13,16 +13,19 @@
  *     claims — including `product`, which has no owner of its own to compare
  *     against. This layer therefore covers all five scopes with one check, and
  *     it is the one that cannot be routed around by choosing a different target.
- *  2. **Ownership of the target.** A P2P seller reviewing themselves, a store
- *     member reviewing their own listing, and a merchant's operator reviewing
- *     the merchant. `store_members` IS the "related accounts" signal Mercaria
- *     has: a person who can act for a store is not an arm's-length reviewer of
- *     it, whichever account they used to buy.
+ *  2. **Ownership of the target.** A P2P seller reviewing themselves, a store's
+ *     people reviewing their own listing, and a merchant's operator reviewing
+ *     the merchant. Being able to act for the store IS the "related accounts"
+ *     signal Mercaria has: a person who can act for a store is not an
+ *     arm's-length reviewer of it, whichever account they used to buy. That is
+ *     a question about the store's owning Oxy account (ADR 0012), asked with
+ *     the AUTHOR's own session — so an Oxy outage refuses the review with a
+ *     503 rather than letting it through unchecked.
  *
  * ## What is NOT detectable, stated rather than implied
  *
  * A seller who buys their own product from a DIFFERENT seller is invisible here,
- * and so is a friend, a second personal Oxy account with no store membership, and
+ * and so is a friend, a second personal Oxy account with no role on the store, and
  * an agency reviewing a client. Nothing in Mercaria's data distinguishes those
  * from a genuine buyer, and inventing a heuristic (same shipping address, same
  * device, same payment instrument) would mean reading exactly the buyer-contact
@@ -35,15 +38,17 @@ import type { ReviewScope } from '@mercaria/shared-types';
 import { findOrderById } from '../../db/orders/orderRepository.js';
 import { findListingById } from '../../db/catalog/listingRepository.js';
 import { findStoreById } from '../../db/stores/storeRepository.js';
+import { resolveStoreAccess, type StoreCaller } from '../store-access.service.js';
 import { findActiveLinkByMerchant } from '../../db/commerce-graph/nativeStoreLinkRepository.js';
 import { findMerchantById } from '../../db/commerce-graph/merchantRepository.js';
 import { getDb } from '../../db/postgres.js';
 import { forbidden } from '../../lib/errors/error-codes.js';
 
-/** Everyone who can act for a store — the "related accounts" Mercaria can see. */
-async function storeMemberIds(storeId: string): Promise<Set<string>> {
+/** Whether the author can act for a store — the "related accounts" Mercaria can see. */
+async function canActForStore(author: StoreCaller, storeId: string): Promise<boolean> {
   const store = await findStoreById(storeId);
-  return new Set((store?.members ?? []).map((member) => member.oxyUserId));
+  if (!store) return false;
+  return (await resolveStoreAccess(author, store)) !== null;
 }
 
 /** The message every branch raises, so a refusal never says WHICH relation it found. */
@@ -61,17 +66,13 @@ function refuse(): never {
  * and an order always names its seller. A P2P seller who bought from themselves
  * and a store member who bought from their own store both land here.
  */
-export async function assertNotSelfPurchase(
-  authorOxyUserId: string,
-  orderId: string,
-): Promise<void> {
+export async function assertNotSelfPurchase(author: StoreCaller, orderId: string): Promise<void> {
   const order = await findOrderById(orderId);
   if (!order) return;
 
-  if (order.sellerType === 'user' && order.sellerOxyUserId === authorOxyUserId) refuse();
+  if (order.sellerType === 'user' && order.sellerOxyUserId === author.accountId) refuse();
   if (order.sellerType === 'store' && order.storeId) {
-    const members = await storeMemberIds(order.storeId);
-    if (members.has(authorOxyUserId)) refuse();
+    if (await canActForStore(author, order.storeId)) refuse();
   }
 }
 
@@ -88,10 +89,11 @@ export async function assertNotSelfPurchase(
  * Layer 1 is what covers a product review, through the purchase that earned it.
  */
 export async function assertNotSelfTarget(
-  authorOxyUserId: string,
+  author: StoreCaller,
   scope: ReviewScope,
   targetId: string,
 ): Promise<void> {
+  const authorOxyUserId = author.accountId;
   switch (scope) {
     case 'p2p_seller':
       if (targetId === authorOxyUserId) refuse();
@@ -102,8 +104,7 @@ export async function assertNotSelfTarget(
       if (!listing) return;
       if (listing.ownerType === 'user' && listing.oxyUserId === authorOxyUserId) refuse();
       if (listing.ownerType === 'store' && listing.storeId) {
-        const members = await storeMemberIds(listing.storeId);
-        if (members.has(authorOxyUserId)) refuse();
+        if (await canActForStore(author, listing.storeId)) refuse();
       }
       return;
     }
@@ -116,12 +117,11 @@ export async function assertNotSelfTarget(
       if (merchant?.claimedByOxyUserId === authorOxyUserId) refuse();
       // …and so is anyone who can act for the native store it resolves through,
       // which is how a merchant's staff are reachable without a second identity
-      // system (ADR 0002 D4: several verified OPERATORS arrive through
-      // `store_members`, never through a second verified claim).
+      // system (ADR 0002 D4: several verified OPERATORS arrive through the
+      // store's owning Oxy account, never through a second verified claim).
       const link = await findActiveLinkByMerchant(getDb(), targetId);
       if (link) {
-        const members = await storeMemberIds(link.storeId);
-        if (members.has(authorOxyUserId)) refuse();
+        if (await canActForStore(author, link.storeId)) refuse();
       }
       return;
     }

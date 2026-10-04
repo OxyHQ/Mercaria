@@ -144,16 +144,14 @@ async function seedSignal(values: {
 /** A store, for the discount fixtures — `discounts.store_id` cascades on delete. */
 async function makeStore(): Promise<string> {
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `discovery-read-${suffix}`,
-      name: 'Discovery read store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: makeUserId('owner'), role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: makeUserId('owner'),
+    handle: `discovery-read-${suffix}`,
+    name: 'Discovery read store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
   return store.id;
 }

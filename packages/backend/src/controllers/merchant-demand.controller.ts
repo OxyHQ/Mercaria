@@ -16,7 +16,6 @@
 
 import type { Request, Response } from 'express';
 import { config } from '../config/index.js';
-import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import {
   readMerchantDemandDashboard,
   toDemandCsv,
@@ -24,6 +23,7 @@ import {
 } from '../services/merchant-demand/dashboard.service.js';
 import { readMerchantDemandPreview } from '../services/merchant-demand/preview.service.js';
 import { resolveMerchantDemandAccess } from '../services/merchant-demand/access.js';
+import { requireStoreCaller } from '../services/store-access.service.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
@@ -54,8 +54,10 @@ export async function getMerchantDemandHandler(req: Request, res: Response): Pro
       return;
     }
     const merchantId = routeParam(req, 'merchantId');
-    const oxyUserId = getRequiredOxyUserId(req);
-    const access = await resolveMerchantDemandAccess({ merchantId, oxyUserId });
+    const access = await resolveMerchantDemandAccess({
+      merchantId,
+      caller: requireStoreCaller(req),
+    });
     if (access.outcome === 'refused') {
       // Logged with the reason so an operator can tell a misconfigured
       // permission from a wrong merchant id; the RESPONSE carries neither.

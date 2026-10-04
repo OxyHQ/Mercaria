@@ -46,8 +46,6 @@ export interface ActivationFactsOverride {
   feeScheduleAcceptedVersionCurrent?: boolean;
   acceptedPolicies?: MerchantActivationFacts['acceptedPolicies'];
   completedOrderCount?: number;
-  refundPermissionAssigned?: boolean;
-  buyerDataPermissionAssigned?: boolean;
   nativeSatisfied?: boolean;
 }
 
@@ -101,8 +99,6 @@ export function activationFacts(override: ActivationFactsOverride = {}): Merchan
       },
     },
     completedOrderCount: override.completedOrderCount ?? 3,
-    refundPermissionAssigned: override.refundPermissionAssigned ?? true,
-    buyerDataPermissionAssigned: override.buyerDataPermissionAssigned ?? true,
     // The BEST case, like every other field here: collection is on, and this
     // store has somewhere to collect from. A base that left pickup off would
     // make `pickup_checkout` withheld in the census below, which is the

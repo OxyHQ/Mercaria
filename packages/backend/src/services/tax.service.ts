@@ -33,7 +33,7 @@ import {
   updateTaxRate as updateTaxRateRow,
   type TaxRateRecord,
 } from '../db/stores/taxRateRepository.js';
-import { updateStoreColumns, type StoreRecord } from '../db/stores/storeRepository.js';
+import { updateStoreColumns, type StoreRow } from '../db/stores/storeRepository.js';
 import { notFound } from '../lib/errors/error-codes.js';
 
 export type { TaxRateRecord };
@@ -150,7 +150,7 @@ export async function deleteTaxRate(storeId: string, taxRateId: string): Promise
 export async function updateTaxSettings(
   storeId: string,
   patch: UpdateTaxSettingsInput,
-): Promise<StoreRecord> {
+): Promise<StoreRow> {
   const updated = await updateStoreColumns(storeId, {
     ...(patch.pricesIncludeTax !== undefined
       ? { taxSettingsPricesIncludeTax: patch.pricesIncludeTax }

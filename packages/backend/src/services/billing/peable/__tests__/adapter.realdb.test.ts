@@ -39,7 +39,7 @@ const readStripe = vi.fn(async (ref: string) => ({ id: ref, customerId: customer
 
 beforeAll(async () => {
   db = await connectPostgres();
-  const inserted = await db.insert(stores).values(['cohort', 'other'].map(label => ({ ...(label === 'cohort' ? { id: nonce.slice(0, 24) } : {}), handle: `billing-${nonce}-${label}`, name: label, description: '', brandColor: '#101010' }))).returning();
+  const inserted = await db.insert(stores).values(['cohort', 'other'].map(label => ({ ...(label === 'cohort' ? { id: nonce.slice(0, 24) } : {}), oxyAccountId: `owner-${nonce}`, handle: `billing-${nonce}-${label}`, name: label, description: '', brandColor: '#101010' }))).returning();
   storeId = inserted[0]!.id; otherStoreId = inserted[1]!.id;
   const plan = await insertMerchantPlan(db, { planKey: `i08-${nonce}`, version: 1, tier: 'paid', name: 'Fixture', summary: 'synthetic', termsVersion: 'v1', createdByOxyUserId: `operator-${nonce}` });
   planId = plan.id;

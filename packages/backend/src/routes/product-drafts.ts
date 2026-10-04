@@ -10,7 +10,7 @@
  *
  * Every route is behind `products:write`, the SAME permission the existing
  * `/admin/stores/:storeId/products` writes use. Deliberately not a new
- * permission string: `store_members_permissions_check` renders the tuple, so an
+ * permission string: `store_permission_overrides_granted_check` renders the tuple, so an
  * unlisted one is a runtime refusal at the row — and a merchant authoring a
  * product is doing precisely what that permission names. `products:read` is not
  * used even for the reads here, because a draft is unpublished work in progress

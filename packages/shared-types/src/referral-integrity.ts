@@ -370,7 +370,7 @@ export interface ReferralRiskSignalFacts {
   refundRateBps?: number;
   /** Disputed conversions ÷ conversions, over the measured window, in basis points. */
   disputeRateBps?: number;
-  /** The partner holds an owner/admin/staff membership in the referred store. */
+  /** The partner can act for the referred store (it owns it, or holds an override on it). */
   merchantMembershipOverlap?: boolean;
   /** Another approved partner resolves to the same `provider_accounts` row. */
   sharedPayoutBeneficiaryPartnerCount?: number;
@@ -535,9 +535,9 @@ export type ReferralSelfReferralAssessment =
  * conclusions.
  */
 export interface ReferralSelfReferralFacts {
-  /** The converting Oxy account IS the partner owner (or a store member of it). */
+  /** The converting Oxy account IS the partner owner (or can act for the partner store). */
   subjectIsPartnerOwner?: boolean;
-  /** The partner holds owner/admin/staff membership in the referred store. */
+  /** The partner administers the referred merchant (a verified claim on it). */
   partnerHoldsReferredStoreMembership?: boolean;
   /** Two partners resolve to one verified `provider_accounts` beneficiary. */
   beneficiaryOverlapsSubject?: boolean;

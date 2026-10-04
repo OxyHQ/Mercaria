@@ -85,6 +85,7 @@ async function makeStore(): Promise<string> {
   const [row] = await db
     .insert(stores)
     .values({
+      oxyAccountId: 'oxy-account-fixture',
       handle: `discovery-sweep-${suffix}`,
       name: 'Discovery sweep store',
       description: '',

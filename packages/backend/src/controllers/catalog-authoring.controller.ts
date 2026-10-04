@@ -6,9 +6,9 @@
  * ETag exchange and the permission PROJECTION — and the second is worth reading
  * carefully, because it is where a client could otherwise be trusted.
  *
- * ## Permissions are DERIVED from the membership, never from the body
+ * ## Permissions are DERIVED from the caller's access, never from the body
  *
- * `authoringPermissions(req)` reads `req.storeMembership`, which `loadStore` put
+ * `authoringPermissions(req)` reads `req.storeAccess`, which `loadStore` put
  * there and `requireStorePermission` already gated. The projection travels in
  * the schema so a form can grey out a control, and the server re-checks every
  * one of them on the write — a boolean sent to a client is a boolean a client
@@ -28,7 +28,6 @@ import { config } from '../config/index.js';
 import { getDb } from '../db/postgres.js';
 import { log } from '../lib/logger.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
-import { effectivePermissions } from '../middleware/store-authz.js';
 import { routeParam } from '../utils/request.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { ifNoneMatchMatches } from '../lib/http/if-none-match.js';
@@ -68,12 +67,12 @@ function requestedFlow(raw: unknown): ProductTypeAuthoringFlow {
 }
 
 /**
- * What this caller may do, derived from the membership `loadStore` resolved.
+ * What this caller may do, derived from the access `loadStore` resolved.
  *
  * `products:write` is the create/edit permission the existing product routes
  * use, and this surface deliberately reuses it rather than inventing one: a
  * permission string that is not in `STORE_PERMISSIONS` is refused by
- * `store_members_permissions_check` at the row, and a merchant authoring a
+ * `store_permission_overrides_granted_check` at the row, and a merchant authoring a
  * product is doing exactly what that permission names.
  *
  * `canProposeValues` is FALSE in every branch today. ADR 0007 D9's proposals are
@@ -81,9 +80,7 @@ function requestedFlow(raw: unknown): ProductTypeAuthoringFlow {
  * that no endpoint backs, which is worse than the control being absent.
  */
 function authoringPermissions(req: Request): AuthoringPermissionContext {
-  const membership = req.storeMembership;
-  const granted = membership === undefined ? new Set<string>() : effectivePermissions(membership);
-  const canWrite = granted.has('products:write');
+  const canWrite = req.storeAccess?.permissions.includes('products:write') ?? false;
   return {
     canEditDraft: canWrite,
     canPublish: canWrite,

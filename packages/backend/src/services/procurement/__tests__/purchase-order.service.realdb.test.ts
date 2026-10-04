@@ -95,16 +95,14 @@ function dual(amount: number) {
 /** A real customer order shipping to ES, minimal but complete. */
 async function makeOrder(): Promise<string> {
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `procurement-${suffix}`,
-      name: 'Procurement store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: CURRENCY,
-    },
-    [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: `owner-${suffix}`,
+    handle: `procurement-${suffix}`,
+    name: 'Procurement store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: CURRENCY,
+  });
   createdStoreIds.push(store.id);
   const input: NewOrder = {
     orderNumber: await nextOrderNumber(),

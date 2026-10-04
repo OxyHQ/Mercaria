@@ -230,6 +230,7 @@ async function mintStore(label: string): Promise<string> {
   const [row] = await db
     .insert(stores)
     .values({
+      oxyAccountId: 'oxy-account-fixture',
       handle: `pickup-${label}-${RUN}`,
       name: `Pickup store ${label} ${RUN}`,
       description: '',

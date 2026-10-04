@@ -6,7 +6,9 @@
  * job and neither is cosmetic.
  *
  * **The claimant is read from the verified credential, never from the body.**
- * `getRequiredOxyUserId` is the only source of the actor on every route below,
+ * `getRequiredOxyUserId` (or `storeCallerFrom`, where the claimant's session
+ * must also ask Oxy which stores they reach) is the only source of the actor on
+ * every route below,
  * so no field a client can send names who is linking — the mass-assignment /
  * IDOR rule, applied to the one id that decides who ends up operating a store.
  *
@@ -34,6 +36,7 @@ import {
   toStoreLinkageRequestDTO,
 } from '../services/store-linkage/store-linkage.service.js';
 import { findStoreById } from '../db/stores/storeRepository.js';
+import { requireStoreCaller } from '../services/store-access.service.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import { notFound, respondWithError } from '../lib/errors/error-codes.js';
@@ -49,7 +52,7 @@ export async function openLinkageRequestHandler(req: Request, res: Response): Pr
     };
     const request = await openLinkageRequest({
       claimId: body.claimId,
-      claimantOxyUserId: getRequiredOxyUserId(req),
+      claimant: requireStoreCaller(req),
       mode: body.mode,
       ...(body.storeId !== undefined ? { storeId: body.storeId } : {}),
       reason: body.reason,
@@ -144,7 +147,7 @@ export async function applyLinkageRequestHandler(req: Request, res: Response): P
 export async function getLinkageDiffHandler(req: Request, res: Response): Promise<void> {
   try {
     const query = req.query as { storeId: string; merchantId: string };
-    const mayLink = await claimantMayLinkStore(query.storeId, getRequiredOxyUserId(req));
+    const mayLink = await claimantMayLinkStore(query.storeId, requireStoreCaller(req));
     if (!mayLink) {
       // 404 rather than 403: a 403 confirms the store exists, which is exactly
       // what an unauthorized caller learns nothing else from.

@@ -135,6 +135,14 @@ export const ErrorCodes = {
    * contract.
    */
   WATCHLIST_VERSION_CONFLICT: 'WATCHLIST_VERSION_CONFLICT',
+  /**
+   * A dependency the answer needs is unreachable, so the request was refused
+   * rather than answered without it — the Oxy account graph behind every
+   * store-authorization decision (ADR 0012) is the case that introduced it.
+   * Authorization FAILS CLOSED: a store request is never served on a guess
+   * about who belongs to the owning account. Retrying later is correct.
+   */
+  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
 } as const;
 
 /** Union of the supported error code literals. */
