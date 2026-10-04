@@ -50,6 +50,7 @@ import { and, eq } from 'drizzle-orm';
 import { merchantSubscriptions, merchantSubscriptionEvents } from '../../db/schema/merchantPlans.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
+import { merchantBillingAvailableForStore } from './cohort-access.js';
 import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import {
@@ -146,7 +147,7 @@ export interface StartMerchantPlanCheckoutInput {
 export async function startMerchantPlanCheckout(
   input: StartMerchantPlanCheckoutInput,
 ): Promise<MerchantBillingSessionView> {
-  if (!config.merchantBilling.enabled) {
+  if (!merchantBillingAvailableForStore(input.storeId)) {
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();
@@ -222,7 +223,7 @@ export async function openMerchantBillingPortal(input: {
   storeId: string;
   idempotencyKey?: string;
 }): Promise<MerchantBillingSessionView> {
-  if (!config.merchantBilling.enabled) {
+  if (!merchantBillingAvailableForStore(input.storeId)) {
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();
@@ -257,7 +258,7 @@ export async function scheduleMerchantSubscriptionCancellation(input: {
   idempotencyKey?: string;
   actorOxyUserId: string;
 }): Promise<MerchantSubscriptionRow> {
-  if (!config.merchantBilling.enabled) {
+  if (!merchantBillingAvailableForStore(input.storeId)) {
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();

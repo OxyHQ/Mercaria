@@ -26,6 +26,7 @@
  * owns, and the row stays claimable instead of being falsely marked done.
  */
 
+import { registeredBillingCohort } from '../../billing/cohort-access.js';
 import { randomUUID } from 'node:crypto';
 import type Stripe from 'stripe';
 import {
@@ -220,6 +221,8 @@ export async function drainStripeEvents(
       );
   const leaseMs = Math.max(1_000, options.leaseMs ?? config.payments.stripe.eventLeaseMs);
   const result: StripeEventDrainResult = { processed: 0, failed: 0, deadLettered: 0 };
+  const cohort = !config.payments.stripe.enabled ? registeredBillingCohort() : undefined;
+  if (!config.payments.stripe.enabled && !cohort) return result;
 
   for (let index = 0; index < batchSize; index += 1) {
     // Shutdown stops claiming NEW work but lets the row already in flight reach
@@ -233,6 +236,7 @@ export async function drainStripeEvents(
       // would claim a `peable` row, find no handler, and mark it processed —
       // see `ClaimProviderEventOptions.providers`.
       providers: ['stripe'],
+      ...(cohort ? { stripeBillingScope: cohort } : {}),
       ...(options.eventId ? { eventId: options.eventId } : {}),
     });
     if (!row) break;
@@ -267,11 +271,14 @@ export async function processStoredStripeEvent(input: {
   event: Stripe.Event;
 }): Promise<void> {
   const db = getDb();
+  const cohort = !config.payments.stripe.enabled ? registeredBillingCohort() : undefined;
+  if (!config.payments.stripe.enabled && !cohort) return;
   const leaseOwner = `stripe-ingress:${String(process.pid)}:${randomUUID()}`;
   const row = await claimProviderEvent(db, {
     leaseOwner,
     leaseMs: Math.max(1_000, config.payments.stripe.eventLeaseMs),
     providers: ['stripe'],
+    ...(cohort ? { stripeBillingScope: cohort } : {}),
     eventId: input.storedEventId,
   });
   // Not claimable means another task already holds it, or it is already
@@ -301,7 +308,9 @@ export async function replayProviderEvent(eventId: string): Promise<boolean> {
   if (!existing) {
     throw new Error(`Provider event ${eventId} does not exist.`);
   }
-  if (!(await reopenProviderEvent(db, eventId))) {
+  const cohort = !config.payments.stripe.enabled ? registeredBillingCohort() : undefined;
+  if (!config.payments.stripe.enabled && !cohort) return false;
+  if (!(await reopenProviderEvent(db, eventId, new Date(), cohort))) {
     log.general.warn(
       { eventId, status: existing.status },
       '[Stripe] event is not in a replayable state',

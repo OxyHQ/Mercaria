@@ -30,6 +30,11 @@ let subscriptionEvents: typeof import('../../db/schema/merchantPlans.js').mercha
 let ledger: typeof import('../../db/schema/ledger.js').ledgerEntries;
 let config: typeof import('../../config/index.js').config;
 let resetBillingProviders: typeof import('../../services/billing/provider.js').resetBillingProviders;
+let outsiderStoreId: string;
+const retryInvoice = `in_retry${nonce}`;
+const expiredLeaseInvoice = `in_expired${nonce}`;
+let balanceAvailable = true;
+let platformAccountOverride: string | undefined;
 let invoiceWrongCustomer = false;
 let invoiceCustomerOverride: string | undefined;
 beforeAll(async () => {
@@ -62,7 +67,7 @@ beforeAll(async () => {
   const gatewayUrl = `http://127.0.0.1:${(gateway.address() as {port:number}).port}`;
   vi.stubEnv('PEABLE_BASE_URL', gatewayUrl); vi.stubEnv('OXY_API_URL', gatewayUrl);
   vi.stubEnv('MERCHANT_BILLING_RETURN_URL', 'https://dashboard.mercaria.co/settings/plan');
-  for (const [key,value] of Object.entries({ STRIPE_ENABLED:'false', STRIPE_SECRET_KEY:'sk_test_fixture', STRIPE_WEBHOOK_SECRET:secret, STRIPE_CONNECT_WEBHOOK_SECRET:'whsec_connect_fixture', MERCHANT_BILLING_ENABLED:String(actions), PEABLE_APP_PUBLIC_KEY:'fixture-public', PEABLE_APP_SECRET:'fixture-secret', MERCHANT_BILLING_PEABLE_COHORT: JSON.stringify({ merchantId:'merchant-fixture', applicationId:'app-fixture', environment:'development', platformAccountId:'acct_fixture', livemode:false, storeIds:[storeId,otherCohortStoreId] }) })) vi.stubEnv(key,value);
+  for (const [key,value] of Object.entries({ STRIPE_EVENT_POLL_INTERVAL_MS:'25', STRIPE_ENABLED:'false', STRIPE_SECRET_KEY:'sk_test_fixture', STRIPE_WEBHOOK_SECRET:secret, STRIPE_CONNECT_WEBHOOK_SECRET:'whsec_connect_fixture', MERCHANT_BILLING_ENABLED:String(actions), PEABLE_APP_PUBLIC_KEY:'fixture-public', PEABLE_APP_SECRET:'fixture-secret', MERCHANT_BILLING_PEABLE_COHORT: JSON.stringify({ merchantId:'merchant-fixture', applicationId:'app-fixture', environment:'development', platformAccountId:'acct_fixture', livemode:false, storeIds:[storeId,otherCohortStoreId] }) })) vi.stubEnv(key,value);
   config = (await import('../../config/index.js')).config;
   postgres = await import('../../db/postgres.js'); db = await postgres.connectPostgres();
   ({ paymentProviderEvents:events } = await import('../../db/schema/payments.js'));
@@ -71,6 +76,7 @@ beforeAll(async () => {
   const { stores } = await import('../../db/schema/stores.js');
   await db.insert(stores).values({ id:storeId, handle:`cohort-${nonce}`, name:'Owned fixture', description:'', brandColor:'#101010' });
   const [outsider] = await db.insert(stores).values({handle:`outside-${nonce}`,name:'Owned outsider',description:'',brandColor:'#101010'}).returning();
+  outsiderStoreId = outsider!.id;
   await db.insert(stores).values({id:otherCohortStoreId,handle:`second-${nonce}`,name:'Second cohort',description:'',brandColor:'#101010'});
   const plans = await import('../../db/merchantPlans/planRepository.js');
   const p = await plans.insertMerchantPlan(db,{ planKey:`cohort-${nonce}`,version:1,tier:'paid',name:'Fixture',summary:'synthetic',termsVersion:'v1',createdByOxyUserId:`operator-${nonce}` });
@@ -87,9 +93,9 @@ beforeAll(async () => {
   transport.fetch.mockImplementation(async (url: string | URL | Request, options?: RequestInit) => {
     const path = new URL(String(url)).pathname; transport.paths.push(path); expect(options?.method).toBe('GET');
     let data: unknown;
-    if(path==='/v1/account') data={id:'acct_fixture'};
-    else if(path===`/v1/invoices/${invoice}`) data={id:invoice,customer:invoiceCustomerOverride ?? (invoiceWrongCustomer?'cus_outsider':customer),livemode:false,parent:{subscription_details:{subscription:sub}},payments:{data:[{payment:{charge}}]}};
-    else if(path===`/v1/charges/${charge}`) data={id:charge,customer,livemode:false,balance_transaction:{net:97,fee:3,currency:'usd'}};
+    if(path==='/v1/account') data={id:platformAccountOverride ?? 'acct_fixture'};
+    else if(path===`/v1/invoices/${invoice}` || path===`/v1/invoices/${retryInvoice}` || path===`/v1/invoices/${expiredLeaseInvoice}`) data={id:path.split('/').at(-1),customer:invoiceCustomerOverride ?? (invoiceWrongCustomer?'cus_outsider':customer),livemode:false,parent:{subscription_details:{subscription:sub}},payments:{data:[{payment:{charge}}]}};
+    else if(path===`/v1/charges/${charge}`) data={id:charge,customer,livemode:false,balance_transaction:balanceAvailable ? {net:97,fee:3,currency:'usd'} : null};
     else throw new Error('Unexpected provider request');
     return new Response(JSON.stringify(data),{status:200});
   });
@@ -99,7 +105,7 @@ beforeAll(async () => {
   const { createApp } = await import('../../app.js'); server=createApp().listen(0,'127.0.0.1');
   await new Promise<void>(resolve=>server.on('listening',resolve));base=`http://127.0.0.1:${(server.address() as {port:number}).port}`;
 },120_000);
-afterAll(async()=>{ if(server) await new Promise<void>(resolve=>server.close(()=>resolve()));if(gateway)await new Promise<void>(resolve=>gateway.close(()=>resolve()));resetBillingProviders?.();if(postgres)await postgres.closePostgres();vi.unstubAllEnvs(); });
+afterAll(async()=>{ (await import('../../services/payments/stripe/event-dispatcher.js')).stopStripeEventDispatcher();if(server) await new Promise<void>(resolve=>server.close(()=>resolve()));if(gateway)await new Promise<void>(resolve=>gateway.close(()=>resolve()));resetBillingProviders?.();if(postgres)await postgres.closePostgres();vi.unstubAllEnvs(); });
 async function stored(id:string){return db.select().from(events).where(and(eq(events.provider,'stripe'),eq(events.providerEventId,id)));}
 async function post(id:string, type='invoice.paid', object:Record<string,unknown>={id:invoice,object:'invoice',customer}, path='/webhooks/stripe') {
   const payload=JSON.stringify({id,object:'event',api_version:'2026-07-29.dahlia',created:Math.floor(Date.now()/1000),livemode:false,type,data:{object},pending_webhooks:1,request:{id:null,idempotency_key:null}});
@@ -206,9 +212,9 @@ it('durable replay refuses an event from the other mode before provider reads or
   const leaseOwner = `own-replay-${nonce}`;
   expect(await claimProviderEvent(db, { leaseOwner, leaseMs: 60_000, providers: ['stripe'], eventId: storedRow.row.id })).toBeTruthy();
   expect(await failProviderEvent(db, { eventId: storedRow.row.id, leaseOwner, error: 'synthetic transient failure', deadLetter: false, nextAttemptAt: new Date(Date.now()+60_000) })).toBe(true);
-  expect(await replayProviderEvent(storedRow.row.id)).toBe(true);
-  expect((await stored(id))[0]!.status).toBe('processed');
-  expect((await stored(id))[0]!.processingNote).toContain('outside the configured billing cohort');
+  const original = await stored(id);
+  expect(await replayProviderEvent(storedRow.row.id)).toBe(false);
+  expect(await stored(id)).toEqual(original);
   expect(transport.paths).toHaveLength(before);expect(gatewayCalls).toHaveLength(gatewayBefore);
   expect(await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.providerEventId,id))).toHaveLength(0);
 });
@@ -296,3 +302,83 @@ it('a changed subscription namespace refuses settlement before any new claim', a
     .rejects.toThrow('Subscription billing binding changed');
   expect(await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.providerInvoiceId,ownInvoice))).toHaveLength(0);
 });
+
+
+it('outsider availability and every action deny before acceptance, customer or remote effects', async () => {
+  const { buildMerchantPlanStatus } = await import('../../services/entitlements/projection.js');
+  const { startMerchantPlanCheckout, openMerchantBillingPortal, scheduleMerchantSubscriptionCancellation } = await import('../../services/billing/subscription.service.js');
+  const { merchantPlanAcceptances, billingCustomers } = await import('../../db/schema/merchantPlans.js');
+  const beforeAcceptances = await db.select().from(merchantPlanAcceptances).where(eq(merchantPlanAcceptances.storeId, outsiderStoreId));
+  const beforeCustomers = await db.select().from(billingCustomers).where(eq(billingCustomers.storeId, outsiderStoreId));
+  const beforeGateway = gatewayCalls.length, beforeStripe = transport.paths.length;
+  const view = await buildMerchantPlanStatus({storeId: outsiderStoreId});
+  expect(view.billingAvailable).toBe(false);expect(view.portalAvailable).toBe(false);
+  await expect(startMerchantPlanCheckout({storeId:outsiderStoreId,storeName:'Owned outsider',planId,interval:'monthly',currency:'USD',actorOxyUserId:`payer-${nonce}`,idempotencyKey:`outside-checkout-${nonce}`})).rejects.toThrow('Paid plans are not available');
+  await expect(openMerchantBillingPortal({storeId:outsiderStoreId,idempotencyKey:`outside-portal-${nonce}`})).rejects.toThrow('Paid plans are not available');
+  await expect(scheduleMerchantSubscriptionCancellation({storeId:outsiderStoreId,actorOxyUserId:`payer-${nonce}`,idempotencyKey:`outside-cancel-${nonce}`})).rejects.toThrow('Paid plans are not available');
+  expect(await db.select().from(merchantPlanAcceptances).where(eq(merchantPlanAcceptances.storeId,outsiderStoreId))).toEqual(beforeAcceptances);
+  expect(await db.select().from(billingCustomers).where(eq(billingCustomers.storeId,outsiderStoreId))).toEqual(beforeCustomers);
+  expect(gatewayCalls).toHaveLength(beforeGateway);expect(transport.paths).toHaveLength(beforeStripe);
+});
+
+it('real starter retries a durable invoice automatically while foreign claims and replay remain untouched', async () => {
+  const { recordProviderEvent } = await import('../../db/payments/paymentRepository.js');
+  const { replayProviderEvent } = await import('../../services/payments/stripe/event-processor.js');
+  const { startStripeEventDispatcher, stopStripeEventDispatcher } = await import('../../services/payments/stripe/event-dispatcher.js');
+  const providers = await import('../../services/billing/provider.js');
+  const foreign = [];
+  for (const [label,type,livemode,providerAccountId,eventCustomer] of [
+    ['marketplace','payment_intent.succeeded',false,undefined,customer],
+    ['connect','invoice.paid',false,'acct_foreign',customer],
+    ['mode','invoice.paid',true,undefined,customer],
+    ['outsider','invoice.paid',false,undefined,'cus_outsider'],
+    ['external','invoice.paid',false,undefined,'cus_external'],
+  ] as const) {
+    const {row} = await recordProviderEvent(db,{provider:'stripe',providerEventId:`evt_poll_${label}${nonce}`,type,livemode,
+      ...(providerAccountId ? {providerAccountId} : {}), objectIds:{invoice:retryInvoice,customer:eventCustomer},payloadSummary:{},expiresAt:new Date(Date.now()+86400000)});
+    // Cover both due received rows and expired processing leases, older than the authorized invoice.
+    if(label==='connect') await db.update(events).set({status:'processing',attempts:1,leaseOwner:'owned-expired',leaseUntil:new Date(Date.now()-1000)}).where(eq(events.id,row.id));
+    if(label==='mode') await db.update(events).set({status:'failed',lastError:'owned historical failure',nextAttemptAt:new Date(Date.now()-1000)}).where(eq(events.id,row.id));
+    foreign.push((await db.select().from(events).where(eq(events.id,row.id)))[0]!);
+  }
+  const expired = await recordProviderEvent(db,{provider:'stripe',providerEventId:`evt_expired_lease${nonce}`,type:'invoice.paid',livemode:false,
+    objectIds:{invoice:expiredLeaseInvoice,customer},payloadSummary:{},expiresAt:new Date(Date.now()+86400000)});
+  await db.update(events).set({status:'processing',attempts:1,leaseOwner:'owned-crashed-task',leaseUntil:new Date(Date.now()-1000)}).where(eq(events.id,expired.row.id));
+  balanceAvailable=false;
+  const eventId=`evt_poll_authorized${nonce}`;
+  try { expect((await post(eventId,'invoice.paid',{id:retryInvoice,object:'invoice',customer})).status).toBe(200); }
+  finally { balanceAvailable=true; }
+  expect((await stored(eventId))[0]!.status).toBe('failed');
+  expect(await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.providerInvoiceId,retryInvoice))).toHaveLength(0);
+  const registered = providers.getBillingProvider('stripe')!;
+  providers.resetBillingProviders();
+  startStripeEventDispatcher(); // Same bootstrap order: starter precedes asynchronous namespace registration.
+  try {
+    platformAccountOverride='acct_wrong';
+    try { await expect((await import('../../services/billing/register.js')).registerMerchantBillingProvider()).rejects.toThrow('platform account or mode differs'); }
+    finally { platformAccountOverride=undefined; }
+    expect(providers.getBillingProvider('stripe')).toBeUndefined();
+    await new Promise(resolve=>setTimeout(resolve,100));
+    expect((await stored(eventId))[0]!.attempts).toBe(1);
+    expect((await db.select().from(events).where(eq(events.id,expired.row.id)))[0]!.leaseOwner).toBe('owned-crashed-task');
+    await (await import('../../services/billing/register.js')).registerMerchantBillingProvider();
+    const deadline=Date.now()+4000;
+    let recovered=false;
+    do {
+      if((await stored(eventId))[0]!.status==='processed') { recovered=true;break; }
+      await new Promise(resolve=>setTimeout(resolve,25));
+    } while(Date.now()<deadline);
+    expect(recovered).toBe(true);
+    expect((await stored(eventId))[0]!.attempts).toBe(2);
+    const claims=await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.providerInvoiceId,retryInvoice));
+    expect(claims).toHaveLength(1);expect(claims[0]!.ledgerTransactionId).toBeTruthy();
+    expect((await db.select().from(events).where(eq(events.id,expired.row.id)))[0]).toMatchObject({status:'processed',attempts:2,leaseOwner:null});
+    const expiredClaims=await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.providerInvoiceId,expiredLeaseInvoice));
+    expect(expiredClaims).toHaveLength(1);expect(expiredClaims[0]!.ledgerTransactionId).toBeTruthy();
+    console.log(JSON.stringify({kind:'owned-cohort-automatic-recovery',actions,newInvoiceClaims:claims.length,expiredLeaseClaims:expiredClaims.length,foreignRows:foreign.length,attempts:(await stored(eventId))[0]!.attempts}));
+    for(const original of foreign) {
+      expect(await replayProviderEvent(original.id)).toBe(false);
+      expect((await db.select().from(events).where(eq(events.id,original.id)))[0]).toEqual(original);
+    }
+  } finally { stopStripeEventDispatcher();providers.registerBillingProvider(registered); }
+},10000);

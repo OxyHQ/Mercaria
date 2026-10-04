@@ -25,3 +25,19 @@ it('rejects malformed namespace rather than enabling a fallback', async () => {
 it('rejects malformed cohort even when new actions are off', async () => {
   await expect(read(false, { MERCHANT_BILLING_PEABLE_COHORT: '{canary' })).rejects.toThrow('Invalid merchant billing cohort configuration.');
 });
+
+it('preserves broad Stripe actions for non-cohort stores when the general rail is enabled', async () => {
+  const config = await read(true, {STRIPE_ENABLED:'true',STRIPE_CONNECT_WEBHOOK_SECRET:'whsec_connect_fixture',MERCHANT_BILLING_PEABLE_COHORT:'',MERCHANT_BILLING_RETURN_URL:'https://dashboard.mercaria.co/settings/plan'});
+  const { registerBillingProvider } = await import('../../services/billing/provider.js');
+  const { StripeBillingProvider } = await import('../../services/billing/stripe/stripe-billing.js');
+  const { startMerchantPlanCheckout } = await import('../../services/billing/subscription.service.js');
+  const postgres = await import('../../db/postgres.js');
+  expect(config.payments.stripe.enabled).toBe(true);expect(config.merchantBilling.enabled).toBe(true);
+  registerBillingProvider(new StripeBillingProvider());
+  await postgres.connectPostgres();
+  try {
+    // An absent plan is rejected by the original plan lookup, not by cohort scope.
+    await expect(startMerchantPlanCheckout({storeId:'6a77367c30650db22f728092',storeName:'Owned non-cohort control',
+      planId:'00000000-0000-4000-8000-000000000099',interval:'monthly',currency:'USD',actorOxyUserId:'owned-control'})).rejects.toThrow('Plan not found');
+  } finally { await postgres.closePostgres(); }
+});

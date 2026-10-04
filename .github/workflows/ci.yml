@@ -51,7 +51,7 @@ jobs:
     # constraint is imposed by the service container below and this is now the
     # only job in the repository that has one.
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     services:
       # The API suite needs a real PostGIS server: the `*.realdb.test.ts` files

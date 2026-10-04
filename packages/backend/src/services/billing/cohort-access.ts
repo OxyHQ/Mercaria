@@ -28,3 +28,20 @@ export function requireRegisteredBillingCohort(binding: NonNullable<Awaited<Retu
       message: 'The billing cohort is not registered on this deployment.' });
   }
 }
+
+
+/** No action flag: existing financial obligations continue when upgrades are disabled.
+ * Undefined means no registered cohort; callers must not fall back to a broad claim. */
+export function registeredBillingCohort() {
+  const cohort = parseBillingCohort(config.merchantBilling.peableCohortJson);
+  const provider = getBillingProvider('stripe');
+  return cohort && provider && provider.livemode === cohort.livemode &&
+    cohort.storeIds.every(storeId => provider.requiresExplicitIntent?.(storeId)) ? cohort : undefined;
+}
+
+/** The projection and all three action entrypoints use the same store decision. */
+export function merchantBillingAvailableForStore(storeId: string): boolean {
+  if (!config.merchantBilling.enabled || !getBillingProvider('stripe')) return false;
+  if (config.payments.stripe.enabled) return true;
+  return registeredBillingCohort()?.storeIds.includes(storeId) ?? false;
+}
