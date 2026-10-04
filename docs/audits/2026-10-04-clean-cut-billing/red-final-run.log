@@ -1,0 +1,7 @@
+waiting for server to start.... done
+server started
+{"verifiedOwnPostgresPid": 1256872, "dataDirectory": "/home/nate/Oxy/.agent-evidence/mcohort-pg-std7kpet/data", "port": 5628, "liveAccess": false}
+{"phase": "red-final", "exitCode": 1}
+waiting for server to shut down.... done
+server stopped
+{"ownedPostgresStopped": true, "pidAbsent": true, "record": "/home/nate/Oxy/.agent-evidence/mcohort-pg-std7kpet"}

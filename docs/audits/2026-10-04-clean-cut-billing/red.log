@@ -1,0 +1,1125 @@
+$ vitest run src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/nate/Oxy/Mercaria/.worktrees/1519-clean-cut-billing-20261004/packages/backend[39m
+
+[13:04:20] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:21] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:21] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:22] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:22] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:23] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:23] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:24] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:24] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:25] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:25] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:26] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:26] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:26] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:26] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:26] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:26] [32mINFO[39m: [36m[MerchantBilling] subscription reconciliation pass[39m
+    [35mexamined[39m: 1
+    [35mapplied[39m: 0
+    [35mfailed[39m: 1
+    [35mgraceAnnounced[39m: 0
+[13:04:26] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8003-5d54461c6c19"
+    error: {
+      "provider": "stripe",
+      "stage": "retrieveSubscription",
+      "retryable": false,
+      "code": "billing_cohort_mismatch",
+      "name": "BillingProviderError"
+    }
+[13:04:26] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8000-5d54461c6c19"
+    error: {}
+[13:04:26] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8001-5d54461c6c19"
+    error: {}
+[13:04:26] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8002-5d54461c6c19"
+    error: {}
+[13:04:26] [33mWARN[39m: [36m[MerchantBilling] a subscription could not be reconciled[39m
+    [35msubscriptionId[39m: "00000000-0000-7000-8003-5d54461c6c19"
+    error: {}
+ [31m❯[39m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[33m 5344[2mms[22m[39m
+[31m   [31m×[31m selects the registered cohort before LIMIT and does not visit older foreign or other-mode rows[39m[32m 31[2mms[22m[39m
+[31m   [31m×[31m the actual timer advances beyond a failing first eligible subscription and reaches the next one with actions OFF[39m[33m 5012[2mms[22m[39m
+[31m   [31m×[31m keeps general Stripe-enabled reconciliation for noncohort stores while excluding the other key mode[39m[32m 107[2mms[22m[39m
+[31m   [31m×[31m does no provider read or subscription write before the cohort is registered[39m[32m 10[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 4 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts[2m > [22mselects the registered cohort before LIMIT and does not visit older foreign or other-mode rows
+[31m[1mAssertionError[22m: expected { examined: 1, applied: +0, failed: 1 } to match object { examined: 1, applied: 1, failed: +0 }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "applied": 1,[39m
+[31m+   "applied": 0,[39m
+[2m    "examined": 1,[22m
+[32m-   "failed": 0,[39m
+[31m+   "failed": 1,[39m
+[2m  }[22m
+
+[36m [2m❯[22m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts:[2m108:62[22m[39m
+    [90m106|[39m it('selects the registered cohort before LIMIT and does not visit olde…
+    [90m107|[39m   [35mconst[39m foreign [33m=[39m [35mawait[39m [34mrows[39m()[33m;[39m [34mexpect[39m(foreign)[33m.[39m[34mtoHaveLength[39m([34m2[39m)[33m;[39m
+    [90m108|[39m   expect(await reconcileMerchantSubscriptions({ limit: 1 })).toMatchOb…
+    [90m   |[39m                                                              [31m^[39m
+    [90m109|[39m   expect(calls).toEqual([refs[1]]); expect(legacyRead).not.toHaveBeenC…
+    [90m110|[39m })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts[2m > [22mthe actual timer advances beyond a failing first eligible subscription and reaches the next one with actions OFF
+[31m[1mAssertionError[22m: expected 'active' to be 'paused' // Object.is equality[39m
+
+Expected: [32m"paused"[39m
+Received: [31m"active"[39m
+
+[36m [2m❯[22m vi.waitFor.timeout src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts:[2m118:29[22m[39m
+    [90m116|[39m     [35mawait[39m vi[33m.[39m[34mwaitFor[39m([35masync[39m () [33m=>[39m {
+    [90m117|[39m       const [later] = await db.select().from(merchantSubscriptions).wh…
+    [90m118|[39m       [34mexpect[39m(later[33m?.[39mstatus)[33m.[39m[34mtoBe[39m([32m'paused'[39m)[33m;[39m
+    [90m   |[39m                             [31m^[39m
+    [90m119|[39m     }[33m,[39m { timeout[33m:[39m [34m5_000[39m[33m,[39m interval[33m:[39m [34m25[39m })[33m;[39m
+    [90m120|[39m   } [35mfinally[39m { [34mstopMerchantSubscriptionReconciler[39m()[33m;[39m }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts[2m > [22mkeeps general Stripe-enabled reconciliation for noncohort stores while excluding the other key mode
+[31m[1mAssertionError[22m: expected { examined: 4, applied: 3, failed: 1 } to match object { examined: 3, applied: 3, failed: +0 }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[2m    "applied": 3,[22m
+[32m-   "examined": 3,[39m
+[32m-   "failed": 0,[39m
+[31m+   "examined": 4,[39m
+[31m+   "failed": 1,[39m
+[2m  }[22m
+
+[36m [2m❯[22m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts:[2m126:63[22m[39m
+    [90m124|[39m it('keeps general Stripe-enabled reconciliation for noncohort stores w…
+    [90m125|[39m   flags[33m.[39mstripe [33m=[39m [35mtrue[39m[33m;[39m
+    [90m126|[39m   expect(await reconcileMerchantSubscriptions({ limit: 10 })).toMatchO…
+    [90m   |[39m                                                               [31m^[39m
+    [90m127|[39m   expect(legacyRead).toHaveBeenCalledWith(refs[0]); expect(calls).not.…
+    [90m128|[39m   [34mexpect[39m(calls)[33m.[39m[34mtoContain[39m(refs[[34m1[39m])[33m;[39m [34mexpect[39m(calls)[33m.[39m[34mtoContain[39m(refs[[34m2[39m])[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts[2m > [22mdoes no provider read or subscription write before the cohort is registered
+[31m[1mAssertionError[22m: expected { examined: 4, applied: +0, failed: 4 } to match object { examined: +0, applied: +0, …(1) }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[2m    "applied": 0,[22m
+[32m-   "examined": 0,[39m
+[32m-   "failed": 0,[39m
+[31m+   "examined": 4,[39m
+[31m+   "failed": 4,[39m
+[2m  }[22m
+
+[36m [2m❯[22m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts:[2m135:63[22m[39m
+    [90m133|[39m   const before = await db.select().from(merchantSubscriptions).where(i…
+    [90m134|[39m   [34mexpect[39m(before)[33m.[39m[34mtoHaveLength[39m([34m4[39m)[33m;[39m
+    [90m135|[39m   expect(await reconcileMerchantSubscriptions({ limit: 10 })).toMatchO…
+    [90m   |[39m                                                               [31m^[39m
+    [90m136|[39m   [34mexpect[39m(calls)[33m.[39m[34mtoEqual[39m([])[33m;[39m
+    [90m137|[39m   expect(await db.select().from(merchantSubscriptions).where(inArray(m…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m4 failed[39m[22m[90m (4)[39m
+[2m   Start at [22m 16:04:12
+[2m   Duration [22m 13.97s[2m (transform 2.29s, setup 0ms, import 3.50s, tests 5.34s, environment 0ms)[22m
+
+error: script "test" exited with code 1

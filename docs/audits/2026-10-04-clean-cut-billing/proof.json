@@ -1,0 +1,247 @@
+{
+  "kind": "mercaria-clean-cut-reconciliation-source-proof",
+  "sourceCommit": "8bbeafca0eb1e1f6a8568b8fc8ee428e310ad12f",
+  "baselineCommit": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f",
+  "source": [
+    {
+      "path": "docs/integrations/i08-billing-cohort.md",
+      "bytes": 9144,
+      "sha256": "ab64051db9fbe826716461d0b761c5ff16f72413c38ed175a4fc7b96c3e09c81"
+    },
+    {
+      "path": "docs/merchant-plans.md",
+      "bytes": 22586,
+      "sha256": "f452a1c7f63d31159c880c907e23d33e1ff35e6804ef4d9df8b1aabdaf7c7232"
+    },
+    {
+      "path": "docs/payments.md",
+      "bytes": 164204,
+      "sha256": "c5a2a023280a6e6bdc8edec9304fc94a64e8500d1b173974ca3546531930846d"
+    },
+    {
+      "path": "packages/backend/src/db/merchantPlans/subscriptionRepository.ts",
+      "bytes": 16281,
+      "sha256": "b25ac5c7d9e55dcbc6e8c4323cd25286c29516c3442044fdf0c8949508589cee"
+    },
+    {
+      "path": "packages/backend/src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts",
+      "bytes": 11678,
+      "sha256": "6dab9d849add870e63b402fe8ac9e52bb50019e0eac733fba3675181c18869ba"
+    },
+    {
+      "path": "packages/backend/src/services/billing/reconciler.ts",
+      "bytes": 3497,
+      "sha256": "d1fa9d9f4968d7f4aabd14ed92539c152226297d437d0ea9b8604f338775b882"
+    },
+    {
+      "path": "packages/backend/src/services/billing/subscription.service.ts",
+      "bytes": 26243,
+      "sha256": "637176b08e498858a16deda18a4100fbf3ae2b556c9c6bad8db38401508549da"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/owned-pg.py",
+      "bytes": 4102,
+      "sha256": "8acc299d1e489b751ac7e96e418225a230f96d468e99b0d9cd5d6697b4878403"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/red-binding.json",
+      "bytes": 333,
+      "sha256": "406b9ffe141781eaec8b21a3b71f38b54b9c2b7f47b17e10bac8f34f145543f9"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/final-red-binding.json",
+      "bytes": 245,
+      "sha256": "173aa9c6ed4211d1299962f83dddb6dbebbe659d3d8d91c68259f4b5be1357e6"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/red.log",
+      "bytes": 54200,
+      "sha256": "91117ccb2f0adda0ae58535246305961b22b187d361ece653eb4dd5706c8688c"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/red-run.log",
+      "bytes": 401,
+      "sha256": "07e3e8a0b489b791675a1eec7e10007bb921a830877bdeb4018f747c7d354713"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/green.log",
+      "bytes": 1636,
+      "sha256": "beb6396b2d3e646a4ad71fba95387615faf905aa1069638a6c63204bee5949dd"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/green-run.log",
+      "bytes": 403,
+      "sha256": "eb6a3a507955d40896058888c20c80bad2dcf7e989d4c19d5f93a1c961f06cd5"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/red-final-setup-failure.log",
+      "bytes": 769,
+      "sha256": "14c314f88f0b5c816cf47f0e71184170403b2c97c0d0585737f3341d64d873e2"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/red-final.log",
+      "bytes": 55843,
+      "sha256": "cf2c329fefd0b8f0c9ee0d64dfcb0ec3c0208be0b63c468b3a3420ab99963ff7"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/red-final-run.log",
+      "bytes": 407,
+      "sha256": "f9c04eb891db5c2e8743590e31392d3f5ba115ef468e8ee4eefadf7fd0824b80"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/green-final.log",
+      "bytes": 2543,
+      "sha256": "93b38849904c4a4c3f8206075f6a33ecec21c73ae7e851a41006e2d64ff73b59"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/green-final-run.log",
+      "bytes": 409,
+      "sha256": "5b9044ae062651003c225ecd45ab7df8b3ea4625349cdca10f55c88313010cf7"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/typecheck-final.log",
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/lint-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/build-final.log",
+      "bytes": 248,
+      "sha256": "ebc62a621625a5e0c27897badb51e46751315f67c004eac6c205acd2a2989b96"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/installed-sdk.json",
+      "bytes": 9162,
+      "sha256": "4374b29ddb6a7046bdbb1084193ec42036e46e16bf6eca6a3bdf19756dae0c27"
+    },
+    {
+      "path": "docs/audits/2026-10-04-clean-cut-billing/prospective-actions-config.json",
+      "bytes": 1250,
+      "sha256": "b2794d2def4510d8730486c8a67a165cecbd0ba2299392a63c0260fca0af8366"
+    }
+  ],
+  "compiled": [
+    {
+      "path": "packages/backend/dist/index.js",
+      "bytes": 9783844,
+      "sha256": "761400a1f09c00c722c2ef9d223d4aaec49a7212b9a12f2e5169d3024fb841a0"
+    },
+    {
+      "path": "packages/backend/dist/db/migrate.js",
+      "bytes": 3852,
+      "sha256": "f065a7311adee792500bdd04d21e27d361608a23d7a61999890272161d96a73b"
+    },
+    {
+      "path": "packages/backend/dist/register-capability-catalog.js",
+      "bytes": 8793,
+      "sha256": "22ce7b279fec3a499fbd9f0cdf1617e6c3069776ee04f2d07f2d284257f38f4f"
+    },
+    {
+      "path": "packages/backend/dist/scripts/provision-taxonomy.js",
+      "bytes": 2235110,
+      "sha256": "92d76b0a3682955e7d4419e389a0e122caf44eea55f02dae5d3d4e1f652c2098"
+    }
+  ],
+  "unchangedInputs": [
+    {
+      "path": "bun.lock",
+      "bytes": 472724,
+      "sha256": "f950d4374476c27b2b957c400545aadce0880508bf4caf68422b2155756ddbb7",
+      "unchangedFrom": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "bytes": 2282,
+      "sha256": "4e8d18ac094a03a30b4c2914d7dd7931a4b02da85bac3fbf87432afe5918690d",
+      "unchangedFrom": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f"
+    },
+    {
+      "path": "packages/backend/src/db/migrate.ts",
+      "bytes": 7865,
+      "sha256": "a814e6cf268d16c51f8d78d90c2ddc6bb144cf4ac9d6571d8e16b7535b0e1933",
+      "unchangedFrom": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f"
+    },
+    {
+      "path": "packages/backend/drizzle/meta/_journal.json",
+      "bytes": 23121,
+      "sha256": "bfd88030d5913d95cd98f20af6517b8324e22058f532f8e116c1fbe6c1b05332",
+      "unchangedFrom": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f"
+    },
+    {
+      "path": "packages/backend/src/routes/admin/plan.ts",
+      "bytes": 2477,
+      "sha256": "69ecace5dd145bf48b3e7af25292c5de965ec29d70e82781cfcea614f50ace6e",
+      "unchangedFrom": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f"
+    },
+    {
+      "path": "packages/backend/src/services/billing/cohort-access.ts",
+      "bytes": 2702,
+      "sha256": "e915425f00afb6f082146e96edc929c2cfa1f63ddda08a0fc8d610c7aeac2162",
+      "unchangedFrom": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f"
+    }
+  ],
+  "ownedPostgres": [
+    {
+      "run": "red-run.log",
+      "pid": 1229033,
+      "absent": true
+    },
+    {
+      "run": "green-run.log",
+      "pid": 1245132,
+      "absent": true
+    },
+    {
+      "run": "red-final-setup-failure.log",
+      "pid": 1256528,
+      "absent": true
+    },
+    {
+      "run": "red-final-run.log",
+      "pid": 1256872,
+      "absent": true
+    },
+    {
+      "run": "green-final-run.log",
+      "pid": 1258109,
+      "absent": true
+    }
+  ],
+  "results": {
+    "initialRed": {
+      "tests": 4,
+      "failed": 4
+    },
+    "initialGreen": {
+      "tests": 4,
+      "passed": 4
+    },
+    "finalSameFixtureRed": {
+      "tests": 5,
+      "failed": 5
+    },
+    "finalSameFixtureGreen": {
+      "tests": 5,
+      "passed": 5
+    },
+    "typecheck": 0,
+    "scopedEslint": 0,
+    "backendBuild": 0,
+    "normalMigrator": 158,
+    "installedPublishedPeableSdkMembers": 53
+  },
+  "historicalSetupFailure": "red-final-setup-failure.log is a phase-selector assertion before tests, with owned PG cleanup; it is not product RED. Final RED follows it. Initial4-case proofs are historical and distinct from final5-case fixtures.",
+  "boundaries": [
+    "real Mercaria timer/domain/migrated SQL and actual published Peable SDK HTTP client",
+    "explicit synthetic loopback Peable response authority and subscription reads, no provider network",
+    "no DDL, dependency changes, production effects or commercial activation",
+    "five existing financial migrations/services outside changed path not re-run; no whole-suite claim",
+    "per-process bounded cursors wrap at end and reset on restart; no persisted cross-process sweep cursor or recovery SLA claimed"
+  ]
+}
