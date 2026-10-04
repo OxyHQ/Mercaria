@@ -8,8 +8,21 @@ vi.mock('../../../payments/stripe/client.js', () => ({ getStripeClient: () => {
 vi.mock('../../stripe/cohort-reader.js', () => ({ createBillingCohortStripeReader: () => ({ platformAccountId: async () => (await seam.account(null)).id, subscription: vi.fn() }) }));
 vi.mock('@peable.to/sdk', async original => ({ ...(await original<object>()), Peable: class { merchants = { retrieve: seam.merchant }; constructor() { seam.constructed(); } } }));
 import { registerMerchantBillingProvider } from '../../register.js';
+import { billingCohortSchema } from '../adapter.js';
 import { getBillingProvider, resetBillingProviders } from '../../provider.js';
 const cohort = { merchantId: 'merchant', applicationId: 'app', environment: 'development', platformAccountId: 'acct_fixture', livemode: false, storeIds: ['01900000-0000-7000-8000-000000000001'] };
+// Public handles from root's accepted production merchant/store/account readbacks.
+// The authority responses and credential pair below remain synthetic local seams.
+const acceptedCohort = {
+  merchantId: 'merch_bd106296a0fef49a861ee6b7', applicationId: '6a37d0cc5d4b5f15482a9340',
+  environment: 'production', platformAccountId: 'acct_1TnXkUQWiCE02OnU', livemode: true,
+  storeIds: ['6a39a7d5b5809e55ba556ad0', '6a77367c30650db22f728092'],
+};
+function configureAcceptedCohort(): void {
+  seam.enabled = false; seam.live = true; seam.raw = JSON.stringify(acceptedCohort);
+  seam.account.mockResolvedValue({ id: acceptedCohort.platformAccountId });
+  seam.merchant.mockResolvedValue({ id: acceptedCohort.merchantId, oxyAppId: acceptedCohort.applicationId, environment: acceptedCohort.environment });
+}
 beforeEach(() => {
   resetBillingProviders(); seam.raw = ''; seam.enabled = true; seam.live = false;
   seam.publicKey = 'fixture'; seam.secret = 'fixture';
@@ -18,6 +31,29 @@ beforeEach(() => {
   seam.constructed.mockClear();
 });
 describe('billing cohort registration', () => {
+  it('registers the accepted two historical stores with the exact production namespace while general Stripe remains off', async () => {
+    configureAcceptedCohort();
+    await registerMerchantBillingProvider();
+    const provider = getBillingProvider('stripe')!;
+    expect(provider.livemode).toBe(true);
+    for (const storeId of acceptedCohort.storeIds) expect(provider.requiresExplicitIntent!(storeId)).toBe(true);
+    expect(provider.requiresExplicitIntent!('6a77367c30650db22f728093')).toBe(false);
+    expect(seam.enabled).toBe(false);
+    expect(seam.account).toHaveBeenCalledWith(null);
+    expect(seam.merchant).toHaveBeenCalledTimes(1);
+    await expect(provider.ensureCustomer({ storeId: '6a77367c30650db22f728093', storeName: 'outside', idempotencyKey: 'owned-intent' })).rejects.toThrow('STRIPE_ENABLED is off');
+  });
+  for (const field of ['merchantId', 'applicationId', 'environment', 'platformAccountId', 'livemode'] as const) {
+    it(`rejects a mismatched ${field} for the accepted cohort before registration`, async () => {
+      configureAcceptedCohort();
+      if (field === 'platformAccountId') seam.account.mockResolvedValue({ id: 'acct_foreign' });
+      else if (field === 'livemode') seam.live = false;
+      else seam.merchant.mockResolvedValue({ id: acceptedCohort.merchantId, oxyAppId: acceptedCohort.applicationId, environment: acceptedCohort.environment,
+        ...(field === 'merchantId' ? { id: 'foreign' } : field === 'applicationId' ? { oxyAppId: 'foreign' } : { environment: 'development' }) });
+      await expect(registerMerchantBillingProvider()).rejects.toThrow(field === 'platformAccountId' || field === 'livemode' ? 'platform account or mode' : 'different namespace');
+      expect(getBillingProvider('stripe')).toBeUndefined();
+    });
+  }
   it('retains default legacy without querying or constructing Peable', async () => {
     await registerMerchantBillingProvider(); expect(getBillingProvider('stripe')).toBeDefined();
     expect(seam.account).not.toHaveBeenCalled(); expect(seam.constructed).not.toHaveBeenCalled();
@@ -73,5 +109,23 @@ describe('billing cohort registration', () => {
     seam.enabled = false; seam.raw = JSON.stringify(cohort); await registerMerchantBillingProvider();
     await expect(getBillingProvider('stripe')!.ensureCustomer({ storeId: 'outside', storeName: 'outside', idempotencyKey: 'owned-intent' })).rejects.toThrow('STRIPE_ENABLED is off');
     expect(seam.merchant).toHaveBeenCalledTimes(1); // Registration only; no cohort fallback.
+  });
+});
+
+describe('canonical store ID configuration boundary', () => {
+  it('preserves historical ObjectIds and generated UUIDv7 IDs without rewriting them', () => {
+    expect(billingCohortSchema.parse({ ...acceptedCohort, storeIds: [...acceptedCohort.storeIds, cohort.storeIds[0]!] }).storeIds)
+      .toEqual([...acceptedCohort.storeIds, cohort.storeIds[0]!]);
+  });
+  for (const storeId of ['6a39a7d5b5809e55ba556ad', '6a39a7d5b5809e55ba556ad00', '6a39a7d5b5809e55ba556adz',
+    ' 6a39a7d5b5809e55ba556ad0', '6a39a7d5b5809e55ba556ad0 ', '01900000-0000-4000-8000-000000000001', '', 'arbitrary-store']) {
+    it(`rejects malformed or unsupported store ID ${JSON.stringify(storeId)}`, () => {
+      expect(billingCohortSchema.safeParse({ ...acceptedCohort, storeIds: [storeId] }).success).toBe(false);
+    });
+  }
+  it('rejects empty cohorts, extra fields, and production/test mismatch', () => {
+    expect(billingCohortSchema.safeParse({ ...acceptedCohort, storeIds: [] }).success).toBe(false);
+    expect(billingCohortSchema.safeParse({ ...acceptedCohort, extra: true }).success).toBe(false);
+    expect(billingCohortSchema.safeParse({ ...acceptedCohort, livemode: false }).success).toBe(false);
   });
 });
