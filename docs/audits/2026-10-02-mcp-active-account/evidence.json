@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-02T20:12:11.955027+00:00",
+  "base": "9e546e66b36b8050bfe07a37f53ee436444688cf",
+  "repository": "OxyHQ/Mercaria",
+  "toolchain": {
+    "bun": "1.4.2",
+    "node": "24.21.0",
+    "postgres": "17",
+    "postgis": "3.5.2"
+  },
+  "postgres": {
+    "pid": 3091735,
+    "executable": "/usr/lib/postgresql/17/bin/postgres",
+    "dataDirectory": "/home/nate/Oxy/.agent-evidence/coverage-1519-20261002/i11-mcp-pg/data",
+    "host": "127.0.0.1",
+    "port": 5557,
+    "maxLocksPerTransaction": 256,
+    "scope": "owned disposable server; only oxydb_test_* databases created and dropped",
+    "inheritedPgVariableNames": []
+  },
+  "publishedMcp": {
+    "name": "@oxy.so/mcp",
+    "version": "1.0.0",
+    "dist": {
+      "shasum": "7aef1e3552fc9bdd3ed28fd32f21d10126018f5d",
+      "tarball": "https://registry.npmjs.org/@oxy.so/mcp/-/mcp-1.0.0.tgz",
+      "fileCount": 31,
+      "integrity": "sha512-FDKoxHdHLszzKzfrIsgNqRlxopyRySR04nnjtxHlImNsZydVXn6/Crs6R+Biv9W8DErjcdjtyVtwEnm0AIu+4Q==",
+      "signatures": [
+        {
+          "sig": "MEUCIDX133FpsJheUg3lBh1VsRM4Ii8/vSDpsL5ZbnmhJwEQAiEAxhhKk8uWpneC/54kOCKcoQbyxaDEaaSVrci0XS4yQ3c=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "unpackedSize": 471144
+    }
+  },
+  "installedMcp": {
+    "version": "1.0.0",
+    "realpath": "/home/nate/Oxy/Mercaria/.worktrees/1519-i11-effective-account/node_modules/@oxy.so/mcp",
+    "files": [
+      {
+        "path": "package.json",
+        "sha256": "2a9053ea04ee8e15986764ac4e09e13a3f88661efaa74261937a4bb1f656f418"
+      },
+      {
+        "path": "dist/esm/oauth.js",
+        "sha256": "0d63e77eb6f999162a0f8b4fa37dc30d439830eaa6b6f33d373fc878d075410a"
+      },
+      {
+        "path": "dist/esm/catalogAdapter.js",
+        "sha256": "bef1c81fba71c6c12543ab042343f18b3a10b6ae583db9c35556f5f1da42a55f"
+      },
+      {
+        "path": "dist/esm/httpTransport.js",
+        "sha256": "07f18d29f8fb0426c3cb07d9a0d8032b6112da84a209fc0f3332d03d73cf7bbb"
+      }
+    ]
+  },
+  "results": {
+    "focusedSuites": 4,
+    "focusedTests": 14,
+    "typescript": 0,
+    "scopedLintNoWarnings": 0,
+    "backendBuild": 0,
+    "unexpectedFetchCalls": 0,
+    "centralIntrospection": "synthetic fixture; public MCP token claims validation remains real",
+    "domainSql": "real PostgreSQL ownership and private account filtering",
+    "financialEffects": false,
+    "productionActions": false,
+    "deployed": false,
+    "internalMcpI04Adopted": false,
+    "teardownFollowupSuites": 6,
+    "teardownFollowupTests": 19
+  },
+  "logs": [
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/baseline-red.log",
+      "sha256": "e022650388b8c0b173100a03bf524f12107f77dd49cb8878acf19af2ccd3766d",
+      "exitCode": 1,
+      "rawSha256": "e022650388b8c0b173100a03bf524f12107f77dd49cb8878acf19af2ccd3766d",
+      "normalization": "Trailing horizontal whitespace and blank EOF lines removed; raw output retained in owned evidence directory"
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/tests.log",
+      "sha256": "21dadea13c68e251cf3ac7514df7de8c652187fe9715b9d7a67c7e2d0bd9a04b",
+      "exitCode": 0,
+      "rawSha256": "d40ec56d2846acd04f109faae25103b87563ea3fabc5bb77bec6fcdc06ecbfa2",
+      "normalization": "Trailing horizontal whitespace and blank EOF lines removed; raw output retained in owned evidence directory"
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/typescript.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "exitCode": 0,
+      "rawSha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "normalization": "Trailing horizontal whitespace and blank EOF lines removed; raw output retained in owned evidence directory"
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normalization": "Trailing horizontal whitespace and blank EOF lines removed; raw output retained in owned evidence directory"
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/build.log",
+      "sha256": "755ccfd2d0d771fd84a0ba436fb39cde11858f8061d6ce54409be0d9a70e5e69",
+      "exitCode": 0,
+      "rawSha256": "655958ce5a7d7d8282c2271b2b9e31ca924c000b358d7ce136fbdf8cb5dba5b3",
+      "normalization": "Trailing horizontal whitespace and blank EOF lines removed; raw output retained in owned evidence directory"
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/shared-types.log",
+      "sha256": "b0a25f08216dd3ec0526346a8d18e0e882f17769397be5c4cd25dc6802cee0e8",
+      "exitCode": 0,
+      "rawSha256": "b0a25f08216dd3ec0526346a8d18e0e882f17769397be5c4cd25dc6802cee0e8",
+      "normalization": "Trailing horizontal whitespace and blank EOF lines removed; raw output retained in owned evidence directory"
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/ci-first-failed-excerpt.log",
+      "sha256": "09d1eafda8db5c9d61281af2692f48663457ab046b6cf3a67fff555949ece1d1",
+      "rawSha256": "3c2681f50cd55d06dd3f48b0acf1bae556ca7fa7720ffdd3386ec9556a671e9f",
+      "rawPath": "/home/nate/Oxy/.agent-evidence/coverage-1519-20261002/i11-mercaria-ci-first-failed.log",
+      "selection": "Run API tests lines from Failed Tests 1 through job end",
+      "exitCode": 1,
+      "reason": "Only store-teardown-census failed: new fixture deleted stores directly; new five HTTP/PG tests passed; 12191 tests pass, 5 baseline skips",
+      "url": "https://github.com/OxyHQ/Mercaria/actions/runs/37059406425/job/111012026148"
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/teardown-tests.log",
+      "sha256": "83fd79c2f0073dfc0ee6789703d22d071457a8faf6bdb5a6650cebb04ef1c624",
+      "rawSha256": "fa23d6ebde38ec196e582633d94147468e834701745e36075993fb604e9915c6",
+      "exitCode": 0
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/teardown-typescript.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "rawSha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "exitCode": 0
+    },
+    {
+      "path": "docs/audits/2026-10-02-mcp-active-account/teardown-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 0
+    }
+  ],
+  "sourceInputs": [
+    {
+      "path": "packages/backend/src/capabilities/mercaria-mcp-http.ts",
+      "sha256": "5daca54e773a3a2dd8963eeb4924bc3a2d1a6f3a8e9738a917bbbd6aa359dc7b"
+    },
+    {
+      "path": "packages/backend/src/capabilities/mercaria.handlers.ts",
+      "sha256": "f172d1a9191aa4c1ab95dd0f660aff2d5ed1a1fb4ef0ff42b3730e4d41abd132"
+    },
+    {
+      "path": "packages/backend/src/capabilities/__tests__/mercaria-active-account.realdb.test.ts",
+      "sha256": "94f426c1982f7d8001299de104575b110583510f2a510855e54928e7394ce80a"
+    },
+    {
+      "path": "bun.lock",
+      "sha256": "abfd2c929db5b1bd93f78bfd4c04e7fe61f26f78152bc8e15c7a376e182725ca"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "sha256": "d954b46e7634aaec4e114a45b57caaf91843f40e7735c87f1472f5fa08b7c557"
+    },
+    {
+      "path": "packages/backend/src/capabilities/__tests__/mercaria-handlers.test.ts",
+      "sha256": "8f08917ce92a8bba5c562e569c999a27c2dec1ea2585ea6723bea96f65120289"
+    },
+    {
+      "path": "packages/backend/src/capabilities/mercaria-domain-authority.ts",
+      "sha256": "94de5c7a9d86b845c1cd1b0dfb2f9ab773ac2e1e43a160d916aef5f57a519fdd"
+    },
+    {
+      "path": "packages/backend/src/middleware/store-authz.ts",
+      "sha256": "783b2df61f2952ff9c4e676042a530094970b4abe6b668c7ac1b4ee591766082"
+    },
+    {
+      "path": "packages/backend/src/db/__tests__/store-teardown.ts",
+      "sha256": "59989eec716004d573cb8eff136b1af4b123fa67fbaf48ecf8e38750f4b62841"
+    },
+    {
+      "path": "packages/backend/src/db/__tests__/store-teardown-census.test.ts",
+      "sha256": "342306eac9cd601ea8304ab3553160727ba09217b90af1affd2566e6f9d60cf0"
+    }
+  ],
+  "limits": [
+    "No real central consent/registry/deployment or three-lane parity proof",
+    "No manifests, versions, lockfile or DDL changes",
+    "I04 opt-in InvocationHandlers/internal transport remain a separate adoption gate"
+  ],
+  "fixtureCorrections": [
+    "Initial invalid custom role rejected by real SQL CHECK; changed to existing staff",
+    "Initial unknown-tool assertion assumed top-level error; now accepts MCP isError refusal",
+    "Initial green run performed public synthetic profile lookups returning404; final fixture stubs getProfiles and rejects/asserts zero unexpected fetch",
+    "Initial TypeScript union override included service lane fields; final fixture explicitly omits them"
+  ],
+  "baselineFixtureCommit": "aa295efe8d5201519916b5746227682d9baf8f59",
+  "ciFollowup": "Only fixture teardown now uses deleteTestStores(getDb(), ownedIds), preserving canonical-link cleanup and unchanged census. Runtime unchanged. Followup CI pending."
+}

@@ -1,0 +1,13 @@
+bun install v1.4.2 (744846f84)
+Resolving dependencies
+Resolved, downloaded and extracted [27]
+Saved lockfile
+
+$ bun run --filter @mercaria/shared-types build
+@mercaria/shared-types build: Exited with code 0
+
++ @oxy.so/doctor@1.1.0
++ typescript@5.9.3 (v7.0.2 available)
++ @oxy.so/core@4.2.0
+
+1363 packages installed [5.73s]

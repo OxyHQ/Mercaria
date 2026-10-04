@@ -1,0 +1,74 @@
+Lint & Test	Verify Oxy ecosystem dependencies	﻿2026-10-03T23:50:06.8869158Z ##[group]Run bun run doctor:oxy
+Lint & Test	Verify Oxy ecosystem dependencies	2026-10-03T23:50:06.8869513Z [36;1mbun run doctor:oxy[0m
+Lint & Test	Verify Oxy ecosystem dependencies	2026-10-03T23:50:06.8940365Z shell: /usr/bin/bash -e {0}
+Lint & Test	Verify Oxy ecosystem dependencies	2026-10-03T23:50:06.8940690Z ##[endgroup]
+Lint & Test	Verify Oxy ecosystem dependencies	2026-10-03T23:50:06.9060071Z $ oxy-doctor --ci
+Lint & Test	Verify Oxy ecosystem dependencies	2026-10-03T23:50:07.9433781Z Oxy Doctor: 12 first-party packages across 8 manifests
+Lint & Test	Verify Oxy ecosystem dependencies	2026-10-03T23:50:07.9435722Z ✗ @oxy.so/bloom has multiple locked versions: 6.2.1, 6.3.0
+Lint & Test	Verify Oxy ecosystem dependencies	2026-10-03T23:50:07.9436795Z ! @oxy.so/bloom 6.2.1 does not include 7.1.2 in packages/dashboard/package.json (upgrade by 2026-10-17)
+Lint & Test	Verify Oxy ecosystem dependencies	2026-10-03T23:50:07.9437951Z ! @oxy.so/bloom 6.2.1 does not include 7.1.2 in packages/frontend/package.json (upgrade by 2026-10-17)
+Lint & Test	Verify Oxy ecosystem dependencies	2026-10-03T23:50:07.9438678Z ! @oxy.so/bloom 6.2.1 does not include 7.1.2 in packages/pos/package.json (upgrade by 2026-10-17)
+Lint & Test	Verify Oxy ecosystem dependencies	2026-10-03T23:50:07.9439391Z ! @oxy.so/bloom ^6.3.0 does not include 7.1.2 in packages/ui/package.json (upgrade by 2026-10-17)
+Lint & Test	Verify Oxy ecosystem dependencies	2026-10-03T23:50:07.9581860Z error: script "doctor:oxy" exited with code 1
+Lint & Test	Verify Oxy ecosystem dependencies	2026-10-03T23:50:07.9603205Z ##[error]Process completed with exit code 1.
+CI complete	Require every job that had to run to have passed	﻿2026-10-03T23:50:17.0056051Z ##[group]Run set -euo pipefail
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0056785Z [36;1mset -euo pipefail[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0057347Z [36;1mfailures=()[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0057968Z [36;1mlint="$(jq -r '."lint-and-test".result' <<<"$RESULTS")"[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0058829Z [36;1m[ "$lint" = success ] || failures+=("Lint & Test did not pass: $lint")[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0059794Z [36;1mfor job in build-api build-app build-dashboard build-pos; do[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0060634Z [36;1m  result="$(jq -r --arg job "$job" '.[$job].result' <<<"$RESULTS")"[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0061631Z [36;1m  # A missing answer means the build HAD to run.[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0062598Z [36;1m  wanted="$(jq -r --arg job "$job" '."lint-and-test".outputs[$job] // "true"' <<<"$RESULTS")"[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0063409Z [36;1m  if [ "$wanted" = false ]; then[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0064049Z [36;1m    case "$result" in[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0064759Z [36;1m      skipped | success) echo "$job: $result (change does not reach it)" ;;[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0065661Z [36;1m      *) failures+=("$job: $result") ;;[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0066275Z [36;1m    esac[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0066811Z [36;1m  elif [ "$result" = success ]; then[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0067398Z [36;1m    echo "$job: success"[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0067907Z [36;1m  else[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0068581Z [36;1m    failures+=("$job had to run and did not pass: $result")[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0069314Z [36;1m  fi[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0069809Z [36;1mdone[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0070516Z [36;1mif [ ${#failures[@]} -gt 0 ]; then[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0128036Z [36;1m  for failure in "${failures[@]}"; do echo "::error::$failure"; done[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0128733Z [36;1m  exit 1[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0129116Z [36;1mfi[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0129517Z [36;1mecho 'Every job that had to run passed.'[0m
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0722773Z shell: /usr/bin/bash -e {0}
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0723269Z env:
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0724391Z   RESULTS: {
+CI complete	Require every job that had to run to have passed	  "lint-and-test": {
+CI complete	Require every job that had to run to have passed	    "result": "failure",
+CI complete	Require every job that had to run to have passed	    "outputs": {
+CI complete	Require every job that had to run to have passed	      "build-api": "true",
+CI complete	Require every job that had to run to have passed	      "build-app": "true",
+CI complete	Require every job that had to run to have passed	      "build-dashboard": "true",
+CI complete	Require every job that had to run to have passed	      "build-pos": "true"
+CI complete	Require every job that had to run to have passed	    }
+CI complete	Require every job that had to run to have passed	  },
+CI complete	Require every job that had to run to have passed	  "build-api": {
+CI complete	Require every job that had to run to have passed	    "result": "skipped",
+CI complete	Require every job that had to run to have passed	    "outputs": {}
+CI complete	Require every job that had to run to have passed	  },
+CI complete	Require every job that had to run to have passed	  "build-app": {
+CI complete	Require every job that had to run to have passed	    "result": "skipped",
+CI complete	Require every job that had to run to have passed	    "outputs": {}
+CI complete	Require every job that had to run to have passed	  },
+CI complete	Require every job that had to run to have passed	  "build-dashboard": {
+CI complete	Require every job that had to run to have passed	    "result": "skipped",
+CI complete	Require every job that had to run to have passed	    "outputs": {}
+CI complete	Require every job that had to run to have passed	  },
+CI complete	Require every job that had to run to have passed	  "build-pos": {
+CI complete	Require every job that had to run to have passed	    "result": "skipped",
+CI complete	Require every job that had to run to have passed	    "outputs": {}
+CI complete	Require every job that had to run to have passed	  }
+CI complete	Require every job that had to run to have passed	}
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.0725644Z ##[endgroup]
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.1121565Z ##[error]Lint & Test did not pass: failure
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.1126313Z ##[error]build-api had to run and did not pass: skipped
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.1127507Z ##[error]build-app had to run and did not pass: skipped
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.1128625Z ##[error]build-dashboard had to run and did not pass: skipped
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.1129732Z ##[error]build-pos had to run and did not pass: skipped
+CI complete	Require every job that had to run to have passed	2026-10-03T23:50:17.1135332Z ##[error]Process completed with exit code 1.

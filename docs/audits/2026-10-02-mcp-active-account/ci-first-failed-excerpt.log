@@ -1,0 +1,35 @@
+Lint & Test	Run API tests	2026-10-02T20:26:25.6542951Z @mercaria/backend test:
+Lint & Test	Run API tests	2026-10-02T20:26:25.6543991Z @mercaria/backend test: [31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6544535Z @mercaria/backend test:
+Lint & Test	Run API tests	2026-10-02T20:26:25.6546168Z @mercaria/backend test: [41m[1m FAIL [22m[49m src/db/__tests__/store-teardown-census.test.ts[2m > [22mthe store teardown census[2m > [22mfinds ONLY the shared helper and its own proof deleting stores directly
+Lint & Test	Run API tests	2026-10-02T20:26:25.6550172Z @mercaria/backend test: [31m[1mAssertionError[22m: a fixture deletes stores directly; route it through deleteTestStores so a canonical link minted by the backfill cannot refuse it: expected [ …(3) ] to deeply equal [ …(2) ][39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6551405Z @mercaria/backend test:
+Lint & Test	Run API tests	2026-10-02T20:26:25.6551928Z @mercaria/backend test: [32m- Expected[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6552488Z @mercaria/backend test: [31m+ Received[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6552930Z @mercaria/backend test:
+Lint & Test	Run API tests	2026-10-02T20:26:25.6553374Z @mercaria/backend test: [2m  [[22m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6554422Z @mercaria/backend test: [31m+   "capabilities/__tests__/mercaria-active-account.realdb.test.ts",[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6555359Z @mercaria/backend test: [2m    "db/__tests__/store-teardown.realdb.test.ts",[22m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6556108Z @mercaria/backend test: [2m    "db/__tests__/store-teardown.ts",[22m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6556653Z @mercaria/backend test: [2m  ][22m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6557008Z @mercaria/backend test:
+Lint & Test	Run API tests	2026-10-02T20:26:25.6557776Z @mercaria/backend test: [36m [2m❯[22m src/db/__tests__/store-teardown-census.test.ts:[2m126:7[22m[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6585172Z @mercaria/backend test:     [90m124|[39m       offenders[33m,[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6586312Z @mercaria/backend test:     [90m125|[39m       'a fixture deletes stores directly; route it through deleteTestS…
+Lint & Test	Run API tests	2026-10-02T20:26:25.6587813Z @mercaria/backend test:     [90m126|[39m     )[33m.[39m[34mtoEqual[39m([33mPERMITTED[39m)[33m;[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6588870Z @mercaria/backend test:     [90m   |[39m       [31m^[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6589866Z @mercaria/backend test:     [90m127|[39m   })[33m;[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6590622Z @mercaria/backend test:     [90m128|[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6591289Z @mercaria/backend test:
+Lint & Test	Run API tests	2026-10-02T20:26:25.6591893Z @mercaria/backend test: [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6592395Z @mercaria/backend test:
+Lint & Test	Run API tests	2026-10-02T20:26:25.6592752Z @mercaria/backend test:
+Lint & Test	Run API tests	2026-10-02T20:26:25.6625563Z @mercaria/backend test: [2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m776 passed[39m[22m[90m (777)[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6697546Z @mercaria/backend test: [2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m12191 passed[39m[22m[2m | [22m[33m5 skipped[39m[90m (12197)[39m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6698469Z @mercaria/backend test: [2m   Start at [22m 20:19:32
+Lint & Test	Run API tests	2026-10-02T20:26:25.6706999Z @mercaria/backend test: [2m   Duration [22m 412.79s[2m (transform 94.43s, setup 0ms, import 1525.19s, tests 2243.78s, environment 145ms)[22m
+Lint & Test	Run API tests	2026-10-02T20:26:25.6708363Z @mercaria/backend test:
+Lint & Test	Run API tests	2026-10-02T20:26:25.6790204Z @mercaria/backend test:
+Lint & Test	Run API tests	2026-10-02T20:26:25.6795604Z @mercaria/backend test: ::error file=/home/runner/work/Mercaria/Mercaria/packages/backend/src/db/__tests__/store-teardown-census.test.ts,title=src/db/__tests__/store-teardown-census.test.ts > the store teardown census > finds ONLY the shared helper and its own proof deleting stores directly,line=126,column=7::AssertionError: a fixture deletes stores directly; route it through deleteTestStores so a canonical link minted by the backfill cannot refuse it: expected [ …(3) ] to deeply equal [ …(2) ]%0A%0A- Expected%0A+ Received%0A%0A  [%0A+   "capabilities/__tests__/mercaria-active-account.realdb.test.ts",%0A    "db/__tests__/store-teardown.realdb.test.ts",%0A    "db/__tests__/store-teardown.ts",%0A  ]%0A%0A ❯ src/db/__tests__/store-teardown-census.test.ts:126:7%0A%0A
+Lint & Test	Run API tests	2026-10-02T20:26:26.7068079Z @mercaria/backend test: Exited with code 1
+Lint & Test	Run API tests	2026-10-02T20:26:26.7088656Z ##[error]Process completed with exit code 1.

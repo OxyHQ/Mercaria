@@ -1,0 +1,12 @@
+$ bun run build:shared-types && bun run --filter @mercaria/backend build
+$ bun run --filter @mercaria/shared-types build
+@mercaria/shared-types build: Exited with code 0
+@mercaria/backend build: 
+@mercaria/backend build:   dist/index.js                        9.3mb ⚠️
+@mercaria/backend build:   dist/scripts/provision-taxonomy.js   2.1mb ⚠️
+@mercaria/backend build:   dist/register-capability-catalog.js  8.6kb
+@mercaria/backend build:   dist/db/migrate.js                   3.8kb
+@mercaria/backend build: 
+@mercaria/backend build: ⚡ Done in 231ms
+@mercaria/backend build: ✅ Build complete
+@mercaria/backend build: Exited with code 0

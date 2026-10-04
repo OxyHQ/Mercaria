@@ -301,6 +301,19 @@ export async function findMerchantPlanPrice(
   return row;
 }
 
+/** Exact local price observation for a provider reference; no metadata attribution. */
+export async function findMerchantPlanPriceByProviderId(
+  db: DatabaseOrTransaction,
+  input: { provider: BillingProviderId; livemode: boolean; providerPriceId: string },
+): Promise<MerchantPlanPriceRow | undefined> {
+  const [row] = await db.select().from(merchantPlanPrices).where(and(
+    eq(merchantPlanPrices.provider, input.provider),
+    eq(merchantPlanPrices.livemode, input.livemode),
+    eq(merchantPlanPrices.providerPriceId, input.providerPriceId),
+  )).limit(1);
+  return row;
+}
+
 /**
  * The plan VERSION one provider price belongs to, or `undefined`.
  *

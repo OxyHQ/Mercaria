@@ -1,0 +1,26 @@
+[
+  {
+    "name": "ui-types",
+    "cwd": "packages/ui",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "typecheck"
+    ],
+    "exitCode": 0,
+    "seconds": 1.918
+  },
+  {
+    "name": "ui-doctor",
+    "cwd": ".",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "doctor:oxy"
+    ],
+    "exitCode": 0,
+    "seconds": 1.117
+  }
+]

@@ -1,0 +1,51 @@
+{
+  "scope": "static workflow census only; no final registry/full CI/deploy claim",
+  "sources": [
+    {
+      "path": "packages/backend/src/db/__tests__/deployCoverage.test.ts",
+      "sha256": "b28f69d2bca4308b1044aa8da561a00e999656b2e08c56104a544a22e5a29545"
+    },
+    {
+      "path": ".github/workflows/publish-reviewed-images.yml",
+      "sha256": "e1003b675db831ab65722a59e3c8fc09c2fed3c9202f451ba03dbf90bcba065c"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-04-publisher-coverage/README.md",
+      "sha256": "0242aec32752a062dff3266c6395d90016ac6ea9fec1bb0cdeec3cbbe16db68a"
+    },
+    {
+      "path": "docs/audits/2026-10-04-publisher-coverage/green.log",
+      "sha256": "71492cc0db503f2ca9904ef73255a5c12cef78053ccd206e2f3ea713f890a9ed"
+    },
+    {
+      "path": "docs/audits/2026-10-04-publisher-coverage/initial-pg-setup.log",
+      "sha256": "c77c1f48ca8fdcebe881c278ca8af479e8104d637e07452c91d58e864b552c39"
+    },
+    {
+      "path": "docs/audits/2026-10-04-publisher-coverage/red-real.log",
+      "sha256": "0aa251a2666b451967f4919dcc9869970ef1a988fa40db250508f72cca303fea"
+    },
+    {
+      "path": "docs/audits/2026-10-04-publisher-coverage/red.log",
+      "sha256": "0105024c6c5a804ca031c51ff68082f7cb03e4e4c422bb2785c270f8951f97c8"
+    },
+    {
+      "path": "docs/audits/2026-10-04-publisher-coverage/vitest.config.mjs",
+      "sha256": "cfbf02d4825333fac94faf2512bcf8a19aa8875278a07741e9b3ac4113438e3b"
+    }
+  ],
+  "dependency": {
+    "path": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-adoption-20261003/node_modules/@oxy.so/db/dist/cjs/migrate/index.js",
+    "sha256": "9dde875541a0bfbcf46ed7f59f4e9271387546b82f2848816a668213ea732e86"
+  },
+  "red": {
+    "pass": 47,
+    "fail": 1
+  },
+  "green": {
+    "pass": 48,
+    "fail": 0
+  }
+}

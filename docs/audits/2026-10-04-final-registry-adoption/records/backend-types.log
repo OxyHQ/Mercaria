@@ -1,0 +1,3 @@
+$ tsc --noEmit
+src/routes/capabilities.ts(49,80): error TS2339: Property 'ownerAccountId' does not exist on type '{ type: "alia"; ownerAccountId: string; } | { type: "requester"; accountId: string; }'.
+  Property 'ownerAccountId' does not exist on type '{ type: "requester"; accountId: string; }'.

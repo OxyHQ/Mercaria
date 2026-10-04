@@ -1,0 +1,159 @@
+{
+  "repository": "OxyHQ/Mercaria",
+  "lockSha256": "8345b9a0f389b42d9dd0730388dd69c1525c7e4273655089c9e1d7ea3c2f5018",
+  "installed": true,
+  "installedMembers": [
+    {
+      "importer": "package.json",
+      "name": "@oxy.so/core",
+      "version": "4.2.0",
+      "root": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/@oxy.so/core",
+      "files": 581,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "packages/backend/package.json",
+      "name": "@oxy.so/contracts",
+      "version": "4.9.0",
+      "root": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/@oxy.so/contracts",
+      "files": 198,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "packages/backend/package.json",
+      "name": "@oxy.so/core",
+      "version": "4.2.0",
+      "root": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/@oxy.so/core",
+      "files": 581,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "packages/backend/package.json",
+      "name": "@oxy.so/mcp",
+      "version": "1.1.0",
+      "root": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/@oxy.so/mcp",
+      "files": 41,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "packages/dashboard/package.json",
+      "name": "@oxy.so/core",
+      "version": "4.2.0",
+      "root": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/@oxy.so/core",
+      "files": 581,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "packages/dashboard/package.json",
+      "name": "@oxy.so/services",
+      "version": "11.1.0",
+      "root": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/@oxy.so/services",
+      "files": 2418,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "packages/frontend/package.json",
+      "name": "@oxy.so/core",
+      "version": "4.2.0",
+      "root": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/@oxy.so/core",
+      "files": 581,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "packages/frontend/package.json",
+      "name": "@oxy.so/services",
+      "version": "11.1.0",
+      "root": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/@oxy.so/services",
+      "files": 2418,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "packages/pos/package.json",
+      "name": "@oxy.so/core",
+      "version": "4.2.0",
+      "root": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/@oxy.so/core",
+      "files": 581,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "packages/pos/package.json",
+      "name": "@oxy.so/services",
+      "version": "11.1.0",
+      "root": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/@oxy.so/services",
+      "files": 2418,
+      "allFilesEqual": true
+    }
+  ],
+  "acceptanceChecksPending": [
+    {
+      "package": "@mercaria/backend",
+      "cwd": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend",
+      "scripts": {
+        "build": "bun build.ts",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run",
+        "lint": "eslint src scripts build.ts"
+      }
+    },
+    {
+      "package": "@mercaria/dashboard",
+      "cwd": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/dashboard",
+      "scripts": {
+        "build": "bun x expo export --platform web",
+        "typecheck": "bun ../../scripts/generate-router-types.mjs && tsc --noEmit",
+        "test": "vitest run",
+        "lint": "eslint ."
+      }
+    },
+    {
+      "package": "@mercaria/frontend",
+      "cwd": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/frontend",
+      "scripts": {
+        "build": "bun x expo export --platform web",
+        "typecheck": "bun ../../scripts/generate-router-types.mjs && tsc --noEmit",
+        "test": "vitest run",
+        "lint": "eslint ."
+      }
+    },
+    {
+      "package": "@mercaria/pos",
+      "cwd": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/pos",
+      "scripts": {
+        "build": "bun x expo export --platform web",
+        "typecheck": "bun ../../scripts/generate-router-types.mjs && tsc --noEmit",
+        "test": "vitest run",
+        "lint": "eslint ."
+      }
+    },
+    {
+      "package": "@mercaria.co/sdk",
+      "cwd": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/sdk",
+      "scripts": {
+        "build": "node scripts/build.mjs",
+        "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+        "test": "vitest run",
+        "lint": "eslint src test scripts"
+      }
+    },
+    {
+      "package": "@mercaria/shared-types",
+      "cwd": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/shared-types",
+      "scripts": {
+        "build": "tsc",
+        "test": "echo \"No tests specified\" && exit 0",
+        "lint": "echo \"No lint configured for shared-types\" && exit 0"
+      }
+    },
+    {
+      "package": "@mercaria/ui",
+      "cwd": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/ui",
+      "scripts": {
+        "typecheck": "tsc --noEmit",
+        "test": "echo \"No tests specified\" && exit 0",
+        "lint": "echo \"No lint configured for ui\" && exit 0"
+      }
+    }
+  ],
+  "merged": false,
+  "deployed": false
+}

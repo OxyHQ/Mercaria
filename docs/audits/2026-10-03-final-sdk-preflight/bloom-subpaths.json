@@ -1,0 +1,760 @@
+{
+  "bloom": "6.2.1",
+  "installedRoot": "/home/nate/Oxy/oxy/.worktrees/1519-native-siblings-20261003/node_modules/@oxy.so/bloom",
+  "packageSha256": "de7928d116bee53aae6d6e1b79d71c3ce2527e9173efe2f895be1e410d4f81b1",
+  "kind": "read-only source import/export-subpath census; not symbol/prop/runtime compatibility proof",
+  "rows": [
+    {
+      "specifier": "@oxy.so/bloom/alert-dialog",
+      "files": [
+        "packages/dashboard/app/(app)/channels/[connectionId].tsx"
+      ],
+      "exportKey": "./alert-dialog",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/app-shell",
+      "files": [
+        "packages/dashboard/app/(app)/_layout.tsx",
+        "packages/frontend/app/(app)/_layout.tsx",
+        "packages/pos/app/(app)/_layout.tsx"
+      ],
+      "exportKey": "./app-shell",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/avatar",
+      "files": [
+        "packages/frontend/components/shell/BottomTabBar.tsx"
+      ],
+      "exportKey": "./avatar",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/badge",
+      "files": [
+        "packages/dashboard/app/(app)/channels/[connectionId].tsx",
+        "packages/dashboard/app/(app)/channels/feeds/[configurationId].tsx",
+        "packages/dashboard/app/(app)/orders/[id].tsx",
+        "packages/dashboard/app/(app)/products/index.tsx",
+        "packages/dashboard/components/catalog-authoring/SchemaField.tsx",
+        "packages/dashboard/components/channels/channel-presentation.tsx",
+        "packages/dashboard/components/orders/OrderStatusBadge.tsx",
+        "packages/frontend/app/(app)/merchants/[idOrSlug].tsx",
+        "packages/frontend/app/(app)/orders/[id].tsx",
+        "packages/ui/src/components/marketplace/ConditionBadge.tsx",
+        "packages/ui/src/components/marketplace/DemandPill.tsx",
+        "packages/ui/src/components/marketplace/MerchantCartCard.tsx",
+        "packages/ui/src/components/marketplace/OfferConditionBadge.tsx",
+        "packages/ui/src/components/marketplace/OfferLabelBadge.tsx",
+        "packages/ui/src/components/marketplace/OfficialChannelBadge.tsx"
+      ],
+      "exportKey": "./badge",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/bottom-bar",
+      "files": [
+        "packages/dashboard/components/shell/BottomTabBar.tsx",
+        "packages/frontend/components/shell/BottomTabBar.tsx",
+        "packages/pos/components/shell/BottomTabBar.tsx"
+      ],
+      "exportKey": "./bottom-bar",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/breadcrumb",
+      "files": [
+        "packages/frontend/components/catalog/CatalogBreadcrumbs.tsx"
+      ],
+      "exportKey": "./breadcrumb",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/button",
+      "files": [
+        "packages/dashboard/app/(app)/channels/[connectionId].tsx",
+        "packages/dashboard/app/(app)/channels/feeds/[configurationId].tsx",
+        "packages/dashboard/app/(app)/channels/feeds/new.tsx",
+        "packages/dashboard/app/(app)/channels/index.tsx",
+        "packages/dashboard/app/(app)/channels/onboarding/[sessionId].tsx",
+        "packages/dashboard/app/(app)/collections/index.tsx",
+        "packages/dashboard/app/(app)/discounts/index.tsx",
+        "packages/dashboard/app/(app)/orders/[id].tsx",
+        "packages/dashboard/app/(app)/products/[id].tsx",
+        "packages/dashboard/app/(app)/products/index.tsx",
+        "packages/dashboard/app/(app)/products/new.tsx",
+        "packages/dashboard/app/(app)/products/wizard/[draftId].tsx",
+        "packages/dashboard/app/(app)/products/wizard/index.tsx",
+        "packages/dashboard/app/(app)/settings/fees.tsx",
+        "packages/dashboard/app/(app)/settings/locations.tsx",
+        "packages/dashboard/app/(app)/settings/members.tsx",
+        "packages/dashboard/app/(app)/settings/payments.tsx",
+        "packages/dashboard/app/(app)/settings/plan.tsx",
+        "packages/dashboard/app/(app)/settings/policies.tsx",
+        "packages/dashboard/app/(app)/settings/store.tsx",
+        "packages/dashboard/app/(app)/settings/tax.tsx",
+        "packages/dashboard/app/(app)/stores.tsx",
+        "packages/dashboard/components/AuthGate.tsx",
+        "packages/dashboard/components/catalog-authoring/CategoryBrowser.tsx",
+        "packages/dashboard/components/catalog-authoring/PricingRows.tsx",
+        "packages/dashboard/components/catalog-authoring/VariantAxes.tsx",
+        "packages/dashboard/components/catalog-authoring/VariantRows.tsx",
+        "packages/dashboard/components/channels/CollectionMapping.tsx",
+        "packages/dashboard/components/orders/PickupDeskCard.tsx",
+        "packages/frontend/app/(app)/checkout/index.tsx",
+        "packages/frontend/app/(app)/checkout/return.tsx",
+        "packages/frontend/app/(app)/guest-orders/claim.tsx",
+        "packages/frontend/app/(app)/guest-orders/portal.tsx",
+        "packages/frontend/app/(app)/guest-orders/recover.tsx",
+        "packages/frontend/app/(app)/orders/[id].tsx",
+        "packages/frontend/app/(app)/orders/index.tsx",
+        "packages/frontend/app/(app)/settings/addresses.tsx",
+        "packages/frontend/app/(app)/settings/feedback.tsx",
+        "packages/frontend/components/address/AddressForm.tsx",
+        "packages/frontend/components/brand/CatalogProductGrid.tsx",
+        "packages/frontend/components/checkout/CheckoutDestinationForm.tsx",
+        "packages/frontend/components/payment/CardPaymentStep.native.tsx",
+        "packages/frontend/components/payment/CardPaymentStep.tsx",
+        "packages/frontend/components/reviews/ReviewEligibilityPrompts.tsx",
+        "packages/frontend/components/seller/SellerFollowButton.tsx",
+        "packages/frontend/components/settings/account-section.tsx",
+        "packages/frontend/components/store/StoreFollowButton.tsx",
+        "packages/pos/app/(app)/charge.tsx",
+        "packages/pos/app/(app)/customer.tsx",
+        "packages/pos/app/(app)/receipt/[id].tsx",
+        "packages/pos/app/(app)/sales.tsx",
+        "packages/pos/app/(app)/store-setup.tsx",
+        "packages/pos/components/AuthGate.tsx",
+        "packages/pos/components/register/CatalogPane.tsx",
+        "packages/pos/components/register/ChargeButton.tsx"
+      ],
+      "exportKey": "./button",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/carousel",
+      "files": [
+        "packages/ui/src/components/marketplace/CartShelf.tsx",
+        "packages/ui/src/components/marketplace/MerchantCarousel.tsx",
+        "packages/ui/src/components/marketplace/ProductCarousel.tsx",
+        "packages/ui/src/lib/shelf-carousel.ts"
+      ],
+      "exportKey": "./carousel",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/chip",
+      "files": [
+        "packages/frontend/components/catalog/FacetRail.tsx",
+        "packages/frontend/components/catalog/VariantAxisSelector.tsx",
+        "packages/pos/components/register/CatalogPane.tsx"
+      ],
+      "exportKey": "./chip",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/design-tokens",
+      "files": [
+        "packages/frontend/components/settings/general-section.tsx"
+      ],
+      "exportKey": "./design-tokens",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/dialog",
+      "files": [
+        "packages/dashboard/app/(app)/channels/[connectionId].tsx",
+        "packages/dashboard/app/(app)/collections/index.tsx",
+        "packages/dashboard/app/(app)/discounts/index.tsx",
+        "packages/dashboard/app/(app)/orders/[id].tsx",
+        "packages/dashboard/app/(app)/settings/locations.tsx",
+        "packages/dashboard/app/(app)/settings/members.tsx",
+        "packages/dashboard/app/(app)/settings/tax.tsx",
+        "packages/dashboard/app/(app)/stores.tsx",
+        "packages/dashboard/components/catalog-authoring/ValuePicker.tsx",
+        "packages/dashboard/components/channels/CollectionMapping.tsx",
+        "packages/frontend/app/(app)/sellers/[oxyUserId].tsx",
+        "packages/frontend/components/seller/ReportSellerDialog.tsx",
+        "packages/frontend/components/store/StoreMenuSheet.tsx",
+        "packages/pos/components/register/CatalogPane.tsx",
+        "packages/pos/components/register/VariantPickerSheet.tsx"
+      ],
+      "exportKey": "./dialog",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/dropdown-menu",
+      "files": [
+        "packages/frontend/app/(app)/stores/[handle].tsx",
+        "packages/frontend/components/language-selector.tsx"
+      ],
+      "exportKey": "./dropdown-menu",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/empty-state",
+      "files": [
+        "packages/dashboard/app/(app)/channels/feeds/[configurationId].tsx",
+        "packages/dashboard/app/(app)/channels/index.tsx",
+        "packages/dashboard/app/(app)/products/index.tsx",
+        "packages/dashboard/app/(app)/stores.tsx",
+        "packages/dashboard/components/shell/Screen.tsx",
+        "packages/frontend/app/(app)/cart.tsx",
+        "packages/frontend/app/(app)/checkout/index.tsx",
+        "packages/frontend/app/(app)/merchants/[idOrSlug].tsx",
+        "packages/frontend/app/(app)/nearby.tsx",
+        "packages/frontend/app/(app)/notifications.tsx",
+        "packages/frontend/app/(app)/orders/index.tsx",
+        "packages/frontend/app/(app)/price-alerts.tsx",
+        "packages/frontend/app/(app)/saved.tsx",
+        "packages/frontend/app/(app)/sellers/[oxyUserId].tsx",
+        "packages/frontend/app/(app)/shopping-agents.tsx",
+        "packages/frontend/app/(app)/stores/[handle].tsx",
+        "packages/pos/app/(app)/store-setup.tsx",
+        "packages/pos/components/register/CartPanel.tsx",
+        "packages/pos/components/shell/Screen.tsx"
+      ],
+      "exportKey": "./empty-state",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/field",
+      "files": [
+        "packages/dashboard/app/(app)/channels/[connectionId].tsx",
+        "packages/dashboard/app/(app)/channels/feeds/[configurationId].tsx",
+        "packages/dashboard/app/(app)/channels/feeds/new.tsx",
+        "packages/dashboard/app/(app)/channels/onboarding/[sessionId].tsx",
+        "packages/dashboard/app/(app)/collections/index.tsx",
+        "packages/dashboard/app/(app)/discounts/index.tsx",
+        "packages/dashboard/app/(app)/orders/[id].tsx",
+        "packages/dashboard/app/(app)/products/[id].tsx",
+        "packages/dashboard/app/(app)/products/new.tsx",
+        "packages/dashboard/app/(app)/products/wizard/[draftId].tsx",
+        "packages/dashboard/app/(app)/products/wizard/index.tsx",
+        "packages/dashboard/app/(app)/settings/locations.tsx",
+        "packages/dashboard/app/(app)/settings/members.tsx",
+        "packages/dashboard/app/(app)/settings/policies.tsx",
+        "packages/dashboard/app/(app)/settings/store.tsx",
+        "packages/dashboard/app/(app)/settings/tax.tsx",
+        "packages/dashboard/app/(app)/stores.tsx",
+        "packages/dashboard/components/catalog-authoring/PricingRows.tsx",
+        "packages/dashboard/components/catalog-authoring/VariantRows.tsx",
+        "packages/dashboard/components/orders/PickupDeskCard.tsx",
+        "packages/frontend/app/(app)/checkout/index.tsx",
+        "packages/frontend/app/(app)/sell/[draftId].tsx",
+        "packages/frontend/app/(app)/sell/index.tsx",
+        "packages/frontend/components/address/AddressForm.tsx",
+        "packages/frontend/components/checkout/CheckoutDestinationForm.tsx",
+        "packages/pos/app/(app)/customer.tsx"
+      ],
+      "exportKey": "./field",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/hooks",
+      "files": [
+        "packages/frontend/app/(app)/notifications.tsx",
+        "packages/frontend/components/store/StoreMenuSheet.tsx"
+      ],
+      "exportKey": "./hooks",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/icons",
+      "files": [
+        "packages/ui/src/lib/bloom-icon.tsx"
+      ],
+      "exportKey": "./icons",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/icons/RiBox3Line",
+      "files": [
+        "packages/dashboard/app/(app)/products/index.tsx",
+        "packages/frontend/app/(app)/orders/index.tsx"
+      ],
+      "exportKey": "./icons/Ri*",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/icons/RiHeartLine",
+      "files": [
+        "packages/frontend/app/(app)/saved.tsx"
+      ],
+      "exportKey": "./icons/Ri*",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/icons/RiMapPin2Line",
+      "files": [
+        "packages/frontend/app/(app)/nearby.tsx"
+      ],
+      "exportKey": "./icons/Ri*",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/icons/RiNotification3Line",
+      "files": [
+        "packages/frontend/app/(app)/notifications.tsx",
+        "packages/frontend/app/(app)/price-alerts.tsx"
+      ],
+      "exportKey": "./icons/Ri*",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/icons/RiPlugLine",
+      "files": [
+        "packages/dashboard/app/(app)/channels/index.tsx"
+      ],
+      "exportKey": "./icons/Ri*",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/icons/RiShieldCheckLine",
+      "files": [
+        "packages/ui/src/components/marketplace/OfficialChannelBadge.tsx"
+      ],
+      "exportKey": "./icons/Ri*",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/icons/RiShoppingBag3Line",
+      "files": [
+        "packages/frontend/app/(app)/cart.tsx"
+      ],
+      "exportKey": "./icons/Ri*",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/icons/RiShoppingCartLine",
+      "files": [
+        "packages/pos/components/register/CartPanel.tsx"
+      ],
+      "exportKey": "./icons/Ri*",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/icons/RiStore2Line",
+      "files": [
+        "packages/dashboard/app/(app)/stores.tsx",
+        "packages/pos/app/(app)/store-setup.tsx"
+      ],
+      "exportKey": "./icons/Ri*",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/icons/RiTimeLine",
+      "files": [
+        "packages/frontend/app/(app)/shopping-agents.tsx"
+      ],
+      "exportKey": "./icons/Ri*",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/icons/RiVerifiedBadgeLine",
+      "files": [
+        "packages/ui/src/components/marketplace/OfficialChannelBadge.tsx"
+      ],
+      "exportKey": "./icons/Ri*",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/image-resolver",
+      "files": [
+        "packages/dashboard/app/_layout.tsx",
+        "packages/frontend/app/_layout.tsx",
+        "packages/pos/app/_layout.tsx"
+      ],
+      "exportKey": "./image-resolver",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/label",
+      "files": [
+        "packages/dashboard/components/catalog-authoring/SchemaField.tsx"
+      ],
+      "exportKey": "./label",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/layout",
+      "files": [
+        "packages/pos/app/(app)/index.tsx",
+        "packages/ui/src/components/shell/ScreenShell.tsx"
+      ],
+      "exportKey": "./layout",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/loading",
+      "files": [
+        "packages/dashboard/components/AppSplashScreen.tsx",
+        "packages/dashboard/components/shell/Screen.tsx",
+        "packages/frontend/app/(app)/compare.tsx",
+        "packages/frontend/app/(app)/price-alerts.tsx",
+        "packages/frontend/app/(app)/referral-partner.tsx",
+        "packages/frontend/app/(app)/saved.tsx",
+        "packages/frontend/app/(app)/search.tsx",
+        "packages/frontend/app/(app)/sell/[draftId].tsx",
+        "packages/frontend/app/(app)/sell/index.tsx",
+        "packages/frontend/app/(app)/shopping-agents.tsx",
+        "packages/frontend/app/(app)/watchlists/[watchlistId].tsx",
+        "packages/frontend/app/(app)/watchlists/index.tsx",
+        "packages/frontend/components/AppSplashScreen.tsx",
+        "packages/pos/components/AppSplashScreen.tsx",
+        "packages/pos/components/shell/Screen.tsx"
+      ],
+      "exportKey": "./loading",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/page-header",
+      "files": [
+        "packages/frontend/components/settings/settings-header.tsx"
+      ],
+      "exportKey": "./page-header",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/price-breakdown",
+      "files": [
+        "packages/frontend/app/(app)/checkout/index.tsx"
+      ],
+      "exportKey": "./price-breakdown",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/provider",
+      "files": [
+        "packages/dashboard/app/_layout.tsx",
+        "packages/frontend/app/_layout.tsx",
+        "packages/pos/app/_layout.tsx"
+      ],
+      "exportKey": "./provider",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/rating",
+      "files": [
+        "packages/frontend/app/(app)/cart.tsx",
+        "packages/frontend/app/(app)/merchants/[idOrSlug].tsx",
+        "packages/frontend/app/(app)/products/[id].tsx",
+        "packages/frontend/app/(app)/sellers/[oxyUserId].tsx",
+        "packages/frontend/app/(app)/stores/[handle].tsx",
+        "packages/frontend/components/product/ProductIdentity.tsx",
+        "packages/frontend/components/reviews/ReviewEligibilityPrompts.tsx",
+        "packages/frontend/components/seller/SellerLinkCard.tsx",
+        "packages/frontend/components/store/StoreMenuSheet.tsx",
+        "packages/ui/src/components/marketplace/CanonicalProductCard.tsx",
+        "packages/ui/src/components/marketplace/MerchantCard.tsx",
+        "packages/ui/src/components/marketplace/MerchantHeader.tsx",
+        "packages/ui/src/components/marketplace/ProductCard.tsx",
+        "packages/ui/src/components/marketplace/ReviewCard.tsx",
+        "packages/ui/src/components/marketplace/ReviewSummaryCard.tsx",
+        "packages/ui/src/lib/rating-display.ts"
+      ],
+      "exportKey": "./rating",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/scroll/expo-router",
+      "files": [
+        "packages/dashboard/app/_layout.tsx",
+        "packages/frontend/app/_layout.tsx",
+        "packages/pos/app/_layout.tsx"
+      ],
+      "exportKey": "./scroll/expo-router",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/search",
+      "files": [
+        "packages/frontend/app/(app)/search.tsx",
+        "packages/frontend/components/shell/HeroSearch.tsx"
+      ],
+      "exportKey": "./search",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/segmented-control",
+      "files": [
+        "packages/dashboard/app/(app)/channels/[connectionId].tsx",
+        "packages/dashboard/app/(app)/channels/feeds/[configurationId].tsx",
+        "packages/dashboard/app/(app)/collections/index.tsx",
+        "packages/dashboard/app/(app)/discounts/index.tsx",
+        "packages/dashboard/app/(app)/products/[id].tsx",
+        "packages/dashboard/app/(app)/settings/locations.tsx",
+        "packages/dashboard/app/(app)/settings/members.tsx"
+      ],
+      "exportKey": "./segmented-control",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/sidebar",
+      "files": [
+        "packages/dashboard/components/shell/useDashboardSidebar.tsx",
+        "packages/frontend/components/shell/useStorefrontSidebar.tsx",
+        "packages/pos/components/shell/usePosSidebar.tsx"
+      ],
+      "exportKey": "./sidebar",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/skeleton",
+      "files": [
+        "packages/dashboard/app/(app)/products/wizard/index.tsx",
+        "packages/dashboard/components/catalog-authoring/CanonicalSearchPanel.tsx",
+        "packages/dashboard/components/catalog-authoring/CategoryBrowser.tsx",
+        "packages/frontend/app/(app)/brands/[handle].tsx",
+        "packages/frontend/app/(app)/families/[handle].tsx",
+        "packages/frontend/app/(app)/index.tsx",
+        "packages/frontend/app/(app)/p/[handle].tsx",
+        "packages/frontend/app/(app)/products/[id].tsx",
+        "packages/frontend/components/brand/CatalogProductGrid.tsx",
+        "packages/frontend/components/catalog/ProductGridSkeleton.tsx"
+      ],
+      "exportKey": "./skeleton",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/stepper",
+      "files": [
+        "packages/frontend/app/(app)/products/[id].tsx",
+        "packages/pos/components/register/CartPanel.tsx",
+        "packages/ui/src/components/marketplace/CartLineItem.tsx"
+      ],
+      "exportKey": "./stepper",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/switch",
+      "files": [
+        "packages/dashboard/app/(app)/channels/[connectionId].tsx",
+        "packages/dashboard/app/(app)/settings/policies.tsx",
+        "packages/dashboard/components/catalog-authoring/PricingRows.tsx",
+        "packages/dashboard/components/catalog-authoring/SchemaField.tsx",
+        "packages/dashboard/components/catalog-authoring/VariantAxes.tsx",
+        "packages/dashboard/components/catalog-authoring/VariantRows.tsx",
+        "packages/frontend/app/(app)/notifications.tsx",
+        "packages/frontend/app/(app)/stores/[handle].tsx",
+        "packages/frontend/components/checkout/CheckoutDestinationForm.tsx"
+      ],
+      "exportKey": "./switch",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/text-field",
+      "files": [
+        "packages/dashboard/app/(app)/channels/[connectionId].tsx",
+        "packages/dashboard/app/(app)/channels/feeds/[configurationId].tsx",
+        "packages/dashboard/app/(app)/channels/feeds/new.tsx",
+        "packages/dashboard/app/(app)/channels/onboarding/[sessionId].tsx",
+        "packages/dashboard/app/(app)/collections/index.tsx",
+        "packages/dashboard/app/(app)/customers/index.tsx",
+        "packages/dashboard/app/(app)/discounts/index.tsx",
+        "packages/dashboard/app/(app)/orders/[id].tsx",
+        "packages/dashboard/app/(app)/products/[id].tsx",
+        "packages/dashboard/app/(app)/products/index.tsx",
+        "packages/dashboard/app/(app)/products/new.tsx",
+        "packages/dashboard/app/(app)/products/wizard/[draftId].tsx",
+        "packages/dashboard/app/(app)/products/wizard/index.tsx",
+        "packages/dashboard/app/(app)/settings/locations.tsx",
+        "packages/dashboard/app/(app)/settings/members.tsx",
+        "packages/dashboard/app/(app)/settings/policies.tsx",
+        "packages/dashboard/app/(app)/settings/store.tsx",
+        "packages/dashboard/app/(app)/settings/tax.tsx",
+        "packages/dashboard/app/(app)/stores.tsx",
+        "packages/dashboard/components/catalog-authoring/CanonicalReferenceField.tsx",
+        "packages/dashboard/components/catalog-authoring/CanonicalSearchPanel.tsx",
+        "packages/dashboard/components/catalog-authoring/PricingRows.tsx",
+        "packages/dashboard/components/catalog-authoring/SchemaField.tsx",
+        "packages/dashboard/components/catalog-authoring/ValuePicker.tsx",
+        "packages/dashboard/components/catalog-authoring/VariantAxes.tsx",
+        "packages/dashboard/components/catalog-authoring/VariantRows.tsx",
+        "packages/dashboard/components/orders/PickupDeskCard.tsx",
+        "packages/frontend/app/(app)/checkout/index.tsx",
+        "packages/frontend/app/(app)/guest-orders/recover.tsx",
+        "packages/frontend/app/(app)/price-alerts.tsx",
+        "packages/frontend/app/(app)/sell/[draftId].tsx",
+        "packages/frontend/app/(app)/sell/index.tsx",
+        "packages/frontend/app/(app)/stores/[handle].tsx",
+        "packages/frontend/components/address/AddressForm.tsx",
+        "packages/frontend/components/checkout/CheckoutDestinationForm.tsx",
+        "packages/frontend/components/nearby/NearbyOriginControl.tsx",
+        "packages/pos/app/(app)/customer.tsx",
+        "packages/pos/components/register/CartPanel.tsx",
+        "packages/pos/components/register/CatalogPane.tsx"
+      ],
+      "exportKey": "./text-field",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/textarea",
+      "files": [
+        "packages/dashboard/app/(app)/products/[id].tsx",
+        "packages/dashboard/app/(app)/products/new.tsx",
+        "packages/dashboard/app/(app)/products/wizard/[draftId].tsx",
+        "packages/dashboard/app/(app)/settings/policies.tsx",
+        "packages/dashboard/app/(app)/settings/store.tsx",
+        "packages/dashboard/components/catalog-authoring/SchemaField.tsx",
+        "packages/frontend/app/(app)/sell/[draftId].tsx",
+        "packages/frontend/app/(app)/settings/feedback.tsx",
+        "packages/frontend/components/reviews/ReviewEligibilityPrompts.tsx",
+        "packages/frontend/components/seller/ReportSellerDialog.tsx"
+      ],
+      "exportKey": "./textarea",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/theme",
+      "files": [
+        "packages/dashboard/app/(app)/orders/[id].tsx",
+        "packages/dashboard/app/(app)/products/index.tsx",
+        "packages/dashboard/components/AppSplashScreen.tsx",
+        "packages/dashboard/components/channels/channel-presentation.tsx",
+        "packages/dashboard/components/orders/OrderStatusBadge.tsx",
+        "packages/dashboard/lib/themePersistence.ts",
+        "packages/frontend/components/AppSplashScreen.tsx",
+        "packages/frontend/components/settings/general-section.tsx",
+        "packages/frontend/lib/themePersistence.ts",
+        "packages/pos/components/AppSplashScreen.tsx",
+        "packages/pos/lib/themePersistence.ts",
+        "packages/ui/src/lib/useColorScheme.ts"
+      ],
+      "exportKey": "./theme",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    },
+    {
+      "specifier": "@oxy.so/bloom/toast",
+      "files": [
+        "packages/dashboard/app/(app)/channels/[connectionId].tsx",
+        "packages/dashboard/app/(app)/channels/feeds/[configurationId].tsx",
+        "packages/dashboard/app/(app)/channels/feeds/new.tsx",
+        "packages/dashboard/app/(app)/channels/index.tsx",
+        "packages/dashboard/app/(app)/channels/onboarding/[sessionId].tsx",
+        "packages/dashboard/app/(app)/collections/index.tsx",
+        "packages/dashboard/app/(app)/discounts/index.tsx",
+        "packages/dashboard/app/(app)/orders/[id].tsx",
+        "packages/dashboard/app/(app)/products/[id].tsx",
+        "packages/dashboard/app/(app)/products/new.tsx",
+        "packages/dashboard/app/(app)/products/wizard/[draftId].tsx",
+        "packages/dashboard/app/(app)/products/wizard/index.tsx",
+        "packages/dashboard/app/(app)/settings/fees.tsx",
+        "packages/dashboard/app/(app)/settings/locations.tsx",
+        "packages/dashboard/app/(app)/settings/members.tsx",
+        "packages/dashboard/app/(app)/settings/payments.tsx",
+        "packages/dashboard/app/(app)/settings/plan.tsx",
+        "packages/dashboard/app/(app)/settings/policies.tsx",
+        "packages/dashboard/app/(app)/settings/store.tsx",
+        "packages/dashboard/app/(app)/settings/tax.tsx",
+        "packages/dashboard/app/(app)/stores.tsx",
+        "packages/dashboard/components/channels/CollectionMapping.tsx",
+        "packages/dashboard/components/orders/PickupDeskCard.tsx",
+        "packages/frontend/app/(app)/checkout/index.tsx",
+        "packages/frontend/app/(app)/orders/[id].tsx",
+        "packages/frontend/app/(app)/settings/addresses.tsx",
+        "packages/frontend/app/(app)/settings/feedback.tsx",
+        "packages/frontend/components/seller/ReportSellerDialog.tsx",
+        "packages/frontend/components/settings/currency-selector.tsx",
+        "packages/pos/app/(app)/charge.tsx",
+        "packages/pos/app/(app)/customer.tsx",
+        "packages/pos/components/register/CatalogPane.tsx"
+      ],
+      "exportKey": "./toast",
+      "exportPresent": true,
+      "targetsExist": true,
+      "missingTargets": []
+    }
+  ]
+}

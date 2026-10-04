@@ -1,0 +1,10 @@
+$ vitest run --config ../../.integration-evidence/publisher-census/vitest.config.mjs
+
+ RUN  v4.1.10 /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend
+
+
+ Test Files  1 passed (1)
+      Tests  48 passed (48)
+   Start at  01:50:47
+   Duration  266ms (transform 51ms, setup 0ms, import 154ms, tests 40ms, environment 0ms)
+

@@ -1,0 +1,5 @@
+{
+  "oldPath": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/ui/node_modules/@oxy.so/bloom",
+  "cause": "Unused nested old630 shadowed new621 root despite correct lock; preserve and frozen reinstall",
+  "previousUiTypesBuild": "used stale630, do not count as621 proof"
+}

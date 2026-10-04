@@ -1,0 +1,177 @@
+{
+  "repository": "Mercaria",
+  "base": "9aff49fc43a9e1e4197909d8a129f84e40c75400",
+  "worktree": "/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003",
+  "status": "planned patch; manifests and lock unchanged; no final registry installation",
+  "targets": {
+    "@oxy.so/contracts": "4.9.0",
+    "@oxy.so/core": "4.2.0",
+    "@oxy.so/services": "11.1.0",
+    "@oxy.so/mcp": "1.1.0",
+    "@oxy.so/protocol": "1.2.2",
+    "@oxy.so/bloom": "6.2.1"
+  },
+  "changes": [
+    {
+      "path": "package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/core",
+      "before": "^3.2.0",
+      "after": "4.2.0"
+    },
+    {
+      "path": "package.json",
+      "section": "overrides",
+      "name": "@oxy.so/contracts",
+      "before": "^4.3.0",
+      "after": "4.9.0"
+    },
+    {
+      "path": "package.json",
+      "section": "overrides",
+      "name": "@oxy.so/core",
+      "before": "^3.2.0",
+      "after": "4.2.0"
+    },
+    {
+      "path": "package.json",
+      "section": "resolutions",
+      "name": "@oxy.so/contracts",
+      "before": "^4.3.0",
+      "after": "4.9.0"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/contracts",
+      "before": "^4.3.0",
+      "after": "4.9.0"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/core",
+      "before": "^3.2.0",
+      "after": "4.2.0"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/mcp",
+      "before": "^1.0.0",
+      "after": "1.1.0"
+    },
+    {
+      "path": "packages/dashboard/package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/bloom",
+      "before": "^6.3.0",
+      "after": "6.2.1"
+    },
+    {
+      "path": "packages/dashboard/package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/core",
+      "before": "^3.2.0",
+      "after": "4.2.0"
+    },
+    {
+      "path": "packages/dashboard/package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/services",
+      "before": "^10.0.0",
+      "after": "11.1.0"
+    },
+    {
+      "path": "packages/frontend/package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/bloom",
+      "before": "^6.3.0",
+      "after": "6.2.1"
+    },
+    {
+      "path": "packages/frontend/package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/core",
+      "before": "^3.2.0",
+      "after": "4.2.0"
+    },
+    {
+      "path": "packages/frontend/package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/services",
+      "before": "^10.0.0",
+      "after": "11.1.0"
+    },
+    {
+      "path": "packages/pos/package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/bloom",
+      "before": "^6.3.0",
+      "after": "6.2.1"
+    },
+    {
+      "path": "packages/pos/package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/core",
+      "before": "^3.2.0",
+      "after": "4.2.0"
+    },
+    {
+      "path": "packages/pos/package.json",
+      "section": "dependencies",
+      "name": "@oxy.so/services",
+      "before": "^10.0.0",
+      "after": "11.1.0"
+    },
+    {
+      "path": "packages/ui/package.json",
+      "section": "peerDependencies",
+      "name": "@oxy.so/bloom",
+      "before": "^6.3.0",
+      "after": ">=6.2.1 <6.3.0"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "bun.lock",
+      "sha256": "e35943e101888a34fbd2d2b55900d2f49fec5a82517a11d2d70f5f0060c3e4ab"
+    },
+    {
+      "path": "package.json",
+      "sha256": "88f187375b06caabce6437815556fdb0ad73bf4cf2f5abea30c5a69f626beca8"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "sha256": "b2a7c6388bd546452d178cfacd71af0e529724c2b9ac05d6f211f213b7896166"
+    },
+    {
+      "path": "packages/dashboard/package.json",
+      "sha256": "e8973c9127fb0d6f7588448997131dcc4852e2826f907ccb9a4d23c5b7065a73"
+    },
+    {
+      "path": "packages/frontend/package.json",
+      "sha256": "41137fae6b644949e3a1da69172e9e679ac6d007c5d7d162b58348f159c64554"
+    },
+    {
+      "path": "packages/pos/package.json",
+      "sha256": "e97cec6b380c59148e36f58cf538e9e970c8c3d3bedcebe02f9fb64ad134f3d1"
+    },
+    {
+      "path": "packages/ui/package.json",
+      "sha256": "1aed7c66349b49e680e52c484a50b90d7a0e86aab8d5ab886ed92f8dbefcabfb"
+    }
+  ],
+  "patchSha256": "c4e9667b658368dadd19fc5aeff9778455d338fcac6b64b4f2f768f39db929bd",
+  "checks": [
+    "git apply --check passed",
+    "target JSON compared to structured desired result"
+  ],
+  "pending": [
+    "Final package registry availability and integrity",
+    "Apply patch and regenerate Bun lock with --minimum-release-age=0 in same source change",
+    "Check Bloom 6.2.1 API compatibility and actual peer resolution",
+    "Package typechecks, tests and builds",
+    "Root review and coordinated rollout"
+  ]
+}

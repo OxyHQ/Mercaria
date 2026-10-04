@@ -1,0 +1,42 @@
+$ vitest run src/services/billing/peable/__tests__/adapter.realdb.test.ts src/services/__tests__/merchant-plan-isolation.test.ts
+
+ RUN  v4.1.10 /home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend
+
+[05:55:14] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+ ❯ src/services/billing/peable/__tests__/adapter.realdb.test.ts (11 tests | 1 failed) 195ms
+     × projects a verified snapshot through real Mercaria state and deduplicates the same event 23ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/services/billing/peable/__tests__/adapter.realdb.test.ts > Peable cohort adoption / actual SDK HTTP and SQL > projects a verified snapshot through real Mercaria state and deduplicates the same event
+Error: Failed query: insert into "merchant_subscription_events" ("id", "subscription_id", "kind", "from_status", "to_status", "plan_id", "actor_oxy_user_id", "provider_event_id", "provider_invoice_id", "amount_amount", "amount_currency", "ledger_transaction_id", "note", "created_at") values ($1, $2, $3, $4, $5, $6, default, $7, default, default, default, default, $8, default) on conflict ("provider_event_id") where "merchant_subscription_events"."provider_event_id" is not null do nothing returning "id", "subscription_id", "kind", "from_status", "to_status", "plan_id", "actor_oxy_user_id", "provider_event_id", "provider_invoice_id", "amount_amount", "amount_currency", "ledger_transaction_id", "note", "created_at"
+params: 01a10054-b7bf-7f55-99c9-2a6e9ff109a5,01a10054-b7b6-700c-b030-3dc2184b4df3,status_changed,active,active,01a10054-b73f-7de1-8b53-126f73b9d266,evt_d620a0f4b35c49f784b36eeae012f6a5,synthetic HTTP fixture
+ ❯ PostgresJsPreparedQuery.queryWithCache ../../node_modules/src/pg-core/session.ts:73:10
+ ❯ ../../node_modules/src/postgres-js/session.ts:58:16
+ ❯ appendSubscriptionEvent src/db/merchantPlans/subscriptionRepository.ts:338:17
+    336|   // The partial unique's predicate has to be repeated: Postgres canno…
+    337|   // partial index as a conflict arbiter from the column alone.
+    338|   const [row] = await db
+       |                 ^
+    339|     .insert(merchantSubscriptionEvents)
+    340|     .values(values)
+ ❯ applyProviderSubscriptionState src/services/billing/subscription.service.ts:397:17
+ ❯ src/services/billing/peable/__tests__/adapter.realdb.test.ts:134:13
+
+Caused by: PostgresError: new row for relation "merchant_subscription_events" violates check constraint "merchant_subscription_events_kind_check"
+ ❯ ErrorResponse ../../node_modules/postgres/src/connection.js:815:30
+ ❯ handle ../../node_modules/postgres/src/connection.js:489:6
+ ❯ Socket.data ../../node_modules/postgres/src/connection.js:324:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { severity_local: 'ERROR', severity: 'ERROR', code: '23514', detail: 'Failing row contains (01a10054-b7bf-7f55-99c9-2a6e9ff109a5, 01a10054-b7b6-700c-b030-3dc2184b4df3, status_changed, active, active, 01a10054-b73f-7de1-8b53-126f73b9d266, null, evt_d620a0f4b35c49f784b36eeae012f6a5, null, null, null, null, synthetic HTTP fixture, 2026-10-03 08:55:14.495+03).', schema_name: 'public', table_name: 'merchant_subscription_events', constraint_name: 'merchant_subscription_events_kind_check', file: 'execMain.c', routine: 'ExecConstraints', query: 'insert into "merchant_subscription_events" ("id", "subscription_id", "kind", "from_status", "to_status", "plan_id", "actor_oxy_user_id", "provider_event_id", "provider_invoice_id", "amount_amount", "amount_currency", "ledger_transaction_id", "note", "created_at") values ($1, $2, $3, $4, $5, $6, default, $7, default, default, default, default, $8, default) on conflict ("provider_event_id") where "merchant_subscription_events"."provider_event_id" is not null do nothing returning "id", "subscription_id", "kind", "from_status", "to_status", "plan_id", "actor_oxy_user_id", "provider_event_id", "provider_invoice_id", "amount_amount", "amount_currency", "ledger_transaction_id", "note", "created_at"', parameters: [ '01a10054-b7bf-7f55-99c9-2a6e9ff109a5', '01a10054-b7b6-700c-b030-3dc2184b4df3', 'status_changed', 'active', 'active', '01a10054-b73f-7de1-8b53-126f73b9d266', 'evt_d620a0f4b35c49f784b36eeae012f6a5', 'synthetic HTTP fixture' ], args: [ '01a10054-b7bf-7f55-99c9-2a6e9ff109a5', '01a10054-b7b6-700c-b030-3dc2184b4df3', 'status_changed', 'active', 'active', '01a10054-b73f-7de1-8b53-126f73b9d266', 'evt_d620a0f4b35c49f784b36eeae012f6a5', 'synthetic HTTP fixture' ], types: [ 25, 25, 25, 25, 25, 25, 25, 25 ] }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 24 passed (25)
+   Start at  08:55:10
+   Duration  4.33s (transform 1.13s, setup 0ms, import 1.89s, tests 467ms, environment 0ms)
+
+error: script "test" exited with code 1

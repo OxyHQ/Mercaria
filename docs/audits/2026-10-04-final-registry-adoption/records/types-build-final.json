@@ -1,0 +1,62 @@
+[
+  {
+    "name": "backend-build-final",
+    "cwd": ".",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "build:backend"
+    ],
+    "exitCode": 0,
+    "seconds": 1.518
+  },
+  {
+    "name": "backend-types-final",
+    "cwd": "packages/backend",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "typecheck"
+    ],
+    "exitCode": 0,
+    "seconds": 5.628
+  },
+  {
+    "name": "dashboard-types-final",
+    "cwd": "packages/dashboard",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "typecheck"
+    ],
+    "exitCode": 0,
+    "seconds": 7.892
+  },
+  {
+    "name": "frontend-types-final",
+    "cwd": "packages/frontend",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "typecheck"
+    ],
+    "exitCode": 0,
+    "seconds": 17.914
+  },
+  {
+    "name": "pos-types-final",
+    "cwd": "packages/pos",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "typecheck"
+    ],
+    "exitCode": 0,
+    "seconds": 9.857
+  }
+]

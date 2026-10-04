@@ -9,14 +9,12 @@
  * luck, so a parser reaching the stream first does not weaken verification, it
  * breaks every delivery.
  *
- * It is reimplemented here rather than imported from `@peable.to/shared-types`
- * for the same reason `client.ts` does not use the published SDK: the gateway's
- * contract is versioned by its deployment, and coupling Mercaria's release to a
- * Peable `npm publish` buys nothing for forty lines of HMAC. The scheme is
- * pinned by `verify.test.ts`, which signs with the gateway's own algorithm.
+ * The published SDK owns signature/envelope/type verification. This wrapper
+ * only supplies current/previous secrets and normalizes the verified event
+ * into Mercaria's domain. It creates no client credentials or service token.
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { WebhooksResource, PeableSignatureVerificationError } from '@peable.to/sdk';
 import { config } from '../../../config/index.js';
 import { PaymentProviderError } from '../provider.js';
 import type { ProviderEventEnvelope, ProviderEventInput } from '../provider.js';
@@ -56,44 +54,7 @@ export const PAYMENT_STATUS_FOR_EVENT: Readonly<Record<string, PaymentStatus>> =
   'payment_intent.confirming': 'processing',
 };
 
-interface ParsedHeader {
-  readonly timestamp: number;
-  readonly signature: string;
-}
-
-function parseHeader(header: string): ParsedHeader | null {
-  let timestamp: number | null = null;
-  let signature: string | null = null;
-  for (const part of header.split(',')) {
-    const separator = part.indexOf('=');
-    if (separator === -1) continue;
-    const key = part.slice(0, separator);
-    const value = part.slice(separator + 1);
-    if (key === 't') {
-      const parsed = Number(value);
-      if (Number.isInteger(parsed)) timestamp = parsed;
-    } else if (key === 'v1') {
-      signature = value;
-    }
-  }
-  if (timestamp === null || signature === null) return null;
-  return { timestamp, signature };
-}
-
-/**
- * Constant-time hex comparison.
- *
- * `timingSafeEqual` throws on mismatched lengths, so the length check comes
- * first and returns false rather than propagating — an exception here would be
- * distinguishable from a mismatch by timing AND by the error, which is the
- * whole thing the constant-time comparison exists to avoid.
- */
-function constantTimeEqualHex(a: string, b: string): boolean {
-  const bufferA = Buffer.from(a, 'hex');
-  const bufferB = Buffer.from(b, 'hex');
-  if (bufferA.length === 0 || bufferA.length !== bufferB.length) return false;
-  return timingSafeEqual(bufferA, bufferB);
-}
+const webhooks = new WebhooksResource();
 
 function refuse(message: string): never {
   throw new PaymentProviderError({
@@ -104,14 +65,6 @@ function refuse(message: string): never {
     // event eventually gets a lucky window.
     retryable: false,
   });
-}
-
-/** The gateway's event envelope, narrowed to what this reads. */
-interface GatewayEvent {
-  readonly id?: unknown;
-  readonly type?: unknown;
-  readonly created?: unknown;
-  readonly data?: { readonly object?: { readonly id?: unknown } };
 }
 
 /**
@@ -130,35 +83,18 @@ export function verifyPeableSignature(input: ProviderEventInput): ProviderEventE
 
   if (secrets.length === 0) refuse('no Peable webhook secret is configured');
 
-  const parsed = parseHeader(input.signature);
-  if (!parsed) refuse('the signature header is malformed');
-
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  if (Math.abs(nowSeconds - parsed.timestamp) > TOLERANCE_SECONDS) {
-    refuse('the signature timestamp is outside the tolerance window');
+  let event: ReturnType<WebhooksResource['constructEvent']> | undefined;
+  for (const secret of secrets) {
+    try {
+      event = webhooks.constructEvent(input.payload, input.signature, secret, {
+        toleranceSec: TOLERANCE_SECONDS,
+      });
+      break;
+    } catch (error) {
+      if (!(error instanceof PeableSignatureVerificationError)) throw error;
+    }
   }
-
-  const signedPayload = `${String(parsed.timestamp)}.${input.payload}`;
-  const matched = secrets.some((secret) =>
-    constantTimeEqualHex(
-      createHmac('sha256', secret).update(signedPayload).digest('hex'),
-      parsed.signature,
-    ),
-  );
-  if (!matched) refuse('the signature does not verify');
-
-  let event: GatewayEvent;
-  try {
-    event = JSON.parse(input.payload) as GatewayEvent;
-  } catch {
-    // Signed and unparseable. Refused rather than stored, because every
-    // downstream reader assumes an object and there is nothing to correlate.
-    refuse('the delivery body is not JSON');
-  }
-
-  if (typeof event.id !== 'string' || typeof event.type !== 'string') {
-    refuse('the delivery is missing an id or a type');
-  }
+  if (!event) refuse('the Peable delivery could not be verified');
 
   const intentId = event.data?.object?.id;
   const paymentStatus = PAYMENT_STATUS_FOR_EVENT[event.type];

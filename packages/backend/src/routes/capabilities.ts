@@ -46,7 +46,7 @@ function resourceMatches(
 }
 
 function actorAccountId(claims: CapabilityTicketClaims): string {
-  return claims.actor.type === 'agent' ? claims.actor.accountId : claims.actor.ownerAccountId;
+  return claims.actor.type === 'alia' ? claims.actor.ownerAccountId : claims.actor.accountId;
 }
 
 function registerRoute(tool: CatalogTool, handler: RequestHandler): void {

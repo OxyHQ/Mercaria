@@ -4075,6 +4075,8 @@ export interface ConnectorsConfig {
  * and their invoices book to the ledger whatever both say.
  */
 export interface MerchantBillingConfig {
+  /** Durable routing cohort; independent of the new-action enabled flag. Validated at billing registration. */
+  readonly peableCohortJson: string;
   /** May a merchant start or manage a PAID plan — see `resolveMerchantBillingEnabled`. */
   readonly enabled: boolean;
   /**
@@ -4865,6 +4867,7 @@ export const config: AppConfig = Object.freeze({
     pollIntervalMs: intEnv('RETAIL_RECONCILIATION_POLL_INTERVAL_MS', 60_000),
   }),
   merchantBilling: Object.freeze({
+    peableCohortJson: strEnv('MERCHANT_BILLING_PEABLE_COHORT', ''),
     enabled: resolveMerchantBillingEnabled(),
     reconciliationEnabled: boolEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_ENABLED', true),
     reconciliationIntervalMs: intEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_INTERVAL_MS', 6 * 60 * MINUTE_MS),
