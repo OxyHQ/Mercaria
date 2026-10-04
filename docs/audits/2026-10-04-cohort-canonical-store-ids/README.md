@@ -39,6 +39,20 @@ covers six suites / 80 tests, including signed Peable webhook delivery and the
 real published Stripe SDK's bounded read-only transport fixtures. These remote
 authority/Stripe responses are synthetic; no provider or production requests.
 
+A follow-up adds positive serving-task evidence immediately AFTER verified
+namespace checks and provider installation. Only the SHA256 of the parsed
+cohort, mode, environment and store count are logged; no credential or raw
+configuration is logged. `expected-serving-registration.json` pins the exact
+expected line. Registration tests prove reordered raw object keys have the
+same parsed hash, and all five namespace mismatches emit no positive line.
+The final attestation source passes six suites / 81 tests; the preceding
+80-test RED/GREEN checkpoint remains independently recorded, not relabeled.
+Operational acceptance must collect every actual new task's own fresh log
+stream, require this exact positive line, reject the existing registration
+failure message and verify serving TD/image/config. Health/readiness alone
+cannot demonstrate asynchronous provider installation. No new endpoint or
+human purchase criterion is introduced.
+
 Backend TypeScript, scoped ESLint with zero warnings, and canonical backend
 build pass. `run-compiled-config-smoke.mjs` compiles a separate fixture entry
 with the backend's external-dependency policy and runs Node 24 with

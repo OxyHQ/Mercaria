@@ -1,4 +1,6 @@
 import { Peable } from '@peable.to/sdk';
+import { createHash } from 'node:crypto';
+import { log } from '../../lib/logger.js';
 import { config } from '../../config/index.js';
 import { registerBillingProvider } from './provider.js';
 import { StripeBillingProvider } from './stripe/stripe-billing.js';
@@ -37,4 +39,10 @@ export async function registerMerchantBillingProvider(): Promise<void> {
     const subscription = await reader.subscription(ref);
     return { id: subscription.id, customerId: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id, livemode: subscription.livemode };
   }));
+  // Positive serving-task evidence only after both remote namespace checks and
+  // provider installation. Parsed schema fixes object-key order; no credentials
+  // or raw deployment configuration enter logs.
+  log.general.info({ cohortSha256: createHash('sha256').update(JSON.stringify(cohort)).digest('hex'),
+    mode: cohort.livemode ? 'live' : 'test', environment: cohort.environment, storeCount: cohort.storeIds.length,
+  }, 'Merchant billing cohort registered');
 }

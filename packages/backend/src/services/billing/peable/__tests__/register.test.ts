@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const seam = vi.hoisted(() => ({ raw: '', enabled: true, live: false, publicKey: 'fixture', secret: 'fixture', account: vi.fn(), merchant: vi.fn(), constructed: vi.fn() }));
+const seam = vi.hoisted(() => ({ raw: '', enabled: true, live: false, publicKey: 'fixture', secret: 'fixture', account: vi.fn(), merchant: vi.fn(), constructed: vi.fn(), registered: vi.fn() }));
+vi.mock('../../../../lib/logger.js', () => ({ log: { general: { info: seam.registered } } }));
 vi.mock('../../../../config/index.js', () => ({ config: { payments: { stripe: { get enabled() { return seam.enabled; }, get livemode() { return seam.live; } }, peable: { get publicKey() { return seam.publicKey; }, get secret() { return seam.secret; }, baseUrl: 'http://unused', oxyApiUrl: 'http://unused' } }, merchantBilling: { enabled: false, get peableCohortJson() { return seam.raw; } } } }));
 vi.mock('../../../payments/stripe/client.js', () => ({ getStripeClient: () => {
   if (!seam.enabled) throw new Error('STRIPE_ENABLED is off');
@@ -28,7 +30,7 @@ beforeEach(() => {
   seam.publicKey = 'fixture'; seam.secret = 'fixture';
   seam.account.mockReset().mockResolvedValue({ id: 'acct_fixture' });
   seam.merchant.mockReset().mockResolvedValue({ id: 'merchant', oxyAppId: 'app', environment: 'development' });
-  seam.constructed.mockClear();
+  seam.constructed.mockClear(); seam.registered.mockClear();
 });
 describe('billing cohort registration', () => {
   it('registers the accepted two historical stores with the exact production namespace while general Stripe remains off', async () => {
@@ -36,12 +38,20 @@ describe('billing cohort registration', () => {
     await registerMerchantBillingProvider();
     const provider = getBillingProvider('stripe')!;
     expect(provider.livemode).toBe(true);
+    expect(seam.registered).toHaveBeenCalledExactlyOnceWith({cohortSha256:createHash('sha256').update(JSON.stringify(billingCohortSchema.parse(acceptedCohort))).digest('hex'),mode:'live',environment:'production',storeCount:2}, 'Merchant billing cohort registered');
     for (const storeId of acceptedCohort.storeIds) expect(provider.requiresExplicitIntent!(storeId)).toBe(true);
     expect(provider.requiresExplicitIntent!('6a77367c30650db22f728093')).toBe(false);
     expect(seam.enabled).toBe(false);
     expect(seam.account).toHaveBeenCalledWith(null);
     expect(seam.merchant).toHaveBeenCalledTimes(1);
     await expect(provider.ensureCustomer({ storeId: '6a77367c30650db22f728093', storeName: 'outside', idempotencyKey: 'owned-intent' })).rejects.toThrow('STRIPE_ENABLED is off');
+  });
+  it('attests the same parsed cohort hash for reordered raw JSON fields', async () => {
+    configureAcceptedCohort();
+    seam.raw = JSON.stringify(Object.fromEntries(Object.entries(acceptedCohort).reverse()));
+    await registerMerchantBillingProvider();
+    expect(seam.registered).toHaveBeenCalledExactlyOnceWith({ cohortSha256: createHash('sha256').update(JSON.stringify(billingCohortSchema.parse(acceptedCohort))).digest('hex'),
+      mode: 'live', environment: 'production', storeCount: 2 }, 'Merchant billing cohort registered');
   });
   for (const field of ['merchantId', 'applicationId', 'environment', 'platformAccountId', 'livemode'] as const) {
     it(`rejects a mismatched ${field} for the accepted cohort before registration`, async () => {
@@ -52,11 +62,13 @@ describe('billing cohort registration', () => {
         ...(field === 'merchantId' ? { id: 'foreign' } : field === 'applicationId' ? { oxyAppId: 'foreign' } : { environment: 'development' }) });
       await expect(registerMerchantBillingProvider()).rejects.toThrow(field === 'platformAccountId' || field === 'livemode' ? 'platform account or mode' : 'different namespace');
       expect(getBillingProvider('stripe')).toBeUndefined();
+      expect(seam.registered).not.toHaveBeenCalled();
     });
   }
   it('retains default legacy without querying or constructing Peable', async () => {
     await registerMerchantBillingProvider(); expect(getBillingProvider('stripe')).toBeDefined();
     expect(seam.account).not.toHaveBeenCalled(); expect(seam.constructed).not.toHaveBeenCalled();
+    expect(seam.registered).not.toHaveBeenCalled();
   });
   it('rejects malformed configuration without leaving a legacy fallback', async () => {
     seam.raw = '{ SECRET_CANARY'; await expect(registerMerchantBillingProvider()).rejects.toThrow('Invalid merchant billing cohort configuration.');
@@ -70,6 +82,7 @@ describe('billing cohort registration', () => {
       if (mismatch === 'namespace') seam.merchant.mockResolvedValue({ id: 'other', oxyAppId: 'app', environment: 'development' });
       await expect(registerMerchantBillingProvider()).rejects.toThrow();
       expect(getBillingProvider('stripe')).toBeUndefined();
+      expect(seam.registered).not.toHaveBeenCalled();
     });
   }
   it('retains cohort routing while the new-action flag is off', async () => {
@@ -91,6 +104,7 @@ describe('billing cohort registration', () => {
     seam.enabled = false; await registerMerchantBillingProvider();
     expect(getBillingProvider('stripe')).toBeUndefined();
     expect(seam.account).not.toHaveBeenCalled(); expect(seam.constructed).not.toHaveBeenCalled();
+    expect(seam.registered).not.toHaveBeenCalled();
   });
   it('fails closed on malformed cohort even with the general rail off', async () => {
     seam.enabled = false; seam.raw = '{ SECRET_CANARY';
@@ -103,6 +117,7 @@ describe('billing cohort registration', () => {
       await expect(registerMerchantBillingProvider()).rejects.toThrow('complete Peable application credential');
       expect(seam.account).not.toHaveBeenCalled(); expect(seam.merchant).not.toHaveBeenCalled();
       expect(getBillingProvider('stripe')).toBeUndefined();
+      expect(seam.registered).not.toHaveBeenCalled();
     });
   }
   it('does not enable the out-of-cohort legacy mutator', async () => {
