@@ -62,8 +62,9 @@ while IFS= read -r path; do
   case "$path" in
     # Every package, and every app, consumes it.
     packages/shared-types/*) all "$path is consumed by every package" ;;
-    # `build:backend` bundles the API; the API depends on the SDK.
-    packages/backend/* | packages/sdk/*) want[api]=true ;;
+    # `build:backend` bundles the API; the API depends on the SDK. The public
+    # API contract is inlined by the API bundle and the SDK, and by no app.
+    packages/backend/* | packages/sdk/* | packages/contracts/*) want[api]=true ;;
     # The three Expo apps share the UI kit.
     packages/ui/*) want[app]=true want[dashboard]=true want[pos]=true ;;
     packages/frontend/*) want[app]=true ;;

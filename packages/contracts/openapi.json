@@ -1,0 +1,1995 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mercaria public API",
+    "version": "1.0.0",
+    "description": "Read-only commerce data for other Oxy applications: products, stores and collections. Success bodies are the value itself; every error is `{ \"error\": { \"code\", \"message\", \"details\"? } }`. Lists are `{ items, nextCursor }` and end at 10000 items. Generated from `@mercaria/contracts`; `@mercaria.co/sdk` is the supported client."
+  },
+  "servers": [
+    {
+      "url": "https://api.mercaria.co/public/v1"
+    }
+  ],
+  "tags": [
+    {
+      "name": "products"
+    },
+    {
+      "name": "stores"
+    },
+    {
+      "name": "collections"
+    },
+    {
+      "name": "meta"
+    }
+  ],
+  "security": [
+    {},
+    {
+      "oxyBearer": []
+    }
+  ],
+  "paths": {
+    "/collections/{id}": {
+      "get": {
+        "operationId": "getCollection",
+        "tags": [
+          "collections"
+        ],
+        "summary": "Read one collection",
+        "description": "A published collection of a live store.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The entity id. A malformed id answers 404, not 400.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read one collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request`: Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found`: The entity never existed, or the id is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`gone`: The entity existed and is no longer publicly available. Says nothing about why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: Rate limit hit. `details.retryAfterSeconds` and `Retry-After` say when to retry.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the caller may retry.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Unexpected server defect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/collections/{id}/products": {
+      "get": {
+        "operationId": "listCollectionProducts",
+        "tags": [
+          "collections"
+        ],
+        "summary": "List a collection’s products",
+        "description": "In the collection’s own sort order.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The entity id. A malformed id answers 404, not 400.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1–50. Default 20.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{1,3}$"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "The previous page’s `nextCursor`, verbatim, with the same filters.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List a collection’s products",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaProductSummaryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request`: Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found`: The entity never existed, or the id is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`gone`: The entity existed and is no longer publicly available. Says nothing about why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed`: Well-formed, but a value is refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: Rate limit hit. `details.retryAfterSeconds` and `Retry-After` say when to retry.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the caller may retry.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Unexpected server defect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiDocument",
+        "tags": [
+          "meta"
+        ],
+        "summary": "This document",
+        "description": "The OpenAPI 3.1 description of `/public/v1`, generated from the contract.",
+        "responses": {
+          "200": {
+            "description": "This document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaOpenApiDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request`: Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: Rate limit hit. `details.retryAfterSeconds` and `Retry-After` say when to retry.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the caller may retry.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Unexpected server defect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "operationId": "searchProducts",
+        "tags": [
+          "products"
+        ],
+        "summary": "Search publicly live products",
+        "description": "Every publicly live product, optionally scoped to one store or collection. A `storeId` or `collectionId` naming an entity that is not public answers 404 or 410, never an empty page.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1–50. Default 20.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{1,3}$"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "The previous page’s `nextCursor`, verbatim, with the same filters.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Full-text query, 1–200 characters after trimming.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "inStock",
+            "in": "query",
+            "required": false,
+            "description": "`true` keeps products that can be bought now; `false` filters nothing.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Ordering. Default `relevance` with `q`, `newest` without; `relevance` requires `q`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "relevance",
+                "newest",
+                "price_asc",
+                "price_desc"
+              ]
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "description": "A BCP 47 tag whose translations are ALSO searched. No effect without `q`.",
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 35
+            }
+          },
+          {
+            "name": "storeId",
+            "in": "query",
+            "required": false,
+            "description": "Only this store’s products. A gone store answers 410.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "collectionId",
+            "in": "query",
+            "required": false,
+            "description": "Only this collection’s products. A gone collection answers 410.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search publicly live products",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaProductSummaryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request`: Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found`: The entity never existed, or the id is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`gone`: The entity existed and is no longer publicly available. Says nothing about why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed`: Well-formed, but a value is refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: Rate limit hit. `details.retryAfterSeconds` and `Retry-After` say when to retry.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the caller may retry.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Unexpected server defect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products/{id}": {
+      "get": {
+        "operationId": "getProduct",
+        "tags": [
+          "products"
+        ],
+        "summary": "Read one product",
+        "description": "A product’s current detail. A sold one-off product is a 200 with availability `sold`; an archived, withdrawn or no-longer-public one is a 410.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The entity id. A malformed id answers 404, not 400.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read one product",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaProduct"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request`: Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found`: The entity never existed, or the id is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`gone`: The entity existed and is no longer publicly available. Says nothing about why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: Rate limit hit. `details.retryAfterSeconds` and `Retry-After` say when to retry.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the caller may retry.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Unexpected server defect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stores/lookup": {
+      "get": {
+        "operationId": "lookupStore",
+        "tags": [
+          "stores"
+        ],
+        "summary": "Find a store by its current handle",
+        "description": "Persist the returned `ref`, never the handle: a merchant can rename a store.",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "query",
+            "required": true,
+            "description": "The store’s CURRENT handle.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Find a store by its current handle",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaStore"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request`: Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found`: The entity never existed, or the id is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`gone`: The entity existed and is no longer publicly available. Says nothing about why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed`: Well-formed, but a value is refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: Rate limit hit. `details.retryAfterSeconds` and `Retry-After` say when to retry.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the caller may retry.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Unexpected server defect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stores/{id}": {
+      "get": {
+        "operationId": "getStore",
+        "tags": [
+          "stores"
+        ],
+        "summary": "Read one store",
+        "description": "A public storefront. A suspended or closed store is a 410.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The entity id. A malformed id answers 404, not 400.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read one store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaStore"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request`: Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found`: The entity never existed, or the id is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`gone`: The entity existed and is no longer publicly available. Says nothing about why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: Rate limit hit. `details.retryAfterSeconds` and `Retry-After` say when to retry.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the caller may retry.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Unexpected server defect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stores/{id}/collections": {
+      "get": {
+        "operationId": "listStoreCollections",
+        "tags": [
+          "stores"
+        ],
+        "summary": "List a store’s published collections",
+        "description": "Published collections only.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The entity id. A malformed id answers 404, not 400.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1–50. Default 20.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{1,3}$"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "The previous page’s `nextCursor`, verbatim, with the same filters.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List a store’s published collections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaCollectionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request`: Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found`: The entity never existed, or the id is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`gone`: The entity existed and is no longer publicly available. Says nothing about why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed`: Well-formed, but a value is refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: Rate limit hit. `details.retryAfterSeconds` and `Retry-After` say when to retry.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the caller may retry.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Unexpected server defect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stores/{id}/products": {
+      "get": {
+        "operationId": "listStoreProducts",
+        "tags": [
+          "stores"
+        ],
+        "summary": "List a store’s products",
+        "description": "One live store’s publicly live products.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The entity id. A malformed id answers 404, not 400.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1–50. Default 20.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{1,3}$"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "The previous page’s `nextCursor`, verbatim, with the same filters.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Full-text query, 1–200 characters after trimming.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "inStock",
+            "in": "query",
+            "required": false,
+            "description": "`true` keeps products that can be bought now; `false` filters nothing.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Ordering. Default `relevance` with `q`, `newest` without; `relevance` requires `q`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "relevance",
+                "newest",
+                "price_asc",
+                "price_desc"
+              ]
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "description": "A BCP 47 tag whose translations are ALSO searched. No effect without `q`.",
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 35
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List a store’s products",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaProductSummaryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request`: Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found`: The entity never existed, or the id is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`gone`: The entity existed and is no longer publicly available. Says nothing about why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed`: Well-formed, but a value is refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: Rate limit hit. `details.retryAfterSeconds` and `Retry-After` say when to retry.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the caller may retry.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Unexpected server defect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "MercariaCollection": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "$ref": "#/components/schemas/MercariaCollectionRef"
+          },
+          "store": {
+            "$ref": "#/components/schemas/MercariaStoreRef"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MercariaImage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https?:\\/\\/[^\\s/?#]+\\S*$",
+            "description": "The canonical Mercaria web URL for this collection."
+          }
+        },
+        "required": [
+          "ref",
+          "store",
+          "title",
+          "description",
+          "image",
+          "url"
+        ]
+      },
+      "MercariaCollectionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercariaCollection"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "description": "An opaque page cursor."
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The next page’s cursor, or null on the last page."
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "MercariaCollectionRef": {
+        "readOnly": true,
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "collection"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "\\S",
+            "description": "An opaque id. Never parse it."
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ]
+      },
+      "MercariaErrorBody": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "bad_request",
+                  "unauthorized",
+                  "forbidden",
+                  "not_found",
+                  "unknown_route",
+                  "gone",
+                  "conflict",
+                  "validation_failed",
+                  "rate_limited",
+                  "internal_error",
+                  "service_unavailable"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "description": "Human-readable and safe to log. Never parse it."
+              },
+              "details": {
+                "description": "Scalars only. `rate_limited` carries `retryAfterSeconds`; request errors carry `field`.",
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "MercariaImage": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "pattern": "^https?:\\/\\/[^\\s/?#]+\\S*$",
+            "description": "An absolute http(s) URL."
+          },
+          "alt": {
+            "description": "Accessible description, or null when the seller gave none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "url",
+          "alt"
+        ]
+      },
+      "MercariaMoney": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Integer minor units (cents for EUR, yen for JPY)."
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "FAIR",
+              "USD",
+              "EUR",
+              "GBP",
+              "CAD",
+              "AUD",
+              "JPY",
+              "CHF",
+              "CNY",
+              "SEK",
+              "NOK",
+              "DKK",
+              "PLN",
+              "MXN",
+              "BRL",
+              "INR",
+              "NZD",
+              "ZAR",
+              "SGD",
+              "HKD",
+              "AED"
+            ]
+          }
+        },
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "description": "A price in the listing’s native currency."
+      },
+      "MercariaOpenApiDocument": {
+        "type": "object",
+        "properties": {
+          "openapi": {
+            "type": "string",
+            "const": "3.1.0"
+          },
+          "info": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "version"
+            ],
+            "additionalProperties": {}
+          },
+          "paths": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "openapi",
+          "info",
+          "paths"
+        ],
+        "additionalProperties": {}
+      },
+      "MercariaProduct": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "$ref": "#/components/schemas/MercariaProductRef"
+          },
+          "title": {
+            "type": "string"
+          },
+          "primaryImage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MercariaImage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The first gallery image, or null."
+          },
+          "price": {
+            "description": "The lowest current purchase-option price.",
+            "$ref": "#/components/schemas/MercariaMoney"
+          },
+          "compareAtPrice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MercariaMoney"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The cheapest option’s pre-discount price when on sale."
+          },
+          "priceRange": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "min": {
+                    "$ref": "#/components/schemas/MercariaMoney"
+                  },
+                  "max": {
+                    "$ref": "#/components/schemas/MercariaMoney"
+                  }
+                },
+                "required": [
+                  "min",
+                  "max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The span across purchase options, or null when they all cost the same."
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "out_of_stock",
+              "sold"
+            ]
+          },
+          "condition": {
+            "$ref": "#/components/schemas/MercariaProductCondition"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/MercariaSeller"
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https?:\\/\\/[^\\s/?#]+\\S*$",
+            "description": "The canonical Mercaria web URL for this product."
+          },
+          "description": {
+            "type": "string"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercariaImage"
+            },
+            "description": "The full ordered gallery."
+          },
+          "purchaseOptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercariaPurchaseOption"
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "description": "When the product last changed."
+          },
+          "viewer": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "saved": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "saved"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Facts about the CALLER when the request carried a valid Oxy session; null anonymously."
+          }
+        },
+        "required": [
+          "ref",
+          "title",
+          "primaryImage",
+          "price",
+          "compareAtPrice",
+          "priceRange",
+          "availability",
+          "condition",
+          "seller",
+          "url",
+          "description",
+          "images",
+          "purchaseOptions",
+          "updatedAt",
+          "viewer"
+        ]
+      },
+      "MercariaProductCondition": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "new",
+              "open_box",
+              "refurbished_manufacturer",
+              "refurbished_seller",
+              "used_like_new",
+              "used_good",
+              "used_fair",
+              "used_poor",
+              "for_parts"
+            ]
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "new",
+              "open_box",
+              "refurbished",
+              "used",
+              "for_parts"
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "group"
+        ]
+      },
+      "MercariaProductRef": {
+        "readOnly": true,
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "product"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "\\S",
+            "description": "An opaque id. Never parse it."
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ]
+      },
+      "MercariaProductSummary": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "$ref": "#/components/schemas/MercariaProductRef"
+          },
+          "title": {
+            "type": "string"
+          },
+          "primaryImage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MercariaImage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The first gallery image, or null."
+          },
+          "price": {
+            "description": "The lowest current purchase-option price.",
+            "$ref": "#/components/schemas/MercariaMoney"
+          },
+          "compareAtPrice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MercariaMoney"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The cheapest option’s pre-discount price when on sale."
+          },
+          "priceRange": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "min": {
+                    "$ref": "#/components/schemas/MercariaMoney"
+                  },
+                  "max": {
+                    "$ref": "#/components/schemas/MercariaMoney"
+                  }
+                },
+                "required": [
+                  "min",
+                  "max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The span across purchase options, or null when they all cost the same."
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "out_of_stock",
+              "sold"
+            ]
+          },
+          "condition": {
+            "$ref": "#/components/schemas/MercariaProductCondition"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/MercariaSeller"
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https?:\\/\\/[^\\s/?#]+\\S*$",
+            "description": "The canonical Mercaria web URL for this product."
+          }
+        },
+        "required": [
+          "ref",
+          "title",
+          "primaryImage",
+          "price",
+          "compareAtPrice",
+          "priceRange",
+          "availability",
+          "condition",
+          "seller",
+          "url"
+        ]
+      },
+      "MercariaProductSummaryPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MercariaProductSummary"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "description": "An opaque page cursor."
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The next page’s cursor, or null on the last page."
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "MercariaPurchaseOption": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "$ref": "#/components/schemas/MercariaVariantRef"
+          },
+          "title": {
+            "type": "string",
+            "description": "The variant’s display title (e.g. `Blue / M`)."
+          },
+          "price": {
+            "$ref": "#/components/schemas/MercariaMoney"
+          },
+          "compareAtPrice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MercariaMoney"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pre-discount price when on sale, else null."
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "out_of_stock"
+            ]
+          }
+        },
+        "required": [
+          "ref",
+          "title",
+          "price",
+          "compareAtPrice",
+          "availability"
+        ]
+      },
+      "MercariaRef": {
+        "oneOf": [
+          {
+            "readOnly": true,
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "product"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "An opaque id. Never parse it."
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "readOnly": true,
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "variant"
+              },
+              "productId": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "An opaque id. Never parse it."
+              },
+              "variantId": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "An opaque id. Never parse it."
+              }
+            },
+            "required": [
+              "kind",
+              "productId",
+              "variantId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "readOnly": true,
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "store"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "An opaque id. Never parse it."
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "readOnly": true,
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "collection"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "An opaque id. Never parse it."
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "MercariaSeller": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "store"
+              },
+              "store": {
+                "$ref": "#/components/schemas/MercariaStoreRef"
+              },
+              "handle": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "The store’s CURRENT handle — presentation, not identity."
+              },
+              "name": {
+                "type": "string"
+              },
+              "logoUrl": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^https?:\\/\\/[^\\s/?#]+\\S*$",
+                    "description": "An absolute http(s) URL."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "store",
+              "handle",
+              "name",
+              "logoUrl"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "person"
+              },
+              "oxyUserId": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "An opaque id. Never parse it."
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "username": {
+                "type": "string",
+                "description": "Oxy username without the leading `@`."
+              },
+              "avatarUrl": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^https?:\\/\\/[^\\s/?#]+\\S*$",
+                    "description": "An absolute http(s) URL."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "isVerified": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "oxyUserId",
+              "displayName",
+              "username",
+              "avatarUrl",
+              "isVerified"
+            ]
+          }
+        ]
+      },
+      "MercariaStore": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "$ref": "#/components/schemas/MercariaStoreRef"
+          },
+          "handle": {
+            "type": "string",
+            "pattern": "\\S",
+            "description": "The CURRENT handle — presentation, not identity."
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "logoUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^https?:\\/\\/[^\\s/?#]+\\S*$",
+                "description": "An absolute http(s) URL."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "coverImageUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^https?:\\/\\/[^\\s/?#]+\\S*$",
+                "description": "An absolute http(s) URL."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "brandColor": {
+            "type": "string",
+            "pattern": "^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 5
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Average rating 0–5, or null with no reviews."
+          },
+          "reviewCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https?:\\/\\/[^\\s/?#]+\\S*$",
+            "description": "The canonical Mercaria web URL for this store."
+          }
+        },
+        "required": [
+          "ref",
+          "handle",
+          "name",
+          "description",
+          "logoUrl",
+          "coverImageUrl",
+          "brandColor",
+          "rating",
+          "reviewCount",
+          "url"
+        ]
+      },
+      "MercariaStoreRef": {
+        "readOnly": true,
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "store"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "\\S",
+            "description": "An opaque id. Never parse it."
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ]
+      },
+      "MercariaVariantRef": {
+        "readOnly": true,
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "variant"
+          },
+          "productId": {
+            "type": "string",
+            "pattern": "\\S",
+            "description": "An opaque id. Never parse it."
+          },
+          "variantId": {
+            "type": "string",
+            "pattern": "\\S",
+            "description": "An opaque id. Never parse it."
+          }
+        },
+        "required": [
+          "kind",
+          "productId",
+          "variantId"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "oxyBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "An Oxy access token. Optional; a token that does not verify is read as anonymous."
+      }
+    }
+  }
+}

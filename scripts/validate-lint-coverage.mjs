@@ -12,7 +12,8 @@
  * command exited 0 having really linted ONE package with nothing anywhere
  * saying so. #496 moved the three Expo apps into the real set and
  * `EXPECTED_NO_SCRIPT` is now empty. #1017 added `packages/sdk` with a real
- * linter, so the current answer is 5 of 7, which the summary prints on every
+ * linter, and #1017's contract slice added `packages/contracts` with one, so the
+ * current answer is 6 of 8, which the summary prints on every
  * run. The hazard is unchanged — a package falling back
  * out is silent — which is why the empty set is kept as a category.
  *
@@ -136,7 +137,7 @@ const GATING_JOB = "lint-and-test";
 // ------------------------------------------------------- expected state -----
 
 /** Packages whose `lint` script runs a real linter. */
-const EXPECTED_REAL = ["backend", "dashboard", "frontend", "pos", "sdk"];
+const EXPECTED_REAL = ["backend", "contracts", "dashboard", "frontend", "pos", "sdk"];
 
 /** Packages whose `lint` script is an `exit 0` placeholder. */
 const EXPECTED_PLACEHOLDER = ["shared-types", "ui"];
@@ -163,6 +164,7 @@ const EXPECTED_NO_SCRIPT = [];
 const EXPECTED_CI_LINT_TARGETS = [
   "@mercaria.co/sdk",
   "@mercaria/backend",
+  "@mercaria/contracts",
   "@mercaria/dashboard",
   "@mercaria/frontend",
   "@mercaria/pos",
@@ -186,7 +188,7 @@ const EXPECTED_CI_LINT_TARGETS = [
 const EXPECTED_ESLINT_RANGE = "^9.39.5";
 
 /** Packages that must carry it — DERIVED from the walk, never a hand list. */
-const MINIMUM_ESLINT_PACKAGES = 5;
+const MINIMUM_ESLINT_PACKAGES = 6;
 
 /**
  * Below this the `packages/` walk is broken. See the docblock: this does NOT
@@ -194,7 +196,7 @@ const MINIMUM_ESLINT_PACKAGES = 5;
  * it names the cause instead of leaving three set mismatches to be read as three
  * unlinted packages.
  */
-const MINIMUM_PACKAGES = 7;
+const MINIMUM_PACKAGES = 8;
 
 const failures = [];
 
