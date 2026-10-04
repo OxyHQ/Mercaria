@@ -1,6 +1,6 @@
 {
   "name": "@mercaria.co/sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The canonical, headless TypeScript client for Mercaria's public commerce API \u2014 product, store and collection reads, portable references, typed errors and canonical links for Node, Bun, browsers and React Native.",
   "license": "Apache-2.0",
   "author": "The Oxy Collective, Inc.",
@@ -61,6 +61,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "dependencies": {
+    "zod": "^4.5.4"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "clean": "rm -rf dist",
@@ -72,6 +75,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@mercaria/contracts": "workspace:*",
     "@mercaria/shared-types": "workspace:*",
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",

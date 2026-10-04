@@ -25,6 +25,7 @@ check() {
 
 check 'api' packages/backend/src/index.ts
 check 'api' packages/sdk/src/client.ts
+check 'api' packages/contracts/src/routes.ts packages/contracts/openapi.json
 check 'app' packages/frontend/app/index.tsx
 check 'dashboard' packages/dashboard/app/_layout.tsx
 check 'pos' packages/pos/app/index.tsx

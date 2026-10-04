@@ -188,7 +188,7 @@ jobs:
       # file listing and nothing else.
       - name: Guard the AGENTS.md budget
         run: bun run validate:agents-md
-      - name: Lint coverage is pinned (bun run lint covers 5 of 7 packages)
+      - name: Lint coverage is pinned (bun run lint covers 6 of 8 packages)
         run: bun run validate:lint-coverage
 
       # Every realdb file that creates its OWN throwaway database migrates it
@@ -342,6 +342,22 @@ jobs:
       - name: Guard public catalog contracts against ambiguous identity strings
         run: bun run validate:catalog-identity-contracts
 
+      # `/public/v1`'s OpenAPI document (#1017) is GENERATED from
+      # `@mercaria/contracts`' route registry and committed; this fails when the
+      # committed bytes are not what the contract renders, when a named
+      # operation disappears, when an operation stops describing its payloads,
+      # or when the document stops speaking OpenAPI 3.1 — then mutation-tests
+      # each of those layers. No database, no build: it reads the contract's
+      # source.
+      - name: Guard the public OpenAPI document
+        run: bun run validate:openapi
+
+      # Every named contract schema converts to JSON Schema. The conversion is
+      # lazy, so an unconvertible schema would otherwise surface the next time
+      # the document is generated or `/public/v1/openapi.json` is first served.
+      - name: Guard the contract's JSON Schema surface
+        run: bun run validate:contract-json-schemas
+
       - name: Lint API
         run: bun run --filter @mercaria/backend lint
 
@@ -362,6 +378,12 @@ jobs:
       # there on top of the house rules.
       - name: Lint SDK
         run: bun run --filter @mercaria.co/sdk lint
+
+      # `@mercaria/contracts` (#1017) is the one definition of `/public/v1` and
+      # ships inside the SDK, so it keeps the SDK's two extra rules: no Node
+      # built-ins and no `console` in `src/`.
+      - name: Lint contracts
+        run: bun run --filter @mercaria/contracts lint
 
       - name: Typecheck API
         run: bun run --filter @mercaria/backend typecheck
@@ -431,6 +453,19 @@ jobs:
       # program type-checks the tests, which use the real `Response`.
       - name: Typecheck SDK
         run: bun run --filter @mercaria.co/sdk typecheck
+
+      # Strict, no DOM, no Node types — the modules ship inside the SDK. The
+      # second program type-checks the suite, which pins `MercariaPage<T>` to
+      # what `z.infer` makes of every page schema.
+      - name: Typecheck contracts
+        run: bun run --filter @mercaria/contracts typecheck
+
+      # The schemas' own behaviour (strip vs strict, closed sets, refinements),
+      # the shape-versus-value classifier both the backend and the SDK answer
+      # with, the route registry's invariants, and the identity-string wall over
+      # every published shape.
+      - name: Test contracts
+        run: bun run --filter @mercaria/contracts test
 
       # No network: every request goes to a fetch double. Carries the parser
       # walls (a leaked `sku` or supplier field never reaches a DTO), the error

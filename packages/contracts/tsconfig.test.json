@@ -1,0 +1,12 @@
+{
+  // Type-checks the tests and the vitest config, which the emitting project
+  // leaves out so they never reach `dist/`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "test/**/*", "vitest.config.ts"]
+}

@@ -16,6 +16,7 @@
       "name": "@mercaria/backend",
       "version": "1.0.0",
       "dependencies": {
+        "@mercaria/contracts": "workspace:*",
         "@mercaria/shared-types": "workspace:*",
         "@oxy.so/contracts": "4.9.0",
         "@oxy.so/core": "4.2.0",
@@ -61,6 +62,22 @@
         "typescript": "^5.9.3",
         "vitest": "^4.1.10",
         "yaml": "^2.9.0",
+      },
+    },
+    "packages/contracts": {
+      "name": "@mercaria/contracts",
+      "version": "1.0.0",
+      "dependencies": {
+        "@mercaria/shared-types": "workspace:*",
+        "zod": "^4.5.4",
+      },
+      "devDependencies": {
+        "@eslint/js": "^9.39.5",
+        "@typescript-eslint/eslint-plugin": "^8.64.0",
+        "@typescript-eslint/parser": "^8.64.0",
+        "eslint": "^9.39.5",
+        "typescript": "^5.9.3",
+        "vitest": "^4.1.10",
       },
     },
     "packages/dashboard": {
@@ -358,9 +375,13 @@
     },
     "packages/sdk": {
       "name": "@mercaria.co/sdk",
-      "version": "0.1.0",
+      "version": "0.2.0",
+      "dependencies": {
+        "zod": "^4.5.4",
+      },
       "devDependencies": {
         "@eslint/js": "^9.39.5",
+        "@mercaria/contracts": "workspace:*",
         "@mercaria/shared-types": "workspace:*",
         "@typescript-eslint/eslint-plugin": "^8.64.0",
         "@typescript-eslint/parser": "^8.64.0",
@@ -782,6 +803,8 @@
     "@mercaria.co/sdk": ["@mercaria.co/sdk@workspace:packages/sdk"],
 
     "@mercaria/backend": ["@mercaria/backend@workspace:packages/backend"],
+
+    "@mercaria/contracts": ["@mercaria/contracts@workspace:packages/contracts"],
 
     "@mercaria/dashboard": ["@mercaria/dashboard@workspace:packages/dashboard"],
 

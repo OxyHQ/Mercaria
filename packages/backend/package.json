@@ -25,6 +25,7 @@
     "fees:provision": "bun run src/scripts/provision-fee-schedule.ts"
   },
   "dependencies": {
+    "@mercaria/contracts": "workspace:*",
     "@mercaria/shared-types": "workspace:*",
     "@oxy.so/contracts": "4.9.0",
     "@oxy.so/core": "4.2.0",

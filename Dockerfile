@@ -68,19 +68,22 @@ COPY packages/pos/package.json ./packages/pos/package.json
 # source is not copied.
 COPY packages/sdk/package.json ./packages/sdk/package.json
 
-# Copy shared-types source before install so its `postinstall` (tsc) can build
-# the package's dist during `bun install`.
+# Copy shared-types and contracts source before install so the root
+# `postinstall` (tsc, shared-types first) can build both dists during
+# `bun install`. `@mercaria/contracts` (#1017) is the public API's one
+# definition; the API bundle inlines it like shared-types.
 COPY packages/shared-types ./packages/shared-types
+COPY packages/contracts ./packages/contracts
 
 # Deterministic install from the lockfile, including devDependencies (esbuild,
 # TypeScript) required to bundle the API. The root postinstall builds
-# @mercaria/shared-types.
+# @mercaria/shared-types, then @mercaria/contracts.
 RUN bun install --frozen-lockfile
 
 # Copy the source needed to build the API.
 COPY packages/backend ./packages/backend
 
-# Build shared-types then bundle the API with esbuild ->
+# Build shared-types and contracts, then bundle the API with esbuild ->
 # packages/backend/dist/index.js (externalizes third-party node_modules INCLUDING
 # @oxy.so/*, inlines only @mercaria/*; see packages/backend/build.ts).
 #

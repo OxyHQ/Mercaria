@@ -22,7 +22,7 @@ on:
       - '.github/workflows/publish-sdk.yml'
       - '.github/scripts/require-ci-success.mjs'
       - 'packages/sdk/**'
-      - 'packages/shared-types/src/public-api.ts'
+      - 'packages/contracts/src/**'
 
 permissions:
   contents: read
