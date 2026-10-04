@@ -1134,6 +1134,27 @@
       "ratingsWithScope": "%{formattedCount} ratings · %{scopeLabel}",
       "fallbackAuthor": "Verified buyer",
       "viewA11yLabel": "View this store's service reviews"
+    },
+    "visit": {
+      "heading": "Visit us",
+      "loading": "Loading this shop’s details",
+      "placeUnavailable": "This shop’s details can’t be shown right now.",
+      "viewOnGoWay": "View on GoWay",
+      "reviewsOnGoWay": "Read its reviews on GoWay",
+      "openMap": "Open in GoWay maps",
+      "hoursHeading": "Opening hours",
+      "closedAllDay": "Closed",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "Special hours",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates}: closed",
+      "exceptionHours": "%{dates}: %{hours}",
+      "accessibility": "Accessibility",
+      "payment": "Payment",
+      "attributeValue": "%{attribute}: %{value}",
+      "collectHere": "Order online, collect here",
+      "placeRatingSubject": "%{place} on GoWay",
+      "photoLabel": "Photo of %{place}"
     }
   },
   "offer": {

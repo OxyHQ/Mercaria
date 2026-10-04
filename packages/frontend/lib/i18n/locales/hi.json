@@ -1134,6 +1134,27 @@
       "ratingsWithScope": "%{formattedCount} रेटिंग · %{scopeLabel}",
       "fallbackAuthor": "सत्यापित ख़रीदार",
       "viewA11yLabel": "इस स्टोर की सेवा की समीक्षाएँ देखें"
+    },
+    "visit": {
+      "heading": "हमसे मिलने आइए",
+      "loading": "इस दुकान की जानकारी लोड हो रही है",
+      "placeUnavailable": "इस दुकान की जानकारी अभी नहीं दिखाई जा सकती।",
+      "viewOnGoWay": "GoWay पर देखें",
+      "reviewsOnGoWay": "GoWay पर समीक्षाएँ पढ़ें",
+      "openMap": "GoWay मैप में खोलें",
+      "hoursHeading": "खुलने का समय",
+      "closedAllDay": "बंद",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "विशेष समय",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates}: बंद",
+      "exceptionHours": "%{dates}: %{hours}",
+      "accessibility": "सुगम्यता",
+      "payment": "भुगतान",
+      "attributeValue": "%{attribute}: %{value}",
+      "collectHere": "ऑनलाइन ऑर्डर करें, यहाँ से लें",
+      "placeRatingSubject": "GoWay पर %{place}",
+      "photoLabel": "%{place} की फ़ोटो"
     }
   },
   "offer": {

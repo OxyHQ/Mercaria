@@ -1146,6 +1146,27 @@
       "ratingsWithScope": "%{formattedCount} valoracions · %{scopeLabel}",
       "fallbackAuthor": "Comprador verificat",
       "viewA11yLabel": "Mostra les ressenyes del servei d'aquesta botiga"
+    },
+    "visit": {
+      "heading": "Visita’ns",
+      "loading": "Carregant les dades d’aquesta botiga",
+      "placeUnavailable": "Ara no es poden mostrar les dades d’aquesta botiga.",
+      "viewOnGoWay": "Veure a GoWay",
+      "reviewsOnGoWay": "Llegir-ne les ressenyes a GoWay",
+      "openMap": "Obrir al mapa de GoWay",
+      "hoursHeading": "Horari",
+      "closedAllDay": "Tancat",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "Horaris especials",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates}: tancat",
+      "exceptionHours": "%{dates}: %{hours}",
+      "accessibility": "Accessibilitat",
+      "payment": "Pagament",
+      "attributeValue": "%{attribute}: %{value}",
+      "collectHere": "Compra en línia i recull aquí",
+      "placeRatingSubject": "%{place} a GoWay",
+      "photoLabel": "Foto de %{place}"
     }
   },
   "offer": {

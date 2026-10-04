@@ -30,6 +30,7 @@ import type { Listing, StoreSummary } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { StoreFollowButton } from "@/components/store/StoreFollowButton";
 import { StoreMenuSheet } from "@/components/store/StoreMenuSheet";
+import { StoreVisitUs } from "@/components/store/StoreVisitUs";
 import { storeThemeVars } from "@/lib/store-theme";
 import { useStore, useStoreCollections } from "@/lib/hooks/use-store";
 import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
@@ -199,11 +200,14 @@ function StoreBody({
   handle,
   store,
   linkedCollectionId,
+  linkedLocationId,
 }: {
   handle: string;
   store: StoreSummary;
   /** The `?collection=` deep link, when the page was opened on one collection. */
   linkedCollectionId: string | undefined;
+  /** The `?location=` deep link, when the page was opened on one of its shop fronts. */
+  linkedLocationId: string | undefined;
 }) {
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
@@ -586,6 +590,9 @@ function StoreBody({
           </View>
         ) : null}
 
+        {/* ---- Visit us: the store's shop fronts, each read from its GoWay place ---- */}
+        <StoreVisitUs storeId={store.id} focusLocationId={linkedLocationId} />
+
         <View className="h-24" />
       </View>
 
@@ -606,9 +613,16 @@ function StoreBody({
 
 export default function StoreScreen() {
   const { t } = useTranslation();
-  const { handle, collection } = useLocalSearchParams<{ handle: string; collection?: string }>();
+  const { handle, collection, location } = useLocalSearchParams<{
+    handle: string;
+    collection?: string;
+    location?: string;
+  }>();
   const linkedCollectionId =
     typeof collection === "string" && collection !== "" ? collection : undefined;
+  // `/stores/<handle>?location=<id>` — the URL the public API serves for a
+  // location (#1017): its card is listed first in "Visit us".
+  const linkedLocationId = typeof location === "string" && location !== "" ? location : undefined;
   const { data, isLoading, isError } = useStore(handle ?? "");
 
   const head = (
@@ -659,6 +673,7 @@ export default function StoreScreen() {
         handle={handle ?? ""}
         store={data.store}
         linkedCollectionId={linkedCollectionId}
+        linkedLocationId={linkedLocationId}
       />
     </ScreenShell>
   );

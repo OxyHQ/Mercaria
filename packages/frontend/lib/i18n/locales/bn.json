@@ -1134,6 +1134,27 @@
       "ratingsWithScope": "%{formattedCount}টি রেটিং · %{scopeLabel}",
       "fallbackAuthor": "যাচাই করা ক্রেতা",
       "viewA11yLabel": "এই স্টোরের সেবার রিভিউ দেখুন"
+    },
+    "visit": {
+      "heading": "আমাদের এখানে আসুন",
+      "loading": "এই দোকানের তথ্য লোড হচ্ছে",
+      "placeUnavailable": "এই দোকানের তথ্য এখন দেখানো যাচ্ছে না।",
+      "viewOnGoWay": "GoWay-তে দেখুন",
+      "reviewsOnGoWay": "GoWay-তে রিভিউ পড়ুন",
+      "openMap": "GoWay ম্যাপে খুলুন",
+      "hoursHeading": "খোলার সময়",
+      "closedAllDay": "বন্ধ",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "বিশেষ সময়",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates}: বন্ধ",
+      "exceptionHours": "%{dates}: %{hours}",
+      "accessibility": "প্রবেশযোগ্যতা",
+      "payment": "পেমেন্ট",
+      "attributeValue": "%{attribute}: %{value}",
+      "collectHere": "অনলাইনে অর্ডার করুন, এখান থেকে নিন",
+      "placeRatingSubject": "GoWay-তে %{place}",
+      "photoLabel": "%{place}-এর ছবি"
     }
   },
   "offer": {

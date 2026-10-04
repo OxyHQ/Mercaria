@@ -1,5 +1,5 @@
 import { Linking } from 'react-native';
-import { goWayPlaceUrl } from './goway-url';
+import { goWayPlaceUrl } from './goway-client';
 
 /**
  * Open a collection point's GoWay page — in a new tab on web, in the browser
@@ -11,5 +11,10 @@ import { goWayPlaceUrl } from './goway-url';
  * rather than restating it.
  */
 export function openGoWayPlace(goWayPlaceId: string): void {
-  void Linking.openURL(goWayPlaceUrl(goWayPlaceId));
+  openGoWayLink(goWayPlaceUrl(goWayPlaceId));
+}
+
+/** Open any GoWay link the SDK built — a place page, or GoWay's map framed on a place. */
+export function openGoWayLink(url: string): void {
+  void Linking.openURL(url);
 }

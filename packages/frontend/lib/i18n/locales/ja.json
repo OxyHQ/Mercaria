@@ -1134,6 +1134,27 @@
       "ratingsWithScope": "%{formattedCount} 件の評価 · %{scopeLabel}",
       "fallbackAuthor": "購入確認済みの購入者",
       "viewA11yLabel": "このストアの対応に関するレビューを見る"
+    },
+    "visit": {
+      "heading": "店舗のご案内",
+      "loading": "店舗情報を読み込んでいます",
+      "placeUnavailable": "現在この店舗の情報を表示できません。",
+      "viewOnGoWay": "GoWayで見る",
+      "reviewsOnGoWay": "GoWayでレビューを読む",
+      "openMap": "GoWayマップで開く",
+      "hoursHeading": "営業時間",
+      "closedAllDay": "定休日",
+      "span": "%{opens}〜%{closes}",
+      "exceptionsHeading": "特別営業時間",
+      "dateRange": "%{from}〜%{to}",
+      "exceptionClosed": "%{dates}：休業",
+      "exceptionHours": "%{dates}：%{hours}",
+      "accessibility": "アクセシビリティ",
+      "payment": "お支払い",
+      "attributeValue": "%{attribute}：%{value}",
+      "collectHere": "オンラインで注文して店舗で受け取り",
+      "placeRatingSubject": "GoWayの%{place}",
+      "photoLabel": "%{place}の写真"
     }
   },
   "offer": {

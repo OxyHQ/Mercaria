@@ -1134,6 +1134,27 @@
       "ratingsWithScope": "%{formattedCount} 条评分 · %{scopeLabel}",
       "fallbackAuthor": "已验证买家",
       "viewA11yLabel": "查看该店铺的服务评价"
+    },
+    "visit": {
+      "heading": "欢迎到店",
+      "loading": "正在加载这家店的信息",
+      "placeUnavailable": "暂时无法显示这家店的信息。",
+      "viewOnGoWay": "在 GoWay 上查看",
+      "reviewsOnGoWay": "在 GoWay 上阅读评价",
+      "openMap": "在 GoWay 地图中打开",
+      "hoursHeading": "营业时间",
+      "closedAllDay": "休息",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "特殊营业时间",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates}：休息",
+      "exceptionHours": "%{dates}：%{hours}",
+      "accessibility": "无障碍",
+      "payment": "付款",
+      "attributeValue": "%{attribute}：%{value}",
+      "collectHere": "在线下单，到店自取",
+      "placeRatingSubject": "GoWay 上的%{place}",
+      "photoLabel": "%{place}的照片"
     }
   },
   "offer": {

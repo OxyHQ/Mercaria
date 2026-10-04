@@ -1146,6 +1146,27 @@
       "ratingsWithScope": "%{formattedCount} notes · %{scopeLabel}",
       "fallbackAuthor": "Acheteur vérifié",
       "viewA11yLabel": "Voir les avis sur le service de cette boutique"
+    },
+    "visit": {
+      "heading": "Venez nous voir",
+      "loading": "Chargement des informations de cette boutique",
+      "placeUnavailable": "Les informations de cette boutique ne peuvent pas être affichées pour le moment.",
+      "viewOnGoWay": "Voir sur GoWay",
+      "reviewsOnGoWay": "Lire ses avis sur GoWay",
+      "openMap": "Ouvrir dans les cartes GoWay",
+      "hoursHeading": "Horaires d’ouverture",
+      "closedAllDay": "Fermé",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "Horaires exceptionnels",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates} : fermé",
+      "exceptionHours": "%{dates} : %{hours}",
+      "accessibility": "Accessibilité",
+      "payment": "Paiement",
+      "attributeValue": "%{attribute} : %{value}",
+      "collectHere": "Commandez en ligne, retirez ici",
+      "placeRatingSubject": "%{place} sur GoWay",
+      "photoLabel": "Photo de %{place}"
     }
   },
   "offer": {

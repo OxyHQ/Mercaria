@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { goWayPlaceUrl } from '../goway-url';
+import { createStorefrontGoWayClient, goWayPlaceUrl } from '../goway-client';
 
 describe('goWayPlaceUrl', () => {
   it('links to the place page on the canonical GoWay origin', () => {
@@ -13,6 +13,7 @@ describe('goWayPlaceUrl', () => {
   });
 
   it('builds against another origin when one is configured', () => {
-    expect(goWayPlaceUrl('x', 'https://staging.goway.to')).toBe('https://staging.goway.to/place/x');
+    const staging = createStorefrontGoWayClient({ webBaseUrl: 'https://staging.goway.to' });
+    expect(staging.links.place('x')).toBe('https://staging.goway.to/place/x');
   });
 });
