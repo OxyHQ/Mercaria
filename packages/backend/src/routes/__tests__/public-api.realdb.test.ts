@@ -15,7 +15,7 @@
  * projection. The fixtures seed every private fact the storefront DTOs carry — a
  * connector `source` external id, a variant SKU and barcode, tags, vendor and
  * product type, a manual collection holding a DRAFT and an ARCHIVED member, an
- * automated collection's rule, SEO overrides and a store member's Oxy id — each
+ * automated collection's rule, SEO overrides and a permission override's Oxy id — each
  * as a unique SENTINEL string, and then asserts two independent things about
  * every body this file received: (a) every object's key set EQUALS the
  * contract's, recursively, so an extra field fails whatever its value; and (b)
@@ -63,7 +63,7 @@ import {
 
 /** The fixtures, shared with `public-api-sdk-contract.realdb.test.ts`. */
 const world = createPublicApiWorld();
-const { RUN, TERM, VIEWER, PERSON, SENTINEL, ids, storeAHandle } = world;
+const { RUN, TERM, VIEWER, PERSON, OWNER_ACCOUNT, SENTINEL, ids, storeAHandle } = world;
 
 vi.mock('../../middleware/auth.js', () => {
   const actorOf = (req: express.Request): string | undefined => {
@@ -451,6 +451,7 @@ describe('stores', () => {
     expect(byId.status, byId.text).toBe(200);
     expect(dataOf(byId)).toEqual({
       ref: { kind: 'store', id: ids.storeA },
+      oxyAccountId: OWNER_ACCOUNT,
       handle: storeAHandle,
       name: `Public API a ${RUN}`,
       description: 'A store that sells things',

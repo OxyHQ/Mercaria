@@ -66,6 +66,7 @@ export function personSellerWire(): Record<string, unknown> {
 export function storeWire(id = 'store_1', handle = 'night-city-games'): Record<string, unknown> {
   return {
     ref: { kind: 'store', id },
+    oxyAccountId: 'oxy-org-night-city',
     handle,
     name: 'Night City Games',
     description: null,

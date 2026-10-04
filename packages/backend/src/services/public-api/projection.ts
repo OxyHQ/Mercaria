@@ -208,6 +208,7 @@ export function projectStore(
 ): MercariaStore {
   return {
     ref: { kind: 'store', id: store.id },
+    oxyAccountId: store.oxyAccountId,
     handle: store.handle,
     name: store.name,
     description: nullIfBlank(store.description),

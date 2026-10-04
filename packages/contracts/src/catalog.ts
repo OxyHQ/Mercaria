@@ -165,9 +165,21 @@ export type MercariaProduct = z.infer<typeof MercariaProductSchema>;
 
 // ── Stores and collections ──────────────────────────────────────────────────
 
-/** A public storefront. */
+/**
+ * A public storefront.
+ *
+ * `oxyAccountId` is the Oxy account that owns the store (ADR 0012) — usually an
+ * organization, sometimes a person's own account. It is the one cross-app key
+ * for a business (`~/Oxy/docs/api-conventions.md`, "Cross-app references"), so
+ * another Oxy product (GoWay matching a place to its shop) joins on it and
+ * fetches the account's facts from Oxy. Who may ACT for the store is never
+ * published: no member, role, permission or override reaches this shape.
+ */
 export const MercariaStoreSchema = z.object({
   ref: MercariaStoreRefSchema,
+  oxyAccountId: MercariaIdSchema.describe(
+    'The Oxy account (usually an organization) that owns this store. An opaque Oxy id: resolve it through Oxy, never parse it.',
+  ),
   handle: MercariaIdSchema.describe('The CURRENT handle — presentation, not identity.'),
   name: z.string(),
   description: z.string().nullable(),

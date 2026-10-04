@@ -1860,6 +1860,11 @@
           "ref": {
             "$ref": "#/components/schemas/MercariaStoreRef"
           },
+          "oxyAccountId": {
+            "type": "string",
+            "pattern": "\\S",
+            "description": "The Oxy account (usually an organization) that owns this store. An opaque Oxy id: resolve it through Oxy, never parse it."
+          },
           "handle": {
             "type": "string",
             "pattern": "\\S",
@@ -1928,6 +1933,7 @@
         },
         "required": [
           "ref",
+          "oxyAccountId",
           "handle",
           "name",
           "description",

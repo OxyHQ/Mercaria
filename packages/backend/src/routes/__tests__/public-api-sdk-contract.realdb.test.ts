@@ -113,7 +113,7 @@ vi.mock('../../middleware/auth.js', () => ({
 }));
 
 const world = createPublicApiWorld();
-const { RUN, TERM, VIEWER, PERSON, SENTINEL, ids, storeAHandle } = world;
+const { RUN, TERM, VIEWER, PERSON, OWNER_ACCOUNT, SENTINEL, ids, storeAHandle } = world;
 
 const VIEWER_TOKEN = `sdk-contract-viewer-token-${RUN}`;
 const OTHER_TOKEN = `sdk-contract-other-token-${RUN}`;
@@ -398,6 +398,7 @@ describe('stores', () => {
     const byId = await store(mercaria.stores.get(ids.storeA), 'store');
     expect(byId).toEqual({
       ref: { kind: 'store', id: ids.storeA },
+      oxyAccountId: OWNER_ACCOUNT,
       handle: storeAHandle,
       name: `Public API a ${RUN}`,
       description: 'A store that sells things',

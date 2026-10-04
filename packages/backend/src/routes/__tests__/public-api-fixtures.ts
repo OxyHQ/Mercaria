@@ -17,7 +17,7 @@
  * Every private fact the storefront DTOs carry — a connector `source` external
  * id, a variant SKU and barcode, tags, vendor and product type, a manual
  * collection holding a DRAFT and an ARCHIVED member, an automated collection's
- * rule, SEO overrides and a store member's Oxy id — is seeded as a SENTINEL
+ * rule, SEO overrides and a permission override's Oxy id — is seeded as a SENTINEL
  * string unique to the run, for each suite's privacy census.
  *
  * ## Shared database
@@ -82,6 +82,7 @@ export const KEYS = {
     'handle',
     'logoUrl',
     'name',
+    'oxyAccountId',
     'rating',
     'ref',
     'reviewCount',
@@ -238,6 +239,12 @@ export function createPublicApiWorld() {
   /** The person seller. */
   const PERSON = `oxy-user-pubapi-person-${RUN}`;
   const storeAHandle = `pubapi-a-${RUN}`;
+  /**
+   * The Oxy account that owns store A (ADR 0012). PUBLIC: it is the cross-app
+   * key for the business, so `MercariaStore.oxyAccountId` carries it. Who may
+   * act for the store (an override's person) stays a sentinel below.
+   */
+  const OWNER_ACCOUNT = `oxy-account-pubapi-owner-${RUN}`;
 
   /** Every private value, each unique to this run. None may reach a public body. */
   const SENTINEL = {
@@ -249,7 +256,6 @@ export function createPublicApiWorld() {
     productType: `ptype-sentinel-${RUN}`,
     ruleValue: `rule-sentinel-${RUN}`,
     seoTitle: `seo-sentinel-${RUN}`,
-    ownerAccountId: `oxy-account-owner-sentinel-${RUN}`,
     memberOxyId: `oxy-user-member-sentinel-${RUN}`,
     collectionHandle: `chandle-sentinel-${RUN}`,
     listingHandle: `lhandle-sentinel-${RUN}`,
@@ -289,7 +295,7 @@ export function createPublicApiWorld() {
     const [row] = await db
       .insert(stores)
       .values({
-        oxyAccountId: label === 'a' ? SENTINEL.ownerAccountId : `oxy-account-${label}-${RUN}`,
+        oxyAccountId: label === 'a' ? OWNER_ACCOUNT : `oxy-account-${label}-${RUN}`,
         handle: `pubapi-${label}-${RUN}`,
         name: `Public API ${label} ${RUN}`,
         description: label === 'a' ? 'A store that sells things' : '',
@@ -432,8 +438,8 @@ export function createPublicApiWorld() {
     ids.storeA = await insertStore(db, 'a', 'active');
     ids.storeSuspended = await insertStore(db, 'suspended', 'suspended');
     ids.storeClosed = await insertStore(db, 'closed', 'closed');
-    // Who owns the store and who holds an exception on it are both private:
-    // neither the owning account nor a person's override may reach a body.
+    // Who holds an exception on the store is private: no person's override may
+    // reach a body (the OWNING account is public — `MercariaStore.oxyAccountId`).
     await db.insert(storePermissionOverrides).values({
       storeId: ids.storeA,
       oxyUserId: SENTINEL.memberOxyId,
@@ -618,5 +624,5 @@ export function createPublicApiWorld() {
     }
   }
 
-  return { RUN, TERM, VIEWER, PERSON, storeAHandle, SENTINEL, ids, seed, cleanup };
+  return { RUN, TERM, VIEWER, PERSON, OWNER_ACCOUNT, storeAHandle, SENTINEL, ids, seed, cleanup };
 }

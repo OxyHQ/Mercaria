@@ -95,6 +95,7 @@ describe('response schemas', () => {
   it('bound a store’s rating and colour', () => {
     const store = {
       ref: { kind: 'store', id: 's' },
+      oxyAccountId: 'oxy-org-1',
       handle: 'h',
       name: 'n',
       description: null,

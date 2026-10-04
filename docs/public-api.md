@@ -232,15 +232,18 @@ Stores: `description` is `null` when empty; `rating` comes from
 `resolveStoreRatingSource` (the merchant aggregate when linked, the store's own
 figures otherwise — the one place the store page chooses it) and is `null` when
 `reviewCount` is 0. Collections carry no type, rules, member ids, handle or SEO.
-Collection lists and collection lookups load the row WITHOUT its rules
-(`findCollectionRowById`, `findPublishedCollectionsSlice`), and the store lookup
-loads the row WITHOUT members (`findStoreRowByHandle`): a value that is never
-loaded cannot be serialized by mistake.
+`oxyAccountId` is the owning Oxy account (ADR 0012) — public on purpose, as
+the cross-app key another Oxy product (GoWay) matches a business on. Who may
+ACT for the store is not: the caller's `access` and the store's permission
+overrides live only on `/admin` and are never loaded here. Collection lists and
+collection lookups load the row WITHOUT its rules (`findCollectionRowById`,
+`findPublishedCollectionsSlice`): a value that is never loaded cannot be
+serialized by mistake.
 
 The realdb suite proves both halves: every body's key set EQUALS the contract's,
 recursively, and a set of private sentinels seeded into the fixtures (SKU,
 barcode, connector external id, tag, vendor, product type, collection rule value,
-SEO title, listing and collection handles, a store member's Oxy id, the ids of a
+SEO title, listing and collection handles, a permission override's Oxy user id, the ids of a
 manual collection's draft and archived members) appears in no serialized body.
 
 ## URLs

@@ -159,6 +159,7 @@ const same = await mercaria.stores.lookup({ handle: 'night-city-games' });
 
 store.ref;         // persist this, never the handle
 store.handle;      // current handle; a merchant can change it
+store.oxyAccountId; // the owning Oxy account — the cross-app key for the business
 store.name;
 store.logoUrl;
 store.brandColor;  // CSS hex

@@ -49,6 +49,11 @@ upgrade before (or with) the server.
   first, then `Retry-After` / `RateLimit-Reset`.
 - `MERCARIA_PUBLIC_LIST_MAX_OFFSET` (10,000): the deepest item a list serves.
 - `MercariaErrorDetails` type.
+- **`MercariaStore.oxyAccountId`**: the Oxy account (usually an organization)
+  that owns the store (Mercaria ADR 0012). It is the cross-app key for a
+  business — match a place, profile or page to its Mercaria store on it, and
+  fetch the account's own facts from Oxy. It is required in the schema, so an
+  0.2 client needs a server that sends it.
 
 ### Unchanged
 
