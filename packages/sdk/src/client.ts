@@ -1,4 +1,16 @@
-import { MERCARIA_PRODUCT_SORTS, MERCARIA_PUBLIC_PAGE_LIMIT_MAX } from './contract';
+import type { z } from 'zod';
+import {
+  MercariaCollectionPageSchema,
+  MercariaCollectionSchema,
+  MercariaPageQuerySchema,
+  MercariaProductSchema,
+  MercariaProductSearchQuerySchema,
+  MercariaProductSummaryPageSchema,
+  MercariaStoreLookupQuerySchema,
+  MercariaStoreProductsQuerySchema,
+  MercariaStoreSchema,
+  classifyRequestIssues,
+} from './contract';
 import type {
   MercariaCollection,
   MercariaCollectionRef,
@@ -12,9 +24,8 @@ import type {
   MercariaStoreRef,
   MercariaVariantRef,
 } from './contract';
-import { MercariaNotFoundError, MercariaValidationError } from './errors';
+import { MercariaBadRequestError, MercariaNotFoundError, MercariaValidationError } from './errors';
 import { createLinks, type MercariaLinks } from './links';
-import { parseCollection, parsePage, parseProduct, parseProductSummary, parseStore } from './parse';
 import { parseMercariaRef } from './refs';
 import type { MercariaAbortSignal, MercariaFetch } from './runtime';
 import {
@@ -100,7 +111,7 @@ export interface MercariaProductListOptions extends MercariaPageOptions {
    * The opaque `nextCursor` of the previous page. A cursor is bound to the
    * filters, sort and list that produced it: pass it back with the SAME
    * `query`, `inStock`, `sort`, `locale` and store/collection, or the server
-   * refuses it (`MercariaValidationError`). Changing `limit` between pages is
+   * refuses it (`MercariaBadRequestError`). Changing `limit` between pages is
    * allowed.
    */
   cursor?: string;
@@ -240,12 +251,11 @@ function refIdOf(value: unknown, kind: EntityKind): string {
   return pathSegment(ref.id, `${kind} id`);
 }
 
-function queryIdOf(value: unknown, kind: EntityKind): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value === 'string' && value.trim().length > 0) return value;
+function queryIdOf(value: unknown, kind: EntityKind): unknown {
+  if (value === undefined || typeof value === 'string') return value;
   const ref = parseMercariaRef(value);
   if (ref !== null && ref.kind === kind) return ref.id;
-  throw new MercariaValidationError(`${kind} must be a ${kind} ref or a non-empty id`);
+  throw new MercariaValidationError(`${kind} must be a ${kind} ref or an id`);
 }
 
 function localeFor(override: unknown, fallback: string | undefined): string | undefined {
@@ -254,42 +264,46 @@ function localeFor(override: unknown, fallback: string | undefined): string | un
   return override;
 }
 
-function pageQuery(options: MercariaPageOptions): Record<string, QueryValue> {
-  const { limit, cursor } = options;
-  if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > MERCARIA_PUBLIC_PAGE_LIMIT_MAX)) {
-    throw new MercariaValidationError(`limit must be an integer from 1 to ${MERCARIA_PUBLIC_PAGE_LIMIT_MAX}`);
+/** A query value as it goes on the wire; anything that is not a string is sent as one, for the schema to refuse. */
+function wire(value: unknown): string | undefined {
+  return value === undefined ? undefined : String(value);
+}
+
+/**
+ * The query to send, checked by the SAME contract schema the server validates
+ * it with — so a request the server would refuse is refused here, with the
+ * same classification: `MercariaBadRequestError` for a malformed one,
+ * `MercariaValidationError` for refused values, `status: null` because nothing
+ * was sent.
+ */
+function checkedQuery(schema: z.ZodType, query: Record<string, string | undefined>): Record<string, QueryValue> {
+  const present = Object.fromEntries(Object.entries(query).filter(([, value]) => value !== undefined));
+  const parsed = schema.safeParse(present);
+  if (!parsed.success) {
+    const refusal = classifyRequestIssues(parsed.error.issues);
+    const ErrorClass = refusal.code === 'bad_request' ? MercariaBadRequestError : MercariaValidationError;
+    throw new ErrorClass(refusal.message, { details: refusal.details ?? null });
   }
-  if (cursor !== undefined && (typeof cursor !== 'string' || cursor.length === 0)) {
-    throw new MercariaValidationError('cursor must be the non-empty nextCursor of a previous page');
-  }
-  return { limit, cursor };
+  return present;
+}
+
+function pageQuery(options: MercariaPageOptions): Record<string, string | undefined> {
+  return { limit: wire(options.limit), cursor: wire(options.cursor) };
 }
 
 function productListQuery(
   options: MercariaProductListOptions,
   defaultLocale: string | undefined,
-): Record<string, QueryValue> {
-  const { query, inStock, sort } = options;
-  if (query !== undefined && typeof query !== 'string') {
-    throw new MercariaValidationError('query must be a string');
-  }
-  const q = query?.trim() || undefined;
-  if (inStock !== undefined && typeof inStock !== 'boolean') {
-    throw new MercariaValidationError('inStock must be a boolean');
-  }
-  if (sort !== undefined && !(MERCARIA_PRODUCT_SORTS as readonly string[]).includes(sort)) {
-    throw new MercariaValidationError(`sort must be one of ${MERCARIA_PRODUCT_SORTS.join(', ')}`);
-  }
-  if (sort === 'relevance' && q === undefined) {
-    throw new MercariaValidationError('sort "relevance" requires a query');
-  }
+): Record<string, string | undefined> {
+  const { query, inStock } = options;
   return {
     ...pageQuery(options),
-    q,
+    // Blank is absent, and the query is sent trimmed: one page, one URL.
+    q: typeof query === 'string' ? query.trim() || undefined : wire(query),
     // `inStock=false` filters nothing server-side, so only `true` is sent: the
     // same page must never have two URLs.
-    inStock: inStock === true ? true : undefined,
-    sort,
+    inStock: inStock === true ? 'true' : inStock === false ? undefined : wire(inStock),
+    sort: wire(options.sort),
     locale: localeFor(options.locale, defaultLocale),
   };
 }
@@ -325,13 +339,10 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
   const webBaseUrl = baseUrl(options.webBaseUrl, 'webBaseUrl', DEFAULT_MERCARIA_WEB_BASE_URL);
   const defaultLocale = options.locale;
 
-  const productPage = (data: unknown, path: string) => parsePage(data, path, parseProductSummary);
-  const collectionPage = (data: unknown, path: string) => parsePage(data, path, parseCollection);
-
   // Detail reads send NO query parameters: the server refuses any it does not
   // name with a 400, the locale included.
   const getProduct = async (id: string, callOptions: MercariaRequestOptions = {}) =>
-    request(config, `/products/${id}`, {}, parseProduct, callOptions.signal);
+    request(config, `/products/${id}`, {}, MercariaProductSchema, callOptions.signal);
 
   const products: MercariaProductsApi = Object.freeze({
     get: async (product: MercariaProductRef | string, callOptions?: MercariaRequestOptions) =>
@@ -355,18 +366,18 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
       request(
         config,
         '/products',
-        {
+        checkedQuery(MercariaProductSearchQuerySchema, {
           ...productListQuery(input, defaultLocale),
-          storeId: queryIdOf(input.store, 'store'),
-          collectionId: queryIdOf(input.collection, 'collection'),
-        },
-        productPage,
+          storeId: wire(queryIdOf(input.store, 'store')),
+          collectionId: wire(queryIdOf(input.collection, 'collection')),
+        }),
+        MercariaProductSummaryPageSchema,
         input.signal,
       ),
   });
 
   const getStore = async (id: string, callOptions: MercariaRequestOptions = {}) =>
-    request(config, `/stores/${id}`, {}, parseStore, callOptions.signal);
+    request(config, `/stores/${id}`, {}, MercariaStoreSchema, callOptions.signal);
 
   const stores: MercariaStoresApi = Object.freeze({
     get: async (store: MercariaStoreRef | string, callOptions?: MercariaRequestOptions) =>
@@ -377,18 +388,21 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
 
     lookup: async (input: { handle: string } & MercariaRequestOptions) => {
       const handle = (input as { handle?: unknown } | undefined)?.handle;
-      if (typeof handle !== 'string' || handle.trim().length === 0) {
-        throw new MercariaValidationError('handle must be a non-empty string');
-      }
-      return request(config, '/stores/lookup', { handle }, parseStore, input.signal);
+      return request(
+        config,
+        '/stores/lookup',
+        checkedQuery(MercariaStoreLookupQuerySchema, { handle: wire(handle) }),
+        MercariaStoreSchema,
+        input?.signal,
+      );
     },
 
     products: async (store: MercariaStoreRef | string, callOptions: MercariaProductListOptions = {}) =>
       request(
         config,
         `/stores/${idOf(store, 'store')}/products`,
-        productListQuery(callOptions, defaultLocale),
-        productPage,
+        checkedQuery(MercariaStoreProductsQuerySchema, productListQuery(callOptions, defaultLocale)),
+        MercariaProductSummaryPageSchema,
         callOptions.signal,
       ),
 
@@ -396,14 +410,14 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
       request(
         config,
         `/stores/${idOf(store, 'store')}/collections`,
-        pageQuery(callOptions),
-        collectionPage,
+        checkedQuery(MercariaPageQuerySchema, pageQuery(callOptions)),
+        MercariaCollectionPageSchema,
         callOptions.signal,
       ),
   });
 
   const getCollection = async (id: string, callOptions: MercariaRequestOptions = {}) =>
-    request(config, `/collections/${id}`, {}, parseCollection, callOptions.signal);
+    request(config, `/collections/${id}`, {}, MercariaCollectionSchema, callOptions.signal);
 
   const collections: MercariaCollectionsApi = Object.freeze({
     get: async (collection: MercariaCollectionRef | string, callOptions?: MercariaRequestOptions) =>
@@ -416,8 +430,8 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
       request(
         config,
         `/collections/${idOf(collection, 'collection')}/products`,
-        pageQuery(callOptions),
-        productPage,
+        checkedQuery(MercariaPageQuerySchema, pageQuery(callOptions)),
+        MercariaProductSummaryPageSchema,
         callOptions.signal,
       ),
   });

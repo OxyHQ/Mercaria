@@ -51,9 +51,11 @@ import {
   iterateMercariaPages,
   MERCARIA_PUBLIC_API_BASE_PATH,
   MercariaApiError,
+  MercariaBadRequestError,
   MercariaGoneError,
   MercariaNetworkError,
   MercariaNotFoundError,
+  MercariaUnknownRouteError,
   productRef,
   storeRef,
   variantRef,
@@ -156,7 +158,10 @@ const productPage = async (promise: Promise<MercariaPage<MercariaProductSummary>
 const collectionPage = async (promise: Promise<MercariaPage<MercariaCollection>>, where: string) =>
   contract(await promise, 'page:collection', where);
 
-const refIds = (page: MercariaPage<{ ref: { id: string } }>): string[] => page.items.map((item) => item.ref.id);
+// Typed by the contract rather than structurally: this program compiles
+// `strict: false`, under which zod infers every key optional.
+const refIds = (page: MercariaPage<MercariaProductSummary | MercariaCollection>): string[] =>
+  page.items.map((item) => item.ref.id);
 
 /** The rejection of an SDK call that must fail. */
 async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
@@ -171,13 +176,13 @@ async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
 function expectGone(error: unknown): void {
   expect(error).toBeInstanceOf(MercariaGoneError);
   expect(error).not.toBeInstanceOf(MercariaNotFoundError);
-  expect(error).toMatchObject({ code: 'GONE', status: 410 });
+  expect(error).toMatchObject({ code: 'gone', status: 410 });
 }
 
 function expectNotFound(error: unknown): void {
   expect(error).toBeInstanceOf(MercariaNotFoundError);
   expect(error).not.toBeInstanceOf(MercariaGoneError);
-  expect(error).toMatchObject({ code: 'NOT_FOUND', status: 404 });
+  expect(error).toMatchObject({ code: 'not_found', status: 404 });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -380,7 +385,7 @@ describe('not found, gone, sold and unreachable are distinguishable', () => {
     expect(error).toBeInstanceOf(MercariaNetworkError);
     expect(error).not.toBeInstanceOf(MercariaNotFoundError);
     expect(error).not.toBeInstanceOf(MercariaGoneError);
-    expect(error).toMatchObject({ code: 'NETWORK_ERROR', status: null, retryable: true });
+    expect(error).toMatchObject({ code: 'network_error', status: null, retryable: true });
   });
 });
 
@@ -562,7 +567,7 @@ describe('links agree with the url the server serves', () => {
 });
 
 describe('a route the server does not serve', () => {
-  it('is a MercariaApiError carrying UNKNOWN_ROUTE, never MercariaNotFoundError', async () => {
+  it('is a MercariaUnknownRouteError carrying unknown_route, never MercariaNotFoundError', async () => {
     // Route drift, simulated at the one seam the SDK exposes for it: a `fetch`
     // that sends the SDK's own request to a path the public router does not
     // have. The response still goes through the SDK's transport and error
@@ -578,10 +583,23 @@ describe('a route the server does not serve', () => {
     });
     const error = await rejectionOf(drifting.products.get(ids.inStock));
     expect(drifted).toBe(1);
+    expect(error).toBeInstanceOf(MercariaUnknownRouteError);
     expect(error).toBeInstanceOf(MercariaApiError);
     expect(error).not.toBeInstanceOf(MercariaNotFoundError);
     expect(error).not.toBeInstanceOf(MercariaGoneError);
-    expect(error).toMatchObject({ code: 'UNKNOWN_ROUTE', status: 404 });
+    expect(error).toMatchObject({ code: 'unknown_route', status: 404 });
+  });
+});
+
+describe('a refusal the server classifies', () => {
+  it('is a MercariaBadRequestError naming the field, for a cursor from another list', async () => {
+    const first = await mercaria.stores.products(storeRef(ids.storeA), { limit: 2 });
+    expect(first.nextCursor).toBeTypeOf('string');
+    const error = await rejectionOf(
+      mercaria.stores.collections(storeRef(ids.storeA), { cursor: first.nextCursor ?? undefined }),
+    );
+    expect(error).toBeInstanceOf(MercariaBadRequestError);
+    expect(error).toMatchObject({ code: 'bad_request', status: 400, details: { field: 'cursor' } });
   });
 });
 

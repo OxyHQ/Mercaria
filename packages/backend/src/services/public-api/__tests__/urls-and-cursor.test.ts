@@ -5,9 +5,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { MERCARIA_PUBLIC_LIST_MAX_OFFSET } from '@mercaria/contracts';
 import { collectionWebUrl, normalizeWebOrigin, productWebUrl, storeWebUrl } from '../urls.js';
 import {
-  PUBLIC_CURSOR_MAX_OFFSET,
   clampPublicPageLimit,
   encodePublicCursor,
   nextPublicCursor,
@@ -56,14 +56,14 @@ describe('the public cursor', () => {
       [cursor, 'store-products', fingerprint],
       [cursor, 'products', otherFilters],
       [encodePublicCursor('products', fingerprint, 0), 'products', fingerprint],
-      [encodePublicCursor('products', fingerprint, PUBLIC_CURSOR_MAX_OFFSET), 'products', fingerprint],
+      [encodePublicCursor('products', fingerprint, MERCARIA_PUBLIC_LIST_MAX_OFFSET), 'products', fingerprint],
       [encodePublicCursor('products', fingerprint, 1.5), 'products', fingerprint],
       ['not a cursor', 'products', fingerprint],
       [Buffer.from('{"v":2}').toString('base64url'), 'products', fingerprint],
       [Buffer.from('nope').toString('base64url'), 'products', fingerprint],
     ] as const) {
       expect(() => resolvePublicCursorOffset(raw, kind, print)).toThrow(
-        expect.objectContaining({ code: 'VALIDATION_ERROR', httpStatus: 400 }),
+        expect.objectContaining({ code: 'bad_request', status: 400 }),
       );
     }
   });
@@ -72,9 +72,9 @@ describe('the public cursor', () => {
     expect(nextPublicCursor('products', fingerprint, 0, 20, true)).not.toBeNull();
     expect(nextPublicCursor('products', fingerprint, 0, 20, false)).toBeNull();
     expect(nextPublicCursor('products', fingerprint, 40, 0, true)).toBeNull();
-    expect(clampPublicPageLimit(PUBLIC_CURSOR_MAX_OFFSET - 5, 20)).toBe(5);
+    expect(clampPublicPageLimit(MERCARIA_PUBLIC_LIST_MAX_OFFSET - 5, 20)).toBe(5);
     expect(
-      nextPublicCursor('products', fingerprint, PUBLIC_CURSOR_MAX_OFFSET - 5, 5, true),
+      nextPublicCursor('products', fingerprint, MERCARIA_PUBLIC_LIST_MAX_OFFSET - 5, 5, true),
     ).toBeNull();
   });
 });

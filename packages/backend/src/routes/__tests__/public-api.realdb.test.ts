@@ -5,10 +5,11 @@
  * ## What this file proves, and what it deliberately does not
  *
  * It drives the REAL `createApp()` chain — the CORS layer, `express.json()`, both
- * rate limiters, the router, the strict schemas, the service and the repositories
- * — and asserts the wire: status codes, the envelope, the contract's exact key
- * sets and the status semantics a consumer holding a persisted reference depends
- * on (410 `GONE` versus 404 `NOT_FOUND`).
+ * rate limiters, the registry-built router, the contract's strict schemas, the
+ * service and the repositories — and asserts the wire: status codes, bare
+ * success bodies and `{ error: { code, message } }` failures, the contract's
+ * exact key sets and the status semantics a consumer holding a persisted
+ * reference depends on (410 `gone` versus 404 `not_found`).
  *
  * The PRIVACY census is the case that justifies the surface existing as its own
  * projection. The fixtures seed every private fact the storefront DTOs carry — a
@@ -40,11 +41,17 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import type express from 'express';
 import { uuidv7 } from '@oxy.so/db';
-import { MERCARIA_PUBLIC_API_BASE_PATH } from '@mercaria/shared-types';
+import {
+  MERCARIA_PUBLIC_API_BASE_PATH,
+  MERCARIA_PUBLIC_ROUTES,
+  type MercariaPublicErrorCode,
+} from '@mercaria/contracts';
 import type { Database } from '../../db/postgres.js';
 import {
   checkShape,
@@ -142,9 +149,7 @@ async function call(
     body = JSON.parse(text) as Record<string, unknown>;
   }
   if (options.shape !== undefined && response.status === 200) {
-    exactKeys(body, ['data', 'success'], `${path} envelope`);
-    expect(body['success']).toBe(true);
-    checkShape(body['data'], options.shape, path);
+    checkShape(body, options.shape, path);
     shapesChecked += 1;
   }
   return { status: response.status, headers: response.headers, text, body };
@@ -152,17 +157,27 @@ async function call(
 
 const api = (path: string): string => `${MERCARIA_PUBLIC_API_BASE_PATH}${path}`;
 
-function expectFailure(answer: Answer, status: number, code: string): void {
+/**
+ * A failure is `{ error: { code, message, details? } }` and nothing else, and
+ * `details` (when present) holds scalars only.
+ */
+function expectFailure(answer: Answer, status: number, code: MercariaPublicErrorCode): void {
   expect(answer.status, answer.text).toBe(status);
   expect(answer.headers.get('content-type') ?? '').toContain('application/json');
-  exactKeys(answer.body, ['error', 'message', 'success'], 'failure envelope');
-  expect(answer.body['success']).toBe(false);
-  expect(answer.body['error']).toBe(code);
-  expect(answer.body['message']).toBeTypeOf('string');
+  exactKeys(answer.body, ['error'], 'error body');
+  const error = answer.body['error'] as Record<string, unknown>;
+  exactKeys(error, 'details' in error ? ['code', 'details', 'message'] : ['code', 'message'], 'error');
+  expect(error['code']).toBe(code);
+  expect(error['message']).toBeTypeOf('string');
+  if ('details' in error) {
+    for (const value of Object.values(error['details'] as Record<string, unknown>)) {
+      expect(['string', 'number', 'boolean']).toContain(typeof value);
+    }
+  }
 }
 
 function dataOf(answer: Answer): Record<string, unknown> {
-  return answer.body['data'] as Record<string, unknown>;
+  return answer.body;
 }
 
 function itemIds(answer: Answer): string[] {
@@ -276,38 +291,49 @@ describe('GET /public/v1/products', () => {
     expectFailure(
       await call(api(`/products?storeId=${ids.storeA}&limit=2&sort=price_desc&cursor=${cursor}`)),
       400,
-      'VALIDATION_ERROR',
+      'bad_request',
     );
     expectFailure(
       await call(api(`/stores/${ids.storeA}/products?limit=2&cursor=${cursor}`)),
       400,
-      'VALIDATION_ERROR',
+      'bad_request',
     );
-    expectFailure(await call(api('/products?cursor=not-a-cursor')), 400, 'VALIDATION_ERROR');
-    expectFailure(await call(api('/products?cursor=%7B%7D')), 400, 'VALIDATION_ERROR');
+    expectFailure(await call(api('/products?cursor=not-a-cursor')), 400, 'bad_request');
+    expectFailure(await call(api('/products?cursor=%7B%7D')), 400, 'bad_request');
   });
 
-  it('answers every malformed query with a JSON VALIDATION_ERROR envelope', async () => {
-    for (const query of [
-      '?sort=relevance',
-      '?sort=trending',
-      '?limit=0',
-      `?limit=51`,
-      '?limit=1e1',
-      '?inStock=yes',
-      '?unknown=1',
-      `?q=${'x'.repeat(201)}`,
-      '?q=%20%20',
-      '?q=a&q=b',
-    ]) {
-      expectFailure(await call(api(`/products${query}`)), 400, 'VALIDATION_ERROR');
+  it('answers a malformed query with bad_request, naming the field', async () => {
+    for (const [query, field] of [
+      ['?limit=1e1', 'limit'],
+      ['?unknown=1', 'unknown'],
+      ['?q=a&q=b', 'q'],
+    ] as const) {
+      const answer = await call(api(`/products${query}`));
+      expectFailure(answer, 400, 'bad_request');
+      expect((answer.body['error'] as { details: unknown }).details).toEqual({ field });
+    }
+  });
+
+  it('answers a well-formed query whose values are refused with validation_failed', async () => {
+    for (const [query, field] of [
+      ['?sort=relevance', 'sort'],
+      ['?sort=trending', 'sort'],
+      ['?limit=0', 'limit'],
+      ['?limit=51', 'limit'],
+      ['?inStock=yes', 'inStock'],
+      [`?q=${'x'.repeat(201)}`, 'q'],
+      ['?q=%20%20', 'q'],
+    ] as const) {
+      const answer = await call(api(`/products${query}`));
+      expectFailure(answer, 422, 'validation_failed');
+      expect((answer.body['error'] as { details: unknown }).details).toEqual({ field });
     }
   });
 
   it('gates a store or collection filter before searching: 410 and 404, never an empty page', async () => {
-    expectFailure(await call(api(`/products?storeId=${ids.storeSuspended}`)), 410, 'GONE');
-    expectFailure(await call(api(`/products?collectionId=${ids.unpublishedNever}`)), 404, 'NOT_FOUND');
-    expectFailure(await call(api(`/products?collectionId=${ids.unpublishedAfter}`)), 410, 'GONE');
+    expectFailure(await call(api(`/products?storeId=${ids.storeSuspended}`)), 410, 'gone');
+    expectFailure(await call(api(`/products?collectionId=${ids.unpublishedNever}`)), 404, 'not_found');
+    expectFailure(await call(api(`/products?collectionId=${ids.unpublishedAfter}`)), 410, 'gone');
   });
 });
 
@@ -387,18 +413,18 @@ describe('GET /public/v1/products/:id', () => {
     });
   });
 
-  it('separates GONE from NOT_FOUND exactly as the contract states', async () => {
+  it('separates gone from not_found exactly as the contract states', async () => {
     const gone = [ids.archived, ids.restricted, ids.draftWasPublished, ids.suspendedStoreProduct];
     for (const id of gone) {
       const answer = await call(api(`/products/${id}`));
-      expectFailure(answer, 410, 'GONE');
+      expectFailure(answer, 410, 'gone');
       // A 410 carries no entity data and does not say why.
       expect(answer.text).not.toContain(id);
       expect(answer.text.toLowerCase()).not.toMatch(/archiv|restrict|moderat|suspend|draft/u);
     }
-    expectFailure(await call(api(`/products/${ids.draftNever}`)), 404, 'NOT_FOUND');
-    expectFailure(await call(api(`/products/${uuidv7()}`)), 404, 'NOT_FOUND');
-    expectFailure(await call(api('/products/not-an-id')), 404, 'NOT_FOUND');
+    expectFailure(await call(api(`/products/${ids.draftNever}`)), 404, 'not_found');
+    expectFailure(await call(api(`/products/${uuidv7()}`)), 404, 'not_found');
+    expectFailure(await call(api('/products/not-an-id')), 404, 'not_found');
   });
 
   it('forwards the caller’s authority: viewer is null anonymously and { saved } for a session', async () => {
@@ -440,13 +466,13 @@ describe('stores', () => {
   });
 
   it('answers 410 for a suspended or closed store, 404 for one that never existed', async () => {
-    expectFailure(await call(api(`/stores/${ids.storeSuspended}`)), 410, 'GONE');
-    expectFailure(await call(api(`/stores/${ids.storeClosed}`)), 410, 'GONE');
-    expectFailure(await call(api(`/stores/lookup?handle=pubapi-closed-${RUN}`)), 410, 'GONE');
-    expectFailure(await call(api(`/stores/${uuidv7()}`)), 404, 'NOT_FOUND');
-    expectFailure(await call(api('/stores/nope')), 404, 'NOT_FOUND');
-    expectFailure(await call(api(`/stores/lookup?handle=nobody-${RUN}`)), 404, 'NOT_FOUND');
-    expectFailure(await call(api('/stores/lookup')), 400, 'VALIDATION_ERROR');
+    expectFailure(await call(api(`/stores/${ids.storeSuspended}`)), 410, 'gone');
+    expectFailure(await call(api(`/stores/${ids.storeClosed}`)), 410, 'gone');
+    expectFailure(await call(api(`/stores/lookup?handle=pubapi-closed-${RUN}`)), 410, 'gone');
+    expectFailure(await call(api(`/stores/${uuidv7()}`)), 404, 'not_found');
+    expectFailure(await call(api('/stores/nope')), 404, 'not_found');
+    expectFailure(await call(api(`/stores/lookup?handle=nobody-${RUN}`)), 404, 'not_found');
+    expectFailure(await call(api('/stores/lookup')), 400, 'bad_request');
   });
 
   it('paginates a store’s products and refuses a closed store’s', async () => {
@@ -464,7 +490,7 @@ describe('stores', () => {
     expect(pages).toBe(2);
     expect(seen.length).toBeGreaterThanOrEqual(7);
     expect(new Set(seen)).toEqual(new Set([ids.inStock, ids.outOfStock, ...ids.extraActive]));
-    expectFailure(await call(api(`/stores/${ids.storeClosed}/products`)), 410, 'GONE');
+    expectFailure(await call(api(`/stores/${ids.storeClosed}/products`)), 410, 'gone');
   });
 
   it('lists only PUBLISHED collections', async () => {
@@ -481,7 +507,7 @@ describe('stores', () => {
     const all = [...first, ...itemIds(second)];
     expect(dataOf(second)['nextCursor']).toBeNull();
     expect(new Set(all)).toEqual(new Set([ids.manual, ids.automated]));
-    expectFailure(await call(api(`/stores/${ids.storeSuspended}/collections`)), 410, 'GONE');
+    expectFailure(await call(api(`/stores/${ids.storeSuspended}/collections`)), 410, 'gone');
   });
 });
 
@@ -508,12 +534,12 @@ describe('collections', () => {
   });
 
   it('answers 404 for never published, 410 after unpublishing or with the store gone', async () => {
-    expectFailure(await call(api(`/collections/${ids.unpublishedNever}`)), 404, 'NOT_FOUND');
-    expectFailure(await call(api(`/collections/${ids.unpublishedAfter}`)), 410, 'GONE');
-    expectFailure(await call(api(`/collections/${ids.unpublishedAfter}/products`)), 410, 'GONE');
-    expectFailure(await call(api(`/collections/${ids.suspendedStoreCollection}`)), 410, 'GONE');
-    expectFailure(await call(api(`/collections/${uuidv7()}`)), 404, 'NOT_FOUND');
-    expectFailure(await call(api('/collections/bad-id/products')), 404, 'NOT_FOUND');
+    expectFailure(await call(api(`/collections/${ids.unpublishedNever}`)), 404, 'not_found');
+    expectFailure(await call(api(`/collections/${ids.unpublishedAfter}`)), 410, 'gone');
+    expectFailure(await call(api(`/collections/${ids.unpublishedAfter}/products`)), 410, 'gone');
+    expectFailure(await call(api(`/collections/${ids.suspendedStoreCollection}`)), 410, 'gone');
+    expectFailure(await call(api(`/collections/${uuidv7()}`)), 404, 'not_found');
+    expectFailure(await call(api('/collections/bad-id/products')), 404, 'not_found');
   });
 });
 
@@ -521,15 +547,15 @@ describe('collections', () => {
 /* The envelope at the edges, and CORS                                        */
 /* -------------------------------------------------------------------------- */
 
-describe('the envelope at the edges', () => {
-  it('answers an unmatched path, and a non-GET method, with a JSON UNKNOWN_ROUTE, never NOT_FOUND', async () => {
-    expectFailure(await call(api('/x')), 404, 'UNKNOWN_ROUTE');
-    expectFailure(await call(MERCARIA_PUBLIC_API_BASE_PATH), 404, 'UNKNOWN_ROUTE');
-    expectFailure(await call(api('/products'), { method: 'POST' }), 404, 'UNKNOWN_ROUTE');
-    expectFailure(await call(api(`/products/${ids.inStock}`), { method: 'DELETE' }), 404, 'UNKNOWN_ROUTE');
+describe('the error shape at the edges', () => {
+  it('answers an unmatched path, and a non-GET method, with a JSON unknown_route, never not_found', async () => {
+    expectFailure(await call(api('/x')), 404, 'unknown_route');
+    expectFailure(await call(MERCARIA_PUBLIC_API_BASE_PATH), 404, 'unknown_route');
+    expectFailure(await call(api('/products'), { method: 'POST' }), 404, 'unknown_route');
+    expectFailure(await call(api(`/products/${ids.inStock}`), { method: 'DELETE' }), 404, 'unknown_route');
   });
 
-  it('answers a body that will not parse with a JSON envelope, not the global 500 body', async () => {
+  it('answers a body that will not parse with a JSON bad_request, from the global handler', async () => {
     const response = await fetch(`${base}${api('/products')}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -538,7 +564,23 @@ describe('the envelope at the edges', () => {
     const text = await response.text();
     BODIES.push(text);
     expect(response.status).toBe(400);
-    expect(JSON.parse(text)).toMatchObject({ success: false, error: 'VALIDATION_ERROR' });
+    expect(JSON.parse(text)).toEqual({ error: { code: 'bad_request', message: 'The request could not be read' } });
+  });
+
+  it('serves its own OpenAPI document — the committed one — describing every registry operation', async () => {
+    const answer = await call(api('/openapi.json'), { headers: { origin: 'https://mention.earth' } });
+    expect(answer.status, answer.text).toBe(200);
+    expect(answer.headers.get('access-control-allow-origin')).toBe('*');
+    expect(answer.body['openapi']).toBe('3.1.0');
+    const committed = readFileSync(
+      fileURLToPath(new URL('../../../../contracts/openapi.json', import.meta.url)),
+      'utf8',
+    );
+    expect(answer.body).toEqual(JSON.parse(committed));
+    const paths = answer.body['paths'] as Record<string, Record<string, { operationId: string }>>;
+    const served = Object.values(paths).flatMap((item) => Object.values(item).map((op) => op.operationId));
+    expect(served.sort()).toEqual(MERCARIA_PUBLIC_ROUTES.map((route) => route.operationId).sort());
+    expectFailure(await call(api('/openapi.json?x=1')), 400, 'bad_request');
   });
 
   it('keeps the allowance in lib/allowed-origins.ts on the contract’s base path', async () => {

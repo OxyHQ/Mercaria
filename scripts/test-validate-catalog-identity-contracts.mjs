@@ -322,11 +322,16 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // ADR 0012 (store ownership is an Oxy account) moved NO module: `store.ts`
     // lost four types (`StoreRole`, `StoreMember`, the two member inputs) and
     // gained six (the role and access shapes, the override and its input, the
-    // owner-account move), and `store-linkage.ts` lost one impact field —
-    // 134/2372/7881, READ OFF the guard's own output line. None of the new
-    // names is identity-shaped: an override names an `oxyUserId` and
-    // permission keys.
-    "walked 134 contract module(s), 2372 exported type(s), 7881 property signature(s)",
+    // owner-account move), and `store-linkage.ts` lost one impact field — +2
+    // types, +4 property signatures. None of the new names is identity-shaped:
+    // an override names an `oxyUserId` and permission keys.
+    // A twelfth, in REVERSE: `public-api.ts` LEFT this package for
+    // `@mercaria/contracts`, where the public shapes are zod schemas and their
+    // types are `z.infer` — no interface for this walk to read. The same
+    // vocabulary is walked over the zod shapes by `packages/contracts`' own
+    // suite ("no public shape carries an ambiguous identity string").
+    // Both together: 133/2352/7811, READ OFF the guard's own output line.
+    "walked 133 contract module(s), 2352 exported type(s), 7811 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });

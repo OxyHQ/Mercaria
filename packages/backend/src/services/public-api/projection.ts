@@ -1,6 +1,6 @@
 /**
  * The PUBLIC projection (#1017) — how Mercaria's own read models become the
- * shapes `@mercaria/shared-types` `public-api.ts` publishes.
+ * shapes `@mercaria/contracts` publishes.
  *
  * ## Field by field, and never a spread
  *
@@ -28,8 +28,8 @@
  * Every function is pure: no database, no config, no clock.
  */
 
+import type { Listing, Money, ProductVariantDTO } from '@mercaria/shared-types';
 import type {
-  Listing,
   MercariaCollection,
   MercariaImage,
   MercariaProduct,
@@ -38,9 +38,7 @@ import type {
   MercariaPurchaseOption,
   MercariaSeller,
   MercariaStore,
-  Money,
-  ProductVariantDTO,
-} from '@mercaria/shared-types';
+} from '@mercaria/contracts';
 import type { StoreRow } from '../../db/stores/storeRepository.js';
 import type { CollectionRow } from '../../db/merchandising/collectionRepository.js';
 import { collectionWebUrl, productWebUrl, storeWebUrl } from './urls.js';

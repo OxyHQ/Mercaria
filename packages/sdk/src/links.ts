@@ -1,4 +1,4 @@
-import type { MercariaCollectionRef, MercariaProductRef } from './contract';
+import type { MercariaCollection, MercariaCollectionRef, MercariaProductRef, MercariaProductSummary } from './contract';
 import { MercariaValidationError } from './errors';
 import { parseMercariaRef } from './refs';
 
@@ -23,11 +23,11 @@ export interface MercariaHandleSource {
   handle: string;
 }
 
-/** A product as {@link MercariaLinks.product} accepts it. */
-export type MercariaProductLinkTarget = string | MercariaProductRef | { ref: MercariaProductRef };
+/** A product as {@link MercariaLinks.product} accepts it: an id, a ref, or any product DTO. */
+export type MercariaProductLinkTarget = string | MercariaProductRef | Pick<MercariaProductSummary, 'ref'>;
 
-/** A collection as {@link MercariaLinks.collection} accepts it. */
-export type MercariaCollectionLinkTarget = string | MercariaCollectionRef | { ref: MercariaCollectionRef };
+/** A collection as {@link MercariaLinks.collection} accepts it: an id, a ref, or a collection DTO. */
+export type MercariaCollectionLinkTarget = string | MercariaCollectionRef | Pick<MercariaCollection, 'ref'>;
 
 /** The link builders on a client. */
 export interface MercariaLinks {

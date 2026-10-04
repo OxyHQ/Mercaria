@@ -49,6 +49,8 @@ export {
   isMercariaError,
   MercariaAbortError,
   MercariaApiError,
+  MercariaBadRequestError,
+  MercariaConflictError,
   MercariaError,
   MercariaForbiddenError,
   MercariaGoneError,
@@ -59,6 +61,7 @@ export {
   MercariaTimeoutError,
   MercariaUnauthorizedError,
   MercariaUnavailableError,
+  MercariaUnknownRouteError,
   MercariaValidationError,
 } from './errors';
 export type { MercariaErrorCode, MercariaErrorOptions, MercariaRateLimitErrorOptions } from './errors';
@@ -77,6 +80,7 @@ export {
   MERCARIA_PRODUCT_SORTS,
   MERCARIA_PUBLIC_API_BASE_PATH,
   MERCARIA_PUBLIC_ERROR_CODES,
+  MERCARIA_PUBLIC_LIST_MAX_OFFSET,
   MERCARIA_PUBLIC_PAGE_LIMIT_DEFAULT,
   MERCARIA_PUBLIC_PAGE_LIMIT_MAX,
   MERCARIA_REF_KINDS,
@@ -87,7 +91,9 @@ export type {
   ItemConditionKey,
   MercariaCollection,
   MercariaCollectionRef,
+  MercariaErrorDetails,
   MercariaImage,
+  MercariaMoney,
   MercariaPage,
   MercariaProduct,
   MercariaProductAvailability,
@@ -103,5 +109,4 @@ export type {
   MercariaStore,
   MercariaStoreRef,
   MercariaVariantRef,
-  Money,
 } from './contract';
