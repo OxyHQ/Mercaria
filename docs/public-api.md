@@ -1,30 +1,37 @@
 # The public integration API (`/public/v1`, #1017)
 
 The canonical boundary another Oxy application — Mention, Goway, an agent —
-reads Mercaria through. `@mercaria.co/sdk` calls these routes and nothing else;
-the wire shapes are `packages/shared-types/src/public-api.ts`, and that file's
-header is the contract's own statement of why it exists.
+reads Mercaria through. `@mercaria.co/sdk` calls these routes and nothing else.
+It follows Oxy's shared API conventions (`~/Oxy/docs/api-conventions.md`): one
+zod contract, bare success bodies, `{ error: { code, message, details? } }`
+failures with snake_case codes, `{ items, nextCursor }` pages, and an OpenAPI
+3.1 document generated from a route registry.
 
 | Piece | Where |
 |---|---|
-| Contract (refs, DTOs, sorts, limits, error codes) | `packages/shared-types/src/public-api.ts` |
-| Router, 404 fallback, path-scoped error handler | `packages/backend/src/routes/public-api.ts` |
-| Query schemas | `packages/backend/src/middleware/public-api-schemas.ts` |
-| Controller (envelope, defaults) | `packages/backend/src/controllers/public-api.controller.ts` |
+| Contract: request schemas, DTOs, refs, sorts, limits, error codes, cursor kinds — zod 4, types by `z.infer` | `packages/contracts/src/` (`@mercaria/contracts`) |
+| Route registry (method, path, params, query, response, errors) | `packages/contracts/src/routes.ts` |
+| OpenAPI 3.1, generated from the registry, committed and served | `packages/contracts/src/openapi.ts` → `packages/contracts/openapi.json` → `GET /public/v1/openapi.json` |
+| Router (mounts the registry), `unknown_route` fallback | `packages/backend/src/routes/public-api.ts` |
+| Controller (handler per `operationId`, request parsing, response parsing, defaults) | `packages/backend/src/controllers/public-api.controller.ts` |
+| Refusals in the contract's codes (`PublicApiError`) | `packages/backend/src/services/public-api/errors.ts` |
 | Reads and status rules | `packages/backend/src/services/public-api/public-api.service.ts` |
 | Field-by-field projection | `packages/backend/src/services/public-api/projection.ts` |
 | URL builders | `packages/backend/src/services/public-api/urls.ts` |
 | Cursor | `packages/backend/src/services/public-api/cursor.ts` |
 | CORS decision | `isPublicReadCorsRequest` in `packages/backend/src/lib/allowed-origins.ts` |
-| Proof | `routes/__tests__/public-api.realdb.test.ts` (the wire), `routes/__tests__/public-api-sdk-contract.realdb.test.ts` (the SDK against it), `services/public-api/__tests__/urls-and-cursor.test.ts` |
+| Proof | `routes/__tests__/public-api.realdb.test.ts` (the wire), `routes/__tests__/public-api-sdk-contract.realdb.test.ts` (the SDK against it), `services/public-api/__tests__/urls-and-cursor.test.ts`, `packages/contracts/test/`, `validate:openapi` and `validate:contract-json-schemas` |
 
 ## Routes
 
 GET only (HEAD is answered by the same handlers). Mounted unconditionally in
 `app.ts`, after `express.json()`, with `optionalAuth` and the `public-api`
-rate-limit scope.
+rate-limit scope. The router mounts every entry of `MERCARIA_PUBLIC_ROUTES` in
+registry order against the controller's handler for its `operationId`, so a
+route cannot be served without being documented, nor documented without a
+handler (the controller's handler map is typed by the registry).
 
-| Route | Query | `data` |
+| Route | Query | 200 body |
 |---|---|---|
 | `GET /public/v1/products` | `q` `storeId` `collectionId` `inStock` `sort` `locale` `limit` `cursor` | `MercariaPage<MercariaProductSummary>` |
 | `GET /public/v1/products/:id` | — | `MercariaProduct` |
@@ -34,36 +41,52 @@ rate-limit scope.
 | `GET /public/v1/stores/:id/collections` | `limit` `cursor` | `MercariaPage<MercariaCollection>` — published only |
 | `GET /public/v1/collections/:id` | — | `MercariaCollection` |
 | `GET /public/v1/collections/:id/products` | `limit` `cursor` | `MercariaPage<MercariaProductSummary>` — the collection's own sort order |
+| `GET /public/v1/openapi.json` | — | this surface's OpenAPI 3.1 document |
 
-`/stores/lookup` is registered before `/stores/:id`.
+`/stores/lookup` is registered before `/stores/:id` (registry order).
 
-## The envelope
+## Bodies and errors
 
-Success is `{ "success": true, "data": … }`. Failure is
-`{ "success": false, "error": <MercariaPublicErrorCode>, "message": "…" }`, and a
-consumer branches on `error`, never on `message`.
+A success body IS the value — no envelope. Before it is sent the controller
+parses it with the route's response schema, so a projection that drifted from
+the contract is an `internal_error` in our logs, never a malformed body in a
+consumer.
 
-| Status | `error` | When |
+Every failure is `{ "error": { "code", "message", "details"? } }`. A consumer
+branches on `code`, never on `message`; `details` holds scalars only (`field` on
+a refused request, `retryAfterSeconds` on a 429) and never user content.
+
+| Status | `code` | When |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` | a query the schema refuses, a foreign or malformed cursor, a body that will not parse |
-| 404 | `NOT_FOUND` | see the status rules |
-| 404 | `UNKNOWN_ROUTE` | any unmatched path or non-GET method under `/public/v1` — never `NOT_FOUND`, so a client/server route mismatch cannot read as a missing entity |
-| 410 | `GONE` | see the status rules |
-| 500 | `INTERNAL_ERROR` | anything unexpected — the message is a fixed generic string |
+| 400 | `bad_request` | not well-formed: a wrong type, a missing, unknown or repeated query parameter, a foreign or malformed cursor, a body that will not parse |
+| 422 | `validation_failed` | well-formed, but a value is refused: a `limit` out of range, an unknown `sort`, `relevance` without `q`, a blank `q` or `handle` |
+| 404 | `not_found` | see the status rules |
+| 404 | `unknown_route` | any unmatched path or non-GET method under `/public/v1` — never `not_found`, so a client/server route mismatch cannot read as a missing entity |
+| 410 | `gone` | see the status rules |
+| 429 | `rate_limited` | a limiter refused it; `details.retryAfterSeconds` equals the `Retry-After` header |
+| 500 | `internal_error` | anything unexpected — the message is a fixed generic string |
 
-Every failure under the prefix is JSON. The router ends in a JSON `NOT_FOUND`
-fallback, every handler catches its own errors, and `app.ts` mounts a
-path-scoped error handler right behind the router so an error raised ABOVE it (a
-malformed body on a GET) does not reach the global handler's non-contract
-`{ error: 'Something went wrong!' }`.
+The closed list (`MERCARIA_PUBLIC_ERROR_CODES`) is the shared Oxy set; renaming a
+code is a breaking change, and `validate:openapi` pins it. Shape versus value is
+decided ONCE, by `classifyRequestIssues` in the contract — an issue about the
+request's shape (`invalid_type`, `unrecognized_keys`, `invalid_format`, …) wins —
+and the SDK applies the same function to refuse a query before sending it.
 
-**One exception, stated rather than hidden: a 429.** Both limiters on the path —
-`general` above every route and `public-api` on the router — come from
-`createOxyRateLimit`, whose refusal body is a plain string, not JSON. A consumer
-must map HTTP 429 to `RATE_LIMITED` from the STATUS, whatever the body says — and
-so must the SDK.
-Making it JSON would change the 429 body of every route on the API, which is a
-decision about all of them rather than about this surface.
+Every failure under the prefix is JSON. The router ends in a JSON
+`unknown_route` fallback; every handler catches its own errors; an error raised
+ABOVE the router (a malformed body sent with a GET) reaches `app.ts`'s global
+handler, which answers in the same shape (`bad_request` for a body-parser 4xx,
+`internal_error` otherwise).
+
+**The 429 is JSON too.** Both limiters on the path — `general` above every
+route and `public-api` on the router — come from `makeRateLimiter`
+(`createOxyRateLimit`), and every limiter in `lib/rate-limit.ts` answers with
+`rateLimitedBody`: the convention's shape, with `details.retryAfterSeconds` read
+back from the `Retry-After` header express-rate-limit has just set. Because
+`general` meters every route, this is the 429 body of the whole API, not just
+of this surface. `@oxy.so/core` 4.2.0's `createOxyRateLimit` types its `message`
+option as a string while passing it to express-rate-limit unchanged, so the body
+function is passed through a cast that a wider upstream type would retire.
 
 ## Status semantics
 
@@ -71,7 +94,7 @@ A consumer holds a persisted reference and hydrates it on every render, so the
 distinction it cannot live without is "never existed" versus "existed and is
 gone". Decided once per kind in `public-api.service.ts`:
 
-| Entity | 200 | 410 `GONE` | 404 `NOT_FOUND` |
+| Entity | 200 | 410 `gone` | 404 `not_found` |
 |---|---|---|---|
 | product | `active`; `sold` (availability `sold`) | `archived`, `restricted`, a `draft` whose `published_at` is set, or its store `suspended`/`closed` | no row, a malformed id, a `draft` never published |
 | store (by id or handle) | `active` | `suspended`, `closed` | no row, a malformed id, an unknown handle |
@@ -102,23 +125,25 @@ foreign application must simply never be handed a card whose detail read is a
 
 ## Queries
 
-Every schema is `.strict()`: an unknown parameter is a 400, because a caller who
-misspells `inStock` must not receive an unfiltered page it reads as filtered. A
-repeated parameter is a 400. Exact spellings, never `z.coerce`:
+The query schemas are the contract's (`packages/contracts/src/requests.ts`), and
+every one is strict: an unknown parameter is a 400 `bad_request`, because a
+caller who misspells `inStock` must not receive an unfiltered page it reads as
+filtered. A repeated parameter is a 400. Exact spellings, never `z.coerce`:
 
 - `q` — 1..200 characters after trimming.
 - `sort` — one of `MERCARIA_PRODUCT_SORTS`. Default `relevance` when `q` is
-  present, `newest` otherwise. `sort=relevance` without `q` is a 400.
+  present, `newest` otherwise. `sort=relevance` without `q` is a 422.
 - **What `relevance` orders by is not part of the contract.** The listing search
   treats a text match as a predicate and orders matches newest-first — what
   `GET /listings?q=` has always served — so `relevance` maps onto that order
   today. `newest` is `published_at desc nulls last, id desc`; `price_asc` and
   `price_desc` order the listing's lowest price, then `id`.
-- `inStock` — the string `true` or `false`. `true` keeps listings with at least
-  one buyable variant; `false` applies no filter.
+- `inStock` — the string `true` or `false` (anything else is a 422). `true`
+  keeps listings with at least one buyable variant; `false` applies no filter.
 - `locale` — 2..35 characters, shape-checked like `GET /listings`; also searches
   that locale's translations. No effect without `q`.
-- `limit` — decimal digits, 1..`MERCARIA_PUBLIC_PAGE_LIMIT_MAX` (50), default
+- `limit` — decimal digits (anything else is a 400),
+  1..`MERCARIA_PUBLIC_PAGE_LIMIT_MAX` (50, outside it a 422), default
   `MERCARIA_PUBLIC_PAGE_LIMIT_DEFAULT` (20).
 - `storeId`, `collectionId`, `handle` — opaque strings, resolved by the read.
 
@@ -129,20 +154,50 @@ SAME filters.
 
 - Today it is a base64url JSON payload carrying a version, the list kind, a
   fingerprint and an OFFSET. None of that is a promise.
-- **The fingerprint** digests the list kind, its scope (store or collection id)
-  and its filters and sort. A cursor minted by a different list or under
-  different filters is a 400, not a first page — resuming an offset that means
-  nothing there would silently drop results.
+- **The fingerprint** digests the list kind (`MERCARIA_PUBLIC_CURSOR_KINDS`, one
+  per list route in the registry), its scope (store or collection id) and its
+  filters and sort. A cursor minted by a different list or under different
+  filters is a 400 `bad_request` with `details.field: "cursor"`, not a first
+  page — resuming an offset that means nothing there would silently drop
+  results.
 - **`limit` may change between pages.** It is not in the fingerprint; the offset
   counts items, so no page duplicates or skips.
 - **Deterministic** for an unchanging catalogue: every ordering ends in `id`, and
   equal requests mint identical cursors. Under concurrent writes a product
   published or withdrawn between two reads shifts the boundary by one item.
-- **A list ends at 10,000 items** (`PUBLIC_CURSOR_MAX_OFFSET`). OFFSET cost grows
+- **A list ends at 10,000 items** (`MERCARIA_PUBLIC_LIST_MAX_OFFSET`). OFFSET cost grows
   with depth, so the page reaching the ceiling is cut short and carries
   `nextCursor: null`. A consumer that needs a whole store's catalogue beyond that
   wants an export, not this surface.
 - Reads fetch `limit + 1` rows and run no `count(*)`.
+
+## The OpenAPI document
+
+`mercariaPublicOpenApiDocument()` builds it from the registry and the named
+schemas (`CONTRACT_JSON_SCHEMA_NAMES`, each a `#/components/schemas/<name>`
+component, `$ref`-linked, from `z.toJSONSchema` on the INPUT side: response
+objects stay open to added fields, persisted refs and queries stay closed). Paths
+and components are sorted, so a regeneration diff is the semantic diff.
+
+- **Committed** as `packages/contracts/openapi.json`. `bun run openapi:generate`
+  writes it; read the diff for REMOVED lines.
+- **Served** at `GET /public/v1/openapi.json`, built once per process — the same
+  document, which the wire suite asserts against the committed file. CORS and
+  rate limiting as every other route.
+- **Gated** by `validate:openapi` (`scripts/check-public-openapi.mjs`): the
+  operations by NAME in both directions, every operation's payloads, the error
+  code enum, the 3.1 dialect, and freshness against the contract. And by
+  `validate:contract-json-schemas`: every named schema converts. Each has a
+  `test-check-*.mjs` proving it fails.
+- **Refinements are not in it.** A condition key belonging to its group, a
+  purchase option naming its own product, `relevance` requiring `q`: the zod
+  schema is the authority, and a body that passes the JSON Schema is
+  well-formed, not accepted.
+
+Adding a route — the coming `locations` reads, for one — is a cursor kind (for a
+list) and any new schema in the contract, an entry in `MERCARIA_PUBLIC_ROUTES`,
+a handler for its `operationId` in the controller, the operation's name in the
+gate's `EXPECTED_OPERATIONS`, and a regeneration.
 
 ## The projection is field by field, and why
 

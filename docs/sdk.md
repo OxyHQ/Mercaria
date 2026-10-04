@@ -11,38 +11,46 @@ people changing the SDK or the contract behind it.
 - **It is** a headless TypeScript client over the public read API mounted at
   `/public/v1`: products, search, stores, collections, canonical links,
   portable refs and typed errors. It runs on Node 18+, Bun, browsers and React
-  Native from one entry, and has **no runtime dependencies**.
+  Native from one entry, and has **one runtime dependency, `zod`**.
 - **It is not** a UI kit, a checkout, an admin or operator client, a supplier or
   procurement client (#1016), or a second definition of Mercaria's types.
 
-The **contract** is `packages/shared-types/src/public-api.ts`. It is the single
-definition of every ref, DTO, closed value set and error code. The backend's
-public projection builds those shapes field by field; the SDK parses them field
-by field again. Neither side spreads a storefront DTO, so a field added to
-`Listing` reaches no foreign application unless somebody adds it to the
-contract on purpose.
+The **contract** is `packages/contracts` (`@mercaria/contracts`, zod 4). It is
+the single definition of every ref, DTO, request query, closed value set, error
+code and cursor kind, plus the route registry the backend router and the
+OpenAPI document are built from; every type is `z.infer` of a schema. The
+backend's public projection builds those shapes field by field and parses each
+body with the route's schema before sending it; the SDK parses each response
+with the same schema, and runs each query it sends through the same query
+schema the server validates with. Neither side spreads a storefront DTO, so a
+field added to `Listing` reaches no foreign application unless somebody adds it
+to the contract on purpose. `docs/public-api.md` describes the package.
 
-`@mercaria/shared-types` is private and never published, so the SDK keeps it as
-a devDependency and **bundles** what it uses — values into the JavaScript,
-declarations into the `.d.ts` — and re-exports the contract types. Consumers
-import only `@mercaria.co/sdk`.
+`@mercaria/contracts` and the `@mercaria/shared-types` vocabularies it names are
+private and never published, so the SDK keeps them as devDependencies and
+**bundles** what it uses — schemas and values into the JavaScript, declarations
+into the `.d.ts` — and re-exports the contract types. `zod` stays external: it
+is the SDK's one `dependency`. Consumers import only `@mercaria.co/sdk`.
 
 ## Decisions a change must keep
 
 | Decision | Why | Where |
 | --- | --- | --- |
-| Refs carry identity only (no title, price, handle) | a persisted ref must not snapshot mutable truth | `public-api.ts`, `src/refs.ts` |
-| Parsers build fresh objects with contract keys only | a server leak cannot reach a DTO | `src/parse.ts` |
-| Unknown enum values are `MALFORMED_RESPONSE` | the SDK never guesses a fact a consumer renders | `src/parse.ts` |
-| One malformed row fails the whole page | dropping rows breaks pagination and hides drift | `src/parse.ts` |
+| Refs carry identity only (no title, price, handle) | a persisted ref must not snapshot mutable truth | `contracts/src/refs.ts`, `src/refs.ts` |
+| Responses parse with the contract's zod schemas: fresh objects, contract keys only | a server leak cannot reach a DTO, and there is no second parser to drift | `src/transport.ts` |
+| Unknown enum values are `malformed_response` | the SDK never guesses a fact a consumer renders | the contract's closed `z.enum`s |
+| One malformed row fails the whole page | dropping rows breaks pagination and hides drift | `src/transport.ts` |
+| Queries are checked by the server's own query schema before sending | a request the server would refuse is refused with the same class and `details.field`, and no request is sent | `src/client.ts` |
+| An error class per contract error code | a code without a class is a compile error (`ERROR_CLASS_BY_CODE`) | `src/transport.ts` |
 | `NotFound`/`Gone` only from a Mercaria error body | a proxy 404 proves nothing; consumers may act on "gone" | `src/transport.ts` |
-| Detail reads send no query parameters; `inStock=false` is never sent | the server 400s unknown detail params; `false` filters nothing, and one page must have one URL | `src/client.ts` |
+| Detail reads send no query parameters; `inStock=false` is never sent | the server refuses unknown detail params; `false` filters nothing, and one page must have one URL | `src/client.ts` |
 | Token getter called per request, never cached | Oxy owns the session and its refresh | `src/transport.ts` |
 | No service-to-service auth option | none exists yet; the SDK must not fake one | README |
 | Locale is the only context dimension | public reads serve native currency and convert nothing | README |
 | No retries | retryability is exposed; policy belongs to the caller | `src/errors.ts` |
 | `instanceof` answers from a `Symbol.for` brand | the ESM and CJS builds are two class identities in one process | `src/errors.ts` |
-| `src/` compiles with no DOM lib and no Node types | one entry must run everywhere, and its `.d.ts` must not demand a lib | `tsconfig.json` |
+| `src/` compiles with no DOM lib and no Node types | one entry must run everywhere | `tsconfig.json` |
+| The `.d.ts` asks only what `zod`'s does: a `URL` global (DOM or `@types/node`) | zod's declarations name `URL`; the smoke test type-checks a Node and a browser consumer with `skipLibCheck` off | `scripts/smoke.mjs` |
 
 ## Semver and release policy
 
@@ -53,7 +61,7 @@ The package follows semantic versioning with the **0.x rule**:
 - a **minor** release (`0.x.0`) may break: removed or renamed exports, a
   narrowed input, a DTO field removed or retyped, a new required field;
 - `1.0.0` is planned for once Mention #951 has shipped on it and the surface
-  has held; until then every consumer pins a minor (`~0.1.0`).
+  has held; until then every consumer pins a minor (`~0.2.0`).
 
 Additive changes (a new method, a new optional DTO field the parser accepts)
 are minors too while on 0.x, because a new field is only reachable after the
@@ -66,7 +74,8 @@ key, an availability. So **widening one** is breaking for every SDK version
 already installed: the day the backend emits a new currency, older SDKs fail
 every response that carries it. Widening is therefore released SDK-first:
 
-1. add the value to the shared-types tuple (the SDK's bundled copy picks it up),
+1. add the value to the shared-types tuple (the contract's schema, and so the
+   SDK's bundled copy, picks it up),
 2. release the SDK and let consumers upgrade,
 3. only then let the public projection emit it.
 
@@ -76,25 +85,28 @@ is where it must be caught.
 
 ### How a contract change flows
 
-1. **`packages/shared-types/src/public-api.ts`** — change the shape, value set
-   or error code. This is the only place it is defined.
+1. **`packages/contracts`** — change the schema, value set, error code or
+   route registry entry. This is the only place any of it is defined; the SDK
+   parses with it unchanged. Then `bun run openapi:generate` and commit
+   `packages/contracts/openapi.json` (`validate:openapi` fails otherwise).
 2. **Backend public projection** — build the new field explicitly, route tests
-   included.
-3. **SDK parser** (`packages/sdk/src/parse.ts`) — read and validate the field;
-   tests for the valid shape, the malformed shapes and extra-key stripping.
-4. **SDK surface and docs** — client methods, README, and the consumer
-   example if it changes how an integration works.
-5. **`packages/sdk/CHANGELOG.md`** — an entry under the new version.
-6. **Version bump** in `packages/sdk/package.json` per the rules above.
-7. **Merge to `main`** — `publish-sdk.yml` publishes it (next section).
+   included; a new route is a handler keyed by its `operationId` in the
+   controller, or the backend does not compile.
+3. **SDK surface and docs** — client methods, error classes for a new code,
+   README, and the consumer example if it changes how an integration works;
+   tests for the valid shape, the malformed shapes and extra-key stripping
+   (`test/parse.test.ts`).
+4. **`packages/sdk/CHANGELOG.md`** — an entry under the new version.
+5. **Version bump** in `packages/sdk/package.json` per the rules above.
+6. **Merge to `main`** — `publish-sdk.yml` publishes it (next section).
 
-Steps 1–6 land in ONE pull request, so a published SDK never describes a
+Steps 1–5 land in ONE pull request, so a published SDK never describes a
 contract the backend at that commit does not serve.
 
 ## How publishing is gated
 
 `.github/workflows/publish-sdk.yml` runs on a push to `main` touching
-`packages/sdk/**`, `public-api.ts` or the workflow itself, and on
+`packages/sdk/**`, `packages/contracts/src/**` or the workflow itself, and on
 `workflow_dispatch`.
 
 1. **`gate`** — `.github/scripts/require-ci-success.mjs`, exactly as every
@@ -103,11 +115,11 @@ contract the backend at that commit does not serve.
    typechecks, tests, builds and smoke-tests the SDK, so the publish workflow
    runs no copy of the suite (#518).
 2. **`publish`** — installs, builds, and runs `scripts/smoke.mjs --out`, which
-   packs the tarball from a staging directory (a manifest with no dependencies,
-   no scripts and no `workspace:`), tests the installed tarball from Node ESM
-   and CJS, Bun, a browser bundle, a React Native bundle and a no-DOM
-   `nodenext` type-check, fails if any shipped file names `@mercaria/`, and
-   keeps that exact tarball.
+   packs the tarball from a staging directory (a manifest whose only dependency
+   is `zod`, no scripts and no `workspace:`), tests the installed tarball from
+   Node ESM and CJS, Bun, a browser bundle, a React Native bundle and a
+   `nodenext` type-check as a Node and as a browser consumer, fails if any
+   shipped file names `@mercaria/`, and keeps that exact tarball.
 3. The version is checked against the registry. **Already published → the job
    succeeds and publishes nothing**, so re-runs and doc-only changes are safe.
    A registry error other than 404 stops the job rather than being read as
@@ -152,8 +164,9 @@ so route or DTO drift between the backend and the SDK fails `ci.yml`. It proves:
   with no duplicate and no gap;
 - `MercariaNotFoundError`, `MercariaGoneError`, a sold product (a successful
   read with `availability: 'sold'`) and `MercariaNetworkError` for a base URL
-  nothing listens on are distinguishable, and a route the server does not serve
-  is a `MercariaApiError` with `UNKNOWN_ROUTE`, never `NotFound`;
+  nothing listens on are distinguishable, a route the server does not serve
+  is a `MercariaUnknownRouteError` (`unknown_route`), never `NotFound`, and a
+  cursor from another list is a `MercariaBadRequestError` naming `cursor`;
 - `getAccessToken` is forwarded as `Authorization: Bearer`, making
   `viewer.saved` true for the user who saved the product and `viewer` null
   anonymously;
@@ -163,14 +176,16 @@ so route or DTO drift between the backend and the SDK fails `ci.yml`. It proves:
 The SDK resolves from `packages/sdk/src/index.ts` through the backend's
 `tsconfig.json` `paths` (which `vitest.config.ts` reads as its alias), not from
 `dist/`. The consequence for SDK authors: `src/` must also type-check inside the
-backend's `strict: false` program. It shares its fixture world and key-set table
+backend's `strict: false` program — where `z.infer` makes EVERY key optional — so
+a type the SDK spells by hand must be derived from the contract's (`Pick<…>`,
+`MercariaPage<T>`) rather than restate a required key. It shares its fixture world and key-set table
 with the wire suite, `public-api.realdb.test.ts`, through
 `routes/__tests__/public-api-fixtures.ts`.
 
 ## Local commands
 
 ```bash
-bun run build:sdk                                 # shared-types + SDK dist
+bun run build:sdk                                 # shared-types + contracts + SDK dist
 bun run smoke:sdk                                 # build + pack + runtime smoke
 bun run --filter @mercaria.co/sdk test            # vitest, no network
 bun run --filter @mercaria.co/sdk typecheck

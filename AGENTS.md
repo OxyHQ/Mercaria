@@ -7,12 +7,11 @@ or Wallapop style. A Shopify-grade commerce backend serving three Expo apps
 > **For how this project WORKS, read `docs/index.mdx`** — every domain has a file
 > there, `docs/adr/` holds the binding decisions, and
 > `packages/backend/src/db/schema/CONVENTIONS.md` binds every schema decision. Two
-> you want on almost any backend task: `docs/house-invariants.md` and
+> for almost any backend task: `docs/house-invariants.md` and
 > `docs/postgres-testing-and-migrations.md`. `HANDOFF.md` holds deferred work.
 >
-> **This file carries only RULES — things that break silently.** Design notes and
-> per-issue write-ups go in `docs/`. Org-wide standards are in `~/AGENTS.md` and
-> `~/Oxy/AGENTS.md`; do not repeat them.
+> **This file carries only RULES — things that break silently.** Design notes go
+> in `docs/`. Org-wide standards are in `~/AGENTS.md` and `~/Oxy/AGENTS.md`.
 >
 > **Budget: under 12 KB**, enforced by `scripts/check-agents-md-size.mjs`. An
 > addition that pushes it over is paid for in the SAME edit.
@@ -36,7 +35,8 @@ bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 
 `packages/` — `frontend` (mercaria.co) · `dashboard` · `pos` (Expo apps) · `ui`
 (shared components) · `backend` (Express + PostgreSQL) · `shared-types` (DTOs and
-every closed value set) · `sdk` (`@mercaria.co/sdk`, published; `docs/sdk.md`).
+every closed value set) · `contracts` (the `/public/v1` zod source; regen
+`openapi.json`) · `sdk` (`@mercaria.co/sdk`, published; `docs/sdk.md`).
 
 - **`@mercaria/ui` is NOT built to dist.** Apps consume it through Metro
   `watchFolders`, the `@mercaria/ui/theme/tailwind.preset` preset and a
