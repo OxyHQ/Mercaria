@@ -1,0 +1,6 @@
+$ oxy-doctor --ci
+Oxy Doctor: 12 first-party packages across 8 manifests
+! @oxy.so/bloom 6.2.1 does not include 7.1.2 in packages/dashboard/package.json (upgrade by 2026-10-17)
+! @oxy.so/bloom 6.2.1 does not include 7.1.2 in packages/frontend/package.json (upgrade by 2026-10-17)
+! @oxy.so/bloom 6.2.1 does not include 7.1.2 in packages/pos/package.json (upgrade by 2026-10-17)
+! @oxy.so/bloom >=6.2.1 <6.3.0 does not include 7.1.2 in packages/ui/package.json (upgrade by 2026-10-17)

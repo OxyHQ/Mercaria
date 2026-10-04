@@ -1,0 +1,62 @@
+[
+  {
+    "name": "ui-types-real621",
+    "cwd": "packages/ui",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "typecheck"
+    ],
+    "exitCode": 0,
+    "seconds": 1.969
+  },
+  {
+    "name": "ui-doctor-real621",
+    "cwd": ".",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "doctor:oxy"
+    ],
+    "exitCode": 0,
+    "seconds": 1.718
+  },
+  {
+    "name": "frontend-real621-build",
+    "cwd": ".",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "build:frontend"
+    ],
+    "exitCode": 0,
+    "seconds": 5.277
+  },
+  {
+    "name": "dashboard-real621-build",
+    "cwd": ".",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "build:dashboard"
+    ],
+    "exitCode": 0,
+    "seconds": 5.027
+  },
+  {
+    "name": "pos-real621-build",
+    "cwd": ".",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "build:pos"
+    ],
+    "exitCode": 0,
+    "seconds": 5.178
+  }
+]
