@@ -1,0 +1,7 @@
+waiting for server to start.... done
+server started
+{"verifiedOwnPostgresPid": 895765, "dataDirectory": "/home/nate/Oxy/.agent-evidence/mcohort-pg-p438cx03/data", "port": 5626, "liveAccess": false}
+{"fixtureSha256": {"packages/backend/src/services/billing/peable/__tests__/register.test.ts": "b21bcc6781490d5347c0f178ad9c9666c401b22ead7ab6df3e85c81483fd9b23", "packages/backend/src/services/billing/peable/__tests__/adapter.realdb.test.ts": "0e8822cd19b62815a10c19774ea12793202815c3b16e30a3d1ef51f89d13a2ff"}, "baselineCommit": "fc577db26f81aaaff57909e48872edfed79346d4"}
+waiting for server to shut down.... done
+server stopped
+{"ownedPostgresStopped": true, "pidAbsent": true, "record": "/home/nate/Oxy/.agent-evidence/mcohort-pg-p438cx03"}
