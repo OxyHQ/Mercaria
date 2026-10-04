@@ -121,8 +121,6 @@ async function makeListing(categoryId: string, categorySlugs: string[]): Promise
       priceRangeMaxCurrency: null,
       hasInventory: false,
       variantCount: 0,
-      longitude: null,
-      latitude: null,
       vendor: null,
       productType: null,
       handle: null,

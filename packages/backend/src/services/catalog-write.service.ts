@@ -482,12 +482,6 @@ export async function syncListingFacets(listingId: string): Promise<void> {
   }
 }
 
-/** Where a P2P listing's coarse public location comes from, when the seller opted in. */
-export interface P2PListingPlacement {
-  longitude: number;
-  latitude: number;
-}
-
 /**
  * Write a P2P listing, its gallery, its condition evidence and its single
  * variant — all inside the CALLER's transaction.
@@ -508,7 +502,6 @@ export async function insertP2PListingWithin(
   tx: Parameters<typeof insertListing>[3],
   oxyUserId: string,
   input: CreateP2PListingInput,
-  placement: P2PListingPlacement | null,
   now: Date,
 ): Promise<string> {
   const { categoryId, categorySlugs } = await resolveCategory(input.category);
@@ -560,8 +553,6 @@ export async function insertP2PListingWithin(
       priceRangeMaxCurrency: price.currency,
       hasInventory: quantity > 0,
       variantCount: 1,
-      longitude: placement?.longitude ?? null,
-      latitude: placement?.latitude ?? null,
       vendor: null,
       productType: null,
       handle: null,
@@ -630,7 +621,7 @@ export async function createP2PListing(
   const now = new Date();
 
   const listingId = await getDb().transaction((tx) =>
-    insertP2PListingWithin(tx, oxyUserId, input, null, now),
+    insertP2PListingWithin(tx, oxyUserId, input, now),
   );
 
   await syncListingFacets(listingId);
@@ -855,8 +846,6 @@ async function insertStoreProductWithin(
       priceRangeMaxCurrency: first.priceCurrency,
       hasInventory: false,
       variantCount: variants.length,
-      longitude: null,
-      latitude: null,
       vendor: input.vendor ?? null,
       productType: input.productType ?? null,
       // The versioned pin, NOT the line above: `productType` is a platform's own

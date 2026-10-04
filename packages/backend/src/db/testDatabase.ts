@@ -34,9 +34,14 @@
  */
 
 import { spawn } from 'node:child_process';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runMigrations } from '@oxy.so/db/migrate';
 import { createTestDatabase, dropTestDatabase } from '@oxy.so/db/testing';
+import { MIGRATIONS_FOLDER } from './migrationsFolder.js';
+import { REQUIRED_EXTENSIONS } from './requiredExtensions.js';
 
 /** This package's root — where `package.json` and `drizzle.config.ts` live. */
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -52,13 +57,16 @@ const MIGRATE_SCRIPT = join(PACKAGE_ROOT, 'src', 'db', 'migrate.ts');
  *   hook otherwise surfaces as a bare exit code with the actual SQL error lost
  *   to a discarded pipe.
  */
-async function applyMigrations(databaseUrl: string): Promise<void> {
+export async function applyMigrations(
+  databaseUrl: string,
+  phase: 'all' | 'pre' | 'post' = 'all',
+): Promise<void> {
   const target = new URL(databaseUrl).pathname.replace(/^\//, '');
 
   const output = await new Promise<{ code: number | null; text: string }>((resolve, reject) => {
     const child = spawn(
       'bun',
-      ['run', MIGRATE_SCRIPT, `--target-database=${target}`, '--phase=all'],
+      ['run', MIGRATE_SCRIPT, `--target-database=${target}`, `--phase=${phase}`],
       {
         cwd: PACKAGE_ROOT,
         // The migrator reads DATABASE_URL from the environment; the throwaway
@@ -94,7 +102,62 @@ async function applyMigrations(databaseUrl: string): Promise<void> {
  *   rather than inventing a server to connect to.
  */
 export async function createMercariaTestDatabase(adminUrl: string): Promise<string> {
-  return createTestDatabase({ adminUrl, migrate: applyMigrations });
+  return createTestDatabase({ adminUrl, migrate: (databaseUrl) => applyMigrations(databaseUrl) });
+}
+
+/**
+ * A throwaway database migrated only THROUGH one migration, for a test that
+ * must put rows into the schema as it stood BEFORE a later migration and then
+ * watch that migration act on them — the legacy rows a `post` migration exists
+ * to handle. The rest of the chain is then applied with
+ * {@link applyMigrations}, through the real entrypoint, in the phase a deploy
+ * would use.
+ *
+ * The stop is a folder holding the journal's prefix, byte-for-byte, because
+ * drizzle's migrator has no other way to be handed a subset — the device
+ * `@oxy.so/db` itself uses for a `pre` run. It cannot shell out like
+ * {@link applyMigrations}: `migrate.ts` resolves its folder from its own path.
+ * The extensions are the SAME list (`requiredExtensions.ts`), which is the
+ * drift the module docblock warns about, closed.
+ */
+export async function createMercariaTestDatabaseThrough(adminUrl: string, lastTag: string): Promise<string> {
+  return createTestDatabase({
+    adminUrl,
+    migrate: async (databaseUrl) => {
+      const folder = journalPrefix(lastTag);
+      try {
+        await runMigrations({
+          databaseUrl,
+          migrationsFolder: folder,
+          extensions: REQUIRED_EXTENSIONS,
+          run: 'all',
+          expectedDatabase: new URL(databaseUrl).pathname.replace(/^\//, ''),
+          dryRun: false,
+          logger: { info: () => undefined, debug: () => undefined },
+        });
+      } finally {
+        rmSync(folder, { recursive: true, force: true });
+      }
+    },
+  });
+}
+
+/** A temporary migrations folder ending at `lastTag`. The caller removes it. */
+function journalPrefix(lastTag: string): string {
+  const journal = JSON.parse(readFileSync(join(MIGRATIONS_FOLDER, 'meta', '_journal.json'), 'utf8')) as {
+    entries: { tag: string }[];
+  };
+  const end = journal.entries.findIndex((entry) => entry.tag === lastTag);
+  if (end < 0) throw new Error(`No migration ${lastTag} in the journal`);
+  const retained = journal.entries.slice(0, end + 1);
+
+  const folder = mkdtempSync(join(tmpdir(), 'mercaria-migrate-through-'));
+  mkdirSync(join(folder, 'meta'), { recursive: true });
+  writeFileSync(join(folder, 'meta', '_journal.json'), JSON.stringify({ ...journal, entries: retained }));
+  for (const entry of retained) {
+    copyFileSync(join(MIGRATIONS_FOLDER, `${entry.tag}.sql`), join(folder, `${entry.tag}.sql`));
+  }
+  return folder;
 }
 
 /**

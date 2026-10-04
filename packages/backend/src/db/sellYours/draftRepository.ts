@@ -125,9 +125,6 @@ export interface SellerDraftPatch {
   priceAmount?: number | null;
   priceCurrency?: CurrencyCode | null;
   pickup?: SellerPickupAvailability;
-  locationOptIn?: boolean;
-  locationLongitude?: number | null;
-  locationLatitude?: number | null;
   status?: SellerDraftStatus;
 }
 

@@ -18,7 +18,7 @@ import { listPublicationEvents } from '../db/pickup/locationPublicationRepositor
 import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 
-/** GET /internal/pickup/consistency — the four probes. */
+/** GET /internal/pickup/consistency — the three probes. */
 export async function pickupConsistencyHandler(_req: Request, res: Response): Promise<void> {
   try {
     sendSuccess(res, await readPickupConsistency());

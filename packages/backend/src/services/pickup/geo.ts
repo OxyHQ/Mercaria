@@ -3,15 +3,15 @@
  *
  * Everything in this module is PURE and takes no database handle, because every
  * one of these decisions has to hold identically in three places that cannot
- * share a query: the nearby read (which sorts in SQL), the P2P discovery read
- * (which sorts over cells), and the log/metric path (which must never see a
- * precise coordinate at all).
+ * share a query: the nearby read (whose distances GoWay measures), the P2P
+ * discovery read (which sorts over cells), and the log/metric path (which must
+ * never see a precise coordinate at all).
  *
  * ## Two distance regimes, deliberately not unified
  *
- * A STORE location has a real geocode, so its distance is computed by PostGIS
- * against the shopper's own point and is accurate to metres before it is
- * coarsened. A P2P listing has only a CELL, so its distance is a cell-centre to
+ * A STORE location trades from a GoWay place with a real position, so its
+ * distance is measured by GoWay against the shopper's own point and is
+ * accurate to metres before it is coarsened. A P2P listing has only a CELL, so its distance is a cell-centre to
  * cell-centre estimate accurate to roughly the cell size. Rendering both through
  * one function would make the second look like the first; they meet only at
  * {@link distanceBandFor}, which is honest about both because a band is already
@@ -48,15 +48,14 @@ export interface Coordinate {
 }
 
 /**
- * Validate a coordinate a client or a merchant supplied.
+ * Validate a coordinate a client supplied — a shopper's origin, a P2P seller's
+ * area.
  *
  * The null-island refusal is the clause worth reading. `(0, 0)` is a real point
  * in the Gulf of Guinea and is what every failed import, every uninitialised
  * float and every "the form submitted before the map loaded" produces — so a
  * plain range check admits the single most common bad value there is, and sorts
- * it first for everybody in West Africa. The same refusal is a CHECK on
- * `location_publications`; this one exists so the API answers 400 with a
- * sentence rather than letting Postgres phrase it as a constraint name.
+ * it first for everybody in West Africa.
  */
 export function assertUsableCoordinate(latitude: number, longitude: number): Coordinate {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
@@ -67,7 +66,7 @@ export function assertUsableCoordinate(latitude: number, longitude: number): Coo
   }
   if (latitude === 0 && longitude === 0) {
     throw validationError(
-      'That point is in the middle of the Atlantic. Drop a pin on the map instead of entering zeroes.',
+      'That point is in the middle of the Atlantic. Share a location or pick a town instead of zeroes.',
     );
   }
   return { latitude, longitude };
@@ -162,13 +161,13 @@ export function coarsenMetres(metres: number): number {
  * serve and a shopper can act on.
  *
  * A bound rather than an option, because an unbounded radius turns "near me"
- * into "every location in the world sorted by distance" — which is a full scan
- * of the publication table dressed up as a proximity query, and an answer whose
- * tail is useless to whoever asked.
+ * into "every location in the world sorted by distance" — an answer whose tail
+ * is useless to whoever asked. The ceiling is GoWay's own `MAX_RADIUS_METERS`
+ * (50 km): GoWay answers the proximity half, and past it refuses the question.
  */
 export const MIN_NEARBY_RADIUS_METRES = 500;
 /** See {@link MIN_NEARBY_RADIUS_METRES}. */
-export const MAX_NEARBY_RADIUS_METRES = 100_000;
+export const MAX_NEARBY_RADIUS_METRES = 50_000;
 /** What a client that names no radius gets. */
 export const DEFAULT_NEARBY_RADIUS_METRES = 25_000;
 

@@ -44,7 +44,7 @@ import {
 import { findCurrentRelationships } from '../../db/commerce-graph/relationshipRepository.js';
 import { listPendingMatchReviews } from '../../db/matching/matchDecisionRepository.js';
 import { listBackfillRecordsForRun } from '../../db/backfill/backfillRecordRepository.js';
-import { searchListingsPage } from '../../db/catalog/listingRepository.js';
+import { findNearbyLocalListings } from '../../db/pickup/localDiscoveryRepository.js';
 import {
   findIdentifierOwners,
   findProductAliasCandidates,
@@ -317,18 +317,14 @@ export const WORKLOAD_SHAPES: readonly WorkloadShape[] = [
   {
     id: 'Q14',
     workloadItem: 13,
-    title: 'Nearby listings within 5 km, with free text',
-    reader: 'db/catalog/listingRepository.ts::searchListingsPage',
-    // Same reasoning as Q10: the tsvector GIN and the geo GiST are both real,
-    // and which one the planner leads with depends on the selectivity of the
-    // radius against the term at this scale.
+    title: 'Nearby P2P listings in the ring of cells around a point',
+    reader: 'db/pickup/localDiscoveryRepository.ts::findNearbyLocalListings',
+    // A listing's own point is gone (`0161`); a P2P listing is near by its
+    // coarse cell, and the cell index is what this read range-scans.
     expectation: { minRowsReturned: 1 },
     run: (db) =>
-      searchListingsPage(
-        { text: 'bicycle', near: { lng: 2.17, lat: 41.38, radiusM: 5_000 } },
-        'newest',
-        1,
-        PAGE,
+      findNearbyLocalListings(
+        { latIndex: Math.floor(41.38 / 0.1), lonIndex: Math.floor(2.17 / 0.1), ringCells: 1, limit: PAGE },
         db,
       ),
   },

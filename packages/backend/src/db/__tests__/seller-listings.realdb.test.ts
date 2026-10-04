@@ -79,8 +79,6 @@ function baseListing(): Omit<ListingInput, 'ownerType' | 'oxyUserId' | 'storeId'
     priceRangeMaxCurrency: null,
     hasInventory: false,
     variantCount: 0,
-    longitude: null,
-    latitude: null,
     vendor: null,
     productType: null,
     handle: null,

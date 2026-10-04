@@ -561,8 +561,8 @@ async function incrementDiscountUsage(codes: string[]): Promise<void> {
 /**
  * The address snapshot a COLLECTION order carries (#93 pickup rule 4).
  *
- * Composed from the merchant's own PUBLICATION, never from `locations.address`
- * and never from anything the buyer typed — so #105's invariant survives
+ * Composed from the GoWay PLACE the location trades from (ADR 0013), never
+ * from `locations.address` and never from anything the buyer typed — so #105's invariant survives
  * exactly as written: `destination.ts` still produces no
  * `NormalizedCheckoutAddress` for a pickup, and nothing anywhere fabricates a
  * street for a collection. What the order records is the already-public place
@@ -577,8 +577,9 @@ async function incrementDiscountUsage(codes: string[]): Promise<void> {
  * own buyer projection, which #106 already scopes — not through a shipping
  * label this domain would otherwise have put a name on.
  *
- * A published location with no street is the ORDINARY case, not a degraded one:
- * a merchant may publish a city and nothing else. `line1` and `postalCode` are
+ * A place with no street is the ORDINARY case, not a degraded one: GoWay
+ * publishes only the address parts a source supports, and may hold a city and
+ * nothing else. `line1` and `postalCode` are
  * NOT NULL on the order's snapshot, so the display name stands in for the
  * street and an absent postal code is recorded as an empty marker rather than
  * as a plausible-looking invented one.
@@ -1621,6 +1622,7 @@ export async function checkout(
             orderId: placed.id,
             locationId: pickup.locationId,
             publicationId: pickup.publicationId,
+            goWayPlaceId: pickup.goWayPlaceId,
             displayName: pickup.displayName,
             publicLine1: pickup.publicLine1,
             publicLine2: pickup.publicLine2,

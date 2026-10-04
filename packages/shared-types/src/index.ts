@@ -63,10 +63,9 @@ export * from './location';
 
 // Location-aware inventory, nearby discovery and pickup (#93). Separate from
 // `./location` on purpose: that file is the STORE-ADMIN inventory location — an
-// operational address staff work at — and this one is what a merchant chooses
-// to publish about it, which is a different object with a different audience.
-// Carries the two prohibitions stated as values: the forbidden geocode
-// provenances, and a P2P area that has cell INDICES and no coordinate field.
+// operational address staff work at — and this one is what is offered to the
+// public about it, with the place facts projected from GoWay (ADR 0013). A P2P
+// area has cell INDICES and no coordinate field.
 export * from './pickup';
 
 // Collection DTOs (Collection, CollectionType, CollectionSortOrder, CollectionRule, …).

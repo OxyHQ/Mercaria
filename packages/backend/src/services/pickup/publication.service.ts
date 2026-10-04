@@ -1,52 +1,55 @@
 /**
- * The merchant's own surface: composing, publishing and pausing one location's
- * public face.
+ * The merchant's own surface: linking one location to its GoWay place, and
+ * composing, publishing and pausing its commerce profile.
  *
  * ## No new permission was invented
  *
  * #93 operations rule 4 asks that address edits and pickup settings be
  * restricted "through existing store permissions", and they are:
  * `locations:write` already means "may change where this store keeps stock",
- * and publishing a shop front is the same authority pointed outward. Adding an
- * eighteenth permission would have meant every existing owner and admin
- * silently lacking it on the deploy that added it.
+ * and publishing a shop front is the same authority pointed outward.
+ *
+ * ## Where the shop IS is edited in GoWay, not here (ADR 0013)
+ *
+ * Name, address, map pin, hours and their exceptions, contact and
+ * accessibility are the GoWay place's, and the dashboard edits them there with
+ * the merchant's own Oxy session. What this module writes is Mercaria's alone:
+ * WHICH place the location trades from, whether it offers collection and on
+ * what terms, and how fresh its stock claims are.
  *
  * ## Validation refuses rather than repairs
  *
- * A timezone `Intl` does not recognise, an opening interval that ends before it
- * starts, a coordinate in the Gulf of Guinea — each is refused with a sentence
- * naming the field. The alternative (accept it, fall back to UTC, clamp the
- * interval) produces a shop front that is subtly wrong in a way nobody looking
- * at the dashboard can see, and the person who finds out is a customer standing
- * outside a closed door.
+ * A place GoWay has never heard of, a stock interval outside the bounds the
+ * CHECK holds — each is refused with a sentence naming the field. The
+ * alternative produces a shop front that is subtly wrong in a way nobody
+ * looking at the dashboard can see, and the person who finds out is a customer
+ * standing outside a closed door.
  *
  * ## Publishing is a separate act from editing
  *
  * `upsertPublication` writes the profile and never the state; `publish` and
  * `withdraw` move the state and never the profile. Folding them would mean a
  * merchant fixing a typo on a withdrawn location silently republished it —
- * which is the one editorial mistake with an audience.
+ * which is the one editorial mistake with an audience. Publishing runs the
+ * trust rule first and refuses a location whose place does not name it back.
  */
 
 import type {
-  LocationOpeningHour,
   LocationPublicationState,
+  MerchantLocationPublication,
+  PlaceLinkGap,
   SetLocationPublicationStateInput,
   UpsertLocationPublicationInput,
 } from '@mercaria/shared-types';
+import { isUniqueViolation } from '@oxy.so/db';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { getDb } from '../../db/postgres.js';
-import { findLocation } from '../../db/stores/locationRepository.js';
+import { findLocation, findLocationsByStore, type LocationRecord } from '../../db/stores/locationRepository.js';
 import {
-  appendPublicationEvent,
-  deleteClosure,
   findPublicationByLocationId,
-  insertClosure,
-  listActiveClosures,
-  listOpeningHours,
   listPublicationEvents,
   listPublicationsForStore,
-  replaceOpeningHours,
+  setLocationPlaceLink,
   setPickupPause,
   setPublicationRestriction,
   setPublicationState,
@@ -57,123 +60,47 @@ import {
   MAX_STOCK_CONFIRMATION_INTERVAL_SECONDS,
   MIN_STOCK_CONFIRMATION_INTERVAL_SECONDS,
 } from '../../db/schema/pickup.js';
-import { assertUsableCoordinate } from './geo.js';
+import { GoWayUnavailableError, readPlaceFollowingMerge } from '../goway/places.js';
+import { verifyLocationPlaceLink } from './place-link.service.js';
 
-/** A publication plus its two child collections, as every read hands it over. */
-export interface PublicationBundle {
-  readonly publication: LocationPublicationRow;
-  readonly hours: readonly LocationOpeningHour[];
-  readonly closures: readonly {
-    id: string;
-    fromDate: string;
-    throughDate: string;
-    note?: string;
-  }[];
-}
-
-/**
- * Refuse a timezone this runtime cannot resolve.
- *
- * `Intl.DateTimeFormat` is the same mechanism `deriveLocationOpenState` reads
- * with, so validating through it means a zone that passes here is a zone the
- * open-state derivation can actually use — rather than a zone that passes a
- * regex and then makes every location answer `{ known: false }` forever.
- */
-function assertUsableTimezone(timezone: string): string {
-  const trimmed = timezone.trim();
-  if (trimmed === '') throw validationError('A published location needs a timezone.');
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: trimmed }).format(new Date());
-  } catch {
-    throw validationError(
-      `\`${trimmed}\` is not a timezone this server recognises. Use an IANA name like Europe/Madrid.`,
-    );
-  }
-  return trimmed;
-}
-
-/** Refuse a schedule the schema's CHECKs would refuse, with a readable message. */
-function assertUsableHours(hours: readonly LocationOpeningHour[]): readonly LocationOpeningHour[] {
-  for (const hour of hours) {
-    if (!Number.isInteger(hour.weekday) || hour.weekday < 0 || hour.weekday > 6) {
-      throw validationError('An opening interval needs a weekday between 0 (Sunday) and 6.');
-    }
-    if (
-      !Number.isInteger(hour.opensMinute) ||
-      !Number.isInteger(hour.closesMinute) ||
-      hour.opensMinute < 0 ||
-      hour.closesMinute > 1440 ||
-      hour.opensMinute >= hour.closesMinute
-    ) {
-      throw validationError(
-        'An opening interval runs from `opensMinute` to a later `closesMinute`, both minutes ' +
-          'from local midnight (0–1440).',
-      );
-    }
-  }
-  return hours;
-}
-
-/** The whole public profile of one location, as a merchant reads it back. */
-export async function readPublication(
-  input: { storeId: string; locationId: string },
-  today: string,
-): Promise<PublicationBundle | null> {
+/** The whole commerce profile of one location, as the merchant who owns it reads it back. */
+export async function readPublication(input: {
+  storeId: string;
+  locationId: string;
+}): Promise<MerchantLocationPublication | null> {
+  const location = await findLocation(input.storeId, input.locationId);
+  if (!location) return null;
   const publication = await findPublicationByLocationId(input.locationId);
   // The tenant predicate is on the row rather than on the request: a
   // publication whose `store_id` is not the caller's is answered as ABSENT, so
   // a guessed location id discloses nothing about whether it exists.
   if (!publication || publication.storeId !== input.storeId) return null;
-  return bundle(publication, today);
+  return projectPublication(publication, location);
 }
 
-/** Every publication a store owns, with their schedules. */
-export async function listStorePublications(
-  storeId: string,
-  today: string,
-): Promise<readonly PublicationBundle[]> {
-  const rows = await listPublicationsForStore(storeId);
-  return Promise.all(rows.map((row) => bundle(row, today)));
-}
-
-async function bundle(
-  publication: LocationPublicationRow,
-  today: string,
-): Promise<PublicationBundle> {
-  const [hours, closures] = await Promise.all([
-    listOpeningHours([publication.id]),
-    listActiveClosures([publication.id], today),
-  ]);
-  return {
-    publication,
-    hours: hours.map((hour) => ({
-      weekday: hour.weekday,
-      opensMinute: hour.opensMinute,
-      closesMinute: hour.closesMinute,
-    })),
-    closures: closures.map((closure) => ({
-      id: closure.id,
-      fromDate: closure.fromDate,
-      throughDate: closure.throughDate,
-      ...(closure.note === null ? {} : { note: closure.note }),
-    })),
-  };
+/** Every publication a store owns. */
+export async function listStorePublications(storeId: string): Promise<readonly MerchantLocationPublication[]> {
+  const [rows, locations] = await Promise.all([listPublicationsForStore(storeId), findLocationsByStore(storeId)]);
+  const byId = new Map(locations.map((location) => [location.id, location]));
+  return rows.flatMap((row) => {
+    const location = byId.get(row.locationId);
+    return location === undefined ? [] : [projectPublication(row, location)];
+  });
 }
 
 /**
- * Compose or replace one location's public profile.
+ * Link a location to its GoWay place and compose or replace its commerce
+ * profile.
  *
- * The whole profile is written every time — a PUT rather than a PATCH — because
- * a partial save of a shop front has no defensible semantics: does omitting the
- * phone number mean "leave it" or "stop publishing it"? The first is what a
- * client that forgot the field expects and the second is what a merchant who
- * deleted it expects, and the same request cannot mean both.
+ * The whole profile is written every time — a PUT rather than a PATCH —
+ * because a partial save of a shop front has no defensible semantics.
  *
- * The coordinate is the one field with a three-way input: absent leaves it,
- * `null` clears it, a number replaces it. That asymmetry is deliberate and it
- * is the reason the type is `number | null | undefined`: a merchant editing
- * their opening hours on a phone should not have to re-drop their map pin, and
- * a client that cannot show a map should not be able to erase one silently.
+ * The place is checked against GoWay first: it must EXIST (a merged one is
+ * followed to its survivor, which is what gets stored). Whether it names the
+ * location back is not required to SAVE — the merchant may assert that in
+ * GoWay after choosing the place, and the dashboard saves before it can — only
+ * to PUBLISH. GoWay unable to answer is a `503`: storing an id nobody could
+ * check would leave the merchant to discover a typo at publish time.
  */
 export async function upsertPublication(input: {
   storeId: string;
@@ -181,24 +108,9 @@ export async function upsertPublication(input: {
   actorOxyUserId: string;
   at: Date;
   body: UpsertLocationPublicationInput;
-}): Promise<PublicationBundle> {
+}): Promise<MerchantLocationPublication> {
   const location = await findLocation(input.storeId, input.locationId);
   if (!location) throw notFound('Location not found');
-
-  const existing = await findPublicationByLocationId(input.locationId);
-
-  const timezone = assertUsableTimezone(input.body.timezone);
-  const hours = assertUsableHours(input.body.hours ?? []);
-
-  const country = input.body.address.country?.trim().toUpperCase() ?? '';
-  if (!/^[A-Z]{2}$/.test(country)) {
-    throw validationError('A published location needs an ISO-3166 alpha-2 country.');
-  }
-
-  const displayName = input.body.displayName.trim();
-  if (displayName === '') {
-    throw validationError('A published location needs a public name.');
-  }
 
   const interval = input.body.stockConfirmationIntervalSeconds;
   if (
@@ -214,123 +126,87 @@ export async function upsertPublication(input: {
     );
   }
 
-  const coordinate = resolveCoordinate(input.body, existing);
+  const goWayPlaceId = await resolveChosenPlace(input.body.goWayPlaceId.trim());
+  const existing = await findPublicationByLocationId(input.locationId);
 
-  return getDb().transaction(async (tx) => {
-    const publication = await upsertLocationPublication(
-      {
-        locationId: input.locationId,
-        storeId: input.storeId,
-        // #84's linkage answers which MERCHANT operates this store; the
-        // storefront is the merchant's own subdivision and only they know
-        // which branch this is. Left absent here and set by its own endpoint,
-        // which is where the "belongs to the linked merchant" check lives.
-        storefrontId: existing?.storefrontId ?? null,
-        displayName,
-        publicLine1: emptyToNull(input.body.address.line1),
-        publicLine2: emptyToNull(input.body.address.line2),
-        publicCity: emptyToNull(input.body.address.city),
-        publicRegion: emptyToNull(input.body.address.region),
-        publicPostalCode: emptyToNull(input.body.address.postalCode),
-        publicCountry: country,
-        timezone,
-        publicPhone: emptyToNull(input.body.contact?.phone),
-        publicUrl: emptyToNull(input.body.contact?.url),
-        accessibilityStepFree: input.body.accessibility?.stepFreeAccess ?? null,
-        accessibilityToilet: input.body.accessibility?.accessibleToilet ?? null,
-        accessibilityParking: input.body.accessibility?.parkingOnSite ?? null,
-        accessibilityHearingLoop: input.body.accessibility?.hearingLoop ?? null,
-        latitude: coordinate.latitude,
-        longitude: coordinate.longitude,
-        geocodeProvenance: coordinate.provenance,
-        geocodedAt: coordinate.latitude === null ? null : input.at,
-        pickupOffered: input.body.pickupOffered,
-        pickupInstructions: emptyToNull(input.body.pickupInstructions),
-        identityRequirement: input.body.identityRequirement ?? 'collection_code',
-        inventorySource: input.body.inventorySource,
-        stockConfirmationIntervalSeconds: interval,
-        disclosesExactStock: input.body.disclosesExactStock === true,
-        lowStockThreshold: input.body.lowStockThreshold ?? 3,
-        profileConfirmedAt: input.at,
-      },
-      input.actorOxyUserId,
-      tx,
-    );
-
-    if (input.body.hours !== undefined) {
-      await replaceOpeningHours({ publicationId: publication.id, hours: [...hours] }, tx);
+  try {
+    const publication = await getDb().transaction(async (tx) => {
+      const row = await upsertLocationPublication(
+        {
+          locationId: location.id,
+          storeId: location.storeId,
+          // #84's linkage answers which MERCHANT operates this store; the
+          // storefront is the merchant's own subdivision and only they know
+          // which branch this is. Left as it was here and set by its own
+          // endpoint, which is where the "belongs to the linked merchant"
+          // check lives.
+          storefrontId: existing?.storefrontId ?? null,
+          pickupOffered: input.body.pickupOffered,
+          pickupInstructions: emptyToNull(input.body.pickupInstructions),
+          identityRequirement: input.body.identityRequirement ?? 'collection_code',
+          inventorySource: input.body.inventorySource,
+          stockConfirmationIntervalSeconds: interval,
+          disclosesExactStock: input.body.disclosesExactStock === true,
+          lowStockThreshold: input.body.lowStockThreshold ?? 3,
+        },
+        tx,
+      );
+      await setLocationPlaceLink(
+        {
+          storeId: location.storeId,
+          locationId: location.id,
+          publicationId: row.id,
+          goWayPlaceId,
+          previousGoWayPlaceId: location.goWayPlaceId,
+          kind: 'place_linked',
+          actorOxyUserId: input.actorOxyUserId,
+          at: input.at,
+        },
+        tx,
+      );
+      return row;
+    });
+    return projectPublication(publication, { ...location, goWayPlaceId });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw conflict(
+        'Another of this store\'s locations already trades from that GoWay place. A place names ' +
+          'one location back, so unlink the other location first.',
+      );
     }
-
-    return bundleWithin(publication, hours, input.at, tx);
-  });
+    throw error;
+  }
 }
 
 /**
- * The coordinate's three-way input, resolved once.
- *
- * A merchant who supplies a position states its provenance, and if they do not,
- * `merchant_map_pin` is assumed — the only source a dashboard form has. What is
- * NOT assumed anywhere is a provenance from a geocoding provider: there is no
- * member of `LOCATION_GEOCODE_PROVENANCES` for one, and
- * `LOCATION_FORBIDDEN_GEOCODE_PROVENANCES` names the prohibition as a value.
+ * The id a merchant chose, checked against GoWay: the place itself, or the
+ * survivor GoWay merged it into.
  */
-function resolveCoordinate(
-  body: UpsertLocationPublicationInput,
-  existing: LocationPublicationRow | null,
-): {
-  latitude: number | null;
-  longitude: number | null;
-  provenance: 'merchant_map_pin' | 'merchant_entered' | 'operator_corrected' | null;
-} {
-  if (body.latitude === undefined && body.longitude === undefined) {
-    return {
-      latitude: existing?.latitude ?? null,
-      longitude: existing?.longitude ?? null,
-      provenance: existing?.geocodeProvenance ?? null,
-    };
+async function resolveChosenPlace(placeId: string): Promise<string> {
+  if (placeId === '') throw validationError('Choose the GoWay place this location trades from.');
+  const read = await readPlaceFollowingMerge(placeId, { fresh: true });
+  switch (read.lookup.kind) {
+    case 'found':
+      return read.placeId;
+    case 'unavailable':
+      throw new GoWayUnavailableError(
+        'GoWay could not confirm that place right now, so the location was not saved. Try again in a minute.',
+      );
+    case 'not_found':
+    case 'gone':
+      throw validationError('GoWay has no such place. Search for the shop again, or create it.');
   }
-  if (body.latitude === null || body.longitude === null) {
-    return { latitude: null, longitude: null, provenance: null };
-  }
-  if (body.latitude === undefined || body.longitude === undefined) {
-    throw validationError('A position needs both a latitude and a longitude.');
-  }
-  const coordinate = assertUsableCoordinate(body.latitude, body.longitude);
-  return {
-    latitude: coordinate.latitude,
-    longitude: coordinate.longitude,
-    provenance: body.geocodeProvenance ?? 'merchant_map_pin',
-  };
-}
-
-async function bundleWithin(
-  publication: LocationPublicationRow,
-  hours: readonly LocationOpeningHour[],
-  at: Date,
-  tx: Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0],
-): Promise<PublicationBundle> {
-  const today = at.toISOString().slice(0, 10);
-  const closures = await listActiveClosures([publication.id], today, tx);
-  return {
-    publication,
-    hours,
-    closures: closures.map((closure) => ({
-      id: closure.id,
-      fromDate: closure.fromDate,
-      throughDate: closure.throughDate,
-      ...(closure.note === null ? {} : { note: closure.note }),
-    })),
-  };
 }
 
 /**
  * Publish, withdraw or return one location to draft.
  *
- * Publishing REFUSES a profile that cannot be served: without a coordinate
- * nothing can be near it, and with pickup offered but no way to derive a
- * collection code nobody could complete a handover. Refusing at publish time is
- * what turns both into a message on a form rather than a location that appears
- * to be live and never shows up in a single result.
+ * Publishing REFUSES a location the trust rule refuses (ADR 0013), naming
+ * every missing condition: a location whose place does not name it back can
+ * never be discovered, so publishing it would be publishing nothing — and the
+ * merchant would find out from a shopper rather than from the form. The check
+ * is fresh (it follows a GoWay merge if there was one), and GoWay being unable
+ * to answer refuses too, rather than publishing on trust.
  */
 export async function changePublicationState(input: {
   storeId: string;
@@ -338,14 +214,22 @@ export async function changePublicationState(input: {
   actorOxyUserId: string;
   at: Date;
   body: SetLocationPublicationStateInput;
-}): Promise<LocationPublicationRow> {
+}): Promise<MerchantLocationPublication> {
   const publication = await requireOwnedPublication(input.storeId, input.locationId);
 
-  if (input.body.state === 'published' && publication.latitude === null) {
-    throw validationError(
-      'Drop a map pin before publishing: a location with no position cannot appear in a ' +
-        'nearby search, so publishing it would be publishing nothing.',
-    );
+  if (input.body.state === 'published') {
+    const link = await verifyLocationPlaceLink({
+      storeId: input.storeId,
+      locationId: input.locationId,
+      actorOxyUserId: input.actorOxyUserId,
+      at: input.at,
+    });
+    if (link.missing.includes('goway_unavailable')) {
+      throw new GoWayUnavailableError(
+        'GoWay could not confirm this location\'s place right now, so it was not published. Try again in a minute.',
+      );
+    }
+    if (link.verdict !== 'linked') throw unpublishable(link.missing);
   }
 
   const row = await setPublicationState({
@@ -355,7 +239,7 @@ export async function changePublicationState(input: {
     at: input.at,
   });
   if (!row) throw notFound('Location not found');
-  return row;
+  return projectOwned(input.storeId, row);
 }
 
 /** Pause or resume collection at ONE location (#93 operations rule 2). */
@@ -366,7 +250,7 @@ export async function changePickupPause(input: {
   at: Date;
   paused: boolean;
   reason?: string;
-}): Promise<LocationPublicationRow> {
+}): Promise<MerchantLocationPublication> {
   const publication = await requireOwnedPublication(input.storeId, input.locationId);
   const reason = input.reason?.trim();
   if (input.paused && (reason === undefined || reason === '')) {
@@ -380,48 +264,10 @@ export async function changePickupPause(input: {
     at: input.at,
   });
   if (!row) throw notFound('Location not found');
-  return row;
+  return projectOwned(input.storeId, row);
 }
 
-/** Add a dated closure. */
-export async function addClosure(input: {
-  storeId: string;
-  locationId: string;
-  fromDate: string;
-  throughDate: string;
-  note?: string;
-}): Promise<{ id: string }> {
-  const publication = await requireOwnedPublication(input.storeId, input.locationId);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.fromDate) || !/^\d{4}-\d{2}-\d{2}$/.test(input.throughDate)) {
-    throw validationError('A closure needs `fromDate` and `throughDate` as YYYY-MM-DD.');
-  }
-  if (input.fromDate > input.throughDate) {
-    throw validationError('A closure cannot end before it starts.');
-  }
-  const row = await insertClosure({
-    publicationId: publication.id,
-    fromDate: input.fromDate,
-    throughDate: input.throughDate,
-    note: input.note?.trim() || null,
-  });
-  return { id: row.id };
-}
-
-/** Remove a dated closure. */
-export async function removeClosure(input: {
-  storeId: string;
-  locationId: string;
-  closureId: string;
-}): Promise<void> {
-  const publication = await requireOwnedPublication(input.storeId, input.locationId);
-  const removed = await deleteClosure({
-    publicationId: publication.id,
-    closureId: input.closureId,
-  });
-  if (!removed) throw notFound('Closure not found');
-}
-
-/** One location's publication and geocoding audit trail. */
+/** One location's publication and place-link audit trail. */
 export async function readPublicationTrail(input: {
   storeId: string;
   locationId: string;
@@ -456,22 +302,6 @@ export async function setOperatorRestriction(input: {
   return row;
 }
 
-/** Record a merchant's confirmation that the public profile is still correct. */
-export async function confirmPublicationProfile(input: {
-  storeId: string;
-  locationId: string;
-  actorOxyUserId: string;
-  at: Date;
-}): Promise<void> {
-  const publication = await requireOwnedPublication(input.storeId, input.locationId);
-  await appendPublicationEvent({
-    publicationId: publication.id,
-    kind: 'profile_confirmed',
-    actorOxyUserId: input.actorOxyUserId,
-    occurredAt: input.at,
-  });
-}
-
 async function requireOwnedPublication(
   storeId: string,
   locationId: string,
@@ -481,6 +311,51 @@ async function requireOwnedPublication(
     throw notFound('Location not found');
   }
   return publication;
+}
+
+async function projectOwned(storeId: string, row: LocationPublicationRow): Promise<MerchantLocationPublication> {
+  const location = await findLocation(storeId, row.locationId);
+  if (!location) throw notFound('Location not found');
+  return projectPublication(row, location);
+}
+
+/**
+ * The merchant's read of a publication. The operator who restricted it is NOT
+ * named: the restriction and its reason are the merchant's to see, the staff
+ * member behind it is Mercaria's.
+ */
+function projectPublication(
+  row: LocationPublicationRow,
+  location: Pick<LocationRecord, 'goWayPlaceId'>,
+): MerchantLocationPublication {
+  return {
+    id: row.id,
+    locationId: row.locationId,
+    ...(location.goWayPlaceId === null ? {} : { goWayPlaceId: location.goWayPlaceId }),
+    ...(row.storefrontId === null ? {} : { storefrontId: row.storefrontId }),
+    publicationState: row.publicationState,
+    pickupOffered: row.pickupOffered,
+    ...(row.pickupInstructions === null ? {} : { pickupInstructions: row.pickupInstructions }),
+    identityRequirement: row.identityRequirement,
+    paymentRequirement: row.paymentRequirement,
+    ...(row.pickupPausedAt === null ? {} : { pickupPausedAt: row.pickupPausedAt.toISOString() }),
+    ...(row.pickupPauseReason === null ? {} : { pickupPauseReason: row.pickupPauseReason }),
+    restricted: row.restrictedAt !== null,
+    ...(row.restrictionReason === null ? {} : { restrictionReason: row.restrictionReason }),
+    inventorySource: row.inventorySource,
+    stockConfirmationIntervalSeconds: row.stockConfirmationIntervalSeconds,
+    disclosesExactStock: row.disclosesExactStock,
+    lowStockThreshold: row.lowStockThreshold,
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+/** The refusal a publish gets, naming every condition the trust rule found missing. */
+function unpublishable(missing: readonly PlaceLinkGap[]): Error {
+  return validationError(
+    `This location cannot be published until its GoWay place names it: ${missing.join(', ')}. ` +
+      'Check the place link for what to fix.',
+  );
 }
 
 /** `''` and `undefined` both mean "not published", and the column holds NULL. */

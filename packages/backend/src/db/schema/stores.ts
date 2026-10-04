@@ -192,6 +192,20 @@ export const storePermissionOverrides = pgTable(
  *
  * `deleteLocation` refuses to remove the last or the default location, so a
  * store always retains a routable default.
+ *
+ * ## `go_way_place_id` is the whole of what Mercaria knows about where it IS
+ *
+ * ADR 0013: a location's place facts — name, address, position, timezone,
+ * hours, contact, accessibility — live on a GoWay place, and this opaque id is
+ * the reference. No foreign key (another service's key space) and no copy of a
+ * single fact: everything is read through `services/goway`.
+ *
+ * Unique per STORE rather than globally. The place names back exactly one
+ * location (`commerce.mercaria.store` holds one value at its strongest tier),
+ * so two of one store's locations on one place would leave one that can never
+ * be verified; across stores, a global unique would let any store that typed a
+ * place id first lock its real owner out. The index leads with the place id,
+ * so "which locations point at this place" is one probe.
  */
 export const locations = pgTable(
   'locations',
@@ -206,11 +220,16 @@ export const locations = pgTable(
     isDefault: boolean().notNull().default(false),
     isActive: boolean().notNull().default(true),
     fulfillsOnlineOrders: boolean().notNull().default(true),
+    /** A GoWay place id — opaque, no foreign key (ADR 0013). */
+    goWayPlaceId: text(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     checkOneOf('locations_type_check', t.type, LOCATION_TYPES),
+    uniqueIndex('locations_go_way_place_id_store_id_key')
+      .on(t.goWayPlaceId, t.storeId)
+      .where(sql`${t.goWayPlaceId} is not null`),
     index('locations_store_id_is_default_idx').on(t.storeId, t.isDefault.desc()),
     index('locations_store_id_is_active_idx').on(t.storeId, t.isActive),
     // Mongo could not state this either, and `deleteLocation`'s guard depends on

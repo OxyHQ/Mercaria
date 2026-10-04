@@ -119,22 +119,6 @@ export const patchSellerDraftSchema = z
     quantity: z.number().int().min(1).max(1_000).optional(),
     price: money.optional(),
     pickup: z.enum(enumValues(SELLER_PICKUP_AVAILABILITIES)).optional(),
-    /**
-     * The coarse public location, or `null` to withdraw the opt-in.
-     *
-     * What is stored is ROUNDED at the write boundary — see
-     * `SELLER_LOCATION_PRECISION_DECIMALS`. The schema accepts full precision
-     * because a device reports full precision; refusing it would make clients
-     * round, and a client-side privacy guarantee is not one.
-     */
-    location: z
-      .object({
-        longitude: z.number().min(-180).max(180),
-        latitude: z.number().min(-90).max(90),
-      })
-      .strict()
-      .nullable()
-      .optional(),
   })
   .strict();
 

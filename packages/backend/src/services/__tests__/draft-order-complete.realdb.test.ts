@@ -190,8 +190,6 @@ async function seedScenario(quantity = 2): Promise<Scenario> {
       priceRangeMaxCurrency: CURRENCY,
       hasInventory: true,
       variantCount: 1,
-      longitude: null,
-      latitude: null,
       vendor: null,
       productType: null,
       handle: null,

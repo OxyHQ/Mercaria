@@ -76,6 +76,7 @@ export function toLocationDTO(loc: LocationRecord): LocationDTO {
     isDefault: loc.isDefault,
     isActive: loc.isActive,
     fulfillsOnlineOrders: loc.fulfillsOnlineOrders,
+    ...(loc.goWayPlaceId === null ? {} : { goWayPlaceId: loc.goWayPlaceId }),
     createdAt: loc.createdAt.toISOString(),
     updatedAt: loc.updatedAt.toISOString(),
   };

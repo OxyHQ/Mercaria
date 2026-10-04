@@ -53,6 +53,11 @@ export interface Location extends Timestamps {
   isActive: boolean;
   /** Whether this location fulfils online orders. */
   fulfillsOnlineOrders: boolean;
+  /**
+   * The GoWay place this location trades from, when the merchant linked one
+   * (ADR 0013). Opaque: the place's facts are read from GoWay, never copied.
+   */
+  goWayPlaceId?: string;
 }
 
 /** Body for `POST /admin/stores/:storeId/locations` — create a location. */

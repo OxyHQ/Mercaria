@@ -320,14 +320,60 @@ function resolveSupplierPreflightEnabled(): boolean {
 function resolveStorePickupEnabled(): boolean {
   if (!boolEnv('STORE_PICKUP_ENABLED', false)) return false;
 
-  if ((process.env.PICKUP_COLLECTION_CODE_KEY?.trim() ?? '') !== '') return true;
+  const missing = [
+    ...((process.env.PICKUP_COLLECTION_CODE_KEY?.trim() ?? '') === '' ? ['PICKUP_COLLECTION_CODE_KEY'] : []),
+    // Where a collection point IS comes from GoWay (ADR 0013): with no GoWay
+    // to ask, every collection would be refused at checkout, one buyer at a
+    // time, rather than once here.
+    ...(strEnv('GOWAY_API_URL', '') === '' ? ['GOWAY_API_URL'] : []),
+  ];
+  if (missing.length === 0) return true;
 
   log.general.error(
-    { missing: ['PICKUP_COLLECTION_CODE_KEY'] },
-    '[Pickup] STORE_PICKUP_ENABLED is set but the collection-code key is missing; staying ' +
+    { missing },
+    '[Pickup] STORE_PICKUP_ENABLED is set but a dependency is missing; staying ' +
       'OFF. Placed collections, their codes and the portal are untouched.',
   );
   return false;
+}
+
+/**
+ * `NEARBY_DISCOVERY_ENABLED`, subject to the half-configuration rule.
+ *
+ * The nearby surface asks GoWay which Mercaria places are near a shopper
+ * (ADR 0013). Mounted without `GOWAY_API_URL` it would answer every request
+ * with `503` — so it stays unmounted, and the log line says why.
+ */
+function resolveNearbyEnabled(): boolean {
+  if (!boolEnv('NEARBY_DISCOVERY_ENABLED', false)) return false;
+  if (strEnv('GOWAY_API_URL', '') !== '') return true;
+
+  log.general.error(
+    { missing: ['GOWAY_API_URL'] },
+    '[Pickup] NEARBY_DISCOVERY_ENABLED is set but GOWAY_API_URL is missing; staying OFF.',
+  );
+  return false;
+}
+
+/**
+ * `GOWAY_PLACE_CACHE_TTL_SECONDS`, held to the shortest stock-freshness claim
+ * a location may make.
+ *
+ * A place read is how Mercaria re-checks that a location's GoWay place still
+ * names it back (ADR 0013). A cache that outlived the shortest declared stock
+ * interval would let a broken link keep a location discoverable for longer
+ * than its stock may be — so the link is re-checked at least as often as the
+ * freshest stock claim, and a value above it is clamped with a warning.
+ */
+function resolvePlaceCacheTtlSeconds(): number {
+  const ceiling = 60;
+  const requested = intEnv('GOWAY_PLACE_CACHE_TTL_SECONDS', ceiling);
+  if (requested >= 1 && requested <= ceiling) return requested;
+  log.general.warn(
+    { requested, ceiling },
+    '[GoWay] GOWAY_PLACE_CACHE_TTL_SECONDS is outside 1..60; using 60',
+  );
+  return ceiling;
 }
 
 /**
@@ -3745,14 +3791,15 @@ export interface RetailServiceRequestsConfig {
  * path starts reading `config.pickup`.
  */
 export interface PickupConfig {
-  /** `NEARBY_DISCOVERY_ENABLED` — mounts `/nearby`. Default false. */
+  /** `NEARBY_DISCOVERY_ENABLED` — mounts `/nearby`. Default false; needs `GOWAY_API_URL`. */
   readonly nearbyEnabled: boolean;
   /**
    * `STORE_PICKUP_ENABLED` — may a checkout resolve a pickup destination.
    *
    * Default false, and subject to the half-configuration rule: without
    * {@link collectionCodeKey} a collection code cannot be derived, so a
-   * deployment could take pickup orders it can never hand over.
+   * deployment could take pickup orders it can never hand over; without
+   * `GOWAY_API_URL` no collection point can be described at all.
    */
   readonly storePickupEnabled: boolean;
   /** `GUEST_STORE_PICKUP_ENABLED` — may a GUEST collect. Default false. */
@@ -3782,6 +3829,36 @@ export interface PickupConfig {
    * instrument and the right one for a credential leak.
    */
   readonly collectionCodeKey: string;
+}
+
+/**
+ * GoWay, where every location's place facts live (ADR 0013).
+ *
+ * Mercaria reads places PUBLICLY — no service credential, the same reads a
+ * signed-out shopper's browser could make — through `services/goway`, the one
+ * module that imports `@goway.to/sdk`. Writes to a place are the merchant's
+ * own, from the dashboard, with their own Oxy session.
+ */
+export interface GoWayConfig {
+  /**
+   * `GOWAY_API_URL` — GoWay's API origin (`https://api.goway.to` in
+   * production). No default: empty means not configured, every place read
+   * answers `unavailable`, and the two levers that depend on it stay off.
+   */
+  readonly apiUrl: string;
+  /** `GOWAY_TIMEOUT_MS` — one request's budget. Default 2500. */
+  readonly timeoutMs: number;
+  /**
+   * `GOWAY_PLACE_CACHE_TTL_SECONDS` — how long a place read is fresh. At most
+   * 60, the shortest stock-confirmation interval (see the resolver).
+   */
+  readonly placeCacheTtlSeconds: number;
+  /**
+   * `GOWAY_PLACE_STALE_TTL_SECONDS` — how long a last-good place may stand in
+   * while GoWay cannot answer. Default a day. Past it a collection fails
+   * closed rather than describe a place nobody could confirm.
+   */
+  readonly placeStaleTtlSeconds: number;
 }
 
 /**
@@ -3903,6 +3980,7 @@ export interface AppConfig {
   readonly merchantBilling: MerchantBillingConfig;
   readonly connectors: ConnectorsConfig;
   readonly pickup: PickupConfig;
+  readonly goway: GoWayConfig;
   readonly catalogAuthoring: CatalogAuthoringConfig;
   readonly catalogProposals: CatalogProposalsConfig;
   readonly digital: DigitalCommerceConfig;
@@ -4897,7 +4975,7 @@ export const config: AppConfig = Object.freeze({
     webhookReregistrationLeaseMs: intEnv('CONNECTOR_WEBHOOK_REREGISTRATION_LEASE_MS', 120_000),
   }),
   pickup: Object.freeze({
-    nearbyEnabled: boolEnv('NEARBY_DISCOVERY_ENABLED', false),
+    nearbyEnabled: resolveNearbyEnabled(),
     storePickupEnabled: resolveStorePickupEnabled(),
     guestPickupEnabled: resolveGuestStorePickupEnabled(),
     p2pLocalDiscoveryEnabled: boolEnv('P2P_LOCAL_DISCOVERY_ENABLED', false),
@@ -4906,6 +4984,12 @@ export const config: AppConfig = Object.freeze({
       false,
     ),
     collectionCodeKey: strEnv('PICKUP_COLLECTION_CODE_KEY', ''),
+  }),
+  goway: Object.freeze({
+    apiUrl: strEnv('GOWAY_API_URL', ''),
+    timeoutMs: intEnv('GOWAY_TIMEOUT_MS', 2_500),
+    placeCacheTtlSeconds: resolvePlaceCacheTtlSeconds(),
+    placeStaleTtlSeconds: intEnv('GOWAY_PLACE_STALE_TTL_SECONDS', 24 * 60 * 60),
   }),
   catalogAuthoring: Object.freeze({
     enabled: boolEnv('CATALOG_AUTHORING_ENABLED', false),

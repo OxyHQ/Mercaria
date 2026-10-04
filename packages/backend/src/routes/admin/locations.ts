@@ -9,9 +9,6 @@ import {
   deleteStoreLocation,
 } from '../../controllers/admin/locations-admin.controller.js';
 import {
-  confirmPublicationHandler,
-  createClosureHandler,
-  deleteClosureHandler,
   getPublicationHandler,
   listPublicationsHandler,
   locationPickupQueueHandler,
@@ -19,9 +16,9 @@ import {
   putPublicationHandler,
   setPickupPauseHandler,
   setPublicationStateHandler,
+  verifyPlaceLinkHandler,
 } from '../../controllers/admin/pickup-admin.controller.js';
 import {
-  createClosureSchema,
   setPickupPauseSchema,
   setPublicationStateSchema,
   upsertLocationPublicationSchema,
@@ -42,8 +39,10 @@ const router = Router({ mergeParams: true });
 router.get('/', requireStorePermission('locations:write'), listStoreLocations);
 
 /**
- * The PUBLICATION sub-surface (#93) — what a merchant chooses to make public
- * about one of these locations.
+ * The PUBLICATION sub-surface (#93) — whether, and on what commerce terms, one
+ * of these locations is offered to the public, and which GoWay place it trades
+ * from. Its hours and closures are the place's, edited in GoWay (ADR 0013);
+ * there is no route for them here.
  *
  * Mounted here rather than in a router of its own because a publication has no
  * existence apart from its location: the tenant scoping, the `:storeId` load
@@ -82,24 +81,10 @@ router.post(
   setPickupPauseHandler,
 );
 router.post(
-  '/:id/publication/confirm',
+  '/:id/place-link/verify',
   requireStorePermission('locations:write'),
   validateId('id'),
-  confirmPublicationHandler,
-);
-router.post(
-  '/:id/publication/closures',
-  requireStorePermission('locations:write'),
-  validateId('id'),
-  validateBody(createClosureSchema),
-  createClosureHandler,
-);
-router.delete(
-  '/:id/publication/closures/:closureId',
-  requireStorePermission('locations:write'),
-  validateId('id'),
-  validateId('closureId'),
-  deleteClosureHandler,
+  verifyPlaceLinkHandler,
 );
 router.get(
   '/:id/publication/events',

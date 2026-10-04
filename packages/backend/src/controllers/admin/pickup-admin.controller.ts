@@ -30,7 +30,6 @@ import type { Request, Response } from 'express';
 import type {
   CancelPickupInput,
   CollectPickupInput,
-  CreateLocationClosureInput,
   SetLocationPickupPauseInput,
   SetLocationPublicationStateInput,
   UpsertLocationPublicationInput,
@@ -39,16 +38,14 @@ import { log } from '../../lib/logger.js';
 import { notFound, respondWithError } from '../../lib/errors/error-codes.js';
 import { findOrderById } from '../../db/orders/orderRepository.js';
 import {
-  addClosure,
   changePickupPause,
   changePublicationState,
-  confirmPublicationProfile,
   listStorePublications,
   readPublication,
   readPublicationTrail,
-  removeClosure,
   upsertPublication,
 } from '../../services/pickup/publication.service.js';
+import { verifyLocationPlaceLink } from '../../services/pickup/place-link.service.js';
 import {
   cancelPickup,
   collectPickup,
@@ -67,15 +64,10 @@ function storeId(req: Request): string {
   return req.store?.id ?? routeParam(req, 'storeId');
 }
 
-/** Today, in ISO date form — the closure window's lower bound. */
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /** GET /admin/stores/:storeId/locations/publications — every shop front. */
 export async function listPublicationsHandler(req: Request, res: Response): Promise<void> {
   try {
-    sendSuccess(res, { publications: await listStorePublications(storeId(req), today()) });
+    sendSuccess(res, { publications: await listStorePublications(storeId(req)) });
   } catch (err) {
     respondWithError(res, err, 'Failed to load location publications');
   }
@@ -84,12 +76,9 @@ export async function listPublicationsHandler(req: Request, res: Response): Prom
 /** GET /admin/stores/:storeId/locations/:id/publication. */
 export async function getPublicationHandler(req: Request, res: Response): Promise<void> {
   try {
-    const bundle = await readPublication(
-      { storeId: storeId(req), locationId: routeParam(req, 'id') },
-      today(),
-    );
-    if (!bundle) throw notFound('Location not found');
-    sendSuccess(res, bundle);
+    const publication = await readPublication({ storeId: storeId(req), locationId: routeParam(req, 'id') });
+    if (!publication) throw notFound('Location not found');
+    sendSuccess(res, { publication });
   } catch (err) {
     respondWithError(res, err, 'Failed to load the location publication');
   }
@@ -98,14 +87,14 @@ export async function getPublicationHandler(req: Request, res: Response): Promis
 /** PUT /admin/stores/:storeId/locations/:id/publication. */
 export async function putPublicationHandler(req: Request, res: Response): Promise<void> {
   try {
-    const bundle = await upsertPublication({
+    const publication = await upsertPublication({
       storeId: storeId(req),
       locationId: routeParam(req, 'id'),
       actorOxyUserId: req.userId ?? '',
       at: new Date(),
       body: req.body as UpsertLocationPublicationInput,
     });
-    sendSuccess(res, bundle);
+    sendSuccess(res, { publication });
   } catch (err) {
     respondWithError(res, err, 'Failed to save the location publication');
   }
@@ -145,49 +134,24 @@ export async function setPickupPauseHandler(req: Request, res: Response): Promis
   }
 }
 
-/** POST /admin/stores/:storeId/locations/:id/publication/confirm. */
-export async function confirmPublicationHandler(req: Request, res: Response): Promise<void> {
+/**
+ * POST /admin/stores/:storeId/locations/:id/place-link/verify.
+ *
+ * The trust rule, checked NOW and explained (ADR 0013): which conditions fail,
+ * what GoWay shows, and where to fix it. A POST because it can write — a place
+ * GoWay merged is followed to its survivor and the location re-pointed.
+ */
+export async function verifyPlaceLinkHandler(req: Request, res: Response): Promise<void> {
   try {
-    await confirmPublicationProfile({
+    const link = await verifyLocationPlaceLink({
       storeId: storeId(req),
       locationId: routeParam(req, 'id'),
-      actorOxyUserId: req.userId ?? '',
+      actorOxyUserId: req.userId ?? null,
       at: new Date(),
     });
-    sendSuccess(res, { confirmed: true });
+    sendSuccess(res, { link });
   } catch (err) {
-    respondWithError(res, err, 'Failed to confirm the location profile');
-  }
-}
-
-/** POST /admin/stores/:storeId/locations/:id/publication/closures. */
-export async function createClosureHandler(req: Request, res: Response): Promise<void> {
-  try {
-    const body = req.body as CreateLocationClosureInput;
-    const closure = await addClosure({
-      storeId: storeId(req),
-      locationId: routeParam(req, 'id'),
-      fromDate: body.fromDate,
-      throughDate: body.throughDate,
-      ...(body.note === undefined ? {} : { note: body.note }),
-    });
-    sendSuccess(res, closure, 201);
-  } catch (err) {
-    respondWithError(res, err, 'Failed to add the closure');
-  }
-}
-
-/** DELETE /admin/stores/:storeId/locations/:id/publication/closures/:closureId. */
-export async function deleteClosureHandler(req: Request, res: Response): Promise<void> {
-  try {
-    await removeClosure({
-      storeId: storeId(req),
-      locationId: routeParam(req, 'id'),
-      closureId: routeParam(req, 'closureId'),
-    });
-    sendSuccess(res, { removed: true });
-  } catch (err) {
-    respondWithError(res, err, 'Failed to remove the closure');
+    respondWithError(res, err, 'Failed to check the place link');
   }
 }
 
@@ -208,11 +172,8 @@ export async function publicationTrailHandler(req: Request, res: Response): Prom
 /** GET /admin/stores/:storeId/locations/:id/pickups — one branch's own queue. */
 export async function locationPickupQueueHandler(req: Request, res: Response): Promise<void> {
   try {
-    const bundle = await readPublication(
-      { storeId: storeId(req), locationId: routeParam(req, 'id') },
-      today(),
-    );
-    if (!bundle) throw notFound('Location not found');
+    const publication = await readPublication({ storeId: storeId(req), locationId: routeParam(req, 'id') });
+    if (!publication) throw notFound('Location not found');
     const rows = await listOpenPickupsAtLocation({
       locationId: routeParam(req, 'id'),
       limit: 200,

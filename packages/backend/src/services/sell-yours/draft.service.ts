@@ -44,7 +44,6 @@ import {
   CONDITION_DETAIL_KINDS,
   SELLER_PROOF_FIELD_KINDS,
   assertSafeMoneyAmount,
-  coarsenSellerCoordinate,
   conditionGroupFor,
 } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
@@ -109,7 +108,6 @@ export interface PatchSellerDraftInput {
   quantity?: number;
   price?: { amount: number; currency: CurrencyCode };
   pickup?: SellerPickupAvailability;
-  location?: { longitude: number; latitude: number } | null;
 }
 
 /** Start or resume the flow for this (owner, client key). */
@@ -206,25 +204,6 @@ export async function patchSellerDraft(
     if (input.price.amount < 0) throw validationError('A price cannot be negative');
     patch.priceAmount = input.price.amount;
     patch.priceCurrency = input.price.currency;
-  }
-
-  if (input.location !== undefined) {
-    if (input.location === null) {
-      patch.locationOptIn = false;
-      patch.locationLongitude = null;
-      patch.locationLatitude = null;
-    } else {
-      /**
-       * Coarsened HERE, at the write boundary.
-       *
-       * Rounding on the way out instead would leave the precise coordinate in
-       * the table, in every backup and in every operator query — a privacy
-       * property that depends on each reader remembering is not one.
-       */
-      patch.locationOptIn = true;
-      patch.locationLongitude = coarsenSellerCoordinate(input.location.longitude);
-      patch.locationLatitude = coarsenSellerCoordinate(input.location.latitude);
-    }
   }
 
   const matchChange = resolveMatchChange(existing, input);
@@ -510,7 +489,6 @@ export async function previewSellerDraft(
       draft.canonicalVariantId !== null &&
       !readiness.blockReasons.includes('match_review_required'),
     onSellerProfile: true,
-    inLocalResults: draft.locationOptIn,
   };
 
   return {
@@ -578,7 +556,6 @@ export function toSellerDraftDTO(
       ? { price: { amount: draft.priceAmount, currency: draft.priceCurrency } }
       : {}),
     pickup: draft.pickup,
-    locationOptIn: draft.locationOptIn,
     ...(draft.publishedListingId ? { publishedListingId: draft.publishedListingId } : {}),
     ...(draft.publishedAt ? { publishedAt: draft.publishedAt.toISOString() } : {}),
     createdAt: draft.createdAt.toISOString(),

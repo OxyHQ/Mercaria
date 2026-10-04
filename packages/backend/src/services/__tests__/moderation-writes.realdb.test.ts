@@ -750,8 +750,6 @@ describe('the composed report is byte-identical between deliveries', () => {
         priceRangeMaxCurrency: 'FAIR',
         hasInventory: true,
         variantCount: 1,
-        longitude: null,
-        latitude: null,
         vendor: null,
         productType: null,
         handle: null,

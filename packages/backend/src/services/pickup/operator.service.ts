@@ -1,14 +1,18 @@
 /**
- * What an operator can see, and the four things a CHECK cannot say.
+ * What an operator can see, and the three things a CHECK cannot say.
  *
  * ## Detection and repair are separate acts
  *
  * The `payment_discrepancies` posture, applied to places. Every probe below
- * REPORTS and none of them fixes: a location published without a pin, two
- * shops a hundred metres apart with the same name, a collection pointing at a
- * publication somebody has since withdrawn — each has a remedy that is a
- * MERCHANT's decision (drop the pin here, merge these, republish or refund),
- * and a sweep that guessed would be a sweep that moved somebody's shop.
+ * REPORTS and none of them fixes: a location published with no GoWay place, a
+ * collection pointing at a publication somebody has since withdrawn — each has
+ * a remedy that is a MERCHANT's decision (link the place, republish or
+ * refund), and a sweep that guessed would be a sweep that moved somebody's
+ * shop.
+ *
+ * Duplicate places are not a probe here any more: two records of one shop are
+ * GoWay's to find and merge (ADR 0013), and a location that followed a merge
+ * says so in its own trail.
  *
  * The one write this surface has is the operator RESTRICTION, which is
  * deliberately not a repair either: it withdraws a place from discovery and
@@ -31,28 +35,21 @@ export interface PickupConsistencyProbe {
   readonly sample: readonly { publicationId: string; storeId: string; detail: string }[];
 }
 
-/** The four probes, run together for one dashboard read. */
+/** The three probes, run together for one dashboard read. */
 export interface PickupConsistencyReport {
   /**
-   * Published, and with no coordinate — so it appears in no nearby result at
-   * all. A location in this state looks live in the merchant dashboard and is
-   * invisible to every shopper, which is the failure mode with the longest
+   * Published, and naming no GoWay place — so it appears in no nearby result
+   * at all. A location in this state looks live in the merchant dashboard and
+   * is invisible to every shopper, which is the failure mode with the longest
    * feedback loop in the domain.
    *
-   * `changePublicationState` refuses to publish without a pin, so a row here
-   * was pinned when it was published and had its pin CLEARED afterwards.
+   * `changePublicationState` refuses to publish without a verified place, and
+   * `0161` withdrew every publication that had none, so a row here is one the
+   * database was edited into. The rule's GoWay half — does the place still
+   * name the location back — is derived on every read and is not a probe:
+   * it would cost a GoWay read per published location.
    */
-  readonly publishedWithoutPosition: PickupConsistencyProbe;
-  /**
-   * Two published locations of ONE store within 150 m of each other (#93
-   * operations rule 3, "detect duplicate locations").
-   *
-   * Not an error — a department store's two entrances are legitimately
-   * separate collection points — which is precisely why it is a REPORT rather
-   * than a constraint. What it catches is the same shop entered twice, which a
-   * shopper sees as one place offering two different stock levels.
-   */
-  readonly probableDuplicates: PickupConsistencyProbe;
+  readonly publishedWithoutPlace: PickupConsistencyProbe;
   /**
    * Offering collection, published, and holding stock nobody can be shown:
    * every listing at the location is inactive or archived.
@@ -75,9 +72,6 @@ export interface PickupConsistencyReport {
   readonly openCollectionsAtClosedLocations: PickupConsistencyProbe;
 }
 
-/** How close two of one store's locations have to be to look like a duplicate. */
-const DUPLICATE_RADIUS_METRES = 150;
-
 /** How many rows each probe returns beside its count. */
 const SAMPLE_LIMIT = 20;
 
@@ -85,36 +79,24 @@ const SAMPLE_LIMIT = 20;
 export async function readPickupConsistency(): Promise<PickupConsistencyReport> {
   const db = getDb();
 
-  const [withoutPosition, duplicates, noLiveListing, openAtClosed] = await Promise.all([
+  // `detail` is the OPERATIONAL location name: an operator's trace, never a
+  // shopper surface, and the place's own name is GoWay's to read.
+  const [withoutPlace, noLiveListing, openAtClosed] = await Promise.all([
     probe(
       db,
       sql`
-        select p.id as publication_id, p.store_id as store_id, p.display_name as detail
+        select p.id as publication_id, p.store_id as store_id, loc.name as detail
         from location_publications p
-        where p.publication_state = 'published' and p.geo_point is null
+        join locations loc on loc.id = p.location_id
+        where p.publication_state = 'published' and loc.go_way_place_id is null
       `,
     ),
     probe(
       db,
       sql`
-        select a.id as publication_id, a.store_id as store_id,
-               a.display_name || ' ≈ ' || b.display_name as detail
-        from location_publications a
-        join location_publications b
-          on b.store_id = a.store_id
-         and b.id > a.id
-         and b.geo_point is not null
-         and st_dwithin(a.geo_point, b.geo_point, ${DUPLICATE_RADIUS_METRES})
-        where a.publication_state = 'published'
-          and b.publication_state = 'published'
-          and a.geo_point is not null
-      `,
-    ),
-    probe(
-      db,
-      sql`
-        select p.id as publication_id, p.store_id as store_id, p.display_name as detail
+        select p.id as publication_id, p.store_id as store_id, loc.name as detail
         from location_publications p
+        join locations loc on loc.id = p.location_id
         where p.publication_state = 'published'
           and p.pickup_offered
           and not exists (
@@ -131,7 +113,7 @@ export async function readPickupConsistency(): Promise<PickupConsistencyReport> 
       db,
       sql`
         select p.id as publication_id, p.store_id as store_id,
-               op.order_id || ' @ ' || p.display_name as detail
+               op.order_id || ' @ ' || op.display_name as detail
         from order_pickups op
         join location_publications p on p.id = op.publication_id
         where op.state in ('awaiting_preparation', 'ready_for_pickup')
@@ -144,8 +126,7 @@ export async function readPickupConsistency(): Promise<PickupConsistencyReport> 
   ]);
 
   return {
-    publishedWithoutPosition: withoutPosition,
-    probableDuplicates: duplicates,
+    publishedWithoutPlace: withoutPlace,
     publishedWithNoLiveListing: noLiveListing,
     openCollectionsAtClosedLocations: openAtClosed,
   };

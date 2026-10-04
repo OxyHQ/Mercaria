@@ -333,7 +333,7 @@ describe('every polymorphic reference to a mergeable entity has a decision (#654
     // The one subtraction the shape rule makes. Without this the population
     // would carry every Oxy account id in the schema, which is the derivation
     // "returning the whole ledger" that #695's own negative control refused.
-    expect(FOREIGN_KEY_SPACE_ID_REASONS.length).toBe(5);
+    expect(FOREIGN_KEY_SPACE_ID_REASONS.length).toBe(6);
     const excluded = ID_COLUMNS_WITHOUT_FOREIGN_KEY.filter((entry) =>
       FOREIGN_KEY_SPACE_ID_REASONS.some((reason) => entry.reason.startsWith(reason)),
     );

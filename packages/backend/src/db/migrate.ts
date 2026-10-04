@@ -73,46 +73,10 @@ import {
   readTargetDatabase,
   runMigrations,
   type MigrationRun,
-  type RequiredExtension,
 } from '@oxy.so/db/migrate';
 import { MIGRATIONS_FOLDER } from './migrationsFolder.js';
+import { REQUIRED_EXTENSIONS } from './requiredExtensions.js';
 import { log } from '../lib/logger.js';
-
-/**
- * The extensions Mercaria's schema depends on, ensured before any migration is
- * applied rather than inside a numbered one.
- *
- * A migration that names a `geography` column fails outright on a database
- * where PostGIS is absent, and only on a FRESH one — the shape that passes on a
- * warm developer machine and then fails in CI or on a newly provisioned RDS
- * database. Making it a precondition of the MIGRATOR means the ordering cannot
- * be got wrong by renumbering, squashing or regenerating the sequence.
- *
- * `IF NOT EXISTS` (which `ensureExtensions` uses) short-circuits BEFORE the
- * privilege check, so this is a no-op for the unprivileged application role on
- * an already-prepared database. It is NOT a fallback that installs PostGIS
- * where it is missing: a new target database still needs a privileged role to
- * run `CREATE EXTENSION` once. `mercaria` on the shared `oxy-postgres` instance
- * has already had that done.
- */
-const REQUIRED_EXTENSIONS: readonly RequiredExtension[] = [
-  {
-    name: 'postgis',
-    reason:
-      'Mercaria stores seller/store/pickup locations and answers "near me" ' +
-      'catalogue queries, which need a real geography type with a GiST index ' +
-      'rather than a bounding box dressed up as a distance.',
-  },
-  {
-    name: 'pg_trgm',
-    reason:
-      'The canonical graph (ADR 0002 D21) does typo-tolerant alias and ' +
-      'candidate-name lookup through trigram GIN indexes ' +
-      '(`gin_trgm_ops` on the normalized alias/name columns). Unlike PostGIS ' +
-      'this is a TRUSTED extension, so the application role can create it ' +
-      'itself — no privileged provisioning step.',
-  },
-];
 
 /** Whether `DRY_RUN` asks for a report instead of an apply. */
 function isDryRun(): boolean {

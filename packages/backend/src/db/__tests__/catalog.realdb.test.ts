@@ -134,8 +134,6 @@ async function makeListing(
       priceRangeMaxCurrency: null,
       hasInventory: false,
       variantCount: 0,
-      longitude: null,
-      latitude: null,
       vendor: null,
       productType: null,
       handle: null,
@@ -582,60 +580,7 @@ describe('keyset pagination', () => {
   });
 });
 
-describe('text and geo search', () => {
-  it('COMBINES a full-text term with a radius instead of letting geo win', async () => {
-    const storeId = await makeStore();
-    // Barcelona. The Sagrada Família and a point ~2 km away; Madrid is ~505 km off.
-    const nearbyBike = await makeListing(storeId, {
-      title: 'Vintage bicycle',
-      description: 'A restored road bicycle',
-      longitude: 2.1744,
-      latitude: 41.4036,
-    });
-    await makeListing(storeId, {
-      title: 'Vintage lamp',
-      description: 'A brass reading lamp',
-      longitude: 2.18,
-      latitude: 41.4,
-    });
-    await makeListing(storeId, {
-      title: 'Vintage bicycle',
-      description: 'A restored road bicycle',
-      longitude: -3.7038,
-      latitude: 40.4168,
-    });
-
-    const near = { lng: 2.1744, lat: 41.4036, radiusM: 5000 };
-
-    // Under Mongo this query was impossible: `$near` and `$text` cannot be
-    // combined, so `search.service` dropped the term and returned every listing
-    // in the radius — the lamp included.
-    const combined = await searchListingsPage({ text: 'bicycle', near, storeId }, 'newest', 1, 10);
-    expect(combined.rows.map((row) => row.id)).toEqual([nearbyBike]);
-    expect(combined.total).toBe(1);
-
-    // Non-vacuity: the same radius with a term nothing matches must return ZERO
-    // rows. A filter that silently ignored the text would return two here.
-    const noMatch = await searchListingsPage(
-      { text: 'submarine', near, storeId },
-      'newest',
-      1,
-      10,
-    );
-    expect(noMatch.rows).toEqual([]);
-    expect(noMatch.total).toBe(0);
-
-    // And the radius really is a filter: widened to cover Madrid, the far bike
-    // joins the result.
-    const wide = await searchListingsPage(
-      { text: 'bicycle', near: { ...near, radiusM: 600_000 }, storeId },
-      'newest',
-      1,
-      10,
-    );
-    expect(wide.total).toBe(2);
-  });
-
+describe('text search', () => {
   it('stems and case-folds a tag, exactly as it does the title and description', async () => {
     const storeId = await makeStore();
     const tagged = await makeListing(storeId, {

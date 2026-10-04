@@ -424,7 +424,6 @@ export type NewListing = Omit<
   | 'id'
   | 'createdAt'
   | 'updatedAt'
-  | 'geo'
   | 'searchVector'
   | 'publishedAt'
   | 'archivedBy'
@@ -1171,7 +1170,6 @@ export interface ListingSearchFilters {
    * no effect without `text`.
    */
   locale?: string;
-  near?: { lng: number; lat: number; radiusM: number };
   /**
    * Exclude every STORE-owned listing whose store is not `active` (#1017).
    *
@@ -1260,16 +1258,6 @@ function buildSearchWhere(filters: ListingSearchFilters): SQL | undefined {
         where ${qualified(stores.id)} = ${qualified(listings.storeId)}
           and ${qualified(stores.status)} = 'active'
       ))`,
-    );
-  }
-
-  if (filters.near) {
-    predicates.push(
-      sql`${listings.geo} is not null and st_dwithin(
-        ${listings.geo},
-        st_makepoint(${filters.near.lng}, ${filters.near.lat})::geography,
-        ${filters.near.radiusM}
-      )`,
     );
   }
 

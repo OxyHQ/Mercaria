@@ -43,6 +43,8 @@ import { orders } from '../../db/schema/orders.js';
 import { findStoreById } from '../../db/stores/storeRepository.js';
 import { deriveChannelReadiness } from '../channels/channel-readiness.js';
 import { locationCollectionBlockers } from '../pickup/eligibility.js';
+import { readPlaces } from '../goway/places.js';
+import { placeLinkGaps } from '../goway/place-facts.js';
 import { findApplicableSchedule } from '../fees/order-fees.service.js';
 import { isSellerPaymentReady } from '../payments/provider-account.service.js';
 import { hasGuestMessageTransport } from '../guest-portal/transport.js';
@@ -211,8 +213,23 @@ export async function readMerchantActivationFacts(
     .map(([method]) => method);
   const rollout = config.guest.checkoutRollout;
   const pickup = config.pickup;
+  // Each linked location's place, read through the cache, so the store-level
+  // question applies the same trust rule a shopper's read does (ADR 0013). A
+  // GoWay outage reads as `place_unavailable` — not collectable — which is the
+  // direction a readiness answer must fail in.
+  const places = await readPlaces(
+    pickupLocations.flatMap((location) => (location.goWayPlaceId === null ? [] : [location.goWayPlaceId])),
+  );
   const collectableLocationCount = pickupLocations.filter(
-    (location) => locationCollectionBlockers(location).length === 0,
+    (location) =>
+      locationCollectionBlockers({
+        ...location,
+        placeLinkGaps: placeLinkGaps({
+          locationId: location.locationId,
+          goWayPlaceId: location.goWayPlaceId,
+          lookup: location.goWayPlaceId === null ? null : (places.get(location.goWayPlaceId) ?? null),
+        }),
+      }).length === 0,
   ).length;
   const fulfilment: ActivationFulfilmentFacts = {
     shippingMethods: priceableMethods.filter((method) => method !== PICKUP_METHOD),

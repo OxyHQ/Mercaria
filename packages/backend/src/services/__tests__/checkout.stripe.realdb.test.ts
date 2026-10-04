@@ -191,6 +191,7 @@ let ledgerOrder: Pick<
 >;
 let orderSchema: typeof import('../../db/schema/orders.js');
 let catalogSchema: typeof import('../../db/schema/catalog.js');
+let useGoWayTransportForTests: typeof import('../goway/client.js').useGoWayTransportForTests;
 
 beforeAll(async () => {
   // Set BEFORE importing anything that reads config: `config/index.ts` reads
@@ -237,6 +238,7 @@ beforeAll(async () => {
   ledgerOrder = await import('../../db/payments/ledgerRepository.js');
   orderSchema = await import('../../db/schema/orders.js');
   catalogSchema = await import('../../db/schema/catalog.js');
+  ({ useGoWayTransportForTests } = await import('../goway/client.js'));
 }, 120_000);
 
 afterAll(async () => {
@@ -557,6 +559,37 @@ describe('checkout on the Stripe rail — single seller', () => {
       },
       methods: ['card', 'apple_pay', 'google_pay', 'link'],
     });
+  });
+
+  it('delivers while GoWay is DOWN: only a collection depends on where a shop is (ADR 0013)', async () => {
+    // GoWay answering nothing but 503s, and counting what is asked of it.
+    const asked: string[] = [];
+    useGoWayTransportForTests({
+      apiBaseUrl: 'https://goway.test',
+      fetch: async (url) => {
+        asked.push(url);
+        const body = JSON.stringify({ error: { code: 'service_unavailable', message: 'down' } });
+        return { status: 503, headers: { get: () => 'application/json' }, text: async () => body };
+      },
+    });
+    try {
+      const seller = await seedSeller({ label: 'goway-down', priceMinor: 4_500, currency: 'EUR' });
+      const buyer = await seedBuyer({
+        label: 'goway-down',
+        currency: 'EUR',
+        lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
+      });
+      const result = await checkout(
+        { kind: 'oxy', oxyUserId: buyer.buyerId },
+        { addressId: buyer.addressId },
+        `key-${RUN}-goway-down`,
+      );
+      expect(result.orders).toHaveLength(1);
+      // Not merely tolerated: a delivery checkout never asks GoWay at all.
+      expect(asked).toEqual([]);
+    } finally {
+      useGoWayTransportForTests(null);
+    }
   });
 
   it('pays the order, books a balanced ledger and settles the seller', async () => {

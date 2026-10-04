@@ -173,9 +173,6 @@ export async function publishSellerDraft(
       tx,
       oxyUserId,
       listingInput,
-      draft.locationOptIn && draft.locationLongitude !== null && draft.locationLatitude !== null
-        ? { longitude: draft.locationLongitude, latitude: draft.locationLatitude }
-        : null,
       new Date(),
     );
 

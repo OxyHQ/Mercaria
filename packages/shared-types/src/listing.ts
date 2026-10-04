@@ -543,8 +543,6 @@ export interface ListingQuery {
   productType?: string;
   /** Restrict to listings in a single collection. */
   collectionId?: string;
-  /** Geo radius filter (P2P proximity browse). */
-  near?: { lng: number; lat: number; radiusM: number };
   /** Restrict to listings with available stock. */
   inStock?: boolean;
   /** Opaque cursor for the infinite `newest` browse path. */

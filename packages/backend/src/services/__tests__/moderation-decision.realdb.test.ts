@@ -240,8 +240,6 @@ async function seedListing(status: ListingStatus): Promise<string> {
       priceRangeMaxCurrency: 'FAIR',
       hasInventory: true,
       variantCount: 1,
-      longitude: null,
-      latitude: null,
       vendor: null,
       productType: null,
       handle: null,

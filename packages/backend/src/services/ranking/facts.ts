@@ -43,8 +43,10 @@ import { findCurrentRelationships } from '../../db/commerce-graph/relationshipRe
 import { findAggregatesForTargets } from '../../db/reviews/reviewAggregateRepository.js';
 import { convertOfferMoney, composeComparisonTotal } from './money.js';
 import { resolveOfferTaxInclusion, resolvePickupProximity } from './seams.js';
-import { findNearestPickupDistanceByVariant } from '../../db/pickup/nearbyRepository.js';
+import { log } from '../../lib/logger.js';
+import { findNearestCollectionByVariant } from '../pickup/nearby.service.js';
 import { MAX_NEARBY_RADIUS_METRES } from '../pickup/geo.js';
+import { GoWayUnavailableError } from '../goway/places.js';
 
 /**
  * Statuses that WITHDRAW a merchant or storefront from comparison (rule 10).
@@ -179,10 +181,12 @@ export async function buildRankingFactContext(input: {
     }
   }
 
-  // #93's collection points, in ONE statement for the whole page. Only NATIVE
-  // offers can have one — an external offer names no Mercaria variant, so there
-  // is no shelf to measure to — and a viewer who shared no location skips the
-  // read entirely rather than spending it to build an empty map.
+  // #93's collection points, in ONE GoWay walk and ONE statement for the whole
+  // page. Only NATIVE offers can have one — an external offer names no Mercaria
+  // variant, so there is no shelf to measure to — and a viewer who shared no
+  // location skips the read entirely rather than spending it to build an empty
+  // map. GoWay unable to say where the shelves are leaves the map EMPTY: the
+  // label is an enrichment, and a comparison page must not fail over it.
   const pickupDistancesByOfferId = new Map<string, number>();
   if (input.viewerLatitude !== undefined && input.viewerLongitude !== undefined) {
     const variantByOffer = new Map<string, string>();
@@ -190,7 +194,7 @@ export async function buildRankingFactContext(input: {
       if (offer.productVariantId) variantByOffer.set(offer.id, offer.productVariantId);
     }
     if (variantByOffer.size > 0) {
-      const byVariant = await findNearestPickupDistanceByVariant(
+      const byVariant = await findNearestCollectionByVariant(
         {
           variantIds: [...new Set(variantByOffer.values())],
           latitude: input.viewerLatitude,
@@ -198,7 +202,11 @@ export async function buildRankingFactContext(input: {
           radiusMetres: MAX_NEARBY_RADIUS_METRES,
         },
         db,
-      );
+      ).catch((error: unknown) => {
+        if (!(error instanceof GoWayUnavailableError)) throw error;
+        log.general.warn('[Ranking] GoWay did not answer; no nearest-collection label this page');
+        return new Map<string, number>();
+      });
       for (const [offerId, variantId] of variantByOffer) {
         const metres = byVariant.get(variantId);
         if (metres !== undefined) pickupDistancesByOfferId.set(offerId, metres);

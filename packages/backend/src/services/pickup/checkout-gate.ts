@@ -25,6 +25,14 @@
  * that shop's shelf is refused, naming the seller — because the alternative is
  * a buyer told to collect a parcel that is half short.
  *
+ * ## The snapshot is read from GoWay, and GoWay down fails PICKUP closed
+ *
+ * Where the collection point is — its name, address and timezone — is the GoWay
+ * place's (ADR 0013), read once here and frozen onto the order. A last-good
+ * copy of the place stands in while GoWay cannot answer; with none, the
+ * collection is refused with a `503` that says so, before any stock moves.
+ * Only collection: a delivery checkout never reaches this module.
+ *
  * ## What this does NOT do
  *
  * It reserves nothing, commits nothing and touches no inventory. The
@@ -39,18 +47,16 @@
 import type { PickupIdentityRequirement, PickupPaymentRequirement } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
+import { serviceUnavailable } from '../../lib/errors/error-codes.js';
 import { checkoutRefusal } from '../checkout/refusal.js';
 import type { CommerceActor } from '../commerce-actor.js';
 import { findPickupCandidate } from '../../db/pickup/nearbyRepository.js';
-import {
-  findPublicationByLocationId,
-  listActiveClosures,
-  listOpeningHours,
-} from '../../db/pickup/locationPublicationRepository.js';
+import { findPublicationByLocationId } from '../../db/pickup/locationPublicationRepository.js';
+import { readPlace } from '../goway/places.js';
+import { pickupAddressOf, placeLinkGaps, type PlaceLookup } from '../goway/place-facts.js';
 import { hasGuestMessageTransport } from '../guest-portal/transport.js';
 import { collectionCodesAvailable } from './collection-code.js';
 import { derivePickupEligibility } from './eligibility.js';
-import type { LocationSchedule } from './hours.js';
 
 /** One line of the checkout, as the gate needs to see it. */
 export interface PickupCheckoutLine {
@@ -63,13 +69,15 @@ export interface PickupCheckoutLine {
 /**
  * The snapshot a pickup order carries, resolved once for the whole checkout.
  *
- * Every field comes from the PUBLICATION. Nothing here is read off
+ * The place half comes from the GoWay PLACE the location trades from, the
+ * commerce half from the publication. Nothing here is read off
  * `locations.address`, which is the operational address a pallet is delivered
  * to and which a merchant may deliberately not have published.
  */
 export interface ResolvedPickup {
   readonly locationId: string;
   readonly publicationId: string;
+  readonly goWayPlaceId: string;
   readonly storeId: string;
   readonly displayName: string;
   readonly publicLine1: string | null;
@@ -135,8 +143,10 @@ export async function resolvePickupForCheckout(input: {
   const publication = await findPublicationByLocationId(locationId);
   if (!publication) throw refuse(sellerKeys, ['location_not_published']);
 
-  const schedule = await loadSchedule(publication.id, publication.timezone, input.at);
   const blocked = new Set<string>();
+  // The place is read ONCE too, for the same reason, and only after the first
+  // candidate names it: a location with no place link costs no GoWay call.
+  let place: { goWayPlaceId: string | null; lookup: PlaceLookup | null } | null = null;
 
   for (const line of input.lines) {
     const candidate = await findPickupCandidate({ locationId, variantId: line.variantId });
@@ -144,6 +154,11 @@ export async function resolvePickupForCheckout(input: {
       blocked.add('location_not_published');
       continue;
     }
+    place ??= {
+      goWayPlaceId: candidate.goWayPlaceId,
+      lookup: candidate.goWayPlaceId === null ? null : await readPlace(candidate.goWayPlaceId),
+    };
+    if (place.lookup?.kind === 'unavailable') throw placeUnconfirmable(sellerKeys);
 
     // The unit count the LINE needs, not merely "some stock": a cart asking for
     // three when the shelf holds one is not collectable, and admitting it would
@@ -159,10 +174,10 @@ export async function resolvePickupForCheckout(input: {
         pickupOffered: candidate.pickupOffered,
         pickupPaused: candidate.pickupPaused,
         restricted: candidate.restricted,
-        geocoded: candidate.geocoded,
+        placeLinkGaps: placeLinkGaps({ locationId, goWayPlaceId: place.goWayPlaceId, lookup: place.lookup }),
         locationActive: candidate.locationActive,
         storeActive: candidate.storeActive,
-        schedule,
+        ...(place.lookup?.kind === 'found' ? { opening: place.lookup.place.opening } : {}),
       },
       inventory: {
         listingActive: candidate.listingActive,
@@ -197,49 +212,47 @@ export async function resolvePickupForCheckout(input: {
 
   if (blocked.size > 0) throw refuse(sellerKeys, [...blocked].sort());
 
+  // Every line passed the trust rule, which refuses a place with no country or
+  // zone — so both exist here. Restated as a refusal rather than asserted, so a
+  // relaxed rule could never freeze a guessed address onto an order.
+  const facts = place?.lookup?.kind === 'found' ? place.lookup.place : null;
+  const address = facts === null ? null : pickupAddressOf(facts);
+  if (facts === null || address === null || facts.timezone === undefined) {
+    throw refuse(sellerKeys, ['place_incomplete']);
+  }
+
   return {
     locationId,
     publicationId: publication.id,
+    goWayPlaceId: facts.id,
     storeId: publication.storeId,
-    displayName: publication.displayName,
-    publicLine1: publication.publicLine1,
-    publicLine2: publication.publicLine2,
-    publicCity: publication.publicCity,
-    publicRegion: publication.publicRegion,
-    publicPostalCode: publication.publicPostalCode,
-    publicCountry: publication.publicCountry,
-    timezone: publication.timezone,
+    // The place's DEFAULT name — what is written on the shopfront — rather than
+    // the buyer's translation: it is what they will look for at the door.
+    displayName: facts.name,
+    publicLine1: address.line1 ?? null,
+    publicLine2: address.line2 ?? null,
+    publicCity: address.city ?? null,
+    publicRegion: address.region ?? null,
+    publicPostalCode: address.postalCode ?? null,
+    publicCountry: address.country,
+    timezone: facts.timezone,
     pickupInstructions: publication.pickupInstructions,
     identityRequirement: publication.identityRequirement,
     paymentRequirement: publication.paymentRequirement,
   };
 }
 
-/** The publication's own schedule, for the hours half of the derivation. */
-async function loadSchedule(
-  publicationId: string,
-  timezone: string,
-  at: Date,
-): Promise<LocationSchedule> {
-  const today = at.toISOString().slice(0, 10);
-  const [hours, closures] = await Promise.all([
-    listOpeningHours([publicationId]),
-    listActiveClosures([publicationId], today),
-  ]);
-  return {
-    timezone,
-    hours: hours.map((hour) => ({
-      weekday: hour.weekday,
-      opensMinute: hour.opensMinute,
-      closesMinute: hour.closesMinute,
-    })),
-    closures: closures.map((closure) => ({
-      id: closure.id,
-      fromDate: closure.fromDate,
-      throughDate: closure.throughDate,
-      ...(closure.note === null ? {} : { note: closure.note }),
-    })),
-  };
+/**
+ * GoWay cannot say where the collection point is, and nothing recent is
+ * cached: refuse THIS collection, clearly and retryably, before any stock
+ * moves. A delivery checkout never reaches this function, so it is unaffected.
+ */
+function placeUnconfirmable(sellerKeys: readonly string[]): Error {
+  log.general.warn({ sellerKeys }, '[Pickup] checkout could not read the collection point from GoWay');
+  return serviceUnavailable(
+    'Collection in person cannot be confirmed right now, because the shop\'s location details are ' +
+      'unavailable. Try again in a minute, or choose delivery.',
+  );
 }
 
 /**

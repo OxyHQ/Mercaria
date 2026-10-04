@@ -77,8 +77,6 @@ async function makeListing(storeId: string, overriddenFields: string[]): Promise
       priceRangeMaxCurrency: null,
       hasInventory: false,
       variantCount: 0,
-      longitude: null,
-      latitude: null,
       vendor: null,
       productType: null,
       handle: null,

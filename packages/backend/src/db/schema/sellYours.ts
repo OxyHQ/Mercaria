@@ -142,19 +142,6 @@ export const sellerListingDrafts = pgTable(
       .notNull()
       .default('not_offered'),
 
-    /**
-     * The coarse public location, and it is stored ALREADY COARSENED.
-     *
-     * `coarsenSellerCoordinate` runs at the write boundary, so the precise
-     * coordinate a device reported never reaches a column. Rounding at read time
-     * instead would leave the exact position in the database, in backups and in
-     * every operator query — a privacy property that depends on every reader
-     * remembering is not a privacy property.
-     */
-    locationOptIn: boolean().notNull().default(false),
-    locationLongitude: doublePrecision(),
-    locationLatitude: doublePrecision(),
-
     // ── The publication ────────────────────────────────────────────────────────
     /**
      * `set null`: a seller who deletes the published listing must not be blocked
@@ -221,16 +208,6 @@ export const sellerListingDrafts = pgTable(
     check(
       'seller_listing_drafts_price_paired_check',
       sql`(${t.priceAmount} is null) = (${t.priceCurrency} is null)`,
-    ),
-    // The `listings_coordinates_check` rule: a point is whole or absent.
-    check(
-      'seller_listing_drafts_coordinates_check',
-      sql`(${t.locationLongitude} is null) = (${t.locationLatitude} is null)`,
-    ),
-    // Coordinates without the opt-in are coordinates nobody agreed to publish.
-    check(
-      'seller_listing_drafts_location_opt_in_check',
-      sql`${t.locationOptIn} or (${t.locationLongitude} is null and ${t.locationLatitude} is null)`,
     ),
     /**
      * `published_at` is the durable publication fact, not the id.

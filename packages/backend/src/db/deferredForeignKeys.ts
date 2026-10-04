@@ -80,6 +80,15 @@ export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [
 /** Oxy owns identity; there is no `users` table and there must never be one. */
 const OXY_ACCOUNT = 'An Oxy account id. Oxy owns identity over HTTP; there is no users table.';
 
+/**
+ * A GoWay place id (ADR 0013). GoWay owns place identity — and every fact
+ * about the place — over HTTP; Mercaria keeps the opaque reference and reads
+ * the facts through `services/goway`.
+ */
+const GOWAY_PLACE =
+  'A GoWay place id. GoWay owns place identity and every place fact over HTTP (ADR 0013); ' +
+  'Mercaria stores only the opaque reference.';
+
 /** An Oxy media file id, resolved through the SDK's canonical media chokepoint. */
 const OXY_FILE = 'An Oxy media file id. Oxy owns the file; Mercaria stores only the id.';
 
@@ -248,6 +257,7 @@ export const MERCARIA_ROW_ID_REASONS: readonly string[] = [
 export const FOREIGN_KEY_SPACE_ID_REASONS: readonly string[] = [
   OXY_ACCOUNT,
   OXY_FILE,
+  GOWAY_PLACE,
   EXTERNAL_PLATFORM,
   PROVIDER_OBJECT,
   SUPPLIER_PLATFORM,
@@ -397,6 +407,12 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'listing_images.file_id', reason: OXY_FILE },
   { column: 'stores.cover_file_id', reason: OXY_FILE },
   { column: 'stores.logo_file_id', reason: OXY_FILE },
+
+  // ── GoWay place ids (ADR 0013) ────────────────────────────────────────────
+  { column: 'locations.go_way_place_id', reason: GOWAY_PLACE },
+  { column: 'location_publication_events.previous_go_way_place_id', reason: GOWAY_PLACE },
+  { column: 'location_publication_events.next_go_way_place_id', reason: GOWAY_PLACE },
+  { column: 'order_pickups.go_way_place_id', reason: GOWAY_PLACE },
 
   // ── External commerce-platform ids ────────────────────────────────────────
   // #66: Awin's own publisher, advertiser and feed ids. A foreign system's key

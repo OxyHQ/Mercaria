@@ -32,10 +32,10 @@ const router = Router();
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 
-/** GET — the four consistency probes, each a count plus a bounded sample. */
+/** GET — the three consistency probes, each a count plus a bounded sample. */
 router.get('/consistency', pickupConsistencyHandler);
 
-/** GET — one location's publication and geocoding trail, append-only. */
+/** GET — one location's publication and place-link trail, append-only. */
 router.get('/publications/:id/events', validateId('id'), publicationEventsHandler);
 
 /** POST — raise or lift an operator restriction. The only write here. */

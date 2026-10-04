@@ -18,7 +18,6 @@
 import { z } from 'zod';
 import {
   ITEM_CONDITION_KEYS,
-  LOCATION_GEOCODE_PROVENANCES,
   LOCATION_INVENTORY_SOURCES,
   LOCATION_PUBLICATION_STATES,
   PICKUP_IDENTITY_REQUIREMENTS,
@@ -31,8 +30,9 @@ import {
 
 const latitude = z.coerce.number().min(-90).max(90);
 const longitude = z.coerce.number().min(-180).max(180);
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
 const country = z.string().trim().length(2).toUpperCase();
+/** A BCP 47 tag, passed through to GoWay for a place's localized name. */
+const locale = z.string().trim().regex(/^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*$/, 'Use a BCP 47 tag');
 
 /** A comma-separated list narrowed to a closed set, dropping nothing silently. */
 function commaList<T extends string>(values: readonly T[]) {
@@ -65,8 +65,17 @@ export const nearbyQuerySchema = z
     conditionKeys: commaList(ITEM_CONDITION_KEYS).optional(),
     /** #93 nearby rule 12 — the actor-specific half, asked for separately. */
     withCheckoutEligibility: z.enum(['true', 'false']).optional(),
+    locale: locale.optional(),
     limit: z.coerce.number().int().min(1).max(50).optional(),
-    cursor: z.string().trim().min(1).max(256).optional(),
+    // GoWay's own opaque page cursor, passed through: base64url, at most the
+    // 512 characters GoWay mints.
+    cursor: z
+      .string()
+      .trim()
+      .min(1)
+      .max(512)
+      .regex(/^[A-Za-z0-9_-]+$/, 'Use the cursor the previous page returned')
+      .optional(),
   })
   .strict()
   .refine(
@@ -78,14 +87,15 @@ export const nearbyQuerySchema = z
     },
   );
 
-/** `GET /nearby/places` — the manual-location fallback. */
+/** `GET /nearby/places` — the manual-location fallback: a town the shopper types. */
 export const nearbyPlacesQuerySchema = z
   .object({
     canonicalVariantId: z.string().trim().min(1).optional(),
     canonicalProductId: z.string().trim().min(1).optional(),
     q: z.string().trim().min(1).max(80).optional(),
     country: country.optional(),
-    limit: z.coerce.number().int().min(1).max(25).optional(),
+    locale: locale.optional(),
+    limit: z.coerce.number().int().min(1).max(5).optional(),
   })
   .strict()
   .refine(
@@ -107,37 +117,16 @@ export const nearbyP2pQuerySchema = z
   })
   .strict();
 
-/** One opening interval, in minutes from local midnight. */
-const openingHourSchema = z
-  .object({
-    weekday: z.number().int().min(0).max(6),
-    opensMinute: z.number().int().min(0).max(1439),
-    closesMinute: z.number().int().min(1).max(1440),
-  })
-  .strict();
-
-/** `PUT /admin/stores/:storeId/locations/:id/publication`. */
+/**
+ * `PUT /admin/stores/:storeId/locations/:id/publication`.
+ *
+ * The GoWay place and Mercaria's commerce fields, and nothing else: where the
+ * shop is — its name, address, hours, contact, accessibility — is edited on the
+ * place in GoWay (ADR 0013), and `.strict()` refuses a body that still sends it.
+ */
 export const upsertLocationPublicationSchema = z
   .object({
-    displayName: z.string().trim().min(1).max(120),
-    address: z
-      .object({
-        line1: z.string().trim().max(200).optional(),
-        line2: z.string().trim().max(200).optional(),
-        city: z.string().trim().max(120).optional(),
-        region: z.string().trim().max(120).optional(),
-        postalCode: z.string().trim().max(32).optional(),
-        country,
-      })
-      .strict(),
-    timezone: z.string().trim().min(1).max(64),
-    // `nullable` and `optional` mean DIFFERENT things here and both are
-    // reachable: absent leaves the pin where it is, `null` clears it. A
-    // merchant editing their hours on a phone must not have to re-drop a pin,
-    // and a client with no map must not be able to erase one silently.
-    latitude: latitude.nullable().optional(),
-    longitude: longitude.nullable().optional(),
-    geocodeProvenance: z.enum(asEnumValues(LOCATION_GEOCODE_PROVENANCES)).optional(),
+    goWayPlaceId: z.string().trim().min(1).max(128),
     pickupOffered: z.boolean(),
     pickupInstructions: z.string().trim().max(1000).optional(),
     identityRequirement: z
@@ -153,23 +142,6 @@ export const upsertLocationPublicationSchema = z
       .max(MAX_STOCK_CONFIRMATION_INTERVAL_SECONDS),
     disclosesExactStock: z.boolean().optional(),
     lowStockThreshold: z.number().int().min(0).max(1000).optional(),
-    accessibility: z
-      .object({
-        stepFreeAccess: z.boolean().optional(),
-        accessibleToilet: z.boolean().optional(),
-        parkingOnSite: z.boolean().optional(),
-        hearingLoop: z.boolean().optional(),
-      })
-      .strict()
-      .optional(),
-    contact: z
-      .object({
-        phone: z.string().trim().max(40).optional(),
-        url: z.string().trim().url().max(300).optional(),
-      })
-      .strict()
-      .optional(),
-    hours: z.array(openingHourSchema).max(50).optional(),
   })
   .strict();
 
@@ -181,11 +153,6 @@ export const setPublicationStateSchema = z
 /** `POST …/publication/pickup-pause`. */
 export const setPickupPauseSchema = z
   .object({ paused: z.boolean(), reason: z.string().trim().max(300).optional() })
-  .strict();
-
-/** `POST …/publication/closures`. */
-export const createClosureSchema = z
-  .object({ fromDate: isoDate, throughDate: isoDate, note: z.string().trim().max(200).optional() })
   .strict();
 
 /** `POST /admin/stores/:storeId/orders/:id/pickup/ready`. */
