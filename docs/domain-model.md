@@ -55,9 +55,11 @@ One unified API (`packages/backend`) serves storefront, dashboard and POS.
 then taxes, then shipping, then grand total, with exact half-even reconciliation.
 
 **Store permissions:** 18 perms (`STORE_PERMISSIONS` in
-`db/schema/stores.ts`, includes `channels:write` and `analytics:read`). Role
-matrix: `owner` gets 18/18, `admin` gets 17/18 (no `store:manage`), `staff` gets
-9/18 operational.
+`@mercaria/shared-types`, includes `channels:write` and `analytics:read`). A
+store is owned by an Oxy account and the caller's Oxy role maps through
+`STORE_ROLE_PERMISSIONS`: `owner` 18/18, `admin` 17/18 (no `store:manage`),
+`editor` 12 (catalogue + shop floor), `developer`, `billing` and `viewer` fewer;
+per-person overrides adjust it (ADR 0012, [stores.md](stores.md)).
 **`store:manage` is the one permission an `admin` does not hold**, which is why
 the payment-onboarding routes use it rather than `settings:write`. Every buyer
 id, seller id and `oxy_user_id` is a foreign SERVICE's primary key (Oxy owns

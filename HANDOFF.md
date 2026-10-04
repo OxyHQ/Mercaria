@@ -487,3 +487,27 @@ money has been spent.
 order line, each inheriting the same `max_accepted_cost`. It is a constant rather
 than a policy row because nothing yet has an opinion about it; the moment a second
 real supplier exists it should become one.
+
+# Store ownership is an Oxy account (ADR 0012) — deploy and deferred work
+
+**Before the deploy that carries `0158`/`0159`:** run the three queries in
+[`docs/stores.md`](docs/stores.md) ("Deploying `0158`/`0159`") against
+production and keep the export. `0159` drops `store_members`; every member but
+each store's earliest owner loses access until that owner converts the store to
+an organization, and after `0159` nothing in Mercaria remembers who they were.
+A store with no `owner` member makes `0159` refuse to apply — fix those first.
+
+**Deferred, each waiting on something outside this repository:**
+
+- **A service-token membership read in Oxy.** Until one exists, a surface with
+  no caller session (attribution jobs, MCP capabilities, notifications) can only
+  see the owning account and override holders. Self-referral leaves the rest NOT
+  ESTABLISHED; MCP store tools are owner-account only.
+- **The operator on a capability ticket.** An editor operating an organization
+  through an agent gets the organization's full store authority on MCP, because
+  the ticket names only the effective account.
+- **Organization inboxes.** Store notifications now go to the owning account;
+  whether Oxy fans an organization's notifications out to its members is Oxy's.
+- **`store_member_invited`** stays in `notifications_type_check` for the rows
+  that carry it; nothing writes it any more. Narrowing it is a separate
+  migration.

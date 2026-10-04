@@ -109,14 +109,16 @@ Two independent layers:
    review is refused whatever scope it claims — including `product`, which has
    no owner of its own. This is the layer that cannot be routed around by
    choosing a different target.
-2. **Ownership of the target.** A P2P seller reviewing themselves, a store
-   member reviewing their own listing, a merchant's verified claimant or its
-   linked store's staff reviewing the merchant. `store_members` is the "related
-   accounts" signal Mercaria has.
+2. **Ownership of the target.** A P2P seller reviewing themselves, somebody who
+   can act for the store reviewing its listing, a merchant's verified claimant
+   or anybody who can act for its linked store reviewing the merchant. A role on
+   the store's owning Oxy account, asked with the author's own session (ADR
+   0012), is the "related accounts" signal Mercaria has; an Oxy outage refuses
+   the review with a 503 rather than letting it through unchecked.
 
 What is NOT detectable, stated rather than implied: a seller buying their own
 product from a different seller, a friend, a second personal Oxy account with no
-store membership, an agency reviewing a client. Distinguishing those would mean
+role on the store, an agency reviewing a client. Distinguishing those would mean
 reading the buyer-contact and payment data this domain spends its whole design
 keeping out. Out of scope, deliberately.
 

@@ -600,7 +600,7 @@ connector. That is why #420 is a gate
   somebody else's data.
 - **The notice says which POLICY state it is in, and `unknown` is one of
   three.** A pin only bites while `conflictPolicy` is `respect_overrides`, and
-  the channel routes are behind `channels:write` — so a `staff` member reading a
+  the channel routes are behind `channels:write` — so an `editor` reading a
   product genuinely cannot be told. Asserting "later syncs will not overwrite
   these" under `connector_wins`, or under no knowledge at all, would generate
   the same false bug report in the opposite direction.
@@ -619,7 +619,7 @@ connector. That is why #420 is a gate
 `POST /admin/stores/:storeId/products/:id/pins/release` with `{fields: [...]}`,
 behind **`products:write`** — the permission an ordinary edit already needs, and
 therefore the one that CREATES a pin. Gating the way out more tightly than the
-way in would let `staff` accumulate pins only an admin could clear, and the act
+way in would let an `editor` accumulate pins only an admin could clear, and the act
 is strictly less destructive than the edit itself: releasing a title lets the
 platform overwrite it eventually, where `products:write` already lets that
 member overwrite it now. `channels:write` gates the connection-wide switch,
@@ -679,7 +679,7 @@ decisions that bind the store commercially.
 `channels:write` on every route, which is #63's reasoning: a feed is a sales
 channel's inventory arriving by file, and the permission that gates connecting a
 Shopify shop should gate every other way of supplying a catalogue. It is denied
-to `staff` by the role matrix, which is correct — deciding where a store's
+to `editor` by the role map, which is correct — deciding where a store's
 products come from is not a shop-floor act.
 
 | Route | What it does |
