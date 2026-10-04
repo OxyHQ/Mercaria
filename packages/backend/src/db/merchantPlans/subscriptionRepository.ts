@@ -20,7 +20,7 @@
  * still propagates instead of being read as a duplicate.
  */
 
-import { and, asc, desc, eq, isNotNull, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, lte, sql } from 'drizzle-orm';
 import type {
   BillingInterval,
   BillingProviderId,
@@ -415,7 +415,8 @@ export async function listSubscriptionsPastGrace(
 }
 
 /**
- * Subscriptions the reconciliation sweep should re-read, oldest touched first.
+ * Subscriptions the reconciliation sweep should re-read, in stable ID order.
+ * The registered provider namespace and optional cohort are selected BEFORE LIMIT.
  *
  * Every state except `expired` is included: a cancelled-but-not-yet-ended
  * subscription still has a period running, and a paused one can be resumed at
@@ -423,7 +424,13 @@ export async function listSubscriptionsPastGrace(
  */
 export async function listReconcilableSubscriptions(
   db: DatabaseOrTransaction,
-  input: { limit: number; afterId?: string },
+  input: {
+    limit: number;
+    afterId?: string;
+    provider: BillingProviderId;
+    livemode: boolean;
+    storeIds?: readonly string[];
+  },
 ): Promise<MerchantSubscriptionRow[]> {
   return await db
     .select()
@@ -431,6 +438,9 @@ export async function listReconcilableSubscriptions(
     .where(
       and(
         sql`${merchantSubscriptions.status} <> 'expired'`,
+        eq(merchantSubscriptions.provider, input.provider),
+        eq(merchantSubscriptions.livemode, input.livemode),
+        ...(input.storeIds ? [inArray(merchantSubscriptions.storeId, [...input.storeIds])] : []),
         ...(input.afterId ? [sql`${merchantSubscriptions.id} > ${input.afterId}`] : []),
       ),
     )

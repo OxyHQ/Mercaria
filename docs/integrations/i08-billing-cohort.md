@@ -2,7 +2,7 @@
 
 Nate's authorization in OxyHQ/oxy#1519 and Peable#87 covers the five existing
 BillingProvider methods for an exact Mercaria cohort, preserving its existing
-Stripe platform account/mode and flow/MoR. Peable#92 supplies that contract; published @peable.to/sdk0.2.0 and transitive
+Stripe platform account/mode and flow/MoR. Peable#92 supplies that contract; published @peable.to/sdk0.2.2 and transitive
 shared-types0.3.0 are installed from npm with integrity in bun.lock.
 The store is the stable billing subject. Merchant/application ownership is not
 evidence of an Oxy payer identity; no optional invented payer field is added.
@@ -75,7 +75,7 @@ ends that tab's intent scope; cross-device/tab resume is not claimed.
 ## Activation and rollback gates
 
 1. Compatible Peable backend and migration deployed; cohort remains absent by
-   default. Publish shared-types0.3.0 then SDK0.2.0 with fresh build+pack+publish.
+   default. Publish shared-types0.3.0 then SDK0.2.2 with fresh build+pack+publish.
 2. Install the published SDK in Mercaria, regenerate lockfile, and repeat the
    consumer's SQL/HTTP, type and package checks. Local candidate overrides are
    development evidence only and must not ship.
@@ -104,3 +104,38 @@ Registration tests exercise account/mode/namespace rejection without network.
 The real createApp CORS preflight admits Idempotency-Key only through the existing
 approved-origin policy; missing-header RED and corrected GREEN are retained.
 Dashboard tests exercise persistence/coalescing and failure retention.
+
+
+## Merchant action availability and reconciliation
+
+`MERCHANT_BILLING_ENABLED` controls checkout, Portal and period-end cancellation.
+It defaults to false. Platform webhook handling, scoped automatic event recovery,
+subscription reads, invoice posting and reconciliation remain independent of it.
+With general Stripe disabled, both the status projection and all three actions
+require the registered store allowlist. `STRIPE_ENABLED` and `PEABLE_ENABLED`
+control marketplace rails; enabling recurring merchant actions does not enable
+marketplace checkout, Connect onboarding, transfers or referral payouts.
+
+For the existing two-store cohort, the prospective configuration change is
+`MERCHANT_BILLING_ENABLED=true` and
+`MERCHANT_BILLING_RETURN_URL=https://dashboard.mercaria.co/settings/plan`.
+Keep the existing cohort, Peable credential references, Stripe platform account,
+mode and restricted Portal configuration. The return origin and actual serving
+configuration require operator readback before activation. This document does
+not activate that configuration or authorize a purchase. No new secret,
+credential, user grant, merchant, product or price is required to change these
+flags. Checkout still requires an existing active paid plan, its exact provider
+price and terms; Portal needs an existing customer, cancellation an existing
+subscription. An empty catalogue does not become a paid offer by enabling actions.
+The authenticated store owner still needs `store:manage`; service scopes do not
+replace that permission or the caller's stable Idempotency-Key.
+
+Reconciliation selects the registered provider/mode before the SQL page limit.
+When general Stripe is off, it also selects the registered cohort before that
+limit and reads nothing until registration succeeds. The timer advances a stable
+ID cursor after each bounded page, including failed reads, and wraps at the end.
+Its independent local grace-audit cursor visits later rows even when earlier
+ones have already been announced. Local grace audit does not depend on a
+registered rail; entitlement deadlines continue to resolve directly from SQL.
+The default interval remains six hours and the page size fifty; this is bounded
+periodic coverage, not a claim of a five-second recovery SLA.

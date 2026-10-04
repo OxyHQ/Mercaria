@@ -50,7 +50,7 @@ import { and, eq } from 'drizzle-orm';
 import { merchantSubscriptions, merchantSubscriptionEvents } from '../../db/schema/merchantPlans.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
-import { merchantBillingAvailableForStore } from './cohort-access.js';
+import { merchantBillingAvailableForStore, registeredBillingCohort } from './cohort-access.js';
 import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import {
@@ -569,12 +569,15 @@ export async function recordSubscriptionInvoicePaid(input: {
 export async function announceExpiredGracePeriods(input?: {
   at?: Date;
   limit?: number;
-}): Promise<{ announced: number }> {
+  afterId?: string;
+}): Promise<{ announced: number; nextAfterId: string | null }> {
   const at = input?.at ?? new Date();
   const db = getDb();
+  const limit = input?.limit ?? config.merchantBilling.reconciliationBatchSize;
   const due = await listSubscriptionsPastGrace(db, {
     at,
-    limit: input?.limit ?? config.merchantBilling.reconciliationBatchSize,
+    limit,
+    afterId: input?.afterId,
   });
 
   let announced = 0;
@@ -596,7 +599,8 @@ export async function announceExpiredGracePeriods(input?: {
     invalidateMerchantEntitlements(subscription.storeId);
     announced += 1;
   }
-  return { announced };
+  const nextAfterId = due.length === limit ? due.at(-1)?.id ?? null : null;
+  return { announced, nextAfterId };
 }
 
 /**
@@ -610,12 +614,21 @@ export async function announceExpiredGracePeriods(input?: {
  */
 export async function reconcileMerchantSubscriptions(input?: {
   limit?: number;
-}): Promise<{ examined: number; applied: number; failed: number }> {
+  afterId?: string;
+}): Promise<{ examined: number; applied: number; failed: number; nextAfterId: string | null }> {
   const provider = getBillingProvider('stripe');
-  if (!provider) return { examined: 0, applied: 0, failed: 0 };
+  const empty = { examined: 0, applied: 0, failed: 0, nextAfterId: null };
+  if (!provider) return empty;
+  const cohort = config.payments.stripe.enabled ? undefined : registeredBillingCohort();
+  if (!config.payments.stripe.enabled && !cohort) return empty;
 
+  const limit = input?.limit ?? config.merchantBilling.reconciliationBatchSize;
   const page = await listReconcilableSubscriptions(getDb(), {
-    limit: input?.limit ?? config.merchantBilling.reconciliationBatchSize,
+    limit,
+    afterId: input?.afterId,
+    provider: provider.id,
+    livemode: provider.livemode,
+    ...(cohort ? { storeIds: cohort.storeIds } : {}),
   });
 
   let applied = 0;
@@ -637,5 +650,7 @@ export async function reconcileMerchantSubscriptions(input?: {
       );
     }
   }
-  return { examined: page.length, applied, failed };
+  // Advance past failed reads too; a partial/empty page wraps on the next pass.
+  const nextAfterId = page.length === limit ? page.at(-1)?.id ?? null : null;
+  return { examined: page.length, applied, failed, nextAfterId };
 }
