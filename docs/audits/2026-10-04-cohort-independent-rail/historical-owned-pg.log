@@ -1,0 +1,20 @@
+waiting for server to start.... done
+server started
+{"verifiedOwnPostgresPid": 687575, "dataDirectory": "/home/nate/Oxy/.agent-evidence/mcohort-pg-hikwqz4p/data", "port": 5626, "liveAccess": false}
+waiting for server to shut down.... done
+server stopped
+{"ownedPostgresStopped": true, "pidAbsent": true, "record": "/home/nate/Oxy/.agent-evidence/mcohort-pg-hikwqz4p"}
+Traceback (most recent call last):
+  File "/home/nate/Oxy/.agent-evidence/integration-mercaria-cohort-20261004/owned-pg.py", line 72, in <module>
+    main()
+    ~~~~^^
+  File "/home/nate/Oxy/.agent-evidence/integration-mercaria-cohort-20261004/owned-pg.py", line 63, in main
+    run(['bun', 'run', 'test', 'src/services/billing/peable/__tests__', 'src/services/billing/stripe/__tests__', 'src/routes/__tests__/peable-webhook.integration.test.ts'], cwd=ROOT / 'packages/backend', stdout=log, stderr=subprocess.STDOUT)
+    ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nate/Oxy/.agent-evidence/integration-mercaria-cohort-20261004/owned-pg.py", line 22, in run
+    return subprocess.run([str(x) for x in argv], env=env, text=True, check=True, **kw)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['bun', 'run', 'test', 'src/services/billing/peable/__tests__', 'src/services/billing/stripe/__tests__', 'src/routes/__tests__/peable-webhook.integration.test.ts']' returned non-zero exit status 1.
