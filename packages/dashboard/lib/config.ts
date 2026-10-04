@@ -29,6 +29,14 @@ export const OXY_CLIENT_ID =
   process.env.EXPO_PUBLIC_OXY_CLIENT_ID ??
   "oxy_dk_8993efc30f18b2cfd361374634df4099a63a247df675132c";
 
+/**
+ * GoWay's API origin (ADR 0013): the location editor reads and edits a store's
+ * GoWay place there, with the merchant's own Oxy session. `undefined` leaves the
+ * SDK on its own canonical origin; a development build points it at a local
+ * GoWay with `EXPO_PUBLIC_GOWAY_API_URL`.
+ */
+export const GOWAY_API_URL: string | undefined = process.env.EXPO_PUBLIC_GOWAY_API_URL || undefined;
+
 const ENV = {
   dev: { apiUrl: DEV_API_BASE_URL },
   prod: { apiUrl: PROD_API_BASE_URL },

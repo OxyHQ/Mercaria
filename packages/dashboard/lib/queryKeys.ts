@@ -80,6 +80,22 @@ export const queryKeys = {
   // schedule view and nothing else.
   feeSchedule: (storeId: string) => ["stores", storeId, "fee-schedule"] as const,
   locations: (storeId: string) => ["stores", storeId, "locations"] as const,
+  /** One location's commerce publication (#93) — under `locations`, so a location write refreshes it. */
+  locationPublication: (storeId: string, locationId: string) =>
+    ["stores", storeId, "locations", locationId, "publication"] as const,
+  /** The trust rule's verdict on one location's GoWay place (ADR 0013). */
+  locationPlaceLink: (storeId: string, locationId: string) =>
+    ["stores", storeId, "locations", locationId, "place-link"] as const,
+  /**
+   * GoWay, read with the merchant's own session (ADR 0013). NOT under `stores`:
+   * a place and an account's claims are the same answer whichever store asks.
+   */
+  goway: {
+    place: (placeId: string, locale: string) => ["goway", "place", placeId, locale] as const,
+    search: (query: string, locale: string) => ["goway", "search", query, locale] as const,
+    accountClaims: (oxyAccountId: string) => ["goway", "claims", oxyAccountId] as const,
+    hoursExceptions: (placeId: string) => ["goway", "place", placeId, "hours-exceptions"] as const,
+  },
   channels: (storeId: string) => ["stores", storeId, "channels"] as const,
   channelKeys: (storeId: string) => ["stores", storeId, "channel-keys"] as const,
   /** The unified sales-channel surface (#87). */

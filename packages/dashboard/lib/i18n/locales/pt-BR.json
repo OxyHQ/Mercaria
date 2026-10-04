@@ -886,7 +886,8 @@
         "markedReady": "Marcado como pronto para retirada"
       },
       "trail": "Histórico da retirada",
-      "trailEmpty": "Ainda não aconteceu nada no balcão."
+      "trailEmpty": "Ainda não aconteceu nada no balcão.",
+      "viewPlace": "Ver o lugar no GoWay"
     },
     "refund": {
       "dialogTitle": "Reembolsar pedido",
@@ -1333,6 +1334,232 @@
         "retail": "Varejo",
         "virtual": "Virtual",
         "warehouse": "Depósito"
+      },
+      "placeFlag": " · lugar do GoWay definido",
+      "noPlaceFlag": " · ainda sem lugar do GoWay",
+      "editor": {
+        "documentTitle": "Editar local | Mercaria Dashboard",
+        "title": "Local",
+        "subtitle": "Seu lugar no GoWay e como ele vende no Mercaria",
+        "loadFailed": "Não foi possível carregar este local",
+        "openOnGoWay": "Abrir no GoWay",
+        "status": {
+          "title": "Os compradores conseguem encontrá-lo?",
+          "description": "Um local só aparece para os compradores enquanto o lugar do GoWay o indica, escrito por uma empresa que reivindicou o lugar.",
+          "checking": "Verificando com o GoWay…",
+          "checkFailed": "Não foi possível verificar o vínculo agora.",
+          "linked": "Vinculado",
+          "unlinked": "Ainda não vinculado",
+          "claim": "Reivindicação: %{state}",
+          "mergeFollowed": "O GoWay mesclou este lugar com outro; o local agora aponta para o lugar que o substituiu.",
+          "missingItem": "• %{reason}",
+          "pendingClaimHint": "Sua reivindicação aguarda a aprovação do GoWay. Depois de aprovada, vincule o lugar a este local novamente.",
+          "checkAgain": "Verificar de novo"
+        },
+        "gaps": {
+          "placeNotSet": "Escolha o lugar do GoWay de onde este local vende e salve.",
+          "placeNotFound": "O GoWay não tem nenhum lugar com esse id. Escolha o lugar de novo.",
+          "placeGone": "O GoWay retirou este lugar. Escolha ou crie outro.",
+          "placeNotActive": "O lugar está marcado como fechado ou proposto no GoWay. Marque-o como aberto lá.",
+          "gowayUnavailable": "O GoWay não está respondendo agora. Tente de novo em um minuto.",
+          "storeLinkMissing": "O lugar ainda não indica este local. Vincule-o abaixo.",
+          "storeLinkOtherLocation": "O lugar indica outro local do Mercaria.",
+          "storeLinkUnverified": "O lugar indica este local, mas ainda nenhuma reivindicação aprovada o confirma.",
+          "placeCountryMissing": "O endereço do lugar não tem país. Adicione-o no GoWay.",
+          "placeTimezoneMissing": "O GoWay não conseguiu determinar o fuso horário do lugar, por isso o horário não pode ser lido."
+        },
+        "place": {
+          "title": "Lugar do GoWay",
+          "change": "Escolher outro lugar",
+          "chosenNotSaved": "Escolhido aqui; salve as configurações de retirada abaixo para vinculá-lo.",
+          "status": {
+            "active": "Aberto",
+            "closed": "Fechado",
+            "proposed": "Proposto"
+          }
+        },
+        "picker": {
+          "title": "Encontre este local no GoWay",
+          "description": "Onde fica seu local — nome, endereço, horário e contato — vive no lugar dele no GoWay. Procure-o ou crie-o se o GoWay ainda não o tiver.",
+          "searchLabel": "Pesquisar no GoWay",
+          "searchPlaceholder": "Nome da loja ou endereço",
+          "noResults": "Nada encontrado. Tente outra pesquisa ou crie o lugar.",
+          "isAPlace": "Um lugar no GoWay",
+          "notAPlace": "Um endereço — crie o lugar aqui",
+          "use": "Usar",
+          "createHere": "Criar aqui"
+        },
+        "create": {
+          "open": "Criar um novo lugar",
+          "title": "Novo lugar do GoWay",
+          "street": "Rua",
+          "houseNumber": "Número",
+          "city": "Cidade",
+          "postalCode": "CEP",
+          "region": "Estado",
+          "country": "País",
+          "countryPlaceholder": "BR",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "positionHint": "Escolher um endereço na pesquisa preenche a posição para você.",
+          "submit": "Criar lugar",
+          "created": "Lugar criado no GoWay",
+          "nameRequired": "Dê um nome ao lugar",
+          "countryRequired": "Digite o código do país com duas letras",
+          "positionRequired": "Digite uma latitude e uma longitude reais ou escolha um endereço na pesquisa"
+        },
+        "claim": {
+          "title": "Reivindicar o lugar",
+          "description": "Uma reivindicação informa ao GoWay que sua loja administra este lugar. Ela é feita em nome da conta Oxy dona da loja, e o GoWay a analisa antes que você possa falar pelo lugar.",
+          "unreadable": "Não foi possível ler as reivindicações da sua conta. Só proprietários, administradores e editores da conta podem vê-las.",
+          "pendingNote": "O GoWay analisa as novas reivindicações. Até aprovar esta, o que você muda no lugar conta como sugestão.",
+          "file": "Reivindicar para esta loja",
+          "filed": "Reivindicação enviada ao GoWay para análise",
+          "role": {
+            "owner": "Proprietário",
+            "operator": "Operador",
+            "manager": "Gerente",
+            "brand": "Marca"
+          },
+          "state": {
+            "pending": "Aguardando análise",
+            "approved": "Aprovada",
+            "rejected": "Recusada",
+            "revoked": "Revogada"
+          }
+        },
+        "storeLink": {
+          "title": "Vincular o lugar a este local",
+          "description": "O lugar informa qual local do Mercaria ele é. O Mercaria só confia nisso quando foi escrito pela sua reivindicação aprovada.",
+          "state": {
+            "missing": "Não vinculado",
+            "otherLocation": "Vinculado a outro local",
+            "unverified": "Vinculado, ainda não verificado",
+            "verified": "Vinculado e verificado"
+          },
+          "assert": "Vincular a este local",
+          "asserted": "Salvo no GoWay",
+          "unverifiedNote": "Vincule de novo quando sua reivindicação for aprovada, para que conte como da própria empresa."
+        },
+        "days": {
+          "mon": "Segunda-feira",
+          "tue": "Terça-feira",
+          "wed": "Quarta-feira",
+          "thu": "Quinta-feira",
+          "fri": "Sexta-feira",
+          "sat": "Sábado",
+          "sun": "Domingo"
+        },
+        "hours": {
+          "title": "Horário de funcionamento",
+          "description": "No horário local do lugar (%{timezone}), que o GoWay deduz de onde ele fica.",
+          "noTimezone": "fuso horário desconhecido",
+          "raw": "A fonte diz: %{raw}",
+          "placeholder": "09:00-14:00, 17:00-20:00",
+          "hint": "Uma linha por dia. Deixe em branco o dia em que fecha.",
+          "save": "Salvar horário",
+          "saved": "Horário salvo no GoWay",
+          "unreadable": "Confira o horário de %{day}: use 09:00-14:00, separado por vírgulas."
+        },
+        "exceptions": {
+          "title": "Feriados e horários especiais",
+          "description": "Datas em que a semana acima não vale, no calendário do próprio lugar.",
+          "none": "Nenhum feriado ou horário especial.",
+          "range": "De %{from} a %{to}",
+          "closedAllDay": "Fechado",
+          "noteSuffix": " · %{note}",
+          "remove": "Remover",
+          "removed": "Removido do GoWay",
+          "startsOn": "De",
+          "endsOn": "Até (opcional)",
+          "datePlaceholder": "2026-12-25",
+          "closed": "Fechado o dia todo",
+          "hours": "Horário nesse dia",
+          "note": "Observação para os compradores",
+          "add": "Adicionar",
+          "added": "Adicionado no GoWay",
+          "datesInvalid": "Use datas como 2026-12-25, com o fim igual ou depois do início",
+          "hoursInvalid": "Digite o horário desse dia, como 10:00-14:00"
+        },
+        "contact": {
+          "title": "Contato",
+          "description": "O que os compradores veem no lugar.",
+          "phone": "Telefone",
+          "email": "E-mail",
+          "website": "Site",
+          "hint": "O GoWay nunca apaga um dado deixado em branco; troque-o por um valor novo.",
+          "save": "Salvar contato",
+          "saved": "Contato salvo no GoWay",
+          "websiteInvalid": "O site deve começar com http:// ou https://",
+          "emailInvalid": "Digite um e-mail válido"
+        },
+        "accessibility": {
+          "title": "Acessibilidade",
+          "description": "Como o GoWay a conhece hoje, o que pode ser o que um visitante informou.",
+          "wheelchair": "Acesso para cadeira de rodas",
+          "stepFree": "Entrada sem degraus",
+          "toilet": "Banheiro acessível",
+          "parking": "Estacionamento acessível",
+          "hearingLoop": "Aro magnético",
+          "yes": "Sim",
+          "limited": "Em parte",
+          "no": "Não",
+          "unset": "Não informado",
+          "hint": "\"Não informado\" retira sua própria declaração; o que os visitantes informaram continua.",
+          "save": "Salvar acessibilidade",
+          "saved": "Acessibilidade salva no GoWay"
+        },
+        "publication": {
+          "title": "Retirada no Mercaria",
+          "description": "O lado do Mercaria deste local: se os compradores podem retirar aqui e quão recente é a contagem do seu estoque. Salvar vincula o lugar do GoWay acima.",
+          "unsavedPlace": "Você escolheu outro lugar; salvar vincula esse.",
+          "pickupOffered": "Oferecer retirada aqui",
+          "instructions": "Instruções de retirada",
+          "instructionsPlaceholder": "Pergunte no balcão perto da entrada",
+          "identity": "O que o comprador mostra para retirar",
+          "inventorySource": "Como o estoque é mantido em dia",
+          "source": {
+            "pos": "Ponto de venda",
+            "connector": "Plataforma conectada",
+            "manual": "À mão"
+          },
+          "interval": "Estoque confirmado a cada (minutos)",
+          "lowStock": "Estoque baixo abaixo de",
+          "intervalHint": "Com que frequência o estoque deste local é confirmado. Não há valor padrão: um caixa e uma importação noturna não são igualmente recentes.",
+          "exactStock": "Mostrar o estoque exato aos compradores",
+          "save": "Salvar configurações de retirada",
+          "saved": "Salvo",
+          "placeRequired": "Escolha primeiro o lugar do GoWay",
+          "intervalInvalid": "Digite um número de minutos entre 1 e 43200",
+          "thresholdInvalid": "Digite um número inteiro entre 0 e 1000",
+          "state": {
+            "draft": "Rascunho",
+            "published": "Publicado",
+            "withdrawn": "Retirado"
+          },
+          "restricted": "Restrito pelo Mercaria",
+          "publish": "Publicar",
+          "withdraw": "Retirar",
+          "toDraft": "Voltar para rascunho",
+          "stateChanged": "Atualizado",
+          "pausedBecause": "A retirada está pausada: %{reason}",
+          "resume": "Retomar a retirada",
+          "pauseReason": "Motivo para pausar a retirada",
+          "pause": "Pausar a retirada"
+        },
+        "errors": {
+          "gowayForbidden": "O GoWay não deixa esta conta alterar o lugar até que sua reivindicação seja aprovada.",
+          "gowaySignIn": "Entre de novo para alterar o lugar no GoWay.",
+          "gowayUnavailable": "O GoWay não está respondendo agora. Tente de novo em um minuto.",
+          "gowayInvalid": "O GoWay não aceitou isso. Confira os campos e tente de novo.",
+          "gowayConflict": "Isso já existe no GoWay para essas datas.",
+          "gowayGone": "O GoWay não tem mais este lugar.",
+          "gowayFailed": "Não foi possível salvar no GoWay",
+          "publicationRefused": "Ainda não: o lugar precisa indicar este local primeiro. Veja o status no topo.",
+          "locationMissing": "Este local não existe mais",
+          "placeTaken": "Outro dos seus locais já usa este lugar",
+          "publicationFailed": "Não foi possível salvar o local"
+        }
       }
     },
     "members": {

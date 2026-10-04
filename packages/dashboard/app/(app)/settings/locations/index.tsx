@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import Head from "expo-router/head";
-import { ChevronLeft, Plus, Trash2, MapPin } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, Plus, Trash2, MapPin } from "lucide-react-native";
 import type { Location, LocationType } from "@mercaria/shared-types";
 import {
   Text,
@@ -102,6 +102,9 @@ function LocationsBody({ storeId }: { storeId: string }) {
             <LocationRow
               key={location.id}
               location={location}
+              onOpen={() =>
+                router.push({ pathname: "/settings/locations/[id]", params: { id: location.id } })
+              }
               onDelete={() =>
                 deleteLocation.mutate(location.id, {
                   onSuccess: () => toast.success(t("settings.locations.deleted")),
@@ -118,11 +121,27 @@ function LocationsBody({ storeId }: { storeId: string }) {
   );
 }
 
-function LocationRow({ location, onDelete }: { location: Location; onDelete: () => void }) {
+/**
+ * One location, opening its editor (ADR 0013): the GoWay place it trades from,
+ * its claim, its hours and its commerce terms. The flag says whether it has a
+ * place yet — a location with none can never be found by a shopper.
+ */
+function LocationRow({
+  location,
+  onOpen,
+  onDelete,
+}: {
+  location: Location;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
   const { colors } = useColorScheme();
   const { t } = useTranslation();
   return (
-    <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3">
+    <Pressable
+      onPress={onOpen}
+      className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3 active:opacity-70"
+    >
       <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
         <MapPin size={18} color={colors.mutedForeground} />
       </View>
@@ -136,6 +155,7 @@ function LocationRow({ location, onDelete }: { location: Location; onDelete: () 
           {t(LOCATION_TYPE_LABEL_KEYS[location.type])}
           {location.isDefault ? t("settings.locations.defaultFlag") : ""}
           {location.isActive ? "" : t("settings.locations.inactiveFlag")}
+          {location.goWayPlaceId ? t("settings.locations.placeFlag") : t("settings.locations.noPlaceFlag")}
         </Text>
       </View>
       {!location.isDefault ? (
@@ -143,7 +163,8 @@ function LocationRow({ location, onDelete }: { location: Location; onDelete: () 
           <Trash2 size={16} color={colors.mutedForeground} />
         </Pressable>
       ) : null}
-    </View>
+      <ChevronRight size={16} color={colors.mutedForeground} />
+    </Pressable>
   );
 }
 

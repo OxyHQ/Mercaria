@@ -886,7 +886,8 @@
         "markedReady": "Marqué prêt pour le retrait"
       },
       "trail": "Historique du retrait",
-      "trailEmpty": "Rien ne s’est encore passé au comptoir."
+      "trailEmpty": "Rien ne s’est encore passé au comptoir.",
+      "viewPlace": "Voir le lieu sur GoWay"
     },
     "refund": {
       "dialogTitle": "Rembourser la commande",
@@ -1333,6 +1334,232 @@
         "retail": "Commerce de détail",
         "virtual": "Virtuel",
         "warehouse": "Entrepôt"
+      },
+      "placeFlag": " · lieu GoWay défini",
+      "noPlaceFlag": " · pas encore de lieu GoWay",
+      "editor": {
+        "documentTitle": "Modifier l'emplacement | Mercaria Dashboard",
+        "title": "Emplacement",
+        "subtitle": "Son lieu sur GoWay et sa façon de vendre sur Mercaria",
+        "loadFailed": "Impossible de charger cet emplacement",
+        "openOnGoWay": "Ouvrir sur GoWay",
+        "status": {
+          "title": "Les acheteurs peuvent-ils le trouver ?",
+          "description": "Un emplacement n'apparaît aux acheteurs que tant que son lieu GoWay le désigne, écrit par une entreprise qui a revendiqué le lieu.",
+          "checking": "Vérification auprès de GoWay…",
+          "checkFailed": "Impossible de vérifier le lien pour le moment.",
+          "linked": "Lié",
+          "unlinked": "Pas encore lié",
+          "claim": "Revendication : %{state}",
+          "mergeFollowed": "GoWay a fusionné ce lieu avec un autre ; l'emplacement pointe désormais vers le lieu qui le remplace.",
+          "missingItem": "• %{reason}",
+          "pendingClaimHint": "Votre revendication attend l'approbation de GoWay. Une fois approuvée, liez à nouveau le lieu à cet emplacement.",
+          "checkAgain": "Vérifier à nouveau"
+        },
+        "gaps": {
+          "placeNotSet": "Choisissez le lieu GoWay depuis lequel cet emplacement vend, puis enregistrez.",
+          "placeNotFound": "GoWay n'a aucun lieu avec cet identifiant. Choisissez à nouveau le lieu.",
+          "placeGone": "GoWay a retiré ce lieu. Choisissez-en ou créez-en un autre.",
+          "placeNotActive": "Le lieu est indiqué comme fermé ou proposé sur GoWay. Indiquez-le comme ouvert là-bas.",
+          "gowayUnavailable": "GoWay ne répond pas pour le moment. Réessayez dans une minute.",
+          "storeLinkMissing": "Le lieu ne désigne pas encore cet emplacement. Liez-le ci-dessous.",
+          "storeLinkOtherLocation": "Le lieu désigne un autre emplacement Mercaria.",
+          "storeLinkUnverified": "Le lieu désigne cet emplacement, mais aucune revendication approuvée ne le confirme encore.",
+          "placeCountryMissing": "L'adresse du lieu n'a pas de pays. Ajoutez-le sur GoWay.",
+          "placeTimezoneMissing": "GoWay n'a pas pu déterminer le fuseau horaire du lieu, ses horaires ne peuvent donc pas être lus."
+        },
+        "place": {
+          "title": "Lieu GoWay",
+          "change": "Choisir un autre lieu",
+          "chosenNotSaved": "Choisi ici ; enregistrez les réglages de retrait ci-dessous pour le lier.",
+          "status": {
+            "active": "Ouvert",
+            "closed": "Fermé",
+            "proposed": "Proposé"
+          }
+        },
+        "picker": {
+          "title": "Trouver cet emplacement sur GoWay",
+          "description": "L'endroit où se trouve votre emplacement — son nom, son adresse, ses horaires et son contact — vit sur son lieu GoWay. Cherchez-le, ou créez-le si GoWay ne l'a pas encore.",
+          "searchLabel": "Rechercher sur GoWay",
+          "searchPlaceholder": "Nom de la boutique ou adresse",
+          "noResults": "Aucun résultat. Essayez une autre recherche ou créez le lieu.",
+          "isAPlace": "Un lieu sur GoWay",
+          "notAPlace": "Une adresse — créez le lieu ici",
+          "use": "Utiliser",
+          "createHere": "Créer ici"
+        },
+        "create": {
+          "open": "Créer un nouveau lieu",
+          "title": "Nouveau lieu GoWay",
+          "street": "Rue",
+          "houseNumber": "Numéro",
+          "city": "Ville",
+          "postalCode": "Code postal",
+          "region": "Région",
+          "country": "Pays",
+          "countryPlaceholder": "FR",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "positionHint": "Choisir une adresse dans la recherche remplit la position pour vous.",
+          "submit": "Créer le lieu",
+          "created": "Lieu créé sur GoWay",
+          "nameRequired": "Donnez un nom au lieu",
+          "countryRequired": "Saisissez le code pays à deux lettres",
+          "positionRequired": "Saisissez une latitude et une longitude réelles, ou choisissez une adresse dans la recherche"
+        },
+        "claim": {
+          "title": "Revendiquer le lieu",
+          "description": "Une revendication indique à GoWay que votre boutique gère ce lieu. Elle est déposée au nom du compte Oxy propriétaire de la boutique, et GoWay l'examine avant que vous puissiez parler pour le lieu.",
+          "unreadable": "Impossible de lire les revendications de votre compte. Seuls les propriétaires, administrateurs et éditeurs du compte peuvent les voir.",
+          "pendingNote": "GoWay examine les nouvelles revendications. Tant qu'il n'a pas approuvé celle-ci, ce que vous modifiez sur le lieu compte comme une suggestion.",
+          "file": "Revendiquer pour cette boutique",
+          "filed": "Revendication envoyée à GoWay pour examen",
+          "role": {
+            "owner": "Propriétaire",
+            "operator": "Exploitant",
+            "manager": "Gérant",
+            "brand": "Marque"
+          },
+          "state": {
+            "pending": "En attente d'examen",
+            "approved": "Approuvée",
+            "rejected": "Refusée",
+            "revoked": "Révoquée"
+          }
+        },
+        "storeLink": {
+          "title": "Lier le lieu à cet emplacement",
+          "description": "Le lieu indique de quel emplacement Mercaria il s'agit. Mercaria ne s'y fie que si c'est votre revendication approuvée qui l'a écrit.",
+          "state": {
+            "missing": "Non lié",
+            "otherLocation": "Lié à un autre emplacement",
+            "unverified": "Lié, pas encore vérifié",
+            "verified": "Lié et vérifié"
+          },
+          "assert": "Lier à cet emplacement",
+          "asserted": "Enregistré sur GoWay",
+          "unverifiedNote": "Liez-le à nouveau une fois votre revendication approuvée, pour qu'il compte comme venant de l'entreprise."
+        },
+        "days": {
+          "mon": "Lundi",
+          "tue": "Mardi",
+          "wed": "Mercredi",
+          "thu": "Jeudi",
+          "fri": "Vendredi",
+          "sat": "Samedi",
+          "sun": "Dimanche"
+        },
+        "hours": {
+          "title": "Horaires d'ouverture",
+          "description": "À l'heure locale du lieu (%{timezone}), que GoWay déduit de sa position.",
+          "noTimezone": "fuseau horaire inconnu",
+          "raw": "La source indique : %{raw}",
+          "placeholder": "09:00-14:00, 17:00-20:00",
+          "hint": "Une ligne par jour. Laissez vide un jour de fermeture.",
+          "save": "Enregistrer les horaires",
+          "saved": "Horaires enregistrés sur GoWay",
+          "unreadable": "Vérifiez les horaires du %{day} : utilisez 09:00-14:00, séparés par des virgules."
+        },
+        "exceptions": {
+          "title": "Jours fériés et horaires spéciaux",
+          "description": "Les dates où la semaine ci-dessus ne s'applique pas, dans le calendrier du lieu.",
+          "none": "Aucun jour férié ni horaire spécial.",
+          "range": "Du %{from} au %{to}",
+          "closedAllDay": "Fermé",
+          "noteSuffix": " · %{note}",
+          "remove": "Retirer",
+          "removed": "Retiré de GoWay",
+          "startsOn": "Du",
+          "endsOn": "Au (facultatif)",
+          "datePlaceholder": "2026-12-25",
+          "closed": "Fermé toute la journée",
+          "hours": "Horaires ce jour-là",
+          "note": "Note pour les acheteurs",
+          "add": "Ajouter",
+          "added": "Ajouté sur GoWay",
+          "datesInvalid": "Utilisez des dates comme 2026-12-25, la fin étant égale ou postérieure au début",
+          "hoursInvalid": "Saisissez les horaires de ce jour, par exemple 10:00-14:00"
+        },
+        "contact": {
+          "title": "Contact",
+          "description": "Ce que les acheteurs voient sur le lieu.",
+          "phone": "Téléphone",
+          "email": "E-mail",
+          "website": "Site web",
+          "hint": "GoWay n'efface jamais une information laissée vide ; remplacez-la plutôt par une nouvelle valeur.",
+          "save": "Enregistrer le contact",
+          "saved": "Contact enregistré sur GoWay",
+          "websiteInvalid": "Le site web doit commencer par http:// ou https://",
+          "emailInvalid": "Saisissez une adresse e-mail valide"
+        },
+        "accessibility": {
+          "title": "Accessibilité",
+          "description": "Telle que GoWay la connaît aujourd'hui, ce qui peut être ce qu'un visiteur a signalé.",
+          "wheelchair": "Accès en fauteuil roulant",
+          "stepFree": "Entrée de plain-pied",
+          "toilet": "Toilettes accessibles",
+          "parking": "Stationnement accessible",
+          "hearingLoop": "Boucle magnétique",
+          "yes": "Oui",
+          "limited": "En partie",
+          "no": "Non",
+          "unset": "Non indiqué",
+          "hint": "« Non indiqué » retire votre propre déclaration ; ce que les visiteurs ont signalé reste.",
+          "save": "Enregistrer l'accessibilité",
+          "saved": "Accessibilité enregistrée sur GoWay"
+        },
+        "publication": {
+          "title": "Retrait sur Mercaria",
+          "description": "La partie Mercaria de cet emplacement : si les acheteurs peuvent y retirer, et la fraîcheur de vos décomptes de stock. Enregistrer lie le lieu GoWay ci-dessus.",
+          "unsavedPlace": "Vous avez choisi un autre lieu ; l'enregistrement liera celui-ci.",
+          "pickupOffered": "Proposer le retrait ici",
+          "instructions": "Instructions de retrait",
+          "instructionsPlaceholder": "Demandez au comptoir près de l'entrée",
+          "identity": "Ce que l'acheteur présente pour retirer",
+          "inventorySource": "Comment le stock est tenu à jour",
+          "source": {
+            "pos": "Point de vente",
+            "connector": "Plateforme connectée",
+            "manual": "À la main"
+          },
+          "interval": "Stock confirmé toutes les (minutes)",
+          "lowStock": "Stock faible en dessous de",
+          "intervalHint": "À quelle fréquence le stock de cet emplacement est confirmé. Il n'y a pas de valeur par défaut : une caisse et un import nocturne ne sont pas aussi frais l'un que l'autre.",
+          "exactStock": "Afficher le stock exact aux acheteurs",
+          "save": "Enregistrer les réglages de retrait",
+          "saved": "Enregistré",
+          "placeRequired": "Choisissez d'abord le lieu GoWay",
+          "intervalInvalid": "Saisissez un nombre de minutes entre 1 et 43200",
+          "thresholdInvalid": "Saisissez un nombre entier entre 0 et 1000",
+          "state": {
+            "draft": "Brouillon",
+            "published": "Publié",
+            "withdrawn": "Retiré"
+          },
+          "restricted": "Restreint par Mercaria",
+          "publish": "Publier",
+          "withdraw": "Retirer",
+          "toDraft": "Repasser en brouillon",
+          "stateChanged": "Mis à jour",
+          "pausedBecause": "Le retrait est en pause : %{reason}",
+          "resume": "Reprendre le retrait",
+          "pauseReason": "Motif de la mise en pause du retrait",
+          "pause": "Mettre le retrait en pause"
+        },
+        "errors": {
+          "gowayForbidden": "GoWay ne laisse pas ce compte modifier le lieu tant que votre revendication n'est pas approuvée.",
+          "gowaySignIn": "Reconnectez-vous pour modifier le lieu sur GoWay.",
+          "gowayUnavailable": "GoWay ne répond pas pour le moment. Réessayez dans une minute.",
+          "gowayInvalid": "GoWay ne l'a pas accepté. Vérifiez les champs et réessayez.",
+          "gowayConflict": "Cela existe déjà sur GoWay pour ces dates.",
+          "gowayGone": "GoWay n'a plus ce lieu.",
+          "gowayFailed": "Impossible d'enregistrer sur GoWay",
+          "publicationRefused": "Pas encore : le lieu doit d'abord désigner cet emplacement. Voir le statut en haut.",
+          "locationMissing": "Cet emplacement n'existe plus",
+          "placeTaken": "Un autre de vos emplacements utilise déjà ce lieu",
+          "publicationFailed": "Impossible d'enregistrer l'emplacement"
+        }
       }
     },
     "members": {

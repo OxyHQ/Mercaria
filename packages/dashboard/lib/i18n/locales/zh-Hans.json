@@ -872,7 +872,8 @@
         "markedReady": "已标记为可自提"
       },
       "trail": "自提记录",
-      "trailEmpty": "柜台还没有任何操作记录。"
+      "trailEmpty": "柜台还没有任何操作记录。",
+      "viewPlace": "在 GoWay 上查看场所"
     },
     "refund": {
       "dialogTitle": "订单退款",
@@ -1315,6 +1316,232 @@
         "retail": "零售店",
         "virtual": "虚拟",
         "warehouse": "仓库"
+      },
+      "placeFlag": " · 已设置 GoWay 场所",
+      "noPlaceFlag": " · 尚无 GoWay 场所",
+      "editor": {
+        "documentTitle": "编辑地点 | Mercaria Dashboard",
+        "title": "地点",
+        "subtitle": "它在 GoWay 上的场所，以及它在 Mercaria 上的销售方式",
+        "loadFailed": "无法加载此地点",
+        "openOnGoWay": "在 GoWay 上打开",
+        "status": {
+          "title": "买家能找到它吗？",
+          "description": "只有当地点的 GoWay 场所指回该地点，且由认领了该场所的商家写入时，买家才能看到这个地点。",
+          "checking": "正在向 GoWay 核实…",
+          "checkFailed": "暂时无法核实关联。",
+          "linked": "已关联",
+          "unlinked": "尚未关联",
+          "claim": "认领：%{state}",
+          "mergeFollowed": "GoWay 已将此场所合并到另一个场所；地点现在指向取代它的场所。",
+          "missingItem": "• %{reason}",
+          "pendingClaimHint": "你的认领正在等待 GoWay 批准。批准后，请再次将场所关联到此地点。",
+          "checkAgain": "重新核实"
+        },
+        "gaps": {
+          "placeNotSet": "选择此地点进行销售的 GoWay 场所，然后保存。",
+          "placeNotFound": "GoWay 没有这个 ID 的场所。请重新选择场所。",
+          "placeGone": "GoWay 已撤下此场所。请选择或创建另一个。",
+          "placeNotActive": "此场所在 GoWay 上被标记为已关闭或待定。请在 GoWay 上将其标记为营业中。",
+          "gowayUnavailable": "GoWay 暂时没有响应。请一分钟后再试。",
+          "storeLinkMissing": "场所尚未指向此地点。请在下方关联。",
+          "storeLinkOtherLocation": "场所指向了另一个 Mercaria 地点。",
+          "storeLinkUnverified": "场所指向此地点，但尚无已批准的认领为其担保。",
+          "placeCountryMissing": "场所的地址没有国家。请在 GoWay 上补充。",
+          "placeTimezoneMissing": "GoWay 无法确定场所的时区，因此无法读取其营业时间。"
+        },
+        "place": {
+          "title": "GoWay 场所",
+          "change": "选择其他场所",
+          "chosenNotSaved": "已在此选择；请保存下方的自提设置以完成关联。",
+          "status": {
+            "active": "营业中",
+            "closed": "已关闭",
+            "proposed": "待定"
+          }
+        },
+        "picker": {
+          "title": "在 GoWay 上找到此地点",
+          "description": "地点所在之处——名称、地址、营业时间和联系方式——都在它的 GoWay 场所上。搜索它；如果 GoWay 还没有，就创建一个。",
+          "searchLabel": "搜索 GoWay",
+          "searchPlaceholder": "店铺名称或地址",
+          "noResults": "没有找到结果。请换个搜索词，或创建场所。",
+          "isAPlace": "GoWay 上的场所",
+          "notAPlace": "一个地址——在此创建场所",
+          "use": "使用",
+          "createHere": "在此创建"
+        },
+        "create": {
+          "open": "创建新场所",
+          "title": "新的 GoWay 场所",
+          "street": "街道",
+          "houseNumber": "门牌号",
+          "city": "城市",
+          "postalCode": "邮政编码",
+          "region": "省/州",
+          "country": "国家",
+          "countryPlaceholder": "CN",
+          "latitude": "纬度",
+          "longitude": "经度",
+          "positionHint": "从搜索结果中选择地址会自动填写位置。",
+          "submit": "创建场所",
+          "created": "已在 GoWay 上创建场所",
+          "nameRequired": "请为场所命名",
+          "countryRequired": "请输入两位字母的国家代码",
+          "positionRequired": "请输入真实的纬度和经度，或从搜索中选择地址"
+        },
+        "claim": {
+          "title": "认领场所",
+          "description": "认领是告诉 GoWay 由你的店铺经营此场所。它以拥有店铺的 Oxy 账户名义提交，GoWay 会在你能够代表该场所之前进行审核。",
+          "unreadable": "无法读取你账户的认领。只有账户的所有者、管理员和编辑者可以查看。",
+          "pendingNote": "GoWay 会审核新的认领。在此认领获批前，你对场所的修改只算作建议。",
+          "file": "以此店铺认领",
+          "filed": "认领已提交给 GoWay 审核",
+          "role": {
+            "owner": "所有者",
+            "operator": "经营者",
+            "manager": "管理者",
+            "brand": "品牌"
+          },
+          "state": {
+            "pending": "等待审核",
+            "approved": "已批准",
+            "rejected": "已拒绝",
+            "revoked": "已撤销"
+          }
+        },
+        "storeLink": {
+          "title": "将场所关联到此地点",
+          "description": "场所会注明它是哪个 Mercaria 地点。只有当它由你已批准的认领写入时，Mercaria 才会信任。",
+          "state": {
+            "missing": "未关联",
+            "otherLocation": "已关联到其他地点",
+            "unverified": "已关联，尚未验证",
+            "verified": "已关联并验证"
+          },
+          "assert": "关联到此地点",
+          "asserted": "已保存到 GoWay",
+          "unverifiedNote": "认领获批后请再次关联，使其算作商家本身的声明。"
+        },
+        "days": {
+          "mon": "星期一",
+          "tue": "星期二",
+          "wed": "星期三",
+          "thu": "星期四",
+          "fri": "星期五",
+          "sat": "星期六",
+          "sun": "星期日"
+        },
+        "hours": {
+          "title": "营业时间",
+          "description": "按场所当地时间（%{timezone}），由 GoWay 根据其位置确定。",
+          "noTimezone": "时区未知",
+          "raw": "来源记载：%{raw}",
+          "placeholder": "09:00-14:00, 17:00-20:00",
+          "hint": "每天一行。休息日请留空。",
+          "save": "保存营业时间",
+          "saved": "营业时间已保存到 GoWay",
+          "unreadable": "请检查%{day}的营业时间：使用 09:00-14:00，以逗号分隔。"
+        },
+        "exceptions": {
+          "title": "节假日与特殊营业时间",
+          "description": "上面的每周时间不适用的日期，以场所当地日历为准。",
+          "none": "没有节假日或特殊营业时间。",
+          "range": "%{from} 至 %{to}",
+          "closedAllDay": "休息",
+          "noteSuffix": " · %{note}",
+          "remove": "移除",
+          "removed": "已从 GoWay 移除",
+          "startsOn": "开始",
+          "endsOn": "结束（可选）",
+          "datePlaceholder": "2026-12-25",
+          "closed": "全天休息",
+          "hours": "当天营业时间",
+          "note": "给买家的说明",
+          "add": "添加",
+          "added": "已添加到 GoWay",
+          "datesInvalid": "请使用 2026-12-25 这样的日期，且结束日期不早于开始日期",
+          "hoursInvalid": "请输入当天的营业时间，例如 10:00-14:00"
+        },
+        "contact": {
+          "title": "联系方式",
+          "description": "买家在场所上看到的信息。",
+          "phone": "电话",
+          "email": "电子邮件",
+          "website": "网站",
+          "hint": "GoWay 不会因为留空而删除信息；请改为新的值。",
+          "save": "保存联系方式",
+          "saved": "联系方式已保存到 GoWay",
+          "websiteInvalid": "网站必须以 http:// 或 https:// 开头",
+          "emailInvalid": "请输入有效的电子邮件地址"
+        },
+        "accessibility": {
+          "title": "无障碍",
+          "description": "按 GoWay 目前掌握的信息显示，可能来自访客的报告。",
+          "wheelchair": "轮椅通行",
+          "stepFree": "无台阶入口",
+          "toilet": "无障碍卫生间",
+          "parking": "无障碍停车位",
+          "hearingLoop": "助听环路",
+          "yes": "是",
+          "limited": "部分",
+          "no": "否",
+          "unset": "未说明",
+          "hint": "“未说明”会撤回你自己的声明；访客的报告仍会保留。",
+          "save": "保存无障碍信息",
+          "saved": "无障碍信息已保存到 GoWay"
+        },
+        "publication": {
+          "title": "Mercaria 自提",
+          "description": "此地点在 Mercaria 一侧的设置：买家能否在此自提，以及库存数量有多新。保存后会关联上方的 GoWay 场所。",
+          "unsavedPlace": "你选择了其他场所；保存后将关联该场所。",
+          "pickupOffered": "在此提供自提",
+          "instructions": "自提说明",
+          "instructionsPlaceholder": "请到入口旁的柜台询问",
+          "identity": "买家自提时出示的内容",
+          "inventorySource": "库存如何保持更新",
+          "source": {
+            "pos": "收银系统",
+            "connector": "已连接的平台",
+            "manual": "手动"
+          },
+          "interval": "库存确认间隔（分钟）",
+          "lowStock": "低库存阈值",
+          "intervalHint": "此地点库存数量的确认频率。没有默认值：收银台和夜间导入的新鲜度不同。",
+          "exactStock": "向买家显示准确库存",
+          "save": "保存自提设置",
+          "saved": "已保存",
+          "placeRequired": "请先选择 GoWay 场所",
+          "intervalInvalid": "请输入 1 到 43200 之间的分钟数",
+          "thresholdInvalid": "请输入 0 到 1000 之间的整数",
+          "state": {
+            "draft": "草稿",
+            "published": "已发布",
+            "withdrawn": "已撤下"
+          },
+          "restricted": "已被 Mercaria 限制",
+          "publish": "发布",
+          "withdraw": "撤下",
+          "toDraft": "退回草稿",
+          "stateChanged": "已更新",
+          "pausedBecause": "自提已暂停：%{reason}",
+          "resume": "恢复自提",
+          "pauseReason": "暂停自提的原因",
+          "pause": "暂停自提"
+        },
+        "errors": {
+          "gowayForbidden": "在你的认领获批之前，GoWay 不允许此账户修改场所。",
+          "gowaySignIn": "请重新登录以在 GoWay 上修改场所。",
+          "gowayUnavailable": "GoWay 暂时没有响应。请一分钟后再试。",
+          "gowayInvalid": "GoWay 未接受。请检查字段后重试。",
+          "gowayConflict": "GoWay 上这些日期已有记录。",
+          "gowayGone": "GoWay 上已不再有此场所。",
+          "gowayFailed": "无法保存到 GoWay",
+          "publicationRefused": "暂时不行：场所必须先指向此地点。请查看顶部的状态。",
+          "locationMissing": "此地点已不存在",
+          "placeTaken": "你的另一个地点已在使用此场所",
+          "publicationFailed": "无法保存此地点"
+        }
       }
     },
     "members": {
