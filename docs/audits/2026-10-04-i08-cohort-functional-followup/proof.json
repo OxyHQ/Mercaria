@@ -1,0 +1,339 @@
+{
+  "kind": "mercaria-i08-cohort-functional-followup-v1",
+  "sourceSha": "9dae93ed79ac7015aec43381726cac7c3d6f9acc",
+  "firstFunctionalSourceSha": "39d395689859dc4eb2e152473a14a1792a41b431",
+  "baselineSourceSha": "80291a89328f999aa1c3ed4241ba0f6f84b0c687",
+  "sources": [
+    {
+      "path": "packages/backend/src/app.ts",
+      "sha256": "485d48a367dc0a8409584ace7591d5279d90d3c86305bc85970444cdb21f3a66",
+      "bytes": 66693
+    },
+    {
+      "path": "packages/backend/src/config/__tests__/billing-cohort.test.ts",
+      "sha256": "e601a4c052c024efe80d7823b66e729fe8d9bea5547d56887ddb40206121f8de",
+      "bytes": 2175
+    },
+    {
+      "path": "packages/backend/src/config/index.ts",
+      "sha256": "4d6d420bf74f587afe7a7c65e794825eb4350af5aad350541c6a5acb13c91559",
+      "bytes": 240961
+    },
+    {
+      "path": "packages/backend/src/routes/__tests__/billing-cohort-stripe.integration.test.ts",
+      "sha256": "7780470eca35e4f0541c06d21dd6b4dfaac29cc6ec03eeebb8b02e2c3e00fe85",
+      "bytes": 24941
+    },
+    {
+      "path": "packages/backend/src/routes/stripe-webhook.ts",
+      "sha256": "a945b062efa8c106d5c71e84706320e880e0315f9a478ec7a17934ef32000495",
+      "bytes": 6370
+    },
+    {
+      "path": "packages/backend/src/services/billing/cohort-access.ts",
+      "sha256": "d70f854bfa8d375b410843b04fea7f18de20aab93abd61eeb4e0e51569a813dc",
+      "bytes": 1801
+    },
+    {
+      "path": "packages/backend/src/services/billing/cohort-config.ts",
+      "sha256": "128fcc06ed0a0358ec1feaa26ae8a9c6753b02c873db791f7faf8eff481e6d72",
+      "bytes": 922
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/adapter.realdb.test.ts",
+      "sha256": "637c0f995d90a8de00d76c0e352e97585edb925192edc4ea74b6519c6de707f2",
+      "bytes": 20824
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/adapter.ts",
+      "sha256": "8188c48b252976ca010505867ac833f6beae3b3cebcb9b3c552e974c590b5f04",
+      "bytes": 10934
+    },
+    {
+      "path": "packages/backend/src/services/billing/stripe/__tests__/cohort-reader.test.ts",
+      "sha256": "595c09c646023899d8f96dd35e789466bd7304db1960f07dfc83237aed537452",
+      "bytes": 5219
+    },
+    {
+      "path": "packages/backend/src/services/billing/stripe/cohort-reader.ts",
+      "sha256": "91c3d608fc449fd7b8647de2d4d2d9c584b1c4ab52b274b9961c4b0c62b9c6d6",
+      "bytes": 2971
+    },
+    {
+      "path": "packages/backend/src/services/billing/stripe/subscription-events.ts",
+      "sha256": "565a7da20a4507c4fbbb5f6e5917b2fb7b472c6d5cfc5a8c4aa85de9cd940375",
+      "bytes": 15501
+    },
+    {
+      "path": "packages/backend/src/services/billing/subscription.service.ts",
+      "sha256": "dde010290604956db5abcb1bad209c87c34b3c781b7044c391ca9e21f2ba6e4e",
+      "bytes": 25340
+    },
+    {
+      "path": "packages/backend/src/services/payments/stripe/event-processor.ts",
+      "sha256": "910ca1121517a6a27e50eddbfc418187aad112c38d28067911d31fad910d6f6b",
+      "bytes": 12270
+    },
+    {
+      "path": "packages/backend/src/services/payments/stripe/ingress.ts",
+      "sha256": "7eda7fbd699bb32f130949ff662c9ff791c8ddfd2f11b105b1b4e16dbea4d13b",
+      "bytes": 9008
+    },
+    {
+      "path": "packages/backend/src/services/payments/stripe/stripe-event-router.ts",
+      "sha256": "2a64f7577ca9215d5174f7b2d8cbc3479e250ef093652b529850b358248dd4e6",
+      "bytes": 45633
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/build.log",
+      "sha256": "57b8696a08274e1b434e765267e48f287c51903c9810ed23722c11ed3de3ba7e",
+      "bytes": 248
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/distinct-event-diagnostic-owned-pg.log",
+      "sha256": "28958fcc61b3864e95a0c7b23f2facda67ca5aac7f1803db0c30b7b2c8555a3f",
+      "bytes": 386
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/distinct-event-diagnostic.log",
+      "sha256": "360960cd45a0b13e4aa40ee4e2f218103821a42698a0d440cf96fae70fc9e436",
+      "bytes": 27355
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/distinct-event-original-failed-green.log",
+      "sha256": "6e8d52d1ac0ea741be708022a0cc907a1b6c653ad7e25d8f8f064217a9a2138d",
+      "bytes": 29551
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/distinct-event-original-red.log",
+      "sha256": "d1de6eeefe4a03759ea6dbf7f13b83578d6f08818090915248f133eccb59b838",
+      "bytes": 84312
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/financial-off-green.log",
+      "sha256": "a8ad13cf415c234e60a4c8cf8fefe0631e1b83ec9c5126c01615ad429c39becf",
+      "bytes": 27151
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/financial-on-green.log",
+      "sha256": "0b27fb35dbcfd711bc2115f2e5aea70a142ed269200abd0fd8fa3dd3fe13e42d",
+      "bytes": 27151
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/financial-owned-pg.log",
+      "sha256": "034292389dfc437e48814cc0fe656e0668acb28142dc58d80012cd92ac803aa8",
+      "bytes": 427
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/financial-owned-pg.py",
+      "sha256": "6fcc2aa83b794f5d6cd3984390f3ff1e1e711ed0e8d5e7424c226d2f86f6fe46",
+      "bytes": 5126
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/financial-red.log",
+      "sha256": "9bbd3698b17a2fb883acbcb0d9b30088e8bfc4650ffb168b4ff664b9a612f2ba",
+      "bytes": 34394
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/functional-three-seams-fixture.ts",
+      "sha256": "2b23351a2b31014e6ef3605cabc5ee043122b67d27d16ad5ef26c591d5bd97af",
+      "bytes": 19150
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/functional-three-seams-off-green.log",
+      "sha256": "3befc6eeaf234e3cb411dc6e797359885b9fdee921d23c9f510064435e761afa",
+      "bytes": 26888
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/functional-three-seams-on-green.log",
+      "sha256": "baded2bb917092752643591386f2355521c459644c0e9cdb2c1ee18e29aecdfa",
+      "bytes": 26889
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/functional-three-seams-owned-pg.log",
+      "sha256": "fef38fba2c51dcbffb25478df8055a7df6c72ea0402cb59a7ec9a8df11299c07",
+      "bytes": 427
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/functional-three-seams-owned-pg.py",
+      "sha256": "54e21d78272efadbb3cd4fa114dfdd0c7f7704a51cd94dbac9a6fa80584737ee",
+      "bytes": 5135
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/functional-three-seams-red.log",
+      "sha256": "df5c473897f8ab39d7411c893473b05772fe6eefaaa3391f69e0f0d3698710a7",
+      "bytes": 84318
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/historical-direct-blocker-count-failure.log",
+      "sha256": "47f2c819d20cd612666b21f7b9b1b0bcc1740d46c8987ba03da34cab68bb133a",
+      "bytes": 30302
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/peable-sdk-installed.json",
+      "sha256": "8d60c32dc963c850783d50fa9dbfa446cee5dbc050b08d5411502f7d317ca59b",
+      "bytes": 9106
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/pid-readback.json",
+      "sha256": "4b58b0d07fc2a236980568856136c0b2c8d16824d455369431d317cdd2d29070",
+      "bytes": 215
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/regressions-owned-pg.log",
+      "sha256": "0e033625beec8f2f68f60a93424c8bf7f496ee9959137cd51fee8b30d29093ea",
+      "bytes": 386
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/regressions-owned-pg.py",
+      "sha256": "474b7979b1e6a1d39c8bc1a1516b7c5ae7ee2962e9fd965b4dae803356256270",
+      "bytes": 4039
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/regressions.log",
+      "sha256": "004cc85fdfcf93cbb277137a5ba4615d7e6db7573be1398025fb0812053341cc",
+      "bytes": 133760
+    },
+    {
+      "path": "docs/audits/2026-10-04-i08-cohort-functional-followup/records/types.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "bytes": 15
+    }
+  ],
+  "compiled": [
+    {
+      "path": "packages/backend/dist/index.js",
+      "sha256": "97c1e0c2236b5a4a0e243ba717fcaa2cb7e0fb610129132581b4859dc401a2ee",
+      "bytes": 9779873
+    },
+    {
+      "path": "packages/backend/dist/register-capability-catalog.js",
+      "sha256": "22ce7b279fec3a499fbd9f0cdf1617e6c3069776ee04f2d07f2d284257f38f4f",
+      "bytes": 8793
+    },
+    {
+      "path": "packages/backend/dist/db/migrate.js",
+      "sha256": "f065a7311adee792500bdd04d21e27d361608a23d7a61999890272161d96a73b",
+      "bytes": 3852
+    },
+    {
+      "path": "packages/backend/dist/scripts/provision-taxonomy.js",
+      "sha256": "92d76b0a3682955e7d4419e389a0e122caf44eea55f02dae5d3d4e1f652c2098",
+      "bytes": 2235110
+    }
+  ],
+  "unchangedInputs": [
+    {
+      "path": "packages/backend/drizzle",
+      "gitObject": "c17295f9006835f021514623c91a7602db7d3d57",
+      "baseSame": true
+    },
+    {
+      "path": "packages/backend/src/db/migrate.ts",
+      "gitObject": "5ef632ccfda035efb2b98f2ef8b17069c9d2e48d",
+      "baseSame": true
+    },
+    {
+      "path": "Dockerfile",
+      "gitObject": "3476b20f0a18ecc38c710a7af0ac25641001ee43",
+      "baseSame": true
+    },
+    {
+      "path": "bun.lock",
+      "gitObject": "83d53090cbd3fdc4be48f1896b8cbd3bef8cfa21",
+      "baseSame": true
+    },
+    {
+      "path": "packages/backend/package.json",
+      "gitObject": "04c15d15413c6f4d1f83bb7900294fa484229a3e",
+      "baseSame": true
+    }
+  ],
+  "checks": {
+    "threeSeams": {
+      "baseline": "13 failed, 8 passed / 21",
+      "candidateActionsOff": "21/21",
+      "candidateActionsOn": "21/21",
+      "sameFixtures": true,
+      "fixtureSource": "39d395689859dc4eb2e152473a14a1792a41b431"
+    },
+    "financialIdempotency": {
+      "baseline": "39d395689859dc4eb2e152473a14a1792a41b431",
+      "red": "4 failed, 22 passed / 26",
+      "actionsOff": "26/26",
+      "actionsOn": "26/26",
+      "sameFixtures": true,
+      "fixtureSource": "9dae93ed79ac7015aec43381726cac7c3d6f9acc",
+      "blockedCanonicalSelectsOff": 2,
+      "blockedCanonicalSelectsOn": 2
+    },
+    "regressions": "8 suites / 104 tests",
+    "types": "PASS",
+    "scopedLintWarnings": 0,
+    "build": "PASS",
+    "publicSdkMembersEqual": 53,
+    "ownedPostgresPidsAbsent": [
+      991241,
+      991655,
+      992590,
+      993954,
+      995532,
+      997234,
+      998588,
+      1000780,
+      1001689,
+      1010708,
+      1023162,
+      1048553,
+      1057461,
+      1059442
+    ]
+  },
+  "financialFinding": {
+    "confirmedDistinctEvents": 2,
+    "sameInvoice": true,
+    "distinctLedgerTransactions": 2,
+    "eachDebitMinor": "100",
+    "eachBalancedTotal": "0",
+    "fixed": true,
+    "newDdl": false,
+    "historicalRowsRewritten": false,
+    "ambiguousHistoricalNamespace": "conservative prior invoice claim; no inferred old mode"
+  },
+  "limits": [
+    "Actual config, createApp, signed raw HTTP ingress, normal-migrated owned PostgreSQL and real published SDK transport; remote gateway authority and provider responses are synthetic.",
+    "No provider/account/financial request or production DB/AWS write; no live purchase or new offer required.",
+    "TD61 remains the prior production image until root publishes and deploys this reviewed follow-up. I08 stays incomplete until actual new-task positive registration and mounted-ingress smoke.",
+    "Only deployment-selected cohort may admit platform billing events. General Stripe, Connect, outside stores and disabled action flag remain closed.",
+    "Old invoice claims lack namespace columns. A matching claim on a reused subscription is conservatively retained; expected current namespace/customer is checked under lock. No historical provenance reconstruction."
+  ],
+  "historicalFailures": [
+    "Distinct-event fixture exposed a real double posting; preserved diagnostic proves it and the final financial tests fix it.",
+    "Initial concurrency observation counted only direct holder blockers; PostgreSQL can chain waiters. Final observation requires two canonical SELECTs with nonempty pg_blocking_pids, not elapsed time.",
+    "Earlier typecheck overlapped temporary baseline restoration; serial final typecheck on frozen source passes. Setup/fixture errors and earlier checkpoints retained privately, not claimed as product RED."
+  ],
+  "liveNegativeSmoke": {
+    "method": "POST",
+    "path": "/webhooks/stripe",
+    "body": {},
+    "signatureHeaderAbsent": true,
+    "expectedStatus": 400,
+    "expectedBody": {
+      "received": false,
+      "error": "missing_signature"
+    },
+    "connectExpected": 404
+  },
+  "remainingAcceptance": [
+    "Root merge/CI and authenticated image verification",
+    "Image-only rolling promotion preserving TD61 config/aliases/flags; positive cohort registration per actual new task",
+    "Mounted live ingress negative smoke, health/health/ready and TG steady; no live purchase gate"
+  ]
+}

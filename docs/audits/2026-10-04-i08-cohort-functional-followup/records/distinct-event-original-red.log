@@ -1,0 +1,1790 @@
+$ vitest run src/config/__tests__/billing-cohort.test.ts src/routes/__tests__/billing-cohort-stripe.integration.test.ts
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend[39m
+
+ [31m❯[39m src/config/__tests__/billing-cohort.test.ts [2m([22m[2m9 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[33m 847[2mms[22m[39m
+[31m   [31m×[31m enables the existing action flag through only the explicit billing cohort[39m[33m 691[2mms[22m[39m
+   [32m✓[39m keeps new actions off independently of durable cohort maintenance[32m 30[2mms[22m[39m
+   [32m✓[39m fails closed without PEABLE_APP_PUBLIC_KEY[32m 16[2mms[22m[39m
+   [32m✓[39m fails closed without PEABLE_APP_SECRET[32m 19[2mms[22m[39m
+   [32m✓[39m fails closed without STRIPE_WEBHOOK_SECRET[32m 17[2mms[22m[39m
+   [32m✓[39m fails closed without MERCHANT_BILLING_PEABLE_COHORT[32m 18[2mms[22m[39m
+   [32m✓[39m rejects a key for the other mode without enabling actions[32m 12[2mms[22m[39m
+[31m   [31m×[31m rejects malformed namespace rather than enabling a fallback[39m[32m 21[2mms[22m[39m
+[31m   [31m×[31m rejects malformed cohort even when new actions are off[39m[32m 23[2mms[22m[39m
+[09:10:32] [31mERROR[39m: [36m[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; staying OFF. Entitlements, existing subscriptions and provider events are unaffected — this flag gates starting or managing a paid plan only.[39m
+    [35mmissing[39m: [
+      "STRIPE_ENABLED"
+    ]
+[09:10:32] [31mERROR[39m: [36m[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; staying OFF. Entitlements, existing subscriptions and provider events are unaffected — this flag gates starting or managing a paid plan only.[39m
+    [35mmissing[39m: [
+      "STRIPE_ENABLED"
+    ]
+[09:10:32] [31mERROR[39m: [36m[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; staying OFF. Entitlements, existing subscriptions and provider events are unaffected — this flag gates starting or managing a paid plan only.[39m
+    [35mmissing[39m: [
+      "STRIPE_ENABLED"
+    ]
+[09:10:32] [31mERROR[39m: [36m[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; staying OFF. Entitlements, existing subscriptions and provider events are unaffected — this flag gates starting or managing a paid plan only.[39m
+    [35mmissing[39m: [
+      "STRIPE_ENABLED"
+    ]
+[09:10:32] [31mERROR[39m: [36m[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; staying OFF. Entitlements, existing subscriptions and provider events are unaffected — this flag gates starting or managing a paid plan only.[39m
+    [35mmissing[39m: [
+      "STRIPE_ENABLED"
+    ]
+[09:10:32] [31mERROR[39m: [36m[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; staying OFF. Entitlements, existing subscriptions and provider events are unaffected — this flag gates starting or managing a paid plan only.[39m
+    [35mmissing[39m: [
+      "STRIPE_ENABLED"
+    ]
+[09:10:33] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+[09:10:33] [32mINFO[39m: [36mMerchant billing cohort registered[39m
+    [35mcohortSha256[39m: "ba0c20ff0fd431e2cf1a14a9547239defffd52829c2a82039e75cddbb3dad846"
+    [35mmode[39m: "test"
+    [35menvironment[39m: "development"
+    [35mstoreCount[39m: 2
+[09:10:34] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[09:10:34] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[09:10:34] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[09:10:34] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "discovery"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart-merge"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "checkout"
+[09:10:35] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reviews"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "sellers"
+[09:10:36] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "rates"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:37] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "nearby"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search-intent"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "seo"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchantCompetitiveness"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:38] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-redirect"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "outbound"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-issue"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-recover"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "analytics-ingest"
+[09:10:39] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-demand"
+[09:10:40] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:40] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:40] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:40] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[09:10:40] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[09:10:40] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:40] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[09:10:40] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "public-api"
+[09:10:41] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[09:10:41] [32mINFO[39m: [36m[Stripe] event reopened for replay[39m
+    [35meventId[39m: "01a1062e-02fc-7567-87dc-6d9e02a53ac7"
+    [35mproviderEventId[39m: "evt_othermode6d3af9f342ac48cd90f6da55288dec88"
+    [35mtype[39m: "invoice.paid"
+[09:10:41] [33mWARN[39m: [36m[Stripe] event processing failed, will retry[39m
+    [35meventId[39m: "01a1062e-02fc-7567-87dc-6d9e02a53ac7"
+    [35mproviderEventId[39m: "evt_othermode6d3af9f342ac48cd90f6da55288dec88"
+    [35mtype[39m: "invoice.paid"
+    [35mattempts[39m: 2
+    err: {
+      "type": "Error",
+      "message": "The Stripe client was requested but STRIPE_ENABLED is off (or the integration is half-configured — see the boot log). No Stripe route is mounted in that state.",
+      "stack":
+          Error: The Stripe client was requested but STRIPE_ENABLED is off (or the integration is half-configured — see the boot log). No Stripe route is mounted in that state.
+              at getStripeClient (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/client.ts:71:11)
+              at handleInvoicePaid (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/billing/stripe/subscription-events.ts:212:25)
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:138:21)
+              at drainStripeEvents (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:239:27)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at replayProviderEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/services/payments/stripe/event-processor.ts:315:18)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/src/routes/__tests__/billing-cohort-stripe.integration.test.ts:209:10
+              at file:///home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+    }
+ [31m❯[39m src/routes/__tests__/billing-cohort-stripe.integration.test.ts [2m([22m[2m12 tests[22m[2m | [22m[31m10 failed[39m[2m)[22m[33m 9023[2mms[22m[39m
+[31m   [31m×[31m keeps actions/general/Connect rails disabled but mounts the signed billing ingress[39m[32m 11[2mms[22m[39m
+[31m   [31m×[31m signed paid invoice settles once in SQL while general Stripe and new actions are off[39m[32m 4[2mms[22m[39m
+[31m   [31m×[31m refuses outsider before storage and provider calls[39m[32m 3[2mms[22m[39m
+[31m   [31m×[31m refuses marketplace before storage and provider calls[39m[32m 2[2mms[22m[39m
+   [32m✓[39m refuses connect before storage and provider calls[32m 5[2mms[22m[39m
+[31m   [31m×[31m a mismatched fresh invoice customer cannot post settlement or request its charge[39m[32m 2[2mms[22m[39m
+   [32m✓[39m uses the real action flag and published gateway SDK, with stable-key recovery[32m 1[2mms[22m[39m
+[31m   [31m×[31m signed lifecycle and failed-invoice events apply current gateway snapshots with actions off/on[39m[32m 2[2mms[22m[39m
+[31m   [31m×[31m a second approved store cannot book an invoice against the first store subscription[39m[32m 2[2mms[22m[39m
+[31m   [31m×[31m startup without a verified namespace returns retryable503 without storage or effects[39m[32m 2[2mms[22m[39m
+[31m   [31m×[31m durable replay refuses an event from the other mode before provider reads or SQL effects[39m[32m 25[2mms[22m[39m
+[31m   [31m×[31m the settlement handler itself works independently of webhook mounting and deduplicates the invoice[39m[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 13 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/config/__tests__/billing-cohort.test.ts[2m > [22menables the existing action flag through only the explicit billing cohort
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m src/config/__tests__/billing-cohort.test.ts:[2m10:75[22m[39m
+    [90m  8|[39m }
+    [90m  9|[39m it('enables the existing action flag through only the explicit billing…
+    [90m 10|[39m   const config = await read(true); expect(config.merchantBilling.enabl…
+    [90m   |[39m                                                                           [31m^[39m
+    [90m 11|[39m })[33m;[39m
+    [90m 12|[39m it('keeps new actions off independently of durable cohort maintenance'…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/config/__tests__/billing-cohort.test.ts[2m > [22mrejects malformed namespace rather than enabling a fallback
+[31m[1mAssertionError[22m: promise resolved "{ pagination: { …(2) }, …(53) }" instead of rejecting[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- Error {[39m
+[32m-   "message": "rejected promise",[39m
+[31m+ {[39m
+[31m+   "affiliateOutbound": {[39m
+[31m+     "clickRetentionDays": 400,[39m
+[31m+     "reconciliationEnabled": false,[39m
+[31m+     "redirectEnabled": false,[39m
+[31m+     "reportLeaseMs": 300000,[39m
+[31m+     "reportLookbackDays": 45,[39m
+[31m+     "reportPollIntervalMs": 3600000,[39m
+[31m+   },[39m
+[31m+   "analytics": {[39m
+[31m+     "collectionMode": "off",[39m
+[31m+     "enabled": false,[39m
+[31m+     "flushBatchSize": 500,[39m
+[31m+     "flushIntervalMs": 2000,[39m
+[31m+     "internalTrafficToken": "",[39m
+[31m+     "operatorOxyUserIds": [],[39m
+[31m+     "operatorSurfaceEnabled": false,[39m
+[31m+     "pseudonymRotationHours": 24,[39m
+[31m+     "queueMaxEvents": 10000,[39m
+[31m+     "rollupEnabled": true,[39m
+[31m+     "rollupIntervalMs": 900000,[39m
+[31m+     "rollupMaxBackfillDays": 30,[39m
+[31m+   },[39m
+[31m+   "awin": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "feedListBaseUrl": "https://productdata.awin.com",[39m
+[31m+     "listTimeoutMs": 30000,[39m
+[31m+     "networkCallsPerMinute": 20,[39m
+[31m+     "networkConcurrency": 2,[39m
+[31m+     "networkLeaseMs": 120000,[39m
+[31m+     "publisherApiBaseUrl": "https://api.awin.com",[39m
+[31m+     "sampleSize": 25,[39m
+[31m+   },[39m
+[31m+   "buyerRequests": {[39m
+[31m+     "reconcileBatchSize": 50,[39m
+[31m+     "reconcileGraceMs": 30000,[39m
+[31m+     "reconcileIntervalMs": 60000,[39m
+[31m+     "reconcilerEnabled": true,[39m
+[31m+     "requestsEnabled": true,[39m
+[31m+   },[39m
+[31m+   "canonicalRollout": {[39m
+[31m+     "backfillBatchSize": 200,[39m
+[31m+     "backfillMaxAttempts": 8,[39m
+[31m+     "backfillPollIntervalMs": 15000,[39m
+[31m+     "graphEnabled": false,[39m
+[31m+     "offerComparison": "on",[39m
+[31m+     "publicRoutesEnabled": true,[39m
+[31m+     "readCohorts": [],[39m
+[31m+     "reads": "on",[39m
+[31m+     "search": "off",[39m
+[31m+     "searchIndexingEnabled": false,[39m
+[31m+     "writePublicationEnabled": false,[39m
+[31m+   },[39m
+[31m+   "cart": {[39m
+[31m+     "maxQuantityPerItem": 99,[39m
+[31m+   },[39m
+[31m+   "catalog": {[39m
+[31m+     "curationBatchSize": 5,[39m
+[31m+     "curationJobsEnabled": true,[39m
+[31m+     "curationPollIntervalMs": 10000,[39m
+[31m+     "facetsEnabled": false,[39m
+[31m+     "fourEyesRequired": true,[39m
+[31m+     "graphOperatorOxyUserIds": [],[39m
+[31m+     "graphOperatorSurfaceEnabled": false,[39m
+[31m+     "maxImagesPerListing": 12,[39m
+[31m+     "maxVariantsPerProduct": 100,[39m
+[31m+     "rolloutCohorts": [],[39m
+[31m+     "taxonomyV2Enabled": false,[39m
+[31m+   },[39m
+[31m+   "catalogAuthoring": {[39m
+[31m+     "canonicalSearchLimit": 20,[39m
+[31m+     "categoryPageSize": 200,[39m
+[31m+     "draftPageSize": 50,[39m
+[31m+     "draftTtlSeconds": 2592000,[39m
+[31m+     "enabled": false,[39m
+[31m+   },[39m
+[31m+   "catalogIngestion": {[39m
+[31m+     "anomalyPriceFactor": 20,[39m
+[31m+     "batchSize": 5,[39m
+[31m+     "enabled": false,[39m
+[31m+     "leaseMs": 120000,[39m
+[31m+     "maxBackoffMs": 21600000,[39m
+[31m+     "pollIntervalMs": 30000,[39m
+[31m+     "retirementBatchSize": 500,[39m
+[31m+   },[39m
+[31m+   "catalogProposals": {[39m
+[31m+     "backfillPageSize": 100,[39m
+[31m+     "duplicateNearLimit": 10,[39m
+[31m+     "duplicateNearThreshold": 0.45,[39m
+[31m+     "enabled": false,[39m
+[31m+     "maxPerStorePerDay": 100,[39m
+[31m+     "maxPerSubmitterPerHour": 20,[39m
+[31m+     "pageSize": 50,[39m
+[31m+   },[39m
+[31m+   "checkout": {[39m
+[31m+     "destinationCountries": [],[39m
+[31m+   },[39m
+[31m+   "connectors": {[39m
+[31m+     "webhookReregistrationBatchSize": 10,[39m
+[31m+     "webhookReregistrationEnabled": true,[39m
+[31m+     "webhookReregistrationLeaseMs": 120000,[39m
+[31m+   },[39m
+[31m+   "crowdSource": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "enforcementMode": "observe",[39m
+[31m+     "outboxBatchSize": 50,[39m
+[31m+     "outboxPollIntervalMs": 5000,[39m
+[31m+     "serviceKey": "",[39m
+[31m+   },[39m
+[31m+   "digital": {[39m
+[31m+     "downloadsEnabled": true,[39m
+[31m+     "enabledVerticals": [],[39m
+[31m+     "paidCheckoutEnabled": false,[39m
+[31m+     "publicationEnabled": false,[39m
+[31m+     "uploadsEnabled": false,[39m
+[31m+   },[39m
+[31m+   "digitalRetail": {[39m
+[31m+     "catalogSyncEnabled": false,[39m
+[31m+     "checkoutEnabled": false,[39m
+[31m+     "procurementEnabled": false,[39m
+[31m+     "publicationEnabled": false,[39m
+[31m+     "recoveryDelaySeconds": 60,[39m
+[31m+     "revealEnabled": true,[39m
+[31m+     "sealKeyReference": "",[39m
+[31m+   },[39m
+[31m+   "discovery": {[39m
+[31m+     "leaseMs": 600000,[39m
+[31m+     "shelfSize": 12,[39m
+[31m+     "sweepIntervalMs": 900000,[39m
+[31m+     "topNPerCategory": 60,[39m
+[31m+     "topRatedMinReviews": 5,[39m
+[31m+     "windowDays": 30,[39m
+[31m+   },[39m
+[31m+   "ebay": {[39m
+[31m+     "attributionEnabled": false,[39m
+[31m+     "campaignId": "",[39m
+[31m+     "dailyCallLimit": 5000,[39m
+[31m+     "enabled": false,[39m
+[31m+     "environment": "sandbox",[39m
+[31m+     "fetchEnabled": true,[39m
+[31m+     "markets": [[39m
+[31m+       "EBAY_ES",[39m
+[31m+     ],[39m
+[31m+     "reconciliationSampleSize": 40,[39m
+[31m+   },[39m
+[31m+   "feed": {[39m
+[31m+     "cacheTtlSeconds": 60,[39m
+[31m+     "categoriesSize": 8,[39m
+[31m+     "categoryTilesPerCard": 4,[39m
+[31m+     "merchantsSize": 8,[39m
+[31m+     "newArrivalsSize": 12,[39m
+[31m+     "onSaleSize": 12,[39m
+[31m+     "storeCardThumbnails": 3,[39m
+[31m+   },[39m
+[31m+   "feedImport": {[39m
+[31m+     "authEncryptionKey": "",[39m
+[31m+     "enabled": false,[39m
+[31m+     "fetchTimeoutMs": 30000,[39m
+[31m+     "maxCompressionRatio": 200,[39m
+[31m+     "maxDecompressedBytes": 17179869184,[39m
+[31m+     "maxDownloadBytes": 2147483648,[39m
+[31m+     "maxRecordBytes": 262144,[39m
+[31m+     "maxRecords": 5000000,[39m
+[31m+     "maxReportEntries": 10000,[39m
+[31m+     "previewSampleSize": 50,[39m
+[31m+     "stageTtlMs": 21600000,[39m
+[31m+     "stagingDir": "/home/nate/Oxy/.agent-evidence/mcohort-pg-_vvbxm_6/tmp/mercaria-feed-import",[39m
+[31m+   },[39m
+[31m+   "fx": {[39m
+[31m+     "cacheTtlSeconds": 300,[39m
+[31m+     "faircoinExplorerBaseUrl": "https://explorer.fairco.in",[39m
+[31m+     "provider": "static",[39m
+[31m+     "requestTimeoutMs": 5000,[39m
+[31m+     "staticRates": {[39m
+[31m+       "AED": 1.8,[39m
+[31m+       "AUD": 0.75,[39m
+[31m+       "BRL": 2.45,[39m
+[31m+       "CAD": 0.67,[39m
+[31m+       "CHF": 0.43,[39m
+[31m+       "CNY": 3.53,[39m
+[31m+       "DKK": 3.38,[39m
+[31m+       "EUR": 0.45,[39m
+[31m+       "GBP": 0.39,[39m
+[31m+       "HKD": 3.82,[39m
+[31m+       "INR": 40.7,[39m
+[31m+       "JPY": 73.5,[39m
+[31m+       "MXN": 8.3,[39m
+[31m+       "NOK": 5.24,[39m
+[31m+       "NZD": 0.81,[39m
+[31m+       "PLN": 1.96,[39m
+[31m+       "SEK": 5.15,[39m
+[31m+       "SGD": 0.66,[39m
+[31m+       "USD": 0.49,[39m
+[31m+       "ZAR": 9.07,[39m
+[31m+     },[39m
+[31m+   },[39m
+[31m+   "guest": {[39m
+[31m+     "cartEnabled": true,[39m
+[31m+     "checkoutRollout": {[39m
+[31m+       "blockedFulfilmentMethods": [],[39m
+[31m+       "blockedMarkets": [],[39m
+[31m+       "blockedPlatforms": [],[39m
+[31m+       "blockedSellerKeys": [],[39m
+[31m+       "blockedSuppliers": [],[39m
+[31m+       "sellerActivationRequired": false,[39m
+[31m+     },[39m
+[31m+     "claim": {[39m
+[31m+       "enabled": true,[39m
+[31m+       "fourEyesRequired": true,[39m
+[31m+       "jobBatchSize": 25,[39m
+[31m+       "jobLeaseMs": 60000,[39m
+[31m+       "jobMaxAttempts": 8,[39m
+[31m+       "jobPollIntervalMs": 5000,[39m
+[31m+       "projectionEnabled": true,[39m
+[31m+     },[39m
+[31m+     "emailHashKey": "",[39m
+[31m+     "enabled": false,[39m
+[31m+     "governance": {[39m
+[31m+       "abuseControlsEnabled": false,[39m
+[31m+       "abuseSubjectHashKey": "",[39m
+[31m+       "retentionBatchSize": 500,[39m
+[31m+       "retentionDryRun": true,[39m
+[31m+       "retentionJobEnabled": true,[39m
+[31m+       "retentionPollIntervalMs": 900000,[39m
+[31m+       "signalWindowSeconds": 300,[39m
+[31m+     },[39m
+[31m+     "inlineDestinationEnabled": true,[39m
+[31m+     "issuanceEnabled": true,[39m
+[31m+     "operatorOxyUserIds": [],[39m
+[31m+     "operatorSurfaceEnabled": false,[39m
+[31m+     "piiEncryptionKey": "",[39m
+[31m+     "portal": {[39m
+[31m+       "deliveryEnabled": true,[39m
+[31m+       "grantDays": 30,[39m
+[31m+       "magicLinkBaseUrl": "",[39m
+[31m+       "magicLinkMinutes": 15,[39m
+[31m+       "messageBatchSize": 25,[39m
+[31m+       "messageLeaseMs": 60000,[39m
+[31m+       "messageMaxAttempts": 8,[39m
+[31m+       "messagePollIntervalMs": 5000,[39m
+[31m+       "recoveryMaxPerEmail": 5,[39m
+[31m+       "recoveryMaxPerNetwork": 30,[39m
+[31m+       "recoveryMaxPerOrder": 5,[39m
+[31m+       "recoveryWindowMinutes": 60,[39m
+[31m+       "stepUpMinutes": 15,[39m
+[31m+     },[39m
+[31m+     "sessionAbsoluteDays": 90,[39m
+[31m+     "sessionIdleDays": 30,[39m
+[31m+   },[39m
+[31m+   "matching": {[39m
+[31m+     "pipelineEnabled": true,[39m
+[31m+     "queueBatchSize": 25,[39m
+[31m+     "queuePollIntervalMs": 5000,[39m
+[31m+     "semanticEnabled": false,[39m
+[31m+     "sweepBatchSize": 500,[39m
+[31m+   },[39m
+[31m+   "merchantActivation": {[39m
+[31m+     "observationBatchSize": 100,[39m
+[31m+     "observationEnabled": false,[39m
+[31m+     "observationIntervalMs": 900000,[39m
+[31m+     "testOrderRequired": false,[39m
+[31m+   },[39m
+[31m+   "merchantBilling": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "peableCohortJson": "{secret-canary",[39m
+[31m+     "reconciliationBatchSize": 50,[39m
+[31m+     "reconciliationEnabled": true,[39m
+[31m+     "reconciliationIntervalMs": 21600000,[39m
+[31m+   },[39m
+[31m+   "merchantClaims": {[39m
+[31m+     "attemptTtlHours": 336,[39m
+[31m+     "challengeTtlMinutes": 1440,[39m
+[31m+     "maxAttemptsPerChallenge": 25,[39m
+[31m+     "maxChallengesPerDomainPerHour": 10,[39m
+[31m+     "maxChallengesPerMerchantPerHour": 10,[39m
+[31m+     "maxChallengesPerUserPerHour": 20,[39m
+[31m+     "revalidateAfterDays": 365,[39m
+[31m+   },[39m
+[31m+   "merchantDemand": {[39m
+[31m+     "dashboardEnabled": false,[39m
+[31m+     "defaultWindowDays": 30,[39m
+[31m+     "markets": [],[39m
+[31m+     "maxProductRows": 200,[39m
+[31m+     "previewEnabled": false,[39m
+[31m+     "snapshotRetentionDays": 400,[39m
+[31m+   },[39m
+[31m+   "moovo": {[39m
+[31m+     "baseUrl": "",[39m
+[31m+     "enabled": false,[39m
+[31m+     "environment": null,[39m
+[31m+     "maxAttempts": 3,[39m
+[31m+     "resourceApplicationId": "",[39m
+[31m+     "retryBaseDelayMs": 250,[39m
+[31m+     "retryMaxDelayMs": 5000,[39m
+[31m+     "scopes": [],[39m
+[31m+     "timeoutMs": 10000,[39m
+[31m+   },[39m
+[31m+   "offerFreshness": {[39m
+[31m+     "defaultRefreshCallsPerMinute": 60,[39m
+[31m+     "defaultRefreshConcurrency": 2,[39m
+[31m+     "expirySweepBatchSize": 500,[39m
+[31m+     "expirySweepEnabled": false,[39m
+[31m+     "expirySweepIntervalMs": 60000,[39m
+[31m+     "refreshBatchSize": 25,[39m
+[31m+     "refreshEnabled": false,[39m
+[31m+     "refreshLeaseMs": 120000,[39m
+[31m+     "refreshMaxBackoffMs": 21600000,[39m
+[31m+     "refreshPollIntervalMs": 15000,[39m
+[31m+   },[39m
+[31m+   "offers": {[39m
+[31m+     "materializationEnabled": true,[39m
+[31m+     "outboxBatchSize": 25,[39m
+[31m+     "outboxPollIntervalMs": 5000,[39m
+[31m+   },[39m
+[31m+   "orders": {[39m
+[31m+     "idempotencyTtlMs": 600000,[39m
+[31m+     "lowStockThreshold": 5,[39m
+[31m+     "mockPayEnabled": true,[39m
+[31m+     "reservationTtlMs": 900000,[39m
+[31m+     "shippingRates": {[39m
+[31m+       "express": 1500,[39m
+[31m+       "pickup": 0,[39m
+[31m+       "standard": 500,[39m
+[31m+     },[39m
+[31m+   },[39m
+[31m+   "pagination": {[39m
+[31m+     "defaultPageSize": 20,[39m
+[31m+     "maxPageSize": 100,[39m
+[31m+   },[39m
+[31m+   "payments": {[39m
+[31m+     "operatorOxyUserIds": [],[39m
+[31m+     "operatorSurfaceEnabled": false,[39m
+[31m+     "outboxBatchSize": 50,[39m
+[31m+     "outboxEnabled": true,[39m
+[31m+     "outboxLeaseMs": 60000,[39m
+[31m+     "outboxPollIntervalMs": 5000,[39m
+[31m+     "peable": {[39m
+[31m+       "baseUrl": "https://api.peable.to",[39m
+[31m+       "enabled": false,[39m
+[31m+       "eventBatchSize": 50,[39m
+[31m+       "eventLeaseMs": 60000,[39m
+[31m+       "eventMaxAttempts": 8,[39m
+[31m+       "eventPollIntervalMs": 5000,[39m
+[31m+       "livemode": false,[39m
+[31m+       "oxyApiUrl": "https://api.oxy.so",[39m
+[31m+       "presentmentCurrencies": [[39m
+[31m+         "EUR",[39m
+[31m+         "USD",[39m
+[31m+       ],[39m
+[31m+       "publicKey": "fixture-public",[39m
+[31m+       "secret": "fixture-secret",[39m
+[31m+       "webhookSecret": "",[39m
+[31m+     },[39m
+[31m+     "reconciliation": {[39m
+[31m+       "batchSize": 100,[39m
+[31m+       "enabled": true,[39m
+[31m+       "intervalMs": 300000,[39m
+[31m+       "lookbackMs": 604800000,[39m
+[31m+       "openPaymentMinAgeMs": 600000,[39m
+[31m+     },[39m
+[31m+     "stripe": {[39m
+[31m+       "accountSyncBatchSize": 25,[39m
+[31m+       "accountSyncIntervalMs": 900000,[39m
+[31m+       "accountSyncStaleAfterMs": 21600000,[39m
+[31m+       "connectWebhookSecret": "",[39m
+[31m+       "enabled": false,[39m
+[31m+       "eventBatchSize": 50,[39m
+[31m+       "eventLeaseMs": 60000,[39m
+[31m+       "eventMaxAttempts": 8,[39m
+[31m+       "eventPollIntervalMs": 5000,[39m
+[31m+       "highValueHoldThresholds": {},[39m
+[31m+       "highValueHoldWindowMs": 259200000,[39m
+[31m+       "livemode": false,[39m
+[31m+       "paymentSurfaceMethods": [[39m
+[31m+         "card",[39m
+[31m+         "apple_pay",[39m
+[31m+         "google_pay",[39m
+[31m+         "link",[39m
+[31m+       ],[39m
+[31m+       "platformCurrency": "EUR",[39m
+[31m+       "presentmentCurrencies": [[39m
+[31m+         "EUR",[39m
+[31m+         "USD",[39m
+[31m+       ],[39m
+[31m+       "secretKey": "sk_test_fixture",[39m
+[31m+       "sellerCountries": [[39m
+[31m+         "ES",[39m
+[31m+       ],[39m
+[31m+       "threeDSecureThresholds": {},[39m
+[31m+       "webhookSecret": "whsec_fixture",[39m
+[31m+     },[39m
+[31m+   },[39m
+[31m+   "pickup": {[39m
+[31m+     "collectionCodeKey": "",[39m
+[31m+     "guestPickupEnabled": false,[39m
+[31m+     "guestPickupRequiresNotificationTransport": false,[39m
+[31m+     "nearbyEnabled": false,[39m
+[31m+     "p2pLocalDiscoveryEnabled": false,[39m
+[31m+     "storePickupEnabled": false,[39m
+[31m+   },[39m
+[31m+   "postgres": {[39m
+[31m+     "connectTimeoutSeconds": 10,[39m
+[31m+     "idleTimeoutSeconds": 30,[39m
+[31m+     "maxLifetimeSeconds": 1800,[39m
+[31m+     "maxPoolSize": 4,[39m
+[31m+     "url": "postgresql://oxy@127.0.0.1:5627/oxydb_test_5a1af5a9021a386e",[39m
+[31m+   },[39m
+[31m+   "priceAlerts": {[39m
+[31m+     "createRateLimit": 60,[39m
+[31m+     "createRateWindowMs": 3600000,[39m
+[31m+     "enabled": false,[39m
+[31m+     "evaluationBatchSize": 20,[39m
+[31m+     "evaluationEnabled": false,[39m
+[31m+     "evaluationLeaseMs": 120000,[39m
+[31m+     "evaluationMaxBackoffMs": 3600000,[39m
+[31m+     "evaluationOfferLimit": 50,[39m
+[31m+     "evaluationPollIntervalMs": 15000,[39m
+[31m+     "maxActivePerUser": 200,[39m
+[31m+     "notificationBatchSize": 50,[39m
+[31m+     "notificationLeaseMs": 60000,[39m
+[31m+     "notificationMaxAttempts": 8,[39m
+[31m+     "notificationMaxBackoffMs": 21600000,[39m
+[31m+     "notificationPollIntervalMs": 10000,[39m
+[31m+     "notificationsEnabled": true,[39m
+[31m+     "traceLimit": 100,[39m
+[31m+   },[39m
+[31m+   "priceHistory": {[39m
+[31m+     "anchorIntervalSeconds": 86400,[39m
+[31m+     "enabled": false,[39m
+[31m+     "maxQuerySpanDays": 400,[39m
+[31m+     "publicReadsEnabled": false,[39m
+[31m+     "rebuildBatchSize": 10,[39m
+[31m+     "rebuildLeaseMs": 120000,[39m
+[31m+     "rebuildMaxBackoffMs": 21600000,[39m
+[31m+     "rebuildObservationLimit": 50000,[39m
+[31m+     "rebuildPollIntervalMs": 30000,[39m
+[31m+     "retentionWindowDays": 400,[39m
+[31m+     "seriesCurrencies": [],[39m
+[31m+     "traceLimit": 500,[39m
+[31m+   },[39m
+[31m+   "priceSignals": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "massChangeSampleLimit": 5000,[39m
+[31m+     "merchantSubjectLimit": 200,[39m
+[31m+     "offerSampleLimit": 200,[39m
+[31m+     "publicReadsEnabled": false,[39m
+[31m+     "sweepBatchSize": 25,[39m
+[31m+     "sweepLeaseMs": 300000,[39m
+[31m+     "sweepPollIntervalMs": 60000,[39m
+[31m+     "traceLimit": 200,[39m
+[31m+   },[39m
+[31m+   "printful": {[39m
+[31m+     "baseUrl": "https://api.printful.com",[39m
+[31m+     "enabled": false,[39m
+[31m+   },[39m
+[31m+   "procurement": {[39m
+[31m+     "callTimeoutMs": 20000,[39m
+[31m+     "convergenceGraceMs": 60000,[39m
+[31m+     "eventBatchSize": 50,[39m
+[31m+     "eventLagSlaMs": 3600000,[39m
+[31m+     "eventLeaseMs": 60000,[39m
+[31m+     "eventPollIntervalMs": 5000,[39m
+[31m+     "eventProcessingEnabled": true,[39m
+[31m+     "fakeAdapterEnabled": false,[39m
+[31m+     "orchestrationEnabled": false,[39m
+[31m+     "outboxBatchSize": 25,[39m
+[31m+     "outboxLeaseMs": 60000,[39m
+[31m+     "outboxPollIntervalMs": 5000,[39m
+[31m+     "pollMinIntervalMs": 300000,[39m
+[31m+     "pollTerminalGraceMs": 86400000,[39m
+[31m+     "providerFetchEnabled": true,[39m
+[31m+   },[39m
+[31m+   "productSaves": {[39m
+[31m+     "counterSweepBatchSize": 500,[39m
+[31m+     "enabled": false,[39m
+[31m+     "migrationApplyEnabled": false,[39m
+[31m+     "migrationBatchSize": 200,[39m
+[31m+     "readMode": "off",[39m
+[31m+   },[39m
+[31m+   "ranking": {[39m
+[31m+     "canaryEnabled": true,[39m
+[31m+   },[39m
+[31m+   "referrals": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "operatorOxyUserIds": [],[39m
+[31m+     "operatorSurfaceEnabled": false,[39m
+[31m+     "partnerEnrollmentEnabled": true,[39m
+[31m+     "payoutBatchSize": 25,[39m
+[31m+     "payoutBatchesEnabled": false,[39m
+[31m+     "payoutPollIntervalMs": 900000,[39m
+[31m+     "payoutRetryBackoffMs": 900000,[39m
+[31m+     "reconciliationBatchSize": 25,[39m
+[31m+     "reconciliationEnabled": false,[39m
+[31m+     "reconciliationPollIntervalMs": 3600000,[39m
+[31m+     "redirectBaseUrl": "https://mercaria.co",[39m
+[31m+     "vestingBatchSize": 200,[39m
+[31m+     "vestingEnabled": false,[39m
+[31m+     "vestingPollIntervalMs": 300000,[39m
+[31m+   },[39m
+[31m+   "retail": {[39m
+[31m+     "blockedMarkets": [],[39m
+[31m+     "blockedSuppliers": [],[39m
+[31m+     "enabled": false,[39m
+[31m+     "sellerLegalEntityCountry": "",[39m
+[31m+     "sellerLegalEntityName": "",[39m
+[31m+   },[39m
+[31m+   "retailEligibility": {[39m
+[31m+     "expiryHorizonDays": 30,[39m
+[31m+     "operatorOxyUserIds": [],[39m
+[31m+     "operatorSurfaceEnabled": false,[39m
+[31m+   },[39m
+[31m+   "retailReconciliation": {[39m
+[31m+     "batchSize": 25,[39m
+[31m+     "enabled": false,[39m
+[31m+     "pollIntervalMs": 60000,[39m
+[31m+   },[39m
+[31m+   "retailService": {[39m
+[31m+     "reconcileBatchSize": 50,[39m
+[31m+     "reconcileGraceMs": 30000,[39m
+[31m+     "reconcileIntervalMs": 60000,[39m
+[31m+     "reconcilerEnabled": true,[39m
+[31m+     "requestsEnabled": true,[39m
+[31m+   },[39m
+[31m+   "searchIntent": {[39m
+[31m+     "blockedCohorts": [],[39m
+[31m+     "enabled": false,[39m
+[31m+     "parseTimeoutMs": 4000,[39m
+[31m+     "sessionTtlSeconds": 1800,[39m
+[31m+   },[39m
+[31m+   "sellYours": {[39m
+[31m+     "candidateLimit": 10,[39m
+[31m+     "draftListLimit": 25,[39m
+[31m+     "enabled": true,[39m
+[31m+     "guidanceOfferSampleSize": 100,[39m
+[31m+     "guidanceSoldSampleSize": 200,[39m
+[31m+   },[39m
+[31m+   "seo": {[39m
+[31m+     "canaryCategoryIds": [],[39m
+[31m+     "documentCacheSeconds": 300,[39m
+[31m+     "indexingMode": "off",[39m
+[31m+     "routesEnabled": false,[39m
+[31m+     "sitemapCacheSeconds": 3600,[39m
+[31m+     "sitemapPageSize": 25000,[39m
+[31m+   },[39m
+[31m+   "shoppingAgents": {[39m
+[31m+     "createRateLimit": 30,[39m
+[31m+     "createRateWindowMs": 3600000,[39m
+[31m+     "enabled": false,[39m
+[31m+     "evaluationBatchSize": 10,[39m
+[31m+     "evaluationEnabled": false,[39m
+[31m+     "evaluationLeaseMs": 180000,[39m
+[31m+     "evaluationMaxAttempts": 8,[39m
+[31m+     "evaluationMaxBackoffMs": 3600000,[39m
+[31m+     "evaluationPollIntervalMs": 15000,[39m
+[31m+     "findingPageSize": 50,[39m
+[31m+     "maxActivePerUser": 50,[39m
+[31m+     "notificationBatchSize": 50,[39m
+[31m+     "notificationLeaseMs": 60000,[39m
+[31m+     "notificationMaxAttempts": 8,[39m
+[31m+     "notificationMaxBackoffMs": 21600000,[39m
+[31m+     "notificationPollIntervalMs": 10000,[39m
+[31m+     "notificationsEnabled": true,[39m
+[31m+     "summaryDeadlineMs": 2500,[39m
+[31m+     "triggerBatchSize": 20,[39m
+[31m+     "triggerEnabled": false,[39m
+[31m+     "triggerFanOutLimit": 200,[39m
+[31m+     "triggerLeaseMs": 120000,[39m
+[31m+     "triggerPollIntervalMs": 15000,[39m
+[31m+   },[39m
+[31m+   "supplierPreflight": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "fakeAdapterEnabled": false,[39m
+[31m+     "fingerprintKey": "",[39m
+[31m+     "maxReleaseAttempts": 5,[39m
+[31m+     "operatorOxyUserIds": [],[39m
+[31m+     "operatorSurfaceEnabled": false,[39m
+[31m+     "sweepBatchSize": 50,[39m
+[31m+     "sweepEnabled": true,[39m
+[31m+     "sweepIntervalMs": 30000,[39m
+[31m+   },[39m
+[31m+   "variantAxes": {[39m
+[31m+     "reads": "off",[39m
+[31m+   },[39m
+[31m+   "watchlists": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "evaluationConcurrency": 6,[39m
+[31m+     "snapshotPageSize": 50,[39m
+[31m+   },[39m
+[31m+   "web": {[39m
+[31m+     "origin": "https://mercaria.co",[39m
+[31m+   },[39m
+[2m  }[22m
+
+[36m [2m❯[22m src/config/__tests__/billing-cohort.test.ts:[2m22:80[22m[39m
+    [90m 20|[39m })[33m;[39m
+    [90m 21|[39m it('rejects malformed namespace rather than enabling a fallback', asyn…
+    [90m 22|[39m   await expect(read(true, { MERCHANT_BILLING_PEABLE_COHORT: '{secret-c…
+    [90m   |[39m                                                                                [31m^[39m
+    [90m 23|[39m })[33m;[39m
+    [90m 24|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/config/__tests__/billing-cohort.test.ts[2m > [22mrejects malformed cohort even when new actions are off
+[31m[1mAssertionError[22m: promise resolved "{ pagination: { …(2) }, …(53) }" instead of rejecting[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- Error {[39m
+[32m-   "message": "rejected promise",[39m
+[31m+ {[39m
+[31m+   "affiliateOutbound": {[39m
+[31m+     "clickRetentionDays": 400,[39m
+[31m+     "reconciliationEnabled": false,[39m
+[31m+     "redirectEnabled": false,[39m
+[31m+     "reportLeaseMs": 300000,[39m
+[31m+     "reportLookbackDays": 45,[39m
+[31m+     "reportPollIntervalMs": 3600000,[39m
+[31m+   },[39m
+[31m+   "analytics": {[39m
+[31m+     "collectionMode": "off",[39m
+[31m+     "enabled": false,[39m
+[31m+     "flushBatchSize": 500,[39m
+[31m+     "flushIntervalMs": 2000,[39m
+[31m+     "internalTrafficToken": "",[39m
+[31m+     "operatorOxyUserIds": [],[39m
+[31m+     "operatorSurfaceEnabled": false,[39m
+[31m+     "pseudonymRotationHours": 24,[39m
+[31m+     "queueMaxEvents": 10000,[39m
+[31m+     "rollupEnabled": true,[39m
+[31m+     "rollupIntervalMs": 900000,[39m
+[31m+     "rollupMaxBackfillDays": 30,[39m
+[31m+   },[39m
+[31m+   "awin": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "feedListBaseUrl": "https://productdata.awin.com",[39m
+[31m+     "listTimeoutMs": 30000,[39m
+[31m+     "networkCallsPerMinute": 20,[39m
+[31m+     "networkConcurrency": 2,[39m
+[31m+     "networkLeaseMs": 120000,[39m
+[31m+     "publisherApiBaseUrl": "https://api.awin.com",[39m
+[31m+     "sampleSize": 25,[39m
+[31m+   },[39m
+[31m+   "buyerRequests": {[39m
+[31m+     "reconcileBatchSize": 50,[39m
+[31m+     "reconcileGraceMs": 30000,[39m
+[31m+     "reconcileIntervalMs": 60000,[39m
+[31m+     "reconcilerEnabled": true,[39m
+[31m+     "requestsEnabled": true,[39m
+[31m+   },[39m
+[31m+   "canonicalRollout": {[39m
+[31m+     "backfillBatchSize": 200,[39m
+[31m+     "backfillMaxAttempts": 8,[39m
+[31m+     "backfillPollIntervalMs": 15000,[39m
+[31m+     "graphEnabled": false,[39m
+[31m+     "offerComparison": "on",[39m
+[31m+     "publicRoutesEnabled": true,[39m
+[31m+     "readCohorts": [],[39m
+[31m+     "reads": "on",[39m
+[31m+     "search": "off",[39m
+[31m+     "searchIndexingEnabled": false,[39m
+[31m+     "writePublicationEnabled": false,[39m
+[31m+   },[39m
+[31m+   "cart": {[39m
+[31m+     "maxQuantityPerItem": 99,[39m
+[31m+   },[39m
+[31m+   "catalog": {[39m
+[31m+     "curationBatchSize": 5,[39m
+[31m+     "curationJobsEnabled": true,[39m
+[31m+     "curationPollIntervalMs": 10000,[39m
+[31m+     "facetsEnabled": false,[39m
+[31m+     "fourEyesRequired": true,[39m
+[31m+     "graphOperatorOxyUserIds": [],[39m
+[31m+     "graphOperatorSurfaceEnabled": false,[39m
+[31m+     "maxImagesPerListing": 12,[39m
+[31m+     "maxVariantsPerProduct": 100,[39m
+[31m+     "rolloutCohorts": [],[39m
+[31m+     "taxonomyV2Enabled": false,[39m
+[31m+   },[39m
+[31m+   "catalogAuthoring": {[39m
+[31m+     "canonicalSearchLimit": 20,[39m
+[31m+     "categoryPageSize": 200,[39m
+[31m+     "draftPageSize": 50,[39m
+[31m+     "draftTtlSeconds": 2592000,[39m
+[31m+     "enabled": false,[39m
+[31m+   },[39m
+[31m+   "catalogIngestion": {[39m
+[31m+     "anomalyPriceFactor": 20,[39m
+[31m+     "batchSize": 5,[39m
+[31m+     "enabled": false,[39m
+[31m+     "leaseMs": 120000,[39m
+[31m+     "maxBackoffMs": 21600000,[39m
+[31m+     "pollIntervalMs": 30000,[39m
+[31m+     "retirementBatchSize": 500,[39m
+[31m+   },[39m
+[31m+   "catalogProposals": {[39m
+[31m+     "backfillPageSize": 100,[39m
+[31m+     "duplicateNearLimit": 10,[39m
+[31m+     "duplicateNearThreshold": 0.45,[39m
+[31m+     "enabled": false,[39m
+[31m+     "maxPerStorePerDay": 100,[39m
+[31m+     "maxPerSubmitterPerHour": 20,[39m
+[31m+     "pageSize": 50,[39m
+[31m+   },[39m
+[31m+   "checkout": {[39m
+[31m+     "destinationCountries": [],[39m
+[31m+   },[39m
+[31m+   "connectors": {[39m
+[31m+     "webhookReregistrationBatchSize": 10,[39m
+[31m+     "webhookReregistrationEnabled": true,[39m
+[31m+     "webhookReregistrationLeaseMs": 120000,[39m
+[31m+   },[39m
+[31m+   "crowdSource": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "enforcementMode": "observe",[39m
+[31m+     "outboxBatchSize": 50,[39m
+[31m+     "outboxPollIntervalMs": 5000,[39m
+[31m+     "serviceKey": "",[39m
+[31m+   },[39m
+[31m+   "digital": {[39m
+[31m+     "downloadsEnabled": true,[39m
+[31m+     "enabledVerticals": [],[39m
+[31m+     "paidCheckoutEnabled": false,[39m
+[31m+     "publicationEnabled": false,[39m
+[31m+     "uploadsEnabled": false,[39m
+[31m+   },[39m
+[31m+   "digitalRetail": {[39m
+[31m+     "catalogSyncEnabled": false,[39m
+[31m+     "checkoutEnabled": false,[39m
+[31m+     "procurementEnabled": false,[39m
+[31m+     "publicationEnabled": false,[39m
+[31m+     "recoveryDelaySeconds": 60,[39m
+[31m+     "revealEnabled": true,[39m
+[31m+     "sealKeyReference": "",[39m
+[31m+   },[39m
+[31m+   "discovery": {[39m
+[31m+     "leaseMs": 600000,[39m
+[31m+     "shelfSize": 12,[39m
+[31m+     "sweepIntervalMs": 900000,[39m
+[31m+     "topNPerCategory": 60,[39m
+[31m+     "topRatedMinReviews": 5,[39m
+[31m+     "windowDays": 30,[39m
+[31m+   },[39m
+[31m+   "ebay": {[39m
+[31m+     "attributionEnabled": false,[39m
+[31m+     "campaignId": "",[39m
+[31m+     "dailyCallLimit": 5000,[39m
+[31m+     "enabled": false,[39m
+[31m+     "environment": "sandbox",[39m
+[31m+     "fetchEnabled": true,[39m
+[31m+     "markets": [[39m
+[31m+       "EBAY_ES",[39m
+[31m+     ],[39m
+[31m+     "reconciliationSampleSize": 40,[39m
+[31m+   },[39m
+[31m+   "feed": {[39m
+[31m+     "cacheTtlSeconds": 60,[39m
+[31m+     "categoriesSize": 8,[39m
+[31m+     "categoryTilesPerCard": 4,[39m
+[31m+     "merchantsSize": 8,[39m
+[31m+     "newArrivalsSize": 12,[39m
+[31m+     "onSaleSize": 12,[39m
+[31m+     "storeCardThumbnails": 3,[39m
+[31m+   },[39m
+[31m+   "feedImport": {[39m
+[31m+     "authEncryptionKey": "",[39m
+[31m+     "enabled": false,[39m
+[31m+     "fetchTimeoutMs": 30000,[39m
+[31m+     "maxCompressionRatio": 200,[39m
+[31m+     "maxDecompressedBytes": 17179869184,[39m
+[31m+     "maxDownloadBytes": 2147483648,[39m
+[31m+     "maxRecordBytes": 262144,[39m
+[31m+     "maxRecords": 5000000,[39m
+[31m+     "maxReportEntries": 10000,[39m
+[31m+     "previewSampleSize": 50,[39m
+[31m+     "stageTtlMs": 21600000,[39m
+[31m+     "stagingDir": "/home/nate/Oxy/.agent-evidence/mcohort-pg-_vvbxm_6/tmp/mercaria-feed-import",[39m
+[31m+   },[39m
+[31m+   "fx": {[39m
+[31m+     "cacheTtlSeconds": 300,[39m
+[31m+     "faircoinExplorerBaseUrl": "https://explorer.fairco.in",[39m
+[31m+     "provider": "static",[39m
+[31m+     "requestTimeoutMs": 5000,[39m
+[31m+     "staticRates": {[39m
+[31m+       "AED": 1.8,[39m
+[31m+       "AUD": 0.75,[39m
+[31m+       "BRL": 2.45,[39m
+[31m+       "CAD": 0.67,[39m
+[31m+       "CHF": 0.43,[39m
+[31m+       "CNY": 3.53,[39m
+[31m+       "DKK": 3.38,[39m
+[31m+       "EUR": 0.45,[39m
+[31m+       "GBP": 0.39,[39m
+[31m+       "HKD": 3.82,[39m
+[31m+       "INR": 40.7,[39m
+[31m+       "JPY": 73.5,[39m
+[31m+       "MXN": 8.3,[39m
+[31m+       "NOK": 5.24,[39m
+[31m+       "NZD": 0.81,[39m
+[31m+       "PLN": 1.96,[39m
+[31m+       "SEK": 5.15,[39m
+[31m+       "SGD": 0.66,[39m
+[31m+       "USD": 0.49,[39m
+[31m+       "ZAR": 9.07,[39m
+[31m+     },[39m
+[31m+   },[39m
+[31m+   "guest": {[39m
+[31m+     "cartEnabled": true,[39m
+[31m+     "checkoutRollout": {[39m
+[31m+       "blockedFulfilmentMethods": [],[39m
+[31m+       "blockedMarkets": [],[39m
+[31m+       "blockedPlatforms": [],[39m
+[31m+       "blockedSellerKeys": [],[39m
+[31m+       "blockedSuppliers": [],[39m
+[31m+       "sellerActivationRequired": false,[39m
+[31m+     },[39m
+[31m+     "claim": {[39m
+[31m+       "enabled": true,[39m
+[31m+       "fourEyesRequired": true,[39m
+[31m+       "jobBatchSize": 25,[39m
+[31m+       "jobLeaseMs": 60000,[39m
+[31m+       "jobMaxAttempts": 8,[39m
+[31m+       "jobPollIntervalMs": 5000,[39m
+[31m+       "projectionEnabled": true,[39m
+[31m+     },[39m
+[31m+     "emailHashKey": "",[39m
+[31m+     "enabled": false,[39m
+[31m+     "governance": {[39m
+[31m+       "abuseControlsEnabled": false,[39m
+[31m+       "abuseSubjectHashKey": "",[39m
+[31m+       "retentionBatchSize": 500,[39m
+[31m+       "retentionDryRun": true,[39m
+[31m+       "retentionJobEnabled": true,[39m
+[31m+       "retentionPollIntervalMs": 900000,[39m
+[31m+       "signalWindowSeconds": 300,[39m
+[31m+     },[39m
+[31m+     "inlineDestinationEnabled": true,[39m
+[31m+     "issuanceEnabled": true,[39m
+[31m+     "operatorOxyUserIds": [],[39m
+[31m+     "operatorSurfaceEnabled": false,[39m
+[31m+     "piiEncryptionKey": "",[39m
+[31m+     "portal": {[39m
+[31m+       "deliveryEnabled": true,[39m
+[31m+       "grantDays": 30,[39m
+[31m+       "magicLinkBaseUrl": "",[39m
+[31m+       "magicLinkMinutes": 15,[39m
+[31m+       "messageBatchSize": 25,[39m
+[31m+       "messageLeaseMs": 60000,[39m
+[31m+       "messageMaxAttempts": 8,[39m
+[31m+       "messagePollIntervalMs": 5000,[39m
+[31m+       "recoveryMaxPerEmail": 5,[39m
+[31m+       "recoveryMaxPerNetwork": 30,[39m
+[31m+       "recoveryMaxPerOrder": 5,[39m
+[31m+       "recoveryWindowMinutes": 60,[39m
+[31m+       "stepUpMinutes": 15,[39m
+[31m+     },[39m
+[31m+     "sessionAbsoluteDays": 90,[39m
+[31m+     "sessionIdleDays": 30,[39m
+[31m+   },[39m
+[31m+   "matching": {[39m
+[31m+     "pipelineEnabled": true,[39m
+[31m+     "queueBatchSize": 25,[39m
+[31m+     "queuePollIntervalMs": 5000,[39m
+[31m+     "semanticEnabled": false,[39m
+[31m+     "sweepBatchSize": 500,[39m
+[31m+   },[39m
+[31m+   "merchantActivation": {[39m
+[31m+     "observationBatchSize": 100,[39m
+[31m+     "observationEnabled": false,[39m
+[31m+     "observationIntervalMs": 900000,[39m
+[31m+     "testOrderRequired": false,[39m
+[31m+   },[39m
+[31m+   "merchantBilling": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "peableCohortJson": "{canary",[39m
+[31m+     "reconciliationBatchSize": 50,[39m
+[31m+     "reconciliationEnabled": true,[39m
+[31m+     "reconciliationIntervalMs": 21600000,[39m
+[31m+   },[39m
+[31m+   "merchantClaims": {[39m
+[31m+     "attemptTtlHours": 336,[39m
+[31m+     "challengeTtlMinutes": 1440,[39m
+[31m+     "maxAttemptsPerChallenge": 25,[39m
+[31m+     "maxChallengesPerDomainPerHour": 10,[39m
+[31m+     "maxChallengesPerMerchantPerHour": 10,[39m
+[31m+     "maxChallengesPerUserPerHour": 20,[39m
+[31m+     "revalidateAfterDays": 365,[39m
+[31m+   },[39m
+[31m+   "merchantDemand": {[39m
+[31m+     "dashboardEnabled": false,[39m
+[31m+     "defaultWindowDays": 30,[39m
+[31m+     "markets": [],[39m
+[31m+     "maxProductRows": 200,[39m
+[31m+     "previewEnabled": false,[39m
+[31m+     "snapshotRetentionDays": 400,[39m
+[31m+   },[39m
+[31m+   "moovo": {[39m
+[31m+     "baseUrl": "",[39m
+[31m+     "enabled": false,[39m
+[31m+     "environment": null,[39m
+[31m+     "maxAttempts": 3,[39m
+[31m+     "resourceApplicationId": "",[39m
+[31m+     "retryBaseDelayMs": 250,[39m
+[31m+     "retryMaxDelayMs": 5000,[39m
+[31m+     "scopes": [],[39m
+[31m+     "timeoutMs": 10000,[39m
+[31m+   },[39m
+[31m+   "offerFreshness": {[39m
+[31m+     "defaultRefreshCallsPerMinute": 60,[39m
+[31m+     "defaultRefreshConcurrency": 2,[39m
+[31m+     "expirySweepBatchSize": 500,[39m
+[31m+     "expirySweepEnabled": false,[39m
+[31m+     "expirySweepIntervalMs": 60000,[39m
+[31m+     "refreshBatchSize": 25,[39m
+[31m+     "refreshEnabled": false,[39m
+[31m+     "refreshLeaseMs": 120000,[39m
+[31m+     "refreshMaxBackoffMs": 21600000,[39m
+[31m+     "refreshPollIntervalMs": 15000,[39m
+[31m+   },[39m
+[31m+   "offers": {[39m
+[31m+     "materializationEnabled": true,[39m
+[31m+     "outboxBatchSize": 25,[39m
+[31m+     "outboxPollIntervalMs": 5000,[39m
+[31m+   },[39m
+[31m+   "orders": {[39m
+[31m+     "idempotencyTtlMs": 600000,[39m
+[31m+     "lowStockThreshold": 5,[39m
+[31m+     "mockPayEnabled": true,[39m
+[31m+     "reservationTtlMs": 900000,[39m
+[31m+     "shippingRates": {[39m
+[31m+       "express": 1500,[39m
+[31m+       "pickup": 0,[39m
+[31m+       "standard": 500,[39m
+[31m+     },[39m
+[31m+   },[39m
+[31m+   "pagination": {[39m
+[31m+     "defaultPageSize": 20,[39m
+[31m+     "maxPageSize": 100,[39m
+[31m+   },[39m
+[31m+   "payments": {[39m
+[31m+     "operatorOxyUserIds": [],[39m
+[31m+     "operatorSurfaceEnabled": false,[39m
+[31m+     "outboxBatchSize": 50,[39m
+[31m+     "outboxEnabled": true,[39m
+[31m+     "outboxLeaseMs": 60000,[39m
+[31m+     "outboxPollIntervalMs": 5000,[39m
+[31m+     "peable": {[39m
+[31m+       "baseUrl": "https://api.peable.to",[39m
+[31m+       "enabled": false,[39m
+[31m+       "eventBatchSize": 50,[39m
+[31m+       "eventLeaseMs": 60000,[39m
+[31m+       "eventMaxAttempts": 8,[39m
+[31m+       "eventPollIntervalMs": 5000,[39m
+[31m+       "livemode": false,[39m
+[31m+       "oxyApiUrl": "https://api.oxy.so",[39m
+[31m+       "presentmentCurrencies": [[39m
+[31m+         "EUR",[39m
+[31m+         "USD",[39m
+[31m+       ],[39m
+[31m+       "publicKey": "fixture-public",[39m
+[31m+       "secret": "fixture-secret",[39m
+[31m+       "webhookSecret": "",[39m
+[31m+     },[39m
+[31m+     "reconciliation": {[39m
+[31m+       "batchSize": 100,[39m
+[31m+       "enabled": true,[39m
+[31m+       "intervalMs": 300000,[39m
+[31m+       "lookbackMs": 604800000,[39m
+[31m+       "openPaymentMinAgeMs": 600000,[39m
+[31m+     },[39m
+[31m+     "stripe": {[39m
+[31m+       "accountSyncBatchSize": 25,[39m
+[31m+       "accountSyncIntervalMs": 900000,[39m
+[31m+       "accountSyncStaleAfterMs": 21600000,[39m
+[31m+       "connectWebhookSecret": "",[39m
+[31m+       "enabled": false,[39m
+[31m+       "eventBatchSize": 50,[39m
+[31m+       "eventLeaseMs": 60000,[39m
+[31m+       "eventMaxAttempts": 8,[39m
+[31m+       "eventPollIntervalMs": 5000,[39m
+[31m+       "highValueHoldThresholds": {},[39m
+[31m+       "highValueHoldWindowMs": 259200000,[39m
+[31m+       "livemode": false,[39m
+[31m+       "paymentSurfaceMethods": [[39m
+[31m+         "card",[39m
+[31m+         "apple_pay",[39m
+[31m+         "google_pay",[39m
+[31m+         "link",[39m
+[31m+       ],[39m
+[31m+       "platformCurrency": "EUR",[39m
+[31m+       "presentmentCurrencies": [[39m
+[31m+         "EUR",[39m
+[31m+         "USD",[39m
+[31m+       ],[39m
+[31m+       "secretKey": "sk_test_fixture",[39m
+[31m+       "sellerCountries": [[39m
+[31m+         "ES",[39m
+[31m+       ],[39m
+[31m+       "threeDSecureThresholds": {},[39m
+[31m+       "webhookSecret": "whsec_fixture",[39m
+[31m+     },[39m
+[31m+   },[39m
+[31m+   "pickup": {[39m
+[31m+     "collectionCodeKey": "",[39m
+[31m+     "guestPickupEnabled": false,[39m
+[31m+     "guestPickupRequiresNotificationTransport": false,[39m
+[31m+     "nearbyEnabled": false,[39m
+[31m+     "p2pLocalDiscoveryEnabled": false,[39m
+[31m+     "storePickupEnabled": false,[39m
+[31m+   },[39m
+[31m+   "postgres": {[39m
+[31m+     "connectTimeoutSeconds": 10,[39m
+[31m+     "idleTimeoutSeconds": 30,[39m
+[31m+     "maxLifetimeSeconds": 1800,[39m
+[31m+     "maxPoolSize": 4,[39m
+[31m+     "url": "postgresql://oxy@127.0.0.1:5627/oxydb_test_5a1af5a9021a386e",[39m
+[31m+   },[39m
+[31m+   "priceAlerts": {[39m
+[31m+     "createRateLimit": 60,[39m
+[31m+     "createRateWindowMs": 3600000,[39m
+[31m+     "enabled": false,[39m
+[31m+     "evaluationBatchSize": 20,[39m
+[31m+     "evaluationEnabled": false,[39m
+[31m+     "evaluationLeaseMs": 120000,[39m
+[31m+     "evaluationMaxBackoffMs": 3600000,[39m
+[31m+     "evaluationOfferLimit": 50,[39m
+[31m+     "evaluationPollIntervalMs": 15000,[39m
+[31m+     "maxActivePerUser": 200,[39m
+[31m+     "notificationBatchSize": 50,[39m
+[31m+     "notificationLeaseMs": 60000,[39m
+[31m+     "notificationMaxAttempts": 8,[39m
+[31m+     "notificationMaxBackoffMs": 21600000,[39m
+[31m+     "notificationPollIntervalMs": 10000,[39m
+[31m+     "notificationsEnabled": true,[39m
+[31m+     "traceLimit": 100,[39m
+[31m+   },[39m
+[31m+   "priceHistory": {[39m
+[31m+     "anchorIntervalSeconds": 86400,[39m
+[31m+     "enabled": false,[39m
+[31m+     "maxQuerySpanDays": 400,[39m
+[31m+     "publicReadsEnabled": false,[39m
+[31m+     "rebuildBatchSize": 10,[39m
+[31m+     "rebuildLeaseMs": 120000,[39m
+[31m+     "rebuildMaxBackoffMs": 21600000,[39m
+[31m+     "rebuildObservationLimit": 50000,[39m
+[31m+     "rebuildPollIntervalMs": 30000,[39m
+[31m+     "retentionWindowDays": 400,[39m
+[31m+     "seriesCurrencies": [],[39m
+[31m+     "traceLimit": 500,[39m
+[31m+   },[39m
+[31m+   "priceSignals": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "massChangeSampleLimit": 5000,[39m
+[31m+     "merchantSubjectLimit": 200,[39m
+[31m+     "offerSampleLimit": 200,[39m
+[31m+     "publicReadsEnabled": false,[39m
+[31m+     "sweepBatchSize": 25,[39m
+[31m+     "sweepLeaseMs": 300000,[39m
+[31m+     "sweepPollIntervalMs": 60000,[39m
+[31m+     "traceLimit": 200,[39m
+[31m+   },[39m
+[31m+   "printful": {[39m
+[31m+     "baseUrl": "https://api.printful.com",[39m
+[31m+     "enabled": false,[39m
+[31m+   },[39m
+[31m+   "procurement": {[39m
+[31m+     "callTimeoutMs": 20000,[39m
+[31m+     "convergenceGraceMs": 60000,[39m
+[31m+     "eventBatchSize": 50,[39m
+[31m+     "eventLagSlaMs": 3600000,[39m
+[31m+     "eventLeaseMs": 60000,[39m
+[31m+     "eventPollIntervalMs": 5000,[39m
+[31m+     "eventProcessingEnabled": true,[39m
+[31m+     "fakeAdapterEnabled": false,[39m
+[31m+     "orchestrationEnabled": false,[39m
+[31m+     "outboxBatchSize": 25,[39m
+[31m+     "outboxLeaseMs": 60000,[39m
+[31m+     "outboxPollIntervalMs": 5000,[39m
+[31m+     "pollMinIntervalMs": 300000,[39m
+[31m+     "pollTerminalGraceMs": 86400000,[39m
+[31m+     "providerFetchEnabled": true,[39m
+[31m+   },[39m
+[31m+   "productSaves": {[39m
+[31m+     "counterSweepBatchSize": 500,[39m
+[31m+     "enabled": false,[39m
+[31m+     "migrationApplyEnabled": false,[39m
+[31m+     "migrationBatchSize": 200,[39m
+[31m+     "readMode": "off",[39m
+[31m+   },[39m
+[31m+   "ranking": {[39m
+[31m+     "canaryEnabled": true,[39m
+[31m+   },[39m
+[31m+   "referrals": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "operatorOxyUserIds": [],[39m
+[31m+     "operatorSurfaceEnabled": false,[39m
+[31m+     "partnerEnrollmentEnabled": true,[39m
+[31m+     "payoutBatchSize": 25,[39m
+[31m+     "payoutBatchesEnabled": false,[39m
+[31m+     "payoutPollIntervalMs": 900000,[39m
+[31m+     "payoutRetryBackoffMs": 900000,[39m
+[31m+     "reconciliationBatchSize": 25,[39m
+[31m+     "reconciliationEnabled": false,[39m
+[31m+     "reconciliationPollIntervalMs": 3600000,[39m
+[31m+     "redirectBaseUrl": "https://mercaria.co",[39m
+[31m+     "vestingBatchSize": 200,[39m
+[31m+     "vestingEnabled": false,[39m
+[31m+     "vestingPollIntervalMs": 300000,[39m
+[31m+   },[39m
+[31m+   "retail": {[39m
+[31m+     "blockedMarkets": [],[39m
+[31m+     "blockedSuppliers": [],[39m
+[31m+     "enabled": false,[39m
+[31m+     "sellerLegalEntityCountry": "",[39m
+[31m+     "sellerLegalEntityName": "",[39m
+[31m+   },[39m
+[31m+   "retailEligibility": {[39m
+[31m+     "expiryHorizonDays": 30,[39m
+[31m+     "operatorOxyUserIds": [],[39m
+[31m+     "operatorSurfaceEnabled": false,[39m
+[31m+   },[39m
+[31m+   "retailReconciliation": {[39m
+[31m+     "batchSize": 25,[39m
+[31m+     "enabled": false,[39m
+[31m+     "pollIntervalMs": 60000,[39m
+[31m+   },[39m
+[31m+   "retailService": {[39m
+[31m+     "reconcileBatchSize": 50,[39m
+[31m+     "reconcileGraceMs": 30000,[39m
+[31m+     "reconcileIntervalMs": 60000,[39m
+[31m+     "reconcilerEnabled": true,[39m
+[31m+     "requestsEnabled": true,[39m
+[31m+   },[39m
+[31m+   "searchIntent": {[39m
+[31m+     "blockedCohorts": [],[39m
+[31m+     "enabled": false,[39m
+[31m+     "parseTimeoutMs": 4000,[39m
+[31m+     "sessionTtlSeconds": 1800,[39m
+[31m+   },[39m
+[31m+   "sellYours": {[39m
+[31m+     "candidateLimit": 10,[39m
+[31m+     "draftListLimit": 25,[39m
+[31m+     "enabled": true,[39m
+[31m+     "guidanceOfferSampleSize": 100,[39m
+[31m+     "guidanceSoldSampleSize": 200,[39m
+[31m+   },[39m
+[31m+   "seo": {[39m
+[31m+     "canaryCategoryIds": [],[39m
+[31m+     "documentCacheSeconds": 300,[39m
+[31m+     "indexingMode": "off",[39m
+[31m+     "routesEnabled": false,[39m
+[31m+     "sitemapCacheSeconds": 3600,[39m
+[31m+     "sitemapPageSize": 25000,[39m
+[31m+   },[39m
+[31m+   "shoppingAgents": {[39m
+[31m+     "createRateLimit": 30,[39m
+[31m+     "createRateWindowMs": 3600000,[39m
+[31m+     "enabled": false,[39m
+[31m+     "evaluationBatchSize": 10,[39m
+[31m+     "evaluationEnabled": false,[39m
+[31m+     "evaluationLeaseMs": 180000,[39m
+[31m+     "evaluationMaxAttempts": 8,[39m
+[31m+     "evaluationMaxBackoffMs": 3600000,[39m
+[31m+     "evaluationPollIntervalMs": 15000,[39m
+[31m+     "findingPageSize": 50,[39m
+[31m+     "maxActivePerUser": 50,[39m
+[31m+     "notificationBatchSize": 50,[39m
+[31m+     "notificationLeaseMs": 60000,[39m
+[31m+     "notificationMaxAttempts": 8,[39m
+[31m+     "notificationMaxBackoffMs": 21600000,[39m
+[31m+     "notificationPollIntervalMs": 10000,[39m
+[31m+     "notificationsEnabled": true,[39m
+[31m+     "summaryDeadlineMs": 2500,[39m
+[31m+     "triggerBatchSize": 20,[39m
+[31m+     "triggerEnabled": false,[39m
+[31m+     "triggerFanOutLimit": 200,[39m
+[31m+     "triggerLeaseMs": 120000,[39m
+[31m+     "triggerPollIntervalMs": 15000,[39m
+[31m+   },[39m
+[31m+   "supplierPreflight": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "fakeAdapterEnabled": false,[39m
+[31m+     "fingerprintKey": "",[39m
+[31m+     "maxReleaseAttempts": 5,[39m
+[31m+     "operatorOxyUserIds": [],[39m
+[31m+     "operatorSurfaceEnabled": false,[39m
+[31m+     "sweepBatchSize": 50,[39m
+[31m+     "sweepEnabled": true,[39m
+[31m+     "sweepIntervalMs": 30000,[39m
+[31m+   },[39m
+[31m+   "variantAxes": {[39m
+[31m+     "reads": "off",[39m
+[31m+   },[39m
+[31m+   "watchlists": {[39m
+[31m+     "enabled": false,[39m
+[31m+     "evaluationConcurrency": 6,[39m
+[31m+     "snapshotPageSize": 50,[39m
+[31m+   },[39m
+[31m+   "web": {[39m
+[31m+     "origin": "https://mercaria.co",[39m
+[31m+   },[39m
+[2m  }[22m
+
+[36m [2m❯[22m src/config/__tests__/billing-cohort.test.ts:[2m26:74[22m[39m
+    [90m 24|[39m
+    [90m 25|[39m it('rejects malformed cohort even when new actions are off', async () …
+    [90m 26|[39m   await expect(read(false, { MERCHANT_BILLING_PEABLE_COHORT: '{canary'…
+    [90m   |[39m                                                                          [31m^[39m
+    [90m 27|[39m })[33m;[39m
+    [90m 28|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/routes/__tests__/billing-cohort-stripe.integration.test.ts[2m > [22mkeeps actions/general/Connect rails disabled but mounts the signed billing ingress
+[31m[1mAssertionError[22m: expected 404 to be 400 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 400[39m
+[31m+ 404[39m
+
+[36m [2m❯[22m src/routes/__tests__/billing-cohort-stripe.integration.test.ts:[2m114:148[22m[39m
+
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/routes/__tests__/billing-cohort-stripe.integration.test.ts[2m > [22msigned paid invoice settles once in SQL while general Stripe and new actions are off
+[31m[1mAssertionError[22m: expected 404 to be 200 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 404[39m
+
+[36m [2m❯[22m src/routes/__tests__/billing-cohort-stripe.integration.test.ts:[2m117:62[22m[39m
+    [90m115|[39m })[33m;[39m
+    [90m116|[39m it('signed paid invoice settles once in SQL while general Stripe and n…
+    [90m117|[39m  [35mconst[39m id[33m=[39m[32m`evt_paid[39m[36m${[39mnonce[36m}[39m[32m`[39m[33m;[39m[34mexpect[39m(([35mawait[39m [34mpost[39m(id))[33m.[39mstatus)[33m.[39m[34mtoBe[39m([34m200[39m)[33m;[39m
+    [90m   |[39m                                                              [31m^[39m
+    [90m118|[39m  const rows=await stored(id);expect(rows).toHaveLength(1);expect(rows[…
+    [90m119|[39m  const claims=await db.select().from(subscriptionEvents).where(eq(subs…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/routes/__tests__/billing-cohort-stripe.integration.test.ts[2m > [22mrefuses outsider before storage and provider calls
+[41m[1m FAIL [22m[49m src/routes/__tests__/billing-cohort-stripe.integration.test.ts[2m > [22mrefuses marketplace before storage and provider calls
+[31m[1mAssertionError[22m: expected { nonJson: true } to deeply equal { received: false, …(1) }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "ignored": "billing_cohort_mismatch",[39m
+[32m-   "received": false,[39m
+[31m+   "nonJson": true,[39m
+[2m  }[22m
+
+[36m [2m❯[22m src/routes/__tests__/billing-cohort-stripe.integration.test.ts:[2m130:80[22m[39m
+    [90m128|[39m ] as const) it(`refuses ${label} before storage and provider calls`,as…
+    [90m129|[39m  const before=transport.paths.length;const id=`evt_${label}${nonce}`;c…
+    [90m130|[39m  if(label==='connect')expect(result.status).toBe(404);else expect(resu…
+    [90m   |[39m                                                                                [31m^[39m
+    [90m131|[39m  expect(await stored(id)).toHaveLength(0);expect(transport.paths).toHa…
+    [90m132|[39m })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/routes/__tests__/billing-cohort-stripe.integration.test.ts[2m > [22ma mismatched fresh invoice customer cannot post settlement or request its charge
+[31m[1mAssertionError[22m: expected 404 to be 200 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 404[39m
+
+[36m [2m❯[22m src/routes/__tests__/billing-cohort-stripe.integration.test.ts:[2m135:39[22m[39m
+    [90m133|[39m it('a mismatched fresh invoice customer cannot post settlement or requ…
+    [90m134|[39m  invoiceWrongCustomer=true;const before=transport.paths.length;const i…
+    [90m135|[39m  try {expect((await post(id)).status).toBe(200);expect((await stored(i…
+    [90m   |[39m                                       [31m^[39m
+    [90m136|[39m  [35mfinally[39m {invoiceWrongCustomer[33m=[39m[35mfalse[39m[33m;[39m}
+    [90m137|[39m })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/routes/__tests__/billing-cohort-stripe.integration.test.ts[2m > [22msigned lifecycle and failed-invoice events apply current gateway snapshots with actions off/on
+[31m[1mAssertionError[22m: expected 404 to be 200 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 404[39m
+
+[36m [2m❯[22m src/routes/__tests__/billing-cohort-stripe.integration.test.ts:[2m167:49[22m[39m
+    [90m165|[39m   ] [35mas[39m [35mconst[39m) {
+    [90m166|[39m     [35mconst[39m id [33m=[39m [32m`evt_[39m[36m${[39mlabel[36m}[39m[32m[39m[36m${[39mnonce[36m}[39m[32m`[39m[33m;[39m
+    [90m167|[39m     expect((await post(id,type,object)).status).toBe(200);expect((awai…
+    [90m   |[39m                                                 [31m^[39m
+    [90m168|[39m     expect((await post(id,type,object)).body).toEqual({received:true,d…
+    [90m169|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/routes/__tests__/billing-cohort-stripe.integration.test.ts[2m > [22ma second approved store cannot book an invoice against the first store subscription
+[31m[1mAssertionError[22m: expected 404 to be 200 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 404[39m
+
+[36m [2m❯[22m src/routes/__tests__/billing-cohort-stripe.integration.test.ts:[2m182:120[22m[39m
+    [90m180|[39m   [35mconst[39m id [33m=[39m [32m`evt_crossstore[39m[36m${[39mnonce[36m}[39m[32m`[39m[33m,[39m before [33m=[39m transport[33m.[39mpaths[33m.[39mlength[33m;[39m
+    [90m181|[39m   [35mtry[39m {
+    [90m182|[39m     expect((await post(id, 'invoice.paid', { id: invoice, object: 'inv…
+    [90m   |[39m                                                                                                                        [31m^[39m
+    [90m183|[39m     [34mexpect[39m(([35mawait[39m [34mstored[39m(id))[[34m0[39m][33m![39m[33m.[39mstatus)[33m.[39m[34mtoBe[39m([32m'dead_letter'[39m)[33m;[39m
+    [90m184|[39m     expect(transport.paths.slice(before)).toEqual(['/v1/account', `/v1…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/routes/__tests__/billing-cohort-stripe.integration.test.ts[2m > [22mstartup without a verified namespace returns retryable503 without storage or effects
+[31m[1mAssertionError[22m: expected { Object (status, body) } to deeply equal { status: 503, body: { …(2) } }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[2m    "body": {[22m
+[32m-     "error": "billing_cohort_unavailable",[39m
+[32m-     "received": false,[39m
+[31m+     "nonJson": true,[39m
+[2m    },[22m
+[32m-   "status": 503,[39m
+[31m+   "status": 404,[39m
+[2m  }[22m
+
+[36m [2m❯[22m src/routes/__tests__/billing-cohort-stripe.integration.test.ts:[2m195:28[22m[39m
+    [90m193|[39m   [35mconst[39m id [33m=[39m [32m`evt_notready[39m[36m${[39mnonce[36m}[39m[32m`[39m[33m,[39m before [33m=[39m transport[33m.[39mpaths[33m.[39mlength[33m;[39m
+    [90m194|[39m   [35mtry[39m {
+    [90m195|[39m     expect(await post(id)).toEqual({ status: 503, body: { received: fa…
+    [90m   |[39m                            [31m^[39m
+    [90m196|[39m     expect(await stored(id)).toHaveLength(0); expect(transport.paths).…
+    [90m197|[39m   } [35mfinally[39m { providers[33m.[39m[34mregisterBillingProvider[39m(registered)[33m;[39m }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/routes/__tests__/billing-cohort-stripe.integration.test.ts[2m > [22mdurable replay refuses an event from the other mode before provider reads or SQL effects
+[31m[1mAssertionError[22m: expected 'failed' to be 'processed' // Object.is equality[39m
+
+Expected: [32m"[7mprocess[27med"[39m
+Received: [31m"[7mfail[27med"[39m
+
+[36m [2m❯[22m src/routes/__tests__/billing-cohort-stripe.integration.test.ts:[2m210:41[22m[39m
+    [90m208|[39m   expect(await failProviderEvent(db, { eventId: storedRow.row.id, leas…
+    [90m209|[39m   [34mexpect[39m([35mawait[39m [34mreplayProviderEvent[39m(storedRow[33m.[39mrow[33m.[39mid))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m210|[39m   [34mexpect[39m(([35mawait[39m [34mstored[39m(id))[[34m0[39m][33m![39m[33m.[39mstatus)[33m.[39m[34mtoBe[39m([32m'processed'[39m)[33m;[39m
+    [90m   |[39m                                         [31m^[39m
+    [90m211|[39m   expect((await stored(id))[0]!.processingNote).toContain('outside the…
+    [90m212|[39m   expect(transport.paths).toHaveLength(before);expect(gatewayCalls).to…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/routes/__tests__/billing-cohort-stripe.integration.test.ts[2m > [22mthe settlement handler itself works independently of webhook mounting and deduplicates the invoice
+[31m[1mError[22m: The Stripe client was requested but STRIPE_ENABLED is off (or the integration is half-configured — see the boot log). No Stripe route is mounted in that state.[39m
+[36m [2m❯[22m getStripeClient src/services/payments/stripe/client.ts:[2m71:11[22m[39m
+    [90m 69|[39m [35mexport[39m [35mfunction[39m [34mgetStripeClient[39m()[33m:[39m [33mStripe[39m {
+    [90m 70|[39m   [35mif[39m ([33m![39mconfig[33m.[39mpayments[33m.[39mstripe[33m.[39menabled) {
+    [90m 71|[39m     [35mthrow[39m [35mnew[39m [33mError[39m(
+    [90m   |[39m           [31m^[39m
+    [90m 72|[39m       'The Stripe client was requested but STRIPE_ENABLED is off (or t…
+    [90m 73|[39m         'half-configured — see the boot log). No Stripe route is mount…
+[90m [2m❯[22m Object.handleInvoicePaid [as invoice.paid] src/services/billing/stripe/subscription-events.ts:[2m212:25[22m[39m
+[90m [2m❯[22m src/routes/__tests__/billing-cohort-stripe.integration.test.ts:[2m218:68[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/13]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m13 failed[39m[22m[2m | [22m[1m[32m8 passed[39m[22m[90m (21)[39m
+[2m   Start at [22m 12:10:28
+[2m   Duration [22m 12.70s[2m (transform 6.87s, setup 0ms, import 266ms, tests 9.87s, environment 0ms)[22m
+
+error: script "test" exited with code 1
