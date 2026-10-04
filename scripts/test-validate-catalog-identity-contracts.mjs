@@ -331,7 +331,14 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // vocabulary is walked over the zod shapes by `packages/contracts`' own
     // suite ("no public shape carries an ambiguous identity string").
     // Both together: 133/2352/7811, READ OFF the guard's own output line.
-    "walked 133 contract module(s), 2352 exported type(s), 7811 property signature(s)",
+    // ADR 0013 (place facts live in GoWay) moved NO module and no net type:
+    // `pickup.ts` lost six (the two geocode-provenance sets, the merchant-
+    // composed address, hours, closure and closure input) and gained six (the
+    // GoWay-projected address, interval and exception, the place-link gap and
+    // verdict, the merchant's publication read), and `location.ts` gained a
+    // `goWayPlaceId` — +21 property signatures. None is identity-shaped: a
+    // place is named by an opaque `goWayPlaceId`. 133/2352/7832.
+    "walked 133 contract module(s), 2352 exported type(s), 7832 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });
