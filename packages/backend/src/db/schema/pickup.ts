@@ -135,6 +135,14 @@ export const locationPublications = pgTable(
     publicationState: text({ enum: asEnumValues(LOCATION_PUBLICATION_STATES) })
       .notNull()
       .default('draft'),
+    /**
+     * The FIRST publication, stamped by `setPublicationState` and never cleared
+     * — `listings.published_at` and `collections.published_at` for a shop
+     * front. It is what tells the public surface "withdrawn" (410) from "never
+     * published" (404): a draft that WAS public is a reference somebody may
+     * hold, and one that never was is not. NULL on a location never published.
+     */
+    publishedAt: timestamptz(),
     /** Whether the merchant offers collection here at all. */
     pickupOffered: boolean().notNull().default(false),
     pickupInstructions: text(),

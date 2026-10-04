@@ -43,7 +43,6 @@
 import type {
   CurrencyCode,
   ItemConditionKey,
-  LocationAvailabilityState,
   Money,
   NearbyLocationResult,
   NearbyPlaceSuggestion,
@@ -91,6 +90,7 @@ import {
 import {
   derivePickupEligibility,
   deriveLocationDiscoverability,
+  locationAvailabilityState,
   type PickupInventoryFacts,
   type PickupLocationFacts,
 } from './eligibility.js';
@@ -461,19 +461,6 @@ function inventoryFacts(candidate: NearbyCandidateRow): PickupInventoryFacts {
   };
 }
 
-/**
- * The public availability state.
- *
- * A BOUNDED word by default and a number only where the merchant opted in
- * (#93 inventory rule). The threshold is the location's own, so a shop that
- * carries two of everything is not permanently "low" and a warehouse that
- * carries four hundred is not permanently "in stock" at three.
- */
-function availabilityFor(candidate: NearbyCandidateRow): LocationAvailabilityState {
-  if (candidate.available <= 0) return 'out_of_stock';
-  return candidate.available <= candidate.lowStockThreshold ? 'low_stock' : 'in_stock';
-}
-
 function projectResult(
   candidate: NearbyCandidateRow,
   place: PlaceFacts,
@@ -520,7 +507,7 @@ function projectResult(
     location,
     distanceBand: distanceBandFor(distanceMetres),
     approximateMetres: coarsenMetres(distanceMetres),
-    availability: availabilityFor(candidate),
+    availability: locationAvailabilityState(candidate.available, candidate.lowStockThreshold),
     ...(candidate.disclosesExactStock ? { exactQuantity: candidate.available } : {}),
     inventorySource: candidate.inventorySource,
     stockConfirmedAt: candidate.stockConfirmedAt.toISOString(),

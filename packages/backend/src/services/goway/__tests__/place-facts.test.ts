@@ -15,6 +15,7 @@ import {
   pickupAddressOf,
   placeFactsOf,
   placeLinkBlockers,
+  placeLinkBroken,
   placeLinkGaps,
   type PlaceFacts,
   type PlaceLookup,
@@ -175,6 +176,15 @@ describe('placeLinkGaps — the trust rule, one failing condition at a time', ()
       placeLinkBlockers(['place_gone', 'goway_unavailable', 'store_link_unverified', 'place_country_missing']).sort(),
     ).toEqual(['place_incomplete', 'place_link_unverified', 'place_unavailable']);
     expect(placeLinkBlockers([])).toEqual([]);
+  });
+
+  it('calls a link broken only when the place does not vouch — never for an outage or an incomplete place', () => {
+    for (const gap of ['place_not_set', 'place_gone', 'place_not_active', 'store_link_names_other_location'] as const) {
+      expect(placeLinkBroken([gap]), gap).toBe(true);
+    }
+    expect(placeLinkBroken(['goway_unavailable'])).toBe(false);
+    expect(placeLinkBroken(['place_country_missing', 'place_timezone_missing'])).toBe(false);
+    expect(placeLinkBroken([])).toBe(false);
   });
 });
 

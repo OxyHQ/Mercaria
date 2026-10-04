@@ -55,7 +55,9 @@ import {
   MercariaGoneError,
   MercariaNetworkError,
   MercariaNotFoundError,
+  MercariaUnavailableError,
   MercariaUnknownRouteError,
+  locationRef,
   productRef,
   storeRef,
   variantRef,
@@ -67,7 +69,9 @@ import {
   type MercariaStore,
 } from '@mercaria.co/sdk';
 import type { Database } from '../../db/postgres.js';
+import { createFakeGoWay, type FakeGoWay } from '../../services/goway/__tests__/fake-goway.js';
 import { checkShape, createPublicApiWorld, mediaUrl, type Shape } from './public-api-fixtures.js';
+import { checkLocation, checkLocationProduct, createLocationWorld } from './public-api-location-fixtures.js';
 
 /** What the Oxy stand-in verifies, and every `Authorization` header it received. */
 const oxy = vi.hoisted(() => ({
@@ -114,6 +118,9 @@ vi.mock('../../middleware/auth.js', () => ({
 
 const world = createPublicApiWorld();
 const { RUN, TERM, VIEWER, PERSON, OWNER_ACCOUNT, SENTINEL, ids, storeAHandle } = world;
+/** The location world — its own stores, locations and a fake GoWay holding their places. */
+const places = createLocationWorld();
+let goway: FakeGoWay;
 
 const VIEWER_TOKEN = `sdk-contract-viewer-token-${RUN}`;
 const OTHER_TOKEN = `sdk-contract-other-token-${RUN}`;
@@ -197,6 +204,10 @@ beforeAll(async () => {
   webOrigin = config.web.origin;
 
   await world.seed(db);
+  goway = createFakeGoWay();
+  const { useGoWayTransportForTests } = await import('../../services/goway/client.js');
+  useGoWayTransportForTests({ apiBaseUrl: goway.apiBaseUrl, fetch: goway.fetch });
+  await places.seed(db, goway);
   oxy.verifiedTokens.set(VIEWER_TOKEN, VIEWER);
   oxy.verifiedTokens.set(OTHER_TOKEN, OTHER_USER);
 
@@ -218,7 +229,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
+  const { useGoWayTransportForTests } = await import('../../services/goway/client.js');
+  useGoWayTransportForTests(null);
   await world.cleanup(db);
+  await places.cleanup(db);
   await closePostgres();
 }, 300_000);
 
@@ -567,6 +581,82 @@ describe('links agree with the url the server serves', () => {
   });
 });
 
+describe('locations', () => {
+  const at = places.ids;
+
+  it('lists a GoWay place’s location, then reads it by id and by ref — the same value', async () => {
+    const page = await mercaria.locations.list({ goWayPlaceId: places.placeOf('linked') });
+    RESULTS.push(page);
+    expect(page.nextCursor).toBeNull();
+    expect(page.items.map((item) => item.ref.id)).toEqual([at.linked]);
+    const [listed] = page.items;
+    checkLocation(listed, 'listed');
+    const byId = await mercaria.locations.get(at.linked);
+    const byRef = await mercaria.locations.resolveRef(locationRef(at.linked));
+    RESULTS.push(byId, byRef);
+    expect(byId).toEqual(listed);
+    expect(byRef).toEqual(listed);
+    expect(Object.isFrozen(byId.ref)).toBe(true);
+    expect(byId.goWayPlaceId).toBe(places.placeOf('linked'));
+    // The deep link the SDK builds is the url the server serves.
+    expect(mercaria.links.location(byId, byId.store)).toBe(byId.url);
+    expect((await mercaria.locations.list({ goWayPlaceId: places.placeOf('unvouched') })).items).toEqual([]);
+  });
+
+  it('walks a store’s locations with iterateMercariaPages: no duplicate, no gap', async () => {
+    const seen: string[] = [];
+    for await (const page of iterateMercariaPages((cursor) =>
+      mercaria.stores.locations(storeRef(at.store), { cursor, limit: 1 }),
+    )) {
+      RESULTS.push(page);
+      page.items.forEach((item, index) => checkLocation(item, `stores.locations[${index}]`));
+      seen.push(...page.items.map((item) => item.ref.id));
+    }
+    expect(seen.length).toBe(new Set(seen).size);
+    expect(new Set(seen)).toEqual(new Set([at.linked, at.paused, at.noPickup]));
+  });
+
+  it('walks a location’s products with their bounded availability, and the exact count only where disclosed', async () => {
+    const stock = new Map<string, { availability: string; exactQuantity?: number }>();
+    for await (const page of iterateMercariaPages((cursor) =>
+      mercaria.locations.products(locationRef(at.linked), { cursor, limit: 2, sort: 'price_asc' }),
+    )) {
+      RESULTS.push(page);
+      page.items.forEach((item, index) => {
+        checkLocationProduct(item, `locations.products[${index}]`);
+        stock.set(item.product.ref.id, item);
+      });
+    }
+    expect(Object.fromEntries([...stock].map(([id, item]) => [id, item.availability]))).toEqual({
+      [at.inStock]: 'in_stock',
+      [at.low]: 'low_stock',
+      [at.empty]: 'out_of_stock',
+      [at.stale]: 'out_of_stock',
+      [at.halfStale]: 'low_stock',
+    });
+    const disclosed = await mercaria.locations.products(at.noPickup, { inStock: true });
+    RESULTS.push(disclosed);
+    expect(disclosed.items.map((item) => [item.product.ref.id, item.exactQuantity])).toEqual([[at.inStock, 5]]);
+  });
+
+  it('tells never published, gone and GoWay unreachable apart', async () => {
+    expectNotFound(await rejectionOf(mercaria.locations.get(at.draftNever)));
+    expectGone(await rejectionOf(mercaria.locations.get(at.withdrawn)));
+    expectGone(await rejectionOf(mercaria.locations.products(at.unvouched)));
+    const { clearPlaceCacheForTests } = await import('../../services/goway/cache.js');
+    clearPlaceCacheForTests();
+    goway.down = true;
+    try {
+      const error = await rejectionOf(mercaria.locations.get(at.linked));
+      expect(error).toBeInstanceOf(MercariaUnavailableError);
+      expect(error).not.toBeInstanceOf(MercariaGoneError);
+      expect(error).toMatchObject({ code: 'service_unavailable', status: 503, retryable: true });
+    } finally {
+      goway.down = false;
+    }
+  });
+});
+
 describe('a route the server does not serve', () => {
   it('is a MercariaUnknownRouteError carrying unknown_route, never MercariaNotFoundError', async () => {
     // Route drift, simulated at the one seam the SDK exposes for it: a `fetch`
@@ -620,6 +710,9 @@ describe('the privacy census', () => {
     expect(everything.join('\n')).toContain(TERM);
     const privateValues = [
       ...Object.values(SENTINEL),
+      // Place facts are GoWay's, and a location's operational name, delivery
+      // address and moderation reasons are Mercaria's own.
+      ...Object.values(places.SENTINEL),
       // The non-active manual members — ids a `Collection.productIds` would carry.
       ids.draftNever,
       ids.archived,

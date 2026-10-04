@@ -27,7 +27,7 @@
  * already authorized, and this module reads the owner off that.
  */
 
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import type {
   LocationInventorySource,
@@ -169,7 +169,16 @@ export async function setLocationPlaceLink(
   );
 }
 
-/** Move a publication's editorial state, auditing the move. *//** Move a publication's editorial state, auditing the move. */
+/**
+ * Move a publication's editorial state, auditing the move.
+ *
+ * The ONE writer of `published_at`: the first publication, kept forever. It is
+ * stamped on a move INTO `published` and also on a move OUT of it, so a
+ * location published by an image that never wrote the column still reads as
+ * "was published" (a 410, not a 404, on the public surface) once withdrawn.
+ * `coalesce` in the statement rather than off the row read above, so two
+ * concurrent publishes cannot both believe they were first.
+ */
 export async function setPublicationState(
   input: {
     publicationId: string;
@@ -182,9 +191,19 @@ export async function setPublicationState(
   const existing = await findPublicationById(input.publicationId, db);
   if (!existing) return null;
 
+  const touchesPublished = input.state === 'published' || existing.publicationState === 'published';
   const [row] = await db
     .update(locationPublications)
-    .set({ publicationState: input.state })
+    .set({
+      publicationState: input.state,
+      // An ISO string cast in the statement: a `Date` bound into a raw `sql`
+      // fragment bypasses the column's mapper and postgres.js refuses it.
+      ...(touchesPublished
+        ? {
+            publishedAt: sql`coalesce(${locationPublications.publishedAt}, ${input.at.toISOString()}::timestamptz)`,
+          }
+        : {}),
+    })
     .where(eq(locationPublications.id, input.publicationId))
     .returning();
 

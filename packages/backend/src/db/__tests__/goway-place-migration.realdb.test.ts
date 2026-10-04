@@ -5,9 +5,11 @@
  * A database of its own, migrated only THROUGH `0160` — the schema the
  * previous image served — so rows can be written the way that image wrote
  * them: a publication with its own name, address, pin, hours and closures, a
- * listing with a Mongo-era point. Then `0161` is applied through the real
- * entrypoint, in the `post` phase a deploy runs it in, and what survives is
- * read back off the server.
+ * listing with a Mongo-era point. Then `0161` is applied in the `post` phase
+ * of the release that shipped it, and `0162` in the `pre` phase of the next
+ * one, through the real entrypoint — the planner refuses a `pre` queued behind
+ * an unapplied `post` in one run, which is what "two releases" means — and what
+ * survives is read back off the server.
  *
  * Every other suite runs on a fully migrated database, where none of these
  * rows can be written at all — which is exactly why a post migration's data
@@ -18,6 +20,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import postgres from 'postgres';
 import {
   applyMigrations,
+  applyMigrationsThrough,
   createMercariaTestDatabaseThrough,
   dropMercariaTestDatabase,
 } from '../testDatabase.js';
@@ -30,6 +33,8 @@ const ADMIN_URL =
 
 /** The last migration the previous image's schema had. */
 const BEFORE = '0160_bitter_sharon_carter';
+/** The post migration under test — the last of its own release. */
+const AFTER = '0161_shocking_korvac';
 
 let databaseUrl: string;
 let client: postgres.Sql;
@@ -87,7 +92,9 @@ beforeAll(async () => {
     values (${LISTING}, 'store', ${STORE}, 'Legacy listing', 'x', 'new', 'seller_declared', 'active', 2.17, 41.38)
   `;
 
-  await applyMigrations(databaseUrl, 'post');
+  // 0161's release, post phase; then the next release's pre phase (0162).
+  await applyMigrationsThrough(databaseUrl, AFTER, 'post');
+  await applyMigrations(databaseUrl, 'pre');
 }, 300_000);
 
 afterAll(async () => {
@@ -130,6 +137,19 @@ describe('0161 on rows the previous image wrote', () => {
 
   it('leaves an unpublished location alone', async () => {
     expect(await stateOf(DRAFT)).toBe('draft');
+  });
+
+  it('then 0162 records who WAS published — the withdrawn one included — so the public read answers 410, not 404', async () => {
+    const rows = await client`
+      select location_id, published_at from location_publications
+      where location_id in (${UNLINKED}, ${LINKED}, ${DRAFT})
+    `;
+    const publishedAt = new Map(rows.map((row) => [String(row.location_id), row.published_at]));
+    // Withdrawn by 0161: its trail says it left `published`.
+    expect(publishedAt.get(UNLINKED)).toBeInstanceOf(Date);
+    // Published now, with no trail entry (written by the previous image's rows).
+    expect(publishedAt.get(LINKED)).toBeInstanceOf(Date);
+    expect(publishedAt.get(DRAFT)).toBeNull();
   });
 
   it('keeps every commerce fact of the publication', async () => {

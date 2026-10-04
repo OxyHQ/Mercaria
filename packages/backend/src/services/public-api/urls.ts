@@ -13,7 +13,9 @@
  *  - every path segment and query value is `encodeURIComponent`-escaped;
  *  - a store is addressed by its CURRENT handle (the storefront's route is
  *    `/stores/[handle]`), and a collection by its id on its store's page, which
- *    `app/(app)/stores/[handle].tsx` honours as the initial selection.
+ *    `app/(app)/stores/[handle].tsx` honours as the initial selection;
+ *  - a location the same way, on its store's page, which puts that location
+ *    first in the page's "Visit us" section.
  */
 
 /** Strip trailing slashes so `https://mercaria.co/` and `https://mercaria.co` agree. */
@@ -34,4 +36,9 @@ export function storeWebUrl(origin: string, storeHandle: string): string {
 /** `${origin}/stores/${handle}?collection=${id}` — the store page, opened on one collection. */
 export function collectionWebUrl(origin: string, storeHandle: string, collectionId: string): string {
   return `${storeWebUrl(origin, storeHandle)}?collection=${encodeURIComponent(collectionId)}`;
+}
+
+/** `${origin}/stores/${handle}?location=${id}` — the store page, opened on one of its locations. */
+export function locationWebUrl(origin: string, storeHandle: string, locationId: string): string {
+  return `${storeWebUrl(origin, storeHandle)}?location=${encodeURIComponent(locationId)}`;
 }

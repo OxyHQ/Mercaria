@@ -17,6 +17,8 @@ import { describe, expect, it } from 'vitest';
 import {
   derivePickupEligibility,
   deriveLocationDiscoverability,
+  inventoryBlockers,
+  locationAvailabilityState,
   type PickupActorFacts,
   type PickupInventoryFacts,
   type PickupLevers,
@@ -181,6 +183,26 @@ describe('deriveLocationDiscoverability', () => {
         NOW,
       ),
     ).toEqual(['no_collectable_stock', 'pickup_not_offered', 'place_not_linked'].sort());
+  });
+});
+
+describe('the stock half, on its own', () => {
+  it('is exactly the inventory clauses of discoverability', () => {
+    const stale = { ...IN_STOCK, availableQuantity: 0, stockConfirmedAt: new Date('2026-08-10T08:00:00Z') };
+    expect(inventoryBlockers(IN_STOCK, NOW)).toEqual([]);
+    expect([...inventoryBlockers(stale, NOW)].sort()).toEqual(['inventory_stale', 'no_collectable_stock']);
+    expect(deriveLocationDiscoverability(OPEN_LOCATION, stale, NOW)).toEqual(
+      [...inventoryBlockers(stale, NOW)].sort(),
+    );
+  });
+
+  it('bounds a count into three words at the location’s OWN threshold', () => {
+    expect(locationAvailabilityState(0, 3)).toBe('out_of_stock');
+    expect(locationAvailabilityState(-2, 3)).toBe('out_of_stock');
+    expect(locationAvailabilityState(3, 3)).toBe('low_stock');
+    expect(locationAvailabilityState(4, 3)).toBe('in_stock');
+    // A shop that carries two of everything is not permanently "low".
+    expect(locationAvailabilityState(2, 0)).toBe('in_stock');
   });
 });
 

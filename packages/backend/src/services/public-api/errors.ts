@@ -43,3 +43,13 @@ export function gone(message: string): PublicApiError {
 export function badRequest(message: string, details?: MercariaErrorDetails): PublicApiError {
   return new PublicApiError('bad_request', message, details);
 }
+
+/**
+ * 503 — a dependency could not answer, so neither yes nor no is honest. A
+ * location read answers this when GoWay cannot say whether the place still
+ * names the location: `gone` would invite a consumer to discard a good
+ * reference.
+ */
+export function serviceUnavailable(message: string): PublicApiError {
+  return new PublicApiError('service_unavailable', message);
+}

@@ -123,23 +123,37 @@ export async function createMercariaTestDatabase(adminUrl: string): Promise<stri
 export async function createMercariaTestDatabaseThrough(adminUrl: string, lastTag: string): Promise<string> {
   return createTestDatabase({
     adminUrl,
-    migrate: async (databaseUrl) => {
-      const folder = journalPrefix(lastTag);
-      try {
-        await runMigrations({
-          databaseUrl,
-          migrationsFolder: folder,
-          extensions: REQUIRED_EXTENSIONS,
-          run: 'all',
-          expectedDatabase: new URL(databaseUrl).pathname.replace(/^\//, ''),
-          dryRun: false,
-          logger: { info: () => undefined, debug: () => undefined },
-        });
-      } finally {
-        rmSync(folder, { recursive: true, force: true });
-      }
-    },
+    migrate: (databaseUrl) => applyMigrationsThrough(databaseUrl, lastTag, 'all'),
   });
+}
+
+/**
+ * Apply the pending migrations up to and including `lastTag`, in one deploy
+ * phase — the release that SHIPPED `lastTag`, for a test that must watch a
+ * `post` migration act on legacy rows when a later release's `pre` migration
+ * already sits in the journal behind it. The planner refuses that pair in one
+ * run (a `pre` queued behind an unapplied `post` is two releases), so the test
+ * deploys them as two: this, then {@link applyMigrations} for the next one.
+ */
+export async function applyMigrationsThrough(
+  databaseUrl: string,
+  lastTag: string,
+  phase: 'all' | 'pre' | 'post',
+): Promise<void> {
+  const folder = journalPrefix(lastTag);
+  try {
+    await runMigrations({
+      databaseUrl,
+      migrationsFolder: folder,
+      extensions: REQUIRED_EXTENSIONS,
+      run: phase,
+      expectedDatabase: new URL(databaseUrl).pathname.replace(/^\//, ''),
+      dryRun: false,
+      logger: { info: () => undefined, debug: () => undefined },
+    });
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
 }
 
 /** A temporary migrations folder ending at `lastTag`. The caller removes it. */

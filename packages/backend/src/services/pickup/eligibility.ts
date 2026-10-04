@@ -40,6 +40,7 @@
  */
 
 import type {
+  LocationAvailabilityState,
   PickupBlockReason,
   PickupEligibility,
   PlaceLinkGap,
@@ -143,6 +144,41 @@ export function locationCollectionBlockers(
 }
 
 /**
+ * The blockers that belong to the STOCK alone — one level row at one location,
+ * and nothing about the location's publication or its place.
+ *
+ * Extracted, like {@link locationCollectionBlockers}, because a second caller
+ * needs exactly this half: the public location-products read
+ * (`GET /public/v1/locations/:id/products`) has already gated the location as a
+ * whole and asks, per product, only "is there a confirmed unit on this shelf".
+ * A count older than the location's own interval answers no here exactly as it
+ * does for nearby discovery, so the two surfaces cannot disagree about the same
+ * shelf.
+ */
+export function inventoryBlockers(inventory: PickupInventoryFacts, at: Date): readonly PickupBlockReason[] {
+  const reasons: PickupBlockReason[] = [];
+  if (!inventory.listingActive) reasons.push('listing_unavailable');
+  if (inventory.availableQuantity <= 0) reasons.push('no_collectable_stock');
+  if (isStockStale(inventory, at)) reasons.push('inventory_stale');
+  return reasons;
+}
+
+/**
+ * The public availability word for a count of units a location vouches for.
+ *
+ * A BOUNDED word by default and a number only where the merchant opted in
+ * (#93 inventory rule). The threshold is the location's own, so a shop that
+ * carries two of everything is not permanently "low" and a warehouse that
+ * carries four hundred is not permanently "in stock" at three. The count must
+ * already be one the location vouches for — a stale one is zero here, which
+ * {@link inventoryBlockers} decides.
+ */
+export function locationAvailabilityState(available: number, lowStockThreshold: number): LocationAvailabilityState {
+  if (available <= 0) return 'out_of_stock';
+  return available <= lowStockThreshold ? 'low_stock' : 'in_stock';
+}
+
+/**
  * Whether a location may appear in a public nearby answer for one variant.
  *
  * Deliberately actor-free: #93 nearby rule 11 says browsing nearby availability
@@ -156,11 +192,8 @@ export function deriveLocationDiscoverability(
   inventory: PickupInventoryFacts,
   at: Date,
 ): readonly PickupBlockReason[] {
-  const reasons: PickupBlockReason[] = [...locationCollectionBlockers(location)];
+  const reasons: PickupBlockReason[] = [...locationCollectionBlockers(location), ...inventoryBlockers(inventory, at)];
 
-  if (!inventory.listingActive) reasons.push('listing_unavailable');
-  if (inventory.availableQuantity <= 0) reasons.push('no_collectable_stock');
-  if (isStockStale(inventory, at)) reasons.push('inventory_stale');
   if (location.opening !== undefined && !opensWithinHorizon(location.opening, at)) {
     reasons.push('location_closed');
   }

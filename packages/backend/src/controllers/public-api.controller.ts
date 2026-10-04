@@ -41,10 +41,14 @@ import { log } from '../lib/logger.js';
 import { PublicApiError } from '../services/public-api/errors.js';
 import {
   getPublicCollection,
+  getPublicLocation,
   getPublicProduct,
   getPublicStore,
   listPublicCollectionProducts,
+  listPublicLocationProducts,
+  listPublicLocations,
   listPublicStoreCollections,
+  listPublicStoreLocations,
   listPublicStoreProducts,
   lookupPublicStore,
   searchPublicProducts,
@@ -132,8 +136,12 @@ export const publicApiHandlers: PublicHandlers = {
   getStore: ({ params }) => getPublicStore(params.id),
   listStoreProducts: ({ params, query }) => listPublicStoreProducts(params.id, productListParams(query)),
   listStoreCollections: ({ params, query }) => listPublicStoreCollections(params.id, pageParams(query)),
+  listStoreLocations: ({ params, query }) => listPublicStoreLocations(params.id, pageParams(query)),
   getCollection: ({ params }) => getPublicCollection(params.id),
   listCollectionProducts: ({ params, query }) => listPublicCollectionProducts(params.id, pageParams(query)),
+  listLocations: ({ query }) => listPublicLocations(query.goWayPlaceId, pageParams(query)),
+  getLocation: ({ params }) => getPublicLocation(params.id),
+  listLocationProducts: ({ params, query }) => listPublicLocationProducts(params.id, productListParams(query)),
   getOpenApiDocument: async () => (openApiDocument ??= mercariaPublicOpenApiDocument()),
 };
 

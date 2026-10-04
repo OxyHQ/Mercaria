@@ -205,6 +205,33 @@ export function placeLinkGaps(input: {
 }
 
 /**
+ * The gaps that mean the place does not vouch for the location: there is no
+ * place, GoWay withdrew it or never knew it, it is not active, or it does not
+ * name THIS location at a claimant's tier.
+ *
+ * Neither of the other two kinds is in it. `goway_unavailable` means nobody
+ * could ask — a public read answers that with a `503`, never with "gone", which
+ * a consumer may act on by discarding a reference that is still good. And a
+ * vouching place with no country or timezone is still this location's place:
+ * it cannot take a collection yet, which `placeLinkBlockers` reports, but the
+ * shop front is real.
+ */
+const UNVOUCHED_GAPS: ReadonlySet<PlaceLinkGap> = new Set<PlaceLinkGap>([
+  'place_not_set',
+  'place_not_found',
+  'place_gone',
+  'place_not_active',
+  'store_link_missing',
+  'store_link_names_other_location',
+  'store_link_unverified',
+]);
+
+/** Whether the trust rule's gaps say the place does not vouch for the location (see {@link UNVOUCHED_GAPS}). */
+export function placeLinkBroken(gaps: readonly PlaceLinkGap[]): boolean {
+  return gaps.some((gap) => UNVOUCHED_GAPS.has(gap));
+}
+
+/**
  * The trust rule's gaps as collection block reasons — one reason per REMEDY,
  * which is the grain a merchant's dashboard and an operator trace act on.
  */
