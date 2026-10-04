@@ -4,7 +4,7 @@ import { beforeAll, afterAll, expect, it, vi } from 'vitest';
 import Stripe from 'stripe';
 import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Database } from '../../db/postgres.js';
 const transport = vi.hoisted(() => ({ fetch: vi.fn(), paths: [] as string[] }));
 vi.mock('stripe', async original => {
@@ -220,4 +220,79 @@ it('the settlement handler itself works independently of webhook mounting and de
   expect(result).toEqual({ kind: 'applied', note: 'already booked' });
   const claims = await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.providerInvoiceId,invoice));
   expect(claims).toHaveLength(1); expect(claims[0]!.ledgerTransactionId).toBeTruthy();
+});
+
+it('a distinct delivery of an already paid invoice creates no second financial posting', async () => {
+  const { STRIPE_BILLING_EVENT_HANDLERS } = await import('../../services/billing/stripe/subscription-events.js');
+  expect(await STRIPE_BILLING_EVENT_HANDLERS['invoice.paid']!({ storedEventId: `distinct-${nonce}`,
+    providerEventId: `evt_distinct${nonce}`, type: 'invoice.paid', livemode: false, objectIds: { invoice, customer } }))
+    .toEqual({ kind: 'applied', note: 'already booked' });
+  const claims = await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.providerInvoiceId,invoice));
+  expect(claims).toHaveLength(1);expect(claims[0]!.ledgerTransactionId).toBeTruthy();
+});
+
+async function currentSubscription() {
+  const { findSubscriptionByStore } = await import('../../db/merchantPlans/subscriptionRepository.js');
+  return (await findSubscriptionByStore(db,storeId))!;
+}
+it('concurrent distinct events wait on the canonical binding lock and book one invoice', async () => {
+  const { merchantSubscriptions } = await import('../../db/schema/merchantPlans.js');
+  const { recordSubscriptionInvoicePaid } = await import('../../services/billing/subscription.service.js');
+  const subscription = await currentSubscription(), ownInvoice = `in_concurrent${nonce}`;
+  let release!: () => void, locked!: () => void, lockPid = 0;
+  const barrier = new Promise<void>(resolve => { release = resolve; });
+  const acquired = new Promise<void>(resolve => { locked = resolve; });
+  const holder = db.transaction(async tx => {
+    await tx.select().from(merchantSubscriptions).where(eq(merchantSubscriptions.id,subscription.id)).for('update');
+    const pid = await tx.execute<{pid:number}>(sql`select pg_backend_pid() as pid`);lockPid=pid[0]!.pid;
+    locked();await barrier;
+  });
+  await acquired;
+  const writers = ['a','b'].map(label => recordSubscriptionInvoicePaid({ subscriptionId:subscription.id,
+    expectedSubscription:subscription,providerEventId:`evt_concurrent_${label}${nonce}`,providerInvoiceId:ownInvoice,
+    settlement:{netMinor:97,feeMinor:3,currency:'USD'},note:'owned concurrent fixture' }));
+  let blocked = 0;
+  try {
+    const deadline=Date.now()+5000;
+    do {
+      const observed = await db.execute<{blocked:number}>(sql`select count(*)::int as blocked from pg_stat_activity
+        where datname=current_database() and wait_event_type='Lock' and pid <> ${lockPid} and cardinality(pg_blocking_pids(pid)) > 0
+        and query ilike '%select%merchant_subscriptions%for update%'`);
+      blocked=observed[0]!.blocked;
+      if(blocked===2)break;
+      await new Promise(resolve=>setTimeout(resolve,20));
+    } while(Date.now()<deadline);
+  } finally { release();await holder; }
+  const results = await Promise.all(writers);
+  console.log(JSON.stringify({kind:'owned-invoice-concurrency-barrier',blockedCanonicalSelects:blocked}));
+  expect(blocked).toBe(2);expect(results.filter(result=>result.booked)).toHaveLength(1);
+  const claims=await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.providerInvoiceId,ownInvoice));
+  expect(claims).toHaveLength(1);expect(claims[0]!.ledgerTransactionId).toBeTruthy();
+});
+it('different invoices remain bookable and duplicate event IDs roll back the second posting', async () => {
+  const { recordSubscriptionInvoicePaid } = await import('../../services/billing/subscription.service.js');
+  const subscription=await currentSubscription();
+  const input={subscriptionId:subscription.id,expectedSubscription:subscription,providerEventId:`evt_independent${nonce}`,
+    providerInvoiceId:`in_independent${nonce}`,settlement:{netMinor:97,feeMinor:3,currency:'USD' as const},note:'owned independent invoice'};
+  expect(await recordSubscriptionInvoicePaid(input)).toEqual({booked:true});
+  expect(await recordSubscriptionInvoicePaid({...input,providerInvoiceId:`in_eventduplicate${nonce}`})).toEqual({booked:false});
+  expect(await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.providerInvoiceId,`in_eventduplicate${nonce}`))).toHaveLength(0);
+});
+it('a zero-settlement invoice retains its claim and cannot later book a changed observation', async () => {
+  const { recordSubscriptionInvoicePaid } = await import('../../services/billing/subscription.service.js');
+  const subscription=await currentSubscription(), ownInvoice=`in_zero${nonce}`;
+  const input={subscriptionId:subscription.id,expectedSubscription:subscription,providerEventId:`evt_zero${nonce}`,providerInvoiceId:ownInvoice,note:'owned zero invoice'};
+  expect(await recordSubscriptionInvoicePaid(input)).toEqual({booked:false});
+  expect(await recordSubscriptionInvoicePaid({...input,providerEventId:`evt_zero_other${nonce}`,settlement:{netMinor:97,feeMinor:3,currency:'USD'}})).toEqual({booked:false});
+  const claims=await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.providerInvoiceId,ownInvoice));
+  expect(claims).toHaveLength(1);expect(claims[0]!.ledgerTransactionId).toBeNull();
+});
+it('a changed subscription namespace refuses settlement before any new claim', async () => {
+  const { recordSubscriptionInvoicePaid } = await import('../../services/billing/subscription.service.js');
+  const subscription=await currentSubscription(), ownInvoice=`in_changed${nonce}`;
+  await expect(recordSubscriptionInvoicePaid({subscriptionId:subscription.id,
+    expectedSubscription:{...subscription,providerSubscriptionId:`sub_previous${nonce}`},providerEventId:`evt_changed${nonce}`,
+    providerInvoiceId:ownInvoice,settlement:{netMinor:97,feeMinor:3,currency:'USD'},note:'owned stale binding'}))
+    .rejects.toThrow('Subscription billing binding changed');
+  expect(await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.providerInvoiceId,ownInvoice))).toHaveLength(0);
 });

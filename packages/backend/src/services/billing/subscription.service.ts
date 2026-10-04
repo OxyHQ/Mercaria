@@ -27,15 +27,17 @@
  * redelivered `invoice.payment_failed` cannot extend a grace; recovering clears
  * it, because a stale deadline on a healthy subscription reads as one.
  *
- * ## Booking an invoice: the posting comes FIRST and the claim rolls it back
+ * ## Booking an invoice: lock the binding and check the invoice, then post and claim
  *
- * `merchant_subscription_events` is append-only by trigger, so the audit row
- * cannot be written and then stamped with the ledger transaction it booked. The
- * order is therefore posting, then claim, and a claim that finds the event
- * already applied THROWS — which rolls the posting back inside the same
- * transaction. That is the only ordering under which a redelivered `invoice.paid`
- * cannot double-book, and it uses the transaction as the mechanism rather than a
- * flag somebody has to remember to check.
+ * The subscription lock serializes invoice observations, including different
+ * event IDs for the same invoice. Check its current binding and an existing
+ * invoice claim before inserting any ledger posting. Historical claims have no
+ * provider namespace columns, so a matching invoice is conservatively retained
+ * as claimed even if the subscription row has since been reused.
+ *
+ * The immutable audit row follows the posting in the same transaction. A duplicate
+ * event ID still throws and rolls both back, including across different invoices.
+
  */
 
 import type {
@@ -44,6 +46,8 @@ import type {
   MerchantBillingSessionView,
   MerchantSubscriptionStatus,
 } from '@mercaria/shared-types';
+import { and, eq } from 'drizzle-orm';
+import { merchantSubscriptions, merchantSubscriptionEvents } from '../../db/schema/merchantPlans.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
 import { config } from '../../config/index.js';
@@ -484,6 +488,7 @@ export async function recordSubscriptionInvoicePaid(input: {
   subscriptionId: string;
   providerEventId: string;
   providerInvoiceId: string;
+  expectedSubscription: Pick<MerchantSubscriptionRow, 'provider' | 'livemode' | 'providerSubscriptionId' | 'billingCustomerId'>;
   /**
    * What actually landed on the platform balance. ABSENT when the invoice
    * settled no money at all — a fully-discounted period, or one paid from a
@@ -498,6 +503,21 @@ export async function recordSubscriptionInvoicePaid(input: {
   const db = getDb();
   try {
     return await db.transaction(async (tx) => {
+      const [current] = await tx.select().from(merchantSubscriptions)
+        .where(eq(merchantSubscriptions.id, input.subscriptionId)).for('update');
+      if (!current || current.provider !== input.expectedSubscription.provider ||
+        current.livemode !== input.expectedSubscription.livemode ||
+        current.providerSubscriptionId !== input.expectedSubscription.providerSubscriptionId ||
+        current.billingCustomerId !== input.expectedSubscription.billingCustomerId) {
+        throw conflict('Subscription billing binding changed before settlement.');
+      }
+      const [priorClaim] = await tx.select({ id: merchantSubscriptionEvents.id })
+        .from(merchantSubscriptionEvents).where(and(
+          eq(merchantSubscriptionEvents.subscriptionId, input.subscriptionId),
+          eq(merchantSubscriptionEvents.kind, 'invoice_paid'),
+          eq(merchantSubscriptionEvents.providerInvoiceId, input.providerInvoiceId),
+        )).limit(1);
+      if (priorClaim) return { booked: false };
       // An invoice that settled nothing books NOTHING and still leaves a claim,
       // so a redelivery of it converges the same way a settled one does.
       const ledgerTransactionId =

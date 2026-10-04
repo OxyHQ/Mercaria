@@ -199,7 +199,7 @@ describe('Peable cohort adoption / actual SDK HTTP and SQL', () => {
     expect((await findSubscriptionByStore(db, storeId))?.status).toBe('past_due');
     expect(await findSubscriptionByStore(db, otherStoreId)).toBeUndefined();
     const subscription = await findSubscriptionByStore(db, storeId);
-    const invoice = { subscriptionId: subscription!.id, providerEventId: `evt_invoice_${nonce}`, providerInvoiceId: `in_${nonce}`, settlement: { currency: 'USD' as const, netMinor: 97, feeMinor: 3 }, note: 'synthetic settlement observation; no provider charge' };
+    const invoice = { subscriptionId: subscription!.id, expectedSubscription: subscription!, providerEventId: `evt_invoice_${nonce}`, providerInvoiceId: `in_${nonce}`, settlement: { currency: 'USD' as const, netMinor: 97, feeMinor: 3 }, note: 'synthetic settlement observation; no provider charge' };
     expect(await recordSubscriptionInvoicePaid(invoice)).toEqual({ booked: true });
     expect(await recordSubscriptionInvoicePaid(invoice)).toEqual({ booked: false });
     const receipt = await db.select().from(merchantSubscriptionEvents).where(eq(merchantSubscriptionEvents.providerInvoiceId, invoice.providerInvoiceId));

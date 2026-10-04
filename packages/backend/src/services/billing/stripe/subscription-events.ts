@@ -259,6 +259,7 @@ async function handleInvoicePaid(context: StripeEventContext): Promise<StripeEve
   if (!chargeId) {
     const outcome = await recordSubscriptionInvoicePaid({
       subscriptionId: subscription.id,
+      expectedSubscription: subscription,
       providerEventId: context.providerEventId,
       providerInvoiceId: invoiceId,
       note: 'the invoice settled no money, so nothing was booked',
@@ -283,6 +284,7 @@ async function handleInvoicePaid(context: StripeEventContext): Promise<StripeEve
 
   const outcome = await recordSubscriptionInvoicePaid({
     subscriptionId: subscription.id,
+      expectedSubscription: subscription,
     providerEventId: context.providerEventId,
     providerInvoiceId: invoiceId,
     settlement: {
