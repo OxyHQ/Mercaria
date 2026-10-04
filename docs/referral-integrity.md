@@ -69,6 +69,13 @@ and store membership — and says everything else *"freezes and routes to manual
 review"*. The issue lists four more as "strong evidence where available", and
 then forbids four specific weak ones outright.
 
+Since ADR 0012 "store membership" means *can act for the partner store*, and
+Mercaria can see only half of it without a caller session: the store's owning
+Oxy account, or an account holding a permission override on it, is `true`;
+membership of an owning ORGANIZATION is Oxy's and needs the member's own bearer,
+which an attribution job does not have and this domain may not call out for. So
+anything else is `undefined` — NOT ESTABLISHED — never `false`.
+
 `REFERRAL_SELF_REFERRAL_EVIDENCE_STRENGTH` is the reconciliation: the ADR's two
 are `deterministic` and REFUSE; the issue's four are `reviewable` and REVIEW;
 the weak four are not in the type at all, so a household IP, a shared card, a

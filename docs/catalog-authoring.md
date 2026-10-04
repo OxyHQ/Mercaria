@@ -46,8 +46,8 @@ POST   /stores/:storeId/product-drafts/:draftId/publish
 Everything under `/stores/:storeId/product-drafts` runs
 `authenticateToken → validateId('storeId') → loadStore →
 requireStorePermission('products:write')`. That permission is reused rather than
-invented: `store_members_permissions_check` renders `STORE_PERMISSIONS`, so an
-unlisted string is a refusal at the row, and a merchant authoring a product is
+invented: `store_permission_overrides_granted_check` renders `STORE_PERMISSIONS`,
+so an unlisted string is a refusal at the row, and a merchant authoring a product is
 doing exactly what `products:write` names. `products:read` is not used even for
 the reads, because a draft is unpublished work rather than catalogue, and the
 set of people who may see one is the set who may write one.

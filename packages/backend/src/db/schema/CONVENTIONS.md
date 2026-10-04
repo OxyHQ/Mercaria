@@ -740,7 +740,7 @@ and a column whose shape looks arbitrary is usually answered here.
 
 | Mongoose model | Table(s) |
 |---|---|
-| `Store` | `stores` + `store_members` |
+| `Store` | `stores` (+ `store_members`, dropped by `0159` — ADR 0012; see "Store ownership is an Oxy account") |
 | `Location` | `locations` |
 | `TaxRate` | `tax_rates` |
 | `Customer` | `customers` |
@@ -1554,7 +1554,7 @@ is #83's own, stated so a column whose shape looks arbitrary is answerable:
   read-then-write two racers would walk past. The service converts the refusal
   into a DISPUTE instead of replacing the incumbent (scope rule 6). Several
   verified OPERATORS per merchant still arrive, through the native store's own
-  membership after linkage (#84) — a `store_members` fact, never a second
+  owning Oxy account after linkage (#84, ADR 0012) — Oxy's fact, never a second
   verified claim. A second partial unique,
   `(merchant_id, claimant_oxy_user_id) WHERE state IN (…active…)`, keeps one
   live attempt per person; its predicate is rendered from
@@ -3734,6 +3734,49 @@ drop-and-re-add whose new tuple is a strict superset, so every write the serving
 image performs still passes. Five hand-written triggers sit below the generated
 block with the regeneration check in the file header.
 
+## Store ownership is an Oxy account (ADR 0012)
+
+Two migrations, `0158` (pre) and `0159` (post), and the decisions behind their
+columns.
+
+### `stores.oxy_account_id` is NOT NULL and carries no foreign key
+
+The account that owns the store is a foreign service's primary key (the fact
+that shapes everything), and a store with no owning account is a store nobody
+can ever reach — `loadStore` would refuse every request naming it. NOT NULL is
+what makes that unrepresentable. It is NULLABLE in `0158` only because the image
+serving during the rollout creates stores without it; `0159` backfills what that
+image created and then narrows. `stores_oxy_account_id_idx` serves the one hot
+read: `oxy_account_id = any(<the accounts Oxy lists for the caller>)`.
+
+### `store_permission_overrides` is a list of EXCEPTIONS, and the CHECKs say so
+
+- **`granted`/`revoked` are `text[]`**, the `store_members.permissions`
+  reasoning carried over: a scalar set never queried by element. Both carry the
+  vocabulary CHECK rendered from `STORE_PERMISSIONS`.
+- **`store_permission_overrides_disjoint_check`** — a permission both granted
+  and revoked has no safe reading to store; the service refuses it first, the
+  row refuses it regardless.
+- **`store_permission_overrides_nonempty_check`** — "no exception" is the
+  ABSENCE of a row. An empty row would be a member list by another name, which
+  is exactly what the ADR refuses to keep.
+- **`UNIQUE (store_id, oxy_user_id)`** — one exception per person per store, and
+  the key `loadStore` reads.
+- **`updated_by_oxy_user_id` is nullable**: the human actor
+  (`getOxyActor().actorAccountId`) when Oxy reported one, recorded as unknown
+  rather than guessed when it did not, and NULL on every row `0159` carried over
+  from `store_members`.
+- **`ON DELETE CASCADE` from `stores`** — an exception means nothing without the
+  store it adjusts.
+
+### What `0159` copied, and what it could not
+
+The non-default grants of every member who is not the owning account, measured
+against the RETIRED role matrix frozen in the migration as literals. A member
+who held only their role's defaults leaves no row — by design, see the
+nonempty CHECK — so the list of people who lost access exists only in a
+pre-deploy export (`docs/stores.md`).
+
 ## Register: every `jsonb` column, and why it earned it
 
 `jsonb` is for genuinely shape-less data only. Eight columns qualify in 129 tables;
@@ -3808,7 +3851,8 @@ Listed so a 23503 is recognised rather than rediscovered.
 - **New constraints Mongo could not state**, each of which a half-finished
   service path could previously violate: at most one default `location` per
   store; at most one default `address` per user; one `store_members` row per
-  (store, user); one `cart_items` line per (cart, variant); a `completed`
+  (store, user) — the table itself was dropped by `0159` (ADR 0012), and its
+  successor `store_permission_overrides` keeps the same one-per-pair key; one `cart_items` line per (cart, variant); a `completed`
   `draft_order` has a converted order and a non-completed one does not; a
   `discounts` window that ends before it starts is refused.
 

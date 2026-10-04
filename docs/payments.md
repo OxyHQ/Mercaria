@@ -618,7 +618,7 @@ parameter, which is how a signed-state check becomes an open redirect.
 | `GET /stripe/onboarding/return?state=…` | nobody — signed state only |
 
 `store:manage` and not `settings:write`: the latter belongs to `admin` and
-`staff` and opens the return policy, while this decides where a store's money is
+opens the return policy, while this decides where a store's money is
 settled and starts an identity flow in the store's name. `store:manage` is the
 one permission `admin` does not hold.
 
@@ -1939,9 +1939,10 @@ already covered by the transfer's own comparison.
 **Authorization is an ALLOW-LIST, `PAYMENT_OPERATOR_OXY_USER_IDS`, and this is
 interim.** Mercaria has exactly one authorization vocabulary — store permissions
 — and it is scoped to a STORE by construction: `requireStorePermission` reads
-`req.storeMembership`, which `loadStore` put there after checking membership of
-THAT store. This surface reads across every store and every P2P seller, so there
-is no store whose membership could authorize it, and no store permission could
+`req.storeAccess`, which `loadStore` put there after resolving the caller's role
+in the Oxy account that owns THAT store. This surface reads across every store
+and every P2P seller, so there is no store whose owning account could authorize
+it, and no store permission could
 express "may see all stores' money" without becoming one a store owner could
 grant themselves.
 

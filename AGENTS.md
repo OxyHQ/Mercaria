@@ -112,11 +112,12 @@ Mongo/Mongoose is GONE (PR #136) — no `src/models/`, no `mongoose`, no
   A provider webhook is a different principal and verifies its own signature.
 - **Every `/internal/*` surface is gated by an Oxy-user-id allow-list, and empty
   means NOT MOUNTED (404, never 401).** A new surface joins the list whose power it
-  already shares; two were refused on exactly that test. Enumeration:
+  already shares. Enumeration:
   `docs/house-invariants.md`.
-- **`store:manage` is the one permission an `admin` does not hold**, which is why
-  payment onboarding, fee acceptance and merchant-identity routes use it rather than
-  `settings:write`.
+- **A store is owned by an Oxy account; Oxy decides who gets in** (ADR 0012). No
+  member list: access is the caller's Oxy role (THEIR bearer, fail closed; a
+  delegated session is its operator) via `STORE_ROLE_PERMISSIONS` ± overrides.
+  `admin` lacks only `store:manage`, which gates payment, fee and identity routes.
 - **Every buyer id, seller id and `oxy_user_id` is a foreign SERVICE's primary
   key** (Oxy owns identity) and carries no foreign key.
 - **CORS:** `packages/backend/src/lib/allowed-origins.ts` is the ONE origin authority
@@ -181,9 +182,8 @@ Mongo/Mongoose is GONE (PR #136) — no `src/models/`, no `mongoose`, no
   re-measures both). A Bloom `Dialog` side-sheet takes the LOGICAL
   `placement="start"|"end"`, never `left`/`right`; its `inset` keys stay
   physical. Arabic is NOT fully supported — #429 item 2.
-- **Dockerfile node-gyp pin.** The repo-ROOT API Dockerfile pins `node-gyp` in the
-  builder: `ws`'s native accelerators have no musl-arm64 prebuild, and an on-demand
-  `bunx node-gyp@latest` flakes on ARM. Do NOT remove it.
+- **The repo-ROOT API Dockerfile pins `node-gyp`** in the builder: `ws` has no
+  musl-arm64 prebuild and `bunx node-gyp@latest` flakes on ARM. Do NOT remove it.
 - **`ci.yml`'s `Lint & Test` must stay on x86** though `deploy-aws.yml` builds ARM:
   ARM runners support no service containers and `postgis/postgis` is amd64-only.
 - **Web apps deploy to Cloudflare Workers, NOT Pages**, via **`bunx wrangler`

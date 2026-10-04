@@ -35,9 +35,9 @@ a broken one, because every stage converges on its own input.
 
 1. **`store_merchants`** — every ACTIVE native store mints a canonical merchant
    and a `native_store_links` row, `verified` with method `owner_authentication`.
-   The evidence is the store's own `store_members` row with role `owner`; the
-   ACTOR is the operator who opened the run. A store with no owner member is
-   skipped rather than linked on weaker grounds.
+   The evidence is the store's owning Oxy account (`stores.oxy_account_id`,
+   ADR 0012), which every store has; the ACTOR is the operator who opened the
+   run.
 2. **`vendor_brand_candidates`** — drives #53's `extractVendorBrandCandidates`.
    **No brand is created, and no code path here could create one.** Refuses a
    cohort: the extraction is an aggregate, and a cohort-scoped aggregate produces

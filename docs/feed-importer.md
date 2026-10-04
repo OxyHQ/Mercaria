@@ -375,7 +375,7 @@ fixture adapter's records carry a fixed date in the past, which is what hid them
 ### Merchant — `/admin/stores/:storeId/feeds/*`, behind `channels:write`
 
 A feed is a sales channel's inventory arriving by file, and `channels:write` is
-what already gates connecting a Shopify shop. It is denied to `staff`, which is
+what already gates connecting a Shopify shop. It is denied to `editor`, which is
 correct: configuring where a store's catalogue comes from is not a shop-floor
 act. The reads follow the writes rather than getting a looser gate.
 
