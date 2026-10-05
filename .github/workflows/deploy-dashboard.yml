@@ -8,7 +8,7 @@ name: Deploy Dashboard
 # variable `EXPO_PUBLIC_OXY_CLIENT_ID_DASHBOARD` set to it for the SSO RP flow.
 #
 # WHAT IS VERIFIED BEFORE THIS SHIPS: the whole of `ci.yml`, asserted for THIS
-# commit by the `gate` job below. Not the export in `deploy-dashboard`:
+# commit by the `gate` job below. Not the export in `build`:
 # `expo export` is a bundler, Babel strips types, and it ships code `tsc`
 # rejects — measured on 2026-08-17. So the build below proves the app BUNDLES,
 # and nothing about whether it is correct. Until #505 this workflow had no gate

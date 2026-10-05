@@ -115,7 +115,7 @@ COPY packages/backend ./packages/backend
 # packages/backend/dist/index.js (externalizes third-party node_modules INCLUDING
 # @oxy.so/*, inlines only @mercaria/*; see packages/backend/build.ts).
 #
-# @oxy.so/* being external is what makes the production install below load-bearing:
+# @oxy.so/* being external is what makes the `prod-deps` install load-bearing:
 # the bundle `import`s those packages by name, so they MUST be present in the
 # runtime node_modules. They are all in @mercaria/backend's `dependencies` (not
 # devDependencies), so `--production` keeps them. Moving one to devDependencies

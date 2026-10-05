@@ -8,7 +8,7 @@ name: Deploy POS
 # variable `EXPO_PUBLIC_OXY_CLIENT_ID_POS` set to it for the SSO RP flow to work.
 #
 # WHAT IS VERIFIED BEFORE THIS SHIPS: the whole of `ci.yml`, asserted for THIS
-# commit by the `gate` job below. Not the export in `deploy-pos`: `expo export`
+# commit by the `gate` job below. Not the export in `build`: `expo export`
 # is a bundler, Babel strips types, and it ships code `tsc` rejects — measured on
 # 2026-08-17 against this very package. So the build below proves the app
 # BUNDLES, and nothing about whether it is correct. Until #505 this workflow had

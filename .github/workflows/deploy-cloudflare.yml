@@ -3,7 +3,7 @@ name: Deploy Frontend
 # WHAT IS VERIFIED BEFORE THIS SHIPS: the whole of `ci.yml` — the ten
 # `validate:*` guards, five typechecks, the three app test runners and the API
 # suite — asserted for THIS commit by the `gate` job below. Not the export in
-# `deploy-app`: `expo export` is a bundler, Babel strips types, and it ships code
+# `build`: `expo export` is a bundler, Babel strips types, and it ships code
 # `tsc` rejects. Measured on 2026-08-17 against `packages/pos`, a `string`
 # assigned to a `number`: `tsc --noEmit` exits 2, `expo export` exits 0 and the
 # mutated module is in the shipped bundle. So the build below proves the app
