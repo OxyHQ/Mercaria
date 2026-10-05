@@ -109,6 +109,11 @@ jobs:
           EXPO_PUBLIC_OXY_CLIENT_ID: ${{ vars.EXPO_PUBLIC_OXY_CLIENT_ID }}
           EXPO_PUBLIC_OXY_API_URL: ${{ vars.EXPO_PUBLIC_OXY_API_URL || 'https://api.oxy.so' }}
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || 'https://api.mercaria.co' }}
+          # GoWay, where a location's place lives (ADR 0013). The SDK falls back
+          # to these same canonical origins when unset; stated so a repo
+          # variable can point a build at a staging GoWay.
+          EXPO_PUBLIC_GOWAY_API_URL: ${{ vars.EXPO_PUBLIC_GOWAY_API_URL || 'https://api.goway.to' }}
+          EXPO_PUBLIC_GOWAY_WEB_URL: ${{ vars.EXPO_PUBLIC_GOWAY_WEB_URL || 'https://goway.to' }}
       # Deploys to a Cloudflare Worker (Static Assets) named `mercaria`.
       # `workers_dev`/`preview_urls` are disabled in wrangler.jsonc so the app is
       # served ONLY via the custom domain `mercaria.co` — no `*.workers.dev` /

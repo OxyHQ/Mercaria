@@ -694,8 +694,13 @@ Stated rather than quietly narrowed.
 - [ ] `PICKUP_COLLECTION_CODE_KEY` provisioned (64 hex) in SSM, and in the
       deploy workflow's explicit secret allow-list **in the same change** as the
       task definition entry.
-- [ ] `GOWAY_API_URL=https://api.goway.to` in the oxy-infra task definition's
-      `environment` (configuration, not a secret) BEFORE either lever turns on.
+- [ ] `GOWAY_API_URL` set — `deploy-aws.yml` pins it into every release
+      revision (repo variable `GOWAY_API_URL`, default `https://api.goway.to`);
+      mirror it in the oxy-infra task definition's `environment`
+      (configuration, not a secret). Without it no location can be published.
+- [ ] GoWay's API serves `GET /places?ids=` and `GET /claims?placeId=`, and its
+      `CORS_APP_ORIGINS` carries `https://mercaria.co` and
+      `https://dashboard.mercaria.co` (GoWay's runtime template).
 - [ ] `NEARBY_DISCOVERY_ENABLED=true` only after a merchant has published at
       least one linked location — the surface is honest but empty otherwise.
 - [ ] `STORE_PICKUP_ENABLED=true` only after the collection-desk flow has been

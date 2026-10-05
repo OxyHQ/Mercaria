@@ -515,26 +515,29 @@ A store with no `owner` member makes `0161` refuse to apply — fix those first.
 # Place facts live in GoWay (ADR 0013) — deploy and deferred work
 
 **Before CI can go green:** `@goway.to/sdk` 0.3.0 has to be on npm (it is
-built on GoWay's `feat/places-platform`); `bun.lock` carries the integrity of a
-local `npm pack` of it, so refresh the lock if the published tarball differs.
+built on GoWay's `feat/p4-integration-api`); `bun.lock` carries the integrity
+of a local `npm pack` of it, so refresh the lock if the published tarball
+differs. GoWay's API must serve that branch too — `GET /places?ids=`,
+`GET /claims?placeId=`, exceptions on lists and merge-patch clears — before
+this deploys, or every batch place read answers `goway_unavailable`.
 
-**Before the deploy that carries `0159`/`0162`:** run the count and the export
-in [`docs/pickup.md`](docs/pickup.md) ("Moving to GoWay") against production
-and keep the export. `0162` withdraws every published location that names no
-GoWay place and drops the facts that would have been needed to make one. Set
-`GOWAY_API_URL` in the task definition's `environment` before turning
-`NEARBY_DISCOVERY_ENABLED` or `STORE_PICKUP_ENABLED` on — both stay off
-without it.
+**One release** with the ownership pair: `Migrate (pre)` applies `0158`–`0160`,
+`Migrate (post)` applies `0161`–`0162` (`docs/pickup.md`, "One release").
+Before it, run the queries in [`docs/stores.md`](docs/stores.md) and the count
+and export in [`docs/pickup.md`](docs/pickup.md) ("Moving to GoWay") against
+production and keep the exports. `0162` withdraws EVERY location published
+today — none can name a GoWay place before this release — and drops the facts
+that would have been needed to make one.
+
+**`GOWAY_API_URL`** is pinned into each release revision by `deploy-aws.yml`
+(repo variable `GOWAY_API_URL`, default `https://api.goway.to`), like
+`OXY_API_URL`. Add it to the task definition's `environment` in oxy-infra
+(`terraform-uswest2/app-services.tf`) as well, so a revision terraform
+registers between deploys keeps it. `NEARBY_DISCOVERY_ENABLED` and
+`STORE_PICKUP_ENABLED` stay off without it.
 
 **Deferred:**
 
-- **`/public/v1` locations** (`GET /locations?goWayPlaceId=`, `/locations/:id`,
-  its products) — the next slice. `locations_go_way_place_id_store_id_key` is
-  led by the place id for that read, and `services/goway/place-facts.ts`
-  already projects a place into Mercaria shapes.
-- **Batch place reads in GoWay.** A nearby page reads each candidate's place
-  by id (cached, 8 in flight) because GoWay's list reads omit hours exceptions.
-  A `GET /places?ids=` or lists that carry exceptions would make it one call.
 - **Following a merge on the public reads.** A location whose place GoWay
   merged is undiscoverable until its merchant's next verify (the dashboard
   runs one on opening the location). A sweep could do it; nothing does yet.
