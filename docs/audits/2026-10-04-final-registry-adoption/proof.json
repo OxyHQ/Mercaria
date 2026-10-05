@@ -1,0 +1,203 @@
+{
+  "source": "606a5215fabc05d7cbb9964c3a1e352635171e8f",
+  "sources": [
+    {
+      "path": "bun.lock",
+      "sha256": "8345b9a0f389b42d9dd0730388dd69c1525c7e4273655089c9e1d7ea3c2f5018"
+    },
+    {
+      "path": "package.json",
+      "sha256": "f4baa12c8eb65b7a48f62477608815e68f3d74884002236eb1f85a30d5401a7f"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "sha256": "4e8d18ac094a03a30b4c2914d7dd7931a4b02da85bac3fbf87432afe5918690d"
+    },
+    {
+      "path": "packages/backend/src/routes/__tests__/capabilities.test.ts",
+      "sha256": "5e430aa3848677b4fa487666fe5ea87484ae70ac506b13ee6c66c37510c5e171"
+    },
+    {
+      "path": "packages/backend/src/routes/capabilities.ts",
+      "sha256": "207122e5272af1af0709afa2d4d31a1abbe94514811c1dd577706231229dedb5"
+    },
+    {
+      "path": "packages/dashboard/package.json",
+      "sha256": "7db026beefbab274149935dcce7272fbae1f62450a64547770cd3f950847c9c2"
+    },
+    {
+      "path": "packages/frontend/package.json",
+      "sha256": "7ad0e83ebfba0d909e5eba0250104eee819903fac06550031cc8fac3e9ac17eb"
+    },
+    {
+      "path": "packages/pos/package.json",
+      "sha256": "72445e084ae6ed991d9572a1b5792e164c358d38cf4c84d59bd984b0b3426ffc"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/Mercaria-frozen.log",
+      "sha256": "4261d0b2dc7d957f9a39699e3df60282fad699afa1cf2da10db0a2241597b701",
+      "bytes": 198
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/Mercaria-installed.json",
+      "sha256": "10442b641706acdc127f7f94c0b6f82be824c9612f8a5c587923421bc4e0e5db",
+      "bytes": 5477
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/Mercaria-resolve.log",
+      "sha256": "50570b896122ff8f8c3240c76799c6cb959ffab42a9cc7d249e1fd718a654689",
+      "bytes": 323
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/actor-final-fixture-red.log",
+      "sha256": "990a15e7950d4d6d0b83e6d39d4f2b82d50ffd8bbe75ae8cfadc1292e18d9f30",
+      "bytes": 3060
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/actor-green.log",
+      "sha256": "1250c74989aa9b9603bfb38ca07f17c06ef8bc265dd8a8716c8827a14792e15f",
+      "bytes": 591
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/actor-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/actor-red.log",
+      "sha256": "da2aa0ba9188fe141d22e3933b3200d28d492dba61a6f0ec9eddeae55e4f5c42",
+      "bytes": 591
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/backend-build-final.log",
+      "sha256": "b886ec10dc5fabc0938261bc892ada00b4aa6f4b8838e49b1438a0188108d336",
+      "bytes": 647
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/backend-build.log",
+      "sha256": "e5e45b806383b2636ba6e3bfc470a469efed99408c86523de04202385ff6df11",
+      "bytes": 647
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/backend-focal.log",
+      "sha256": "154af05a4ee8b8dcf6038ebcf6585b036f4e4451fe25c5118d6edde0ef04728c",
+      "bytes": 66081
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/backend-types-final.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+      "bytes": 15
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/backend-types.log",
+      "sha256": "75170ae04eca522033cf975e1f12c6807605447a57511847aa03625af283ac3f",
+      "bytes": 298
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/capabilities-red-fixture.ts",
+      "sha256": "5e430aa3848677b4fa487666fe5ea87484ae70ac506b13ee6c66c37510c5e171",
+      "bytes": 7803
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/contracts-registry.json",
+      "sha256": "fb1ded2797bdbd0ca31460f3cba087f078a86dc201365c923da9fcc23b07ed7b",
+      "bytes": 380
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/core-registry.json",
+      "sha256": "99b7f8a1cc87cf46ff54b3113a1911a938f39b4f086537e0a4138ee38dd035b7",
+      "bytes": 375
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/dashboard-build.log",
+      "sha256": "7251d86efc57de730d7e26974e4c841230482763d7fd67918d5fb2fc67f94259",
+      "bytes": 15440
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/dashboard-types-final.log",
+      "sha256": "d9a951d674af32baf2fa4dcb98bc4f68ad90cf028acc5da7077adcacc154f375",
+      "bytes": 113
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/frontend-build-checks.json",
+      "sha256": "dd00fff984f424b41b0b1a3985739e67864a8996e202945e8ff050605cc4001a",
+      "bytes": 561
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/frontend-build.log",
+      "sha256": "793d136fee5bf2c3618f26722878aae596b5b43bffcb28c3f027c717a580e170",
+      "bytes": 15204
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/frontend-types-final.log",
+      "sha256": "38e7f5e6f696e8fcb5c06d15571373956aeda2ca1b2c575c45005216ecb45a37",
+      "bytes": 113
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/intent.json",
+      "sha256": "eeaec2b9990ad3588ef67eb3359dd39776bdf2b861930aae4963d0fdf390694d",
+      "bytes": 152
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/mcp-registry.json",
+      "sha256": "cc279f4f5b1ca68041f6f0d3583e4d9dc218bd7c0b77846207aa3b981086d7ac",
+      "bytes": 373
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/pos-build.log",
+      "sha256": "6e869c1b091d882a77b995d2016122c943601b0662cf42189a1b885989dbb2a0",
+      "bytes": 14697
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/pos-types-final.log",
+      "sha256": "15ca077022107a428138b6c3f78167cc6bf7e1fa31ef60d7626cef95c48658cf",
+      "bytes": 112
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/preflight.json",
+      "sha256": "01f73180fe3fc32d17e82f1f7fe987a866870fa529e79c74dc89e4bc12bad9b1",
+      "bytes": 253
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/protocol-registry.json",
+      "sha256": "cc0b427dca92d55ea5e1debe7e76580618a26f997b2c888b8484537b64b70bbd",
+      "bytes": 379
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/registry.json",
+      "sha256": "a39da224fafeec388f0ac27e08ea13cf666427a0177b67f7b077c65cadb59df0",
+      "bytes": 415373
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/services-registry.json",
+      "sha256": "444599f0eb56d104d64c288ed3a6544163e54430c0f275c2feec219d5f624611",
+      "bytes": 381
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/types-build-checks.json",
+      "sha256": "c2e9d043e780df75c65c537da1d04910a2cdc688255e944d15abefa75c1701ee",
+      "bytes": 387
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/types-build-final.json",
+      "sha256": "134696869f47838b4edfb0c7140f688aeedfefed44031755ad0ec872715d3846",
+      "bytes": 1006
+    }
+  ],
+  "validation": {
+    "backendFocal": 102,
+    "backendSkipped": 2,
+    "actorFinal": 8,
+    "actorRedPassed": 7,
+    "actorRedFailed": 1
+  },
+  "description": "Final SDK added the requester actor variant. One-line discriminant correction preserves requester account attribution separately from effective account; identical frozen HTTP fixture is7PASS/1FAIL before and8PASS after. Authority/signature/domain guards are unchanged. Billing/payment/ingress/capability focal102PASS/2existing skips; backend and all three frontend types/builds pass.",
+  "limits": [
+    "Real published registry packages and regenerated lock; all importing SDK files match public archive members.",
+    "Synthetic issuer/provider boundaries in tests do not prove live authority, customer mapping, catalog, cohort or deployment.",
+    "Required final CI/image/promotion remains separate.",
+    "actor-red.log contains the original six-test baseline because a preceding path-edit command failed. Actual RED is actor-final-fixture-red.log with preserved capabilities-red-fixture.ts; GREEN runs that identical fixture."
+  ]
+}

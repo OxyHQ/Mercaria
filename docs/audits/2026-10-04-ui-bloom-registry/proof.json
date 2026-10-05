@@ -1,0 +1,80 @@
+{
+  "source": "0d06a6f9457b89e45ec48046344198f8262cb71b",
+  "sources": [
+    {
+      "path": "bun.lock",
+      "sha256": "f950d4374476c27b2b957c400545aadce0880508bf4caf68422b2155756ddbb7"
+    },
+    {
+      "path": "packages/ui/package.json",
+      "sha256": "5dfd142175b3233f29b1978e0677ac4d39c2563efe2de84e2fe76a7de6d98cf9"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/ci-failed.log",
+      "sha256": "fad512745428c47e9c700777646a03f5b17fbba050a35e21f125a6bcfd658c3d"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/ui-bloom-resolve.log",
+      "sha256": "decf1efaa22997014207de9b0c41d38ac28ce14c81cd7b10b22dc7c89c3cdc2b"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/ui-bloom-frozen.log",
+      "sha256": "5f56ef95d630183412e650c0d5fb360e04d4a7324f9904aea893e597863e6b5e"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/ui-bloom-checks.json",
+      "sha256": "3112081d5ea2a19420edd62a987609180d610e1db6712cbaea934ed0bf09079d"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/ui-types.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/ui-doctor.log",
+      "sha256": "e51b59e5c8ec3c5dec512bd157605b5e23eac97acd45e0c16181c3a08e5835c3"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/ui-bloom-materialization-intent.json",
+      "sha256": "44a84823d2712673e4a009a6fadad78b0456510324b10f22d5e0a9e21d6c5ffa"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/ui-bloom-materialized.log",
+      "sha256": "ab5864fd062f08dc7e3dbefd0ba8c1524bd2681ee2bd756286c0d158d9dce4b6"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/ui-types-real621.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/ui-doctor-real621.log",
+      "sha256": "e51b59e5c8ec3c5dec512bd157605b5e23eac97acd45e0c16181c3a08e5835c3"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/frontend-real621-build.log",
+      "sha256": "1ae306d7189a063535ce7786767034af711f9e40947b6bdc0485907c4eca26d5"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/dashboard-real621-build.log",
+      "sha256": "2895c476e93c71231d4632cbd895e66c1134c61755f5313484d8f43e7980a173"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/pos-real621-build.log",
+      "sha256": "c342505028e24e7053eff7cc92d38d540613787d5ef72e251bc42cc3e990cf99"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/ui-real621-checks.json",
+      "sha256": "3533fc6e10b067550db0822d8e1d9df6cb323c47612c43759c15b81d5816e89c"
+    },
+    {
+      "path": "docs/audits/2026-10-04-ui-bloom-registry/bloom-final-importers.json",
+      "sha256": "a66502d17e8a0a2a46a4c19609d152e979cb820455872d3761eed7ae3b14f846"
+    }
+  ],
+  "validation": "Shared UI actual621 types, doctor --ci and all3webexports PASS. UI and3app importers \u00d720,940files equal published621 archive.",
+  "limits": [
+    "First ui-types.log still resolved stale nested630. Bytecheck/resolver exposed it; preserved nested directory and canonical frozen reinstall preceded all real621 logs.",
+    "No UI source/props/callbacks modified. Backend/source regression evidence retained; finalCI and deployment pending."
+  ]
+}

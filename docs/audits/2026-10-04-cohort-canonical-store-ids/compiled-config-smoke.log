@@ -1,0 +1,5 @@
+
+  packages/backend/dist/cohort-config-smoke.js  2.4mb ⚠️
+
+⚡ Done in 51ms
+{"kind":"mercaria-compiled-production-cohort-config-smoke-v1","passed":true,"nodeEnv":"production","storeIds":["6a39a7d5b5809e55ba556ad0","6a77367c30650db22f728092"],"namespace":{"merchantId":"merch_bd106296a0fef49a861ee6b7","applicationId":"6a37d0cc5d4b5f15482a9340","environment":"production","platformAccountId":"acct_1TnXkUQWiCE02OnU","livemode":true,"storeIds":["6a39a7d5b5809e55ba556ad0","6a77367c30650db22f728092"]},"syntheticCredentialPair":true,"generalStripeEnabled":false,"newBillingActionsEnabled":false,"remoteFetchAttempts":0}

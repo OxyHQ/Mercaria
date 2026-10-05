@@ -28,11 +28,19 @@ import {
 } from './subscription.service.js';
 
 let timer: ReturnType<typeof setInterval> | undefined;
+let afterId: string | undefined;
+let graceAfterId: string | undefined;
+let generation = 0;
+let inFlight = false;
 
-/** One pass: re-read what the rail says, then catch the audit trail up. */
-async function runOnce(): Promise<void> {
-  const reconciled = await reconcileMerchantSubscriptions();
-  const grace = await announceExpiredGracePeriods();
+/** One bounded page per pass, then catch the audit trail up. */
+async function runOnce(startedGeneration: number): Promise<void> {
+  const reconciled = await reconcileMerchantSubscriptions({ afterId });
+  if (startedGeneration !== generation) return;
+  afterId = reconciled.nextAfterId ?? undefined;
+  const grace = await announceExpiredGracePeriods({ afterId: graceAfterId });
+  if (startedGeneration !== generation) return;
+  graceAfterId = grace.nextAfterId ?? undefined;
   if (reconciled.applied > 0 || reconciled.failed > 0 || grace.announced > 0) {
     log.general.info(
       { ...reconciled, graceAnnounced: grace.announced },
@@ -57,10 +65,18 @@ export function startMerchantSubscriptionReconciler(): void {
     );
     return;
   }
+  afterId = undefined;
+  graceAfterId = undefined;
+  const startedGeneration = ++generation;
   timer = setInterval(() => {
-    void runOnce().catch((err) =>
-      log.general.error({ err }, '[MerchantBilling] a reconciliation pass failed'),
-    );
+    // A slow provider must not overlap pages or let an old pass reset a new cursor.
+    if (inFlight) return;
+    inFlight = true;
+    void runOnce(startedGeneration)
+      .catch((err) =>
+        log.general.error({ err }, '[MerchantBilling] a reconciliation pass failed'),
+      )
+      .finally(() => { inFlight = false; });
   }, config.merchantBilling.reconciliationIntervalMs);
   timer.unref?.();
 }
@@ -70,4 +86,7 @@ export function stopMerchantSubscriptionReconciler(): void {
   if (!timer) return;
   clearInterval(timer);
   timer = undefined;
+  afterId = undefined;
+  graceAfterId = undefined;
+  generation += 1;
 }

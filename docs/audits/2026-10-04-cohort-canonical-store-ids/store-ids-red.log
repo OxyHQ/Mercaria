@@ -1,0 +1,204 @@
+$ vitest run src/services/billing/peable/__tests__/register.test.ts src/services/billing/peable/__tests__/adapter.realdb.test.ts
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/packages/backend[39m
+
+ [31m❯[39m src/services/billing/peable/__tests__/register.test.ts [2m([22m[2m28 tests[22m[2m | [22m[31m8 failed[39m[2m)[22m[32m 21[2mms[22m[39m
+[31m     [31m×[31m registers the accepted two historical stores with the exact production namespace while general Stripe remains off[39m[32m 5[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched merchantId for the accepted cohort before registration[39m[32m 4[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched applicationId for the accepted cohort before registration[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched environment for the accepted cohort before registration[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched platformAccountId for the accepted cohort before registration[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched livemode for the accepted cohort before registration[39m[32m 1[2mms[22m[39m
+     [32m✓[39m retains default legacy without querying or constructing Peable[32m 0[2mms[22m[39m
+     [32m✓[39m rejects malformed configuration without leaving a legacy fallback[32m 0[2mms[22m[39m
+     [32m✓[39m rejects account before installing any provider[32m 0[2mms[22m[39m
+     [32m✓[39m rejects mode before installing any provider[32m 0[2mms[22m[39m
+     [32m✓[39m rejects namespace before installing any provider[32m 0[2mms[22m[39m
+     [32m✓[39m retains cohort routing while the new-action flag is off[32m 1[2mms[22m[39m
+     [32m✓[39m registers an explicit verified cohort while the general Stripe rail is off[32m 0[2mms[22m[39m
+     [32m✓[39m keeps an absent cohort and disabled general rail unregistered[32m 0[2mms[22m[39m
+     [32m✓[39m fails closed on malformed cohort even with the general rail off[32m 0[2mms[22m[39m
+     [32m✓[39m rejects missing publicKey before provider or gateway reads[32m 0[2mms[22m[39m
+     [32m✓[39m rejects missing secret before provider or gateway reads[32m 0[2mms[22m[39m
+     [32m✓[39m does not enable the out-of-cohort legacy mutator[32m 0[2mms[22m[39m
+[31m     [31m×[31m preserves historical ObjectIds and generated UUIDv7 IDs without rewriting them[39m[32m 0[2mms[22m[39m
+     [32m✓[39m rejects malformed or unsupported store ID "6a39a7d5b5809e55ba556ad"[32m 0[2mms[22m[39m
+     [32m✓[39m rejects malformed or unsupported store ID "6a39a7d5b5809e55ba556ad00"[32m 0[2mms[22m[39m
+     [32m✓[39m rejects malformed or unsupported store ID "6a39a7d5b5809e55ba556adz"[32m 0[2mms[22m[39m
+     [32m✓[39m rejects malformed or unsupported store ID " 6a39a7d5b5809e55ba556ad0"[32m 0[2mms[22m[39m
+     [32m✓[39m rejects malformed or unsupported store ID "6a39a7d5b5809e55ba556ad0 "[32m 0[2mms[22m[39m
+[31m     [31m×[31m rejects malformed or unsupported store ID "01900000-0000-4000-8000-000000000001"[39m[32m 1[2mms[22m[39m
+     [32m✓[39m rejects malformed or unsupported store ID ""[32m 0[2mms[22m[39m
+     [32m✓[39m rejects malformed or unsupported store ID "arbitrary-store"[32m 0[2mms[22m[39m
+     [32m✓[39m rejects empty cohorts, extra fields, and production/test mismatch[32m 0[2mms[22m[39m
+[07:18:43] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+ [31m❯[39m src/services/billing/peable/__tests__/adapter.realdb.test.ts [2m([22m[2m16 tests[22m[2m | [22m[31m16 failed[39m[2m)[22m[32m 113[2mms[22m[39m
+[31m     [31m×[31m preserves the customer/store/plan and maps scheduled cancellation without changing rail identity[39m[32m 5[2mms[22m[39m
+[31m     [31m×[31m keeps one remote effect after a lost response and an explicit same-key retry[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m keeps legacy only for SQL-resolved noncohort stores[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m denies unknown customer and invented subscription without falling back or mutating[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m rejects foreign-merchant without legacy fallback[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m rejects wrong-store without legacy fallback[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m rejects wrong-plan without legacy fallback[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m rejects wrong-mode without legacy fallback[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m requires stable portal/cancel keys before contacting the gateway[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m refuses expired hosted results and sanitizes upstream failure messages[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m passes a caller intent through the actual checkout controller and refuses omission before effects[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m makes a conclusively expired owner result terminal without replaying another POST[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m blocks new actions when disabled but still reconciles the same durable cohort[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m projects a verified snapshot through real Mercaria state and deduplicates the same event[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m replays one cancellation effect while projecting a later verified subscription state[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m keeps the newer SQL projection and original key when current read fails after replay[39m[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 24 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mpreserves the customer/store/plan and maps scheduled cancellation without changing rail identity
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mkeeps one remote effect after a lost response and an explicit same-key retry
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mkeeps legacy only for SQL-resolved noncohort stores
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mdenies unknown customer and invented subscription without falling back or mutating
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mrejects foreign-merchant without legacy fallback
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mrejects wrong-store without legacy fallback
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mrejects wrong-plan without legacy fallback
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mrejects wrong-mode without legacy fallback
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mrequires stable portal/cancel keys before contacting the gateway
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mrefuses expired hosted results and sanitizes upstream failure messages
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mpasses a caller intent through the actual checkout controller and refuses omission before effects
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mmakes a conclusively expired owner result terminal without replaying another POST
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mblocks new actions when disabled but still reconciles the same durable cohort
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mPeable cohort adoption / actual SDK HTTP and SQL[2m > [22mprojects a verified snapshot through real Mercaria state and deduplicates the same event
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mcancellation receipt versus current projection[2m > [22mreplays one cancellation effect while projecting a later verified subscription state
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/adapter.realdb.test.ts[2m > [22mcancellation receipt versus current projection[2m > [22mkeeps the newer SQL projection and original key when current read fails after replay
+[31m[1mZodError[22m: [
+  {
+    "origin": "string",
+    "code": "invalid_format",
+    "format": "uuid",
+    "pattern": "/^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/",
+    "path": [
+      "storeIds",
+      0
+    ],
+    "message": "Invalid UUID"
+  }
+][39m
+[36m [2m❯[22m new CohortBillingProvider src/services/billing/peable/adapter.ts:[2m55:39[22m[39m
+    [90m 53|[39m     private readonly readStripeCustomer: (subscriptionId: string) => P…
+    [90m 54|[39m   ) {
+    [90m 55|[39m     [35mthis[39m[33m.[39mcohort [33m=[39m billingCohortSchema[33m.[39m[34mparse[39m(cohort)[33m;[39m
+    [90m   |[39m                                       [31m^[39m
+    [90m 56|[39m     [35mthis[39m[33m.[39mlivemode [33m=[39m cohort[33m.[39mlivemode[33m;[39m
+    [90m 57|[39m     if (legacy.livemode !== this.livemode) refused('retrieveSubscripti…
+[90m [2m❯[22m src/services/billing/peable/__tests__/adapter.realdb.test.ts:[2m105:14[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/24]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mbilling cohort registration[2m > [22mregisters the accepted two historical stores with the exact production namespace while general Stripe remains off
+[31m[1mError[22m: Invalid merchant billing cohort configuration.[39m
+[36m [2m❯[22m Module.registerMerchantBillingProvider src/services/billing/register.ts:[2m19:17[22m[39m
+    [90m 17|[39m   [35mlet[39m cohort[33m;[39m
+    [90m 18|[39m   [35mtry[39m { cohort [33m=[39m billingCohortSchema[33m.[39m[34mparse[39m([33mJSON[39m[33m.[39m[34mparse[39m(raw))[33m;[39m }
+    [90m 19|[39m   catch { throw new Error('Invalid merchant billing cohort configurati…
+    [90m   |[39m                 [31m^[39m
+    [90m 20|[39m   const { publicKey, secret, baseUrl, oxyApiUrl } = config.payments.pe…
+    [90m 21|[39m   // An explicit cohort must be completely configured before any remot…
+[90m [2m❯[22m src/services/billing/peable/__tests__/register.test.ts:[2m36:11[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/24]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mbilling cohort registration[2m > [22mrejects a mismatched merchantId for the accepted cohort before registration
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mbilling cohort registration[2m > [22mrejects a mismatched applicationId for the accepted cohort before registration
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mbilling cohort registration[2m > [22mrejects a mismatched environment for the accepted cohort before registration
+[31m[1mAssertionError[22m: expected [Function] to throw error including 'different namespace' but got 'Invalid merchant billing cohort confi…'[39m
+
+Expected: [32m"different namespace"[39m
+Received: [31m"Invalid merchant billing cohort configuration."[39m
+
+[36m [2m❯[22m src/services/billing/peable/__tests__/register.test.ts:[2m53:53[22m[39m
+    [90m 51|[39m       else seam.merchant.mockResolvedValue({ id: acceptedCohort.mercha…
+    [90m 52|[39m         ...(field === 'merchantId' ? { id: 'foreign' } : field === 'ap…
+    [90m 53|[39m       await expect(registerMerchantBillingProvider()).rejects.toThrow(…
+    [90m   |[39m                                                     [31m^[39m
+    [90m 54|[39m       [34mexpect[39m([34mgetBillingProvider[39m([32m'stripe'[39m))[33m.[39m[34mtoBeUndefined[39m()[33m;[39m
+    [90m 55|[39m     })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/24]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mbilling cohort registration[2m > [22mrejects a mismatched platformAccountId for the accepted cohort before registration
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mbilling cohort registration[2m > [22mrejects a mismatched livemode for the accepted cohort before registration
+[31m[1mAssertionError[22m: expected [Function] to throw error including 'platform account or mode' but got 'Invalid merchant billing cohort confi…'[39m
+
+Expected: [32m"platform account or mode"[39m
+Received: [31m"Invalid merchant billing cohort configuration."[39m
+
+[36m [2m❯[22m src/services/billing/peable/__tests__/register.test.ts:[2m53:53[22m[39m
+    [90m 51|[39m       else seam.merchant.mockResolvedValue({ id: acceptedCohort.mercha…
+    [90m 52|[39m         ...(field === 'merchantId' ? { id: 'foreign' } : field === 'ap…
+    [90m 53|[39m       await expect(registerMerchantBillingProvider()).rejects.toThrow(…
+    [90m   |[39m                                                     [31m^[39m
+    [90m 54|[39m       [34mexpect[39m([34mgetBillingProvider[39m([32m'stripe'[39m))[33m.[39m[34mtoBeUndefined[39m()[33m;[39m
+    [90m 55|[39m     })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/24]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mcanonical store ID configuration boundary[2m > [22mpreserves historical ObjectIds and generated UUIDv7 IDs without rewriting them
+[31m[1mZodError[22m: [
+  {
+    "origin": "string",
+    "code": "invalid_format",
+    "format": "uuid",
+    "pattern": "/^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/",
+    "path": [
+      "storeIds",
+      0
+    ],
+    "message": "Invalid UUID"
+  },
+  {
+    "origin": "string",
+    "code": "invalid_format",
+    "format": "uuid",
+    "pattern": "/^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/",
+    "path": [
+      "storeIds",
+      1
+    ],
+    "message": "Invalid UUID"
+  }
+][39m
+[36m [2m❯[22m src/services/billing/peable/__tests__/register.test.ts:[2m117:32[22m[39m
+    [90m115|[39m [34mdescribe[39m([32m'canonical store ID configuration boundary'[39m[33m,[39m () [33m=>[39m {
+    [90m116|[39m   it('preserves historical ObjectIds and generated UUIDv7 IDs without …
+    [90m117|[39m     expect(billingCohortSchema.parse({ ...acceptedCohort, storeIds: [.…
+    [90m   |[39m                                [31m^[39m
+    [90m118|[39m       [33m.[39m[34mtoEqual[39m([[33m...[39macceptedCohort[33m.[39mstoreIds[33m,[39m cohort[33m.[39mstoreIds[[34m0[39m][33m![39m])[33m;[39m
+    [90m119|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/24]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mcanonical store ID configuration boundary[2m > [22mrejects malformed or unsupported store ID "01900000-0000-4000-8000-000000000001"
+[31m[1mAssertionError[22m: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m src/services/billing/peable/__tests__/register.test.ts:[2m123:97[22m[39m
+    [90m121|[39m     ' 6a39a7d5b5809e55ba556ad0', '6a39a7d5b5809e55ba556ad0 ', '0190000…
+    [90m122|[39m     it(`rejects malformed or unsupported store ID ${JSON.stringify(sto…
+    [90m123|[39m       expect(billingCohortSchema.safeParse({ ...acceptedCohort, storeI…
+    [90m   |[39m                                                                                                 [31m^[39m
+    [90m124|[39m     })[33m;[39m
+    [90m125|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/24]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m24 failed[39m[22m[2m | [22m[1m[32m20 passed[39m[22m[90m (44)[39m
+[2m   Start at [22m 10:18:39
+[2m   Duration [22m 4.52s[2m (transform 1.99s, setup 0ms, import 3.34s, tests 134ms, environment 0ms)[22m
+
+error: script "test" exited with code 1

@@ -1,0 +1,94 @@
+$ vitest run src/services/billing/peable/__tests__/register.test.ts
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/packages/backend[39m
+
+ [31m❯[39m src/services/billing/peable/__tests__/register.test.ts [2m([22m[2m12 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[32m 12[2mms[22m[39m
+     [32m✓[39m retains default legacy without querying or constructing Peable[32m 2[2mms[22m[39m
+     [32m✓[39m rejects malformed configuration without leaving a legacy fallback[32m 1[2mms[22m[39m
+     [32m✓[39m rejects account before installing any provider[32m 2[2mms[22m[39m
+     [32m✓[39m rejects mode before installing any provider[32m 0[2mms[22m[39m
+     [32m✓[39m rejects namespace before installing any provider[32m 0[2mms[22m[39m
+     [32m✓[39m retains cohort routing while the new-action flag is off[32m 1[2mms[22m[39m
+[31m     [31m×[31m registers an explicit verified cohort while the general Stripe rail is off[39m[32m 2[2mms[22m[39m
+     [32m✓[39m keeps an absent cohort and disabled general rail unregistered[32m 0[2mms[22m[39m
+[31m     [31m×[31m fails closed on malformed cohort even with the general rail off[39m[32m 2[2mms[22m[39m
+[31m     [31m×[31m rejects missing publicKey before provider or gateway reads[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m rejects missing secret before provider or gateway reads[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m does not enable the out-of-cohort legacy mutator[39m[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 5 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mbilling cohort registration[2m > [22mregisters an explicit verified cohort while the general Stripe rail is off
+[31m[1mTypeError[22m: Cannot read properties of undefined (reading 'requiresExplicitIntent')[39m
+[36m [2m❯[22m src/services/billing/peable/__tests__/register.test.ts:[2m49:39[22m[39m
+    [90m 47|[39m     seam[33m.[39menabled [33m=[39m [35mfalse[39m[33m;[39m seam[33m.[39mraw [33m=[39m [33mJSON[39m[33m.[39m[34mstringify[39m(cohort)[33m;[39m
+    [90m 48|[39m     [35mawait[39m [34mregisterMerchantBillingProvider[39m()[33m;[39m
+    [90m 49|[39m     expect(getBillingProvider('stripe')!.requiresExplicitIntent!(cohor…
+    [90m   |[39m                                       [31m^[39m
+    [90m 50|[39m     [34mexpect[39m(seam[33m.[39maccount)[33m.[39m[34mtoHaveBeenCalledWith[39m([35mnull[39m)[33m;[39m
+    [90m 51|[39m     [34mexpect[39m(seam[33m.[39mmerchant)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mbilling cohort registration[2m > [22mfails closed on malformed cohort even with the general rail off
+[31m[1mAssertionError[22m: promise resolved "undefined" instead of rejecting[39m
+
+[32m- Expected:[39m
+Error {
+  "message": "rejected promise",
+}
+
+[31m+ Received:[39m
+undefined
+
+[36m [2m❯[22m src/services/billing/peable/__tests__/register.test.ts:[2m61:51[22m[39m
+    [90m 59|[39m   it('fails closed on malformed cohort even with the general rail off'…
+    [90m 60|[39m     seam[33m.[39menabled [33m=[39m [35mfalse[39m[33m;[39m seam[33m.[39mraw [33m=[39m [32m'{ SECRET_CANARY'[39m[33m;[39m
+    [90m 61|[39m     await expect(registerMerchantBillingProvider()).rejects.toThrow('I…
+    [90m   |[39m                                                   [31m^[39m
+    [90m 62|[39m     expect(getBillingProvider('stripe')).toBeUndefined(); expect(seam.…
+    [90m 63|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mbilling cohort registration[2m > [22mrejects missing publicKey before provider or gateway reads
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mbilling cohort registration[2m > [22mrejects missing secret before provider or gateway reads
+[31m[1mAssertionError[22m: promise resolved "undefined" instead of rejecting[39m
+
+[32m- Expected:[39m
+Error {
+  "message": "rejected promise",
+}
+
+[31m+ Received:[39m
+undefined
+
+[36m [2m❯[22m src/services/billing/peable/__tests__/register.test.ts:[2m67:53[22m[39m
+    [90m 65|[39m     it(`rejects missing ${missing} before provider or gateway reads`, …
+    [90m 66|[39m       seam[33m.[39mraw [33m=[39m [33mJSON[39m[33m.[39m[34mstringify[39m(cohort)[33m;[39m seam[missing] [33m=[39m [32m''[39m[33m;[39m
+    [90m 67|[39m       await expect(registerMerchantBillingProvider()).rejects.toThrow(…
+    [90m   |[39m                                                     [31m^[39m
+    [90m 68|[39m       expect(seam.account).not.toHaveBeenCalled(); expect(seam.merchan…
+    [90m 69|[39m       [34mexpect[39m([34mgetBillingProvider[39m([32m'stripe'[39m))[33m.[39m[34mtoBeUndefined[39m()[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/services/billing/peable/__tests__/register.test.ts[2m > [22mbilling cohort registration[2m > [22mdoes not enable the out-of-cohort legacy mutator
+[31m[1mTypeError[22m: Cannot read properties of undefined (reading 'ensureCustomer')[39m
+[36m [2m❯[22m src/services/billing/peable/__tests__/register.test.ts:[2m74:45[22m[39m
+    [90m 72|[39m   [34mit[39m([32m'does not enable the out-of-cohort legacy mutator'[39m[33m,[39m [35masync[39m () [33m=>[39m {
+    [90m 73|[39m     seam.enabled = false; seam.raw = JSON.stringify(cohort); await reg…
+    [90m 74|[39m     await expect(getBillingProvider('stripe')!.ensureCustomer({ storeI…
+    [90m   |[39m                                             [31m^[39m
+    [90m 75|[39m     expect(seam.merchant).toHaveBeenCalledTimes(1); // Registration on…
+    [90m 76|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m7 passed[39m[22m[90m (12)[39m
+[2m   Start at [22m 09:35:55
+[2m   Duration [22m 5.02s[2m (transform 1.13s, setup 0ms, import 1.81s, tests 12ms, environment 0ms)[22m
+
+error: script "test" exited with code 1

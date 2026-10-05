@@ -1,0 +1,78 @@
+$ vitest run src/services/billing/peable/__tests__/adapter.realdb.test.ts -t "cancellation receipt"
+
+ RUN  v4.1.10 /home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend
+
+[07:58:07] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+ ❯ src/services/billing/peable/__tests__/adapter.realdb.test.ts (16 tests | 2 failed | 14 skipped) 206ms
+     × replays one cancellation effect while projecting a later verified subscription state 70ms
+     × keeps the newer SQL projection and original key when current read fails after replay 39ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/services/billing/peable/__tests__/adapter.realdb.test.ts > cancellation receipt versus current projection > replays one cancellation effect while projecting a later verified subscription state
+AssertionError: expected 'cancelled' to be 'active' // Object.is equality
+
+Expected: "active"
+Received: "cancelled"
+
+ ❯ src/services/billing/peable/__tests__/adapter.realdb.test.ts:223:27
+    221|     expect((await findSubscriptionByStore(db, storeId))?.status).toBe(…
+    222|     const result = await scheduleMerchantSubscriptionCancellation(inpu…
+    223|     expect(result.status).toBe('active'); expect(result.cancelAt).toBe…
+       |                           ^
+    224|     expect(effects - before).toBe(1);
+    225|     expect(calls.filter(c => c.path.endsWith('/cancel_at_period_end'))…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/services/billing/peable/__tests__/adapter.realdb.test.ts > cancellation receipt versus current projection > keeps the newer SQL projection and original key when current read fails after replay
+AssertionError: promise resolved "{ …(22) }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "acceptedAt": 2026-10-03T07:58:07.936Z,
++   "acceptedByOxyUserId": "payer-7d99c0061c154c4cb78e62c6261e8385",
++   "acceptedTermsVersion": "v1",
++   "billingCustomerId": "01a100c5-3a3b-799f-b821-56d01a451e26",
++   "cancelAt": 2020-02-01T00:00:00.000Z,
++   "cancellationBehavior": "at_period_end",
++   "cancelledAt": null,
++   "createdAt": 2026-10-03T07:58:07.983Z,
++   "currentPeriodEnd": 2020-02-01T00:00:00.000Z,
++   "currentPeriodStart": 2020-01-01T00:00:00.000Z,
++   "endedAt": null,
++   "graceExpiresAt": null,
++   "id": "01a100c5-3a6e-7e1c-9a79-6f42e5a3dd0c",
++   "interval": "monthly",
++   "livemode": false,
++   "planId": "01a100c5-3a28-7b06-a8db-c6c792ee7e19",
++   "provider": "stripe",
++   "providerSubscriptionId": "sub_7d99c0061c154c4cb78e62c6261e8385",
++   "status": "cancelled",
++   "storeId": "01a100c5-3a22-7663-ab28-ed9896439522",
++   "trialEndsAt": null,
++   "updatedAt": 2026-10-03T07:58:08.057Z,
+  }
+
+ ❯ src/services/billing/peable/__tests__/adapter.realdb.test.ts:236:65
+    234|     await applyProviderSubscriptionState({ snapshot: await provider.re…
+    235|     behavior = 'read-unavailable';
+    236|     await expect(scheduleMerchantSubscriptionCancellation(input)).reje…
+       |                                                                 ^
+    237|     const retained = await findSubscriptionByStore(db, storeId);
+    238|     expect(retained?.status).toBe('active'); expect(retained?.cancelAt…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 14 skipped (16)
+   Start at  10:58:03
+   Duration  4.60s (transform 1.02s, setup 0ms, import 1.69s, tests 206ms, environment 0ms)
+
+error: script "test" exited with code 1

@@ -184,6 +184,10 @@ const DEPLOYING_FILES = CREDENTIAL_FILES.filter((file) =>
  * question the equality below cannot ask on its own.
  */
 const DISPATCH_ONLY_WITH_CREDENTIALS: Record<string, string> = {
+  // Reviewed main-only ARM publication writes an immutable ECR image on an
+  // explicit dispatch. It neither runs on merge nor promotes an ECS service;
+  // root coordinates that separate operation from the authenticated receipt.
+  'publish-reviewed-images.yml': 'workflow_dispatch image-only publisher, not triggered by merging',
   // A one-shot DNS/ACM setup for mcp.mention.earth, a different product, run by
   // hand. It holds a Cloudflare token and ships nothing on merge, so there is
   // no "merged but not deployed" state it can be in.

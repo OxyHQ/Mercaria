@@ -1,0 +1,196 @@
+{
+  "kind": "mercaria-positive-serving-cohort-attestation-v1",
+  "sourceCommit": "4b3857c3c8007c21b392970bd09ef66bd3357576",
+  "precedingStoreIdSource": "6740ccbe27c87149c969bc3258bb92e141051cc8",
+  "sourceInputs": [
+    {
+      "path": "packages/backend/src/services/billing/register.ts",
+      "bytes": 2915,
+      "sha256": "0fa46260e768189e842c01a25664219e35f9025fb74bab04591a12a1878e1167"
+    },
+    {
+      "path": "packages/backend/src/services/billing/provider.ts",
+      "bytes": 6927,
+      "sha256": "e4de5b918086941966b14d90159ca902c472f1fe430622fb9bd26395b11a350c"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/adapter.ts",
+      "bytes": 11296,
+      "sha256": "07dc7042cb140d3272527956f5ebadc17159e8d8b16499faf386b9da10037235"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/register.test.ts",
+      "bytes": 10879,
+      "sha256": "d863730080932535873172e61984af065ddaf9eb242768ecb92a8aa736f3cd2f"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/adapter.realdb.test.ts",
+      "bytes": 20542,
+      "sha256": "0e8822cd19b62815a10c19774ea12793202815c3b16e30a3d1ef51f89d13a2ff"
+    },
+    {
+      "path": "packages/backend/src/services/billing/stripe/cohort-reader.ts",
+      "bytes": 1425,
+      "sha256": "bc3978b9a478fb95642290327b1852d78dcc6fcad1b179e874037c864cbd989f"
+    },
+    {
+      "path": "packages/backend/src/config/index.ts",
+      "bytes": 240179,
+      "sha256": "ac001a11f95f783ab9cb7e1528d43e96477c7c63b2a2ada2efc4bb82b5ef09de"
+    },
+    {
+      "path": "packages/backend/src/index.ts",
+      "bytes": 47894,
+      "sha256": "52084d0d1f4683f3179070a893344c3a4c476a185214be2014c9e97593e71ca8"
+    },
+    {
+      "path": "packages/backend/src/lib/logger.ts",
+      "bytes": 2525,
+      "sha256": "b48ce4acaec165d9c91172384a13d074d9d7a9240226f2945ac23f8b6fac3983"
+    },
+    {
+      "path": "packages/backend/build.ts",
+      "bytes": 5488,
+      "sha256": "2f5aa2fc20203754a96adcc29f4c21ff2dceab89a79a3082d96083471ab58f78"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "bytes": 2282,
+      "sha256": "4e8d18ac094a03a30b4c2914d7dd7931a4b02da85bac3fbf87432afe5918690d"
+    },
+    {
+      "path": "package.json",
+      "bytes": 5256,
+      "sha256": "f4baa12c8eb65b7a48f62477608815e68f3d74884002236eb1f85a30d5401a7f"
+    },
+    {
+      "path": "bun.lock",
+      "bytes": 472724,
+      "sha256": "f950d4374476c27b2b957c400545aadce0880508bf4caf68422b2155756ddbb7"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/cohort.production.json",
+      "bytes": 283,
+      "sha256": "8dda11bbae9a106642ae5036bad0c83bfb84a3ababfb8ce9e929e8c26ba93d17"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/compiled-config-entry.ts",
+      "bytes": 1590,
+      "sha256": "bd557b6cbabb8422574343c0dcddeda19c6c7f947c77a193d80124dbfa79db05"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/README.md",
+      "bytes": 4961,
+      "sha256": "1ba1146a285e3fc6fe0407d27e71c53ab017ad8049f133d31079d8a068ffe888"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/expected-serving-registration.json",
+      "bytes": 440,
+      "sha256": "c2d23ab74a68c1a7c4541358ce70f5816152b4e0e55eced6665057fb55cf4e4a"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/run-compiled-config-smoke.mjs",
+      "bytes": 1603,
+      "sha256": "c6390e3ae83dad58f3f731fe752b2d9ff695df3ee23cd6faea4bf3873689861e"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/cohort-attestation-green.log",
+      "bytes": 66107,
+      "sha256": "7fdc0930e43880e2613cda204c2262a551b7c7409d1577e66eeafad6ba994af1"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/owned-pg-attestation.log",
+      "bytes": 368,
+      "sha256": "1e2cb9952e082ff2c365f51c333bd25a29a9a3572b6927053e6d4591f599e9a4"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/owned-pg-attestation.py",
+      "bytes": 3707,
+      "sha256": "3ff1ab0f2fedcdac942c7d9ac0dbbd08b4e535386954faaa567de27999334ea5"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/attestation-typecheck.log",
+      "bytes": 15,
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/attestation-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/attestation-build.log",
+      "bytes": 248,
+      "sha256": "05d1a6417bf1778c3bc33612274f4fbac5fa6341526fd8112d3942c8ab547cb9"
+    },
+    {
+      "path": "docs/audits/2026-10-04-cohort-canonical-store-ids/attestation-compiled-config.log",
+      "bytes": 621,
+      "sha256": "7bae8cfc2d412690af070e0c040bff8d2851f5e100dab4c612a54b3de35809f1"
+    }
+  ],
+  "compiledOutputs": [
+    {
+      "path": "packages/backend/dist/index.js",
+      "bytes": 9771782,
+      "sha256": "5264a8719db8124778d23575689c1bbc3eef1774d7afb1ef6ee581d5a7a6a4a1"
+    },
+    {
+      "path": "packages/backend/dist/db/migrate.js",
+      "bytes": 3852,
+      "sha256": "f065a7311adee792500bdd04d21e27d361608a23d7a61999890272161d96a73b"
+    },
+    {
+      "path": "packages/backend/dist/register-capability-catalog.js",
+      "bytes": 8793,
+      "sha256": "22ce7b279fec3a499fbd9f0cdf1617e6c3069776ee04f2d07f2d284257f38f4f"
+    },
+    {
+      "path": "packages/backend/dist/scripts/provision-taxonomy.js",
+      "bytes": 2233673,
+      "sha256": "bbed9c8ce257be846f724cf806d6431f031ff2232eed3e676c80dd1b60f2c94f"
+    },
+    {
+      "path": "packages/backend/dist/cohort-config-smoke.js",
+      "bytes": 2464346,
+      "sha256": "7cd3f325591f2155b43c2b3723ed71c5e5fbfa0b03bc40f6e040176b86fb3445"
+    }
+  ],
+  "green": {
+    "suites": 6,
+    "tests": 81,
+    "typecheckExit": 0,
+    "scopedLintExit": 0,
+    "backendBuildExit": 0,
+    "compiledNodeConfigSmokeExit": 0
+  },
+  "positiveLog": {
+    "msg": "Merchant billing cohort registered",
+    "cohortSha256": "a7ed9819eb8aa2e8360a430c907092e0af2059a8f9539bafc8eb780771046ed3",
+    "mode": "live",
+    "environment": "production",
+    "storeCount": 2,
+    "requiredInEveryNewServingTask": true,
+    "forbiddenFailureMessage": "Merchant billing registration failed",
+    "hashConstruction": "SHA256 JSON.stringify(parsed billingCohortSchema); schema key order, store ID values/order preserved"
+  },
+  "ownedPostgres": {
+    "pid": 909736,
+    "port": 5626,
+    "pidAbsent": true,
+    "freshRandomDataDirectory": true,
+    "liveConnection": false
+  },
+  "limits": {
+    "remoteAuthority": "synthetic account/merchant responses; real SDK local transport fixtures",
+    "servingAcceptance": "live per-task positive log + exact source/image/config still required; readiness not sufficient",
+    "credentialsLogged": false,
+    "providerOrProductionRequests": false,
+    "awsWrites": false,
+    "schemaChanges": false,
+    "oldProof": "80-test RED/GREEN preserved at source6740 and proof2b68, not reattributed to this source",
+    "isolatedCompiledConfig": "fixture module bundling, not serving bootstrap"
+  }
+}

@@ -27,6 +27,8 @@
 
 import type Stripe from 'stripe';
 import { ALL_CURRENCY_CODES, type CurrencyCode } from '@mercaria/shared-types';
+import { billingCohortForCustomer, billingCohortBindingForCustomer, requireRegisteredBillingCohort } from '../cohort-access.js';
+import { createBillingCohortStripeReader } from './cohort-reader.js';
 import { getStripeClient } from '../../payments/stripe/client.js';
 import { PaymentProviderError } from '../../payments/provider.js';
 import type {
@@ -148,6 +150,24 @@ function chargeIdOf(invoice: Stripe.Invoice): string | undefined {
   return undefined;
 }
 
+/** Both delivery and durable replay obey the same cohort-only boundary. */
+async function cohortOnlyAllowed(context: StripeEventContext): Promise<boolean> {
+  if (config.payments.stripe.enabled) return true;
+  if (context.account) return false;
+  const binding = await billingCohortBindingForCustomer(context.objectIds['customer']);
+  if (!binding || context.livemode !== binding.cohort.livemode) return false;
+  requireRegisteredBillingCohort(binding);
+  return true;
+}
+async function readInvoice(context: StripeEventContext, invoiceId: string) {
+  if (config.payments.stripe.enabled) {
+    return getStripeClient().invoices.retrieve(invoiceId, { expand: ['payments.data.payment.payment_intent'] });
+  }
+  const cohort = await billingCohortForCustomer(context.objectIds['customer']);
+  if (!cohort) throw malformed('Invoice customer is outside the configured billing cohort.');
+  return createBillingCohortStripeReader(cohort).invoice(invoiceId, context.objectIds['customer']!);
+}
+
 /**
  * `customer.subscription.updated` and `.deleted`.
  *
@@ -157,6 +177,7 @@ function chargeIdOf(invoice: Stripe.Invoice): string | undefined {
  * code rather than two that could disagree about what "ended" means.
  */
 async function handleSubscription(context: StripeEventContext): Promise<StripeEventOutcome> {
+  if (!await cohortOnlyAllowed(context)) return { kind: 'ignored', note: 'outside the configured billing cohort' };
   const provider = getBillingProvider('stripe');
   if (!provider) {
     return {
@@ -168,6 +189,9 @@ async function handleSubscription(context: StripeEventContext): Promise<StripeEv
   if (!subscriptionId) throw malformed(`${context.type} named no subscription id.`);
 
   const snapshot = await provider.retrieveSubscription(subscriptionId);
+  if (!config.payments.stripe.enabled && snapshot.providerCustomerId !== context.objectIds['customer']) {
+    throw malformed('Subscription snapshot differs from the verified event customer.');
+  }
   const outcome = await applyProviderSubscriptionState({
     snapshot,
     note: `applied ${context.type}`,
@@ -206,12 +230,11 @@ async function handleSubscription(context: StripeEventContext): Promise<StripeEv
  * arrived. An unavailable balance transaction is RETRYABLE and never guessed.
  */
 async function handleInvoicePaid(context: StripeEventContext): Promise<StripeEventOutcome> {
+  if (!await cohortOnlyAllowed(context)) return { kind: 'ignored', note: 'outside the configured billing cohort' };
   const invoiceId = context.objectIds['invoice'];
   if (!invoiceId) throw malformed('invoice.paid named no invoice id.');
 
-  const invoice = await getStripeClient().invoices.retrieve(invoiceId, {
-    expand: ['payments.data.payment.payment_intent'],
-  });
+  const invoice = await readInvoice(context, invoiceId);
   const subscriptionId = subscriptionIdOf(invoice);
   if (!subscriptionId) {
     return { kind: 'ignored', note: 'this invoice is not for a subscription' };
@@ -228,10 +251,15 @@ async function handleInvoicePaid(context: StripeEventContext): Promise<StripeEve
     throw unresolved(`Invoice ${invoiceId} names a subscription Mercaria has not recorded.`);
   }
 
+  if (!config.payments.stripe.enabled) {
+    const binding = await billingCohortBindingForCustomer(context.objectIds['customer']);
+    if (!binding || binding.storeId !== subscription.storeId) throw malformed('Subscription is outside the configured billing cohort.');
+  }
   const chargeId = chargeIdOf(invoice);
   if (!chargeId) {
     const outcome = await recordSubscriptionInvoicePaid({
       subscriptionId: subscription.id,
+      expectedSubscription: subscription,
       providerEventId: context.providerEventId,
       providerInvoiceId: invoiceId,
       note: 'the invoice settled no money, so nothing was booked',
@@ -242,9 +270,10 @@ async function handleInvoicePaid(context: StripeEventContext): Promise<StripeEve
     };
   }
 
-  const charge = await getStripeClient().charges.retrieve(chargeId, {
-    expand: ['balance_transaction'],
-  });
+  const cohort = !config.payments.stripe.enabled ? await billingCohortForCustomer(context.objectIds['customer']) : undefined;
+  const charge = cohort
+    ? await createBillingCohortStripeReader(cohort).charge(chargeId, context.objectIds['customer']!)
+    : await getStripeClient().charges.retrieve(chargeId, { expand: ['balance_transaction'] });
   const balance = charge.balance_transaction;
   if (!balance || typeof balance === 'string') {
     throw unresolved(
@@ -255,6 +284,7 @@ async function handleInvoicePaid(context: StripeEventContext): Promise<StripeEve
 
   const outcome = await recordSubscriptionInvoicePaid({
     subscriptionId: subscription.id,
+      expectedSubscription: subscription,
     providerEventId: context.providerEventId,
     providerInvoiceId: invoiceId,
     settlement: {
@@ -281,6 +311,7 @@ async function handleInvoicePaid(context: StripeEventContext): Promise<StripeEve
 async function handleInvoicePaymentFailed(
   context: StripeEventContext,
 ): Promise<StripeEventOutcome> {
+  if (!await cohortOnlyAllowed(context)) return { kind: 'ignored', note: 'outside the configured billing cohort' };
   const provider = getBillingProvider('stripe');
   if (!provider) {
     return {
@@ -291,13 +322,16 @@ async function handleInvoicePaymentFailed(
   const invoiceId = context.objectIds['invoice'];
   if (!invoiceId) throw malformed('invoice.payment_failed named no invoice id.');
 
-  const invoice = await getStripeClient().invoices.retrieve(invoiceId);
+  const invoice = await readInvoice(context, invoiceId);
   const subscriptionId = subscriptionIdOf(invoice);
   if (!subscriptionId) {
     return { kind: 'ignored', note: 'this invoice is not for a subscription' };
   }
 
   const snapshot = await provider.retrieveSubscription(subscriptionId);
+  if (!config.payments.stripe.enabled && snapshot.providerCustomerId !== context.objectIds['customer']) {
+    throw malformed('Subscription snapshot differs from the verified event customer.');
+  }
   const outcome = await applyProviderSubscriptionState({
     snapshot,
     note: `applied ${context.type} for invoice ${invoiceId}`,

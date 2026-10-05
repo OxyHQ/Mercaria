@@ -45,6 +45,8 @@ import { RETENTION_SECONDS } from '../../../db/expiryTargets.js';
 import { recordProviderEvent } from '../../../db/payments/paymentRepository.js';
 import { getDb } from '../../../db/postgres.js';
 import { config } from '../../../config/index.js';
+import { billingCohortBindingForCustomer, requireRegisteredBillingCohort } from '../../billing/cohort-access.js';
+import { STRIPE_BILLING_EVENT_TYPES } from '../../billing/stripe/subscription-events.js';
 import { log } from '../../../lib/logger.js';
 import { PaymentProviderError } from '../provider.js';
 import { redactProviderPayload } from '../redact.js';
@@ -63,7 +65,8 @@ import { toProviderEventEnvelope, verifyStripeEvent } from './verify.js';
 export type StripeIngressResult =
   | { readonly outcome: 'accepted'; readonly providerEventId: string; readonly storedEventId: string }
   | { readonly outcome: 'duplicate'; readonly providerEventId: string; readonly storedEventId: string }
-  | { readonly outcome: 'ignored'; readonly code: 'livemode_mismatch'; readonly providerEventId: string }
+  | { readonly outcome: 'ignored'; readonly code: 'livemode_mismatch' | 'billing_cohort_mismatch'; readonly providerEventId: string }
+  | { readonly outcome: 'unavailable'; readonly code: 'billing_cohort_unavailable' }
   | { readonly outcome: 'rejected'; readonly code: 'invalid_signature' | 'wrong_scope' };
 
 /** One delivery, exactly as it arrived. */
@@ -128,6 +131,18 @@ export async function ingestStripeDelivery(
   }
 
   const envelope = toProviderEventEnvelope(event);
+  // Cohort-only admission cannot wake marketplace/Connect handlers or poison
+  // their durable dedupe keys. Signature/mode/scope checks still precede SQL.
+  if (!config.payments.stripe.enabled) {
+    if (delivery.scope !== 'platform' || event.account || !STRIPE_BILLING_EVENT_TYPES.includes(event.type)) {
+      return { outcome: 'ignored', code: 'billing_cohort_mismatch', providerEventId: event.id };
+    }
+    const binding = await billingCohortBindingForCustomer(envelope.objectIds.customer);
+    if (!binding) return { outcome: 'ignored', code: 'billing_cohort_mismatch', providerEventId: event.id };
+    try { requireRegisteredBillingCohort(binding); }
+    catch { return { outcome: 'unavailable', code: 'billing_cohort_unavailable' }; }
+  }
+
   const stored = await recordProviderEvent(getDb(), {
     provider: 'stripe',
     providerEventId: envelope.providerEventId,

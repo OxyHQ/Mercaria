@@ -27,15 +27,17 @@
  * redelivered `invoice.payment_failed` cannot extend a grace; recovering clears
  * it, because a stale deadline on a healthy subscription reads as one.
  *
- * ## Booking an invoice: the posting comes FIRST and the claim rolls it back
+ * ## Booking an invoice: lock the binding and check the invoice, then post and claim
  *
- * `merchant_subscription_events` is append-only by trigger, so the audit row
- * cannot be written and then stamped with the ledger transaction it booked. The
- * order is therefore posting, then claim, and a claim that finds the event
- * already applied THROWS — which rolls the posting back inside the same
- * transaction. That is the only ordering under which a redelivered `invoice.paid`
- * cannot double-book, and it uses the transaction as the mechanism rather than a
- * flag somebody has to remember to check.
+ * The subscription lock serializes invoice observations, including different
+ * event IDs for the same invoice. Check its current binding and an existing
+ * invoice claim before inserting any ledger posting. Historical claims have no
+ * provider namespace columns, so a matching invoice is conservatively retained
+ * as claimed even if the subscription row has since been reused.
+ *
+ * The immutable audit row follows the posting in the same transaction. A duplicate
+ * event ID still throws and rolls both back, including across different invoices.
+
  */
 
 import type {
@@ -44,8 +46,11 @@ import type {
   MerchantBillingSessionView,
   MerchantSubscriptionStatus,
 } from '@mercaria/shared-types';
+import { and, eq } from 'drizzle-orm';
+import { merchantSubscriptions, merchantSubscriptionEvents } from '../../db/schema/merchantPlans.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
+import { merchantBillingAvailableForStore, registeredBillingCohort } from './cohort-access.js';
 import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import {
@@ -81,6 +86,14 @@ import {
   subscriptionInvoicePaidEntries,
   type SubscriptionSettlement,
 } from './ledger-postings.js';
+
+/** Reject before acceptance/customer effects; replay belongs to a user intent. */
+function requireIntent(provider: BillingProvider, storeId: string, key?: string): void {
+  if (key !== undefined && !/^[A-Za-z0-9:_-]{8,200}$/.test(key)) throw validationError('Invalid Idempotency-Key.');
+  if (provider.requiresExplicitIntent?.(storeId) && !key) {
+    throw validationError('A stable Idempotency-Key is required for this billing action.');
+  }
+}
 
 /** A day, for the grace arithmetic. */
 const DAY_MS = 24 * 60 * 60 * 1_000;
@@ -121,6 +134,7 @@ export interface StartMerchantPlanCheckoutInput {
   interval: BillingInterval;
   currency: CurrencyCode;
   actorOxyUserId: string;
+  idempotencyKey?: string;
 }
 
 /**
@@ -133,10 +147,11 @@ export interface StartMerchantPlanCheckoutInput {
 export async function startMerchantPlanCheckout(
   input: StartMerchantPlanCheckoutInput,
 ): Promise<MerchantBillingSessionView> {
-  if (!config.merchantBilling.enabled) {
+  if (!merchantBillingAvailableForStore(input.storeId)) {
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();
+  requireIntent(provider, input.storeId, input.idempotencyKey);
   const returnUrl = requireReturnUrl();
   const db = getDb();
 
@@ -198,7 +213,7 @@ export async function startMerchantPlanCheckout(
     returnUrl,
     storeId: input.storeId,
     planId: plan.id,
-    idempotencyKey: `billing-checkout:${input.storeId}:${plan.id}:${input.interval}:${price.unitPriceCurrency}`,
+    idempotencyKey: input.idempotencyKey ?? `billing-checkout:${input.storeId}:${plan.id}:${input.interval}:${price.unitPriceCurrency}`,
   });
   return { url: session.url, expiresAt: session.expiresAt?.toISOString() ?? null };
 }
@@ -206,11 +221,13 @@ export async function startMerchantPlanCheckout(
 /** Open the provider's hosted billing portal for one store. */
 export async function openMerchantBillingPortal(input: {
   storeId: string;
+  idempotencyKey?: string;
 }): Promise<MerchantBillingSessionView> {
-  if (!config.merchantBilling.enabled) {
+  if (!merchantBillingAvailableForStore(input.storeId)) {
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();
+  requireIntent(provider, input.storeId, input.idempotencyKey);
   const returnUrl = requireReturnUrl();
   const customer = await findBillingCustomer(getDb(), {
     storeId: input.storeId,
@@ -222,6 +239,7 @@ export async function openMerchantBillingPortal(input: {
   const session = await provider.createPortalSession({
     providerCustomerId: customer.providerCustomerId,
     returnUrl,
+    idempotencyKey: input.idempotencyKey,
   });
   return { url: session.url, expiresAt: session.expiresAt?.toISOString() ?? null };
 }
@@ -237,19 +255,21 @@ export async function openMerchantBillingPortal(input: {
  */
 export async function scheduleMerchantSubscriptionCancellation(input: {
   storeId: string;
+  idempotencyKey?: string;
   actorOxyUserId: string;
 }): Promise<MerchantSubscriptionRow> {
-  if (!config.merchantBilling.enabled) {
+  if (!merchantBillingAvailableForStore(input.storeId)) {
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();
+  requireIntent(provider, input.storeId, input.idempotencyKey);
   const subscription = await findSubscriptionByStore(getDb(), input.storeId);
   if (!subscription) throw notFound('This store has no subscription to cancel.');
   if (subscription.status === 'expired') {
     throw conflict('That subscription has already ended.');
   }
 
-  const snapshot = await provider.cancelAtPeriodEnd(subscription.providerSubscriptionId);
+  const snapshot = await provider.cancelAtPeriodEnd(subscription.providerSubscriptionId, input.idempotencyKey);
   const applied = await applyProviderSubscriptionState({
     snapshot,
     note: 'cancellation scheduled by the merchant',
@@ -469,6 +489,7 @@ export async function recordSubscriptionInvoicePaid(input: {
   subscriptionId: string;
   providerEventId: string;
   providerInvoiceId: string;
+  expectedSubscription: Pick<MerchantSubscriptionRow, 'provider' | 'livemode' | 'providerSubscriptionId' | 'billingCustomerId'>;
   /**
    * What actually landed on the platform balance. ABSENT when the invoice
    * settled no money at all — a fully-discounted period, or one paid from a
@@ -483,6 +504,21 @@ export async function recordSubscriptionInvoicePaid(input: {
   const db = getDb();
   try {
     return await db.transaction(async (tx) => {
+      const [current] = await tx.select().from(merchantSubscriptions)
+        .where(eq(merchantSubscriptions.id, input.subscriptionId)).for('update');
+      if (!current || current.provider !== input.expectedSubscription.provider ||
+        current.livemode !== input.expectedSubscription.livemode ||
+        current.providerSubscriptionId !== input.expectedSubscription.providerSubscriptionId ||
+        current.billingCustomerId !== input.expectedSubscription.billingCustomerId) {
+        throw conflict('Subscription billing binding changed before settlement.');
+      }
+      const [priorClaim] = await tx.select({ id: merchantSubscriptionEvents.id })
+        .from(merchantSubscriptionEvents).where(and(
+          eq(merchantSubscriptionEvents.subscriptionId, input.subscriptionId),
+          eq(merchantSubscriptionEvents.kind, 'invoice_paid'),
+          eq(merchantSubscriptionEvents.providerInvoiceId, input.providerInvoiceId),
+        )).limit(1);
+      if (priorClaim) return { booked: false };
       // An invoice that settled nothing books NOTHING and still leaves a claim,
       // so a redelivery of it converges the same way a settled one does.
       const ledgerTransactionId =
@@ -533,12 +569,15 @@ export async function recordSubscriptionInvoicePaid(input: {
 export async function announceExpiredGracePeriods(input?: {
   at?: Date;
   limit?: number;
-}): Promise<{ announced: number }> {
+  afterId?: string;
+}): Promise<{ announced: number; nextAfterId: string | null }> {
   const at = input?.at ?? new Date();
   const db = getDb();
+  const limit = input?.limit ?? config.merchantBilling.reconciliationBatchSize;
   const due = await listSubscriptionsPastGrace(db, {
     at,
-    limit: input?.limit ?? config.merchantBilling.reconciliationBatchSize,
+    limit,
+    afterId: input?.afterId,
   });
 
   let announced = 0;
@@ -560,7 +599,8 @@ export async function announceExpiredGracePeriods(input?: {
     invalidateMerchantEntitlements(subscription.storeId);
     announced += 1;
   }
-  return { announced };
+  const nextAfterId = due.length === limit ? due.at(-1)?.id ?? null : null;
+  return { announced, nextAfterId };
 }
 
 /**
@@ -574,12 +614,21 @@ export async function announceExpiredGracePeriods(input?: {
  */
 export async function reconcileMerchantSubscriptions(input?: {
   limit?: number;
-}): Promise<{ examined: number; applied: number; failed: number }> {
+  afterId?: string;
+}): Promise<{ examined: number; applied: number; failed: number; nextAfterId: string | null }> {
   const provider = getBillingProvider('stripe');
-  if (!provider) return { examined: 0, applied: 0, failed: 0 };
+  const empty = { examined: 0, applied: 0, failed: 0, nextAfterId: null };
+  if (!provider) return empty;
+  const cohort = config.payments.stripe.enabled ? undefined : registeredBillingCohort();
+  if (!config.payments.stripe.enabled && !cohort) return empty;
 
+  const limit = input?.limit ?? config.merchantBilling.reconciliationBatchSize;
   const page = await listReconcilableSubscriptions(getDb(), {
-    limit: input?.limit ?? config.merchantBilling.reconciliationBatchSize,
+    limit,
+    afterId: input?.afterId,
+    provider: provider.id,
+    livemode: provider.livemode,
+    ...(cohort ? { storeIds: cohort.storeIds } : {}),
   });
 
   let applied = 0;
@@ -601,5 +650,7 @@ export async function reconcileMerchantSubscriptions(input?: {
       );
     }
   }
-  return { examined: page.length, applied, failed };
+  // Advance past failed reads too; a partial/empty page wraps on the next pass.
+  const nextAfterId = page.length === limit ? page.at(-1)?.id ?? null : null;
+  return { examined: page.length, applied, failed, nextAfterId };
 }

@@ -1,0 +1,35 @@
+
+  packages/backend/dist/cohort-config-smoke.js  2.4mb ⚠️
+
+⚡ Done in 54ms
+file:///home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/packages/backend/dist/cohort-config-smoke.js:10291
+    throw new Error(
+          ^
+
+Error: DATABASE_URL is not set. Every Mercaria API route is served from PostgreSQL, so a task without it cannot answer any request. Start a local server with: docker compose -f docker-compose.postgres.yml up -d postgres
+    at resolveDatabaseUrl (file:///home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/packages/backend/dist/cohort-config-smoke.js:10291:11)
+    at packages/backend/src/config/index.ts (file:///home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/packages/backend/dist/cohort-config-smoke.js:11378:14)
+    at __init (file:///home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/packages/backend/dist/cohort-config-smoke.js:6:58)
+    at file:///home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/packages/backend/dist/cohort-config-smoke.js:50061:63
+    at async file:///home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/packages/backend/dist/cohort-config-smoke.js:50061:27
+
+Node.js v24.21.0
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Compiled isolated configuration smoke failed
+
+1 !== 0
+
+    at file:///home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-independent-20261004/docs/audits/2026-10-04-cohort-canonical-store-ids/run-compiled-config-smoke.mjs:18:8
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 1,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.21.0

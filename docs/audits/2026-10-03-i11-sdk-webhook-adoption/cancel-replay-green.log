@@ -1,0 +1,88 @@
+$ vitest run src/services/billing/peable/__tests__/adapter.realdb.test.ts
+
+ RUN  v4.1.10 /home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend
+
+[07:59:03] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+[07:59:03] [31mERROR[39m: [36mFailed to start a plan checkout[39m
+    err: {
+      "type": "MercariaError",
+      "message": "A stable Idempotency-Key is required for this billing action.",
+      "stack":
+          MercariaError: A stable Idempotency-Key is required for this billing action.
+              at validationError (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/lib/errors/error-codes.ts:106:10)
+              at requireIntent (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/services/billing/subscription.service.ts:89:11)
+              at startMerchantPlanCheckout (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/services/billing/subscription.service.ts:149:3)
+              at startPlanCheckoutHandler (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/controllers/merchant-plans.controller.ts:89:27)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/layer.js:95:5)
+              at next (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/route.js:149:13)
+              at Route.dispatch (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/route.js:119:3)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/layer.js:95:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/index.js:284:15
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/index.js:365:14)
+      "code": "VALIDATION_ERROR",
+      "httpStatus": 400,
+      "name": "MercariaError"
+    }
+[07:59:03] [31mERROR[39m: [36mFailed to start a plan checkout[39m
+    err: {
+      "type": "MercariaError",
+      "message": "Invalid Idempotency-Key.",
+      "stack":
+          MercariaError: Invalid Idempotency-Key.
+              at validationError (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/lib/errors/error-codes.ts:106:10)
+              at billingIntent (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/controllers/merchant-plans.controller.ts:52:11)
+              at startPlanCheckoutHandler (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/controllers/merchant-plans.controller.ts:99:23)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/layer.js:95:5)
+              at next (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/route.js:149:13)
+              at Route.dispatch (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/route.js:119:3)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/layer.js:95:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/index.js:284:15
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/index.js:365:14)
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/index.js:376:14)
+      "code": "VALIDATION_ERROR",
+      "httpStatus": 400,
+      "name": "MercariaError"
+    }
+[07:59:03] [31mERROR[39m: [36mFailed to open the billing portal[39m
+    err: {
+      "type": "BillingProviderError",
+      "message": "The hosted billing link expired. Start a new intent.",
+      "stack":
+          BillingProviderError: The hosted billing link expired. Start a new intent.
+              at CohortBillingProvider.call (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/services/billing/peable/adapter.ts:70:15)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at openMerchantBillingPortal (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/services/billing/subscription.service.ts:234:19)
+              at openPlanPortalHandler (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/controllers/merchant-plans.controller.ts:111:22)
+      "provider": "stripe",
+      "stage": "createPortalSession",
+      "retryable": false,
+      "code": "billing_result_expired",
+      "name": "BillingProviderError"
+    }
+[07:59:03] [31mERROR[39m: [36mFailed to open the billing portal[39m
+    err: {
+      "type": "MercariaError",
+      "message": "Paid plans are not available on this deployment.",
+      "stack":
+          MercariaError: Paid plans are not available on this deployment.
+              at conflict (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/lib/errors/error-codes.ts:101:10)
+              at openMerchantBillingPortal (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/services/billing/subscription.service.ts:222:11)
+              at openPlanPortalHandler (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/packages/backend/src/controllers/merchant-plans.controller.ts:111:28)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/layer.js:95:5)
+              at next (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/route.js:149:13)
+              at Route.dispatch (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/route.js:119:3)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/layer.js:95:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/index.js:284:15
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/index.js:365:14)
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-i08-peable-adoption-20261003/node_modules/express/lib/router/index.js:376:14)
+      "code": "CONFLICT",
+      "httpStatus": 409,
+      "name": "MercariaError"
+    }
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  10:58:58
+   Duration  4.78s (transform 1.05s, setup 0ms, import 1.73s, tests 371ms, environment 0ms)
+

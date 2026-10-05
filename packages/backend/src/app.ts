@@ -214,7 +214,7 @@ export function createApp(): express.Express {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Service-Name', 'X-Timestamp', 'X-Signature', 'X-Session-Id', 'X-Device-Info', 'X-Oxy-User-Id', 'X-Workspace-Id', 'X-Mercaria-Guest-Token', 'X-Mercaria-Guest-Transport', 'X-Mercaria-Guest-Client', 'X-Oxy-Edge-Region', 'X-Oxy-Activity-Id'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-Requested-With', 'Accept', 'Origin', 'X-Service-Name', 'X-Timestamp', 'X-Signature', 'X-Session-Id', 'X-Device-Info', 'X-Oxy-User-Id', 'X-Workspace-Id', 'X-Mercaria-Guest-Token', 'X-Mercaria-Guest-Transport', 'X-Mercaria-Guest-Client', 'X-Oxy-Edge-Region', 'X-Oxy-Activity-Id'],
       optionsSuccessStatus: 200,
     })(req, res, next);
   });
@@ -261,7 +261,7 @@ export function createApp(): express.Express {
   // that has no secret and therefore could never tell a real delivery from a
   // forged one. There is nothing to park, unlike the outbox dispatchers, because
   // without a secret nothing could be verified to park in the first place.
-  if (config.payments.stripe.enabled) {
+  if (config.payments.stripe.enabled || config.merchantBilling.peableCohortJson) {
     app.use('/webhooks/stripe', stripeWebhookRouter);
   }
 

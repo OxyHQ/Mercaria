@@ -6,6 +6,7 @@ import type {
 } from "@mercaria/shared-types";
 import apiClient from "./client";
 import { unwrap } from "./unwrap";
+import { withBillingIntent } from "../billing/persisted-intent";
 
 const base = (storeId: string) => `/admin/stores/${storeId}/plan`;
 
@@ -39,27 +40,30 @@ export async function startPlanCheckout(
   storeId: string,
   input: { planId: string; interval: "monthly" | "annual"; currency: string },
 ): Promise<MerchantBillingSessionView> {
-  const { data } = await apiClient.post<ApiResponse<MerchantBillingSessionView>>(
-    `${base(storeId)}/checkout`,
-    input,
-  );
-  return unwrap(data);
+  return withBillingIntent([storeId, "checkout", input.planId, input.interval, input.currency], async key => {
+    const { data } = await apiClient.post<ApiResponse<MerchantBillingSessionView>>(
+      `${base(storeId)}/checkout`, input, { headers: { "Idempotency-Key": key } },
+    );
+    return unwrap(data);
+  });
 }
 
 /** POST for a hosted billing-portal URL — invoices, cards and cancellation. */
 export async function openBillingPortal(storeId: string): Promise<MerchantBillingSessionView> {
-  const { data } = await apiClient.post<ApiResponse<MerchantBillingSessionView>>(
-    `${base(storeId)}/portal`,
-    {},
-  );
-  return unwrap(data);
+  return withBillingIntent([storeId, "portal"], async key => {
+    const { data } = await apiClient.post<ApiResponse<MerchantBillingSessionView>>(
+      `${base(storeId)}/portal`, {}, { headers: { "Idempotency-Key": key } },
+    );
+    return unwrap(data);
+  });
 }
 
 /** POST to cancel at the end of the paid period. There is no immediate one. */
 export async function cancelPlan(storeId: string): Promise<MerchantPlanStatusView> {
-  const { data } = await apiClient.post<ApiResponse<MerchantPlanStatusView>>(
-    `${base(storeId)}/cancel`,
-    {},
-  );
-  return unwrap(data);
+  return withBillingIntent([storeId, "cancel"], async key => {
+    const { data } = await apiClient.post<ApiResponse<MerchantPlanStatusView>>(
+      `${base(storeId)}/cancel`, {}, { headers: { "Idempotency-Key": key } },
+    );
+    return unwrap(data);
+  });
 }

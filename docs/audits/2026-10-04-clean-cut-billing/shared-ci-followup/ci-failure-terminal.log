@@ -1,0 +1,39 @@
+Lint & Test	Run API tests	2026-10-04T13:36:31.0139909Z @mercaria/backend test:  [32m✓[39m src/services/billing/peable/__tests__/cors.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 6101[2mms[22m[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0420599Z @mercaria/backend test: 
+Lint & Test	Run API tests	2026-10-04T13:36:31.0422395Z @mercaria/backend test: [31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0423515Z @mercaria/backend test: 
+Lint & Test	Run API tests	2026-10-04T13:36:31.0426454Z @mercaria/backend test: [41m[1m FAIL [22m[49m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts[2m > [22mkeeps general Stripe-enabled reconciliation for noncohort stores while excluding the other key mode
+Lint & Test	Run API tests	2026-10-04T13:36:31.0435264Z @mercaria/backend test: [31m[1mAssertionError[22m: expected { examined: 9, applied: 3, …(2) } to match object { examined: 3, applied: 3, failed: +0 }
+Lint & Test	Run API tests	2026-10-04T13:36:31.0444848Z @mercaria/backend test: (1 matching property omitted from actual)[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0459585Z @mercaria/backend test: 
+Lint & Test	Run API tests	2026-10-04T13:36:31.0460417Z @mercaria/backend test: [32m- Expected[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0466380Z @mercaria/backend test: [31m+ Received[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0467168Z @mercaria/backend test: 
+Lint & Test	Run API tests	2026-10-04T13:36:31.0468049Z @mercaria/backend test: [2m  {[22m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0469176Z @mercaria/backend test: [2m    "applied": 3,[22m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0475817Z @mercaria/backend test: [32m-   "examined": 3,[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0476976Z @mercaria/backend test: [32m-   "failed": 0,[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0478326Z @mercaria/backend test: [31m+   "examined": 9,[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0479408Z @mercaria/backend test: [31m+   "failed": 6,[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0480390Z @mercaria/backend test: [2m  }[22m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0481184Z @mercaria/backend test: 
+Lint & Test	Run API tests	2026-10-04T13:36:31.0483014Z @mercaria/backend test: [36m [2m❯[22m src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts:[2m126:63[22m[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0566771Z @mercaria/backend test:     [90m124|[39m it('keeps general Stripe-enabled reconciliation for noncohort stores w…
+Lint & Test	Run API tests	2026-10-04T13:36:31.0605099Z @mercaria/backend test:     [90m125|[39m   flags[33m.[39mstripe [33m=[39m [35mtrue[39m[33m;[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0607222Z @mercaria/backend test:     [90m126|[39m   expect(await reconcileMerchantSubscriptions({ limit: 10 })).toMatchO…
+Lint & Test	Run API tests	2026-10-04T13:36:31.0635016Z @mercaria/backend test:     [90m   |[39m                                                               [31m^[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0657184Z @mercaria/backend test:     [90m127|[39m   expect(legacyRead).toHaveBeenCalledWith(refs[0]); expect(calls).not.…
+Lint & Test	Run API tests	2026-10-04T13:36:31.0660027Z @mercaria/backend test:     [90m128|[39m   [34mexpect[39m(calls)[33m.[39m[34mtoContain[39m(refs[[34m1[39m])[33m;[39m [34mexpect[39m(calls)[33m.[39m[34mtoContain[39m(refs[[34m2[39m])[33m;[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0661914Z @mercaria/backend test: 
+Lint & Test	Run API tests	2026-10-04T13:36:31.0662903Z @mercaria/backend test: [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0664184Z @mercaria/backend test: 
+Lint & Test	Run API tests	2026-10-04T13:36:31.0664740Z @mercaria/backend test: 
+Lint & Test	Run API tests	2026-10-04T13:36:31.0669298Z @mercaria/backend test: [2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m783 passed[39m[22m[90m (784)[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0838007Z @mercaria/backend test: [2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m12313 passed[39m[22m[2m | [22m[33m5 skipped[39m[90m (12319)[39m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0855173Z @mercaria/backend test: [2m   Start at [22m 13:26:50
+Lint & Test	Run API tests	2026-10-04T13:36:31.0885575Z @mercaria/backend test: [2m   Duration [22m 580.94s[2m (transform 175.59s, setup 0ms, import 2650.80s, tests 2614.04s, environment 376ms)[22m
+Lint & Test	Run API tests	2026-10-04T13:36:31.0886625Z @mercaria/backend test: 
+Lint & Test	Run API tests	2026-10-04T13:36:31.1061766Z @mercaria/backend test: 
+Lint & Test	Run API tests	2026-10-04T13:36:31.1083081Z @mercaria/backend test: ::error file=/home/runner/work/Mercaria/Mercaria/packages/backend/src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts,title=src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts > keeps general Stripe-enabled reconciliation for noncohort stores while excluding the other key mode,line=126,column=63::AssertionError: expected { examined: 9, applied: 3, …(2) } to match object { examined: 3, applied: 3, failed: +0 }%0A(1 matching property omitted from actual)%0A%0A- Expected%0A+ Received%0A%0A  {%0A    "applied": 3,%0A-   "examined": 3,%0A-   "failed": 0,%0A+   "examined": 9,%0A+   "failed": 6,%0A  }%0A%0A ❯ src/services/billing/__tests__/subscription-reconciliation.realdb.test.ts:126:63%0A%0A
+Lint & Test	Run API tests	2026-10-04T13:36:31.7304786Z @mercaria/backend test: Exited with code 1
+Lint & Test	Run API tests	2026-10-04T13:36:31.7330116Z ##[error]Process completed with exit code 1.

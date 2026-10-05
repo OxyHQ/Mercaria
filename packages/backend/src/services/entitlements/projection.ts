@@ -36,6 +36,7 @@ import type {
   MerchantPlanStatusView,
   MerchantSubscriptionView,
 } from '@mercaria/shared-types';
+import { merchantBillingAvailableForStore } from '../billing/cohort-access.js';
 import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
@@ -196,9 +197,9 @@ export async function buildMerchantPlanStatus(input: {
     effectivePlanKey: resolved.planKey,
     effectivePlanVersion: resolved.planVersion,
     entitlements,
-    billingAvailable: config.merchantBilling.enabled && provider !== undefined,
+    billingAvailable: merchantBillingAvailableForStore(input.storeId),
     portalAvailable:
-      config.merchantBilling.enabled && provider !== undefined && customer !== undefined,
+      merchantBillingAvailableForStore(input.storeId) && customer !== undefined,
   };
 }
 

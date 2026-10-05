@@ -40,6 +40,7 @@ import { parseThreeDSecureThresholds } from '../services/payments/stripe/three-d
 import { parseHighValueHoldThresholds } from '../services/payments/high-value-hold.js';
 import { join } from 'node:path';
 import { log } from '../lib/logger.js';
+import { parseBillingCohort } from '../services/billing/cohort-config.js';
 
 /**
  * Parse an integer environment variable, falling back to `fallback` when the
@@ -416,6 +417,17 @@ function resolveMercariaRetailEnabled(): boolean {
   return false;
 }
 
+/** Explicit billing-only namespace, independent of marketplace/Connect activation. */
+function resolveBillingCohortConfigured(): boolean {
+  const cohort = parseBillingCohort(strEnv('MERCHANT_BILLING_PEABLE_COHORT', ''));
+  if (!cohort) return false;
+  const key = strEnv('STRIPE_SECRET_KEY', '');
+  return /^sk_(?:live|test)_[A-Za-z0-9]+$/.test(key) &&
+    key.startsWith('sk_live_') === cohort.livemode &&
+    strEnv('STRIPE_WEBHOOK_SECRET', '') !== '' &&
+    strEnv('PEABLE_APP_PUBLIC_KEY', '') !== '' && strEnv('PEABLE_APP_SECRET', '') !== '';
+}
+
 /**
  * `MERCHANT_BILLING_ENABLED` → may a merchant start or manage a PAID plan (#89
  * acceptance 8: "Billing remains feature-flagged until the real initial plan has
@@ -439,10 +451,10 @@ function resolveMercariaRetailEnabled(): boolean {
 function resolveMerchantBillingEnabled(): boolean {
   if (!boolEnv('MERCHANT_BILLING_ENABLED', false)) return false;
 
-  if (resolveStripeEnabled()) return true;
+  if (resolveStripeEnabled() || resolveBillingCohortConfigured()) return true;
 
   log.general.error(
-    { missing: ['STRIPE_ENABLED'] },
+    { missing: ['STRIPE_ENABLED or complete MERCHANT_BILLING_PEABLE_COHORT credentials'] },
     '[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; ' +
       'staying OFF. Entitlements, existing subscriptions and provider events are unaffected — ' +
       'this flag gates starting or managing a paid plan only.',
@@ -4075,6 +4087,8 @@ export interface ConnectorsConfig {
  * and their invoices book to the ledger whatever both say.
  */
 export interface MerchantBillingConfig {
+  /** Durable routing cohort; independent of the new-action enabled flag. Validated at billing registration. */
+  readonly peableCohortJson: string;
   /** May a merchant start or manage a PAID plan — see `resolveMerchantBillingEnabled`. */
   readonly enabled: boolean;
   /**
@@ -4865,6 +4879,7 @@ export const config: AppConfig = Object.freeze({
     pollIntervalMs: intEnv('RETAIL_RECONCILIATION_POLL_INTERVAL_MS', 60_000),
   }),
   merchantBilling: Object.freeze({
+    peableCohortJson: (() => { const raw = strEnv('MERCHANT_BILLING_PEABLE_COHORT', ''); parseBillingCohort(raw); return raw; })(),
     enabled: resolveMerchantBillingEnabled(),
     reconciliationEnabled: boolEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_ENABLED', true),
     reconciliationIntervalMs: intEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_INTERVAL_MS', 6 * 60 * MINUTE_MS),

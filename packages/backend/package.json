@@ -1,7 +1,7 @@
 {
   "name": "@mercaria/backend",
   "version": "1.0.0",
-  "description": "Mercaria API \u2014 buy/sell marketplace backend by Oxy",
+  "description": "Mercaria API — buy/sell marketplace backend by Oxy",
   "private": true,
   "type": "module",
   "engines": {
@@ -26,13 +26,13 @@
   },
   "dependencies": {
     "@mercaria/shared-types": "workspace:*",
-    "@oxy.so/contracts": "^3.0.0",
-    "@oxy.so/core": "^3.0.0",
+    "@oxy.so/contracts": "4.9.0",
+    "@oxy.so/core": "4.2.0",
     "@oxy.so/crowdsource": "^1.0.0",
     "@oxy.so/crowdsource-contracts": "^1.0.0",
     "@oxy.so/crowdsource-express": "^1.0.0",
     "@oxy.so/db": "^1.0.0",
-    "@oxy.so/mcp": "^1.0.0",
+    "@oxy.so/mcp": "1.1.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "bullmq": "^5.80.4",
     "cors": "^2.8.6",
@@ -50,7 +50,8 @@
     "socket.io": "^4.8.3",
     "stripe": "^22.4.0",
     "web-push": "^3.6.7",
-    "zod": "^4.5.4"
+    "zod": "^4.5.4",
+    "@peable.to/sdk": "^0.2.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

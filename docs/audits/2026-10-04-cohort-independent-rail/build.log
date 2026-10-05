@@ -1,0 +1,9 @@
+$ bun build.ts
+
+  dist/index.js                        9.3mb ⚠️
+  dist/scripts/provision-taxonomy.js   2.1mb ⚠️
+  dist/register-capability-catalog.js  8.6kb
+  dist/db/migrate.js                   3.8kb
+
+⚡ Done in 223ms
+✅ Build complete

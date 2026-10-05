@@ -104,6 +104,8 @@ export interface BillingProvider {
   readonly id: BillingProviderId;
   /** Whether this deployment's key is the rail's LIVE key space. */
   readonly livemode: boolean;
+  /** Selected cohorts require a caller intent, stable across unknown outcomes. */
+  requiresExplicitIntent?(storeId: string): boolean;
 
   /**
    * Find or create the platform customer for one store.
@@ -135,6 +137,7 @@ export interface BillingProvider {
   createPortalSession(input: {
     providerCustomerId: string;
     returnUrl: string;
+    idempotencyKey?: string;
   }): Promise<BillingHostedSession>;
 
   /** Re-read one subscription — the reconciliation sweep's single-item path. */
@@ -148,7 +151,7 @@ export interface BillingProvider {
    * paid for a month keeps the month. An operator terminating early is a
    * decision taken at the rail, and reconciliation brings it back.
    */
-  cancelAtPeriodEnd(providerSubscriptionId: string): Promise<BillingSubscriptionSnapshot>;
+  cancelAtPeriodEnd(providerSubscriptionId: string, idempotencyKey?: string): Promise<BillingSubscriptionSnapshot>;
 }
 
 const providers = new Map<BillingProviderId, BillingProvider>();

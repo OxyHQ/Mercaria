@@ -99,6 +99,8 @@ export interface StripeEventContext {
   readonly providerEventId: string;
   /** Stripe's event type verbatim, e.g. `payment_intent.succeeded`. */
   readonly type: string;
+  /** Durable verified mode, also present when no delivery payload survives a replay. */
+  readonly livemode?: boolean;
   /** The connected account, on a connect-scope delivery. */
   readonly account?: string;
   /** The Stripe ids this event names, stored verbatim and never redacted. */

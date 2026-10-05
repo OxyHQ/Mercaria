@@ -159,7 +159,7 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
       <RatingInput
         value={rating}
         onChange={setRating}
-        size="small"
+        size="sm"
         accessibilityLabel={t(REVIEW_SCOPE_HEADING_KEYS[eligibility.scope])}
         formatStarLabel={(choice) =>
           t("reviews.ratingChoice", {

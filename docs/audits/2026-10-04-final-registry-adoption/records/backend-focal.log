@@ -1,0 +1,950 @@
+$ vitest run src/services/billing/peable/__tests__ src/services/payments/__tests__/peable-provider.test.ts src/routes/__tests__/peable-webhook.integration.test.ts src/capabilities/__tests__
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend[39m
+
+ [32m✓[39m src/capabilities/__tests__/mercaria-domain-authority.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/capabilities/__tests__/oxy-service-client.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/capabilities/__tests__/mercaria-handlers.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/capabilities/__tests__/capability-authority.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/services/payments/__tests__/peable-provider.test.ts [2m([22m[2m40 tests[22m[2m | [22m[33m2 skipped[39m[2m)[22m[32m 238[2mms[22m[39m
+ [32m✓[39m src/services/billing/peable/__tests__/register.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+[23:31:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[23:31:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[23:31:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[23:31:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[23:31:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[23:31:09] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feedback"
+[23:31:09] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[23:31:09] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[23:31:09] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+[23:31:10] [31mERROR[39m: [36mFailed to start a plan checkout[39m
+    err: {
+      "type": "MercariaError",
+      "message": "A stable Idempotency-Key is required for this billing action.",
+      "stack":
+          MercariaError: A stable Idempotency-Key is required for this billing action.
+              at validationError (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/lib/errors/error-codes.ts:106:10)
+              at requireIntent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/billing/subscription.service.ts:89:11)
+              at startMerchantPlanCheckout (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/billing/subscription.service.ts:149:3)
+              at startPlanCheckoutHandler (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/controllers/merchant-plans.controller.ts:89:27)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/layer.js:95:5)
+              at next (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/route.js:149:13)
+              at Route.dispatch (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/route.js:119:3)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/layer.js:95:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/index.js:284:15
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/index.js:365:14)
+      "code": "VALIDATION_ERROR",
+      "httpStatus": 400,
+      "name": "MercariaError"
+    }
+[23:31:10] [31mERROR[39m: [36mFailed to start a plan checkout[39m
+    err: {
+      "type": "MercariaError",
+      "message": "Invalid Idempotency-Key.",
+      "stack":
+          MercariaError: Invalid Idempotency-Key.
+              at validationError (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/lib/errors/error-codes.ts:106:10)
+              at billingIntent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/controllers/merchant-plans.controller.ts:52:11)
+              at startPlanCheckoutHandler (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/controllers/merchant-plans.controller.ts:99:23)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/layer.js:95:5)
+              at next (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/route.js:149:13)
+              at Route.dispatch (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/route.js:119:3)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/layer.js:95:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/index.js:284:15
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/index.js:365:14)
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/index.js:376:14)
+      "code": "VALIDATION_ERROR",
+      "httpStatus": 400,
+      "name": "MercariaError"
+    }
+[23:31:10] [31mERROR[39m: [36mFailed to open the billing portal[39m
+    err: {
+      "type": "BillingProviderError",
+      "message": "The hosted billing link expired. Start a new intent.",
+      "stack":
+          BillingProviderError: The hosted billing link expired. Start a new intent.
+              at CohortBillingProvider.call (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/billing/peable/adapter.ts:70:15)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at openMerchantBillingPortal (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/billing/subscription.service.ts:234:19)
+              at openPlanPortalHandler (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/controllers/merchant-plans.controller.ts:111:22)
+      "provider": "stripe",
+      "stage": "createPortalSession",
+      "retryable": false,
+      "code": "billing_result_expired",
+      "name": "BillingProviderError"
+    }
+[23:31:10] [31mERROR[39m: [36mFailed to open the billing portal[39m
+    err: {
+      "type": "MercariaError",
+      "message": "Paid plans are not available on this deployment.",
+      "stack":
+          MercariaError: Paid plans are not available on this deployment.
+              at conflict (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/lib/errors/error-codes.ts:101:10)
+              at openMerchantBillingPortal (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/billing/subscription.service.ts:222:11)
+              at openPlanPortalHandler (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/controllers/merchant-plans.controller.ts:111:28)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/layer.js:95:5)
+              at next (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/route.js:149:13)
+              at Route.dispatch (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/route.js:119:3)
+              at Layer.handle [as handle_request] (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/layer.js:95:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/index.js:284:15
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/index.js:365:14)
+              at param (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/node_modules/express/lib/router/index.js:376:14)
+      "code": "CONFLICT",
+      "httpStatus": 409,
+      "name": "MercariaError"
+    }
+ [32m✓[39m src/services/billing/peable/__tests__/adapter.realdb.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 435[2mms[22m[39m
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search"
+[23:31:10] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[23:31:10] [33mWARN[39m: [36mVAPID keys not set — web push notifications disabled[39m
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "discovery"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "discovery"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+ [32m✓[39m src/capabilities/__tests__/mercaria-catalog.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:10] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+ [32m✓[39m src/capabilities/__tests__/mercaria-active-account.realdb.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 203[2mms[22m[39m
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart-merge"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "cart-merge"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "checkout"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "checkout"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reviews"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reviews"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "stores"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "orders"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "sellers"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "sellers"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "rates"
+[23:31:11] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "rates"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-partner"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "channels"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "reports"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "payments"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:12] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "nearby"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "nearby"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search-intent"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "search-intent"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "seo"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "seo"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchantCompetitiveness"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchantCompetitiveness"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:13] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "feed-import-fetch"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-claims"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-redirect"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-redirect"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "outbound"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "outbound"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "referral-bind"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-issue"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-issue"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-recover"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-recover"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-claim"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "buyer-requests"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "guest-portal"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "analytics-ingest"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "analytics-ingest"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-demand"
+[23:31:14] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "merchant-demand"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "admin"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "listings"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "public-api"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "public-api"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+ [32m✓[39m src/services/billing/peable/__tests__/cors.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 7767[2mms[22m[39m
+[23:31:15] [32mINFO[39m: [36mConnected to PostgreSQL successfully[39m
+    [35mmaxPoolSize[39m: 4
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:15] [33mWARN[39m: [36m[Peable] event processing failed, will retry[39m
+    [35meventId[39m: "01a1041b-8967-7648-9e8a-ca983aa247e4"
+    [35mproviderEventId[39m: "evt_peable_rawbody_ok"
+    [35mtype[39m: "payment_intent.settled"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "no Mercaria payment is linked to Peable intent pi_peable_test_1 yet",
+      "stack":
+          PaymentProviderError: no Mercaria payment is linked to Peable intent pi_peable_test_1 yet
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:82:10)
+              at applyIntentEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:115:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:198:29
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:134:15)
+              at processStoredPeableEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:266:3)
+              at ingestPeableDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/ingress.ts:136:5)
+              at handleDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/routes/peable-webhook.ts:72:18)
+      "provider": "peable",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:15] [33mWARN[39m: [36m[Peable] event processing failed, will retry[39m
+    [35meventId[39m: "01a1041b-8987-72f2-94b8-3a167c51ba33"
+    [35mproviderEventId[39m: "evt_peable_utf8_invalid"
+    [35mtype[39m: "payment_intent.settled"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "no Mercaria payment is linked to Peable intent pi_peable_test_1 yet",
+      "stack":
+          PaymentProviderError: no Mercaria payment is linked to Peable intent pi_peable_test_1 yet
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:82:10)
+              at applyIntentEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:115:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:198:29
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:134:15)
+              at processStoredPeableEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:266:3)
+              at ingestPeableDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/ingress.ts:136:5)
+              at handleDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/routes/peable-webhook.ts:72:18)
+      "provider": "peable",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[23:31:15] [33mWARN[39m: [36m[Peable] webhook delivery refused[39m
+    [35mreason[39m: "the Peable delivery could not be verified"
+[23:31:15] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [33mWARN[39m: [36m[Peable] webhook delivery refused[39m
+    [35mreason[39m: "the Peable delivery could not be verified"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [33mWARN[39m: [36m[Peable] event processing failed, will retry[39m
+    [35meventId[39m: "01a1041b-89ee-7114-ac77-3be3b0d0a556"
+    [35mproviderEventId[39m: "evt_peable_rotation"
+    [35mtype[39m: "payment_intent.settled"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "no Mercaria payment is linked to Peable intent pi_peable_test_1 yet",
+      "stack":
+          PaymentProviderError: no Mercaria payment is linked to Peable intent pi_peable_test_1 yet
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:82:10)
+              at applyIntentEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:115:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:198:29
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:134:15)
+              at processStoredPeableEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:266:3)
+              at ingestPeableDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/ingress.ts:136:5)
+              at handleDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/routes/peable-webhook.ts:72:18)
+      "provider": "peable",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [33mWARN[39m: [36m[Peable] webhook delivery refused[39m
+    [35mreason[39m: "the Peable delivery could not be verified"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [33mWARN[39m: [36m[Peable] event processing failed, will retry[39m
+    [35meventId[39m: "01a1041b-8a42-769e-b773-d415c09b0874"
+    [35mproviderEventId[39m: "evt_peable_dupe"
+    [35mtype[39m: "payment_intent.settled"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "no Mercaria payment is linked to Peable intent pi_peable_test_1 yet",
+      "stack":
+          PaymentProviderError: no Mercaria payment is linked to Peable intent pi_peable_test_1 yet
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:82:10)
+              at applyIntentEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:115:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:198:29
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:134:15)
+              at processStoredPeableEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:266:3)
+              at ingestPeableDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/ingress.ts:136:5)
+              at handleDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/routes/peable-webhook.ts:72:18)
+      "provider": "peable",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[23:31:16] [34mDEBUG[39m: [36m[Peable] duplicate delivery acknowledged[39m
+    [35mproviderEventId[39m: "evt_peable_dupe"
+    [35mtype[39m: "payment_intent.settled"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [33mWARN[39m: [36m[Peable] event processing failed, will retry[39m
+    [35meventId[39m: "01a1041b-8a59-76fd-9675-2d232cfa94ec"
+    [35mproviderEventId[39m: "evt_sdk_family_payment_intent.refunded_current"
+    [35mtype[39m: "payment_intent.refunded"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "no Mercaria payment is linked to Peable intent pi_peable_test_1 yet",
+      "stack":
+          PaymentProviderError: no Mercaria payment is linked to Peable intent pi_peable_test_1 yet
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:82:10)
+              at applyIntentEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:115:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:198:29
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:134:15)
+              at processStoredPeableEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:266:3)
+              at ingestPeableDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/ingress.ts:136:5)
+              at handleDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/routes/peable-webhook.ts:72:18)
+      "provider": "peable",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[23:31:16] [34mDEBUG[39m: [36m[Peable] duplicate delivery acknowledged[39m
+    [35mproviderEventId[39m: "evt_sdk_family_payment_intent.refunded_current"
+    [35mtype[39m: "payment_intent.refunded"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [33mWARN[39m: [36m[Peable] event processing failed, will retry[39m
+    [35meventId[39m: "01a1041b-8a8d-78be-90b3-d73bf5f00053"
+    [35mproviderEventId[39m: "evt_sdk_family_payment_intent.refunded_previous"
+    [35mtype[39m: "payment_intent.refunded"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "no Mercaria payment is linked to Peable intent pi_peable_test_1 yet",
+      "stack":
+          PaymentProviderError: no Mercaria payment is linked to Peable intent pi_peable_test_1 yet
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:82:10)
+              at applyIntentEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:115:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:198:29
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:134:15)
+              at processStoredPeableEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:266:3)
+              at ingestPeableDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/ingress.ts:136:5)
+              at handleDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/routes/peable-webhook.ts:72:18)
+      "provider": "peable",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[23:31:16] [34mDEBUG[39m: [36m[Peable] duplicate delivery acknowledged[39m
+    [35mproviderEventId[39m: "evt_sdk_family_payment_intent.refunded_previous"
+    [35mtype[39m: "payment_intent.refunded"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [33mWARN[39m: [36m[Peable] event processing failed, will retry[39m
+    [35meventId[39m: "01a1041b-8aa2-7e28-ad40-e02bb95113fe"
+    [35mproviderEventId[39m: "evt_sdk_family_payment_intent.partially_refunded_current"
+    [35mtype[39m: "payment_intent.partially_refunded"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "no Mercaria payment is linked to Peable intent pi_peable_test_1 yet",
+      "stack":
+          PaymentProviderError: no Mercaria payment is linked to Peable intent pi_peable_test_1 yet
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:82:10)
+              at applyIntentEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:115:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:198:29
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:134:15)
+              at processStoredPeableEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:266:3)
+              at ingestPeableDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/ingress.ts:136:5)
+              at handleDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/routes/peable-webhook.ts:72:18)
+      "provider": "peable",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[23:31:16] [34mDEBUG[39m: [36m[Peable] duplicate delivery acknowledged[39m
+    [35mproviderEventId[39m: "evt_sdk_family_payment_intent.partially_refunded_current"
+    [35mtype[39m: "payment_intent.partially_refunded"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [33mWARN[39m: [36m[Peable] event processing failed, will retry[39m
+    [35meventId[39m: "01a1041b-8ab7-7f29-877e-7c24b25c5901"
+    [35mproviderEventId[39m: "evt_sdk_family_payment_intent.partially_refunded_previous"
+    [35mtype[39m: "payment_intent.partially_refunded"
+    [35mattempts[39m: 1
+    err: {
+      "type": "PaymentProviderError",
+      "message": "no Mercaria payment is linked to Peable intent pi_peable_test_1 yet",
+      "stack":
+          PaymentProviderError: no Mercaria payment is linked to Peable intent pi_peable_test_1 yet
+              at unresolved (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:82:10)
+              at applyIntentEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:115:11)
+              at processTicksAndRejections (node:internal/process/task_queues:104:5)
+              at /home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-router.ts:198:29
+              at processClaimedEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:134:15)
+              at processStoredPeableEvent (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/event-processor.ts:266:3)
+              at ingestPeableDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/services/payments/peable/ingress.ts:136:5)
+              at handleDelivery (/home/nate/Oxy/Mercaria/.worktrees/1519-final-sdk-pins-20261003/packages/backend/src/routes/peable-webhook.ts:72:18)
+      "provider": "peable",
+      "stage": "verifyEvent",
+      "retryable": true,
+      "name": "PaymentProviderError"
+    }
+[23:31:16] [34mDEBUG[39m: [36m[Peable] duplicate delivery acknowledged[39m
+    [35mproviderEventId[39m: "evt_sdk_family_payment_intent.partially_refunded_previous"
+    [35mtype[39m: "payment_intent.partially_refunded"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [34mDEBUG[39m: [36m[Peable] duplicate delivery acknowledged[39m
+    [35mproviderEventId[39m: "evt_sdk_family_payment_intent.disputed_current"
+    [35mtype[39m: "payment_intent.disputed"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [34mDEBUG[39m: [36m[Peable] duplicate delivery acknowledged[39m
+    [35mproviderEventId[39m: "evt_sdk_family_payment_intent.disputed_previous"
+    [35mtype[39m: "payment_intent.disputed"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [34mDEBUG[39m: [36m[Peable] duplicate delivery acknowledged[39m
+    [35mproviderEventId[39m: "evt_sdk_family_payment_intent.dispute_closed_current"
+    [35mtype[39m: "payment_intent.dispute_closed"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [34mDEBUG[39m: [36m[Peable] duplicate delivery acknowledged[39m
+    [35mproviderEventId[39m: "evt_sdk_family_payment_intent.dispute_closed_previous"
+    [35mtype[39m: "payment_intent.dispute_closed"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [34mDEBUG[39m: [36m[Peable] duplicate delivery acknowledged[39m
+    [35mproviderEventId[39m: "evt_sdk_family_connected_account.updated_current"
+    [35mtype[39m: "connected_account.updated"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [34mDEBUG[39m: [36m[Peable] duplicate delivery acknowledged[39m
+    [35mproviderEventId[39m: "evt_sdk_family_connected_account.updated_previous"
+    [35mtype[39m: "connected_account.updated"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [33mWARN[39m: [36m[Peable] webhook delivery refused[39m
+    [35mreason[39m: "the Peable delivery could not be verified"
+[23:31:16] [32mINFO[39m: [36mRate limiter using in-memory store (REDIS_URL not set)[39m
+    [35mscope[39m: "general"
+[23:31:16] [33mWARN[39m: [36m[Peable] webhook delivery refused[39m
+    [35mreason[39m: "the Peable delivery could not be verified"
+[23:31:16] [33mWARN[39m: [36m[Peable] webhook delivery refused[39m
+    [35mreason[39m: "the Peable delivery could not be verified"
+ [32m✓[39m src/routes/__tests__/peable-webhook.integration.test.ts [2m([22m[2m21 tests[22m[2m)[22m[33m 8275[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m11 passed[39m[22m[90m (11)[39m
+[2m      Tests [22m [1m[32m102 passed[39m[22m[2m | [22m[33m2 skipped[39m[90m (104)[39m
+[2m   Start at [22m 02:31:04
+[2m   Duration [22m 11.72s[2m (transform 16.17s, setup 0ms, import 11.48s, tests 16.97s, environment 1ms)[22m
+

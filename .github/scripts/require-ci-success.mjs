@@ -81,6 +81,7 @@ export const REQUIRED_CI_JOBS = Object.freeze([
   'Build App',
   'Build Dashboard',
   'Build POS',
+  'CI complete',
 ]);
 
 /** The workflow whose verdict gates a deploy. */

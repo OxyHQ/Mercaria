@@ -14,7 +14,7 @@
  * one safely.
  */
 
-import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql, type SQL } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
 import type {
   CurrencyCode,
@@ -34,6 +34,7 @@ import {
   payouts,
   transfers,
 } from '../schema/payments.js';
+import { billingCustomers } from '../schema/merchantPlans.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 
 /** A payment row as the service reads it back. */
@@ -574,6 +575,27 @@ export async function findProviderEventById(
   return row;
 }
 
+/** Cohort authority is selected from the durable envelope and its existing SQL customer. */
+export interface StripeBillingEventScope {
+  livemode: boolean;
+  storeIds: readonly string[];
+}
+
+/** Shared by claim and replay so a rejected row receives no lease or state mutation. */
+function stripeBillingEventPredicate(scope: StripeBillingEventScope): SQL {
+  return and(
+    eq(paymentProviderEvents.provider, 'stripe'),
+    isNull(paymentProviderEvents.providerAccountId),
+    eq(paymentProviderEvents.livemode, scope.livemode),
+    inArray(paymentProviderEvents.type, ['invoice.paid', 'invoice.payment_failed',
+      'customer.subscription.updated', 'customer.subscription.deleted']),
+    sql`exists (select 1 from ${billingCustomers} where
+      ${billingCustomers.provider} = 'stripe' and ${billingCustomers.livemode} = ${scope.livemode}
+      and ${billingCustomers.providerCustomerId} = ${paymentProviderEvents.objectIds}->>'customer'
+      and ${inArray(billingCustomers.storeId, [...scope.storeIds])})`,
+  )!;
+}
+
 /** Options for claiming an inbound event to process. */
 export interface ClaimProviderEventOptions {
   leaseOwner: string;
@@ -593,6 +615,8 @@ export interface ClaimProviderEventOptions {
    * being asked this question by the compiler.
    */
   providers: readonly PaymentProviderId[];
+  /** Restrict before SELECT/lease/attempts when only merchant billing is configured. */
+  stripeBillingScope?: StripeBillingEventScope;
   /** Claim this ONE row if it is due, instead of the oldest — the inline path. */
   eventId?: string;
   now?: Date;
@@ -636,7 +660,8 @@ export async function claimProviderEvent(
   // exists to prevent, so it is stated rather than inferred from the SQL.
   if (options.providers.length === 0) return undefined;
 
-  const rail = inArray(paymentProviderEvents.provider, [...options.providers]);
+  const rail = and(inArray(paymentProviderEvents.provider, [...options.providers]),
+    options.stripeBillingScope ? stripeBillingEventPredicate(options.stripeBillingScope) : undefined);
   const due = or(
     and(
       inArray(paymentProviderEvents.status, ['received', 'failed']),
@@ -778,6 +803,7 @@ export async function reopenProviderEvent(
   db: DatabaseOrTransaction,
   eventId: string,
   now: Date = new Date(),
+  stripeBillingScope?: StripeBillingEventScope,
 ): Promise<boolean> {
   const updated = await db
     .update(paymentProviderEvents)
@@ -786,6 +812,7 @@ export async function reopenProviderEvent(
       and(
         eq(paymentProviderEvents.id, eventId),
         inArray(paymentProviderEvents.status, ['failed', 'dead_letter']),
+        stripeBillingScope ? stripeBillingEventPredicate(stripeBillingScope) : undefined,
       ),
     )
     .returning({ id: paymentProviderEvents.id });

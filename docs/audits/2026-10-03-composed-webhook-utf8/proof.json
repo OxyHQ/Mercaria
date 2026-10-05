@@ -1,0 +1,203 @@
+{
+  "sourceCommit": "6aa30b763865eda8a450aed1c34aa5a8e370510b",
+  "baseCommit": "9e546e66b36b8050bfe07a37f53ee436444688cf",
+  "composedPulls": {
+    "1043": "975e680a2bbc2fb1d49f80624b272027f4d2e254",
+    "1044": "de871d24"
+  },
+  "sources": [
+    {
+      "path": "packages/backend/src/services/payments/peable/ingress.ts",
+      "sha256": "3c6dfb71f947f8604a3e44a4f2ea086737bc819b6035226b3a4b906f946bd961"
+    },
+    {
+      "path": "packages/backend/src/routes/__tests__/peable-webhook.integration.test.ts",
+      "sha256": "acb7b090e99a8034772a952ee48147c32bf8af895f55eefe1cc682fdedb1243d"
+    }
+  ],
+  "preservedInputs": [
+    {
+      "path": "packages/backend/src/capabilities/__tests__/capability-authority.test.ts",
+      "reviewedRef": "975e680a",
+      "sha256": "15ffbfd50ede0f7f911e3d661ec4316044f50ada86f47173b13510eaf567c912"
+    },
+    {
+      "path": "packages/backend/src/capabilities/__tests__/mercaria-active-account.realdb.test.ts",
+      "reviewedRef": "975e680a",
+      "sha256": "94f426c1982f7d8001299de104575b110583510f2a510855e54928e7394ce80a"
+    },
+    {
+      "path": "packages/backend/src/capabilities/__tests__/mercaria-catalog.test.ts",
+      "reviewedRef": "975e680a",
+      "sha256": "babf9786d793f45e783e817bf2d26195c66e810c6338ff9c663b239f8aa8c376"
+    },
+    {
+      "path": "packages/backend/src/capabilities/__tests__/mercaria-domain-authority.test.ts",
+      "reviewedRef": "975e680a",
+      "sha256": "b2970910d2f44f0ffc92a101c4627590eda49eeb5ee35d196f926c259fbc2f11"
+    },
+    {
+      "path": "packages/backend/src/capabilities/__tests__/mercaria-handlers.test.ts",
+      "reviewedRef": "975e680a",
+      "sha256": "8f08917ce92a8bba5c562e569c999a27c2dec1ea2585ea6723bea96f65120289"
+    },
+    {
+      "path": "packages/backend/src/capabilities/__tests__/oxy-service-client.test.ts",
+      "reviewedRef": "975e680a",
+      "sha256": "7e07c363fb3b3f1c79f7fa4d9cd9fd54abbd8f17fbc9c2591dffb5d9e126e463"
+    },
+    {
+      "path": "packages/backend/src/capabilities/capability-authority.ts",
+      "reviewedRef": "975e680a",
+      "sha256": "ad59cfcc7f4765a745a0db4169a04aa215d10a2009426c6a092a7fe8b2e2a632"
+    },
+    {
+      "path": "packages/backend/src/capabilities/mercaria-domain-authority.ts",
+      "reviewedRef": "975e680a",
+      "sha256": "94de5c7a9d86b845c1cd1b0dfb2f9ab773ac2e1e43a160d916aef5f57a519fdd"
+    },
+    {
+      "path": "packages/backend/src/capabilities/mercaria-mcp-http.ts",
+      "reviewedRef": "975e680a",
+      "sha256": "5daca54e773a3a2dd8963eeb4924bc3a2d1a6f3a8e9738a917bbbd6aa359dc7b"
+    },
+    {
+      "path": "packages/backend/src/capabilities/mercaria.catalog.ts",
+      "reviewedRef": "975e680a",
+      "sha256": "748b6ea335faeb6a776318e589d0cfde35c1e474213eb4745556a91478103e0c"
+    },
+    {
+      "path": "packages/backend/src/capabilities/mercaria.handlers.ts",
+      "reviewedRef": "975e680a",
+      "sha256": "f172d1a9191aa4c1ab95dd0f660aff2d5ed1a1fb4ef0ff42b3730e4d41abd132"
+    },
+    {
+      "path": "packages/backend/src/capabilities/oxy-service-client.ts",
+      "reviewedRef": "975e680a",
+      "sha256": "6abe15f87020a00a0f96547710399ceea644fdad235886f901efada1d6365020"
+    },
+    {
+      "path": "packages/backend/src/services/billing/__tests__/ledger-postings.test.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "838012a3e9da3c9677c97b380b9602a8eb77339a6db509b26bb6e7ea52458897"
+    },
+    {
+      "path": "packages/backend/src/services/billing/ledger-postings.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "001cc3e87c9fc21b38bfac0e8a16778c4cd6dd966b738c254ac7f99aeeb8208e"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/adapter.realdb.test.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "7578b1193896529e81505ffd42d07f89e8c82e67d09d64f438b0ac45815926fd"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/cors.test.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "eca2c5eaf74fab8b51c0d6baccd78c0961915b923581ce4494bed4620b545ed0"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/__tests__/register.test.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "a91fd46da1009f096af23fb3d70cf1bb39e7900876498300297663294c4483ed"
+    },
+    {
+      "path": "packages/backend/src/services/billing/peable/adapter.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "2f2055e5919f8b416a8933ad449e6b358a429d1d3127b1f46acefaa7a2da77b3"
+    },
+    {
+      "path": "packages/backend/src/services/billing/provider.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "e4de5b918086941966b14d90159ca902c472f1fe430622fb9bd26395b11a350c"
+    },
+    {
+      "path": "packages/backend/src/services/billing/reconciler.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "28423df433034454ade196a7f8cf4be2975d2f8b3b456386e6cd7f426eac6eef"
+    },
+    {
+      "path": "packages/backend/src/services/billing/register.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "e8b5608102c337a54a8bb98d0dc551e96df0a4b6d7492fecd16d622cf0452c64"
+    },
+    {
+      "path": "packages/backend/src/services/billing/stripe/__tests__/stripe-billing.test.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "345885863e13f792e16ea5509cb66b3b7a8771bc53cd65b30e12ce34a1256376"
+    },
+    {
+      "path": "packages/backend/src/services/billing/stripe/stripe-billing.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "42e6805369c124c2627f039e1852a41ddb78bdc56b0e61e2f5c9b5c106d419e8"
+    },
+    {
+      "path": "packages/backend/src/services/billing/stripe/subscription-events.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "2141477919d7228742c90994b3c8212992a60a9a4b4046c288b668f4503b3452"
+    },
+    {
+      "path": "packages/backend/src/services/billing/subscription.service.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "e0b627e34be213ee669161bfe09a39f27e1ed671e5c5c980b9d7e8adfe01bd90"
+    },
+    {
+      "path": "packages/backend/src/services/payments/peable/verify.ts",
+      "reviewedRef": "de871d24",
+      "sha256": "d3ac8f422a5261bf39c01572172c324206259170679792639c9ddf079b514c43"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-03-composed-webhook-utf8/utf8-red.log",
+      "sha256": "72d3ce9c59221560f3e91f85d682a3ef74317dfd5fbabe60a57ce237d277beab"
+    },
+    {
+      "path": "docs/audits/2026-10-03-composed-webhook-utf8/utf8-red-sql.log",
+      "sha256": "b8cbf761f674a4515d646deeb2d7dd3d3a41696c49d60fceafcceeaa9282c560"
+    },
+    {
+      "path": "docs/audits/2026-10-03-composed-webhook-utf8/utf8-composed-green.log",
+      "sha256": "1978dd96f8cd3e9c5e485a845c8a4d12f59bac7500bd2819d3c3cca66c6e8351"
+    },
+    {
+      "path": "docs/audits/2026-10-03-composed-webhook-utf8/types.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    },
+    {
+      "path": "docs/audits/2026-10-03-composed-webhook-utf8/lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/audits/2026-10-03-composed-webhook-utf8/teardown.log",
+      "sha256": "bffd08fa35a268dcde98106f04d938505512f3c99b07aad31b828a94da368780"
+    },
+    {
+      "path": "docs/audits/2026-10-03-composed-webhook-utf8/install.log",
+      "sha256": "1c7f9cb6a778cda46c813cb12061541da4773607aa6de19f9eaa690ead764e84"
+    },
+    {
+      "path": "docs/audits/2026-10-03-composed-webhook-utf8/shared-types.log",
+      "sha256": "b0a25f08216dd3ec0526346a8d18e0e882f17769397be5c4cd25dc6802cee0e8"
+    }
+  ],
+  "validation": {
+    "red": {
+      "httpStatus": 200,
+      "storedProviderEvents": 1
+    },
+    "green": {
+      "httpStatus": 400,
+      "storedProviderEvents": 0,
+      "validControlStatus": 200,
+      "validControlStored": 1
+    },
+    "suites": 3,
+    "passed": 29,
+    "failed": 0,
+    "typescript": "PASS",
+    "lint": "PASS"
+  },
+  "finalOxyRegistryAdoption": false,
+  "deployed": false
+}
