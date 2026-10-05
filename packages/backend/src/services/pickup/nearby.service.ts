@@ -8,9 +8,9 @@
  * a claimant's tier (`findStorePlacesNear`). Mercaria answers WHAT: which of
  * those locations name the same place back and hold a collectable unit, under
  * every commerce predicate it always applied (`findCollectableAtLocations`).
- * Then each surviving location's place is read in full — its hours exceptions
- * are on a single-place read only — and `deriveLocationDiscoverability`, the
- * authority, has the last word.
+ * GoWay's list already carries each place in full — its hours exceptions
+ * included — so nothing is read twice, and `deriveLocationDiscoverability`, the
+ * authority, has the last word over that same place.
  *
  * ## The shopper's coordinate lives inside ONE function call
  *
@@ -62,12 +62,7 @@ import {
   type PlaceLink,
 } from '../../db/pickup/nearbyRepository.js';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
-import {
-  findStorePlacesNear,
-  findTowns,
-  readPlaces,
-  type StorePlaceNear,
-} from '../goway/places.js';
+import { findStorePlacesNear, findTowns, type StorePlaceNear } from '../goway/places.js';
 import {
   hoursExceptionsOf,
   openStateOf,
@@ -140,6 +135,7 @@ export async function findNearbyAvailability(
     radiusMetres,
     limit: request.limit,
     ...(request.cursor === undefined ? {} : { cursor: request.cursor }),
+    ...(request.locale === undefined ? {} : { locale: request.locale }),
   });
 
   const candidates = await findCollectableAtLocations({
@@ -164,9 +160,9 @@ export async function findNearbyAvailability(
     '[Pickup] nearby availability answered',
   );
 
-  const places = await readPlaces(
-    candidates.map((candidate) => candidate.goWayPlaceId),
-    request.locale === undefined ? {} : { locale: request.locale },
+  // The place each candidate was found through, exactly as GoWay's list carried it.
+  const places = new Map<string, PlaceLookup>(
+    page.items.map((item) => [item.placeId, { kind: 'found', place: item.place, stale: false }]),
   );
   const distances = new Map(page.items.map((item) => [linkKey(item), item.distanceMetres]));
   const levers = request.withCheckoutEligibility ? readLevers() : null;

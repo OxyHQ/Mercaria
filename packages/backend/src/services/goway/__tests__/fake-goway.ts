@@ -6,11 +6,12 @@
  * So a body this fake gets wrong is refused exactly as a real malformed GoWay
  * response would be, and a test cannot pass on a shape GoWay would never send.
  *
- * It answers the four reads Mercaria makes: a place by id (with its hours
- * exceptions, as a single-place read carries them), places near a point that
- * carry a capability (without exceptions, as a list does), and the geocoder.
- * Every request URL is recorded, so a test can assert what was — and was not —
- * sent.
+ * It answers the reads Mercaria makes: a place by id, several places by id
+ * (`GET /places?ids=`, answering `{ items, gone, missing }`), places near a
+ * point that carry a capability, and the geocoder. Every place carries its
+ * hours exceptions, as every GoWay read now does; only the by-id reads carry
+ * `names`. Every request URL is recorded, so a test can assert what was — and
+ * was not — sent.
  */
 
 import type { GoWayFetch } from '@goway.to/sdk';
@@ -81,6 +82,7 @@ export function createFakeGoWay(): FakeGoWay {
       const query = parsed.searchParams;
 
       if (path === '/places/nearby') return respond(200, nearby(fake, query));
+      if (path === '/places') return respond(200, batch(fake, query));
       if (path === '/geocode') return respond(200, geocode(fake, query));
       const single = /^\/places\/([^/]+)$/.exec(path);
       if (single) {
@@ -124,6 +126,24 @@ function nearby(fake: FakeGoWay, query: URLSearchParams) {
   };
 }
 
+function batch(fake: FakeGoWay, query: URLSearchParams) {
+  const ids = [...new Set((query.get('ids') ?? '').split(',').filter((id) => id !== ''))];
+  const items = [];
+  const gone = [];
+  const missing = [];
+  for (const id of ids) {
+    if (fake.gone.has(id)) {
+      const mergedInto = fake.gone.get(id);
+      gone.push({ id, ...(mergedInto ? { mergedInto } : {}) });
+      continue;
+    }
+    const place = fake.places.get(id);
+    if (place) items.push(placeJson(place, true));
+    else missing.push(id);
+  }
+  return { items, gone, missing };
+}
+
 function geocode(fake: FakeGoWay, query: URLSearchParams) {
   const term = (query.get('q') ?? '').toLowerCase();
   return {
@@ -156,23 +176,19 @@ function placeJson(place: FakePlace, single: boolean) {
     ...(place.contact ? { contact: place.contact } : {}),
     ...(place.openingHours ? { openingHours: place.openingHours } : {}),
     ...(place.timezone ? { timezone: place.timezone } : {}),
-    ...(single
-      ? {
-          names: [],
-          hoursExceptions: (place.hoursExceptions ?? []).map((exception, index) => ({
-            id: `${place.id}-exception-${index}`,
-            placeId: place.id,
-            startsOn: exception.startsOn,
-            endsOn: exception.endsOn,
-            closed: exception.closed,
-            intervals: exception.intervals ?? [],
-            ...(exception.note ? { note: exception.note } : {}),
-            source: 'goway',
-            verification: exception.verification ?? 'business_asserted',
-            observedAt: OBSERVED,
-          })),
-        }
-      : {}),
+    ...(single ? { names: [] } : {}),
+    hoursExceptions: (place.hoursExceptions ?? []).map((exception, index) => ({
+      id: `${place.id}-exception-${index}`,
+      placeId: place.id,
+      startsOn: exception.startsOn,
+      endsOn: exception.endsOn,
+      closed: exception.closed,
+      intervals: exception.intervals ?? [],
+      ...(exception.note ? { note: exception.note } : {}),
+      source: 'goway',
+      verification: exception.verification ?? 'business_asserted',
+      observedAt: OBSERVED,
+    })),
     status: place.status ?? 'active',
     verification: { state: 'unverified' },
     sources: [],

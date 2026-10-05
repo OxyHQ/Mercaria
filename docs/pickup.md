@@ -528,7 +528,11 @@ merchant shortens it — the number is theirs, on purpose.
 **A merchant reports "my shop does not appear".** Their dashboard's place-link
 check (`…/place-link/verify`) names every failing condition of the trust rule —
 commonest: the claim is still pending in GoWay, so the back-reference is only
-`community_reported`. Then the consistency probes, then
+`community_reported`. Approval re-tiers it to `business_asserted` by itself
+only when the person who FILED the claim, or a session acting as the store's
+Oxy account, wrote it after filing; a link any other member wrote, or one
+written before the claim was filed, has to be written again once the claim is
+approved. Then the consistency probes, then
 `deriveLocationDiscoverability`, which returns the whole reason list rather
 than the first.
 

@@ -27,6 +27,7 @@ import {
   GoWayGoneError,
   GoWayNotFoundError,
   GoWayValidationError,
+  MAX_PLACE_BATCH_SIZE,
   isGoWayError,
   type GoWayClient,
   type SearchResultKind,
@@ -35,7 +36,13 @@ import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { MercariaError, validationError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
-import { placeCacheKey, readCachedPlace, writeCachedPlace, type CachedPlaceOutcome } from './cache.js';
+import {
+  placeCacheKey,
+  readCachedPlace,
+  writeCachedPlace,
+  type CachedPlace,
+  type CachedPlaceOutcome,
+} from './cache.js';
 import { goWayClient } from './client.js';
 import {
   MERCARIA_STORE_CAPABILITY,
@@ -59,8 +66,17 @@ export class GoWayUnavailableError extends MercariaError {
   }
 }
 
-/** How many place reads one caller may have in flight at once. */
-const PLACE_READ_CONCURRENCY = 8;
+/**
+ * The longest place id GoWay's contract accepts. An id outside it — or an empty
+ * one — names no place, and is answered `not_found` without asking: in a batch
+ * read it would fail the WHOLE request, every other id with it.
+ */
+const MAX_PLACE_ID_LENGTH = 128;
+
+/** Whether an id is one GoWay's contract would accept at all. */
+function isPlaceIdShape(placeId: string): boolean {
+  return placeId.trim() !== '' && placeId.length <= MAX_PLACE_ID_LENGTH;
+}
 
 /** Options a single-place read accepts. */
 export interface PlaceReadOptions {
@@ -83,12 +99,11 @@ export interface PlaceReadOptions {
  * with none, the answer is `unavailable`. Never throws.
  */
 export async function readPlace(placeId: string, options: PlaceReadOptions = {}): Promise<PlaceLookup> {
+  if (!isPlaceIdShape(placeId)) return { kind: 'not_found' };
   const key = placeCacheKey(placeId, options.locale);
   const cached = await readCachedPlace(key);
   const now = Date.now();
-  if (!options.fresh && cached && now - cached.fetchedAt < config.goway.placeCacheTtlSeconds * 1_000) {
-    return fromCache(cached.outcome, false);
-  }
+  if (!options.fresh && isFresh(cached, now)) return fromCache(cached.outcome, false);
 
   const client = goWayClient();
   const outcome = client === null ? null : await askForPlace(client, placeId, options.locale);
@@ -96,29 +111,72 @@ export async function readPlace(placeId: string, options: PlaceReadOptions = {})
     await writeCachedPlace(key, { outcome, fetchedAt: now }, config.goway.placeStaleTtlSeconds);
     return fromCache(outcome, false);
   }
-
-  if (cached && cached.outcome.kind === 'found' && now - cached.fetchedAt < config.goway.placeStaleTtlSeconds * 1_000) {
-    return fromCache(cached.outcome, true);
-  }
-  return { kind: 'unavailable' };
+  return lastGood(cached, now);
 }
 
-/** Several places at once, each through {@link readPlace}, at a bounded concurrency. */
+/**
+ * Several places at once: the cache first, then ONE GoWay batch read
+ * (`places.getMany`) per {@link MAX_PLACE_BATCH_SIZE} ids it could not answer.
+ *
+ * Each id lands exactly where {@link readPlace} would put it — `found`,
+ * `not_found`, or `gone` with where a merge sent it — and is cached the same
+ * way, under the same key, so the two reads share one cache. A batch GoWay
+ * could not answer falls back per id: a last-good `found`, marked stale, or
+ * `unavailable`. Never throws.
+ */
 export async function readPlaces(
   placeIds: readonly string[],
   options: PlaceReadOptions = {},
 ): Promise<ReadonlyMap<string, PlaceLookup>> {
-  const unique = [...new Set(placeIds)];
   const results = new Map<string, PlaceLookup>();
-  let next = 0;
-  const worker = async (): Promise<void> => {
-    while (next < unique.length) {
-      const placeId = unique[next];
-      next += 1;
-      results.set(placeId, await readPlace(placeId, options));
+  const misses: { placeId: string; key: string; cached: CachedPlace | null }[] = [];
+  const now = Date.now();
+
+  const lookups = await Promise.all(
+    [...new Set(placeIds)].map(async (placeId) => {
+      if (!isPlaceIdShape(placeId)) return { placeId, key: null, cached: null };
+      const key = placeCacheKey(placeId, options.locale);
+      return { placeId, key, cached: await readCachedPlace(key) };
+    }),
+  );
+  for (const { placeId, key, cached } of lookups) {
+    if (key === null) {
+      results.set(placeId, { kind: 'not_found' });
+    } else if (!options.fresh && isFresh(cached, now)) {
+      results.set(placeId, fromCache(cached.outcome, false));
+    } else {
+      misses.push({ placeId, key, cached });
     }
-  };
-  await Promise.all(Array.from({ length: Math.min(PLACE_READ_CONCURRENCY, unique.length) }, worker));
+  }
+  if (misses.length === 0) return results;
+
+  const client = goWayClient();
+  const chunks: (typeof misses)[] = [];
+  for (let start = 0; start < misses.length; start += MAX_PLACE_BATCH_SIZE) {
+    chunks.push(misses.slice(start, start + MAX_PLACE_BATCH_SIZE));
+  }
+
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      const answered =
+        client === null
+          ? null
+          : await askForPlaces(
+              client,
+              chunk.map((miss) => miss.placeId),
+              options.locale,
+            );
+      for (const miss of chunk) {
+        const outcome = answered?.get(miss.placeId);
+        if (outcome === undefined) {
+          results.set(miss.placeId, lastGood(miss.cached, now));
+          continue;
+        }
+        await writeCachedPlace(miss.key, { outcome, fetchedAt: now }, config.goway.placeStaleTtlSeconds);
+        results.set(miss.placeId, fromCache(outcome, false));
+      }
+    }),
+  );
   return results;
 }
 
@@ -146,6 +204,12 @@ export interface StorePlaceNear {
   readonly locationId: string;
   /** Exact, as GoWay measured it. Coarsen before it leaves the server. */
   readonly distanceMetres: number;
+  /**
+   * The place itself, as the list read carried it — its hours exceptions
+   * included, so "open now" needs no second read. Its `displayName` resolves
+   * against the `locale` the search was asked in.
+   */
+  readonly place: PlaceFacts;
 }
 
 /**
@@ -171,6 +235,8 @@ export async function findStorePlacesNear(input: {
   radiusMetres: number;
   limit: number;
   cursor?: string;
+  /** BCP 47 tag each place's `displayName` resolves against. */
+  locale?: string;
 }): Promise<{ items: StorePlaceNear[]; nextCursor: string | null }> {
   const client = goWayClient();
   if (client === null) throw new GoWayUnavailableError();
@@ -184,6 +250,7 @@ export async function findStorePlacesNear(input: {
       capabilities: [MERCARIA_STORE_CAPABILITY],
       limit: input.limit,
       ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+      ...(input.locale === undefined ? {} : { locale: input.locale }),
     });
   } catch (error) {
     throw listFailure(error, 'nearby');
@@ -194,10 +261,11 @@ export async function findStorePlacesNear(input: {
     if (place.status !== 'active') continue;
     // The projection is the one place the strongest-assertion rule is read, so
     // the list and the single-place read cannot disagree about it.
-    const link = placeFactsOf(place, '').storeLink;
+    const facts = placeFactsOf(place, client.links.place(place));
+    const link = facts.storeLink;
     if (link === undefined) continue;
     if (link.verification !== 'business_asserted' && link.verification !== 'oxy_verified') continue;
-    items.push({ placeId: place.id, locationId: link.locationId, distanceMetres: place.distanceMeters });
+    items.push({ placeId: place.id, locationId: link.locationId, distanceMetres: place.distanceMeters, place: facts });
   }
   return { items, nextCursor: page.nextCursor };
 }
@@ -280,6 +348,34 @@ async function askForPlace(
   }
 }
 
+/**
+ * Ask GoWay for up to {@link MAX_PLACE_BATCH_SIZE} places in one request.
+ * `null` means it could not answer; an id the answer does not account for is
+ * absent from the map, and the caller treats it the same way.
+ */
+async function askForPlaces(
+  client: GoWayClient,
+  placeIds: readonly string[],
+  locale: string | undefined,
+): Promise<ReadonlyMap<string, CachedPlaceOutcome> | null> {
+  try {
+    const batch = await client.places.getMany(placeIds, locale === undefined ? {} : { locale });
+    const outcomes = new Map<string, CachedPlaceOutcome>();
+    for (const place of batch.items) {
+      outcomes.set(place.id, { kind: 'found', place: placeFactsOf(place, client.links.place(place)) });
+    }
+    for (const gone of batch.gone) outcomes.set(gone.id, { kind: 'gone', mergedInto: gone.mergedInto ?? null });
+    for (const id of batch.missing) outcomes.set(id, { kind: 'not_found' });
+    return outcomes;
+  } catch (error) {
+    log.general.warn(
+      { code: isGoWayError(error) ? error.code : 'unexpected', ids: placeIds.length },
+      '[GoWay] a batch place read failed; serving last-good where there is one',
+    );
+    return null;
+  }
+}
+
 /** Map a list read's failure to the Mercaria error a route answers with. */
 function listFailure(error: unknown, read: 'nearby' | 'towns'): Error {
   if (error instanceof GoWayValidationError) {
@@ -288,6 +384,19 @@ function listFailure(error: unknown, read: 'nearby' | 'towns'): Error {
   // The CODE only — see the module docblock for why never the error itself.
   log.general.warn({ read, code: isGoWayError(error) ? error.code : 'unexpected' }, '[GoWay] a list read failed');
   return new GoWayUnavailableError();
+}
+
+/** Whether a cached entry may answer without asking GoWay. */
+function isFresh(cached: CachedPlace | null, now: number): cached is CachedPlace {
+  return cached !== null && now - cached.fetchedAt < config.goway.placeCacheTtlSeconds * 1_000;
+}
+
+/** What to answer when GoWay could not: a recent enough `found`, marked stale, or `unavailable`. */
+function lastGood(cached: CachedPlace | null, now: number): PlaceLookup {
+  if (cached && cached.outcome.kind === 'found' && now - cached.fetchedAt < config.goway.placeStaleTtlSeconds * 1_000) {
+    return fromCache(cached.outcome, true);
+  }
+  return { kind: 'unavailable' };
 }
 
 function fromCache(outcome: CachedPlaceOutcome, stale: boolean): PlaceLookup {

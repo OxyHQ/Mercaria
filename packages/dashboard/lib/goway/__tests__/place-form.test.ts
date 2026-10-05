@@ -72,6 +72,21 @@ describe('contactInputOf', () => {
     expect(contactInputOf({ phone: '', email: '', website: 'example.org' })).toMatchObject({ ok: false });
     expect(contactInputOf({ phone: '', email: 'not-an-email', website: '' })).toMatchObject({ ok: false });
   });
+
+  it('clears a field the merchant EMPTIED with null — PATCH is a merge patch — and leaves an empty one alone', () => {
+    const current = { phone: '+34 600 000 000', email: 'shop@example.org' };
+    expect(contactInputOf({ phone: '', email: 'shop@example.org', website: '' }, current)).toEqual({
+      ok: true,
+      contact: { phone: null, email: 'shop@example.org' },
+    });
+    // Nothing was there and nothing is: nothing to clear, nothing sent.
+    expect(contactInputOf({ phone: '', email: '', website: '' }, {})).toEqual({ ok: true, contact: {} });
+    // A whitespace-only draft is empty too.
+    expect(contactInputOf({ phone: '   ', email: '', website: '' }, current)).toEqual({
+      ok: true,
+      contact: { phone: null, email: null },
+    });
+  });
 });
 
 function capability(key: string, value: boolean | string): PlaceCapability {

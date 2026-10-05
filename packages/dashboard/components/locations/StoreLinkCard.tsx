@@ -16,8 +16,10 @@ import { EditorSection } from "./EditorSection";
  * written on the place in GoWay (ADR 0013).
  *
  * Written while the claim is pending it lands as a community report and proves
- * nothing; once the claim is approved, writing it again lands at
- * `business_asserted`, which is what Mercaria trusts. The button stays offered
+ * nothing yet. On approval GoWay re-tiers it to `business_asserted` — what
+ * Mercaria trusts — only when the person who FILED the claim wrote it, or a
+ * session acting as the store's account, after filing; a link anyone else
+ * wrote is written again once the claim is approved. The button stays offered
  * until it is verified for exactly that reason.
  */
 export function StoreLinkCard({ place, locationId }: { place: Place; locationId: string }) {

@@ -1353,7 +1353,7 @@
           "claim": "Revendication : %{state}",
           "mergeFollowed": "GoWay a fusionné ce lieu avec un autre ; l'emplacement pointe désormais vers le lieu qui le remplace.",
           "missingItem": "• %{reason}",
-          "pendingClaimHint": "Votre revendication attend l'approbation de GoWay. Une fois approuvée, liez à nouveau le lieu à cet emplacement.",
+          "pendingClaimHint": "Votre revendication attend l'approbation de GoWay. Un lien fait par la personne qui l'a déposée, ou par quelqu'un agissant en tant que compte de la boutique, est vérifié à l'approbation ; celui de toute autre personne doit être refait une fois la revendication approuvée.",
           "checkAgain": "Vérifier à nouveau"
         },
         "gaps": {
@@ -1412,7 +1412,7 @@
           "title": "Revendiquer le lieu",
           "description": "Une revendication indique à GoWay que votre boutique gère ce lieu. Elle est déposée au nom du compte Oxy propriétaire de la boutique, et GoWay l'examine avant que vous puissiez parler pour le lieu.",
           "unreadable": "Impossible de lire les revendications de votre compte. Seuls les propriétaires, administrateurs et éditeurs du compte peuvent les voir.",
-          "pendingNote": "GoWay examine les nouvelles revendications. Tant qu'il n'a pas approuvé celle-ci, ce que vous modifiez sur le lieu compte comme une suggestion.",
+          "pendingNote": "GoWay examine les nouvelles revendications. Tant qu'il n'a pas approuvé celle-ci, ce que vous modifiez sur le lieu compte comme une suggestion ; à l'approbation, ce qu'ont indiqué la personne qui l'a déposée ou le compte de la boutique devient celui de l'entreprise.",
           "file": "Revendiquer pour cette boutique",
           "filed": "Revendication envoyée à GoWay pour examen",
           "role": {
@@ -1439,7 +1439,7 @@
           },
           "assert": "Lier à cet emplacement",
           "asserted": "Enregistré sur GoWay",
-          "unverifiedNote": "Liez-le à nouveau une fois votre revendication approuvée, pour qu'il compte comme venant de l'entreprise."
+          "unverifiedNote": "À l'approbation, ce lien compte comme venant de l'entreprise s'il a été fait par la personne qui a déposé la revendication ou par quelqu'un agissant en tant que compte de la boutique. Sinon, liez-le à nouveau une fois la revendication approuvée."
         },
         "days": {
           "mon": "Lundi",
@@ -1487,7 +1487,7 @@
           "phone": "Téléphone",
           "email": "E-mail",
           "website": "Site web",
-          "hint": "GoWay n'efface jamais une information laissée vide ; remplacez-la plutôt par une nouvelle valeur.",
+          "hint": "Videz un champ et enregistrez pour le retirer du lieu.",
           "save": "Enregistrer le contact",
           "saved": "Contact enregistré sur GoWay",
           "websiteInvalid": "Le site web doit commencer par http:// ou https://",

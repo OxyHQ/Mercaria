@@ -80,16 +80,24 @@ export function useGoWaySearch(query: string) {
 }
 
 /**
- * The claims the store's owning Oxy account holds, on every place. Readable by
- * whoever GoWay lets act for the account — its owner, admins and editors.
+ * The claims the store's owning Oxy account holds on ONE place, every state —
+ * `GET /claims?oxyAccountId=&placeId=`, so a store with many locations never
+ * pages through every claim it holds to find this one. Readable by whoever
+ * GoWay lets act for the account — its owner, admins and editors.
  */
-export function useAccountClaims(oxyAccountId: string | undefined) {
+export function usePlaceClaims(oxyAccountId: string | undefined, placeId: string | undefined) {
   const client = useGoWayClient();
   return useQuery<PlaceClaim[]>({
-    queryKey: queryKeys.goway.accountClaims(oxyAccountId ?? ""),
+    queryKey: queryKeys.goway.placeClaims(oxyAccountId ?? "", placeId ?? ""),
     queryFn: async () =>
-      (await client.claims.list({ oxyAccountId: oxyAccountId ?? "", limit: MAX_CLAIM_LIST_LIMIT })).items,
-    enabled: Boolean(oxyAccountId),
+      (
+        await client.claims.list({
+          oxyAccountId: oxyAccountId ?? "",
+          placeId: placeId ?? "",
+          limit: MAX_CLAIM_LIST_LIMIT,
+        })
+      ).items,
+    enabled: Boolean(oxyAccountId) && Boolean(placeId),
     retry: false,
   });
 }
@@ -151,8 +159,11 @@ export function useApplyCapabilityOperations(placeId: string) {
 
 /**
  * Say, on the place, which Mercaria location it is: `commerce.mercaria.store`
- * = the location id. At `business_asserted` only once the store's claim is
+ * = the location id. At `business_asserted` once the store's claim is
  * approved — which is what makes the link something Mercaria can trust.
+ * Written while the claim is pending it lands at `community_reported`, and
+ * GoWay re-tiers it on approval only if the claim's FILER wrote it, or a
+ * session acting as the store's account; anyone else writes it again then.
  */
 export function useAssertStoreLink(placeId: string) {
   const client = useGoWayClient();

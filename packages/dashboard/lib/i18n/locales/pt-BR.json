@@ -1353,7 +1353,7 @@
           "claim": "Reivindicação: %{state}",
           "mergeFollowed": "O GoWay mesclou este lugar com outro; o local agora aponta para o lugar que o substituiu.",
           "missingItem": "• %{reason}",
-          "pendingClaimHint": "Sua reivindicação aguarda a aprovação do GoWay. Depois de aprovada, vincule o lugar a este local novamente.",
+          "pendingClaimHint": "Sua reivindicação aguarda a aprovação do GoWay. Um vínculo feito por quem a enviou, ou por alguém agindo como a conta da loja, é verificado na aprovação; o de qualquer outra pessoa precisa ser refeito depois que ela for aprovada.",
           "checkAgain": "Verificar de novo"
         },
         "gaps": {
@@ -1412,7 +1412,7 @@
           "title": "Reivindicar o lugar",
           "description": "Uma reivindicação informa ao GoWay que sua loja administra este lugar. Ela é feita em nome da conta Oxy dona da loja, e o GoWay a analisa antes que você possa falar pelo lugar.",
           "unreadable": "Não foi possível ler as reivindicações da sua conta. Só proprietários, administradores e editores da conta podem vê-las.",
-          "pendingNote": "O GoWay analisa as novas reivindicações. Até aprovar esta, o que você muda no lugar conta como sugestão.",
+          "pendingNote": "O GoWay analisa as novas reivindicações. Até aprovar esta, o que você muda no lugar conta como sugestão; na aprovação, o que quem a enviou ou a conta da loja informou passa a ser da própria empresa.",
           "file": "Reivindicar para esta loja",
           "filed": "Reivindicação enviada ao GoWay para análise",
           "role": {
@@ -1439,7 +1439,7 @@
           },
           "assert": "Vincular a este local",
           "asserted": "Salvo no GoWay",
-          "unverifiedNote": "Vincule de novo quando sua reivindicação for aprovada, para que conte como da própria empresa."
+          "unverifiedNote": "Na aprovação, este vínculo conta como da própria empresa se foi feito por quem enviou a reivindicação ou por alguém agindo como a conta da loja. Se outra pessoa o fez, vincule de novo depois que ela for aprovada."
         },
         "days": {
           "mon": "Segunda-feira",
@@ -1487,7 +1487,7 @@
           "phone": "Telefone",
           "email": "E-mail",
           "website": "Site",
-          "hint": "O GoWay nunca apaga um dado deixado em branco; troque-o por um valor novo.",
+          "hint": "Esvazie um campo e salve para removê-lo do lugar.",
           "save": "Salvar contato",
           "saved": "Contato salvo no GoWay",
           "websiteInvalid": "O site deve começar com http:// ou https://",

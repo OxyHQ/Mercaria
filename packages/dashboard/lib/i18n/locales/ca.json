@@ -1353,7 +1353,7 @@
           "claim": "Reclamació: %{state}",
           "mergeFollowed": "GoWay ha fusionat aquest lloc amb un altre; la ubicació ara apunta al lloc que el substitueix.",
           "missingItem": "• %{reason}",
-          "pendingClaimHint": "La teva reclamació espera l'aprovació de GoWay. Quan s'aprovi, torna a vincular el lloc amb aquesta ubicació.",
+          "pendingClaimHint": "La teva reclamació espera l'aprovació de GoWay. Un vincle fet per qui la va presentar, o per algú que actua com el compte de la botiga, es verifica en aprovar-se; el de qualsevol altra persona s'ha de tornar a fer quan s'aprovi.",
           "checkAgain": "Torna a comprovar"
         },
         "gaps": {
@@ -1412,7 +1412,7 @@
           "title": "Reclama el lloc",
           "description": "Una reclamació diu a GoWay que la teva botiga gestiona aquest lloc. Es presenta en nom del compte d'Oxy propietari de la botiga, i GoWay la revisa abans que puguis parlar pel lloc.",
           "unreadable": "No s'han pogut llegir les reclamacions del teu compte. Només les veuen els propietaris, administradors i editors del compte.",
-          "pendingNote": "GoWay revisa les reclamacions noves. Fins que no aprovi aquesta, el que canviïs al lloc compta com un suggeriment.",
+          "pendingNote": "GoWay revisa les reclamacions noves. Fins que no aprovi aquesta, el que canviïs al lloc compta com un suggeriment; en aprovar-se, el que van dir qui la va presentar o el compte de la botiga passa a ser del mateix negoci.",
           "file": "Reclama per a aquesta botiga",
           "filed": "Reclamació enviada a GoWay per revisar",
           "role": {
@@ -1439,7 +1439,7 @@
           },
           "assert": "Vincula amb aquesta ubicació",
           "asserted": "Desat a GoWay",
-          "unverifiedNote": "Torna'l a vincular quan s'aprovi la teva reclamació, perquè compti com del mateix negoci."
+          "unverifiedNote": "En aprovar-se la reclamació, aquest vincle compta com del mateix negoci si el va fer qui la va presentar o algú que actua com el compte de la botiga. Si el va fer una altra persona, torna'l a vincular quan s'aprovi."
         },
         "days": {
           "mon": "Dilluns",
@@ -1487,7 +1487,7 @@
           "phone": "Telèfon",
           "email": "Correu electrònic",
           "website": "Lloc web",
-          "hint": "GoWay mai no esborra una dada perquè la deixis buida; canvia-la per un valor nou.",
+          "hint": "Buida un camp i desa per treure'l del lloc.",
           "save": "Desa el contacte",
           "saved": "Contacte desat a GoWay",
           "websiteInvalid": "El lloc web ha de començar per http:// o https://",

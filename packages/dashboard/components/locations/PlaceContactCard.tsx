@@ -18,7 +18,7 @@ export function PlaceContactCard({ place }: { place: Place }) {
   const [draft, setDraft] = useState<ContactDraft>(() => contactDraftOf(place.contact));
 
   const save = () => {
-    const built = contactInputOf(draft);
+    const built = contactInputOf(draft, place.contact);
     if (!built.ok) {
       toast.error(t(built.errorKey));
       return;

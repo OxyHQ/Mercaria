@@ -135,14 +135,21 @@ export function contactDraftOf(contact: PlaceContact | undefined): ContactDraft 
   return { phone: contact?.phone ?? "", email: contact?.email ?? "", website: contact?.website ?? "" };
 }
 
+/** The `contact` part of a GoWay merge patch: absent leaves a part alone, `null` clears it. */
+export type ContactPatch = { phone?: string | null; email?: string | null; website?: string | null };
+
 /**
- * The `contact` update a draft says. A cleared field is simply not sent: GoWay
- * never destructively overwrites a fact, so emptying a field cannot erase it —
- * which the editor says beside the fields.
+ * The `contact` update a draft says, as a merge patch (`PATCH /places/{id}`).
+ *
+ * A filled field is sent; a field the merchant EMPTIED — the place has a value
+ * and the draft no longer does — is sent as `null`, which clears it on GoWay; a
+ * field that was empty and still is, is not sent at all. The editor says
+ * beside the fields that emptying one removes it.
  */
 export function contactInputOf(
   draft: ContactDraft,
-): { ok: true; contact: { phone?: string; email?: string; website?: string } } | { ok: false; errorKey: string } {
+  current?: PlaceContact,
+): { ok: true; contact: ContactPatch } | { ok: false; errorKey: string } {
   const website = nonEmpty(draft.website);
   if (website !== undefined && !/^https?:\/\//i.test(website)) {
     return { ok: false, errorKey: "settings.locations.editor.contact.websiteInvalid" };
@@ -152,13 +159,16 @@ export function contactInputOf(
     return { ok: false, errorKey: "settings.locations.editor.contact.emailInvalid" };
   }
   const phone = nonEmpty(draft.phone);
+  const part = (key: keyof ContactDraft, value: string | undefined): ContactPatch => {
+    const patch: ContactPatch = {};
+    const held = current?.[key];
+    if (value !== undefined) patch[key] = value;
+    else if (typeof held === "string" && held.trim() !== "") patch[key] = null;
+    return patch;
+  };
   return {
     ok: true,
-    contact: {
-      ...(phone === undefined ? {} : { phone }),
-      ...(email === undefined ? {} : { email }),
-      ...(website === undefined ? {} : { website }),
-    },
+    contact: { ...part("phone", phone), ...part("email", email), ...part("website", website) },
   };
 }
 

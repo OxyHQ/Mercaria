@@ -1335,7 +1335,7 @@
           "claim": "Claim: %{state}",
           "mergeFollowed": "GoWay merged this place into another one; the location now points at the place that replaced it.",
           "missingItem": "• %{reason}",
-          "pendingClaimHint": "Your claim is waiting for GoWay to approve it. Once it is approved, link the place to this location again.",
+          "pendingClaimHint": "Your claim is waiting for GoWay to approve it. A link made by the person who filed it, or by someone acting as the store's account, is verified on approval; anyone else's has to be made again once the claim is approved.",
           "checkAgain": "Check again"
         },
         "gaps": {
@@ -1394,7 +1394,7 @@
           "title": "Claim the place",
           "description": "A claim tells GoWay your store runs this place. It is filed for the Oxy account that owns the store, and GoWay reviews it before you can speak for the place.",
           "unreadable": "Couldn't read your account's claims. Only owners, admins and editors of the account can see them.",
-          "pendingNote": "GoWay reviews new claims. Until it approves this one, what you change on the place counts as a suggestion.",
+          "pendingNote": "GoWay reviews new claims. Until it approves this one, what you change on the place counts as a suggestion; on approval, what the person who filed it or the store's account said becomes the business's own.",
           "file": "Claim for this store",
           "filed": "Claim sent to GoWay for review",
           "role": {
@@ -1421,7 +1421,7 @@
           },
           "assert": "Link to this location",
           "asserted": "Saved on GoWay",
-          "unverifiedNote": "Link it again once your claim is approved, so it counts as the business's own."
+          "unverifiedNote": "On approval, this link counts as the business's own if the person who filed the claim made it, or someone acting as the store's account. If anyone else made it, link it again after the claim is approved."
         },
         "days": {
           "mon": "Monday",
@@ -1469,7 +1469,7 @@
           "phone": "Phone",
           "email": "Email",
           "website": "Website",
-          "hint": "GoWay never erases a detail by leaving it empty; change it to a new value instead.",
+          "hint": "Empty a field and save to remove it from the place.",
           "save": "Save contact",
           "saved": "Contact saved on GoWay",
           "websiteInvalid": "The website must start with http:// or https://",

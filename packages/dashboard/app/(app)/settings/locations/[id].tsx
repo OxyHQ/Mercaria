@@ -20,7 +20,7 @@ import { PlaceLinkStatusCard } from "@/components/locations/PlaceLinkStatusCard"
 import { PlacePickerCard } from "@/components/locations/PlacePickerCard";
 import { PublicationCard } from "@/components/locations/PublicationCard";
 import { StoreLinkCard } from "@/components/locations/StoreLinkCard";
-import { useAccountClaims, useGoWayPlace, useGoWayPlaceUrl } from "@/lib/goway/hooks";
+import { useGoWayPlace, useGoWayPlaceUrl, usePlaceClaims } from "@/lib/goway/hooks";
 import { goWayErrorKey } from "@/lib/goway/errors";
 import { claimOnPlace } from "@/lib/goway/place-link";
 import { useLocationPublication } from "@/lib/hooks/use-location-publication";
@@ -79,7 +79,7 @@ function LocationEditorBody({ storeId, locationId }: { storeId: string; location
   const placeId = chosenPlaceId ?? location?.goWayPlaceId;
   const place = useGoWayPlace(placeId);
   const placeUrl = useGoWayPlaceUrl(placeId);
-  const claims = useAccountClaims(store?.oxyAccountId);
+  const claims = usePlaceClaims(store?.oxyAccountId, placeId);
   const claim = placeId === undefined ? undefined : claimOnPlace(claims.data ?? [], placeId);
 
   const back = (

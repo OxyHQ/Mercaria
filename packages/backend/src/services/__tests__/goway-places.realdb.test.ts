@@ -238,6 +238,12 @@ function placeFor(locationId: string | null, overrides: Partial<FakePlace> & { i
   };
 }
 
+/** A calendar date in Europe/Madrid, `offsetDays` from today. */
+function madridDate(offsetDays: number): string {
+  const day = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(day);
+}
+
 async function placeIdOf(locationId: string): Promise<string | null> {
   const [row] = await db
     .select({ goWayPlaceId: locations.goWayPlaceId })
@@ -490,6 +496,25 @@ describe('nearby availability, GoWay places × Mercaria stock', () => {
     expect(near.approximateMetres).toBeGreaterThan(1_500);
     expect(near.approximateMetres).toBeLessThan(2_600);
     expect(near.distanceBand).toBe('under_5km');
+  });
+
+  it('reads each place ONCE: the nearby list carries hours exceptions, so no per-place read follows', async () => {
+    goway.places.set(
+      `place-near-${RUN}`,
+      placeFor(nearId, {
+        id: `place-near-${RUN}`,
+        // Yesterday to tomorrow in the place's calendar: closed NOW, open again
+        // within the discoverability horizon.
+        hoursExceptions: [{ startsOn: madridDate(-1), endsOn: madridDate(1), closed: true, note: 'Refit' }],
+      }),
+    );
+    const page = await ask({ locale: 'ca' });
+    expect(goway.requests).toHaveLength(1);
+    expect(goway.requests[0]).toContain('/places/nearby');
+    expect(goway.requests[0]).toContain('locale=ca');
+    const near = page.results.find((result) => result.location.locationId === nearId);
+    // Closed by the exception the LIST carried — what a second read used to be for.
+    expect(near?.location.openState).toMatchObject({ known: true, open: false, exceptionNote: 'Refit' });
   });
 
   it('omits a place only the community vouches for, and one GoWay merged until verify follows it', async () => {

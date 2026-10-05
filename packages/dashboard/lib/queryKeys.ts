@@ -93,7 +93,9 @@ export const queryKeys = {
   goway: {
     place: (placeId: string, locale: string) => ["goway", "place", placeId, locale] as const,
     search: (query: string, locale: string) => ["goway", "search", query, locale] as const,
+    /** Every claim query of one account — the prefix a new claim invalidates. */
     accountClaims: (oxyAccountId: string) => ["goway", "claims", oxyAccountId] as const,
+    placeClaims: (oxyAccountId: string, placeId: string) => ["goway", "claims", oxyAccountId, placeId] as const,
     hoursExceptions: (placeId: string) => ["goway", "place", placeId, "hours-exceptions"] as const,
   },
   channels: (storeId: string) => ["stores", storeId, "channels"] as const,

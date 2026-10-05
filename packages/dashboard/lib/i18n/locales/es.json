@@ -1353,7 +1353,7 @@
           "claim": "Reclamación: %{state}",
           "mergeFollowed": "GoWay ha fusionado este lugar con otro; la ubicación apunta ahora al lugar que lo sustituye.",
           "missingItem": "• %{reason}",
-          "pendingClaimHint": "Tu reclamación espera la aprobación de GoWay. Cuando se apruebe, vuelve a vincular el lugar con esta ubicación.",
+          "pendingClaimHint": "Tu reclamación espera la aprobación de GoWay. Un vínculo hecho por quien la presentó, o por alguien que actúa como la cuenta de la tienda, se verifica al aprobarse; el de cualquier otra persona hay que volver a hacerlo cuando se apruebe.",
           "checkAgain": "Volver a comprobar"
         },
         "gaps": {
@@ -1412,7 +1412,7 @@
           "title": "Reclamar el lugar",
           "description": "Una reclamación le dice a GoWay que tu tienda gestiona este lugar. Se presenta a nombre de la cuenta de Oxy propietaria de la tienda, y GoWay la revisa antes de que puedas hablar por el lugar.",
           "unreadable": "No se han podido leer las reclamaciones de tu cuenta. Solo las ven los propietarios, administradores y editores de la cuenta.",
-          "pendingNote": "GoWay revisa las reclamaciones nuevas. Hasta que apruebe esta, lo que cambies en el lugar cuenta como una sugerencia.",
+          "pendingNote": "GoWay revisa las reclamaciones nuevas. Hasta que apruebe esta, lo que cambies en el lugar cuenta como una sugerencia; al aprobarse, lo que dijeron quien la presentó o la cuenta de la tienda pasa a ser del propio negocio.",
           "file": "Reclamar para esta tienda",
           "filed": "Reclamación enviada a GoWay para su revisión",
           "role": {
@@ -1439,7 +1439,7 @@
           },
           "assert": "Vincular con esta ubicación",
           "asserted": "Guardado en GoWay",
-          "unverifiedNote": "Vuelve a vincularlo cuando se apruebe tu reclamación, para que cuente como del propio negocio."
+          "unverifiedNote": "Al aprobarse la reclamación, este vínculo cuenta como del propio negocio si lo hizo quien la presentó o alguien que actúa como la cuenta de la tienda. Si lo hizo otra persona, vuelve a vincularlo cuando se apruebe."
         },
         "days": {
           "mon": "Lunes",
@@ -1487,7 +1487,7 @@
           "phone": "Teléfono",
           "email": "Correo electrónico",
           "website": "Sitio web",
-          "hint": "GoWay nunca borra un dato por dejarlo vacío; cámbialo por un valor nuevo.",
+          "hint": "Vacía un campo y guarda para quitarlo del lugar.",
           "save": "Guardar contacto",
           "saved": "Contacto guardado en GoWay",
           "websiteInvalid": "El sitio web debe empezar por http:// o https://",
