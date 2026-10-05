@@ -44,7 +44,7 @@ export interface PickupConsistencyReport {
    * feedback loop in the domain.
    *
    * `changePublicationState` refuses to publish without a verified place, and
-   * `0161` withdrew every publication that had none, so a row here is one the
+   * `0162` withdrew every publication that had none, so a row here is one the
    * database was edited into. The rule's GoWay half — does the place still
    * name the location back — is derived on every read and is not a probe:
    * it would cost a GoWay read per published location.

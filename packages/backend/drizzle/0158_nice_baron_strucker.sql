@@ -9,7 +9,7 @@
 -- touches — read off the generated half: no DROP of any kind, and the only
 -- ALTER on an existing table adds a nullable column.
 --
--- `stores.oxy_account_id` is NULLABLE here and goes NOT NULL in `0159` (post).
+-- `stores.oxy_account_id` is NULLABLE here and goes NOT NULL in `0161` (post).
 -- The image still serving while this applies creates stores through
 -- `store_members` and knows nothing of the column, so a NOT NULL here would
 -- fail its every store creation for the length of the rollout.
@@ -20,14 +20,14 @@
 -- account is its EARLIEST owner's PERSONAL account — the id spaces are one
 -- (an Oxy organization and a person are both `users` rows), so this is a copy,
 -- not a lookup. `oxy_user_id` breaks a `joined_at` tie so a rerun picks the same
--- account. `0159` reruns the same statement after the rollout, for the stores
+-- account. `0161` reruns the same statement after the rollout, for the stores
 -- the previous image created while this one was being deployed.
 --
 -- A regeneration drops the block AND the two marker lines at the top; re-add
 -- both and confirm
 --
---   grep -cE '^-- oxy:(deploy-phase|rollback)=' drizzle/0158_careful_shiva.sql   -> 2
---   grep -cE '^-- oxy:handwritten-(begin|end)=' drizzle/0158_careful_shiva.sql   -> 2
+--   grep -cE '^-- oxy:(deploy-phase|rollback)=' drizzle/0158_nice_baron_strucker.sql   -> 2
+--   grep -cE '^-- oxy:handwritten-(begin|end)=' drizzle/0158_nice_baron_strucker.sql   -> 2
 CREATE TABLE "store_permission_overrides" (
 	"id" text PRIMARY KEY NOT NULL,
 	"store_id" text NOT NULL,

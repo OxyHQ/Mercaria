@@ -12,7 +12,7 @@
  *    a hook cannot be bypassed by `updateOne`, by the backfill, or by `psql`.
  *
  * A listing has NO position. The Mongo `2dsphere` point the port carried over
- * (`longitude`/`latitude` plus a generated `geography`) was dropped by `0161`:
+ * (`longitude`/`latitude` plus a generated `geography`) was dropped by `0162`:
  * a store sells from its locations, whose place is GoWay's (ADR 0013), and a
  * P2P seller's area is `listing_local_discovery`'s coarse cell, which cannot
  * hold a precise point at all.

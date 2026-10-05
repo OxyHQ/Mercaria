@@ -31,7 +31,7 @@ export const REQUIRED_EXTENSIONS: readonly RequiredExtension[] = [
     name: 'postgis',
     reason:
       'The migration chain names `geography` columns (listings from 0000, location ' +
-      'publications from 0076) that 0161 later dropped when place facts moved to GoWay ' +
+      'publications from 0076) that 0162 later dropped when place facts moved to GoWay ' +
       '(ADR 0013), so a FRESH database replaying the chain needs the type. Nothing ' +
       'reads PostGIS at runtime any more.',
   },

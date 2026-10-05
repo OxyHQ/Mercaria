@@ -19,16 +19,27 @@
 -- One anchored block, appended below the generated statement. A publication was
 -- published when its append-only trail says it entered or left `published`
 -- (`location_publication_events.next_state` / `previous_state`, which every
--- state change and `0161`'s withdrawal recorded); the earliest such instant is
--- its first publication. A publication published now with no such entry — a
--- row written outside the service — takes its `updated_at`, the latest instant
--- it can have been published by. Every other row stays NULL: never published.
+-- state change recorded); the earliest such instant is its first publication.
+-- A publication published now with no such entry — a row written outside the
+-- service — takes its `updated_at`, the latest instant it can have been
+-- published by. Every other row stays NULL: never published.
+--
+-- ## It runs BEFORE `0162` withdraws anything
+--
+-- `0158`, `0159` and this file are the release's `pre` phase; `0161` and
+-- `0162` its `post` phase. So this backfill reads every publication as the
+-- previous image left it, before `0162` withdraws a published location that
+-- names no GoWay place: each one it withdraws already carries the
+-- `published_at` this computed, and so answers 410, not 404. `0162` re-runs
+-- this statement first, verbatim, for the publications the previous image
+-- published while the rollout was under way — the same reason `0161` re-runs
+-- `0158`'s backfill.
 --
 -- A regeneration drops the block AND the two marker lines at the top; re-add
 -- both and confirm
 --
---   grep -cE '^-- oxy:(deploy-phase|rollback)=' drizzle/0162_peaceful_betty_brant.sql   -> 2
---   grep -cE '^-- oxy:handwritten-(begin|end)=' drizzle/0162_peaceful_betty_brant.sql   -> 2
+--   grep -cE '^-- oxy:(deploy-phase|rollback)=' drizzle/0160_sad_nova.sql   -> 2
+--   grep -cE '^-- oxy:handwritten-(begin|end)=' drizzle/0160_sad_nova.sql   -> 2
 ALTER TABLE "location_publications" ADD COLUMN "published_at" timestamp with time zone;--> statement-breakpoint
 -- oxy:handwritten-begin=location_publications_published_at_backfill
 UPDATE "location_publications" AS p

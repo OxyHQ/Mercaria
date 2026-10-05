@@ -584,7 +584,7 @@ plausible point in the wrong hemisphere. Generating the point makes divergence
 unrepresentable and states the `(longitude, latitude)` order in ONE place. NAMED
 coordinate columns are the other half of the same fix.
 
-(No such column remains: `0161` dropped `listings.geo` and
+(No such column remains: `0162` dropped `listings.geo` and
 `location_publications.geo_point` when place facts moved to GoWay, ADR 0013.
 The rule stands for the next one.)
 
@@ -744,7 +744,7 @@ and a column whose shape looks arbitrary is usually answered here.
 
 | Mongoose model | Table(s) |
 |---|---|
-| `Store` | `stores` (+ `store_members`, dropped by `0159` — ADR 0012; see "Store ownership is an Oxy account") |
+| `Store` | `stores` (+ `store_members`, dropped by `0161` — ADR 0012; see "Store ownership is an Oxy account") |
 | `Location` | `locations` |
 | `TaxRate` | `tax_rates` |
 | `Customer` | `customers` |
@@ -3740,7 +3740,7 @@ block with the regeneration check in the file header.
 
 ## Store ownership is an Oxy account (ADR 0012)
 
-Two migrations, `0158` (pre) and `0159` (post), and the decisions behind their
+Two migrations, `0158` (pre) and `0161` (post), and the decisions behind their
 columns.
 
 ### `stores.oxy_account_id` is NOT NULL and carries no foreign key
@@ -3749,7 +3749,7 @@ The account that owns the store is a foreign service's primary key (the fact
 that shapes everything), and a store with no owning account is a store nobody
 can ever reach — `loadStore` would refuse every request naming it. NOT NULL is
 what makes that unrepresentable. It is NULLABLE in `0158` only because the image
-serving during the rollout creates stores without it; `0159` backfills what that
+serving during the rollout creates stores without it; `0161` backfills what that
 image created and then narrows. `stores_oxy_account_id_idx` serves the one hot
 read: `oxy_account_id = any(<the accounts Oxy lists for the caller>)`.
 
@@ -3768,12 +3768,12 @@ read: `oxy_account_id = any(<the accounts Oxy lists for the caller>)`.
   the key `loadStore` reads.
 - **`updated_by_oxy_user_id` is nullable**: the human actor
   (`getOxyActor().actorAccountId`) when Oxy reported one, recorded as unknown
-  rather than guessed when it did not, and NULL on every row `0159` carried over
+  rather than guessed when it did not, and NULL on every row `0161` carried over
   from `store_members`.
 - **`ON DELETE CASCADE` from `stores`** — an exception means nothing without the
   store it adjusts.
 
-### What `0159` copied, and what it could not
+### What `0161` copied, and what it could not
 
 The non-default grants of every member who is not the owning account, measured
 against the RETIRED role matrix frozen in the migration as literals. A member
@@ -3855,7 +3855,7 @@ Listed so a 23503 is recognised rather than rediscovered.
 - **New constraints Mongo could not state**, each of which a half-finished
   service path could previously violate: at most one default `location` per
   store; at most one default `address` per user; one `store_members` row per
-  (store, user) — the table itself was dropped by `0159` (ADR 0012), and its
+  (store, user) — the table itself was dropped by `0161` (ADR 0012), and its
   successor `store_permission_overrides` keeps the same one-per-pair key; one `cart_items` line per (cart, variant); a `completed`
   `draft_order` has a converted order and a non-completed one does not; a
   `discounts` window that ends before it starts is refused.
@@ -4033,7 +4033,7 @@ mechanised yet. What was checked, and what each check is actually worth:
   NEITHER row, which must match
   nothing. A single positive query cannot tell a working index from one that
   matches everything, and the first draft of this check did exactly that;
-- (until `0161`) the `geography` generated column populated from
+- (until `0162`) the `geography` generated column populated from
   `longitude`/`latitude` and ordered by TRUE distance — Barcelona → Madrid
   measured 507 km, against the real 505 km. The column is gone (ADR 0013: a
   listing has no position), and the case with it;
@@ -5176,7 +5176,7 @@ P2P listing. Reference: `docs/sell-yours.md`.
   variant identity and "matched the model, not the configuration" is real.
 - **A draft carries no location.** It used to hold a coarsened coordinate that
   publication copied onto `listings.longitude`/`latitude`, a second P2P
-  position model beside `listing_local_discovery`'s cell; `0161` dropped both
+  position model beside `listing_local_discovery`'s cell; `0162` dropped both
   (ADR 0013). A seller opts a PUBLISHED listing into local results, with an
   area, through the cell — which cannot hold a precise point at all.
 - **`included_accessories` is a `text[]`; what is MISSING is not here.** A
@@ -5523,7 +5523,7 @@ reference: `docs/pickup.md`.
 - **A location's place facts are NOT Mercaria columns (ADR 0013).** Name,
   address, position, timezone, hours and exceptions, contact and accessibility
   live on the GoWay place `locations.go_way_place_id` names, read through
-  `services/goway/`. `0161` dropped the copies a publication carried and the
+  `services/goway/`. `0162` dropped the copies a publication carried and the
   two tables that copied the schedule (`location_opening_hours`,
   `location_closures`), and the generated PostGIS point with them. The one
   copy kept is `order_pickups`' frozen snapshot, which is history.
@@ -5563,7 +5563,7 @@ reference: `docs/pickup.md`.
   hottest read in the domain (a counter scanning today's collections) and a
   snapshot with no state is not a thing anything reads. The trigger freezes the
   fourteen copied columns and leaves `state` and its four instants free, because
-  moving those is the whole point. `0160` added `go_way_place_id` — the place
+  moving those is the whole point. `0159` added `go_way_place_id` — the place
   the snapshot was read from — to the freeze.
 - **The address on `order_pickups` is read from the GoWay PLACE, never from
   `locations`.** A buyer's order carries only what the place already publishes,
@@ -5603,7 +5603,7 @@ reference: `docs/pickup.md`.
   is one indexed predicate and a query for it cannot widen to a sibling's orders
   by forgetting a join condition (#93 merchant rule 5).
 - **`location_publication_events` records a place-link change as the GoWay ids
-  it moved FROM and TO** (`previous_`/`next_go_way_place_id`). `0161` dropped
+  it moved FROM and TO** (`previous_`/`next_go_way_place_id`). `0162` dropped
   the coordinate pair it used to carry: where the place itself moved is GoWay's
   own history (`place_revisions`).
 - **`location_publication_events.kind` has NO CHECK, deliberately.** The trail is

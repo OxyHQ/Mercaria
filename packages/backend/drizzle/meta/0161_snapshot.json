@@ -1,6 +1,6 @@
 {
-  "id": "b1543462-598d-4a9c-a478-bdcfa074952f",
-  "prevId": "c05facb5-77cb-4a9a-86f3-7a52794e907c",
+  "id": "c72e5ffc-ae2c-4114-bc02-e19ea709c391",
+  "prevId": "c1d5145e-b5e8-4d19-b575-c33cb86554cf",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2865,6 +2865,28 @@
           "notNull": true,
           "default": 0
         },
+        "longitude": {
+          "name": "longitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "geo": {
+          "name": "geo",
+          "type": "geography",
+          "primaryKey": false,
+          "notNull": false,
+          "generated": {
+            "as": "case when \"listings\".\"longitude\" is null or \"listings\".\"latitude\" is null then null\n             else st_makepoint(\"listings\".\"longitude\", \"listings\".\"latitude\")::geography end",
+            "type": "stored"
+          }
+        },
         "vendor": {
           "name": "vendor",
           "type": "text",
@@ -3228,6 +3250,21 @@
           "method": "gin",
           "with": {}
         },
+        "listings_geo_idx": {
+          "name": "listings_geo_idx",
+          "columns": [
+            {
+              "expression": "geo",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
+          "with": {}
+        },
         "listings_store_id_vendor_idx": {
           "name": "listings_store_id_vendor_idx",
           "columns": [
@@ -3446,6 +3483,10 @@
         "listings_owner_exclusivity_check": {
           "name": "listings_owner_exclusivity_check",
           "value": "(\"listings\".\"owner_type\" = 'user' and \"listings\".\"oxy_user_id\" is not null and \"listings\".\"store_id\" is null)\n          or (\"listings\".\"owner_type\" = 'store' and \"listings\".\"store_id\" is not null and \"listings\".\"oxy_user_id\" is null)"
+        },
+        "listings_coordinates_check": {
+          "name": "listings_coordinates_check",
+          "value": "(\"listings\".\"longitude\" is null) = (\"listings\".\"latitude\" is null)"
         }
       },
       "isRLSEnabled": false
@@ -80633,6 +80674,25 @@
           "notNull": true,
           "default": "'not_offered'"
         },
+        "location_opt_in": {
+          "name": "location_opt_in",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "location_longitude": {
+          "name": "location_longitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location_latitude": {
+          "name": "location_latitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
         "published_listing_id": {
           "name": "published_listing_id",
           "type": "text",
@@ -80881,6 +80941,14 @@
         "seller_listing_drafts_price_paired_check": {
           "name": "seller_listing_drafts_price_paired_check",
           "value": "(\"seller_listing_drafts\".\"price_amount\" is null) = (\"seller_listing_drafts\".\"price_currency\" is null)"
+        },
+        "seller_listing_drafts_coordinates_check": {
+          "name": "seller_listing_drafts_coordinates_check",
+          "value": "(\"seller_listing_drafts\".\"location_longitude\" is null) = (\"seller_listing_drafts\".\"location_latitude\" is null)"
+        },
+        "seller_listing_drafts_location_opt_in_check": {
+          "name": "seller_listing_drafts_location_opt_in_check",
+          "value": "\"seller_listing_drafts\".\"location_opt_in\" or (\"seller_listing_drafts\".\"location_longitude\" is null and \"seller_listing_drafts\".\"location_latitude\" is null)"
         },
         "seller_listing_drafts_published_check": {
           "name": "seller_listing_drafts_published_check",
@@ -84579,6 +84647,227 @@
       },
       "isRLSEnabled": false
     },
+    "public.location_closures": {
+      "name": "location_closures",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "publication_id": {
+          "name": "publication_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_date": {
+          "name": "from_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "through_date": {
+          "name": "through_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        }
+      },
+      "indexes": {
+        "location_closures_publication_id_through_idx": {
+          "name": "location_closures_publication_id_through_idx",
+          "columns": [
+            {
+              "expression": "publication_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "through_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "location_closures_publication_id_location_publications_id_fk": {
+          "name": "location_closures_publication_id_location_publications_id_fk",
+          "tableFrom": "location_closures",
+          "tableTo": "location_publications",
+          "columnsFrom": [
+            "publication_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "location_closures_range_check": {
+          "name": "location_closures_range_check",
+          "value": "\"location_closures\".\"from_date\" <= \"location_closures\".\"through_date\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.location_opening_hours": {
+      "name": "location_opening_hours",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "publication_id": {
+          "name": "publication_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "weekday": {
+          "name": "weekday",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opens_minute": {
+          "name": "opens_minute",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "closes_minute": {
+          "name": "closes_minute",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        }
+      },
+      "indexes": {
+        "location_opening_hours_publication_weekday_opens_key": {
+          "name": "location_opening_hours_publication_weekday_opens_key",
+          "columns": [
+            {
+              "expression": "publication_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "weekday",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "opens_minute",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "location_opening_hours_publication_id_idx": {
+          "name": "location_opening_hours_publication_id_idx",
+          "columns": [
+            {
+              "expression": "publication_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "location_opening_hours_publication_id_location_publications_id_fk": {
+          "name": "location_opening_hours_publication_id_location_publications_id_fk",
+          "tableFrom": "location_opening_hours",
+          "tableTo": "location_publications",
+          "columnsFrom": [
+            "publication_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "location_opening_hours_weekday_check": {
+          "name": "location_opening_hours_weekday_check",
+          "value": "\"location_opening_hours\".\"weekday\" between 0 and 6"
+        },
+        "location_opening_hours_range_check": {
+          "name": "location_opening_hours_range_check",
+          "value": "\"location_opening_hours\".\"opens_minute\" >= 0 and \"location_opening_hours\".\"closes_minute\" <= 1440 and \"location_opening_hours\".\"opens_minute\" < \"location_opening_hours\".\"closes_minute\""
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.location_publication_events": {
       "name": "location_publication_events",
       "schema": "",
@@ -84604,6 +84893,30 @@
         "actor_oxy_user_id": {
           "name": "actor_oxy_user_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "previous_latitude": {
+          "name": "previous_latitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "previous_longitude": {
+          "name": "previous_longitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_latitude": {
+          "name": "next_latitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_longitude": {
+          "name": "next_longitude",
+          "type": "double precision",
           "primaryKey": false,
           "notNull": false
         },
@@ -84723,6 +85036,124 @@
           "primaryKey": false,
           "notNull": false
         },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "public_line1": {
+          "name": "public_line1",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "public_line2": {
+          "name": "public_line2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "public_city": {
+          "name": "public_city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "public_region": {
+          "name": "public_region",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "public_postal_code": {
+          "name": "public_postal_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "public_country": {
+          "name": "public_country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "public_phone": {
+          "name": "public_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "public_url": {
+          "name": "public_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accessibility_step_free": {
+          "name": "accessibility_step_free",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accessibility_toilet": {
+          "name": "accessibility_toilet",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accessibility_parking": {
+          "name": "accessibility_parking",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accessibility_hearing_loop": {
+          "name": "accessibility_hearing_loop",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "geocode_provenance": {
+          "name": "geocode_provenance",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "geocoded_at": {
+          "name": "geocoded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "geo_point": {
+          "name": "geo_point",
+          "type": "geography",
+          "primaryKey": false,
+          "notNull": false,
+          "generated": {
+            "as": "case when \"latitude\" is null or \"longitude\" is null then null\n          else st_setsrid(st_makepoint(\"longitude\", \"latitude\"), 4326)::geography end",
+            "type": "stored"
+          }
+        },
         "publication_state": {
           "name": "publication_state",
           "type": "text",
@@ -84813,6 +85244,18 @@
           "notNull": true,
           "default": 3
         },
+        "profile_confirmed_at": {
+          "name": "profile_confirmed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -84863,6 +85306,38 @@
           "isUnique": false,
           "concurrently": false,
           "method": "btree",
+          "with": {}
+        },
+        "location_publications_published_country_idx": {
+          "name": "location_publications_published_country_idx",
+          "columns": [
+            {
+              "expression": "public_country",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"location_publications\".\"publication_state\" = 'published'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "location_publications_geo_point_idx": {
+          "name": "location_publications_geo_point_idx",
+          "columns": [
+            {
+              "expression": "\"geo_point\"",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"location_publications\".\"geo_point\" is not null",
+          "concurrently": false,
+          "method": "gist",
           "with": {}
         }
       },
@@ -84915,6 +85390,10 @@
           "name": "location_publications_state_check",
           "value": "\"location_publications\".\"publication_state\" in ('draft', 'published', 'withdrawn')"
         },
+        "location_publications_geocode_provenance_check": {
+          "name": "location_publications_geocode_provenance_check",
+          "value": "\"location_publications\".\"geocode_provenance\" in ('merchant_map_pin', 'merchant_entered', 'operator_corrected')"
+        },
         "location_publications_inventory_source_check": {
           "name": "location_publications_inventory_source_check",
           "value": "\"location_publications\".\"inventory_source\" in ('pos', 'connector', 'manual')"
@@ -84926,6 +85405,14 @@
         "location_publications_payment_requirement_check": {
           "name": "location_publications_payment_requirement_check",
           "value": "\"location_publications\".\"payment_requirement\" in ('prepaid')"
+        },
+        "location_publications_geocode_shape_check": {
+          "name": "location_publications_geocode_shape_check",
+          "value": "(\"location_publications\".\"latitude\" is null) = (\"location_publications\".\"longitude\" is null)\n          and (\"location_publications\".\"latitude\" is null) = (\"location_publications\".\"geocode_provenance\" is null)\n          and (\"location_publications\".\"latitude\" is null) = (\"location_publications\".\"geocoded_at\" is null)"
+        },
+        "location_publications_coordinate_range_check": {
+          "name": "location_publications_coordinate_range_check",
+          "value": "\"location_publications\".\"latitude\" is null\n          or (\"location_publications\".\"latitude\" between -90 and 90\n              and \"location_publications\".\"longitude\" between -180 and 180\n              and not (\"location_publications\".\"latitude\" = 0 and \"location_publications\".\"longitude\" = 0))"
         },
         "location_publications_stock_interval_check": {
           "name": "location_publications_stock_interval_check",

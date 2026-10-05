@@ -31,7 +31,7 @@ removing somebody from the business removed them nowhere.
 fact that shapes everything"). Usually an organization; a person's personal
 account is equally valid, and every store that predates this ADR starts on its
 earliest owner's personal account — a personal account id and an organization
-id share one id space, so the backfill is a copy (`drizzle/0158`, `0159`).
+id share one id space, so the backfill is a copy (`drizzle/0158`, `0161`).
 
 ### D2. Oxy decides who gets in; the role map decides what they may do
 
@@ -117,7 +117,7 @@ Membership in an organization is answerable only with a member's bearer. So:
 
 ## Consequences
 
-- **Existing non-owner members lose access at `0159`** — `admin`, `staff`, and
+- **Existing non-owner members lose access at `0161`** — `admin`, `staff`, and
   any second `owner` — until the store's owner converts it to an organization
   and adds them. Their non-default grants survive as overrides and take effect
   again the moment they are members. A member who held only their role's

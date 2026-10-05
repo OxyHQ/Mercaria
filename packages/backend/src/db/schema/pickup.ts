@@ -18,7 +18,7 @@
  * `locations.go_way_place_id`, and are read through `services/goway`. A
  * publication holds what is Mercaria's alone: whether the location is
  * published, whether and how it offers collection, its stock-freshness policy
- * and the operator's restriction. `0161` dropped the columns and the two child
+ * and the operator's restriction. `0162` dropped the columns and the two child
  * tables (`location_opening_hours`, `location_closures`) that used to copy the
  * place, and the PostGIS point with them.
  *

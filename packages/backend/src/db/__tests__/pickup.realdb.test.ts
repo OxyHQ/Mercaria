@@ -711,7 +711,7 @@ describe('the append-only trails and the frozen snapshot', () => {
         .set({ publicCity: 'Madrid' })
         .where(eq(orderPickups.orderId, snapshotOrderId)),
     );
-    // `0160` added the place the snapshot was read from to the freeze: a
+    // `0159` added the place the snapshot was read from to the freeze: a
     // collection must keep naming the place the buyer agreed to.
     await expectTriggerRefusal(/immutable/, () =>
       db

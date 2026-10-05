@@ -358,7 +358,7 @@ function invert(normalised: string): { inverse: string | null; reason: Irreversi
 
   // ---- row-level security: a toggle, so the inverse is the other setting ---
   // drizzle-kit emits `DISABLE ROW LEVEL SECURITY` ahead of every generated
-  // `DROP TABLE` (first met in `0159`, the corpus's first table drop), whatever
+  // `DROP TABLE` (first met in `0161`, the corpus's first table drop), whatever
   // the table's setting was. The statement names the setting it leaves, so the
   // one it replaced is its opposite — a toggle, derivable like a rename.
   const rowLevelSecurity =

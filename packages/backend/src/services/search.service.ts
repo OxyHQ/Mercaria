@@ -13,7 +13,7 @@
  * ## A listing has no position
  *
  * The Mongo `$near` radius this browse once took is gone with the point it
- * read (`0161`): a store sells from locations whose place is GoWay's, found
+ * read (`0162`): a store sells from locations whose place is GoWay's, found
  * through `/nearby`, and a P2P seller's area is a coarse cell found through
  * `/nearby/p2p` (`listing_local_discovery`).
  *

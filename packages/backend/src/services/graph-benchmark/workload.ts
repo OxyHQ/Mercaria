@@ -319,7 +319,7 @@ export const WORKLOAD_SHAPES: readonly WorkloadShape[] = [
     workloadItem: 13,
     title: 'Nearby P2P listings in the ring of cells around a point',
     reader: 'db/pickup/localDiscoveryRepository.ts::findNearbyLocalListings',
-    // A listing's own point is gone (`0161`); a P2P listing is near by its
+    // A listing's own point is gone (`0162`); a P2P listing is near by its
     // coarse cell, and the cell index is what this read range-scans.
     expectation: { minRowsReturned: 1 },
     run: (db) =>

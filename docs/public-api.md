@@ -111,7 +111,7 @@ gone". Decided once per kind in `public-api.service.ts`:
   the FIRST activation (one writer, `listingRepository`), and
   `collections.published_at` is stamped on first publish and never cleared.
   So is `location_publications.published_at`, stamped by `setPublicationState`
-  on any move into or out of `published` (`0162` backfilled it from the
+  on any move into or out of `published` (`0160` backfilled it from the
   publication trail).
 - **A never-published draft is a 404 even inside a suspended store.** It never
   publicly existed, so no reference to it can have been legitimately minted.

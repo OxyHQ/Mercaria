@@ -490,12 +490,12 @@ real supplier exists it should become one.
 
 # Store ownership is an Oxy account (ADR 0012) — deploy and deferred work
 
-**Before the deploy that carries `0158`/`0159`:** run the three queries in
-[`docs/stores.md`](docs/stores.md) ("Deploying `0158`/`0159`") against
-production and keep the export. `0159` drops `store_members`; every member but
+**Before the deploy that carries `0158`/`0161`:** run the three queries in
+[`docs/stores.md`](docs/stores.md) ("Deploying `0158`/`0161`") against
+production and keep the export. `0161` drops `store_members`; every member but
 each store's earliest owner loses access until that owner converts the store to
-an organization, and after `0159` nothing in Mercaria remembers who they were.
-A store with no `owner` member makes `0159` refuse to apply — fix those first.
+an organization, and after `0161` nothing in Mercaria remembers who they were.
+A store with no `owner` member makes `0161` refuse to apply — fix those first.
 
 **Deferred, each waiting on something outside this repository:**
 
@@ -518,9 +518,9 @@ A store with no `owner` member makes `0159` refuse to apply — fix those first.
 built on GoWay's `feat/places-platform`); `bun.lock` carries the integrity of a
 local `npm pack` of it, so refresh the lock if the published tarball differs.
 
-**Before the deploy that carries `0160`/`0161`:** run the count and the export
+**Before the deploy that carries `0159`/`0162`:** run the count and the export
 in [`docs/pickup.md`](docs/pickup.md) ("Moving to GoWay") against production
-and keep the export. `0161` withdraws every published location that names no
+and keep the export. `0162` withdraws every published location that names no
 GoWay place and drops the facts that would have been needed to make one. Set
 `GOWAY_API_URL` in the task definition's `environment` before turning
 `NEARBY_DISCOVERY_ENABLED` or `STORE_PICKUP_ENABLED` on — both stay off

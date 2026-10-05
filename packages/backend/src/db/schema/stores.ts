@@ -61,7 +61,7 @@ export const stores = pgTable(
      * membership decides who may act for the store.
      *
      * Every store that predates the column took its earliest owner's personal
-     * account (`drizzle/0158`, `0159`): a personal account id and an
+     * account (`drizzle/0158`, `0161`): a personal account id and an
      * organization id share one id space, so the backfill is a copy.
      */
     oxyAccountId: text().notNull(),
@@ -167,7 +167,7 @@ export const storePermissionOverrides = pgTable(
      * The human who last wrote the row (`getOxyActor().actorAccountId`), which
      * differs from the session's account when a person acts as an organization.
      * NULL when Oxy did not report the actor — recorded as unknown rather than
-     * guessed — and on the rows `drizzle/0159` carried over from `store_members`.
+     * guessed — and on the rows `drizzle/0161` carried over from `store_members`.
      * An Oxy account id — no foreign key.
      */
     updatedByOxyUserId: text(),

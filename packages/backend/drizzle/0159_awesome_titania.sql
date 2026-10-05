@@ -13,7 +13,7 @@
 --   from. Unique per store (see `db/schema/stores.ts`), led by the place id so
 --   "which locations point at this place" is one probe.
 -- - `location_publication_events.previous_go_way_place_id` / `next_…` are what
---   the trail records when a link changes, replacing the coordinate pair `0161`
+--   the trail records when a link changes, replacing the coordinate pair `0162`
 --   drops.
 -- - `order_pickups.go_way_place_id` is the place a collection's snapshot was
 --   read from. NULL on every collection placed before this, which is the truth.
@@ -26,8 +26,8 @@
 -- nothing it does. A regeneration drops the block AND the two marker lines; re-add
 -- both and confirm
 --
---   grep -cE '^-- oxy:(deploy-phase|rollback)=' drizzle/0160_bitter_sharon_carter.sql   -> 2
---   grep -cE '^-- oxy:handwritten-(begin|end)=' drizzle/0160_bitter_sharon_carter.sql   -> 2
+--   grep -cE '^-- oxy:(deploy-phase|rollback)=' drizzle/0159_awesome_titania.sql   -> 2
+--   grep -cE '^-- oxy:handwritten-(begin|end)=' drizzle/0159_awesome_titania.sql   -> 2
 ALTER TABLE "locations" ADD COLUMN "go_way_place_id" text;--> statement-breakpoint
 ALTER TABLE "location_publication_events" ADD COLUMN "previous_go_way_place_id" text;--> statement-breakpoint
 ALTER TABLE "location_publication_events" ADD COLUMN "next_go_way_place_id" text;--> statement-breakpoint

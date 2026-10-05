@@ -13,9 +13,10 @@
 --
 -- Three blocks, and their order is the point:
 --
---   1. The `0158` backfill again. `0158` ran before the rollout; the previous
---      image went on creating stores through `store_members` until it stopped
---      serving, and those rows still have no owning account.
+--   1. The `0158` backfill again. `0158` ran in this release's `pre` phase,
+--      with `0159` and `0160`, before the rollout; the previous image went on
+--      creating stores through `store_members` until it stopped serving, and
+--      those rows still have no owning account.
 --   2. A refusal, with a count, if any store is STILL without one - a store
 --      with no `owner` member at all. `SET NOT NULL` would refuse too, but with
 --      no count and nothing to start from.
@@ -36,7 +37,7 @@
 -- ## Inbound references, read before the DROP
 --
 -- `drizzle-kit` writes `DROP TABLE ... CASCADE` unconditionally. Read off
--- `meta/0158_snapshot.json`: NO foreign key targets `store_members`, and no
+-- `meta/0160_snapshot.json`: NO foreign key targets `store_members`, and no
 -- trigger, function or view in `drizzle/` names it. The CASCADE takes nothing.
 -- Dropping `impact_store_members` takes `store_linkage_requests_impact_check`,
 -- which the generated half drops first and re-adds over the five survivors.
@@ -44,8 +45,8 @@
 -- A regeneration drops the three blocks and both marker lines; re-add them ABOVE
 -- the generated statements and confirm
 --
---   grep -cE '^-- oxy:(deploy-phase|rollback)=' drizzle/0159_flowery_arachne.sql   -> 2
---   grep -cE '^-- oxy:handwritten-(begin|end)=' drizzle/0159_flowery_arachne.sql   -> 6
+--   grep -cE '^-- oxy:(deploy-phase|rollback)=' drizzle/0161_messy_tenebrous.sql   -> 2
+--   grep -cE '^-- oxy:handwritten-(begin|end)=' drizzle/0161_messy_tenebrous.sql   -> 6
 -- oxy:handwritten-begin=stores_oxy_account_id_backfill_after_rollout
 UPDATE "stores" AS s
 SET "oxy_account_id" = (

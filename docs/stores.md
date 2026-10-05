@@ -47,18 +47,24 @@ converts it:
 A failure after step 1 leaves an organization with no store; nothing in the SDK
 reverses it, and the dashboard reports it rather than cleaning up.
 
-## Deploying `0158`/`0159`, and who loses access
+## Deploying `0158`/`0161`, and who loses access
+
+Both ship in ONE release with the GoWay place migrations: `Migrate (pre)`
+applies `0158`, `0159` and `0160`, `Migrate (post)` applies `0161` and `0162`
+(the full order and why it is forced: `docs/pickup.md`, "One release").
 
 `0158` (pre) adds the column and the overrides table and backfills each store's
-owning account from its EARLIEST `owner` member. `0159` (post) re-runs that
+owning account from its EARLIEST `owner` member. `0161` (post) re-runs that
 backfill for stores the previous image created during the rollout, refuses to
 apply if any store still has no owner, copies every non-owner member's
 NON-DEFAULT grants into overrides, and drops `store_members`.
 
-**Every member other than the chosen owner loses access at `0159`** — `admin`,
+**Every member other than the chosen owner loses access at `0161`** — `admin`,
 `staff` and any second `owner` — until the owner converts the store and adds
-them. Count them before the deploy, and keep the list: after `0159` Mercaria no
-longer knows who they were.
+them. Count them before the deploy, and keep the list: after `0161` Mercaria no
+longer knows who they were. Run the third query too: a store it lists makes
+`0161` refuse, and the post phase applies in one transaction, so `0162` waits
+with it until the store has an owner and `Migrate (post)` is re-run.
 
 ```sql
 -- Stores that will lose people, and how many.
@@ -69,7 +75,7 @@ from store_members group by store_id having count(*) > 1 order by 2 desc;
 select m.store_id, m.oxy_user_id, m.role, m.permissions, m.joined_at
 from store_members m order by m.store_id, m.joined_at;
 
--- Stores 0159 will refuse: no owner member at all.
+-- Stores 0161 will refuse: no owner member at all.
 select s.id from stores s
 where not exists (select 1 from store_members m where m.store_id = s.id and m.role = 'owner');
 ```

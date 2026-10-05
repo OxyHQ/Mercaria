@@ -37,7 +37,7 @@ the PUBLIC face of them plus everything a handover needs.
 | `pickup_collection_events` | Append-only audit of everything at a collection desk |
 | `listing_local_discovery` | A P2P seller's coarse CELL. **No coordinate column** |
 
-`0161` dropped the place facts a publication used to copy (name, address,
+`0162` dropped the place facts a publication used to copy (name, address,
 timezone, phone, URL, four accessibility flags, the pin and its generated
 PostGIS point) and the two tables that copied the schedule
 (`location_opening_hours`, `location_closures`).
@@ -701,8 +701,9 @@ Stated rather than quietly narrowed.
       mounted and nobody can restrict a location or read the probes.
 - [ ] PostGIS present on the target database — no runtime read uses it any
       more, but the migration chain names `geography` (`db/requiredExtensions.ts`).
-- [ ] Before `0161` (post): export the place facts and link the locations — see
-      "Moving to GoWay" below.
+- [ ] Before the deploy that carries `0162` (post): count and export the place
+      facts — see "Moving to GoWay" below. Its post phase runs automatically
+      once the new image is live, so there is no window to do it in later.
 
 ## Teardown and the trigger-toggle window
 
@@ -729,18 +730,21 @@ two rules from `docs/postgres-testing-and-migrations.md` bite here directly:
   CLOCK itself back a week, so both the closure and the horizon it spans sit
   safely in the past.
 
-## Moving to GoWay (`0160` → `0161`)
+## Moving to GoWay (`0159` → `0162`)
 
-`0160` (pre) adds `locations.go_way_place_id`; `0161` (post) withdraws every
+`0159` (pre) adds `locations.go_way_place_id`; `0162` (post) withdraws every
 PUBLISHED publication whose location names no place (one `state_withdrawn`
 audit row each) and drops the place-fact columns and tables. Nothing re-derives
 a dropped value, so count and export BEFORE the deploy:
 
 ```sql
--- How many publications 0161 will withdraw.
-select count(*) from location_publications p
-join locations l on l.id = p.location_id
-where p.publication_state = 'published' and l.go_way_place_id is null;
+-- How many publications 0162 will withdraw: every one published now. Before
+-- this release no location can name a GoWay place (`go_way_place_id` does not
+-- exist yet, so this reads the schema production has), and the post phase
+-- follows the new image within minutes, so none is linked in time.
+select store_id, count(*) as will_withdraw from location_publications
+where publication_state = 'published'
+group by store_id order by 2 desc;
 
 -- Every place fact Mercaria holds, one JSON document per publication — what
 -- the merchant (or an operator acting with them) needs to find or create the
@@ -775,15 +779,30 @@ publish. Mercaria has no service credential to write to GoWay, and a link an
 operator typed for them would fail the trust rule anyway until the store's own
 account holds the claim.
 
-### `0162` ships in the NEXT release, never with `0161`
+### One release: every `pre` before every `post`
 
-`0162` (pre) adds `location_publications.published_at` — the first
-publication, which the public location reads tell "withdrawn" (410) from
-"never published" (404) by — and backfills it from the publication trail,
-`0161`'s withdrawals included. A `pre` queued behind an unapplied `post` is
-refused by the migration planner (`@oxy.so/db`'s `planMigrationRun`): the
-ledger is a high-water mark, so `0162` cannot apply before `0161`, and `0161`
-cannot apply before the image that stops reading the dropped columns is
-serving. Deploy the release carrying `0161` first, let its post phase run, then
-the one carrying `0162`. `goway-place-migration.realdb.test.ts` runs them as
-those two releases.
+This ships as ONE release with the store-ownership pair, and the journal is
+ordered so a single `Migrate (pre)` and a single `Migrate (post)` apply it:
+
+| Phase | Migration | Does |
+|---|---|---|
+| pre | `0158` | `stores.oxy_account_id` (nullable) + backfill, `store_permission_overrides` (`docs/stores.md`) |
+| pre | `0159` | `locations.go_way_place_id`, the trail's place-id pair, `order_pickups.go_way_place_id`, the snapshot freeze |
+| pre | `0160` | `location_publications.published_at` + backfill from the publication trail |
+| post | `0161` | re-fills owners, refuses an ownerless store, carries grants over, drops `store_members` |
+| post | `0162` | re-runs `0160`'s backfill, withdraws unlinked published locations, drops the place facts |
+
+The order is forced: the migration planner (`@oxy.so/db`'s `planMigrationRun`)
+refuses a `pre` queued behind an unapplied `post`, because the ledger is a
+high-water mark. It is also what keeps the data coherent. `0160`'s backfill
+reads every publication BEFORE `0162` withdraws any, so a withdrawn location
+keeps the first-publication instant that makes the public read answer 410, not
+404; `0162` re-runs it first for a location the previous image published during
+the rollout, which it dates by that trail entry rather than by the withdrawal's.
+
+The post phase runs minutes after the new image is live, so a merchant has no
+time to link a place in between: expect EVERY location published today to be
+withdrawn by `0162`, which is why the count above is the number to read before
+deploying. `goway-place-migration.realdb.test.ts` deploys the release exactly
+this way, from the ledger production holds (`0157`), with rows the previous
+image wrote before and during the rollout.

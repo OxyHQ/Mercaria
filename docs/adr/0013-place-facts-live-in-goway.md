@@ -37,7 +37,7 @@ opaque id, no foreign key, unique per store (`locations_go_way_place_id_store_id
 Mercaria keeps what is Mercaria's — whether a location is published, whether
 and how it offers collection, its pause and the operator's restriction, its
 inventory source and stock-freshness policy, the storefront it is a branch of.
-`0160` (pre) adds the id, `0161` (post) drops the copies.
+`0159` (pre) adds the id, `0162` (post) drops the copies.
 
 ### D2. A position comes from the GoWay place the merchant chose or created
 
@@ -98,7 +98,7 @@ publishing runs it and refuses a location it refuses.
 
 `order_pickups` keeps its own name, address and timezone, read from the GoWay
 place when the order is placed and frozen by trigger, plus the place's id
-(`0160` adds it to the freeze). It is history — the buyer agreed to collect
+(`0159` adds it to the freeze). It is history — the buyer agreed to collect
 from what they were shown — which is the convention's one allowed copy.
 
 ## Consequences
@@ -114,7 +114,7 @@ from what they were shown — which is the convention's one allowed copy.
   one nearby request, as their browser would send it, and is transient there by
   GoWay's own rule. Mercaria still logs only the coarse cell and caches nothing
   keyed on a position (`goway-places.realdb.test.ts`).
-- **Existing publications.** `0161` withdraws every published location that
+- **Existing publications.** `0162` withdraws every published location that
   names no place, with an audit row; a merchant links a place and publishes
   again. Export the place facts BEFORE deploying (`docs/pickup.md`, "Moving to
   GoWay") — nothing re-derives a dropped column.
