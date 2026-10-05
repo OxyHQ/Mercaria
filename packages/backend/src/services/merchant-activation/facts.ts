@@ -40,10 +40,11 @@ import {
 } from '../../db/merchantActivation/activationSettingsRepository.js';
 import { listStorePickupLocations } from '../../db/pickup/nearbyRepository.js';
 import { orders } from '../../db/schema/orders.js';
-import { storeMembers } from '../../db/schema/stores.js';
 import { findStoreById } from '../../db/stores/storeRepository.js';
 import { deriveChannelReadiness } from '../channels/channel-readiness.js';
 import { locationCollectionBlockers } from '../pickup/eligibility.js';
+import { readPlaces } from '../goway/places.js';
+import { placeLinkGaps } from '../goway/place-facts.js';
 import { findApplicableSchedule } from '../fees/order-fees.service.js';
 import { isSellerPaymentReady } from '../payments/provider-account.service.js';
 import { hasGuestMessageTransport } from '../guest-portal/transport.js';
@@ -136,8 +137,6 @@ export interface MerchantActivationFacts {
   readonly feeScheduleAcceptedVersionCurrent: boolean;
   readonly acceptedPolicies: Partial<Record<MerchantActivationPolicyKey, ActivationPolicyFact>>;
   readonly completedOrderCount: number;
-  readonly refundPermissionAssigned: boolean;
-  readonly buyerDataPermissionAssigned: boolean;
   readonly fulfilment: ActivationFulfilmentFacts;
   readonly guest: ActivationGuestFacts;
   /**
@@ -180,7 +179,6 @@ export async function readMerchantActivationFacts(
     paymentsReady,
     acceptanceRows,
     completedOrderCount,
-    memberPermissions,
     pickupLocations,
   ] = await Promise.all([
     readMerchantActivationSettings(storeId),
@@ -189,7 +187,6 @@ export async function readMerchantActivationFacts(
     isSellerPaymentReady(sellerKey),
     listPolicyAcceptancesForOwner({ ownerType: 'store', ownerId: storeId }),
     countCompletedOrders(storeId),
-    readStorePermissionCoverage(storeId),
     listStorePickupLocations(storeId),
   ]);
 
@@ -216,8 +213,23 @@ export async function readMerchantActivationFacts(
     .map(([method]) => method);
   const rollout = config.guest.checkoutRollout;
   const pickup = config.pickup;
+  // Each linked location's place, read through the cache, so the store-level
+  // question applies the same trust rule a shopper's read does (ADR 0013). A
+  // GoWay outage reads as `place_unavailable` — not collectable — which is the
+  // direction a readiness answer must fail in.
+  const places = await readPlaces(
+    pickupLocations.flatMap((location) => (location.goWayPlaceId === null ? [] : [location.goWayPlaceId])),
+  );
   const collectableLocationCount = pickupLocations.filter(
-    (location) => locationCollectionBlockers(location).length === 0,
+    (location) =>
+      locationCollectionBlockers({
+        ...location,
+        placeLinkGaps: placeLinkGaps({
+          locationId: location.locationId,
+          goWayPlaceId: location.goWayPlaceId,
+          lookup: location.goWayPlaceId === null ? null : (places.get(location.goWayPlaceId) ?? null),
+        }),
+      }).length === 0,
   ).length;
   const fulfilment: ActivationFulfilmentFacts = {
     shippingMethods: priceableMethods.filter((method) => method !== PICKUP_METHOD),
@@ -262,8 +274,6 @@ export async function readMerchantActivationFacts(
       acceptance !== undefined && schedule !== undefined && acceptance.scheduleVersion === schedule.version,
     acceptedPolicies: indexAcceptances(acceptanceRows),
     completedOrderCount,
-    refundPermissionAssigned: memberPermissions.refunds,
-    buyerDataPermissionAssigned: memberPermissions.buyerData,
     fulfilment,
     guest: {
       commerceEnabled: config.guest.enabled,
@@ -387,24 +397,3 @@ async function countCompletedOrders(storeId: string): Promise<number> {
   return row?.total ?? 0;
 }
 
-/**
- * Whether ANYBODY on the store holds the permissions a guest order needs
- * somebody to hold — #85 guest 11 and merchant-experience 9.
- *
- * A store whose only member cannot issue a refund can take a guest's money and
- * has nobody able to give it back, which is a real, checkable state and not a
- * hypothetical: `refunds:write` is not in `staff`'s nine.
- *
- * It asks about the STORE and never about a person: no oxy user id is returned,
- * so this cannot become a way to read who works where.
- */
-async function readStorePermissionCoverage(
-  storeId: string,
-): Promise<{ refunds: boolean; buyerData: boolean }> {
-  const rows = await getDb()
-    .select({ permissions: storeMembers.permissions })
-    .from(storeMembers)
-    .where(eq(storeMembers.storeId, storeId));
-  const held = new Set(rows.flatMap((row) => row.permissions));
-  return { refunds: held.has('refunds:write'), buyerData: held.has('orders:read') };
-}

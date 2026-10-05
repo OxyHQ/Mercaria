@@ -584,6 +584,10 @@ plausible point in the wrong hemisphere. Generating the point makes divergence
 unrepresentable and states the `(longitude, latitude)` order in ONE place. NAMED
 coordinate columns are the other half of the same fix.
 
+(No such column remains: `0162` dropped `listings.geo` and
+`location_publications.geo_point` when place facts moved to GoWay, ADR 0013.
+The rule stands for the next one.)
+
 **Any spatial test must verify ORDERING against an independently checkable
 real-world distance.** A test asserting only "a row came back" passes against
 the exact bug.
@@ -740,7 +744,7 @@ and a column whose shape looks arbitrary is usually answered here.
 
 | Mongoose model | Table(s) |
 |---|---|
-| `Store` | `stores` + `store_members` |
+| `Store` | `stores` (+ `store_members`, dropped by `0161` — ADR 0012; see "Store ownership is an Oxy account") |
 | `Location` | `locations` |
 | `TaxRate` | `tax_rates` |
 | `Customer` | `customers` |
@@ -1554,7 +1558,7 @@ is #83's own, stated so a column whose shape looks arbitrary is answerable:
   read-then-write two racers would walk past. The service converts the refusal
   into a DISPUTE instead of replacing the incumbent (scope rule 6). Several
   verified OPERATORS per merchant still arrive, through the native store's own
-  membership after linkage (#84) — a `store_members` fact, never a second
+  owning Oxy account after linkage (#84, ADR 0012) — Oxy's fact, never a second
   verified claim. A second partial unique,
   `(merchant_id, claimant_oxy_user_id) WHERE state IN (…active…)`, keeps one
   live attempt per person; its predicate is rendered from
@@ -3734,6 +3738,49 @@ drop-and-re-add whose new tuple is a strict superset, so every write the serving
 image performs still passes. Five hand-written triggers sit below the generated
 block with the regeneration check in the file header.
 
+## Store ownership is an Oxy account (ADR 0012)
+
+Two migrations, `0158` (pre) and `0161` (post), and the decisions behind their
+columns.
+
+### `stores.oxy_account_id` is NOT NULL and carries no foreign key
+
+The account that owns the store is a foreign service's primary key (the fact
+that shapes everything), and a store with no owning account is a store nobody
+can ever reach — `loadStore` would refuse every request naming it. NOT NULL is
+what makes that unrepresentable. It is NULLABLE in `0158` only because the image
+serving during the rollout creates stores without it; `0161` backfills what that
+image created and then narrows. `stores_oxy_account_id_idx` serves the one hot
+read: `oxy_account_id = any(<the accounts Oxy lists for the caller>)`.
+
+### `store_permission_overrides` is a list of EXCEPTIONS, and the CHECKs say so
+
+- **`granted`/`revoked` are `text[]`**, the `store_members.permissions`
+  reasoning carried over: a scalar set never queried by element. Both carry the
+  vocabulary CHECK rendered from `STORE_PERMISSIONS`.
+- **`store_permission_overrides_disjoint_check`** — a permission both granted
+  and revoked has no safe reading to store; the service refuses it first, the
+  row refuses it regardless.
+- **`store_permission_overrides_nonempty_check`** — "no exception" is the
+  ABSENCE of a row. An empty row would be a member list by another name, which
+  is exactly what the ADR refuses to keep.
+- **`UNIQUE (store_id, oxy_user_id)`** — one exception per person per store, and
+  the key `loadStore` reads.
+- **`updated_by_oxy_user_id` is nullable**: the human actor
+  (`getOxyActor().actorAccountId`) when Oxy reported one, recorded as unknown
+  rather than guessed when it did not, and NULL on every row `0161` carried over
+  from `store_members`.
+- **`ON DELETE CASCADE` from `stores`** — an exception means nothing without the
+  store it adjusts.
+
+### What `0161` copied, and what it could not
+
+The non-default grants of every member who is not the owning account, measured
+against the RETIRED role matrix frozen in the migration as literals. A member
+who held only their role's defaults leaves no row — by design, see the
+nonempty CHECK — so the list of people who lost access exists only in a
+pre-deploy export (`docs/stores.md`).
+
 ## Register: every `jsonb` column, and why it earned it
 
 `jsonb` is for genuinely shape-less data only. Eight columns qualify in 129 tables;
@@ -3808,7 +3855,8 @@ Listed so a 23503 is recognised rather than rediscovered.
 - **New constraints Mongo could not state**, each of which a half-finished
   service path could previously violate: at most one default `location` per
   store; at most one default `address` per user; one `store_members` row per
-  (store, user); one `cart_items` line per (cart, variant); a `completed`
+  (store, user) — the table itself was dropped by `0161` (ADR 0012), and its
+  successor `store_permission_overrides` keeps the same one-per-pair key; one `cart_items` line per (cart, variant); a `completed`
   `draft_order` has a converted order and a non-completed one does not; a
   `discounts` window that ends before it starts is refused.
 
@@ -3985,12 +4033,10 @@ mechanised yet. What was checked, and what each check is actually worth:
   NEITHER row, which must match
   nothing. A single positive query cannot tell a working index from one that
   matches everything, and the first draft of this check did exactly that;
-- the `geography` generated column populates from `longitude`/`latitude` and
-  orders by TRUE distance — Barcelona → Madrid measured 507 km and → Paris
-  830 km, against real-world 505 km and 830 km, with Madrid first. The
-  independently checkable figures are the point: a test asserting only "a row
-  came back" passes against a latitude/longitude swap. `ST_GeometryType` and
-  `ST_SRID` are asserted too, since the typmod cannot be declared;
+- (until `0162`) the `geography` generated column populated from
+  `longitude`/`latitude` and ordered by TRUE distance — Barcelona → Madrid
+  measured 507 km, against the real 505 km. The column is gone (ADR 0013: a
+  listing has no position), and the case with it;
 - a partial unique index permits many NULL handles and rejects a duplicate
   value — measured on `listings_store_id_handle_key` since #296 dropped the SKU
   one this used to read, and #296's own case asserts the two dropped indexes are
@@ -5128,10 +5174,11 @@ P2P listing. Reference: `docs/sell-yours.md`.
   would read, to every consumer, exactly like a proposal — and everything else
   carries at least a product, because #58 resolves product identity before
   variant identity and "matched the model, not the configuration" is real.
-- **Coordinates are stored ALREADY COARSENED**, rounded at the write boundary by
-  `coarsenSellerCoordinate`. Rounding at read time would leave the precise
-  position in the table, in backups and in every operator query — a privacy
-  property that depends on each reader remembering is not one.
+- **A draft carries no location.** It used to hold a coarsened coordinate that
+  publication copied onto `listings.longitude`/`latitude`, a second P2P
+  position model beside `listing_local_discovery`'s cell; `0162` dropped both
+  (ADR 0013). A seller opts a PUBLISHED listing into local results, with an
+  area, through the cell — which cannot hold a precise point at all.
 - **`included_accessories` is a `text[]`; what is MISSING is not here.** A
   missing part is #90's `missing_accessory` condition detail, which carries a
   mandatory note and counts toward the disclosure gate. Two vocabularies for one
@@ -5468,54 +5515,44 @@ record a connector run refused, and why — durably, one row per record.
 
 ## Location publication and collection (#93)
 
-Eight tables — `location_publications` and its three children
-(`location_opening_hours`, `location_closures`, `location_publication_events`),
+Six tables — `location_publications`, its trail `location_publication_events`,
 `order_pickups`, `pickup_collection_credentials`, `pickup_collection_events`
-and `listing_local_discovery`. Full reference: `docs/pickup.md`.
+and `listing_local_discovery` — plus `locations.go_way_place_id`. Full
+reference: `docs/pickup.md`.
 
-- **A separate publication row rather than columns on `locations`, and the
-  address fields are ALL nullable.** `locations` holds the address a pallet is
-  delivered to and the name a warehouse manager gave a building; a publication
-  holds what a merchant is willing to have a stranger read, and "the city and
-  nothing else" is a complete, common answer. Widening `locations` would have
-  made the two the same nine columns, so the first naive
-  `select().from(locations)` on a public route would disclose a stockroom's
-  street and the phone of whoever signs for deliveries. It also makes the
-  default right: a store with no publication row is not discoverable, which is
-  the state every existing store is in.
-- **No `discoverable` and no `pickup_eligible` column.** The inputs sit on
-  `location_publications`, `locations`, `stores`, `listings`, `inventory_levels`
-  and `provider_accounts` — six tables in four domains — so the verdict is
-  DERIVED at read time (#57's `deriveNativeCheckoutEligibility` divergence).
-  That is what makes a moderation restriction stop a collection in the statement
-  that applies it.
-- **`geo_point` is GENERATED from `latitude`/`longitude`**, so nothing can write
-  a point that disagrees with the numbers a merchant can see and correct.
-  `ST_SetSRID` and the geometry→geography cast are both IMMUTABLE, which a
-  STORED generated column requires; drizzle-kit cannot emit the `(Point,4326)`
-  typmod, so the schema test asserts the stored value's type and SRID against
-  REAL ROWS instead.
-- **The coordinate CHECK refuses the NULL ISLAND, and that is the clause worth
-  reading.** `(0, 0)` is a real point in the Gulf of Guinea and is what every
-  failed import writes, so a range check alone admits the single commonest bad
-  value there is and sorts it first for everybody in West Africa. Greenwich and
-  Quito are still accepted — the refusal is the PAIR — and the realdb suite
-  carries that fixture, because a CHECK that refused either half alone would be
-  refusing a merchant.
+- **A location's place facts are NOT Mercaria columns (ADR 0013).** Name,
+  address, position, timezone, hours and exceptions, contact and accessibility
+  live on the GoWay place `locations.go_way_place_id` names, read through
+  `services/goway/`. `0162` dropped the copies a publication carried and the
+  two tables that copied the schedule (`location_opening_hours`,
+  `location_closures`), and the generated PostGIS point with them. The one
+  copy kept is `order_pickups`' frozen snapshot, which is history.
+- **`locations.go_way_place_id` is opaque, has no foreign key, and is unique
+  per STORE.** Another service's key space (the fact that shapes everything).
+  The place names back exactly one location, so two of one store's locations
+  on one place would leave one that can never verify; a GLOBAL unique would let
+  whichever store typed a place id first lock its real owner out. The index
+  leads with the place id, so "which locations point at this place" — the next
+  slice's public read — is one probe. It lives on `locations`, not on the
+  publication: it is a fact about where the operational location is.
+- **A separate publication row rather than columns on `locations`.**
+  `locations` holds the address a pallet is delivered to; a publication holds
+  whether a stranger may be sent to the place and on what terms. The default is
+  right by construction: a store with no publication row is not discoverable,
+  which is the state every existing store is in.
+- **No `discoverable`, no `pickup_eligible` and no "place verified" column.**
+  The inputs sit on `location_publications`, `locations`, `stores`, `listings`,
+  `inventory_levels`, `provider_accounts` — six tables in four domains — and the
+  GoWay place, so the verdict is DERIVED at read time (#57's
+  `deriveNativeCheckoutEligibility` divergence). That is what makes a moderation
+  restriction stop a collection in the statement that applies it, and a place
+  that stops naming its location stop one at the next read.
 - **`stock_confirmation_interval_seconds` is NOT NULL with NO DEFAULT.** A
   default would be the deployment-wide freshness TTL #68 forbids, arriving
   through the back door: every merchant who never touched the field would
   silently share one number. Requiring it puts the claim at the grain that
   actually varies — a till writes through in seconds and a nightly connector run
   does not.
-- **`location_opening_hours` is a row per INTERVAL, not per weekday.** A shop
-  that closes for lunch has two intervals on a Tuesday and an `opens`/`closes`
-  pair per day cannot say so. Minutes from LOCAL midnight against the
-  publication's own `timezone`: a `time` column carries no zone and a
-  `timestamptz` carries a date, and what a shop publishes is neither.
-- **`location_closures` uses `date`, not `timestamptz`.** A closure is expressed
-  in the shop's own calendar ("we are shut on the 6th"); storing an instant would
-  make the meaning depend on which zone read it back.
 - **A merchant PAUSE and an operator RESTRICTION are different column pairs.**
   One is a shop closing its collection desk for an afternoon, the other is
   Mercaria withdrawing a place — and a merchant must not be able to lift the
@@ -5526,11 +5563,13 @@ and `listing_local_discovery`. Full reference: `docs/pickup.md`.
   hottest read in the domain (a counter scanning today's collections) and a
   snapshot with no state is not a thing anything reads. The trigger freezes the
   fourteen copied columns and leaves `state` and its four instants free, because
-  moving those is the whole point.
-- **The address on `order_pickups` is copied from the PUBLICATION, never from
-  `locations`.** A buyer's order therefore cannot carry a street the merchant
-  chose to withhold, and #105's "nothing fabricates a street for a collection"
-  survives — `destination.ts` still produces no address at all.
+  moving those is the whole point. `0159` added `go_way_place_id` — the place
+  the snapshot was read from — to the freeze.
+- **The address on `order_pickups` is read from the GoWay PLACE, never from
+  `locations`.** A buyer's order carries only what the place already publishes,
+  and #105's "nothing fabricates a street for a collection" survives —
+  `destination.ts` still produces no address at all. `go_way_place_id` is NULL
+  on every collection placed before ADR 0013, which is the truth.
 - **`order_pickups.location_id` and `.publication_id` are RESTRICT.** A merchant
   deleting a location out from under a live collection would leave an order
   pointing at nowhere and a person standing outside a door — the `connections`
@@ -5563,6 +5602,10 @@ and `listing_local_discovery`. Full reference: `docs/pickup.md`.
 - **`pickup_collection_events.store_id` is denormalized**, so a store's own trail
   is one indexed predicate and a query for it cannot widen to a sibling's orders
   by forgetting a join condition (#93 merchant rule 5).
+- **`location_publication_events` records a place-link change as the GoWay ids
+  it moved FROM and TO** (`previous_`/`next_go_way_place_id`). `0162` dropped
+  the coordinate pair it used to carry: where the place itself moved is GoWay's
+  own history (`place_revisions`).
 - **`location_publication_events.kind` has NO CHECK, deliberately.** The trail is
   a RECORDING and a newly editable field should not need a migration before it
   can be audited; the value space is small and greppable and nothing branches on
@@ -5586,7 +5629,7 @@ and `listing_local_discovery`. Full reference: `docs/pickup.md`.
   is stored, nullable, and its merge disposition is `repoint` in
   `merge-plan.ts`.
 - **Three Oxy id columns and no buyer column anywhere.** The whole of what these
-  eight tables store about a person is `location_publications.restricted_by`,
+  tables store about a person is `location_publications.restricted_by`,
   `location_publication_events.actor` and `pickup_collection_events.actor` —
   every one a member of STAFF or an operator. Who bought a collection order is
   the order's own fact, under #106's scoping.

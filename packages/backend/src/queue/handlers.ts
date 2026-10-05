@@ -15,7 +15,7 @@ import {
   findOrderById,
   findStalePendingOrders,
 } from '../db/orders/orderRepository.js';
-import { findStoreById, type StoreMemberRecord } from '../db/stores/storeRepository.js';
+import { findStoreById } from '../db/stores/storeRepository.js';
 import { findPublishedReviewTargets } from '../db/reviews/reviewRepository.js';
 import { SYSTEM_ACTOR, transition } from '../services/order.service.js';
 import { accountWithBuyerAccess, orderBuyerOf } from '../services/orders/order-buyer.js';
@@ -39,9 +39,6 @@ import type {
   InventorySyncJob,
   FulfillmentPushJob,
 } from './types.js';
-
-/** Store-member permissions that grant inventory/low-stock visibility. */
-const INVENTORY_MANAGER_PERMISSIONS = ['store:manage', 'inventory:write'] as const;
 
 /** Map an order-lifecycle event to the buyer-facing notification type. */
 const EVENT_TO_BUYER_TYPE: Record<OrderEvent, NotificationType> = {
@@ -80,21 +77,6 @@ async function notifySafe(options: Parameters<typeof sendNotification>[0]): Prom
       'Notification delivery failed (best-effort)',
     );
   }
-}
-
-/** The distinct owner-member oxy user ids of a store. */
-function storeOwnerIds(members: StoreMemberRecord[]): string[] {
-  return [...new Set(members.filter((m) => m.role === 'owner').map((m) => m.oxyUserId))];
-}
-
-/** The distinct member ids who can act on inventory (owner or inventory perms). */
-function inventoryManagerIds(members: StoreMemberRecord[]): string[] {
-  const ids = members
-    .filter(
-      (m) => m.role === 'owner' || INVENTORY_MANAGER_PERMISSIONS.some((p) => m.permissions.includes(p)),
-    )
-    .map((m) => m.oxyUserId);
-  return [...new Set(ids)];
 }
 
 /**
@@ -167,17 +149,18 @@ export async function handleOrderEventNotification(job: OrderEventNotificationJo
     }
   } else if (order.sellerType === 'store' && order.storeId) {
     const storeId = order.storeId;
+    // The store's owning Oxy account is who a store notification reaches
+    // (ADR 0012). Mercaria has no member list to fan out over — who sees an
+    // organization's inbox is Oxy's to decide.
     const store = await findStoreById(storeId);
     if (store) {
-      for (const ownerId of storeOwnerIds(store.members)) {
-        await notifySafe({
-          userId: ownerId,
-          type: buyerType,
-          title: sellerCopy.title,
-          body: sellerCopy.body,
-          data: { ...sellerData, storeId },
-        });
-      }
+      await notifySafe({
+        userId: store.oxyAccountId,
+        type: buyerType,
+        title: sellerCopy.title,
+        body: sellerCopy.body,
+        data: { ...sellerData, storeId },
+      });
     }
   }
 }
@@ -240,8 +223,9 @@ export async function handleExpireReservations(): Promise<void> {
 }
 
 /**
- * Alert a store's inventory managers that a tracked variant dropped to/below
- * the low-stock threshold. Best-effort; a missing store logs a warning.
+ * Alert a store's owning Oxy account that a tracked variant dropped to/below
+ * the low-stock threshold (ADR 0012: the account is the store's inbox).
+ * Best-effort; a missing store logs a warning.
  */
 export async function handleLowInventoryAlert(job: LowInventoryAlertJob): Promise<void> {
   const store = await findStoreById(job.storeId);
@@ -250,21 +234,18 @@ export async function handleLowInventoryAlert(job: LowInventoryAlertJob): Promis
     return;
   }
 
-  const recipients = inventoryManagerIds(store.members);
-  for (const userId of recipients) {
-    await notifySafe({
-      userId,
-      type: 'low_inventory',
-      title: 'Low inventory',
-      body: `${job.variantTitle} is low on stock (${job.available} left).`,
-      data: {
-        storeId: job.storeId,
-        listingId: job.listingId,
-        variantId: job.variantId,
-        available: job.available,
-      },
-    });
-  }
+  await notifySafe({
+    userId: store.oxyAccountId,
+    type: 'low_inventory',
+    title: 'Low inventory',
+    body: `${job.variantTitle} is low on stock (${job.available} left).`,
+    data: {
+      storeId: job.storeId,
+      listingId: job.listingId,
+      variantId: job.variantId,
+      available: job.available,
+    },
+  });
 }
 
 /**

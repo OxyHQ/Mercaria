@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import type { PickupCollectionEventKind } from "@mercaria/shared-types";
 import {
   ORDER_PICKUP_STATE_EXPLANATION_KEYS,
@@ -18,6 +19,7 @@ import {
   usePickupDeskAction,
   useRotateCollectionCode,
 } from "@/lib/hooks/use-orders";
+import { useGoWayPlaceUrl } from "@/lib/goway/hooks";
 import { useTranslation } from "@/lib/i18n";
 
 /**
@@ -49,6 +51,13 @@ import { useTranslation } from "@/lib/i18n";
  * them — the snapshot is the PLACE, not the person — so this is a property of
  * the type rather than a filter somebody applied. A guest's order and an
  * account holder's render identically, which is #93 merchant rule 8.
+ *
+ * ## The address is the frozen snapshot
+ *
+ * Read off the GoWay place at checkout (ADR 0013) and frozen onto the order:
+ * what the buyer agreed to collect from, whatever the place says now. The link
+ * to the place on GoWay is for the CURRENT place — a collection placed before
+ * the place facts moved to GoWay names none, and shows none.
  */
 
 /**
@@ -118,6 +127,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
         <Text className="text-xs text-muted-foreground">
           {t(PICKUP_IDENTITY_REQUIREMENT_KEYS[pickup.identityRequirement])}
         </Text>
+        {pickup.goWayPlaceId ? <PlaceOnGoWay placeId={pickup.goWayPlaceId} /> : null}
       </View>
 
       {settled ? null : (
@@ -280,6 +290,20 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
           })
         )}
       </View>
+    </View>
+  );
+}
+
+/** The collection point's place on goway.to — opened in the browser, never embedded. */
+function PlaceOnGoWay({ placeId }: { placeId: string }) {
+  const { t } = useTranslation();
+  const url = useGoWayPlaceUrl(placeId);
+  if (url === undefined) return null;
+  return (
+    <View className="flex-row">
+      <Button size="sm" appearance="outline" tone="neutral" onPress={() => void WebBrowser.openBrowserAsync(url)}>
+        {t("orders.pickup.viewPlace")}
+      </Button>
     </View>
   );
 }

@@ -172,7 +172,6 @@ export const SELLER_OWNED_FIELDS = [
   'quantity',
   'price',
   'fulfilment',
-  'coarse_location',
   'listing_title_override',
 ] as const;
 
@@ -323,22 +322,6 @@ export const SELLER_PICKUP_AVAILABILITIES: readonly SellerPickupAvailability[] =
   'not_offered',
   'offered',
 ];
-
-/**
- * How many decimal places a published coarse location keeps.
- *
- * Two, which is about 1.1 km at the equator — a neighbourhood, not a doorstep.
- * A constant rather than a per-request precision, because a precision a client
- * could choose is a precision somebody sets to seven, and the seller opted in to
- * "roughly where I am" rather than to an address.
- */
-export const SELLER_LOCATION_PRECISION_DECIMALS = 2;
-
-/** Round a coordinate to the published grid. Exported so one rule serves both ends. */
-export function coarsenSellerCoordinate(value: number): number {
-  const factor = 10 ** SELLER_LOCATION_PRECISION_DECIMALS;
-  return Math.round(value * factor) / factor;
-}
 
 // ---------------------------------------------------------------------------
 // Protected proof fields — DEFINED and NOT CAPTURABLE
@@ -622,7 +605,6 @@ export interface SellerDraftDTO {
   readonly quantity: number;
   readonly price?: Money;
   readonly pickup: SellerPickupAvailability;
-  readonly locationOptIn: boolean;
   readonly publishedListingId?: string;
   readonly publishedAt?: string;
   readonly createdAt: string;
@@ -641,14 +623,17 @@ export interface SellerDraftReadiness {
 /**
  * Where a published listing will appear (#91 UX rule 7).
  *
- * Three booleans rather than prose, because the answer differs per draft and a
+ * Booleans rather than prose, because the answer differs per draft and a
  * screen that promises a canonical product page for an unmatched listing is
  * telling somebody their handmade chair will appear on a product comparison.
+ *
+ * Local results are not a draft's to promise: a seller opts a PUBLISHED
+ * listing into them, with an area, through `listing_local_discovery`'s coarse
+ * cell (`PUT /seller/listings/:id/local-discovery`).
  */
 export interface SellerDraftPlacement {
   readonly onCanonicalProduct: boolean;
   readonly onSellerProfile: boolean;
-  readonly inLocalResults: boolean;
 }
 
 /** Everything a review step renders. */

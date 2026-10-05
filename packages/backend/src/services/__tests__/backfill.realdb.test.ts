@@ -54,7 +54,7 @@ import { fixtureGtin } from '../../__tests__/fixture-gtin.js';
 import type { CatalogBackfillMode, CatalogBackfillStage } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { listingOptions, listings } from '../../db/schema/catalog.js';
-import { stores, storeMembers } from '../../db/schema/stores.js';
+import { stores } from '../../db/schema/stores.js';
 import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import { canonicalProducts, canonicalVariants } from '../../db/schema/canonicalCatalog.js';
 import { nativeListingLinks, offers } from '../../db/schema/offers.js';
@@ -153,7 +153,6 @@ afterAll(async () => {
     if (merchantIds.length > 0) {
       await db.delete(merchants).where(inArray(merchants.id, merchantIds));
     }
-    await db.delete(storeMembers).where(inArray(storeMembers.storeId, createdStoreIds));
     await deleteTestStores(db, createdStoreIds);
   }
   await closePostgres();
@@ -164,6 +163,7 @@ async function seedStore(suffix: string): Promise<string> {
   const [store] = await db
     .insert(stores)
     .values({
+      oxyAccountId: `owner-${RUN}-${suffix}`,
       handle: `bf-${RUN}-${suffix}`,
       name: `Backfill Store ${suffix} ${RUN}`,
       description: 'seeded by backfill.realdb.test',
@@ -171,13 +171,6 @@ async function seedStore(suffix: string): Promise<string> {
     })
     .returning({ id: stores.id });
   createdStoreIds.push(store.id);
-  await db.insert(storeMembers).values({
-    storeId: store.id,
-    oxyUserId: `owner-${RUN}-${suffix}`,
-    role: 'owner',
-    permissions: [],
-    joinedAt: new Date(),
-  });
   return store.id;
 }
 

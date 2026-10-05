@@ -1,253 +1,270 @@
 /**
- * Unit tests for `store-authz`.
+ * Unit tests for `store-authz` and the access resolution behind it (ADR 0012).
  *
- * Covers the `ROLE_PERMISSIONS` matrix, `effectivePermissions` (role defaults ∪
- * explicit member grants), and the `requireStoreRole` / `requireStorePermission`
- * guards. No DB needed — these operate on `req.storeMembership`, which `loadStore`
- * attaches upstream (tested via integration/smoke).
+ * Covers the ONE role map (`STORE_ROLE_PERMISSIONS`), the override arithmetic
+ * (`(role defaults ∪ granted) − revoked`), `requireStorePermission`, and
+ * `loadStore` end to end against a mocked store repository and a mocked Oxy
+ * account graph — which is where every decision that matters is made: who is
+ * the owning account, when Oxy is asked, that an override never admits
+ * anybody, and that an Oxy outage refuses rather than guesses.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
-import type { StorePermission } from '@mercaria/shared-types';
+import {
+  STORE_PERMISSIONS,
+  STORE_ROLE_PERMISSIONS,
+  effectiveStorePermissions,
+  type StoreAccess,
+  type StorePermission,
+} from '@mercaria/shared-types';
+
+const findStoreById = vi.fn();
+const findStorePermissionOverride = vi.fn();
+const readCallerAccountRole = vi.fn();
 
 vi.mock('../../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
 }));
+vi.mock('../../db/stores/storeRepository.js', () => ({
+  findStoreById: (...args: unknown[]) => findStoreById(...args),
+  findStorePermissionOverride: (...args: unknown[]) => findStorePermissionOverride(...args),
+  findStorePermissionOverridesForUser: vi.fn(),
+  findStoresByOwnerAccounts: vi.fn(),
+}));
+vi.mock('../../services/oxy-account-graph.js', () => ({
+  readCallerAccountRole: (...args: unknown[]) => readCallerAccountRole(...args),
+  listCallerAccountRoles: vi.fn(),
+}));
 
-import {
-  ROLE_PERMISSIONS,
-  effectivePermissions,
-  requireStoreRole,
-  requireStorePermission,
-} from '../store-authz.js';
-import type { StoreMemberRecord } from '../../db/stores/storeRepository.js';
+import { loadStore, requireStorePermission } from '../store-authz.js';
+import { resetStoreAccessCacheForTests } from '../../services/store-access.service.js';
+import { serviceUnavailable } from '../../lib/errors/error-codes.js';
 
-/**
- * A membership carrying only what the permission check reads.
- *
- * Cast rather than spelled out: `StoreMemberRecord` is a whole row and the two
- * guards under test read `role` and `permissions`. Confined to this helper.
- */
-function member(
-  role: StoreMemberRecord['role'],
-  permissions: StorePermission[] = [],
-): StoreMemberRecord {
-  return { oxyUserId: 'u1', role, permissions } as unknown as StoreMemberRecord;
-}
+const STORE_ID = '1'.repeat(24);
+const ORG = 'org-acme';
+const ALICE = 'person-alice';
+const BOB = 'person-bob';
 
-function mockReq(membership?: StoreMemberRecord): Request {
-  return { storeMembership: membership } as unknown as Request;
-}
+type MockRes = Response & { status: ReturnType<typeof vi.fn>; json: ReturnType<typeof vi.fn> };
 
-function mockRes(): Response & { status: ReturnType<typeof vi.fn>; json: ReturnType<typeof vi.fn> } {
+function mockRes(): MockRes {
   const res = {
     status: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
   };
-  return res as unknown as Response & { status: ReturnType<typeof vi.fn>; json: ReturnType<typeof vi.fn> };
+  return res as unknown as MockRes;
 }
 
-describe('ROLE_PERMISSIONS matrix', () => {
-  it('owner holds every permission including store:manage, members:manage, locations:write, collections:write, discounts:write and settings:write', () => {
-    const owner = new Set(ROLE_PERMISSIONS.owner);
-    expect(owner.has('store:manage')).toBe(true);
-    expect(owner.has('members:manage')).toBe(true);
-    expect(owner.has('products:write')).toBe(true);
-    expect(owner.has('locations:write')).toBe(true);
-    expect(owner.has('collections:write')).toBe(true);
-    expect(owner.has('discounts:write')).toBe(true);
-    expect(owner.has('settings:write')).toBe(true);
-    expect(owner.has('customers:read')).toBe(true);
-    expect(owner.has('customers:write')).toBe(true);
-    expect(owner.has('draft_orders:write')).toBe(true);
-    expect(owner.has('refunds:write')).toBe(true);
-    expect(owner.has('channels:write')).toBe(true);
-    expect(owner.has('analytics:read')).toBe(true);
-    expect(owner.size).toBe(18);
+/**
+ * A request as `authenticateToken` leaves it. `actor` is the chain Oxy
+ * reports; omitted means Oxy reported none.
+ */
+function request(
+  userId: string | undefined,
+  actor?: { actorAccountId: string; delegated: boolean },
+): Request {
+  return {
+    params: { storeId: STORE_ID },
+    userId,
+    accessToken: userId ? `bearer-of-${userId}` : undefined,
+    ...(actor && userId
+      ? { oxyActor: { schemaVersion: 1, effectiveAccountId: userId, ...actor } }
+      : {}),
+  } as unknown as Request;
+}
+
+/** Run `loadStore` and report what it did. */
+async function load(req: Request): Promise<{ status: number | null; access?: StoreAccess }> {
+  const res = mockRes();
+  const next = vi.fn() as unknown as NextFunction;
+  await loadStore(req, res, next);
+  if ((next as unknown as ReturnType<typeof vi.fn>).mock.calls.length > 0) {
+    return { status: null, access: req.storeAccess };
+  }
+  return { status: res.status.mock.calls[0]?.[0] as number };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  resetStoreAccessCacheForTests();
+  findStoreById.mockResolvedValue({ id: STORE_ID, oxyAccountId: ORG });
+  findStorePermissionOverride.mockResolvedValue(null);
+  readCallerAccountRole.mockResolvedValue(null);
+});
+
+describe('STORE_ROLE_PERMISSIONS — the one role map', () => {
+  it('owner holds all eighteen; admin all but store:manage', () => {
+    expect([...STORE_ROLE_PERMISSIONS.owner]).toEqual([...STORE_PERMISSIONS]);
+    expect(STORE_PERMISSIONS).toHaveLength(18);
+    expect(STORE_ROLE_PERMISSIONS.admin).toHaveLength(17);
+    expect(STORE_ROLE_PERMISSIONS.admin).not.toContain('store:manage');
   });
 
-  it('admin holds everything except store:manage (incl. discounts:write, settings:write)', () => {
-    const admin = new Set(ROLE_PERMISSIONS.admin);
-    expect(admin.has('store:manage')).toBe(false);
-    expect(admin.has('members:manage')).toBe(true);
-    expect(admin.has('products:write')).toBe(true);
-    expect(admin.has('inventory:write')).toBe(true);
-    expect(admin.has('locations:write')).toBe(true);
-    expect(admin.has('collections:write')).toBe(true);
-    expect(admin.has('discounts:write')).toBe(true);
-    expect(admin.has('settings:write')).toBe(true);
-    expect(admin.has('refunds:write')).toBe(true);
-    expect(admin.has('channels:write')).toBe(true);
-    expect(admin.has('analytics:read')).toBe(true);
-  });
-
-  it('staff covers products/inventory/orders/stats + customers/draft_orders (POS), with no manage/discounts/settings', () => {
-    const staff = new Set(ROLE_PERMISSIONS.staff);
-    expect(staff.has('store:manage')).toBe(false);
-    expect(staff.has('members:manage')).toBe(false);
-    expect(staff.has('locations:write')).toBe(false);
-    expect(staff.has('collections:write')).toBe(false);
-    expect(staff.has('discounts:write')).toBe(false);
-    expect(staff.has('settings:write')).toBe(false);
-    // Refunds are owner/admin only — staff run the POS but do not refund.
-    expect(staff.has('refunds:write')).toBe(false);
-    // Connectors are owner/admin only — staff do not configure integrations.
-    expect(staff.has('channels:write')).toBe(false);
-    // Market demand analytics are owner/admin only (#86 privacy 3). Staff hold
-    // `stats:read` — this store's own trading record — and NOT this, which is
-    // what the market is doing around the store's products.
-    expect(staff.has('analytics:read')).toBe(false);
-    expect(staff.has('products:read')).toBe(true);
-    expect(staff.has('products:write')).toBe(true);
-    expect(staff.has('inventory:write')).toBe(true);
-    expect(staff.has('orders:read')).toBe(true);
-    expect(staff.has('orders:fulfill')).toBe(true);
-    expect(staff.has('stats:read')).toBe(true);
-    // Staff run the POS: customers + draft orders.
-    expect(staff.has('customers:read')).toBe(true);
-    expect(staff.has('customers:write')).toBe(true);
-    expect(staff.has('draft_orders:write')).toBe(true);
-  });
-
-  it('locks the FINAL matrix: exact owner(18)/admin(17)/staff(9) sets', () => {
-    // The canonical 18-permission catalog.
-    const ALL: StorePermission[] = [
-      'store:manage',
-      'members:manage',
-      'products:read',
-      'products:write',
-      'inventory:write',
-      'locations:write',
-      'collections:write',
-      'discounts:write',
-      'settings:write',
-      'orders:read',
-      'orders:fulfill',
-      'stats:read',
-      'customers:read',
-      'customers:write',
-      'draft_orders:write',
-      'refunds:write',
-      'channels:write',
-      'analytics:read',
-    ];
-
-    // owner = all 18.
-    expect(new Set(ROLE_PERMISSIONS.owner)).toEqual(new Set(ALL));
-    expect(ROLE_PERMISSIONS.owner.length).toBe(18);
-
-    // admin = all 17 except store:manage.
-    expect(new Set(ROLE_PERMISSIONS.admin)).toEqual(
-      new Set(ALL.filter((p) => p !== 'store:manage')),
+  it('editor runs the catalogue and the shop floor and configures nothing commercial', () => {
+    expect([...STORE_ROLE_PERMISSIONS.editor].sort()).toEqual(
+      [
+        'collections:write',
+        'customers:read',
+        'customers:write',
+        'discounts:write',
+        'draft_orders:write',
+        'inventory:write',
+        'locations:write',
+        'orders:fulfill',
+        'orders:read',
+        'products:read',
+        'products:write',
+        'stats:read',
+      ].sort(),
     );
-    expect(ROLE_PERMISSIONS.admin.length).toBe(17);
+  });
 
-    // staff = the exact 9 operational permissions.
-    const STAFF_ALLOWED: StorePermission[] = [
-      'products:read',
-      'products:write',
-      'inventory:write',
-      'orders:read',
-      'orders:fulfill',
-      'stats:read',
-      'customers:read',
-      'customers:write',
-      'draft_orders:write',
-    ];
-    const STAFF_DENIED: StorePermission[] = [
-      'store:manage',
-      'members:manage',
-      'settings:write',
-      'discounts:write',
-      'refunds:write',
-      'locations:write',
-      'collections:write',
-      'channels:write',
+  it('developer connects channels; billing reads money; viewer reads the trading record', () => {
+    expect([...STORE_ROLE_PERMISSIONS.developer].sort()).toEqual(['channels:write', 'products:read']);
+    expect([...STORE_ROLE_PERMISSIONS.billing].sort()).toEqual([
       'analytics:read',
-    ];
-    expect(new Set(ROLE_PERMISSIONS.staff)).toEqual(new Set(STAFF_ALLOWED));
-    expect(ROLE_PERMISSIONS.staff.length).toBe(9);
-    const staffSet = new Set(ROLE_PERMISSIONS.staff);
-    for (const denied of STAFF_DENIED) {
-      expect(staffSet.has(denied)).toBe(false);
+      'orders:read',
+      'stats:read',
+    ]);
+    expect([...STORE_ROLE_PERMISSIONS.viewer].sort()).toEqual([
+      'orders:read',
+      'products:read',
+      'stats:read',
+    ]);
+  });
+
+  it('every permission is held by owner, and nothing outside the vocabulary is held by anyone', () => {
+    for (const permissions of Object.values(STORE_ROLE_PERMISSIONS)) {
+      for (const permission of permissions) expect(STORE_PERMISSIONS).toContain(permission);
     }
-    // The allowed + denied sets together are exactly the 18-permission catalog.
-    expect(STAFF_ALLOWED.length + STAFF_DENIED.length).toBe(18);
+  });
+
+  it('store:manage is the owner’s alone', () => {
+    const holders = Object.entries(STORE_ROLE_PERMISSIONS)
+      .filter(([, permissions]) => permissions.includes('store:manage'))
+      .map(([role]) => role);
+    expect(holders).toEqual(['owner']);
   });
 });
 
-describe('effectivePermissions', () => {
-  it('unions a member\'s explicit grants with their role defaults', () => {
-    const staffPlus = member('staff', ['members:manage']);
-    const effective = effectivePermissions(staffPlus);
-    expect(effective.has('members:manage')).toBe(true); // explicit grant
-    expect(effective.has('products:write')).toBe(true); // role default
-    expect(effective.has('store:manage')).toBe(false); // neither
+describe('effectiveStorePermissions — (role defaults ∪ granted) − revoked', () => {
+  it('adds a grant and removes a revoke', () => {
+    const effective = effectiveStorePermissions('editor', {
+      granted: ['refunds:write'],
+      revoked: ['discounts:write'],
+    });
+    expect(effective).toContain('refunds:write');
+    expect(effective).not.toContain('discounts:write');
+    expect(effective).toContain('products:write');
+  });
+
+  it('a revoke beats a grant naming the same permission', () => {
+    const effective = effectiveStorePermissions('viewer', {
+      granted: ['analytics:read'],
+      revoked: ['analytics:read'],
+    });
+    expect(effective).not.toContain('analytics:read');
+  });
+
+  it('keeps vocabulary order, so two sets compare meaningfully', () => {
+    const effective = effectiveStorePermissions('viewer', { granted: ['store:manage'], revoked: [] });
+    expect(effective[0]).toBe('store:manage');
   });
 });
 
 describe('requireStorePermission', () => {
-  it('blocks staff from members:manage by default (403)', () => {
-    const res = mockRes();
-    const next = vi.fn();
-    requireStorePermission('members:manage')(mockReq(member('staff')), res, next as NextFunction);
-    expect(next).not.toHaveBeenCalled();
+  function run(access: StoreAccess | undefined, perm: StorePermission): MockRes & { nextCalled: boolean } {
+    const res = mockRes() as MockRes & { nextCalled: boolean };
+    res.nextCalled = false;
+    requireStorePermission(perm)({ storeAccess: access } as unknown as Request, res, () => {
+      res.nextCalled = true;
+    });
+    return res;
+  }
+
+  it('passes when the resolved permissions hold it', () => {
+    expect(run({ role: 'editor', permissions: ['products:write'] }, 'products:write').nextCalled).toBe(true);
+  });
+
+  it('403s when they do not, naming the permission', () => {
+    const res = run({ role: 'admin', permissions: [...STORE_ROLE_PERMISSIONS.admin] }, 'store:manage');
+    expect(res.nextCalled).toBe(false);
     expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json.mock.calls[0]?.[0]?.message).toContain('store:manage');
   });
 
-  it('blocks staff from store:manage (403)', () => {
-    const res = mockRes();
-    const next = vi.fn();
-    requireStorePermission('store:manage')(mockReq(member('staff')), res, next as NextFunction);
-    expect(res.status).toHaveBeenCalledWith(403);
-  });
-
-  it('allows admin members:manage', () => {
-    const res = mockRes();
-    const next = vi.fn();
-    requireStorePermission('members:manage')(mockReq(member('admin')), res, next as NextFunction);
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('allows owner store:manage', () => {
-    const res = mockRes();
-    const next = vi.fn();
-    requireStorePermission('store:manage')(mockReq(member('owner')), res, next as NextFunction);
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('allows a staff member EXPLICITLY granted members:manage (union)', () => {
-    const res = mockRes();
-    const next = vi.fn();
-    requireStorePermission('members:manage')(
-      mockReq(member('staff', ['members:manage'])),
-      res,
-      next as NextFunction,
-    );
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('rejects when there is no membership at all (403)', () => {
-    const res = mockRes();
-    const next = vi.fn();
-    requireStorePermission('products:read')(mockReq(undefined), res, next as NextFunction);
-    expect(res.status).toHaveBeenCalledWith(403);
+  it('403s when loadStore attached nothing', () => {
+    expect(run(undefined, 'products:read').status).toHaveBeenCalledWith(403);
   });
 });
 
-describe('requireStoreRole', () => {
-  it('allows a member whose role is in the allowed set', () => {
-    const res = mockRes();
-    const next = vi.fn();
-    requireStoreRole('owner', 'admin')(mockReq(member('admin')), res, next as NextFunction);
-    expect(next).toHaveBeenCalled();
+describe('loadStore', () => {
+  it('400s a malformed id and 401s a request with no caller', async () => {
+    const malformed = { ...request(ALICE), params: { storeId: 'nope' } } as unknown as Request;
+    expect((await load(malformed)).status).toBe(400);
+    expect((await load(request(undefined))).status).toBe(401);
   });
 
-  it('blocks a member whose role is not allowed (403)', () => {
-    const res = mockRes();
-    const next = vi.fn();
-    requireStoreRole('owner')(mockReq(member('staff')), res, next as NextFunction);
-    expect(res.status).toHaveBeenCalledWith(403);
+  it('404s an unknown store before asking Oxy anything', async () => {
+    findStoreById.mockResolvedValue(null);
+    expect((await load(request(ALICE))).status).toBe(404);
+    expect(readCallerAccountRole).not.toHaveBeenCalled();
+  });
+
+  it('the owning account acting as itself is the owner, with no round trip', async () => {
+    findStoreById.mockResolvedValue({ id: STORE_ID, oxyAccountId: ALICE });
+    const { status, access } = await load(request(ALICE, { actorAccountId: ALICE, delegated: false }));
+    expect(status).toBeNull();
+    expect(access).toEqual({ role: 'owner', permissions: [...STORE_PERMISSIONS] });
+    expect(readCallerAccountRole).not.toHaveBeenCalled();
+  });
+
+  it('a person operating the owning organization gets THEIR role, not ownership', async () => {
+    // The session speaks as ORG, but Oxy authorizes it as Alice — an editor,
+    // who holds account:act_as. Ownership here would hand her store:manage.
+    readCallerAccountRole.mockResolvedValue('editor');
+    const { access } = await load(request(ORG, { actorAccountId: ALICE, delegated: true }));
+    expect(readCallerAccountRole).toHaveBeenCalledWith(`bearer-of-${ORG}`, ORG);
+    expect(access?.role).toBe('editor');
+    expect(access?.permissions).not.toContain('store:manage');
+  });
+
+  it('a member gets their role’s permissions, adjusted by their override', async () => {
+    readCallerAccountRole.mockResolvedValue('editor');
+    findStorePermissionOverride.mockResolvedValue({ granted: ['refunds:write'], revoked: ['discounts:write'] });
+    const { access } = await load(request(ALICE, { actorAccountId: ALICE, delegated: false }));
+    expect(findStorePermissionOverride).toHaveBeenCalledWith(STORE_ID, ALICE);
+    expect(access?.permissions).toContain('refunds:write');
+    expect(access?.permissions).not.toContain('discounts:write');
+  });
+
+  it('an override never admits somebody with no role', async () => {
+    findStorePermissionOverride.mockResolvedValue({ granted: [...STORE_PERMISSIONS], revoked: [] });
+    expect((await load(request(BOB, { actorAccountId: BOB, delegated: false }))).status).toBe(403);
+  });
+
+  it('FAILS CLOSED with a 503 when Oxy cannot answer', async () => {
+    readCallerAccountRole.mockRejectedValue(serviceUnavailable('Oxy is down'));
+    expect((await load(request(ALICE, { actorAccountId: ALICE, delegated: false }))).status).toBe(503);
+  });
+
+  it('reuses a role per ACTOR, and never shares one between two people', async () => {
+    readCallerAccountRole.mockResolvedValue('admin');
+    await load(request(ALICE, { actorAccountId: ALICE, delegated: false }));
+    await load(request(ALICE, { actorAccountId: ALICE, delegated: false }));
+    expect(readCallerAccountRole).toHaveBeenCalledTimes(1);
+
+    // Bob operating the same organization is a different person: asked anew.
+    readCallerAccountRole.mockResolvedValue(null);
+    expect((await load(request(ORG, { actorAccountId: BOB, delegated: true }))).status).toBe(403);
+    expect(readCallerAccountRole).toHaveBeenCalledTimes(2);
+  });
+
+  it('never caches a caller whose actor Oxy did not report', async () => {
+    readCallerAccountRole.mockResolvedValue('admin');
+    await load(request(ALICE));
+    await load(request(ALICE));
+    expect(readCallerAccountRole).toHaveBeenCalledTimes(2);
   });
 });

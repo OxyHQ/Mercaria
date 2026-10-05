@@ -108,7 +108,7 @@ import type {
   ListingQuery,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import { listingImages, listingOptions, listings, productVariants } from '../schema/catalog.js';
+import { inventoryLevels, listingImages, listingOptions, listings, productVariants } from '../schema/catalog.js';
 import { listingLocalizations } from '../schema/catalogLocalization.js';
 import { connections } from '../schema/connectors.js';
 import { listingCollections } from '../schema/merchandising.js';
@@ -424,7 +424,6 @@ export type NewListing = Omit<
   | 'id'
   | 'createdAt'
   | 'updatedAt'
-  | 'geo'
   | 'searchVector'
   | 'publishedAt'
   | 'archivedBy'
@@ -1171,7 +1170,6 @@ export interface ListingSearchFilters {
    * no effect without `text`.
    */
   locale?: string;
-  near?: { lng: number; lat: number; radiusM: number };
   /**
    * Exclude every STORE-owned listing whose store is not `active` (#1017).
    *
@@ -1182,6 +1180,14 @@ export interface ListingSearchFilters {
    * A person-owned listing has no store and is unaffected.
    */
   liveStoresOnly?: boolean;
+  /**
+   * Only listings with stock at ONE location (#1017's
+   * `GET /public/v1/locations/:id/products`): a level row there, and — with
+   * `freshSince` — a positive one confirmed at or after that instant, which is
+   * the location's own freshness window as `inventoryBlockers` reads it. It
+   * replaces `inStock` for that read, which asks about the listing anywhere.
+   */
+  stockedAt?: { readonly locationId: string; readonly freshSince?: Date };
 }
 
 /**
@@ -1263,12 +1269,22 @@ function buildSearchWhere(filters: ListingSearchFilters): SQL | undefined {
     );
   }
 
-  if (filters.near) {
+  if (filters.stockedAt) {
+    const { locationId, freshSince } = filters.stockedAt;
+    // `qualified()` on both sides for the bare-column trap above, and the
+    // instant as an ISO string cast in SQL: a `Date` bound into a raw `sql`
+    // fragment bypasses the column's mapper and postgres.js refuses it.
     predicates.push(
-      sql`${listings.geo} is not null and st_dwithin(
-        ${listings.geo},
-        st_makepoint(${filters.near.lng}, ${filters.near.lat})::geography,
-        ${filters.near.radiusM}
+      sql`exists (
+        select 1 from ${inventoryLevels}
+        where ${qualified(inventoryLevels.listingId)} = ${qualified(listings.id)}
+          and ${qualified(inventoryLevels.locationId)} = ${locationId}
+          ${
+            freshSince === undefined
+              ? sql``
+              : sql`and ${qualified(inventoryLevels.available)} > 0
+          and ${qualified(inventoryLevels.updatedAt)} >= ${freshSince.toISOString()}::timestamptz`
+          }
       )`,
     );
   }

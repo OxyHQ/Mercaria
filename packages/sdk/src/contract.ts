@@ -1,39 +1,68 @@
 /**
  * The public contract, taken from its ONE definition.
  *
- * Every shape and closed value set below is defined in Mercaria's shared-types
- * package (`src/public-api.ts`, plus the money and condition vocabularies it
- * names). That package is private and never published, so the build BUNDLES
- * what this module reaches — values into the JavaScript, declarations into the
- * `.d.ts` — and `scripts/smoke.mjs` fails the release if any shipped file still
- * names the private package. Nothing here re-declares a type: an SDK that kept
- * its own copy would be the second source of truth issue #1017 exists to
- * prevent.
+ * Every schema, type, closed value set and error code below is defined in
+ * Mercaria's `@mercaria/contracts` package (zod 4), with the money and
+ * condition vocabularies it names from `@mercaria/shared-types`. Both packages
+ * are private and never published, so the build BUNDLES what this module
+ * reaches — values into the JavaScript, declarations into the `.d.ts` — and
+ * `scripts/smoke.mjs` fails the release if any shipped file still names a
+ * private package. `zod` itself is the SDK's one runtime dependency.
  *
- * This is the only module in `src/` that imports the private package.
+ * The SDK parses every response with these schemas and runs every query it
+ * sends through the same schema the server validates it with. Nothing here
+ * re-declares a type: an SDK that kept its own copy would be the second source
+ * of truth issue #1017 exists to prevent.
+ *
+ * This is the only module in `src/` that imports a private package.
  */
 
 export {
-  ALL_CURRENCY_CODES,
-  CONDITION_GROUPS,
-  CONDITION_KEY_GROUP,
-  ITEM_CONDITION_KEYS,
+  MERCARIA_LOCATION_AVAILABILITIES,
   MERCARIA_PRODUCT_AVAILABILITIES,
   MERCARIA_PRODUCT_SORTS,
   MERCARIA_PUBLIC_API_BASE_PATH,
   MERCARIA_PUBLIC_ERROR_CODES,
+  MERCARIA_PUBLIC_LIST_MAX_OFFSET,
   MERCARIA_PUBLIC_PAGE_LIMIT_DEFAULT,
   MERCARIA_PUBLIC_PAGE_LIMIT_MAX,
   MERCARIA_REF_KINDS,
-} from '@mercaria/shared-types';
+  MercariaCollectionPageSchema,
+  MercariaCollectionRefSchema,
+  MercariaCollectionSchema,
+  MercariaErrorBodySchema,
+  MercariaLocationListQuerySchema,
+  MercariaLocationPageSchema,
+  MercariaLocationProductPageSchema,
+  MercariaLocationProductsQuerySchema,
+  MercariaLocationRefSchema,
+  MercariaLocationSchema,
+  MercariaPageQuerySchema,
+  MercariaProductRefSchema,
+  MercariaProductSchema,
+  MercariaProductSearchQuerySchema,
+  MercariaProductSummaryPageSchema,
+  MercariaRefSchema,
+  MercariaStoreLookupQuerySchema,
+  MercariaStoreProductsQuerySchema,
+  MercariaStoreRefSchema,
+  MercariaStoreSchema,
+  MercariaVariantRefSchema,
+  classifyRequestIssues,
+} from '@mercaria/contracts';
 
 export type {
-  ConditionGroup,
-  CurrencyCode,
-  ItemConditionKey,
   MercariaCollection,
   MercariaCollectionRef,
+  MercariaErrorDetails,
   MercariaImage,
+  MercariaLocation,
+  MercariaLocationAvailability,
+  MercariaLocationPickup,
+  MercariaLocationProduct,
+  MercariaLocationRef,
+  MercariaLocationStore,
+  MercariaMoney,
   MercariaPage,
   MercariaProduct,
   MercariaProductAvailability,
@@ -49,5 +78,6 @@ export type {
   MercariaStore,
   MercariaStoreRef,
   MercariaVariantRef,
-  Money,
-} from '@mercaria/shared-types';
+} from '@mercaria/contracts';
+
+export type { ConditionGroup, CurrencyCode, ItemConditionKey } from '@mercaria/shared-types';

@@ -1063,7 +1063,7 @@
       "loadingCities": "শহর খোঁজা হচ্ছে…",
       "cityListError": "এই মুহূর্তে শহরের তালিকা লোড করা যায়নি।",
       "noCityMatch": "মিলে যাওয়া কোনো শহরে এটি সংগ্রহের জন্য স্টকে নেই।",
-      "noStockAnywhere": "এখন কোনো দোকানে এটি সংগ্রহের জন্য নেই।",
+      "typeATown": "কোথায় সংগ্রহ করা যাবে দেখতে একটি শহর বা পোস্টকোড লিখুন।",
       "searchNear": "%{place}-এর কাছে খুঁজুন",
       "shopsWithStock": {
         "one": "স্টক আছে এমন %{count}টি দোকান",
@@ -1134,6 +1134,27 @@
       "ratingsWithScope": "%{formattedCount}টি রেটিং · %{scopeLabel}",
       "fallbackAuthor": "যাচাই করা ক্রেতা",
       "viewA11yLabel": "এই স্টোরের সেবার রিভিউ দেখুন"
+    },
+    "visit": {
+      "heading": "আমাদের এখানে আসুন",
+      "loading": "এই দোকানের তথ্য লোড হচ্ছে",
+      "placeUnavailable": "এই দোকানের তথ্য এখন দেখানো যাচ্ছে না।",
+      "viewOnGoWay": "GoWay-তে দেখুন",
+      "reviewsOnGoWay": "GoWay-তে রিভিউ পড়ুন",
+      "openMap": "GoWay ম্যাপে খুলুন",
+      "hoursHeading": "খোলার সময়",
+      "closedAllDay": "বন্ধ",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "বিশেষ সময়",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates}: বন্ধ",
+      "exceptionHours": "%{dates}: %{hours}",
+      "accessibility": "প্রবেশযোগ্যতা",
+      "payment": "পেমেন্ট",
+      "attributeValue": "%{attribute}: %{value}",
+      "collectHere": "অনলাইনে অর্ডার করুন, এখান থেকে নিন",
+      "placeRatingSubject": "GoWay-তে %{place}",
+      "photoLabel": "%{place}-এর ছবি"
     }
   },
   "offer": {
@@ -1380,8 +1401,7 @@
       "placement": {
         "heading": "এটি কোথায় দেখা যাবে",
         "onProductPage": "পণ্যের পাতায়, অন্য বিক্রেতাদের পাশে",
-        "ownSurfacesOnly": "খোঁজায় ও আপনার বিক্রেতা প্রোফাইলে — পণ্যের পাতায় নয়",
-        "localResults": "আপনার বেছে নেওয়া মোটামুটি এলাকায়, স্থানীয় ফলাফলে"
+        "ownSurfacesOnly": "খোঁজায় ও আপনার বিক্রেতা প্রোফাইলে — পণ্যের পাতায় নয়"
       },
       "blocked": {
         "titleMissing": "আপনার বিজ্ঞাপনের একটি শিরোনাম দিন।",

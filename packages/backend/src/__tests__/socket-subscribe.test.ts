@@ -1,11 +1,13 @@
 /**
- * Unit tests for `authorizeAndJoinStore` — the `subscribe-store` membership guard.
+ * Unit tests for `authorizeAndJoinStore` — the `subscribe-store` access guard.
  *
  * `authSocket()` proves only the socket's USER identity, so joining a store's
- * live-progress room (`store:${storeId}`) is re-authorized here against store
- * membership. These tests assert a NON-MEMBER is rejected and never joins, a
- * malformed/non-string id is rejected without even querying membership, and a
- * genuine member joins. The Store model + the socket infra deps are mocked so no
+ * live-progress room (`store:${storeId}`) is re-authorized here against the
+ * caller's role in the Oxy account that owns the store (ADR 0012), asked with
+ * the handshake's own bearer. These tests assert somebody with no role is
+ * rejected and never joins, a malformed/non-string id or a missing bearer is
+ * rejected without asking anyone, an Oxy outage refuses, and a member joins.
+ * The repository, the Oxy account graph and the socket infra are mocked so no
  * DB / socket server is touched.
  */
 
@@ -21,50 +23,87 @@ vi.mock('../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
 }));
 
-const findStoreMember = vi.fn();
+const findStoreById = vi.fn();
+const readCallerAccountRole = vi.fn();
 vi.mock('../db/stores/storeRepository.js', () => ({
-  findStoreMember: (...args: unknown[]) => findStoreMember(...args),
+  findStoreById: (...args: unknown[]) => findStoreById(...args),
+  findStorePermissionOverride: vi.fn().mockResolvedValue(null),
+  findStorePermissionOverridesForUser: vi.fn(),
+  findStoresByOwnerAccounts: vi.fn(),
+}));
+vi.mock('../services/oxy-account-graph.js', () => ({
+  readCallerAccountRole: (...args: unknown[]) => readCallerAccountRole(...args),
+  listCallerAccountRoles: vi.fn(),
 }));
 
 import { authorizeAndJoinStore } from '../socket.js';
+import { serviceUnavailable } from '../lib/errors/error-codes.js';
 
 /** A syntactically valid Mongo ObjectId (24 hex chars). */
 const VALID_STORE_ID = '0'.repeat(24);
+const OWNING_ORG = 'org-socket';
+const MEMBER = { userId: 'user-1', accessToken: 'bearer-user-1' };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  findStoreById.mockResolvedValue({ id: VALID_STORE_ID, oxyAccountId: OWNING_ORG });
 });
 
 describe('authorizeAndJoinStore', () => {
-  it('joins the store room when the caller is a member', async () => {
-    findStoreMember.mockResolvedValue({ storeId: VALID_STORE_ID, oxyUserId: 'user-1' });
+  it('joins the store room when the caller holds a role on the owning account', async () => {
+    readCallerAccountRole.mockResolvedValue('viewer');
     const join = vi.fn().mockResolvedValue(undefined);
 
-    const joined = await authorizeAndJoinStore({ join }, 'user-1', VALID_STORE_ID);
+    const joined = await authorizeAndJoinStore({ join }, MEMBER, VALID_STORE_ID);
 
     expect(joined).toBe(true);
-    expect(findStoreMember).toHaveBeenCalledWith(VALID_STORE_ID, 'user-1');
+    expect(readCallerAccountRole).toHaveBeenCalledWith('bearer-user-1', OWNING_ORG);
     expect(join).toHaveBeenCalledWith(`store:${VALID_STORE_ID}`);
   });
 
-  it('rejects a NON-member and never joins the room', async () => {
-    findStoreMember.mockResolvedValue(null);
+  it('rejects somebody with no role and never joins the room', async () => {
+    readCallerAccountRole.mockResolvedValue(null);
     const join = vi.fn();
 
-    const joined = await authorizeAndJoinStore({ join }, 'intruder', VALID_STORE_ID);
+    const joined = await authorizeAndJoinStore(
+      { join },
+      { userId: 'intruder', accessToken: 'bearer-intruder' },
+      VALID_STORE_ID,
+    );
 
     expect(joined).toBe(false);
-    expect(findStoreMember).toHaveBeenCalledWith(VALID_STORE_ID, 'intruder');
     expect(join).not.toHaveBeenCalled();
   });
 
-  it('rejects a malformed store id without querying membership', async () => {
+  it('refuses when Oxy cannot answer — the guard fails closed', async () => {
+    readCallerAccountRole.mockRejectedValue(serviceUnavailable('Oxy is down'));
     const join = vi.fn();
 
-    const joined = await authorizeAndJoinStore({ join }, 'user-1', 'not-an-objectid');
+    await expect(authorizeAndJoinStore({ join }, MEMBER, VALID_STORE_ID)).rejects.toThrow();
+    expect(join).not.toHaveBeenCalled();
+  });
+
+  it('rejects a handshake with no bearer without asking anyone', async () => {
+    const join = vi.fn();
+
+    const joined = await authorizeAndJoinStore(
+      { join },
+      { userId: 'user-1', accessToken: undefined },
+      VALID_STORE_ID,
+    );
 
     expect(joined).toBe(false);
-    expect(findStoreMember).not.toHaveBeenCalled();
+    expect(findStoreById).not.toHaveBeenCalled();
+    expect(readCallerAccountRole).not.toHaveBeenCalled();
+  });
+
+  it('rejects a malformed store id without querying anything', async () => {
+    const join = vi.fn();
+
+    const joined = await authorizeAndJoinStore({ join }, MEMBER, 'not-an-objectid');
+
+    expect(joined).toBe(false);
+    expect(findStoreById).not.toHaveBeenCalled();
     expect(join).not.toHaveBeenCalled();
   });
 
@@ -76,10 +115,10 @@ describe('authorizeAndJoinStore', () => {
   it('rejects a non-string store id (client cannot smuggle an object filter)', async () => {
     const join = vi.fn();
 
-    const joined = await authorizeAndJoinStore({ join }, 'user-1', { $ne: null });
+    const joined = await authorizeAndJoinStore({ join }, MEMBER, { $ne: null });
 
     expect(joined).toBe(false);
-    expect(findStoreMember).not.toHaveBeenCalled();
+    expect(findStoreById).not.toHaveBeenCalled();
     expect(join).not.toHaveBeenCalled();
   });
 });

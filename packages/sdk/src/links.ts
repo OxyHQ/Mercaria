@@ -1,4 +1,11 @@
-import type { MercariaCollectionRef, MercariaProductRef } from './contract';
+import type {
+  MercariaCollection,
+  MercariaCollectionRef,
+  MercariaLocation,
+  MercariaLocationRef,
+  MercariaProductRef,
+  MercariaProductSummary,
+} from './contract';
 import { MercariaValidationError } from './errors';
 import { parseMercariaRef } from './refs';
 
@@ -11,6 +18,7 @@ import { parseMercariaRef } from './refs';
  * - product:    `${web}/products/${encodeURIComponent(productId)}`
  * - store:      `${web}/stores/${encodeURIComponent(storeHandle)}`
  * - collection: `${web}/stores/${encodeURIComponent(storeHandle)}?collection=${encodeURIComponent(collectionId)}`
+ * - location:   `${web}/stores/${encodeURIComponent(storeHandle)}?location=${encodeURIComponent(locationId)}`
  *
  * A store URL is built from the store's HANDLE, which a merchant can change,
  * so it cannot be built from a store ref alone: hydrate the store (or use the
@@ -23,11 +31,14 @@ export interface MercariaHandleSource {
   handle: string;
 }
 
-/** A product as {@link MercariaLinks.product} accepts it. */
-export type MercariaProductLinkTarget = string | MercariaProductRef | { ref: MercariaProductRef };
+/** A product as {@link MercariaLinks.product} accepts it: an id, a ref, or any product DTO. */
+export type MercariaProductLinkTarget = string | MercariaProductRef | Pick<MercariaProductSummary, 'ref'>;
 
-/** A collection as {@link MercariaLinks.collection} accepts it. */
-export type MercariaCollectionLinkTarget = string | MercariaCollectionRef | { ref: MercariaCollectionRef };
+/** A collection as {@link MercariaLinks.collection} accepts it: an id, a ref, or a collection DTO. */
+export type MercariaCollectionLinkTarget = string | MercariaCollectionRef | Pick<MercariaCollection, 'ref'>;
+
+/** A location as {@link MercariaLinks.location} accepts it: an id, a ref, or a location DTO. */
+export type MercariaLocationLinkTarget = string | MercariaLocationRef | Pick<MercariaLocation, 'ref'>;
 
 /** The link builders on a client. */
 export interface MercariaLinks {
@@ -40,6 +51,11 @@ export interface MercariaLinks {
    * well as the collection, because a collection names its store by id only.
    */
   collection(collection: MercariaCollectionLinkTarget, store: string | MercariaHandleSource): string;
+  /**
+   * A location on its store's page, which opens on it. A `MercariaLocation`
+   * carries its store's current handle: `links.location(location, location.store)`.
+   */
+  location(location: MercariaLocationLinkTarget, store: string | MercariaHandleSource): string;
 }
 
 function nonEmpty(value: unknown, what: string): string {
@@ -49,7 +65,7 @@ function nonEmpty(value: unknown, what: string): string {
   return value;
 }
 
-function refId(value: unknown, kind: 'product' | 'collection'): string {
+function refId(value: unknown, kind: 'product' | 'collection' | 'location'): string {
   if (typeof value === 'string') return nonEmpty(value, `${kind} id`);
   const direct = parseMercariaRef(value);
   if (direct?.kind === kind) return direct.id;
@@ -76,6 +92,10 @@ export function createLinks(webBaseUrl: string): MercariaLinks {
     collection: (collection: MercariaCollectionLinkTarget, store: string | MercariaHandleSource) =>
       `${webBaseUrl}/stores/${encodeURIComponent(handleOf(store))}?collection=${encodeURIComponent(
         refId(collection, 'collection'),
+      )}`,
+    location: (location: MercariaLocationLinkTarget, store: string | MercariaHandleSource) =>
+      `${webBaseUrl}/stores/${encodeURIComponent(handleOf(store))}?location=${encodeURIComponent(
+        refId(location, 'location'),
       )}`,
   });
 }

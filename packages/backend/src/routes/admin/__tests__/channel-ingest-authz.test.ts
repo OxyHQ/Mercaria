@@ -7,7 +7,7 @@
  * the test exercises the REAL middleware chain (`makeRateLimiter('channels')` →
  * `requireStorePermission('channels:write')` → zod body validation) without a DB.
  *
- * Asserts staff are blocked (403) on every ingest route, a non-member is blocked
+ * Asserts editors are blocked (403) on every ingest route, a caller with no role is blocked
  * (403), admins pass the guard and reach the (mocked) service (200), and the zod
  * schemas reject malformed bodies (400). A literal 401 (missing Oxy token) is
  * enforced upstream by `authenticateToken` at the `/admin` root and is not part of
@@ -18,7 +18,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import express from 'express';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
-import type { StoreRole } from '@mercaria/shared-types';
+import { STORE_ROLE_PERMISSIONS, type StoreAccountRole } from '@mercaria/shared-types';
 
 vi.mock('../../../services/channel-ingest.service.js', () => ({
   isKnownConnectorProvider: (id: string) =>
@@ -42,17 +42,14 @@ beforeAll(async () => {
   const app = express();
   app.use(express.json());
   // Stub upstream auth + loadStore: role comes from an `x-role` header; the
-  // special role `none` injects NO membership (a non-member of the store).
+  // special role `none` injects NO access (somebody with no role on the store).
   app.use((req, _res, next) => {
     req.userId = 'user-1';
-    const role = req.headers['x-role'] as StoreRole | 'none' | undefined;
+    const role = req.headers['x-role'] as StoreAccountRole | 'none' | undefined;
     req.store = { id: STORE_ID } as unknown as typeof req.store;
     if (role !== 'none') {
-      req.storeMembership = {
-        oxyUserId: 'user-1',
-        role: (role ?? 'staff') as StoreRole,
-        permissions: [],
-      } as unknown as typeof req.storeMembership;
+      const granted = role ?? 'editor';
+      req.storeAccess = { role: granted, permissions: [...STORE_ROLE_PERMISSIONS[granted]] };
     }
     next();
   });
@@ -71,7 +68,7 @@ afterAll(async () => {
 
 async function call(
   path: string,
-  role: StoreRole | 'none',
+  role: StoreAccountRole | 'none',
   body?: unknown,
 ): Promise<number> {
   const res = await fetch(`${baseUrl}${path}`, {
@@ -87,15 +84,15 @@ const validProducts = {
 };
 const validInventory = { items: [{ externalId: 'woo-1', available: 3 }] };
 
-describe('channel-ingest authz — staff lack channels:write (403)', () => {
-  it('403s staff on connect-push', async () => {
-    expect(await call('/woocommerce/connect-push', 'staff', { shopDomain: 'shop.example.com' })).toBe(403);
+describe('channel-ingest authz — editors lack channels:write (403)', () => {
+  it('403s editors on connect-push', async () => {
+    expect(await call('/woocommerce/connect-push', 'editor', { shopDomain: 'shop.example.com' })).toBe(403);
   });
-  it('403s staff on ingest products', async () => {
-    expect(await call(`/${CONNECTION_ID}/ingest/products`, 'staff', validProducts)).toBe(403);
+  it('403s editors on ingest products', async () => {
+    expect(await call(`/${CONNECTION_ID}/ingest/products`, 'editor', validProducts)).toBe(403);
   });
-  it('403s staff on ingest inventory', async () => {
-    expect(await call(`/${CONNECTION_ID}/ingest/inventory`, 'staff', validInventory)).toBe(403);
+  it('403s editors on ingest inventory', async () => {
+    expect(await call(`/${CONNECTION_ID}/ingest/inventory`, 'editor', validInventory)).toBe(403);
   });
 });
 

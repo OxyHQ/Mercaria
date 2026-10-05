@@ -2,7 +2,7 @@
  * Location service — store inventory location lifecycle + invariants.
  *
  * Owns create/list/update/delete of a store's locations plus the protection
- * invariants (mirroring `store.service` for membership): a store must always keep
+ * invariants: a store must always keep
  * at least one location, and the DEFAULT location can be neither deleted while it
  * is the default nor left absent. Exactly one location per store is `isDefault`;
  * promoting a new default clears the previous one. Invariants are enforced by

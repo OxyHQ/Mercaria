@@ -1063,7 +1063,7 @@
       "loadingCities": "正在查找城市…",
       "cityListError": "暂时无法加载城市列表。",
       "noCityMatch": "没有匹配的城市有该商品的自提库存。",
-      "noStockAnywhere": "目前没有商家提供该商品的自提。",
+      "typeATown": "输入城市或邮编，查看可以在哪里自取。",
       "searchNear": "在 %{place} 附近搜索",
       "shopsWithStock": {
         "one": "%{count} 家商家有货",
@@ -1134,6 +1134,27 @@
       "ratingsWithScope": "%{formattedCount} 条评分 · %{scopeLabel}",
       "fallbackAuthor": "已验证买家",
       "viewA11yLabel": "查看该店铺的服务评价"
+    },
+    "visit": {
+      "heading": "欢迎到店",
+      "loading": "正在加载这家店的信息",
+      "placeUnavailable": "暂时无法显示这家店的信息。",
+      "viewOnGoWay": "在 GoWay 上查看",
+      "reviewsOnGoWay": "在 GoWay 上阅读评价",
+      "openMap": "在 GoWay 地图中打开",
+      "hoursHeading": "营业时间",
+      "closedAllDay": "休息",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "特殊营业时间",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates}：休息",
+      "exceptionHours": "%{dates}：%{hours}",
+      "accessibility": "无障碍",
+      "payment": "付款",
+      "attributeValue": "%{attribute}：%{value}",
+      "collectHere": "在线下单，到店自取",
+      "placeRatingSubject": "GoWay 上的%{place}",
+      "photoLabel": "%{place}的照片"
     }
   },
   "offer": {
@@ -1380,8 +1401,7 @@
       "placement": {
         "heading": "会出现在哪里",
         "onProductPage": "在商品页面上，与其他卖家并列",
-        "ownSurfacesOnly": "在搜索和你的卖家主页上 —— 不在商品页面上",
-        "localResults": "在同城结果中，按你选择的大致区域显示"
+        "ownSurfacesOnly": "在搜索和你的卖家主页上 —— 不在商品页面上"
       },
       "blocked": {
         "titleMissing": "给你的商品起个标题。",

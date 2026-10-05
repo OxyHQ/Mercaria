@@ -117,16 +117,14 @@ async function makeStore(): Promise<string> {
   // same millisecond share their leading characters and a truncated suffix
   // collides with `stores_handle_key`.
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `realdb-buyers-${suffix}`,
-      name: 'Realdb store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: makeUserId('owner'), role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: makeUserId('owner'),
+    handle: `realdb-buyers-${suffix}`,
+    name: 'Realdb store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
   return store.id;
 }

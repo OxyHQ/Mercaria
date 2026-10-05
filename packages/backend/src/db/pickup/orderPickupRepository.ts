@@ -34,11 +34,12 @@ import { orderPickups } from '../schema/pickup.js';
 /** One row of `order_pickups`. */
 export type OrderPickupRow = InferSelectModel<typeof orderPickups>;
 
-/** The snapshot, taken from the PUBLICATION and never from `locations`. */
+/** The snapshot, taken from the GoWay PLACE and the publication — never from `locations`. */
 export interface NewOrderPickup {
   readonly orderId: string;
   readonly locationId: string;
   readonly publicationId: string;
+  readonly goWayPlaceId: string;
   readonly displayName: string;
   readonly publicLine1: string | null;
   readonly publicLine2: string | null;
@@ -57,8 +58,8 @@ export interface NewOrderPickup {
  *
  * `ON CONFLICT DO NOTHING` plus a read, the `ensureGuestCheckout` shape: a
  * converging checkout replay must not replace the snapshot the placed order was
- * made against, because the merchant may have edited the publication in
- * between and the buyer agreed to what they were shown.
+ * made against, because the place may have been edited in GoWay in between and
+ * the buyer agreed to what they were shown.
  */
 export async function insertOrderPickup(
   input: NewOrderPickup,
@@ -70,6 +71,7 @@ export async function insertOrderPickup(
       orderId: input.orderId,
       locationId: input.locationId,
       publicationId: input.publicationId,
+      goWayPlaceId: input.goWayPlaceId,
       displayName: input.displayName,
       publicLine1: input.publicLine1,
       publicLine2: input.publicLine2,

@@ -117,6 +117,16 @@ export const queryKeys = {
     followTarget: (storeId: string) => ["stores", "follow-target", storeId] as const,
   },
   /**
+   * The store page's "Visit us" section: the store's shop fronts (Mercaria's
+   * public surface) and each one's GoWay place and photos (GoWay's). A place
+   * is keyed on its locale too, because its display name is resolved in it.
+   */
+  visitUs: {
+    locations: (storeId: string) => ["visit-us", "locations", storeId] as const,
+    place: (placeId: string, locale: string) => ["visit-us", "place", placeId, locale] as const,
+    photos: (placeId: string) => ["visit-us", "photos", placeId] as const,
+  },
+  /**
    * The PUBLIC P2P seller profile (#92). Keyed on the Oxy account id, which is
    * the seller's whole identity here — there is no Mercaria-local seller key to
    * file this under, and inventing one is exactly what #26 refuses.
@@ -295,10 +305,10 @@ export const queryKeys = {
    */
   nearby: {
     all: ["nearby"] as const,
-    availability: (subject: string, cell: string | null) =>
-      ["nearby", "availability", subject, cell ?? ""] as const,
-    places: (subject: string, term: string) =>
-      ["nearby", "places", subject, term] as const,
+    availability: (subject: string, cell: string | null, locale: string) =>
+      ["nearby", "availability", subject, cell ?? "", locale] as const,
+    places: (subject: string, term: string, locale: string) =>
+      ["nearby", "places", subject, term, locale] as const,
   },
   /**
    * An order's collection snapshot and its code (#93).

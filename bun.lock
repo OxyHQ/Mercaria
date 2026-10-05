@@ -16,6 +16,8 @@
       "name": "@mercaria/backend",
       "version": "1.0.0",
       "dependencies": {
+        "@goway.to/sdk": "0.3.0",
+        "@mercaria/contracts": "workspace:*",
         "@mercaria/shared-types": "workspace:*",
         "@oxy.so/contracts": "4.9.0",
         "@oxy.so/core": "4.2.0",
@@ -63,12 +65,29 @@
         "yaml": "^2.9.0",
       },
     },
+    "packages/contracts": {
+      "name": "@mercaria/contracts",
+      "version": "1.0.0",
+      "dependencies": {
+        "@mercaria/shared-types": "workspace:*",
+        "zod": "^4.5.4",
+      },
+      "devDependencies": {
+        "@eslint/js": "^9.39.5",
+        "@typescript-eslint/eslint-plugin": "^8.64.0",
+        "@typescript-eslint/parser": "^8.64.0",
+        "eslint": "^9.39.5",
+        "typescript": "^5.9.3",
+        "vitest": "^4.1.10",
+      },
+    },
     "packages/dashboard": {
       "name": "@mercaria/dashboard",
       "version": "1.0.0",
       "dependencies": {
         "@expo/html-elements": "^0.13.8",
         "@expo/vector-icons": "^15.1.1",
+        "@goway.to/sdk": "0.3.0",
         "@hugeicons/react-native": "^1.0.15",
         "@mercaria/shared-types": "workspace:*",
         "@mercaria/ui": "workspace:*",
@@ -160,7 +179,9 @@
       "dependencies": {
         "@expo/html-elements": "^0.13.8",
         "@expo/vector-icons": "^15.1.1",
+        "@goway.to/sdk": "0.3.0",
         "@hugeicons/react-native": "^1.0.15",
+        "@mercaria/contracts": "workspace:*",
         "@mercaria/shared-types": "workspace:*",
         "@mercaria/ui": "workspace:*",
         "@oxy.so/bloom": "6.2.1",
@@ -358,9 +379,13 @@
     },
     "packages/sdk": {
       "name": "@mercaria.co/sdk",
-      "version": "0.1.0",
+      "version": "0.2.0",
+      "dependencies": {
+        "zod": "^4.5.4",
+      },
       "devDependencies": {
         "@eslint/js": "^9.39.5",
+        "@mercaria/contracts": "workspace:*",
         "@mercaria/shared-types": "workspace:*",
         "@typescript-eslint/eslint-plugin": "^8.64.0",
         "@typescript-eslint/parser": "^8.64.0",
@@ -745,6 +770,8 @@
 
     "@expo/xcpretty": ["@expo/xcpretty@4.4.4", "", { "dependencies": { "@babel/code-frame": "^7.20.0", "chalk": "^4.1.0", "js-yaml": "^4.1.0" }, "bin": { "excpretty": "build/cli.js" } }, "sha512-4aQzz9vgxcNXFfo/iyNgDDYfsU5XGKKxWxZopw0cVotHiW+U8IJbIxMaxsINs6bHhtkG3StKNPcOrn3eBuxKPw=="],
 
+    "@goway.to/sdk": ["@goway.to/sdk@0.3.0", "", { "dependencies": { "zod": "^4.6.5" } }, "sha512-Kg7CGJ1/DUcv+iJGOl00INdUvlYs7Aw0jjdFkPgwwIJ0UqF73WltkR+jB2PwsxOSfXMRRhxOYmlNOAVAq6mNxQ=="],
+
     "@hono/node-server": ["@hono/node-server@2.1.1", "", { "peerDependencies": { "hono": "^4" } }, "sha512-ELuehkj5VCBdgEw9zs+ivkKwyzzUCSQuE96YmiPvn1ECBoZCczbFXJLeEGMTYjphP6gydh4pHMqEYPVMYUVgQg=="],
 
     "@hugeicons/react-native": ["@hugeicons/react-native@1.0.15", "", { "peerDependencies": { "react": ">=16.0.0", "react-native": ">=0.60.0", "react-native-svg": ">=12.0.0" } }, "sha512-YKg+k16uz7FRgq/ReaWrf0qzdRDOkEruQBE4/oVWZ2qZXq9T4mqj3P3HoZ7Uk/pi8KVlpZTi7TAokwizsQMbFA=="],
@@ -782,6 +809,8 @@
     "@mercaria.co/sdk": ["@mercaria.co/sdk@workspace:packages/sdk"],
 
     "@mercaria/backend": ["@mercaria/backend@workspace:packages/backend"],
+
+    "@mercaria/contracts": ["@mercaria/contracts@workspace:packages/contracts"],
 
     "@mercaria/dashboard": ["@mercaria/dashboard@workspace:packages/dashboard"],
 
@@ -3118,6 +3147,8 @@
     "@expo/ws-tunnel/ws": ["ws@8.19.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" } }, "sha512-blAT2mjOEIi0ZzruJfIhb3nps74PRWTCz1IjglWEEpQl5XS/UNama6u2/rjFkDDouqr4L67ry+1aGIALViWjDg=="],
 
     "@expo/xcpretty/js-yaml": ["js-yaml@4.1.1", "", { "dependencies": { "argparse": "^2.0.1" }, "bin": "bin/js-yaml.js" }, "sha512-qQKT4zQxXl8lLwBtHMWwaTcGfFOZviOJet3Oy/xmGk2gZH677CJM9EvtfdSkgWcATZhj/55JZ0rmy3myCT5lsA=="],
+
+    "@goway.to/sdk/zod": ["zod@4.6.5", "", {}, "sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q=="],
 
     "@isaacs/cliui/string-width": ["string-width@5.1.2", "", { "dependencies": { "eastasianwidth": "^0.2.0", "emoji-regex": "^9.2.2", "strip-ansi": "^7.0.1" } }, "sha512-HnLOCR3vjcY8beoNLtcjZ5/nxn2afmME6lhrDrebokqMap+XbeW8n9TXpPDOqdGK5qcI3oT0GKTW6wC7EMiVqA=="],
 

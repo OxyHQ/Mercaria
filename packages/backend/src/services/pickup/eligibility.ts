@@ -13,7 +13,8 @@
  *
  * The inputs sit on `location_publications`, `locations`, `stores`, `listings`,
  * `inventory_levels` and `provider_accounts` — six tables in four domains this
- * one does not own — plus three deployment levers and the clock. Storing a
+ * one does not own — plus the GoWay place the location trades from, three
+ * deployment levers and the clock. Storing a
  * verdict would mean six write paths had to remember to recompute it, and the
  * one that forgot would admit a shopper to a collection at a restricted
  * listing. This is #57's `deriveNativeCheckoutEligibility` divergence from the
@@ -39,28 +40,32 @@
  */
 
 import type {
+  LocationAvailabilityState,
   PickupBlockReason,
   PickupEligibility,
+  PlaceLinkGap,
 } from '@mercaria/shared-types';
-import {
-  DEFAULT_OPEN_HORIZON_HOURS,
-  opensWithin,
-  type LocationSchedule,
-} from './hours.js';
+import { opensWithinHorizon, placeLinkBlockers, type PlaceOpening } from '../goway/place-facts.js';
 
-/** What the PUBLICATION and its operational location say about themselves. */
+/** What the PUBLICATION, its operational location and its GoWay place say. */
 export interface PickupLocationFacts {
   readonly publicationState: 'draft' | 'published' | 'withdrawn';
   readonly pickupOffered: boolean;
   readonly pickupPaused: boolean;
   readonly restricted: boolean;
-  /** Whether a usable coordinate exists — #93 nearby rule 7's whole content. */
-  readonly geocoded: boolean;
+  /**
+   * The trust rule's verdict on the location's GoWay place (ADR 0013): `[]`
+   * when the place exists, is active and names this location back at a
+   * claimant's tier. #93 nearby rule 7's whole content now — a location with no
+   * verified place is not near anything.
+   */
+  readonly placeLinkGaps: readonly PlaceLinkGap[];
   /** `locations.is_active`: does this place route inventory at all. */
   readonly locationActive: boolean;
   /** Whether the owning store is live and unrestricted. */
   readonly storeActive: boolean;
-  readonly schedule: LocationSchedule;
+  /** The place's weekly hours, exceptions and zone. Absent when the place was not read. */
+  readonly opening?: PlaceOpening;
 }
 
 /** What the LISTING and the stock at this location say. */
@@ -118,7 +123,7 @@ export interface PickupLevers {
  * and never to say "this can be collected now".
  */
 export function locationCollectionBlockers(
-  location: Omit<PickupLocationFacts, 'schedule'>,
+  location: Omit<PickupLocationFacts, 'opening'>,
 ): readonly PickupBlockReason[] {
   const reasons: PickupBlockReason[] = [];
 
@@ -126,14 +131,51 @@ export function locationCollectionBlockers(
   if (!location.locationActive) reasons.push('location_not_active');
   if (!location.storeActive) reasons.push('store_unavailable');
   if (location.restricted) reasons.push('location_restricted');
-  // An ungeocoded location is not at distance zero — it is NOT NEARBY. #93
-  // nearby rule 7 verbatim, and the direction that matters: reading absence as
-  // "here" would put every unpinned warehouse at the top of every result.
-  if (!location.geocoded) reasons.push('location_not_geocoded');
+  // A location with no verified place is not at distance zero — it is NOT
+  // NEARBY. #93 nearby rule 7 verbatim, and the direction that matters: reading
+  // a missing or unvouched place as "somewhere" would put a location nobody
+  // can find, or one a stranger pointed at a shop they do not run, in front of
+  // a shopper.
+  reasons.push(...placeLinkBlockers(location.placeLinkGaps));
   if (!location.pickupOffered) reasons.push('pickup_not_offered');
   if (location.pickupPaused) reasons.push('pickup_paused');
 
   return reasons;
+}
+
+/**
+ * The blockers that belong to the STOCK alone — one level row at one location,
+ * and nothing about the location's publication or its place.
+ *
+ * Extracted, like {@link locationCollectionBlockers}, because a second caller
+ * needs exactly this half: the public location-products read
+ * (`GET /public/v1/locations/:id/products`) has already gated the location as a
+ * whole and asks, per product, only "is there a confirmed unit on this shelf".
+ * A count older than the location's own interval answers no here exactly as it
+ * does for nearby discovery, so the two surfaces cannot disagree about the same
+ * shelf.
+ */
+export function inventoryBlockers(inventory: PickupInventoryFacts, at: Date): readonly PickupBlockReason[] {
+  const reasons: PickupBlockReason[] = [];
+  if (!inventory.listingActive) reasons.push('listing_unavailable');
+  if (inventory.availableQuantity <= 0) reasons.push('no_collectable_stock');
+  if (isStockStale(inventory, at)) reasons.push('inventory_stale');
+  return reasons;
+}
+
+/**
+ * The public availability word for a count of units a location vouches for.
+ *
+ * A BOUNDED word by default and a number only where the merchant opted in
+ * (#93 inventory rule). The threshold is the location's own, so a shop that
+ * carries two of everything is not permanently "low" and a warehouse that
+ * carries four hundred is not permanently "in stock" at three. The count must
+ * already be one the location vouches for — a stale one is zero here, which
+ * {@link inventoryBlockers} decides.
+ */
+export function locationAvailabilityState(available: number, lowStockThreshold: number): LocationAvailabilityState {
+  if (available <= 0) return 'out_of_stock';
+  return available <= lowStockThreshold ? 'low_stock' : 'in_stock';
 }
 
 /**
@@ -150,12 +192,9 @@ export function deriveLocationDiscoverability(
   inventory: PickupInventoryFacts,
   at: Date,
 ): readonly PickupBlockReason[] {
-  const reasons: PickupBlockReason[] = [...locationCollectionBlockers(location)];
+  const reasons: PickupBlockReason[] = [...locationCollectionBlockers(location), ...inventoryBlockers(inventory, at)];
 
-  if (!inventory.listingActive) reasons.push('listing_unavailable');
-  if (inventory.availableQuantity <= 0) reasons.push('no_collectable_stock');
-  if (isStockStale(inventory, at)) reasons.push('inventory_stale');
-  if (!opensWithin(location.schedule, at, DEFAULT_OPEN_HORIZON_HOURS)) {
+  if (location.opening !== undefined && !opensWithinHorizon(location.opening, at)) {
     reasons.push('location_closed');
   }
 

@@ -9,7 +9,15 @@ export const queryKeys = {
     all: ["stores"] as const,
     detail: (storeId: string) => ["stores", storeId] as const,
   },
-  members: (storeId: string) => ["stores", storeId, "members"] as const,
+  /** Per-person exceptions to the role map (ADR 0012). */
+  permissionOverrides: (storeId: string) => ["stores", storeId, "permission-overrides"] as const,
+  /**
+   * The Oxy account that owns a store, and its members — read from Oxy with the
+   * caller's own session, never from Mercaria. NOT under `stores`: the same
+   * account can own several stores, and the answer does not vary by store.
+   */
+  oxyAccount: (accountId: string) => ["oxy-account", accountId] as const,
+  oxyAccountMembers: (accountId: string) => ["oxy-account", accountId, "members"] as const,
   products: {
     list: (storeId: string, page: number, search: string) =>
       ["stores", storeId, "products", { page, search }] as const,
@@ -72,6 +80,24 @@ export const queryKeys = {
   // schedule view and nothing else.
   feeSchedule: (storeId: string) => ["stores", storeId, "fee-schedule"] as const,
   locations: (storeId: string) => ["stores", storeId, "locations"] as const,
+  /** One location's commerce publication (#93) — under `locations`, so a location write refreshes it. */
+  locationPublication: (storeId: string, locationId: string) =>
+    ["stores", storeId, "locations", locationId, "publication"] as const,
+  /** The trust rule's verdict on one location's GoWay place (ADR 0013). */
+  locationPlaceLink: (storeId: string, locationId: string) =>
+    ["stores", storeId, "locations", locationId, "place-link"] as const,
+  /**
+   * GoWay, read with the merchant's own session (ADR 0013). NOT under `stores`:
+   * a place and an account's claims are the same answer whichever store asks.
+   */
+  goway: {
+    place: (placeId: string, locale: string) => ["goway", "place", placeId, locale] as const,
+    search: (query: string, locale: string) => ["goway", "search", query, locale] as const,
+    /** Every claim query of one account — the prefix a new claim invalidates. */
+    accountClaims: (oxyAccountId: string) => ["goway", "claims", oxyAccountId] as const,
+    placeClaims: (oxyAccountId: string, placeId: string) => ["goway", "claims", oxyAccountId, placeId] as const,
+    hoursExceptions: (placeId: string) => ["goway", "place", placeId, "hours-exceptions"] as const,
+  },
   channels: (storeId: string) => ["stores", storeId, "channels"] as const,
   channelKeys: (storeId: string) => ["stores", storeId, "channel-keys"] as const,
   /** The unified sales-channel surface (#87). */

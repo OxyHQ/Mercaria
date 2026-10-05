@@ -54,7 +54,7 @@ import {
 } from '@mercaria/shared-types';
 import type { CanonicalAliasKind } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
-import { findCanonicalProductsWithNearbyCollection } from '../../db/pickup/nearbyRepository.js';
+import { findCanonicalProductsCollectableNear } from '../pickup/nearby.service.js';
 import { clampNearbyRadius } from '../pickup/geo.js';
 import {
   findBrandAliasCandidates,
@@ -574,14 +574,16 @@ export async function runCanonicalSearch(
   });
 
   // #93's nearby membership, for the WINDOW rather than for the whole candidate
-  // set: one `ST_DWithin` over at most a few dozen products, and the products
-  // nobody is going to see cost nothing. It is a MEMBERSHIP test and never an
-  // ordering — see `SearchNearbyFilter`.
+  // set: one GoWay walk and one statement over at most a few dozen products,
+  // and the products nobody is going to see cost nothing. It is a MEMBERSHIP
+  // test and never an ordering — see `SearchNearbyFilter`. GoWay unable to say
+  // where anything is answers `503`: a search the shopper asked to narrow to
+  // "near me" must not quietly come back un-narrowed.
   const nearby = request.filters.nearby;
   const nearbyProductIds =
     nearby === undefined
       ? undefined
-      : await findCanonicalProductsWithNearbyCollection(
+      : await findCanonicalProductsCollectableNear(
           {
             canonicalProductIds: windowProductRows.map((row) => row.id),
             latitude: nearby.latitude,

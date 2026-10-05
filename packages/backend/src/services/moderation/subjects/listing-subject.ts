@@ -93,17 +93,17 @@ async function loadListing(listingId: string): Promise<SnapshotListing | null> {
  * Who answers for this listing.
  *
  * A P2P listing is its seller's. A STORE listing belongs to the store, and the
- * principal is the store's OWNER — resolved server-side from the member list,
- * never taken from a request. A store with no owner row yields no principal at
- * all rather than a guessed one: a wrong principal binds a real person to someone
- * else's case, which is worse than an unattributed one.
+ * principal is the Oxy account that OWNS the store (ADR 0012) — read
+ * server-side from the store row, never taken from a request. A missing store
+ * yields no principal at all rather than a guessed one: a wrong principal binds
+ * a real person to someone else's case, which is worse than an unattributed one.
  */
 async function resolveOwnerOxyUserId({ listing }: SnapshotListing): Promise<string | undefined> {
   if (listing.ownerType === 'user') return listing.oxyUserId ?? undefined;
   if (listing.storeId === null) return undefined;
 
   const store = await findStoreById(listing.storeId);
-  return store?.members.find((member) => member.role === 'owner')?.oxyUserId;
+  return store?.oxyAccountId;
 }
 
 /**

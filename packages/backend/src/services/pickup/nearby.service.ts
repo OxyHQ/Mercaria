@@ -1,82 +1,94 @@
 /**
  * The public "is this collectable near me" answer.
  *
+ * ## Two halves, two owners (ADR 0013)
+ *
+ * GoWay answers WHERE: which places near the shopper carry
+ * `commerce.mercaria.store`, nearest first, each naming a Mercaria location at
+ * a claimant's tier (`findStorePlacesNear`). Mercaria answers WHAT: which of
+ * those locations name the same place back and hold a collectable unit, under
+ * every commerce predicate it always applied (`findCollectableAtLocations`).
+ * GoWay's list already carries each place in full — its hours exceptions
+ * included — so nothing is read twice, and `deriveLocationDiscoverability`, the
+ * authority, has the last word over that same place.
+ *
  * ## The shopper's coordinate lives inside ONE function call
  *
- * It arrives on the request, it is passed to PostGIS, and it is gone. What
- * leaves this module is the COARSE CELL (`toLocalArea`) on the echoed origin
- * and in the one structured log line, plus per-location distances rounded
- * outward. Nothing writes it anywhere, no analytics event carries it (#77's
- * schema has no column that could), and `pickup-isolation.test.ts` fails the
- * build if this domain learns to emit one.
- *
- * That is #93 privacy rules 5, 6 and 10, and the reason the cell function is
- * shared with P2P discovery rather than duplicated: a buyer's position and a
- * seller's deserve the same treatment, and one function means a change to the
- * cell size cannot apply to one and miss the other.
+ * It arrives on the request, it is forwarded to GoWay for the length of one
+ * request (exactly as the shopper's own browser would send it), and it is gone.
+ * What leaves this module is the COARSE CELL (`toLocalArea`) on the echoed
+ * origin and in the one structured log line, plus per-location distances
+ * rounded outward. Nothing writes it anywhere: the place cache is keyed on
+ * place ids and a nearby page is never cached, no analytics event carries it
+ * (#77's schema has no column that could), and `pickup-isolation.test.ts`
+ * fails the build if this domain learns to emit one.
  *
  * ## Actor eligibility is a SEPARATE, opt-in half of the response
  *
  * #93 nearby rules 11 and 12. A signed-out shopper browsing gets availability
  * and no `checkoutEligibility` at all; a client about to offer a "collect here"
- * button asks for it explicitly. Keeping them apart is what makes browsing work
- * without an account wall AND stops an anonymous caller getting a different set
- * of locations from a signed-in one — the SET is actor-free, and only the
+ * button asks for it explicitly. The SET is actor-free, and only the
  * annotation is not.
  *
- * ## Freshness and hours are re-derived here, over the SQL's pre-filter
+ * ## Paging is GoWay's
  *
- * `nearbyRepository` narrows on everything indexable; `deriveLocationDiscoverability`
- * is the authority and drops anything it refuses. The intersection is a subset
- * of what the derivation admits, so the read can only ever show FEWER
- * locations — never one the derivation would refuse. A page may therefore come
- * back shorter than `limit`, which is #68's arrangement and is why the cursor
- * is carried on the last candidate CONSIDERED.
+ * A page is one GoWay page of `limit` places. Each place yields every
+ * collectable (location, variant) pair the caller asked about, or nothing, so a
+ * page may come back shorter than `limit` — or empty — with a next cursor:
+ * #68's arrangement, with the cursor carried on the last place CONSIDERED. The
+ * cursor is GoWay's own, passed through untouched; GoWay binds it to the point
+ * and the radius and refuses it with anything else.
  */
 
 import type {
   CurrencyCode,
   ItemConditionKey,
   Money,
-  LocationAvailabilityState,
   NearbyLocationResult,
   NearbyPlaceSuggestion,
   NearbyResponse,
-  P2pLocalArea,
   PickupEligibility,
   PublicPickupLocation,
 } from '@mercaria/shared-types';
-import { P2P_LOCAL_CELL_PRECISION_DEGREES } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { validationError } from '../../lib/errors/error-codes.js';
 import {
-  findNearbyCollectableLocations,
-  findNearbyPlaceSuggestions,
+  countCollectableAtLocations,
+  findCanonicalProductsCollectableAtLocations,
+  findCollectableAtLocations,
+  findCollectableVariantLocations,
   type NearbyCandidateRow,
-  type NearbyCursor,
+  type PlaceLink,
 } from '../../db/pickup/nearbyRepository.js';
+import type { DatabaseOrTransaction } from '../../db/postgres.js';
+import { findStorePlacesNear, findTowns, type StorePlaceNear } from '../goway/places.js';
 import {
-  listActiveClosures,
-  listOpeningHours,
-} from '../../db/pickup/locationPublicationRepository.js';
+  hoursExceptionsOf,
+  openStateOf,
+  pickupAddressOf,
+  placeLinkGaps,
+  weeklyHoursOf,
+  type PlaceFacts,
+  type PlaceLookup,
+} from '../goway/place-facts.js';
 import { hasGuestMessageTransport } from '../guest-portal/transport.js';
 import type { CommerceActor } from '../commerce-actor.js';
 import {
   clampNearbyRadius,
   coarsenMetres,
+  DEFAULT_NEARBY_RADIUS_METRES,
   distanceBandFor,
-  localAreaCentre,
   toLocalArea,
   type Coordinate,
 } from './geo.js';
 import {
   derivePickupEligibility,
   deriveLocationDiscoverability,
+  locationAvailabilityState,
   type PickupInventoryFacts,
   type PickupLocationFacts,
 } from './eligibility.js';
-import { deriveLocationOpenState, type LocationSchedule } from './hours.js';
 
 /** What the route hands over, already parsed. */
 export interface NearbyRequest {
@@ -88,8 +100,11 @@ export interface NearbyRequest {
   readonly country?: string;
   readonly currency?: string;
   readonly conditionKeys?: readonly ItemConditionKey[];
+  /** BCP 47 tag each location's name resolves against. */
+  readonly locale?: string;
   readonly limit: number;
-  readonly cursor?: NearbyCursor;
+  /** GoWay's own opaque cursor, as the previous page returned it. */
+  readonly cursor?: string;
   /**
    * Whether the caller wants an actor-specific verdict beside each location.
    *
@@ -114,17 +129,21 @@ export async function findNearbyAvailability(
   const radiusMetres = clampNearbyRadius(request.radiusMetres);
   const cell = toLocalArea(request.origin);
 
-  const candidates = await findNearbyCollectableLocations({
-    ...(request.canonicalVariantId === undefined ? {} : { canonicalVariantId: request.canonicalVariantId }),
-    ...(request.canonicalProductId === undefined ? {} : { canonicalProductId: request.canonicalProductId }),
+  const page = await findStorePlacesNear({
     latitude: request.origin.latitude,
     longitude: request.origin.longitude,
     radiusMetres,
-    ...(request.country === undefined ? {} : { country: request.country }),
-    ...(request.currency === undefined ? {} : { currency: request.currency }),
-    ...(request.conditionKeys === undefined ? {} : { conditionKeys: request.conditionKeys }),
     limit: request.limit,
     ...(request.cursor === undefined ? {} : { cursor: request.cursor }),
+    ...(request.locale === undefined ? {} : { locale: request.locale }),
+  });
+
+  const candidates = await findCollectableAtLocations({
+    ...(request.canonicalVariantId === undefined ? {} : { canonicalVariantId: request.canonicalVariantId }),
+    ...(request.canonicalProductId === undefined ? {} : { canonicalProductId: request.canonicalProductId }),
+    links: page.items.map(toLink),
+    ...(request.currency === undefined ? {} : { currency: request.currency }),
+    ...(request.conditionKeys === undefined ? {} : { conditionKeys: request.conditionKeys }),
   });
 
   // The COARSE cell, never the coordinate. This log line is the only place a
@@ -133,6 +152,7 @@ export async function findNearbyAvailability(
     {
       cell,
       radiusMetres,
+      places: page.items.length,
       candidates: candidates.length,
       canonicalVariantId: request.canonicalVariantId,
       canonicalProductId: request.canonicalProductId,
@@ -140,100 +160,244 @@ export async function findNearbyAvailability(
     '[Pickup] nearby availability answered',
   );
 
-  const schedules = await loadSchedules(candidates, at);
-  const levers = readLevers();
+  // The place each candidate was found through, exactly as GoWay's list carried it.
+  const places = new Map<string, PlaceLookup>(
+    page.items.map((item) => [item.placeId, { kind: 'found', place: item.place, stale: false }]),
+  );
+  const distances = new Map(page.items.map((item) => [linkKey(item), item.distanceMetres]));
+  const levers = request.withCheckoutEligibility ? readLevers() : null;
 
   const results: NearbyLocationResult[] = [];
-  for (const candidate of candidates) {
-    const schedule = schedules.get(candidate.publicationId) ?? {
-      timezone: candidate.timezone,
-      hours: [],
-      closures: [],
-    };
-    const location = locationFactsForNarrowedRow(schedule);
+  for (const candidate of orderByDistance(candidates, distances)) {
+    const lookup = places.get(candidate.goWayPlaceId) ?? null;
+    const location = locationFactsForNarrowedRow(candidate, lookup);
     const inventory = inventoryFacts(candidate);
 
-    // The derivation is the AUTHORITY over the SQL pre-filter — see the module
-    // docblock. Its refusals are never reported to the shopper; the location
-    // simply is not in the page.
+    // The derivation is the AUTHORITY over the SQL pre-filter and over the
+    // list GoWay returned — see the module docblock. Its refusals are never
+    // reported to the shopper; the location simply is not in the page.
     if (deriveLocationDiscoverability(location, inventory, at).length > 0) continue;
+    // Narrowing for the compiler: the derivation refuses every lookup but `found`.
+    if (lookup?.kind !== 'found') continue;
+    const place = lookup.place;
+    if (request.country !== undefined && place.address.country !== request.country) continue;
 
-    const eligibility: PickupEligibility | undefined = request.withCheckoutEligibility
-      ? derivePickupEligibility({
-          location,
-          inventory,
-          actor: { actorKind: actor.kind, sellerType: 'store' },
-          levers,
-          at,
-        })
-      : undefined;
+    const eligibility: PickupEligibility | undefined =
+      levers === null
+        ? undefined
+        : derivePickupEligibility({
+            location,
+            inventory,
+            actor: { actorKind: actor.kind, sellerType: 'store' },
+            levers,
+            at,
+          });
 
-    results.push(projectResult(candidate, schedule, at, eligibility));
+    results.push(projectResult(candidate, place, distanceOf(candidate, distances), at, eligibility));
   }
-
-  // The cursor names the last candidate CONSIDERED, not the last one served.
-  // A location the derivation dropped must not be re-considered on the next
-  // page, or a stale shop is re-examined on every page for ever (#70's finding).
-  const last = candidates.at(-1);
-  const nextCursor =
-    candidates.length === request.limit && last !== undefined
-      ? encodeCursor({ distanceMetres: last.distanceMetres, publicationId: last.publicationId })
-      : undefined;
 
   return {
     results,
-    ...(nextCursor === undefined ? {} : { nextCursor }),
+    ...(page.nextCursor === null ? {} : { nextCursor: page.nextCursor }),
     origin: { source: request.originSource, cell, radiusMetres },
     ...(request.canonicalProductId === undefined ? {} : { canonicalProductId: request.canonicalProductId }),
     ...(request.canonicalVariantId === undefined ? {} : { canonicalVariantId: request.canonicalVariantId }),
   };
 }
 
+/** How many towns GoWay is asked for, before each is checked for stock. */
+const TOWN_CANDIDATES = 5;
+
+/** How many GoWay places one town check considers — GoWay's own page maximum. */
+const TOWN_PLACE_SCAN = 200;
+
 /**
  * The manual-location fallback (#93 acceptance 5).
  *
- * Every suggestion comes from a location that actually holds the item, so a
- * shopper who declines to share a position can still get a real answer — and
- * cannot be offered a city that turns out to be empty. Selecting one hands back
- * a CELL CENTRE as the next request's origin, so the fallback path never sees a
- * precise coordinate at all.
+ * The town a shopper TYPED, resolved by GoWay's geocoder — the gazetteer #93
+ * asked for, now that where things are is GoWay's to say (ADR 0013) — and kept
+ * only when something is collectable around it: each candidate's cell centre
+ * is asked exactly the question picking it will ask (`DEFAULT_NEARBY_RADIUS_METRES`,
+ * the same GoWay read and the same SQL predicate), so a town offered here
+ * yields results when picked rather than being a dead end wearing a search
+ * box. Selecting one hands back a CELL as the next request's origin, so the
+ * fallback path never sees a precise coordinate at all.
+ *
+ * Without a term there is nothing to resolve, and the answer is empty.
  */
 export async function suggestNearbyPlaces(input: {
   canonicalVariantId?: string;
   canonicalProductId?: string;
   term?: string;
   country?: string;
+  locale?: string;
   limit: number;
 }): Promise<readonly NearbyPlaceSuggestion[]> {
   if ((input.canonicalVariantId === undefined) === (input.canonicalProductId === undefined)) {
     throw validationError('Ask about exactly one of `canonicalVariantId` or `canonicalProductId`.');
   }
-  const rows = await findNearbyPlaceSuggestions({
-    ...(input.canonicalVariantId === undefined ? {} : { canonicalVariantId: input.canonicalVariantId }),
-    ...(input.canonicalProductId === undefined ? {} : { canonicalProductId: input.canonicalProductId }),
-    ...(input.term === undefined ? {} : { term: input.term }),
-    ...(input.country === undefined ? {} : { country: input.country }),
-    precisionDegrees: P2P_LOCAL_CELL_PRECISION_DEGREES,
-    limit: input.limit,
-  });
+  const term = input.term?.trim() ?? '';
+  if (term === '') return [];
 
-  return rows.map((row) => ({
-    label: row.region === null ? `${row.city}, ${row.country}` : `${row.city}, ${row.region}`,
-    city: row.city,
-    ...(row.region === null ? {} : { region: row.region }),
-    country: row.country,
-    cell: {
-      latIndex: row.latIndex,
-      lonIndex: row.lonIndex,
-      precisionDegrees: P2P_LOCAL_CELL_PRECISION_DEGREES,
-    },
-    locationCount: row.locationCount,
-  }));
+  const towns = (
+    await findTowns({
+      term,
+      limit: TOWN_CANDIDATES,
+      ...(input.locale === undefined ? {} : { locale: input.locale }),
+    })
+  ).filter((town) => input.country === undefined || town.country === input.country);
+
+  const suggestions: NearbyPlaceSuggestion[] = [];
+  for (const town of towns.slice(0, input.limit)) {
+    const cell = toLocalArea(town);
+    const near = await findStorePlacesNear({
+      ...centreOf(cell),
+      radiusMetres: DEFAULT_NEARBY_RADIUS_METRES,
+      limit: TOWN_PLACE_SCAN,
+    });
+    const locationCount = await countCollectableAtLocations({
+      ...(input.canonicalVariantId === undefined ? {} : { canonicalVariantId: input.canonicalVariantId }),
+      ...(input.canonicalProductId === undefined ? {} : { canonicalProductId: input.canonicalProductId }),
+      links: near.items.map(toLink),
+    });
+    if (locationCount === 0) continue;
+    suggestions.push({
+      label: town.label,
+      ...(town.city === undefined ? {} : { city: town.city }),
+      ...(town.region === undefined ? {} : { region: town.region }),
+      ...(town.country === undefined ? {} : { country: town.country }),
+      cell,
+      locationCount,
+    });
+  }
+  return suggestions;
 }
 
-/** The centre of a suggested place, as the next request's origin. */
-export function originForPlace(cell: P2pLocalArea): Coordinate {
-  return localAreaCentre(cell);
+/**
+ * How many GoWay pages a set-shaped proximity read walks before it stops.
+ *
+ * Search's nearby filter and the ranking's nearest-collection label ask "is
+ * anything collectable within the radius", not for a page, so they walk
+ * GoWay's pages — but not without bound: 3 × 200 places is every Mercaria
+ * place in a dense city's 50 km, and a radius holding more than that answers
+ * from the nearest 600, which is what "near" means anyway.
+ */
+const LINKED_LOCATION_PAGE_CAP = 3;
+
+/**
+ * The Mercaria locations GoWay vouches for within a radius of a point, each with
+ * its exact distance — the shared first half of search's nearby filter and the
+ * ranking's nearest-collection fact.
+ *
+ * @throws {GoWayUnavailableError} When GoWay cannot answer. The caller decides
+ *   what that means for its own question.
+ */
+export async function findLinkedLocationsNear(input: {
+  latitude: number;
+  longitude: number;
+  radiusMetres: number;
+}): Promise<readonly StorePlaceNear[]> {
+  const found: StorePlaceNear[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < LINKED_LOCATION_PAGE_CAP; page += 1) {
+    const result = await findStorePlacesNear({
+      latitude: input.latitude,
+      longitude: input.longitude,
+      radiusMetres: clampNearbyRadius(input.radiusMetres),
+      limit: TOWN_PLACE_SCAN,
+      ...(cursor === undefined ? {} : { cursor }),
+    });
+    found.push(...result.items);
+    if (result.nextCursor === null) break;
+    cursor = result.nextCursor;
+  }
+  return found;
+}
+
+/**
+ * The distance to the nearest collection point holding each of a set of NATIVE
+ * variants — #74's `best_nearby_pickup` input.
+ *
+ * GoWay measures, Mercaria filters (`findCollectableVariantLocations`), and the
+ * minimum per variant is kept. The opening-hours half is deliberately NOT
+ * applied — a label saying "nearest collection point" is about geography, and
+ * dropping a shop because it is shut at the moment somebody browsed would make
+ * the label flicker with the clock.
+ *
+ * @throws {GoWayUnavailableError} When GoWay cannot answer.
+ */
+export async function findNearestCollectionByVariant(
+  input: { variantIds: readonly string[]; latitude: number; longitude: number; radiusMetres: number },
+  db?: DatabaseOrTransaction,
+): Promise<ReadonlyMap<string, number>> {
+  if (input.variantIds.length === 0) return new Map();
+  const near = await findLinkedLocationsNear(input);
+  const pairs = await findCollectableVariantLocations({ variantIds: input.variantIds, links: near.map(toLink) }, db);
+  const distances = new Map(near.map((item) => [linkKey(item), item.distanceMetres]));
+
+  const nearest = new Map<string, number>();
+  for (const pair of pairs) {
+    const metres = distances.get(linkKey(pair));
+    if (metres === undefined) continue;
+    const held = nearest.get(pair.variantId);
+    if (held === undefined || metres < held) nearest.set(pair.variantId, Math.round(metres));
+  }
+  return nearest;
+}
+
+/**
+ * Which canonical products are collectable within a radius of a point — #70's
+ * nearby search filter. A MEMBERSHIP answer, never an ordering.
+ *
+ * @throws {GoWayUnavailableError} When GoWay cannot answer.
+ */
+export async function findCanonicalProductsCollectableNear(
+  input: { canonicalProductIds: readonly string[]; latitude: number; longitude: number; radiusMetres: number },
+  db?: DatabaseOrTransaction,
+): Promise<ReadonlySet<string>> {
+  if (input.canonicalProductIds.length === 0) return new Set();
+  const near = await findLinkedLocationsNear(input);
+  return findCanonicalProductsCollectableAtLocations(
+    { canonicalProductIds: input.canonicalProductIds, links: near.map(toLink) },
+    db,
+  );
+}
+
+/** The link a GoWay result asserts, as the commerce reads join it. */
+export function toLink(item: StorePlaceNear): PlaceLink {
+  return { locationId: item.locationId, placeId: item.placeId };
+}
+
+function centreOf(cell: ReturnType<typeof toLocalArea>): Coordinate {
+  return {
+    latitude: (cell.latIndex + 0.5) * cell.precisionDegrees,
+    longitude: (cell.lonIndex + 0.5) * cell.precisionDegrees,
+  };
+}
+
+/**
+ * One link's key. A location and the PLACE are the pair: two places may both
+ * claim one location, and only the one the location names back joins.
+ */
+function linkKey(link: { locationId: string; placeId: string }): string {
+  return `${link.locationId}|${link.placeId}`;
+}
+
+function distanceOf(candidate: NearbyCandidateRow, distances: ReadonlyMap<string, number>): number {
+  return distances.get(linkKey({ locationId: candidate.locationId, placeId: candidate.goWayPlaceId })) ?? 0;
+}
+
+/** Nearest first, as GoWay measured; location then variant breaks a tie, so a page never reorders. */
+function orderByDistance(
+  candidates: readonly NearbyCandidateRow[],
+  distances: ReadonlyMap<string, number>,
+): NearbyCandidateRow[] {
+  return [...candidates].sort(
+    (left, right) =>
+      distanceOf(left, distances) - distanceOf(right, distances) ||
+      left.locationId.localeCompare(right.locationId) ||
+      left.variantId.localeCompare(right.variantId),
+  );
 }
 
 /** The levers, read once per page rather than per location. */
@@ -251,67 +415,35 @@ function readLevers() {
   };
 }
 
-/** Every candidate's schedule, in two statements for the whole page. */
-async function loadSchedules(
-  candidates: readonly NearbyCandidateRow[],
-  at: Date,
-): Promise<Map<string, LocationSchedule>> {
-  const ids = [...new Set(candidates.map((candidate) => candidate.publicationId))];
-  if (ids.length === 0) return new Map();
-
-  const today = at.toISOString().slice(0, 10);
-  const [hours, closures] = await Promise.all([
-    listOpeningHours(ids),
-    listActiveClosures(ids, today),
-  ]);
-
-  const schedules = new Map<string, LocationSchedule>();
-  for (const candidate of candidates) {
-    if (schedules.has(candidate.publicationId)) continue;
-    schedules.set(candidate.publicationId, {
-      timezone: candidate.timezone,
-      hours: hours
-        .filter((hour) => hour.publicationId === candidate.publicationId)
-        .map((hour) => ({
-          weekday: hour.weekday,
-          opensMinute: hour.opensMinute,
-          closesMinute: hour.closesMinute,
-        })),
-      closures: closures
-        .filter((closure) => closure.publicationId === candidate.publicationId)
-        .map((closure) => ({
-          id: closure.id,
-          fromDate: closure.fromDate,
-          throughDate: closure.throughDate,
-          ...(closure.note === null ? {} : { note: closure.note }),
-        })),
-    });
-  }
-  return schedules;
-}
-
 /**
- * The publication half of the derivation's inputs, for a row the nearby SQL
- * already narrowed.
+ * The derivation's location inputs, for a row the nearby SQL already narrowed.
  *
- * Every value here is `true` by construction — the pre-filter refused anything
- * else — and they are restated rather than omitted so the DERIVATION stays the
- * single authority. That matters the day somebody relaxes a clause in the SQL:
- * the derivation still refuses, and the page comes back shorter rather than
- * wider. The checkout gate does NOT use this function, because its own read
+ * The publication and location values are `true` by construction — the
+ * pre-filter refused anything else — and they are restated rather than omitted
+ * so the DERIVATION stays the single authority. The place half is NOT assumed:
+ * it is the trust rule over the place's own read, so a place that stopped
+ * naming the location since GoWay's list was built, or went away, is refused
+ * here. The checkout gate does not use this function, because its own read
  * applies no eligibility predicate at all and must report a paused location as
  * paused.
  */
-function locationFactsForNarrowedRow(schedule: LocationSchedule): PickupLocationFacts {
+function locationFactsForNarrowedRow(
+  candidate: NearbyCandidateRow,
+  lookup: PlaceLookup | null,
+): PickupLocationFacts {
   return {
     publicationState: 'published',
     pickupOffered: true,
     pickupPaused: false,
     restricted: false,
-    geocoded: true,
+    placeLinkGaps: placeLinkGaps({
+      locationId: candidate.locationId,
+      goWayPlaceId: candidate.goWayPlaceId,
+      lookup,
+    }),
     locationActive: true,
     storeActive: true,
-    schedule,
+    ...(lookup?.kind === 'found' ? { opening: lookup.place.opening } : {}),
   };
 }
 
@@ -325,37 +457,26 @@ function inventoryFacts(candidate: NearbyCandidateRow): PickupInventoryFacts {
   };
 }
 
-/**
- * The public availability state.
- *
- * A BOUNDED word by default and a number only where the merchant opted in
- * (#93 inventory rule). The threshold is the location's own, so a shop that
- * carries two of everything is not permanently "low" and a warehouse that
- * carries four hundred is not permanently "in stock" at three.
- */
-function availabilityFor(candidate: NearbyCandidateRow): LocationAvailabilityState {
-  if (candidate.available <= 0) return 'out_of_stock';
-  return candidate.available <= candidate.lowStockThreshold ? 'low_stock' : 'in_stock';
-}
-
 function projectResult(
   candidate: NearbyCandidateRow,
-  schedule: LocationSchedule,
+  place: PlaceFacts,
+  distanceMetres: number,
   at: Date,
   eligibility: PickupEligibility | undefined,
 ): NearbyLocationResult {
+  const address = pickupAddressOf(place);
+  // Unreachable while the trust rule refuses a place with no country or zone;
+  // a projection that guessed either would describe a place nobody published.
+  if (address === null || place.timezone === undefined) {
+    throw new Error(`GoWay place ${place.id} passed the trust rule without a country or a timezone`);
+  }
+
   const location: PublicPickupLocation = {
     locationId: candidate.locationId,
-    displayName: candidate.displayName,
-    address: {
-      ...(candidate.publicLine1 === null ? {} : { line1: candidate.publicLine1 }),
-      ...(candidate.publicLine2 === null ? {} : { line2: candidate.publicLine2 }),
-      ...(candidate.publicCity === null ? {} : { city: candidate.publicCity }),
-      ...(candidate.publicRegion === null ? {} : { region: candidate.publicRegion }),
-      ...(candidate.publicPostalCode === null ? {} : { postalCode: candidate.publicPostalCode }),
-      country: candidate.publicCountry,
-    },
-    timezone: candidate.timezone,
+    goWayPlaceId: place.id,
+    displayName: place.displayName,
+    address,
+    timezone: place.timezone,
     ...(candidate.merchantId === null || candidate.merchantName === null || candidate.merchantSlug === null
       ? {}
       : {
@@ -368,11 +489,11 @@ function projectResult(
     ...(candidate.storefrontId === null || candidate.storefrontName === null
       ? {}
       : { storefront: { id: candidate.storefrontId, name: candidate.storefrontName } }),
-    openState: deriveLocationOpenState(schedule, at),
-    hours: schedule.hours,
-    closures: schedule.closures,
-    ...(accessibility(candidate) === undefined ? {} : { accessibility: accessibility(candidate) }),
-    ...(contact(candidate) === undefined ? {} : { contact: contact(candidate) }),
+    openState: openStateOf(place.opening, at),
+    hours: weeklyHoursOf(place.opening),
+    hoursExceptions: hoursExceptionsOf(place.opening),
+    ...(Object.keys(place.accessibility).length === 0 ? {} : { accessibility: place.accessibility }),
+    ...(Object.keys(place.contact).length === 0 ? {} : { contact: place.contact }),
     ...(candidate.pickupInstructions === null ? {} : { pickupInstructions: candidate.pickupInstructions }),
     identityRequirement: candidate.identityRequirement,
     paymentRequirement: candidate.paymentRequirement,
@@ -380,9 +501,9 @@ function projectResult(
 
   return {
     location,
-    distanceBand: distanceBandFor(candidate.distanceMetres),
-    approximateMetres: coarsenMetres(candidate.distanceMetres),
-    availability: availabilityFor(candidate),
+    distanceBand: distanceBandFor(distanceMetres),
+    approximateMetres: coarsenMetres(distanceMetres),
+    availability: locationAvailabilityState(candidate.available, candidate.lowStockThreshold),
     ...(candidate.disclosesExactStock ? { exactQuantity: candidate.available } : {}),
     inventorySource: candidate.inventorySource,
     stockConfirmedAt: candidate.stockConfirmedAt.toISOString(),
@@ -397,56 +518,10 @@ function projectResult(
   };
 }
 
-function accessibility(candidate: NearbyCandidateRow) {
-  const facts = {
-    ...(candidate.accessibilityStepFree === null ? {} : { stepFreeAccess: candidate.accessibilityStepFree }),
-    ...(candidate.accessibilityToilet === null ? {} : { accessibleToilet: candidate.accessibilityToilet }),
-    ...(candidate.accessibilityParking === null ? {} : { parkingOnSite: candidate.accessibilityParking }),
-    ...(candidate.accessibilityHearingLoop === null
-      ? {}
-      : { hearingLoop: candidate.accessibilityHearingLoop }),
-  };
-  return Object.keys(facts).length === 0 ? undefined : facts;
-}
-
-function contact(candidate: NearbyCandidateRow) {
-  const facts = {
-    ...(candidate.publicPhone === null ? {} : { phone: candidate.publicPhone }),
-    ...(candidate.publicUrl === null ? {} : { url: candidate.publicUrl }),
-  };
-  return Object.keys(facts).length === 0 ? undefined : facts;
-}
-
 /** A price with no currency is not a cheaper price — it is an unanswerable one. */
 function requirePrice(candidate: NearbyCandidateRow): Money {
   if (candidate.priceAmount === null || candidate.priceCurrency === null) {
     throw validationError('This variant has no price and cannot be offered for collection.');
   }
   return { amount: candidate.priceAmount, currency: candidate.priceCurrency as CurrencyCode };
-}
-
-/**
- * The keyset cursor.
- *
- * An integer distance and an id, joined by a character neither contains, then
- * base64url. Deliberately not signed or bound to a query fingerprint the way
- * #70's is: this cursor carries no score whose meaning depends on a policy, and
- * a foreign one simply resumes from a distance and an id — which yields a
- * wrong-looking page, never a wider one, since every eligibility predicate is
- * re-applied.
- */
-export function encodeCursor(cursor: NearbyCursor): string {
-  return Buffer.from(`${cursor.distanceMetres}|${cursor.publicationId}`, 'utf8').toString('base64url');
-}
-
-/** Decode a cursor, refusing one that is not the shape this surface emits. */
-export function decodeCursor(encoded: string): NearbyCursor {
-  const decoded = Buffer.from(encoded, 'base64url').toString('utf8');
-  const separator = decoded.indexOf('|');
-  const distance = Number(decoded.slice(0, separator));
-  const publicationId = decoded.slice(separator + 1);
-  if (separator < 0 || !Number.isInteger(distance) || distance < 0 || publicationId === '') {
-    throw validationError('That page cursor is not one this surface issued.');
-  }
-  return { distanceMetres: distance, publicationId };
 }

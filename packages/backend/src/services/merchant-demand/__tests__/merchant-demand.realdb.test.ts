@@ -69,6 +69,16 @@ import {
 } from '../../../db/schema/merchantDemand.js';
 import { insertOffer } from '../../../db/offers/offerRepository.js';
 import { resolveMerchantDemandAccess } from '../access.js';
+import type { StoreCaller } from '../../store-access.service.js';
+
+/**
+ * A caller in their own session. Demand access by CLAIM never asks Oxy; the
+ * linked-store route would, with this bearer (ADR 0012), and no case here has a
+ * linked store, so it is never used.
+ */
+function callerOf(oxyUserId: string): StoreCaller {
+  return { accountId: oxyUserId, actorAccountId: oxyUserId, delegated: false, accessToken: 'unused' };
+}
 import { readMerchantDemandDashboard } from '../dashboard.service.js';
 import { readMerchantDemandPreview } from '../preview.service.js';
 import { buildMerchantDemandSnapshot } from '../snapshot.service.js';
@@ -495,17 +505,17 @@ describe('tenant isolation (#86 acceptance 8, privacy 6)', () => {
 
     const granted = await resolveMerchantDemandAccess({
       merchantId: mine.merchantId,
-      oxyUserId: CLAIMANT,
+      caller: callerOf(CLAIMANT),
     });
     expect(granted.outcome).toBe('granted');
 
     const refusedStranger = await resolveMerchantDemandAccess({
       merchantId: mine.merchantId,
-      oxyUserId: STRANGER,
+      caller: callerOf(STRANGER),
     });
     const refusedUnknown = await resolveMerchantDemandAccess({
       merchantId: uuidv7(),
-      oxyUserId: STRANGER,
+      caller: callerOf(STRANGER),
     });
     // Byte-identical. A distinguishable refusal is an oracle for which
     // merchants have been claimed.
@@ -910,7 +920,7 @@ describe('claim transition (#86 acceptance 8)', () => {
     });
     expect(preview.merchantId).toBe(merchant.merchantId);
     expect(
-      (await resolveMerchantDemandAccess({ merchantId: merchant.merchantId, oxyUserId: CLAIMANT }))
+      (await resolveMerchantDemandAccess({ merchantId: merchant.merchantId, caller: callerOf(CLAIMANT) }))
         .outcome,
     ).toBe('refused');
 
@@ -924,7 +934,7 @@ describe('claim transition (#86 acceptance 8)', () => {
 
     const access = await resolveMerchantDemandAccess({
       merchantId: merchant.merchantId,
-      oxyUserId: CLAIMANT,
+      caller: callerOf(CLAIMANT),
     });
     expect(access.outcome).toBe('granted');
     // …and the preview stops answering, with no sweep in between: a rounded
@@ -943,7 +953,7 @@ describe('claim transition (#86 acceptance 8)', () => {
           where id = ${merchant.merchantId}`,
     );
     expect(
-      (await resolveMerchantDemandAccess({ merchantId: merchant.merchantId, oxyUserId: CLAIMANT }))
+      (await resolveMerchantDemandAccess({ merchantId: merchant.merchantId, caller: callerOf(CLAIMANT) }))
         .outcome,
     ).toBe('refused');
   });

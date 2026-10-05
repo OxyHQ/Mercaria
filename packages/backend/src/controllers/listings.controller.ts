@@ -113,9 +113,6 @@ const listingQuerySchema = z
     inStock: z.coerce.boolean().optional(),
     cursor: z.string().trim().min(1).optional(),
     sort: z.enum(['newest', 'price_asc', 'price_desc']).optional(),
-    lng: z.coerce.number().optional(),
-    lat: z.coerce.number().optional(),
-    radiusM: z.coerce.number().positive().optional(),
   })
   .passthrough();
 
@@ -146,13 +143,6 @@ function toListingQuery(parsed: z.infer<typeof listingQuerySchema>): ListingQuer
   if (parsed.inStock) query.inStock = parsed.inStock;
   if (parsed.cursor) query.cursor = parsed.cursor;
   if (parsed.sort) query.sort = parsed.sort;
-  if (
-    typeof parsed.lng === 'number' &&
-    typeof parsed.lat === 'number' &&
-    typeof parsed.radiusM === 'number'
-  ) {
-    query.near = { lng: parsed.lng, lat: parsed.lat, radiusM: parsed.radiusM };
-  }
   return query;
 }
 

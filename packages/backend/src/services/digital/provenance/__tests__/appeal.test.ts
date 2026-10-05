@@ -15,6 +15,7 @@ const findDigitalAsset = vi.fn();
 const recordProvenanceSignal = vi.fn();
 const findMatchingProvenanceSignals = vi.fn();
 const findStoreById = vi.fn();
+const readCallerAccountRole = vi.fn();
 
 vi.mock('../../../../db/digital/assetRepository.js', () => ({
   findAssetVersion: (...args: unknown[]) => findAssetVersion(...args),
@@ -25,6 +26,14 @@ vi.mock('../../../../db/digital/assetRepository.js', () => ({
 
 vi.mock('../../../../db/stores/storeRepository.js', () => ({
   findStoreById: (...args: unknown[]) => findStoreById(...args),
+  findStorePermissionOverride: vi.fn().mockResolvedValue(null),
+  findStorePermissionOverridesForUser: vi.fn(),
+  findStoresByOwnerAccounts: vi.fn(),
+}));
+/** Whether an appellant can act for the store is a role on its owning Oxy account. */
+vi.mock('../../../oxy-account-graph.js', () => ({
+  readCallerAccountRole: (...args: unknown[]) => readCallerAccountRole(...args),
+  listCallerAccountRoles: vi.fn(),
 }));
 
 import {
@@ -34,21 +43,26 @@ import {
 } from '../appeal.js';
 import { SWEPT_PROVENANCE_SIGNAL_KINDS } from '../sweep.js';
 import { assertEachOf } from '../../../../__tests__/assert-each-of.js';
+import type { StoreCaller } from '../../../store-access.service.js';
+
+/** A caller in their own session; the store below is owned by `u-owner`. */
+function caller(oxyUserId: string): StoreCaller {
+  return { accountId: oxyUserId, actorAccountId: oxyUserId, delegated: false, accessToken: `bearer-${oxyUserId}` };
+}
 
 beforeEach(() => {
   findAssetVersion.mockReset().mockResolvedValue({ id: 'v-1', assetId: 'a-1' });
   findDigitalAsset.mockReset().mockResolvedValue({ id: 'a-1', storeId: 's-1' });
   recordProvenanceSignal.mockReset().mockResolvedValue(undefined);
-  findStoreById
-    .mockReset()
-    .mockResolvedValue({ id: 's-1', members: [{ oxyUserId: 'u-owner', role: 'owner' }] });
+  findStoreById.mockReset().mockResolvedValue({ id: 's-1', oxyAccountId: 'u-owner' });
+  readCallerAccountRole.mockReset().mockResolvedValue(null);
 });
 
 describe('#1015 W8 — an appeal adds evidence and can never remove any', () => {
   it('appends one append-only signal about the version as a whole', async () => {
     const recorded = await recordProvenanceAppeal({
       versionId: 'v-1',
-      appellantOxyUserId: 'u-owner',
+      appellant: caller('u-owner'),
       kind: 'prior_publication',
       statement: '  https://example.invalid/my-model, published 2024-02-01  ',
     });
@@ -85,7 +99,7 @@ describe('#1015 W8 — an appeal adds evidence and can never remove any', () => 
       await expect(
         recordProvenanceAppeal({
           versionId: 'v-1',
-          appellantOxyUserId: 'u-owner',
+          appellant: caller('u-owner'),
           kind,
           statement: 'gfp1:q1024:deadbeef',
         }),
@@ -96,15 +110,12 @@ describe('#1015 W8 — an appeal adds evidence and can never remove any', () => 
 });
 
 describe('#1015 W8 — only the store that published the version may append to its record', () => {
-  it('a member of the store may appeal', async () => {
-    findStoreById.mockResolvedValue({
-      id: 's-1',
-      members: [{ oxyUserId: 'u-staff', role: 'staff' }],
-    });
+  it('anybody with a role on the owning account may appeal', async () => {
+    readCallerAccountRole.mockResolvedValue('viewer');
     await expect(
       recordProvenanceAppeal({
         versionId: 'v-1',
-        appellantOxyUserId: 'u-staff',
+        appellant: caller('u-staff'),
         kind: 'creator_declaration',
         statement: 'I modelled this.',
       }),
@@ -115,11 +126,11 @@ describe('#1015 W8 — only the store that published the version may append to i
     await expect(
       recordProvenanceAppeal({
         versionId: 'v-1',
-        appellantOxyUserId: 'u-stranger',
+        appellant: caller('u-stranger'),
         kind: 'prior_publication',
         statement: 'actually mine',
       }),
-    ).rejects.toThrow(/only a member of the store/);
+    ).rejects.toThrow(/only somebody who can act for the store/);
     expect(recordProvenanceSignal).not.toHaveBeenCalled();
   });
 
@@ -128,7 +139,7 @@ describe('#1015 W8 — only the store that published the version may append to i
     await expect(
       recordProvenanceAppeal({
         versionId: 'v-gone',
-        appellantOxyUserId: 'u-owner',
+        appellant: caller('u-owner'),
         kind: 'creator_declaration',
         statement: 'mine',
       }),
@@ -139,7 +150,7 @@ describe('#1015 W8 — only the store that published the version may append to i
     await expect(
       recordProvenanceAppeal({
         versionId: 'v-1',
-        appellantOxyUserId: 'u-owner',
+        appellant: caller('u-owner'),
         kind: 'creator_declaration',
         statement: 'mine',
       }),
@@ -151,11 +162,11 @@ describe('#1015 W8 — only the store that published the version may append to i
     await expect(
       recordProvenanceAppeal({
         versionId: 'v-1',
-        appellantOxyUserId: 'u-owner',
+        appellant: caller('u-owner'),
         kind: 'creator_declaration',
         statement: 'mine',
       }),
-    ).rejects.toThrow(/only a member of the store/);
+    ).rejects.toThrow(/only somebody who can act for the store/);
     expect(recordProvenanceSignal).not.toHaveBeenCalled();
   });
 });
@@ -165,7 +176,7 @@ describe('#1015 W8 — the statement is bounded where the column is not', () => 
     await expect(
       recordProvenanceAppeal({
         versionId: 'v-1',
-        appellantOxyUserId: 'u-owner',
+        appellant: caller('u-owner'),
         kind: 'creator_declaration',
         statement: '   ',
       }),
@@ -176,7 +187,7 @@ describe('#1015 W8 — the statement is bounded where the column is not', () => 
     await expect(
       recordProvenanceAppeal({
         versionId: 'v-1',
-        appellantOxyUserId: 'u-owner',
+        appellant: caller('u-owner'),
         kind: 'creator_declaration',
         statement: 'x'.repeat(PROVENANCE_APPEAL_STATEMENT_MAX_LENGTH),
       }),
@@ -187,7 +198,7 @@ describe('#1015 W8 — the statement is bounded where the column is not', () => 
     await expect(
       recordProvenanceAppeal({
         versionId: 'v-1',
-        appellantOxyUserId: 'u-owner',
+        appellant: caller('u-owner'),
         kind: 'creator_declaration',
         statement: 'x'.repeat(PROVENANCE_APPEAL_STATEMENT_MAX_LENGTH + 1),
       }),

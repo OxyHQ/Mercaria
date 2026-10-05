@@ -29,7 +29,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vites
 import express from 'express';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
-import type { StorePermission, StoreRole } from '@mercaria/shared-types';
+import type { StoreAccountRole, StorePermission } from '@mercaria/shared-types';
 
 const STORE_ID = '1'.repeat(24);
 const OTHER_STORE_ID = '2'.repeat(24);
@@ -52,6 +52,8 @@ const RESOLVED_URL = 'https://api.oxy.test/assets/stream?mt=not-a-real-media-tok
 /* ------------------------------- the doubles ------------------------------ */
 
 const findStoreById = vi.fn();
+const findStorePermissionOverride = vi.fn();
+const readCallerAccountRole = vi.fn();
 const findDigitalAsset = vi.fn();
 const findAssetVersion = vi.fn();
 const findAssetPackage = vi.fn();
@@ -102,6 +104,12 @@ function queryResult(rows: unknown[]): Record<string, unknown> {
 
 vi.mock('../../db/stores/storeRepository.js', () => ({
   findStoreById: (...args: unknown[]) => findStoreById(...args),
+  findStorePermissionOverride: (...args: unknown[]) => findStorePermissionOverride(...args),
+}));
+/** Oxy's answer to "what is the caller's role in the store's owning account?". */
+vi.mock('../../services/oxy-account-graph.js', () => ({
+  readCallerAccountRole: (...args: unknown[]) => readCallerAccountRole(...args),
+  listCallerAccountRoles: vi.fn(),
 }));
 vi.mock('../../db/digital/assetRepository.js', () => ({
   findDigitalAsset: (...a: unknown[]) => findDigitalAsset(...a),
@@ -164,6 +172,7 @@ vi.mock('../../services/digital/storage.js', () => ({
 vi.mock('../../middleware/auth.js', () => ({
   authenticateToken: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     req.userId = (req.headers['x-test-user'] as string) ?? OWNER_USER;
+    req.accessToken = 'test-bearer';
     next();
   },
   oxyClient: {},
@@ -268,9 +277,19 @@ afterAll(async () => {
   );
 });
 
-/** A member row shaped the way `loadStore` reads it. */
-function member(role: StoreRole, permissions: StorePermission[] = []) {
-  return { oxyUserId: OWNER_USER, role, permissions };
+/** The store row `loadStore` reads: owned by an organization the caller may belong to. */
+const OWNING_ACCOUNT = 'org-digital-routes';
+const STORE_ROW = { id: STORE_ID, oxyAccountId: OWNING_ACCOUNT };
+
+/**
+ * The caller's standing on the store, as `loadStore` resolves it: their role
+ * in the owning account (`null` for none) plus an optional override grant.
+ */
+function asMember(role: StoreAccountRole | null, granted: StorePermission[] = []): void {
+  readCallerAccountRole.mockResolvedValue(role);
+  findStorePermissionOverride.mockResolvedValue(
+    granted.length > 0 ? { granted, revoked: [] } : null,
+  );
 }
 
 beforeEach(() => {
@@ -283,8 +302,9 @@ beforeEach(() => {
     return queryResult(licenceRows);
   });
   findStoreById.mockImplementation(async (storeId: string) =>
-    storeId === STORE_ID ? { id: STORE_ID, members: [member('owner')] } : null,
+    storeId === STORE_ID ? STORE_ROW : null,
   );
+  asMember('owner');
   findDigitalAsset.mockResolvedValue({ id: ASSET_ID, storeId: STORE_ID, vertical: 'three_d' });
   findAssetVersion.mockResolvedValue({ id: VERSION_ID, assetId: ASSET_ID, state: 'draft' });
   findAssetPackage.mockResolvedValue({ id: PACKAGE_ID, assetId: ASSET_ID });
@@ -359,8 +379,8 @@ describe('the creator MOUNT follows DIGITAL_UPLOADS_ENABLED', () => {
 });
 
 describe('the creator surface needs `store:manage`', () => {
-  it('refuses a staff member, who holds every operational permission', async () => {
-    findStoreById.mockResolvedValue({ id: STORE_ID, members: [member('staff')] });
+  it('refuses an editor, who holds every operational permission', async () => {
+    asMember('editor');
     const { status, body } = await post(
       uploadsOn,
       `/digital/stores/${STORE_ID}/assets`,
@@ -374,8 +394,8 @@ describe('the creator surface needs `store:manage`', () => {
     // `store:manage` is the one permission an `admin` does not hold. Publishing
     // licence terms in the store's name is the owner's decision, like payment
     // onboarding and fee acceptance; `settings:write` would have put it on every
-    // admin and `products:write` on every staff member.
-    findStoreById.mockResolvedValue({ id: STORE_ID, members: [member('admin')] });
+    // admin and `products:write` on every editor.
+    asMember('admin');
     const { status } = await post(uploadsOn, `/digital/stores/${STORE_ID}/assets`, CREATE_ASSET);
     expect(status).toBe(403);
   });
@@ -383,20 +403,17 @@ describe('the creator surface needs `store:manage`', () => {
   it('admits an admin holding an EXPLICIT grant — the control', async () => {
     // Without this the case above would pass for any reason at all, including a
     // permission check that refuses everybody.
-    findStoreById.mockResolvedValue({
-      id: STORE_ID,
-      members: [member('admin', ['store:manage'])],
-    });
+    asMember('admin', ['store:manage']);
     insertDigitalAsset.mockResolvedValue({ id: ASSET_ID });
     const { status } = await post(uploadsOn, `/digital/stores/${STORE_ID}/assets`, CREATE_ASSET);
     expect(status).toBe(201);
   });
 
-  it('404s an unknown store and 403s a non-member', async () => {
+  it('404s an unknown store and 403s somebody with no role on its owning account', async () => {
     const unknown = await post(uploadsOn, `/digital/stores/${OTHER_STORE_ID}/assets`, CREATE_ASSET);
     expect(unknown.status).toBe(404);
 
-    findStoreById.mockResolvedValue({ id: STORE_ID, members: [] });
+    asMember(null);
     const outsider = await post(uploadsOn, `/digital/stores/${STORE_ID}/assets`, CREATE_ASSET);
     expect(outsider.status).toBe(403);
   });

@@ -1074,7 +1074,7 @@
       "loadingCities": "Recherche de villes…",
       "cityListError": "Nous n'avons pas pu charger la liste des villes pour le moment.",
       "noCityMatch": "Aucune ville correspondante ne l'a en stock pour le retrait.",
-      "noStockAnywhere": "Aucune boutique ne le propose actuellement en retrait.",
+      "typeATown": "Saisissez une ville ou un code postal pour voir où le retirer.",
       "searchNear": "Rechercher près de %{place}",
       "shopsWithStock": {
         "one": "%{count} boutique en stock",
@@ -1146,6 +1146,27 @@
       "ratingsWithScope": "%{formattedCount} notes · %{scopeLabel}",
       "fallbackAuthor": "Acheteur vérifié",
       "viewA11yLabel": "Voir les avis sur le service de cette boutique"
+    },
+    "visit": {
+      "heading": "Venez nous voir",
+      "loading": "Chargement des informations de cette boutique",
+      "placeUnavailable": "Les informations de cette boutique ne peuvent pas être affichées pour le moment.",
+      "viewOnGoWay": "Voir sur GoWay",
+      "reviewsOnGoWay": "Lire ses avis sur GoWay",
+      "openMap": "Ouvrir dans les cartes GoWay",
+      "hoursHeading": "Horaires d’ouverture",
+      "closedAllDay": "Fermé",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "Horaires exceptionnels",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates} : fermé",
+      "exceptionHours": "%{dates} : %{hours}",
+      "accessibility": "Accessibilité",
+      "payment": "Paiement",
+      "attributeValue": "%{attribute} : %{value}",
+      "collectHere": "Commandez en ligne, retirez ici",
+      "placeRatingSubject": "%{place} sur GoWay",
+      "photoLabel": "Photo de %{place}"
     }
   },
   "offer": {
@@ -1397,8 +1418,7 @@
       "placement": {
         "heading": "Où elle apparaîtra",
         "onProductPage": "Sur la page produit, aux côtés des autres vendeurs",
-        "ownSurfacesOnly": "Dans la recherche et sur votre profil vendeur — pas sur une page produit",
-        "localResults": "Dans les résultats locaux, dans la zone approximative que vous avez choisie"
+        "ownSurfacesOnly": "Dans la recherche et sur votre profil vendeur — pas sur une page produit"
       },
       "blocked": {
         "titleMissing": "Donnez un titre à votre annonce.",

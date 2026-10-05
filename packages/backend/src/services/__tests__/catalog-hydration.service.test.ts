@@ -144,9 +144,6 @@ function listingRow(source: Partial<ListingRecord> = NATIVE_SOURCE): ListingReco
     priceRangeMaxCurrency: 'FAIR',
     hasInventory: true,
     variantCount: 0,
-    longitude: null,
-    latitude: null,
-    geo: null,
     vendor: null,
     productType: null,
     handle: null,
@@ -239,6 +236,7 @@ function imageRow(listingId: string, fileId: string): ListingImageRecord {
 /** A full `stores` row; the two media columns are what each test varies. */
 function storeRow(media: Pick<StoreRow, 'coverFileId' | 'logoFileId'>): StoreRow {
   return {
+    oxyAccountId: 'oxy-account-fixture',
     id: 'store-1',
     handle: 'acme',
     name: 'Acme',

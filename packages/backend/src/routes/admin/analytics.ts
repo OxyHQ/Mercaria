@@ -3,7 +3,7 @@
  * (#77 "Merchant analytics").
  *
  * `mergeParams` so `:storeId` is visible. The parent router has already run
- * `authenticateToken` → `loadStore`, so `req.store`/`req.storeMembership` are
+ * `authenticateToken` → `loadStore`, so `req.store`/`req.storeAccess` are
  * set, and `:storeId` is therefore a store the caller is a member of rather
  * than a value they typed — which is what makes "their OWN offers" (merchant
  * rule 1) structural rather than a filter this file has to remember.

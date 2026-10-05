@@ -16,8 +16,8 @@
  * read-then-write two racers would walk straight past. The service turns that
  * refusal into a DISPUTE (scope rule 6) instead of replacing the incumbent.
  * Several verified operators per merchant still arrive, through the native
- * store's own membership after linkage (#84) — which is a `store_members`
- * fact, never a second verified claim.
+ * store's owning Oxy account after linkage (#84, ADR 0012) — whose membership
+ * is Oxy's fact, never a second verified claim.
  *
  * `merchant_claim_challenges_claim_id_open_key` — a partial unique on
  * `(claim_id) WHERE closed_at IS NULL` — is what "single-use" means

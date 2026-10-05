@@ -12,38 +12,45 @@ This document is the reference for all four. Schema decisions are in
 collection (#93)"; the load-bearing rules are summarised in the repo-root
 `AGENTS.md`.
 
+**Where a location IS is GoWay's (ADR 0013).** Its name, address, position,
+timezone, hours and exceptions, contact and accessibility live on a GoWay
+place; Mercaria stores `locations.go_way_place_id` and reads the rest through
+`services/goway/`. Everything below that says "where" means "what the GoWay
+place says, read at that moment".
+
 ---
 
 ## 1. What is stored, and what is deliberately not
 
-Eight tables, all additive. The operational `locations` row and its
-`inventory_levels` are untouched: #93's own issue says it "reuses the existing
-`Location`, `InventoryLevel` and POS domains", and this domain is the PUBLIC
-face of them plus everything a handover needs.
+Six tables, plus one column on `locations`. The operational `locations` row and
+its `inventory_levels` are otherwise untouched: #93's own issue says it "reuses
+the existing `Location`, `InventoryLevel` and POS domains", and this domain is
+the PUBLIC face of them plus everything a handover needs.
 
-| Table | Holds |
+| Where | Holds |
 |---|---|
-| `location_publications` | One location's public face: display name, the address fields the merchant chose, timezone, position, publication state, pickup switches, freshness policy |
-| `location_opening_hours` | One interval per row, so a split shift is expressible |
-| `location_closures` | Dated exceptions |
-| `location_publication_events` | Append-only audit of publication and geocoding changes |
-| `order_pickups` | One order's frozen collection snapshot plus its operational state |
+| `locations.go_way_place_id` | The GoWay place the location trades from. Opaque, no foreign key, unique per store |
+| `location_publications` | Mercaria's commerce terms for one location: publication state, pickup switches and instructions, identity and payment requirement, pause, operator restriction, inventory source, freshness policy, disclosure, storefront |
+| `location_publication_events` | Append-only audit of publication and place-link changes |
+| `order_pickups` | One order's frozen collection snapshot (read from the GoWay place) plus its operational state |
 | `pickup_collection_credentials` | A rotation counter and four instants. **No code, no hash, no ciphertext** |
 | `pickup_collection_events` | Append-only audit of everything at a collection desk |
 | `listing_local_discovery` | A P2P seller's coarse CELL. **No coordinate column** |
 
+`0162` dropped the place facts a publication used to copy (name, address,
+timezone, phone, URL, four accessibility flags, the pin and its generated
+PostGIS point) and the two tables that copied the schedule
+(`location_opening_hours`, `location_closures`).
+
 ### Why a separate publication row rather than columns on `locations`
 
-The two objects have different audiences, different editors and different
-failure modes. `locations` holds the address a pallet is delivered to and the
-name a warehouse manager gave a building; a publication holds what a merchant is
-willing to have a stranger read, and **every field of its address is optional**
-because "the city and nothing else" is a complete, common answer.
-
-Widening `locations` instead would have meant the operational address and the
-published one were the same nine columns — and the first naive
-`select().from(locations)` on a public route would then disclose a stockroom's
-street and the phone number of whoever signs for deliveries.
+The two objects have different audiences and different failure modes.
+`locations` holds the address a pallet is delivered to and the name a warehouse
+manager gave a building; a publication holds whether a stranger may be sent
+there and on what terms. Keeping them apart means the first naive
+`select().from(locations)` on a public route still discloses nothing — the
+operational address is never projected, and the public address is the GoWay
+place's.
 
 It also makes the default right by construction: a store with no publication row
 is not discoverable, and that is the state every existing store is in.
@@ -58,7 +65,7 @@ collection there, is a conjunction over the LIVE `locations.is_active`, the LIVE
 store, the LIVE listing status, the LIVE stock level and its age, the
 publication's own state, and — for a guest — three deployment levers.
 
-Six tables in four domains this one does not own. This is #57's
+Six tables in four domains this one does not own, plus the GoWay place. This is #57's
 `deriveNativeCheckoutEligibility` divergence from the one-stored-verdict rule,
 taken for the same reason and with the same payoff: **a moderation restriction
 stops a collection in the statement that applies it, with no sweep in between.**
@@ -78,40 +85,47 @@ dashboard, the operator trace and the structured log.
 
 ---
 
-## 3. Position, and the geocoding provider Mercaria does not have
+## 3. Position: the GoWay place, and the trust rule
 
-`LOCATION_GEOCODE_PROVENANCES` has three members and every one is a MERCHANT or
-an OPERATOR act. **Mercaria runs no geocoding provider and calls none.**
-`services/checkout` already asserts by scan that no address-correction client
-exists on the checkout path, and adding one here would put a third party between
-a merchant typing their own shop's address and that shop being findable.
+A location has a position exactly when it names a GoWay place the merchant
+chose or created in the dashboard (ADR 0013, D2). There is no Mercaria pin and
+no second source.
 
-`LOCATION_FORBIDDEN_GEOCODE_PROVENANCES` states the prohibition as a VALUE,
-disjoint from the permitted tuple by a test. The last two members are the ones
-worth reading: a coordinate derived from where BUYERS were, or from where
-parcels went, is a position built out of other people's locations.
+### The trust rule
 
-The consequence is stated rather than hidden: **a merchant who supplies no map
-pin has a location that cannot be discovered by proximity at all.** That is an
-honest "we do not know where this is", it is why `location_not_geocoded` is a
-block reason, and it is why `changePublicationState` refuses to publish a
-location with no pin.
+A location is LINKED — and so may be published and discovered — only when:
 
-### The null island
+1. `locations.go_way_place_id` is set;
+2. a public GoWay read shows the place exists, is `active` and is not merged;
+3. the place's strongest `commerce.mercaria.store` assertion is this location's
+   id, at `business_asserted` or `oxy_verified`;
 
-`(0, 0)` is a real point in the Gulf of Guinea and is what every failed import,
-every uninitialised float and every "the form submitted before the map loaded"
-produces. A plain range check ADMITS it and sorts it first for everybody in West
-Africa. Both the CHECK and `assertUsableCoordinate` refuse the PAIR — and
-Greenwich and Quito are still accepted, which is the fixture that tells a correct
-refusal from a broken one.
+and, for a collection, the place carries a country and a timezone. Only whoever
+acts for an approved claim on the place can assert at `business_asserted`, and
+the dashboard files that claim for the store's owning Oxy account (ADR 0012),
+so the back-reference is the proof that the place and the store are run by the
+same people. `services/goway/place-facts.ts`'s `placeLinkGaps` is the rule;
+`PLACE_LINK_GAPS` names each failing condition and `placeLinkBlockers` maps
+them to one block reason per remedy (`place_not_linked`, `place_unavailable`,
+`place_link_unverified`, `place_incomplete`).
 
-### `ST_DWithin`, not a bounding box
+The verdict is derived on every read from the cached place (fresh for at most a
+minute — never longer than the shortest stock interval a location may declare),
+so a broken link stops discovery at the next read. It is never stored.
 
-A latitude/longitude box is wrong at both poles and broken across the
-antimeridian, and the failure is silent — it returns a plausible list with the
-wrong things in it. The GiST index on the generated `geography` column is what
-makes the real spheroidal predicate an index scan.
+### Merges
+
+GoWay merges duplicate places and keeps a one-hop `mergedInto` pointer. The
+public reads do NOT follow it — a merged place is unlinked — and the merchant's
+verify act does: `POST …/locations/:id/place-link/verify` rewrites the stored
+id to the survivor and audits `place_merge_followed`. The survivor must still
+name the location back.
+
+### The one door
+
+`services/goway/` is the only backend code that imports `@goway.to/sdk`
+(`pickup-isolation.test.ts`, wall 4). Reads are public — Mercaria holds no GoWay
+credential — and every failure is one of three: not found, gone, unavailable.
 
 ---
 
@@ -136,6 +150,9 @@ to, and a single-interval fixture set could not tell them apart.
 
 ## 5. Availability is a bounded state, never a number by default
 
+`locationAvailabilityState` (`services/pickup/eligibility.ts`) is the one
+spelling of the rule below, shared by nearby and the public location reads.
+
 `LOCATION_AVAILABILITY_STATES` is `in_stock | low_stock | out_of_stock`, and
 `exactQuantity` is present ONLY where `discloses_exact_stock` is on. A consumer
 that wants to render "3 left" has to read a property that is usually absent,
@@ -147,16 +164,20 @@ not permanently "in stock" at three.
 
 ---
 
-## 6. Privacy: the shopper's coordinate lives inside one function call
+## 6. Privacy: the shopper's coordinate lives inside one request
 
-It arrives on the request, it is passed to PostGIS, and it is gone. What leaves
-`nearby.service.ts` is the COARSE CELL (`toLocalArea`, 0.1° ≈ 11 km) on the
-echoed origin and in the one structured log line, plus per-location distances
-rounded OUTWARD.
+It arrives on the request, it is forwarded to GoWay for the length of ONE
+request — exactly as the shopper's browser would send it, and transient there
+by GoWay's own rule — and it is gone. What leaves `nearby.service.ts` is the
+COARSE CELL (`toLocalArea`, 0.1° ≈ 11 km) on the echoed origin and in the one
+structured log line, plus per-location distances rounded OUTWARD.
 
-Nothing writes it anywhere, no analytics event carries it (#77's schema has no
-column that could), and `pickup-isolation.test.ts` fails the build if this domain
-learns to emit one.
+Nothing writes it anywhere: the GoWay place cache is keyed on place ids and a
+nearby page is never cached, a GoWay failure is logged by its CODE (a transport
+error can carry the request URL), no analytics event carries it (#77's schema
+has no column that could), and `pickup-isolation.test.ts` fails the build if
+this domain learns to emit one. `goway-places.realdb.test.ts` asserts the
+coordinate reached GoWay and no log line or cache entry.
 
 ### Why the metre figure is coarsened
 
@@ -174,27 +195,24 @@ other.
 
 ---
 
-## 7. The manual-location fallback needs no gazetteer
+## 7. The manual-location fallback: a town the shopper types
 
-`GET /nearby/places` answers with the distinct public CITIES among published
-locations that actually hold the item, composed from the SAME `where` the result
-read uses — so a city offered there always yields something when picked, and a
-dead end wearing a search box is impossible.
+`GET /nearby/places?q=` resolves what the shopper TYPED through GoWay's
+geocoder and keeps a town only when something is collectable around it: each
+candidate's cell centre is asked exactly the question picking it will ask (the
+default radius, the same GoWay read and the same SQL predicate,
+`countCollectableAtLocations`), so a town offered there yields results when
+picked rather than being a dead end wearing a search box. Without `q` the answer
+is empty — there is nothing to enumerate without a point.
 
 Selecting one hands back a CELL CENTRE as the next request's origin, so the
 fallback path never sees a precise coordinate at all.
 
 This answers #93 acceptance 5 ("denied location permission has a functional
-manual-location fallback") without an outbound call, and it is now met **end to
-end**: `components/nearby/NearbyOriginControl.tsx` is the entry box, and §18
-below describes the screen around it. The city list is offered BESIDE the
-device-location control rather than after a refusal, so a shopper who never
-wants to share a position does not have to decline a prompt to find out that
-typing a city works.
-
-The match is a PREFIX on the city and on the postal code, deliberately not a
-trigram similarity: a fuzzy match would offer a shopper a city they did not type,
-and the remedy for a typo is one more keystroke rather than a guess.
+manual-location fallback") end to end: `components/nearby/NearbyOriginControl.tsx`
+is the entry box. The town search is offered BESIDE the device-location control
+rather than after a refusal, so a shopper who never wants to share a position
+does not have to decline a prompt to find out that typing a town works.
 
 ---
 
@@ -242,10 +260,18 @@ Three companions matter and none is optional:
 
 `destination.ts` still produces **no** `NormalizedCheckoutAddress` for a pickup —
 #105's invariant is unchanged and nothing fabricates a street from anything the
-buyer typed. What the ORDER records is a snapshot composed from the merchant's
-own PUBLICATION, which is the already-public place the goods are, and which is
-exactly what the POS path has snapshotted since the Mongo port
-(`buildPickupSnapshot` in `draft-order.service`).
+buyer typed. What the ORDER records is a snapshot read from the GoWay PLACE the
+location trades from — its default name, address and timezone, and its id —
+frozen by trigger. It is the one copy of a place fact Mercaria keeps, and the
+convention allows it because it is history: the buyer agreed to collect from
+what they were shown.
+
+### GoWay down: pickup fails closed, delivery does not notice
+
+`resolvePickupForCheckout` reads the place once. A last-good copy stands in
+while GoWay cannot answer; with none, the collection is refused with a `503`
+that says why, before any stock moves. A delivery checkout never reaches the
+gate and never asks GoWay (`checkout.stripe.realdb.test.ts`).
 
 The recipient name is the literal word `Collection` and **never a person's
 name**: `NormalizedCheckoutContact` carries no name field, reading one off an Oxy
@@ -379,10 +405,21 @@ no member meaning yes.
 
 | Route | Notes |
 |---|---|
-| `GET /nearby` | Mounted only when `NEARBY_DISCOVERY_ENABLED` is on. `resolveCommerceActor`, so signed-out browsing works. `Cache-Control: private, no-store` |
-| `GET /nearby/places` | The manual fallback |
+| `GET /nearby` | Mounted only when `NEARBY_DISCOVERY_ENABLED` is on. `resolveCommerceActor`, so signed-out browsing works. `Cache-Control: private, no-store`. `?locale=` for place names; the cursor is GoWay's, passed through |
+| `GET /nearby/places` | The manual fallback: `?q=` a town |
 | `GET /nearby/p2p` | 404 while `P2P_LOCAL_DISCOVERY_ENABLED` is off |
 | `GET /search?nearLatitude=&nearLongitude=` | #70's filter 10, a CONTRACT CHANGE rather than a parameter that was accepted and ignored. A MEMBERSHIP filter, never an ordering |
+
+### Public integration (`/public/v1`)
+
+`GET /public/v1/locations?goWayPlaceId=`, `/locations/:id`,
+`/locations/:id/products` and `/stores/:id/locations` — the shop fronts another
+Oxy application (GoWay's place page, first) reads, gated by the same trust rule
+(§3) and with each product's availability decided by the same
+`inventoryBlockers` and `locationAvailabilityState` as nearby (§4, §5). Status
+rules, the 503 for an unreachable GoWay and the projection are
+`docs/public-api.md`'s. The storefront's store page lists its own shop fronts
+from the same route, so the map and the store cannot disagree.
 
 ### Buyer
 
@@ -397,8 +434,12 @@ Under `/admin/stores/:storeId/`, on the permissions that already existed (#93
 operations rule 4): `locations:write` for the shop front, `orders:fulfill` for the
 desk, `orders:read` to look one up.
 
-- `locations/publications`, `locations/:id/publication` (GET/PUT),
-  `…/publication/{state,pickup-pause,confirm,closures,events}`
+- `locations/publications`, `locations/:id/publication` (GET/PUT — the GoWay
+  place id and the commerce terms only), `…/publication/{state,pickup-pause,events}`
+- `locations/:id/place-link/verify` — the trust rule, now, explained; follows a
+  merge
+- There is no hours, closures or address route: those are the GoWay place's,
+  edited in GoWay with the merchant's own session
 - `locations/:id/pickups` — one BRANCH's queue
 - `orders/:id/pickup` and `…/pickup/{ready,collect,cancel,rotate-code}`
 
@@ -427,6 +468,10 @@ both already have their own authenticated surface.
 ## 14. Environment
 
 ```
+GOWAY_API_URL=                            # GoWay's API origin; needed by the two levers below
+GOWAY_TIMEOUT_MS=2500
+GOWAY_PLACE_CACHE_TTL_SECONDS=60          # at most 60, the shortest stock interval
+GOWAY_PLACE_STALE_TTL_SECONDS=86400       # last-good place during an outage
 NEARBY_DISCOVERY_ENABLED=false            # mounts /nearby
 STORE_PICKUP_ENABLED=false                # may a checkout resolve a pickup
 GUEST_STORE_PICKUP_ENABLED=false          # may a GUEST collect
@@ -435,8 +480,9 @@ GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT=false
 PICKUP_COLLECTION_CODE_KEY=               # 64 hex; demanded by STORE_PICKUP_ENABLED
 ```
 
-`STORE_PICKUP_ENABLED=true` **requires** `PICKUP_COLLECTION_CODE_KEY` (the
-half-configuration rule), and `GUEST_STORE_PICKUP_ENABLED` additionally requires
+`STORE_PICKUP_ENABLED=true` **requires** `PICKUP_COLLECTION_CODE_KEY` and
+`GOWAY_API_URL`, and `NEARBY_DISCOVERY_ENABLED=true` requires `GOWAY_API_URL`
+(the half-configuration rule), and `GUEST_STORE_PICKUP_ENABLED` additionally requires
 store pickup — the dependency is one-way, so turning guest pickup off leaves
 authenticated collection working, which is the direction #93 operations rule 10
 needs.
@@ -461,15 +507,14 @@ starts reading `config.pickup`.
 
 ## 15. Operations
 
-`GET /internal/pickup/consistency` runs four probes, each an exact count plus a
+`GET /internal/pickup/consistency` runs three probes, each an exact count plus a
 bounded sample. Detection and repair are separate acts (the
 `payment_discrepancies` posture) — every remedy is a merchant's decision, and a
 sweep that guessed would be a sweep that moved somebody's shop.
 
 | Probe | What it catches |
 |---|---|
-| `publishedWithoutPosition` | Published with no pin: looks live in the dashboard, invisible to every shopper. The longest feedback loop in the domain |
-| `probableDuplicates` | Two published locations of one store within 150 m. Not an error — a department store has two entrances — which is why it reports |
+| `publishedWithoutPlace` | Published and naming no GoWay place: looks live in the dashboard, invisible to every shopper. Whether the place still names the location back is derived per read, not probed — it would cost a GoWay read per location |
 | `publishedWithNoLiveListing` | Offering collection with no live listing anywhere at the location: the "inventory level → native offer → public location" chain (#93 operations rule 7) walked in the direction that finds the silent case |
 | `openCollectionsAtClosedLocations` | A buyer holding an order for a place that stopped offering collection |
 
@@ -480,10 +525,16 @@ location's `stock_confirmation_interval_seconds` and the level row's
 `updated_at`. If the interval is longer than the merchant's real cadence, the
 merchant shortens it — the number is theirs, on purpose.
 
-**A merchant reports "my shop does not appear".** Run the consistency probes
-first: `publishedWithoutPosition` is the commonest cause. Otherwise call
-`deriveLocationDiscoverability` through the merchant's own publication read,
-which returns the whole reason list rather than the first.
+**A merchant reports "my shop does not appear".** Their dashboard's place-link
+check (`…/place-link/verify`) names every failing condition of the trust rule —
+commonest: the claim is still pending in GoWay, so the back-reference is only
+`community_reported`. Approval re-tiers it to `business_asserted` by itself
+only when the person who FILED the claim, or a session acting as the store's
+Oxy account, wrote it after filing; a link any other member wrote, or one
+written before the claim was filed, has to be written again once the claim is
+approved. Then the consistency probes, then
+`deriveLocationDiscoverability`, which returns the whole reason list rather
+than the first.
 
 **A collection code will not scan.** Staff use the audited override
 (`POST …/pickup/collect` with `{override:{reason}}`), which is #93 verification
@@ -624,10 +675,6 @@ are where it would go; the request shape is what stopped it, not the component.
 
 Stated rather than quietly narrowed.
 
-- **A place-name gazetteer.** `GET /nearby/places` answers from the published
-  locations themselves, which is provider-free and can never offer an empty city
-  — but it cannot resolve a place where nothing is stocked. Closing that needs a
-  geocoding provider and the decision not to have one (§3).
 - **Buyer cancellation of a collection order.** #110's
   `resolveCancellationEligibility` returns `pickup_not_supported` for a pickup
   order, and #110's own comment says why: a cancellation that took the `release`
@@ -647,16 +694,25 @@ Stated rather than quietly narrowed.
 - [ ] `PICKUP_COLLECTION_CODE_KEY` provisioned (64 hex) in SSM, and in the
       deploy workflow's explicit secret allow-list **in the same change** as the
       task definition entry.
+- [ ] `GOWAY_API_URL` set — `deploy-aws.yml` pins it into every release
+      revision (repo variable `GOWAY_API_URL`, default `https://api.goway.to`);
+      mirror it in the oxy-infra task definition's `environment`
+      (configuration, not a secret). Without it no location can be published.
+- [ ] GoWay's API serves `GET /places?ids=` and `GET /claims?placeId=`, and its
+      `CORS_APP_ORIGINS` carries `https://mercaria.co` and
+      `https://dashboard.mercaria.co` (GoWay's runtime template).
 - [ ] `NEARBY_DISCOVERY_ENABLED=true` only after a merchant has published at
-      least one location with a pin — the surface is honest but empty otherwise.
+      least one linked location — the surface is honest but empty otherwise.
 - [ ] `STORE_PICKUP_ENABLED=true` only after the collection-desk flow has been
       walked end to end on a real store with real staff permissions.
 - [ ] `GUEST_STORE_PICKUP_ENABLED` stays OFF until #111's rollout review.
 - [ ] `CATALOG_OPERATOR_OXY_USER_IDS` non-empty, or `/internal/pickup/*` is not
       mounted and nobody can restrict a location or read the probes.
-- [ ] PostGIS present on the target database (a privileged role installs it once;
-      `db/migrate.ts` ensures it and fails with a privilege message rather than
-      an unknown-type one).
+- [ ] PostGIS present on the target database — no runtime read uses it any
+      more, but the migration chain names `geography` (`db/requiredExtensions.ts`).
+- [ ] Before the deploy that carries `0162` (post): count and export the place
+      facts — see "Moving to GoWay" below. Its post phase runs automatically
+      once the new image is live, so there is no window to do it in later.
 
 ## Teardown and the trigger-toggle window
 
@@ -672,19 +728,6 @@ two rules from `docs/postgres-testing-and-migrations.md` bite here directly:
 - **Stores go through `deleteTestStores` and canonical rows through
   `deleteTestCanonicalRows`**, which DECLINE exactly the ids a sibling's
   `match_decisions` pins rather than deleting somebody else's row.
-- **The GiST index over `location_publications.geo_point` is asserted to EXIST**
-  (`pickup.realdb.test.ts`, `'is covered by a GiST index, which no functional
-  test could miss the absence of'`) — no functional case could ever catch its
-  absence, since `ST_DWithin` returns the same rows against a sequential scan,
-  just slower, invisible at fixture scale and catastrophic at catalogue scale.
-  The assertion reads `pg_indexes`, asserts the row count FIRST (so "found no
-  index" cannot be what a pass looks like), and asserts `USING gist`
-  specifically — a plain btree over a `geography` column is created without
-  complaint and cannot serve the operator. Mutation-tested by renaming the index
-  in the migration: exactly that test goes red and all other functional cases
-  stay green, which is the whole argument for having it — this repo's worked
-  example of "an index is the one thing a functional test can never detect the
-  absence of."
 - **No fixture may carry a date the real clock is still travelling toward** —
   the direction opposite `docs/postgres-testing-and-migrations.md`'s "write
   fixture instants relative to now" rule, and the subtler one: a fixture date
@@ -695,3 +738,80 @@ two rules from `docs/postgres-testing-and-migrations.md` bite here directly:
   closure's end date forward from the real `now`, the fix moved the injected
   CLOCK itself back a week, so both the closure and the horizon it spans sit
   safely in the past.
+
+## Moving to GoWay (`0159` → `0162`)
+
+`0159` (pre) adds `locations.go_way_place_id`; `0162` (post) withdraws every
+PUBLISHED publication whose location names no place (one `state_withdrawn`
+audit row each) and drops the place-fact columns and tables. Nothing re-derives
+a dropped value, so count and export BEFORE the deploy:
+
+```sql
+-- How many publications 0162 will withdraw: every one published now. Before
+-- this release no location can name a GoWay place (`go_way_place_id` does not
+-- exist yet, so this reads the schema production has), and the post phase
+-- follows the new image within minutes, so none is linked in time.
+select store_id, count(*) as will_withdraw from location_publications
+where publication_state = 'published'
+group by store_id order by 2 desc;
+
+-- Every place fact Mercaria holds, one JSON document per publication — what
+-- the merchant (or an operator acting with them) needs to find or create the
+-- GoWay place and re-enter hours, closures, contact and accessibility there.
+select p.id as publication_id, p.store_id, p.location_id, p.publication_state,
+       json_build_object(
+         'name', p.display_name,
+         'address', json_build_object('line1', p.public_line1, 'line2', p.public_line2,
+           'city', p.public_city, 'region', p.public_region,
+           'postalCode', p.public_postal_code, 'country', p.public_country),
+         'timezone', p.timezone, 'phone', p.public_phone, 'url', p.public_url,
+         'accessibility', json_build_object('stepFree', p.accessibility_step_free,
+           'toilet', p.accessibility_toilet, 'parking', p.accessibility_parking,
+           'hearingLoop', p.accessibility_hearing_loop),
+         'position', case when p.latitude is null then null
+           else json_build_object('latitude', p.latitude, 'longitude', p.longitude) end,
+         'hours', (select coalesce(json_agg(json_build_object('weekday', h.weekday,
+             'opensMinute', h.opens_minute, 'closesMinute', h.closes_minute)
+             order by h.weekday, h.opens_minute), '[]'::json)
+           from location_opening_hours h where h.publication_id = p.id),
+         'closures', (select coalesce(json_agg(json_build_object('from', c.from_date,
+             'through', c.through_date, 'note', c.note) order by c.from_date), '[]'::json)
+           from location_closures c where c.publication_id = p.id and c.through_date >= current_date)
+       ) as place_facts
+from location_publications p
+order by p.store_id, p.location_id;
+```
+
+Linking is the merchant's act, in the dashboard: find or create the place,
+claim it for the store's Oxy account, assert `commerce.mercaria.store`, save,
+publish. Mercaria has no service credential to write to GoWay, and a link an
+operator typed for them would fail the trust rule anyway until the store's own
+account holds the claim.
+
+### One release: every `pre` before every `post`
+
+This ships as ONE release with the store-ownership pair, and the journal is
+ordered so a single `Migrate (pre)` and a single `Migrate (post)` apply it:
+
+| Phase | Migration | Does |
+|---|---|---|
+| pre | `0158` | `stores.oxy_account_id` (nullable) + backfill, `store_permission_overrides` (`docs/stores.md`) |
+| pre | `0159` | `locations.go_way_place_id`, the trail's place-id pair, `order_pickups.go_way_place_id`, the snapshot freeze |
+| pre | `0160` | `location_publications.published_at` + backfill from the publication trail |
+| post | `0161` | re-fills owners, refuses an ownerless store, carries grants over, drops `store_members` |
+| post | `0162` | re-runs `0160`'s backfill, withdraws unlinked published locations, drops the place facts |
+
+The order is forced: the migration planner (`@oxy.so/db`'s `planMigrationRun`)
+refuses a `pre` queued behind an unapplied `post`, because the ledger is a
+high-water mark. It is also what keeps the data coherent. `0160`'s backfill
+reads every publication BEFORE `0162` withdraws any, so a withdrawn location
+keeps the first-publication instant that makes the public read answer 410, not
+404; `0162` re-runs it first for a location the previous image published during
+the rollout, which it dates by that trail entry rather than by the withdrawal's.
+
+The post phase runs minutes after the new image is live, so a merchant has no
+time to link a place in between: expect EVERY location published today to be
+withdrawn by `0162`, which is why the count above is the number to read before
+deploying. `goway-place-migration.realdb.test.ts` deploys the release exactly
+this way, from the ledger production holds (`0157`), with rows the previous
+image wrote before and during the rollout.

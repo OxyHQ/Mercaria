@@ -488,7 +488,10 @@
         "location_not_active": "Este local está desligado e não encaminha estoque.",
         "pickup_paused": "Você pausou a retirada neste local.",
         "pickup_not_offered": "Este local não oferece retirada.",
-        "location_not_geocoded": "Este local não tem marcação no mapa, então não pode ser encontrado por distância. Adicione uma.",
+        "place_not_linked": "Este local não está vinculado a um lugar do GoWay, então não pode ser encontrado pela distância. Escolha ou crie o lugar dele.",
+        "place_unavailable": "O lugar do GoWay deste local não existe mais, está inativo ou não pôde ser lido agora.",
+        "place_link_unverified": "O lugar do GoWay deste local ainda não o indica no nível verificado da sua empresa. Reivindique o lugar e adicione este local a ele.",
+        "place_incomplete": "O lugar do GoWay deste local não tem país ou fuso horário, então não é possível descrever uma retirada ali. Complete o lugar no GoWay.",
         "location_restricted": "A Mercaria restringiu este local. Fale com o suporte.",
         "store_unavailable": "A própria loja está inativa ou restrita.",
         "listing_unavailable": "O anúncio não está ativo, então não há nada para retirar aqui.",
@@ -510,6 +513,7 @@
         "hoursNotPublished": "Horário não publicado",
         "openNow": "Aberto agora",
         "openUntil": "Aberto agora — até %{time}",
+        "openNote": "Aberto — %{note}",
         "closedNote": "Fechado — %{note}",
         "closedNow": "Fechado agora",
         "closedOpensAt": "Fechado — abre às %{time}"
@@ -537,7 +541,9 @@
         "one": "%{count} em estoque nesta loja.",
         "other": "%{count} em estoque nesta loja.",
         "many": "%{count} de em estoque nesta loja."
-      }
+      },
+      "viewOnGoWay": "Ver no GoWay",
+      "viewOnGoWayA11y": "Abrir %{place} no GoWay"
     },
     "shoppingAgent": {
       "job": {

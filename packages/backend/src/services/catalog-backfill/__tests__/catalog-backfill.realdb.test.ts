@@ -168,6 +168,7 @@ beforeAll(async () => {
   const [store] = await db
     .insert(stores)
     .values({
+      oxyAccountId: 'oxy-account-fixture',
       handle: `cbf-${RUN}`,
       name: `Catalog backfill fixture ${RUN}`,
       description: '',

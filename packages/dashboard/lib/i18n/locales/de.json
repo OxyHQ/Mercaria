@@ -872,7 +872,8 @@
         "markedReady": "Als abholbereit markiert"
       },
       "trail": "Abholprotokoll",
-      "trailEmpty": "Am Schalter ist noch nichts passiert."
+      "trailEmpty": "Am Schalter ist noch nichts passiert.",
+      "viewPlace": "Ort auf GoWay ansehen"
     },
     "refund": {
       "dialogTitle": "Bestellung erstatten",
@@ -1315,36 +1316,301 @@
         "retail": "Einzelhandel",
         "virtual": "Virtuell",
         "warehouse": "Lager"
+      },
+      "placeFlag": " · GoWay-Ort festgelegt",
+      "noPlaceFlag": " · noch kein GoWay-Ort",
+      "editor": {
+        "documentTitle": "Standort bearbeiten | Mercaria Dashboard",
+        "title": "Standort",
+        "subtitle": "Sein Ort auf GoWay und wie er auf Mercaria verkauft",
+        "loadFailed": "Dieser Standort konnte nicht geladen werden",
+        "openOnGoWay": "Auf GoWay öffnen",
+        "status": {
+          "title": "Können Käufer ihn finden?",
+          "description": "Ein Standort erscheint Käufern nur, solange sein GoWay-Ort ihn benennt – geschrieben von einem Unternehmen, das den Ort beansprucht hat.",
+          "checking": "Wird bei GoWay geprüft …",
+          "checkFailed": "Die Verknüpfung konnte gerade nicht geprüft werden.",
+          "linked": "Verknüpft",
+          "unlinked": "Noch nicht verknüpft",
+          "claim": "Anspruch: %{state}",
+          "mergeFollowed": "GoWay hat diesen Ort mit einem anderen zusammengeführt; der Standort verweist jetzt auf den Ort, der ihn ersetzt.",
+          "missingItem": "• %{reason}",
+          "pendingClaimHint": "Ihr Anspruch wartet auf die Freigabe durch GoWay. Eine Verknüpfung, die die einreichende Person oder jemand im Namen des Shop-Kontos erstellt hat, wird mit der Freigabe bestätigt; die jeder anderen Person muss nach der Freigabe erneut erstellt werden.",
+          "checkAgain": "Erneut prüfen"
+        },
+        "gaps": {
+          "placeNotSet": "Wählen Sie den GoWay-Ort, von dem aus dieser Standort verkauft, und speichern Sie.",
+          "placeNotFound": "GoWay hat keinen Ort mit dieser ID. Wählen Sie den Ort erneut.",
+          "placeGone": "GoWay hat diesen Ort entfernt. Wählen oder erstellen Sie einen anderen.",
+          "placeNotActive": "Der Ort ist auf GoWay als geschlossen oder vorgeschlagen markiert. Markieren Sie ihn dort als geöffnet.",
+          "gowayUnavailable": "GoWay antwortet gerade nicht. Versuchen Sie es in einer Minute erneut.",
+          "storeLinkMissing": "Der Ort benennt diesen Standort noch nicht. Verknüpfen Sie ihn unten.",
+          "storeLinkOtherLocation": "Der Ort benennt einen anderen Mercaria-Standort.",
+          "storeLinkUnverified": "Der Ort benennt diesen Standort, aber noch kein freigegebener Anspruch bestätigt das.",
+          "placeCountryMissing": "Die Adresse des Orts hat kein Land. Ergänzen Sie es auf GoWay.",
+          "placeTimezoneMissing": "GoWay konnte die Zeitzone des Orts nicht ermitteln, daher lassen sich seine Öffnungszeiten nicht lesen."
+        },
+        "place": {
+          "title": "GoWay-Ort",
+          "change": "Anderen Ort wählen",
+          "chosenNotSaved": "Hier gewählt; speichern Sie unten die Abholeinstellungen, um ihn zu verknüpfen.",
+          "status": {
+            "active": "Geöffnet",
+            "closed": "Geschlossen",
+            "proposed": "Vorgeschlagen"
+          }
+        },
+        "picker": {
+          "title": "Diesen Standort auf GoWay finden",
+          "description": "Wo Ihr Standort ist – Name, Adresse, Öffnungszeiten und Kontakt – steht auf seinem GoWay-Ort. Suchen Sie ihn oder erstellen Sie ihn, wenn GoWay ihn noch nicht kennt.",
+          "searchLabel": "Auf GoWay suchen",
+          "searchPlaceholder": "Geschäftsname oder Adresse",
+          "noResults": "Nichts gefunden. Versuchen Sie eine andere Suche oder erstellen Sie den Ort.",
+          "isAPlace": "Ein Ort auf GoWay",
+          "notAPlace": "Eine Adresse – hier den Ort erstellen",
+          "use": "Verwenden",
+          "createHere": "Hier erstellen"
+        },
+        "create": {
+          "open": "Neuen Ort erstellen",
+          "title": "Neuer GoWay-Ort",
+          "street": "Straße",
+          "houseNumber": "Hausnummer",
+          "city": "Stadt",
+          "postalCode": "Postleitzahl",
+          "region": "Region",
+          "country": "Land",
+          "countryPlaceholder": "DE",
+          "latitude": "Breitengrad",
+          "longitude": "Längengrad",
+          "positionHint": "Wenn Sie eine Adresse aus der Suche wählen, wird die Position automatisch ausgefüllt.",
+          "submit": "Ort erstellen",
+          "created": "Ort auf GoWay erstellt",
+          "nameRequired": "Geben Sie dem Ort einen Namen",
+          "countryRequired": "Geben Sie den zweistelligen Ländercode ein",
+          "positionRequired": "Geben Sie einen echten Breiten- und Längengrad ein oder wählen Sie eine Adresse aus der Suche"
+        },
+        "claim": {
+          "title": "Ort beanspruchen",
+          "description": "Ein Anspruch teilt GoWay mit, dass Ihr Shop diesen Ort betreibt. Er wird für das Oxy-Konto eingereicht, dem der Shop gehört, und GoWay prüft ihn, bevor Sie für den Ort sprechen können.",
+          "unreadable": "Die Ansprüche Ihres Kontos konnten nicht gelesen werden. Nur Inhaber, Admins und Bearbeiter des Kontos sehen sie.",
+          "pendingNote": "GoWay prüft neue Ansprüche. Bis dieser freigegeben ist, gelten Ihre Änderungen am Ort als Vorschlag; mit der Freigabe werden die Angaben der einreichenden Person und des Shop-Kontos zu Angaben des Unternehmens.",
+          "file": "Für diesen Shop beanspruchen",
+          "filed": "Anspruch zur Prüfung an GoWay gesendet",
+          "role": {
+            "owner": "Inhaber",
+            "operator": "Betreiber",
+            "manager": "Leitung",
+            "brand": "Marke"
+          },
+          "state": {
+            "pending": "Wartet auf Prüfung",
+            "approved": "Freigegeben",
+            "rejected": "Abgelehnt",
+            "revoked": "Widerrufen"
+          }
+        },
+        "storeLink": {
+          "title": "Ort mit diesem Standort verknüpfen",
+          "description": "Der Ort gibt an, welcher Mercaria-Standort er ist. Mercaria vertraut dem nur, wenn Ihr freigegebener Anspruch es geschrieben hat.",
+          "state": {
+            "missing": "Nicht verknüpft",
+            "otherLocation": "Mit einem anderen Standort verknüpft",
+            "unverified": "Verknüpft, noch nicht bestätigt",
+            "verified": "Verknüpft und bestätigt"
+          },
+          "assert": "Mit diesem Standort verknüpfen",
+          "asserted": "Auf GoWay gespeichert",
+          "unverifiedNote": "Mit der Freigabe zählt diese Verknüpfung als Angabe des Unternehmens, wenn die Person, die den Anspruch eingereicht hat, oder jemand im Namen des Shop-Kontos sie erstellt hat. Hat sie jemand anderes erstellt, verknüpfen Sie den Ort nach der Freigabe erneut."
+        },
+        "days": {
+          "mon": "Montag",
+          "tue": "Dienstag",
+          "wed": "Mittwoch",
+          "thu": "Donnerstag",
+          "fri": "Freitag",
+          "sat": "Samstag",
+          "sun": "Sonntag"
+        },
+        "hours": {
+          "title": "Öffnungszeiten",
+          "description": "In der Ortszeit des Orts (%{timezone}), die GoWay aus seiner Lage ableitet.",
+          "noTimezone": "Zeitzone unbekannt",
+          "raw": "Die Quelle sagt: %{raw}",
+          "placeholder": "09:00-14:00, 17:00-20:00",
+          "hint": "Eine Zeile pro Tag. Lassen Sie einen Ruhetag leer.",
+          "save": "Öffnungszeiten speichern",
+          "saved": "Öffnungszeiten auf GoWay gespeichert",
+          "unreadable": "Prüfen Sie die Zeiten für %{day}: nutzen Sie 09:00-14:00, durch Kommas getrennt."
+        },
+        "exceptions": {
+          "title": "Feiertage und Sonderöffnungszeiten",
+          "description": "Tage, an denen die Woche oben nicht gilt, im Kalender des Orts.",
+          "none": "Keine Feiertage oder Sonderöffnungszeiten.",
+          "range": "%{from} bis %{to}",
+          "closedAllDay": "Geschlossen",
+          "noteSuffix": " · %{note}",
+          "remove": "Entfernen",
+          "removed": "Von GoWay entfernt",
+          "startsOn": "Von",
+          "endsOn": "Bis (optional)",
+          "datePlaceholder": "2026-12-25",
+          "closed": "Ganztägig geschlossen",
+          "hours": "Öffnungszeiten an dem Tag",
+          "note": "Hinweis für Käufer",
+          "add": "Hinzufügen",
+          "added": "Auf GoWay hinzugefügt",
+          "datesInvalid": "Nutzen Sie Daten wie 2026-12-25, das Ende am oder nach dem Beginn",
+          "hoursInvalid": "Geben Sie die Öffnungszeiten für den Tag ein, etwa 10:00-14:00"
+        },
+        "contact": {
+          "title": "Kontakt",
+          "description": "Was Käufer auf dem Ort sehen.",
+          "phone": "Telefon",
+          "email": "E-Mail",
+          "website": "Website",
+          "hint": "Leeren Sie ein Feld und speichern Sie, um die Angabe vom Ort zu entfernen.",
+          "save": "Kontakt speichern",
+          "saved": "Kontakt auf GoWay gespeichert",
+          "websiteInvalid": "Die Website muss mit http:// oder https:// beginnen",
+          "emailInvalid": "Geben Sie eine gültige E-Mail-Adresse ein"
+        },
+        "accessibility": {
+          "title": "Barrierefreiheit",
+          "description": "So, wie GoWay sie heute kennt – möglicherweise aus der Meldung eines Besuchers.",
+          "wheelchair": "Rollstuhlzugang",
+          "stepFree": "Stufenloser Eingang",
+          "toilet": "Barrierefreie Toilette",
+          "parking": "Barrierefreier Parkplatz",
+          "hearingLoop": "Induktionsschleife",
+          "yes": "Ja",
+          "limited": "Teilweise",
+          "no": "Nein",
+          "unset": "Keine Angabe",
+          "hint": "„Keine Angabe“ zieht Ihre eigene Angabe zurück; Meldungen von Besuchern bleiben bestehen.",
+          "save": "Barrierefreiheit speichern",
+          "saved": "Barrierefreiheit auf GoWay gespeichert"
+        },
+        "publication": {
+          "title": "Abholung auf Mercaria",
+          "description": "Die Mercaria-Seite dieses Standorts: ob Käufer hier abholen können und wie aktuell Ihre Bestandszahlen sind. Beim Speichern wird der GoWay-Ort oben verknüpft.",
+          "unsavedPlace": "Sie haben einen anderen Ort gewählt; beim Speichern wird dieser verknüpft.",
+          "pickupOffered": "Abholung hier anbieten",
+          "instructions": "Abholhinweise",
+          "instructionsPlaceholder": "Fragen Sie an der Theke beim Eingang",
+          "identity": "Was Käufer zur Abholung vorzeigen",
+          "inventorySource": "Wie der Bestand aktuell gehalten wird",
+          "source": {
+            "pos": "Kasse",
+            "connector": "Verbundene Plattform",
+            "manual": "Von Hand"
+          },
+          "interval": "Bestand bestätigt alle (Minuten)",
+          "lowStock": "Niedriger Bestand unter",
+          "intervalHint": "Wie oft der Bestand dieses Standorts bestätigt wird. Es gibt keinen Standardwert: Eine Kasse und ein nächtlicher Import sind nicht gleich aktuell.",
+          "exactStock": "Käufern den genauen Bestand zeigen",
+          "save": "Abholeinstellungen speichern",
+          "saved": "Gespeichert",
+          "placeRequired": "Wählen Sie zuerst den GoWay-Ort",
+          "intervalInvalid": "Geben Sie eine Minutenzahl zwischen 1 und 43200 ein",
+          "thresholdInvalid": "Geben Sie eine ganze Zahl zwischen 0 und 1000 ein",
+          "state": {
+            "draft": "Entwurf",
+            "published": "Veröffentlicht",
+            "withdrawn": "Zurückgezogen"
+          },
+          "restricted": "Von Mercaria eingeschränkt",
+          "publish": "Veröffentlichen",
+          "withdraw": "Zurückziehen",
+          "toDraft": "Zurück zum Entwurf",
+          "stateChanged": "Aktualisiert",
+          "pausedBecause": "Abholung pausiert: %{reason}",
+          "resume": "Abholung fortsetzen",
+          "pauseReason": "Grund für die Pause der Abholung",
+          "pause": "Abholung pausieren"
+        },
+        "errors": {
+          "gowayForbidden": "GoWay lässt dieses Konto den Ort erst ändern, wenn Ihr Anspruch freigegeben ist.",
+          "gowaySignIn": "Melden Sie sich erneut an, um den Ort auf GoWay zu ändern.",
+          "gowayUnavailable": "GoWay antwortet gerade nicht. Versuchen Sie es in einer Minute erneut.",
+          "gowayInvalid": "GoWay hat das nicht angenommen. Prüfen Sie die Felder und versuchen Sie es erneut.",
+          "gowayConflict": "Das gibt es auf GoWay für diese Daten bereits.",
+          "gowayGone": "GoWay hat diesen Ort nicht mehr.",
+          "gowayFailed": "Auf GoWay konnte nicht gespeichert werden",
+          "publicationRefused": "Noch nicht: Der Ort muss zuerst diesen Standort benennen. Siehe den Status oben.",
+          "locationMissing": "Diesen Standort gibt es nicht mehr",
+          "placeTaken": "Ein anderer Ihrer Standorte nutzt diesen Ort bereits",
+          "publicationFailed": "Der Standort konnte nicht gespeichert werden"
+        }
       }
     },
     "members": {
-      "addFailed": "Das Mitglied konnte nicht hinzugefügt werden",
-      "addMember": "Mitglied hinzufügen",
-      "added": "Mitglied hinzugefügt",
-      "documentTitle": "Mitglieder | Mercaria Dashboard",
-      "explicitPermissions": {
-        "one": "%{count} explizite Berechtigung erteilt",
-        "other": "%{count} explizite Berechtigungen erteilt"
+      "convert": {
+        "addInvitee": "Person hinzufügen",
+        "body": "Eine Organisation in Oxy wird Inhaberin dieses Shops. Du wirst ihr Inhaber, und die Personen, die du einlädst, können mit der Rolle, die du ihnen gibst, für den Shop handeln.",
+        "displayNameLabel": "Name der Organisation",
+        "done": "Der Shop gehört jetzt der Organisation",
+        "failed": "Der Shop konnte nicht umgewandelt werden",
+        "inviteLabel": "Benutzername oder E-Mail",
+        "invitePlaceholder": "benutzername oder email@beispiel.de",
+        "inviteesTitle": "Einzuladende Personen",
+        "nameRequired": "Gib den Namen und den Benutzernamen der Organisation ein",
+        "open": "In Organisation umwandeln",
+        "someInvitesFailed": "Der Shop wurde verschoben, aber diese Einladungen sind fehlgeschlagen: %{names}",
+        "submit": "Organisation erstellen und Shop verschieben",
+        "title": "In eine Organisation umwandeln",
+        "usernameLabel": "Benutzername der Organisation",
+        "warning": "Personen, die bisher für diesen Shop handeln konnten und nicht zur Organisation gehören, haben keinen Zugriff mehr."
       },
-      "invite": "Einladen",
-      "inviteTitle": "Mitglied einladen",
-      "joinedOn": "Beigetreten %{date}",
-      "loadFailed": "Mitglieder konnten nicht geladen werden",
-      "oxyUserIdLabel": "Oxy-Benutzer-ID",
-      "oxyUserIdPlaceholder": "Oxy-Benutzer-ID",
-      "oxyUserIdRequired": "Geben Sie die Oxy-Benutzer-ID des Mitglieds ein",
-      "removeFailed": "Das Mitglied konnte nicht entfernt werden",
-      "removed": "Mitglied entfernt",
-      "roleLabel": "Rolle",
-      "roleUpdateFailed": "Das Mitglied konnte nicht aktualisiert werden",
-      "roleUpdated": "Rolle aktualisiert",
+      "documentTitle": "Mitglieder | Mercaria Dashboard",
+      "loadFailed": "Die Personen dieses Shops konnten nicht geladen werden",
+      "noAccess": "Kein Zugriff",
+      "organizationBody": "Wer für diesen Shop handeln darf, bestimmt die Mitgliedschaft der Organisation in Oxy. Mercaria speichert nur Ausnahmen zu den Berechtigungen jeder Rolle.",
+      "outsidersNote": "Diese Personen haben eine Ausnahme in diesem Shop, gehören aber nicht zur Organisation – sie haben keinen Zugriff, bis sie hinzugefügt werden.",
+      "override": {
+        "body": "Jede Berechtigung folgt der Rolle der Person, außer du fügst sie hier hinzu oder entfernst sie. Du kannst nur Berechtigungen ändern, die du selbst hast.",
+        "default": "Laut Rolle",
+        "edit": "Ausnahmen",
+        "grant": "Hinzufügen",
+        "revoke": "Entfernen",
+        "save": "Speichern",
+        "saveFailed": "Die Ausnahmen konnten nicht gespeichert werden",
+        "saved": "Ausnahmen gespeichert",
+        "title": "Ausnahmen für %{name}"
+      },
+      "overrideSummary": "%{granted} hinzugefügt, %{revoked} entfernt",
+      "ownedBy": "Gehört %{name}",
+      "permissionLabels": {
+        "analyticsRead": "Nachfrageanalysen ansehen",
+        "channelsWrite": "Verkaufskanäle verwalten",
+        "collectionsWrite": "Kollektionen bearbeiten",
+        "customersRead": "Kunden ansehen",
+        "customersWrite": "Kunden bearbeiten",
+        "discountsWrite": "Rabatte bearbeiten",
+        "draftOrdersWrite": "Bestellentwürfe erstellen",
+        "inventoryWrite": "Bestand bearbeiten",
+        "locationsWrite": "Standorte bearbeiten",
+        "membersManage": "Personen und Berechtigungen verwalten",
+        "ordersFulfill": "Bestellungen ausführen",
+        "ordersRead": "Bestellungen ansehen",
+        "productsRead": "Produkte ansehen",
+        "productsWrite": "Produkte bearbeiten",
+        "refundsWrite": "Erstattungen ausführen",
+        "settingsWrite": "Einstellungen bearbeiten",
+        "statsRead": "Verkaufsstatistiken ansehen",
+        "storeManage": "Shop verwalten"
+      },
+      "personalBody": "Dieser Shop gehört einem persönlichen Oxy-Konto, daher kann nur dieses Konto für ihn handeln. Wandle ihn in eine Organisation um, um mit anderen zu arbeiten.",
       "roles": {
         "admin": "Admin",
+        "billing": "Abrechnung",
+        "developer": "Entwickler",
+        "editor": "Bearbeiter",
         "owner": "Inhaber",
-        "staff": "Mitarbeiter"
+        "viewer": "Betrachter"
       },
-      "subtitle": "Wer diesen Shop verwalten darf",
-      "title": "Mitglieder und Rollen"
+      "subtitle": "Wer für diesen Shop handeln darf und Ausnahmen zu ihrer Rolle",
+      "title": "Personen und Berechtigungen"
     },
     "payments": {
       "beingReviewed": "Wird geprüft",
@@ -1494,8 +1760,8 @@
         "label": "Standorte"
       },
       "members": {
-        "description": "Einladen, Rollen und Berechtigungen bearbeiten",
-        "label": "Mitglieder und Rollen"
+        "description": "Wer für den Shop handeln darf und Ausnahmen zu ihrer Rolle",
+        "label": "Personen und Berechtigungen"
       },
       "payments": {
         "description": "Für Bestellungen auf Mercaria bezahlt werden",

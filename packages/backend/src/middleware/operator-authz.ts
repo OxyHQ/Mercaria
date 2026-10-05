@@ -5,8 +5,8 @@
  *
  * Mercaria has exactly one authorization vocabulary — store permissions — and it
  * is scoped to a STORE by construction: `requireStorePermission` reads
- * `req.storeMembership`, which `loadStore` put there after checking the caller
- * is a member of THAT store. The operator surface is the opposite scope. It
+ * `req.storeAccess`, which `loadStore` put there after resolving the caller's
+ * role in the Oxy account that owns THAT store. The operator surface is the opposite scope. It
  * reads across every store and every P2P seller, and issue #50 is explicit that
  * seller operators must not reach it.
  *

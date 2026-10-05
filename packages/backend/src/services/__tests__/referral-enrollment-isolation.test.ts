@@ -207,14 +207,15 @@ const ENROLLMENT_PATHS = [
 const MERCHANT_CLAIM_READER = 'services/referrals/binding.service.ts';
 
 /**
- * `self-referral.service.ts` reads store MEMBERSHIP, and must.
+ * `self-referral.service.ts` reads who can act for a store, and must.
  *
- * #144's self-referral check asks whether the partner claiming a conversion is a
- * member of the store that made the sale — which is a FACT it needs, not an
- * authorization it derives. Wall 1 is about deriving a PERMISSION, and that half
- * (`effectivePermissions`, `ROLE_PERMISSIONS`, `STORE_PERMISSIONS`, a
- * `.permissions` array) still holds over all 94; only the membership read is
- * excused, and only for this module.
+ * #144's self-referral check asks whether the account converting can act for
+ * the partner store — the store's owning Oxy account, or an account holding an
+ * override on it (ADR 0012) — which is a FACT it needs, not an authorization it
+ * derives. Wall 1 is about deriving a PERMISSION, and that half
+ * (`effectiveStorePermissions`, `STORE_ROLE_PERMISSIONS`, `STORE_PERMISSIONS`,
+ * `resolveStoreAccess`, a `.permissions` array) still holds over all 94; only
+ * the ownership read is excused, and only for this module.
  */
 const MEMBERSHIP_READER = 'services/referrals/integrity/self-referral.service.ts';
 
@@ -251,24 +252,28 @@ function readEnrollmentCode(relative: string): string {
 /**
  * WALL 1. A second answer to the store-permission question.
  *
- * `store-authz` and `effectivePermissions` are the middleware's; `permissions`
- * and `storeMembers` are the columns behind it; `ROLE_PERMISSIONS` is the
- * matrix. `requireStorePermission` is deliberately NOT here — `routes/admin/`
- * mounting it is exactly how the answer is consumed, and forbidding it would
- * make the correct code fail the gate.
+ * `resolveStoreAccess`/`resolveAccountRole` are the access service's answer and
+ * `req.storeAccess` is where the middleware puts it; `effectiveStorePermissions`
+ * and `STORE_ROLE_PERMISSIONS` are the arithmetic and the role map behind it.
+ * `requireStorePermission` is deliberately NOT here — `routes/admin/` mounting
+ * it is exactly how the answer is consumed, and forbidding it would make the
+ * correct code fail the gate.
  */
 const PERMISSION_DERIVATION =
-  /effectivePermissions|ROLE_PERMISSIONS|storeMembership|\.permissions\b|STORE_PERMISSIONS/;
+  /effectiveStorePermissions|STORE_ROLE_PERMISSIONS|resolveStoreAccess|resolveAccountRole|storeAccess\b|\.permissions\b|STORE_PERMISSIONS/;
 /**
- * Reading store MEMBERSHIP — split out of {@link PERMISSION_DERIVATION} because
- * the two are different acts and only one of them spans the whole domain.
+ * Reading who can act for a store — split out of {@link PERMISSION_DERIVATION}
+ * because the two are different acts and only one of them spans the whole
+ * domain.
  *
  * Deriving a permission is forbidden everywhere. Reading whether an account
- * belongs to a store is a FACT, and #144's self-referral check legitimately
- * needs it; splitting keeps the stronger half at full width instead of dropping
- * both to accommodate one module.
+ * owns a store, holds an override on it or has a role on its owning Oxy account
+ * is a FACT, and #144's self-referral check legitimately needs the first two;
+ * splitting keeps the stronger half at full width instead of dropping both to
+ * accommodate one module.
  */
-const MEMBERSHIP_READ = /findStoreMember|storeMembers\b/;
+const MEMBERSHIP_READ =
+  /storePermissionOverrides\b|findStorePermissionOverride|stores\.oxyAccountId|readCallerAccountRole|listCallerAccountRoles/;
 /**
  * WALL 2. The WRITE that would perform each forbidden grant.
  *
@@ -284,8 +289,8 @@ const MEMBERSHIP_READ = /findStoreMember|storeMembers\b/;
  * list nothing reads.
  */
 const GRANT_DETECTORS: Readonly<Record<string, RegExp>> = {
-  store_permission: /grantStorePermission|\.permissions\s*=|permissions:\s*\[/,
-  store_membership: /addStoreMember|insertStoreMember|storeMemberRepository|createStoreMember/,
+  store_permission: /grantStorePermission|setStorePermissionOverride|upsertStorePermissionOverride|\.permissions\s*=|permissions:\s*\[/,
+  store_membership: /transferStoreOwnerAccount|oxyAccountId:\s*partner|members\.invite\(|accounts\.create\(/,
   merchant_claim: /merchant-claims\/|merchantClaimRepository|verifyMerchantClaim|claim_state/,
   payment_onboarding: /providerAccountRepository|insertProviderAccount|createOnboardingLink/,
   oxy_administrative_role: /setOxyRole|grantOxyRole|oxyAdmin|assignRole/,
@@ -805,12 +810,13 @@ describe('every one of #146\'s ten application items is accounted for', () => {
  */
 describe('each detector actually detects (mutation self-test)', () => {
   it('fires on the thing it forbids', () => {
-    expect('const held = effectivePermissions(membership);').toMatch(PERMISSION_DERIVATION);
+    expect('const held = effectiveStorePermissions(role, override);').toMatch(PERMISSION_DERIVATION);
+    expect('const access = await resolveStoreAccess(caller, store);').toMatch(PERMISSION_DERIVATION);
     // Every grant detector, against the write it forbids. A `Record` of
     // patterns is exactly the shape where one broken entry hides silently.
     const grantPositives: Readonly<Record<string, string>> = {
-      store_permission: "await grantStorePermission(store, 'products:write');",
-      store_membership: 'await addStoreMember(tx, { storeId, oxyUserId });',
+      store_permission: "await upsertStorePermissionOverride({ storeId, oxyUserId, granted: ['products:write'] });",
+      store_membership: 'await oxy.accounts.members.invite(store.oxyAccountId, { usernameOrEmail, role });',
       merchant_claim: "import { verifyMerchantClaim } from '../merchant-claims/claim.js';",
       payment_onboarding: 'await insertProviderAccount(tx, { provider, ownerType, ownerId });',
       oxy_administrative_role: "await grantOxyRole(oxyUserId, 'admin');",
@@ -862,9 +868,10 @@ describe('each detector actually detects (mutation self-test)', () => {
     expect("if (agent.includes('undici')) return 'bot';").not.toMatch(OUTBOUND_FETCH);
     // …and the membership split: deriving a permission is forbidden, reading a
     // membership row is a fact #144 needs, so the two must not be one detector.
-    expect('const held = effectivePermissions(membership);').not.toMatch(MEMBERSHIP_READ);
-    expect('.from(storeMembers)').toMatch(MEMBERSHIP_READ);
-    expect('.from(storeMembers)').not.toMatch(PERMISSION_DERIVATION);
+    expect('const held = effectiveStorePermissions(role, override);').not.toMatch(MEMBERSHIP_READ);
+    expect('.from(storePermissionOverrides)').toMatch(MEMBERSHIP_READ);
+    expect('.from(storePermissionOverrides)').not.toMatch(PERMISSION_DERIVATION);
+    expect('eq(stores.oxyAccountId, input.oxyUserId)').toMatch(MEMBERSHIP_READ);
     // The readiness port is the exempted seam, and stripping it must not strip
     // a real payment import beside it.
     expect(

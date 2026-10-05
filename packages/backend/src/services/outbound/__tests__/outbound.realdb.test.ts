@@ -730,6 +730,7 @@ describe('acceptance 6 — a native offer never enters the outbound path', () =>
     const [store] = await db
       .insert(schema.stores)
       .values({
+        oxyAccountId: 'oxy-account-fixture',
         handle: `outb-${label}-${RUN}`,
         name: `Outbound store ${label} ${RUN}`,
         description: '',

@@ -44,7 +44,7 @@ import {
   type DiscountRecord,
 } from '../db/merchandising/discountRepository.js';
 import { findActiveTaxRates, type TaxRateRecord } from '../db/stores/taxRateRepository.js';
-import { findStoreRow } from '../db/stores/storeRepository.js';
+import { findStoreById } from '../db/stores/storeRepository.js';
 import {
   multiplyMoney,
   sumMoney,
@@ -270,7 +270,7 @@ export async function calculateTotals(input: PricingInput): Promise<PricingResul
   // three-branch `$or` over `endsAt` (absent / null / in future) is two branches
   // here, because an absent column and a NULL column are the same value.
   const [storeRow, activeDiscounts, taxRates] = await Promise.all([
-    findStoreRow(input.storeId),
+    findStoreById(input.storeId),
     findActiveDiscounts(input.storeId, now),
     findActiveTaxRates(input.storeId),
   ]);

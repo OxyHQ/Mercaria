@@ -49,8 +49,8 @@ let productTypeDefinitionId = '';
 beforeAll(async () => {
   db = await connectPostgres();
   await db.execute(sql`
-    insert into stores (id, name, handle, description, brand_color)
-    values (${STORE_ID}, ${`cond ${RUN}`}, ${`cond-${RUN}`}, '', '#101010')
+    insert into stores (id, oxy_account_id, name, handle, description, brand_color)
+    values (${STORE_ID}, 'oxy-account-fixture', ${`cond ${RUN}`}, ${`cond-${RUN}`}, '', '#101010')
   `);
   const [category] = [
     ...(await db.execute<{ id: string }>(sql`

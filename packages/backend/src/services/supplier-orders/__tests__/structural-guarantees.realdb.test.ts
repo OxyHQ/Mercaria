@@ -122,16 +122,14 @@ async function makeFixture(): Promise<{
   supplierId: string;
 }> {
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `structural-${suffix}`,
-      name: 'Structural store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: CURRENCY,
-    },
-    [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: `owner-${suffix}`,
+    handle: `structural-${suffix}`,
+    name: 'Structural store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: CURRENCY,
+  });
   createdStoreIds.push(store.id);
   const dual = (amount: number) => ({
     shop: { amount, currency: CURRENCY },

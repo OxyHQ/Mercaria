@@ -49,3 +49,17 @@ augmentations.
   parameter that is gone fails at task START with `ResourceInitializationError`,
   on the next scale-up rather than immediately.
 
+
+## Store access is Oxy's answer, asked with the caller's bearer (ADR 0012)
+
+Who may act for a store is a role on the Oxy account that owns it, never a
+Mercaria list. `services/oxy-account-graph.ts` asks `GET /accounts/:id` (and
+`GET /accounts` for the store list) with the CALLER's bearer through a
+short-lived client — never by setting a token on the shared `oxyClient`, whose
+state is process-wide. There is no service-token membership endpoint to use
+instead, and a service token could not prove the person asked. A delegated
+session (a person operating an organization) is authorized as its human
+operator, which is also how Oxy answers it; only an undelegated session that IS
+the owning account skips the round trip. Failure is closed: an Oxy outage is
+`503 SERVICE_UNAVAILABLE`. The model, routes and runbook are
+[stores.md](stores.md).

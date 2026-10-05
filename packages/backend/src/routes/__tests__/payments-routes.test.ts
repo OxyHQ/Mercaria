@@ -21,7 +21,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import express from 'express';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
-import type { StoreRole } from '@mercaria/shared-types';
+import { STORE_ROLE_PERMISSIONS, type StoreAccountRole } from '@mercaria/shared-types';
 
 const PROVIDER_ACCOUNT_ID = 'acct_1TestNotARealAccount';
 const OWNER_USER = 'oxy-user-payments-1';
@@ -107,17 +107,12 @@ beforeAll(async () => {
   // header, everything downstream is the real chain.
   storeApp.use((req, _res, next) => {
     req.userId = OWNER_USER;
-    const role = (req.headers['x-role'] as StoreRole) ?? 'staff';
-    // The same stub shape `admin/__tests__/channels-authz.test.ts` uses: both
-    // records are full drizzle rows since the port, and the columns this chain
-    // reads are the three below — spelling out an id, timestamps and an inviter
-    // the middleware never looks at would be fixture nobody maintains.
+    const role = (req.headers['x-role'] as StoreAccountRole) ?? 'editor';
+    // The same stub shape `admin/__tests__/channels-authz.test.ts` uses: the
+    // store is a full drizzle row and this chain reads only its id, and the
+    // access is what `loadStore` resolves for that role.
     req.store = { id: STORE_ID } as unknown as typeof req.store;
-    req.storeMembership = {
-      oxyUserId: OWNER_USER,
-      role,
-      permissions: [],
-    } as unknown as typeof req.storeMembership;
+    req.storeAccess = { role, permissions: [...STORE_ROLE_PERMISSIONS[role]] };
     next();
   });
   storeApp.use('/', storeRouter);
@@ -179,12 +174,12 @@ function settings() {
 }
 
 describe('the store payments router', () => {
-  it('refuses staff and admins — starting this flow is the owner’s', async () => {
+  it('refuses editors and admins — starting this flow is the owner’s', async () => {
     // `store:manage` is the ONE permission an admin does not hold. Onboarding
     // decides where a store's money is settled and starts an identity flow in
     // the store's name, so it sits with the owner rather than with
-    // `settings:write`, which opens the return policy and reaches `staff`.
-    for (const role of ['staff', 'admin'] as StoreRole[]) {
+    // `settings:write`, which opens the return policy.
+    for (const role of ['editor', 'admin'] as StoreAccountRole[]) {
       const read = await fetch(`${storeUrl}/account`, { headers: { 'x-role': role } });
       expect(read.status).toBe(403);
       const write = await fetch(`${storeUrl}/account/onboarding-link`, {

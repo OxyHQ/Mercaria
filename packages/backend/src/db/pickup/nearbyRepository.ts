@@ -1,45 +1,30 @@
 /**
- * The proximity read: which published locations hold a collectable unit of one
- * canonical variant, near a point.
+ * The commerce half of every proximity read: which of a set of LOCATIONS hold a
+ * collectable unit of something.
  *
- * This is the one query in the domain that has to be written by hand rather
- * than composed with drizzle's builder, because its ordering key is a PostGIS
- * expression the builder has no term for. Everything about it that could drift
- * is therefore stated here rather than assumed.
+ * Where the locations are is not a question this module can answer — nothing
+ * in Mercaria's database has a position any more (ADR 0013). GoWay answers
+ * "which Mercaria places are near this point" (`services/goway/places.ts`),
+ * and every read here takes the result of that as LINKS: a location id, and
+ * the GoWay place that named it back. A link only counts when the location
+ * names the same place (`locations.go_way_place_id`), so the join below is the
+ * Mercaria half of the trust rule, and a location pointed at another place, or
+ * at none, falls out of every answer.
  *
  * ## What the SQL filters and what the SERVICE decides
  *
  * The SQL applies every predicate that is INDEXABLE and time-independent —
  * publication state, the pickup switches, the operator restriction, the
  * location's own active flag, the store's status, the listing's status, a
- * positive stock level, the level's age against the LOCATION'S OWN declared
- * interval, and `ST_DWithin`. What it deliberately does NOT apply is the
- * opening-hours question, which needs an IANA zone and a calendar.
+ * positive stock level and the level's age against the LOCATION'S OWN declared
+ * interval. What it deliberately does NOT apply is the opening-hours question,
+ * which needs the GoWay place's zone and calendar.
  *
  * That split is #68's `stale_at` arrangement, and the same property holds: the
  * SQL is a PRE-FILTER and `deriveLocationDiscoverability` is the AUTHORITY,
  * their intersection is a SUBSET of what the derivation admits, so the two can
  * only ever disagree by the read showing FEWER locations — never by showing one
- * the derivation refuses. A page may therefore come back shorter than `limit`,
- * and the keyset cursor is unaffected because it is carried on the last
- * candidate CONSIDERED rather than the last one served (#70's finding).
- *
- * ## Distance is an INTEGER of metres, and that is what makes the cursor work
- *
- * `round(ST_Distance(...))::int` rather than the raw double. A double
- * round-tripped through a cursor's decimal string repeats or drops exactly one
- * row per page — #70 measured that on a float score — and a metre is already
- * finer than anything this surface publishes, since every distance is coarsened
- * before it leaves. `::int` rather than `::bigint` on purpose too: postgres.js
- * decodes `int8` as a STRING, so a bigint here would make `distance + 1`
- * string concatenation in a way `tsc` cannot see.
- *
- * ## `ST_DWithin` and not a bounding box
- *
- * A latitude/longitude box is wrong at both poles and broken across the
- * antimeridian, and the failure is silent — it returns a plausible list with
- * the wrong things in it. `ST_DWithin` on a `geography` is a real spheroidal
- * predicate and is index-assisted by the GiST index the publication carries.
+ * the derivation refuses.
  */
 
 import { sql } from 'drizzle-orm';
@@ -53,26 +38,13 @@ import type {
 import { LOCATION_PUBLICATION_STATES } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 
-/** One candidate location, exactly as the SQL projects it. */
+/** One (location, variant) pair holding collectable stock, exactly as the SQL projects it. */
 export interface NearbyCandidateRow {
   readonly publicationId: string;
   readonly locationId: string;
+  readonly goWayPlaceId: string;
   readonly storeId: string;
   readonly storefrontId: string | null;
-  readonly displayName: string;
-  readonly publicLine1: string | null;
-  readonly publicLine2: string | null;
-  readonly publicCity: string | null;
-  readonly publicRegion: string | null;
-  readonly publicPostalCode: string | null;
-  readonly publicCountry: string;
-  readonly timezone: string;
-  readonly publicPhone: string | null;
-  readonly publicUrl: string | null;
-  readonly accessibilityStepFree: boolean | null;
-  readonly accessibilityToilet: boolean | null;
-  readonly accessibilityParking: boolean | null;
-  readonly accessibilityHearingLoop: boolean | null;
   readonly pickupInstructions: string | null;
   readonly identityRequirement: PickupIdentityRequirement;
   readonly paymentRequirement: PickupPaymentRequirement;
@@ -87,38 +59,32 @@ export interface NearbyCandidateRow {
   readonly condition: ItemConditionKey;
   readonly available: number;
   readonly stockConfirmedAt: Date;
-  readonly distanceMetres: number;
   readonly merchantId: string | null;
   readonly merchantName: string | null;
   readonly merchantSlug: string | null;
   readonly storefrontName: string | null;
 }
 
-/** Where a page resumes from — the last candidate CONSIDERED, not served. */
-export interface NearbyCursor {
-  readonly distanceMetres: number;
-  readonly publicationId: string;
+/** A location GoWay placed near the shopper, and the place that named it back. */
+export interface PlaceLink {
+  readonly locationId: string;
+  readonly placeId: string;
 }
 
 /** What the caller asks for. Exactly one canonical handle is meaningful. */
-export interface NearbyQuery {
+export interface CollectableQuery {
   readonly canonicalVariantId?: string;
   readonly canonicalProductId?: string;
-  readonly latitude: number;
-  readonly longitude: number;
-  readonly radiusMetres: number;
-  readonly country?: string;
+  readonly links: readonly PlaceLink[];
   readonly currency?: string;
   readonly conditionKeys?: readonly ItemConditionKey[];
-  readonly limit: number;
-  readonly cursor?: NearbyCursor;
 }
 
 /**
  * The shared predicate every read in this file applies.
  *
- * Extracted so the place-suggestion read and the result read cannot answer
- * different questions: a city that appears in the manual-fallback list and then
+ * Extracted so the town-suggestion count and the result read cannot answer
+ * different questions: a town that appears in the manual-fallback list and then
  * yields nothing when picked is a dead end, and the only way to be sure it does
  * not happen is for both to be the same `where`.
  */
@@ -128,7 +94,6 @@ function collectablePredicate() {
     and p.pickup_offered
     and p.pickup_paused_at is null
     and p.restricted_at is null
-    and p.geo_point is not null
     and loc.is_active
     and st.status = 'active'
     and l.status = 'active'
@@ -138,48 +103,46 @@ function collectablePredicate() {
   `;
 }
 
+/**
+ * The Mercaria half of the trust rule: only locations GoWay placed near the
+ * shopper AND that name the same place themselves.
+ *
+ * `unnest` of two parallel arrays rather than a VALUES list, so the statement
+ * text is the same whatever the page size and the planner sees one join.
+ */
+function linkedLocations(links: readonly PlaceLink[]) {
+  return sql`join unnest(
+      ${sql.param(links.map((link) => link.locationId))}::text[],
+      ${sql.param(links.map((link) => link.placeId))}::text[]
+    ) as link(location_id, place_id)
+      on link.location_id = loc.id and link.place_id = loc.go_way_place_id`;
+}
+
 /** The canonical join, driven by whichever handle the caller supplied. */
-function canonicalPredicate(query: NearbyQuery) {
+function canonicalPredicate(query: Pick<CollectableQuery, 'canonicalVariantId' | 'canonicalProductId'>) {
   return query.canonicalVariantId !== undefined
     ? sql`nll.canonical_variant_id = ${query.canonicalVariantId}`
     : sql`cv.product_id = ${query.canonicalProductId}`;
 }
 
 /**
- * One page of collectable locations, nearest first.
- *
- * The `ORDER BY` and the cursor comparison are written out as a lexicographic
- * pair rather than as an SQL row comparison: a row comparison with a NULL
- * member yields NULL rather than true, and although neither member is nullable
- * here, #92 shipped exactly that bug once and the explicit form costs one line.
+ * Every collectable (location, variant) pair for one canonical entity among the
+ * linked locations, in location then variant order — the caller orders by the
+ * distance GoWay measured.
  */
-export async function findNearbyCollectableLocations(
-  query: NearbyQuery,
+export async function findCollectableAtLocations(
+  query: CollectableQuery,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<readonly NearbyCandidateRow[]> {
-  const origin = sql`st_setsrid(st_makepoint(${query.longitude}, ${query.latitude}), 4326)::geography`;
-  const distance = sql`round(st_distance(p.geo_point, ${origin}))::int`;
+  if (query.links.length === 0) return [];
 
   const rows = await db.execute(sql`
     select
       p.id                                as publication_id,
       p.location_id                       as location_id,
+      loc.go_way_place_id                 as go_way_place_id,
       p.store_id                          as store_id,
       p.storefront_id                     as storefront_id,
-      p.display_name                      as display_name,
-      p.public_line1                      as public_line1,
-      p.public_line2                      as public_line2,
-      p.public_city                       as public_city,
-      p.public_region                     as public_region,
-      p.public_postal_code                as public_postal_code,
-      p.public_country                    as public_country,
-      p.timezone                          as timezone,
-      p.public_phone                      as public_phone,
-      p.public_url                        as public_url,
-      p.accessibility_step_free           as accessibility_step_free,
-      p.accessibility_toilet              as accessibility_toilet,
-      p.accessibility_parking             as accessibility_parking,
-      p.accessibility_hearing_loop        as accessibility_hearing_loop,
       p.pickup_instructions               as pickup_instructions,
       p.identity_requirement              as identity_requirement,
       p.payment_requirement               as payment_requirement,
@@ -194,7 +157,6 @@ export async function findNearbyCollectableLocations(
       l.condition                         as condition,
       il.available                        as available,
       il.updated_at                       as stock_confirmed_at,
-      ${distance}                         as distance_metres,
       m.id                                as merchant_id,
       m.name                              as merchant_name,
       m.slug                              as merchant_slug,
@@ -207,6 +169,7 @@ export async function findNearbyCollectableLocations(
     join listings l on l.id = pv.listing_id
     join inventory_levels il on il.variant_id = pv.id
     join locations loc on loc.id = il.location_id
+    ${linkedLocations(query.links)}
     join location_publications p on p.location_id = loc.id
     join stores st on st.id = p.store_id
     left join native_store_links nsl on nsl.store_id = st.id and nsl.status = 'active'
@@ -215,112 +178,47 @@ export async function findNearbyCollectableLocations(
     where nll.status = 'active'
       and ${canonicalPredicate(query)}
       and ${collectablePredicate()}
-      and st_dwithin(p.geo_point, ${origin}, ${query.radiusMetres})
-      ${query.country === undefined ? sql`` : sql`and p.public_country = ${query.country}`}
       ${query.currency === undefined ? sql`` : sql`and pv.price_currency = ${query.currency}`}
       ${query.conditionKeys === undefined || query.conditionKeys.length === 0
         ? sql``
         : sql`and l.condition = any(${sql.param([...query.conditionKeys])}::text[])`}
-      ${query.cursor === undefined
-        ? sql``
-        : sql`and (${distance} > ${query.cursor.distanceMetres}
-                   or (${distance} = ${query.cursor.distanceMetres}
-                       and p.id > ${query.cursor.publicationId}))`}
-    order by ${distance} asc, p.id asc
-    limit ${query.limit}
+    order by loc.id asc, pv.id asc
   `);
 
   return rows.map(toCandidate);
 }
 
 /**
- * The manual-location fallback (#93 location-input rule 2, acceptance 5).
+ * How many of the linked locations hold one canonical entity collectably — the
+ * town-suggestion count (#93 acceptance 5).
  *
- * Composed from the SAME predicate as the results, so a city offered here
- * always yields something when picked. That is what lets Mercaria answer "I
- * will not share my location, I am in Barcelona" without a gazetteer and
- * without calling any geocoding provider — the list of places is a projection
- * of the places that actually have the item.
- *
- * The cell is computed IN SQL from the locations' own points rather than
- * returning a coordinate: the value a client sends back as an origin is
- * therefore already coarse, and a shopper who picks a city never handed
- * Mercaria a precise position at all.
+ * The SAME joins and predicate as {@link findCollectableAtLocations}, so a town
+ * offered with a count yields results when picked.
  */
-export async function findNearbyPlaceSuggestions(
-  input: {
-    canonicalVariantId?: string;
-    canonicalProductId?: string;
-    term?: string;
-    country?: string;
-    precisionDegrees: number;
-    limit: number;
-  },
+export async function countCollectableAtLocations(
+  query: Omit<CollectableQuery, 'currency' | 'conditionKeys'>,
   db: DatabaseOrTransaction = getDb(),
-): Promise<
-  readonly {
-    city: string;
-    region: string | null;
-    country: string;
-    latIndex: number;
-    lonIndex: number;
-    locationCount: number;
-  }[]
-> {
-  const term = input.term?.trim();
-  const query: NearbyQuery = {
-    ...(input.canonicalVariantId === undefined ? {} : { canonicalVariantId: input.canonicalVariantId }),
-    ...(input.canonicalProductId === undefined ? {} : { canonicalProductId: input.canonicalProductId }),
-    latitude: 0,
-    longitude: 0,
-    radiusMetres: 0,
-    limit: input.limit,
-  };
+): Promise<number> {
+  if (query.links.length === 0) return 0;
 
   const rows = await db.execute(sql`
-    select
-      p.public_city                                              as city,
-      p.public_region                                            as region,
-      p.public_country                                           as country,
-      floor(p.latitude / ${input.precisionDegrees})::int          as lat_index,
-      floor(p.longitude / ${input.precisionDegrees})::int         as lon_index,
-      count(distinct p.id)::int                                  as location_count
+    select count(distinct loc.id)::int as location_count
     from native_listing_links nll
-    ${input.canonicalVariantId === undefined
+    ${query.canonicalVariantId === undefined
       ? sql`join canonical_variants cv on cv.id = nll.canonical_variant_id`
       : sql``}
     join product_variants pv on pv.id = nll.product_variant_id
     join listings l on l.id = pv.listing_id
     join inventory_levels il on il.variant_id = pv.id
     join locations loc on loc.id = il.location_id
+    ${linkedLocations(query.links)}
     join location_publications p on p.location_id = loc.id
     join stores st on st.id = p.store_id
     where nll.status = 'active'
       and ${canonicalPredicate(query)}
       and ${collectablePredicate()}
-      and p.public_city is not null
-      ${input.country === undefined ? sql`` : sql`and p.public_country = ${input.country}`}
-      ${term === undefined || term === ''
-        ? sql``
-        // A PREFIX match on the city, plus an exact-prefix match on the postal
-        // code, both case-folded. Deliberately not a trigram similarity: a
-        // fuzzy match here would offer a shopper a city they did not type, and
-        // the remedy for a typo is one more keystroke rather than a guess.
-        : sql`and (lower(p.public_city) like lower(${term}) || '%'
-                   or lower(coalesce(p.public_postal_code, '')) like lower(${term}) || '%')`}
-    group by 1, 2, 3, 4, 5
-    order by location_count desc, city asc
-    limit ${input.limit}
   `);
-
-  return rows.map((row) => ({
-    city: String(row.city),
-    region: row.region === null ? null : String(row.region),
-    country: String(row.country),
-    latIndex: Number(row.lat_index),
-    lonIndex: Number(row.lon_index),
-    locationCount: Number(row.location_count),
-  }));
+  return Number(rows[0]?.location_count ?? 0);
 }
 
 /**
@@ -343,10 +241,9 @@ export async function findPickupCandidate(
   pickupOffered: boolean;
   pickupPaused: boolean;
   restricted: boolean;
-  geocoded: boolean;
+  goWayPlaceId: string | null;
   locationActive: boolean;
   storeActive: boolean;
-  timezone: string;
   listingId: string;
   listingActive: boolean;
   listingOwnerType: string;
@@ -362,10 +259,9 @@ export async function findPickupCandidate(
       p.pickup_offered                      as pickup_offered,
       (p.pickup_paused_at is not null)      as pickup_paused,
       (p.restricted_at is not null)         as restricted,
-      (p.geo_point is not null)             as geocoded,
+      loc.go_way_place_id                   as go_way_place_id,
       loc.is_active                         as location_active,
       (st.status = 'active')                as store_active,
-      p.timezone                            as timezone,
       l.id                                  as listing_id,
       (l.status = 'active')                 as listing_active,
       l.owner_type                          as listing_owner_type,
@@ -391,10 +287,9 @@ export async function findPickupCandidate(
     pickupOffered: Boolean(row.pickup_offered),
     pickupPaused: Boolean(row.pickup_paused),
     restricted: Boolean(row.restricted),
-    geocoded: Boolean(row.geocoded),
+    goWayPlaceId: row.go_way_place_id === null ? null : String(row.go_way_place_id),
     locationActive: Boolean(row.location_active),
     storeActive: Boolean(row.store_active),
-    timezone: String(row.timezone),
     listingId: String(row.listing_id),
     listingActive: Boolean(row.listing_active),
     listingOwnerType: String(row.listing_owner_type),
@@ -411,7 +306,8 @@ export interface StorePickupLocationRow {
   pickupOffered: boolean;
   pickupPaused: boolean;
   restricted: boolean;
-  geocoded: boolean;
+  /** The GoWay place the location names; the caller reads it to apply the trust rule. */
+  goWayPlaceId: string | null;
   locationActive: boolean;
   storeActive: boolean;
 }
@@ -420,9 +316,9 @@ export interface StorePickupLocationRow {
  * Every publication one STORE owns, projected onto the location half of #93's
  * collection conjunction.
  *
- * It sits beside `findPickupCandidate` deliberately: the seven boolean
- * expressions below are the SAME seven that read applies, and two SQL spellings
- * of "is this location paused" would be two answers. Neither predicate is
+ * It sits beside `findPickupCandidate` deliberately: the expressions below are
+ * the SAME ones that read applies, and two SQL spellings of "is this location
+ * paused" would be two answers. Neither predicate is
  * applied here — every publication comes back, whatever state it is in — so the
  * caller derives with `locationCollectionBlockers` rather than trusting a
  * `where` clause somebody would have to keep in step with it. #85's activation
@@ -442,7 +338,7 @@ export async function listStorePickupLocations(
       p.pickup_offered                 as pickup_offered,
       (p.pickup_paused_at is not null) as pickup_paused,
       (p.restricted_at is not null)    as restricted,
-      (p.geo_point is not null)        as geocoded,
+      loc.go_way_place_id              as go_way_place_id,
       loc.is_active                    as location_active,
       (st.status = 'active')           as store_active
     from location_publications p
@@ -461,7 +357,7 @@ export async function listStorePickupLocations(
     pickupOffered: Boolean(row.pickup_offered),
     pickupPaused: Boolean(row.pickup_paused),
     restricted: Boolean(row.restricted),
-    geocoded: Boolean(row.geocoded),
+    goWayPlaceId: row.go_way_place_id === null ? null : String(row.go_way_place_id),
     locationActive: Boolean(row.location_active),
     storeActive: Boolean(row.store_active),
   }));
@@ -479,23 +375,9 @@ function toCandidate(row: Record<string, unknown>): NearbyCandidateRow {
   return {
     publicationId: String(row.publication_id),
     locationId: String(row.location_id),
+    goWayPlaceId: String(row.go_way_place_id),
     storeId: String(row.store_id),
     storefrontId: row.storefront_id === null ? null : String(row.storefront_id),
-    displayName: String(row.display_name),
-    publicLine1: row.public_line1 === null ? null : String(row.public_line1),
-    publicLine2: row.public_line2 === null ? null : String(row.public_line2),
-    publicCity: row.public_city === null ? null : String(row.public_city),
-    publicRegion: row.public_region === null ? null : String(row.public_region),
-    publicPostalCode: row.public_postal_code === null ? null : String(row.public_postal_code),
-    publicCountry: String(row.public_country),
-    timezone: String(row.timezone),
-    publicPhone: row.public_phone === null ? null : String(row.public_phone),
-    publicUrl: row.public_url === null ? null : String(row.public_url),
-    accessibilityStepFree: row.accessibility_step_free === null ? null : Boolean(row.accessibility_step_free),
-    accessibilityToilet: row.accessibility_toilet === null ? null : Boolean(row.accessibility_toilet),
-    accessibilityParking: row.accessibility_parking === null ? null : Boolean(row.accessibility_parking),
-    accessibilityHearingLoop:
-      row.accessibility_hearing_loop === null ? null : Boolean(row.accessibility_hearing_loop),
     pickupInstructions: row.pickup_instructions === null ? null : String(row.pickup_instructions),
     identityRequirement: String(row.identity_requirement) as PickupIdentityRequirement,
     paymentRequirement: String(row.payment_requirement) as PickupPaymentRequirement,
@@ -510,7 +392,6 @@ function toCandidate(row: Record<string, unknown>): NearbyCandidateRow {
     condition: String(row.condition) as ItemConditionKey,
     available: Number(row.available),
     stockConfirmedAt: new Date(String(row.stock_confirmed_at)),
-    distanceMetres: Number(row.distance_metres),
     merchantId: row.merchant_id === null ? null : String(row.merchant_id),
     merchantName: row.merchant_name === null ? null : String(row.merchant_name),
     merchantSlug: row.merchant_slug === null ? null : String(row.merchant_slug),
@@ -519,60 +400,48 @@ function toCandidate(row: Record<string, unknown>): NearbyCandidateRow {
 }
 
 /**
- * The nearest published collection point holding each of a set of NATIVE
- * variants, in one statement.
+ * Which of a set of NATIVE variants are collectable at which linked locations,
+ * in one statement.
  *
  * Built for #74's ranking, where a per-offer query would be an N+1 on the
- * hottest comparison read there is. It answers with the MINIMUM distance per
- * variant rather than a list of locations: a ranking input is "how far is the
- * nearest place I could collect this", and the identity of that place is a
- * question the nearby surface answers properly with hours, an address and an
- * eligibility verdict.
- *
- * It applies the same `collectablePredicate` as the nearby read, so a ranking
- * can never award a proximity label for a location a shopper cannot be shown.
- * The opening-hours half is deliberately NOT applied — a label saying "nearest
+ * hottest comparison read there is; the caller pairs each location with the
+ * distance GoWay measured and keeps the minimum per variant. It applies the
+ * same `collectablePredicate` as the nearby read, so a ranking can never award
+ * a proximity label for a location a shopper cannot be shown. The
+ * opening-hours half is deliberately NOT applied — a label saying "nearest
  * collection point" is about geography, and dropping a shop because it happens
  * to be shut at the moment somebody browsed would make the label flicker with
  * the clock.
  */
-export async function findNearestPickupDistanceByVariant(
-  input: {
-    variantIds: readonly string[];
-    latitude: number;
-    longitude: number;
-    radiusMetres: number;
-  },
+export async function findCollectableVariantLocations(
+  input: { variantIds: readonly string[]; links: readonly PlaceLink[] },
   db: DatabaseOrTransaction = getDb(),
-): Promise<ReadonlyMap<string, number>> {
-  if (input.variantIds.length === 0) return new Map();
+): Promise<readonly { variantId: string; locationId: string; placeId: string }[]> {
+  if (input.variantIds.length === 0 || input.links.length === 0) return [];
 
-  const origin = sql`st_setsrid(st_makepoint(${input.longitude}, ${input.latitude}), 4326)::geography`;
   const rows = await db.execute(sql`
-    select pv.id as variant_id,
-           min(round(st_distance(p.geo_point, ${origin})))::int as distance_metres
+    select distinct pv.id as variant_id, loc.id as location_id, link.place_id as place_id
     from product_variants pv
     join listings l on l.id = pv.listing_id
     join inventory_levels il on il.variant_id = pv.id
     join locations loc on loc.id = il.location_id
+    ${linkedLocations(input.links)}
     join location_publications p on p.location_id = loc.id
     join stores st on st.id = p.store_id
     where pv.id = any(${sql.param([...input.variantIds])}::text[])
       and ${collectablePredicate()}
-      and st_dwithin(p.geo_point, ${origin}, ${input.radiusMetres})
-    group by pv.id
   `);
 
-  const distances = new Map<string, number>();
-  for (const row of rows) {
-    distances.set(String(row.variant_id), Number(row.distance_metres));
-  }
-  return distances;
+  return rows.map((row) => ({
+    variantId: String(row.variant_id),
+    locationId: String(row.location_id),
+    placeId: String(row.place_id),
+  }));
 }
 
 /**
- * Which of these canonical PRODUCTS have at least one published collection
- * point within the radius that currently holds one of them.
+ * Which of these canonical PRODUCTS are collectable at any of the linked
+ * locations.
  *
  * The set-shaped answer #70's nearby filter needs. A distance is deliberately
  * not returned: search orders by RELEVANCE (#70's stage bands), and handing it
@@ -584,18 +453,12 @@ export async function findNearestPickupDistanceByVariant(
  * survive a nearby search on the strength of a location the nearby surface
  * would not show.
  */
-export async function findCanonicalProductsWithNearbyCollection(
-  input: {
-    canonicalProductIds: readonly string[];
-    latitude: number;
-    longitude: number;
-    radiusMetres: number;
-  },
+export async function findCanonicalProductsCollectableAtLocations(
+  input: { canonicalProductIds: readonly string[]; links: readonly PlaceLink[] },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReadonlySet<string>> {
-  if (input.canonicalProductIds.length === 0) return new Set();
+  if (input.canonicalProductIds.length === 0 || input.links.length === 0) return new Set();
 
-  const origin = sql`st_setsrid(st_makepoint(${input.longitude}, ${input.latitude}), 4326)::geography`;
   const rows = await db.execute(sql`
     select distinct cv.product_id as product_id
     from native_listing_links nll
@@ -604,12 +467,12 @@ export async function findCanonicalProductsWithNearbyCollection(
     join listings l on l.id = pv.listing_id
     join inventory_levels il on il.variant_id = pv.id
     join locations loc on loc.id = il.location_id
+    ${linkedLocations(input.links)}
     join location_publications p on p.location_id = loc.id
     join stores st on st.id = p.store_id
     where nll.status = 'active'
       and cv.product_id = any(${sql.param([...input.canonicalProductIds])}::text[])
       and ${collectablePredicate()}
-      and st_dwithin(p.geo_point, ${origin}, ${input.radiusMetres})
   `);
 
   return new Set(rows.map((row) => String(row.product_id)));

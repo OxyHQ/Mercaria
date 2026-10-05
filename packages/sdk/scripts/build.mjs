@@ -13,17 +13,18 @@
  *
  * ## Why esbuild + rollup-plugin-dts
  *
- * The contract lives in `@mercaria/shared-types`, which is PRIVATE. The
- * published package therefore cannot depend on it or reference it from its
- * declarations, so both halves are BUNDLED:
+ * The contract lives in `@mercaria/contracts` (zod schemas), which names the
+ * closed value sets of `@mercaria/shared-types`; both are PRIVATE. The
+ * published package therefore cannot depend on them or reference them from its
+ * declarations, so both halves are BUNDLED — and `zod`, the one real
+ * dependency, is EXTERNAL in both:
  *
- *  - esbuild inlines the few runtime values the SDK uses (the closed value
- *    sets). shared-types' barrel re-exports ~140 modules, so each of its
- *    modules is marked side-effect-free below; without that, esbuild keeps
- *    every top-level call in every module and the bundle measured 163 KB
- *    instead of a couple.
+ *  - esbuild inlines the schemas and values the SDK uses. shared-types' barrel
+ *    re-exports ~140 modules, so each module of the two private packages is
+ *    marked side-effect-free below; without that, esbuild keeps every
+ *    top-level call in every module and the bundle measured 163 KB more.
  *  - rollup-plugin-dts with `respectExternal` inlines the declarations the
- *    public types reach, so the `.d.ts` is self-contained.
+ *    public types reach, so the `.d.ts` is self-contained apart from `zod`.
  *
  * tsup does the same two things by wrapping the same two tools, with more
  * dependencies and less control over the side-effects flag; tsc alone cannot
@@ -42,18 +43,28 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 const entry = join(root, 'src', 'index.ts');
 
+/** The SDK's one runtime dependency, never bundled. */
+const EXTERNAL = ['zod'];
+const isExternal = (id) => EXTERNAL.some((name) => id === name || id.startsWith(`${name}/`));
+
 /**
- * Every module of the private contract package is pure data and pure
+ * Every module of the private contract packages is pure data and pure
  * functions, so a module the SDK does not reach contributes nothing. If one
  * ever grows a real side effect the SDK depends on, the smoke test — which
- * exercises the BUILT bundle, closed value sets included — is what fails.
+ * exercises the BUILT bundle, schemas and closed value sets included — is what
+ * fails.
  */
 const contractIsSideEffectFree = {
   name: 'contract-is-side-effect-free',
   setup(build) {
     build.onResolve({ filter: /.*/ }, async (args) => {
       if (args.pluginData === 'resolving') return undefined;
-      const fromContract = args.path === '@mercaria/shared-types' || args.importer.includes('/shared-types/');
+      if (isExternal(args.path)) return undefined;
+      const fromContract =
+        args.path === '@mercaria/shared-types' ||
+        args.path === '@mercaria/contracts' ||
+        args.importer.includes('/shared-types/') ||
+        args.importer.includes('/contracts/');
       if (!fromContract) return undefined;
       const resolved = await build.resolve(args.path, {
         importer: args.importer,
@@ -78,6 +89,7 @@ const shared = {
   legalComments: 'none',
   logLevel: 'warning',
   plugins: [contractIsSideEffectFree],
+  external: EXTERNAL,
   tsconfig: join(root, 'tsconfig.json'),
 };
 
@@ -89,6 +101,7 @@ await esbuild.build({ ...shared, format: 'cjs', outfile: join(dist, 'index.cjs')
 
 const bundle = await rollup({
   input: entry,
+  external: isExternal,
   plugins: [dts({ respectExternal: true, tsconfig: join(root, 'tsconfig.json') })],
   onwarn(warning, warn) {
     // A circular re-export inside the contract package is harmless for

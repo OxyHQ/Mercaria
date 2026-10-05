@@ -62,7 +62,7 @@ router.delete('/:id', requireStorePermission('products:write'), validateId('id')
  * (ADR 0007 D10: a newer schema version produces a preview, never a silent
  * rewrite).
  *
- * `products:write` and not a new permission string: `store_members_permissions_check`
+ * `products:write` and not a new permission string: `store_permission_overrides_granted_check`
  * renders the tuple, so an unlisted one is a runtime refusal at the row — and
  * moving a listing's schema version is exactly what that permission names.
  * The PREVIEW is behind `products:write` too rather than `products:read`,

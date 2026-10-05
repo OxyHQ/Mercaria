@@ -1,31 +1,26 @@
 /**
  * Location publication, nearby discovery and collection — #93.
  *
- * Eight tables: `location_publications` and its two children
- * (`location_opening_hours`, `location_closures`), the audit trail
+ * Six tables: `location_publications`, its audit trail
  * `location_publication_events`, the order's `order_pickups`, the credential
  * lifecycle `pickup_collection_credentials`, its append-only
  * `pickup_collection_events`, and the P2P opt-in `listing_local_discovery`.
  *
- * They sit ON TOP of `locations` and `inventory_levels` and add no column to
- * either: the operational location and its stock stay exactly what #93's issue
- * calls them, "the existing Location, InventoryLevel and POS domains", and this
- * domain is the PUBLIC face of them plus everything a handover needs.
+ * They sit ON TOP of `locations` and `inventory_levels`: the operational
+ * location and its stock stay exactly what #93's issue calls them, "the
+ * existing Location, InventoryLevel and POS domains", and this domain is the
+ * PUBLIC face of them plus everything a handover needs.
  *
- * ## Why a separate publication row rather than columns on `locations`
+ * ## Where a location IS is not here at all (ADR 0013)
  *
- * The two objects have different audiences, different editors and different
- * failure modes. `locations` holds the address a pallet is delivered to and the
- * name a warehouse manager gave a building; a publication holds what a merchant
- * is willing to have a stranger read, and every field of its address is
- * OPTIONAL because "the city and nothing else" is a complete, common answer.
- * Widening `locations` instead would mean the operational address and the
- * published one were the same nine columns — and the first naive
- * `select().from(locations)` on a public route would then disclose a stockroom's
- * street and the phone number of whoever signs for deliveries.
- *
- * It also makes the default right by construction: a store with no publication
- * row is not discoverable, and that is the state every existing store is in.
+ * The place facts — name, address, position, timezone, weekly hours and their
+ * exceptions, contact, accessibility — live on the GoWay place named by
+ * `locations.go_way_place_id`, and are read through `services/goway`. A
+ * publication holds what is Mercaria's alone: whether the location is
+ * published, whether and how it offers collection, its stock-freshness policy
+ * and the operator's restriction. `0162` dropped the columns and the two child
+ * tables (`location_opening_hours`, `location_closures`) that used to copy the
+ * place, and the PostGIS point with them.
  *
  * ## The verdict is DERIVED and never stored
  *
@@ -33,25 +28,12 @@
  * location may be shown, and whether a particular actor may check out for
  * collection there, is a conjunction over the LIVE `locations.is_active`, the
  * LIVE store, the LIVE listing status, the LIVE stock level and its age, this
- * row's publication state, and (for a guest) three deployment levers — six
- * tables in four domains this one does not own. That is the
+ * row's publication state, the LIVE GoWay place and whether it names this
+ * location back, and (for a guest) three deployment levers. That is the
  * `deriveNativeCheckoutEligibility` divergence from the one-stored-verdict
  * rule, taken for the same reason and with the same payoff: a moderation
- * restriction stops a collection in the statement that applies it, with no
- * sweep in between.
- *
- * ## A coordinate is a merchant's own, and an impossible one is refused
- *
- * `latitude`/`longitude` are plain nullable columns with range CHECKs, plus a
- * biconditional that keeps them absent together, plus a refusal of the null
- * island — `(0, 0)` is in the Gulf of Guinea and is what a broken import writes,
- * so admitting it would put a shop in the sea and sort it first for anybody in
- * Ghana. `geo_point` is GENERATED from the pair, so nothing can write a point
- * that disagrees with the numbers a merchant can see and correct.
- *
- * Mercaria calls NO geocoding provider — see
- * `LOCATION_FORBIDDEN_GEOCODE_PROVENANCES` in `@mercaria/shared-types`, which
- * states the prohibition as a disjoint value set.
+ * restriction stops a collection in the statement that applies it, and a
+ * broken place link stops one at the next read, with no sweep in between.
  *
  * ## The collection credential is not stored, in any form
  *
@@ -70,7 +52,6 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
-  date,
   doublePrecision,
   index,
   integer,
@@ -78,10 +59,9 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, geography, timestamptz, updatedAt } from '@oxy.so/db';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   LOCATION_AVAILABILITY_STATES,
-  LOCATION_GEOCODE_PROVENANCES,
   LOCATION_INVENTORY_SOURCES,
   LOCATION_PUBLICATION_STATES,
   ORDER_PICKUP_STATES,
@@ -108,8 +88,11 @@ export const MIN_STOCK_CONFIRMATION_INTERVAL_SECONDS = 60;
 export const MAX_STOCK_CONFIRMATION_INTERVAL_SECONDS = 30 * 24 * 60 * 60;
 
 /**
- * `location_publications` — what a merchant chooses to make public about ONE
- * operational location.
+ * `location_publications` — whether, and on what commerce terms, ONE
+ * operational location is offered to the public.
+ *
+ * Nothing about where the location is: that is the GoWay place
+ * `locations.go_way_place_id` names (ADR 0013).
  *
  * `UNIQUE(location_id)` rather than a plain foreign key: one place has one
  * public face, and two rows would be two answers to "where is this shop" with
@@ -148,48 +131,18 @@ export const locationPublications = pgTable(
      */
     storefrontId: text().references(() => storefronts.id, { onDelete: 'set null' }),
 
-    // ── The public profile ───────────────────────────────────────────────────
-    /** Never `locations.name`, which is a warehouse manager's label. */
-    displayName: text().notNull(),
-    publicLine1: text(),
-    publicLine2: text(),
-    publicCity: text(),
-    publicRegion: text(),
-    publicPostalCode: text(),
-    /** ISO-3166 alpha-2. NOT NULL — a place with no country is not a place. */
-    publicCountry: text().notNull(),
-    /** IANA zone. Hours are meaningless without one, so it is NOT NULL. */
-    timezone: text().notNull(),
-    publicPhone: text(),
-    publicUrl: text(),
-    accessibilityStepFree: boolean(),
-    accessibilityToilet: boolean(),
-    accessibilityParking: boolean(),
-    accessibilityHearingLoop: boolean(),
-
-    // ── Position ─────────────────────────────────────────────────────────────
-    latitude: doublePrecision(),
-    longitude: doublePrecision(),
-    geocodeProvenance: text({ enum: asEnumValues(LOCATION_GEOCODE_PROVENANCES) }),
-    geocodedAt: timestamptz(),
-    /**
-     * The PostGIS point, GENERATED so it can never disagree with the pair above.
-     *
-     * `geography(Point,4326)` semantics come from the cast; drizzle-kit cannot
-     * emit the typmod (see `geography` in `@oxy.so/db`), and a generated column
-     * has no writes for a typmod to constrain anyway. `ST_SetSRID` and the
-     * geometry→geography cast are both IMMUTABLE, which a STORED generated
-     * column requires.
-     */
-    geoPoint: geography().generatedAlwaysAs(
-      sql`case when "latitude" is null or "longitude" is null then null
-          else st_setsrid(st_makepoint("longitude", "latitude"), 4326)::geography end`,
-    ),
-
     // ── State ────────────────────────────────────────────────────────────────
     publicationState: text({ enum: asEnumValues(LOCATION_PUBLICATION_STATES) })
       .notNull()
       .default('draft'),
+    /**
+     * The FIRST publication, stamped by `setPublicationState` and never cleared
+     * — `listings.published_at` and `collections.published_at` for a shop
+     * front. It is what tells the public surface "withdrawn" (410) from "never
+     * published" (404): a draft that WAS public is a reference somebody may
+     * hold, and one that never was is not. NULL on a location never published.
+     */
+    publishedAt: timestamptz(),
     /** Whether the merchant offers collection here at all. */
     pickupOffered: boolean().notNull().default(false),
     pickupInstructions: text(),
@@ -236,8 +189,6 @@ export const locationPublications = pgTable(
     disclosesExactStock: boolean().notNull().default(false),
     /** Below this, availability reads `low_stock` rather than `in_stock`. */
     lowStockThreshold: integer().notNull().default(3),
-    /** When the merchant last confirmed the PROFILE (#93 publication field 12). */
-    profileConfirmedAt: timestamptz(),
 
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -245,11 +196,6 @@ export const locationPublications = pgTable(
   (t) => [
     uniqueIndex('location_publications_location_id_key').on(t.locationId),
     checkOneOf('location_publications_state_check', t.publicationState, LOCATION_PUBLICATION_STATES),
-    checkOneOf(
-      'location_publications_geocode_provenance_check',
-      t.geocodeProvenance,
-      LOCATION_GEOCODE_PROVENANCES,
-    ),
     checkOneOf(
       'location_publications_inventory_source_check',
       t.inventorySource,
@@ -264,26 +210,6 @@ export const locationPublications = pgTable(
       'location_publications_payment_requirement_check',
       t.paymentRequirement,
       PICKUP_PAYMENT_REQUIREMENTS,
-    ),
-    // A coordinate is a PAIR, and a provenance is a fact about one — all three
-    // present together or all three absent. A latitude with no longitude is not
-    // a partially-filled row, it is a row nothing can read.
-    check(
-      'location_publications_geocode_shape_check',
-      sql`(${t.latitude} is null) = (${t.longitude} is null)
-          and (${t.latitude} is null) = (${t.geocodeProvenance} is null)
-          and (${t.latitude} is null) = (${t.geocodedAt} is null)`,
-    ),
-    // #93 operations rule 3, half one: an impossible coordinate. The null-island
-    // clause is the one worth reading — `(0, 0)` is a real point in the Gulf of
-    // Guinea and is what every broken import writes, so a range check alone
-    // admits it and sorts it first for anybody in West Africa.
-    check(
-      'location_publications_coordinate_range_check',
-      sql`${t.latitude} is null
-          or (${t.latitude} between -90 and 90
-              and ${t.longitude} between -180 and 180
-              and not (${t.latitude} = 0 and ${t.longitude} = 0))`,
     ),
     check(
       'location_publications_stock_interval_check',
@@ -307,89 +233,6 @@ export const locationPublications = pgTable(
           and (${t.restrictedAt} is null) = (${t.restrictedByOxyUserId} is null)`,
     ),
     index('location_publications_store_id_state_idx').on(t.storeId, t.publicationState),
-    // The nearby query's access path: narrow to publishable rows first, then let
-    // the GiST index below order by distance. A partial index on the state keeps
-    // the drafts and the withdrawn rows out of the scan entirely.
-    index('location_publications_published_country_idx')
-      .on(t.publicCountry)
-      .where(sql`${t.publicationState} = 'published'`),
-    // The distance index. GiST on a geography column is what makes `<->`
-    // ordering and `ST_DWithin` an index scan rather than a full pass; a
-    // bounding-box comparison on the raw latitude/longitude pair would be
-    // neither correct near a pole nor usable across the antimeridian.
-    index('location_publications_geo_point_idx')
-      .using('gist', sql`"geo_point"`)
-      .where(sql`${t.geoPoint} is not null`),
-  ],
-);
-
-/**
- * `location_opening_hours` — the regular weekly schedule of ONE publication.
- *
- * A row per INTERVAL rather than a row per weekday, because a shop that closes
- * for lunch has two intervals on a Tuesday and a `opens`/`closes` pair per day
- * cannot say so. The unique is on `(publication_id, weekday, opens_minute)`, so
- * a repeated save converges instead of accumulating duplicates.
- *
- * Minutes from LOCAL midnight, against the publication's own `timezone`. A
- * `time` column would carry no zone and a `timestamptz` would carry a date;
- * what a shop publishes is neither — it is "we open at nine", which is an
- * offset into a local day.
- */
-export const locationOpeningHours = pgTable(
-  'location_opening_hours',
-  {
-    id: generatedId(),
-    publicationId: text()
-      .notNull()
-      .references(() => locationPublications.id, { onDelete: 'cascade' }),
-    /** 0 = Sunday … 6 = Saturday, matching `Date#getDay` so no mapping exists to get wrong. */
-    weekday: integer().notNull(),
-    opensMinute: integer().notNull(),
-    /** Exclusive. 1440 is a shift that runs to local midnight. */
-    closesMinute: integer().notNull(),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [
-    uniqueIndex('location_opening_hours_publication_weekday_opens_key').on(
-      t.publicationId,
-      t.weekday,
-      t.opensMinute,
-    ),
-    check('location_opening_hours_weekday_check', sql`${t.weekday} between 0 and 6`),
-    check(
-      'location_opening_hours_range_check',
-      sql`${t.opensMinute} >= 0 and ${t.closesMinute} <= 1440 and ${t.opensMinute} < ${t.closesMinute}`,
-    ),
-    index('location_opening_hours_publication_id_idx').on(t.publicationId),
-  ],
-);
-
-/**
- * `location_closures` — a dated exception to the regular hours.
- *
- * `date` rather than `timestamptz`: a closure is expressed in the shop's own
- * calendar ("we are shut on the 6th"), and storing an instant would make the
- * meaning depend on which zone read it back.
- */
-export const locationClosures = pgTable(
-  'location_closures',
-  {
-    id: generatedId(),
-    publicationId: text()
-      .notNull()
-      .references(() => locationPublications.id, { onDelete: 'cascade' }),
-    fromDate: date().notNull(),
-    /** Inclusive — a one-day closure has `from_date = through_date`. */
-    throughDate: date().notNull(),
-    note: text(),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [
-    check('location_closures_range_check', sql`${t.fromDate} <= ${t.throughDate}`),
-    index('location_closures_publication_id_through_idx').on(t.publicationId, t.throughDate),
   ],
 );
 
@@ -397,15 +240,14 @@ export const locationClosures = pgTable(
  * `location_publication_events` — the audit trail #93 operations rules 5 and 10
  * ask for.
  *
- * APPEND-ONLY by trigger against UPDATE *and* DELETE. Publication and geocoding
+ * APPEND-ONLY by trigger against UPDATE *and* DELETE. Publication and place-link
  * changes are exactly the two things whose history matters after an incident —
- * "who moved this shop two kilometres" and "who un-withdrew a restricted
+ * "who pointed this shop at another place" and "who un-withdrew a restricted
  * location" — and an editable trail answers neither.
  *
- * The row carries the coordinate it moved FROM and TO, which is the one place
- * in this schema a superseded position survives. That is deliberate and it is
- * not a privacy hole: a published location's position is public by definition,
- * and the previous value is what makes a correction reviewable.
+ * A link change carries the GoWay place it moved FROM and TO, which is what
+ * makes a correction reviewable. Where the place itself moved is GoWay's own
+ * history (`place_revisions`), not this trail's.
  */
 export const locationPublicationEvents = pgTable(
   'location_publication_events',
@@ -415,8 +257,8 @@ export const locationPublicationEvents = pgTable(
       .notNull()
       .references(() => locationPublications.id, { onDelete: 'cascade' }),
     /**
-     * A short machine word — `published`, `withdrawn`, `geocode_changed`,
-     * `pickup_paused`, `restricted`. Not a closed CHECK set, deliberately: the
+     * A short machine word — `published`, `withdrawn`, `place_linked`,
+     * `place_link_verified`, `pickup_paused`, `restricted`. Not a closed CHECK set, deliberately: the
      * trail is a RECORDING and a new editable field should not need a migration
      * before it can be audited. The value space is small and greppable, and
      * nothing branches on it.
@@ -424,10 +266,9 @@ export const locationPublicationEvents = pgTable(
     kind: text().notNull(),
     /** An Oxy account id — no foreign key. NULL for a system-recorded change. */
     actorOxyUserId: text(),
-    previousLatitude: doublePrecision(),
-    previousLongitude: doublePrecision(),
-    nextLatitude: doublePrecision(),
-    nextLongitude: doublePrecision(),
+    /** The GoWay place the location named before and after a link change (ADR 0013). */
+    previousGoWayPlaceId: text(),
+    nextGoWayPlaceId: text(),
     previousState: text(),
     nextState: text(),
     note: text(),
@@ -451,13 +292,16 @@ export const locationPublicationEvents = pgTable(
  * collections) to answer one question, and a snapshot with no state is not a
  * thing anything reads.
  *
- * ## The address here can never exceed what the merchant published
+ * ## The address here is the GoWay place's, frozen
  *
- * It is copied from `location_publications`, not from `locations`. A buyer's
- * order therefore cannot carry a street the merchant had chosen to withhold,
- * and #105's "nothing fabricates a street for a collection" survives: the
- * pickup branch still produces no `shipping_address` at all, and this row holds
- * only what was already public.
+ * Read from the place `locations.go_way_place_id` names at checkout (ADR 0013)
+ * — never from `locations.address`, the operational address a pallet is
+ * delivered to — so a buyer's order carries only what the place already
+ * publishes, and #105's "nothing fabricates a street for a collection"
+ * survives: the pickup branch still produces no `shipping_address` at all. It
+ * is the one copy of a place fact Mercaria keeps, and it is allowed because it
+ * is HISTORY (`~/Oxy/docs/api-conventions.md`, cross-app references): the buyer
+ * agreed to collect from what they were shown.
  *
  * ## `location_id` is RESTRICT
  *
@@ -480,6 +324,11 @@ export const orderPickups = pgTable(
     publicationId: text()
       .notNull()
       .references(() => locationPublications.id, { onDelete: 'restrict' }),
+    /**
+     * The GoWay place the snapshot below was read from (ADR 0013). NULL on a
+     * collection placed before the place facts moved to GoWay.
+     */
+    goWayPlaceId: text(),
 
     // ── Frozen snapshot ──────────────────────────────────────────────────────
     displayName: text().notNull(),

@@ -10,19 +10,12 @@
  * Returns RAW listing rows; the controller hydrates them via
  * `catalog-hydration.service`.
  *
- * ## Two behaviour changes the port makes on purpose
+ * ## A listing has no position
  *
- * **Free text and a geo radius now COMBINE.** Mongo cannot run `$text` and
- * `$near` in one query, so this service used to pick geo and silently DROP the
- * search term: a buyer searching "bike" within 5 km got every listing within
- * 5 km, with nothing in the response to say the word had been ignored. A GIN
- * `tsvector` match and a GiST `ST_DWithin` are ordinary predicates in Postgres
- * and simply AND together.
- *
- * The other half of that change is that a `near` filter no longer imposes an
- * ORDER. Mongo's `$near` sorted by distance as a side effect of filtering, which
- * quietly overrode the caller's `sort`. It is a filter here and `sort` decides
- * the order, which is what the parameter always claimed to do.
+ * The Mongo `$near` radius this browse once took is gone with the point it
+ * read (`0162`): a store sells from locations whose place is GoWay's, found
+ * through `/nearby`, and a P2P seller's area is a coarse cell found through
+ * `/nearby/p2p` (`listing_local_discovery`).
  *
  * **Full-text matching uses `websearch_to_tsquery`.** It is the only built-in
  * parser that cannot raise on user input — a lone `"` or `|` is a syntax error
@@ -115,7 +108,6 @@ export function toFilters(query: ListingQuery): ListingSearchFilters {
    * one.
    */
   if (query.q && query.q.trim().length > 0 && query.locale) filters.locale = query.locale;
-  if (query.near) filters.near = query.near;
 
   return filters;
 }

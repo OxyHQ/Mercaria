@@ -1063,7 +1063,7 @@
       "loadingCities": "Looking for cities…",
       "cityListError": "We could not load the city list just now.",
       "noCityMatch": "No city matching that has this in stock for collection.",
-      "noStockAnywhere": "No shop is currently stocking this for collection.",
+      "typeATown": "Type a town or postcode to see where this can be collected.",
       "searchNear": "Search near %{place}",
       "shopsWithStock": {
         "one": "%{count} shop with stock",
@@ -1134,6 +1134,27 @@
       "ratingsWithScope": "%{formattedCount} ratings · %{scopeLabel}",
       "fallbackAuthor": "Verified buyer",
       "viewA11yLabel": "View this store's service reviews"
+    },
+    "visit": {
+      "heading": "Visit us",
+      "loading": "Loading this shop’s details",
+      "placeUnavailable": "This shop’s details can’t be shown right now.",
+      "viewOnGoWay": "View on GoWay",
+      "reviewsOnGoWay": "Read its reviews on GoWay",
+      "openMap": "Open in GoWay maps",
+      "hoursHeading": "Opening hours",
+      "closedAllDay": "Closed",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "Special hours",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates}: closed",
+      "exceptionHours": "%{dates}: %{hours}",
+      "accessibility": "Accessibility",
+      "payment": "Payment",
+      "attributeValue": "%{attribute}: %{value}",
+      "collectHere": "Order online, collect here",
+      "placeRatingSubject": "%{place} on GoWay",
+      "photoLabel": "Photo of %{place}"
     }
   },
   "offer": {
@@ -1380,8 +1401,7 @@
       "placement": {
         "heading": "Where it will appear",
         "onProductPage": "On the product page, alongside other sellers",
-        "ownSurfacesOnly": "In search and on your seller profile — not on a product page",
-        "localResults": "In local results, at the rough area you chose"
+        "ownSurfacesOnly": "In search and on your seller profile — not on a product page"
       },
       "blocked": {
         "titleMissing": "Give your listing a title.",

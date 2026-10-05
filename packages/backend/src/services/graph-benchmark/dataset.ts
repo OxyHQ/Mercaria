@@ -51,6 +51,7 @@ import {
   productIdentifiers,
 } from '../../db/schema/canonicalCatalog.js';
 import { categories, listings } from '../../db/schema/catalog.js';
+import { listingLocalDiscovery } from '../../db/schema/pickup.js';
 import { merchants, storefronts } from '../../db/schema/merchants.js';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
 import { offers } from '../../db/schema/offers.js';
@@ -399,6 +400,9 @@ function sourceRecordCount(scale: BenchmarkScale): number {
 const BATCH = 1_000;
 
 /** The tables the generator owns and truncates. Order is irrelevant to CASCADE. */
+/** The P2P cell size the geo listings are seeded at — the production one. */
+const BENCH_CELL_DEGREES = 0.1;
+
 const SEEDED_TABLES = [
   // The facet aggregates' population (#367 Workstream 10). Ahead of the
   // entities they hang off, though CASCADE makes the order irrelevant.
@@ -421,6 +425,7 @@ const SEEDED_TABLES = [
   'merchants',
   'source_records',
   'catalog_sources',
+  'listing_local_discovery',
   'listings',
   'categories',
 ] as const;
@@ -1103,16 +1108,27 @@ export async function seedGraph(
       condition: 'used_good' as const,
       conditionAssertion: 'seller_declared' as const,
       status: 'active' as const,
-      // A 2°×2° box around Barcelona, deterministic, so `st_dwithin` at 5 km
-      // finds a real neighbourhood rather than everything or nothing.
-      longitude: 2.17 + (rng() - 0.5) * 2,
-      latitude: 41.38 + (rng() - 0.5) * 2,
       priceRangeMinAmount: 1_000 + ((index * 31) % 200_000),
       priceRangeMinCurrency: 'EUR' as const,
       categorySlugs: [`bench-cat-${String(index % CATEGORY_COUNT)}`],
       publishedAt: at(-(index % 90)),
     })),
     (batch) => db.insert(listings).values([...batch]).then(() => undefined),
+  );
+  // Each one's coarse P2P area: a 2°×2° box around Barcelona, deterministic, so
+  // a ring of cells finds a real neighbourhood rather than everything or
+  // nothing. A cell is all a P2P listing's position is (#93 P2P rule 5).
+  await insertBatched(
+    Array.from({ length: scale.geoListings }, (_, index) => ({
+      listingId: `bx-listing-${String(index)}`,
+      enabled: true,
+      cellLatIndex: Math.floor((41.38 + (rng() - 0.5) * 2) / BENCH_CELL_DEGREES),
+      cellLonIndex: Math.floor((2.17 + (rng() - 0.5) * 2) / BENCH_CELL_DEGREES),
+      cellPrecisionDegrees: BENCH_CELL_DEGREES,
+      areaLabel: 'Bench area',
+      country: 'ES',
+    })),
+    (batch) => db.insert(listingLocalDiscovery).values([...batch]).then(() => undefined),
   );
 
   // ANALYZE before anything is measured: a plan chosen from default statistics
@@ -1148,6 +1164,7 @@ export function rowCountFloors(scale: BenchmarkScale): Map<string, number> {
     ['match_decisions', scale.matchDecisions],
     ['catalog_backfill_records', scale.backfillRecords],
     ['listings', scale.geoListings],
+    ['listing_local_discovery', scale.geoListings],
     // #367 Workstream 10: the facet aggregates' own population. Floored against
     // the SCALE, never against what the generator wrote — that would be circular.
     ['canonical_attribute_values', scale.products + Math.floor(scale.products / 5)],

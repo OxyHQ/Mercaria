@@ -17,6 +17,8 @@ import { describe, expect, it } from 'vitest';
 import {
   derivePickupEligibility,
   deriveLocationDiscoverability,
+  inventoryBlockers,
+  locationAvailabilityState,
   type PickupActorFacts,
   type PickupInventoryFacts,
   type PickupLevers,
@@ -30,17 +32,16 @@ const OPEN_LOCATION: PickupLocationFacts = {
   pickupOffered: true,
   pickupPaused: false,
   restricted: false,
-  geocoded: true,
+  placeLinkGaps: [],
   locationActive: true,
   storeActive: true,
-  schedule: {
+  // The GoWay place's own opening facts, in GoWay's shape (ADR 0013).
+  opening: {
     timezone: 'Europe/Madrid',
-    hours: [1, 2, 3, 4, 5].map((weekday) => ({
-      weekday,
-      opensMinute: 9 * 60,
-      closesMinute: 20 * 60,
-    })),
-    closures: [],
+    openingHours: {
+      intervals: ([1, 2, 3, 4, 5] as const).map((day) => ({ day, opens: '09:00', closes: '20:00' })),
+    },
+    hoursExceptions: [],
   },
 };
 
@@ -73,7 +74,16 @@ describe('deriveLocationDiscoverability', () => {
     ['an inactive location', { locationActive: false }, 'location_not_active'],
     ['an inactive store', { storeActive: false }, 'store_unavailable'],
     ['an operator restriction', { restricted: true }, 'location_restricted'],
-    ['no coordinate', { geocoded: false }, 'location_not_geocoded'],
+    ['no GoWay place', { placeLinkGaps: ['place_not_set'] }, 'place_not_linked'],
+    ['a place GoWay cannot read', { placeLinkGaps: ['goway_unavailable'] }, 'place_unavailable'],
+    ['a merged-away place', { placeLinkGaps: ['place_gone'] }, 'place_unavailable'],
+    [
+      'a place that names another location',
+      { placeLinkGaps: ['store_link_names_other_location'] },
+      'place_link_unverified',
+    ],
+    ['a back-reference only the community made', { placeLinkGaps: ['store_link_unverified'] }, 'place_link_unverified'],
+    ['a place with no country', { placeLinkGaps: ['place_country_missing'] }, 'place_incomplete'],
     ['collection not offered', { pickupOffered: false }, 'pickup_not_offered'],
     ['a merchant pause', { pickupPaused: true }, 'pickup_paused'],
   ];
@@ -135,14 +145,26 @@ describe('deriveLocationDiscoverability', () => {
       deriveLocationDiscoverability(
         {
           ...OPEN_LOCATION,
-          schedule: {
-            ...OPEN_LOCATION.schedule,
+          opening: {
+            ...OPEN_LOCATION.opening,
             // Covers the WHOLE 7-day horizon from the clock passed below, which
             // is a week earlier than the file's `NOW` precisely so both the
             // closure's end date and the horizon it has to span sit in the
             // PAST. A fixture the real clock is still travelling toward passes
             // until the day it arrives, then fails for whoever pushes that day.
-            closures: [{ id: 'c', fromDate: '2026-08-01', throughDate: '2026-08-11' }],
+            hoursExceptions: [
+              {
+                id: 'c',
+                placeId: 'place-1',
+                startsOn: '2026-08-01',
+                endsOn: '2026-08-11',
+                closed: true,
+                intervals: [],
+                source: 'goway',
+                verification: 'business_asserted',
+                observedAt: '2026-07-01T00:00:00.000Z',
+              },
+            ],
           },
         },
         IN_STOCK,
@@ -156,11 +178,31 @@ describe('deriveLocationDiscoverability', () => {
     // gives up.
     expect(
       deriveLocationDiscoverability(
-        { ...OPEN_LOCATION, geocoded: false, pickupOffered: false },
+        { ...OPEN_LOCATION, placeLinkGaps: ['place_not_set'], pickupOffered: false },
         { ...IN_STOCK, availableQuantity: 0 },
         NOW,
       ),
-    ).toEqual(['location_not_geocoded', 'no_collectable_stock', 'pickup_not_offered'].sort());
+    ).toEqual(['no_collectable_stock', 'pickup_not_offered', 'place_not_linked'].sort());
+  });
+});
+
+describe('the stock half, on its own', () => {
+  it('is exactly the inventory clauses of discoverability', () => {
+    const stale = { ...IN_STOCK, availableQuantity: 0, stockConfirmedAt: new Date('2026-08-10T08:00:00Z') };
+    expect(inventoryBlockers(IN_STOCK, NOW)).toEqual([]);
+    expect([...inventoryBlockers(stale, NOW)].sort()).toEqual(['inventory_stale', 'no_collectable_stock']);
+    expect(deriveLocationDiscoverability(OPEN_LOCATION, stale, NOW)).toEqual(
+      [...inventoryBlockers(stale, NOW)].sort(),
+    );
+  });
+
+  it('bounds a count into three words at the location’s OWN threshold', () => {
+    expect(locationAvailabilityState(0, 3)).toBe('out_of_stock');
+    expect(locationAvailabilityState(-2, 3)).toBe('out_of_stock');
+    expect(locationAvailabilityState(3, 3)).toBe('low_stock');
+    expect(locationAvailabilityState(4, 3)).toBe('in_stock');
+    // A shop that carries two of everything is not permanently "low".
+    expect(locationAvailabilityState(2, 0)).toBe('in_stock');
   });
 });
 

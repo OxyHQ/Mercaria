@@ -485,7 +485,10 @@
         "location_not_active": "Dieser Standort ist abgeschaltet und leitet keinen Bestand weiter.",
         "pickup_paused": "Sie haben die Abholung an diesem Standort pausiert.",
         "pickup_not_offered": "Dieser Standort bietet keine Abholung an.",
-        "location_not_geocoded": "Dieser Standort hat keine Kartenmarkierung und ist daher nicht über die Entfernung auffindbar. Fügen Sie eine hinzu.",
+        "place_not_linked": "Dieser Standort ist mit keinem GoWay-Ort verknüpft und daher nicht über die Entfernung auffindbar. Wählen oder erstellen Sie seinen Ort.",
+        "place_unavailable": "Der GoWay-Ort dieses Standorts existiert nicht mehr, ist inaktiv oder konnte gerade nicht gelesen werden.",
+        "place_link_unverified": "Der GoWay-Ort dieses Standorts nennt ihn noch nicht auf der verifizierten Stufe Ihres Unternehmens. Beanspruchen Sie den Ort und fügen Sie diesen Standort hinzu.",
+        "place_incomplete": "Der GoWay-Ort dieses Standorts hat kein Land oder keine Zeitzone, daher lässt sich eine Abholung dort nicht beschreiben. Vervollständigen Sie den Ort in GoWay.",
         "location_restricted": "Mercaria hat diesen Standort eingeschränkt. Wenden Sie sich an den Support.",
         "store_unavailable": "Das Geschäft selbst ist inaktiv oder eingeschränkt.",
         "listing_unavailable": "Das Angebot ist nicht aktiv, daher ist hier nichts abholbar.",
@@ -507,6 +510,7 @@
         "hoursNotPublished": "Öffnungszeiten nicht veröffentlicht",
         "openNow": "Jetzt geöffnet",
         "openUntil": "Jetzt geöffnet – bis %{time}",
+        "openNote": "Geöffnet – %{note}",
         "closedNote": "Geschlossen – %{note}",
         "closedNow": "Jetzt geschlossen",
         "closedOpensAt": "Geschlossen – öffnet um %{time}"
@@ -530,7 +534,9 @@
       "exactQuantity": {
         "one": "%{count} Stück in diesem Geschäft vorrätig.",
         "other": "%{count} Stück in diesem Geschäft vorrätig."
-      }
+      },
+      "viewOnGoWay": "Auf GoWay ansehen",
+      "viewOnGoWayA11y": "%{place} auf GoWay öffnen"
     },
     "shoppingAgent": {
       "job": {

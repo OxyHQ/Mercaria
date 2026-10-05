@@ -83,6 +83,7 @@ export function projectOrderPickup(row: OrderPickupRow): OrderPickup {
   return {
     orderId: row.orderId,
     locationId: row.locationId,
+    ...(row.goWayPlaceId === null ? {} : { goWayPlaceId: row.goWayPlaceId }),
     state: row.state,
     displayName: row.displayName,
     address: {

@@ -65,8 +65,6 @@ export const LEGACY_COLUMN_EXCLUSIONS = [
   'condition_domain',
   /** Denormalized from variants or reviews by an existing chokepoint. */
   'derived_facet',
-  /** Physical location. Pickup and proximity, not classification. */
-  'geo',
   /** Connector provenance — where the listing was PULLED from. */
   'connector_provenance',
   /** Row timestamps. */
@@ -76,7 +74,7 @@ export const LEGACY_COLUMN_EXCLUSIONS = [
   /**
    * A column THIS epic added as the DESTINATION of the migration.
    *
-   * The other ten members all say "this legacy column carries no catalog
+   * The other nine members all say "this legacy column carries no catalog
    * concept". This one says the opposite and still excludes the column: it
    * carries the concept exactly, and has nothing to map FROM because it is what
    * the mapping maps INTO. Listing it as a legacy source would make the matrix
@@ -353,9 +351,6 @@ export const LEGACY_COLUMNS_WITHOUT_CATALOG_CONCEPT: Readonly<
   'listings.reviewCount': 'derived_facet',
   'listings.favoriteCount': 'derived_facet',
   'listings.searchVector': 'derived_facet',
-  'listings.latitude': 'geo',
-  'listings.longitude': 'geo',
-  'listings.geo': 'geo',
   'listings.sourceConnectionId': 'connector_provenance',
   'listings.sourceProvider': 'connector_provenance',
   'listings.sourceExternalId': 'connector_provenance',

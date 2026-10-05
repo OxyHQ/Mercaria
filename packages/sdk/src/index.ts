@@ -16,6 +16,8 @@ export type {
   MercariaClient,
   MercariaClientOptions,
   MercariaCollectionsApi,
+  MercariaLocationListInput,
+  MercariaLocationsApi,
   MercariaPageOptions,
   MercariaProductListOptions,
   MercariaProductSearchInput,
@@ -29,6 +31,7 @@ export type {
   MercariaCollectionLinkTarget,
   MercariaHandleSource,
   MercariaLinks,
+  MercariaLocationLinkTarget,
   MercariaProductLinkTarget,
 } from './links';
 
@@ -36,6 +39,7 @@ export {
   collectionRef,
   formatMercariaRef,
   isMercariaRef,
+  locationRef,
   parseMercariaRef,
   parseMercariaRefString,
   productRef,
@@ -49,6 +53,8 @@ export {
   isMercariaError,
   MercariaAbortError,
   MercariaApiError,
+  MercariaBadRequestError,
+  MercariaConflictError,
   MercariaError,
   MercariaForbiddenError,
   MercariaGoneError,
@@ -59,6 +65,7 @@ export {
   MercariaTimeoutError,
   MercariaUnauthorizedError,
   MercariaUnavailableError,
+  MercariaUnknownRouteError,
   MercariaValidationError,
 } from './errors';
 export type { MercariaErrorCode, MercariaErrorOptions, MercariaRateLimitErrorOptions } from './errors';
@@ -73,10 +80,12 @@ export type {
 } from './runtime';
 
 export {
+  MERCARIA_LOCATION_AVAILABILITIES,
   MERCARIA_PRODUCT_AVAILABILITIES,
   MERCARIA_PRODUCT_SORTS,
   MERCARIA_PUBLIC_API_BASE_PATH,
   MERCARIA_PUBLIC_ERROR_CODES,
+  MERCARIA_PUBLIC_LIST_MAX_OFFSET,
   MERCARIA_PUBLIC_PAGE_LIMIT_DEFAULT,
   MERCARIA_PUBLIC_PAGE_LIMIT_MAX,
   MERCARIA_REF_KINDS,
@@ -87,7 +96,15 @@ export type {
   ItemConditionKey,
   MercariaCollection,
   MercariaCollectionRef,
+  MercariaErrorDetails,
   MercariaImage,
+  MercariaLocation,
+  MercariaLocationAvailability,
+  MercariaLocationPickup,
+  MercariaLocationProduct,
+  MercariaLocationRef,
+  MercariaLocationStore,
+  MercariaMoney,
   MercariaPage,
   MercariaProduct,
   MercariaProductAvailability,
@@ -103,5 +120,4 @@ export type {
   MercariaStore,
   MercariaStoreRef,
   MercariaVariantRef,
-  Money,
 } from './contract';

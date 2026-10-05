@@ -55,7 +55,7 @@ export * from './discount';
 // projects, and `./product`, whose ProductSummary/StoreSummary it carries.
 export * from './discovery';
 
-// Store (shop) admin-facing DTOs (Store, StoreMember, StoreRole, StorePermission).
+// Store (shop) admin-facing DTOs (Store, StoreAccess, StorePermission, the role map).
 export * from './store';
 
 // Location DTOs (Location, LocationType, LocationAddress, Create/UpdateLocationInput).
@@ -63,10 +63,9 @@ export * from './location';
 
 // Location-aware inventory, nearby discovery and pickup (#93). Separate from
 // `./location` on purpose: that file is the STORE-ADMIN inventory location — an
-// operational address staff work at — and this one is what a merchant chooses
-// to publish about it, which is a different object with a different audience.
-// Carries the two prohibitions stated as values: the forbidden geocode
-// provenances, and a P2P area that has cell INDICES and no coordinate field.
+// operational address staff work at — and this one is what is offered to the
+// public about it, with the place facts projected from GoWay (ADR 0013). A P2P
+// area has cell INDICES and no coordinate field.
 export * from './pickup';
 
 // Collection DTOs (Collection, CollectionType, CollectionSortOrder, CollectionRule, …).
@@ -897,8 +896,3 @@ export * from './catalog-governance';
 // its `unmeasured` branch carries no value, numerator or denominator, so a metric
 // nobody measured cannot be rendered as a number rather than merely should not be.
 export * from './catalog-metrics';
-
-// The PUBLIC integration contract (#1017) — portable references and the
-// field-by-field public projections `@mercaria.co/sdk` publishes to other Oxy
-// applications. Nothing here is a storefront DTO, and nothing spreads one.
-export * from './public-api';

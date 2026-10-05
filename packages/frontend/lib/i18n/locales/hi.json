@@ -1063,7 +1063,7 @@
       "loadingCities": "शहर खोजे जा रहे हैं…",
       "cityListError": "अभी शहरों की सूची लोड नहीं हो सकी।",
       "noCityMatch": "इससे मेल खाने वाले किसी शहर में यह पिकअप के लिए स्टॉक में नहीं है।",
-      "noStockAnywhere": "अभी किसी दुकान में यह पिकअप के लिए उपलब्ध नहीं है।",
+      "typeATown": "यह कहाँ से लिया जा सकता है देखने के लिए कोई शहर या पिनकोड लिखें।",
       "searchNear": "%{place} के पास खोजें",
       "shopsWithStock": {
         "one": "स्टॉक वाली %{count} दुकान",
@@ -1134,6 +1134,27 @@
       "ratingsWithScope": "%{formattedCount} रेटिंग · %{scopeLabel}",
       "fallbackAuthor": "सत्यापित ख़रीदार",
       "viewA11yLabel": "इस स्टोर की सेवा की समीक्षाएँ देखें"
+    },
+    "visit": {
+      "heading": "हमसे मिलने आइए",
+      "loading": "इस दुकान की जानकारी लोड हो रही है",
+      "placeUnavailable": "इस दुकान की जानकारी अभी नहीं दिखाई जा सकती।",
+      "viewOnGoWay": "GoWay पर देखें",
+      "reviewsOnGoWay": "GoWay पर समीक्षाएँ पढ़ें",
+      "openMap": "GoWay मैप में खोलें",
+      "hoursHeading": "खुलने का समय",
+      "closedAllDay": "बंद",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "विशेष समय",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates}: बंद",
+      "exceptionHours": "%{dates}: %{hours}",
+      "accessibility": "सुगम्यता",
+      "payment": "भुगतान",
+      "attributeValue": "%{attribute}: %{value}",
+      "collectHere": "ऑनलाइन ऑर्डर करें, यहाँ से लें",
+      "placeRatingSubject": "GoWay पर %{place}",
+      "photoLabel": "%{place} की फ़ोटो"
     }
   },
   "offer": {
@@ -1380,8 +1401,7 @@
       "placement": {
         "heading": "यह कहाँ दिखेगी",
         "onProductPage": "प्रोडक्ट पेज पर, दूसरे विक्रेताओं के साथ",
-        "ownSurfacesOnly": "खोज में और आपकी विक्रेता प्रोफ़ाइल पर — प्रोडक्ट पेज पर नहीं",
-        "localResults": "आपके चुने हुए इलाके के आसपास, लोकल नतीजों में"
+        "ownSurfacesOnly": "खोज में और आपकी विक्रेता प्रोफ़ाइल पर — प्रोडक्ट पेज पर नहीं"
       },
       "blocked": {
         "titleMissing": "अपनी लिस्टिंग को एक शीर्षक दें।",

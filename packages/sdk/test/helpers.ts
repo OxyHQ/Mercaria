@@ -22,11 +22,17 @@ export function json(status: number, value: unknown, headers: Record<string, str
 }
 
 export function ok(data: unknown): FakeResponse {
-  return json(200, { success: true, data });
+  return json(200, data);
 }
 
-export function failure(status: number, error: string, message = 'server said no'): FakeResponse {
-  return json(status, { success: false, error, message });
+/** A contract error body: `{ error: { code, message, details? } }`. */
+export function failure(
+  status: number,
+  code: string,
+  message = 'server said no',
+  details?: Record<string, string | number | boolean | null>,
+): FakeResponse {
+  return json(status, { error: details === undefined ? { code, message } : { code, message, details } });
 }
 
 /** A real WHATWG `Response`, so the transport is exercised against the genuine interface. */

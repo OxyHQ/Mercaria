@@ -1,0 +1,32 @@
+{
+  // @mercaria/contracts — the public integration API's one definition.
+  //
+  // Emits ESM + declarations to `dist/`, like `@mercaria/shared-types`: the
+  // backend bundle INLINES it (esbuild, `build.ts`), the SDK bundle inlines it
+  // too (`packages/sdk/scripts/build.mjs`), and every other reader resolves the
+  // built declarations through the workspace link. Strict, with no DOM and no
+  // Node types, because the same modules ship inside `@mercaria.co/sdk` to
+  // browsers and React Native.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": [],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

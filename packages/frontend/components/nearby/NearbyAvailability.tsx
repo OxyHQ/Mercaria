@@ -6,6 +6,7 @@ import { NearbyLocationCard, Text } from "@mercaria/ui";
 import { NearbyOriginControl } from "@/components/nearby/NearbyOriginControl";
 import { useNearbyAvailability, useNearbyOrigin } from "@/lib/hooks/use-nearby";
 import { useTranslation } from "@/lib/i18n";
+import { openGoWayPlace } from "@/lib/goway";
 
 /**
  * "Available nearby" — the ONE nearby component every surface reuses
@@ -83,7 +84,7 @@ export function NearbyAvailability({
   onSignIn,
   onSeeCollectionOptions,
 }: NearbyAvailabilityProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
   const originState = useNearbyOrigin();
   const [order, setOrder] = useState<NearbyOrder>("nearest");
@@ -93,6 +94,7 @@ export function NearbyAvailability({
     ...(canonicalVariantId === undefined ? {} : { canonicalVariantId }),
     origin: originState.origin,
     withCheckoutEligibility,
+    locale,
   });
 
   const results = nearby.data?.results ?? [];
@@ -203,6 +205,7 @@ export function NearbyAvailability({
               onPressMerchant={(slug) =>
                 router.push(`/merchants/${slug}`)
               }
+              onPressPlace={openGoWayPlace}
               {...(onSelectLocation === undefined ? {} : { onSelect: onSelectLocation })}
               {...(selectLabel === undefined ? {} : { selectLabel })}
               {...(onSignIn === undefined ? {} : { onSignIn })}

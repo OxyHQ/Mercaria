@@ -71,8 +71,8 @@ let fieldId = '';
 beforeAll(async () => {
   db = await connectPostgres();
   await db.execute(sql`
-    insert into stores (id, name, handle, description, brand_color)
-    values (${STORE_ID}, ${`auto ${RUN}`}, ${`auto-${RUN}`}, '', '#101010')
+    insert into stores (id, oxy_account_id, name, handle, description, brand_color)
+    values (${STORE_ID}, 'oxy-account-fixture', ${`auto ${RUN}`}, ${`auto-${RUN}`}, '', '#101010')
   `);
   categoryId = `auto-${RUN}-cat`;
   await db.execute(sql`

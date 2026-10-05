@@ -142,7 +142,7 @@ describe('the legacy column partition', () => {
     // while a column MOVES from mapped to excluded — which is the one edit that
     // would quietly take a catalog concept out of the migration's scope.
     expect(LEGACY_CATALOG_COLUMNS).toHaveLength(10);
-    expect(Object.keys(LEGACY_COLUMNS_WITHOUT_CATALOG_CONCEPT)).toHaveLength(47);
+    expect(Object.keys(LEGACY_COLUMNS_WITHOUT_CATALOG_CONCEPT)).toHaveLength(44);
     expect(mappedKeys().length, 'a column is mapped twice').toBe(new Set(mappedKeys()).size);
   });
 

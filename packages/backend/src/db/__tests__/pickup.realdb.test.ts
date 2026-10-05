@@ -2,11 +2,17 @@
  * Location publication, nearby discovery and collection against a REAL
  * PostgreSQL server — issue #93.
  *
- * Everything here is held by a CHECK, a trigger, a GENERATED PostGIS column, a
- * GiST index or a conditional UPDATE, and NONE of those exists under a mocked
- * repository. A mocked `insert` accepts the null island, a coordinate with no
- * longitude, a `collected` row with no instant and a second collection of a
- * parcel already handed over — each of which would look green and ship broken.
+ * Everything here is held by a CHECK, a trigger, a unique index, a join or a
+ * conditional UPDATE, and NONE of those exists under a mocked repository. A
+ * mocked `insert` accepts two of one store's locations on one GoWay place, a
+ * `collected` row with no instant and a second collection of a parcel already
+ * handed over — each of which would look green and ship broken.
+ *
+ * Where a location IS is GoWay's (ADR 0013), so the repository reads here take
+ * GoWay's answer as LINKS — a location id and the place that named it back —
+ * and what is under test is the Mercaria half: the join on
+ * `locations.go_way_place_id` and every commerce predicate. GoWay's half, with
+ * a fake transport, is `services/__tests__/goway-places.realdb.test.ts`.
  *
  * The acceptance criteria this file answers directly:
  *
@@ -16,7 +22,7 @@
  *  3. Pickup reserves the exact location's stock (asserted through the same
  *     `reserve` the checkout calls, at the level grain).
  *  4. P2P proximity exposes no precise coordinate — there is no column for one.
- *  7. Geo, inventory-race, privacy and location-state tests pass.
+ *  7. Inventory-race, privacy and location-state tests pass.
  * 14. Collection is idempotent and cannot mark the order collected twice.
  *
  * ## Scoping, because this database is SHARED
@@ -39,8 +45,6 @@ import { canonicalProducts, canonicalVariants } from '../schema/canonicalCatalog
 import { nativeListingLinks } from '../schema/offers.js';
 import {
   listingLocalDiscovery,
-  locationClosures,
-  locationOpeningHours,
   locationPublicationEvents,
   locationPublications,
   orderPickups,
@@ -48,11 +52,12 @@ import {
   pickupCollectionEvents,
 } from '../schema/pickup.js';
 import {
-  findCanonicalProductsWithNearbyCollection,
-  findNearbyCollectableLocations,
-  findNearbyPlaceSuggestions,
-  findNearestPickupDistanceByVariant,
+  countCollectableAtLocations,
+  findCanonicalProductsCollectableAtLocations,
+  findCollectableAtLocations,
+  findCollectableVariantLocations,
   findPickupCandidate,
+  type PlaceLink,
 } from '../pickup/nearbyRepository.js';
 import {
   appendCollectionEvent,
@@ -74,13 +79,6 @@ let db: Database;
 
 /** Unique to this run, so parallel files cannot collide on a shared database. */
 const RUN = uuidv7().slice(-12);
-
-/** Barcelona, Plaça de Catalunya — the origin every distance here is from. */
-const ORIGIN = { latitude: 41.3874, longitude: 2.1686 };
-/** Sagrada Família — about 2 km from the origin. */
-const NEARBY = { latitude: 41.4036, longitude: 2.1744 };
-/** Madrid — about 500 km away, so outside every radius used here. */
-const FAR = { latitude: 40.4168, longitude: -3.7038 };
 
 const createdStoreIds: string[] = [];
 const createdListingIds: string[] = [];
@@ -230,6 +228,7 @@ async function mintStore(label: string): Promise<string> {
   const [row] = await db
     .insert(stores)
     .values({
+      oxyAccountId: 'oxy-account-fixture',
       handle: `pickup-${label}-${RUN}`,
       name: `Pickup store ${label} ${RUN}`,
       description: '',
@@ -252,14 +251,24 @@ async function mintLocation(storeId: string, label: string, isActive = true): Pr
 }
 
 interface PublicationOptions {
-  readonly position?: { latitude: number; longitude: number } | null;
+  /** The GoWay place the location names. Default: a place of its own; `null` names none. */
+  readonly placeId?: string | null;
   readonly state?: 'draft' | 'published' | 'withdrawn';
   readonly pickupOffered?: boolean;
   readonly paused?: boolean;
   readonly restricted?: boolean;
   readonly intervalSeconds?: number;
-  readonly city?: string;
   readonly disclosesExactStock?: boolean;
+}
+
+/** The GoWay place a fixture location names unless told otherwise. */
+function placeOf(locationId: string): string {
+  return `place-${locationId}`;
+}
+
+/** The link GoWay would assert for a fixture location. */
+function linkOf(locationId: string, placeId = placeOf(locationId)): PlaceLink {
+  return { locationId, placeId };
 }
 
 async function mintPublication(
@@ -267,24 +276,13 @@ async function mintPublication(
   locationId: string,
   options: PublicationOptions = {},
 ): Promise<string> {
-  const position = options.position === undefined ? ORIGIN : options.position;
+  const placeId = options.placeId === undefined ? placeOf(locationId) : options.placeId;
+  await db.update(locations).set({ goWayPlaceId: placeId }).where(eq(locations.id, locationId));
   const [row] = await db
     .insert(locationPublications)
     .values({
       locationId,
       storeId,
-      displayName: `Shop ${RUN}`,
-      publicCity: options.city ?? `Barcelona-${RUN}`,
-      publicCountry: 'ES',
-      timezone: 'Europe/Madrid',
-      ...(position === null
-        ? {}
-        : {
-            latitude: position.latitude,
-            longitude: position.longitude,
-            geocodeProvenance: 'merchant_map_pin' as const,
-            geocodedAt: new Date(),
-          }),
       publicationState: options.state ?? 'published',
       pickupOffered: options.pickupOffered ?? true,
       ...(options.paused === true
@@ -460,58 +458,68 @@ async function mintStockedListing(input: {
   return { listingId: listing.id, variantId: variant.id };
 }
 
-// ── The generated geography column ──────────────────────────────────────────
+// ── The GoWay place link ────────────────────────────────────────────────────
 
-describe('the generated PostGIS point', () => {
-  it('really is a Point at SRID 4326, and is NULL without a pair', async () => {
-    const storeId = await mintStore('geo');
-    const pinned = await mintLocation(storeId, 'pinned');
-    const unpinned = await mintLocation(storeId, 'unpinned');
-    await mintPublication(storeId, pinned);
-    await mintPublication(storeId, unpinned, { position: null, state: 'draft' });
+describe('the place link (ADR 0013)', () => {
+  it('lets ONE location of a store name a place, and another store name it too', async () => {
+    // The place names back exactly one location, so two of one store's
+    // locations on it would leave one that can never verify — refused by the
+    // index. Across stores it is allowed: a global unique would let whichever
+    // store typed a place id first lock its real owner out.
+    const storeId = await mintStore('link');
+    const first = await mintLocation(storeId, 'link-a');
+    const second = await mintLocation(storeId, 'link-b');
+    const placeId = `place-shared-${RUN}`;
+    await db.update(locations).set({ goWayPlaceId: placeId }).where(eq(locations.id, first));
+    await expectUniqueRefusal(() =>
+      db.update(locations).set({ goWayPlaceId: placeId }).where(eq(locations.id, second)),
+    );
 
-    // Asserted against real ROWS rather than against the declaration: the
-    // typmod cannot be emitted by drizzle-kit, so the only way to know the
-    // stored value is a 4326 point is to ask the server what it stored.
-    const rows = await db.execute(sql`
-      select st_geometrytype(geo_point::geometry) as kind,
-             st_srid(geo_point::geometry) as srid,
-             geo_point is null as absent
-      from location_publications
-      where location_id = any(${sql.param([pinned, unpinned])}::text[])
-      order by absent
-    `);
-    expect(rows).toHaveLength(2);
-    expect(rows[0].kind).toBe('ST_Point');
-    expect(Number(rows[0].srid)).toBe(4326);
-    expect(rows[1].absent).toBe(true);
+    const otherStore = await mintStore('link-other');
+    const elsewhere = await mintLocation(otherStore, 'link-c');
+    await db.update(locations).set({ goWayPlaceId: placeId }).where(eq(locations.id, elsewhere));
+
+    // …and the positive control: many locations name NO place, so the unique
+    // is partial rather than refusing the second NULL.
+    const unlinked = await db
+      .select({ id: locations.id })
+      .from(locations)
+      .where(inArray(locations.id, [second]));
+    expect(unlinked).toHaveLength(1);
   });
 
-  it('is covered by a GiST index, which no functional test could miss the absence of', async () => {
-    // AN INDEX IS THE ONE THING A FUNCTIONAL TEST CAN NEVER DETECT THE ABSENCE
-    // OF. Every `ST_DWithin` case above passes identically against a sequential
-    // scan — it returns the same rows, just slower, and "slower" is invisible
-    // at fixture scale and catastrophic at catalogue scale. So the index is
-    // asserted to EXIST, and asserted to be GiST specifically: a btree over a
-    // `geography` column would be created without complaint and could not serve
-    // the operator at all.
-    //
-    // The read is scoped to this ONE index name and the row count is asserted
-    // first, so "I found no such index" cannot be what a passing test looks
-    // like — the vacuity floor this whole file's exclusion cases also carry.
-    const rows = await db.execute(sql`
-      select indexdef
-      from pg_indexes
-      where tablename = 'location_publications'
-        and indexname = 'location_publications_geo_point_idx'
+  it('leaves no place fact in Mercaria: no column for one, and no table', async () => {
+    // The plan's own verification item. Read off the SERVER, not the schema
+    // file, so a column a migration re-added without the schema noticing fails.
+    const columns = await db.execute(sql`
+      select column_name from information_schema.columns
+      where table_name = 'location_publications'
     `);
-    expect(
-      rows,
-      'the GiST index over location_publications.geo_point is missing; every nearby query ' +
-        'silently degrades to a sequential scan and no other test in this file can tell',
-    ).toHaveLength(1);
-    expect(String(rows[0].indexdef)).toContain('USING gist');
-    expect(String(rows[0].indexdef)).toContain('geo_point');
+    const names = columns.map((row) => String(row.column_name));
+    expect(names.length, 'read no columns at all — a broken read, not a pass').toBeGreaterThanOrEqual(15);
+    for (const forbidden of [
+      'display_name',
+      'public_line1',
+      'public_city',
+      'public_country',
+      'timezone',
+      'public_phone',
+      'public_url',
+      'accessibility_step_free',
+      'latitude',
+      'longitude',
+      'geo_point',
+      'geocode_provenance',
+    ]) {
+      expect(names, `location_publications still carries ${forbidden}`).not.toContain(forbidden);
+    }
+    expect(names).toContain('publication_state');
+
+    const tables = await db.execute(sql`
+      select table_name from information_schema.tables
+      where table_name in ('location_opening_hours', 'location_closures')
+    `);
+    expect(tables).toEqual([]);
   });
 });
 
@@ -529,52 +537,9 @@ describe('the publication CHECKs', () => {
   ): typeof locationPublications.$inferInsert => ({
     locationId,
     storeId,
-    displayName: 'x',
-    publicCountry: 'ES',
-    timezone: 'Europe/Madrid',
     inventorySource: 'pos',
     stockConfirmationIntervalSeconds: 3_600,
     ...extra,
-  });
-
-  it('REFUSES the null island, which a plain range check admits', async () => {
-    const locationId = await mintLocation(storeId, 'null-island');
-    await expectCheckRefusal(() =>
-      db.insert(locationPublications).values(
-        publication(locationId, {
-          latitude: 0,
-          longitude: 0,
-          geocodeProvenance: 'merchant_map_pin',
-          geocodedAt: new Date(),
-        }),
-      ),
-    );
-  });
-
-  it('ACCEPTS a real position on the prime meridian, so the refusal is the PAIR', async () => {
-    // Greenwich is a real place. A CHECK that refused either half alone would
-    // be refusing a merchant, and only this fixture tells the two apart.
-    const locationId = await mintLocation(storeId, 'greenwich');
-    await db.insert(locationPublications).values(
-      publication(locationId, {
-        latitude: 51.4779,
-        longitude: 0,
-        geocodeProvenance: 'merchant_map_pin',
-        geocodedAt: new Date(),
-      }),
-    );
-    const [row] = await db
-      .select({ latitude: locationPublications.latitude })
-      .from(locationPublications)
-      .where(eq(locationPublications.locationId, locationId));
-    expect(row?.latitude).toBeCloseTo(51.4779, 4);
-  });
-
-  it('refuses a latitude with no longitude', async () => {
-    const locationId = await mintLocation(storeId, 'half-pair');
-    await expectCheckRefusal(() =>
-      db.insert(locationPublications).values(publication(locationId, { latitude: 41 })),
-    );
   });
 
   it('refuses a stock interval outside the declared bounds', async () => {
@@ -720,6 +685,7 @@ describe('the append-only trails and the frozen snapshot', () => {
       orderId: snapshotOrderId,
       locationId,
       publicationId,
+      goWayPlaceId: placeOf(locationId),
       displayName: 'Original name',
       publicLine1: null,
       publicLine2: null,
@@ -745,6 +711,14 @@ describe('the append-only trails and the frozen snapshot', () => {
         .set({ publicCity: 'Madrid' })
         .where(eq(orderPickups.orderId, snapshotOrderId)),
     );
+    // `0159` added the place the snapshot was read from to the freeze: a
+    // collection must keep naming the place the buyer agreed to.
+    await expectTriggerRefusal(/immutable/, () =>
+      db
+        .update(orderPickups)
+        .set({ goWayPlaceId: 'place-elsewhere' })
+        .where(eq(orderPickups.orderId, snapshotOrderId)),
+    );
 
     // …and the positive control: the operational half moves freely, or the
     // trigger would be freezing the whole row and this test would pass by
@@ -754,76 +728,56 @@ describe('the append-only trails and the frozen snapshot', () => {
   });
 });
 
-// ── The proximity read ──────────────────────────────────────────────────────
+// ── The commerce half of the proximity read ─────────────────────────────────
 
-describe('the nearby read', () => {
+describe('the collectable read over GoWay links', () => {
   let storeId: string;
   let canonical: { productId: string; variantId: string };
-  let nearLocationId: string;
+  let linkedLocationId: string;
 
   beforeAll(async () => {
     storeId = await mintStore('nearby');
     canonical = await mintCanonicalVariant('nearby');
 
-    nearLocationId = await mintLocation(storeId, 'near');
-    await mintPublication(storeId, nearLocationId, { position: NEARBY });
+    linkedLocationId = await mintLocation(storeId, 'linked');
+    await mintPublication(storeId, linkedLocationId);
     await mintStockedListing({
       storeId,
-      locationId: nearLocationId,
+      locationId: linkedLocationId,
       canonicalVariantId: canonical.variantId,
       available: 4,
     });
-
-    const farLocationId = await mintLocation(storeId, 'far');
-    await mintPublication(storeId, farLocationId, { position: FAR });
-    await mintStockedListing({
-      storeId,
-      locationId: farLocationId,
-      canonicalVariantId: canonical.variantId,
-    });
   });
 
-  it('ACCEPTANCE 1: finds the nearby location for the right canonical variant', async () => {
-    const rows = await findNearbyCollectableLocations({
+  it('ACCEPTANCE 1: finds the linked location for the right canonical variant', async () => {
+    const rows = await findCollectableAtLocations({
       canonicalVariantId: canonical.variantId,
-      ...ORIGIN,
-      radiusMetres: 25_000,
-      limit: 20,
+      links: [linkOf(linkedLocationId)],
     });
-    expect(rows.map((row) => row.locationId)).toEqual([nearLocationId]);
-    // About 2 km, and asserted as a RANGE: the point of the assertion is that
-    // PostGIS measured a real distance, not that it produced one exact number.
-    expect(rows[0].distanceMetres).toBeGreaterThan(1_500);
-    expect(rows[0].distanceMetres).toBeLessThan(2_500);
+    expect(rows.map((row) => row.locationId)).toEqual([linkedLocationId]);
+    expect(rows[0].goWayPlaceId).toBe(placeOf(linkedLocationId));
     expect(rows[0].available).toBe(4);
   });
 
   it('answers the same for the canonical PRODUCT handle', async () => {
-    const rows = await findNearbyCollectableLocations({
+    const rows = await findCollectableAtLocations({
       canonicalProductId: canonical.productId,
-      ...ORIGIN,
-      radiusMetres: 25_000,
-      limit: 20,
+      links: [linkOf(linkedLocationId)],
     });
-    expect(rows.map((row) => row.locationId)).toEqual([nearLocationId]);
+    expect(rows.map((row) => row.locationId)).toEqual([linkedLocationId]);
   });
 
-  it('excludes the FAR location, so the radius is a real predicate', async () => {
-    // The positive control for the radius: widening it brings Madrid back, so
-    // a query that returned only the near one because the join was broken
-    // could not pass both halves.
-    const wide = await findNearbyCollectableLocations({
+  it('refuses a link the LOCATION does not make, so the pairing is a real predicate', async () => {
+    // GoWay says place X names this location; the location names place Y.
+    // Either one is lying or stale, and neither is enough on its own — that
+    // is the bidirectional half of the trust rule, held by the join.
+    const rows = await findCollectableAtLocations({
       canonicalVariantId: canonical.variantId,
-      ...ORIGIN,
-      radiusMetres: 100_000,
-      limit: 20,
+      links: [linkOf(linkedLocationId, 'place-somebody-else')],
     });
-    expect(wide).toHaveLength(1);
-    const widest = await db.execute(sql`
-      select count(*)::int as total from location_publications
-      where store_id = ${storeId} and geo_point is not null
-    `);
-    expect(Number(widest[0].total)).toBe(2);
+    expect(rows).toEqual([]);
+    // …and no link at all asks no question.
+    expect(await findCollectableAtLocations({ canonicalVariantId: canonical.variantId, links: [] })).toEqual([]);
   });
 
   const excluded: readonly [string, PublicationOptions, { listingStatus?: 'restricted'; available?: number; confirmedAt?: Date }][] = [
@@ -832,7 +786,7 @@ describe('the nearby read', () => {
     ['a location that does not offer collection', { pickupOffered: false }, {}],
     ['a PAUSED location', { paused: true }, {}],
     ['a RESTRICTED location', { restricted: true }, {}],
-    ['an UNGEOCODED location', { position: null }, {}],
+    ['a location naming NO place', { placeId: null }, {}],
     ['a location with zero stock', {}, { available: 0 }],
     ['a RESTRICTED listing', {}, { listingStatus: 'restricted' }],
     [
@@ -855,11 +809,9 @@ describe('the nearby read', () => {
         ...listingOptions,
       });
 
-      const rows = await findNearbyCollectableLocations({
+      const rows = await findCollectableAtLocations({
         canonicalVariantId: isolatedCanonical.variantId,
-        ...ORIGIN,
-        radiusMetres: 25_000,
-        limit: 20,
+        links: [linkOf(locationId)],
       });
       expect(rows).toEqual([]);
     });
@@ -877,99 +829,47 @@ describe('the nearby read', () => {
       locationId,
       canonicalVariantId: isolatedCanonical.variantId,
     });
-    const rows = await findNearbyCollectableLocations({
+    const rows = await findCollectableAtLocations({
       canonicalVariantId: isolatedCanonical.variantId,
-      ...ORIGIN,
-      radiusMetres: 25_000,
-      limit: 20,
+      links: [linkOf(locationId)],
     });
     expect(rows.map((row) => row.locationId)).toEqual([locationId]);
   });
 
-  it('orders nearest first and pages on a stable keyset', async () => {
-    const pagingStore = await mintStore('paging');
-    const pagingCanonical = await mintCanonicalVariant('paging');
-    const ids: string[] = [];
-    // Three shops at increasing distances along one meridian.
-    for (const [index, offset] of [0.01, 0.03, 0.06].entries()) {
-      const locationId = await mintLocation(pagingStore, `page-${index}`);
-      await mintPublication(pagingStore, locationId, {
-        position: { latitude: ORIGIN.latitude + offset, longitude: ORIGIN.longitude },
-      });
-      await mintStockedListing({
-        storeId: pagingStore,
-        locationId,
-        canonicalVariantId: pagingCanonical.variantId,
-      });
-      ids.push(locationId);
-    }
-
-    const first = await findNearbyCollectableLocations({
-      canonicalVariantId: pagingCanonical.variantId,
-      ...ORIGIN,
-      radiusMetres: 50_000,
-      limit: 2,
+  it('counts the town suggestion with the SAME predicate the result read applies', async () => {
+    const counted = await countCollectableAtLocations({
+      canonicalVariantId: canonical.variantId,
+      links: [linkOf(linkedLocationId), linkOf(linkedLocationId, 'place-somebody-else')],
     });
-    expect(first.map((row) => row.locationId)).toEqual([ids[0], ids[1]]);
-
-    const second = await findNearbyCollectableLocations({
-      canonicalVariantId: pagingCanonical.variantId,
-      ...ORIGIN,
-      radiusMetres: 50_000,
-      limit: 2,
-      cursor: { distanceMetres: first[1].distanceMetres, publicationId: first[1].publicationId },
-    });
-    // The page resumes and does not repeat: the cursor is a real predicate.
-    expect(second.map((row) => row.locationId)).toEqual([ids[2]]);
+    expect(counted).toBe(1);
+    expect(await countCollectableAtLocations({ canonicalVariantId: canonical.variantId, links: [] })).toBe(0);
   });
 
-  it('suggests only places that actually hold the item', async () => {
-    const places = await findNearbyPlaceSuggestions({
+  it('answers #74 with the variants collectable per linked location, and #70 with a product set', async () => {
+    const rows = await findCollectableAtLocations({
       canonicalVariantId: canonical.variantId,
-      precisionDegrees: 0.1,
-      limit: 10,
+      links: [linkOf(linkedLocationId)],
     });
-    expect(places.map((place) => place.city)).toContain(`Barcelona-${RUN}`);
-    for (const place of places) expect(place.locationCount).toBeGreaterThan(0);
-
-    // …and a term that matches nothing returns nothing, rather than everything.
-    const none = await findNearbyPlaceSuggestions({
-      canonicalVariantId: canonical.variantId,
-      term: 'zzz-no-such-city',
-      precisionDegrees: 0.1,
-      limit: 10,
-    });
-    expect(none).toEqual([]);
-  });
-
-  it('answers #74 with the nearest distance per VARIANT, and #70 with a product set', async () => {
-    const rows = await findNearbyCollectableLocations({
-      canonicalVariantId: canonical.variantId,
-      ...ORIGIN,
-      radiusMetres: 25_000,
-      limit: 5,
-    });
-    const distances = await findNearestPickupDistanceByVariant({
+    const pairs = await findCollectableVariantLocations({
       variantIds: [rows[0].variantId],
-      ...ORIGIN,
-      radiusMetres: 25_000,
+      links: [linkOf(linkedLocationId)],
     });
-    expect(distances.get(rows[0].variantId)).toBe(rows[0].distanceMetres);
+    expect(pairs).toEqual([
+      { variantId: rows[0].variantId, locationId: linkedLocationId, placeId: placeOf(linkedLocationId) },
+    ]);
 
-    const products = await findCanonicalProductsWithNearbyCollection({
+    const products = await findCanonicalProductsCollectableAtLocations({
       canonicalProductIds: [canonical.productId],
-      ...ORIGIN,
-      radiusMetres: 25_000,
+      links: [linkOf(linkedLocationId)],
     });
     expect(products.has(canonical.productId)).toBe(true);
-    // …and the discriminating half: a tiny radius excludes it, so the set is
-    // not simply "every product asked about".
-    const tight = await findCanonicalProductsWithNearbyCollection({
+    // …and the discriminating half: without the link it is not collectable,
+    // so the set is not simply "every product asked about".
+    const unlinked = await findCanonicalProductsCollectableAtLocations({
       canonicalProductIds: [canonical.productId],
-      ...ORIGIN,
-      radiusMetres: 500,
+      links: [linkOf(linkedLocationId, 'place-somebody-else')],
     });
-    expect(tight.has(canonical.productId)).toBe(false);
+    expect(unlinked.has(canonical.productId)).toBe(false);
   });
 
   it('the checkout candidate read applies NO eligibility predicate', async () => {
@@ -989,6 +889,7 @@ describe('the nearby read', () => {
     const candidate = await findPickupCandidate({ locationId, variantId });
     expect(candidate).not.toBeNull();
     expect(candidate?.pickupPaused).toBe(true);
+    expect(candidate?.goWayPlaceId).toBe(placeOf(locationId));
     expect(candidate?.available).toBe(5);
   });
 });
@@ -1001,8 +902,8 @@ describe('ACCEPTANCE 3: stock moves at the EXACT location', () => {
     const canonical = await mintCanonicalVariant('reserve');
     const branchA = await mintLocation(storeId, 'branch-a');
     const branchB = await mintLocation(storeId, 'branch-b');
-    await mintPublication(storeId, branchA, { position: NEARBY });
-    await mintPublication(storeId, branchB, { position: ORIGIN });
+    await mintPublication(storeId, branchA);
+    await mintPublication(storeId, branchB);
 
     const { listingId, variantId } = await mintStockedListing({
       storeId,
@@ -1073,6 +974,7 @@ describe('ACCEPTANCE 14: collection is idempotent', () => {
       orderId,
       locationId,
       publicationId,
+      goWayPlaceId: placeOf(locationId),
       displayName: 'x',
       publicLine1: null,
       publicLine2: null,
@@ -1232,41 +1134,5 @@ describe('ACCEPTANCE 4: P2P proximity exposes no precise position', () => {
       areaLabel: 'Gràcia',
       country: 'ES',
     });
-  });
-});
-
-// ── Hours and closures ──────────────────────────────────────────────────────
-
-describe('the schedule children', () => {
-  it('converges a repeated save and refuses a backwards interval', async () => {
-    const storeId = await mintStore('hours');
-    const locationId = await mintLocation(storeId, 'hours');
-    const publicationId = await mintPublication(storeId, locationId);
-
-    await db
-      .insert(locationOpeningHours)
-      .values({ publicationId, weekday: 1, opensMinute: 540, closesMinute: 1_020 });
-    // The unique is what makes a repeated save converge rather than accumulate.
-    await expectUniqueRefusal(() =>
-      db
-        .insert(locationOpeningHours)
-        .values({ publicationId, weekday: 1, opensMinute: 540, closesMinute: 1_200 }),
-    );
-
-    await expectCheckRefusal(() =>
-      db
-        .insert(locationOpeningHours)
-        .values({ publicationId, weekday: 2, opensMinute: 1_020, closesMinute: 540 }),
-    );
-
-    await expectCheckRefusal(() =>
-      db
-        .insert(locationClosures)
-        // Both dates in the PAST, and deliberately inverted: what is under test
-        // is that `from > through` is refused, so the instants themselves are
-        // inert and there is no reason to pin one the real clock is moving
-        // toward.
-        .values({ publicationId, fromDate: '2026-08-10', throughDate: '2026-08-01' }),
-    );
   });
 });

@@ -1074,7 +1074,7 @@
       "loadingCities": "Procurando cidades…",
       "cityListError": "Não conseguimos carregar a lista de cidades agora.",
       "noCityMatch": "Nenhuma cidade correspondente tem este item em estoque para retirada.",
-      "noStockAnywhere": "Nenhuma loja tem este item para retirada no momento.",
+      "typeATown": "Digite uma cidade ou um CEP para ver onde dá para retirar.",
       "searchNear": "Buscar perto de %{place}",
       "shopsWithStock": {
         "one": "%{count} loja com estoque",
@@ -1146,6 +1146,27 @@
       "ratingsWithScope": "%{formattedCount} avaliações · %{scopeLabel}",
       "fallbackAuthor": "Comprador verificado",
       "viewA11yLabel": "Ver as avaliações do atendimento desta loja"
+    },
+    "visit": {
+      "heading": "Visite-nos",
+      "loading": "Carregando os dados desta loja",
+      "placeUnavailable": "Os dados desta loja não podem ser exibidos agora.",
+      "viewOnGoWay": "Ver no GoWay",
+      "reviewsOnGoWay": "Ler as avaliações no GoWay",
+      "openMap": "Abrir no mapa do GoWay",
+      "hoursHeading": "Horário de funcionamento",
+      "closedAllDay": "Fechado",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "Horários especiais",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates}: fechado",
+      "exceptionHours": "%{dates}: %{hours}",
+      "accessibility": "Acessibilidade",
+      "payment": "Pagamento",
+      "attributeValue": "%{attribute}: %{value}",
+      "collectHere": "Compre online e retire aqui",
+      "placeRatingSubject": "%{place} no GoWay",
+      "photoLabel": "Foto de %{place}"
     }
   },
   "offer": {
@@ -1397,8 +1418,7 @@
       "placement": {
         "heading": "Onde ele vai aparecer",
         "onProductPage": "Na página do produto, junto com outros vendedores",
-        "ownSurfacesOnly": "Na busca e no seu perfil de vendedor — não em uma página de produto",
-        "localResults": "Nos resultados da sua região, na área aproximada que você escolheu"
+        "ownSurfacesOnly": "Na busca e no seu perfil de vendedor — não em uma página de produto"
       },
       "blocked": {
         "titleMissing": "Dê um título ao seu anúncio.",

@@ -872,7 +872,8 @@
         "markedReady": "Marked ready to collect"
       },
       "trail": "Collection trail",
-      "trailEmpty": "Nothing has happened at the counter yet."
+      "trailEmpty": "Nothing has happened at the counter yet.",
+      "viewPlace": "View the place on GoWay"
     },
     "refund": {
       "dialogTitle": "Refund order",
@@ -1315,36 +1316,301 @@
         "retail": "Retail",
         "virtual": "Virtual",
         "warehouse": "Warehouse"
+      },
+      "placeFlag": " · GoWay place set",
+      "noPlaceFlag": " · no GoWay place yet",
+      "editor": {
+        "documentTitle": "Edit location | Mercaria Dashboard",
+        "title": "Location",
+        "subtitle": "Its place on GoWay, and how it sells on Mercaria",
+        "loadFailed": "Couldn't load this location",
+        "openOnGoWay": "Open on GoWay",
+        "status": {
+          "title": "Can shoppers find it?",
+          "description": "A location appears to shoppers only while its GoWay place names it back, written by a business that has claimed the place.",
+          "checking": "Checking with GoWay…",
+          "checkFailed": "Couldn't check the link right now.",
+          "linked": "Linked",
+          "unlinked": "Not linked yet",
+          "claim": "Claim: %{state}",
+          "mergeFollowed": "GoWay merged this place into another one; the location now points at the place that replaced it.",
+          "missingItem": "• %{reason}",
+          "pendingClaimHint": "Your claim is waiting for GoWay to approve it. A link made by the person who filed it, or by someone acting as the store's account, is verified on approval; anyone else's has to be made again once the claim is approved.",
+          "checkAgain": "Check again"
+        },
+        "gaps": {
+          "placeNotSet": "Choose the GoWay place this location trades from, then save.",
+          "placeNotFound": "GoWay has no place with that id. Choose the place again.",
+          "placeGone": "GoWay has withdrawn this place. Choose or create another one.",
+          "placeNotActive": "The place is marked closed or proposed on GoWay. Mark it open there.",
+          "gowayUnavailable": "GoWay isn't answering right now. Try again in a minute.",
+          "storeLinkMissing": "The place doesn't name this location yet. Link it below.",
+          "storeLinkOtherLocation": "The place names a different Mercaria location.",
+          "storeLinkUnverified": "The place names this location, but no approved claim backs it yet.",
+          "placeCountryMissing": "The place's address has no country. Add one on GoWay.",
+          "placeTimezoneMissing": "GoWay couldn't work out the place's timezone, so its hours can't be read."
+        },
+        "place": {
+          "title": "GoWay place",
+          "change": "Choose another place",
+          "chosenNotSaved": "Chosen here; save the collection settings below to link it.",
+          "status": {
+            "active": "Open",
+            "closed": "Closed",
+            "proposed": "Proposed"
+          }
+        },
+        "picker": {
+          "title": "Find this location on GoWay",
+          "description": "Where your location is — its name, address, hours and contact — lives on its GoWay place. Search for it, or create it if GoWay doesn't have it yet.",
+          "searchLabel": "Search GoWay",
+          "searchPlaceholder": "Shop name or address",
+          "noResults": "Nothing found. Try another search, or create the place.",
+          "isAPlace": "A place on GoWay",
+          "notAPlace": "An address — create the place here",
+          "use": "Use",
+          "createHere": "Create here"
+        },
+        "create": {
+          "open": "Create a new place",
+          "title": "New GoWay place",
+          "street": "Street",
+          "houseNumber": "Number",
+          "city": "City",
+          "postalCode": "Postal code",
+          "region": "Region",
+          "country": "Country",
+          "countryPlaceholder": "ES",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "positionHint": "Picking an address from the search fills in the position for you.",
+          "submit": "Create place",
+          "created": "Place created on GoWay",
+          "nameRequired": "Give the place a name",
+          "countryRequired": "Enter the two-letter country code",
+          "positionRequired": "Enter a real latitude and longitude, or pick an address from the search"
+        },
+        "claim": {
+          "title": "Claim the place",
+          "description": "A claim tells GoWay your store runs this place. It is filed for the Oxy account that owns the store, and GoWay reviews it before you can speak for the place.",
+          "unreadable": "Couldn't read your account's claims. Only owners, admins and editors of the account can see them.",
+          "pendingNote": "GoWay reviews new claims. Until it approves this one, what you change on the place counts as a suggestion; on approval, what the person who filed it or the store's account said becomes the business's own.",
+          "file": "Claim for this store",
+          "filed": "Claim sent to GoWay for review",
+          "role": {
+            "owner": "Owner",
+            "operator": "Operator",
+            "manager": "Manager",
+            "brand": "Brand"
+          },
+          "state": {
+            "pending": "Waiting for review",
+            "approved": "Approved",
+            "rejected": "Rejected",
+            "revoked": "Revoked"
+          }
+        },
+        "storeLink": {
+          "title": "Link the place to this location",
+          "description": "The place says which Mercaria location it is. Mercaria only trusts it when your approved claim wrote it.",
+          "state": {
+            "missing": "Not linked",
+            "otherLocation": "Linked to another location",
+            "unverified": "Linked, not yet verified",
+            "verified": "Linked and verified"
+          },
+          "assert": "Link to this location",
+          "asserted": "Saved on GoWay",
+          "unverifiedNote": "On approval, this link counts as the business's own if the person who filed the claim made it, or someone acting as the store's account. If anyone else made it, link it again after the claim is approved."
+        },
+        "days": {
+          "mon": "Monday",
+          "tue": "Tuesday",
+          "wed": "Wednesday",
+          "thu": "Thursday",
+          "fri": "Friday",
+          "sat": "Saturday",
+          "sun": "Sunday"
+        },
+        "hours": {
+          "title": "Opening hours",
+          "description": "In the place's own time (%{timezone}), which GoWay works out from where it is.",
+          "noTimezone": "timezone unknown",
+          "raw": "The source says: %{raw}",
+          "placeholder": "09:00-14:00, 17:00-20:00",
+          "hint": "One line per day. Leave a day empty when you're closed.",
+          "save": "Save hours",
+          "saved": "Hours saved on GoWay",
+          "unreadable": "Check the hours for %{day}: use 09:00-14:00, separated by commas."
+        },
+        "exceptions": {
+          "title": "Holidays and special hours",
+          "description": "Dates when the week above doesn't apply, in the place's own calendar.",
+          "none": "No holidays or special hours.",
+          "range": "%{from} to %{to}",
+          "closedAllDay": "Closed",
+          "noteSuffix": " · %{note}",
+          "remove": "Remove",
+          "removed": "Removed from GoWay",
+          "startsOn": "From",
+          "endsOn": "To (optional)",
+          "datePlaceholder": "2026-12-25",
+          "closed": "Closed all day",
+          "hours": "Hours that day",
+          "note": "Note for shoppers",
+          "add": "Add",
+          "added": "Added on GoWay",
+          "datesInvalid": "Use dates like 2026-12-25, with the end on or after the start",
+          "hoursInvalid": "Enter the hours for that day, like 10:00-14:00"
+        },
+        "contact": {
+          "title": "Contact",
+          "description": "What shoppers see on the place.",
+          "phone": "Phone",
+          "email": "Email",
+          "website": "Website",
+          "hint": "Empty a field and save to remove it from the place.",
+          "save": "Save contact",
+          "saved": "Contact saved on GoWay",
+          "websiteInvalid": "The website must start with http:// or https://",
+          "emailInvalid": "Enter a valid email address"
+        },
+        "accessibility": {
+          "title": "Accessibility",
+          "description": "Shown as GoWay knows it today, which may be what a visitor reported.",
+          "wheelchair": "Wheelchair access",
+          "stepFree": "Step-free entrance",
+          "toilet": "Accessible toilet",
+          "parking": "Accessible parking",
+          "hearingLoop": "Hearing loop",
+          "yes": "Yes",
+          "limited": "Partly",
+          "no": "No",
+          "unset": "Not stated",
+          "hint": "\"Not stated\" withdraws your own statement; what visitors reported stays.",
+          "save": "Save accessibility",
+          "saved": "Accessibility saved on GoWay"
+        },
+        "publication": {
+          "title": "Collection on Mercaria",
+          "description": "Mercaria's side of this location: whether shoppers can collect here, and how fresh your stock counts are. Saving links the GoWay place above.",
+          "unsavedPlace": "You chose a different place; saving links that one instead.",
+          "pickupOffered": "Offer collection here",
+          "instructions": "Collection instructions",
+          "instructionsPlaceholder": "Ask at the counter by the entrance",
+          "identity": "What a shopper shows to collect",
+          "inventorySource": "How stock is kept up to date",
+          "source": {
+            "pos": "Point of sale",
+            "connector": "Connected platform",
+            "manual": "By hand"
+          },
+          "interval": "Stock confirmed every (minutes)",
+          "lowStock": "Low stock below",
+          "intervalHint": "How often this location's stock counts are confirmed. There is no default: a till and a nightly import are not equally fresh.",
+          "exactStock": "Show exact stock counts to shoppers",
+          "save": "Save collection settings",
+          "saved": "Saved",
+          "placeRequired": "Choose the GoWay place first",
+          "intervalInvalid": "Enter a number of minutes from 1 to 43200",
+          "thresholdInvalid": "Enter a whole number from 0 to 1000",
+          "state": {
+            "draft": "Draft",
+            "published": "Published",
+            "withdrawn": "Withdrawn"
+          },
+          "restricted": "Restricted by Mercaria",
+          "publish": "Publish",
+          "withdraw": "Withdraw",
+          "toDraft": "Back to draft",
+          "stateChanged": "Updated",
+          "pausedBecause": "Collection is paused: %{reason}",
+          "resume": "Resume collection",
+          "pauseReason": "Reason to pause collection",
+          "pause": "Pause collection"
+        },
+        "errors": {
+          "gowayForbidden": "GoWay won't let this account change the place until your claim is approved.",
+          "gowaySignIn": "Sign in again to change the place on GoWay.",
+          "gowayUnavailable": "GoWay isn't answering right now. Try again in a minute.",
+          "gowayInvalid": "GoWay didn't accept that. Check the fields and try again.",
+          "gowayConflict": "That already exists on GoWay for those dates.",
+          "gowayGone": "GoWay no longer has this place.",
+          "gowayFailed": "Couldn't save on GoWay",
+          "publicationRefused": "Not yet: the place must name this location first. See the status at the top.",
+          "locationMissing": "This location no longer exists",
+          "placeTaken": "Another of your locations already uses this place",
+          "publicationFailed": "Couldn't save the location"
+        }
       }
     },
     "members": {
-      "addFailed": "Couldn't add the member",
-      "addMember": "Add member",
-      "added": "Member added",
-      "documentTitle": "Members | Mercaria Dashboard",
-      "explicitPermissions": {
-        "one": "%{count} explicit permission granted",
-        "other": "%{count} explicit permissions granted"
+      "convert": {
+        "addInvitee": "Add person",
+        "body": "An organization in Oxy will own this store. You become its owner, and the people you invite can act for the store with the role you give them.",
+        "displayNameLabel": "Organization name",
+        "done": "The store now belongs to the organization",
+        "failed": "Couldn't convert the store",
+        "inviteLabel": "Username or email",
+        "invitePlaceholder": "username or email@example.com",
+        "inviteesTitle": "People to invite",
+        "nameRequired": "Enter the organization's name and username",
+        "open": "Convert to organization",
+        "someInvitesFailed": "The store moved, but these invitations failed: %{names}",
+        "submit": "Create organization and move store",
+        "title": "Convert to an organization",
+        "usernameLabel": "Organization username",
+        "warning": "People who could act for this store before and are not in the organization no longer have access to it."
       },
-      "invite": "Invite",
-      "inviteTitle": "Invite member",
-      "joinedOn": "Joined %{date}",
-      "loadFailed": "Couldn't load members",
-      "oxyUserIdLabel": "Oxy user id",
-      "oxyUserIdPlaceholder": "oxy user id",
-      "oxyUserIdRequired": "Enter the member's Oxy user id",
-      "removeFailed": "Couldn't remove the member",
-      "removed": "Member removed",
-      "roleLabel": "Role",
-      "roleUpdateFailed": "Couldn't update the member",
-      "roleUpdated": "Role updated",
+      "documentTitle": "Members | Mercaria Dashboard",
+      "loadFailed": "Couldn't load the people on this store",
+      "noAccess": "No access",
+      "organizationBody": "Who can act for this store is the organization's membership in Oxy. Mercaria only keeps exceptions to each role's permissions.",
+      "outsidersNote": "These people have an exception on this store but are not in the organization, so they have no access until they are added.",
+      "override": {
+        "body": "Each permission follows the person's role unless you add or remove it here. You can only change permissions you hold.",
+        "default": "Role default",
+        "edit": "Exceptions",
+        "grant": "Add",
+        "revoke": "Remove",
+        "save": "Save",
+        "saveFailed": "Couldn't save the exceptions",
+        "saved": "Exceptions saved",
+        "title": "Exceptions for %{name}"
+      },
+      "overrideSummary": "%{granted} added, %{revoked} removed",
+      "ownedBy": "Owned by %{name}",
+      "permissionLabels": {
+        "analyticsRead": "See demand analytics",
+        "channelsWrite": "Manage sales channels",
+        "collectionsWrite": "Edit collections",
+        "customersRead": "See customers",
+        "customersWrite": "Edit customers",
+        "discountsWrite": "Edit discounts",
+        "draftOrdersWrite": "Create draft orders",
+        "inventoryWrite": "Edit inventory",
+        "locationsWrite": "Edit locations",
+        "membersManage": "Manage people and permissions",
+        "ordersFulfill": "Fulfil orders",
+        "ordersRead": "See orders",
+        "productsRead": "See products",
+        "productsWrite": "Edit products",
+        "refundsWrite": "Issue refunds",
+        "settingsWrite": "Edit settings",
+        "statsRead": "See sales stats",
+        "storeManage": "Manage the store"
+      },
+      "personalBody": "This store belongs to a personal Oxy account, so only that account can act for it. Convert it to an organization to work with others.",
       "roles": {
         "admin": "Admin",
+        "billing": "Billing",
+        "developer": "Developer",
+        "editor": "Editor",
         "owner": "Owner",
-        "staff": "Staff"
+        "viewer": "Viewer"
       },
-      "subtitle": "Who can manage this store",
-      "title": "Members & roles"
+      "subtitle": "Who can act for this store, and the exceptions to their role",
+      "title": "People & permissions"
     },
     "payments": {
       "beingReviewed": "Being reviewed",
@@ -1494,8 +1760,8 @@
         "label": "Locations"
       },
       "members": {
-        "description": "Invite, edit roles and permissions",
-        "label": "Members & roles"
+        "description": "Who can act for the store, and exceptions to their role",
+        "label": "People & permissions"
       },
       "payments": {
         "description": "Get paid for orders placed on Mercaria",

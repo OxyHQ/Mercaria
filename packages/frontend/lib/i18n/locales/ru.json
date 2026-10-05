@@ -1085,7 +1085,7 @@
       "loadingCities": "Ищем города…",
       "cityListError": "Сейчас не удалось загрузить список городов.",
       "noCityMatch": "Ни в одном подходящем городе нет этого товара для самовывоза.",
-      "noStockAnywhere": "Сейчас ни один магазин не предлагает этот товар для самовывоза.",
+      "typeATown": "Введите город или почтовый индекс, чтобы увидеть, где это можно забрать.",
       "searchNear": "Искать рядом с %{place}",
       "shopsWithStock": {
         "one": "%{count} магазин с товаром",
@@ -1158,6 +1158,27 @@
       "ratingsWithScope": "Оценок: %{formattedCount} · %{scopeLabel}",
       "fallbackAuthor": "Проверенный покупатель",
       "viewA11yLabel": "Посмотреть отзывы об обслуживании этого магазина"
+    },
+    "visit": {
+      "heading": "Приходите к нам",
+      "loading": "Загружаем сведения об этом магазине",
+      "placeUnavailable": "Сведения об этом магазине сейчас недоступны.",
+      "viewOnGoWay": "Открыть в GoWay",
+      "reviewsOnGoWay": "Читать отзывы в GoWay",
+      "openMap": "Открыть на карте GoWay",
+      "hoursHeading": "Часы работы",
+      "closedAllDay": "Закрыто",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "Особый график",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates}: закрыто",
+      "exceptionHours": "%{dates}: %{hours}",
+      "accessibility": "Доступность",
+      "payment": "Оплата",
+      "attributeValue": "%{attribute}: %{value}",
+      "collectHere": "Закажите онлайн и заберите здесь",
+      "placeRatingSubject": "%{place} в GoWay",
+      "photoLabel": "Фото: %{place}"
     }
   },
   "offer": {
@@ -1414,8 +1435,7 @@
       "placement": {
         "heading": "Где оно появится",
         "onProductPage": "На странице товара, рядом с другими продавцами",
-        "ownSurfacesOnly": "В поиске и в вашем профиле продавца — не на странице товара",
-        "localResults": "В местных результатах, в примерном районе, который вы выбрали"
+        "ownSurfacesOnly": "В поиске и в вашем профиле продавца — не на странице товара"
       },
       "blocked": {
         "titleMissing": "Дайте объявлению заголовок.",

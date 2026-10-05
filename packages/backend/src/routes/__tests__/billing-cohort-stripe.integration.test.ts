@@ -74,10 +74,10 @@ beforeAll(async () => {
   ({ merchantSubscriptionEvents:subscriptionEvents } = await import('../../db/schema/merchantPlans.js'));
   ({ ledgerEntries:ledger } = await import('../../db/schema/ledger.js'));
   const { stores } = await import('../../db/schema/stores.js');
-  await db.insert(stores).values({ id:storeId, handle:`cohort-${nonce}`, name:'Owned fixture', description:'', brandColor:'#101010' });
-  const [outsider] = await db.insert(stores).values({handle:`outside-${nonce}`,name:'Owned outsider',description:'',brandColor:'#101010'}).returning();
+  await db.insert(stores).values({ oxyAccountId: 'oxy-account-fixture', id:storeId, handle:`cohort-${nonce}`, name:'Owned fixture', description:'', brandColor:'#101010' });
+  const [outsider] = await db.insert(stores).values({ oxyAccountId: 'oxy-account-fixture',handle:`outside-${nonce}`,name:'Owned outsider',description:'',brandColor:'#101010'}).returning();
   outsiderStoreId = outsider!.id;
-  await db.insert(stores).values({id:otherCohortStoreId,handle:`second-${nonce}`,name:'Second cohort',description:'',brandColor:'#101010'});
+  await db.insert(stores).values({ oxyAccountId: 'oxy-account-fixture',id:otherCohortStoreId,handle:`second-${nonce}`,name:'Second cohort',description:'',brandColor:'#101010'});
   const plans = await import('../../db/merchantPlans/planRepository.js');
   const p = await plans.insertMerchantPlan(db,{ planKey:`cohort-${nonce}`,version:1,tier:'paid',name:'Fixture',summary:'synthetic',termsVersion:'v1',createdByOxyUserId:`operator-${nonce}` });
   planId = p.id;

@@ -4,15 +4,13 @@ Oxy's buy/sell marketplace — new items from shops, secondhand from people, eBa
 or Wallapop style. A Shopify-grade commerce backend serving three Expo apps
 (storefront, dashboard, POS) and a shared UI package.
 
-> **For how this project WORKS, read `docs/index.mdx`** — every domain has a file
-> there, `docs/adr/` holds the binding decisions, and
-> `packages/backend/src/db/schema/CONVENTIONS.md` binds every schema decision. Two
-> you want on almost any backend task: `docs/house-invariants.md` and
+> **For how this project WORKS, read `docs/index.mdx`**; `docs/adr/` holds the
+> binding decisions and `packages/backend/src/db/schema/CONVENTIONS.md` binds
+> every schema one. For almost any backend task: `docs/house-invariants.md` and
 > `docs/postgres-testing-and-migrations.md`. `HANDOFF.md` holds deferred work.
 >
-> **This file carries only RULES — things that break silently.** Design notes and
-> per-issue write-ups go in `docs/`. Org-wide standards are in `~/AGENTS.md` and
-> `~/Oxy/AGENTS.md`; do not repeat them.
+> **This file carries only RULES — things that break silently.** Design notes go
+> in `docs/`. Org-wide standards are in `~/AGENTS.md` and `~/Oxy/AGENTS.md`.
 >
 > **Budget: under 12 KB**, enforced by `scripts/check-agents-md-size.mjs`. An
 > addition that pushes it over is paid for in the SAME edit.
@@ -36,7 +34,8 @@ bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 
 `packages/` — `frontend` (mercaria.co) · `dashboard` · `pos` (Expo apps) · `ui`
 (shared components) · `backend` (Express + PostgreSQL) · `shared-types` (DTOs and
-every closed value set) · `sdk` (`@mercaria.co/sdk`, published; `docs/sdk.md`).
+every closed value set) · `contracts` (the `/public/v1` zod source; regen
+`openapi.json`) · `sdk` (`@mercaria.co/sdk`, published; `docs/sdk.md`).
 
 - **`@mercaria/ui` is NOT built to dist.** Apps consume it through Metro
   `watchFolders`, the `@mercaria/ui/theme/tailwind.preset` preset and a
@@ -74,8 +73,8 @@ every closed value set) · `sdk` (`@mercaria.co/sdk`, published; `docs/sdk.md`).
   transaction sums to zero PER CURRENCY.
 - **Nothing auto-deletes or rewrites financial history.** Repairs are explicit,
   audited operator actions from a CLOSED set.
-- **Use `constructEventAsync`, never `constructEvent`** — under Bun the
-  synchronous Stripe crypto entry points throw while production on Node works.
+- **Use `constructEventAsync`, never `constructEvent`** — under Bun the sync
+  Stripe crypto entry points throw while production on Node works.
 
 ## PostgreSQL
 
@@ -92,13 +91,13 @@ Mongo/Mongoose is GONE (PR #136) — no `src/models/`, no `mongoose`, no
   `dist/` silently emits `DROP`/`ADD CONSTRAINT` pairs narrowing a sibling branch's
   tuple back, in a diff that looks plausible.
 - **Never hand-rename a migration, hand-edit `meta/_journal.json` or hand-write a
-  snapshot**, and after any regeneration READ the file for statements you did not
-  intend — regeneration DROPS every hand-written trigger, function, backfill and the
-  marker, pure DDL included; verify its count is 1.
+  snapshot**; after any regeneration READ the file for statements you did not
+  intend — it DROPS every hand-written trigger, function, backfill and the
+  marker; verify its count is 1.
 - **Do not convert `*.realdb.test.ts` suites to mocks.** A mocked insert/update
   accepts a statement the server rejects; CHECKs, unique indexes, `requireTransaction`
   and `FOR UPDATE SKIP LOCKED` have no mocked counterpart.
-- **The test database is SHARED across parallel files.** Scope every aggregate to
+- **The test database is SHARED across parallel files.** Scope aggregates to
   ids your file owns, floor every count equality, never widen a global config bound,
   hold the advisory-lock mutex for the global active matching policy, and keep a
   trigger-toggle window to exactly ONE table.
@@ -112,13 +111,13 @@ Mongo/Mongoose is GONE (PR #136) — no `src/models/`, no `mongoose`, no
   A provider webhook is a different principal and verifies its own signature.
 - **Every `/internal/*` surface is gated by an Oxy-user-id allow-list, and empty
   means NOT MOUNTED (404, never 401).** A new surface joins the list whose power it
-  already shares; two were refused on exactly that test. Enumeration:
-  `docs/house-invariants.md`.
-- **`store:manage` is the one permission an `admin` does not hold**, which is why
-  payment onboarding, fee acceptance and merchant-identity routes use it rather than
-  `settings:write`.
-- **Every buyer id, seller id and `oxy_user_id` is a foreign SERVICE's primary
-  key** (Oxy owns identity) and carries no foreign key.
+  already shares (`docs/house-invariants.md`).
+- **A store is owned by an Oxy account; Oxy decides who gets in** (ADR 0012). No
+  member list: access is the caller's Oxy role (THEIR bearer, fail closed; a
+  delegated session is its operator) via `STORE_ROLE_PERMISSIONS` ± overrides.
+  `admin` lacks only `store:manage`, which gates payment, fee and identity routes.
+- **Buyer, seller and `oxy_user_id` ids are a foreign SERVICE's keys** (Oxy
+  owns identity) and carry no foreign key.
 - **CORS:** `packages/backend/src/lib/allowed-origins.ts` is the ONE origin authority
   (CORS and the guest CSRF gate) and must carry `mercaria.co`, `dashboard.mercaria.co`
   and `pos.mercaria.co`. The central Oxy API's `allowedOrigins.ts` must carry
@@ -140,7 +139,7 @@ Mongo/Mongoose is GONE (PR #136) — no `src/models/`, no `mongoose`, no
   fails the build on a new archiver. `docs/moderation.md`.
 - **"Report" is two unrelated things.** `report.service.ts` and
   `/admin/stores/:storeId/reports/*` are SALES ANALYTICS; abuse reports are
-  `AbuseReport` + `services/moderation/`. Never merge them.
+  `services/moderation/`. Never merge.
 - **`product_variants.sku` and `.barcode` are unique at NO grain and must not be
   re-narrowed** — two merchants selling one trade item share a GTIN by definition.
   GTIN identity is `product_identifiers`' collision gate; the ambiguity check lives
@@ -167,6 +166,9 @@ Mongo/Mongoose is GONE (PR #136) — no `src/models/`, no `mongoose`, no
 - **Shipping UI is HIDDEN and Moovo owns logistics entirely** — do NOT build
   shipping zones or rates, and the Moovo port is registered on no deployment.
   Pickup/collection is a different thing and IS built (`docs/pickup.md`).
+- **Place facts are GoWay's** (ADR 0013): store only `go_way_place_id`, read
+  via `services/goway/` (sole SDK importer); a location is found only while
+  its place names it back as its business.
 - **ONE locale registry, `@mercaria/ui/src/i18n/`**; module-scope data holds KEYS,
   never sentences. App copy is per app; **`@mercaria/ui`'s own copy is in ITS
   bundles**, merged under the reserved `ui` namespace for the locales that app SHIPS
@@ -181,12 +183,11 @@ Mongo/Mongoose is GONE (PR #136) — no `src/models/`, no `mongoose`, no
   re-measures both). A Bloom `Dialog` side-sheet takes the LOGICAL
   `placement="start"|"end"`, never `left`/`right`; its `inset` keys stay
   physical. Arabic is NOT fully supported — #429 item 2.
-- **Dockerfile node-gyp pin.** The repo-ROOT API Dockerfile pins `node-gyp` in the
-  builder: `ws`'s native accelerators have no musl-arm64 prebuild, and an on-demand
-  `bunx node-gyp@latest` flakes on ARM. Do NOT remove it.
-- **`ci.yml`'s `Lint & Test` must stay on x86** though `deploy-aws.yml` builds ARM:
-  ARM runners support no service containers and `postgis/postgis` is amd64-only.
-- **Web apps deploy to Cloudflare Workers, NOT Pages**, via **`bunx wrangler`
-  directly, never `cloudflare/wrangler-action`** — its `npm i wrangler` chokes on
-  `workspace:*`. All four deploys gate on `ci.yml`'s verdict for that commit;
-  none may run a copy of the suite (#518). `docs/deploy.md`.
+- **The root API Dockerfile pins `node-gyp`**: `ws` has no musl-arm64 prebuild
+  and `bunx node-gyp@latest` flakes on ARM. Keep it.
+- **`ci.yml`'s `Lint & Test` stays on x86** though `deploy-aws.yml` builds ARM:
+  ARM runners have no service containers; `postgis/postgis` is amd64-only.
+- **Web apps deploy to Cloudflare Workers, NOT Pages**, via **`bunx wrangler`,
+  never `cloudflare/wrangler-action`** (its `npm i wrangler` chokes on
+  `workspace:*`). All four deploys gate on `ci.yml`'s verdict for that commit;
+  none runs a copy of the suite (#518). `docs/deploy.md`.

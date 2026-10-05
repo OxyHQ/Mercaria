@@ -319,7 +319,26 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // an identity-shaped name: a public product names its `ref` and a condition
     // KEY, and the storefront's `category`/`productType`/`vendor` strings are
     // exactly what the field-by-field projection declines to publish.
-    "walked 134 contract module(s), 2370 exported type(s), 7877 property signature(s)",
+    // ADR 0012 (store ownership is an Oxy account) moved NO module: `store.ts`
+    // lost four types (`StoreRole`, `StoreMember`, the two member inputs) and
+    // gained six (the role and access shapes, the override and its input, the
+    // owner-account move), and `store-linkage.ts` lost one impact field — +2
+    // types, +4 property signatures. None of the new names is identity-shaped:
+    // an override names an `oxyUserId` and permission keys.
+    // A twelfth, in REVERSE: `public-api.ts` LEFT this package for
+    // `@mercaria/contracts`, where the public shapes are zod schemas and their
+    // types are `z.infer` — no interface for this walk to read. The same
+    // vocabulary is walked over the zod shapes by `packages/contracts`' own
+    // suite ("no public shape carries an ambiguous identity string").
+    // Both together: 133/2352/7811, READ OFF the guard's own output line.
+    // ADR 0013 (place facts live in GoWay) moved NO module and no net type:
+    // `pickup.ts` lost six (the two geocode-provenance sets, the merchant-
+    // composed address, hours, closure and closure input) and gained six (the
+    // GoWay-projected address, interval and exception, the place-link gap and
+    // verdict, the merchant's publication read), and `location.ts` gained a
+    // `goWayPlaceId` — +21 property signatures. None is identity-shaped: a
+    // place is named by an opaque `goWayPlaceId`. 133/2352/7832.
+    "walked 133 contract module(s), 2352 exported type(s), 7832 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });

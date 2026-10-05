@@ -81,7 +81,7 @@ vi.mock('../../db/stores/locationRepository.js', () => ({
 vi.mock('../../db/stores/storeRepository.js', () => ({
   adjustStoreProductCount: vi.fn(async () => undefined),
   adjustStoreSalesCount: vi.fn(async () => undefined),
-  findStoreRow: vi.fn(async () => null),
+  findStoreById: vi.fn(async () => null),
 }));
 vi.mock('../../db/orders/orderRepository.js', () => ({
   transitionOrderStatus: (...args: unknown[]) => transitionOrderStatus(...args),

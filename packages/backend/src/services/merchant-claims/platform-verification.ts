@@ -42,7 +42,7 @@ import {
   type ConnectionRow,
 } from '../../db/connectors/connectionRepository.js';
 import { findStoreById } from '../../db/stores/storeRepository.js';
-import { effectivePermissions } from '../../middleware/store-authz.js';
+import { resolveStoreAccess, type StoreCaller } from '../store-access.service.js';
 import { verifyKey } from '../channel-key.service.js';
 import { normalizeDomain } from '../commerce-graph/merchant.service.js';
 import type { ClaimProofSubject } from './claim-scope.js';
@@ -93,7 +93,8 @@ export function connectionProofSubject(connection: ConnectionRow): ClaimProofSub
  */
 export async function resolveClaimantConnection(params: {
   connectionId: string;
-  claimantOxyUserId: string;
+  /** The claimant's own session: their access to the store is Oxy's answer (ADR 0012). */
+  claimant: StoreCaller;
 }): Promise<ConnectionRow> {
   const connection = await findConnectionById(params.connectionId);
   if (!connection) {
@@ -101,15 +102,15 @@ export async function resolveClaimantConnection(params: {
   }
 
   const store = await findStoreById(connection.storeId);
-  const membership = store?.members.find((m) => m.oxyUserId === params.claimantOxyUserId);
-  if (!store || !membership) {
+  const access = store ? await resolveStoreAccess(params.claimant, store) : null;
+  if (!store || !access) {
     // Deliberately the same answer as "no such connection": telling a stranger
     // that an id exists but belongs to a store they cannot manage is the
     // enumeration this refusal exists to prevent.
     throw notFound('Connection not found');
   }
-  if (!effectivePermissions(membership).has(REQUIRED_STORE_PERMISSION)) {
-    // The caller IS a member, so the connection's existence is not a secret
+  if (!access.permissions.includes(REQUIRED_STORE_PERMISSION)) {
+    // The caller CAN act for the store, so the connection's existence is not a secret
     // from them — an honest 403 is safe here and a 404 would be a lie they
     // could disprove from the dashboard.
     throw forbidden(
@@ -133,7 +134,7 @@ export async function resolveClaimantConnection(params: {
  */
 export async function resolveChannelKeyConnection(params: {
   channelKey: string;
-  claimantOxyUserId: string;
+  claimant: StoreCaller;
 }): Promise<ConnectionRow> {
   const verified = await verifyKey(params.channelKey);
   if (!verified) {
@@ -148,12 +149,12 @@ export async function resolveChannelKeyConnection(params: {
       'That channel key is not bound to a connection, so it proves nothing about a site.',
     );
   }
-  // The key proves possession; the membership check proves the presenter is
+  // The key proves possession; the access check proves the presenter is
   // entitled to speak for the store. Both, because a leaked key must not be
   // enough on its own to move a merchant's identity.
   return resolveClaimantConnection({
     connectionId: verified.connectionId,
-    claimantOxyUserId: params.claimantOxyUserId,
+    claimant: params.claimant,
   });
 }
 

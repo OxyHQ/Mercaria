@@ -223,6 +223,7 @@ async function seedStoreSeller(label: string): Promise<{
   const [store] = await db
     .insert(storeSchema.stores)
     .values({
+      oxyAccountId: 'oxy-account-fixture',
       handle: `guest-${RUN}-${label}`,
       name: `Guest Store ${label} ${RUN}`,
       description: 'seeded by checkout.guest-stripe.realdb.test',

@@ -58,16 +58,14 @@ async function makeStore(): Promise<string> {
   // same millisecond share their leading characters and a truncated suffix
   // collides with `stores_handle_key`.
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `channels-${suffix}`,
-      name: 'Channels store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: `owner-${suffix}`,
+    handle: `channels-${suffix}`,
+    name: 'Channels store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
   return store.id;
 }
@@ -453,16 +451,14 @@ describe('`channel_audit_events` is append-only, by trigger', () => {
     // this one — which is exactly how the first version of this trigger was
     // caught, by every OTHER case in this file failing in `afterEach`.
     const suffix = uuidv7();
-    const store = await insertStore(
-      {
-        handle: `channels-cascade-${suffix}`,
-        name: 'Cascade store',
-        description: '',
-        brandColor: '#123456',
-        defaultCurrency: 'FAIR',
-      },
-      [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-    );
+    const store = await insertStore({
+      oxyAccountId: `owner-${suffix}`,
+      handle: `channels-cascade-${suffix}`,
+      name: 'Cascade store',
+      description: '',
+      brandColor: '#123456',
+      defaultCurrency: 'FAIR',
+    });
     await recordChannelAuditEvent({
       storeId: store.id,
       action: 'onboarding_started',

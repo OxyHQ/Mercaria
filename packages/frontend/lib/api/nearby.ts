@@ -22,10 +22,11 @@ import apiClient from './client';
  *
  * ## Two ways to get an origin, and the second needs no permission
  *
- * `fetchNearby` takes a position; `fetchNearbyPlaces` answers with the CITIES
- * that actually hold the item, each carrying a cell whose centre is a usable
- * origin. So a shopper who declines the location prompt gets a real answer
- * rather than a dead end, which is #93 acceptance 5.
+ * `fetchNearby` takes a position; `fetchNearbyPlaces` resolves a town the
+ * shopper TYPED (through GoWay, which owns where things are — ADR 0013) and
+ * answers only with towns where the item is collectable, each carrying a cell
+ * whose centre is a usable origin. So a shopper who declines the location
+ * prompt gets a real answer rather than a dead end, which is #93 acceptance 5.
  *
  * ## The collection code is fetched separately, and only when it is rendered
  *
@@ -70,7 +71,10 @@ export async function fetchNearby(params: {
    * server per-location work that a browse should not spend.
    */
   withCheckoutEligibility?: boolean;
+  /** The language each place's name is resolved in (GoWay's localized name). */
+  locale?: string;
   limit?: number;
+  /** The previous page's `nextCursor`, verbatim — GoWay's own, opaque. */
   cursor?: string;
 }): Promise<NearbyResponse> {
   const { data } = await apiClient.get<ApiResponse<NearbyResponse>>('/nearby', {
@@ -87,6 +91,7 @@ export async function fetchNearby(params: {
         ? { conditionKeys: params.conditionKeys.join(',') }
         : {}),
       ...(params.withCheckoutEligibility ? { withCheckoutEligibility: 'true' } : {}),
+      ...(params.locale ? { locale: params.locale } : {}),
       ...(params.limit ? { limit: params.limit } : {}),
       ...(params.cursor ? { cursor: params.cursor } : {}),
     },
@@ -95,17 +100,21 @@ export async function fetchNearby(params: {
 }
 
 /**
- * The manual fallback: cities that actually hold this item (#93 acceptance 5).
+ * The manual fallback: towns matching what the shopper typed, where this item
+ * is collectable (#93 acceptance 5).
  *
- * Every suggestion carries a cell, and its centre is what the next
- * {@link fetchNearby} uses as an origin — so declining the location prompt
- * costs a shopper one tap and no precision they did not choose to give.
+ * `q` is required in practice — with nothing typed there is nothing to
+ * resolve, and the server answers an empty list. Every suggestion carries a
+ * cell, and its centre is what the next {@link fetchNearby} uses as an origin —
+ * so declining the location prompt costs a shopper one tap and no precision
+ * they did not choose to give.
  */
 export async function fetchNearbyPlaces(params: {
   canonicalVariantId?: string;
   canonicalProductId?: string;
-  q?: string;
+  q: string;
   country?: string;
+  locale?: string;
   limit?: number;
 }): Promise<readonly NearbyPlaceSuggestion[]> {
   const { data } = await apiClient.get<ApiResponse<{ places: NearbyPlaceSuggestion[] }>>(

@@ -2,14 +2,16 @@
 
 The canonical TypeScript client for [Mercaria](https://mercaria.co)'s public
 commerce API. If an Oxy app — Mention, Goway, Nilo, an assistant or a service —
-needs Mercaria products, stores or collections, it reads them through this
+needs Mercaria products, stores, collections or a store's locations, it reads them through this
 package instead of knowing Mercaria's HTTP routes, copying its types or
 building its URLs.
 
 - **Headless and isomorphic.** Node 18+, Bun, browsers and React Native (Expo)
-  from one entry. No React, no runtime dependencies.
-- **Typed end to end.** The public contract's types ship with the package;
-  every response is validated field by field before you see it.
+  from one entry. No React; one runtime dependency, `zod`.
+- **Typed end to end.** The public contract's types ship with the package, and
+  every response is parsed with the contract's own zod schemas — the same ones
+  the server validates with — before you see it. TypeScript consumers need the
+  DOM lib or `@types/node` (zod's declarations name `URL`).
 - **Refs are identity; reads are current truth.** Persist a ref, hydrate it
   every time you render.
 
@@ -25,6 +27,7 @@ bun add @mercaria.co/sdk     # or: npm install @mercaria.co/sdk
 - [Variants](#variants)
 - [Stores](#stores)
 - [Collections](#collections)
+- [Locations: products at a shop on a map](#locations-products-at-a-shop-on-a-map)
 - [Links](#links)
 - [References](#references)
 - [Pagination](#pagination)
@@ -157,6 +160,7 @@ const same = await mercaria.stores.lookup({ handle: 'night-city-games' });
 
 store.ref;         // persist this, never the handle
 store.handle;      // current handle; a merchant can change it
+store.oxyAccountId; // the owning Oxy account — the cross-app key for the business
 store.name;
 store.logoUrl;
 store.brandColor;  // CSS hex
@@ -165,6 +169,7 @@ store.url;
 
 const products = await mercaria.stores.products(store.ref, { sort: 'newest', limit: 24 });
 const collections = await mercaria.stores.collections(store.ref);
+const locations = await mercaria.stores.locations(store.ref); // its public shop fronts
 ```
 
 A closed or suspended store rejects with `MercariaGoneError`.
@@ -180,6 +185,49 @@ collection.image;
 const items = await mercaria.collections.products(collection.ref, { limit: 12 });
 ```
 
+## Locations: products at a shop on a map
+
+A store's physical shop fronts are **locations**. Where a location is — its
+name, address, hours, photos and rating — belongs to the GoWay place it trades
+from, and is read from GoWay with `location.goWayPlaceId`
+(`@goway.to/sdk`); Mercaria serves its own half only: the store, the
+collection terms and what is on the shelf.
+
+```ts
+// A GoWay place page: which Mercaria shop fronts trade from this place?
+const { items } = await mercaria.locations.list({ goWayPlaceId: place.id });
+for (const location of items) {
+  location.ref;            // persist this — { kind: 'location', id }
+  location.store;          // { ref, handle, name, logoUrl }
+  location.pickup;         // { identityRequirement, paymentRequirement, instructions } or null
+  location.discoverable;   // Mercaria's own nearby search routes shoppers here now
+  location.url;            // the store page, opened on this shop front
+
+  // What is on the shelf there, bounded.
+  const page = await mercaria.locations.products(location.ref, { inStock: true, limit: 12 });
+  for (const item of page.items) {
+    item.product;            // a product summary, as everywhere else
+    item.availability;       // 'in_stock' | 'low_stock' | 'out_of_stock' AT THIS LOCATION
+    item.exactQuantity;      // a number ONLY where the merchant discloses it, else absent
+    item.stockConfirmedAt;   // when the shop last confirmed it
+  }
+}
+```
+
+- **A location is listed only while its GoWay place names it back** (as its
+  business, at the claimant's or GoWay's tier). A place nobody trades from is an
+  empty page, never an error.
+- **`locations.get` / `resolveRef` reject with `MercariaGoneError`** once a
+  location is withdrawn, restricted, closed with its store, or its place stops
+  naming it; `MercariaNotFoundError` when it was never public.
+- **`MercariaUnavailableError` (503) means Mercaria could not ask GoWay**, and is
+  NOT a reason to drop a stored ref — retry later.
+- **A stale count is `out_of_stock`.** Availability is derived from counts the
+  shop confirmed within its own declared interval; an older count proves nothing
+  about the shelf and carries no number.
+- `inStock: true` keeps what is on THIS shelf now; `query`, `sort`, `locale`,
+  `limit` and `cursor` work as on `stores.products`.
+
 ## Links
 
 Never build Mercaria URLs by hand. The link helpers produce the same strings the
@@ -189,6 +237,7 @@ server puts in each DTO's `url`:
 mercaria.links.product(product);             // or a product ref, or an id
 mercaria.links.store(store);                 // or a handle, or a store seller
 mercaria.links.collection(collection, store); // a collection needs its store's handle
+mercaria.links.location(location, location.store); // a location, on its store's page
 ```
 
 A store link needs the store's current **handle**, which a ref deliberately
@@ -202,7 +251,7 @@ availability, and no store handle. That is what makes it safe to persist.
 
 ```ts
 import {
-  productRef, variantRef, storeRef, collectionRef,
+  productRef, variantRef, storeRef, collectionRef, locationRef,
   parseMercariaRef, isMercariaRef,
   formatMercariaRef, parseMercariaRefString,
 } from '@mercaria.co/sdk';
@@ -216,6 +265,7 @@ const ref = parseMercariaRef(row.mercariaRef);
 // As a string column or a URL parameter: one canonical string per ref.
 formatMercariaRef(productRef('prod_1'));          // 'mercaria:product:prod_1'
 parseMercariaRefString('mercaria:store:store_1'); // { kind: 'store', id: 'store_1' }
+formatMercariaRef(locationRef('loc_1'));          // 'mercaria:location:loc_1'
 ```
 
 `parseMercariaRef` accepts only a plain object with exactly the keys of its
@@ -230,8 +280,9 @@ verbatim, and stop when it is `null`.
 A cursor belongs to the list and the filters that produced it. Send it back
 with the **same** `query`, `inStock`, `sort`, `locale` and store or collection —
 a cursor from a different list or different filters is refused with
-`MercariaValidationError`. Changing `limit` between pages is fine. A list ends
-after 10,000 items; narrow the filters to reach further.
+`MercariaBadRequestError`. Changing `limit` between pages is fine. A list ends
+after 10,000 items (`MERCARIA_PUBLIC_LIST_MAX_OFFSET`); narrow the filters to
+reach further.
 
 ```ts
 const first = await mercaria.stores.products(store.ref, { limit: 50 });
@@ -261,9 +312,10 @@ await mercaria.products.search({ query: 'zapatillas' });            // locale=es
 await mercaria.stores.products(store.ref, { locale: 'pt-BR' });     // per-call override
 ```
 
-It applies to `products.search` and `stores.products`. Detail reads
-(`products.get`, `stores.get`, `collections.get` and the `resolve*` helpers) and
-collection product pages take no locale, and the SDK never sends one on them.
+It applies to `products.search`, `stores.products` and `locations.products`.
+Detail reads (`products.get`, `stores.get`, `collections.get`, `locations.get`
+and the `resolve*` helpers), collection product pages and the location lists
+take no locale, and the SDK never sends one on them.
 Locale changes presentation only, never which entity a ref names.
 
 **There is no market or currency option, on purpose.** Public reads serve each
@@ -273,24 +325,33 @@ currency does its own labelled conversion; the SDK will not invent one.
 
 ## Errors
 
-Every failure is a `MercariaError` with a stable `code`, the HTTP `status`
-(or `null`), and `retryable`. Branch on the class or the code — never on
-`message`.
+Every failure is a `MercariaError` with a stable snake_case `code`, the HTTP
+`status` (or `null`), `retryable`, and `details` — the server's scalars, such as
+the refused `field`, or `null`. Branch on the class or the code — never on
+`message`. The server's error body is `{ error: { code, message, details? } }`.
 
 | Class | When | `retryable` |
 | --- | --- | --- |
-| `MercariaNotFoundError` | 404 `NOT_FOUND`: no such entity, never existed | no |
-| `MercariaGoneError` | 410 `GONE`: existed, no longer publicly available (archived, withdrawn, store closed) | no |
-| `MercariaUnavailableError` | 500, 502, 503, 504…: Mercaria is temporarily unable to answer | yes |
-| `MercariaNetworkError` | the request never completed (offline, DNS, reset) | yes |
-| `MercariaTimeoutError` | exceeded `timeoutMs` (a network error) | yes |
-| `MercariaAbortError` | your `signal` aborted it | no |
-| `MercariaRateLimitError` | 429; `retryAfterSeconds` when the server said | yes |
-| `MercariaUnauthorizedError` | 401 | no |
-| `MercariaForbiddenError` | 403 | no |
-| `MercariaValidationError` | 400, or refused before sending (empty id, bad limit) | no |
-| `MercariaResponseError` | the response was not the contract | no |
-| `MercariaApiError` | any other non-2xx — including 404 `UNKNOWN_ROUTE` (this SDK version and the server disagree about a route) and a 404/410 with no Mercaria error body (a proxy); neither ever means the entity is gone | usually no |
+| `MercariaNotFoundError` | 404 `not_found`: no such entity, never existed | no |
+| `MercariaGoneError` | 410 `gone`: existed, no longer publicly available (archived, withdrawn, store closed) | no |
+| `MercariaUnavailableError` | 500 `internal_error`, 503 `service_unavailable`, 502, 504…: Mercaria is temporarily unable to answer | yes |
+| `MercariaNetworkError` | `network_error`: the request never completed (offline, DNS, reset) | yes |
+| `MercariaTimeoutError` | `timeout`: exceeded `timeoutMs` (a network error) | yes |
+| `MercariaAbortError` | `aborted`: your `signal` aborted it | no |
+| `MercariaRateLimitError` | 429 `rate_limited`; `retryAfterSeconds` from the body or `Retry-After` | yes |
+| `MercariaUnauthorizedError` | 401 `unauthorized` | no |
+| `MercariaForbiddenError` | 403 `forbidden` | no |
+| `MercariaConflictError` | 409 `conflict` | no |
+| `MercariaBadRequestError` | 400 `bad_request`: not well-formed — a wrong type, an unknown or repeated parameter, a cursor from another list; or refused before sending | no |
+| `MercariaValidationError` | 422 `validation_failed`: well-formed, but a value is refused (a `limit` out of range, `relevance` without a query, an empty id); or refused before sending | no |
+| `MercariaResponseError` | `malformed_response`: the response was not the contract | no |
+| `MercariaUnknownRouteError` | 404 `unknown_route`: this SDK version and the server disagree about a route — never a missing entity | no |
+| `MercariaApiError` | `http_error`: any other non-2xx, including a 404/410 with no Mercaria error body (a proxy); never means the entity is gone. `MercariaUnknownRouteError` extends it | usually no |
+
+A query the server would refuse is refused before it is sent, by the same
+contract schema the server validates with: `MercariaBadRequestError` or
+`MercariaValidationError` with `status: null` and `details.field` naming the
+parameter.
 
 ```ts
 import { MercariaGoneError, MercariaNotFoundError, isMercariaError } from '@mercaria.co/sdk';
@@ -319,7 +380,7 @@ Cancel with an `AbortSignal` on any call: `{ signal: controller.signal }`.
 
 Messages never contain your token, request headers or response bodies; a
 server message is included only as a bounded single line. `JSON.stringify(error)`
-gives `{ name, code, status, retryable, message }`. `instanceof` works even when
+gives `{ name, code, status, retryable, details, message }`. `instanceof` works even when
 your app loads both the ESM and the CommonJS build.
 
 ## Freshness and caching
@@ -351,6 +412,9 @@ you can never receive:
 - wholesale or supplier cost, supplier identity or supplier references
 - procurement offers, activation keys, license keys or download secrets
 - variant SKUs, barcodes or connector provenance
+- inventory counts, except a location's `exactQuantity` where its merchant
+  chose to disclose it
+- a location's operational name or address, or why it is paused or restricted
 - a manual collection's raw member ids or automation rules
 - moderation evidence, risk or fraud signals
 - payment credentials, guest order-access tokens, or buyer identity

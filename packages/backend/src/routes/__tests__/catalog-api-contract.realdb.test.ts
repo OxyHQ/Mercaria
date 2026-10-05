@@ -121,12 +121,14 @@ vi.mock('../../middleware/auth.js', () => {
         res.status(401).json({ success: false, error: 'UNAUTHORIZED', message: 'Unauthorized' });
         return;
       }
-      // BOTH, because the real `createOxyAuthMiddleware` sets both and different
-      // consumers read different ones: `authoringPermissions` reads
-      // `req.storeMembership`, and `loadStore` reads `req.userId`. Setting only
-      // `req.user` makes every store-scoped route answer 401 — measured.
+      // ALL THREE, because the real `createOxyAuthMiddleware` sets them and
+      // different consumers read different ones: `loadStore` reads `req.userId`
+      // and forwards the bearer to Oxy for the caller's role (ADR 0012).
+      // Setting only `req.user` makes every store-scoped route answer 401 —
+      // measured.
       (req as unknown as { user: { id: string }; userId: string }).user = { id: actor };
       (req as unknown as { userId: string }).userId = actor;
+      (req as unknown as { accessToken: string }).accessToken = `bearer-${actor}`;
       next();
     },
     optionalAuth: (
@@ -144,6 +146,16 @@ vi.mock('../../middleware/auth.js', () => {
   };
 });
 
+/**
+ * Oxy's account graph: every caller owns their own account and has no role on
+ * anybody else's. The fixture store is owned by MEMBER's account, so MEMBER is
+ * its owner and every other actor is a stranger to it.
+ */
+vi.mock('../../services/oxy-account-graph.js', () => ({
+  readCallerAccountRole: async (bearer: string, accountId: string) =>
+    bearer === `bearer-${accountId}` ? 'owner' : null,
+  listCallerAccountRoles: async () => new Map(),
+}));
 vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: (req: express.Request) =>
@@ -408,17 +420,11 @@ beforeAll(async () => {
   // the guard doing its job, and a fixture detail worth stating rather than
   // rediscovering.
   const storeId = randomBytes(12).toString('hex');
+  // Owned by MEMBER's own Oxy account (ADR 0012), which makes MEMBER its owner.
   await db.execute(sql`
-    insert into stores (id, name, handle, description, brand_color)
-    values (${storeId}, ${`${TOKEN} store`}, ${`${TOKEN}-store`}, '', '#101010')
+    insert into stores (id, oxy_account_id, name, handle, description, brand_color)
+    values (${storeId}, ${MEMBER}, ${`${TOKEN} store`}, ${`${TOKEN}-store`}, '', '#101010')
     on conflict (id) do nothing
-  `);
-  // The id is supplied: `generatedId()` mints in the APPLICATION rather than by a
-  // database `DEFAULT` (Postgres 17 has no native `uuidv7()`), so a raw insert
-  // gets none — which is the documented behaviour and not a bug to work around.
-  await db.execute(sql`
-    insert into store_members (id, store_id, oxy_user_id, role, permissions, joined_at)
-    values (${randomBytes(12).toString('hex')}, ${storeId}, ${MEMBER}, 'owner', '{}', now())
   `);
 
   fx = {
@@ -501,7 +507,6 @@ afterAll(async () => {
   );
   await db.execute(sql`delete from catalog_proposals where store_id = ${fx.storeId}`);
   await db.execute(sql`delete from catalog_authoring_drafts where store_id = ${fx.storeId}`);
-  await db.execute(sql`delete from store_members where store_id = ${fx.storeId}`);
   /*
    * `deleteTestStores` and NOT a `delete from stores`, and it is not optional:
    * `services/backfill/stages/store-merchants.ts` pages EVERY active store in the

@@ -1063,7 +1063,7 @@
       "loadingCities": "جارٍ البحث عن مدن…",
       "cityListError": "تعذّر تحميل قائمة المدن الآن.",
       "noCityMatch": "لا توجد مدينة مطابقة يتوفر فيها هذا المنتج في المخزون للاستلام.",
-      "noStockAnywhere": "لا يوفّر أي متجر هذا المنتج للاستلام حاليًا.",
+      "typeATown": "اكتب اسم بلدة أو رمزًا بريديًا لترى أين يمكن استلامه.",
       "searchNear": "البحث بالقرب من %{place}",
       "shopsWithStock": {
         "one": "%{count} متجر به مخزون",
@@ -1134,6 +1134,27 @@
       "ratingsWithScope": "%{formattedCount} تقييم · %{scopeLabel}",
       "fallbackAuthor": "مشترٍ موثّق",
       "viewA11yLabel": "عرض تقييمات خدمة هذا المتجر"
+    },
+    "visit": {
+      "heading": "زورونا",
+      "loading": "جارٍ تحميل معلومات هذا المتجر",
+      "placeUnavailable": "لا يمكن عرض معلومات هذا المتجر الآن.",
+      "viewOnGoWay": "عرض على GoWay",
+      "reviewsOnGoWay": "قراءة التقييمات على GoWay",
+      "openMap": "فتح في خرائط GoWay",
+      "hoursHeading": "ساعات العمل",
+      "closedAllDay": "مغلق",
+      "span": "%{opens}–%{closes}",
+      "exceptionsHeading": "ساعات خاصة",
+      "dateRange": "%{from} – %{to}",
+      "exceptionClosed": "%{dates}: مغلق",
+      "exceptionHours": "%{dates}: %{hours}",
+      "accessibility": "إمكانية الوصول",
+      "payment": "الدفع",
+      "attributeValue": "%{attribute}: %{value}",
+      "collectHere": "اطلب عبر الإنترنت واستلم من هنا",
+      "placeRatingSubject": "%{place} على GoWay",
+      "photoLabel": "صورة %{place}"
     }
   },
   "offer": {
@@ -1380,8 +1401,7 @@
       "placement": {
         "heading": "أين سيظهر",
         "onProductPage": "في صفحة المنتج، إلى جانب بائعين آخرين",
-        "ownSurfacesOnly": "في البحث وفي ملفك كبائع — وليس في صفحة منتج",
-        "localResults": "في النتائج القريبة، ضمن المنطقة التقريبية التي اخترتها"
+        "ownSurfacesOnly": "في البحث وفي ملفك كبائع — وليس في صفحة منتج"
       },
       "blocked": {
         "titleMissing": "أضف عنوانًا لإعلانك.",

@@ -18,10 +18,11 @@
  *
  * ## The manual fallback is a first-class path, not a degraded one
  *
- * `useNearbyPlaces` answers with the cities that actually hold the item, so a
- * shopper who declines the prompt gets a real list rather than an empty state
- * with an apology (#93 acceptance 5). It is also the ONLY path on native today —
- * see {@link requestDeviceOrigin}.
+ * `useNearbyPlaces` resolves a town the shopper types, through GoWay, and
+ * answers only with towns where the item is collectable — so a shopper who
+ * declines the prompt gets a real list rather than an empty state with an
+ * apology (#93 acceptance 5). It is also the ONLY path on native today — see
+ * {@link requestDeviceOrigin}.
  */
 
 import { useCallback, useState } from 'react';
@@ -62,7 +63,7 @@ export interface NearbyOriginState {
   readonly requesting: boolean;
   /** Ask the device. Called from a control, never on mount. */
   readonly requestDeviceOrigin: () => void;
-  /** Adopt a city the shopper picked — the manual fallback. */
+  /** Adopt a town the shopper picked — the manual fallback. */
   readonly selectPlace: (place: NearbyPlaceSuggestion) => void;
   /** Forget the position. A shopper who shared one can take it back. */
   readonly clearOrigin: () => void;
@@ -132,6 +133,8 @@ export function useNearbyAvailability(params: {
   origin: NearbyOrigin | null;
   conditionKeys?: readonly ItemConditionKey[];
   withCheckoutEligibility?: boolean;
+  /** The app's language; each place's name comes back resolved in it. */
+  locale: string;
   enabled?: boolean;
 }) {
   const { origin } = params;
@@ -143,6 +146,7 @@ export function useNearbyAvailability(params: {
     queryKey: queryKeys.nearby.availability(
       subject,
       origin === null ? null : cellKey(origin),
+      params.locale,
     ),
     queryFn: () =>
       fetchNearby({
@@ -154,6 +158,7 @@ export function useNearbyAvailability(params: {
         ...(params.withCheckoutEligibility
           ? { withCheckoutEligibility: params.withCheckoutEligibility }
           : {}),
+        locale: params.locale,
       }),
     enabled: (params.enabled ?? true) && origin !== null && subject !== '',
     // Short, because the answer includes a stock level. A stale "available
@@ -163,23 +168,33 @@ export function useNearbyAvailability(params: {
   });
 }
 
-/** The manual fallback's suggestions. Runs with no origin, by design. */
+/**
+ * The manual fallback's suggestions. Runs with no origin, by design.
+ *
+ * Disabled until the shopper has TYPED something: the server resolves a town
+ * by name, so with no term there is nothing to ask and a request would only
+ * come back empty.
+ */
 export function useNearbyPlaces(params: {
   canonicalVariantId?: string;
   canonicalProductId?: string;
   term?: string;
+  /** The app's language, which GoWay resolves the town's label in. */
+  locale: string;
   enabled?: boolean;
 }) {
   const subject = params.canonicalVariantId ?? params.canonicalProductId ?? '';
+  const term = params.term?.trim() ?? '';
   return useQuery<readonly NearbyPlaceSuggestion[]>({
-    queryKey: queryKeys.nearby.places(subject, params.term ?? ''),
+    queryKey: queryKeys.nearby.places(subject, term, params.locale),
     queryFn: () =>
       fetchNearbyPlaces({
         ...(params.canonicalVariantId ? { canonicalVariantId: params.canonicalVariantId } : {}),
         ...(params.canonicalProductId ? { canonicalProductId: params.canonicalProductId } : {}),
-        ...(params.term ? { q: params.term } : {}),
+        q: term,
+        locale: params.locale,
       }),
-    enabled: (params.enabled ?? true) && subject !== '',
+    enabled: (params.enabled ?? true) && subject !== '' && term !== '',
     staleTime: 300_000,
     retry: false,
   });

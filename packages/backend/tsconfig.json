@@ -33,10 +33,10 @@
     // contract test against a stale build would prove the wrong artefact. The
     // SDK's own strict, no-DOM program is `packages/sdk/tsconfig.json`; here it
     // is only an import — but it is compiled under THIS program's options, so
-    // SDK source must also type-check with `strict: false` (a
-    // `x !== null && typeof x !== …` narrowing needs `strictNullChecks`; see
-    // `nullableRating` in `packages/sdk/src/parse.ts`). No production module
-    // imports it.
+    // SDK source must also type-check with `strict: false`, where `z.infer`
+    // makes every key of a contract type optional — so a type the SDK spells
+    // by hand derives from the contract's (`Pick<…>`, `MercariaPage<T>`) rather
+    // than restating a required key. No production module imports it.
     "paths": {
       "@mercaria.co/sdk": ["../sdk/src/index.ts"]
     },

@@ -1042,8 +1042,8 @@ async function insertPublishedDraftFixtures(tx: Transaction, scope: string): Pro
   const listingId = id(scope, 'listing');
   const categoryId = await insertCategory(tx, id(scope, 'cat'), `zz_obs_integ.${scope}`);
   await tx.execute(sql`
-    insert into stores (id, name, handle, description, brand_color)
-    values (${storeId}, 'Integrity probe', ${`${storeId}-handle`}, '', '#000000')
+    insert into stores (id, oxy_account_id, name, handle, description, brand_color)
+    values (${storeId}, 'oxy-account-fixture', 'Integrity probe', ${`${storeId}-handle`}, '', '#000000')
   `);
   await tx.execute(sql`
     insert into listings (id, owner_type, store_id, title, description, condition,

@@ -97,8 +97,8 @@ const SECOND_MERCHANT = `${P}-merchant-2`;
 beforeAll(async () => {
   if (!ready) return;
   await db.execute(sql`
-    insert into stores (id, name, handle, description, brand_color)
-    values (${`${P}-store`}, 'Proposal probe', ${`${P}-store-handle`}, '', '#000000')
+    insert into stores (id, oxy_account_id, name, handle, description, brand_color)
+    values (${`${P}-store`}, 'oxy-account-fixture', 'Proposal probe', ${`${P}-store-handle`}, '', '#000000')
     on conflict (id) do nothing
   `);
   await db.execute(sql`

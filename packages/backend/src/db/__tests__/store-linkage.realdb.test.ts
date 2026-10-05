@@ -13,8 +13,10 @@
  *    the first, because a follow target's identity is the store's immutable id;
  *  - **case 4 / revocation rule 6** — a store already linked to another
  *    canonical merchant BLOCKS, and stays blocked;
- *  - **acceptance 2** — an existing store links without its handle, members,
- *    orders or policies changing, compared field by field around the link;
+ *  - **acceptance 2** — an existing store links without its handle, owning
+ *    account, orders or policies changing, compared field by field around the
+ *    link — and only a store the claimant holds `store:manage` on, through its
+ *    owning Oxy account (ADR 0012), may be named;
  *  - **acceptance 5** — a revoked claim erases no commerce or analytics history;
  *  - **acceptance 6** — conflicts and corrections are auditable: the revoked
  *    link row survives with its actor, time and reason;
@@ -32,7 +34,7 @@
  * `merchants` and `native_store_links` are RESTRICT by design.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
@@ -68,6 +70,23 @@ import {
 import { createStore } from '../../services/store.service.js';
 import { resetCanonicalMatcher } from '../../services/store-linkage/canonical-matcher.port.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
+import type { StoreCaller } from '../../services/store-access.service.js';
+
+/**
+ * Oxy's account graph, as each case sets it: the roles a claimant holds on
+ * accounts other than their own. A claimant's OWN account needs no entry — the
+ * undelegated session is its owner without asking (ADR 0012).
+ */
+const oxyRoles = vi.hoisted(() => new Map<string, string>());
+vi.mock('../../services/oxy-account-graph.js', () => ({
+  readCallerAccountRole: async (_bearer: string, accountId: string) => oxyRoles.get(accountId) ?? null,
+  listCallerAccountRoles: async () => new Map(oxyRoles),
+}));
+
+/** A claimant in their own, undelegated session. */
+function claimantSession(oxyUserId: string): StoreCaller {
+  return { accountId: oxyUserId, actorAccountId: oxyUserId, delegated: false, accessToken: `bearer-${oxyUserId}` };
+}
 
 let db: Database;
 
@@ -253,7 +272,7 @@ describe('case 1 — a verified merchant with no native store gets one', () => {
 
     const request = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       mode: 'create_store',
       reason: REASON,
     });
@@ -269,13 +288,11 @@ describe('case 1 — a verified merchant with no native store gets one', () => {
     createdStoreIds.push(storeId);
 
     // Issue store-creation rules 1 and 2: the EXISTING creation service and
-    // permission model, with the verified claimant as owner.
+    // permission model, with the verified claimant's account as the owning
+    // Oxy account (ADR 0012) — which holds every permission.
     const [store] = await db.select().from(stores).where(eq(stores.id, storeId));
     expect(store?.handle).toBeTruthy();
-    const members = await db.query.storeMembers.findMany({ where: (m, { eq: e }) => e(m.storeId, storeId) });
-    expect(members).toHaveLength(1);
-    expect(members[0]?.oxyUserId).toBe(owner);
-    expect(members[0]?.role).toBe('owner');
+    expect(store?.oxyAccountId).toBe(owner);
 
     // Issue store-creation rule 6: the mapping is #54's model, not a second one.
     const link = await findActiveLinkByStore(db, storeId);
@@ -303,13 +320,13 @@ describe('acceptance 4 — replaying creates no duplicate store, mapping or foll
 
     const first = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       mode: 'create_store',
       reason: REASON,
     });
     const second = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       mode: 'create_store',
       reason: 'a different reason entirely, which must not mint a second request',
     });
@@ -329,7 +346,7 @@ describe('acceptance 4 — replaying creates no duplicate store, mapping or foll
 
     const request = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       mode: 'create_store',
       reason: REASON,
     });
@@ -429,7 +446,7 @@ describe('acceptance 4 — replaying creates no duplicate store, mapping or foll
 // ── Case 2: link an existing store ──────────────────────────────────────────
 
 describe('case 2 / acceptance 2 — an existing store links without changing', () => {
-  it('leaves handle, members, policies and settings byte-for-byte identical', async () => {
+  it('leaves handle, owning account, policies and settings byte-for-byte identical', async () => {
     const owner = `owner-2-${RUN}`;
     const merchantId = await mintMerchant('case2');
     const storeId = await mintStore(owner, 'case2');
@@ -440,13 +457,10 @@ describe('case 2 / acceptance 2 — an existing store links without changing', (
     });
 
     const [before] = await db.select().from(stores).where(eq(stores.id, storeId));
-    const membersBefore = await db.query.storeMembers.findMany({
-      where: (m, { eq: e }) => e(m.storeId, storeId),
-    });
 
     const request = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       mode: 'link_existing',
       storeId,
       reason: REASON,
@@ -458,9 +472,6 @@ describe('case 2 / acceptance 2 — an existing store links without changing', (
     expect(applied.resolvedStoreId).toBe(storeId);
 
     const [after] = await db.select().from(stores).where(eq(stores.id, storeId));
-    const membersAfter = await db.query.storeMembers.findMany({
-      where: (m, { eq: e }) => e(m.storeId, storeId),
-    });
 
     // Field by field rather than a whole-row compare, so a future column that
     // linkage legitimately touches is a visible edit here. `updatedAt` is
@@ -474,7 +485,8 @@ describe('case 2 / acceptance 2 — an existing store links without changing', (
     expect(after?.policiesRefundPolicy).toBe(before?.policiesRefundPolicy);
     expect(after?.taxSettingsPricesIncludeTax).toBe(before?.taxSettingsPricesIncludeTax);
     expect(after?.updatedAt.toISOString()).toBe(before?.updatedAt.toISOString());
-    expect(membersAfter).toEqual(membersBefore);
+    // The owning account is who may act for the store; linkage never moves it.
+    expect(after?.oxyAccountId).toBe(before?.oxyAccountId);
 
     // Issue existing-store rule 5: the native store now maps to the canonical
     // merchant, and that is the ONLY thing that changed.
@@ -490,7 +502,7 @@ describe('case 2 / acceptance 2 — an existing store links without changing', (
     const [before] = await db.select().from(stores).where(eq(stores.id, storeId));
     const request = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       mode: 'link_existing',
       storeId,
       reason: REASON,
@@ -544,7 +556,7 @@ describe('case 4 / revocation rule 6 — a conflicting live link BLOCKS', () => 
     });
     const request = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: challengerOwner,
+      claimant: claimantSession(challengerOwner),
       mode: 'link_existing',
       storeId,
       reason: REASON,
@@ -610,7 +622,7 @@ describe('case 3 — several candidate stores go to review, not to a guess', () 
 
     const request = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       // No store named, and the claimant manages two — the ambiguity itself.
       mode: 'create_store',
       reason: REASON,
@@ -622,7 +634,7 @@ describe('case 3 — several candidate stores go to review, not to a guess', () 
 
     const ambiguous = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       mode: 'link_existing',
       storeId: storeA,
       reason: REASON,
@@ -707,7 +719,7 @@ describe('case 5 — several storefronts, ONE native store', () => {
 
     const request = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       mode: 'link_existing',
       storeId,
       reason: REASON,
@@ -734,7 +746,7 @@ describe('case 5 — several storefronts, ONE native store', () => {
     const secondStore = await mintStore(owner, 'case5-second');
     const secondRequest = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       mode: 'link_existing',
       storeId: secondStore,
       reason: REASON,
@@ -755,7 +767,7 @@ describe('case 7 / acceptance 5 — revocation preserves everything public', () 
 
     const request = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       mode: 'link_existing',
       storeId,
       reason: REASON,
@@ -829,7 +841,7 @@ describe('case 7 — a mistaken link is correctable, with a stored impact previe
 
     const original = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       mode: 'link_existing',
       storeId,
       reason: REASON,
@@ -846,9 +858,8 @@ describe('case 7 — a mistaken link is correctable, with a stored impact previe
     expect(correction.supersedesLinkId).toBe(applied.nativeStoreLinkId);
 
     // Issue revocation rule 5: the impact preview is on the RECORD, not on a
-    // screen somebody looked at. The store has one member and no orders, and
-    // those are the counts stored.
-    expect(correction.impactStoreMembers).toBe(1);
+    // screen somebody looked at. The store has no orders, and that is the count
+    // stored.
     expect(correction.impactPlacedOrders).toBe(0);
 
     const corrected = await applyLinkageRequest({
@@ -883,7 +894,7 @@ describe('case 7 — a mistaken link is correctable, with a stored impact previe
 
     const first = await openLinkageRequest({
       claimId,
-      claimantOxyUserId: owner,
+      claimant: claimantSession(owner),
       mode: 'link_existing',
       storeId,
       reason: REASON,
@@ -1221,7 +1232,6 @@ describe('the diff reads real rows and applies nothing', () => {
     expect(result.storeId).toBe(storeId);
     expect(result.merchantId).toBe(merchantId);
     expect(result.fields.map((field) => field.field)).toEqual(['name', 'description']);
-    expect(result.impact.storeMembers).toBe(1);
     expect(result.impact.placedOrders).toBe(0);
     expect(result.unchanged.some((entry) => entry.includes('handle'))).toBe(true);
 
@@ -1234,5 +1244,56 @@ describe('the diff reads real rows and applies nothing', () => {
       .from(storeLinkageRequests)
       .where(eq(storeLinkageRequests.merchantId, merchantId));
     expect(requests).toEqual([]);
+  });
+});
+
+// ── Who may link an existing store is the owning Oxy account's answer ───────
+
+describe('existing-store rule 1 — `store:manage` through the owning Oxy account (ADR 0012)', () => {
+  it('blocks a claimant who is only an ADMIN of the organization that owns the store', async () => {
+    const claimant = `claimant-admin-${RUN}`;
+    const org = `org-admin-${RUN}`;
+    const merchantId = await mintMerchant('org-admin');
+    const storeId = await mintStore(org, 'org-admin');
+    const claimId = await mintVerifiedClaim({ merchantId, claimantOxyUserId: claimant });
+
+    // `store:manage` is the one permission an admin does not hold.
+    oxyRoles.set(org, 'admin');
+    try {
+      const request = await openLinkageRequest({
+        claimId,
+        claimant: claimantSession(claimant),
+        mode: 'link_existing',
+        storeId,
+        reason: REASON,
+      });
+      expect(request.state).toBe('blocked');
+      expect(request.blockReason).toBe('store_permission_missing');
+    } finally {
+      oxyRoles.clear();
+    }
+  });
+
+  it('admits a claimant who OWNS that organization — the control', async () => {
+    const claimant = `claimant-owner-${RUN}`;
+    const org = `org-owner-${RUN}`;
+    const merchantId = await mintMerchant('org-owner');
+    const storeId = await mintStore(org, 'org-owner');
+    const claimId = await mintVerifiedClaim({ merchantId, claimantOxyUserId: claimant });
+
+    oxyRoles.set(org, 'owner');
+    try {
+      const request = await openLinkageRequest({
+        claimId,
+        claimant: claimantSession(claimant),
+        mode: 'link_existing',
+        storeId,
+        reason: REASON,
+      });
+      expect(request.state).toBe('draft');
+      expect(request.blockReason).toBeNull();
+    } finally {
+      oxyRoles.clear();
+    }
   });
 });

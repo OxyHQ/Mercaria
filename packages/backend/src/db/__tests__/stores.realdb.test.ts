@@ -2,7 +2,8 @@
  * The stores-domain repositories, against a REAL Postgres database.
  *
  * `store.service.test.ts` mocks these functions, which is right for what it
- * tests — who may demote whom is pure logic. It is also blind to everything
+ * tests — who may give an account a store, or write an override, is pure
+ * logic. It is also blind to everything
  * below, and the blindness is total: a mocked repository accepts any argument
  * and returns whatever the test says, so a query correlated against the wrong
  * column, a transaction that is not one, and a constraint that does not exist
@@ -10,6 +11,9 @@
  *
  * Each block here covers something only a server can answer:
  *
+ *  - a store is OWNED by an Oxy account (ADR 0012): the lookup by owning
+ *    account, and the CHECKs that keep a permission override an EXCEPTION —
+ *    vocabulary, disjoint sets, never empty, one per person per store;
  *  - the single-default LOCATION invariant is a partial unique index now, not a
  *    convention two statements politely observed;
  *  - `deleteLocation` raises SQLSTATE 23503 from the RESTRICT side, which
@@ -26,17 +30,21 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { isForeignKeyViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
+import { isCheckViolation, isForeignKeyViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { inventoryLevels, listings, productVariants } from '../schema/catalog.js';
 import { draftOrders } from '../schema/pos.js';
 import { deleteTestStores } from './store-teardown.js';
+import { storePermissionOverrides } from '../schema/stores.js';
 import {
   adjustStoreProductCount,
+  deleteStorePermissionOverride,
   findStoreById,
-  findStoresForMember,
+  findStorePermissionOverride,
+  findStorePermissionOverridesForUser,
+  findStoresByOwnerAccounts,
   insertStore,
-  insertStoreMember,
+  upsertStorePermissionOverride,
 } from '../stores/storeRepository.js';
 import {
   deleteLocation,
@@ -52,22 +60,20 @@ let db: Database;
 const createdStoreIds: string[] = [];
 
 /** Create a store through the repository and register it for cleanup. */
-async function makeStore(): Promise<string> {
+async function makeStore(oxyAccountId?: string): Promise<string> {
   // The WHOLE uuid, not a prefix: v7 is time-ordered, so two ids minted in the
   // same millisecond share their leading characters and a truncated suffix
   // collides with `stores_handle_key` — which is the constraint working, but
   // in the wrong test.
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `realdb-${suffix}`,
-      name: 'Realdb store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: oxyAccountId ?? `owner-${suffix}`,
+    handle: `realdb-${suffix}`,
+    name: 'Realdb store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
   return store.id;
 }
@@ -112,15 +118,10 @@ afterAll(async () => {
 });
 
 describe('insertStore', () => {
-  it('creates the store and its founding owner in one transaction', async () => {
-    const storeId = await makeStore();
-
-    const store = await findStoreById(storeId);
-    expect(store?.members).toHaveLength(1);
-    expect(store?.members[0].role).toBe('owner');
-    // `$type<StorePermission[]>` is a compile-time narrowing over a `text[]`;
-    // this is the round trip that shows the array really survives as an array.
-    expect(store?.members[0].permissions).toEqual(['store:manage']);
+  it('records the owning Oxy account', async () => {
+    const account = `org-${uuidv7()}`;
+    const store = await findStoreById(await makeStore(account));
+    expect(store?.oxyAccountId).toBe(account);
   });
 
   it('carries the column DEFAULTS the service stopped substituting', async () => {
@@ -136,36 +137,121 @@ describe('insertStore', () => {
     expect(store?.policiesReturnWindowDays).toBe(30);
   });
 
-  it('refuses a second membership for the same user on the same store', async () => {
-    const storeId = await makeStore();
-    const store = await findStoreById(storeId);
-    const existing = store?.members[0].oxyUserId ?? '';
+  it('finds every store owned by any of several accounts, newest first', async () => {
+    const org = `org-${uuidv7()}`;
+    const person = `person-${uuidv7()}`;
+    const older = await makeStore(org);
+    const newer = await makeStore(person);
+    await makeStore(); // somebody else's — must not appear
 
-    // Mongo's embedded array held the same user twice happily. This is the
-    // invariant the table buys, and the reason `inviteMember`'s own duplicate
-    // check is a nicer error rather than the only thing standing in the way.
-    let caught: unknown;
+    const found = await findStoresByOwnerAccounts([org, person]);
+    // Floor before equality: an empty answer would otherwise pass a check
+    // written against a list the test never managed to create.
+    expect(found.length).toBeGreaterThan(0);
+    expect(found.map((row) => row.id)).toEqual([newer, older]);
+    expect(await findStoresByOwnerAccounts([])).toEqual([]);
+  });
+});
+
+describe('store_permission_overrides — exceptions, never a member list', () => {
+  /** Run `write` and return what Postgres refused it with. */
+  async function refusal(write: () => Promise<unknown>): Promise<unknown> {
     try {
-      await insertStoreMember(storeId, {
-        oxyUserId: existing,
-        role: 'staff',
-        permissions: [],
-      });
+      await write();
     } catch (error) {
-      caught = error;
+      return error;
     }
-    expect(isUniqueViolation(caught, 'store_members_store_id_oxy_user_id_key')).toBe(true);
+    return undefined;
+  }
+
+  it('round-trips one person’s grants and revokes as arrays', async () => {
+    const storeId = await makeStore();
+    await upsertStorePermissionOverride({
+      storeId,
+      oxyUserId: 'person-bob',
+      granted: ['refunds:write'],
+      revoked: ['discounts:write'],
+      updatedByOxyUserId: 'person-alice',
+    });
+    const row = await findStorePermissionOverride(storeId, 'person-bob');
+    expect(row?.granted).toEqual(['refunds:write']);
+    expect(row?.revoked).toEqual(['discounts:write']);
+    expect(row?.updatedByOxyUserId).toBe('person-alice');
   });
 
-  it('finds a store through the membership join', async () => {
+  it('an upsert REPLACES the exception whole — the later write wins, never a merge', async () => {
     const storeId = await makeStore();
-    const store = await findStoreById(storeId);
-    const owner = store?.members[0].oxyUserId ?? '';
+    const base = { storeId, oxyUserId: 'person-bob', updatedByOxyUserId: null };
+    await upsertStorePermissionOverride({ ...base, granted: ['refunds:write'], revoked: [] });
+    await upsertStorePermissionOverride({ ...base, granted: [], revoked: ['products:write'] });
 
-    const found = await findStoresForMember(owner);
-    expect(found.map((row) => row.id)).toEqual([storeId]);
-    // The join must not drop the members it did not join on.
-    expect(found[0].members).toHaveLength(1);
+    const row = await findStorePermissionOverride(storeId, 'person-bob');
+    expect(row?.granted).toEqual([]);
+    expect(row?.revoked).toEqual(['products:write']);
+    const rows = await db
+      .select({ id: storePermissionOverrides.id })
+      .from(storePermissionOverrides)
+      .where(eq(storePermissionOverrides.storeId, storeId));
+    expect(rows).toHaveLength(1);
+  });
+
+  it('reads one person’s exceptions across stores, keyed by store', async () => {
+    const first = await makeStore();
+    const second = await makeStore();
+    await upsertStorePermissionOverride({
+      storeId: first,
+      oxyUserId: 'person-carol',
+      granted: ['analytics:read'],
+      revoked: [],
+      updatedByOxyUserId: null,
+    });
+    const byStore = await findStorePermissionOverridesForUser([first, second], 'person-carol');
+    expect([...byStore.keys()]).toEqual([first]);
+    expect(await deleteStorePermissionOverride(first, 'person-carol')).toBe(true);
+    expect(await deleteStorePermissionOverride(first, 'person-carol')).toBe(false);
+  });
+
+  it('refuses a permission outside the vocabulary', async () => {
+    const storeId = await makeStore();
+    const caught = await refusal(() =>
+      db.insert(storePermissionOverrides).values({
+        storeId,
+        oxyUserId: 'person-bob',
+        granted: ['store:own'] as never,
+      }),
+    );
+    expect(isCheckViolation(caught, 'store_permission_overrides_granted_check')).toBe(true);
+  });
+
+  it('refuses one permission both granted and revoked', async () => {
+    const storeId = await makeStore();
+    const caught = await refusal(() =>
+      db.insert(storePermissionOverrides).values({
+        storeId,
+        oxyUserId: 'person-bob',
+        granted: ['refunds:write'],
+        revoked: ['refunds:write'],
+      }),
+    );
+    expect(isCheckViolation(caught, 'store_permission_overrides_disjoint_check')).toBe(true);
+  });
+
+  it('refuses an EMPTY exception — no exception is the absence of a row', async () => {
+    const storeId = await makeStore();
+    const caught = await refusal(() =>
+      db.insert(storePermissionOverrides).values({ storeId, oxyUserId: 'person-bob' }),
+    );
+    expect(isCheckViolation(caught, 'store_permission_overrides_nonempty_check')).toBe(true);
+  });
+
+  it('holds one exception per person per store', async () => {
+    const storeId = await makeStore();
+    const row = { storeId, oxyUserId: 'person-bob', granted: ['refunds:write' as const] };
+    await db.insert(storePermissionOverrides).values(row);
+    const caught = await refusal(() => db.insert(storePermissionOverrides).values(row));
+    expect(isUniqueViolation(caught, 'store_permission_overrides_store_id_oxy_user_id_key')).toBe(
+      true,
+    );
   });
 });
 

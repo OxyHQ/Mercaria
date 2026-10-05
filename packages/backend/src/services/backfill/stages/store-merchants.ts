@@ -5,33 +5,35 @@
  * ## Why the link is `verified` and not `asserted`
  *
  * D23 says the store owner's authenticated ownership IS the evidence, "recorded
- * as such". That is a real, checkable fact held in Mercaria's own tables: a
- * `store_members` row with role `owner` names an Oxy account that authenticated
- * to this deployment and holds the store. So the METHOD is `owner_authentication`
+ * as such". That is a real, checkable fact held in Mercaria's own tables:
+ * `stores.oxy_account_id` names the Oxy account that owns the store (ADR 0012),
+ * and only an account that authenticated to this deployment — or somebody who
+ * governs it — can have put a store under it. So the METHOD is `owner_authentication`
  * — the evidence — and the ACTOR is the operator who opened the run, because
  * they are who performed the linking act. Collapsing the two (recording the
  * owner as the verifier) would put a verification in somebody's name that they
  * never performed, which is the kind of claim `native_store_links`' NOT NULL
  * actor column exists to make attributable.
  *
- * The note names the owner account, so an auditor can check the evidence without
- * reconstructing the store's membership as it was on the day of the migration.
+ * The note names the owning account, so an auditor can check the evidence
+ * without reconstructing the store's ownership as it was on the day of the
+ * migration.
  *
  * ## What this stage deliberately does not do
  *
  * It creates NO relationship (#55), asserts NO brand, and touches NOTHING on the
- * `stores` row — not its handle, not its rating, not its members. #54's realdb
+ * `stores` row — not its handle, not its rating, not its owning account. #54's realdb
  * test already pins that linking leaves a store byte-identical; this stage stays
  * on the far side of that guarantee by going through
  * `CanonicalGraphWriter.linkMerchantToStore` and never opening the store table
  * for a write.
  */
 
-import { and, asc, eq, gt } from 'drizzle-orm';
+import { asc, gt } from 'drizzle-orm';
 import { getDb } from '../../../db/postgres.js';
 import { isMercariaError } from '../../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../../utils/api-response.js';
-import { stores, storeMembers } from '../../../db/schema/stores.js';
+import { stores } from '../../../db/schema/stores.js';
 import { findActiveLinkByStore } from '../../../db/commerce-graph/nativeStoreLinkRepository.js';
 import {
   examineSubject,
@@ -49,25 +51,7 @@ interface StoreRow {
   readonly handle: string;
   readonly name: string;
   readonly status: string;
-}
-
-/**
- * The store's owning Oxy account, if it has one.
- *
- * A store with no `owner` member is possible in principle (every member removed
- * but the store row left behind), and this stage treats it as evidence it does
- * not have: without an authenticated owner there is nothing
- * `owner_authentication` could be naming, so the store is skipped rather than
- * linked on weaker grounds.
- */
-async function findStoreOwner(storeId: string): Promise<string | undefined> {
-  const rows = await getDb()
-    .select({ oxyUserId: storeMembers.oxyUserId })
-    .from(storeMembers)
-    .where(and(eq(storeMembers.storeId, storeId), eq(storeMembers.role, 'owner')))
-    .orderBy(asc(storeMembers.joinedAt))
-    .limit(1);
-  return rows[0]?.oxyUserId;
+  readonly oxyAccountId: string;
 }
 
 export async function runStoreMerchantsPage(context: StageContext): Promise<StagePageResult> {
@@ -78,6 +62,7 @@ export async function runStoreMerchantsPage(context: StageContext): Promise<Stag
       handle: stores.handle,
       name: stores.name,
       status: stores.status,
+      oxyAccountId: stores.oxyAccountId,
     })
     .from(stores)
     .where(context.cursor === null ? undefined : gt(stores.id, context.cursor))
@@ -110,17 +95,6 @@ async function decideStore(context: StageContext, store: StoreRow): Promise<Subj
     };
   }
 
-  const ownerOxyUserId = await findStoreOwner(store.id);
-  if (ownerOxyUserId === undefined) {
-    // No `owner` member means there is no authenticated ownership for
-    // `owner_authentication` to be naming. Linking anyway would record evidence
-    // that does not exist, so the store waits for an operator instead.
-    return {
-      reasonCode: 'store_owner_unresolved',
-      detail: 'no store member with role owner to evidence owner authentication',
-    };
-  }
-
   const merchant = await context.writer.createMerchantForStore({
     name: store.name,
     storeHandle: store.handle,
@@ -132,7 +106,7 @@ async function decideStore(context: StageContext, store: StoreRow): Promise<Subj
       merchantId: merchant.id,
       storeId: store.id,
       method: 'owner_authentication',
-      note: `${CATALOG_BACKFILL_RULE_ID}: native store owner ${ownerOxyUserId} is authenticated in Mercaria's own membership records`,
+      note: `${CATALOG_BACKFILL_RULE_ID}: native store is owned by Oxy account ${store.oxyAccountId} in Mercaria's own records`,
       actorOxyUserId: context.actorOxyUserId,
       reason: `${CATALOG_BACKFILL_RULE_ID} store_merchants stage`,
     });

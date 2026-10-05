@@ -327,16 +327,14 @@ async function seedScenario(
   const providerAccountId = `acct_${suffix.replace(/-/g, '').slice(-24)}`;
   const settled = options.settled ?? { amountMinor: options.totalMinor, currency: 'EUR' as const };
 
-  const store = await insertStore(
-    {
-      handle: `hold-${suffix}`,
-      name: 'High-value store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'EUR',
-    },
-    [{ oxyUserId: ownerId, role: 'owner', permissions: ['store:manage'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: ownerId,
+    handle: `hold-${suffix}`,
+    name: 'High-value store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'EUR',
+  });
   const location = await insertLocation(store.id, {
     name: 'Warehouse',
     type: 'warehouse',

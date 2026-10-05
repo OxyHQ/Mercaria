@@ -3,19 +3,28 @@
  *
  * A shopper standing in a city wants to know whether the exact thing they are
  * looking at is on a shelf near them, and whether they can pay for it now and
- * walk in and collect it. Answering that needs four facts Mercaria did not
- * publish before this issue: WHERE a store's locations are, WHICH of them the
- * merchant is willing to have discovered, WHAT is collectable there right now,
- * and WHO may collect it.
+ * walk in and collect it. Answering that needs four facts: WHERE a store's
+ * locations are, WHICH of them the merchant is willing to have discovered,
+ * WHAT is collectable there right now, and WHO may collect it.
+ *
+ * ## Where a location IS belongs to GoWay (ADR 0013)
+ *
+ * The place facts — name, address, position, timezone, weekly hours and their
+ * dated exceptions, contact, accessibility — live on a GoWay place, and
+ * Mercaria keeps only the opaque `goWayPlaceId` on the location. Every shape
+ * below that carries one of those facts (`PickupAddress`,
+ * `PickupOpeningInterval`, `PickupHoursException`, the accessibility and
+ * contact facts) is a PROJECTION of the GoWay place made at read time, never a
+ * column. The one frozen copy is the order's collection snapshot, which is
+ * history rather than a second source of truth.
  *
  * ## The three things this file makes structurally impossible
  *
- * 1. **A private address can never become a public one.** A location's
- *    OPERATIONAL address (`locations.address` — where staff work, where a
- *    carrier delivers stock) is never projected. What is published is a
- *    separate, merchant-composed {@link LocationPublicAddress} whose every
- *    field is optional, so "publish the city and nothing else" is the shape of
- *    the data rather than a filter somebody remembered to apply.
+ * 1. **A location nobody verified can never be discovered.** A location is
+ *    findable only while its GoWay place names it back
+ *    (`commerce.mercaria.store` = the location id at the business or Oxy
+ *    tier) — see {@link PLACE_LINK_GAPS}. The operational address
+ *    (`locations.address`, where a carrier delivers stock) is never projected.
  * 2. **A P2P seller's precise coordinates are unrepresentable.**
  *    {@link P2pLocalArea} carries CELL INDICES and a precision, never a
  *    latitude and longitude — see {@link P2P_LOCAL_CELL_PRECISION_DEGREES}.
@@ -27,13 +36,13 @@
  *
  * ## Unknown is never zero and never nearby
  *
- * A location with no coordinate is not at distance zero, it is NOT NEARBY: a
- * publication with no geocode cannot appear in a proximity answer at all
- * (#93 nearby rule 7). A location whose stock has not been confirmed inside its
- * own declared interval is STALE and is likewise withheld, rather than shown
- * with an old number. Both are reported as {@link PickupBlockReason}s on the
- * operator surface, so "nothing is nearby" and "everything nearby is stale" are
- * distinguishable to whoever has to fix it.
+ * A location with no verified place is not at distance zero, it is NOT NEARBY:
+ * it cannot appear in a proximity answer at all (#93 nearby rule 7). A
+ * location whose stock has not been confirmed inside its own declared interval
+ * is STALE and is likewise withheld, rather than shown with an old number. Both
+ * are reported as {@link PickupBlockReason}s on the operator surface, so
+ * "nothing is nearby" and "everything nearby is stale" are distinguishable to
+ * whoever has to fix it.
  */
 
 import type { Timestamps } from './common';
@@ -54,64 +63,13 @@ import type { ItemConditionKey } from './condition';
  * front mean stopping shipping from its stockroom.
  *
  * `withdrawn` rather than a second `unpublished` word: a merchant who takes a
- * location down keeps the profile, the hours and the geocode, and republishing
- * is one state change rather than retyping them.
+ * location down keeps its pickup settings and its place link, and
+ * republishing is one state change rather than re-entering them.
  */
 export const LOCATION_PUBLICATION_STATES = ['draft', 'published', 'withdrawn'] as const;
 
 /** One of {@link LOCATION_PUBLICATION_STATES}. */
 export type LocationPublicationState = (typeof LOCATION_PUBLICATION_STATES)[number];
-
-/**
- * Where a published location's coordinate came from (#93 publication field 6).
- *
- * Every member is a MERCHANT or an OPERATOR act, and that is the whole list:
- * **Mercaria runs no geocoding provider and calls none.** `services/checkout`
- * already asserts by scan that no address-correction or geocoding client exists
- * on the checkout path, and adding one here would put a third party between a
- * merchant typing their own shop's address and that shop being findable.
- *
- * The consequence is stated rather than hidden: a merchant who supplies no map
- * pin has a location that cannot be discovered by proximity at all — which is
- * an honest "we do not know where this is", and is why
- * {@link PICKUP_BLOCK_REASONS} carries `location_not_geocoded`.
- *
- * Disjoint from {@link LOCATION_FORBIDDEN_GEOCODE_PROVENANCES} by a test.
- */
-export const LOCATION_GEOCODE_PROVENANCES = [
-  /** The merchant dropped a pin on a map in the dashboard. */
-  'merchant_map_pin',
-  /** The merchant typed coordinates alongside the address. */
-  'merchant_entered',
-  /** An operator corrected an impossible or duplicated coordinate. */
-  'operator_corrected',
-] as const;
-
-/** One of {@link LOCATION_GEOCODE_PROVENANCES}. */
-export type LocationGeocodeProvenance = (typeof LOCATION_GEOCODE_PROVENANCES)[number];
-
-/**
- * Coordinate sources that may NEVER establish a published location's position.
- *
- * The `RetailForbiddenComponentKind` device: a prohibition stated as a VALUE,
- * disjoint from the permitted tuple by a test, so a plausible-looking addition
- * fails the build instead of quietly widening what a merchant's shop front can
- * be inferred from. The last two are the ones worth naming — a coordinate
- * derived from where BUYERS were, or from where parcels went, is a position
- * built out of other people's locations.
- */
-export const LOCATION_FORBIDDEN_GEOCODE_PROVENANCES = [
-  'third_party_geocoder',
-  'buyer_device_gps',
-  'ip_geolocation',
-  'carrier_address_lookup',
-  'inferred_from_order_destinations',
-  'inferred_from_nearby_searches',
-] as const;
-
-/** One of {@link LOCATION_FORBIDDEN_GEOCODE_PROVENANCES}. */
-export type LocationForbiddenGeocodeProvenance =
-  (typeof LOCATION_FORBIDDEN_GEOCODE_PROVENANCES)[number];
 
 /**
  * How a location's stock numbers are kept up to date (#93 inventory field 5).
@@ -160,52 +118,57 @@ export const PICKUP_PAYMENT_REQUIREMENTS = ['prepaid'] as const;
 export type PickupPaymentRequirement = (typeof PICKUP_PAYMENT_REQUIREMENTS)[number];
 
 /**
- * A published location's public address — every field OPTIONAL (#93
- * publication field 5, "public address fields selected by the merchant").
+ * A location's address as a shopper reads it, projected from its GoWay place.
  *
- * Not a `Partial<LocationAddress>`: the operational address carries a recipient
- * name and a phone that belong to a person who works there, and this shape has
- * neither, so a mechanical copy of one into the other does not type-check.
- * A merchant publishing only `{city, country}` is a complete value here.
+ * Every field is optional except the country, because GoWay publishes only the
+ * parts a source actually supports and an inferred postal code is
+ * indistinguishable from a real one. `line1` is the street and house number,
+ * `line2` the neighbourhood. The same shape is what an order's collection
+ * snapshot freezes, so a shop front and the receipt for it read alike.
  */
-export interface LocationPublicAddress {
+export interface PickupAddress {
   readonly line1?: string;
   readonly line2?: string;
   readonly city?: string;
   readonly region?: string;
   readonly postalCode?: string;
-  /** ISO-3166 alpha-2. Required to publish — a place with no country is not a place. */
+  /** ISO-3166 alpha-2. A place GoWay holds no country for cannot be collected from. */
   readonly country: string;
 }
 
-/** One opening interval on one weekday, in minutes from local midnight. */
-export interface LocationOpeningHour {
+/**
+ * One interval of a place's weekly hours, in its own local wall-clock time.
+ *
+ * GoWay's shape, deliberately: `closes <= opens` is a span that crosses
+ * midnight (a bar open 20:00–02:00), and `00:00`–`00:00` is the whole day.
+ */
+export interface PickupOpeningInterval {
   /** 0 = Sunday … 6 = Saturday, matching `Date#getDay`. */
-  readonly weekday: number;
-  /** Inclusive, 0–1439. */
-  readonly opensMinute: number;
-  /** Exclusive, 1–1440. A shift ending at local midnight is 1440. */
-  readonly closesMinute: number;
+  readonly day: number;
+  /** Local `HH:mm`. */
+  readonly opens: string;
+  /** Local `HH:mm`. */
+  readonly closes: string;
 }
 
-/** A dated exception to the regular hours — a holiday, a refit, a closure. */
-export interface LocationClosure {
-  readonly id: string;
+/** A dated exception to the weekly hours — a holiday, a refit, a late night. */
+export interface PickupHoursException {
   /** Inclusive local date, `YYYY-MM-DD`. */
-  readonly fromDate: string;
+  readonly startsOn: string;
   /** Inclusive local date, `YYYY-MM-DD`. */
-  readonly throughDate: string;
-  /** Shown to shoppers, so it must be safe to publish. */
+  readonly endsOn: string;
+  /** Closed for the whole range. When `false`, `intervals` are the hours on each day of it. */
+  readonly closed: boolean;
+  readonly intervals: readonly { readonly opens: string; readonly closes: string }[];
+  /** Shown to shoppers. */
   readonly note?: string;
 }
 
 /**
- * Facts a merchant manages about the place itself (#93 publication field 10).
+ * The place's accessibility, projected from its GoWay capabilities.
  *
- * Present ONLY when merchant-managed: Mercaria neither infers nor verifies any
- * of them, and a `false` here means the merchant said no rather than that
- * nobody asked. Absence is therefore the third state and is what an unedited
- * profile carries.
+ * Present ONLY where somebody asserted it: a `false` here means the place says
+ * no rather than that nobody asked, and absence is the third state.
  */
 export interface LocationAccessibilityFacts {
   readonly stepFreeAccess?: boolean;
@@ -214,10 +177,80 @@ export interface LocationAccessibilityFacts {
   readonly hearingLoop?: boolean;
 }
 
-/** The merchant-managed public contact for a location. Never a staff member's own. */
+/** The place's public contact, from GoWay. Never a staff member's own. */
 export interface LocationPublicContact {
   readonly phone?: string;
   readonly url?: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The GoWay place link                                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Everything that can stand between a location and the GoWay place it trades
+ * from — the trust rule's failing conditions, one per remedy (ADR 0013).
+ *
+ * A location is linked when its `goWayPlaceId` names a place a PUBLIC GoWay
+ * read shows active, and that place names the location back:
+ * `commerce.mercaria.store` = the location id, asserted at
+ * `business_asserted` or `oxy_verified`. Only a business claimant (or GoWay
+ * itself) can assert at those tiers, so the back-reference is the proof that
+ * whoever controls the place also controls the store.
+ *
+ * The verdict is DERIVED on every read and never stored, like every other
+ * collection verdict in this file.
+ */
+export const PLACE_LINK_GAPS = [
+  /** The location names no GoWay place. */
+  'place_not_set',
+  /** GoWay has never heard of the id. */
+  'place_not_found',
+  /** GoWay withdrew the place. A MERGED place is followed instead, by the verify act. */
+  'place_gone',
+  /** The place is `closed` or only `proposed`. */
+  'place_not_active',
+  /** GoWay could not be asked and nothing recent is cached. Fails closed. */
+  'goway_unavailable',
+  /** The place carries no `commerce.mercaria.store` at all. */
+  'store_link_missing',
+  /** The place's strongest `commerce.mercaria.store` names another location. */
+  'store_link_names_other_location',
+  /** Asserted, but only by the community or a source — no claimant vouches for it. */
+  'store_link_unverified',
+  /** The place's address has no country, which an order's snapshot needs. */
+  'place_country_missing',
+  /** GoWay could not derive the place's timezone, so its hours cannot be read. */
+  'place_timezone_missing',
+] as const;
+
+/** One of {@link PLACE_LINK_GAPS}. */
+export type PlaceLinkGap = (typeof PLACE_LINK_GAPS)[number];
+
+/** What the verify act reports to the merchant who owns the location. */
+export interface LocationPlaceLink {
+  readonly locationId: string;
+  /** The place the location names now — the survivor, when a merge was followed. */
+  readonly goWayPlaceId?: string;
+  /** Set when GoWay had merged the place and the location was re-pointed by this check. */
+  readonly followedMergeFrom?: string;
+  /** `linked` exactly when {@link missing} is empty. */
+  readonly verdict: 'linked' | 'unlinked';
+  readonly missing: readonly PlaceLinkGap[];
+  /** What GoWay shows, when it showed anything. */
+  readonly place?: {
+    readonly name: string;
+    readonly status: string;
+    readonly address: Partial<PickupAddress>;
+    readonly timezone?: string;
+    /** `https://goway.to/place/<id>` — where the merchant edits the place. */
+    readonly url: string;
+  };
+  /** The place's strongest `commerce.mercaria.store` assertion, when it has one. */
+  readonly storeLink?: {
+    readonly locationId: string;
+    readonly verification: 'community_reported' | 'external_source' | 'business_asserted' | 'oxy_verified';
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -247,8 +280,14 @@ export const PICKUP_BLOCK_REASONS = [
   'pickup_paused',
   /** The location does not offer collection at all. */
   'pickup_not_offered',
-  /** No coordinate, so the location cannot be near anything (#93 nearby rule 7). */
-  'location_not_geocoded',
+  /** The location names no GoWay place, so it cannot be near anything (#93 nearby rule 7). */
+  'place_not_linked',
+  /** The GoWay place is gone, inactive or cannot be read right now. */
+  'place_unavailable',
+  /** The GoWay place does not name this location back at a claimant's tier. */
+  'place_link_unverified',
+  /** The GoWay place lacks a country or a timezone, so a collection cannot be described. */
+  'place_incomplete',
   /** An operator restriction is in force on this location. */
   'location_restricted',
   /** The store itself is inactive or restricted. */
@@ -333,29 +372,38 @@ export type LocationOpenState =
   | {
       readonly known: true;
       readonly open: boolean;
-      /** Local `HH:MM` the current state ends at, when the schedule says. */
+      /** Local `HH:mm` the current state ends at, when that is today. */
       readonly changesAt?: string;
-      /** Set when a dated closure is what is shutting it. */
-      readonly closureNote?: string;
+      /** The note of the dated exception deciding today, when one does and it has a note. */
+      readonly exceptionNote?: string;
     };
 
 /* -------------------------------------------------------------------------- */
 /*  The public nearby answer                                                   */
 /* -------------------------------------------------------------------------- */
 
-/** The public identity of a published location, as a shopper sees it. */
+/**
+ * The public identity of a published location, as a shopper sees it.
+ *
+ * Mercaria's commerce fields plus a projection of the GoWay place, read when
+ * the answer is composed. Nothing here but the pickup settings is a Mercaria
+ * column.
+ */
 export interface PublicPickupLocation {
   readonly locationId: string;
-  /** The merchant-composed display name — never `locations.name`, which is internal. */
+  /** The GoWay place, for a `https://goway.to/place/<id>` link. */
+  readonly goWayPlaceId: string;
+  /** The place's name in the requested locale — never `locations.name`, which is internal. */
   readonly displayName: string;
-  readonly address: LocationPublicAddress;
+  readonly address: PickupAddress;
   readonly timezone: string;
   /** #93 client rule 4 — the merchant and storefront behind the place, named separately. */
   readonly merchant?: { readonly id: string; readonly name: string; readonly slug: string };
   readonly storefront?: { readonly id: string; readonly name: string };
   readonly openState: LocationOpenState;
-  readonly hours: readonly LocationOpeningHour[];
-  readonly closures: readonly LocationClosure[];
+  readonly hours: readonly PickupOpeningInterval[];
+  /** The exceptions that have not ended, earliest first. */
+  readonly hoursExceptions: readonly PickupHoursException[];
   readonly accessibility?: LocationAccessibilityFacts;
   readonly contact?: LocationPublicContact;
   readonly pickupInstructions?: string;
@@ -427,20 +475,20 @@ export interface NearbyResponse {
  * A place a shopper can pick when they will not share a position (#93 location
  * input rule 2, acceptance 5).
  *
- * Composed ENTIRELY from the published locations that actually carry the item,
- * which is why it needs no gazetteer and why Mercaria calls no geocoding
- * provider: a city appears in this list exactly when something is collectable
- * in it. A place lookup that could return a city with nothing in it would be a
- * dead end wearing a search box.
+ * The town a shopper typed, as GoWay's geocoder resolves it, kept ONLY when
+ * something is collectable around it: a suggestion that yields nothing when
+ * picked would be a dead end wearing a search box.
  */
 export interface NearbyPlaceSuggestion {
+  /** GoWay's own label for the town, ready to render. */
   readonly label: string;
-  readonly city: string;
+  readonly city?: string;
   readonly region?: string;
-  readonly country: string;
-  /** The centre of the cell the matching locations fall in — never a shop's own point. */
+  /** ISO-3166 alpha-2, when GoWay knows it. */
+  readonly country?: string;
+  /** The cell the town's centre falls in; its centre is the next request's origin. */
   readonly cell: P2pLocalArea;
-  /** How many published locations with collectable stock are in it. */
+  /** How many published locations with collectable stock are around it. */
   readonly locationCount: number;
 }
 
@@ -532,16 +580,18 @@ export type OrderPickupState = (typeof ORDER_PICKUP_STATES)[number];
  * The immutable pickup snapshot an order carries.
  *
  * Everything a buyer and a member of staff need to complete a handover, frozen
- * at checkout. It holds NO street the merchant did not publish: the snapshot is
- * taken from the PUBLICATION, so an order can never carry an address the
- * merchant had chosen not to disclose.
+ * at checkout from the GoWay PLACE the location trades from — the one copy of
+ * a place fact Mercaria keeps, because it is history: the buyer agreed to
+ * collect from what they were shown, whatever the place says later.
  */
 export interface OrderPickup {
   readonly orderId: string;
   readonly locationId: string;
+  /** The GoWay place the snapshot was taken from. Absent on collections placed before ADR 0013. */
+  readonly goWayPlaceId?: string;
   readonly state: OrderPickupState;
   readonly displayName: string;
-  readonly address: LocationPublicAddress;
+  readonly address: PickupAddress;
   readonly timezone: string;
   readonly pickupInstructions?: string;
   readonly identityRequirement: PickupIdentityRequirement;
@@ -606,15 +656,16 @@ export interface PickupCollectionEvent {
 /*  Merchant-facing inputs                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** Body for `PUT /admin/stores/:storeId/locations/:locationId/publication`. */
+/**
+ * Body for `PUT /admin/stores/:storeId/locations/:locationId/publication`.
+ *
+ * The GoWay place plus Mercaria's own commerce settings, and nothing else:
+ * the name, address, hours, contact and accessibility are edited on the place
+ * in GoWay, with the merchant's own Oxy session.
+ */
 export interface UpsertLocationPublicationInput {
-  readonly displayName: string;
-  readonly address: LocationPublicAddress;
-  readonly timezone: string;
-  /** Omitted leaves the existing coordinate; `null` clears it. */
-  readonly latitude?: number | null;
-  readonly longitude?: number | null;
-  readonly geocodeProvenance?: LocationGeocodeProvenance;
+  /** The GoWay place this location trades from. Checked against GoWay when saved. */
+  readonly goWayPlaceId: string;
   readonly pickupOffered: boolean;
   readonly pickupInstructions?: string;
   readonly identityRequirement?: PickupIdentityRequirement;
@@ -631,9 +682,31 @@ export interface UpsertLocationPublicationInput {
   readonly stockConfirmationIntervalSeconds: number;
   readonly disclosesExactStock?: boolean;
   readonly lowStockThreshold?: number;
-  readonly accessibility?: LocationAccessibilityFacts;
-  readonly contact?: LocationPublicContact;
-  readonly hours?: readonly LocationOpeningHour[];
+}
+
+/** One location's publication, as the merchant who owns it reads it. */
+export interface MerchantLocationPublication {
+  readonly id: string;
+  readonly locationId: string;
+  /** From the location: the GoWay place it trades from. */
+  readonly goWayPlaceId?: string;
+  readonly storefrontId?: string;
+  readonly publicationState: LocationPublicationState;
+  readonly pickupOffered: boolean;
+  readonly pickupInstructions?: string;
+  readonly identityRequirement: PickupIdentityRequirement;
+  readonly paymentRequirement: PickupPaymentRequirement;
+  /** ISO-8601, when the merchant paused collection here. */
+  readonly pickupPausedAt?: string;
+  readonly pickupPauseReason?: string;
+  /** An operator restriction is in force. Its author is not disclosed. */
+  readonly restricted: boolean;
+  readonly restrictionReason?: string;
+  readonly inventorySource: LocationInventorySource;
+  readonly stockConfirmationIntervalSeconds: number;
+  readonly disclosesExactStock: boolean;
+  readonly lowStockThreshold: number;
+  readonly updatedAt: string;
 }
 
 /** Body for `POST /admin/stores/:storeId/locations/:locationId/publication/state`. */
@@ -645,13 +718,6 @@ export interface SetLocationPublicationStateInput {
 export interface SetLocationPickupPauseInput {
   readonly paused: boolean;
   readonly reason?: string;
-}
-
-/** Body for `POST /admin/stores/:storeId/locations/:locationId/publication/closures`. */
-export interface CreateLocationClosureInput {
-  readonly fromDate: string;
-  readonly throughDate: string;
-  readonly note?: string;
 }
 
 /** Body for `POST /admin/stores/:storeId/orders/:orderId/pickup/ready`. */

@@ -1,6 +1,6 @@
 /**
  * The PUBLIC projection (#1017) — how Mercaria's own read models become the
- * shapes `@mercaria/shared-types` `public-api.ts` publishes.
+ * shapes `@mercaria/contracts` publishes.
  *
  * ## Field by field, and never a spread
  *
@@ -28,22 +28,24 @@
  * Every function is pure: no database, no config, no clock.
  */
 
+import type { Listing, Money, ProductVariantDTO } from '@mercaria/shared-types';
 import type {
-  Listing,
   MercariaCollection,
   MercariaImage,
+  MercariaLocation,
+  MercariaLocationProduct,
   MercariaProduct,
   MercariaProductAvailability,
   MercariaProductSummary,
   MercariaPurchaseOption,
   MercariaSeller,
   MercariaStore,
-  Money,
-  ProductVariantDTO,
-} from '@mercaria/shared-types';
+} from '@mercaria/contracts';
 import type { StoreRow } from '../../db/stores/storeRepository.js';
 import type { CollectionRow } from '../../db/merchandising/collectionRepository.js';
-import { collectionWebUrl, productWebUrl, storeWebUrl } from './urls.js';
+import type { LocationStockLevel, PublicLocationRow } from '../../db/pickup/publicLocationRepository.js';
+import { inventoryBlockers, locationAvailabilityState } from '../pickup/eligibility.js';
+import { collectionWebUrl, locationWebUrl, productWebUrl, storeWebUrl } from './urls.js';
 
 /**
  * Resolves an Oxy media file id (or an already-absolute URL) to an absolute URL.
@@ -210,6 +212,7 @@ export function projectStore(
 ): MercariaStore {
   return {
     ref: { kind: 'store', id: store.id },
+    oxyAccountId: store.oxyAccountId,
     handle: store.handle,
     name: store.name,
     description: nullIfBlank(store.description),
@@ -239,5 +242,99 @@ export function projectCollection(
     description: nullIfBlank(collection.description),
     image: collection.imageFileId ? image(resolveMedia(collection.imageFileId), null) : null,
     url: collectionWebUrl(webOrigin, storeHandle, collection.id),
+  };
+}
+
+/**
+ * A shop front: Mercaria's half of it, and the GoWay place id to read the rest
+ * from. No place fact is projected — not the name, not the address, not the
+ * hours — because those are GoWay's (ADR 0013) and a copy here would be a
+ * second answer. Nor is anything of the OPERATIONAL location: its name, type
+ * and delivery address are not even selected.
+ *
+ * `discoverable` is the service's verdict, passed in; a pause and a restriction
+ * are never told apart here — a paused location is `discoverable: false`, and a
+ * restricted one is not served at all.
+ */
+export function projectLocation(
+  row: PublicLocationRow,
+  goWayPlaceId: string,
+  store: StoreRow,
+  discoverable: boolean,
+  webOrigin: string,
+  resolveMedia: MediaResolver,
+): MercariaLocation {
+  return {
+    ref: { kind: 'location', id: row.locationId },
+    goWayPlaceId,
+    store: {
+      ref: { kind: 'store', id: store.id },
+      handle: store.handle,
+      name: store.name,
+      logoUrl: store.logoFileId ? resolveMedia(store.logoFileId) : null,
+    },
+    pickup: row.pickupOffered
+      ? {
+          identityRequirement: row.identityRequirement,
+          paymentRequirement: row.paymentRequirement,
+          instructions: nullIfBlank(row.pickupInstructions),
+        }
+      : null,
+    discoverable,
+    url: locationWebUrl(webOrigin, store.handle, row.locationId),
+  };
+}
+
+/**
+ * A product card, and whether it is on the shelf at one location.
+ *
+ * Each of the product's level rows there is read through `inventoryBlockers` —
+ * the derivation nearby discovery applies — so a count older than the
+ * location's own interval vouches for nothing: it adds no units and carries no
+ * number. The units the fresh rows vouch for are summed across the product's
+ * options and cut into a bounded word at the location's own threshold
+ * (`locationAvailabilityState`). `exactQuantity` appears only where the
+ * merchant discloses exact stock AND some count is fresh — a disclosed number
+ * nobody has confirmed is not a fact.
+ *
+ * `stockConfirmedAt` is the OLDEST fresh confirmation the figure rests on (a
+ * claim is as old as its weakest part), or, when none is fresh, the LATEST
+ * confirmation there is, so a consumer can still say "last confirmed …".
+ *
+ * @throws when there is no level row — a caller defect: the list read only
+ *   returns products stocked at the location.
+ */
+export function projectLocationProduct(
+  summary: MercariaProductSummary,
+  levels: readonly LocationStockLevel[],
+  location: Pick<PublicLocationRow, 'disclosesExactStock' | 'lowStockThreshold' | 'stockConfirmationIntervalSeconds'>,
+  at: Date,
+): MercariaLocationProduct {
+  if (levels.length === 0) {
+    throw new Error(`public projection: product ${summary.ref.id} has no stock level at the location`);
+  }
+  let units = 0;
+  let oldestFresh: Date | undefined;
+  let latest = levels[0].updatedAt;
+  for (const level of levels) {
+    if (level.updatedAt > latest) latest = level.updatedAt;
+    const blockers = inventoryBlockers(
+      {
+        listingActive: true,
+        availableQuantity: level.available,
+        stockConfirmedAt: level.updatedAt,
+        stockConfirmationIntervalSeconds: location.stockConfirmationIntervalSeconds,
+      },
+      at,
+    );
+    if (blockers.includes('inventory_stale')) continue;
+    if (oldestFresh === undefined || level.updatedAt < oldestFresh) oldestFresh = level.updatedAt;
+    if (blockers.length === 0) units += level.available;
+  }
+  return {
+    product: summary,
+    availability: locationAvailabilityState(units, location.lowStockThreshold),
+    ...(location.disclosesExactStock && oldestFresh !== undefined ? { exactQuantity: units } : {}),
+    stockConfirmedAt: (oldestFresh ?? latest).toISOString(),
   };
 }

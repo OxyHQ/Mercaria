@@ -46,14 +46,13 @@ export type StoreLinkageCandidateRow = typeof storeLinkageCandidates.$inferSelec
 export type StoreLinkageProfileAdoptionRow = typeof storeLinkageProfileAdoptions.$inferSelect;
 export type StoreLinkageOfferOverlapRow = typeof storeLinkageOfferOverlaps.$inferSelect;
 
-/** The six impact counts, as the preview computes and stores them. */
+/** The five impact counts, as the preview computes and stores them. */
 export interface StoreLinkageImpactCounts {
   impactActiveListings: number;
   impactNativeOffers: number;
   impactExternalOffers: number;
   impactStorefronts: number;
   impactPlacedOrders: number;
-  impactStoreMembers: number;
 }
 
 export interface OpenStoreLinkageRequestInput {
@@ -599,10 +598,10 @@ export async function listOfferOverlaps(
 // by nobody here. `store-linkage-isolation.test.ts` asserts the write half.
 
 /**
- * The six impact counts, in ONE round trip.
+ * The five impact counts, in ONE round trip.
  *
- * Correlated scalar subqueries rather than six statements, because an impact
- * preview read across six round trips is six different moments and an operator
+ * Correlated scalar subqueries rather than five statements, because an impact
+ * preview read across five round trips is five different moments and an operator
  * comparing two of its numbers would be comparing two different instants.
  *
  * `merchantId` is optional because a preview is also computed BEFORE a merchant
@@ -632,7 +631,6 @@ export async function countLinkageImpact(
     external_offers: number;
     storefront_count: number;
     placed_orders: number;
-    store_members: number;
   }>(sql`
     with scope as (
       select ${input.storeId}::text as store_id, ${input.merchantId}::text as merchant_id
@@ -652,9 +650,7 @@ export async function countLinkageImpact(
         where f.merchant_id = s.merchant_id and f.status = 'active')::int
         as storefront_count,
       (select count(*) from orders o, scope s where o.store_id = s.store_id)::int
-        as placed_orders,
-      (select count(*) from store_members m, scope s where m.store_id = s.store_id)::int
-        as store_members
+        as placed_orders
   `);
 
   return {
@@ -663,7 +659,6 @@ export async function countLinkageImpact(
     impactExternalOffers: row?.external_offers ?? 0,
     impactStorefronts: row?.storefront_count ?? 0,
     impactPlacedOrders: row?.placed_orders ?? 0,
-    impactStoreMembers: row?.store_members ?? 0,
   };
 }
 

@@ -872,7 +872,8 @@
         "markedReady": "受け取り準備完了にしました"
       },
       "trail": "受け取り履歴",
-      "trailEmpty": "カウンターではまだ何も行われていません。"
+      "trailEmpty": "カウンターではまだ何も行われていません。",
+      "viewPlace": "GoWay で場所を見る"
     },
     "refund": {
       "dialogTitle": "注文を返金",
@@ -1315,36 +1316,301 @@
         "retail": "店舗",
         "virtual": "バーチャル",
         "warehouse": "倉庫"
+      },
+      "placeFlag": " · GoWay の場所を設定済み",
+      "noPlaceFlag": " · GoWay の場所が未設定",
+      "editor": {
+        "documentTitle": "ロケーションを編集 | Mercaria Dashboard",
+        "title": "ロケーション",
+        "subtitle": "GoWay 上の場所と、Mercaria での販売方法",
+        "loadFailed": "このロケーションを読み込めませんでした",
+        "openOnGoWay": "GoWay で開く",
+        "status": {
+          "title": "購入者に見つけてもらえますか？",
+          "description": "ロケーションが購入者に表示されるのは、その GoWay の場所がこのロケーションを指していて、それを場所を申請した事業者が書いた場合だけです。",
+          "checking": "GoWay で確認しています…",
+          "checkFailed": "今はリンクを確認できませんでした。",
+          "linked": "リンク済み",
+          "unlinked": "未リンク",
+          "claim": "申請：%{state}",
+          "mergeFollowed": "GoWay がこの場所を別の場所に統合しました。ロケーションは置き換え先の場所を指すようになりました。",
+          "missingItem": "• %{reason}",
+          "pendingClaimHint": "申請は GoWay の承認待ちです。申請した本人、またはストアのアカウントとして操作した人が作成したリンクは、承認時に確認済みになります。それ以外の人が作成したリンクは、承認後にもう一度作成してください。",
+          "checkAgain": "もう一度確認"
+        },
+        "gaps": {
+          "placeNotSet": "このロケーションが販売する GoWay の場所を選んで保存してください。",
+          "placeNotFound": "GoWay にその ID の場所はありません。場所を選び直してください。",
+          "placeGone": "GoWay はこの場所を取り下げました。別の場所を選ぶか作成してください。",
+          "placeNotActive": "GoWay でこの場所は閉業または提案中になっています。GoWay で営業中にしてください。",
+          "gowayUnavailable": "GoWay が応答していません。1 分後にもう一度お試しください。",
+          "storeLinkMissing": "場所はまだこのロケーションを指していません。下でリンクしてください。",
+          "storeLinkOtherLocation": "場所は別の Mercaria ロケーションを指しています。",
+          "storeLinkUnverified": "場所はこのロケーションを指していますが、承認済みの申請による裏付けがまだありません。",
+          "placeCountryMissing": "場所の住所に国がありません。GoWay で追加してください。",
+          "placeTimezoneMissing": "GoWay が場所のタイムゾーンを判定できないため、営業時間を読み取れません。"
+        },
+        "place": {
+          "title": "GoWay の場所",
+          "change": "別の場所を選ぶ",
+          "chosenNotSaved": "ここで選択済みです。リンクするには下の受け取り設定を保存してください。",
+          "status": {
+            "active": "営業中",
+            "closed": "閉業",
+            "proposed": "提案中"
+          }
+        },
+        "picker": {
+          "title": "GoWay でこのロケーションを探す",
+          "description": "ロケーションの所在地（名前、住所、営業時間、連絡先）は GoWay の場所にあります。検索するか、GoWay にまだなければ作成してください。",
+          "searchLabel": "GoWay を検索",
+          "searchPlaceholder": "店名または住所",
+          "noResults": "見つかりませんでした。別の検索を試すか、場所を作成してください。",
+          "isAPlace": "GoWay 上の場所",
+          "notAPlace": "住所 — ここに場所を作成",
+          "use": "使う",
+          "createHere": "ここに作成"
+        },
+        "create": {
+          "open": "新しい場所を作成",
+          "title": "新しい GoWay の場所",
+          "street": "番地・通り",
+          "houseNumber": "番号",
+          "city": "市区町村",
+          "postalCode": "郵便番号",
+          "region": "都道府県",
+          "country": "国",
+          "countryPlaceholder": "JP",
+          "latitude": "緯度",
+          "longitude": "経度",
+          "positionHint": "検索結果から住所を選ぶと、位置が自動で入力されます。",
+          "submit": "場所を作成",
+          "created": "GoWay に場所を作成しました",
+          "nameRequired": "場所の名前を入力してください",
+          "countryRequired": "2 文字の国コードを入力してください",
+          "positionRequired": "実際の緯度と経度を入力するか、検索から住所を選んでください"
+        },
+        "claim": {
+          "title": "場所を申請する",
+          "description": "申請によって、あなたのストアがこの場所を運営していることを GoWay に伝えます。ストアを所有する Oxy アカウントの名義で申請され、場所を代表できるようになる前に GoWay が審査します。",
+          "unreadable": "アカウントの申請を読み込めませんでした。アカウントのオーナー、管理者、編集者だけが閲覧できます。",
+          "pendingNote": "GoWay は新しい申請を審査します。承認されるまで、場所への変更は提案として扱われます。承認されると、申請した本人またはストアのアカウントによる情報は事業者自身の情報になります。",
+          "file": "このストアとして申請",
+          "filed": "審査のため GoWay に申請を送信しました",
+          "role": {
+            "owner": "オーナー",
+            "operator": "運営者",
+            "manager": "管理者",
+            "brand": "ブランド"
+          },
+          "state": {
+            "pending": "審査待ち",
+            "approved": "承認済み",
+            "rejected": "却下",
+            "revoked": "取り消し"
+          }
+        },
+        "storeLink": {
+          "title": "場所をこのロケーションにリンク",
+          "description": "場所はそれがどの Mercaria ロケーションかを示します。Mercaria が信頼するのは、承認済みの申請によって書かれた場合だけです。",
+          "state": {
+            "missing": "未リンク",
+            "otherLocation": "別のロケーションにリンク済み",
+            "unverified": "リンク済み・未確認",
+            "verified": "リンク済み・確認済み"
+          },
+          "assert": "このロケーションにリンク",
+          "asserted": "GoWay に保存しました",
+          "unverifiedNote": "承認されると、申請した本人またはストアのアカウントとして操作した人が作成したリンクは、事業者自身の情報として扱われます。それ以外の人が作成した場合は、承認後にもう一度リンクしてください。"
+        },
+        "days": {
+          "mon": "月曜日",
+          "tue": "火曜日",
+          "wed": "水曜日",
+          "thu": "木曜日",
+          "fri": "金曜日",
+          "sat": "土曜日",
+          "sun": "日曜日"
+        },
+        "hours": {
+          "title": "営業時間",
+          "description": "場所の現地時間（%{timezone}）。GoWay が所在地から判定します。",
+          "noTimezone": "タイムゾーン不明",
+          "raw": "情報源の記載：%{raw}",
+          "placeholder": "09:00-14:00, 17:00-20:00",
+          "hint": "1 日 1 行です。定休日は空欄にしてください。",
+          "save": "営業時間を保存",
+          "saved": "GoWay に営業時間を保存しました",
+          "unreadable": "%{day}の営業時間を確認してください：09:00-14:00 の形式をカンマで区切って入力します。"
+        },
+        "exceptions": {
+          "title": "休業日と特別営業時間",
+          "description": "上の週間スケジュールが適用されない日付（場所の現地カレンダー）。",
+          "none": "休業日や特別営業時間はありません。",
+          "range": "%{from}〜%{to}",
+          "closedAllDay": "休業",
+          "noteSuffix": " · %{note}",
+          "remove": "削除",
+          "removed": "GoWay から削除しました",
+          "startsOn": "開始日",
+          "endsOn": "終了日（任意）",
+          "datePlaceholder": "2026-12-25",
+          "closed": "終日休業",
+          "hours": "その日の営業時間",
+          "note": "購入者へのメモ",
+          "add": "追加",
+          "added": "GoWay に追加しました",
+          "datesInvalid": "2026-12-25 のような日付を使い、終了日は開始日以降にしてください",
+          "hoursInvalid": "その日の営業時間を 10:00-14:00 のように入力してください"
+        },
+        "contact": {
+          "title": "連絡先",
+          "description": "購入者が場所で見る情報です。",
+          "phone": "電話番号",
+          "email": "メール",
+          "website": "ウェブサイト",
+          "hint": "フィールドを空にして保存すると、場所から削除されます。",
+          "save": "連絡先を保存",
+          "saved": "GoWay に連絡先を保存しました",
+          "websiteInvalid": "ウェブサイトは http:// または https:// で始めてください",
+          "emailInvalid": "有効なメールアドレスを入力してください"
+        },
+        "accessibility": {
+          "title": "アクセシビリティ",
+          "description": "GoWay が現在把握している情報です。訪問者の報告による場合もあります。",
+          "wheelchair": "車椅子での利用",
+          "stepFree": "段差のない入口",
+          "toilet": "バリアフリートイレ",
+          "parking": "障害者用駐車場",
+          "hearingLoop": "ヒアリングループ",
+          "yes": "はい",
+          "limited": "一部",
+          "no": "いいえ",
+          "unset": "未記載",
+          "hint": "「未記載」はあなた自身の記載を取り下げます。訪問者の報告は残ります。",
+          "save": "アクセシビリティを保存",
+          "saved": "GoWay にアクセシビリティを保存しました"
+        },
+        "publication": {
+          "title": "Mercaria での店舗受け取り",
+          "description": "このロケーションの Mercaria 側の設定です。ここで受け取りができるか、在庫数がどれだけ新しいか。保存すると上の GoWay の場所がリンクされます。",
+          "unsavedPlace": "別の場所を選択しました。保存するとその場所がリンクされます。",
+          "pickupOffered": "ここで店舗受け取りを提供",
+          "instructions": "受け取り方法の案内",
+          "instructionsPlaceholder": "入口そばのカウンターでお尋ねください",
+          "identity": "購入者が受け取り時に提示するもの",
+          "inventorySource": "在庫の更新方法",
+          "source": {
+            "pos": "POS",
+            "connector": "連携プラットフォーム",
+            "manual": "手入力"
+          },
+          "interval": "在庫確認の間隔（分）",
+          "lowStock": "在庫わずかの基準",
+          "intervalHint": "このロケーションの在庫数を確認する頻度です。既定値はありません。レジと夜間の取り込みでは鮮度が違います。",
+          "exactStock": "購入者に正確な在庫数を表示",
+          "save": "受け取り設定を保存",
+          "saved": "保存しました",
+          "placeRequired": "先に GoWay の場所を選んでください",
+          "intervalInvalid": "1〜43200 の分数を入力してください",
+          "thresholdInvalid": "0〜1000 の整数を入力してください",
+          "state": {
+            "draft": "下書き",
+            "published": "公開中",
+            "withdrawn": "取り下げ済み"
+          },
+          "restricted": "Mercaria により制限中",
+          "publish": "公開",
+          "withdraw": "取り下げ",
+          "toDraft": "下書きに戻す",
+          "stateChanged": "更新しました",
+          "pausedBecause": "店舗受け取りを一時停止中：%{reason}",
+          "resume": "店舗受け取りを再開",
+          "pauseReason": "店舗受け取りを一時停止する理由",
+          "pause": "店舗受け取りを一時停止"
+        },
+        "errors": {
+          "gowayForbidden": "申請が承認されるまで、GoWay はこのアカウントによる場所の変更を許可しません。",
+          "gowaySignIn": "GoWay で場所を変更するには、もう一度サインインしてください。",
+          "gowayUnavailable": "GoWay が応答していません。1 分後にもう一度お試しください。",
+          "gowayInvalid": "GoWay に受け付けられませんでした。入力内容を確認してもう一度お試しください。",
+          "gowayConflict": "その日付には GoWay にすでに登録があります。",
+          "gowayGone": "GoWay にこの場所はもうありません。",
+          "gowayFailed": "GoWay に保存できませんでした",
+          "publicationRefused": "まだできません。先に場所がこのロケーションを指す必要があります。上部のステータスを確認してください。",
+          "locationMissing": "このロケーションはもう存在しません",
+          "placeTaken": "この場所はすでに別のロケーションで使われています",
+          "publicationFailed": "ロケーションを保存できませんでした"
+        }
       }
     },
     "members": {
-      "addFailed": "メンバーを追加できませんでした",
-      "addMember": "メンバーを追加",
-      "added": "メンバーを追加しました",
-      "documentTitle": "メンバー | Mercaria Dashboard",
-      "explicitPermissions": {
-        "one": "個別に付与された権限%{count}件",
-        "other": "個別に付与された権限%{count}件"
+      "convert": {
+        "addInvitee": "人を追加",
+        "body": "Oxy の組織がこのストアの所有者になります。あなたはその組織のオーナーになり、招待した人は付与したロールでストアを操作できます。",
+        "displayNameLabel": "組織名",
+        "done": "ストアは組織の所有になりました",
+        "failed": "ストアを変換できませんでした",
+        "inviteLabel": "ユーザー名またはメール",
+        "invitePlaceholder": "ユーザー名 または email@example.com",
+        "inviteesTitle": "招待する人",
+        "nameRequired": "組織名とユーザー名を入力してください",
+        "open": "組織に変換",
+        "someInvitesFailed": "ストアは移動しましたが、次の招待に失敗しました: %{names}",
+        "submit": "組織を作成してストアを移動",
+        "title": "組織に変換する",
+        "usernameLabel": "組織のユーザー名",
+        "warning": "これまでこのストアを操作できた人で、組織に含まれない人はアクセスできなくなります。"
       },
-      "invite": "招待",
-      "inviteTitle": "メンバーを招待",
-      "joinedOn": "参加日 %{date}",
-      "loadFailed": "メンバーを読み込めませんでした",
-      "oxyUserIdLabel": "OxyユーザーID",
-      "oxyUserIdPlaceholder": "OxyユーザーID",
-      "oxyUserIdRequired": "メンバーのOxyユーザーIDを入力してください",
-      "removeFailed": "メンバーを削除できませんでした",
-      "removed": "メンバーを削除しました",
-      "roleLabel": "役割",
-      "roleUpdateFailed": "メンバーを更新できませんでした",
-      "roleUpdated": "役割を更新しました",
+      "documentTitle": "メンバー | Mercaria Dashboard",
+      "loadFailed": "このストアのメンバーを読み込めませんでした",
+      "noAccess": "アクセス権なし",
+      "organizationBody": "このストアで操作できる人は、Oxy の組織メンバーによって決まります。Mercaria は各ロールの権限に対する例外だけを保存します。",
+      "outsidersNote": "以下の人はこのストアに例外がありますが組織のメンバーではないため、追加されるまでアクセスできません。",
+      "override": {
+        "body": "各権限は、ここで追加または削除しない限りその人のロールに従います。変更できるのは自分が持つ権限だけです。",
+        "default": "ロールのとおり",
+        "edit": "例外",
+        "grant": "追加",
+        "revoke": "削除",
+        "save": "保存",
+        "saveFailed": "例外を保存できませんでした",
+        "saved": "例外を保存しました",
+        "title": "%{name} の例外"
+      },
+      "overrideSummary": "追加 %{granted} 件、削除 %{revoked} 件",
+      "ownedBy": "所有者: %{name}",
+      "permissionLabels": {
+        "analyticsRead": "需要分析の閲覧",
+        "channelsWrite": "販売チャネルの管理",
+        "collectionsWrite": "コレクションの編集",
+        "customersRead": "顧客の閲覧",
+        "customersWrite": "顧客の編集",
+        "discountsWrite": "割引の編集",
+        "draftOrdersWrite": "下書き注文の作成",
+        "inventoryWrite": "在庫の編集",
+        "locationsWrite": "拠点の編集",
+        "membersManage": "メンバーと権限の管理",
+        "ordersFulfill": "注文の処理",
+        "ordersRead": "注文の閲覧",
+        "productsRead": "商品の閲覧",
+        "productsWrite": "商品の編集",
+        "refundsWrite": "返金の実行",
+        "settingsWrite": "設定の編集",
+        "statsRead": "売上統計の閲覧",
+        "storeManage": "ストアの管理"
+      },
+      "personalBody": "このストアは個人の Oxy アカウントが所有しているため、そのアカウントだけが操作できます。ほかの人と作業するには組織に変換してください。",
       "roles": {
         "admin": "管理者",
+        "billing": "請求",
+        "developer": "開発者",
+        "editor": "編集者",
         "owner": "オーナー",
-        "staff": "スタッフ"
+        "viewer": "閲覧者"
       },
-      "subtitle": "このストアを管理できる人",
-      "title": "メンバーと役割"
+      "subtitle": "このストアで操作できる人と、ロールに対する例外",
+      "title": "メンバーと権限"
     },
     "payments": {
       "beingReviewed": "審査中",
@@ -1494,8 +1760,8 @@
         "label": "ロケーション"
       },
       "members": {
-        "description": "招待、役割と権限の編集",
-        "label": "メンバーと役割"
+        "description": "ストアを操作できる人と、ロールに対する例外",
+        "label": "メンバーと権限"
       },
       "payments": {
         "description": "Mercariaで受けた注文の入金を受け取る",

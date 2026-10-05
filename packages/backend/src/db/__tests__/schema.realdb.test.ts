@@ -41,7 +41,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
-import { eq, and, isNull, isNotNull } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { findSchemaInvariantViolations, findUnsupportedExpiryColumns } from '@oxy.so/db/assert';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
@@ -70,8 +70,6 @@ const OBJECT_ID = 'a1b2c3d4e5f60718293a4b5c';
 /** 25 ⊜ in minor units. Past `integer`'s 2_147_483_647 ceiling, which is the point. */
 const BIG_AMOUNT = 2_500_000_000;
 
-/** Barcelona, as `(longitude, latitude)` — the order the generated point states. */
-const BARCELONA: readonly [number, number] = [2.1734, 41.3851];
 
 let db: Database;
 /** This run's store — every assertion below is scoped to it. */
@@ -86,6 +84,7 @@ beforeAll(async () => {
   uuidListingId = uuidv7();
 
   await db.insert(stores).values({
+    oxyAccountId: 'oxy-account-fixture',
     id: storeId,
     handle: `realdb-${storeId.slice(0, 8)}`,
     name: 'Schema realdb store',
@@ -332,54 +331,6 @@ describe('the generated tsvector', () => {
     // In NEITHER row. Without this the two above cannot distinguish a working
     // index from one that matches everything.
     expect(await matching('helicopter')).toEqual([]);
-  });
-});
-
-describe('the generated geography point', () => {
-  it('populates from longitude/latitude and orders by TRUE distance', async () => {
-    // Madrid is ~505 km from Barcelona; Paris is ~830 km. The figures are
-    // independently checkable ON PURPOSE: a test asserting only "a row came
-    // back" passes against a latitude/longitude swap, which yields a plausible
-    // point in the wrong place.
-    await db
-      .update(listings)
-      .set({ longitude: -3.7038, latitude: 40.4168 })
-      .where(eq(listings.id, OBJECT_ID));
-    await db
-      .update(listings)
-      .set({ longitude: 2.3522, latitude: 48.8566 })
-      .where(eq(listings.id, uuidListingId));
-
-    const origin = sql`st_makepoint(${BARCELONA[0]}, ${BARCELONA[1]})::geography`;
-    const nearest = await db
-      .select({
-        id: listings.id,
-        km: sql<number>`round((st_distance(${listings.geo}, ${origin}) / 1000)::numeric)`,
-      })
-      .from(listings)
-      .where(and(eq(listings.storeId, storeId), isNotNull(listings.geo)))
-      .orderBy(sql`${listings.geo} <-> ${origin}`);
-
-    expect(nearest.map((row) => row.id)).toEqual([OBJECT_ID, uuidListingId]);
-    expect(Number(nearest[0]?.km)).toBeGreaterThan(480);
-    expect(Number(nearest[0]?.km)).toBeLessThan(530);
-    expect(Number(nearest[1]?.km)).toBeGreaterThan(800);
-    expect(Number(nearest[1]?.km)).toBeLessThan(860);
-  });
-
-  it('stores a Point at SRID 4326, which the typmod cannot declare', async () => {
-    // drizzle-kit cannot emit the `(Point,4326)` typmod, so the column is
-    // declared bare and this is the only place the claim is checked.
-    const [row] = await db
-      .select({
-        type: sql<string>`st_geometrytype(${listings.geo}::geometry)`,
-        srid: sql<number>`st_srid(${listings.geo}::geometry)`,
-      })
-      .from(listings)
-      .where(eq(listings.id, OBJECT_ID));
-
-    expect(row?.type).toBe('ST_Point');
-    expect(Number(row?.srid)).toBe(4326);
   });
 });
 

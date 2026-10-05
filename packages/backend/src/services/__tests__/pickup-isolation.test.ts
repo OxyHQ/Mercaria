@@ -14,9 +14,10 @@
  * 3. **A shopper's precise coordinate never reaches analytics** (#93 privacy
  *    rules 5 and 6). No module in the domain emits an analytics event at all,
  *    and #77's schema has no column one could go in.
- * 4. **Mercaria calls no geocoding provider** (#93 publication field 6). The
- *    permitted and forbidden provenance sets are DISJOINT, every permitted one
- *    is a merchant or operator act, and no module here makes an outbound call.
+ * 4. **The domain makes no outbound call, and GoWay has one door** (ADR 0013).
+ *    No module here calls `fetch`, a geocoder or `@goway.to/sdk`: where a
+ *    location is comes from the GoWay place it names, read ONLY through
+ *    `services/goway` — the one directory in the backend that imports the SDK.
  * 5. **A P2P seller's precise position is unrepresentable** (#93 P2P rule 5).
  *    `listing_local_discovery` has no coordinate column, checked by walking the
  *    REAL drizzle table rather than by reading the file.
@@ -27,14 +28,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
-import {
-  LOCATION_FORBIDDEN_GEOCODE_PROVENANCES,
-  LOCATION_GEOCODE_PROVENANCES,
-} from '@mercaria/shared-types';
 import { listingLocalDiscovery, orderPickups, pickupCollectionEvents } from '../../db/schema/pickup.js';
 import {
   assertNothingOutsideDomainPopulation,
@@ -118,7 +115,22 @@ const ANALYTICS_REFERENCE =
  * narrowed here rather than after somebody else met it.
  */
 const OUTBOUND_CALL_REFERENCE =
-  /\bfetch\s*\(|safeFetch\s*\(|from\s+'[^']*(axios|undici|node:https|node-fetch|geocod|nominatim|mapbox|google-maps)[^']*'|\bgeocod\w*\s*\(/i;
+  /\bfetch\s*\(|safeFetch\s*\(|from\s+'[^']*(axios|undici|node:https|node-fetch|geocod|nominatim|mapbox|google-maps|@goway\.to\/sdk)[^']*'|\bgeocod\w*\s*\(/i;
+
+/** Importing the GoWay SDK, in any spelling an import or a re-export takes. */
+const GOWAY_SDK_IMPORT = /from\s+'@goway\.to\/sdk'|import\s*\(\s*'@goway\.to\/sdk'\s*\)/;
+
+/** The one directory allowed to import the SDK. */
+const GOWAY_ADAPTER_DIRECTORY = 'services/goway/';
+
+/** Every non-test backend module, relative to `src/`. */
+function backendModules(directory = ''): string[] {
+  return readdirSync(join(SRC_ROOT, directory), { withFileTypes: true }).flatMap((entry) => {
+    const relative = directory === '' ? entry.name : `${directory}/${entry.name}`;
+    if (entry.isDirectory()) return entry.name === '__tests__' ? [] : backendModules(relative);
+    return entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts') ? [relative] : [];
+  });
+}
 
 /**
  * The modules that MAY read a lever — the entry points, and only them.
@@ -230,27 +242,29 @@ describe('the pickup domain has no reach it should not have', () => {
     }
   });
 
-  it('WALL 4: no module makes an outbound call, so no geocoding provider is reachable', () => {
+  it('WALL 4: no module makes an outbound call, so no provider is reachable but through GoWay', () => {
     for (const file of domain) {
       expect(
         OUTBOUND_CALL_REFERENCE.test(withoutComments(file.source)),
-        `${file.relative} makes an outbound call; a merchant's own pin is the only source of a ` +
-          "published position (#93 publication field 6)",
+        `${file.relative} makes an outbound call; where a location is comes from its GoWay ` +
+          'place, read through services/goway (ADR 0013)',
       ).toBe(false);
     }
   });
 
-  it('WALL 4 names its prohibitions as VALUES, disjoint from the permitted set', () => {
-    const permitted = new Set<string>(LOCATION_GEOCODE_PROVENANCES);
-    for (const forbidden of LOCATION_FORBIDDEN_GEOCODE_PROVENANCES) {
-      expect(permitted.has(forbidden), `${forbidden} is both permitted and forbidden`).toBe(false);
+  it('WALL 4: services/goway is the ONE door to GoWay in the whole backend', () => {
+    const importers = backendModules().filter((relative) =>
+      GOWAY_SDK_IMPORT.test(withoutComments(readFileSync(join(SRC_ROOT, relative), 'utf8'))),
+    );
+    for (const relative of importers) {
+      expect(
+        relative.startsWith(GOWAY_ADAPTER_DIRECTORY),
+        `${relative} imports @goway.to/sdk; feature code reads places through ${GOWAY_ADAPTER_DIRECTORY}`,
+      ).toBe(true);
     }
-    // The prohibition list is not decoration: it has to name the two that would
-    // be reached for first — a third-party geocoder, and a position inferred
-    // from where other people were.
-    expect(LOCATION_FORBIDDEN_GEOCODE_PROVENANCES).toContain('third_party_geocoder');
-    expect(LOCATION_FORBIDDEN_GEOCODE_PROVENANCES).toContain('inferred_from_nearby_searches');
-    expect(LOCATION_FORBIDDEN_GEOCODE_PROVENANCES.length).toBeGreaterThanOrEqual(6);
+    // Vacuity floor: the adapter's own client, reads and projection DO import
+    // it, so a walk that found nothing is a broken walk rather than a pass.
+    expect(importers.length).toBeGreaterThanOrEqual(3);
   });
 
   it('WALL 5: `listing_local_discovery` has no coordinate column at all', () => {
@@ -324,12 +338,12 @@ describe('the detectors themselves', () => {
     expect(OUTBOUND_CALL_REFERENCE.test('const point = await geocodeAddress(address);')).toBe(true);
     expect(OUTBOUND_CALL_REFERENCE.test("import { x } from '@some/geocoder-sdk';")).toBe(true);
     expect(OUTBOUND_CALL_REFERENCE.test("import { x } from '@mapbox/search';")).toBe(true);
+    expect(OUTBOUND_CALL_REFERENCE.test("import { createGoWayClient } from '@goway.to/sdk';")).toBe(true);
     expect(OUTBOUND_CALL_REFERENCE.test("import { x } from '../geo.js';")).toBe(false);
+    expect(OUTBOUND_CALL_REFERENCE.test("import { readPlace } from '../goway/places.js';")).toBe(false);
     expect(OUTBOUND_CALL_REFERENCE.test('const distance = haversineMetres(a, b);')).toBe(false);
-    // The measured false positive: READING a row's own geocode facts is what
-    // every path here does, and must not fire.
-    expect(OUTBOUND_CALL_REFERENCE.test('if (!candidate.geocoded) return;')).toBe(false);
-    expect(OUTBOUND_CALL_REFERENCE.test('geocodeProvenance: row.geocodeProvenance,')).toBe(false);
+    expect(GOWAY_SDK_IMPORT.test("import type { Place } from '@goway.to/sdk';")).toBe(true);
+    expect(GOWAY_SDK_IMPORT.test("import { x } from '@goway.to/sdk-extra';")).toBe(false);
   });
 
   it('the comment stripper removes a line comment and a block comment', () => {

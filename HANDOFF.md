@@ -487,3 +487,58 @@ money has been spent.
 order line, each inheriting the same `max_accepted_cost`. It is a constant rather
 than a policy row because nothing yet has an opinion about it; the moment a second
 real supplier exists it should become one.
+
+# Store ownership is an Oxy account (ADR 0012) — deploy and deferred work
+
+**Before the deploy that carries `0158`/`0161`:** run the three queries in
+[`docs/stores.md`](docs/stores.md) ("Deploying `0158`/`0161`") against
+production and keep the export. `0161` drops `store_members`; every member but
+each store's earliest owner loses access until that owner converts the store to
+an organization, and after `0161` nothing in Mercaria remembers who they were.
+A store with no `owner` member makes `0161` refuse to apply — fix those first.
+
+**Deferred, each waiting on something outside this repository:**
+
+- **A service-token membership read in Oxy.** Until one exists, a surface with
+  no caller session (attribution jobs, MCP capabilities, notifications) can only
+  see the owning account and override holders. Self-referral leaves the rest NOT
+  ESTABLISHED; MCP store tools are owner-account only.
+- **The operator on a capability ticket.** An editor operating an organization
+  through an agent gets the organization's full store authority on MCP, because
+  the ticket names only the effective account.
+- **Organization inboxes.** Store notifications now go to the owning account;
+  whether Oxy fans an organization's notifications out to its members is Oxy's.
+- **`store_member_invited`** stays in `notifications_type_check` for the rows
+  that carry it; nothing writes it any more. Narrowing it is a separate
+  migration.
+
+# Place facts live in GoWay (ADR 0013) — deploy and deferred work
+
+**Before CI can go green:** `@goway.to/sdk` 0.3.0 has to be on npm (it is
+built on GoWay's `feat/p4-integration-api`); `bun.lock` carries the integrity
+of a local `npm pack` of it, so refresh the lock if the published tarball
+differs. GoWay's API must serve that branch too — `GET /places?ids=`,
+`GET /claims?placeId=`, exceptions on lists and merge-patch clears — before
+this deploys, or every batch place read answers `goway_unavailable`.
+
+**One release** with the ownership pair: `Migrate (pre)` applies `0158`–`0160`,
+`Migrate (post)` applies `0161`–`0162` (`docs/pickup.md`, "One release").
+Before it, run the queries in [`docs/stores.md`](docs/stores.md) and the count
+and export in [`docs/pickup.md`](docs/pickup.md) ("Moving to GoWay") against
+production and keep the exports. `0162` withdraws EVERY location published
+today — none can name a GoWay place before this release — and drops the facts
+that would have been needed to make one.
+
+**`GOWAY_API_URL`** is pinned into each release revision by `deploy-aws.yml`
+(repo variable `GOWAY_API_URL`, default `https://api.goway.to`), like
+`OXY_API_URL`. Add it to the task definition's `environment` in oxy-infra
+(`terraform-uswest2/app-services.tf`) as well, so a revision terraform
+registers between deploys keeps it. `NEARBY_DISCOVERY_ENABLED` and
+`STORE_PICKUP_ENABLED` stay off without it.
+
+**Deferred:**
+
+- **Following a merge on the public reads.** A location whose place GoWay
+  merged is undiscoverable until its merchant's next verify (the dashboard
+  runs one on opening the location). A sweep could do it; nothing does yet.
+

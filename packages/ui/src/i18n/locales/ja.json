@@ -485,7 +485,10 @@
         "location_not_active": "この所在地はオフになっており、在庫を配分しません。",
         "pickup_paused": "この所在地の受け取りを一時停止しています。",
         "pickup_not_offered": "この所在地は受け取りに対応していません。",
-        "location_not_geocoded": "この所在地には地図上のピンがないため、距離では見つかりません。ピンを追加してください。",
+        "place_not_linked": "この所在地は GoWay の場所に紐づいていないため、距離では見つかりません。場所を選ぶか作成してください。",
+        "place_unavailable": "この所在地の GoWay の場所は削除されたか、無効か、現在読み込めません。",
+        "place_link_unverified": "この所在地の GoWay の場所は、まだあなたのビジネスの確認済みレベルでこの所在地を示していません。場所を申請し、この所在地を追加してください。",
+        "place_incomplete": "この所在地の GoWay の場所には国またはタイムゾーンがないため、受け取りを説明できません。GoWay で場所の情報を補ってください。",
         "location_restricted": "Mercaria がこの所在地を制限しています。サポートにご連絡ください。",
         "store_unavailable": "店舗自体が非アクティブまたは制限されています。",
         "listing_unavailable": "出品がアクティブではないため、ここで受け取れるものはありません。",
@@ -507,6 +510,7 @@
         "hoursNotPublished": "営業時間は未公開",
         "openNow": "営業中",
         "openUntil": "営業中 — %{time} まで",
+        "openNote": "営業中 — %{note}",
         "closedNote": "閉店 — %{note}",
         "closedNow": "現在閉店",
         "closedOpensAt": "閉店 — %{time} に開店"
@@ -530,7 +534,9 @@
       "exactQuantity": {
         "one": "この店舗に %{count} 点在庫あり。",
         "other": "この店舗に %{count} 点在庫あり。"
-      }
+      },
+      "viewOnGoWay": "GoWay で見る",
+      "viewOnGoWayA11y": "GoWay で %{place} を開く"
     },
     "shoppingAgent": {
       "job": {

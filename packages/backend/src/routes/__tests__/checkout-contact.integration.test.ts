@@ -78,6 +78,7 @@ beforeAll(async () => {
   const [store] = await db
     .insert(schema.stores)
     .values({
+      oxyAccountId: 'oxy-account-fixture',
       handle: `checkout-int-${RUN}`,
       name: `Checkout integration store ${RUN}`,
       description: '',

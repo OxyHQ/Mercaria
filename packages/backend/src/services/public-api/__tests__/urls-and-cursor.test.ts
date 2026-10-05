@@ -5,9 +5,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { collectionWebUrl, normalizeWebOrigin, productWebUrl, storeWebUrl } from '../urls.js';
+import { MERCARIA_PUBLIC_LIST_MAX_OFFSET } from '@mercaria/contracts';
+import { collectionWebUrl, locationWebUrl, normalizeWebOrigin, productWebUrl, storeWebUrl } from '../urls.js';
 import {
-  PUBLIC_CURSOR_MAX_OFFSET,
   clampPublicPageLimit,
   encodePublicCursor,
   nextPublicCursor,
@@ -16,11 +16,14 @@ import {
 } from '../cursor.js';
 
 describe('the canonical web URLs', () => {
-  it('builds the three documented shapes', () => {
+  it('builds the four documented shapes', () => {
     expect(productWebUrl('https://mercaria.co', 'abc')).toBe('https://mercaria.co/products/abc');
     expect(storeWebUrl('https://mercaria.co', 'my-shop')).toBe('https://mercaria.co/stores/my-shop');
     expect(collectionWebUrl('https://mercaria.co', 'my-shop', 'c1')).toBe(
       'https://mercaria.co/stores/my-shop?collection=c1',
+    );
+    expect(locationWebUrl('https://mercaria.co', 'my-shop', 'l1')).toBe(
+      'https://mercaria.co/stores/my-shop?location=l1',
     );
   });
 
@@ -31,6 +34,9 @@ describe('the canonical web URLs', () => {
     );
     expect(collectionWebUrl('https://mercaria.co/', 'shop&co', 'x?y=z')).toBe(
       'https://mercaria.co/stores/shop%26co?collection=x%3Fy%3Dz',
+    );
+    expect(locationWebUrl('https://mercaria.co//', 'shop&co', 'l/1')).toBe(
+      'https://mercaria.co/stores/shop%26co?location=l%2F1',
     );
   });
 });
@@ -54,16 +60,17 @@ describe('the public cursor', () => {
     const otherFilters = publicCursorFingerprint('products', { q: 'boots', sort: 'price_asc' });
     for (const [raw, kind, print] of [
       [cursor, 'store-products', fingerprint],
+      [cursor, 'location-products', fingerprint],
       [cursor, 'products', otherFilters],
       [encodePublicCursor('products', fingerprint, 0), 'products', fingerprint],
-      [encodePublicCursor('products', fingerprint, PUBLIC_CURSOR_MAX_OFFSET), 'products', fingerprint],
+      [encodePublicCursor('products', fingerprint, MERCARIA_PUBLIC_LIST_MAX_OFFSET), 'products', fingerprint],
       [encodePublicCursor('products', fingerprint, 1.5), 'products', fingerprint],
       ['not a cursor', 'products', fingerprint],
       [Buffer.from('{"v":2}').toString('base64url'), 'products', fingerprint],
       [Buffer.from('nope').toString('base64url'), 'products', fingerprint],
     ] as const) {
       expect(() => resolvePublicCursorOffset(raw, kind, print)).toThrow(
-        expect.objectContaining({ code: 'VALIDATION_ERROR', httpStatus: 400 }),
+        expect.objectContaining({ code: 'bad_request', status: 400 }),
       );
     }
   });
@@ -72,9 +79,9 @@ describe('the public cursor', () => {
     expect(nextPublicCursor('products', fingerprint, 0, 20, true)).not.toBeNull();
     expect(nextPublicCursor('products', fingerprint, 0, 20, false)).toBeNull();
     expect(nextPublicCursor('products', fingerprint, 40, 0, true)).toBeNull();
-    expect(clampPublicPageLimit(PUBLIC_CURSOR_MAX_OFFSET - 5, 20)).toBe(5);
+    expect(clampPublicPageLimit(MERCARIA_PUBLIC_LIST_MAX_OFFSET - 5, 20)).toBe(5);
     expect(
-      nextPublicCursor('products', fingerprint, PUBLIC_CURSOR_MAX_OFFSET - 5, 5, true),
+      nextPublicCursor('products', fingerprint, MERCARIA_PUBLIC_LIST_MAX_OFFSET - 5, 5, true),
     ).toBeNull();
   });
 });

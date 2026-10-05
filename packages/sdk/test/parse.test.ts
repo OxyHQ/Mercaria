@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { MercariaResponseError, type MercariaError } from '../src/index';
 import {
   collectionWire,
+  locationProductWire,
+  locationWire,
   pageWire,
   personSellerWire,
   productSummaryWire,
@@ -59,6 +61,28 @@ describe('successful parses', () => {
     const { client } = fakeClient(({ url }) => (url.includes('/collections/') ? ok(collectionWire()) : ok(storeWire())));
     expect(await client.stores.get('store_1')).toEqual(storeWire());
     expect(await client.collections.get('col_1')).toEqual(collectionWire());
+  });
+
+  it('parses a location and a page of location products, an exact count only when sent', async () => {
+    const { client } = fakeClient(({ url }) =>
+      url.includes('/products')
+        ? ok(pageWire([locationProductWire('prod_1'), locationProductWire('prod_2', 2)]))
+        : ok({ ...locationWire(), pickup: null, discoverable: false }),
+    );
+    expect(await client.locations.get('loc_1')).toEqual({ ...locationWire(), pickup: null, discoverable: false });
+    const page = await client.locations.products('loc_1');
+    expect('exactQuantity' in (page.items[0] ?? {})).toBe(false);
+    expect(page.items[1]?.exactQuantity).toBe(2);
+  });
+
+  it('strips a place fact a server leaked into a location, and refuses an unknown availability', async () => {
+    const leaky = { ...locationWire(), address: { line1: 'Carrer 1' }, openingHours: [], pauseReason: 'staff ill' };
+    const { client } = fakeClient(({ url }) =>
+      url.includes('/products') ? ok(pageWire([{ ...locationProductWire(), availability: 'sold' }])) : ok(leaky),
+    );
+    expect(await client.locations.get('loc_1')).toEqual(locationWire());
+    const error = (await rejection(client.locations.products('loc_1'))) as MercariaError;
+    expect(error).toBeInstanceOf(MercariaResponseError);
   });
 
   it('returns frozen refs', async () => {
@@ -121,7 +145,7 @@ describe('malformed DTOs fail closed', () => {
     const { client } = fakeClient(() => ok(wire));
     const error = (await rejection(client.products.get('prod_1'))) as MercariaError;
     expect(error).toBeInstanceOf(MercariaResponseError);
-    expect(error.code).toBe('MALFORMED_RESPONSE');
+    expect(error.code).toBe('malformed_response');
     return error;
   }
 
@@ -150,7 +174,7 @@ describe('malformed DTOs fail closed', () => {
     ['missing compareAtPrice (null required)', 'compareAtPrice', undefined],
   ])('%s', async (_name, path, value) => {
     const error = await malformedProduct(withField(productWire(), path, value));
-    expect(error.message).toContain(`data.${path.split('.')[0]}`);
+    expect(error.message).toContain(`: ${path.split('.')[0]}`);
   });
 
   it.each([
@@ -174,7 +198,7 @@ describe('malformed DTOs fail closed', () => {
     const { client } = fakeClient(() => ok(pageWire(rows, 'next')));
     const error = (await rejection(client.products.search({ query: 'x' }))) as MercariaError;
     expect(error).toBeInstanceOf(MercariaResponseError);
-    expect(error.message).toContain('data.items[1].price.currency');
+    expect(error.message).toContain('items[1].price.currency');
   });
 
   it.each([

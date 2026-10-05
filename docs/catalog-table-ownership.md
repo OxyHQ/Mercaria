@@ -73,6 +73,7 @@ it and can only rise.
 | Digital licences and buyer rights | `db/schema/digitalRights.ts` | `db/digital/licenceRepository.ts`, `rightRepository.ts`, `downloadRepository.ts`, `bindingRepository.ts` | `asset_licences`, `asset_licence_versions`, `asset_licence_options`, `asset_rights`, `asset_right_events`, `asset_download_grants`, `asset_download_events`, `asset_variant_bindings` |
 | Digital retail supply | `db/schema/digitalRetail.ts` | `db/digitalRetail/supplyTermsRepository.ts`, `digitalProcurementOfferRepository.ts`, `pricingPolicyRepository.ts` | `digital_supply_terms`, `digital_supplier_capabilities`, `digital_procurement_offers`, `digital_retail_pricing_policies` |
 | Digital retail procurement and fulfilment | `db/schema/digitalRetail.ts` | `db/digitalRetail/digitalPurchaseOrderRepository.ts`, `digitalFulfilmentRepository.ts` | `digital_purchase_orders`, `digital_purchase_order_attempts`, `digital_fulfilments`, `digital_fulfilment_artifacts`, `digital_fulfilment_reveals`, `digital_fulfilment_incidents` |
+| Store access | `db/schema/stores.ts` | `db/stores/storeRepository.ts` | `store_permission_overrides` — per-person EXCEPTIONS to the role map; who may act for a store is the owning Oxy account's membership (ADR 0012), never a table here |
 
 **#1016's ten tables are split across TWO rows of one schema module, and the split
 is the ownership decision** (ADR 0011). The supply half — what a counterparty has

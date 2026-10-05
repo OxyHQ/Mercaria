@@ -886,7 +886,8 @@
         "markedReady": "Marcada com a preparada per recollir"
       },
       "trail": "Registre de la recollida",
-      "trailEmpty": "Encara no ha passat res al taulell."
+      "trailEmpty": "Encara no ha passat res al taulell.",
+      "viewPlace": "Veure el lloc a GoWay"
     },
     "refund": {
       "dialogTitle": "Reemborsa la comanda",
@@ -1333,37 +1334,301 @@
         "retail": "Botiga",
         "virtual": "Virtual",
         "warehouse": "Magatzem"
+      },
+      "placeFlag": " · lloc de GoWay assignat",
+      "noPlaceFlag": " · encara sense lloc de GoWay",
+      "editor": {
+        "documentTitle": "Edita la ubicació | Mercaria Dashboard",
+        "title": "Ubicació",
+        "subtitle": "El seu lloc a GoWay i com ven a Mercaria",
+        "loadFailed": "No s'ha pogut carregar aquesta ubicació",
+        "openOnGoWay": "Obre a GoWay",
+        "status": {
+          "title": "La poden trobar els compradors?",
+          "description": "Una ubicació només apareix als compradors mentre el seu lloc de GoWay l'anomena, escrit per un negoci que ha reclamat el lloc.",
+          "checking": "S'està comprovant amb GoWay…",
+          "checkFailed": "Ara no s'ha pogut comprovar el vincle.",
+          "linked": "Vinculada",
+          "unlinked": "Encara sense vincular",
+          "claim": "Reclamació: %{state}",
+          "mergeFollowed": "GoWay ha fusionat aquest lloc amb un altre; la ubicació ara apunta al lloc que el substitueix.",
+          "missingItem": "• %{reason}",
+          "pendingClaimHint": "La teva reclamació espera l'aprovació de GoWay. Un vincle fet per qui la va presentar, o per algú que actua com el compte de la botiga, es verifica en aprovar-se; el de qualsevol altra persona s'ha de tornar a fer quan s'aprovi.",
+          "checkAgain": "Torna a comprovar"
+        },
+        "gaps": {
+          "placeNotSet": "Tria el lloc de GoWay des d'on ven aquesta ubicació i desa.",
+          "placeNotFound": "GoWay no té cap lloc amb aquest id. Torna a triar el lloc.",
+          "placeGone": "GoWay ha retirat aquest lloc. Tria'n o crea'n un altre.",
+          "placeNotActive": "El lloc consta com a tancat o proposat a GoWay. Marca'l com a obert allà.",
+          "gowayUnavailable": "GoWay no respon ara mateix. Torna-ho a provar d'aquí a un minut.",
+          "storeLinkMissing": "El lloc encara no anomena aquesta ubicació. Vincula'l més avall.",
+          "storeLinkOtherLocation": "El lloc anomena una altra ubicació de Mercaria.",
+          "storeLinkUnverified": "El lloc anomena aquesta ubicació, però encara no la respatlla cap reclamació aprovada.",
+          "placeCountryMissing": "L'adreça del lloc no té país. Afegeix-lo a GoWay.",
+          "placeTimezoneMissing": "GoWay no ha pogut deduir la zona horària del lloc, i per això no se'n pot llegir l'horari."
+        },
+        "place": {
+          "title": "Lloc de GoWay",
+          "change": "Tria un altre lloc",
+          "chosenNotSaved": "Triat aquí; desa la configuració de recollida de sota per vincular-lo.",
+          "status": {
+            "active": "Obert",
+            "closed": "Tancat",
+            "proposed": "Proposat"
+          }
+        },
+        "picker": {
+          "title": "Troba aquesta ubicació a GoWay",
+          "description": "On és la teva ubicació —el nom, l'adreça, l'horari i el contacte— viu al seu lloc de GoWay. Cerca'l o crea'l si GoWay encara no el té.",
+          "searchLabel": "Cerca a GoWay",
+          "searchPlaceholder": "Nom de la botiga o adreça",
+          "noResults": "No s'ha trobat res. Prova una altra cerca o crea el lloc.",
+          "isAPlace": "Un lloc a GoWay",
+          "notAPlace": "Una adreça: crea-hi el lloc",
+          "use": "Fes-lo servir",
+          "createHere": "Crea'l aquí"
+        },
+        "create": {
+          "open": "Crea un lloc nou",
+          "title": "Lloc nou de GoWay",
+          "street": "Carrer",
+          "houseNumber": "Número",
+          "city": "Ciutat",
+          "postalCode": "Codi postal",
+          "region": "Regió",
+          "country": "País",
+          "countryPlaceholder": "ES",
+          "latitude": "Latitud",
+          "longitude": "Longitud",
+          "positionHint": "Si tries una adreça de la cerca, la posició s'omple sola.",
+          "submit": "Crea el lloc",
+          "created": "Lloc creat a GoWay",
+          "nameRequired": "Posa un nom al lloc",
+          "countryRequired": "Escriu el codi de país de dues lletres",
+          "positionRequired": "Escriu una latitud i una longitud reals, o tria una adreça de la cerca"
+        },
+        "claim": {
+          "title": "Reclama el lloc",
+          "description": "Una reclamació diu a GoWay que la teva botiga gestiona aquest lloc. Es presenta en nom del compte d'Oxy propietari de la botiga, i GoWay la revisa abans que puguis parlar pel lloc.",
+          "unreadable": "No s'han pogut llegir les reclamacions del teu compte. Només les veuen els propietaris, administradors i editors del compte.",
+          "pendingNote": "GoWay revisa les reclamacions noves. Fins que no aprovi aquesta, el que canviïs al lloc compta com un suggeriment; en aprovar-se, el que van dir qui la va presentar o el compte de la botiga passa a ser del mateix negoci.",
+          "file": "Reclama per a aquesta botiga",
+          "filed": "Reclamació enviada a GoWay per revisar",
+          "role": {
+            "owner": "Propietari",
+            "operator": "Operador",
+            "manager": "Gestor",
+            "brand": "Marca"
+          },
+          "state": {
+            "pending": "Pendent de revisió",
+            "approved": "Aprovada",
+            "rejected": "Rebutjada",
+            "revoked": "Revocada"
+          }
+        },
+        "storeLink": {
+          "title": "Vincula el lloc amb aquesta ubicació",
+          "description": "El lloc indica quina ubicació de Mercaria és. Mercaria només se'n refia quan ho va escriure la teva reclamació aprovada.",
+          "state": {
+            "missing": "Sense vincular",
+            "otherLocation": "Vinculat a una altra ubicació",
+            "unverified": "Vinculat, encara sense verificar",
+            "verified": "Vinculat i verificat"
+          },
+          "assert": "Vincula amb aquesta ubicació",
+          "asserted": "Desat a GoWay",
+          "unverifiedNote": "En aprovar-se la reclamació, aquest vincle compta com del mateix negoci si el va fer qui la va presentar o algú que actua com el compte de la botiga. Si el va fer una altra persona, torna'l a vincular quan s'aprovi."
+        },
+        "days": {
+          "mon": "Dilluns",
+          "tue": "Dimarts",
+          "wed": "Dimecres",
+          "thu": "Dijous",
+          "fri": "Divendres",
+          "sat": "Dissabte",
+          "sun": "Diumenge"
+        },
+        "hours": {
+          "title": "Horari",
+          "description": "En l'hora local del lloc (%{timezone}), que GoWay dedueix d'on és.",
+          "noTimezone": "zona horària desconeguda",
+          "raw": "La font diu: %{raw}",
+          "placeholder": "09:00-14:00, 17:00-20:00",
+          "hint": "Una línia per dia. Deixa buit el dia que tanques.",
+          "save": "Desa l'horari",
+          "saved": "Horari desat a GoWay",
+          "unreadable": "Revisa l'horari de %{day}: fes servir 09:00-14:00, separat per comes."
+        },
+        "exceptions": {
+          "title": "Festius i horaris especials",
+          "description": "Dates en què no s'aplica la setmana de dalt, en el calendari del mateix lloc.",
+          "none": "Sense festius ni horaris especials.",
+          "range": "Del %{from} al %{to}",
+          "closedAllDay": "Tancat",
+          "noteSuffix": " · %{note}",
+          "remove": "Treu",
+          "removed": "Tret de GoWay",
+          "startsOn": "Des de",
+          "endsOn": "Fins a (opcional)",
+          "datePlaceholder": "2026-12-25",
+          "closed": "Tancat tot el dia",
+          "hours": "Horari aquell dia",
+          "note": "Nota per als compradors",
+          "add": "Afegeix",
+          "added": "Afegit a GoWay",
+          "datesInvalid": "Fes servir dates com 2026-12-25, amb el final igual o posterior a l'inici",
+          "hoursInvalid": "Escriu l'horari d'aquell dia, com 10:00-14:00"
+        },
+        "contact": {
+          "title": "Contacte",
+          "description": "El que els compradors veuen al lloc.",
+          "phone": "Telèfon",
+          "email": "Correu electrònic",
+          "website": "Lloc web",
+          "hint": "Buida un camp i desa per treure'l del lloc.",
+          "save": "Desa el contacte",
+          "saved": "Contacte desat a GoWay",
+          "websiteInvalid": "El lloc web ha de començar per http:// o https://",
+          "emailInvalid": "Escriu un correu electrònic vàlid"
+        },
+        "accessibility": {
+          "title": "Accessibilitat",
+          "description": "Tal com la coneix GoWay avui, que pot ser el que va informar un visitant.",
+          "wheelchair": "Accés amb cadira de rodes",
+          "stepFree": "Entrada sense graons",
+          "toilet": "Lavabo adaptat",
+          "parking": "Aparcament adaptat",
+          "hearingLoop": "Bucle magnètic",
+          "yes": "Sí",
+          "limited": "En part",
+          "no": "No",
+          "unset": "Sense indicar",
+          "hint": "«Sense indicar» retira la teva pròpia declaració; el que van informar els visitants es manté.",
+          "save": "Desa l'accessibilitat",
+          "saved": "Accessibilitat desada a GoWay"
+        },
+        "publication": {
+          "title": "Recollida a Mercaria",
+          "description": "La part de Mercaria d'aquesta ubicació: si els compradors hi poden recollir i com de recent és el recompte d'estoc. En desar es vincula el lloc de GoWay de dalt.",
+          "unsavedPlace": "Has triat un altre lloc; en desar es vincula aquest.",
+          "pickupOffered": "Ofereix recollida aquí",
+          "instructions": "Instruccions de recollida",
+          "instructionsPlaceholder": "Pregunta al taulell de l'entrada",
+          "identity": "Què mostra el comprador per recollir",
+          "inventorySource": "Com es manté al dia l'estoc",
+          "source": {
+            "pos": "Punt de venda",
+            "connector": "Plataforma connectada",
+            "manual": "A mà"
+          },
+          "interval": "Estoc confirmat cada (minuts)",
+          "lowStock": "Estoc baix per sota de",
+          "intervalHint": "Cada quant es confirma l'estoc d'aquesta ubicació. No hi ha valor per defecte: una caixa i una importació nocturna no són igual de recents.",
+          "exactStock": "Mostra l'estoc exacte als compradors",
+          "save": "Desa la configuració de recollida",
+          "saved": "Desat",
+          "placeRequired": "Primer tria el lloc de GoWay",
+          "intervalInvalid": "Escriu un nombre de minuts entre 1 i 43200",
+          "thresholdInvalid": "Escriu un nombre enter entre 0 i 1000",
+          "state": {
+            "draft": "Esborrany",
+            "published": "Publicada",
+            "withdrawn": "Retirada"
+          },
+          "restricted": "Restringida per Mercaria",
+          "publish": "Publica",
+          "withdraw": "Retira",
+          "toDraft": "Torna a esborrany",
+          "stateChanged": "Actualitzat",
+          "pausedBecause": "La recollida està en pausa: %{reason}",
+          "resume": "Reprèn la recollida",
+          "pauseReason": "Motiu per pausar la recollida",
+          "pause": "Pausa la recollida"
+        },
+        "errors": {
+          "gowayForbidden": "GoWay no deixa que aquest compte canviï el lloc fins que s'aprovi la teva reclamació.",
+          "gowaySignIn": "Torna a iniciar la sessió per canviar el lloc a GoWay.",
+          "gowayUnavailable": "GoWay no respon ara mateix. Torna-ho a provar d'aquí a un minut.",
+          "gowayInvalid": "GoWay no ho ha acceptat. Revisa els camps i torna-ho a provar.",
+          "gowayConflict": "Això ja existeix a GoWay per a aquestes dates.",
+          "gowayGone": "GoWay ja no té aquest lloc.",
+          "gowayFailed": "No s'ha pogut desar a GoWay",
+          "publicationRefused": "Encara no: primer el lloc ha d'anomenar aquesta ubicació. Mira l'estat de dalt.",
+          "locationMissing": "Aquesta ubicació ja no existeix",
+          "placeTaken": "Una altra de les teves ubicacions ja fa servir aquest lloc",
+          "publicationFailed": "No s'ha pogut desar la ubicació"
+        }
       }
     },
     "members": {
-      "addFailed": "No s'ha pogut afegir el membre",
-      "addMember": "Afegeix un membre",
-      "added": "Membre afegit",
-      "documentTitle": "Membres | Mercaria Dashboard",
-      "explicitPermissions": {
-        "one": "%{count} permís explícit concedit",
-        "other": "%{count} permisos explícits concedits",
-        "many": "%{count} de permisos explícits concedits"
+      "convert": {
+        "addInvitee": "Afegeix una persona",
+        "body": "Una organització d'Oxy serà la propietària d'aquesta botiga. Tu en passes a ser el propietari i les persones que convidis podran actuar per la botiga amb el rol que els donis.",
+        "displayNameLabel": "Nom de l'organització",
+        "done": "La botiga ara pertany a l'organització",
+        "failed": "No s'ha pogut convertir la botiga",
+        "inviteLabel": "Usuari o correu",
+        "invitePlaceholder": "usuari o correu@exemple.com",
+        "inviteesTitle": "Persones a convidar",
+        "nameRequired": "Escriu el nom i l'usuari de l'organització",
+        "open": "Converteix en organització",
+        "someInvitesFailed": "La botiga s'ha mogut, però aquestes invitacions han fallat: %{names}",
+        "submit": "Crea l'organització i mou la botiga",
+        "title": "Converteix en una organització",
+        "usernameLabel": "Nom d'usuari de l'organització",
+        "warning": "Les persones que abans podien actuar per aquesta botiga i no són a l'organització ja no hi tenen accés."
       },
-      "invite": "Convida",
-      "inviteTitle": "Convida un membre",
-      "joinedOn": "S'hi va incorporar el %{date}",
-      "loadFailed": "No s'han pogut carregar els membres",
-      "oxyUserIdLabel": "Id d'usuari d'Oxy",
-      "oxyUserIdPlaceholder": "id d'usuari d'Oxy",
-      "oxyUserIdRequired": "Introdueix l'id d'usuari d'Oxy del membre",
-      "removeFailed": "No s'ha pogut eliminar el membre",
-      "removed": "Membre eliminat",
-      "roleLabel": "Rol",
-      "roleUpdateFailed": "No s'ha pogut actualitzar el membre",
-      "roleUpdated": "Rol actualitzat",
+      "documentTitle": "Membres | Mercaria Dashboard",
+      "loadFailed": "No s'han pogut carregar les persones d'aquesta botiga",
+      "noAccess": "Sense accés",
+      "organizationBody": "Qui pot actuar per aquesta botiga ho decideix la pertinença a l'organització a Oxy. Mercaria només guarda excepcions als permisos de cada rol.",
+      "outsidersNote": "Aquestes persones tenen una excepció en aquesta botiga però no són a l'organització, així que no hi tenen accés fins que no s'hi afegeixin.",
+      "override": {
+        "body": "Cada permís segueix el rol de la persona tret que l'afegeixis o el treguis aquí. Només pots canviar permisos que tens.",
+        "default": "Segons el rol",
+        "edit": "Excepcions",
+        "grant": "Afegeix",
+        "revoke": "Treu",
+        "save": "Desa",
+        "saveFailed": "No s'han pogut desar les excepcions",
+        "saved": "Excepcions desades",
+        "title": "Excepcions de %{name}"
+      },
+      "overrideSummary": "%{granted} afegits, %{revoked} trets",
+      "ownedBy": "Propietat de %{name}",
+      "permissionLabels": {
+        "analyticsRead": "Veure analítica de demanda",
+        "channelsWrite": "Gestionar canals de venda",
+        "collectionsWrite": "Editar col·leccions",
+        "customersRead": "Veure clients",
+        "customersWrite": "Editar clients",
+        "discountsWrite": "Editar descomptes",
+        "draftOrdersWrite": "Crear comandes esborrany",
+        "inventoryWrite": "Editar inventari",
+        "locationsWrite": "Editar ubicacions",
+        "membersManage": "Gestionar persones i permisos",
+        "ordersFulfill": "Preparar comandes",
+        "ordersRead": "Veure comandes",
+        "productsRead": "Veure productes",
+        "productsWrite": "Editar productes",
+        "refundsWrite": "Fer reemborsaments",
+        "settingsWrite": "Editar la configuració",
+        "statsRead": "Veure estadístiques de vendes",
+        "storeManage": "Gestionar la botiga"
+      },
+      "personalBody": "Aquesta botiga pertany a un compte personal d'Oxy, així que només aquest compte hi pot actuar. Converteix-la en una organització per treballar amb altres persones.",
       "roles": {
         "admin": "Administrador",
+        "billing": "Facturació",
+        "developer": "Desenvolupador",
+        "editor": "Editor",
         "owner": "Propietari",
-        "staff": "Personal"
+        "viewer": "Lector"
       },
-      "subtitle": "Qui pot gestionar aquesta botiga",
-      "title": "Membres i rols"
+      "subtitle": "Qui pot actuar per aquesta botiga i les excepcions al seu rol",
+      "title": "Persones i permisos"
     },
     "payments": {
       "beingReviewed": "En revisió",
@@ -1516,8 +1781,8 @@
         "label": "Ubicacions"
       },
       "members": {
-        "description": "Convida i edita rols i permisos",
-        "label": "Membres i rols"
+        "description": "Qui pot actuar per la botiga i les excepcions al seu rol",
+        "label": "Persones i permisos"
       },
       "payments": {
         "description": "Cobra les comandes fetes a Mercaria",

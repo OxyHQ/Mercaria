@@ -4,6 +4,7 @@ import {
   createMercariaClient,
   formatMercariaRef,
   isMercariaRef,
+  locationRef,
   MercariaValidationError,
   parseMercariaRef,
   parseMercariaRefString,
@@ -12,17 +13,18 @@ import {
   variantRef,
   type MercariaRef,
 } from '../src/index';
-import { collectionWire, productWire, storeWire, WEB } from './fixtures';
+import { collectionWire, locationWire, productWire, storeWire, WEB } from './fixtures';
 import { fakeClient, ok } from './helpers';
 
 describe('ref constructors', () => {
   it('build frozen refs with exactly the contract keys', () => {
-    const refs = [productRef('p'), variantRef('p', 'v'), storeRef('s'), collectionRef('c')];
+    const refs = [productRef('p'), variantRef('p', 'v'), storeRef('s'), collectionRef('c'), locationRef('l')];
     expect(refs).toEqual([
       { kind: 'product', id: 'p' },
       { kind: 'variant', productId: 'p', variantId: 'v' },
       { kind: 'store', id: 's' },
       { kind: 'collection', id: 'c' },
+      { kind: 'location', id: 'l' },
     ]);
     for (const ref of refs) expect(Object.isFrozen(ref)).toBe(true);
   });
@@ -34,6 +36,7 @@ describe('ref constructors', () => {
     () => variantRef('', 'v'),
     () => storeRef(undefined as never),
     () => collectionRef(12 as never),
+    () => locationRef(''),
   ])('reject an empty or non-string id (%#)', (build) => {
     expect(build).toThrow(MercariaValidationError);
   });
@@ -82,6 +85,7 @@ describe('the string form', () => {
     [variantRef('prod_1', 'var_1'), 'mercaria:variant:prod_1:var_1'],
     [storeRef('store_1'), 'mercaria:store:store_1'],
     [collectionRef('col_1'), 'mercaria:collection:col_1'],
+    [locationRef('loc_1'), 'mercaria:location:loc_1'],
     [productRef('a:b/c d%e'), 'mercaria:product:a%3Ab%2Fc%20d%25e'],
     [variantRef('p:1', 'v:2'), 'mercaria:variant:p%3A1:v%3A2'],
     [storeRef('ünï'), 'mercaria:store:%C3%BCn%C3%AF'],
@@ -147,6 +151,15 @@ describe('links — identical to the server rules', () => {
     expect(links.collection(collectionRef('col/1'), 'my shop')).toBe(expected);
     expect(links.collection('col/1', { handle: 'my shop' })).toBe(expected);
     expect(links.collection(collection, store)).toBe(collection.url);
+  });
+
+  it('builds a location link from the location and its store handle — the url the server serves', async () => {
+    const { client } = fakeClient(() => ok(locationWire('loc/1', 'my shop')));
+    const location = await client.locations.get('loc/1');
+    const expected = `${WEB}/stores/${encodeURIComponent('my shop')}?location=${encodeURIComponent('loc/1')}`;
+    expect(links.location(location, location.store)).toBe(expected);
+    expect(links.location(locationRef('loc/1'), 'my shop')).toBe(expected);
+    expect(links.location(location, location.store)).toBe(location.url);
   });
 
   it('uses a custom web base URL', () => {

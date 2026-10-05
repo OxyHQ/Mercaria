@@ -7,10 +7,10 @@
  * per store for an answer that does not vary by one.
  *
  * The permission PROJECTION inside a composed schema does vary, and it is
- * derived from `req.storeMembership` — which is absent here, so this surface
+ * derived from `req.storeAccess` — which is absent here, so this surface
  * composes with the read-only projection. A form is opened through the
- * store-scoped draft routes, where the membership is loaded and the projection
- * is real.
+ * store-scoped draft routes, where the caller's access is loaded and the
+ * projection is real.
  */
 
 import { Router } from 'express';

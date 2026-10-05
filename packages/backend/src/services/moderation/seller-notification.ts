@@ -53,8 +53,9 @@ async function resolveRecipient(
   // this replaces would have silently returned `undefined` for every store
   // created after the migration — no notification, and a warning line blaming
   // the listing. A store id that matches nothing is answered by the lookup.
+  // The store's owning Oxy account is its inbox (ADR 0012).
   const store = await findStoreById(input.storeId);
-  return store?.members.find((member) => member.role === 'owner')?.oxyUserId;
+  return store?.oxyAccountId;
 }
 
 export async function notifySellerOfRequestedChanges(

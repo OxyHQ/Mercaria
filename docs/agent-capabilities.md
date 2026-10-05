@@ -15,12 +15,15 @@ must not be copied into Alia or into a second MCP-only registry.
 - External clients call `/mcp` with an OAuth access token issued by Oxy for the
   exact `https://mcp.mercaria.oxy.so` resource and selected Oxy account. The
   shared `@oxy.so/mcp` transport performs live token introspection and protocol
-  validation before Mercaria checks current store membership and permissions.
+  validation before Mercaria checks that the effective account owns the store.
 
 Both paths use the effective account to read or operate Mercaria resources. An
 agent account remains the audit actor; it never receives the effective account's
-session or a connection secret. Removing a store member or permission therefore
-blocks the next call even if a short-lived token still exists.
+session or a connection secret. A capability carries no caller session to ask
+Oxy about membership with, so a STORE tool is allowed only when the effective
+account is the store's owning Oxy account (ADR 0012): an agent acts AS the
+organization. Moving the store to another account therefore blocks the next
+call even if a short-lived token still exists.
 
 ## Financial boundary
 

@@ -23,10 +23,11 @@
  * `lib/__tests__/rate-limit-scope-census.test.ts` is the gate.
  */
 
-import type { Request, RequestHandler } from 'express';
+import type { Request, RequestHandler, Response } from 'express';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { createOxyRateLimit, type OxyRateLimitOptions } from '@oxy.so/core/server';
+import { mercariaErrorBody, type MercariaErrorBody } from '@mercaria/contracts';
 import { oxyClient } from '../middleware/auth.js';
 import { actorRateKey } from '../services/commerce-actor.js';
 import { getRedisClient } from './redis.js';
@@ -220,15 +221,43 @@ function scopeStore(scope: RateLimitScope): RedisStore | undefined {
 }
 
 /**
+ * The body of EVERY 429 a limiter here answers with — `general` above every
+ * route, each scope, and the actor-keyed ones — in `~/Oxy/docs/api-conventions.md`'s
+ * error shape: `{ error: { code: 'rate_limited', message, details: { retryAfterSeconds } } }`.
+ * One body for the whole API, because `general` meters the public surface and
+ * the internal one alike, so a per-surface body could not be honoured anyway.
+ *
+ * express-rate-limit sets `Retry-After` BEFORE it builds the body (both limiters
+ * enable standard headers), so the seconds are read back from that header
+ * rather than recomputed: one number, stated twice, never two numbers.
+ */
+export function rateLimitedBody(_req: Request, res: Response): MercariaErrorBody {
+  const retryAfterSeconds = Number(res.getHeader('Retry-After'));
+  return mercariaErrorBody(
+    'rate_limited',
+    'Too many requests, please try again later.',
+    Number.isSafeInteger(retryAfterSeconds) && retryAfterSeconds >= 0 ? { retryAfterSeconds } : undefined,
+  );
+}
+
+/**
  * Build a rate-limit middleware for a scope. The scope drives a unique
  * `rl:<scope>:` Redis key prefix so limiters never share counters.
  */
 export function makeRateLimiter(
   scope: RateLimitScope,
-  options: Omit<OxyRateLimitOptions, 'store'> = {},
+  options: Omit<OxyRateLimitOptions, 'store' | 'message'> = {},
 ): RequestHandler {
   const store = scopeStore(scope);
-  return createOxyRateLimit(oxyClient, { ...options, ...(store ? { store } : {}) });
+  return createOxyRateLimit(oxyClient, {
+    ...options,
+    // `OxyRateLimitOptions.message` is typed `string`, but `createOxyRateLimit`
+    // hands it to express-rate-limit unchanged, and that accepts a function of
+    // `(req, res)` whose object result it sends as JSON. @oxy.so/core 4.2.0 has
+    // no handler option; widening that type upstream retires this cast.
+    message: rateLimitedBody as unknown as string,
+    ...(store ? { store } : {}),
+  });
 }
 
 /** Tunables for {@link makeActorRateLimiter}, mirroring the SDK's own names. */
@@ -289,7 +318,7 @@ export function makeActorRateLimiter(
       actorRateKey(req.commerceActor ?? { kind: 'anonymous' }, ipKeyGenerator(req.ip ?? 'unknown')),
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    message: { success: false, error: 'RATE_LIMITED', message: 'Too many requests' },
+    message: rateLimitedBody,
     ...(store ? { store } : {}),
   });
 }

@@ -3,15 +3,19 @@
  * `listing_options`, `listing_external_refs`, `product_variants`,
  * `product_variant_option_values`, `inventory_levels`.
  *
- * Three of this schema's four "shape changes" live here, and each replaces a
- * Mongo mechanism that has no direct Postgres equivalent:
+ * Two of this schema's "shape changes" live here, and each replaces a Mongo
+ * mechanism that has no direct Postgres equivalent:
  *
  *  - the `{title, description, tags}` TEXT index becomes a generated `tsvector`
  *    plus a GIN index;
- *  - the `2dsphere` index on a GeoJSON point becomes named `longitude` /
- *    `latitude` columns plus a GENERATED `geography` and a GiST index;
  *  - the `pre('validate')` owner-exclusivity hook becomes a CHECK, which unlike
  *    a hook cannot be bypassed by `updateOne`, by the backfill, or by `psql`.
+ *
+ * A listing has NO position. The Mongo `2dsphere` point the port carried over
+ * (`longitude`/`latitude` plus a generated `geography`) was dropped by `0162`:
+ * a store sells from its locations, whose place is GoWay's (ADR 0013), and a
+ * P2P seller's area is `listing_local_discovery`'s coarse cell, which cannot
+ * hold a precise point at all.
  *
  * `Listing.collectionIds` is NOT here — it becomes the `listing_collections`
  * junction table in `merchandising.ts`, alongside the collection that
@@ -33,7 +37,7 @@ import {
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
-import { createdAt, generatedId, geography, timestamptz, tsvector, updatedAt } from '@oxy.so/db';
+import { createdAt, generatedId, timestamptz, tsvector, updatedAt } from '@oxy.so/db';
 import {
   ALL_LISTING_STATUSES,
   CATEGORY_KEY_PATTERN,
@@ -351,30 +355,6 @@ export const listings = pgTable(
     hasInventory: boolean().notNull().default(false),
     variantCount: integer().notNull().default(0),
 
-    /**
-     * The listing's location, as NAMED coordinates rather than a GeoJSON array.
-     *
-     * Mongo stored `coordinates: [lng, lat]`, and a positional pair is the one
-     * shape where a swap does not look wrong: it yields a plausible point in the
-     * wrong hemisphere. Naming the two columns and GENERATING the point from
-     * them states the order in exactly one place.
-     */
-    longitude: doublePrecision(),
-    latitude: doublePrecision(),
-    /**
-     * The PostGIS point, GENERATED — never written.
-     *
-     * `ST_MakePoint(lon, lat)::geography` is IMMUTABLE in PostGIS 3.5, which a
-     * generated column requires. Because it is generated, the coordinates and
-     * the point cannot disagree: there is no write path, including the backfill,
-     * that can produce a row where they do.
-     */
-    geo: geography().generatedAlwaysAs(
-      (): SQL =>
-        sql`case when ${listings.longitude} is null or ${listings.latitude} is null then null
-             else st_makepoint(${listings.longitude}, ${listings.latitude})::geography end`,
-    ),
-
     vendor: text(),
     /**
      * The connector's own free-text product type (Shopify's `product_type`).
@@ -545,12 +525,6 @@ export const listings = pgTable(
       sql`(${t.ownerType} = 'user' and ${t.oxyUserId} is not null and ${t.storeId} is null)
           or (${t.ownerType} = 'store' and ${t.storeId} is not null and ${t.oxyUserId} is null)`,
     ),
-    // A point is either fully specified or absent — never half a coordinate pair.
-    check(
-      'listings_coordinates_check',
-      sql`(${t.longitude} is null) = (${t.latitude} is null)`,
-    ),
-
     // Keyset-paginated browse feeds. Each is the feed's ORDER BY, in that exact
     // column order and direction — anything else cannot serve the sort.
     index('listings_status_published_at_id_idx').on(
@@ -598,7 +572,6 @@ export const listings = pgTable(
     index('listings_category_slugs_idx').using('gin', t.categorySlugs),
     index('listings_tags_idx').using('gin', t.tags),
     index('listings_search_vector_idx').using('gin', t.searchVector),
-    index('listings_geo_idx').using('gist', t.geo),
     index('listings_store_id_vendor_idx').on(t.storeId, t.vendor),
     index('listings_store_id_product_type_idx').on(t.storeId, t.productType),
     /**

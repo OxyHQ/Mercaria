@@ -423,6 +423,12 @@ jobs:
           # Absent on a `push` trigger, where only the default is ever right.
           REQUESTED_PHASE: ${{ github.event.inputs.migration_phase }}
           IMAGE_URI: ${{ steps.image.outputs.uri }}
+          # GoWay's API origin (ADR 0013). Pinned into every release revision
+          # beside OXY_API_URL, because without it the backend has no GoWay
+          # client: every place read answers `goway_unavailable`, so no location
+          # can be published, the public location reads answer 503 and a
+          # collection fails closed. A repo variable overrides it for staging.
+          GOWAY_API_URL: ${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}
         run: |
           echo "phase_mode=${REQUESTED_PHASE:-pre-post}" >> "$GITHUB_OUTPUT"
           # A FAILED QUERY AND AN ABSENT SERVICE ARE DIFFERENT FACTS (#608).
@@ -483,6 +489,7 @@ jobs:
             --arg name "$CONTAINER" \
             --arg image "$IMAGE_URI" \
             --arg oxy_api_url "https://api.oxy.so" \
+            --arg goway_api_url "$GOWAY_API_URL" \
             --arg oxy_key "arn:aws:ssm:$AWS_REGION:237343248947:parameter/oxy/$APP/OXY_APPLICATION_KEY" \
             --arg oxy_secret "arn:aws:ssm:$AWS_REGION:237343248947:parameter/oxy/$APP/OXY_APPLICATION_SECRET" \
             '{family, taskRoleArn, executionRoleArn, networkMode,
@@ -495,8 +502,8 @@ jobs:
                  if .name == $name then
                    .image = $image
                    | .environment = (
-                       ((.environment // []) | map(select(.name != "OXY_API_URL")))
-                       + [{name: "OXY_API_URL", value: $oxy_api_url}]
+                       ((.environment // []) | map(select(.name != "OXY_API_URL" and .name != "GOWAY_API_URL")))
+                       + [{name: "OXY_API_URL", value: $oxy_api_url}, {name: "GOWAY_API_URL", value: $goway_api_url}]
                      )
                    | .secrets = (
                        ((.secrets // []) | map(select(

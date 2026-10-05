@@ -94,16 +94,14 @@ afterAll(async () => {
 /** A store with a default location and an import category — what a create needs. */
 async function makeStore(): Promise<string> {
   const suffix = uuidv7();
-  const store = await insertStore(
-    {
-      handle: `handle-identity-${suffix}`,
-      name: 'Handle identity store',
-      description: '',
-      brandColor: '#123456',
-      defaultCurrency: 'FAIR',
-    },
-    [{ oxyUserId: OWNER_USER, role: 'owner', permissions: ['store:manage', 'channels:write'] }],
-  );
+  const store = await insertStore({
+    oxyAccountId: OWNER_USER,
+    handle: `handle-identity-${suffix}`,
+    name: 'Handle identity store',
+    description: '',
+    brandColor: '#123456',
+    defaultCurrency: 'FAIR',
+  });
   createdStoreIds.push(store.id);
   await insertLocation(store.id, {
     name: 'Default location',
@@ -387,16 +385,14 @@ describe('sync_runs.error is classified and bounded (#292 part B)', () => {
     // carry an entry for, so it exercises the DEFAULT rather than the map.
     let driverError: unknown;
     try {
-      await insertStore(
-        {
-          handle: `handle-identity-${categorySlug.replace('handle-identity-', '')}`,
-          name: 'Duplicate handle store',
-          description: '',
-          brandColor: '#123456',
-          defaultCurrency: 'FAIR',
-        },
-        [{ oxyUserId: OWNER_USER, role: 'owner', permissions: [] }],
-      );
+      await insertStore({
+        oxyAccountId: OWNER_USER,
+        handle: `handle-identity-${categorySlug.replace('handle-identity-', '')}`,
+        name: 'Duplicate handle store',
+        description: '',
+        brandColor: '#123456',
+        defaultCurrency: 'FAIR',
+      });
     } catch (err) {
       driverError = err;
     }

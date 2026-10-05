@@ -10,8 +10,8 @@
  * privacy-safe geospatial boundaries". A nearby answer is keyed on a shopper's
  * own position and carries per-location stock freshness, so a shared cache
  * would be a store of who was where — and a browser cache of it would survive
- * on a shared device. No server-side cache exists either; the read is two
- * indexed statements and the honest posture is not to keep it.
+ * on a shared device. No server-side cache of it exists either: only GoWay
+ * place reads by id are cached, and nothing keyed on a position.
  *
  * ## Signed out is a first-class caller
  *
@@ -26,11 +26,7 @@ import type { Request, Response } from 'express';
 import type { ItemConditionKey } from '@mercaria/shared-types';
 import { config } from '../config/index.js';
 import { assertUsableCoordinate } from '../services/pickup/geo.js';
-import {
-  decodeCursor,
-  findNearbyAvailability,
-  suggestNearbyPlaces,
-} from '../services/pickup/nearby.service.js';
+import { findNearbyAvailability, suggestNearbyPlaces } from '../services/pickup/nearby.service.js';
 import { findNearbyP2pListings } from '../services/pickup/local-discovery.service.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
@@ -54,6 +50,7 @@ export async function nearbyHandler(req: Request, res: Response): Promise<void> 
     currency?: string;
     conditionKeys?: ItemConditionKey[];
     withCheckoutEligibility?: 'true' | 'false';
+    locale?: string;
     limit?: number;
     cursor?: string;
   };
@@ -74,8 +71,9 @@ export async function nearbyHandler(req: Request, res: Response): Promise<void> 
         ...(query.country === undefined ? {} : { country: query.country }),
         ...(query.currency === undefined ? {} : { currency: query.currency }),
         ...(query.conditionKeys === undefined ? {} : { conditionKeys: query.conditionKeys }),
+        ...(query.locale === undefined ? {} : { locale: query.locale }),
         limit: query.limit ?? 20,
-        ...(query.cursor === undefined ? {} : { cursor: decodeCursor(query.cursor) }),
+        ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
         withCheckoutEligibility: query.withCheckoutEligibility === 'true',
       },
       req.commerceActor ?? { kind: 'anonymous' },
@@ -90,10 +88,9 @@ export async function nearbyHandler(req: Request, res: Response): Promise<void> 
 /**
  * `GET /nearby/places` — the manual-location fallback (#93 acceptance 5).
  *
- * Answers with the cities that actually hold the item, which is why it needs no
- * gazetteer and why Mercaria calls no geocoding provider. A city here always
- * yields results when picked, because the suggestion and the result read share
- * one `where`.
+ * Answers with the towns matching what the shopper typed, as GoWay resolves
+ * them, kept only where the item is collectable — so a town here yields
+ * results when picked.
  */
 export async function nearbyPlacesHandler(req: Request, res: Response): Promise<void> {
   withoutCaching(res);
@@ -102,6 +99,7 @@ export async function nearbyPlacesHandler(req: Request, res: Response): Promise<
     canonicalProductId?: string;
     q?: string;
     country?: string;
+    locale?: string;
     limit?: number;
   };
 
@@ -115,7 +113,8 @@ export async function nearbyPlacesHandler(req: Request, res: Response): Promise<
         : { canonicalProductId: query.canonicalProductId }),
       ...(query.q === undefined ? {} : { term: query.q }),
       ...(query.country === undefined ? {} : { country: query.country }),
-      limit: query.limit ?? 10,
+      ...(query.locale === undefined ? {} : { locale: query.locale }),
+      limit: query.limit ?? 5,
     });
     sendSuccess(res, { places });
   } catch (err) {
