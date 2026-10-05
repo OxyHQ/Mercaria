@@ -48,7 +48,7 @@ function addPlace(id: string, locationId?: string): void {
     longitude: 2.17,
     timezone: 'Europe/Madrid',
     address: { countryCode: 'ES', city: 'Barcelona' },
-    hoursExceptions: [{ startsOn: '2026-12-25', endsOn: '2026-12-25', closed: true, note: 'Christmas' }],
+    hoursExceptions: [{ startsOn: '2025-12-25', endsOn: '2025-12-25', closed: true, note: 'Christmas' }],
     ...(locationId === undefined ? {} : { storeLinks: [{ locationId, verification: 'business_asserted' }] }),
   });
 }

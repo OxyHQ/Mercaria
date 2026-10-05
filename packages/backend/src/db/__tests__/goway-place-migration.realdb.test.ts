@@ -164,7 +164,7 @@ beforeAll(async () => {
     insert into stores (id, handle, name, description, brand_color)
     values (${ROLLOUT_STORE}, 'rollout-store', 'Rollout store', '', '#000000')
   `;
-  await insertMember(ROLLOUT_STORE, ROLLOUT_OWNER, 'owner', OWNER_DEFAULTS, '2026-10-05T09:00:00Z');
+  await insertMember(ROLLOUT_STORE, ROLLOUT_OWNER, 'owner', OWNER_DEFAULTS, '2025-06-01T00:00:00Z');
   // ...and publishes a location the way it always did: state and trail, no
   // `published_at`, which it has never heard of.
   await client`
