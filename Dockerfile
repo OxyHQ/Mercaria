@@ -10,11 +10,12 @@
 #   docker build -t mercaria-backend:test .
 #
 # Pipeline:
-#   build: bun install --frozen-lockfile (incl. devDependencies for the build)
-#          && bun run build:backend           (tsc shared-types + esbuild bundle
-#                                               -> packages/backend/dist/index.js)
-#          && reinstall production-only deps
-#   run:   node packages/backend/dist/index.js
+#   builder:   toolchain, bun, every workspace manifest, the lockfile
+#   prod-deps: bun install --frozen-lockfile --production  (runtime node_modules)
+#   bundle:    bun install --frozen-lockfile (incl. devDependencies for the build)
+#              && bun run build:backend    (tsc shared-types + esbuild bundle
+#                                            -> packages/backend/dist/index.js)
+#   run:       node packages/backend/dist/index.js
 #
 # @mercaria/shared-types is a first-party workspace package; the API bundle
 # INLINES it (see packages/backend/build.ts), so the runtime image needs neither
@@ -23,7 +24,9 @@
 # node_modules copied into the runtime stage.
 
 # ---------------------------------------------------------------------------
-# Stage 1: builder — install the full dependency graph and bundle the API.
+# Stage 1: builder — the toolchain and everything a `bun install` reads. The
+# two stages below start from it: one for the runtime dependency tree, one for
+# the build.
 # ---------------------------------------------------------------------------
 FROM node:24-alpine AS builder
 
@@ -75,6 +78,34 @@ COPY packages/sdk/package.json ./packages/sdk/package.json
 COPY packages/shared-types ./packages/shared-types
 COPY packages/contracts ./packages/contracts
 
+# ---------------------------------------------------------------------------
+# Stage 1b: prod-deps — the production-only dependency tree, from the SAME
+# manifests and lockfile, and nothing else.
+#
+# This used to be the builder's LAST step (`rm -rf node_modules && bun install
+# --production`), which put it after `COPY packages/backend`: every backend
+# source change invalidated it, so every deploy re-downloaded the whole tree —
+# 81.3s of the 161s build (Deploy to AWS run 36277048418, step #34). Here it
+# depends only on what an install reads, so the layer is reused from the gha
+# cache until a manifest, the lockfile or shared-types changes, and BuildKit
+# builds it alongside the builder when it does.
+#
+# Same tree, measured: a production install run in this stage's shape and one
+# run the old way (full install, backend source present, node_modules removed,
+# production install) produced identical package lists — 850 package.json
+# files, same names and versions (bun, 2026-09-29). And since this layer now
+# only changes with the dependencies, its share of the ~22s layer export and
+# of the push should also drop out of an ordinary release (expected, not yet
+# measured).
+# ---------------------------------------------------------------------------
+FROM builder AS prod-deps
+RUN bun install --frozen-lockfile --production
+
+# ---------------------------------------------------------------------------
+# Stage 1c: bundle — the full install and the API build.
+# ---------------------------------------------------------------------------
+FROM builder AS bundle
+
 # Deterministic install from the lockfile, including devDependencies (esbuild,
 # TypeScript) required to bundle the API. The root postinstall builds
 # @mercaria/shared-types, then @mercaria/contracts.
@@ -87,7 +118,7 @@ COPY packages/backend ./packages/backend
 # packages/backend/dist/index.js (externalizes third-party node_modules INCLUDING
 # @oxy.so/*, inlines only @mercaria/*; see packages/backend/build.ts).
 #
-# @oxy.so/* being external is what makes the production install below load-bearing:
+# @oxy.so/* being external is what makes the `prod-deps` install load-bearing:
 # the bundle `import`s those packages by name, so they MUST be present in the
 # runtime node_modules. They are all in @mercaria/backend's `dependencies` (not
 # devDependencies), so `--production` keeps them. Moving one to devDependencies
@@ -111,13 +142,11 @@ RUN test -f packages/backend/dist/register-capability-catalog.js \
 RUN test -f packages/backend/dist/scripts/provision-taxonomy.js \
  || (echo "ERROR: packages/backend/dist/scripts/provision-taxonomy.js was not produced by the build" && exit 1)
 
-# Strip devDependencies so only production modules are carried into the runtime
-# image (bun has no `prune`; a clean production install from the same lockfile is
-# the deterministic equivalent). The API bundle inlines first-party code, so the
-# shared-types dist is no longer needed at runtime — but every EXTERNAL import
-# (all third-party deps plus @oxy.so/*) must survive this step.
-RUN rm -rf node_modules \
- && bun install --frozen-lockfile --production
+# devDependencies are stripped by taking node_modules from `prod-deps` above
+# rather than from this stage (bun has no `prune`; a clean production install
+# from the same lockfile is the deterministic equivalent). The API bundle inlines
+# first-party code, so the shared-types dist is not needed at runtime — but every
+# EXTERNAL import (all third-party deps plus @oxy.so/*) must be in that tree.
 
 # ---------------------------------------------------------------------------
 # Stage 2: runner — minimal runtime with production deps and the bundle.
@@ -138,12 +167,12 @@ USER node
 
 # Bring over the pruned (production-only) dependency tree and the workspace
 # manifests so Node's workspace resolution stays valid.
-COPY --from=builder --chown=node:node /app/node_modules ./node_modules
-COPY --from=builder --chown=node:node /app/package.json ./package.json
-COPY --from=builder --chown=node:node /app/packages/backend/package.json ./packages/backend/package.json
+COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
+COPY --from=prod-deps --chown=node:node /app/package.json ./package.json
+COPY --from=prod-deps --chown=node:node /app/packages/backend/package.json ./packages/backend/package.json
 
 # The bundled API.
-COPY --from=builder --chown=node:node /app/packages/backend/dist ./packages/backend/dist
+COPY --from=bundle --chown=node:node /app/packages/backend/dist ./packages/backend/dist
 
 # The SQL migrations, which EVERY serving task needs — not just the one-shot
 # migration task. `db/postgres.ts` reads this folder's journal at module load to
@@ -151,7 +180,7 @@ COPY --from=builder --chown=node:node /app/packages/backend/dist ./packages/back
 # it crashes at container start rather than starting and answering "not ready".
 # `src/db/migrationsFolder.ts` resolves the path from the package root, which is
 # why this lands beside `dist` rather than anywhere else.
-COPY --from=builder --chown=node:node /app/packages/backend/drizzle ./packages/backend/drizzle
+COPY --from=bundle --chown=node:node /app/packages/backend/drizzle ./packages/backend/drizzle
 
 EXPOSE 3001
 

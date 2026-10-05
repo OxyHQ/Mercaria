@@ -3,7 +3,7 @@ name: Deploy Frontend
 # WHAT IS VERIFIED BEFORE THIS SHIPS: the whole of `ci.yml` — the ten
 # `validate:*` guards, five typechecks, the three app test runners and the API
 # suite — asserted for THIS commit by the `gate` job below. Not the export in
-# `deploy-app`: `expo export` is a bundler, Babel strips types, and it ships code
+# `build`: `expo export` is a bundler, Babel strips types, and it ships code
 # `tsc` rejects. Measured on 2026-08-17 against `packages/pos`, a `string`
 # assigned to a `number`: `tsc --noEmit` exits 2, `expo export` exits 0 and the
 # mutated module is in the shipped bundle. So the build below proves the app
@@ -84,8 +84,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  deploy-app:
-    needs: gate
+  # The Expo export needs nothing the gate protects: no secret, only the public
+  # EXPO_PUBLIC_* build config, and it ships nothing. So it runs WHILE the gate
+  # waits for ci.yml (~12 min) instead of after it, and the job that holds the
+  # Cloudflare token still needs the gate and only uploads what this built.
+  # Measured: the export was 58-59s of a ~90s deploy job that started only once
+  # the gate passed (runs of deploy-dashboard/deploy-pos, 2026-09).
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -118,6 +123,29 @@ jobs:
       # `workers_dev`/`preview_urls` are disabled in wrangler.jsonc so the app is
       # served ONLY via the custom domain `mercaria.co` — no `*.workers.dev` /
       # `*.pages.dev` URL is ever exposed.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: frontend-dist
+          path: packages/frontend/dist
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 1
+
+  deploy-app:
+    needs: [gate, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.14'
+      # wrangler bundles dist/_worker.js, which imports @oxy.so/telemetry/edge
+      # from node_modules, so the install stays; the export does not.
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@v8
+        with:
+          name: frontend-dist
+          path: packages/frontend/dist
       - name: Deploy to Cloudflare Workers
         working-directory: packages/frontend
         run: bunx wrangler@4 deploy
