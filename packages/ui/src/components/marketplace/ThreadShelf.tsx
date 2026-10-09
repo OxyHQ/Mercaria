@@ -42,8 +42,13 @@ export function ThreadShelf({
               accessibilityRole="link"
               accessibilityLabel={item.title}
               onPress={() => onPress(item.id)}
-              className="flex-row items-center gap-3 rounded-[20px] border border-border bg-card p-2 web:shadow-sm web:transition-all web:duration-200 web:hover:bg-muted active:scale-[0.98] web:motion-reduce:transition-none"
+              className="relative flex-row items-center gap-3 rounded-[20px] bg-card p-2 web:transition-all web:duration-200 web:hover:bg-muted active:scale-[0.98] web:motion-reduce:transition-none"
+              style={{ boxShadow: "0px 2px 8px rgba(0,0,0,0.06)" }}
             >
+              <View
+                pointerEvents="none"
+                className="absolute inset-0 rounded-[20px] border-[0.5px] border-black/10 dark:border-white/15"
+              />
               <View className="relative h-10 w-10 shrink-0">
                 {item.imageUrls.length ? (
                   item.imageUrls.slice(0, 2).map((uri, index) => (

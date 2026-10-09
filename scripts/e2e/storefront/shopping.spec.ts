@@ -342,6 +342,7 @@ test('Keep shopping resumes a persisted conversation including its follow-up', a
   const card = page.getByTestId('thread-shelf').getByRole('link', { name: 'Dinner party gifts', exact: true });
   await expect(card).toBeVisible();
   expect((await card.boundingBox())!.width).toBe(289);
+  expect((await card.boundingBox())!.height).toBe(56);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(async () => (await card.boundingBox())!.width).toBe(239);
   await card.click();
@@ -381,6 +382,10 @@ test('category mosaics show four independently navigable published categories', 
   expect(chipsBox.y).toBeGreaterThanOrEqual(heroBox.y + heroBox.height);
   expect(chipsBox.y - heroBox.y - heroBox.height).toBeLessThan(32);
   await expect(chips.getByRole('link').first()).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  const chipCount = await chips.getByRole('link').count();
+  await expect(chips.getByTestId('category-pill-image')).toHaveCount(chipCount);
+  await expect.poll(() => chips.locator('img').evaluateAll(images => images.filter(image => image.complete && image.naturalWidth > 0).length)).toBe(chipCount);
+  expect(await chips.locator('img').evaluateAll(images => images.every(image => new URL(image.src).origin === location.origin))).toBe(true);
   const shelf = page.getByTestId('category-mosaic-shelf');
   const first = shelf.getByTestId('category-mosaic').first();
   await expect(first).toBeVisible();
@@ -388,6 +393,37 @@ test('category mosaics show four independently navigable published categories', 
   await expect(first.getByRole('link')).toHaveCount(4);
   await first.getByRole('link', { name: 'Dresses', exact: true }).click();
   await expect(page).toHaveURL(/\/categories\/dresses$/);
+});
+
+test('category chips retain a visible fallback and navigation when an image fails', async ({ page }) => {
+  await page.route('**/automotive.jpg*', route => route.abort());
+  await page.goto('/');
+  const automotive = page.getByTestId('category-pills').getByRole('link', { name: 'Automotive', exact: true });
+  await expect(automotive.getByTestId('category-pill-image-fallback')).toBeVisible();
+  await automotive.click();
+  await expect(page).toHaveURL(/\/categories\/brake-pad-automotive$/);
+});
+
+test('category arrows overlay the track, scroll both ways and disappear on mobile', async ({ page }) => {
+  await page.goto('/');
+  const carousel = page.getByTestId('home-category-carousel');
+  await carousel.scrollIntoViewIfNeeded();
+  const track = carousel.locator('[data-bloom-carousel-track]');
+  const frame = page.getByTestId('home-category-carousel-track-frame');
+  const next = carousel.getByRole('button', { name: 'Go to the next item', exact: true });
+  const previous = carousel.getByRole('button', { name: 'Go to the previous item', exact: true });
+  await expect(next).toBeEnabled();
+  const frameBox = (await frame.boundingBox())!;
+  const arrowBox = (await next.boundingBox())!;
+  expect(Math.abs(arrowBox.y + arrowBox.height / 2 - frameBox.y - frameBox.height / 2)).toBeLessThan(2);
+  await next.click();
+  await expect.poll(() => track.evaluate(element => element.scrollLeft)).toBeGreaterThan(300);
+  await expect(previous).toBeEnabled();
+  await previous.click();
+  await expect.poll(() => track.evaluate(element => element.scrollLeft)).toBeLessThan(2);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId('home-category-carousel-overlay-arrows')).toHaveCount(0);
+  await expect(carousel.getByTestId('category-mosaic').first()).toBeVisible();
 });
 
 test('local shopping history never exposes a different account conversation to a guest', async ({ page }) => {

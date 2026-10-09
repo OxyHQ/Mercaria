@@ -30,7 +30,8 @@ export function MerchantCartCard({
   return (
     <View
       testID="merchant-cart-card"
-      className="w-full rounded-[28px] border border-border bg-card p-4 web:shadow-sm"
+      className="w-full rounded-[28px] border border-black/10 bg-card p-4 dark:border-white/15"
+      style={{ boxShadow: "0px 2px 8px rgba(0,0,0,0.06)" }}
     >
       <View className="mb-4 flex-row gap-2">
         <View className="min-w-0 flex-1 gap-2">
@@ -59,7 +60,7 @@ export function MerchantCartCard({
             >
               <Text
                 numberOfLines={1}
-                className="text-sm font-semibold leading-[18px]"
+                className="text-sm font-semibold leading-[18px] tracking-[-0.2px]"
               >
                 {sellerName}
               </Text>
@@ -109,9 +110,9 @@ export function MerchantCartCard({
           ))}
           <View
             testID="cart-card-count"
-            className="absolute -start-1.5 top-1 z-10 min-w-[18px] items-center justify-center rounded-full bg-foreground p-0.5"
+            className="absolute -start-1.5 top-1 z-10 min-w-[18px] items-center justify-center rounded-full bg-black p-0.5"
           >
-            <Text className="text-[10px] font-bold leading-[14px] text-background">
+            <Text className="text-[10px] font-bold leading-[14px] text-white">
               {totalQuantity}
             </Text>
           </View>
@@ -120,7 +121,7 @@ export function MerchantCartCard({
       <Pressable
         accessibilityRole="button"
         onPress={() => onCheckout(group)}
-        className="min-h-8 items-center justify-center rounded-full bg-muted p-2 web:transition-colors web:hover:opacity-80 active:scale-[0.99]"
+        className="min-h-8 items-center justify-center rounded-full bg-black/[0.04] p-2 dark:bg-white/[0.06] web:transition-colors web:hover:opacity-80 active:scale-[0.99]"
       >
         <Text className="text-sm font-medium leading-4">
           {t(MERCHANT_CART_CHECKOUT_KEY)}

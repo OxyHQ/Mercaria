@@ -31,7 +31,13 @@ export function CategoryMosaicShelf({
   if (!groups.length) return null;
   return (
     <View testID="category-mosaic-shelf" className="mb-3 md:mb-6">
-      <Carousel {...shelf} accessibilityLabel={accessibilityLabel}>
+      <Carousel
+        {...shelf}
+        testID="home-category-carousel"
+        accessibilityLabel={accessibilityLabel}
+        arrowsPlacement="overlay"
+        showArrows={shelf.showArrows && width >= 640}
+      >
         {groups.map((group) => (
           <CarouselItem key={group.key} width={330}>
             <View className="gap-3 pb-8 xl:gap-4 xl:pb-[38px]">
@@ -44,9 +50,13 @@ export function CategoryMosaicShelf({
               />
               <View
                 testID="category-mosaic"
-                className="overflow-hidden rounded-[20px] border border-border bg-card web:shadow-md xl:rounded-[28px]"
+                className="overflow-hidden rounded-[20px] bg-card web:shadow-md xl:rounded-[28px]"
                 style={{ aspectRatio: width >= 1280 ? 374 / 340 : 1 }}
               >
+                <View
+                  pointerEvents="none"
+                  className="absolute inset-0 z-10 rounded-[20px] border-[0.5px] border-black/10 dark:border-white/15 xl:rounded-[28px]"
+                />
                 {[0, 1].map((row) => (
                   <View
                     key={row}

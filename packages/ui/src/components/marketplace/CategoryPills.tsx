@@ -1,7 +1,11 @@
+import { useState } from "react";
 import { View, Pressable, ScrollView } from "react-native";
 import { Image } from "expo-image";
 import { Text } from "../ui/text";
 import type { CategoryPill } from "@mercaria/shared-types";
+import { ShopNavigationIcon } from "./ShopNavigationIcon";
+import { useColorScheme } from "../../lib/useColorScheme";
+import { categoryImageSource } from "../../lib/shop-category-images";
 
 /** Horizontal gap (px) between adjacent chips. */
 const CHIP_GAP = 8;
@@ -50,6 +54,10 @@ interface CategoryPillChipProps {
  * with a small round avatar. The whole chip is one link; no nested interactives.
  */
 function CategoryPillChip({ pill, onPressPill }: CategoryPillChipProps) {
+  const { colors } = useColorScheme();
+  const [failedUri, setFailedUri] = useState<string>();
+  const imageUrl = pill.imageUrl?.trim();
+  const showImage = Boolean(imageUrl && imageUrl !== failedUri);
   return (
     <Pressable
       accessibilityRole="link"
@@ -58,14 +66,20 @@ function CategoryPillChip({ pill, onPressPill }: CategoryPillChipProps) {
       className="h-11 flex-row items-center gap-2 rounded-full border border-border bg-card py-2 ps-1.5 pe-3 web:transition-colors web:duration-150 web:hover:bg-muted active:bg-muted web:motion-reduce:transition-none"
     >
       {/* Round 32px category image with a 1px border ring. */}
-      <View className="relative h-8 w-8 overflow-hidden rounded-full bg-muted">
-        {pill.imageUrl ? (
+      <View className="relative h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-muted">
+        {showImage && imageUrl ? (
           <Image
-            source={{ uri: pill.imageUrl }}
+            testID="category-pill-image"
+            source={categoryImageSource(imageUrl)}
             contentFit="cover"
             className="h-8 w-8 rounded-full"
+            onError={() => setFailedUri(imageUrl)}
           />
-        ) : null}
+        ) : (
+          <View testID="category-pill-image-fallback">
+            <ShopNavigationIcon name="explore" size={18} fill={colors.foreground} />
+          </View>
+        )}
         <View
           pointerEvents="none"
           className="absolute inset-0 rounded-full border border-border"

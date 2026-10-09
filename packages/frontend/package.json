@@ -24,7 +24,7 @@
     "@mercaria/contracts": "workspace:*",
     "@mercaria/shared-types": "workspace:*",
     "@mercaria/ui": "workspace:*",
-    "@oxy.so/bloom": "7.9.2",
+    "@oxy.so/bloom": "7.10.0",
     "@oxy.so/core": "4.2.0",
     "@oxy.so/services": "11.1.0",
     "@oxy.so/telemetry": "1.2.0",
