@@ -4,7 +4,14 @@
     "cancel": "Abbrechen",
     "confirm": "Bestätigen",
     "back": "Zurück",
-    "tryAgain": "Erneut versuchen"
+    "tryAgain": "Erneut versuchen",
+    "linkCopied": "Link kopiert",
+    "shareError": "Der Link konnte nicht geteilt werden. Bitte versuche es erneut.",
+    "pagination": {
+      "previous": "Zurück",
+      "next": "Weiter",
+      "pageOf": "Seite %{page} von %{pages}"
+    }
   },
   "home": {
     "title": "Mercaria",
@@ -139,11 +146,6 @@
     "compareOffersA11y": "Alle Angebote für dieses Produkt vergleichen",
     "compareOffers": "Alle Angebote vergleichen",
     "percentOff": "%{percent}% Rabatt",
-    "demandCopy": "100.000+ im letzten Monat gekauft",
-    "exclusiveOffer": {
-      "label": "Exklusive Preise freischalten",
-      "caption": "Melde dich an, um dein exklusives Angebot zu sehen"
-    },
     "quantity": "Menge",
     "decreaseQuantity": "Menge verringern",
     "increaseQuantity": "Menge erhöhen",
@@ -161,12 +163,8 @@
     },
     "shareA11y": "Dieses Produkt teilen",
     "share": "Teilen",
-    "deliveryAndReturns": "Versand & Rückgabe",
-    "viewReturnPolicyA11y": "Rückgaberichtlinie ansehen",
     "returnPolicy": "Rückgaberichtlinie",
     "description": "Beschreibung",
-    "viewMore": "Mehr anzeigen",
-    "viewLess": "Weniger anzeigen",
     "highlights": "Highlights",
     "sortOffersBy": "Angebote sortieren nach",
     "reportProblemA11y": "Ein Problem mit den Angaben zu diesem Produkt melden",
@@ -201,7 +199,8 @@
       },
       "notFullyBuilt": "Ein Teil dieses Zeitraums wurde noch nicht aufgebaut.",
       "conversionDisplayOnly": "Umgerechnete Beträge dienen nur der Anzeige."
-    }
+    },
+    "reviews": "Bewertungen"
   },
   "catalog": {
     "breadcrumbs": {
@@ -1131,13 +1130,12 @@
       "unfollowStore": "%{store} nicht mehr folgen"
     },
     "reviews": {
-      "helpful": "Hilfreich",
       "loading": "Bewertungen werden geladen…",
       "none": "Noch keine Bewertungen",
       "viewProduct": "%{product} ansehen",
       "ratingsCount": "%{formattedCount} Bewertungen",
       "ratingsWithScope": "%{formattedCount} Bewertungen · %{scopeLabel}",
-      "fallbackAuthor": "Verifizierter Käufer",
+      "fallbackAuthor": "Mercaria-Käufer",
       "viewA11yLabel": "Bewertungen zum Service dieses Shops ansehen"
     },
     "visit": {

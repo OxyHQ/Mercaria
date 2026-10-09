@@ -4,7 +4,14 @@
     "cancel": "বাতিল",
     "confirm": "নিশ্চিত করুন",
     "back": "ফিরে যান",
-    "tryAgain": "আবার চেষ্টা করুন"
+    "tryAgain": "আবার চেষ্টা করুন",
+    "linkCopied": "লিঙ্ক কপি হয়েছে",
+    "shareError": "লিঙ্ক শেয়ার করা যায়নি। আবার চেষ্টা করুন।",
+    "pagination": {
+      "previous": "আগের",
+      "next": "পরের",
+      "pageOf": "%{pages}-এর মধ্যে %{page} নম্বর পাতা"
+    }
   },
   "home": {
     "title": "Mercaria",
@@ -139,11 +146,6 @@
     "compareOffersA11y": "এই পণ্যের সব অফার তুলনা করুন",
     "compareOffers": "সব অফার তুলনা করুন",
     "percentOff": "%{percent}% ছাড়",
-    "demandCopy": "গত মাসে ১ লাখেরও বেশি বিক্রি",
-    "exclusiveOffer": {
-      "label": "বিশেষ দাম দেখুন",
-      "caption": "আপনার বিশেষ অফার দেখতে সাইন ইন করুন"
-    },
     "quantity": "পরিমাণ",
     "decreaseQuantity": "পরিমাণ কমান",
     "increaseQuantity": "পরিমাণ বাড়ান",
@@ -161,12 +163,8 @@
     },
     "shareA11y": "এই পণ্যটি শেয়ার করুন",
     "share": "শেয়ার",
-    "deliveryAndReturns": "ডেলিভারি ও ফেরত",
-    "viewReturnPolicyA11y": "ফেরত নীতি দেখুন",
     "returnPolicy": "ফেরত নীতি",
     "description": "বিবরণ",
-    "viewMore": "আরও দেখুন",
-    "viewLess": "কম দেখুন",
     "highlights": "প্রধান বিষয়",
     "sortOffersBy": "অফার সাজান",
     "reportProblemA11y": "এই পণ্যের তথ্যে সমস্যার রিপোর্ট করুন",
@@ -201,7 +199,8 @@
       },
       "notFullyBuilt": "এই সময়ের কিছু অংশ এখনও তৈরি হয়নি।",
       "conversionDisplayOnly": "রূপান্তরিত অঙ্ক কেবল দেখানোর জন্য।"
-    }
+    },
+    "reviews": "পর্যালোচনা"
   },
   "catalog": {
     "breadcrumbs": {
@@ -1131,13 +1130,12 @@
       "unfollowStore": "%{store} আনফলো করুন"
     },
     "reviews": {
-      "helpful": "সহায়ক",
       "loading": "রিভিউ লোড হচ্ছে…",
       "none": "এখনও কোনো রিভিউ নেই",
       "viewProduct": "%{product} দেখুন",
       "ratingsCount": "%{formattedCount}টি রেটিং",
       "ratingsWithScope": "%{formattedCount}টি রেটিং · %{scopeLabel}",
-      "fallbackAuthor": "যাচাই করা ক্রেতা",
+      "fallbackAuthor": "Mercaria ক্রেতা",
       "viewA11yLabel": "এই স্টোরের সেবার রিভিউ দেখুন"
     },
     "visit": {

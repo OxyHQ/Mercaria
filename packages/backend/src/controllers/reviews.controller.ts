@@ -55,12 +55,18 @@ export async function listProductReviews(req: Request, res: Response): Promise<v
   const canonicalProductId = routeParam(req, 'canonicalProductId');
   try {
     const { page, limit } = parsePagination(req.query);
-    const { data, total, aggregate } = await listScopedReviewsWithAggregate(
+    const { data, total, aggregate, ratingSummary } = await listScopedReviewsWithAggregate(
       'product',
       canonicalProductId,
-      { page, limit },
+      {
+        page,
+        limit,
+      },
     );
-    sendPaginated(res, data, buildPagination(page, limit, total), { aggregate });
+    sendPaginated(res, data, buildPagination(page, limit, total), {
+      aggregate,
+      ratingSummary,
+    });
   } catch (err) {
     log.general.error({ err, canonicalProductId }, 'Failed to list product reviews');
     respondWithError(res, err, 'Failed to load reviews');
@@ -72,12 +78,18 @@ export async function listMerchantReviews(req: Request, res: Response): Promise<
   const merchantId = routeParam(req, 'merchantId');
   try {
     const { page, limit } = parsePagination(req.query);
-    const { data, total, aggregate } = await listScopedReviewsWithAggregate(
+    const { data, total, aggregate, ratingSummary } = await listScopedReviewsWithAggregate(
       'merchant',
       merchantId,
-      { page, limit },
+      {
+        page,
+        limit,
+      },
     );
-    sendPaginated(res, data, buildPagination(page, limit, total), { aggregate });
+    sendPaginated(res, data, buildPagination(page, limit, total), {
+      aggregate,
+      ratingSummary,
+    });
   } catch (err) {
     log.general.error({ err, merchantId }, 'Failed to list merchant reviews');
     respondWithError(res, err, 'Failed to load reviews');
@@ -120,8 +132,13 @@ export async function listListingReviews(req: Request, res: Response): Promise<v
   const id = routeParam(req, 'id');
   try {
     const { page, limit } = parsePagination(req.query);
-    const { data, total } = await listReviews({ targetType: 'listing', targetId: id }, { page, limit });
-    sendPaginated(res, data, buildPagination(page, limit, total));
+    const { data, total, ratingSummary } = await listReviews(
+      { targetType: 'listing', targetId: id },
+      { page, limit },
+    );
+    sendPaginated(res, data, buildPagination(page, limit, total), {
+      ratingSummary,
+    });
   } catch (err) {
     log.general.error({ err, listingId: id }, 'Failed to list listing reviews');
     respondWithError(res, err, 'Failed to load reviews');
@@ -133,7 +150,10 @@ export async function listStoreReviews(req: Request, res: Response): Promise<voi
   const handle = routeParam(req, 'handle');
   try {
     const { page, limit } = parsePagination(req.query);
-    const { data, total } = await listReviewsForStoreHandle(handle, { page, limit });
+    const { data, total } = await listReviewsForStoreHandle(handle, {
+      page,
+      limit,
+    });
     sendPaginated(res, data, buildPagination(page, limit, total));
   } catch (err) {
     log.general.error({ err, handle }, 'Failed to list store reviews');

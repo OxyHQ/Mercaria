@@ -86,6 +86,8 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   'app/(app)/shopping-agents.tsx',
   'app/(app)/cart.tsx',
   'app/(app)/saved.tsx',
+  // Device-local browsing history is personal, not a public catalogue route.
+  'app/(app)/recently-viewed.tsx',
   // Internal search (#70/#95) — infinite, thin and duplicative of the browse
   // pages by construction, which is why `/search` is in
   // `SEO_ROBOTS_DISALLOWED_PATHS`. A crawlable one is a crawl budget spent on

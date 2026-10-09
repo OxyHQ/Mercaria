@@ -1,3 +1,4 @@
+import { merchantImageSource } from "@mercaria/ui";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
@@ -18,20 +19,17 @@ import {
   X,
 } from "lucide-react-native";
 import { Dialog } from "@oxy.so/bloom/dialog";
+import { Button } from "@oxy.so/bloom/button";
 import { useIsRtl } from "@oxy.so/bloom/hooks";
 import { Rating } from "@oxy.so/bloom/rating";
 import { openAccountDialog, useFollowTarget, useOxy } from "@oxy.so/services";
-import {
-  Text,
-  formatDate,
-  useFormatters,
-  useRatingDisplay,
-} from "@mercaria/ui";
+import { Text, formatDate, useFormatters, useRatingDisplay } from "@mercaria/ui";
 import type { Collection, StoreSummary, Review } from "@mercaria/shared-types";
 import { storeThemeVars } from "@/lib/store-theme";
 import { useStoreReviews } from "@/lib/hooks/use-store";
 import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
+import { useShareLink } from "@/lib/hooks/use-share-link";
 import { useTranslation } from "@/lib/i18n";
 
 /** Light text tone over a brand-tinted surface (mirrors the store page). */
@@ -111,8 +109,6 @@ interface StoreMenuSheetProps {
 
 /**
  * A round, glassy top-bar control button (Close / Back / Follow / Share).
- * `onPress` is optional: Share is a static affordance (mirrors the original)
- * with no action.
  */
 function ControlButton({
   label,
@@ -120,7 +116,7 @@ function ControlButton({
   children,
 }: {
   label: string;
-  onPress?: () => void;
+  onPress: () => void;
   children: ReactNode;
 }) {
   return (
@@ -129,7 +125,11 @@ function ControlButton({
       accessibilityLabel={label}
       onPress={onPress}
       className="items-center justify-center rounded-radius-max border border-white/30 web:shadow-sm"
-      style={{ width: CONTROL_SIZE, height: CONTROL_SIZE, backgroundColor: GLASS_FILL }}
+      style={{
+        width: CONTROL_SIZE,
+        height: CONTROL_SIZE,
+        backgroundColor: GLASS_FILL,
+      }}
     >
       {children}
     </Pressable>
@@ -160,7 +160,11 @@ function CollectionRow({
     >
       <View
         className="items-center justify-center overflow-hidden rounded-radius-max"
-        style={{ width: ROW_THUMB_SIZE, height: ROW_THUMB_SIZE, backgroundColor: GLASS_FILL }}
+        style={{
+          width: ROW_THUMB_SIZE,
+          height: ROW_THUMB_SIZE,
+          backgroundColor: GLASS_FILL,
+        }}
       >
         {imageUrl ? (
           <Image
@@ -205,9 +209,7 @@ function PolicyRow({
 /**
  * A single store-review card on the Reviews sub-page: a tappable product
  * thumbnail (sibling, not nested in an outer pressable), the star rating, the
- * product title + body, an author/date footer, and a static "Helpful"
- * affordance. The thumbnail link and the Helpful button are siblings so there
- * are no nested interactives.
+ * product title + body, an author/date footer and the review’s actual verification state.
  */
 function StoreReviewCard({
   review,
@@ -235,10 +237,16 @@ function StoreReviewCard({
       {review.product ? (
         <Pressable
           accessibilityRole="link"
-          accessibilityLabel={t("store.reviews.viewProduct", { product: review.product.title })}
+          accessibilityLabel={t("store.reviews.viewProduct", {
+            product: review.product.title,
+          })}
           onPress={() => onPressProduct(review.product?.id ?? "")}
           className="overflow-hidden rounded-radius-16"
-          style={{ width: REVIEW_THUMB_SIZE, height: REVIEW_THUMB_SIZE, backgroundColor: GLASS_FILL }}
+          style={{
+            width: REVIEW_THUMB_SIZE,
+            height: REVIEW_THUMB_SIZE,
+            backgroundColor: GLASS_FILL,
+          }}
         >
           {review.product.imageUrl ? (
             <Image
@@ -276,13 +284,20 @@ function StoreReviewCard({
         <View className="mt-space-4 flex-row items-center gap-space-8">
           <View
             className="overflow-hidden rounded-radius-max border border-white/30"
-            style={{ width: REVIEW_AVATAR_SIZE, height: REVIEW_AVATAR_SIZE, backgroundColor: GLASS_FILL }}
+            style={{
+              width: REVIEW_AVATAR_SIZE,
+              height: REVIEW_AVATAR_SIZE,
+              backgroundColor: GLASS_FILL,
+            }}
           >
             {review.author?.avatar ? (
               <Image
                 source={{ uri: review.author.avatar }}
                 contentFit="cover"
-                style={{ width: REVIEW_AVATAR_SIZE, height: REVIEW_AVATAR_SIZE }}
+                style={{
+                  width: REVIEW_AVATAR_SIZE,
+                  height: REVIEW_AVATAR_SIZE,
+                }}
               />
             ) : null}
           </View>
@@ -293,13 +308,10 @@ function StoreReviewCard({
             {date === null ? author : `${author} · ${date}`}
           </Text>
         </View>
-        <View className="mt-space-4 flex-row">
-          <View className="rounded-radius-max border border-white/30 px-space-12 py-space-4">
-            <Text className="text-captionMedium" style={{ color: toneColor }}>
-              {t("store.reviews.helpful")}
-            </Text>
-          </View>
-        </View>
+        <Text className="text-caption" style={{ color: toneColor }}>
+          {t(review.verification === "verified_purchase"
+            ? "ui.review.verifiedPurchase" : "ui.review.unverifiedPurchase")}
+        </Text>
       </View>
     </View>
   );
@@ -323,14 +335,19 @@ function ReviewsPage({
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
   const ratingDisplay = useRatingDisplay();
-  const { data, isLoading } = useStoreReviews(store.handle);
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isError, isFetching, refetch } = useStoreReviews(store.handle, page);
   const reviews = data?.data ?? [];
   const total = data?.pagination.total ?? store.reviewCount;
 
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }}
+      contentContainerStyle={{
+        paddingHorizontal: 16,
+        paddingBottom: 24,
+        gap: 16,
+      }}
     >
       <Text className="text-headerBold" style={{ color: toneColor }}>
         {t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
@@ -374,6 +391,8 @@ function ReviewsPage({
         <Text className="py-space-24 text-center text-body" style={{ color: toneColor }}>
           {t("store.reviews.loading")}
         </Text>
+      ) : isError ? (
+        <Button onPress={() => void refetch()}>{t("common.tryAgain")}</Button>
       ) : reviews.length === 0 ? (
         <Text className="py-space-24 text-center text-body" style={{ color: toneColor }}>
           {t("store.reviews.none")}
@@ -388,6 +407,23 @@ function ReviewsPage({
           />
         ))
       )}
+      {data && data.pagination.pages > 1 ? (
+        <View className="gap-space-12">
+          <Text className="text-center text-caption" style={{ color: toneColor }}>
+            {t("common.pagination.pageOf", { page, pages: data.pagination.pages })}
+          </Text>
+          <View className="flex-row justify-between gap-space-8">
+            <Button disabled={!data.pagination.hasPreviousPage || isFetching}
+              onPress={() => setPage(value => value - 1)}>
+              {t("common.pagination.previous")}
+            </Button>
+            <Button disabled={!data.pagination.hasNextPage || isFetching}
+              onPress={() => setPage(value => value + 1)}>
+              {t("common.pagination.next")}
+            </Button>
+          </View>
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -419,17 +455,25 @@ function MenuPage({
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 24 }}
+      contentContainerStyle={{
+        paddingHorizontal: 16,
+        paddingBottom: 24,
+        gap: 24,
+      }}
     >
       {/* ---- Store header ---- */}
       <View className="flex-row items-center gap-space-16 pt-space-8">
         <View
           className="items-center justify-center overflow-hidden rounded-radius-max"
-          style={{ width: HEADER_LOGO_SIZE, height: HEADER_LOGO_SIZE, backgroundColor: GLASS_FILL }}
+          style={{
+            width: HEADER_LOGO_SIZE,
+            height: HEADER_LOGO_SIZE,
+            backgroundColor: GLASS_FILL,
+          }}
         >
           {store.logoUrl ? (
             <Image
-              source={{ uri: store.logoUrl }}
+              source={merchantImageSource(store.logoUrl)}
               contentFit="cover"
               style={{ width: HEADER_LOGO_SIZE, height: HEADER_LOGO_SIZE }}
             />
@@ -442,7 +486,10 @@ function MenuPage({
             {store.name}
           </Text>
           <Rating
-            {...ratingDisplay({ rating: store.rating, reviews: store.reviewCount })}
+            {...ratingDisplay({
+              rating: store.rating,
+              reviews: store.reviewCount,
+            })}
             size="small"
             color={toneColor}
             style={{ marginTop: 4 }}
@@ -571,6 +618,7 @@ export function StoreMenuSheet({
   onSelectCollection,
 }: StoreMenuSheetProps) {
   const { t } = useTranslation();
+  const shareLink = useShareLink(store.name, `/stores/${encodeURIComponent(store.handle)}`);
   const router = useRouter();
   // Offset the overlay past the nav rail on desktop so the side-sheet + backdrop
   // sit inside the content shell (not over the rail). On small screens the rail
@@ -596,8 +644,16 @@ export function StoreMenuSheet({
           ? { right: RAIL_WIDTH }
           : { left: RAIL_WIDTH };
   const sheetInset = rtl
-    ? { top: SHEET_VERTICAL_INSET, bottom: SHEET_VERTICAL_INSET, right: SHEET_START_INSET }
-    : { top: SHEET_VERTICAL_INSET, bottom: SHEET_VERTICAL_INSET, left: SHEET_START_INSET };
+    ? {
+        top: SHEET_VERTICAL_INSET,
+        bottom: SHEET_VERTICAL_INSET,
+        right: SHEET_START_INSET,
+      }
+    : {
+        top: SHEET_VERTICAL_INSET,
+        bottom: SHEET_VERTICAL_INSET,
+        left: SHEET_START_INSET,
+      };
   // Internal navigation stack: the menu is always the root.
   const [stack, setStack] = useState<SheetPage[]>(["menu"]);
   const current = stack[stack.length - 1];
@@ -613,8 +669,7 @@ export function StoreMenuSheet({
   // `StoreFollowButton`; the fuller options menu stays on the hero button.
   const { canUsePrivateApi } = useOxy();
   const { data: followTargetId } = useStoreFollowTarget(store);
-  const { isFollowing, isUnknown, isPending, follow, unfollow } =
-    useFollowTarget(followTargetId);
+  const { isFollowing, isUnknown, isPending, follow, unfollow } = useFollowTarget(followTargetId);
 
   const onPressFollow = () => {
     // Signed out: nothing to press until there is a session, so ask for one.
@@ -643,7 +698,7 @@ export function StoreMenuSheet({
   const onPressProduct = (productId: string) => {
     if (!productId) return;
     handleClose();
-    router.push(`/products/${productId}`);
+    router.push({ pathname: "/products/[id]", params: { id: productId } });
   };
 
   return (
@@ -691,11 +746,37 @@ export function StoreMenuSheet({
               fill={isFollowing ? toneColor : "transparent"}
             />
           </ControlButton>
-          <ControlButton label={t("store.menu.share", { store: store.name })}>
+          <ControlButton
+            label={
+              shareLink.copied
+                ? t("common.linkCopied")
+                : t("store.menu.share", { store: store.name })
+            }
+            onPress={() => void shareLink.share()}
+          >
             <Share2 size={CONTROL_ICON_SIZE} color={toneColor} />
           </ControlButton>
         </View>
       </View>
+
+      {shareLink.failed ? (
+        <Text
+          accessibilityRole="alert"
+          className="px-space-16 text-caption"
+          style={{ color: toneColor }}
+        >
+          {t("common.shareError")}
+        </Text>
+      ) : null}
+      {shareLink.copied ? (
+        <Text
+          accessibilityLiveRegion="polite"
+          className="px-space-16 text-caption"
+          style={{ color: toneColor }}
+        >
+          {t("common.linkCopied")}
+        </Text>
+      ) : null}
 
       {/* Sub-page region: the current page from the internal stack. */}
       <View className="flex-1">

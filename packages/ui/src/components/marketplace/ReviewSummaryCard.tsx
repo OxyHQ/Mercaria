@@ -28,10 +28,15 @@ export type RatingDistribution = Record<number, number>;
 export interface ReviewSummaryCardProps {
   /** Average rating (0–5) across all reviews. */
   average: number;
+  /** Use inside a labelled PDP accordion, without another card border. */
+  embedded?: boolean;
+  onReadMore?: () => void;
   /** Total number of reviews (drives the empty state + the bar denominators). */
   total: number;
   /** Count per star bucket (5..1) for the distribution bars. */
-  distribution: RatingDistribution;
+  distribution?: RatingDistribution;
+  /** Legacy listing reviews do not claim purchase verification. */
+  verifiedOnly?: boolean;
   /** The reviews to render in the horizontal carousel. */
   reviews: Review[];
   /** Whether the reviews query is still loading (suppresses the empty state). */
@@ -66,6 +71,9 @@ export function ReviewSummaryCard({
   isLoading,
   scopeLabel,
   unverified,
+  verifiedOnly = true,
+  embedded = false,
+  onReadMore,
 }: ReviewSummaryCardProps) {
   const { formatRating, formatReviewCount } = useFormatters();
   const ratingDisplay = useRatingDisplay();
@@ -74,8 +82,15 @@ export function ReviewSummaryCard({
   // which no bundle could reach. Resolved here instead, so a caller that
   // passes nothing gets the viewer's language rather than ours.
   const scopeText = scopeLabel ?? t(REVIEW_DEFAULT_SCOPE_KEY);
+  const distributionTotal = Object.values(distribution ?? {}).reduce((sum, count) => sum + count, 0);
   return (
-    <View className="gap-space-16 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20">
+    <View
+      className={
+        embedded
+          ? "gap-space-16"
+          : "gap-space-16 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20"
+      }
+    >
       <Text className="text-subtitle text-text">{scopeText}</Text>
 
       {total === 0 && !isLoading ? (
@@ -95,15 +110,23 @@ export function ReviewSummaryCard({
                 accessible
                 accessibilityRole="text"
                 accessibilityLabel={
-                  ratingDisplay({ rating: average, reviews: total, subject: scopeText })
-                    .accessibilityLabel
+                  ratingDisplay({
+                    rating: average,
+                    reviews: total,
+                    subject: scopeText,
+                  }).accessibilityLabel
                 }
                 className="text-headerBold text-text"
               >
                 {formatRating(average)}
               </Text>
               <Text className="mt-space-4 text-caption text-text-tertiary">
-                {t(REVIEW_VERIFIED_RATINGS_KEY, { ratings: formatReviewCount(total) })}
+                {t(
+                  verifiedOnly
+                    ? REVIEW_VERIFIED_RATINGS_KEY
+                    : "ui.review.ratings",
+                  { ratings: formatReviewCount(total) },
+                )}
               </Text>
               {unverified && unverified.count > 0 ? (
                 <Text className="mt-space-2 text-caption text-text-tertiary">
@@ -114,20 +137,22 @@ export function ReviewSummaryCard({
                 </Text>
               ) : null}
             </View>
-            <View className="flex-1 justify-center gap-space-4">
-              {RATING_BUCKETS.map((bucket) => {
-                const count = distribution[bucket] ?? 0;
-                return (
-                  <RatingBar
-                    key={bucket}
-                    label={String(bucket)}
-                    labelWidth={BUCKET_LABEL_WIDTH}
-                    value={total > 0 ? count / total : 0}
-                    max={1}
-                  />
-                );
-              })}
-            </View>
+            {distribution ? (
+              <View className="flex-1 justify-center gap-space-4">
+                {RATING_BUCKETS.map((bucket) => {
+                  const count = distribution[bucket] ?? 0;
+                  return (
+                    <RatingBar
+                      key={bucket}
+                      label={String(bucket)}
+                      labelWidth={BUCKET_LABEL_WIDTH}
+                      value={distributionTotal > 0 ? count / distributionTotal : 0}
+                      max={1}
+                    />
+                  );
+                })}
+              </View>
+            ) : null}
           </View>
 
           {/* Review cards carousel. */}
@@ -138,18 +163,27 @@ export function ReviewSummaryCard({
               contentContainerStyle={{ gap: 12, paddingVertical: 4 }}
             >
               {reviews.map((review) => (
-                <ReviewCard key={review.id} review={review} scopeLabel={scopeText} />
+                <ReviewCard
+                  key={review.id}
+                  review={review}
+                  scopeLabel={scopeText}
+                />
               ))}
             </ScrollView>
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(REVIEW_READ_MORE_KEY)}
-            className="w-full items-center rounded-radius-max bg-bg-fill-secondary p-space-12"
-          >
-            <Text className="text-buttonLarge text-text">{t(REVIEW_READ_MORE_KEY)}</Text>
-          </Pressable>
+          {onReadMore ? (
+            <Pressable
+              onPress={onReadMore}
+              accessibilityRole="button"
+              accessibilityLabel={t(REVIEW_READ_MORE_KEY)}
+              className="w-full items-center rounded-radius-max bg-bg-fill-secondary p-space-12"
+            >
+              <Text className="text-buttonLarge text-text">
+                {t(REVIEW_READ_MORE_KEY)}
+              </Text>
+            </Pressable>
+          ) : null}
         </>
       )}
     </View>

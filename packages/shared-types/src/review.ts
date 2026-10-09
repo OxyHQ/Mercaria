@@ -584,6 +584,15 @@ export interface ReviewDimensionAggregate {
  * purchase produces an ordinary verified review with ordinary weight (#76
  * acceptance 11).
  */
+/** Distribution across every published review of this exact target, independent
+ * of pagination. Scoped targets include verified purchases only. */
+export interface ReviewRatingSummary {
+  rating: number;
+  reviewCount: number;
+  distribution: Record<number, number>;
+  verifiedOnly: boolean;
+}
+
 export interface ScopedRatingAggregate {
   scope: ReviewScope;
   targetType: ReviewTargetType;

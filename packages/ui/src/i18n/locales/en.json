@@ -793,19 +793,11 @@
       }
     },
     "purchase": {
-      "oneTime": "One time purchase",
-      "subscribe": "Subscribe",
       "addToCart": "Add to cart",
       "selectOptions": "Select options",
       "buyNow": "Buy now",
-      "subscribeNow": "Subscribe now",
-      "frequency": {
-        "monthly": "Delivers every month",
-        "every2Months": "Delivers every 2 months",
-        "every3Months": "Delivers every 3 months",
-        "every4Months": "Delivers every 4 months",
-        "every6Months": "Delivers every 6 months"
-      }
+      "soldOut": "Sold out",
+      "added": "Added to cart"
     },
     "marketplace": {
       "visitMerchant": "Visit %{name}",
@@ -857,7 +849,8 @@
     "gallery": {
       "viewImage": "View image %{position}",
       "previous": "Previous image",
-      "next": "Next image"
+      "next": "Next image",
+      "open": "Open images of %{title}"
     },
     "quantity": {
       "remove": "Remove item",
@@ -872,7 +865,11 @@
       "verifiedRatings": "Verified ratings: %{ratings}",
       "unverified": "Unverified: %{ratings} · %{rating}",
       "readMore": "Read more reviews",
-      "none": "No reviews yet"
+      "none": "No reviews yet",
+      "ratings": "%{ratings} ratings",
+      "fallbackAuthor": "Mercaria buyer",
+      "verifiedPurchase": "Verified purchase",
+      "unverifiedPurchase": "Unverified"
     },
     "searchInterpretation": {
       "chip": "%{label}",

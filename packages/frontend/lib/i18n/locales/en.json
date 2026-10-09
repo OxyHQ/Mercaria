@@ -4,7 +4,14 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "back": "Back",
-    "tryAgain": "Try Again"
+    "tryAgain": "Try Again",
+    "linkCopied": "Link copied",
+    "shareError": "Could not share the link. Please try again.",
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page %{page} of %{pages}"
+    }
   },
   "home": {
     "title": "Mercaria",
@@ -139,11 +146,6 @@
     "compareOffersA11y": "Compare every offer for this product",
     "compareOffers": "Compare all offers",
     "percentOff": "%{percent}% off",
-    "demandCopy": "100K+ bought in past month",
-    "exclusiveOffer": {
-      "label": "Unlock exclusive pricing",
-      "caption": "Sign in to view your exclusive offer"
-    },
     "quantity": "Quantity",
     "decreaseQuantity": "Decrease quantity",
     "increaseQuantity": "Increase quantity",
@@ -161,12 +163,8 @@
     },
     "shareA11y": "Share this product",
     "share": "Share",
-    "deliveryAndReturns": "Delivery & Returns",
-    "viewReturnPolicyA11y": "View return policy",
     "returnPolicy": "Return policy",
     "description": "Description",
-    "viewMore": "View more",
-    "viewLess": "View less",
     "highlights": "Highlights",
     "sortOffersBy": "Sort offers by",
     "reportProblemA11y": "Report a problem with this product's information",
@@ -201,7 +199,8 @@
       },
       "notFullyBuilt": "Part of this window has not been built yet.",
       "conversionDisplayOnly": "Converted figures are for display only."
-    }
+    },
+    "reviews": "Reviews"
   },
   "catalog": {
     "breadcrumbs": {
@@ -1131,13 +1130,12 @@
       "unfollowStore": "Unfollow %{store}"
     },
     "reviews": {
-      "helpful": "Helpful",
       "loading": "Loading reviews…",
       "none": "No reviews yet",
       "viewProduct": "View %{product}",
       "ratingsCount": "%{formattedCount} ratings",
       "ratingsWithScope": "%{formattedCount} ratings · %{scopeLabel}",
-      "fallbackAuthor": "Verified buyer",
+      "fallbackAuthor": "Mercaria buyer",
       "viewA11yLabel": "View this store's service reviews"
     },
     "visit": {

@@ -793,19 +793,11 @@
       }
     },
     "purchase": {
-      "oneTime": "एक बार की खरीद",
-      "subscribe": "सदस्यता",
       "addToCart": "कार्ट में डालें",
       "selectOptions": "विकल्प चुनें",
       "buyNow": "अभी खरीदें",
-      "subscribeNow": "अभी सदस्यता लें",
-      "frequency": {
-        "monthly": "हर महीने डिलीवरी",
-        "every2Months": "हर 2 महीने में डिलीवरी",
-        "every3Months": "हर 3 महीने में डिलीवरी",
-        "every4Months": "हर 4 महीने में डिलीवरी",
-        "every6Months": "हर 6 महीने में डिलीवरी"
-      }
+      "soldOut": "स्टॉक खत्म",
+      "added": "कार्ट में जोड़ा गया"
     },
     "marketplace": {
       "visitMerchant": "%{name} पर जाएँ",
@@ -857,7 +849,8 @@
     "gallery": {
       "viewImage": "तस्वीर %{position} देखें",
       "previous": "पिछली तस्वीर",
-      "next": "अगली तस्वीर"
+      "next": "अगली तस्वीर",
+      "open": "%{title} की तस्वीरें खोलें"
     },
     "quantity": {
       "remove": "वस्तु हटाएँ",
@@ -872,7 +865,11 @@
       "verifiedRatings": "सत्यापित रेटिंग: %{ratings}",
       "unverified": "असत्यापित: %{ratings} · %{rating}",
       "readMore": "और समीक्षाएँ पढ़ें",
-      "none": "अभी तक कोई समीक्षा नहीं"
+      "none": "अभी तक कोई समीक्षा नहीं",
+      "ratings": "%{ratings} रेटिंग",
+      "fallbackAuthor": "Mercaria खरीदार",
+      "verifiedPurchase": "सत्यापित खरीद",
+      "unverifiedPurchase": "असत्यापित"
     },
     "searchInterpretation": {
       "chip": "%{label}",

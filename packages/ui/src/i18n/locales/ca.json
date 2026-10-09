@@ -800,19 +800,11 @@
       }
     },
     "purchase": {
-      "oneTime": "Compra única",
-      "subscribe": "Subscripció",
       "addToCart": "Afegeix al carretó",
       "selectOptions": "Tria les opcions",
       "buyNow": "Compra ara",
-      "subscribeNow": "Subscriu-m'hi ara",
-      "frequency": {
-        "monthly": "S'entrega cada mes",
-        "every2Months": "S'entrega cada 2 mesos",
-        "every3Months": "S'entrega cada 3 mesos",
-        "every4Months": "S'entrega cada 4 mesos",
-        "every6Months": "S'entrega cada 6 mesos"
-      }
+      "soldOut": "Esgotat",
+      "added": "Afegit a la cistella"
     },
     "marketplace": {
       "visitMerchant": "Visita %{name}",
@@ -864,7 +856,8 @@
     "gallery": {
       "viewImage": "Mostra la imatge %{position}",
       "previous": "Imatge anterior",
-      "next": "Imatge següent"
+      "next": "Imatge següent",
+      "open": "Obrir imatges de %{title}"
     },
     "quantity": {
       "remove": "Treu l'article",
@@ -879,7 +872,11 @@
       "verifiedRatings": "Valoracions verificades: %{ratings}",
       "unverified": "Sense verificar: %{ratings} · %{rating}",
       "readMore": "Llegeix més ressenyes",
-      "none": "Encara no hi ha ressenyes"
+      "none": "Encara no hi ha ressenyes",
+      "ratings": "%{ratings} valoracions",
+      "fallbackAuthor": "Comprador de Mercaria",
+      "verifiedPurchase": "Compra verificada",
+      "unverifiedPurchase": "Sense verificar"
     },
     "searchInterpretation": {
       "chip": "%{label}",

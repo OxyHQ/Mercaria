@@ -4,7 +4,14 @@
     "cancel": "Отмена",
     "confirm": "Подтвердить",
     "back": "Назад",
-    "tryAgain": "Повторить"
+    "tryAgain": "Повторить",
+    "linkCopied": "Ссылка скопирована",
+    "shareError": "Не удалось поделиться ссылкой. Попробуйте ещё раз.",
+    "pagination": {
+      "previous": "Назад",
+      "next": "Вперёд",
+      "pageOf": "Страница %{page} из %{pages}"
+    }
   },
   "home": {
     "title": "Mercaria",
@@ -139,11 +146,6 @@
     "compareOffersA11y": "Сравнить все предложения по этому товару",
     "compareOffers": "Сравнить все предложения",
     "percentOff": "Скидка %{percent}%",
-    "demandCopy": "Куплено более 100 тыс. раз за последний месяц",
-    "exclusiveOffer": {
-      "label": "Откройте эксклюзивные цены",
-      "caption": "Войдите, чтобы увидеть эксклюзивное предложение"
-    },
     "quantity": "Количество",
     "decreaseQuantity": "Уменьшить количество",
     "increaseQuantity": "Увеличить количество",
@@ -161,12 +163,8 @@
     },
     "shareA11y": "Поделиться этим товаром",
     "share": "Поделиться",
-    "deliveryAndReturns": "Доставка и возврат",
-    "viewReturnPolicyA11y": "Посмотреть условия возврата",
     "returnPolicy": "Условия возврата",
     "description": "Описание",
-    "viewMore": "Показать больше",
-    "viewLess": "Показать меньше",
     "highlights": "Главное",
     "sortOffersBy": "Сортировать предложения по",
     "reportProblemA11y": "Сообщить о проблеме в информации об этом товаре",
@@ -205,7 +203,8 @@
       },
       "notFullyBuilt": "Часть этого периода ещё не построена.",
       "conversionDisplayOnly": "Пересчитанные суммы приведены только для отображения."
-    }
+    },
+    "reviews": "Отзывы"
   },
   "catalog": {
     "breadcrumbs": {
@@ -1155,13 +1154,12 @@
       "unfollowStore": "Отписаться от %{store}"
     },
     "reviews": {
-      "helpful": "Полезно",
       "loading": "Загрузка отзывов…",
       "none": "Отзывов пока нет",
       "viewProduct": "Открыть %{product}",
       "ratingsCount": "Оценок: %{formattedCount}",
       "ratingsWithScope": "Оценок: %{formattedCount} · %{scopeLabel}",
-      "fallbackAuthor": "Проверенный покупатель",
+      "fallbackAuthor": "Покупатель Mercaria",
       "viewA11yLabel": "Посмотреть отзывы об обслуживании этого магазина"
     },
     "visit": {

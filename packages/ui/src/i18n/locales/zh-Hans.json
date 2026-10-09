@@ -793,19 +793,11 @@
       }
     },
     "purchase": {
-      "oneTime": "单次购买",
-      "subscribe": "订阅",
       "addToCart": "加入购物车",
       "selectOptions": "选择规格",
       "buyNow": "立即购买",
-      "subscribeNow": "立即订阅",
-      "frequency": {
-        "monthly": "每月配送一次",
-        "every2Months": "每 2 个月配送一次",
-        "every3Months": "每 3 个月配送一次",
-        "every4Months": "每 4 个月配送一次",
-        "every6Months": "每 6 个月配送一次"
-      }
+      "soldOut": "已售罄",
+      "added": "已加入购物车"
     },
     "marketplace": {
       "visitMerchant": "访问 %{name}",
@@ -857,7 +849,8 @@
     "gallery": {
       "viewImage": "查看第 %{position} 张图片",
       "previous": "上一张图片",
-      "next": "下一张图片"
+      "next": "下一张图片",
+      "open": "打开%{title}的图片"
     },
     "quantity": {
       "remove": "移除该商品",
@@ -872,7 +865,11 @@
       "verifiedRatings": "已核实的评分：%{ratings}",
       "unverified": "未核实：%{ratings} · %{rating}",
       "readMore": "阅读更多评价",
-      "none": "还没有评价"
+      "none": "还没有评价",
+      "ratings": "%{ratings}条评分",
+      "fallbackAuthor": "Mercaria 买家",
+      "verifiedPurchase": "已验证购买",
+      "unverifiedPurchase": "未验证"
     },
     "searchInterpretation": {
       "chip": "%{label}",

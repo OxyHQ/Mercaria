@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import type { Listing, PaginatedResponse, Review } from '@mercaria/shared-types';
+import type { Listing } from '@mercaria/shared-types';
 import { fetchListing } from '../api/listings';
-import { fetchListingReviews } from '../api/reviews';
+import { fetchListingReviews, type ListingReviewPage } from '../api/reviews';
 import { queryKeys } from './query-keys';
 
 /** Two minutes — a product detail page stays fresh for a reasonable session window. */
@@ -35,7 +35,7 @@ export function useProduct(id: string) {
  * PDP can render the review carousel and the total review count.
  */
 export function useProductReviews(id: string, page = 1, limit = 12) {
-  return useQuery<PaginatedResponse<Review>>({
+  return useQuery<ListingReviewPage>({
     queryKey: queryKeys.listings.reviews(id, page),
     queryFn: () => fetchListingReviews(id, { page, limit }),
     enabled: !!id,

@@ -1,132 +1,177 @@
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Image } from "expo-image";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { Button } from "@oxy.so/bloom/button";
+import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
+import {
+  ZoomableMediaGallery,
+  type ZoomableMediaGalleryHandle,
+  type MeasuredRect,
+} from "@oxy.so/bloom/zoomable-media-gallery";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { useColorScheme } from "../../lib/useColorScheme";
 import {
   GALLERY_NEXT_KEY,
   GALLERY_PREVIOUS_KEY,
   GALLERY_VIEW_IMAGE_KEY,
   MARKETPLACE_NO_IMAGE_KEY,
 } from "../../lib/marketplace-labels";
-import { useColorScheme } from "../../lib/useColorScheme";
 
-/** Prev/next chevron icon size (px). */
-const NAV_ICON_SIZE = 18;
-/** Thumbnail edge length Tailwind class. */
-const THUMB_CLASS = "size-14";
-
-/** A single gallery image: a resolvable URL and optional alt text. */
 export interface ProductGalleryImage {
-  /** Resolvable image URL. */
   uri: string;
-  /** Optional alt text for accessibility. */
   alt?: string;
 }
-
 export interface ProductGalleryProps {
-  /** Ordered gallery images. The first is shown initially. */
   images: ProductGalleryImage[];
-  /** Product title — used as the fallback alt text for the main image. */
   title: string;
 }
 
-/**
- * Large PDP image gallery: a big `contain`-fit main image on a light rounded
- * surface (so the product floats as the visual anchor of the page), a thumbnail
- * rail to its right on desktop / below it on mobile, and prev/next arrows on
- * web. The component grows to fill its parent (`flex-1`) so the gallery occupies
- * roughly half the content width on desktop. Presentational — selection state is
- * internal; no data fetching.
- */
+/** Product media uses Bloom's controlled carousel in both the page and viewer.
+ * Arrows, swipe and thumbnails update the same index. Bloom owns fullscreen
+ * zoom/pan and media transitions. Variant owners remount this on variant id. */
 export function ProductGallery({ images, title }: ProductGalleryProps) {
+  const { width, height } = useWindowDimensions();
   const { colors } = useColorScheme();
   const t = useSharedUiTranslation();
   const [index, setIndex] = useState(0);
+  const viewer = useRef<ZoomableMediaGalleryHandle>(null);
+  const frames = useRef<Record<number, View | null>>({});
+  const [panelWidth, setPanelWidth] = useState(0);
+  const desktop = width >= 1024;
   const hasMany = images.length > 1;
-  const current = images[index];
-
-  const go = (delta: number) => {
-    setIndex((i) => (i + delta + images.length) % images.length);
+  const activeIndex = Math.min(index, Math.max(0, images.length - 1));
+  const frameHeight = desktop
+    ? Math.min((panelWidth || width * 0.5) - (hasMany ? 64 : 0), height * 0.84)
+    : height * 0.45;
+  const select = (next: number) => setIndex(next);
+  const measureThumb = useCallback(
+    (position: number) =>
+      new Promise<MeasuredRect | null>((resolve) => {
+        const frame = frames.current[position];
+        if (!frame) {
+          resolve(null);
+          return;
+        }
+        frame.measureInWindow((x, y, width, height) =>
+          resolve(width > 0 && height > 0 ? { x, y, width, height } : null),
+        );
+      }),
+    [],
+  );
+  const openViewer = async (position: number) => {
+    const rect = await measureThumb(position);
+    viewer.current?.open(images, position, rect ?? undefined);
   };
 
-  const renderThumb = (image: ProductGalleryImage, i: number, prefix: string) => (
-    <Pressable
-      key={`${prefix}-${image.uri}-${i}`}
-      accessibilityRole="button"
-      accessibilityLabel={t(GALLERY_VIEW_IMAGE_KEY, { position: i + 1 })}
-      accessibilityState={{ selected: i === index }}
-      onPress={() => setIndex(i)}
-      className={`${THUMB_CLASS} overflow-hidden rounded-radius-12 border-[1.5px] ${
-        i === index ? "border-border-input-active" : "border-border-image"
-      }`}
+  const thumbnails = (vertical: boolean) => (
+    <ScrollView
+      horizontal={!vertical}
+      showsHorizontalScrollIndicator={false}
+      showsVerticalScrollIndicator={false}
+      style={vertical ? { width: 48, maxHeight: frameHeight, flexGrow: 0 } : { flexGrow: 0 }}
+      contentContainerStyle={{ gap: 8, padding: 2 }}
+      testID={vertical ? "product-thumbnails" : "product-viewer-thumbnails"}
     >
-      <Image source={{ uri: image.uri }} contentFit="cover" className="size-full" />
-    </Pressable>
+      {images.map((image, position) => (
+        <Button
+          key={`${image.uri}-${position}`}
+          iconOnly
+          appearance="plain"
+          accessibilityLabel={t(GALLERY_VIEW_IMAGE_KEY, { position: position + 1 })}
+          pressed={position === activeIndex}
+          onPress={() => select(position)}
+          style={{
+            width: 44,
+            height: 44,
+            minHeight: 44,
+            padding: 0,
+            borderRadius: 8,
+            overflow: "hidden",
+            borderWidth: 1.5,
+            borderColor: position === activeIndex ? colors.foreground : colors.border,
+            backgroundColor: "#fff",
+          }}
+        >
+          <Image source={{ uri: image.uri }} contentFit="cover" style={{ width: 41, height: 41 }} />
+        </Button>
+      ))}
+    </ScrollView>
+  );
+
+  const gallery = () => (
+    <Carousel
+      accessibilityLabel={title}
+      index={activeIndex}
+      onIndexChange={select}
+      showArrows={hasMany && desktop}
+      arrowsPlacement="overlay"
+      showDots={hasMany && !desktop}
+      gap={0}
+      previousLabel={t(GALLERY_PREVIOUS_KEY)}
+      nextLabel={t(GALLERY_NEXT_KEY)}
+      dotLabel={(position) => t(GALLERY_VIEW_IMAGE_KEY, { position })}
+      testID="product-gallery-carousel"
+      style={{ minWidth: 0, flex: 1 }}
+    >
+      {images.map((image, position) => (
+        <CarouselItem key={`${image.uri}-${position}`}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("ui.gallery.open", { title })}
+            ref={(frame) => {
+              frames.current[position] = frame;
+            }}
+            onPress={() => void openViewer(position)}
+            style={{
+              height: frameHeight,
+              overflow: "hidden",
+              borderRadius: 28,
+              backgroundColor: "#fff",
+            }}
+          >
+            <Image
+              source={{ uri: image.uri }}
+              contentFit="contain"
+              style={StyleSheet.absoluteFill}
+              accessibilityLabel={image.alt ?? title}
+            />
+          </Pressable>
+        </CarouselItem>
+      ))}
+    </Carousel>
   );
 
   return (
-    <View className="flex-1 flex-col gap-space-16 md:sticky md:top-8">
-      {/*
-        Desktop: the vertical thumbnail rail is intentionally NOT rendered —
-        mirroring the Shopify original, which hides it and relies on the
-        prev/next arrows for desktop navigation. The mobile horizontal strip
-        (below the frame) remains the touch navigation surface.
-      */}
-      <View className="relative flex-1">
-        {/* Main image on a light rounded surface (the product floats, not cropped). */}
-        <View className="relative aspect-[0.9/1] overflow-hidden rounded-radius-20 bg-bg-fill-hover web:shadow-sm">
-          {current ? (
-            <Image
-              source={{ uri: current.uri }}
-              contentFit="contain"
-              style={StyleSheet.absoluteFill}
-              accessibilityLabel={current.alt ?? title}
-            />
-          ) : (
-            <View className="flex-1 items-center justify-center">
-              <Text className="text-bodySmall text-text-tertiary">
-          {t(MARKETPLACE_NO_IMAGE_KEY)}
-        </Text>
-            </View>
-          )}
+    <View
+      className="min-w-0 lg:flex-1 lg:self-start web:lg:sticky web:lg:top-8"
+      testID="product-gallery"
+      onLayout={(event) => setPanelWidth(event.nativeEvent.layout.width)}
+    >
+      {images.length === 0 ? (
+        <View
+          style={{ height: frameHeight }}
+          className="items-center justify-center rounded-radius-28 bg-bg-fill-secondary"
+        >
+          <Text className="text-bodySmall text-text-tertiary">{t(MARKETPLACE_NO_IMAGE_KEY)}</Text>
         </View>
-
-        {/* Prev / next arrows — web desktop only. */}
-        {hasMany ? (
-          <>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(GALLERY_PREVIOUS_KEY)}
-              onPress={() => go(-1)}
-              className="absolute start-space-12 top-1/2 hidden items-center justify-center rounded-radius-max border-[0.5px] border-border-image bg-bg-fill p-space-10 web:-translate-y-1/2 web:shadow-md web:sm:flex"
-            >
-              <ChevronLeft size={NAV_ICON_SIZE} color={colors.foreground} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(GALLERY_NEXT_KEY)}
-              onPress={() => go(1)}
-              className="absolute end-space-12 top-1/2 hidden items-center justify-center rounded-radius-max border-[0.5px] border-border-image bg-bg-fill p-space-10 web:-translate-y-1/2 web:shadow-md web:sm:flex"
-            >
-              <ChevronRight size={NAV_ICON_SIZE} color={colors.foreground} />
-            </Pressable>
-          </>
-        ) : null}
-
-        {/* Native / mobile-web: horizontal thumbnail strip below the frame. */}
-        {hasMany ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8, paddingTop: 16 }}
-            className="md:hidden"
-          >
-            {images.map((image, i) => renderThumb(image, i, "h"))}
-          </ScrollView>
-        ) : null}
-      </View>
+      ) : (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+          {desktop && hasMany ? thumbnails(true) : null}
+          {gallery()}
+        </View>
+      )}
+      <ZoomableMediaGallery
+        ref={viewer}
+        measureThumb={measureThumb}
+        cornerRadius={28}
+        indicatorVariant="thumbnails"
+        labels={{
+          previous: t(GALLERY_PREVIOUS_KEY),
+          next: t(GALLERY_NEXT_KEY),
+          goTo: (position) => t(GALLERY_VIEW_IMAGE_KEY, { position }),
+        }}
+      />
     </View>
   );
 }

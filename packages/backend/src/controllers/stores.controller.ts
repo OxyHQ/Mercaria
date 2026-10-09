@@ -60,7 +60,7 @@ export async function getStoreByHandle(req: Request, res: Response): Promise<voi
      * code rather than a rule somebody has to remember.
      */
     const ratingSource = await resolveStoreRatingSource(storeId);
-    const summary = toStoreSummary(store, rows, images);
+    const summary = toStoreSummary(store, rows, images, { includePolicies: true });
 
     const body: StorePageResponse = {
       store: ratingSource

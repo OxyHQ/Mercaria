@@ -54,11 +54,13 @@ import {
   reviews,
   reviewTargetMigrations,
 } from '../schema/reviews.js';
-import { insertReview, setReviewStatusIfIn } from '../reviews/reviewRepository.js';
 import {
-  consumeEligibility,
-  insertEligibility,
-} from '../reviews/reviewEligibilityRepository.js';
+  insertReview,
+  setReviewStatusIfIn,
+  readReviewRatingSummary,
+  findReviewsPage,
+} from '../reviews/reviewRepository.js';
+import { consumeEligibility, insertEligibility } from '../reviews/reviewEligibilityRepository.js';
 import { recordTargetMigration } from '../reviews/reviewMigrationRepository.js';
 import { rebuildScopedAggregate } from '../../services/reviews/review-aggregate.service.js';
 import { deleteTestCanonicalRows } from './canonical-teardown.js';
@@ -103,7 +105,11 @@ afterAll(async () => {
   // refuses it with `op ANY/ALL (array) requires array on right side`, and an
   // EMPTY array renders `= any()`, a syntax error — CONVENTIONS.md, Naming.
   const aggregateIds: string[] = [];
-  if (createdProductIds.length > 0 || createdMerchantIds.length > 0 || createdListingIds.length > 0) {
+  if (
+    createdProductIds.length > 0 ||
+    createdMerchantIds.length > 0 ||
+    createdListingIds.length > 0
+  ) {
     const rows = await db
       .select({ id: reviewAggregates.id })
       .from(reviewAggregates)
@@ -215,7 +221,10 @@ async function makeListing(storeId: string): Promise<string> {
 }
 
 /** A paid order with ONE line — the evidence an eligibility points at. */
-async function makeOrderWithLine(storeId: string, buyerOxyUserId: string): Promise<{
+async function makeOrderWithLine(
+  storeId: string,
+  buyerOxyUserId: string,
+): Promise<{
   orderId: string;
   lineId: string;
 }> {
@@ -294,7 +303,10 @@ async function writeReview(values: {
   verification?: 'verified_purchase' | 'unverified';
   eligibilityId?: string;
   orderId?: string;
-  dimensions?: { key: 'quality' | 'delivery_speed' | 'condition_accuracy'; rating: number }[];
+  dimensions?: {
+    key: 'quality' | 'delivery_speed' | 'condition_accuracy';
+    rating: number;
+  }[];
 }): Promise<string> {
   const row = await insertReview({
     authorOxyUserId: values.authorOxyUserId,
@@ -378,9 +390,7 @@ describe('the scope and its target cannot disagree', () => {
         classificationState: 'native',
         rating: 5,
       }),
-    ).rejects.toSatisfy((err: unknown) =>
-      isCheckViolation(err, 'reviews_scope_target_type_check'),
-    );
+    ).rejects.toSatisfy((err: unknown) => isCheckViolation(err, 'reviews_scope_target_type_check'));
   });
 
   it('still accepts a LEGACY unscoped row — the compatibility window', async () => {
@@ -739,6 +749,53 @@ describe('verification and its evidence travel together', () => {
 });
 
 describe('aggregates: verified and unverified never blend', () => {
+  it('reads all published rating buckets independently of pagination and excludes other targets and hidden rows', async () => {
+    const storeId = await makeStore();
+    const listingId = await makeListing(storeId);
+    const otherListingId = await makeListing(storeId);
+    const target = { targetType: 'listing' as const, targetId: listingId };
+    for (let index = 0; index < 14; index++) {
+      await writeReview({
+        authorOxyUserId: userId(`hist-${index}`),
+        scope: 'p2p_listing',
+        ...target,
+        rating: index === 0 ? 1 : 5,
+      });
+    }
+    const hidden = await writeReview({
+      authorOxyUserId: userId('hidden'),
+      scope: 'p2p_listing',
+      ...target,
+      rating: 2,
+    });
+    await setReviewStatusIfIn(hidden, 'hidden', ['published']);
+    await writeReview({
+      authorOxyUserId: userId('unrelated'),
+      scope: 'p2p_listing',
+      targetType: 'listing',
+      targetId: otherListingId,
+      rating: 3,
+    });
+    expect((await findReviewsPage(target, 1, 12)).rows).toHaveLength(12);
+    expect(await readReviewRatingSummary(target)).toEqual({
+      rating: 4.7,
+      reviewCount: 14,
+      verifiedOnly: false,
+      distribution: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 13 },
+    });
+    expect(
+      await readReviewRatingSummary({
+        ...target,
+        targetId: await makeListing(storeId),
+      }),
+    ).toEqual({
+      rating: 0,
+      reviewCount: 0,
+      verifiedOnly: false,
+      distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    });
+  });
+
   it('counts them apart, and the headline rating is the VERIFIED one', async () => {
     const storeId = await makeStore();
     const buyer = userId('buyer');
@@ -781,6 +838,18 @@ describe('aggregates: verified and unverified never blend', () => {
     expect(aggregate.reviewCount).toBe(1);
     expect(aggregate.unverified.rating).toBe(1);
     expect(aggregate.unverified.count).toBe(1);
+    expect(
+      await readReviewRatingSummary({
+        scope: 'product',
+        targetType: 'canonical_product',
+        targetId: productId,
+      }),
+    ).toEqual({
+      rating: 5,
+      reviewCount: 1,
+      verifiedOnly: true,
+      distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 1 },
+    });
     // And the DTO offers no combined total to reach for.
     expect(Object.keys(aggregate)).not.toContain('totalCount');
   });
@@ -840,7 +909,10 @@ describe('aggregates: verified and unverified never blend', () => {
     await rebuildScopedAggregate('product', productId);
 
     const [row] = await db
-      .select({ rating: canonicalProducts.rating, ratingCount: canonicalProducts.ratingCount })
+      .select({
+        rating: canonicalProducts.rating,
+        ratingCount: canonicalProducts.ratingCount,
+      })
       .from(canonicalProducts)
       .where(eq(canonicalProducts.id, productId));
     expect(row?.rating).toBe(4);

@@ -1,5 +1,9 @@
+import { merchantImageSource } from "@mercaria/ui";
 import { useEffect, useMemo, useState } from "react";
-import { useShoppingHistory, useShoppingHistoryOwner } from "@/lib/stores/shopping-history";
+import {
+  useShoppingHistory,
+  useShoppingHistoryOwner,
+} from "@/lib/stores/shopping-history";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,13 +11,17 @@ import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Heart, Share2 } from "lucide-react-native";
 import { Rating } from "@oxy.so/bloom/rating";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@oxy.so/bloom/accordion";
 import { Stepper } from "@oxy.so/bloom/stepper";
 import {
   CommercialDisclosure,
   ConditionBadge,
-  DemandPill,
   MerchantHeader,
-  OfferCard,
   PriceDisplay,
   ProductCarousel,
   ProductGallery,
@@ -23,24 +31,22 @@ import {
   Text,
   VariantSwatches,
   useFormatters,
-  type RatingDistribution,
   type ProductSummary,
 } from "@mercaria/ui";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
-import type {
-  Listing,
-  ListingOption,
-  StoreSummary,
-  ProductVariantDTO,
-  Review,
-  Seller,
-} from "@mercaria/shared-types";
+import type { Listing, StoreSummary, Seller } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
+import { ProductReviewsDialog } from "@/components/product/ProductReviewsDialog";
 import { Footer } from "@/components/shell/Footer";
+import { StoreMenuSheet } from "@/components/store/StoreMenuSheet";
+import { useStoreCollections } from "@/lib/hooks/use-store";
 import { StoreFollowButton } from "@/components/store/StoreFollowButton";
 import { SellerLinkCard } from "@/components/seller/SellerLinkCard";
 import { useProduct, useProductReviews } from "@/lib/hooks/use-product";
-import { REVIEW_SCOPE_HEADING_KEYS, useProductScopeReviews } from "@/lib/hooks/use-reviews";
+import {
+  REVIEW_SCOPE_HEADING_KEYS,
+  useProductScopeReviews,
+} from "@/lib/hooks/use-reviews";
 import { useListings } from "@/lib/hooks/use-listings";
 import { useAddCartItem } from "@/lib/hooks/use-cart";
 import {
@@ -48,27 +54,21 @@ import {
   useToggleListingSave,
   useToggleProductSave,
 } from "@/lib/hooks/use-saves";
+import { useShareLink } from "@/lib/hooks/use-share-link";
 import { useTranslation } from "@/lib/i18n";
+import {
+  chooseListingVariant,
+  resolveListingVariant,
+} from "@/lib/catalog/variant-selection";
 
 /** Gold star fill (mirrors the MerchantCard constant). */
 const STAR_COLOR = "#FFB800";
-/** Lines of the description shown before "View more" expands it. */
-const DESCRIPTION_CLAMP_LINES = 6;
 /** Number of "More from store" related items pulled for the shelf. */
 const RELATED_LIMIT = 12;
 /** Reviews fetched for the summary + carousel. */
 const REVIEW_PAGE_LIMIT = 12;
 /** Icon size for the action-row icons (px). */
 const ICON_SIZE = 20;
-
-/**
- * Static "social proof" demand chip copy shown under the title (decorative).
- *
- * The KEY rather than the sentence: this module-scope constant is evaluated at
- * import, before the locale store has rehydrated, so holding the English here
- * would freeze whichever language happened to load first.
- */
-const DEMAND_COPY_KEY = "product.demandCopy";
 
 /** Project a catalog `Listing` into the `ProductSummary` shape the cards consume. */
 function toProductSummary(listing: Listing, brand: string): ProductSummary {
@@ -96,51 +96,6 @@ function brandLabel(listing: Listing): string {
   return listing.vendor ?? "";
 }
 
-/**
- * Find the single variant matching a full set of chosen option values. Returns
- * undefined until every option has a selection (multi-option products).
- */
-function matchVariant(
-  variants: ProductVariantDTO[],
-  options: ListingOption[],
-  selection: Record<string, string>,
-): ProductVariantDTO | undefined {
-  if (options.length === 0) {
-    return variants[0];
-  }
-  if (Object.keys(selection).length < options.length) {
-    return undefined;
-  }
-  return variants.find((variant) =>
-    variant.optionValues.every((ov) => selection[ov.name] === ov.value),
-  );
-}
-
-/**
- * Build the initial option selection so the PDP opens with a buyable variant
- * pre-selected (matching the Shopify original). Picks the first in-stock variant
- * — falling back to the first variant when none are in stock — and projects its
- * `optionValues` into the `{ [optionName]: value }` selection shape. Returns an
- * empty selection for products with no options (single-variant / P2P), where the
- * sole variant is already resolved by `matchVariant`.
- */
-function defaultSelection(
-  variants: ProductVariantDTO[],
-  options: ListingOption[],
-): Record<string, string> {
-  if (options.length === 0) {
-    return {};
-  }
-  const variant = variants.find((v) => v.inStock) ?? variants[0];
-  if (!variant) {
-    return {};
-  }
-  return variant.optionValues.reduce<Record<string, string>>((acc, ov) => {
-    acc[ov.name] = ov.value;
-    return acc;
-  }, {});
-}
-
 interface MerchantIdentity {
   name: string;
   logoUrl?: string;
@@ -162,54 +117,14 @@ function merchantIdentity(listing: Listing): MerchantIdentity {
   return identity;
 }
 
-interface RatingSummary {
-  average: number;
-  total: number;
-  /** Count per star bucket, keyed 5..1. */
-  distribution: RatingDistribution;
-}
-
-/** Derive the rating summary (avg, total, 5→1 distribution) from a review page. */
-function summarizeReviews(reviews: Review[]): RatingSummary {
-  const distribution: RatingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-  let sum = 0;
-  for (const review of reviews) {
-    const bucket = Math.round(review.rating);
-    if (bucket >= 1 && bucket <= 5) {
-      distribution[bucket] += 1;
-    }
-    sum += review.rating;
-  }
-  const total = reviews.length;
-  return {
-    average: total > 0 ? sum / total : 0,
-    total,
-    distribution,
-  };
-}
-
-/**
- * The 5→1 bucket counts of a review PAGE.
- *
- * Split out from {@link summarizeReviews} for the scoped surfaces, whose average
- * and total come from the server aggregate: the distribution bars describe the
- * reviews actually on screen, which is what a reader can scroll to, while the
- * headline figure describes every review there is. Mixing the two sources is
- * deliberate and stated rather than accidental.
- */
-function distributionOf(reviews: Review[]): RatingDistribution {
-  const distribution: RatingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-  for (const review of reviews) {
-    const bucket = Math.round(review.rating);
-    if (bucket >= 1 && bucket <= 5) {
-      distribution[bucket] += 1;
-    }
-  }
-  return distribution;
-}
-
 /** Inline store-link card (brand-bg cover + wordmark + footer name/rating). */
-function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () => void }) {
+function StoreLinkCard({
+  store,
+  onPress,
+}: {
+  store: StoreSummary;
+  onPress: () => void;
+}) {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
   const toneColor = store.textTone === "light" ? "#FFFFFF" : "#111111";
@@ -226,7 +141,7 @@ function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () =>
       >
         {store.coverImageUrl ? (
           <Image
-            source={{ uri: store.coverImageUrl }}
+            source={merchantImageSource(store.coverImageUrl)}
             contentFit="cover"
             style={StyleSheet.absoluteFill}
           />
@@ -241,23 +156,34 @@ function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () =>
         />
         {store.logoUrl ? (
           <Image
-            source={{ uri: store.logoUrl }}
+            source={merchantImageSource(store.logoUrl)}
             contentFit="contain"
             style={{ height: 48, width: "60%", maxWidth: 220 }}
           />
         ) : (
-          <Text numberOfLines={1} className="text-2xl font-bold" style={{ color: toneColor }}>
+          <Text
+            numberOfLines={1}
+            className="text-2xl font-bold"
+            style={{ color: toneColor }}
+          >
             {store.name}
           </Text>
         )}
       </Pressable>
       <View className="flex-row items-center justify-between p-space-16">
         <View>
-          <Text numberOfLines={1} className="text-sm font-bold" style={{ color: toneColor }}>
+          <Text
+            numberOfLines={1}
+            className="text-sm font-bold"
+            style={{ color: toneColor }}
+          >
             {store.name}
           </Text>
           <Rating
-            {...ratingDisplay({ rating: store.rating, reviews: store.reviewCount })}
+            {...ratingDisplay({
+              rating: store.rating,
+              reviews: store.reviewCount,
+            })}
             size="small"
             color={toneColor}
             starColor={STAR_COLOR}
@@ -271,7 +197,13 @@ function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () =>
 }
 
 /** "More from <store>" related shelf, sourced from the same store's listings. */
-function RelatedFromStore({ store, excludeId }: { store: StoreSummary; excludeId: string }) {
+function RelatedFromStore({
+  store,
+  excludeId,
+}: {
+  store: StoreSummary;
+  excludeId: string;
+}) {
   const router = useRouter();
   const { t } = useTranslation();
   const { data } = useListings({ storeId: store.id, limit: RELATED_LIMIT });
@@ -292,7 +224,9 @@ function RelatedFromStore({ store, excludeId }: { store: StoreSummary; excludeId
     <ProductCarousel
       title={t("product.moreFromStore", { name: store.name })}
       items={items}
-      onPressItem={(id) => router.push(`/products/${id}`)}
+      onPressItem={(id) =>
+        router.push({ pathname: "/products/[id]", params: { id } })
+      }
     />
   );
 }
@@ -332,27 +266,40 @@ function ProductBody({ listing }: ProductBodyProps) {
     () => productReviewsQuery.data?.data ?? [],
     [productReviewsQuery.data],
   );
-  const productDistribution = useMemo(
-    () => distributionOf(productReviews),
-    [productReviews],
-  );
+  const productDistribution =
+    productReviewsQuery.data?.ratingSummary?.distribution;
   const hasProductReviews = (productAggregate?.reviewCount ?? 0) > 0;
 
-  const listingReviewsQuery = useProductReviews(listing.id, 1, REVIEW_PAGE_LIMIT);
+  const listingReviewsQuery = useProductReviews(
+    listing.id,
+    1,
+    REVIEW_PAGE_LIMIT,
+  );
   const listingReviews = useMemo(
     () => listingReviewsQuery.data?.data ?? [],
     [listingReviewsQuery.data],
   );
-  const listingSummary = useMemo(() => summarizeReviews(listingReviews), [listingReviews]);
-  const listingReviewTotal = listingReviewsQuery.data?.pagination.total ?? listingSummary.total;
+  const listingSummary = listingReviewsQuery.data?.ratingSummary;
+  const listingReviewTotal = listingSummary?.reviewCount ?? 0;
   const hasListingReviews = listingReviewTotal > 0;
 
   const options = listing.options ?? [];
-  const [selection, setSelection] = useState<Record<string, string>>(() =>
-    defaultSelection(listing.variants, options),
+  const { variantId } = useLocalSearchParams<{ variantId?: string }>();
+  const selectedVariant = resolveListingVariant(listing.variants, variantId);
+  const selection = Object.fromEntries(
+    selectedVariant?.optionValues.map((option) => [
+      option.name,
+      option.value,
+    ]) ?? [],
   );
   const [quantity, setQuantity] = useState(1);
-  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [storeMenuOpen, setStoreMenuOpen] = useState(false);
+  const storeCollections = useStoreCollections(storeMenuOpen ? listing.store?.handle ?? "" : "");
+  const [reviewScope, setReviewScope] = useState<"product" | "p2p_listing">();
+  const [sections, setSections] = useState<string | string[] | undefined>([
+    "description",
+    "reviews",
+  ]);
 
   /**
    * The two save controls (#80 listing rules).
@@ -370,36 +317,56 @@ function ProductBody({ listing }: ProductBodyProps) {
   const productSaved = saveContext.data?.productSaved ?? false;
   const listingSaved = saveContext.data?.listingSaved ?? false;
 
-  const selectedVariant = useMemo(
-    () => matchVariant(listing.variants, options, selection),
-    [listing.variants, options, selection],
+  const shareLink = useShareLink(
+    listing.title,
+    `/products/${encodeURIComponent(listing.id)}${selectedVariant ? `?variantId=${encodeURIComponent(selectedVariant.id)}` : ""}`,
   );
 
   const activePrice = selectedVariant?.price ?? listing.price;
-  const activeCompareAt = selectedVariant?.compareAtPrice ?? listing.compareAtPrice;
-  const onSale = activeCompareAt !== undefined && activeCompareAt.amount > activePrice.amount;
+  const activeCompareAt = selectedVariant
+    ? selectedVariant.compareAtPrice
+    : listing.compareAtPrice;
+  const onSale =
+    activeCompareAt !== undefined &&
+    activeCompareAt.amount > activePrice.amount;
   const discountPercent = onSale
     ? Math.round((1 - activePrice.amount / activeCompareAt.amount) * 100)
     : 0;
 
+  const refundPolicy = selectedVariant?.commercial?.mode === "connected_marketplace" && selectedVariant.commercial.sellerKind === "store"
+    ? listing.store?.refundPolicy : undefined;
   const maxQuantity = selectedVariant?.available;
   const canAddToCart = selectedVariant !== undefined && selectedVariant.inStock;
 
   const images = useMemo(
-    () => listing.images.map((image) => ({ uri: image.fileId, alt: image.alt })),
-    [listing.images],
+    () =>
+      (selectedVariant?.images?.images ?? listing.images).map((image) => ({
+        uri: image.fileId,
+        alt: image.alt,
+      })),
+    [listing.images, selectedVariant?.images],
   );
 
   const identity = useMemo(() => merchantIdentity(listing), [listing]);
 
   const selectOption = (name: string, value: string) => {
-    setSelection((prev) => ({ ...prev, [name]: value }));
+    const next = chooseListingVariant(
+      listing.variants,
+      selectedVariant,
+      name,
+      value,
+    );
+    if (next) router.setParams({ variantId: next.id });
     setQuantity(1);
+    addToCart.reset();
   };
 
   const onPressStore = () => {
     if (listing.store?.handle) {
-      router.push(`/stores/${listing.store.handle}`);
+      router.push({
+        pathname: "/stores/[handle]",
+        params: { handle: listing.store.handle },
+      });
     }
   };
 
@@ -408,7 +375,10 @@ function ProductBody({ listing }: ProductBodyProps) {
   // moves. Same reasoning as the follow target's URI.
   const onPressSeller = () => {
     if (listing.seller?.oxyUserId) {
-      router.push(`/sellers/${encodeURIComponent(listing.seller.oxyUserId)}`);
+      router.push({
+        pathname: "/sellers/[oxyUserId]",
+        params: { oxyUserId: listing.seller.oxyUserId },
+      });
     }
   };
 
@@ -425,35 +395,51 @@ function ProductBody({ listing }: ProductBodyProps) {
     if (!selectedVariant) return;
     addToCart.mutate(
       { listingId: listing.id, variantId: selectedVariant.id, quantity },
-      { onSuccess: () => router.push("/cart") },
+      {
+        onSuccess: (cart) => {
+          const group = cart.groups.find((candidate) =>
+            candidate.items.some(
+              (item) => item.variantId === selectedVariant.id,
+            ),
+          );
+          router.push(
+            !group || group.guestCheckout?.status === "blocked"
+              ? "/cart"
+              : { pathname: "/checkout", params: { seller: group.sellerKey } },
+          );
+        },
+      },
     );
-  };
-
-  const onPressOffer = () => {
-    router.push("/cart");
   };
 
   return (
     <View className="web:mx-auto web:w-full web:max-w-[1600px] md:px-5">
-      <View className="flex-col gap-space-32 md:gap-space-40">
+      <View className="flex-col gap-space-16 lg:gap-space-40">
+        {/* Mobile sticky merchant bar. */}
+        <View className="px-space-16 py-space-12 lg:hidden">
+          <MerchantHeader
+            name={identity.name}
+            logoUrl={identity.logoUrl}
+            rating={identity.rating}
+            reviewCount={identity.reviewCount}
+            onPress={onPressStore}
+            size="large"
+          />
+        </View>
+
         {/* Top two-column region: large gallery (flex-1) + fixed buy column. */}
-        <View className="flex-col gap-space-16 md:flex-row">
-          <ProductGallery images={images} title={listing.title} />
+        <View className="flex-col gap-space-16 lg:flex-row lg:gap-space-40">
+          <ProductGallery
+            key={selectedVariant?.id ?? listing.id}
+            images={images}
+            title={listing.title}
+          />
 
           {/* Buy column. */}
-          <View className="gap-space-24 md:w-[29em]">
-            {/* Mobile sticky merchant bar. */}
-            <View className="z-10 -mx-space-16 border-b border-border-secondary bg-bg px-space-16 py-space-12 web:sticky web:top-0 lg:hidden md:-mx-5 md:px-5">
-              <MerchantHeader
-                name={identity.name}
-                logoUrl={identity.logoUrl}
-                rating={identity.rating}
-                reviewCount={identity.reviewCount}
-                onPress={onPressStore}
-                size="large"
-              />
-            </View>
-
+          <View
+            className="gap-space-24 px-space-16 lg:px-0 lg:w-[29em]"
+            testID="product-buy-column"
+          >
             {/* Desktop buy-column merchant header. */}
             <View className="hidden lg:flex">
               <MerchantHeader
@@ -462,11 +448,12 @@ function ProductBody({ listing }: ProductBodyProps) {
                 rating={identity.rating}
                 reviewCount={identity.reviewCount}
                 onPress={onPressStore}
+                onMore={listing.store ? () => setStoreMenuOpen(true) : undefined}
                 size="compact"
               />
             </View>
 
-            <Text className="text-headerBold text-text" numberOfLines={3}>
+            <Text className="text-[24px] leading-tight font-semibold text-text">
               {listing.title}
             </Text>
 
@@ -517,7 +504,10 @@ function ProductBody({ listing }: ProductBodyProps) {
                 accessibilityRole="link"
                 accessibilityLabel={t("product.compareOffersA11y")}
                 onPress={() =>
-                  router.push(`/p/${encodeURIComponent(listing.canonicalProductId ?? '')}`)
+                  router.push({
+                    pathname: "/p/[handle]",
+                    params: { handle: listing.canonicalProductId ?? "" },
+                  })
                 }
                 className="self-start rounded-radius-max border border-border-secondary px-space-16 py-space-8"
               >
@@ -543,17 +533,20 @@ function ProductBody({ listing }: ProductBodyProps) {
               mislabelling this component exists to prevent.
             */}
             {selectedVariant?.commercial ? (
-              <CommercialDisclosure presentation={selectedVariant.commercial} showExplanations />
+              <CommercialDisclosure
+                presentation={selectedVariant.commercial}
+                showExplanations
+              />
             ) : null}
-
-            {/* Demand pill (static social proof). */}
-            <DemandPill label={t(DEMAND_COPY_KEY)} />
 
             {/* Price block. */}
             <View className="gap-space-4">
               {onSale ? (
                 <View className="flex-row items-center gap-space-8">
-                  <PriceDisplay price={activePrice} primaryClassName="text-bodyTitleLarge" />
+                  <PriceDisplay
+                    price={activePrice}
+                    primaryClassName="text-bodyTitleLarge"
+                  />
                   <Text className="text-bodySmall text-text-tertiary line-through">
                     {formatMoney(activeCompareAt)}
                   </Text>
@@ -564,16 +557,12 @@ function ProductBody({ listing }: ProductBodyProps) {
                   </View>
                 </View>
               ) : (
-                <PriceDisplay price={activePrice} primaryClassName="text-bodyTitleLarge" />
+                <PriceDisplay
+                  price={activePrice}
+                  primaryClassName="text-bodyTitleLarge"
+                />
               )}
             </View>
-
-            {/* Exclusive-offer teaser card (static). */}
-            <OfferCard
-              label={t("product.exclusiveOffer.label")}
-              caption={t("product.exclusiveOffer.caption")}
-              onPress={onPressOffer}
-            />
 
             {/* Option selectors (value pills). */}
             {options.map((option) => (
@@ -588,7 +577,9 @@ function ProductBody({ listing }: ProductBodyProps) {
 
             {/* Quantity selector. */}
             <View className="gap-space-8">
-              <Text className="text-captionBold text-text">{t("product.quantity")}</Text>
+              <Text className="text-captionBold text-text">
+                {t("product.quantity")}
+              </Text>
               {/* Bloom's stepper, floored at 1 with no remove: nothing is in the
                   cart yet, so there is nothing for a trash button to take away.
                   `+` stops at what is in stock, as the cart line's does. */}
@@ -596,7 +587,11 @@ function ProductBody({ listing }: ProductBodyProps) {
                 <Stepper
                   value={quantity}
                   min={1}
-                  max={maxQuantity === undefined ? undefined : Math.max(1, maxQuantity)}
+                  max={
+                    maxQuantity === undefined
+                      ? undefined
+                      : Math.max(1, maxQuantity)
+                  }
                   onValueChange={setQuantity}
                   decrementLabel={t("product.decreaseQuantity")}
                   incrementLabel={t("product.increaseQuantity")}
@@ -605,9 +600,10 @@ function ProductBody({ listing }: ProductBodyProps) {
               </View>
             </View>
 
-            {/* Purchase-type cards: one-time (real actions) + subscribe (decorative). */}
+            {/* Real purchase actions for the selected configuration. */}
             <PurchaseOptions
-              price={activePrice}
+              hasSelection={selectedVariant !== undefined}
+              added={addToCart.isSuccess && addToCart.variables.variantId === selectedVariant?.id}
               canBuy={canAddToCart}
               isPending={addToCart.isPending}
               onAddToCart={onAddToCart}
@@ -642,7 +638,11 @@ function ProductBody({ listing }: ProductBodyProps) {
               listing shows the listing button alone, which is #80 listing rules
               1 and 2 rendered rather than described.
             */}
-            <View className="gap-space-8">
+            <View
+              className={
+                canonicalProductId ? "gap-space-8" : "flex-row gap-space-8"
+              }
+            >
               {canonicalProductId ? (
                 <View className="flex-row gap-space-8">
                   <Pressable
@@ -668,7 +668,9 @@ function ProductBody({ listing }: ProductBodyProps) {
                       fill={productSaved ? STAR_COLOR : "transparent"}
                     />
                     <Text className="text-buttonMedium text-text">
-                      {productSaved ? t("product.save.productSaved") : t("product.save.product")}
+                      {productSaved
+                        ? t("product.save.productSaved")
+                        : t("product.save.product")}
                     </Text>
                   </Pressable>
                   <Pressable
@@ -692,7 +694,9 @@ function ProductBody({ listing }: ProductBodyProps) {
                     className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
                   >
                     <Text className="text-buttonMedium text-text">
-                      {listingSaved ? t("product.save.listingSaved") : t("product.save.listing")}
+                      {listingSaved
+                        ? t("product.save.listingSaved")
+                        : t("product.save.listing")}
                     </Text>
                   </Pressable>
                 </View>
@@ -700,12 +704,17 @@ function ProductBody({ listing }: ProductBodyProps) {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={
-                    listingSaved ? t("product.save.removeListingA11y") : t("product.save.listing")
+                    listingSaved
+                      ? t("product.save.removeListingA11y")
+                      : t("product.save.listing")
                   }
                   onPress={() =>
-                    toggleListingSave.mutate({ listingId: listing.id, saved: listingSaved })
+                    toggleListingSave.mutate({
+                      listingId: listing.id,
+                      saved: listingSaved,
+                    })
                   }
-                  className="flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
+                  className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
                 >
                   <Heart
                     size={ICON_SIZE}
@@ -713,33 +722,114 @@ function ProductBody({ listing }: ProductBodyProps) {
                     fill={listingSaved ? STAR_COLOR : "transparent"}
                   />
                   <Text className="text-buttonMedium text-text">
-                    {listingSaved ? t("product.save.saved") : t("product.save.save")}
+                    {listingSaved
+                      ? t("product.save.saved")
+                      : t("product.save.save")}
                   </Text>
                 </Pressable>
               )}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={t("product.shareA11y")}
-                className="flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
+                accessibilityLabel={
+                  shareLink.copied
+                    ? t("common.linkCopied")
+                    : t("product.shareA11y")
+                }
+                onPress={() => void shareLink.share()}
+                className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
               >
                 <Share2 size={ICON_SIZE} className="text-text" />
-                <Text className="text-buttonMedium text-text">{t("product.share")}</Text>
+                <Text className="text-buttonMedium text-text">
+                  {shareLink.copied
+                    ? t("common.linkCopied")
+                    : t("product.share")}
+                </Text>
               </Pressable>
             </View>
 
-            {/* Delivery & Returns (shipping hidden — Moovo not ready). */}
-            <View className="gap-space-12 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20">
-              <Text className="text-sectionTitle text-text">
-                {t("product.deliveryAndReturns")}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("product.viewReturnPolicyA11y")}
-                className="self-start rounded-radius-max bg-bg-fill-secondary px-space-16 py-space-8"
+            {shareLink.failed ? (
+              <Text
+                accessibilityRole="alert"
+                className="text-caption text-destructive"
               >
-                <Text className="text-buttonMedium text-text">{t("product.returnPolicy")}</Text>
-              </Pressable>
-            </View>
+                {t("common.shareError")}
+              </Text>
+            ) : null}
+
+            <Accordion
+              type="multiple"
+              value={sections}
+              onValueChange={setSections}
+              testID="product-sections"
+            >
+              {listing.description ? (
+                <AccordionItem value="description">
+                  <AccordionTrigger>
+                    {t("product.description")}
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <Text className="text-bodySmall text-text">
+                      {listing.description}
+                    </Text>
+                  </AccordionContent>
+                </AccordionItem>
+              ) : null}
+              <AccordionItem value="reviews">
+                <AccordionTrigger>{t("product.reviews")}</AccordionTrigger>
+                <AccordionContent>
+                  <View className="gap-space-16">
+                    {listing.canonicalProductId ? (
+                      <ReviewSummaryCard
+                        scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
+                        embedded
+                        onReadMore={() => setReviewScope("product")}
+                        average={productAggregate?.rating ?? 0}
+                        total={productAggregate?.reviewCount ?? 0}
+                        distribution={productDistribution}
+                        reviews={productReviews}
+                        isLoading={productReviewsQuery.isLoading}
+                        {...(productAggregate
+                          ? { unverified: productAggregate.unverified }
+                          : {})}
+                      />
+                    ) : null}
+
+                    {/*
+              This listing's own feedback. The heading is `Item condition and
+              description` for a used item — never "Product reviews" — because a
+              scuff on one seller's copy is a fact about that copy (#76 UI rule
+              5). A new item's listing feedback carries the same scope and the
+              same heading, for the same reason: it describes THIS listing.
+            */}
+                    {hasListingReviews || !listing.canonicalProductId ? (
+                      <ReviewSummaryCard
+                        scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)}
+                        embedded
+                        onReadMore={() => setReviewScope("p2p_listing")}
+                        average={listingSummary?.rating ?? 0}
+                        verifiedOnly={false}
+                        total={listingReviewTotal}
+                        distribution={listingSummary?.distribution}
+                        reviews={listingReviews}
+                        isLoading={listingReviewsQuery.isLoading}
+                      />
+                    ) : null}
+                  </View>
+                </AccordionContent>
+              </AccordionItem>
+              {refundPolicy ? (
+                <AccordionItem value="returns">
+                  <AccordionTrigger>
+                    {t("product.returnPolicy")}
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <Text className="text-bodySmall text-text">
+                      {refundPolicy}
+                    </Text>
+                  </AccordionContent>
+                </AccordionItem>
+              ) : null}
+            </Accordion>
 
             {/* Store link card. */}
             {listing.store ? (
@@ -758,74 +848,29 @@ function ProductBody({ listing }: ProductBodyProps) {
           </View>
         </View>
 
-        {/* Description + Reviews — full-width two-column block below the top region. */}
-        <View className="flex-col gap-space-32 md:flex-row md:gap-[120px]">
-          {/* Left column — description with the View more clamp. */}
-          {listing.description ? (
-            <View className="flex-1 gap-space-8">
-              <Text className="text-sectionTitle text-text">{t("product.description")}</Text>
-              <Text
-                className="text-bodySmall text-text"
-                numberOfLines={descriptionExpanded ? undefined : DESCRIPTION_CLAMP_LINES}
-              >
-                {listing.description}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  descriptionExpanded ? t("product.viewLess") : t("product.viewMore")
-                }
-                onPress={() => setDescriptionExpanded((e) => !e)}
-                className="self-start"
-              >
-                <Text className="text-buttonMedium text-text-brand">
-                  {descriptionExpanded ? t("product.viewLess") : t("product.viewMore")}
-                </Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View className="flex-1" />
-          )}
-
-          {/* Right column — the two review surfaces, stacked and each labelled. */}
-          <View className="flex-1 gap-space-16">
-            {listing.canonicalProductId ? (
-              <ReviewSummaryCard
-                scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
-                average={productAggregate?.rating ?? 0}
-                total={productAggregate?.reviewCount ?? 0}
-                distribution={productDistribution}
-                reviews={productReviews}
-                isLoading={productReviewsQuery.isLoading}
-                {...(productAggregate ? { unverified: productAggregate.unverified } : {})}
-              />
-            ) : null}
-
-            {/*
-              This listing's own feedback. The heading is `Item condition and
-              description` for a used item — never "Product reviews" — because a
-              scuff on one seller's copy is a fact about that copy (#76 UI rule
-              5). A new item's listing feedback carries the same scope and the
-              same heading, for the same reason: it describes THIS listing.
-            */}
-            {hasListingReviews || !listing.canonicalProductId ? (
-              <ReviewSummaryCard
-                scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)}
-                average={listingSummary.average}
-                total={listingReviewTotal}
-                distribution={listingSummary.distribution}
-                reviews={listingReviews}
-                isLoading={listingReviewsQuery.isLoading}
-              />
-            ) : null}
-          </View>
-        </View>
-
         {/* Full-width related shelves. */}
         {listing.store ? (
           <RelatedFromStore store={listing.store} excludeId={listing.id} />
         ) : null}
 
+        {listing.store && storeMenuOpen ? (
+          <StoreMenuSheet open onClose={() => setStoreMenuOpen(false)}
+            store={listing.store}
+            collections={(storeCollections.data ?? []).filter(collection => collection.isPublished)}
+            onSelectCollection={(collection) => {
+              setStoreMenuOpen(false);
+              router.push({ pathname: "/stores/[handle]",
+                params: { handle: listing.store!.handle, ...(collection ? { collection } : {}) } });
+            }} />
+        ) : null}
+        {reviewScope ? (
+          <ProductReviewsDialog
+            listingId={listing.id}
+            canonicalProductId={listing.canonicalProductId}
+            scope={reviewScope}
+            onClose={() => setReviewScope(undefined)}
+          />
+        ) : null}
         <Footer />
       </View>
     </View>
@@ -842,7 +887,7 @@ function ProductSkeleton() {
       accessibilityLabel={t("product.loadingA11y")}
       aria-busy
     >
-      <View className="flex-col gap-space-16 md:flex-row">
+      <View className="flex-col gap-space-16 lg:flex-row lg:gap-space-40">
         <View className="aspect-square flex-1">
           <Skeleton.Box width="100%" height="100%" borderRadius={28} />
         </View>
@@ -863,14 +908,24 @@ export default function ProductScreen() {
   const { t } = useTranslation();
   const { data: listing, isLoading, isError } = useProduct(id ?? "");
   const historyOwner = useShoppingHistoryOwner();
-  const historyReady = useShoppingHistory(state => state.hydrated);
+  const historyReady = useShoppingHistory((state) => state.hydrated);
   useEffect(() => {
-    if (listing && historyReady) useShoppingHistory.getState().viewProduct(historyOwner, toProductSummary(listing, brandLabel(listing)));
+    if (listing && historyReady)
+      useShoppingHistory
+        .getState()
+        .viewProduct(
+          historyOwner,
+          toProductSummary(listing, brandLabel(listing)),
+        );
   }, [listing, historyOwner, historyReady]);
 
   const head = (
     <Head>
-      <title>{listing?.title ? t("product.documentTitle", { name: listing.title }) : t("product.appName")}</title>
+      <title>
+        {listing?.title
+          ? t("product.documentTitle", { name: listing.title })
+          : t("product.appName")}
+      </title>
       {listing?.description ? (
         <meta name="description" content={listing.description.slice(0, 160)} />
       ) : null}
@@ -902,9 +957,9 @@ export default function ProductScreen() {
   }
 
   return (
-    <ScreenShell contentClassName="pt-6">
+    <ScreenShell contentClassName="lg:pt-6">
       {head}
-      <ProductBody listing={listing} />
+      <ProductBody key={listing.id} listing={listing} />
     </ScreenShell>
   );
 }

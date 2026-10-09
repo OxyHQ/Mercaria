@@ -1,3 +1,4 @@
+import { merchantImageSource } from "../../lib/shop-merchant-images";
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { MoreHorizontal } from "lucide-react-native";
@@ -46,6 +47,7 @@ export interface MerchantHeaderProps {
    */
   discountPercent?: number;
   onPress: () => void;
+  onMore?: () => void;
   /**
    * Visual variant:
    * - `large` — bigger halo logo, name + rating, and an outlined "Visit store"
@@ -97,7 +99,7 @@ function HeaderLogo({ logoUrl, size }: { logoUrl?: string; size: number }) {
       >
         {logoUrl ? (
           <Image
-            source={{ uri: logoUrl }}
+            source={merchantImageSource(logoUrl)}
             contentFit="cover"
             style={{ height: size, width: size }}
           />
@@ -120,6 +122,7 @@ export function MerchantHeader({
   rating,
   reviewCount,
   onPress,
+  onMore,
   size = "compact",
   scopeLabel = "Seller service",
   discountPercent,
@@ -180,8 +183,9 @@ export function MerchantHeader({
             {t(MERCHANT_HEADER_VISIT_STORE_KEY)}
           </Text>
         </Pressable>
-      ) : (
+      ) : onMore ? (
         <Pressable
+          onPress={onMore}
           accessibilityRole="button"
           accessibilityLabel={t(MERCHANT_HEADER_MORE_OPTIONS_KEY)}
           hitSlop={8}
@@ -189,7 +193,7 @@ export function MerchantHeader({
         >
           <MoreHorizontal size={OVERFLOW_ICON_SIZE} className="text-text-tertiary" />
         </Pressable>
-      )}
+      ) : null}
     </View>
   );
 }

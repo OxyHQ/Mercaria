@@ -1,3 +1,4 @@
+import { merchantImageSource } from "../../lib/shop-merchant-images";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import type { CartGroup, CartVendor } from "@mercaria/shared-types";
@@ -46,7 +47,7 @@ export function MerchantCartCard({
             <View className="h-8 w-8 overflow-hidden rounded-full border border-border bg-muted">
               {group.vendor.logoUrl ? (
                 <Image
-                  source={{ uri: group.vendor.logoUrl }}
+                  source={merchantImageSource(group.vendor.logoUrl)}
                   contentFit="contain"
                   style={StyleSheet.absoluteFill}
                 />

@@ -1,3 +1,4 @@
+import { merchantImageSource } from "@mercaria/ui";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { Rating } from "@oxy.so/bloom/rating";
@@ -181,7 +182,7 @@ function ParallaxCover({ uri }: { uri: string }) {
   const translateY = Math.min(scrollY * PARALLAX_FACTOR, PARALLAX_EXTRA);
   return (
     <Image
-      source={{ uri }}
+      source={merchantImageSource(uri)}
       contentFit="cover"
       style={{
         position: "absolute",
@@ -341,7 +342,7 @@ function StoreBody({
         >
           {store.logoUrl ? (
             <Image
-              source={{ uri: store.logoUrl }}
+              source={merchantImageSource(store.logoUrl)}
               contentFit="contain"
               style={{ width: 22, height: 22 }}
             />
@@ -369,7 +370,7 @@ function StoreBody({
         <View className="absolute inset-x-0 bottom-6 items-center px-6">
           {store.logoUrl ? (
             <Image
-              source={{ uri: store.logoUrl }}
+              source={merchantImageSource(store.logoUrl)}
               contentFit="contain"
               style={{ height: WORDMARK_HEIGHT, width: "70%", maxWidth: 320 }}
             />

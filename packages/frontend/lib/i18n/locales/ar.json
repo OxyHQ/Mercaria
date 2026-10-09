@@ -4,7 +4,14 @@
     "cancel": "إلغاء",
     "confirm": "تأكيد",
     "back": "رجوع",
-    "tryAgain": "إعادة المحاولة"
+    "tryAgain": "إعادة المحاولة",
+    "linkCopied": "تم نسخ الرابط",
+    "shareError": "تعذرت مشاركة الرابط. حاول مرة أخرى.",
+    "pagination": {
+      "previous": "السابق",
+      "next": "التالي",
+      "pageOf": "الصفحة %{page} من %{pages}"
+    }
   },
   "home": {
     "title": "Mercaria",
@@ -139,11 +146,6 @@
     "compareOffersA11y": "قارن كل العروض لهذا المنتج",
     "compareOffers": "قارن كل العروض",
     "percentOff": "خصم %{percent}%",
-    "demandCopy": "أكثر من 100 ألف عملية شراء خلال الشهر الماضي",
-    "exclusiveOffer": {
-      "label": "افتح أسعارًا حصرية",
-      "caption": "سجّل الدخول لعرض عرضك الحصري"
-    },
     "quantity": "الكمية",
     "decreaseQuantity": "إنقاص الكمية",
     "increaseQuantity": "زيادة الكمية",
@@ -161,12 +163,8 @@
     },
     "shareA11y": "مشاركة هذا المنتج",
     "share": "مشاركة",
-    "deliveryAndReturns": "الشحن والإرجاع",
-    "viewReturnPolicyA11y": "عرض سياسة الإرجاع",
     "returnPolicy": "سياسة الإرجاع",
     "description": "الوصف",
-    "viewMore": "عرض المزيد",
-    "viewLess": "عرض أقل",
     "highlights": "أبرز العروض",
     "sortOffersBy": "ترتيب العروض حسب",
     "reportProblemA11y": "الإبلاغ عن مشكلة في معلومات هذا المنتج",
@@ -201,7 +199,8 @@
       },
       "notFullyBuilt": "جزء من هذه الفترة لم يُبنَ بعد.",
       "conversionDisplayOnly": "المبالغ المحوّلة لأغراض العرض فقط."
-    }
+    },
+    "reviews": "المراجعات"
   },
   "catalog": {
     "breadcrumbs": {
@@ -1131,13 +1130,12 @@
       "unfollowStore": "إلغاء متابعة %{store}"
     },
     "reviews": {
-      "helpful": "مفيد",
       "loading": "جارٍ تحميل المراجعات…",
       "none": "لا توجد مراجعات بعد",
       "viewProduct": "عرض %{product}",
       "ratingsCount": "%{formattedCount} تقييم",
       "ratingsWithScope": "%{formattedCount} تقييم · %{scopeLabel}",
-      "fallbackAuthor": "مشترٍ موثّق",
+      "fallbackAuthor": "مشتري من Mercaria",
       "viewA11yLabel": "عرض تقييمات خدمة هذا المتجر"
     },
     "visit": {

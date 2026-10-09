@@ -69,6 +69,7 @@ import {
   type ReviewScope,
   type ReviewTargetType,
   type ReviewVerificationState,
+  type ReviewRatingSummary,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { reviewDimensions, reviews } from '../schema/reviews.js';
@@ -370,6 +371,36 @@ export async function aggregatePublishedReviews(
   return { average: row?.average ?? null, count: row?.count ?? 0 };
 }
 
+/** A bounded five-bucket read, never a histogram of one paginated sample. */
+export async function readReviewRatingSummary(
+  target: ReviewTarget | ScopedReviewTarget,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ReviewRatingSummary> {
+  const verifiedOnly = 'scope' in target;
+  const filter = verifiedOnly
+    ? and(publishedScopedFilter(target), eq(reviews.verification, 'verified_purchase'))
+    : publishedTargetFilter(target);
+  const rows = await db
+    .select({ rating: reviews.rating, count: sql<number>`count(*)::int` })
+    .from(reviews)
+    .where(filter)
+    .groupBy(reviews.rating);
+  const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let reviewCount = 0;
+  let sum = 0;
+  for (const row of rows) {
+    distribution[row.rating] = row.count;
+    reviewCount += row.count;
+    sum += row.rating * row.count;
+  }
+  return {
+    rating: reviewCount ? Math.round((sum / reviewCount) * 10) / 10 : 0,
+    reviewCount,
+    distribution,
+    verifiedOnly,
+  };
+}
+
 /**
  * The verified and unverified halves of a SCOPED target's published reviews,
  * counted apart in ONE pass.
@@ -391,15 +422,11 @@ export async function aggregateScopedReviews(
       verifiedAverage: sql<
         number | null
       >`avg(${reviews.rating}) filter (where ${reviews.verification} = 'verified_purchase')::double precision`,
-      verifiedCount: sql<
-        number
-      >`count(*) filter (where ${reviews.verification} = 'verified_purchase')::int`,
+      verifiedCount: sql<number>`count(*) filter (where ${reviews.verification} = 'verified_purchase')::int`,
       unverifiedAverage: sql<
         number | null
       >`avg(${reviews.rating}) filter (where ${reviews.verification} = 'unverified')::double precision`,
-      unverifiedCount: sql<
-        number
-      >`count(*) filter (where ${reviews.verification} = 'unverified')::int`,
+      unverifiedCount: sql<number>`count(*) filter (where ${reviews.verification} = 'unverified')::int`,
     })
     .from(reviews)
     .where(publishedScopedFilter(target));
@@ -490,7 +517,10 @@ async function pageOf(
       .orderBy(desc(reviews.createdAt), desc(reviews.id))
       .limit(limit)
       .offset((page - 1) * limit),
-    db.select({ count: sql<number>`count(*)::int` }).from(reviews).where(where),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(reviews)
+      .where(where),
   ]);
 
   return { rows, total: totals?.count ?? 0 };
@@ -685,7 +715,11 @@ export async function markReviewAmbiguous(
 ): Promise<boolean> {
   const rows = await db
     .update(reviews)
-    .set({ classificationState: 'ambiguous', ambiguityReason: reason, updatedAt: new Date() })
+    .set({
+      classificationState: 'ambiguous',
+      ambiguityReason: reason,
+      updatedAt: new Date(),
+    })
     .where(and(eq(reviews.id, reviewId), eq(reviews.classificationState, 'unclassified')))
     .returning({ id: reviews.id });
   return rows.length > 0;

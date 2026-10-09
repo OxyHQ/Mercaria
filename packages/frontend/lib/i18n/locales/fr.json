@@ -4,7 +4,14 @@
     "cancel": "Annuler",
     "confirm": "Confirmer",
     "back": "Retour",
-    "tryAgain": "Réessayer"
+    "tryAgain": "Réessayer",
+    "linkCopied": "Lien copié",
+    "shareError": "Impossible de partager le lien. Réessayez.",
+    "pagination": {
+      "previous": "Précédent",
+      "next": "Suivant",
+      "pageOf": "Page %{page} sur %{pages}"
+    }
   },
   "home": {
     "title": "Mercaria",
@@ -139,11 +146,6 @@
     "compareOffersA11y": "Comparer toutes les offres pour ce produit",
     "compareOffers": "Comparer toutes les offres",
     "percentOff": "%{percent} % de réduction",
-    "demandCopy": "Plus de 100 000 achetés le mois dernier",
-    "exclusiveOffer": {
-      "label": "Débloquez des prix exclusifs",
-      "caption": "Connectez-vous pour voir votre offre exclusive"
-    },
     "quantity": "Quantité",
     "decreaseQuantity": "Diminuer la quantité",
     "increaseQuantity": "Augmenter la quantité",
@@ -161,12 +163,8 @@
     },
     "shareA11y": "Partager ce produit",
     "share": "Partager",
-    "deliveryAndReturns": "Livraison et retours",
-    "viewReturnPolicyA11y": "Voir la politique de retour",
     "returnPolicy": "Politique de retour",
     "description": "Description",
-    "viewMore": "Voir plus",
-    "viewLess": "Voir moins",
     "highlights": "Points forts",
     "sortOffersBy": "Trier les offres par",
     "reportProblemA11y": "Signaler un problème dans les informations de ce produit",
@@ -203,7 +201,8 @@
       },
       "notFullyBuilt": "Une partie de cette période n'a pas encore été constituée.",
       "conversionDisplayOnly": "Les montants convertis sont donnés à titre indicatif."
-    }
+    },
+    "reviews": "Avis"
   },
   "catalog": {
     "breadcrumbs": {
@@ -1143,13 +1142,12 @@
       "unfollowStore": "Ne plus suivre %{store}"
     },
     "reviews": {
-      "helpful": "Utile",
       "loading": "Chargement des avis…",
       "none": "Pas encore d'avis",
       "viewProduct": "Voir %{product}",
       "ratingsCount": "%{formattedCount} notes",
       "ratingsWithScope": "%{formattedCount} notes · %{scopeLabel}",
-      "fallbackAuthor": "Acheteur vérifié",
+      "fallbackAuthor": "Acheteur Mercaria",
       "viewA11yLabel": "Voir les avis sur le service de cette boutique"
     },
     "visit": {

@@ -1,3 +1,4 @@
+import { merchantImageSource } from "@mercaria/ui";
 import { useEffect } from "react";
 import { View } from "react-native";
 import { Image } from "expo-image";
@@ -118,7 +119,7 @@ export default function BrandPageScreen() {
           <View className="flex-row items-center gap-4">
             {logoUrl ? (
               <Image
-                source={{ uri: logoUrl }}
+                source={merchantImageSource(logoUrl)}
                 contentFit="contain"
                 style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
                 className="rounded-2xl bg-card"

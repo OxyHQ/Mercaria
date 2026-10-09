@@ -793,19 +793,11 @@
       }
     },
     "purchase": {
-      "oneTime": "একবারের কেনা",
-      "subscribe": "সাবস্ক্রিপশন",
       "addToCart": "কার্টে যোগ করুন",
       "selectOptions": "বিকল্প বেছে নিন",
       "buyNow": "এখনই কিনুন",
-      "subscribeNow": "এখনই সাবস্ক্রাইব করুন",
-      "frequency": {
-        "monthly": "প্রতি মাসে ডেলিভারি",
-        "every2Months": "প্রতি 2 মাসে ডেলিভারি",
-        "every3Months": "প্রতি 3 মাসে ডেলিভারি",
-        "every4Months": "প্রতি 4 মাসে ডেলিভারি",
-        "every6Months": "প্রতি 6 মাসে ডেলিভারি"
-      }
+      "soldOut": "স্টক শেষ",
+      "added": "কার্টে যোগ করা হয়েছে"
     },
     "marketplace": {
       "visitMerchant": "%{name}-এ যান",
@@ -857,7 +849,8 @@
     "gallery": {
       "viewImage": "ছবি %{position} দেখুন",
       "previous": "আগের ছবি",
-      "next": "পরের ছবি"
+      "next": "পরের ছবি",
+      "open": "%{title}-এর ছবি খুলুন"
     },
     "quantity": {
       "remove": "পণ্যটি সরান",
@@ -872,7 +865,11 @@
       "verifiedRatings": "যাচাই করা রেটিং: %{ratings}",
       "unverified": "যাচাই না করা: %{ratings} · %{rating}",
       "readMore": "আরও পর্যালোচনা পড়ুন",
-      "none": "এখনও কোনো পর্যালোচনা নেই"
+      "none": "এখনও কোনো পর্যালোচনা নেই",
+      "ratings": "%{ratings} রেটিং",
+      "fallbackAuthor": "Mercaria ক্রেতা",
+      "verifiedPurchase": "যাচাইকৃত ক্রয়",
+      "unverifiedPurchase": "যাচাই করা হয়নি"
     },
     "searchInterpretation": {
       "chip": "%{label}",

@@ -1,5 +1,4 @@
 import { View } from 'react-native';
-import { Image } from 'expo-image';
 import type { CanonicalProduct, CatalogSourceKind } from '@mercaria/shared-types';
 import { Rating } from '@oxy.so/bloom/rating';
 import { formatDate, Text, useRatingDisplay } from '@mercaria/ui';
@@ -29,7 +28,6 @@ const CATALOG_SOURCE_KIND_KEYS: Readonly<Record<CatalogSourceKind, string>> = {
 };
 Object.freeze(CATALOG_SOURCE_KIND_KEYS);
 
-
 /**
  * What this product IS (#71 §"Product identity").
  *
@@ -58,7 +56,6 @@ export interface ProductIdentityProps {
 export function ProductIdentity({ product, rating }: ProductIdentityProps) {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
-  const images = product.images.filter((image) => image.fileId || image.sourceUrl);
   const specs = product.attributes.slice(0, 8);
   // ACTIVE only: a retired or disputed identifier keeps its row (ADR 0002 D14)
   // and showing one would publish a number Mercaria no longer stands behind.
@@ -69,40 +66,11 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
 
   return (
     <View className="gap-space-16">
-      {images.length > 0 ? (
-        <View className="flex-row flex-wrap gap-space-8">
-          {images.slice(0, 4).map((image) => (
-            <Image
-              key={image.id}
-              source={{ uri: image.sourceUrl ?? image.fileId }}
-              contentFit="contain"
-              style={{ height: 180, width: 180 }}
-              // Source-aware alt text (#71 identity 4): the source's own words
-              // when it published any, and a plain statement of what the image
-              // is when it did not — never a caption Mercaria composed about a
-              // photograph it did not take.
-              accessibilityLabel={
-                image.alt ?? t('product.imageFromCatalogueA11y', { name: product.name })
-              }
-              alt={image.alt ?? t('product.imageFromCatalogueA11y', { name: product.name })}
-            />
-          ))}
-        </View>
-      ) : null}
-
       <View className="gap-space-8">
-        {/*
-          The brand and the family are NAMED and not linked, because the
-          storefront has no `/brands/:id` or `/product-families/:id` route yet —
-          #72 and #73 own those pages. #71 asks to link an identity "to its
-          public page when available", and a link to a route that does not
-          resolve is worse than the text. That used to be uncatchable —
-          `typedRoutes` was on but inert, so a dead `router.push` compiled and
-          shipped — and #330 closed it: the route union is generated before
-          `tsc`, so whoever adds those pages can turn these into links and is
-          told at once if they got the path wrong.
-        */}
-        <Text className="text-headerBold text-text" accessibilityRole="header">
+        <Text
+          className="text-[24px] leading-tight font-semibold text-text"
+          accessibilityRole="header"
+        >
           {product.name}
         </Text>
 

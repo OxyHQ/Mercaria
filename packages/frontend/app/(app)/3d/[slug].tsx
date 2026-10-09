@@ -2,14 +2,12 @@ import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import type { Review } from '@mercaria/shared-types';
 import {
   AssetLicenceSummary,
   AssetPreviewViewer,
   AssetTechnicalPanel,
   ReviewSummaryCard,
   Text,
-  type RatingDistribution,
 } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
@@ -65,25 +63,6 @@ import { useTranslation } from '@/lib/i18n';
 /** How many reviews the product scope fetches for the card's carousel. */
 const REVIEW_PAGE_LIMIT = 12;
 
-/**
- * Count per star bucket, for the distribution bars.
- *
- * Mirrors `products/[id].tsx`'s private helper deliberately rather than importing
- * it: that one is local to a screen this workstream does not own, and a shared
- * one belongs in `@mercaria/ui` beside `ReviewSummaryCard` — a move that would
- * touch #76's component and is not this change's to make.
- */
-function distributionOf(reviews: readonly Review[]): RatingDistribution {
-  const distribution: RatingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-  for (const review of reviews) {
-    const bucket = Math.round(review.rating);
-    if (bucket >= 1 && bucket <= 5) {
-      distribution[bucket] += 1;
-    }
-  }
-  return distribution;
-}
-
 export default function DigitalAssetScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -112,7 +91,7 @@ export default function DigitalAssetScreen() {
   const reviewsQuery = useProductScopeReviews(view?.canonicalProductId, 1, REVIEW_PAGE_LIMIT);
   const reviews = useMemo(() => reviewsQuery.data?.data ?? [], [reviewsQuery.data]);
   const aggregate = reviewsQuery.data?.aggregate;
-  const distribution = useMemo(() => distributionOf(reviews), [reviews]);
+  const distribution = reviewsQuery.data?.ratingSummary?.distribution;
 
   const title = view?.title ?? t('digital.asset.fallbackTitle');
 
@@ -120,9 +99,7 @@ export default function DigitalAssetScreen() {
     <ScreenShell contentClassName="pt-6">
       <Head>
         <title>{t('digital.documentTitle', { title })}</title>
-        {view?.summary === undefined ? null : (
-          <meta name="description" content={view.summary} />
-        )}
+        {view?.summary === undefined ? null : <meta name="description" content={view.summary} />}
       </Head>
 
       <View className="mb-space-32 gap-space-24 web:mx-auto web:w-full web:max-w-[1200px] md:px-5">
@@ -140,11 +117,15 @@ export default function DigitalAssetScreen() {
                   surfaces, and the OBJECT form so a typo fails `tsc`. */}
               <Pressable
                 accessibilityRole="link"
-                accessibilityLabel={t('digital.asset.viewCreator', { creator: view.creator.name })}
+                accessibilityLabel={t('digital.asset.viewCreator', {
+                  creator: view.creator.name,
+                })}
                 onPress={() => router.push(digitalCreatorHref(view.creator.slug))}
               >
                 <Text className="text-bodySmall text-text-brand">
-                  {t('digital.asset.creatorLine', { creator: view.creator.name })}
+                  {t('digital.asset.creatorLine', {
+                    creator: view.creator.name,
+                  })}
                 </Text>
               </Pressable>
               {view.summary === undefined ? null : (

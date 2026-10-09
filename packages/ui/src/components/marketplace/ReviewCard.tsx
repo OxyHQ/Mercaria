@@ -4,7 +4,7 @@ import type { Review } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { Rating } from "@oxy.so/bloom/rating";
 import { useRatingDisplay } from "../../lib/rating-display";
-import { useSharedUiLocale } from "../../i18n/ui-translation";
+import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
 import { formatDate } from "../../lib/date";
 
 /**
@@ -17,17 +17,19 @@ import { formatDate } from "../../lib/date";
  * is known: somebody with an Oxy account wrote this, and their profile did not
  * load.
  */
-const FALLBACK_AUTHOR = "Mercaria buyer";
+const FALLBACK_AUTHOR_KEY = "ui.review.fallbackAuthor";
 
 /** What each verification state says on a card. */
-const VERIFICATION_LABEL: Readonly<Record<string, string>> = Object.freeze({
-  verified_purchase: "Verified purchase",
-  unverified: "Unverified",
-});
+const VERIFICATION_LABEL_KEYS: Readonly<Record<string, string>> = {
+  verified_purchase: "ui.review.verifiedPurchase",
+  unverified: "ui.review.unverifiedPurchase",
+};
 
 export interface ReviewCardProps {
   /** The review to render. */
   review: Review;
+  /** Expanded review list: full text and container width. */
+  expanded?: boolean;
   /** What this review's rating is about (#76 UI rule 6), for the star label. */
   scopeLabel?: string;
 }
@@ -37,16 +39,27 @@ export interface ReviewCardProps {
  * optional title + body, and the author avatar + name + date footer. Renders
  * the canonical `name.displayName` author identity directly (no recomputation).
  */
-export function ReviewCard({ review, scopeLabel }: ReviewCardProps) {
+export function ReviewCard({
+  review,
+  scopeLabel,
+  expanded = false,
+}: ReviewCardProps) {
   const locale = useSharedUiLocale();
+  const t = useSharedUiTranslation();
   const date = formatDate(review.createdAt, locale);
-  const author = review.author?.displayName ?? FALLBACK_AUTHOR;
+  const author = review.author?.displayName ?? t(FALLBACK_AUTHOR_KEY);
   const ratingDisplay = useRatingDisplay();
 
   return (
-    <View className="min-h-[140px] w-[280px] shrink-0 gap-space-8 rounded-radius-20 border-[0.5px] border-border-image bg-bg-fill p-space-16">
+    <View
+      testID={`review-${review.id}`}
+      className={`min-h-[140px] ${expanded ? "w-full" : "w-[280px]"} shrink-0 gap-space-8 rounded-radius-20 border-[0.5px] border-border-image bg-bg-fill p-space-16`}
+    >
       <Rating
-        {...ratingDisplay({ rating: review.rating, ...(scopeLabel ? { subject: scopeLabel } : {}) })}
+        {...ratingDisplay({
+          rating: review.rating,
+          ...(scopeLabel ? { subject: scopeLabel } : {}),
+        })}
         size="small"
       />
       {/*
@@ -56,15 +69,22 @@ export function ReviewCard({ review, scopeLabel }: ReviewCardProps) {
         two must agree, and reading the same field is how.
       */}
       <Text className="text-caption text-text-tertiary">
-        {VERIFICATION_LABEL[review.verification] ?? VERIFICATION_LABEL.unverified}
+        {t(VERIFICATION_LABEL_KEYS[review.verification] ??
+          VERIFICATION_LABEL_KEYS.unverified)}
       </Text>
       {review.title ? (
-        <Text numberOfLines={1} className="text-captionMedium text-text">
+        <Text
+          numberOfLines={expanded ? undefined : 1}
+          className="text-captionMedium text-text"
+        >
           {review.title}
         </Text>
       ) : null}
       {review.body ? (
-        <Text numberOfLines={4} className="text-caption text-text">
+        <Text
+          numberOfLines={expanded ? undefined : 4}
+          className="text-caption text-text"
+        >
           {review.body}
         </Text>
       ) : null}
@@ -82,7 +102,10 @@ export function ReviewCard({ review, scopeLabel }: ReviewCardProps) {
             the date and its separator rather than rendering `null` beside a
             name. `formatDate` returns null only for a value that is not a date
             at all. */}
-        <Text numberOfLines={1} className="flex-1 text-caption text-text-tertiary">
+        <Text
+          numberOfLines={1}
+          className="flex-1 text-caption text-text-tertiary"
+        >
           {date === null ? author : `${author} · ${date}`}
         </Text>
       </View>

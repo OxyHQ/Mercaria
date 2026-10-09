@@ -701,3 +701,5 @@ export {
   DIGITAL_LICENCE_RIGHT_KEYS,
   DIGITAL_LICENCE_UPDATE_POLICY_KEYS,
 } from "./lib/digital-asset-labels";
+
+export { merchantImageSource } from "./lib/shop-merchant-images";

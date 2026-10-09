@@ -1,0 +1,309 @@
+import { expect, test, type APIRequestContext } from "@playwright/test";
+import type { Listing } from "../../../packages/shared-types/src";
+
+async function seededProduct(request: APIRequestContext): Promise<Listing> {
+  const feed = await (await request.get("http://localhost:4160/feed")).json();
+  const summary = feed.data.sections
+    .filter((section: { kind: string }) => section.kind === "products")
+    .flatMap(
+      (section: { products: { id: string; title: string }[] }) =>
+        section.products,
+    )
+    .find(
+      (item: { title: string }) => item.title === "Brilliant Eye Brightener",
+    );
+  expect(summary, "Requires the documented local storefront seed").toBeTruthy();
+  return (
+    await (
+      await request.get(`http://localhost:4160/listings/${summary.id}`)
+    ).json()
+  ).data;
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "i18n-storage",
+      JSON.stringify({ state: { locale: "en" }, version: 0 }),
+    );
+    localStorage.setItem(
+      "mercaria.bloom.theme",
+      JSON.stringify({ mode: "light", colorPreset: "mono" }),
+    );
+  });
+});
+
+test("variant deep links survive reload and sold-out choices cannot be bought", async ({
+  page,
+  request,
+}) => {
+  const product = await seededProduct(request);
+  const stella = product.variants.find(
+    (variant) => variant.title === "Stella",
+  )!;
+  const soldOut = product.variants.find((variant) => !variant.inStock)!;
+  await page.goto(`/products/${product.id}?variantId=${stella.id}`);
+  await expect(
+    page.getByRole("button", { name: "Shade: Stella", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Shade: Stella", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page
+    .getByRole("button", { name: `Shade: ${soldOut.title}`, exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`variantId=${soldOut.id}$`));
+  await expect(
+    page.getByRole("button", { name: "Sold out", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Buy now", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Shade: Stella", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Add to cart", exact: true }),
+  ).toBeEnabled();
+  await expect(page.getByText("Subscribe", { exact: true })).toHaveCount(0);
+});
+
+test("variant-owned photos and price replace listing fallbacks without inheriting a discount", async ({
+  page,
+  request,
+}) => {
+  const product = await seededProduct(request);
+  const selected = product.variants[1];
+  await page.route(`**/listings/${product.id}`, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.compareAtPrice = { amount: 99999 * 100000000, currency: "FAIR" };
+    const variant = body.data.variants.find(
+      (item: { id: string }) => item.id === selected.id,
+    );
+    variant.price = { amount: 12345000000, currency: "FAIR" };
+    delete variant.compareAtPrice;
+    variant.images = {
+      source: "variant",
+      images: [{ ...product.images[1], alt: "Variant-owned product photo" }],
+    };
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(`/products/${product.id}?variantId=${selected.id}`);
+  const gallery = page.getByTestId("product-gallery-carousel");
+  await expect(
+    gallery.getByRole("img", { name: "Variant-owned product photo" }).last(),
+  ).toBeVisible();
+  await expect(page.getByTestId("product-thumbnails")).toHaveCount(0);
+  await expect(page.getByTestId("product-buy-column")).toContainText("123.45");
+  await expect(page.getByText(/\d+% off/)).toHaveCount(0);
+  await page.getByRole("button", { name: "Shade: Muna", exact: true }).click();
+  await expect(
+    page.getByTestId("product-thumbnails").getByRole("button"),
+  ).toHaveCount(product.images.length);
+});
+
+test("gallery thumbnails control the carousel and Bloom opens and dismisses the viewer", async ({
+  page,
+  request,
+}) => {
+  const product = await seededProduct(request);
+  await page.goto(`/products/${product.id}`);
+  const thumbnails = page.getByTestId("product-thumbnails");
+  await thumbnails
+    .getByRole("button", { name: "View image 3", exact: true })
+    .click();
+  await expect(
+    thumbnails.getByRole("button", { name: "View image 3", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  const carousel = page.getByTestId("product-gallery-carousel");
+  await expect
+    .poll(async () => {
+      const track = await carousel.boundingBox();
+      const slide = await carousel
+        .getByRole("button", {
+          name: `Open images of ${product.title}`,
+          exact: true,
+        })
+        .nth(2)
+        .boundingBox();
+      return !!track && !!slide && Math.abs(track.x - slide.x) < 3;
+    })
+    .toBe(true);
+  await carousel
+    .getByRole("button", {
+      name: `Open images of ${product.title}`,
+      exact: true,
+    })
+    .nth(2)
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Close media viewer", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Close media viewer", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("mobile product keeps the merchant before gallery and has no horizontal overflow", async ({
+  page,
+  request,
+}) => {
+  const product = await seededProduct(request);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/products/${product.id}`);
+  const gallery = page.getByTestId("product-gallery");
+  await expect(gallery).toBeVisible();
+  const galleryBounds = await gallery.boundingBox();
+  const merchant = await page
+    .getByRole("link", { name: `Visit ${product.store!.name}`, exact: true })
+    .first()
+    .boundingBox();
+  expect(merchant!.y + merchant!.height).toBeLessThan(galleryBounds!.y);
+  expect(galleryBounds!.height).toBeLessThan(450);
+  await expect(page.getByTestId("product-thumbnails")).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+});
+
+test("reviews read all server ratings and open a paginated list with full text", async ({
+  page,
+  request,
+}) => {
+  const product = await seededProduct(request);
+  const response = await (
+    await request.get(
+      `http://localhost:4160/listings/${product.id}/reviews?limit=12`,
+    )
+  ).json();
+  expect(response.ratingSummary.reviewCount).toBeGreaterThan(12);
+  await page.goto(`/products/${product.id}`);
+  const sections = page.getByTestId("product-sections");
+  await expect(sections).toContainText(
+    new RegExp(`${response.ratingSummary.reviewCount}\\u2069? ratings`),
+  );
+  await sections
+    .getByRole("button", { name: "Read more reviews", exact: true })
+    .click();
+  const dialog = page.getByTestId("product-reviews-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("Page 1 of");
+  const firstTitle = response.data[0].title;
+  await expect(dialog.getByText(firstTitle, { exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(dialog).toContainText("Page 2 of");
+  await expect(dialog.getByTestId(`review-${response.data[0].id}`)).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+});
+
+test("merchant-authored return policy expands and share copies the selected variant URL", async ({
+  page,
+  context,
+  request,
+}) => {
+  const product = await seededProduct(request);
+  const variant = product.variants[1];
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.route(`**/listings/${product.id}`, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.store.refundPolicy =
+      "Local browser fixture: returns within 14 days.";
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(`/products/${product.id}?variantId=${variant.id}`);
+  await page
+    .getByRole("button", { name: "Return policy", exact: true })
+    .click();
+  await expect(
+    page.getByText("Local browser fixture: returns within 14 days."),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Share this product", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Link copied", exact: true }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    `http://localhost:8160/products/${product.id}?variantId=${variant.id}`,
+  );
+});
+
+test('Buy now uses the selected variant and the server-provided checkout seller', async ({ page, request }) => {
+  const product = await seededProduct(request);
+  const variant = product.variants.find(item => item.title === 'Stella')!;
+  await page.goto(`/products/${product.id}?variantId=${variant.id}`);
+  const added = page.waitForResponse(response => response.url().endsWith('/cart/items') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Buy now', exact: true }).click();
+  const response = await added;
+  expect(response.ok()).toBe(true);
+  expect(response.request().postDataJSON()).toMatchObject({ variantId: variant.id, quantity: 1 });
+  const cart = (await response.json()).data;
+  const group = cart.groups.find((item: { items: { variantId: string }[] }) => item.items.some(line => line.variantId === variant.id));
+  await expect(page).toHaveURL(/\/checkout\?/);
+  expect(new URL(page.url()).searchParams.get('seller')).toBe(group.sellerKey);
+});
+
+test('a product without photographs keeps an accessible empty gallery and working purchase controls', async ({ page, request }) => {
+  const product = await seededProduct(request);
+  await page.route(`**/listings/${product.id}`, async route => {
+    const response = await route.fetch(); const body = await response.json();
+    body.data.images = [];
+    for (const variant of body.data.variants) variant.images = { source: 'listing_fallback', images: [] };
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(`/products/${product.id}`);
+  await expect(page.getByTestId('product-gallery').getByText('No image', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('product-gallery-carousel')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add to cart', exact: true })).toBeEnabled();
+});
+
+test("canonical products use the complete gallery and keep purchase availability explicit", async ({ page, request }) => {
+  const listing = await seededProduct(request);
+  const id = "00000000-0000-4000-8000-000000000001";
+  const now = new Date().toISOString();
+  await page.route("**/product-page/gallery-preview*", route => route.fulfill({ json: {
+    success: true,
+    data: {
+      product: {
+        id, slug: "gallery-preview", status: "active", name: "Gallery preview",
+        description: "A catalogue product with a complete photo gallery.",
+        aliases: [], searchTokens: [], variantDefiningAttributeKeys: [],
+        images: listing.images.map((image, position) => ({
+          id: String(position), sourceUrl: image.fileId, alt: `Catalogue photo ${position + 1}`,
+          position, status: "active",
+        })),
+        attributes: [], identifiers: [], fieldProvenance: [],
+        rating: 0, ratingCount: 0, variantCount: 0,
+        firstSeenAt: now, createdAt: now, updatedAt: now,
+      },
+      variants: [], offers: { available: false, reason: "comparison_withheld" },
+      officialChannels: [], authorizedResellers: [],
+    },
+  }}));
+  await page.goto("/p/gallery-preview");
+  await expect(page.getByTestId("product-thumbnails").getByRole("button")).toHaveCount(listing.images.length);
+  const gallery = page.getByTestId("product-gallery-carousel");
+  await expect(gallery.getByRole("img", { name: "Catalogue photo 1", exact: true }).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add to cart", exact: true })).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId("product-thumbnails")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+});
+
+test("store reviews expose the next page and preserve real verification labels", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  await page.goto(`/products/${product.id}`);
+  await page.getByRole("button", { name: "More options", exact: true }).click();
+  await page.getByRole("button", { name: "View this store's service reviews" }).click();
+  await expect(page.getByText(/Page .*1.* of .*2/)).toBeVisible();
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(page.getByText(/Page .*2.* of .*2/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
+  await expect(page.getByText("Verified buyer", { exact: true })).toHaveCount(0);
+});

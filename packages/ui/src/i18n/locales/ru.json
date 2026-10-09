@@ -807,19 +807,11 @@
       }
     },
     "purchase": {
-      "oneTime": "Разовая покупка",
-      "subscribe": "Подписка",
       "addToCart": "В корзину",
       "selectOptions": "Выбрать параметры",
       "buyNow": "Купить сейчас",
-      "subscribeNow": "Подписаться сейчас",
-      "frequency": {
-        "monthly": "Доставка каждый месяц",
-        "every2Months": "Доставка раз в 2 месяца",
-        "every3Months": "Доставка раз в 3 месяца",
-        "every4Months": "Доставка раз в 4 месяца",
-        "every6Months": "Доставка раз в 6 месяцев"
-      }
+      "soldOut": "Нет в наличии",
+      "added": "Добавлено в корзину"
     },
     "marketplace": {
       "visitMerchant": "Перейти к %{name}",
@@ -871,7 +863,8 @@
     "gallery": {
       "viewImage": "Посмотреть изображение %{position}",
       "previous": "Предыдущее изображение",
-      "next": "Следующее изображение"
+      "next": "Следующее изображение",
+      "open": "Открыть изображения %{title}"
     },
     "quantity": {
       "remove": "Убрать товар",
@@ -886,7 +879,11 @@
       "verifiedRatings": "Подтверждённых оценок: %{ratings}",
       "unverified": "Неподтверждённых: %{ratings} · %{rating}",
       "readMore": "Читать больше отзывов",
-      "none": "Отзывов пока нет"
+      "none": "Отзывов пока нет",
+      "ratings": "%{ratings} оценок",
+      "fallbackAuthor": "Покупатель Mercaria",
+      "verifiedPurchase": "Подтверждённая покупка",
+      "unverifiedPurchase": "Не подтверждено"
     },
     "searchInterpretation": {
       "chip": "%{label}",

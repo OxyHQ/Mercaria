@@ -793,19 +793,11 @@
       }
     },
     "purchase": {
-      "oneTime": "شراء لمرة واحدة",
-      "subscribe": "اشتراك",
       "addToCart": "أضف إلى السلة",
       "selectOptions": "اختر الخيارات",
       "buyNow": "اشترِ الآن",
-      "subscribeNow": "اشترك الآن",
-      "frequency": {
-        "monthly": "التسليم كل شهر",
-        "every2Months": "التسليم كل شهرين",
-        "every3Months": "التسليم كل 3 أشهر",
-        "every4Months": "التسليم كل 4 أشهر",
-        "every6Months": "التسليم كل 6 أشهر"
-      }
+      "soldOut": "نفدت الكمية",
+      "added": "تمت الإضافة إلى السلة"
     },
     "marketplace": {
       "visitMerchant": "زيارة %{name}",
@@ -857,7 +849,8 @@
     "gallery": {
       "viewImage": "عرض الصورة %{position}",
       "previous": "الصورة السابقة",
-      "next": "الصورة التالية"
+      "next": "الصورة التالية",
+      "open": "فتح صور %{title}"
     },
     "quantity": {
       "remove": "إزالة العنصر",
@@ -872,7 +865,11 @@
       "verifiedRatings": "التقييمات الموثّقة: %{ratings}",
       "unverified": "غير موثّقة: %{ratings} · %{rating}",
       "readMore": "اقرأ المزيد من المراجعات",
-      "none": "لا توجد مراجعات بعد"
+      "none": "لا توجد مراجعات بعد",
+      "ratings": "%{ratings} تقييمات",
+      "fallbackAuthor": "مشتري من Mercaria",
+      "verifiedPurchase": "عملية شراء موثّقة",
+      "unverifiedPurchase": "غير موثّق"
     },
     "searchInterpretation": {
       "chip": "%{label}",

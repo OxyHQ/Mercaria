@@ -4,7 +4,14 @@
     "cancel": "取消",
     "confirm": "确认",
     "back": "返回",
-    "tryAgain": "重试"
+    "tryAgain": "重试",
+    "linkCopied": "链接已复制",
+    "shareError": "无法分享链接，请重试。",
+    "pagination": {
+      "previous": "上一页",
+      "next": "下一页",
+      "pageOf": "第 %{page} 页，共 %{pages} 页"
+    }
   },
   "home": {
     "title": "Mercaria",
@@ -139,11 +146,6 @@
     "compareOffersA11y": "比较该商品的所有报价",
     "compareOffers": "比较所有报价",
     "percentOff": "省 %{percent}%",
-    "demandCopy": "过去一个月销量超过 10 万",
-    "exclusiveOffer": {
-      "label": "解锁专属价格",
-      "caption": "登录后查看你的专属优惠"
-    },
     "quantity": "数量",
     "decreaseQuantity": "减少数量",
     "increaseQuantity": "增加数量",
@@ -161,12 +163,8 @@
     },
     "shareA11y": "分享该商品",
     "share": "分享",
-    "deliveryAndReturns": "配送与退货",
-    "viewReturnPolicyA11y": "查看退货政策",
     "returnPolicy": "退货政策",
     "description": "商品描述",
-    "viewMore": "展开",
-    "viewLess": "收起",
     "highlights": "亮点",
     "sortOffersBy": "报价排序方式",
     "reportProblemA11y": "举报该商品信息中的问题",
@@ -201,7 +199,8 @@
       },
       "notFullyBuilt": "该时间段的一部分尚未生成。",
       "conversionDisplayOnly": "换算金额仅供显示参考。"
-    }
+    },
+    "reviews": "评价"
   },
   "catalog": {
     "breadcrumbs": {
@@ -1131,13 +1130,12 @@
       "unfollowStore": "取消关注 %{store}"
     },
     "reviews": {
-      "helpful": "有帮助",
       "loading": "正在加载评价…",
       "none": "暂无评价",
       "viewProduct": "查看 %{product}",
       "ratingsCount": "%{formattedCount} 条评分",
       "ratingsWithScope": "%{formattedCount} 条评分 · %{scopeLabel}",
-      "fallbackAuthor": "已验证买家",
+      "fallbackAuthor": "Mercaria 买家",
       "viewA11yLabel": "查看该店铺的服务评价"
     },
     "visit": {

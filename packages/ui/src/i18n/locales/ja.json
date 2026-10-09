@@ -793,19 +793,11 @@
       }
     },
     "purchase": {
-      "oneTime": "1回のみの購入",
-      "subscribe": "定期購入",
       "addToCart": "カートに追加",
       "selectOptions": "オプションを選ぶ",
       "buyNow": "今すぐ購入",
-      "subscribeNow": "今すぐ定期購入",
-      "frequency": {
-        "monthly": "毎月お届け",
-        "every2Months": "2か月ごとにお届け",
-        "every3Months": "3か月ごとにお届け",
-        "every4Months": "4か月ごとにお届け",
-        "every6Months": "6か月ごとにお届け"
-      }
+      "soldOut": "売り切れ",
+      "added": "カートに追加しました"
     },
     "marketplace": {
       "visitMerchant": "%{name} を見る",
@@ -857,7 +849,8 @@
     "gallery": {
       "viewImage": "%{position} 枚目の画像を見る",
       "previous": "前の画像",
-      "next": "次の画像"
+      "next": "次の画像",
+      "open": "%{title}の画像を開く"
     },
     "quantity": {
       "remove": "商品を削除",
@@ -872,7 +865,11 @@
       "verifiedRatings": "確認済みの評価: %{ratings}",
       "unverified": "未確認: %{ratings} · %{rating}",
       "readMore": "レビューをもっと読む",
-      "none": "レビューはまだありません"
+      "none": "レビューはまだありません",
+      "ratings": "%{ratings}件の評価",
+      "fallbackAuthor": "Mercariaの購入者",
+      "verifiedPurchase": "購入確認済み",
+      "unverifiedPurchase": "未確認"
     },
     "searchInterpretation": {
       "chip": "%{label}",

@@ -4,7 +4,14 @@
     "cancel": "Cancel·la",
     "confirm": "Confirma",
     "back": "Enrere",
-    "tryAgain": "Torna-ho a provar"
+    "tryAgain": "Torna-ho a provar",
+    "linkCopied": "Enllaç copiat",
+    "shareError": "No s’ha pogut compartir l’enllaç. Torna-ho a provar.",
+    "pagination": {
+      "previous": "Anterior",
+      "next": "Següent",
+      "pageOf": "Pàgina %{page} de %{pages}"
+    }
   },
   "home": {
     "title": "Mercaria",
@@ -139,11 +146,6 @@
     "compareOffersA11y": "Compara totes les ofertes d'aquest producte",
     "compareOffers": "Compara totes les ofertes",
     "percentOff": "%{percent}% de descompte",
-    "demandCopy": "Més de 100.000 comprats el darrer mes",
-    "exclusiveOffer": {
-      "label": "Aconsegueix preus exclusius",
-      "caption": "Inicia la sessió per veure la teva oferta exclusiva"
-    },
     "quantity": "Quantitat",
     "decreaseQuantity": "Redueix la quantitat",
     "increaseQuantity": "Augmenta la quantitat",
@@ -161,12 +163,8 @@
     },
     "shareA11y": "Comparteix aquest producte",
     "share": "Comparteix",
-    "deliveryAndReturns": "Enviament i devolucions",
-    "viewReturnPolicyA11y": "Consulta la política de devolucions",
     "returnPolicy": "Política de devolucions",
     "description": "Descripció",
-    "viewMore": "Mostra'n més",
-    "viewLess": "Mostra'n menys",
     "highlights": "Destacats",
     "sortOffersBy": "Ordena les ofertes per",
     "reportProblemA11y": "Informa d'un problema amb la informació d'aquest producte",
@@ -203,7 +201,8 @@
       },
       "notFullyBuilt": "Una part d'aquest període encara no s'ha calculat.",
       "conversionDisplayOnly": "Les xifres convertides són només informatives."
-    }
+    },
+    "reviews": "Ressenyes"
   },
   "catalog": {
     "breadcrumbs": {
@@ -1143,13 +1142,12 @@
       "unfollowStore": "Deixa de seguir %{store}"
     },
     "reviews": {
-      "helpful": "Útil",
       "loading": "Carregant ressenyes…",
       "none": "Encara no hi ha ressenyes",
       "viewProduct": "Mostra %{product}",
       "ratingsCount": "%{formattedCount} valoracions",
       "ratingsWithScope": "%{formattedCount} valoracions · %{scopeLabel}",
-      "fallbackAuthor": "Comprador verificat",
+      "fallbackAuthor": "Comprador de Mercaria",
       "viewA11yLabel": "Mostra les ressenyes del servei d'aquesta botiga"
     },
     "visit": {

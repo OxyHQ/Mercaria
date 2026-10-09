@@ -1,3 +1,4 @@
+import { merchantImageSource } from "@mercaria/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
@@ -307,14 +308,14 @@ export function HeroSearch({
                   >
                     {merchant.coverImageUrl ? (
                       <Image
-                        source={{ uri: merchant.coverImageUrl }}
+                        source={merchantImageSource(merchant.coverImageUrl)}
                         className="absolute inset-0"
                         contentFit="cover"
                       />
                     ) : null}
                     {merchant.logoUrl ? (
                       <Image
-                        source={{ uri: merchant.logoUrl }}
+                        source={merchantImageSource(merchant.logoUrl)}
                         className="h-16 w-[75%]"
                         contentFit="contain"
                       />

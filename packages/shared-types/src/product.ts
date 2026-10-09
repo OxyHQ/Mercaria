@@ -108,6 +108,8 @@ export interface StoreSummary {
    * figures without the provenance, which is why this is optional.
    */
   ratingSource?: StoreRatingSource;
+  /** Merchant-authored public return policy, on detail reads only. Never inferred. */
+  refundPolicy?: string;
   /** Which text tone reads best over this merchant's brand color/cover. */
   textTone: TextTone;
   /** 2–3 featured product thumbnails shown along the bottom of the card. */

@@ -15,10 +15,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { uuidv7 } from '@oxy.so/db';
-import type {
-  ListingImageRecord,
-  ListingRecord,
-} from '../../db/catalog/listingRepository.js';
+import type { ListingImageRecord, ListingRecord } from '../../db/catalog/listingRepository.js';
 import type { StoreRow } from '../../db/stores/storeRepository.js';
 
 const findVariantsByListingIds = vi.fn();
@@ -68,7 +65,11 @@ vi.mock('../favorite.service.js', () => ({
 }));
 
 vi.mock('../../middleware/auth.js', () => ({
-  oxyClient: { assets: { publicUrl: (id: string, variant?: string) => `media:${id}:${variant ?? 'full'}` } },
+  oxyClient: {
+    assets: {
+      publicUrl: (id: string, variant?: string) => `media:${id}:${variant ?? 'full'}`,
+    },
+  },
 }));
 
 // #367 line 324: `off` is the default and today's behaviour, so every case in
@@ -82,11 +83,7 @@ vi.mock('../../lib/logger.js', () => ({
   log: { general: { warn: vi.fn(), error: vi.fn() } },
 }));
 
-import {
-  hydrateListings,
-  toProductSummary,
-  toStoreSummary,
-} from '../catalog-hydration.service.js';
+import { hydrateListings, toProductSummary, toStoreSummary } from '../catalog-hydration.service.js';
 
 /** The empty batch `findListingChildren` returns for listings with no children. */
 function noChildren() {
@@ -190,7 +187,9 @@ describe('catalog-hydration.service.hydrateListings — connector provenance', (
   });
 
   it('omits Listing.source for a native (non-synced) listing even with includeSource', async () => {
-    const [dto] = await hydrateListings([listingRow()], { includeSource: true });
+    const [dto] = await hydrateListings([listingRow()], {
+      includeSource: true,
+    });
 
     expect(dto.source).toBeUndefined();
   });
@@ -233,8 +232,10 @@ function imageRow(listingId: string, fileId: string): ListingImageRecord {
   };
 }
 
-/** A full `stores` row; the two media columns are what each test varies. */
-function storeRow(media: Pick<StoreRow, 'coverFileId' | 'logoFileId'>): StoreRow {
+/** A full store row with explicit public presentation overrides. */
+function storeRow(
+  media: Partial<Pick<StoreRow, 'coverFileId' | 'logoFileId' | 'policiesRefundPolicy'>>,
+): StoreRow {
   return {
     oxyAccountId: 'oxy-account-fixture',
     id: 'store-1',
@@ -247,6 +248,8 @@ function storeRow(media: Pick<StoreRow, 'coverFileId' | 'logoFileId'>): StoreRow
     policiesReturnWindowDays: 30,
     policiesShippingNote: null,
     policiesRefundPolicy: null,
+    coverFileId: null,
+    logoFileId: null,
     policiesPrivacyPolicy: null,
     policiesTermsOfService: null,
     defaultCurrency: 'FAIR',
@@ -267,6 +270,20 @@ function storeRow(media: Pick<StoreRow, 'coverFileId' | 'logoFileId'>): StoreRow
 }
 
 describe('catalog-hydration.service — an absent image is an absent field, never an empty string', () => {
+  it('exposes only the authored public refund policy on opted-in detail reads', () => {
+    const store = storeRow({
+      policiesRefundPolicy: 'Contact the store within 14 days.',
+    });
+    expect(toStoreSummary(store, [])).not.toHaveProperty('refundPolicy');
+    expect(toStoreSummary(store, [], undefined, { includePolicies: true }).refundPolicy).toBe(
+      store.policiesRefundPolicy,
+    );
+    expect(
+      toStoreSummary(storeRow({ policiesRefundPolicy: '  ' }), [], undefined, {
+        includePolicies: true,
+      }),
+    ).not.toHaveProperty('refundPolicy');
+  });
   it('omits ProductSummary.imageUrl when the listing has no images', () => {
     const summary = toProductSummary(listingRow(), [], 'Acme', []);
 
@@ -291,7 +308,10 @@ describe('catalog-hydration.service — an absent image is an absent field, neve
 
   it('emits StoreSummary.coverImageUrl when the store HAS one', () => {
     const summary = toStoreSummary(
-      storeRow({ coverFileId: 'https://cdn.example/cover-1.jpg', logoFileId: null }),
+      storeRow({
+        coverFileId: 'https://cdn.example/cover-1.jpg',
+        logoFileId: null,
+      }),
       [],
     );
 

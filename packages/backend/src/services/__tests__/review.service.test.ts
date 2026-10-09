@@ -52,6 +52,7 @@ const getProfiles = vi.fn();
 
 vi.mock('../../db/reviews/reviewRepository.js', () => ({
   aggregatePublishedReviews: (...args: unknown[]) => aggregatePublishedReviews(...args),
+  readReviewRatingSummary: vi.fn().mockResolvedValue(undefined),
   authorHasReviewedTarget: (...args: unknown[]) => authorHasReviewedTarget(...args),
   findDimensionsForReviews: (...args: unknown[]) => findDimensionsForReviews(...args),
   findListingReviewsPage: (...args: unknown[]) => findListingReviewsPage(...args),

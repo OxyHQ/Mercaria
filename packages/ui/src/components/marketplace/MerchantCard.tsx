@@ -1,3 +1,4 @@
+import { merchantImageSource } from "../../lib/shop-merchant-images";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -72,7 +73,7 @@ export function MerchantCard({
       {/* Layer 1 — cover image, bleeds the whole card (the visual anchor). */}
       {merchant.coverImageUrl ? (
         <Image
-          source={{ uri: merchant.coverImageUrl }}
+          source={merchantImageSource(merchant.coverImageUrl)}
           contentFit="cover"
           pointerEvents="none"
           className="web:transition-transform web:duration-150 web:group-hover:scale-[1.03] web:motion-reduce:transition-none web:motion-reduce:transform-none"
@@ -109,7 +110,7 @@ export function MerchantCard({
           >
             {merchant.logoUrl ? (
               <Image
-                source={{ uri: merchant.logoUrl }}
+                source={merchantImageSource(merchant.logoUrl)}
                 contentFit="contain"
                 style={{ maxHeight: 74, maxWidth: 195, width: "70%", height: 74 }}
               />

@@ -793,19 +793,11 @@
       }
     },
     "purchase": {
-      "oneTime": "Einmaliger Kauf",
-      "subscribe": "Abo",
       "addToCart": "In den Warenkorb",
       "selectOptions": "Optionen wählen",
       "buyNow": "Jetzt kaufen",
-      "subscribeNow": "Jetzt abonnieren",
-      "frequency": {
-        "monthly": "Lieferung jeden Monat",
-        "every2Months": "Lieferung alle 2 Monate",
-        "every3Months": "Lieferung alle 3 Monate",
-        "every4Months": "Lieferung alle 4 Monate",
-        "every6Months": "Lieferung alle 6 Monate"
-      }
+      "soldOut": "Ausverkauft",
+      "added": "Zum Warenkorb hinzugefügt"
     },
     "marketplace": {
       "visitMerchant": "%{name} besuchen",
@@ -857,7 +849,8 @@
     "gallery": {
       "viewImage": "Bild %{position} ansehen",
       "previous": "Vorheriges Bild",
-      "next": "Nächstes Bild"
+      "next": "Nächstes Bild",
+      "open": "Bilder von %{title} öffnen"
     },
     "quantity": {
       "remove": "Artikel entfernen",
@@ -872,7 +865,11 @@
       "verifiedRatings": "Verifizierte Bewertungen: %{ratings}",
       "unverified": "Nicht verifiziert: %{ratings} · %{rating}",
       "readMore": "Mehr Bewertungen lesen",
-      "none": "Noch keine Bewertungen"
+      "none": "Noch keine Bewertungen",
+      "ratings": "%{ratings} Bewertungen",
+      "fallbackAuthor": "Mercaria-Käufer",
+      "verifiedPurchase": "Verifizierter Kauf",
+      "unverifiedPurchase": "Nicht verifiziert"
     },
     "searchInterpretation": {
       "chip": "%{label}",

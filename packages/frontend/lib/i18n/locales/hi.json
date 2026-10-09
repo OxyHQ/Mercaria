@@ -4,7 +4,14 @@
     "cancel": "रद्द करें",
     "confirm": "पुष्टि करें",
     "back": "वापस",
-    "tryAgain": "फिर से कोशिश करें"
+    "tryAgain": "फिर से कोशिश करें",
+    "linkCopied": "लिंक कॉपी किया गया",
+    "shareError": "लिंक साझा नहीं किया जा सका। फिर कोशिश करें।",
+    "pagination": {
+      "previous": "पिछला",
+      "next": "अगला",
+      "pageOf": "पेज %{page}, कुल %{pages} में से"
+    }
   },
   "home": {
     "title": "Mercaria",
@@ -139,11 +146,6 @@
     "compareOffersA11y": "इस उत्पाद के सभी ऑफ़र की तुलना करें",
     "compareOffers": "सभी ऑफ़र की तुलना करें",
     "percentOff": "%{percent}% की छूट",
-    "demandCopy": "पिछले महीने 1 लाख से ज़्यादा बार खरीदा गया",
-    "exclusiveOffer": {
-      "label": "विशेष कीमतें देखें",
-      "caption": "अपना विशेष ऑफ़र देखने के लिए साइन इन करें"
-    },
     "quantity": "मात्रा",
     "decreaseQuantity": "मात्रा घटाएँ",
     "increaseQuantity": "मात्रा बढ़ाएँ",
@@ -161,12 +163,8 @@
     },
     "shareA11y": "यह उत्पाद साझा करें",
     "share": "साझा करें",
-    "deliveryAndReturns": "डिलीवरी और वापसी",
-    "viewReturnPolicyA11y": "वापसी नीति देखें",
     "returnPolicy": "वापसी नीति",
     "description": "विवरण",
-    "viewMore": "और देखें",
-    "viewLess": "कम देखें",
     "highlights": "मुख्य बातें",
     "sortOffersBy": "ऑफ़र इस क्रम में लगाएँ",
     "reportProblemA11y": "इस उत्पाद की जानकारी में समस्या की रिपोर्ट करें",
@@ -201,7 +199,8 @@
       },
       "notFullyBuilt": "इस अवधि का कुछ हिस्सा अभी तैयार नहीं हुआ है.",
       "conversionDisplayOnly": "बदली गई राशियाँ केवल दिखाने के लिए हैं."
-    }
+    },
+    "reviews": "समीक्षाएँ"
   },
   "catalog": {
     "breadcrumbs": {
@@ -1131,13 +1130,12 @@
       "unfollowStore": "%{store} को अनफ़ॉलो करें"
     },
     "reviews": {
-      "helpful": "मददगार",
       "loading": "रिव्यू लोड हो रहे हैं…",
       "none": "अभी कोई रिव्यू नहीं",
       "viewProduct": "%{product} देखें",
       "ratingsCount": "%{formattedCount} रेटिंग",
       "ratingsWithScope": "%{formattedCount} रेटिंग · %{scopeLabel}",
-      "fallbackAuthor": "सत्यापित ख़रीदार",
+      "fallbackAuthor": "Mercaria खरीदार",
       "viewA11yLabel": "इस स्टोर की सेवा की समीक्षाएँ देखें"
     },
     "visit": {

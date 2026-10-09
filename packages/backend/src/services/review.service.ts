@@ -44,10 +44,12 @@ import type {
   ReviewScope,
   ReviewTargetType,
   ScopedRatingAggregate,
+  ReviewRatingSummary,
 } from '@mercaria/shared-types';
 import { isUniqueViolation } from '@oxy.so/db';
 import {
   aggregatePublishedReviews,
+  readReviewRatingSummary,
   authorHasReviewedTarget,
   findDimensionsForReviews,
   findListingReviewsPage,
@@ -235,7 +237,10 @@ export async function recomputeAggregate(
   targetType: ReviewTargetType,
   targetId: string,
 ): Promise<RatingAggregate> {
-  const { average, count } = await aggregatePublishedReviews({ targetType, targetId });
+  const { average, count } = await aggregatePublishedReviews({
+    targetType,
+    targetId,
+  });
 
   const reviewCount = count;
   const rating = average !== null && reviewCount > 0 ? roundRating(average) : 0;
@@ -434,6 +439,7 @@ interface ReviewListParams {
 
 /** A page of review DTOs plus the total matching count (controller paginates). */
 interface ReviewPage {
+  ratingSummary?: ReviewRatingSummary;
   data: ReviewDTO[];
   total: number;
 }
@@ -467,8 +473,11 @@ export async function listReviews(
   target: ReviewTarget,
   { page, limit }: ReviewListParams,
 ): Promise<ReviewPage> {
-  const { rows, total } = await findReviewsPage(target, page, limit);
-  return hydrate(rows, total);
+  const [{ rows, total }, ratingSummary] = await Promise.all([
+    findReviewsPage(target, page, limit),
+    readReviewRatingSummary(target),
+  ]);
+  return { ...(await hydrate(rows, total)), ratingSummary };
 }
 
 /** List a SCOPED target's PUBLISHED reviews (newest first). */
@@ -497,11 +506,12 @@ export async function listScopedReviewsWithAggregate(
   targetId: string,
   params: ReviewListParams,
 ): Promise<ReviewPage & { aggregate: ScopedRatingAggregate }> {
-  const [page, aggregate] = await Promise.all([
+  const [page, aggregate, ratingSummary] = await Promise.all([
     listScopedReviews(scope, targetId, params),
     getOrBuildScopedAggregate(scope, targetId),
+    readReviewRatingSummary(scopedTarget(scope, targetId)),
   ]);
-  return { ...page, aggregate };
+  return { ...page, aggregate, ratingSummary };
 }
 
 /**

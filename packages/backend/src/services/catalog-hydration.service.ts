@@ -303,6 +303,7 @@ export function toStoreSummary(
   store: StoreRow,
   featuredListings: ListingRecord[],
   imagesByListing: Map<string, ListingImageRecord[]> = new Map(),
+  options: { includePolicies?: boolean } = {},
 ): StoreSummary {
   const products: ProductThumbnail[] = featuredListings
     .slice(0, config.feed.storeCardThumbnails)
@@ -330,6 +331,9 @@ export function toStoreSummary(
   }
   if (store.logoFileId) {
     summary.logoUrl = resolveMedia(store.logoFileId);
+  }
+  if (options.includePolicies && store.policiesRefundPolicy?.trim()) {
+    summary.refundPolicy = store.policiesRefundPolicy;
   }
   return summary;
 }
@@ -812,6 +816,7 @@ export async function hydrateListings(
           store,
           listingsByStore.get(listing.storeId) ?? [listing],
           children.images,
+          { includePolicies: true },
         );
       }
     }

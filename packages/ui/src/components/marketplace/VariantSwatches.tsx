@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Pressable, View } from "react-native";
+import { Button } from "@oxy.so/bloom/button";
+import { useColorScheme } from "../../lib/useColorScheme";
+import { Image } from "expo-image";
 import type { ListingOption, ProductVariantDTO } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  SWATCH_SHOW_MORE_A11Y_KEY,
-  SWATCH_SHOW_MORE_KEY,
-} from "../../lib/marketplace-labels";
+import { SWATCH_SHOW_MORE_A11Y_KEY, SWATCH_SHOW_MORE_KEY } from "../../lib/marketplace-labels";
 
 /** Max values shown before a "+N more" expander appears. */
 const MAX_VISIBLE_VALUES = 24;
@@ -23,11 +23,7 @@ export interface VariantSwatchesProps {
 }
 
 /** Whether a given option value is available in at least one in-stock variant. */
-function valueInStock(
-  variants: ProductVariantDTO[],
-  optionName: string,
-  value: string,
-): boolean {
+function valueInStock(variants: ProductVariantDTO[], optionName: string, value: string): boolean {
   return variants.some(
     (variant) =>
       variant.inStock &&
@@ -35,61 +31,22 @@ function valueInStock(
   );
 }
 
-/**
- * One option row: a label + selectable values, rendered as text pills with a
- * sold-out treatment and a "+N more" expander past 24 values. Presentational —
- * the caller owns selection state and the variant matching that follows from it.
- *
- * ## Why every option renders as a pill, including colour (#478)
- *
- * This component used to render round colour swatches when
- * `ListingOption.name` matched one of `color`, `colour` or `shade`. Two
- * separate things were wrong with that, and only the first is the one the
- * issue title names.
- *
- * 1. **The widget was chosen from three English words.** A seller who names the
- *    option `Tono`, `Farbe` or `色` got pills; one who typed `Colour` got
- *    swatches. `variant-axis.ts` names this exact shape as the thing the typed
- *    axis layer exists to prevent — "`Tono` looking like `Color` is the false
- *    merge #58 is shaped around, and the safe failure is text in a queue" — and
- *    its refusal vocabulary (`unmapped`, `ambiguous`) is how an option name
- *    becomes an attribute: an operator adds an alias, in one versioned
- *    registry, rather than a component learning a fourth language.
- *
- * 2. **The colour it drew was invented, which is the worse half.** Nothing in
- *    this codebase records what colour a value IS. `attribute_enum_values`
- *    carries no hex/swatch column, `ListingOption` has no per-value image and
- *    `ProductVariantDTO` has none either. So a swatch showed one of two
- *    fabrications: a gallery photo cycled by index (`images[i % images.length]`
- *    — the old code called this "faked per-variant art", and swatch #3 simply
- *    got gallery photo #3), or a hue derived by hashing the value string, which
- *    gave `Negro` and `Black` unrelated colours for one colour. Both rendered
- *    under an `accessibilityLabel` naming the value, so a screen reader
- *    announced "Color: Negro" over a hash artefact.
- *
- * Translating the name list would therefore have spread a fabricated fact to
- * more locales rather than fixing one. A pill reading `Negro` is true in every
- * language, so pills are both the smaller change and the honest one.
- *
- * ## What a real swatch needs, and the two are not the same kind of work
- *
- * - **Which attribute this option is** — an existing seam that is merely
- *   unplumbed. `native_listing_variant_axes` (#367 step 4) already cites an
- *   `attribute_definitions` row and its exact version, and the resolver's
- *   refusal vocabulary (`unmapped`, `ambiguous`) is language-neutral by
- *   design: an operator aliases `Tono` to the `color` attribute in one
- *   versioned registry and no component learns a fourth language. What is
- *   missing is delivery — no route serves an axis, so `ListingOption` is still
- *   `{name, values}` and `catalog-hydration.service.ts` maps the legacy
- *   free-text rows straight through.
- * - **What the value looks like** — NOT a seam. There is no dormant column
- *   here to switch on: `attribute_enum_values` holds `value`, `label`,
- *   `position` and bookkeeping, nothing presentational beyond ordering, and no
- *   `displayHint`/`renderAs`/`swatchColor`/`hexColor` concept exists anywhere
- *   in shared-types or the schema. So knowing the attribute would fix the
- *   WIDGET choice and leave the TONE fabricated exactly as before. A real
- *   swatch needs a new schema decision, and it should be made as one.
- */
+/** Option values stay textual unless the server supplies variant-owned photos.
+ * Free-text names never determine widget type or invent a colour. A value gets
+ * a photo only when all its variants identify the same first photo; otherwise
+ * the text pill preserves the distinction between the other option axes. */
+function valueImage(variants: ProductVariantDTO[], optionName: string, value: string) {
+  const matches = variants.filter((variant) =>
+    variant.optionValues.some((option) => option.name === optionName && option.value === value),
+  );
+  const images = matches.map((variant) =>
+    variant.images?.source === "variant" ? variant.images.images[0]?.fileId : undefined,
+  );
+  return images.length > 0 && images[0] && images.every((image) => image === images[0])
+    ? images[0]
+    : undefined;
+}
+
 export function VariantSwatches({
   option,
   variants,
@@ -98,6 +55,7 @@ export function VariantSwatches({
 }: VariantSwatchesProps) {
   const [expanded, setExpanded] = useState(false);
   const t = useSharedUiTranslation();
+  const { colors } = useColorScheme();
 
   const overflow = option.values.length > MAX_VISIBLE_VALUES && !expanded;
   const visibleValues = overflow ? option.values.slice(0, MAX_VISIBLE_VALUES) : option.values;
@@ -117,21 +75,37 @@ export function VariantSwatches({
         {visibleValues.map((value) => {
           const selected = selectedValue === value;
           const inStock = valueInStock(variants, option.name, value);
+          const image = valueImage(variants, option.name, value);
 
           return (
-            <Pressable
+            <Button
               key={value}
-              accessibilityRole="button"
               accessibilityLabel={`${option.name}: ${value}`}
-              accessibilityState={{ selected, disabled: !inStock }}
-              disabled={!inStock}
+              pressed={selected}
+              appearance="plain"
+              colors={{ background: colors.card, foreground: colors.foreground }}
               onPress={() => onSelect(value)}
-              className={`min-h-space-40 items-center justify-center rounded-radius-max border-[1.5px] px-space-16 ${
-                selected ? "border-border-input-active" : "border-border-secondary"
-              } ${!inStock ? "opacity-40" : ""}`}
+              style={{
+                minHeight: 40,
+                paddingHorizontal: 16,
+                borderRadius: 999,
+                borderWidth: 1.5,
+                borderColor: selected ? colors.foreground : colors.border,
+                opacity: inStock ? 1 : 0.4,
+              }}
+              textStyle={{ textDecorationLine: inStock ? "none" : "line-through" }}
+              leading={
+                image ? (
+                  <Image
+                    source={{ uri: image }}
+                    contentFit="cover"
+                    style={{ width: 32, height: 32, borderRadius: 8 }}
+                  />
+                ) : undefined
+              }
             >
-              <Text className="text-buttonMedium text-text">{value}</Text>
-            </Pressable>
+              {value}
+            </Button>
           );
         })}
         {overflow ? (
