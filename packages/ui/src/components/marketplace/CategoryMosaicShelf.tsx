@@ -39,7 +39,6 @@ export function CategoryMosaicShelf({
         testID="home-category-carousel"
         accessibilityLabel={accessibilityLabel}
         arrowsPlacement="overlay"
-        showArrows={shelf.showArrows && width >= 640}
       >
         {groups.map((group) => (
           <CarouselItem key={group.key} width={330}>

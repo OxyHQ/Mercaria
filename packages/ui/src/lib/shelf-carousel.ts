@@ -8,8 +8,8 @@ import {
   CAROUSEL_PREVIOUS_KEY,
 } from "./marketplace-labels";
 
-/** Width (px) from which the web inter-card gap steps up — Tailwind's `sm`. */
-const WIDE_GAP_BREAKPOINT = 640;
+/** Shop's custom `sm` is 480px (Carousel CSS), rather than Tailwind's 640px. */
+const WIDE_GAP_BREAKPOINT = 480;
 /** Inter-card gap on phones and on native. */
 const NARROW_GAP = 8;
 /** Inter-card gap on web from `sm` up. */
