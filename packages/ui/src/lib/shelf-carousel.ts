@@ -17,9 +17,24 @@ const WIDE_GAP = 16;
 /** The page gutter the shelves have always sat inside. */
 const SHELF_GUTTER = 16;
 
+const ARROW_CLASS_NAME = "min-h-0 min-w-0 rounded-radius-max border-[0.5px] border-border-image bg-bg-fill hover:bg-bg-fill-hover active:scale-[0.96] active:opacity-60 motion-reduce:active:scale-100";
+const SHELF_ARROW_BUTTON_PROPS = {
+  material: "flat",
+  appearance: "outline",
+  tone: "neutral",
+  iconSize: 20,
+  className: `${ARROW_CLASS_NAME} size-space-40 p-space-10 shadow-shop-m`,
+} satisfies NonNullable<CarouselProps["arrowButtonProps"]>;
+
+/** Shop's review-preview controls use 12px padding and a smaller shadow. */
+export const REVIEW_PREVIEW_ARROW_BUTTON_PROPS = {
+  ...SHELF_ARROW_BUTTON_PROPS,
+  className: `${ARROW_CLASS_NAME} h-[44px] w-[44px] p-space-12 shadow-shop-s`,
+} satisfies NonNullable<CarouselProps["arrowButtonProps"]>;
+
 /** What every card shelf hands Bloom's `Carousel` beyond its own label. */
 export type ShelfCarouselProps = Required<
-  Pick<CarouselProps, "gap" | "showArrows" | "showDots" | "inset" | "previousLabel" | "nextLabel" | "dotLabel">
+  Pick<CarouselProps, "gap" | "showArrows" | "showDots" | "inset" | "previousLabel" | "nextLabel" | "dotLabel" | "arrowsPlacement" | "arrowButtonProps" | "hideUnavailableArrows">
 >;
 
 /**
@@ -30,8 +45,10 @@ export type ShelfCarouselProps = Required<
  *
  * - **The copy is ours.** Bloom's arrow and dot names default to English, so
  *   they come from `@mercaria/ui`'s own bundles, in the viewer's language.
- * - **Arrows from `sm` on web.** Phones and native use swipe; an arrow row
- *   would add empty space above each mobile shelf.
+ * - **Overlay arrows from `sm` on web.** Phones and native use swipe. The
+ *   40px flat outlined controls match Shop's Carousel, without a separate
+ *   control row between the section heading and its cards. Bloom owns hiding
+ *   unavailable arrows and moving focus when a focused arrow reaches an edge.
  * - **The gap is 8px, 16px from `sm` on web.** The step is web-only because the
  *   reference it was measured from is a web capture.
  *
@@ -48,6 +65,9 @@ export function useShelfCarouselProps(): ShelfCarouselProps {
       gap,
       showArrows: isWeb && width >= WIDE_GAP_BREAKPOINT,
       showDots: false,
+      arrowsPlacement: "overlay",
+      hideUnavailableArrows: true,
+      arrowButtonProps: SHELF_ARROW_BUTTON_PROPS,
       inset: isWeb && width >= 1024 ? 48 : SHELF_GUTTER,
       previousLabel: t(CAROUSEL_PREVIOUS_KEY),
       nextLabel: t(CAROUSEL_NEXT_KEY),

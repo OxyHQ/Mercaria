@@ -15,7 +15,7 @@ import { Rating, RatingBar } from "@oxy.so/bloom/rating";
 import { useFormatters } from "../../lib/use-formatters";
 import { useRatingDisplay } from "../../lib/rating-display";
 import { ReviewCard } from "./ReviewCard";
-import { useShelfCarouselProps } from "../../lib/shelf-carousel";
+import { REVIEW_PREVIEW_ARROW_BUTTON_PROPS, useShelfCarouselProps } from "../../lib/shelf-carousel";
 import { useColorScheme } from "../../lib/useColorScheme";
 
 /** Star buckets, high → low, for the rating-distribution bars. */
@@ -197,6 +197,7 @@ export function ReviewSummaryCard({
               accessibilityLabel={scopeText}
               arrowsPlacement="overlay"
               arrowsVisibility="hover"
+              arrowButtonProps={REVIEW_PREVIEW_ARROW_BUTTON_PROPS}
               showArrows={shelf.showArrows && previews.length > 1}
               testID="review-preview-carousel"
             >

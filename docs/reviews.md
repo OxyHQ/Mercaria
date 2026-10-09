@@ -339,6 +339,12 @@ The search uses Bloom's public field/chrome classes for a 44 px shell with a
 timing after a dialog removes its inert background; the storefront does not
 schedule an extra focus timeout or change DOM attributes itself.
 
+Review-preview carousel arrows use Shop's 44 px outlined controls (20 px glyph,
+12 px padding, small shadow), revealed by hover or keyboard focus. Shared feed
+shelves use 40 px controls and a medium shadow, overlaid on the track. Bloom
+hides unavailable controls from the accessibility tree and moves focus to the
+track when activating an arrow reaches that end; phones retain swipe navigation.
+
 The collapsed PDP review accordion shows the authoritative rating and count,
 with a 250 ms linear clip/opacity reveal. It reserves its measured width while
 expanded so the title and chevron do not shift, respects reduced motion, and

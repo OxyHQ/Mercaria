@@ -438,6 +438,10 @@ test('category arrows overlay the track, scroll both ways and disappear on mobil
   const next = carousel.getByRole('button', { name: 'Go to the next item', exact: true });
   const previous = carousel.getByRole('button', { name: 'Go to the previous item', exact: true });
   await expect(next).toBeEnabled();
+  await expect(previous).toHaveCount(0);
+  await expect(next).toHaveCSS('width', '40px');
+  await expect(next).toHaveCSS('height', '40px');
+  await expect(next.locator('svg')).toHaveAttribute('width', '20');
   const frameBox = (await frame.boundingBox())!;
   const arrowBox = (await next.boundingBox())!;
   expect(Math.abs(arrowBox.y + arrowBox.height / 2 - frameBox.y - frameBox.height / 2)).toBeLessThan(2);
@@ -449,6 +453,36 @@ test('category arrows overlay the track, scroll both ways and disappear on mobil
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId('home-category-carousel-overlay-arrows')).toHaveCount(0);
   await expect(carousel.getByTestId('category-mosaic').first()).toBeVisible();
+});
+
+test('dark Arabic category arrows mirror direction and relinquish focus at the final item', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'light' });
+  await page.addInitScript(() => {
+    localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale: 'ar' }, version: 0 }));
+    localStorage.setItem('mercaria.bloom.theme', JSON.stringify({ mode: 'dark', colorPreset: 'mono' }));
+  });
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  const carousel = page.getByTestId('home-category-carousel');
+  await carousel.scrollIntoViewIfNeeded();
+  const track = carousel.locator('[data-bloom-carousel-track]');
+  const arrows = page.getByTestId('home-category-carousel-overlay-arrows');
+  const next = arrows.locator('[data-bloom-carousel-arrow]').last().getByRole('button');
+  const previous = arrows.locator('[data-bloom-carousel-arrow]').first().getByRole('button');
+  await expect(next).toBeVisible();
+  await expect(previous).toHaveCount(0);
+  await expect(next).toHaveCSS('width', '40px');
+  const frameBox = (await carousel.boundingBox())!;
+  expect((await next.boundingBox())!.x).toBeLessThan(frameBox.x + frameBox.width / 2);
+  for (let step = 0; step < 12 && await next.count(); step++) {
+    const before = await track.evaluate(element => element.scrollLeft);
+    await next.press('Enter');
+    await expect.poll(() => track.evaluate(element => element.scrollLeft)).toBeLessThan(before - 1);
+  }
+  await expect(next).toHaveCount(0);
+  await expect(previous).toBeVisible();
+  await expect(track).toBeFocused();
+  await expect.poll(() => track.evaluate(element => Math.abs(element.scrollLeft) + element.clientWidth - element.scrollWidth)).toBeGreaterThan(-2);
 });
 
 test('local shopping history never exposes a different account conversation to a guest', async ({ page }) => {

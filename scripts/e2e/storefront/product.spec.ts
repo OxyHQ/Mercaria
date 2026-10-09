@@ -515,6 +515,7 @@ test("review preview arrows reveal on hover and keyboard focus and stay absent o
   await page.goto(`/products/${product.id}`);
   const carousel = page.getByTestId("review-preview-carousel");
   const next = carousel.getByRole("button", { name: "Go to the next item", exact: true });
+  const previous = carousel.getByRole("button", { name: "Go to the previous item", exact: true });
   const track = carousel.locator("[data-bloom-carousel-track]");
   const arrows = page.getByTestId("review-preview-carousel-overlay-arrows");
   const nextArrow = arrows.locator("[data-bloom-carousel-arrow]").last();
@@ -523,11 +524,19 @@ test("review preview arrows reveal on hover and keyboard focus and stay absent o
   await expect(nextArrow).toHaveCSS("opacity", "0");
   await carousel.hover();
   await expect(nextArrow).toHaveCSS("opacity", "1");
+  await expect(previous).toHaveCount(0);
+  await expect(next).toHaveCSS("width", "44px");
+  await expect(next).toHaveCSS("height", "44px");
+  await expect(next.locator("svg")).toHaveAttribute("width", "20");
   await next.click();
   await expect.poll(() => track.evaluate(element => element.scrollLeft)).toBeGreaterThan(250);
   await page.mouse.move(0, 0);
-  await next.focus();
-  await expect(nextArrow).toHaveCSS("opacity", "1");
+  await previous.focus();
+  await expect(arrows.locator("[data-bloom-carousel-arrow]").first()).toHaveCSS("opacity", "1");
+  // The control which becomes unavailable leaves both keyboard and AX order.
+  await previous.press("Enter");
+  await expect(previous).toHaveCount(0);
+  await expect(track).toBeFocused();
   await page.setViewportSize({ width: 390, height: 1000 });
   await expect(arrows).toHaveCount(0);
   await expect(carousel.getByRole("button", { name: /^Read review by/ })).toHaveCount(3);
