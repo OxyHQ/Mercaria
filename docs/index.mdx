@@ -32,6 +32,11 @@ schema decision. `HANDOFF.md` holds deferred work.
 - Each app wraps its screens in Bloom `OverlayInertBoundary`, inside Oxy's
   surface provider so its outlet remains outside. Modal sheets and dialogs
   remove the underlying screens from keyboard and accessibility navigation.
+  Oxy Services and every app must resolve the same installed Bloom package:
+  an incompatible Services peer range installs a second copy and splits those
+  contexts. The storefront's `bloom-runtime.test.ts` checks all three apps'
+  installed surface/theme module paths; fix the upstream peer contract rather
+  than forcing a version through Metro aliases.
 - `packages/backend/` — Express API (TypeScript, PostgreSQL via drizzle-orm +
   `@oxy.so/db`, Socket.IO)
 - `packages/shared-types/` — DTOs and every closed value set

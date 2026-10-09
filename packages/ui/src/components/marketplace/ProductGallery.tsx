@@ -109,11 +109,10 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
       showArrows={hasMany && desktop}
       arrowsPlacement="overlay"
       arrowsVisibility="hover"
-      showDots={hasMany && !desktop}
+      showDots={false}
       gap={0}
       previousLabel={t(GALLERY_PREVIOUS_KEY)}
       nextLabel={t(GALLERY_NEXT_KEY)}
-      dotLabel={(position) => t(GALLERY_VIEW_IMAGE_KEY, { position })}
       testID="product-gallery-carousel"
       style={{ minWidth: 0, flex: 1 }}
     >

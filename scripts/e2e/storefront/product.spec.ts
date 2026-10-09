@@ -167,11 +167,46 @@ test("mobile product keeps the merchant before gallery and has no horizontal ove
     .first()
     .boundingBox();
   expect(merchant!.y + merchant!.height).toBeLessThan(galleryBounds!.y);
-  expect(galleryBounds!.height).toBeLessThan(450);
+  expect(Math.abs(galleryBounds!.height - 844 * 0.45)).toBeLessThan(1);
+  await expect(gallery.locator('[data-bloom-carousel-dot]')).toHaveCount(0);
   await expect(page.getByTestId("product-thumbnails")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     390,
   );
+});
+
+test("mobile gallery swipes between photos without adding a pagination row", async ({ browser, request }) => {
+  const product = await seededProduct(request);
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: "en-US",
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(`/products/${product.id}`);
+    const gallery = page.getByTestId("product-gallery");
+    await expect(gallery).toBeVisible();
+    const track = gallery.locator("[data-bloom-carousel-track]");
+    const bounds = (await track.boundingBox())!;
+    const touch = await context.newCDPSession(page);
+    const y = bounds.y + bounds.height / 2;
+    await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 340, y }] });
+    for (let x = 310; x >= 70; x -= 30) {
+      await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y }] });
+      // A real gesture has elapsed time; this controls velocity, not app readiness.
+      await page.waitForTimeout(35);
+    }
+    await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect.poll(() => track.evaluate(node => node.scrollLeft)).toBeGreaterThan(300);
+    await expect.poll(() => track.evaluate(node => Math.abs(node.scrollLeft / node.clientWidth - Math.round(node.scrollLeft / node.clientWidth)))).toBeLessThan(0.01);
+    const index = await track.evaluate(node => Math.round(node.scrollLeft / node.clientWidth));
+    expect(index).toBeGreaterThan(0);
+    await expect(gallery.locator("[data-bloom-carousel-dot]")).toHaveCount(0);
+    expect(Math.abs((await gallery.boundingBox())!.height - 844 * 0.45)).toBeLessThan(1);
+    await gallery.getByRole("button", { name: `Open images of ${product.title}`, exact: true }).nth(index).tap();
+    await expect(page.getByRole("button", { name: "Close media viewer", exact: true })).toBeVisible();
+  } finally {
+    await context.close();
+  }
 });
 
 test("reviews read all server ratings and open a paginated list with full text", async ({
@@ -532,6 +567,11 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     await expect(save).toHaveAttribute("aria-pressed", "false");
     await save.click();
     await expect(page.getByText("Use your Oxy account", { exact: true })).toBeVisible();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toHaveCount(1);
+    await expect(dialog).toHaveAttribute("aria-modal", "true");
+    await expect(dialog.getByText("Use your Oxy account", { exact: true })).toBeVisible();
+    expect(await dialog.evaluate(node => node.closest("[inert]") === null)).toBe(true);
     await expect(page.getByTestId("app-content-boundary")).toHaveAttribute("inert", "");
     await expect(save).toHaveAttribute("aria-pressed", "false");
     expect(writes).toEqual([]);
