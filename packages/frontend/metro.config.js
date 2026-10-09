@@ -22,6 +22,14 @@ module.exports = (() => {
   // (e.g. @mercaria/shared-types) trigger a rebuild.
   config.watchFolders = [monorepoRoot];
 
+  // Worktrees are separate checkouts with their own dependencies. Crawling them
+  // from this workspace duplicates the module graph and can exhaust Metro's heap.
+  const blockList = config.resolver.blockList;
+  config.resolver.blockList = [
+    ...(Array.isArray(blockList) ? blockList : blockList ? [blockList] : []),
+    /[/\\]\.worktrees[/\\].*/,
+  ];
+
   // Resolve modules from both this package and the hoisted root node_modules.
   config.resolver.nodeModulesPaths = [
     path.resolve(projectRoot, "node_modules"),
