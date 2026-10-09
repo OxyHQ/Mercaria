@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { Text } from '@mercaria/ui';
+import { ProductSpecificationGrid, Text } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
 import type {
   SpecificationGroup,
@@ -83,19 +83,11 @@ function SpecificationGroupBlock({ group }: { group: SpecificationGroup }) {
       <Text className="text-caption text-text-secondary" accessibilityRole="header">
         {heading}
       </Text>
-      {group.entries.map((entry) => (
-        <View
-          key={`${group.scope}:${entry.attributeKey}`}
-          className="flex-row items-start justify-between gap-space-16 border-b border-border-secondary py-space-8"
-        >
-          <View className="flex-1">
-            <Text className="text-caption text-text-secondary">{entry.label}</Text>
-          </View>
-          <View className="flex-1 items-end">
-            <Text className="text-body text-text">{entry.displayValue}</Text>
-          </View>
-        </View>
-      ))}
+      <ProductSpecificationGrid entries={group.entries.map((entry) => ({
+        key: entry.attributeKey,
+        label: entry.label,
+        value: entry.displayValue,
+      }))} />
     </View>
   );
 }

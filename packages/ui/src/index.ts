@@ -412,6 +412,7 @@ export {
   type PurchaseOptionsProps,
 } from "./components/marketplace/PurchaseOptions";
 export { ReviewCard, type ReviewCardProps } from "./components/marketplace/ReviewCard";
+export { ProductSpecificationGrid, type ProductSpecification } from "./components/marketplace/ProductSpecificationGrid";
 export {
   ReviewSummaryCard,
   type RatingDistribution,

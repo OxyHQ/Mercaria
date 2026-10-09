@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import type { Listing } from "../../../packages/shared-types/src";
+import type { Listing, PublicAttributeValue } from "../../../packages/shared-types/src";
 
 async function seededProduct(request: APIRequestContext): Promise<Listing> {
   const feed = await (await request.get("http://localhost:4160/feed")).json();
@@ -344,6 +344,65 @@ test("canonical products use the complete gallery and keep purchase availability
   await expect(save).toHaveAttribute("aria-pressed", "false");
   expect(saveWrites).toBe(0);
 });
+
+for (const [layout, value] of [
+  ["grid", "Cotton"],
+  ["responsive", "Organic cotton and linen"],
+  ["list", "Organic cotton and linen with a recycled polyester lining"],
+] as const) {
+  test(`catalog specifications preserve facts in ${layout} layout across screen sizes`, async ({ page }) => {
+    const id = "00000000-0000-4000-8000-000000000002";
+    const now = new Date().toISOString();
+    await page.route("**/product-page/specification-preview*", route => route.fulfill({ json: {
+      success: true, data: {
+        product: {
+          id, slug: "specification-preview", status: "active", name: "Specification preview",
+          aliases: [], searchTokens: [], variantDefiningAttributeKeys: [], images: [],
+          attributes: [], identifiers: [], fieldProvenance: [],
+          rating: 0, ratingCount: 0, variantCount: 0,
+          firstSeenAt: now, createdAt: now, updatedAt: now,
+        },
+        variants: [], offers: { available: false, reason: "comparison_withheld" },
+        officialChannels: [], authorizedResellers: [],
+      },
+    }}));
+    await page.route(`**/catalog-attributes/values/product/${id}*`, route => route.fulfill({ json: {
+      success: true, data: { entityKind: "product", entityId: id, values: [
+        { key: "material", label: "Material", displayValue: value },
+        { key: "color", label: "Color", displayValue: "Blue" },
+        { key: "care", label: "Care", displayValue: "Hand wash" },
+      ].map((entry, position) => ({ ...entry, position, valueType: "string", sourceBacked: true, verificationState: "unverified" } satisfies PublicAttributeValue)) },
+    }}));
+    await page.goto("/p/specification-preview");
+    const grid = page.getByTestId("pdp-specifications-grid");
+    await expect(grid).toBeVisible();
+    const cells = grid.getByTestId("pdp-specification-cell");
+    await expect(cells).toHaveCount(3);
+    await expect(cells.first()).toContainText(value);
+    await expect(cells.first().getByText(value, { exact: true })).toHaveCSS("font-size", "14px");
+    await expect(cells.first().getByText(value, { exact: true })).toHaveCSS("line-height", "18px");
+    for (const width of [1280, 390, 768]) {
+      await page.setViewportSize({ width, height: 900 });
+      const columns = layout === "grid" || (layout === "responsive" && width >= 768) ? 2 : 1;
+      await expect.poll(async () => {
+        const first = (await cells.nth(0).boundingBox())!;
+        const second = (await cells.nth(1).boundingBox())!;
+        return Math.abs(first.y - second.y) < 1;
+      }).toBe(columns === 2);
+      const gridBox = (await grid.boundingBox())!;
+      const last = (await cells.last().boundingBox())!;
+      expect(Math.abs(last.width - gridBox.width)).toBeLessThan(1);
+      const labelAboveValue = await cells.first().evaluate(cell => {
+        const label = cell.children[0].getBoundingClientRect();
+        const content = cell.children[1].getBoundingClientRect();
+        return content.y >= label.bottom;
+      });
+      expect(labelAboveValue).toBe(true);
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+    }
+    await grid.screenshot({ path: `/tmp/mercaria-specifications-${layout}.png` });
+  });
+}
 
 test("store reviews expose the next page and preserve real verification labels", async ({ page, request }) => {
   const product = await seededProduct(request);
