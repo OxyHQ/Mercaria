@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ScrollView, View, type TextInput } from "react-native";
+import { ScrollView, View, useWindowDimensions, type TextInput } from "react-native";
 import { useReducedMotion } from "react-native-reanimated";
 import { Dialog } from "@oxy.so/bloom/dialog";
 import { Button } from "@oxy.so/bloom/button";
@@ -32,6 +32,8 @@ export function ProductReviewsDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  // Shop changes the search inset at 976px, before Tailwind's default lg.
+  const { width } = useWindowDimensions();
   const [searchText, setSearchText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<ReviewSortOrder>("newest");
@@ -109,7 +111,7 @@ export function ProductReviewsDialog({
       >
         <View className="gap-space-8 p-space-20">
           {summary ? (
-            <View className="mb-space-16">
+            <View>
               <ReviewSummaryCard
                 embedded
                 showHeading={false}
@@ -124,43 +126,46 @@ export function ProductReviewsDialog({
               />
             </View>
           ) : null}
-          <ReviewFilters
-            sortBy={sortBy}
-            ratings={ratings}
-            onSortChange={(value) => {
-              positioned.current = true;
-              scroll.current?.scrollTo({ y: 0, animated: false });
-              setSortBy(value);
-            }}
-            onRatingsChange={(value) => {
-              positioned.current = true;
-              scroll.current?.scrollTo({ y: 0, animated: false });
-              setRatings(value);
-            }}
-          />
-          <View className="mb-space-8">
-            <Search
-              ref={searchInput}
-              fieldClassName="h-[44px] px-space-16 lg:px-[18px]"
-              fieldChromeClassName="rounded-radius-28 border border-border-image bg-transparent"
-              label={t("reviews.search.placeholder")}
-              value={searchText}
-              onChangeText={setSearchText}
-              maxLength={REVIEW_SEARCH_MAX_LENGTH}
-              onSubmitEditing={() => {
-                submitSearch(searchText);
-                searchInput.current?.blur();
+          <View className="mb-space-8 md:mb-0">
+            <View className="pt-space-16 pb-[14px]">
+              <Search
+                ref={searchInput}
+                fieldClassName={`h-[44px] ${width >= 976 ? "px-[18px]" : "px-space-16"}`}
+                style={{ fontSize: 14, lineHeight: 20 }}
+                fieldChromeClassName="rounded-radius-28 border border-border-image bg-transparent"
+                label={t("reviews.search.placeholder")}
+                value={searchText}
+                onChangeText={setSearchText}
+                maxLength={REVIEW_SEARCH_MAX_LENGTH}
+                onSubmitEditing={() => {
+                  submitSearch(searchText);
+                  searchInput.current?.blur();
+                }}
+                onClearText={() => {
+                  setSearchText("");
+                  submitSearch("");
+                  searchInput.current?.focus();
+                }}
+                onKeyPress={(event) => {
+                  if (event.nativeEvent.key === "Escape") {
+                    event.stopPropagation();
+                    event.preventDefault();
+                  }
+                }}
+              />
+            </View>
+            <ReviewFilters
+              sortBy={sortBy}
+              ratings={ratings}
+              onSortChange={(value) => {
+                positioned.current = true;
+                scroll.current?.scrollTo({ y: 0, animated: false });
+                setSortBy(value);
               }}
-              onClearText={() => {
-                setSearchText("");
-                submitSearch("");
-                searchInput.current?.focus();
-              }}
-              onKeyPress={(event) => {
-                if (event.nativeEvent.key === "Escape") {
-                  event.stopPropagation();
-                  event.preventDefault();
-                }
+              onRatingsChange={(value) => {
+                positioned.current = true;
+                scroll.current?.scrollTo({ y: 0, animated: false });
+                setRatings(value);
               }}
             />
           </View>

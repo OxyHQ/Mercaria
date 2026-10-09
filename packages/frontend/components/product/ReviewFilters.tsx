@@ -51,7 +51,7 @@ export function ReviewFilters({ sortBy, ratings, onSortChange, onRatingsChange }
     </View>
   );
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-space-8" testID="review-filters">
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="review-filters">
       <View className="flex-row gap-space-8">
         <DropdownMenu open={sortOpen} onOpenChange={(open) => { setDraftSort(sortBy); setSortOpen(open); }}>
           <DropdownMenuTrigger asChild label={t("reviews.filters.sort")}>
