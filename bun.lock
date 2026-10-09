@@ -93,7 +93,7 @@
         "@hugeicons/react-native": "^1.0.15",
         "@mercaria/shared-types": "workspace:*",
         "@mercaria/ui": "workspace:*",
-        "@oxy.so/bloom": "7.11.0",
+        "@oxy.so/bloom": "7.12.0",
         "@oxy.so/core": "4.2.0",
         "@oxy.so/services": "11.1.0",
         "@oxy.so/telemetry": "1.2.0",
@@ -186,7 +186,7 @@
         "@mercaria/contracts": "workspace:*",
         "@mercaria/shared-types": "workspace:*",
         "@mercaria/ui": "workspace:*",
-        "@oxy.so/bloom": "7.11.0",
+        "@oxy.so/bloom": "7.12.0",
         "@oxy.so/core": "4.2.0",
         "@oxy.so/services": "11.1.0",
         "@oxy.so/telemetry": "1.2.0",
@@ -296,7 +296,7 @@
         "@hugeicons/react-native": "^1.0.15",
         "@mercaria/shared-types": "workspace:*",
         "@mercaria/ui": "workspace:*",
-        "@oxy.so/bloom": "7.11.0",
+        "@oxy.so/bloom": "7.12.0",
         "@oxy.so/core": "4.2.0",
         "@oxy.so/expo-splash": "^1.0.0",
         "@oxy.so/services": "11.1.0",
@@ -418,7 +418,7 @@
         "typescript": "~5.9.3",
       },
       "peerDependencies": {
-        "@oxy.so/bloom": ">=7.11.0 <8",
+        "@oxy.so/bloom": ">=7.12.0 <8",
         "@react-native-async-storage/async-storage": "^2.2.0",
         "clsx": "^2.1.1",
         "expo-blur": "~56.0.3",
@@ -888,7 +888,7 @@
 
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
-    "@oxy.so/bloom": ["@oxy.so/bloom@7.11.0", "", { "dependencies": { "@tanstack/react-virtual": "^3.14.3", "react-native-css": "3.0.7", "react-remove-scroll-bar": "^2.3.8" }, "peerDependencies": { "@lottiefiles/dotlottie-react": ">=0.13.0", "@react-native-community/netinfo": ">=11.1.0", "expo": "*", "expo-blur": "*", "expo-font": "*", "expo-glass-effect": ">=0.1.9", "expo-haptics": "*", "expo-image": "*", "expo-router": ">=3.0.0", "expo-symbols": ">=0.4.5", "expo-video": "*", "lottie-react-native": ">=7.0.0", "nativewind": ">=5.0.0", "react": ">=18.0.0", "react-dom": ">=18.0.0", "react-native": ">=0.73.0", "react-native-gesture-handler": ">=2.16.1", "react-native-keyboard-controller": ">=1.11.4", "react-native-reanimated": ">=3.13.0", "react-native-safe-area-context": ">=5.0.0", "react-native-screens": ">=3.16.0", "react-native-svg": ">=13.0.0", "react-native-webview": ">=13.0.0" }, "optionalPeers": ["@lottiefiles/dotlottie-react", "@react-native-community/netinfo", "expo", "expo-font", "expo-haptics", "expo-router", "expo-video", "lottie-react-native", "nativewind", "react-dom", "react-native-keyboard-controller", "react-native-webview"] }, "sha512-xlK4BbNP+smzC7mhF0LflY7IffyuoHEyLZ5zKmMgZJclWWCdPJIXBZ+6HwwZpiZn2raqLVobuIoiqEHXurJWwQ=="],
+    "@oxy.so/bloom": ["@oxy.so/bloom@7.12.0", "", { "dependencies": { "@tanstack/react-virtual": "^3.14.3", "react-native-css": "3.0.7", "react-remove-scroll-bar": "^2.3.8" }, "peerDependencies": { "@lottiefiles/dotlottie-react": ">=0.13.0", "@react-native-community/netinfo": ">=11.1.0", "expo": "*", "expo-blur": "*", "expo-font": "*", "expo-glass-effect": ">=0.1.9", "expo-haptics": "*", "expo-image": "*", "expo-router": ">=3.0.0", "expo-symbols": ">=0.4.5", "expo-video": "*", "lottie-react-native": ">=7.0.0", "nativewind": ">=5.0.0", "react": ">=18.0.0", "react-dom": ">=18.0.0", "react-native": ">=0.73.0", "react-native-gesture-handler": ">=2.16.1", "react-native-keyboard-controller": ">=1.11.4", "react-native-reanimated": ">=3.13.0", "react-native-safe-area-context": ">=5.0.0", "react-native-screens": ">=3.16.0", "react-native-svg": ">=13.0.0", "react-native-webview": ">=13.0.0" }, "optionalPeers": ["@lottiefiles/dotlottie-react", "@react-native-community/netinfo", "expo", "expo-font", "expo-haptics", "expo-router", "expo-video", "lottie-react-native", "nativewind", "react-dom", "react-native-keyboard-controller", "react-native-webview"] }, "sha512-4U+Z0VmrIwCaF93C/6Jk52gtkoq2ho5NO9CxW1UJZPzUjSJiKjPGwDtkDTFmIL/J2eeqy/cfFuUljLTFReh7yA=="],
 
     "@oxy.so/contracts": ["@oxy.so/contracts@4.9.0", "", { "dependencies": { "zod": "^3.25.64" } }, "sha512-dDMZlTSCR1wOd0XlhM8fZ7frSzvUm7JxPsEVGXjb92OIsb3MTb7SKFGHD7/U61oI8IOxw6oVrzeIaZ5aOWh7nA=="],
 

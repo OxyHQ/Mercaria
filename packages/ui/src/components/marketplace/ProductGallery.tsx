@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { Image } from "expo-image";
 import { Button } from "@oxy.so/bloom/button";
 import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
@@ -38,12 +38,14 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
   const viewer = useRef<ZoomableMediaGalleryHandle>(null);
   const frames = useRef<Record<number, View | null>>({});
   const [panelWidth, setPanelWidth] = useState(0);
+  const [ratios, setRatios] = useState<Record<string, number>>({});
   const desktop = width >= 1024;
   const hasMany = images.length > 1;
   const activeIndex = Math.min(index, Math.max(0, images.length - 1));
-  const frameHeight = desktop
-    ? Math.min((panelWidth || width * 0.5) - (hasMany ? 64 : 0), height * 0.84)
-    : height * 0.45;
+  // Shop's desktop gallery reserves 84vh and centres each image at its actual
+  // ratio; the photo is not stretched to fill that viewing area.
+  const frameHeight = height * (desktop ? 0.84 : 0.45);
+  const imageWidth = Math.max(0, (panelWidth || width) - (desktop && hasMany ? 64 : 0));
   const select = (next: number) => setIndex(next);
   const measureThumb = useCallback(
     (position: number) =>
@@ -119,23 +121,39 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("ui.gallery.open", { title })}
-            ref={(frame) => {
-              frames.current[position] = frame;
-            }}
             onPress={() => void openViewer(position)}
             style={{
               height: frameHeight,
               overflow: "hidden",
               borderRadius: 28,
-              backgroundColor: "#fff",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <Image
-              source={{ uri: image.uri }}
-              contentFit="contain"
-              style={StyleSheet.absoluteFill}
-              accessibilityLabel={image.alt ?? title}
-            />
+            <View
+              ref={(frame) => { frames.current[position] = frame; }}
+              style={{
+                width: Math.min(imageWidth, frameHeight * (ratios[image.uri] ?? 1)),
+                height: Math.min(frameHeight, imageWidth / (ratios[image.uri] ?? 1)),
+                overflow: "hidden",
+                borderRadius: 28,
+                backgroundColor: "#fff",
+              }}
+            >
+              <Image
+                source={{ uri: image.uri }}
+                contentFit="contain"
+                style={{ width: "100%", height: "100%" }}
+                accessibilityLabel={image.alt ?? title}
+                onLoad={({ source }) => {
+                  if (source.width > 0 && source.height > 0) {
+                    const ratio = source.width / source.height;
+                    setRatios(current => current[image.uri] === ratio
+                      ? current : { ...current, [image.uri]: ratio });
+                  }
+                }}
+              />
+            </View>
           </Pressable>
         </CarouselItem>
       ))}
@@ -163,6 +181,8 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
       )}
       <ZoomableMediaGallery
         ref={viewer}
+        appearance="page"
+        onIndexChange={setIndex}
         measureThumb={measureThumb}
         cornerRadius={28}
         indicatorVariant="thumbnails"

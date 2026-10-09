@@ -32,6 +32,7 @@ export function PurchaseOptions({
   return (
     <View className="gap-space-8" testID="product-purchase-actions">
       <Button
+        material="flat"
         accessibilityLabel={label}
         disabled={!canBuy || isPending}
         loading={isPending}
@@ -46,6 +47,7 @@ export function PurchaseOptions({
       </Button>
       {canBuy ? (
         <Button
+          material="flat"
           accessibilityLabel={t("ui.purchase.buyNow")}
           disabled={isPending}
           onPress={onBuyNow}

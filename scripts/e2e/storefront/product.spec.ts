@@ -142,10 +142,14 @@ test("gallery thumbnails control the carousel and Bloom opens and dismisses the 
     page.getByRole("button", { name: "Close media viewer", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("ArrowRight");
+  await expect(thumbnails.getByRole("button", { name: "View image 4", exact: true }))
+    .toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
   await expect(
     page.getByRole("button", { name: "Close media viewer", exact: true }),
   ).toHaveCount(0);
+  await expect(thumbnails.getByRole("button", { name: "View image 4", exact: true }))
+    .toHaveAttribute("aria-pressed", "true");
 });
 
 test("mobile product keeps the merchant before gallery and has no horizontal overflow", async ({
@@ -334,4 +338,19 @@ test("product gallery keeps selection and viewport bounds in dark Arabic and red
   await expect(page.getByRole("button", { name: "إغلاق عارض الوسائط", exact: true })).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+});
+
+test("product detail retains the floating shopping composer above mobile navigation", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  await page.goto(`/products/${product.id}`);
+  const composer = page.locator('[data-testid="shopping-composer"]:visible');
+  await expect(composer).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(async () => {
+    const box = await composer.boundingBox();
+    return !!box && box.x >= 0 && box.x + box.width <= 390 && box.y + box.height < 790;
+  }).toBe(true);
+  await composer.getByRole("textbox").fill("Find similar makeup");
+  await composer.getByRole("textbox").press("Enter");
+  await expect(page).toHaveURL(/\/thread\?q=Find%20similar%20makeup$/);
 });
