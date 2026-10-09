@@ -396,6 +396,7 @@ export interface OrderListFilter {
   storeId?: string;
   customerId?: string;
   status?: OrderStatus;
+  statuses?: readonly OrderStatus[];
 }
 
 /**
@@ -533,6 +534,7 @@ function orderFilterSql(filter: OrderListFilter): SQL | undefined {
   if (filter.storeId !== undefined) clauses.push(eq(orders.storeId, filter.storeId));
   if (filter.customerId !== undefined) clauses.push(eq(orders.customerId, filter.customerId));
   if (filter.status !== undefined) clauses.push(eq(orders.status, filter.status));
+  if (filter.statuses !== undefined) clauses.push(inArray(orders.status, [...filter.statuses]));
   return clauses.length > 0 ? and(...clauses) : undefined;
 }
 

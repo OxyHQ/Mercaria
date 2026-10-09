@@ -13,6 +13,7 @@
 import { z } from 'zod';
 import { isLiveEntityId } from '@oxy.so/db';
 import {
+  BUYER_ORDER_VIEWS,
   ABUSE_REPORT_CATEGORIES,
   ABUSE_REPORTED_TYPES,
   ALL_CURRENCY_CODES,
@@ -847,6 +848,11 @@ export const orderListQuerySchema = z
     status: orderStatusSchema.optional(),
   })
   .passthrough();
+
+/** Buyer history's optional view leaves existing unfiltered clients unchanged. */
+export const buyerOrderListQuerySchema = orderListQuerySchema.extend({
+  view: z.enum(BUYER_ORDER_VIEWS).optional(),
+});
 
 // ---------------------------------------------------------------------------
 // Customers (store-scoped buyer records)

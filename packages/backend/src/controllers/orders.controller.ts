@@ -19,13 +19,15 @@ import {
   mockPay,
 } from '../services/order.service.js';
 import { log } from '../lib/logger.js';
+import { buyerOrderListQuerySchema } from '../middleware/schemas.js';
 
 /** GET /orders — the caller's orders (summaries, paginated, newest first). */
 export async function listMyOrders(req: Request, res: Response): Promise<void> {
   try {
     const oxyUserId = getRequiredOxyUserId(req);
     const { page, limit } = parsePagination(req.query);
-    const { data, total } = await getBuyerOrders(oxyUserId, { page, limit });
+    const { view } = buyerOrderListQuerySchema.parse(req.query);
+    const { data, total } = await getBuyerOrders(oxyUserId, { page, limit, view });
     sendPaginated(res, data, buildPagination(page, limit, total));
   } catch (err) {
     log.general.error({ err }, 'Failed to list buyer orders');

@@ -24,6 +24,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
+import { BUYER_ORDER_VIEW_BY_STATUS, ORDER_STATUSES } from '@mercaria/shared-types';
 import type { OrderAccessFacts, OrderAccessSubject } from '../../../services/orders/order-access.service.js';
 
 const RUN = Math.random().toString(36).slice(2, 10);
@@ -541,5 +542,48 @@ describe('the index the claim-aware read is built for', () => {
     );
     expect(rows).toHaveLength(1);
     expect(rows[0]?.indexdef).toMatch(/claimed_by_oxy_user_id IS NOT NULL/);
+  });
+});
+
+
+describe('buyer history views filter before counting and paginating', () => {
+  it('keeps active/past status buckets, claimed guests and other accounts isolated', async () => {
+    const buyer = `history-${uuidv7()}`;
+    const stranger = `history-other-${uuidv7()}`;
+    const expected: Record<'active' | 'past', string[]> = { active: [], past: [] };
+    for (const status of ORDER_STATUSES) {
+      const id = await insertRawOrder({ buyerOrigin: 'oxy', buyerOxyUserId: buyer, status });
+      expected[BUYER_ORDER_VIEW_BY_STATUS[status]].push(id);
+      await insertRawOrder({ buyerOrigin: 'oxy', buyerOxyUserId: stranger, status });
+    }
+    for (const status of ['processing', 'delivered'] as const) {
+      const contact = await makeGuestContact();
+      const id = await insertRawOrder({ buyerOrigin: 'guest', buyerGuestCheckoutId: contact.id,
+        checkoutGroupId: contact.checkoutGroupId, claimedByOxyUserId: buyer, claimedAt: new Date(), status });
+      expected[BUYER_ORDER_VIEW_BY_STATUS[status]].push(id);
+      const unclaimed = await makeGuestContact();
+      await insertRawOrder({ buyerOrigin: 'guest', buyerGuestCheckoutId: unclaimed.id,
+        checkoutGroupId: unclaimed.checkoutGroupId, status });
+    }
+    expect(expected.active).toHaveLength(5);
+    expect(expected.past).toHaveLength(6);
+    for (const view of ['active', 'past'] as const) {
+      const filter = { buyerOrClaimantOxyUserId: buyer,
+        statuses: ORDER_STATUSES.filter(status => BUYER_ORDER_VIEW_BY_STATUS[status] === view) };
+      const ids: string[] = [];
+      for (let page = 1; page <= Math.ceil(expected[view].length / 2); page++) {
+        const result = await repo.findOrdersPage(filter, page, 2);
+        expect(result.total).toBe(expected[view].length);
+        expect(result.rows.length).toBeGreaterThan(0);
+        expect(result.rows.length).toBeLessThanOrEqual(2);
+        ids.push(...result.rows.map(row => row.id));
+      }
+      expect(new Set(ids).size).toBe(ids.length);
+      expect([...ids].sort()).toEqual([...expected[view]].sort());
+      expect((await repo.findOrdersPage(filter, 9, 2)).rows).toEqual([]);
+    }
+    const unfiltered = await repo.findOrdersPage({ buyerOrClaimantOxyUserId: buyer }, 1, 30);
+    expect(unfiltered.total).toBe(11);
+    expect(unfiltered.rows).toHaveLength(11);
   });
 });

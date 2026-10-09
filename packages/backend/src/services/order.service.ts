@@ -11,6 +11,7 @@
  * the right rows and delegates serialization.
  */
 
+import { BUYER_ORDER_VIEW_BY_STATUS, ORDER_STATUSES, type BuyerOrderView } from '@mercaria/shared-types';
 import type {
   CurrencyCode,
   MerchantOrder,
@@ -516,10 +517,13 @@ interface ListParams {
  */
 export async function getBuyerOrders(
   oxyUserId: string,
-  { page, limit }: ListParams,
+  { page, limit, view }: ListParams & { view?: BuyerOrderView },
 ): Promise<OrderPage> {
   const { rows, total } = await findOrdersPage(
-    { buyerOrClaimantOxyUserId: oxyUserId },
+    {
+      buyerOrClaimantOxyUserId: oxyUserId,
+      ...(view ? { statuses: ORDER_STATUSES.filter(status => BUYER_ORDER_VIEW_BY_STATUS[status] === view) } : {}),
+    },
     page,
     limit,
   );
