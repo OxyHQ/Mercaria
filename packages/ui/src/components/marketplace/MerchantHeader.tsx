@@ -1,4 +1,5 @@
 import { merchantImageSource } from "../../lib/shop-merchant-images";
+import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { MoreHorizontal } from "lucide-react-native";
@@ -50,6 +51,8 @@ export interface MerchantHeaderProps {
   exclusiveOffer?: boolean;
   onPress: () => void;
   onMore?: () => void;
+  /** Anchored action control supplied by the consuming app, for example a Bloom menu. */
+  moreAction?: ReactNode;
   /**
    * Visual variant:
    * - `large` — bigger logo, name + rating, and an outlined "Visit store"
@@ -125,6 +128,7 @@ export function MerchantHeader({
   reviewCount,
   onPress,
   onMore,
+  moreAction,
   size = "compact",
   scopeLabel = "Seller service",
   discountPercent,
@@ -186,7 +190,7 @@ export function MerchantHeader({
             {t(MERCHANT_HEADER_VISIT_STORE_KEY)}
           </Text>
         </Pressable>
-      ) : onMore ? (
+      ) : moreAction ?? (onMore ? (
         <Pressable
           onPress={onMore}
           accessibilityRole="button"
@@ -196,7 +200,7 @@ export function MerchantHeader({
         >
           <MoreHorizontal size={OVERFLOW_ICON_SIZE} className="text-text-tertiary" />
         </Pressable>
-      ) : null}
+      ) : null)}
     </View>
   );
 }

@@ -15,10 +15,10 @@ import { submitAbuseReport } from "@/lib/api/reports";
 import { useTranslation } from "@/lib/i18n";
 
 /**
- * One abuse-report form for sellers and stores, using the existing POST /reports
+ * One abuse-report form for listings, sellers and stores, using the existing POST /reports
  * intake. A successful receipt means stored, never a promised moderation outcome.
  * The subject id belongs to its declared type: Oxy user id for a seller, Mercaria
- * store id for a store. Identity enforcement remains with Oxy.
+ * store id for a store, listing id for a product offer. Identity enforcement remains with Oxy.
  */
 
 /**

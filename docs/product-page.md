@@ -344,6 +344,14 @@ the vocabulary is the reason: `ABUSE_REPORTED_TYPES` is
 product is Mercaria's own catalogue record — a wrong specification is a data
 correction (#59's queue), not somebody's content to be moderated. Reporting a
 LISTING is on that listing's own page, where `POST /reports` has a type for it.
+The listing's **More actions → Report product** menu uses Bloom's dropdown and
+the shared abuse-report dialog with `reportedType: 'listing'` and the displayed
+listing id. It is available in the desktop merchant header and beside the
+mobile Save/Share controls, including secondhand listings. Guests see the
+existing Oxy sign-in action; no report is submitted without authentication.
+Store policies and **Report store** remain in the store page's own menu.
+Contact information is not shown because `StoreSummary` has no published
+contact fields; private admin or Oxy account fields are not a substitute.
 
 ## Reaching the page
 

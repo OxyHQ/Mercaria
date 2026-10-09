@@ -302,8 +302,8 @@ test("canonical products use the complete gallery and keep purchase availability
 
 test("store reviews expose the next page and preserve real verification labels", async ({ page, request }) => {
   const product = await seededProduct(request);
-  await page.goto(`/products/${product.id}`);
-  await page.getByRole("button", { name: "More options", exact: true }).click();
+  await page.goto(`/stores/${product.store!.handle}`);
+  await page.getByRole("button", { name: `Open ${product.store!.name} menu`, exact: true }).click();
   await page.getByRole("button", { name: "View this store's service reviews" }).click();
   await expect(page.getByText(/Page .*1.* of .*2/)).toBeVisible();
   await page.getByRole("button", { name: "Next", exact: true }).click();
@@ -359,7 +359,7 @@ test("store menu reads authored policies, returns to its menu and opens the repo
   const product = await seededProduct(request);
   const privacy = "This store uses order details only to fulfil purchases.";
   const returns = "Contact this store within fourteen days for return instructions.";
-  await page.route(`**/listings/${product.id}`, async route => {
+  await page.route(new RegExp(`^http://localhost:4160/stores/${product.store!.handle}(?:\\?.*)?$`), async route => {
     const response = await route.fetch();
     const body = await response.json();
     body.data.store.privacyPolicy = privacy;
@@ -370,8 +370,8 @@ test("store menu reads authored policies, returns to its menu and opens the repo
   page.on("request", request => {
     if (request.method() === "POST" && new URL(request.url()).pathname === "/reports") reports++;
   });
-  await page.goto(`/products/${product.id}`);
-  await page.getByRole("button", { name: "More options", exact: true }).click();
+  await page.goto(`/stores/${product.store!.handle}`);
+  await page.getByRole("button", { name: `Open ${product.store!.name} menu`, exact: true }).click();
   await page.getByRole("button", { name: "Privacy policy", exact: true }).click();
   await expect(page.getByText(privacy, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Back", exact: true }).click();
@@ -387,15 +387,15 @@ test("store menu reads authored policies, returns to its menu and opens the repo
 
 test("store menu omits unpublished policies", async ({ page, request }) => {
   const product = await seededProduct(request);
-  await page.route(`**/listings/${product.id}`, async route => {
+  await page.route(new RegExp(`^http://localhost:4160/stores/${product.store!.handle}(?:\\?.*)?$`), async route => {
     const response = await route.fetch();
     const body = await response.json();
     body.data.store.privacyPolicy = "  ";
     delete body.data.store.refundPolicy;
     await route.fulfill({ response, json: body });
   });
-  await page.goto(`/products/${product.id}`);
-  await page.getByRole("button", { name: "More options", exact: true }).click();
+  await page.goto(`/stores/${product.store!.handle}`);
+  await page.getByRole("button", { name: `Open ${product.store!.name} menu`, exact: true }).click();
   await expect(page.getByRole("button", { name: "Report store", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Privacy policy", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Return policy", exact: true })).toHaveCount(0);
@@ -471,3 +471,30 @@ test("a deep-linked option beyond the preview stays selected and visible before 
   await expect(page.getByRole("button", { name: "Size: Option 26", exact: true }))
     .toHaveAttribute("aria-pressed", "true");
 });
+
+for (const width of [1440, 390]) {
+  test(`product actions report the listing instead of its store at ${width}px`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const product = await seededProduct(request);
+    let reports = 0;
+    page.on("request", request => {
+      if (request.method() === "POST" && new URL(request.url()).pathname === "/reports") reports++;
+    });
+    await page.goto(`/products/${product.id}`);
+    const trigger = page.getByRole("button", { name: "More actions", exact: true });
+    await trigger.click();
+    const menu = page.getByRole("menu", { name: "More actions", exact: true });
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Report product", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Report store", exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await trigger.click();
+    await menu.getByRole("menuitem", { name: "Report product", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: `Report ${product.title}`, exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in to report", exact: true })).toBeVisible();
+    expect(reports).toBe(0);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+}

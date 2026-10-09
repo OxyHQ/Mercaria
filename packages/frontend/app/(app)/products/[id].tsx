@@ -39,8 +39,7 @@ import { ScreenShell } from "@/components/shell/ScreenShell";
 import { ProductDescription } from "@/components/product/ProductDescription";
 import { ProductReviewsDialog } from "@/components/product/ProductReviewsDialog";
 import { Footer } from "@/components/shell/Footer";
-import { StoreMenuSheet } from "@/components/store/StoreMenuSheet";
-import { useStoreCollections } from "@/lib/hooks/use-store";
+import { ProductActionsMenu } from "@/components/product/ProductActionsMenu";
 import { StoreFollowButton } from "@/components/store/StoreFollowButton";
 import { SellerLinkCard } from "@/components/seller/SellerLinkCard";
 import { useProduct, useProductReviews } from "@/lib/hooks/use-product";
@@ -294,8 +293,6 @@ function ProductBody({ listing }: ProductBodyProps) {
     ]) ?? [],
   );
   const [quantity, setQuantity] = useState(1);
-  const [storeMenuOpen, setStoreMenuOpen] = useState(false);
-  const storeCollections = useStoreCollections(storeMenuOpen ? listing.store?.handle ?? "" : "");
   const [reviewScope, setReviewScope] = useState<"product" | "p2p_listing">();
   const [sections, setSections] = useState<string | string[] | undefined>([
     "description",
@@ -449,7 +446,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                 rating={identity.rating}
                 reviewCount={identity.reviewCount}
                 onPress={onPressStore}
-                onMore={listing.store ? () => setStoreMenuOpen(true) : undefined}
+                moreAction={<ProductActionsMenu listingId={listing.id} title={listing.title} />}
                 size="compact"
               />
             </View>
@@ -746,6 +743,9 @@ function ProductBody({ listing }: ProductBodyProps) {
                     : t("product.share")}
                 </Text>
               </Pressable>
+              <View className="justify-center lg:hidden">
+                <ProductActionsMenu listingId={listing.id} title={listing.title} />
+              </View>
             </View>
 
             {shareLink.failed ? (
@@ -852,16 +852,6 @@ function ProductBody({ listing }: ProductBodyProps) {
           <RelatedFromStore store={listing.store} excludeId={listing.id} />
         ) : null}
 
-        {listing.store && storeMenuOpen ? (
-          <StoreMenuSheet open onClose={() => setStoreMenuOpen(false)}
-            store={listing.store}
-            collections={(storeCollections.data ?? []).filter(collection => collection.isPublished)}
-            onSelectCollection={(collection) => {
-              setStoreMenuOpen(false);
-              router.push({ pathname: "/stores/[handle]",
-                params: { handle: listing.store!.handle, ...(collection ? { collection } : {}) } });
-            }} />
-        ) : null}
         {reviewScope ? (
           <ProductReviewsDialog
             listingId={listing.id}
