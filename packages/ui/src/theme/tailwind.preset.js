@@ -57,28 +57,28 @@ module.exports = {
       },
       fontSize: {
         // Shopify "Shop" type ramp (`text-<key>`). Each token bakes in size +
-        // lineHeight + fontWeight so `text-captionBold` carries weight 700, etc.
+        // lineHeight + fontWeight + letterSpacing; mirrored in shop-typography.css.
         // Additive — the default `text-xs`/`text-sm`/`text-base` ramp is untouched.
-        caption: ["12px", { lineHeight: "16px", fontWeight: "400" }],
-        captionMedium: ["12px", { lineHeight: "16px", fontWeight: "500" }],
-        captionBold: ["12px", { lineHeight: "16px", fontWeight: "700" }],
-        badge: ["11px", { lineHeight: "14px", fontWeight: "500" }],
-        badgeBold: ["11px", { lineHeight: "14px", fontWeight: "700" }],
-        bodySmall: ["14px", { lineHeight: "20px", fontWeight: "400" }],
+        caption: ["12px", { lineHeight: "16px", fontWeight: "400", letterSpacing: "-.2px" }],
+        captionMedium: ["12px", { lineHeight: "16px", fontWeight: "500", letterSpacing: "-.2px" }],
+        captionBold: ["12px", { lineHeight: "16px", fontWeight: "600", letterSpacing: "-.2px" }],
+        badge: ["10px", { lineHeight: "13px", fontWeight: "400", letterSpacing: "-.2px" }],
+        badgeBold: ["10px", { lineHeight: "13px", fontWeight: "600", letterSpacing: "-.2px" }],
+        bodySmall: ["14px", { lineHeight: "18px", fontWeight: "400", letterSpacing: "-.2px" }],
         body: ["16px", { lineHeight: "24px", fontWeight: "400" }],
-        bodyTitleSmall: ["14px", { lineHeight: "20px", fontWeight: "600" }],
-        bodyTitleLarge: ["18px", { lineHeight: "24px", fontWeight: "700" }],
-        subtitle: ["18px", { lineHeight: "24px", fontWeight: "600" }],
-        sectionTitle: ["22px", { lineHeight: "28px", fontWeight: "700" }],
-        header: ["28px", { lineHeight: "32px", fontWeight: "400" }],
-        headerBold: ["28px", { lineHeight: "32px", fontWeight: "700" }],
-        buttonSmall: ["13px", { lineHeight: "16px", fontWeight: "600" }],
-        buttonMedium: ["14px", { lineHeight: "20px", fontWeight: "600" }],
-        buttonLarge: ["16px", { lineHeight: "20px", fontWeight: "600" }],
+        bodyTitleSmall: ["14px", { lineHeight: "18px", fontWeight: "600", letterSpacing: "-.2px" }],
+        bodyTitleLarge: ["16px", { lineHeight: "22px", fontWeight: "600", letterSpacing: "-.5px" }],
+        subtitle: ["18px", { lineHeight: "20px", fontWeight: "600", letterSpacing: "-.5px" }],
+        sectionTitle: ["20px", { lineHeight: "22px", fontWeight: "600", letterSpacing: "-1px" }],
+        header: ["28px", { lineHeight: "30px", fontWeight: "700", letterSpacing: "-1.75px" }],
+        headerBold: ["24px", { lineHeight: "26px", fontWeight: "600", letterSpacing: "-1px" }],
+        buttonSmall: ["12px", { lineHeight: "16px", fontWeight: "600", letterSpacing: "-.2px" }],
+        buttonMedium: ["14px", { lineHeight: "16px", fontWeight: "600", letterSpacing: "-.2px" }],
+        buttonLarge: ["16px", { lineHeight: "20px", fontWeight: "600", letterSpacing: "-.5px" }],
         // The category page's poster headline (md breakpoint up) — bigger than
         // any size the ramp above carries, so it is its own token rather than a
         // variant of `header`.
-        posterXS: ["40px", { lineHeight: "44px", fontWeight: "700" }],
+        posterXS: ["36px", { lineHeight: "38px", fontWeight: "800", letterSpacing: "-1px" }],
       },
       fontWeight: {
         // Matching `font-<key>` weight tokens so the original's `font-X text-X`
@@ -86,23 +86,23 @@ module.exports = {
         // are untouched.
         caption: "400",
         captionMedium: "500",
-        captionBold: "700",
-        badge: "500",
-        badgeBold: "700",
+        captionBold: "600",
+        badge: "400",
+        badgeBold: "600",
         bodySmall: "400",
         body: "400",
         bodyTitleSmall: "600",
-        bodyTitleLarge: "700",
+        bodyTitleLarge: "600",
         subtitle: "600",
-        sectionTitle: "700",
-        header: "400",
-        headerBold: "700",
+        sectionTitle: "600",
+        header: "700",
+        headerBold: "600",
         buttonSmall: "600",
         buttonMedium: "600",
         buttonLarge: "600",
         // Matches `fontSize.posterXS` so `font-posterXS text-posterXS` resolves
         // verbatim, same as every other pair in this block.
-        posterXS: "700",
+        posterXS: "800",
       },
       colors: {
         // NOT the source of truth under Tailwind v4: colours are generated from

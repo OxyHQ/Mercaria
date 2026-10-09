@@ -238,9 +238,13 @@ test('thread composer measures its real width and shrinks after clearing multili
   await page.setViewportSize({ width: 390, height: 844 });
   await input.fill('');
   await expect.poll(async () => (await composer.boundingBox())?.height).toBe(64);
-  const box = await composer.boundingBox();
-  expect(box!.x).toBeGreaterThanOrEqual(0);
-  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  // NativeWind's viewport subscription and the input's content-size update
+  // settle independently. A collapsed height does not yet imply mobile width.
+  await expect.poll(async () => (await composer.boundingBox())?.x).toBeGreaterThanOrEqual(0);
+  await expect.poll(async () => {
+    const box = await composer.boundingBox();
+    return box ? box.x + box.width : Infinity;
+  }).toBeLessThanOrEqual(390);
 });
 
 test('editorial curation matches the reference cover, reading column and mobile composition', async ({ page }) => {

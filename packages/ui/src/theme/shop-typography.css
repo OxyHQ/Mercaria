@@ -1,0 +1,106 @@
+/* Shop type measurements from its public CSS, inspected 2026-10-09.
+ * Shared by all apps; Inter remains Mercaria's font family.
+ * `body` is Mercaria's existing reading-text token, not a Shop token.
+ */
+@theme {
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--font-weight: 400;
+  --text-caption--letter-spacing: -.2px;
+  --font-weight-caption: 400;
+
+  --text-captionMedium: 12px;
+  --text-captionMedium--line-height: 16px;
+  --text-captionMedium--font-weight: 500;
+  --text-captionMedium--letter-spacing: -.2px;
+  --font-weight-captionMedium: 500;
+
+  --text-captionBold: 12px;
+  --text-captionBold--line-height: 16px;
+  --text-captionBold--font-weight: 600;
+  --text-captionBold--letter-spacing: -.2px;
+  --font-weight-captionBold: 600;
+
+  --text-badge: 10px;
+  --text-badge--line-height: 13px;
+  --text-badge--font-weight: 400;
+  --text-badge--letter-spacing: -.2px;
+  --font-weight-badge: 400;
+
+  --text-badgeBold: 10px;
+  --text-badgeBold--line-height: 13px;
+  --text-badgeBold--font-weight: 600;
+  --text-badgeBold--letter-spacing: -.2px;
+  --font-weight-badgeBold: 600;
+
+  --text-bodySmall: 14px;
+  --text-bodySmall--line-height: 18px;
+  --text-bodySmall--font-weight: 400;
+  --text-bodySmall--letter-spacing: -.2px;
+  --font-weight-bodySmall: 400;
+
+  --text-bodyTitleSmall: 14px;
+  --text-bodyTitleSmall--line-height: 18px;
+  --text-bodyTitleSmall--font-weight: 600;
+  --text-bodyTitleSmall--letter-spacing: -.2px;
+  --font-weight-bodyTitleSmall: 600;
+
+  --text-bodyTitleLarge: 16px;
+  --text-bodyTitleLarge--line-height: 22px;
+  --text-bodyTitleLarge--font-weight: 600;
+  --text-bodyTitleLarge--letter-spacing: -.5px;
+  --font-weight-bodyTitleLarge: 600;
+
+  --text-subtitle: 18px;
+  --text-subtitle--line-height: 20px;
+  --text-subtitle--font-weight: 600;
+  --text-subtitle--letter-spacing: -.5px;
+  --font-weight-subtitle: 600;
+
+  --text-sectionTitle: 20px;
+  --text-sectionTitle--line-height: 22px;
+  --text-sectionTitle--font-weight: 600;
+  --text-sectionTitle--letter-spacing: -1px;
+  --font-weight-sectionTitle: 600;
+
+  --text-header: 28px;
+  --text-header--line-height: 30px;
+  --text-header--font-weight: 700;
+  --text-header--letter-spacing: -1.75px;
+  --font-weight-header: 700;
+
+  --text-headerBold: 24px;
+  --text-headerBold--line-height: 26px;
+  --text-headerBold--font-weight: 600;
+  --text-headerBold--letter-spacing: -1px;
+  --font-weight-headerBold: 600;
+
+  --text-buttonSmall: 12px;
+  --text-buttonSmall--line-height: 16px;
+  --text-buttonSmall--font-weight: 600;
+  --text-buttonSmall--letter-spacing: -.2px;
+  --font-weight-buttonSmall: 600;
+
+  --text-buttonMedium: 14px;
+  --text-buttonMedium--line-height: 16px;
+  --text-buttonMedium--font-weight: 600;
+  --text-buttonMedium--letter-spacing: -.2px;
+  --font-weight-buttonMedium: 600;
+
+  --text-buttonLarge: 16px;
+  --text-buttonLarge--line-height: 20px;
+  --text-buttonLarge--font-weight: 600;
+  --text-buttonLarge--letter-spacing: -.5px;
+  --font-weight-buttonLarge: 600;
+
+  --text-posterXS: 36px;
+  --text-posterXS--line-height: 38px;
+  --text-posterXS--font-weight: 800;
+  --text-posterXS--letter-spacing: -1px;
+  --font-weight-posterXS: 800;
+
+  --text-body: 16px;
+  --text-body--line-height: 24px;
+  --text-body--font-weight: 400;
+  --font-weight-body: 400;
+}

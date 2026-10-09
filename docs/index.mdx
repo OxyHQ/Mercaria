@@ -20,6 +20,10 @@ schema decision. `HANDOFF.md` holds deferred work.
 - `packages/ui/` — shared components, consumed from source with no dist. Built
   on `@oxy.so/bloom` (Oxy's cross-app UI primitives) plus `@mercaria/ui`'s own
   marketplace-specific components; do not duplicate what Bloom already provides.
+  All three apps import `@mercaria/ui/theme/shop-typography.css` for the shared
+  marketplace type scale, measured from Shop's public CSS on 2026-10-09.
+  It defines size, line height, weight and tracking; Mercaria keeps Inter as its
+  font family. The legacy Tailwind preset mirrors these values for v3 consumers.
 - `packages/backend/` — Express API (TypeScript, PostgreSQL via drizzle-orm +
   `@oxy.so/db`, Socket.IO)
 - `packages/shared-types/` — DTOs and every closed value set
