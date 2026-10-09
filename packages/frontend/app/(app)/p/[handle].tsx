@@ -105,6 +105,7 @@ export default function CanonicalProductPageScreen() {
 
   const reviews = useProductScopeReviews(page?.product.id, 1, 12);
   const [reviewsOpen, setReviewsOpen] = useState(false);
+  const [initialReviewId, setInitialReviewId] = useState<string>();
   const addToCart = useAddCartItem();
   const toggleProductSave = useToggleProductSave();
   const productSave = useProductSave(page?.product.id);
@@ -324,6 +325,7 @@ export default function CanonicalProductPageScreen() {
               reviews={reviews.data?.data ?? []}
               isLoading={reviews.isLoading}
               onReadMore={() => setReviewsOpen(true)}
+              onReviewPress={(id) => { setInitialReviewId(id); setReviewsOpen(true); }}
             />
           </View>
         </View>
@@ -463,7 +465,8 @@ export default function CanonicalProductPageScreen() {
           listingId=""
           canonicalProductId={page.product.id}
           scope="product"
-          onClose={() => setReviewsOpen(false)}
+          initialReviewId={initialReviewId}
+          onClose={() => { setReviewsOpen(false); setInitialReviewId(undefined); }}
         />
       ) : null}
     </ScreenShell>

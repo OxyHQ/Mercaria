@@ -427,6 +427,11 @@
       "nativeTransaction": "你对这笔购买的评价",
       "p2pListing": "你对商品描述的评价",
       "p2pSeller": "你对这位卖家的评价"
+    },
+    "search": {
+      "placeholder": "搜索评价",
+      "noResults": "没有符合搜索条件的评价。",
+      "results": "搜索结果：%{results}条"
     }
   },
   "search": {

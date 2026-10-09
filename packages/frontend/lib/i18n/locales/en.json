@@ -427,6 +427,11 @@
       "nativeTransaction": "Your review of this purchase",
       "p2pListing": "Your review of the item description",
       "p2pSeller": "Your review of this seller"
+    },
+    "search": {
+      "placeholder": "Search reviews",
+      "noResults": "No reviews match your search.",
+      "results": "Search results: %{results}"
     }
   },
   "search": {

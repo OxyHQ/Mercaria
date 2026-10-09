@@ -876,6 +876,7 @@
       "verifiedRatings": "Notas verificadas: %{ratings}",
       "unverified": "Não verificadas: %{ratings} · %{rating}",
       "readMore": "Ler mais avaliações",
+      "open": "Ler avaliação de %{author}",
       "none": "Ainda não há avaliações",
       "ratings": "%{ratings} avaliações",
       "fallbackAuthor": "Comprador da Mercaria",

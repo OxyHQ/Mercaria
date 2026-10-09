@@ -883,6 +883,7 @@
       "verifiedRatings": "Подтверждённых оценок: %{ratings}",
       "unverified": "Неподтверждённых: %{ratings} · %{rating}",
       "readMore": "Читать больше отзывов",
+      "open": "Прочитать отзыв от %{author}",
       "none": "Отзывов пока нет",
       "ratings": "%{ratings} оценок",
       "fallbackAuthor": "Покупатель Mercaria",

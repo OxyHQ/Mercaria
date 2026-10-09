@@ -869,6 +869,7 @@
       "verifiedRatings": "सत्यापित रेटिंग: %{ratings}",
       "unverified": "असत्यापित: %{ratings} · %{rating}",
       "readMore": "और समीक्षाएँ पढ़ें",
+      "open": "%{author} की समीक्षा पढ़ें",
       "none": "अभी तक कोई समीक्षा नहीं",
       "ratings": "%{ratings} रेटिंग",
       "fallbackAuthor": "Mercaria खरीदार",

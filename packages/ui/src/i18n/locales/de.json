@@ -869,6 +869,7 @@
       "verifiedRatings": "Verifizierte Bewertungen: %{ratings}",
       "unverified": "Nicht verifiziert: %{ratings} · %{rating}",
       "readMore": "Mehr Bewertungen lesen",
+      "open": "Bewertung von %{author} lesen",
       "none": "Noch keine Bewertungen",
       "ratings": "%{ratings} Bewertungen",
       "fallbackAuthor": "Mercaria-Käufer",

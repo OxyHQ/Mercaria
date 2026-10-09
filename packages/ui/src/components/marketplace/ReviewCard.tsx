@@ -3,9 +3,11 @@ import { Image } from "expo-image";
 import type { Review } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { Rating } from "@oxy.so/bloom/rating";
+import { Button } from "@oxy.so/bloom/button";
 import { useRatingDisplay } from "../../lib/rating-display";
 import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
 import { formatDate } from "../../lib/date";
+import { useColorScheme } from "../../lib/useColorScheme";
 
 /**
  * Fallback author label when the Oxy profile does not resolve.
@@ -30,6 +32,8 @@ export interface ReviewCardProps {
   review: Review;
   /** Expanded review list: full text and container width. */
   expanded?: boolean;
+  /** Open this preview in the complete review list. Expanded cards are static. */
+  onPress?: () => void;
   /** What this review's rating is about (#76 UI rule 6), for the star label. */
   scopeLabel?: string;
 }
@@ -43,24 +47,28 @@ export function ReviewCard({
   review,
   scopeLabel,
   expanded = false,
+  onPress,
 }: ReviewCardProps) {
   const locale = useSharedUiLocale();
   const t = useSharedUiTranslation();
   const date = formatDate(review.createdAt, locale);
   const author = review.author?.displayName ?? t(FALLBACK_AUTHOR_KEY);
   const ratingDisplay = useRatingDisplay();
+  const { isDarkColorScheme } = useColorScheme();
 
-  return (
-    <View
-      testID={`review-${review.id}`}
-      className={`min-h-[140px] ${expanded ? "w-full" : "w-[280px]"} shrink-0 gap-space-8 rounded-radius-20 border-[0.5px] border-border-image bg-bg-fill p-space-16`}
-    >
+  const content = (
+    <View className="flex-1 gap-space-8">
       <Rating
         {...ratingDisplay({
           rating: review.rating,
+          variant: "stars",
           ...(scopeLabel ? { subject: scopeLabel } : {}),
         })}
         size="small"
+        variant="stars"
+        showValue={false}
+        starSize={expanded ? 20 : 12}
+        color={isDarkColorScheme ? "#ffffff" : "#000000"}
       />
       {/*
         The verification state comes off the REVIEW, not off whether the author
@@ -74,8 +82,7 @@ export function ReviewCard({
       </Text>
       {review.title ? (
         <Text
-          numberOfLines={expanded ? undefined : 1}
-          className="text-shop-captionMedium text-text"
+          className={expanded ? "text-shop-bodyTitleLarge text-text" : "text-shop-captionMedium text-text"}
         >
           {review.title}
         </Text>
@@ -83,7 +90,7 @@ export function ReviewCard({
       {review.body ? (
         <Text
           numberOfLines={expanded ? undefined : 4}
-          className="text-shop-caption text-text"
+          className={expanded ? "text-shop-bodySmall text-text" : "text-shop-caption text-text"}
         >
           {review.body}
         </Text>
@@ -110,5 +117,21 @@ export function ReviewCard({
         </Text>
       </View>
     </View>
+  );
+  const className = `h-auto min-h-[140px] w-full shrink-0 rounded-radius-20 border-[0.5px] p-space-16 ${expanded
+    ? `bg-transparent shadow-shop-s ${isDarkColorScheme ? "border-white/10" : "border-[#183b4e0f]"}`
+    : isDarkColorScheme ? "border-white/20 bg-[#121212]" : "border-black/10 bg-white"}`;
+  return onPress && !expanded ? (
+    <Button
+      material="flat"
+      testID={`review-${review.id}`}
+      className={`${className} items-stretch justify-start`}
+      accessibilityLabel={`${t("ui.review.open", { author })}${review.title ? `: ${review.title}` : ""}`}
+      onPress={onPress}
+    >
+      {content}
+    </Button>
+  ) : (
+    <View testID={`review-${review.id}`} className={className}>{content}</View>
   );
 }

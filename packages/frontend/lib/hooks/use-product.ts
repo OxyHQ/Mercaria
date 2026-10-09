@@ -34,10 +34,10 @@ export function useProduct(id: string) {
  * `GET /listings/:id/reviews` endpoint. Returns the paginated envelope so the
  * PDP can render the review carousel and the total review count.
  */
-export function useProductReviews(id: string, page = 1, limit = 12) {
+export function useProductReviews(id: string, page = 1, limit = 12, query = '') {
   return useQuery<ListingReviewPage>({
-    queryKey: queryKeys.listings.reviews(id, page),
-    queryFn: () => fetchListingReviews(id, { page, limit }),
+    queryKey: queryKeys.listings.reviews(id, page, limit, query),
+    queryFn: () => fetchListingReviews(id, { page, limit, query }),
     enabled: !!id,
     staleTime: STALE_TIME,
     retry: 2,

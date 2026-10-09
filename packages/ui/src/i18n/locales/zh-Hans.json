@@ -869,6 +869,7 @@
       "verifiedRatings": "已核实的评分：%{ratings}",
       "unverified": "未核实：%{ratings} · %{rating}",
       "readMore": "阅读更多评价",
+      "open": "阅读%{author}的评价",
       "none": "还没有评价",
       "ratings": "%{ratings}条评分",
       "fallbackAuthor": "Mercaria 买家",

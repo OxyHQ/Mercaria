@@ -869,6 +869,7 @@
       "verifiedRatings": "確認済みの評価: %{ratings}",
       "unverified": "未確認: %{ratings} · %{rating}",
       "readMore": "レビューをもっと読む",
+      "open": "%{author}のレビューを読む",
       "none": "レビューはまだありません",
       "ratings": "%{ratings}件の評価",
       "fallbackAuthor": "Mercariaの購入者",

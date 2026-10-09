@@ -431,6 +431,11 @@
       "nativeTransaction": "La teva valoració d'aquesta compra",
       "p2pListing": "La teva valoració de la descripció de l'article",
       "p2pSeller": "La teva valoració d'aquest venedor"
+    },
+    "search": {
+      "placeholder": "Cerca ressenyes",
+      "noResults": "No hi ha ressenyes que coincideixin amb la cerca.",
+      "results": "Resultats de cerca: %{results}"
     }
   },
   "search": {

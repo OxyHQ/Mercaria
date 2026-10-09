@@ -431,6 +431,11 @@
       "nativeTransaction": "Votre avis sur cet achat",
       "p2pListing": "Votre avis sur la description de l'article",
       "p2pSeller": "Votre avis sur ce vendeur"
+    },
+    "search": {
+      "placeholder": "Rechercher des avis",
+      "noResults": "Aucun avis ne correspond à votre recherche.",
+      "results": "Résultats de recherche : %{results}"
     }
   },
   "search": {

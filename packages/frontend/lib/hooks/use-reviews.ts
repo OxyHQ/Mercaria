@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CreateReviewInput,
   ReviewEligibility,
@@ -7,6 +7,7 @@ import type {
 import { useOxy } from '@oxy.so/services';
 import {
   createReview,
+  fetchListingReviews,
   fetchMerchantReviews,
   fetchProductReviews,
   fetchReviewEligibilities,
@@ -58,21 +59,46 @@ export const REVIEW_SCOPE_HEADING_KEYS: Readonly<Record<ReviewScope, string>> = 
 Object.freeze(REVIEW_SCOPE_HEADING_KEYS);
 
 /** A canonical product's PRODUCT reviews plus the aggregate the page shows. */
-export function useProductScopeReviews(canonicalProductId: string | undefined, page = 1, limit = 12) {
+export function useProductScopeReviews(canonicalProductId: string | undefined, page = 1, limit = 12, query = '') {
   return useQuery<ScopedReviewPage>({
-    queryKey: queryKeys.reviews.product(canonicalProductId ?? '', page),
-    queryFn: () => fetchProductReviews(canonicalProductId ?? '', { page, limit }),
+    queryKey: queryKeys.reviews.product(canonicalProductId ?? '', page, limit, query),
+    queryFn: () => fetchProductReviews(canonicalProductId ?? '', { page, limit, query }),
     enabled: !!canonicalProductId,
     staleTime: STALE_TIME,
     retry: 2,
   });
 }
 
+/** The full sheet appends server pages; preview queries keep their own shape. */
+export function useInfiniteProductReviews(scope: 'product' | 'p2p_listing', id: string, query = '', limit = 12) {
+  return useInfiniteQuery({
+    queryKey: scope === 'product'
+      ? queryKeys.reviews.productInfinite(id, limit, query)
+      : queryKeys.listings.infiniteReviews(id, limit, query),
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
+      const params = { page: pageParam, limit, query };
+      if (scope === 'product') {
+        const page = await fetchProductReviews(id, params);
+        return { ...page, aggregate: page.aggregate };
+      }
+      const page = await fetchListingReviews(id, params);
+      return { ...page, aggregate: undefined };
+    },
+    getNextPageParam: (lastPage) => lastPage.pagination.hasNextPage
+      ? lastPage.pagination.page + 1
+      : undefined,
+    enabled: !!id,
+    staleTime: STALE_TIME,
+    retry: 2,
+  });
+}
+
 /** A merchant's SERVICE reviews plus the aggregate the page shows. */
-export function useMerchantReviews(merchantId: string | undefined, page = 1, limit = 12) {
+export function useMerchantReviews(merchantId: string | undefined, page = 1, limit = 12, query = '') {
   return useQuery<ScopedReviewPage>({
-    queryKey: queryKeys.reviews.merchant(merchantId ?? '', page),
-    queryFn: () => fetchMerchantReviews(merchantId ?? '', { page, limit }),
+    queryKey: queryKeys.reviews.merchant(merchantId ?? '', page, limit, query),
+    queryFn: () => fetchMerchantReviews(merchantId ?? '', { page, limit, query }),
     enabled: !!merchantId,
     staleTime: STALE_TIME,
     retry: 2,

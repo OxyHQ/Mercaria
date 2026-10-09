@@ -14,6 +14,7 @@ import { Footer } from '@/components/shell/Footer';
 import { DigitalPackagePicker } from '@/components/digital/DigitalPackagePicker';
 import { DigitalSurfaceNotice } from '@/components/digital/DigitalSurfaceNotice';
 import { DigitalVersionHistory } from '@/components/digital/DigitalVersionHistory';
+import { ProductReviewsDialog } from '@/components/product/ProductReviewsDialog';
 import { digitalCreatorHref } from '@/lib/digital/routes';
 import { digitalAssetPageSource } from '@/lib/digital/source';
 import { REVIEW_SCOPE_HEADING_KEYS, useProductScopeReviews } from '@/lib/hooks/use-reviews';
@@ -80,6 +81,8 @@ export default function DigitalAssetScreen() {
    * read arriving.
    */
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+  const [reviewsOpen, setReviewsOpen] = useState(false);
+  const [initialReviewId, setInitialReviewId] = useState<string>();
   const selectedPackage =
     view?.packages.find((offer) => offer.packageId === selectedPackageId) ?? view?.packages[0];
 
@@ -228,6 +231,8 @@ export default function DigitalAssetScreen() {
                   distribution={distribution}
                   reviews={reviews}
                   isLoading={reviewsQuery.isLoading}
+                  onReadMore={() => setReviewsOpen(true)}
+                  onReviewPress={(id) => { setInitialReviewId(id); setReviewsOpen(true); }}
                   {...(aggregate === undefined ? {} : { unverified: aggregate.unverified })}
                 />
               </View>
@@ -237,6 +242,15 @@ export default function DigitalAssetScreen() {
       </View>
 
       <Footer />
+      {reviewsOpen && view?.canonicalProductId ? (
+        <ProductReviewsDialog
+          listingId=""
+          canonicalProductId={view.canonicalProductId}
+          scope="product"
+          initialReviewId={initialReviewId}
+          onClose={() => { setReviewsOpen(false); setInitialReviewId(undefined); }}
+        />
+      ) : null}
     </ScreenShell>
   );
 }

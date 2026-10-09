@@ -317,6 +317,20 @@ twelve reviews it received would display a number that is not the target's
 rating — which is what the product page did before #76, and what #75's
 structured data must not mirror.
 
+The storefront's full product/listing review sheet appends these server pages
+as its own scroll viewport reaches the end. Infinite-list cache keys are separate
+from the PDP preview keys and include scope, target, page size and submitted
+search text. Enter submits trimmed text; clearing restores the unfiltered list.
+Typing alone does not filter the currently loaded page. A failed continuation
+keeps the loaded reviews and offers a retry. Review IDs prevent duplicated cards
+when offset pages overlap after a new publication.
+
+The PDP previews three reviews. Opening a preview centres that review in the
+sheet, using measured content and viewport sizes. A canonical product with no
+verified ratings still shows its separately labelled unverified reviews and
+allows opening the full list; it does not substitute their average for the
+verified aggregate or claim there are no reviews.
+
 `createReviewSchema` is `.strict()`, and that is load-bearing rather than tidy:
 every field a forbidden evidence source would arrive in is refused before any
 handler sees it. `targetType` is derived server-side from the scope, so a client

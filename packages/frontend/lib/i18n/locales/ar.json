@@ -427,6 +427,11 @@
       "nativeTransaction": "تقييمك لعملية الشراء هذه",
       "p2pListing": "تقييمك لوصف السلعة",
       "p2pSeller": "تقييمك لهذا البائع"
+    },
+    "search": {
+      "placeholder": "البحث في المراجعات",
+      "noResults": "لا توجد مراجعات تطابق بحثك.",
+      "results": "نتائج البحث: %{results}"
     }
   },
   "search": {

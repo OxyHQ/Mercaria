@@ -427,6 +427,11 @@
       "nativeTransaction": "Deine Bewertung dieses Kaufs",
       "p2pListing": "Deine Bewertung der Artikelbeschreibung",
       "p2pSeller": "Deine Bewertung dieser verkaufenden Person"
+    },
+    "search": {
+      "placeholder": "Rezensionen durchsuchen",
+      "noResults": "Keine Rezensionen entsprechen deiner Suche.",
+      "results": "Suchergebnisse: %{results}"
     }
   },
   "search": {

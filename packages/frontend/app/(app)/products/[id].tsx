@@ -243,7 +243,7 @@ interface ProductBodyProps {
 function ProductBody({ listing }: ProductBodyProps) {
   const { canUsePrivateApi } = useOxy();
   const controlClassName = useShopControlClassName();
-  const { colors } = useColorScheme();
+  const { colors, isDarkColorScheme } = useColorScheme();
   const { width, height } = useWindowDimensions();
   const gallery = useRef<ProductGalleryHandle>(null);
   const { flyToCart } = useCartFlight();
@@ -310,6 +310,7 @@ function ProductBody({ listing }: ProductBodyProps) {
   );
   const [quantity, setQuantity] = useState(1);
   const [reviewScope, setReviewScope] = useState<"product" | "p2p_listing">();
+  const [initialReviewId, setInitialReviewId] = useState<string>();
   const [sections, setSections] = useState<string | string[] | undefined>([
     "description",
     "reviews",
@@ -840,35 +841,39 @@ function ProductBody({ listing }: ProductBodyProps) {
 
             <Accordion
               type="multiple"
+              transition={{ duration: 250, easing: [0.23, 1, 0.32, 1] }}
               value={sections}
               onValueChange={setSections}
               testID="product-sections"
             >
               {listing.description ? (
-                <AccordionItem value="description">
-                  <AccordionTrigger>
+                <AccordionItem value="description" className={isDarkColorScheme ? "border-white/10" : "border-[#183b4e0f]"}>
+                  <AccordionTrigger className="px-0 py-space-16">
                     <Text accessibilityRole="header" className="text-shop-subtitle text-text">
                       {t("product.description")}
                     </Text>
                   </AccordionTrigger>
-                  <AccordionContent>
+                  <AccordionContent contentClassName="px-0 pb-space-16">
                     <ProductDescription description={listing.description} />
                   </AccordionContent>
                 </AccordionItem>
               ) : null}
-              <AccordionItem value="reviews">
-                <AccordionTrigger>
+              <AccordionItem value="reviews" className={refundPolicy
+                ? isDarkColorScheme ? "border-white/10" : "border-[#183b4e0f]"
+                : "border-0"}>
+                <AccordionTrigger className="px-0 py-space-16">
                   <Text accessibilityRole="header" className="text-shop-subtitle text-text">
                     {t("product.reviews")}
                   </Text>
                 </AccordionTrigger>
-                <AccordionContent>
+                <AccordionContent contentClassName="px-0 pb-space-16">
                   <View className="gap-space-16">
                     {listing.canonicalProductId ? (
                       <ReviewSummaryCard
                         scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
                         embedded
                         onReadMore={() => setReviewScope("product")}
+                        onReviewPress={(id) => { setInitialReviewId(id); setReviewScope("product"); }}
                         average={productAggregate?.rating ?? 0}
                         total={productAggregate?.reviewCount ?? 0}
                         distribution={productDistribution}
@@ -892,6 +897,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                         scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)}
                         embedded
                         onReadMore={() => setReviewScope("p2p_listing")}
+                        onReviewPress={(id) => { setInitialReviewId(id); setReviewScope("p2p_listing"); }}
                         average={listingSummary?.rating ?? 0}
                         verifiedOnly={false}
                         total={listingReviewTotal}
@@ -904,13 +910,13 @@ function ProductBody({ listing }: ProductBodyProps) {
                 </AccordionContent>
               </AccordionItem>
               {refundPolicy ? (
-                <AccordionItem value="returns">
-                  <AccordionTrigger>
+                <AccordionItem value="returns" className="border-0">
+                  <AccordionTrigger className="px-0 py-space-16">
                     <Text accessibilityRole="header" className="text-shop-subtitle text-text">
                       {t("product.returnPolicy")}
                     </Text>
                   </AccordionTrigger>
-                  <AccordionContent>
+                  <AccordionContent contentClassName="px-0 pb-space-16">
                     <Text className="text-shop-bodySmall text-text">
                       {refundPolicy}
                     </Text>
@@ -946,7 +952,8 @@ function ProductBody({ listing }: ProductBodyProps) {
             listingId={listing.id}
             canonicalProductId={listing.canonicalProductId}
             scope={reviewScope}
-            onClose={() => setReviewScope(undefined)}
+            initialReviewId={initialReviewId}
+            onClose={() => { setReviewScope(undefined); setInitialReviewId(undefined); }}
           />
         ) : null}
         <Footer />

@@ -431,6 +431,11 @@
       "nativeTransaction": "Sua avaliação desta compra",
       "p2pListing": "Sua avaliação da descrição do item",
       "p2pSeller": "Sua avaliação deste vendedor"
+    },
+    "search": {
+      "placeholder": "Buscar avaliações",
+      "noResults": "Nenhuma avaliação corresponde à sua busca.",
+      "results": "Resultados da busca: %{results}"
     }
   },
   "search": {

@@ -427,6 +427,11 @@
       "nativeTransaction": "この購入についてのレビュー",
       "p2pListing": "商品の説明についてのレビュー",
       "p2pSeller": "この出品者についてのレビュー"
+    },
+    "search": {
+      "placeholder": "レビューを検索",
+      "noResults": "検索に一致するレビューはありません。",
+      "results": "検索結果：%{results}件"
     }
   },
   "search": {

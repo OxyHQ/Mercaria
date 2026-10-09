@@ -1,5 +1,7 @@
 import type {
   ApiResponse,
+  PaginationParams,
+  ReviewListFilters,
   CreateReviewInput,
   PaginatedResponse,
   Review,
@@ -29,7 +31,7 @@ export interface ListingReviewPage extends PaginatedResponse<Review> {
 /** Fetch a page of a listing's published reviews. */
 export async function fetchListingReviews(
   listingId: string,
-  params?: { page?: number; limit?: number },
+  params?: PaginationParams & ReviewListFilters,
 ): Promise<ListingReviewPage> {
   const { data } = await apiClient.get<ListingReviewPage>(`/listings/${listingId}/reviews`, {
     params,
@@ -45,7 +47,7 @@ export async function fetchListingReviews(
  */
 export async function fetchStoreReviews(
   handle: string,
-  params?: { page?: number; limit?: number },
+  params?: PaginationParams & ReviewListFilters,
 ): Promise<PaginatedResponse<Review>> {
   const { data } = await apiClient.get<PaginatedResponse<Review>>(`/stores/${handle}/reviews`, {
     params,
@@ -69,7 +71,7 @@ export interface ScopedReviewPage extends ListingReviewPage {
 /** A canonical product's PRODUCT reviews — quality, durability, value. */
 export async function fetchProductReviews(
   canonicalProductId: string,
-  params?: { page?: number; limit?: number },
+  params?: PaginationParams & ReviewListFilters,
 ): Promise<ScopedReviewPage> {
   const { data } = await apiClient.get<ScopedReviewPage>(`/reviews/product/${canonicalProductId}`, {
     params,
@@ -80,7 +82,7 @@ export async function fetchProductReviews(
 /** A merchant's SERVICE reviews — fulfilment, packaging, communication. */
 export async function fetchMerchantReviews(
   merchantId: string,
-  params?: { page?: number; limit?: number },
+  params?: PaginationParams & ReviewListFilters,
 ): Promise<ScopedReviewPage> {
   const { data } = await apiClient.get<ScopedReviewPage>(`/reviews/merchant/${merchantId}`, {
     params,

@@ -110,8 +110,8 @@ export const queryKeys = {
     collections: (handle: string) => ["stores", handle, "collections"] as const,
     collection: (handle: string, collectionHandle: string) =>
       ["stores", handle, "collections", collectionHandle] as const,
-    reviews: (handle: string, page: number) =>
-      ["stores", handle, "reviews", page] as const,
+    reviews: (handle: string, page: number, limit = 20, query = "") =>
+      ["stores", handle, "reviews", page, { limit, query }] as const,
     // Keyed on the store ID, not the handle like its siblings: the follow
     // target is identified by the immutable id (see `lib/follow-graph.ts`).
     followTarget: (storeId: string) => ["stores", "follow-target", storeId] as const,
@@ -145,8 +145,10 @@ export const queryKeys = {
     list: (query: ListingQuery & { page?: number; limit?: number }) =>
       ["listings", query] as const,
     detail: (id: string) => ["listings", id] as const,
-    reviews: (id: string, page: number) =>
-      ["listings", id, "reviews", page] as const,
+    reviews: (id: string, page: number, limit = 12, query = "") =>
+      ["listings", id, "reviews", page, { limit, query }] as const,
+    infiniteReviews: (id: string, limit: number, query: string) =>
+      ["listings", id, "reviews", "infinite", { limit, query }] as const,
   },
   /**
    * Saves (#80). Filed under their own key rather than under `listings`,
@@ -196,11 +198,13 @@ export const queryKeys = {
   reviews: {
     productAll: (canonicalProductId: string) =>
       ["reviews", "product", canonicalProductId] as const,
-    product: (canonicalProductId: string, page: number) =>
-      ["reviews", "product", canonicalProductId, page] as const,
+    product: (canonicalProductId: string, page: number, limit = 12, query = "") =>
+      ["reviews", "product", canonicalProductId, page, { limit, query }] as const,
+    productInfinite: (canonicalProductId: string, limit: number, query: string) =>
+      ["reviews", "product", canonicalProductId, "infinite", { limit, query }] as const,
     merchantAll: (merchantId: string) => ["reviews", "merchant", merchantId] as const,
-    merchant: (merchantId: string, page: number) =>
-      ["reviews", "merchant", merchantId, page] as const,
+    merchant: (merchantId: string, page: number, limit = 12, query = "") =>
+      ["reviews", "merchant", merchantId, page, { limit, query }] as const,
     eligibilities: ["reviews", "eligibilities"] as const,
   },
   /**

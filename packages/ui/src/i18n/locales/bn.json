@@ -869,6 +869,7 @@
       "verifiedRatings": "যাচাই করা রেটিং: %{ratings}",
       "unverified": "যাচাই না করা: %{ratings} · %{rating}",
       "readMore": "আরও পর্যালোচনা পড়ুন",
+      "open": "%{author}-এর পর্যালোচনা পড়ুন",
       "none": "এখনও কোনো পর্যালোচনা নেই",
       "ratings": "%{ratings} রেটিং",
       "fallbackAuthor": "Mercaria ক্রেতা",

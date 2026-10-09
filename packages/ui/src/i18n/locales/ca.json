@@ -876,6 +876,7 @@
       "verifiedRatings": "Valoracions verificades: %{ratings}",
       "unverified": "Sense verificar: %{ratings} · %{rating}",
       "readMore": "Llegeix més ressenyes",
+      "open": "Llegeix la ressenya de %{author}",
       "none": "Encara no hi ha ressenyes",
       "ratings": "%{ratings} valoracions",
       "fallbackAuthor": "Comprador de Mercaria",

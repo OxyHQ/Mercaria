@@ -869,6 +869,7 @@
       "verifiedRatings": "التقييمات الموثّقة: %{ratings}",
       "unverified": "غير موثّقة: %{ratings} · %{rating}",
       "readMore": "اقرأ المزيد من المراجعات",
+      "open": "قراءة مراجعة %{author}",
       "none": "لا توجد مراجعات بعد",
       "ratings": "%{ratings} تقييمات",
       "fallbackAuthor": "مشتري من Mercaria",

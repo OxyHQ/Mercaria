@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import type { Listing, PublicAttributeValue } from "../../../packages/shared-types/src";
+import type { Listing, PublicAttributeValue, Review } from "../../../packages/shared-types/src";
 
 async function seededProduct(request: APIRequestContext): Promise<Listing> {
   const feed = await (await request.get("http://localhost:4160/feed")).json();
@@ -510,7 +510,132 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
   });
 }
 
-test("reviews read all server ratings and open a paginated list with full text", async ({
+test("review preview arrows reveal on hover and keyboard focus and stay absent on mobile", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  await page.goto(`/products/${product.id}`);
+  const carousel = page.getByTestId("review-preview-carousel");
+  const next = carousel.getByRole("button", { name: "Go to the next item", exact: true });
+  const track = carousel.locator("[data-bloom-carousel-track]");
+  const arrows = page.getByTestId("review-preview-carousel-overlay-arrows");
+  const nextArrow = arrows.locator("[data-bloom-carousel-arrow]").last();
+  await carousel.scrollIntoViewIfNeeded();
+  await page.mouse.move(0, 0);
+  await expect(nextArrow).toHaveCSS("opacity", "0");
+  await carousel.hover();
+  await expect(nextArrow).toHaveCSS("opacity", "1");
+  await next.click();
+  await expect.poll(() => track.evaluate(element => element.scrollLeft)).toBeGreaterThan(250);
+  await page.mouse.move(0, 0);
+  await next.focus();
+  await expect(nextArrow).toHaveCSS("opacity", "1");
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await expect(arrows).toHaveCount(0);
+  await expect(carousel.getByRole("button", { name: /^Read review by/ })).toHaveCount(3);
+  const readMore = page.getByRole("button", { name: "Read more reviews", exact: true });
+  await page.mouse.move(0, 0);
+  await expect(readMore).toHaveCSS("background-color", "rgb(242, 244, 245)");
+});
+
+for (const width of [1440, 390]) {
+  test(`review previews open the selected review and restore the trigger at ${width}px`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const product = await seededProduct(request);
+    const response = await (await request.get(
+      `http://localhost:4160/listings/${product.id}/reviews?limit=12`,
+    )).json();
+    const selectedReview = response.data[2];
+    expect(selectedReview).toBeTruthy();
+    await page.goto(`/products/${product.id}`);
+    const sections = page.getByTestId("product-sections");
+    const preview = sections.getByTestId(`review-${selectedReview.id}`);
+    await expect(sections.getByTestId("review-preview-carousel").getByRole("button", { name: /^Read review by/ })).toHaveCount(3);
+    await expect(preview).toHaveRole("button");
+    await expect(preview).toHaveAccessibleName(new RegExp(selectedReview.title));
+    await expect(preview.getByText(selectedReview.title, { exact: true })).toBeVisible();
+    if (width === 1440) {
+      await preview.focus();
+      await page.keyboard.press("Enter");
+    } else await preview.click();
+    const dialog = page.getByTestId("product-reviews-dialog");
+    const scroll = dialog.getByTestId("product-reviews-scroll");
+    const selected = dialog.getByTestId(`review-${selectedReview.id}`);
+    await expect(dialog).toBeVisible();
+    await expect.poll(() => scroll.evaluate(element => element.clientHeight)).toBeLessThan(1000);
+    await expect.poll(() => scroll.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+    await expect.poll(async () => {
+      const card = (await selected.boundingBox())!;
+      const viewport = (await scroll.boundingBox())!;
+      // Match Shop's centred reveal; clamp naturally at the start of the list.
+      const offset = await scroll.evaluate(element => element.scrollTop);
+      const centreDelta = card.y + card.height / 2 - viewport.y - viewport.height / 2;
+      return offset === 0 ? Math.max(0, centreDelta) : Math.abs(centreDelta);
+    }).toBeLessThan(2);
+    await expect(selected.getByText(selectedReview.body, { exact: true })).toBeVisible();
+    // Escape inside Search is deliberately consumed; exercise dismissal from
+    // the dialog's own header, outside the content testID on bottom sheets.
+    await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).focus();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    if (width === 1440) await expect(preview).toBeFocused();
+    await sections.getByRole("button", { name: "Read more reviews", exact: true }).click();
+    await expect(dialog.getByTestId(`review-${response.data[0].id}`)).toBeVisible();
+    await expect.poll(() => scroll.evaluate(element => element.scrollTop)).toBe(0);
+  });
+}
+
+for (const mode of ["light", "dark"] as const) {
+  test(`review summary preserves server fractions and Shop geometry in ${mode} mode`, async ({ page, request }) => {
+    await page.addInitScript(mode => {
+      localStorage.setItem("mercaria.bloom.theme", JSON.stringify({ mode, colorPreset: "mono" }));
+    }, mode);
+    const product = await seededProduct(request);
+    const response = await (await request.get(`http://localhost:4160/listings/${product.id}/reviews?limit=12`)).json();
+    await page.goto(`/products/${product.id}`);
+    const sections = page.getByTestId("product-sections");
+    const average = sections.getByTestId("review-rating-average");
+    await expect(average).toHaveCSS("font-size", "28px");
+    await expect(average).toHaveCSS("line-height", "30px");
+    await expect(average).toHaveCSS("font-weight", "700");
+    const stars = sections.getByTestId("review-summary-stars");
+    await expect(stars.getByTestId("review-summary-stars-stars").locator(":scope > div")).toHaveCount(5);
+    await expect(stars.locator("svg").first()).toHaveAttribute("width", "20");
+    await expect(stars).toHaveText("");
+    const total = Object.values(response.ratingSummary.distribution).reduce<number>((sum, count) => sum + Number(count), 0);
+    for (const bucket of [5, 4, 3, 2, 1]) {
+      const row = sections.getByTestId(`rating-distribution-${bucket}`);
+      const bar = row.getByRole("progressbar");
+      await expect(bar).toHaveCSS("height", "8px");
+      await expect(bar).toHaveCSS("border-radius", "8px");
+      await expect(bar).toHaveCSS("background-color", mode === "dark" ? "rgba(255, 255, 255, 0.06)" : "rgba(24, 59, 78, 0.06)");
+      await expect(row.getByText(String(bucket), { exact: true })).toHaveCSS("font-size", "10px");
+      const fraction = response.ratingSummary.distribution[bucket] / total;
+      await expect(bar).toHaveAttribute("aria-valuenow", String(fraction));
+      const fill = row.getByTestId(`rating-distribution-${bucket}-fill`);
+      await expect(fill).toHaveCSS("background-color", mode === "dark" ? "rgb(255, 255, 255)" : "rgb(18, 18, 18)");
+      await expect.poll(async () => {
+        const fillWidth = (await fill.boundingBox())!.width;
+        const barWidth = (await bar.boundingBox())!.width;
+        return Math.abs(fillWidth / barWidth - fraction);
+      }).toBeLessThan(0.002);
+    }
+    const trigger = sections.getByRole("button", { name: "Reviews", exact: true });
+    await expect(trigger).toHaveCSS("padding-top", "16px");
+    await expect(trigger).toHaveCSS("padding-bottom", "16px");
+    await expect(trigger).toHaveCSS("padding-inline-start", "0px");
+    const contentId = await trigger.getAttribute("aria-controls");
+    expect(contentId).toBeTruthy();
+    const content = page.locator(`[id="${contentId}"]`);
+    await expect(content.locator(":scope > div")).toHaveCSS("padding-bottom", "16px");
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(content).toHaveAttribute("aria-hidden", "true");
+    await expect(sections.getByRole("button", { name: "Read more reviews", exact: true })).toHaveCount(0);
+    await trigger.click();
+    await expect(sections.getByRole("button", { name: "Read more reviews", exact: true })).toBeVisible();
+  });
+}
+
+test("reviews preserve the server rating and append full text as the sheet scrolls", async ({
   page,
   request,
 }) => {
@@ -521,6 +646,7 @@ test("reviews read all server ratings and open a paginated list with full text",
     )
   ).json();
   expect(response.ratingSummary.reviewCount).toBeGreaterThan(12);
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/products/${product.id}`);
   const sections = page.getByTestId("product-sections");
   await expect(sections).toContainText(
@@ -531,14 +657,88 @@ test("reviews read all server ratings and open a paginated list with full text",
     .click();
   const dialog = page.getByTestId("product-reviews-dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("Page 1 of");
+  await expect(dialog.getByRole("button", { name: "Next", exact: true })).toHaveCount(0);
   const firstTitle = response.data[0].title;
   await expect(dialog.getByText(firstTitle, { exact: true })).toBeVisible();
-  await dialog.getByRole("button", { name: "Next", exact: true }).click();
-  await expect(dialog).toContainText("Page 2 of");
-  await expect(dialog.getByTestId(`review-${response.data[0].id}`)).toHaveCount(0);
-  await page.keyboard.press("Escape");
+  const scroller = dialog.getByTestId("product-reviews-scroll");
+  await expect.poll(() => scroller.evaluate(node => node.clientHeight)).toBeLessThan(844);
+  await expect.poll(async () => {
+    // RNW adds its imperative scrollTo({ y }) to the DOM node. Assigning the
+    // browser offset exercises actual scrolling without calling that RN API
+    // with incompatible browser { top } options.
+    await scroller.evaluate(node => { node.scrollTop = node.scrollHeight; });
+    return dialog.getByTestId(/^review-[0-9a-f]{8}-/).count();
+  }).toBe(response.pagination.total);
+  await expect.poll(() => scroller.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+  await expect(dialog.getByTestId(`review-${response.data[0].id}`)).toHaveCount(1);
+  await expect(dialog.getByTestId(/^review-[0-9a-f]{8}-/)).toHaveCount(response.pagination.total);
+  await expect(dialog.getByTestId("review-rating-average")).toHaveText(`\u2068${response.ratingSummary.rating}\u2069`);
+  await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await expect(dialog).toHaveCount(0);
+});
+
+test("review continuation failures preserve loaded cards and retry the missing page", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  let unavailable = true;
+  await page.route(`**/listings/${product.id}/reviews?*`, async route => {
+    if (new URL(route.request().url()).searchParams.get("page") === "2" && unavailable) {
+      await route.fulfill({ status: 503, json: { success: false, message: "Temporary test outage" } });
+    } else await route.continue();
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/products/${product.id}`);
+  await page.getByRole("button", { name: "Read more reviews", exact: true }).click();
+  const dialog = page.getByTestId("product-reviews-dialog");
+  const cards = dialog.getByTestId(/^review-[0-9a-f]{8}-/);
+  await expect(cards).toHaveCount(12);
+  await dialog.getByTestId("product-reviews-scroll").evaluate(node => { node.scrollTop = node.scrollHeight; });
+  const retry = dialog.getByRole("button", { name: "Try Again", exact: true });
+  await expect(retry).toBeVisible();
+  await expect(cards).toHaveCount(12);
+  unavailable = false;
+  await retry.click();
+  await expect(cards).toHaveCount(24);
+  await expect(retry).toHaveCount(0);
+});
+
+test("review search submits to the server, preserves the aggregate and restores the unfiltered list", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  const endpoint = `http://localhost:4160/listings/${product.id}/reviews`;
+  const original = await (await request.get(`${endpoint}?limit=12`)).json();
+  const matches = await (await request.get(`${endpoint}?limit=12&query=glow`)).json();
+  expect(matches.pagination.total).toBeGreaterThan(0);
+  expect(matches.pagination.total).toBeLessThan(original.pagination.total);
+  await page.goto(`/products/${product.id}`);
+  await page.getByTestId("product-sections").getByRole("button", { name: "Read more reviews", exact: true }).click();
+  const dialog = page.getByTestId("product-reviews-dialog");
+  const input = dialog.getByPlaceholder("Search reviews", { exact: true });
+  await input.fill("  glow  ");
+  // Draft text is submitted explicitly; it must not filter the current page.
+  await expect(dialog.getByTestId(`review-${original.data[0].id}`)).toHaveCount(1);
+  await expect(dialog.getByText(/^Search results:/)).toHaveCount(0);
+  const searched = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.pathname === `/listings/${product.id}/reviews` && url.searchParams.get("query") === "glow";
+  });
+  await input.press("Enter");
+  expect((await searched).ok()).toBe(true);
+  await expect(dialog.getByText(`Search results: \u2068${matches.pagination.total}\u2069`, { exact: true })).toBeVisible();
+  await expect(input).not.toBeFocused();
+  for (const review of matches.data) {
+    await expect(dialog.getByTestId(`review-${review.id}`)).toHaveCount(1);
+  }
+  await expect(dialog.getByTestId("review-rating-average")).toHaveText(`\u2068${original.ratingSummary.rating}\u2069`);
+  await input.fill("no-review-matches-this-phrase-82691");
+  await input.press("Enter");
+  await expect(dialog.getByText("No reviews match your search.", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Search results: \u20680\u2069", { exact: true })).toBeVisible();
+  await dialog.getByTestId("searchTextInputClearBtn").click();
+  await expect(input).toHaveValue("");
+  await expect(input).toBeFocused();
+  await expect(dialog.getByText(/^Search results:/)).toHaveCount(0);
+  await expect(dialog.getByTestId(`review-${original.data[0].id}`)).toHaveCount(1);
+  await input.press("Escape");
+  await expect(dialog).toBeVisible();
 });
 
 test("merchant-authored return policy expands and share copies the selected variant URL", async ({
@@ -607,6 +807,21 @@ test("canonical products use the complete gallery and keep purchase availability
   const listing = await seededProduct(request);
   const id = "00000000-0000-4000-8000-000000000001";
   const now = new Date().toISOString();
+  const existingReviews = await (await request.get(`http://localhost:4160/listings/${listing.id}/reviews?limit=1`)).json();
+  const unverified: Review = {
+    ...existingReviews.data[0],
+    scope: "product", targetType: "canonical_product", listingId: undefined,
+    canonicalProductId: id, verification: "unverified",
+  };
+  await page.route(`**/reviews/product/${id}*`, route => route.fulfill({ json: {
+    success: true, data: [unverified],
+    pagination: { page: 1, limit: 12, total: 1, pages: 1, hasNextPage: false, hasPreviousPage: false },
+    aggregate: {
+      scope: "product", targetType: "canonical_product", targetId: id, dimensions: [],
+      rating: 0, reviewCount: 0, unverified: { rating: unverified.rating, count: 1 },
+    },
+    ratingSummary: { rating: 0, reviewCount: 0, verifiedOnly: true, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
+  }}));
   await page.route("**/product-page/gallery-preview*", route => route.fulfill({ json: {
     success: true,
     data: {
@@ -631,6 +846,19 @@ test("canonical products use the complete gallery and keep purchase availability
   const gallery = page.getByTestId("product-gallery-carousel");
   await expect(gallery.getByRole("img", { name: "Catalogue photo 1", exact: true }).last()).toBeVisible();
   await expect(page.getByRole("button", { name: "Add to cart", exact: true })).toHaveCount(0);
+  // Having no verified purchases does not erase the independent unverified
+  // reviews, nor turn their average into a verified product rating.
+  await expect(page.getByText(/^Unverified: /)).toBeVisible();
+  await expect(page.getByTestId("review-rating-average")).toHaveCount(0);
+  await expect(page.getByText("No Product reviews yet.", { exact: true })).toHaveCount(0);
+  const preview = page.getByTestId("review-preview-carousel").getByTestId(`review-${unverified.id}`);
+  await expect(preview).toHaveRole("button");
+  await preview.click();
+  const reviewsDialog = page.getByTestId("product-reviews-dialog");
+  await expect(reviewsDialog.getByTestId(`review-${unverified.id}`)).toBeVisible();
+  await expect(reviewsDialog.getByTestId("review-rating-average")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(reviewsDialog).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("product-thumbnails")).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
