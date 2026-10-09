@@ -618,6 +618,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                 option={option}
                 variants={listing.variants}
                 selectedValue={selection[option.name]}
+                selectedVariant={selectedVariant}
                 onSelect={(value) => selectOption(option.name, value)}
               />
             ))}

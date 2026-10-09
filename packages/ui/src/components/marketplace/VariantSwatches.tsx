@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { Button } from "@oxy.so/bloom/button";
+import { isImageUrl, useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useColorScheme } from "../../lib/useColorScheme";
 import { Image } from "expo-image";
 import type { ListingOption, ProductVariantDTO } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import { SWATCH_SHOW_MORE_A11Y_KEY, SWATCH_SHOW_MORE_KEY } from "../../lib/marketplace-labels";
+import { chooseListingVariant } from "../../lib/listing-variant-selection";
 
 /** Max values shown before a "+N more" expander appears. */
 const MAX_VISIBLE_VALUES = 24;
@@ -18,44 +20,25 @@ export interface VariantSwatchesProps {
   variants: ProductVariantDTO[];
   /** Currently selected value for this option, if any. */
   selectedValue?: string;
+  /** Other axes affect which concrete variant this option will select. */
+  selectedVariant?: ProductVariantDTO;
   /** Called with the chosen value when a value is pressed. */
   onSelect: (value: string) => void;
 }
 
-/** Whether a given option value is available in at least one in-stock variant. */
-function valueInStock(variants: ProductVariantDTO[], optionName: string, value: string): boolean {
-  return variants.some(
-    (variant) =>
-      variant.inStock &&
-      variant.optionValues.some((ov) => ov.name === optionName && ov.value === value),
-  );
-}
-
-/** Option values stay textual unless the server supplies variant-owned photos.
- * Free-text names never determine widget type or invent a colour. A value gets
- * a photo only when all its variants identify the same first photo; otherwise
- * the text pill preserves the distinction between the other option axes. */
-function valueImage(variants: ProductVariantDTO[], optionName: string, value: string) {
-  const matches = variants.filter((variant) =>
-    variant.optionValues.some((option) => option.name === optionName && option.value === value),
-  );
-  const images = matches.map((variant) =>
-    variant.images?.source === "variant" ? variant.images.images[0]?.fileId : undefined,
-  );
-  return images.length > 0 && images[0] && images.every((image) => image === images[0])
-    ? images[0]
-    : undefined;
-}
-
+/** Stock and artwork describe the configuration that pressing the pill selects.
+ * Free-text names never determine widget type or invent a colour. */
 export function VariantSwatches({
   option,
   variants,
   selectedValue,
+  selectedVariant,
   onSelect,
 }: VariantSwatchesProps) {
   const [expanded, setExpanded] = useState(false);
   const t = useSharedUiTranslation();
   const { colors } = useColorScheme();
+  const resolveImage = useImageResolver();
 
   const overflow = option.values.length > MAX_VISIBLE_VALUES && !expanded;
   const initialValues = option.values.slice(0, MAX_VISIBLE_VALUES);
@@ -81,8 +64,13 @@ export function VariantSwatches({
       <View className="flex-row flex-wrap gap-space-8">
         {visibleValues.map((value) => {
           const selected = selectedValue === value;
-          const inStock = valueInStock(variants, option.name, value);
-          const image = valueImage(variants, option.name, value);
+          const target = chooseListingVariant(variants, selectedVariant, option.name, value);
+          const inStock = target?.inStock ?? false;
+          const fileId = target?.images?.source === "variant"
+            ? target.images.images[0]?.fileId : undefined;
+          const image = fileId
+            ? isImageUrl(fileId) ? fileId : resolveImage?.(fileId, "thumb")
+            : undefined;
 
           return (
             <Button

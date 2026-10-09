@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./lib/bidi": "./src/lib/bidi.ts",
+    "./lib/listing-variant-selection": "./src/lib/listing-variant-selection.ts",
     "./theme/tailwind.preset": "./src/theme/tailwind.preset.js",
     "./theme/global.css": "./src/theme/global.css",
     "./theme/shop-typography.css": "./src/theme/shop-typography.css",

@@ -69,6 +69,55 @@ test("variant deep links survive reload and sold-out choices cannot be bought", 
   await expect(page.getByText("Subscribe", { exact: true })).toHaveCount(0);
 });
 
+test("option availability follows the selected color and size instead of stock in another combination", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  const configurations = [
+    { color: "Red", size: "S", inStock: true },
+    { color: "Red", size: "M", inStock: false },
+    { color: "Blue", size: "S", inStock: true },
+    { color: "Blue", size: "M", inStock: true },
+  ];
+  const variants = product.variants.slice(0, 4).map((variant, index) => ({
+    ...variant,
+    optionValues: [
+      { name: "Color", value: configurations[index].color },
+      { name: "Size", value: configurations[index].size },
+    ],
+    inStock: configurations[index].inStock,
+    available: configurations[index].inStock ? 10 : 0,
+    images: { source: "variant", images: [product.images[index]] },
+  }));
+  await page.route(`**/listings/${product.id}`, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.options = [
+      { name: "Color", values: ["Red", "Blue"] },
+      { name: "Size", values: ["S", "M"] },
+    ];
+    body.data.variants = variants;
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(`/products/${product.id}?variantId=${variants[0].id}`);
+  const medium = page.getByRole("button", { name: "Size: M", exact: true });
+  await expect(medium).toHaveCSS("opacity", "0.4");
+  await expect(medium.locator("img").last()).toHaveAttribute("src", product.images[1].fileId);
+  await medium.click();
+  await expect(page).toHaveURL(new RegExp(`variantId=${variants[1].id}$`));
+  await expect(page.getByRole("button", { name: "Sold out", exact: true })).toBeDisabled();
+
+  await page.getByRole("button", { name: "Color: Blue", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`variantId=${variants[3].id}$`));
+  await expect(medium).toHaveAttribute("aria-pressed", "true");
+  await expect(medium).toHaveCSS("opacity", "1");
+  await expect(medium.locator("img").last()).toHaveAttribute("src", product.images[3].fileId);
+  await expect(page.getByRole("button", { name: "Add to cart", exact: true })).toBeEnabled();
+  // Returning to red preserves M, including its sold-out state.
+  await page.getByRole("button", { name: "Color: Red", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`variantId=${variants[1].id}$`));
+  await expect(medium).toHaveCSS("opacity", "0.4");
+  await expect(page.getByRole("button", { name: "Sold out", exact: true })).toBeDisabled();
+});
+
 test("variant-owned photos and price replace listing fallbacks without inheriting a discount", async ({
   page,
   request,
