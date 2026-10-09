@@ -32,6 +32,7 @@ import {
   Text,
   VariantSwatches,
   useFormatters,
+  useColorScheme,
   type ProductSummary,
 } from "@mercaria/ui";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
@@ -240,6 +241,7 @@ interface ProductBodyProps {
 /** The two-column PDP body (gallery + buy column) plus the full-width shelves. */
 function ProductBody({ listing }: ProductBodyProps) {
   const { canUsePrivateApi } = useOxy();
+  const { colors } = useColorScheme();
   const { width } = useWindowDimensions();
   const desktopNavigation = width >= STOREFRONT_NAV_FROM;
   const router = useRouter();
@@ -617,6 +619,7 @@ function ProductBody({ listing }: ProductBodyProps) {
               <View className="self-start">
                 <Stepper
                   appearance="outline"
+                  style={{ backgroundColor: colors.card }}
                   value={quantity}
                   min={1}
                   max={

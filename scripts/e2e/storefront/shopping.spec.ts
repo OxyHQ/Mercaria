@@ -99,6 +99,7 @@ test('seeded product variants and guest cart work through the real API', async (
   await page.getByRole('button', { name: 'Shade: Stella', exact: true }).click();
   const quantity = page.getByRole('group', { name: 'Quantity', exact: true });
   await expect(quantity).toHaveCSS('height', '40px');
+  await expect(quantity).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(quantity).toHaveCSS('border-top-width', '1px');
   await expect(quantity).toHaveCSS('border-radius', '9999px');
   await expect(quantity.getByText('1', { exact: true })).toHaveCSS('font-size', '14px');

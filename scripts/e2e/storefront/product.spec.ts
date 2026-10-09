@@ -384,14 +384,15 @@ for (const [layout, value] of [
     for (const width of [1280, 390, 768]) {
       await page.setViewportSize({ width, height: 900 });
       const columns = layout === "grid" || (layout === "responsive" && width >= 768) ? 2 : 1;
-      await expect.poll(async () => {
-        const first = (await cells.nth(0).boundingBox())!;
-        const second = (await cells.nth(1).boundingBox())!;
+      await expect.poll(() => cells.evaluateAll(nodes => {
+        const first = nodes[0].getBoundingClientRect();
+        const second = nodes[1].getBoundingClientRect();
         return Math.abs(first.y - second.y) < 1;
-      }).toBe(columns === 2);
-      const gridBox = (await grid.boundingBox())!;
-      const last = (await cells.last().boundingBox())!;
-      expect(Math.abs(last.width - gridBox.width)).toBeLessThan(1);
+      })).toBe(columns === 2);
+      await expect.poll(() => grid.evaluate(node => {
+        const last = node.lastElementChild!.getBoundingClientRect();
+        return Math.abs(last.width - node.getBoundingClientRect().width);
+      })).toBeLessThan(1);
       const labelAboveValue = await cells.first().evaluate(cell => {
         const label = cell.children[0].getBoundingClientRect();
         const content = cell.children[1].getBoundingClientRect();
