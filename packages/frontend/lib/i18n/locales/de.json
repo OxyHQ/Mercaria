@@ -310,14 +310,14 @@
     "empty": {
       "title": "Noch keine Bestellungen",
       "subtitle": "Sobald du etwas bestellst, erscheint es hier.",
-      "signedOutSubtitle": "Melde dich an, um deine Bestellungen zu sehen."
+      "signedOutSubtitle": "Melde dich an, um deine Bestellungen zu sehen.",
+      "activeTitle": "Keine aktiven Bestellungen",
+      "pastTitle": "Keine vergangenen Bestellungen",
+      "pastSubtitle": "Hier erscheinen abgeschlossene, stornierte und erstattete Bestellungen."
     },
     "row": {
       "openA11yLabel": "Bestellung %{number} öffnen",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} Artikel",
-        "other": "%{status} · %{seller} · %{count} Artikel"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "Zurück",
@@ -380,7 +380,11 @@
       "staleNote": "Wir konnten sie zuletzt nicht aktualisieren.",
       "refreshFailing": "Wir konnten diese Schätzung nicht aktualisieren. Sie ist möglicherweise nicht mehr aktuell."
     },
-    "loadError": "Deine Bestellungen konnten nicht geladen werden"
+    "loadError": "Deine Bestellungen konnten nicht geladen werden",
+    "tabs": {
+      "active": "Aktiv",
+      "past": "Vergangen"
+    }
   },
   "reviews": {
     "scopeHeading": {

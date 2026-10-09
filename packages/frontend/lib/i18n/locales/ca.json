@@ -312,15 +312,14 @@
     "empty": {
       "title": "Encara no hi ha comandes",
       "subtitle": "Quan facis una comanda apareixerà aquí.",
-      "signedOutSubtitle": "Inicia la sessió per veure l'historial de comandes."
+      "signedOutSubtitle": "Inicia la sessió per veure l'historial de comandes.",
+      "activeTitle": "No hi ha comandes actives",
+      "pastTitle": "No hi ha comandes anteriors",
+      "pastSubtitle": "Aquí apareixen les comandes completades, cancel·lades i reemborsades."
     },
     "row": {
       "openA11yLabel": "Obre la comanda %{number}",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} article",
-        "other": "%{status} · %{seller} · %{count} articles",
-        "many": "%{status} · %{seller} · %{count} d’articles"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "Anterior",
@@ -383,7 +382,11 @@
       "staleNote": "No l'hem pogut actualitzar recentment.",
       "refreshFailing": "No hem pogut actualitzar aquesta estimació. Pot estar desactualitzada."
     },
-    "loadError": "No s’han pogut carregar les teves comandes"
+    "loadError": "No s’han pogut carregar les teves comandes",
+    "tabs": {
+      "active": "Actives",
+      "past": "Anteriors"
+    }
   },
   "reviews": {
     "scopeHeading": {

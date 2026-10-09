@@ -310,14 +310,14 @@
     "empty": {
       "title": "还没有订单",
       "subtitle": "下单后会显示在这里。",
-      "signedOutSubtitle": "登录后即可查看订单记录。"
+      "signedOutSubtitle": "登录后即可查看订单记录。",
+      "activeTitle": "暂无进行中的订单",
+      "pastTitle": "暂无历史订单",
+      "pastSubtitle": "已完成、已取消和已退款的订单会显示在这里。"
     },
     "row": {
       "openA11yLabel": "打开订单 %{number}",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} 件商品",
-        "other": "%{status} · %{seller} · %{count} 件商品"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "上一页",
@@ -380,7 +380,11 @@
       "staleNote": "我们最近未能更新它。",
       "refreshFailing": "我们未能更新这个预计，可能已经过时。"
     },
-    "loadError": "无法加载你的订单"
+    "loadError": "无法加载你的订单",
+    "tabs": {
+      "active": "进行中",
+      "past": "历史"
+    }
   },
   "reviews": {
     "scopeHeading": {

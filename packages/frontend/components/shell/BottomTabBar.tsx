@@ -144,6 +144,6 @@ export function BottomTabBar() {
   );
 
   return (
-    <BottomBar items={items} value={value} onValueChange={onValueChange} />
+    <BottomBar testID="storefront-bottom-bar" items={items} value={value} onValueChange={onValueChange} />
   );
 }

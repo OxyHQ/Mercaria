@@ -310,14 +310,14 @@
     "empty": {
       "title": "まだ注文はありません",
       "subtitle": "注文するとここに表示されます。",
-      "signedOutSubtitle": "サインインすると注文履歴を確認できます。"
+      "signedOutSubtitle": "サインインすると注文履歴を確認できます。",
+      "activeTitle": "進行中の注文はありません",
+      "pastTitle": "過去の注文はありません",
+      "pastSubtitle": "完了、キャンセル、返金済みの注文がここに表示されます。"
     },
     "row": {
       "openA11yLabel": "注文 %{number} を開く",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} 点",
-        "other": "%{status} · %{seller} · %{count} 点"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "前へ",
@@ -380,7 +380,11 @@
       "staleNote": "最近は更新できていません。",
       "refreshFailing": "この見込みを更新できていません。古い情報の可能性があります。"
     },
-    "loadError": "注文を読み込めませんでした"
+    "loadError": "注文を読み込めませんでした",
+    "tabs": {
+      "active": "進行中",
+      "past": "過去"
+    }
   },
   "reviews": {
     "scopeHeading": {

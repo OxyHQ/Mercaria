@@ -310,14 +310,14 @@
     "empty": {
       "title": "لا توجد طلبات بعد",
       "subtitle": "عندما تقوم بطلب سيظهر هنا.",
-      "signedOutSubtitle": "سجّل الدخول لعرض سجل طلباتك."
+      "signedOutSubtitle": "سجّل الدخول لعرض سجل طلباتك.",
+      "activeTitle": "لا توجد طلبات حالية",
+      "pastTitle": "لا توجد طلبات سابقة",
+      "pastSubtitle": "تظهر هنا الطلبات المكتملة والملغاة والمستردة."
     },
     "row": {
       "openA11yLabel": "فتح الطلب %{number}",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} عنصر",
-        "other": "%{status} · %{seller} · %{count} عناصر"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "السابق",
@@ -380,7 +380,11 @@
       "staleNote": "لم نتمكّن من تحديثه مؤخرًا.",
       "refreshFailing": "لم نتمكّن من تحديث هذا التقدير. قد يكون قديمًا."
     },
-    "loadError": "تعذر تحميل طلباتك"
+    "loadError": "تعذر تحميل طلباتك",
+    "tabs": {
+      "active": "الحالية",
+      "past": "السابقة"
+    }
   },
   "reviews": {
     "scopeHeading": {

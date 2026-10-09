@@ -1,4 +1,4 @@
-import type { DiscoveryScope, DiscoverySignal, ListingQuery, ReviewListFilters } from '@mercaria/shared-types';
+import type { BuyerOrderView, DiscoveryScope, DiscoverySignal, ListingQuery, ReviewListFilters } from '@mercaria/shared-types';
 
 export const queryKeys = {
   notifications: {
@@ -102,7 +102,7 @@ export const queryKeys = {
   },
   orders: {
     all: ["orders"] as const,
-    list: (page: number) => ["orders", "list", page] as const,
+    list: (page: number, view: BuyerOrderView, userId: string) => ["orders", "list", userId, view, page] as const,
     detail: (id: string) => ["orders", "detail", id] as const,
   },
   stores: {

@@ -310,14 +310,14 @@
     "empty": {
       "title": "अभी कोई ऑर्डर नहीं",
       "subtitle": "जब आप ऑर्डर करेंगे तो वह यहाँ दिखेगा।",
-      "signedOutSubtitle": "अपने ऑर्डर देखने के लिए साइन इन करें।"
+      "signedOutSubtitle": "अपने ऑर्डर देखने के लिए साइन इन करें।",
+      "activeTitle": "कोई सक्रिय ऑर्डर नहीं",
+      "pastTitle": "कोई पिछला ऑर्डर नहीं",
+      "pastSubtitle": "पूरे हो चुके, रद्द और रिफ़ंड किए गए ऑर्डर यहाँ दिखाई देंगे।"
     },
     "row": {
       "openA11yLabel": "ऑर्डर %{number} खोलें",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} चीज़",
-        "other": "%{status} · %{seller} · %{count} चीज़ें"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "पिछला",
@@ -380,7 +380,11 @@
       "staleNote": "हम इसे हाल में ताज़ा नहीं कर सके।",
       "refreshFailing": "हम यह अनुमान ताज़ा नहीं कर सके। यह पुराना हो सकता है।"
     },
-    "loadError": "आपके ऑर्डर लोड नहीं हो सके"
+    "loadError": "आपके ऑर्डर लोड नहीं हो सके",
+    "tabs": {
+      "active": "सक्रिय",
+      "past": "पिछले"
+    }
   },
   "reviews": {
     "scopeHeading": {

@@ -312,15 +312,14 @@
     "empty": {
       "title": "Aún no hay pedidos",
       "subtitle": "Cuando hagas un pedido aparecerá aquí.",
-      "signedOutSubtitle": "Inicia sesión para ver tu historial de pedidos."
+      "signedOutSubtitle": "Inicia sesión para ver tu historial de pedidos.",
+      "activeTitle": "No hay pedidos activos",
+      "pastTitle": "No hay pedidos anteriores",
+      "pastSubtitle": "Aquí aparecen los pedidos completados, cancelados y reembolsados."
     },
     "row": {
       "openA11yLabel": "Abrir el pedido %{number}",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} artículo",
-        "other": "%{status} · %{seller} · %{count} artículos",
-        "many": "%{status} · %{seller} · %{count} de artículos"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "Anterior",
@@ -383,7 +382,11 @@
       "staleNote": "No hemos podido actualizarla recientemente.",
       "refreshFailing": "No hemos podido actualizar esta estimación. Puede estar desactualizada."
     },
-    "loadError": "No se pudieron cargar tus pedidos"
+    "loadError": "No se pudieron cargar tus pedidos",
+    "tabs": {
+      "active": "Activos",
+      "past": "Anteriores"
+    }
   },
   "reviews": {
     "scopeHeading": {

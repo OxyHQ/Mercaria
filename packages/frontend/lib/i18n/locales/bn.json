@@ -310,14 +310,14 @@
     "empty": {
       "title": "এখনও কোনো অর্ডার নেই",
       "subtitle": "অর্ডার করলে সেটি এখানে দেখা যাবে।",
-      "signedOutSubtitle": "অর্ডারের ইতিহাস দেখতে সাইন ইন করুন।"
+      "signedOutSubtitle": "অর্ডারের ইতিহাস দেখতে সাইন ইন করুন।",
+      "activeTitle": "কোনো চলমান অর্ডার নেই",
+      "pastTitle": "আগের কোনো অর্ডার নেই",
+      "pastSubtitle": "সম্পন্ন, বাতিল এবং ফেরত দেওয়া অর্ডার এখানে দেখা যাবে।"
     },
     "row": {
       "openA11yLabel": "অর্ডার %{number} খুলুন",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count}টি জিনিস",
-        "other": "%{status} · %{seller} · %{count}টি জিনিস"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "আগের",
@@ -380,7 +380,11 @@
       "staleNote": "সম্প্রতি এটি হালনাগাদ করা যায়নি।",
       "refreshFailing": "এই আনুমানিক সময়টি হালনাগাদ করা যায়নি। এটি পুরোনো হতে পারে।"
     },
-    "loadError": "আপনার অর্ডারগুলো লোড করা যায়নি"
+    "loadError": "আপনার অর্ডারগুলো লোড করা যায়নি",
+    "tabs": {
+      "active": "চলমান",
+      "past": "আগের"
+    }
   },
   "reviews": {
     "scopeHeading": {

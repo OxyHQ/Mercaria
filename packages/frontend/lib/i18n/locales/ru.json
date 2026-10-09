@@ -314,16 +314,14 @@
     "empty": {
       "title": "Заказов пока нет",
       "subtitle": "Когда вы оформите заказ, он появится здесь.",
-      "signedOutSubtitle": "Войдите, чтобы увидеть историю заказов."
+      "signedOutSubtitle": "Войдите, чтобы увидеть историю заказов.",
+      "activeTitle": "Нет активных заказов",
+      "pastTitle": "Нет прошлых заказов",
+      "pastSubtitle": "Здесь отображаются завершённые, отменённые и возмещённые заказы."
     },
     "row": {
       "openA11yLabel": "Открыть заказ %{number}",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} товар",
-        "other": "%{status} · %{seller} · %{count} товаров",
-        "many": "%{status} · %{seller} · %{count} товаров",
-        "few": "%{status} · %{seller} · %{count} товара"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "Назад",
@@ -386,7 +384,11 @@
       "staleNote": "Нам давно не удавалось её обновить.",
       "refreshFailing": "Нам не удалось обновить эту оценку. Она может быть устаревшей."
     },
-    "loadError": "Не удалось загрузить ваши заказы"
+    "loadError": "Не удалось загрузить ваши заказы",
+    "tabs": {
+      "active": "Активные",
+      "past": "Прошлые"
+    }
   },
   "reviews": {
     "scopeHeading": {

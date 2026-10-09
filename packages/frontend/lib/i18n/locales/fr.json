@@ -312,15 +312,14 @@
     "empty": {
       "title": "Aucune commande pour l'instant",
       "subtitle": "Vos commandes apparaîtront ici.",
-      "signedOutSubtitle": "Connectez-vous pour voir l'historique de vos commandes."
+      "signedOutSubtitle": "Connectez-vous pour voir l'historique de vos commandes.",
+      "activeTitle": "Aucune commande en cours",
+      "pastTitle": "Aucune commande passée",
+      "pastSubtitle": "Les commandes terminées, annulées et remboursées apparaissent ici."
     },
     "row": {
       "openA11yLabel": "Ouvrir la commande %{number}",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} article",
-        "other": "%{status} · %{seller} · %{count} articles",
-        "many": "%{status} · %{seller} · %{count} d’articles"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "Précédent",
@@ -383,7 +382,11 @@
       "staleNote": "Nous n'avons pas pu l'actualiser récemment.",
       "refreshFailing": "Nous n'avons pas pu actualiser cette estimation. Elle n'est peut-être plus à jour."
     },
-    "loadError": "Impossible de charger vos commandes"
+    "loadError": "Impossible de charger vos commandes",
+    "tabs": {
+      "active": "En cours",
+      "past": "Passées"
+    }
   },
   "reviews": {
     "scopeHeading": {

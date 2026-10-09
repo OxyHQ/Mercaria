@@ -1,6 +1,6 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxy.so/services';
-import type { Order, OrderSummary, PaginatedResponse } from '@mercaria/shared-types';
+import type { BuyerOrderView, Order, OrderSummary, PaginatedResponse } from '@mercaria/shared-types';
 import { fetchOrders, fetchOrder, cancelOrder } from '../api/orders';
 import { queryKeys } from './query-keys';
 
@@ -8,14 +8,20 @@ import { queryKeys } from './query-keys';
 const STALE_TIME = 1000 * 30;
 
 /** Fetch a page of the buyer's order summaries. Gated on auth. */
-export function useOrders(page = 1) {
-  const { isAuthenticated, canUsePrivateApi } = useOxy();
+export function useOrders(page = 1, view: BuyerOrderView = 'active') {
+  const { isAuthenticated, canUsePrivateApi, user } = useOxy();
+  const userId = user?.id ?? '';
   return useQuery<PaginatedResponse<OrderSummary>>({
-    queryKey: queryKeys.orders.list(page),
-    queryFn: () => fetchOrders({ page }),
-    enabled: isAuthenticated && canUsePrivateApi,
+    queryKey: queryKeys.orders.list(page, view, userId),
+    queryFn: () => fetchOrders({ page, view }),
+    enabled: isAuthenticated && canUsePrivateApi && Boolean(userId),
     staleTime: STALE_TIME,
-    placeholderData: keepPreviousData,
+    // Retain a page only within this account and view. A new tab/account must
+    // never display the preceding tab/account's orders while its request loads.
+    placeholderData: (previous, previousQuery) => {
+      const key = previousQuery?.queryKey;
+      return key?.[2] === userId && key?.[3] === view ? previous : undefined;
+    },
   });
 }
 

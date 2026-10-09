@@ -310,14 +310,14 @@
     "empty": {
       "title": "No orders yet",
       "subtitle": "When you place an order it will show up here.",
-      "signedOutSubtitle": "Sign in to see your order history."
+      "signedOutSubtitle": "Sign in to see your order history.",
+      "activeTitle": "No active orders",
+      "pastTitle": "No past orders",
+      "pastSubtitle": "Completed, cancelled and refunded orders appear here."
     },
     "row": {
       "openA11yLabel": "Open order %{number}",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} item",
-        "other": "%{status} · %{seller} · %{count} items"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "Previous",
@@ -380,7 +380,11 @@
       "staleNote": "We have not been able to refresh it recently.",
       "refreshFailing": "We have not been able to refresh this estimate. It may be out of date."
     },
-    "loadError": "Could not load your orders"
+    "loadError": "Could not load your orders",
+    "tabs": {
+      "active": "Active",
+      "past": "Past"
+    }
   },
   "reviews": {
     "scopeHeading": {
