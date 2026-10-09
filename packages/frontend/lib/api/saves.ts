@@ -51,6 +51,14 @@ export async function fetchSavedItems(params?: {
   return unwrap(data, 'Failed to load your saved items');
 }
 
+/** The authenticated buyer's state; a failed read must never become "not saved". */
+export async function fetchProductSave(canonicalProductId: string): Promise<{ saved: boolean; save?: ProductSave }> {
+  const { data } = await apiClient.get<ApiResponse<{ saved: boolean; save?: ProductSave }>>(
+    `/product-saves/${canonicalProductId}`,
+  );
+  return unwrap(data, 'Failed to read that saved product');
+}
+
 export interface SaveProductInput {
   canonicalProductId: string;
   sourceContext: ProductSaveSourceContext;

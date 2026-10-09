@@ -9,6 +9,7 @@ import type {
 import { useOxy } from '@oxy.so/services';
 import {
   fetchListingSaveContext,
+  fetchProductSave,
   fetchSavedItems,
   resolveSplitAmbiguity,
   saveListing,
@@ -77,6 +78,17 @@ export function useListingSaveContext(listingId: string | undefined) {
   });
 }
 
+/** A canonical product's state, isolated by the active Oxy account. */
+export function useProductSave(canonicalProductId: string | undefined) {
+  const { canUsePrivateApi, user } = useOxy();
+  return useQuery({
+    queryKey: [...queryKeys.saves.productContext(canonicalProductId ?? ''), user?.id ?? null],
+    enabled: canUsePrivateApi && Boolean(user?.id) && Boolean(canonicalProductId),
+    staleTime: STALE_TIME,
+    queryFn: () => fetchProductSave(canonicalProductId ?? ''),
+  });
+}
+
 export interface ToggleProductSaveInput {
   canonicalProductId: string;
   saved: boolean;
@@ -107,14 +119,14 @@ export function useToggleProductSave() {
         sourceContext: input.sourceContext,
       });
     },
-    onSuccess: (_result, input) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.saves.savedItems });
-      if (input.listingId) {
-        void queryClient.invalidateQueries({
-          queryKey: queryKeys.saves.listingContext(input.listingId),
-        });
-      }
+    onSuccess: async () => {
+      // Every listing context can represent this product, not just the listing
+      // from which it was saved. Await fresh truth before allowing another tap.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.feed.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.saves.savedItems }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.saves.all }),
+      ]);
     },
   });
 }

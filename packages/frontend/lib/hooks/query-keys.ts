@@ -160,6 +160,8 @@ export const queryKeys = {
    * entry, so a save or an un-save invalidates the whole list in one call.
    */
   saves: {
+    all: ["saves"] as const,
+    productContext: (productId: string) => ["saves", "product", productId] as const,
     savedItems: ["saved-items"] as const,
     /** The two-button context of one listing page. */
     listingContext: (listingId: string) => ["saves", "listing", listingId] as const,

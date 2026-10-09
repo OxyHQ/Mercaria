@@ -225,6 +225,8 @@ test('saving a product as a guest opens sign-in without pretending it was saved'
   await expect(save).toHaveAttribute('aria-pressed', 'false');
   await save.click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(save).toHaveAttribute('aria-pressed', 'false');
 });
 
@@ -296,6 +298,9 @@ test('Orders opens from the rail and mobile profile and offers real sign-in', as
     expect((await orders.boundingBox())!.width).toBe(viewport.width < 768 ? 358 : 640);
     await orders.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page.getByText('Use your Oxy account', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('app-content-boundary')).toHaveAttribute('inert', '');
+    await expect(page.getByTestId('app-content-boundary')).toHaveAttribute('aria-hidden', 'true');
+    expect(await page.getByText('Use your Oxy account', { exact: true }).evaluate(node => node.closest('[inert]'))).toBeNull();
   }
 });
 

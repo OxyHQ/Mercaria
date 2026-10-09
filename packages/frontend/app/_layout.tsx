@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect } from 'react';
 import { OxyProvider, useOxy } from '@oxy.so/services';
 import { BloomProvider } from '@oxy.so/bloom/provider';
+import { OverlayInertBoundary } from '@oxy.so/bloom/portal';
 import { expoRouterScrollAdapter } from '@oxy.so/bloom/scroll/expo-router';
 import { ImageResolverProvider } from '@oxy.so/bloom/image-resolver';
 import * as Linking from 'expo-linking';
@@ -143,7 +144,9 @@ function RootLayout() {
             clientId={OXY_CLIENT_ID}
             authRedirectUri={Platform.OS !== 'web' ? AUTH_REDIRECT_URI : undefined}
           >
-            <AppContent />
+            <OverlayInertBoundary testID="app-content-boundary">
+              <AppContent />
+            </OverlayInertBoundary>
           </OxyProvider>
         </BloomProvider>
       </SharedUiTranslationProvider>

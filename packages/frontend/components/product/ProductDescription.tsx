@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { View } from "react-native";
-import { Button } from "@oxy.so/bloom/button";
+import { Platform, View } from "react-native";
+import { LinkButton } from "@oxy.so/bloom/button";
 import { Dialog } from "@oxy.so/bloom/dialog";
 import { Text } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
@@ -19,18 +19,36 @@ export function ProductDescription({ description }: { description: string }) {
     : description;
 
   return (
-    <View className="gap-space-8" testID="product-description">
-      <Text className="text-bodySmall text-text">{preview}</Text>
-      {truncated ? (
-        <Button
-          appearance="plain"
-          material="flat"
-          onPress={() => setOpen(true)}
-          style={{ alignSelf: "flex-start", paddingHorizontal: 0, minHeight: 32 }}
-        >
-          {t("product.readMoreDescription")}
-        </Button>
-      ) : null}
+    <View testID="product-description">
+      <Text className="text-bodySmall text-text">
+        {preview}
+        {truncated ? (
+          <>
+            {" "}
+            {Platform.OS === "web" ? (
+              <LinkButton
+                linkTone="text"
+                underline="none"
+                textVariant="body-2-semibold"
+                textStyle={{ fontSize: 14, letterSpacing: -0.2 }}
+                onPress={() => setOpen(true)}
+              >
+                {t("product.readMoreDescription")}
+              </LinkButton>
+            ) : (
+              // A native paragraph needs a Text host: LinkButton is a View on
+              // native, whose layout does not participate in the text flow.
+              <Text
+                accessibilityRole="button"
+                onPress={() => setOpen(true)}
+                className="text-bodyTitleSmall text-text"
+              >
+                {t("product.readMoreDescription")}
+              </Text>
+            )}
+          </>
+        ) : null}
+      </Text>
       <Dialog
         open={open}
         onClose={() => setOpen(false)}

@@ -9,7 +9,7 @@ import type {
 } from '@mercaria/shared-types';
 import { OFFER_COMPARISON_INTENTS } from '@mercaria/shared-types';
 import { OfferLabelBadge, ProductGallery, ReviewSummaryCard, Text } from '@mercaria/ui';
-import { useOxy } from '@oxy.so/services';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
 import * as Skeleton from '@oxy.so/bloom/skeleton';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
@@ -34,7 +34,7 @@ import {
 import { OFFER_INTENT_LABEL_KEYS, useProductPage } from '@/lib/hooks/use-product-page';
 import { useProductScopeReviews, REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
 import { useAddCartItem } from '@/lib/hooks/use-cart';
-import { useToggleProductSave } from '@/lib/hooks/use-saves';
+import { useProductSave, useToggleProductSave } from '@/lib/hooks/use-saves';
 import { useTranslation } from '@/lib/i18n';
 
 /**
@@ -68,7 +68,7 @@ import { useTranslation } from '@/lib/i18n';
 
 export default function CanonicalProductPageScreen() {
   const router = useRouter();
-  const { oxyServices } = useOxy();
+  const { oxyServices, canUsePrivateApi } = useOxy();
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ handle: string; variant?: string; intent?: string }>();
   const handle = params.handle ?? '';
@@ -107,6 +107,10 @@ export default function CanonicalProductPageScreen() {
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const addToCart = useAddCartItem();
   const toggleProductSave = useToggleProductSave();
+  const productSave = useProductSave(page?.product.id);
+  const saved = productSave.data?.saved ?? false;
+  const savePending = toggleProductSave.isPending ||
+    (canUsePrivateApi && (productSave.isPending || productSave.isFetching));
 
   /*
     The schema-driven half of the page (#367 workstream 9).
@@ -385,36 +389,42 @@ export default function CanonicalProductPageScreen() {
           />
 
           <View className="flex-row flex-wrap gap-space-8">
-            {/*
-            Save (#80). A one-way SAVE rather than a toggle, and the reason is a
-            gap stated rather than papered over: #80 publishes a save context
-            for a LISTING (`/product-saves/listing/:id`) and none for a
-            canonical product, so this page cannot know whether the product is
-            already saved. A toggle built on an unknown current state would
-            un-save on the first press for anybody who had saved it elsewhere.
-            The write is idempotent (`ON CONFLICT DO NOTHING`), so pressing it
-            twice creates nothing and changes nothing — including the saved
-            list's ordering key. Whoever adds a per-product read to #80 turns
-            this into a toggle and nothing else here changes.
-          */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('product.save.productA11y')}
-              accessibilityState={{ disabled: toggleProductSave.isPending }}
-              disabled={toggleProductSave.isPending}
-              onPress={() =>
-                toggleProductSave.mutate({
-                  canonicalProductId: page.product.id,
-                  saved: false,
-                  sourceContext: 'product_page',
-                })
-              }
-              className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
-            >
-              <Text className="text-buttonMedium text-text">
-                {toggleProductSave.isSuccess ? t('product.save.saved') : t('product.save.product')}
-              </Text>
-            </Pressable>
+            <View className="gap-space-8">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={productSave.isError
+                  ? t('common.tryAgain')
+                  : t(saved ? 'product.save.removeProductA11y' : 'product.save.productA11y')}
+                accessibilityState={{ disabled: savePending, selected: saved }}
+                aria-pressed={saved}
+                disabled={savePending}
+                onPress={() => {
+                  if (!canUsePrivateApi) {
+                    openAccountDialog();
+                  } else if (productSave.isError) {
+                    void productSave.refetch();
+                  } else if (productSave.data) {
+                    toggleProductSave.mutate({
+                      canonicalProductId: page.product.id,
+                      saved: productSave.data.saved,
+                      sourceContext: 'product_page',
+                    });
+                  }
+                }}
+                className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
+              >
+                <Text className="text-buttonMedium text-text">
+                  {productSave.isError ? t('common.tryAgain') : savePending
+                    ? t('common.loading')
+                    : t(saved ? 'product.save.productSaved' : 'product.save.product')}
+                </Text>
+              </Pressable>
+              {productSave.isError || toggleProductSave.isError ? (
+                <Text accessibilityRole="alert" className="text-caption text-destructive">
+                  {t(productSave.isError ? 'product.save.statusError' : 'product.save.updateError')}
+                </Text>
+              ) : null}
+            </View>
 
             {/*
             Reporting the PRODUCT DATA goes to feedback, not to abuse reporting,

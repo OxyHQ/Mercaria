@@ -142,7 +142,7 @@ test("gallery thumbnails control the carousel and Bloom opens and dismisses the 
     page.getByRole("button", { name: "Close media viewer", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("ArrowRight");
-  await expect(thumbnails.getByRole("button", { name: "View image 4", exact: true }))
+  await expect(thumbnails.getByRole("button", { name: "View image 4", exact: true, includeHidden: true }))
     .toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
   await expect(
@@ -298,6 +298,16 @@ test("canonical products use the complete gallery and keep purchase availability
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("product-thumbnails")).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  let saveWrites = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/product-saves") saveWrites++;
+  });
+  const save = page.getByRole("button", { name: "Save this product", exact: true, includeHidden: true });
+  await expect(save).toHaveAttribute("aria-pressed", "false");
+  await save.click();
+  await expect(page.getByText("Continue with Oxy", { exact: true })).toBeVisible();
+  await expect(save).toHaveAttribute("aria-pressed", "false");
+  expect(saveWrites).toBe(0);
 });
 
 test("store reviews expose the next page and preserve real verification labels", async ({ page, request }) => {
@@ -416,7 +426,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     await page.goto(`/products/${product.id}`);
     const preview = page.getByTestId("product-description");
     await expect(preview.getByText(ending, { exact: false })).toHaveCount(0);
-    await preview.getByRole("button", { name: "Read more", exact: true }).click();
+    await preview.getByRole("button", { name: "View more", exact: true }).click();
     const sheet = page.getByTestId("product-description-dialog");
     await expect(sheet.getByText(description, { exact: true })).toBeVisible();
     await expect.poll(async () => {
@@ -425,7 +435,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     }).toBe(true);
     await page.keyboard.press("Escape");
     await expect(sheet).toHaveCount(0);
-    await expect(preview.getByRole("button", { name: "Read more", exact: true })).toBeVisible();
+    await expect(preview.getByRole("button", { name: "View more", exact: true })).toBeVisible();
   });
 }
 
@@ -441,7 +451,7 @@ test("short product descriptions are complete without a redundant read-more cont
   await page.goto(`/products/${product.id}`);
   const preview = page.getByTestId("product-description");
   await expect(preview.getByText(description, { exact: true })).toBeVisible();
-  await expect(preview.getByRole("button", { name: "Read more", exact: true })).toHaveCount(0);
+  await expect(preview.getByRole("button", { name: "View more", exact: true })).toHaveCount(0);
 });
 
 test("a deep-linked option beyond the preview stays selected and visible before expanding", async ({ page, request }) => {

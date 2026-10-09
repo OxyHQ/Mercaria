@@ -451,7 +451,11 @@ function ProductBody({ listing }: ProductBodyProps) {
               />
             </View>
 
-            <Text className="text-[24px] leading-tight font-semibold text-text">
+            <Text
+              accessibilityRole="header"
+              numberOfLines={3}
+              className="text-headerBold leading-7 text-text"
+            >
               {listing.title}
             </Text>
 
