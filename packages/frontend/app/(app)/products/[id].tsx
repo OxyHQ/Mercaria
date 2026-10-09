@@ -847,7 +847,9 @@ function ProductBody({ listing }: ProductBodyProps) {
               {listing.description ? (
                 <AccordionItem value="description">
                   <AccordionTrigger>
-                    {t("product.description")}
+                    <Text accessibilityRole="header" className="text-shop-subtitle text-text">
+                      {t("product.description")}
+                    </Text>
                   </AccordionTrigger>
                   <AccordionContent>
                     <ProductDescription description={listing.description} />
@@ -855,7 +857,11 @@ function ProductBody({ listing }: ProductBodyProps) {
                 </AccordionItem>
               ) : null}
               <AccordionItem value="reviews">
-                <AccordionTrigger>{t("product.reviews")}</AccordionTrigger>
+                <AccordionTrigger>
+                  <Text accessibilityRole="header" className="text-shop-subtitle text-text">
+                    {t("product.reviews")}
+                  </Text>
+                </AccordionTrigger>
                 <AccordionContent>
                   <View className="gap-space-16">
                     {listing.canonicalProductId ? (
@@ -900,7 +906,9 @@ function ProductBody({ listing }: ProductBodyProps) {
               {refundPolicy ? (
                 <AccordionItem value="returns">
                   <AccordionTrigger>
-                    {t("product.returnPolicy")}
+                    <Text accessibilityRole="header" className="text-shop-subtitle text-text">
+                      {t("product.returnPolicy")}
+                    </Text>
                   </AccordionTrigger>
                   <AccordionContent>
                     <Text className="text-shop-bodySmall text-text">
