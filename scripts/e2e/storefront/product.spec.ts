@@ -858,7 +858,8 @@ test("short product descriptions are complete without a redundant read-more cont
 
 test("a deep-linked option beyond the preview stays selected and visible before expanding", async ({ page, request }) => {
   const product = await seededProduct(request);
-  const values = Array.from({ length: 30 }, (_, index) => `Option ${index + 1}`);
+  const values = Array.from({ length: 120 }, (_, index) => `Option ${index + 1}`);
+  values[119] = "Limited edition with a much longer merchant-authored option name";
   const variants = values.map((value, index) => ({
     ...product.variants[0],
     id: `${product.variants[0].id}-${index}`,
@@ -872,16 +873,71 @@ test("a deep-linked option beyond the preview stays selected and visible before 
     body.data.variants = variants;
     await route.fulfill({ response, json: body });
   });
-  await page.goto(`/products/${product.id}?variantId=${variants[29].id}`);
-  await expect(page.getByRole("button", { name: "Size: Option 30", exact: true }))
+  await page.goto(`/products/${product.id}?variantId=${variants[119].id}`);
+  const selected = page.getByRole("button", { name: `Size: ${values[119]}`, exact: true });
+  await expect(selected)
     .toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: /^Size: Option / })).toHaveCount(24);
-  await page.getByRole("button", { name: "More Size options (6)", exact: true }).click();
-  await expect(page.getByRole("button", { name: /^Size: Option / })).toHaveCount(30);
+  const grid = page.getByTestId("variant-option-values-Size");
+  const options = grid.getByRole("button", { name: /^Size: / });
+  const rowCount = () => grid.getByRole("button").evaluateAll(elements =>
+    new Set(elements.map(element => Math.round(element.getBoundingClientRect().top))).size);
+  await expect.poll(rowCount).toBe(4);
+  const desktopCount = await options.count();
+  expect(desktopCount).toBeLessThan(values.length);
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await expect.poll(() => options.count()).toBeLessThan(desktopCount);
+  await expect.poll(rowCount).toBe(4);
+  await expect(selected).toBeVisible();
+  await expect(selected).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(new RegExp(`variantId=${variants[119].id}$`));
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(options).toHaveCount(desktopCount);
+  const hidden = values.length - desktopCount;
+  await grid.getByRole("button", { name: `More Size options (${hidden})`, exact: true }).click();
+  await expect(options).toHaveCount(values.length);
   await page.getByRole("button", { name: "Size: Option 26", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`variantId=${variants[25].id}$`));
   await expect(page.getByRole("button", { name: "Size: Option 26", exact: true }))
     .toHaveAttribute("aria-pressed", "true");
+});
+
+test("pictured Arabic options fit four rows and expand without horizontal overflow", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  const values = Array.from({ length: 32 }, (_, index) => `مقاس ${index + 1}`);
+  values[31] = "إصدار خاص باسم طويل للمنتج من المتجر";
+  const variants = values.map((value, index) => ({
+    ...product.variants[0],
+    id: `${product.variants[0].id}-pictured-${index}`,
+    title: value,
+    optionValues: [{ name: "مقاس", value }],
+    images: { source: "variant", images: [product.images[index % product.images.length]] },
+  }));
+  await page.addInitScript(() => {
+    localStorage.setItem("i18n-storage", JSON.stringify({ state: { locale: "ar" }, version: 0 }));
+    localStorage.setItem("mercaria.bloom.theme", JSON.stringify({ mode: "dark", colorPreset: "mono" }));
+  });
+  await page.route(`**/listings/${product.id}`, async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.options = [{ name: "مقاس", values }];
+    body.data.variants = variants;
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(`/products/${product.id}?variantId=${variants[31].id}`);
+  const grid = page.getByTestId("variant-option-values-مقاس");
+  const selected = grid.getByRole("button", { name: `مقاس: ${values[31]}`, exact: true });
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect.poll(() => grid.getByRole("button").evaluateAll(elements =>
+      new Set(elements.map(element => Math.round(element.getBoundingClientRect().top))).size)).toBe(4);
+    await expect(selected).toHaveAttribute("aria-pressed", "true");
+    await expect(selected.locator("img").last()).toHaveAttribute("src", product.images[31 % product.images.length].fileId);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  }
+  await grid.getByRole("button").last().click();
+  await expect(grid.getByRole("button", { name: /^مقاس: / })).toHaveCount(values.length);
+  await expect(selected).toHaveAttribute("aria-pressed", "true");
 });
 
 for (const width of [1440, 390]) {
