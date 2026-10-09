@@ -476,7 +476,7 @@ export async function findDimensionsForReviews(
 }
 
 /**
- * A page of a LEGACY target's PUBLISHED reviews, newest first, plus the total.
+ * A page of a LEGACY target's PUBLISHED reviews, newest first by default, plus the total.
  *
  * The `id` tiebreaker is new. Mongo sorted on `createdAt` alone, which leaves
  * reviews written in the same millisecond in an order the server may choose
@@ -491,10 +491,10 @@ export async function findReviewsPage(
   filters: ReviewListFilters = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReviewPageRows> {
-  return pageOf(withReviewSearch(publishedTargetFilter(target), filters), page, limit, db);
+  return pageOf(withReviewFilters(publishedTargetFilter(target), filters), page, limit, filters, db);
 }
 
-/** A page of a SCOPED target's PUBLISHED reviews, newest first, plus the total. */
+/** A page of a SCOPED target's PUBLISHED reviews, newest first by default, plus the total. */
 export async function findScopedReviewsPage(
   target: ScopedReviewTarget,
   page: number,
@@ -502,30 +502,37 @@ export async function findScopedReviewsPage(
   filters: ReviewListFilters = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReviewPageRows> {
-  return pageOf(withReviewSearch(publishedScopedFilter(target), filters), page, limit, db);
+  return pageOf(withReviewFilters(publishedScopedFilter(target), filters), page, limit, filters, db);
 }
 
-/** Literal, case-insensitive title/body search, scoped before count and pagination. */
-function withReviewSearch(target: SQL, { query }: ReviewListFilters): SQL {
+/** Literal title/body search and star selection, scoped before count and pagination. */
+function withReviewFilters(target: SQL, { query, ratings }: ReviewListFilters): SQL {
+  if (ratings?.length) target = and(target, inArray(reviews.rating, ratings)) as SQL;
   const text = query?.trim();
   if (!text) return target;
   const pattern = `%${text.replace(/[\\%_]/g, '\\$&')}%`;
   return and(target, or(ilike(reviews.title, pattern), ilike(reviews.body, pattern))) as SQL;
 }
 
-/** The shared body of the two paged reads above. */
+/** The shared body of all three paged reads. */
 async function pageOf(
   where: SQL,
   page: number,
   limit: number,
+  filters: ReviewListFilters,
   db: DatabaseOrTransaction,
 ): Promise<ReviewPageRows> {
+  const byDate = [desc(reviews.createdAt), desc(reviews.id)];
+  const order = filters.sortBy === 'oldest' ? [asc(reviews.createdAt), asc(reviews.id)]
+    : filters.sortBy === 'rating_asc' ? [asc(reviews.rating), ...byDate]
+    : filters.sortBy === 'rating_desc' ? [desc(reviews.rating), ...byDate]
+    : byDate;
   const [rows, [totals]] = await Promise.all([
     db
       .select()
       .from(reviews)
       .where(where)
-      .orderBy(desc(reviews.createdAt), desc(reviews.id))
+      .orderBy(...order)
       .limit(limit)
       .offset((page - 1) * limit),
     db
@@ -554,13 +561,14 @@ export async function findListingReviewsPage(
   if (listingIds.length === 0) return { rows: [], total: 0 };
 
   return pageOf(
-    withReviewSearch(and(
+    withReviewFilters(and(
       eq(reviews.targetType, 'listing'),
       inArray(reviews.listingId, [...listingIds]),
       eq(reviews.status, 'published'),
     ) as SQL, filters),
     page,
     limit,
+    filters,
     db,
   );
 }

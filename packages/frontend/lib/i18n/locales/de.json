@@ -432,6 +432,19 @@
       "placeholder": "Rezensionen durchsuchen",
       "noResults": "Keine Rezensionen entsprechen deiner Suche.",
       "results": "Suchergebnisse: %{results}"
+    },
+    "filters": {
+      "sort": "Sortieren nach",
+      "newest": "Neueste",
+      "oldest": "Älteste",
+      "ratingAscending": "Bewertung aufsteigend",
+      "ratingDescending": "Bewertung absteigend",
+      "rating": "Bewertung",
+      "stars": "%{count} Sterne",
+      "reset": "Zurücksetzen",
+      "apply": "Anwenden",
+      "noResults": "Keine Bewertungen entsprechen diesen Filtern.",
+      "results": "Bewertungen: %{results}"
     }
   },
   "search": {

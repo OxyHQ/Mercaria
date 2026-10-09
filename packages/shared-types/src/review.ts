@@ -571,9 +571,16 @@ export interface ReviewDimensionAggregate {
   count: number;
 }
 
-/** Public review search matches title/body; it never changes the target's aggregate. */
+/** Public review ordering; recommendation ranking is not part of this contract. */
+export const REVIEW_SORT_ORDERS = ['newest', 'oldest', 'rating_asc', 'rating_desc'] as const;
+export type ReviewSortOrder = (typeof REVIEW_SORT_ORDERS)[number];
+
+/** Public review filters never change the target's aggregate. */
 export interface ReviewListFilters {
   query?: string;
+  sortBy?: ReviewSortOrder;
+  /** Any selected whole-star rating; omitted/empty means all ratings. */
+  ratings?: number[];
 }
 
 export const REVIEW_SEARCH_MAX_LENGTH = 200;

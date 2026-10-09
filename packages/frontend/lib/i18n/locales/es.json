@@ -436,6 +436,19 @@
       "placeholder": "Buscar reseñas",
       "noResults": "No hay reseñas que coincidan con tu búsqueda.",
       "results": "Resultados de búsqueda: %{results}"
+    },
+    "filters": {
+      "sort": "Ordenar por",
+      "newest": "Más recientes",
+      "oldest": "Más antiguas",
+      "ratingAscending": "Puntuación: de menor a mayor",
+      "ratingDescending": "Puntuación: de mayor a menor",
+      "rating": "Puntuación",
+      "stars": "%{count} estrellas",
+      "reset": "Restablecer",
+      "apply": "Aplicar",
+      "noResults": "Ninguna reseña coincide con estos filtros.",
+      "results": "Reseñas: %{results}"
     }
   },
   "search": {

@@ -440,6 +440,19 @@
       "placeholder": "Поиск отзывов",
       "noResults": "По вашему запросу отзывов не найдено.",
       "results": "Результаты поиска: %{results}"
+    },
+    "filters": {
+      "sort": "Сортировать по",
+      "newest": "Сначала новые",
+      "oldest": "Сначала старые",
+      "ratingAscending": "По возрастанию оценки",
+      "ratingDescending": "По убыванию оценки",
+      "rating": "Оценка",
+      "stars": "Звёзд: %{count}",
+      "reset": "Сбросить",
+      "apply": "Применить",
+      "noResults": "Нет отзывов с такими фильтрами.",
+      "results": "Отзывы: %{results}"
     }
   },
   "search": {

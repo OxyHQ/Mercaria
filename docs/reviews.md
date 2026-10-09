@@ -311,6 +311,15 @@ reviews, while `ratingSummary` and the scoped aggregate keep describing the
 whole target. Filtering never recalculates the product's headline rating from
 the returned page.
 
+They also accept `sortBy=newest|oldest|rating_asc|rating_desc` (newest by
+default) and `ratings=1,5` (one comma-separated list of up to five whole-star
+ratings). Multiple stars are ORed, then combined with the text query and target.
+Malformed filters return 400. Ordering happens before pagination, with timestamp
+and ID tiebreakers. The storefront exposes these as Bloom radio/checkbox menus;
+Apply commits a draft selection and resets its infinite list; Reset changes
+the draft to the default, and dismissal discards uncommitted choices. There is no recommendation-ranking
+option because the review domain does not have a relevance score.
+
 The scoped reads return the aggregate ALONGSIDE the page, so the stars a page
 shows and the reviews it lists come from one read. A client that averaged the
 twelve reviews it received would display a number that is not the target's
@@ -320,7 +329,7 @@ structured data must not mirror.
 The storefront's full product/listing review sheet appends these server pages
 as its own scroll viewport reaches the end. Infinite-list cache keys are separate
 from the PDP preview keys and include scope, target, page size and submitted
-search text. Enter submits trimmed text; clearing restores the unfiltered list.
+search text, ordering and selected ratings. Enter submits trimmed text; clearing restores the unfiltered list.
 Typing alone does not filter the currently loaded page. A failed continuation
 keeps the loaded reviews and offers a retry. Review IDs prevent duplicated cards
 when offset pages overlap after a new publication.

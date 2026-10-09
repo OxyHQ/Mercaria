@@ -436,6 +436,19 @@
       "placeholder": "Cerca ressenyes",
       "noResults": "No hi ha ressenyes que coincideixin amb la cerca.",
       "results": "Resultats de cerca: %{results}"
+    },
+    "filters": {
+      "sort": "Ordena per",
+      "newest": "Més recents",
+      "oldest": "Més antigues",
+      "ratingAscending": "Puntuació: de menor a major",
+      "ratingDescending": "Puntuació: de major a menor",
+      "rating": "Puntuació",
+      "stars": "%{count} estrelles",
+      "reset": "Restableix",
+      "apply": "Aplica",
+      "noResults": "Cap ressenya coincideix amb aquests filtres.",
+      "results": "Ressenyes: %{results}"
     }
   },
   "search": {

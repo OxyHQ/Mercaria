@@ -1,4 +1,4 @@
-import type { DiscoveryScope, DiscoverySignal, ListingQuery } from '@mercaria/shared-types';
+import type { DiscoveryScope, DiscoverySignal, ListingQuery, ReviewListFilters } from '@mercaria/shared-types';
 
 export const queryKeys = {
   notifications: {
@@ -147,8 +147,8 @@ export const queryKeys = {
     detail: (id: string) => ["listings", id] as const,
     reviews: (id: string, page: number, limit = 12, query = "") =>
       ["listings", id, "reviews", page, { limit, query }] as const,
-    infiniteReviews: (id: string, limit: number, query: string) =>
-      ["listings", id, "reviews", "infinite", { limit, query }] as const,
+    infiniteReviews: (id: string, limit: number, filters: ReviewListFilters) =>
+      ["listings", id, "reviews", "infinite", { limit, ...filters }] as const,
   },
   /**
    * Saves (#80). Filed under their own key rather than under `listings`,
@@ -200,8 +200,8 @@ export const queryKeys = {
       ["reviews", "product", canonicalProductId] as const,
     product: (canonicalProductId: string, page: number, limit = 12, query = "") =>
       ["reviews", "product", canonicalProductId, page, { limit, query }] as const,
-    productInfinite: (canonicalProductId: string, limit: number, query: string) =>
-      ["reviews", "product", canonicalProductId, "infinite", { limit, query }] as const,
+    productInfinite: (canonicalProductId: string, limit: number, filters: ReviewListFilters) =>
+      ["reviews", "product", canonicalProductId, "infinite", { limit, ...filters }] as const,
     merchantAll: (merchantId: string) => ["reviews", "merchant", merchantId] as const,
     merchant: (merchantId: string, page: number, limit = 12, query = "") =>
       ["reviews", "merchant", merchantId, page, { limit, query }] as const,

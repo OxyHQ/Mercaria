@@ -432,6 +432,19 @@
       "placeholder": "レビューを検索",
       "noResults": "検索に一致するレビューはありません。",
       "results": "検索結果：%{results}件"
+    },
+    "filters": {
+      "sort": "並べ替え",
+      "newest": "新しい順",
+      "oldest": "古い順",
+      "ratingAscending": "評価の低い順",
+      "ratingDescending": "評価の高い順",
+      "rating": "評価",
+      "stars": "星%{count}つ",
+      "reset": "リセット",
+      "apply": "適用",
+      "noResults": "この条件に一致するレビューはありません。",
+      "results": "レビュー：%{results}"
     }
   },
   "search": {

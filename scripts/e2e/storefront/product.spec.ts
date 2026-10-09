@@ -1391,3 +1391,42 @@ test("option pills keep Shop states and truncate long values in dark desktop and
   await expect(unavailable).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "Sold out", exact: true })).toBeDisabled();
 });
+
+
+for (const width of [1440, 390]) {
+  test(`review filters select multiple ratings and order server pages at ${width}px`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const product = await seededProduct(request);
+    await page.goto(`/products/${product.id}`);
+    await page.getByRole("button", { name: "Read more reviews", exact: true }).click();
+    const filterRequests: string[] = [];
+    page.on("request", request => {
+      const url = new URL(request.url());
+      if (url.pathname.endsWith("/reviews") && url.searchParams.has("ratings")) filterRequests.push(request.url());
+    });
+    const dialog = page.getByTestId("product-reviews-dialog");
+    await dialog.getByRole("button", { name: "Rating", exact: true }).click();
+    const menu = page.getByRole("menu");
+    await menu.getByRole("checkbox", { name: /Stars:.*1/ }).click();
+    await expect(menu.getByRole("checkbox", { name: /Stars:.*1/ })).toBeChecked();
+    await menu.getByRole("checkbox", { name: /Stars:.*2/ }).click();
+    expect(filterRequests).toHaveLength(0);
+    await menu.getByRole("menuitem", { name: "Apply", exact: true }).click();
+    const expected = await (await request.get(`http://localhost:4160/listings/${product.id}/reviews?ratings=1,2&sortBy=newest`)).json();
+    expect(expected.pagination.total).toBeGreaterThan(0);
+    await expect.poll(() => dialog.locator('[data-testid^="review-"]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-testid')).filter(id => /^review-[0-9a-f]{8}-/.test(id!)))).toEqual(expected.data.map((review: Review) => `review-${review.id}`));
+    await dialog.getByRole("button", { name: "Rating", exact: true }).click();
+    await menu.getByRole("menuitem", { name: "Reset", exact: true }).click();
+    await menu.getByRole("menuitem", { name: "Apply", exact: true }).click();
+    await dialog.getByRole("button", { name: "Sort by", exact: true }).click();
+    const oldestOption = menu.getByRole("radio", { name: "Oldest", exact: true });
+    await oldestOption.focus();
+    await page.keyboard.press("Space");
+    await page.keyboard.press("End");
+    await expect(menu.getByRole("menuitem", { name: "Apply", exact: true })).toBeFocused();
+    await page.keyboard.press("Enter");
+    const oldest = await (await request.get(`http://localhost:4160/listings/${product.id}/reviews?sortBy=oldest&limit=12`)).json();
+    await expect.poll(() => dialog.locator('[data-testid^="review-"]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-testid')).filter(id => /^review-[0-9a-f]{8}-/.test(id!)).slice(0, 12))).toEqual(oldest.data.map((review: Review) => `review-${review.id}`));
+    await expect(dialog.getByRole("button", { name: "Sort by", exact: true })).toHaveCSS("background-color", "rgb(18, 18, 18)");
+  });
+}

@@ -436,6 +436,19 @@
       "placeholder": "Rechercher des avis",
       "noResults": "Aucun avis ne correspond à votre recherche.",
       "results": "Résultats de recherche : %{results}"
+    },
+    "filters": {
+      "sort": "Trier par",
+      "newest": "Plus récentes",
+      "oldest": "Plus anciennes",
+      "ratingAscending": "Note croissante",
+      "ratingDescending": "Note décroissante",
+      "rating": "Note",
+      "stars": "%{count} étoiles",
+      "reset": "Réinitialiser",
+      "apply": "Appliquer",
+      "noResults": "Aucun avis ne correspond à ces filtres.",
+      "results": "Avis : %{results}"
     }
   },
   "search": {

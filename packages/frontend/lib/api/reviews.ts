@@ -34,7 +34,7 @@ export async function fetchListingReviews(
   params?: PaginationParams & ReviewListFilters,
 ): Promise<ListingReviewPage> {
   const { data } = await apiClient.get<ListingReviewPage>(`/listings/${listingId}/reviews`, {
-    params,
+    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
   });
   return data;
 }
@@ -50,7 +50,7 @@ export async function fetchStoreReviews(
   params?: PaginationParams & ReviewListFilters,
 ): Promise<PaginatedResponse<Review>> {
   const { data } = await apiClient.get<PaginatedResponse<Review>>(`/stores/${handle}/reviews`, {
-    params,
+    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
   });
   return data;
 }
@@ -74,7 +74,7 @@ export async function fetchProductReviews(
   params?: PaginationParams & ReviewListFilters,
 ): Promise<ScopedReviewPage> {
   const { data } = await apiClient.get<ScopedReviewPage>(`/reviews/product/${canonicalProductId}`, {
-    params,
+    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
   });
   return data;
 }
@@ -85,7 +85,7 @@ export async function fetchMerchantReviews(
   params?: PaginationParams & ReviewListFilters,
 ): Promise<ScopedReviewPage> {
   const { data } = await apiClient.get<ScopedReviewPage>(`/reviews/merchant/${merchantId}`, {
-    params,
+    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
   });
   return data;
 }

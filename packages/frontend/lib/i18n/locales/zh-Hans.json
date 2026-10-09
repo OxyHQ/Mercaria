@@ -432,6 +432,19 @@
       "placeholder": "搜索评价",
       "noResults": "没有符合搜索条件的评价。",
       "results": "搜索结果：%{results}条"
+    },
+    "filters": {
+      "sort": "排序方式",
+      "newest": "最新",
+      "oldest": "最早",
+      "ratingAscending": "评分从低到高",
+      "ratingDescending": "评分从高到低",
+      "rating": "评分",
+      "stars": "%{count}星",
+      "reset": "重置",
+      "apply": "应用",
+      "noResults": "没有符合这些筛选条件的评论。",
+      "results": "评论：%{results}"
     }
   },
   "search": {

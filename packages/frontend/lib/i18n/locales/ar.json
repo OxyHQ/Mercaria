@@ -432,6 +432,19 @@
       "placeholder": "البحث في المراجعات",
       "noResults": "لا توجد مراجعات تطابق بحثك.",
       "results": "نتائج البحث: %{results}"
+    },
+    "filters": {
+      "sort": "ترتيب حسب",
+      "newest": "الأحدث",
+      "oldest": "الأقدم",
+      "ratingAscending": "التقييم: من الأقل إلى الأعلى",
+      "ratingDescending": "التقييم: من الأعلى إلى الأقل",
+      "rating": "التقييم",
+      "stars": "عدد النجوم: %{count}",
+      "reset": "إعادة تعيين",
+      "apply": "تطبيق",
+      "noResults": "لا توجد مراجعات تطابق هذه الفلاتر.",
+      "results": "المراجعات: %{results}"
     }
   },
   "search": {

@@ -436,6 +436,19 @@
       "placeholder": "Buscar avaliações",
       "noResults": "Nenhuma avaliação corresponde à sua busca.",
       "results": "Resultados da busca: %{results}"
+    },
+    "filters": {
+      "sort": "Ordenar por",
+      "newest": "Mais recentes",
+      "oldest": "Mais antigas",
+      "ratingAscending": "Nota: menor para maior",
+      "ratingDescending": "Nota: maior para menor",
+      "rating": "Nota",
+      "stars": "%{count} estrelas",
+      "reset": "Redefinir",
+      "apply": "Aplicar",
+      "noResults": "Nenhuma avaliação corresponde a esses filtros.",
+      "results": "Avaliações: %{results}"
     }
   },
   "search": {

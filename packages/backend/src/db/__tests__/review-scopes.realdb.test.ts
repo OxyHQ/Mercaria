@@ -781,6 +781,21 @@ describe('aggregates: verified and unverified never blend', () => {
     }
     expect((await findReviewsPage(target, 1, 20, { query: 'not in any review' })).total).toBe(0);
     expect((await findReviewsPage(target, 1, 20, { query: '   ' })).total).toBe(3);
+    const low = await findReviewsPage(target, 1, 1, { query: 'glow', ratings: [4, 5], sortBy: 'rating_asc' });
+    const high = await findReviewsPage(target, 2, 1, { query: 'glow', ratings: [4, 5], sortBy: 'rating_asc' });
+    expect(low.total).toBe(2);
+    expect(low.rows.map(row => row.id)).toEqual([second]);
+    expect(high.rows.map(row => row.id)).toEqual([first]);
+    expect((await findReviewsPage(target, 1, 20, { ratings: [5, 4], sortBy: 'rating_desc' })).rows.map(row => row.id)).toEqual([first, second]);
+    expect((await findScopedReviewsPage({ ...target, scope: 'p2p_listing' }, 1, 20, { ratings: [4] })).rows.map(row => row.id)).toEqual([second]);
+    expect((await findListingReviewsPage([listingId], 1, 20, { ratings: [4] })).rows.map(row => row.id)).toEqual([second]);
+    expect((await findReviewsPage(target, 1, 20, { ratings: [2] })).total).toBe(0);
+    // Same timestamp makes the UUID tiebreaker observable across pages.
+    await db.update(reviews).set({ createdAt: new Date('2025-01-01T00:00:00Z') }).where(inArray(reviews.id, [first, second]));
+    const orderedIds = [first, second].sort();
+    expect((await findReviewsPage(target, 1, 1, { query: 'glow', sortBy: 'oldest' })).rows[0].id).toBe(orderedIds[0]);
+    expect((await findReviewsPage(target, 2, 1, { query: 'glow', sortBy: 'oldest' })).rows[0].id).toBe(orderedIds[1]);
+    expect((await findReviewsPage(target, 1, 1, { query: 'glow', sortBy: 'newest' })).rows[0].id).toBe(orderedIds[1]);
     expect(before.reviewCount).toBe(3);
     expect(await readReviewRatingSummary(target)).toEqual(before);
   });

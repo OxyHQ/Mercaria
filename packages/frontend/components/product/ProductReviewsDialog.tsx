@@ -4,12 +4,13 @@ import { useReducedMotion } from "react-native-reanimated";
 import { Dialog } from "@oxy.so/bloom/dialog";
 import { Button } from "@oxy.so/bloom/button";
 import { Search } from "@oxy.so/bloom/search";
-import { REVIEW_SEARCH_MAX_LENGTH } from "@mercaria/shared-types";
+import { REVIEW_SEARCH_MAX_LENGTH, type ReviewSortOrder } from "@mercaria/shared-types";
 import { ReviewCard, ReviewSummaryCard, Text, useFormatters } from "@mercaria/ui";
 import {
   useInfiniteProductReviews,
   REVIEW_SCOPE_HEADING_KEYS,
 } from "@/lib/hooks/use-reviews";
+import { ReviewFilters } from "./ReviewFilters";
 import { useTranslation } from "@/lib/i18n";
 
 /** Mounted only when opened, so selection and search reset for each product. */
@@ -30,6 +31,8 @@ export function ProductReviewsDialog({
   const { t } = useTranslation();
   const [searchText, setSearchText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<ReviewSortOrder>("newest");
+  const [ratings, setRatings] = useState<number[]>([]);
   const searchInput = useRef<TextInput>(null);
   const { formatReviewCount } = useFormatters();
   const scroll = useRef<ScrollView>(null);
@@ -41,7 +44,7 @@ export function ProductReviewsDialog({
   const query = useInfiniteProductReviews(
     scope,
     scope === "product" ? canonicalProductId ?? "" : listingId,
-    searchQuery,
+    { query: searchQuery, sortBy, ratings },
   );
   const title = t(REVIEW_SCOPE_HEADING_KEYS[scope]);
   const firstPage = query.data?.pages[0];
@@ -116,6 +119,20 @@ export function ProductReviewsDialog({
               />
             </View>
           ) : null}
+          <ReviewFilters
+            sortBy={sortBy}
+            ratings={ratings}
+            onSortChange={(value) => {
+              positioned.current = true;
+              scroll.current?.scrollTo({ y: 0, animated: false });
+              setSortBy(value);
+            }}
+            onRatingsChange={(value) => {
+              positioned.current = true;
+              scroll.current?.scrollTo({ y: 0, animated: false });
+              setRatings(value);
+            }}
+          />
           <View className="mb-space-8">
             <Search
               ref={searchInput}
@@ -140,9 +157,9 @@ export function ProductReviewsDialog({
               }}
             />
           </View>
-          {searchQuery && pagination && !query.isLoading ? (
+          {(searchQuery || ratings.length > 0) && pagination && !query.isLoading ? (
             <Text accessibilityLiveRegion="polite" className="text-shop-bodySmall text-text">
-              {t("reviews.search.results", { results: formatReviewCount(pagination.total) })}
+              {t(searchQuery ? "reviews.search.results" : "reviews.filters.results", { results: formatReviewCount(pagination.total) })}
             </Text>
           ) : null}
           {query.isLoading ? (
@@ -157,7 +174,7 @@ export function ProductReviewsDialog({
           ) : null}
           {!query.isLoading && !query.isError && uniqueReviews.length === 0 ? (
             <Text className="text-shop-bodySmall text-text-tertiary">
-              {t(searchQuery ? "reviews.search.noResults" : "store.reviews.none")}
+              {t(searchQuery ? "reviews.search.noResults" : ratings.length > 0 ? "reviews.filters.noResults" : "store.reviews.none")}
             </Text>
           ) : null}
           {uniqueReviews.map((review) => (

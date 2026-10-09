@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import type {
   CreateReviewInput,
   ReviewEligibility,
+  ReviewListFilters,
   ReviewScope,
 } from '@mercaria/shared-types';
 import { useOxy } from '@oxy.so/services';
@@ -70,14 +71,14 @@ export function useProductScopeReviews(canonicalProductId: string | undefined, p
 }
 
 /** The full sheet appends server pages; preview queries keep their own shape. */
-export function useInfiniteProductReviews(scope: 'product' | 'p2p_listing', id: string, query = '', limit = 12) {
+export function useInfiniteProductReviews(scope: 'product' | 'p2p_listing', id: string, filters: ReviewListFilters = {}, limit = 12) {
   return useInfiniteQuery({
     queryKey: scope === 'product'
-      ? queryKeys.reviews.productInfinite(id, limit, query)
-      : queryKeys.listings.infiniteReviews(id, limit, query),
+      ? queryKeys.reviews.productInfinite(id, limit, filters)
+      : queryKeys.listings.infiniteReviews(id, limit, filters),
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
-      const params = { page: pageParam, limit, query };
+      const params = { page: pageParam, limit, ...filters };
       if (scope === 'product') {
         const page = await fetchProductReviews(id, params);
         return { ...page, aggregate: page.aggregate };
