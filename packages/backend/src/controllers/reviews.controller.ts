@@ -26,6 +26,7 @@ import {
   listOpenEligibilities,
 } from '../services/reviews/review-eligibility.service.js';
 import { log } from '../lib/logger.js';
+import { parseReviewListFilters } from '../services/reviews/review-list-query.js';
 
 /** How many open eligibilities one order-history page asks for. */
 const ELIGIBILITY_PAGE_LIMIT = 50;
@@ -61,6 +62,7 @@ export async function listProductReviews(req: Request, res: Response): Promise<v
       {
         page,
         limit,
+        ...parseReviewListFilters(req.query.query),
       },
     );
     sendPaginated(res, data, buildPagination(page, limit, total), {
@@ -84,6 +86,7 @@ export async function listMerchantReviews(req: Request, res: Response): Promise<
       {
         page,
         limit,
+        ...parseReviewListFilters(req.query.query),
       },
     );
     sendPaginated(res, data, buildPagination(page, limit, total), {
@@ -134,7 +137,7 @@ export async function listListingReviews(req: Request, res: Response): Promise<v
     const { page, limit } = parsePagination(req.query);
     const { data, total, ratingSummary } = await listReviews(
       { targetType: 'listing', targetId: id },
-      { page, limit },
+      { page, limit, ...parseReviewListFilters(req.query.query) },
     );
     sendPaginated(res, data, buildPagination(page, limit, total), {
       ratingSummary,
@@ -153,6 +156,7 @@ export async function listStoreReviews(req: Request, res: Response): Promise<voi
     const { data, total } = await listReviewsForStoreHandle(handle, {
       page,
       limit,
+      ...parseReviewListFilters(req.query.query),
     });
     sendPaginated(res, data, buildPagination(page, limit, total));
   } catch (err) {

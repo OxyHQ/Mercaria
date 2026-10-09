@@ -599,7 +599,7 @@ describe('review.service.listReviewsForStoreHandle', () => {
     expect(findListingIdsByStore).toHaveBeenCalledWith('store-1');
     // The whole store's listing ids go to the review query in ONE `inArray`; only
     // the listings actually reviewed are hydrated afterwards.
-    expect(findListingReviewsPage).toHaveBeenCalledWith(['listing-1', 'listing-2'], 1, 20);
+    expect(findListingReviewsPage).toHaveBeenCalledWith(['listing-1', 'listing-2'], 1, 20, {});
     expect(findListingChildren).toHaveBeenCalledWith(['listing-1']);
     expect(page.total).toBe(1);
     expect(page.data[0].product).toEqual({

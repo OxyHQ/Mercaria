@@ -59,6 +59,8 @@ import {
   setReviewStatusIfIn,
   readReviewRatingSummary,
   findReviewsPage,
+  findScopedReviewsPage,
+  findListingReviewsPage,
 } from '../reviews/reviewRepository.js';
 import { consumeEligibility, insertEligibility } from '../reviews/reviewEligibilityRepository.js';
 import { recordTargetMigration } from '../reviews/reviewMigrationRepository.js';
@@ -300,6 +302,8 @@ async function writeReview(values: {
   targetType: 'canonical_product' | 'merchant' | 'listing';
   targetId: string;
   rating: number;
+  title?: string;
+  body?: string;
   verification?: 'verified_purchase' | 'unverified';
   eligibilityId?: string;
   orderId?: string;
@@ -314,6 +318,8 @@ async function writeReview(values: {
     targetType: values.targetType,
     targetId: values.targetId,
     rating: values.rating,
+    title: values.title,
+    body: values.body,
     verification: values.verification ?? 'unverified',
     incentiveDisclosure: 'none',
     classificationState: 'native',
@@ -749,6 +755,36 @@ describe('verification and its evidence travel together', () => {
 });
 
 describe('aggregates: verified and unverified never blend', () => {
+  it('searches titles and bodies before pagination without widening targets or changing the aggregate', async () => {
+    const storeId = await makeStore();
+    const listingId = await makeListing(storeId);
+    const otherListingId = await makeListing(storeId);
+    const target = { targetType: 'listing' as const, targetId: listingId };
+    const first = await writeReview({ authorOxyUserId: userId('search-a'), scope: 'p2p_listing', ...target, rating: 5, title: 'Lovely GLOW', body: 'Lasts all day.' });
+    const second = await writeReview({ authorOxyUserId: userId('search-b'), scope: 'p2p_listing', ...target, rating: 4, title: 'My favourite', body: 'Soft glow, 100%_coverage\\finish.' });
+    await writeReview({ authorOxyUserId: userId('search-other-text'), scope: 'p2p_listing', ...target, rating: 1, body: 'Wrong shade.' });
+    const hidden = await writeReview({ authorOxyUserId: userId('search-hidden'), scope: 'p2p_listing', ...target, rating: 2, body: 'Glow hidden.' });
+    await setReviewStatusIfIn(hidden, 'hidden', ['published']);
+    await writeReview({ authorOxyUserId: userId('search-other-target'), scope: 'p2p_listing', targetType: 'listing', targetId: otherListingId, rating: 5, body: 'Glow elsewhere.' });
+    const before = await readReviewRatingSummary(target);
+    const page1 = await findReviewsPage(target, 1, 1, { query: 'glow' });
+    const page2 = await findReviewsPage(target, 2, 1, { query: 'glow' });
+    expect(page1.total).toBe(2);
+    expect(page2.total).toBe(2);
+    expect(new Set([...page1.rows, ...page2.rows].map(row => row.id))).toEqual(new Set([first, second]));
+    expect(new Set((await findScopedReviewsPage({ ...target, scope: 'p2p_listing' }, 1, 20, { query: 'GLOW' })).rows.map(row => row.id))).toEqual(new Set([first, second]));
+    expect((await findListingReviewsPage([listingId], 1, 20, { query: 'glow' })).total).toBe(2);
+    for (const query of ['%', '_', '\\', '100%_coverage\\finish']) {
+      const result = await findReviewsPage(target, 1, 20, { query });
+      expect(result.total).toBe(1);
+      expect(result.rows.map(row => row.id)).toEqual([second]);
+    }
+    expect((await findReviewsPage(target, 1, 20, { query: 'not in any review' })).total).toBe(0);
+    expect((await findReviewsPage(target, 1, 20, { query: '   ' })).total).toBe(3);
+    expect(before.reviewCount).toBe(3);
+    expect(await readReviewRatingSummary(target)).toEqual(before);
+  });
+
   it('reads all published rating buckets independently of pagination and excludes other targets and hidden rows', async () => {
     const storeId = await makeStore();
     const listingId = await makeListing(storeId);

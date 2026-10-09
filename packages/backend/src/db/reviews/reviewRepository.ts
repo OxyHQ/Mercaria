@@ -57,7 +57,7 @@
  * the endpoints (#36 completion criterion 4).
  */
 
-import { and, asc, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { InferSelectModel, SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import {
@@ -70,6 +70,7 @@ import {
   type ReviewTargetType,
   type ReviewVerificationState,
   type ReviewRatingSummary,
+  type ReviewListFilters,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { reviewDimensions, reviews } from '../schema/reviews.js';
@@ -487,9 +488,10 @@ export async function findReviewsPage(
   target: ReviewTarget,
   page: number,
   limit: number,
+  filters: ReviewListFilters = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReviewPageRows> {
-  return pageOf(publishedTargetFilter(target), page, limit, db);
+  return pageOf(withReviewSearch(publishedTargetFilter(target), filters), page, limit, db);
 }
 
 /** A page of a SCOPED target's PUBLISHED reviews, newest first, plus the total. */
@@ -497,9 +499,18 @@ export async function findScopedReviewsPage(
   target: ScopedReviewTarget,
   page: number,
   limit: number,
+  filters: ReviewListFilters = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReviewPageRows> {
-  return pageOf(publishedScopedFilter(target), page, limit, db);
+  return pageOf(withReviewSearch(publishedScopedFilter(target), filters), page, limit, db);
+}
+
+/** Literal, case-insensitive title/body search, scoped before count and pagination. */
+function withReviewSearch(target: SQL, { query }: ReviewListFilters): SQL {
+  const text = query?.trim();
+  if (!text) return target;
+  const pattern = `%${text.replace(/[\\%_]/g, '\\$&')}%`;
+  return and(target, or(ilike(reviews.title, pattern), ilike(reviews.body, pattern))) as SQL;
 }
 
 /** The shared body of the two paged reads above. */
@@ -537,16 +548,17 @@ export async function findListingReviewsPage(
   listingIds: readonly string[],
   page: number,
   limit: number,
+  filters: ReviewListFilters = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReviewPageRows> {
   if (listingIds.length === 0) return { rows: [], total: 0 };
 
   return pageOf(
-    and(
+    withReviewSearch(and(
       eq(reviews.targetType, 'listing'),
       inArray(reviews.listingId, [...listingIds]),
       eq(reviews.status, 'published'),
-    ) as SQL,
+    ) as SQL, filters),
     page,
     limit,
     db,

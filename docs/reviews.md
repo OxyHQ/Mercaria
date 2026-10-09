@@ -302,6 +302,15 @@ surface) and from payment disputes (#49). None of the three imports another.
 | `GET /listings/:id/reviews` | public | LEGACY, unchanged |
 | `GET /stores/:handle/reviews` | public | LEGACY, unchanged |
 
+The four public review-list reads accept an optional `query` (up to 200
+characters). It searches published review titles and bodies case-insensitively,
+within the requested target, before pagination. `%`, `_` and backslashes are
+literal search characters. Blank text clears the search; repeated/object query
+values and oversized strings are refused with 400. Pagination counts matching
+reviews, while `ratingSummary` and the scoped aggregate keep describing the
+whole target. Filtering never recalculates the product's headline rating from
+the returned page.
+
 The scoped reads return the aggregate ALONGSIDE the page, so the stars a page
 shows and the reviews it lists come from one read. A client that averaged the
 twelve reviews it received would display a number that is not the target's

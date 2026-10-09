@@ -45,6 +45,7 @@ import type {
   ReviewTargetType,
   ScopedRatingAggregate,
   ReviewRatingSummary,
+  ReviewListFilters,
 } from '@mercaria/shared-types';
 import { isUniqueViolation } from '@oxy.so/db';
 import {
@@ -432,7 +433,7 @@ export async function createReview(
 }
 
 /** Offset-pagination parameters. */
-interface ReviewListParams {
+interface ReviewListParams extends ReviewListFilters {
   page: number;
   limit: number;
 }
@@ -471,10 +472,10 @@ async function hydrate(
  */
 export async function listReviews(
   target: ReviewTarget,
-  { page, limit }: ReviewListParams,
+  { page, limit, ...filters }: ReviewListParams,
 ): Promise<ReviewPage> {
   const [{ rows, total }, ratingSummary] = await Promise.all([
-    findReviewsPage(target, page, limit),
+    findReviewsPage(target, page, limit, filters),
     readReviewRatingSummary(target),
   ]);
   return { ...(await hydrate(rows, total)), ratingSummary };
@@ -484,10 +485,10 @@ export async function listReviews(
 export async function listScopedReviews(
   scope: ReviewScope,
   targetId: string,
-  { page, limit }: ReviewListParams,
+  { page, limit, ...filters }: ReviewListParams,
 ): Promise<ReviewPage> {
   const target = scopedTarget(scope, targetId);
-  const { rows, total } = await findScopedReviewsPage(target, page, limit);
+  const { rows, total } = await findScopedReviewsPage(target, page, limit, filters);
   return hydrate(rows, total);
 }
 
@@ -527,7 +528,7 @@ export async function listScopedReviewsWithAggregate(
  */
 export async function listReviewsForStoreHandle(
   handle: string,
-  { page, limit }: ReviewListParams,
+  { page, limit, ...filters }: ReviewListParams,
 ): Promise<ReviewPage> {
   const store = await findStoreByHandle(handle);
   if (!store) {
@@ -540,7 +541,7 @@ export async function listReviewsForStoreHandle(
     return { data: [], total: 0 };
   }
 
-  const { rows, total } = await findListingReviewsPage(listingIds, page, limit);
+  const { rows, total } = await findListingReviewsPage(listingIds, page, limit, filters);
 
   // Every row here has a listing id — the query filtered on `targetType` — but
   // the column is nullable, so the narrowing is done rather than asserted.

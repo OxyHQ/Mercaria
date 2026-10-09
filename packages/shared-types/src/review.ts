@@ -571,6 +571,22 @@ export interface ReviewDimensionAggregate {
   count: number;
 }
 
+/** Public review search matches title/body; it never changes the target's aggregate. */
+export interface ReviewListFilters {
+  query?: string;
+}
+
+export const REVIEW_SEARCH_MAX_LENGTH = 200;
+
+/** Distribution across every published review of this exact target, independent
+ * of pagination. Scoped targets include verified purchases only. */
+export interface ReviewRatingSummary {
+  rating: number;
+  reviewCount: number;
+  distribution: Record<number, number>;
+  verifiedOnly: boolean;
+}
+
 /**
  * A scoped rating aggregate — the ONE public number for one question about one
  * target.
@@ -584,15 +600,6 @@ export interface ReviewDimensionAggregate {
  * purchase produces an ordinary verified review with ordinary weight (#76
  * acceptance 11).
  */
-/** Distribution across every published review of this exact target, independent
- * of pagination. Scoped targets include verified purchases only. */
-export interface ReviewRatingSummary {
-  rating: number;
-  reviewCount: number;
-  distribution: Record<number, number>;
-  verifiedOnly: boolean;
-}
-
 export interface ScopedRatingAggregate {
   scope: ReviewScope;
   targetType: ReviewTargetType;
