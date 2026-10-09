@@ -58,7 +58,14 @@ export function VariantSwatches({
   const { colors } = useColorScheme();
 
   const overflow = option.values.length > MAX_VISIBLE_VALUES && !expanded;
-  const visibleValues = overflow ? option.values.slice(0, MAX_VISIBLE_VALUES) : option.values;
+  const initialValues = option.values.slice(0, MAX_VISIBLE_VALUES);
+  // A deep link can select a value beyond the collapsed preview. Keep that
+  // choice visible, as Shop does with its persisted swatch, without expanding
+  // a large option matrix or changing the selected configuration.
+  const collapsedValues = selectedValue && option.values.includes(selectedValue) && !initialValues.includes(selectedValue)
+    ? [...initialValues.slice(0, -1), selectedValue]
+    : initialValues;
+  const visibleValues = overflow ? collapsedValues : option.values;
   const hiddenCount = option.values.length - MAX_VISIBLE_VALUES;
 
   return (

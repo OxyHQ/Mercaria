@@ -4,6 +4,7 @@ import { Rating } from '@oxy.so/bloom/rating';
 import { formatDate, Text, useRatingDisplay } from '@mercaria/ui';
 import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
 import { useTranslation } from '@/lib/i18n';
+import { ProductDescription } from './ProductDescription';
 
 /**
  * What kind of place a fact came from, in the reader's language.
@@ -90,7 +91,7 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
         ) : null}
 
         {product.description ? (
-          <Text className="text-bodySmall text-text">{product.description}</Text>
+          <ProductDescription description={product.description} />
         ) : null}
 
         <LifecycleLine product={product} />

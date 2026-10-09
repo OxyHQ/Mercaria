@@ -36,6 +36,7 @@ import {
 import * as Skeleton from "@oxy.so/bloom/skeleton";
 import type { Listing, StoreSummary, Seller } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
+import { ProductDescription } from "@/components/product/ProductDescription";
 import { ProductReviewsDialog } from "@/components/product/ProductReviewsDialog";
 import { Footer } from "@/components/shell/Footer";
 import { StoreMenuSheet } from "@/components/store/StoreMenuSheet";
@@ -768,9 +769,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                     {t("product.description")}
                   </AccordionTrigger>
                   <AccordionContent>
-                    <Text className="text-bodySmall text-text">
-                      {listing.description}
-                    </Text>
+                    <ProductDescription description={listing.description} />
                   </AccordionContent>
                 </AccordionItem>
               ) : null}

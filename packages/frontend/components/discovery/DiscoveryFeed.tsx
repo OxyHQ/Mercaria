@@ -229,11 +229,10 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
        * A store's offer: the merchant identity row the PDP already uses, above
        * the products the discount covers.
        *
-       * `section.discount` is not rendered. The app has no pre-existing
-       * component that states a store-wide saving, and the per-product badge
-       * `ProductCard` draws describes the item's own markdown, which is a
-       * different claim. Reported as a gap rather than filled with a tenth
-       * bespoke badge.
+       * The header's percentage and exclusive-offer ring come from the store
+       * discount. ProductCard's markdown remains the item's own saving.
+       * Fixed-amount savings and qualifying subtotals still need a store-offer
+       * line; they must not be disguised as a percentage or item markdown.
        */
       case 'store-offer': {
         if (section.products.length === 0) return null;
@@ -248,6 +247,7 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
                 onPress={() => onPressStore(section.store.handle)}
                 size="large"
                 discountPercent={section.discount.percentOff}
+                exclusiveOffer={section.discount.exclusive}
               />
             </View>
             <ProductCarousel items={section.products} onPressItem={onPressProduct} />

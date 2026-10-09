@@ -46,13 +46,15 @@ export interface MerchantHeaderProps {
    * vocabulary for "off" across the page rather than two.
    */
   discountPercent?: number;
+  /** Catalog-confirmed exclusive offer; ordinary stores have no incentive ring. */
+  exclusiveOffer?: boolean;
   onPress: () => void;
   onMore?: () => void;
   /**
    * Visual variant:
-   * - `large` — bigger halo logo, name + rating, and an outlined "Visit store"
+   * - `large` — bigger logo, name + rating, and an outlined "Visit store"
    *   button on the right (the mobile sticky merchant bar).
-   * - `compact` — smaller halo logo, name + rating, and a trailing overflow
+   * - `compact` — smaller logo, name + rating, and a trailing overflow
    *   (…) button (the desktop buy-column header).
    */
   size?: "large" | "compact";
@@ -89,29 +91,29 @@ function HeaderRating({
 /** `formatPercent` reads BASIS POINTS; a whole percent is one hundred of them. */
 const BASIS_POINTS_PER_PERCENT = 100;
 
-/** Halo-wrapped merchant logo at a fixed edge length. */
-function HeaderLogo({ logoUrl, size }: { logoUrl?: string; size: number }) {
-  return (
-    <IncentiveHalo>
-      <View
-        className="overflow-hidden rounded-radius-max bg-bg-fill-secondary"
-        style={{ height: size, width: size }}
-      >
-        {logoUrl ? (
-          <Image
-            source={merchantImageSource(logoUrl)}
-            contentFit="cover"
-            style={{ height: size, width: size }}
-          />
-        ) : null}
-      </View>
-    </IncentiveHalo>
+/** Merchant logos only receive the incentive ring for a confirmed exclusive offer. */
+function HeaderLogo({ logoUrl, size, exclusiveOffer }: {
+  logoUrl?: string;
+  size: number;
+  exclusiveOffer: boolean;
+}) {
+  const logo = (
+    <View
+      className="overflow-hidden rounded-radius-max bg-bg-fill-secondary border-[0.5px] border-border-image"
+      style={{ height: size, width: size }}
+    >
+      {logoUrl ? (
+        <Image source={merchantImageSource(logoUrl)} contentFit="cover"
+          style={{ height: size, width: size }} />
+      ) : null}
+    </View>
   );
+  return exclusiveOffer ? <IncentiveHalo>{logo}</IncentiveHalo> : logo;
 }
 
 /**
- * Merchant identity header used on the PDP buy column. Renders an incentive-halo
- * logo + name + optional rating, with a trailing action that depends on `size`:
+ * Merchant identity header used on the PDP buy column. Renders a
+ * logo with an optional exclusive-offer ring + name + optional rating, with a trailing action that depends on `size`:
  * the `large` variant ends in an outlined "Visit store" link; the `compact`
  * variant ends in an overflow (…) button. Purely presentational — the caller
  * owns navigation via `onPress`.
@@ -126,6 +128,7 @@ export function MerchantHeader({
   size = "compact",
   scopeLabel = "Seller service",
   discountPercent,
+  exclusiveOffer = false,
 }: MerchantHeaderProps) {
   const isLarge = size === "large";
   const t = useSharedUiTranslation();
@@ -139,7 +142,7 @@ export function MerchantHeader({
         onPress={onPress}
         className="flex-1 flex-row items-center gap-space-8"
       >
-        <HeaderLogo logoUrl={logoUrl} size={isLarge ? LARGE_LOGO_SIZE : COMPACT_LOGO_SIZE} />
+        <HeaderLogo logoUrl={logoUrl} size={isLarge ? LARGE_LOGO_SIZE : COMPACT_LOGO_SIZE} exclusiveOffer={exclusiveOffer} />
         <View className="flex-1">
           <Text
             numberOfLines={1}

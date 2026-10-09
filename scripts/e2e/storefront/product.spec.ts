@@ -400,3 +400,74 @@ test("store menu omits unpublished policies", async ({ page, request }) => {
   await expect(page.getByRole("button", { name: "Privacy policy", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Return policy", exact: true })).toHaveCount(0);
 });
+
+for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+  test(`long product descriptions open in a complete readable sheet at ${viewport.width}px`, async ({ page, request }) => {
+    const product = await seededProduct(request);
+    const ending = "Final care instructions: wash gently and dry flat. 🧵";
+    const description = "A carefully made item for everyday use.\n\n".repeat(18) + ending;
+    await page.route(`**/listings/${product.id}`, async route => {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.data.description = description;
+      await route.fulfill({ response, json: body });
+    });
+    await page.setViewportSize(viewport);
+    await page.goto(`/products/${product.id}`);
+    const preview = page.getByTestId("product-description");
+    await expect(preview.getByText(ending, { exact: false })).toHaveCount(0);
+    await preview.getByRole("button", { name: "Read more", exact: true }).click();
+    const sheet = page.getByTestId("product-description-dialog");
+    await expect(sheet.getByText(description, { exact: true })).toBeVisible();
+    await expect.poll(async () => {
+      const bounds = await sheet.boundingBox();
+      return !!bounds && bounds.x >= 0 && bounds.x + bounds.width <= viewport.width + 1;
+    }).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+    await expect(preview.getByRole("button", { name: "Read more", exact: true })).toBeVisible();
+  });
+}
+
+test("short product descriptions are complete without a redundant read-more control", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  const description = "Made with cotton.\n\nWash at 30°C.";
+  await page.route(`**/listings/${product.id}`, async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.description = description;
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(`/products/${product.id}`);
+  const preview = page.getByTestId("product-description");
+  await expect(preview.getByText(description, { exact: true })).toBeVisible();
+  await expect(preview.getByRole("button", { name: "Read more", exact: true })).toHaveCount(0);
+});
+
+test("a deep-linked option beyond the preview stays selected and visible before expanding", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  const values = Array.from({ length: 30 }, (_, index) => `Option ${index + 1}`);
+  const variants = values.map((value, index) => ({
+    ...product.variants[0],
+    id: `${product.variants[0].id}-${index}`,
+    title: value,
+    optionValues: [{ name: "Size", value }],
+  }));
+  await page.route(`**/listings/${product.id}`, async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.options = [{ name: "Size", values }];
+    body.data.variants = variants;
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(`/products/${product.id}?variantId=${variants[29].id}`);
+  await expect(page.getByRole("button", { name: "Size: Option 30", exact: true }))
+    .toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: /^Size: Option / })).toHaveCount(24);
+  await page.getByRole("button", { name: "More Size options (6)", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Size: Option / })).toHaveCount(30);
+  await page.getByRole("button", { name: "Size: Option 26", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`variantId=${variants[25].id}$`));
+  await expect(page.getByRole("button", { name: "Size: Option 26", exact: true }))
+    .toHaveAttribute("aria-pressed", "true");
+});
