@@ -152,6 +152,62 @@ test("gallery thumbnails control the carousel and Bloom opens and dismisses the 
     .toHaveAttribute("aria-pressed", "true");
 });
 
+test("gallery keeps 48px thumbnails visible when the viewer moves beyond the rail viewport", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`/products/${product.id}`);
+  const rail = page.getByTestId("product-thumbnails");
+  const thumbnails = rail.getByRole("button", { includeHidden: true });
+  const first = await thumbnails.first().boundingBox();
+  const second = await thumbnails.nth(1).boundingBox();
+  expect(first?.width).toBe(48);
+  expect(first?.height).toBe(48);
+  expect(second!.y - first!.y).toBe(54);
+  const count = await thumbnails.count();
+  expect(count).toBeGreaterThan(10);
+
+  const open = page.getByTestId("product-gallery-carousel")
+    .getByRole("button", { name: `Open images of ${product.title}`, exact: true });
+  await open.first().click();
+  await expect(page.getByRole("button", { name: "Close media viewer", exact: true })).toBeVisible();
+  for (let index = 1; index < count; index++) {
+    await page.keyboard.press("ArrowRight");
+    await expect(thumbnails.nth(index)).toHaveAttribute("aria-pressed", "true");
+  }
+  await page.keyboard.press("Escape");
+  await expect.poll(async () => {
+    const viewport = await rail.boundingBox();
+    const selected = await thumbnails.last().boundingBox();
+    return !!viewport && !!selected && selected.y >= viewport.y - 1
+      && selected.y + selected.height <= viewport.y + viewport.height + 1;
+  }).toBe(true);
+
+  // The desktop rail remounts after switching through the mobile layout.
+  await page.setViewportSize({ width: 390, height: 600 });
+  await expect(rail).toHaveCount(0);
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await expect.poll(async () => {
+    const viewport = await rail.boundingBox();
+    const selected = await thumbnails.last().boundingBox();
+    return !!viewport && !!selected && selected.y >= viewport.y - 1
+      && selected.y + selected.height <= viewport.y + viewport.height + 1;
+  }).toBe(true);
+
+  await open.last().click();
+  await expect(page.getByRole("button", { name: "Close media viewer", exact: true })).toBeVisible();
+  for (let index = count - 2; index >= 0; index--) {
+    await page.keyboard.press("ArrowLeft");
+    await expect(thumbnails.nth(index)).toHaveAttribute("aria-pressed", "true");
+  }
+  await page.keyboard.press("Escape");
+  await expect.poll(async () => {
+    const viewport = await rail.boundingBox();
+    const selected = await thumbnails.first().boundingBox();
+    return !!viewport && !!selected && Math.abs(selected.y - viewport.y) < 1;
+  }).toBe(true);
+});
+
 test("mobile product keeps the merchant before gallery and has no horizontal overflow", async ({
   page,
   request,
