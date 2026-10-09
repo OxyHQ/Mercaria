@@ -1746,7 +1746,28 @@
       "upgradeFailed": "Impossible de démarrer la mise à niveau. Veuillez réessayer.",
       "usageIncluded": "inclus",
       "usageNoLimit": "%{used} utilisés · sans limite",
-      "usageOfLimit": "%{used} sur %{limit} utilisés"
+      "usageOfLimit": "%{used} sur %{limit} utilisés",
+      "design": {
+        "title": "Découvrez les forfaits proposés",
+        "notice": "Propositions de forfaits à examiner. Ces outils ne peuvent pas encore être achetés ; les offres disponibles sont présentées séparément.",
+        "ethics": "100 % sans publicité pour tous. Ni vérification, promotion ou classement préférentiel payants. Les outils de vente existants, la sécurité et l’exportation des données restent gratuits.",
+        "goSummary": "Automatisez les tâches répétitives de votre boutique.",
+        "plusSummary": "Planifiez les stocks et gérez une boutique établie.",
+        "creatorSummary": "Créez et gérez des lancements de produits dérivés, sans toute la suite professionnelle.",
+        "ultraSummary": "Coordonnez des opérations de vente et de caisse plus complexes.",
+        "automation": "Règles d’automatisation du catalogue et des commandes",
+        "exports": "Exportations programmées ; les exportations manuelles restent gratuites",
+        "analytics": "Analyses avancées de la demande et des conversions",
+        "merchandising": "Règles de présentation des produits dans votre boutique",
+        "replenishment": "Prévisions de réapprovisionnement et suggestions d’achat",
+        "pricing": "Analyse concurrentielle des prix de vos offres",
+        "registers": "Gestion étendue des caisses",
+        "assistance": "Aide IA pour les descriptions de produits ; limites d’utilisation applicables",
+        "go": "Mercaria Go",
+        "plus": "Mercaria Plus",
+        "creator": "Mercaria Creator",
+        "ultra": "Mercaria Ultra"
+      }
     },
     "policies": {
       "documentTitle": "Politiques | Mercaria Dashboard",

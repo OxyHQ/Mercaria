@@ -1725,7 +1725,28 @@
       "upgradeFailed": "Das Upgrade konnte nicht gestartet werden. Bitte versuchen Sie es erneut.",
       "usageIncluded": "enthalten",
       "usageNoLimit": "%{used} genutzt · ohne Limit",
-      "usageOfLimit": "%{used} von %{limit} genutzt"
+      "usageOfLimit": "%{used} von %{limit} genutzt",
+      "design": {
+        "title": "Vorgeschlagene Tarife entdecken",
+        "notice": "Tarifentwürfe zur Prüfung. Diese Werkzeuge sind noch nicht buchbar; verfügbare Angebote werden separat angezeigt.",
+        "ethics": "Für alle zu 100 % werbefrei. Keine bezahlte Verifizierung, Bewerbung oder bevorzugte Platzierung. Bestehende Verkaufswerkzeuge, Sicherheit und Datenexport bleiben kostenlos.",
+        "goSummary": "Wiederkehrende Aufgaben im Shop automatisieren.",
+        "plusSummary": "Bestände planen und einen etablierten Shop verwalten.",
+        "creatorSummary": "Merch-Veröffentlichungen erstellen und verwalten, ohne das gesamte Geschäftspaket.",
+        "ultraSummary": "Komplexere Verkaufs- und Kassenvorgänge koordinieren.",
+        "automation": "Automatisierungsregeln für Katalog und Bestellungen",
+        "exports": "Geplante Exporte; manuelle Exporte bleiben kostenlos",
+        "analytics": "Erweiterte Nachfrage- und Konversionsanalysen",
+        "merchandising": "Regeln zur Produktpräsentation im eigenen Shop",
+        "replenishment": "Nachbestellprognosen und Einkaufsvorschläge",
+        "pricing": "Wettbewerbspreisanalyse für eigene Angebote",
+        "registers": "Erweiterte Kassenverwaltung",
+        "assistance": "KI-Hilfe für Produktbeschreibungen; Nutzungslimits gelten",
+        "go": "Mercaria Go",
+        "plus": "Mercaria Plus",
+        "creator": "Mercaria Creator",
+        "ultra": "Mercaria Ultra"
+      }
     },
     "policies": {
       "documentTitle": "Richtlinien | Mercaria Dashboard",

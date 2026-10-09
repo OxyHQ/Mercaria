@@ -1725,7 +1725,28 @@
       "upgradeFailed": "无法开始升级。请重试。",
       "usageIncluded": "已包含",
       "usageNoLimit": "已用 %{used} · 无上限",
-      "usageOfLimit": "已用 %{used}，上限 %{limit}"
+      "usageOfLimit": "已用 %{used}，上限 %{limit}",
+      "design": {
+        "title": "了解拟议方案",
+        "notice": "供评审的方案设计。这些工具尚不能购买；可购买的方案将单独显示。",
+        "ethics": "所有用户均享受100%无广告服务。不出售认证、推广或优先排名。现有销售工具、安全功能和数据导出继续免费。",
+        "goSummary": "自动处理店铺的重复任务。",
+        "plusSummary": "规划库存并管理成熟店铺。",
+        "creatorSummary": "创建和管理周边产品发售，无需完整的企业工具包。",
+        "ultraSummary": "协调更复杂的零售和收银业务。",
+        "automation": "商品目录和订单自动化规则",
+        "exports": "定时导出；手动导出继续免费",
+        "analytics": "高级需求和转化分析",
+        "merchandising": "自有店铺的商品陈列规则",
+        "replenishment": "补货预测和采购建议",
+        "pricing": "针对自有商品的竞争价格分析",
+        "registers": "扩展的POS收银终端管理",
+        "assistance": "AI辅助撰写商品描述；受使用限额约束",
+        "go": "Mercaria Go",
+        "plus": "Mercaria Plus",
+        "creator": "Mercaria Creator",
+        "ultra": "Mercaria Ultra"
+      }
     },
     "policies": {
       "documentTitle": "政策 | Mercaria Dashboard",

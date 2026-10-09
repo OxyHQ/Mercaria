@@ -14,6 +14,7 @@ import { Text, formatDate, useColorScheme, useFormatters } from "@mercaria/ui";
 import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
+import { PlanDesigns } from "@/components/settings/PlanDesigns";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useTranslation } from "@/lib/i18n";
 import {
@@ -40,7 +41,8 @@ import {
  *
  * ## The client hides and explains; it never grants
  *
- * Every field rendered here is a RESULT the server computed. `billingAvailable`
+ * Current offers and billing state are RESULTS the server computed. The separate
+ * plan-design section is a labelled proposal and never grants entitlements. `billingAvailable`
  * decides whether an upgrade button is offered at all, and pressing it anyway
  * would simply be refused — the server re-decides on every write regardless of
  * what this screen believed (#89 entitlement rule 4).
@@ -111,6 +113,7 @@ function PlanBody({ storeId }: { storeId: string }) {
           loading={catalog.isPending}
           billingAvailable={status.data.billingAvailable}
         />
+        <PlanDesigns />
       </View>
     </Screen>
   );
