@@ -33,8 +33,8 @@ export function CartShelf({ title, groups, onPressVendor, onCheckout }: CartShel
 
   return (
     <View className="mb-6">
-      <SectionHeader title={heading} />
-      <Carousel {...shelf} accessibilityLabel={heading}>
+      <Carousel {...shelf} accessibilityLabel={heading}
+        header={<SectionHeader title={heading} inset={false} />}>
         {rows.map((group) => (
           <CarouselItem key={group.vendor.id} width={CART_SLOT_WIDTH}>
             <MerchantCartCard

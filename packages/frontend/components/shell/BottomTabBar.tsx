@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo } from "react";
 import { Platform, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
-import { LogIn, ShoppingCart } from "lucide-react-native";
+import { UserRound, ShoppingCart } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { Avatar } from "@oxy.so/bloom/avatar";
 import { BottomBar, type BottomBarProps } from "@oxy.so/bloom/bottom-bar";
-import { useOxy, openAccountDialog } from "@oxy.so/services";
+import { useOxy } from "@oxy.so/services";
 import { LucideGlyph, Text } from "@mercaria/ui";
 
 import { useCart } from "@/lib/hooks/use-cart";
@@ -110,8 +110,8 @@ export function BottomTabBar() {
         name: ACCOUNT_TAB,
         // Resolved through `t` rather than held as a literal: the i18n guard
         // reads JSX positions and cannot follow a string through a local.
-        label: isAuthenticated ? t("nav.account") : t("nav.signIn"),
-        icon: isAuthenticated ? <AccountAvatar /> : <LucideGlyph icon={LogIn} />,
+        label: t("profile.title"),
+        icon: isAuthenticated ? <AccountAvatar /> : <LucideGlyph icon={UserRound} />,
       },
     ],
     [available, cartCount, isAuthenticated, t],
@@ -127,16 +127,14 @@ export function BottomTabBar() {
     (name: string) => {
       triggerHaptic();
       if (name === ACCOUNT_TAB) {
-        // Signed out, the account tab is the way in. Signed in it only marks
-        // where you are, as it always has.
-        if (!isAuthenticated) openAccountDialog();
+        router.push("/profile");
         return;
       }
       // The route is read from the typed table, never from the tab's name.
       const destination = available.find((item) => item.key === name);
       if (destination) router.push(destination.href);
     },
-    [available, isAuthenticated, router],
+    [available, router],
   );
 
   return <BottomBar items={items} value={value} onValueChange={onValueChange} />;

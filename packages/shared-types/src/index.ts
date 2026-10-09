@@ -896,3 +896,4 @@ export * from './catalog-governance';
 // its `unmeasured` branch carries no value, numerator or denominator, so a metric
 // nobody measured cannot be rendered as a number rather than merely should not be.
 export * from './catalog-metrics';
+export * from './shopping-thread';

@@ -40,9 +40,9 @@ export function MerchantCarousel({
   if (rows.length === 0) return null;
 
   return (
-    <View className="mb-6">
-      {title ? <SectionHeader title={title} /> : null}
-      <Carousel {...shelf} accessibilityLabel={title ?? t(CAROUSEL_STORES_KEY)}>
+    <View className="mb-10 md:mb-16">
+      <Carousel {...shelf} accessibilityLabel={title ?? t(CAROUSEL_STORES_KEY)}
+        header={title ? <SectionHeader title={title} inset={false} /> : undefined}>
         {rows.map((merchant) => (
           <CarouselItem key={merchant.id} width={MERCHANT_SLOT_WIDTH}>
             <MerchantCard

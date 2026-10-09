@@ -25,6 +25,8 @@
     "fees:provision": "bun run src/scripts/provision-fee-schedule.ts"
   },
   "dependencies": {
+    "@alia.onl/server": "1.1.0",
+    "@goway.to/sdk": "0.3.0",
     "@mercaria/contracts": "workspace:*",
     "@mercaria/shared-types": "workspace:*",
     "@oxy.so/contracts": "4.9.0",
@@ -34,6 +36,7 @@
     "@oxy.so/crowdsource-express": "^1.0.0",
     "@oxy.so/db": "^1.0.0",
     "@oxy.so/mcp": "1.1.0",
+    "@peable.to/sdk": "^0.2.2",
     "@socket.io/redis-adapter": "^8.3.0",
     "bullmq": "^5.80.4",
     "cors": "^2.8.6",
@@ -51,9 +54,7 @@
     "socket.io": "^4.8.3",
     "stripe": "^22.4.0",
     "web-push": "^3.6.7",
-    "zod": "^4.5.4",
-    "@peable.to/sdk": "^0.2.2",
-    "@goway.to/sdk": "0.3.0"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

@@ -57,10 +57,10 @@ export default function SavedScreen() {
     // save resolves to the one listing. Sending both to the listing would undo
     // the distinction the row just made.
     if (item.kind === "product") {
-      router.push(`/products/${item.product.slug}`);
+      router.push({ pathname: "/p/[handle]", params: { handle: item.product.slug } });
       return;
     }
-    router.push(`/products/${item.listingId}`);
+    router.push({ pathname: "/products/[id]", params: { id: item.listingId } });
   };
 
   const removeItem = (item: SavedItem) => {

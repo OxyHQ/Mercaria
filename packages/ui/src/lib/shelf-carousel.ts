@@ -19,7 +19,7 @@ const SHELF_GUTTER = 16;
 
 /** What every card shelf hands Bloom's `Carousel` beyond its own label. */
 export type ShelfCarouselProps = Required<
-  Pick<CarouselProps, "gap" | "showArrows" | "previousLabel" | "nextLabel" | "dotLabel" | "style">
+  Pick<CarouselProps, "gap" | "showArrows" | "showDots" | "inset" | "previousLabel" | "nextLabel" | "dotLabel">
 >;
 
 /**
@@ -47,12 +47,13 @@ export function useShelfCarouselProps(): ShelfCarouselProps {
     () => ({
       gap,
       showArrows: isWeb,
+      showDots: false,
+      inset: isWeb && width >= 1024 ? 48 : SHELF_GUTTER,
       previousLabel: t(CAROUSEL_PREVIOUS_KEY),
       nextLabel: t(CAROUSEL_NEXT_KEY),
       dotLabel: (slide: number) => t(CAROUSEL_GO_TO_KEY, { position: slide }),
-      style: { paddingHorizontal: SHELF_GUTTER },
     }),
-    [gap, isWeb, t],
+    [gap, isWeb, width, t],
   );
 }
 

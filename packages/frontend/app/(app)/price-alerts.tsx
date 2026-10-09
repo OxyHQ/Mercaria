@@ -94,7 +94,7 @@ export default function PriceAlertsScreen() {
                 <PriceAlertCard
                   key={alert.id}
                   alert={alert}
-                  onOpen={() => router.push(`/products/${alert.canonicalProductId}`)}
+                  onOpen={() => router.push({ pathname: "/p/[handle]", params: { handle: alert.canonicalProductId } })}
                   onPause={() => update.mutate({ alertId: alert.id, patch: { state: "paused" } })}
                   onResume={() => update.mutate({ alertId: alert.id, patch: { state: "enabled" } })}
                   onDelete={() => remove.mutate(alert.id)}

@@ -976,7 +976,8 @@
       "body": "Els productes desats segueixen el preu i la disponibilitat de tots els venedors, a tots els teus dispositius.",
       "signIn": "Inicia la sessió",
       "title": "Inicia la sessió per desar coses"
-    }
+    },
+    "actionFailed": "No s’han pogut actualitzar els teus preferits"
   },
   "watchlists": {
     "atLimit": "Has arribat al màxim de %{count} llistes",
@@ -1601,5 +1602,31 @@
       "formatsLabel": "Inclou %{formats}",
       "notForSale": "No està a la venda"
     }
+  },
+  "thread": {
+    "title": "Assistent de compres",
+    "thinking": "Cercant idees…",
+    "stop": "Atura",
+    "unavailable": "L’assistent de compres encara no està disponible. Pots continuar cercant al catàleg.",
+    "signIn": "Inicia sessió per conversar",
+    "retry": "Torna-ho a provar",
+    "viewResults": "Mostra els resultats de cerca",
+    "newConversation": "Conversa nova",
+    "previewAction": "Provar amb dades de mostra",
+    "previewLabel": "Vista prèvia · Respostes de mostra, sense IA connectada",
+    "previewReply": "Aquests són exemples del catàleg local per provar el disseny de la conversa. Obre un producte per veure’n els detalls o envia un altre missatge."
+  },
+  "profile": {
+    "title": "Perfil",
+    "subtitle": "Els teus preferits, comandes i compte, en un sol lloc."
+  },
+  "curations": {
+    "heading": "Seleccions",
+    "preview": "Vista prèvia · Seleccions de mostra del catàleg local",
+    "everyday": "Troballes per a cada dia",
+    "fresh": "Noves perspectives",
+    "pleasures": "Petits plaers",
+    "description": "Idees per descobrir al teu ritme.",
+    "unavailable": "Aquesta selecció no està disponible."
   }
 }

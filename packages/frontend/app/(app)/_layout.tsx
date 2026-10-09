@@ -6,6 +6,7 @@ import { AppErrorBoundary } from "@/components/error-boundary";
 import { useStorefrontSidebar } from "@/components/shell/useStorefrontSidebar";
 import { BottomTabBar } from "@/components/shell/BottomTabBar";
 import { useNotificationSetup } from "@/lib/hooks/use-notification-setup";
+import { ShoppingActionsProvider } from "@/components/shell/ShoppingActionsProvider";
 
 const SCREEN_OPTIONS = { headerShown: false } as const;
 
@@ -57,7 +58,7 @@ export default function AppLayout() {
 
   return (
     <AppErrorBoundary>
-      <GestureHandlerRootView style={GESTURE_ROOT_STYLE}>
+      <ShoppingActionsProvider><GestureHandlerRootView style={GESTURE_ROOT_STYLE}>
         <AppShell
           variant="feed"
           panel
@@ -77,7 +78,7 @@ export default function AppLayout() {
         >
           {routed}
         </AppShell>
-      </GestureHandlerRootView>
+      </GestureHandlerRootView></ShoppingActionsProvider>
     </AppErrorBoundary>
   );
 }

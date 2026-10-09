@@ -10,6 +10,8 @@ import type {
 } from '@mercaria/shared-types';
 import {
   CategoryPills,
+  CategoryTileGrid,
+  type CategoryShortcut,
   MerchantCarousel,
   MerchantHeader,
   ProductCarousel,
@@ -26,7 +28,7 @@ import { useTranslation } from '@/lib/i18n';
  * carries no padding of its own because on the PDP it sits inside an already
  * padded column. This puts it on the same line as every other shelf heading.
  */
-const STORE_OFFER_HEADING_CLASS = 'px-4 pb-3 md:px-5';
+const STORE_OFFER_HEADING_CLASS = 'px-4 pb-3 lg:px-12';
 
 /**
  * The shelf-to-shelf rhythm every `@mercaria/ui` shelf owns for itself
@@ -34,10 +36,12 @@ const STORE_OFFER_HEADING_CLASS = 'px-4 pb-3 md:px-5';
  * `mb-6`). The `store-offer` section is assembled here from two
  * components rather than one, so this is the only place that has to spell it.
  */
-const SHELF_RHYTHM_CLASS = 'mb-6';
+const SHELF_RHYTHM_CLASS = 'mb-10 md:mb-16';
 
 export interface DiscoveryFeedProps {
   sections: DiscoverySection[];
+  categoryShortcuts?: readonly CategoryShortcut[];
+  categoryTitle?: string;
 }
 
 interface ShelfHeading {
@@ -89,7 +93,8 @@ function signalHref(handle: string, signal: DiscoverySignal): Href {
  * when no dynamic route sits above the mistyped segment (#456), and
  * `/categories/[handle]` sits directly above `/s/[signal]`.
  */
-export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
+export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: DiscoveryFeedProps) {
+  const firstCategorySection = sections.find(section => section.kind === 'category-tiles');
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -171,18 +176,8 @@ export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
     );
   }
 
-  /**
-   * Category tiles, whatever the kind. `category-tiles` and `pills` both carry
-   * the identical `CategoryTile[]` payload — id, name, slug and an optional
-   * image — and `CategoryPills` is the app's own component for exactly that,
-   * already rendering the home feed's category row.
-   *
-   * A richer card (a category above a 2×2 grid of its NAMED subcategories)
-   * would need subcategories the discovery feed does not send — a
-   * `category-tiles` tile carries at most two bare image URLs with no names or
-   * destinations behind them. The unused `CategoryCard`/`CategoryCarousel`
-   * that drew that shape were deleted from `@mercaria/ui`.
-   */
+  /** Compact pills are reserved for category refinements; root browse uses
+   * the shared CategoryTileGrid and the feed's child preview images. */
   function renderCategoryTiles(id: string, tiles: CategoryTile[]): ReactElement | null {
     if (tiles.length === 0) return null;
     return <CategoryPills key={id} pills={tiles} onPressPill={onPressCategoryTile} />;
@@ -217,6 +212,10 @@ export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
         return null;
 
       case 'category-tiles':
+        return <CategoryTileGrid key={section.id} tiles={section.tiles} onPressTile={onPressCategoryTile}
+          title={section === firstCategorySection ? categoryTitle : undefined}
+          shortcuts={section === firstCategorySection ? categoryShortcuts : undefined} />;
+
       case 'pills':
         return renderCategoryTiles(section.id, section.tiles);
 
@@ -272,5 +271,8 @@ export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
     }
   }
 
-  return <View>{sections.map((section) => renderSection(section))}</View>;
+  return <View>
+    {!firstCategorySection ? <CategoryTileGrid tiles={[]} title={categoryTitle} shortcuts={categoryShortcuts} onPressTile={onPressCategoryTile} /> : null}
+    {sections.map((section) => renderSection(section))}
+  </View>;
 }

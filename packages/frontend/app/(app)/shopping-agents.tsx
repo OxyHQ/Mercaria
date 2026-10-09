@@ -155,7 +155,7 @@ export default function ShoppingAgentsScreen() {
                         resolveSplit.mutate({ agentId: agent.id, resolution })
                       }
                       onOpenProduct={(canonicalProductId) =>
-                        router.push(`/products/${canonicalProductId}`)
+                        router.push({ pathname: "/p/[handle]", params: { handle: canonicalProductId } })
                       }
                     />
 
@@ -167,7 +167,7 @@ export default function ShoppingAgentsScreen() {
                         findings={findings.data ?? []}
                         constraintExplanations={constraintExplanations}
                         onOpenProduct={(canonicalProductId) =>
-                          router.push(`/products/${canonicalProductId}`)
+                          router.push({ pathname: "/p/[handle]", params: { handle: canonicalProductId } })
                         }
                       />
                     ) : null}

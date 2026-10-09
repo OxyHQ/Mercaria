@@ -10,6 +10,8 @@ export interface SectionHeaderProps {
   title: string;
   onPress?: () => void;
   showChevron?: boolean;
+  /** False when Bloom's Carousel header already owns the inset and spacing. */
+  inset?: boolean;
 }
 
 /**
@@ -26,14 +28,14 @@ export interface SectionHeaderProps {
  * outer View; in the plain branch the padding stays on the Text element itself,
  * matching the existing shelves exactly.
  */
-export function SectionHeader({ title, onPress, showChevron = false }: SectionHeaderProps) {
+export function SectionHeader({ title, onPress, showChevron = false, inset = true }: SectionHeaderProps) {
   const { colors } = useColorScheme();
 
   // Plain branch — matches the existing shelf heading exactly.
   if (!onPress && !showChevron) {
     return (
       <Text
-        className="px-4 pb-3 text-lg font-semibold text-foreground md:px-5 md:text-[22px] md:font-bold md:leading-7"
+        className={`${inset ? "px-4 pb-3 md:px-5" : ""} text-lg font-semibold text-foreground md:text-[22px] md:font-bold md:leading-7`}
         numberOfLines={1}
       >
         {title}
@@ -62,7 +64,7 @@ export function SectionHeader({ title, onPress, showChevron = false }: SectionHe
       <Pressable
         accessibilityRole="link"
         onPress={onPress}
-        className="flex-row items-center justify-between px-4 pb-3 md:px-5"
+        className={`flex-row items-center gap-2 ${inset ? "justify-between px-4 pb-3 md:px-5" : ""}`}
       >
         {inner}
       </Pressable>
@@ -70,7 +72,7 @@ export function SectionHeader({ title, onPress, showChevron = false }: SectionHe
   }
 
   return (
-    <View className="flex-row items-center justify-between px-4 pb-3 md:px-5">
+    <View className={`flex-row items-center gap-2 ${inset ? "justify-between px-4 pb-3 md:px-5" : ""}`}>
       {inner}
     </View>
   );

@@ -73,7 +73,7 @@ export type PublicRouteId =
   /** `/categories/:handle` — category and filtered browse. */
   | 'category_browse'
   /**
-   * `/categories` — the taxonomy index hub.
+   * `/explore` — the taxonomy index hub.
    *
    * Public and indexable, and the decision is worth stating because
    * `docs/storefront-catalog.md` §Seams left it open on the grounds that a page
@@ -609,6 +609,10 @@ export interface SeoSitemapIndexEntry {
  * one list, and a test that fails when they disagree.
  */
 export const SEO_ROBOTS_DISALLOWED_PATHS: readonly string[] = [
+  '/thread',
+  '/profile',
+  // Editorial previews remain unindexed until a publishing source is connected.
+  '/curations/',
   // Internal search: infinite, thin and duplicative of the browse pages.
   '/search',
   // One category's listings resliced by a signal (the discovery feed's

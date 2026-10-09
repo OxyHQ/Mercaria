@@ -965,7 +965,8 @@
       "body": "Saved products follow the price and availability across every seller, on all your devices.",
       "signIn": "Sign in",
       "title": "Sign in to save things"
-    }
+    },
+    "actionFailed": "Could not update your saved items"
   },
   "watchlists": {
     "atLimit": "You have the maximum of %{count} lists",
@@ -1584,5 +1585,31 @@
       "formatsLabel": "Includes %{formats}",
       "notForSale": "Not on sale"
     }
+  },
+  "thread": {
+    "title": "Shopping assistant",
+    "thinking": "Looking for ideas…",
+    "stop": "Stop",
+    "unavailable": "The shopping assistant is not available yet. You can still search the catalogue.",
+    "signIn": "Sign in to chat",
+    "retry": "Try again",
+    "viewResults": "View search results",
+    "newConversation": "New conversation",
+    "previewAction": "Preview with sample data",
+    "previewLabel": "Preview · Example responses, no AI connected",
+    "previewReply": "These are examples from the local catalogue for trying the conversation layout. Open a product to see its details, or send another message to try a follow-up."
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Your saved finds, orders and account, all in one place."
+  },
+  "curations": {
+    "heading": "Curations",
+    "preview": "Preview · Sample selections from the local catalogue",
+    "everyday": "Everyday finds",
+    "fresh": "Fresh perspectives",
+    "pleasures": "Little pleasures",
+    "description": "A few finds to explore at your own pace.",
+    "unavailable": "This selection is not available."
   }
 }

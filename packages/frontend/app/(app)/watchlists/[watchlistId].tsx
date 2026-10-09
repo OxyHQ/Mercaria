@@ -105,7 +105,7 @@ export default function WatchlistDetailScreen() {
                       key={line.item.id}
                       line={line}
                       onOpen={(canonicalProductId) =>
-                        router.push(`/products/${canonicalProductId}`)
+                        router.push({ pathname: "/p/[handle]", params: { handle: canonicalProductId } })
                       }
                       onRemove={(itemId) =>
                         removeItem.mutate({

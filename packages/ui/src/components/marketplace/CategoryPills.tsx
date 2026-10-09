@@ -10,7 +10,7 @@ const CONTENT_PADDING = 16;
 
 export interface CategoryPillsProps {
   pills: CategoryPill[];
-  /** Optional navigation handler (the `/categories/<id>` route does not exist yet). */
+  /** Opens the published category by its slug, or id when no slug is available. */
   onPressPill?: (id: string, slug: string) => void;
 }
 
@@ -30,7 +30,7 @@ export function CategoryPills({ pills, onPressPill }: CategoryPillsProps) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: CONTENT_PADDING, gap: CHIP_GAP }}
+        contentContainerStyle={{ paddingHorizontal: CONTENT_PADDING, gap: CHIP_GAP, flexGrow: 1, justifyContent: "center" }}
       >
         {pills.map((pill) => (
           <CategoryPillChip key={pill.id} pill={pill} onPressPill={onPressPill} />
@@ -55,7 +55,7 @@ function CategoryPillChip({ pill, onPressPill }: CategoryPillChipProps) {
       accessibilityRole="link"
       accessibilityLabel={pill.name}
       onPress={() => onPressPill?.(pill.id, pill.slug)}
-      className="h-11 flex-row items-center gap-2 rounded-full bg-muted py-2 ps-1.5 pe-3"
+      className="h-11 flex-row items-center gap-2 rounded-full bg-transparent py-2 ps-1.5 pe-3 web:transition-colors web:duration-150 web:hover:bg-muted active:bg-muted web:motion-reduce:transition-none"
     >
       {/* Round 32px category image with a 1px border ring. */}
       <View className="relative h-8 w-8 overflow-hidden rounded-full bg-muted">

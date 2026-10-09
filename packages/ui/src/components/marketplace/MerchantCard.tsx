@@ -75,7 +75,7 @@ export function MerchantCard({
           source={{ uri: merchant.coverImageUrl }}
           contentFit="cover"
           pointerEvents="none"
-          className="web:transition-transform web:duration-300 web:group-hover:scale-105"
+          className="web:transition-transform web:duration-150 web:group-hover:scale-[1.03] web:motion-reduce:transition-none web:motion-reduce:transform-none"
           style={StyleSheet.absoluteFill}
         />
       ) : null}

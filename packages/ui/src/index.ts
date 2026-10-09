@@ -338,6 +338,10 @@ export {
   type ProductCarouselProps,
 } from "./components/marketplace/ProductCarousel";
 export { ProductShelf, type ProductShelfProps } from "./components/marketplace/ProductShelf";
+export { CategoryTileGrid, type CategoryShortcut } from "./components/marketplace/CategoryTileGrid";
+export { CurationCard, CurationImage } from "./components/marketplace/CurationCard";
+export { useShelfCarouselProps } from "./lib/shelf-carousel";
+export { ListingSaveProvider } from "./components/marketplace/ListingSaveProvider";
 export { CategoryPills, type CategoryPillsProps } from "./components/marketplace/CategoryPills";
 export { MerchantCard, type MerchantCardProps } from "./components/marketplace/MerchantCard";
 export {

@@ -108,6 +108,7 @@ export function useToggleProductSave() {
       });
     },
     onSuccess: (_result, input) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.saves.savedItems });
       if (input.listingId) {
         void queryClient.invalidateQueries({
@@ -138,6 +139,7 @@ export function useToggleListingSave() {
       await saveListing(input.listingId, input.pin ? 'listing_pin' : undefined);
     },
     onSuccess: (_result, input) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.saves.savedItems });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.saves.listingContext(input.listingId),

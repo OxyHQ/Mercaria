@@ -965,7 +965,8 @@
       "body": "Gespeicherte Produkte verfolgen Preis und Verfügbarkeit bei allen Verkäufern, auf all deinen Geräten.",
       "signIn": "Anmelden",
       "title": "Melde dich an, um Dinge zu speichern"
-    }
+    },
+    "actionFailed": "Deine Favoriten konnten nicht aktualisiert werden"
   },
   "watchlists": {
     "atLimit": "Du hast das Maximum von %{count} Listen erreicht",
@@ -1584,5 +1585,31 @@
       "formatsLabel": "Enthält %{formats}",
       "notForSale": "Nicht im Verkauf"
     }
+  },
+  "thread": {
+    "title": "Einkaufsassistent",
+    "thinking": "Ideen werden gesucht…",
+    "stop": "Stoppen",
+    "unavailable": "Der Einkaufsassistent ist noch nicht verfügbar. Du kannst weiterhin den Katalog durchsuchen.",
+    "signIn": "Zum Chatten anmelden",
+    "retry": "Erneut versuchen",
+    "viewResults": "Suchergebnisse ansehen",
+    "newConversation": "Neues Gespräch",
+    "previewAction": "Mit Beispieldaten testen",
+    "previewLabel": "Vorschau · Beispielantworten, keine KI verbunden",
+    "previewReply": "Dies sind Beispiele aus dem lokalen Katalog zum Testen der Unterhaltung. Öffne ein Produkt für weitere Details oder sende eine weitere Nachricht."
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Deine Favoriten, Bestellungen und dein Konto an einem Ort."
+  },
+  "curations": {
+    "heading": "Kollektionen",
+    "preview": "Vorschau · Beispielauswahl aus dem lokalen Katalog",
+    "everyday": "Fundstücke für jeden Tag",
+    "fresh": "Neue Perspektiven",
+    "pleasures": "Kleine Freuden",
+    "description": "Entdecke neue Ideen in deinem Tempo.",
+    "unavailable": "Diese Auswahl ist nicht verfügbar."
   }
 }

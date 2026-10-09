@@ -976,7 +976,8 @@
       "body": "Os produtos salvos acompanham o preço e a disponibilidade em todos os vendedores, em todos os seus dispositivos.",
       "signIn": "Entrar",
       "title": "Entre para salvar coisas"
-    }
+    },
+    "actionFailed": "Não foi possível atualizar seus favoritos"
   },
   "watchlists": {
     "atLimit": "Você atingiu o máximo de %{count} listas",
@@ -1601,5 +1602,31 @@
       "formatsLabel": "Inclui %{formats}",
       "notForSale": "Não está à venda"
     }
+  },
+  "thread": {
+    "title": "Assistente de compras",
+    "thinking": "Buscando ideias…",
+    "stop": "Parar",
+    "unavailable": "O assistente de compras ainda não está disponível. Você pode continuar pesquisando no catálogo.",
+    "signIn": "Entre para conversar",
+    "retry": "Tentar novamente",
+    "viewResults": "Ver resultados da busca",
+    "newConversation": "Nova conversa",
+    "previewAction": "Testar com dados de exemplo",
+    "previewLabel": "Prévia · Respostas de exemplo, sem IA conectada",
+    "previewReply": "Estes são exemplos do catálogo local para testar a conversa. Abra um produto para ver os detalhes ou envie outra mensagem."
+  },
+  "profile": {
+    "title": "Perfil",
+    "subtitle": "Seus favoritos, pedidos e conta em um só lugar."
+  },
+  "curations": {
+    "heading": "Seleções",
+    "preview": "Prévia · Seleções de exemplo do catálogo local",
+    "everyday": "Achados do dia a dia",
+    "fresh": "Novas perspectivas",
+    "pleasures": "Pequenos prazeres",
+    "description": "Ideias para descobrir no seu ritmo.",
+    "unavailable": "Esta seleção não está disponível."
   }
 }

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
 import { Text } from "../ui/text";
@@ -18,6 +19,8 @@ export interface ProductCarouselProps {
   items: ProductSummary[];
   /** Optional inline heading rendered above the row. */
   title?: string;
+  /** Heading sharing Bloom's carousel control row. */
+  header?: ReactNode;
   onPressItem?: (id: string) => void;
   onToggleSaveItem?: (id: string, nextSaved: boolean) => void;
 }
@@ -31,6 +34,7 @@ export interface ProductCarouselProps {
 export function ProductCarousel({
   items,
   title,
+  header,
   onPressItem,
   onToggleSaveItem,
 }: ProductCarouselProps) {
@@ -44,13 +48,11 @@ export function ProductCarousel({
 
   return (
     <View>
-      {title ? (
-        <Text className="px-4 pb-3 text-lg font-semibold text-foreground md:px-5 md:text-[22px] md:font-bold md:leading-7">
-          {title}
-        </Text>
-      ) : null}
-
-      <Carousel {...shelf} accessibilityLabel={title ?? t(CAROUSEL_PRODUCTS_KEY)}>
+      <Carousel
+        {...shelf}
+        accessibilityLabel={title ?? t(CAROUSEL_PRODUCTS_KEY)}
+        header={header ?? (title ? <Text className="text-lg font-semibold text-foreground md:text-[22px] md:font-bold md:leading-7">{title}</Text> : undefined)}
+      >
         {products.map((product) => (
           <CarouselItem key={product.id} width={slotWidth}>
             <ProductCard

@@ -1,7 +1,8 @@
-import { View, Pressable } from "react-native";
+import { useState } from "react";
+import { View, Pressable, Platform } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
-import { CartShelf, CategoryPills, ProductShelf, Text } from "@mercaria/ui";
+import { CartShelf, CategoryPills, ProductShelf, MerchantCarousel, Text } from "@mercaria/ui";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
 import type { CartVendor } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
@@ -65,16 +66,17 @@ interface FeedBodyProps {
   isLoading: boolean;
   isError: boolean;
   refetch: () => void;
+  onHeroVisibilityChange: (visible: boolean) => void;
 }
 
 /** The feed content — identical on web and native, only its scroll host differs. */
-function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
+function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }: FeedBodyProps) {
   const router = useRouter();
   const { data: cart } = useCart();
 
   const onPressVendor = (vendor: CartVendor) => {
     if (vendor.kind === "store" && vendor.handle) {
-      router.push(`/stores/${vendor.handle}`);
+      router.push({ pathname: "/stores/[handle]", params: { handle: vendor.handle } });
     }
   };
 
@@ -83,13 +85,13 @@ function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
   };
 
   const onPressProduct = (id: string) => {
-    router.push(`/products/${id}`);
+    router.push({ pathname: "/products/[id]", params: { id } });
   };
 
   return (
     <>
       {/* Hero search header (provides branding — replaces the old top bar) */}
-      <HeroSearch />
+      <HeroSearch merchants={(data?.sections ?? []).flatMap(section => section.kind === "merchants" ? section.merchants : [])} products={(data?.sections ?? []).flatMap(section => section.kind === "products" ? section.products : []).filter((product, index, all) => all.findIndex(item => item.id === product.id) === index)} onVisibilityChange={onHeroVisibilityChange} />
 
       <CartShelf
         groups={cart?.groups ?? []}
@@ -131,10 +133,11 @@ function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
             />
           );
         }
-        // `shop-by-category` (kind "categories") and `worth-the-hype` (kind
-        // "merchants") duplicate what the explore page now owns. The home
-        // stays a personal feed and no longer renders either — `GET /feed`
-        // still serves both sections; only this screen stops drawing them.
+        if (section.kind === "merchants") {
+          return <MerchantCarousel key={section.id} title={section.title} merchants={section.merchants}
+            onPressMerchant={handle => router.push({ pathname: "/stores/[handle]", params: { handle } })}
+            onPressProduct={onPressProduct} />;
+        }
         return null;
       })}
 
@@ -147,9 +150,10 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { data, isLoading, isError, refetch } = useFeed();
   const onRetry = () => refetch();
+  const [heroVisible, setHeroVisible] = useState(true);
 
   return (
-    <ScreenShell>
+    <ScreenShell hideComposer={Platform.OS === "web" && heroVisible} surfaceClassName="bg-[#fbfbfb] dark:bg-background">
       <Head>
         <title>{t("home.title")}</title>
         <meta
@@ -158,6 +162,7 @@ export default function HomeScreen() {
         />
       </Head>
       <FeedBody
+        onHeroVisibilityChange={setHeroVisible}
         data={data}
         isLoading={isLoading}
         isError={isError}

@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { View } from "react-native";
 import { Loading } from "@oxy.so/bloom/loading";
 import Head from "expo-router/head";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Search } from "@oxy.so/bloom/search";
+import { useLocalSearchParams } from "expo-router";
 import {
   SearchClarification,
   SearchInterpretation,
@@ -13,41 +12,13 @@ import {
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { useTranslation } from "@/lib/i18n";
 import { useSearchIntent } from "@/lib/hooks/use-search-intent";
-import type { SearchResultKind } from "@mercaria/shared-types";
-
-/**
- * What each result KIND is called on screen.
- *
- * The row used to render `result.kind` directly, so a shopper saw the wire
- * value — `product_family`, underscore and all — in every language. There was
- * no string literal anywhere for a scanner to find, which is why neither the
- * i18n guard nor any census reported it.
- *
- * KEYS, and frozen on the NEXT line rather than `Object.freeze({ … })`: the
- * guard's key reader matches a `const X = { … }` initializer, and a call
- * expression is not one, so freezing inline would hide these five from its
- * referential check.
- */
-const SEARCH_RESULT_KIND_KEYS: Readonly<Record<SearchResultKind, string>> = {
-  product: "search.kind.product",
-  brand: "search.kind.brand",
-  product_family: "search.kind.productFamily",
-  merchant: "search.kind.merchant",
-  storefront: "search.kind.storefront",
-};
-Object.freeze(SEARCH_RESULT_KIND_KEYS);
+import { SearchResultRow } from "@/components/search/SearchResultRow";
 
 /**
  * `/search` — natural-language shopping search (#95 "Client experience").
  *
- * ## The conversational box IS the ordinary box
- *
- * #95 client rule 1 asks that a conversational search box "coexist with
- * ordinary search and filters", and the cheapest correct reading of that is one
- * box: a shopper types whatever they type, the server interprets it, and what
- * they get back is a plain search plus an explanation of how it was read. There
- * is no mode switch to find and nothing to opt into — which also means there is
- * no state in which a shopper is talking to something that cannot answer.
+ * The floating composer opens /thread; this route retains ordinary search,
+ * filters and shareable catalogue results.
  *
  * ## The URL carries the QUERY and nothing else (#95 client rule 6)
  *
@@ -69,7 +40,6 @@ Object.freeze(SEARCH_RESULT_KIND_KEYS);
  */
 export default function SearchScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
   const params = useLocalSearchParams<{ q?: string }>();
   const initialQuery = typeof params.q === "string" ? params.q : "";
   const { term, setTerm, interpret, interpretation, removed, removeChip, dismiss, results } =
@@ -87,18 +57,6 @@ export default function SearchScreen() {
     // re-parse on every render; the URL's query is the only real input.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery]);
-
-  const submit = useCallback(
-    (query: string) => {
-      const trimmed = query.trim();
-      if (trimmed.length === 0) return;
-      // The URL first, so a reload and a share both reproduce this search.
-      router.setParams({ q: trimmed });
-      setTerm(trimmed);
-      interpret.mutate({ query: trimmed });
-    },
-    [interpret, router, setTerm],
-  );
 
   const answer = useCallback(
     (clarificationId: string, optionId: string) => {
@@ -167,14 +125,9 @@ export default function SearchScreen() {
       </Head>
 
       <View className="w-full max-w-3xl gap-4 self-center px-4 py-6">
-        <Search
-          label={t("search.box.label")}
-          placeholder={t("search.box.placeholder")}
-          value={term}
-          onValueChange={setTerm}
-          onClearText={() => setTerm("")}
-          onSubmitEditing={() => submit(term)}
-        />
+        <Text accessibilityRole="header" className="text-center text-headerBold text-foreground">
+          {initialQuery || t("search.box.label")}
+        </Text>
 
         {interpret.isPending ? (
           <View className="items-center py-4">
@@ -232,7 +185,8 @@ export default function SearchScreen() {
               <Text className="text-sm text-muted-foreground">{t("search.noMatches")}</Text>
             ) : null}
             {results.data.results.map((result) => (
-              <View
+              <SearchResultRow
+                result={result}
                 key={`${result.kind}-${
                   result.kind === "product"
                     ? result.canonicalProductId
@@ -244,11 +198,7 @@ export default function SearchScreen() {
                           ? result.merchantId
                           : result.storefrontId
                 }`}
-                className="rounded-xl border border-border bg-card px-4 py-3"
-              >
-                <Text className="text-sm text-foreground">{result.name}</Text>
-                <Text className="text-xs text-muted-foreground">{t(SEARCH_RESULT_KIND_KEYS[result.kind])}</Text>
-              </View>
+              />
             ))}
           </View>
         ) : null}

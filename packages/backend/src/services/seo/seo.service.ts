@@ -99,7 +99,7 @@ const HOME_TAGLINE =
  * composes localized documents at all is `SeoDocument`'s question, not this
  * route's.
  */
-const CATEGORY_INDEX_TITLE = 'All categories';
+const CATEGORY_INDEX_TITLE = 'Explore';
 const CATEGORY_INDEX_DESCRIPTION =
   'Every category on Mercaria — new items from shops and secondhand from people, ' +
   'with every seller compared on one page per product.';
@@ -307,7 +307,7 @@ function resolveHome(origin: string): SeoDiagnosis {
 }
 
 /**
- * `/categories` — the taxonomy index hub.
+ * `/explore` — the taxonomy index hub.
  *
  * Static facts and the home page's indexability inputs, for the home page's
  * reasons. It reads NOTHING: the categories it links to are fetched by the

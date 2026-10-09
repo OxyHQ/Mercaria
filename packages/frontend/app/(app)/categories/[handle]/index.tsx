@@ -236,7 +236,7 @@ export default function CategoryScreen() {
       {/*
        * Page chrome only — the feed renders below, outside this container, so
        * its carousels get the full scroll width instead of clipping inside a
-       * centred column. `categories/index.tsx` says the same thing at length.
+       * centred column. `explore.tsx` says the same thing at length.
        */}
       <View className="mb-space-32 web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
         <CatalogBreadcrumbs crumbs={breadcrumbs} hrefForPath={categoryHrefForPath} />

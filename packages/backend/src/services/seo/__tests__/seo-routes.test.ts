@@ -91,6 +91,11 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   // `SEO_ROBOTS_DISALLOWED_PATHS`. A crawlable one is a crawl budget spent on
   // result pages nobody links to.
   'app/(app)/search.tsx',
+  // A shopper's conversation, never an indexable catalogue landing page.
+  'app/(app)/thread.tsx',
+  'app/(app)/profile.tsx',
+  // Local editorial previews; no publishing source or indexable edition yet.
+  'app/(app)/curations/[slug].tsx',
   // One category's listings resliced by a signal (the discovery feed's
   // `/categories/:handle/s/:signal`,
   // `docs/superpowers/specs/2026-09-07-discovery-feed-design.md`) — the SAME

@@ -88,7 +88,7 @@ export function CatalogProductGrid({
                 return url && url.startsWith("http") ? url : undefined;
               }}
               onPress={(canonicalProductId) =>
-                router.push(`/products/${canonicalProductId}`)
+                router.push({ pathname: "/p/[handle]", params: { handle: product.slug || canonicalProductId } })
               }
             />
           </View>

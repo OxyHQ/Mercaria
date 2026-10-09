@@ -965,7 +965,8 @@
       "body": "已保存的商品会跟踪所有卖家的价格和有货情况，并同步到你的所有设备。",
       "signIn": "登录",
       "title": "登录后可保存内容"
-    }
+    },
+    "actionFailed": "无法更新收藏"
   },
   "watchlists": {
     "atLimit": "已达到 %{count} 个清单的上限",
@@ -1584,5 +1585,31 @@
       "formatsLabel": "包含 %{formats}",
       "notForSale": "未在售"
     }
+  },
+  "thread": {
+    "title": "购物助手",
+    "thinking": "正在寻找灵感…",
+    "stop": "停止",
+    "unavailable": "购物助手暂不可用。你仍然可以搜索商品目录。",
+    "signIn": "登录后聊天",
+    "retry": "重试",
+    "viewResults": "查看搜索结果",
+    "newConversation": "新对话",
+    "previewAction": "使用示例数据试用",
+    "previewLabel": "预览 · 示例回复，未连接 AI",
+    "previewReply": "这些是本地目录中的示例，用于测试对话布局。打开商品查看详情，或发送另一条消息。"
+  },
+  "profile": {
+    "title": "个人资料",
+    "subtitle": "收藏、订单和账户，尽在一处。"
+  },
+  "curations": {
+    "heading": "精选集",
+    "preview": "预览 · 本地目录中的示例精选",
+    "everyday": "日常好物",
+    "fresh": "全新视角",
+    "pleasures": "小小乐趣",
+    "description": "按自己的节奏发现心仪好物。",
+    "unavailable": "此精选集暂不可用。"
   }
 }

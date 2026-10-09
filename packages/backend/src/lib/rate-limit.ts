@@ -146,6 +146,7 @@ export type RateLimitScope =
   // category page. Keyed on the ACTOR, so a guest is bucketed per SESSION
   // rather than per IP — one NAT is not one shopper.
   | 'search-intent'
+  | 'shopping-thread'
   // The public routing and SEO surface (#75). Its own bucket (`rl:seo:`) and a
   // GENEROUS one, for the reason `analytics-ingest` has its own: the caller is
   // the Cloudflare Worker on behalf of a crawler, one request per page view,

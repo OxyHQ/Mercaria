@@ -19,7 +19,7 @@ export interface ProductShelfProps {
 
 /**
  * A titled marketplace section: a bold heading above a horizontally scrollable
- * product carousel. The shelf owns the heading; the carousel renders the row.
+ * product carousel. Bloom aligns the heading with its carousel controls.
  * Returns `null` when there are no items or they are unavailable, so the heading
  * never appears over an empty row — safe to render always.
  */
@@ -33,13 +33,10 @@ export function ProductShelf({
   if (!items || items.length === 0) return null;
 
   return (
-    <View className="mb-6">
-      <SectionHeader
-        title={title}
-        onPress={onPressTitle}
-        showChevron={onPressTitle !== undefined}
-      />
+    <View className="mb-10 md:mb-16">
       <ProductCarousel
+        title={title}
+        header={<SectionHeader title={title} onPress={onPressTitle} showChevron={onPressTitle !== undefined} inset={false} />}
         items={items}
         onPressItem={onPressItem}
         onToggleSaveItem={onToggleSaveItem}
