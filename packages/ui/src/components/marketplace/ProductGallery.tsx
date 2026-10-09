@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
-import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
+import { Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { Image } from "expo-image";
 import { Button } from "@oxy.so/bloom/button";
-import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
+import { Carousel, CarouselItem, type CarouselProps } from "@oxy.so/bloom/carousel";
+import { useIsRtl } from "@oxy.so/bloom/hooks";
 import {
   ZoomableMediaGallery,
   type ZoomableMediaGalleryHandle,
@@ -11,6 +12,7 @@ import {
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import { useReducedMotion } from "react-native-reanimated";
+import { SHOP_CAROUSEL_ARROW_CLASS_NAME } from "../../lib/shelf-carousel";
 import {
   GALLERY_NEXT_KEY,
   GALLERY_PREVIOUS_KEY,
@@ -32,11 +34,26 @@ export interface ProductGalleryHandle {
   measureActiveImage: () => Promise<MeasuredRect | null>;
 }
 
+/** Shop's product gallery uses the 44px outlined control with its medium shadow. */
+const GALLERY_ARROW_CLASS_NAME = `${SHOP_CAROUSEL_ARROW_CLASS_NAME} h-[44px] w-[44px] p-space-12`;
+const GALLERY_ARROW_BUTTON_PROPS = {
+  material: "flat",
+  appearance: "outline",
+  tone: "neutral",
+  iconSize: 20,
+  className: `${GALLERY_ARROW_CLASS_NAME} shadow-shop-m`,
+} satisfies NonNullable<CarouselProps["arrowButtonProps"]>;
+const TABLET_ARROW_BUTTON_PROPS = {
+  ...GALLERY_ARROW_BUTTON_PROPS,
+  className: `${GALLERY_ARROW_CLASS_NAME} shadow-shop-s`,
+};
+
 /** Product media uses Bloom's controlled carousel in both the page and viewer.
  * Arrows, swipe and thumbnails update the same index. Bloom owns fullscreen
  * zoom/pan and media transitions. Variant owners remount this on variant id. */
 export function ProductGallery({ images, title, ref }: ProductGalleryProps) {
   const { width, height } = useWindowDimensions();
+  const rtl = useIsRtl();
   const t = useSharedUiTranslation();
   const [index, setIndex] = useState(0);
   const viewer = useRef<ZoomableMediaGalleryHandle>(null);
@@ -46,29 +63,43 @@ export function ProductGallery({ images, title, ref }: ProductGalleryProps) {
     thumbnailRail.current = rail;
     thumbnailOffset.current = 0;
   }, []);
-  const [thumbnailViewportHeight, setThumbnailViewportHeight] = useState(0);
+  const [thumbnailViewportExtent, setThumbnailViewportExtent] = useState(0);
   const reducedMotion = useReducedMotion();
   const frames = useRef<Record<number, View | null>>({});
   const [panelWidth, setPanelWidth] = useState(0);
   const [ratios, setRatios] = useState<Record<string, number>>({});
-  const desktop = width >= 768;
+  // The product columns start at md (768), but Shop changes from horizontal
+  // thumbnails to its taller desktop gallery at lg (976).
+  const desktop = width >= 976;
+  const showThumbnails = width >= 768;
   const hasMany = images.length > 1;
   const activeIndex = Math.min(index, Math.max(0, images.length - 1));
+  // ScrollView's horizontal offsets are negative on RTL web, physical on
+  // Android and already logical on iOS. The rail tracks distance from start.
+  const thumbnailScrollOffset = useCallback((offset: number) => {
+    if (desktop || !rtl) return offset;
+    if (Platform.OS === "web") return -offset;
+    if (Platform.OS === "android") return Math.max(0, images.length * 54 - 6 - thumbnailViewportExtent) - offset;
+    return offset;
+  }, [desktop, rtl, images.length, thumbnailViewportExtent]);
   // Shop uses 48px thumbnails with 6px between them. Keep the selected photo
   // visible when the carousel/viewer changes it beyond the rail's viewport.
   useEffect(() => {
-    if (!desktop || thumbnailViewportHeight <= 0) return;
-    const top = activeIndex * 54;
-    const bottom = top + 48;
+    if (!showThumbnails || thumbnailViewportExtent <= 0) return;
+    const start = activeIndex * 54;
+    const end = start + 48;
     const current = thumbnailOffset.current;
-    const next = top < current ? top
-      : bottom > current + thumbnailViewportHeight ? bottom - thumbnailViewportHeight
+    const next = start < current ? start
+      : end > current + thumbnailViewportExtent ? end - thumbnailViewportExtent
       : current;
-    if (next !== current) thumbnailRail.current?.scrollTo({ y: next, animated: !reducedMotion });
-  }, [activeIndex, desktop, thumbnailViewportHeight, reducedMotion]);
+    if (next !== current) thumbnailRail.current?.scrollTo({
+      ...(desktop ? { y: next } : { x: thumbnailScrollOffset(next) }), animated: !reducedMotion,
+    });
+  }, [activeIndex, desktop, showThumbnails, thumbnailViewportExtent, reducedMotion, thumbnailScrollOffset]);
   // Shop's desktop gallery reserves 84vh and centres each image at its actual
   // ratio; the photo is not stretched to fill that viewing area.
-  const frameHeight = height * (desktop ? 0.84 : 0.45);
+  const frameHeight = desktop ? height * 0.84
+    : showThumbnails ? Math.min(760, height * 0.65) : height * 0.45;
   const imageWidth = Math.max(0, (panelWidth || width) - (desktop && hasMany ? 64 : 0));
   const select = (next: number) => setIndex(next);
   const measureThumb = useCallback(
@@ -97,12 +128,17 @@ export function ProductGallery({ images, title, ref }: ProductGalleryProps) {
   const thumbnails = () => (
     <ScrollView
       ref={attachThumbnailRail}
+      horizontal={!desktop}
       showsHorizontalScrollIndicator={false}
       showsVerticalScrollIndicator={false}
-      style={{ width: 48, maxHeight: frameHeight, flexGrow: 0 }}
+      style={desktop
+        ? { width: 48, maxHeight: frameHeight, flexGrow: 0 }
+        : { height: 48, maxHeight: 48, minWidth: 0, flexGrow: 0 }}
       contentContainerStyle={{ gap: 6 }}
-      onLayout={(event) => setThumbnailViewportHeight(event.nativeEvent.layout.height)}
-      onScroll={(event) => { thumbnailOffset.current = event.nativeEvent.contentOffset.y; }}
+      onLayout={({ nativeEvent }) => setThumbnailViewportExtent(desktop ? nativeEvent.layout.height : nativeEvent.layout.width)}
+      onScroll={({ nativeEvent }) => {
+        thumbnailOffset.current = desktop ? nativeEvent.contentOffset.y : thumbnailScrollOffset(nativeEvent.contentOffset.x);
+      }}
       scrollEventThrottle={16}
       testID="product-thumbnails"
     >
@@ -147,9 +183,10 @@ export function ProductGallery({ images, title, ref }: ProductGalleryProps) {
       accessibilityLabel={title}
       index={activeIndex}
       onIndexChange={select}
-      showArrows={hasMany && desktop}
+      showArrows={hasMany && showThumbnails}
       arrowsPlacement="overlay"
-      arrowsVisibility="hover"
+      arrowsVisibility={desktop ? "hover" : "always"}
+      arrowButtonProps={desktop ? GALLERY_ARROW_BUTTON_PROPS : TABLET_ARROW_BUTTON_PROPS}
       showDots={false}
       gap={0}
       previousLabel={t(GALLERY_PREVIOUS_KEY)}
@@ -216,9 +253,10 @@ export function ProductGallery({ images, title, ref }: ProductGalleryProps) {
           <Text className="text-shop-bodySmall text-text-tertiary">{t(MARKETPLACE_NO_IMAGE_KEY)}</Text>
         </View>
       ) : (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+        <View style={{ flexDirection: desktop ? "row" : "column", alignItems: desktop ? "center" : "stretch", gap: 16 }}>
           {desktop && hasMany ? thumbnails() : null}
           {gallery()}
+          {!desktop && showThumbnails && hasMany ? thumbnails() : null}
         </View>
       )}
       <ZoomableMediaGallery

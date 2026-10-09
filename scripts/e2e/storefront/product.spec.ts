@@ -316,6 +316,85 @@ test("gallery keeps 48px thumbnails visible when the viewer moves beyond the rai
   }).toBe(true);
 });
 
+test("tablet gallery places a scrollable thumbnail row below the photo before switching to the desktop rail", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  await page.setViewportSize({ width: 900, height: 1000 });
+  await page.goto(`/products/${product.id}`);
+  const gallery = page.getByTestId("product-gallery-carousel");
+  const rail = page.getByTestId("product-thumbnails");
+  const thumbnails = rail.getByRole("button");
+  const first = await thumbnails.first().boundingBox();
+  const second = await thumbnails.nth(1).boundingBox();
+  expect(first!.width).toBe(48);
+  expect(Math.round(second!.x - first!.x)).toBe(54);
+  expect(second!.y).toBe(first!.y);
+  const photo = (await gallery.boundingBox())!;
+  expect(Math.round(photo.height)).toBe(650);
+  expect(first!.y).toBeGreaterThanOrEqual(photo.y + photo.height);
+
+  await thumbnails.last().focus();
+  await expect(thumbnails.last()).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => {
+    const bounds = (await rail.boundingBox())!;
+    const selected = (await thumbnails.last().boundingBox())!;
+    return selected.x >= bounds.x - 1 && selected.x + selected.width <= bounds.x + bounds.width + 1;
+  }).toBe(true);
+  await thumbnails.first().focus();
+  const next = gallery.getByRole("button", { name: "Next image", exact: true });
+  await expect(next).toHaveCSS("width", "44px");
+  await expect(next).toHaveCSS("height", "44px");
+  await next.click();
+  await expect(thumbnails.nth(1)).toHaveAttribute("aria-pressed", "true");
+
+  await page.setViewportSize({ width: 976, height: 1000 });
+  await expect.poll(async () => Math.round((await gallery.boundingBox())!.height)).toBe(840);
+  await expect.poll(async () => {
+    const a = (await thumbnails.first().boundingBox())!;
+    const b = (await thumbnails.nth(1).boundingBox())!;
+    return Math.round(b.y - a.y);
+  }).toBe(54);
+  await expect(thumbnails.nth(1)).toHaveAttribute("aria-pressed", "true");
+});
+
+test("tablet thumbnail scrolling follows the selected photo in Arabic without moving focus from the gallery", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  await page.setViewportSize({ width: 900, height: 1000 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    localStorage.setItem("i18n-storage", JSON.stringify({ state: { locale: "ar" }, version: 0 }));
+    localStorage.setItem("mercaria.bloom.theme", JSON.stringify({ mode: "dark", colorPreset: "mono" }));
+  });
+  await page.goto(`/products/${product.id}`);
+  const gallery = page.getByTestId("product-gallery-carousel");
+  const rail = page.getByTestId("product-thumbnails");
+  const thumbnails = rail.getByRole("button");
+  const next = gallery.getByRole("button", { name: "الصورة التالية", exact: true });
+  const previous = gallery.getByRole("button", { name: "الصورة السابقة", exact: true });
+  await expect(rail).toBeVisible();
+  const count = await thumbnails.count();
+  expect(count).toBeGreaterThan(6);
+  await expect(next).toHaveCSS("background-color", "rgb(18, 18, 18)");
+  expect((await next.boundingBox())!.x).toBeLessThan((await previous.boundingBox())!.x);
+  for (let index = 1; index < count; index++) {
+    await next.click();
+    await expect(thumbnails.nth(index)).toHaveAttribute("aria-pressed", "true");
+  }
+  await expect.poll(async () => {
+    const bounds = (await rail.boundingBox())!;
+    const selected = (await thumbnails.last().boundingBox())!;
+    return selected.x >= bounds.x - 1 && selected.x + selected.width <= bounds.x + bounds.width + 1;
+  }).toBe(true);
+  for (let index = count - 2; index >= 0; index--) {
+    await previous.click();
+    await expect(thumbnails.nth(index)).toHaveAttribute("aria-pressed", "true");
+  }
+  await expect.poll(async () => {
+    const bounds = (await rail.boundingBox())!;
+    const selected = (await thumbnails.first().boundingBox())!;
+    return selected.x >= bounds.x - 1 && selected.x + selected.width <= bounds.x + bounds.width + 1;
+  }).toBe(true);
+});
+
 test("mobile product keeps the merchant before gallery and has no horizontal overflow", async ({
   page,
   request,

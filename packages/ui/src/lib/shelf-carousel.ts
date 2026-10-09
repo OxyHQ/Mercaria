@@ -17,19 +17,21 @@ const WIDE_GAP = 16;
 /** The page gutter the shelves have always sat inside. */
 const SHELF_GUTTER = 16;
 
-const ARROW_CLASS_NAME = "min-h-0 min-w-0 rounded-radius-max border-[0.5px] border-border-image bg-bg-fill hover:bg-bg-fill-hover active:scale-[0.96] active:opacity-60 motion-reduce:active:scale-100";
+// Marketplace recipe from Shop's global CSS. Bloom's card colour is a raised
+// surface in dark mode; these outlined controls use the plain page fill.
+export const SHOP_CAROUSEL_ARROW_CLASS_NAME = "min-h-0 min-w-0 rounded-radius-max border-[0.5px] border-border-image bg-white dark:bg-[#121212] hover:bg-[#f2f4f5] dark:hover:bg-[#2a2a2a] active:scale-[0.96] active:opacity-60 motion-reduce:active:scale-100";
 const SHELF_ARROW_BUTTON_PROPS = {
   material: "flat",
   appearance: "outline",
   tone: "neutral",
   iconSize: 20,
-  className: `${ARROW_CLASS_NAME} size-space-40 p-space-10 shadow-shop-m`,
+  className: `${SHOP_CAROUSEL_ARROW_CLASS_NAME} size-space-40 p-space-10 shadow-shop-m`,
 } satisfies NonNullable<CarouselProps["arrowButtonProps"]>;
 
 /** Shop's review-preview controls use 12px padding and a smaller shadow. */
 export const REVIEW_PREVIEW_ARROW_BUTTON_PROPS = {
   ...SHELF_ARROW_BUTTON_PROPS,
-  className: `${ARROW_CLASS_NAME} h-[44px] w-[44px] p-space-12 shadow-shop-s`,
+  className: `${SHOP_CAROUSEL_ARROW_CLASS_NAME} h-[44px] w-[44px] p-space-12 shadow-shop-s`,
 } satisfies NonNullable<CarouselProps["arrowButtonProps"]>;
 
 /** What every card shelf hands Bloom's `Carousel` beyond its own label. */

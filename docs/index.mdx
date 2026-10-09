@@ -44,8 +44,12 @@ schema decision. `HANDOFF.md` holds deferred work.
   content mounted through loading, slides to its success label, then resets
   after three seconds; this requires Bloom's stable loading-content contract.
 - Storefront navigation switches at 976px (`STOREFRONT_NAV_FROM`), matching
-  Shop's public CSS; product columns and thumbnails switch independently at
-  768px. Bloom's numeric `navFrom` owns the rail/bottom-bar switch.
+  Shop's public CSS; product columns switch independently at 768px. Product
+  thumbnails appear in a horizontal 48px strip from 768–975px, then move to a
+  vertical rail at 976px. The gallery frame uses 45vh on phones, 65vh (capped
+  at 760px) in that intermediate layout, and 84vh on desktop. Selecting a photo
+  keeps its thumbnail visible in either direction, including RTL. Bloom's
+  numeric `navFrom` owns the rail/bottom-bar switch.
 - Each app wraps its screens in Bloom `OverlayInertBoundary`, inside Oxy's
   surface provider so its outlet remains outside. Modal sheets and dialogs
   remove the underlying screens from keyboard and accessibility navigation.
