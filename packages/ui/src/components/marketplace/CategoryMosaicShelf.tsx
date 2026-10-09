@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Pressable, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
@@ -18,7 +19,7 @@ export interface CategoryMosaicGroup {
   onPress?: () => void;
   children: CategoryMosaicItem[];
 }
-/** Four independent category links in each 330px merchandising tile. */
+/** Four independent category links per tile; five fluid columns from Shop's xxl. */
 export function CategoryMosaicShelf({
   groups,
   accessibilityLabel,
@@ -28,12 +29,23 @@ export function CategoryMosaicShelf({
 }) {
   const shelf = useShelfCarouselProps();
   const { width } = useWindowDimensions();
+  const [shelfWidth, setShelfWidth] = useState(0);
   // Shop's xl/xxl are 1440/2000px, rather than Tailwind's default xl=1280px.
   const large = width >= 1440;
   const extraLarge = width >= 2000;
+  // Shop's Home carousel defaults to five items in view at xxl, while each
+  // category tile retains its 330px minimum. Measure the actual shell content,
+  // rather than assuming the navigation rail has a particular width.
+  const tileWidth = extraLarge
+    ? Math.max(330, (shelfWidth - shelf.inset * 2 - shelf.gap * 4) / 5)
+    : 330;
   if (!groups.length) return null;
   return (
-    <View testID="category-mosaic-shelf" className="mb-3 md:mb-6">
+    <View
+      testID="category-mosaic-shelf"
+      className="mb-3 md:mb-6"
+      onLayout={({ nativeEvent }) => setShelfWidth(nativeEvent.layout.width)}
+    >
       <Carousel
         {...shelf}
         testID="home-category-carousel"
@@ -41,7 +53,7 @@ export function CategoryMosaicShelf({
         arrowsPlacement="overlay"
       >
         {groups.map((group) => (
-          <CarouselItem key={group.key} width={330}>
+          <CarouselItem key={group.key} width={tileWidth}>
             <View className={large ? "gap-space-16 pb-[38px]" : "gap-space-12 pb-space-32"}>
               <SectionHeader
                 title={group.label}
