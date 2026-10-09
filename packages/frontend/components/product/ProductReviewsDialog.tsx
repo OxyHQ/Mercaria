@@ -11,6 +11,7 @@ import {
   REVIEW_SCOPE_HEADING_KEYS,
 } from "@/lib/hooks/use-reviews";
 import { ReviewFilters } from "./ReviewFilters";
+import { ReviewActionsMenu } from "@/components/reports/ReviewActionsMenu";
 import { useTranslation } from "@/lib/i18n";
 
 /** Mounted only when opened, so selection and search reset for each product. */
@@ -184,7 +185,7 @@ export function ProductReviewsDialog({
                   setReviewLayout({ y, height });
                 }
               : undefined}>
-              <ReviewCard review={review} scopeLabel={title} expanded />
+              <ReviewCard review={review} scopeLabel={title} expanded footerActions={<ReviewActionsMenu review={review} />} />
             </View>
           ))}
           {query.isFetchingNextPage ? (

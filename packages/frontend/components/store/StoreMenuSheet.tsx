@@ -42,6 +42,7 @@ import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
 import { useShareLink } from "@/lib/hooks/use-share-link";
 import { useTranslation } from "@/lib/i18n";
+import { ReviewActionsMenu } from "@/components/reports/ReviewActionsMenu";
 import { AbuseReportDialog } from "@/components/reports/AbuseReportDialog";
 
 /** Light text tone over a brand-tinted surface (mirrors the store page). */
@@ -327,6 +328,7 @@ function StoreReviewCard({
                 string "null". */}
             {date === null ? author : `${author} · ${date}`}
           </Text>
+          <ReviewActionsMenu review={review} iconColor={toneColor} />
         </View>
         <Text className="text-shop-caption" style={{ color: toneColor }}>
           {t(

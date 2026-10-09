@@ -449,6 +449,11 @@
       "apply": "Aplica",
       "noResults": "Cap ressenya coincideix amb aquests filtres.",
       "results": "Ressenyes: %{results}"
+    },
+    "actions": {
+      "more": "Accions de la ressenya",
+      "report": "Denuncia la ressenya",
+      "subject": "Ressenya de %{author}"
     }
   },
   "search": {

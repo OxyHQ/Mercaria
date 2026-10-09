@@ -341,6 +341,13 @@ hides the caption from accessibility while expanded. A canonical product's
 caption uses only its verified aggregate; listing ratings and the separate
 unverified product aggregate are never substituted into it.
 
+Full review cards in the product sheet and store review list expose a Bloom
+actions menu with **Report review**. It opens the shared abuse-report form with
+`reportedType: 'review'` and that review's id; the author and product are never
+substituted as the subject. Guests must sign in through Oxy before sending.
+Closing the nested form preserves the review list. Compact PDP previews remain
+single buttons that open the full review sheet, without nested action controls.
+
 The PDP previews three reviews. Opening a preview centres that review in the
 sheet, using measured content and viewport sizes. A canonical product with no
 verified ratings still shows its separately labelled unverified reviews and

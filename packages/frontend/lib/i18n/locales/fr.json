@@ -449,6 +449,11 @@
       "apply": "Appliquer",
       "noResults": "Aucun avis ne correspond à ces filtres.",
       "results": "Avis : %{results}"
+    },
+    "actions": {
+      "more": "Actions sur l’avis",
+      "report": "Signaler cet avis",
+      "subject": "Avis de %{author}"
     }
   },
   "search": {

@@ -1523,3 +1523,52 @@ test("explicit light theme keeps review text dark when the OS prefers dark", asy
     return [...context.getImageData(0, 0, 1, 1).data];
   })).toEqual([0, 0, 0, 191]);
 });
+
+for (const width of [1440, 390]) {
+  test(`a review's report action preserves the review sheet and requires sign-in at ${width}px`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const product = await seededProduct(request);
+    const published = await (await request.get(`http://localhost:4160/listings/${product.id}/reviews?limit=12`)).json();
+    const review = published.data[0];
+    let reports = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && new URL(request.url()).pathname === "/reports") reports++;
+    });
+    await page.goto(`/products/${product.id}`);
+    // Previews retain one action and never contain nested menu buttons.
+    await expect(page.getByRole("button", { name: "Review actions", exact: true })).toHaveCount(0);
+    await page.getByTestId("product-sections").getByRole("button", { name: "Read more reviews", exact: true }).click();
+    const sheet = page.getByTestId("product-reviews-dialog");
+    const card = sheet.getByTestId(`review-${review.id}`);
+    const trigger = card.getByRole("button", { name: "Review actions", exact: true });
+    await trigger.click();
+    const menu = page.getByRole("menu", { name: "Review actions", exact: true });
+    await menu.getByRole("menuitem", { name: "Report review", exact: true }).click();
+    const report = page.getByRole("dialog", { name: /^Report Review by/ });
+    await expect(report).toBeVisible();
+    await expect(report.getByRole("button", { name: "Sign in to report", exact: true })).toBeVisible();
+    await expect(report.getByRole("button", { name: "Send report", exact: true })).toHaveCount(0);
+    expect(reports).toBe(0);
+    await page.keyboard.press("Escape");
+    await expect(report).toBeHidden();
+    await expect(sheet).toBeVisible();
+    await expect(trigger).toBeVisible();
+  });
+}
+
+test("store review actions open the same report form and preserve the store menu", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  const reviews = await (await request.get(`http://localhost:4160/stores/${product.store!.handle}/reviews`)).json();
+  expect(reviews.data.length).toBeGreaterThan(0);
+  await page.goto(`/stores/${product.store!.handle}`);
+  await page.getByRole("button", { name: `Open ${product.store!.name} menu`, exact: true }).click();
+  await page.getByRole("button", { name: "View this store's service reviews", exact: true }).click();
+  const trigger = page.getByTestId(`review-actions-${reviews.data[0].id}`);
+  await trigger.click();
+  await page.getByRole("menuitem", { name: "Report review", exact: true }).click();
+  const report = page.getByRole("dialog", { name: /^Report Review by/ });
+  await expect(report.getByRole("button", { name: "Sign in to report", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(report).toBeHidden();
+  await expect(trigger).toBeVisible();
+});

@@ -449,6 +449,11 @@
       "apply": "Aplicar",
       "noResults": "Nenhuma avaliação corresponde a esses filtros.",
       "results": "Avaliações: %{results}"
+    },
+    "actions": {
+      "more": "Ações da avaliação",
+      "report": "Denunciar avaliação",
+      "subject": "Avaliação de %{author}"
     }
   },
   "search": {

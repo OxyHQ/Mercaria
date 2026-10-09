@@ -445,6 +445,11 @@
       "apply": "適用",
       "noResults": "この条件に一致するレビューはありません。",
       "results": "レビュー：%{results}"
+    },
+    "actions": {
+      "more": "レビューの操作",
+      "report": "レビューを報告",
+      "subject": "%{author}のレビュー"
     }
   },
   "search": {

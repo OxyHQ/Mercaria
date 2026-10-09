@@ -445,6 +445,11 @@
       "apply": "Apply",
       "noResults": "No reviews match these filters.",
       "results": "Reviews: %{results}"
+    },
+    "actions": {
+      "more": "Review actions",
+      "report": "Report review",
+      "subject": "Review by %{author}"
     }
   },
   "search": {

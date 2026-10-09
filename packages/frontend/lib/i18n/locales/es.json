@@ -449,6 +449,11 @@
       "apply": "Aplicar",
       "noResults": "Ninguna reseña coincide con estos filtros.",
       "results": "Reseñas: %{results}"
+    },
+    "actions": {
+      "more": "Acciones de la reseña",
+      "report": "Denunciar reseña",
+      "subject": "Reseña de %{author}"
     }
   },
   "search": {

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { View } from "react-native";
 import { Image } from "expo-image";
 import type { Review } from "@mercaria/shared-types";
@@ -36,6 +37,8 @@ export interface ReviewCardProps {
   onPress?: () => void;
   /** What this review's rating is about (#76 UI rule 6), for the star label. */
   scopeLabel?: string;
+  /** Actions on a full review; previews remain a single accessible button. */
+  footerActions?: ReactNode;
 }
 
 /**
@@ -48,6 +51,7 @@ export function ReviewCard({
   scopeLabel,
   expanded = false,
   onPress,
+  footerActions,
 }: ReviewCardProps) {
   const locale = useSharedUiLocale();
   const t = useSharedUiTranslation();
@@ -115,6 +119,7 @@ export function ReviewCard({
         >
           {date === null ? author : `${author} · ${date}`}
         </Text>
+        {expanded ? footerActions : null}
       </View>
     </View>
   );

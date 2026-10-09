@@ -445,6 +445,11 @@
       "apply": "应用",
       "noResults": "没有符合这些筛选条件的评论。",
       "results": "评论：%{results}"
+    },
+    "actions": {
+      "more": "评价操作",
+      "report": "举报评价",
+      "subject": "%{author}的评价"
     }
   },
   "search": {

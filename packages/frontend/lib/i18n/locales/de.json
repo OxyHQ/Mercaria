@@ -445,6 +445,11 @@
       "apply": "Anwenden",
       "noResults": "Keine Bewertungen entsprechen diesen Filtern.",
       "results": "Bewertungen: %{results}"
+    },
+    "actions": {
+      "more": "Rezensionsaktionen",
+      "report": "Rezension melden",
+      "subject": "Rezension von %{author}"
     }
   },
   "search": {
