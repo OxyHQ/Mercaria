@@ -57,8 +57,6 @@ const TONE_DARK = "#111111";
 const GLASS_ALPHA = "D9";
 /** Fixed dark cover overlay (~25%) so the wordmark reads over any cover. */
 const COVER_DARK_OVERLAY = "rgba(0,0,0,0.25)";
-/** Gold star fill (mirrors the MerchantCard constant). */
-const STAR_COLOR = "#FFB800";
 /**
  * Hex alpha suffix (~35%) for the unfilled part of each star: the text tone,
  * faded, so the empty stars read over any brand colour (the theme border the
@@ -399,7 +397,6 @@ function StoreBody({
             })}
             variant="stars"
             color={toneColor}
-            starColor={STAR_COLOR}
             emptyStarColor={`${toneColor}${EMPTY_STAR_ALPHA}`}
             style={{ marginTop: 12 }}
           />

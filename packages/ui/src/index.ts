@@ -342,6 +342,7 @@ export { CategoryTileGrid, type CategoryShortcut } from "./components/marketplac
 export { CurationCard, CurationImage } from "./components/marketplace/CurationCard";
 export { EditorialCuration, type EditorialStory } from "./components/marketplace/EditorialCuration";
 export { ShopNavigationIcon, shopNavigationIcon, type ShopNavigationIconName } from "./components/marketplace/ShopNavigationIcon";
+export { ShopDetailIcon } from "./components/marketplace/ShopDetailIcon";
 export { useShelfCarouselProps } from "./lib/shelf-carousel";
 export { ListingSaveProvider } from "./components/marketplace/ListingSaveProvider";
 export { CategoryPills, type CategoryPillsProps } from "./components/marketplace/CategoryPills";

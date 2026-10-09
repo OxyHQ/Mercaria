@@ -9,7 +9,6 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Heart, Share2 } from "lucide-react-native";
 import { Rating } from "@oxy.so/bloom/rating";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
 import {
@@ -27,6 +26,7 @@ import {
   ProductCarousel,
   ProductGallery,
   PurchaseOptions,
+  ShopDetailIcon,
   useRatingDisplay,
   ReviewSummaryCard,
   Text,
@@ -66,8 +66,6 @@ import {
   resolveListingVariant,
 } from "@/lib/catalog/variant-selection";
 
-/** Gold star fill (mirrors the MerchantCard constant). */
-const STAR_COLOR = "#FFB800";
 /** Number of "More from store" related items pulled for the shelf. */
 const RELATED_LIMIT = 12;
 /** Reviews fetched for the summary + carousel. */
@@ -191,7 +189,6 @@ function StoreLinkCard({
             })}
             size="small"
             color={toneColor}
-            starColor={STAR_COLOR}
             style={{ marginTop: 2 }}
           />
         </View>
@@ -717,10 +714,11 @@ function ProductBody({ listing }: ProductBodyProps) {
                     }
                     className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
                   >
-                    <Heart
+                    <ShopDetailIcon
+                      name="heart"
                       size={ICON_SIZE}
                       className="text-text"
-                      fill={productSaved ? STAR_COLOR : "transparent"}
+                      filled={productSaved}
                     />
                     <Text className="text-shop-buttonMedium text-text">
                       {saveStatusLabel ?? (productSaved
@@ -777,10 +775,11 @@ function ProductBody({ listing }: ProductBodyProps) {
                   }
                   className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
                 >
-                  <Heart
+                  <ShopDetailIcon
+                    name="heart"
                     size={ICON_SIZE}
                     className="text-text"
-                    fill={listingSaved ? STAR_COLOR : "transparent"}
+                    filled={listingSaved}
                   />
                   <Text className="text-shop-buttonMedium text-text">
                     {saveStatusLabel ?? (listingSaved
@@ -799,7 +798,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                 onPress={() => void shareLink.share()}
                 className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
               >
-                <Share2 size={ICON_SIZE} className="text-text" />
+                <ShopDetailIcon name="share" size={ICON_SIZE} className="text-text" />
                 <Text className="text-shop-buttonMedium text-text">
                   {shareLink.copied
                     ? t("common.linkCopied")

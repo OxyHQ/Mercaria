@@ -23,8 +23,6 @@ const THUMB_SIZE = 92;
 /** Product-thumbnail corner radius (px). */
 const THUMB_RADIUS = 16;
 
-/** Fixed gold star fill (documented allowed constant). */
-const STAR_COLOR = "#FFB800";
 /** Documented dark cover overlay constant (~20%). */
 const COVER_DARK_OVERLAY = "rgba(0,0,0,0.20)";
 /** Light text tone over a merchant cover (documented data-driven exception). */
@@ -50,7 +48,7 @@ export interface MerchantCardProps {
  * bottom brand-color gradient wash → the foreground content (centered wordmark,
  * bottom-left name + rating, and a row of featured product thumbnails) → a 1px
  * inset border. Foreground text follows the merchant's `textTone`
- * (light/dark); the rating star stays gold.
+ * (light/dark), including the rating star.
  *
  * No nested interactives: the store wordmark is one link, and each product
  * thumbnail is its own SIBLING link (never nested inside the store link), so
@@ -134,14 +132,13 @@ export function MerchantCard({
             >
               {merchant.name}
             </Text>
-            {/* Bloom's compact rating: the gold star, and the localised figure
+            {/* Bloom's compact rating: the star, localised figure
                 and count painted in the cover's text tone so they read over
                 any merchant cover. */}
             <Rating
               {...ratingDisplay({ rating: merchant.rating, reviews: merchant.reviewCount })}
               size="small"
               color={toneColor}
-              starColor={STAR_COLOR}
               style={{ marginTop: 2 }}
             />
           </View>

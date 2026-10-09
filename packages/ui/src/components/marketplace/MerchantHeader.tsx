@@ -16,8 +16,6 @@ import { useRatingDisplay } from "../../lib/rating-display";
 import { formatPercent } from "../../lib/format";
 import { IncentiveHalo } from "./IncentiveHalo";
 
-/** Fixed gold star fill (mirrors the MerchantCard constant). */
-const STAR_COLOR = "#FFB800";
 /** Logo edge length (px) for the `large` (mobile sticky bar) variant. */
 const LARGE_LOGO_SIZE = 44;
 /** Logo edge length (px) for the `compact` (desktop buy column) variant. */
@@ -65,7 +63,7 @@ export interface MerchantHeaderProps {
 
 /**
  * Compact "★ 4.4 (310.6K)" rating row used inside the header — Bloom's
- * `Rating` with the gold star, the localised figure and the count.
+ * `Rating` with a matching foreground star, the localised figure and the count.
  *
  * The accessible name names the SCOPE (#76 UI rule 6). A PDP carries this
  * rating and the product rating side by side, and a reader hearing "4.4" twice
@@ -86,7 +84,6 @@ function HeaderRating({
     <Rating
       {...ratingDisplay({ rating, reviews: reviewCount, subject: scopeLabel })}
       size="small"
-      starColor={STAR_COLOR}
     />
   );
 }

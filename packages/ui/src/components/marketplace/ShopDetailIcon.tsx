@@ -1,37 +1,47 @@
 import Svg, { Path } from "react-native-svg";
+import { styled } from "nativewind";
 
-/** Public SVG paths supplied with the Shop shelf reference. */
+const StyledSvg = styled(Svg, {
+  className: { target: "style", nativeStyleMapping: { color: "color" } },
+});
+
+const PATHS = {
+  chevron: "M10 16L14 12L10 8",
+  thread: "M15 10H9M12 14H9M3 20H16C18.7614 20 21 17.7614 21 15V9C21 6.23858 18.7614 4 16 4H8C5.23858 4 3 6.23858 3 9V20Z",
+  heart: "M10.797 4.303 12 5.537l1.203-1.234a5.35 5.35 0 0 1 7.613-.09l.089.09c2.097 2.15 2.126 5.619.087 7.806l-.087.092L12 21.333l-8.905-9.132c-2.127-2.181-2.127-5.717 0-7.898a5.35 5.35 0 0 1 7.702 0Z",
+  share: "M20 12.75V16C20 18.2091 18.2091 20 16 20H8C5.79086 20 4 18.2091 4 16V12.75M12 4V15.25M12 4L16.5 8.5M12 4L7.5 8.5",
+} as const;
+
+/** Public SVG paths from Shop's shelves and product Save/Share buttons. */
 export function ShopDetailIcon({
   name,
   size = 20,
-  color = "currentColor",
+  color,
+  className,
   filled = false,
 }: {
-  name: "chevron" | "thread" | "heart";
+  name: keyof typeof PATHS;
   size?: number;
   color?: string;
+  className?: string;
   filled?: boolean;
 }) {
-  const path =
-    name === "chevron"
-      ? "M10 16L14 12L10 8"
-      : name === "thread"
-        ? "M15 10H9M12 14H9M3 20H16C18.7614 20 21 17.7614 21 15V9C21 6.23858 18.7614 4 16 4H8C5.23858 4 3 6.23858 3 9V20Z"
-        : "M10.797 4.303 12 5.537l1.203-1.234a5.35 5.35 0 0 1 7.613-.09l.089.09c2.097 2.15 2.126 5.619.087 7.806l-.087.092L12 21.333l-8.905-9.132c-2.127-2.181-2.127-5.717 0-7.898a5.35 5.35 0 0 1 7.702 0Z";
   return (
-    <Svg
+    <StyledSvg
+      className={className}
+      color={color}
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill={filled ? color : "none"}
+      fill={filled ? (color ?? "currentColor") : "none"}
     >
       <Path
-        d={path}
-        stroke={color}
-        strokeWidth={name === "thread" ? 2 : 2.67}
+        d={PATHS[name]}
+        stroke={color ?? "currentColor"}
+        strokeWidth={name === "thread" || name === "share" ? 2 : 2.67}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
+    </StyledSvg>
   );
 }
