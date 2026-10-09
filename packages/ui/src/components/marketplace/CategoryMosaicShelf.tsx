@@ -1,7 +1,6 @@
 import { Pressable, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
-import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "../ui/text";
 import { SectionHeader } from "./SectionHeader";
 import { useShelfCarouselProps } from "../../lib/shelf-carousel";
@@ -29,6 +28,9 @@ export function CategoryMosaicShelf({
 }) {
   const shelf = useShelfCarouselProps();
   const { width } = useWindowDimensions();
+  // Shop's xl/xxl are 1440/2000px, rather than Tailwind's default xl=1280px.
+  const large = width >= 1440;
+  const extraLarge = width >= 2000;
   if (!groups.length) return null;
   return (
     <View testID="category-mosaic-shelf" className="mb-3 md:mb-6">
@@ -41,7 +43,7 @@ export function CategoryMosaicShelf({
       >
         {groups.map((group) => (
           <CarouselItem key={group.key} width={330}>
-            <View className="gap-3 pb-8 xl:gap-4 xl:pb-[38px]">
+            <View className={large ? "gap-space-16 pb-[38px]" : "gap-space-12 pb-space-32"}>
               <SectionHeader
                 title={group.label}
                 onPress={group.onPress}
@@ -51,12 +53,12 @@ export function CategoryMosaicShelf({
               />
               <View
                 testID="category-mosaic"
-                className="overflow-hidden rounded-[20px] bg-card web:shadow-md xl:rounded-[28px]"
-                style={{ aspectRatio: width >= 1280 ? 374 / 340 : 1 }}
+                className={`overflow-hidden bg-card web:shadow-md ${large ? "rounded-radius-28" : "rounded-radius-20"}`}
+                style={{ aspectRatio: large ? 374 / 340 : 1 }}
               >
                 <View
                   pointerEvents="none"
-                  className="absolute inset-0 z-10 rounded-[20px] border-[0.5px] border-black/10 dark:border-white/15 xl:rounded-[28px]"
+                  className={`absolute inset-0 z-10 border-[0.5px] border-black/10 dark:border-white/15 ${large ? "rounded-radius-28" : "rounded-radius-20"}`}
                 />
                 {[0, 1].map((row) => (
                   <View
@@ -78,12 +80,9 @@ export function CategoryMosaicShelf({
                             className="absolute inset-0 h-full w-full web:transition-transform web:duration-150 web:group-hover:scale-110 web:motion-reduce:transition-none web:motion-reduce:transform-none"
                           />
                         ) : null}
-                        <LinearGradient
-                          colors={["transparent", "rgba(0,0,0,0.25)"]}
-                          className="absolute inset-0"
-                          pointerEvents="none"
-                        />
-                        <Text className="m-2 text-xs font-bold leading-tight text-white xl:m-3 xl:text-sm">
+                        <Text className={`text-white web:drop-shadow-sm ${extraLarge
+                          ? "m-[18px] text-shop-bodyTitleLarge"
+                          : large ? "m-space-12 text-[14px] font-semibold leading-tight" : "m-space-8 text-shop-captionBold leading-tight"}`}>
                           {item.label}
                         </Text>
                       </Pressable>
