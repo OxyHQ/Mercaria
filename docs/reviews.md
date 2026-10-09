@@ -334,6 +334,11 @@ Typing alone does not filter the currently loaded page. A failed continuation
 keeps the loaded reviews and offers a retry. Review IDs prevent duplicated cards
 when offset pages overlap after a new publication.
 
+The search uses Bloom's public field/chrome classes for a 44 px shell with a
+28 px radius, transparent fill and image border. Bloom 7.17 owns return-focus
+timing after a dialog removes its inert background; the storefront does not
+schedule an extra focus timeout or change DOM attributes itself.
+
 The collapsed PDP review accordion shows the authoritative rating and count,
 with a 250 ms linear clip/opacity reveal. It reserves its measured width while
 expanded so the title and chevron do not shift, respects reduced motion, and

@@ -137,6 +137,8 @@ export function ProductReviewsDialog({
           <View className="mb-space-8">
             <Search
               ref={searchInput}
+              fieldClassName="h-[44px] px-space-16 lg:px-[18px]"
+              fieldChromeClassName="rounded-radius-28 border border-border-image bg-transparent"
               label={t("reviews.search.placeholder")}
               value={searchText}
               onChangeText={setSearchText}
