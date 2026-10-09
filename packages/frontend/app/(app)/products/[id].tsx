@@ -1,5 +1,5 @@
 import { merchantImageSource } from "@mercaria/ui";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useShoppingHistory,
   useShoppingHistoryOwner,
@@ -33,6 +33,8 @@ import {
   VariantSwatches,
   useFormatters,
   useColorScheme,
+  useCartFlight,
+  type ProductGalleryHandle,
   type ProductSummary,
 } from "@mercaria/ui";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
@@ -242,13 +244,20 @@ interface ProductBodyProps {
 function ProductBody({ listing }: ProductBodyProps) {
   const { canUsePrivateApi } = useOxy();
   const { colors } = useColorScheme();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  const gallery = useRef<ProductGalleryHandle>(null);
+  const { flyToCart } = useCartFlight();
   const desktopNavigation = width >= STOREFRONT_NAV_FROM;
   const router = useRouter();
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
   const ratingDisplay = useRatingDisplay();
   const addToCart = useAddCartItem();
+  useEffect(() => {
+    if (!addToCart.isSuccess) return;
+    const timer = setTimeout(addToCart.reset, 3000);
+    return () => clearTimeout(timer);
+  }, [addToCart.isSuccess, addToCart.reset]);
 
   /**
    * TWO review surfaces, because they answer two different questions (#76).
@@ -404,11 +413,18 @@ function ProductBody({ listing }: ProductBodyProps) {
 
   const onAddToCart = () => {
     if (!selectedVariant) return;
+    const image = gallery.current?.activeImage?.uri;
+    const source = desktopNavigation
+      ? gallery.current?.measureActiveImage()
+      : Promise.resolve({ x: width / 2, y: height * 0.2, width: 0, height: 0 });
     addToCart.mutate({
       listingId: listing.id,
       variantId: selectedVariant.id,
       quantity,
-    });
+    }, { onSuccess: async () => {
+      const rect = await source;
+      if (image && rect) void flyToCart(image, rect);
+    } });
   };
 
   const onBuyNow = () => {
@@ -450,6 +466,7 @@ function ProductBody({ listing }: ProductBodyProps) {
         {/* Top two-column region: large gallery (flex-1) + fixed buy column. */}
         <View className="flex-col gap-space-16 md:mt-6 md:flex-row md:gap-space-40 md:px-4">
           <ProductGallery
+            ref={gallery}
             key={selectedVariant?.id ?? listing.id}
             images={images}
             title={listing.title}

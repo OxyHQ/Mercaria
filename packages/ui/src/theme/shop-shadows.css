@@ -1,0 +1,7 @@
+/* Marketplace shadows measured from Shop's public tailwind-CfcvoSaG.css.
+   Own names keep Bloom's component shadow tokens under Bloom's authority. */
+@theme {
+  --shadow-shop-s: 0px 2px 8px #0000000f;
+  --shadow-shop-m: 0px 4px 24px #0000001f;
+  --shadow-shop-l: 0px 8px 40px #0000003d;
+}

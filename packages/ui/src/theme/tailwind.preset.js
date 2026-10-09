@@ -224,11 +224,10 @@ module.exports = {
         },
       },
       boxShadow: {
-        // The reference names `shadow-s`/`shadow-m`; components here reach for
-        // Tailwind's own `shadow-md`/`shadow-lg` today, which is a different ramp.
-        s: "0 1px 2px rgba(0,0,0,.06)",
-        m: "0 2px 8px rgba(0,0,0,.10)",
-        l: "0 8px 24px rgba(0,0,0,.14)",
+        // Marketplace-only ramp; Bloom owns the unprefixed shadow tokens.
+        "shop-s": "0 2px 8px #0000000f",
+        "shop-m": "0 4px 24px #0000001f",
+        "shop-l": "0 8px 40px #0000003d",
       },
     },
   },

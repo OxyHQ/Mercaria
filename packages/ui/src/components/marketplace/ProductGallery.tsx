@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { Image } from "expo-image";
 import { Button } from "@oxy.so/bloom/button";
@@ -25,12 +25,17 @@ export interface ProductGalleryImage {
 export interface ProductGalleryProps {
   images: ProductGalleryImage[];
   title: string;
+  ref?: Ref<ProductGalleryHandle>;
+}
+export interface ProductGalleryHandle {
+  activeImage: ProductGalleryImage | undefined;
+  measureActiveImage: () => Promise<MeasuredRect | null>;
 }
 
 /** Product media uses Bloom's controlled carousel in both the page and viewer.
  * Arrows, swipe and thumbnails update the same index. Bloom owns fullscreen
  * zoom/pan and media transitions. Variant owners remount this on variant id. */
-export function ProductGallery({ images, title }: ProductGalleryProps) {
+export function ProductGallery({ images, title, ref }: ProductGalleryProps) {
   const { width, height } = useWindowDimensions();
   const { colors } = useColorScheme();
   const t = useSharedUiTranslation();
@@ -65,6 +70,10 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
     const rect = await measureThumb(position);
     viewer.current?.open(images, position, rect ?? undefined);
   };
+  useImperativeHandle(ref, () => ({
+    activeImage: images[activeIndex],
+    measureActiveImage: () => measureThumb(activeIndex),
+  }), [activeIndex, images, measureThumb]);
 
   const thumbnails = (vertical: boolean) => (
     <ScrollView

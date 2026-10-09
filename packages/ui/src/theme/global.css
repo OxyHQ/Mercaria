@@ -21,6 +21,7 @@
 @import "nativewind/theme";
 @import "@oxy.so/bloom/design-tokens/theme.css";
 @import "./shop-typography.css";
+@import "./shop-shadows.css";
 
 @theme {
   --font-sans: Inter, sans-serif;

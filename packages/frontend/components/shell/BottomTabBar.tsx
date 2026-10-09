@@ -5,7 +5,7 @@ import * as Haptics from "expo-haptics";
 import { Avatar } from "@oxy.so/bloom/avatar";
 import { BottomBar, type BottomBarProps } from "@oxy.so/bloom/bottom-bar";
 import { useOxy } from "@oxy.so/services";
-import { ShopNavigationIcon, Text } from "@mercaria/ui";
+import { CartFlightTarget, ShopNavigationIcon, Text } from "@mercaria/ui";
 
 import { useCart } from "@/lib/hooks/use-cart";
 import { useTranslation } from "@/lib/i18n";
@@ -57,7 +57,7 @@ function AccountAvatar() {
  */
 function CartGlyph({ count, fill }: { count: number; fill?: string }) {
   return (
-    <View className="relative items-center justify-center">
+    <CartFlightTarget>
       <ShopNavigationIcon name="cart" fill={fill} />
       {count > 0 ? (
         <View
@@ -69,7 +69,7 @@ function CartGlyph({ count, fill }: { count: number; fill?: string }) {
           </Text>
         </View>
       ) : null}
-    </View>
+    </CartFlightTarget>
   );
 }
 

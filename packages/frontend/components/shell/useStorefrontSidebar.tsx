@@ -4,7 +4,7 @@ import type { SidebarProps } from "@oxy.so/bloom/sidebar";
 import { useOxy } from "@oxy.so/services";
 import { Avatar } from "@oxy.so/bloom/avatar";
 import { Button } from "@oxy.so/bloom/button";
-import { shopNavigationIcon } from "@mercaria/ui";
+import { CartFlightTarget, ShopNavigationIcon, shopNavigationIcon } from "@mercaria/ui";
 import { Logo } from "@/components/Logo";
 import { useTranslation } from "@/lib/i18n";
 import { useCart } from "@/lib/hooks/use-cart";
@@ -12,6 +12,10 @@ import { NAV_ITEMS, isNavItemActive, type NavItem } from "./nav-items";
 
 /** The destinations that have a screen; an unbuilt one has no route to push. */
 type AvailableNavItem = Extract<NavItem, { available: true }>;
+
+function CartIcon({ width = 24, fill }: { width?: number; fill?: string }) {
+  return <CartFlightTarget><ShopNavigationIcon name="cart" size={width} fill={fill} /></CartFlightTarget>;
+}
 
 /**
  * The storefront's navigation as Bloom `Sidebar` props, for `AppShell`'s
@@ -70,7 +74,7 @@ export function useStorefrontSidebar(): SidebarProps {
       items: available.map((item) => ({
         key: item.key,
         label: t(item.labelKey),
-        icon: shopNavigationIcon(item.icon),
+        icon: item.key === "cart" ? CartIcon : shopNavigationIcon(item.icon),
         badge: item.key === "cart" && cartCount > 0 ? cartCount : undefined,
         // The route is read from the typed table, never from the row Bloom
         // hands back, so every push is checked against the real route tree.

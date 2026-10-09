@@ -26,6 +26,14 @@ schema decision. `HANDOFF.md` holds deferred work.
   font family. Use explicit pixel line heights when translating Shop utilities:
   NativeWind overrides integer `leading-*` utilities with relative multipliers
   (`leading-7` makes a 24px title 42px high; `leading-[28px]` preserves 28px). The legacy Tailwind preset mirrors these values for v3 consumers.
+  `shop-shadows.css` supplies the marketplace-only `shadow-shop-s/m/l` ramp;
+  Bloom retains ownership of its unprefixed shadow tokens.
+- Storefront purchase feedback uses `CartFlightProvider` around Bloom's shell.
+  After a successful cart mutation, the active product image flies to the
+  visible cart glyph and the glyph pulses on arrival. Failed mutations and
+  reduced-motion preferences skip the flight. The purchase button keeps its
+  content mounted through loading, slides to its success label, then resets
+  after three seconds; this requires Bloom's stable loading-content contract.
 - Storefront navigation switches at 976px (`STOREFRONT_NAV_FROM`), matching
   Shop's public CSS; product columns and thumbnails switch independently at
   768px. Bloom's numeric `navFrom` owns the rail/bottom-bar switch.

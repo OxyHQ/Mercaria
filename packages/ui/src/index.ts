@@ -402,6 +402,7 @@ export {
   ProductGallery,
   type ProductGalleryImage,
   type ProductGalleryProps,
+  type ProductGalleryHandle,
 } from "./components/marketplace/ProductGallery";
 export {
   VariantSwatches,
@@ -413,6 +414,7 @@ export {
 } from "./components/marketplace/PurchaseOptions";
 export { ReviewCard, type ReviewCardProps } from "./components/marketplace/ReviewCard";
 export { ProductSpecificationGrid, type ProductSpecification } from "./components/marketplace/ProductSpecificationGrid";
+export { CartFlightProvider, CartFlightTarget, useCartFlight, type CartFlightRect } from "./components/marketplace/CartFlight";
 export {
   ReviewSummaryCard,
   type RatingDistribution,

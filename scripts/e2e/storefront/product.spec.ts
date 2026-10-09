@@ -209,6 +209,143 @@ test("mobile gallery swipes between photos without adding a pagination row", asy
   }
 });
 
+for (const [width, locale] of [[1440, "en"], [390, "en"], [1440, "ar"], [390, "ar"]] as const) {
+  test(`successful purchase flies its image into the visible cart at ${width}px in ${locale}`, async ({ page, request }) => {
+    const product = await seededProduct(request);
+    await page.setViewportSize({ width, height: 1000 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.addInitScript(locale => localStorage.setItem("i18n-storage", JSON.stringify({ state: { locale }, version: 0 })), locale);
+    await page.goto(`/products/${product.id}`);
+    // A different gallery photo must fly, not the listing's first image.
+    let selectedImage: string | null = null;
+    if (width >= 976) {
+      const thumbnail = page.getByTestId("product-thumbnails").getByRole("button").nth(2);
+      await thumbnail.click();
+      await expect(thumbnail).toHaveAttribute("aria-pressed", "true");
+      selectedImage = await thumbnail.locator("img").getAttribute("src");
+      expect(selectedImage).toBeTruthy();
+    }
+    const add = page.getByTestId("product-purchase-actions").getByRole("button").first();
+    await add.scrollIntoViewIfNeeded();
+    await page.evaluate(() => {
+      const frames: { width: number; x: number; y: number; cartScale: number }[] = [];
+      (window as unknown as { cartFlightFrames: typeof frames }).cartFlightFrames = frames;
+      const scales: number[] = [];
+      (window as unknown as { cartFlightScales: number[] }).cartFlightScales = scales;
+      let seen = false;
+      let pulsed = false;
+      const sample = () => {
+        const flight = document.querySelector('[data-testid="cart-flight"]');
+        const target = [...document.querySelectorAll('[data-testid="cart-flight-target"]')].find(node => {
+          const bounds = node.getBoundingClientRect();
+          return bounds.width > 0 && bounds.height > 0 && bounds.x >= 0 && bounds.y >= 0 && bounds.right <= innerWidth && bounds.bottom <= innerHeight;
+        });
+        const cartScale = target ? new DOMMatrixReadOnly(getComputedStyle(target).transform).a : 1;
+        scales.push(cartScale);
+        if (cartScale > 1.2) pulsed = true;
+        if (flight) {
+          seen = true;
+          const rect = flight.getBoundingClientRect();
+          frames.push({ width: rect.width, x: rect.x + rect.width / 2, y: rect.y + rect.height / 2,
+            cartScale });
+        }
+        // The glyph's arrival animation outlives the fading product sprite.
+        // Observe its entire rise and return rather than stopping at sprite removal.
+        if (!seen || flight || !pulsed || Math.abs(cartScale - 1) > 0.00001) requestAnimationFrame(sample);
+        else (window as unknown as { cartFlightComplete: boolean }).cartFlightComplete = true;
+      };
+      requestAnimationFrame(sample);
+    });
+    const added = page.waitForResponse(response => response.url().endsWith("/cart/items") && response.request().method() === "POST");
+    await add.click();
+    expect((await added).ok()).toBe(true);
+    const flight = page.getByTestId("cart-flight");
+    await expect(flight).toHaveCount(1);
+    if (selectedImage) await expect(flight.locator("img")).toHaveAttribute("src", selectedImage);
+    await expect(flight).toHaveCSS("box-shadow", /0px 4px 24px/);
+    await expect(flight).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => (window as unknown as { cartFlightComplete?: boolean }).cartFlightComplete)).toBe(true);
+    const cartIcon = page.locator('[data-testid="cart-flight-target"]:visible').first();
+    await expect.poll(() => cartIcon.evaluate(node => new DOMMatrixReadOnly(getComputedStyle(node).transform).a)).toBe(1);
+    const result = await page.evaluate(() => {
+      const targets = [...document.querySelectorAll('[data-testid="cart-flight-target"]')]
+        .map(node => node.getBoundingClientRect()).filter(rect => rect.width > 0 && rect.height > 0 && rect.x >= 0 && rect.y >= 0 && rect.bottom <= innerHeight);
+      return { targets: targets.map(rect => ({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 })), frames: (window as unknown as { cartFlightFrames: { width: number; x: number; y: number; cartScale: number }[] }).cartFlightFrames };
+    });
+    expect(result.frames.some(frame => frame.width > 140)).toBe(true);
+    expect(await page.evaluate(() => (window as unknown as { cartFlightScales: number[] }).cartFlightScales.some(scale => scale > 1.2))).toBe(true);
+    expect(result.frames.some(frame => frame.width > 25 && frame.width < 100)).toBe(true);
+    expect(result.frames.some(frame => frame.width < 16 && result.targets.some(target => Math.abs(frame.x - target.x) < 2 && Math.abs(frame.y - target.y) < 2))).toBe(true);
+    if (width === 390) expect(result.frames.some(frame => frame.width > 140 && Math.abs(frame.x - width / 2) < 2 && Math.abs(frame.y - 200) < 2)).toBe(true);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+  });
+}
+
+test("cart flight respects reduced motion and never celebrates a failed purchase", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`/products/${product.id}`);
+  let flights = 0;
+  await page.exposeFunction("recordCartFlight", () => flights++);
+  await page.evaluate(() => {
+    new MutationObserver(records => {
+      for (const record of records) for (const node of record.addedNodes) {
+        if (node instanceof Element && (node.matches('[data-testid="cart-flight"]') || node.querySelector('[data-testid="cart-flight"]'))) {
+          void (window as unknown as { recordCartFlight: () => Promise<void> }).recordCartFlight();
+        }
+      }
+    }).observe(document.body, { subtree: true, childList: true });
+  });
+  await page.getByRole("button", { name: "Add to cart", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Added to cart", exact: true })).toBeVisible();
+  expect(flights).toBe(0);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.reload();
+  await page.route("**/cart/items", route => route.request().method() === "POST"
+    ? route.fulfill({ status: 409, json: { success: false, message: "Stock changed before purchase" } })
+    : route.continue());
+  await page.getByRole("button", { name: "Add to cart", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Stock changed before purchase" })).toBeVisible();
+  await expect(page.getByTestId("cart-flight")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Added to cart", exact: true })).toHaveCount(0);
+});
+
+for (const reducedMotion of ["no-preference", "reduce"] as const) {
+  test(`purchase confirmation slides inside the button and resets with ${reducedMotion} motion`, async ({ page, request }) => {
+    const product = await seededProduct(request);
+    await page.emulateMedia({ reducedMotion });
+    await page.goto(`/products/${product.id}`);
+    const actions = page.getByTestId("product-purchase-actions");
+    const add = actions.getByRole("button", { name: "Add to cart", exact: true });
+    await expect(add).toBeEnabled();
+    const label = add.getByText("Add to cart", { exact: true });
+    await expect(label).toHaveCSS("font-size", "16px");
+    await expect(label).toHaveCSS("font-weight", "600");
+    await expect(label).toHaveCSS("line-height", "20px");
+    const height = (await actions.boundingBox())!.height;
+    await page.evaluate(() => {
+      const node = document.querySelector('[data-testid="add-to-cart-label-motion"]')!;
+      const frames: number[] = [];
+      (window as unknown as { purchaseMotionFrames: number[] }).purchaseMotionFrames = frames;
+      new MutationObserver(() => frames.push(new DOMMatrixReadOnly(getComputedStyle(node).transform).m42))
+        .observe(node, { attributes: true, attributeFilter: ["style"] });
+    });
+    const response = page.waitForResponse(response => response.url().endsWith("/cart/items") && response.request().method() === "POST");
+    await add.click();
+    expect((await response).ok()).toBe(true);
+    await expect(actions.getByRole("button", { name: "Added to cart", exact: true })).toBeVisible();
+    const motion = actions.getByTestId("add-to-cart-label-motion");
+    await expect.poll(() => motion.evaluate(node => new DOMMatrixReadOnly(getComputedStyle(node).transform).m42)).toBe(-52);
+    const animated = await page.evaluate(() => (window as unknown as { purchaseMotionFrames: number[] })
+      .purchaseMotionFrames.some(position => position < 0 && position > -52));
+    expect(animated).toBe(reducedMotion === "no-preference");
+    expect((await actions.boundingBox())!.height).toBe(height);
+    await expect(add).toBeVisible();
+    await expect.poll(() => motion.evaluate(node => new DOMMatrixReadOnly(getComputedStyle(node).transform).m42)).toBe(0);
+    expect((await actions.boundingBox())!.height).toBe(height);
+  });
+}
+
 test("reviews read all server ratings and open a paginated list with full text", async ({
   page,
   request,
