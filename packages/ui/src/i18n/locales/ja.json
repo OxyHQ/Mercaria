@@ -1,5 +1,6 @@
 {
   "ui": {
+    "sheet": { "close": "閉じる" },
     "condition": {
       "label": {
         "new": "新品",

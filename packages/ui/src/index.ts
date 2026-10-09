@@ -273,6 +273,7 @@ export {
   ScreenShell,
   type ScreenShellProps,
 } from "./components/shell/ScreenShell";
+export { ViewportScrollView, type ViewportScrollViewProps } from "./components/shell/ViewportScrollView";
 export {
   toBloomIcon,
   toBloomFieldIcon,
@@ -711,3 +712,5 @@ export {
 export { merchantImageSource } from "./lib/shop-merchant-images";
 
 export { StoreOfferHeader, type StoreOfferHeaderProps } from "./components/marketplace/StoreOfferHeader";
+
+export { MarketplaceSheet, type MarketplaceSheetProps } from "./components/marketplace/MarketplaceSheet";

@@ -21,6 +21,7 @@ const FONT_SIZE_TOKENS = [
   "sectionTitle",
   "header",
   "headerBold",
+  "heroBold",
   "buttonSmall",
   "buttonMedium",
   "buttonLarge",

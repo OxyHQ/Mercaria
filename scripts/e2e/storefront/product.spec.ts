@@ -696,6 +696,7 @@ for (const mode of ["light", "dark"] as const) {
     await expect(stars.getByTestId("review-summary-stars-stars").locator(":scope > div")).toHaveCount(5);
     await expect(stars.locator("svg").first()).toHaveAttribute("width", "20");
     await expect(stars).toHaveText("");
+    await sections.getByTestId("review-rating-distribution").scrollIntoViewIfNeeded();
     const total = Object.values(response.ratingSummary.distribution).reduce<number>((sum, count) => sum + Number(count), 0);
     for (const bucket of [5, 4, 3, 2, 1]) {
       const row = sections.getByTestId(`rating-distribution-${bucket}`);
@@ -714,7 +715,7 @@ for (const mode of ["light", "dark"] as const) {
         return Math.abs(fillWidth / barWidth - fraction);
       }).toBeLessThan(0.002);
     }
-    const trigger = sections.getByRole("button", { name: "Reviews", exact: true });
+    const trigger = sections.getByRole("button").filter({ has: page.getByRole("heading", { name: "Reviews", exact: true }) });
     await expect(trigger).toHaveCSS("padding-top", "16px");
     await expect(trigger).toHaveCSS("padding-bottom", "16px");
     await expect(trigger).toHaveCSS("padding-inline-start", "0px");
@@ -797,6 +798,45 @@ test("review continuation failures preserve loaded cards and retry the missing p
   await expect(retry).toHaveCount(0);
 });
 
+for (const reducedMotion of ["no-preference", "reduce"] as const) {
+  test(`rating distribution reveals its real values once in view with ${reducedMotion} motion`, async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 600 });
+    await page.emulateMedia({ reducedMotion });
+    const product = await seededProduct(request);
+    await page.goto(`/products/${product.id}`);
+    const bar = page.getByTestId("rating-distribution-5-bar").first();
+    const fill = page.getByTestId("rating-distribution-5-fill").first();
+    await expect(bar).toBeAttached();
+    await expect(bar).not.toBeInViewport();
+    const accessibleValue = (await bar.getAttribute("aria-valuenow"))!;
+    const fraction = Number(accessibleValue) / Number(await bar.getAttribute("aria-valuemax"));
+    expect(fraction).toBeGreaterThan(0);
+    const visibleFraction = () => fill.evaluate(element => element.getBoundingClientRect().width / element.parentElement!.getBoundingClientRect().width);
+
+    if (reducedMotion === "no-preference") {
+      expect(await visibleFraction()).toBe(0);
+    } else {
+      expect(await visibleFraction()).toBeCloseTo(fraction, 2);
+    }
+    await bar.scrollIntoViewIfNeeded();
+    if (reducedMotion === "no-preference") {
+      await expect.poll(() => fill.evaluate(element => element.getAnimations().map(animation => {
+        const timing = animation.effect!.getTiming();
+        return { duration: timing.duration, delay: timing.delay };
+      }))).toContainEqual({ duration: 1000, delay: 300 });
+    }
+    // The announcement is the real aggregate throughout the visual entrance.
+    await expect(bar).toHaveAttribute("aria-valuenow", accessibleValue);
+    await expect.poll(visibleFraction).toBeCloseTo(fraction, 2);
+    await expect.poll(() => fill.evaluate(element => element.getAnimations().length)).toBe(0);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(bar).not.toBeInViewport();
+    await bar.scrollIntoViewIfNeeded();
+    expect(await visibleFraction()).toBeCloseTo(fraction, 2);
+    expect(await fill.evaluate(element => element.getAnimations().length)).toBe(0);
+  });
+}
+
 test("review search submits to the server, preserves the aggregate and restores the unfiltered list", async ({ page, request }) => {
   const product = await seededProduct(request);
   const endpoint = `http://localhost:4160/listings/${product.id}/reviews`;
@@ -808,6 +848,10 @@ test("review search submits to the server, preserves the aggregate and restores 
   await page.getByTestId("product-sections").getByRole("button", { name: "Read more reviews", exact: true }).click();
   const dialog = page.getByTestId("product-reviews-dialog");
   const input = dialog.getByPlaceholder("Search reviews", { exact: true });
+  const distributionFill = dialog.getByTestId("rating-distribution-5-fill");
+  const distributionValue = await dialog.getByTestId("rating-distribution-5-bar").getAttribute("aria-valuenow");
+  await expect.poll(() => distributionFill.evaluate(element => element.getBoundingClientRect().width / element.parentElement!.getBoundingClientRect().width)).toBeCloseTo(Number(distributionValue), 2);
+  await expect.poll(() => distributionFill.evaluate(element => element.getAnimations().length)).toBe(0);
   await input.fill("  glow  ");
   // Draft text is submitted explicitly; it must not filter the current page.
   await expect(dialog.getByTestId(`review-${original.data[0].id}`)).toHaveCount(1);
@@ -824,6 +868,9 @@ test("review search submits to the server, preserves the aggregate and restores 
     await expect(dialog.getByTestId(`review-${review.id}`)).toHaveCount(1);
   }
   await expect(dialog.getByTestId("review-rating-average")).toHaveText(`\u2068${original.ratingSummary.rating}\u2069`);
+  // Searching changes the cards, without replaying the unchanged aggregate.
+  await expect(dialog.getByTestId("rating-distribution-5-bar")).toHaveAttribute("aria-valuenow", distributionValue!);
+  expect(await distributionFill.evaluate(element => element.getAnimations().length)).toBe(0);
   await input.fill("no-review-matches-this-phrase-82691");
   await input.press("Enter");
   await expect(dialog.getByText("No reviews match your search.", { exact: true })).toBeVisible();
@@ -1155,6 +1202,23 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     await preview.getByRole("button", { name: "View more", exact: true }).click();
     const sheet = page.getByTestId("product-description-dialog");
     await expect(sheet.getByText(description, { exact: true })).toBeVisible();
+    const panel = page.getByRole("dialog", { name: "Description", exact: true });
+    await expect(panel).toHaveCSS("width", viewport.width >= 976 ? "500px" : `${viewport.width}px`);
+    await expect(panel).toHaveCSS("border-radius", viewport.width >= 976 ? "24px" : "0px");
+    await expect(panel.getByRole("heading", { name: "Description", exact: true })).toHaveCSS("font-size", "36px");
+    const close = panel.getByRole("button", { name: "Close", exact: true });
+    await expect(close).toHaveCSS("width", "44px");
+    await expect(close).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(close.locator("svg")).toHaveAttribute("width", "20");
+    await expect(close).toHaveCSS("box-shadow", "rgba(0, 0, 0, 0.12) 0px 4px 24px 0px");
+    // Resizing preserves the open sheet and authored content across Shop's breakpoint.
+    await page.setViewportSize({ width: 975, height: viewport.height });
+    await expect(panel).toHaveCSS("width", "975px");
+    await expect(panel).toHaveCSS("border-radius", "0px");
+    await page.setViewportSize({ width: 976, height: viewport.height });
+    await expect(panel).toHaveCSS("width", "500px");
+    await expect(panel).toHaveCSS("border-radius", "24px");
+    await page.setViewportSize(viewport);
     await expect.poll(async () => {
       const bounds = await sheet.boundingBox();
       return !!bounds && bounds.x >= 0 && bounds.x + bounds.width <= viewport.width + 1;
@@ -1584,7 +1648,7 @@ for (const width of [1440, 390]) {
       const product = await seededProduct(request);
       await page.goto(`/products/${product.id}`);
       const sections = page.getByTestId("product-sections");
-      const trigger = sections.getByRole("button", { name: "Reviews", exact: true });
+      const trigger = sections.getByRole("button").filter({ has: page.getByRole("heading", { name: "Reviews", exact: true }) });
       const caption = sections.getByTestId("reviews-collapsed-summary");
       const mask = caption.getByTestId("reviews-collapsed-summary-mask");
       await expect(trigger).toHaveAttribute("aria-expanded", "true");

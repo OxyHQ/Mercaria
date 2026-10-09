@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Platform, View } from "react-native";
 import { LinkButton } from "@oxy.so/bloom/button";
-import { Dialog } from "@oxy.so/bloom/dialog";
-import { Text } from "@mercaria/ui";
+import { Text, MarketplaceSheet } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 
 /** Shop's description preview is capped at 340 characters, with the complete
@@ -49,18 +48,14 @@ export function ProductDescription({ description }: { description: string }) {
           </>
         ) : null}
       </Text>
-      <Dialog
+      <MarketplaceSheet
         open={open}
         onClose={() => setOpen(false)}
-        label={t("product.description")}
-        header={{ title: t("product.description"), largeTitle: false }}
-        placement={{ base: "bottom", md: "end" }}
-        width={560}
-        maxHeightRatio={0.94}
+        title={t("product.description")}
         testID="product-description-dialog"
       >
         <Text selectable className="text-shop-bodySmall text-text">{description}</Text>
-      </Dialog>
+      </MarketplaceSheet>
     </View>
   );
 }

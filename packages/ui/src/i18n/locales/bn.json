@@ -1,5 +1,6 @@
 {
   "ui": {
+    "sheet": { "close": "বন্ধ করুন" },
     "condition": {
       "label": {
         "new": "নতুন",

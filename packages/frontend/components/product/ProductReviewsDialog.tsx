@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ScrollView, View, useWindowDimensions, type TextInput } from "react-native";
+import { View, useWindowDimensions, type ScrollView, type TextInput } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useReducedMotion } from "react-native-reanimated";
-import { Dialog } from "@oxy.so/bloom/dialog";
 import { Button } from "@oxy.so/bloom/button";
 import { Search } from "@oxy.so/bloom/search";
 import { REVIEW_SEARCH_MAX_LENGTH, type ReviewSortOrder } from "@mercaria/shared-types";
-import { ReviewCard, ReviewSummaryCard, Text, useColorScheme, useFormatters } from "@mercaria/ui";
+import { ReviewCard, ReviewSummaryCard, Text, MarketplaceSheet, useColorScheme, useFormatters } from "@mercaria/ui";
 import {
   useInfiniteProductReviews,
   useReviewHelpfulness,
@@ -44,7 +43,6 @@ export function ProductReviewsDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const { isDarkColorScheme } = useColorScheme();
   // Shop changes the search inset at 976px, before Tailwind's default lg.
   const { width } = useWindowDimensions();
   const [searchText, setSearchText] = useState("");
@@ -56,6 +54,7 @@ export function ProductReviewsDialog({
   const scroll = useRef<ScrollView>(null);
   const positioned = useRef(false);
   const [reviewLayout, setReviewLayout] = useState<{ y: number; height: number }>();
+  const [bodyOffset, setBodyOffset] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
   const reducedMotion = useReducedMotion();
@@ -92,151 +91,141 @@ export function ProductReviewsDialog({
     // their own position afterwards.
     const frame = requestAnimationFrame(() => {
       // Shop reveals a selected review in the centre of its scroll viewport.
-      const y = Math.max(0, reviewLayout.y + reviewLayout.height / 2 - viewportHeight / 2);
+      const y = Math.max(0, bodyOffset + reviewLayout.y + reviewLayout.height / 2 - viewportHeight / 2);
       scroll.current?.scrollTo({ y, animated: !reducedMotion });
       positioned.current = true;
     });
     return () => cancelAnimationFrame(frame);
-  }, [reviewLayout, viewportHeight, contentHeight, reducedMotion]);
+  }, [reviewLayout, bodyOffset, viewportHeight, contentHeight, reducedMotion]);
   return (
-    <Dialog
-      material="flat"
-      panelStyle={{ backgroundColor: isDarkColorScheme ? "#121212" : "#ffffff" }}
+    <MarketplaceSheet
       open
       onClose={onClose}
-      header={{ title, largeTitle: false }}
-      placement={{ base: "bottom", md: "end" }}
-      width={560}
-      maxHeightRatio={0.94}
-      label={title}
+      title={title}
+      headingGap={12}
       testID="product-reviews-dialog"
-      scrollable={false}
-      contentPadding={0}
-    >
-      <ScrollView
-        ref={scroll}
-        testID="product-reviews-scroll"
-        className="min-h-0 flex-1"
-        onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
-        onContentSizeChange={(_, height) => setContentHeight(height)}
-        scrollEventThrottle={100}
-        onScroll={({ nativeEvent }) => {
+      scrollRef={scroll}
+      scrollViewProps={{
+        testID: "product-reviews-scroll",
+        onLayout: (event) => setViewportHeight(event.nativeEvent.layout.height),
+        onContentSizeChange: (_, height) => setContentHeight(height),
+        onScroll: ({ nativeEvent }) => {
           if (nativeEvent.contentSize.height - nativeEvent.contentOffset.y - nativeEvent.layoutMeasurement.height < 240) loadMore();
-        }}
-      >
-        <View className="gap-space-8 p-space-20">
-          {summary ? (
-            <View>
-              <ReviewSummaryCard
-                embedded
-                showHeading={false}
-                scopeLabel={title}
-                average={summary.rating}
-                total={summary.reviewCount}
-                distribution={summary.distribution}
-                verifiedOnly={summary.verifiedOnly}
-                unverified={firstPage?.aggregate?.unverified}
-                reviews={[]}
-                isLoading={false}
-              />
-            </View>
-          ) : null}
-          <View className="mb-space-8 md:mb-0">
-            <View className="pt-space-16 pb-[14px]">
-              <Search
-                ref={searchInput}
-                iconSize={24}
-                clearButtonProps={{ size: 24, glyphSize: 24, icon: ReviewSearchClearIcon }}
-                role="searchbox"
-                fieldClassName={`h-[44px] ${width >= 976 ? "px-[18px]" : "px-space-16"}`}
-                style={{ fontSize: 14, lineHeight: 20 }}
-                fieldChromeClassName="rounded-radius-28 border border-border-image bg-transparent"
-                label={t("reviews.search.placeholder")}
-                value={searchText}
-                onChangeText={setSearchText}
-                maxLength={REVIEW_SEARCH_MAX_LENGTH}
-                onSubmitEditing={() => {
-                  submitSearch(searchText);
-                  searchInput.current?.blur();
-                }}
-                onClearText={() => {
-                  setSearchText("");
-                  submitSearch("");
-                  searchInput.current?.focus();
-                }}
-                onKeyPress={(event) => {
-                  if (event.nativeEvent.key === "Escape") {
-                    event.stopPropagation();
-                    event.preventDefault();
-                  }
-                }}
-              />
-            </View>
-            <ReviewFilters
-              sortBy={sortBy}
-              ratings={ratings}
-              onSortChange={(value) => {
-                positioned.current = true;
-                scroll.current?.scrollTo({ y: 0, animated: false });
-                setSortBy(value);
+        },
+      }}
+    >
+      <View className="gap-space-8" onLayout={(event) => setBodyOffset(event.nativeEvent.layout.y)}>
+        {summary ? (
+          <View>
+            <ReviewSummaryCard
+              embedded
+              showHeading={false}
+              scopeLabel={title}
+              average={summary.rating}
+              total={summary.reviewCount}
+              distribution={summary.distribution}
+              verifiedOnly={summary.verifiedOnly}
+              unverified={firstPage?.aggregate?.unverified}
+              reviews={[]}
+              isLoading={false}
+            />
+          </View>
+        ) : null}
+        <View className="mb-space-8 md:mb-0">
+          <View className="pt-space-16 pb-[14px]">
+            <Search
+              ref={searchInput}
+              iconSize={24}
+              clearButtonProps={{ size: 24, glyphSize: 24, icon: ReviewSearchClearIcon }}
+              role="searchbox"
+              fieldClassName={`h-[44px] ${width >= 976 ? "px-[18px]" : "px-space-16"}`}
+              style={{ fontSize: 14, lineHeight: 20 }}
+              fieldChromeClassName="rounded-radius-28 border border-border-image bg-transparent"
+              label={t("reviews.search.placeholder")}
+              value={searchText}
+              onChangeText={setSearchText}
+              maxLength={REVIEW_SEARCH_MAX_LENGTH}
+              onSubmitEditing={() => {
+                submitSearch(searchText);
+                searchInput.current?.blur();
               }}
-              onRatingsChange={(value) => {
-                positioned.current = true;
-                scroll.current?.scrollTo({ y: 0, animated: false });
-                setRatings(value);
+              onClearText={() => {
+                setSearchText("");
+                submitSearch("");
+                searchInput.current?.focus();
+              }}
+              onKeyPress={(event) => {
+                if (event.nativeEvent.key === "Escape") {
+                  event.stopPropagation();
+                  event.preventDefault();
+                }
               }}
             />
           </View>
-          {(searchQuery || ratings.length > 0) && pagination && !query.isLoading ? (
-            <Text accessibilityLiveRegion="polite" className="text-shop-bodySmall text-text">
-              {t(searchQuery ? "reviews.search.results" : "reviews.filters.results", { results: formatReviewCount(pagination.total) })}
-            </Text>
-          ) : null}
-          {query.isLoading ? (
-            <Text className="text-shop-bodySmall text-text-tertiary">
-              {t("common.loading")}
-            </Text>
-          ) : null}
-          {query.isError && !query.isFetchNextPageError ? (
-            <Button onPress={() => void query.refetch()}>
-              {t("common.tryAgain")}
-            </Button>
-          ) : null}
-          {!query.isLoading && !query.isError && uniqueReviews.length === 0 ? (
-            <Text className="text-shop-bodySmall text-text-tertiary">
-              {t(searchQuery ? "reviews.search.noResults" : ratings.length > 0 ? "reviews.filters.noResults" : "store.reviews.none")}
-            </Text>
-          ) : null}
-          {helpfulness.isError ? (
-            <Button onPress={() => void helpfulness.refetch()}>{t("reviews.helpful.retry")}</Button>
-          ) : null}
-          {uniqueReviews.map((review) => (
-            <View key={review.id} onLayout={review.id === initialReviewId
-              ? (event) => {
-                  const { y, height } = event.nativeEvent.layout;
-                  setReviewLayout({ y, height });
-                }
-              : undefined}>
-              <ReviewCard review={review} scopeLabel={title} expanded footerActions={
-                <View className="flex-row items-center gap-space-20">
-                  <ReviewHelpfulButton review={review} vote={votes.get(review.id)} />
-                  <ReviewActionsMenu review={review} />
-                </View>
-              } />
-            </View>
-          ))}
-          {query.isFetchingNextPage ? (
-            <Text accessibilityLiveRegion="polite" className="text-center text-shop-caption text-text-tertiary">
-              {t("common.loading")}
-            </Text>
-          ) : null}
-          {query.isFetchNextPageError ? (
-            <Button onPress={() => void query.fetchNextPage()}>
-              {t("common.tryAgain")}
-            </Button>
-          ) : null}
+          <ReviewFilters
+            sortBy={sortBy}
+            ratings={ratings}
+            onSortChange={(value) => {
+              positioned.current = true;
+              scroll.current?.scrollTo({ y: 0, animated: false });
+              setSortBy(value);
+            }}
+            onRatingsChange={(value) => {
+              positioned.current = true;
+              scroll.current?.scrollTo({ y: 0, animated: false });
+              setRatings(value);
+            }}
+          />
         </View>
-      </ScrollView>
-    </Dialog>
+        {(searchQuery || ratings.length > 0) && pagination && !query.isLoading ? (
+          <Text accessibilityLiveRegion="polite" className="text-shop-bodySmall text-text">
+            {t(searchQuery ? "reviews.search.results" : "reviews.filters.results", { results: formatReviewCount(pagination.total) })}
+          </Text>
+        ) : null}
+        {query.isLoading ? (
+          <Text className="text-shop-bodySmall text-text-tertiary">
+            {t("common.loading")}
+          </Text>
+        ) : null}
+        {query.isError && !query.isFetchNextPageError ? (
+          <Button onPress={() => void query.refetch()}>
+            {t("common.tryAgain")}
+          </Button>
+        ) : null}
+        {!query.isLoading && !query.isError && uniqueReviews.length === 0 ? (
+          <Text className="text-shop-bodySmall text-text-tertiary">
+            {t(searchQuery ? "reviews.search.noResults" : ratings.length > 0 ? "reviews.filters.noResults" : "store.reviews.none")}
+          </Text>
+        ) : null}
+        {helpfulness.isError ? (
+          <Button onPress={() => void helpfulness.refetch()}>{t("reviews.helpful.retry")}</Button>
+        ) : null}
+        {uniqueReviews.map((review) => (
+          <View key={review.id} onLayout={review.id === initialReviewId
+            ? (event) => {
+                const { y, height } = event.nativeEvent.layout;
+                setReviewLayout({ y, height });
+              }
+            : undefined}>
+            <ReviewCard review={review} scopeLabel={title} expanded footerActions={
+              <View className="flex-row items-center gap-space-20">
+                <ReviewHelpfulButton review={review} vote={votes.get(review.id)} />
+                <ReviewActionsMenu review={review} />
+              </View>
+            } />
+          </View>
+        ))}
+        {query.isFetchingNextPage ? (
+          <Text accessibilityLiveRegion="polite" className="text-center text-shop-caption text-text-tertiary">
+            {t("common.loading")}
+          </Text>
+        ) : null}
+        {query.isFetchNextPageError ? (
+          <Button onPress={() => void query.fetchNextPage()}>
+            {t("common.tryAgain")}
+          </Button>
+        ) : null}
+      </View>
+    </MarketplaceSheet>
   );
 }

@@ -10,7 +10,7 @@ export default defineConfig({
   reporter: 'list',
   outputDir: '../../../test-results/storefront',
   use: {
-    baseURL: 'http://localhost:8160',
+    baseURL: process.env.STOREFRONT_BASE_URL ?? 'http://localhost:8160',
     browserName: 'chromium',
     viewport: { width: 1440, height: 1000 },
     locale: 'en-US',

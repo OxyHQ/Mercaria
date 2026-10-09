@@ -5,6 +5,8 @@ describe("marketplace typography class merging", () => {
   it("keeps foreground independent of the marketplace size in either order", () => {
     expect(cn("text-base text-foreground", "text-shop-subtitle text-text"))
       .toBe("text-shop-subtitle text-text");
+    expect(cn("text-base text-foreground", "text-shop-heroBold text-text"))
+      .toBe("text-shop-heroBold text-text");
     expect(cn("text-base text-foreground", "text-text text-shop-subtitle"))
       .toBe("text-text text-shop-subtitle");
   });

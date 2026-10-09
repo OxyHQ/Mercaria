@@ -12,6 +12,7 @@ import {
   REVIEW_VERIFIED_RATINGS_KEY,
 } from "../../lib/marketplace-labels";
 import { Rating, RatingBar } from "@oxy.so/bloom/rating";
+import { useInView } from "@oxy.so/bloom/viewport";
 import { useFormatters } from "../../lib/use-formatters";
 import { useRatingDisplay } from "../../lib/rating-display";
 import { ReviewCard } from "./ReviewCard";
@@ -89,6 +90,7 @@ export function ReviewSummaryCard({
   const t = useSharedUiTranslation();
   const shelf = useShelfCarouselProps();
   const { isDarkColorScheme } = useColorScheme();
+  const histogramVisibility = useInView({ threshold: 1, once: true });
   // Shop's PDP summary previews three reviews; the sheet owns the full list.
   const previews = reviews.slice(0, 3);
   // The default was the English literal `"Reviews"` in the parameter list,
@@ -157,7 +159,7 @@ export function ReviewSummaryCard({
               </Text>
             </View>
             {distribution ? (
-              <View className="flex-1 justify-center gap-space-2">
+              <View {...histogramVisibility.targetProps} className="flex-1 justify-center gap-space-2" testID="review-rating-distribution">
                 {RATING_BUCKETS.map((bucket) => {
                   const count = distribution[bucket] ?? 0;
                   return (
@@ -172,6 +174,7 @@ export function ReviewSummaryCard({
                       fillClassName={`rounded-radius-8 ${isDarkColorScheme ? "bg-white" : "bg-[#121212]"}`}
                       value={distributionTotal > 0 ? count / distributionTotal : 0}
                       max={1}
+                      reveal={{ visible: histogramVisibility.inView, duration: 1000, delay: 300, easing: [0.4, 0, 0.2, 1], once: true }}
                     />
                   );
                 })}

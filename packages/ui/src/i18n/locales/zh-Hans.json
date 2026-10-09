@@ -1,5 +1,6 @@
 {
   "ui": {
+    "sheet": { "close": "关闭" },
     "condition": {
       "label": {
         "new": "全新",

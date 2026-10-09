@@ -78,6 +78,7 @@ module.exports = {
         // The category page's poster headline (md breakpoint up) — bigger than
         // any size the ramp above carries, so it is its own token rather than a
         // variant of `header`.
+        "shop-heroBold": ["36px", { lineHeight: "42px", fontWeight: "700", letterSpacing: "-1.5px" }],
         "shop-posterXS": ["36px", { lineHeight: "38px", fontWeight: "800", letterSpacing: "-1px" }],
       },
       fontWeight: {
@@ -102,6 +103,7 @@ module.exports = {
         "shop-buttonLarge": "600",
         // Matches `fontSize["shop-posterXS"]` so `font-shop-posterXS text-shop-posterXS` resolves
         // verbatim, same as every other pair in this block.
+        "shop-heroBold": "700",
         "shop-posterXS": "800",
       },
       colors: {

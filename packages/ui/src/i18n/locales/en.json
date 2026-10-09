@@ -1,5 +1,6 @@
 {
   "ui": {
+    "sheet": { "close": "Close" },
     "condition": {
       "label": {
         "new": "New",

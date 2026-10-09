@@ -4,6 +4,12 @@
  * `body` is Mercaria's existing reading-text token, not a Shop token.
  */
 @theme {
+  --text-shop-heroBold: 36px;
+  --text-shop-heroBold--line-height: 42px;
+  --text-shop-heroBold--font-weight: 700;
+  --text-shop-heroBold--letter-spacing: -1.5px;
+  --font-weight-shop-heroBold: 700;
+
   --text-shop-caption: 12px;
   --text-shop-caption--line-height: 16px;
   --text-shop-caption--font-weight: 400;

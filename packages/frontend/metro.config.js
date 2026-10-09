@@ -24,10 +24,11 @@ module.exports = (() => {
 
   // Worktrees are separate checkouts with their own dependencies. Crawling them
   // from this workspace duplicates the module graph and can exhaust Metro's heap.
+  // Match only descendants; this checkout can itself live inside a worktree.
   const blockList = config.resolver.blockList;
   config.resolver.blockList = [
     ...(Array.isArray(blockList) ? blockList : blockList ? [blockList] : []),
-    /[/\\]\.worktrees[/\\].*/,
+    new RegExp(`${monorepoRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[/\\\\]\\.worktrees[/\\\\].*`),
   ];
 
   // Resolve modules from both this package and the hoisted root node_modules.
