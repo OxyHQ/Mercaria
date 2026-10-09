@@ -9,7 +9,10 @@
   "home": {
     "title": "Mercaria",
     "loadingProducts": "Carregant productes",
-    "loadError": "No s'han pogut carregar els productes. Llisca per actualitzar o torna-ho a provar."
+    "loadError": "No s'han pogut carregar els productes. Llisca per actualitzar o torna-ho a provar.",
+    "keepShopping": "Continua comprant",
+    "recentlyViewed": "Vistos recentment",
+    "recentlyViewedEmpty": "Els productes que visitis apareixeran aquí."
   },
   "nav": {
     "home": "Inici",
@@ -376,7 +379,8 @@
       "basisEstimate": "Una estimació del nostre soci logístic, no una promesa.",
       "staleNote": "No l'hem pogut actualitzar recentment.",
       "refreshFailing": "No hem pogut actualitzar aquesta estimació. Pot estar desactualitzada."
-    }
+    },
+    "loadError": "No s’han pogut carregar les teves comandes"
   },
   "reviews": {
     "scopeHeading": {
@@ -1627,6 +1631,11 @@
     "fresh": "Noves perspectives",
     "pleasures": "Petits plaers",
     "description": "Idees per descobrir al teu ritme.",
-    "unavailable": "Aquesta selecció no està disponible."
+    "unavailable": "Aquesta selecció no està disponible.",
+    "referenceTitle": "La selecció de Courtney Grow",
+    "referenceSubtitle": "La selecció actual de moda i bellesa de Courtney",
+    "quoteComfort": "Comoditat, personalitat i els petits detalls que fan teva una peça.",
+    "quoteTexture": "Una textura que t’encanta pot canviar tot un conjunt.",
+    "quoteEveryday": "Tingues a mà les coses que fas servir més sovint."
   }
 }

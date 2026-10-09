@@ -4,7 +4,7 @@ import Head from "expo-router/head";
 import { useRouter } from "expo-router";
 import { CartShelf, CategoryPills, ProductShelf, MerchantCarousel, Text } from "@mercaria/ui";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
-import type { CartVendor } from "@mercaria/shared-types";
+import type { CartVendor, CartGroup } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { HeroSearch } from "@/components/shell/HeroSearch";
 import { Footer } from "@/components/shell/Footer";
@@ -12,6 +12,8 @@ import { useTranslation } from "@/lib/i18n";
 import { useFeed } from "@/lib/hooks/use-feed";
 import { useCart } from "@/lib/hooks/use-cart";
 import { categoryHref } from "@/lib/catalog/routes";
+import { ShoppingHistoryShelves } from "@/components/discovery/ShoppingHistoryShelves";
+import { HomeCategoryMosaics } from "@/components/discovery/HomeCategoryMosaics";
 
 /** Number of placeholder shelves shown while the feed loads. */
 const SKELETON_SHELF_COUNT = 2;
@@ -77,11 +79,13 @@ function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }:
   const onPressVendor = (vendor: CartVendor) => {
     if (vendor.kind === "store" && vendor.handle) {
       router.push({ pathname: "/stores/[handle]", params: { handle: vendor.handle } });
+    } else if (vendor.kind === "user") {
+      router.push({ pathname: "/sellers/[oxyUserId]", params: { oxyUserId: vendor.id } });
     }
   };
 
-  const onCheckout = () => {
-    router.push("/cart");
+  const onCheckout = (group: CartGroup) => {
+    router.push(group.guestCheckout?.status === "blocked" ? "/cart" : { pathname: "/checkout", params: { seller: group.sellerKey } });
   };
 
   const onPressProduct = (id: string) => {
@@ -92,12 +96,18 @@ function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }:
     <>
       {/* Hero search header (provides branding — replaces the old top bar) */}
       <HeroSearch merchants={(data?.sections ?? []).flatMap(section => section.kind === "merchants" ? section.merchants : [])} products={(data?.sections ?? []).flatMap(section => section.kind === "products" ? section.products : []).filter((product, index, all) => all.findIndex(item => item.id === product.id) === index)} onVisibilityChange={onHeroVisibilityChange} />
+      {(data?.sections ?? []).filter(section => section.kind === "category-pills").map(section => (
+        <CategoryPills key={section.id} pills={section.pills ?? []} onPressPill={(id, slug) => router.push(categoryHref(slug.length > 0 ? slug : id))} />
+      ))}
 
       <CartShelf
         groups={cart?.groups ?? []}
         onPressVendor={onPressVendor}
         onCheckout={onCheckout}
+        onPressCart={() => router.push("/cart")}
       />
+      <ShoppingHistoryShelves />
+      <HomeCategoryMosaics />
 
       {isLoading && !data ? <FeedSkeleton /> : null}
 
@@ -107,22 +117,6 @@ function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }:
           older cached payload) must never crash the home. Guard the section
           list and each section's items against undefined. */}
       {(data?.sections ?? []).map((section) => {
-        if (section.kind === "category-pills") {
-          return (
-            <CategoryPills
-              key={section.id}
-              pills={section.pills ?? []}
-              // #367 workstream 9: the pills were inert because `/categories`
-              // did not exist. They now open the category landing page, by the
-              // SLUG where the feed supplies one and by the id otherwise —
-              // `/categories/:handle` resolves either, so a pill whose slug is
-              // empty is still addressable rather than dead.
-              onPressPill={(id, slug) =>
-                router.push(categoryHref(slug.length > 0 ? slug : id))
-              }
-            />
-          );
-        }
         if (section.kind === "products") {
           return (
             <ProductShelf

@@ -3,14 +3,14 @@ import { Button } from "@oxy.so/bloom/button";
 import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
-import { useOxy } from "@oxy.so/services";
-import { RiBox3Line } from "@oxy.so/bloom/icons/RiBox3Line";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { ChevronRight } from "lucide-react-native";
-import type { OrderStatus, OrderSummary } from "@mercaria/shared-types";
+import type { OrderSummary } from "@mercaria/shared-types";
 import {
   PriceDisplay,
-  SectionHeader,
+  ShopNavigationIcon,
+  shopNavigationIcon,
   Text,
   commercialSellerLabel,
   formatDate,
@@ -21,8 +21,13 @@ import { useOrders } from "@/lib/hooks/use-orders";
 import { ORDER_STATUS_LABEL_KEYS } from "@/lib/order-status";
 import { useTranslation } from "@/lib/i18n";
 
-
-function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void }) {
+function OrderRow({
+  order,
+  onPress,
+}: {
+  order: OrderSummary;
+  onPress: () => void;
+}) {
   const { t, locale } = useTranslation();
   // From the order's own commercial presentation (#129): a `platform` order has
   // neither `store` nor `seller`, so the old coalesce left Mercaria's own sales
@@ -31,10 +36,15 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t("orders.row.openA11yLabel", { number: order.orderNumber })}
+      accessibilityLabel={t("orders.row.openA11yLabel", {
+        number: order.orderNumber,
+      })}
       onPress={onPress}
-      className="flex-row items-center gap-3 rounded-2xl border border-border bg-card p-4 web:hover:opacity-90 active:opacity-90"
+      className="flex-row items-center gap-3 rounded-[28px] border border-border bg-card p-4 web:hover:opacity-90 active:opacity-90"
     >
+      <View className="h-12 w-12 items-center justify-center rounded-2xl bg-muted">
+        <ShopNavigationIcon name="orders" />
+      </View>
       <View className="min-w-0 flex-1">
         <Text className="text-sm font-bold text-foreground" numberOfLines={1}>
           {order.orderNumber}
@@ -43,7 +53,10 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
             three facts are not the same in every language, and the item count
             pluralises. The status is a BADGE term elsewhere on this screen, so
             it is a term here rather than an action label. */}
-        <Text className="mt-0.5 text-xs text-muted-foreground" numberOfLines={1}>
+        <Text
+          className="mt-0.5 text-xs text-muted-foreground"
+          numberOfLines={1}
+        >
           {t("orders.row.meta", {
             count: order.itemCount,
             status: t(ORDER_STATUS_LABEL_KEYS[order.status]),
@@ -54,7 +67,10 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
           {formatDate(order.createdAt, locale)}
         </Text>
       </View>
-      <PriceDisplay price={order.grandTotal.presentment} primaryClassName="text-sm font-bold" />
+      <PriceDisplay
+        price={order.grandTotal.presentment}
+        primaryClassName="text-sm font-bold"
+      />
       <ChevronRight size={18} className="text-muted-foreground" />
     </Pressable>
   );
@@ -63,52 +79,79 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
 function OrdersBody() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { isAuthenticated } = useOxy();
+  const { isAuthenticated, canUsePrivateApi } = useOxy();
   const [page, setPage] = useState(1);
-  const { data, isLoading } = useOrders(page);
+  const { data, isLoading, isError, refetch } = useOrders(page);
 
   const orders = data?.data ?? [];
   const pagination = data?.pagination;
 
   return (
-    <>
-      <SectionHeader title={t("orders.title")} />
+    <View className="gap-5" testID="shopping-orders">
+      <Text
+        accessibilityRole="header"
+        className="text-[32px] font-semibold leading-10"
+      >
+        {t("orders.title")}
+      </Text>
 
       {/*
         The verified-review surface (#76 UI rule 3). Above the list because it is
         the thing with a deadline-free ask attached; it renders nothing at all
         when the buyer has no open eligibility, which is the ordinary case.
       */}
-      <ReviewEligibilityPrompts />
+      {isAuthenticated && canUsePrivateApi ? (
+        <ReviewEligibilityPrompts />
+      ) : null}
 
-      {!isAuthenticated ? (
+      {!isAuthenticated || !canUsePrivateApi ? (
         <EmptyState
-          icon={RiBox3Line}
+          icon={shopNavigationIcon("orders")}
           media="circle"
           title={t("orders.empty.title")}
           description={t("orders.empty.signedOutSubtitle")}
+          action={{
+            label: t("nav.signIn"),
+            onPress: () => openAccountDialog(),
+          }}
+        />
+      ) : isError ? (
+        <EmptyState
+          icon={shopNavigationIcon("orders")}
+          title={t("orders.loadError")}
+          action={{
+            label: t("common.tryAgain"),
+            onPress: () => void refetch(),
+          }}
         />
       ) : isLoading && !data ? (
-        <View className="gap-3 px-4 py-6">
+        <View className="gap-4 py-6">
           <View className="h-20 w-full rounded-2xl bg-muted" />
           <View className="h-20 w-full rounded-2xl bg-muted" />
           <View className="h-20 w-full rounded-2xl bg-muted" />
         </View>
       ) : orders.length === 0 ? (
         <EmptyState
-          icon={RiBox3Line}
+          icon={shopNavigationIcon("orders")}
           media="circle"
           title={t("orders.empty.title")}
           description={t("orders.empty.subtitle")}
+          action={{
+            label: t("nav.explore"),
+            onPress: () => router.push("/explore"),
+          }}
         />
       ) : (
-        <View className="gap-3 px-4">
+        <View className="gap-4">
           {orders.map((order) => (
             <OrderRow
               key={order.id}
               order={order}
               onPress={() =>
-                router.push(`/orders/${order.id}`)
+                router.push({
+                  pathname: "/orders/[id]",
+                  params: { id: order.id },
+                })
               }
             />
           ))}
@@ -145,16 +188,17 @@ function OrdersBody() {
       )}
 
       <View className="h-24" />
-    </>
+    </View>
   );
 }
 
 export default function OrdersScreen() {
   const { t } = useTranslation();
   return (
-    <ScreenShell contentClassName="pt-5 web:max-w-[900px]">
+    <ScreenShell contentClassName="px-4 pt-6 pb-10 md:px-0 web:max-w-[640px]">
       <Head>
         <title>{t("orders.pageTitle")}</title>
+        <meta name="robots" content="noindex" />
       </Head>
       <OrdersBody />
     </ScreenShell>

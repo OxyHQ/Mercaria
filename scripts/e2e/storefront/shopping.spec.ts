@@ -101,14 +101,23 @@ test('seeded product variants and guest cart work through the real API', async (
     && response.request().method() === 'POST');
   await page.getByRole('button', { name: 'Add to cart', exact: true }).click();
   expect((await added).ok(), 'Local API needs GUEST_COMMERCE_ENABLED and its two configured keys').toBeTruthy();
+  const cartNavigation = page.getByRole('button', { name: 'Cart', exact: true });
+  const badge = cartNavigation.getByText(/^\d+$/);
+  await expect(badge).toBeVisible();
+  await expect(badge).toHaveText('1');
   await page.getByRole('button', { name: 'Cart', exact: true }).click();
   await expect(page.getByText('Stella', { exact: true })).toBeVisible();
   await expect(page.locator('[data-testid="shopping-composer"]:visible')).toHaveCount(0);
   await page.getByRole('button', { name: 'Increase quantity', exact: true }).click();
+  await expect(badge).toHaveText('2');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('tab', { name: 'Cart', exact: true })).toContainText('2');
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(page.getByRole('button', { name: 'Decrease quantity', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Decrease quantity', exact: true }).click();
   await page.getByRole('button', { name: 'Remove item', exact: true }).click();
   await expect(page.getByText('Your cart is empty', { exact: true })).toBeVisible();
+  await expect(badge).toHaveCount(0);
 });
 
 
@@ -232,4 +241,163 @@ test('thread composer measures its real width and shrinks after clearing multili
   const box = await composer.boundingBox();
   expect(box!.x).toBeGreaterThanOrEqual(0);
   expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+});
+
+test('editorial curation matches the reference cover, reading column and mobile composition', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/curations/01a0e9b7-5414-7e69-a529-85a3f6c3dc47');
+  const cover = page.getByTestId('editorial-cover');
+  await expect(cover).toBeVisible();
+  await expect(page.getByTestId('curation-header')).toContainText('The Courtney Grow Edit');
+  await expect.poll(async () => (await cover.boundingBox())!.width).toBe(1140);
+  let box = (await cover.boundingBox())!;
+  expect(box.height).toBeCloseTo(1140 * 9 / 16, 1);
+  expect(box.x).toBeCloseTo(184, 0);
+  expect(box.y).toBeCloseTo(316, 0);
+  const grid = page.getByTestId('editorial-product-grid').first();
+  expect((await grid.boundingBox())!.width).toBe(565);
+  await expect(page.getByTestId('editorial-story')).toHaveCount(6);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(async () => (await cover.boundingBox())!.width).toBe(390);
+  box = (await cover.boundingBox())!;
+  expect(box.height).toBe(520);
+  expect(box.x).toBe(0);
+  expect(box.y).toBe(0);
+  const title = (await page.getByTestId('editorial-heading').boundingBox())!;
+  expect(title.y).toBeGreaterThan(300);
+  expect(title.y + title.height).toBeLessThanOrEqual(520);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+});
+
+test('editorial scroll fades the pinned title and scales the cover', async ({ page }) => {
+  await page.goto('/curations/courtney-grow');
+  const cover = page.getByTestId('editorial-cover');
+  await expect(cover).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect.poll(() => page.getByTestId('editorial-heading').evaluate(e => Number(getComputedStyle(e).opacity))).toBeLessThan(0.02);
+  await expect.poll(() => cover.evaluate(e => getComputedStyle(e).transform)).toMatch(/matrix\(0\.95/);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect.poll(() => cover.evaluate(e => getComputedStyle(e).transform)).toBe('none');
+});
+
+test('Orders opens from the rail and mobile profile and offers real sign-in', async ({ page }) => {
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(viewport.width < 768 ? '/profile' : '/');
+    await page.getByRole('button', { name: 'Orders', exact: true }).click();
+    await expect(page).toHaveURL(/\/orders$/);
+    const orders = page.getByTestId('shopping-orders');
+    await expect(orders).toContainText('Your orders');
+    await expect(orders).toContainText('Sign in to see your order history.');
+    expect((await orders.boundingBox())!.width).toBe(viewport.width < 768 ? 358 : 640);
+    await orders.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page.getByText('Use your Oxy account', { exact: true })).toBeVisible();
+  }
+});
+
+test('editorial body inherits the panel surface in both themes', async ({ page }) => {
+  for (const mode of ['light', 'dark']) {
+    await page.addInitScript((mode) => {
+      localStorage.setItem('mercaria.bloom.theme', JSON.stringify({ mode, colorPreset: 'mono' }));
+    }, mode);
+    await page.goto('/curations/courtney-grow');
+    const body = page.getByTestId('curation-products');
+    await expect(body).toBeVisible();
+    await expect(body).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  }
+});
+
+test('home cart shelf matches the merchant layout and checks out only its group', async ({ page, request }) => {
+  const feed = await (await request.get('http://localhost:4160/feed')).json();
+  const product = feed.data.sections.filter((s: { kind: string }) => s.kind === 'products').flatMap((s: { products: { id: string; title: string }[] }) => s.products).find((p: { title: string }) => p.title === 'Brilliant Eye Brightener');
+  await page.goto(`/products/${product.id}`);
+  await page.getByRole('button', { name: 'Shade: Stella', exact: true }).click();
+  const response = page.waitForResponse(r => r.url().endsWith('/cart/items') && r.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Add to cart', exact: true }).click();
+  const payload = await (await response).json();
+  const group = payload.data.groups[0];
+  await page.goto('/');
+  const shelf = page.getByTestId('cart-shelf');
+  const card = shelf.getByTestId('merchant-cart-card').first();
+  await expect(card).toBeVisible();
+  expect((await card.boundingBox())!.width).toBe(330);
+  await expect(card).toHaveCSS('border-radius', '28px');
+  expect((await card.getByTestId('cart-card-thumbnail-column').boundingBox())!.width).toBe(72);
+  await expect(card.getByTestId('cart-card-count')).toHaveText('1');
+  await shelf.getByRole('link', { name: 'In your cart', exact: true }).click();
+  await expect(page).toHaveURL(/\/cart$/);
+  await page.goto('/');
+  await card.getByRole('button', { name: 'Continue to checkout', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/checkout\\?seller=${encodeURIComponent(group.sellerKey)}$`));
+});
+
+test('Keep shopping resumes a persisted conversation including its follow-up', async ({ page }) => {
+  await page.goto('/thread?q=Dinner%20party%20gifts&preview=1');
+  await expect(page.getByTestId('thread-preview-products')).toHaveCount(1);
+  const composer = page.getByTestId('shopping-composer').getByRole('textbox');
+  await composer.fill('Something under 50');
+  await composer.press('Enter');
+  await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
+  await page.getByTestId('thread-header').getByRole('button', { name: 'Home', exact: true }).click();
+  const card = page.getByTestId('thread-shelf').getByRole('link', { name: 'Dinner party gifts', exact: true });
+  await expect(card).toBeVisible();
+  expect((await card.boundingBox())!.width).toBe(289);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(async () => (await card.boundingBox())!.width).toBe(239);
+  await card.click();
+  await expect(page).toHaveURL(/\/thread\?conversationId=/);
+  await expect(page.getByTestId('shopping-thread')).toContainText('Something under 50');
+  await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
+  await page.reload();
+  await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
+});
+
+test('Recently viewed keeps one image-only card per product and opens its full history', async ({ page, request }) => {
+  const feed = await (await request.get('http://localhost:4160/feed')).json();
+  const product = feed.data.sections.filter((s: { kind: string }) => s.kind === 'products').flatMap((s: { products: { id: string; title: string }[] }) => s.products)[0];
+  await page.goto(`/products/${product.id}`);
+  await expect(page.getByText(product.title, { exact: true }).first()).toBeVisible();
+  await page.goto('/');
+  const shelf = page.getByTestId('recently-viewed-shelf');
+  const link = shelf.getByRole('link', { name: product.title, exact: true });
+  await expect(link).toHaveCount(1);
+  expect((await link.boundingBox())!.width).toBe(192);
+  expect((await link.boundingBox())!.height).toBe(192);
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`/products/${product.id}$`));
+  await page.goto('/');
+  await expect(link).toHaveCount(1);
+  await shelf.getByRole('link', { name: 'Recently viewed', exact: true }).click();
+  await expect(page).toHaveURL(/\/recently-viewed$/);
+  await expect(page.getByTestId('recently-viewed-products')).toContainText(product.title);
+});
+
+test('category mosaics show four independently navigable published categories', async ({ page }) => {
+  await page.goto('/');
+  const chips = page.getByTestId('category-pills');
+  await expect(chips).toBeVisible();
+  const heroBox = (await page.getByTestId('home-hero').boundingBox())!;
+  const chipsBox = (await chips.boundingBox())!;
+  expect(chipsBox.y).toBeGreaterThanOrEqual(heroBox.y + heroBox.height);
+  expect(chipsBox.y - heroBox.y - heroBox.height).toBeLessThan(32);
+  await expect(chips.getByRole('link').first()).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  const shelf = page.getByTestId('category-mosaic-shelf');
+  const first = shelf.getByTestId('category-mosaic').first();
+  await expect(first).toBeVisible();
+  expect((await first.boundingBox())!.width).toBe(330);
+  await expect(first.getByRole('link')).toHaveCount(4);
+  await first.getByRole('link', { name: 'Dresses', exact: true }).click();
+  await expect(page).toHaveURL(/\/categories\/dresses$/);
+});
+
+test('local shopping history never exposes a different account conversation to a guest', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('mercaria.shopping-history', JSON.stringify({ version: 0, state: { products: [], threads: [{ id: 'private-thread', owner: 'another-oxy-account', title: 'Private shopping question', updatedAt: new Date().toISOString(), preview: true, messages: [{ role: 'user', content: 'Private shopping question' }] }] } }));
+  });
+  await page.goto('/');
+  await expect(page.getByTestId('home-hero')).toBeVisible();
+  await expect(page.getByTestId('thread-shelf')).toHaveCount(0);
+  await page.goto('/thread?conversationId=private-thread');
+  await expect(page.getByTestId('shopping-thread')).toBeVisible();
+  await expect(page.getByText('Private shopping question')).toHaveCount(0);
 });

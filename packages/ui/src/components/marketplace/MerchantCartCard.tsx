@@ -1,6 +1,5 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
-import { Badge } from "@oxy.so/bloom/badge";
 import type { CartGroup, CartVendor } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
@@ -9,110 +8,121 @@ import {
   MERCHANT_CART_CHECKOUT_KEY,
   MERCHANT_CART_SUBTOTAL_KEY,
 } from "../../lib/marketplace-labels";
+import { commercialSellerLabel } from "../../lib/commercial-copy";
 import { PriceDisplay } from "../PriceDisplay";
-
-/** Logo thumbnail edge length (px). */
-const LOGO_SIZE = 32;
-/** Stacked item thumbnail edge length (px). */
-const THUMB_SIZE = 64;
-/** First thumbnail rotation for the stacked cluster visual. */
-const ROT_A = "-3deg";
-/** Second thumbnail rotation for the stacked cluster visual. */
-const ROT_B = "4deg";
 
 export interface MerchantCartCardProps {
   group: CartGroup;
   onPressVendor: (vendor: CartVendor) => void;
-  onCheckout: (vendor: CartVendor) => void;
+  onCheckout: (group: CartGroup) => void;
 }
 
-/**
- * Merchant-grouped cart card rendered in the `CartShelf` carousel. Shows the
- * vendor header (logo + name + subtotal), a stacked thumbnail cluster with a
- * quantity badge, and a "Continue to checkout" button.
- *
- * No nested interactives: the vendor link and the checkout button are siblings
- * at the same level, never nested.
- */
-export function MerchantCartCard({ group, onPressVendor, onCheckout }: MerchantCartCardProps) {
+/** Shop's 330px cart shelf: seller column, 64px thumbnail stack, pill action. */
+export function MerchantCartCard({
+  group,
+  onPressVendor,
+  onCheckout,
+}: MerchantCartCardProps) {
   const t = useSharedUiTranslation();
-  const totalQuantity = group.items.reduce((n, i) => n + i.quantity, 0);
-  const thumbA = group.items[0]?.imageUrl;
-  const thumbB = group.items[1]?.imageUrl;
-
+  const totalQuantity = group.items.reduce((n, item) => n + item.quantity, 0);
+  const thumbnails = group.items.slice(0, 2);
+  const sellerName = commercialSellerLabel(t, group.commercial);
   return (
-    <View className="w-full overflow-hidden rounded-3xl border border-border bg-card p-4 web:shadow">
-      {/* Header row: vendor link (logo + name) and subtotal */}
-      <View className="flex-row items-center gap-2">
-        {/* Single pressable link wraps logo + name together */}
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, { name: group.vendor.name })}
-          onPress={() => onPressVendor(group.vendor)}
-          className="flex-1 flex-row items-center gap-2"
-        >
-          <View
-            className="overflow-hidden rounded-full bg-muted"
-            style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
+    <View
+      testID="merchant-cart-card"
+      className="w-full rounded-[28px] border border-border bg-card p-4 web:shadow-sm"
+    >
+      <View className="mb-4 flex-row gap-2">
+        <View className="min-w-0 flex-1 gap-2">
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, {
+              name: group.vendor.name,
+            })}
+            onPress={() => onPressVendor(group.vendor)}
+            className="self-start"
           >
-            {group.vendor.logoUrl ? (
-              <Image
-                source={{ uri: group.vendor.logoUrl }}
-                contentFit="cover"
-                style={StyleSheet.absoluteFill}
+            <View className="h-8 w-8 overflow-hidden rounded-full border border-border bg-muted">
+              {group.vendor.logoUrl ? (
+                <Image
+                  source={{ uri: group.vendor.logoUrl }}
+                  contentFit="contain"
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : null}
+            </View>
+          </Pressable>
+          <View className="min-w-0">
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => onPressVendor(group.vendor)}
+            >
+              <Text
+                numberOfLines={1}
+                className="text-sm font-semibold leading-[18px]"
+              >
+                {sellerName}
+              </Text>
+            </Pressable>
+            <View className="flex-row flex-wrap items-baseline gap-1">
+              <Text className="text-xs leading-4 text-muted-foreground">
+                {t(MERCHANT_CART_SUBTOTAL_KEY)}
+              </Text>
+              <PriceDisplay
+                price={group.subtotal}
+                primaryClassName="text-xs font-medium leading-4"
               />
-            ) : null}
+            </View>
           </View>
-          <Text numberOfLines={1} className="flex-1 text-sm font-bold text-foreground">
-            {group.vendor.name}
-          </Text>
-        </Pressable>
-
-        {/* Subtotal label + price */}
-        <Text className="text-xs text-muted-foreground">{t(MERCHANT_CART_SUBTOTAL_KEY)}</Text>
-        <PriceDisplay price={group.subtotal} />
-      </View>
-
-      {/* Stacked thumbnail cluster with quantity badge */}
-      <View className="mt-4 flex-row items-center">
-        {thumbA !== undefined ? (
+        </View>
+        <View
+          testID="cart-card-thumbnail-column"
+          className="relative h-16 w-[72px] shrink-0"
+        >
+          {thumbnails.map((item, index) => (
+            <View
+              key={item.variantId}
+              className={`absolute top-0 h-16 w-16 overflow-hidden rounded-[20px] border border-border bg-card web:shadow-sm ${index ? "start-2" : "start-0"}`}
+              style={{
+                zIndex: 2 - index,
+                transform: [
+                  {
+                    rotate:
+                      thumbnails.length === 1
+                        ? "0deg"
+                        : index
+                          ? "4deg"
+                          : "-3deg",
+                  },
+                ],
+              }}
+            >
+              {item.imageUrl ? (
+                <Image
+                  source={{ uri: item.imageUrl }}
+                  accessibilityLabel={item.title}
+                  contentFit="cover"
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : null}
+            </View>
+          ))}
           <View
-            className="overflow-hidden rounded-2xl"
-            style={{
-              width: THUMB_SIZE,
-              height: THUMB_SIZE,
-              transform: [{ rotate: ROT_A }],
-            }}
+            testID="cart-card-count"
+            className="absolute -start-1.5 top-1 z-10 min-w-[18px] items-center justify-center rounded-full bg-foreground p-0.5"
           >
-            <Image source={{ uri: thumbA }} contentFit="cover" style={StyleSheet.absoluteFill} />
+            <Text className="text-[10px] font-bold leading-[14px] text-background">
+              {totalQuantity}
+            </Text>
           </View>
-        ) : null}
-        {thumbB !== undefined ? (
-          <View
-            className="-ms-4 overflow-hidden rounded-2xl"
-            style={{
-              width: THUMB_SIZE,
-              height: THUMB_SIZE,
-              transform: [{ rotate: ROT_B }],
-            }}
-          >
-            <Image source={{ uri: thumbB }} contentFit="cover" style={StyleSheet.absoluteFill} />
-          </View>
-        ) : null}
-
-        {/* Quantity badge */}
-        <View className="ms-2">
-          <Badge size="medium" variant="solid" color="default" content={totalQuantity} />
         </View>
       </View>
-
-      {/* Checkout button — sibling to the vendor link, not nested */}
       <Pressable
         accessibilityRole="button"
-        onPress={() => onCheckout(group.vendor)}
-        className="mt-3 items-center rounded-full bg-muted py-3"
+        onPress={() => onCheckout(group)}
+        className="min-h-8 items-center justify-center rounded-full bg-muted p-2 web:transition-colors web:hover:opacity-80 active:scale-[0.99]"
       >
-        <Text className="text-sm font-semibold text-foreground">
+        <Text className="text-sm font-medium leading-4">
           {t(MERCHANT_CART_CHECKOUT_KEY)}
         </Text>
       </Pressable>

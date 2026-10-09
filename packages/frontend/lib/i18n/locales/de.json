@@ -9,7 +9,10 @@
   "home": {
     "title": "Mercaria",
     "loadingProducts": "Produkte werden geladen",
-    "loadError": "Produkte konnten nicht geladen werden. Zum Aktualisieren ziehen oder es erneut versuchen."
+    "loadError": "Produkte konnten nicht geladen werden. Zum Aktualisieren ziehen oder es erneut versuchen.",
+    "keepShopping": "Weiter einkaufen",
+    "recentlyViewed": "Zuletzt angesehen",
+    "recentlyViewedEmpty": "Angesehene Produkte erscheinen hier."
   },
   "nav": {
     "home": "Start",
@@ -373,7 +376,8 @@
       "basisEstimate": "Eine Schätzung unseres Logistikpartners, keine Zusage.",
       "staleNote": "Wir konnten sie zuletzt nicht aktualisieren.",
       "refreshFailing": "Wir konnten diese Schätzung nicht aktualisieren. Sie ist möglicherweise nicht mehr aktuell."
-    }
+    },
+    "loadError": "Deine Bestellungen konnten nicht geladen werden"
   },
   "reviews": {
     "scopeHeading": {
@@ -1610,6 +1614,11 @@
     "fresh": "Neue Perspektiven",
     "pleasures": "Kleine Freuden",
     "description": "Entdecke neue Ideen in deinem Tempo.",
-    "unavailable": "Diese Auswahl ist nicht verfügbar."
+    "unavailable": "Diese Auswahl ist nicht verfügbar.",
+    "referenceTitle": "Die Auswahl von Courtney Grow",
+    "referenceSubtitle": "Courtneys aktuelle Mode- und Beauty-Favoriten",
+    "quoteComfort": "Komfort, Charakter und kleine Details, die ein Stück zu deinem machen.",
+    "quoteTexture": "Eine geliebte Textur kann ein ganzes Outfit verändern.",
+    "quoteEveryday": "Halte die Dinge griffbereit, die du am häufigsten benutzt."
   }
 }

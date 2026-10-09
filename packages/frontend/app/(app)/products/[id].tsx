@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useShoppingHistory, useShoppingHistoryOwner } from "@/lib/stores/shopping-history";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -861,6 +862,11 @@ export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation();
   const { data: listing, isLoading, isError } = useProduct(id ?? "");
+  const historyOwner = useShoppingHistoryOwner();
+  const historyReady = useShoppingHistory(state => state.hydrated);
+  useEffect(() => {
+    if (listing && historyReady) useShoppingHistory.getState().viewProduct(historyOwner, toProductSummary(listing, brandLabel(listing)));
+  }, [listing, historyOwner, historyReady]);
 
   const head = (
     <Head>

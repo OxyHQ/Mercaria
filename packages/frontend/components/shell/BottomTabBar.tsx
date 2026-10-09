@@ -1,12 +1,11 @@
 import React, { useCallback, useMemo } from "react";
 import { Platform, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
-import { UserRound, ShoppingCart } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { Avatar } from "@oxy.so/bloom/avatar";
 import { BottomBar, type BottomBarProps } from "@oxy.so/bloom/bottom-bar";
 import { useOxy } from "@oxy.so/services";
-import { LucideGlyph, Text } from "@mercaria/ui";
+import { ShopNavigationIcon, Text } from "@mercaria/ui";
 
 import { useCart } from "@/lib/hooks/use-cart";
 import { useTranslation } from "@/lib/i18n";
@@ -59,7 +58,7 @@ function AccountAvatar() {
 function CartGlyph({ count, fill }: { count: number; fill?: string }) {
   return (
     <View className="relative items-center justify-center">
-      <LucideGlyph icon={ShoppingCart} fill={fill} />
+      <ShopNavigationIcon name="cart" fill={fill} />
       {count > 0 ? (
         <View
           pointerEvents="none"
@@ -90,7 +89,10 @@ export function BottomTabBar() {
   const cartCount = cart?.items.reduce((n, i) => n + i.quantity, 0) ?? 0;
 
   const available = useMemo(
-    () => NAV_ITEMS.filter((item): item is AvailableNavItem => item.available),
+    () =>
+      NAV_ITEMS.filter(
+        (item): item is AvailableNavItem => item.available && !item.desktopOnly,
+      ),
     [],
   );
 
@@ -103,7 +105,7 @@ export function BottomTabBar() {
           item.key === "cart" ? (
             <CartGlyph count={cartCount} />
           ) : (
-            <LucideGlyph icon={item.icon} />
+            <ShopNavigationIcon name={item.icon} />
           ),
       })),
       {
@@ -111,7 +113,11 @@ export function BottomTabBar() {
         // Resolved through `t` rather than held as a literal: the i18n guard
         // reads JSX positions and cannot follow a string through a local.
         label: t("profile.title"),
-        icon: isAuthenticated ? <AccountAvatar /> : <LucideGlyph icon={UserRound} />,
+        icon: isAuthenticated ? (
+          <AccountAvatar />
+        ) : (
+          <ShopNavigationIcon name="profile" />
+        ),
       },
     ],
     [available, cartCount, isAuthenticated, t],
@@ -137,5 +143,7 @@ export function BottomTabBar() {
     [available, router],
   );
 
-  return <BottomBar items={items} value={value} onValueChange={onValueChange} />;
+  return (
+    <BottomBar items={items} value={value} onValueChange={onValueChange} />
+  );
 }

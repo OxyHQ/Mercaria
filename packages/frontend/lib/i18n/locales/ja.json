@@ -9,7 +9,10 @@
   "home": {
     "title": "Mercaria",
     "loadingProducts": "商品を読み込んでいます",
-    "loadError": "商品を読み込めませんでした。引っ張って更新するか、もう一度お試しください。"
+    "loadError": "商品を読み込めませんでした。引っ張って更新するか、もう一度お試しください。",
+    "keepShopping": "ショッピングを続ける",
+    "recentlyViewed": "最近見た商品",
+    "recentlyViewedEmpty": "閲覧した商品がここに表示されます。"
   },
   "nav": {
     "home": "ホーム",
@@ -373,7 +376,8 @@
       "basisEstimate": "配送パートナーによる見込みで、お約束ではありません。",
       "staleNote": "最近は更新できていません。",
       "refreshFailing": "この見込みを更新できていません。古い情報の可能性があります。"
-    }
+    },
+    "loadError": "注文を読み込めませんでした"
   },
   "reviews": {
     "scopeHeading": {
@@ -1610,6 +1614,11 @@
     "fresh": "新しい視点",
     "pleasures": "ささやかな楽しみ",
     "description": "自分のペースでお気に入りを見つけましょう。",
-    "unavailable": "このセレクションは利用できません。"
+    "unavailable": "このセレクションは利用できません。",
+    "referenceTitle": "コートニー・グロウのセレクション",
+    "referenceSubtitle": "コートニーが今選ぶファッションとビューティー",
+    "quoteComfort": "心地よさ、個性、そして自分らしさを生む小さなディテール。",
+    "quoteTexture": "お気に入りの質感が、装い全体の印象を変えてくれます。",
+    "quoteEveryday": "いつも使うお気に入りを、手の届くところに。"
   }
 }

@@ -9,7 +9,10 @@
   "home": {
     "title": "Mercaria",
     "loadingProducts": "Carregando produtos",
-    "loadError": "Não foi possível carregar os produtos. Puxe para atualizar ou tente de novo."
+    "loadError": "Não foi possível carregar os produtos. Puxe para atualizar ou tente de novo.",
+    "keepShopping": "Continue comprando",
+    "recentlyViewed": "Vistos recentemente",
+    "recentlyViewedEmpty": "Os produtos que você visualizar aparecerão aqui."
   },
   "nav": {
     "home": "Início",
@@ -376,7 +379,8 @@
       "basisEstimate": "Uma estimativa do nosso parceiro de logística, não uma promessa.",
       "staleNote": "Não conseguimos atualizá-la recentemente.",
       "refreshFailing": "Não conseguimos atualizar esta estimativa. Ela pode estar desatualizada."
-    }
+    },
+    "loadError": "Não foi possível carregar seus pedidos"
   },
   "reviews": {
     "scopeHeading": {
@@ -1627,6 +1631,11 @@
     "fresh": "Novas perspectivas",
     "pleasures": "Pequenos prazeres",
     "description": "Ideias para descobrir no seu ritmo.",
-    "unavailable": "Esta seleção não está disponível."
+    "unavailable": "Esta seleção não está disponível.",
+    "referenceTitle": "A seleção de Courtney Grow",
+    "referenceSubtitle": "Os favoritos atuais de moda e beleza de Courtney",
+    "quoteComfort": "Conforto, personalidade e os pequenos detalhes que tornam uma peça sua.",
+    "quoteTexture": "Uma textura que você ama pode transformar um visual inteiro.",
+    "quoteEveryday": "Mantenha por perto as coisas que você mais usa."
   }
 }

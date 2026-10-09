@@ -16,6 +16,7 @@ const PRODUCT_SLOT_WIDTH_MD = 192;
 const MD_BREAKPOINT = 768;
 
 export interface ProductCarouselProps {
+  cardVariant?: "standard" | "image-only";
   items: ProductSummary[];
   /** Optional inline heading rendered above the row. */
   title?: string;
@@ -37,6 +38,7 @@ export function ProductCarousel({
   header,
   onPressItem,
   onToggleSaveItem,
+  cardVariant,
 }: ProductCarouselProps) {
   const t = useSharedUiTranslation();
   const shelf = useShelfCarouselProps();
@@ -50,6 +52,8 @@ export function ProductCarousel({
     <View>
       <Carousel
         {...shelf}
+        showArrows={cardVariant === "image-only" ? false : shelf.showArrows}
+        style={{ gap: 16 }}
         accessibilityLabel={title ?? t(CAROUSEL_PRODUCTS_KEY)}
         header={header ?? (title ? <Text className="text-lg font-semibold text-foreground md:text-[22px] md:font-bold md:leading-7">{title}</Text> : undefined)}
       >
@@ -57,6 +61,7 @@ export function ProductCarousel({
           <CarouselItem key={product.id} width={slotWidth}>
             <ProductCard
               product={product}
+              variant={cardVariant}
               onPress={onPressItem}
               onToggleSave={onToggleSaveItem}
             />

@@ -9,7 +9,10 @@
   "home": {
     "title": "Mercaria",
     "loadingProducts": "Loading products",
-    "loadError": "Couldn't load products. Pull to refresh or try again."
+    "loadError": "Couldn't load products. Pull to refresh or try again.",
+    "keepShopping": "Keep shopping",
+    "recentlyViewed": "Recently viewed",
+    "recentlyViewedEmpty": "Products you view will appear here."
   },
   "nav": {
     "home": "Home",
@@ -373,7 +376,8 @@
       "basisEstimate": "An estimate from our fulfilment partner, not a promise.",
       "staleNote": "We have not been able to refresh it recently.",
       "refreshFailing": "We have not been able to refresh this estimate. It may be out of date."
-    }
+    },
+    "loadError": "Could not load your orders"
   },
   "reviews": {
     "scopeHeading": {
@@ -1610,6 +1614,11 @@
     "fresh": "Fresh perspectives",
     "pleasures": "Little pleasures",
     "description": "A few finds to explore at your own pace.",
-    "unavailable": "This selection is not available."
+    "unavailable": "This selection is not available.",
+    "referenceTitle": "The Courtney Grow Edit",
+    "referenceSubtitle": "Courtney’s current fashion and beauty rotation",
+    "quoteComfort": "Comfort, character, and the little details that make a piece your own.",
+    "quoteTexture": "A texture you love can change the whole feeling of an outfit.",
+    "quoteEveryday": "Keep the things you reach for most close at hand."
   }
 }

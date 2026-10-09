@@ -611,6 +611,7 @@ export interface SeoSitemapIndexEntry {
 export const SEO_ROBOTS_DISALLOWED_PATHS: readonly string[] = [
   '/thread',
   '/profile',
+  '/recently-viewed',
   // Editorial previews remain unindexed until a publishing source is connected.
   '/curations/',
   // Internal search: infinite, thin and duplicative of the browse pages.

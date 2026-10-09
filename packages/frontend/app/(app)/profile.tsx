@@ -8,13 +8,18 @@ import { Card } from "@oxy.so/bloom/card";
 import { Image } from "expo-image";
 import {
   Heart,
-  Package,
   MapPin,
   Settings,
   ChevronRight,
   UserRound,
 } from "lucide-react-native";
-import { Text, toBloomIcon, LucideGlyph, useColorScheme } from "@mercaria/ui";
+import {
+  Text,
+  toBloomIcon,
+  LucideGlyph,
+  ShopNavigationIcon,
+  useColorScheme,
+} from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { useTranslation } from "@/lib/i18n";
 import { useSavedItems } from "@/lib/hooks/use-saves";
@@ -82,8 +87,8 @@ export default function ProfileScreen() {
             placeholderColor={colors.muted}
             placeholderIcon={
               !name ? (
-                <LucideGlyph
-                  icon={UserRound}
+                <ShopNavigationIcon
+                  name="profile"
                   size={28}
                   fill={colors.foreground}
                 />
@@ -151,7 +156,11 @@ export default function ProfileScreen() {
             onPress={() => router.push("/orders")}
           >
             <View className="h-14 w-14 items-center justify-center rounded-full bg-black/[0.04] dark:bg-white/[0.06]">
-              <LucideGlyph icon={Package} size={28} fill={colors.foreground} />
+              <ShopNavigationIcon
+                name="orders"
+                size={28}
+                fill={colors.foreground}
+              />
             </View>
             <Text className="text-base font-semibold text-foreground">
               {t("settings.sections.orders")}

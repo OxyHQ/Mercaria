@@ -9,11 +9,11 @@ const STALE_TIME = 1000 * 30;
 
 /** Fetch a page of the buyer's order summaries. Gated on auth. */
 export function useOrders(page = 1) {
-  const { isAuthenticated } = useOxy();
+  const { isAuthenticated, canUsePrivateApi } = useOxy();
   return useQuery<PaginatedResponse<OrderSummary>>({
     queryKey: queryKeys.orders.list(page),
     queryFn: () => fetchOrders({ page }),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && canUsePrivateApi,
     staleTime: STALE_TIME,
     placeholderData: keepPreviousData,
   });

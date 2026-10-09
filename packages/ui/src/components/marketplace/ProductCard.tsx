@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { Button } from "@oxy.so/bloom/button";
-import { Heart } from "lucide-react-native";
+import { ShopDetailIcon } from "./ShopDetailIcon";
 import { Text } from "../ui/text";
 import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
@@ -11,7 +11,7 @@ import {
   PRODUCT_CARD_SAVE_KEY,
 } from "../../lib/marketplace-labels";
 import { Rating } from "@oxy.so/bloom/rating";
-import { PriceDisplay } from "../PriceDisplay";
+import { PriceDisplay, usePriceText } from "../PriceDisplay";
 import type { ProductSummary } from "../../lib/format";
 import { formatPercent } from "../../lib/format";
 import { useFormatters } from "../../lib/use-formatters";
@@ -24,6 +24,7 @@ const ON_IMAGE_LIGHT = "#FFFFFF";
 const HEART_SIZE = 18;
 
 export interface ProductCardProps {
+  variant?: "standard" | "image-only";
   product: ProductSummary;
   /**
    * Initial saved/favorited state. Overrides `product.saved` when provided;
@@ -44,7 +45,8 @@ function isOnSale(product: ProductSummary): boolean {
   );
 }
 
-export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCardProps) {
+export function ProductCard({ product, saved, onPress, onToggleSave, variant = "standard" }: ProductCardProps) {
+  const priceText = usePriceText()(product.price);
   const t = useSharedUiTranslation();
   const [isSaved, setIsSaved] = useState(saved ?? product.saved ?? false);
   const [saving, setSaving] = useState(false);
@@ -89,7 +91,7 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
             <Image
               source={{ uri: product.imageUrl }}
               contentFit="cover"
-              className="h-full w-full web:transition-transform web:duration-150 web:group-hover:scale-[1.03] web:motion-reduce:transition-none web:motion-reduce:transform-none"
+              className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105 web:motion-reduce:transition-none web:motion-reduce:transform-none"
             />
           ) : (
             <View className="h-full w-full items-center justify-center bg-muted">
@@ -111,7 +113,11 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
         />
 
         {/* Sale badge */}
-        {onSale ? (
+        {variant === "image-only" ? (
+          <View pointerEvents="none" className="absolute start-3 top-3 rounded-full bg-black/30 px-1.5 py-0.5">
+            <Text className="text-[10px] font-bold text-white">{priceText.primary}</Text>
+          </View>
+        ) : onSale ? (
           <View
             pointerEvents="none"
             className="absolute start-3 top-3 rounded-full bg-black/75 px-1.5 py-0.5"
@@ -133,12 +139,12 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
           <Button iconOnly appearance="plain" tone="neutral" pressed={isSaved}
             accessibilityLabel={t(PRODUCT_CARD_SAVE_KEY)} disabled={saving} onPress={handleToggleSave}
             style={{ width: 36, height: 36, minHeight: 36, borderRadius: 18, padding: 0, backgroundColor: "rgba(0,0,0,0.4)" }}
-            icon={() => <Heart size={HEART_SIZE} color={ON_IMAGE_LIGHT} fill={isSaved ? ON_IMAGE_LIGHT : "transparent"} />} />
+            icon={() => <ShopDetailIcon name="heart" size={variant === "image-only" ? 16 : HEART_SIZE} color={ON_IMAGE_LIGHT} filled={isSaved} />} />
         </View> : null}
       </View>
 
       {/* Text block — its own separate navigation link. */}
-      <Pressable
+      {variant !== "image-only" ? <Pressable
         accessibilityRole="link"
         accessibilityLabel={product.title}
         onPress={() => onPress?.(product.id)}
@@ -168,7 +174,7 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
             </Text>
           ) : null}
         </View>
-      </Pressable>
+      </Pressable> : null}
     </View>
   );
 }

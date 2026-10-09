@@ -340,6 +340,8 @@ export {
 export { ProductShelf, type ProductShelfProps } from "./components/marketplace/ProductShelf";
 export { CategoryTileGrid, type CategoryShortcut } from "./components/marketplace/CategoryTileGrid";
 export { CurationCard, CurationImage } from "./components/marketplace/CurationCard";
+export { EditorialCuration, type EditorialStory } from "./components/marketplace/EditorialCuration";
+export { ShopNavigationIcon, shopNavigationIcon, type ShopNavigationIconName } from "./components/marketplace/ShopNavigationIcon";
 export { useShelfCarouselProps } from "./lib/shelf-carousel";
 export { ListingSaveProvider } from "./components/marketplace/ListingSaveProvider";
 export { CategoryPills, type CategoryPillsProps } from "./components/marketplace/CategoryPills";
@@ -361,6 +363,8 @@ export {
   type MerchantCartCardProps,
 } from "./components/marketplace/MerchantCartCard";
 export { CartShelf, type CartShelfProps } from "./components/marketplace/CartShelf";
+export { ThreadShelf, type ThreadShelfItem } from "./components/marketplace/ThreadShelf";
+export { CategoryMosaicShelf, type CategoryMosaicGroup } from "./components/marketplace/CategoryMosaicShelf";
 
 // ---------------------------------------------------------------------------
 // Product detail page (PDP) presentational components

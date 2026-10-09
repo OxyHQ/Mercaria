@@ -1,5 +1,5 @@
 import { Pressable, View } from "react-native";
-import { ChevronRight } from "lucide-react-native";
+import { ShopDetailIcon } from "./ShopDetailIcon";
 import { Text } from "../ui/text";
 import { useColorScheme } from "../../lib/useColorScheme";
 
@@ -12,6 +12,7 @@ export interface SectionHeaderProps {
   showChevron?: boolean;
   /** False when Bloom's Carousel header already owns the inset and spacing. */
   inset?: boolean;
+  chevronPosition?: "end" | "after-title";
 }
 
 /**
@@ -28,7 +29,7 @@ export interface SectionHeaderProps {
  * outer View; in the plain branch the padding stays on the Text element itself,
  * matching the existing shelves exactly.
  */
-export function SectionHeader({ title, onPress, showChevron = false, inset = true }: SectionHeaderProps) {
+export function SectionHeader({ title, onPress, showChevron = false, inset = true, chevronPosition = "end" }: SectionHeaderProps) {
   const { colors } = useColorScheme();
 
   // Plain branch — matches the existing shelf heading exactly.
@@ -46,14 +47,14 @@ export function SectionHeader({ title, onPress, showChevron = false, inset = tru
   const inner = (
     <>
       <Text
-        className="flex-1 text-lg font-semibold text-foreground md:text-[22px] md:font-bold md:leading-7"
+        className={`${chevronPosition === "end" ? "flex-1" : "shrink"} text-lg font-semibold text-foreground md:text-[22px] md:font-bold md:leading-7`}
         numberOfLines={1}
       >
         {title}
       </Text>
       {showChevron ? (
-        <View className="flex aspect-square h-8 w-8 items-center justify-center overflow-hidden rounded-radius-max bg-bg-fill-secondary">
-          <ChevronRight size={CHEVRON_ICON_SIZE} color={colors.foreground} />
+        <View className="h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+          <ShopDetailIcon name="chevron" size={CHEVRON_ICON_SIZE} color={colors.foreground} />
         </View>
       ) : null}
     </>
@@ -63,6 +64,7 @@ export function SectionHeader({ title, onPress, showChevron = false, inset = tru
     return (
       <Pressable
         accessibilityRole="link"
+        accessibilityLabel={title}
         onPress={onPress}
         className={`flex-row items-center gap-2 ${inset ? "justify-between px-4 pb-3 md:px-5" : ""}`}
       >

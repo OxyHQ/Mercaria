@@ -4,10 +4,10 @@ import type { SidebarProps } from "@oxy.so/bloom/sidebar";
 import { useOxy } from "@oxy.so/services";
 import { Avatar } from "@oxy.so/bloom/avatar";
 import { Button } from "@oxy.so/bloom/button";
-import { UserRound } from "lucide-react-native";
-import { toBloomIcon } from "@mercaria/ui";
+import { shopNavigationIcon } from "@mercaria/ui";
 import { Logo } from "@/components/Logo";
 import { useTranslation } from "@/lib/i18n";
+import { useCart } from "@/lib/hooks/use-cart";
 import { NAV_ITEMS, isNavItemActive, type NavItem } from "./nav-items";
 
 /** The destinations that have a screen; an unbuilt one has no route to push. */
@@ -28,7 +28,12 @@ export function useStorefrontSidebar(): SidebarProps {
   const router = useRouter();
   const pathname = usePathname();
   const { user, oxyServices } = useOxy();
-  const avatar = user?.avatar ? oxyServices.assets.publicUrl(user.avatar, "thumb") : undefined;
+  const { data: cart } = useCart();
+  const cartCount =
+    cart?.items.reduce((total, item) => total + item.quantity, 0) ?? 0;
+  const avatar = user?.avatar
+    ? oxyServices.assets.publicUrl(user.avatar, "thumb")
+    : undefined;
 
   const goHome = useCallback(() => router.push("/"), [router]);
   const goProfile = useCallback(() => router.push("/profile"), [router]);
@@ -38,7 +43,9 @@ export function useStorefrontSidebar(): SidebarProps {
     [],
   );
 
-  const selected = available.find((item) => isNavItemActive(item, pathname))?.key;
+  const selected = available.find((item) =>
+    isNavItemActive(item, pathname),
+  )?.key;
 
   return useMemo<SidebarProps>(
     () => ({
@@ -46,7 +53,7 @@ export function useStorefrontSidebar(): SidebarProps {
       variant: "rail",
       railLabels: "hidden",
       railSelection: "icon",
-      railWidth: 68,
+      railWidth: 64,
       showSearch: false,
       // Bloom's own chrome labels default to English; every one it draws here
       // is passed translated.
@@ -63,17 +70,43 @@ export function useStorefrontSidebar(): SidebarProps {
       items: available.map((item) => ({
         key: item.key,
         label: t(item.labelKey),
-        icon: toBloomIcon(item.icon),
+        icon: shopNavigationIcon(item.icon),
+        badge: item.key === "cart" && cartCount > 0 ? cartCount : undefined,
         // The route is read from the typed table, never from the row Bloom
         // hands back, so every push is checked against the real route tree.
         onPress: () => router.push(item.href),
       })),
       footer: () => (
-        <Button appearance="plain" tone="neutral" iconOnly
-          accessibilityLabel={t("profile.title")} onPress={goProfile}
-          icon={user ? () => <Avatar uri={avatar} name={user.name?.displayName ?? user.username} size={32} /> : toBloomIcon(UserRound)} />
+        <Button
+          appearance="plain"
+          tone="neutral"
+          iconOnly
+          accessibilityLabel={t("profile.title")}
+          onPress={goProfile}
+          icon={
+            user
+              ? () => (
+                  <Avatar
+                    uri={avatar}
+                    name={user.name?.displayName ?? user.username}
+                    size={32}
+                  />
+                )
+              : shopNavigationIcon("profile")
+          }
+        />
       ),
     }),
-    [available, avatar, goHome, goProfile, router, selected, t, user],
+    [
+      available,
+      avatar,
+      cartCount,
+      goHome,
+      goProfile,
+      router,
+      selected,
+      t,
+      user,
+    ],
   );
 }

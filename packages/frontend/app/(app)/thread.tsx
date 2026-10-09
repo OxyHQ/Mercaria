@@ -13,13 +13,7 @@ import { Loading } from "@oxy.so/bloom/loading";
 import { useQuery } from "@tanstack/react-query";
 import { Text, ProductCard, toBloomIcon, useColorScheme } from "@mercaria/ui";
 import { SquarePen, ArrowLeft } from "lucide-react-native";
-import type {
-  ApiResponse,
-  ShoppingThreadMessage,
-  ShoppingThreadReply,
-  SearchResult,
-  ProductSummary,
-} from "@mercaria/shared-types";
+import type { ApiResponse, ShoppingThreadReply } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { ShoppingComposer } from "@/components/shell/ShoppingComposer";
 import { ThreadResults } from "@/components/search/ThreadResults";
@@ -27,34 +21,72 @@ import { runCanonicalSearch } from "@/lib/api/search-intent";
 import { useFeed } from "@/lib/hooks/use-feed";
 import apiClient from "@/lib/api/client";
 import { useTranslation } from "@/lib/i18n";
-
-type ThreadMessage = ShoppingThreadMessage & {
-  results?: readonly SearchResult[];
-  examples?: ProductSummary[];
-};
+import {
+  useShoppingHistory,
+  useShoppingHistoryOwner,
+  type ThreadMessage,
+} from "@/lib/stores/shopping-history";
 
 /** Alia supplies replies. An unavailable deployment never substitutes a fake assistant. */
 export default function ShoppingThreadScreen() {
-  const { q, preview } = useLocalSearchParams<{
+  const params = useLocalSearchParams<{
     q?: string;
     preview?: string;
+    conversationId?: string;
   }>();
+  const owner = useShoppingHistoryOwner();
+  const hydrated = useShoppingHistory((state) => state.hydrated);
+  if (!hydrated) return <Loading variant="inline" />;
+  return (
+    <ShoppingThreadBody
+      key={`${owner}:${params.conversationId ?? ""}:${params.q ?? ""}:${params.preview ?? ""}`}
+      {...params}
+      owner={owner}
+    />
+  );
+}
+
+function ShoppingThreadBody({
+  q,
+  preview,
+  conversationId,
+  owner,
+}: {
+  q?: string;
+  preview?: string;
+  conversationId?: string;
+  owner: string;
+}) {
+  const saved = useRef(
+    useShoppingHistory
+      .getState()
+      .threads.find(
+        (item) => item.id === conversationId && item.owner === owner && (__DEV__ || !item.preview),
+      ),
+  ).current;
+  const threadId = useRef(
+    saved?.id ??
+      `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+  );
   // Explicit visual preview, compiled out in production; never an inference fallback.
-  const isPreview = __DEV__ && preview === "1";
+  const isPreview = __DEV__ && (saved?.preview ?? preview === "1");
   const feed = useFeed();
-  const initial = typeof q === "string" ? q.trim() : "";
+  const initial =
+    saved?.messages.find((message) => message.role === "user")?.content ??
+    (typeof q === "string" ? q.trim() : "");
   const { t, locale } = useTranslation();
   const { isAuthenticated, canUsePrivateApi } = useOxy();
   const router = useRouter();
   const { isDarkColorScheme } = useColorScheme();
-  const [messages, setMessages] = useState<ThreadMessage[]>(() =>
-    initial ? [{ role: "user", content: initial }] : [],
+  const [messages, setMessages] = useState<ThreadMessage[]>(
+    () =>
+      saved?.messages ?? (initial ? [{ role: "user", content: initial }] : []),
   );
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const [conversationVersion, setConversationVersion] = useState(0);
   const active = useRef<AbortController | null>(null);
-  const started = useRef(false);
+  const started = useRef(Boolean(saved));
   const availability = useQuery({
     queryKey: ["shopping-thread", "availability"],
     queryFn: async () =>
@@ -73,13 +105,19 @@ export default function ShoppingThreadScreen() {
     retry: false,
   });
   useEffect(() => {
-    active.current?.abort();
-    active.current = null;
-    setMessages(initial ? [{ role: "user", content: initial }] : []);
-    setBusy(false);
-    setFailed(false);
-    started.current = false;
-  }, [initial, isPreview]);
+    if (!messages.length || messages === saved?.messages) return;
+    useShoppingHistory
+      .getState()
+      .saveThread({
+        id: threadId.current,
+        owner,
+        title:
+          messages.find((message) => message.role === "user")?.content ?? "",
+        updatedAt: new Date().toISOString(),
+        preview: isPreview,
+        messages,
+      });
+  }, [messages, owner, isPreview, saved]);
   useEffect(() => () => active.current?.abort(), []);
 
   const reply = useCallback(
@@ -218,6 +256,8 @@ export default function ShoppingThreadScreen() {
               params: isPreview ? { preview: "1" } : {},
             });
             setMessages([]);
+            threadId.current = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+            started.current = true;
             setFailed(false);
             setConversationVersion((version) => version + 1);
           }}

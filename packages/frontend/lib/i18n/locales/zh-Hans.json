@@ -9,7 +9,10 @@
   "home": {
     "title": "Mercaria",
     "loadingProducts": "正在加载商品",
-    "loadError": "无法加载商品。下拉刷新或重试。"
+    "loadError": "无法加载商品。下拉刷新或重试。",
+    "keepShopping": "继续购物",
+    "recentlyViewed": "最近浏览",
+    "recentlyViewedEmpty": "你浏览过的商品会显示在这里。"
   },
   "nav": {
     "home": "首页",
@@ -373,7 +376,8 @@
       "basisEstimate": "这是配送合作伙伴的预计，并非承诺。",
       "staleNote": "我们最近未能更新它。",
       "refreshFailing": "我们未能更新这个预计，可能已经过时。"
-    }
+    },
+    "loadError": "无法加载你的订单"
   },
   "reviews": {
     "scopeHeading": {
@@ -1610,6 +1614,11 @@
     "fresh": "全新视角",
     "pleasures": "小小乐趣",
     "description": "按自己的节奏发现心仪好物。",
-    "unavailable": "此精选集暂不可用。"
+    "unavailable": "此精选集暂不可用。",
+    "referenceTitle": "Courtney Grow 精选",
+    "referenceSubtitle": "Courtney 近期的时尚与美妆之选",
+    "quoteComfort": "舒适、个性，还有让一件单品属于你的小细节。",
+    "quoteTexture": "一种钟爱的质感，就能改变整套穿搭的感觉。",
+    "quoteEveryday": "把最常用的心爱之物放在触手可及的地方。"
   }
 }

@@ -1,10 +1,4 @@
-import {
-  Home,
-  LayoutGrid,
-  ShoppingCart,
-  Tag,
-  type LucideIcon,
-} from "lucide-react-native";
+import type { ShopNavigationIconName } from "@mercaria/ui";
 import type { RoutePath } from "expo-router";
 
 /**
@@ -17,6 +11,7 @@ import type { RoutePath } from "expo-router";
  */
 interface NavItemBase {
   key: string;
+  desktopOnly?: boolean;
   /**
    * i18n KEY for the accessible label / tooltip text, resolved with `t()` at
    * the render site.
@@ -28,7 +23,7 @@ interface NavItemBase {
    * guard's referential check see these leaves at all, since they are literals.
    */
   labelKey: string;
-  icon: LucideIcon;
+  icon: ShopNavigationIconName;
 }
 
 /**
@@ -53,7 +48,13 @@ export type NavItem =
   | (NavItemBase & { available: false });
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { key: "home", labelKey: "nav.home", icon: Home, href: "/", available: true },
+  {
+    key: "home",
+    labelKey: "nav.home",
+    icon: "home",
+    href: "/",
+    available: true,
+  },
   // The SEO decision `docs/storefront-catalog.md` §Seams was waiting on is
   // made: `/explore` is a public indexable route, registered as
   // `category_index`, and the hub renders the published navigation trees. See
@@ -61,18 +62,32 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     key: "explore",
     labelKey: "nav.explore",
-    icon: LayoutGrid,
+    icon: "explore",
     href: "/explore",
     available: true,
   },
   {
     key: "cart",
     labelKey: "nav.cart",
-    icon: ShoppingCart,
+    icon: "cart",
     href: "/cart",
     available: true,
   },
-  { key: "deals", labelKey: "nav.deals", icon: Tag, href: "/deals", available: true },
+  {
+    key: "deals",
+    labelKey: "nav.deals",
+    icon: "deals",
+    href: "/deals",
+    available: true,
+  },
+  {
+    key: "orders",
+    labelKey: "settings.sections.orders",
+    icon: "orders",
+    href: "/orders",
+    available: true,
+    desktopOnly: true,
+  },
 ] as const;
 
 /**
@@ -89,7 +104,14 @@ export function isNavItemActive(item: NavItem, pathname: string): boolean {
   }
   // An item with no route can never be the one you are on.
   if (!item.available) return false;
-  if (item.key === "explore" && (pathname === "/3d" || pathname.startsWith("/3d/") || pathname.startsWith("/categories/") || pathname.startsWith("/curations/"))) return true;
+  if (
+    item.key === "explore" &&
+    (pathname === "/3d" ||
+      pathname.startsWith("/3d/") ||
+      pathname.startsWith("/categories/") ||
+      pathname.startsWith("/curations/"))
+  )
+    return true;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
@@ -100,5 +122,11 @@ export function isNavItemActive(item: NavItem, pathname: string): boolean {
  * lives in the nav model alongside {@link isNavItemActive}, not in the bar.
  */
 export function isAuthTabActive(pathname: string): boolean {
-  return pathname === "/profile" || pathname === "/saved" || pathname.startsWith("/orders") || pathname.startsWith("/settings") || pathname.startsWith("/@");
+  return (
+    pathname === "/profile" ||
+    pathname === "/saved" ||
+    pathname.startsWith("/orders") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/@")
+  );
 }

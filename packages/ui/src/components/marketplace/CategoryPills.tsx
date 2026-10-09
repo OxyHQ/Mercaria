@@ -26,7 +26,7 @@ export function CategoryPills({ pills, onPressPill }: CategoryPillsProps) {
   if (!pills || pills.length === 0) return null;
 
   return (
-    <View className="mb-6">
+    <View className="mb-6" testID="category-pills">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -55,7 +55,7 @@ function CategoryPillChip({ pill, onPressPill }: CategoryPillChipProps) {
       accessibilityRole="link"
       accessibilityLabel={pill.name}
       onPress={() => onPressPill?.(pill.id, pill.slug)}
-      className="h-11 flex-row items-center gap-2 rounded-full bg-transparent py-2 ps-1.5 pe-3 web:transition-colors web:duration-150 web:hover:bg-muted active:bg-muted web:motion-reduce:transition-none"
+      className="h-11 flex-row items-center gap-2 rounded-full border border-border bg-card py-2 ps-1.5 pe-3 web:transition-colors web:duration-150 web:hover:bg-muted active:bg-muted web:motion-reduce:transition-none"
     >
       {/* Round 32px category image with a 1px border ring. */}
       <View className="relative h-8 w-8 overflow-hidden rounded-full bg-muted">
