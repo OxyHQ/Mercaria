@@ -59,3 +59,44 @@
     .shop-control-pressable:active { transform: none; }
   }
 }
+
+/* Shop's text option picker: useReferralCartAlert-D46LlP2n.js, component Pt.
+ * Unavailable options stay selectable; only their label is struck through.
+ */
+@layer components {
+  .shop-option {
+    height: auto;
+    min-height: 40px;
+    max-width: 344px;
+    min-width: 0;
+    flex-shrink: 1;
+    gap: 8px;
+    padding: 0 16px;
+    border-radius: 9999px;
+    border: 1.5px solid #0000001a;
+    background-color: transparent;
+    color: #000;
+    box-shadow: none;
+    opacity: 1;
+    overflow: hidden;
+    transition-property: border-color;
+    transition-duration: 100ms;
+  }
+  .shop-option-dark { color: #fff; border-color: #fff3; }
+  .shop-option-selected { border-color: #000; }
+  .shop-option-selected-dark { border-color: #fff; }
+  .shop-option-unavailable { background-color: #f2f4f5; border-color: transparent; }
+  .shop-option-unavailable-dark { background-color: #2a2a2a; border-color: transparent; }
+  .shop-option-unavailable-selected { border-color: #0000001a; }
+  .shop-option-unavailable-selected-dark { border-color: #fff3; }
+  .shop-option-interactive:hover { border-color: #000; }
+  .shop-option-interactive-dark:hover { border-color: #fff; }
+  .shop-option-interactive:active, .shop-option-interactive-dark:active { opacity: .5; }
+  .shop-option-pressable:active { transform: scale(.95); }
+  .shop-option-more { border-width: 1px; }
+  .shop-option-more:hover { border-width: 1.5px; margin-left: -.5px; margin-right: -.5px; }
+  @media (prefers-reduced-motion: reduce) {
+    .shop-option { transition-duration: 0ms; }
+    .shop-option-pressable:active { transform: none; }
+  }
+}

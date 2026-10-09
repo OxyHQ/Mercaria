@@ -51,7 +51,7 @@ test("variant deep links survive reload and sold-out choices cannot be bought", 
     page.getByRole("button", { name: "Shade: Stella", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await page
-    .getByRole("button", { name: `Shade: ${soldOut.title}`, exact: true })
+    .getByRole("button", { name: `Shade: ${soldOut.title}, Sold out`, exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`variantId=${soldOut.id}$`));
   await expect(
@@ -98,8 +98,13 @@ test("option availability follows the selected color and size instead of stock i
     await route.fulfill({ response, json: body });
   });
   await page.goto(`/products/${product.id}?variantId=${variants[0].id}`);
-  const medium = page.getByRole("button", { name: "Size: M", exact: true });
-  await expect(medium).toHaveCSS("opacity", "0.4");
+  const medium = page.getByRole("button", { name: /^Size: M(?:, Sold out)?$/ });
+  await expect(medium).toHaveCSS("opacity", "1");
+  await expect(medium).toHaveAccessibleName("Size: M, Sold out");
+  await expect(medium.getByText("M", { exact: true })).toHaveCSS("text-decoration-line", "line-through");
+  await expect(medium).toHaveCSS("background-color", "rgb(242, 244, 245)");
+  await expect(medium.getByText("M", { exact: true })).toHaveCSS("font-size", "12px");
+  await expect(medium.getByText("M", { exact: true })).toHaveCSS("color", "rgba(0, 0, 0, 0.4)");
   await expect(medium.locator("img").last()).toHaveAttribute("src", product.images[1].fileId);
   await medium.click();
   await expect(page).toHaveURL(new RegExp(`variantId=${variants[1].id}$`));
@@ -108,13 +113,21 @@ test("option availability follows the selected color and size instead of stock i
   await page.getByRole("button", { name: "Color: Blue", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`variantId=${variants[3].id}$`));
   await expect(medium).toHaveAttribute("aria-pressed", "true");
+  await expect(medium).toHaveAccessibleName("Size: M");
+  await expect(medium.getByText("M", { exact: true })).toHaveCSS("text-decoration-line", "none");
+  await expect(medium.getByText("M", { exact: true })).toHaveCSS("color", "rgb(0, 0, 0)");
   await expect(medium).toHaveCSS("opacity", "1");
   await expect(medium.locator("img").last()).toHaveAttribute("src", product.images[3].fileId);
   await expect(page.getByRole("button", { name: "Add to cart", exact: true })).toBeEnabled();
   // Returning to red preserves M, including its sold-out state.
-  await page.getByRole("button", { name: "Color: Red", exact: true }).click();
+  await page.getByRole("button", { name: "Color: Red, Sold out", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`variantId=${variants[1].id}$`));
-  await expect(medium).toHaveCSS("opacity", "0.4");
+  await expect(medium).toHaveCSS("opacity", "1");
+  await expect(medium).toHaveAccessibleName("Size: M, Sold out");
+  await expect(medium.getByText("M", { exact: true })).toHaveCSS("text-decoration-line", "line-through");
+  await expect(medium).toHaveCSS("background-color", "rgb(242, 244, 245)");
+  await expect(medium.getByText("M", { exact: true })).toHaveCSS("font-size", "12px");
+  await expect(medium.getByText("M", { exact: true })).toHaveCSS("color", "rgba(0, 0, 0, 0.4)");
   await expect(page.getByRole("button", { name: "Sold out", exact: true })).toBeDisabled();
 });
 
@@ -979,7 +992,7 @@ for (const mode of ["light", "dark"] as const) {
     // Release away from the CTA: this visual check must not create a cart item.
     await page.mouse.move(0, 0);
     await page.mouse.up();
-    await page.getByRole("button", { name: `Shade: ${soldOut.title}`, exact: true }).click();
+    await page.getByRole("button", { name: `Shade: ${soldOut.title}, Sold out`, exact: true }).click();
     const unavailable = page.getByRole("button", { name: "Sold out", exact: true });
     await expect(unavailable).toBeDisabled();
     await expect(unavailable).toHaveCSS("background-color", mode === "light" ? "rgb(238, 240, 241)" : "rgb(64, 64, 64)");
@@ -991,3 +1004,60 @@ for (const mode of ["light", "dark"] as const) {
     await expect(share).toHaveCSS("height", "44px");
   });
 }
+
+test("option pills keep Shop states and truncate long values in dark desktop and mobile layouts", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  const longValue = "An extra long merchant-authored option value that must remain on a single line";
+  const values = ["Small", longValue, "Large"];
+  await page.addInitScript(() => {
+    localStorage.setItem("mercaria.bloom.theme", JSON.stringify({ mode: "dark", colorPreset: "mono" }));
+  });
+  await page.route(`**/listings/${product.id}`, async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.options = [{ name: "Size", values }];
+    body.data.variants = product.variants.slice(0, 3).map((variant, index) => ({
+      ...variant,
+      title: values[index],
+      optionValues: [{ name: "Size", value: values[index] }],
+      inStock: index !== 2,
+      available: index === 2 ? 0 : 10,
+    }));
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(`/products/${product.id}`);
+  const selected = page.getByRole("button", { name: "Size: Small", exact: true });
+  const longOption = page.getByRole("button", { name: `Size: ${longValue}`, exact: true });
+  const unavailable = page.getByRole("button", { name: "Size: Large, Sold out", exact: true });
+  await expect(selected).toHaveCSS("border-color", "rgb(255, 255, 255)");
+  await expect(selected).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(unavailable).toHaveCSS("background-color", "rgb(42, 42, 42)");
+  await expect(unavailable).toHaveCSS("opacity", "1");
+  await expect(unavailable.getByText("Large", { exact: true })).toHaveCSS("color", "rgba(255, 255, 255, 0.4)");
+  await expect(unavailable.getByText("Large", { exact: true })).toHaveCSS("text-decoration-line", "line-through");
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(longOption).toHaveCSS("height", "40px");
+    await expect(longOption).toHaveCSS("width", "344px");
+    await expect(longOption.getByText(longValue, { exact: true })).toHaveCSS("text-overflow", "ellipsis");
+    await expect(longOption.getByText(longValue, { exact: true })).toHaveCSS("font-size", "12px");
+    await expect(longOption.getByText(longValue, { exact: true })).toHaveCSS("line-height", "16px");
+    await longOption.hover();
+    await expect(longOption).toHaveCSS("border-color", "rgb(255, 255, 255)");
+  }
+  for (const reducedMotion of ["no-preference", "reduce"] as const) {
+    await page.emulateMedia({ reducedMotion });
+    await longOption.hover();
+    await page.mouse.down();
+    await expect(longOption).toHaveCSS("opacity", "0.5");
+    await expect.poll(() => longOption.evaluate(element => {
+      const transform = getComputedStyle(element).transform;
+      return transform === "none" ? 1 : new DOMMatrixReadOnly(transform).a;
+    })).toBe(reducedMotion === "reduce" ? 1 : 0.95);
+    await page.mouse.move(0, 0);
+    await page.mouse.up();
+  }
+  await unavailable.click();
+  await expect(unavailable).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Sold out", exact: true })).toBeDisabled();
+});

@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { Button } from "@oxy.so/bloom/button";
 import { isImageUrl, useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { useReducedMotion } from "react-native-reanimated";
+import { cn } from "../../lib/cn";
 import { useColorScheme } from "../../lib/useColorScheme";
 import { Image } from "expo-image";
 import type { ListingOption, ProductVariantDTO } from "@mercaria/shared-types";
@@ -37,7 +39,8 @@ export function VariantSwatches({
 }: VariantSwatchesProps) {
   const [expanded, setExpanded] = useState(false);
   const t = useSharedUiTranslation();
-  const { colors } = useColorScheme();
+  const { isDarkColorScheme } = useColorScheme();
+  const reducedMotion = useReducedMotion();
   const resolveImage = useImageResolver();
 
   const overflow = option.values.length > MAX_VISIBLE_VALUES && !expanded;
@@ -53,7 +56,7 @@ export function VariantSwatches({
 
   return (
     <View className="gap-space-8">
-      <View className="flex-row items-center gap-space-8">
+      <View className="flex-row items-center gap-space-4">
         <Text className="text-shop-captionBold text-text">{option.name}</Text>
         {selectedValue ? (
           <Text numberOfLines={1} className="flex-1 text-shop-caption text-text">
@@ -75,20 +78,20 @@ export function VariantSwatches({
           return (
             <Button
               key={value}
-              accessibilityLabel={`${option.name}: ${value}`}
+              accessibilityLabel={`${option.name}: ${value}${inStock ? "" : `, ${t("ui.purchase.soldOut")}`}`}
               pressed={selected}
-              appearance="plain"
-              colors={{ background: colors.card, foreground: colors.foreground }}
+              material="flat"
               onPress={() => onSelect(value)}
-              style={{
-                minHeight: 40,
-                paddingHorizontal: 16,
-                borderRadius: 999,
-                borderWidth: 1.5,
-                borderColor: selected ? colors.foreground : colors.border,
-                opacity: inStock ? 1 : 0.4,
-              }}
-              textStyle={{ textDecorationLine: inStock ? "none" : "line-through" }}
+              className={cn(
+                "shop-option",
+                isDarkColorScheme && "shop-option-dark",
+                selected && inStock && (isDarkColorScheme ? "shop-option-selected-dark" : "shop-option-selected"),
+                !inStock && (isDarkColorScheme ? "shop-option-unavailable-dark" : "shop-option-unavailable"),
+                !inStock && selected && (isDarkColorScheme ? "shop-option-unavailable-selected-dark" : "shop-option-unavailable-selected"),
+                !selected && (isDarkColorScheme ? "shop-option-interactive-dark" : "shop-option-interactive"),
+                !selected && !reducedMotion && "shop-option-pressable",
+                selected && "web:cursor-default",
+              )}
               leading={
                 image ? (
                   <Image
@@ -99,24 +102,35 @@ export function VariantSwatches({
                 ) : undefined
               }
             >
-              {value}
+              <Text numberOfLines={1} className={cn(
+                "shrink text-shop-buttonSmall",
+                inStock ? (isDarkColorScheme ? "text-white" : "text-black")
+                  : isDarkColorScheme ? "text-[#fff6] line-through" : "text-[#0006] line-through",
+              )}>
+                {value}
+              </Text>
             </Button>
           );
         })}
         {overflow ? (
-          <Pressable
-            accessibilityRole="button"
+          <Button
+            material="flat"
             accessibilityLabel={t(SWATCH_SHOW_MORE_A11Y_KEY, {
               more: hiddenCount,
               option: option.name,
             })}
             onPress={() => setExpanded(true)}
-            className="min-h-space-40 items-center justify-center rounded-radius-max border-[1.5px] border-border-secondary px-space-16"
+            className={cn(
+              "shop-option shop-option-more",
+              isDarkColorScheme && "shop-option-dark",
+              isDarkColorScheme ? "shop-option-interactive-dark" : "shop-option-interactive",
+              !reducedMotion && "shop-option-pressable",
+            )}
           >
-            <Text className="text-shop-buttonMedium text-text">
+            <Text className={cn("text-shop-buttonSmall", isDarkColorScheme ? "text-white" : "text-black")}>
               {t(SWATCH_SHOW_MORE_KEY, { more: hiddenCount })}
             </Text>
-          </Pressable>
+          </Button>
         ) : null}
       </View>
     </View>
