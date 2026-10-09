@@ -27,9 +27,9 @@ export function ProductActionsMenu({ listingId, title }: { listingId: string; ti
             accessibilityRole="button"
             accessibilityLabel={t("product.moreActions")}
             hitSlop={8}
-            className="min-h-11 min-w-11 items-center justify-center rounded-full lg:-my-1.5 web:hover:bg-muted active:bg-muted"
+            className="min-h-11 min-w-11 items-center justify-center rounded-full border border-border-image bg-bg-fill lg:-my-1.5 lg:border-0 lg:bg-transparent web:hover:bg-muted active:bg-muted"
           >
-            <MoreHorizontal size={20} className="text-text-tertiary" />
+            <MoreHorizontal size={24} className="text-text-tertiary" />
           </Pressable>
         </DropdownMenuTrigger>
         <DropdownMenuContent label={t("product.moreActions")} align="end" minWidth={224}>

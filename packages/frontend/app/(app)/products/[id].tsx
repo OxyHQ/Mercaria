@@ -11,6 +11,7 @@ import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Heart, Share2 } from "lucide-react-native";
 import { Rating } from "@oxy.so/bloom/rating";
+import { openAccountDialog, useOxy } from "@oxy.so/services";
 import {
   Accordion,
   AccordionItem,
@@ -237,6 +238,7 @@ interface ProductBodyProps {
 
 /** The two-column PDP body (gallery + buy column) plus the full-width shelves. */
 function ProductBody({ listing }: ProductBodyProps) {
+  const { canUsePrivateApi } = useOxy();
   const router = useRouter();
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
@@ -314,6 +316,21 @@ function ProductBody({ listing }: ProductBodyProps) {
   const canonicalProductId = saveContext.data?.canonicalProductId;
   const productSaved = saveContext.data?.productSaved ?? false;
   const listingSaved = saveContext.data?.listingSaved ?? false;
+  const savePending = toggleProductSave.isPending || toggleListingSave.isPending ||
+    (canUsePrivateApi && (saveContext.isPending || saveContext.isFetching));
+  const saveStatusLabel = saveContext.isError ? t("common.tryAgain")
+    : savePending ? t("common.loading") : undefined;
+
+  function withSaveContext(action: () => void) {
+    if (!canUsePrivateApi) {
+      openAccountDialog();
+    } else if (saveContext.isError) {
+      void saveContext.refetch();
+    } else if (saveContext.data && !savePending) {
+      action();
+    }
+  }
+
 
   const shareLink = useShareLink(
     listing.title,
@@ -439,131 +456,140 @@ function ProductBody({ listing }: ProductBodyProps) {
             testID="product-buy-column"
           >
             {/* Desktop buy-column merchant header. */}
-            <View className="hidden lg:flex">
-              <MerchantHeader
-                name={identity.name}
-                logoUrl={identity.logoUrl}
-                rating={identity.rating}
-                reviewCount={identity.reviewCount}
-                onPress={onPressStore}
-                moreAction={<ProductActionsMenu listingId={listing.id} title={listing.title} />}
-                size="compact"
-              />
-            </View>
-
-            <Text
-              accessibilityRole="header"
-              numberOfLines={3}
-              className="text-headerBold leading-7 text-text"
-            >
-              {listing.title}
-            </Text>
-
-            {/*
-              The rating row under the title is the PRODUCT rating, and it says
-              so. It appears only when this listing resolves to a canonical
-              product with reviews — a listing's own condition feedback belongs
-              further down under its own heading, and putting it here would make
-              "arrived scratched" read as the model's quality score.
-            */}
-            {hasProductReviews && productAggregate ? (
-              <View className="flex-row items-center gap-space-8">
-                <Rating
-                  {...ratingDisplay({
-                    rating: productAggregate.rating,
-                    reviews: productAggregate.reviewCount,
-                    subject: t(REVIEW_SCOPE_HEADING_KEYS.product),
-                  })}
+            <View className="gap-space-16" testID="product-summary">
+              <View className="hidden lg:flex">
+                <MerchantHeader
+                  name={identity.name}
+                  logoUrl={identity.logoUrl}
+                  rating={identity.rating}
+                  reviewCount={identity.reviewCount}
+                  onPress={onPressStore}
+                  moreAction={<ProductActionsMenu listingId={listing.id} title={listing.title} />}
+                  size="compact"
                 />
-                <Text className="text-captionMedium text-text-tertiary">
-                  {t(REVIEW_SCOPE_HEADING_KEYS.product)}
-                </Text>
               </View>
-            ) : null}
 
-            {/*
-              The item's condition (#90), directly under the title and above the
-              price — a shopper deciding whether 40 € is a good price needs to
-              know whether they are looking at a sealed unit or a for-parts
-              shell, and finding that out after the price is finding it out too
-              late. Text and neutral chrome, never colour alone (policy rule 3).
-            */}
-            <ConditionBadge condition={listing.itemCondition} showExplanation />
+              <View className="flex-row items-start gap-space-4 md:items-center">
+                <View className="min-w-0 flex-1 gap-space-4">
+                  <Text
+                    accessibilityRole="header"
+                    numberOfLines={3}
+                    className="text-headerBold leading-7 text-text"
+                  >
+                    {listing.title}
+                  </Text>
 
-            {/*
-              The way through to the CANONICAL product page (#71).
+                  {/*
+                    The rating row under the title is the PRODUCT rating, and it says
+                    so. It appears only when this listing resolves to a canonical
+                    product with reviews — a listing's own condition feedback belongs
+                    further down under its own heading, and putting it here would make
+                    "arrived scratched" read as the model's quality score.
+                  */}
+                  {hasProductReviews && productAggregate ? (
+                    <View className="flex-row items-center gap-space-8">
+                      <Rating
+                        {...ratingDisplay({
+                          rating: productAggregate.rating,
+                          reviews: productAggregate.reviewCount,
+                          subject: t(REVIEW_SCOPE_HEADING_KEYS.product),
+                        })}
+                      />
+                      <Text className="text-captionMedium text-text-tertiary">
+                        {t(REVIEW_SCOPE_HEADING_KEYS.product)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View className="lg:hidden">
+                  <ProductActionsMenu listingId={listing.id} title={listing.title} />
+                </View>
+              </View>
 
-              Shown only when this listing resolves to a canonical product,
-              because that page is about the MODEL and this one is about one
-              seller's copy of it: a link offered on an unmatched P2P listing
-              would lead to a page that does not exist for it. #75 owns the full
-              public-route migration; this is the entry point that makes the
-              comparison reachable in the meantime, and `/products/:id` keeps
-              working exactly as it does (#71 acceptance 7).
-            */}
-            {listing.canonicalProductId ? (
-              <Pressable
-                accessibilityRole="link"
-                accessibilityLabel={t("product.compareOffersA11y")}
-                onPress={() =>
-                  router.push({
-                    pathname: "/p/[handle]",
-                    params: { handle: listing.canonicalProductId ?? "" },
-                  })
-                }
-                className="self-start rounded-radius-max border border-border-secondary px-space-16 py-space-8"
-              >
-                <Text className="text-buttonMedium text-text">
-                  {t("product.compareOffers")}
-                </Text>
-              </Pressable>
-            ) : null}
+              {/*
+                The item's condition (#90), directly under the title and above the
+                price — a shopper deciding whether 40 € is a good price needs to
+                know whether they are looking at a sealed unit or a for-parts
+                shell, and finding that out after the price is finding it out too
+                late. Text and neutral chrome, never colour alone (policy rule 3).
+              */}
+              <ConditionBadge condition={listing.itemCondition} showExplanation />
 
-            {/*
-              WHO is selling this configuration (#129 acceptance 1), above the
-              price and above every buy affordance — a shopper deciding whether
-              to press Buy needs to know whether Mercaria, a merchant or another
-              retailer is on the other side of it, and finding that out at
-              checkout is finding it out too late.
+              {/*
+                The way through to the CANONICAL product page (#71).
 
-              It hangs off the SELECTED VARIANT rather than the listing because
-              that is where the fact lives: a retail binding is keyed on
-              `product_variant_id`, so switching a swatch can legitimately
-              change the seller. Nothing renders when the server did not answer
-              — an unstated disclosure is a surface that has not resolved the
-              question, and defaulting it to the catalogue owner is the
-              mislabelling this component exists to prevent.
-            */}
-            {selectedVariant?.commercial ? (
-              <CommercialDisclosure
-                presentation={selectedVariant.commercial}
-                showExplanations
-              />
-            ) : null}
+                Shown only when this listing resolves to a canonical product,
+                because that page is about the MODEL and this one is about one
+                seller's copy of it: a link offered on an unmatched P2P listing
+                would lead to a page that does not exist for it. #75 owns the full
+                public-route migration; this is the entry point that makes the
+                comparison reachable in the meantime, and `/products/:id` keeps
+                working exactly as it does (#71 acceptance 7).
+              */}
+              {listing.canonicalProductId ? (
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={t("product.compareOffersA11y")}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/p/[handle]",
+                      params: { handle: listing.canonicalProductId ?? "" },
+                    })
+                  }
+                  className="self-start rounded-radius-max border border-border-secondary px-space-16 py-space-8"
+                >
+                  <Text className="text-buttonMedium text-text">
+                    {t("product.compareOffers")}
+                  </Text>
+                </Pressable>
+              ) : null}
 
-            {/* Price block. */}
-            <View className="gap-space-4">
-              {onSale ? (
-                <View className="flex-row items-center gap-space-8">
+              {/*
+                WHO is selling this configuration (#129 acceptance 1), above the
+                price and above every buy affordance — a shopper deciding whether
+                to press Buy needs to know whether Mercaria, a merchant or another
+                retailer is on the other side of it, and finding that out at
+                checkout is finding it out too late.
+
+                It hangs off the SELECTED VARIANT rather than the listing because
+                that is where the fact lives: a retail binding is keyed on
+                `product_variant_id`, so switching a swatch can legitimately
+                change the seller. Nothing renders when the server did not answer
+                — an unstated disclosure is a surface that has not resolved the
+                question, and defaulting it to the catalogue owner is the
+                mislabelling this component exists to prevent.
+              */}
+              {selectedVariant?.commercial ? (
+                <CommercialDisclosure
+                  presentation={selectedVariant.commercial}
+                  showExplanations
+                />
+              ) : null}
+
+              {/* Price block. */}
+              <View className="gap-space-4">
+                {onSale ? (
+                  <View className="flex-row items-center gap-space-8">
+                    <PriceDisplay
+                      price={activePrice}
+                      primaryClassName="text-bodyTitleLarge"
+                    />
+                    <Text className="text-bodySmall text-text-tertiary line-through">
+                      {formatMoney(activeCompareAt)}
+                    </Text>
+                    <View className="rounded-radius-max bg-bg-fill-inverse px-space-8 py-space-2">
+                      <Text className="text-badgeBold text-text-inverse">
+                        {t("product.percentOff", { percent: discountPercent })}
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
                   <PriceDisplay
                     price={activePrice}
                     primaryClassName="text-bodyTitleLarge"
                   />
-                  <Text className="text-bodySmall text-text-tertiary line-through">
-                    {formatMoney(activeCompareAt)}
-                  </Text>
-                  <View className="rounded-radius-max bg-bg-fill-inverse px-space-8 py-space-2">
-                    <Text className="text-badgeBold text-text-inverse">
-                      {t("product.percentOff", { percent: discountPercent })}
-                    </Text>
-                  </View>
-                </View>
-              ) : (
-                <PriceDisplay
-                  price={activePrice}
-                  primaryClassName="text-bodyTitleLarge"
-                />
-              )}
+                )}
+              </View>
             </View>
 
             {/* Option selectors (value pills). */}
@@ -649,18 +675,21 @@ function ProductBody({ listing }: ProductBodyProps) {
                 <View className="flex-row gap-space-8">
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={
+                    disabled={savePending}
+                    accessibilityState={{ disabled: savePending, selected: productSaved }}
+                    aria-pressed={productSaved}
+                    accessibilityLabel={saveStatusLabel ?? (
                       productSaved
                         ? t("product.save.removeProductA11y")
-                        : t("product.save.productA11y")
+                        : t("product.save.productA11y"))
                     }
                     onPress={() =>
-                      toggleProductSave.mutate({
+                      withSaveContext(() => toggleProductSave.mutate({
                         canonicalProductId,
                         saved: productSaved,
                         sourceContext: "listing_page",
                         listingId: listing.id,
-                      })
+                      }))
                     }
                     className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
                   >
@@ -670,20 +699,23 @@ function ProductBody({ listing }: ProductBodyProps) {
                       fill={productSaved ? STAR_COLOR : "transparent"}
                     />
                     <Text className="text-buttonMedium text-text">
-                      {productSaved
+                      {saveStatusLabel ?? (productSaved
                         ? t("product.save.productSaved")
-                        : t("product.save.product")}
+                        : t("product.save.product"))}
                     </Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={
+                    disabled={savePending}
+                    accessibilityState={{ disabled: savePending, selected: listingSaved }}
+                    aria-pressed={listingSaved}
+                    accessibilityLabel={saveStatusLabel ?? (
                       listingSaved
                         ? t("product.save.removeListingA11y")
-                        : t("product.save.exactListingA11y")
+                        : t("product.save.exactListingA11y"))
                     }
                     onPress={() =>
-                      toggleListingSave.mutate({
+                      withSaveContext(() => toggleListingSave.mutate({
                         listingId: listing.id,
                         saved: listingSaved,
                         // A buyer choosing THIS control while the product
@@ -691,30 +723,33 @@ function ProductBody({ listing }: ProductBodyProps) {
                         // what they mean — which is exactly what a pin records,
                         // and what the migration then leaves alone.
                         pin: true,
-                      })
+                      }))
                     }
                     className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
                   >
                     <Text className="text-buttonMedium text-text">
-                      {listingSaved
+                      {saveStatusLabel ?? (listingSaved
                         ? t("product.save.listingSaved")
-                        : t("product.save.listing")}
+                        : t("product.save.listing"))}
                     </Text>
                   </Pressable>
                 </View>
               ) : (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={
+                  disabled={savePending}
+                  accessibilityState={{ disabled: savePending, selected: listingSaved }}
+                  aria-pressed={listingSaved}
+                  accessibilityLabel={saveStatusLabel ?? (
                     listingSaved
                       ? t("product.save.removeListingA11y")
-                      : t("product.save.listing")
+                      : t("product.save.listing"))
                   }
                   onPress={() =>
-                    toggleListingSave.mutate({
+                    withSaveContext(() => toggleListingSave.mutate({
                       listingId: listing.id,
                       saved: listingSaved,
-                    })
+                    }))
                   }
                   className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
                 >
@@ -724,9 +759,9 @@ function ProductBody({ listing }: ProductBodyProps) {
                     fill={listingSaved ? STAR_COLOR : "transparent"}
                   />
                   <Text className="text-buttonMedium text-text">
-                    {listingSaved
+                    {saveStatusLabel ?? (listingSaved
                       ? t("product.save.saved")
-                      : t("product.save.save")}
+                      : t("product.save.save"))}
                   </Text>
                 </Pressable>
               )}
@@ -747,10 +782,13 @@ function ProductBody({ listing }: ProductBodyProps) {
                     : t("product.share")}
                 </Text>
               </Pressable>
-              <View className="justify-center lg:hidden">
-                <ProductActionsMenu listingId={listing.id} title={listing.title} />
-              </View>
             </View>
+
+            {saveContext.isError || toggleProductSave.isError || toggleListingSave.isError ? (
+              <Text accessibilityRole="alert" className="text-caption text-destructive">
+                {t(saveContext.isError ? "product.save.statusError" : "product.save.updateError")}
+              </Text>
+            ) : null}
 
             {shareLink.failed ? (
               <Text

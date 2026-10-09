@@ -492,6 +492,13 @@ for (const width of [1440, 390]) {
     });
     await page.goto(`/products/${product.id}`);
     const trigger = page.getByRole("button", { name: "More actions", exact: true });
+    await expect(page.getByTestId("product-summary")).toHaveCSS("row-gap", "16px");
+    if (width < 1024) {
+      const title = await page.getByRole("heading", { name: product.title, exact: true }).boundingBox();
+      const action = await trigger.boundingBox();
+      expect(Math.abs(action!.y - title!.y)).toBeLessThan(2);
+      expect(action!.x).toBeGreaterThan(title!.x + title!.width);
+    }
     await trigger.click();
     const menu = page.getByRole("menu", { name: "More actions", exact: true });
     await expect(menu).toBeVisible();
@@ -506,5 +513,26 @@ for (const width of [1440, 390]) {
     expect(reports).toBe(0);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+}
+
+for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+  test(`saving a listing as a guest opens Oxy without sending a save at ${viewport.width}px`, async ({ page, request }) => {
+    const product = await seededProduct(request);
+    await page.setViewportSize(viewport);
+    const writes: string[] = [];
+    page.on("request", request => {
+      if (["POST", "DELETE"].includes(request.method()) && /^\/(favorites|product-saves)(\/|$)/.test(new URL(request.url()).pathname)) {
+        writes.push(request.url());
+      }
+    });
+    await page.goto(`/products/${product.id}`);
+    const save = page.getByRole("button", { name: "Save this listing", exact: true, includeHidden: true });
+    await expect(save).toHaveAttribute("aria-pressed", "false");
+    await save.click();
+    await expect(page.getByText("Use your Oxy account", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("app-content-boundary")).toHaveAttribute("inert", "");
+    await expect(save).toHaveAttribute("aria-pressed", "false");
+    expect(writes).toEqual([]);
   });
 }

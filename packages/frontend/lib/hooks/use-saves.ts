@@ -44,11 +44,11 @@ const STALE_TIME = 1000 * 10;
 
 /** The merged saved list, keyset-paginated (#80 API rules 3, 4 and 7). */
 export function useSavedItems(limit = 20) {
-  const { canUsePrivateApi } = useOxy();
+  const { canUsePrivateApi, user } = useOxy();
 
   return useInfiniteQuery<SavedItemsPage>({
-    queryKey: queryKeys.saves.savedItems,
-    enabled: canUsePrivateApi,
+    queryKey: [...queryKeys.saves.savedItems, user?.id ?? null, limit],
+    enabled: canUsePrivateApi && Boolean(user?.id),
     staleTime: STALE_TIME,
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
@@ -68,11 +68,11 @@ export function useSavedItems(limit = 20) {
  * consumer of a listing reason about the canonical graph.
  */
 export function useListingSaveContext(listingId: string | undefined) {
-  const { canUsePrivateApi } = useOxy();
+  const { canUsePrivateApi, user } = useOxy();
 
   return useQuery<ListingSaveContext>({
-    queryKey: queryKeys.saves.listingContext(listingId ?? ''),
-    enabled: canUsePrivateApi && Boolean(listingId),
+    queryKey: [...queryKeys.saves.listingContext(listingId ?? ''), user?.id ?? null],
+    enabled: canUsePrivateApi && Boolean(user?.id) && Boolean(listingId),
     staleTime: STALE_TIME,
     queryFn: () => fetchListingSaveContext(listingId ?? ''),
   });
@@ -150,12 +150,12 @@ export function useToggleListingSave() {
       }
       await saveListing(input.listingId, input.pin ? 'listing_pin' : undefined);
     },
-    onSuccess: (_result, input) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.saves.savedItems });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.saves.listingContext(input.listingId),
-      });
+    onSuccess: async (_result, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.feed.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.saves.savedItems }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.saves.listingContext(input.listingId) }),
+      ]);
     },
   });
 }
