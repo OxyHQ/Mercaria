@@ -1,0 +1,66 @@
+{
+  "kind": "mercaria1048-source-image-runtime-acceptance-v1",
+  "accepted": true,
+  "repository": "OxyHQ/Mercaria",
+  "sourceSha": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f",
+  "sourceTreeSha": "fa2c37a6d00b85a2b866d50bb32520208efcfcbf",
+  "acceptedPRHead": "bb2052415e283860c1bc458fd90134d3df9fb649",
+  "imageUri": "237343248947.dkr.ecr.us-west-2.amazonaws.com/oxy/mercaria@sha256:e749480bde897218b2fd0c8d34d088ce0b92b54804b4deee294eff07c031c027",
+  "taskDefinition": "arn:aws:ecs:us-west-2:237343248947:task-definition/oxy-mercaria:62",
+  "records": [
+    {
+      "path": "README.md",
+      "sha256": "e17ac674b88a6d704e6c4abc45fddf6efb666848ec130ad69726d0e5b345a9af",
+      "bytes": 2790
+    },
+    {
+      "path": "image-proof.json",
+      "sha256": "a22192d48c9a5c10d5907594d0fa27956fa91bfc2c6a0809a9233d73ada0091c",
+      "bytes": 3142
+    },
+    {
+      "path": "image-verification.json",
+      "sha256": "7fe537f6cff959ce4450b558fccce0b8bd4b1a0ae6511be250245f8ab0f6914a",
+      "bytes": 5815
+    },
+    {
+      "path": "source-binding.json",
+      "sha256": "c2f2527fe94089120ea9a0718022ac159ff132699a62b6c4a528325f8841232b",
+      "bytes": 3546
+    },
+    {
+      "path": "accepted-build-binding.json",
+      "sha256": "c2462b2737ea3c699d78e12e20e64577db2cf10c0b10285f7aeb2e1a472c3015",
+      "bytes": 3266
+    },
+    {
+      "path": "main-ci.json",
+      "sha256": "535a838dcbffa1417b5a47a1e146164690d89ea3731a7ca31ac7021d2de273a0",
+      "bytes": 1151
+    },
+    {
+      "path": "runtime-acceptance.json",
+      "sha256": "571204c01ecc3d6072351b909b236948cb582e2c357928673b467b7fab921820",
+      "bytes": 3127
+    },
+    {
+      "path": "final-restoration.json",
+      "sha256": "8cce785e1d464870a6cb63118dc4790b1b77fd15a367e20eab4e5b10bbbe8639",
+      "bytes": 1256
+    }
+  ],
+  "sourceProof": {
+    "path": "../2026-10-04-i08-cohort-scoped-recovery/proof.json",
+    "sha256": "72e299d492049f3cfc6a39c496143791dbf7e316d9c31d185695598eba7ba6b3"
+  },
+  "rootServingAcceptance": {
+    "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/mercaria-scoped-promotion/execution/accepted.json",
+    "sha256": "42cb3e7794161cd310b35132fe100d89bcc0d35e27766738fd71f3b8932b33e0"
+  },
+  "rootFinalCensus": {
+    "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/final-closure-census/accepted.json",
+    "sha256": "4fa57d9541b55296377d85546e560674e409720af8fec16646d5577335d2997c"
+  },
+  "issueWriter": "i04_handoff owns Peable87/Oxy1527/Oxy1519 synchronization",
+  "noNewLiveFinancialOperation": true
+}

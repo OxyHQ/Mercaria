@@ -1,0 +1,74 @@
+{
+  "kind": "mercaria-scoped-recovery-image-accepted-v1",
+  "sourceSha": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f",
+  "sourceTreeSha": "fa2c37a6d00b85a2b866d50bb32520208efcfcbf",
+  "acceptedPRHead": "bb2052415e283860c1bc458fd90134d3df9fb649",
+  "imageUri": "237343248947.dkr.ecr.us-west-2.amazonaws.com/oxy/mercaria@sha256:e749480bde897218b2fd0c8d34d088ce0b92b54804b4deee294eff07c031c027",
+  "platform": "linux/arm64",
+  "manifestSha256": "e749480bde897218b2fd0c8d34d088ce0b92b54804b4deee294eff07c031c027",
+  "configSha256": "fb7ce06453366da2f854a5c459c4edf5779de37ffd7ea22962997c5c7be72896",
+  "authenticatedPublisher": {
+    "runId": 37195704915,
+    "jobId": 111417003296,
+    "artifactId": 11300972004,
+    "artifactSha256": "sha256:e9d403d7ac039d107f2de5fe7189636b43336c673be9585908df19378e31ba44",
+    "exactArtifactFiles": [
+      "build-metadata.json",
+      "manifest.json",
+      "receipt.json"
+    ]
+  },
+  "allLayersVerified": 11,
+  "distFilesEqual": 4,
+  "drizzleFilesEqual": 317,
+  "OxySDKFilesEqual": 965,
+  "PeableSDKFilesEqual": 53,
+  "migrationMode": "not-required",
+  "sourceProof": "https://github.com/OxyHQ/Mercaria/blob/bb2052415e283860c1bc458fd90134d3df9fb649/docs/audits/2026-10-04-i08-cohort-scoped-recovery/proof.json",
+  "records": [
+    {
+      "path": "image-verification.json",
+      "sha256": "7fe537f6cff959ce4450b558fccce0b8bd4b1a0ae6511be250245f8ab0f6914a"
+    },
+    {
+      "path": "source-binding.json",
+      "sha256": "c2f2527fe94089120ea9a0718022ac159ff132699a62b6c4a528325f8841232b"
+    },
+    {
+      "path": "accepted-build-binding.json",
+      "sha256": "c2462b2737ea3c699d78e12e20e64577db2cf10c0b10285f7aeb2e1a472c3015"
+    },
+    {
+      "path": "main-ci.json",
+      "sha256": "535a838dcbffa1417b5a47a1e146164690d89ea3731a7ca31ac7021d2de273a0"
+    },
+    {
+      "path": "runtime-acceptance.json",
+      "sha256": "571204c01ecc3d6072351b909b236948cb582e2c357928673b467b7fab921820"
+    },
+    {
+      "path": "final-restoration.json",
+      "sha256": "8cce785e1d464870a6cb63118dc4790b1b77fd15a367e20eab4e5b10bbbe8639"
+    }
+  ],
+  "retainedEvidence": [
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-image-20261004/proof.json",
+      "sha256": "a1af2c321f88833c3197ee2039c2f167021ff9b5d3ef337e692c45b4f1cac345"
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-image-20261004/consumer-image-verification.json",
+      "sha256": "43c65bd3b925b855e739ad3e2353ceb47dff5a00f7199a2288044f82b03d7e0f"
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/integration-mercaria-scoped-image-20261004/migration-verification.json",
+      "sha256": "0f3a0353a15cc666e541db47a67f989312af3c4c47b5a13a6c73677f896438c4"
+    }
+  ],
+  "runtimeAcceptance": "verified",
+  "limits": [
+    "No reviewer rebuild, image execution, provider request, DB query or remote mutation. Root executed the bounded reviewed promotion and harmless unsigned negative probes.",
+    "Source/SQL fixtures and sandbox evidence do not claim a new live purchase.",
+    "Source/image/CI, root serving and workflow/fleet restoration are separately recorded."
+  ]
+}
