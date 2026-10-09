@@ -20,6 +20,7 @@
 @import "tailwindcss/utilities.css";
 @import "nativewind/theme";
 @import "@oxy.so/bloom/design-tokens/theme.css";
+@import "./color-scheme.css";
 @import "./shop-typography.css";
 @import "./shop-shadows.css";
 @import "./shop-controls.css";

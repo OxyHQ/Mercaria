@@ -1,0 +1,15 @@
+/* Bloom owns theme selection. On web it toggles html.dark; on native it sets
+ * Appearance, which react-native-css observes for prefers-color-scheme.
+ * Tailwind v4 does not read the legacy preset's darkMode: 'class'. Keep these
+ * branches separate so a browser's OS preference cannot override app choice.
+ * The supports guard is NativeWind's own web variant platform boundary. */
+@custom-variant dark {
+  @supports selector(div > div) {
+    &:where(.dark, .dark *) {
+      @slot;
+    }
+  }
+  @media native and (prefers-color-scheme: dark) {
+    @slot;
+  }
+}

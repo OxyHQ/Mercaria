@@ -10,6 +10,7 @@
     "./lib/listing-variant-selection": "./src/lib/listing-variant-selection.ts",
     "./theme/tailwind.preset": "./src/theme/tailwind.preset.js",
     "./theme/global.css": "./src/theme/global.css",
+    "./theme/color-scheme.css": "./src/theme/color-scheme.css",
     "./theme/shop-typography.css": "./src/theme/shop-typography.css",
     "./theme/shop-shadows.css": "./src/theme/shop-shadows.css",
     "./theme/shop-controls.css": "./src/theme/shop-controls.css"

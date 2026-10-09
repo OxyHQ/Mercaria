@@ -334,6 +334,13 @@ Typing alone does not filter the currently loaded page. A failed continuation
 keeps the loaded reviews and offers a retry. Review IDs prevent duplicated cards
 when offset pages overlap after a new publication.
 
+The collapsed PDP review accordion shows the authoritative rating and count,
+with a 250 ms linear clip/opacity reveal. It reserves its measured width while
+expanded so the title and chevron do not shift, respects reduced motion, and
+hides the caption from accessibility while expanded. A canonical product's
+caption uses only its verified aggregate; listing ratings and the separate
+unverified product aggregate are never substituted into it.
+
 The PDP previews three reviews. Opening a preview centres that review in the
 sheet, using measured content and viewport sizes. A canonical product with no
 verified ratings still shows its separately labelled unverified reviews and

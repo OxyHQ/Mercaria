@@ -3,6 +3,7 @@
 @import "tailwindcss/utilities.css";
 @import "nativewind/theme";
 @import "@oxy.so/bloom/design-tokens/theme.css";
+@import "@mercaria/ui/theme/color-scheme.css";
 @import "@mercaria/ui/theme/shop-typography.css";
 @import "@mercaria/ui/theme/shop-shadows.css";
 @import "@mercaria/ui/theme/shop-controls.css";

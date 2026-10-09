@@ -422,6 +422,7 @@ export {
   type RatingDistribution,
   type ReviewSummaryCardProps,
 } from "./components/marketplace/ReviewSummaryCard";
+export { ReviewAccordionAccessory } from "./components/marketplace/ReviewAccordionAccessory";
 export {
   ConditionBadge,
   type ConditionBadgeProps,

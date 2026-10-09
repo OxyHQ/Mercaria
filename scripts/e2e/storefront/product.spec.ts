@@ -1430,3 +1430,96 @@ for (const width of [1440, 390]) {
     await expect(dialog.getByRole("button", { name: "Sort by", exact: true })).toHaveCSS("background-color", "rgb(18, 18, 18)");
   });
 }
+
+for (const width of [1440, 390]) {
+  for (const reducedMotion of ["no-preference", "reduce"] as const) {
+    test(`collapsed review caption keeps its space at ${width}px with ${reducedMotion} motion`, async ({ page, request }) => {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.emulateMedia({ reducedMotion });
+      const product = await seededProduct(request);
+      await page.goto(`/products/${product.id}`);
+      const sections = page.getByTestId("product-sections");
+      const trigger = sections.getByRole("button", { name: "Reviews", exact: true });
+      const caption = sections.getByTestId("reviews-collapsed-summary");
+      const mask = caption.getByTestId("reviews-collapsed-summary-mask");
+      await expect(trigger).toHaveAttribute("aria-expanded", "true");
+      await expect(caption).toHaveAttribute("aria-hidden", "true");
+      await expect(mask).toHaveCSS("opacity", "0");
+      await trigger.scrollIntoViewIfNeeded();
+      const triggerBox = (await trigger.boundingBox())!;
+      const captionWidth = (await caption.boundingBox())!.width;
+      expect(captionWidth).toBeGreaterThan(50);
+      await page.evaluate(() => {
+        const frames: number[] = [];
+        (window as unknown as { reviewCaptionFrames: number[] }).reviewCaptionFrames = frames;
+        const node = document.querySelector('[data-testid="reviews-collapsed-summary-mask"]')!;
+        let remaining = 40;
+        const sample = () => {
+          frames.push(node.getBoundingClientRect().width);
+          if (--remaining > 0) requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+      });
+      await trigger.click();
+      await expect(caption).not.toHaveAttribute("aria-hidden", "true");
+      await expect(mask).toHaveCSS("opacity", "1");
+      await expect.poll(async () => Math.round((await mask.boundingBox())!.width)).toBe(Math.round(captionWidth));
+      await expect(caption).toHaveAccessibleName(/Item condition and description.*4\.7/);
+      const frames = await page.evaluate(() => (window as unknown as { reviewCaptionFrames: number[] }).reviewCaptionFrames);
+      expect(frames.some(value => value > 0 && value < captionWidth - 1)).toBe(reducedMotion === "no-preference");
+      await page.screenshot({ path: `/tmp/mercaria-review-caption-${width}-${reducedMotion}.png` });
+      const collapsed = sections.getByRole("button", { name: /^Reviews/ });
+      expect((await collapsed.boundingBox())!.height).toBe(triggerBox.height);
+      await collapsed.click();
+      await expect(mask).toHaveCSS("opacity", "0");
+      await expect.poll(async () => (await mask.boundingBox())!.width).toBe(0);
+      await expect(caption).toHaveAttribute("aria-hidden", "true");
+      expect((await caption.boundingBox())!.width).toBe(captionWidth);
+    });
+  }
+}
+
+test("collapsed review caption mirrors in Arabic and keeps dark contrast", async ({ page, request }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await page.addInitScript(() => {
+    localStorage.setItem("i18n-storage", JSON.stringify({ state: { locale: "ar" }, version: 0 }));
+    localStorage.setItem("mercaria.bloom.theme", JSON.stringify({ mode: "dark", colorPreset: "mono" }));
+  });
+  const product = await seededProduct(request);
+  await page.goto(`/products/${product.id}`);
+  const sections = page.getByTestId("product-sections");
+  const title = sections.getByRole("heading", { name: "المراجعات", exact: true });
+  await sections.getByRole("button", { name: "المراجعات", exact: true }).click();
+  const caption = sections.getByTestId("reviews-collapsed-summary");
+  await expect(caption.getByTestId("reviews-collapsed-summary-mask")).toHaveCSS("opacity", "1");
+  await expect(caption).toHaveAccessibleName(/حالة السلعة ووصفها/);
+  const captionBox = (await caption.boundingBox())!;
+  const titleBox = (await title.boundingBox())!;
+  expect(captionBox.x + captionBox.width).toBeLessThan(titleBox.x + titleBox.width);
+  await expect.poll(() => caption.getByText(/4\.7/).evaluate((node) => {
+    const context = document.createElement("canvas").getContext("2d")!;
+    context.fillStyle = getComputedStyle(node).color;
+    context.fillRect(0, 0, 1, 1);
+    return [...context.getImageData(0, 0, 1, 1).data];
+  })).toEqual([255, 255, 255, 191]);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.screenshot({ path: "/tmp/mercaria-review-caption-ar-dark.png" });
+});
+
+
+test("explicit light theme keeps review text dark when the OS prefers dark", async ({ page, request }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  const product = await seededProduct(request);
+  await page.goto(`/products/${product.id}`);
+  const sections = page.getByTestId("product-sections");
+  await sections.getByRole("button", { name: "Reviews", exact: true }).click();
+  const caption = sections.getByTestId("reviews-collapsed-summary");
+  await expect(caption.getByTestId("reviews-collapsed-summary-mask")).toHaveCSS("opacity", "1");
+  await expect.poll(() => caption.getByText(/4\.7/).evaluate((node) => {
+    const context = document.createElement("canvas").getContext("2d")!;
+    context.fillStyle = getComputedStyle(node).color;
+    context.fillRect(0, 0, 1, 1);
+    return [...context.getImageData(0, 0, 1, 1).data];
+  })).toEqual([0, 0, 0, 191]);
+});

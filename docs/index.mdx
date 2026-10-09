@@ -27,6 +27,10 @@ schema decision. `HANDOFF.md` holds deferred work.
   font family. Use explicit pixel line heights when translating Shop utilities:
   NativeWind overrides integer `leading-*` utilities with relative multipliers
   (`leading-7` makes a 24px title 42px high; `leading-[28px]` preserves 28px). The legacy Tailwind preset mirrors these values for v3 consumers.
+  `color-scheme.css` binds Tailwind v4 `dark:` utilities to Bloom’s selected
+  theme: the document `.dark` class on web and Appearance’s color scheme on
+  native. Every app imports it; the legacy preset’s `darkMode` does not
+  configure the v4 CSS pipeline.
   `shop-shadows.css` supplies the marketplace-only `shadow-shop-s/m/l` ramp;
   Bloom retains ownership of its unprefixed shadow tokens.
   `shop-controls.css` paints the purchase/save/share Bloom buttons with Shop’s

@@ -30,6 +30,7 @@ import {
   ShopDetailIcon,
   useRatingDisplay,
   ReviewSummaryCard,
+  ReviewAccordionAccessory,
   Text,
   VariantSwatches,
   useFormatters,
@@ -862,9 +863,17 @@ function ProductBody({ listing }: ProductBodyProps) {
                 ? isDarkColorScheme ? "border-white/10" : "border-[#183b4e0f]"
                 : "border-0"}>
                 <AccordionTrigger className="px-0 py-space-16">
-                  <Text accessibilityRole="header" className="text-shop-subtitle text-text">
-                    {t("product.reviews")}
-                  </Text>
+                  <View className="flex-row items-center">
+                    <Text accessibilityRole="header" className="min-w-0 flex-1 text-shop-subtitle text-text">
+                      {t("product.reviews")}
+                    </Text>
+                    <ReviewAccordionAccessory
+                      expanded={Array.isArray(sections) ? sections.includes("reviews") : sections === "reviews"}
+                      rating={listing.canonicalProductId ? productAggregate?.rating ?? 0 : listingSummary?.rating ?? 0}
+                      reviews={listing.canonicalProductId ? productAggregate?.reviewCount ?? 0 : listingReviewTotal}
+                      subject={t(REVIEW_SCOPE_HEADING_KEYS[listing.canonicalProductId ? "product" : "p2p_listing"])}
+                    />
+                  </View>
                 </AccordionTrigger>
                 <AccordionContent contentClassName="px-0 pb-space-16">
                   <View className="gap-space-16">
