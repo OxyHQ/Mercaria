@@ -48,7 +48,7 @@ export function CurationCard({
       <View className="absolute inset-0 bg-black/35" />
       <View className="flex-1 justify-end p-5">
         <Text
-          className="text-xl font-bold leading-6 text-white md:text-2xl md:leading-7"
+          className="text-xl font-bold leading-[24px] text-white md:text-2xl md:leading-[28px]"
           numberOfLines={2}
         >
           {title}

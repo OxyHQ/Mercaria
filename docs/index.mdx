@@ -23,7 +23,12 @@ schema decision. `HANDOFF.md` holds deferred work.
   All three apps import `@mercaria/ui/theme/shop-typography.css` for the shared
   marketplace type scale, measured from Shop's public CSS on 2026-10-09.
   It defines size, line height, weight and tracking; Mercaria keeps Inter as its
-  font family. The legacy Tailwind preset mirrors these values for v3 consumers.
+  font family. Use explicit pixel line heights when translating Shop utilities:
+  NativeWind overrides integer `leading-*` utilities with relative multipliers
+  (`leading-7` makes a 24px title 42px high; `leading-[28px]` preserves 28px). The legacy Tailwind preset mirrors these values for v3 consumers.
+- Storefront navigation switches at 976px (`STOREFRONT_NAV_FROM`), matching
+  Shop's public CSS; product columns and thumbnails switch independently at
+  768px. Bloom's numeric `navFrom` owns the rail/bottom-bar switch.
 - Each app wraps its screens in Bloom `OverlayInertBoundary`, inside Oxy's
   surface provider so its outlet remains outside. Modal sheets and dialogs
   remove the underlying screens from keyboard and accessibility navigation.

@@ -39,7 +39,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
   const frames = useRef<Record<number, View | null>>({});
   const [panelWidth, setPanelWidth] = useState(0);
   const [ratios, setRatios] = useState<Record<string, number>>({});
-  const desktop = width >= 1024;
+  const desktop = width >= 768;
   const hasMany = images.length > 1;
   const activeIndex = Math.min(index, Math.max(0, images.length - 1));
   // Shop's desktop gallery reserves 84vh and centres each image at its actual
@@ -108,6 +108,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
       onIndexChange={select}
       showArrows={hasMany && desktop}
       arrowsPlacement="overlay"
+      arrowsVisibility="hover"
       showDots={hasMany && !desktop}
       gap={0}
       previousLabel={t(GALLERY_PREVIOUS_KEY)}
@@ -162,7 +163,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
 
   return (
     <View
-      className="min-w-0 lg:flex-1 lg:self-start web:lg:sticky web:lg:top-8"
+      className="min-w-0 md:flex-1 md:self-start web:md:sticky web:md:top-8"
       testID="product-gallery"
       onLayout={(event) => setPanelWidth(event.nativeEvent.layout.width)}
     >

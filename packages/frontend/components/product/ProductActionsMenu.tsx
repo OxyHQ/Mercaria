@@ -15,7 +15,7 @@ import { useTranslation } from "@/lib/i18n";
  * Contact is omitted until the public catalog carries published contact details.
  * Canonical products are not moderation listing subjects and cannot use this menu.
  */
-export function ProductActionsMenu({ listingId, title }: { listingId: string; title: string }) {
+export function ProductActionsMenu({ listingId, title, outlined = false }: { listingId: string; title: string; outlined?: boolean }) {
   const { t } = useTranslation();
   const reportControl = useDialogControl();
 
@@ -27,7 +27,7 @@ export function ProductActionsMenu({ listingId, title }: { listingId: string; ti
             accessibilityRole="button"
             accessibilityLabel={t("product.moreActions")}
             hitSlop={8}
-            className="min-h-11 min-w-11 items-center justify-center rounded-full border border-border-image bg-bg-fill lg:-my-1.5 lg:border-0 lg:bg-transparent web:hover:bg-muted active:bg-muted"
+            className={`min-h-11 min-w-11 items-center justify-center rounded-full web:hover:bg-muted active:bg-muted ${outlined ? "border border-border-image bg-bg-fill" : "-my-1.5"}`}
           >
             <MoreHorizontal size={24} className="text-text-tertiary" />
           </Pressable>

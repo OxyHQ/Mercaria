@@ -1,3 +1,4 @@
+import { STOREFRONT_NAV_FROM } from "@/lib/layout";
 import { merchantImageSource } from "@mercaria/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, View, useWindowDimensions } from "react-native";
@@ -131,7 +132,7 @@ export function HeroSearch({
   const paused = useSharedValue(false);
   const pointerX = useSharedValue(0);
   const pointerY = useSharedValue(0);
-  const desktop = viewport >= 1024;
+  const desktop = viewport >= STOREFRONT_NAV_FROM;
   const collageHeight = desktop ? Math.min(windowHeight * 0.4, 400) : 0;
   const productWidth = desktop
     ? Math.min(viewport * 0.12, 240)

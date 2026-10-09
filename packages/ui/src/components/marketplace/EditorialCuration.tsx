@@ -336,7 +336,7 @@ export function EditorialCuration({
               <View className="mx-auto w-full max-w-[565px]">
                 <Text
                   accessibilityRole="header"
-                  className="text-lg font-semibold leading-5"
+                  className="text-lg font-semibold leading-[20px]"
                 >
                   {story.heading}
                 </Text>

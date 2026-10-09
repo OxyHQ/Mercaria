@@ -140,7 +140,7 @@ export function ProductCard({
             pointerEvents="none"
             className="absolute start-3 top-3 rounded-full bg-black/30 px-1.5 py-0.5"
           >
-            <Text className="text-[10px] font-bold leading-3 text-white">
+            <Text className="text-badgeBold text-white">
               {priceText.primary}
             </Text>
           </View>
@@ -203,7 +203,7 @@ export function ProductCard({
           accessibilityRole="link"
           accessibilityLabel={product.title}
           onPress={() => onPress?.(product.id)}
-          className="flex flex-col ps-1 leading-4"
+          className="flex flex-col ps-1 leading-[16px]"
         >
           <Text numberOfLines={1} className="text-xs text-muted-foreground">
             {product.brand}

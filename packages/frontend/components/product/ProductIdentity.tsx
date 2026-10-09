@@ -69,7 +69,7 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
     <View className="gap-space-16">
       <View className="gap-space-8">
         <Text
-          className="text-headerBold leading-7 text-text"
+          className="text-headerBold leading-[28px] text-text"
           accessibilityRole="header"
           numberOfLines={3}
         >

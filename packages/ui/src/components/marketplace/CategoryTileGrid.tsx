@@ -61,7 +61,7 @@ export function CategoryTileGrid({
       {title ? (
         <Text
           accessibilityRole="header"
-          className="mb-4 text-[22px] font-bold leading-7 text-foreground"
+          className="mb-4 text-[22px] font-bold leading-[28px] text-foreground"
         >
           {title}
         </Text>

@@ -4,7 +4,7 @@ import {
   useShoppingHistory,
   useShoppingHistoryOwner,
 } from "@/lib/stores/shopping-history";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
@@ -37,6 +37,7 @@ import {
 import * as Skeleton from "@oxy.so/bloom/skeleton";
 import type { Listing, StoreSummary, Seller } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
+import { STOREFRONT_NAV_FROM } from "@/lib/layout";
 import { ProductDescription } from "@/components/product/ProductDescription";
 import { ProductReviewsDialog } from "@/components/product/ProductReviewsDialog";
 import { Footer } from "@/components/shell/Footer";
@@ -239,6 +240,8 @@ interface ProductBodyProps {
 /** The two-column PDP body (gallery + buy column) plus the full-width shelves. */
 function ProductBody({ listing }: ProductBodyProps) {
   const { canUsePrivateApi } = useOxy();
+  const { width } = useWindowDimensions();
+  const desktopNavigation = width >= STOREFRONT_NAV_FROM;
   const router = useRouter();
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
@@ -429,9 +432,9 @@ function ProductBody({ listing }: ProductBodyProps) {
 
   return (
     <View className="web:mx-auto web:w-full web:max-w-[1600px] md:px-5">
-      <View className="flex-col gap-space-16 lg:gap-space-40">
+      <View className="flex-col">
         {/* Mobile sticky merchant bar. */}
-        <View className="px-space-16 py-space-12 lg:hidden">
+        {!desktopNavigation ? <View className="px-space-16 py-space-12">
           <MerchantHeader
             name={identity.name}
             logoUrl={identity.logoUrl}
@@ -440,10 +443,10 @@ function ProductBody({ listing }: ProductBodyProps) {
             onPress={onPressStore}
             size="large"
           />
-        </View>
+        </View> : null}
 
         {/* Top two-column region: large gallery (flex-1) + fixed buy column. */}
-        <View className="flex-col gap-space-16 lg:flex-row lg:gap-space-40">
+        <View className="flex-col gap-space-16 md:mt-6 md:flex-row md:gap-space-40 md:px-4">
           <ProductGallery
             key={selectedVariant?.id ?? listing.id}
             images={images}
@@ -452,12 +455,12 @@ function ProductBody({ listing }: ProductBodyProps) {
 
           {/* Buy column. */}
           <View
-            className="gap-space-24 px-space-16 lg:px-0 lg:w-[29em]"
+            className="min-w-0 gap-space-24 px-space-16 md:px-0 md:pt-2 md:w-[29em]"
             testID="product-buy-column"
           >
             {/* Desktop buy-column merchant header. */}
             <View className="gap-space-16" testID="product-summary">
-              <View className="hidden lg:flex">
+              {desktopNavigation ? <View>
                 <MerchantHeader
                   name={identity.name}
                   logoUrl={identity.logoUrl}
@@ -467,14 +470,14 @@ function ProductBody({ listing }: ProductBodyProps) {
                   moreAction={<ProductActionsMenu listingId={listing.id} title={listing.title} />}
                   size="compact"
                 />
-              </View>
+              </View> : null}
 
               <View className="flex-row items-start gap-space-4 md:items-center">
                 <View className="min-w-0 flex-1 gap-space-4">
                   <Text
                     accessibilityRole="header"
                     numberOfLines={3}
-                    className="text-headerBold leading-7 text-text"
+                    className="text-headerBold leading-[28px] text-text"
                   >
                     {listing.title}
                   </Text>
@@ -501,9 +504,9 @@ function ProductBody({ listing }: ProductBodyProps) {
                     </View>
                   ) : null}
                 </View>
-                <View className="lg:hidden">
-                  <ProductActionsMenu listingId={listing.id} title={listing.title} />
-                </View>
+                {!desktopNavigation ? (
+                  <ProductActionsMenu listingId={listing.id} title={listing.title} outlined />
+                ) : null}
               </View>
 
               {/*
@@ -918,7 +921,7 @@ function ProductSkeleton() {
       accessibilityLabel={t("product.loadingA11y")}
       aria-busy
     >
-      <View className="flex-col gap-space-16 lg:flex-row lg:gap-space-40">
+      <View className="flex-col gap-space-16 md:mt-6 md:flex-row md:gap-space-40 md:px-4">
         <View className="aspect-square flex-1">
           <Skeleton.Box width="100%" height="100%" borderRadius={28} />
         </View>
@@ -988,7 +991,7 @@ export default function ProductScreen() {
   }
 
   return (
-    <ScreenShell contentClassName="lg:pt-6">
+    <ScreenShell>
       {head}
       <ProductBody key={listing.id} listing={listing} />
     </ScreenShell>

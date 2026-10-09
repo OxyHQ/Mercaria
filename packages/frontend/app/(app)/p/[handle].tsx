@@ -202,7 +202,7 @@ export default function CanonicalProductPageScreen() {
 
   if (pageQuery.isLoading && page === undefined) {
     return (
-      <ScreenShell contentClassName="lg:pt-6">
+      <ScreenShell contentClassName="md:pt-6">
         {head}
         <ProductPageSkeleton />
       </ScreenShell>
@@ -211,7 +211,7 @@ export default function CanonicalProductPageScreen() {
 
   if (pageQuery.isError || page === undefined) {
     return (
-      <ScreenShell contentClassName="lg:pt-6">
+      <ScreenShell contentClassName="md:pt-6">
         {head}
         <View className="items-center justify-center px-8 py-16">
           <Text className="text-center text-body text-text-tertiary">{t('product.notFound')}</Text>
@@ -221,16 +221,16 @@ export default function CanonicalProductPageScreen() {
   }
 
   return (
-    <ScreenShell contentClassName="lg:pt-6">
+    <ScreenShell contentClassName="md:pt-6">
       {head}
-      <View className="web:mx-auto web:w-full web:max-w-[1600px] gap-space-32 lg:px-5">
-        <View className="flex-col gap-space-16 lg:flex-row lg:gap-space-40">
+      <View className="web:mx-auto web:w-full web:max-w-[1600px] gap-space-32 md:px-5">
+        <View className="flex-col gap-space-16 md:flex-row md:gap-space-40 md:px-4">
           <ProductGallery
             key={selectedVariantId ?? page.product.id}
             images={images}
             title={page.product.name}
           />
-          <View className="min-w-0 gap-space-24 px-space-16 lg:px-0 lg:w-[29em]">
+          <View className="min-w-0 gap-space-24 px-space-16 md:px-0 md:pt-2 md:w-[29em]">
             <ProductIdentity
               product={page.product}
               {...(reviews.data?.aggregate === undefined

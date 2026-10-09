@@ -493,6 +493,7 @@ for (const width of [1440, 390]) {
     await page.goto(`/products/${product.id}`);
     const trigger = page.getByRole("button", { name: "More actions", exact: true });
     await expect(page.getByTestId("product-summary")).toHaveCSS("row-gap", "16px");
+    await expect(page.getByRole("heading", { name: product.title, exact: true })).toHaveCSS("line-height", "28px");
     if (width < 1024) {
       const title = await page.getByRole("heading", { name: product.title, exact: true }).boundingBox();
       const action = await trigger.boundingBox();
@@ -536,3 +537,59 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     expect(writes).toEqual([]);
   });
 }
+
+test("product columns and Bloom navigation switch at their independent tablet widths", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  for (const width of [767, 768, 900, 975, 976, 1024]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(`/products/${product.id}`);
+    const gallery = page.getByTestId("product-gallery");
+    const buy = page.getByTestId("product-buy-column");
+    await expect(buy).toBeVisible();
+    await expect(page.getByRole(width < 976 ? "tab" : "button", { name: "Profile", exact: true })).toBeVisible();
+    await expect.poll(async () => {
+      const media = await gallery.boundingBox();
+      const details = await buy.boundingBox();
+      return width >= 768 ? details!.x >= media!.x + media!.width + 39 : details!.y >= media!.y + media!.height;
+    }).toBe(true);
+    if (width >= 768) {
+      await expect.poll(async () => (await buy.boundingBox())!.width).toBe(464);
+      await expect(page.getByTestId("product-thumbnails")).toBeVisible();
+    } else {
+      await expect(page.getByTestId("product-thumbnails")).toHaveCount(0);
+    }
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+  }
+});
+
+test("Bloom gallery arrows reveal on hover or keyboard focus and remain visible for touch", async ({ page, request, browser }) => {
+  const product = await seededProduct(request);
+  await page.goto(`/products/${product.id}`);
+  const gallery = page.getByTestId("product-gallery-carousel");
+  const arrows = gallery.locator("[data-bloom-carousel-arrow]");
+  await expect(arrows).toHaveCount(2);
+  await expect(arrows.first()).toHaveCSS("opacity", "0");
+  await gallery.hover();
+  await expect(arrows.first()).toHaveCSS("opacity", "1");
+  await page.mouse.move(0, 0);
+  await expect(arrows.first()).toHaveCSS("opacity", "0");
+  const next = arrows.last().getByRole("button");
+  await next.focus();
+  await expect(arrows.first()).toHaveCSS("opacity", "1");
+  await next.press("Enter");
+  await expect(page.getByTestId("product-thumbnails").getByRole("button", { name: "View image 2", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  const context = await browser.newContext({ viewport: { width: 1024, height: 1000 }, hasTouch: true, reducedMotion: "reduce", locale: "en-US" });
+  try {
+    const touch = await context.newPage();
+    await touch.goto(`/products/${product.id}`);
+    expect(await touch.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+    const touchArrows = touch.getByTestId("product-gallery-carousel").locator("[data-bloom-carousel-arrow]");
+    await expect(touchArrows.first()).toHaveCSS("opacity", "1");
+    await expect(touchArrows.first()).toHaveCSS("transition-duration", "0s");
+    await touchArrows.last().getByRole("button").tap();
+    await expect(touch.getByTestId("product-thumbnails").getByRole("button", { name: "View image 2", exact: true })).toHaveAttribute("aria-pressed", "true");
+  } finally {
+    await context.close();
+  }
+});

@@ -67,12 +67,12 @@ export function MerchantCartCard({
               </Text>
             </Pressable>
             <View className="flex-row flex-wrap items-baseline gap-1">
-              <Text className="text-xs leading-4 text-muted-foreground">
+              <Text className="text-captionMedium text-muted-foreground">
                 {t(MERCHANT_CART_SUBTOTAL_KEY)}
               </Text>
               <PriceDisplay
                 price={group.subtotal}
-                primaryClassName="text-xs font-medium leading-4"
+                primaryClassName="text-captionMedium"
               />
             </View>
           </View>
@@ -124,7 +124,7 @@ export function MerchantCartCard({
         onPress={() => onCheckout(group)}
         className="min-h-8 items-center justify-center rounded-full bg-black/[0.04] p-2 dark:bg-white/[0.06] web:transition-colors web:hover:opacity-80 active:scale-[0.99]"
       >
-        <Text className="text-sm font-medium leading-4">
+        <Text className="text-buttonMedium">
           {t(MERCHANT_CART_CHECKOUT_KEY)}
         </Text>
       </Pressable>

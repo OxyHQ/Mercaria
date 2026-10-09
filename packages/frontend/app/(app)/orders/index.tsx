@@ -90,7 +90,7 @@ function OrdersBody() {
     <View className="gap-5" testID="shopping-orders">
       <Text
         accessibilityRole="header"
-        className="text-[32px] font-semibold leading-10"
+        className="text-[32px] font-semibold leading-[40px]"
       >
         {t("orders.title")}
       </Text>

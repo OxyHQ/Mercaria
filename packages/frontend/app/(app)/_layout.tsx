@@ -2,6 +2,7 @@ import { Slot, Stack } from "expo-router";
 import { Platform, useWindowDimensions } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AppShell } from "@oxy.so/bloom/app-shell";
+import { STOREFRONT_NAV_FROM } from "@/lib/layout";
 import { AppErrorBoundary } from "@/components/error-boundary";
 import { useStorefrontSidebar } from "@/components/shell/useStorefrontSidebar";
 import { BottomTabBar } from "@/components/shell/BottomTabBar";
@@ -29,7 +30,7 @@ export default function AppLayout() {
   const { width } = useWindowDimensions();
 
   // Bloom's `AppShell` owns the responsive layout: the sidebar in flow from
-  // `md` (a drawer below it), the bottom bar below it, and the framed
+  // 976px (a drawer below it), the bottom bar below it, and the framed
   // `ContentPanel` around the page (`panel`). This layout only supplies the
   // app-specific slots: the routed content element (a `<Stack>` for native
   // push/pop transitions, a `<Slot>` for the web document-scroll flow), the
@@ -72,9 +73,9 @@ export default function AppLayout() {
             // so no drawer trigger is needed. Pages draw their own headings.
             header={null}
             bottomBar={<BottomTabBar />}
-            navFrom="md"
+            navFrom={STOREFRONT_NAV_FROM}
             contentWidth={CONTENT_WIDTH}
-            gutter={width >= 768 ? 8 : 0}
+            gutter={width >= STOREFRONT_NAV_FROM ? 8 : 0}
             navigationGap={4}
           >
             {routed}

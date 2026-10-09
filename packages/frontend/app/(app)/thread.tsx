@@ -303,7 +303,7 @@ function ShoppingThreadBody({
                 boxShadow: "none",
               })}
             >
-              <Text selectable className="text-base leading-6 text-foreground">
+              <Text selectable className="text-base leading-[24px] text-foreground">
                 {message.content}
               </Text>
             </AiChatUserMessage>
@@ -312,7 +312,7 @@ function ShoppingThreadBody({
               <AiChatMessageLine block>
                 <Text
                   selectable
-                  className="text-base leading-6 text-foreground"
+                  className="text-base leading-[24px] text-foreground"
                 >
                   {message.content}
                 </Text>
