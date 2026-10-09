@@ -38,6 +38,7 @@ export function VariantSwatches({
   onSelect,
 }: VariantSwatchesProps) {
   const [expanded, setExpanded] = useState(false);
+  const [hoveredValue, setHoveredValue] = useState<string | null>(null);
   const t = useSharedUiTranslation();
   const { isDarkColorScheme } = useColorScheme();
   const reducedMotion = useReducedMotion();
@@ -53,14 +54,15 @@ export function VariantSwatches({
     : initialValues;
   const visibleValues = overflow ? collapsedValues : option.values;
   const hiddenCount = option.values.length - MAX_VISIBLE_VALUES;
+  const displayedValue = hoveredValue ?? selectedValue;
 
   return (
     <View className="gap-space-8">
       <View className="flex-row items-center gap-space-4">
         <Text className="text-shop-captionBold text-text">{option.name}</Text>
-        {selectedValue ? (
-          <Text numberOfLines={1} className="flex-1 text-shop-caption text-text">
-            {selectedValue}
+        {displayedValue ? (
+          <Text testID={`variant-option-value-${option.name}`} numberOfLines={1} className="flex-1 text-shop-caption text-text">
+            {displayedValue}
           </Text>
         ) : null}
       </View>
@@ -82,6 +84,8 @@ export function VariantSwatches({
               pressed={selected}
               material="flat"
               onPress={() => onSelect(value)}
+              onHoverIn={() => setHoveredValue(value)}
+              onHoverOut={() => setHoveredValue(null)}
               className={cn(
                 "shop-option",
                 isDarkColorScheme && "shop-option-dark",

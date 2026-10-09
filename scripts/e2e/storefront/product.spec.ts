@@ -166,6 +166,52 @@ test("variant-owned photos and price replace listing fallbacks without inheritin
   ).toHaveCount(product.images.length);
 });
 
+test("option hover previews its label without selecting a different variant", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  const selected = product.variants[0];
+  const option = selected.optionValues[0];
+  const other = product.options.find((item: { name: string }) => item.name === option.name)
+    .values.find((value: string) => value !== option.value);
+  await page.goto(`/products/${product.id}?variantId=${selected.id}`);
+  const label = page.getByTestId(`variant-option-value-${option.name}`);
+  const preview = page.getByRole("button", { name: new RegExp(`^${option.name}: ${other}(?:, Sold out)?$`) });
+  await preview.hover();
+  await expect(label).toHaveText(other);
+  await expect(preview).toHaveAttribute("aria-pressed", "false");
+  await expect(page).toHaveURL(new RegExp(`variantId=${selected.id}$`));
+  await page.mouse.move(0, 0);
+  await expect(label).toHaveText(option.value);
+  await preview.click();
+  await expect(preview).toHaveAttribute("aria-pressed", "true");
+  await page.mouse.move(0, 0);
+  await expect(label).toHaveText(other);
+});
+
+test("thumbnail focus selects a photo and Enter opens that photo in the viewer", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  await page.goto(`/products/${product.id}`);
+  const rail = page.getByTestId("product-thumbnails");
+  const third = rail.getByRole("button", { name: "View image 3", exact: true });
+  await third.focus();
+  await expect(third).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Close media viewer", exact: true })).toHaveCount(0);
+  await third.press("Enter");
+  await expect(page.getByRole("button", { name: "Close media viewer", exact: true })).toBeVisible();
+  // Paging becomes available after the opening flight has seated the photo.
+  await expect(page.getByRole("button", { name: "Next image", exact: true })).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  const fourth = rail.getByRole("button", { name: "View image 4", exact: true, includeHidden: true });
+  await expect(fourth).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Close media viewer", exact: true })).toHaveCount(0);
+  await expect(fourth).toHaveAttribute("aria-pressed", "true");
+  await fourth.focus();
+  await fourth.press("Control+Alt+Space");
+  await expect(page.getByRole("button", { name: "Close media viewer", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Close media viewer", exact: true })).toHaveCount(0);
+});
+
 test("gallery thumbnails control the carousel and Bloom opens and dismisses the viewer", async ({
   page,
   request,

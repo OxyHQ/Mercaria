@@ -116,6 +116,13 @@ export function ProductGallery({ images, title, ref }: ProductGalleryProps) {
           accessibilityLabel={t(GALLERY_VIEW_IMAGE_KEY, { position: position + 1 })}
           pressed={position === activeIndex}
           onPress={() => select(position)}
+          onFocus={() => select(position)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || (event.key === " " && event.ctrlKey && event.altKey)) {
+              event.preventDefault();
+              void openViewer(position);
+            }
+          }}
           style={{
             width: 48,
             height: 48,
