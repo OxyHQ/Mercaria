@@ -97,6 +97,19 @@ test('seeded product variants and guest cart work through the real API', async (
   expect(product, 'Run the documented local development seed first').toBeTruthy();
   await page.goto(`/products/${product.id}`);
   await page.getByRole('button', { name: 'Shade: Stella', exact: true }).click();
+  const quantity = page.getByRole('group', { name: 'Quantity', exact: true });
+  await expect(quantity).toHaveCSS('height', '40px');
+  await expect(quantity).toHaveCSS('border-top-width', '1px');
+  await expect(quantity).toHaveCSS('border-radius', '9999px');
+  await expect(quantity.getByText('1', { exact: true })).toHaveCSS('font-size', '14px');
+  await expect(quantity.getByText('1', { exact: true })).toHaveCSS('font-weight', '600');
+  const quantityValue = quantity.getByRole('slider');
+  await expect(quantity.getByRole('button', { name: 'Decrease quantity', exact: true })).toBeDisabled();
+  await quantityValue.focus();
+  await quantityValue.press('ArrowUp');
+  await expect(quantityValue).toHaveAttribute('aria-valuenow', '2');
+  await quantityValue.press('ArrowDown');
+  await expect(quantityValue).toHaveAttribute('aria-valuenow', '1');
   const added = page.waitForResponse(response => response.url().endsWith('/cart/items')
     && response.request().method() === 'POST');
   await page.getByRole('button', { name: 'Add to cart', exact: true }).click();

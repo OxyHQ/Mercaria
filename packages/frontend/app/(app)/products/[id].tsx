@@ -616,6 +616,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                   `+` stops at what is in stock, as the cart line's does. */}
               <View className="self-start">
                 <Stepper
+                  appearance="outline"
                   value={quantity}
                   min={1}
                   max={
