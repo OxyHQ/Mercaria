@@ -9,6 +9,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Button } from "@oxy.so/bloom/button";
 import { Rating } from "@oxy.so/bloom/rating";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
 import {
@@ -34,6 +35,7 @@ import {
   useFormatters,
   useColorScheme,
   useCartFlight,
+  useShopControlClassName,
   type ProductGalleryHandle,
   type ProductSummary,
 } from "@mercaria/ui";
@@ -240,6 +242,7 @@ interface ProductBodyProps {
 /** The two-column PDP body (gallery + buy column) plus the full-width shelves. */
 function ProductBody({ listing }: ProductBodyProps) {
   const { canUsePrivateApi } = useOxy();
+  const controlClassName = useShopControlClassName();
   const { colors } = useColorScheme();
   const { width, height } = useWindowDimensions();
   const gallery = useRef<ProductGalleryHandle>(null);
@@ -695,101 +698,114 @@ function ProductBody({ listing }: ProductBodyProps) {
             >
               {canonicalProductId ? (
                 <View className="flex-row gap-space-8">
-                  <Pressable
+                  <Button
+                    material="flat"
                     accessibilityRole="button"
                     disabled={savePending}
-                    accessibilityState={{ disabled: savePending, selected: productSaved }}
-                    aria-pressed={productSaved}
-                    accessibilityLabel={saveStatusLabel ?? (
-                      productSaved
+                    pressed={productSaved}
+                    accessibilityLabel={
+                      saveStatusLabel ??
+                      (productSaved
                         ? t("product.save.removeProductA11y")
                         : t("product.save.productA11y"))
                     }
                     onPress={() =>
-                      withSaveContext(() => toggleProductSave.mutate({
-                        canonicalProductId,
-                        saved: productSaved,
-                        sourceContext: "listing_page",
-                        listingId: listing.id,
-                      }))
+                      withSaveContext(() =>
+                        toggleProductSave.mutate({
+                          canonicalProductId,
+                          saved: productSaved,
+                          sourceContext: "listing_page",
+                          listingId: listing.id,
+                        }),
+                      )
                     }
-                    className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
+                    className={`${controlClassName("outline", savePending)} flex-1 gap-space-4`}
+                    iconSize={ICON_SIZE}
+                    renderLeadingIcon={({ size, color }) => (
+                      <ShopDetailIcon
+                        name="heart"
+                        size={size}
+                        color={color}
+                        filled={productSaved}
+                      />
+                    )}
                   >
-                    <ShopDetailIcon
-                      name="heart"
-                      size={ICON_SIZE}
-                      className="text-text"
-                      filled={productSaved}
-                    />
-                    <Text className="text-shop-buttonMedium text-text">
-                      {saveStatusLabel ?? (productSaved
+                    {saveStatusLabel ??
+                      (productSaved
                         ? t("product.save.productSaved")
                         : t("product.save.product"))}
-                    </Text>
-                  </Pressable>
-                  <Pressable
+                  </Button>
+                  <Button
+                    material="flat"
                     accessibilityRole="button"
                     disabled={savePending}
-                    accessibilityState={{ disabled: savePending, selected: listingSaved }}
-                    aria-pressed={listingSaved}
-                    accessibilityLabel={saveStatusLabel ?? (
-                      listingSaved
+                    pressed={listingSaved}
+                    accessibilityLabel={
+                      saveStatusLabel ??
+                      (listingSaved
                         ? t("product.save.removeListingA11y")
                         : t("product.save.exactListingA11y"))
                     }
                     onPress={() =>
-                      withSaveContext(() => toggleListingSave.mutate({
-                        listingId: listing.id,
-                        saved: listingSaved,
-                        // A buyer choosing THIS control while the product
-                        // button sits beside it has said the exact listing is
-                        // what they mean — which is exactly what a pin records,
-                        // and what the migration then leaves alone.
-                        pin: true,
-                      }))
+                      withSaveContext(() =>
+                        toggleListingSave.mutate({
+                          listingId: listing.id,
+                          saved: listingSaved,
+                          // A buyer choosing THIS control while the product
+                          // button sits beside it has said the exact listing is
+                          // what they mean — which is exactly what a pin records,
+                          // and what the migration then leaves alone.
+                          pin: true,
+                        }),
+                      )
                     }
-                    className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
+                    className={`${controlClassName("outline", savePending)} flex-1 gap-space-4`}
                   >
-                    <Text className="text-shop-buttonMedium text-text">
-                      {saveStatusLabel ?? (listingSaved
+                    {saveStatusLabel ??
+                      (listingSaved
                         ? t("product.save.listingSaved")
                         : t("product.save.listing"))}
-                    </Text>
-                  </Pressable>
+                  </Button>
                 </View>
               ) : (
-                <Pressable
+                <Button
+                  material="flat"
                   accessibilityRole="button"
                   disabled={savePending}
-                  accessibilityState={{ disabled: savePending, selected: listingSaved }}
-                  aria-pressed={listingSaved}
-                  accessibilityLabel={saveStatusLabel ?? (
-                    listingSaved
+                  pressed={listingSaved}
+                  accessibilityLabel={
+                    saveStatusLabel ??
+                    (listingSaved
                       ? t("product.save.removeListingA11y")
                       : t("product.save.listing"))
                   }
                   onPress={() =>
-                    withSaveContext(() => toggleListingSave.mutate({
-                      listingId: listing.id,
-                      saved: listingSaved,
-                    }))
+                    withSaveContext(() =>
+                      toggleListingSave.mutate({
+                        listingId: listing.id,
+                        saved: listingSaved,
+                      }),
+                    )
                   }
-                  className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
+                  className={`${controlClassName("outline", savePending)} flex-1 gap-space-4`}
+                  iconSize={ICON_SIZE}
+                  renderLeadingIcon={({ size, color }) => (
+                    <ShopDetailIcon
+                      name="heart"
+                      size={size}
+                      color={color}
+                      filled={listingSaved}
+                    />
+                  )}
                 >
-                  <ShopDetailIcon
-                    name="heart"
-                    size={ICON_SIZE}
-                    className="text-text"
-                    filled={listingSaved}
-                  />
-                  <Text className="text-shop-buttonMedium text-text">
-                    {saveStatusLabel ?? (listingSaved
+                  {saveStatusLabel ??
+                    (listingSaved
                       ? t("product.save.saved")
                       : t("product.save.save"))}
-                  </Text>
-                </Pressable>
+                </Button>
               )}
-              <Pressable
+              <Button
+                material="flat"
                 accessibilityRole="button"
                 accessibilityLabel={
                   shareLink.copied
@@ -797,15 +813,14 @@ function ProductBody({ listing }: ProductBodyProps) {
                     : t("product.shareA11y")
                 }
                 onPress={() => void shareLink.share()}
-                className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
+                className={`${controlClassName("outline")} flex-1 gap-space-4`}
+                iconSize={ICON_SIZE}
+                renderLeadingIcon={({ size, color }) => (
+                  <ShopDetailIcon name="share" size={size} color={color} />
+                )}
               >
-                <ShopDetailIcon name="share" size={ICON_SIZE} className="text-text" />
-                <Text className="text-shop-buttonMedium text-text">
-                  {shareLink.copied
-                    ? t("common.linkCopied")
-                    : t("product.share")}
-                </Text>
-              </Pressable>
+                {shareLink.copied ? t("common.linkCopied") : t("product.share")}
+              </Button>
             </View>
 
             {saveContext.isError || toggleProductSave.isError || toggleListingSave.isError ? (

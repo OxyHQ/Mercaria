@@ -22,6 +22,7 @@
 @import "@oxy.so/bloom/design-tokens/theme.css";
 @import "./shop-typography.css";
 @import "./shop-shadows.css";
+@import "./shop-controls.css";
 
 @theme {
   --font-sans: Inter, sans-serif;

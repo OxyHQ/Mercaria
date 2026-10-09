@@ -29,6 +29,10 @@ schema decision. `HANDOFF.md` holds deferred work.
   (`leading-7` makes a 24px title 42px high; `leading-[28px]` preserves 28px). The legacy Tailwind preset mirrors these values for v3 consumers.
   `shop-shadows.css` supplies the marketplace-only `shadow-shop-s/m/l` ramp;
   Bloom retains ownership of its unprefixed shadow tokens.
+  `shop-controls.css` paints the purchase/save/share Bloom buttons with Shop’s
+  marketplace recipe via `className`; `useShopControlClassName` selects hover,
+  disabled and reduced-motion classes across platforms. Bloom owns the button
+  semantics and loading state; these recipes require its className authority fix.
 - Storefront purchase feedback uses `CartFlightProvider` around Bloom's shell.
   After a successful cart mutation, the active product image flies to the
   visible cart glyph and the glyph pulses on arrival. Failed mutations and

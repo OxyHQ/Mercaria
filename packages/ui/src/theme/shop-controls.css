@@ -1,0 +1,61 @@
+/* Shop's public styleConstants-DxOS3Sd3.css, measured 2026-10-09.
+ * Geometry and paint are separate from text-shop-buttonLarge typography.
+ * Bloom owns interaction semantics; these classes only paint marketplace CTAs.
+ */
+@layer components {
+  .shop-control {
+    height: 52px;
+    min-height: 52px;
+    min-width: 0;
+    border-radius: 9999px;
+    border-width: .5px;
+    border-style: solid;
+    padding: 0;
+    overflow: hidden;
+    opacity: 1;
+    transition-property: background-color, transform, box-shadow;
+    transition-duration: 150ms;
+  }
+  .shop-control-compact { height: 44px; min-height: 44px; }
+  .shop-control-primary {
+    background-color: #5433eb;
+    color: #fff;
+    border-color: #5433eb;
+    box-shadow: -.5px -.5px 1px #ffffff52 inset, 1px 1px .5px #ffffff52 inset, 0 4px 24px #5433eb3d;
+  }
+  .shop-control-primary-dark { border-color: #9c83f8; }
+  .shop-control-primary-interactive:hover { background-color: #4524db; }
+  .shop-control-secondary {
+    height: auto;
+    padding: 16px;
+    background-color: #121212;
+    color: #fff;
+    border-color: #000;
+    box-shadow: -.5px -.5px 1px #ffffff52 inset, 1px 1px .5px #ffffff52 inset, 0 4px 24px #0000003d;
+  }
+  .shop-control-secondary-dark { background-color: #fff; color: #000; border-color: #fff; }
+  .shop-control-secondary-interactive:hover { background-color: #2a2a2a; }
+  .shop-control-secondary-dark-interactive:hover { background-color: #c9cbcc; }
+  .shop-control-outline {
+    background-color: #fff;
+    color: #000;
+    border-color: #183b4e0f;
+    box-shadow: 0 2px 8px #0000000f;
+    backdrop-filter: blur(10px);
+  }
+  .shop-control-outline-dark { background-color: #121212; color: #fff; border-color: #ffffff1a; }
+  .shop-control-outline-interactive:hover { background-color: #f2f4f5; }
+  .shop-control-outline-dark-interactive:hover { background-color: #2a2a2a; }
+  .shop-control-pressable:active { transform: scale(.99); }
+  .shop-control-disabled {
+    background-color: #eef0f1;
+    color: #0006;
+    border-width: 0;
+    box-shadow: none;
+  }
+  .shop-control-disabled-dark { background-color: #404040; color: #fff6; }
+  @media (prefers-reduced-motion: reduce) {
+    .shop-control { transition-duration: 0ms; }
+    .shop-control-pressable:active { transform: none; }
+  }
+}

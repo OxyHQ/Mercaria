@@ -941,3 +941,53 @@ test("Bloom gallery arrows reveal on hover or keyboard focus and remain visible 
     await context.close();
   }
 });
+
+for (const mode of ["light", "dark"] as const) {
+  test(`marketplace purchase and share recipes survive Bloom defaults in ${mode} mode`, async ({ page, request }) => {
+    const product = await seededProduct(request);
+    const soldOut = product.variants.find(variant => !variant.inStock)!;
+    await page.addInitScript(mode => {
+      localStorage.setItem("mercaria.bloom.theme", JSON.stringify({ mode, colorPreset: "mono" }));
+    }, mode);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(`/products/${product.id}`);
+    const add = page.getByRole("button", { name: "Add to cart", exact: true });
+    const buy = page.getByRole("button", { name: "Buy now", exact: true });
+    const share = page.getByRole("button", { name: "Share this product", exact: true });
+    await expect(add).toHaveCSS("height", "52px");
+    await expect(add).toHaveCSS("background-color", "rgb(84, 51, 235)");
+    await expect(add).toHaveCSS("font-size", "16px");
+    await expect(add).toHaveCSS("line-height", "20px");
+    await expect(add).toHaveCSS("font-weight", "600");
+    await expect(add).not.toHaveCSS("box-shadow", "none");
+    // Shop uses min-height 52 plus 16px padding; at DPR 1 its rounded
+    // half-pixel border makes the 20px text row 54px tall.
+    await expect(buy).toHaveCSS("height", "54px");
+    await expect(buy.locator("span").first()).toHaveCSS("font-size", "16px");
+    await expect(buy.locator("span").first()).toHaveCSS("font-weight", "600");
+    await expect(buy).toHaveCSS("background-color", mode === "light" ? "rgb(18, 18, 18)" : "rgb(255, 255, 255)");
+    await expect(share).toHaveCSS("height", "44px");
+    await expect(share).toHaveCSS("background-color", mode === "light" ? "rgb(255, 255, 255)" : "rgb(18, 18, 18)");
+    await expect(share.locator("svg")).toHaveCSS("color", mode === "light" ? "rgb(0, 0, 0)" : "rgb(255, 255, 255)");
+    await add.hover();
+    await expect(add).toHaveCSS("background-color", "rgb(69, 36, 219)");
+    await page.mouse.down();
+    await expect.poll(() => add.evaluate(element => {
+      const transform = getComputedStyle(element).transform;
+      return transform === "none" || new DOMMatrixReadOnly(transform).isIdentity;
+    })).toBe(true);
+    // Release away from the CTA: this visual check must not create a cart item.
+    await page.mouse.move(0, 0);
+    await page.mouse.up();
+    await page.getByRole("button", { name: `Shade: ${soldOut.title}`, exact: true }).click();
+    const unavailable = page.getByRole("button", { name: "Sold out", exact: true });
+    await expect(unavailable).toBeDisabled();
+    await expect(unavailable).toHaveCSS("background-color", mode === "light" ? "rgb(238, 240, 241)" : "rgb(64, 64, 64)");
+    await expect(unavailable).toHaveCSS("box-shadow", "none");
+    await unavailable.hover({ force: true });
+    await expect(unavailable).toHaveCSS("background-color", mode === "light" ? "rgb(238, 240, 241)" : "rgb(64, 64, 64)");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(unavailable).toHaveCSS("height", "52px");
+    await expect(share).toHaveCSS("height", "44px");
+  });
+}

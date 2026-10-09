@@ -1,7 +1,7 @@
 {
   "name": "@mercaria/ui",
   "version": "1.0.0",
-  "description": "Shared Mercaria UI: presentational components, primitives and theme — consumed from SOURCE (no dist build)",
+  "description": "Shared Mercaria UI: presentational components, primitives and theme \u2014 consumed from SOURCE (no dist build)",
   "private": true,
   "main": "src/index.ts",
   "exports": {
@@ -11,7 +11,8 @@
     "./theme/tailwind.preset": "./src/theme/tailwind.preset.js",
     "./theme/global.css": "./src/theme/global.css",
     "./theme/shop-typography.css": "./src/theme/shop-typography.css",
-    "./theme/shop-shadows.css": "./src/theme/shop-shadows.css"
+    "./theme/shop-shadows.css": "./src/theme/shop-shadows.css",
+    "./theme/shop-controls.css": "./src/theme/shop-controls.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -30,7 +31,7 @@
     "@mercaria/shared-types": "workspace:*"
   },
   "peerDependencies": {
-    "@oxy.so/bloom": ">=7.14.1 <8",
+    "@oxy.so/bloom": ">=7.14.3 <8",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "clsx": "^2.1.1",
     "expo-blur": "~56.0.3",

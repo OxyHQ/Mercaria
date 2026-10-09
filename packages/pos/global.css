@@ -5,6 +5,7 @@
 @import "@oxy.so/bloom/design-tokens/theme.css";
 @import "@mercaria/ui/theme/shop-typography.css";
 @import "@mercaria/ui/theme/shop-shadows.css";
+@import "@mercaria/ui/theme/shop-controls.css";
 
 @source "./app/**/*.{js,jsx,ts,tsx}";
 @source "./components/**/*.{js,jsx,ts,tsx}";

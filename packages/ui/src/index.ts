@@ -78,6 +78,7 @@ export {
 // ---------------------------------------------------------------------------
 export { isRtlLocale, languageOf, RTL_LANGUAGE_CODES } from "./i18n/rtl-locales";
 export { syncLayoutDirection, type DirectionSyncResult } from "./i18n/layout-direction";
+export { useShopControlClassName } from "./lib/useShopControlClassName";
 export { useColorScheme } from "./lib/useColorScheme";
 export { useSidebarCollapse } from "./lib/useSidebarCollapse";
 
