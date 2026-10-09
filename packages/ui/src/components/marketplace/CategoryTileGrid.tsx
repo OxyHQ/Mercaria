@@ -3,6 +3,7 @@ import { Pressable, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import type { CategoryTile } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
+import { categoryImageSource } from "../../lib/shop-category-images";
 
 export interface CategoryShortcut {
   key: string;
@@ -88,7 +89,7 @@ export function CategoryTileGrid({
                   className="aspect-square flex-1 overflow-hidden rounded-xl bg-background"
                 >
                   <Image
-                    source={{ uri }}
+                    source={categoryImageSource(uri)}
                     contentFit="cover"
                     className="h-full w-full web:transition-transform web:duration-150 web:group-hover:scale-[1.03] web:motion-reduce:transition-none"
                   />

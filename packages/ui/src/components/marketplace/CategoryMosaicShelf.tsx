@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "../ui/text";
 import { SectionHeader } from "./SectionHeader";
 import { useShelfCarouselProps } from "../../lib/shelf-carousel";
+import { categoryImageSource } from "../../lib/shop-category-images";
 
 export interface CategoryMosaicItem {
   key: string;
@@ -72,7 +73,7 @@ export function CategoryMosaicShelf({
                       >
                         {item.imageUrl ? (
                           <Image
-                            source={{ uri: item.imageUrl }}
+                            source={categoryImageSource(item.imageUrl)}
                             contentFit="cover"
                             className="absolute inset-0 h-full w-full web:transition-transform web:duration-150 web:group-hover:scale-110 web:motion-reduce:transition-none web:motion-reduce:transform-none"
                           />
