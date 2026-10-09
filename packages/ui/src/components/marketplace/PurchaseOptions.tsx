@@ -42,13 +42,13 @@ function AddToCartLabel({ added, color }: { added: boolean; color: string }) {
     >
       <Animated.View testID="add-to-cart-label-motion" style={[{ height: 104 }, motion]}>
         <View style={{ height: 52, alignItems: "center", justifyContent: "center" }}>
-          <Text className="text-buttonLarge" style={{ color }}>{t("ui.purchase.addToCart")}</Text>
+          <Text className="text-shop-buttonLarge" style={{ color }}>{t("ui.purchase.addToCart")}</Text>
         </View>
         <View style={{ height: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 }}>
           <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
             <Path d="M15 9.5L10.5 15L8.5 13M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
-          <Text className="text-buttonLarge" style={{ color }}>{t("ui.purchase.added")}</Text>
+          <Text className="text-shop-buttonLarge" style={{ color }}>{t("ui.purchase.added")}</Text>
         </View>
       </Animated.View>
     </View>

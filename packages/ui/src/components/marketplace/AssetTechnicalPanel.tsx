@@ -129,14 +129,14 @@ export function AssetTechnicalPanel({ measured, claims }: AssetTechnicalPanelPro
     <View className="gap-space-24">
       {measured === undefined ? null : (
         <View className="gap-space-8 rounded-radius-16 border border-border-secondary p-space-16">
-          <Text className="text-captionBold text-text" accessibilityRole="header">
+          <Text className="text-shop-captionBold text-text" accessibilityRole="header">
             {t(ASSET_FACTS_MEASURED_TITLE_KEY)}
           </Text>
-          <Text className="text-caption text-text-secondary">
+          <Text className="text-shop-caption text-text-secondary">
             {t(ASSET_FACTS_MEASURED_NOTE_KEY)}
           </Text>
           {/* The provenance itself: who measured, with what, when. */}
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(ASSET_FACTS_MEASURED_BY_KEY, {
               processor: measured.processorName,
               version: measured.processorVersion,
@@ -146,7 +146,7 @@ export function AssetTechnicalPanel({ measured, claims }: AssetTechnicalPanelPro
           {/* The verdict is a SENTENCE, never the raw `measured`/`unsupported`
               identifier — check J counts one of those as a defect because the
               English would be generated at runtime from a wire enum. */}
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(ASSET_INSPECTION_VERDICT_KEYS[measured.verdict])}
           </Text>
 
@@ -164,10 +164,10 @@ export function AssetTechnicalPanel({ measured, claims }: AssetTechnicalPanelPro
 
       {claims.length === 0 ? null : (
         <View className="gap-space-8 rounded-radius-16 bg-bg-fill-secondary p-space-16">
-          <Text className="text-captionBold text-text" accessibilityRole="header">
+          <Text className="text-shop-captionBold text-text" accessibilityRole="header">
             {t(ASSET_FACTS_CLAIMED_TITLE_KEY)}
           </Text>
-          <Text className="text-caption text-text-secondary">
+          <Text className="text-shop-caption text-text-secondary">
             {t(ASSET_FACTS_CLAIMED_NOTE_KEY)}
           </Text>
           {claims.map((claim) => (
@@ -212,11 +212,11 @@ function FactRow({
       accessibilityLabel={`${label}: ${value}, ${badge}`}
     >
       <View className="flex-1">
-        <Text className="text-caption text-text-secondary">{label}</Text>
+        <Text className="text-shop-caption text-text-secondary">{label}</Text>
       </View>
       <View className="flex-1 items-end gap-space-4">
-        <Text className="text-bodySmall text-text">{value}</Text>
-        <Text className="text-badge text-text-tertiary">{badge}</Text>
+        <Text className="text-shop-bodySmall text-text">{value}</Text>
+        <Text className="text-shop-badge text-text-tertiary">{badge}</Text>
       </View>
     </View>
   );

@@ -214,7 +214,7 @@ export default function CanonicalProductPageScreen() {
       <ScreenShell contentClassName="md:pt-6">
         {head}
         <View className="items-center justify-center px-8 py-16">
-          <Text className="text-center text-body text-text-tertiary">{t('product.notFound')}</Text>
+          <Text className="text-center text-shop-body text-text-tertiary">{t('product.notFound')}</Text>
         </View>
       </ScreenShell>
     );
@@ -413,14 +413,14 @@ export default function CanonicalProductPageScreen() {
                 }}
                 className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
               >
-                <Text className="text-buttonMedium text-text">
+                <Text className="text-shop-buttonMedium text-text">
                   {productSave.isError ? t('common.tryAgain') : savePending
                     ? t('common.loading')
                     : t(saved ? 'product.save.productSaved' : 'product.save.product')}
                 </Text>
               </Pressable>
               {productSave.isError || toggleProductSave.isError ? (
-                <Text accessibilityRole="alert" className="text-caption text-destructive">
+                <Text accessibilityRole="alert" className="text-shop-caption text-destructive">
                   {t(productSave.isError ? 'product.save.statusError' : 'product.save.updateError')}
                 </Text>
               ) : null}
@@ -442,7 +442,7 @@ export default function CanonicalProductPageScreen() {
               onPress={() => router.push('/settings/feedback')}
               className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
             >
-              <Text className="text-buttonMedium text-text">{t('product.reportProblem')}</Text>
+              <Text className="text-shop-buttonMedium text-text">{t('product.reportProblem')}</Text>
             </Pressable>
           </View>
 
@@ -486,7 +486,7 @@ function Highlights({ page }: { page: CanonicalProductPage }) {
 
   return (
     <View className="gap-space-8">
-      <Text className="text-sectionTitle text-text" accessibilityRole="header">
+      <Text className="text-shop-sectionTitle text-text" accessibilityRole="header">
         {t('product.highlights')}
       </Text>
       {offers.highlights.map((highlight) => {
@@ -498,7 +498,7 @@ function Highlights({ page }: { page: CanonicalProductPage }) {
             className="flex-row items-center gap-space-8"
           >
             <OfferLabelBadge award={highlight.award} />
-            <Text className="text-caption text-text-secondary">
+            <Text className="text-shop-caption text-text-secondary">
               {sellerName(row.seller) ?? t('offer.sellerNotIdentified')}
             </Text>
           </View>
@@ -541,7 +541,7 @@ function IntentPicker({
       accessibilityRole="radiogroup"
       accessibilityLabel={t('product.sortOffersBy')}
     >
-      <Text className="text-captionBold text-text">{t('product.sortOffersBy')}</Text>
+      <Text className="text-shop-captionBold text-text">{t('product.sortOffersBy')}</Text>
       <View className="flex-row flex-wrap gap-space-8">
         {options.map((option) => (
           <Pressable
@@ -554,7 +554,7 @@ function IntentPicker({
               current === option ? 'border-text bg-bg-fill' : 'border-border-secondary'
             }`}
           >
-            <Text className="text-buttonMedium text-text">
+            <Text className="text-shop-buttonMedium text-text">
               {t(OFFER_INTENT_LABEL_KEYS[option])}
             </Text>
           </Pressable>

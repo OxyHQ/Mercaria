@@ -76,8 +76,8 @@ export function FacetRail({ response, selection, onSelectionChange }: FacetRailP
   if (response.facets.length === 0 && stranded.length === 0) {
     return (
       <View className="gap-space-8">
-        <Text className="text-captionBold text-text">{t('catalog.filters.title')}</Text>
-        <Text className="text-caption text-text-tertiary">{t('catalog.filters.none')}</Text>
+        <Text className="text-shop-captionBold text-text">{t('catalog.filters.title')}</Text>
+        <Text className="text-shop-caption text-text-tertiary">{t('catalog.filters.none')}</Text>
       </View>
     );
   }
@@ -85,21 +85,21 @@ export function FacetRail({ response, selection, onSelectionChange }: FacetRailP
   return (
     <View className="gap-space-24">
       <View className="flex-row items-center justify-between">
-        <Text className="text-captionBold text-text">{t('catalog.filters.title')}</Text>
+        <Text className="text-shop-captionBold text-text">{t('catalog.filters.title')}</Text>
         {selection.length > 0 ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('catalog.filters.clear')}
             onPress={() => onSelectionChange([])}
           >
-            <Text className="text-caption text-text-secondary">{t('catalog.filters.clear')}</Text>
+            <Text className="text-shop-caption text-text-secondary">{t('catalog.filters.clear')}</Text>
           </Pressable>
         ) : null}
       </View>
 
       {stranded.length > 0 ? (
         <View className="gap-space-8">
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t('catalog.filters.unavailableHere')}
           </Text>
           <View className="flex-row flex-wrap gap-space-8">
@@ -122,7 +122,7 @@ export function FacetRail({ response, selection, onSelectionChange }: FacetRailP
                       `@mercaria/ui` holds copy for and returns the key
                       unchanged for the rest — a shopper cannot tell which
                       filter to drop when it reads `out_of_stock`. */}
-                  <Text className="text-caption text-text-secondary">
+                  <Text className="text-shop-caption text-text-secondary">
                     {facetStrandedValueText(entry.facetKey, value, t, locale)} ✕
                   </Text>
                 </Pressable>
@@ -164,9 +164,9 @@ function FacetBlock({
   return (
     <View className="gap-space-8">
       {groupText === undefined ? null : (
-        <Text className="text-caption text-text-tertiary">{groupText}</Text>
+        <Text className="text-shop-caption text-text-tertiary">{groupText}</Text>
       )}
-      <Text className="text-captionBold text-text">{titleText}</Text>
+      <Text className="text-shop-captionBold text-text">{titleText}</Text>
 
       {facet.values.shape === 'buckets' ? (
         <View
@@ -192,7 +192,7 @@ function FacetBlock({
         // build. Its BOUNDS are still stated, because a shopper reading "from
         // 4.7 to 6.9 in" learns something true, where an absent block would say
         // the attribute does not exist. Named in `docs/storefront-catalog.md`.
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {facet.values.shape === 'range'
             ? `${String(facet.values.range.min)} – ${String(facet.values.range.max)}${
                 facet.values.range.unit === undefined ? '' : ` ${facet.values.range.unit}`
@@ -223,7 +223,7 @@ function FacetBlock({
       {facet.values.shape === 'money_range' &&
       facet.values.range.unconvertibleCurrencies !== undefined &&
       facet.values.range.unconvertibleCurrencies.length > 0 ? (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t('catalog.filters.pricesNotConverted', {
             currencies: facet.values.range.unconvertibleCurrencies.join(', '),
           })}
@@ -231,7 +231,7 @@ function FacetBlock({
       ) : null}
 
       {facet.unknownCount > 0 ? (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t('catalog.filters.unknownCount', { count: facet.unknownCount })}
         </Text>
       ) : null}

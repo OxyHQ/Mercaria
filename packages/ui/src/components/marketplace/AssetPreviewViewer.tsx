@@ -216,7 +216,7 @@ export function AssetPreviewViewer({
         <Renderer source={source} view={view} />
       ) : stillUri === undefined ? (
         <View className="flex-1 items-center justify-center px-space-16">
-          <Text className="text-bodySmall text-text-tertiary">
+          <Text className="text-shop-bodySmall text-text-tertiary">
             {unavailable === undefined
               ? t(ASSET_VIEWER_NO_PREVIEW_KEY)
               : t(ASSET_PREVIEW_REFUSAL_KEYS[unavailable])}
@@ -289,7 +289,7 @@ export function AssetPreviewViewer({
   const animationPicker =
     interactive && animations.length > 0 ? (
       <View className="gap-space-8">
-        <Text className="text-captionBold text-text">{t(ASSET_VIEWER_ANIMATION_KEY)}</Text>
+        <Text className="text-shop-captionBold text-text">{t(ASSET_VIEWER_ANIMATION_KEY)}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -323,21 +323,21 @@ export function AssetPreviewViewer({
       <View className="gap-space-4">
         {/* Why this is a still, when it is one — never left to be inferred. */}
         {isModel && !interactive ? (
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {Renderer === undefined || screenIsWideEnough
               ? t(ASSET_VIEWER_STATIC_ONLY_KEY)
               : t(ASSET_VIEWER_STATIC_SMALL_SCREEN_KEY)}
           </Text>
         ) : null}
         {interactive ? (
-          <Text className="text-caption text-text-tertiary">{t(ASSET_VIEWER_GESTURES_KEY)}</Text>
+          <Text className="text-shop-caption text-text-tertiary">{t(ASSET_VIEWER_GESTURES_KEY)}</Text>
         ) : null}
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t(ASSET_VIEWER_NEVER_SOURCE_KEY)}
         </Text>
         {/* `preview_only`: streamed, and no grant will ever hand it over. */}
         {isAssetPreviewFile(source) ? null : (
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(ASSET_VIEWER_STREAMED_ONLY_KEY)}
           </Text>
         )}
@@ -376,7 +376,7 @@ export function AssetPreviewViewer({
                 <Renderer source={source} view={view} />
               </View>
             ) : stillUri === undefined ? (
-              <Text className="text-bodySmall text-text-tertiary">
+              <Text className="text-shop-bodySmall text-text-tertiary">
                 {t(ASSET_VIEWER_NO_PREVIEW_KEY)}
               </Text>
             ) : (
@@ -489,7 +489,7 @@ function AnimationChip({
       }
     >
       {/* Spelled as well as announced — the selected chip is never colour alone. */}
-      <Text className="text-caption text-text">{selected ? `${label} ✓` : label}</Text>
+      <Text className="text-shop-caption text-text">{selected ? `${label} ✓` : label}</Text>
     </Pressable>
   );
 }

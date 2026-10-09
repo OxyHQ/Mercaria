@@ -143,10 +143,10 @@ function ProductBody({
 
   return (
     <>
-      <Text className="text-bodyTitleSmall text-text" numberOfLines={2}>
+      <Text className="text-shop-bodyTitleSmall text-text" numberOfLines={2}>
         {item.product.name}
       </Text>
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {t(SAVED_ITEM_SAVED_PRODUCT_KEY)}
       </Text>
 
@@ -154,7 +154,7 @@ function ProductBody({
         <View className="flex-row items-center gap-space-8">
           <OfferPrice price={item.offer.price} />
           {item.offer.conditionGroup ? (
-            <Text className="text-caption text-text-tertiary">
+            <Text className="text-shop-caption text-text-tertiary">
               {t(conditionGroupLabelKey(item.offer.conditionGroup))}
             </Text>
           ) : null}
@@ -162,7 +162,7 @@ function ProductBody({
       ) : (
         // #80 acceptance 7: the absence carries its reason, so the row still
         // tells the buyer what to do next.
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t(savedItemNoOfferKey(item.offer.reason))}
         </Text>
       )}
@@ -174,7 +174,7 @@ function ProductBody({
           ) : (
             <TrendingUp size={ICON_SIZE} className="text-text-tertiary" />
           )}
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(
               item.priceChange.direction === "down"
                 ? SAVED_ITEM_CHEAPER_KEY
@@ -185,7 +185,7 @@ function ProductBody({
       ) : null}
 
       {item.product.saveCount.disclosed ? (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t(SAVED_ITEM_PEOPLE_SAVED_KEY, { people: item.product.saveCount.count })}
         </Text>
       ) : null}
@@ -197,7 +197,7 @@ function ProductBody({
           onPress={() => onResolveSplit?.(item)}
           className="mt-space-4 self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-4"
         >
-          <Text className="text-caption text-text">{t(SAVED_ITEM_SPLIT_CHOOSE_KEY)}</Text>
+          <Text className="text-shop-caption text-text">{t(SAVED_ITEM_SPLIT_CHOOSE_KEY)}</Text>
         </Pressable>
       ) : null}
 
@@ -220,7 +220,7 @@ function ProductBody({
           className="mt-space-4 flex-row items-center gap-space-4 self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-4"
         >
           <Bell size={ICON_SIZE - 4} className="text-text-secondary" />
-          <Text className="text-caption text-text">{t(SAVED_ITEM_SET_ALERT_KEY)}</Text>
+          <Text className="text-shop-caption text-text">{t(SAVED_ITEM_SET_ALERT_KEY)}</Text>
         </Pressable>
       ) : null}
     </>
@@ -231,19 +231,19 @@ function ListingBody({ item }: { item: Extract<SavedItem, { kind: "listing" }> }
   const t = useSharedUiTranslation();
   return (
     <>
-      <Text className="text-bodyTitleSmall text-text" numberOfLines={2}>
+      <Text className="text-shop-bodyTitleSmall text-text" numberOfLines={2}>
         {item.title}
       </Text>
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {t(
           item.intent === "listing_pin"
             ? SAVED_ITEM_PINNED_LISTING_KEY
             : SAVED_ITEM_SAVED_LISTING_KEY,
         )}
       </Text>
-      <PriceDisplay price={item.price} primaryClassName="text-bodyTitleSmall text-text" />
+      <PriceDisplay price={item.price} primaryClassName="text-shop-bodyTitleSmall text-text" />
       {item.available ? null : (
-        <Text className="text-caption text-text-tertiary">{t(SAVED_ITEM_UNAVAILABLE_KEY)}</Text>
+        <Text className="text-shop-caption text-text-tertiary">{t(SAVED_ITEM_UNAVAILABLE_KEY)}</Text>
       )}
     </>
   );
@@ -272,7 +272,7 @@ function OfferPrice({ price }: { price?: { amount: number; currency: string } })
   const t = useSharedUiTranslation();
   if (!price) {
     return (
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {t(SAVED_ITEM_PRICE_UNPUBLISHED_KEY)}
       </Text>
     );
@@ -282,7 +282,7 @@ function OfferPrice({ price }: { price?: { amount: number; currency: string } })
   );
   if (!presentable) {
     return (
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {t(SAVED_ITEM_PRICE_IN_CURRENCY_KEY, { currency: price.currency })}
       </Text>
     );
@@ -290,7 +290,7 @@ function OfferPrice({ price }: { price?: { amount: number; currency: string } })
   return (
     <PriceDisplay
       price={{ amount: price.amount, currency: presentable }}
-      primaryClassName="text-bodyTitleSmall text-text"
+      primaryClassName="text-shop-bodyTitleSmall text-text"
     />
   );
 }

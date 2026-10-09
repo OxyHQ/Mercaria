@@ -120,22 +120,22 @@ export function AssetLicenceSummary({
   return (
     <View className="gap-space-16">
       <View className="gap-space-4">
-        <Text className="text-captionBold text-text" accessibilityRole="header">
+        <Text className="text-shop-captionBold text-text" accessibilityRole="header">
           {t(ASSET_LICENCE_TITLE_KEY)}
         </Text>
         {/* The licence's own NAME is the creator's, shown verbatim. */}
-        <Text className="text-bodyTitleSmall text-text">{licenceName}</Text>
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-bodyTitleSmall text-text">{licenceName}</Text>
+        <Text className="text-shop-caption text-text-tertiary">
           {t(DIGITAL_LICENCE_AUTHORSHIP_KEYS[authorship])}
         </Text>
         {summary === undefined ? null : (
-          <Text className="text-bodySmall text-text-secondary">{summary}</Text>
+          <Text className="text-shop-bodySmall text-text-secondary">{summary}</Text>
         )}
       </View>
 
       <TermsBlock title={t(ASSET_LICENCE_GRANTED_TITLE_KEY)}>
         {granted.map((right) => (
-          <Text key={`granted:${right}`} className="text-bodySmall text-text">
+          <Text key={`granted:${right}`} className="text-shop-bodySmall text-text">
             {t(DIGITAL_LICENCE_RIGHT_KEYS[right])}
           </Text>
         ))}
@@ -144,7 +144,7 @@ export function AssetLicenceSummary({
       {withheld.length === 0 ? null : (
         <TermsBlock title={t(ASSET_LICENCE_NOT_GRANTED_TITLE_KEY)}>
           {withheld.map((right) => (
-            <Text key={`withheld:${right}`} className="text-bodySmall text-text-secondary">
+            <Text key={`withheld:${right}`} className="text-shop-bodySmall text-text-secondary">
               {t(DIGITAL_LICENCE_RIGHT_KEYS[right])}
             </Text>
           ))}
@@ -152,13 +152,13 @@ export function AssetLicenceSummary({
       )}
 
       <TermsBlock title={t(ASSET_LICENCE_ATTRIBUTION_TITLE_KEY)}>
-        <Text className="text-bodySmall text-text">
+        <Text className="text-shop-bodySmall text-text">
           {t(DIGITAL_LICENCE_ATTRIBUTION_KEYS[terms.attribution])}
         </Text>
       </TermsBlock>
 
       <TermsBlock title={t(ASSET_LICENCE_UPDATES_TITLE_KEY)}>
-        <Text className="text-bodySmall text-text">
+        <Text className="text-shop-bodySmall text-text">
           {t(DIGITAL_LICENCE_UPDATE_POLICY_KEYS[updatePolicy])}
         </Text>
       </TermsBlock>
@@ -169,17 +169,17 @@ export function AssetLicenceSummary({
         to be written: an omitted row reads as a limit nobody has told you yet.
       */}
       <TermsBlock title={t(ASSET_LICENCE_LIMITS_TITLE_KEY)}>
-        <Text className="text-bodySmall text-text">
+        <Text className="text-shop-bodySmall text-text">
           {terms.seatLimit === null
             ? t(ASSET_LICENCE_SEATS_UNLIMITED_KEY)
             : t(ASSET_LICENCE_SEATS_KEY, { seats: formatWholeNumber(terms.seatLimit, locale) })}
         </Text>
-        <Text className="text-bodySmall text-text">
+        <Text className="text-shop-bodySmall text-text">
           {terms.projectLimit === null
             ? t(ASSET_LICENCE_PROJECTS_UNLIMITED_KEY)
             : t(ASSET_LICENCE_PROJECTS_KEY, { projects: formatWholeNumber(terms.projectLimit, locale) })}
         </Text>
-        <Text className="text-bodySmall text-text">
+        <Text className="text-shop-bodySmall text-text">
           {revenueLimit === undefined
             ? t(ASSET_LICENCE_REVENUE_UNLIMITED_KEY)
             : t(ASSET_LICENCE_REVENUE_KEY, { amount: revenueLimit })}
@@ -189,7 +189,7 @@ export function AssetLicenceSummary({
       {terms.additionalTerms === null ? null : (
         <TermsBlock title={t(ASSET_LICENCE_ADDITIONAL_TERMS_TITLE_KEY)}>
           {/* Verbatim. No truncation and no parsing: it is the seller's text. */}
-          <Text className="text-bodySmall text-text-secondary">{terms.additionalTerms}</Text>
+          <Text className="text-shop-bodySmall text-text-secondary">{terms.additionalTerms}</Text>
         </TermsBlock>
       )}
     </View>
@@ -209,7 +209,7 @@ function currencyCodeOf(code: string): CurrencyCode | undefined {
 function TermsBlock({ title, children }: { title: string; children: ReactNode }) {
   return (
     <View className="gap-space-4">
-      <Text className="text-captionBold text-text-secondary" accessibilityRole="header">
+      <Text className="text-shop-captionBold text-text-secondary" accessibilityRole="header">
         {title}
       </Text>
       {children}

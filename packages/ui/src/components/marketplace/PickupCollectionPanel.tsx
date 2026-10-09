@@ -66,7 +66,7 @@ export function PickupCollectionPanel({ pickup, code, onPressPlace }: PickupColl
 
   return (
     <View className="gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-16">
-      <Text className="text-sectionTitle text-text" accessibilityRole="header">
+      <Text className="text-shop-sectionTitle text-text" accessibilityRole="header">
         {t(PICKUP_PANEL_HEADING_KEY)}
       </Text>
 
@@ -75,17 +75,17 @@ export function PickupCollectionPanel({ pickup, code, onPressPlace }: PickupColl
           className="self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6"
           accessibilityRole="text"
         >
-          <Text className="text-captionBold text-text">{t(ORDER_PICKUP_STATE_KEYS[pickup.state])}</Text>
+          <Text className="text-shop-captionBold text-text">{t(ORDER_PICKUP_STATE_KEYS[pickup.state])}</Text>
         </View>
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t(ORDER_PICKUP_STATE_EXPLANATION_KEYS[pickup.state])}
         </Text>
       </View>
 
       <View className="gap-space-4">
-        <Text className="text-bodyTitleSmall text-text">{pickup.displayName}</Text>
+        <Text className="text-shop-bodyTitleSmall text-text">{pickup.displayName}</Text>
         {address.length > 0 ? (
-          <Text className="text-caption text-text-secondary">{address}</Text>
+          <Text className="text-shop-caption text-text-secondary">{address}</Text>
         ) : null}
         {pickup.goWayPlaceId === undefined || onPressPlace === undefined ? null : (
           <Pressable
@@ -96,16 +96,16 @@ export function PickupCollectionPanel({ pickup, code, onPressPlace }: PickupColl
             }}
             className="self-start"
           >
-            <Text className="text-captionBold text-text">{t(GOWAY_PLACE_LINK_KEY)}</Text>
+            <Text className="text-shop-captionBold text-text">{t(GOWAY_PLACE_LINK_KEY)}</Text>
           </Pressable>
         )}
       </View>
 
       {pickup.pickupInstructions === undefined ? null : (
-        <Text className="text-caption text-text-secondary">{pickup.pickupInstructions}</Text>
+        <Text className="text-shop-caption text-text-secondary">{pickup.pickupInstructions}</Text>
       )}
 
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {t(PICKUP_PAYMENT_REQUIREMENT_KEYS[pickup.paymentRequirement])}{" "}
         {t(PICKUP_IDENTITY_REQUIREMENT_KEYS[pickup.identityRequirement])}
       </Text>
@@ -119,18 +119,18 @@ export function PickupCollectionPanel({ pickup, code, onPressPlace }: PickupColl
       */}
       {code === undefined ? null : (
         <View className="gap-space-4 rounded-radius-12 bg-bg-fill-secondary p-space-12">
-          <Text className="text-caption text-text-secondary">
+          <Text className="text-shop-caption text-text-secondary">
             {t(PICKUP_PANEL_CODE_HEADING_KEY)}
           </Text>
           <Text
-            className="text-header text-text web:select-text"
+            className="text-shop-header text-text web:select-text"
             accessibilityLabel={t(PICKUP_PANEL_CODE_A11Y_KEY, {
               code: code.code.split("").join(" "),
             })}
           >
             {code.code}
           </Text>
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(PICKUP_PANEL_CODE_NOTE_KEY)}
           </Text>
         </View>

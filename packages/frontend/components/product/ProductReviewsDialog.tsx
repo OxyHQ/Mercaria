@@ -50,7 +50,7 @@ export function ProductReviewsDialog({
     >
       <View className="gap-space-16">
         {query.isLoading ? (
-          <Text className="text-bodySmall text-text-tertiary">
+          <Text className="text-shop-bodySmall text-text-tertiary">
             {t("common.loading")}
           </Text>
         ) : null}
@@ -60,7 +60,7 @@ export function ProductReviewsDialog({
           </Button>
         ) : null}
         {!query.isLoading && !query.isError && query.data?.data.length === 0 ? (
-          <Text className="text-bodySmall text-text-tertiary">
+          <Text className="text-shop-bodySmall text-text-tertiary">
             {t("store.reviews.none")}
           </Text>
         ) : null}
@@ -74,7 +74,7 @@ export function ProductReviewsDialog({
         ))}
         {pagination && pagination.pages > 1 ? (
           <View className="gap-space-12">
-            <Text className="text-center text-caption text-text-tertiary">
+            <Text className="text-center text-shop-caption text-text-tertiary">
               {t("common.pagination.pageOf", { page, pages: pagination.pages })}
             </Text>
             <View className="flex-row justify-between gap-space-8">

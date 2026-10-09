@@ -174,10 +174,10 @@ export function ShoppingAgentCard({
         className="flex-row items-start gap-space-8"
       >
         <View className="flex-1 gap-space-4">
-          <Text className="text-bodyTitleSmall text-text" numberOfLines={2}>
+          <Text className="text-shop-bodyTitleSmall text-text" numberOfLines={2}>
             {agent.name}
           </Text>
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(SHOPPING_AGENT_JOB_LABEL_KEYS[agent.kind])} · {t(SHOPPING_AGENT_STATE_LABEL_KEYS[agent.state])}
           </Text>
         </View>
@@ -189,35 +189,35 @@ export function ShoppingAgentCard({
       </Pressable>
 
       {agent.description ? (
-        <Text className="text-caption text-text-tertiary">{agent.description}</Text>
+        <Text className="text-shop-caption text-text-tertiary">{agent.description}</Text>
       ) : null}
 
       {/* UX rule 2 — the OBJECTIVE, and which cost it is measured against. */}
       {agent.target ? (
         <View className="flex-row items-center gap-space-4">
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(SHOPPING_AGENT_CARD_TARGET_PREFIX_KEY)}
           </Text>
-          <PriceDisplay price={agent.target} primaryClassName="text-bodyTitleSmall text-text" />
-          <Text className="text-caption text-text-tertiary">
+          <PriceDisplay price={agent.target} primaryClassName="text-shop-bodyTitleSmall text-text" />
+          <Text className="text-shop-caption text-text-tertiary">
             {t(SHOPPING_AGENT_PRICE_BASIS_LABEL_KEYS[agent.priceBasis])}
           </Text>
         </View>
       ) : (
-        <Text className="text-caption text-text">
+        <Text className="text-shop-caption text-text">
           {t(SHOPPING_AGENT_JOB_EXPLANATION_KEYS[agent.kind])}
         </Text>
       )}
 
       {/* UX rule 2 — the currency, the market and the scope that decide a match. */}
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {scopeParts.join(t(SHOPPING_AGENT_CARD_SCOPE_SEPARATOR_KEY))}
       </Text>
 
       {/* UX rule 2 — the notification policy, in plain words. Two whole frames
           rather than one plus a glued suffix: the quiet-hours clause carries its
           own separator, so a language that joins the two differently can say so. */}
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {agent.quietHours
           ? t(SHOPPING_AGENT_CARD_NOTIFY_POLICY_QUIET_KEY, {
               channels,
@@ -234,7 +234,7 @@ export function ShoppingAgentCard({
 
       {constraints.length > 0 ? (
         <View className="gap-space-4">
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(SHOPPING_AGENT_CARD_REQUIREMENTS_KEY)}
           </Text>
           {constraints.map((constraint) => (
@@ -245,7 +245,7 @@ export function ShoppingAgentCard({
 
       {agent.lines.length > 0 ? (
         <View className="gap-space-4">
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(SHOPPING_AGENT_CARD_WATCHING_KEY, { things: agent.lines.length })}
           </Text>
           {agent.lines.map((line) => (
@@ -255,7 +255,7 @@ export function ShoppingAgentCard({
               accessibilityLabel={t(SHOPPING_AGENT_CARD_OPEN_PRODUCT_KEY)}
               onPress={() => onOpenProduct?.(line.canonicalProductId)}
             >
-              <Text className="text-caption text-text-secondary" numberOfLines={1}>
+              <Text className="text-shop-caption text-text-secondary" numberOfLines={1}>
                 {t(SHOPPING_AGENT_CARD_LINE_KEY, {
                   quantity: line.quantity,
                   product: line.canonicalProductId,
@@ -268,7 +268,7 @@ export function ShoppingAgentCard({
 
       {ambiguous ? (
         <View className="gap-space-4 rounded-radius-12 bg-bg-fill-secondary p-space-8">
-          <Text className="text-caption text-text">
+          <Text className="text-shop-caption text-text">
             {t(SHOPPING_AGENT_CARD_SPLIT_EXPLANATION_KEY)}
           </Text>
           <SplitCandidate
@@ -346,7 +346,7 @@ export function ShoppingAgentCard({
           that used to be glued on here carried the separator INSIDE the
           fragment, so no language could join the two clauses its own way and a
           right-to-left one got a `·` whose side the surrounding run decided. */}
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {lastLooked === null
           ? nextScheduled === null
             ? t(SHOPPING_AGENT_CARD_NEVER_LOOKED_KEY)
@@ -374,14 +374,14 @@ function ConstraintLine({ constraint }: { constraint: ProductConstraint }) {
   const t = useSharedUiTranslation();
   return (
     <View className="flex-row items-start gap-space-4">
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {t(
           constraint.strength === "hard"
             ? SHOPPING_AGENT_CARD_CONSTRAINT_HARD_KEY
             : SHOPPING_AGENT_CARD_CONSTRAINT_SOFT_KEY,
         )}
       </Text>
-      <Text className="flex-1 text-caption text-text-secondary">{constraint.explanation}</Text>
+      <Text className="flex-1 text-shop-caption text-text-secondary">{constraint.explanation}</Text>
     </View>
   );
 }
@@ -408,7 +408,7 @@ function RowAction({
       className="flex-row items-center gap-space-4"
     >
       {icon}
-      <Text className="text-caption text-text-secondary">{text}</Text>
+      <Text className="text-shop-caption text-text-secondary">{text}</Text>
     </Pressable>
   );
 }
@@ -430,7 +430,7 @@ function SplitChoice({
       onPress={onPress}
       className="rounded-radius-max bg-bg-fill px-space-12 py-space-4"
     >
-      <Text className="text-caption text-text">{label}</Text>
+      <Text className="text-shop-caption text-text">{label}</Text>
     </Pressable>
   );
 }
@@ -471,7 +471,7 @@ function SplitCandidate({
       accessibilityLabel={t(a11yKey)}
       onPress={() => onOpenProduct?.(canonicalProductId)}
     >
-      <Text className="text-caption text-text-secondary" numberOfLines={1}>
+      <Text className="text-shop-caption text-text-secondary" numberOfLines={1}>
         {t(lineKey, { product: canonicalProductId })}
       </Text>
     </Pressable>

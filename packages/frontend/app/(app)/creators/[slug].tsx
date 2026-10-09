@@ -52,7 +52,7 @@ export default function CreatorScreen() {
       </Head>
 
       <View className="mb-space-32 gap-space-24 web:mx-auto web:w-full web:max-w-[1200px] md:px-5">
-        <Text className="text-headerBold text-text" accessibilityRole="header">
+        <Text className="text-shop-headerBold text-text" accessibilityRole="header">
           {title}
         </Text>
 
@@ -62,10 +62,10 @@ export default function CreatorScreen() {
           <>
             {source.value.biography === undefined ? null : (
               /* The creator's own words, verbatim. */
-              <Text className="text-bodySmall text-text-secondary">{source.value.biography}</Text>
+              <Text className="text-shop-bodySmall text-text-secondary">{source.value.biography}</Text>
             )}
             <View className="gap-space-8">
-              <Text className="text-captionBold text-text" accessibilityRole="header">
+              <Text className="text-shop-captionBold text-text" accessibilityRole="header">
                 {t('digital.creator.worksTitle')}
               </Text>
               {/* `filtered: false` — this page offers no filter rail, so an empty

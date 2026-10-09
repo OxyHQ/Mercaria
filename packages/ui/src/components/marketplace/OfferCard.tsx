@@ -32,8 +32,8 @@ export function OfferCard({ label, caption, onPress }: OfferCardProps) {
         <Sparkles size={OFFER_ICON_SIZE} className="text-text-brand" />
       </View>
       <View className="flex-1">
-        <Text className="text-bodyTitleSmall text-text-brand">{label}</Text>
-        <Text className="text-caption text-text-tertiary">{caption}</Text>
+        <Text className="text-shop-bodyTitleSmall text-text-brand">{label}</Text>
+        <Text className="text-shop-caption text-text-tertiary">{caption}</Text>
       </View>
       <ChevronRight size={OFFER_ICON_SIZE} className="text-text-brand" />
     </Pressable>

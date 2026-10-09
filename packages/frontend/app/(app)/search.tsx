@@ -125,7 +125,7 @@ export default function SearchScreen() {
       </Head>
 
       <View className="w-full max-w-3xl gap-4 self-center px-4 py-6">
-        <Text accessibilityRole="header" className="text-center text-headerBold text-foreground">
+        <Text accessibilityRole="header" className="text-center text-shop-headerBold text-foreground">
           {initialQuery || t("search.box.label")}
         </Text>
 

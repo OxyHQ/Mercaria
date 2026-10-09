@@ -90,7 +90,7 @@ export default function WatchlistDetailScreen() {
                 onPress={() => recordSnapshot.mutate({ watchlistId })}
                 className="items-center rounded-radius-max border border-border-secondary py-space-12"
               >
-                <Text className="text-buttonMedium text-text">
+                <Text className="text-shop-buttonMedium text-text">
                   {recordSnapshot.isPending
                     ? t("watchlists.detail.saving")
                     : t("watchlists.detail.saveMeasurement")}

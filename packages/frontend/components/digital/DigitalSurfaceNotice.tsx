@@ -53,8 +53,8 @@ export function DigitalSurfaceNotice({ reason }: DigitalSurfaceNoticeProps) {
     case 'no_digital_read_surface':
       return (
         <View className="gap-space-4 rounded-radius-16 border border-border-secondary p-space-16">
-          <Text className="text-captionBold text-text">{t('digital.unavailable.title')}</Text>
-          <Text className="text-bodySmall text-text-secondary">
+          <Text className="text-shop-captionBold text-text">{t('digital.unavailable.title')}</Text>
+          <Text className="text-shop-bodySmall text-text-secondary">
             {t('digital.unavailable.body')}
           </Text>
         </View>

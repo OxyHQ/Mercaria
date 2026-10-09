@@ -67,7 +67,7 @@ export function CommercialDisclosure({
   return (
     <View className="gap-space-8">
       <Text
-        className="text-captionBold text-text"
+        className="text-shop-captionBold text-text"
         accessibilityRole="text"
         // The name alone would announce a company with no relation to the
         // purchase. Naming the ROLE is the `scopeLabel` convention this package
@@ -91,12 +91,12 @@ export function CommercialDisclosure({
                   label: commercialDisclosureLabel(t, key),
                 })}
               >
-                <Text className="text-captionBold text-text">
+                <Text className="text-shop-captionBold text-text">
                   {commercialDisclosureLabel(t, key)}
                 </Text>
               </View>
               {showExplanations ? (
-                <Text className="text-caption text-text-secondary">
+                <Text className="text-shop-caption text-text-secondary">
                   {commercialDisclosureExplanation(t, key)}
                 </Text>
               ) : null}
@@ -109,7 +109,7 @@ export function CommercialDisclosure({
         // rather than as a sentence written here. A placed order carries the
         // windows it was made under (#126's role snapshot), so a copy change
         // here can never restate what somebody already agreed to.
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t(COMMERCIAL_RIGHTS_KEY, {
             cancellationHours: presentation.rights.cancellationWindowHours,
             withdrawalDays: presentation.rights.withdrawalWindowDays,

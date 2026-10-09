@@ -68,14 +68,14 @@ export function ReviewCard({
         and counted separately in the aggregate (#76 verification rule 5) — the
         two must agree, and reading the same field is how.
       */}
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {t(VERIFICATION_LABEL_KEYS[review.verification] ??
           VERIFICATION_LABEL_KEYS.unverified)}
       </Text>
       {review.title ? (
         <Text
           numberOfLines={expanded ? undefined : 1}
-          className="text-captionMedium text-text"
+          className="text-shop-captionMedium text-text"
         >
           {review.title}
         </Text>
@@ -83,7 +83,7 @@ export function ReviewCard({
       {review.body ? (
         <Text
           numberOfLines={expanded ? undefined : 4}
-          className="text-caption text-text"
+          className="text-shop-caption text-text"
         >
           {review.body}
         </Text>
@@ -104,7 +104,7 @@ export function ReviewCard({
             at all. */}
         <Text
           numberOfLines={1}
-          className="flex-1 text-caption text-text-tertiary"
+          className="flex-1 text-shop-caption text-text-tertiary"
         >
           {date === null ? author : `${author} · ${date}`}
         </Text>

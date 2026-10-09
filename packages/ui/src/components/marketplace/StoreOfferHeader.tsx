@@ -38,7 +38,7 @@ export function StoreOfferHeader({ store, discount, onPress }: StoreOfferHeaderP
         <Image source={merchantImageSource(store.logoUrl)} contentFit="cover"
           style={{ width: 44, height: 44 }} />
       ) : (
-        <Text className="text-bodyTitleLarge text-text">{Array.from(store.name)[0]}</Text>
+        <Text className="text-shop-bodyTitleLarge text-text">{Array.from(store.name)[0]}</Text>
       )}
     </View>
   );
@@ -52,11 +52,11 @@ export function StoreOfferHeader({ store, discount, onPress }: StoreOfferHeaderP
         {discount.exclusive ? <IncentiveHalo>{logo}</IncentiveHalo> : logo}
       </View>
       <View className="min-w-0 flex-1 gap-space-4">
-        <Text numberOfLines={1} className="text-subtitle text-text md:text-sectionTitle">
+        <Text numberOfLines={1} className="text-shop-subtitle text-text md:text-shop-sectionTitle">
           {store.name}
         </Text>
         {saving ? (
-          <Text numberOfLines={1} className="text-bodySmall" testID="store-offer-saving">
+          <Text numberOfLines={1} className="text-shop-bodySmall" testID="store-offer-saving">
             <Text className="text-text-brand">{saving}</Text>
             {condition ? <Text className="text-text-tertiary">{` ${condition}`}</Text> : null}
           </Text>

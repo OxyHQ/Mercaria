@@ -152,8 +152,8 @@ export function MerchantHeader({
             numberOfLines={1}
             className={
               isLarge
-                ? "text-bodyTitleLarge text-text"
-                : "text-bodyTitleSmall text-text"
+                ? "text-shop-bodyTitleLarge text-text"
+                : "text-shop-bodyTitleSmall text-text"
             }
           >
             {name}
@@ -166,7 +166,7 @@ export function MerchantHeader({
             />
           ) : null}
           {discountPercent !== undefined && discountPercent > 0 ? (
-            <Text className="text-captionBold text-text-brand">
+            <Text className="text-shop-captionBold text-text-brand">
               {t(PRODUCT_CARD_DISCOUNT_KEY, {
                 percent: formatPercent(
                   discountPercent * BASIS_POINTS_PER_PERCENT,
@@ -186,7 +186,7 @@ export function MerchantHeader({
           onPress={onPress}
           className="rounded-radius-max border-[1.5px] border-border-secondary px-space-16 py-space-8"
         >
-          <Text className="text-buttonMedium text-text">
+          <Text className="text-shop-buttonMedium text-text">
             {t(MERCHANT_HEADER_VISIT_STORE_KEY)}
           </Text>
         </Pressable>

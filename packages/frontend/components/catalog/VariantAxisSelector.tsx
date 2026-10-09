@@ -47,7 +47,7 @@ export function VariantAxisSelector({ matrix, onChoose }: VariantAxisSelectorPro
         <AxisRow key={axis.key} axis={axis} onChoose={onChoose} />
       ))}
       {matrix.availabilityKnown ? null : (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t('catalog.variants.availabilityUnknown')}
         </Text>
       )}
@@ -64,7 +64,7 @@ function AxisRow({
 }) {
   return (
     <View className="gap-space-8">
-      <Text className="text-captionBold text-text">{axis.label}</Text>
+      <Text className="text-shop-captionBold text-text">{axis.label}</Text>
       <View
         className="flex-row flex-wrap gap-space-8"
         accessibilityRole="radiogroup"

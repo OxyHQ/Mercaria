@@ -63,7 +63,7 @@ export function DigitalAssetGrid({ pages, filtered }: DigitalAssetGridProps) {
 
   if (products.length === 0) {
     return (
-      <Text className="text-bodySmall text-text-tertiary">
+      <Text className="text-shop-bodySmall text-text-tertiary">
         {filtered
           ? t('digital.grid.emptyFiltered')
           : offersIncluded

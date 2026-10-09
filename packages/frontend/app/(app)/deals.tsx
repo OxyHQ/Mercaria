@@ -79,7 +79,7 @@ export default function DealsScreen() {
         </Text>
 
         {feed.isLoading && feed.data === undefined ? (
-          <Text className="text-body text-text-tertiary">{t('common.loading')}</Text>
+          <Text className="text-shop-body text-text-tertiary">{t('common.loading')}</Text>
         ) : null}
 
         {/* A FAILED request is not "no active deals" — that is a real state
@@ -88,7 +88,7 @@ export default function DealsScreen() {
             fall through and read as the confident, unrelated claim. */}
         {feed.isError && feed.data === undefined ? (
           <View className="items-center px-8 py-16">
-            <Text className="text-center text-body text-text-tertiary">
+            <Text className="text-center text-shop-body text-text-tertiary">
               {t('discovery.deals.loadError')}
             </Text>
             <Pressable
@@ -103,7 +103,7 @@ export default function DealsScreen() {
         ) : null}
 
         {!feed.isLoading && !feed.isError && sections.length === 0 ? (
-          <Text className="text-body text-text-tertiary">{t('discovery.deals.empty')}</Text>
+          <Text className="text-shop-body text-text-tertiary">{t('discovery.deals.empty')}</Text>
         ) : null}
       </View>
 

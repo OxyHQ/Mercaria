@@ -56,7 +56,7 @@ export default function WatchlistsScreen() {
               onPress={() => openAccountDialog()}
               className="items-center rounded-radius-max bg-primary py-space-12"
             >
-              <Text className="text-buttonMedium text-primary-foreground">
+              <Text className="text-shop-buttonMedium text-primary-foreground">
                 {t("watchlists.signedOut.signIn")}
               </Text>
             </Pressable>
@@ -110,7 +110,7 @@ export default function WatchlistsScreen() {
               }
               className="items-center rounded-radius-max border border-border-secondary py-space-12"
             >
-              <Text className="text-buttonMedium text-text">
+              <Text className="text-shop-buttonMedium text-text">
                 {atLimit
                   ? t("watchlists.atLimit", { count: WATCHLIST_MAX_LISTS_PER_OWNER })
                   : t("watchlists.newList")}

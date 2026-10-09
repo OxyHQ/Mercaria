@@ -140,7 +140,7 @@ export function ProductCard({
             pointerEvents="none"
             className="absolute start-3 top-3 rounded-full bg-black/30 px-1.5 py-0.5"
           >
-            <Text className="text-badgeBold text-white">
+            <Text className="text-shop-badgeBold text-white">
               {priceText.primary}
             </Text>
           </View>

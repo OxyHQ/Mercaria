@@ -495,7 +495,11 @@ for (const [layout, value] of [
         product: {
           id, slug: "specification-preview", status: "active", name: "Specification preview",
           aliases: [], searchTokens: [], variantDefiningAttributeKeys: [], images: [],
-          attributes: [], identifiers: [], fieldProvenance: [],
+          attributes: [{
+            key: "material", definitionVersion: 1, position: 0,
+            displayValue: "Superseded source material", normalizationState: "normalized",
+            selectionState: "superseded",
+          }], identifiers: [], fieldProvenance: [],
           rating: 0, ratingCount: 0, variantCount: 0,
           firstSeenAt: now, createdAt: now, updatedAt: now,
         },
@@ -513,6 +517,8 @@ for (const [layout, value] of [
     await page.goto("/p/specification-preview");
     const grid = page.getByTestId("pdp-specifications-grid");
     await expect(grid).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Specifications", exact: true })).toHaveCount(1);
+    await expect(page.getByText("Superseded source material", { exact: true })).toHaveCount(0);
     const cells = grid.getByTestId("pdp-specification-cell");
     await expect(cells).toHaveCount(3);
     await expect(cells.first()).toContainText(value);

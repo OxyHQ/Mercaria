@@ -71,7 +71,7 @@ export default function SignalScreen() {
     return (
       <ScreenShell contentClassName="pt-6">
         <View className="items-center justify-center px-8 py-16">
-          <Text className="text-center text-body text-text-tertiary">
+          <Text className="text-center text-shop-body text-text-tertiary">
             {t('discovery.signal.notFound')}
           </Text>
         </View>
@@ -82,7 +82,7 @@ export default function SignalScreen() {
   if (tree.isLoading && tree.data === undefined) {
     return (
       <ScreenShell contentClassName="pt-6">
-        <Text className="px-8 py-16 text-body text-text-tertiary">{t('common.loading')}</Text>
+        <Text className="px-8 py-16 text-shop-body text-text-tertiary">{t('common.loading')}</Text>
       </ScreenShell>
     );
   }
@@ -95,7 +95,7 @@ export default function SignalScreen() {
     return (
       <ScreenShell contentClassName="pt-6">
         <View className="items-center justify-center px-8 py-16">
-          <Text className="text-center text-body text-text-tertiary">
+          <Text className="text-center text-shop-body text-text-tertiary">
             {t('catalog.category.loadError')}
           </Text>
           <Pressable
@@ -117,7 +117,7 @@ export default function SignalScreen() {
     return (
       <ScreenShell contentClassName="pt-6">
         <View className="items-center justify-center px-8 py-16">
-          <Text className="text-center text-body text-text-tertiary">
+          <Text className="text-center text-shop-body text-text-tertiary">
             {t('catalog.category.notFound')}
           </Text>
         </View>
@@ -140,7 +140,7 @@ export default function SignalScreen() {
     <ScreenShell contentClassName="pt-6">
       {head}
       <View className="web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
-        <Text className="text-headerBold text-text" accessibilityRole="header">
+        <Text className="text-shop-headerBold text-text" accessibilityRole="header">
           {title}
         </Text>
 
@@ -148,13 +148,13 @@ export default function SignalScreen() {
             instead of letting the shopper find the edge on their own. The
             complete case needs no caveat — it is the unqualified default. */}
         {pageDepth === 'capped' ? (
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t('discovery.signal.cappedNotice')}
           </Text>
         ) : null}
 
         {signalPage.isLoading && products.length === 0 ? (
-          <Text className="text-body text-text-tertiary">{t('common.loading')}</Text>
+          <Text className="text-shop-body text-text-tertiary">{t('common.loading')}</Text>
         ) : null}
 
         {/* A FAILED request is not "nothing to show" — checked before the
@@ -162,7 +162,7 @@ export default function SignalScreen() {
             unrelated, confident claim. */}
         {signalPage.isError && products.length === 0 ? (
           <View className="items-center px-8 py-16">
-            <Text className="text-center text-body text-text-tertiary">
+            <Text className="text-center text-shop-body text-text-tertiary">
               {t('discovery.signal.loadError')}
             </Text>
             <Pressable
@@ -177,7 +177,7 @@ export default function SignalScreen() {
         ) : null}
 
         {!signalPage.isLoading && !signalPage.isError && products.length === 0 ? (
-          <Text className="text-body text-text-tertiary">{t('discovery.signal.empty')}</Text>
+          <Text className="text-shop-body text-text-tertiary">{t('discovery.signal.empty')}</Text>
         ) : null}
 
         {products.length > 0 ? (

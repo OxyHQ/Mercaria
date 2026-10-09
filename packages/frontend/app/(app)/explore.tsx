@@ -124,7 +124,7 @@ export default function CategoryIndexScreen() {
     return (
       <ScreenShell contentClassName="pt-6">
         {head}
-        <Text className="px-8 py-16 text-body text-text-tertiary">{t('common.loading')}</Text>
+        <Text className="px-8 py-16 text-shop-body text-text-tertiary">{t('common.loading')}</Text>
       </ScreenShell>
     );
   }
@@ -141,7 +141,7 @@ export default function CategoryIndexScreen() {
       <ScreenShell contentClassName="pt-6">
         {head}
         <View className="items-center px-8 py-16">
-          <Text className="text-center text-body text-text-tertiary">
+          <Text className="text-center text-shop-body text-text-tertiary">
             {t('catalog.categoryIndex.loadError')}
           </Text>
           <Pressable
@@ -190,7 +190,7 @@ export default function CategoryIndexScreen() {
            * caught above, before `sections` is even read, precisely so it
            * cannot fall through and be told apart from this one.
            */
-          <Text className="text-body text-text-tertiary">
+          <Text className="text-shop-body text-text-tertiary">
             {t('catalog.categoryIndex.empty')}
           </Text>
         ) : null}

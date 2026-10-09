@@ -57,20 +57,20 @@ export function DigitalVersionHistory({ versions }: DigitalVersionHistoryProps) 
         >
           <View className="flex-row items-center gap-space-8">
             {/* The creator's own label, verbatim — see the module note. */}
-            <Text className="text-bodyTitleSmall text-text">{version.label}</Text>
+            <Text className="text-shop-bodyTitleSmall text-text">{version.label}</Text>
             {version.current ? (
               <View className="rounded-radius-max bg-bg-fill-secondary px-space-8 py-space-4">
-                <Text className="text-badge text-text">{t('digital.asset.currentVersion')}</Text>
+                <Text className="text-shop-badge text-text">{t('digital.asset.currentVersion')}</Text>
               </View>
             ) : null}
           </View>
           {/* The APP's locale, never the device's (#488/#529: a bare
               `toLocaleDateString()` is check H's exact-count failure). */}
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {formatDate(version.releasedAt, locale)}
           </Text>
           {version.notes === undefined ? null : (
-            <Text className="text-bodySmall text-text-secondary">{version.notes}</Text>
+            <Text className="text-shop-bodySmall text-text-secondary">{version.notes}</Text>
           )}
         </View>
       ))}

@@ -55,7 +55,7 @@ export function ProductCarousel({
         showArrows={cardVariant === "image-only" ? false : shelf.showArrows}
         style={{ gap: 16 }}
         accessibilityLabel={title ?? t(CAROUSEL_PRODUCTS_KEY)}
-        header={header ?? (title ? <Text className="text-subtitle text-foreground md:text-sectionTitle">{title}</Text> : undefined)}
+        header={header ?? (title ? <Text className="text-shop-subtitle text-foreground md:text-shop-sectionTitle">{title}</Text> : undefined)}
       >
         {products.map((product) => (
           <CarouselItem key={product.id} width={slotWidth}>

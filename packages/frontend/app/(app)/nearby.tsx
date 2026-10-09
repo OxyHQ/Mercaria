@@ -128,7 +128,7 @@ export default function NearbyScreen() {
         />
 
         {error === null ? null : (
-          <Text className="text-caption text-text-secondary" accessibilityRole="alert">
+          <Text className="text-shop-caption text-text-secondary" accessibilityRole="alert">
             {error}
           </Text>
         )}

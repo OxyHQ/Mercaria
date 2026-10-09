@@ -93,34 +93,34 @@ export function PriceAlertCard({
         onPress={() => onOpen?.(alert)}
         className="gap-space-4"
       >
-        <Text className="text-bodyTitleSmall text-text" numberOfLines={2}>
+        <Text className="text-shop-bodyTitleSmall text-text" numberOfLines={2}>
           {productName ?? t(PRICE_ALERT_SAVED_PRODUCT_KEY)}
         </Text>
         <View className="flex-row items-center gap-space-4">
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(PRICE_ALERT_TARGET_PREFIX_KEY)}
           </Text>
-          <PriceDisplay price={alert.target} primaryClassName="text-bodyTitleSmall text-text" />
-          <Text className="text-caption text-text-tertiary">{basisText}</Text>
+          <PriceDisplay price={alert.target} primaryClassName="text-shop-bodyTitleSmall text-text" />
+          <Text className="text-shop-caption text-text-tertiary">{basisText}</Text>
         </View>
       </Pressable>
 
       {/* UX rule 4 — WHICH conditions and merchants count, on the row itself. */}
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {t(PRICE_ALERT_SCOPE_LINE_KEY, { segments, sellers })}
       </Text>
 
       {alert.state === "triggered" ? (
-        <Text className="text-caption text-text-tertiary">{t(PRICE_ALERT_NOTIFIED_KEY)}</Text>
+        <Text className="text-shop-caption text-text-tertiary">{t(PRICE_ALERT_NOTIFIED_KEY)}</Text>
       ) : null}
 
       {alert.state === "paused" && !ambiguous ? (
-        <Text className="text-caption text-text-tertiary">{t(PRICE_ALERT_PAUSED_KEY)}</Text>
+        <Text className="text-shop-caption text-text-tertiary">{t(PRICE_ALERT_PAUSED_KEY)}</Text>
       ) : null}
 
       {ambiguous ? (
         <View className="gap-space-4">
-          <Text className="text-caption text-text">
+          <Text className="text-shop-caption text-text">
             {t(PRICE_ALERT_SPLIT_EXPLANATION_KEY)}
           </Text>
           <View className="flex-row gap-space-8">
@@ -192,7 +192,7 @@ function RowAction({
       className="flex-row items-center gap-space-4"
     >
       {icon}
-      <Text className="text-caption text-text-secondary">{text}</Text>
+      <Text className="text-shop-caption text-text-secondary">{text}</Text>
     </Pressable>
   );
 }
@@ -205,7 +205,7 @@ function SplitChoice({ label, onPress }: { label: string; onPress: () => void })
       onPress={onPress}
       className="rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-4"
     >
-      <Text className="text-caption text-text">{label}</Text>
+      <Text className="text-shop-caption text-text">{label}</Text>
     </Pressable>
   );
 }

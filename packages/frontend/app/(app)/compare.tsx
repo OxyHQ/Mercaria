@@ -201,14 +201,14 @@ export default function CompareScreen() {
         <Text className="text-2xl font-bold text-foreground">{t("compare.heading")}</Text>
 
         {handles.length < 2 && watchlistId === undefined ? (
-          <Text className="text-body text-text-secondary">{t("compare.pickTwo")}</Text>
+          <Text className="text-shop-body text-text-secondary">{t("compare.pickTwo")}</Text>
         ) : null}
 
         {comparison.isLoading ? (
           <Loading variant="inline" size="sm" accessibilityLabel={t("compare.comparingA11y")} />
         ) : null}
         {comparison.error ? (
-          <Text className="text-body text-text-secondary">
+          <Text className="text-shop-body text-text-secondary">
             {comparison.error instanceof Error
               ? comparison.error.message
               : t("compare.comparisonFailed")}
@@ -228,10 +228,10 @@ export default function CompareScreen() {
               legitimate question whose answer has fewer shared rows.
             */}
             {comparability?.kind === "no_shared_facts" ? (
-              <Text className="text-body text-text-secondary">{t("compare.noSharedFacts")}</Text>
+              <Text className="text-shop-body text-text-secondary">{t("compare.noSharedFacts")}</Text>
             ) : null}
             {comparability?.kind === "comparable_across_categories" ? (
-              <Text className="text-caption text-text-secondary">
+              <Text className="text-shop-caption text-text-secondary">
                 {t("compare.acrossCategories", { count: comparability.sharedRowCount })}
               </Text>
             ) : null}
@@ -245,7 +245,7 @@ export default function CompareScreen() {
             )}
             <ComparisonExplanationBlock explanation={comparison.data.explanation} />
             {comparison.data.input.gaps.length === 0 ? null : (
-              <Text className="text-caption text-text-secondary">
+              <Text className="text-shop-caption text-text-secondary">
                 {t("compare.gaps", { count: comparison.data.input.gaps.length })}
               </Text>
             )}
@@ -272,14 +272,14 @@ export default function CompareScreen() {
         </View>
 
         {actionNotice === undefined ? null : (
-          <Text className="text-caption text-text-secondary">{actionNotice}</Text>
+          <Text className="text-shop-caption text-text-secondary">{actionNotice}</Text>
         )}
 
         {basket.isLoading ? (
           <Loading variant="inline" size="sm" accessibilityLabel={t("compare.planningA11y")} />
         ) : null}
         {basket.error ? (
-          <Text className="text-body text-text-secondary">
+          <Text className="text-shop-body text-text-secondary">
             {basket.error instanceof Error ? basket.error.message : t("compare.basketFailed")}
           </Text>
         ) : null}
@@ -338,7 +338,7 @@ function ChoiceRow<T extends string>({
   const choices = values.map((member) => ({ value: member, label: t(labelKeys[member]) }));
   return (
     <View className="gap-space-4">
-      <Text className="text-caption text-text-secondary">{label}</Text>
+      <Text className="text-shop-caption text-text-secondary">{label}</Text>
       <View className="flex-row flex-wrap gap-space-8">
         {choices.map((choice) => (
           <Pressable
@@ -363,8 +363,8 @@ function ChoiceRow<T extends string>({
             <Text
               className={
                 choice.value === value
-                  ? "text-captionBold text-text-inverted"
-                  : "text-caption text-text"
+                  ? "text-shop-captionBold text-text-inverted"
+                  : "text-shop-caption text-text"
               }
             >
               {/* The selected state is announced AND spelled, never colour alone. */}
@@ -393,7 +393,7 @@ function ConditionRow({
   const { t } = useTranslation();
   return (
     <View className="gap-space-4">
-      <Text className="text-caption text-text-secondary">{t("compare.conditionLabel")}</Text>
+      <Text className="text-shop-caption text-text-secondary">{t("compare.conditionLabel")}</Text>
       <View className="flex-row flex-wrap gap-space-8">
         {CONDITION_GROUPS.map((group) => {
           const selected = value.includes(group);
@@ -419,7 +419,7 @@ function ConditionRow({
                   : "rounded-radius-max border border-border-secondary px-space-12 py-space-6"
               }
             >
-              <Text className="text-caption text-text">
+              <Text className="text-shop-caption text-text">
                 {selected ? `${t(conditionGroupLabelKey(group))} ✓` : t(conditionGroupLabelKey(group))}
               </Text>
             </Pressable>

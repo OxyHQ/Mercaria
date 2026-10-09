@@ -189,7 +189,7 @@ function CollectionRow({
           <StoreIcon size={ROW_ICON_SIZE} color={toneColor} />
         )}
       </View>
-      <Text numberOfLines={1} className="flex-1 text-buttonLarge" style={{ color: toneColor }}>
+      <Text numberOfLines={1} className="flex-1 text-shop-buttonLarge" style={{ color: toneColor }}>
         {title}
       </Text>
     </Pressable>
@@ -218,7 +218,7 @@ function PolicyRow({
       className="flex-row items-center gap-space-12 px-space-16 py-space-12 web:transition-colors web:hover:bg-white/10"
     >
       {icon}
-      <Text className="flex-1 text-body" style={{ color: toneColor }}>
+      <Text className="flex-1 text-shop-body" style={{ color: toneColor }}>
         {label}
       </Text>
       <Chevron size={ROW_ICON_SIZE} color={toneColor} />
@@ -292,12 +292,12 @@ function StoreReviewCard({
           emptyStarColor={`${toneColor}${EMPTY_STAR_ALPHA}`}
         />
         {review.product ? (
-          <Text numberOfLines={1} className="text-captionBold" style={{ color: toneColor }}>
+          <Text numberOfLines={1} className="text-shop-captionBold" style={{ color: toneColor }}>
             {review.product.title}
           </Text>
         ) : null}
         {review.body ? (
-          <Text numberOfLines={4} className="text-caption" style={{ color: toneColor }}>
+          <Text numberOfLines={4} className="text-shop-caption" style={{ color: toneColor }}>
             {review.body}
           </Text>
         ) : null}
@@ -321,14 +321,14 @@ function StoreReviewCard({
               />
             ) : null}
           </View>
-          <Text numberOfLines={1} className="flex-1 text-caption" style={{ color: toneColor }}>
+          <Text numberOfLines={1} className="flex-1 text-shop-caption" style={{ color: toneColor }}>
             {/* The separator belongs to the PAIR: with no renderable date the
                 author stands alone rather than trailing a bare "·" or the
                 string "null". */}
             {date === null ? author : `${author} · ${date}`}
           </Text>
         </View>
-        <Text className="text-caption" style={{ color: toneColor }}>
+        <Text className="text-shop-caption" style={{ color: toneColor }}>
           {t(
             review.verification === "verified_purchase"
               ? "ui.review.verifiedPurchase"
@@ -375,7 +375,7 @@ function ReviewsPage({
         gap: 16,
       }}
     >
-      <Text className="text-headerBold" style={{ color: toneColor }}>
+      <Text className="text-shop-headerBold" style={{ color: toneColor }}>
         {t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
       </Text>
 
@@ -400,7 +400,7 @@ function ReviewsPage({
           emptyStarColor={`${toneColor}${EMPTY_STAR_ALPHA}`}
         />
         <View className="gap-space-4">
-          <Text className="text-caption" style={{ color: toneColor }}>
+          <Text className="text-shop-caption" style={{ color: toneColor }}>
             {t("store.reviews.ratingsWithScope", {
               formattedCount: formatReviewCount(store.reviewCount),
               scopeLabel: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
@@ -409,18 +409,18 @@ function ReviewsPage({
         </View>
       </View>
 
-      <Text className="text-captionMedium" style={{ color: toneColor }}>
+      <Text className="text-shop-captionMedium" style={{ color: toneColor }}>
         {`${t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)} · ${formatReviewCount(total)}`}
       </Text>
 
       {isLoading ? (
-        <Text className="py-space-24 text-center text-body" style={{ color: toneColor }}>
+        <Text className="py-space-24 text-center text-shop-body" style={{ color: toneColor }}>
           {t("store.reviews.loading")}
         </Text>
       ) : isError ? (
         <Button onPress={() => void refetch()}>{t("common.tryAgain")}</Button>
       ) : reviews.length === 0 ? (
-        <Text className="py-space-24 text-center text-body" style={{ color: toneColor }}>
+        <Text className="py-space-24 text-center text-shop-body" style={{ color: toneColor }}>
           {t("store.reviews.none")}
         </Text>
       ) : (
@@ -436,7 +436,7 @@ function ReviewsPage({
       {data && data.pagination.pages > 1 ? (
         <View className="gap-space-12">
           <Text
-            className="text-center text-caption"
+            className="text-center text-shop-caption"
             style={{ color: toneColor }}
           >
             {t("common.pagination.pageOf", {
@@ -522,7 +522,7 @@ function MenuPage({
           )}
         </View>
         <View className="flex-1">
-          <Text numberOfLines={2} className="text-headerBold" style={{ color: toneColor }}>
+          <Text numberOfLines={2} className="text-shop-headerBold" style={{ color: toneColor }}>
             {store.name}
           </Text>
           <Rating
@@ -563,7 +563,7 @@ function MenuPage({
         className="rounded-radius-16 p-space-16 web:transition-colors web:hover:bg-white/10"
         style={{ backgroundColor: GLASS_FILL }}
       >
-        <Text className="text-subtitle" style={{ color: toneColor }}>
+        <Text className="text-shop-subtitle" style={{ color: toneColor }}>
           {t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
         </Text>
         {hasReviews ? (
@@ -581,7 +581,7 @@ function MenuPage({
                 starColor={STAR_COLOR}
                 emptyStarColor={`${toneColor}${EMPTY_STAR_ALPHA}`}
               />
-              <Text className="text-caption" style={{ color: toneColor }}>
+              <Text className="text-shop-caption" style={{ color: toneColor }}>
                 {t("store.reviews.ratingsCount", {
                   formattedCount: formatReviewCount(store.reviewCount),
                 })}
@@ -590,7 +590,7 @@ function MenuPage({
             <Chevron size={ROW_ICON_SIZE} color={toneColor} />
           </View>
         ) : (
-          <Text className="mt-space-12 text-body" style={{ color: toneColor }}>
+          <Text className="mt-space-12 text-shop-body" style={{ color: toneColor }}>
             {t("store.reviews.none")}
           </Text>
         )}
@@ -603,7 +603,7 @@ function MenuPage({
           style={{ backgroundColor: GLASS_FILL }}
         >
           <View className="px-space-16 pt-space-16">
-            <Text className="text-subtitle" style={{ color: toneColor }}>
+            <Text className="text-shop-subtitle" style={{ color: toneColor }}>
               {t("store.policies.heading")}
             </Text>
           </View>
@@ -821,7 +821,7 @@ export function StoreMenuSheet({
       {shareLink.failed ? (
         <Text
           accessibilityRole="alert"
-          className="px-space-16 text-caption"
+          className="px-space-16 text-shop-caption"
           style={{ color: toneColor }}
         >
           {t("common.shareError")}
@@ -830,7 +830,7 @@ export function StoreMenuSheet({
       {shareLink.copied ? (
         <Text
           accessibilityLiveRegion="polite"
-          className="px-space-16 text-caption"
+          className="px-space-16 text-shop-caption"
           style={{ color: toneColor }}
         >
           {t("common.linkCopied")}
@@ -865,7 +865,7 @@ export function StoreMenuSheet({
           >
             <Text
               accessibilityRole="header"
-              className="text-subtitle"
+              className="text-shop-subtitle"
               style={{ color: toneColor }}
             >
               {t(
@@ -874,7 +874,7 @@ export function StoreMenuSheet({
                   : "store.policies.returns",
               )}
             </Text>
-            <Text selectable className="text-body" style={{ color: toneColor }}>
+            <Text selectable className="text-shop-body" style={{ color: toneColor }}>
               {current === "privacy" ? store.privacyPolicy : store.refundPolicy}
             </Text>
           </ScrollView>

@@ -32,8 +32,8 @@ export function ProductSpecificationGrid({ entries }: { entries: readonly Produc
             columns === 2 && (index % 2 === 0 ? "pe-space-6" : "ps-space-6"),
           )}
         >
-          <Text className="text-caption text-text-tertiary web:[overflow-wrap:anywhere]">{entry.label}</Text>
-          <Text className="text-bodySmall text-text web:[overflow-wrap:anywhere]">{entry.value}</Text>
+          <Text className="text-shop-caption text-text-tertiary web:[overflow-wrap:anywhere]">{entry.label}</Text>
+          <Text className="text-shop-bodySmall text-text web:[overflow-wrap:anywhere]">{entry.value}</Text>
         </View>
       ))}
     </View>

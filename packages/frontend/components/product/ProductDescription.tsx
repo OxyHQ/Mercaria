@@ -20,7 +20,7 @@ export function ProductDescription({ description }: { description: string }) {
 
   return (
     <View testID="product-description">
-      <Text className="text-bodySmall text-text">
+      <Text className="text-shop-bodySmall text-text">
         {preview}
         {truncated ? (
           <>
@@ -41,7 +41,7 @@ export function ProductDescription({ description }: { description: string }) {
               <Text
                 accessibilityRole="button"
                 onPress={() => setOpen(true)}
-                className="text-bodyTitleSmall text-text"
+                className="text-shop-bodyTitleSmall text-text"
               >
                 {t("product.readMoreDescription")}
               </Text>
@@ -59,7 +59,7 @@ export function ProductDescription({ description }: { description: string }) {
         maxHeightRatio={0.94}
         testID="product-description-dialog"
       >
-        <Text selectable className="text-bodySmall text-text">{description}</Text>
+        <Text selectable className="text-shop-bodySmall text-text">{description}</Text>
       </Dialog>
     </View>
   );

@@ -69,8 +69,8 @@ export function OfferGroups({ offers, onAddToCart, addToCartPending }: OfferGrou
   if (offers.available === false) {
     return (
       <View className="gap-space-8 rounded-radius-28 border border-border-secondary p-space-20">
-        <Text className="text-sectionTitle text-text">{t('offer.heading')}</Text>
-        <Text className="text-bodySmall text-text-secondary">
+        <Text className="text-shop-sectionTitle text-text">{t('offer.heading')}</Text>
+        <Text className="text-shop-bodySmall text-text-secondary">
           {t('offer.comparisonUnavailable')}
         </Text>
       </View>
@@ -80,8 +80,8 @@ export function OfferGroups({ offers, onAddToCart, addToCartPending }: OfferGrou
   if (offers.rows.length === 0) {
     return (
       <View className="gap-space-8 rounded-radius-28 border border-border-secondary p-space-20">
-        <Text className="text-sectionTitle text-text">{t('offer.heading')}</Text>
-        <Text className="text-bodySmall text-text-secondary">
+        <Text className="text-shop-sectionTitle text-text">{t('offer.heading')}</Text>
+        <Text className="text-shop-bodySmall text-text-secondary">
           {offers.excludedCount > 0
             ? // The count is the ONLY thing carried about the exclusions, and it
               // is what separates "we know of offers, none is currently
@@ -147,11 +147,11 @@ function OfferGroupSection({
   return (
     <View className="gap-space-12">
       <View className="gap-space-2">
-        <Text className="text-sectionTitle text-text" accessibilityRole="header">
+        <Text className="text-shop-sectionTitle text-text" accessibilityRole="header">
           {t('offer.group.heading', { title, count: rows.length })}
         </Text>
         {explanation ? (
-          <Text className="text-caption text-text-secondary">{explanation}</Text>
+          <Text className="text-shop-caption text-text-secondary">{explanation}</Text>
         ) : null}
       </View>
 
@@ -176,7 +176,7 @@ function OfferGroupSection({
           onPress={() => setExpanded((value) => !value)}
           className="self-start rounded-radius-max border border-border-secondary px-space-16 py-space-8"
         >
-          <Text className="text-buttonMedium text-text">
+          <Text className="text-shop-buttonMedium text-text">
             {expanded ? t('offer.showFewer') : t('offer.showAll', { count: rows.length })}
           </Text>
         </Pressable>

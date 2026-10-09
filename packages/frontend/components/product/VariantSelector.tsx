@@ -42,7 +42,7 @@ export function VariantSelector({ variants, selectedVariantId, onSelect }: Varia
       accessibilityRole="radiogroup"
       accessibilityLabel={t('product.variant.configuration')}
     >
-      <Text className="text-captionBold text-text">{t('product.variant.configuration')}</Text>
+      <Text className="text-shop-captionBold text-text">{t('product.variant.configuration')}</Text>
       <View className="flex-row flex-wrap gap-space-8">
         <Pressable
           accessibilityRole="radio"
@@ -53,7 +53,7 @@ export function VariantSelector({ variants, selectedVariantId, onSelect }: Varia
             selectedVariantId === undefined ? 'border-text bg-bg-fill' : 'border-border-secondary'
           }`}
         >
-          <Text className="text-buttonMedium text-text">{t('product.variant.all')}</Text>
+          <Text className="text-shop-buttonMedium text-text">{t('product.variant.all')}</Text>
         </Pressable>
 
         {variants.map((variant) => {
@@ -79,7 +79,7 @@ export function VariantSelector({ variants, selectedVariantId, onSelect }: Varia
                 selectedVariantId === variant.id ? 'border-text bg-bg-fill' : 'border-border-secondary'
               }`}
             >
-              <Text className="text-buttonMedium text-text">{label}</Text>
+              <Text className="text-shop-buttonMedium text-text">{label}</Text>
             </Pressable>
           );
         })}

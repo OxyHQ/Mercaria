@@ -151,13 +151,13 @@ function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }
 
   return (
     <View className="gap-space-8 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-12">
-      <Text className="text-bodyTitleSmall text-text">{t("priceAlerts.create.heading")}</Text>
+      <Text className="text-shop-bodyTitleSmall text-text">{t("priceAlerts.create.heading")}</Text>
 
       {/* UX rule 3 — the current best eligible amount, in the alert's currency. */}
       {suggestion.isLoading ? (
         <Loading variant="inline" size="sm" />
       ) : suggestion.data && suggestion.data.eligibleOfferCount > 0 ? (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {suggested
             ? t("priceAlerts.create.bestRightNow", { price: formatMoney(suggested) })
             : t("priceAlerts.create.noPricedOffer", {
@@ -165,7 +165,7 @@ function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }
               })}
         </Text>
       ) : (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t("priceAlerts.create.nothingOnSale")}
         </Text>
       )}
@@ -191,7 +191,7 @@ function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }
         />
       </View>
       {basis === "known_total" ? (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t("priceAlerts.create.knownTotalNote")}
         </Text>
       ) : null}
@@ -209,13 +209,13 @@ function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }
         }
         className="self-start rounded-radius-max bg-bg-fill-secondary px-space-16 py-space-8"
       >
-        <Text className="text-caption text-text">
+        <Text className="text-shop-caption text-text">
           {create.isPending ? t("priceAlerts.create.submitting") : t("priceAlerts.create.submit")}
         </Text>
       </Pressable>
 
       {create.isError ? (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {create.error instanceof Error
             ? create.error.message
             : t("priceAlerts.create.failed")}
@@ -245,7 +245,7 @@ function BasisChoice({
           : "rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-4"
       }
     >
-      <Text className={selected ? "text-caption text-text-inverse" : "text-caption text-text"}>
+      <Text className={selected ? "text-shop-caption text-text-inverse" : "text-shop-caption text-text"}>
         {label}
       </Text>
     </Pressable>

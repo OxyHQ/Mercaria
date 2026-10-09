@@ -110,7 +110,7 @@ export default function DigitalAssetScreen() {
         ) : (
           <>
             <View className="gap-space-4">
-              <Text className="text-headerBold text-text" accessibilityRole="header">
+              <Text className="text-shop-headerBold text-text" accessibilityRole="header">
                 {view.title}
               </Text>
               {/* Who made it, as a link to their page — one of W5's four
@@ -122,20 +122,20 @@ export default function DigitalAssetScreen() {
                 })}
                 onPress={() => router.push(digitalCreatorHref(view.creator.slug))}
               >
-                <Text className="text-bodySmall text-text-brand">
+                <Text className="text-shop-bodySmall text-text-brand">
                   {t('digital.asset.creatorLine', {
                     creator: view.creator.name,
                   })}
                 </Text>
               </Pressable>
               {view.summary === undefined ? null : (
-                <Text className="text-body text-text-secondary">{view.summary}</Text>
+                <Text className="text-shop-body text-text-secondary">{view.summary}</Text>
               )}
             </View>
 
             <View className="gap-space-24 md:flex-row">
               <View className="flex-1 gap-space-8">
-                <Text className="text-captionBold text-text" accessibilityRole="header">
+                <Text className="text-shop-captionBold text-text" accessibilityRole="header">
                   {t('digital.asset.previewTitle')}
                 </Text>
                 {/*
@@ -155,7 +155,7 @@ export default function DigitalAssetScreen() {
 
               <View className="flex-1 gap-space-24">
                 <View className="gap-space-8">
-                  <Text className="text-captionBold text-text" accessibilityRole="header">
+                  <Text className="text-shop-captionBold text-text" accessibilityRole="header">
                     {t('digital.asset.packagesTitle')}
                   </Text>
                   <DigitalPackagePicker
@@ -181,7 +181,7 @@ export default function DigitalAssetScreen() {
             </View>
 
             <View className="gap-space-8">
-              <Text className="text-captionBold text-text" accessibilityRole="header">
+              <Text className="text-shop-captionBold text-text" accessibilityRole="header">
                 {t('digital.asset.technicalTitle')}
               </Text>
               {/* Two props, two types. A mapping that mixed them has nowhere to
@@ -194,16 +194,16 @@ export default function DigitalAssetScreen() {
 
             {view.sellerGuidance === undefined ? null : (
               <View className="gap-space-8">
-                <Text className="text-captionBold text-text" accessibilityRole="header">
+                <Text className="text-shop-captionBold text-text" accessibilityRole="header">
                   {t('digital.asset.guidanceTitle')}
                 </Text>
                 {/* The seller's own prose, verbatim. */}
-                <Text className="text-bodySmall text-text-secondary">{view.sellerGuidance}</Text>
+                <Text className="text-shop-bodySmall text-text-secondary">{view.sellerGuidance}</Text>
               </View>
             )}
 
             <View className="gap-space-8">
-              <Text className="text-captionBold text-text" accessibilityRole="header">
+              <Text className="text-shop-captionBold text-text" accessibilityRole="header">
                 {t('digital.asset.versionsTitle')}
               </Text>
               <DigitalVersionHistory versions={view.versions} />
@@ -218,7 +218,7 @@ export default function DigitalAssetScreen() {
             */}
             {view.canonicalProductId === undefined ? null : (
               <View className="gap-space-8">
-                <Text className="text-captionBold text-text" accessibilityRole="header">
+                <Text className="text-shop-captionBold text-text" accessibilityRole="header">
                   {t('digital.asset.reviewsTitle')}
                 </Text>
                 <ReviewSummaryCard

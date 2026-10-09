@@ -139,7 +139,7 @@ export default function SavedScreen() {
                 disabled={savedItems.isFetchingNextPage}
                 className="items-center rounded-radius-max border border-border-secondary py-space-12"
               >
-                <Text className="text-buttonMedium text-text">
+                <Text className="text-shop-buttonMedium text-text">
                   {savedItems.isFetchingNextPage ? t("saved.loading") : t("saved.showMore")}
                 </Text>
               </Pressable>
@@ -156,7 +156,7 @@ function SignedOutInvitation() {
   const { t } = useTranslation();
   return (
     <View className="gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-16">
-      <Text className="text-bodyTitleSmall text-text">{t("saved.signedOut.title")}</Text>
+      <Text className="text-shop-bodyTitleSmall text-text">{t("saved.signedOut.title")}</Text>
       <Text className="text-sm text-muted-foreground">{t("saved.signedOut.body")}</Text>
       <Pressable
         accessibilityRole="button"
@@ -164,7 +164,7 @@ function SignedOutInvitation() {
         onPress={() => openAccountDialog()}
         className="items-center rounded-radius-max bg-bg-fill-brand py-space-12"
       >
-        <Text className="text-buttonMedium text-text-inverse">{t("saved.signedOut.signIn")}</Text>
+        <Text className="text-shop-buttonMedium text-text-inverse">{t("saved.signedOut.signIn")}</Text>
       </Pressable>
     </View>
   );

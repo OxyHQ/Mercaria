@@ -71,9 +71,9 @@ export function VariantSwatches({
   return (
     <View className="gap-space-8">
       <View className="flex-row items-center gap-space-8">
-        <Text className="text-captionBold text-text">{option.name}</Text>
+        <Text className="text-shop-captionBold text-text">{option.name}</Text>
         {selectedValue ? (
-          <Text numberOfLines={1} className="flex-1 text-caption text-text">
+          <Text numberOfLines={1} className="flex-1 text-shop-caption text-text">
             {selectedValue}
           </Text>
         ) : null}
@@ -125,7 +125,7 @@ export function VariantSwatches({
             onPress={() => setExpanded(true)}
             className="min-h-space-40 items-center justify-center rounded-radius-max border-[1.5px] border-border-secondary px-space-16"
           >
-            <Text className="text-buttonMedium text-text">
+            <Text className="text-shop-buttonMedium text-text">
               {t(SWATCH_SHOW_MORE_KEY, { more: hiddenCount })}
             </Text>
           </Pressable>

@@ -91,10 +91,10 @@ export function ReviewSummaryCard({
           : "gap-space-16 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20"
       }
     >
-      <Text className="text-subtitle text-text">{scopeText}</Text>
+      <Text className="text-shop-subtitle text-text">{scopeText}</Text>
 
       {total === 0 && !isLoading ? (
-        <Text className="text-bodySmall text-text-tertiary">
+        <Text className="text-shop-bodySmall text-text-tertiary">
           {t(REVIEW_EMPTY_KEY, { subject: scopeText })}
         </Text>
       ) : (
@@ -116,11 +116,11 @@ export function ReviewSummaryCard({
                     subject: scopeText,
                   }).accessibilityLabel
                 }
-                className="text-headerBold text-text"
+                className="text-shop-headerBold text-text"
               >
                 {formatRating(average)}
               </Text>
-              <Text className="mt-space-4 text-caption text-text-tertiary">
+              <Text className="mt-space-4 text-shop-caption text-text-tertiary">
                 {t(
                   verifiedOnly
                     ? REVIEW_VERIFIED_RATINGS_KEY
@@ -129,7 +129,7 @@ export function ReviewSummaryCard({
                 )}
               </Text>
               {unverified && unverified.count > 0 ? (
-                <Text className="mt-space-2 text-caption text-text-tertiary">
+                <Text className="mt-space-2 text-shop-caption text-text-tertiary">
                   {t(REVIEW_UNVERIFIED_KEY, {
                     ratings: formatReviewCount(unverified.count),
                     rating: formatRating(unverified.rating),
@@ -179,7 +179,7 @@ export function ReviewSummaryCard({
               accessibilityLabel={t(REVIEW_READ_MORE_KEY)}
               className="w-full items-center rounded-radius-max bg-bg-fill-secondary p-space-12"
             >
-              <Text className="text-buttonLarge text-text">
+              <Text className="text-shop-buttonLarge text-text">
                 {t(REVIEW_READ_MORE_KEY)}
               </Text>
             </Pressable>

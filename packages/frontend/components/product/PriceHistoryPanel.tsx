@@ -58,7 +58,7 @@ export function PriceHistoryPanel({
 
   return (
     <View className="gap-space-12 rounded-radius-28 border border-border-secondary p-space-20">
-      <Text className="text-sectionTitle text-text" accessibilityRole="header">
+      <Text className="text-shop-sectionTitle text-text" accessibilityRole="header">
         {/* The heading is this app's own copy; the segment name is
             `@mercaria/ui`'s, resolved through the SAME `t` because #437 merges
             the shared bundle into this app's i18n instance. */}
@@ -69,13 +69,13 @@ export function PriceHistoryPanel({
           gap differently — and the one that gets it wrong is the one nobody is
           looking at (#78 API rule 7). */}
       {response.summary.sentences.map((sentence) => (
-        <Text key={sentence} className="text-bodySmall text-text">
+        <Text key={sentence} className="text-shop-bodySmall text-text">
           {sentence}
         </Text>
       ))}
 
       {response.summary.lowest !== undefined && response.summary.lowest.value.basis !== undefined ? (
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t('product.priceHistory.lowestInWindow', {
             amount: formatMoney(response.summary.lowest.value.money),
           })}
@@ -83,7 +83,7 @@ export function PriceHistoryPanel({
       ) : null}
 
       {response.gaps.length > 0 ? (
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t('product.priceHistory.noOffersObserved', {
             count: response.gaps.reduce((total, gap) => total + gap.buckets, 0),
           })}
@@ -94,13 +94,13 @@ export function PriceHistoryPanel({
         // NOT a gap, and never drawn as one: "we have not built this far back"
         // is a fact about Mercaria, and "nobody was selling it" is a fact about
         // the world.
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t('product.priceHistory.notFullyBuilt')}
         </Text>
       ) : null}
 
       {response.notice.conversionIsDisplayOnly ? (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t('product.priceHistory.conversionDisplayOnly')}
         </Text>
       ) : null}

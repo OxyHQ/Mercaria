@@ -57,7 +57,8 @@ export interface ProductIdentityProps {
 export function ProductIdentity({ product, rating }: ProductIdentityProps) {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
-  const specs = product.attributes.slice(0, 8);
+  // Specifications belong to the registry-backed table on the page. The
+  // identity projection's raw attributes also include superseded candidates.
   // ACTIVE only: a retired or disputed identifier keeps its row (ADR 0002 D14)
   // and showing one would publish a number Mercaria no longer stands behind.
   // Every scheme in the vocabulary is a public product identifier, so there is
@@ -69,7 +70,7 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
     <View className="gap-space-16">
       <View className="gap-space-8">
         <Text
-          className="text-headerBold leading-[28px] text-text"
+          className="text-shop-headerBold leading-[28px] text-text"
           accessibilityRole="header"
           numberOfLines={3}
         >
@@ -85,7 +86,7 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
                 subject: t(REVIEW_SCOPE_HEADING_KEYS.product),
               })}
             />
-            <Text className="text-captionMedium text-text-tertiary">
+            <Text className="text-shop-captionMedium text-text-tertiary">
               {t(REVIEW_SCOPE_HEADING_KEYS.product)}
             </Text>
           </View>
@@ -98,27 +99,13 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
         <LifecycleLine product={product} />
       </View>
 
-      {specs.length > 0 ? (
-        <View className="gap-space-8">
-          <Text className="text-sectionTitle text-text" accessibilityRole="header">
-            {t('product.specifications')}
-          </Text>
-          {specs.map((attribute) => (
-            <View key={attribute.key} className="flex-row justify-between gap-space-12">
-              <Text className="text-caption text-text-secondary">{attribute.key}</Text>
-              <Text className="text-caption text-text">{attribute.displayValue}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-
       {identifiers.length > 0 ? (
         <View className="gap-space-4">
-          <Text className="text-sectionTitle text-text" accessibilityRole="header">
+          <Text className="text-shop-sectionTitle text-text" accessibilityRole="header">
             {t('product.modelIdentifiers')}
           </Text>
           {identifiers.slice(0, 6).map((identifier) => (
-            <Text key={identifier.id} className="text-caption text-text-secondary">
+            <Text key={identifier.id} className="text-shop-caption text-text-secondary">
               {`${identifier.scheme.toUpperCase()} ${identifier.rawValue}`}
             </Text>
           ))}
@@ -149,7 +136,7 @@ function LifecycleLine({ product }: { product: CanonicalProduct }) {
     parts.push(t('product.discontinued'));
   }
   if (parts.length === 0) return null;
-  return <Text className="text-caption text-text-secondary">{parts.join(' · ')}</Text>;
+  return <Text className="text-shop-caption text-text-secondary">{parts.join(' · ')}</Text>;
 }
 
 /**
@@ -168,7 +155,7 @@ function ProvenanceLine({ product }: { product: CanonicalProduct }) {
   // `[missing "%{date}" value]` marker to a shopper.
   if (observed === null) return null;
   return (
-    <Text className="text-caption text-text-secondary">
+    <Text className="text-shop-caption text-text-secondary">
       {t('product.detailsLastConfirmed', {
         date: observed,
         source: t(CATALOG_SOURCE_KIND_KEYS[product.freshness.sourceKind]),

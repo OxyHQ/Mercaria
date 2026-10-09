@@ -96,23 +96,23 @@ export function BuyerAssetRightCard({
     <View className="gap-space-12 rounded-radius-16 border border-border-secondary p-space-16">
       <View className="gap-space-4">
         {onOpenAsset === undefined ? (
-          <Text className="text-bodyTitleSmall text-text">{right.assetTitle}</Text>
+          <Text className="text-shop-bodyTitleSmall text-text">{right.assetTitle}</Text>
         ) : (
           <Pressable
             accessibilityRole="link"
             accessibilityLabel={right.assetTitle}
             onPress={() => onOpenAsset(right.assetId)}
           >
-            <Text className="text-bodyTitleSmall text-text-brand">{right.assetTitle}</Text>
+            <Text className="text-shop-bodyTitleSmall text-text-brand">{right.assetTitle}</Text>
           </Pressable>
         )}
         {/* The PACKAGE is what was actually bought — a subset of one version's
             files, and the thing the licence option is over. */}
-        <Text className="text-bodySmall text-text-secondary">{right.packageName}</Text>
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-bodySmall text-text-secondary">{right.packageName}</Text>
+        <Text className="text-shop-caption text-text-tertiary">
           {t(ASSET_LIBRARY_LICENCE_KEY, { licence: right.licenceName })}
         </Text>
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t(ASSET_LIBRARY_GRANTED_ON_KEY, { date: formatDate(right.grantedAt, locale) })}
         </Text>
       </View>
@@ -122,31 +122,31 @@ export function BuyerAssetRightCard({
             spelled out for `active` too, so a reader never has to infer the
             ordinary state from the absence of a badge. */}
         <View className="rounded-radius-max bg-bg-fill-secondary px-space-8 py-space-4">
-          <Text className="text-badge text-text">{statusText}</Text>
+          <Text className="text-shop-badge text-text">{statusText}</Text>
         </View>
         {right.updateAvailable ? (
           <View className="rounded-radius-max bg-bg-fill-secondary px-space-8 py-space-4">
-            <Text className="text-badge text-text">{t(ASSET_LIBRARY_UPDATE_AVAILABLE_KEY)}</Text>
+            <Text className="text-shop-badge text-text">{t(ASSET_LIBRARY_UPDATE_AVAILABLE_KEY)}</Text>
           </View>
         ) : null}
       </View>
 
       <View className="gap-space-2">
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t(ASSET_LIBRARY_PURCHASED_VERSION_KEY, { version: right.purchasedVersionLabel })}
         </Text>
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t(ASSET_LIBRARY_AVAILABLE_VERSION_KEY, { version: right.availableVersionLabel })}
         </Text>
       </View>
 
       <View className="gap-space-8">
-        <Text className="text-captionBold text-text" accessibilityRole="header">
+        <Text className="text-shop-captionBold text-text" accessibilityRole="header">
           {t(ASSET_LIBRARY_FILES_TITLE_KEY)}
         </Text>
 
         {downloadsAuthorized ? null : (
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {/* The status reads as a TERM inside this frame, which is the
                 appositive case check F measured as correct — a badge is not an
                 action control's label. */}
@@ -161,7 +161,7 @@ export function BuyerAssetRightCard({
           >
             <View className="flex-1 gap-space-2">
               {/* The creator's own file name, verbatim. */}
-              <Text className="text-bodySmall text-text">{file.fileName}</Text>
+              <Text className="text-shop-bodySmall text-text">{file.fileName}</Text>
               {/*
                 The format key and the size, on one line. `format` is a registry
                 key (`stl`, `glb`) — an identifier with no localized form, shown
@@ -169,7 +169,7 @@ export function BuyerAssetRightCard({
                 `format` is absent from the i18n guard's `WIRE_ENUM_FIELDS`. The
                 SIZE is localized, because a number is not an identifier.
               */}
-              <Text className="text-caption text-text-tertiary">
+              <Text className="text-shop-caption text-text-tertiary">
                 {file.format} · {formatByteSize(file.byteSize, locale)}
               </Text>
             </View>
@@ -182,7 +182,7 @@ export function BuyerAssetRightCard({
               why it has no button.
             */}
             {!file.downloadable ? (
-              <Text className="text-caption text-text-tertiary">
+              <Text className="text-shop-caption text-text-tertiary">
                 {t(ASSET_LIBRARY_NOT_DOWNLOADABLE_KEY)}
               </Text>
             ) : downloadsAuthorized && onDownload !== undefined ? (
@@ -192,7 +192,7 @@ export function BuyerAssetRightCard({
                 onPress={() => onDownload(file.fileId)}
                 className="rounded-radius-max border border-border-secondary px-space-12 py-space-6"
               >
-                <Text className="text-buttonSmall text-text">
+                <Text className="text-shop-buttonSmall text-text">
                   {t(ASSET_LIBRARY_DOWNLOAD_ACTION_KEY)}
                 </Text>
               </Pressable>

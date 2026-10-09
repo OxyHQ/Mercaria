@@ -40,7 +40,7 @@
 
   /* ── Shopify "Shop" design tokens (additive) ───────────────────────────────
    * Mirrors the JS preset (`./tailwind.preset.js`). These power the Shopify PDP
-   * class names (`gap-space-16`, `rounded-radius-28`, `text-headerBold`,
+   * class names (`gap-space-16`, `rounded-radius-28`, `text-shop-headerBold`,
    * `bg-bg-fill`, `border-border-secondary`, …) while resolving to Mercaria's
    * existing runtime theme vars, so dark/light still work. Keep in sync with the
    * frontend app's mirrored copy. */

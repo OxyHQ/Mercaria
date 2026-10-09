@@ -104,7 +104,7 @@ function Chip({ children }: { children: string }) {
       className="self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6"
       accessibilityRole="text"
     >
-      <Text className="text-captionBold text-text">{children}</Text>
+      <Text className="text-shop-captionBold text-text">{children}</Text>
     </View>
   );
 }
@@ -132,12 +132,12 @@ export function NearbyLocationCard({
         The PLACE is the heading. A shopper scanning this list is choosing
         between buildings, and the merchant behind them is often the same one.
       */}
-      <Text className="text-bodyTitleSmall text-text" accessibilityRole="header">
+      <Text className="text-shop-bodyTitleSmall text-text" accessibilityRole="header">
         {location.displayName}
       </Text>
 
       {address.length > 0 ? (
-        <Text className="text-caption text-text-secondary">{address}</Text>
+        <Text className="text-shop-caption text-text-secondary">{address}</Text>
       ) : null}
 
       <View className="flex-row flex-wrap gap-space-6">
@@ -151,15 +151,15 @@ export function NearbyLocationCard({
         an optional property rather than a number with a sentinel — which is the
         shape that makes the private default safe (`docs/pickup.md` §5).
       */}
-      <Text className="text-caption text-text-secondary">
+      <Text className="text-shop-caption text-text-secondary">
         {result.exactQuantity === undefined
           ? t(LOCATION_AVAILABILITY_EXPLANATION_KEYS[result.availability])
           : t("ui.pickup.exactQuantity", { count: result.exactQuantity })}
       </Text>
 
       {/* Hours and freshness: two facts a shopper acts on before travelling. */}
-      <Text className="text-caption text-text-secondary">{describeOpenState(t, location.openState)}</Text>
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-secondary">{describeOpenState(t, location.openState)}</Text>
+      <Text className="text-shop-caption text-text-tertiary">
         {describeStockConfirmed(t, result.stockConfirmedAt, now)}
       </Text>
 
@@ -183,7 +183,7 @@ export function NearbyLocationCard({
         currency. `PriceDisplay` would convert it to the viewer's display
         currency and show a figure nobody at that counter will ask for.
       */}
-      <Text className="text-body text-text">{formatMoney(result.price)}</Text>
+      <Text className="text-shop-body text-text">{formatMoney(result.price)}</Text>
 
       {/*
         Merchant and storefront, named as the separate things they are. The
@@ -200,24 +200,24 @@ export function NearbyLocationCard({
             if (location.merchant !== undefined) onPressMerchant?.(location.merchant.slug);
           }}
         >
-          <Text className="text-caption text-text">
+          <Text className="text-shop-caption text-text">
           {t(NEARBY_SOLD_BY_KEY, { merchant: location.merchant.name })}
         </Text>
         </Pressable>
       )}
       {location.storefront === undefined ? null : (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t(NEARBY_CHANNEL_KEY, { channel: location.storefront.name })}
         </Text>
       )}
 
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {t(PICKUP_PAYMENT_REQUIREMENT_KEYS[location.paymentRequirement])}{" "}
         {t(PICKUP_IDENTITY_REQUIREMENT_KEYS[location.identityRequirement])}
       </Text>
 
       {location.pickupInstructions === undefined ? null : (
-        <Text className="text-caption text-text-secondary">{location.pickupInstructions}</Text>
+        <Text className="text-shop-caption text-text-secondary">{location.pickupInstructions}</Text>
       )}
 
       {onPressPlace === undefined ? null : (
@@ -227,7 +227,7 @@ export function NearbyLocationCard({
           onPress={() => onPressPlace(location.goWayPlaceId)}
           className="self-start"
         >
-          <Text className="text-captionBold text-text">{t(GOWAY_PLACE_LINK_KEY)}</Text>
+          <Text className="text-shop-captionBold text-text">{t(GOWAY_PLACE_LINK_KEY)}</Text>
         </Pressable>
       )}
 
@@ -238,7 +238,7 @@ export function NearbyLocationCard({
       */}
       {blockCopy === undefined ? null : (
         <View className="gap-space-8">
-          <Text className="text-caption text-text-secondary" accessibilityRole="alert">
+          <Text className="text-shop-caption text-text-secondary" accessibilityRole="alert">
             {blockCopy.sentence}
           </Text>
           {blockCopy.offerSignIn && onSignIn !== undefined ? (
@@ -248,7 +248,7 @@ export function NearbyLocationCard({
               onPress={onSignIn}
               className="self-start rounded-radius-max border border-border-secondary px-space-16 py-space-8"
             >
-              <Text className="text-buttonSmall text-text">{t(NEARBY_SIGN_IN_KEY)}</Text>
+              <Text className="text-shop-buttonSmall text-text">{t(NEARBY_SIGN_IN_KEY)}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -264,7 +264,7 @@ export function NearbyLocationCard({
           onPress={() => onSelect(result)}
           className="self-start rounded-radius-max bg-bg-fill-inverse px-space-16 py-space-8"
         >
-          <Text className="text-buttonSmall text-text-inverse">{selectLabel}</Text>
+          <Text className="text-shop-buttonSmall text-text-inverse">{selectLabel}</Text>
         </Pressable>
       ) : null}
     </View>

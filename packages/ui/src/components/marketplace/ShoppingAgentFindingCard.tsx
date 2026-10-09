@@ -97,23 +97,23 @@ export function ShoppingAgentFindingCard({
   return (
     <View className="gap-space-8 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-12">
       <View className="gap-space-4">
-        <Text className="text-bodyTitleSmall text-text">
+        <Text className="text-shop-bodyTitleSmall text-text">
           {t(SHOPPING_AGENT_OUTCOME_LABEL_KEYS[finding.outcome])} ·{" "}
           {t(SHOPPING_AGENT_LIFECYCLE_LABEL_KEYS[finding.lifecycle])}
         </Text>
         {/* The trigger source is a complete phrase on its own, so an
             unformattable instant drops the timestamp AND the separator rather
             than leaving a dangling middot. */}
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {evaluatedAt === null ? null : `${evaluatedAt} · `}
           {t(SHOPPING_AGENT_TRIGGER_SOURCE_LABEL_KEYS[finding.triggerSource])}
         </Text>
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t(SHOPPING_AGENT_OUTCOME_EXPLANATION_KEYS[finding.outcome])}
         </Text>
         {/* UX rule 3 — a superseded or invalidated observation says so itself. */}
         {finding.lifecycle === "current" ? null : (
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(SHOPPING_AGENT_LIFECYCLE_EXPLANATION_KEYS[finding.lifecycle])}
           </Text>
         )}
@@ -123,14 +123,14 @@ export function ShoppingAgentFindingCard({
         <View className="flex-row items-center gap-space-4">
           <PriceDisplay
             price={finding.objectiveValue}
-            primaryClassName="text-bodyTitleSmall text-text"
+            primaryClassName="text-shop-bodyTitleSmall text-text"
           />
           {finding.objectiveDelta ? (
-            <Text className="text-caption text-text-tertiary">
+            <Text className="text-shop-caption text-text-tertiary">
               {describeDelta(t, finding.objectiveDelta, locale)}
             </Text>
           ) : (
-            <Text className="text-caption text-text-tertiary">
+            <Text className="text-shop-caption text-text-tertiary">
               {t(SHOPPING_AGENT_NO_EARLIER_COMPARISON_KEY)}
             </Text>
           )}
@@ -141,18 +141,18 @@ export function ShoppingAgentFindingCard({
       {summary && summary.sentences.length > 0 ? (
         <View className="gap-space-4">
           {summary.sentences.map((sentence, index) => (
-            <Text key={`${index}-${sentence.text}`} className="text-caption text-text">
+            <Text key={`${index}-${sentence.text}`} className="text-shop-caption text-text">
               {sentence.text}
             </Text>
           ))}
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(SHOPPING_AGENT_SUMMARY_SOURCE_KEYS[summary.source])}
           </Text>
         </View>
       ) : null}
 
       {/* UX rule 4, second half — what was met, and what nobody could answer. */}
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {t(SHOPPING_AGENT_REQUIREMENT_TALLY_KEY, {
           met: finding.satisfiedConstraintIds.length,
           failed: finding.failedConstraintIds.length,
@@ -161,13 +161,13 @@ export function ShoppingAgentFindingCard({
       </Text>
       {finding.unknownConstraintIds.length > 0 ? (
         <View className="gap-space-4 rounded-radius-12 bg-bg-fill-secondary p-space-8">
-          <Text className="text-caption text-text">
+          <Text className="text-shop-caption text-text">
             {t(SHOPPING_AGENT_UNKNOWN_VERDICT_KEY, {
               unanswered: finding.unknownConstraintIds.length,
             })}
           </Text>
           {finding.unknownConstraintIds.map((constraintId) => (
-            <Text key={constraintId} className="text-caption text-text-secondary">
+            <Text key={constraintId} className="text-shop-caption text-text-secondary">
               {constraintExplanations?.[constraintId] ?? t(SHOPPING_AGENT_UNNAMED_REQUIREMENT_KEY)}
             </Text>
           ))}
@@ -177,14 +177,14 @@ export function ShoppingAgentFindingCard({
       {finding.incompleteReasons.length > 0 ? (
         <View className="gap-space-4">
           {finding.incompleteReasons.map((reason) => (
-            <Text key={reason} className="text-caption text-text-secondary">
+            <Text key={reason} className="text-shop-caption text-text-secondary">
               {t(SHOPPING_AGENT_INCOMPLETE_REASON_KEYS[reason])}
             </Text>
           ))}
         </View>
       ) : null}
 
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {t(SHOPPING_AGENT_COMPLETENESS_LABEL_KEYS[finding.completeness])} ·{" "}
         {t(SHOPPING_AGENT_FRESHNESS_LABEL_KEYS[finding.freshness])}
         {finding.optimality ? ` · ${t(SHOPPING_AGENT_OPTIMALITY_LABEL_KEYS[finding.optimality])}` : ""}
@@ -192,7 +192,7 @@ export function ShoppingAgentFindingCard({
 
       {finding.selection.length > 0 ? (
         <View className="gap-space-4">
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(SHOPPING_AGENT_WHAT_IT_LOOKED_AT_KEY)}
           </Text>
           {finding.selection.map((line) => (
@@ -209,7 +209,7 @@ export function ShoppingAgentFindingCard({
       {finding.notifications.length > 0 ? (
         <View className="gap-space-4">
           {finding.notifications.map((notification) => (
-            <Text key={notification.id} className="text-caption text-text-tertiary">
+            <Text key={notification.id} className="text-shop-caption text-text-tertiary">
               {t(SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABEL_KEYS[notification.channel])}:{" "}
               {t(SHOPPING_AGENT_NOTIFICATION_STATE_LABEL_KEYS[notification.state])}
               {notification.suppressionReason
@@ -224,7 +224,7 @@ export function ShoppingAgentFindingCard({
       ) : null}
 
       {/* UX rule 7 — beside the figure, because that is where the misreading is. */}
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {t(SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY)}
       </Text>
     </View>
@@ -249,20 +249,20 @@ function SelectedLineRow({
       onPress={() => onOpenProduct?.(line.canonicalProductId)}
       className="gap-space-4"
     >
-      <Text className="text-caption text-text-secondary" numberOfLines={1}>
+      <Text className="text-shop-caption text-text-secondary" numberOfLines={1}>
         {line.quantity} × {label ?? line.canonicalProductId}
       </Text>
       <View className="flex-row items-center gap-space-4">
         {line.unitItemPrice ? (
-          <PriceDisplay price={line.unitItemPrice} primaryClassName="text-caption text-text" />
+          <PriceDisplay price={line.unitItemPrice} primaryClassName="text-shop-caption text-text" />
         ) : null}
         {line.conditionGroup ? (
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(conditionGroupLabelKey(line.conditionGroup))}
           </Text>
         ) : null}
         {line.officialChannel ? (
-          <Text className="text-caption text-text-tertiary">
+          <Text className="text-shop-caption text-text-tertiary">
             {t(SHOPPING_AGENT_OFFICIAL_CHANNEL_KEY)}
           </Text>
         ) : null}

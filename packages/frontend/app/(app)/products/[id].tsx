@@ -496,7 +496,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                   <Text
                     accessibilityRole="header"
                     numberOfLines={3}
-                    className="text-headerBold leading-[28px] text-text"
+                    className="text-shop-headerBold leading-[28px] text-text"
                   >
                     {listing.title}
                   </Text>
@@ -517,7 +517,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                           subject: t(REVIEW_SCOPE_HEADING_KEYS.product),
                         })}
                       />
-                      <Text className="text-captionMedium text-text-tertiary">
+                      <Text className="text-shop-captionMedium text-text-tertiary">
                         {t(REVIEW_SCOPE_HEADING_KEYS.product)}
                       </Text>
                     </View>
@@ -560,7 +560,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                   }
                   className="self-start rounded-radius-max border border-border-secondary px-space-16 py-space-8"
                 >
-                  <Text className="text-buttonMedium text-text">
+                  <Text className="text-shop-buttonMedium text-text">
                     {t("product.compareOffers")}
                   </Text>
                 </Pressable>
@@ -594,13 +594,13 @@ function ProductBody({ listing }: ProductBodyProps) {
                   <View className="flex-row items-center gap-space-8">
                     <PriceDisplay
                       price={activePrice}
-                      primaryClassName="text-bodyTitleLarge"
+                      primaryClassName="text-shop-bodyTitleLarge"
                     />
-                    <Text className="text-bodySmall text-text-tertiary line-through">
+                    <Text className="text-shop-bodySmall text-text-tertiary line-through">
                       {formatMoney(activeCompareAt)}
                     </Text>
                     <View className="rounded-radius-max bg-bg-fill-inverse px-space-8 py-space-2">
-                      <Text className="text-badgeBold text-text-inverse">
+                      <Text className="text-shop-badgeBold text-text-inverse">
                         {t("product.percentOff", { percent: discountPercent })}
                       </Text>
                     </View>
@@ -608,7 +608,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                 ) : (
                   <PriceDisplay
                     price={activePrice}
-                    primaryClassName="text-bodyTitleLarge"
+                    primaryClassName="text-shop-bodyTitleLarge"
                   />
                 )}
               </View>
@@ -627,7 +627,7 @@ function ProductBody({ listing }: ProductBodyProps) {
 
             {/* Quantity selector. */}
             <View className="gap-space-8">
-              <Text className="text-captionBold text-text">
+              <Text className="text-shop-captionBold text-text">
                 {t("product.quantity")}
               </Text>
               {/* Bloom's stepper, floored at 1 with no remove: nothing is in the
@@ -722,7 +722,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                       className="text-text"
                       fill={productSaved ? STAR_COLOR : "transparent"}
                     />
-                    <Text className="text-buttonMedium text-text">
+                    <Text className="text-shop-buttonMedium text-text">
                       {saveStatusLabel ?? (productSaved
                         ? t("product.save.productSaved")
                         : t("product.save.product"))}
@@ -751,7 +751,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                     }
                     className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
                   >
-                    <Text className="text-buttonMedium text-text">
+                    <Text className="text-shop-buttonMedium text-text">
                       {saveStatusLabel ?? (listingSaved
                         ? t("product.save.listingSaved")
                         : t("product.save.listing"))}
@@ -782,7 +782,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                     className="text-text"
                     fill={listingSaved ? STAR_COLOR : "transparent"}
                   />
-                  <Text className="text-buttonMedium text-text">
+                  <Text className="text-shop-buttonMedium text-text">
                     {saveStatusLabel ?? (listingSaved
                       ? t("product.save.saved")
                       : t("product.save.save"))}
@@ -800,7 +800,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                 className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
               >
                 <Share2 size={ICON_SIZE} className="text-text" />
-                <Text className="text-buttonMedium text-text">
+                <Text className="text-shop-buttonMedium text-text">
                   {shareLink.copied
                     ? t("common.linkCopied")
                     : t("product.share")}
@@ -809,7 +809,7 @@ function ProductBody({ listing }: ProductBodyProps) {
             </View>
 
             {saveContext.isError || toggleProductSave.isError || toggleListingSave.isError ? (
-              <Text accessibilityRole="alert" className="text-caption text-destructive">
+              <Text accessibilityRole="alert" className="text-shop-caption text-destructive">
                 {t(saveContext.isError ? "product.save.statusError" : "product.save.updateError")}
               </Text>
             ) : null}
@@ -817,7 +817,7 @@ function ProductBody({ listing }: ProductBodyProps) {
             {shareLink.failed ? (
               <Text
                 accessibilityRole="alert"
-                className="text-caption text-destructive"
+                className="text-shop-caption text-destructive"
               >
                 {t("common.shareError")}
               </Text>
@@ -888,7 +888,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                     {t("product.returnPolicy")}
                   </AccordionTrigger>
                   <AccordionContent>
-                    <Text className="text-bodySmall text-text">
+                    <Text className="text-shop-bodySmall text-text">
                       {refundPolicy}
                     </Text>
                   </AccordionContent>
@@ -1003,7 +1003,7 @@ export default function ProductScreen() {
       <ScreenShell>
         {head}
         <View className="items-center justify-center px-8 py-16 web:min-h-screen">
-          <Text className="text-center text-body text-text-tertiary">
+          <Text className="text-center text-shop-body text-text-tertiary">
             {t("product.loadError")}
           </Text>
         </View>

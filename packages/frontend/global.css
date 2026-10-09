@@ -35,7 +35,7 @@
   /* ── Shopify "Shop" design tokens (additive) ───────────────────────────────
    * Mirrors @mercaria/ui/theme/global.css (and its JS preset). These power the
    * Shopify PDP class names (`gap-space-16`, `rounded-radius-28`,
-   * `text-headerBold`, `bg-bg-fill`, `border-border-secondary`, …) while
+   * `text-shop-headerBold`, `bg-bg-fill`, `border-border-secondary`, …) while
    * resolving to Mercaria's existing runtime theme vars, so dark/light still
    * work. Keep in sync with the shared package copy. */
 

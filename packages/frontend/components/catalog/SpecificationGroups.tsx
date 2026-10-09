@@ -50,12 +50,12 @@ export function SpecificationGroups({
 
   return (
     <View className="gap-space-24">
-      <Text className="text-captionBold text-text" accessibilityRole="header">
+      <Text className="text-shop-captionBold text-text" accessibilityRole="header">
         {t('catalog.specs.title')}
       </Text>
 
       {definitionsUnavailable ? (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t('catalog.specs.definitionsUnavailable')}
         </Text>
       ) : null}
@@ -65,7 +65,7 @@ export function SpecificationGroups({
       ))}
 
       {table.hasUntranslatedLabels ? (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t('catalog.specs.untranslated')}
         </Text>
       ) : null}
@@ -80,7 +80,7 @@ function SpecificationGroupBlock({ group }: { group: SpecificationGroup }) {
 
   return (
     <View className="gap-space-8">
-      <Text className="text-caption text-text-secondary" accessibilityRole="header">
+      <Text className="text-shop-caption text-text-secondary" accessibilityRole="header">
         {heading}
       </Text>
       <ProductSpecificationGrid entries={group.entries.map((entry) => ({

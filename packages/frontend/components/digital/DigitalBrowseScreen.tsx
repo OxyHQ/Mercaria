@@ -101,10 +101,10 @@ export function DigitalBrowseScreen({ surfaceKey }: DigitalBrowseScreenProps) {
 
       <View className="mb-space-32 gap-space-24 web:mx-auto web:w-full web:max-w-[1200px] md:px-5">
         <View className="gap-space-8">
-          <Text className="text-headerBold text-text" accessibilityRole="header">
+          <Text className="text-shop-headerBold text-text" accessibilityRole="header">
             {title}
           </Text>
-          <Text className="text-bodySmall text-text-secondary">
+          <Text className="text-shop-bodySmall text-text-secondary">
             {t(surface.descriptionKey)}
           </Text>
         </View>
@@ -112,7 +112,7 @@ export function DigitalBrowseScreen({ surfaceKey }: DigitalBrowseScreenProps) {
         {/* The other digital surfaces, derived from the table so a fourth cannot
             be forgotten on two screens out of three. */}
         <View className="gap-space-8">
-          <Text className="text-captionBold text-text-secondary">
+          <Text className="text-shop-captionBold text-text-secondary">
             {t('digital.browseOther')}
           </Text>
           <View className="flex-row flex-wrap gap-space-8">
@@ -124,7 +124,7 @@ export function DigitalBrowseScreen({ surfaceKey }: DigitalBrowseScreenProps) {
                 onPress={() => router.push(digitalBrowseHref(sibling.route))}
                 className="rounded-radius-max border border-border-secondary px-space-12 py-space-6"
               >
-                <Text className="text-caption text-text">{t(sibling.titleKey)}</Text>
+                <Text className="text-shop-caption text-text">{t(sibling.titleKey)}</Text>
               </Pressable>
             ))}
             <Pressable
@@ -133,7 +133,7 @@ export function DigitalBrowseScreen({ surfaceKey }: DigitalBrowseScreenProps) {
               onPress={() => router.push(digitalLibraryHref())}
               className="rounded-radius-max border border-border-secondary px-space-12 py-space-6"
             >
-              <Text className="text-caption text-text">{t('digital.library.title')}</Text>
+              <Text className="text-shop-caption text-text">{t('digital.library.title')}</Text>
             </Pressable>
           </View>
         </View>

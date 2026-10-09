@@ -33,7 +33,7 @@ export function SectionHeader({
   if (!onPress && !showChevron) {
     return (
       <Text
-        className={`${inset ? "px-4 pb-3 md:px-5" : ""} text-subtitle text-foreground md:text-sectionTitle`}
+        className={`${inset ? "px-4 pb-3 md:px-5" : ""} text-shop-subtitle text-foreground md:text-shop-sectionTitle`}
         numberOfLines={1}
       >
         {title}
@@ -44,7 +44,7 @@ export function SectionHeader({
   const inner = (
     <>
       <Text
-        className={`${chevronPosition === "end" ? "flex-1" : "shrink"} text-subtitle text-foreground md:text-sectionTitle`}
+        className={`${chevronPosition === "end" ? "flex-1" : "shrink"} text-shop-subtitle text-foreground md:text-shop-sectionTitle`}
         numberOfLines={1}
       >
         {title}

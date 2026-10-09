@@ -180,7 +180,7 @@ export function ProductGallery({ images, title, ref }: ProductGalleryProps) {
           style={{ height: frameHeight }}
           className="items-center justify-center rounded-radius-28 bg-bg-fill-secondary"
         >
-          <Text className="text-bodySmall text-text-tertiary">{t(MARKETPLACE_NO_IMAGE_KEY)}</Text>
+          <Text className="text-shop-bodySmall text-text-tertiary">{t(MARKETPLACE_NO_IMAGE_KEY)}</Text>
         </View>
       ) : (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
