@@ -1,0 +1,82 @@
+{
+  "kind": "mercaria-accepted-source-build-image-binding-v1",
+  "sourceSha": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f",
+  "acceptedSourceProof": {
+    "path": "/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/docs/audits/2026-10-04-i08-cohort-scoped-recovery/proof.json",
+    "sha256": "72e299d492049f3cfc6a39c496143791dbf7e316d9c31d185695598eba7ba6b3"
+  },
+  "compiled": [
+    {
+      "path": "/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/dist/index.js",
+      "sha256": "ca8da831429893af90c5b587373aa9ff61587e863fc70b88a2c62eabb460105a"
+    },
+    {
+      "path": "/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/dist/register-capability-catalog.js",
+      "sha256": "22ce7b279fec3a499fbd9f0cdf1617e6c3069776ee04f2d07f2d284257f38f4f"
+    },
+    {
+      "path": "/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/dist/db/migrate.js",
+      "sha256": "f065a7311adee792500bdd04d21e27d361608a23d7a61999890272161d96a73b"
+    },
+    {
+      "path": "/home/nate/Oxy/Mercaria/.worktrees/1519-billing-cohort-functional-20261004/packages/backend/dist/scripts/provision-taxonomy.js",
+      "sha256": "92d76b0a3682955e7d4419e389a0e122caf44eea55f02dae5d3d4e1f652c2098"
+    }
+  ],
+  "sourceFilesChecked": 10,
+  "unchangedInputsChecked": [
+    {
+      "path": "packages/backend/drizzle",
+      "gitObject": "c17295f9006835f021514623c91a7602db7d3d57",
+      "baseSame": true,
+      "sourceSame": true
+    },
+    {
+      "path": "packages/backend/src/db/migrate.ts",
+      "gitObject": "5ef632ccfda035efb2b98f2ef8b17069c9d2e48d",
+      "baseSame": true,
+      "sourceSame": true
+    },
+    {
+      "path": "Dockerfile",
+      "gitObject": "3476b20f0a18ecc38c710a7af0ac25641001ee43",
+      "baseSame": true,
+      "sourceSame": true
+    },
+    {
+      "path": "bun.lock",
+      "gitObject": "83d53090cbd3fdc4be48f1896b8cbd3bef8cfa21",
+      "baseSame": true,
+      "sourceSame": true
+    },
+    {
+      "path": "packages/backend/package.json",
+      "gitObject": "04c15d15413c6f4d1f83bb7900294fa484229a3e",
+      "baseSame": true,
+      "sourceSame": true
+    }
+  ],
+  "SDKArchives": [
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/published-final-sdk-85dad/core.tgz",
+      "sha256": "20fbd2e6fadd5d1e0a6ea9b6ad0ed9f65e77d5289600f6085ebfc16c224d5795"
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/published-final-sdk-85dad/contracts.tgz",
+      "sha256": "d495f3b1aabbfea8da57107e4f4bbee7c8d2e9e34f9e2345923e12a5c080fdaa"
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/published-final-sdk-85dad/protocol.tgz",
+      "sha256": "88498ab28c1aa373f6f725f1625662b47d61e50d8ae25a54c80bfb2ecb65b5db"
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/published-final-sdk-85dad/mcp.tgz",
+      "sha256": "db8e17f533f756574983532bcbb7c154ec618d6a476278132e31dd40adf78c27"
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/peable-sdk022-registry/registry-sdk-0.2.2.tgz",
+      "sha256": "68687dabc8caddcdb3f60d846d720f5103d29c4d2a0eacb774ebc08ca37f4494"
+    }
+  ],
+  "noRebuild": true
+}

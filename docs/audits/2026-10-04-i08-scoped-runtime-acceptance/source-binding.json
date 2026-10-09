@@ -1,0 +1,93 @@
+{
+  "kind": "mercaria-merged-source-and-migration-binding-v1",
+  "sourceSha": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f",
+  "sourceTreeSha": "fa2c37a6d00b85a2b866d50bb32520208efcfcbf",
+  "acceptedPrHead": "bb2052415e283860c1bc458fd90134d3df9fb649",
+  "wholeTreeEqual": true,
+  "inputs": [
+    {
+      "path": "Dockerfile",
+      "sha256": "5f93c981c46906d9e5cf117566fa173058f15e08023dceea7a2c2fa9c8f6cac2"
+    },
+    {
+      "path": "bun.lock",
+      "sha256": "f950d4374476c27b2b957c400545aadce0880508bf4caf68422b2155756ddbb7"
+    },
+    {
+      "path": "package.json",
+      "sha256": "f4baa12c8eb65b7a48f62477608815e68f3d74884002236eb1f85a30d5401a7f"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "sha256": "4e8d18ac094a03a30b4c2914d7dd7931a4b02da85bac3fbf87432afe5918690d"
+    },
+    {
+      "path": "packages/backend/build.ts",
+      "sha256": "2f5aa2fc20203754a96adcc29f4c21ff2dceab89a79a3082d96083471ab58f78"
+    },
+    {
+      "path": ".github/scripts/reviewed-images.json",
+      "sha256": "f9b2b60d5023ad4fee044f8e130bdafc4e504e5d281d69f0d1d31a4bbea4c5c8"
+    },
+    {
+      "path": ".github/workflows/publish-reviewed-images.yml",
+      "sha256": "e1003b675db831ab65722a59e3c8fc09c2fed3c9202f451ba03dbf90bcba065c"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "c1aba7a256daed46170bf5542c36bd54b6c43f60c04d7de8b76edf4d64e6236d"
+    },
+    {
+      "path": "packages/backend/src/config/__tests__/billing-cohort.test.ts",
+      "sha256": "e983c1bc219d88c1086d343c69c799a992e469662fbb49040965e9170ecfeb41"
+    },
+    {
+      "path": "packages/backend/src/db/payments/paymentRepository.ts",
+      "sha256": "3c6f91baa2e1f0b6d6dc0a9992d5c6a8a296ba035d9e9dce15a39d4e48a137c4"
+    },
+    {
+      "path": "packages/backend/src/index.ts",
+      "sha256": "890dbead0050f75f4e17ca7ad1ac5f4ac6ce74ebec04aac751749d6fe85d2d70"
+    },
+    {
+      "path": "packages/backend/src/routes/__tests__/billing-cohort-stripe.integration.test.ts",
+      "sha256": "7f28b45e104a77fae92b7ea47ff47d23bc4c3af9bf961365deced965971e114b"
+    },
+    {
+      "path": "packages/backend/src/services/billing/cohort-access.ts",
+      "sha256": "e915425f00afb6f082146e96edc929c2cfa1f63ddda08a0fc8d610c7aeac2162"
+    },
+    {
+      "path": "packages/backend/src/services/billing/subscription.service.ts",
+      "sha256": "d3471d2444d985bf6e04c1e47e51e9ae5aa7f1f1abec2f8b38d5354ab41f86f9"
+    },
+    {
+      "path": "packages/backend/src/services/entitlements/projection.ts",
+      "sha256": "a0ad489b7510bf24b253fc2a77e8ea4f1444ee655bd06840089d184bcf0fa47c"
+    },
+    {
+      "path": "packages/backend/src/services/payments/stripe/event-dispatcher.ts",
+      "sha256": "b32ca0b950f6e2cc0ff12f28cd0d35584a7a5fc76a2ee240aeeb5e95cc8cc595"
+    },
+    {
+      "path": "packages/backend/src/services/payments/stripe/event-processor.ts",
+      "sha256": "63076f60107b978b47287da9f38f551ffa5b41fe17baf7aa6b93816d69de3e75"
+    }
+  ],
+  "drizzleFiles": 317,
+  "journalEntries": 158,
+  "previousReadback": {
+    "historicalCommentsOnly": 135,
+    "unchanged": 23,
+    "pending": 0
+  },
+  "drizzleTreeBefore": "c17295f9006835f021514623c91a7602db7d3d57",
+  "drizzleTreeAfter": "c17295f9006835f021514623c91a7602db7d3d57",
+  "migrationsUnchanged": true,
+  "canonicalMigratorUnchanged": true,
+  "manifestsAndLockUnchanged": true,
+  "previousLiveReview": {
+    "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/mercaria-promotion-review/review.json",
+    "sha256": "ab2029bcb8c1868178e5d31e3fd2f3d7e0d80aece17ba946847653624dc805dc"
+  }
+}

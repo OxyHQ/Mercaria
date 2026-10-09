@@ -1,0 +1,36 @@
+{
+  "kind": "mercaria-scoped-runtime-restoration-v1",
+  "accepted": true,
+  "at": "2026-10-04T10:58:55.261210+00:00",
+  "workflow": {
+    "accepted": true,
+    "workflow": 299667145,
+    "state": "active",
+    "source": "62aa621892bda26f0f9950c6ac8c61c50c5a0a1f",
+    "dispatch": false,
+    "observedAt": "2026-10-04T10:58:12.222476+00:00"
+  },
+  "all52OriginalWorkflowsActive": true,
+  "all4HoldVariablesBaselineAbsent": true,
+  "all31ServicesSteady": true,
+  "suspendedScalers": 0,
+  "fleetDefinitionDeltasSinceAcceptedBaseline": [
+    {
+      "service": "mercaria",
+      "before": "arn:aws:ecs:us-west-2:237343248947:task-definition/oxy-mercaria:61",
+      "after": "arn:aws:ecs:us-west-2:237343248947:task-definition/oxy-mercaria:62"
+    }
+  ],
+  "retainedReadbacks": [
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/mercaria-scoped-promotion/workflow-restore/accepted.json",
+      "sha256": "1baeef4c11af6f63a3bd8292b70ba94ac270743c576ddf3d3b63d391d0097bc4"
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/final-closure-census/accepted.json",
+      "sha256": "4fa57d9541b55296377d85546e560674e409720af8fec16646d5577335d2997c"
+    }
+  ],
+  "noNewFinancialOperation": true,
+  "noMigration": true
+}
