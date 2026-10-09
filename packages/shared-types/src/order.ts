@@ -586,6 +586,8 @@ export interface OrderSummary {
   grandTotal: DualMoney;
   /** Total units across all line items. */
   itemCount: number;
+  /** Purchased-line image snapshots, in line order. Never read from the current catalog. */
+  images?: { url: string; alt: string }[];
   /** Whether this order is fulfilled by a user (P2P) or a store. */
   sellerType: OrderSellerType;
   /** Hydrated P2P seller identity, for `sellerType: 'user'`. */

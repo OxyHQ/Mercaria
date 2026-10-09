@@ -177,6 +177,13 @@ the count and page query. Invalid views return 400; omitting the parameter keeps
 the all-orders response used by existing clients. Real PostgreSQL coverage walks
 every status, claimed/unclaimed guest orders, a second account and multiple pages.
 
+Order summaries include `images` projected from the purchased lines' frozen URLs
+and titles, in line order. The projection performs no catalog lookup and shares
+the existing batched seller hydration. Lines without a stored photograph add no
+preview; their quantities still contribute to `itemCount`. The storefront shows
+two 32px thumbnails and a remaining-image count, and removes failed images so a
+later valid photograph can take their place.
+
 ---
 
 ## The audit actor (D16)
