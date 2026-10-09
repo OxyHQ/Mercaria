@@ -63,6 +63,7 @@ import {
   findListingReviewsPage,
 } from '../reviews/reviewRepository.js';
 import { consumeEligibility, insertEligibility } from '../reviews/reviewEligibilityRepository.js';
+import { findPurchasedVariantsForReviews } from '../reviews/reviewPurchaseContextRepository.js';
 import { recordTargetMigration } from '../reviews/reviewMigrationRepository.js';
 import { rebuildScopedAggregate } from '../../services/reviews/review-aggregate.service.js';
 import { deleteTestCanonicalRows } from './canonical-teardown.js';
@@ -226,6 +227,7 @@ async function makeListing(storeId: string): Promise<string> {
 async function makeOrderWithLine(
   storeId: string,
   buyerOxyUserId: string,
+  variantTitle = 'Default',
 ): Promise<{
   orderId: string;
   lineId: string;
@@ -288,7 +290,7 @@ async function makeOrderWithLine(
     listingId: uuidv7(),
     variantId: uuidv7(),
     title: 'A thing',
-    variantTitle: 'Default',
+    variantTitle,
     quantity: 1,
     ...money,
   });
@@ -1224,5 +1226,59 @@ describe('a dimension belongs to exactly one review, once', () => {
     ).rejects.toSatisfy((err: unknown) =>
       isUniqueViolation(err, 'review_dimensions_review_id_key_key'),
     );
+  });
+});
+
+describe('public review purchase context', () => {
+  async function purchasedReview(variantTitle: string, mismatchedAuthor = false) {
+    const buyer = `variant-buyer-${uuidv7()}`;
+    const storeId = await makeStore();
+    const productId = await makeCanonicalProduct();
+    const { orderId, lineId } = await makeOrderWithLine(storeId, buyer, variantTitle);
+    const grant = await insertEligibility({
+      oxyUserId: buyer, orderId, orderItemId: lineId,
+      scope: 'product', targetType: 'canonical_product', targetId: productId,
+      evidenceType: 'authenticated_purchase', policyVersion: 'test',
+    });
+    expect(grant).not.toBeNull();
+    await consumeEligibility(grant!.id);
+    const reviewId = await writeReview({
+      authorOxyUserId: mismatchedAuthor ? `another-${buyer}` : buyer,
+      scope: 'product', targetType: 'canonical_product', targetId: productId,
+      rating: 5, verification: 'verified_purchase', eligibilityId: grant!.id, orderId,
+    });
+    return { reviewId, productId };
+  }
+
+  it('reads each exact purchased variant even when its catalog listing is absent', async () => {
+    const first = await purchasedReview('Black / M');
+    const second = await purchasedReview('Blue / XL');
+    const context = await findPurchasedVariantsForReviews([first.reviewId, second.reviewId]);
+    expect(context.size).toBe(2);
+    expect(context.get(first.reviewId)).toBe('Black / M');
+    expect(context.get(second.reviewId)).toBe('Blue / XL');
+    // A scoped read cannot expose another review's purchase context.
+    expect(await findPurchasedVariantsForReviews([first.reviewId])).toEqual(new Map([[first.reviewId, 'Black / M']]));
+    expect(await findPurchasedVariantsForReviews([])).toEqual(new Map());
+  });
+
+  it('omits missing evidence, hidden reviews and an eligibility owned by another author', async () => {
+    const valid = await purchasedReview('Red / S');
+    const hidden = await purchasedReview('Private / L');
+    await setReviewStatusIfIn(hidden.reviewId, 'hidden', ['published']);
+    const mismatched = await purchasedReview('Other buyer / XL', true);
+    const unverified = await writeReview({
+      authorOxyUserId: `unverified-${uuidv7()}`,
+      scope: 'product', targetType: 'canonical_product', targetId: valid.productId, rating: 4,
+    });
+    const context = await findPurchasedVariantsForReviews([valid.reviewId, hidden.reviewId, mismatched.reviewId, unverified]);
+    expect(context.size).toBe(1);
+    expect(context).toEqual(new Map([[valid.reviewId, 'Red / S']]));
+  });
+
+  it('does not expose blank or no-option variant placeholders', async () => {
+    const blank = await purchasedReview('   ');
+    const defaultVariant = await purchasedReview('Default Title');
+    expect(await findPurchasedVariantsForReviews([blank.reviewId, defaultVariant.reviewId])).toEqual(new Map());
   });
 });

@@ -1572,3 +1572,35 @@ test("store review actions open the same report form and preserve the store menu
   await expect(report).toBeHidden();
   await expect(trigger).toBeVisible();
 });
+
+for (const width of [1440, 390]) {
+  test(`purchased review variants appear only in full cards and wrap at ${width}px`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const product = await seededProduct(request);
+    const variant = "Midnight blue / Extra long / Limited edition with embroidered details";
+    // Visual fixture: the real repository's purchase-evidence rules are tested
+    // against PostgreSQL. This leaves the catalog's currently selected shade alone.
+    await page.route(`**/listings/${product.id}/reviews?*`, async (route) => {
+      const response = await route.fetch();
+      const data = await response.json();
+      data.data[0] = { ...data.data[0], verification: "verified_purchase", purchasedVariantTitle: variant };
+      for (const review of data.data.slice(1)) delete review.purchasedVariantTitle;
+      await route.fulfill({ response, json: data });
+    });
+    await page.goto(`/products/${product.id}`);
+    await expect(page.getByTestId("review-preview-carousel")).toBeVisible();
+    await expect(page.getByTestId("review-purchased-variant")).toHaveCount(0);
+    await page.getByTestId("product-sections").getByRole("button", { name: "Read more reviews", exact: true }).click();
+    const sheet = page.getByTestId("product-reviews-dialog");
+    const context = sheet.getByTestId("review-purchased-variant");
+    await expect(context).toHaveCount(1);
+    await expect(context).toHaveText(variant);
+    await expect(context).toHaveCSS("font-size", "12px");
+    const box = (await context.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    if (width === 390) expect(box.height).toBeGreaterThan(16);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+    await page.unrouteAll({ behavior: "wait" });
+  });
+}

@@ -465,6 +465,11 @@ export interface Review extends Timestamps {
   title?: string;
   /** Optional free-text body. */
   body?: string;
+  /** Read-only purchased option title from the verified order-line snapshot.
+   * Absent without matching purchase evidence or for a default/no-option variant.
+   * Never inferred from the current catalog or accepted as review input.
+   */
+  purchasedVariantTitle?: string;
   /** BCP-47 tag of the language the review was written in, when known. */
   locale?: string;
   /** Whether the reviewer received an incentive. */

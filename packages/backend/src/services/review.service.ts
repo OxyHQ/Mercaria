@@ -88,6 +88,7 @@ import {
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import type { StoreCaller } from './store-access.service.js';
 import { resolveMedia } from './catalog-hydration.service.js';
+import { findPurchasedVariantsForReviews } from '../db/reviews/reviewPurchaseContextRepository.js';
 import { enqueueRecomputeAggregate } from '../queue/producers.js';
 import { sendNotification } from '../lib/notification-service.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
@@ -159,6 +160,7 @@ function toReviewDTO(
   authorProfiles: Map<string, OxyProfile>,
   dimensions?: Map<string, ReviewDimension[]>,
   products?: Map<string, ReviewProduct>,
+  purchasedVariants?: Map<string, string>,
 ): ReviewDTO {
   const dto: ReviewDTO = {
     id: row.id,
@@ -187,6 +189,8 @@ function toReviewDTO(
   if (row.eligibilityId) dto.eligibilityId = row.eligibilityId;
   if (row.title) dto.title = row.title;
   if (row.body) dto.body = row.body;
+  const purchasedVariantTitle = purchasedVariants?.get(row.id);
+  if (purchasedVariantTitle) dto.purchasedVariantTitle = purchasedVariantTitle;
   if (row.locale) dto.locale = row.locale;
   // DERIVED, not stored: a review has no draft state in Mercaria, so it became
   // visible the moment it was written. See the note on `editedAt` in the schema.
@@ -427,9 +431,7 @@ export async function createReview(
 
   await notifyTargetOwner(row, target.scope, target.targetId, authorOxyUserId);
 
-  const authorProfiles = await getProfiles([authorOxyUserId]);
-  const dimensionRows = await findDimensionsForReviews([row.id]);
-  return toReviewDTO(row, authorProfiles, groupDimensions(dimensionRows));
+  return (await hydrate([row], 1)).data[0];
 }
 
 /** Offset-pagination parameters. */
@@ -445,20 +447,21 @@ interface ReviewPage {
   total: number;
 }
 
-/** Hydrate a page of rows: authors + dimensions in two batched reads. */
+/** Hydrate a page with batched author, dimension and purchased-variant reads. */
 async function hydrate(
   rows: ReviewRecord[],
   total: number,
   products?: Map<string, ReviewProduct>,
 ): Promise<ReviewPage> {
   const authorIds = [...new Set(rows.map((row) => row.authorOxyUserId))];
-  const [authorProfiles, dimensionRows] = await Promise.all([
+  const [authorProfiles, dimensionRows, purchasedVariants] = await Promise.all([
     getProfiles(authorIds),
     findDimensionsForReviews(rows.map((row) => row.id)),
+    findPurchasedVariantsForReviews(rows.map((row) => row.id)),
   ]);
   const dimensions = groupDimensions(dimensionRows);
   return {
-    data: rows.map((row) => toReviewDTO(row, authorProfiles, dimensions, products)),
+    data: rows.map((row) => toReviewDTO(row, authorProfiles, dimensions, products, purchasedVariants)),
     total,
   };
 }

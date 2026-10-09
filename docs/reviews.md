@@ -348,6 +348,15 @@ substituted as the subject. Guests must sign in through Oxy before sending.
 Closing the nested form preserves the review list. Compact PDP previews remain
 single buttons that open the full review sheet, without nested action controls.
 
+Expanded cards can show `purchasedVariantTitle` below the review title. It is a
+read-only projection of the immutable order-line variant title reached through
+the review's eligibility, batched for the requested page. The projection requires
+a published, verified review with matching eligibility author and scope, and an
+order line belonging to the eligibility's order. Missing evidence, blank titles
+and the catalog's `Default Title` sentinel omit the field. Catalog edits or
+deletion cannot change which size/color the review says was purchased. Neither
+the review input nor the public projection carries buyer contact/payment data.
+
 The PDP previews three reviews. Opening a preview centres that review in the
 sheet, using measured content and viewport sizes. A canonical product with no
 verified ratings still shows its separately labelled unverified reviews and

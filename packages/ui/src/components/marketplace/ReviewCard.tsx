@@ -91,6 +91,11 @@ export function ReviewCard({
           {review.title}
         </Text>
       ) : null}
+      {expanded && review.purchasedVariantTitle ? (
+        <Text testID="review-purchased-variant" className="text-shop-caption text-text-tertiary">
+          {review.purchasedVariantTitle}
+        </Text>
+      ) : null}
       {review.body ? (
         <Text
           numberOfLines={expanded ? undefined : 4}

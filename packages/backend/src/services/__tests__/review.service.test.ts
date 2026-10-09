@@ -26,6 +26,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const aggregatePublishedReviews = vi.fn();
 const authorHasReviewedTarget = vi.fn();
 const findDimensionsForReviews = vi.fn();
+const findPurchasedVariantsForReviews = vi.fn();
 const findListingReviewsPage = vi.fn();
 const findReviewsPage = vi.fn();
 const findScopedReviewsPage = vi.fn();
@@ -63,6 +64,10 @@ vi.mock('../../db/reviews/reviewRepository.js', () => ({
 
 vi.mock('../../db/reviews/reviewEligibilityRepository.js', () => ({
   consumeEligibility: (...args: unknown[]) => consumeEligibility(...args),
+}));
+
+vi.mock('../../db/reviews/reviewPurchaseContextRepository.js', () => ({
+  findPurchasedVariantsForReviews: (...args: unknown[]) => findPurchasedVariantsForReviews(...args),
 }));
 
 vi.mock('../reviews/review-eligibility.service.js', () => ({
@@ -120,7 +125,7 @@ vi.mock('../catalog-hydration.service.js', () => ({
   resolveMedia: (value: string, variant?: string) => (variant ? `${value}:${variant}` : value),
 }));
 
-import { createReview, recomputeAggregate, listReviewsForStoreHandle } from '../review.service.js';
+import { createReview, recomputeAggregate, listReviewsForStoreHandle, listReviews, listScopedReviews } from '../review.service.js';
 import type { StoreCaller } from '../store-access.service.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
@@ -223,6 +228,7 @@ beforeEach(() => {
   sendNotification.mockResolvedValue(undefined);
   getProfiles.mockResolvedValue(new Map());
   findDimensionsForReviews.mockResolvedValue([]);
+  findPurchasedVariantsForReviews.mockResolvedValue(new Map());
   rebuildScopedAggregate.mockResolvedValue({ aggregate: {}, drift: null });
   assertNotSelfPurchase.mockResolvedValue(undefined);
   assertNotSelfTarget.mockResolvedValue(undefined);
@@ -629,5 +635,25 @@ describe('review.service.listReviewsForStoreHandle', () => {
 
     expect(page).toEqual({ data: [], total: 0 });
     expect(findListingReviewsPage).not.toHaveBeenCalled();
+  });
+});
+
+describe('public purchased variant hydration', () => {
+  it('batches exact review ids and keeps missing purchase evidence absent on both read paths', async () => {
+    const first = reviewRow({ id: 'review-purchased', verification: 'verified_purchase', eligibilityId: 'eligibility-purchased' });
+    const second = reviewRow({ id: 'review-no-evidence' });
+    findPurchasedVariantsForReviews.mockResolvedValue(new Map([[first.id, 'Black / M']]));
+    findReviewsPage.mockResolvedValue({ rows: [first, second], total: 2 });
+    findScopedReviewsPage.mockResolvedValue({ rows: [first, second], total: 2 });
+    for (const result of [
+      await listReviews({ targetType: 'listing', targetId: 'listing-1' }, { page: 1, limit: 12 }),
+      await listScopedReviews('p2p_listing', 'listing-1', { page: 1, limit: 12 }),
+    ]) {
+      expect(result.data[0].purchasedVariantTitle).toBe('Black / M');
+      expect(result.data[1]).not.toHaveProperty('purchasedVariantTitle');
+    }
+    expect(findPurchasedVariantsForReviews).toHaveBeenCalledTimes(2);
+    expect(findPurchasedVariantsForReviews).toHaveBeenNthCalledWith(1, [first.id, second.id]);
+    expect(findPurchasedVariantsForReviews).toHaveBeenNthCalledWith(2, [first.id, second.id]);
   });
 });

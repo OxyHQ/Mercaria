@@ -297,6 +297,11 @@ function StoreReviewCard({
             {review.product.title}
           </Text>
         ) : null}
+        {review.purchasedVariantTitle ? (
+          <Text testID="review-purchased-variant" className="text-shop-caption" style={{ color: toneColor }}>
+            {review.purchasedVariantTitle}
+          </Text>
+        ) : null}
         {review.body ? (
           <Text numberOfLines={4} className="text-shop-caption" style={{ color: toneColor }}>
             {review.body}
