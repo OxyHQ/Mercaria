@@ -849,6 +849,10 @@
       "codeA11y": "Código de retirada %{code}",
       "codeNote": "Mostre isto no balcão. Se parar de funcionar, a loja pode emitir um novo — um código antigo nunca continua funcionando junto com o novo."
     },
+    "storeOffer": {
+      "amountOff": "%{amount} de desconto",
+      "minimumSubtotal": "em pedidos a partir de %{amount}"
+    },
     "productCard": {
       "discount": "%{percent} de desconto",
       "save": "Adicionar aos salvos"

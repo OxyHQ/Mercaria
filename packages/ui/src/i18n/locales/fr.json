@@ -849,6 +849,10 @@
       "codeA11y": "Code de retrait %{code}",
       "codeNote": "Présentez-le au comptoir. S’il cesse de fonctionner, la boutique peut en émettre un nouveau — un ancien code ne continue jamais de fonctionner à côté du nouveau."
     },
+    "storeOffer": {
+      "amountOff": "%{amount} de réduction",
+      "minimumSubtotal": "dès %{amount} d’achat"
+    },
     "productCard": {
       "discount": "%{percent} de réduction",
       "save": "Ajouter aux favoris"

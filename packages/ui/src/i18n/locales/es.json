@@ -849,6 +849,10 @@
       "codeA11y": "Código de recogida %{code}",
       "codeNote": "Muéstralo en el mostrador. Si deja de funcionar, la tienda puede emitir uno nuevo: un código antiguo nunca sigue funcionando junto al nuevo."
     },
+    "storeOffer": {
+      "amountOff": "%{amount} de descuento",
+      "minimumSubtotal": "en pedidos de %{amount} o más"
+    },
     "productCard": {
       "discount": "%{percent} de descuento",
       "save": "Añadir a guardados"

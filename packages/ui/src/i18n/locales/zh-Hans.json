@@ -842,6 +842,10 @@
       "codeA11y": "自提码 %{code}",
       "codeNote": "请在柜台出示。如果失效，店铺可以重新发放一个——旧的自提码绝不会与新的同时有效。"
     },
+    "storeOffer": {
+      "amountOff": "立减%{amount}",
+      "minimumSubtotal": "订单满%{amount}可享"
+    },
     "productCard": {
       "discount": "%{percent} 折扣",
       "save": "加入已保存商品"

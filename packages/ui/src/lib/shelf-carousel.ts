@@ -30,8 +30,8 @@ export type ShelfCarouselProps = Required<
  *
  * - **The copy is ours.** Bloom's arrow and dot names default to English, so
  *   they come from `@mercaria/ui`'s own bundles, in the viewer's language.
- * - **Arrows on web only.** A touch screen swipes; the shelves never drew
- *   arrows on native, and Bloom's would take a row above every shelf there.
+ * - **Arrows from `sm` on web.** Phones and native use swipe; an arrow row
+ *   would add empty space above each mobile shelf.
  * - **The gap is 8px, 16px from `sm` on web.** The step is web-only because the
  *   reference it was measured from is a web capture.
  *
@@ -46,7 +46,7 @@ export function useShelfCarouselProps(): ShelfCarouselProps {
   return useMemo(
     () => ({
       gap,
-      showArrows: isWeb,
+      showArrows: isWeb && width >= WIDE_GAP_BREAKPOINT,
       showDots: false,
       inset: isWeb && width >= 1024 ? 48 : SHELF_GUTTER,
       previousLabel: t(CAROUSEL_PREVIOUS_KEY),

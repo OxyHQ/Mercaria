@@ -13,7 +13,7 @@ import {
   CategoryTileGrid,
   type CategoryShortcut,
   MerchantCarousel,
-  MerchantHeader,
+  StoreOfferHeader,
   ProductCarousel,
   ProductShelf,
 } from '@mercaria/ui';
@@ -23,10 +23,9 @@ import { useTranslation } from '@/lib/i18n';
 
 /**
  * The heading padding every shelf in the app already uses — `SectionHeader`'s
- * own `px-4 pb-3 md:px-5`. `MerchantHeader` is the one heading here that is
- * not a `SectionHeader` (it is the PDP's merchant identity row), and it
- * carries no padding of its own because on the PDP it sits inside an already
- * padded column. This puts it on the same line as every other shelf heading.
+ * own `px-4 pb-3 md:px-5`. `StoreOfferHeader` is the one heading here that is
+ * not a `SectionHeader`, and has no page padding of its own. This puts it
+ * on the same line as every other shelf heading.
  */
 const STORE_OFFER_HEADING_CLASS = 'px-4 pb-3 lg:px-12';
 
@@ -63,11 +62,10 @@ function signalHref(handle: string, signal: DiscoverySignal): Href {
  * one reference, so the components that render the home feed ARE that
  * reference already resolved into this app's own widths, card sizes and
  * heading scale: `ProductShelf` (the same call `app/(app)/index.tsx` makes),
- * `CategoryPills`, `MerchantCarousel`, `MerchantHeader` and `ProductCarousel`.
+ * `CategoryPills`, `MerchantCarousel`, `StoreOfferHeader` and `ProductCarousel`.
  * The capture decides WHICH sections appear and in what order; the app decides
- * what they look like. A section kind that cannot be carried by one of those
- * is a gap to report, not a licence to add a tenth card component — the last
- * attempt added nine and produced pages that matched no other screen.
+ * what they look like. StoreOfferHeader supplies the distinct saving and
+ * qualifying-subtotal line for automatic discounts.
  *
  * Because each of those components already owns its own `mb-6`, this file adds
  * no wrapper gap and no max-width: the feed bleeds the full scroll width
@@ -225,29 +223,17 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
       case 'stores':
         return renderStoresShelf(section);
 
-      /*
-       * A store's offer: the merchant identity row the PDP already uses, above
-       * the products the discount covers.
-       *
-       * The header's percentage and exclusive-offer ring come from the store
-       * discount. ProductCard's markdown remains the item's own saving.
-       * Fixed-amount savings and qualifying subtotals still need a store-offer
-       * line; they must not be disguised as a percentage or item markdown.
-       */
+      // The store's automatic saving and qualification remain separate from
+      // ProductCard's per-item markdown.
       case 'store-offer': {
         if (section.products.length === 0) return null;
         return (
           <View key={section.id} className={SHELF_RHYTHM_CLASS}>
             <View className={STORE_OFFER_HEADING_CLASS}>
-              <MerchantHeader
-                name={section.store.name}
-                logoUrl={section.store.logoUrl}
-                rating={section.store.rating}
-                reviewCount={section.store.reviewCount}
+              <StoreOfferHeader
+                store={section.store}
+                discount={section.discount}
                 onPress={() => onPressStore(section.store.handle)}
-                size="large"
-                discountPercent={section.discount.percentOff}
-                exclusiveOffer={section.discount.exclusive}
               />
             </View>
             <ProductCarousel items={section.products} onPressItem={onPressProduct} />

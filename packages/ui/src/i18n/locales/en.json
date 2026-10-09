@@ -842,6 +842,10 @@
       "codeA11y": "Collection code %{code}",
       "codeNote": "Show this at the counter. If it stops working the shop can issue a new one — an older code never keeps working alongside it."
     },
+    "storeOffer": {
+      "amountOff": "%{amount} off",
+      "minimumSubtotal": "on orders of %{amount}+"
+    },
     "productCard": {
       "discount": "%{percent} off",
       "save": "Add to saved items"

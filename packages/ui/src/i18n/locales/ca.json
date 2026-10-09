@@ -849,6 +849,10 @@
       "codeA11y": "Codi de recollida %{code}",
       "codeNote": "Mostra'l al taulell. Si deixa de funcionar, la botiga en pot emetre un de nou: un codi antic mai continua funcionant al costat del nou."
     },
+    "storeOffer": {
+      "amountOff": "%{amount} de descompte",
+      "minimumSubtotal": "en comandes de %{amount} o més"
+    },
     "productCard": {
       "discount": "%{percent} de descompte",
       "save": "Afegeix als desats"

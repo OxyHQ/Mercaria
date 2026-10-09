@@ -842,6 +842,10 @@
       "codeA11y": "受け取りコード %{code}",
       "codeNote": "カウンターでこれを提示してください。使えなくなった場合は店舗が新しいコードを発行できます。古いコードが新しいコードと併用できることはありません。"
     },
+    "storeOffer": {
+      "amountOff": "%{amount}割引",
+      "minimumSubtotal": "%{amount}以上のご注文で"
+    },
     "productCard": {
       "discount": "%{percent} オフ",
       "save": "保存した商品に追加"

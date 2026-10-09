@@ -842,6 +842,10 @@
       "codeA11y": "Abholcode %{code}",
       "codeNote": "Zeigen Sie ihn an der Theke. Falls er nicht mehr funktioniert, kann der Shop einen neuen ausstellen — ein alter Code funktioniert nie neben dem neuen weiter."
     },
+    "storeOffer": {
+      "amountOff": "%{amount} Rabatt",
+      "minimumSubtotal": "ab %{amount} Bestellwert"
+    },
     "productCard": {
       "discount": "%{percent} Rabatt",
       "save": "Zu gespeicherten Artikeln hinzufügen"

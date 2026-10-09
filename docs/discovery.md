@@ -191,6 +191,11 @@ never touches `discovery_signals` — `findStoresWithLiveDiscounts` selects one
 (a `method = 'code'` discount is excluded: a shelf advertising a saving the
 shopper cannot get without a code they do not have is a false price).
 
+`StoreOfferHeader` renders the store's percentage or fixed-amount saving and
+its qualifying subtotal, when present. Both amounts keep the discount's own
+currency; percentage rates retain their basis-point precision. The exclusive
+ring reads `discount.exclusive`. Item markdowns remain on the product cards.
+
 A card shows the products its discount can actually REDUCE, not the store's
 newest. `applies_to_scope` is `notNull` and two of its three members target a
 subset, so `buildDealsFeed` partitions the shelf's stores by scope and gives

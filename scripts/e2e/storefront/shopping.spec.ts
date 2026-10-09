@@ -437,3 +437,62 @@ test('local shopping history never exposes a different account conversation to a
   await expect(page.getByTestId('shopping-thread')).toBeVisible();
   await expect(page.getByText('Private shopping question')).toHaveCount(0);
 });
+
+test('store offer headers show fixed savings with their qualifying subtotal and navigate to the store', async ({ page }) => {
+  await page.route('**/discovery/feed?*', async route => {
+    const response = await route.fetch();
+    if (new URL(route.request().url()).searchParams.get('scope') !== 'deals') {
+      await route.fulfill({ response });
+      return;
+    }
+    const body = await response.json();
+    const section = body.data.sections.find((item: { kind: string }) => item.kind === 'store-offer');
+    expect(section).toBeTruthy();
+    section.discount = {
+      id: 'visual-fixed-offer', amountOff: { amount: 1500, currency: 'USD' },
+      minimumSubtotal: { amount: 7500, currency: 'USD' }, exclusive: false,
+    };
+    body.data.sections = [section];
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto('/deals');
+  const header = page.getByTestId('store-offer-header');
+  await expect(header).toContainText('$15.00');
+  await expect(header).toContainText('on orders of');
+  await expect(header).toContainText('$75.00');
+  await expect(header).not.toContainText('% off');
+  await expect(header.getByText('Visit store', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Go to the next item', exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await expect(page.getByRole('button', { name: 'Go to the next item', exact: true })).toHaveCount(0);
+  await header.click();
+  await expect(page).toHaveURL(/\/stores\/[^/]+$/);
+});
+
+for (const rate of [20, 20.25]) {
+test(`percentage offer headers preserve a ${rate}% rate and its qualifying subtotal`, async ({ page }) => {
+  await page.route('**/discovery/feed?*', async route => {
+    const response = await route.fetch();
+    if (new URL(route.request().url()).searchParams.get('scope') !== 'deals') {
+      await route.fulfill({ response });
+      return;
+    }
+    const body = await response.json();
+    const section = body.data.sections.find((item: { kind: string }) => item.kind === 'store-offer');
+    expect(section).toBeTruthy();
+    section.discount = {
+      id: 'visual-percent-offer', percentOff: rate,
+      minimumSubtotal: { amount: 5000, currency: 'USD' }, exclusive: true,
+    };
+    body.data.sections = [section];
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto('/deals');
+  const header = page.getByTestId('store-offer-header');
+  await expect(header).toContainText(`${rate}%`);
+  await expect(header).toContainText('off');
+  await expect(header).toContainText('$50.00');
+  await expect(header).toContainText('on orders of');
+});
+}
