@@ -1459,7 +1459,28 @@
       "upgradeFailed": "Couldn't start the upgrade. Please try again.",
       "usageIncluded": "included",
       "usageNoLimit": "%{used} used · no limit",
-      "usageOfLimit": "%{used} of %{limit} used"
+      "usageOfLimit": "%{used} of %{limit} used",
+      "design": {
+        "title": "Explore the proposed plans",
+        "notice": "Plan designs for review. These tools are not available to purchase yet; current billing offers are shown separately.",
+        "ethics": "100% ad-free for everyone. No paid verification, promotion or preferential ranking. Existing selling tools, security and data export stay free.",
+        "goSummary": "Automate repeat tasks in your shop.",
+        "plusSummary": "Plan stock and manage an established shop.",
+        "creatorSummary": "Create and manage merch drops, without the full business toolkit.",
+        "ultraSummary": "Coordinate more complex retail and POS operations.",
+        "automation": "Catalogue and order automation rules",
+        "exports": "Scheduled exports; manual exports remain free",
+        "analytics": "Advanced demand and conversion analytics",
+        "merchandising": "Merchandising rules for your own storefront",
+        "replenishment": "Replenishment forecasting and purchase suggestions",
+        "pricing": "Competitive-price analytics for your offers",
+        "registers": "Expanded POS register management",
+        "assistance": "AI assistance for product descriptions; usage limits apply",
+        "go": "Mercaria Go",
+        "plus": "Mercaria Plus",
+        "creator": "Mercaria Creator",
+        "ultra": "Mercaria Ultra"
+      }
     },
     "policies": {
       "documentTitle": "Policies | Mercaria Dashboard",

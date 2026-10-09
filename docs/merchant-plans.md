@@ -54,7 +54,7 @@ entitlement and none can become one.
 
 Staff seats and locations are **unlimited**, and see §3 below for why.
 
-### 2. Candidate Pro capabilities
+### 2. Proposed Go, Plus, Creator and Ultra capabilities
 
 Eight, and every one of them is `postponed` because none exists yet:
 
@@ -75,6 +75,42 @@ transaction that would have activated it. That is "do not sell a placeholder
 plan whose advertised features are not implemented" as a mechanism rather than a
 promise — and it means no paid plan is sellable on any deployment today, whatever
 the billing flag says.
+
+### Product composition (9 October 2026)
+
+The four product names are **Mercaria Go, Mercaria Plus, Mercaria Creator and
+Mercaria Ultra**. Free commerce remains available without any of these plans.
+The dashboard shows these as designs, separately from published offers; the
+client must not turn a design into a selectable checkout offer.
+
+| Design | Proposed additional tools | Intended use |
+| --- | --- | --- |
+| Go | Automation rules; scheduled exports | Save time on repeat store operations |
+| Plus | Go tools; advanced demand analytics; merchandising rules; replenishment planning | Plan stock and operate an established shop |
+| Creator | Automation; scheduled exports; demand analytics; merchandising rules; AI catalogue assistance | Organise merch drops and prepare product content |
+| Ultra | All eight candidate capabilities | Forecasting, competitive-price analysis and expanded POS operations |
+
+Creator is a separate workflow, not a step above Plus: it does not include
+replenishment planning, competitive-price analytics or expanded POS registers.
+Neither Creator nor any other plan buys ads, promotion, reach, a verified badge,
+reputation, search position or preferential moderation. Oxy is 100% ad-free,
+including Free. Basic merch listings, manual collections, orders, on-demand
+exports, refunds, security and unlimited store members/locations stay free.
+
+Rule, export, register and AI limits remain unset until the corresponding tools
+are implemented and measured. No unlimited automation or AI promise is implied.
+AI usage must name its cost and draw from the applicable account allowance;
+this design creates no extra credit pool. Manufacturing and delivery of merch
+are not included. Marketplace transaction fees remain independent of the plan.
+
+Oxy One Business proposes Go → Mercaria Go, Pro/Max → Mercaria Plus, and
+Ultra → Mercaria Ultra, as the alternative to Homiio Plus. Every Oxy One Creator
+level proposes Mercaria Creator. These mappings are not entitlement grants.
+
+The design source is `packages/dashboard/lib/merchant-plan-designs.ts`. Published
+plans still come exclusively from the versioned backend catalogue. Activation
+continues to reject postponed capabilities; no paid plan or price is seeded by
+this change.
 
 ### 3. Two candidates EVALUATED and NOT ADOPTED
 
@@ -121,8 +157,8 @@ one.
   mechanism; there is deliberately no `subscription_refund` transaction kind
   nothing would write.
 - **Downgrade** — is cancellation. There is no downgrade path between two paid
-  plans yet because there is only ever going to be one paid plan before somebody
-  designs the second.
+  plans yet. The four designs below require an explicit, tested plan-change
+  policy before paid-to-paid switches are offered.
 
 ### 7. Does any plan select a different marketplace fee schedule?
 

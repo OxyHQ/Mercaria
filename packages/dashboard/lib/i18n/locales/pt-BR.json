@@ -1481,7 +1481,28 @@
       "upgradeFailed": "Não foi possível iniciar o upgrade. Tente novamente.",
       "usageIncluded": "incluído",
       "usageNoLimit": "%{used} usados · sem limite",
-      "usageOfLimit": "%{used} de %{limit} usados"
+      "usageOfLimit": "%{used} de %{limit} usados",
+      "design": {
+        "title": "Explore os planos propostos",
+        "notice": "Propostas de planos para revisão. Estas ferramentas ainda não podem ser contratadas; as ofertas disponíveis são exibidas separadamente.",
+        "ethics": "100% sem anúncios para todos. Sem verificação, promoção ou classificação preferencial pagas. As ferramentas atuais de venda, a segurança e a exportação de dados continuam gratuitas.",
+        "goSummary": "Automatize tarefas repetitivas da sua loja.",
+        "plusSummary": "Planeje o estoque e gerencie uma loja consolidada.",
+        "creatorSummary": "Crie e gerencie lançamentos de produtos para fãs, sem todas as ferramentas empresariais.",
+        "ultraSummary": "Coordene operações de venda e de caixa mais complexas.",
+        "automation": "Regras de automação de catálogo e pedidos",
+        "exports": "Exportações agendadas; exportações manuais continuam gratuitas",
+        "analytics": "Análises avançadas de demanda e conversão",
+        "merchandising": "Regras de apresentação de produtos na sua loja",
+        "replenishment": "Previsão de reposição e sugestões de compra",
+        "pricing": "Análise de preços competitivos das suas ofertas",
+        "registers": "Gestão ampliada de terminais de ponto de venda",
+        "assistance": "Ajuda de IA para descrever produtos; sujeita a limites de uso",
+        "go": "Mercaria Go",
+        "plus": "Mercaria Plus",
+        "creator": "Mercaria Creator",
+        "ultra": "Mercaria Ultra"
+      }
     },
     "policies": {
       "documentTitle": "Políticas | Mercaria Dashboard",

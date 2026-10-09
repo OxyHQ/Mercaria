@@ -1481,7 +1481,28 @@
       "upgradeFailed": "No s'ha pogut iniciar la millora del pla. Torna-ho a provar.",
       "usageIncluded": "inclòs",
       "usageNoLimit": "%{used} utilitzats · sense límit",
-      "usageOfLimit": "%{used} de %{limit} utilitzats"
+      "usageOfLimit": "%{used} de %{limit} utilitzats",
+      "design": {
+        "title": "Explora els plans proposats",
+        "notice": "Dissenys de plans per revisar. Aquestes eines encara no es poden contractar; les ofertes disponibles es mostren per separat.",
+        "ethics": "100% sense anuncis per a tothom. Sense verificació, promoció ni posicionament preferent de pagament. Les eines actuals de venda, la seguretat i l’exportació de dades continuen sent gratuïtes.",
+        "goSummary": "Automatitza tasques repetitives de la teva botiga.",
+        "plusSummary": "Planifica l’inventari i gestiona una botiga consolidada.",
+        "creatorSummary": "Crea i gestiona llançaments de marxandatge, sense totes les eines de negoci.",
+        "ultraSummary": "Coordina operacions de venda i punt de venda més complexes.",
+        "automation": "Regles d’automatització de catàleg i comandes",
+        "exports": "Exportacions programades; les manuals continuen sent gratuïtes",
+        "analytics": "Anàlisi avançada de demanda i conversió",
+        "merchandising": "Regles de presentació de productes a la teva botiga",
+        "replenishment": "Previsió de reposició i suggeriments de compra",
+        "pricing": "Anàlisi de preus competitius per a les teves ofertes",
+        "registers": "Gestió ampliada de terminals de punt de venda",
+        "assistance": "Ajuda d’IA per descriure productes; subjecta a límits d’ús",
+        "go": "Mercaria Go",
+        "plus": "Mercaria Plus",
+        "creator": "Mercaria Creator",
+        "ultra": "Mercaria Ultra"
+      }
     },
     "policies": {
       "documentTitle": "Polítiques | Mercaria Dashboard",

@@ -1459,7 +1459,28 @@
       "upgradeFailed": "アップグレードを開始できませんでした。もう一度お試しください。",
       "usageIncluded": "含まれる",
       "usageNoLimit": "%{used}使用 · 上限なし",
-      "usageOfLimit": "%{limit}中%{used}を使用"
+      "usageOfLimit": "%{limit}中%{used}を使用",
+      "design": {
+        "title": "提案中のプランを見る",
+        "notice": "検討用のプラン案です。これらのツールはまだ購入できません。購入可能なプランは別に表示されます。",
+        "ethics": "すべての方に広告なしで提供します。認証、宣伝、検索順位の優遇は販売しません。既存の販売ツール、セキュリティ、データの書き出しは無料のままです。",
+        "goSummary": "店舗の繰り返し作業を自動化。",
+        "plusSummary": "在庫を計画し、既存の店舗を管理。",
+        "creatorSummary": "ビジネス向け機能一式を含めず、グッズの発売を企画・管理。",
+        "ultraSummary": "より複雑な販売・レジ業務を連携。",
+        "automation": "カタログと注文の自動化ルール",
+        "exports": "定期エクスポート。手動の書き出しは無料",
+        "analytics": "高度な需要・コンバージョン分析",
+        "merchandising": "自分の店舗での商品陳列ルール",
+        "replenishment": "補充予測と仕入れの提案",
+        "pricing": "自分の出品に対する競合価格分析",
+        "registers": "拡張されたPOSレジ管理",
+        "assistance": "商品説明のAI作成支援。利用上限あり",
+        "go": "Mercaria Go",
+        "plus": "Mercaria Plus",
+        "creator": "Mercaria Creator",
+        "ultra": "Mercaria Ultra"
+      }
     },
     "policies": {
       "documentTitle": "ポリシー | Mercaria Dashboard",
