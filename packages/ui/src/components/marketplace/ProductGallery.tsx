@@ -184,7 +184,10 @@ export function ProductGallery({ images, title, ref }: ProductGalleryProps) {
       index={activeIndex}
       onIndexChange={select}
       showArrows={hasMany && showThumbnails}
-      arrowsPlacement="overlay"
+      loop
+      arrowsInset={16}
+      arrowsPlacement={desktop ? "overlay" : "footer"}
+      footer={!desktop && showThumbnails && hasMany ? thumbnails() : undefined}
       arrowsVisibility={desktop ? "hover" : "always"}
       arrowButtonProps={desktop ? GALLERY_ARROW_BUTTON_PROPS : TABLET_ARROW_BUTTON_PROPS}
       showDots={false}
@@ -256,7 +259,6 @@ export function ProductGallery({ images, title, ref }: ProductGalleryProps) {
         <View style={{ flexDirection: desktop ? "row" : "column", alignItems: desktop ? "center" : "stretch", gap: 16 }}>
           {desktop && hasMany ? thumbnails() : null}
           {gallery()}
-          {!desktop && showThumbnails && hasMany ? thumbnails() : null}
         </View>
       )}
       <ZoomableMediaGallery

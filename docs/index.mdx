@@ -49,7 +49,19 @@ schema decision. `HANDOFF.md` holds deferred work.
   vertical rail at 976px. The gallery frame uses 45vh on phones, 65vh (capped
   at 760px) in that intermediate layout, and 84vh on desktop. Selecting a photo
   keeps its thumbnail visible in either direction, including RTL. Bloom's
-  numeric `navFrom` owns the rail/bottom-bar switch.
+  numeric `navFrom` owns the rail/bottom-bar switch. Tablet arrows share Bloom's
+  carousel footer with the thumbnail strip; desktop arrows overlay the photo
+  with a 16px inset. Both wrap between the first and last photo.
+- Full product reviews use a flat Bloom `Dialog`, with search above the filters.
+  Filter drafts open in a 300px Bloom `Popover` on web from 768px and a bottom
+  `Dialog` below it or on native. Apply commits the draft; dismissal discards it.
+  Search and clear controls remain owned by Bloom's `Search`.
+- Buyer history has `/orders` (Active) and `/orders/past` (Past). The shared
+  `BUYER_ORDER_VIEW_BY_STATUS` maps every lifecycle status to exactly one view;
+  the buyer API filters before counting and paginating, including claimed guest
+  orders. Omitting `view` preserves the API's all-orders behavior. Client cache
+  keys include account, view and page, and retain prior pages only within the
+  same account/view.
 - Each app wraps its screens in Bloom `OverlayInertBoundary`, inside Oxy's
   surface provider so its outlet remains outside. Modal sheets and dialogs
   remove the underlying screens from keyboard and accessibility navigation.

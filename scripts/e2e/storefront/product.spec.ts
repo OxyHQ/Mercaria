@@ -328,7 +328,7 @@ test("tablet gallery places a scrollable thumbnail row below the photo before sw
   expect(first!.width).toBe(48);
   expect(Math.round(second!.x - first!.x)).toBe(54);
   expect(second!.y).toBe(first!.y);
-  const photo = (await gallery.boundingBox())!;
+  const photo = (await gallery.getByRole("button", { name: `Open images of ${product.title}`, exact: true }).first().boundingBox())!;
   expect(Math.round(photo.height)).toBe(650);
   expect(first!.y).toBeGreaterThanOrEqual(photo.y + photo.height);
 
@@ -343,6 +343,14 @@ test("tablet gallery places a scrollable thumbnail row below the photo before sw
   const next = gallery.getByRole("button", { name: "Next image", exact: true });
   await expect(next).toHaveCSS("width", "44px");
   await expect(next).toHaveCSS("height", "44px");
+  const nextBounds = (await next.boundingBox())!;
+  expect(Math.abs(nextBounds.y + nextBounds.height / 2 - first!.y - first!.height / 2)).toBeLessThan(1);
+  expect(nextBounds.x).toBeGreaterThan((await rail.boundingBox())!.x + (await rail.boundingBox())!.width);
+  const previous = gallery.getByRole("button", { name: "Previous image", exact: true });
+  await previous.click();
+  await expect(thumbnails.last()).toHaveAttribute("aria-pressed", "true");
+  await next.click();
+  await expect(thumbnails.first()).toHaveAttribute("aria-pressed", "true");
   await next.click();
   await expect(thumbnails.nth(1)).toHaveAttribute("aria-pressed", "true");
 
@@ -1493,31 +1501,80 @@ for (const width of [1440, 390]) {
       if (url.pathname.endsWith("/reviews") && url.searchParams.has("ratings")) filterRequests.push(request.url());
     });
     const dialog = page.getByTestId("product-reviews-dialog");
-    await dialog.getByRole("button", { name: "Rating", exact: true }).click();
-    const menu = page.getByRole("menu");
+    const ratingTrigger = dialog.getByRole("button", { name: "Rating", exact: true });
+    await ratingTrigger.click();
+    const menu = page.getByTestId("review-filter-panel");
+    await expect(menu.getByRole("button", { name: "Apply", exact: true })).toBeDisabled();
+    if (width >= 768) {
+      await expect.poll(async () => Math.round((await menu.boundingBox())!.width)).toBe(300);
+      await expect(menu).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await expect(menu).toHaveCSS("border-radius", "28px");
+      await expect(menu).toHaveCSS("corner-shape", /^(round|superellipse\(1\))$/);
+    }
+    await menu.getByRole("checkbox", { name: /Stars:.*1/ }).click();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(dialog).toBeVisible();
+    await expect(ratingTrigger).toBeFocused();
+    expect(filterRequests).toHaveLength(0);
+    await ratingTrigger.click();
+    await expect(menu.getByRole("checkbox", { name: /Stars:.*1/ })).not.toBeChecked();
+    await expect(menu.getByRole("button", { name: "Apply", exact: true })).toBeDisabled();
+    await expect(menu.getByRole("checkbox").last()).toBeInViewport({ ratio: 1 });
+    await page.screenshot({ path: `/tmp/mercaria-review-filter-${width}.png` });
     await menu.getByRole("checkbox", { name: /Stars:.*1/ }).click();
     await expect(menu.getByRole("checkbox", { name: /Stars:.*1/ })).toBeChecked();
     await menu.getByRole("checkbox", { name: /Stars:.*2/ }).click();
     expect(filterRequests).toHaveLength(0);
-    await menu.getByRole("menuitem", { name: "Apply", exact: true }).click();
+    await menu.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(ratingTrigger).toBeFocused();
     const expected = await (await request.get(`http://localhost:4160/listings/${product.id}/reviews?ratings=1,2&sortBy=newest`)).json();
     expect(expected.pagination.total).toBeGreaterThan(0);
     await expect.poll(() => dialog.locator('[data-testid^="review-"]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-testid')).filter(id => /^review-[0-9a-f]{8}-/.test(id!)))).toEqual(expected.data.map((review: Review) => `review-${review.id}`));
     await dialog.getByRole("button", { name: "Rating", exact: true }).click();
-    await menu.getByRole("menuitem", { name: "Reset", exact: true }).click();
-    await menu.getByRole("menuitem", { name: "Apply", exact: true }).click();
+    await menu.getByRole("button", { name: "Reset", exact: true }).click();
+    await menu.getByRole("button", { name: "Apply", exact: true }).click();
     await dialog.getByRole("button", { name: "Sort by", exact: true }).click();
     const oldestOption = menu.getByRole("radio", { name: "Oldest", exact: true });
     await oldestOption.focus();
     await page.keyboard.press("Space");
+    await expect(oldestOption).toBeChecked();
     await page.keyboard.press("End");
-    await expect(menu.getByRole("menuitem", { name: "Apply", exact: true })).toBeFocused();
-    await page.keyboard.press("Enter");
+    await expect(menu.getByRole("radio").last()).toBeChecked();
+    await page.keyboard.press("Home");
+    await page.keyboard.press("ArrowDown");
+    await expect(oldestOption).toBeFocused();
+    await expect(oldestOption).toBeChecked();
+    await menu.getByRole("button", { name: "Apply", exact: true }).click();
     const oldest = await (await request.get(`http://localhost:4160/listings/${product.id}/reviews?sortBy=oldest&limit=12`)).json();
     await expect.poll(() => dialog.locator('[data-testid^="review-"]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-testid')).filter(id => /^review-[0-9a-f]{8}-/.test(id!)).slice(0, 12))).toEqual(oldest.data.map((review: Review) => `review-${review.id}`));
     await expect(dialog.getByRole("button", { name: "Sort by", exact: true })).toHaveCSS("background-color", "rgb(18, 18, 18)");
   });
 }
+
+test("review filter popovers mirror their anchor in dark Arabic", async ({ page, request }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("i18n-storage", JSON.stringify({ state: { locale: "ar" }, version: 0 }));
+    localStorage.setItem("mercaria.bloom.theme", JSON.stringify({ mode: "dark", colorPreset: "mono" }));
+  });
+  const product = await seededProduct(request);
+  await page.goto(`/products/${product.id}`);
+  await page.getByRole("button", { name: "اقرأ المزيد من المراجعات", exact: true }).click();
+  const dialog = page.getByTestId("product-reviews-dialog");
+  const trigger = dialog.getByTestId("review-filters").getByRole("button").last();
+  await trigger.click();
+  const panel = page.getByTestId("review-filter-panel");
+  await expect(panel.getByRole("checkbox").last()).toBeInViewport({ ratio: 1 });
+  await expect(panel).toHaveCSS("background-color", "rgb(18, 18, 18)");
+  await expect(panel).toHaveCSS("corner-shape", /^(round|superellipse\(1\))$/);
+  await expect.poll(async () => {
+    const anchor = (await trigger.boundingBox())!;
+    const content = (await panel.boundingBox())!;
+    return Math.abs(anchor.x + anchor.width - content.x - content.width);
+  }).toBeLessThan(1);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(1440);
+  await page.screenshot({ path: "/tmp/mercaria-review-filter-ar-dark.png" });
+});
 
 for (const width of [1440, 390]) {
   for (const reducedMotion of ["no-preference", "reduce"] as const) {
