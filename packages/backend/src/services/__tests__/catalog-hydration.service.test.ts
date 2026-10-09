@@ -234,7 +234,7 @@ function imageRow(listingId: string, fileId: string): ListingImageRecord {
 
 /** A full store row with explicit public presentation overrides. */
 function storeRow(
-  media: Partial<Pick<StoreRow, 'coverFileId' | 'logoFileId' | 'policiesRefundPolicy'>>,
+  media: Partial<Pick<StoreRow, 'coverFileId' | 'logoFileId' | 'policiesRefundPolicy' | 'policiesPrivacyPolicy'>>,
 ): StoreRow {
   return {
     oxyAccountId: 'oxy-account-fixture',
@@ -270,19 +270,29 @@ function storeRow(
 }
 
 describe('catalog-hydration.service — an absent image is an absent field, never an empty string', () => {
-  it('exposes only the authored public refund policy on opted-in detail reads', () => {
+  it('exposes only authored public policies on opted-in detail reads', () => {
     const store = storeRow({
       policiesRefundPolicy: 'Contact the store within 14 days.',
+      policiesPrivacyPolicy: 'We use your details to fulfil your order.',
     });
     expect(toStoreSummary(store, [])).not.toHaveProperty('refundPolicy');
+    expect(toStoreSummary(store, [])).not.toHaveProperty('privacyPolicy');
     expect(toStoreSummary(store, [], undefined, { includePolicies: true }).refundPolicy).toBe(
       store.policiesRefundPolicy,
+    );
+    expect(toStoreSummary(store, [], undefined, { includePolicies: true }).privacyPolicy).toBe(
+      store.policiesPrivacyPolicy,
     );
     expect(
       toStoreSummary(storeRow({ policiesRefundPolicy: '  ' }), [], undefined, {
         includePolicies: true,
       }),
     ).not.toHaveProperty('refundPolicy');
+    expect(
+      toStoreSummary(storeRow({ policiesPrivacyPolicy: '  ' }), [], undefined, {
+        includePolicies: true,
+      }),
+    ).not.toHaveProperty('privacyPolicy');
   });
   it('omits ProductSummary.imageUrl when the listing has no images', () => {
     const summary = toProductSummary(listingRow(), [], 'Acme', []);

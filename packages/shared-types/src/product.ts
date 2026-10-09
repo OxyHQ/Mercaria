@@ -110,6 +110,8 @@ export interface StoreSummary {
   ratingSource?: StoreRatingSource;
   /** Merchant-authored public return policy, on detail reads only. Never inferred. */
   refundPolicy?: string;
+  /** Merchant-authored public privacy policy, on detail reads only. */
+  privacyPolicy?: string;
   /** Which text tone reads best over this merchant's brand color/cover. */
   textTone: TextTone;
   /** 2–3 featured product thumbnails shown along the bottom of the card. */

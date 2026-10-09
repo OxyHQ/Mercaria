@@ -354,3 +354,49 @@ test("product detail retains the floating shopping composer above mobile navigat
   await composer.getByRole("textbox").press("Enter");
   await expect(page).toHaveURL(/\/thread\?q=Find%20similar%20makeup$/);
 });
+
+test("store menu reads authored policies, returns to its menu and opens the report sign-in flow", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  const privacy = "This store uses order details only to fulfil purchases.";
+  const returns = "Contact this store within fourteen days for return instructions.";
+  await page.route(`**/listings/${product.id}`, async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.store.privacyPolicy = privacy;
+    body.data.store.refundPolicy = returns;
+    await route.fulfill({ response, json: body });
+  });
+  let reports = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/reports") reports++;
+  });
+  await page.goto(`/products/${product.id}`);
+  await page.getByRole("button", { name: "More options", exact: true }).click();
+  await page.getByRole("button", { name: "Privacy policy", exact: true }).click();
+  await expect(page.getByText(privacy, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Return policy", exact: true }).click();
+  await expect(page.getByText(returns, { exact: true }).last()).toBeVisible();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page.getByRole("button", { name: "Report store", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Sign in to report", exact: true })).toBeVisible();
+  expect(reports).toBe(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Report store", exact: true })).toBeVisible();
+});
+
+test("store menu omits unpublished policies", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  await page.route(`**/listings/${product.id}`, async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.store.privacyPolicy = "  ";
+    delete body.data.store.refundPolicy;
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(`/products/${product.id}`);
+  await page.getByRole("button", { name: "More options", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Report store", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Privacy policy", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Return policy", exact: true })).toHaveCount(0);
+});

@@ -296,6 +296,12 @@ so the page hands over the handle. Otherwise the most Mercaria holds is a public
 URL on a VERIFIED channel — the retailer's own site, which they published. With
 neither, the page says nothing.
 
+The native store menu opens authored privacy and return policies as sub-pages
+inside its Bloom sheet. `toStoreSummary(..., { includePolicies: true })` projects
+only nonblank public policy text on store and listing detail reads; feed cards
+omit it. Missing policies produce no menu row. The report action uses the shared
+abuse-report form with the store id; guests enter the existing Oxy sign-in flow.
+
 There is deliberately no `payment_onboarding` member and no `inventory_location`
 member. A Stripe onboarding address is a legal-entity record a seller gave a
 payment processor (trust rule 2) and an `inventory_locations` row is a warehouse

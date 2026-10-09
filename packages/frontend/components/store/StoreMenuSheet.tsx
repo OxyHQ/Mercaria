@@ -1,7 +1,13 @@
 import { merchantImageSource } from "@mercaria/ui";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { vars } from "nativewind";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -18,12 +24,17 @@ import {
   Store as StoreIcon,
   X,
 } from "lucide-react-native";
-import { Dialog } from "@oxy.so/bloom/dialog";
+import { Dialog, useDialogControl } from "@oxy.so/bloom/dialog";
 import { Button } from "@oxy.so/bloom/button";
 import { useIsRtl } from "@oxy.so/bloom/hooks";
 import { Rating } from "@oxy.so/bloom/rating";
 import { openAccountDialog, useFollowTarget, useOxy } from "@oxy.so/services";
-import { Text, formatDate, useFormatters, useRatingDisplay } from "@mercaria/ui";
+import {
+  Text,
+  formatDate,
+  useFormatters,
+  useRatingDisplay,
+} from "@mercaria/ui";
 import type { Collection, StoreSummary, Review } from "@mercaria/shared-types";
 import { storeThemeVars } from "@/lib/store-theme";
 import { useStoreReviews } from "@/lib/hooks/use-store";
@@ -31,6 +42,7 @@ import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
 import { useShareLink } from "@/lib/hooks/use-share-link";
 import { useTranslation } from "@/lib/i18n";
+import { AbuseReportDialog } from "@/components/reports/AbuseReportDialog";
 
 /** Light text tone over a brand-tinted surface (mirrors the store page). */
 const TONE_LIGHT = "#FFFFFF";
@@ -89,7 +101,8 @@ const SHEET_START_INSET = 8;
 const FALLBACK_AUTHOR_KEY = "store.reviews.fallbackAuthor";
 
 /** The pages the sheet can show. The menu is always the root of the stack. */
-type SheetPage = "menu" | "reviews";
+type PolicyPage = "privacy" | "returns";
+type SheetPage = "menu" | "reviews" | PolicyPage;
 
 interface StoreMenuSheetProps {
   /** The store whose menu this sheet presents (drives palette + header). */
@@ -183,26 +196,33 @@ function CollectionRow({
   );
 }
 
-/** A static (non-functional) labeled row with a leading icon + trailing chevron. */
+/** An actionable menu row with a leading icon and directional chevron. */
 function PolicyRow({
   label,
   toneColor,
   icon,
+  onPress,
 }: {
   label: string;
   toneColor: string;
   icon: ReactNode;
+  onPress: () => void;
 }) {
   // The chevron points the reading direction, so it flips with it.
   const Chevron = useIsRtl() ? ChevronLeft : ChevronRight;
   return (
-    <View className="flex-row items-center gap-space-12 px-space-16 py-space-12">
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      className="flex-row items-center gap-space-12 px-space-16 py-space-12 web:transition-colors web:hover:bg-white/10"
+    >
       {icon}
       <Text className="flex-1 text-body" style={{ color: toneColor }}>
         {label}
       </Text>
       <Chevron size={ROW_ICON_SIZE} color={toneColor} />
-    </View>
+    </Pressable>
   );
 }
 
@@ -309,8 +329,11 @@ function StoreReviewCard({
           </Text>
         </View>
         <Text className="text-caption" style={{ color: toneColor }}>
-          {t(review.verification === "verified_purchase"
-            ? "ui.review.verifiedPurchase" : "ui.review.unverifiedPurchase")}
+          {t(
+            review.verification === "verified_purchase"
+              ? "ui.review.verifiedPurchase"
+              : "ui.review.unverifiedPurchase",
+          )}
         </Text>
       </View>
     </View>
@@ -336,7 +359,10 @@ function ReviewsPage({
   const { formatReviewCount } = useFormatters();
   const ratingDisplay = useRatingDisplay();
   const [page, setPage] = useState(1);
-  const { data, isLoading, isError, isFetching, refetch } = useStoreReviews(store.handle, page);
+  const { data, isLoading, isError, isFetching, refetch } = useStoreReviews(
+    store.handle,
+    page,
+  );
   const reviews = data?.data ?? [];
   const total = data?.pagination.total ?? store.reviewCount;
 
@@ -409,16 +435,26 @@ function ReviewsPage({
       )}
       {data && data.pagination.pages > 1 ? (
         <View className="gap-space-12">
-          <Text className="text-center text-caption" style={{ color: toneColor }}>
-            {t("common.pagination.pageOf", { page, pages: data.pagination.pages })}
+          <Text
+            className="text-center text-caption"
+            style={{ color: toneColor }}
+          >
+            {t("common.pagination.pageOf", {
+              page,
+              pages: data.pagination.pages,
+            })}
           </Text>
           <View className="flex-row justify-between gap-space-8">
-            <Button disabled={!data.pagination.hasPreviousPage || isFetching}
-              onPress={() => setPage(value => value - 1)}>
+            <Button
+              disabled={!data.pagination.hasPreviousPage || isFetching}
+              onPress={() => setPage((value) => value - 1)}
+            >
               {t("common.pagination.previous")}
             </Button>
-            <Button disabled={!data.pagination.hasNextPage || isFetching}
-              onPress={() => setPage(value => value + 1)}>
+            <Button
+              disabled={!data.pagination.hasNextPage || isFetching}
+              onPress={() => setPage((value) => value + 1)}
+            >
               {t("common.pagination.next")}
             </Button>
           </View>
@@ -438,12 +474,16 @@ function MenuPage({
   toneColor,
   onSelectCollection,
   onOpenReviews,
+  onOpenPolicy,
+  onReport,
 }: {
   store: StoreSummary;
   collections: Collection[];
   toneColor: string;
   onSelectCollection: (id?: string) => void;
   onOpenReviews: () => void;
+  onOpenPolicy: (page: PolicyPage) => void;
+  onReport: () => void;
 }) {
   // The review row's chevron points the reading direction.
   const Chevron = useIsRtl() ? ChevronLeft : ChevronRight;
@@ -557,23 +597,34 @@ function MenuPage({
       </Pressable>
 
       {/* ---- Policies card ---- */}
-      <View className="overflow-hidden rounded-radius-16" style={{ backgroundColor: GLASS_FILL }}>
-        <View className="px-space-16 pt-space-16">
-          <Text className="text-subtitle" style={{ color: toneColor }}>
-            {t("store.policies.heading")}
-          </Text>
+      {store.privacyPolicy?.trim() || store.refundPolicy?.trim() ? (
+        <View
+          className="overflow-hidden rounded-radius-16"
+          style={{ backgroundColor: GLASS_FILL }}
+        >
+          <View className="px-space-16 pt-space-16">
+            <Text className="text-subtitle" style={{ color: toneColor }}>
+              {t("store.policies.heading")}
+            </Text>
+          </View>
+          {store.privacyPolicy?.trim() ? (
+            <PolicyRow
+              label={t("store.policies.privacy")}
+              toneColor={toneColor}
+              icon={<ShieldCheck size={ROW_ICON_SIZE} color={toneColor} />}
+              onPress={() => onOpenPolicy("privacy")}
+            />
+          ) : null}
+          {store.refundPolicy?.trim() ? (
+            <PolicyRow
+              label={t("store.policies.returns")}
+              toneColor={toneColor}
+              icon={<RotateCcw size={ROW_ICON_SIZE} color={toneColor} />}
+              onPress={() => onOpenPolicy("returns")}
+            />
+          ) : null}
         </View>
-        <PolicyRow
-          label={t("store.policies.privacy")}
-          toneColor={toneColor}
-          icon={<ShieldCheck size={ROW_ICON_SIZE} color={toneColor} />}
-        />
-        <PolicyRow
-          label={t("store.policies.returns")}
-          toneColor={toneColor}
-          icon={<RotateCcw size={ROW_ICON_SIZE} color={toneColor} />}
-        />
-      </View>
+      ) : null}
 
       {/* ---- Report store ---- */}
       <View className="overflow-hidden rounded-radius-16" style={{ backgroundColor: GLASS_FILL }}>
@@ -581,6 +632,7 @@ function MenuPage({
           label={t("store.report")}
           toneColor={toneColor}
           icon={<Flag size={ROW_ICON_SIZE} color={toneColor} />}
+          onPress={onReport}
         />
       </View>
     </ScrollView>
@@ -600,8 +652,8 @@ function MenuPage({
  * This component supplies only the CONTENTS: an INTERNAL navigation stack
  * (`SheetPage[]`) with the menu as the root, a contextual top bar (Close (X) at
  * the root, Back (←) on a sub-page, with Follow/Share on the right), and the
- * Menu / Reviews pages. Tapping "Reviews" pushes the Reviews sub-page rendered
- * WITHIN the same sheet.
+ * Menu, Reviews and authored-policy pages. Each sub-page is rendered
+ * within the same sheet.
  *
  * `Dialog` is controlled here (driven by `open`) and keeps its children mounted
  * across the close transition, so closing also resets the internal stack to the
@@ -618,7 +670,11 @@ export function StoreMenuSheet({
   onSelectCollection,
 }: StoreMenuSheetProps) {
   const { t } = useTranslation();
-  const shareLink = useShareLink(store.name, `/stores/${encodeURIComponent(store.handle)}`);
+  const reportControl = useDialogControl();
+  const shareLink = useShareLink(
+    store.name,
+    `/stores/${encodeURIComponent(store.handle)}`,
+  );
   const router = useRouter();
   // Offset the overlay past the nav rail on desktop so the side-sheet + backdrop
   // sit inside the content shell (not over the rail). On small screens the rail
@@ -712,7 +768,10 @@ export function StoreMenuSheet({
       showHandle
       dismissOnBackdrop
       contentPadding={0}
-      containerStyle={[vars(storeThemeVars(store.brandColor, store.textTone)), railOffset]}
+      containerStyle={[
+        vars(storeThemeVars(store.brandColor, store.textTone)),
+        railOffset,
+      ]}
       panelStyle={{ backgroundColor: store.brandColor }}
       label={t("store.menu.dialogLabel", { store: store.name })}
     >
@@ -787,11 +846,46 @@ export function StoreMenuSheet({
             toneColor={toneColor}
             onSelectCollection={onSelectCollection}
             onOpenReviews={() => push("reviews")}
+            onOpenPolicy={push}
+            onReport={() => reportControl.open()}
+          />
+        ) : current === "reviews" ? (
+          <ReviewsPage
+            store={store}
+            toneColor={toneColor}
+            onPressProduct={onPressProduct}
           />
         ) : (
-          <ReviewsPage store={store} toneColor={toneColor} onPressProduct={onPressProduct} />
+          <ScrollView
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingBottom: 24,
+              gap: 16,
+            }}
+          >
+            <Text
+              accessibilityRole="header"
+              className="text-subtitle"
+              style={{ color: toneColor }}
+            >
+              {t(
+                current === "privacy"
+                  ? "store.policies.privacy"
+                  : "store.policies.returns",
+              )}
+            </Text>
+            <Text selectable className="text-body" style={{ color: toneColor }}>
+              {current === "privacy" ? store.privacyPolicy : store.refundPolicy}
+            </Text>
+          </ScrollView>
         )}
       </View>
+      <AbuseReportDialog
+        reportedType="store"
+        reportedId={store.id}
+        displayName={store.name}
+        control={reportControl}
+      />
     </Dialog>
   );
 }

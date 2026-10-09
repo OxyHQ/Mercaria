@@ -335,6 +335,9 @@ export function toStoreSummary(
   if (options.includePolicies && store.policiesRefundPolicy?.trim()) {
     summary.refundPolicy = store.policiesRefundPolicy;
   }
+  if (options.includePolicies && store.policiesPrivacyPolicy?.trim()) {
+    summary.privacyPolicy = store.policiesPrivacyPolicy;
+  }
   return summary;
 }
 
