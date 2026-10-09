@@ -35,10 +35,11 @@ import {
   useFormatters,
   useRatingDisplay,
 } from "@mercaria/ui";
-import type { Collection, StoreSummary, Review } from "@mercaria/shared-types";
+import type { Collection, StoreSummary, Review, ReviewHelpfulness } from "@mercaria/shared-types";
 import { storeThemeVars } from "@/lib/store-theme";
 import { useStoreReviews } from "@/lib/hooks/use-store";
-import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
+import { REVIEW_SCOPE_HEADING_KEYS, useReviewHelpfulness } from "@/lib/hooks/use-reviews";
+import { ReviewHelpfulButton } from "@/components/reviews/ReviewHelpfulButton";
 import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
 import { useShareLink } from "@/lib/hooks/use-share-link";
 import { useTranslation } from "@/lib/i18n";
@@ -234,10 +235,12 @@ function PolicyRow({
  */
 function StoreReviewCard({
   review,
+  vote,
   toneColor,
   onPressProduct,
 }: {
   review: Review;
+  vote?: ReviewHelpfulness;
   toneColor: string;
   onPressProduct: (productId: string) => void;
 }) {
@@ -333,7 +336,10 @@ function StoreReviewCard({
                 string "null". */}
             {date === null ? author : `${author} · ${date}`}
           </Text>
-          <ReviewActionsMenu review={review} iconColor={toneColor} />
+          <View className="flex-row items-center gap-space-20">
+            <ReviewHelpfulButton review={review} vote={vote} iconColor={toneColor} />
+            <ReviewActionsMenu review={review} iconColor={toneColor} />
+          </View>
         </View>
         <Text className="text-shop-caption" style={{ color: toneColor }}>
           {t(
@@ -371,6 +377,8 @@ function ReviewsPage({
     page,
   );
   const reviews = data?.data ?? [];
+  const helpfulness = useReviewHelpfulness(reviews.map(review => review.id));
+  const votes = new Map(helpfulness.data?.map(vote => [vote.reviewId, vote]));
   const total = data?.pagination.total ?? store.reviewCount;
 
   return (
@@ -420,6 +428,9 @@ function ReviewsPage({
         {`${t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)} · ${formatReviewCount(total)}`}
       </Text>
 
+      {helpfulness.isError ? (
+        <Button onPress={() => void helpfulness.refetch()}>{t("reviews.helpful.retry")}</Button>
+      ) : null}
       {isLoading ? (
         <Text className="py-space-24 text-center text-shop-body" style={{ color: toneColor }}>
           {t("store.reviews.loading")}
@@ -435,6 +446,7 @@ function ReviewsPage({
           <StoreReviewCard
             key={review.id}
             review={review}
+            vote={votes.get(review.id)}
             toneColor={toneColor}
             onPressProduct={onPressProduct}
           />

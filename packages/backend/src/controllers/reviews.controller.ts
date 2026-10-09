@@ -27,9 +27,33 @@ import {
 } from '../services/reviews/review-eligibility.service.js';
 import { log } from '../lib/logger.js';
 import { parseReviewListFilters } from '../services/reviews/review-list-query.js';
+import {
+  listReviewHelpfulness,
+  parseReviewHelpfulnessIds,
+  updateReviewHelpfulness,
+} from '../services/reviews/review-helpfulness.service.js';
 
 /** How many open eligibilities one order-history page asks for. */
 const ELIGIBILITY_PAGE_LIMIT = 50;
+
+/** Personal vote state is never mixed into cacheable public review pages. */
+export async function listReviewHelpfulnessHandler(req: Request, res: Response): Promise<void> {
+  try {
+    res.setHeader('Cache-Control', 'private, no-store');
+    sendSuccess(res, await listReviewHelpfulness(getRequiredOxyUserId(req), parseReviewHelpfulnessIds(req.query)));
+  } catch (err) {
+    respondWithError(res, err, 'Failed to load review votes');
+  }
+}
+
+export async function updateReviewHelpfulnessHandler(req: Request, res: Response): Promise<void> {
+  try {
+    res.setHeader('Cache-Control', 'private, no-store');
+    sendSuccess(res, await updateReviewHelpfulness(getRequiredOxyUserId(req), routeParam(req, 'id'), req.body.helpful));
+  } catch (err) {
+    respondWithError(res, err, 'Failed to update review vote');
+  }
+}
 
 /** POST /reviews — write a scoped review. */
 export async function createReviewHandler(req: Request, res: Response): Promise<void> {

@@ -8,10 +8,12 @@ import { REVIEW_SEARCH_MAX_LENGTH, type ReviewSortOrder } from "@mercaria/shared
 import { ReviewCard, ReviewSummaryCard, Text, useFormatters } from "@mercaria/ui";
 import {
   useInfiniteProductReviews,
+  useReviewHelpfulness,
   REVIEW_SCOPE_HEADING_KEYS,
 } from "@/lib/hooks/use-reviews";
 import { ReviewFilters } from "./ReviewFilters";
 import { ReviewActionsMenu } from "@/components/reports/ReviewActionsMenu";
+import { ReviewHelpfulButton } from "@/components/reviews/ReviewHelpfulButton";
 import { useTranslation } from "@/lib/i18n";
 
 /** Mounted only when opened, so selection and search reset for each product. */
@@ -54,6 +56,8 @@ export function ProductReviewsDialog({
   const reviews = query.data?.pages.flatMap((page) => page.data) ?? [];
   // Offset pagination may overlap if a new review is published mid-scroll.
   const uniqueReviews = [...new Map(reviews.map((review) => [review.id, review])).values()];
+  const helpfulness = useReviewHelpfulness(uniqueReviews.map(review => review.id));
+  const votes = new Map(helpfulness.data?.map(vote => [vote.reviewId, vote]));
   const { hasNextPage, isFetching, isFetchNextPageError, fetchNextPage } = query;
   const loadMore = useCallback(() => {
     if (hasNextPage && !isFetching && !isFetchNextPageError) void fetchNextPage({ cancelRefetch: false });
@@ -180,6 +184,9 @@ export function ProductReviewsDialog({
               {t(searchQuery ? "reviews.search.noResults" : ratings.length > 0 ? "reviews.filters.noResults" : "store.reviews.none")}
             </Text>
           ) : null}
+          {helpfulness.isError ? (
+            <Button onPress={() => void helpfulness.refetch()}>{t("reviews.helpful.retry")}</Button>
+          ) : null}
           {uniqueReviews.map((review) => (
             <View key={review.id} onLayout={review.id === initialReviewId
               ? (event) => {
@@ -187,7 +194,12 @@ export function ProductReviewsDialog({
                   setReviewLayout({ y, height });
                 }
               : undefined}>
-              <ReviewCard review={review} scopeLabel={title} expanded footerActions={<ReviewActionsMenu review={review} />} />
+              <ReviewCard review={review} scopeLabel={title} expanded footerActions={
+                <View className="flex-row items-center gap-space-20">
+                  <ReviewHelpfulButton review={review} vote={votes.get(review.id)} />
+                  <ReviewActionsMenu review={review} />
+                </View>
+              } />
             </View>
           ))}
           {query.isFetchingNextPage ? (

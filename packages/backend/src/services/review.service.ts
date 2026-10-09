@@ -48,6 +48,7 @@ import type {
   ReviewListFilters,
 } from '@mercaria/shared-types';
 import { isUniqueViolation } from '@oxy.so/db';
+import { findReviewHelpfulness } from '../db/reviews/reviewHelpfulnessRepository.js';
 import {
   aggregatePublishedReviews,
   readReviewRatingSummary,
@@ -447,21 +448,26 @@ interface ReviewPage {
   total: number;
 }
 
-/** Hydrate a page with batched author, dimension and purchased-variant reads. */
+/** Hydrate a page with batched author, dimension, purchased-variant and helpful-vote reads. */
 async function hydrate(
   rows: ReviewRecord[],
   total: number,
   products?: Map<string, ReviewProduct>,
 ): Promise<ReviewPage> {
   const authorIds = [...new Set(rows.map((row) => row.authorOxyUserId))];
-  const [authorProfiles, dimensionRows, purchasedVariants] = await Promise.all([
+  const [authorProfiles, dimensionRows, purchasedVariants, helpfulness] = await Promise.all([
     getProfiles(authorIds),
     findDimensionsForReviews(rows.map((row) => row.id)),
     findPurchasedVariantsForReviews(rows.map((row) => row.id)),
+    findReviewHelpfulness(rows.map((row) => row.id)),
   ]);
   const dimensions = groupDimensions(dimensionRows);
+  const helpfulCounts = new Map(helpfulness.map(row => [row.reviewId, row.helpfulnessCount]));
   return {
-    data: rows.map((row) => toReviewDTO(row, authorProfiles, dimensions, products, purchasedVariants)),
+    data: rows.map((row) => ({
+      ...toReviewDTO(row, authorProfiles, dimensions, products, purchasedVariants),
+      helpfulnessCount: helpfulCounts.get(row.id) ?? 0,
+    })),
     total,
   };
 }

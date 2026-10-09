@@ -454,6 +454,14 @@
       "more": "Accions de la ressenya",
       "report": "Denuncia la ressenya",
       "subject": "Ressenya de %{author}"
+    },
+    "helpful": {
+      "label": "Útil",
+      "mark": "Marca la ressenya com a útil",
+      "remove": "Retira el vot d’utilitat",
+      "count": "A %{formattedCount} els ha resultat útil",
+      "error": "No s’ha pogut actualitzar el vot. Torna-ho a provar.",
+      "retry": "Torna a carregar els vots"
     }
   },
   "search": {

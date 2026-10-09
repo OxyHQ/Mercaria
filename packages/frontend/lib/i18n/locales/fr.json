@@ -454,6 +454,14 @@
       "more": "Actions sur l’avis",
       "report": "Signaler cet avis",
       "subject": "Avis de %{author}"
+    },
+    "helpful": {
+      "label": "Utile",
+      "mark": "Marquer cet avis comme utile",
+      "remove": "Retirer le vote utile",
+      "count": "%{formattedCount} ont trouvé cet avis utile",
+      "error": "Impossible de mettre à jour votre vote. Réessayez.",
+      "retry": "Recharger les votes utiles"
     }
   },
   "search": {

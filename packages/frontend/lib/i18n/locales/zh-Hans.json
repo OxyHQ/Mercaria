@@ -450,6 +450,14 @@
       "more": "评价操作",
       "report": "举报评价",
       "subject": "%{author}的评价"
+    },
+    "helpful": {
+      "label": "有帮助",
+      "mark": "将评价标记为有帮助",
+      "remove": "撤销有帮助的投票",
+      "count": "%{formattedCount}人觉得有帮助",
+      "error": "无法更新你的投票。请重试。",
+      "retry": "重新加载投票"
     }
   },
   "search": {

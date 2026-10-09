@@ -1695,6 +1695,16 @@ one of those rows, reverses one, or corrects one. What is #84's own:
 - **Zero new `jsonb`.** Every shape in this domain is Mercaria's own and closed.
 ### Review scopes (#76) — `reviews` moved, and gained four siblings
 
+The later `review_helpful_votes` table records the reader's current vote, with
+generated UUIDv7 identity, `created_at`, a cascading FK to `reviews.id`, and an
+external Oxy account key without an FK. `UNIQUE(review_id, oxy_user_id)` enforces
+one vote per reader/review and serves the review-count lookup. There is no
+mutable count column and no `updated_at`: adding inserts a row, removing deletes
+that exact pair. Counts are derived in batches. The service locks the published,
+non-private review before changing votes and refuses the review's own author;
+moderation visibility and permission are current review facts, not duplicated
+onto the vote. Hiding retains votes; physical review deletion cascades them.
+
 `reviews` was born in `buyers.ts` (from the `Review` Mongoose model, above) and
 lives in `schema/reviews.ts` since #76, beside four Postgres-born tables:
 `review_dimensions`, `review_eligibilities`, `review_aggregates` +

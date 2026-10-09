@@ -5,6 +5,7 @@ import type {
   CreateReviewInput,
   PaginatedResponse,
   Review,
+  ReviewHelpfulness,
   ReviewRatingSummary,
   ReviewEligibility,
   ScopedRatingAggregate,
@@ -106,4 +107,18 @@ export async function fetchReviewEligibilities(): Promise<ApiResponse<ReviewElig
 export async function createReview(input: CreateReviewInput): Promise<ApiResponse<Review>> {
   const { data } = await apiClient.post<ApiResponse<Review>>('/reviews', input);
   return data;
+}
+
+export async function fetchReviewHelpfulness(ids: string[]): Promise<ReviewHelpfulness[]> {
+  const { data } = await apiClient.get<ApiResponse<ReviewHelpfulness[]>>('/reviews/helpfulness', {
+    params: { ids: ids.join(',') },
+  });
+  if (!data.success || !data.data) throw new Error('Failed to load review votes');
+  return data.data;
+}
+
+export async function updateReviewHelpfulness(id: string, helpful: boolean): Promise<ReviewHelpfulness> {
+  const { data } = await apiClient.put<ApiResponse<ReviewHelpfulness>>(`/reviews/${id}/helpfulness`, { helpful });
+  if (!data.success || !data.data) throw new Error('Failed to update review vote');
+  return data.data;
 }

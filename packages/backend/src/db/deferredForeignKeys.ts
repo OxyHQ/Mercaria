@@ -391,6 +391,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'reviews.author_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'reviews.seller_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'review_eligibilities.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'review_helpful_votes.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'review_eligibilities.seller_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'review_aggregates.seller_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'review_target_migrations.actor_oxy_user_id', reason: OXY_ACCOUNT },

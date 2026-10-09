@@ -196,6 +196,8 @@ export const queryKeys = {
    * are for the legacy reads.
    */
   reviews: {
+    helpfulnessAll: (userId: string) => ["review-helpfulness", userId] as const,
+    helpfulness: (userId: string, ids: string[]) => ["review-helpfulness", userId, ids] as const,
     productAll: (canonicalProductId: string) =>
       ["reviews", "product", canonicalProductId] as const,
     product: (canonicalProductId: string, page: number, limit = 12, query = "") =>

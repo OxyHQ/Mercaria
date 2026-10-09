@@ -27,6 +27,7 @@ const aggregatePublishedReviews = vi.fn();
 const authorHasReviewedTarget = vi.fn();
 const findDimensionsForReviews = vi.fn();
 const findPurchasedVariantsForReviews = vi.fn();
+const findReviewHelpfulness = vi.fn();
 const findListingReviewsPage = vi.fn();
 const findReviewsPage = vi.fn();
 const findScopedReviewsPage = vi.fn();
@@ -68,6 +69,10 @@ vi.mock('../../db/reviews/reviewEligibilityRepository.js', () => ({
 
 vi.mock('../../db/reviews/reviewPurchaseContextRepository.js', () => ({
   findPurchasedVariantsForReviews: (...args: unknown[]) => findPurchasedVariantsForReviews(...args),
+}));
+
+vi.mock('../../db/reviews/reviewHelpfulnessRepository.js', () => ({
+  findReviewHelpfulness: (...args: unknown[]) => findReviewHelpfulness(...args),
 }));
 
 vi.mock('../reviews/review-eligibility.service.js', () => ({
@@ -229,6 +234,7 @@ beforeEach(() => {
   getProfiles.mockResolvedValue(new Map());
   findDimensionsForReviews.mockResolvedValue([]);
   findPurchasedVariantsForReviews.mockResolvedValue(new Map());
+  findReviewHelpfulness.mockResolvedValue([]);
   rebuildScopedAggregate.mockResolvedValue({ aggregate: {}, drift: null });
   assertNotSelfPurchase.mockResolvedValue(undefined);
   assertNotSelfTarget.mockResolvedValue(undefined);
@@ -655,5 +661,19 @@ describe('public purchased variant hydration', () => {
     expect(findPurchasedVariantsForReviews).toHaveBeenCalledTimes(2);
     expect(findPurchasedVariantsForReviews).toHaveBeenNthCalledWith(1, [first.id, second.id]);
     expect(findPurchasedVariantsForReviews).toHaveBeenNthCalledWith(2, [first.id, second.id]);
+  });
+});
+
+describe('public helpfulness counts', () => {
+  it('hydrates counts in one batch without exposing personal vote state', async () => {
+    const first = reviewRow({ id: 'review-helpful' });
+    const second = reviewRow({ id: 'review-no-votes' });
+    findReviewHelpfulness.mockResolvedValue([{ reviewId: first.id, helpfulnessCount: 7, markedAsHelpfulByMe: false, canUpdateHelpfulness: false }]);
+    findReviewsPage.mockResolvedValue({ rows: [first, second], total: 2 });
+    const result = await listReviews({ targetType: 'listing', targetId: 'listing-1' }, { page: 1, limit: 12 });
+    expect(result.data.map(row => row.helpfulnessCount)).toEqual([7, 0]);
+    expect(result.data[0]).not.toHaveProperty('markedAsHelpfulByMe');
+    expect(result.data[0]).not.toHaveProperty('canUpdateHelpfulness');
+    expect(findReviewHelpfulness).toHaveBeenCalledExactlyOnceWith([first.id, second.id]);
   });
 });

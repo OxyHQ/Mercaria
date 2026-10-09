@@ -454,6 +454,14 @@
       "more": "Ações da avaliação",
       "report": "Denunciar avaliação",
       "subject": "Avaliação de %{author}"
+    },
+    "helpful": {
+      "label": "Útil",
+      "mark": "Marcar avaliação como útil",
+      "remove": "Remover voto de útil",
+      "count": "%{formattedCount} acharam útil",
+      "error": "Não foi possível atualizar seu voto. Tente novamente.",
+      "retry": "Recarregar votos de útil"
     }
   },
   "search": {

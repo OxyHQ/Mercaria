@@ -352,6 +352,29 @@ hides the caption from accessibility while expanded. A canonical product's
 caption uses only its verified aggregate; listing ratings and the separate
 unverified product aggregate are never substituted into it.
 
+Full review cards also show a **Helpful** action with Shop's 16 px thumb vector,
+caption label, positive-count badge and 20 px gap before the actions menu.
+Previews remain a single link. Visitors open the existing Oxy account dialog;
+authenticated readers can add or remove their vote, but cannot vote on their own
+review. The button waits for the server response and leaves its previous state
+intact on failure, with a translated retry message.
+
+`review_helpful_votes` stores one row per `(review_id, oxy_user_id)`; the public
+count is derived during batched hydration, never maintained as a second counter.
+`GET /reviews/helpfulness?ids=…` returns personal state for up to 50 published,
+non-private reviews. `PUT /reviews/:id/helpfulness` accepts only `{ helpful:
+boolean }`, reads the Oxy principal and locks the review through the write and
+returned count. Replaying an add/remove is idempotent. Hidden reviews and private
+order-line feedback are excluded from both surfaces; hiding retains previous
+votes, while deleting a review cascades its votes. Both personal responses use
+`Cache-Control: private, no-store`. Frontend batches and cache keys are scoped to
+the account and review IDs; a response begun by one account cannot populate
+another account's cache. Public review pages contain only counts.
+
+Migration `0163_dear_dakota_north` is additive and must run in the `pre` phase
+before deploying the readers. Its derived rollback drops the new vote table and
+therefore discards votes; it is an operator decision, never an automatic rollback.
+
 Full review cards in the product sheet and store review list expose a Bloom
 actions menu with **Report review**. It opens the shared abuse-report form with
 `reportedType: 'review'` and that review's id; the author and product are never

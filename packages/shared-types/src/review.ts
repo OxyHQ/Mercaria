@@ -470,6 +470,8 @@ export interface Review extends Timestamps {
    * Never inferred from the current catalog or accepted as review input.
    */
   purchasedVariantTitle?: string;
+  /** Derived count of accounts that currently mark this published review useful. */
+  helpfulnessCount?: number;
   /** BCP-47 tag of the language the review was written in, when known. */
   locale?: string;
   /** Whether the reviewer received an incentive. */
@@ -589,6 +591,16 @@ export interface ReviewListFilters {
 }
 
 export const REVIEW_SEARCH_MAX_LENGTH = 200;
+
+/** The signed-in reader's state, served separately from public review pages. */
+export interface ReviewHelpfulness {
+  reviewId: string;
+  helpfulnessCount: number;
+  markedAsHelpfulByMe: boolean;
+  canUpdateHelpfulness: boolean;
+}
+
+export const REVIEW_HELPFULNESS_BATCH_LIMIT = 50;
 
 /** Distribution across every published review of this exact target, independent
  * of pagination. Scoped targets include verified purchases only. */

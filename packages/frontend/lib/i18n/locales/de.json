@@ -450,6 +450,14 @@
       "more": "Rezensionsaktionen",
       "report": "Rezension melden",
       "subject": "Rezension von %{author}"
+    },
+    "helpful": {
+      "label": "Hilfreich",
+      "mark": "Bewertung als hilfreich markieren",
+      "remove": "Hilfreich-Markierung entfernen",
+      "count": "%{formattedCount} fanden dies hilfreich",
+      "error": "Deine Stimme konnte nicht aktualisiert werden. Versuche es erneut.",
+      "retry": "Hilfreich-Stimmen erneut laden"
     }
   },
   "search": {

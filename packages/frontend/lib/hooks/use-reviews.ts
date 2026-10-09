@@ -4,7 +4,9 @@ import type {
   ReviewEligibility,
   ReviewListFilters,
   ReviewScope,
+  ReviewHelpfulness,
 } from '@mercaria/shared-types';
+import { REVIEW_HELPFULNESS_BATCH_LIMIT } from '@mercaria/shared-types';
 import { useOxy } from '@oxy.so/services';
 import {
   createReview,
@@ -12,12 +14,57 @@ import {
   fetchMerchantReviews,
   fetchProductReviews,
   fetchReviewEligibilities,
+  fetchReviewHelpfulness,
+  updateReviewHelpfulness,
   type ScopedReviewPage,
 } from '../api/reviews';
 import { queryKeys } from './query-keys';
 
 /** Two minutes — a review page stays fresh for a reasonable session window. */
 const STALE_TIME = 1000 * 60 * 2;
+
+/** One bounded batch per visible page, scoped to the current Oxy account. */
+export function useReviewHelpfulness(reviewIds: string[]) {
+  const { user, canUsePrivateApi } = useOxy();
+  const ids = [...new Set(reviewIds)].sort();
+  return useQuery({
+    queryKey: queryKeys.reviews.helpfulness(user?.id ?? '', ids),
+    queryFn: async () => {
+      const batches: Promise<ReviewHelpfulness[]>[] = [];
+      for (let start = 0; start < ids.length; start += REVIEW_HELPFULNESS_BATCH_LIMIT) {
+        batches.push(fetchReviewHelpfulness(ids.slice(start, start + REVIEW_HELPFULNESS_BATCH_LIMIT)));
+      }
+      return (await Promise.all(batches)).flat();
+    },
+    enabled: canUsePrivateApi && !!user?.id && ids.length > 0,
+    staleTime: STALE_TIME,
+    retry: 1,
+  });
+}
+
+export function useUpdateReviewHelpfulness(reviewId: string) {
+  const { user, canUsePrivateApi } = useOxy();
+  const queryClient = useQueryClient();
+  const userId = user?.id ?? '';
+  return useMutation({
+    mutationFn: async (helpful: boolean) => {
+      if (!canUsePrivateApi || !userId) throw new Error('Sign in to vote');
+      // Capture the account with the request: switching accounts while it is
+      // in flight must never write the returned personal state into the new one.
+      return { account: userId, vote: await updateReviewHelpfulness(reviewId, helpful) };
+    },
+    onSuccess: async ({ account, vote }) => {
+      const queryKey = queryKeys.reviews.helpfulnessAll(account);
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.setQueriesData<ReviewHelpfulness[]>({ queryKey }, previous =>
+        previous?.map(entry => entry.reviewId === vote.reviewId ? vote : entry));
+      // Public page counts remain useful after signing out or reopening a sheet.
+      for (const root of ['reviews', 'listings', 'stores']) {
+        void queryClient.invalidateQueries({ queryKey: [root] });
+      }
+    },
+  });
+}
 
 /**
  * What each scope's rating is ABOUT, in the reader's own words (#76 UI rule 6).

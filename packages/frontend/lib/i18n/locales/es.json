@@ -454,6 +454,14 @@
       "more": "Acciones de la reseña",
       "report": "Denunciar reseña",
       "subject": "Reseña de %{author}"
+    },
+    "helpful": {
+      "label": "Útil",
+      "mark": "Marcar reseña como útil",
+      "remove": "Retirar voto de utilidad",
+      "count": "A %{formattedCount} les resultó útil",
+      "error": "No se pudo actualizar tu voto. Inténtalo de nuevo.",
+      "retry": "Volver a cargar los votos"
     }
   },
   "search": {

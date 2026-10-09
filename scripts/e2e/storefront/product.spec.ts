@@ -1692,3 +1692,123 @@ for (const width of [1440, 390]) {
     await page.unrouteAll({ behavior: "wait" });
   });
 }
+
+for (const width of [1440, 390]) {
+  test(`helpful review counts and sign-in remain usable at ${width}px`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const product = await seededProduct(request);
+    // Visual fixture only. The API/database tests own actual vote persistence.
+    await page.route(`**/listings/${product.id}/reviews*`, async route => {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.data = body.data.map((review: Review, index: number) => ({ ...review, helpfulnessCount: index === 0 ? 23 : 0 }));
+      await route.fulfill({ response, json: body });
+    });
+    const voteRequests: string[] = [];
+    page.on('request', req => { if (new URL(req.url()).pathname.includes('/helpfulness')) voteRequests.push(req.url()); });
+    await page.goto(`/products/${product.id}`);
+    await expect(page.locator('[data-testid^="review-helpful-"]')).toHaveCount(0);
+    await page.getByTestId('product-sections').getByRole('button', { name: 'Read more reviews', exact: true }).click();
+    const sheet = page.getByTestId('product-reviews-dialog');
+    const buttons = sheet.locator('button[data-testid^="review-helpful-"]');
+    const first = buttons.first();
+    await expect(first).toHaveAttribute('aria-pressed', 'false');
+    await expect(first).toHaveAccessibleName(/Mark review as helpful.*23.*found this helpful/);
+    await expect(first.getByTestId('review-helpful-count')).toContainText('23');
+    await expect(buttons.nth(1).getByTestId('review-helpful-count')).toHaveCount(0);
+    const bounds = (await sheet.boundingBox())!;
+    const action = (await first.boundingBox())!;
+    expect(action.x).toBeGreaterThanOrEqual(bounds.x);
+    expect(action.x + action.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+    await first.focus();
+    await page.keyboard.press('Enter');
+    const account = page.getByRole('dialog', { name: 'AccountDialog', exact: true });
+    await expect(account).toBeVisible();
+    await expect(account.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
+    // Oxy's account surface deliberately requires explicit dismissal.
+    await account.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(account).toBeHidden();
+    await expect(sheet).toBeVisible();
+    await expect(first).toHaveAttribute('aria-pressed', 'false');
+    await expect(first.getByTestId('review-helpful-count')).toContainText('23');
+    expect(voteRequests).toEqual([]);
+  });
+}
+
+test('authenticated helpful votes survive reload, can be removed and keep state on failure', async ({ page, request }) => {
+  const product = await seededProduct(request);
+  const userId = 'oxy-review-browser-fixture';
+  // Auth/profile and vote HTTP fixtures drive the real Oxy provider, hooks and
+  // components. Actual auth verification is Oxy-owned; real vote writes and
+  // replay/concurrency constraints are covered by review-scopes.realdb.test.ts.
+  const token = ['e30', Buffer.from(JSON.stringify({ sub: userId, userId, exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url'), 'test-only'].join('.');
+  await page.addInitScript(({ userId, token }) => {
+    localStorage.setItem('oxy.auth.v1', JSON.stringify({ userId, sessionId: 'fixture-session', accessToken: token, expiresAt: new Date(Date.now() + 3600000).toISOString() }));
+  }, { userId, token });
+  await page.route('https://api.oxy.so/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.startsWith('/auth/oauth/client/')) return route.fulfill({ json: { application: { id: 'fixture', name: 'Mercaria fixture', type: 'first_party', isOfficial: true, isInternal: false, scopes: [] } } });
+    if (path === '/users/me') return route.fulfill({ json: { id: userId, username: 'review-fixture', name: { displayName: 'Review fixture' }, email: 'review@example.invalid' } });
+    return route.fulfill({ status: 404, json: { error: 'Unused browser-fixture endpoint' } });
+  });
+  const marked = new Set<string>();
+  const writes: unknown[] = [];
+  const batches: string[][] = [];
+  let failNextWrite = true;
+  let failBatchRead = true;
+  const vote = (reviewId: string) => ({ reviewId, helpfulnessCount: 2 + Number(marked.has(reviewId)), markedAsHelpfulByMe: marked.has(reviewId), canUpdateHelpfulness: true });
+  await page.route('http://localhost:4160/**', async route => {
+    const req = route.request();
+    const url = new URL(req.url());
+    if (url.pathname === '/reviews/helpfulness') {
+      const ids = url.searchParams.get('ids')!.split(',');
+      batches.push(ids);
+      if (failBatchRead) return route.fulfill({ status: 503, json: { success: false } });
+      return route.fulfill({ json: { success: true, data: ids.map(vote) } });
+    }
+    const match = url.pathname.match(/^\/reviews\/([^/]+)\/helpfulness$/);
+    if (match && req.method() === 'PUT') {
+      const body = req.postDataJSON();
+      writes.push(body);
+      if (failNextWrite) { failNextWrite = false; return route.fulfill({ status: 503, json: { success: false } }); }
+      if (body.helpful) marked.add(match[1]); else marked.delete(match[1]);
+      return route.fulfill({ json: { success: true, data: vote(match[1]) } });
+    }
+    // The synthetic bearer never reaches Oxy or Mercaria. In particular the
+    // provider's guest-cart merge must not write to the local database.
+    if (req.method() !== 'GET') return route.fulfill({ status: 403, json: { success: false } });
+    const headers = req.headers();
+    delete headers.authorization;
+    return route.continue({ headers });
+  });
+  await page.goto(`/products/${product.id}`);
+  const openReviews = () => page.getByTestId('product-sections').getByRole('button', { name: 'Read more reviews', exact: true }).click();
+  await openReviews();
+  const first = page.getByTestId('product-reviews-dialog').locator('button[data-testid^="review-helpful-"]').first();
+  const retryVotes = page.getByRole('button', { name: 'Retry loading helpful votes', exact: true });
+  await expect(retryVotes).toBeVisible();
+  await expect(first).toBeDisabled();
+  await retryVotes.focus();
+  failBatchRead = false;
+  await page.keyboard.press('Enter');
+  await expect(retryVotes).toBeHidden();
+  await expect(first).toHaveAccessibleName(/Mark review as helpful.*2.*found this helpful/);
+  await expect(first).toBeEnabled();
+  await first.click();
+  await expect(page.getByText('Could not update your vote. Please try again.', { exact: true })).toBeVisible();
+  await expect(first).toHaveAttribute('aria-pressed', 'false');
+  await expect(first.getByTestId('review-helpful-count')).toContainText('2');
+  await first.click();
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(first.getByTestId('review-helpful-count')).toContainText('3');
+  await page.reload();
+  await openReviews();
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(first).toHaveAccessibleName(/Remove helpful vote.*3.*found this helpful/);
+  await first.click();
+  await expect(first).toHaveAttribute('aria-pressed', 'false');
+  await expect(first.getByTestId('review-helpful-count')).toContainText('2');
+  expect(writes).toEqual([{ helpful: true }, { helpful: true }, { helpful: false }]);
+  expect(batches.length).toBeGreaterThanOrEqual(2);
+  expect(batches.every(ids => ids.length > 1 && ids.length <= 50 && new Set(ids).size === ids.length)).toBe(true);
+});
