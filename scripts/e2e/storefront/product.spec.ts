@@ -307,3 +307,31 @@ test("store reviews expose the next page and preserve real verification labels",
   await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
   await expect(page.getByText("Verified buyer", { exact: true })).toHaveCount(0);
 });
+
+test("product gallery keeps selection and viewport bounds in dark Arabic and reduced motion", async ({ page, request }) => {
+  const product = await seededProduct(request);
+  await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "dark" });
+  await page.addInitScript(() => {
+    localStorage.setItem("i18n-storage", JSON.stringify({ state: { locale: "ar" }, version: 0 }));
+    localStorage.setItem("mercaria.bloom.theme", JSON.stringify({ mode: "dark", colorPreset: "mono" }));
+  });
+  await page.goto(`/products/${product.id}`);
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  const thumbnail = page.getByTestId("product-thumbnails").getByRole("button").nth(2);
+  await thumbnail.click();
+  await expect(thumbnail).toHaveAttribute("aria-pressed", "true");
+  const gallery = page.getByTestId("product-gallery-carousel");
+  const slide = gallery.getByRole("button").nth(2);
+  await expect.poll(async () => {
+    const trackBox = await gallery.boundingBox();
+    const slideBox = await slide.boundingBox();
+    return !!trackBox && !!slideBox && Math.abs(trackBox.x - slideBox.x) < 3;
+  }).toBe(true);
+  await slide.click();
+  await expect(page.getByRole("button", { name: "إغلاق عارض الوسائط", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "إغلاق عارض الوسائط", exact: true })).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+});

@@ -125,6 +125,7 @@ function RootLayout() {
             expo-router through the module-level adapter) and the bottom-edge
             registry the app shell's bar publishes its height through. */}
         <BloomProvider
+          locale={locale}
           scrollAdapter={expoRouterScrollAdapter}
           defaultMode="system"
           defaultColorPreset="mono"
