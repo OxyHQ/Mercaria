@@ -178,6 +178,20 @@ describe('reconciling the declared sources', () => {
     expect(active.map((policy) => policy.reviewedByOxyUserId)).toEqual([`operator-${RUN}`]);
   });
 
+  it('publishes a robots-respecting extraction policy for a Shopify store, and activates it', async () => {
+    const store = DECLARED_OPEN_DATA_SOURCES.find((source) => source.provider === 'shopify_storefront');
+    if (store === undefined || store.merchant === null) throw new Error('no Shopify declaration');
+    const [result] = await reconcileDeclaredSources([
+      { ...store, name: `${store.name} ${RUN}`, merchant: { slug: `${store.merchant.slug}-${RUN}`, name: store.merchant.name } },
+    ]);
+    expect(result?.error).toBeNull();
+    const [policy] = await policiesOf(result?.sourceId ?? '');
+    expect(policy?.extractionMode).toBe('robots_respecting');
+    expect(policy?.extractionMaxRequestsPerDay).toBe(store.rights.extractionMaxRequestsPerDay);
+    expect(policy?.maySeedCatalog).toBe(true);
+    expect((await configOf(result?.sourceId ?? ''))?.status).toBe('active');
+  });
+
   it('republishes its own policy when the declaration changes', async () => {
     const [, chain] = declarations();
     if (chain === undefined) throw new Error('no declaration');

@@ -68,6 +68,7 @@ later, reviewable step; adapters never do it.
 | `gog_catalog` | GOG.com's full catalogue (games, DLC, packs, extras) | EUR for ES | provider terms | — | incremental |
 | `scryfall` | Every priced paper Magic card, one offer per finish | EUR (Cardmarket trend) | provider terms | — | incremental |
 | `tcgdex` | Every Pokémon TCG card, localized, one offer per finish | EUR (Cardmarket trend) | provider terms | card language (`es` default) | incremental |
+| `shopify_storefront` | Mercaria's own reader of the Shopify stores behind Shop (shop.app): every product, variant (size, colour), SKU, price, compare-at price, stock, images, type and tags, from the store's `/products.json`. **Extraction**: robots.txt is read and obeyed on every pass | the store's currency (`/meta.json`) | the store's own terms | the store domain (`pompeiibrand.com`) | incremental |
 
 ### Demand: the reference source fetches what the prices need
 
@@ -149,10 +150,11 @@ request is the terms review.
      and `/search` finds it).
 
   `reference-seeding.realdb.test.ts` drives that whole chain.
-- **Sources without GTINs (games, cards, fuel) cannot match by identifier.** They are
-  stored, deduplicated and refreshed as source objects. Linking them to canonical
-  products needs the same seeding stage, keyed on a stable cross-source identity
-  (Wikidata QIDs map Steam P1733 and GOG P2725 to one item).
+- **Sources without GTINs seed by their own product key** (ADR 0016). Scryfall, TCGdex,
+  GOG and the Shopify stores set `productGroupKey`; `reference_products` mints one
+  product per key with a variant per option set and anchors the observations.
+  Products are not joined ACROSS sources (a game on GOG and on Steam is two products
+  until #59 merges them). MITECO fuel and CheapShark are not declared yet.
 - **Open Prices is thin for Spain.** Measured 2026-10-10: 570 (chain, GTIN) pairs in the
   365-day window across 55 chains. The largest are Supeco 141, Alcampo 76, Mercadona 69
   and Lidl 52. That is about 20 new sightings a month, out of 325k prices worldwide.

@@ -368,6 +368,67 @@ export async function insertCanonicalVariantSourceLink(
   return rows[0];
 }
 
+/**
+ * The canonical variant an ingested OBJECT is attached to, through any of its
+ * observations (ADR 0016).
+ *
+ * A link points at the observation it was decided on, and a source object gains
+ * a new observation whenever its content changes — a price move included. The
+ * object is the same object, so its attachment is the newest ACTIVE variant link
+ * on any observation of the same (source, type, external id). An operator who
+ * detached it left that link inactive, so nothing is reused.
+ */
+export async function findActiveVariantLinkForSourceObjectOf(
+  db: DatabaseOrTransaction,
+  sourceRecordId: string,
+): Promise<{ variantId: string } | undefined> {
+  const rows = await db.execute<{ variant_id: string }>(sql`
+    select link.variant_id
+    from source_records current_record
+    join source_records observation
+      on observation.source_id = current_record.source_id
+     and observation.external_type = current_record.external_type
+     and observation.external_id = current_record.external_id
+    join canonical_variant_source_links link
+      on link.source_record_id = observation.id and link.status = 'active'
+    where current_record.id = ${sourceRecordId}
+    order by link.created_at desc
+    limit 1
+  `);
+  const row = rows[0];
+  return row === undefined ? undefined : { variantId: row.variant_id };
+}
+
+/**
+ * The product a SIBLING object of one source product is attached to (ADR 0016):
+ * another object of the same source carrying the same `product_group_key`,
+ * linked through any of its observations. A Scryfall card's foil price finds
+ * the product its non-foil price was seeded into.
+ */
+export async function findProductOfSourceGroup(
+  db: DatabaseOrTransaction,
+  input: { sourceId: string; productGroupKey: string; excludeObjectId: string },
+): Promise<{ productId: string } | undefined> {
+  const rows = await db.execute<{ product_id: string }>(sql`
+    select variant.product_id
+    from catalog_source_objects sibling
+    join source_records observation
+      on observation.source_id = sibling.source_id
+     and observation.external_type = sibling.external_type
+     and observation.external_id = sibling.external_id
+    join canonical_variant_source_links link
+      on link.source_record_id = observation.id and link.status = 'active'
+    join canonical_variants variant on variant.id = link.variant_id
+    where sibling.source_id = ${input.sourceId}
+      and sibling.product_group_key = ${input.productGroupKey}
+      and sibling.id <> ${input.excludeObjectId}
+    order by link.created_at asc
+    limit 1
+  `);
+  const row = rows[0];
+  return row === undefined ? undefined : { productId: row.product_id };
+}
+
 export async function listCanonicalVariantSourceLinks(
   db: DatabaseOrTransaction,
   variantId: string,

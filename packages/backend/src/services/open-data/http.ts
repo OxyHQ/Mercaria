@@ -37,6 +37,11 @@ export interface OpenDataHttp {
    */
   getJson(url: string, options?: OpenDataRequestOptions): Promise<OpenDataJsonResponse | null>;
   /**
+   * GET a text document (a `robots.txt`). `null` only when `allowNotFound` is
+   * set and the host answered 404.
+   */
+  getText(url: string, options?: OpenDataRequestOptions): Promise<string | null>;
+  /**
    * Make a dump available locally, downloading it only when the cached copy is
    * older than `maxAgeMs` and the host says it changed.
    */
@@ -193,6 +198,23 @@ export function createOpenDataHttp(options: OpenDataHttpOptions): OpenDataHttp {
           cause: error,
         });
       }
+    },
+
+    async getText(url, requestOptions = {}) {
+      await throttle(url, requestOptions.minIntervalMs);
+      const response = await send(url, {
+        headers: { accept: 'text/plain', ...requestOptions.headers },
+        ...(requestOptions.signal === undefined ? {} : { signal: requestOptions.signal }),
+      });
+      if (response.status === 404 && requestOptions.allowNotFound === true) {
+        await response.body?.cancel();
+        return null;
+      }
+      if (!response.ok) {
+        await response.body?.cancel();
+        refuseStatus(url, response);
+      }
+      return response.text();
     },
 
     async download(url, downloadOptions) {

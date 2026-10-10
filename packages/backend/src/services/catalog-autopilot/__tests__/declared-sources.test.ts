@@ -10,11 +10,15 @@ describe('the declared open-data sources', () => {
   it('declares the Open Facts catalogues and the Spanish Open Prices chains', () => {
     const providers = new Set(DECLARED_OPEN_DATA_SOURCES.map((source) => source.provider));
     expect([...providers].sort()).toEqual([
+      'gog_catalog',
       'open_beauty_facts',
       'open_food_facts',
       'open_pet_food_facts',
       'open_prices',
       'open_products_facts',
+      'scryfall',
+      'shopify_storefront',
+      'tcgdex',
     ]);
     const chains = DECLARED_OPEN_DATA_SOURCES.filter((source) => source.provider === 'open_prices').map((source) => source.accountRef);
     for (const chain of ['mercadona', 'lidl', 'carrefour', 'alcampo', 'supeco', 'dia']) expect(chains).toContain(chain);
@@ -36,10 +40,15 @@ describe('the declared open-data sources', () => {
     }
   });
 
-  it('binds every price source to a merchant and no catalogue to one', () => {
+  it('binds every priced source to a merchant and no catalogue to one; catalogues seed', () => {
     for (const source of DECLARED_OPEN_DATA_SOURCES) {
       const role = findOpenDataProvider(source.provider)?.role;
-      if (role === 'catalogue') {
+      if (role === 'catalogue_and_prices') {
+        // ADR 0016: it seeds products by its own key AND prices them.
+        expect(source.merchant, source.name).not.toBeNull();
+        expect(source.rights.maySeedCatalog, source.name).toBe(true);
+        expect(source.rights.mayDisplayPrice, source.name).toBe(true);
+      } else if (role === 'catalogue') {
         // Demand-only: a declared catalogue never walks a country's whole
         // catalogue into the shared database (ADR 0015).
         expect(source.accountRef, source.name).toBe(OPEN_FACTS_DEMAND_ONLY);
@@ -61,7 +70,14 @@ describe('the declared open-data sources', () => {
       expect(rights.mayDisplay || (!rights.mayDisplayPrice && !rights.mayDisplayMedia), name).toBe(true);
       expect(rights.mayLinkOut || !rights.mayAppendAffiliateParams, name).toBe(true);
       expect(rights.maySeedCatalog ? rights.mayStore : true, name).toBe(true);
-      expect(rights.extractionMode, name).toBe('disallowed');
+      const extraction = findOpenDataProvider(DECLARED_OPEN_DATA_SOURCES.find((s) => s.name === name)?.provider ?? '')?.extraction === true;
+      // An extraction provider runs only under a robots-respecting policy with
+      // a budget and an agent; nothing else extracts at all.
+      expect(rights.extractionMode, name).toBe(extraction ? 'robots_respecting' : 'disallowed');
+      if (extraction) {
+        expect(rights.extractionMaxRequestsPerDay, name).toBeGreaterThan(0);
+        expect(rights.extractionUserAgent, name).toMatch(/^Mercaria\//u);
+      }
       expect(rights.attributionRequired, name).toBe(true);
       expect(rights.termsVersion, name).toBe(findOpenDataProvider(DECLARED_OPEN_DATA_SOURCES.find((s) => s.name === name)?.provider ?? '')?.licence);
     }
@@ -80,6 +96,9 @@ describe('whether the autopilot republishes a policy', () => {
   function activePolicy(overrides: Partial<CatalogSourcePolicyRow>): CatalogSourcePolicyRow {
     return {
       ...declared,
+      // A stored row says NULL where the declaration says nothing.
+      extractionMaxRequestsPerDay: declared.extractionMaxRequestsPerDay ?? null,
+      extractionUserAgent: declared.extractionUserAgent ?? null,
       reviewedByOxyUserId: CATALOG_AUTOPILOT_ACTOR,
       ...overrides,
     } as CatalogSourcePolicyRow;

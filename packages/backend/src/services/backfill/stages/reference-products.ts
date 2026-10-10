@@ -42,6 +42,7 @@
  * and the record reuse above means it never gets that far.
  */
 
+import { createHash } from 'node:crypto';
 import { and, asc, eq, gt, inArray, type SQL } from 'drizzle-orm';
 import type { IdentifierScheme } from '@mercaria/shared-types';
 import { CATALOG_SOURCE_DISPLAYABLE_STATUSES } from '@mercaria/shared-types';
@@ -50,6 +51,8 @@ import { catalogSourceConfigs, catalogSourceObjects, catalogSourcePolicies } fro
 import { findSourceRecordById } from '../../../db/canonical/provenanceRepository.js';
 import { findMatchDecisionById } from '../../../db/matching/matchDecisionRepository.js';
 import { findCanonicalProductById } from '../../../db/canonical/canonicalProductRepository.js';
+import { findProductOfSourceGroup } from '../../../db/canonical/canonicalVariantRepository.js';
+import { normalizeAttributeKey } from '../../canonical/variant-signature.js';
 import { findBackfillRecord } from '../../../db/backfill/backfillRecordRepository.js';
 import { findCanonicalProductByIdentifier } from '../../canonical/canonical-product.service.js';
 import { normalizeIdentifier } from '../../canonical/identifiers.js';
@@ -67,6 +70,7 @@ import {
 /** The object facts this stage decides on. */
 interface ObjectRow {
   readonly id: string;
+  readonly sourceId: string;
   readonly currentSourceRecordId: string | null;
   readonly lastMatchDecisionId: string | null;
 }
@@ -91,6 +95,7 @@ export async function runReferenceProductsPage(context: StageContext): Promise<S
   const rows: ObjectRow[] = await db
     .select({
       id: catalogSourceObjects.id,
+      sourceId: catalogSourceObjects.sourceId,
       currentSourceRecordId: catalogSourceObjects.currentSourceRecordId,
       lastMatchDecisionId: catalogSourceObjects.lastMatchDecisionId,
     })
@@ -105,7 +110,7 @@ export async function runReferenceProductsPage(context: StageContext): Promise<S
       eq(catalogSourceConfigs.sourceId, catalogSourceObjects.sourceId),
       inArray(catalogSourceConfigs.status, [...CATALOG_SOURCE_DISPLAYABLE_STATUSES]),
     ))
-    .where(and(eq(catalogSourceObjects.state, 'unmatched'), keyset))
+    .where(and(inArray(catalogSourceObjects.state, ['unmatched', 'review_required']), keyset))
     .orderBy(asc(catalogSourceObjects.id))
     .limit(context.limit);
 
@@ -121,30 +126,38 @@ export async function runReferenceProductsPage(context: StageContext): Promise<S
 async function decideObject(context: StageContext, object: ObjectRow): Promise<SubjectVerdict> {
   const db = getDb();
 
-  // Rule 2. `unmatched` carries a decision by `catalog_source_objects`' own
-  // shape CHECK; reading it anyway costs one row and keeps the verdict honest.
+  // Rule 2. `unmatched` and `review_required` carry a decision by
+  // `catalog_source_objects`' own shape CHECK; reading it anyway costs one row
+  // and keeps the verdict honest.
   const decision = object.lastMatchDecisionId === null ? undefined : await findMatchDecisionById(db, object.lastMatchDecisionId);
   if (decision === undefined) {
     return { reasonCode: 'awaiting_match_decision', detail: `object ${object.id} has no match decision yet` };
   }
-  if (decision.outcome === 'manual_review') {
-    return { reasonCode: 'blocked_by_decision', detail: `object ${object.id}: manual_review` };
-  }
-  if (decision.outcome !== 'create_new') {
-    return { reasonCode: 'awaiting_match_decision', detail: `object ${object.id}: ${decision.outcome} awaiting attachment` };
+  if (decision.outcome === 'automatic_match') {
+    return { reasonCode: 'awaiting_match_decision', detail: `object ${object.id}: automatic_match awaiting attachment` };
   }
 
   const observation = object.currentSourceRecordId === null ? undefined : await findSourceRecordById(db, object.currentSourceRecordId);
   const payload = (observation?.payload ?? {}) as Readonly<Record<string, unknown>>;
   const title = typeof payload.title === 'string' ? payload.title.trim() : '';
   const gtin = readGtin(payload);
+  const groupKey = typeof payload.productGroupKey === 'string' && payload.productGroupKey.trim() !== '' ? payload.productGroupKey.trim() : undefined;
 
-  // Rule 3.
-  if (observation === undefined || gtin === undefined || title === '') {
+  // Rule 3: a GTIN that validates, or the source's own product key, or nothing.
+  if (observation === undefined || title === '' || (gtin === undefined && groupKey === undefined)) {
     return {
       reasonCode: 'reference_no_identifier',
-      detail: `object ${object.id} asserts no valid GTIN${title === '' ? ' and no title' : ''}`,
+      detail: `object ${object.id} asserts no valid GTIN and no source product key${title === '' ? ', and no title' : ''}`,
     };
+  }
+  if (gtin === undefined && groupKey !== undefined) {
+    return decideAnchored(context, object, observation.id, payload, title, groupKey);
+  }
+  if (decision.outcome === 'manual_review') {
+    return { reasonCode: 'blocked_by_decision', detail: `object ${object.id}: manual_review` };
+  }
+  if (gtin === undefined) {
+    return { reasonCode: 'reference_no_identifier', detail: `object ${object.id} asserts no valid GTIN` };
   }
 
   const reused = await previousProductFor(context, object.id);
@@ -160,7 +173,7 @@ async function decideObject(context: StageContext, object: ObjectRow): Promise<S
     }
   }
 
-  const description = typeof payload.description === 'string' && payload.description.trim() !== '' ? payload.description.trim() : undefined;
+  const description = readDescription(payload);
   const product =
     reused === undefined
       ? await context.writer.createDraftProduct({
@@ -191,12 +204,7 @@ async function decideObject(context: StageContext, object: ObjectRow): Promise<S
     sourceRecordId: observation.id,
   });
 
-  const canonicalIds = isDryRunId(product.id)
-    ? {}
-    : {
-        canonicalProductId: product.id,
-        ...(isDryRunId(variant.id) ? {} : { canonicalVariantId: variant.id }),
-      };
+  const canonicalIds = canonicalIdsOf(product.id, variant.id);
 
   if (assigned.outcome === 'disputed') {
     // Another variant took the GTIN between the read above and this write.
@@ -214,6 +222,102 @@ async function decideObject(context: StageContext, object: ObjectRow): Promise<S
     detail: `product ${product.id} for GTIN ${gtin.value}${reused === undefined ? '' : ' (reused from a previous run)'}`,
     ...canonicalIds,
   };
+}
+
+/**
+ * ADR 0016 — a product whose identity is the SOURCE'S own product key.
+ *
+ * A Scryfall card, a GOG game or a Shopify store's product has no GTIN, but the
+ * source names it: `productGroupKey`, shared by the records that are variants of
+ * one product (a card's foil and non-foil prices). Within its source that key IS
+ * identity, so the matcher's heuristic verdict does not decide here — a reprint
+ * whose title resembles another printing went to review only because of that
+ * resemblance. Joining products ACROSS sources stays #59's curation.
+ *
+ * 1. The product is the one a sibling of the same key was seeded into, or a
+ *    previous run's, or a new DRAFT whose axes are the record's option names.
+ * 2. The variant converges on the record's option values.
+ * 3. The observation is anchored to both (`connector_declared` source links),
+ *    and the object is re-advanced: the matcher's existing-link stage attaches
+ *    it and its offer materializes, exactly as for any matched object.
+ */
+async function decideAnchored(
+  context: StageContext,
+  object: ObjectRow,
+  sourceRecordId: string,
+  payload: Readonly<Record<string, unknown>>,
+  title: string,
+  groupKey: string,
+): Promise<SubjectVerdict> {
+  const db = getDb();
+  const options = readOptions(payload);
+  const sibling = await findProductOfSourceGroup(db, {
+    sourceId: object.sourceId,
+    productGroupKey: groupKey,
+    excludeObjectId: object.id,
+  });
+  const reused = sibling?.productId ?? (await previousProductFor(context, object.id));
+
+  const description = readDescription(payload);
+  const product =
+    reused === undefined
+      ? await context.writer.createDraftProduct({
+          name: title,
+          // Names repeat across a source (a card reprinted in twenty sets); the
+          // key never does, so a digest of it makes the slug unique and stable.
+          slug: `${slugFromName(title) ?? 'product'}-${anchorDigest(object.sourceId, groupKey)}`,
+          ...(description === undefined ? {} : { description }),
+          categoryId: null,
+          variantDefiningAttributeKeys: options.map((option) => option.key),
+          actorOxyUserId: context.actorOxyUserId,
+        })
+      : { id: reused, persisted: false };
+
+  const variant = await context.writer.createProductVariant({
+    productId: product.id,
+    name: null,
+    options,
+    actorOxyUserId: context.actorOxyUserId,
+  });
+
+  await context.writer.anchorSourceObservation({
+    productId: product.id,
+    variantId: variant.id,
+    sourceRecordId,
+    matchRule: `source_anchor:${String(context.mappingVersion)}`,
+  });
+  const readvanced = await context.writer.readvanceSourceObject(object.id);
+
+  return {
+    reasonCode: 'reference_product_minted',
+    detail:
+      `${reused === undefined ? 'product' : 'variant of product'} ${product.id} for source product ${groupKey}` +
+      ` (attachment: ${readvanced.outcome})`,
+    ...canonicalIdsOf(product.id, variant.id),
+  };
+}
+
+function canonicalIdsOf(productId: string, variantId: string): { canonicalProductId?: string; canonicalVariantId?: string } {
+  if (isDryRunId(productId)) return {};
+  return { canonicalProductId: productId, ...(isDryRunId(variantId) ? {} : { canonicalVariantId: variantId }) };
+}
+
+function readDescription(payload: Readonly<Record<string, unknown>>): string | undefined {
+  return typeof payload.description === 'string' && payload.description.trim() !== '' ? payload.description.trim() : undefined;
+}
+
+/** The record's option values (`redact.ts` stores them as `attributes`), as variant options. */
+function readOptions(payload: Readonly<Record<string, unknown>>): { key: string; value: string; position: number }[] {
+  const attributes = payload.attributes;
+  if (attributes === null || typeof attributes !== 'object' || Array.isArray(attributes)) return [];
+  return Object.entries(attributes as Record<string, unknown>)
+    .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim() !== '')
+    .map(([key, value], position) => ({ key: normalizeAttributeKey(key), value: value.trim(), position }));
+}
+
+/** Ten hex digits of sha-256 over (source, key) — the slug suffix of an anchored product. */
+function anchorDigest(sourceId: string, groupKey: string): string {
+  return createHash('sha256').update(`${sourceId}:${groupKey}`).digest('hex').slice(0, 10);
 }
 
 /** The first stored GTIN-family assertion whose check digit validates. */

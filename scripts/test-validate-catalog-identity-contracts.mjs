@@ -350,7 +350,8 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // ProductSummary/ProductThumbnail/StoreSummary gained four Oxy IDs, and
     // Listing's exact per-variant catalog identity adds four properties. No
     // module added and no ambiguous identity name: +3 types, +16 properties.
-    "walked 136 contract module(s), 2372 exported type(s), 7915 property signature(s)",
+    // ADR 0016 adds the source-scoped productGroupKey: one property.
+    "walked 136 contract module(s), 2372 exported type(s), 7916 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });

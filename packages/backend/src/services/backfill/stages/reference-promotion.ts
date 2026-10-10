@@ -12,7 +12,8 @@
  *    examined here (its review is #59's);
  * 2. it is still a `draft` (an operator who suppressed or activated it has
  *    decided already);
- * 3. one of its variants still holds an ACTIVE identifier;
+ * 3. one of its variants still holds an ACTIVE identifier, or — for a
+ *    source-anchored product (ADR 0016) — an ACTIVE source link;
  * 4. at least one ACTIVE offer of it carries a price — a price is persisted
  *    on an offer only under the source's `display_price` right, so this is
  *    "a price somebody may be shown".
@@ -24,7 +25,12 @@
 import { and, asc, eq, gt, inArray, isNotNull, sql, type SQL } from 'drizzle-orm';
 import { getDb } from '../../../db/postgres.js';
 import { catalogBackfillRecords } from '../../../db/schema/backfill.js';
-import { canonicalProducts, canonicalVariants, productIdentifiers } from '../../../db/schema/canonicalCatalog.js';
+import {
+  canonicalProducts,
+  canonicalVariants,
+  canonicalVariantSourceLinks,
+  productIdentifiers,
+} from '../../../db/schema/canonicalCatalog.js';
 import { offers } from '../../../db/schema/offers.js';
 import {
   examineAll,
@@ -70,13 +76,18 @@ async function decideProduct(context: StageContext, productId: string): Promise<
     return { reasonCode: 'promotion_awaiting_offer', detail: `product ${productId} has no variant` };
   }
 
-  // Rule 3.
+  // Rule 3: an active GTIN, or (ADR 0016) an active source link — a
+  // source-anchored product's identity is the observation it is linked to.
   const [identifier] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(productIdentifiers)
     .where(and(inArray(productIdentifiers.variantId, variantIds), eq(productIdentifiers.status, 'active')));
-  if ((identifier?.count ?? 0) === 0) {
-    return { reasonCode: 'promotion_awaiting_offer', detail: `product ${productId} holds no active identifier` };
+  const [anchor] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(canonicalVariantSourceLinks)
+    .where(and(inArray(canonicalVariantSourceLinks.variantId, variantIds), eq(canonicalVariantSourceLinks.status, 'active')));
+  if ((identifier?.count ?? 0) === 0 && (anchor?.count ?? 0) === 0) {
+    return { reasonCode: 'promotion_awaiting_offer', detail: `product ${productId} holds no active identifier or source link` };
   }
 
   // Rule 4.

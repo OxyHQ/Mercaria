@@ -29,7 +29,12 @@
 import type { CatalogSourceExtractionMode } from '@mercaria/shared-types';
 import { findOpenDataProvider } from './catalogue.js';
 import { OPEN_FACTS_DEMAND_ONLY } from './providers/open-facts.js';
+import { GOG_PROVIDER } from './providers/gog.js';
 import { OPEN_PRICES_PROVIDER } from './providers/open-prices.js';
+import { SCRYFALL_PROVIDER } from './providers/scryfall.js';
+import { SHOPIFY_STOREFRONT_PROVIDER } from './providers/shopify-storefront.js';
+import { TCGDEX_PROVIDER } from './providers/tcgdex.js';
+import { OPEN_DATA_USER_AGENT } from './http.js';
 
 /** The retailer a price source is bound to. Converged by slug. */
 export interface DeclaredMerchant {
@@ -51,6 +56,9 @@ export interface DeclaredSourceRights {
   readonly mayRefreshAutomatically: boolean;
   readonly maySeedCatalog: boolean;
   readonly extractionMode: CatalogSourceExtractionMode;
+  /** Required with any extraction mode but `disallowed`: the daily budget and the agent. */
+  readonly extractionMaxRequestsPerDay?: number;
+  readonly extractionUserAgent?: string;
   readonly attributionRequired: boolean;
   /** The licence id (`odbl_1_0`), recorded as the policy's terms version. */
   readonly termsVersion: string;
@@ -181,7 +189,106 @@ const priceSources: DeclaredOpenDataSource[] = SPANISH_CHAINS.flatMap(({ merchan
   })),
 );
 
+/**
+ * What a provider's OWN terms grant (`provider_terms`): the same uses, with a
+ * shorter cache, and the terms page as the reference.
+ */
+function providerTermsRights(termsUrl: string): Omit<DeclaredSourceRights, 'mayDisplayPrice' | 'mayLinkOut' | 'maySeedCatalog'> {
+  return { ...ODBL_RIGHTS, cacheTtlSeconds: 2 * DAY, termsVersion: 'provider_terms', termsUrl };
+}
+
+/**
+ * Card and game catalogues that price their own products (ADR 0016): each
+ * seeds products by its own key and is bound to the merchant its prices are.
+ * A card price is Cardmarket's daily trend, not one seller's listing, so it is
+ * informational; GOG's is the store's own price for Spain, so it links out.
+ */
+const cardMarket: DeclaredMerchant = { slug: 'cardmarket', name: 'Cardmarket' };
+const selfPricedSources: DeclaredOpenDataSource[] = [
+  {
+    name: 'Scryfall · Magic: The Gathering (ES)',
+    provider: SCRYFALL_PROVIDER,
+    accountRef: null,
+    merchant: cardMarket,
+    territories: ['ES'],
+    fetchCadenceSeconds: DAY,
+    freshnessTtlSeconds: 3 * DAY,
+    pageSize: 175,
+    rights: { ...providerTermsRights('https://scryfall.com/docs/api'), mayDisplayPrice: true, mayLinkOut: false, maySeedCatalog: true },
+  },
+  {
+    name: 'TCGdex · Pokémon TCG (es)',
+    provider: TCGDEX_PROVIDER,
+    accountRef: 'es',
+    merchant: cardMarket,
+    territories: ['ES'],
+    fetchCadenceSeconds: DAY,
+    freshnessTtlSeconds: 3 * DAY,
+    pageSize: 50,
+    rights: { ...providerTermsRights('https://tcgdex.dev'), mayDisplayPrice: true, mayLinkOut: false, maySeedCatalog: true },
+  },
+  {
+    name: 'GOG.com (ES)',
+    provider: GOG_PROVIDER,
+    accountRef: null,
+    merchant: { slug: 'gog', name: 'GOG.com' },
+    territories: ['ES'],
+    fetchCadenceSeconds: DAY,
+    freshnessTtlSeconds: 3 * DAY,
+    pageSize: 48,
+    rights: { ...providerTermsRights('https://www.gog.com/en/support_policy'), mayDisplayPrice: true, mayLinkOut: true, maySeedCatalog: true },
+  },
+];
+
+/**
+ * Spanish Shopify stores on Shop (shop.app), read from their own
+ * `/products.json` under their robots.txt — Mercaria's own extraction
+ * provider. Each was confirmed on 2026-10-10 to answer `/meta.json` with
+ * country ES and currency EUR. The store's name is its merchant's.
+ */
+const SPANISH_SHOPIFY_STORES: readonly { readonly domain: string; readonly name: string }[] = [
+  { domain: 'pompeiibrand.com', name: 'Pompeii' },
+  { domain: 'singularu.com', name: 'Singularu' },
+  { domain: 'laagam.com', name: 'Laagam' },
+  { domain: 'thehoffbrand.com', name: 'HOFF' },
+  { domain: 'ecoalf.com', name: 'Ecoalf' },
+  { domain: 'sepiia.com', name: 'Sepiia' },
+  { domain: 'mrboho.com', name: 'Mr. Boho' },
+  { domain: 'bimani.com', name: 'Bimani' },
+  { domain: 'goldandroses.com', name: 'Gold & Roses' },
+  { domain: 'naguisa.com', name: 'Naguisa' },
+  { domain: 'twojeys.com', name: 'Twojeys' },
+  { domain: 'slowwalk.es', name: 'Slowwalk' },
+  { domain: 'alohas.io', name: 'Alohas' },
+  { domain: 'castaner.com', name: 'Castañer' },
+  { domain: 'beatrizfurest.com', name: 'Beatriz Furest' },
+];
+
+const shopifySources: DeclaredOpenDataSource[] = SPANISH_SHOPIFY_STORES.map((store) => ({
+  name: `Shop · ${store.domain}`,
+  provider: SHOPIFY_STOREFRONT_PROVIDER,
+  accountRef: store.domain,
+  merchant: { slug: store.domain.replace(/\./gu, '-'), name: store.name },
+  territories: ['ES'],
+  fetchCadenceSeconds: 12 * HOUR,
+  freshnessTtlSeconds: 2 * DAY,
+  pageSize: 250,
+  rights: {
+    ...providerTermsRights(`https://${store.domain}/policies/terms-of-service`),
+    mayDisplayPrice: true,
+    // The store's own product page: a real price a shopper can buy at.
+    mayLinkOut: true,
+    maySeedCatalog: true,
+    extractionMode: 'robots_respecting',
+    // Two passes a day of at most a few dozen pages each, with headroom.
+    extractionMaxRequestsPerDay: 500,
+    extractionUserAgent: OPEN_DATA_USER_AGENT,
+  },
+}));
+
 export const DECLARED_OPEN_DATA_SOURCES: readonly DeclaredOpenDataSource[] = [
   ...catalogueSources,
   ...priceSources,
+  ...selfPricedSources,
+  ...shopifySources,
 ];

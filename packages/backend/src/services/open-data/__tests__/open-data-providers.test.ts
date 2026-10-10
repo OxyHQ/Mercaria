@@ -26,6 +26,8 @@ import { mitecoFuelProvider } from '../providers/miteco-fuel.js';
 import { OPEN_FACTS_DEMAND_ONLY, openFactsProviders } from '../providers/open-facts.js';
 import { openPricesProvider } from '../providers/open-prices.js';
 import { scryfallProvider } from '../providers/scryfall.js';
+import { htmlText, shopifyStorefrontProvider, storeDomain } from '../providers/shopify-storefront.js';
+import { OpenDataConfigurationError } from '../provider.js';
 import { tcgdexProvider } from '../providers/tcgdex.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
@@ -38,11 +40,18 @@ function fixture(name: string): unknown {
 /** A transport answering from a URL → body table; downloads from local paths. */
 function fakeHttp(routes: {
   json?: (url: string) => { body: unknown; headers?: Record<string, string> } | null;
+  text?: (url: string) => string | null;
   downloads?: Record<string, string>;
 }): OpenDataHttp & { requested: string[] } {
   const requested: string[] = [];
   return {
     requested,
+    async getText(url): Promise<string | null> {
+      requested.push(url);
+      const answer = routes.text?.(url);
+      if (answer === undefined) throw new Error(`unrouted ${url}`);
+      return answer;
+    },
     async getJson(url): Promise<OpenDataJsonResponse | null> {
       requested.push(url);
       const answer = routes.json?.(url);
@@ -404,5 +413,81 @@ describe('TCGdex', () => {
   it('refuses a language it does not read', async () => {
     const http = fakeHttp({ json: () => ({ body: [] }) });
     await expect(page(tcgdexProvider, http, { accountRef: 'xx' })).rejects.toThrow(/not a TCGdex language/u);
+  });
+});
+
+describe('Shopify storefronts (the shops on shop.app)', () => {
+  const meta = fixture('shopify-meta.json');
+  const products = fixture('shopify-products.json') as { products: unknown[] };
+  const ROBOTS = 'User-agent: *\nDisallow: /cart\nDisallow: /checkout\nDisallow: /account\n';
+
+  function store(robots: string | null = ROBOTS) {
+    return fakeHttp({
+      text: (url) => (url.endsWith('/robots.txt') ? robots : null),
+      json: (url) => {
+        if (url.endsWith('/meta.json')) return { body: meta };
+        if (url.includes('/products.json')) return { body: products };
+        return null;
+      },
+    });
+  }
+
+  it('is an extraction provider, one source per store domain', () => {
+    expect(shopifyStorefrontProvider.extraction).toBe(true);
+    expect(shopifyStorefrontProvider.accountRefRequired).toBe(true);
+    expect(storeDomain('https://PompeiiBrand.com/collections/all')).toBe('pompeiibrand.com');
+    expect(() => storeDomain('not a domain')).toThrow(OpenDataConfigurationError);
+  });
+
+  it('reads robots, then the store, then one record per variant grouped by product', async () => {
+    const http = store();
+    const result = await page(shopifyStorefrontProvider, http, { accountRef: 'pompeiibrand.com', pageSize: 250 });
+    expect(http.requested.slice(0, 3)).toEqual([
+      'https://pompeiibrand.com/robots.txt',
+      'https://pompeiibrand.com/meta.json',
+      'https://pompeiibrand.com/products.json?limit=250&page=1',
+    ]);
+    expect(result.items).toHaveLength(2);
+    const [first, second] = result.items;
+    expect(first?.externalType).toBe('offer');
+    expect(first?.normalized.productGroupKey).toBe('15632690119004');
+    expect(second?.normalized.productGroupKey).toBe('15632690119004');
+    expect(first?.normalized.title).toBe('VEGA FLORENTIK BORDEAUX');
+    expect(first?.normalized.options).toEqual([{ name: 'Size', value: '40' }]);
+    expect(first?.normalized.price).toEqual({ amount: 17_900, currency: 'EUR' });
+    expect(first?.normalized.availability).toBe('in_stock');
+    expect(first?.normalized.merchantHint).toBe('Pompeii');
+    expect(first?.normalized.brandHint).toBe('Pompeii');
+    expect(first?.normalized.sourceUrl).toBe(`https://pompeiibrand.com/products/vega-florentik-bordeaux?variant=${first?.externalId ?? ''}`);
+    expect(first?.normalized.description).toContain('Fabricados a mano en Portugal');
+    expect(first?.normalized.description).not.toContain('<');
+    expect(second?.normalized.availability).toBe('out_of_stock');
+    expect(second?.normalized.compareAtPrice).toEqual({ amount: 19_900, currency: 'EUR' });
+    const facts = Object.fromEntries((first?.normalized.facts ?? []).map((fact) => [fact.key, fact.value]));
+    expect(facts['shopify.store_country']).toBe('ES');
+    expect(facts['shopify.product_type']).toBe('SHOE');
+    expect(facts['shopify.tags']).toEqual(['mocasines', 'piel']);
+    // A short page is the last one.
+    expect(result.next).toBeNull();
+  });
+
+  it('carries the store facts in the cursor instead of re-reading them', async () => {
+    const http = store();
+    const result = await page(shopifyStorefrontProvider, http, { accountRef: 'pompeiibrand.com', pageSize: 1 });
+    expect(result.next).toEqual({ p: 2, c: 'EUR', n: 'Pompeii', k: 'ES' });
+    const again = store();
+    await page(shopifyStorefrontProvider, again, { accountRef: 'pompeiibrand.com', pageSize: 1, cursor: result.next });
+    expect(again.requested).toEqual(['https://pompeiibrand.com/products.json?limit=1&page=2']);
+  });
+
+  it('reads nothing a store\'s robots.txt disallows', async () => {
+    const http = store('User-agent: *\nDisallow: /products.json\n');
+    await expect(page(shopifyStorefrontProvider, http, { accountRef: 'pompeiibrand.com' })).rejects.toThrow(OpenDataConfigurationError);
+    expect(http.requested).toEqual(['https://pompeiibrand.com/robots.txt']);
+  });
+
+  it('turns body_html into text', () => {
+    expect(htmlText('<p>Hola&nbsp;<b>mundo</b></p><p>A &amp; B</p>')).toBe('Hola mundo\nA & B');
+    expect(htmlText('<p> </p>')).toBeUndefined();
   });
 });
