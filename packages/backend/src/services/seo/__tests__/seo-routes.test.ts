@@ -133,6 +133,7 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   'app/(app)/guest-orders/recover.tsx',
   'app/(app)/guest-orders/portal.tsx',
   'app/(app)/orders/index.tsx',
+  'app/(app)/orders/past.tsx',
   'app/(app)/orders/[id].tsx',
   'app/(app)/settings/index.tsx',
   'app/(app)/settings/general.tsx',

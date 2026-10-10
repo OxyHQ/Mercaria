@@ -123,23 +123,31 @@ export async function createMercariaTestDatabase(adminUrl: string): Promise<stri
 export async function createMercariaTestDatabaseThrough(adminUrl: string, lastTag: string): Promise<string> {
   return createTestDatabase({
     adminUrl,
-    migrate: async (databaseUrl) => {
-      const folder = journalPrefix(lastTag);
-      try {
-        await runMigrations({
-          databaseUrl,
-          migrationsFolder: folder,
-          extensions: REQUIRED_EXTENSIONS,
-          run: 'all',
-          expectedDatabase: new URL(databaseUrl).pathname.replace(/^\//, ''),
-          dryRun: false,
-          logger: { info: () => undefined, debug: () => undefined },
-        });
-      } finally {
-        rmSync(folder, { recursive: true, force: true });
-      }
-    },
+    migrate: (databaseUrl) => applyMigrationsThrough(databaseUrl, lastTag),
   });
+}
+
+/** Replay only the migration artifact of a historical release, preserving its
+ * pre/post boundary even when later releases add new pre migrations. */
+export async function applyMigrationsThrough(
+  databaseUrl: string,
+  lastTag: string,
+  phase: 'all' | 'pre' | 'post' = 'all',
+): Promise<void> {
+  const folder = journalPrefix(lastTag);
+  try {
+    await runMigrations({
+      databaseUrl,
+      migrationsFolder: folder,
+      extensions: REQUIRED_EXTENSIONS,
+      run: phase,
+      expectedDatabase: new URL(databaseUrl).pathname.replace(/^\//, ''),
+      dryRun: false,
+      logger: { info: () => undefined, debug: () => undefined },
+    });
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
 }
 
 /** A temporary migrations folder ending at `lastTag`. The caller removes it. */
