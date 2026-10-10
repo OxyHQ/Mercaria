@@ -25,6 +25,9 @@ schema decision. `HANDOFF.md` holds deferred work.
   `expo-image` className consumers can render with zero size on Android even
   when their Oxy file loads correctly. This adapter does not change media URLs,
   loading/error events, cache behavior or file ownership.
+  Shared `useColorScheme` reads both colors and resolved light/dark mode from
+  Bloom's `useTheme()`. It delegates preference changes to `useBloomTheme()`;
+  it does not resolve the system preference a second time through NativeWind.
   All three apps import `@mercaria/ui/theme/shop-typography.css` for the shared
   marketplace type scale, measured from Shop's public CSS on 2026-10-09.
   Its `text-shop-*` and `font-shop-*` utilities define size, line height, weight

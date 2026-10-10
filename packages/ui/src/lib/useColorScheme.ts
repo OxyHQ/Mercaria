@@ -1,4 +1,3 @@
-import { useColorScheme as useNativeWindColorScheme } from 'nativewind';
 import { useCallback, useMemo } from 'react';
 import { useBloomTheme, useTheme, type ThemeMode } from '@oxy.so/bloom/theme';
 
@@ -7,21 +6,12 @@ import { useBloomTheme, useTheme, type ThemeMode } from '@oxy.so/bloom/theme';
  *
  * Resolved colors come from Bloom's `useTheme()` (`ThemeColors`), whose values
  * are already full `rgb(...)` strings — no manual HSL conversion. Light/dark
- * resolution and the active preset come from Bloom + NativeWind; `mode` /
+ * resolution and the active preset come from Bloom; `mode` /
  * `setColorScheme` proxy Bloom's `useBloomTheme()`.
  */
 export function useColorScheme() {
-  const { colorScheme: nwScheme } = useNativeWindColorScheme();
   const { mode, setMode } = useBloomTheme();
   const theme = useTheme();
-
-  const effectiveMode: Exclude<ThemeMode, 'adaptive'> =
-    mode === 'adaptive' ? 'system' : mode;
-  // NativeWind's `colorScheme` is `ColorSchemeName` ('light' | 'dark' |
-  // 'unspecified' | null | undefined); collapse anything that is not an
-  // explicit 'dark' to 'light' for the system case.
-  const resolved: 'light' | 'dark' =
-    effectiveMode === 'system' ? (nwScheme === 'dark' ? 'dark' : 'light') : effectiveMode;
 
   const setColorScheme = useCallback(
     (newMode: ThemeMode) => {
@@ -38,7 +28,7 @@ export function useColorScheme() {
       foreground: c.text,
       text: c.text,
       card: c.card,
-      // Bloom 0.9.1 has no distinct surface token; surface ≈ card.
+      // Legacy shared-UI surface consumers use Bloom's card token.
       surface: c.card,
       // Sidebar / muted are secondary surfaces.
       sidebar: c.backgroundSecondary,
@@ -51,8 +41,8 @@ export function useColorScheme() {
   }, [theme]);
 
   return {
-    colorScheme: resolved,
-    isDarkColorScheme: resolved === 'dark',
+    colorScheme: theme.mode,
+    isDarkColorScheme: theme.isDark,
     setColorScheme,
     mode,
     colors,
