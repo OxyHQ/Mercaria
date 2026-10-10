@@ -278,7 +278,7 @@ are *structural* to its model under a zero-markup policy with no warehouse.
   no separate sandbox in public docs; the only billed action before launch is
   the deliberate test order of §11.
 - **Credentials:** a least-privilege private token from the Printful developer
-  portal, stored as a GitHub Actions repo secret and synced to SSM
+  portal, stored in SSM
   `/oxy/mercaria/suppliers/printful/*` (ADR 0004 D6.5/D10) — never a
   placeholder value, per the standing secrets rule.
 - **Subscription decision:** stay on **Free** for the pilot. Growth
@@ -342,7 +342,7 @@ all are recorded done. As of **2026-08-09 every item is OPEN.**
    treasury decision (accept card-funded *top-ups* as the operator-initiated
    treasury operation, or negotiate bank transfer) is taken here; per-order
    stored-card billing stays rejected (D6.2). *(treasury)*
-5. ☐ Mint a least-privilege API token; store as GitHub secret → SSM
+5. ☐ Mint a least-privilege API token; store in SSM
    `/oxy/mercaria/suppliers/printful/*`. *(operator + infra)*
 6. ☐ Legal review of §7 item 5 (withdrawal right vs art. 16(c)) and the pilot
    customer terms. *(legal)*

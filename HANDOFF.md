@@ -7,7 +7,7 @@ What changed with #69 is the *shape* of the remaining unknown. It is no longer "
 ## 0. What's deployed vs what's inert
 The connector backend, dashboard "Sales channels" UI, ingestion API, and the WooCommerce plugin (repo `OxyHQ/mercaria-woocommerce`) are all on `main` and deploy with the normal Mercaria pipeline. They are **inert until** the env below is set + a Partner app exists.
 
-## 1. Env / secrets (SSM `/oxy/mercaria/*`, via GitHub Actions repo secrets)
+## 1. Env / secrets (SSM `/oxy/mercaria/*`, the only source; `aws ssm put-parameter`)
 Generate + set these on the **Mercaria backend** (ECS):
 
 | Var | How | Notes |
@@ -242,7 +242,7 @@ levers below are set, and a deployment that sets none behaves exactly as it did
 before #1015 — including the address constraint, which is stricter for physical
 orders and otherwise invisible.
 
-## 1. Env / levers (SSM `/oxy/mercaria/*`, via GitHub Actions repo secrets)
+## 1. Env / levers (SSM `/oxy/mercaria/*`, the only source; `aws ssm put-parameter`)
 
 | Var | Default | Notes |
 |---|---|---|

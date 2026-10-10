@@ -67,7 +67,7 @@ URLs from the public internet).
 | `SHOPIFY_SCOPES` | see §3 — **the default is not enough** | |
 | `REDIS_URL` | an ElastiCache/Valkey or local Redis | Without it every sync runs INLINE in the request. Scenario S5 and W3 are meaningless without it. |
 
-Secrets go through the documented path only: GitHub Actions repo secret → SSM
+Secrets go through the documented path only: SSM, set with `aws ssm put-parameter`
 `/oxy/mercaria/*` → the ECS task definition. Never a literal in a workflow, a
 task definition, or this file.
 

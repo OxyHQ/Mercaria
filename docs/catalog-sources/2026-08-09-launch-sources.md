@@ -233,7 +233,7 @@ card, business identity, legal review). None of it can be done by an agent.
 - [ ] Mercaria's own merchant-feed ToS for #63 (grants Mercaria the display,
       caching and linking rights the external networks make us negotiate for).
 
-**Secrets** (GitHub Actions repo secrets → SSM `/oxy/mercaria/*`, per the
+**Secrets** (SSM `/oxy/mercaria/*`, per the
 existing pipeline; never placeholders)
 - [ ] `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` (production keyset)
 - [ ] `EPN_CAMPAIGN_ID` (not secret in the cryptographic sense, but config)

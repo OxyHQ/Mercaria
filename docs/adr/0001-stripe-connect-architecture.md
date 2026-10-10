@@ -500,7 +500,7 @@ by the key, and connected-account ids live only in provider-account records.
 | Client-asserted payment state | Backend | forbidden — order `paid` only from verified events; client callbacks are UX-only |
 | Account takeover of onboarding | Backend (#46) | ownership + `store:manage` checks before AccountLink creation; one owner ↔ one account; links never leave the app |
 | Negative balances / fraud loss | Mercaria ops | `losses.payments=application`, reserves policy, `debit_negative_balances`, reconciliation alerts (#50) |
-| Secrets | Infra | GitHub repo secrets → SSM `/oxy/mercaria/*` (existing pipeline); never placeholders |
+| Secrets | Infra | SSM `/oxy/mercaria/*`, the only source (set with `aws ssm put-parameter`; since 2026-10-10 no GitHub copy); never placeholders |
 | Discrepancy detection | Backend + ops (#50) | reconciliation jobs vs Stripe state, balanced-ledger invariant, dead-letter replay |
 
 ## Consequences

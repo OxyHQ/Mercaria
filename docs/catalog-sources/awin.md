@@ -72,7 +72,7 @@ low.
 `catalog_source_configs.credential_ref` and this domain's own credential columns
 hold a LOCATOR — `env:<NAME>` or `ssm:<path>`, shape-CHECKed and length-bounded
 so a pasted key is refused by the database. The values live in GitHub Actions
-repo secrets synced to SSM `/oxy/mercaria/*`, per the existing pipeline:
+SSM parameters under `/oxy/mercaria/*`, per the existing pipeline:
 
 ```
 AWIN_PUBLISHER_ID          # not secret, but configuration
@@ -791,7 +791,7 @@ Nothing below is green. Each is a gate, in the §9 sense of the #64 decision.
    advertiser programme joined. A pre-join preview feed never feeds public
    pages.
 2. **Secrets.** `AWIN_PUBLISHER_ID`, `AWIN_FEED_API_KEY` and (for #67)
-   `AWIN_PUBLISHER_API_TOKEN` in GitHub Actions repo secrets → SSM
+   `AWIN_PUBLISHER_API_TOKEN` in SSM
    `/oxy/mercaria/*` → the task definition. Never a placeholder.
 3. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or `/internal/awin` is not mounted
    and nobody can register an account.
