@@ -1376,6 +1376,22 @@
         "unnamed": "Nom sense traduir",
         "notice": "Alguns noms encara no estan traduïts al teu idioma."
       }
+    },
+    "bulk": {
+      "activate": "Marcar com a actius",
+      "draft": "Marcar com a esborranys",
+      "archive": "Arxivar productes",
+      "selected": "Seleccionats: %{items}",
+      "clear": "Esborrar selecció",
+      "result": "Confirmats: %{updated}. Sense confirmar: %{remaining}.",
+      "confirmation": "Revisa els productes seleccionats. Alguns canvis es poden aplicar encara que altres fallin.",
+      "failed": "No s’ha pogut confirmar el canvi: %{title}",
+      "notAttempted": "No s’ha intentat: %{title}",
+      "retry": "Reintentar pendents",
+      "confirm": "Aplicar canvis",
+      "select": "Seleccionar %{title}",
+      "selectPage": "Seleccionar productes editables d’aquesta pàgina",
+      "selection": "Triar"
     }
   },
   "settings": {

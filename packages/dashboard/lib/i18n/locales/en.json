@@ -1358,6 +1358,22 @@
         "unnamed": "Name not translated",
         "notice": "Some names are not translated into your language yet."
       }
+    },
+    "bulk": {
+      "activate": "Set as active",
+      "draft": "Set as draft",
+      "archive": "Archive products",
+      "selected": "Selected: %{items}",
+      "clear": "Clear selection",
+      "result": "Confirmed: %{updated}. Unconfirmed: %{remaining}.",
+      "confirmation": "Review the selected products. Some changes may succeed even if others fail.",
+      "failed": "Could not confirm the change: %{title}",
+      "notAttempted": "Not attempted: %{title}",
+      "retry": "Retry remaining",
+      "confirm": "Apply changes",
+      "select": "Select %{title}",
+      "selectPage": "Select editable products on this page",
+      "selection": "Select"
     }
   },
   "settings": {

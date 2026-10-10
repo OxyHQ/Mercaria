@@ -1376,6 +1376,22 @@
         "unnamed": "Nome sem tradução",
         "notice": "Alguns nomes ainda não foram traduzidos para o seu idioma."
       }
+    },
+    "bulk": {
+      "activate": "Marcar como ativos",
+      "draft": "Marcar como rascunhos",
+      "archive": "Arquivar produtos",
+      "selected": "Selecionados: %{items}",
+      "clear": "Limpar seleção",
+      "result": "Confirmados: %{updated}. Não confirmados: %{remaining}.",
+      "confirmation": "Revise os produtos selecionados. Algumas alterações podem ser aplicadas mesmo que outras falhem.",
+      "failed": "Não foi possível confirmar a alteração: %{title}",
+      "notAttempted": "Não tentado: %{title}",
+      "retry": "Tentar os restantes",
+      "confirm": "Aplicar alterações",
+      "select": "Selecionar %{title}",
+      "selectPage": "Selecionar produtos editáveis desta página",
+      "selection": "Escolher"
     }
   },
   "settings": {

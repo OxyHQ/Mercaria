@@ -7,15 +7,16 @@ import { Select, SelectTrigger, SelectValue, SelectIcon, SelectContent, SelectIt
 import { Text } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 
-export function StatusFilter<T extends string>({ value, options, onChange }: {
+export function StatusFilter<T extends string>({ value, options, onChange, disabled = false }: {
   value: T;
+  disabled?: boolean;
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
 }) {
   const { t } = useTranslation();
   return (
     <View className="min-w-40">
-      <Select value={value} onValueChange={(next) => {
+      <Select disabled={disabled} value={value} onValueChange={(next) => {
         const option = options.find(item => item.value === next);
         if (option) onChange(option.value);
       }}>

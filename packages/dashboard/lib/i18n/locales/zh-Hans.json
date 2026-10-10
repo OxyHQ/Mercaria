@@ -1358,6 +1358,22 @@
         "unnamed": "名称未翻译",
         "notice": "部分名称尚未翻译成你的语言。"
       }
+    },
+    "bulk": {
+      "activate": "设为活跃",
+      "draft": "设为草稿",
+      "archive": "归档商品",
+      "selected": "已选择：%{items}",
+      "clear": "清除选择",
+      "result": "已确认：%{updated}。未确认：%{remaining}。",
+      "confirmation": "请检查所选商品。即使部分更改失败，其他更改也可能已生效。",
+      "failed": "无法确认更改：%{title}",
+      "notAttempted": "尚未尝试：%{title}",
+      "retry": "重试剩余商品",
+      "confirm": "应用更改",
+      "select": "选择 %{title}",
+      "selectPage": "选择本页可编辑的商品",
+      "selection": "选择"
     }
   },
   "settings": {

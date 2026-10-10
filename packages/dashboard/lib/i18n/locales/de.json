@@ -1358,6 +1358,22 @@
         "unnamed": "Bezeichnung nicht übersetzt",
         "notice": "Einige Bezeichnungen sind noch nicht in deine Sprache übersetzt."
       }
+    },
+    "bulk": {
+      "activate": "Als aktiv markieren",
+      "draft": "Als Entwurf markieren",
+      "archive": "Produkte archivieren",
+      "selected": "Ausgewählt: %{items}",
+      "clear": "Auswahl aufheben",
+      "result": "Bestätigt: %{updated}. Unbestätigt: %{remaining}.",
+      "confirmation": "Prüfe die ausgewählten Produkte. Manche Änderungen können gelingen, auch wenn andere fehlschlagen.",
+      "failed": "Änderung nicht bestätigt: %{title}",
+      "notAttempted": "Nicht versucht: %{title}",
+      "retry": "Verbleibende erneut versuchen",
+      "confirm": "Änderungen anwenden",
+      "select": "%{title} auswählen",
+      "selectPage": "Bearbeitbare Produkte dieser Seite auswählen",
+      "selection": "Wählen"
     }
   },
   "settings": {

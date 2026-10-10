@@ -1358,6 +1358,22 @@
         "unnamed": "名称は未翻訳です",
         "notice": "一部の項目名はまだあなたの言語に翻訳されていません。"
       }
+    },
+    "bulk": {
+      "activate": "有効にする",
+      "draft": "下書きにする",
+      "archive": "商品をアーカイブ",
+      "selected": "選択済み: %{items}",
+      "clear": "選択を解除",
+      "result": "確認済み: %{updated}。未確認: %{remaining}。",
+      "confirmation": "選択した商品を確認してください。一部の変更が失敗しても、他の変更は適用される場合があります。",
+      "failed": "変更を確認できませんでした: %{title}",
+      "notAttempted": "未実行: %{title}",
+      "retry": "残りを再試行",
+      "confirm": "変更を適用",
+      "select": "%{title} を選択",
+      "selectPage": "このページの編集可能な商品を選択",
+      "selection": "選択"
     }
   },
   "settings": {

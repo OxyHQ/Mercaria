@@ -4,6 +4,11 @@ import { Link, useRouter, type RoutePath } from "expo-router";
 import Head from "expo-router/head";
 import { Plus, Search as SearchIcon } from "lucide-react-native";
 import { ALL_LISTING_STATUSES, type Listing, type ListingStatus } from "@mercaria/shared-types";
+import { useOxy } from "@oxy.so/services";
+import { Checkbox } from "@oxy.so/bloom/checkbox";
+import { useBulkProductStatus } from "@/lib/hooks/use-bulk-product-status";
+import { BulkProductActions } from "@/components/products/BulkProductActions";
+import type { SelectedProduct } from "@/lib/bulk-product-status";
 import { Badge } from "@oxy.so/bloom/badge";
 import { Button } from "@oxy.so/bloom/button";
 import { Table, TableHeader, TableColumn, TableBody, TableRow, TableCell } from "@oxy.so/bloom/table";
@@ -26,8 +31,9 @@ const STATUS_LABEL_KEYS: Record<ListingStatus, string> = {
 
 export default function ProductsScreen() {
   const { t } = useTranslation();
+  const { activeSessionId } = useOxy();
   return <><Head><title>{t("products.documentTitle")}</title></Head>
-    <RequireStore permission="products:read">{storeId => <ProductsBody key={storeId} storeId={storeId} />}</RequireStore></>;
+    <RequireStore permission="products:read">{storeId => <ProductsBody key={`${storeId}:${activeSessionId}`} storeId={storeId} />}</RequireStore></>;
 }
 
 function ProductsBody({ storeId }: { storeId: string }) {
@@ -35,13 +41,16 @@ function ProductsBody({ storeId }: { storeId: string }) {
   const { t, locale } = useTranslation();
   const { can } = useActiveStoreContext();
   const { width } = useWindowDimensions();
+  const [selected, setSelected] = useState<Record<string, SelectedProduct>>({});
+  const canWrite = can("products:write");
+  const bulk = useBulkProductStatus(storeId, canWrite);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ListingStatus | "all">("all");
   const query = useDebouncedValue(search.trim(), 250);
   const { data, isPending, isFetching, isError, isPlaceholderData, refetch } = useProducts(storeId, page, query, status);
   const changingSearch = query !== search.trim();
-  const busy = isFetching || changingSearch;
+  const busy = isFetching || changingSearch || bulk.isPending;
   /**
    * Where "Add product" goes (#367 step 10).
    *
@@ -68,36 +77,52 @@ function ProductsBody({ storeId }: { storeId: string }) {
 
   const filtered = status !== "all" || search.trim() !== "";
   const products = data?.data ?? [];
+  const selectDisabled = busy || isPlaceholderData || isError || !canWrite;
+  const selectable = products.filter(product => product.status !== "restricted");
+  const allSelected = selectable.length > 0 && selectable.every(product => Boolean(selected[product.id]));
+  const toggle = (product: Listing, checked: boolean) => {
+    if (selectDisabled || (checked && product.status === "restricted")) return;
+    setSelected(current => { const next = { ...current }; if (checked) next[product.id] = { id: product.id, title: product.title }; else delete next[product.id]; return next; });
+  };
+  const selection = (product: Listing) => canWrite ? <Checkbox checked={Boolean(selected[product.id])} disabled={selectDisabled || (product.status === "restricted" && !selected[product.id])}
+    accessibilityLabel={t("products.bulk.select", { title: product.title })} onCheckedChange={checked => toggle(product, checked)} /> : null;
   const clear = () => { setSearch(""); setStatus("all"); setPage(1); };
   const statusOptions = [{ value: "all" as const, label: t("common.all") }, ...ALL_LISTING_STATUSES.map(value => ({ value, label: t(STATUS_LABEL_KEYS[value]) }))];
   const pending = isPending || changingSearch;
   const action = can("products:write") ? <Button tone="accent" material="flat" leadingIcon={toBloomIcon(Plus)} onPress={() => router.push(createHref)}>{t("products.addProduct")}</Button> : undefined;
   return <Screen title={t("products.title")} action={action}>
     <ResourceList testID="merchant-products-list" busy={busy} toolbar={
-      <View className="gap-3 md:flex-row md:items-center">
-        <StatusFilter value={status} options={statusOptions} onChange={next => { setStatus(next); setPage(1); }} />
+      <View className="gap-3"><View className="gap-3 md:flex-row md:items-center">
+        <StatusFilter disabled={bulk.isPending} value={status} options={statusOptions} onChange={next => { setStatus(next); setPage(1); }} />
         <View className="md:flex-1"><TextField radius={8}><TextFieldIcon icon={toBloomFieldIcon(SearchIcon)} />
-          <TextFieldInput label={t("products.searchPlaceholder")} value={search} maxLength={200}
+          <TextFieldInput label={t("products.searchPlaceholder")} value={search} maxLength={200} disabled={bulk.isPending}
             onValueChange={value => { setSearch(value); setPage(1); }} returnKeyType="search" />
         </TextField></View>
+      </View>
+      {canWrite && products.length ? <Checkbox checked={allSelected} indeterminate={!allSelected && selectable.some(product => Boolean(selected[product.id]))}
+        disabled={selectDisabled || !selectable.length} accessibilityLabel={t("products.bulk.selectPage")} labelContent={<Text className="text-sm text-foreground">{t("products.bulk.selectPage")}</Text>}
+        onCheckedChange={checked => { if (!selectDisabled) setSelected(current => { const next = { ...current }; for (const product of selectable) { if (checked) next[product.id] = { id: product.id, title: product.title }; else delete next[product.id]; } return next; }); }} /> : null}
+      <BulkProductActions selected={Object.values(selected)} allowed={canWrite} mutation={bulk} onClear={() => setSelected({})}
+        onUpdated={ids => setSelected(current => Object.fromEntries(Object.entries(current).filter(([id]) => !ids.includes(id))))} />
       </View>
     } footer={data && !pending && !isError ? <ListPagination page={data.pagination.page} pages={data.pagination.pages} busy={busy} onPage={setPage} /> : null}>
       {pending || isError || !products.length ? <ResourceState loading={pending} error={isError} errorTitle={t("products.loadFailed")} filtered={filtered}
         emptyTitle={t("products.empty.title")} onRetry={() => { void refetch(); }} onClear={clear}
         action={can("products:write") ? { label: t("products.empty.action"), onPress: () => router.push(createHref) } : undefined} />
       : width >= 768 ? <Table accessibilityLabel={t("products.title")} size="sm" minWidth={600}>
-        <TableHeader><TableColumn flex={3}><Text className="text-xs font-semibold text-muted-foreground">{t("common.title")}</Text></TableColumn>
+        <TableHeader>{canWrite ? <TableColumn width={64}><Text className="text-xs text-muted-foreground">{t("products.bulk.selection")}</Text></TableColumn> : null}<TableColumn flex={3}><Text className="text-xs font-semibold text-muted-foreground">{t("common.title")}</Text></TableColumn>
           <TableColumn width={115}><Text className="text-xs font-semibold text-muted-foreground">{t("common.status")}</Text></TableColumn>
           <TableColumn flex={2}><Text className="text-xs font-semibold text-muted-foreground">{t("products.stockLabel")}</Text></TableColumn>
           <TableColumn width={130} align="end"><Text className="text-xs font-semibold text-muted-foreground">{t("resourceList.price")}</Text></TableColumn></TableHeader>
         <TableBody>{products.map(product => <TableRow key={product.id} testID="merchant-product-row">
+          {canWrite ? <TableCell>{selection(product)}</TableCell> : null}
           <TableCell><ProductIdentity product={product} disabled={isPlaceholderData} /></TableCell>
           <TableCell><ProductStatus status={product.status} /></TableCell>
           <TableCell><Text className="text-xs text-muted-foreground">{t("products.row.variantsInStock", { count: product.variants.length, stock: product.quantity })}</Text></TableCell>
           <TableCell><PriceDisplay price={product.price} primaryClassName="text-sm" /></TableCell>
         </TableRow>)}</TableBody>
       </Table> : <View>{products.map(product => <View key={product.id} testID="merchant-product-row" className="gap-3 border-b border-border p-4">
-        <ProductIdentity product={product} disabled={isPlaceholderData} />
+        <View className="flex-row items-center gap-3">{selection(product)}<View className="min-w-0 flex-1"><ProductIdentity product={product} disabled={isPlaceholderData} /></View></View>
         <View className="flex-row items-center justify-between gap-2"><ProductStatus status={product.status} /><PriceDisplay price={product.price} primaryClassName="text-sm" /></View>
         <Text className="text-xs text-muted-foreground">{t("products.row.variantsInStock", { count: product.variants.length, stock: product.quantity })}</Text>
       </View>)}</View>}
