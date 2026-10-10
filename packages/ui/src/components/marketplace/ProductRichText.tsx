@@ -5,6 +5,8 @@ import { Table, TableBody, TableCell, TableColumn, TableRow } from "@oxy.so/bloo
 import { useColorScheme } from "../../lib/useColorScheme";
 import type { DescriptionNode } from "../../lib/product-description";
 import { Text } from "../ui/text";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { resolveStoredImageUrl } from "../../lib/stored-image-url";
 
 export interface ProductRichTextProps {
   nodes: DescriptionNode[];
@@ -17,7 +19,9 @@ const isInline = (node: DescriptionNode) => typeof node === "string" || inlineTa
 
 function DescriptionImage({ node }: { node: Exclude<DescriptionNode, string> }) {
   const [aspectRatio, setAspectRatio] = useState(1);
-  return <Image source={{ uri: node.src }} accessibilityLabel={node.alt} accessible={!!node.alt}
+  const uri = resolveStoredImageUrl(node.src, useImageResolver());
+  if (!uri) return node.alt ? <Text>{node.alt}</Text> : null;
+  return <Image source={{ uri }} accessibilityLabel={node.alt} accessible={!!node.alt}
     style={{ width: "100%", aspectRatio }} contentFit="contain"
     onLoad={({ source }) => { if (source.width && source.height) setAspectRatio(source.width / source.height); }} />;
 }

@@ -94,13 +94,14 @@ test("a short rich description renders formatting without an unnecessary sheet l
 
 test("merchant HTML cannot execute code or inject page styles", async ({ page, request }) => {
   const id = await productId(request);
+  const externalImages: string[] = [];
+  page.on("request", request => { if (request.url() === "https://example.com/broken.png") externalImages.push(request.url()); });
   await page.route(`**/listings/${id}`, async route => {
     const response = await route.fetch();
     const body = await response.json();
     body.data.description = `<p>${"Safe content. ".repeat(35)}<a href="javascript:document.body.dataset.executed='yes'">Blocked link</a></p><style>body{display:none}</style><script>document.body.dataset.executed='yes'</script><img src="https://example.com/broken.png" alt="Diagram" onerror="document.body.dataset.executed='yes'">`;
     await route.fulfill({ response, json: body });
   });
-  await page.route("https://example.com/broken.png", route => route.abort());
   await page.goto(`/products/${id}`);
   await page.getByTestId("product-description").getByRole("button", { name: "Read more", exact: true }).click();
   const sheet = page.getByTestId("product-description-dialog");
@@ -108,6 +109,9 @@ test("merchant HTML cannot execute code or inject page styles", async ({ page, r
   await expect(sheet.getByText("Blocked link", { exact: true })).toBeVisible();
   await expect(sheet.getByRole("link", { name: "Blocked link" })).toHaveCount(0);
   await expect(sheet.locator("script, style, [onerror], [onclick]")).toHaveCount(0);
+  await expect(sheet).toContainText("Diagram");
+  await expect(sheet.locator("img")).toHaveCount(0);
+  expect(externalImages).toEqual([]);
   await expect(page.locator("body")).not.toHaveAttribute("data-executed");
 });
 
