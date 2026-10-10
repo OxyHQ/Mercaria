@@ -15,6 +15,9 @@ import { mitecoFuelProvider } from './providers/miteco-fuel.js';
 import { openFactsProviders } from './providers/open-facts.js';
 import { openPricesProvider } from './providers/open-prices.js';
 import { scryfallProvider } from './providers/scryfall.js';
+import { shopifyStorefrontProvider } from './providers/shopify-storefront.js';
+import { steamStoreProvider } from './providers/steam-store.js';
+import { ygoprodeckProvider } from './providers/ygoprodeck.js';
 import { tcgdexProvider } from './providers/tcgdex.js';
 
 export const OPEN_DATA_PROVIDERS: readonly OpenDataProvider[] = [
@@ -25,6 +28,9 @@ export const OPEN_DATA_PROVIDERS: readonly OpenDataProvider[] = [
   gogProvider,
   scryfallProvider,
   tcgdexProvider,
+  shopifyStorefrontProvider,
+  ygoprodeckProvider,
+  steamStoreProvider,
 ];
 
 export function findOpenDataProvider(slug: string): OpenDataProvider | undefined {

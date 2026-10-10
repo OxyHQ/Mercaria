@@ -158,6 +158,8 @@ export function toItems(card: Readonly<Record<string, unknown>>): OpenDataItem[]
       title,
       identifiers: [],
       options: [{ name: 'Finish', value: finish.label }],
+      // One printing, its finishes as variants (ADR 0016).
+      productGroupKey: id,
       media,
       merchantHint: 'Cardmarket',
       brandHint: 'Magic: The Gathering',

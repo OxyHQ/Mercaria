@@ -52,6 +52,8 @@ export interface UpsertSourceObjectInput {
   sourceUpdatedAt: Date | null;
   staleAt: Date;
   price: { amount: number; currency: string } | null;
+  /** `NormalizedSourceRecord.productGroupKey` of this delivery (ADR 0016). */
+  productGroupKey?: string | null;
   now: Date;
 }
 
@@ -99,6 +101,7 @@ export async function upsertSourceObject(
       observationCount: 1,
       lastPriceAmount: input.price?.amount ?? null,
       lastPriceCurrency: input.price?.currency ?? null,
+      productGroupKey: input.productGroupKey ?? null,
     })
     .onConflictDoUpdate({
       target: [
@@ -125,6 +128,7 @@ export async function upsertSourceObject(
         observationCount: sql`${catalogSourceObjects.observationCount} + 1`,
         lastPriceAmount: sql`coalesce(excluded.last_price_amount, ${catalogSourceObjects.lastPriceAmount})`,
         lastPriceCurrency: sql`coalesce(excluded.last_price_currency, ${catalogSourceObjects.lastPriceCurrency})`,
+        productGroupKey: sql`excluded.product_group_key`,
         // A source that re-publishes a retired object revives it; a quarantined
         // one is NOT revived here, because the quarantine is a decision about
         // content and the same content arriving again does not answer it.

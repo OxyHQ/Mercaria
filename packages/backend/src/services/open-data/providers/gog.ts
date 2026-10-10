@@ -159,6 +159,8 @@ export function toItem(product: Readonly<Record<string, unknown>>, country: stri
     title,
     identifiers: [],
     options: [],
+    // GOG's product id is the product (ADR 0016); one price per product.
+    productGroupKey: id,
     media,
     merchantHint: 'GOG.com',
     ...(developer === undefined ? {} : { brandHint: developer }),

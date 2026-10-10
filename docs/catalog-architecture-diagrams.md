@@ -781,7 +781,7 @@ Also names, from outside the epic: `reviews`.
 
 | Table | Created by | Written by |
 |---|---|---|
-| `review_media` | `0165` | `db/reviews` (insert) |
+| `review_media` | `0166` | `db/reviews` (insert) |
 
 ### Connector pins
 

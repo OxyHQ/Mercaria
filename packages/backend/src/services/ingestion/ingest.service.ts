@@ -800,6 +800,7 @@ async function persistOneRecord(args: {
     sourceUpdatedAt: record.sourceUpdatedAt ?? null,
     staleAt,
     price: normalized.price === undefined ? null : { ...normalized.price },
+    productGroupKey: normalized.productGroupKey ?? null,
     now,
   });
 
@@ -1083,7 +1084,11 @@ export async function readvanceSourceObject(
 ): Promise<{ outcome: ReadvanceOutcome; offerId: string | null }> {
   const db = getDb();
   const object = await findSourceObjectById(db, objectId);
-  if (object === undefined || object.state !== 'unmatched' || object.currentSourceRecordId === null) {
+  // `review_required` too: a source-anchored product (ADR 0016) is seeded for
+  // an object the matcher sent to review only because a sibling's title
+  // resembled it, and re-asking is how the anchor link is then found.
+  const readvanceable = object !== undefined && (object.state === 'unmatched' || object.state === 'review_required');
+  if (object === undefined || !readvanceable || object.currentSourceRecordId === null) {
     return { outcome: 'not_readvanceable', offerId: null };
   }
   const resolved = await resolveIngestionSource(object.sourceId, db);

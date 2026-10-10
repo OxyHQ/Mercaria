@@ -735,17 +735,39 @@ catalogue autopilot converges them and cycles the backfill stages.
 
 - **Reference seeding runs unattended (ADR 0014, 0015).** The autopilot's cycle
   includes `reference_products` → `source_readvance` → `reference_promotion`.
-  MITECO fuel, CheapShark, GOG, Scryfall and TCGdex are registered but not yet
-  declared as sources: none carries a GTIN, so nothing they ingest could become
-  a product until the identity below exists. Seeded products carry
+  Since ADR 0016 a source seeds by its own product key too: Scryfall, TCGdex,
+  GOG, YGOPRODeck, Steam (`steam_store`, top 10,000 games for Spain) and fifteen
+  Spanish Shopify stores (`shopify_storefront`) are declared; the last two are
+  Mercaria's own robots-respecting extraction providers. MITECO fuel and
+  CheapShark (USD) are registered but not declared. Products are not joined
+  across sources; that is #59's merge. Seeded products carry
   no category, no brand and no images yet. The brand hint and the Open Facts
   photos are in the observation's payload, and mapping them is the next step.
   Facts are stored, not yet mapped onto the attribute registry (#94).
-- **Non-GTIN sources** (games, cards, fuel) need a stable cross-source
-  identity before they can match; Wikidata QIDs are the candidate.
+- **Cross-source identity for non-GTIN products** (the same game on GOG and
+  Steam) is not built; each source seeds its own product (ADR 0016). Wikidata
+  QIDs are the candidate join key; until then #59 merges by hand.
 - **Storefront attribution is BUILT.** A product-page row from an open-data
   provider carries `source` (name, licence label, the day the source saw the
   price), and `OfferRow` renders "Price seen on {date}" in place of a dead
   button plus a "Data: {name} · {licence}" line. Still to do: a public
   `/data-sources` page linking each provider, and the ODbL subset export.
   Both need legal review before production.
+
+## Local integration database — 2026-10-10
+
+The published `origin/main` migration `0165_youthful_rictor` is authoritative.
+The unpublished review-media migration was regenerated after it as
+`0166_faulty_inertia` (pre, derived), with shared types rebuilt first. Do not
+apply this sequence over a developer database that already applied the old
+`0165_brave_johnny_blaze` / `0166_typical_kid_colt` sequence or rewrite its ledger.
+
+This session's backend now uses local `mercaria_dev_canonical_20261010` on
+Postgres port 5435. It was created through the canonical migration runner and
+received a data-only restore of all 482 application tables after stopping the
+local API. All 6,379 rows and sorted JSON row checksums matched before restart;
+the original `mercaria_dev` remains untouched as a backup. The restored database
+retains its own canonical migration ledger. Local dump, restore log and per-table
+verification are under `/tmp/mercaria-local-db-preserved-20261010/`; they are not
+repository fixtures. Only the ignored backend `.env` database path changed.
+No production migration or data write was performed.

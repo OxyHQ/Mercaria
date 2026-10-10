@@ -695,6 +695,13 @@ export const catalogSourceObjects = pgTable(
      */
     lastPriceAmount: bigint({ mode: 'number' }),
     lastPriceCurrency: text(),
+    /**
+     * The source's own id for the PRODUCT this object is one variant or offer
+     * of (ADR 0016) — `NormalizedSourceRecord.productGroupKey`, copied from the
+     * current observation. A column rather than a payload read because the
+     * self-seeding stage looks up an object's SIBLINGS by it, per page.
+     */
+    productGroupKey: text(),
 
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -785,6 +792,14 @@ export const catalogSourceObjects = pgTable(
       sql`${t.quarantineDetail} is null
           or length(${t.quarantineDetail}) <= ${sql.raw(String(CATALOG_SOURCE_MAX_TEXT_LENGTH))}`,
     ),
+    check(
+      'catalog_source_objects_product_group_key_check',
+      sql`${t.productGroupKey} is null or (btrim(${t.productGroupKey}) <> '' and length(${t.productGroupKey}) <= 200)`,
+    ),
+    /** An object's siblings under one source product (ADR 0016). */
+    index('catalog_source_objects_product_group_idx')
+      .on(t.sourceId, t.productGroupKey)
+      .where(sql`${t.productGroupKey} is not null`),
     check(
       'catalog_source_objects_seen_order_check',
       sql`${t.lastSeenAt} >= ${t.firstObservedAt} and ${t.currentObservedAt} >= ${t.firstObservedAt}`,

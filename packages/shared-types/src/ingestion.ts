@@ -470,6 +470,14 @@ export interface NormalizedSourceRecord {
   readonly identifiers: readonly NormalizedSourceIdentifier[];
   /** The seller's own SKU. Source-scoped and never compared across sources. */
   readonly merchantSku?: string;
+  /**
+   * The source's own id for the PRODUCT this record is one variant or offer of
+   * (ADR 0016) — a Scryfall card id whose foil and non-foil prices are two
+   * records. Source-scoped, never compared across sources: records of one
+   * source sharing it are variants of one product. Absent means the record is
+   * its own product.
+   */
+  readonly productGroupKey?: string;
   readonly options: readonly NormalizedSourceOption[];
   readonly price?: NormalizedSourceMoney;
   readonly compareAtPrice?: NormalizedSourceMoney;
@@ -560,6 +568,7 @@ export const CATALOG_SOURCE_PAYLOAD_FIELDS = [
   'sourceCreatedAt',
   'sourceUpdatedAt',
   'facts',
+  'productGroupKey',
 ] as const;
 
 export type CatalogSourcePayloadField = (typeof CATALOG_SOURCE_PAYLOAD_FIELDS)[number];

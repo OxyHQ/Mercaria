@@ -43,6 +43,8 @@ import type { NativeListingLinkMethod, CatalogBackfillMode } from '@mercaria/sha
 import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { insertNativeListingLink } from '../../db/offers/nativeListingLinkRepository.js';
+import { insertCanonicalProductSourceLink } from '../../db/canonical/canonicalProductRepository.js';
+import { insertCanonicalVariantSourceLink } from '../../db/canonical/canonicalVariantRepository.js';
 import { createMerchant } from '../commerce-graph/merchant.service.js';
 import { linkNativeStore } from '../commerce-graph/native-store-link.service.js';
 import { createCanonicalProduct } from '../canonical/canonical-product.service.js';
@@ -180,6 +182,19 @@ export interface CanonicalGraphWriter {
 
   /** Make a seeded draft shopper-visible (ADR 0014 D3). Records the review stamp. */
   promoteProduct(input: { productId: string; actorOxyUserId: string }): Promise<GraphWriteResult>;
+
+  /**
+   * Anchor a source-seeded product to the observation it was minted from
+   * (ADR 0016): the product and variant source links, `connector_declared` —
+   * the source asserted the object's product identity itself. The matcher's
+   * existing-link stage then attaches every later observation of the object.
+   */
+  anchorSourceObservation(input: {
+    productId: string;
+    variantId: string;
+    sourceRecordId: string;
+    matchRule: string;
+  }): Promise<GraphWriteResult>;
 }
 
 /** The writer that changes nothing. Every method reports what it would do. */
@@ -216,6 +231,8 @@ export const dryRunGraphWriter: CanonicalGraphWriter = {
     Promise.resolve({ id: dryRunId(`readvance:${sourceObjectId}`), persisted: false, outcome: 'not_written' }),
   promoteProduct: (input) =>
     Promise.resolve({ id: dryRunId(`promote:${input.productId}`), persisted: false }),
+  anchorSourceObservation: (input) =>
+    Promise.resolve({ id: dryRunId(`anchor:${input.sourceRecordId}`), persisted: false }),
 };
 
 /**
@@ -367,6 +384,23 @@ export function applyGraphWriter(tx?: DatabaseOrTransaction): CanonicalGraphWrit
         actorOxyUserId: input.actorOxyUserId,
       });
       return { id: product.id, persisted: true };
+    },
+
+    async anchorSourceObservation(input) {
+      const db = tx ?? getDb();
+      await insertCanonicalProductSourceLink(db, {
+        productId: input.productId,
+        sourceRecordId: input.sourceRecordId,
+        method: 'connector_declared',
+        matchRule: input.matchRule,
+      });
+      const link = await insertCanonicalVariantSourceLink(db, {
+        variantId: input.variantId,
+        sourceRecordId: input.sourceRecordId,
+        method: 'connector_declared',
+        matchRule: input.matchRule,
+      });
+      return { id: link?.id ?? input.sourceRecordId, persisted: link !== undefined };
     },
   };
 }
