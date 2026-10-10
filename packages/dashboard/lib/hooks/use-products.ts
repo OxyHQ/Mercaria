@@ -82,6 +82,7 @@ export function useCreateProduct(storeId: string) {
 export function useUpdateProduct(storeId: string, productId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: queryKeys.products.write(storeId, productId),
     mutationFn: (input: UpdateListingInput) => updateProduct(storeId, productId, input),
     onSuccess: (product) => {
       // Publish the saved DTO before refreshing. Editors may now release their
@@ -112,6 +113,7 @@ export function useArchiveProduct(storeId: string) {
 export function useReleaseProductPins(storeId: string, productId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: queryKeys.products.write(storeId, productId),
     mutationFn: (fields: string[]) => releaseProductPins(storeId, productId, fields),
     onSuccess: () => invalidateProducts(queryClient, storeId),
   });
@@ -121,6 +123,7 @@ export function useReleaseProductPins(storeId: string, productId: string) {
 export function useCreateVariant(storeId: string, productId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: queryKeys.products.write(storeId, productId),
     mutationFn: (input: CreateStoreProductVariantInput) =>
       createVariant(storeId, productId, input),
     onSuccess: (product) => {
@@ -134,6 +137,7 @@ export function useCreateVariant(storeId: string, productId: string) {
 export function useUpdateVariant(storeId: string, productId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: queryKeys.products.write(storeId, productId),
     mutationFn: ({ variantId, input }: { variantId: string; input: UpdateVariantInput }) =>
       updateVariant(storeId, productId, variantId, input),
     onSuccess: (product) => {
@@ -147,6 +151,7 @@ export function useUpdateVariant(storeId: string, productId: string) {
 export function useDeleteVariant(storeId: string, productId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: queryKeys.products.write(storeId, productId),
     mutationFn: (variantId: string) => deleteVariant(storeId, productId, variantId),
     onSuccess: (product) => {
       queryClient.setQueryData(queryKeys.products.detail(storeId, productId), product);
@@ -159,6 +164,7 @@ export function useDeleteVariant(storeId: string, productId: string) {
 export function useSetVariantInventory(storeId: string, productId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: queryKeys.products.write(storeId, productId),
     mutationFn: ({ variantId, available }: { variantId: string; available: number }) =>
       setVariantInventory(storeId, productId, variantId, available),
     onSuccess: () => invalidateProducts(queryClient, storeId),
@@ -169,6 +175,7 @@ export function useSetVariantInventory(storeId: string, productId: string) {
 export function useSetVariantLevelInventory(storeId: string, productId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: queryKeys.products.write(storeId, productId),
     mutationFn: ({
       variantId,
       locationId,
@@ -201,6 +208,7 @@ export function useVariantImages(storeId: string, productId: string, variantId: 
 export function useReplaceVariantImages(storeId: string, productId: string, variantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: queryKeys.products.write(storeId, productId),
     mutationFn: (fileIds: readonly string[]) => replaceVariantImages(storeId, productId, variantId, fileIds),
     onSuccess: async images => {
       // A focus refetch started before this PUT must not overwrite its result.

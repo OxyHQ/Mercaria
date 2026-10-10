@@ -1047,7 +1047,9 @@
         "tags": "Etiquetas",
         "addTag": "Adicionar etiqueta",
         "removeTag": "Remover %{tag}"
-      }
+      },
+      "archiveConfirmation": "Arquivar “%{title}”? Ele deixará de estar disponível para compradores.",
+      "archiveUnsaved": "As alterações não salvas do produto ou de suas variantes serão descartadas. Cancele para continuar editando."
     },
     "documentTitle": "Produtos | Wholesale by Mercaria",
     "empty": {

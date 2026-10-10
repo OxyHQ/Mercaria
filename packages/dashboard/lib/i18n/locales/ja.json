@@ -1030,7 +1030,9 @@
         "tags": "タグ",
         "addTag": "タグを追加",
         "removeTag": "%{tag}を削除"
-      }
+      },
+      "archiveConfirmation": "「%{title}」をアーカイブしますか？購入者は購入できなくなります。",
+      "archiveUnsaved": "商品やバリエーションの未保存の変更は失われます。編集を続けるにはキャンセルしてください。"
     },
     "documentTitle": "商品 | Wholesale by Mercaria",
     "empty": {

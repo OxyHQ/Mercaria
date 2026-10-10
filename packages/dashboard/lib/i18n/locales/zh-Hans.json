@@ -1030,7 +1030,9 @@
         "tags": "标签",
         "addTag": "添加标签",
         "removeTag": "移除%{tag}"
-      }
+      },
+      "archiveConfirmation": "归档“%{title}”？买家将无法再购买此商品。",
+      "archiveUnsaved": "商品或其变体的未保存更改将被丢弃。取消以继续编辑。"
     },
     "documentTitle": "商品 | Wholesale by Mercaria",
     "empty": {

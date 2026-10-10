@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
+import { queryKeys } from "@/lib/queryKeys";
+import { useIsMutating } from "@tanstack/react-query";
+import { ArchiveProductButton } from "@/components/products/ArchiveProductButton";
 import { Boxes } from "lucide-react-native";
 import { partitionPinnedFields } from "@mercaria/shared-types";
 import type {
@@ -116,6 +119,8 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
   const updateProduct = useUpdateProduct(storeId, product.id);
   const archiveProduct = useArchiveProduct(storeId);
+  const pendingEdits = useIsMutating({ mutationKey: queryKeys.products.write(storeId, product.id) });
+  const busy = updateProduct.isPending || archiveProduct.isPending;
 
   // #420: a pin is written by an ordinary edit and removed by nothing, so a
   // field that has stopped tracking the platform is indistinguishable from a
@@ -185,7 +190,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   };
   const hasChanges = Object.keys(changes).length > 0;
   const save = () => {
-    if (!canWrite || uploadingPhoto || updateProduct.isPending || !hasChanges || restricted || organizationErrors.vendor || organizationErrors.productType) return;
+    if (!canWrite || uploadingPhoto || busy || !hasChanges || restricted || organizationErrors.vendor || organizationErrors.productType) return;
     updateProduct.mutate(
       changes,
       {
@@ -203,12 +208,12 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   };
 
   const archive = () => {
+    if (!canWrite || restricted || uploadingPhoto || archiveProduct.isPending || pendingEdits > 0) return;
     archiveProduct.mutate(product.id, {
       onSuccess: () => {
         toast.success(t("products.detail.archived"));
         router.replace("/products");
       },
-      onError: () => toast.error(t("products.detail.archiveFailed")),
     });
   };
 
@@ -277,16 +282,16 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
             placeholder={null}
             value={title}
             onValueChange={setTitle}
-            disabled={!canWrite || restricted || updateProduct.isPending}
+            disabled={!canWrite || restricted || busy}
           />
         </Field>
         <Textarea
           label={t("common.description")}
           value={description}
           onValueChange={setDescription}
-          disabled={!canWrite || restricted || updateProduct.isPending}
+          disabled={!canWrite || restricted || busy}
         />
-        <ProductPhotoEditor storeId={storeId} images={photos} title={product.title} disabled={!canWrite || restricted || updateProduct.isPending}
+        <ProductPhotoEditor storeId={storeId} images={photos} title={product.title} disabled={!canWrite || restricted || busy}
           onChange={setPhotos} onBusyChange={setUploadingPhoto} />
         <Field
           label={t("common.status")}
@@ -296,7 +301,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
             type="radio"
             value={status}
             onValueChange={setStatus}
-            disabled={!canWrite || restricted || updateProduct.isPending}
+            disabled={!canWrite || restricted || busy}
           >
             {STATUSES.map((s) => (
               <SegmentedControlItem key={s} value={s}>
@@ -308,18 +313,17 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
         {canWrite ? (
           <View className="flex-row gap-3">
-            <Button tone="accent" className="flex-1" onPress={save} disabled={uploadingPhoto || !hasChanges || restricted || organizationErrors.vendor || organizationErrors.productType} loading={updateProduct.isPending}>
+            <Button tone="accent" className="flex-1" onPress={save} disabled={archiveProduct.isPending || uploadingPhoto || !hasChanges || restricted || organizationErrors.vendor || organizationErrors.productType} loading={updateProduct.isPending}>
               {t("products.detail.saveChanges")}
             </Button>
-            <Button tone="danger" onPress={archive} disabled={restricted || uploadingPhoto || updateProduct.isPending} loading={archiveProduct.isPending}>
-              {t("products.detail.archive")}
-            </Button>
+            <ArchiveProductButton title={product.title} disabled={restricted || uploadingPhoto || pendingEdits > 0}
+              pending={archiveProduct.isPending} failed={archiveProduct.isError} onOpen={() => archiveProduct.reset()} onConfirm={archive} />
           </View>
         ) : null}
 
         <VariantsSection storeId={storeId} product={product} canWrite={canWrite} />
       </View>
-      <View className="w-full lg:w-72"><ProductOrganization category={product.category} value={organization} onChange={changeOrganization} errors={organizationErrors} disabled={!canWrite || restricted} busy={updateProduct.isPending} /></View>
+      <View className="w-full lg:w-72"><ProductOrganization category={product.category} value={organization} onChange={changeOrganization} errors={organizationErrors} disabled={!canWrite || restricted} busy={busy} /></View>
       </View>
   );
 }

@@ -1030,7 +1030,9 @@
         "tags": "الوسوم",
         "addTag": "إضافة وسم",
         "removeTag": "إزالة %{tag}"
-      }
+      },
+      "archiveConfirmation": "هل تريد أرشفة «%{title}»؟ لن يعود متاحًا للمشترين.",
+      "archiveUnsaved": "ستُفقد التغييرات غير المحفوظة على المنتج أو خياراته. ألغِ للمتابعة في التحرير."
     },
     "documentTitle": "المنتجات | Wholesale by Mercaria",
     "empty": {

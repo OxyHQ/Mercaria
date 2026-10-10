@@ -1030,7 +1030,9 @@
         "tags": "Tags",
         "addTag": "Add tag",
         "removeTag": "Remove %{tag}"
-      }
+      },
+      "archiveConfirmation": "Archive “%{title}”? It will no longer be available to shoppers.",
+      "archiveUnsaved": "Any unsaved changes to this product or its variants will be discarded. Cancel to keep editing."
     },
     "documentTitle": "Products | Wholesale by Mercaria",
     "empty": {

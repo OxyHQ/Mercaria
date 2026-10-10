@@ -1030,7 +1030,9 @@
         "tags": "Schlagwörter",
         "addTag": "Schlagwort hinzufügen",
         "removeTag": "%{tag} entfernen"
-      }
+      },
+      "archiveConfirmation": "„%{title}“ archivieren? Das Produkt ist dann für Käufer nicht mehr verfügbar.",
+      "archiveUnsaved": "Nicht gespeicherte Änderungen am Produkt oder seinen Varianten werden verworfen. Zum Weiterbearbeiten abbrechen."
     },
     "documentTitle": "Produkte | Wholesale by Mercaria",
     "empty": {

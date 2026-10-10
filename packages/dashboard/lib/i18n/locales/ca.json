@@ -1047,7 +1047,9 @@
         "tags": "Etiquetes",
         "addTag": "Afegeix una etiqueta",
         "removeTag": "Elimina %{tag}"
-      }
+      },
+      "archiveConfirmation": "Vols arxivar «%{title}»? Deixarà d’estar disponible per als compradors.",
+      "archiveUnsaved": "Es descartaran els canvis sense desar del producte o les variants. Cancel·la per continuar editant."
     },
     "documentTitle": "Productes | Wholesale by Mercaria",
     "empty": {

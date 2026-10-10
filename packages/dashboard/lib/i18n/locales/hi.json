@@ -1030,7 +1030,9 @@
         "tags": "टैग",
         "addTag": "टैग जोड़ें",
         "removeTag": "%{tag} हटाएँ"
-      }
+      },
+      "archiveConfirmation": "“%{title}” को संग्रहित करें? यह खरीदारों के लिए उपलब्ध नहीं रहेगा।",
+      "archiveUnsaved": "उत्पाद या उसके वेरिएंट में बिना सहेजे बदलाव हट जाएँगे। संपादन जारी रखने के लिए रद्द करें।"
     },
     "documentTitle": "प्रोडक्ट | Wholesale by Mercaria",
     "empty": {
