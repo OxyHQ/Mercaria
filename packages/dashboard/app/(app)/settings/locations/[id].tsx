@@ -5,7 +5,7 @@ import Head from "expo-router/head";
 import * as WebBrowser from "expo-web-browser";
 import { ChevronLeft } from "lucide-react-native";
 import type { Place } from "@goway.to/sdk";
-import { Text, useColorScheme } from "@mercaria/ui";
+import { Text, useColorScheme, placeAddressLine } from "@mercaria/ui";
 import { Badge } from "@oxy.so/bloom/badge";
 import { Button } from "@oxy.so/bloom/button";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
@@ -80,6 +80,7 @@ function LocationEditorBody({ storeId, locationId }: { storeId: string; location
   const placeId = chosenPlaceId ?? location?.goWayPlaceId;
   const place = useGoWayPlace(placeId);
   const placeUrl = useGoWayPlaceUrl(placeId);
+  const address = place.data ? placeAddressLine(place.data) : "";
   const claims = usePlaceClaims(store?.oxyAccountId, placeId);
   const claim = placeId === undefined ? undefined : claimOnPlace(claims.data ?? [], placeId);
 
@@ -148,8 +149,8 @@ function LocationEditorBody({ storeId, locationId }: { storeId: string; location
                     content={t(PLACE_STATUS_KEYS[place.data.status])}
                   />
                 </View>
-                {place.data.address?.formatted ? (
-                  <Text className="text-xs text-muted-foreground">{place.data.address.formatted}</Text>
+                {address ? (
+                  <Text className="text-xs text-muted-foreground">{address}</Text>
                 ) : null}
                 {chosenPlaceId !== undefined && chosenPlaceId !== location.goWayPlaceId ? (
                   <Text className="text-xs text-muted-foreground">

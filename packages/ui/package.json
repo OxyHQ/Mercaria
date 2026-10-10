@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./lib/place-address": "./src/lib/place-address.ts",
     "./lib/bidi": "./src/lib/bidi.ts",
     "./lib/listing-variant-selection": "./src/lib/listing-variant-selection.ts",
     "./theme/tailwind.preset": "./src/theme/tailwind.preset.js",
@@ -34,6 +35,7 @@
     "parse5": "8.0.1"
   },
   "peerDependencies": {
+    "@goway.to/sdk": "0.3.0",
     "@oxy.so/bloom": ">=7.23.0 <8",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "clsx": "^2.1.1",

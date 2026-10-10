@@ -728,3 +728,5 @@ export { ProductRichText, type ProductRichTextProps } from "./components/marketp
 export { prepareProductDescription } from "./lib/product-description";
 
 export { ReviewMediaStrip, ReviewMediaViewer, ReviewMediaImage, type ReviewMediaViewerProps } from "./components/marketplace/ReviewMedia";
+
+export { placeAddressLine } from "./lib/place-address";

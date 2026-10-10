@@ -75,6 +75,17 @@ describe('placeAddressLine', () => {
     );
   });
 
+  it('renders the real Casa Batlló SDK address without formatted or inferred missing facts', () => {
+    expect(placeAddressLine({ address: { houseNumber: '43', street: 'Passeig de Gràcia', city: 'Barcelona' } }))
+      .toBe('Passeig de Gràcia 43, Barcelona');
+  });
+
+  it('omits blank parts and preserves a supplied country code when no country name exists', () => {
+    expect(placeAddressLine({ address: { formatted: '  ', street: ' Main Street ', houseNumber: ' 7 ', city: ' ', countryCode: 'ES' } }))
+      .toBe('Main Street 7, ES');
+    expect(placeAddressLine({ address: { formatted: ' ', street: ' ', country: ' ' } })).toBe('');
+  });
+
   it('joins only the parts GoWay publishes, and is empty for none', () => {
     expect(placeAddressLine({ address: { street: 'Carrer de Mallorca', houseNumber: '401', postalCode: '08013', city: 'Barcelona' } })).toBe(
       'Carrer de Mallorca 401, 08013 Barcelona',
