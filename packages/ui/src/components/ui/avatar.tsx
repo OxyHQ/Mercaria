@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { View } from 'react-native';
-import { Image, ImageProps } from './image';
+import { Image, type ImageProps, type ImageRef } from './image';
 import { cn } from '../../lib/cn';
 
 interface AvatarProps {
@@ -25,7 +25,7 @@ interface AvatarImageProps extends Omit<ImageProps, 'style'> {
   className?: string;
 }
 
-const AvatarImage = React.forwardRef<React.ComponentRef<typeof Image>, AvatarImageProps>(
+const AvatarImage = React.forwardRef<ImageRef, AvatarImageProps>(
   ({ className, ...props }, ref) => (
     <Image
       ref={ref}
