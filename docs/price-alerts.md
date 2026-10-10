@@ -310,8 +310,8 @@ table nobody reviews.
 ## Environment
 
 ```
-PRICE_ALERTS_ENABLED=false                  # the buyer MOUNT
-PRICE_ALERT_EVALUATION_ENABLED=false        # the evaluation LOOP
+PRICE_ALERTS_ENABLED=true                   # the buyer MOUNT
+PRICE_ALERT_EVALUATION_ENABLED=true         # the evaluation LOOP
 PRICE_ALERT_NOTIFICATIONS_ENABLED=true      # the GLOBAL notification kill switch
 PRICE_ALERT_MAX_ACTIVE_PER_USER=200
 PRICE_ALERT_CREATE_RATE_LIMIT=60

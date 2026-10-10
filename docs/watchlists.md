@@ -280,7 +280,7 @@ Every mutation carries `expectedVersion` and returns the version it produced.
 ## Environment
 
 ```
-WATCHLISTS_ENABLED=false             # mounts /watchlists; never gates the rows
+WATCHLISTS_ENABLED=true              # mounts /watchlists; never gates the rows
 WATCHLIST_SNAPSHOT_PAGE_SIZE=50
 WATCHLIST_EVALUATION_CONCURRENCY=6   # offer comparisons per basket, at a time
 ```

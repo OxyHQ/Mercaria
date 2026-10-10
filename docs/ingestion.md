@@ -436,7 +436,7 @@ any credential read or write; any flag write.
 ## Environment
 
 ```
-CATALOG_INGESTION_ENABLED=false          # gates the LOOP, never the durable record
+CATALOG_INGESTION_ENABLED=true           # gates the LOOP, never the durable record
 CATALOG_INGESTION_BATCH_SIZE=5
 CATALOG_INGESTION_POLL_INTERVAL_MS=30000
 CATALOG_INGESTION_LEASE_MS=120000

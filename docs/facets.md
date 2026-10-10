@@ -543,7 +543,7 @@ keys on the body.
 rail is a projection over rows other domains own, every one of which already has
 an operator surface behind its own gate.
 
-**Flag:** `FACETS_ENABLED`, default false. It gates the MOUNT and nothing
+**Flag:** `FACETS_ENABLED`, default true (ADR 0015). It gates the MOUNT and nothing
 durable — the domain owns no table and writes no row, so a rollback is one
 variable and loses no evidence.
 

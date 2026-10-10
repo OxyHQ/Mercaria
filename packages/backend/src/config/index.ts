@@ -345,13 +345,10 @@ function resolveStorePickupEnabled(): boolean {
  * with `503` — so it stays unmounted, and the log line says why.
  */
 function resolveNearbyEnabled(): boolean {
-  if (!boolEnv('NEARBY_DISCOVERY_ENABLED', false)) return false;
+  if (!boolEnv('NEARBY_DISCOVERY_ENABLED', true)) return false;
   if (strEnv('GOWAY_API_URL', '') !== '') return true;
 
-  log.general.error(
-    { missing: ['GOWAY_API_URL'] },
-    '[Pickup] NEARBY_DISCOVERY_ENABLED is set but GOWAY_API_URL is missing; staying OFF.',
-  );
+  log.general.debug('[Pickup] GOWAY_API_URL is not set; nearby discovery stays OFF.');
   return false;
 }
 
@@ -2222,8 +2219,8 @@ export interface CatalogConfig {
   /**
    * The extended taxonomy READS — `CATALOG_TAXONOMY_V2_ENABLED`, ADR 0007 D12.
    *
-   * Default FALSE, which is today's behaviour: `categories` answers exactly as
-   * it does now and `/navigation` is not mounted at all. It gates MOUNTS and
+   * Default TRUE (ADR 0015): `/navigation` is mounted, and with no published
+   * tree the storefront falls back to its own constants. It gates MOUNTS and
    * reads, never a stored row — turning it off leaves every navigation tree,
    * node and label readable, because the evidence has to survive the incident
    * that turned the lever off (D12, "nothing in a rollback deletes catalog
@@ -2234,10 +2231,7 @@ export interface CatalogConfig {
    * The facet, filter and sort-option MOUNT — `FACETS_ENABLED`
    * (#367 Workstream 10).
    *
-   * Default FALSE, which is today's behaviour exactly: `POST /facets` does not
-   * exist yet, so introducing the lever ON would ship a surface nobody has
-   * reviewed and introducing it OFF withdraws nothing. It gates the mount and
-   * NOTHING durable — the domain has no table, writes no row and holds no state,
+   * Default TRUE (ADR 0015). It gates the mount and NOTHING durable — the domain has no table, writes no row and holds no state,
    * so a rollback is one variable and loses no evidence. Every input it reads
    * (#94's registry, ADR 0007 D5's product types, #57's offers, the taxonomy)
    * stays readable through its own surface while it is off.
@@ -2788,8 +2782,10 @@ export interface OffersConfig {
  * the full argument for the defaults. The short version, because it is the part
  * a reader will want here:
  *
- * - The two WRITE levers default OFF, as D24 binds. They are the ones that
- *   mutate.
+ * - Every lever defaults ON (ADR 0015, amending D24's OFF write levers): the
+ *   catalogue autopilot runs the backfill unattended, so a deployment that
+ *   sets nothing has a working comparator. They stay levers — each is the
+ *   rollback for its own blast radius.
  * - The four READ levers default to today's behaviour, because #53–#57 already
  *   SHIPPED the routes they gate. A lever introduced with an `off` default would
  *   withdraw four live public surfaces on the deploy that added it, which is not
@@ -2810,15 +2806,10 @@ export interface CanonicalRolloutConfig {
   /** `CANONICAL_OFFER_COMPARISON` — the same vocabulary, gating `GET /offers`. */
   readonly offerComparison: CanonicalReadMode;
   /**
-   * `CANONICAL_SEARCH` — #70's canonical multi-entity discovery, `off` by
-   * default.
-   *
-   * The exception to the paragraph above, and it proves the rule rather than
-   * breaking it: the read levers default to TODAY'S BEHAVIOUR, and today's
-   * behaviour for `GET /search` is that it does not exist. `off` and `shadow`
-   * both answer 404 and leave `GET /listings` — the listing-first search #70
-   * replaces — serving exactly as it does now, which is what makes the rollback
-   * in #70 acceptance 8 one environment variable.
+   * `CANONICAL_SEARCH` — #70's canonical multi-entity discovery, `on` by
+   * default since ADR 0015: the storefront's search screen reads nothing else.
+   * `off` and `shadow` both answer 404 and leave `GET /listings` serving
+   * exactly as it does, which keeps #70 acceptance 8's rollback one variable.
    */
   readonly search: CanonicalReadMode;
   /**
@@ -3477,26 +3468,18 @@ export interface AwinConfig {
 /**
  * Keyless open-data catalogue and price providers (`services/open-data/`).
  *
- * ONE list rather than a flag per provider, because the catalogue of providers
- * is meant to grow by descriptor: adding the next one is a module and a test,
- * and a new boolean in this file per provider would make "which sources does
- * this deployment fetch" a question answered by reading forty variables.
+ * There is no list of providers and no User-Agent here. Every provider in the
+ * catalogue is registered on every deployment, because registering one fetches
+ * nothing: a fetch happens only for a configured, ACTIVE source, and the
+ * sources Mercaria runs are declared in code (`services/open-data/sources.ts`)
+ * and reconciled at boot by `services/catalog-autopilot/`. The User-Agent every
+ * provider asks for is a constant beside the transport
+ * (`OPEN_DATA_USER_AGENT` in `services/open-data/http.ts`), so a deployment
+ * cannot forget to identify itself.
  *
- * Like `AWIN_ENABLED`, the list gates REGISTRATION and nothing durable: a
- * source configured for a provider this deployment does not list is stored,
- * readable and refused with #62's own `adapter_missing` until it is listed.
- *
- * `OPEN_DATA_USER_AGENT` is REQUIRED for any of it to register. Every one of
- * these providers asks callers to identify themselves with a contact, and the
- * ones that enforce it (Open Food Facts, Scryfall, MusicBrainz) ban anonymous
- * clients by IP — which on a shared egress would take every other provider
- * down with it. A list with no agent registers nothing and says so.
+ * What remains are the transport's tunables, all with working defaults.
  */
 export interface OpenDataConfig {
-  /** `OPEN_DATA_PROVIDERS` — comma-separated provider slugs. Empty registers none. */
-  readonly providers: readonly string[];
-  /** `OPEN_DATA_USER_AGENT` — `Product/Version (contact)`. Empty registers none. */
-  readonly userAgent: string;
   /** Where downloaded dumps are cached between the sources that share them. */
   readonly cacheDir: string;
   /** Per-request timeout for an API page or a dump's response headers. */
@@ -3822,7 +3805,7 @@ export interface RetailServiceRequestsConfig {
  * path starts reading `config.pickup`.
  */
 export interface PickupConfig {
-  /** `NEARBY_DISCOVERY_ENABLED` — mounts `/nearby`. Default false; needs `GOWAY_API_URL`. */
+  /** `NEARBY_DISCOVERY_ENABLED` — mounts `/nearby`. Default true; needs `GOWAY_API_URL`. */
   readonly nearbyEnabled: boolean;
   /**
    * `STORE_PICKUP_ENABLED` — may a checkout resolve a pickup destination.
@@ -4300,8 +4283,8 @@ export const config: AppConfig = Object.freeze({
     curationJobsEnabled: boolEnv('CURATION_JOBS_ENABLED', true),
     curationBatchSize: intEnv('CURATION_JOB_BATCH_SIZE', 5),
     curationPollIntervalMs: intEnv('CURATION_JOB_POLL_INTERVAL_MS', 10_000),
-    taxonomyV2Enabled: boolEnv('CATALOG_TAXONOMY_V2_ENABLED', false),
-    facetsEnabled: boolEnv('FACETS_ENABLED', false),
+    taxonomyV2Enabled: boolEnv('CATALOG_TAXONOMY_V2_ENABLED', true),
+    facetsEnabled: boolEnv('FACETS_ENABLED', true),
     rolloutCohorts: Object.freeze(resolveCatalogRolloutCohorts()),
   }),
   sellYours: Object.freeze({
@@ -4315,14 +4298,14 @@ export const config: AppConfig = Object.freeze({
     reads: resolveVariantAxisReadMode(),
   }),
   productSaves: Object.freeze({
-    enabled: boolEnv('PRODUCT_SAVES_ENABLED', false),
+    enabled: boolEnv('PRODUCT_SAVES_ENABLED', true),
     readMode: resolveSavedItemsReadMode(),
     migrationApplyEnabled: boolEnv('PRODUCT_SAVE_MIGRATION_ENABLED', false),
     migrationBatchSize: intEnv('PRODUCT_SAVE_MIGRATION_BATCH_SIZE', 200),
     counterSweepBatchSize: intEnv('PRODUCT_SAVE_COUNTER_SWEEP_BATCH_SIZE', 500),
   }),
   watchlists: Object.freeze({
-    enabled: boolEnv('WATCHLISTS_ENABLED', false),
+    enabled: boolEnv('WATCHLISTS_ENABLED', true),
     snapshotPageSize: intEnv('WATCHLIST_SNAPSHOT_PAGE_SIZE', 50),
     evaluationConcurrency: intEnv('WATCHLIST_EVALUATION_CONCURRENCY', 6),
   }),
@@ -4332,15 +4315,11 @@ export const config: AppConfig = Object.freeze({
     outboxPollIntervalMs: intEnv('OFFER_OUTBOX_POLL_INTERVAL_MS', 5_000),
   }),
   canonicalRollout: Object.freeze({
-    graphEnabled: boolEnv('CANONICAL_GRAPH_ENABLED', false),
-    writePublicationEnabled: boolEnv('CANONICAL_WRITE_PUBLICATION_ENABLED', false),
+    graphEnabled: boolEnv('CANONICAL_GRAPH_ENABLED', true),
+    writePublicationEnabled: boolEnv('CANONICAL_WRITE_PUBLICATION_ENABLED', true),
     reads: resolveCanonicalReadMode('CANONICAL_READS'),
     offerComparison: resolveCanonicalReadMode('CANONICAL_OFFER_COMPARISON'),
-    // The one canonical read lever that defaults OFF — see its own doc comment
-    // on `CanonicalRolloutConfig.search`. An unrecognised value must not roll a
-    // deployment FORWARD into a surface it has not adopted, which is why the
-    // fallback is passed explicitly rather than inherited.
-    search: resolveCanonicalReadMode('CANONICAL_SEARCH', 'off'),
+    search: resolveCanonicalReadMode('CANONICAL_SEARCH'),
     publicRoutesEnabled: boolEnv('CANONICAL_PUBLIC_ROUTES_ENABLED', true),
     searchIndexingEnabled: boolEnv('CANONICAL_SEARCH_INDEXING_ENABLED', false),
     readCohorts: Object.freeze(resolveCanonicalReadCohorts()),
@@ -4349,7 +4328,7 @@ export const config: AppConfig = Object.freeze({
     backfillMaxAttempts: intEnv('CATALOG_BACKFILL_MAX_ATTEMPTS', 8),
   }),
   catalogIngestion: Object.freeze({
-    enabled: boolEnv('CATALOG_INGESTION_ENABLED', false),
+    enabled: boolEnv('CATALOG_INGESTION_ENABLED', true),
     batchSize: intEnv('CATALOG_INGESTION_BATCH_SIZE', 5),
     pollIntervalMs: intEnv('CATALOG_INGESTION_POLL_INTERVAL_MS', 30_000),
     leaseMs: intEnv('CATALOG_INGESTION_LEASE_MS', 120_000),
@@ -4387,11 +4366,11 @@ export const config: AppConfig = Object.freeze({
     traceLimit: intEnv('PRICE_HISTORY_TRACE_LIMIT', 500),
   }),
   priceAlerts: Object.freeze({
-    enabled: boolEnv('PRICE_ALERTS_ENABLED', false),
-    evaluationEnabled: boolEnv('PRICE_ALERT_EVALUATION_ENABLED', false),
-    // Default TRUE, unlike the other two: it is an INCIDENT lever, and an
-    // incident lever that ships in the off position is a feature nobody notices
-    // is missing. The two above are rollout levers and default off.
+    enabled: boolEnv('PRICE_ALERTS_ENABLED', true),
+    evaluationEnabled: boolEnv('PRICE_ALERT_EVALUATION_ENABLED', true),
+    // Default TRUE, like the two above (ADR 0015): it is an INCIDENT lever, and
+    // an incident lever that ships in the off position is a feature nobody
+    // notices is missing.
     notificationsEnabled: boolEnv('PRICE_ALERT_NOTIFICATIONS_ENABLED', true),
     maxActivePerUser: intEnv('PRICE_ALERT_MAX_ACTIVE_PER_USER', 200),
     createRateLimit: intEnv('PRICE_ALERT_CREATE_RATE_LIMIT', 60),
@@ -4508,13 +4487,6 @@ export const config: AppConfig = Object.freeze({
     sampleSize: intEnv('AWIN_SAMPLE_SIZE', 25),
   }),
   openData: Object.freeze({
-    providers: Object.freeze(
-      strEnv('OPEN_DATA_PROVIDERS', '')
-        .split(',')
-        .map((slug) => slug.trim().toLowerCase())
-        .filter((slug) => slug.length > 0),
-    ),
-    userAgent: strEnv('OPEN_DATA_USER_AGENT', ''),
     cacheDir: strEnv('OPEN_DATA_CACHE_DIR', join(tmpdir(), 'mercaria-open-data')),
     requestTimeoutMs: intEnv('OPEN_DATA_REQUEST_TIMEOUT_MS', 30_000),
     maxDownloadBytes: intEnv('OPEN_DATA_MAX_DOWNLOAD_BYTES', 256 * 1024 * 1024),

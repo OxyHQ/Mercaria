@@ -383,7 +383,7 @@ drift into disagreeing about which tree a module is in.
 
 ## Rollout
 
-One lever, `CATALOG_TAXONOMY_V2_ENABLED` (ADR 0007 D12), default **false** —
+One lever, `CATALOG_TAXONOMY_V2_ENABLED` (ADR 0007 D12), default **true** (ADR 0015) —
 which is today's behaviour: the storefront keeps its own constants and the public
 read does not exist. It gates the **public mount**, never a stored row and never
 the operator surface: every tree, node and label stays readable with it off, and

@@ -23,7 +23,7 @@ import type { OpenDataCursor, OpenDataDemand, OpenDataItem, OpenDataPage, OpenDa
 import { cheapSharkProvider } from '../providers/cheapshark.js';
 import { gogProvider } from '../providers/gog.js';
 import { mitecoFuelProvider } from '../providers/miteco-fuel.js';
-import { openFactsProviders } from '../providers/open-facts.js';
+import { OPEN_FACTS_DEMAND_ONLY, openFactsProviders } from '../providers/open-facts.js';
 import { openPricesProvider } from '../providers/open-prices.js';
 import { scryfallProvider } from '../providers/scryfall.js';
 import { tcgdexProvider } from '../providers/tcgdex.js';
@@ -252,6 +252,24 @@ describe('the Open Facts family', () => {
     expect(handover.items).toEqual([]);
     expect(handover.next).toEqual({ p: 1 });
     expect(asked).toEqual([null, '4056489000000']);
+  });
+
+  it('reads the demand alone, and never searches, for a demand-only source', async () => {
+    const product = (fixture('open-food-facts-product.json') as { product: Record<string, unknown> }).product;
+    const demand: OpenDataDemand = {
+      gtins: async (after) => (after === null ? ['8480000160164'] : []),
+    };
+    const http = fakeHttp({ json: (url) => (url.includes('/product/') ? { body: { status: 1, product } } : null) });
+    const options = { mode: 'query_driven' as const, demand, accountRef: OPEN_FACTS_DEMAND_ONLY };
+    const first = await page(food, http, options);
+    expect(first.items.map((item) => item.externalId)).toEqual(['8480000160164']);
+    const last = await page(food, http, { ...options, cursor: first.next });
+    expect(last.items).toEqual([]);
+    expect(last.next).toBeNull();
+    // Nothing demanded at all: a pass with no request.
+    const idle = await page(food, http, { ...options, demand: { gtins: async () => [] } });
+    expect(idle.next).toBeNull();
+    expect(http.requested.some((url) => url.includes('/search'))).toBe(false);
   });
 
   it('goes straight to the search when nothing is demanded', async () => {

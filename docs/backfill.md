@@ -214,8 +214,8 @@ Six switches and two tunables. Six rather than one because each bounds a
 different blast radius.
 
 ```
-CANONICAL_GRAPH_ENABLED=false               # the backfill dispatcher LOOP
-CANONICAL_WRITE_PUBLICATION_ENABLED=false   # may an `apply` run mutate the graph
+CANONICAL_GRAPH_ENABLED=true                # the backfill dispatcher LOOP
+CANONICAL_WRITE_PUBLICATION_ENABLED=true    # may an `apply` run mutate the graph
 CANONICAL_READS=on                          # off | shadow | on — canonical PRODUCT reads
 CANONICAL_OFFER_COMPARISON=on               # off | shadow | on — the `GET /offers` comparison
 CANONICAL_PUBLIC_ROUTES_ENABLED=true        # the MOUNT of all of the above
@@ -225,8 +225,10 @@ CANONICAL_BACKFILL_BATCH_SIZE=200
 CANONICAL_BACKFILL_POLL_INTERVAL_MS=15000
 ```
 
-**The WRITE levers default OFF, as D24 binds. The READ levers default to today's
-behaviour.** ADR 0002 D24's environment block shows `CANONICAL_READS=off`, and it
+**Every lever defaults ON** (ADR 0015). The WRITE levers shipped OFF as D24
+bound; they were turned on when the catalogue autopilot (below) took over the
+runbook, because a graph nobody writes is a comparator that shows nothing. They
+remain the rollback. **The READ levers default to today's behaviour.** ADR 0002 D24's environment block shows `CANONICAL_READS=off`, and it
 was written in phase 0 when the graph had no tables and no routes; by the time
 this issue lands, #53–#57 have SHIPPED `/canonical-products`,
 `/product-families`, `/brand-relationships` and `/offers` with no flag at all. A
@@ -244,6 +246,25 @@ rollout has evidence of demand before it is turned on. **The surfaces where
 `shadow` will compute BOTH answers and compare them are #70's feed and #71's
 product page**, which do not exist yet; `resolveCanonicalReadMode` and
 `recordCanonicalShadowRead` are the seam they will consume.
+
+## The catalogue autopilot
+
+`services/catalog-autopilot/` runs this document's runbook without an operator,
+on every task:
+
+- **One cycle at a time.** Every whole-catalogue stage once, in the order above
+  (`search_reindex` excepted while #61 has no consumer), each opened in `apply`
+  mode only after the previous one finished, with cohort `all`. The cycle's state
+  is the run table itself (`stage-plan.ts`, a pure function of each stage's
+  newest run), so it survives restarts and N tasks open one run, not N. A failed
+  run counts as finished; the next cycle retries it.
+- **A new cycle every 30 minutes** after the previous one started.
+- **Requested by `system:catalog-autopilot`**, so its runs are told apart from an
+  operator's in every report.
+
+The levers still govern it: `CANONICAL_GRAPH_ENABLED=false` stops it opening
+runs, and `CANONICAL_WRITE_PUBLICATION_ENABLED=false` turns every run it opens
+into a dry run. An operator can still open, page and cancel runs by hand.
 
 ## Runbook
 
