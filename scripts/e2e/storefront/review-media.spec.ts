@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Review, ReviewMediaItem } from '../../../packages/shared-types/src';
+import en from '../../../packages/ui/src/i18n/locales/en.json';
+import ar from '../../../packages/ui/src/i18n/locales/ar.json';
 
 for (const { width, height } of [{ width: 390, height: 1000 }, { width: 1440, height: 1000 }, { width: 1440, height: 600 }]) {
   test(`review media failure preserves review, navigation, pagination and parent sheet at ${width}x${height}`, async ({ page, request }) => {
@@ -74,5 +76,65 @@ for (const { width, height } of [{ width: 390, height: 1000 }, { width: 1440, he
     await sheet.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(sheet).toHaveCount(0);
     expect(externalImages).toEqual([]);
+  });
+}
+
+for (const locale of ['en', 'ar'] as const) {
+  test(`review thumbnail rail keeps the active photo visible in ${locale}`, async ({ page, request }) => {
+    const copy = locale === 'ar' ? ar.ui : en.ui;
+    const listings = await (await request.get('http://localhost:4160/listings?limit=100')).json();
+    const product = listings.data.find((item: { title: string }) => item.title === 'Brilliant Eye Brightener');
+    expect(product).toBeTruthy();
+    const endpoint = `/listings/${product.id}/reviews`;
+    const original = await (await request.get(`http://localhost:4160${endpoint}?limit=12`)).json();
+    expect(original.data[0]).toBeTruthy();
+    // Missing-file fixtures exercise navigation only; no successful image delivery is simulated.
+    const entries: ReviewMediaItem[] = Array.from({ length: 14 }, (_, position) => {
+      const media = { id: `missing-rail-${position}`, fileId: `unavailable-review-rail-${position}`, kind: 'image' as const, position };
+      return { media, review: { ...original.data[0], media: [media] } };
+    });
+    await page.route('https://cloud.oxy.so/unavailable-review-rail-*', route => route.fulfill({ status: 404 }));
+    await page.route(new RegExp(`${endpoint}/media(?:\\?.*)?$`), route => route.fulfill({ json: {
+      success: true, data: entries,
+      pagination: { page: 1, limit: 14, total: 14, totalPages: 1, hasNextPage: false, hasPrevPage: false },
+    } }));
+    await page.addInitScript(locale => {
+      localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale }, version: 0 }));
+    }, locale);
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(`/products/${product.id}`);
+    await page.getByTestId('product-sections').getByRole('button', { name: copy.review.readMore, exact: true }).click();
+    await page.getByTestId('product-reviews-dialog').getByRole('button', {
+      name: copy.reviewMedia.viewImage.replace('%{position}', '1'), exact: true,
+    }).click();
+    const viewer = page.getByTestId('review-media-viewer');
+    const rail = viewer.getByTestId('review-media-thumbnails');
+    const thumbnails = rail.getByRole('button');
+    const stage = viewer.getByTestId('review-media-stage');
+    const next = stage.getByRole('button', { name: copy.carousel.next, exact: true });
+    const previous = stage.getByRole('button', { name: copy.carousel.previous, exact: true });
+    for (let index = 1; index < entries.length; index++) {
+      await next.click();
+      await expect(thumbnails.nth(index)).toHaveAttribute('aria-pressed', 'true');
+    }
+    const expectInsideRail = async (position: number) => {
+      await expect.poll(async () => {
+        const bounds = (await rail.boundingBox())!;
+        const active = (await thumbnails.nth(position).boundingBox())!;
+        return active.x >= bounds.x - 1 && active.x + active.width <= bounds.x + bounds.width + 1;
+      }).toBe(true);
+    };
+    await expectInsideRail(entries.length - 1);
+    // Re-measure when a phone rotates to the horizontal-thumbnail tablet layout.
+    await page.setViewportSize({ width: 800, height: 1000 });
+    await expectInsideRail(entries.length - 1);
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await expectInsideRail(entries.length - 1);
+    for (let index = entries.length - 2; index >= 0; index--) {
+      await previous.click();
+      await expect(thumbnails.nth(index)).toHaveAttribute('aria-pressed', 'true');
+    }
+    await expectInsideRail(0);
   });
 }

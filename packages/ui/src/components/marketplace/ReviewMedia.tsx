@@ -7,6 +7,7 @@ import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
 import { Dialog, useDialogControl } from "@oxy.so/bloom/dialog";
 import { surfaceStyle } from "@oxy.so/bloom/shapes";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { useIsRtl } from "@oxy.so/bloom/hooks";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Review, ReviewMedia, ReviewMediaItem } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
@@ -84,12 +85,15 @@ export function ReviewMediaViewer({ items, selectedId, onSelect, onClose, scopeL
   renderVideo, renderReviewActions, hasMore, loadingMore, loadError, onLoadMore }: ReviewMediaViewerProps) {
   const { width, height } = useWindowDimensions();
   const wide = width >= 976;
+  const rtl = useIsRtl();
   const t = useSharedUiTranslation();
   const { colors, isDarkColorScheme } = useColorScheme();
   const backgroundColor = isDarkColorScheme ? "#121212" : "#ffffff";
   const control = useDialogControl();
   const safeArea = useSafeAreaInsets();
   const rail = useRef<ScrollView>(null);
+  const [railWidth, setRailWidth] = useState(0);
+  const [railContentWidth, setRailContentWidth] = useState(0);
   const index = items.findIndex(item => item.media.id === selectedId);
   const selected = items[index];
   const thumbSize = wide ? 68 : 44;
@@ -99,11 +103,26 @@ export function ReviewMediaViewer({ items, selectedId, onSelect, onClose, scopeL
   useEffect(() => { control.open(); }, [control]);
   useEffect(() => {
     if (!selected) control.close();
-    rail.current?.scrollTo(wide ? { y: Math.max(0, index * (thumbSize + 8) - 80), animated: false }
-      : { x: Math.max(0, index * (thumbSize + 8) - width / 2), animated: false });
-  }, [selected, index, wide, thumbSize, width, control]);
+  }, [selected, control]);
+  useEffect(() => {
+    if (index < 0) return;
+    if (wide) {
+      rail.current?.scrollTo({ y: Math.max(0, index * (thumbSize + 8) - 80), animated: false });
+      return;
+    }
+    if (railWidth <= 0 || railContentWidth <= 0) return;
+    const maxOffset = Math.max(0, railContentWidth - railWidth);
+    const fromStart = Math.min(maxOffset, Math.max(0, 16 + index * (thumbSize + 8) - (railWidth - thumbSize) / 2));
+    // Web uses negative RTL offsets, Android physical offsets from the left,
+    // and iOS logical offsets from the start. Keep the same selected media ID.
+    const x = !rtl ? fromStart : Platform.OS === "web" ? -fromStart
+      : Platform.OS === "android" ? maxOffset - fromStart : fromStart;
+    rail.current?.scrollTo({ x, animated: false });
+  }, [index, wide, thumbSize, rtl, railWidth, railContentWidth]);
   const thumbnails = <ScrollView ref={rail} horizontal={!wide} showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false}
     style={wide ? { width: 68, flexGrow: 0 } : { height: 44, flexGrow: 0 }}
+    onLayout={({ nativeEvent }) => setRailWidth(nativeEvent.layout.width)}
+    onContentSizeChange={setRailContentWidth}
     contentContainerStyle={{ gap: 8, paddingHorizontal: wide ? 0 : 16 }} testID="review-media-thumbnails">
     {items.map(({ media }, position) => {
       const label = t(media.kind === "video" ? "ui.reviewMedia.viewVideo" : "ui.reviewMedia.viewImage", { position: position + 1 });

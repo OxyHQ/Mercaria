@@ -157,6 +157,15 @@ pagination total counts attachments. Sorting is newest review first, then review
 ID, then attachment position. A review hidden during hydration is omitted from
 the response. These reads never include private transaction reviews.
 
+The media viewer keeps selection by attachment ID while pages arrive. Its
+thumbnail rail measures its content and viewport again on resize, then converts
+distance from the reading-direction start into the platform's scroll offset
+(negative on RTL web, physical on Android, logical on iOS). This keeps the active
+thumbnail visible without replacing the selected photo or its associated review.
+Browser navigation tests cover English and Arabic, including resizing and return
+to the first photo; deliberate missing-file responses exercise navigation without
+claiming successful media delivery.
+
 A review with no eligibility is written `unverified` — labelled, counted
 separately, never blended into the headline rating. It is not refused: that is a
 weighting decision, and the aggregate is where it belongs.
