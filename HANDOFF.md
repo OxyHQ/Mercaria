@@ -1200,3 +1200,12 @@ This was reproduced from the actual compiler and native hierarchy. Upstream's
 official NativeWind5.0.0-rc.0/react-native-css3.1.0-rc.0 pair fixes it, but Bloom
 and Services must adopt compatible declarations and pass their checks before
 Mercaria upgrades. That work is in progress; no local runtime patch was applied.
+
+Wholesale hours need an upstream contract fix before changing the editor:
+published GoWay SDK0.3.0 updates the entire `openingHours.intervals` collection
+without a revision condition. A client GET followed by PATCH can still overwrite
+another day's concurrent change. The merchant agent is inspecting current GoWay
+remote main in an isolated worktree for an atomic day-level patch and SDK support.
+It must preserve opening-day ownership of overnight/24-hour intervals and reject
+partial edits of unknown raw schedules. No production rollout or client use of
+an unavailable endpoint has been authorized by this implementation step.
