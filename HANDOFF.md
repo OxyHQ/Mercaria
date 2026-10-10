@@ -622,8 +622,9 @@ catalogue autopilot converges them and cycles the backfill stages.
 - **Reference seeding runs unattended (ADR 0014, 0015).** The autopilot's cycle
   includes `reference_products` → `source_readvance` → `reference_promotion`.
   Since ADR 0016 a source seeds by its own product key too: Scryfall, TCGdex,
-  GOG and fifteen Spanish Shopify stores (`shopify_storefront`, Mercaria's own
-  robots-respecting extraction provider) are declared. MITECO fuel and
+  GOG, YGOPRODeck, Steam (`steam_store`, top 10,000 games for Spain) and fifteen
+  Spanish Shopify stores (`shopify_storefront`) are declared; the last two are
+  Mercaria's own robots-respecting extraction providers. MITECO fuel and
   CheapShark (USD) are registered but not declared. Products are not joined
   across sources; that is #59's merge. Seeded products carry
   no category, no brand and no images yet. The brand hint and the Open Facts
