@@ -306,8 +306,8 @@ function firstImageUrl(images: ListingImageRecord[]): string | undefined {
   if (images.length === 0) {
     return undefined;
   }
-  const first = [...images].sort((a, b) => a.position - b.position)[0];
-  return first ? resolveMedia(first.fileId, 'thumb') : undefined;
+  return [...images].sort((a, b) => a.position - b.position)
+    .map(image => resolveMedia(image.fileId, 'thumb')).find(url => url !== undefined);
 }
 
 /** Release every reservation made so far, swallowing (and warning) per-release failures. */

@@ -108,6 +108,10 @@ schema decision. `HANDOFF.md` holds deferred work.
   Listing and variant image DTOs retain Oxy file IDs; each client resolves the
   requested rendition through Bloom's image resolver. Public integration
   `image.url` fields are resolved separately at the public API projection.
+  Unimported URL-valued file references have the normal missing-image shape;
+  they never become supplier hotlinks. Categories prefer their stored file ID.
+  Existing Oxy URLs in legacy category/order snapshot columns are validated
+  against the SDK namespace, without rewriting immutable order history.
   Changing a variant keeps the gallery mounted: only a different set of image
   URLs resets its index. Canonical reads retain the same product's prior page
   while the new configuration loads, report the offers region as busy, and

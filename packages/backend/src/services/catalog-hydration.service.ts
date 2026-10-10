@@ -10,10 +10,9 @@
  *   5. (optional) batch-load the viewer's favorites to set `saved`,
  *   6. assemble each DTO with derived price fields + owner identity + media.
  *
- * URL-valued presentation fields use ONE chokepoint (`resolveMedia`): absolute
- * URLs pass through unchanged (e.g. seeded Shopify CDN assets), everything else
- * is treated as an Oxy media file id and resolved via `getFileDownloadUrl` — the
- * only sanctioned media resolver. ListingImage.fileId always retains the
+ * URL-valued presentation fields use ONE chokepoint (`resolveMedia`): only Oxy
+ * file IDs resolve through the SDK; legacy external references are unavailable
+ * until the backend imports their bytes. ListingImage.fileId always retains the
  * stored reference; resolving a rendition must never rewrite that identity.
  *
  * ## Ported to Postgres
@@ -46,7 +45,7 @@ import type {
   StoreSummary,
   Seller,
 } from '@mercaria/shared-types';
-import { resolveVariantImages } from '@mercaria/shared-types';
+import { isOxyFileId, resolveVariantImages } from '@mercaria/shared-types';
 import {
   findSellerProfilesByUserIds,
   type SellerProfileRecord,
@@ -98,21 +97,30 @@ import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { getFavoritedListingIds } from './favorite.service.js';
 import { resolveVariantCommercialPresentations } from './commercial-presentation/variant-commercial.service.js';
 
-/** Matches an absolute http(s) URL (seeded CDN assets pass through unchanged). */
-const ABSOLUTE_URL = /^https?:\/\//i;
-
 /**
- * THE media chokepoint. Absolute URLs are returned as-is; anything else is
- * treated as an Oxy media file id and resolved through the SDK's
- * `getFileDownloadUrl` — the only sanctioned resolver. Do NOT build another.
- * Exported so other services (e.g. the cart) resolve media through this one
- * chokepoint instead of duplicating the rule.
+ * THE media chokepoint. Unimported/invalid references are absent, never supplier
+ * hotlinks or URL-shaped file IDs encoded into an Oxy URL. Callers retain their
+ * contract's ordinary missing-image shape (omitted field, null, or empty list).
  */
-export function resolveMedia(value: string, variant?: string): string {
-  if (ABSOLUTE_URL.test(value)) {
-    return value;
+export function resolveMedia(value: string, variant?: string): string | undefined {
+  return isOxyFileId(value) ? oxyClient.assets.publicUrl(value, variant) : undefined;
+}
+
+/** Legacy URL-valued columns (category art and immutable order snapshots) may
+ * already name Oxy media. Resolve only that SDK-configured public namespace;
+ * supplier URLs still require a backend import. Never rewrite order history. */
+export function resolveStoredMediaUrl(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const source = new URL(value);
+    const cloud = new URL(oxyClient.cloudURL);
+    const prefix = `${cloud.pathname.replace(/\/+$/, '')}/`;
+    if (source.origin !== cloud.origin || source.username || source.password || source.hash || !source.pathname.startsWith(prefix)) return undefined;
+    if ([...source.searchParams.keys()].some(key => key !== 'variant') || source.searchParams.getAll('variant').length > 1) return undefined;
+    return resolveMedia(source.pathname.slice(prefix.length), source.searchParams.get('variant') ?? undefined);
+  } catch {
+    return undefined;
   }
-  return oxyClient.assets.publicUrl(value, variant);
 }
 
 /**
@@ -277,7 +285,7 @@ function toSeller(
     oxyUserId,
     displayName: oxyProfile?.displayName ?? oxyUserId,
     username: oxyProfile?.username ?? oxyUserId,
-    avatar: oxyProfile?.avatar ? resolveMedia(oxyProfile.avatar) : oxyProfile?.avatar ?? null,
+    avatar: oxyProfile?.avatar ? resolveMedia(oxyProfile.avatar) ?? null : null,
     isVerified: profile?.isVerified ?? false,
   };
   if (profile && profile.reviewCount > 0) {
@@ -305,7 +313,7 @@ export function toStoreSummary(
   const products: ProductThumbnail[] = featuredListings
     .slice(0, config.feed.storeCardThumbnails)
     .map((listing) => {
-      const [firstImage] = imagesByListing.get(listing.id) ?? [];
+      const firstImage = (imagesByListing.get(listing.id) ?? []).find(image => isOxyFileId(image.fileId));
       const thumbnail: ProductThumbnail = { id: listing.id, title: listing.title };
       if (firstImage) {
         thumbnail.imageUrl = resolveMedia(firstImage.fileId, 'thumb');
@@ -323,10 +331,10 @@ export function toStoreSummary(
     textTone: store.textTone,
     products,
   };
-  if (store.coverFileId) {
+  if (isOxyFileId(store.coverFileId)) {
     summary.coverImageUrl = resolveMedia(store.coverFileId);
   }
-  if (store.logoFileId) {
+  if (isOxyFileId(store.logoFileId)) {
     summary.logoUrl = resolveMedia(store.logoFileId);
   }
   if (options.includePolicies && store.policiesRefundPolicy?.trim()) {
@@ -349,7 +357,7 @@ export function toProductSummary(
   images: ListingImageRecord[] = [],
 ): ProductSummary {
   const cheapest = cheapestVariant(variants);
-  const [firstImage] = images;
+  const firstImage = images.find(image => isOxyFileId(image.fileId));
   const price =
     (cheapest ? variantPrice(cheapest) : null) ??
     (listing.priceRangeMinAmount !== null && listing.priceRangeMinCurrency !== null

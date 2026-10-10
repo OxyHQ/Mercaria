@@ -48,11 +48,11 @@ import { inventoryBlockers, locationAvailabilityState } from '../pickup/eligibil
 import { collectionWebUrl, locationWebUrl, productWebUrl, storeWebUrl } from './urls.js';
 
 /**
- * Resolves an Oxy media file id (or an already-absolute URL) to an absolute URL.
+ * Resolves an Oxy media file ID to an absolute URL, absent until synchronized.
  * Injected rather than imported so this module stays pure; production passes
  * `resolveMedia`, the ONE sanctioned resolver.
  */
-export type MediaResolver = (fileIdOrUrl: string) => string;
+export type MediaResolver = (fileId: string) => string | undefined;
 
 /** A money value, copied field by field. */
 function money(value: Money): Money {
@@ -60,8 +60,13 @@ function money(value: Money): Money {
 }
 
 /** An already-resolved image URL plus its alt text, `null` when absent or blank. */
-function image(url: string, alt: string | undefined | null): MercariaImage {
-  return { url, alt: typeof alt === 'string' && alt.trim() !== '' ? alt : null };
+function image(url: string | undefined, alt: string | undefined | null): MercariaImage | null {
+  return url ? { url, alt: typeof alt === 'string' && alt.trim() !== '' ? alt : null } : null;
+}
+
+function gallery(listing: Listing, resolveMedia: MediaResolver): MercariaImage[] {
+  return listing.images.map(entry => image(resolveMedia(entry.fileId), entry.alt))
+    .filter((entry): entry is MercariaImage => entry !== null);
 }
 
 /** `null` for an absent or blank string. */
@@ -122,7 +127,7 @@ export function projectSeller(
       store: { kind: 'store', id: store.id },
       handle: store.handle,
       name: store.name,
-      logoUrl: store.logoFileId ? resolveMedia(store.logoFileId) : null,
+      logoUrl: store.logoFileId ? resolveMedia(store.logoFileId) ?? null : null,
     };
   }
   const seller = listing.seller;
@@ -146,7 +151,7 @@ export function projectProductSummary(
 ): MercariaProductSummary {
   // Hydration preserves file IDs and gallery order. This public contract names
   // its field `url`, so resolve the rendition at this projection boundary.
-  const [first] = listing.images;
+  const [first] = gallery(listing, resolveMedia);
   const range = listing.priceRange;
   const flatRange =
     !range ||
@@ -154,7 +159,7 @@ export function projectProductSummary(
   return {
     ref: { kind: 'product', id: listing.id },
     title: listing.title,
-    primaryImage: first ? image(resolveMedia(first.fileId), first.alt) : null,
+    primaryImage: first ?? null,
     price: money(listing.price),
     compareAtPrice: listing.compareAtPrice ? money(listing.compareAtPrice) : null,
     priceRange: flatRange ? null : { min: money(range.min), max: money(range.max) },
@@ -190,7 +195,7 @@ export function projectProduct(
     seller: summary.seller,
     url: summary.url,
     description: listing.description,
-    images: listing.images.map((entry) => image(resolveMedia(entry.fileId), entry.alt)),
+    images: gallery(listing, resolveMedia),
     purchaseOptions: listing.variants.map((variant) => purchaseOption(listing, variant)),
     updatedAt: listing.updatedAt,
     viewer: viewerSaved === undefined ? null : { saved: viewerSaved },
@@ -216,8 +221,8 @@ export function projectStore(
     handle: store.handle,
     name: store.name,
     description: nullIfBlank(store.description),
-    logoUrl: store.logoFileId ? resolveMedia(store.logoFileId) : null,
-    coverImageUrl: store.coverFileId ? resolveMedia(store.coverFileId) : null,
+    logoUrl: store.logoFileId ? resolveMedia(store.logoFileId) ?? null : null,
+    coverImageUrl: store.coverFileId ? resolveMedia(store.coverFileId) ?? null : null,
     brandColor: store.brandColor,
     rating: rating.reviewCount > 0 ? rating.rating : null,
     reviewCount: rating.reviewCount,
@@ -271,7 +276,7 @@ export function projectLocation(
       ref: { kind: 'store', id: store.id },
       handle: store.handle,
       name: store.name,
-      logoUrl: store.logoFileId ? resolveMedia(store.logoFileId) : null,
+      logoUrl: store.logoFileId ? resolveMedia(store.logoFileId) ?? null : null,
     },
     pickup: row.pickupOffered
       ? {

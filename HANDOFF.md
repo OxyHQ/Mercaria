@@ -569,6 +569,14 @@ The audit and current implementation:
   history and POS resolve them through Bloom/Oxy. Public `/public/v1` image
   `url` fields still resolve at their projection boundary, preserving the SDK
   contract. Legacy rows whose stored value is already a URL still need import.
+- Backend `resolveMedia` now refuses URL-valued IDs. Feed, cart, checkout,
+  draft-order, store, review and SEO projections omit unavailable images; public
+  API galleries keep only resolved images and select their first valid primary.
+  Category art prefers `imageFileId`; its legacy `imageUrl` and immutable order
+  snapshot URLs are displayed only when they name the configured Oxy namespace.
+  The order records themselves are not rewritten. Feed cache v2 invalidates
+  responses assembled before this rule. Full backend validation: 804 files,
+  12,654 tests passed, five skipped (2026-10-10).
 - Local preview seeds also put external URLs into image fields. Some category
   and merchant artwork is already bundled locally; this does not prove all
   catalog media is synchronized.
@@ -597,8 +605,7 @@ before migrating stored references.
 
 Remaining work: authorize and verify the live upload path, retain
 source URLs as provenance only, migrate existing media without dropping gallery
-identity/order, remove the legacy URL pass-through in `resolveMedia` together
-with its remaining feed/cart/store/SEO consumers, and verify all browser
+identity/order, audit remaining independent image consumers, and verify all browser
 requests never fetch supplier image origins. Existing unsynchronized listing
 gallery rows now show the normal placeholder instead of fetching the supplier.
 The temporary browser image interceptor was removed after user review: browser

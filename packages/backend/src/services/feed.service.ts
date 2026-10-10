@@ -44,13 +44,13 @@ import {
   type ListingImageRecord,
   type ListingRecord,
 } from '../db/catalog/listingRepository.js';
-import { toProductSummaries, toStoreSummary } from './catalog-hydration.service.js';
+import { resolveMedia, resolveStoredMediaUrl, toProductSummaries, toStoreSummary } from './catalog-hydration.service.js';
 import { config } from '../config/index.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { log } from '../lib/logger.js';
 
-/** Bump when the assembled feed shape changes so stale cache entries are ignored. */
-const FEED_CACHE_VERSION = 'v1';
+/** v2 invalidates supplier URLs cached before internal-only media hydration. */
+const FEED_CACHE_VERSION = 'v2';
 
 function feedCacheKey(viewerId: string | undefined): string {
   return `feed:home:${FEED_CACHE_VERSION}:${viewerId ?? 'anon'}`;
@@ -60,8 +60,9 @@ function feedCacheKey(viewerId: string | undefined): string {
 function buildCategoryPills(topLevel: CategoryRecord[]): CategoryPill[] {
   return topLevel.map((c) => {
     const pill: CategoryPill = { id: c.id, name: c.name, slug: c.slug };
-    if (c.imageUrl) {
-      pill.imageUrl = c.imageUrl;
+    const imageUrl = resolveMedia(c.imageFileId) ?? resolveStoredMediaUrl(c.imageUrl);
+    if (imageUrl) {
+      pill.imageUrl = imageUrl;
     }
     return pill;
   });
@@ -93,8 +94,9 @@ function buildShopByCategory(
       .slice(0, config.feed.categoryTilesPerCard)
       .map((child) => {
         const tile: CategoryTile = { id: child.id, name: child.name, slug: child.slug };
-        if (child.imageUrl) {
-          tile.imageUrl = child.imageUrl;
+        const imageUrl = resolveMedia(child.imageFileId) ?? resolveStoredMediaUrl(child.imageUrl);
+        if (imageUrl) {
+          tile.imageUrl = imageUrl;
         }
         return tile;
       });
