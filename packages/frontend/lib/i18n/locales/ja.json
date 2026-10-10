@@ -1277,6 +1277,9 @@
     "noLinkPublished": "リンクは未公開",
     "noDestination": "この出品者は価格を公開していますが、リンクがありません。",
     "outboundNotAvailable": "他のサイトの出品を開くことはまだできません。",
+    "seenOn": "%{date} に確認された価格",
+    "dataSource": "データ: %{name}",
+    "dataSourceLicensed": "データ: %{name} · %{licence}",
     "blocked": {
       "outOfStock": "この出品者は在庫切れです。",
       "notPaymentReady": "この出品者はまだ支払いを受け取れません。",

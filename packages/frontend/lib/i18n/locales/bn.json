@@ -1277,6 +1277,9 @@
     "noLinkPublished": "কোনো লিঙ্ক দেওয়া হয়নি",
     "noDestination": "এই বিক্রেতা দাম দিয়েছেন কিন্তু কোনো লিঙ্ক দেননি।",
     "outboundNotAvailable": "অন্য সাইটের অফার খোলা এখনও সম্ভব নয়।",
+    "seenOn": "দাম দেখা গেছে %{date}",
+    "dataSource": "ডেটা: %{name}",
+    "dataSourceLicensed": "ডেটা: %{name} · %{licence}",
     "blocked": {
       "outOfStock": "এই বিক্রেতার স্টক নেই।",
       "notPaymentReady": "এই বিক্রেতা এখনও পেমেন্ট নিতে পারেন না।",

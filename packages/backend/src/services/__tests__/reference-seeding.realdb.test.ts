@@ -59,6 +59,8 @@ import { ALL_COHORT } from '../backfill/cohort.js';
 import { createFixtureAdapter } from '../ingestion/adapters/fixture.js';
 import type { AdapterRecord } from '../ingestion/adapter.js';
 import { runIngestionPage } from '../ingestion/ingest.service.js';
+import { resolveOfferSources } from '../product-page/sources.js';
+import type { Offer } from '@mercaria/shared-types';
 import { registerCatalogSourceAdapter, unregisterCatalogSourceAdapter } from '../ingestion/registry.js';
 import {
   changeIngestionSourceStatus,
@@ -116,10 +118,14 @@ const referenceRecord: AdapterRecord = {
   },
 };
 
+/** The day somebody saw the price on the shelf — the source's own timestamp. */
+const SIGHTED = new Date('2026-08-28T00:00:00.000Z');
+
 const priceRecord: AdapterRecord = {
   externalType: 'offer',
   externalId: GTIN,
   observedAt: OBSERVED,
+  sourceUpdatedAt: SIGHTED,
   raw: { priceId: 1 },
   normalized: {
     // Open Prices' shape: more than half its prices carry no name.
@@ -403,6 +409,26 @@ describe('ADR 0014: a reference catalogue seeds the product a price attaches to'
     expect(offer?.merchantId).toBe(priceMerchantId);
     expect(offer?.priceAmount).toBe(89);
     expect(offer?.priceCurrency).toBe('EUR');
+  });
+
+  it('names an open-data source and the day it saw the price', async () => {
+    const price = await objectOf(priceSourceId);
+    // The provenance an Open Prices offer carries; this fixture's own provider
+    // slug is not an open-data provider, so the row would name nothing.
+    const offer = {
+      id: price?.offerId ?? '',
+      provenance: { provider: 'open_prices', sourceRecordId: price?.currentSourceRecordId ?? undefined },
+    } as unknown as Offer;
+    const sources = await resolveOfferSources([offer], db);
+    expect(sources.get(offer.id)).toEqual({
+      name: 'Open Prices',
+      homepage: 'https://prices.openfoodfacts.org',
+      licence: 'odbl_1_0',
+      licenceLabel: 'ODbL 1.0',
+      observedAt: SIGHTED.toISOString(),
+    });
+    const unnamed = { id: 'x', provenance: { provider: 'ebay_browse' } } as unknown as Offer;
+    expect((await resolveOfferSources([unnamed], db)).size).toBe(0);
   });
 
   it('reference_promotion makes the seeded product active', async () => {

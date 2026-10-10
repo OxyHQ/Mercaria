@@ -58,6 +58,7 @@ import { rankOfferComparison } from '../ranking/comparison.service.js';
 import { assignOfferGroups, collectHighlights, type GroupableOffer } from './groups.js';
 import { resolveProductPageOutbound } from './outbound.js';
 import { resolveOfferSellers } from './sellers.js';
+import { resolveOfferSources } from './sources.js';
 
 /** What a caller asks a product page for. */
 export interface ProductPageRequest {
@@ -253,6 +254,7 @@ async function readOffers(
   }
 
   const sellers = await resolveOfferSellers(served, getDb());
+  const sources = await resolveOfferSources(served, getDb());
   const variantNames = new Map(variants.map((variant) => [variant.id, variant.name]));
 
   const rows: ProductPageOfferRow[] = [];
@@ -269,6 +271,7 @@ async function readOffers(
       ranked,
       seller: sellers.get(offer.id) ?? { kind: 'unknown' },
       outbound: resolveProductPageOutbound(offer),
+      ...(sources.has(offer.id) ? { source: sources.get(offer.id) } : {}),
       ...(variantName === undefined ? {} : { variantName }),
     });
     groupable.push({

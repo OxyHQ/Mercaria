@@ -1291,6 +1291,9 @@
     "noLinkPublished": "Aucun lien publié",
     "noDestination": "Ce vendeur a publié un prix mais aucun lien.",
     "outboundNotAvailable": "Ouvrir des offres sur d'autres sites n'est pas encore possible.",
+    "seenOn": "Prix relevé le %{date}",
+    "dataSource": "Données : %{name}",
+    "dataSourceLicensed": "Données : %{name} · %{licence}",
     "blocked": {
       "outOfStock": "Ce vendeur est en rupture de stock.",
       "notPaymentReady": "Ce vendeur ne peut pas encore accepter de paiement.",
