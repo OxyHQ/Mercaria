@@ -1299,3 +1299,38 @@ with seven route tests and API build passing. It has not been merged/deployed.
 Mercaria continues to require active, public, owner-authorized media; do not
 assume public visibility when absent. Successful live merchant/review uploads
 remain unverified until that upstream contract is deployed and exercised.
+
+
+## Mixed catalog/editor integrated, storefront playback work — 2026-10-10
+
+Backend417a131f and Wholesale0d0c798e are on main. Migration0167 was applied ONLY
+to local mercaria_dev_canonical_20261010 through src/db/migrate.ts after dry-run
+confirmed exactly one pending migration. CATALOG_VIDEO_WRITES_ENABLED remains
+off. The merchant worktree is clean and preserved at /tmp/mercaria-catalog-video-media.
+Its full suite had817 passing files and only two migration marker gates failing
+before correction; both gates plus canonical-only video/condition concurrency
+now pass in149 targeted tests. Seven merchant browser cases pass. A separate
+404/retry/close probe on integrated8161 records no pageerror and no retained video.
+
+Bloom7.29/Services11.1.15 official tarballs are installed by bde419f8. SHA1s:
+276458e2ba5eec9dde54b3c8759696884ba95acc and
+6795b8297e9d01479398c68cb769d45d6df125e2. All four clients typechecked before
+the final gallery loading-state change; UI/frontend types pass again afterwards.
+Doctor passes with the existing core/contracts October18 upgrade warnings.
+Metro storefront8160 and Wholesale8161 were restarted for these packages.
+
+Storefront mixed gallery now uses app-owned Expo players and Bloom surfaces.
+Nine selection/missing-video browser cases pass; three video cases pass after
+729 adoption, including inline detach/reattach through fullscreen close. These
+are negative transport/lifecycle acceptance, NOT successful playback. Constructor
+sessions avoid Expo web replaceAsync's unconditional play/unhandled rejection;
+retries replace only the failed session and retain the active gallery slot.
+A follow-up Bloom7.30 public renderVideoOverlay slot is in development by the
+Bloom agent to show errors that occur while fullscreen is already open. Do not
+claim that case or real playback complete yet. Native alpha remains independently
+blocked on react-native-css upstream464, with no local dependency patch.
+
+OxyPR1625 now has all remote CI green. A NEW asynchronous approval question asks
+whether to merge/deploy it; API changes trigger production deploy via Oxy's
+.github/workflows/deploy-aws.yml. No answer yet. This is separate from the still
+pending GoWayPR110 approval; do not deploy either on elapsed time alone.

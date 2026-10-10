@@ -866,7 +866,9 @@
       "viewImage": "View image %{position}",
       "previous": "Previous image",
       "next": "Next image",
-      "open": "Open images of %{title}"
+      "open": "Open images of %{title}",
+      "viewVideo": "View video %{position}",
+      "openVideo": "Open video of %{title}"
     },
     "quantity": {
       "remove": "Remove item",

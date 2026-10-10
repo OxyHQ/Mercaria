@@ -1,3 +1,4 @@
+import { ProductMediaGallery } from "@/components/product/ProductMediaGallery";
 import { ProductReviewMedia } from "@/components/product/ProductReviewMedia";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useEffect, useMemo, useState } from 'react';
@@ -10,7 +11,7 @@ import type {
   ProductPageSeller,
 } from '@mercaria/shared-types';
 import { OFFER_COMPARISON_INTENTS } from '@mercaria/shared-types';
-import { BundleContents, OfferLabelBadge, ProductGallery, ReviewSummaryCard, Text } from '@mercaria/ui';
+import { BundleContents, OfferLabelBadge, ReviewSummaryCard, Text } from '@mercaria/ui';
 import { openAccountDialog, useOxy } from '@oxy.so/services';
 import * as Skeleton from '@oxy.so/bloom/skeleton';
 import { Button } from '@oxy.so/bloom/button';
@@ -85,14 +86,9 @@ export default function CanonicalProductPageScreen() {
     ...(intent === undefined ? {} : { intent }),
   });
   const page = pageQuery.displayData;
-  const media = page?.product.images ?? [];
-  const images = media.flatMap((image) => {
-    const uri =
-      image.fileId ? resolveImage?.(image.fileId) : undefined;
-    return uri
-      ? [{ uri, alt: image.alt ?? t('product.imageFromCatalogueA11y', { name: page?.product.name }) }]
-      : [];
-  });
+  const media = (page?.product.media ?? page?.product.images.flatMap(image => image.fileId
+    ? [{ kind: 'image' as const, fileId: image.fileId, position: image.position, alt: image.alt }] : []) ?? []).map(item =>
+      item.kind === 'image' && !item.alt ? { ...item, alt: t('product.imageFromCatalogueA11y', { name: page?.product.name }) } : item);
 
   /**
    * A merged product's old handle answers with the winner, and the URL is
@@ -233,9 +229,9 @@ export default function CanonicalProductPageScreen() {
       <View className="web:mx-auto web:w-full web:max-w-[1600px] gap-space-32 md:px-5">
         <View className="flex-col gap-space-16 md:flex-row md:gap-space-40 md:px-4">
           <View className="min-w-0 md:flex-1 md:self-start web:md:sticky web:md:top-8">
-            <ProductGallery
+            <ProductMediaGallery
               className="md:w-full md:flex-none web:md:static web:md:top-auto"
-              images={images}
+              media={media}
               title={page.product.name}
             />
             {width >= 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isSelectionStale}

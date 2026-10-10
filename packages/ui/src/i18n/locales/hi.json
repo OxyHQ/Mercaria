@@ -866,7 +866,9 @@
       "viewImage": "तस्वीर %{position} देखें",
       "previous": "पिछली तस्वीर",
       "next": "अगली तस्वीर",
-      "open": "%{title} की तस्वीरें खोलें"
+      "open": "%{title} की तस्वीरें खोलें",
+      "viewVideo": "वीडियो %{position} देखें",
+      "openVideo": "%{title} का वीडियो खोलें"
     },
     "quantity": {
       "remove": "वस्तु हटाएँ",

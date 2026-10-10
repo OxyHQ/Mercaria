@@ -1,3 +1,4 @@
+import { ProductMediaGallery } from "@/components/product/ProductMediaGallery";
 import { renderListingLink } from "@/lib/catalog/product-links";
 import { listingGalleryMedia } from "@/lib/catalog/product-media";
 import { ProductReviewMedia } from "@/components/product/ProductReviewMedia";
@@ -31,7 +32,6 @@ import {
   MerchantHeader,
   PriceDisplay,
   ProductCarousel,
-  ProductGallery,
   PurchaseOptions,
   ShopDetailIcon,
   useRatingDisplay,
@@ -408,14 +408,9 @@ function ProductBody({ listing }: ProductBodyProps) {
     }
   });
 
-  const images = useMemo(
-    () =>
-      listingGalleryMedia(listing, selectedVariant?.images).flatMap((image) => {
-        if (image.kind !== 'image') return [];
-        const uri = resolveImage?.(image.fileId);
-        return uri ? [{ uri, alt: image.alt }] : [];
-      }),
-    [listing, selectedVariant?.images, resolveImage],
+  const galleryMedia = useMemo(
+    () => listingGalleryMedia(listing, selectedVariant?.images),
+    [listing, selectedVariant?.images],
   );
 
   const identity = useMemo(() => merchantIdentity(listing), [listing]);
@@ -502,10 +497,10 @@ function ProductBody({ listing }: ProductBodyProps) {
         {/* Top two-column region: large gallery (flex-1) + fixed buy column. */}
         <View className="flex-col gap-space-16 md:mt-6 md:flex-row md:gap-space-40 md:px-4">
           <View className="min-w-0 md:flex-1 md:self-start web:md:sticky web:md:top-8">
-            <ProductGallery
+            <ProductMediaGallery
               className="md:w-full md:flex-none web:md:static web:md:top-auto"
               ref={gallery}
-              images={images}
+              media={galleryMedia}
               title={listing.title}
             />
             {width >= 768 ? bundle : null}

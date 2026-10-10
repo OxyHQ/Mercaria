@@ -866,7 +866,9 @@
       "viewImage": "ছবি %{position} দেখুন",
       "previous": "আগের ছবি",
       "next": "পরের ছবি",
-      "open": "%{title}-এর ছবি খুলুন"
+      "open": "%{title}-এর ছবি খুলুন",
+      "viewVideo": "ভিডিও %{position} দেখুন",
+      "openVideo": "%{title} এর ভিডিও খুলুন"
     },
     "quantity": {
       "remove": "পণ্যটি সরান",

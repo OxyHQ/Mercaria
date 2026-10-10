@@ -74,6 +74,30 @@ while video rows exist. Retain the additive columns and constraints when rolling
 back an application release. No migration or upload in production is part of
 this implementation's test acceptance.
 
+## Storefront player ownership
+
+`ProductMediaGallery` resolves Oxy IDs and owns stable Expo players, while the
+shared `ProductGallery` composes Bloom Carousel, MediaSurface and
+ZoomableMediaGallery. The `images` projection stays image-only; a missing `media`
+field uses that legacy projection, while an explicit empty collection stays empty.
+Videos never enter image components or the cart image-flight handle.
+
+Native sessions are initialized paused; inactive web surfaces are detached.
+Changing the active medium, leaving the route, backgrounding the app or closing
+the viewer pauses playback. Variant changes retain common video sessions. A
+failed clip has an explicit retry which creates a new session and retires its
+previous player after the view commits. Session identity invalidates Bloom's
+viewer snapshot without resetting the selected carousel slot. This uses Expo's
+constructor rather than `replaceAsync`: Expo56's web replacement starts playback
+and does not handle the HTML play promise on a failed source.
+
+Bloom7.29 supplies the public `onOpenChange` lifecycle signal, including unmount.
+An isolated browser test checks that opening detaches the inline surface and
+closing reattaches it. Negative media tests exercise HTTP404 and retry without
+unhandled page errors. They do not prove successful native/web video playback.
+Failure controls currently render inline; a public Bloom viewer overlay slot is
+being added so failures after opening fullscreen can render there too.
+
 ## Acceptance limits
 
 Real PostgreSQL tests cover mixed ordering, stable IDs and variant links,

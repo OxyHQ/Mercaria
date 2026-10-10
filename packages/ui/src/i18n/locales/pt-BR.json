@@ -873,7 +873,9 @@
       "viewImage": "Ver a imagem %{position}",
       "previous": "Imagem anterior",
       "next": "Próxima imagem",
-      "open": "Abrir imagens de %{title}"
+      "open": "Abrir imagens de %{title}",
+      "viewVideo": "Ver vídeo %{position}",
+      "openVideo": "Abrir vídeo de %{title}"
     },
     "quantity": {
       "remove": "Remover o item",

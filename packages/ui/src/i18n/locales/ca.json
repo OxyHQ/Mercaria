@@ -873,7 +873,9 @@
       "viewImage": "Mostra la imatge %{position}",
       "previous": "Imatge anterior",
       "next": "Imatge següent",
-      "open": "Obrir imatges de %{title}"
+      "open": "Obrir imatges de %{title}",
+      "viewVideo": "Veure el vídeo %{position}",
+      "openVideo": "Obrir el vídeo de %{title}"
     },
     "quantity": {
       "remove": "Treu l'article",

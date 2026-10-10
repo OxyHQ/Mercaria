@@ -866,7 +866,9 @@
       "viewImage": "عرض الصورة %{position}",
       "previous": "الصورة السابقة",
       "next": "الصورة التالية",
-      "open": "فتح صور %{title}"
+      "open": "فتح صور %{title}",
+      "viewVideo": "عرض الفيديو %{position}",
+      "openVideo": "فتح فيديو %{title}"
     },
     "quantity": {
       "remove": "إزالة العنصر",

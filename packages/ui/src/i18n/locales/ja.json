@@ -866,7 +866,9 @@
       "viewImage": "%{position} 枚目の画像を見る",
       "previous": "前の画像",
       "next": "次の画像",
-      "open": "%{title}の画像を開く"
+      "open": "%{title}の画像を開く",
+      "viewVideo": "動画%{position}を見る",
+      "openVideo": "%{title}の動画を開く"
     },
     "quantity": {
       "remove": "商品を削除",
