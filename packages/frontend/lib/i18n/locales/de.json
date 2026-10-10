@@ -143,6 +143,7 @@
     "notFound": "Wir konnten dieses Produkt nicht finden.",
     "visitA11y": "%{name} besuchen",
     "moreFromStore": "Mehr von %{name}",
+    "youMightAlsoLike": "Das könnte dir auch gefallen",
     "compareOffersA11y": "Alle Angebote für dieses Produkt vergleichen",
     "compareOffers": "Alle Angebote vergleichen",
     "percentOff": "%{percent}% Rabatt",

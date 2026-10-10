@@ -475,3 +475,20 @@ safe rich-text parser/renderer; plain text retains its line breaks. Empty
 policies, person-to-person offers and Mercaria-retail offers do not inherit a
 store policy. No return-window or free-return claim is inferred from prose.
 Shipping remains hidden under the logistics boundary.
+
+### Related category discovery
+
+Below the same-store shelf, “You might also like” uses the category's existing
+`new` discovery signal and its server-serialized product cards. This is a
+category-based selection, not personalized ranking. The current listing is
+excluded; ratings, saved state, money and Oxy media come from that projection.
+Missing categories and confirmed empty results add no section. Later pages keep
+the first cards mounted, and a failed read offers retry without implying an
+empty catalog or replacing the category with global results.
+
+The shared `FeedGrid` auto-column option measures its container: two columns
+and 16px gaps on mobile, fitting 220px-minimum columns with 32px gaps on desktop.
+It works through native flex layout and leaves existing class-sized grids
+unchanged. Live browser checks cover Oxy image delivery, navigation, exclusion
+and responsive geometry in English/Arabic; pagination tests vary only read
+responses built from the real local category DTO.

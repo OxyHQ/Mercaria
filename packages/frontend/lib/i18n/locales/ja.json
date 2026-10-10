@@ -143,6 +143,7 @@
     "notFound": "この商品は見つかりませんでした。",
     "visitA11y": "%{name} を開く",
     "moreFromStore": "%{name} のほかの商品",
+    "youMightAlsoLike": "こちらもおすすめ",
     "compareOffersA11y": "この商品のすべての出品を比較する",
     "compareOffers": "すべての出品を比較",
     "percentOff": "%{percent}%オフ",

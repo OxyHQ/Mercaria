@@ -143,6 +143,7 @@
     "notFound": "Мы не нашли этот товар.",
     "visitA11y": "Перейти к %{name}",
     "moreFromStore": "Ещё от %{name}",
+    "youMightAlsoLike": "Вам также может понравиться",
     "compareOffersA11y": "Сравнить все предложения по этому товару",
     "compareOffers": "Сравнить все предложения",
     "percentOff": "Скидка %{percent}%",

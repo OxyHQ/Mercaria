@@ -143,6 +143,7 @@
     "notFound": "No hem trobat aquest producte.",
     "visitA11y": "Visita %{name}",
     "moreFromStore": "Més de %{name}",
+    "youMightAlsoLike": "També et pot agradar",
     "compareOffersA11y": "Compara totes les ofertes d'aquest producte",
     "compareOffers": "Compara totes les ofertes",
     "percentOff": "%{percent}% de descompte",

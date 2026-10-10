@@ -143,6 +143,7 @@
     "notFound": "আমরা এই পণ্যটি খুঁজে পাইনি।",
     "visitA11y": "%{name}-এ যান",
     "moreFromStore": "%{name}-এর আরও পণ্য",
+    "youMightAlsoLike": "আপনার আরও পছন্দ হতে পারে",
     "compareOffersA11y": "এই পণ্যের সব অফার তুলনা করুন",
     "compareOffers": "সব অফার তুলনা করুন",
     "percentOff": "%{percent}% ছাড়",

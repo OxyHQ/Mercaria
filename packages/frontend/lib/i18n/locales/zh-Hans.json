@@ -143,6 +143,7 @@
     "notFound": "未找到该商品。",
     "visitA11y": "访问 %{name}",
     "moreFromStore": "%{name} 的更多商品",
+    "youMightAlsoLike": "你可能还喜欢",
     "compareOffersA11y": "比较该商品的所有报价",
     "compareOffers": "比较所有报价",
     "percentOff": "省 %{percent}%",

@@ -1044,18 +1044,21 @@ refund fixture is a typed physical order with a valid immutable destination;
 absence of an address was an incomplete fixture, not evidence of a production
 address bug under the database's digital-order invariant.
 
-## Bloom rapid-close focus race — in progress, 2026-10-10
+## Bloom rapid-close focus correction adopted — 2026-10-10
 
-The desktop nested-contact failure above is a pre-existing ModalKeyboard race,
-not a regression introduced in 7.26.1: an entry animation-frame callback can
-focus an already-closing child after its opener was restored. Bloom PR307
-(https://github.com/OxyHQ/Bloom/pull/307) adds a closing-state guard to entry focus
-and Tab trapping, with deterministic failing-before/passing-after tests. Local
-validation reports 91 tests and 19 browser scenarios passing; 7.26.2 is not yet
-installed or publicly available. Its publication must include/rebuild the
-concurrent SwipeRow PR306 ahead of it in the queue and verify the public tarball.
-After that, update all three app pins through Bun and rerun nested contact and
-Wholesale archive acceptance. Preserve both focus assertions.
+All three apps now pin official Bloom 7.26.2 with Services 11.1.12 and resolve
+one physical Bloom copy. The public npm tarball's SHA1 is
+`ff14bb164c90e3f8c6238e6d20bdd07d8b7c9238`; published main/tag is
+`51d1982819427c3ece3dc1da0e42834a9298a21d`. PR307 closes the entry-RAF focus race
+with an already-closing child; PR306's touch-scrolling correction is included.
+The combined upstream tree passed 109 tests, 19 focus scenarios and nine swipe
+checks before publication. Local Metros were restarted after the Bun install.
+
+Mercaria acceptance: all three app/UI types, 155 frontend tests, two nested
+store-contact browser cases (desktop English/mobile Arabic), and four Wholesale
+Archive/GoWay-address browser cases pass. The nested contact cases retain both
+focus assertions and use actual catalog images. These results establish this
+upgrade's acceptance, not full Shop parity or native-device acceptance.
 
 Further store-menu review found that its custom `vars(storeThemeVars(...))`
 wrapper is still separate from Bloom's current scope APIs; the page applies it
@@ -1075,3 +1078,25 @@ cases pass at desktop English/mobile Arabic with motion enabled/disabled,
 including actual intermediate page positions and mobile height interpolation,
 final geometry, overflow and Escape focus. No image interception. Frontend
 types/lint and i18n/RTL/route guards pass. Native device acceptance is outstanding.
+
+## Product category recommendations — 2026-10-10
+
+The listing page now includes the missing “You might also like” wrapping grid
+below its same-store carousel. This is category discovery, not a personalized
+ranking claim: it uses the existing `/discovery/signal` `new` ordering and its
+server-owned ProductSummary projection, filters the current listing, and keeps
+real prices/ratings/Oxy file IDs. Empty/missing categories omit the section.
+Pagination retains mounted cards through a failed next-page read and offers
+retry; it never substitutes global products for a failed category lookup.
+
+FeedGrid gained an opt-in container-measured column layout: mobile two columns
+and 16px gaps; desktop auto-fit 220px minimum columns and 32px gaps, measured
+from Shop's public product markup. Existing callers retain their class layout.
+All 12 storefront locales have the heading. Two live browser cases verify
+real image bytes, links, category changes and layout; two isolated read-failure
+cases split the real category DTO into pages and prove retry/card retention.
+A fifth browser case fills rows with real root-discovery DTOs under isolated
+category membership and verifies resizing at 390/768/1024/1440/1920px.
+No image request is intercepted. The initial desktop failure was an invalid
+Button appearance in the new component, corrected to Bloom's public outline
+appearance before final types and rerun. Current native acceptance is unproven.

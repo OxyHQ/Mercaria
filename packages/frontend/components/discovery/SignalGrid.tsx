@@ -12,7 +12,7 @@ import { FeedGrid, ProductCard } from '@mercaria/ui';
  * (`packages/ui/src/components/marketplace/FeedGrid.tsx`).
  *
  * `FeedGrid` is the only survivor of the nine components the discovery feed
- * briefly added to `@mercaria/ui`, and this is its only caller: it is a
+ * briefly added to `@mercaria/ui`: it is a
  * layout, not a card, and there was no wrapping grid in the kit before it.
  *
  * The per-item card is `@mercaria/ui`'s own `ProductCard` (the one

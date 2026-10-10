@@ -51,6 +51,7 @@ import { ScreenShell } from "@/components/shell/ScreenShell";
 import { STOREFRONT_NAV_FROM } from "@/lib/layout";
 import { ProductDescription } from "@/components/product/ProductDescription";
 import { ProductReturnPolicy } from "@/components/product/ProductReturnPolicy";
+import { ProductRelatedGrid } from "@/components/product/ProductRelatedGrid";
 import { ListingSpecifications } from "@/components/product/ListingSpecifications";
 import { PurchasePlanPreview } from "@/components/listing/PurchasePlanPreview";
 import { resolvePurchasePreview } from "@/lib/catalog/purchase-preview";
@@ -954,6 +955,7 @@ function ProductBody({ listing }: ProductBodyProps) {
         {listing.store ? (
           <RelatedFromStore store={listing.store} excludeId={listing.id} />
         ) : null}
+        <ProductRelatedGrid listing={listing} />
 
         {reviewScope ? (
           <ProductReviewsDialog
