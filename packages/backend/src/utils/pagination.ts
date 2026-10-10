@@ -71,9 +71,9 @@ const CURSOR_SEPARATOR = '|';
 /**
  * The cursor format version, and the reason there is one.
  *
- * The v1 format was `<iso>|<ObjectId>`, and its `publishedAt` was never NULL
- * because the Mongo path substituted `createdAt` when a listing had none. The
- * Postgres keyset orders by a NULLABLE `published_at`, so the tuple gained a
+ * The v1 format was `<iso>|<id>`, and its `publishedAt` was never NULL because
+ * `createdAt` was substituted when a listing had none. The Postgres keyset
+ * orders by a NULLABLE `published_at`, so the tuple gained a
  * third state — and a v1 cursor read as a v2 one would resume from a boundary
  * that never existed, silently skipping or repeating a page.
  *

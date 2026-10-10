@@ -1,15 +1,14 @@
 /**
  * `collections`, `collection_rules` and the `listing_collections` membership.
  *
- * ## One table now holds what Mongo stored twice
+ * ## One table holds both memberships
  *
  * `Collection.productIds` (the hand-picked, ORDERED input of a manual
  * collection) and `Listing.collectionIds` (the MATERIALIZED membership of both
- * kinds) were two fields carrying the same set for a manual collection, and
- * `materialize` computed one from the other. They are ONE relation here, with
- * `position` carrying the only thing the two did not share: the hand-picked
- * order. **`position` is NULL exactly when the membership was derived from
- * rules.**
+ * kinds) are the same set for a manual collection, and `materialize` computes
+ * one from the other. They are ONE relation here, with `position` carrying the
+ * only thing the two did not share: the hand-picked order. **`position` is NULL
+ * exactly when the membership was derived from rules.**
  *
  * That collapse is why there are two write paths and not one:
  * {@link replaceManualMembership} rewrites a small hand-picked list wholesale,
@@ -351,8 +350,8 @@ export async function updateCollection(
  * Delete a collection scoped to its store. `false` when it was not that store's.
  *
  * The membership rows go with it: `listing_collections.collection_id` is
- * `ON DELETE CASCADE`, which is the second `$pull` statement the Mongo path ran
- * — as a constraint, so it cannot half-happen if the process dies between the two.
+ * `ON DELETE CASCADE` — a constraint, so it cannot half-happen if the process
+ * dies between the two.
  */
 export async function deleteCollection(
   storeId: string,
@@ -382,8 +381,7 @@ export async function findManualMemberIds(
 /**
  * The hand-picked member ids of a BATCH of collections, each in its own order.
  *
- * One query for the whole page. The DTO carries `productIds`, which under Mongo
- * was a field ON the collection document and came back for free; here it is a
+ * One query for the whole page. The DTO carries `productIds`, which is a
  * relation, so a per-collection read would be an N+1 on every admin list.
  */
 export async function findManualMemberIdsByCollection(
@@ -440,9 +438,8 @@ export async function replaceManualMembership(
 /**
  * Reconcile an AUTOMATED collection's membership to exactly `shouldHave`.
  *
- * A set-diff in SQL — insert what is missing, delete what no longer matches —
- * rather than the two `updateMany`s Mongo used. `onConflictDoNothing` makes the
- * insert idempotent, which is what `$addToSet` bought.
+ * A set-diff in SQL — insert what is missing, delete what no longer matches.
+ * `onConflictDoNothing` makes the insert idempotent.
  *
  * The third statement clears any `position` left over from a collection that
  * used to be MANUAL: a derived membership carrying a hand-picked order
@@ -505,10 +502,8 @@ export async function reconcileAutomatedMembership(
  * collection. A re-sync that stopped seeing an external collection ref would then
  * delete the row a merchant hand-picked, and its `position` with it.
  *
- * Mongo could not lose that row: hand-picked membership lived in
- * `Collection.productIds`, a different field from the `Listing.collectionIds`
- * array this path rewrote, so the two could not collide. They are ONE relation
- * now — which is the point of the port — so the guard has to be explicit.
+ * Hand-picked and derived membership are ONE relation, so the guard has to be
+ * explicit.
  * `position IS NULL` is exactly "this membership was derived", so the delete
  * cannot reach a hand-picked row however the caller scopes it.
  *
@@ -554,9 +549,8 @@ export async function setListingAutomatedMemberships(
  * The ORDER BY for a collection browse.
  *
  * `best_selling` falls back to newest-first: there is no per-listing sales
- * counter yet, and the Mongo path made the same substitution. `manual` on an
- * AUTOMATED collection also falls back, because every one of its positions is
- * NULL by construction.
+ * counter yet. `manual` on an AUTOMATED collection also falls back, because
+ * every one of its positions is NULL by construction.
  */
 function collectionOrder(sortOrder: CollectionSortOrder, manual: boolean): SQL[] {
   switch (sortOrder) {
@@ -588,11 +582,9 @@ function collectionOrder(sortOrder: CollectionSortOrder, manual: boolean): SQL[]
 /**
  * A page of a collection's ACTIVE listings, in the collection's own sort order.
  *
- * The manual order is applied IN SQL. Mongo could not — `Listing.collectionIds`
- * carried no position, so `listCollectionProducts` loaded every member of the
- * collection into the process, sorted them against an in-memory index of
- * `productIds` and sliced the page out. A collection with ten thousand products
- * read ten thousand documents to render twenty.
+ * The manual order is applied IN SQL, so a collection with ten thousand
+ * products reads one page to render twenty rather than loading every member
+ * into the process and sorting there.
  */
 export async function findCollectionProductsPage(
   collectionId: string,

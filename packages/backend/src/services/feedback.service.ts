@@ -9,19 +9,16 @@
  * ## Ported to Postgres — the two things that changed shape
  *
  *  - **`metadata` is three columns, not an open object.** Its TypeScript type
- *    carried an index signature, but the Mongoose SCHEMA declared only
- *    `platform`, `appVersion` and `deviceInfo` and strict mode dropped every
- *    other key, so nothing open-shaped was ever stored. {@link metadataString}
- *    does explicitly what the schema used to do silently — including the
- *    `type: String` CAST, so a client sending `appVersion: 3` still stores
- *    `"3"`. The one behaviour that does NOT survive is Mongoose throwing a
- *    CastError on an object-valued entry, which was a 500 on a telemetry field;
- *    it is stored as NULL instead.
+ *    carries an index signature, but only `platform`, `appVersion` and
+ *    `deviceInfo` are stored and every other key is dropped.
+ *    {@link metadataString} does that explicitly — including a string CAST, so
+ *    a client sending `appVersion: 3` stores `"3"`. An object-valued entry is
+ *    stored as NULL rather than failing the request over a telemetry field.
  *  - **`email` is a PROTECTED column and this path names it.** Every read is
  *    scoped to the author, so what comes back is the address the caller
  *    themselves typed — see the header of `db/buyers/feedbackRepository.ts` for
  *    the explicit opt-in and why the protection still stands for the operator
- *    surface that does not exist yet. A field Mongo left ABSENT is NULL here, so
+ *    surface that does not exist yet. An ABSENT field is NULL in the row, so
  *    the serializer omits a null rather than emitting one.
  */
 
@@ -57,11 +54,10 @@ export interface CreateFeedbackInput {
 /**
  * One `metadata` entry as the `text` column stores it.
  *
- * Re-applies Mongoose's `type: String` cast at the call site, since Postgres has
- * no equivalent: a string is kept, a number or boolean becomes its string form
- * (which is what the collection holds today), and anything else — the shapes
- * Mongoose rejected outright — is dropped to NULL rather than failing the
- * submission over a telemetry field.
+ * Applies a string cast at the call site, since Postgres has no equivalent: a
+ * string is kept, a number or boolean becomes its string form, and anything
+ * else is dropped to NULL rather than failing the submission over a telemetry
+ * field.
  */
 function metadataString(value: unknown): string | undefined {
   if (typeof value === 'string') return value;

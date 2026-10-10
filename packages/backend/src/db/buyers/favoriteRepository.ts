@@ -4,9 +4,9 @@
  * `UNIQUE(oxy_user_id, listing_id)` is what makes the toggle idempotent, and it
  * is now the ONLY thing that does: `insertFavorite` returns whether a row was
  * actually created (`ON CONFLICT DO NOTHING` + `RETURNING`), so the caller moves
- * `listings.favorite_count` exactly when the set really changed. The Mongo path
- * read first and then wrote, which two concurrent saves could both pass —
- * inserting once and counting twice.
+ * `listings.favorite_count` exactly when the set really changed. A
+ * read-then-write is something two concurrent saves could both pass — inserting
+ * once and counting twice.
  */
 
 import { and, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';

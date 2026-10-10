@@ -3,16 +3,15 @@
  * `listing_options`, `listing_external_refs`, `product_variants`,
  * `product_variant_option_values`, `inventory_levels`.
  *
- * Two of this schema's "shape changes" live here, and each replaces a Mongo
- * mechanism that has no direct Postgres equivalent:
+ * Two of this schema's structural decisions live here:
  *
- *  - the `{title, description, tags}` TEXT index becomes a generated `tsvector`
+ *  - the `{title, description, tags}` text search is a generated `tsvector`
  *    plus a GIN index;
- *  - the `pre('validate')` owner-exclusivity hook becomes a CHECK, which unlike
- *    a hook cannot be bypassed by `updateOne`, by the backfill, or by `psql`.
+ *  - owner exclusivity is a CHECK, which unlike an application hook cannot be
+ *    bypassed by a partial update, by a backfill, or by `psql`.
  *
- * A listing has NO position. The Mongo `2dsphere` point the port carried over
- * (`longitude`/`latitude` plus a generated `geography`) was dropped by `0162`:
+ * A listing has NO position. Its former point (`longitude`/`latitude` plus a
+ * generated `geography`) was dropped by `0162`:
  * a store sells from its locations, whose place is GoWay's (ADR 0013), and a
  * P2P seller's area is `listing_local_discovery`'s coarse cell, which cannot
  * hold a precise point at all.
@@ -243,11 +242,10 @@ export const categories = pgTable(
  *
  * ## Owner exclusivity is a CHECK, not a hook
  *
- * Mongoose enforced `ownerType: 'user' ⇒ oxyUserId set, storeId unset` (and the
- * mirror) in a `pre('validate')` hook. A hook runs on `save()` and NOT on
- * `updateOne`/`findOneAndUpdate`/`insertMany`, which is most of the write paths
- * in this codebase, and not at all during a backfill. As a CHECK the invariant
- * holds against every writer including `psql`.
+ * `ownerType: 'user' ⇒ oxyUserId set, storeId unset` (and the mirror) is a
+ * CHECK. An application hook runs only on the write paths that remember to call
+ * it, and not at all during a backfill. As a CHECK the invariant holds against
+ * every writer including `psql`.
  *
  * ## Denormalized facets stay denormalized
  *
@@ -427,7 +425,7 @@ export const listings = pgTable(
     updatedAt: updatedAt(),
 
     /**
-     * The `{title: 'text', description: 'text', tags: 'text'}` Mongo index.
+     * The full-text index over `title`, `description` and `tags`.
      *
      * The two-argument `to_tsvector('english', …)` with a LITERAL config is
      * required throughout: the one-argument form reads
@@ -440,7 +438,7 @@ export const listings = pgTable(
      * therefore accepted — but it stores each element as a lexeme VERBATIM, with
      * no stemming and no case folding. So a listing tagged `Handmade` was
      * unreachable by "handmade", and `bikes` never matched `Bikes`: a real
-     * narrowing against Mongo's `$text`, which DID stem array elements.
+     * narrowing of tag search.
      *
      * Feeding the array through `to_tsvector('english', …)` instead needs the
      * elements joined first, and neither obvious spelling is allowed:
@@ -501,8 +499,8 @@ export const listings = pgTable(
       sql`${t.conditionSourceLabel} is null or ${t.conditionAssertion} = 'source_declared'`,
     ),
     // `restricted` MUST be in this list. It is written only by moderation
-    // enforcement, via `updateOne`, which runs no Mongoose validator — so a CHECK
-    // that omitted it would silently disarm every takedown.
+    // enforcement, via a direct status update, so a CHECK that omitted it would
+    // silently disarm every takedown.
     checkOneOf('listings_status_check', t.status, ALL_LISTING_STATUSES),
     // #390's status provenance. Both are nullable and `x in (…)` is NULL — hence
     // accepted — for a NULL `x`, so every pre-existing row satisfies these and
@@ -567,7 +565,7 @@ export const listings = pgTable(
       t.publishedAt.desc(),
       t.id.desc(),
     ),
-    // Mongo's `{categorySlugs, status, publishedAt}` multikey. A btree cannot
+    // The category browse filter over `categorySlugs`. A btree cannot
     // serve `<@`/`&&`, so the element side is GIN and the rest filters on the heap.
     index('listings_category_slugs_idx').using('gin', t.categorySlugs),
     index('listings_tags_idx').using('gin', t.tags),
@@ -596,7 +594,7 @@ export const listings = pgTable(
     // Per-store handle uniqueness for the products that HAVE a handle. Partial
     // rather than plain: a compound `{storeId, handle}` unique would be satisfied
     // by NULL-distinctness anyway, but the partial keeps the index the size of
-    // the real set and matches the `$type: 'string'` filter Mongo used.
+    // the real set and states the intent at the constraint.
     uniqueIndex('listings_store_id_handle_key')
       .on(t.storeId, t.handle)
       .where(sql`${t.handle} is not null`),
@@ -619,7 +617,7 @@ export const listings = pgTable(
 /**
  * `listing_images` — the gallery, one row per image.
  *
- * Embedded `{fileId, alt, position}` in Mongo. A child table rather than
+ * Each row is `{fileId, alt, position}`. A child table rather than
  * `jsonb`: it is an ordered list of entities with a known shape, and `position`
  * is the ordering the gallery reads.
  */
@@ -722,8 +720,8 @@ export const listingExternalRefs = pgTable(
   (t) => [
     checkOneOf('listing_external_refs_provider_check', t.provider, CONNECTOR_PROVIDER_IDS),
     index('listing_external_refs_listing_id_idx').on(t.listingId),
-    // The reverse map Mongo served with a multikey over `externalRefs`: find the
-    // listing pushed to a given connection under a given external id.
+    // The reverse map over external refs: find the listing pushed to a given
+    // connection under a given external id.
     uniqueIndex('listing_external_refs_connection_id_external_id_key').on(
       t.connectionId,
       t.externalId,
@@ -745,9 +743,8 @@ export const listingExternalRefs = pgTable(
  * omits, and putting it in the registry would make the rollup recompute — which
  * legitimately reads it — the odd one out.
  *
- * `inventory.levels` — the unused embedded array on the Mongoose model — is NOT
- * ported. `inventory_levels` is the real table and has been since B3; the
- * embedded seam was superseded before it was ever written to.
+ * There is no embedded `inventory.levels` array: `inventory_levels` is the
+ * real table and has been since B3.
  */
 export const productVariants = pgTable(
   'product_variants',
@@ -757,9 +754,9 @@ export const productVariants = pgTable(
       .notNull()
       .references(() => listings.id, { onDelete: 'cascade' }),
     title: text().notNull().default('Default Title'),
-    /** Sparse-unique in Mongo, unique at NO grain here (#296). NULL when absent, never `''`. */
+    /** Unique at NO grain (#296). NULL when absent, never `''`. */
     sku: text(),
-    /** Sparse-unique in Mongo, unique at NO grain here (#296). NULL when absent, never `''`. */
+    /** Unique at NO grain (#296). NULL when absent, never `''`. */
     barcode: text(),
     ...optionalMoney('price'),
     ...optionalMoney('compareAtPrice'),
@@ -782,9 +779,9 @@ export const productVariants = pgTable(
   (t) => [
     checkOneOf('product_variants_source_provider_check', t.sourceProvider, CONNECTOR_PROVIDER_IDS),
     ...currencyChecks('product_variants', [t.priceCurrency, t.compareAtPriceCurrency]),
-    // Mongoose declared `price` required; it is nullable here because the two
-    // columns of a `Money` are absent TOGETHER, and this CHECK is what keeps them
-    // from diverging into "an amount with no currency".
+    // `price` is nullable because the two columns of a `Money` are absent
+    // TOGETHER, and this CHECK is what keeps them from diverging into "an
+    // amount with no currency".
     check(
       'product_variants_price_paired_check',
       sql`(${t.priceAmount} is null) = (${t.priceCurrency} is null)`,
@@ -798,10 +795,9 @@ export const productVariants = pgTable(
     /**
      * NEITHER `sku` NOR `barcode` carries a unique index, at any scope (#296).
      *
-     * Both had one — table-wide and partial — from the genesis migration, ported
-     * straight from Mongo's `sparse: true, unique: true`. Both were an AMBIGUITY
-     * CHECK wearing a constraint's clothes, and both were wrong about what the
-     * column means.
+     * Both had one — table-wide and partial — from the genesis migration. Both
+     * were an AMBIGUITY CHECK wearing a constraint's clothes, and both were
+     * wrong about what the column means.
      *
      * `barcode` is one seller's OBSERVATION of a trade-item identifier on one
      * listing, and two merchants selling one trade item share a GTIN by

@@ -13,16 +13,16 @@
  *  - the order CAS really is one, so two concurrent transitions produce exactly
  *    one winner rather than two sets of inventory side-effects;
  *  - `redeemDiscountCode` refuses the second redemption at a `totalMax`, which
- *    the SHORTER `UPDATE … WHERE (subquery) < max` translation of Mongo's `$expr`
- *    does NOT (see the repository header) — this is the assertion that tells the
- *    two implementations apart, and nothing else can;
+ *    the SHORTER `UPDATE … WHERE (subquery) < max` form does NOT (see the
+ *    repository header) — this is the assertion that tells the two
+ *    implementations apart, and nothing else can;
  *  - `orders_idempotency_key_key` rejects the duplicate a replayed checkout
  *    submits, and the convergence read finds the survivor;
  *  - the customer upsert settles two concurrent FIRST orders on one row with
  *    `orderCount = 2`, rather than one overwriting the other;
  *  - the two refund aggregates answer their two different questions;
- *  - `date_trunc` buckets across a month boundary, which a serialized Mongo
- *    pipeline assertion could never have shown;
+ *  - `date_trunc` buckets across a month boundary, which a mocked query
+ *    assertion could never show;
  *  - both sequences format and ascend, and are separate counters — asserted
  *    against session-local `currval` rather than by arithmetic, because the
  *    sequences are DATABASE-wide and ten other files in this suite draw from
@@ -193,11 +193,10 @@ describe('the order status CAS', () => {
     const storeId = await makeStore();
     const order = await insertOrder(await orderInput(storeId));
 
-    // The Mongo form made the guard and the mutation one operation, which is what
-    // stopped a buyer's cancel racing the expiry sweep from running the inventory
-    // side-effects twice. The Postgres form has to have the same property: the row
-    // is locked for the statement, so the loser's predicate is re-checked against
-    // the winner's write and matches nothing.
+    // The guard and the mutation are one operation, which is what stops a
+    // buyer's cancel racing the expiry sweep from running the inventory
+    // side-effects twice: the row is locked for the statement, so the loser's
+    // predicate is re-checked against the winner's write and matches nothing.
     const [first, second] = await Promise.all([
       transitionOrderStatus(order.id, 'pending_payment', 'paid', { paymentStatus: 'paid' }, {
         status: 'paid',
@@ -280,10 +279,8 @@ describe('discount redemption against a total-usage ceiling', () => {
 
   it('lets exactly ONE of two concurrent redemptions through at totalMax - 1', async () => {
     /**
-     * The assertion this whole file exists for. Mongo enforced the ceiling with
-     * an `$expr` inside the same `updateOne`, which is safe there because the
-     * document is re-read under the write lock. The obvious Postgres translation
-     * — a subquery in `UPDATE … WHERE` — is NOT: READ COMMITTED evaluates it
+     * The assertion this whole file exists for. The obvious form — a subquery
+     * in `UPDATE … WHERE` — is NOT safe: READ COMMITTED evaluates it
      * against the statement's own snapshot and explicitly does not re-read OTHER
      * rows during an EvalPlanQual recheck, so both redemptions see the
      * pre-increment sum and both pass.

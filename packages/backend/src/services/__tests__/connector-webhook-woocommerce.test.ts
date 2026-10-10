@@ -210,11 +210,9 @@ describe('provider-aware dispatch — WooCommerce product.deleted', () => {
       payload: { id: 987654321 },
     });
 
-    // The Mongo assertion pinned one `updateOne` whose FILTER carried the
-    // provenance key; that predicate is gone. The same decision — resolve THIS
-    // connection's listing for THIS external id, then archive it — is now these
-    // two repository calls, and the Woo dot-topic reaching them at all is what
-    // this test is really about.
+    // The decision — resolve THIS connection's listing for THIS external id,
+    // then archive it — is these two repository calls, and the Woo dot-topic
+    // reaching them at all is what this test is really about.
     expect(findListingBySourceExternalId).toHaveBeenCalledWith('store-1', 'conn-woo', '987654321');
     expect(setListingStatusIfIn).toHaveBeenCalledWith(
       'listing-woo',

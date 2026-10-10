@@ -9,10 +9,8 @@
  *
  * ## The one that a mock would get wrong in the dangerous direction
  *
- * `enqueue` must be a genuine NO-OP for a row that already exists. The Mongo
- * version needed `timestamps: false` on that one `updateOne` to achieve it, and
- * the tempting alternative — letting the ODM own the timestamps — cleared the
- * error while turning every repeat into a real write contending with the
+ * `enqueue` must be a genuine NO-OP for a row that already exists: a repeat
+ * that still bumped the timestamps would be a real write contending with the
  * dispatcher's live lease on the same row. Postgres gives the property natively
  * with `on conflict do nothing`; the test below is what stops someone
  * "improving" that into a `do update`.

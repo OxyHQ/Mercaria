@@ -139,11 +139,14 @@ const LOCALE_BUNDLES = join(PACKAGES_ROOT, 'ui', 'src', 'i18n', 'locales');
  * absent from this tuple fails the gate naming the bundle and the codepoint
  * rather than being skipped. "I found fewer scripts" and "there are fewer
  * scripts" are the same reading otherwise.
+ *
+ * Each entry is a Unicode `Script` value as `\p{Script=…}` accepts it; `Mong`
+ * is spelled with its four-letter ISO 15924 alias, which matches identically.
  */
 const CANDIDATE_SCRIPTS = [
   'Latin', 'Cyrillic', 'Greek', 'Arabic', 'Hebrew', 'Devanagari', 'Bengali', 'Gurmukhi',
   'Gujarati', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Oriya', 'Sinhala', 'Thai', 'Lao',
-  'Khmer', 'Myanmar', 'Tibetan', 'Mongolian', 'Hiragana', 'Katakana', 'Han', 'Hangul',
+  'Khmer', 'Myanmar', 'Tibetan', 'Mong', 'Hiragana', 'Katakana', 'Han', 'Hangul',
   'Armenian', 'Georgian', 'Ethiopic', 'Cherokee', 'Syriac', 'Thaana', 'Adlam', 'Vai', 'Yi',
 ] as const;
 

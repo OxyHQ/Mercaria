@@ -6,11 +6,8 @@
  *
  * ## The single-default invariant is no longer testable HERE, and that is a gain
  *
- * The previous version of this file asserted that promoting an address issued an
- * `updateMany` clearing every OTHER default — the service's own two-statement
- * implementation of an invariant Mongo could not state. That implementation is
- * gone: `addresses_oxy_user_id_default_key` is a partial unique index, and the
- * demote+promote pair now lives inside ONE repository transaction because the
+ * `addresses_oxy_user_id_default_key` is a partial unique index, and the
+ * demote+promote pair lives inside ONE repository transaction because the
  * index rejects any other ordering. A mocked repository cannot tell a real
  * transaction from a function that returns the right object, so asserting it here
  * would prove nothing about the property. It is asserted against a real server in
@@ -117,8 +114,8 @@ describe('address.service.remove', () => {
 
 describe('address.service — serialization', () => {
   it('omits NULL optionals rather than emitting them as null', async () => {
-    // Mongo left an unset optional ABSENT; Postgres stores NULL. Emitting the
-    // null would make every client special-case a field that used to be missing.
+    // An unset optional is stored NULL. Emitting the null would make every
+    // client special-case a field that is meant to be missing.
     findAddressesByUser.mockResolvedValue([addressRow()]);
 
     const [dto] = await list(USER);

@@ -70,9 +70,9 @@ export interface NewDigitalSupplyTerms {
  * Record one signed rider. ONE per agreement version, by unique index.
  *
  * Territories and brands are normalized HERE rather than at the call site — the
- * Mongoose-behaviour rule in `CONVENTIONS.md`: `lowercase`/`uppercase` do not
- * survive the port, and the eligibility derivation compares an upper-cased
- * territory and a lower-cased brand.
+ * normalization rule in `CONVENTIONS.md`: Postgres has no
+ * `lowercase`/`uppercase` column behaviour, and the eligibility derivation
+ * compares an upper-cased territory and a lower-cased brand.
  */
 export async function createSupplyTerms(
   input: NewDigitalSupplyTerms,

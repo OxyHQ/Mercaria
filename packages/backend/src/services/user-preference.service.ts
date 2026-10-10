@@ -8,18 +8,17 @@
  *
  * ## Ported to Postgres — `UNIQUE(oxy_user_id)` is what makes the lazy row safe
  *
- * Both entry points are `INSERT … ON CONFLICT (oxy_user_id) DO UPDATE`, the port
- * of Mongoose's `findOneAndUpdate({upsert: true, setDefaultsOnInsert: true})`.
+ * Both entry points are `INSERT … ON CONFLICT (oxy_user_id) DO UPDATE`, a
+ * get-or-create with defaults on insert.
  * The conflict target is named explicitly rather than inferred: this is the index
  * the whole lazy lifecycle rests on, and an inferred target would silently pick a
  * different one if another were ever added.
  *
- * `setDefaultsOnInsert` has no counterpart and needs none — the two currency
- * columns are nullable with no default and `dual_display_enabled` defaults to
- * `true` in the DDL, so an insert that names neither gets exactly the values
- * Mongoose was substituting. NULL genuinely means "not chosen", and it is written
- * NULL and never `''`: an empty string is a real value that satisfies neither the
- * column's CHECK nor any consumer.
+ * The defaults on insert are the DDL's — the two currency columns are nullable
+ * with no default and `dual_display_enabled` defaults to `true`, so an insert
+ * that names neither gets exactly the intended values. NULL genuinely means
+ * "not chosen", and it is written NULL and never `''`: an empty string is a
+ * real value that satisfies neither the column's CHECK nor any consumer.
  */
 
 import type {

@@ -21,10 +21,9 @@
  *  - **`triggerId` is gone.** It was declared `ref: 'Trigger'` against a model
  *    that does not exist in this repo, no caller ever passed one, and no read
  *    path returned it. The parameter, the forward and the write are all removed.
- *  - **Delivery status is composed locally and written ONCE.** The Mongo path
- *    mutated `notification.deliveryStatus` in place and called `save()`, which
- *    rewrote the whole document — including any read-state change that landed
- *    while the channels were in flight. One `UPDATE … SET delivery_status` cannot.
+ *  - **Delivery status is composed locally and written ONCE.** Rewriting the
+ *    whole row would overwrite any read-state change that landed while the
+ *    channels were in flight. One `UPDATE … SET delivery_status` cannot.
  *  - **The two channel PROBES no longer swallow their errors.** `resolveChannels`
  *    used `.catch(() => null)`, which loses the reason a probe failed. A failing
  *    probe still costs only the push channel, but it is now logged.
@@ -69,10 +68,9 @@ const HTTP_NOT_FOUND = 404;
 /**
  * Cap on the persisted/pushed body.
  *
- * Under Mongo this doubled as a document-size guard; `text` has no such limit, so
- * it now exists only for the transports — an Expo message and a Web Push payload
- * are both size-limited and a body past this is not readable on a lock screen
- * anyway.
+ * `text` has no size limit, so this exists only for the transports — an Expo
+ * message and a Web Push payload are both size-limited and a body past this is
+ * not readable on a lock screen anyway.
  */
 const MAX_BODY_LENGTH = 4000;
 
@@ -99,8 +97,8 @@ export interface SendNotificationOptions {
  * Run a channel-registration probe, answering `false` rather than aborting the
  * send when the database refuses it.
  *
- * The Mongo path wrote `.catch(() => null)` here, which is the same tolerance with
- * the reason thrown away. A probe that fails costs the push CHANNEL for this one
+ * A bare `.catch(() => null)` would be the same tolerance with the reason
+ * thrown away. A probe that fails costs the push CHANNEL for this one
  * notification; a probe that fails SILENTLY costs every push notification until
  * somebody notices push stopped working.
  */

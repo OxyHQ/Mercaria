@@ -9,11 +9,9 @@
  * (`draft_orders.currency`) and only acquires a presentment side when it becomes
  * an order.
  *
- * The Mongoose model redefined the discount-allocation and tax-line
- * sub-schemas "so the two models do not import across each other". That
- * duplication does not travel: both value-set tuples are imported from
- * `orders.ts` / `merchandising.ts` here, so a change to either cannot leave the
- * POS side behind.
+ * The discount-allocation and tax-line value sets are not redefined here: both
+ * tuples are imported from `orders.ts` / `merchandising.ts` here, so a change
+ * to either cannot leave the POS side behind.
  */
 
 import { sql } from 'drizzle-orm';
@@ -101,8 +99,8 @@ export const draftOrders = pgTable(
       t.totalsShippingCurrency,
       t.totalsGrandTotalCurrency,
     ]),
-    // A completed draft has an order; an open or cancelled one does not. Mongo
-    // could only hope for this; here `complete`'s whole postcondition is stated.
+    // A completed draft has an order; an open or cancelled one does not. This
+    // CHECK states `complete`'s whole postcondition.
     check(
       'draft_orders_converted_order_check',
       sql`(${t.status} = 'completed') = (${t.convertedOrderId} is not null)`,

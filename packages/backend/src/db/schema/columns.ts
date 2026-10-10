@@ -11,7 +11,7 @@
  *
  *  - `money` / `dualMoney` — the four-column expansion of a `DualMoney`, which
  *    is the single most-repeated shape in this schema and the one most likely to
- *    be got wrong by someone porting a Mongoose sub-document mechanically.
+ *    be got wrong by someone mapping a nested sub-document mechanically.
  *  - `currencyCode` — `text` typed and CHECKed from `ALL_CURRENCY_CODES`.
  *  - `addressColumns` — the nine-field address snapshot four tables embed.
  *  - `checkOneOf` / `checkEveryElementOf` — a CHECK rendered from the SAME tuple
@@ -208,9 +208,8 @@ export type OptionalAddressColumns<P extends string> = Record<
  * `DraftOrder.shippingAddressSnapshot`, `Location.address`,
  * `Customer.defaultAddress` — plus the buyer's own saved `Address`.
  *
- * Each of those Mongoose sub-schemas is a hand-copied duplicate of the same nine
- * fields, and three of their docblocks claim to "mirror the order
- * AddressSnapshot shape". Generating them from one definition makes that claim
+ * Each of them is the same nine fields, and the order `AddressSnapshot` shape
+ * is the one they all mirror. Generating them from one definition makes that
  * structurally true instead of a comment that can go stale.
  *
  * Same assertion caveat as {@link money}, and the same test pins it.
@@ -281,7 +280,7 @@ export function checkEveryElementOf(name: string, column: PgColumn, values: read
  * suffix, because that scan is wrong in both directions and the wrongness is
  * silent: `draft_orders.currency` carries a `CurrencyCode` and does not match
  * the suffix, while `connections.shop_currency` is the EXTERNAL platform's
- * currency — declared with no enum in Mongoose precisely because a Shopify shop
+ * currency — declared with no enum precisely because a Shopify shop
  * may report a code Mercaria does not list, and CHECKing it would reject the
  * connection instead of the price.
  *

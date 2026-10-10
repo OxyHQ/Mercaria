@@ -1,11 +1,10 @@
 /**
  * `addresses` — a buyer's saved shipping addresses.
  *
- * ## The single-default invariant is now a constraint, and that CHANGES writes
+ * ## The single-default invariant is a constraint, and that SHAPES writes
  *
- * Mongo let one user hold two default addresses; `address.service` avoided it by
- * clearing the previous default in a second statement that could simply not run.
- * Here `addresses_oxy_user_id_default_key` —
+ * Clearing the previous default in a second statement is not enough on its own:
+ * that statement can simply not run. `addresses_oxy_user_id_default_key` —
  * `uniqueIndex().on(oxyUserId).where(isDefault)` — makes two unrepresentable.
  *
  * Postgres checks a unique index PER STATEMENT, so demote-then-promote inside one
@@ -78,7 +77,7 @@ export interface AddressPatch {
 /**
  * The five optional columns as NULL-or-value.
  *
- * A field Mongo left ABSENT is NULL here, never `''` — the empty string is a real
+ * An ABSENT field is NULL, never `''` — the empty string is a real
  * value, so writing one would put a blank line2 on an order's address snapshot
  * and print it on the label.
  */
@@ -178,7 +177,7 @@ async function insertOne(
  * Note the probe asks whether the buyer has ANY address, not whether they have a
  * DEFAULT one. A buyer who demoted their only address has addresses and no
  * default, and the next one they add must not silently become default — that is
- * the Mongo behaviour and it is preserved deliberately.
+ * deliberate.
  */
 export async function insertAddress(
   oxyUserId: string,
@@ -210,9 +209,9 @@ export async function insertAddress(
  * being promoted. Returns the updated row, or `null` when it does not belong to
  * the buyer.
  *
- * `isDefault: false` demotes without promoting anything else, exactly as it did
- * under Mongo: a buyer may deliberately have no default, and picking a
- * replacement for them would override a choice they just made.
+ * `isDefault: false` demotes without promoting anything else: a buyer may
+ * deliberately have no default, and picking a replacement for them would
+ * override a choice they just made.
  *
  * ## The promote path LOCKS its target before clearing anything
  *
@@ -220,8 +219,8 @@ export async function insertAddress(
  * other order — and that puts a destructive statement in front of a guard. If the
  * address is not this buyer's, or no longer exists, the clear has already stripped
  * their default by the time the promote matches nothing, and they are left with
- * none. Mongo could not have this bug: its service read the row and threw
- * NOT_FOUND before touching anything.
+ * none. Reading the row and throwing NOT_FOUND before touching anything is what
+ * prevents that.
  *
  * `SELECT … FOR UPDATE` restores that order without giving up atomicity. It
  * answers "is this address the buyer's" BEFORE the clear runs, and it holds the
@@ -275,10 +274,10 @@ export async function updateAddress(
  * Delete an address scoped to its owner, promoting the buyer's newest remaining
  * address when the deleted one was their default.
  *
- * One statement decides existence AND removal (`DELETE … RETURNING`), where the
- * Mongo path read the row and then deleted it — two concurrent deletes of the
- * same address could both pass that read, and both would have gone on to promote
- * a successor. Here exactly one of them gets a row back.
+ * One statement decides existence AND removal (`DELETE … RETURNING`). Reading
+ * the row and then deleting it would let two concurrent deletes of the same
+ * address both pass that read, and both would go on to promote a successor.
+ * Here exactly one of them gets a row back.
  *
  * @returns `deleted: false` when the address does not exist or belongs to someone
  *   else — the caller cannot tell those apart, which is the point.

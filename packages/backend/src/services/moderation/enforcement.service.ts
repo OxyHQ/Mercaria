@@ -122,10 +122,10 @@ type EffectResult =
   | { changed: false; reason: string };
 
 async function restrictListing(listingId: string): Promise<EffectResult> {
-  // `isLiveEntityId`, NOT `mongoose.isValidObjectId`: a listing created after the
-  // Postgres cutover carries a uuid v7, which the ObjectId check REJECTS — so the
-  // old guard would have refused to enforce against every new listing while
-  // reporting a tidy "not a valid id".
+  // `isLiveEntityId`, NOT a 24-hex ObjectId check: a listing created today
+  // carries a uuid v7, which an ObjectId check REJECTS — so that guard would
+  // refuse to enforce against every new listing while reporting a tidy "not a
+  // valid id".
   if (!isLiveEntityId(listingId)) {
     return { changed: false, reason: 'The reported listing id is not a valid id' };
   }
@@ -151,7 +151,7 @@ async function restrictListing(listingId: string): Promise<EffectResult> {
 }
 
 async function requestListingChanges(listingId: string): Promise<EffectResult> {
-  // See `restrictListing` for why this is not `mongoose.isValidObjectId`.
+  // See `restrictListing` for why this is not an ObjectId check.
   if (!isLiveEntityId(listingId)) {
     return { changed: false, reason: 'The reported listing id is not a valid id' };
   }
@@ -313,13 +313,13 @@ async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult
    * be PUBLISHED by a correction: that would put an item on sale its seller had
    * never listed.
    *
-   * No runtime narrowing here any more, and that is the port working rather than a
-   * guard going missing: Mongo declared `previousState.listingStatus` as a bare
-   * `String`, so a value `listings_status_check` would refuse could be stored and
-   * only fail at RESTORE time — when a seller is waiting. The column now carries
-   * `moderation_enforcements_previous_listing_status_check` over the SAME set as
-   * its destination, so a bad value fails the write that created it and what comes
-   * back is already a `ListingStatus`.
+   * No runtime narrowing here, and that is not a guard going missing: an
+   * unconstrained `previousState.listingStatus` could store a value
+   * `listings_status_check` would refuse and only fail at RESTORE time — when a
+   * seller is waiting. The column carries
+   * `moderation_enforcements_previous_listing_status_check` over the SAME set
+   * as its destination, so a bad value fails the write that created it and what
+   * comes back is already a `ListingStatus`.
    */
   const restoredStatus: ListingStatus = previous.previousState.listingStatus ?? 'active';
   /**

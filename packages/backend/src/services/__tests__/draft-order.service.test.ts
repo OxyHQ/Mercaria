@@ -8,10 +8,10 @@
  * service, the order-hydration mapper, the media chokepoint, the discount-code
  * normalizer and the customer lookup.
  *
- * The draft is a RECORD now rather than a mutable mongoose document, so a
- * mutation is no longer visible by inspecting the fixture: every register edit
- * goes through `replaceDraftPricing`, which replaces the lines wholesale. That is
- * where the "what did the register put on the draft" assertions read from.
+ * The draft is an immutable RECORD, so a mutation is not visible by inspecting
+ * the fixture: every register edit goes through `replaceDraftPricing`, which
+ * replaces the lines wholesale. That is where the "what did the register put on
+ * the draft" assertions read from.
  *
  * That mocking has one blind spot, and it is not hypothetical: a mocked create
  * runs no validator, so it accepted a payload missing the `required` + UNIQUE

@@ -468,8 +468,7 @@ export async function transition(
   }
 
   // Return the PERSISTED row with the new event appended, so a caller that
-  // hydrates the result sees exactly what the database now holds — the Mongo path
-  // mutated the in-memory document for the same reason.
+  // hydrates the result sees exactly what the database now holds.
   return {
     ...updated.order,
     items: order.items,
@@ -754,12 +753,11 @@ function zeroCounts(): Record<OrderStatus, number> {
  * at or below the low-stock threshold.
  *
  * The revenue sum is now SQL, filtered to the store's settlement currency by a
- * real predicate on a real column. The Mongo version loaded EVERY paid order into
- * the process and filtered the mixed-currency ones out in JavaScript, so a store
- * with a hundred thousand paid orders pulled all of them back to produce one
- * number — and it fell back to "whatever currency the first order happened to be
- * in" when the store row was missing, which could report a figure in a currency
- * the store does not settle in. The fallback is FAIR, matching the column default.
+ * real predicate on a real column, so a store with a hundred thousand paid
+ * orders never pulls them all back to produce one number. When the store row is
+ * missing the currency falls back to FAIR, matching the column default — never
+ * to "whatever currency the first order happened to be in", which could report
+ * a figure in a currency the store does not settle in.
  */
 export async function storeStats(storeId: string): Promise<StoreStats> {
   const store = await findStoreById(storeId);

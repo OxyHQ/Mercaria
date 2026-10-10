@@ -12,14 +12,13 @@
  *
  * ## The stub is repositories, not query chains — and it keeps `hash` apart
  *
- * The Mongoose stub had to reproduce `.find().sort().select()` and a `$exists`
- * matcher. The repository boundary has neither: the fake below stores rows and
- * answers four plain functions. It also mirrors the PROTECTED-column split that
- * the real code has — `findActiveChannelApiKeys` / `insertChannelApiKey` /
- * `revokeChannelApiKey` return rows WITHOUT `hash`, and only
- * `findVerificationCandidates` carries it. That is what makes
- * "listed metadata never leaks the secret" a real assertion here rather than a
- * property of a fixture that happened not to include it.
+ * The repository boundary has no query chain to reproduce: the fake below
+ * stores rows and answers four plain functions. It also mirrors the
+ * PROTECTED-column split that the real code has — `findActiveChannelApiKeys` /
+ * `insertChannelApiKey` / `revokeChannelApiKey` return rows WITHOUT `hash`, and
+ * only `findVerificationCandidates` carries it. That is what makes "listed
+ * metadata never leaks the secret" a real assertion here rather than a property
+ * of a fixture that happened not to include it.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -168,8 +167,8 @@ describe('generateKey', () => {
     // The plaintext never appears in the stored row or the metadata DTO.
     expect(JSON.stringify(apiKey)).not.toContain(key);
     expect(apiKey.prefix).toBe(key.slice(0, 12));
-    // The column's DDL default is the EMPTY array (Mongoose defaulted it to the
-    // full set), so this asserts the service writes the scopes explicitly.
+    // The column's DDL default is the EMPTY array, so this asserts the service
+    // writes the scopes explicitly.
     expect(apiKey.scopes).toEqual(['channels:write']);
     expect(apiKey.storeId).toBe(STORE_A);
     expect(apiKey.createdBy).toBe(USER);
@@ -213,11 +212,10 @@ describe('generateKey', () => {
     });
   });
 
-  it('trims the label before storing it — Mongoose had no trim here either', async () => {
-    // `trim: true` is Mongoose APPLICATION behaviour with no Postgres counterpart,
-    // so a port has to re-apply every normalization at the call site. This model
-    // declared none and the service already trimmed; the assertion pins that the
-    // trim did not travel out of the service with the schema.
+  it('trims the label before storing it', async () => {
+    // Trimming is APPLICATION behaviour with no Postgres counterpart, so every
+    // normalization happens at the call site; the assertion pins that the trim
+    // stays in the service.
     const { apiKey } = await generateKey(STORE_A, { label: '  Spaced  ' }, USER);
     expect(apiKey.label).toBe('Spaced');
     expect(rows[0].label).toBe('Spaced');

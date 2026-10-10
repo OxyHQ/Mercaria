@@ -346,7 +346,7 @@ export const orders = pgTable(
     // rather than `string`, which is what the CHECK already promises.
     fxRateFrom: text({ enum: CURRENCY_CODE_VALUES }),
     fxRateTo: text({ enum: CURRENCY_CODE_VALUES }),
-    /** A conversion rate, genuinely fractional — the same IEEE-754 double Mongo held. */
+    /** A conversion rate, genuinely fractional — an IEEE-754 double. */
     fxRateRate: doublePrecision(),
     /**
      * What quoted the rate: an FX provider id, a connector provider id when the
@@ -774,7 +774,7 @@ export const orderItems = pgTable(
     digitalAssetVersionId: text(),
     digitalLicenceVersionId: text(),
     digitalUpdatePolicy: text({ enum: asEnumValues(DIGITAL_LICENCE_UPDATE_POLICIES) }),
-    /** Preserves the line's order within the order, which Mongo got from the array. */
+    /** Preserves the line's order within the order. */
     position: integer().notNull().default(0),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

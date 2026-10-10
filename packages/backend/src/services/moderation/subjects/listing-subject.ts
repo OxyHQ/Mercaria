@@ -69,8 +69,8 @@ const MAX_TEXT_LENGTH = 4_000;
 /**
  * A listing row plus the gallery the snapshot declares.
  *
- * The images were an embedded array on the Mongo document and are a child table
- * now, so they are loaded alongside the row rather than projected out of it.
+ * The images are a child table, so they are loaded alongside the row rather
+ * than projected out of it.
  */
 interface SnapshotListing {
   listing: ListingRecord;
@@ -78,9 +78,9 @@ interface SnapshotListing {
 }
 
 async function loadListing(listingId: string): Promise<SnapshotListing | null> {
-  // `isLiveEntityId`, NOT `mongoose.isValidObjectId`: a listing created after the
-  // Postgres cutover carries a uuid v7, and the ObjectId check REJECTS one — so
-  // the old guard would silently refuse to snapshot every new listing, and a
+  // `isLiveEntityId`, NOT a 24-hex ObjectId check: a listing created today
+  // carries a uuid v7, and an ObjectId check REJECTS one — so that guard would
+  // silently refuse to snapshot every new listing, and a
   // report against one would be stored with no subject to send.
   if (!isLiveEntityId(listingId)) return null;
   const listing = await findListingById(listingId);

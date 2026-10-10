@@ -78,9 +78,8 @@ every closed value set) · `contracts` (the `/public/v1` zod source; regen
 
 ## PostgreSQL
 
-`DATABASE_URL` is **required to boot**. There is no second store: legacy
-Mongo/Mongoose is GONE (PR #136) — no `src/models/`, no `mongoose`, no
-`MONGODB_URI`, no rollback target.
+`DATABASE_URL` is **required to boot**. PostgreSQL is the ONLY store: there is
+no second store, no `src/models/` and no rollback target.
 
 - **`bun run db:generate` writes migrations; `src/db/migrate.ts` is the ONLY
   thing that applies them** — never `drizzle-kit migrate`. Every generated `.sql`

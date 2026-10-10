@@ -126,13 +126,13 @@ export const abuseReports = pgTable(
       t.categories,
       ABUSE_REPORT_CATEGORIES,
     ),
-    // A report with no category is not a report. Mongoose's `required: true` on
-    // an array accepts `[]`; this does not.
+    // A report with no category is not a report: `[]` is refused, not just
+    // NULL.
     check('abuse_reports_categories_present_check', sql`array_length(${t.categories}, 1) >= 1`),
-    // Mongoose `maxlength` is APPLICATION behaviour and does not survive the port
-    // by itself. Both bounds are on operator- and reporter-supplied free text that
-    // is already truncated at the call site, so the CHECK cannot reject a row the
-    // code would produce — it stops a future writer forgetting to truncate.
+    // A length limit in the application alone is bypassable. Both bounds are on
+    // operator- and reporter-supplied free text that is already truncated at
+    // the call site, so the CHECK cannot reject a row the code would produce —
+    // it stops a future writer forgetting to truncate.
     check(
       'abuse_reports_details_length_check',
       sql`${t.details} is null or length(${t.details}) <= ${sql.raw(String(MAX_DETAILS_LENGTH))}`,
@@ -184,12 +184,9 @@ export const abuseReports = pgTable(
  *
  * ## The enqueue must be a genuine no-op on a repeat
  *
- * Under Mongo this needed `timestamps: false` on that one `updateOne`, because
- * letting Mongoose own the timestamps left a `$set: { updatedAt }` on the update
- * and turned a repeat into a real write — contending with the dispatcher's live
- * lease on the same row. The Postgres form is `on conflict (id) do nothing`,
- * which has the property natively. `do update` would reintroduce exactly the bug
- * the Mongo flag was added to fix.
+ * The form is `on conflict (id) do nothing`, which has the property natively.
+ * `do update` would turn a repeat into a real write — contending with the
+ * dispatcher's live lease on the same row.
  */
 export const moderationOutboxes = pgTable(
   'moderation_outboxes',
@@ -271,11 +268,11 @@ export const moderationOutboxes = pgTable(
  * the handler. A handler that throws RELEASES its claim by deleting the row, so
  * the retry still works — which is why there is no "failed" state to record.
  *
- * ## `completed_at` is NOT ported
+ * ## There is no `completed_at`
  *
- * The Mongoose model declared it and nothing ever wrote it or read it: the store
- * is claim-then-DELETE, never claim-then-mark-complete, exactly as the model's
- * own header says. A column that no code path can ever populate is Mongo baggage.
+ * The store is claim-then-DELETE, never claim-then-mark-complete, so nothing
+ * could ever write or read it. A column that no code path can ever populate is
+ * baggage.
  *
  * ## No `created_at` / `updated_at`
  *
@@ -314,11 +311,10 @@ export const moderationEvents = pgTable(
  *
  * ## `previous_state` is three columns, and they are CHECKed
  *
- * Mongo declared `listingStatus` and `reviewStatus` as bare `String` with no
- * enum, and `restore` reads them back and writes them straight into
- * `Listing.status` / `Review.status`. So an enforcement row holding a status
- * value those tables do not accept is a failure that surfaces only at RESTORE
- * time — when a seller is waiting for their listing back.
+ * `restore` reads `listingStatus` and `reviewStatus` back and writes them
+ * straight into `Listing.status` / `Review.status`. So an enforcement row
+ * holding a status value those tables do not accept is a failure that surfaces
+ * only at RESTORE time — when a seller is waiting for their listing back.
  *
  * CHECKing the snapshot against the SAME value sets its destination columns use
  * moves that failure to the write that created the bad row, and introduces no

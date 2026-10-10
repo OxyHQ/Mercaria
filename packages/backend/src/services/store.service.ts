@@ -40,9 +40,8 @@ const DEFAULT_BRAND_COLOR = '#1D4ED8';
 /**
  * The `policies` patch as a column patch on `stores`.
  *
- * The five fields were one embedded object and are now five flat columns, so
- * "only the supplied fields are touched" — which Mongoose gave for free by
- * mutating the sub-document — becomes an explicit `undefined` check per field.
+ * The five fields are five flat columns, so "only the supplied fields are
+ * touched" is an explicit `undefined` check per field.
  * Shared by the core store update (`PATCH /admin/stores/:storeId`) and the
  * settings update (`PATCH /admin/stores/:storeId/settings`).
  */
@@ -79,9 +78,9 @@ export async function createStore(
     oxyAccountId,
     handle,
     name: input.name,
-    // The `''` Mongoose supplied as a column DEFAULT is written explicitly
-    // here — `listings`/`stores.description` deliberately carry no default,
-    // so that "absent" and "empty" cannot become the same row by accident.
+    // The `''` is written explicitly here — `listings`/`stores.description`
+    // deliberately carry no default, so that "absent" and "empty" cannot become
+    // the same row by accident.
     description: input.description ?? '',
     brandColor: input.brandColor ?? DEFAULT_BRAND_COLOR,
     defaultCurrency: input.defaultCurrency ?? 'FAIR',
@@ -155,10 +154,8 @@ export async function updateStore(
  * (and, optionally, tax settings) in one call. Only supplied fields are touched;
  * absent fields keep their current value. Gated on `settings:write`.
  *
- * The Mongo version defaulted an ABSENT `notificationSettings`/`taxSettings`
- * block on a pre-B7 store before patching it. That branch is gone: all six
- * columns are NOT NULL with the same defaults the old code substituted, so there
- * is no "absent block" left to reconstruct.
+ * All six settings columns are NOT NULL with defaults, so there is no "absent
+ * block" to reconstruct before patching.
  */
 export async function updateStoreSettings(
   storeId: string,

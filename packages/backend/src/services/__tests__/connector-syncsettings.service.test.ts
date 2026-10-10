@@ -17,8 +17,8 @@
  *  - Collection membership is a SET DIFF in SQL —
  *    `setListingAutomatedMemberships(listingId, managed, desired)` — not a
  *    read-modify-write of a `collectionIds` array.
- *  - `findLocation` does NOT filter on `isActive` (the Mongo `Location.exists`
- *    folded that into the query), so the service makes the active check itself.
+ *  - `findLocation` does NOT filter on `isActive`, so the service makes the
+ *    active check itself.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -381,9 +381,9 @@ describe('collectionMapping on re-sync', () => {
 /**
  * A pull connection with inventory pull enabled and an explicit target location.
  *
- * `targetLocationId` is NULL rather than absent when unset — a field Mongo left
- * out is a NULL column here, never `''`, which is why the service's `?.trim()`
- * still reads correctly and an empty string would not.
+ * `targetLocationId` is NULL rather than absent when unset — never `''`, which
+ * is why the service's `?.trim()` still reads correctly and an empty string
+ * would not.
  */
 function inventoryConnection(targetLocationId?: string) {
   return {
@@ -474,11 +474,10 @@ describe('syncInventory — pull to target location', () => {
   });
 
   it('falls back to the store default when the target location is DEACTIVATED', async () => {
-    // The Mongo lookup was `Location.exists({ _id, storeId, isActive: true })`, so
-    // a deactivated target was indistinguishable from a missing one. `findLocation`
-    // scopes to the store but does NOT filter on `isActive`, so the service makes
-    // the check — and a row that exists but is inactive is the case that would
-    // silently start receiving stock if it ever stopped making it.
+    // `findLocation` scopes to the store but does NOT filter on `isActive`, so
+    // the service makes the check — and a row that exists but is inactive is
+    // the case that would silently start receiving stock if it ever stopped
+    // making it.
     findConnection.mockResolvedValue(inventoryConnection('loc-off'));
     findLocation.mockResolvedValue({ id: 'loc-off', storeId: STORE_ID, isActive: false });
     getConnectorProvider.mockReturnValue({

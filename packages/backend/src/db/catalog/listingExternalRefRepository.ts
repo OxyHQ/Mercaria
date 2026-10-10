@@ -6,13 +6,12 @@
  * targeting and inbound-echo detection — recognising our own push coming back as
  * a webhook, so it is skipped rather than re-imported as a duplicate product.
  *
- * ## `UNIQUE(connection_id, external_id)` is a constraint Mongo could not state
+ * ## `UNIQUE(connection_id, external_id)` is a constraint
  *
- * The embedded `externalRefs` array had no uniqueness at all, so two Mercaria
- * listings could both claim the same external product and the echo lookup would
- * resolve to whichever the array scan reached first. The unique index makes that
- * unrepresentable, which means {@link upsertExternalRef} can now RAISE where the
- * `$pull`-then-`$push` pair silently succeeded.
+ * Without it two Mercaria listings could both claim the same external product
+ * and the echo lookup would resolve to whichever a scan reached first. The
+ * unique index makes that unrepresentable, which means
+ * {@link upsertExternalRef} can RAISE rather than silently succeed.
  *
  * That is deliberate and the error is not swallowed here. A collision means two
  * of this store's listings were pushed to one external product — a real

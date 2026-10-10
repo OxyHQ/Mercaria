@@ -566,8 +566,8 @@ async function incrementDiscountUsage(codes: string[]): Promise<void> {
  * exactly as written: `destination.ts` still produces no
  * `NormalizedCheckoutAddress` for a pickup, and nothing anywhere fabricates a
  * street for a collection. What the order records is the already-public place
- * the goods are, which is the same thing the POS path has snapshotted since the
- * Mongo port (`buildPickupSnapshot` in `draft-order.service`).
+ * the goods are, which is the same thing the POS path snapshots
+ * (`buildPickupSnapshot` in `draft-order.service`).
  *
  * The recipient is the literal word `Collection` and NEVER a person's name.
  * That is not a gap: `NormalizedCheckoutContact` carries no name field at all
@@ -1305,10 +1305,10 @@ export async function checkout(
   // A COLLECTION reserves at the EXACT location the buyer chose (#93 pickup
   // rule 3, acceptance 3), through the SAME `reserve` every other checkout
   // uses: its guarded `UPDATE … WHERE available >= qty` against the matching
-  // `inventory_levels` row has been race-safe at the location grain since the
-  // Mongo port, so the whole of the change #93 needed here is passing an id
-  // that was already an optional parameter. A DELIVERY keeps routing to the
-  // store's default location exactly as before.
+  // `inventory_levels` row is race-safe at the location grain, so the whole of
+  // the change #93 needed here is passing an id that was already an optional
+  // parameter. A DELIVERY keeps routing to the store's default location exactly
+  // as before.
   const reserved: Reservation[] = [];
   try {
     for (const group of groups.values()) {

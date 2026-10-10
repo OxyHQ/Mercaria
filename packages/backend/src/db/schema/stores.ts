@@ -3,14 +3,13 @@
  * `store_permission_overrides`, `locations`, `tax_rates`, `customers`.
  *
  * A store is the root of most of this schema's foreign keys, so it lands first.
- * Its Mongoose model embedded four things — the member list, the policy set, the
- * tax settings and the notification settings. The policy, tax and notification
- * objects are single fixed-shape objects and became flat columns. The member
+ * A store carries a policy set, tax settings and notification settings; each is
+ * a single fixed-shape object and is flat columns here. The member
  * list is GONE (ADR 0012): a store is owned by an Oxy account
  * (`stores.oxy_account_id`), Oxy decides who belongs to that account and in
  * which role, and Mercaria keeps only per-person EXCEPTIONS to the role map.
  *
- * ## ON DELETE, stated against the real Mongo delete paths
+ * ## ON DELETE, stated against the real delete paths
  *
  * There is no code path anywhere in `src/` that deletes a `Store` or a
  * `Customer`. `Location` and `TaxRate` both have one
@@ -71,7 +70,7 @@ export const stores = pgTable(
      * NOT NULL with NO default — a store without a description stores `''`,
      * written by whoever creates it (`store.service` already does exactly this).
      *
-     * The Mongoose `default: ''` is deliberately not carried across.
+     * There is deliberately no `default: ''`.
      * `findSchemaInvariantViolations` rejects an empty-string DEFAULT across
      * every Oxy schema, and the reason generalizes past this column: a default
      * that manufactures a sentinel value makes "absent" and "empty" the same
@@ -232,8 +231,8 @@ export const locations = pgTable(
       .where(sql`${t.goWayPlaceId} is not null`),
     index('locations_store_id_is_default_idx').on(t.storeId, t.isDefault.desc()),
     index('locations_store_id_is_active_idx').on(t.storeId, t.isActive),
-    // Mongo could not state this either, and `deleteLocation`'s guard depends on
-    // it being true: at most ONE default location per store.
+    // `deleteLocation`'s guard depends on this being true: at most ONE default
+    // location per store.
     uniqueIndex('locations_store_id_default_key')
       .on(t.storeId)
       .where(sql`${t.isDefault}`),
@@ -257,9 +256,8 @@ export const taxRates = pgTable(
     regionPostalCodePattern: text(),
     appliesToShipping: boolean().notNull().default(false),
     /**
-     * `default: undefined` in Mongoose means ABSENT, which is a nullable column
-     * with NO default — never `'{}'`, which is the different value "scoped to no
-     * product type at all".
+     * An ABSENT value is a nullable column with NO default — never `'{}'`,
+     * which is the different value "scoped to no product type at all".
      */
     productTypeScope: text().array(),
     priority: integer().notNull().default(0),
@@ -310,7 +308,7 @@ export const customers = pgTable(
   },
   (t) => [
     ...currencyChecks('customers', [t.statsTotalSpentCurrency]),
-    // Mongo's `{storeId, oxyUserId}` sparse unique. Partial rather than plain:
+    // One customer per (store, Oxy user). Partial rather than plain:
     // it keeps the index the size of the Oxy-backed set and states the intent.
     // Postgres treats NULLs as distinct anyway, so walk-ins never collide — but
     // the writer must store NULL and never `''`, which IS a value and collides.
@@ -320,9 +318,8 @@ export const customers = pgTable(
     index('customers_store_id_email_idx')
       .on(t.storeId, t.email)
       .where(sql`${t.email} is not null`),
-    // Mongo's `{storeId, tags}` multikey. A btree cannot serve `&&`/`<@`, so the
-    // element side is GIN; the `storeId` narrowing happens on the heap, which is
-    // the same shape Mongo's compound multikey degraded to anyway.
+    // Tag filtering within a store. A btree cannot serve `&&`/`<@`, so the
+    // element side is GIN; the `storeId` narrowing happens on the heap.
     index('customers_tags_idx').using('gin', t.tags),
     index('customers_store_id_created_at_idx').on(t.storeId, t.createdAt.desc()),
   ],

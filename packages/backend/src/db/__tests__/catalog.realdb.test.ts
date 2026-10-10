@@ -421,8 +421,8 @@ describe('the automated-rule translator', () => {
     });
 
     expect(await matching(storeId, [{ field: 'vendor', operator: 'equals', value: 'Acme' }])).toEqual([acme]);
-    // `not_equals` must include the row whose vendor is NULL — Mongo's `$ne`
-    // matched an absent field, and a bare `<>` evaluates to NULL and drops it.
+    // `not_equals` must include the row whose vendor is NULL — "not Acme"
+    // covers an absent vendor, and a bare `<>` evaluates to NULL and drops it.
     expect(
       await matching(storeId, [{ field: 'vendor', operator: 'not_equals', value: 'Acme' }]),
     ).toEqual([unbranded]);
@@ -603,9 +603,9 @@ describe('text search', () => {
     // The two that `array_to_tsvector` could not serve, and the reason
     // `0003_tag_search_stemming` exists: it stored each element VERBATIM, so
     // `handmade` (which the QUERY stems to `handmad`) and `Bikes` (which never
-    // lower-cased) were both unreachable by the word a buyer would type. Mongo's
-    // `$text` index stemmed array elements, so this asserts the port matches it
-    // rather than a new nicety.
+    // lower-cased) were both unreachable by the word a buyer would type. Tag
+    // search must stem array elements, so this asserts that rather than a
+    // nicety.
     expect(await matching('handmade')).toEqual([tagged]);
     expect(await matching('bikes')).toEqual([tagged]);
 
@@ -640,8 +640,8 @@ describe('favorites', () => {
     await adjustFavoriteCount(listingId, -1);
     expect((await findListingById(listingId))?.favoriteCount).toBe(0);
 
-    // The Mongo form was `updateOne({_id, favoriteCount: {$gt: 0}}, {$inc: -1})`.
-    // At a count of zero that guard makes the WHOLE update a no-op, so a
+    // A guarded `where favorite_count > 0` decrement is the tempting form. At a
+    // count of zero that guard makes the WHOLE update a no-op, so a
     // legitimate +1 arriving in the same moment is lost. `greatest(0, …)`
     // applies every delta and refuses only to go negative.
     await Promise.all([adjustFavoriteCount(listingId, 1), adjustFavoriteCount(listingId, -1)]);
@@ -1149,12 +1149,11 @@ describe("migration 0071's collapse of pre-existing violators", () => {
  * #296 — a merchant SKU and a seller's observed barcode are unique at NO grain.
  *
  * The genesis migration carried `product_variants_sku_key` and
- * `product_variants_barcode_key`, both UNIQUE over the whole table, ported
- * straight from Mongo's `sparse: true, unique: true`. The barcode one made the
- * premise the canonical catalogue rests on unreachable — two merchants selling
- * one trade item share a GTIN by definition, so the second merchant to list a
- * product simply could not list it. The SKU one refused a catalogue Shopify
- * permits outright.
+ * `product_variants_barcode_key`, both UNIQUE over the whole table. The barcode
+ * one made the premise the canonical catalogue rests on unreachable — two
+ * merchants selling one trade item share a GTIN by definition, so the second
+ * merchant to list a product simply could not list it. The SKU one refused a
+ * catalogue Shopify permits outright.
  *
  * Every case here writes through `insertVariants`, the repository the whole
  * catalogue funnels through, and reads the rows BACK: a case that only asserted

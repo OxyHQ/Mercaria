@@ -266,7 +266,7 @@ export async function recomputeAggregate(
       break;
     case 'seller':
       // Upserting: a seller's first review can arrive before anything else has
-      // created their profile, exactly as the Mongo `upsert: true` allowed.
+      // created their profile.
       await setSellerRating(targetId, rating, reviewCount);
       break;
     case 'canonical_product':
