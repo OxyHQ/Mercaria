@@ -11,10 +11,9 @@
  *
  * The order side is a repository too now — `insertOrder` takes the whole
  * aggregate (order + items + status history + allocations + tax lines) and
- * `nextOrderNumber` comes from a sequence rather than a counter document, so the
- * assertions read `insertOrder`'s input instead of a Mongo create document.
- * `redeemDiscountCode` replaces the guarded `$inc`: the ceiling check lives in
- * the repository, so what this file checks is that it is called EXACTLY once per
+ * `nextOrderNumber` comes from a sequence, so the assertions read
+ * `insertOrder`'s input. The `redeemDiscountCode` ceiling check lives in the
+ * repository, so what this file checks is that it is called EXACTLY once per
  * redeemed code on a fresh checkout and never on a replay.
  *
  * Everything else is mocked as before: the cart/inventory services, the address
@@ -696,8 +695,7 @@ describe('checkout.service.checkout — unpriced variant', () => {
     });
     findAddress.mockResolvedValueOnce(addressRow);
     findListingsByIds.mockResolvedValueOnce([listingRow(L1, { ownerType: 'store', storeId: 'store-A' })]);
-    // Both price columns NULL together — the shape the paired CHECK allows, and
-    // the one the port made representable (Mongoose declared `price` required).
+    // Both price columns NULL together — the shape the paired CHECK allows.
     findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1, null)]);
 
     await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toSatisfy(

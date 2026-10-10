@@ -6,7 +6,7 @@
  * holds before this release, the schema the previous image served — so rows
  * can be written the way that image wrote them: a store whose owner is a
  * `store_members` row, a publication with its own name, address, pin, hours
- * and closures, a listing with a Mongo-era point. Then the release is deployed
+ * and closures, a listing with a legacy point. Then the release is deployed
  * through the real migration runner, with the journal prefix that this release
  * shipped (later releases must not enter this historical rollout):
  *

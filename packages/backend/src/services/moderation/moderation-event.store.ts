@@ -21,11 +21,11 @@
  * The winner is decided by the unique primary key, and the repository reports the
  * loss as a VALUE (`false`) rather than as an exception — so there is no
  * duplicate-key error to recognise and, therefore, no `catch` that could ever be
- * widened into swallowing a real failure. That widening is exactly the mistake the
- * Mongo shape was one line away from: a database outage read as "already
- * processed" answers CrowdSource 200 and retires a decision nobody ever handled.
- * Here anything that throws reaches the middleware, which answers non-2xx and
- * leaves the event on the sender's retry schedule.
+ * widened into swallowing a real failure. That widening is exactly the mistake
+ * to avoid: a database outage read as "already processed" answers CrowdSource
+ * 200 and retires a decision nobody ever handled. Here anything that throws
+ * reaches the middleware, which answers non-2xx and leaves the event on the
+ * sender's retry schedule.
  */
 
 import type { ProcessedEventStore } from '@oxy.so/crowdsource-express';

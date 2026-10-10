@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-04
 - **Supersedes:** the store member model (`store_members`, roles
-  `owner | admin | staff`) the Mongo port carried over. Nothing in ADRs
+  `owner | admin | staff`). Nothing in ADRs
   0001–0011 is reopened; where they say "a store member with `store:manage`",
   read "a caller holding `store:manage` on the store".
 - **Org-wide rule it implements:** `~/Oxy/docs/api-conventions.md`, "Cross-app

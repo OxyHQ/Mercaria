@@ -10,14 +10,12 @@
  *
  * ## {@link redeemDiscountCode} is the one place a race can cost money
  *
- * Mongo enforced the total-usage ceiling with an `$expr` over the summed code
- * counters inside the same `updateOne`, which is safe there because the whole
- * document is re-read under the write lock. **The obvious Postgres translation is
- * not safe.** A subquery in an `UPDATE … WHERE` is evaluated against the
- * statement's own snapshot, and READ COMMITTED explicitly does not re-read OTHER
- * rows during an EvalPlanQual recheck — so two concurrent redemptions at
- * `totalMax - 1` both see the pre-increment sum, both pass, and the ceiling is
- * exceeded by one with no error anywhere.
+ * The total-usage ceiling is a sum over the code counters. **Checking it inside
+ * the same `UPDATE` is not safe.** A subquery in an `UPDATE … WHERE` is
+ * evaluated against the statement's own snapshot, and READ COMMITTED explicitly
+ * does not re-read OTHER rows during an EvalPlanQual recheck — so two
+ * concurrent redemptions at `totalMax - 1` both see the pre-increment sum, both
+ * pass, and the ceiling is exceeded by one with no error anywhere.
  *
  * The fix is to serialize on something: this takes `SELECT … FOR UPDATE` on the
  * PARENT discount row first, and only then counts. The lock makes the second
@@ -108,9 +106,8 @@ async function withCodes(
 /**
  * The scheduled-window predicate: started, and either open-ended or not yet over.
  *
- * `endsAt IS NULL OR endsAt >= now` reproduces Mongo's three-branch `$or`
- * (`$exists: false`, `null`, `$gte`) — the first two collapse into one here,
- * because an absent column and a NULL column are the same thing in Postgres.
+ * `endsAt IS NULL OR endsAt >= now` — an open-ended discount has a NULL
+ * `endsAt`.
  */
 function inWindow(now: Date): SQL {
   return and(
@@ -311,9 +308,8 @@ export async function insertDiscount(
  * Patch a discount scoped to its store, optionally replacing its codes.
  *
  * A code that survives the edit KEEPS its usage count: the replacement reads the
- * existing counters first and carries them over, which is what the Mongo path did
- * by rebuilding the sub-document array. Resetting them instead would hand every
- * capped promotion a fresh budget on an unrelated title change.
+ * existing counters first and carries them over. Resetting them instead would
+ * hand every capped promotion a fresh budget on an unrelated title change.
  *
  * @returns `null` when the discount is not that store's.
  */

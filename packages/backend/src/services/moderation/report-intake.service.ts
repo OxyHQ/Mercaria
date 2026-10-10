@@ -70,10 +70,9 @@ export interface CreateAbuseReportResult {
 /**
  * Refuses an identifier that is not a string, at the point the QUERY is built.
  *
- * The route validates its body, but a type is erased at runtime. Under Mongo the
- * concrete danger was `{$ne: null}` reaching `findOne` and matching an UNRELATED
- * report; drizzle binds parameters, so that particular injection is gone — but a
- * non-string still reaches the insert and stores an object where an id belongs,
+ * The route validates its body, but a type is erased at runtime. Drizzle binds
+ * parameters, so an operator object cannot become a query — but a non-string
+ * still reaches the insert and stores an object where an id belongs,
  * and the duplicate read still has to be asked about a real id to mean anything.
  *
  * The guard lives here rather than at the route because `createAbuseReport` is

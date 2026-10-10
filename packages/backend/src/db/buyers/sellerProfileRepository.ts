@@ -18,8 +18,8 @@
  *
  * A seller has no row until their first listing, first sale or first review, and
  * all three of those can be the same moment. `ON CONFLICT (oxy_user_id) DO
- * UPDATE` is the port of Mongoose's `upsert: true` and makes each of them
- * idempotent under a concurrent first write.
+ * UPDATE` is the upsert that makes each of them idempotent under a concurrent
+ * first write.
  */
 
 import { eq, inArray, sql } from 'drizzle-orm';

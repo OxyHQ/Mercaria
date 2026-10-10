@@ -84,8 +84,8 @@ export async function upsertWebPushSubscription(
  * Deactivate one of the user's subscriptions.
  *
  * @returns `false` when the user has no such endpoint — the caller turns that into
- *   a NOT_FOUND. An already-inactive subscription still returns `true`, matching
- *   the `matchedCount` the Mongo path checked.
+ *   a NOT_FOUND. An already-inactive subscription still returns `true`: the row
+ *   matched.
  */
 export async function deactivateWebPushSubscription(
   oxyUserId: string,

@@ -1,40 +1,38 @@
 /**
- * Expiry Sweep Registry — the replacement for Mercaria's Mongo TTL indexes.
+ * Expiry Sweep Registry — every table whose rows expire.
  *
- * Postgres has no TTL index. Mongo reaped; Postgres does not. A table ported
- * without an entry here grows FOREVER — no error, no failing test, no symptom of
+ * Postgres has no TTL index and reaps nothing on its own. A table without an
+ * entry here grows FOREVER — no error, no failing test, no symptom of
  * any kind until disk — and it is structurally invisible in review, because the
  * thing doing the work was never in this codebase to be seen going missing.
  *
- * Three of the entries below carried a TTL index before the port and all three
- * are represented. `@oxy.so/db`'s `sweepAllExpiredRows` takes this list;
- * `db/expirySweeper.ts` schedules it, beside the outbox dispatcher it runs next
- * to.
+ * Three of the entries below are the moderation and notification retentions.
+ * `@oxy.so/db`'s `sweepAllExpiredRows` takes this list; `db/expirySweeper.ts`
+ * schedules it, beside the outbox dispatcher it runs next to.
  *
  * Two more were born in Postgres and never had one: `payment_outboxes` and
  * `payment_provider_events`. They are here because the rule is about the TABLE,
- * not about the port — anything with an `expires_at` that nothing sweeps grows
- * forever, and a table nobody migrated is no less exposed to that than one
- * somebody did.
+ * not about its history — anything with an `expires_at` that nothing sweeps
+ * grows forever.
  *
- * ## The third one could not be copied, and had to be re-expressed
+ * ## The third one is a CONDITIONAL delete
  *
- * `moderation_outboxes` and `moderation_events` are the easy shape: Mongo's
- * `expireAfterSeconds: 0` on a column that already holds the DEADLINE, which is
- * `retentionSeconds: 0` here — the column IS the deadline.
+ * `moderation_outboxes` and `moderation_events` are the easy shape: a column
+ * that already holds the DEADLINE, which is `retentionSeconds: 0` — the column
+ * IS the deadline.
  *
- * `notifications` was `{createdAt: 1}, expireAfterSeconds: 90d,
- * partialFilterExpression: {status: 'dismissed'}` — a CONDITIONAL delete.
+ * `notifications` reaps a DISMISSED notification 90 days on — a CONDITIONAL
+ * delete.
  * `ExpirySweepTarget` is `{table, column, retentionSeconds}` and has no filter,
  * so the condition cannot be handed to it. Rather than reach past the module
  * with a hand-written sweep, the CONDITION became a COLUMN: `dismissed_at` is
  * set only on dismissal, so "90 days past `dismissed_at`" selects exactly the
- * set Mongo's partial filter described, and a notification that was never
- * dismissed has NULL and is never swept.
+ * dismissed set, and a notification that was never dismissed has NULL and is
+ * never swept.
  *
- * That is not a workaround, it is the more correct rule. Mongo measured its 90
- * days from `createdAt`, so a notification dismissed on day 89 vanished the next
- * day while one dismissed on day 1 survived for 89 more. The retention now
+ * That is not a workaround, it is the more correct rule. Measuring the 90 days
+ * from `created_at` would make a notification dismissed on day 89 vanish the
+ * next day while one dismissed on day 1 survived for 89 more. The retention
  * measures from the event it is about. A CHECK on `notifications` keeps
  * `dismissed_at` and `status = 'dismissed'` in agreement, so the sweep cannot
  * drift from the condition it replaced.
@@ -61,11 +59,11 @@
  *
  * ## Coexistence with reads
  *
- * Mongo's TTL monitor lagged roughly its own check interval; this sweep lags one
- * call. No read path here depends on a swept row already being gone: the outbox
- * claim filters on `status` and `available_at` independently, the dedupe claim is
- * an INSERT that would simply re-win after expiry (correctly — the event is no
- * longer a redelivery by then), and the notification feed filters by status.
+ * This sweep lags one call. No read path here depends on a swept row already
+ * being gone: the outbox claim filters on `status` and `available_at`
+ * independently, the dedupe claim is an INSERT that would simply re-win after
+ * expiry (correctly — the event is no longer a redelivery by then), and the
+ * notification feed filters by status.
  */
 
 import type { ExpirySweepTarget } from '@oxy.so/db/expiry';
@@ -126,7 +124,7 @@ const MODERATION_OUTBOX_RETENTION_SECONDS = 14 * 24 * 60 * 60;
 /** `MODERATION_EVENT_RETENTION_SECONDS` — 30 days, past every CrowdSource retry. */
 const MODERATION_EVENT_RETENTION_SECONDS = 30 * 24 * 60 * 60;
 
-/** The notification retention Mongo's TTL index carried, now measured from dismissal. */
+/** The dismissed-notification retention, measured from dismissal. */
 const DISMISSED_NOTIFICATION_RETENTION_SECONDS = 90 * 24 * 60 * 60;
 
 /**

@@ -546,9 +546,8 @@ export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> 
       // account made a purchase it did not make. See `Order.buyerOxyUserId`.
       ...(buyer.origin === 'oxy' ? { buyerOxyUserId: buyer.oxyUserId } : {}),
       sellerType: order.sellerType,
-      // The column is NOT NULL with a `storefront` default now, so the
-      // back-compat coalesce the Mongo path needed is gone: a pre-B5 row acquires
-      // the default during the backfill rather than at every read.
+      // The column is NOT NULL with a `storefront` default, so no read-time
+      // coalesce is needed.
       sourceChannel: order.sourceChannel,
       items: order.items.map(toOrderItemDTO),
       // Spread rather than assigned, so a digital order's DTO has NO

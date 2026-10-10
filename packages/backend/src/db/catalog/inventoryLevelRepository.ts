@@ -13,8 +13,8 @@
  *
  * Every mutator here leaves the variant's denormalized scalar rollup stale by
  * design; `recomputeVariantRollup` is a separate statement the caller runs
- * afterwards, exactly as the Mongo version did. Folding the rollup in here would
- * make it impossible to move several levels of one variant and recompute once.
+ * afterwards. Folding the rollup in here would make it impossible to move
+ * several levels of one variant and recompute once.
  */
 
 import { and, eq, gte, sql } from 'drizzle-orm';
@@ -78,9 +78,8 @@ export async function insertLevels(
  * never stocked the variant.
  *
  * `ON CONFLICT … DO UPDATE` sets ONLY `available`, which is what preserves an
- * existing row's `committed` — the Mongo form spelled that as `$set: {available}`
- * plus `$setOnInsert: {committed: 0}`, and getting it wrong silently releases
- * every in-flight reservation at that location.
+ * existing row's `committed` (a new row starts at 0) — getting it wrong
+ * silently releases every in-flight reservation at that location.
  */
 export async function setLevelAvailable(
   values: NewInventoryLevel,

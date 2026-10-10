@@ -22,15 +22,13 @@
  * every mutator — existing callers (`checkout.service`, `order.service.transition`)
  * pass none and store variants resolve the default location transparently.
  *
- * ## Ported to Postgres
+ * ## Race safety
  *
- * The race-safety contract is unchanged in substance and its mechanism is the
- * same: Mongo's `updateOne({available: {$gte: qty}}, {$inc: …})` and Postgres's
- * `UPDATE … SET available = available - $n WHERE … AND available >= $n` are both
- * CONDITIONAL WRITES whose predicate is re-evaluated against the winner's write.
- * What changes is how the refusal is reported — `matchedCount === 0` becomes a
- * repository returning `false` — and that a level row now clamps at zero rather
- * than being able to go negative through an unguarded `$inc`.
+ * `UPDATE … SET available = available - $n WHERE … AND available >= $n` is a
+ * CONDITIONAL WRITE whose predicate is re-evaluated against the winner's write.
+ * A refusal is reported as the repository returning `false`, and a level row
+ * clamps at zero rather than being able to go negative through an unguarded
+ * increment.
  */
 
 import { findListingById } from '../db/catalog/listingRepository.js';

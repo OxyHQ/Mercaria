@@ -151,9 +151,8 @@ function sourcedListingRow(): unknown {
 /**
  * The outcome the service reported when it CLOSED the run.
  *
- * The Mongoose path let a test read `run.status`/`run.counts` off a document the
- * service mutated in place. A run is two statements now — opened, then closed —
- * so the same facts live in the argument `finishSyncRun` received, which is the
+ * A run is two statements — opened, then closed — so its status and counts live
+ * in the argument `finishSyncRun` received, which is the
  * thing that would actually have been persisted.
  */
 function closedRun(): { status: string; counts: SyncRunCounts; error?: string } {
@@ -185,11 +184,9 @@ describe('processConnectorWebhook — products/delete → archive', () => {
       payload: { id: 987654321 },
     });
 
-    // The old assertion pinned ONE Mongo `updateOne` whose FILTER carried the
-    // provenance key (`{storeId, 'source.connectionId', 'source.externalId'}`).
-    // No such predicate exists any more: the service resolves the listing by that
-    // key and then makes a conditional status write, so the same decision is now
-    // these two repository calls with these arguments.
+    // The service resolves the listing by its provenance key and then makes a
+    // conditional status write, so the decision is these two repository calls
+    // with these arguments.
     expect(findListingBySourceExternalId).toHaveBeenCalledWith('store-1', 'conn-1', '987654321');
     expect(setListingStatusIfIn).toHaveBeenCalledWith(
       'listing-1',
@@ -222,10 +219,9 @@ describe('processConnectorWebhook — products/delete → archive', () => {
   });
 
   it('counts a RE-DELIVERED delete as skipped — an already-archived listing is not re-archived', async () => {
-    // Mongo collapsed this into the same `modifiedCount: 0` as the unmapped case
-    // above; the two are separate outcomes now (a resolved listing whose guarded
-    // status write refuses), and both must still count as skipped rather than as
-    // a second archive.
+    // This is a separate outcome from the unmapped case above (a resolved
+    // listing whose guarded status write refuses), and both must still count as
+    // skipped rather than as a second archive.
     findConnectionById.mockResolvedValue(connectedPullConnection());
     findListingBySourceExternalId.mockResolvedValue({
       ...(sourcedListingRow() as Record<string, unknown>),

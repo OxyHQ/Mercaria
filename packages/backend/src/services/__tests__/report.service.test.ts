@@ -8,12 +8,11 @@
  * one thing that would silently mix currencies — that the store's settlement
  * currency is the value passed to every money aggregate.
  *
- * What is DELIBERATELY not asserted here any more: the pipeline text. The old
- * tests read `$dateTrunc` and `totals.grandTotal.shop.currency` out of a
- * serialized Mongo pipeline, which checked that a string was present, not that a
- * query was right. The SQL equivalent is exercised against a real server in
- * `commerce.realdb.test.ts`, including the month-boundary bucketing a serialized
- * pipeline could never have shown.
+ * What is DELIBERATELY not asserted here: the query text. Reading a string out
+ * of a serialized query checks that the string is present, not that the query
+ * is right. The SQL is exercised against a real server in
+ * `commerce.realdb.test.ts`, including the month-boundary bucketing a
+ * serialized query could never show.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';

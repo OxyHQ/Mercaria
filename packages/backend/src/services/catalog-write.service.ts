@@ -12,22 +12,20 @@
  * single Shopify-style "Default Title" variant is created. Store products take an
  * explicit `variants[]`.
  *
- * ## Ported to Postgres
+ * ## Persistence
  *
- * One Mongoose document became four tables (`listings` + images + options +
- * variants), so every write goes through the repositories, which own the SQL and
- * the atomicity. Three things genuinely change:
+ * A listing spans four tables (`listings` + images + options + variants), so
+ * every write goes through the repositories, which own the SQL and the
+ * atomicity. Three rules follow:
  *
- *  - **The facet recompute is an AGGREGATE, not a read-reduce-write.** The Mongo
- *    version pulled every variant into the process to compute min/max. The rows
- *    never leave the database now, and a listing with NO variants correctly
+ *  - **The facet recompute is an AGGREGATE, not a read-reduce-write.** The rows
+ *    never leave the database, and a listing with NO variants correctly
  *    clears its price range — see `recomputeListingFacets` for the empty-aggregate
  *    trap that makes the obvious single-statement form wrong.
  *  - **A listing, its images, options, VARIANTS and their stock are created in
- *    ONE transaction.** Mongo wrote the document once, so the question did not
- *    arise; six tables make a half-created product possible, and it renders as a
- *    product page with no gallery, no size picker and nothing to buy. The
- *    variants and levels joined that transaction with #221 — see
+ *    ONE transaction.** Six tables make a half-created product possible, and it
+ *    renders as a product page with no gallery, no size picker and nothing to
+ *    buy. The variants and levels joined that transaction with #221 — see
  *    `createStoreProduct` for the failure that made a listing with no variants
  *    an everyday outcome rather than a theoretical one.
  *  - **An absent SKU or barcode is written NULL, never `''`.** Both carried a
@@ -418,9 +416,8 @@ function toListingImages(imageFileIds: string[]): ListingImageInput[] {
  * `priceRange.min/max`, `hasInventory` (any untracked variant OR any tracked one
  * with stock), and `variantCount`.
  *
- * Shared by this service and `inventory.service`. Returns nothing: the Mongo
- * version handed back the variant docs so a caller could avoid a re-query, and
- * no caller ever did.
+ * Shared by this service and `inventory.service`. Returns nothing: no caller
+ * needs the variant rows back.
  *
  * ## It is also where the native OFFER projection is requested (#57)
  *
@@ -1652,9 +1649,9 @@ export async function updateVariant(
  * Remove a variant from a store product. A listing must always keep ≥1 variant,
  * so removing the last variant is rejected. Recomputes facets afterwards.
  *
- * The variant's `inventory_levels` rows go with it — `ON DELETE CASCADE`, which
- * closes a leak Mongo had no way to express: the level rows survived the variant
- * and kept counting stock for something that no longer existed.
+ * The variant's `inventory_levels` rows go with it — `ON DELETE CASCADE`, so no
+ * level row survives the variant and keeps counting stock for something that no
+ * longer exists.
  */
 export async function removeVariant(listingId: string, variantId: string): Promise<void> {
   const count = await countVariants(listingId);

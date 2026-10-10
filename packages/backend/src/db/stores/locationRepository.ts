@@ -1,11 +1,10 @@
 /**
  * `locations` — where a store stocks inventory.
  *
- * ## The single-default invariant is now a constraint, and that CHANGES a write
+ * ## The single-default invariant is a constraint, and that SHAPES a write
  *
- * Mongo let a store hold two default locations; `location.service` avoided it by
- * clearing the previous default before promoting a new one, in a second
- * statement that could simply not run. Here
+ * Clearing the previous default before promoting a new one, in a second
+ * statement, is not enough on its own: that statement can simply not run.
  * `locations_store_id_default_key` — `uniqueIndex().on(storeId).where(isDefault)`
  * — makes two defaults unrepresentable.
  *
@@ -21,9 +20,9 @@
  * `draft_orders.location_id` and `connections.sync_settings_target_location_id`
  * are ON DELETE RESTRICT, because NULL already means "the store's default
  * location" on both — so SET NULL would silently REROUTE an open draft's
- * reservation or a live sync rather than refuse. Mongo's delete succeeded and
- * left a dangling id. `location.service.deleteLocation` translates the refusal
- * into its existing CONFLICT contract.
+ * reservation or a live sync rather than refuse.
+ * `location.service.deleteLocation` translates the refusal into its existing
+ * CONFLICT contract.
  */
 
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
@@ -53,10 +52,10 @@ export interface AddressInput {
  * The nine `address_*` columns, as an update patch.
  *
  * `null` clears all nine rather than leaving a half-written address behind: the
- * Mongoose sub-document was replaced wholesale on every write, and a partial
- * update here would leave the previous city beside the new street. Every
- * optional field is written explicitly for the same reason — omitting one would
- * keep the old value.
+ * address is replaced wholesale on every write, and a partial update would
+ * leave the previous city beside the new street. Every optional field is
+ * written explicitly for the same reason — omitting one would keep the old
+ * value.
  */
 function addressPatch(address: AddressInput | null): {
   addressLabel: string | null;
@@ -144,8 +143,8 @@ export async function countLocations(
  * The store's default location id — the `isDefault` one, falling back to ANY
  * active one, or `null` when the store has none at all.
  *
- * The fallback is carried across from Mongo deliberately: a store whose default
- * was somehow lost still routes stock somewhere rather than failing every write.
+ * The fallback is deliberate: a store whose default was somehow lost still
+ * routes stock somewhere rather than failing every write.
  */
 export async function findDefaultLocationId(
   storeId: string,

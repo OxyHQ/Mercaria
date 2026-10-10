@@ -266,9 +266,8 @@ export async function calculateTotals(input: PricingInput): Promise<PricingResul
   );
 
   // 2. Load store tax settings + active discounts + active tax rates (one query each).
-  // The scheduled-window filter moved INTO the discount query: Mongo's
-  // three-branch `$or` over `endsAt` (absent / null / in future) is two branches
-  // here, because an absent column and a NULL column are the same value.
+  // The scheduled-window filter is INSIDE the discount query: `endsAt` is
+  // either NULL (open-ended) or in the future.
   const [storeRow, activeDiscounts, taxRates] = await Promise.all([
     findStoreById(input.storeId),
     findActiveDiscounts(input.storeId, now),
@@ -625,8 +624,8 @@ function lineMatchesAppliesTo(line: PricingLine, discount: DiscountRecord): bool
  *
  * `quantity` is what decides: the schema lets every leg column be NULL
  * independently, and a leg with a scope but no quantity is not a leg the engine
- * can reward against. Reassembling here keeps `computeBogo`'s own logic identical
- * to the version that read a Mongo sub-document.
+ * can reward against. Reassembling here keeps `computeBogo`'s own logic working
+ * on the nested shape.
  */
 function discountLeg(
   discount: DiscountRecord,
@@ -760,8 +759,7 @@ function applyTaxes(args: ApplyTaxesArgs): ApplyTaxesResult {
     return { taxLines: [], perLineTax, taxTotal: 0 };
   }
 
-  // The repository already returns them `priority desc, id asc`, which is the
-  // order the Mongo path sorted into after loading.
+  // The repository already returns them `priority desc, id asc`.
   //
   // The region filter used to live HERE, over the whole rate list, and #1015 had
   // to move it INSIDE the line loop (ADR 0010 D10). A filter applied once per

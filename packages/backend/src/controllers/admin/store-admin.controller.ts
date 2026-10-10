@@ -38,10 +38,9 @@ import { log } from '../../lib/logger.js';
 /**
  * Serialize a store row to the `Store` admin DTO.
  *
- * The four embedded Mongoose sub-documents are now flat columns, so the
- * `?? false` / `?? true` fallbacks the old serializer carried are gone: every
- * one of those columns is NOT NULL with the same default the fallback
- * substituted, and keeping them would suggest a state that can no longer exist.
+ * The policy, tax and notification settings are flat columns, so there are no
+ * `?? false` / `?? true` fallbacks: every one of those columns is NOT NULL with
+ * a default, and a fallback would suggest a state that cannot exist.
  * The nullable columns (`logo_file_id`, the four policy bodies,
  * `tax_settings_tax_registration_id`, `notification_settings_low_stock_threshold`)
  * stay conditional, because for those NULL is a real value.

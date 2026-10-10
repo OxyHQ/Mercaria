@@ -5,11 +5,10 @@
  *
  * `credentials_*` and `webhook_secret_*` are the two AES-GCM envelopes
  * (`lib/connector-crypto.ts`) and all six are registered in
- * `db/protectedColumns.ts`. Under Mongoose they were withheld from the wire by a
- * hand-written serializer (`toConnectionDTO` simply never read them); here every
- * ordinary read goes through `publicColumns`, so {@link ConnectionRow} has no
- * such property at all and a serializer that reaches for one fails `tsc` instead
- * of shipping it.
+ * `db/protectedColumns.ts`. A hand-written serializer that simply never reads
+ * them is not enough; every ordinary read goes through `publicColumns`, so
+ * {@link ConnectionRow} has no such property at all and a serializer that
+ * reaches for one fails `tsc` instead of shipping it.
  *
  * The two decrypt paths — {@link findConnectionCredentials} and
  * {@link findConnectionWebhookSecret} — are the legitimate opt-in, and they name
@@ -40,7 +39,6 @@
  *
  * ## Connect-or-reconnect is an upsert on `UNIQUE(store_id, provider)`
  *
- * Mongo used `findOneAndUpdate(..., { upsert: true })` on the same key.
  * {@link upsertConnection} states the conflict target explicitly rather than
  * reading first and branching: two concurrent OAuth callbacks for one shop would
  * otherwise both see "no row" and race to insert, and the unique index would fail
@@ -366,11 +364,10 @@ export async function findConnectionWebhookSecret(
  * the row is decided by ONE statement, so two concurrent connects for one shop
  * merge instead of one of them failing on `connections_store_id_provider_key`.
  *
- * Every optional field is written on the conflict path exactly as the Mongo
- * `$set` wrote it — including `connectedAt`, which a reconnect is meant to
- * refresh. `scopes` defaults to the empty array on INSERT only (the column's own
- * DDL default), so an omitted `scopes` on a reconnect leaves the previous grant
- * standing, which is what `$set` without the key did.
+ * Every optional field is written on the conflict path — including
+ * `connectedAt`, which a reconnect is meant to refresh. `scopes` defaults to
+ * the empty array on INSERT only (the column's own DDL default), so an omitted
+ * `scopes` on a reconnect leaves the previous grant standing.
  *
  * ## The mode is not one of those fields, and the refusal lives HERE (#302)
  *
@@ -465,11 +462,9 @@ export async function upsertConnection(
 /**
  * Patch a connection's `sync_settings_*` columns, scoped to its store.
  *
- * The Mongoose path mutated the embedded sub-document and called `save()`, which
- * rewrote the WHOLE object — so a `priceRules` patch replaced both of its fields
- * and clearing one meant assigning the pair. The columns keep that semantic
- * exactly: `priceRules` present writes both columns (an omitted half becomes
- * `null`), and absent writes neither.
+ * A `priceRules` patch replaces both of its fields, and clearing one means
+ * assigning the pair: `priceRules` present writes both columns (an omitted half
+ * becomes `null`), and absent writes neither.
  *
  * `collectionMapping` is written as ONE jsonb value for the same reason: its keys
  * are the external platform's own collection ids, an open set with nothing to
@@ -553,8 +548,7 @@ interface WebhookRegistrationRecordBase {
   /**
    * The encrypted secret those subscriptions were registered with, for a
    * `per_connection` provider. ABSENT leaves the stored envelope untouched,
-   * which is what the Mongo `$set` built without the key did — and what an
-   * `app_secret` provider needs, since it mints none.
+   * which is what an `app_secret` provider needs, since it mints none.
    */
   readonly secret?: EncryptedEnvelope;
   /** The topics the platform refused. Empty replaces whatever was recorded. */
@@ -614,10 +608,8 @@ export type WebhookRegistrationRecord =
  * `webhook_ids`.
  *
  * @returns The updated row, so the connect response carries the ids that were
- *   just registered. The Mongoose path got that by assigning `conn.webhookIds`
- *   on the in-memory document after the write — a mutation whose only purpose
- *   was to keep the object the caller was about to serialize in step with the
- *   database, which returning the row does honestly.
+ *   just registered — returning the row keeps the object the caller serializes
+ *   in step with the database honestly, with no in-memory mutation.
  */
 export async function recordConnectionWebhookRegistration(
   connectionId: string,

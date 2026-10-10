@@ -5,9 +5,9 @@
  * saves, alerts and watchlists are rehomed idempotently" is a claim about
  * COMPLETENESS, and completeness is exactly what nobody can verify by reading a
  * merge implementation. Finding fewer referencing tables looks identical to
- * there BEING fewer (`~/Oxy/AGENTS.md`, the git-pathspec and Mongo-reader
- * findings), and the miss is silent: the orphaned rows keep pointing at a
- * tombstone nobody reads, and a seller discovers it months later.
+ * there BEING fewer (`~/Oxy/AGENTS.md`, the git-pathspec finding), and the miss
+ * is silent: the orphaned rows keep pointing at a tombstone nobody reads, and a
+ * seller discovers it months later.
  *
  * So this walks the DRIZZLE SCHEMA — the same objects drizzle-kit generates DDL
  * from — for every foreign key targeting a mergeable entity, and asserts the

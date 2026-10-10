@@ -11,7 +11,7 @@
  * new issuance, never durable records — but attribution refuses their codes
  * separately (`attribution.service.ts`).
  *
- * ## Codes are normalized HERE (the Mongoose-lowercase lesson)
+ * ## Codes are normalized HERE (the call-site normalization rule)
  *
  * `CONVENTIONS.md`: application-level normalization must be re-applied at the
  * call site, and anything a UNIQUE constraint depends on is the place to audit

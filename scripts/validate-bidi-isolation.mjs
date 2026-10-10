@@ -47,10 +47,9 @@
  * and assert it by running it. A repo-wide property still belongs in a
  * repo-wide validator like this one.
  *
- * `validate-rtl-logical-classes.mjs`, `validate-no-mongo.mjs` and
- * `check-agents-md-size.mjs` are the shape such a property takes in this
- * repository. `bun` transpiles the TypeScript on import, so the module under
- * test is the one the apps compile.
+ * `validate-rtl-logical-classes.mjs` and `check-agents-md-size.mjs` are the
+ * shape such a property takes in this repository. `bun` transpiles the
+ * TypeScript on import, so the module under test is the one the apps compile.
  *
  * ## The LTR case is half the point
  *

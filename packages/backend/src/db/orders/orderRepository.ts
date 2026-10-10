@@ -5,7 +5,7 @@
  * schema in `../schema/fees.ts`) whose WRITE lives here so it commits with the
  * order.
  *
- * One Mongoose document became six tables, so this module is where "an order" is
+ * An order spans six tables, so this module is where "an order" is
  * assembled and taken apart again. {@link OrderRecord} is the row with all five
  * children attached, which is the shape `order-hydration`, `refund.service` and
  * the summary views all already wanted; nothing above this layer joins them.
@@ -34,13 +34,12 @@
  *
  * ## The CAS is the whole point of {@link transitionOrderStatus}
  *
- * Mongo's `findOneAndUpdate({_id, status: current}, …)` made the guard and the
- * mutation one operation, which is what stopped a buyer's `cancel` racing the
- * expire-reservations sweep from running the inventory side-effects twice. The
- * Postgres form is `UPDATE … WHERE id = $1 AND status = $2 RETURNING`, and it has
- * the same property for the same reason: the row is locked for the statement, so
- * the predicate is re-checked against the winner's write. **A `null` return means
- * the guard refused**, never "nothing to do" — the caller raises CONFLICT.
+ * `UPDATE … WHERE id = $1 AND status = $2 RETURNING` makes the guard and the
+ * mutation one operation, which is what stops a buyer's `cancel` racing the
+ * expire-reservations sweep from running the inventory side-effects twice: the
+ * row is locked for the statement, so the predicate is re-checked against the
+ * winner's write. **A `null` return means the guard refused**, never "nothing
+ * to do" — the caller raises CONFLICT.
  */
 
 import { and, asc, count, eq, inArray, isNotNull, lt, or, sql } from 'drizzle-orm';
@@ -525,9 +524,9 @@ function orderFilterSql(filter: OrderListFilter): SQL | undefined {
     clauses.push(buyerOrClaimantSql(filter.buyerOrClaimantOxyUserId));
   }
   if (filter.sellerOxyUserId !== undefined) {
-    // Paired with the seller TYPE, exactly as the Mongo filter was: a store order
-    // never carries a seller user id, but stating both keeps the predicate the
-    // same shape as the index it uses and as the query it replaces.
+    // Paired with the seller TYPE: a store order never carries a seller user
+    // id, but stating both keeps the predicate the same shape as the index it
+    // uses.
     clauses.push(eq(orders.sellerType, 'user'));
     clauses.push(eq(orders.sellerOxyUserId, filter.sellerOxyUserId));
   }
@@ -606,9 +605,9 @@ export async function findOrdersPage(
       .from(orders)
       .where(where)
       // `desc nulls last` rather than `desc()`: a bare Postgres `DESC` is NULLS
-      // FIRST, which neither matches `orders_*_created_at_idx` nor Mongo's
-      // descending sort. `created_at` is NOT NULL so no row moves either way
-      // today — this keeps the ordering usable by the index it was built for.
+      // FIRST, which does not match `orders_*_created_at_idx`. `created_at` is
+      // NOT NULL so no row moves either way today — this keeps the ordering
+      // usable by the index it was built for.
       .orderBy(sql`${orders.createdAt} desc nulls last`, sql`${orders.id} desc nulls last`)
       .limit(limit)
       .offset((page - 1) * limit),
@@ -1632,10 +1631,9 @@ export async function countOrdersByStatus(
  * A store's PAID revenue, summed in SQL and filtered to ONE currency.
  *
  * The currency filter is a real predicate on a real column, which is exactly why
- * `CONVENTIONS.md` keeps the money flat rather than in `jsonb`: the Mongo version
- * loaded every paid order into the process and filtered the mixed-currency ones
- * out in JavaScript, so a store with a hundred thousand paid orders pulled all of
- * them back to produce one number.
+ * `CONVENTIONS.md` keeps the money flat rather than in `jsonb`: filtering the
+ * mixed-currency orders out in JavaScript would make a store with a hundred
+ * thousand paid orders pull all of them back to produce one number.
  *
  * `count(*)` comes back with the sum because the average order value is derived
  * from the same filtered set, and computing it from a second query could divide
@@ -1685,10 +1683,10 @@ export interface SalesBucket {
 /**
  * PAID orders bucketed by `interval` over a window, ascending — the sales report.
  *
- * `date_trunc` is the port of Mongo's `$dateTrunc`, and the timeline anchor is the
- * same `coalesce(paid_at, created_at)`: an order imported from a platform that
- * reported no settlement time still lands in the bucket it was created in rather
- * than vanishing from the report.
+ * `date_trunc` buckets, and the timeline anchor is
+ * `coalesce(paid_at, created_at)`: an order imported from a platform that
+ * reported no settlement time still lands in the bucket it was created in
+ * rather than vanishing from the report.
  *
  * ## The window bounds are ISO strings with an explicit cast, not `Date` objects
  *
@@ -1768,11 +1766,10 @@ export interface TopProductRow {
 /**
  * The best-selling listings of a store over a window, ranked by units then revenue.
  *
- * A join to `order_items` replaces Mongo's `$unwind`, and the title comes from
- * `max(title)` rather than `$last`: a listing renamed between two sales has two
- * titles in the snapshot set, and `$last` returned whichever the storage engine
- * happened to emit last — an ordering Mongo never promised. `max` is at least
- * deterministic for the same input.
+ * A join to `order_items`, and the title comes from `max(title)`: a listing
+ * renamed between two sales has two titles in the snapshot set, and "the last
+ * one" depends on an ordering the storage engine never promises. `max` is at
+ * least deterministic for the same input.
  */
 export async function findTopProducts(
   storeId: string,

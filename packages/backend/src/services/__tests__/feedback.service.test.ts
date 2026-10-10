@@ -4,13 +4,12 @@
  * `feedback` is Postgres now, so `db/buyers/feedbackRepository` is mocked in
  * place of the `Feedback` model.
  *
- * The port introduced ONE piece of real logic and this file exists for it:
- * `metadata` was an open object backed by a Mongoose schema that declared three
- * strict paths, so strict mode dropped every other key and `type: String` cast
- * the three it kept. Postgres has neither behaviour, so the service now does both
- * explicitly — and a narrowing with no fixture in the shape it narrows is
- * indistinguishable from no narrowing at all. Each case below is a shape where
- * doing it and not doing it disagree.
+ * ONE piece of real logic, and this file exists for it: `metadata` keeps three
+ * keys, drops every other one and casts the three it keeps to strings. Postgres
+ * has neither behaviour, so the service does both explicitly — and a narrowing
+ * with no fixture in the shape it narrows is indistinguishable from no
+ * narrowing at all. Each case below is a shape where doing it and not doing it
+ * disagree.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -60,9 +59,9 @@ beforeEach(() => {
 
 describe('feedback.service.create — the metadata narrowing', () => {
   it('keeps the three declared keys and DROPS everything else', async () => {
-    // The Mongoose schema declared exactly three paths and strict mode discarded
-    // the rest, so nothing open-shaped was ever stored. A fixture carrying only
-    // the three keys could not tell that from a straight pass-through.
+    // Exactly three keys are stored and the rest are discarded. A fixture
+    // carrying only the three keys could not tell that from a straight
+    // pass-through.
     await create(USER, {
       type: 'bug',
       message: 'Something is wrong',
@@ -85,10 +84,10 @@ describe('feedback.service.create — the metadata narrowing', () => {
     });
   });
 
-  it('CASTS a number or boolean to its string form, as `type: String` did', async () => {
-    // The shape where a strict `typeof === 'string'` check and Mongoose's cast
-    // disagree: a client sending `appVersion: 3` stores `"3"` in the collection
-    // today, and dropping it would be a silent narrowing of the port.
+  it('CASTS a number or boolean to its string form', async () => {
+    // The shape where a strict `typeof === 'string'` check and a cast disagree:
+    // a client sending `appVersion: 3` stores `"3"`, and dropping it would be a
+    // silent narrowing.
     await create(USER, {
       type: 'other',
       message: 'Numbers',
@@ -101,8 +100,7 @@ describe('feedback.service.create — the metadata narrowing', () => {
   });
 
   it('drops an object-valued entry instead of failing the submission', async () => {
-    // Mongoose raised a CastError here, which was a 500 on a telemetry field. The
-    // only behaviour the port deliberately does NOT preserve.
+    // Failing here would be a 500 on a telemetry field.
     await create(USER, {
       type: 'other',
       message: 'Objects',

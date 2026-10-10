@@ -38,11 +38,9 @@
  *    on the unique index.
  *  - **Disconnect clears all six credential columns together.** The
  *    `num_nonnulls(...) in (0, 3)` CHECKs make a half-cleared envelope
- *    unrepresentable, which is what the `$unset` pair used to leave to
- *    discipline.
- *  - **A `SyncRun` is opened and then closed, in two statements.** The Mongoose
- *    path mutated an in-memory document and saved it once at the end; only those
- *    two writes ever reached the database, so the tallies stay a plain object in
+ *    unrepresentable rather than left to discipline.
+ *  - **A `SyncRun` is opened and then closed, in two statements.** Only those
+ *    two writes reach the database, so the tallies stay a plain object in
  *    this service — which is also what the live `sync:progress` ticks read — and
  *    the run returned to the caller is the row that was actually persisted.
  *  - **`collectionMapping` is a plain `Record`, not a `Map`.** It is one jsonb
@@ -699,9 +697,7 @@ function isRetryableWebhookFailure(reason: ConnectorWebhookFailureReason): boole
  * @returns The connection carrying the ids that were just registered (or the one
  *   it was given when nothing was written), and what the retry should do next. The
  *   connect paths serialize the connection into their response, so returning the
- *   refreshed row is what keeps the response in step with the database — the
- *   Mongoose path assigned `conn.webhookIds` on the in-memory document for exactly
- *   that reason.
+ *   refreshed row is what keeps the response in step with the database.
  */
 async function attemptWebhookRegistration(
   conn: ConnectionRow,
@@ -1308,8 +1304,7 @@ export async function connectAndVerify(
 
   // ONE statement on `UNIQUE(store_id, provider)`: a second OAuth callback for
   // the same shop merges into the same row instead of racing an insert against
-  // it. The sync-settings defaults a fresh row gets are the COLUMN defaults,
-  // which is what `setDefaultsOnInsert` bought under Mongoose.
+  // it. The sync-settings defaults a fresh row gets are the COLUMN defaults.
   const upserted = await upsertConnection(storeId, providerId, {
     mode: 'pull',
     status: 'connected',
@@ -2078,10 +2073,10 @@ function buildSource(conn: ConnectionRow, product: NormalizedProduct): ListingSo
  * lets `createStoreProduct` fall back to the store default itself (so the common
  * no-target case does no extra location query).
  *
- * `findLocation` scopes to the store — that is the cross-store guard the
- * `{ _id, storeId }` Mongo filter used to carry — but it does NOT filter on `isActive`,
- * so the active check is made here to keep a deactivated target falling back to
- * the default rather than silently receiving stock.
+ * `findLocation` scopes to the store — that is the cross-store guard — but it
+ * does NOT filter on `isActive`, so the active check is made here to keep a
+ * deactivated target falling back to the default rather than silently receiving
+ * stock.
  */
 export async function resolveImportLocationId(conn: ConnectionRow): Promise<string | undefined> {
   const target = conn.syncSettingsTargetLocationId?.trim();
@@ -2550,9 +2545,8 @@ async function applyVariantUpdate(
     ? applyPriceRules(incoming.compareAtPrice, priceRules)
     : undefined;
 
-  // `price` was required on the Mongoose model and both of its columns are
-  // NULLABLE here, so a variant carrying no price at all is a case that did not
-  // exist before. NULL differs from every incoming amount, which prices it on
+  // Both of `price`'s columns are NULLABLE, so a variant can carry no price at
+  // all. NULL differs from every incoming amount, which prices it on
   // the first re-sync rather than leaving it priceless — the same outcome the
   // create path would have produced.
   if (record.priceAmount !== targetPrice.amount || record.priceCurrency !== targetPrice.currency) {
@@ -3152,12 +3146,11 @@ export async function requestBackfill(storeId: string, connectionId: string): Pr
  * was actually archived (an already-archived or unmapped id is a no-op).
  *
  * The provenance key resolves the listing and a CONDITIONAL update archives it,
- * rather than one filtered `updateOne`. The second statement is what preserves the
+ * rather than one filtered update. The second statement is what preserves the
  * return value's meaning: `setListingStatusIfIn` refuses a listing already
- * `archived` (its `status <> next` clause is Mongo's `modifiedCount === 1`), so two
- * deliveries of the same delete webhook cannot both report having archived it. The
- * whole status set is allowed because the Mongo update was likewise unconditional
- * on the current status.
+ * `archived` (its `status <> next` clause), so two deliveries of the same
+ * delete webhook cannot both report having archived it. The whole status set is
+ * allowed because archiving is unconditional on the current status.
  *
  * ## It requests offer convergence, and did not until #388
  *
@@ -3337,9 +3330,9 @@ async function archiveUnseenSourcedListings(
  * registers it there — so without Redis there is simply no periodic sweep.
  */
 export async function reconcileAllConnections(): Promise<void> {
-  // The projection Mongo expressed as `'_id storeId'` is the repository's whole
-  // select list: the sweep enqueues and reads nothing else, and its working set
-  // can be every connection in the system.
+  // `id` and `storeId` are the repository's whole select list: the sweep
+  // enqueues and reads nothing else, and its working set can be every
+  // connection in the system.
   const connections = await findPullConnectionsToReconcile();
 
   const { enqueueConnectionBackfill, enqueueConnectionWebhookAudit } = await import(
@@ -3746,10 +3739,10 @@ function buildOrderSource(conn: ConnectionRow, order: NormalizedOrder): NewOrder
 }
 
 /**
- * Guarantee every REQUIRED `AddressSnapshot` field is non-empty (Mongoose rejects
- * empty required strings). The platform's address is used where present; missing
- * required pieces fall back to a placeholder so an incomplete external order still
- * persists as a faithful snapshot of what the platform provided.
+ * Guarantee every REQUIRED `AddressSnapshot` field is non-empty. The platform's
+ * address is used where present; missing required pieces fall back to a
+ * placeholder so an incomplete external order still persists as a faithful
+ * snapshot of what the platform provided.
  */
 function ensureAddressSnapshot(
   addr: AddressSnapshot | undefined,
@@ -4244,11 +4237,10 @@ export async function requestInventorySync(storeId: string, connectionId: string
  * Validate a persisted native price into a `Money` (its currency must be supported).
  *
  * Both halves arrive separately because a `Money` is two nullable columns here, and
- * a variant with NO price is a case the required Mongoose `price` made impossible.
- * It is REFUSED rather than pushed: there is no amount to send, and a platform
- * product created without one is worse than a push that fails loudly. The two
- * columns are NULL together (`product_variants_price_paired_check`), so one guard
- * covers both.
+ * a variant can have NO price. It is REFUSED rather than pushed: there is no
+ * amount to send, and a platform product created without one is worse than a
+ * push that fails loudly. The two columns are NULL together
+ * (`product_variants_price_paired_check`), so one guard covers both.
  */
 function toMoney(amount: number | null, currency: string | null): Money {
   if (amount === null || currency === null) {
@@ -4289,10 +4281,10 @@ function toPushVariant(
  * Everything a push needs about a listing, loaded ONCE for every connection it is
  * pushed to.
  *
- * The Mongoose document carried its images, options and each variant's option
- * values inside itself; all four are separate tables now, so they are gathered here
- * instead of re-read per connection — a store connected to three platforms would
- * otherwise run the same four queries three times for one product.
+ * Images, options and each variant's option values are separate tables, so they
+ * are gathered here instead of re-read per connection — a store connected to
+ * three platforms would otherwise run the same four queries three times for one
+ * product.
  */
 interface PushableListing {
   readonly listing: ListingRecord;
@@ -4353,9 +4345,9 @@ function toPushProduct(pushable: PushableListing, existingExternalId?: string): 
  * connection — is a `listing_external_refs` row rather than an entry in an array
  * on the listing, so it is read before the push (to target a re-push at the SAME
  * external product) and written after it. `upsertExternalRef` REPLACES the pair's
- * previous mapping, which is what the `$pull`-then-`$push` did.
+ * previous mapping.
  *
- * That write can now RAISE where the Mongo pair silently succeeded:
+ * That write can RAISE:
  * `UNIQUE(connection_id, external_id)` refuses a mapping another of this store's
  * listings already claims. It is deliberately not caught — the catch below records
  * it on the run and logs it, which is right even though the provider call already

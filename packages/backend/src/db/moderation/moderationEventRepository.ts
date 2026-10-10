@@ -11,18 +11,17 @@
  *
  * `id` is the CrowdSource event id and it is the primary key, so a conflict is not
  * an error condition to work around — it is the answer "somebody else has this
- * event". Under Mongo that answer arrived as a duplicate-key ERROR (`code 11000`)
- * which had to be recognised by inspecting an exception and separated from every
- * other failure. `ON CONFLICT (id) DO NOTHING … RETURNING` gives it as a VALUE
- * instead, so the two are no longer told apart by classifying a throw.
+ * event". `ON CONFLICT (id) DO NOTHING … RETURNING` gives that answer as a
+ * VALUE rather than a duplicate-key ERROR, so it is never told apart from every
+ * other failure by classifying a throw.
  *
  * That is the load-bearing difference, not a tidier spelling. A lost connection, a
  * failover or a pool exhaustion is NOT "already processed": it has to propagate so
  * the middleware answers non-2xx and the event stays on CrowdSource's retry
  * schedule. Swallowing it would answer 200 and retire a decision nobody ever
- * handled — the one failure this whole store exists to prevent — and the Mongo
- * shape made that one mis-widened `catch` away. Here there is no catch to widen:
- * the duplicate never throws, and everything that does throw reaches the caller.
+ * handled — the one failure this whole store exists to prevent. Here there is
+ * no catch to widen: the duplicate never throws, and everything that does throw
+ * reaches the caller.
  *
  * A claim is released by DELETING the row, not by marking it failed — see
  * `releaseModerationEvent`.

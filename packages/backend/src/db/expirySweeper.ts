@@ -1,12 +1,11 @@
 /**
- * The loop that runs the expiry sweep — Mercaria's replacement for the Mongo TTL
- * monitor.
+ * The loop that runs the expiry sweep.
  *
  * `expiryTargets.ts` says WHAT expires; `@oxy.so/db`'s `sweepAllExpiredRows` says
  * HOW a target is swept. Neither of them runs on its own, and that gap is the
- * whole reason this file exists: Mongo's reaper was a property of the SERVER, so
- * porting a TTL index leaves nothing behind that a reviewer would notice going
- * missing. The registry without a scheduler is a list nobody reads.
+ * whole reason this file exists: Postgres has no server-side reaper, so a
+ * missing scheduler leaves nothing behind that a reviewer would notice. The
+ * registry without a scheduler is a list nobody reads.
  *
  * ## Started on every task, like the outbox dispatcher beside it
  *
@@ -27,11 +26,10 @@
  *
  * ## The interval is long on purpose
  *
- * Mongo's TTL monitor woke every 60 seconds; none of the three retentions here is
- * shorter than 14 DAYS, so sweeping hourly is already four hundred times finer
- * than the shortest deadline. No read path depends on a swept row being gone —
- * `expiryTargets.ts` documents that per target — so the sweep's lag is a storage
- * question, never a correctness one.
+ * None of the retentions here is shorter than 14 DAYS, so sweeping hourly is
+ * already four hundred times finer than the shortest deadline. No read path
+ * depends on a swept row being gone — `expiryTargets.ts` documents that per
+ * target — so the sweep's lag is a storage question, never a correctness one.
  */
 
 import { getTableName } from 'drizzle-orm';

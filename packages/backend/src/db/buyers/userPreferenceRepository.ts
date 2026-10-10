@@ -9,12 +9,11 @@
  *
  * A buyer has no row until they first open the currency picker — or until
  * something reads their preference and creates the defaults on the way past.
- * `ON CONFLICT (oxy_user_id) DO UPDATE` is the port of Mongoose's
- * `findOneAndUpdate({upsert: true, setDefaultsOnInsert: true})` and makes both
- * paths idempotent under a concurrent first write. `DO UPDATE` and not
- * `DO NOTHING`: a conflicting `DO NOTHING` returns no row at all, which would
- * make the get-or-create path return `undefined` for exactly the case it exists
- * to serve.
+ * `ON CONFLICT (oxy_user_id) DO UPDATE` is a get-or-create with defaults on
+ * insert and makes both paths idempotent under a concurrent first write.
+ * `DO UPDATE` and not `DO NOTHING`: a conflicting `DO NOTHING` returns no row
+ * at all, which would make the get-or-create path return `undefined` for
+ * exactly the case it exists to serve.
  *
  * The conflict target is named explicitly (`user_preferences_oxy_user_id_key`'s
  * column). An inferred target would silently pick a different index if one were
@@ -74,8 +73,7 @@ export async function findPreferredCurrency(
  *
  * An empty `patch` is the get-or-create: the conflicting branch then touches only
  * `updated_at`, which keeps the statement returning a row and is the honest
- * record that something asked for the preference. Mongoose's `findOneAndUpdate`
- * bumped `updatedAt` on that same path, so this is not a new write.
+ * record that something asked for the preference.
  */
 export async function upsertUserPreference(
   oxyUserId: string,

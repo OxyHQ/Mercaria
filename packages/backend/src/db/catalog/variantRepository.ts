@@ -4,13 +4,12 @@
  *
  * ## The guarded decrement is the whole point of this module
  *
- * Mongo's `updateOne({available: {$gte: qty}}, {$inc: …})` is a CONDITIONAL
- * write whose condition and mutation are evaluated together, which is what made
- * two concurrent reserves unable to both succeed past the stock. The Postgres
- * form is `UPDATE … SET available = available - $n WHERE … AND available >= $n`,
- * and it has the same property for the same reason: the row is locked for the
- * duration of the statement, so the predicate is re-checked against the winner's
- * write rather than against a value read earlier.
+ * `UPDATE … SET available = available - $n WHERE … AND available >= $n` is a
+ * CONDITIONAL write whose condition and mutation are evaluated together, which
+ * is what makes two concurrent reserves unable to both succeed past the stock:
+ * the row is locked for the duration of the statement, so the predicate is
+ * re-checked against the winner's write rather than against a value read
+ * earlier.
  *
  * **The rowcount IS the answer.** Every guarded mutator here returns whether it
  * matched, and a zero means "the guard refused", never "nothing to do" — the
@@ -646,10 +645,8 @@ export async function findVariantsByListingAndSku(
  * How many TRACKED variants of a store are at or below a stock threshold — the
  * dashboard's "low stock" tile.
  *
- * ONE statement with a join. The Mongo version read every listing id of the store
- * into the process first and then counted variants with `$in` over that array, so
- * a store with ten thousand products shipped ten thousand ids to the server to
- * get one number back.
+ * ONE statement with a join, so a store with ten thousand products never ships
+ * ten thousand ids to the server to get one number back.
  */
 export async function countLowStockVariantsForStore(
   storeId: string,

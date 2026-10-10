@@ -3,8 +3,7 @@
  * `web_push_subscriptions`.
  *
  * This is where the schema's one genuinely OPEN-shaped payload lives, and where
- * the only Mongo TTL index that is not a plain deadline had to be re-expressed
- * rather than copied.
+ * the only retention rule that is not a plain deadline is expressed.
  */
 
 import { sql } from 'drizzle-orm';
@@ -56,9 +55,9 @@ export const NOTIFICATION_TYPES = [
 /**
  * The `type` union, derived from the tuple above so there is ONE list.
  *
- * Declared here rather than beside the Mongoose model it came from: the tuple
- * that types this union is the same tuple `notifications_type_check` is rendered
- * from, and a second copy is a second thing to keep in lockstep.
+ * Declared here: the tuple that types this union is the same tuple
+ * `notifications_type_check` is rendered from, and a second copy is a second
+ * thing to keep in lockstep.
  */
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -98,31 +97,25 @@ export const PUSH_TOKEN_PLATFORMS = ['ios', 'android', 'web'] as const;
  * value is NOT a `Notification.status` value, so flattening this map into the
  * status column during a later refactor is an immediate CHECK violation.
  *
- * ## `trigger_id` is NOT ported
+ * ## There is no `trigger_id`
  *
- * The Mongoose model declared `triggerId: { type: ObjectId, ref: 'Trigger' }`.
  * There is no `Trigger` model anywhere in this repo, no caller passes a
- * `triggerId` to `createNotification`, and no read path returns it — the field
- * appears in exactly three lines of `lib/notification-service.ts` (the parameter,
- * the forward, and the write) and nowhere else in `src/`. It is a dangling
- * reference to a model that does not exist, carried across from another Oxy
- * service. Dropping it is the "no Mongo baggage travels" half of the port.
+ * `triggerId` to `createNotification`, and no read path returns it. A reference
+ * to a model that does not exist is baggage.
  *
- * ## The TTL is the one that needed re-expressing, not copying
+ * ## The retention rule is a CONDITIONAL delete
  *
- * Mongo reaped with `{createdAt: 1}, expireAfterSeconds: 90d,
- * partialFilterExpression: {status: 'dismissed'}` — a CONDITIONAL delete.
+ * A dismissed notification is reaped 90 days after it was dismissed.
  * `@oxy.so/db`'s expiry registry takes `{table, column, retentionSeconds}` and has
  * no filter, so the condition cannot be passed to it.
  *
- * `dismissed_at` is the answer, and it is a better statement of the same rule
- * than the original: the column is set ONLY when a notification is dismissed, so
- * "90 days past `dismissed_at`" reaps exactly the set Mongo's partial filter
- * described, and a row that was never dismissed has NULL and is never swept. It
- * also fixes a real skew in the original — Mongo measured the 90 days from
- * `createdAt`, so a notification dismissed on day 89 vanished the next day while
- * one dismissed on day 1 survived for 89. The retention now measures from the
- * event it is actually about. See `db/expiryTargets.ts`.
+ * `dismissed_at` is the answer: the column is set ONLY when a notification is
+ * dismissed, so "90 days past `dismissed_at`" reaps exactly the dismissed set,
+ * and a row that was never dismissed has NULL and is never swept. Measuring
+ * from `created_at` instead would be a real skew — a notification dismissed on
+ * day 89 would vanish the next day while one dismissed on day 1 survived for
+ * 89. The retention measures from the event it is actually about. See
+ * `db/expiryTargets.ts`.
  */
 export const notifications = pgTable(
   'notifications',
@@ -172,13 +165,12 @@ export const notifications = pgTable(
       t.createdAt.desc(),
     ),
     // The unread count and unread feed — a PARTIAL index covering only the unread
-    // states, exactly as Mongo's `partialFilterExpression` did.
+    // states.
     index('notifications_oxy_user_id_unread_idx')
       .on(t.oxyUserId, t.createdAt.desc())
       .where(sql`${t.status} in ('pending', 'sent')`),
     // The leading btree the retention sweep needs — without it the sweep's
-    // `dismissed_at <= now() - 90d` is a full scan every time it runs, which is
-    // the cost Mongo's TTL index hid.
+    // `dismissed_at <= now() - 90d` is a full scan every time it runs.
     index('notifications_dismissed_at_idx')
       .on(t.dismissedAt)
       .where(sql`${t.dismissedAt} is not null`),

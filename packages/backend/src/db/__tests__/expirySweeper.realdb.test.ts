@@ -13,11 +13,9 @@
  * The registry and the sweep mechanism both existed before anything called them.
  * A registry with no scheduler is not a partially-working feature, it is a list:
  * Postgres has no TTL index, so an unscheduled target grows FOREVER with no
- * error, no failing test and no symptom until disk. The thing that used to do
- * this work was a property of the Mongo SERVER, so nothing in this codebase went
- * missing when it was ported away — there is no deleted call site for a reviewer
- * to notice. That is precisely the class of gap a test has to close, because
- * review cannot.
+ * error, no failing test and no symptom until disk — and there is no call site
+ * whose absence a reviewer would notice. That is precisely the class of gap a
+ * test has to close, because review cannot.
  *
  * So the assertions here are about the WIRING as much as the SQL: every fixture
  * is swept through the same entry point production uses, and the vacuity floor
@@ -143,8 +141,8 @@ async function makeNotification(dismissedAt: Date | null): Promise<string> {
 /**
  * A payment outbox row with a caller-supplied deadline.
  *
- * Born in Postgres rather than ported from a Mongo TTL index, but swept by the
- * same loop for the same reason: nothing else deletes a delivered event.
+ * Swept by the same loop for the same reason: nothing else deletes a delivered
+ * event.
  */
 async function makePaymentOutboxRow(expiresAt: Date): Promise<string> {
   const id = `sweep-payment-outbox-${uuidv7()}`;
@@ -428,9 +426,9 @@ describe('the registry the sweeper runs over', () => {
     // wrong reason. Pinning the exact set also fails a table added to the
     // registry without a case here, rather than letting it ride untested.
     //
-    // Three carried a Mongo TTL index; the payment tables, the referral touch
-    // store and guest_sessions were born in Postgres, where there is no TTL
-    // index to carry, which is precisely why they need this loop.
+    // Postgres has no TTL index, which is precisely why every one of them —
+    // moderation, notifications, the payment tables, the referral touch store
+    // and guest_sessions — needs this loop.
     // `guest_sessions` appears TWICE deliberately: a session is purged 7 days
     // after ABSOLUTE expiry or after REVOCATION (ADR 0003 D11), and the
     // registry has no way to express OR — so each trigger is its own target

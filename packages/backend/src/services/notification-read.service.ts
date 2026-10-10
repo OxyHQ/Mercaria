@@ -21,18 +21,17 @@
  *    column, not `created_at`, is now what the 90-day retention sweep measures
  *    from. See `db/notifications/notificationRepository.ts`.
  *  - **An unrecognised `status`/`type` filter answers with an EMPTY page**, which
- *    is what Mongo did with a filter value no document carried. It is spelled out
+ *    is what a filter value no row carries naturally yields. It is spelled out
  *    here because the tempting narrowing — drop the filter you cannot type — turns
  *    that empty page into the user's ENTIRE feed. The route's zod schema already
  *    rejects a bad `status`, so this is the guard for every non-HTTP caller.
- *  - **A NULL column is omitted from the DTO**, exactly as an absent Mongo field
- *    was. The wire shape does not change; `null` simply took `undefined`'s place
- *    as the "not set" representation one layer down.
+ *  - **A NULL column is omitted from the DTO**, so `null` is the "not set"
+ *    representation in the row and the field is absent on the wire.
  *
- * `trim`/`lowercase` re-application, which this port owes every ported service:
- * none of the three Mongoose models carried either setter, so there is nothing to
- * re-apply. The route's zod schemas already `.trim()` every string this service
- * stores (`token`, `deviceId`, `endpoint`, both web-push keys).
+ * `trim`/`lowercase` normalization: none of the three tables needs either, so
+ * there is nothing to apply here. The route's zod schemas already `.trim()`
+ * every string this service stores (`token`, `deviceId`, `endpoint`, both
+ * web-push keys).
  */
 
 import Expo from 'expo-server-sdk';

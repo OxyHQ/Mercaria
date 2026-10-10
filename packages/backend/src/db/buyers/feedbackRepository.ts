@@ -3,8 +3,7 @@
  *
  * The table name is SINGULAR, which is the one documented naming exception in
  * `schema/CONVENTIONS.md`: "feedback" is a mass noun, `feedbacks` is not a word,
- * and Mongoose's derived collection name being exactly that is a `pluralize()`
- * artifact rather than a decision to inherit.
+ * and a `pluralize()` artifact is not a naming decision.
  *
  * ## Every read here NAMES `email`, and that is the point
  *
@@ -20,11 +19,10 @@
  *
  * ## `metadata` is three columns, not `jsonb`
  *
- * The TypeScript interface carried an index signature, but the Mongoose SCHEMA
- * declared only `platform`, `appVersion` and `deviceInfo`, and strict mode
- * dropped everything else — so no open-shaped data was ever stored, and the
- * caller narrows to those three. See `feedback.service`, which does the
- * narrowing the schema used to do silently.
+ * The TypeScript interface carries an index signature, but only `platform`,
+ * `appVersion` and `deviceInfo` are stored — there is no open-shaped data, and
+ * the caller narrows to those three. See `feedback.service`, which does the
+ * narrowing.
  */
 
 import { and, desc, eq, sql } from 'drizzle-orm';
@@ -65,8 +63,8 @@ export interface NewFeedback {
  *
  * `status` is left to the column default (`pending`) rather than passed: the DDL
  * is the authority for it, and nothing but a future review surface ever moves it.
- * Every optional field is written explicitly as NULL-or-value — a field Mongo
- * left ABSENT is NULL here, never `''`.
+ * Every optional field is written explicitly as NULL-or-value — an ABSENT field
+ * is NULL, never `''`.
  */
 export async function insertFeedback(
   oxyUserId: string,
@@ -109,10 +107,10 @@ export async function findFeedback(
 /**
  * A page of the author's own submissions, newest first, plus the total.
  *
- * The `id` tiebreaker is new. Mongo sorted on `createdAt` alone, so two
- * submissions written in the same millisecond had no defined order between
- * queries and an offset pager could show one twice and skip the other. `id` is a
- * uuid v7, whose time component agrees with `createdAt`.
+ * The `id` tiebreaker is load-bearing. Sorted on `createdAt` alone, two
+ * submissions written in the same millisecond would have no defined order
+ * between queries and an offset pager could show one twice and skip the other.
+ * `id` is a uuid v7, whose time component agrees with `createdAt`.
  */
 export async function findFeedbackPage(
   oxyUserId: string,

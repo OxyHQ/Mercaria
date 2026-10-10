@@ -16,30 +16,25 @@
  * collection is scoped to its `storeId`, so a member only operates on their own
  * store's collections.
  *
- * ## Ported to Postgres — one relation replaced two denormalized arrays
+ * ## One relation holds both memberships
  *
- * Mongo carried the membership TWICE: `Collection.productIds` (the hand-picked,
- * ordered input) and `Listing.collectionIds` (the materialized result of both
- * kinds). They are one `listing_collections` relation now, with `position`
- * carrying the manual order and NULL meaning "derived from rules".
+ * `Collection.productIds` (the hand-picked, ordered input) and
+ * `Listing.collectionIds` (the materialized result of both kinds) are one
+ * `listing_collections` relation, with `position` carrying the manual order and
+ * NULL meaning "derived from rules".
  *
- * Three things follow, and each is a real behaviour change:
+ * Three things follow:
  *
- *  - **A manual collection's order is applied IN SQL.** Mongo carried no
- *    position, so paging a manual collection loaded EVERY member into the
- *    process, sorted it against an in-memory index and sliced the page out. A
- *    collection with ten thousand products read ten thousand documents to render
- *    twenty.
+ *  - **A manual collection's order is applied IN SQL**, so paging a manual
+ *    collection never loads every member into the process to sort it.
  *  - **A hand-picked id must name a real listing of this store.**
  *    `listing_collections.listing_id` is a real foreign key, so an unchecked id
- *    is SQLSTATE 23503 rather than the silent no-match Mongo produced. `create`
- *    and `update` therefore validate the list the same way `setProducts` always
- *    did — which also means a collection can no longer be created holding a
- *    product that does not exist.
- *  - **Deleting a collection cleans up atomically.** `deleteCollection` used to
- *    delete the document and then `$pull` its id out of every listing in a
- *    SECOND statement; `ON DELETE CASCADE` is that statement as a constraint, so
- *    it cannot half-happen if the process dies in between.
+ *    is SQLSTATE 23503 rather than a silent no-match. `create`, `update` and
+ *    `setProducts` therefore all validate the list — which also means a
+ *    collection cannot be created holding a product that does not exist.
+ *  - **Deleting a collection cleans up atomically.** `ON DELETE CASCADE`
+ *    removes the memberships as a constraint, so it cannot half-happen if the
+ *    process dies in between.
  */
 
 import type { CreateCollectionInput, UpdateCollectionInput } from '@mercaria/shared-types';
@@ -105,10 +100,9 @@ export async function getCollectionByHandle(
 /**
  * Reject any id that is not an ACTIVE store-owned listing of this store.
  *
- * Called before every write that stores a hand-picked list. Under Mongo this
- * check existed only on `setCollectionProducts`, and an unknown id elsewhere was
- * silently ignored; here the foreign key would turn it into a 23503, so the
- * check moved to every path that can write one.
+ * Called before every write that stores a hand-picked list: the foreign key
+ * would turn an unknown id into a 23503, so the check is on every path that can
+ * write one.
  */
 async function assertKnownProducts(storeId: string, productIds: readonly string[]): Promise<void> {
   const unknown = await findUnknownStoreListingIds(storeId, productIds);
@@ -355,9 +349,8 @@ export async function getCollectionProductIds(collectionId: string): Promise<str
 /**
  * The hand-picked product ids of SEVERAL collections, in one query.
  *
- * The `Collection` DTO carries `productIds`, which was a field on the Mongo
- * document and came back for free with the collection. It is a relation now, so
- * every list endpoint batches it here rather than reading per collection.
+ * The `Collection` DTO carries `productIds`, which is a relation, so every list
+ * endpoint batches it here rather than reading per collection.
  */
 export async function getProductIdsByCollection(
   collections: readonly Collection[],

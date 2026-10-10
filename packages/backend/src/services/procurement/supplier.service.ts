@@ -2,8 +2,8 @@
  * Supplier identity and lifecycle: normalization and the business rules in
  * front of the supplier repository.
  *
- * Mongoose-era normalizations (`trim`, `lowercase`, uppercase country codes)
- * are APPLICATION behaviour re-applied at the call site, per `CONVENTIONS.md`
+ * Normalizations (`trim`, `lowercase`, uppercase country codes) are
+ * APPLICATION behaviour applied at the call site, per `CONVENTIONS.md`
  * — the schema deliberately does not CHECK them, so this service is where a
  * mixed-case domain or a lowercase country code becomes the canonical form
  * every scope comparison expects.
