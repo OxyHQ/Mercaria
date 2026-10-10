@@ -1513,3 +1513,14 @@ Official7.30.1 Pixel acceptance: temporary onLayout on the unmodified swatch gri
 reports Shade height136,width379.4286,y26.2857 (before568dp). Probe was restored
 from /tmp/mercaria-variant-before-7301-measure.tsx. Evidence line BLOOM_7301_GRID
 in /tmp/mercaria-metro.log and /tmp/mercaria-7301-product.png. No sizing override.
+
+Merchant cold-RTL controls now isolate the size morph: Dialog morph=false makes
+body visible (/tmp/mercaria-morph-off-reviews-ready.xml); restoring the normal
+Dialog and setting only useDialogFrame({key:page,morph:false}) also works, both
+loading and40reviews after the query settles (/tmp/mercaria-frame-no-resize.xml,
+/tmp/mercaria-frame-no-resize-settled.xml). Thus Bloom's fade AND Mercaria's full
+opacity/translate animation can coexist; investigate panel height pin/morph and
+the loading→tall-content arrival. All temporary overrides restored to defaults.
+Bloom agent owns further root-cause reproduction in its worktree; no new release
+without reproduction/review. First two morph-off XMLs ending -menu/-reviews were
+captured on Home because startup navigation was not ready; they are NOT evidence.
