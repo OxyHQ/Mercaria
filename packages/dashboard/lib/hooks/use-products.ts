@@ -69,6 +69,21 @@ function invalidateProducts(
   queryClient.invalidateQueries({ queryKey: ["stores", storeId, "products"] });
 }
 
+/** Publish a confirmed write before refetching, even after leaving its editor. */
+async function publishProduct(
+  queryClient: ReturnType<typeof useQueryClient>,
+  storeId: string,
+  productId: string,
+  product: Listing,
+) {
+  const key = queryKeys.products.detail(storeId, productId);
+  // Invalidation only refetches active observers. An older GET must also be
+  // retired when this editor was unmounted or disabled during the write.
+  await queryClient.cancelQueries({ queryKey: key, exact: true });
+  queryClient.setQueryData(key, product);
+  invalidateProducts(queryClient, storeId);
+}
+
 /** Create a product. */
 export function useCreateProduct(storeId: string) {
   const queryClient = useQueryClient();
@@ -84,12 +99,7 @@ export function useUpdateProduct(storeId: string, productId: string) {
   return useMutation({
     mutationKey: queryKeys.products.write(storeId, productId),
     mutationFn: (input: UpdateListingInput) => updateProduct(storeId, productId, input),
-    onSuccess: (product) => {
-      // Publish the saved DTO before refreshing. Editors may now release their
-      // dirty fields without briefly displaying the pre-save server values.
-      queryClient.setQueryData(queryKeys.products.detail(storeId, productId), product);
-      invalidateProducts(queryClient, storeId);
-    },
+    onSuccess: (product) => publishProduct(queryClient, storeId, productId, product),
   });
 }
 
@@ -126,10 +136,7 @@ export function useCreateVariant(storeId: string, productId: string) {
     mutationKey: queryKeys.products.write(storeId, productId),
     mutationFn: (input: CreateStoreProductVariantInput) =>
       createVariant(storeId, productId, input),
-    onSuccess: (product) => {
-      queryClient.setQueryData(queryKeys.products.detail(storeId, productId), product);
-      invalidateProducts(queryClient, storeId);
-    },
+    onSuccess: (product) => publishProduct(queryClient, storeId, productId, product),
   });
 }
 
@@ -140,10 +147,7 @@ export function useUpdateVariant(storeId: string, productId: string) {
     mutationKey: queryKeys.products.write(storeId, productId),
     mutationFn: ({ variantId, input }: { variantId: string; input: UpdateVariantInput }) =>
       updateVariant(storeId, productId, variantId, input),
-    onSuccess: (product) => {
-      queryClient.setQueryData(queryKeys.products.detail(storeId, productId), product);
-      invalidateProducts(queryClient, storeId);
-    },
+    onSuccess: (product) => publishProduct(queryClient, storeId, productId, product),
   });
 }
 
@@ -153,10 +157,7 @@ export function useDeleteVariant(storeId: string, productId: string) {
   return useMutation({
     mutationKey: queryKeys.products.write(storeId, productId),
     mutationFn: (variantId: string) => deleteVariant(storeId, productId, variantId),
-    onSuccess: (product) => {
-      queryClient.setQueryData(queryKeys.products.detail(storeId, productId), product);
-      invalidateProducts(queryClient, storeId);
-    },
+    onSuccess: (product) => publishProduct(queryClient, storeId, productId, product),
   });
 }
 
