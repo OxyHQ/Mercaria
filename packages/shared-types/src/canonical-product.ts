@@ -15,6 +15,7 @@
  * and the database CHECK does not.
  */
 
+import type { ListingMedia } from './catalog-media';
 import type { SourceFreshness, SourceLinkMethod } from './provenance';
 import type { CanonicalAlias } from './organization';
 import type {
@@ -391,6 +392,14 @@ export interface CanonicalImage {
   freshness?: SourceFreshness;
 }
 
+/** Public mixed gallery. Source URLs remain in provenance, never in this DTO. */
+export type CanonicalMedia = ListingMedia & {
+  id: string;
+  locale?: string;
+  status: CanonicalImageStatus;
+  freshness?: SourceFreshness;
+};
+
 /**
  * Where one selected canonical field came from (#56 product rule 10).
  *
@@ -467,6 +476,8 @@ export interface CanonicalProduct {
    */
   variantDefiningAttributeKeys: string[];
   images: CanonicalImage[];
+  /** Mixed gallery; absent on older persisted projections. */
+  media?: CanonicalMedia[];
   attributes: CanonicalAttributeAssignment[];
   identifiers: ProductIdentifier[];
   /** Provenance of each selected canonical field (#56 acceptance 4). */
@@ -501,6 +512,8 @@ export interface CanonicalVariant {
   attributes: CanonicalAttributeAssignment[];
   identifiers: ProductIdentifier[];
   images: CanonicalImage[];
+  /** Mixed gallery; absent on older persisted projections. */
+  media?: CanonicalMedia[];
   aliases: CanonicalAlias[];
   fieldProvenance: FieldProvenance[];
   releasedAt?: string;

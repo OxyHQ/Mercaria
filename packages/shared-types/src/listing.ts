@@ -10,6 +10,7 @@
  * cheapest variant.
  */
 
+import type { ListingMedia } from './catalog-media';
 import type { Timestamps } from './common';
 import type { Money } from './money';
 import type { Seller } from './seller';
@@ -381,6 +382,8 @@ export interface Listing extends Timestamps {
   category: string;
   /** Ordered gallery images. */
   images: ListingImage[];
+  /** Ordered mixed gallery. Optional while older persisted DTOs remain in use. */
+  media?: ListingMedia[];
   /** Denormalized seller identity (present iff `ownerType === 'user'`). */
   seller?: Seller;
   /** Denormalized store identity (present iff `ownerType === 'store'`). */
