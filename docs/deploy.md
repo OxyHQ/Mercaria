@@ -466,10 +466,30 @@ build if that file was not produced.
   under pressure, and picking it for an ordinary release overrides the
   pre/post rule that keeps a rollout safe.
 
+### Runtime secrets live in SSM only
+
+SSM Parameter Store, `/oxy/mercaria/<NAME>` (SecureString), is the ONE source
+of every runtime secret; the task definition reads it at task start. GitHub holds
+none of them, and `deployWorkflow.test.ts` fails if the deploy writes SSM or reads
+a repo secret other than its job token.
+
+```bash
+# set or rotate (the owner, never a workflow)
+aws ssm put-parameter --profile oxy --region us-west-2 --type SecureString \
+  --overwrite --name /oxy/mercaria/STRIPE_SECRET_KEY --value '…'
+# then roll the service so new tasks read it
+aws ecs update-service --profile oxy --region us-west-2 --cluster oxy-cluster \
+  --service mercaria --force-new-deployment
+```
+
+A NEW secret is also named in Mercaria's task definition in oxy-infra
+(`terraform-uswest2/app-services.tf`), written to SSM BEFORE that change rolls
+out: a task naming a parameter that does not exist fails at start.
+
 ### Topology handoff
 
 - Register 2 Oxy RP client ids (dashboard, POS).
-- `DATABASE_URL` is live via GitHub secret → SSM `/oxy/mercaria/DATABASE_URL` →
+- `DATABASE_URL` is live in SSM `/oxy/mercaria/DATABASE_URL` →
   the task definition; the task will not boot without it.
 - Populate the operator allow-lists above before the rails carry live money or
   real compliance decisions. EMPTY is a working configuration and means nobody
