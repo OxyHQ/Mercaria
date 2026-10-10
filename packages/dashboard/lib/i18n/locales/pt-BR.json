@@ -1058,7 +1058,12 @@
       "duplicateCombination": "Esta combinação de opções já existe.",
       "currencyChanged": "A moeda mudou. Cancele esta edição para usar o preço atual.",
       "removeConfirmation": "Remover “%{variant}” deste produto?",
-      "keepOneVariant": "O produto deve manter pelo menos uma variante."
+      "keepOneVariant": "O produto deve manter pelo menos uma variante.",
+      "identifiers": {
+        "sku": "SKU",
+        "barcode": "Código de barras",
+        "cannotClear": "Este identificador pode ser alterado, mas não pode ser apagado."
+      }
     },
     "wizard": {
       "documentTitle": "Criar um produto",

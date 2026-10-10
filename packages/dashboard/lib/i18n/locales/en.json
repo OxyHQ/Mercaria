@@ -1040,7 +1040,12 @@
       "duplicateCombination": "This option combination already exists.",
       "currencyChanged": "The currency changed. Cancel this edit to use the current price.",
       "removeConfirmation": "Remove “%{variant}” from this product?",
-      "keepOneVariant": "A product must keep at least one variant."
+      "keepOneVariant": "A product must keep at least one variant.",
+      "identifiers": {
+        "sku": "SKU",
+        "barcode": "Barcode",
+        "cannotClear": "This identifier can be changed, but cannot be cleared."
+      }
     },
     "wizard": {
       "documentTitle": "Create a product",

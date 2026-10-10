@@ -1058,7 +1058,12 @@
       "duplicateCombination": "Aquesta combinació d’opcions ja existeix.",
       "currencyChanged": "La moneda ha canviat. Cancel·la aquesta edició per utilitzar el preu actual.",
       "removeConfirmation": "Vols eliminar «%{variant}» d’aquest producte?",
-      "keepOneVariant": "El producte ha de conservar almenys una variant."
+      "keepOneVariant": "El producte ha de conservar almenys una variant.",
+      "identifiers": {
+        "sku": "SKU",
+        "barcode": "Codi de barres",
+        "cannotClear": "Aquest identificador es pot canviar, però no es pot esborrar."
+      }
     },
     "wizard": {
       "documentTitle": "Crear un producte",

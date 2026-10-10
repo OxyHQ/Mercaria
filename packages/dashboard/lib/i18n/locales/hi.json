@@ -1040,7 +1040,12 @@
       "duplicateCombination": "विकल्पों का यह संयोजन पहले से मौजूद है।",
       "currencyChanged": "मुद्रा बदल गई है। मौजूदा कीमत इस्तेमाल करने के लिए यह बदलाव रद्द करें।",
       "removeConfirmation": "इस उत्पाद से “%{variant}” हटाएँ?",
-      "keepOneVariant": "उत्पाद में कम से कम एक वैरिएंट होना चाहिए।"
+      "keepOneVariant": "उत्पाद में कम से कम एक वैरिएंट होना चाहिए।",
+      "identifiers": {
+        "sku": "SKU",
+        "barcode": "बारकोड",
+        "cannotClear": "यह पहचानकर्ता बदला जा सकता है, लेकिन हटाया नहीं जा सकता।"
+      }
     },
     "wizard": {
       "documentTitle": "उत्पाद बनाएँ",

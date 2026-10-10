@@ -30,6 +30,7 @@ import { Screen } from "@/components/shell/Screen";
 import { canRetainDetailData } from "@/lib/detail-query-state";
 import { ProductOrganization, type ProductOrganizationValue } from "@/components/products/ProductOrganization";
 import { VariantInventory } from "@/components/products/VariantInventory";
+import { VariantIdentifiers } from "@/components/products/VariantIdentifiers";
 import { VariantPrice } from "@/components/products/VariantPrice";
 import { RemoveVariantButton } from "@/components/products/RemoveVariantButton";
 import { CreateVariantForm } from "@/components/products/CreateVariantForm";
@@ -381,6 +382,7 @@ function VariantRow({
         <PriceDisplay price={variant.price} primaryClassName="text-sm font-semibold" />
       </View>
       <VariantPrice storeId={storeId} productId={productId} variant={variant} canWrite={canWrite} />
+      <VariantIdentifiers storeId={storeId} productId={productId} variant={variant} canWrite={canWrite} />
       <VariantInventory storeId={storeId} productId={productId} variantId={variant.id} available={variant.available} canWrite={canInventory} />
       <RemoveVariantButton storeId={storeId} productId={productId} variant={variant} canWrite={canWrite} removable={removable} />
     </View>

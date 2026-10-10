@@ -1040,7 +1040,12 @@
       "duplicateCombination": "此选项组合已存在。",
       "currencyChanged": "货币已更改。请取消此次编辑以使用当前价格。",
       "removeConfirmation": "要从此商品中移除“%{variant}”吗？",
-      "keepOneVariant": "商品必须至少保留一个款式。"
+      "keepOneVariant": "商品必须至少保留一个款式。",
+      "identifiers": {
+        "sku": "SKU",
+        "barcode": "条形码",
+        "cannotClear": "此标识符可以修改，但不能清空。"
+      }
     },
     "wizard": {
       "documentTitle": "创建商品",

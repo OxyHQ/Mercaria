@@ -1040,7 +1040,12 @@
       "duplicateCombination": "このオプションの組み合わせはすでに存在します。",
       "currencyChanged": "通貨が変更されました。現在の価格を使用するには、この編集をキャンセルしてください。",
       "removeConfirmation": "この商品から「%{variant}」を削除しますか？",
-      "keepOneVariant": "商品には少なくとも1つのバリエーションが必要です。"
+      "keepOneVariant": "商品には少なくとも1つのバリエーションが必要です。",
+      "identifiers": {
+        "sku": "SKU",
+        "barcode": "バーコード",
+        "cannotClear": "この識別子は変更できますが、空欄にはできません。"
+      }
     },
     "wizard": {
       "documentTitle": "商品を作成",

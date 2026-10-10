@@ -1040,7 +1040,12 @@
       "duplicateCombination": "مجموعة الخيارات هذه موجودة بالفعل.",
       "currencyChanged": "تغيّرت العملة. ألغِ هذا التعديل لاستخدام السعر الحالي.",
       "removeConfirmation": "هل تريد إزالة «%{variant}» من هذا المنتج؟",
-      "keepOneVariant": "يجب أن يحتفظ المنتج بمتغيّر واحد على الأقل."
+      "keepOneVariant": "يجب أن يحتفظ المنتج بمتغيّر واحد على الأقل.",
+      "identifiers": {
+        "sku": "رمز SKU",
+        "barcode": "الرمز الشريطي",
+        "cannotClear": "يمكن تغيير هذا المعرّف، لكن لا يمكن مسحه."
+      }
     },
     "wizard": {
       "documentTitle": "إنشاء منتج",

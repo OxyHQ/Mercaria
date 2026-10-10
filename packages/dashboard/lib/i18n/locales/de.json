@@ -1040,7 +1040,12 @@
       "duplicateCombination": "Diese Optionskombination ist bereits vorhanden.",
       "currencyChanged": "Die Währung hat sich geändert. Verwirf diese Bearbeitung, um den aktuellen Preis zu verwenden.",
       "removeConfirmation": "„%{variant}“ aus diesem Produkt entfernen?",
-      "keepOneVariant": "Ein Produkt muss mindestens eine Variante behalten."
+      "keepOneVariant": "Ein Produkt muss mindestens eine Variante behalten.",
+      "identifiers": {
+        "sku": "SKU",
+        "barcode": "Barcode",
+        "cannotClear": "Diese Kennung kann geändert, aber nicht gelöscht werden."
+      }
     },
     "wizard": {
       "documentTitle": "Produkt anlegen",
