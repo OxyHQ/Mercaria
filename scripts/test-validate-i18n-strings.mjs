@@ -721,6 +721,26 @@ const cases = [
   // ------------------------------------------- C: referential integrity ------
 
   {
+    name: "an app can translate a key owned by the shared UI vocabulary",
+    files: migratedTree({
+      "packages/frontend/components/SharedLabel.tsx":
+        'import { useSharedUiTranslation } from "@mercaria/ui";\n'
+        + 'export function SharedLabel() { const t = useSharedUiTranslation(); return <Text>{t("ui.condition.label.new")}</Text>; }\n',
+    }),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  {
+    name: "a missing shared key from an app still fails at the shared owner",
+    files: migratedTree({
+      "packages/frontend/components/SharedLabel.tsx":
+        'import { useSharedUiTranslation } from "@mercaria/ui";\n'
+        + 'export function SharedLabel() { const t = useSharedUiTranslation(); return <Text>{t("ui.condition.label.doesNotExist")}</Text>; }\n',
+    }),
+    expectExit: 1,
+    expectOutput: "names no key in packages/ui/src/i18n/locales/en.json",
+  },
+  {
     name: "a t() call naming a key that does not exist fails",
     files: migratedTree({
       "packages/dashboard/components/regressed.tsx":

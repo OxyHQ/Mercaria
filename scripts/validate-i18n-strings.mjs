@@ -3338,12 +3338,17 @@ for (const app of OWNERS) {
       );
     }
   }
-  // C. every `t('literal')` names a real key.
-  const resolvable = knownKeysByApp.get(app.name) ?? new Set();
+  // C. every `t('literal')` names a real key. App roots merge the shared
+  // vocabulary under `ui`; check D verifies that ownership/provider contract.
+  // Resolve that namespace at its owner instead of requiring duplicated app copy.
   for (const site of translateSitesByApp.get(app.name) ?? []) {
+    const keyOwner = site.key.startsWith(`${SHARED_UI_NAMESPACE}.`)
+      ? OWNERS.find((owner) => owner.name === SHARED_UI_OWNER)
+      : app;
+    const resolvable = knownKeysByApp.get(keyOwner.name) ?? new Set();
     if (resolvable.has(site.key)) continue;
     failures.push(
-      `${site.file}:${site.line}: t(${JSON.stringify(site.key)}) names no key in ${englishPath}. `
+      `${site.file}:${site.line}: t(${JSON.stringify(site.key)}) names no key in ${keyOwner.locales}/en.json. `
       + "i18n-js renders a humanised guess of the key, which reads like real copy.",
     );
   }
