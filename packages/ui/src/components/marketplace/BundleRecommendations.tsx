@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import { Image } from '../ui/image';
 import { Button } from '@oxy.so/bloom/button';
@@ -13,13 +13,14 @@ import { useShopControlClassName } from '../../lib/useShopControlClassName';
 
 export interface BundleRecommendationsProps {
   bundles: readonly ListingBundleRecommendation[];
-  onView: (bundle: ListingBundleRecommendation) => void;
+  /** Render a real link to the exact recommended listing and variant. */
+  renderLink: (bundle: ListingBundleRecommendation, child: ReactElement) => ReactNode;
   onAddToCart: (bundle: ListingBundleRecommendation) => Promise<void>;
 }
 
 /** Shop's bundle upsell: 134px photos, horizontal cards, 1.25/2.5/3 visible.
  * Reuses Bloom's carousel and buttons; the seller's own pack price is displayed. */
-export function BundleRecommendations({ bundles, onView, onAddToCart }: BundleRecommendationsProps) {
+export function BundleRecommendations({ bundles, renderLink, onAddToCart }: BundleRecommendationsProps) {
   const t = useSharedUiTranslation();
   const { width } = useWindowDimensions();
   const shelf = useShelfCarouselProps();
@@ -38,7 +39,7 @@ export function BundleRecommendations({ bundles, onView, onAddToCart }: BundleRe
       <View className="min-w-0" onLayout={event => setMeasuredWidth(event.nativeEvent.layout.width)}>
       {measuredWidth > 0 ? <Carousel {...shelf} gap={8} inset={inset} slidesPerGroup={width >= 976 ? 3 : desktop ? 2 : 1} accessibilityLabel={title}>
         {bundles.map(bundle => <CarouselItem key={bundle.variantId} width={cardWidth}>
-          <BundleRecommendationCard bundle={bundle} onView={onView} onAddToCart={onAddToCart} />
+          <BundleRecommendationCard bundle={bundle} renderLink={renderLink} onAddToCart={onAddToCart} />
         </CarouselItem>)}
       </Carousel> : null}
       </View>
@@ -46,7 +47,7 @@ export function BundleRecommendations({ bundles, onView, onAddToCart }: BundleRe
   );
 }
 
-function BundleRecommendationCard({ bundle, onView, onAddToCart }: Omit<BundleRecommendationsProps, 'bundles'> & { bundle: ListingBundleRecommendation }) {
+function BundleRecommendationCard({ bundle, renderLink, onAddToCart }: Omit<BundleRecommendationsProps, 'bundles'> & { bundle: ListingBundleRecommendation }) {
   const t = useSharedUiTranslation();
   const controls = useShopControlClassName();
   const [pending, setPending] = useState(false);
@@ -57,36 +58,40 @@ function BundleRecommendationCard({ bundle, onView, onAddToCart }: Omit<BundleRe
   const fileId = bundle.image?.fileId;
   const uri = fileId && !isImageUrl(fileId) ? resolveImage?.(fileId, 'thumb') : undefined;
   const activate = async () => {
-    if (bundle.action === 'view_bundle') { onView(bundle); return; }
     if (pending) return;
     setPending(true); setFailed(false); setAdded(false);
     try { await onAddToCart(bundle); setAdded(true); }
     catch { setFailed(true); }
     finally { setPending(false); }
   };
+  const link = (child: ReactElement) => renderLink(bundle, child);
+  const action = (
+    <Button material="flat" appearance="subtle" size="sm" loading={pending} disabled={pending}
+      accessibilityRole={bundle.action === 'view_bundle' ? 'link' : 'button'}
+      className={`${controls('tertiary', false, pending)} min-w-0 w-full web:whitespace-normal`}
+      textStyle={{ flexShrink: 1, paddingHorizontal: 0, textAlign: 'center' }}
+      accessibilityLabel={t(bundle.action === 'view_bundle' ? 'ui.bundle.view' : added ? 'ui.purchase.added' : 'ui.purchase.addToCart')}
+      onPress={bundle.action === 'view_bundle' ? undefined : () => { void activate(); }}>
+      {t(bundle.action === 'view_bundle' ? 'ui.bundle.view' : added ? 'ui.purchase.added' : 'ui.purchase.addToCart')}
+    </Button>
+  );
   return (
     <View testID="bundle-recommendation-card" className="min-h-[155px] min-w-0 max-w-full flex-row gap-space-12 rounded-radius-12 border border-border-secondary bg-bg-fill p-space-16">
-      {bundle.image ? <Pressable testID="bundle-recommendation-image" accessibilityRole="link" accessibilityLabel={bundle.title} disabled={pending}
-        onPress={() => onView(bundle)} className="h-[134px] w-[134px] shrink-0 items-center justify-center overflow-hidden rounded-radius-8 bg-muted">
+      {bundle.image ? link(<Pressable testID="bundle-recommendation-image" accessibilityRole="link" accessibilityLabel={bundle.title}
+        className="h-[134px] w-[134px] shrink-0 items-center justify-center overflow-hidden rounded-radius-8 bg-muted">
         {uri && failedImage !== uri ? <Image source={{ uri }} contentFit="cover" accessibilityLabel={bundle.image.alt ?? bundle.title}
           onError={() => setFailedImage(uri)} className="size-full" />
           : <Text className="p-space-8 text-shop-badge text-muted-foreground">{t('ui.marketplace.noImage')}</Text>}
-      </Pressable> : null}
+      </Pressable>) : null}
       <View className="min-w-0 flex-1 justify-between gap-space-12">
-        <Pressable accessibilityRole="link" accessibilityLabel={bundle.title} disabled={pending} onPress={() => onView(bundle)} className="min-w-0 flex-1">
+        {link(<Pressable accessibilityRole="link" accessibilityLabel={bundle.title} className="min-w-0 flex-1">
           <Text numberOfLines={2} className="text-shop-bodySmall text-text">{bundle.title}</Text>
           <View className="min-w-0 flex-row flex-wrap gap-space-4 pt-space-4">
             <PriceDisplay price={bundle.price} primaryClassName="text-shop-bodySmall font-normal" className="min-w-0 flex-wrap" />
             {bundle.compareAtPrice ? <PriceDisplay price={bundle.compareAtPrice} primaryClassName="text-shop-bodySmall font-normal text-text-tertiary line-through" secondaryClassName="line-through" className="min-w-0 flex-wrap" /> : null}
           </View>
-        </Pressable>
-        <Button material="flat" appearance="subtle" size="sm" loading={pending} disabled={pending}
-          className={`${controls('tertiary', false, pending)} min-w-0 w-full web:whitespace-normal`}
-          textStyle={{ flexShrink: 1, paddingHorizontal: 0, textAlign: 'center' }}
-          accessibilityLabel={t(bundle.action === 'view_bundle' ? 'ui.bundle.view' : added ? 'ui.purchase.added' : 'ui.purchase.addToCart')}
-          onPress={() => { void activate(); }}>
-          {t(bundle.action === 'view_bundle' ? 'ui.bundle.view' : added ? 'ui.purchase.added' : 'ui.purchase.addToCart')}
-        </Button>
+        </Pressable>)}
+        {bundle.action === 'view_bundle' ? link(action) : action}
         {failed ? <Text accessibilityRole="alert" className="text-shop-caption text-destructive">{t('ui.bundle.addFailed')}</Text> : null}
       </View>
     </View>

@@ -93,6 +93,7 @@ for (const width of [390, 1440]) {
     await page.getByRole('radio', { name: /Configuration 2,/ }).click();
     await expect(page.getByTestId('product-update-error')).toBeVisible();
     await expect(page.getByTestId('bundled-product-card')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByTestId('bundled-product-card')).not.toHaveAttribute('href');
     await expect(page.getByTestId('product-offers')).not.toHaveAttribute('aria-busy', 'true');
     failing = false;
     await page.getByTestId('product-update-error').getByRole('button').click();
@@ -135,6 +136,7 @@ for (const width of [390, 1440]) {
     await expect.poll(() => started).toBe(true);
     await expect(page.getByTestId('product-offers')).toHaveAttribute('aria-busy', 'true');
     await expect(page.getByTestId('bundled-product-card')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByTestId('bundled-product-card')).not.toHaveAttribute('href');
     await page.waitForTimeout(1200);
     release();
     await expect(page.getByTestId('bundle-quantity')).toHaveText('×2');

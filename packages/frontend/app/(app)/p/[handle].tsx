@@ -4,7 +4,7 @@ import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import Head from 'expo-router/head';
-import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import type {
   CanonicalProductPage,
   OfferComparisonIntent,
@@ -236,7 +236,7 @@ export default function CanonicalProductPageScreen() {
             />
             {width >= 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isSelectionStale}
               resolveImage={image => image.fileId ? resolveImage?.(image.fileId) : undefined}
-              onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
+              renderLink={(component, child) => <Link href={buildHref(component.productSlug, component.variantId, undefined)} asChild>{child}</Link>} /> : null}
           </View>
           <View className="min-w-0 gap-space-24 px-space-16 md:px-0 md:pt-2 md:w-[29em]">
             <ProductIdentity
@@ -333,7 +333,7 @@ export default function CanonicalProductPageScreen() {
 
             {width < 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isSelectionStale}
               resolveImage={image => image.fileId ? resolveImage?.(image.fileId) : undefined}
-              onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
+              renderLink={(component, child) => <Link href={buildHref(component.productSlug, component.variantId, undefined)} asChild>{child}</Link>} /> : null}
             <ReviewSummaryCard
               mediaContent={<ProductReviewMedia scope="product" id={page.product.id} scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)} />}
               embedded

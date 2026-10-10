@@ -1546,3 +1546,26 @@ failure is timing-sensitive, not limited to natural-height targets. Both
 StoreMenu probes restored byte-for-byte before header native acceptance. Agent
 is preparing an isolated RN/Reanimated reproduction; stale settled-style collector
 is a hypothesis, not a proven cause. Do not publish a purported fix yet.
+
+9228d459 extends confirmed-write cache protection to product edits and variant
+create/update/delete: cancel exact preceding detail read before publishing DTO.
+8 new QueryClient cases fail before/pass after;12hooktests total,4desktopbrowser,
+dashboard types/lint pass. Isolated test transport only, no production writes.
+
+Bundle component and upsell navigation now takes app-owned link renderers rather
+than onPress-only destinations. Listing/variant and canonical/configuration IDs
+remain explicit; images/titles/configurable-pack action support keyboard/new tabs.
+Stale canonical configurations expose no href until data is current.9browsercases
+(new links at390/1440 plus selection/refusal/no-remount),UI/frontend types,
+frontend lint and route/RTL guards pass. Carousel geometry EN/AR also passes.
+No successful image interception; real Oxy delivery is retained.
+
+Native investigation made progress beyond a hypothesis: minimal RN/Reanimated
+300→450/opacity0→1 keeps final state normally, but with diagnostic2600ms JS stall
+rolls back to300 and loses text. The REAL Mercaria review transition also logged
+3038.94ms JS gap without synthetic stall and then lost its body. Official upstream
+PR9527 fixes settled-style eviction/invalidation; public Reanimated4.3.4 includes
+it. Agent is adopting that verified patch (5manifests+lock, RN/Worklets unchanged)
+and rebuilding Android; native acceptance is NOT yet complete. Expo56.0.23's
+recommended exact4.3.1 will warn; do not silence it with exclude/override. OldAPK
+preserved /tmp/mercaria-native-before-reanimated434/mercaria-reanimated431.apk.

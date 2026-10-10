@@ -350,10 +350,10 @@ function ProductBody({ listing }: ProductBodyProps) {
     <BundleContents
       contents={selectedVariant ? listing.bundleContentsByVariant?.[selectedVariant.id] : undefined}
       resolveImage={image => image.fileId ? resolveImage?.(image.fileId) : undefined}
-      onPressComponent={component => router.push({
+      renderLink={(component, child) => <Link href={{
         pathname: "/p/[handle]",
         params: { handle: component.productSlug, variant: component.variantId },
-      })}
+      }} asChild>{child}</Link>}
     />
   );
   const selection = Object.fromEntries(
@@ -936,7 +936,7 @@ function ProductBody({ listing }: ProductBodyProps) {
 
         <BundleRecommendations
           bundles={selectedVariant ? listing.bundlesByVariant?.[selectedVariant.id] ?? [] : []}
-          onView={bundle => router.push({ pathname: "/products/[id]", params: { id: bundle.listingId, variantId: bundle.variantId } })}
+          renderLink={(bundle, child) => <Link href={{ pathname: "/products/[id]", params: { id: bundle.listingId, variantId: bundle.variantId } }} asChild>{child}</Link>}
           onAddToCart={async bundle => {
             await addBundleToCart.mutateAsync({ listingId: bundle.listingId, variantId: bundle.variantId, quantity: 1 });
           }}

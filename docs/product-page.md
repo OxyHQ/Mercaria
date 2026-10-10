@@ -506,6 +506,16 @@ policies, person-to-person offers and Mercaria-retail offers do not inherit a
 store policy. No return-window or free-return claim is inferred from prose.
 Shipping remains hidden under the logistics boundary.
 
+### Bundle navigation
+
+Bundle navigation uses app-owned Expo links supplied to the shared UI. Included
+components target the canonical product and exact configuration; recommended
+packs target the listing and exact variant. Images, titles and the configurable
+pack action expose real web anchors, including keyboard and new-tab navigation.
+The add-to-cart action remains a button. A stale canonical selection removes
+the component destination until the current configuration is confirmed, so an
+old pack cannot be opened through a modified click while its new data loads.
+
 ### Related category discovery
 
 Below the same-store shelf, “You might also like” uses the category's existing

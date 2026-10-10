@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import { Image } from '../ui/image';
 import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
@@ -11,11 +11,12 @@ export interface BundleContentsProps {
   contents?: ProductBundleContents;
   pending?: boolean;
   resolveImage: (image: NonNullable<ProductBundleComponent['image']>) => string | undefined;
-  onPressComponent: (component: ProductBundleComponent) => void;
+  /** App-owned routing keeps web anchors and native navigation on the same target. */
+  renderLink: (component: ProductBundleComponent, child: ReactElement) => ReactNode;
 }
 
 /** Shop's three-item phone rail and four/five-column gallery-side grid. */
-export function BundleContents({ contents, pending = false, resolveImage, onPressComponent }: BundleContentsProps) {
+export function BundleContents({ contents, pending = false, resolveImage, renderLink }: BundleContentsProps) {
   const t = useSharedUiTranslation();
   const { width } = useWindowDimensions();
   const shelf = useShelfCarouselProps();
@@ -29,7 +30,7 @@ export function BundleContents({ contents, pending = false, resolveImage, onPres
     <BundleComponentCard key={component.variantId} component={component}
       disabled={pending}
       uri={component.image ? resolveImage(component.image) : undefined}
-      onPress={() => onPressComponent(component)} />
+      renderLink={child => renderLink(component, child)} />
   );
   return (
     <View testID="included-in-bundle-section"
@@ -53,13 +54,13 @@ export function BundleContents({ contents, pending = false, resolveImage, onPres
   );
 }
 
-function BundleComponentCard({ component, uri, onPress, disabled }: {
-  component: ProductBundleComponent; uri?: string; onPress: () => void; disabled: boolean;
+function BundleComponentCard({ component, uri, renderLink, disabled }: {
+  component: ProductBundleComponent; uri?: string; renderLink: (child: ReactElement) => ReactNode; disabled: boolean;
 }) {
   const t = useSharedUiTranslation();
   const [failedUri, setFailedUri] = useState<string>();
-  return (
-    <Pressable testID="bundled-product-card" accessibilityRole="link" onPress={onPress}
+  const card = (
+    <Pressable testID="bundled-product-card" accessibilityRole="link"
       disabled={disabled} accessibilityState={{ disabled }}
       accessibilityLabel={t('ui.bundle.open', { name: component.name, variant: component.variantName ?? '', quantity: component.quantity })}
       className="group relative overflow-hidden rounded-[10px] border border-border bg-card web:focus-visible:outline web:focus-visible:outline-2 web:focus-visible:outline-primary">
@@ -75,4 +76,6 @@ function BundleComponentCard({ component, uri, onPress, disabled }: {
       <View className="border-t border-border"><Text numberOfLines={1} className="m-space-8 text-shop-bodyTitleSmall text-foreground">{component.name}</Text></View>
     </Pressable>
   );
+  // A stale configuration must not retain a destination for modified clicks.
+  return disabled ? card : renderLink(card);
 }

@@ -83,7 +83,7 @@ for (const width of [320, 390, 1440]) {
     await expect(shelf.getByRole('heading', { name: copy.bundle.together })).toBeVisible();
     await expect(shelf.getByTestId('bundle-recommendation-image').getByText(copy.marketplace.noImage, { exact: true })).toBeVisible();
     expect(externalImages).toEqual([]);
-    await shelf.getByRole('button', { name: copy.bundle.view, exact: true }).click();
+    await shelf.getByRole('link', { name: copy.bundle.view, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`variantId=${configurable.variantId}$`));
     await expect(shelf).toHaveCount(0);
     expect(writes).toHaveLength(2);
