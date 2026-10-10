@@ -346,7 +346,10 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // `seo.ts` gained fields. The guard's verdict on all of it is GREEN — none of
     // the new names is identity-shaped (a provider is a `slug`, media an Oxy
     // file id). 136/2369/7899, READ OFF the guard's own output line.
-    "walked 136 contract module(s), 2369 exported type(s), 7899 property signature(s)",
+    // `ingestion.ts`'s `NormalizedSourceRecord` gained `productGroupKey`
+    // (ADR 0016) — a source's own product id, opaque and source-scoped, not an
+    // identity-shaped name. 136/2369/7900.
+    "walked 136 contract module(s), 2369 exported type(s), 7900 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });
