@@ -95,7 +95,26 @@ migration replay and two concurrent grants all end at exactly one row.
 `createReview` resolves the eligibility, refuses a self-review, refuses a
 duplicate, then SPENDS it before writing. The spend is a CAS on `state = 'open'`,
 so two concurrent submissions produce one winner; `reviews_eligibility_id_key`
-is the second, independent wall.
+is the second, independent wall. The spend and the review, dimensions and media
+inserts share one transaction: a failed write must leave the eligibility open.
+External file checks finish before this transaction starts.
+
+### Review attachments
+
+`CreateReviewInput.mediaFileIds` accepts up to ten distinct Oxy file IDs, in display
+order. The backend reads each file using the author's bearer on a fresh Oxy client
+and requires the exact ID, owner, active status and public visibility. It accepts
+JPEG, PNG, WebP, GIF and AVIF images up to 20 MiB, or MP4/WebM videos up to 100 MiB.
+MIME and size come from Oxy; the caller supplies neither a URL nor a media kind.
+The entire selection is checked before durable Mercaria asset links are created.
+This path never promotes a private file to public. Private transaction reviews
+cannot accept these public attachments.
+
+`review_media` stores ordered child rows, with unique positions and file IDs per
+review. It has no independent moderation state: public hydration joins the parent
+and excludes hidden reviews and transaction targets. Deleting a review cascades
+to its attachment rows; Oxy owns the underlying file lifetime. Media reads on a
+paginated review response describe that page, not a complete product media strip.
 
 A review with no eligibility is written `unverified` — labelled, counted
 separately, never blended into the headline rating. It is not refused: that is a

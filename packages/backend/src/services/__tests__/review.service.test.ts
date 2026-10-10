@@ -26,6 +26,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const aggregatePublishedReviews = vi.fn();
 const authorHasReviewedTarget = vi.fn();
 const findDimensionsForReviews = vi.fn();
+const findMediaForReviews = vi.fn().mockResolvedValue([]);
 const findPurchasedVariantsForReviews = vi.fn();
 const findReviewHelpfulness = vi.fn();
 const findListingReviewsPage = vi.fn();
@@ -57,6 +58,7 @@ vi.mock('../../db/reviews/reviewRepository.js', () => ({
   readReviewRatingSummary: vi.fn().mockResolvedValue(undefined),
   authorHasReviewedTarget: (...args: unknown[]) => authorHasReviewedTarget(...args),
   findDimensionsForReviews: (...args: unknown[]) => findDimensionsForReviews(...args),
+  findMediaForReviews: (...args: unknown[]) => findMediaForReviews(...args),
   findListingReviewsPage: (...args: unknown[]) => findListingReviewsPage(...args),
   findReviewsPage: (...args: unknown[]) => findReviewsPage(...args),
   findScopedReviewsPage: (...args: unknown[]) => findScopedReviewsPage(...args),
@@ -65,6 +67,10 @@ vi.mock('../../db/reviews/reviewRepository.js', () => ({
 
 vi.mock('../../db/reviews/reviewEligibilityRepository.js', () => ({
   consumeEligibility: (...args: unknown[]) => consumeEligibility(...args),
+}));
+
+vi.mock('../../db/postgres.js', () => ({
+  getDb: () => ({ transaction: (work: (tx: object) => unknown) => work({}) }),
 }));
 
 vi.mock('../../db/reviews/reviewPurchaseContextRepository.js', () => ({
@@ -330,7 +336,7 @@ describe('review.service.createReview — eligibility and verification', () => {
 
     // Spent BEFORE the write: the CAS is what makes two concurrent submissions
     // produce one winner, and the index is only the second wall.
-    expect(consumeEligibility).toHaveBeenCalledWith('elig-1');
+    expect(consumeEligibility).toHaveBeenCalledWith('elig-1', expect.any(Object));
     expect(insertReview).toHaveBeenCalledTimes(1);
     expect(insertReview.mock.calls[0][0]).toMatchObject({
       scope: 'p2p_listing',
@@ -675,5 +681,22 @@ describe('public helpfulness counts', () => {
     expect(result.data[0]).not.toHaveProperty('markedAsHelpfulByMe');
     expect(result.data[0]).not.toHaveProperty('canUpdateHelpfulness');
     expect(findReviewHelpfulness).toHaveBeenCalledExactlyOnceWith([first.id, second.id]);
+  });
+});
+
+describe('public review attachments', () => {
+  it('keeps ordered file IDs on their review and leaves text-only reviews unchanged', async () => {
+    const first = reviewRow({ id: 'review-with-media' });
+    const second = reviewRow({ id: 'review-text-only' });
+    const attachments = [
+      { id: 'attachment-a', fileId: 'oxy-photo', kind: 'image', position: 0 },
+      { id: 'attachment-b', fileId: 'oxy-video', kind: 'video', position: 1 },
+    ];
+    findMediaForReviews.mockResolvedValueOnce(attachments.map(media => ({ ...media, reviewId: first.id })));
+    findReviewsPage.mockResolvedValue({ rows: [first, second], total: 2 });
+    const result = await listReviews({ targetType: 'listing', targetId: 'listing-1' }, { page: 1, limit: 12 });
+    expect(result.data[0].media).toEqual(attachments);
+    expect(result.data[1]).not.toHaveProperty('media');
+    expect(findMediaForReviews).toHaveBeenCalledExactlyOnceWith([first.id, second.id]);
   });
 });

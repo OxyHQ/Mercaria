@@ -631,11 +631,21 @@ The public Shop [rhode product](https://shop.app/products/8117398765806/peptide-
 contains a ten-photo buyer-review strip (`pdp-reviews-media-strip-media-*`). Its
 public `ReviewsSheetContent` module also renders an all-reviews strip and opens
 `ReviewMediaViewer`, with the associated review rather than a product-gallery
-image substituted for it. Mercaria's `Review` DTO, review schema, creation form
-and read projections do not yet carry attachments; ReviewCard renders text,
-rating and author only. This is a confirmed remaining parity gap, not hidden
-Shop skeleton markup. Implement real Oxy-backed review attachments, published
-parent visibility and the Bloom strip/viewer together. Keep author ownership,
+image substituted for it. Mercaria now has `Review.media`, ordered `review_media`
+children (additive migration 0165), and `mediaFileIds` on creation. The backend
+checks each file against the author's Oxy metadata before durable linking;
+public hydration excludes hidden parents and private transaction targets.
+Eligibility consumption, review, dimensions and attachments commit atomically.
+Focused tests include a real PostgreSQL rollback through `createReview`, the
+public media DTO and separately mocked Oxy validation failures; these do not
+prove live uploads. The complete backend run passed 800 files and exposed five
+new-table governance failures; all five were corrected and their 93 tests passed.
+Backend, shared UI and all three app typechecks passed; backend lint has no errors.
+
+Still missing: the creation form's upload flow, the product-wide media strip
+(current media hydration covers only the returned review page), and the Bloom
+viewer with associated review. ReviewCard still renders text, rating and author
+only. Implement and validate these with real author-owned Oxy files. Keep
 purchase verification and moderation intact; supplier URLs or synthetic file
 IDs are not review media. Full Shop parity remains unproven.
 

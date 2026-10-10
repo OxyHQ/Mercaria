@@ -63,6 +63,8 @@ import {
   REVIEW_TARGET_MIGRATION_ACTIONS,
   REVIEW_TARGET_TYPES,
   REVIEW_VERIFICATION_STATES,
+  REVIEW_MEDIA_KINDS,
+  REVIEW_MEDIA_LIMIT,
   type ReviewScope,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf } from './columns';
@@ -460,6 +462,25 @@ export const reviewDimensions = pgTable(
     uniqueIndex('review_dimensions_review_id_key_key').on(t.reviewId, t.key),
   ],
 );
+
+/** Attachments belong to a review, not its product gallery. CASCADE removes
+ * meaningless child references when their parent is deleted; moderation still
+ * belongs solely to the parent. Oxy owns file IDs and file lifetime. */
+export const reviewMedia = pgTable('review_media', {
+  id: generatedId(),
+  reviewId: text().notNull().references(() => reviews.id, { onDelete: 'cascade' }),
+  fileId: text().notNull(),
+  kind: text({ enum: asEnumValues(REVIEW_MEDIA_KINDS) }).notNull(),
+  position: integer().notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, t => [
+  checkOneOf('review_media_kind_check', t.kind, REVIEW_MEDIA_KINDS),
+  check('review_media_file_id_check', sql`${t.fileId} ~ '^[A-Za-z0-9_-]+$'`),
+  check('review_media_position_check', sql`${t.position} >= 0 and ${t.position} < ${sql.raw(String(REVIEW_MEDIA_LIMIT))}`),
+  uniqueIndex('review_media_review_id_position_key').on(t.reviewId, t.position),
+  uniqueIndex('review_media_review_id_file_id_key').on(t.reviewId, t.fileId),
+]);
 
 /**
  * `review_eligibilities` — a durable grant: this Oxy account may write ONE

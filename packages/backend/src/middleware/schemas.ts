@@ -37,6 +37,8 @@ import {
   MAX_VALUES_PER_VARIANT_AXIS,
   MAX_VARIANT_AXES_PER_PRODUCT,
   STORE_PERMISSIONS,
+  REVIEW_MEDIA_LIMIT,
+  isOxyFileId,
   type AssetFileRole,
   type AssetFileVisibility,
   type ConditionDetailKind,
@@ -1075,6 +1077,8 @@ export const createReviewSchema = z
       .optional(),
     title: z.string().trim().min(1).max(200).optional(),
     body: z.string().trim().max(5000).optional(),
+    mediaFileIds: z.array(z.string().max(256).refine(isOxyFileId, 'Expected an Oxy file ID'))
+      .max(REVIEW_MEDIA_LIMIT).refine(ids => new Set(ids).size === ids.length, 'Duplicate review attachment').optional(),
     // BCP-47 shape, matching `reviews_locale_shape_check` — the column would
     // reject anything else, and a 400 explains it better than a 500.
     locale: z

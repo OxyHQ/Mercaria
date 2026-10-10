@@ -71,9 +71,10 @@ import {
   type ReviewVerificationState,
   type ReviewRatingSummary,
   type ReviewListFilters,
+  type ReviewMediaKind,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import { reviewDimensions, reviews } from '../schema/reviews.js';
+import { reviewDimensions, reviewMedia, reviews } from '../schema/reviews.js';
 
 /** One row of `reviews`. */
 export type ReviewRecord = InferSelectModel<typeof reviews>;
@@ -110,6 +111,7 @@ export interface NewReview extends ReviewTarget {
   incentiveDisclosure: ReviewIncentiveDisclosure;
   classificationState: ReviewClassificationState;
   dimensions?: readonly { key: ReviewDimensionKey; rating: number }[];
+  media?: readonly { fileId: string; kind: ReviewMediaKind }[];
 }
 
 /** A page of reviews plus the total matching count, for an offset pager. */
@@ -341,6 +343,12 @@ export async function insertReview(
       );
     }
 
+    if (values.media?.length) {
+      await tx.insert(reviewMedia).values(values.media.map((media, position) => ({
+        reviewId: row.id, fileId: media.fileId, kind: media.kind, position,
+      })));
+    }
+
     return row;
   };
 
@@ -349,6 +357,19 @@ export async function insertReview(
   return 'transaction' in db && typeof db.transaction === 'function'
     ? await db.transaction(write)
     : await write(db);
+}
+
+/** Only published, non-private parents can project public attachments. The
+ * parent join repeats the visibility check even if a caller passes hidden IDs. */
+export async function findMediaForReviews(ids: readonly string[], db: DatabaseOrTransaction = getDb()) {
+  if (!ids.length) return [];
+  return db.select({ id: reviewMedia.id, reviewId: reviewMedia.reviewId,
+    fileId: reviewMedia.fileId, kind: reviewMedia.kind, position: reviewMedia.position })
+    .from(reviewMedia).innerJoin(reviews, eq(reviews.id, reviewMedia.reviewId))
+    .where(and(inArray(reviewMedia.reviewId, [...ids]), eq(reviews.status, 'published'),
+      sql`${reviews.targetType} <> 'order_item'`,
+      or(isNull(reviews.scope), sql`${reviews.scope} <> 'native_transaction'`)))
+    .orderBy(asc(reviewMedia.reviewId), asc(reviewMedia.position));
 }
 
 /**

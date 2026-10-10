@@ -90,6 +90,7 @@ flowchart LR
         M_Compatibility["Compatibility"]
         M_External_mappings["External mappings"]
         M_Review_helpfulness["Review helpfulness"]
+        M_Review_attachments["Review attachments"]
         M_Connector_pins["Connector pins"]
         M_Native_variant_images["Native variant images"]
         M_Discovery["Discovery"]
@@ -170,6 +171,7 @@ flowchart LR
     M_External_mappings --> X_catalog_sources
     M_External_mappings --> X_source_records
     M_Review_helpfulness --> X_reviews
+    M_Review_attachments --> X_reviews
     M_Connector_pins --> X_listings
     M_Native_variant_images --> X_listing_images
     M_Native_variant_images --> X_listings
@@ -202,7 +204,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**20 modules**, **18 writing directories**,
+**21 modules**, **18 writing directories**,
 **4 tables written from more than one directory** and
 **4 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -241,6 +243,7 @@ flowchart LR
     M_Compatibility(["Compatibility"])
     M_External_mappings(["External mappings"])
     M_Review_helpfulness(["Review helpfulness"])
+    M_Review_attachments(["Review attachments"])
     M_Connector_pins(["Connector pins"])
     M_Native_variant_images(["Native variant images"])
     M_Discovery(["Discovery"])
@@ -266,6 +269,7 @@ flowchart LR
     W_db_discovery -->|"2"| M_Discovery
     W_db_navigation -->|"5"| M_Navigation
     W_db_productTypes -->|"5"| M_Product_types
+    W_db_reviews -->|"1"| M_Review_attachments
     W_db_reviews -->|"1"| M_Review_helpfulness
     W_db_stores -->|"1"| M_Store_access
     W_db_taxonomy -->|"2"| M_Classification
@@ -329,7 +333,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 86 tables created by a migration at or after `0088`
+All 87 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -764,6 +768,21 @@ Also names, from outside the epic: `reviews`.
 |---|---|---|
 | `review_helpful_votes` | `0163` | `db/reviews` (delete/insert) |
 
+### Review attachments
+
+```mermaid
+erDiagram
+    review_media {
+    }
+    reviews ||--o{ review_media : "review_id · cascade"
+```
+
+Also names, from outside the epic: `reviews`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `review_media` | `0165` | `db/reviews` (insert) |
+
 ### Connector pins
 
 ```mermaid
@@ -1007,9 +1026,9 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 86 |
-| Modules they are grouped into | 20 |
-| Foreign keys out of an epic table | 179 |
+| Tables in the population | 87 |
+| Modules they are grouped into | 21 |
+| Foreign keys out of an epic table | 180 |
 | Foreign keys into one, from outside the epic | 2 |
 | Pre-existing tables the epic attaches to | 21 |
 | Relationships the schema proves are 1:1 | 3 |
@@ -1018,7 +1037,7 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 | Tables written from more than one directory | 4 |
 | Tables no application code writes | 4 |
 
-`ON DELETE` across those 179 foreign keys: **46** `cascade`, **2** `no action`, **128** `restrict`, **3** `set null`.
+`ON DELETE` across those 180 foreign keys: **47** `cascade`, **2** `no action`, **128** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 

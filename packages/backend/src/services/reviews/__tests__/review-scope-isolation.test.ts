@@ -46,6 +46,7 @@ import {
   reviewDimensions,
   reviewEligibilities,
   reviewHelpfulVotes,
+  reviewMedia,
   reviews,
   reviewTargetMigrations,
 } from '../../../db/schema/reviews.js';
@@ -111,6 +112,7 @@ const REVIEW_TABLES = [
   ['review_dimension_aggregates', reviewDimensionAggregates],
   ['review_target_migrations', reviewTargetMigrations],
   ['review_helpful_votes', reviewHelpfulVotes],
+  ['review_media', reviewMedia],
 ] as const;
 
 /**
@@ -264,7 +266,7 @@ describe('#76 wall 2 — no buyer contact or payment data in the domain', () => 
         columnsScanned += 1;
       }
     }
-    // The whole-domain floor: seven tables, including the four-column vote fact.
+    // The whole-domain floor: eight tables, including attachments and the four-column vote fact.
     expect(columnsScanned).toBeGreaterThan(64);
   });
 

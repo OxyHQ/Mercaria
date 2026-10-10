@@ -6,14 +6,15 @@
  *
  * `createReview` → refuse a forbidden scope → refuse a dimension from another
  * scope → resolve the eligibility to spend → refuse a self-review (two
- * independent layers) → refuse a duplicate → SPEND the eligibility → write the
- * review and its dimensions → rebuild the scoped aggregate → notify the owner.
+ * independent layers) → refuse a duplicate → verify the author's Oxy media →
+ * atomically spend eligibility and write the review, dimensions and attachments
+ * → rebuild the scoped aggregate → notify the owner.
  *
- * The eligibility is spent BEFORE the review is written, and the two are
- * separate statements on purpose: the spend is a CAS on `state = 'open'`, so two
+ * The eligibility is spent BEFORE the review is written, within the SAME
+ * transaction: the spend is a CAS on `state = 'open'`, so two
  * concurrent submissions produce exactly one winner even before the review
  * insert gets anywhere near `reviews_eligibility_id_key`. That index is the
- * second wall, not the first.
+ * second wall, not the first. A failed insert rolls back the spend as well.
  *
  * ## Verified and unverified
  *
@@ -48,12 +49,15 @@ import type {
   ReviewListFilters,
 } from '@mercaria/shared-types';
 import { isUniqueViolation } from '@oxy.so/db';
+import { getDb } from '../db/postgres.js';
+import { prepareReviewMedia } from './reviews/review-media.service.js';
 import { findReviewHelpfulness } from '../db/reviews/reviewHelpfulnessRepository.js';
 import {
   aggregatePublishedReviews,
   readReviewRatingSummary,
   authorHasReviewedTarget,
   findDimensionsForReviews,
+  findMediaForReviews,
   findListingReviewsPage,
   findReviewsPage,
   findScopedReviewsPage,
@@ -372,28 +376,32 @@ export async function createReview(
     throw conflict('You have already reviewed this item');
   }
 
-  // Spend BEFORE writing. The CAS on `state = 'open'` is what makes two
-  // concurrent submissions produce one winner; the review's own unique index on
-  // `eligibility_id` is the second, independent wall.
-  if (eligibility && !(await consumeEligibility(eligibility.id))) {
-    throw conflict('That review eligibility has already been used');
-  }
+  const media = await prepareReviewMedia(author, target.scope, input.mediaFileIds);
 
   let row: ReviewRecord;
   try {
-    row = await insertReview({
-      ...legacyTarget,
-      scope: target.scope,
-      authorOxyUserId,
-      verification: eligibility ? 'verified_purchase' : 'unverified',
-      classificationState: 'native',
-      incentiveDisclosure: input.incentiveDisclosure ?? 'none',
-      rating: input.rating,
-      ...(eligibility ? { orderId: eligibility.orderId, eligibilityId: eligibility.id } : {}),
-      ...(input.title ? { title: input.title } : {}),
-      ...(input.body ? { body: input.body } : {}),
-      ...(input.locale ? { locale: input.locale } : {}),
-      ...(input.dimensions ? { dimensions: input.dimensions } : {}),
+    // Spending evidence and inserting the review, dimensions and attachments
+    // commit together. An attachment/constraint failure must not consume the
+    // buyer's opportunity to review. All Oxy I/O finished before this lock.
+    row = await getDb().transaction(async tx => {
+      if (eligibility && !(await consumeEligibility(eligibility.id, tx))) {
+        throw conflict('That review eligibility has already been used');
+      }
+      return insertReview({
+        ...legacyTarget,
+        scope: target.scope,
+        authorOxyUserId,
+        verification: eligibility ? 'verified_purchase' : 'unverified',
+        classificationState: 'native',
+        incentiveDisclosure: input.incentiveDisclosure ?? 'none',
+        rating: input.rating,
+        ...(eligibility ? { orderId: eligibility.orderId, eligibilityId: eligibility.id } : {}),
+        ...(input.title ? { title: input.title } : {}),
+        ...(input.body ? { body: input.body } : {}),
+        ...(input.locale ? { locale: input.locale } : {}),
+        ...(input.dimensions ? { dimensions: input.dimensions } : {}),
+        ...(media.length ? { media } : {}),
+      }, tx);
     });
   } catch (err) {
     // The pre-check above is the nice error; these are the ones that actually
@@ -455,18 +463,26 @@ async function hydrate(
   products?: Map<string, ReviewProduct>,
 ): Promise<ReviewPage> {
   const authorIds = [...new Set(rows.map((row) => row.authorOxyUserId))];
-  const [authorProfiles, dimensionRows, purchasedVariants, helpfulness] = await Promise.all([
+  const [authorProfiles, dimensionRows, purchasedVariants, helpfulness, mediaRows] = await Promise.all([
     getProfiles(authorIds),
     findDimensionsForReviews(rows.map((row) => row.id)),
     findPurchasedVariantsForReviews(rows.map((row) => row.id)),
     findReviewHelpfulness(rows.map((row) => row.id)),
+    findMediaForReviews(rows.map(row => row.id)),
   ]);
   const dimensions = groupDimensions(dimensionRows);
   const helpfulCounts = new Map(helpfulness.map(row => [row.reviewId, row.helpfulnessCount]));
+  const media = new Map<string, ReviewDTO['media']>();
+  for (const { reviewId, ...attachment } of mediaRows) {
+    const items = media.get(reviewId) ?? [];
+    items.push(attachment);
+    media.set(reviewId, items);
+  }
   return {
     data: rows.map((row) => ({
       ...toReviewDTO(row, authorProfiles, dimensions, products, purchasedVariants),
       helpfulnessCount: helpfulCounts.get(row.id) ?? 0,
+      ...(media.has(row.id) ? { media: media.get(row.id) } : {}),
     })),
     total,
   };
