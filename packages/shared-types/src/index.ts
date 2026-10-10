@@ -903,3 +903,5 @@ export * from './catalog-governance';
 export * from './catalog-metrics';
 export * from './shopping-thread';
 export * from './media';
+
+export * from './catalog-media';
