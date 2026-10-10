@@ -50,11 +50,11 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
 
   setTokenGetter(() => oxyServices.session.accessToken || null);
 
-  // Resolve Oxy file IDs to thumbnail download URLs for any Bloom component
-  // that reads useImageResolver() (e.g. Avatar with a raw file id `source`).
+  // Resolve public Oxy file IDs using the rendition requested by Bloom.
+  // No rendition means the original; Avatar explicitly requests its thumbnail.
   const resolveImageSource = useCallback(
-    (fileId: string): string | undefined => {
-      const url = oxyServices.assets.publicUrl(fileId, "thumb");
+    (fileId: string, variant?: string): string | undefined => {
+      const url = oxyServices.assets.publicUrl(fileId, variant);
       return url && url.startsWith("http") ? url : undefined;
     },
     [oxyServices],

@@ -542,3 +542,38 @@ registers between deploys keeps it. `NEARBY_DISCOVERY_ENABLED` and
   merged is undiscoverable until its merchant's next verify (the dashboard
   runs one on opening the location). A sweep could do it; nothing does yet.
 
+
+## Catalog media synchronization — open (2026-10-10)
+
+The storefront requirement is **internal Oxy file IDs only**: download/import
+remote artwork in the backend before publishing it; never hotlink a supplier
+image as a fallback. This is not established by the connector synchronization
+currently implemented here. An audit found:
+
+- `channel-ingest.service.ts` copies `product.images` to `imageFileIds`;
+  `connector-sync.service.ts` does the same with `product.imageUrls`. Neither
+  imports the bytes into Oxy.
+- `canonical-product.service.ts` accepts `sourceUrl` without `fileId`, and
+  several canonical read projections/UI consumers display that URL directly.
+- `catalog-hydration.service.ts` and `variant-images.controller.ts` replace
+  `fileId` with a resolved URL. The gallery, related cards, recent history and
+  public API projection rely on that behavior; they need a coordinated change.
+- Local preview seeds also put external URLs into image fields. Some category
+  and merchant artwork is already bundled locally; this does not prove all
+  catalog media is synchronized.
+
+SSM's existing Mercaria application credential successfully minted an Oxy token
+on 2026-10-10; its scopes contain no `files:*` permissions. No credential values
+were recorded, scopes changed, or production assets uploaded. The existing Oxy
+`/assets/service/user-media` route writes durable public assets under a local
+owner account and requires staff-granted `files:user-media:write` (or the broader
+legacy pair). The federation cache route is an evictable namespace, not a
+substitute for catalog ownership. Resolve the proper authorized upload path
+before migrating stored references.
+
+Remaining work: synchronize both import paths and canonical ingestion, retain
+source URLs as provenance only, migrate existing media without dropping gallery
+identity/order, preserve IDs in DTOs, resolve renditions through Oxy in every
+consumer, and verify browser requests never fetch supplier image origins.
+New dashboard list rows and bundle recommendation cards already reject URL
+values in `fileId`; this is not a claim that other surfaces are corrected.

@@ -3,6 +3,7 @@ import { Pressable, View, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Button } from '@oxy.so/bloom/button';
 import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
+import { isImageUrl, useImageResolver } from '@oxy.so/bloom/image-resolver';
 import type { ListingBundleRecommendation } from '@mercaria/shared-types';
 import { Text } from '../ui/text';
 import { PriceDisplay } from '../PriceDisplay';
@@ -52,7 +53,9 @@ function BundleRecommendationCard({ bundle, onView, onAddToCart }: Omit<BundleRe
   const [added, setAdded] = useState(false);
   const [failed, setFailed] = useState(false);
   const [failedImage, setFailedImage] = useState<string>();
-  const uri = bundle.image?.fileId;
+  const resolveImage = useImageResolver();
+  const fileId = bundle.image?.fileId;
+  const uri = fileId && !isImageUrl(fileId) ? resolveImage?.(fileId, 'thumb') : undefined;
   const activate = async () => {
     if (bundle.action === 'view_bundle') { onView(bundle); return; }
     if (pending) return;
@@ -63,10 +66,11 @@ function BundleRecommendationCard({ bundle, onView, onAddToCart }: Omit<BundleRe
   };
   return (
     <View testID="bundle-recommendation-card" className="min-h-[155px] min-w-0 max-w-full flex-row gap-space-12 rounded-radius-12 border border-border-secondary bg-bg-fill p-space-16">
-      {uri && failedImage !== uri ? <Pressable accessibilityRole="link" accessibilityLabel={bundle.title} disabled={pending}
-        onPress={() => onView(bundle)} className="h-[134px] w-[134px] shrink-0 overflow-hidden rounded-radius-8">
-        <Image source={{ uri }} contentFit="cover" accessibilityLabel={bundle.image?.alt ?? bundle.title}
+      {bundle.image ? <Pressable testID="bundle-recommendation-image" accessibilityRole="link" accessibilityLabel={bundle.title} disabled={pending}
+        onPress={() => onView(bundle)} className="h-[134px] w-[134px] shrink-0 items-center justify-center overflow-hidden rounded-radius-8 bg-muted">
+        {uri && failedImage !== uri ? <Image source={{ uri }} contentFit="cover" accessibilityLabel={bundle.image.alt ?? bundle.title}
           onError={() => setFailedImage(uri)} className="size-full" />
+          : <Text className="p-space-8 text-shop-badge text-muted-foreground">{t('ui.marketplace.noImage')}</Text>}
       </Pressable> : null}
       <View className="min-w-0 flex-1 justify-between gap-space-12">
         <Pressable accessibilityRole="link" accessibilityLabel={bundle.title} disabled={pending} onPress={() => onView(bundle)} className="min-w-0 flex-1">
