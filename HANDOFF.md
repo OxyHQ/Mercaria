@@ -1221,15 +1221,32 @@ never successful media delivery. Shared UI types and RTL gates pass.
 Bloom's `theme.mode`/`theme.isDark` now accompany its own color values. Ten browser
 review/policy/theme checks pass, including opposite merchant/app scopes.
 
-Bloom 7.28.0 is prepared in OxyHQ/Bloom#309, with the official NativeWind RC0 /
-react-native-css RC0 pair. At this handoff it is NOT published: eight of nine
-test shards plus build/package/types pass, one shard and merge queue remain.
-The Bloom agent owns that release and compatible Services 11.1.14; the latter
-passed 1040 tests on both SDK56 and SDK57. Mercaria still installs registry
-Bloom7.27.0/Services11.1.13 and must only consume the verified public releases.
-Then restart Metro for the dependency change and verify native line heights on
-the attached Pixel8a; `/tmp/mercaria-autolinking-before-728.json` records the
-current Expo native module graph. Native visual acceptance is still open.
+Bloom 7.28.0 is now published from OxyHQ/Bloom#309, with the official NativeWind
+5.0.0-rc.0 / react-native-css 3.1.0-rc.0 pair. Public tarball SHA1 is
+870befb9be7c22b5e18ed408f541c1146da36eb4. Compatible Services 11.1.14 was accepted
+by npm at 12:22:57 UTC; public verification is pending (expected SHA1
+8c705291be418c8a79617cc3c55f3e12ce366e1d). It passed 1040 tests on both SDK56 and
+SDK57. Mercaria still installs Bloom7.27.0/Services11.1.13 until both public
+tarballs are verified. Restart Metro after the dependency change and compare
+`/tmp/mercaria-autolinking-before-728.json` before deciding on a native rebuild.
+
+The RC fixes alpha-color compilation but DOES NOT fix Tailwind's pixel-valued
+`var(--tw-leading, 20px)` fallback. A real runtime probe still produced360px.
+Commit d5b2a25c adopts Bloom's standard unitless line-height convention in both
+Mercaria token definitions: 20/18 means20px at18px font size, consistently on
+web/native and under font scaling. Three browser cases measure all20 roles.
+After clearing Metro, the physical Pixel8a's Recently viewed text frame shrank
+from945px to58px including native font padding. Evidence:
+`/tmp/mercaria-native-relative-typography-{loaded.png,fresh.xml}`. The price-pill
+background remains broken until the official RC adoption; the new three-app
+alpha compiler regressions are deliberately red on installed3.0.7.
+
+Commit c07201f0 keeps common product detail photos when selecting a variant,
+excludes photos explicitly assigned to other configurations, and prepends the
+selected photos. Nine unit checks and two browser cases pass; the gallery stays
+mounted and opaque throughout the change at390px/1440px. Video DTOs landed as
+3e00470e, but backend/video editor/player integration is still in progress in
+`/tmp/mercaria-catalog-video-media`. Videos are not yet a completed feature.
 
 GoWay's atomic weekday update is ready in OxyHQ/GoWay#110 (bcddf0c), with all
 remote CI checks green, 943 backend tests and 192 SDK tests passing. It extends
