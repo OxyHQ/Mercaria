@@ -8,6 +8,7 @@ import { uuidv7 } from '@oxy.so/db';
 import type { Database } from '../../db/postgres.js';
 import { listings } from '../../db/schema/catalog.js';
 import { stores } from '../../db/schema/stores.js';
+import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 
 const RUN = uuidv7().slice(-12);
 const OWNER = `product-filters-${RUN}`;
@@ -59,7 +60,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (server) await new Promise<void>(resolve => server.close(() => resolve()));
   if (listingIds.length) await db.delete(listings).where(inArray(listings.id, listingIds));
-  if (storeIds.length) await db.delete(stores).where(inArray(stores.id, storeIds));
+  if (storeIds.length) await deleteTestStores(db, storeIds);
   if (close) await close();
 });
 async function read(query: string, store = storeIds[0]) {
