@@ -4,7 +4,8 @@ import Svg, { Path } from "react-native-svg";
 import { useReducedMotion } from "react-native-reanimated";
 import { Button } from "@oxy.so/bloom/button";
 import { Search } from "@oxy.so/bloom/search";
-import { REVIEW_SEARCH_MAX_LENGTH, type ReviewSortOrder } from "@mercaria/shared-types";
+import * as Skeleton from "@oxy.so/bloom/skeleton";
+import { REVIEW_SEARCH_MAX_LENGTH, type ReviewSortOrder, type ReviewRatingSummary, type ScopedRatingAggregate } from "@mercaria/shared-types";
 import { ReviewCard, ReviewSummaryCard, Text, MarketplaceSheet, useColorScheme, useFormatters } from "@mercaria/ui";
 import {
   useInfiniteProductReviews,
@@ -20,7 +21,7 @@ import { useTranslation } from "@/lib/i18n";
 function ReviewSearchClearIcon({ width = 24, height = 24 }: { width?: number; height?: number; fill?: string }) {
   const { isDarkColorScheme } = useColorScheme();
   return (
-    <Svg width={width} height={height} viewBox="0 0 24 24" fill="none" opacity={0.6} accessible={false}>
+    <Svg width={width} height={height} viewBox="0 0 24 24" fill="none" opacity={0.6} aria-hidden>
       <Path fillRule="evenodd" clipRule="evenodd" fill={isDarkColorScheme ? "#ffffff" : "#121212"}
         d="M2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12ZM9.70711 8.29289C9.31658 7.90237 8.68342 7.90237 8.29289 8.29289C7.90237 8.68342 7.90237 9.31658 8.29289 9.70711L10.5858 12L8.29289 14.2929C7.90237 14.6834 7.90237 15.3166 8.29289 15.7071C8.68342 16.0976 9.31658 16.0976 9.70711 15.7071L12 13.4142L14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L13.4142 12L15.7071 9.70711C16.0976 9.31658 16.0976 8.68342 15.7071 8.29289C15.3166 7.90237 14.6834 7.90237 14.2929 8.29289L12 10.5858L9.70711 8.29289Z" />
     </Svg>
@@ -66,7 +67,24 @@ export function ProductReviewsDialog({
   const title = t(REVIEW_SCOPE_HEADING_KEYS[scope]);
   const firstPage = query.data?.pages[0];
   const pagination = firstPage?.pagination;
-  const summary = firstPage?.ratingSummary;
+  // The server's rating summary describes the whole target, not the search
+  // results. Keep only that summary through filter requests; retaining old
+  // cards would present unrelated reviews as matches for the new search.
+  const targetKey = `${scope}:${scope === "product" ? canonicalProductId : listingId}`;
+  const [lastOverview, setLastOverview] = useState<{
+    targetKey: string;
+    summary: ReviewRatingSummary;
+    unverified?: ScopedRatingAggregate["unverified"];
+  }>();
+  useEffect(() => {
+    if (firstPage?.ratingSummary) setLastOverview({
+      targetKey, summary: firstPage.ratingSummary, unverified: firstPage.aggregate?.unverified,
+    });
+  }, [firstPage, targetKey]);
+  const overview = firstPage?.ratingSummary
+    ? { summary: firstPage.ratingSummary, unverified: firstPage.aggregate?.unverified }
+    : lastOverview?.targetKey === targetKey ? lastOverview : undefined;
+  const summary = overview?.summary;
   const reviews = query.data?.pages.flatMap((page) => page.data) ?? [];
   // Offset pagination may overlap if a new review is published mid-scroll.
   const uniqueReviews = [...new Map(reviews.map((review) => [review.id, review])).values()];
@@ -125,7 +143,7 @@ export function ProductReviewsDialog({
               total={summary.reviewCount}
               distribution={summary.distribution}
               verifiedOnly={summary.verifiedOnly}
-              unverified={firstPage?.aggregate?.unverified}
+              unverified={overview?.unverified}
               reviews={[]}
               isLoading={false}
             />
@@ -183,9 +201,7 @@ export function ProductReviewsDialog({
           </Text>
         ) : null}
         {query.isLoading ? (
-          <Text className="text-shop-bodySmall text-text-tertiary">
-            {t("common.loading")}
-          </Text>
+          <ReviewListLoading accessibilityLabel={t("common.loading")} />
         ) : null}
         {query.isError && !query.isFetchNextPageError ? (
           <Button onPress={() => void query.refetch()}>
@@ -216,9 +232,7 @@ export function ProductReviewsDialog({
           </View>
         ))}
         {query.isFetchingNextPage ? (
-          <Text accessibilityLiveRegion="polite" className="text-center text-shop-caption text-text-tertiary">
-            {t("common.loading")}
-          </Text>
+          <ReviewListLoading accessibilityLabel={t("common.loading")} />
         ) : null}
         {query.isFetchNextPageError ? (
           <Button onPress={() => void query.fetchNextPage()}>
@@ -228,4 +242,20 @@ export function ProductReviewsDialog({
       </View>
     </MarketplaceSheet>
   );
+}
+
+/** Shop's three review placeholders; Bloom owns shimmer and reduced motion. */
+function ReviewListLoading({ accessibilityLabel }: { accessibilityLabel: string }) {
+  return <View testID="review-list-loading" aria-busy accessibilityLabel={accessibilityLabel} className="gap-space-8">
+    {[0, 1, 2].map(index => <View key={index} className="gap-space-8 rounded-radius-20 border-[0.5px] border-border-image bg-transparent p-space-16 shadow-shop-s">
+      <View className="flex-row gap-space-4">
+        {[0, 1, 2, 3, 4].map(star => <Skeleton.Box key={star} width={20} height={20} borderRadius={4} />)}
+      </View>
+      <View className="gap-space-4">
+        <Skeleton.Box width="70%" height={14} borderRadius={4} />
+        <Skeleton.Box width="86%" height={14} borderRadius={4} />
+        <Skeleton.Box width="53%" height={14} borderRadius={4} />
+      </View>
+    </View>)}
+  </View>;
 }
