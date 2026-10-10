@@ -55,6 +55,7 @@ export interface SourcePolicyRights {
   readonly mayAppendAffiliateParams: boolean;
   readonly mayIndex: boolean;
   readonly mayRefreshAutomatically: boolean;
+  readonly maySeedCatalog: boolean;
   readonly extractionMode: 'disallowed' | 'robots_respecting' | 'contracted';
   readonly attributionRequired: boolean;
 }
@@ -96,6 +97,9 @@ export function resolveSourceRights(
     // not extract either — the refresh rule applies to the mechanism that
     // reaches out, whichever right authorises it.
     extraction: policy.extractionMode !== 'disallowed' && mayRefresh,
+    // ADR 0014. A paused source keeps it: pausing stops REACHING OUT, and
+    // seeding reads only observations Mercaria already holds.
+    seed_catalog: policy.maySeedCatalog && policy.mayStore,
   });
 }
 

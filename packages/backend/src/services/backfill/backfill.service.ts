@@ -63,6 +63,9 @@ import { runProvisionalProductsPage } from './stages/provisional-products.js';
 import { runNativeOffersPage } from './stages/native-offers.js';
 import { runRebuildProjectionsPage, runSearchReindexPage } from './stages/projections.js';
 import { runConsistencyPage } from './stages/consistency.js';
+import { runReferenceProductsPage } from './stages/reference-products.js';
+import { runSourceReadvancePage } from './stages/source-readvance.js';
+import { runReferencePromotionPage } from './stages/reference-promotion.js';
 
 /**
  * Every stage's page function, as a TABLE.
@@ -81,6 +84,9 @@ const STAGE_RUNNERS: Readonly<Record<CatalogBackfillStage, StageRunner>> = {
   rebuild_projections: runRebuildProjectionsPage,
   search_reindex: runSearchReindexPage,
   consistency: runConsistencyPage,
+  reference_products: runReferenceProductsPage,
+  source_readvance: runSourceReadvancePage,
+  reference_promotion: runReferencePromotionPage,
 };
 
 /**
@@ -102,6 +108,11 @@ const WHOLE_CATALOGUE_STAGES: ReadonlySet<CatalogBackfillStage> = new Set([
   'rebuild_projections',
   'search_reindex',
   'consistency',
+  // ADR 0014: these page over source objects and seeded products, never over
+  // listings, so a listing cohort would read as a restriction and apply none.
+  'reference_products',
+  'source_readvance',
+  'reference_promotion',
 ]);
 
 /** How long one page's lease is held. */

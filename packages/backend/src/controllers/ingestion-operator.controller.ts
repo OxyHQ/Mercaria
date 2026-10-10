@@ -228,6 +228,7 @@ export async function listSourcePoliciesHandler(req: Request, res: Response): Pr
           affiliateParams: policy.mayAppendAffiliateParams,
           index: policy.mayIndex,
           automatedRefresh: policy.mayRefreshAutomatically,
+          seedCatalog: policy.maySeedCatalog,
           extractionMode: policy.extractionMode,
           extractionMaxRequestsPerDay: policy.extractionMaxRequestsPerDay,
         },
@@ -264,6 +265,7 @@ export async function publishSourcePolicyHandler(req: Request, res: Response): P
       mayAppendAffiliateParams: body.mayAppendAffiliateParams,
       mayIndex: body.mayIndex,
       mayRefreshAutomatically: body.mayRefreshAutomatically,
+      ...(body.maySeedCatalog === undefined ? {} : { maySeedCatalog: body.maySeedCatalog }),
       extractionMode: body.extractionMode as CatalogSourceExtractionMode,
       ...(body.extractionMaxRequestsPerDay === undefined
         ? {}

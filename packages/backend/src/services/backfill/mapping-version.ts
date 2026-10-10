@@ -77,7 +77,9 @@ export type BackfillSubject =
    * `id` field: a vendor value is not a row anywhere, and a field named `id`
    * would invite a caller to treat it as one.
    */
-  | { readonly kind: 'vendor_value'; readonly normalizedName: string };
+  | { readonly kind: 'vendor_value'; readonly normalizedName: string }
+  /** A `catalog_source_objects` row — the ADR 0014 stages' subject. */
+  | { readonly kind: 'source_object'; readonly sourceObjectId: string };
 
 /**
  * The stable identity of a subject.
@@ -105,6 +107,8 @@ export function backfillSubjectKey(subject: BackfillSubject): string {
       // An unnormalizable value groups under the empty string, which is a real
       // group with a real report row rather than a subject nobody can address.
       return `vendor_value${SEPARATOR}${subject.normalizedName}`;
+    case 'source_object':
+      return `source_object${SEPARATOR}${subject.sourceObjectId}`;
   }
 }
 

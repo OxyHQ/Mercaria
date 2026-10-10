@@ -28,6 +28,8 @@
  */
 
 import type {
+  NormalizedSourceFact,
+  NormalizedSourceFactValue,
   NormalizedSourceIdentifier,
   NormalizedSourceMoney,
   NormalizedSourceOption,
@@ -63,6 +65,14 @@ export const NORMALIZATION_LIMITS = {
   options: 24,
   /** How many media references one record may carry. */
   media: 24,
+  /** How many structured facts one record may carry. */
+  facts: 160,
+  /** A fact key. Namespaced keys are short; a long one is a provider's prose. */
+  factKey: 80,
+  /** A fact's text value. Ingredient lists are the long legitimate case. */
+  factText: 1_000,
+  /** How many members a list-valued fact may carry. */
+  factList: 40,
 } as const;
 
 /** Trim, collapse internal whitespace, and drop what is left if it is empty. */
@@ -221,6 +231,53 @@ function cleanMedia(values: readonly string[]): string[] {
   return result;
 }
 
+/** The shape a fact key must have: lower-case, dot-namespaced. */
+const FACT_KEY_PATTERN = /^[a-z0-9_]+(\.[a-z0-9_]+)*$/;
+
+/** One fact value, bounded, or nothing. A non-finite number is a parse error. */
+function cleanFactValue(value: NormalizedSourceFactValue): NormalizedSourceFactValue | undefined {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value === 'string') return cleanText(value, NORMALIZATION_LIMITS.factText);
+  if (!Array.isArray(value)) return undefined;
+  const seen = new Set<string>();
+  const members: string[] = [];
+  for (const member of value) {
+    const text = cleanText(member, NORMALIZATION_LIMITS.shortText);
+    if (text === undefined || seen.has(text)) continue;
+    seen.add(text);
+    members.push(text);
+    if (members.length >= NORMALIZATION_LIMITS.factList) break;
+  }
+  return members.length > 0 ? members : undefined;
+}
+
+/**
+ * Structured facts, deduped on the KEY and capped.
+ *
+ * A key that is not namespaced lower-case is DROPPED rather than folded: the key
+ * is what a later mapping to the attribute registry reads, and silently turning
+ * `Energy (kcal)` into something matchable would invent a vocabulary nobody
+ * wrote. The first value for a key wins, exactly as options do.
+ */
+function cleanFacts(values: readonly NormalizedSourceFact[] | undefined): NormalizedSourceFact[] {
+  if (values === undefined) return [];
+  const seen = new Set<string>();
+  const result: NormalizedSourceFact[] = [];
+  for (const entry of values) {
+    const key = typeof entry.key === 'string' ? entry.key.trim() : '';
+    if (key.length === 0 || key.length > NORMALIZATION_LIMITS.factKey) continue;
+    if (!FACT_KEY_PATTERN.test(key) || seen.has(key)) continue;
+    const value = cleanFactValue(entry.value);
+    if (value === undefined) continue;
+    const unit = cleanText(entry.unit, 32);
+    seen.add(key);
+    result.push({ key, value, ...(unit === undefined ? {} : { unit }) });
+    if (result.length >= NORMALIZATION_LIMITS.facts) break;
+  }
+  return result;
+}
+
 /**
  * The canonical form of one adapter's record.
  *
@@ -299,6 +356,7 @@ export function canonicalizeNormalizedRecord(
   const categoryKey = cleanText(record.categoryKey, NORMALIZATION_LIMITS.shortText);
   const sourceCreatedAt = cleanInstant(record.sourceCreatedAt);
   const sourceUpdatedAt = cleanInstant(record.sourceUpdatedAt);
+  const facts = cleanFacts(record.facts);
 
   return {
     title,
@@ -326,5 +384,6 @@ export function canonicalizeNormalizedRecord(
     ...(categoryKey === undefined ? {} : { categoryKey }),
     ...(sourceCreatedAt === undefined ? {} : { sourceCreatedAt }),
     ...(sourceUpdatedAt === undefined ? {} : { sourceUpdatedAt }),
+    ...(facts.length === 0 ? {} : { facts }),
   };
 }

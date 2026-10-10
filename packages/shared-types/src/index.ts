@@ -522,6 +522,11 @@ export * from './ebay';
 // may never establish about a retailer (disjoint from every fact this domain
 // can record, so #55 stays the only route to a badge).
 export * from './awin';
+
+// Keyless open-data providers (Open Prices, the Open Facts family, CheapShark,
+// GOG, Scryfall…): the licence vocabulary every descriptor declares and the
+// summary an operator or the public data-sources page reads.
+export * from './open-data';
 // Affiliate outbound redirects, click records and commission reconciliation
 // (#67, part of #37). Follows `./offer`, `./ebay` and `./awin`: it SPENDS what
 // they store rather than adding to it — the destination is the provider's own

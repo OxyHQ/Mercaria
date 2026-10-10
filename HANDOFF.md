@@ -580,3 +580,25 @@ identity/order, preserve IDs in DTOs, resolve renditions through Oxy in every
 consumer, and verify browser requests never fetch supplier image origins.
 New dashboard list rows and bundle recommendation cards already reject URL
 values in `fileId`; this is not a claim that other surfaces are corrected.
+
+# Open-data providers — what is built and what is next
+
+Keyless catalogue and price providers (`services/open-data/`, doc
+`docs/catalog-sources/open-data-providers.md`) are built, tested against
+recorded responses and #62's contract suite, and exercised live. They are
+**inert**: `OPEN_DATA_PROVIDERS` is empty and `OPEN_DATA_USER_AGENT` unset on
+every deployment.
+
+- **Reference seeding is BUILT (ADR 0014)** and inert until an operator grants a
+  source `may_seed_catalog`. The backfill stages are `reference_products` →
+  `source_readvance` → `reference_promotion`, then `search_reindex`. Nothing
+  schedules them: they run when an operator opens a run on
+  `/internal/catalog/backfill`, exactly as #60's stages do. Seeded products carry
+  no category, no brand and no images yet. The brand hint and the Open Facts
+  photos are in the observation's payload, and mapping them is the next step.
+  Facts are stored, not yet mapped onto the attribute registry (#94).
+- **Non-GTIN sources** (games, cards, fuel) need a stable cross-source
+  identity before they can match; Wikidata QIDs are the candidate.
+- **Storefront** renders no attribution and shows an `informational` offer as
+  "outbound not available"; Open Prices needs "seen at {chain} on {date}" and
+  the provider's attribution line. The ODbL subset export is deferred.

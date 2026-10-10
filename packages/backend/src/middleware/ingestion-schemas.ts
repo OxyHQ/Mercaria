@@ -85,6 +85,8 @@ export const publishPolicySchema = z
     mayAppendAffiliateParams: z.boolean(),
     mayIndex: z.boolean(),
     mayRefreshAutomatically: z.boolean(),
+    /** ADR 0014. Optional so every existing caller keeps meaning `false`. */
+    maySeedCatalog: z.boolean().optional(),
     extractionMode: z.enum(CATALOG_SOURCE_EXTRACTION_MODES as [string, ...string[]]),
     extractionMaxRequestsPerDay: z.number().int().min(1).max(10_000_000).optional(),
     extractionUserAgent: z.string().trim().min(1).max(200).optional(),

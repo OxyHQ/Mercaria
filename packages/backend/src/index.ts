@@ -331,6 +331,16 @@ connectPostgres()
         })
         .catch((err: unknown) => log.general.error({ err }, 'Awin adapter registration failed'));
 
+      // Register the keyless open-data providers `OPEN_DATA_PROVIDERS` lists
+      // (Open Prices, the Open Facts family, MITECO fuel, CheapShark, GOG,
+      // Scryfall, TCGdex…). Gates nothing durable, like Awin's flag, and
+      // registers nothing without `OPEN_DATA_USER_AGENT`.
+      import('./services/open-data/register.js')
+        .then(({ registerOpenDataAdapters }) => {
+          registerOpenDataAdapters();
+        })
+        .catch((err: unknown) => log.general.error({ err }, 'Open-data adapter registration failed'));
+
       // Hand back lapsed supplier holds, release lapsed quotes and evaluate
       // supplier health (#122). On EVERY task, and deliberately WITHOUT a lease:
       // every action it takes is an idempotent compare-and-swap, so N tasks
