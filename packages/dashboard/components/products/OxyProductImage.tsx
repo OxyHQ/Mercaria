@@ -10,7 +10,7 @@ import { useColorScheme, useSharedUiTranslation } from "@mercaria/ui";
 export function OxyProductImage({ fileId, alt, size }: { fileId?: string; alt: string; size: number }) {
   const resolveImage = useImageResolver();
   const { colors } = useColorScheme();
-  const t = useSharedUiTranslation();
+  const uiT = useSharedUiTranslation();
   const [failed, setFailed] = useState<readonly string[]>([]);
   const id = isOxyFileId(fileId) ? fileId : undefined;
   const thumbnail = id ? resolveImage?.(id, "thumb") : undefined;
@@ -20,6 +20,6 @@ export function OxyProductImage({ fileId, alt, size }: { fileId?: string; alt: s
   return <View style={{ width: size, height: size }} className="items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
     {uri ? <Image key={uri} source={{ uri }} style={{ width: size, height: size }} contentFit="contain"
       accessibilityLabel={alt} onError={() => setFailed(previous => previous.includes(uri) ? previous : [...previous, uri])} />
-      : <View accessibilityRole="image" accessibilityLabel={t("ui.marketplace.noImage")}><Package size={Math.min(28, size / 2)} color={colors.mutedForeground} /></View>}
+      : <View accessibilityRole="image" accessibilityLabel={uiT("ui.marketplace.noImage")}><Package size={Math.min(28, size / 2)} color={colors.mutedForeground} /></View>}
   </View>;
 }

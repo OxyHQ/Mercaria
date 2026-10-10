@@ -10,7 +10,7 @@ import { OxyProductImage } from "./OxyProductImage";
 /** Read-only merchant media review. Upload/reorder/delete require their own supported flows. */
 export function ProductMedia({ images, title }: { images: readonly ListingImage[]; title: string }) {
   const { t } = useTranslation();
-  const ui = useSharedUiTranslation();
+  const uiT = useSharedUiTranslation();
   const { width } = useWindowDimensions();
   const resolveImage = useImageResolver();
   const viewer = useRef<ZoomableMediaGalleryHandle>(null);
@@ -25,13 +25,13 @@ export function ProductMedia({ images, title }: { images: readonly ListingImage[
     <View className="flex-row flex-wrap gap-3">{images.map((image, index) => {
       const selected = media.findIndex(item => item.sourceIndex === index);
       return <Pressable key={`${image.fileId}:${index}`} testID="merchant-product-media-tile"
-        accessibilityRole="button" accessibilityLabel={ui("ui.gallery.viewImage", { position: index + 1 })}
+        accessibilityRole="button" accessibilityLabel={uiT("ui.gallery.viewImage", { position: index + 1 })}
         disabled={selected < 0} onPress={() => viewer.current?.open(media, selected)}
         className="rounded-lg active:opacity-70 web:hover:opacity-80">
         <OxyProductImage fileId={image.fileId} alt={image.alt || title} size={size} />
       </Pressable>;
     })}</View>
     <ZoomableMediaGallery ref={viewer} appearance="page" indicatorVariant="thumbnails" cornerRadius={12}
-      labels={{ previous: ui("ui.gallery.previous"), next: ui("ui.gallery.next"), goTo: position => ui("ui.gallery.viewImage", { position }) }} />
+      labels={{ previous: uiT("ui.gallery.previous"), next: uiT("ui.gallery.next"), goTo: position => uiT("ui.gallery.viewImage", { position }) }} />
   </View>;
 }

@@ -15,6 +15,7 @@ import { CanonicalSearchPanel } from "@/components/catalog-authoring/CanonicalSe
 import { ErrorSummary } from "@/components/catalog-authoring/ErrorSummary";
 import { PricingRows } from "@/components/catalog-authoring/PricingRows";
 import { ProductFields } from "@/components/catalog-authoring/ProductFields";
+import { ProductMedia } from "@/components/products/ProductMedia";
 import { ReviewPanel } from "@/components/catalog-authoring/ReviewPanel";
 import { SaveStateBadge, StepNav } from "@/components/catalog-authoring/WizardChrome";
 import { VariantAxes } from "@/components/catalog-authoring/VariantAxes";
@@ -360,9 +361,8 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
               disabled={!canEdit}
             />
             <View className="gap-1.5 rounded-2xl border border-border bg-surface p-4">
-              <Text className="text-sm font-semibold text-foreground">
-                {t("products.wizard.listing.mediaTitle")}
-              </Text>
+              {draft.imageFileIds.length ? <ProductMedia images={draft.imageFileIds.map((fileId, position) => ({ fileId, position }))} title={form.title} />
+                : <Text className="text-sm font-semibold text-foreground">{t("products.wizard.listing.mediaTitle")}</Text>}
               <Text className="text-xs text-muted-foreground">
                 {t("products.wizard.listing.mediaUnavailable")}
               </Text>

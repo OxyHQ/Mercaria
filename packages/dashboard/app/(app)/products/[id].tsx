@@ -28,6 +28,7 @@ import { Textarea } from "@oxy.so/bloom/textarea";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { canRetainDetailData } from "@/lib/detail-query-state";
+import { ProductMedia } from "@/components/products/ProductMedia";
 import { DetailContent } from "@/components/shell/DetailContent";
 import { RequireStore } from "@/components/shell/RequireStore";
 import {
@@ -244,6 +245,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
           onValueChange={setDescription}
           disabled={!canWrite}
         />
+        <ProductMedia images={product.images} title={product.title} />
         <Field
           label={t("common.status")}
           description={restricted ? t("products.detail.restrictedNotice") : undefined}

@@ -1,16 +1,15 @@
 import React, { useState } from "react";
 import { View, Pressable, useWindowDimensions } from "react-native";
-import { Image } from "expo-image";
 import { useRouter, type RoutePath } from "expo-router";
 import Head from "expo-router/head";
-import { Plus, Package, Search as SearchIcon } from "lucide-react-native";
+import { Plus, Search as SearchIcon } from "lucide-react-native";
 import { ALL_LISTING_STATUSES, type Listing, type ListingStatus } from "@mercaria/shared-types";
 import { Badge } from "@oxy.so/bloom/badge";
 import { Button } from "@oxy.so/bloom/button";
 import { Table, TableHeader, TableColumn, TableBody, TableRow, TableCell } from "@oxy.so/bloom/table";
 import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
-import { isImageUrl, useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { Text, PriceDisplay, SourceBadge, toBloomFieldIcon, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Text, PriceDisplay, SourceBadge, toBloomFieldIcon, toBloomIcon } from "@mercaria/ui";
+import { OxyProductImage } from "@/components/products/OxyProductImage";
 import { Screen } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { StatusFilter, ResourceList, ResourceState, ListPagination } from "@/components/lists/ResourceList";
@@ -113,15 +112,9 @@ function ProductStatus({ status }: { status: ListingStatus }) {
 }
 
 function ProductIdentity({ product, onPress, disabled }: { product: Listing; onPress: () => void; disabled: boolean }) {
-  const resolveImage = useImageResolver();
-  const { colors } = useColorScheme();
-  const fileId = product.images[0]?.fileId;
-  const uri = fileId && !isImageUrl(fileId) ? resolveImage?.(fileId, "thumb") : undefined;
   return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={product.title}
     className="flex-row items-center gap-3 rounded-lg py-1 active:opacity-70 web:hover:opacity-70">
-    <View className="h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
-      {uri ? <Image source={{ uri }} style={{ width: 40, height: 40 }} contentFit="cover" accessibilityLabel={product.images[0]?.alt || product.title} /> : <Package size={18} color={colors.mutedForeground} />}
-    </View>
+    <OxyProductImage key={product.images[0]?.fileId} fileId={product.images[0]?.fileId} alt={product.images[0]?.alt || product.title} size={40} />
     <View className="min-w-0 flex-1 gap-1"><Text className="text-sm font-semibold text-foreground" numberOfLines={2}>{product.title}</Text>
       {product.source ? <SourceBadge provider={product.source.provider} /> : null}
     </View>

@@ -2,6 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import type { AuthoringDraft, AuthoringSchema } from "@mercaria/shared-types";
 import { Text } from "@mercaria/ui";
+import { ProductMedia } from "@/components/products/ProductMedia";
 import { useTranslation } from "@/lib/i18n";
 import { hasAnswer } from "@/lib/authoring/answers";
 import { toMinorUnits } from "@/lib/money";
@@ -37,11 +38,10 @@ interface ReviewPanelProps {
  * read off the draft rather than off whatever the picker last held — that pin
  * is what the answers were given under.
  *
- * Media is not listed and there is no attachment control anywhere in this
- * wizard: no upload path to Oxy's file service exists in this repository, so a
- * picker here would be a control that cannot finish. A draft's stored
- * `imageFileIds` are left untouched by every save rather than being replaced
- * with an empty list — which is why nothing here reports "no images".
+ * Existing media is reviewed through its Oxy IDs. There is no attachment
+ * control in this wizard: uploading requires its own supported flow. A draft's
+ * stored `imageFileIds` remain untouched by saves, including when an image
+ * cannot be loaded. A failed preview must never clear the draft's media.
  */
 export function ReviewPanel({ draft, schema, form }: ReviewPanelProps) {
   const { t } = useTranslation();
@@ -124,6 +124,7 @@ export function ReviewPanel({ draft, schema, form }: ReviewPanelProps) {
       </Section>
 
       <Section title={t("products.wizard.steps.listing")}>
+        <ProductMedia images={draft.imageFileIds.map((fileId, position) => ({ fileId, position }))} title={form.title} />
         <Row
           label={t("common.title")}
           value={form.title.trim().length > 0 ? form.title.trim() : t("products.wizard.review.empty")}
