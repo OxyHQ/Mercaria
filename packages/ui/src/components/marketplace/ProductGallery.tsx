@@ -242,7 +242,7 @@ export function ProductGallery({ images, media, title, ref, className, onIndexCh
               <View className="absolute top-3 end-3">
                 <Button iconOnly renderLeadingIcon={({ size, color }) => <Expand size={size} color={color} />} appearance="outline" material="flat" accessibilityLabel={t("ui.gallery.openVideo", { title })} onPress={() => void openViewer(position)} />
               </View>
-              {renderVideoStatus?.(image)}
+              {!viewerOpen && position === activeIndex ? renderVideoStatus?.(image) : null}
             </View>
           </View> : <Pressable
             accessibilityRole="button"
@@ -311,6 +311,7 @@ export function ProductGallery({ images, media, title, ref, className, onIndexCh
         ref={viewer}
         onOpenChange={handleOpenChange}
         videoControls
+        renderVideoOverlay={renderVideoStatus}
         appearance="page"
         onIndexChange={setIndex}
         measureThumb={measureThumb}

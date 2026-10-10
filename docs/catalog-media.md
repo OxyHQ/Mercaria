@@ -91,12 +91,16 @@ viewer snapshot without resetting the selected carousel slot. This uses Expo's
 constructor rather than `replaceAsync`: Expo56's web replacement starts playback
 and does not handle the HTML play promise on a failed source.
 
-Bloom7.29 supplies the public `onOpenChange` lifecycle signal, including unmount.
+Bloom7.30 supplies the public `onOpenChange` lifecycle signal, including unmount,
+and `renderVideoOverlay` for the active fullscreen video.
 An isolated browser test checks that opening detaches the inline surface and
 closing reattaches it. Negative media tests exercise HTTP404 and retry without
 unhandled page errors. They do not prove successful native/web video playback.
-Failure controls currently render inline; a public Bloom viewer overlay slot is
-being added so failures after opening fullscreen can render there too.
+Failure controls render on the active surface only. A failure after opening the
+viewer remains visible and retryable there. Retrying replaces the failed player,
+disposes the old viewer snapshot and returns to the same inline carousel slot;
+it does not reopen the viewer or mutate its internal state. Browser regressions
+at 390px and 1440px cover this transition, one visible alert and a new request.
 
 ## Acceptance limits
 

@@ -1376,3 +1376,41 @@ snapshot and returns to the same inline slot; Bloom has no public replacement
 API for an already-open snapshot. Do not add timed reopening or mutate internals.
 Then update docs/catalog-media.md and all app/UI pins, validate types and doctor,
 restart Metros and commit the tested implementation with these cases.
+
+## Official Bloom7.30 adopted and fullscreen errors fixed — 2026-10-10
+
+Supersedes the registry-wait section above: public Bloom7.30.0 and
+Services11.1.16 tarballs independently downloaded and SHA1-verified before normal
+bun install. Bloom b5c9c5f9d6a30629ce02d459f49523011bf3ce3c;
+Services f9c9246b7679613a68907297fb058a2184792899. All three apps pin these
+versions; UI's peer floor is7.30. The public renderVideoOverlay slot now receives
+app-owned status/retry controls, with inline status only for the active surface.
+Both previously red fullscreen-failure cases pass; retry replaces the failed
+session and returns to its inline slot. Five video plus seven selection browser
+cases pass (/tmp/mercaria-bloom730-browser.log); all four client typechecks pass
+(/tmp/mercaria-bloom730-types.log). Doctor passes with existing Core/Contracts
+upgrade warnings only. Real authenticated upload and successful playback remain
+unverified; Oxy1625 and GoWay110 production approvals are still unanswered.
+
+Metro restart exposed an ENOENT race when Playwright removes its previous output
+directories during Metro's crawl. da0dd878 excludes only this checkout's generated
+test-results/playwright-report and nested .worktrees in all three Metro configs.
+Both apps stayed running through the passing browser suite (8160/8161).
+
+## Native variant grid height isolated — 2026-10-10
+
+Pixel8a's twelve shade pills occupy three40dp rows separated by8dp, but their
+container measures568dp instead of136dp, leaving432dp blank before Quantity.
+An actual-device control gives136dp with plain RN Pressable; adding Bloom's
+same inner content View produces568dp, as do Bloom style/className controls.
+Temporary measurement components were restored from a pristine backup: none
+are in the app. Logs /tmp/mercaria-native-variant-intrinsic-proof.log and native
+screens /tmp/mercaria-product-buy.png document the original issue.
+
+Bloom agent reproduced this with RN0.85.3's exact Yoga plus YGErrataAll (RN's
+compatibility mode); the default engine mode alone did not reproduce it. Work is
+in a separate Bloom branch: preserve content/loading identity and explicit-width
+justification while removing intrinsic growth inflation. Do not patch installed
+packages, change Mercaria spacing to conceal the error, or claim it fixed before
+an official release and another physical-device check. Native serialized alpha
+remains independently unresolved upstream (react-native-css PR464).
