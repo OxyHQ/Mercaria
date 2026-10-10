@@ -1008,3 +1008,17 @@ contact, but desktop nested contact failed to return focus to its parent menu
 row once. The Bloom agent is isolating the focus lifecycle before classifying a
 regression or publishing another fix. Preserve that assertion and do not treat
 the dependency update as complete acceptance of all dialogs.
+
+## Remaining Mercaria worktree integration — 2026-10-10
+
+`edb4cc5a` merges the remaining `chore/remove-mongo-mentions` branch, including
+`020ba163` and its prior `7efb37e0` ancestry. The branch was clean and merged
+without conflicts. Its runtime TypeScript is unchanged after comment removal;
+the four semantic deltas are test descriptions and the census of deleted legacy
+guards. The related 72 tests, AGENTS budget and 287 bidi assertions pass.
+
+Every current local branch/worktree commit (including the detached SDK release
+worktree) is now an ancestor of main. The SDK tarball and publisher-census
+`.integration-evidence/` remain in their original worktrees as untracked build/
+verification artifacts; neither was deleted or added to application source.
+This is local integration, not a production deployment.
