@@ -11,9 +11,12 @@ for (const { width, height } of [{ width: 390, height: 1000 }, { width: 1440, he
     const review: Review = original.data[0];
     expect(review).toBeTruthy();
     expect(original.data[1]).toBeTruthy();
+    const externalImages: string[] = [];
+    page.on('request', request => { if (request.url().startsWith('https://supplier-images.invalid/')) externalImages.push(request.url()); });
     const entries: ReviewMediaItem[] = [0, 1, 2].map(index => {
       const media = { id: `missing-attachment-${index}`, fileId: `unavailable-review-media-test-${index}`, kind: index === 2 ? 'video' as const : 'image' as const, position: index };
-      return { media, review: { ...original.data[index % 2], media: [media] } };
+      const source = original.data[index % 2];
+      return { media, review: { ...source, author: { ...source.author, avatar: 'https://supplier-images.invalid/old-avatar.jpg' }, media: [media] } };
     });
     // A controlled missing-file/transport test, NOT a successful upload test.
     // Never substitute image bytes or use these IDs in persisted catalog data.
@@ -70,5 +73,6 @@ for (const { width, height } of [{ width: 390, height: 1000 }, { width: 1440, he
     await expect(open).toBeFocused();
     await sheet.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(sheet).toHaveCount(0);
+    expect(externalImages).toEqual([]);
   });
 }

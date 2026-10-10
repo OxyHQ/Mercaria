@@ -1,5 +1,5 @@
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { merchantImageSource } from "@mercaria/ui";
+import { merchantImageSource, resolveStoredImageUrl } from "@mercaria/ui";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import {
@@ -167,6 +167,7 @@ function CollectionRow({
   toneColor: string;
   onPress: () => void;
 }) {
+  const resolvedImage = resolveStoredImageUrl(imageUrl, useImageResolver());
   return (
     <Pressable
       accessibilityRole="button"
@@ -182,9 +183,9 @@ function CollectionRow({
           backgroundColor: GLASS_FILL,
         }}
       >
-        {imageUrl ? (
+        {resolvedImage ? (
           <Image
-            source={{ uri: imageUrl }}
+            source={{ uri: resolvedImage }}
             contentFit="cover"
             style={{ width: ROW_THUMB_SIZE, height: ROW_THUMB_SIZE }}
           />
@@ -253,6 +254,9 @@ function StoreReviewCard({
   const date = formatDate(review.createdAt, locale);
   const ratingDisplay = useRatingDisplay();
   const author = review.author?.displayName ?? t(FALLBACK_AUTHOR_KEY);
+  const resolveImage = useImageResolver();
+  const productImage = resolveStoredImageUrl(review.product?.imageUrl, resolveImage);
+  const avatar = resolveStoredImageUrl(review.author?.avatar ?? undefined, resolveImage);
 
   return (
     <View
@@ -273,9 +277,9 @@ function StoreReviewCard({
             backgroundColor: GLASS_FILL,
           }}
         >
-          {review.product.imageUrl ? (
+          {productImage ? (
             <Image
-              source={{ uri: review.product.imageUrl }}
+              source={{ uri: productImage }}
               contentFit="cover"
               style={{ width: REVIEW_THUMB_SIZE, height: REVIEW_THUMB_SIZE }}
             />
@@ -320,9 +324,9 @@ function StoreReviewCard({
               backgroundColor: GLASS_FILL,
             }}
           >
-            {review.author?.avatar ? (
+            {avatar ? (
               <Image
-                source={{ uri: review.author.avatar }}
+                source={{ uri: avatar }}
                 contentFit="cover"
                 style={{
                   width: REVIEW_AVATAR_SIZE,

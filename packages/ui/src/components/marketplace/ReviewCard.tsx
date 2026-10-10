@@ -9,6 +9,8 @@ import { useRatingDisplay } from "../../lib/rating-display";
 import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
 import { formatDate } from "../../lib/date";
 import { useColorScheme } from "../../lib/useColorScheme";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { resolveStoredImageUrl } from "../../lib/stored-image-url";
 
 /**
  * Fallback author label when the Oxy profile does not resolve.
@@ -60,6 +62,7 @@ export function ReviewCard({
   const t = useSharedUiTranslation();
   const date = formatDate(review.createdAt, locale);
   const author = review.author?.displayName ?? t(FALLBACK_AUTHOR_KEY);
+  const avatar = resolveStoredImageUrl(review.author?.avatar ?? undefined, useImageResolver());
   const ratingDisplay = useRatingDisplay();
   const { isDarkColorScheme } = useColorScheme();
 
@@ -109,9 +112,9 @@ export function ReviewCard({
       ) : null}
       <View className="mt-auto flex-row items-center gap-space-8">
         <View className="size-space-24 overflow-hidden rounded-radius-max border border-border-image bg-bg-fill-secondary">
-          {review.author?.avatar ? (
+          {avatar ? (
             <Image
-              source={{ uri: review.author.avatar }}
+              source={{ uri: avatar }}
               contentFit="cover"
               className="size-space-24 rounded-radius-max"
             />
