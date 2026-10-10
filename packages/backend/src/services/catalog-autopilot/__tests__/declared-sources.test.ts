@@ -7,7 +7,7 @@ import { CATALOG_AUTOPILOT_ACTOR } from '../actor.js';
 import { policyMatchesDeclaration, shouldPublishDeclaredPolicy } from '../sources.js';
 
 describe('the declared open-data sources', () => {
-  it('declares the Open Facts catalogues and the Spanish Open Prices chains', () => {
+  it('declares the catalogues, the Spanish chains, the card and game stores and the Shopify stores', () => {
     const providers = new Set(DECLARED_OPEN_DATA_SOURCES.map((source) => source.provider));
     expect([...providers].sort()).toEqual([
       'gog_catalog',
@@ -18,7 +18,9 @@ describe('the declared open-data sources', () => {
       'open_products_facts',
       'scryfall',
       'shopify_storefront',
+      'steam_store',
       'tcgdex',
+      'ygoprodeck',
     ]);
     const chains = DECLARED_OPEN_DATA_SOURCES.filter((source) => source.provider === 'open_prices').map((source) => source.accountRef);
     for (const chain of ['mercadona', 'lidl', 'carrefour', 'alcampo', 'supeco', 'dia']) expect(chains).toContain(chain);
