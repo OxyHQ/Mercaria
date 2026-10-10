@@ -756,8 +756,6 @@ function mapWooStatus(
       return { status: 'cancelled', paymentStatus: 'unpaid' };
     case 'failed':
       return { status: 'pending_payment', paymentStatus: 'failed' };
-    case 'on-hold':
-    case 'pending':
     default:
       return { status: 'pending_payment', paymentStatus: 'unpaid' };
   }

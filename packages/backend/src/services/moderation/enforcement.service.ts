@@ -435,7 +435,6 @@ function modeAllows(action: ModerationEnforcementAction): boolean {
       return true;
     case 'manual':
       return action === 'restore';
-    case 'observe':
     default:
       return false;
   }

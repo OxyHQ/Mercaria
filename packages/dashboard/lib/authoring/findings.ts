@@ -156,8 +156,6 @@ export function stepForTarget(target: FindingTarget): WizardStepId {
     case 'variants':
     case 'variant_field':
       return 'variants';
-    case 'draft':
-    case 'unknown':
     default:
       return 'review';
   }
