@@ -355,6 +355,36 @@ const cases = [
     expectOutput: "i18n string guard passed",
   },
 
+  {
+    name: "test fixtures are not application copy or translation call sites",
+    files: migratedTree({
+      "packages/dashboard/lib/hooks/product.test.ts": 'const product = { title: "Before" }; t("fixture.only");',
+      "packages/frontend/components/product.spec.tsx": 'const result = <Text>Expected product</Text>;',
+      "packages/ui/src/__tests__/fixtures/product.ts": 'const product = { title: "Confirmed" };',
+      "packages/pos/components/product.test.tsx": 'const result = <Text>Expected product</Text>;',
+    }),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  ...[
+    "packages/dashboard/components/latest.tsx",
+    "packages/dashboard/components/__tests__extra/label.ts",
+    "packages/dashboard/components/product.specification.ts",
+  ].map(path => ({
+    name: `production file ${path} still requires extracted copy`,
+    files: migratedTree({ [path]: 'export const label = { title: "Product label" };' }),
+    expectExit: 1,
+    expectOutput: `${path}:1: hardcoded user-facing string`,
+  })),
+  {
+    name: "a key referenced only in tests remains unused by the application",
+    files: treeWithBundle(value => ({ ...value, onlyInTest: "Dead application copy" }), {
+      "packages/dashboard/lib/product.test.ts": 't("onlyInTest");',
+    }),
+    expectExit: 1,
+    expectOutput: '"onlyInTest" is named by no string literal',
+  },
+
   // ------------------------------------------------ K: per-locale plurals ---
   // The pair that has to move together. The first two are bundles the OLD
   // key-parity check rejected and #436 makes legal; the rest are what stops
