@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import { View } from "react-native";
 import type { InventoryLevelDTO } from "@mercaria/shared-types";
 import { Button } from "@oxy.so/bloom/button";
+import { Collapsible } from "@oxy.so/bloom/collapsible";
 import { Field } from "@oxy.so/bloom/field";
 import { Loading } from "@oxy.so/bloom/loading";
 import { TextFieldInput } from "@oxy.so/bloom/text-field";
@@ -17,6 +18,7 @@ export function VariantInventory({ storeId, productId, variantId, available, can
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const panelId = useId();
   const query = useVariantLevels(storeId, productId, variantId, open);
   const mutation = useSetVariantLevelInventory(storeId, productId);
   const levels = canRetainDetailData(query.error) ? query.data : undefined;
@@ -28,24 +30,24 @@ export function VariantInventory({ storeId, productId, variantId, available, can
   };
   return <View testID="merchant-variant-inventory" className="mt-3 gap-3 border-t border-border pt-3">
     <Text className="text-sm text-muted-foreground">{t("products.variants.inventory.total", { quantity: available })}</Text>
-    <Button size="sm" appearance="outline" material="flat" aria-expanded={open} onPress={() => setOpen(value => !value)}>
+    <Button size="sm" appearance="outline" material="flat" aria-expanded={open} aria-controls={panelId} onPress={() => setOpen(value => !value)}>
       {t("products.variants.inventory.manage")}
     </Button>
-    {open ? <View className="min-h-24 gap-2">
+    <Collapsible open={open} nativeID={panelId} testID="merchant-inventory-panel" contentClassName="min-h-24 gap-2">
       <View className="min-h-7 justify-center" accessibilityLiveRegion="polite">{query.isFetching || mutation.isPending ? <Loading variant="inline" size="sm" accessibilityLabel={t("common.loading")} />
         : mutation.isError ? <Text className="text-sm text-destructive">{t("products.variants.inventoryUpdateFailed")}</Text>
         : mutation.isSuccess ? <Text className="text-sm text-muted-foreground">{t("products.variants.inventoryUpdated")}</Text> : null}</View>
       {query.isError ? <View className="gap-2"><Text className="text-sm text-muted-foreground">{t("products.variants.inventory.loadFailed")}</Text>
         <Button size="sm" appearance="outline" material="flat" onPress={() => { void query.refetch(); }}>{t("common.retry")}</Button></View> : null}
       {levels?.map(level => <InventoryLevelRow key={level.locationId} level={level} canWrite={canWrite}
-        disabled={mutation.isPending || query.isFetching || query.isError} onSave={save} />)}
+        disabled={mutation.isPending || query.isFetching || query.isError} isSaving={mutation.isPending} onSave={save} />)}
       {levels?.length === 0 && !query.isFetching && !query.isError ? <Text className="text-sm text-muted-foreground">{t("products.variants.inventory.empty")}</Text> : null}
-    </View> : null}
+    </Collapsible>
   </View>;
 }
 
-function InventoryLevelRow({ level, canWrite, disabled, onSave }: {
-  level: InventoryLevelDTO; canWrite: boolean; disabled: boolean;
+function InventoryLevelRow({ level, canWrite, disabled, isSaving, onSave }: {
+  level: InventoryLevelDTO; canWrite: boolean; disabled: boolean; isSaving: boolean;
   onSave: (level: InventoryLevelDTO, quantity: number, onSaved: () => void) => void;
 }) {
   const { t } = useTranslation();
@@ -62,5 +64,7 @@ function InventoryLevelRow({ level, canWrite, disabled, onSave }: {
       {canWrite ? <Button appearance="outline" material="flat" size="sm" disabled={disabled || parsed === null || parsed === level.available}
         onPress={() => { if (parsed !== null) onSave(level, parsed, () => setDraft(undefined)); }}>{t("products.variants.set")}</Button> : null}
     </View>
+    {canWrite && draft !== undefined ? <Button appearance="outline" material="flat" size="sm" disabled={isSaving}
+      onPress={() => setDraft(undefined)}>{t("common.cancel")}</Button> : null}
   </View>;
 }

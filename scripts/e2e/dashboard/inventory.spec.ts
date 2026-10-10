@@ -20,15 +20,18 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     await page.route('**/admin/stores/*/products/inventory-product', route => route.fulfill({ json: { success: true, data: product } }));
     let readError = true;
     let writeError = true;
+    let releaseWrite: (() => void) | undefined;
+    let pendingWrite: Promise<void> | undefined;
     const writes: { location: string; body: unknown }[] = [];
     const legacyWrites: string[] = [];
     await page.route('**/variants/variant-inventory/inventory', route => { legacyWrites.push(route.request().url()); return route.fulfill({ status: 500 }); });
     await page.route('**/variants/variant-inventory/levels', route => readError
       ? route.fulfill({ status: 502, json: { success: false, message: 'Fixture inventory read failure' } })
       : route.fulfill({ json: { success: true, data: levels } }));
-    await page.route('**/variants/variant-inventory/levels/*', route => {
+    await page.route('**/variants/variant-inventory/levels/*', async route => {
       const location = new URL(route.request().url()).pathname.split('/').at(-1)!;
       const body = route.request().postDataJSON(); writes.push({ location, body });
+      if (pendingWrite) await pendingWrite;
       if (writeError) return route.fulfill({ status: 503, json: { success: false, message: 'Fixture inventory write failure' } });
       const level = levels.find(item => item.locationId === location)!; level.available = body.available;
       variant.available = levels.reduce((total, item) => total + item.available, 0); product.quantity = variant.available;
@@ -36,7 +39,8 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     });
     await page.goto('/products/inventory-product');
     const inventory = page.getByTestId('merchant-variant-inventory');
-    await inventory.getByRole('button', { name: copy.products.variants.inventory.manage, exact: true }).click();
+    const manage = inventory.getByRole('button', { name: copy.products.variants.inventory.manage, exact: true });
+    await manage.click();
     await expect(inventory.getByText(copy.products.variants.inventory.loadFailed, { exact: true })).toBeVisible();
     readError = false;
     await inventory.getByRole('button', { name: copy.common.retry, exact: true }).click();
@@ -51,8 +55,25 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
       await expect(rows.nth(1).getByText(copy.products.variants.inventory.invalid, { exact: true })).toBeVisible();
     }
     expect(writes).toEqual([]);
-    await second.fill('3'); await set.click();
-    await expect.poll(() => writes.length).toBe(1);
+    // Collapsing hides the controls without discarding either location's draft.
+    await first.fill('8'); await second.fill('3'); await manage.click();
+    const panel = inventory.getByTestId('merchant-inventory-panel');
+    await expect(manage).toHaveAttribute('aria-expanded', 'false');
+    await expect(panel).toHaveAttribute('aria-hidden', 'true'); await expect(panel).toHaveAttribute('inert');
+    await expect(panel.locator('input')).toHaveCount(2);
+    await expect(panel.getByRole('textbox')).toHaveCount(0);
+    await manage.focus(); await page.keyboard.press('Tab');
+    expect(await panel.evaluate(element => element.contains(document.activeElement))).toBe(false);
+    await manage.click(); await expect(first).toHaveValue('8'); await expect(second).toHaveValue('3');
+    await rows.nth(0).getByRole('button', { name: copy.common.cancel, exact: true }).click();
+    await expect(first).toHaveValue('5'); await expect(second).toHaveValue('3');
+    pendingWrite = new Promise<void>(resolve => { releaseWrite = resolve; });
+    await set.click(); await expect.poll(() => writes.length).toBe(1);
+    await expect(rows.nth(1).getByRole('button', { name: copy.common.cancel, exact: true })).toBeDisabled();
+    // Closing and reopening a pending request must not unlock or replace its draft.
+    await manage.click(); await expect(panel).toHaveAttribute('inert'); await manage.click();
+    await expect(second).toHaveValue('3'); await expect(second).toBeDisabled(); await expect(set).toBeDisabled();
+    releaseWrite!(); pendingWrite = undefined;
     await expect(page.getByText(copy.products.variants.inventoryUpdateFailed, { exact: true })).toBeVisible();
     await expect(second).toHaveValue('3'); await expect(first).toHaveValue('5');
     writeError = false; readError = true;
@@ -64,6 +85,11 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     readError = false; levels[0].available = 9;
     await inventory.getByRole('button', { name: copy.common.retry, exact: true }).click();
     await expect(first).toHaveValue('9'); await expect(second).toHaveValue('3');
+    await first.fill('11'); await second.fill('4');
+    await rows.nth(0).getByRole('button', { name: copy.common.cancel, exact: true }).click();
+    await expect(first).toHaveValue('9'); await expect(second).toHaveValue('4');
+    await rows.nth(1).getByRole('button', { name: copy.common.cancel, exact: true }).click();
+    await expect(second).toHaveValue('3'); expect(writes).toHaveLength(2);
     await second.fill('0'); await set.click(); await expect.poll(() => writes.length).toBe(3);
     expect(writes[2]).toEqual({ location: 'warehouse-b', body: { available: 0 } });
     await expect(set).toBeDisabled();
