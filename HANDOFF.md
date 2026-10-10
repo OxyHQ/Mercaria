@@ -841,3 +841,21 @@ history and mounted gallery. Seven existing selection/failure cases also pass.
 All app/UI typechecks and 148 storefront unit tests pass. Full Shop parity,
 successful author-owned review-media acceptance and import of description HTML
 images remain outstanding; these control checks do not prove those workflows.
+
+## GoWay buyer address selection — 2026-10-10
+
+Saved addresses and inline guest/signed-in checkout now share an official-SDK
+address picker (`geocode.forward`, installed published SDK 0.3.0). It presents
+explicit results, copies structured postal fields, opens review for missing
+facts, and retains a manual recovery path. Recipient, apartment, phone and email
+are separate; no residential Place is created. Searches have debounce,
+cancellation and term/locale identity, stay out of persistent query state, and
+never change checkout validation or immutable order snapshots.
+
+Five browser cases passed: desktop/en and mobile/ar selection, superseded/error/
+partial responses, actual GoWay HTTP/CORS from localhost, and saved-address form
+submission. Cart/auth/address-write fixtures in the form cases are isolated
+transport fixtures, not evidence of a real account write. The live geocoding case
+does not intercept GoWay. All 151 frontend unit tests, frontend types/lint (five
+existing warnings), i18n/RTL/route gates passed. Apps remain on 8160/8161 with the
+local backend on 4160. No SDK patch was needed for address lookup.
