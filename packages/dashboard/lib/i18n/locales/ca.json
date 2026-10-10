@@ -1063,6 +1063,18 @@
         "sku": "SKU",
         "barcode": "Codi de barres",
         "cannotClear": "Aquest identificador es pot canviar, però no es pot esborrar."
+      },
+      "media": {
+        "manage": "Editar imatges de la variant",
+        "fallback": "Utilitza la galeria del producte",
+        "selected": "%{count} seleccionades",
+        "empty": "No hi ha imatges del producte disponibles per seleccionar.",
+        "loadFailed": "No s’han pogut carregar les imatges seleccionades.",
+        "saveFailed": "No s’han pogut desar les imatges de la variant.",
+        "unavailable": "Algunes imatges seleccionades ja no estan disponibles a la galeria del producte.",
+        "earlier": "Moure abans",
+        "later": "Moure després",
+        "useGallery": "Utilitzar la galeria del producte"
       }
     },
     "wizard": {

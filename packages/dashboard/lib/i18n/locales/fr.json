@@ -1063,6 +1063,18 @@
         "sku": "SKU",
         "barcode": "Code-barres",
         "cannotClear": "Cet identifiant peut être modifié, mais ne peut pas être effacé."
+      },
+      "media": {
+        "manage": "Modifier les images de la variante",
+        "fallback": "Utilise la galerie du produit",
+        "selected": "%{count} sélectionnées",
+        "empty": "Aucune image du produit ne peut être sélectionnée.",
+        "loadFailed": "Impossible de charger les images sélectionnées.",
+        "saveFailed": "Impossible d’enregistrer les images de la variante.",
+        "unavailable": "Certaines images sélectionnées ne sont plus disponibles dans la galerie du produit.",
+        "earlier": "Déplacer avant",
+        "later": "Déplacer après",
+        "useGallery": "Utiliser la galerie du produit"
       }
     },
     "wizard": {

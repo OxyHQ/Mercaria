@@ -1045,6 +1045,18 @@
         "sku": "SKU",
         "barcode": "Barcode",
         "cannotClear": "Diese Kennung kann geändert, aber nicht gelöscht werden."
+      },
+      "media": {
+        "manage": "Variantenbilder bearbeiten",
+        "fallback": "Verwendet die Produktgalerie",
+        "selected": "%{count} ausgewählt",
+        "empty": "Keine auswählbaren Produktbilder verfügbar.",
+        "loadFailed": "Ausgewählte Bilder konnten nicht geladen werden.",
+        "saveFailed": "Variantenbilder konnten nicht gespeichert werden.",
+        "unavailable": "Einige ausgewählte Bilder sind nicht mehr in der Produktgalerie verfügbar.",
+        "earlier": "Nach vorne",
+        "later": "Nach hinten",
+        "useGallery": "Produktgalerie verwenden"
       }
     },
     "wizard": {

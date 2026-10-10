@@ -1063,6 +1063,18 @@
         "sku": "SKU",
         "barcode": "Código de barras",
         "cannotClear": "Este identificador pode ser alterado, mas não pode ser apagado."
+      },
+      "media": {
+        "manage": "Editar imagens da variante",
+        "fallback": "Usa a galeria do produto",
+        "selected": "%{count} selecionadas",
+        "empty": "Não há imagens do produto disponíveis para selecionar.",
+        "loadFailed": "Não foi possível carregar as imagens selecionadas.",
+        "saveFailed": "Não foi possível salvar as imagens da variante.",
+        "unavailable": "Algumas imagens selecionadas não estão mais disponíveis na galeria do produto.",
+        "earlier": "Mover antes",
+        "later": "Mover depois",
+        "useGallery": "Usar galeria do produto"
       }
     },
     "wizard": {

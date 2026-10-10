@@ -1045,6 +1045,18 @@
         "sku": "SKU",
         "barcode": "Barcode",
         "cannotClear": "This identifier can be changed, but cannot be cleared."
+      },
+      "media": {
+        "manage": "Edit variant images",
+        "fallback": "Uses the product gallery",
+        "selected": "%{count} selected",
+        "empty": "No selectable product images are available.",
+        "loadFailed": "Couldn't load selected images.",
+        "saveFailed": "Couldn't save variant images.",
+        "unavailable": "Some selected images are no longer available in this product gallery.",
+        "earlier": "Move earlier",
+        "later": "Move later",
+        "useGallery": "Use product gallery"
       }
     },
     "wizard": {

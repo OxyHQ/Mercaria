@@ -30,6 +30,7 @@ import { Screen } from "@/components/shell/Screen";
 import { canRetainDetailData } from "@/lib/detail-query-state";
 import { ProductOrganization, type ProductOrganizationValue } from "@/components/products/ProductOrganization";
 import { VariantInventory } from "@/components/products/VariantInventory";
+import { VariantImages } from "@/components/products/VariantImages";
 import { VariantIdentifiers } from "@/components/products/VariantIdentifiers";
 import { VariantPrice } from "@/components/products/VariantPrice";
 import { RemoveVariantButton } from "@/components/products/RemoveVariantButton";
@@ -345,6 +346,7 @@ function VariantsSection({
             storeId={storeId}
             productId={product.id}
             variant={variant}
+            gallery={product.images}
             canWrite={canWrite}
             canInventory={can("inventory:write")}
             removable={product.variants.length > 1}
@@ -361,6 +363,7 @@ function VariantRow({
   variant,
   canWrite,
   canInventory,
+  gallery,
   removable,
 }: {
   storeId: string;
@@ -368,6 +371,7 @@ function VariantRow({
   variant: ProductVariantDTO;
   canWrite: boolean;
   canInventory: boolean;
+  gallery: Listing["images"];
   removable: boolean;
 }) {
   const { colors } = useColorScheme();
@@ -381,6 +385,7 @@ function VariantRow({
         </View>
         <PriceDisplay price={variant.price} primaryClassName="text-sm font-semibold" />
       </View>
+      <VariantImages storeId={storeId} productId={productId} variant={variant} gallery={gallery} canWrite={canWrite} />
       <VariantPrice storeId={storeId} productId={productId} variant={variant} canWrite={canWrite} />
       <VariantIdentifiers storeId={storeId} productId={productId} variant={variant} canWrite={canWrite} />
       <VariantInventory storeId={storeId} productId={productId} variantId={variant.id} available={variant.available} canWrite={canInventory} />

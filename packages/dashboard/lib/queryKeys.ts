@@ -23,6 +23,8 @@ export const queryKeys = {
       ["stores", storeId, "products", { page, search, status }] as const,
     detail: (storeId: string, productId: string) =>
       ["stores", storeId, "products", productId] as const,
+    images: (storeId: string, productId: string, variantId: string) =>
+      ["stores", storeId, "products", productId, "variants", variantId, "images"] as const,
     levels: (storeId: string, productId: string, variantId: string) =>
       ["stores", storeId, "products", productId, "variants", variantId, "levels"] as const,
   },

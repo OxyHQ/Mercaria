@@ -1045,6 +1045,18 @@
         "sku": "SKU",
         "barcode": "条形码",
         "cannotClear": "此标识符可以修改，但不能清空。"
+      },
+      "media": {
+        "manage": "编辑款式图片",
+        "fallback": "使用商品图库",
+        "selected": "已选择 %{count} 张",
+        "empty": "没有可供选择的商品图片。",
+        "loadFailed": "无法加载所选图片。",
+        "saveFailed": "无法保存款式图片。",
+        "unavailable": "部分已选图片在此商品图库中已不可用。",
+        "earlier": "向前移动",
+        "later": "向后移动",
+        "useGallery": "使用商品图库"
       }
     },
     "wizard": {

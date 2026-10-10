@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { resolveVariantImages } from "@mercaria/shared-types";
 import type {
   PaginatedResponse,
   Listing,
@@ -19,6 +20,8 @@ import {
   updateVariant,
   deleteVariant,
   setVariantInventory,
+  fetchVariantImages,
+  replaceVariantImages,
   fetchVariantLevels,
   setVariantLevelInventory,
   type UpdateVariantInput,
@@ -181,6 +184,36 @@ export function useSetVariantLevelInventory(storeId: string, productId: string) 
       queryClient.invalidateQueries({
         queryKey: queryKeys.products.levels(storeId, productId, variables.variantId),
       });
+    },
+  });
+}
+
+/** Reading the authoring selection needs products:write, just like its PUT. */
+export function useVariantImages(storeId: string, productId: string, variantId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.products.images(storeId, productId, variantId),
+    queryFn: () => fetchVariantImages(storeId, productId, variantId),
+    enabled: Boolean(storeId && productId && variantId && enabled),
+    staleTime: 0,
+  });
+}
+
+export function useReplaceVariantImages(storeId: string, productId: string, variantId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (fileIds: readonly string[]) => replaceVariantImages(storeId, productId, variantId, fileIds),
+    onSuccess: async images => {
+      // A focus refetch started before this PUT must not overwrite its result.
+      await queryClient.cancelQueries({ queryKey: queryKeys.products.images(storeId, productId, variantId), exact: true });
+      await queryClient.cancelQueries({ queryKey: queryKeys.products.detail(storeId, productId), exact: true });
+      queryClient.setQueryData(queryKeys.products.images(storeId, productId, variantId), images);
+      queryClient.setQueryData<Listing>(queryKeys.products.detail(storeId, productId), product => product ? {
+        ...product,
+        variants: product.variants.map(variant => variant.id === variantId ? {
+          ...variant, images: resolveVariantImages(images, product.images),
+        } : variant),
+      } : product);
+      invalidateProducts(queryClient, storeId);
     },
   });
 }

@@ -3,6 +3,7 @@ import type {
   PaginatedResponse,
   Listing,
   ListingStatus,
+  ListingImage,
   Money,
   CreateStoreProductInput,
   UpdateListingInput,
@@ -170,5 +171,17 @@ export async function setVariantLevelInventory(
     `${base(storeId)}/${id}/variants/${variantId}/levels/${locationId}`,
     { available },
   );
+  return unwrap(data);
+}
+
+/** Authoring selection, without the listing-gallery fallback. */
+export async function fetchVariantImages(storeId: string, productId: string, variantId: string): Promise<ListingImage[]> {
+  const { data } = await apiClient.get<ApiResponse<ListingImage[]>>(`${base(storeId)}/${productId}/variants/${variantId}/images`);
+  return unwrap(data);
+}
+
+/** Replace the ordered selection with files already in this product's gallery. */
+export async function replaceVariantImages(storeId: string, productId: string, variantId: string, fileIds: readonly string[]): Promise<ListingImage[]> {
+  const { data } = await apiClient.put<ApiResponse<ListingImage[]>>(`${base(storeId)}/${productId}/variants/${variantId}/images`, { fileIds });
   return unwrap(data);
 }
