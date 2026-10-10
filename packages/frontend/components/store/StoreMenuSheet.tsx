@@ -1,7 +1,7 @@
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource, resolveStoredImageUrl, resolveCatalogImage, ShopDetailIcon } from "@mercaria/ui";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -726,7 +726,7 @@ export function StoreMenuSheet({
   const { t } = useTranslation();
   const reportControl = useDialogControl();
   const [contactOpen, setContactOpen] = useState(false);
-  const shareLink = useShareLink(
+  const { share, copied, failed: shareFailed } = useShareLink(
     store.name,
     `/stores/${encodeURIComponent(store.handle)}`,
   );
@@ -783,7 +783,7 @@ export function StoreMenuSheet({
   const { data: followTargetId } = useStoreFollowTarget(store);
   const { isFollowing, isUnknown, isPending, follow, unfollow } = useFollowTarget(followTargetId);
 
-  const onPressFollow = () => {
+  const onPressFollow = useCallback(() => {
     // Signed out: nothing to press until there is a session, so ask for one.
     if (!canUsePrivateApi) {
       openAccountDialog();
@@ -795,25 +795,25 @@ export function StoreMenuSheet({
     // `follow`/`unfollow` surface their own failures through the shared store
     // and never reject, so there is no rejection to handle here.
     void (isFollowing ? unfollow() : follow());
-  };
+  }, [canUsePrivateApi, followTargetId, isUnknown, isPending, isFollowing, unfollow, follow]);
 
   const push = (page: SheetPage) => {
     setDirection("forward");
     setStack((prev) => [...prev, page]);
   };
-  const pop = () => {
+  const pop = useCallback(() => {
     setDirection("backward");
     setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
-  };
+  }, []);
 
   // Dismiss the sheet AND reset the internal stack to the menu root, so the
   // next open starts fresh at the menu rather than on a lingering sub-page.
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setContactOpen(false);
     setDirection("initial");
     setStack(["menu"]);
     onClose();
-  };
+  }, [onClose]);
 
   const onPressProduct = (productId: string) => {
     if (!productId) return;
@@ -821,9 +821,37 @@ export function StoreMenuSheet({
     router.push({ pathname: "/products/[id]", params: { id: productId } });
   };
 
+  const headerLeft = useMemo(() => atRoot ? (
+    <ControlButton label={t("store.menu.close", { store: store.name })} onPress={handleClose}>
+      <X size={CONTROL_ICON_SIZE} color={toneColor} />
+    </ControlButton>
+  ) : (
+    <ControlButton label={t("common.back")} onPress={pop}>
+      {rtl ? <ArrowRight size={CONTROL_ICON_SIZE} color={toneColor} /> : <ArrowLeft size={CONTROL_ICON_SIZE} color={toneColor} />}
+    </ControlButton>
+  ), [atRoot, t, store.name, handleClose, pop, rtl, toneColor]);
+  const headerRight = useMemo(() => (
+    <View className="flex-row items-center gap-space-12">
+      <ControlButton
+        label={t(isFollowing ? "store.follow.unfollowStore" : "store.follow.followStore", { store: store.name })}
+        onPress={onPressFollow}
+      >
+        <Heart size={CONTROL_ICON_SIZE} color={toneColor} fill={isFollowing ? toneColor : "transparent"} />
+      </ControlButton>
+      <ControlButton
+        label={copied ? t("common.linkCopied") : t("store.menu.share", { store: store.name })}
+        onPress={() => void share()}
+      >
+        <Share2 size={CONTROL_ICON_SIZE} color={toneColor} />
+      </ControlButton>
+    </View>
+  ), [t, isFollowing, store.name, onPressFollow, toneColor, copied, share]);
+  const header = useMemo(() => ({ left: headerLeft, right: headerRight, largeTitle: false }), [headerLeft, headerRight]);
+
   return (
     <Dialog
       open={open}
+      header={header}
       onClose={handleClose}
       placement={{ base: "bottom", md: "start" }}
       width={SHEET_WIDTH}
@@ -836,50 +864,7 @@ export function StoreMenuSheet({
       panelStyle={{ backgroundColor: store.brandColor }}
       label={t("store.menu.dialogLabel", { store: store.name })}
     >
-      {/* Pinned top bar: contextual Close/Back (start), Follow + Share (end). */}
-      <View className="flex-row items-center justify-between px-space-16 pb-space-12 pt-space-16">
-        {atRoot ? (
-          <ControlButton label={t("store.menu.close", { store: store.name })} onPress={handleClose}>
-            <X size={CONTROL_ICON_SIZE} color={toneColor} />
-          </ControlButton>
-        ) : (
-          <ControlButton label={t("common.back")} onPress={pop}>
-            {rtl ? (
-              <ArrowRight size={CONTROL_ICON_SIZE} color={toneColor} />
-            ) : (
-              <ArrowLeft size={CONTROL_ICON_SIZE} color={toneColor} />
-            )}
-          </ControlButton>
-        )}
-        <View className="flex-row items-center gap-space-12">
-          <ControlButton
-            label={
-              isFollowing
-                ? t("store.follow.unfollowStore", { store: store.name })
-                : t("store.follow.followStore", { store: store.name })
-            }
-            onPress={onPressFollow}
-          >
-            <Heart
-              size={CONTROL_ICON_SIZE}
-              color={toneColor}
-              fill={isFollowing ? toneColor : "transparent"}
-            />
-          </ControlButton>
-          <ControlButton
-            label={
-              shareLink.copied
-                ? t("common.linkCopied")
-                : t("store.menu.share", { store: store.name })
-            }
-            onPress={() => void shareLink.share()}
-          >
-            <Share2 size={CONTROL_ICON_SIZE} color={toneColor} />
-          </ControlButton>
-        </View>
-      </View>
-
-      {shareLink.failed ? (
+      {shareFailed ? (
         <Text
           accessibilityRole="alert"
           className="px-space-16 text-shop-caption"
@@ -888,7 +873,7 @@ export function StoreMenuSheet({
           {t("common.shareError")}
         </Text>
       ) : null}
-      {shareLink.copied ? (
+      {copied ? (
         <Text
           accessibilityLiveRegion="polite"
           className="px-space-16 text-shop-caption"

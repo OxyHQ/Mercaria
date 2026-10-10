@@ -475,8 +475,12 @@ motion at desktop English and mobile Arabic. On Pixel8a, the combined slide/fade
 initially hid review contents inside nested ScrollViews. The three menu pages now
 render ordinary Views: Bloom Dialog owns scrolling and natural-height measurement.
 The complete animation now reveals reviews on the device and the list scrolls to
-its pagination controls. Native RTL/reduced-motion timing acceptance remains
-pending, as does moving the custom toolbar into Bloom's sticky header slots.
+its pagination controls. Close/Back and Follow/Share use Bloom's public
+`header.left`/`header.right` slots, with stable memoized nodes. The navigation bar
+stays fixed while the dialog scrolls policies and reviews; browser tests cover
+desktop English and mobile Arabic with wheel input, and Pixel8a bounds are
+unchanged from the first review to the pagination controls. Native
+RTL/reduced-motion timing acceptance remains pending.
 
 A selected connected-store offer exposes its published return policy through a
 40px Bloom button and an opaque `MarketplaceSheet`, matching the policy action

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Platform, Share } from "react-native";
 import * as Clipboard from "expo-clipboard";
 
@@ -7,7 +7,7 @@ import * as Clipboard from "expo-clipboard";
 export function useShareLink(title: string, path: string) {
   const [copiedPath, setCopiedPath] = useState<string>();
   const [failed, setFailed] = useState(false);
-  const share = async () => {
+  const share = useCallback(async () => {
     const origin =
       Platform.OS === "web" && typeof window !== "undefined"
         ? window.location.origin
@@ -32,6 +32,6 @@ export function useShareLink(title: string, path: string) {
       if (!(error instanceof Error && error.name === "AbortError"))
         setFailed(true);
     }
-  };
+  }, [title, path]);
   return { share, copied: copiedPath === path, failed };
 }

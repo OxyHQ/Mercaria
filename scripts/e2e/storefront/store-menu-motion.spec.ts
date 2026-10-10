@@ -83,3 +83,47 @@ for (const [width, locale] of [[1440, 'en'], [390, 'ar']] as const) {
     });
   }
 }
+
+for (const [width, locale] of [[1440, 'en'], [390, 'ar']] as const) {
+  test(`merchant navigation remains reachable while reading a long policy at ${width}px ${locale}`, async ({ page, request }) => {
+    const copy = locale === 'ar' ? ar : en;
+    await page.setViewportSize({ width, height: 1000 });
+    await page.addInitScript(locale => localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale }, version: 0 })), locale);
+    const feed = await (await request.get('http://localhost:4160/feed')).json();
+    const product = feed.data.sections.flatMap((section: { products?: { id: string; title: string }[] }) => section.products ?? [])
+      .find((item: { title: string }) => item.title === 'Brilliant Eye Brightener');
+    const { store } = (await (await request.get(`http://localhost:4160/listings/${product.id}`)).json()).data;
+    const policy = Array.from({ length: 80 }, (_, index) => `Policy paragraph ${index + 1}: information about this store.`).join('\n');
+    await page.route(new RegExp(`^http://localhost:4160/stores/${store.handle}(?:\\?.*)?$`), async route => {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.data.store.privacyPolicy = policy;
+      await route.fulfill({ response, json: body });
+    });
+    await page.goto(`/stores/${store.handle}`);
+    await page.getByRole('button', { name: copy.store.menu.openLabel.replace('%{store}', store.name), exact: true }).click();
+    await page.getByRole('button', { name: copy.store.policies.privacy, exact: true }).click();
+    const body = page.getByText(policy, { exact: true });
+    await expect(body).toBeVisible();
+    const back = page.getByRole('button', { name: copy.common.back, exact: true });
+    const share = page.getByRole('button', { name: copy.store.menu.share.replace('%{store}', store.name), exact: true });
+    // Let the incoming page finish before comparing the bar's resting geometry.
+    await expect(page.getByTestId('store-menu-page')).toHaveCSS('opacity', '1');
+    const before = await back.boundingBox();
+    const scroll = await body.evaluateHandle(node => {
+      for (let ancestor = node.parentElement; ancestor; ancestor = ancestor.parentElement) {
+        if (/auto|scroll/.test(getComputedStyle(ancestor).overflowY) && ancestor.scrollHeight > ancestor.clientHeight + 100) return ancestor;
+      }
+      return null;
+    });
+    const bodyBox = await body.boundingBox();
+    await page.mouse.move(bodyBox!.x + 20, Math.max(200, bodyBox!.y + 60));
+    await page.mouse.wheel(0, 1600);
+    await expect.poll(() => scroll.evaluate(node => node?.scrollTop ?? 0)).toBeGreaterThan(100);
+    await expect(back).toBeInViewport();
+    await expect(share).toBeInViewport();
+    expect(Math.abs((await back.boundingBox())!.y - before!.y)).toBeLessThan(1);
+    await back.click();
+    await expect(page.getByRole('button', { name: copy.store.policies.privacy, exact: true })).toBeVisible();
+  });
+}
