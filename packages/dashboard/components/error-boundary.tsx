@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, Pressable, ScrollView, Platform } from 'react-native';
-import { Text } from '@mercaria/ui';
+import { View, Pressable, ScrollView, Platform, Text, useColorScheme } from 'react-native';
+import { Button } from '@oxy.so/bloom/button';
+import { buildTheme, useTheme, type ThemeColors } from '@oxy.so/bloom/theme';
+import { BLOOM_DEFAULT_COLOR_PRESET } from '@/lib/themePersistence';
 import { useTranslation } from '@/lib/i18n';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
-  /** Optional fallback component. If not provided, the default error screen is used. */
+  /** Optional fallback component. If not provided, the provider-independent recovery screen is used. */
   fallback?: React.ComponentType<{ error: Error; resetError: () => void }>;
 }
 
@@ -69,7 +71,7 @@ export class AppErrorBoundary extends React.Component<
       }
 
       return (
-        <ErrorFallback
+        <ProviderErrorFallback
           error={this.state.error}
           resetError={this.resetError}
         />
@@ -80,134 +82,86 @@ export class AppErrorBoundary extends React.Component<
   }
 }
 
-/** Default full-screen error fallback UI. */
-function ErrorFallback({
-  error,
-  resetError,
-}: {
+interface ErrorFallbackProps {
   error: Error;
   resetError: () => void;
-}) {
-  // `useTranslation` reads a zustand slice and is not suspenseful, so it is safe
-  // in the fallback: this component renders precisely when the tree below it
-  // failed, and a hook that could throw or suspend here would replace the
-  // recovery screen with a blank one.
+}
+
+/**
+ * Recovery when the provider itself failed: no theme context, shared UI context,
+ * storage reads or extra provider. Bloom's public recipe builder supplies the
+ * brand palette; the system mode is the safe fallback without a working provider.
+ */
+function ProviderErrorFallback(props: ErrorFallbackProps) {
+  const mode = useColorScheme() === 'dark' ? 'dark' : 'light';
+  const { colors } = buildTheme(BLOOM_DEFAULT_COLOR_PRESET, mode);
   const { t } = useTranslation();
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: '#040711',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 24,
-      }}
-    >
-      <View
-        style={{
-          maxWidth: 400,
+    <ErrorPresentation {...props} colors={colors}>
+      <Pressable
+        onPress={props.resetError}
+        style={({ pressed }) => ({
+          backgroundColor: colors.primary,
+          opacity: pressed ? 0.8 : 1,
+          paddingHorizontal: 28,
+          paddingVertical: 12,
+          borderRadius: 12,
           width: '100%',
           alignItems: 'center',
-        }}
+        })}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.retry')}
       >
-        {/* Icon */}
-        <View
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: 'rgba(239, 68, 68, 0.15)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            marginBottom: 20,
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 24,
-              color: '#ef4444',
-              fontWeight: '600',
-            }}
-          >
-            !
-          </Text>
-        </View>
+        <Text style={{ fontSize: 15, fontWeight: '600', color: colors.primaryForeground }}>
+          {t('common.retry')}
+        </Text>
+      </Pressable>
+    </ErrorPresentation>
+  );
+}
 
-        {/* Title */}
-        <Text
-          style={{
-            fontSize: 20,
-            fontWeight: '700',
-            color: '#f1f5f9',
-            textAlign: 'center',
-            marginBottom: 8,
-          }}
-        >
+/** A screen failed while Bloom is healthy: preserve the active theme and mode. */
+export function ThemedErrorFallback(props: ErrorFallbackProps) {
+  const { colors } = useTheme();
+  const { t } = useTranslation();
+  return (
+    <ErrorPresentation {...props} colors={colors}>
+      <Button tone="accent" onPress={props.resetError}>{t('common.retry')}</Button>
+    </ErrorPresentation>
+  );
+}
+
+/** Native primitives keep the outer recovery usable without any UI provider. */
+function ErrorPresentation({ error, colors, children }: ErrorFallbackProps & {
+  colors: ThemeColors;
+  children: React.ReactNode;
+}) {
+  // This zustand reader neither requires context nor suspends.
+  const { t } = useTranslation();
+  return (
+    <View testID="app-error-fallback" style={{ flex: 1, minHeight: 400, backgroundColor: colors.background,
+      justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+      <View style={{ maxWidth: 400, width: '100%', alignItems: 'stretch' }}>
+        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.errorSubtle,
+          justifyContent: 'center', alignItems: 'center', alignSelf: 'center', marginBottom: 20 }}>
+          <Text style={{ fontSize: 24, color: colors.errorSubtleForeground, fontWeight: '600' }}>!</Text>
+        </View>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center', marginBottom: 8 }}>
           {t('common.somethingWentWrong')}
         </Text>
-
-        {/* Description */}
-        <Text
-          style={{
-            fontSize: 15,
-            color: '#94a3b8',
-            textAlign: 'center',
-            lineHeight: 22,
-            marginBottom: 24,
-          }}
-        >
+        <Text style={{ fontSize: 15, color: colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>
           {t('errors.boundaryBody')}
         </Text>
-
-        {/* Error details (collapsible in dev) */}
         {__DEV__ && (
-          <ScrollView
-            style={{
-              maxHeight: 120,
-              width: '100%',
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: 8,
-              padding: 12,
-              marginBottom: 24,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 12,
-                color: '#64748b',
-                fontFamily: Platform.OS === 'web' ? 'monospace' : 'SpaceMono',
-              }}
-              selectable
-            >
+          <ScrollView style={{ maxHeight: 120, width: '100%', backgroundColor: colors.backgroundSecondary,
+            borderRadius: 8, padding: 12, marginBottom: 24 }}>
+            <Text style={{ fontSize: 12, color: colors.textSecondary,
+              fontFamily: Platform.OS === 'web' ? 'monospace' : 'SpaceMono' }} selectable>
               {error.message}
             </Text>
           </ScrollView>
         )}
-
-        {/* Retry button */}
-        <Pressable
-          onPress={resetError}
-          style={({ pressed }) => ({
-            backgroundColor: pressed ? '#7c3aed' : '#8b5cf6',
-            paddingHorizontal: 28,
-            paddingVertical: 12,
-            borderRadius: 12,
-            width: '100%',
-            alignItems: 'center',
-          })}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.retry')}
-        >
-          <Text
-            style={{
-              fontSize: 15,
-              fontWeight: '600',
-              color: '#ffffff',
-            }}
-          >
-            {t('common.retry')}
-          </Text>
-        </Pressable>
+        {children}
       </View>
     </View>
   );
