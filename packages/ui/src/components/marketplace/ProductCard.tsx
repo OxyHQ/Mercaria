@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { Button } from "@oxy.so/bloom/button";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { resolveStoredImageUrl } from "../../lib/stored-image-url";
 import { ShopDetailIcon } from "./ShopDetailIcon";
 import { Text } from "../ui/text";
 import {
@@ -55,6 +57,7 @@ export function ProductCard({
   onToggleSave,
   variant = "standard",
 }: ProductCardProps) {
+  const imageUrl = resolveStoredImageUrl(product.imageUrl, useImageResolver());
   const priceText = usePriceText()(product.price);
   const t = useSharedUiTranslation();
   const [isSaved, setIsSaved] = useState(saved ?? product.saved ?? false);
@@ -105,9 +108,9 @@ export function ProductCard({
           onPress={() => onPress?.(product.id)}
           className="absolute inset-0"
         >
-          {product.imageUrl ? (
+          {imageUrl ? (
             <Image
-              source={{ uri: product.imageUrl }}
+              source={{ uri: imageUrl }}
               contentFit="cover"
               className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105 web:motion-reduce:transition-none web:motion-reduce:transform-none"
             />

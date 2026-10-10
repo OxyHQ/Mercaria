@@ -1,6 +1,8 @@
 import { Pressable, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { resolveStoredImageUrl } from "../../lib/stored-image-url";
 import { Text } from "../ui/text";
 import { SectionHeader } from "./SectionHeader";
 import { ShopDetailIcon } from "./ShopDetailIcon";
@@ -25,6 +27,14 @@ export function ThreadShelf({
   const shelf = useShelfCarouselProps();
   const { width } = useWindowDimensions();
   const { colors } = useColorScheme();
+  const resolveImage = useImageResolver();
+  const displayItems = items.map((item) => ({
+    ...item,
+    imageUrls: item.imageUrls.flatMap((value) => {
+      const url = resolveStoredImageUrl(value, resolveImage);
+      return url ? [url] : [];
+    }),
+  }));
   if (!items.length) return null;
   return (
     <View className="mb-3 md:mb-6" testID="thread-shelf">
@@ -35,7 +45,7 @@ export function ThreadShelf({
         accessibilityLabel={title}
         header={<SectionHeader title={title} inset={false} />}
       >
-        {items.map((item) => (
+        {displayItems.map((item) => (
           <CarouselItem key={item.id} width={width >= 768 ? 289 : 239}>
             <Pressable
               testID="feed-thread-card"
