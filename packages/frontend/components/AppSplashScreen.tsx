@@ -9,7 +9,7 @@ import {
 } from '@oxy.so/bloom/theme';
 import { Logo } from '@/components/Logo';
 import { Loading } from '@oxy.so/bloom/loading';
-import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
+import { BLOOM_DEFAULT_COLOR_PRESET, BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
 
 interface AppSplashScreenProps {
     onFadeComplete?: () => void;
@@ -31,10 +31,6 @@ const SPINNER_SIZE = 28;
 // Safe literal fallback when no preset can be resolved at all (missing key,
 // unparseable JSON, unknown preset, storage unavailable). Both stops are dark.
 const FALLBACK_GRADIENT: readonly [string, string] = ['#1A1A1A', '#005c67'];
-
-// `defaultColorPreset` passed to BloomProvider in app/_layout.tsx. Used when
-// nothing is persisted yet so the splash matches the provider's eventual default.
-const DEFAULT_PRESET: AppColorName = 'blue';
 
 // Near-black second stop, shared across presets so the gradient always bottoms out dark.
 const DARK_STOP = '#1A1A1A';
@@ -100,7 +96,7 @@ const AppSplashScreen: React.FC<AppSplashScreenProps> = ({
     // Web resolves synchronously (no flash); native starts at the default preset and
     // updates after a single mount-time async read below.
     const [preset, setPreset] = useState<AppColorName>(
-        () => readWebPresetSync() ?? DEFAULT_PRESET,
+        () => readWebPresetSync() ?? BLOOM_DEFAULT_COLOR_PRESET,
     );
 
     // Native-only: one mount-time async read of the persisted preset. Web already

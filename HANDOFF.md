@@ -811,3 +811,12 @@ writes. Live browser acceptance is `scripts/e2e/storefront/live-catalog-media.sp
 CDN requests. Both passed. Successful byte delivery was also verified directly
 from `cloud.oxy.so`. This closes the earlier live-media import prerequisite;
 negative fixture tests remain error-boundary tests only.
+
+The dashboard now uploads new product photos through the authenticated store
+media endpoint, deriving ownership from the persisted store. A real local-service
+probe uploaded JPEG bytes through Oxy and fetched the returned public file with
+HTTP 200 (`image/jpeg`, 19,828 bytes). This verifies the storage integration,
+not a signed-in merchant browser journey; the latter still needs a real session.
+Backend integration validation passed 814 files / 12,770 tests (five skipped).
+Test workers explicitly clear application service credentials so local development
+credentials cannot make mocked suites contact production.

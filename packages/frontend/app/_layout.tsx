@@ -20,7 +20,7 @@ import { AppFxProvider } from '@/lib/fx';
 import { setTokenGetter } from '@/lib/api/client';
 import { useGuestCartMerge } from '@/lib/hooks/use-cart';
 import { OXY_CLIENT_ID } from '@/lib/config';
-import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
+import { BLOOM_DEFAULT_COLOR_PRESET, BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
 import { useTranslation } from '@/lib/i18n';
 import 'react-native-reanimated';
 import '../global.css';
@@ -131,7 +131,7 @@ function RootLayout() {
           locale={locale}
           scrollAdapter={expoRouterScrollAdapter}
           defaultMode="system"
-          defaultColorPreset="mono"
+          defaultColorPreset={BLOOM_DEFAULT_COLOR_PRESET}
           persistKey={BLOOM_THEME_PERSIST_KEY}
           storage={BLOOM_THEME_STORAGE}
           fonts={false}

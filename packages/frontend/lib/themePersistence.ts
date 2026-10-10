@@ -1,6 +1,9 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { webLocalStorage, type BloomThemeStorage } from '@oxy.so/bloom/theme';
+import { webLocalStorage, type AppColorName, type BloomThemeStorage } from '@oxy.so/bloom/theme';
+
+/** Storefront identity; shared by the provider and its pre-provider splash. */
+export const BLOOM_DEFAULT_COLOR_PRESET: AppColorName = 'blue';
 
 /**
  * Single source of truth for where Bloom persists the active theme
