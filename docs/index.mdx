@@ -37,6 +37,14 @@ schema decision. `HANDOFF.md` holds deferred work.
   marketplace recipe via `className`; `useShopControlClassName` selects hover,
   disabled and reduced-motion classes across platforms. Bloom owns the button
   semantics and loading state; these recipes require its className authority fix.
+- Imported product descriptions retain safe authored HTML instead of displaying
+  markup as plain text. `prepareProductDescription` uses the browser-compatible
+  HTML5 parser (`parse5`) to build an allow-listed tree and truncate the preview
+  at 340 decoded characters. `ProductRichText` renders that tree as semantic HTML
+  on web and native text/layout plus Bloom tables on devices; scripts, author CSS
+  and executable links never reach either renderer. All apps import the shared
+  `shop-rich-text.css` reading recipe for paragraphs, headings, lists and tables.
+  The full description opens in the same marketplace sheet as reviews.
 - Storefront purchase feedback uses `CartFlightProvider` around Bloom's shell.
   After a successful cart mutation, the active product image flies to the
   visible cart glyph and the glyph pulses on arrival. Failed mutations and

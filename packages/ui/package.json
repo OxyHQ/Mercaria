@@ -13,7 +13,8 @@
     "./theme/color-scheme.css": "./src/theme/color-scheme.css",
     "./theme/shop-typography.css": "./src/theme/shop-typography.css",
     "./theme/shop-shadows.css": "./src/theme/shop-shadows.css",
-    "./theme/shop-controls.css": "./src/theme/shop-controls.css"
+    "./theme/shop-controls.css": "./src/theme/shop-controls.css",
+    "./theme/shop-rich-text.css": "./src/theme/shop-rich-text.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -29,7 +30,8 @@
   ],
   "author": "Oxy",
   "dependencies": {
-    "@mercaria/shared-types": "workspace:*"
+    "@mercaria/shared-types": "workspace:*",
+    "parse5": "8.0.1"
   },
   "peerDependencies": {
     "@oxy.so/bloom": ">=7.20.0 <8",

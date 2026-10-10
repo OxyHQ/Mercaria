@@ -1,0 +1,23 @@
+/* Public Shop products-BBfA8884.css. Author HTML uses the marketplace reading
+ * scale; it cannot supply CSS, handlers, scripts or arbitrary DOM attributes. */
+@layer components {
+  .shop-rich-text { overflow-wrap: anywhere; }
+  .shop-rich-text :where(p,h1,h2,h3,h4,h5,h6) { margin: 0; }
+  .shop-rich-text-full :where(p,h1,h2,h3,h4,h5,h6) + :where(p,h1,h2,h3,h4,h5,h6) { margin-top: 16px; }
+  .shop-rich-text-full :where(h1,h2,h3,h4,h5,h6) { font-size: 16px; line-height: 22px; letter-spacing: -.5px; font-weight: 600; }
+  .shop-rich-text ul, .shop-rich-text ol { margin-block: 8px; margin-inline: 8px 0; }
+  .shop-rich-text ul { list-style: disc outside; }
+  .shop-rich-text ol { list-style: decimal outside; }
+  .shop-rich-text li { margin-inline-start: 8px; }
+  .shop-rich-text strong, .shop-rich-text b, .shop-rich-text th { font-weight: 600; }
+  .shop-rich-text a { color: var(--color-text-brand); text-decoration: underline; }
+  .shop-rich-text a:hover { opacity: .8; }
+  .shop-rich-text table { border-collapse: collapse; border-bottom: 1px solid var(--color-bg-fill-secondary); margin-block: 24px; }
+  .shop-rich-text tr:nth-child(odd) { background-color: var(--color-bg-fill-secondary); }
+  .shop-rich-text td, .shop-rich-text th { vertical-align: top; padding: 16px; text-align: start; }
+  .shop-rich-text :where(td,th):first-child { border-start-start-radius: 8px; border-end-start-radius: 8px; }
+  .shop-rich-text :where(td,th):last-child { border-start-end-radius: 8px; border-end-end-radius: 8px; }
+  .shop-rich-text img { max-width: 100%; height: auto; }
+  .shop-rich-text pre { white-space: pre-wrap; }
+  .shop-rich-table-scroll { max-width: 100%; overflow-x: auto; }
+}

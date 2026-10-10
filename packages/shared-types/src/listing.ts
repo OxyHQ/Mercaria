@@ -302,7 +302,7 @@ export interface Listing extends Timestamps {
   ownerType: ListingOwnerType;
   /** Short, human-readable title. */
   title: string;
-  /** Full description (plain text or markdown, per product decision). */
+  /** Authored description: plain text for manual listings; may contain HTML from commerce connectors. */
   description: string;
   /** "From" price — the minimum variant price. */
   price: Money;

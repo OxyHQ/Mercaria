@@ -714,3 +714,5 @@ export { merchantImageSource } from "./lib/shop-merchant-images";
 export { StoreOfferHeader, type StoreOfferHeaderProps } from "./components/marketplace/StoreOfferHeader";
 
 export { MarketplaceSheet, type MarketplaceSheetProps } from "./components/marketplace/MarketplaceSheet";
+export { ProductRichText, type ProductRichTextProps } from "./components/marketplace/ProductRichText";
+export { prepareProductDescription } from "./lib/product-description";
