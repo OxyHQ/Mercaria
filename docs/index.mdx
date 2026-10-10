@@ -228,7 +228,20 @@ The full command list is in `AGENTS.md`.
 
 Native testing uses a development build (`bun run android`), not Expo Go:
 the app includes native notifications and payment modules. With Metro already
-running on 8160, use `bun run --cwd packages/frontend android --no-bundler --port 8160`.
+running on 8160, Expo CLI does not accept `--port` together with `--no-bundler`.
+Build the existing generated project with its native port explicitly set:
+
+```bash
+cd packages/frontend/android
+ANDROID_HOME="$HOME/Android/Sdk" ./gradlew app:assembleDebug -x lint -x test \
+  --configure-on-demand --build-cache -PreactNativeDevServerPort=8160 \
+  -PreactNativeArchitectures=arm64-v8a
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+The example targets an attached arm64 Android device; select the appropriate ABI
+for other devices. See [Native animation runtime](native-animation-runtime.mdx)
+for the validated Reanimated patch and its SDK compatibility boundary.
 All three apps declare `userInterfaceStyle: automatic` and depend on Expo's
 SDK-compatible `expo-system-ui`; Android ignores that setting without the
 module. Rebuild the native app after changing native dependencies. Generated
