@@ -348,7 +348,14 @@ function resolveNearbyEnabled(): boolean {
   if (!boolEnv('NEARBY_DISCOVERY_ENABLED', true)) return false;
   if (strEnv('GOWAY_API_URL', '') !== '') return true;
 
-  log.general.debug('[Pickup] GOWAY_API_URL is not set; nearby discovery stays OFF.');
+  // Defaulted on (ADR 0015): a deployment without GoWay simply has no nearby
+  // surface. Only an EXPLICIT request for it is a half-configuration worth a log.
+  if (process.env.NEARBY_DISCOVERY_ENABLED !== undefined) {
+    log.general.error(
+      { missing: ['GOWAY_API_URL'] },
+      '[Pickup] NEARBY_DISCOVERY_ENABLED is set but GOWAY_API_URL is missing; staying OFF.',
+    );
+  }
   return false;
 }
 
