@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { isAxiosError } from 'axios';
 import type {
   CanonicalProductPage,
   ConditionGroup,
@@ -46,8 +48,12 @@ const HISTORY_WINDOW_DAYS = 90;
 export function useProductPage(
   handle: string | undefined,
   params?: ProductPageParams,
-): ReturnType<typeof useQuery<CanonicalProductPage>> {
-  return useQuery<CanonicalProductPage>({
+): ReturnType<typeof useQuery<CanonicalProductPage>> & {
+  displayData: CanonicalProductPage | undefined;
+  isSelectionStale: boolean;
+  isNotFound: boolean;
+} {
+  const query = useQuery<CanonicalProductPage>({
     // The key is built from NAMED fields rather than the params object itself,
     // so a field added to the request without being added here fails `tsc`
     // instead of quietly sharing a cache entry with the request that lacks it.
@@ -61,11 +67,32 @@ export function useProductPage(
     queryFn: () => fetchProductPage(handle ?? '', params),
     // Keep identity and gallery mounted while another configuration loads.
     // Never borrow a different product's data; dependent actions check isPlaceholderData.
-    placeholderData: (previous, query) => query?.queryKey[1] === handle ? previous : undefined,
+    placeholderData: (previous, query) => query !== undefined && query.queryKey[1] === handle && query.state.status !== 'error' ? previous : undefined,
     enabled: Boolean(handle),
     staleTime: PAGE_STALE_TIME,
-    retry: 1,
+    retry: (failureCount, error) => {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status !== undefined && status < 500 && status !== 429) return false;
+      return failureCount < 1;
+    },
   });
+  // Query placeholder data disappears after an error. Retain the last successful
+  // read for this mounted product so a failed refinement cannot unmount its
+  // identity/gallery. This is display state, never another selection's cache data.
+  const status = isAxiosError(query.error) ? query.error.response?.status : undefined;
+  const terminalError = query.isError && status !== undefined && status < 500 && status !== 429;
+  const [snapshot, setSnapshot] = useState<{ handle: string | undefined; data?: CanonicalProductPage }>({ handle });
+  const successful = query.data !== undefined && !query.isPlaceholderData && !query.isError;
+  if (snapshot.handle !== handle || (successful && snapshot.data !== query.data) || (terminalError && snapshot.data !== undefined)) {
+    setSnapshot({ handle, data: successful ? query.data : undefined });
+  }
+  const displayData = terminalError ? undefined : query.data ?? (snapshot.handle === handle ? snapshot.data : undefined);
+  return {
+    ...query,
+    displayData,
+    isSelectionStale: query.isPlaceholderData || query.isError || query.data === undefined,
+    isNotFound: status === 404 || status === 410,
+  };
 }
 
 /**

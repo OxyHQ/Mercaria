@@ -11,6 +11,7 @@ import { OFFER_COMPARISON_INTENTS } from '@mercaria/shared-types';
 import { BundleContents, OfferLabelBadge, ProductGallery, ReviewSummaryCard, Text } from '@mercaria/ui';
 import { openAccountDialog, useOxy } from '@oxy.so/services';
 import * as Skeleton from '@oxy.so/bloom/skeleton';
+import { Button } from '@oxy.so/bloom/button';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
 import { NearbyAvailability } from '@/components/nearby/NearbyAvailability';
@@ -80,7 +81,7 @@ export default function CanonicalProductPageScreen() {
     ...(selectedVariantId === undefined ? {} : { canonicalVariantId: selectedVariantId }),
     ...(intent === undefined ? {} : { intent }),
   });
-  const page = pageQuery.data;
+  const page = pageQuery.displayData;
   const media = page?.product.images ?? [];
   const images = media.flatMap((image) => {
     const uri =
@@ -211,12 +212,13 @@ export default function CanonicalProductPageScreen() {
     );
   }
 
-  if (pageQuery.isError || page === undefined) {
+  if (page === undefined) {
     return (
       <ScreenShell contentClassName="md:pt-6">
         {head}
-        <View className="items-center justify-center px-8 py-16">
-          <Text className="text-center text-shop-body text-text-tertiary">{t('product.notFound')}</Text>
+        <View className="items-center justify-center gap-space-8 px-8 py-16">
+          <Text className="text-center text-shop-body text-text-tertiary">{t(pageQuery.isNotFound ? 'product.notFound' : 'product.loadError')}</Text>
+          {!pageQuery.isNotFound ? <Button appearance="outline" tone="neutral" onPress={() => void pageQuery.refetch()}>{t('common.tryAgain')}</Button> : null}
         </View>
       </ScreenShell>
     );
@@ -233,7 +235,7 @@ export default function CanonicalProductPageScreen() {
               images={images}
               title={page.product.name}
             />
-            {width >= 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isPlaceholderData}
+            {width >= 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isSelectionStale}
               resolveImage={image => image.sourceUrl ?? (image.fileId ? oxyServices.assets.publicUrl(image.fileId) : undefined)}
               onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
           </View>
@@ -303,9 +305,17 @@ export default function CanonicalProductPageScreen() {
               onSelect={(next) => router.setParams({ intent: next ?? '' })}
             />
 
+            {pageQuery.isError ? (
+              <View testID="product-update-error" className="gap-space-8">
+                <Text accessibilityRole="alert" className="text-shop-bodySmall text-text-secondary">{t('product.loadError')}</Text>
+                <Button appearance="outline" tone="neutral" onPress={() => void pageQuery.refetch()}>{t('common.tryAgain')}</Button>
+              </View>
+            ) : null}
+
             <OfferGroups
               offers={page.offers}
-              isUpdating={pageQuery.isPlaceholderData}
+              isUpdating={pageQuery.isSelectionStale && pageQuery.isFetching}
+              disabled={pageQuery.isSelectionStale}
               addToCartPending={addToCart.isPending}
               onAddToCart={(input) =>
                 addToCart.mutate({
@@ -322,7 +332,7 @@ export default function CanonicalProductPageScreen() {
               </Text>
             ) : null}
 
-            {width < 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isPlaceholderData}
+            {width < 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isSelectionStale}
               resolveImage={image => image.sourceUrl ?? (image.fileId ? oxyServices.assets.publicUrl(image.fileId) : undefined)}
               onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
             <ReviewSummaryCard

@@ -109,6 +109,11 @@ schema decision. `HANDOFF.md` holds deferred work.
   disable prior purchase, outbound and bundle-component actions until it arrives.
   They never retain another product's page. Clearing a configuration removes
   the query constraint rather than sending an empty variant id to the API.
+  A network failure or transient server error during refinement also retains
+  that mounted product as display state, with stale offer and bundle actions
+  disabled and an inline retry. It never populates the new selection's cache
+  with the prior response. Definitive client errors discard this fallback;
+  only 404/410 show “not found”, while other initial failures offer a retry.
 - Full product reviews use a flat Bloom `Dialog`, with search above the filters.
   Filter drafts open in a 300px Bloom `Popover` on web from 768px and a bottom
   `Dialog` below it or on native. Apply commits the draft; dismissal discards it.

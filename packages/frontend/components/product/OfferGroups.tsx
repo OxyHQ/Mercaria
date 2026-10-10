@@ -62,6 +62,8 @@ export interface OfferGroupsProps {
   onAddToCart: (input: { listingId: string; productVariantId: string }) => void;
   addToCartPending: boolean;
   isUpdating?: boolean;
+  /** A failed refresh keeps the layout but must not enable stale offers. */
+  disabled?: boolean;
 }
 
 export function OfferGroups(props: OfferGroupsProps) {
@@ -69,7 +71,7 @@ export function OfferGroups(props: OfferGroupsProps) {
   return (
     <View testID="product-offers" aria-busy={props.isUpdating} accessibilityState={{ busy: props.isUpdating }} className="relative">
       {props.isUpdating ? <Text accessibilityLiveRegion="polite" className="absolute -top-space-20 text-shop-caption text-text-tertiary">{t('common.loading')}</Text> : null}
-      <OfferGroupsContent {...props} />
+      <OfferGroupsContent {...props} isUpdating={props.disabled || props.isUpdating} />
     </View>
   );
 }

@@ -31,7 +31,77 @@ async function observeGallery(page: Page) {
   });
 }
 
+test('initial service failures are retryable and a removed product discards stale identity', async ({ page, request }) => {
+  const handle = 'smartphone-kaido-vero-5';
+  const response = await request.get(`http://localhost:4160/product-page/${handle}`);
+  expect(response.ok()).toBe(true);
+  const fixture: CanonicalProductPage = (await response.json()).data;
+  const [first, second] = fixture.variants;
+  let status = 503;
+  await page.route(`**/product-page/${handle}?*`, async route => {
+    if (status !== 200) {
+      await route.fulfill({ status, json: { success: false } });
+      return;
+    }
+    const data = structuredClone(fixture);
+    data.product.variantDefiningAttributeKeys = [];
+    data.variants = [first, second].map((variant, index) => ({ ...variant, name: `Configuration ${index + 1}`, options: [] }));
+    await route.fulfill({ json: { success: true, data } });
+  });
+  await page.goto(`/p/${handle}?variant=${first.id}`);
+  await expect(page.getByRole('button', { name: 'Try Again', exact: true })).toBeVisible();
+  await expect(page.getByText("We couldn't find this product.", { exact: true })).toHaveCount(0);
+  status = 200;
+  await page.getByRole('button', { name: 'Try Again', exact: true }).click();
+  await expect(page.getByTestId('product-gallery')).toBeVisible();
+  status = 404;
+  await page.getByRole('radio', { name: /Configuration 2,/ }).click();
+  await expect(page.getByText("We couldn't find this product.", { exact: true })).toBeVisible();
+  await expect(page.getByTestId('product-gallery')).toHaveCount(0);
+  await expect(page.getByTestId('product-offers')).toHaveCount(0);
+});
+
 for (const width of [390, 1440]) {
+  test(`failed configuration updates preserve identity and can retry at ${width}px`, async ({ page, request }) => {
+    const handle = 'smartphone-kaido-vero-5';
+    const response = await request.get(`http://localhost:4160/product-page/${handle}`);
+    expect(response.ok()).toBe(true);
+    const fixture: CanonicalProductPage = (await response.json()).data;
+    const [first, second] = fixture.variants;
+    let failing = true;
+    await page.route(`**/product-page/${handle}?*`, async route => {
+      const selected = new URL(route.request().url()).searchParams.get('canonicalVariantId');
+      if (selected === second.id && failing) {
+        await route.fulfill({ status: 503, json: { success: false, error: 'Temporarily unavailable' } });
+        return;
+      }
+      const data = structuredClone(fixture);
+      data.product.variantDefiningAttributeKeys = [];
+      data.variants = [first, second].map((variant, index) => ({ ...variant, name: `Configuration ${index + 1}`, options: [] }));
+      data.selectedVariantId = selected ?? undefined;
+      data.bundleContents = { status: 'available', variantId: selected ?? first.id, components: [{
+        productId: data.product.id, productSlug: data.product.slug, variantId: first.id,
+        name: data.product.name, quantity: selected === second.id ? 2 : 1,
+      }] };
+      await route.fulfill({ json: { success: true, data } });
+    });
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(`/p/${handle}?variant=${first.id}`);
+    await expect(page.getByTestId('bundled-product-card')).toHaveCount(1);
+    const audit = await observeGallery(page);
+    await page.getByRole('radio', { name: /Configuration 2,/ }).click();
+    await expect(page.getByTestId('product-update-error')).toBeVisible();
+    await expect(page.getByTestId('bundled-product-card')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByTestId('product-offers')).not.toHaveAttribute('aria-busy', 'true');
+    failing = false;
+    await page.getByTestId('product-update-error').getByRole('button').click();
+    await expect(page.getByTestId('bundle-quantity')).toHaveText('×2');
+    await expect(page.getByTestId('product-update-error')).toHaveCount(0);
+    await expect(page.getByTestId('bundled-product-card')).not.toHaveAttribute('aria-disabled', 'true');
+    const result = await audit.evaluate(value => { value.running = false; return value; });
+    expect(result).toMatchObject({ missing: 0, replaced: 0, faded: 0 });
+  });
+
   test(`slow configuration changes preserve the page and suspend stale actions at ${width}px`, async ({ page, request }) => {
     const handle = 'smartphone-kaido-vero-5';
     const response = await request.get(`http://localhost:4160/product-page/${handle}`);
