@@ -1516,14 +1516,15 @@
           "region": "المنطقة",
           "country": "الدولة",
           "countryPlaceholder": "AE",
-          "latitude": "خط العرض",
-          "longitude": "خط الطول",
-          "positionHint": "اختيار عنوان من البحث يملأ الموضع تلقائيًا.",
-          "submit": "إنشاء المكان",
+          "positionHint": "اختر نتيجة من GoWay لتحديد الموقع. عند تغيير العنوان، يجب الاختيار مجددًا.",
+          "submit": "إنشاء موقع تجاري عام",
           "created": "تم إنشاء المكان على GoWay",
           "nameRequired": "أعطِ المكان اسمًا",
           "countryRequired": "أدخل رمز الدولة المكوّن من حرفين",
-          "positionRequired": "أدخل خط عرض وخط طول حقيقيين، أو اختر عنوانًا من البحث"
+          "positionRequired": "ابحث عن العنوان في GoWay واختر نتيجة.",
+          "findAddress": "البحث عن العنوان في GoWay",
+          "positionSelected": "تم اختيار الموقع من GoWay",
+          "publicNotice": "الأماكن الجديدة عامة على GoWay. لا تضف منزلًا خاصًا أو عنوان توصيل."
         },
         "claim": {
           "title": "المطالبة بالمكان",

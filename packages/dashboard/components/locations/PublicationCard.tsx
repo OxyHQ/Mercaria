@@ -12,6 +12,7 @@ import { Field } from "@oxy.so/bloom/field";
 import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Textarea } from "@oxy.so/bloom/textarea";
 import { Button } from "@oxy.so/bloom/button";
+import { RadioGroup } from "@oxy.so/bloom/radio";
 import { Switch } from "@oxy.so/bloom/switch";
 import {
   SegmentedControl,
@@ -129,17 +130,11 @@ export function PublicationCard({
         />
       </Field>
       <Field label={t("settings.locations.editor.publication.identity")}>
-        <SegmentedControl
-          type="radio"
+        <RadioGroup
           value={draft.identityRequirement}
           onValueChange={(identityRequirement) => patch({ identityRequirement })}
-        >
-          {IDENTITY_REQUIREMENTS.map((requirement) => (
-            <SegmentedControlItem key={requirement} value={requirement}>
-              <SegmentedControlItemText>{t(PICKUP_IDENTITY_REQUIREMENT_KEYS[requirement])}</SegmentedControlItemText>
-            </SegmentedControlItem>
-          ))}
-        </SegmentedControl>
+          options={IDENTITY_REQUIREMENTS.map((value) => ({ value, label: t(PICKUP_IDENTITY_REQUIREMENT_KEYS[value]) }))}
+        />
       </Field>
       <Field label={t("settings.locations.editor.publication.inventorySource")}>
         <SegmentedControl

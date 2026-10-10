@@ -1534,14 +1534,15 @@
           "region": "Regió",
           "country": "País",
           "countryPlaceholder": "ES",
-          "latitude": "Latitud",
-          "longitude": "Longitud",
-          "positionHint": "Si tries una adreça de la cerca, la posició s'omple sola.",
-          "submit": "Crea el lloc",
+          "positionHint": "Tria un resultat de GoWay per fixar la posició. Si canvies l’adreça, has de tornar a triar.",
+          "submit": "Crear establiment públic",
           "created": "Lloc creat a GoWay",
           "nameRequired": "Posa un nom al lloc",
           "countryRequired": "Escriu el codi de país de dues lletres",
-          "positionRequired": "Escriu una latitud i una longitud reals, o tria una adreça de la cerca"
+          "positionRequired": "Cerca l’adreça a GoWay i tria un resultat.",
+          "findAddress": "Cerca l’adreça a GoWay",
+          "positionSelected": "Posició seleccionada de GoWay",
+          "publicNotice": "Els llocs nous són públics a GoWay. No hi afegeixis un domicili privat ni una adreça de lliurament."
         },
         "claim": {
           "title": "Reclama el lloc",

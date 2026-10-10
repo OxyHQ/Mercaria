@@ -1516,14 +1516,15 @@
           "region": "राज्य",
           "country": "देश",
           "countryPlaceholder": "IN",
-          "latitude": "अक्षांश",
-          "longitude": "देशांतर",
-          "positionHint": "खोज से पता चुनने पर पोज़िशन अपने-आप भर जाती है।",
-          "submit": "जगह बनाएं",
+          "positionHint": "स्थान तय करने के लिए GoWay का एक परिणाम चुनें। पता बदलने पर दोबारा चुनना होगा।",
+          "submit": "सार्वजनिक व्यावसायिक स्थान बनाएँ",
           "created": "GoWay पर जगह बन गई",
           "nameRequired": "जगह को नाम दें",
           "countryRequired": "दो अक्षरों वाला देश कोड डालें",
-          "positionRequired": "असली अक्षांश और देशांतर डालें, या खोज से पता चुनें"
+          "positionRequired": "GoWay पर पता खोजें और एक परिणाम चुनें।",
+          "findAddress": "GoWay पर पता खोजें",
+          "positionSelected": "GoWay से स्थान चुना गया",
+          "publicNotice": "GoWay पर नए स्थान सार्वजनिक होते हैं। निजी घर या डिलीवरी का पता न जोड़ें।"
         },
         "claim": {
           "title": "जगह क्लेम करें",

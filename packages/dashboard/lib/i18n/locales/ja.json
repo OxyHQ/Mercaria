@@ -1516,14 +1516,15 @@
           "region": "都道府県",
           "country": "国",
           "countryPlaceholder": "JP",
-          "latitude": "緯度",
-          "longitude": "経度",
-          "positionHint": "検索結果から住所を選ぶと、位置が自動で入力されます。",
-          "submit": "場所を作成",
+          "positionHint": "GoWayの検索結果を選んで位置を設定します。住所を変更した場合は、もう一度選択してください。",
+          "submit": "公開する事業所を作成",
           "created": "GoWay に場所を作成しました",
           "nameRequired": "場所の名前を入力してください",
           "countryRequired": "2 文字の国コードを入力してください",
-          "positionRequired": "実際の緯度と経度を入力するか、検索から住所を選んでください"
+          "positionRequired": "GoWayで住所を検索し、結果を選択してください。",
+          "findAddress": "GoWayで住所を検索",
+          "positionSelected": "GoWayから位置を選択しました",
+          "publicNotice": "新しい場所はGoWayで公開されます。個人の自宅や配送先住所を追加しないでください。"
         },
         "claim": {
           "title": "場所を申請する",

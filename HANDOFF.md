@@ -859,3 +859,28 @@ transport fixtures, not evidence of a real account write. The live geocoding cas
 does not intercept GoWay. All 151 frontend unit tests, frontend types/lint (five
 existing warnings), i18n/RTL/route gates passed. Apps remain on 8160/8161 with the
 local backend on 4160. No SDK patch was needed for address lookup.
+
+## GoWay Wholesale business locations — 2026-10-10
+
+The location editor uses the official GoWay SDK's search and structured geocoder.
+Changing postal fields invalidates the selected position; selecting a fresh
+result is required before creating the public business place. Provider-omitted
+postal fields can retain the merchant's reviewed structured input. Search and
+lookup requests are cancellable, late results cannot select a position, and
+failed creation preserves the draft. Pending creation disables draft changes.
+Selecting or creating a place does not publish a Mercaria location or establish
+a business claim; ADR 0013's claimed-business backlink remains authoritative.
+The public-business CTA is explicit. Private buyer addresses use the separate
+transient geocoder flow above, never public place creation.
+
+Validation: 35 dashboard GoWay unit tests, dashboard types/lint (two existing
+channel warnings), and two isolated browser scenarios at 1440px English and
+390px Arabic passed. Those scenarios exercise SDK transport failures/retries,
+late lookup results, keyboard selection, pending controls and zero Mercaria
+publication writes. They also caught and fixed a mobile overflow in pickup
+identity options by using Bloom RadioGroup. Global i18n 66, RTL 12 and route
+checks passed. A separate real read-only SDK structured lookup for Passeig de
+Gràcia 43, Barcelona returned two candidates from photon/goway; no real public
+place, claim or publication was created. Authenticated merchant writes remain
+unverified live. The installed headless SDK does not provide a map renderer;
+this editor does not invent one.

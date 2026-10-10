@@ -1516,14 +1516,15 @@
           "region": "Region",
           "country": "Land",
           "countryPlaceholder": "DE",
-          "latitude": "Breitengrad",
-          "longitude": "Längengrad",
-          "positionHint": "Wenn Sie eine Adresse aus der Suche wählen, wird die Position automatisch ausgefüllt.",
-          "submit": "Ort erstellen",
+          "positionHint": "Wählen Sie ein GoWay-Ergebnis für die Position. Nach einer Adressänderung ist eine neue Auswahl erforderlich.",
+          "submit": "Öffentlichen Geschäftsstandort erstellen",
           "created": "Ort auf GoWay erstellt",
           "nameRequired": "Geben Sie dem Ort einen Namen",
           "countryRequired": "Geben Sie den zweistelligen Ländercode ein",
-          "positionRequired": "Geben Sie einen echten Breiten- und Längengrad ein oder wählen Sie eine Adresse aus der Suche"
+          "positionRequired": "Suchen Sie die Adresse auf GoWay und wählen Sie ein Ergebnis.",
+          "findAddress": "Adresse auf GoWay suchen",
+          "positionSelected": "Position aus GoWay ausgewählt",
+          "publicNotice": "Neue Orte sind auf GoWay öffentlich. Fügen Sie keine private Wohn- oder Lieferadresse hinzu."
         },
         "claim": {
           "title": "Ort beanspruchen",

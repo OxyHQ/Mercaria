@@ -29,6 +29,7 @@ import {
   type PlaceHoursExceptionInput,
   type PlaceUpdateInput,
   type SearchResult,
+  type StructuredGeocodeQuery,
 } from "@goway.to/sdk";
 import { GOWAY_API_URL } from "../config";
 import { useTranslation } from "../i18n";
@@ -73,8 +74,20 @@ export function useGoWaySearch(query: string) {
   const term = query.trim();
   return useQuery<SearchResult[]>({
     queryKey: queryKeys.goway.search(term, locale),
-    queryFn: async () => (await client.search.query({ query: term, limit: SEARCH_LIMIT })).items,
+    queryFn: async ({ signal }) => (await client.search.query({ query: term, limit: SEARCH_LIMIT }, { signal })).items,
     enabled: term.length >= 2,
+    retry: false,
+  });
+}
+
+/** Resolve a reviewed postal draft without creating any public place. */
+export function useGoWayAddress(query: StructuredGeocodeQuery | null) {
+  const client = useGoWayClient();
+  const { locale } = useTranslation();
+  return useQuery<SearchResult[]>({
+    queryKey: queryKeys.goway.address(query, locale),
+    queryFn: async ({ signal }) => (await client.geocode.structured({ ...query, limit: SEARCH_LIMIT }, { signal })).items,
+    enabled: query !== null,
     retry: false,
   });
 }

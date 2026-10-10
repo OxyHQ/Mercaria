@@ -1,3 +1,5 @@
+import type { StructuredGeocodeQuery } from "@goway.to/sdk";
+
 /**
  * Centralized TanStack Query key factory for the dashboard.
  *
@@ -94,6 +96,7 @@ export const queryKeys = {
    */
   goway: {
     place: (placeId: string, locale: string) => ["goway", "place", placeId, locale] as const,
+    address: (query: StructuredGeocodeQuery | null, locale: string) => ["goway", "address", query, locale] as const,
     search: (query: string, locale: string) => ["goway", "search", query, locale] as const,
     /** Every claim query of one account — the prefix a new claim invalidates. */
     accountClaims: (oxyAccountId: string) => ["goway", "claims", oxyAccountId] as const,

@@ -1516,14 +1516,15 @@
           "region": "省/州",
           "country": "国家",
           "countryPlaceholder": "CN",
-          "latitude": "纬度",
-          "longitude": "经度",
-          "positionHint": "从搜索结果中选择地址会自动填写位置。",
-          "submit": "创建场所",
+          "positionHint": "选择 GoWay 的搜索结果以设置位置。更改地址后需要重新选择。",
+          "submit": "创建公开营业地点",
           "created": "已在 GoWay 上创建场所",
           "nameRequired": "请为场所命名",
           "countryRequired": "请输入两位字母的国家代码",
-          "positionRequired": "请输入真实的纬度和经度，或从搜索中选择地址"
+          "positionRequired": "在 GoWay 中查找地址并选择结果。",
+          "findAddress": "在 GoWay 中查找地址",
+          "positionSelected": "已从 GoWay 选择位置",
+          "publicNotice": "新地点会在 GoWay 上公开。请勿添加私人住宅或配送地址。"
         },
         "claim": {
           "title": "认领场所",

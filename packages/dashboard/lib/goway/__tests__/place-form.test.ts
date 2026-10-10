@@ -15,6 +15,8 @@ import {
   accessibilityOperations,
   contactInputOf,
   draftFromSearchResult,
+  editPlaceDraft,
+  placeAddressQuery,
   hoursExceptionInputOf,
   placeCreateInputOf,
   type AccessibilityChoices,
@@ -60,6 +62,32 @@ describe('placeCreateInputOf', () => {
     const draft = draftFromSearchResult(result, 'Shop');
     expect(draft).toMatchObject({ name: 'Shop', street: 'Carrer Gran', city: 'Barcelona', countryCode: 'ES' });
     expect(placeCreateInputOf(draft).ok).toBe(true);
+  });
+});
+
+describe('GoWay address selection', () => {
+  it('invalidates both coordinates when any postal field changes', () => {
+    for (const key of ['street', 'houseNumber', 'city', 'region', 'postalCode', 'countryCode'] as const) {
+      const changed = editPlaceDraft(BARCELONA, key, 'changed');
+      expect(changed).toMatchObject({ [key]: 'changed', latitude: '', longitude: '' });
+      expect(placeCreateInputOf(changed).ok).toBe(false);
+    }
+  });
+  it('preserves a selected position when renaming the business or leaving a value unchanged', () => {
+    expect(editPlaceDraft(BARCELONA, 'name', 'Other name')).toMatchObject({ latitude: BARCELONA.latitude, longitude: BARCELONA.longitude });
+    expect(editPlaceDraft(BARCELONA, 'countryCode', BARCELONA.countryCode)).toBe(BARCELONA);
+  });
+  it('keeps reviewed fields omitted by a structured result, while using its returned position', () => {
+    const result: SearchResult = { id: 'r2', displayName: 'Public shop', kind: 'poi', source: 'goway',
+      coordinate: { latitude: 41.4, longitude: 2.2 }, address: { street: 'Resolved street' } };
+    const draft = draftFromSearchResult(result, 'Shop', { ...BARCELONA, street: 'Typed street', houseNumber: '43', postalCode: '08007' });
+    expect(draft).toMatchObject({ street: 'Resolved street', countryCode: 'es', houseNumber: '43', postalCode: '08007', latitude: '41.4', longitude: '2.2' });
+    // A general search has no reviewed address and must not inherit another place.
+    expect(draftFromSearchResult(result, 'Shop').countryCode).toBe('');
+  });
+  it('sends only trimmed structured postal fields to the official geocoder', () => {
+    expect(placeAddressQuery({ ...BARCELONA, street: ' Passeig de Gràcia ', houseNumber: ' 43 ', city: ' Barcelona ', region: '  ' }))
+      .toEqual({ street: 'Passeig de Gràcia', houseNumber: '43', city: 'Barcelona', countryCode: 'ES' });
   });
 });
 

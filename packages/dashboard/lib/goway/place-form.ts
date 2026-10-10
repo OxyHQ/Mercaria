@@ -17,6 +17,7 @@ import {
   type PlaceCreateInput,
   type PlaceHoursExceptionInput,
   type SearchResult,
+  type StructuredGeocodeQuery,
 } from "@goway.to/sdk";
 import { parseRanges } from "./hours";
 
@@ -48,21 +49,34 @@ export const EMPTY_PLACE_DRAFT: PlaceDraft = {
 /**
  * A draft prefilled from a search result that GoWay holds no place for — an
  * address or a street the geocoder found. Its position is GoWay's answer, so a
- * merchant creating the shop there never types a coordinate.
+ * merchant creating the shop there never types a coordinate. A structured lookup
+ * may preserve reviewed input fields which its provider omitted from the answer.
  */
-export function draftFromSearchResult(result: SearchResult, name: string): PlaceDraft {
+export function draftFromSearchResult(result: SearchResult, name: string, reviewedAddress?: PlaceDraft): PlaceDraft {
   const address = result.address ?? {};
   return {
     name,
-    street: address.street ?? "",
-    houseNumber: address.houseNumber ?? "",
-    postalCode: address.postalCode ?? "",
-    city: address.city ?? result.context?.city ?? "",
-    region: address.region ?? result.context?.region ?? "",
-    countryCode: address.countryCode ?? result.context?.countryCode ?? "",
+    street: address.street ?? reviewedAddress?.street ?? "",
+    houseNumber: address.houseNumber ?? reviewedAddress?.houseNumber ?? "",
+    postalCode: address.postalCode ?? reviewedAddress?.postalCode ?? "",
+    city: address.city ?? result.context?.city ?? reviewedAddress?.city ?? "",
+    region: address.region ?? result.context?.region ?? reviewedAddress?.region ?? "",
+    countryCode: address.countryCode ?? result.context?.countryCode ?? reviewedAddress?.countryCode ?? "",
     latitude: String(result.coordinate.latitude),
     longitude: String(result.coordinate.longitude),
   };
+}
+
+/** Changing postal facts invalidates the selected GoWay position. */
+export function editPlaceDraft(draft: PlaceDraft, key: Exclude<keyof PlaceDraft, "latitude" | "longitude">, value: string): PlaceDraft {
+  if (draft[key] === value) return draft;
+  return { ...draft, [key]: value, ...(key === "name" ? {} : { latitude: "", longitude: "" }) };
+}
+
+/** Official structured geocoder input; coordinates are never inferred locally. */
+export function placeAddressQuery(draft: PlaceDraft): StructuredGeocodeQuery {
+  return Object.fromEntries((["street", "houseNumber", "city", "region", "postalCode", "countryCode"] as const)
+    .flatMap(key => draft[key].trim() ? [[key, key === "countryCode" ? draft[key].trim().toUpperCase() : draft[key].trim()]] : []));
 }
 
 function nonEmpty(value: string): string | undefined {

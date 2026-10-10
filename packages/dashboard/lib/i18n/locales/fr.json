@@ -1534,14 +1534,15 @@
           "region": "Région",
           "country": "Pays",
           "countryPlaceholder": "FR",
-          "latitude": "Latitude",
-          "longitude": "Longitude",
-          "positionHint": "Choisir une adresse dans la recherche remplit la position pour vous.",
-          "submit": "Créer le lieu",
+          "positionHint": "Choisissez un résultat GoWay pour définir la position. Si vous modifiez l’adresse, choisissez à nouveau.",
+          "submit": "Créer un établissement public",
           "created": "Lieu créé sur GoWay",
           "nameRequired": "Donnez un nom au lieu",
           "countryRequired": "Saisissez le code pays à deux lettres",
-          "positionRequired": "Saisissez une latitude et une longitude réelles, ou choisissez une adresse dans la recherche"
+          "positionRequired": "Recherchez l’adresse sur GoWay et choisissez un résultat.",
+          "findAddress": "Rechercher l’adresse sur GoWay",
+          "positionSelected": "Position sélectionnée sur GoWay",
+          "publicNotice": "Les nouveaux lieux sont publics sur GoWay. N’ajoutez pas de domicile privé ni d’adresse de livraison."
         },
         "claim": {
           "title": "Revendiquer le lieu",

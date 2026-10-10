@@ -1516,14 +1516,15 @@
           "region": "Region",
           "country": "Country",
           "countryPlaceholder": "ES",
-          "latitude": "Latitude",
-          "longitude": "Longitude",
-          "positionHint": "Picking an address from the search fills in the position for you.",
-          "submit": "Create place",
+          "positionHint": "Choose a GoWay result to set the position. Changing the address requires choosing again.",
+          "submit": "Create public business place",
           "created": "Place created on GoWay",
           "nameRequired": "Give the place a name",
           "countryRequired": "Enter the two-letter country code",
-          "positionRequired": "Enter a real latitude and longitude, or pick an address from the search"
+          "positionRequired": "Find the address on GoWay and choose a result.",
+          "findAddress": "Find address on GoWay",
+          "positionSelected": "Position selected from GoWay",
+          "publicNotice": "New places are public on GoWay. Do not add a private home or delivery address."
         },
         "claim": {
           "title": "Claim the place",

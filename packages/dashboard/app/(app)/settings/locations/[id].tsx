@@ -57,7 +57,7 @@ export default function LocationEditorScreen() {
         <title>{t("settings.locations.editor.documentTitle")}</title>
       </Head>
       <RequireStore permission="locations:write">
-        {(storeId) => <LocationEditorBody storeId={storeId} locationId={String(id)} />}
+        {(storeId) => <LocationEditorBody key={`${storeId}:${id}`} storeId={storeId} locationId={String(id)} />}
       </RequireStore>
     </>
   );

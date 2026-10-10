@@ -1534,14 +1534,15 @@
           "region": "Región",
           "country": "País",
           "countryPlaceholder": "ES",
-          "latitude": "Latitud",
-          "longitude": "Longitud",
-          "positionHint": "Al elegir una dirección de la búsqueda, la posición se rellena sola.",
-          "submit": "Crear lugar",
+          "positionHint": "Elige un resultado de GoWay para fijar la posición. Si cambias la dirección, debes volver a elegir.",
+          "submit": "Crear establecimiento público",
           "created": "Lugar creado en GoWay",
           "nameRequired": "Ponle un nombre al lugar",
           "countryRequired": "Escribe el código de país de dos letras",
-          "positionRequired": "Escribe una latitud y una longitud reales, o elige una dirección de la búsqueda"
+          "positionRequired": "Busca la dirección en GoWay y elige un resultado.",
+          "findAddress": "Buscar dirección en GoWay",
+          "positionSelected": "Posición seleccionada de GoWay",
+          "publicNotice": "Los lugares nuevos son públicos en GoWay. No añadas un domicilio privado ni una dirección de entrega."
         },
         "claim": {
           "title": "Reclamar el lugar",
