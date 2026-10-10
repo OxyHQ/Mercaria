@@ -34,20 +34,20 @@ import type {
   OfferComparisonLabel,
   OfferLabelAward,
   OfferLabelReason,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 
 /** The short badge text. */
 export const OFFER_LABEL_TEXT_KEYS: Readonly<Record<OfferComparisonLabel, string>> = {
-  best_overall: "ui.offer.label.best_overall",
-  cheapest_item_price: "ui.offer.label.cheapest_item_price",
-  cheapest_known_total: "ui.offer.label.cheapest_known_total",
-  official_direct_store: "ui.offer.label.official_direct_store",
-  authorized_reseller: "ui.offer.label.authorized_reseller",
-  fastest_known_delivery: "ui.offer.label.fastest_known_delivery",
-  best_nearby_pickup: "ui.offer.label.best_nearby_pickup",
-  cheapest_new: "ui.offer.label.cheapest_new",
-  cheapest_used: "ui.offer.label.cheapest_used",
-  native_mercaria_checkout: "ui.offer.label.native_mercaria_checkout",
+  best_overall: 'ui.offer.label.best_overall',
+  cheapest_item_price: 'ui.offer.label.cheapest_item_price',
+  cheapest_known_total: 'ui.offer.label.cheapest_known_total',
+  official_direct_store: 'ui.offer.label.official_direct_store',
+  authorized_reseller: 'ui.offer.label.authorized_reseller',
+  fastest_known_delivery: 'ui.offer.label.fastest_known_delivery',
+  best_nearby_pickup: 'ui.offer.label.best_nearby_pickup',
+  cheapest_new: 'ui.offer.label.cheapest_new',
+  cheapest_used: 'ui.offer.label.cheapest_used',
+  native_mercaria_checkout: 'ui.offer.label.native_mercaria_checkout',
 };
 
 /**
@@ -60,16 +60,16 @@ export const OFFER_LABEL_TEXT_KEYS: Readonly<Record<OfferComparisonLabel, string
  * reasons does not orphan the sentence.
  */
 export const OFFER_LABEL_EXPLANATION_KEYS: Readonly<Record<OfferLabelReason, string>> = {
-  highest_policy_score: "ui.offer.explanation.highest_policy_score",
-  lowest_item_price: "ui.offer.explanation.lowest_item_price",
-  lowest_known_total: "ui.offer.explanation.lowest_known_total",
-  verified_official_channel: "ui.offer.explanation.verified_official_channel",
-  verified_authorized_reseller: "ui.offer.explanation.verified_authorized_reseller",
-  shortest_known_delivery: "ui.offer.explanation.shortest_known_delivery",
-  nearest_collection_point: "ui.offer.explanation.nearest_collection_point",
-  lowest_item_price_new_segment: "ui.offer.explanation.lowest_item_price_new_segment",
-  lowest_item_price_used_segment: "ui.offer.explanation.lowest_item_price_used_segment",
-  buyable_on_mercaria: "ui.offer.explanation.buyable_on_mercaria",
+  highest_policy_score: 'ui.offer.explanation.highest_policy_score',
+  lowest_item_price: 'ui.offer.explanation.lowest_item_price',
+  lowest_known_total: 'ui.offer.explanation.lowest_known_total',
+  verified_official_channel: 'ui.offer.explanation.verified_official_channel',
+  verified_authorized_reseller: 'ui.offer.explanation.verified_authorized_reseller',
+  shortest_known_delivery: 'ui.offer.explanation.shortest_known_delivery',
+  nearest_collection_point: 'ui.offer.explanation.nearest_collection_point',
+  lowest_item_price_new_segment: 'ui.offer.explanation.lowest_item_price_new_segment',
+  lowest_item_price_used_segment: 'ui.offer.explanation.lowest_item_price_used_segment',
+  buyable_on_mercaria: 'ui.offer.explanation.buyable_on_mercaria',
 };
 
 /**
@@ -80,8 +80,8 @@ export const OFFER_LABEL_EXPLANATION_KEYS: Readonly<Record<OfferLabelReason, str
  * colon are both punctuation a language decides (French spaces its colon,
  * Chinese and Japanese use a full-width one), and a translator can see a key.
  */
-export const OFFER_LABEL_BADGE_WITH_BASIS_KEY = "ui.offer.badgeWithBasis";
-export const OFFER_LABEL_A11Y_WITH_BASIS_KEY = "ui.offer.a11yLabelWithBasis";
+export const OFFER_LABEL_BADGE_WITH_BASIS_KEY = 'ui.offer.badgeWithBasis';
+export const OFFER_LABEL_A11Y_WITH_BASIS_KEY = 'ui.offer.a11yLabelWithBasis';
 
 /**
  * `%{count} day` / `%{count} days` — a delivery estimate's own figure.
@@ -92,7 +92,7 @@ export const OFFER_LABEL_A11Y_WITH_BASIS_KEY = "ui.offer.a11yLabelWithBasis";
  * `many` form is correct; that is the known, documented limitation #436 owns,
  * and it is one a per-locale pluralizer fixes without touching this call site.
  */
-export const OFFER_LABEL_DAYS_KEY = "ui.offer.days";
+export const OFFER_LABEL_DAYS_KEY = 'ui.offer.days';
 
 /** The translation key for one award's badge text. */
 export function offerLabelTextKey(label: OfferComparisonLabel): string {

@@ -108,7 +108,10 @@ export async function findRankingPolicyVersion(
     .select()
     .from(rankingPolicyVersions)
     .where(
-      and(eq(rankingPolicyVersions.policyKey, policyKey), eq(rankingPolicyVersions.version, version)),
+      and(
+        eq(rankingPolicyVersions.policyKey, policyKey),
+        eq(rankingPolicyVersions.version, version),
+      ),
     )
     .limit(1);
   return row ?? null;

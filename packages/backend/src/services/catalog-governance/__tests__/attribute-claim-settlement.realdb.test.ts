@@ -225,9 +225,7 @@ async function citeClaim(
     await tx.insert(nativeVariantSignatures).values({
       variantId: fixture.variantId,
       listingId: fixture.listingId,
-      signature: typedVariantSignature([
-        { attributeDefinitionId: attribute.id, normalizedValue },
-      ]),
+      signature: typedVariantSignature([{ attributeDefinitionId: attribute.id, normalizedValue }]),
       axisCount: 1,
     });
   });
@@ -452,7 +450,11 @@ describe('a pre-existing violator stays repairable', () => {
       );
       await tx
         .update(nativeVariantAttributeClaims)
-        .set({ valueResolution: 'blocked', valueRefusal: 'attribute_unresolved', normalizedValue: null })
+        .set({
+          valueResolution: 'blocked',
+          valueRefusal: 'attribute_unresolved',
+          normalizedValue: null,
+        })
         .where(eq(nativeVariantAttributeClaims.id, fixture.claimId));
       await tx.execute(
         'alter table native_variant_attribute_claims enable trigger mercaria_native_variant_claim_frozen',

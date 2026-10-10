@@ -64,7 +64,11 @@ router.use(requireCatalogOperator);
 router.get('/policies', validateQuery(priceSignalListQuerySchema), listPriceSignalPoliciesHandler);
 
 /** POST — publish a DRAFT. It defines nothing until it is activated. */
-router.post('/policies', validateBody(priceSignalPolicyCreateSchema), createPriceSignalPolicyHandler);
+router.post(
+  '/policies',
+  validateBody(priceSignalPolicyCreateSchema),
+  createPriceSignalPolicyHandler,
+);
 
 /** POST — promote a version, or ROLL BACK by activating an earlier one. */
 router.post(

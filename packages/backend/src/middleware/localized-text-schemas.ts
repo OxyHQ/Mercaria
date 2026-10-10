@@ -46,10 +46,7 @@ export interface LocalizedTextBounds {
  * Refuses rather than cleans, so the returned value is byte-identical to the
  * trimmed input and the `.max()` above still bounds exactly what is stored.
  */
-export function localizedText(
-  key: LocalizedTextColumnKey,
-  bounds: LocalizedTextBounds,
-) {
+export function localizedText(key: LocalizedTextColumnKey, bounds: LocalizedTextBounds) {
   const base =
     bounds.min === undefined
       ? z.string().trim().max(bounds.max)

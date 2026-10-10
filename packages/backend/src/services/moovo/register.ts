@@ -53,7 +53,7 @@ export function moovoConfigurationProblems(): readonly string[] {
       raw === ''
         ? 'MOOVO_ENVIRONMENT is required: development, staging or production.'
         : `MOOVO_ENVIRONMENT=${JSON.stringify(raw)} is not one of development, staging, production. ` +
-          'It is not defaulted, because reading a typo as a default points a deployment at the wrong Moovo.',
+            'It is not defaulted, because reading a typo as a default points a deployment at the wrong Moovo.',
     );
   } else if (process.env.NODE_ENV === 'production' && moovo.environment !== 'production') {
     // #156 environment rule 1: development credentials call only development

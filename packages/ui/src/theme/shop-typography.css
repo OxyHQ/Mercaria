@@ -13,55 +13,55 @@
   --text-shop-caption: 12px;
   --text-shop-caption--line-height: 16px;
   --text-shop-caption--font-weight: 400;
-  --text-shop-caption--letter-spacing: -.2px;
+  --text-shop-caption--letter-spacing: -0.2px;
   --font-weight-shop-caption: 400;
 
   --text-shop-captionMedium: 12px;
   --text-shop-captionMedium--line-height: 16px;
   --text-shop-captionMedium--font-weight: 500;
-  --text-shop-captionMedium--letter-spacing: -.2px;
+  --text-shop-captionMedium--letter-spacing: -0.2px;
   --font-weight-shop-captionMedium: 500;
 
   --text-shop-captionBold: 12px;
   --text-shop-captionBold--line-height: 16px;
   --text-shop-captionBold--font-weight: 600;
-  --text-shop-captionBold--letter-spacing: -.2px;
+  --text-shop-captionBold--letter-spacing: -0.2px;
   --font-weight-shop-captionBold: 600;
 
   --text-shop-badge: 10px;
   --text-shop-badge--line-height: 13px;
   --text-shop-badge--font-weight: 400;
-  --text-shop-badge--letter-spacing: -.2px;
+  --text-shop-badge--letter-spacing: -0.2px;
   --font-weight-shop-badge: 400;
 
   --text-shop-badgeBold: 10px;
   --text-shop-badgeBold--line-height: 13px;
   --text-shop-badgeBold--font-weight: 600;
-  --text-shop-badgeBold--letter-spacing: -.2px;
+  --text-shop-badgeBold--letter-spacing: -0.2px;
   --font-weight-shop-badgeBold: 600;
 
   --text-shop-bodySmall: 14px;
   --text-shop-bodySmall--line-height: 18px;
   --text-shop-bodySmall--font-weight: 400;
-  --text-shop-bodySmall--letter-spacing: -.2px;
+  --text-shop-bodySmall--letter-spacing: -0.2px;
   --font-weight-shop-bodySmall: 400;
 
   --text-shop-bodyTitleSmall: 14px;
   --text-shop-bodyTitleSmall--line-height: 18px;
   --text-shop-bodyTitleSmall--font-weight: 600;
-  --text-shop-bodyTitleSmall--letter-spacing: -.2px;
+  --text-shop-bodyTitleSmall--letter-spacing: -0.2px;
   --font-weight-shop-bodyTitleSmall: 600;
 
   --text-shop-bodyTitleLarge: 16px;
   --text-shop-bodyTitleLarge--line-height: 22px;
   --text-shop-bodyTitleLarge--font-weight: 600;
-  --text-shop-bodyTitleLarge--letter-spacing: -.5px;
+  --text-shop-bodyTitleLarge--letter-spacing: -0.5px;
   --font-weight-shop-bodyTitleLarge: 600;
 
   --text-shop-subtitle: 18px;
   --text-shop-subtitle--line-height: 20px;
   --text-shop-subtitle--font-weight: 600;
-  --text-shop-subtitle--letter-spacing: -.5px;
+  --text-shop-subtitle--letter-spacing: -0.5px;
   --font-weight-shop-subtitle: 600;
 
   --text-shop-sectionTitle: 20px;
@@ -85,19 +85,19 @@
   --text-shop-buttonSmall: 12px;
   --text-shop-buttonSmall--line-height: 16px;
   --text-shop-buttonSmall--font-weight: 600;
-  --text-shop-buttonSmall--letter-spacing: -.2px;
+  --text-shop-buttonSmall--letter-spacing: -0.2px;
   --font-weight-shop-buttonSmall: 600;
 
   --text-shop-buttonMedium: 14px;
   --text-shop-buttonMedium--line-height: 16px;
   --text-shop-buttonMedium--font-weight: 600;
-  --text-shop-buttonMedium--letter-spacing: -.2px;
+  --text-shop-buttonMedium--letter-spacing: -0.2px;
   --font-weight-shop-buttonMedium: 600;
 
   --text-shop-buttonLarge: 16px;
   --text-shop-buttonLarge--line-height: 20px;
   --text-shop-buttonLarge--font-weight: 600;
-  --text-shop-buttonLarge--letter-spacing: -.5px;
+  --text-shop-buttonLarge--letter-spacing: -0.5px;
   --font-weight-shop-buttonLarge: 600;
 
   --text-shop-posterXS: 36px;

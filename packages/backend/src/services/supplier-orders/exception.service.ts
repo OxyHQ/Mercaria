@@ -80,7 +80,11 @@ export async function raiseProcurementExceptionFor(
   await enqueueProcurementEvent(getDb(), {
     id: purchaseOrderExceptionEventId(input.kind, input.purchaseOrder.id),
     eventType: 'purchase_order_exception',
-    payload: { purchaseOrderId: input.purchaseOrder.id, kind: input.kind, exceptionId: exception.id },
+    payload: {
+      purchaseOrderId: input.purchaseOrder.id,
+      kind: input.kind,
+      exceptionId: exception.id,
+    },
   });
 
   const context = {
@@ -131,7 +135,12 @@ export async function raiseProcurementAccountException(
     detail,
   });
   log.general.warn(
-    { supplierAccountId: input.supplierAccountId, kind: input.kind, exceptionId: exception.id, raised },
+    {
+      supplierAccountId: input.supplierAccountId,
+      kind: input.kind,
+      exceptionId: exception.id,
+      raised,
+    },
     '[Procurement] account exception raised',
   );
   return exception;

@@ -63,8 +63,7 @@ export async function raiseRetailSuppression(
   db: DatabaseOrTransaction,
   input: NewRetailSuppression,
 ): Promise<RetailSuppressionRecord> {
-  const scopeRef =
-    input.scope === 'market' ? input.scopeRef.toUpperCase() : input.scopeRef;
+  const scopeRef = input.scope === 'market' ? input.scopeRef.toUpperCase() : input.scopeRef;
   const referenceColumn =
     input.scope in REFERENCE_COLUMN_BY_SCOPE
       ? REFERENCE_COLUMN_BY_SCOPE[input.scope as keyof typeof REFERENCE_COLUMN_BY_SCOPE]
@@ -229,7 +228,10 @@ export async function listRetailSuppressions(
         .orderBy(desc(retailSuppressions.createdAt))
         .limit(filter.limit ?? 100)
     : await query
-        .orderBy(sql`${retailSuppressions.liftedAt} is not null`, desc(retailSuppressions.createdAt))
+        .orderBy(
+          sql`${retailSuppressions.liftedAt} is not null`,
+          desc(retailSuppressions.createdAt),
+        )
         .limit(filter?.limit ?? 100);
   return rows;
 }

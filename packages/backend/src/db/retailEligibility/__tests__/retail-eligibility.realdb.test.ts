@@ -48,10 +48,7 @@ import {
   verifyRetailResaleEvidence,
   revokeRetailResaleEvidence,
 } from '../evidenceRepository.js';
-import {
-  liftRetailSuppression,
-  raiseRetailSuppression,
-} from '../suppressionRepository.js';
+import { liftRetailSuppression, raiseRetailSuppression } from '../suppressionRepository.js';
 import { insertRetailEligibilityException } from '../exceptionRepository.js';
 import {
   appendRetailEligibilityAudit,
@@ -104,7 +101,9 @@ async function makeDraftPolicy(
   overrides: Partial<Parameters<typeof insertRetailEligibilityPolicy>[1]> = {},
 ): Promise<RetailEligibilityPolicyRecord> {
   return await insertRetailEligibilityPolicy(db, {
-    policyKey: `key-${uuidv7().replace(/[^a-z0-9]/g, '').slice(0, 30)}`,
+    policyKey: `key-${uuidv7()
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 30)}`,
     version: 1,
     name: 'Launch policy',
     summary: 'The EU launch scope.',
@@ -222,7 +221,9 @@ describe('a policy version is immutable once it leaves draft', () => {
     await expectRefused(
       () =>
         insertRetailEligibilityPolicy(db, {
-          policyKey: `key-${uuidv7().replace(/[^a-z0-9]/g, '').slice(0, 30)}`,
+          policyKey: `key-${uuidv7()
+            .replace(/[^a-z0-9]/g, '')
+            .slice(0, 30)}`,
           version: 1,
           name: 'Two currencies',
           summary: 'A ceiling in one currency, two permitted.',

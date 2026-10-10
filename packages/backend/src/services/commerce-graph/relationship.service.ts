@@ -265,7 +265,10 @@ export async function assertRelationship(
         'assertion. A human or platform assertion carries evidence, not a probability.',
     );
   }
-  if ((params.assertedBySourceId !== undefined) !== (params.assertedByKind === 'ingestion_source')) {
+  if (
+    (params.assertedBySourceId !== undefined) !==
+    (params.assertedByKind === 'ingestion_source')
+  ) {
     throw validationError(
       'An ingestion-source assertion must name its catalog source, and nothing else may claim one.',
     );
@@ -643,9 +646,10 @@ export async function endRelationship(params: {
   // `valid_to` must be strictly after `valid_from` (a CHECK); a claim ended in
   // the same millisecond it opened gets the smallest window the column admits
   // rather than a refused write the operator cannot act on.
-  const validTo = at.getTime() > relationship.validFrom.getTime()
-    ? at
-    : new Date(relationship.validFrom.getTime() + 1);
+  const validTo =
+    at.getTime() > relationship.validFrom.getTime()
+      ? at
+      : new Date(relationship.validFrom.getTime() + 1);
 
   const ended = await closeRelationship(db, {
     id: relationship.id,
@@ -720,9 +724,7 @@ export async function correctRelationship(
 
     const at = new Date();
     const validTo =
-      at.getTime() > original.validFrom.getTime()
-        ? at
-        : new Date(original.validFrom.getTime() + 1);
+      at.getTime() > original.validFrom.getTime() ? at : new Date(original.validFrom.getTime() + 1);
 
     // Three cases, and the third is why this is not one expression: a verified
     // claim is REVOKED (its window closes and its verification survives), a live
@@ -906,7 +908,12 @@ async function conflictsFor(
   row: CommerceRelationshipRow,
   at: Date,
 ): Promise<RelationshipConflict[]> {
-  const lookups: { brandId?: string; merchantId?: string; organizationId?: string; productFamilyId?: string }[] = [];
+  const lookups: {
+    brandId?: string;
+    merchantId?: string;
+    organizationId?: string;
+    productFamilyId?: string;
+  }[] = [];
   if (row.brandId !== null) lookups.push({ brandId: row.brandId });
   if (row.relatedBrandId !== null) lookups.push({ brandId: row.relatedBrandId });
   if (row.merchantId !== null) lookups.push({ merchantId: row.merchantId });

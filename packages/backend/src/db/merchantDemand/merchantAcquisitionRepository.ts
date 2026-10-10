@@ -123,10 +123,7 @@ export async function listAcquisitionCandidates(
           : eq(merchantAcquisitionCandidates.assignedToOxyUserId, input.assignedToOxyUserId),
       ),
     )
-    .orderBy(
-      desc(merchantAcquisitionCandidates.scoreBps),
-      merchantAcquisitionCandidates.merchantId,
-    )
+    .orderBy(desc(merchantAcquisitionCandidates.scoreBps), merchantAcquisitionCandidates.merchantId)
     .limit(input.limit)
     .offset(input.offset);
 }

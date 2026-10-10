@@ -52,7 +52,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button } from "@oxy.so/bloom/button";
+import { Button } from '@oxy.so/bloom/button';
 import { paymentMethodCategoryFor, track } from '../../lib/analytics';
 import { View } from 'react-native';
 import {
@@ -107,10 +107,7 @@ export function CardPaymentStep({
   }
 
   return (
-    <Elements
-      stripe={stripeFor(publishableKey)}
-      options={{ clientSecret: payment.clientSecret }}
-    >
+    <Elements stripe={stripeFor(publishableKey)} options={{ clientSecret: payment.clientSecret }}>
       <PaymentForm
         payment={payment}
         onCompleted={onCompleted}

@@ -14,10 +14,7 @@ import type {
   GuestSignoffDiscipline,
   GuestStageAdvanceRefusal,
 } from '@mercaria/shared-types';
-import {
-  guestLaunchGateSignoffs,
-  guestRolloutStageAdvances,
-} from '../schema/guestGovernance.js';
+import { guestLaunchGateSignoffs, guestRolloutStageAdvances } from '../schema/guestGovernance.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 
 /** Record one sign-off, or one WITHDRAWAL, which is a later row saying `no`. */

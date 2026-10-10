@@ -23,18 +23,18 @@
  * value.
  */
 
-import type { AuthoringField, AuthoringValidationCode } from "@mercaria/shared-types";
+import type { AuthoringField, AuthoringValidationCode } from '@mercaria/shared-types';
 import {
   expectedEntryKind,
   maxEntriesFor,
   parseEntryNumber,
   type DraftFieldEntry,
-} from "./answers";
+} from './answers';
 
 /** One inline complaint. Severity mirrors the server's split exactly. */
 export interface InlineFinding {
   readonly code: AuthoringValidationCode;
-  readonly severity: "error" | "warning";
+  readonly severity: 'error' | 'warning';
   /** Which entry it is about, or `null` when it is about the field. */
   readonly ordinal: number | null;
 }
@@ -49,14 +49,14 @@ export interface InlineFinding {
  */
 function decimalPlacesOf(value: number): number {
   const rendered = value.toString();
-  if (rendered.includes("e") || rendered.includes("E")) return Number.MAX_SAFE_INTEGER;
-  const dot = rendered.indexOf(".");
+  if (rendered.includes('e') || rendered.includes('E')) return Number.MAX_SAFE_INTEGER;
+  const dot = rendered.indexOf('.');
   return dot === -1 ? 0 : rendered.length - dot - 1;
 }
 
 function checkNumberEntry(
   field: AuthoringField,
-  entry: Extract<DraftFieldEntry, { kind: "number" }>,
+  entry: Extract<DraftFieldEntry, { kind: 'number' }>,
   out: InlineFinding[],
 ): void {
   const value = parseEntryNumber(entry.raw);
@@ -65,16 +65,16 @@ function checkNumberEntry(
     // dropped in silence: the payload drops it, so without this the author's
     // typing simply disappears at the next autosave.
     if (entry.raw.trim().length > 0) {
-      out.push({ code: "value_type_mismatch", severity: "error", ordinal: entry.ordinal });
+      out.push({ code: 'value_type_mismatch', severity: 'error', ordinal: entry.ordinal });
     }
     return;
   }
   const validation = field.validation;
   if (validation.minValue !== null && value < validation.minValue) {
-    out.push({ code: "value_below_minimum", severity: "error", ordinal: entry.ordinal });
+    out.push({ code: 'value_below_minimum', severity: 'error', ordinal: entry.ordinal });
   }
   if (validation.maxValue !== null && value > validation.maxValue) {
-    out.push({ code: "value_above_maximum", severity: "error", ordinal: entry.ordinal });
+    out.push({ code: 'value_above_maximum', severity: 'error', ordinal: entry.ordinal });
   }
   // A WARNING, like the server's: `implausible` is #94's "this is probably a
   // decimal-point mistake", a different claim from "outside the permitted
@@ -82,21 +82,21 @@ function checkNumberEntry(
   // a prototype, and refusing it would make the catalogue unable to record
   // something true.
   if (validation.implausibleAbove !== null && value > validation.implausibleAbove) {
-    out.push({ code: "value_implausible", severity: "warning", ordinal: entry.ordinal });
+    out.push({ code: 'value_implausible', severity: 'warning', ordinal: entry.ordinal });
   }
   if (validation.implausibleBelow !== null && value < validation.implausibleBelow) {
-    out.push({ code: "value_implausible", severity: "warning", ordinal: entry.ordinal });
+    out.push({ code: 'value_implausible', severity: 'warning', ordinal: entry.ordinal });
   }
   if (validation.decimalPlaces !== null && decimalPlacesOf(value) > validation.decimalPlaces) {
-    out.push({ code: "too_many_decimal_places", severity: "error", ordinal: entry.ordinal });
+    out.push({ code: 'too_many_decimal_places', severity: 'error', ordinal: entry.ordinal });
   }
   if (validation.unitFamily !== null && (entry.unit === null || entry.unit.trim().length === 0)) {
     // A magnitude with no unit is not a smaller fact, it is an ambiguous one:
     // 6.1 of what.
-    out.push({ code: "unknown_unit", severity: "error", ordinal: entry.ordinal });
+    out.push({ code: 'unknown_unit', severity: 'error', ordinal: entry.ordinal });
   }
-  if (validation.valueType === "money" && validation.currency === null) {
-    out.push({ code: "currency_mismatch", severity: "error", ordinal: entry.ordinal });
+  if (validation.valueType === 'money' && validation.currency === null) {
+    out.push({ code: 'currency_mismatch', severity: 'error', ordinal: entry.ordinal });
   }
 }
 
@@ -109,43 +109,43 @@ function checkNumberEntry(
  */
 export function checkFieldEntries(
   field: AuthoringField,
-  requirement: AuthoringField["requirement"],
+  requirement: AuthoringField['requirement'],
   entries: readonly DraftFieldEntry[],
 ): readonly InlineFinding[] {
   const out: InlineFinding[] = [];
   const answered = entries.filter((entry) => {
     switch (entry.kind) {
-      case "text":
+      case 'text':
         return entry.text.trim().length > 0;
-      case "number":
+      case 'number':
         return entry.raw.trim().length > 0;
-      case "boolean":
+      case 'boolean':
         return true;
-      case "controlled_value":
+      case 'controlled_value':
         return entry.enumValueId.length > 0;
-      case "canonical_reference":
+      case 'canonical_reference':
         return entry.refId.length > 0;
       default:
         return false;
     }
   });
 
-  if (requirement === "forbidden") {
+  if (requirement === 'forbidden') {
     if (answered.length > 0) {
-      out.push({ code: "field_forbidden_in_flow", severity: "error", ordinal: null });
+      out.push({ code: 'field_forbidden_in_flow', severity: 'error', ordinal: null });
     }
     return out;
   }
-  if (requirement === "hidden") {
+  if (requirement === 'hidden') {
     // A hidden field carrying an answer is not an error — `hidden` means "this
     // flow does not ask, and a value that arrived another way is kept".
     return out;
   }
   if (answered.length === 0) {
-    if (requirement === "required") {
-      out.push({ code: "required_field_missing", severity: "error", ordinal: null });
-    } else if (requirement === "recommended") {
-      out.push({ code: "required_field_missing", severity: "warning", ordinal: null });
+    if (requirement === 'required') {
+      out.push({ code: 'required_field_missing', severity: 'error', ordinal: null });
+    } else if (requirement === 'recommended') {
+      out.push({ code: 'required_field_missing', severity: 'warning', ordinal: null });
     }
     return out;
   }
@@ -155,11 +155,11 @@ export function checkFieldEntries(
   // would refuse every `single` one.
   const max = maxEntriesFor(field);
   const countable =
-    field.validation.valueType === "structured"
+    field.validation.valueType === 'structured'
       ? new Set(answered.map((entry) => entry.ordinal)).size
       : answered.length;
   if (max !== null && countable > max) {
-    out.push({ code: "cardinality_exceeded", severity: "error", ordinal: null });
+    out.push({ code: 'cardinality_exceeded', severity: 'error', ordinal: null });
   }
 
   const expected = expectedEntryKind(field);
@@ -167,48 +167,52 @@ export function checkFieldEntries(
 
   for (const entry of answered) {
     if (entry.kind !== expected) {
-      out.push({ code: "value_type_mismatch", severity: "error", ordinal: entry.ordinal });
+      out.push({ code: 'value_type_mismatch', severity: 'error', ordinal: entry.ordinal });
       continue;
     }
-    if (entry.kind === "controlled_value") {
+    if (entry.kind === 'controlled_value') {
       if (!controlled.has(entry.enumValueId)) {
-        out.push({ code: "value_not_in_controlled_set", severity: "error", ordinal: entry.ordinal });
-      }
-      continue;
-    }
-    if (entry.kind === "canonical_reference") {
-      if (field.valuePolicy !== "canonical_reference") {
         out.push({
-          code: "canonical_reference_not_permitted",
-          severity: "error",
+          code: 'value_not_in_controlled_set',
+          severity: 'error',
           ordinal: entry.ordinal,
         });
       }
       continue;
     }
-    if (entry.kind === "text") {
-      const maxLength = field.validation.maxLength;
-      if (maxLength !== null && entry.text.length > maxLength) {
-        out.push({ code: "value_too_long", severity: "error", ordinal: entry.ordinal });
+    if (entry.kind === 'canonical_reference') {
+      if (field.valuePolicy !== 'canonical_reference') {
+        out.push({
+          code: 'canonical_reference_not_permitted',
+          severity: 'error',
+          ordinal: entry.ordinal,
+        });
       }
       continue;
     }
-    if (entry.kind === "number") checkNumberEntry(field, entry, out);
+    if (entry.kind === 'text') {
+      const maxLength = field.validation.maxLength;
+      if (maxLength !== null && entry.text.length > maxLength) {
+        out.push({ code: 'value_too_long', severity: 'error', ordinal: entry.ordinal });
+      }
+      continue;
+    }
+    if (entry.kind === 'number') checkNumberEntry(field, entry, out);
   }
 
-  if (field.validation.valueType === "structured") {
+  if (field.validation.valueType === 'structured') {
     const declared = new Set<string>(field.validation.componentAxes);
     const supplied = new Set<string>();
     for (const entry of answered) {
-      if (entry.kind !== "number" || entry.componentAxis === null) continue;
+      if (entry.kind !== 'number' || entry.componentAxis === null) continue;
       supplied.add(entry.componentAxis);
       if (!declared.has(entry.componentAxis)) {
-        out.push({ code: "unknown_component_axis", severity: "error", ordinal: entry.ordinal });
+        out.push({ code: 'unknown_component_axis', severity: 'error', ordinal: entry.ordinal });
       }
     }
     for (const axis of declared) {
       if (!supplied.has(axis)) {
-        out.push({ code: "structured_component_missing", severity: "error", ordinal: null });
+        out.push({ code: 'structured_component_missing', severity: 'error', ordinal: null });
       }
     }
   }

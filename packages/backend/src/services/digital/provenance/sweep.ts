@@ -242,9 +242,7 @@ export async function sweepVersionForReUploads(
   }
   const subjectAsset = await reader.asset(subjectVersion.assetId);
   if (subjectAsset === null) {
-    throw new Error(
-      `sweepVersionForReUploads: asset ${subjectVersion.assetId} does not exist.`,
-    );
+    throw new Error(`sweepVersionForReUploads: asset ${subjectVersion.assetId} does not exist.`);
   }
 
   const swept = input.signals.filter((signal) =>
@@ -254,11 +252,7 @@ export async function sweepVersionForReUploads(
   /** versionId → the kinds that matched it, and how many signals did. */
   const hits = new Map<string, { kinds: Set<AssetProvenanceSignalKind>; signals: number }>();
   for (const signal of swept) {
-    const matches = await reader.matchingSignals(
-      signal.kind,
-      signal.value,
-      input.subjectVersionId,
-    );
+    const matches = await reader.matchingSignals(signal.kind, signal.value, input.subjectVersionId);
     // One signal may match a version through several of its files. That is ONE
     // signal matching, not several: counting rows would let a candidate that
     // happened to ship the same texture in twelve packages look twelve times as
@@ -352,8 +346,7 @@ function compareCandidates(
   left: ProvenanceMatchCandidate,
   right: ProvenanceMatchCandidate,
 ): number {
-  const byStrength =
-    STRENGTH_ORDER.indexOf(left.strength) - STRENGTH_ORDER.indexOf(right.strength);
+  const byStrength = STRENGTH_ORDER.indexOf(left.strength) - STRENGTH_ORDER.indexOf(right.strength);
   if (byStrength !== 0) return byStrength;
 
   const leftAt = left.candidatePublishedAt;

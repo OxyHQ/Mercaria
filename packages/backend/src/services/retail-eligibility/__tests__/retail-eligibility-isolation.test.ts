@@ -132,7 +132,8 @@ function domainFiles(): string[] {
  */
 
 /** Reaching the fee domain, from any direction. */
-const FEE_REFERENCE = /fees\/|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee/;
+const FEE_REFERENCE =
+  /fees\/|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee/;
 
 /** Reaching the retail eligibility domain, from any direction. */
 const ELIGIBILITY_REFERENCE =
@@ -143,7 +144,8 @@ const DECISION_REPOSITORY_REFERENCE =
   /decisionRepository|retailEligibilityDecisions|recordRetailEligibilityDecision/;
 
 /** Naming a currency as special, or converting between two. */
-const FX_REFERENCE = /\bFairCoin\b|\bOxyPay\b|\bPeable\b|'FAIR'|"FAIR"|fx\.service|convertToFair|toDualMoney|getRates\(/;
+const FX_REFERENCE =
+  /\bFairCoin\b|\bOxyPay\b|\bPeable\b|'FAIR'|"FAIR"|fx\.service|convertToFair|toDualMoney|getRates\(/;
 
 /** A field by which a caller could override the verdict. */
 const OVERRIDE_FIELD =
@@ -230,8 +232,10 @@ describe('this domain does no FX and names no currency as special', () => {
       // words themselves in this area of the codebase, and a comment promising
       // not to do something is exactly where a future implementation starts.
       const source = readFileSync(path, 'utf8');
-      expect(FX_REFERENCE.test(source), `${path} names a currency conversion or a forbidden rail`)
-        .toBe(false);
+      expect(
+        FX_REFERENCE.test(source),
+        `${path} names a currency conversion or a forbidden rail`,
+      ).toBe(false);
       scanned += 1;
     }
     expect(scanned).toBeGreaterThanOrEqual(MINIMUM_OWNED_FILES + MINIMUM_SHARED_FILES);
@@ -365,13 +369,19 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     expect(/retail-eligibility/i.test('db/schema/retailEligibility.ts')).toBe(false);
     expect(DOMAIN_NAME_PATTERN.test('db/schema/retailEligibility.ts')).toBe(true);
     // The bare word this pattern must NOT be widened to: nine other domains.
-    assertEachOf([
-      'services/ranking/eligibility.ts',
-      'services/pickup/eligibility.ts',
-      'services/checkout/fulfilment-eligibility.ts',
-    ], 3, (foreign) => {
-      expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(false);
-      expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
-    });
+    assertEachOf(
+      [
+        'services/ranking/eligibility.ts',
+        'services/pickup/eligibility.ts',
+        'services/checkout/fulfilment-eligibility.ts',
+      ],
+      3,
+      (foreign) => {
+        expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(
+          false,
+        );
+        expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
+      },
+    );
   });
 });

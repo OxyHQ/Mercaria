@@ -51,10 +51,6 @@ router.get('/metrics', validateQuery(priceHistoryMetricsQuerySchema), priceHisto
 router.get('/offers/:offerId', priceHistoryOfferTraceHandler);
 
 /** POST — re-arm one series now instead of waiting for the next observation. */
-router.post(
-  '/series/rebuild',
-  validateBody(priceHistoryRebuildSchema),
-  priceHistoryRebuildHandler,
-);
+router.post('/series/rebuild', validateBody(priceHistoryRebuildSchema), priceHistoryRebuildHandler);
 
 export default router;

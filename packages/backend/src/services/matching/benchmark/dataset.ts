@@ -687,10 +687,7 @@ export const BENCHMARK_CASES: readonly BenchmarkCase[] = [
     title: 'Xiaomi Redmi Note 13 256GB version global',
     brandText: 'Xiaomi',
     identifiers: [{ scheme: 'ean', rawValue: ean('695062800') }],
-    attributes: [
-      STORAGE_256,
-      { key: 'region', normalizedValue: 'global', displayValue: 'Global' },
-    ],
+    attributes: [STORAGE_256, { key: 'region', normalizedValue: 'global', displayValue: 'Global' }],
     expectedVariantId: 'var-redmi13-256-global',
   },
   {
@@ -701,10 +698,7 @@ export const BENCHMARK_CASES: readonly BenchmarkCase[] = [
     title: 'Xiaomi Redmi Note 13 256GB version India',
     brandText: 'Xiaomi',
     identifiers: [{ scheme: 'ean', rawValue: ean('695062801') }],
-    attributes: [
-      STORAGE_256,
-      { key: 'region', normalizedValue: 'india', displayValue: 'India' },
-    ],
+    attributes: [STORAGE_256, { key: 'region', normalizedValue: 'india', displayValue: 'India' }],
     expectedVariantId: 'var-redmi13-256-india',
   },
   {
@@ -718,10 +712,7 @@ export const BENCHMARK_CASES: readonly BenchmarkCase[] = [
     title: 'Xiaomi Redmi Note 13 256GB',
     brandText: 'Xiaomi',
     identifiers: [{ scheme: 'ean', rawValue: ean('695062800') }],
-    attributes: [
-      STORAGE_256,
-      { key: 'region', normalizedValue: 'india', displayValue: 'India' },
-    ],
+    attributes: [STORAGE_256, { key: 'region', normalizedValue: 'india', displayValue: 'India' }],
     expectedVariantId: null,
   },
   {

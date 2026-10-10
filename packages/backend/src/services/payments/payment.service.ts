@@ -37,12 +37,7 @@
  *   webhook ingress that calls it, which is #48's.
  */
 
-import type {
-  CurrencyCode,
-  Money,
-  PaymentProviderId,
-  PaymentStatus,
-} from '@mercaria/shared-types';
+import type { CurrencyCode, Money, PaymentProviderId, PaymentStatus } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { RETENTION_SECONDS } from '../../db/expiryTargets.js';
 import {
@@ -65,14 +60,8 @@ import {
   type PayoutRow,
   type TransferRow,
 } from '../../db/payments/paymentRepository.js';
-import {
-  listDisputesForPayment,
-  type DisputeRow,
-} from '../../db/payments/disputeRepository.js';
-import {
-  findRefundsForPayment,
-  type RefundRecord,
-} from '../../db/orders/refundRepository.js';
+import { listDisputesForPayment, type DisputeRow } from '../../db/payments/disputeRepository.js';
+import { findRefundsForPayment, type RefundRecord } from '../../db/orders/refundRepository.js';
 import { findSellerAccount } from './provider-account.service.js';
 import {
   insertLedgerTransaction,
@@ -366,7 +355,11 @@ export async function applyProviderEvent(envelope: ProviderEventEnvelope): Promi
     ...(envelope.apiVersion ? { apiVersion: envelope.apiVersion } : {}),
   });
   if (stored.duplicate) {
-    return { duplicate: true, applied: false, ...(stored.row.paymentId ? { paymentId: stored.row.paymentId } : {}) };
+    return {
+      duplicate: true,
+      applied: false,
+      ...(stored.row.paymentId ? { paymentId: stored.row.paymentId } : {}),
+    };
   }
 
   const providerObjectId = envelope.objectIds.payment;

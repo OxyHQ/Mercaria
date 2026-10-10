@@ -303,10 +303,7 @@ export async function countChallengesForMerchantSince(
     .from(merchantClaimChallenges)
     .innerJoin(merchantClaims, eq(merchantClaimChallenges.claimId, merchantClaims.id))
     .where(
-      and(
-        eq(merchantClaims.merchantId, merchantId),
-        gte(merchantClaimChallenges.createdAt, since),
-      ),
+      and(eq(merchantClaims.merchantId, merchantId), gte(merchantClaimChallenges.createdAt, since)),
     );
   return row?.total ?? 0;
 }
@@ -443,10 +440,7 @@ export async function findOpenChallenge(
     .select(PUBLIC_CHALLENGE_COLUMNS)
     .from(merchantClaimChallenges)
     .where(
-      and(
-        eq(merchantClaimChallenges.claimId, claimId),
-        isNull(merchantClaimChallenges.closedAt),
-      ),
+      and(eq(merchantClaimChallenges.claimId, claimId), isNull(merchantClaimChallenges.closedAt)),
     );
   return row;
 }
@@ -480,10 +474,7 @@ export async function findOpenChallengeDigest(
     })
     .from(merchantClaimChallenges)
     .where(
-      and(
-        eq(merchantClaimChallenges.claimId, claimId),
-        isNull(merchantClaimChallenges.closedAt),
-      ),
+      and(eq(merchantClaimChallenges.claimId, claimId), isNull(merchantClaimChallenges.closedAt)),
     );
   return row;
 }

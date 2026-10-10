@@ -182,7 +182,5 @@ export function mayClaimCompleteEnumeration(input: {
   truncated: boolean;
   mayConclude: boolean;
 }): boolean {
-  return (
-    input.phase === 'verify' && input.cohortExhausted && !input.truncated && input.mayConclude
-  );
+  return input.phase === 'verify' && input.cohortExhausted && !input.truncated && input.mayConclude;
 }

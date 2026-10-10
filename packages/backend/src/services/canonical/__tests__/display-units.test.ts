@@ -87,7 +87,9 @@ describe('the display unit table', () => {
       for (const family of UNIT_FAMILIES) {
         const unit = resolveDisplayUnit(family, system);
         expect(UNIT_DEFINITIONS[unit], `${system}/${family} names an unknown unit`).toBeDefined();
-        expect(UNIT_DEFINITIONS[unit]?.family, `${system}/${family} crosses dimension`).toBe(family);
+        expect(UNIT_DEFINITIONS[unit]?.family, `${system}/${family} crosses dimension`).toBe(
+          family,
+        );
         if (unit !== BASE_UNITS[family]) overridden.push(`${system}/${family}=${unit}`);
       }
     }
@@ -116,7 +118,13 @@ describe('the display unit table', () => {
     // A gigabyte is a gigabyte in Ohio. Stated as an assertion because the
     // tempting "make the table symmetrical" edit is what would break it.
     for (const system of MEASUREMENT_SYSTEMS) {
-      for (const family of ['digital_storage', 'frequency', 'percentage', 'ratio', 'rating'] as const) {
+      for (const family of [
+        'digital_storage',
+        'frequency',
+        'percentage',
+        'ratio',
+        'rating',
+      ] as const) {
         expect(resolveDisplayUnit(family, system), `${system}/${family}`).toBe(BASE_UNITS[family]);
       }
     }
@@ -199,7 +207,10 @@ describe('rendering a stored measurement', () => {
   });
 
   it('keeps the source significant digits through the OTHER direction too', () => {
-    const us = renderMeasurement(stored({ baseMagnitude: 155, sourceDisplayValue: '155 mm' }), 'us');
+    const us = renderMeasurement(
+      stored({ baseMagnitude: 155, sourceDisplayValue: '155 mm' }),
+      'us',
+    );
     // Three digits in, three digits out — `6.1` would drop one the source had.
     expect(us).toMatchObject({ outcome: 'rendered', unit: 'in', text: '6.10 in', decimals: 2 });
   });

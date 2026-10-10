@@ -49,7 +49,11 @@ function classify(symbol) {
 for (const symbol of process.argv.slice(2)) {
   const { definers, callers } = classify(symbol);
   console.log(
-    symbol.padEnd(34) + ' defs=' + String(definers.length) + '  non-route callers=' + String(callers.length),
+    symbol.padEnd(34) +
+      ' defs=' +
+      String(definers.length) +
+      '  non-route callers=' +
+      String(callers.length),
   );
   for (const c of callers.slice(0, 3)) console.log('      ' + c.replace(SRC + '/', ''));
 }

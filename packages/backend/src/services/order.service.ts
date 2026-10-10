@@ -11,7 +11,11 @@
  * the right rows and delegates serialization.
  */
 
-import { BUYER_ORDER_VIEW_BY_STATUS, ORDER_STATUSES, type BuyerOrderView } from '@mercaria/shared-types';
+import {
+  BUYER_ORDER_VIEW_BY_STATUS,
+  ORDER_STATUSES,
+  type BuyerOrderView,
+} from '@mercaria/shared-types';
 import type {
   CurrencyCode,
   MerchantOrder,
@@ -40,10 +44,7 @@ import { adjustStoreSalesCount, findStoreById } from '../db/stores/storeReposito
 import { commit, release, restock } from './inventory.service.js';
 import { upsertOnPaid as upsertCustomerOnPaid } from './customer.service.js';
 import { grantEligibilitiesForOrder } from './reviews/review-eligibility.service.js';
-import {
-  grantRightsForPaidOrder,
-  refundRightsForOrder,
-} from './digital/right.service.js';
+import { grantRightsForPaidOrder, refundRightsForOrder } from './digital/right.service.js';
 import { resolveBuyerKeyForOrder } from './digital/buyer-key.js';
 import { orderHasDigitalLines } from '../db/digital/orderLineRepository.js';
 import { notifyGuestOrderLifecycle } from './guest-portal/message.service.js';
@@ -88,13 +89,7 @@ import { log } from '../lib/logger.js';
  */
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending_payment: ['paid', 'cancelled'],
-  paid: [
-    'processing',
-    'digitally_delivered',
-    'cancelled',
-    'refunded',
-    'partially_refunded',
-  ],
+  paid: ['processing', 'digitally_delivered', 'cancelled', 'refunded', 'partially_refunded'],
   processing: ['shipped', 'cancelled'],
   shipped: ['delivered'],
   delivered: ['refunded', 'partially_refunded'],
@@ -222,8 +217,7 @@ export async function transition(
    */
   if (order.moderationHold === true && next !== 'cancelled') {
     throw conflict(
-      `Order ${order.id} is held pending a moderation decision and cannot ` +
-        `move to ${next}.`,
+      `Order ${order.id} is held pending a moderation decision and cannot ` + `move to ${next}.`,
     );
   }
 
@@ -326,7 +320,11 @@ export async function transition(
       const buyerKey = await resolveBuyerKeyForOrder(order);
       if (buyerKey) {
         const granted = await grantRightsForPaidOrder(order.id, buyerKey);
-        if (granted.complete && granted.digitalLineCount > 0 && order.shippingMethod === 'digital') {
+        if (
+          granted.complete &&
+          granted.digitalLineCount > 0 &&
+          order.shippingMethod === 'digital'
+        ) {
           /**
            * Re-entered deliberately, with the status the CAS just wrote.
            *
@@ -522,7 +520,13 @@ export async function getBuyerOrders(
   const { rows, total } = await findOrdersPage(
     {
       buyerOrClaimantOxyUserId: oxyUserId,
-      ...(view ? { statuses: ORDER_STATUSES.filter(status => BUYER_ORDER_VIEW_BY_STATUS[status] === view) } : {}),
+      ...(view
+        ? {
+            statuses: ORDER_STATUSES.filter(
+              (status) => BUYER_ORDER_VIEW_BY_STATUS[status] === view,
+            ),
+          }
+        : {}),
     },
     page,
     limit,

@@ -326,7 +326,9 @@ describe('the reason vocabulary', () => {
       offer: { ...input.offer, activationTerritories: ['DE'] },
     });
     // `territory_not_permitted` is reachable from BOTH the rider and the offer.
-    expect(verdict.reasons.filter((reason) => reason === 'territory_not_permitted')).toHaveLength(1);
+    expect(verdict.reasons.filter((reason) => reason === 'territory_not_permitted')).toHaveLength(
+      1,
+    );
     expect([...verdict.reasons].sort()).toEqual(verdict.reasons);
   });
 });

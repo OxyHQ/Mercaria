@@ -45,10 +45,7 @@ import {
   watchlistSnapshots,
   watchlists,
 } from '../schema/watchlists.js';
-import {
-  bumpWatchlistVersion,
-  insertWatchlist,
-} from '../watchlists/watchlistRepository.js';
+import { bumpWatchlistVersion, insertWatchlist } from '../watchlists/watchlistRepository.js';
 import {
   insertWatchlistItem,
   markWatchlistItemsAmbiguousAfterSplit,
@@ -169,7 +166,11 @@ function snapshotHeader(watchlistId: string, digest: string) {
 }
 
 /** A priced line with the fields every case shares. */
-function pricedLine(itemId: string | null, productId: string, overrides: Record<string, unknown> = {}) {
+function pricedLine(
+  itemId: string | null,
+  productId: string,
+  overrides: Record<string, unknown> = {},
+) {
   return {
     watchlistItemId: itemId,
     canonicalProductId: productId,
@@ -224,7 +225,10 @@ describe('one entry per product per list', () => {
   it('refuses a second row for one product at the DATABASE, not in a service', async () => {
     const list = await makeWatchlist(userId('unique'));
     const product = await makeCanonicalProduct();
-    await insertWatchlistItem({ watchlistId: list, canonicalProductId: product, quantity: 1, position: 0 }, db);
+    await insertWatchlistItem(
+      { watchlistId: list, canonicalProductId: product, quantity: 1, position: 0 },
+      db,
+    );
 
     const raw = db.insert(watchlistItems).values({
       watchlistId: list,
@@ -623,21 +627,23 @@ describe('#81 correction rule 2: a split marks entries and the buyer answers', (
     // A real `catalog_split_jobs` row is more setup than this property needs —
     // the marking is what is under test and the foreign key is exercised by the
     // curation suite — so the job id is written directly and rolled back.
-    await db.transaction(async (tx) => {
-      await tx
-        .update(watchlistItems)
-        .set({ resolutionState: 'ambiguous_after_split', ambiguousSplitJobId: 'job-earlier' })
-        .where(eq(watchlistItems.id, item.id));
+    await db
+      .transaction(async (tx) => {
+        await tx
+          .update(watchlistItems)
+          .set({ resolutionState: 'ambiguous_after_split', ambiguousSplitJobId: 'job-earlier' })
+          .where(eq(watchlistItems.id, item.id));
 
-      const markedAgain = await markWatchlistItemsAmbiguousAfterSplit(product, 'job-later', tx);
-      expect(markedAgain).toBe(0);
+        const markedAgain = await markWatchlistItemsAmbiguousAfterSplit(product, 'job-later', tx);
+        expect(markedAgain).toBe(0);
 
-      const [row] = await tx.select().from(watchlistItems).where(eq(watchlistItems.id, item.id));
-      // Retargeting an unanswered question at a newer job would destroy the
-      // pair of candidates the buyer was being asked about.
-      expect(row?.ambiguousSplitJobId).toBe('job-earlier');
-      tx.rollback();
-    }).catch(() => undefined);
+        const [row] = await tx.select().from(watchlistItems).where(eq(watchlistItems.id, item.id));
+        // Retargeting an unanswered question at a newer job would destroy the
+        // pair of candidates the buyer was being asked about.
+        expect(row?.ambiguousSplitJobId).toBe('job-earlier');
+        tx.rollback();
+      })
+      .catch(() => undefined);
   });
 
   it('marks a RESOLVED entry of the split product', async () => {
@@ -649,14 +655,16 @@ describe('#81 correction rule 2: a split marks entries and the buyer answers', (
       db,
     );
 
-    await db.transaction(async (tx) => {
-      const marked = await markWatchlistItemsAmbiguousAfterSplit(product, 'job-x', tx);
-      expect(marked).toBe(1);
-      const [row] = await tx.select().from(watchlistItems).where(eq(watchlistItems.id, item.id));
-      expect(row?.resolutionState).toBe('ambiguous_after_split');
-      expect(row?.ambiguousSplitJobId).toBe('job-x');
-      tx.rollback();
-    }).catch(() => undefined);
+    await db
+      .transaction(async (tx) => {
+        const marked = await markWatchlistItemsAmbiguousAfterSplit(product, 'job-x', tx);
+        expect(marked).toBe(1);
+        const [row] = await tx.select().from(watchlistItems).where(eq(watchlistItems.id, item.id));
+        expect(row?.resolutionState).toBe('ambiguous_after_split');
+        expect(row?.ambiguousSplitJobId).toBe('job-x');
+        tx.rollback();
+      })
+      .catch(() => undefined);
   });
 });
 

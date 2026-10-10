@@ -97,9 +97,7 @@ export interface CreateShoppingAgentInput {
 /** The default policy a client that states none gets. */
 const DEFAULT_COOLDOWN_SECONDS = 24 * 60 * 60;
 
-export async function createShoppingAgent(
-  input: CreateShoppingAgentInput,
-): Promise<ShoppingAgent> {
+export async function createShoppingAgent(input: CreateShoppingAgentInput): Promise<ShoppingAgent> {
   assertAuthorization(input.constraints, input.constraintDigest);
   assertQuietHours(input.quietHours);
   assertTargetShape(input.kind, input.target);
@@ -235,10 +233,7 @@ export async function listShoppingAgents(
 }
 
 /** One agent, or a 404. Owner-scoped in the statement. */
-export async function getShoppingAgent(
-  oxyUserId: string,
-  agentId: string,
-): Promise<ShoppingAgent> {
+export async function getShoppingAgent(oxyUserId: string, agentId: string): Promise<ShoppingAgent> {
   const row = await requireOwnedShoppingAgent(oxyUserId, agentId);
   return toShoppingAgentDTO(row, await listShoppingAgentLines(row.id));
 }
@@ -309,9 +304,7 @@ export async function updateShoppingAgent(
       {
         ...(input.name === undefined ? {} : { name: input.name }),
         ...(input.description === undefined ? {} : { description: input.description }),
-        ...(input.cooldownSeconds === undefined
-          ? {}
-          : { cooldownSeconds: input.cooldownSeconds }),
+        ...(input.cooldownSeconds === undefined ? {} : { cooldownSeconds: input.cooldownSeconds }),
         ...(input.locale === undefined ? {} : { locale: input.locale }),
         ...(input.notificationChannels === undefined
           ? {}
@@ -388,10 +381,7 @@ export async function deleteShoppingAgent(oxyUserId: string, agentId: string): P
 }
 
 /** Ask for one more evaluation now (#97 model 7, UX 5). */
-export async function requestShoppingAgentRun(
-  oxyUserId: string,
-  agentId: string,
-): Promise<void> {
+export async function requestShoppingAgentRun(oxyUserId: string, agentId: string): Promise<void> {
   const existing = await requireOwnedShoppingAgent(oxyUserId, agentId);
   if (existing.state !== 'enabled') {
     throw conflict('Only an active agent can be run.');

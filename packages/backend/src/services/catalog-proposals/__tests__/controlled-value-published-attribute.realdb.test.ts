@@ -34,10 +34,7 @@ import { createDatabase } from '@oxy.so/db';
 import type postgres from 'postgres';
 import * as schema from '../../../db/schema/index.js';
 import type { Database } from '../../../db/postgres.js';
-import {
-  createMercariaTestDatabase,
-  dropMercariaTestDatabase,
-} from '../../../db/testDatabase.js';
+import { createMercariaTestDatabase, dropMercariaTestDatabase } from '../../../db/testDatabase.js';
 import { listEnumValueVersions } from '../../../db/attributes/definitionRepository.js';
 import { submitProposal, type SubmitProposalInput } from '../proposal.service.js';
 import { approveProposal } from '../review.service.js';
@@ -131,9 +128,9 @@ function submission(label: string, attributeDefinitionId: string): SubmitProposa
 }
 
 /** Every version of a key, oldest first, with what a reader needs to judge it. */
-async function versionsOf(key: string): Promise<
-  { id: string; version: number; state: string; values: string[] }[]
-> {
+async function versionsOf(
+  key: string,
+): Promise<{ id: string; version: number; state: string; values: string[] }[]> {
   const rows = await db.execute<{ id: string; version: number; state: string }>(sql`
     select id, version::int as version, lifecycle_state as state
     from attribute_definitions where key = ${key} order by version asc
@@ -241,7 +238,10 @@ describe('a controlled value approved against a PUBLISHED attribute', () => {
 
     const after = await versionsOf(LIVE_KEY);
     expect
-      .soft(after.map((entry) => entry.version), 'a rival draft version was minted')
+      .soft(
+        after.map((entry) => entry.version),
+        'a rival draft version was minted',
+      )
       .toEqual([1, 2]);
     expect(after[1]?.values, 'the second approval did not join the first').toEqual([
       'black',
@@ -298,9 +298,10 @@ describe('a controlled value approved against a PUBLISHED attribute', () => {
     `);
     const versionsForValue = await listEnumValueVersions(db, [values[0]?.id ?? '']);
     expect.soft(versionsForValue).toHaveLength(1);
-    expect(versionsForValue[0]?.lifecycleState, 'the value did not become live with its version').toBe(
-      'active',
-    );
+    expect(
+      versionsForValue[0]?.lifecycleState,
+      'the value did not become live with its version',
+    ).toBe('active');
     expect.soft(versionsForValue[0]?.version).toBe(2);
   });
 });
@@ -345,9 +346,12 @@ describe('the DRAFT path is unchanged', () => {
     );
 
     const versions = await versionsOf(DRAFT_KEY);
-    expect.soft(versions.map((entry) => entry.version), 'the draft path drafted a version').toEqual([
-      1,
-    ]);
+    expect
+      .soft(
+        versions.map((entry) => entry.version),
+        'the draft path drafted a version',
+      )
+      .toEqual([1]);
     expect.soft(versions[0]?.state).toBe('draft');
     expect.soft(versions[0]?.values).toEqual(['gris_perla']);
 

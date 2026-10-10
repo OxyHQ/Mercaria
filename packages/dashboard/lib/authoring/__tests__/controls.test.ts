@@ -205,7 +205,9 @@ describe('unitAffordance is the ONE unit decision both renderers make', () => {
    * magnitude unqualified with no way to qualify it.
    */
   it('still offers the control when the family has no base unit', () => {
-    const affordance = unitAffordance(field('measurement', { unitFamily: 'length', baseUnit: null }));
+    const affordance = unitAffordance(
+      field('measurement', { unitFamily: 'length', baseUnit: null }),
+    );
 
     expect(affordance.present).toBe(true);
     if (affordance.present) expect(affordance.placeholder).toBe('');
@@ -258,9 +260,9 @@ describe('unitAffordance is the ONE unit decision both renderers make', () => {
 
     // The positive control: the detector matches the shape it hunts for. Without
     // this the assertion above passes against a regex that matches nothing.
-    expect(/validation\s*\.\s*unitFamily/u.test('if (field.validation.unitFamily === null) {')).toBe(
-      true,
-    );
+    expect(
+      /validation\s*\.\s*unitFamily/u.test('if (field.validation.unitFamily === null) {'),
+    ).toBe(true);
   });
 
   /**

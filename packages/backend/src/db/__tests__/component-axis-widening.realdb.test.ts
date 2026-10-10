@@ -239,7 +239,10 @@ describe('the axis vocabulary the SERVER enforces', () => {
 
     // Floored at the four DOMAIN checks. A domain check degraded to
     // `CHECK (true)` leaves the partition and lands here.
-    expect(compared, `${compared} axis DOMAIN checks compared against the tuple`).toBeGreaterThanOrEqual(4);
+    expect(
+      compared,
+      `${compared} axis DOMAIN checks compared against the tuple`,
+    ).toBeGreaterThanOrEqual(4);
     // The migration reached the server AND did not narrow anything. A tuple
     // widened in TypeScript with no migration fails exactly here.
     expect(findings, findings.join('\n')).toEqual([]);

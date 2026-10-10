@@ -71,7 +71,11 @@ import {
 import type { Database } from '../../db/postgres.js';
 import { createFakeGoWay, type FakeGoWay } from '../../services/goway/__tests__/fake-goway.js';
 import { checkShape, createPublicApiWorld, mediaUrl, type Shape } from './public-api-fixtures.js';
-import { checkLocation, checkLocationProduct, createLocationWorld } from './public-api-location-fixtures.js';
+import {
+  checkLocation,
+  checkLocationProduct,
+  createLocationWorld,
+} from './public-api-location-fixtures.js';
 
 /** What the Oxy stand-in verifies, and every `Authorization` header it received. */
 const oxy = vi.hoisted(() => ({
@@ -103,7 +107,11 @@ vi.mock('../../middleware/auth.js', () => ({
   authenticateToken: (_req: express.Request, res: express.Response): void => {
     res.status(401).json({ success: false, error: 'UNAUTHORIZED', message: 'Unauthorized' });
   },
-  optionalAuth: (req: express.Request, _res: express.Response, next: express.NextFunction): void => {
+  optionalAuth: (
+    req: express.Request,
+    _res: express.Response,
+    next: express.NextFunction,
+  ): void => {
     const header = req.headers.authorization;
     oxy.authorizationHeaders.push(header);
     const token = /^Bearer (\S+)$/u.exec(header ?? '')?.[1];
@@ -157,7 +165,8 @@ function contract<T>(value: T, shape: Shape, where: string): T {
 
 const product = async (promise: Promise<MercariaProduct>, where: string) =>
   contract(await promise, 'product', where);
-const store = async (promise: Promise<MercariaStore>, where: string) => contract(await promise, 'store', where);
+const store = async (promise: Promise<MercariaStore>, where: string) =>
+  contract(await promise, 'store', where);
 const collection = async (promise: Promise<MercariaCollection>, where: string) =>
   contract(await promise, 'collection', where);
 const productPage = async (promise: Promise<MercariaPage<MercariaProductSummary>>, where: string) =>
@@ -219,7 +228,11 @@ beforeAll(async () => {
   apiBaseUrl = `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`;
 
   mercaria = createMercariaClient({ apiBaseUrl, webBaseUrl: webOrigin });
-  asViewer = createMercariaClient({ apiBaseUrl, webBaseUrl: webOrigin, getAccessToken: () => VIEWER_TOKEN });
+  asViewer = createMercariaClient({
+    apiBaseUrl,
+    webBaseUrl: webOrigin,
+    getAccessToken: () => VIEWER_TOKEN,
+  });
   asOther = createMercariaClient({
     apiBaseUrl,
     webBaseUrl: webOrigin,
@@ -242,7 +255,10 @@ afterAll(async () => {
 
 describe('products.search', () => {
   it('parses a search page and serves exactly the publicly live products', async () => {
-    const page = await productPage(mercaria.products.search({ query: TERM, limit: 50, locale: 'en' }), 'search');
+    const page = await productPage(
+      mercaria.products.search({ query: TERM, limit: 50, locale: 'en' }),
+      'search',
+    );
     const live = [ids.inStock, ids.outOfStock, ...ids.extraActive, ids.person];
     expect(page.items.length).toBeGreaterThan(0);
     expect(new Set(refIds(page))).toEqual(new Set(live));
@@ -294,7 +310,9 @@ describe('products.search', () => {
   it('rejects a store or collection filter that is gone or missing, never an empty page', async () => {
     expectGone(await rejectionOf(mercaria.products.search({ store: ids.storeSuspended })));
     expectGone(await rejectionOf(mercaria.products.search({ collection: ids.unpublishedAfter })));
-    expectNotFound(await rejectionOf(mercaria.products.search({ collection: ids.unpublishedNever })));
+    expectNotFound(
+      await rejectionOf(mercaria.products.search({ collection: ids.unpublishedNever })),
+    );
   });
 });
 
@@ -315,7 +333,13 @@ describe('products.get, resolveRef and resolveVariant', () => {
       { url: mediaUrl(`img-first-${RUN}`), alt: 'The front' },
       { url: mediaUrl(`img-second-${RUN}`), alt: null },
     ]);
-    expect(detail.purchaseOptions.map((option) => [option.ref.variantId, option.title, option.availability])).toEqual([
+    expect(
+      detail.purchaseOptions.map((option) => [
+        option.ref.variantId,
+        option.title,
+        option.availability,
+      ]),
+    ).toEqual([
       [ids.inStockVariants[0], 'Small', 'in_stock'],
       [ids.inStockVariants[1], 'Large', 'out_of_stock'],
     ]);
@@ -332,21 +356,32 @@ describe('products.get, resolveRef and resolveVariant', () => {
 
   it('hydrates a persisted product ref to the same product', async () => {
     const byId = await product(mercaria.products.get(ids.inStock), 'get');
-    const byRef = await product(mercaria.products.resolveRef(productRef(ids.inStock)), 'resolveRef');
+    const byRef = await product(
+      mercaria.products.resolveRef(productRef(ids.inStock)),
+      'resolveRef',
+    );
     expect(byRef).toEqual(byId);
   });
 
   it('hydrates a persisted variant ref to its product and purchase option', async () => {
-    const resolved = await mercaria.products.resolveVariant(variantRef(ids.inStock, ids.inStockVariants[1] ?? ''));
+    const resolved = await mercaria.products.resolveVariant(
+      variantRef(ids.inStock, ids.inStockVariants[1] ?? ''),
+    );
     contract(resolved.product, 'product', 'resolveVariant.product');
     expect(resolved.product.ref.id).toBe(ids.inStock);
-    expect(resolved.option.ref).toEqual({ kind: 'variant', productId: ids.inStock, variantId: ids.inStockVariants[1] });
+    expect(resolved.option.ref).toEqual({
+      kind: 'variant',
+      productId: ids.inStock,
+      variantId: ids.inStockVariants[1],
+    });
     expect(resolved.option.title).toBe('Large');
     expect(resolved.option).toEqual(resolved.product.purchaseOptions[1]);
 
     // A variant the live product does not have: the SDK says so itself, after a
     // successful read (no HTTP status to report).
-    const missing = await rejectionOf(mercaria.products.resolveVariant(variantRef(ids.inStock, uuidv7())));
+    const missing = await rejectionOf(
+      mercaria.products.resolveVariant(variantRef(ids.inStock, uuidv7())),
+    );
     expect(missing).toBeInstanceOf(MercariaNotFoundError);
     expect(missing).toMatchObject({ status: null });
   });
@@ -372,7 +407,12 @@ describe('not found, gone, sold and unreachable are distinguishable', () => {
   });
 
   it('an archived, restricted, unpublished or suspended-store product is MercariaGoneError', async () => {
-    for (const id of [ids.archived, ids.restricted, ids.draftWasPublished, ids.suspendedStoreProduct]) {
+    for (const id of [
+      ids.archived,
+      ids.restricted,
+      ids.draftWasPublished,
+      ids.suspendedStoreProduct,
+    ]) {
       const error = await rejectionOf(mercaria.products.resolveRef(productRef(id)));
       expectGone(error);
       expect(JSON.stringify(error)).not.toContain(id);
@@ -394,7 +434,9 @@ describe('not found, gone, sold and unreachable are distinguishable', () => {
         probe.close(() => resolve(port));
       });
     });
-    const unreachable = createMercariaClient({ apiBaseUrl: `http://127.0.0.1:${String(closedPort)}` });
+    const unreachable = createMercariaClient({
+      apiBaseUrl: `http://127.0.0.1:${String(closedPort)}`,
+    });
     const error = await rejectionOf(unreachable.products.get(ids.inStock));
     expect(error).toBeInstanceOf(MercariaNetworkError);
     expect(error).not.toBeInstanceOf(MercariaNotFoundError);
@@ -423,8 +465,12 @@ describe('stores', () => {
       reviewCount: 0,
       url: byId.url,
     });
-    expect(await store(mercaria.stores.resolveRef(storeRef(ids.storeA)), 'store resolveRef')).toEqual(byId);
-    expect(await store(mercaria.stores.lookup({ handle: storeAHandle }), 'store lookup')).toEqual(byId);
+    expect(
+      await store(mercaria.stores.resolveRef(storeRef(ids.storeA)), 'store resolveRef'),
+    ).toEqual(byId);
+    expect(await store(mercaria.stores.lookup({ handle: storeAHandle }), 'store lookup')).toEqual(
+      byId,
+    );
   });
 
   it('a suspended or closed store is MercariaGoneError; one that never existed is MercariaNotFoundError', async () => {
@@ -442,7 +488,10 @@ describe('stores', () => {
     let cursor: string | undefined;
     let pages = 0;
     do {
-      const page = await productPage(mercaria.stores.products(storeRef(ids.storeA), { limit: 4, cursor }), `store products ${pages}`);
+      const page = await productPage(
+        mercaria.stores.products(storeRef(ids.storeA), { limit: 4, cursor }),
+        `store products ${pages}`,
+      );
       seen.push(...refIds(page));
       cursor = page.nextCursor ?? undefined;
       pages += 1;
@@ -454,15 +503,23 @@ describe('stores', () => {
   });
 
   it('walks a store’s published collections by nextCursor', async () => {
-    const first = await collectionPage(mercaria.stores.collections(ids.storeA, { limit: 1 }), 'collections 0');
+    const first = await collectionPage(
+      mercaria.stores.collections(ids.storeA, { limit: 1 }),
+      'collections 0',
+    );
     expect(first.items).toHaveLength(1);
     expect(first.nextCursor).toBeTypeOf('string');
     const second = await collectionPage(
-      mercaria.stores.collections(storeRef(ids.storeA), { limit: 1, cursor: first.nextCursor ?? '' }),
+      mercaria.stores.collections(storeRef(ids.storeA), {
+        limit: 1,
+        cursor: first.nextCursor ?? '',
+      }),
       'collections 1',
     );
     expect(second.nextCursor).toBeNull();
-    expect(new Set([...refIds(first), ...refIds(second)])).toEqual(new Set([ids.manual, ids.automated]));
+    expect(new Set([...refIds(first), ...refIds(second)])).toEqual(
+      new Set([ids.manual, ids.automated]),
+    );
   });
 });
 
@@ -477,20 +534,31 @@ describe('collections', () => {
       image: { url: mediaUrl(`collection-image-${RUN}`), alt: null },
       url: byId.url,
     });
-    expect(await collection(mercaria.collections.resolveRef(collectionRef(ids.manual)), 'collection resolveRef')).toEqual(
-      byId,
+    expect(
+      await collection(
+        mercaria.collections.resolveRef(collectionRef(ids.manual)),
+        'collection resolveRef',
+      ),
+    ).toEqual(byId);
+    await collection(
+      mercaria.collections.get(collectionRef(ids.automated)),
+      'automated collection',
     );
-    await collection(mercaria.collections.get(collectionRef(ids.automated)), 'automated collection');
   });
 
   it('parses a collection’s ACTIVE products in its own order', async () => {
-    const page = await productPage(mercaria.collections.products(collectionRef(ids.manual)), 'collection products');
+    const page = await productPage(
+      mercaria.collections.products(collectionRef(ids.manual)),
+      'collection products',
+    );
     expect(refIds(page)).toEqual([ids.outOfStock, ids.inStock]);
   });
 
   it('a never-published collection is MercariaNotFoundError; an unpublished or store-gone one is MercariaGoneError', async () => {
     expectNotFound(await rejectionOf(mercaria.collections.get(ids.unpublishedNever)));
-    expectGone(await rejectionOf(mercaria.collections.resolveRef(collectionRef(ids.unpublishedAfter))));
+    expectGone(
+      await rejectionOf(mercaria.collections.resolveRef(collectionRef(ids.unpublishedAfter))),
+    );
     expectGone(await rejectionOf(mercaria.collections.products(ids.unpublishedAfter)));
     expectGone(await rejectionOf(mercaria.collections.get(ids.suspendedStoreCollection)));
     expectNotFound(await rejectionOf(mercaria.collections.get(uuidv7())));
@@ -517,7 +585,11 @@ describe('getAccessToken forwards the caller’s authority', () => {
 
     // A getter with no session sends no header at all; a token Oxy does not
     // verify reads as anonymous.
-    const signedOut = createMercariaClient({ apiBaseUrl, webBaseUrl: webOrigin, getAccessToken: () => null });
+    const signedOut = createMercariaClient({
+      apiBaseUrl,
+      webBaseUrl: webOrigin,
+      getAccessToken: () => null,
+    });
     expect((await product(signedOut.products.get(ids.inStock), 'signed out')).viewer).toBeNull();
     const unverified = createMercariaClient({
       apiBaseUrl,
@@ -550,7 +622,10 @@ describe('links agree with the url the server serves', () => {
     expect(mercaria.links.product(person.ref)).toBe(person.url);
     checked += 1;
 
-    const page = await productPage(mercaria.stores.products(ids.storeA, { limit: 50 }), 'links store products');
+    const page = await productPage(
+      mercaria.stores.products(ids.storeA, { limit: 50 }),
+      'links store products',
+    );
     const storeA = await store(mercaria.stores.get(ids.storeA), 'links store');
     expect(mercaria.links.store(storeA)).toBe(storeA.url);
     expect(mercaria.links.store(storeA.handle)).toBe(storeA.url);
@@ -558,18 +633,25 @@ describe('links agree with the url the server serves', () => {
     for (const summary of page.items) {
       expect(mercaria.links.product(summary.ref)).toBe(summary.url);
       // A store seller carries the CURRENT handle, so it links the storefront.
-      if (summary.seller.kind === 'store') expect(mercaria.links.store(summary.seller)).toBe(storeA.url);
+      if (summary.seller.kind === 'store')
+        expect(mercaria.links.store(summary.seller)).toBe(storeA.url);
       checked += 1;
     }
 
-    const collections = await collectionPage(mercaria.stores.collections(ids.storeA, { limit: 50 }), 'links collections');
+    const collections = await collectionPage(
+      mercaria.stores.collections(ids.storeA, { limit: 50 }),
+      'links collections',
+    );
     for (const item of collections.items) {
       const owner = await store(mercaria.stores.resolveRef(item.store), 'links collection store');
       expect(mercaria.links.collection(item.ref, owner)).toBe(item.url);
       expect(mercaria.links.collection(item, owner.handle)).toBe(item.url);
       checked += 1;
     }
-    const manual = await collection(mercaria.collections.get(ids.manual), 'links manual collection');
+    const manual = await collection(
+      mercaria.collections.get(ids.manual),
+      'links manual collection',
+    );
     expect(mercaria.links.collection(manual, storeA)).toBe(manual.url);
     checked += 1;
 
@@ -600,7 +682,9 @@ describe('locations', () => {
     expect(byId.goWayPlaceId).toBe(places.placeOf('linked'));
     // The deep link the SDK builds is the url the server serves.
     expect(mercaria.links.location(byId, byId.store)).toBe(byId.url);
-    expect((await mercaria.locations.list({ goWayPlaceId: places.placeOf('unvouched') })).items).toEqual([]);
+    expect(
+      (await mercaria.locations.list({ goWayPlaceId: places.placeOf('unvouched') })).items,
+    ).toEqual([]);
   });
 
   it('walks a store’s locations with iterateMercariaPages: no duplicate, no gap', async () => {
@@ -636,7 +720,9 @@ describe('locations', () => {
     });
     const disclosed = await mercaria.locations.products(at.noPickup, { inStock: true });
     RESULTS.push(disclosed);
-    expect(disclosed.items.map((item) => [item.product.ref.id, item.exactQuantity])).toEqual([[at.inStock, 5]]);
+    expect(disclosed.items.map((item) => [item.product.ref.id, item.exactQuantity])).toEqual([
+      [at.inStock, 5],
+    ]);
   });
 
   it('tells never published, gone and GoWay unreachable apart', async () => {
@@ -669,7 +755,13 @@ describe('a route the server does not serve', () => {
       webBaseUrl: webOrigin,
       fetch: (url, init) => {
         drifted += 1;
-        return fetch(url.replace(`${MERCARIA_PUBLIC_API_BASE_PATH}/products/`, `${MERCARIA_PUBLIC_API_BASE_PATH}/items/`), init);
+        return fetch(
+          url.replace(
+            `${MERCARIA_PUBLIC_API_BASE_PATH}/products/`,
+            `${MERCARIA_PUBLIC_API_BASE_PATH}/items/`,
+          ),
+          init,
+        );
       },
     });
     const error = await rejectionOf(drifting.products.get(ids.inStock));

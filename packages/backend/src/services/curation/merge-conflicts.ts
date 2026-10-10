@@ -22,10 +22,7 @@
  */
 
 import { and, eq, isNull } from 'drizzle-orm';
-import type {
-  CatalogMergeConflictResolution,
-  MergeableEntityType,
-} from '@mercaria/shared-types';
+import type { CatalogMergeConflictResolution, MergeableEntityType } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   detectActiveOfferConflicts,
@@ -204,10 +201,18 @@ function conflictColumns(jobId: string, detected: DetectedConflict): InsertConfl
   const base = { jobId, kind: detected.kind, detail: detected.detail };
   switch (detected.kind) {
     case 'identifier':
-      return { ...base, loserIdentifierId: detected.loserRowId, winnerIdentifierId: detected.winnerRowId };
+      return {
+        ...base,
+        loserIdentifierId: detected.loserRowId,
+        winnerIdentifierId: detected.winnerRowId,
+      };
     case 'variant_signature':
     case 'default_variant':
-      return { ...base, loserVariantId: detected.loserRowId, winnerVariantId: detected.winnerRowId };
+      return {
+        ...base,
+        loserVariantId: detected.loserRowId,
+        winnerVariantId: detected.winnerRowId,
+      };
     case 'relationship_endpoint':
       return {
         ...base,
@@ -270,7 +275,9 @@ function retiredSide(
   ) {
     return { loser: null, winner: null };
   }
-  return resolution === 'keep_winner' ? { loser: 'retire', winner: null } : { loser: null, winner: 'retire' };
+  return resolution === 'keep_winner'
+    ? { loser: 'retire', winner: null }
+    : { loser: null, winner: 'retire' };
 }
 
 /**
@@ -442,9 +449,10 @@ export async function applyConflictResolution(
 }
 
 /** The two ids a `merge_pair` resolution opens a child merge job over. */
-export function mergePairSubjects(
-  row: CatalogMergeConflictRow,
-): { readonly loserId: string; readonly winnerId: string } {
+export function mergePairSubjects(row: CatalogMergeConflictRow): {
+  readonly loserId: string;
+  readonly winnerId: string;
+} {
   if (row.kind !== 'variant_signature' || !row.loserVariantId || !row.winnerVariantId) {
     throw validationError(
       `Merge conflict ${row.id} cannot be resolved by merging the pair: only a variant-signature ` +

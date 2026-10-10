@@ -1,39 +1,35 @@
-import React, { useState } from "react";
-import { View, Pressable } from "react-native";
-import Head from "expo-router/head";
-import { Plus, FolderTree, Trash2 } from "lucide-react-native";
-import type { Collection, CollectionType } from "@mercaria/shared-types";
-import {
-  Text,
-  useColorScheme,
-  toBloomIcon,
-} from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
-import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
+import React, { useState } from 'react';
+import { View, Pressable } from 'react-native';
+import Head from 'expo-router/head';
+import { Plus, FolderTree, Trash2 } from 'lucide-react-native';
+import type { Collection, CollectionType } from '@mercaria/shared-types';
+import { Text, useColorScheme, toBloomIcon } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
+import { Dialog, useDialogControl, type DialogControlProps } from '@oxy.so/bloom/dialog';
 import {
   SegmentedControl,
   SegmentedControlItem,
   SegmentedControlItemText,
-} from "@oxy.so/bloom/segmented-control";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
+} from '@oxy.so/bloom/segmented-control';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
 import {
   useCollections,
   useCreateCollection,
   useDeleteCollection,
-} from "@/lib/hooks/use-collections";
-import { useTranslation } from "@/lib/i18n";
+} from '@/lib/hooks/use-collections';
+import { useTranslation } from '@/lib/i18n';
 
 /** Slugify a title into a URL-safe handle. */
 function slugify(value: string): string {
   return value
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 export default function CollectionsScreen() {
@@ -41,7 +37,7 @@ export default function CollectionsScreen() {
   return (
     <>
       <Head>
-        <title>{t("collections.documentTitle")}</title>
+        <title>{t('collections.documentTitle')}</title>
       </Head>
       <RequireStore permission="collections:write">
         {(storeId) => <CollectionsBody storeId={storeId} />}
@@ -58,24 +54,20 @@ function CollectionsBody({ storeId }: { storeId: string }) {
 
   const action = (
     <View className="flex-row items-center gap-2">
-      <Button
-        tone="accent"
-        leadingIcon={toBloomIcon(Plus)}
-        onPress={() => createControl.open()}
-      >
-        {t("common.new")}
+      <Button tone="accent" leadingIcon={toBloomIcon(Plus)} onPress={() => createControl.open()}>
+        {t('common.new')}
       </Button>
     </View>
   );
 
   return (
-    <Screen title={t("nav.collections")} subtitle={t("collections.subtitle")} action={action}>
+    <Screen title={t('nav.collections')} subtitle={t('collections.subtitle')} action={action}>
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title={t("collections.loadError")} body={t("common.pleaseTryAgain")} />
+        <ScreenMessage title={t('collections.loadError')} body={t('common.pleaseTryAgain')} />
       ) : (data?.length ?? 0) === 0 ? (
-        <ScreenMessage title={t("collections.empty.title")} body={t("collections.empty.body")} />
+        <ScreenMessage title={t('collections.empty.title')} body={t('collections.empty.body')} />
       ) : (
         <View className="gap-2">
           {data?.map((collection) => (
@@ -84,8 +76,8 @@ function CollectionsBody({ storeId }: { storeId: string }) {
               collection={collection}
               onDelete={() =>
                 deleteCollection.mutate(collection.id, {
-                  onSuccess: () => toast.success(t("collections.deleted")),
-                  onError: () => toast.error(t("collections.deleteError")),
+                  onSuccess: () => toast.success(t('collections.deleted')),
+                  onError: () => toast.error(t('collections.deleteError')),
                 })
               }
             />
@@ -98,13 +90,7 @@ function CollectionsBody({ storeId }: { storeId: string }) {
   );
 }
 
-function CollectionRow({
-  collection,
-  onDelete,
-}: {
-  collection: Collection;
-  onDelete: () => void;
-}) {
+function CollectionRow({ collection, onDelete }: { collection: Collection; onDelete: () => void }) {
   const { colors } = useColorScheme();
   const { t } = useTranslation();
   // The meta line is composed from three independently-translated facts rather
@@ -112,14 +98,14 @@ function CollectionRow({
   // `items`, NOT `count`: i18n-js pluralizes any key called with a `count`
   // option, which would look for `one`/`other` under a key that has neither.
   const typeLabel = t(
-    collection.type === "manual" ? "collections.type.manual" : "collections.type.automated",
+    collection.type === 'manual' ? 'collections.type.manual' : 'collections.type.automated',
   );
   const itemsLabel =
-    collection.type === "manual"
-      ? t("collections.productCount", { count: collection.productIds.length })
-      : t("collections.ruleCount", { count: collection.rules?.conditions.length ?? 0 });
+    collection.type === 'manual'
+      ? t('collections.productCount', { count: collection.productIds.length })
+      : t('collections.ruleCount', { count: collection.rules?.conditions.length ?? 0 });
   const stateLabel = t(
-    collection.isPublished ? "collections.state.published" : "collections.state.draft",
+    collection.isPublished ? 'collections.state.published' : 'collections.state.draft',
   );
   return (
     <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3">
@@ -129,7 +115,7 @@ function CollectionRow({
       <View className="flex-1">
         <Text className="text-sm font-semibold text-foreground">{collection.title}</Text>
         <Text className="text-xs text-muted-foreground">
-          {t("collections.rowMeta", {
+          {t('collections.rowMeta', {
             type: typeLabel,
             items: itemsLabel,
             state: stateLabel,
@@ -152,12 +138,12 @@ function CreateCollectionDialog({
 }) {
   const createCollection = useCreateCollection(storeId);
   const { t } = useTranslation();
-  const [title, setTitle] = useState("");
-  const [type, setType] = useState<CollectionType>("manual");
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState<CollectionType>('manual');
 
   const submit = () => {
     if (!title.trim()) {
-      toast.error(t("collections.create.titleRequired"));
+      toast.error(t('collections.create.titleRequired'));
       return;
     }
     createCollection.mutate(
@@ -165,51 +151,52 @@ function CreateCollectionDialog({
         title: title.trim(),
         handle: slugify(title),
         type,
-        ...(type === "automated"
-          ? { rules: { appliesDisjunctively: false, conditions: [] } }
-          : {}),
+        ...(type === 'automated' ? { rules: { appliesDisjunctively: false, conditions: [] } } : {}),
       },
       {
         onSuccess: () => {
-          toast.success(t("collections.create.success"));
-          setTitle("");
-          setType("manual");
+          toast.success(t('collections.create.success'));
+          setTitle('');
+          setType('manual');
           control.close();
         },
-        onError: () => toast.error(t("collections.create.error")),
+        onError: () => toast.error(t('collections.create.error')),
       },
     );
   };
 
   return (
-    <Dialog control={control} title={t("collections.create.dialogTitle")}>
+    <Dialog control={control} title={t('collections.create.dialogTitle')}>
       <View className="gap-4">
-        <Field label={t("common.title")}>
+        <Field label={t('common.title')}>
           <TextFieldInput
-            label={t("common.title")}
+            label={t('common.title')}
             value={title}
             onValueChange={setTitle}
-            placeholder={t("collections.create.titlePlaceholder")}
+            placeholder={t('collections.create.titlePlaceholder')}
           />
         </Field>
-        <Field label={t("common.type")}>
-          <SegmentedControl
-            type="radio"
-            value={type}
-            onValueChange={setType}
-          >
+        <Field label={t('common.type')}>
+          <SegmentedControl type="radio" value={type} onValueChange={setType}>
             <SegmentedControlItem value="manual">
-              <SegmentedControlItemText>{t("collections.create.typeManual")}</SegmentedControlItemText>
+              <SegmentedControlItemText>
+                {t('collections.create.typeManual')}
+              </SegmentedControlItemText>
             </SegmentedControlItem>
             <SegmentedControlItem value="automated">
               <SegmentedControlItemText>
-                {t("collections.create.typeAutomated")}
+                {t('collections.create.typeAutomated')}
               </SegmentedControlItemText>
             </SegmentedControlItem>
           </SegmentedControl>
         </Field>
-        <Button tone="accent" onPress={submit} loading={createCollection.isPending} className="mt-1">
-          {t("common.create")}
+        <Button
+          tone="accent"
+          onPress={submit}
+          loading={createCollection.isPending}
+          className="mt-1"
+        >
+          {t('common.create')}
         </Button>
       </View>
     </Dialog>

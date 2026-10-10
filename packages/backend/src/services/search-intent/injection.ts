@@ -153,7 +153,13 @@ export function boundedPhrase(phrase: string): string {
 function candidateStrings(candidate: {
   searchText: string;
   categoryLabel?: string;
-  requirements: readonly { attributeKey: string; textValue?: string; textValues?: readonly string[]; unit?: string; sourcePhrase: string }[];
+  requirements: readonly {
+    attributeKey: string;
+    textValue?: string;
+    textValues?: readonly string[];
+    unit?: string;
+    sourcePhrase: string;
+  }[];
   preferenceOrder: readonly string[];
   budget?: { sourcePhrase: string };
   entityMentions: readonly { text: string }[];

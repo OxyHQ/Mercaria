@@ -487,7 +487,9 @@ export async function listRewardsDueToVest(
       and(
         eq(referralRewards.state, 'held'),
         lte(referralRewards.holdUntilAt, input.at),
-        ...(input.afterHoldUntilAt ? [gt(referralRewards.holdUntilAt, input.afterHoldUntilAt)] : []),
+        ...(input.afterHoldUntilAt
+          ? [gt(referralRewards.holdUntilAt, input.afterHoldUntilAt)]
+          : []),
         ...(input.partnerId ? [eq(referralRewards.partnerId, input.partnerId)] : []),
       ),
     )

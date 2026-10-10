@@ -24,7 +24,10 @@ const NOW = new Date('2026-04-01T12:00:00.000Z');
 const GROUP = 'group-1';
 
 /** A store order, whose buyer each case supplies. */
-function storeOrder(buyer: OrderBuyer, overrides: Partial<OrderAccessFacts> = {}): OrderAccessFacts {
+function storeOrder(
+  buyer: OrderBuyer,
+  overrides: Partial<OrderAccessFacts> = {},
+): OrderAccessFacts {
   return {
     id: 'order-1',
     buyer,
@@ -65,7 +68,11 @@ function grant(overrides: Partial<GuestOrderPortalGrant> = {}): GuestOrderPortal
 describe('#106 authorization — the six it must ALLOW', () => {
   it('1. the original authenticated buyer', () => {
     expect(
-      authorizeOrderAccess({ kind: 'oxy_account', oxyUserId: 'oxy-buyer' }, storeOrder(OXY_BUYER), NOW),
+      authorizeOrderAccess(
+        { kind: 'oxy_account', oxyUserId: 'oxy-buyer' },
+        storeOrder(OXY_BUYER),
+        NOW,
+      ),
     ).toEqual({ allowed: true, reason: 'original_oxy_buyer' });
   });
 
@@ -83,13 +90,21 @@ describe('#106 authorization — the six it must ALLOW', () => {
 
   it('3. a scoped guest order-portal session (#108 mints the grant)', () => {
     expect(
-      authorizeOrderAccess({ kind: 'guest_portal', grant: grant() }, storeOrder(UNCLAIMED_GUEST), NOW),
+      authorizeOrderAccess(
+        { kind: 'guest_portal', grant: grant() },
+        storeOrder(UNCLAIMED_GUEST),
+        NOW,
+      ),
     ).toEqual({ allowed: true, reason: 'guest_portal_grant' });
   });
 
   it('4. a store member acting for the store that owns the order', () => {
     expect(
-      authorizeOrderAccess({ kind: 'store_member', storeId: 'store-1' }, storeOrder(OXY_BUYER), NOW),
+      authorizeOrderAccess(
+        { kind: 'store_member', storeId: 'store-1' },
+        storeOrder(OXY_BUYER),
+        NOW,
+      ),
     ).toEqual({ allowed: true, reason: 'store_member' });
   });
 
@@ -105,7 +120,11 @@ describe('#106 authorization — the six it must ALLOW', () => {
 
   it('6. an operator, whose gate is the allow-list and not this function', () => {
     expect(
-      authorizeOrderAccess({ kind: 'operator', operatorOxyUserId: 'staff-1' }, storeOrder(UNCLAIMED_GUEST), NOW),
+      authorizeOrderAccess(
+        { kind: 'operator', operatorOxyUserId: 'staff-1' },
+        storeOrder(UNCLAIMED_GUEST),
+        NOW,
+      ),
     ).toEqual({ allowed: true, reason: 'operator' });
   });
 });
@@ -139,7 +158,11 @@ describe('#106 authorization — the six it must REJECT', () => {
 
   it('3. a sibling seller cannot inspect another seller order', () => {
     expect(
-      authorizeOrderAccess({ kind: 'store_member', storeId: 'store-2' }, storeOrder(OXY_BUYER), NOW),
+      authorizeOrderAccess(
+        { kind: 'store_member', storeId: 'store-2' },
+        storeOrder(OXY_BUYER),
+        NOW,
+      ),
     ).toEqual({ allowed: false, reason: 'not_this_sellers_order' });
     expect(
       authorizeOrderAccess(
@@ -154,7 +177,8 @@ describe('#106 authorization — the six it must REJECT', () => {
     // The seller TYPE is tested as well as the id, so the refusal does not
     // depend on `orders_seller_exclusivity_check` holding.
     expect(
-      authorizeOrderAccess({ kind: 'store_member', storeId: 'store-1' }, p2pOrder(OXY_BUYER), NOW).allowed,
+      authorizeOrderAccess({ kind: 'store_member', storeId: 'store-1' }, p2pOrder(OXY_BUYER), NOW)
+        .allowed,
     ).toBe(false);
     expect(
       authorizeOrderAccess(

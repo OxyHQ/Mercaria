@@ -68,7 +68,9 @@ export async function readCallerAccountRole(
 }
 
 /** Every account the caller reaches, with their role in each — one `GET /accounts`. */
-export async function listCallerAccountRoles(accessToken: string): Promise<Map<string, AccountRole>> {
+export async function listCallerAccountRoles(
+  accessToken: string,
+): Promise<Map<string, AccountRole>> {
   const roles = new Map<string, AccountRole>();
   let nodes: AccountNode[];
   try {

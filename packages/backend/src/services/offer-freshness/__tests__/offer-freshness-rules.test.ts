@@ -91,7 +91,11 @@ describe('assessOfferFreshness — the thresholds are the SOURCE’s, not a glob
   });
 
   it('is warning one millisecond BEFORE the expiry and expired ON it', () => {
-    const before = assessOfferFreshness(observation(), policy(), new Date(at(21_600).getTime() - 1));
+    const before = assessOfferFreshness(
+      observation(),
+      policy(),
+      new Date(at(21_600).getTime() - 1),
+    );
     expect(before.level).toBe('warning');
     expect(assessOfferFreshness(observation(), policy(), at(21_600)).level).toBe('expired');
   });
@@ -258,7 +262,9 @@ describe('offerRetirementDueAt — grace delays the RETIREMENT, never the displa
   });
 
   it('has no answer for an offer whose policy names another source', () => {
-    expect(offerRetirementDueAt(observation(), policy({ sourceId: 'other' }), 'unknown')).toBeNull();
+    expect(
+      offerRetirementDueAt(observation(), policy({ sourceId: 'other' }), 'unknown'),
+    ).toBeNull();
     expect(offerRetirementDueAt(observation(), null, 'unknown')).toBeNull();
   });
 });
@@ -469,7 +475,12 @@ describe('detectSourceAnomalies — a sale is not a scale error', () => {
     // catalogue's prices, and firing on one is how a thin category page ends up
     // on the quarantine board.
     const findings = detectSourceAnomalies({
-      current: distribution({ sampleSize: 9, pricedCount: 9, zeroPricedCount: 9, medianPriceMinor: 1 }),
+      current: distribution({
+        sampleSize: 9,
+        pricedCount: 9,
+        zeroPricedCount: 9,
+        medianPriceMinor: 1,
+      }),
       prior: distribution(),
       thresholds,
       unseenPriorObjects: null,

@@ -143,7 +143,9 @@ describe('the canonical attribute value write census (ADR 0007 D7)', () => {
     // The vacuity floor. A broken walk, a moved directory or an extension filter
     // that stopped matching all report the same clean zero as a correct scan, and
     // the offender assertion below would pass on every one of them.
-    expect(sources.size, 'the walk read almost nothing — did the layout move?').toBeGreaterThan(400);
+    expect(sources.size, 'the walk read almost nothing — did the layout move?').toBeGreaterThan(
+      400,
+    );
 
     const writers = [...sources]
       .filter(([, source]) => SELECTED_FACT_WRITE.test(source))
@@ -212,9 +214,10 @@ describe('the canonical attribute value write census (ADR 0007 D7)', () => {
     // independently, and one number lets a directory collapse to zero while the
     // others carry it.
     for (const domain of CLAIM_DOMAINS) {
-      expect(scanned.get(domain) ?? 0, `${domain} produced no files — is the path stale?`).toBeGreaterThan(
-        3,
-      );
+      expect(
+        scanned.get(domain) ?? 0,
+        `${domain} produced no files — is the path stale?`,
+      ).toBeGreaterThan(3);
     }
     expect(offenders).toEqual([]);
     console.log(
@@ -224,28 +227,36 @@ describe('the canonical attribute value write census (ADR 0007 D7)', () => {
 
   describe('mutation self-tests — every write spelling, against source the walk never produced', () => {
     it('fires on all five spellings', () => {
-      assertEachOf([
-        `await tx.insert(${BINDING}).values(row);`,
-        `await db\n  .update(${BINDING})\n  .set({ selectionState: 'selected' });`,
-        `await db.delete(${BINDING}).where(x);`,
-        `await db.execute(sql\`update "${TABLE}" set selection_state = 'selected'\`);`,
-        `await db.execute(sql\`insert into \${${BINDING}} (id) values (1)\`);`,
-      ], 5, (spelling) => {
-        expect(SELECTED_FACT_WRITE.test(spelling), `not matched: ${spelling}`).toBe(true);
-      });
+      assertEachOf(
+        [
+          `await tx.insert(${BINDING}).values(row);`,
+          `await db\n  .update(${BINDING})\n  .set({ selectionState: 'selected' });`,
+          `await db.delete(${BINDING}).where(x);`,
+          `await db.execute(sql\`update "${TABLE}" set selection_state = 'selected'\`);`,
+          `await db.execute(sql\`insert into \${${BINDING}} (id) values (1)\`);`,
+        ],
+        5,
+        (spelling) => {
+          expect(SELECTED_FACT_WRITE.test(spelling), `not matched: ${spelling}`).toBe(true);
+        },
+      );
     });
 
     it('does NOT fire on a read, or on the CLAIM tables it sits beside', () => {
       // A detector that cannot tell a legitimate value from its quarry gets
       // narrowed under pressure, and narrowing is the permissive direction.
-      assertEachOf([
-        `const rows = await db.select().from(${BINDING}).where(eq(${BINDING}.id, id));`,
-        `await tx.insert(nativeListingAttributeClaims).values(row);`,
-        `await tx.update(nativeVariantAttributeClaims).set({ resolution: 'ambiguous' });`,
-        `await db.execute(sql\`select * from "${TABLE}"\`);`,
-      ], 4, (clean) => {
-        expect(SELECTED_FACT_WRITE.test(clean), `wrongly matched: ${clean}`).toBe(false);
-      });
+      assertEachOf(
+        [
+          `const rows = await db.select().from(${BINDING}).where(eq(${BINDING}.id, id));`,
+          `await tx.insert(nativeListingAttributeClaims).values(row);`,
+          `await tx.update(nativeVariantAttributeClaims).set({ resolution: 'ambiguous' });`,
+          `await db.execute(sql\`select * from "${TABLE}"\`);`,
+        ],
+        4,
+        (clean) => {
+          expect(SELECTED_FACT_WRITE.test(clean), `wrongly matched: ${clean}`).toBe(false);
+        },
+      );
     });
   });
 });

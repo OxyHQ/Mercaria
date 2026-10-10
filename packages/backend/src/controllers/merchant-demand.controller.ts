@@ -100,10 +100,7 @@ export async function getMerchantDemandHandler(req: Request, res: Response): Pro
  * proved anything yet. Everything it can disclose is rounded, floored and
  * counted in visit nouns.
  */
-export async function getMerchantDemandPreviewHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function getMerchantDemandPreviewHandler(req: Request, res: Response): Promise<void> {
   try {
     if (!config.merchantDemand.previewEnabled) {
       sendError(res, ErrorCodes.NOT_FOUND, 'Not found', 404);

@@ -148,9 +148,9 @@ describe('a merchant claim cannot create a brand relationship (issue acceptance 
     // Mutation self-test: a broken regex would pass both assertions above by
     // matching nothing at all. These are the exact strings the gate exists to
     // catch, and each must be seen.
-    expect(RELATIONSHIP_REFERENCE.test("import { x } from '../commerce-graph/brand.service.js'")).toBe(
-      true,
-    );
+    expect(
+      RELATIONSHIP_REFERENCE.test("import { x } from '../commerce-graph/brand.service.js'"),
+    ).toBe(true);
     expect(RELATIONSHIP_REFERENCE.test('await insertCommerceRelationship(tx, {...})')).toBe(true);
     expect(RELATIONSHIP_REFERENCE.test("db.insert(brands).values({ name: 'Apple' })")).toBe(true);
     expect(OPERATIONAL_GRANT_REFERENCE.test('await insertNativeStoreLink(tx, {...})')).toBe(true);
@@ -218,7 +218,9 @@ describe('the population the two walls above are applied to (#460)', () => {
     const singular = 'middleware/merchant-claim-schemas.ts';
     expect(CLAIM_NAME_PATTERN.test(camelCase)).toBe(true);
     expect(CLAIM_NAME_PATTERN.test(singular)).toBe(true);
-    expect(/merchant-claims/.test(camelCase), 'the hyphenated spelling already matched').toBe(false);
+    expect(/merchant-claims/.test(camelCase), 'the hyphenated spelling already matched').toBe(
+      false,
+    );
     expect(/merchant-claims/.test(singular), 'the plural spelling already matched').toBe(false);
     expect(domainRelativePaths()).toContain(camelCase);
     expect(domainRelativePaths()).toContain(singular);

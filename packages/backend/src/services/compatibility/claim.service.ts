@@ -28,10 +28,7 @@
  */
 
 import { conflict, validationError } from '../../lib/errors/index.js';
-import type {
-  CompatibilitySubject,
-  CompatibilityUnresolvedReason,
-} from '@mercaria/shared-types';
+import type { CompatibilitySubject, CompatibilityUnresolvedReason } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
 import { getDb } from '../../db/postgres.js';
 import {
@@ -195,6 +192,8 @@ export function assertClaimMatchesSubject(
     throw conflict('this claim names no subject and cannot be promoted');
   }
   if (claim.subjectProductId !== subjectProductId || claim.subjectVariantId !== subjectVariantId) {
-    throw conflict('this claim is about a different subject from the row it would be selected into');
+    throw conflict(
+      'this claim is about a different subject from the row it would be selected into',
+    );
   }
 }

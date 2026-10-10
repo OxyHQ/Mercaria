@@ -353,9 +353,17 @@ export function mapFeedRecord(
   }
 
   const country = readCode('country', /^[A-Za-z]{2}$/u, mapping.defaultCountry);
-  const language = readCode('language', /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/u, mapping.defaultLanguage);
+  const language = readCode(
+    'language',
+    /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/u,
+    mapping.defaultLanguage,
+  );
 
-  function readCode(role: FeedFieldRole, pattern: RegExp, fallback: string | null): string | undefined {
+  function readCode(
+    role: FeedFieldRole,
+    pattern: RegExp,
+    fallback: string | null,
+  ): string | undefined {
     const value = read(role);
     if (value === null) return fallback ?? undefined;
     if (!pattern.test(value.trim())) {
@@ -370,9 +378,7 @@ export function mapFeedRecord(
   const sourceCreatedAt = readInstant(read('source_created_at'));
 
   const delivery =
-    deliveryCost === undefined &&
-    deliveryMinDays === undefined &&
-    deliveryMaxDays === undefined
+    deliveryCost === undefined && deliveryMinDays === undefined && deliveryMaxDays === undefined
       ? undefined
       : {
           ...(deliveryCost === undefined ? {} : { cost: deliveryCost }),

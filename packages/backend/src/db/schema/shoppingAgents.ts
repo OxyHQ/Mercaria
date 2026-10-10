@@ -157,7 +157,9 @@ export const shoppingAgents = pgTable(
     name: text().notNull(),
     /** The shopper's own note. PROTECTED — it never reaches a model provider. */
     description: text(),
-    state: text({ enum: asEnumValues(SHOPPING_AGENT_STATES) }).notNull().default('enabled'),
+    state: text({ enum: asEnumValues(SHOPPING_AGENT_STATES) })
+      .notNull()
+      .default('enabled'),
     /**
      * Bumped by every MATERIAL edit, and part of the evaluation key.
      *
@@ -328,7 +330,10 @@ export const shoppingAgents = pgTable(
      * Measured twice in this schema already (#68, #108); any future
      * array-non-emptiness CHECK here must be written the same way.
      */
-    check('shopping_agents_trigger_sources_present_check', sql`cardinality(${t.triggerSources}) >= 1`),
+    check(
+      'shopping_agents_trigger_sources_present_check',
+      sql`cardinality(${t.triggerSources}) >= 1`,
+    ),
     check(
       'shopping_agents_notification_channels_present_check',
       sql`cardinality(${t.notificationChannels}) >= 1`,
@@ -430,9 +435,7 @@ export const shoppingAgents = pgTable(
     index('shopping_agents_schedule_idx')
       .on(t.nextScheduledAt)
       .where(sql`${t.state} = 'enabled' and ${t.nextScheduledAt} is not null`),
-    index('shopping_agents_split_job_idx')
-      .on(t.splitJobId)
-      .where(sql`${t.splitJobId} is not null`),
+    index('shopping_agents_split_job_idx').on(t.splitJobId).where(sql`${t.splitJobId} is not null`),
   ],
 );
 
@@ -733,7 +736,11 @@ export const shoppingAgentFindings = pgTable(
       SHOPPING_AGENT_EVIDENCE_COMPLETENESS,
     ),
     checkOneOf('shopping_agent_findings_freshness_check', t.freshness, SHOPPING_AGENT_FRESHNESS),
-    checkOneOf('shopping_agent_findings_optimality_check', t.optimality, SHOPPING_AGENT_OPTIMALITIES),
+    checkOneOf(
+      'shopping_agent_findings_optimality_check',
+      t.optimality,
+      SHOPPING_AGENT_OPTIMALITIES,
+    ),
     checkOneOf(
       'shopping_agent_findings_lifecycle_check',
       t.lifecycle,

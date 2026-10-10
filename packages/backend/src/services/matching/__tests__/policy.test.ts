@@ -72,10 +72,7 @@ describe('confidence is a weighted mean over the features that HAVE a value', ()
     expect(known).not.toBeCloseTo(7 / 18, 5);
 
     // The second wrong answer: a genuine disagreement must NOT read like silence.
-    const disagreeing = computeConfidence(
-      { brandAgreement: 0, attributeAgreement: 1 },
-      WEIGHTS,
-    );
+    const disagreeing = computeConfidence({ brandAgreement: 0, attributeAgreement: 1 }, WEIGHTS);
     expect(disagreeing).toBeCloseTo(4 / 7, 5);
     expect(disagreeing).toBeLessThan(known ?? 0);
   });
@@ -225,7 +222,9 @@ describe('the outcome procedure', () => {
   });
 
   it('records NULL confidence on a deterministic stage and a number on a heuristic one', () => {
-    expect(decideOutcome([candidate()], policy(), { ...context, stage: 'global_identifier' }).confidence).toBeNull();
+    expect(
+      decideOutcome([candidate()], policy(), { ...context, stage: 'global_identifier' }).confidence,
+    ).toBeNull();
     expect(decideOutcome([candidate()], policy(), context).confidence).not.toBeNull();
   });
 });

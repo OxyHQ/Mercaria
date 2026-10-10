@@ -95,11 +95,7 @@ import {
   VEHICLE_TRANSMISSIONS,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
-import {
-  canonicalProductFamilies,
-  canonicalProducts,
-  canonicalVariants,
-} from './canonicalCatalog';
+import { canonicalProductFamilies, canonicalProducts, canonicalVariants } from './canonicalCatalog';
 import { catalogSources, sourceRecords } from './provenance';
 
 /**
@@ -204,10 +200,7 @@ export const genericCompatibilityRelations = pgTable(
      * The closed condition vocabulary. `'{}'` means unconditional, which is a
      * positive fact a filter reads, not an absence.
      */
-    conditionKinds: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    conditionKinds: text().array().notNull().default(sql`'{}'::text[]`),
     /** The human sentence beside the conditions — presentation, never the fact. */
     conditionNote: text(),
 
@@ -219,13 +212,8 @@ export const genericCompatibilityRelations = pgTable(
      * match `commerce_relationships.territories`, the sibling column scoping the
      * very same markets one domain over.
      */
-    markets: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
-    validFrom: timestamptz()
-      .notNull()
-      .default(sql`date_trunc('milliseconds', now())`),
+    markets: text().array().notNull().default(sql`'{}'::text[]`),
+    validFrom: timestamptz().notNull().default(sql`date_trunc('milliseconds', now())`),
     /** NULL = still open. A closed row is history and is never deleted. */
     validTo: timestamptz(),
 
@@ -490,7 +478,9 @@ export const vehicleMakes = pgTable(
     name: text().notNull(),
     /** ISO 3166-1 alpha-2 of the manufacturer's home market; display only. */
     countryCode: text(),
-    status: text({ enum: asEnumValues(VEHICLE_RECORD_STATUSES) }).notNull().default('active'),
+    status: text({ enum: asEnumValues(VEHICLE_RECORD_STATUSES) })
+      .notNull()
+      .default('active'),
     mergedIntoId: text().references((): AnyPgColumn => vehicleMakes.id, { onDelete: 'restrict' }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -535,7 +525,9 @@ export const vehicleModels = pgTable(
       .references(() => vehicleMakes.id, { onDelete: 'restrict' }),
     key: text().notNull(),
     name: text().notNull(),
-    status: text({ enum: asEnumValues(VEHICLE_RECORD_STATUSES) }).notNull().default('active'),
+    status: text({ enum: asEnumValues(VEHICLE_RECORD_STATUSES) })
+      .notNull()
+      .default('active'),
     mergedIntoId: text().references((): AnyPgColumn => vehicleModels.id, { onDelete: 'restrict' }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -585,7 +577,9 @@ export const vehicleGenerations = pgTable(
     chassisCode: text(),
     producedFromYear: integer(),
     producedToYear: integer(),
-    status: text({ enum: asEnumValues(VEHICLE_RECORD_STATUSES) }).notNull().default('active'),
+    status: text({ enum: asEnumValues(VEHICLE_RECORD_STATUSES) })
+      .notNull()
+      .default('active'),
     mergedIntoId: text().references((): AnyPgColumn => vehicleGenerations.id, {
       onDelete: 'restrict',
     }),
@@ -657,7 +651,9 @@ export const vehicleConfigurations = pgTable(
     trim: text(),
     /** ISO 3166-1 alpha-2; NULL = not market-specific. See the doc above. */
     market: text(),
-    status: text({ enum: asEnumValues(VEHICLE_RECORD_STATUSES) }).notNull().default('active'),
+    status: text({ enum: asEnumValues(VEHICLE_RECORD_STATUSES) })
+      .notNull()
+      .default('active'),
     mergedIntoId: text().references((): AnyPgColumn => vehicleConfigurations.id, {
       onDelete: 'restrict',
     }),
@@ -782,16 +778,12 @@ export const automotiveFitments = pgTable(
     applicability: text({ enum: asEnumValues(COMPATIBILITY_APPLICABILITIES) })
       .notNull()
       .default('unknown'),
-    position: text({ enum: asEnumValues(FITMENT_POSITIONS) }).notNull().default('not_applicable'),
+    position: text({ enum: asEnumValues(FITMENT_POSITIONS) })
+      .notNull()
+      .default('not_applicable'),
     /** Closed vocabulary, CHECKed by containment. `'{}'` = no qualifier. */
-    qualifiers: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
-    conditionKinds: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    qualifiers: text().array().notNull().default(sql`'{}'::text[]`),
+    conditionKinds: text().array().notNull().default(sql`'{}'::text[]`),
     conditionNote: text(),
     /** Narrows the target's own span. NULL = the target's span. See the doc above. */
     yearFrom: integer(),
@@ -826,9 +818,7 @@ export const automotiveFitments = pgTable(
     /** An Oxy account id — no foreign key; Oxy owns identity. */
     verifiedByOxyUserId: text(),
     lastCheckedAt: timestamptz(),
-    validFrom: timestamptz()
-      .notNull()
-      .default(sql`date_trunc('milliseconds', now())`),
+    validFrom: timestamptz().notNull().default(sql`date_trunc('milliseconds', now())`),
     /** NULL = still open. A closed row is history and is never deleted. */
     validTo: timestamptz(),
     revokedAt: timestamptz(),
@@ -985,9 +975,7 @@ export const automotiveFitments = pgTable(
     ),
 
     /** ≤1 OPEN fitment per (subject, vehicle target, position). See `fitment_key`. */
-    uniqueIndex('automotive_fitments_open_key')
-      .on(t.fitmentKey)
-      .where(sql`${t.validTo} is null`),
+    uniqueIndex('automotive_fitments_open_key').on(t.fitmentKey).where(sql`${t.validTo} is null`),
 
     // ── "Which parts fit this vehicle" — the reverse read, one per scope ─────
     index('automotive_fitments_configuration_idx')
@@ -1065,7 +1053,9 @@ export const compatibilityClaims = pgTable(
     rawQualifierText: text(),
 
     // ── Where it landed ─────────────────────────────────────────────────────
-    state: text({ enum: asEnumValues(COMPATIBILITY_CLAIM_STATES) }).notNull().default('unresolved'),
+    state: text({ enum: asEnumValues(COMPATIBILITY_CLAIM_STATES) })
+      .notNull()
+      .default('unresolved'),
     /** Why it did not resolve. Present EXACTLY when the state is `unresolved`. */
     unresolvedReason: text({ enum: asEnumValues(COMPATIBILITY_UNRESOLVED_REASONS) }),
     relationId: text().references(() => genericCompatibilityRelations.id, { onDelete: 'restrict' }),

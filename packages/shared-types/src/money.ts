@@ -133,8 +133,9 @@ export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
  * re-declaring their own literal array, so adding a currency here propagates
  * everywhere. Keys of a `Record<CurrencyCode, …>` are exactly `CurrencyCode`.
  */
-export const ALL_CURRENCY_CODES: readonly CurrencyCode[] =
-  Object.keys(CURRENCY_PRECISION) as CurrencyCode[];
+export const ALL_CURRENCY_CODES: readonly CurrencyCode[] = Object.keys(
+  CURRENCY_PRECISION,
+) as CurrencyCode[];
 
 /**
  * The largest `Money.amount` (in absolute value) Mercaria represents, and the

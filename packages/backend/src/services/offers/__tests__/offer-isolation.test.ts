@@ -235,10 +235,12 @@ const OFFER_REFERENCE =
   /offers\/|offerRepository|nativeListingLink|offerOutbox|\boffers\b|native_listing_links|offer_outboxes/;
 
 /** #58's matching pipeline. This domain STORES an attachment and never decides one. */
-const MATCHER_REFERENCE = /matching\.service|matchCandidate|resolveCanonicalMatch|services\/matching\//;
+const MATCHER_REFERENCE =
+  /matching\.service|matchCandidate|resolveCanonicalMatch|services\/matching\//;
 
 /** #37's outbound redirect. This domain models routing metadata and never routes. */
-const REDIRECT_REFERENCE = /outboundRedirect|redirect\.service|buildAffiliateUrl|services\/outbound\//;
+const REDIRECT_REFERENCE =
+  /outboundRedirect|redirect\.service|buildAffiliateUrl|services\/outbound\//;
 
 /**
  * #84's merchant → native store linkage, and #74's ranking.
@@ -305,9 +307,10 @@ describe('the offer domain cannot reach the cart, and the cart cannot reach it',
       7,
     );
     expect(from('services/cart'), 'no cart service was derived').toBeGreaterThanOrEqual(3);
-    expect(from('controllers/'), 'no cart or checkout controller was derived').toBeGreaterThanOrEqual(
-      2,
-    );
+    expect(
+      from('controllers/'),
+      'no cart or checkout controller was derived',
+    ).toBeGreaterThanOrEqual(2);
     expect(from('routes/'), 'no cart or checkout route was derived').toBeGreaterThanOrEqual(2);
     for (const path of CART_AND_CHECKOUT_PATHS) {
       expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
@@ -342,7 +345,10 @@ describe('the offer domain cannot reach the cart, and the cart cannot reach it',
     // threw would have failed this test for the wrong reason.
     const rendered = (shapeCheck?.value.queryChunks ?? [])
       .flatMap((chunk) =>
-        typeof chunk === 'object' && chunk !== null && 'value' in chunk && Array.isArray(chunk.value)
+        typeof chunk === 'object' &&
+        chunk !== null &&
+        'value' in chunk &&
+        Array.isArray(chunk.value)
           ? (chunk.value as unknown[]).filter((part): part is string => typeof part === 'string')
           : [],
       )

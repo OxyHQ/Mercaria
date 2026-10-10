@@ -51,7 +51,12 @@ export async function authorizeAndJoinStore(
     return false;
   }
   const access = await resolveStoreAccess(
-    { accountId: caller.userId, actorAccountId: null, delegated: false, accessToken: caller.accessToken },
+    {
+      accountId: caller.userId,
+      actorAccountId: null,
+      delegated: false,
+      accessToken: caller.accessToken,
+    },
     store,
   );
   if (!access) {

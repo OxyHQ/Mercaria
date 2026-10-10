@@ -79,9 +79,7 @@ export async function traceGuestPortalAccess(
   const [grants, messages, suppression] = await Promise.all([
     listGrantsForGroup(db, checkoutGroupId, TRACE_LIMIT),
     listGuestPortalMessagesForGroup(db, checkoutGroupId, TRACE_LIMIT),
-    contact.emailHash === null
-      ? Promise.resolve(null)
-      : findLiveSuppression(db, contact.emailHash),
+    contact.emailHash === null ? Promise.resolve(null) : findLiveSuppression(db, contact.emailHash),
   ]);
 
   return {

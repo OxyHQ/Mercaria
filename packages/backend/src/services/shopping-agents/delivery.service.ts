@@ -27,7 +27,10 @@
  */
 
 import type { ShoppingAgentDeliveryFailure } from '@mercaria/shared-types';
-import { withinShoppingAgentQuietHours, shoppingAgentQuietHoursReleaseAt } from '@mercaria/shared-types';
+import {
+  withinShoppingAgentQuietHours,
+  shoppingAgentQuietHoursReleaseAt,
+} from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { sendNotification } from '../../lib/notification-service.js';
@@ -134,9 +137,7 @@ export async function deliverShoppingAgentNotification(
     kind: agent.kind,
     priceBasis: agent.priceBasis,
     ...(finding.objectiveAmount === null ? {} : { objectiveAmountMinor: finding.objectiveAmount }),
-    ...(finding.objectiveCurrency === null
-      ? {}
-      : { objectiveCurrency: finding.objectiveCurrency }),
+    ...(finding.objectiveCurrency === null ? {} : { objectiveCurrency: finding.objectiveCurrency }),
     ...(finding.objectiveDeltaAmount === null
       ? {}
       : { objectiveDeltaMinor: finding.objectiveDeltaAmount }),

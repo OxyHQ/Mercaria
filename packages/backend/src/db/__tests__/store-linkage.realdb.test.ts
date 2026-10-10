@@ -79,13 +79,19 @@ import type { StoreCaller } from '../../services/store-access.service.js';
  */
 const oxyRoles = vi.hoisted(() => new Map<string, string>());
 vi.mock('../../services/oxy-account-graph.js', () => ({
-  readCallerAccountRole: async (_bearer: string, accountId: string) => oxyRoles.get(accountId) ?? null,
+  readCallerAccountRole: async (_bearer: string, accountId: string) =>
+    oxyRoles.get(accountId) ?? null,
   listCallerAccountRoles: async () => new Map(oxyRoles),
 }));
 
 /** A claimant in their own, undelegated session. */
 function claimantSession(oxyUserId: string): StoreCaller {
-  return { accountId: oxyUserId, actorAccountId: oxyUserId, delegated: false, accessToken: `bearer-${oxyUserId}` };
+  return {
+    accountId: oxyUserId,
+    actorAccountId: oxyUserId,
+    delegated: false,
+    accessToken: `bearer-${oxyUserId}`,
+  };
 }
 
 let db: Database;
@@ -167,7 +173,9 @@ afterAll(async () => {
     await db
       .delete(nativeStoreLinks)
       .where(inArray(nativeStoreLinks.merchantId, createdMerchantIds));
-    await db.delete(merchantClaimScopes).where(inArray(merchantClaimScopes.claimId, createdClaimIds));
+    await db
+      .delete(merchantClaimScopes)
+      .where(inArray(merchantClaimScopes.claimId, createdClaimIds));
     await db.delete(merchantClaims).where(inArray(merchantClaims.id, createdClaimIds));
     await db.delete(merchants).where(inArray(merchants.id, createdMerchantIds));
   }
@@ -243,10 +251,7 @@ const REASON = 'linking this merchant to the store its owner operates';
  * `isUniqueViolation`/`isCheckViolation` from `@oxy.so/db` walk the same chain
  * for the same reason.
  */
-async function expectTriggerRefusal(
-  operation: Promise<unknown>,
-  message: RegExp,
-): Promise<void> {
+async function expectTriggerRefusal(operation: Promise<unknown>, message: RegExp): Promise<void> {
   let caught: unknown;
   try {
     await operation;
@@ -654,12 +659,8 @@ describe('case 3 — several candidate stores go to review, not to a guess', () 
     for (const candidate of candidates) {
       expect(candidate.source).not.toMatch(/name|similar|score/i);
     }
-    expect(
-      candidates.find((row) => row.storeId === storeA)?.disposition,
-    ).toBe('selected');
-    expect(
-      candidates.find((row) => row.storeId === storeB)?.disposition,
-    ).toBe('rejected');
+    expect(candidates.find((row) => row.storeId === storeA)?.disposition).toBe('selected');
+    expect(candidates.find((row) => row.storeId === storeB)?.disposition).toBe('rejected');
   });
 
   it('at most ONE candidate can be selected per request, by index', async () => {
@@ -682,8 +683,18 @@ describe('case 3 — several candidate stores go to review, not to a guess', () 
       .returning();
     const requestId = request?.id ?? '';
 
-    await upsertCandidate(db, { requestId, storeId: storeA, source: 'operator', evidenceRef: null });
-    await upsertCandidate(db, { requestId, storeId: storeB, source: 'operator', evidenceRef: null });
+    await upsertCandidate(db, {
+      requestId,
+      storeId: storeA,
+      source: 'operator',
+      evidenceRef: null,
+    });
+    await upsertCandidate(db, {
+      requestId,
+      storeId: storeB,
+      source: 'operator',
+      evidenceRef: null,
+    });
     await selectCandidate(db, { requestId, storeId: storeA });
 
     // A raw second selection — the partial unique is what refuses it, and a

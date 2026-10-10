@@ -97,7 +97,16 @@ describe('resolvability is stated for every route', () => {
     for (const routeId of PUBLIC_ROUTE_IDS) {
       expect(typeof routeServesDocument(routeId), routeId).toBe('boolean');
     }
-    for (const routeId of ['home', 'canonical_product', 'legacy_listing', 'native_store', 'merchant', 'brand', 'product_family', 'category_browse'] as const) {
+    for (const routeId of [
+      'home',
+      'canonical_product',
+      'legacy_listing',
+      'native_store',
+      'merchant',
+      'brand',
+      'product_family',
+      'category_browse',
+    ] as const) {
       expect(routeServesDocument(routeId), routeId).toBe(true);
     }
   });

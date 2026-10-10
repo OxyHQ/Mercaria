@@ -294,7 +294,9 @@ export const listings = pgTable(
      * needs the second one.
      */
     conditionAcknowledgedAt: timestamptz(),
-    status: text({ enum: asEnumValues(ALL_LISTING_STATUSES) }).notNull().default('draft'),
+    status: text({ enum: asEnumValues(ALL_LISTING_STATUSES) })
+      .notNull()
+      .default('draft'),
 
     /**
      * What moved this listing into `archived`, and what it was immediately
@@ -527,11 +529,7 @@ export const listings = pgTable(
     ),
     // Keyset-paginated browse feeds. Each is the feed's ORDER BY, in that exact
     // column order and direction — anything else cannot serve the sort.
-    index('listings_status_published_at_id_idx').on(
-      t.status,
-      t.publishedAt.desc(),
-      t.id.desc(),
-    ),
+    index('listings_status_published_at_id_idx').on(t.status, t.publishedAt.desc(), t.id.desc()),
     index('listings_status_category_id_published_at_id_idx').on(
       t.status,
       t.categoryId,

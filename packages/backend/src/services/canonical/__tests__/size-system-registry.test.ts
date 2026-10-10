@@ -157,15 +157,15 @@ describe('every entry declares its four facets, and the key is opaque', () => {
     }
     expect(alias.key).not.toBe(real.key);
 
-    expect(compareSizeDeclarations({ system: real, value: '42' }, { system: alias, value: '42' })).toEqual(
-      { outcome: 'refused', reason: 'no_sourced_mapping' },
-    );
+    expect(
+      compareSizeDeclarations({ system: real, value: '42' }, { system: alias, value: '42' }),
+    ).toEqual({ outcome: 'refused', reason: 'no_sourced_mapping' });
     // The control: the same system against ITSELF still compares, so the
     // refusal above is about the two keys and not about a comparison that
     // refuses everything.
-    expect(compareSizeDeclarations({ system: real, value: '42' }, { system: real, value: '42' })).toEqual(
-      { outcome: 'equal', systemKey: real.key },
-    );
+    expect(
+      compareSizeDeclarations({ system: real, value: '42' }, { system: real, value: '42' }),
+    ).toEqual({ outcome: 'equal', systemKey: real.key });
   });
 
   it('holds no key EQUAL to the composite of its own facets', () => {
@@ -248,7 +248,8 @@ describe('every entry declares its four facets, and the key is opaque', () => {
       'interpolating facets into a key': 'const key = `size.${entry.domain}.${entry.audience}`;',
     };
     expect(Object.keys(fixtures).sort()).toEqual(forbidden.map((entry) => entry.name).sort());
-    const benign = "const found = SIZE_SYSTEMS_BY_KEY.get(key); return system.domain === other.domain;";
+    const benign =
+      'const found = SIZE_SYSTEMS_BY_KEY.get(key); return system.domain === other.domain;';
     for (const { name, pattern } of forbidden) {
       expect(pattern.test(fixtures[name] as string), `${name} missed its own fixture`).toBe(true);
       expect(pattern.test(benign), `${name} fires on ordinary code`).toBe(false);
@@ -262,7 +263,10 @@ describe('the registry relates nothing to an attribute key', () => {
     // sixth size attribute added there is covered with no edit here. Relating
     // the two namespaces is the value-level mapping this epic re-scoped to an
     // ADR amendment; it would arrive disguised as a convenience.
-    const seed = readFileSync(join(BACKEND_SRC, 'scripts', 'seed-verticals', 'footwear.ts'), 'utf8');
+    const seed = readFileSync(
+      join(BACKEND_SRC, 'scripts', 'seed-verticals', 'footwear.ts'),
+      'utf8',
+    );
     const seeded = [...new Set([...seed.matchAll(/\bshoe_size_[a-z_]+\b/g)].map((m) => m[0]))];
     // Floor: a seed that stopped matching would make the scan vacuous.
     expect(seeded.length, `found ${seeded.length} seeded size keys`).toBeGreaterThanOrEqual(4);
@@ -294,9 +298,9 @@ describe('a key this registry does not hold is ABSENT, not present', () => {
     }
     // The paired negative, over the same call. Without it a registry returning
     // `present` unconditionally satisfies every line above.
-    await expect(
-      conceptExists('size_system', 'size.shoe_jp'),
-    ).resolves.toEqual({ state: 'absent' });
+    await expect(conceptExists('size_system', 'size.shoe_jp')).resolves.toEqual({
+      state: 'absent',
+    });
   });
 
   it('does not answer for a key that differs only in case or whitespace', async () => {
@@ -382,9 +386,7 @@ describe('a key this registry does not hold is ABSENT, not present', () => {
     await expect(conceptExists('size_system', real)).resolves.toEqual({ state: 'present' });
     // …and an unknown key with a version is still refused for the version,
     // because the version cannot be checked at all.
-    expect((await conceptExists('size_system', 'size.nope', 2)).state).toBe(
-      'unavailable',
-    );
+    expect((await conceptExists('size_system', 'size.nope', 2)).state).toBe('unavailable');
   });
 });
 

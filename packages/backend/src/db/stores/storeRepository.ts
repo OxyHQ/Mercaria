@@ -60,7 +60,10 @@ export async function findStoresByIds(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<StoreRow[]> {
   if (storeIds.length === 0) return [];
-  return db.select().from(stores).where(inArray(stores.id, [...storeIds]));
+  return db
+    .select()
+    .from(stores)
+    .where(inArray(stores.id, [...storeIds]));
 }
 
 /**
@@ -88,13 +91,15 @@ export async function findStoresByOwnerAccounts(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<StoreRow[]> {
   if (oxyAccountIds.length === 0) return [];
-  return db
-    .select()
-    .from(stores)
-    .where(inArray(stores.oxyAccountId, [...oxyAccountIds]))
-    // `id` breaks a same-millisecond tie: uuid v7 is time-ordered, so the
-    // order is stable between requests rather than the planner's choice.
-    .orderBy(desc(stores.createdAt), desc(stores.id));
+  return (
+    db
+      .select()
+      .from(stores)
+      .where(inArray(stores.oxyAccountId, [...oxyAccountIds]))
+      // `id` breaks a same-millisecond tie: uuid v7 is time-ordered, so the
+      // order is stable between requests rather than the planner's choice.
+      .orderBy(desc(stores.createdAt), desc(stores.id))
+  );
 }
 
 /** Whether any store already holds `handle`. Drives handle derivation on create. */

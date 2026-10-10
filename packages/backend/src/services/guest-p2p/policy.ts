@@ -231,8 +231,7 @@ const GUEST_P2P_CRITERION_REGISTRY: Readonly<Record<GuestP2PCriterion, GuestP2PC
   },
   no_oxy_only_buyer_capability: {
     kind: 'seller',
-    requirement:
-      'No required buyer capability that exists only for authenticated Oxy users.',
+    requirement: 'No required buyer capability that exists only for authenticated Oxy users.',
     availability: { state: 'capability_missing', owner: '#110' },
   },
   fixed_price_only: {
@@ -288,8 +287,7 @@ const GUEST_P2P_CRITERION_REGISTRY: Readonly<Record<GuestP2PCriterion, GuestP2PC
   },
   no_mixed_store_and_p2p_payment: {
     kind: 'listing',
-    requirement:
-      'No mixed store and P2P payment unless #43 supports the liability model clearly.',
+    requirement: 'No mixed store and P2P payment unless #43 supports the liability model clearly.',
     availability: { state: 'evaluated' },
   },
 };

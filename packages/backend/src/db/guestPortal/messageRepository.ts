@@ -13,10 +13,7 @@
  */
 
 import { and, eq, lt, or, sql } from 'drizzle-orm';
-import type {
-  GuestPortalDeliveryFailure,
-  GuestPortalMessageKind,
-} from '@mercaria/shared-types';
+import type { GuestPortalDeliveryFailure, GuestPortalMessageKind } from '@mercaria/shared-types';
 import { guestPortalMessages } from '../schema/guestPortal.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 
@@ -112,8 +109,14 @@ export async function claimGuestPortalMessages(
     .from(guestPortalMessages)
     .where(
       or(
-        and(eq(guestPortalMessages.state, 'pending'), lt(guestPortalMessages.availableAt, input.now)),
-        and(eq(guestPortalMessages.state, 'sending'), lt(guestPortalMessages.leaseUntil, input.now)),
+        and(
+          eq(guestPortalMessages.state, 'pending'),
+          lt(guestPortalMessages.availableAt, input.now),
+        ),
+        and(
+          eq(guestPortalMessages.state, 'sending'),
+          lt(guestPortalMessages.leaseUntil, input.now),
+        ),
       ),
     )
     .orderBy(guestPortalMessages.createdAt)

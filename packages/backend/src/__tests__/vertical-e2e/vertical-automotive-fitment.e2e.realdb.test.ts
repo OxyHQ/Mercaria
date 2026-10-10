@@ -65,14 +65,25 @@ import {
   listVehicleModels,
 } from '../../db/compatibility/vehicleCatalogRepository.js';
 import { publishable } from '../../services/compatibility/compatibility.service.js';
-import { answerFitment, listPublishedVehiclesForPart } from '../../services/compatibility/fitment.service.js';
-import { createDraft, patchDraft, validateStoreDraft } from '../../services/catalog-authoring/draft.service.js';
+import {
+  answerFitment,
+  listPublishedVehiclesForPart,
+} from '../../services/compatibility/fitment.service.js';
+import {
+  createDraft,
+  patchDraft,
+  validateStoreDraft,
+} from '../../services/catalog-authoring/draft.service.js';
 import { publishDraft } from '../../services/catalog-authoring/publish.service.js';
 import { composeAuthoringSchema } from '../../services/catalog-authoring/schema.service.js';
 import { resolveFacets } from '../../services/facets/facet.service.js';
 import { convergeNativeOffersForListing } from '../../services/offers/native-offer.service.js';
 import { runCanonicalSearch } from '../../services/search/canonical-search.service.js';
-import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  type VerticalNamespace,
+} from '../../scripts/seed-verticals/apply.js';
 import { BRAKE_PAD_PACKAGE } from '../../scripts/seed-verticals/brake-pad.js';
 import {
   createTestStore,

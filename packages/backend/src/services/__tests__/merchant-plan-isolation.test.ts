@@ -117,7 +117,6 @@ function planPopulation(readDir: DirectoryReader = readSrcDirectory): string[] {
   ];
 }
 
-
 /*
  * The organic discovery surface is `__tests__/ranking-surface.ts` — WALKED and
  * derived from the import graph, shared with every other gate that asserts a
@@ -216,9 +215,18 @@ describe('a merchant plan cannot reach organic discovery', () => {
     // false wall.
     const population = planPopulation();
     const from = (prefix: string) => population.filter((path) => path.startsWith(prefix)).length;
-    expect(from('services/entitlements/'), 'the entitlements walk found too few files').toBeGreaterThanOrEqual(5);
-    expect(from('services/billing/'), 'the billing walk found too few files').toBeGreaterThanOrEqual(6);
-    expect(from('db/merchantPlans/'), 'the merchantPlans walk found too few files').toBeGreaterThanOrEqual(4);
+    expect(
+      from('services/entitlements/'),
+      'the entitlements walk found too few files',
+    ).toBeGreaterThanOrEqual(5);
+    expect(
+      from('services/billing/'),
+      'the billing walk found too few files',
+    ).toBeGreaterThanOrEqual(6);
+    expect(
+      from('db/merchantPlans/'),
+      'the merchantPlans walk found too few files',
+    ).toBeGreaterThanOrEqual(4);
     expect(from('controllers/'), 'no plan controller was derived').toBeGreaterThanOrEqual(2);
     expect(from('middleware/'), 'no plan middleware module was derived').toBeGreaterThanOrEqual(1);
     expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
@@ -233,15 +241,15 @@ describe('a merchant plan cannot reach organic discovery', () => {
   });
 
   it('the detectors actually detect — the mutation self-test', () => {
-    expect(
-      PLAN_REFERENCE.test("import { checkCapability } from '../entitlements/usage.js';"),
-    ).toBe(true);
+    expect(PLAN_REFERENCE.test("import { checkCapability } from '../entitlements/usage.js';")).toBe(
+      true,
+    );
     expect(PLAN_REFERENCE.test('select * from merchant_subscriptions')).toBe(true);
     expect(PLAN_REFERENCE.test("import { getCart } from './cart.service.js';")).toBe(false);
 
-    expect(
-      DISCOVERY_REFERENCE.test("import { rankOffers } from '../ranking/ranking.js';"),
-    ).toBe(true);
+    expect(DISCOVERY_REFERENCE.test("import { rankOffers } from '../ranking/ranking.js';")).toBe(
+      true,
+    );
     expect(DISCOVERY_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
 });
@@ -257,9 +265,18 @@ describe('a billing customer cannot be confused with a Connect account', () => {
     // place a request carrying both would arrive — was outside it.
     const population = planPopulation();
     const from = (prefix: string) => population.filter((path) => path.startsWith(prefix)).length;
-    expect(from('services/entitlements/'), 'the entitlements walk found too few files').toBeGreaterThanOrEqual(5);
-    expect(from('services/billing/'), 'the billing walk found too few files').toBeGreaterThanOrEqual(6);
-    expect(from('db/merchantPlans/'), 'the merchantPlans walk found too few files').toBeGreaterThanOrEqual(4);
+    expect(
+      from('services/entitlements/'),
+      'the entitlements walk found too few files',
+    ).toBeGreaterThanOrEqual(5);
+    expect(
+      from('services/billing/'),
+      'the billing walk found too few files',
+    ).toBeGreaterThanOrEqual(6);
+    expect(
+      from('db/merchantPlans/'),
+      'the merchantPlans walk found too few files',
+    ).toBeGreaterThanOrEqual(4);
     expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
     const files = population.map((relative) => join(SRC_ROOT, relative));
     for (const file of files) {
@@ -310,15 +327,19 @@ describe('feature flags and entitlements stay separate', () => {
     // decides what a DEPLOYMENT has switched on. Reading one to answer the other
     // would let a flag flip grant or remove a paid capability for every merchant
     // at once, with nothing in any audit trail saying so.
-    assertEachOf(['services/entitlements/resolve.ts', 'services/entitlements/capabilities.ts'], 2, (relative) => {
-      const raw = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      expect(raw.length).toBeGreaterThan(500);
-      const source = withoutComments(raw);
-      expect(
-        CONFIG_REFERENCE.test(source),
-        `${relative} reads configuration; entitlements and feature flags solve different problems`,
-      ).toBe(false);
-    });
+    assertEachOf(
+      ['services/entitlements/resolve.ts', 'services/entitlements/capabilities.ts'],
+      2,
+      (relative) => {
+        const raw = readFileSync(join(SRC_ROOT, relative), 'utf8');
+        expect(raw.length).toBeGreaterThan(500);
+        const source = withoutComments(raw);
+        expect(
+          CONFIG_REFERENCE.test(source),
+          `${relative} reads configuration; entitlements and feature flags solve different problems`,
+        ).toBe(false);
+      },
+    );
   });
 
   it('the detector actually detects — the mutation self-test', () => {
@@ -333,8 +354,8 @@ describe('feature flags and entitlements stay separate', () => {
     const stripped = withoutComments(
       [
         '/** A docblock naming provider_accounts, which must NOT count. */',
-        "// A line comment naming provider_accounts, which must NOT count.",
-        " * A continuation naming provider_accounts, which must NOT count.",
+        '// A line comment naming provider_accounts, which must NOT count.',
+        ' * A continuation naming provider_accounts, which must NOT count.',
         "import { x } from '../payments/provider-account.service.js';",
       ].join('\n'),
     );
@@ -364,21 +385,27 @@ describe('the capability vocabulary makes the free tier structural', () => {
     // ("core safety, payments, refunds, data export and order management"), so a
     // list that drifted away from them would pass a disjointness check and fail
     // the requirement.
-    assertEachOf([
-      'order_management',
-      'refund_issuance',
-      'data_export',
-      'payment_onboarding',
-      'financial_record_access',
-    ], 5, (required) => {
-      expect(MERCHANT_UNGATEABLE_CAPABILITIES).toContain(required);
-    });
+    assertEachOf(
+      [
+        'order_management',
+        'refund_issuance',
+        'data_export',
+        'payment_onboarding',
+        'financial_record_access',
+      ],
+      5,
+      (required) => {
+        expect(MERCHANT_UNGATEABLE_CAPABILITIES).toContain(required);
+      },
+    );
   });
 
   it('no forbidden benefit is a capability a plan could grant', () => {
     const gateable = new Set<string>(MERCHANT_ENTITLEMENT_CAPABILITIES);
     for (const benefit of MERCHANT_PLAN_FORBIDDEN_BENEFITS) {
-      expect(gateable.has(benefit), `${benefit} is purchasable, which policy 3 forbids`).toBe(false);
+      expect(gateable.has(benefit), `${benefit} is purchasable, which policy 3 forbids`).toBe(
+        false,
+      );
     }
     expect(MERCHANT_PLAN_FORBIDDEN_BENEFITS.length).toBeGreaterThanOrEqual(10);
     expect(MERCHANT_PLAN_FORBIDDEN_BENEFITS).toContain('organic_rank');

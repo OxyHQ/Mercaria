@@ -46,9 +46,7 @@ describe('removal-shaped recommendations become restrict', () => {
 
 describe('the commerce actions, which no other Oxy app maps to an effect', () => {
   it('request_changes → request_changes (the seller can fix and republish)', () => {
-    const plan = planEnforcement(
-      decision({ recommendedActions: [recommend('request_changes')] }),
-    );
+    const plan = planEnforcement(decision({ recommendedActions: [recommend('request_changes')] }));
     expect(actionsOf(plan)).toEqual(['request_changes']);
   });
 

@@ -104,7 +104,11 @@ export async function auditLedgerPage(input: {
     result.discrepancies += await auditOpenPayables({ now, limit: input.limit });
   }
 
-  const audited = await auditMissingChargeTransactions({ cursor: input.cursor, limit: input.limit, now });
+  const audited = await auditMissingChargeTransactions({
+    cursor: input.cursor,
+    limit: input.limit,
+    now,
+  });
   result.scanned = audited.scanned;
   result.discrepancies += audited.discrepancies;
   result.nextCursor = audited.nextCursor;

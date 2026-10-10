@@ -32,9 +32,7 @@
  */
 
 import { listRetailProcurementIntents } from '../../db/retailCheckout/retailCheckoutRepository.js';
-import {
-  findPurchaseOrderById,
-} from '../../db/procurement/purchaseOrderRepository.js';
+import { findPurchaseOrderById } from '../../db/procurement/purchaseOrderRepository.js';
 import {
   appendRetailServiceEvent,
   findRetailServiceRequest,
@@ -77,8 +75,9 @@ export async function requestRetailSupplierCancellation(
   if (!request) throw notFound('Request not found');
 
   const intents = await listRetailProcurementIntents(request.orderId);
-  const purchaseOrderId = intents.find((intent) => intent.purchaseOrderId !== null)
-    ?.purchaseOrderId;
+  const purchaseOrderId = intents.find(
+    (intent) => intent.purchaseOrderId !== null,
+  )?.purchaseOrderId;
   if (purchaseOrderId === undefined || purchaseOrderId === null) {
     // Nothing was procured, so there is nothing to cancel and nothing to
     // recover. The buyer's cancellation stands entirely on Mercaria's side.

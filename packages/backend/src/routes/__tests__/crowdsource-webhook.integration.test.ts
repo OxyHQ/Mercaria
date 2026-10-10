@@ -99,7 +99,8 @@ async function postDelivery(base: string): Promise<{ status: number; body: strin
        * refusal needs.
        */
       'X-CrowdSource-Event-Id': 'evt_test_1',
-      'X-CrowdSource-Signature': 'v1=0000000000000000000000000000000000000000000000000000000000000000',
+      'X-CrowdSource-Signature':
+        'v1=0000000000000000000000000000000000000000000000000000000000000000',
       'X-CrowdSource-Timestamp': String(Math.floor(Date.now() / 1000)),
     },
     body: UNSIGNED_DELIVERY,

@@ -68,8 +68,10 @@ export async function scanForDuplicates(
   db: DatabaseOrTransaction,
   input: DuplicateScanInput,
 ): Promise<CatalogProposalDuplicateScan> {
-  const probes: { readonly detector: CatalogProposalDuplicateCandidate['detector']; readonly probe: DuplicateProbe }[] =
-    [];
+  const probes: {
+    readonly detector: CatalogProposalDuplicateCandidate['detector'];
+    readonly probe: DuplicateProbe;
+  }[] = [];
 
   if (input.type === 'controlled_value' && input.attributeDefinitionId !== null) {
     probes.push({

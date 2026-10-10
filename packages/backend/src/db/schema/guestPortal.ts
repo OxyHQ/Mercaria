@@ -519,11 +519,7 @@ export const guestRecoveryAttempts = pgTable(
     // 1` on this index is what makes the count race-free across tasks — a
     // read-then-write would let a burst of concurrent requests each read the
     // same value and all pass a limit they collectively exceeded.
-    uniqueIndex('guest_recovery_attempts_window_key').on(
-      t.axis,
-      t.subjectHash,
-      t.windowStartedAt,
-    ),
+    uniqueIndex('guest_recovery_attempts_window_key').on(t.axis, t.subjectHash, t.windowStartedAt),
     // The purge sweep reads the window start; the counters are worthless once
     // the window has passed and keeping them would be keeping a per-inbox
     // history nobody asked for.

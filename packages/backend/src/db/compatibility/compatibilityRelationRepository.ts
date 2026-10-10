@@ -259,7 +259,9 @@ export async function closeCompatibilityRelation(
   const closed = await db
     .update(genericCompatibilityRelations)
     .set({ validTo: closedAt })
-    .where(and(eq(genericCompatibilityRelations.id, id), isNull(genericCompatibilityRelations.validTo)))
+    .where(
+      and(eq(genericCompatibilityRelations.id, id), isNull(genericCompatibilityRelations.validTo)),
+    )
     .returning({ id: genericCompatibilityRelations.id });
   return closed.length === 1;
 }

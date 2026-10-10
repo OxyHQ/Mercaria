@@ -60,7 +60,7 @@ describe('shipping cost is resolved, never assumed', () => {
   });
 });
 
-describe('the guest P2P gate is no longer this module\'s (#112)', () => {
+describe("the guest P2P gate is no longer this module's (#112)", () => {
   // The gate MOVED to `services/guest-p2p/gate.ts`, which is where its policy,
   // its published criteria and its second call site before payment creation
   // live. What is asserted here is the ORDERING this file's own gate depends

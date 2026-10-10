@@ -33,7 +33,11 @@ import type { Database } from '../../db/postgres.js';
 import { locationPublications } from '../../db/schema/pickup.js';
 import { createFakeGoWay, type FakeGoWay } from '../../services/goway/__tests__/fake-goway.js';
 import { exactKeys } from './public-api-fixtures.js';
-import { checkLocation, checkLocationProduct, createLocationWorld } from './public-api-location-fixtures.js';
+import {
+  checkLocation,
+  checkLocationProduct,
+  createLocationWorld,
+} from './public-api-location-fixtures.js';
 
 const world = createLocationWorld();
 const { ids, SENTINEL, TERM, storeHandle, placeOf, place, FRESH, STALE } = world;
@@ -67,12 +71,19 @@ vi.mock('../../middleware/auth.js', () => ({
         },
     },
     assets: { publicUrl: (fileId: string) => `https://media.test.invalid/${fileId}` },
-    users: { get: (id: string) => Promise.resolve({ id, username: 'nobody', name: { displayName: 'Nobody' } }) },
+    users: {
+      get: (id: string) =>
+        Promise.resolve({ id, username: 'nobody', name: { displayName: 'Nobody' } }),
+    },
   },
   authenticateToken: (_req: express.Request, res: express.Response): void => {
     res.status(401).json({ success: false, error: 'UNAUTHORIZED', message: 'Unauthorized' });
   },
-  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction): void => {
+  optionalAuth: (
+    _req: express.Request,
+    _res: express.Response,
+    next: express.NextFunction,
+  ): void => {
     next();
   },
 }));
@@ -102,7 +113,11 @@ async function call(path: string): Promise<Answer> {
   const response = await fetch(`${base}${MERCARIA_PUBLIC_API_BASE_PATH}${path}`);
   const text = await response.text();
   BODIES.push(text);
-  return { status: response.status, text, body: text === '' ? {} : (JSON.parse(text) as Record<string, unknown>) };
+  return {
+    status: response.status,
+    text,
+    body: text === '' ? {} : (JSON.parse(text) as Record<string, unknown>),
+  };
 }
 
 function expectFailure(answer: Answer, status: number, code: MercariaPublicErrorCode): void {
@@ -141,7 +156,9 @@ async function walk(path: string, limit: number): Promise<{ ids: string[]; pages
   let pages = 0;
   do {
     const separator = path.includes('?') ? '&' : '?';
-    const answer = await call(`${path}${separator}limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`);
+    const answer = await call(
+      `${path}${separator}limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`,
+    );
     for (const item of items(answer)) {
       const ref = (item['ref'] ?? (item['product'] as { ref: unknown }).ref) as { id: string };
       seen.push(ref.id);
@@ -210,7 +227,11 @@ describe('GET /public/v1/locations/:id', () => {
         name: expect.any(String),
         logoUrl: expect.stringMatching(/^https:\/\/media\.test\.invalid\//u),
       },
-      pickup: { identityRequirement: 'collection_code', paymentRequirement: 'prepaid', instructions: 'Ring at the side door' },
+      pickup: {
+        identityRequirement: 'collection_code',
+        paymentRequirement: 'prepaid',
+        instructions: 'Ring at the side door',
+      },
       discoverable: true,
       url: `${webOrigin}/stores/${storeHandle}?location=${ids.linked}`,
     });
@@ -232,7 +253,13 @@ describe('GET /public/v1/locations/:id', () => {
   });
 
   it('answers 410 for one withdrawn, back to draft, restricted, deactivated, or whose store is not live', async () => {
-    for (const id of [ids.withdrawn, ids.draftAfter, ids.restricted, ids.inactive, ids.inSuspendedStore]) {
+    for (const id of [
+      ids.withdrawn,
+      ids.draftAfter,
+      ids.restricted,
+      ids.inactive,
+      ids.inSuspendedStore,
+    ]) {
       expectFailure(await call(`/locations/${id}`), 410, 'gone');
     }
   });
@@ -245,11 +272,15 @@ describe('GET /public/v1/locations/:id', () => {
   it('follows the trust link live: a place that stops naming the location takes it down, and back', async () => {
     goway.places.set(
       placeOf('linked'),
-      place('linked', ids.linked, { storeLinks: [{ locationId: ids.paused, verification: 'business_asserted' }] }),
+      place('linked', ids.linked, {
+        storeLinks: [{ locationId: ids.paused, verification: 'business_asserted' }],
+      }),
     );
     expectFailure(await call(`/locations/${ids.linked}`), 410, 'gone');
     expect(locationIds(await call(`/locations?goWayPlaceId=${placeOf('linked')}`))).toEqual([]);
-    expect(locationIds(await call(`/stores/${ids.store}/locations?limit=50`))).not.toContain(ids.linked);
+    expect(locationIds(await call(`/stores/${ids.store}/locations?limit=50`))).not.toContain(
+      ids.linked,
+    );
 
     clearPlaceCache();
     world.resetPlaces(goway);
@@ -266,7 +297,11 @@ describe('GET /public/v1/locations/:id', () => {
     expectFailure(await call(`/locations/${ids.linked}`), 503, 'service_unavailable');
     expectFailure(await call(`/locations/${ids.linked}/products`), 503, 'service_unavailable');
     expectFailure(await call(`/stores/${ids.store}/locations`), 503, 'service_unavailable');
-    expectFailure(await call(`/locations?goWayPlaceId=${placeOf('linked')}`), 503, 'service_unavailable');
+    expectFailure(
+      await call(`/locations?goWayPlaceId=${placeOf('linked')}`),
+      503,
+      'service_unavailable',
+    );
   });
 
   it('serves the last good place through an outage once the fresh window has passed', async () => {
@@ -289,13 +324,19 @@ describe('GET /public/v1/locations/:id', () => {
 
 describe('GET /public/v1/locations?goWayPlaceId=', () => {
   it('lists the location a place vouches for', async () => {
-    expect(locationIds(await call(`/locations?goWayPlaceId=${placeOf('linked')}`))).toEqual([ids.linked]);
-    expect(locationIds(await call(`/locations?goWayPlaceId=${placeOf('noPickup')}`))).toEqual([ids.noPickup]);
+    expect(locationIds(await call(`/locations?goWayPlaceId=${placeOf('linked')}`))).toEqual([
+      ids.linked,
+    ]);
+    expect(locationIds(await call(`/locations?goWayPlaceId=${placeOf('noPickup')}`))).toEqual([
+      ids.noPickup,
+    ]);
   });
 
   it('answers an empty page for a place nobody live trades from — and asks GoWay nothing when Mercaria has no row', async () => {
     for (const label of ['unvouched', 'withdrawn', 'restricted', 'inactive', 'inSuspendedStore']) {
-      expect(locationIds(await call(`/locations?goWayPlaceId=${placeOf(label)}`)), label).toEqual([]);
+      expect(locationIds(await call(`/locations?goWayPlaceId=${placeOf(label)}`)), label).toEqual(
+        [],
+      );
     }
     goway.requests.length = 0;
     expect(locationIds(await call(`/locations?goWayPlaceId=plc-nobody-${world.RUN}`))).toEqual([]);
@@ -304,8 +345,16 @@ describe('GET /public/v1/locations?goWayPlaceId=', () => {
 
   it('requires the place, and bounds it', async () => {
     expectFailure(await call('/locations'), 400, 'bad_request');
-    expectFailure(await call(`/locations?goWayPlaceId=${'x'.repeat(129)}`), 422, 'validation_failed');
-    expectFailure(await call(`/locations?goWayPlaceId=${placeOf('linked')}&storeId=${ids.store}`), 400, 'bad_request');
+    expectFailure(
+      await call(`/locations?goWayPlaceId=${'x'.repeat(129)}`),
+      422,
+      'validation_failed',
+    );
+    expectFailure(
+      await call(`/locations?goWayPlaceId=${placeOf('linked')}&storeId=${ids.store}`),
+      400,
+      'bad_request',
+    );
   });
 });
 
@@ -318,15 +367,27 @@ describe('GET /public/v1/stores/:id/locations', () => {
 
   it('gates the store first: 410 for one not live, 404 for none', async () => {
     expectFailure(await call(`/stores/${ids.suspendedStore}/locations`), 410, 'gone');
-    expectFailure(await call('/stores/019a0000-0000-7000-8000-000000000000/locations'), 404, 'not_found');
+    expectFailure(
+      await call('/stores/019a0000-0000-7000-8000-000000000000/locations'),
+      404,
+      'not_found',
+    );
   });
 
   it('refuses a cursor minted for another list', async () => {
     const first = await call(`/stores/${ids.store}/locations?limit=1`);
     const cursor = first.body['nextCursor'] as string;
     expect(cursor).toBeTypeOf('string');
-    expectFailure(await call(`/stores/${ids.store}/collections?cursor=${cursor}`), 400, 'bad_request');
-    expectFailure(await call(`/locations?goWayPlaceId=${placeOf('linked')}&cursor=${cursor}`), 400, 'bad_request');
+    expectFailure(
+      await call(`/stores/${ids.store}/collections?cursor=${cursor}`),
+      400,
+      'bad_request',
+    );
+    expectFailure(
+      await call(`/locations?goWayPlaceId=${placeOf('linked')}&cursor=${cursor}`),
+      400,
+      'bad_request',
+    );
   });
 });
 
@@ -337,12 +398,16 @@ describe('GET /public/v1/stores/:id/locations', () => {
 describe('GET /public/v1/locations/:id/products', () => {
   it('lists the store’s live products stocked here — not one stocked elsewhere, archived or unstocked', async () => {
     const stock = stockByProduct(await call(`/locations/${ids.linked}/products?limit=50`));
-    expect(new Set(stock.keys())).toEqual(new Set([ids.inStock, ids.low, ids.empty, ids.stale, ids.halfStale]));
+    expect(new Set(stock.keys())).toEqual(
+      new Set([ids.inStock, ids.low, ids.empty, ids.stale, ids.halfStale]),
+    );
   });
 
   it('bounds availability at the location’s own threshold, and treats a stale count as nothing', async () => {
     const stock = stockByProduct(await call(`/locations/${ids.linked}/products?limit=50`));
-    const availability = Object.fromEntries([...stock].map(([id, item]) => [id, item['availability']]));
+    const availability = Object.fromEntries(
+      [...stock].map(([id, item]) => [id, item['availability']]),
+    );
     expect(availability).toEqual({
       [ids.inStock]: 'in_stock',
       [ids.low]: 'low_stock',
@@ -366,22 +431,29 @@ describe('GET /public/v1/locations/:id/products', () => {
   });
 
   it('filters to what is on the shelf here with inStock=true, and searches and sorts like a store', async () => {
-    const inStock = stockByProduct(await call(`/locations/${ids.linked}/products?inStock=true&limit=50`));
+    const inStock = stockByProduct(
+      await call(`/locations/${ids.linked}/products?inStock=true&limit=50`),
+    );
     expect(new Set(inStock.keys())).toEqual(new Set([ids.inStock, ids.low, ids.halfStale]));
     const searched = stockByProduct(await call(`/locations/${ids.linked}/products?q=${TERM}`));
     expect([...searched.keys()]).toEqual([ids.inStock]);
-    const sorted = items(await call(`/locations/${ids.linked}/products?sort=price_asc&limit=50`)).map(
-      (item) => (item['product'] as { price: { amount: number } }).price.amount,
-    );
+    const sorted = items(
+      await call(`/locations/${ids.linked}/products?sort=price_asc&limit=50`),
+    ).map((item) => (item['product'] as { price: { amount: number } }).price.amount);
     expect(sorted).toEqual([700, 900, 1_100, 1_200, 1_500]);
   });
 
   it('pages with a cursor bound to the location and its filters', async () => {
-    const { ids: walked, pages } = await walk(`/locations/${ids.linked}/products?sort=price_asc`, 2);
+    const { ids: walked, pages } = await walk(
+      `/locations/${ids.linked}/products?sort=price_asc`,
+      2,
+    );
     expect(pages).toBe(3);
     expect(walked).toEqual([ids.empty, ids.low, ids.halfStale, ids.stale, ids.inStock]);
 
-    const cursor = (await call(`/locations/${ids.linked}/products?limit=2`)).body['nextCursor'] as string;
+    const cursor = (await call(`/locations/${ids.linked}/products?limit=2`)).body[
+      'nextCursor'
+    ] as string;
     expect(cursor).toBeTypeOf('string');
     for (const path of [
       `/locations/${ids.linked}/products?inStock=true&cursor=${cursor}`,
@@ -400,8 +472,16 @@ describe('GET /public/v1/locations/:id/products', () => {
   });
 
   it('refuses the same values a store’s product list refuses', async () => {
-    expectFailure(await call(`/locations/${ids.linked}/products?sort=relevance`), 422, 'validation_failed');
-    expectFailure(await call(`/locations/${ids.linked}/products?inStock=yes`), 422, 'validation_failed');
+    expectFailure(
+      await call(`/locations/${ids.linked}/products?sort=relevance`),
+      422,
+      'validation_failed',
+    );
+    expectFailure(
+      await call(`/locations/${ids.linked}/products?inStock=yes`),
+      422,
+      'validation_failed',
+    );
     expectFailure(await call(`/locations/${ids.linked}/products?near=1`), 400, 'bad_request');
   });
 });
@@ -464,7 +544,10 @@ describe('the privacy census', () => {
     expect(everything).toContain(ids.linked);
     expect(everything).toContain(placeOf('linked'));
     for (const value of Object.values(SENTINEL)) {
-      expect(BODIES.filter((body) => body.includes(value)), `${value} reached a public body`).toEqual([]);
+      expect(
+        BODIES.filter((body) => body.includes(value)),
+        `${value} reached a public body`,
+      ).toEqual([]);
     }
   });
 });

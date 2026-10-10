@@ -85,10 +85,7 @@ function toDTO(row: FeedbackRecord): FeedbackDTO {
 }
 
 /** Create a feedback submission for the user (starts in the `pending` state). */
-export async function create(
-  oxyUserId: string,
-  input: CreateFeedbackInput,
-): Promise<FeedbackDTO> {
+export async function create(oxyUserId: string, input: CreateFeedbackInput): Promise<FeedbackDTO> {
   const metadata = input.metadata ?? {};
   const row = await insertFeedback(oxyUserId, {
     type: input.type,

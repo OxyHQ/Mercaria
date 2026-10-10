@@ -226,7 +226,12 @@ function pairedBareIdColumns(
 function undeclaredPairedColumns(
   entries: readonly PolymorphicEntityReference[],
   pool: readonly PgTable[],
-): { readonly undeclared: string[]; readonly entries: number; readonly columns: number; readonly nullable: number } {
+): {
+  readonly undeclared: string[];
+  readonly entries: number;
+  readonly columns: number;
+  readonly nullable: number;
+} {
   const undeclared: string[] = [];
   let walked = 0;
   let columns = 0;
@@ -249,10 +254,7 @@ function undeclaredPairedColumns(
 }
 
 /** The population every reconciliation runs against: the union of both halves. */
-function derivePopulation(
-  pool: readonly PgTable[],
-  ledger: readonly IdLedgerEntry[],
-): Set<string> {
+function derivePopulation(pool: readonly PgTable[], ledger: readonly IdLedgerEntry[]): Set<string> {
   return new Set([...deriveByVocabulary(pool).keys(), ...deriveByShape(pool, ledger).keys()]);
 }
 
@@ -264,7 +266,10 @@ function reconcile(
   const declaredNames = new Set(declared.map((entry) => entry.table));
   return {
     undeclared: [...derived].filter((name) => !declaredNames.has(name)).sort(),
-    stale: declared.map((entry) => entry.table).filter((name) => !derived.has(name)).sort(),
+    stale: declared
+      .map((entry) => entry.table)
+      .filter((name) => !derived.has(name))
+      .sort(),
   };
 }
 
@@ -353,7 +358,7 @@ describe('every polymorphic reference to a mergeable entity has a decision (#654
       'these tables carry a discriminator beside a reference this database owns, and ' +
         'POLYMORPHIC_ENTITY_REFERENCES does not say what a merge does with them. Add an entry to ' +
         '`merge-plan.ts`: `not_an_entity_reference` if no column here names one of the seven, ' +
-        '`discriminates_foreign_keys` if the real reference is FK\'d and the FK census owns it, ' +
+        "`discriminates_foreign_keys` if the real reference is FK'd and the FK census owns it, " +
         '`covered_by_bare_entity_census` if BARE_ENTITY_REFERENCES already decided it, ' +
         'or `untouched`/`rehomed` with the id columns named.',
     ).toEqual([]);
@@ -424,18 +429,18 @@ describe('every polymorphic reference to a mergeable entity has a decision (#654
 
     expect(
       result.undeclared,
-      'these columns sit beside a closed-value-set discriminator on a table this register says a '
-        + 'merge LEAVES or MOVES, and the entry does not name them. Name every one, or the entry '
-        + 'is a decision about a reference nobody identified.',
+      'these columns sit beside a closed-value-set discriminator on a table this register says a ' +
+        'merge LEAVES or MOVES, and the entry does not name them. Name every one, or the entry ' +
+        'is a decision about a reference nobody identified.',
     ).toEqual([]);
 
     // The vacuity floors. An empty list is also what a walk that found no
     // entries, or no paired columns, reports.
     expect(
       result.entries,
-      'fewer entries were walked than the register carries. A derivation that stopped SEEING a '
-        + 'table — a narrowed suffix rule, a NOT NULL filter — reports the same clean list as one '
-        + 'that found every column, so the count is the only thing that tells them apart.',
+      'fewer entries were walked than the register carries. A derivation that stopped SEEING a ' +
+        'table — a narrowed suffix rule, a NOT NULL filter — reports the same clean list as one ' +
+        'that found every column, so the count is the only thing that tells them apart.',
     ).toBeGreaterThanOrEqual(5);
     // SIX across those five entries today, counted from the walk rather than by
     // arithmetic over the entries: three tables carry one paired column each and
@@ -445,8 +450,8 @@ describe('every polymorphic reference to a mergeable entity has a decision (#654
     // population, a derivation narrowed to NOT NULL columns would pass this.
     expect(
       result.nullable,
-      'every column this walked is NOT NULL, so it cannot detect a derivation narrowed to '
-        + 'NOT NULL columns — which is the narrowing that reads as tidying',
+      'every column this walked is NOT NULL, so it cannot detect a derivation narrowed to ' +
+        'NOT NULL columns — which is the narrowing that reads as tidying',
     ).toBeGreaterThanOrEqual(2);
   });
 
@@ -498,7 +503,8 @@ describe('every polymorphic reference to a mergeable entity has a decision (#654
       if (entry.disposition !== 'covered_by_bare_entity_census') continue;
       for (const column of entry.idColumns ?? []) {
         cited += 1;
-        if (!declaredThere.has(`${entry.table}.${column}`)) dangling.push(`${entry.table}.${column}`);
+        if (!declaredThere.has(`${entry.table}.${column}`))
+          dangling.push(`${entry.table}.${column}`);
       }
     }
     expect(dangling).toEqual([]);
@@ -526,9 +532,9 @@ describe('every polymorphic reference to a mergeable entity has a decision (#654
     // derivation reaches. Nothing is re-implemented and nothing is transcribed.
     const mercariaRowReasons = new Set(MERCARIA_ROW_ID_REASONS);
     const reCheckable = new Set<string>([
-      ...ID_COLUMNS_WITHOUT_FOREIGN_KEY.filter((entry) =>
-        mercariaRowReasons.has(entry.reason),
-      ).map((entry) => entry.column),
+      ...ID_COLUMNS_WITHOUT_FOREIGN_KEY.filter((entry) => mercariaRowReasons.has(entry.reason)).map(
+        (entry) => entry.column,
+      ),
       ...BARE_REFERENCES_NO_DERIVATION_REACHES,
     ]);
     // Floors first: an empty re-checkable set, or no citations, satisfies the
@@ -642,9 +648,9 @@ describe('every polymorphic reference to a mergeable entity has a decision (#654
       expect(deriveByVocabulary([...tables, synonym]).has('mercaria_planted_synonym_table')).toBe(
         false,
       );
-      expect(deriveByShape([...tables, synonym], synonymLedger).get('mercaria_planted_synonym_table')).toEqual(
-        ['entity_id'],
-      );
+      expect(
+        deriveByShape([...tables, synonym], synonymLedger).get('mercaria_planted_synonym_table'),
+      ).toEqual(['entity_id']);
 
       const withSynonym = derivePopulation([...tables, synonym], synonymLedger);
       const { undeclared, stale } = reconcile(withSynonym, POLYMORPHIC_ENTITY_REFERENCES);
@@ -698,9 +704,9 @@ describe('every polymorphic reference to a mergeable entity has a decision (#654
           reason: FOREIGN_KEY_SPACE_ID_REASONS[0],
         },
       ];
-      expect(deriveByShape([...tables, foreign], foreignLedger).has('mercaria_planted_foreign_table')).toBe(
-        false,
-      );
+      expect(
+        deriveByShape([...tables, foreign], foreignLedger).has('mercaria_planted_foreign_table'),
+      ).toBe(false);
 
       // …and the control that the table WOULD have been found had the reason
       // been a domestic one, so the assertion above is about the EXCLUSION
@@ -713,9 +719,9 @@ describe('every polymorphic reference to a mergeable entity has a decision (#654
           reason: 'Planted by this test: a row in THIS database, under a bespoke reason.',
         },
       ];
-      expect(deriveByShape([...tables, foreign], domesticLedger).has('mercaria_planted_foreign_table')).toBe(
-        true,
-      );
+      expect(
+        deriveByShape([...tables, foreign], domesticLedger).has('mercaria_planted_foreign_table'),
+      ).toBe(true);
     });
   });
 });

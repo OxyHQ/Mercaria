@@ -173,9 +173,7 @@ export async function solveBasketHandler(req: Request, res: Response): Promise<v
     const solution = await solveBasketRequest({
       request,
       offerComparisonPermitted: offersPermitted(),
-      ...(resolved.callerRefusals.size === 0
-        ? {}
-        : { callerRefusals: resolved.callerRefusals }),
+      ...(resolved.callerRefusals.size === 0 ? {} : { callerRefusals: resolved.callerRefusals }),
     });
     sendSuccess(res, solution);
   } catch (error: unknown) {

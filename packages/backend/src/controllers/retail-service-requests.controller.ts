@@ -247,9 +247,7 @@ export async function listRetailRequests(req: Request, res: Response): Promise<v
     const records = await listRetailServiceRequests(orderId);
     const views = [];
     for (const record of records) {
-      views.push(
-        await projectRetailServiceRequestForCustomer(record, authorized.context.order),
-      );
+      views.push(await projectRetailServiceRequestForCustomer(record, authorized.context.order));
     }
     sendSuccess(res, views);
   } catch (error) {
@@ -263,7 +261,12 @@ export async function createRetailRequest(req: Request, res: Response): Promise<
     if (!retailRequestsAreOpen(res)) return;
     const parsed = submitSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid request', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid request',
+        400,
+      );
       return;
     }
     const kind = parsed.data.kind;
@@ -330,7 +333,12 @@ export async function addRetailRequestEvidence(req: Request, res: Response): Pro
     if (!retailRequestsAreOpen(res)) return;
     const parsed = evidenceSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid request', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid request',
+        400,
+      );
       return;
     }
     const requestId = pathParam(req, 'requestId');
@@ -355,7 +363,10 @@ export async function addRetailRequestEvidence(req: Request, res: Response): Pro
         ...(item.caption === undefined ? {} : { caption: item.caption }),
       })),
     });
-    sendSuccess(res, await projectRetailServiceRequestForCustomer(record, authorized.context.order));
+    sendSuccess(
+      res,
+      await projectRetailServiceRequestForCustomer(record, authorized.context.order),
+    );
   } catch (error) {
     respondWithError(res, error, 'Failed to attach the evidence');
   }
@@ -385,7 +396,10 @@ export async function withdrawRetailRequest(req: Request, res: Response): Promis
     if (authorized === null) return;
 
     const record = await withdrawRetailServiceRequest(authorized.actor, requestId, new Date());
-    sendSuccess(res, await projectRetailServiceRequestForCustomer(record, authorized.context.order));
+    sendSuccess(
+      res,
+      await projectRetailServiceRequestForCustomer(record, authorized.context.order),
+    );
   } catch (error) {
     respondWithError(res, error, 'Failed to withdraw the request');
   }

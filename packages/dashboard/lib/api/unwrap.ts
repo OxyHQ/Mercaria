@@ -1,4 +1,4 @@
-import type { ApiResponse } from "@mercaria/shared-types";
+import type { ApiResponse } from '@mercaria/shared-types';
 
 /**
  * Unwrap the canonical `ApiResponse<T>` envelope, throwing on a failure body.
@@ -9,7 +9,7 @@ import type { ApiResponse } from "@mercaria/shared-types";
  */
 export function unwrap<T>(body: ApiResponse<T>): T {
   if (!body.success || body.data === undefined) {
-    throw new Error(body.message ?? body.error ?? "Request failed");
+    throw new Error(body.message ?? body.error ?? 'Request failed');
   }
   return body.data;
 }

@@ -1,98 +1,87 @@
 {
- "products": [
-  {
-   "id": 15632690119004,
-   "title": "VEGA FLORENTIK BORDEAUX",
-   "handle": "vega-florentik-bordeaux",
-   "body_html": "<p><meta charset=\"utf-8\"><span>Fabricados a mano en Portugal con suave piel de napa vacuna, los mocasines Vega combinan la artesanía atemporal con un estilo desenfadado para el día a día. Con suela de cuero y un diseño elegante e informal, están hechos para acompañarte en tus movimientos, día tras día.</span></p>",
-   "published_at": "2026-10-06T18:00:37+02:00",
-   "created_at": "2026-06-16T18:27:02+02:00",
-   "updated_at": "2026-10-10T09:06:00+02:00",
-   "vendor": "Pompeii",
-   "product_type": "SHOE",
-   "tags": [
-    "mocasines",
-    "piel"
-   ],
-   "variants": [
+  "products": [
     {
-     "id": 58089999597916,
-     "title": "40",
-     "option1": "40",
-     "option2": null,
-     "option3": null,
-     "sku": "H35069012W261122240",
-     "requires_shipping": true,
-     "taxable": true,
-     "featured_image": null,
-     "available": true,
-     "price": "179.00",
-     "grams": 0,
-     "compare_at_price": null,
-     "position": 1,
-     "product_id": 15632690119004,
-     "created_at": "2026-06-16T18:27:02+02:00",
-     "updated_at": "2026-10-10T09:06:00+02:00"
-    },
-    {
-     "id": 58089999630684,
-     "title": "41",
-     "option1": "41",
-     "option2": null,
-     "option3": null,
-     "sku": "H35069012W261122241",
-     "requires_shipping": true,
-     "taxable": true,
-     "featured_image": null,
-     "available": false,
-     "price": "179.00",
-     "grams": 0,
-     "compare_at_price": "199.00",
-     "position": 2,
-     "product_id": 15632690119004,
-     "created_at": "2026-06-16T18:27:02+02:00",
-     "updated_at": "2026-10-10T09:06:00+02:00"
+      "id": 15632690119004,
+      "title": "VEGA FLORENTIK BORDEAUX",
+      "handle": "vega-florentik-bordeaux",
+      "body_html": "<p><meta charset=\"utf-8\"><span>Fabricados a mano en Portugal con suave piel de napa vacuna, los mocasines Vega combinan la artesanía atemporal con un estilo desenfadado para el día a día. Con suela de cuero y un diseño elegante e informal, están hechos para acompañarte en tus movimientos, día tras día.</span></p>",
+      "published_at": "2026-10-06T18:00:37+02:00",
+      "created_at": "2026-06-16T18:27:02+02:00",
+      "updated_at": "2026-10-10T09:06:00+02:00",
+      "vendor": "Pompeii",
+      "product_type": "SHOE",
+      "tags": ["mocasines", "piel"],
+      "variants": [
+        {
+          "id": 58089999597916,
+          "title": "40",
+          "option1": "40",
+          "option2": null,
+          "option3": null,
+          "sku": "H35069012W261122240",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "179.00",
+          "grams": 0,
+          "compare_at_price": null,
+          "position": 1,
+          "product_id": 15632690119004,
+          "created_at": "2026-06-16T18:27:02+02:00",
+          "updated_at": "2026-10-10T09:06:00+02:00"
+        },
+        {
+          "id": 58089999630684,
+          "title": "41",
+          "option1": "41",
+          "option2": null,
+          "option3": null,
+          "sku": "H35069012W261122241",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": false,
+          "price": "179.00",
+          "grams": 0,
+          "compare_at_price": "199.00",
+          "position": 2,
+          "product_id": 15632690119004,
+          "created_at": "2026-06-16T18:27:02+02:00",
+          "updated_at": "2026-10-10T09:06:00+02:00"
+        }
+      ],
+      "images": [
+        {
+          "id": 84691520160092,
+          "created_at": "2026-10-06T21:21:56+02:00",
+          "position": 1,
+          "updated_at": "2026-10-06T21:21:59+02:00",
+          "product_id": 15632690119004,
+          "variant_ids": [],
+          "src": "https://cdn.shopify.com/s/files/1/0003/6270/9002/files/VEGAFLORENTIKBORDEAUX_01.jpg?v=1791314519",
+          "width": 1728,
+          "height": 2591
+        },
+        {
+          "id": 84689386635612,
+          "created_at": "2026-10-06T17:59:33+02:00",
+          "position": 2,
+          "updated_at": "2026-10-06T17:59:37+02:00",
+          "product_id": 15632690119004,
+          "variant_ids": [],
+          "src": "https://cdn.shopify.com/s/files/1/0003/6270/9002/files/VEGAFLORENTIKBORDEAUX_02.jpg?v=1791302377",
+          "width": 1728,
+          "height": 2591
+        }
+      ],
+      "options": [
+        {
+          "name": "Size",
+          "position": 1,
+          "values": ["40", "41", "42", "43", "44", "45", "46"]
+        }
+      ]
     }
-   ],
-   "images": [
-    {
-     "id": 84691520160092,
-     "created_at": "2026-10-06T21:21:56+02:00",
-     "position": 1,
-     "updated_at": "2026-10-06T21:21:59+02:00",
-     "product_id": 15632690119004,
-     "variant_ids": [],
-     "src": "https://cdn.shopify.com/s/files/1/0003/6270/9002/files/VEGAFLORENTIKBORDEAUX_01.jpg?v=1791314519",
-     "width": 1728,
-     "height": 2591
-    },
-    {
-     "id": 84689386635612,
-     "created_at": "2026-10-06T17:59:33+02:00",
-     "position": 2,
-     "updated_at": "2026-10-06T17:59:37+02:00",
-     "product_id": 15632690119004,
-     "variant_ids": [],
-     "src": "https://cdn.shopify.com/s/files/1/0003/6270/9002/files/VEGAFLORENTIKBORDEAUX_02.jpg?v=1791302377",
-     "width": 1728,
-     "height": 2591
-    }
-   ],
-   "options": [
-    {
-     "name": "Size",
-     "position": 1,
-     "values": [
-      "40",
-      "41",
-      "42",
-      "43",
-      "44",
-      "45",
-      "46"
-     ]
-    }
-   ]
-  }
- ]
+  ]
 }

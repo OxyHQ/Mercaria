@@ -158,7 +158,9 @@ afterAll(async () => {
   // Children first. The cascades would handle it; deleting in order is what
   // makes a teardown failure name the table that actually refused.
   await db.execute(sql`delete from catalog_authoring_draft_values where draft_id like ${`${P}%`}`);
-  await db.execute(sql`delete from catalog_authoring_draft_variants where draft_id like ${`${P}%`}`);
+  await db.execute(
+    sql`delete from catalog_authoring_draft_variants where draft_id like ${`${P}%`}`,
+  );
   await db.execute(sql`delete from catalog_authoring_drafts where id like ${`${P}%`}`);
   await db.execute(
     sql`delete from catalog_authoring_schema_invalidations where subject_id like ${`${P}%`}`,
@@ -233,7 +235,12 @@ describe.skipIf(!ready)('the three biconditionals on `catalog_authoring_drafts`'
 });
 
 describe.skipIf(!ready)('a draft value carries EXACTLY one typed answer', () => {
-  const value = (id: string, kind: string, columns: string, values: string): ReturnType<typeof sql> =>
+  const value = (
+    id: string,
+    kind: string,
+    columns: string,
+    values: string,
+  ): ReturnType<typeof sql> =>
     sql.raw(`
       insert into catalog_authoring_draft_values
         (id, draft_id, field_id, attribute_definition_id, attribute_key,
@@ -320,9 +327,7 @@ describe.skipIf(!ready)('the citation trigger keeps the denormalization honest',
 describe.skipIf(!ready)('the pins trigger, and what it deliberately permits', () => {
   it('refuses moving a draft to another category', async () => {
     await refusedBy(
-      sql.raw(
-        `update catalog_authoring_drafts set category_id = '${P}-cat2' where id = '${P}-ok'`,
-      ),
+      sql.raw(`update catalog_authoring_drafts set category_id = '${P}-cat2' where id = '${P}-ok'`),
       'frozen at creation',
     );
   });

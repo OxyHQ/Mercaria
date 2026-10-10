@@ -1,6 +1,6 @@
-import { ShoppingCart, ReceiptText, type LucideIcon } from "lucide-react-native";
-import type { RoutePath } from "expo-router";
-import type { StorePermission } from "@mercaria/shared-types";
+import { ShoppingCart, ReceiptText, type LucideIcon } from 'lucide-react-native';
+import type { RoutePath } from 'expo-router';
+import type { StorePermission } from '@mercaria/shared-types';
 
 /**
  * Canonical navigation model for the POS shell, shared by the desktop
@@ -33,8 +33,20 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { key: "register", labelKey: "nav.register", icon: ShoppingCart, href: "/", permission: "draft_orders:write" },
-  { key: "sales", labelKey: "nav.sales", icon: ReceiptText, href: "/sales", permission: "orders:read" },
+  {
+    key: 'register',
+    labelKey: 'nav.register',
+    icon: ShoppingCart,
+    href: '/',
+    permission: 'draft_orders:write',
+  },
+  {
+    key: 'sales',
+    labelKey: 'nav.sales',
+    icon: ReceiptText,
+    href: '/sales',
+    permission: 'orders:read',
+  },
 ] as const;
 
 /**
@@ -43,11 +55,11 @@ export const NAV_ITEMS: readonly NavItem[] = [
  * rest match their route prefix.
  */
 export function isNavItemActive(item: NavItem, pathname: string): boolean {
-  if (item.key === "register") {
+  if (item.key === 'register') {
     return (
-      pathname === "/" ||
-      pathname === "/(app)" ||
-      (pathname.startsWith("/(app)") && pathname.replace("/(app)", "") === "")
+      pathname === '/' ||
+      pathname === '/(app)' ||
+      (pathname.startsWith('/(app)') && pathname.replace('/(app)', '') === '')
     );
   }
   return pathname === item.href || pathname.startsWith(`${item.href}/`);

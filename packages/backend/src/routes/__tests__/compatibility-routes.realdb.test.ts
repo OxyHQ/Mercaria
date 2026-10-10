@@ -199,9 +199,8 @@ describe('the vehicle picker, one rung at a time', () => {
     // `.strict()`, so a parameter nobody declared is refused rather than ignored
     // — which is what stops a client believing a filter was applied.
     expect(
-      (await get(
-        `/compatibility/vehicles/generations/${generation.id}/configurations?yr=2019`,
-      )).status,
+      (await get(`/compatibility/vehicles/generations/${generation.id}/configurations?yr=2019`))
+        .status,
     ).toBe(400);
   });
 });
@@ -266,9 +265,9 @@ describe('the reverse read and the verdict, over HTTP', () => {
     if (variantId === undefined) return;
     // `makeId` is not optional. Without it there is no question, and answering
     // one anyway would mean choosing a car.
-    expect((await get(`/compatibility/fitments/verdict?subjectVariantId=${variantId}`)).status).toBe(
-      400,
-    );
+    expect(
+      (await get(`/compatibility/fitments/verdict?subjectVariantId=${variantId}`)).status,
+    ).toBe(400);
   });
 
   it('refuses a relations read naming BOTH directions, and one naming NEITHER', async () => {
@@ -277,9 +276,11 @@ describe('the reverse read and the verdict, over HTTP', () => {
     // Exactly one selector. Both is a third question the schema does not answer;
     // neither is every relation in the catalogue.
     expect(
-      (await get(
-        `/compatibility/relations?subjectVariantId=${variantId}&targetProductId=${variantId}`,
-      )).status,
+      (
+        await get(
+          `/compatibility/relations?subjectVariantId=${variantId}&targetProductId=${variantId}`,
+        )
+      ).status,
     ).toBe(400);
     expect((await get('/compatibility/relations')).status).toBe(400);
     // The control: one selector alone is served, so the two refusals are about

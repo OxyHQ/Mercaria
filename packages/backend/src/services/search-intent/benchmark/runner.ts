@@ -97,9 +97,10 @@ export async function runIntentBenchmark(
   const cases =
     language === undefined
       ? INTENT_BENCHMARK_DATASET.cases
-      : INTENT_BENCHMARK_DATASET.cases.filter((benchmarkCase) =>
-          benchmarkCase.locale.toLowerCase().startsWith(`${language.toLowerCase()}-`) ||
-          benchmarkCase.locale.toLowerCase() === language.toLowerCase(),
+      : INTENT_BENCHMARK_DATASET.cases.filter(
+          (benchmarkCase) =>
+            benchmarkCase.locale.toLowerCase().startsWith(`${language.toLowerCase()}-`) ||
+            benchmarkCase.locale.toLowerCase() === language.toLowerCase(),
         );
 
   const outcomes: BenchmarkCaseOutcome[] = [];
@@ -159,7 +160,10 @@ export async function runIntentBenchmark(
     if (expectation.categorySlug !== undefined) {
       categoryApplicable += 1;
       if (draft.categorySlug?.slug === expectation.categorySlug) categoryCorrect += 1;
-      else failures.push(`category ${draft.categorySlug?.slug ?? 'none'} ≠ ${expectation.categorySlug}`);
+      else
+        failures.push(
+          `category ${draft.categorySlug?.slug ?? 'none'} ≠ ${expectation.categorySlug}`,
+        );
     }
 
     for (const key of expectation.hardAttributeKeys ?? []) {
@@ -192,10 +196,14 @@ export async function runIntentBenchmark(
           failures.push(`budget currency ${budget.currency} ≠ ${expectation.budget.currency}`);
         }
         if (budget.maxMinor !== expectation.budget.maxMinor) {
-          failures.push(`budget max ${String(budget.maxMinor)} ≠ ${String(expectation.budget.maxMinor)}`);
+          failures.push(
+            `budget max ${String(budget.maxMinor)} ≠ ${String(expectation.budget.maxMinor)}`,
+          );
         }
         if (budget.minMinor !== expectation.budget.minMinor) {
-          failures.push(`budget min ${String(budget.minMinor)} ≠ ${String(expectation.budget.minMinor)}`);
+          failures.push(
+            `budget min ${String(budget.minMinor)} ≠ ${String(expectation.budget.minMinor)}`,
+          );
         }
       }
     }
@@ -204,12 +212,14 @@ export async function runIntentBenchmark(
     }
 
     for (const group of expectation.conditionGroups ?? []) {
-      if (!(draft.condition?.groups ?? []).includes(group)) failures.push(`missing condition ${group}`);
+      if (!(draft.condition?.groups ?? []).includes(group))
+        failures.push(`missing condition ${group}`);
     }
     if (expectation.officialChannelOnly === true && draft.officialChannelOnly !== true) {
       failures.push('missing official-channel leaning');
     }
-    if (expectation.nearby === true && draft.nearby !== true) failures.push('missing nearby leaning');
+    if (expectation.nearby === true && draft.nearby !== true)
+      failures.push('missing nearby leaning');
 
     for (const kind of expectation.unresolvedKinds ?? []) {
       if (!draft.unresolved.some((entry) => entry.kind === kind)) {

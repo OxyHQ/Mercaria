@@ -64,8 +64,12 @@ type GatewayIntent = Awaited<ReturnType<Peable['paymentIntents']['retrieve']>>;
 function clientActionOf(intent: GatewayIntent): ProviderPaymentResult['clientAction'] {
   if (!('client_action' in intent)) return undefined;
   const action: unknown = intent.client_action;
-  if (typeof action !== 'object' || action === null || !('kind' in action) || !('value' in action)) return undefined;
-  if ((action.kind === 'client_secret' || action.kind === 'redirect') && typeof action.value === 'string') {
+  if (typeof action !== 'object' || action === null || !('kind' in action) || !('value' in action))
+    return undefined;
+  if (
+    (action.kind === 'client_secret' || action.kind === 'redirect') &&
+    typeof action.value === 'string'
+  ) {
     return { kind: action.kind, value: action.value };
   }
   return undefined;
@@ -184,30 +188,47 @@ export class PeablePaymentProvider
   private readonly client: Peable;
   constructor(client?: Peable) {
     const { publicKey, secret, baseUrl, oxyApiUrl } = config.payments.peable;
-    this.client = client ?? new Peable({ publicKey, secret, baseURL: baseUrl, oxyApiUrl, requestTimeoutMs: 20_000 });
+    this.client =
+      client ??
+      new Peable({ publicKey, secret, baseURL: baseUrl, oxyApiUrl, requestTimeoutMs: 20_000 });
   }
   private async call<T>(stage: PaymentProviderStage, operation: () => Promise<T>): Promise<T> {
-    try { return await operation(); }
-    catch (error) {
+    try {
+      return await operation();
+    } catch (error) {
       if (error instanceof PaymentProviderError) throw error;
       const status = error instanceof PeableError ? error.statusCode : undefined;
-      throw new PaymentProviderError({ provider: 'peable', stage,
+      throw new PaymentProviderError({
+        provider: 'peable',
+        stage,
         message: 'The Peable operation failed; retry only with the original intent.',
         // A truncated error body keeps its known refusal status. A lost 2xx
         // body or transport without headers remains indeterminate/retryable.
-        retryable: status === undefined || status < 400 || status >= 500 || status === 408 || status === 429,
+        retryable:
+          status === undefined || status < 400 || status >= 500 || status === 408 || status === 429,
       });
     }
   }
 
-
   async createPayment(request: CreatePaymentRequest): Promise<ProviderPaymentResult> {
     const currency = request.amount.currency;
-    if (currency !== 'USD' && currency !== 'EUR' && currency !== 'FAIR') throw unsupported('createPayment', 'Currency is not supported by the Peable gateway.');
-    const intent = await this.call('createPayment', () => this.client.paymentIntents.create({
-      rail: 'card', amount: toGatewayAmount(request.amount, 'createPayment'), currency,
-      metadata: { ...request.metadata, mercaria_payment_id: request.paymentId, mercaria_checkout_group_id: request.checkoutGroupId },
-    }, { idempotencyKey: request.idempotencyKey }));
+    if (currency !== 'USD' && currency !== 'EUR' && currency !== 'FAIR')
+      throw unsupported('createPayment', 'Currency is not supported by the Peable gateway.');
+    const intent = await this.call('createPayment', () =>
+      this.client.paymentIntents.create(
+        {
+          rail: 'card',
+          amount: toGatewayAmount(request.amount, 'createPayment'),
+          currency,
+          metadata: {
+            ...request.metadata,
+            mercaria_payment_id: request.paymentId,
+            mercaria_checkout_group_id: request.checkoutGroupId,
+          },
+        },
+        { idempotencyKey: request.idempotencyKey },
+      ),
+    );
     return toResult(intent, 'createPayment');
   }
 
@@ -235,15 +256,25 @@ export class PeablePaymentProvider
   }
 
   async cancel(request: PaymentOperationRequest): Promise<ProviderPaymentResult> {
-    const intent = await this.call('cancel', () => this.client.paymentIntents.reject(request.providerObjectId, { idempotencyKey: request.idempotencyKey }));
+    const intent = await this.call('cancel', () =>
+      this.client.paymentIntents.reject(request.providerObjectId, {
+        idempotencyKey: request.idempotencyKey,
+      }),
+    );
     return toResult(intent, 'getStatus');
   }
 
   async refund(request: RefundRequest): Promise<ProviderRefundResult> {
-    const refund = await this.call('refund', () => this.client.refunds.create({
-      paymentIntentId: request.providerObjectId, externalRef: request.refundId,
-      amount: toGatewayAmount(request.amount, 'refund'),
-    }, { idempotencyKey: request.idempotencyKey }));
+    const refund = await this.call('refund', () =>
+      this.client.refunds.create(
+        {
+          paymentIntentId: request.providerObjectId,
+          externalRef: request.refundId,
+          amount: toGatewayAmount(request.amount, 'refund'),
+        },
+        { idempotencyKey: request.idempotencyKey },
+      ),
+    );
 
     return {
       providerObjectId: refund.id,
@@ -274,7 +305,9 @@ export class PeablePaymentProvider
     providerObjectId: string,
     stage: PaymentProviderStage,
   ): Promise<ProviderPaymentResult> {
-    const intent = await this.call(stage, () => this.client.paymentIntents.retrieve(providerObjectId));
+    const intent = await this.call(stage, () =>
+      this.client.paymentIntents.retrieve(providerObjectId),
+    );
     return toResult(intent, stage);
   }
 
@@ -299,18 +332,28 @@ export class PeablePaymentProvider
   // -------------------------------------------------------------------------
 
   async createTransfer(request: CreateTransferRequest): Promise<ProviderTransferResult> {
-    const transfer = await this.call('transfer', () => this.client.transfers.create({
-      paymentIntentId: request.sourcePaymentObjectId, connectedAccountId: request.destinationAccountId,
-      externalRef: request.orderId, amount: toGatewayAmount(request.amount, 'transfer'),
-    }, { idempotencyKey: request.idempotencyKey }));
+    const transfer = await this.call('transfer', () =>
+      this.client.transfers.create(
+        {
+          paymentIntentId: request.sourcePaymentObjectId,
+          connectedAccountId: request.destinationAccountId,
+          externalRef: request.orderId,
+          amount: toGatewayAmount(request.amount, 'transfer'),
+        },
+        { idempotencyKey: request.idempotencyKey },
+      ),
+    );
     return { providerObjectId: transfer.id, status: toTransferStatus(transfer.status) };
   }
 
-  async reverseTransfer(
-    request: ReverseTransferRequest,
-  ): Promise<ProviderTransferReversalResult> {
-    const transfer = await this.call('transfer', () => this.client.transfers.reverse(request.transferObjectId,
-      { amount: toGatewayAmount(request.amount, 'transfer') }, { idempotencyKey: request.idempotencyKey }));
+  async reverseTransfer(request: ReverseTransferRequest): Promise<ProviderTransferReversalResult> {
+    const transfer = await this.call('transfer', () =>
+      this.client.transfers.reverse(
+        request.transferObjectId,
+        { amount: toGatewayAmount(request.amount, 'transfer') },
+        { idempotencyKey: request.idempotencyKey },
+      ),
+    );
 
     // The CUMULATIVE total, read off the transfer — never this leg. A caller
     // deciding whether a transfer is fully reversed must not have to add up

@@ -20,13 +20,13 @@
  * listing runs rather than a stand-in for it.
  */
 
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const validator = resolve(repositoryRoot, "scripts/validate-i18n-strings.mjs");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const validator = resolve(repositoryRoot, 'scripts/validate-i18n-strings.mjs');
 
 /**
  * Run the REAL guard against a scratch checkout.
@@ -57,31 +57,40 @@ const validator = resolve(repositoryRoot, "scripts/validate-i18n-strings.mjs");
  */
 function spawnGuard({ guardPath, cwd, env }) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const proc = Bun.spawnSync({ cmd: ["bun", guardPath], cwd, env, stdout: "pipe", stderr: "pipe" });
+    const proc = Bun.spawnSync({
+      cmd: ['bun', guardPath],
+      cwd,
+      env,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
     if (proc.signalCode == null) {
-      return { exitCode: proc.exitCode, output: `${proc.stdout.toString()}${proc.stderr.toString()}` };
+      return {
+        exitCode: proc.exitCode,
+        output: `${proc.stdout.toString()}${proc.stderr.toString()}`,
+      };
     }
     if (attempt === 1) {
-      return { crashed: proc.signalCode, exitCode: proc.exitCode, output: "" };
+      return { crashed: proc.signalCode, exitCode: proc.exitCode, output: '' };
     }
   }
-  throw new Error("unreachable");
+  throw new Error('unreachable');
 }
 
 /** Abort the whole run rather than let a crash be scored as a case. */
 function refuseOnCrash(result, where) {
   if (!result.crashed) return;
   console.error(
-    `FATAL  the guard was killed by ${result.crashed} twice while running ${where}.\n`
-    + "       This is a RUNTIME crash, not a verdict — nothing about the guard's\n"
-    + "       correctness or the working tree follows from it. Re-run; if it\n"
-    + "       persists, the Bun version is the subject, not this repository.",
+    `FATAL  the guard was killed by ${result.crashed} twice while running ${where}.\n` +
+      "       This is a RUNTIME crash, not a verdict — nothing about the guard's\n" +
+      '       correctness or the working tree follows from it. Re-run; if it\n' +
+      '       persists, the Bun version is the subject, not this repository.',
   );
   process.exit(2);
 }
 
 async function runAgainst(files, { realFloors = false, removeAfterAdd = [], patchGuard } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "i18n-string-validator-"));
+  const root = await mkdtemp(join(tmpdir(), 'i18n-string-validator-'));
   // A case may run a PATCHED copy of the guard. The guard resolves the tree it
   // scans from `I18N_VALIDATOR_ROOT`, which this harness always sets, so its own
   // location is immaterial and the copy behaves identically.
@@ -102,18 +111,21 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [], patc
       repositoryRoot,
       `scripts/.validate-i18n-strings.patched-${process.pid}-${Date.now()}.mjs`,
     );
-    const patched = patchGuard(await readFile(validator, "utf8"));
+    const patched = patchGuard(await readFile(validator, 'utf8'));
     await writeFile(guardPath, patched);
   }
   try {
     for (const [path, contents] of Object.entries(files)) {
       const full = join(root, path);
       await mkdir(dirname(full), { recursive: true });
-      await writeFile(full, typeof contents === "string" ? contents : `${JSON.stringify(contents, null, 2)}\n`);
+      await writeFile(
+        full,
+        typeof contents === 'string' ? contents : `${JSON.stringify(contents, null, 2)}\n`,
+      );
     }
 
-    Bun.spawnSync({ cmd: ["git", "-c", "init.defaultBranch=main", "init", "-q"], cwd: root });
-    Bun.spawnSync({ cmd: ["git", "add", "-A", "-f"], cwd: root });
+    Bun.spawnSync({ cmd: ['git', '-c', 'init.defaultBranch=main', 'init', '-q'], cwd: root });
+    Bun.spawnSync({ cmd: ['git', 'add', '-A', '-f'], cwd: root });
 
     // Deleted AFTER `git add`, so the path stays in the index while the working
     // tree loses it — a real divergence (a half-applied checkout, an interrupted
@@ -121,7 +133,7 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [], patc
     for (const path of removeAfterAdd) await rm(join(root, path), { force: true });
 
     const environment = { ...process.env, I18N_VALIDATOR_ROOT: root };
-    if (!realFloors) environment.I18N_VALIDATOR_FIXTURE_FLOORS = "1";
+    if (!realFloors) environment.I18N_VALIDATOR_FIXTURE_FLOORS = '1';
 
     return spawnGuard({ guardPath, cwd: repositoryRoot, env: environment });
   } finally {
@@ -130,7 +142,7 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [], patc
   }
 }
 
-const LOCALES = ["bn", "ca", "de", "es", "fr", "hi", "ja", "pt-BR", "ru", "zh-Hans"];
+const LOCALES = ['bn', 'ca', 'de', 'es', 'fr', 'hi', 'ja', 'pt-BR', 'ru', 'zh-Hans'];
 
 /**
  * What each app ships beside `en`.
@@ -143,21 +155,21 @@ const LOCALES = ["bn", "ca", "de", "es", "fr", "hi", "ja", "pt-BR", "ru", "zh-Ha
  * fixture where every app ships the same set could never see it get one wrong.
  */
 const APP_LOCALES = {
-  frontend: [...LOCALES, "ar"],
+  frontend: [...LOCALES, 'ar'],
   dashboard: LOCALES,
   pos: LOCALES,
 };
 
 /** The English copy all three fixture apps ship. */
 const ENGLISH = {
-  common: { save: "Save", cancel: "Cancel" },
-  nav: { register: "Register" },
-  cart: { lineCount: { one: "%{count} item", other: "%{count} items" } },
+  common: { save: 'Save', cancel: 'Cancel' },
+  nav: { register: 'Register' },
+  cart: { lineCount: { one: '%{count} item', other: '%{count} items' } },
   // `channel.pos` exists so check F's interpolated population has a key of its
   // own. Reusing `status.paid` gave it a second reference and silently disarmed
   // the unreferenced-key case below, which is the regression part C exists for.
-  orders: { status: { paid: "Paid" }, channel: { pos: "Point of sale" } },
-  products: { searchPlaceholder: "Search products", greeting: "Hello, %{name}" },
+  orders: { status: { paid: 'Paid' }, channel: { pos: 'Point of sale' } },
+  products: { searchPlaceholder: 'Search products', greeting: 'Hello, %{name}' },
 };
 
 /**
@@ -167,8 +179,8 @@ const ENGLISH = {
  */
 const SHARED_UI_ENGLISH = {
   ui: {
-    condition: { label: { new: "New" } },
-    offer: { days: { one: "%{count} day", other: "%{count} days" } },
+    condition: { label: { new: 'New' } },
+    offer: { days: { one: '%{count} day', other: '%{count} days' } },
   },
 };
 
@@ -191,16 +203,16 @@ function sharedBundle(mutate = (value) => value) {
  */
 function rootLayout() {
   return (
-    'import { SharedUiTranslationProvider } from "@mercaria/ui";\n'
-    + 'import { useTranslation } from "@/lib/i18n";\n'
-    + "export default function RootLayout() {\n"
-    + "  const { t } = useTranslation();\n"
-    + "  return (\n"
-    + "    <SharedUiTranslationProvider t={t}>\n"
-    + "      <Stack />\n"
-    + "    </SharedUiTranslationProvider>\n"
-    + "  );\n"
-    + "}\n"
+    'import { SharedUiTranslationProvider } from "@mercaria/ui";\n' +
+    'import { useTranslation } from "@/lib/i18n";\n' +
+    'export default function RootLayout() {\n' +
+    '  const { t } = useTranslation();\n' +
+    '  return (\n' +
+    '    <SharedUiTranslationProvider t={t}>\n' +
+    '      <Stack />\n' +
+    '    </SharedUiTranslationProvider>\n' +
+    '  );\n' +
+    '}\n'
   );
 }
 
@@ -220,65 +232,65 @@ function rootLayout() {
  */
 function migratedTree(extra = {}) {
   const files = {
-    "packages/dashboard/app/(app)/index.tsx":
-      'import { useTranslation } from "@/lib/i18n";\n'
-      + "export default function Home() {\n"
-      + "  const { t } = useTranslation();\n"
-      + '  return <View className="flex-row gap-2 px-4">\n'
-      + '    <Text>{t("nav.register")}</Text>\n'
-      + '    <Text>{t("orders.status.paid")}</Text>\n'
-      + '    <Text>{t("cart.lineCount", { count })}</Text>\n'
-      + '    <Text>{t("products.greeting", { name })}</Text>\n'
+    'packages/dashboard/app/(app)/index.tsx':
+      'import { useTranslation } from "@/lib/i18n";\n' +
+      'export default function Home() {\n' +
+      '  const { t } = useTranslation();\n' +
+      '  return <View className="flex-row gap-2 px-4">\n' +
+      '    <Text>{t("nav.register")}</Text>\n' +
+      '    <Text>{t("orders.status.paid")}</Text>\n' +
+      '    <Text>{t("cart.lineCount", { count })}</Text>\n' +
+      '    <Text>{t("products.greeting", { name })}</Text>\n' +
       // A t()-into-t() interpolation whose key is NOT a control label. Check F
       // intersects two populations, so a fixture with an empty one would trip
       // F's own vacuity floor in every case that uses this tree.
-      + '    <Text>{t("products.greeting", { name: t("orders.channel.pos") })}</Text>\n'
-      + '    <Input placeholder={t("products.searchPlaceholder")} />\n'
-      + '    <Button title={t("common.save")} />\n'
-      + '    <Button title={t("common.cancel")} />\n'
-      + "  </View>;\n"
-      + "}\n",
-    "packages/dashboard/components/shell/nav-items.ts":
+      '    <Text>{t("products.greeting", { name: t("orders.channel.pos") })}</Text>\n' +
+      '    <Input placeholder={t("products.searchPlaceholder")} />\n' +
+      '    <Button title={t("common.save")} />\n' +
+      '    <Button title={t("common.cancel")} />\n' +
+      '  </View>;\n' +
+      '}\n',
+    'packages/dashboard/components/shell/nav-items.ts':
       'export const NAV = [{ key: "orders", labelKey: "nav.register", href: "/orders", permission: "orders:read" }];\n',
-    "packages/pos/app/(app)/index.tsx":
-      'import { useTranslation } from "@/lib/i18n";\n'
-      + "export default function Register() {\n"
-      + "  const { t } = useTranslation();\n"
-      + '  return <View className="flex-1 bg-background">\n'
-      + '    <Text>{t("nav.register")}</Text>\n'
-      + '    <Text>{t("orders.status.paid")}</Text>\n'
-      + '    <Text>{t("cart.lineCount", { count })}</Text>\n'
-      + '    <Text>{t("products.greeting", { name })}</Text>\n'
+    'packages/pos/app/(app)/index.tsx':
+      'import { useTranslation } from "@/lib/i18n";\n' +
+      'export default function Register() {\n' +
+      '  const { t } = useTranslation();\n' +
+      '  return <View className="flex-1 bg-background">\n' +
+      '    <Text>{t("nav.register")}</Text>\n' +
+      '    <Text>{t("orders.status.paid")}</Text>\n' +
+      '    <Text>{t("cart.lineCount", { count })}</Text>\n' +
+      '    <Text>{t("products.greeting", { name })}</Text>\n' +
       // A t()-into-t() interpolation whose key is NOT a control label. Check F
       // intersects two populations, so a fixture with an empty one would trip
       // F's own vacuity floor in every case that uses this tree.
-      + '    <Text>{t("products.greeting", { name: t("orders.channel.pos") })}</Text>\n'
-      + '    <Input placeholder={t("products.searchPlaceholder")} keyboardType="url" />\n'
-      + '    <Button title={t("common.save")} />\n'
-      + '    <Button title={t("common.cancel")} />\n'
-      + "  </View>;\n"
-      + "}\n",
-    "packages/pos/lib/queryKeys.ts":
+      '    <Text>{t("products.greeting", { name: t("orders.channel.pos") })}</Text>\n' +
+      '    <Input placeholder={t("products.searchPlaceholder")} keyboardType="url" />\n' +
+      '    <Button title={t("common.save")} />\n' +
+      '    <Button title={t("common.cancel")} />\n' +
+      '  </View>;\n' +
+      '}\n',
+    'packages/pos/lib/queryKeys.ts':
       'export const keys = { orders: (id) => ["stores", id, "orders"] as const };\n',
     // In scope since #435, and migrated like the two above it.
-    "packages/frontend/app/index.tsx":
-      'import { useTranslation } from "@/lib/i18n";\n'
-      + "export default function Storefront() {\n"
-      + "  const { t } = useTranslation();\n"
-      + '  return <View className="flex-1 gap-3 px-4">\n'
-      + '    <Text>{t("nav.register")}</Text>\n'
-      + '    <Text>{t("orders.status.paid")}</Text>\n'
-      + '    <Text>{t("cart.lineCount", { count })}</Text>\n'
-      + '    <Text>{t("products.greeting", { name })}</Text>\n'
+    'packages/frontend/app/index.tsx':
+      'import { useTranslation } from "@/lib/i18n";\n' +
+      'export default function Storefront() {\n' +
+      '  const { t } = useTranslation();\n' +
+      '  return <View className="flex-1 gap-3 px-4">\n' +
+      '    <Text>{t("nav.register")}</Text>\n' +
+      '    <Text>{t("orders.status.paid")}</Text>\n' +
+      '    <Text>{t("cart.lineCount", { count })}</Text>\n' +
+      '    <Text>{t("products.greeting", { name })}</Text>\n' +
       // A t()-into-t() interpolation whose key is NOT a control label. Check F
       // intersects two populations, so a fixture with an empty one would trip
       // F's own vacuity floor in every case that uses this tree.
-      + '    <Text>{t("products.greeting", { name: t("orders.channel.pos") })}</Text>\n'
-      + '    <Input placeholder={t("products.searchPlaceholder")} />\n'
-      + '    <Button title={t("common.save")} />\n'
-      + '    <Button title={t("common.cancel")} />\n'
-      + "  </View>;\n"
-      + "}\n",
+      '    <Text>{t("products.greeting", { name: t("orders.channel.pos") })}</Text>\n' +
+      '    <Input placeholder={t("products.searchPlaceholder")} />\n' +
+      '    <Button title={t("common.save")} />\n' +
+      '    <Button title={t("common.cancel")} />\n' +
+      '  </View>;\n' +
+      '}\n',
 
     // #437: the shared package's own copy, its key maps, and a component that
     // resolves one of them.
@@ -289,34 +301,35 @@ function migratedTree(extra = {}) {
     // `hardcodedStrings: true`, so that file would fail every case that builds
     // this tree — and the property it stood for has INVERTED: English in this
     // package is now a build failure, which is its own case below.
-    "packages/ui/src/lib/condition.ts":
-      'export const CONDITION_LABEL_KEYS = { new: "ui.condition.label.new" };\n'
-      + 'export const DAYS_KEY = "ui.offer.days";\n',
-    "packages/ui/src/components/ConditionBadge.tsx":
-      'import { CONDITION_LABEL_KEYS, DAYS_KEY } from "../lib/condition";\n'
-      + 'import { useSharedUiTranslation } from "../i18n/ui-translation";\n'
-      + "export function ConditionBadge({ days }) {\n"
-      + "  const t = useSharedUiTranslation();\n"
-      + "  return <View>\n"
-      + "    <Text>{t(CONDITION_LABEL_KEYS.new)}</Text>\n"
-      + "    <Text>{t(DAYS_KEY, { count: days })}</Text>\n"
-      + "  </View>;\n"
-      + "}\n",
+    'packages/ui/src/lib/condition.ts':
+      'export const CONDITION_LABEL_KEYS = { new: "ui.condition.label.new" };\n' +
+      'export const DAYS_KEY = "ui.offer.days";\n',
+    'packages/ui/src/components/ConditionBadge.tsx':
+      'import { CONDITION_LABEL_KEYS, DAYS_KEY } from "../lib/condition";\n' +
+      'import { useSharedUiTranslation } from "../i18n/ui-translation";\n' +
+      'export function ConditionBadge({ days }) {\n' +
+      '  const t = useSharedUiTranslation();\n' +
+      '  return <View>\n' +
+      '    <Text>{t(CONDITION_LABEL_KEYS.new)}</Text>\n' +
+      '    <Text>{t(DAYS_KEY, { count: days })}</Text>\n' +
+      '  </View>;\n' +
+      '}\n',
 
     // #437 check E: every app root mounts the provider, the storefront included.
-    "packages/dashboard/app/_layout.tsx": rootLayout(),
-    "packages/pos/app/_layout.tsx": rootLayout(),
-    "packages/frontend/app/_layout.tsx": rootLayout(),
+    'packages/dashboard/app/_layout.tsx': rootLayout(),
+    'packages/pos/app/_layout.tsx': rootLayout(),
+    'packages/frontend/app/_layout.tsx': rootLayout(),
   };
   for (const [app, locales] of Object.entries(APP_LOCALES)) {
     files[`packages/${app}/lib/i18n/locales/en.json`] = bundle();
-    for (const locale of locales) files[`packages/${app}/lib/i18n/locales/${locale}.json`] = bundle();
+    for (const locale of locales)
+      files[`packages/${app}/lib/i18n/locales/${locale}.json`] = bundle();
   }
   // The shared package IS the registry's home, so it ships the UNION and can
   // never be behind an app — including the storefront's `ar`. Before #435 no
   // app in this fixture shipped one, so eleven here was merely incomplete;
   // beside a twelve-locale storefront it would be a tree no deployment can have.
-  files["packages/ui/src/i18n/locales/en.json"] = sharedBundle();
+  files['packages/ui/src/i18n/locales/en.json'] = sharedBundle();
   for (const locale of APP_LOCALES.frontend) {
     files[`packages/ui/src/i18n/locales/${locale}.json`] = sharedBundle();
   }
@@ -326,7 +339,7 @@ function migratedTree(extra = {}) {
 /** A tree whose dashboard `en.json` is mutated, with every sibling kept in parity. */
 function treeWithBundle(mutate, extra = {}) {
   const files = migratedTree(extra);
-  files["packages/dashboard/lib/i18n/locales/en.json"] = bundle(mutate);
+  files['packages/dashboard/lib/i18n/locales/en.json'] = bundle(mutate);
   for (const locale of APP_LOCALES.dashboard) {
     files[`packages/dashboard/lib/i18n/locales/${locale}.json`] = bundle(mutate);
   }
@@ -349,10 +362,10 @@ function treeWithLocaleBundle(locale, mutate, extra = {}) {
 
 const cases = [
   {
-    name: "a fully extracted set of three apps passes",
+    name: 'a fully extracted set of three apps passes',
     files: migratedTree(),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
 
   // ------------------------------------------------ K: per-locale plurals ---
@@ -361,41 +374,41 @@ const cases = [
   // that relaxation from becoming a hole.
 
   {
-    name: "a Russian bundle carrying few/many — which en.json lacks — passes (K)",
-    files: treeWithLocaleBundle("ru", (value) => {
+    name: 'a Russian bundle carrying few/many — which en.json lacks — passes (K)',
+    files: treeWithLocaleBundle('ru', (value) => {
       value.cart.lineCount = {
-        one: "%{count} товар",
-        few: "%{count} товара",
-        many: "%{count} товаров",
-        other: "%{count} товаров",
+        one: '%{count} товар',
+        few: '%{count} товара',
+        many: '%{count} товаров',
+        other: '%{count} товаров',
       };
       return value;
     }),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
   {
-    name: "a Japanese bundle carrying only `other`, its one category, passes (K)",
-    files: treeWithLocaleBundle("ja", (value) => {
-      value.cart.lineCount = { other: "商品 %{count} 件" };
+    name: 'a Japanese bundle carrying only `other`, its one category, passes (K)',
+    files: treeWithLocaleBundle('ja', (value) => {
+      value.cart.lineCount = { other: '商品 %{count} 件' };
       return value;
     }),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
   {
     name: "a plural key with no `other` fails — the chain's terminal rung (K)",
-    files: treeWithLocaleBundle("ru", (value) => {
-      value.cart.lineCount = { one: "%{count} товар", few: "%{count} товара" };
+    files: treeWithLocaleBundle('ru', (value) => {
+      value.cart.lineCount = { one: '%{count} товар', few: '%{count} товара' };
       return value;
     }),
     expectExit: 1,
     expectOutput: 'and no "other"',
   },
   {
-    name: "a Russian bundle dropping `one`, which Russian selects at 21, fails (K)",
-    files: treeWithLocaleBundle("ru", (value) => {
-      value.cart.lineCount = { other: "%{count} товаров" };
+    name: 'a Russian bundle dropping `one`, which Russian selects at 21, fails (K)',
+    files: treeWithLocaleBundle('ru', (value) => {
+      value.cart.lineCount = { other: '%{count} товаров' };
       return value;
     }),
     expectExit: 1,
@@ -405,28 +418,30 @@ const cases = [
     // The hole the relaxation would have opened. B compared each form against
     // its English twin and `continue`d when there was none, so a renamed
     // placeholder in a category English does not have was invisible to it.
-    name: "a renamed placeholder in a `many` form fails, though en.json has no `many` (K)",
-    files: treeWithLocaleBundle("ru", (value) => {
+    name: 'a renamed placeholder in a `many` form fails, though en.json has no `many` (K)',
+    files: treeWithLocaleBundle('ru', (value) => {
       value.cart.lineCount = {
-        one: "%{count} товар", many: "%{n} товаров", other: "%{count} товаров",
+        one: '%{count} товар',
+        many: '%{n} товаров',
+        other: '%{count} товаров',
       };
       return value;
     }),
     expectExit: 1,
-    expectOutput: "carries placeholders {n}",
+    expectOutput: 'carries placeholders {n}',
   },
   {
     // Dead copy: German has `one`/`other` and nothing else, so a `few` there can
     // never be selected. Under `fixtureFloors` the pin is skipped, so this case
     // proves the DETECTOR — the pin's own comparison is covered by its own case
     // below, the `deviceLocaleFormatSites` pattern.
-    name: "a plural key that is not a plural object in a sibling fails (K)",
-    files: treeWithLocaleBundle("de", (value) => {
-      value.cart.lineCount = "%{count} Produkte";
+    name: 'a plural key that is not a plural object in a sibling fails (K)',
+    files: treeWithLocaleBundle('de', (value) => {
+      value.cart.lineCount = '%{count} Produkte';
       return value;
     }),
     expectExit: 1,
-    expectOutput: "missing or not a plural object",
+    expectOutput: 'missing or not a plural object',
   },
 
   // ---------------------------------------------------- the mutation cases ---
@@ -437,14 +452,14 @@ const cases = [
     // `migratedTree` already renders as a <Button> label, as the value of an
     // interpolation — the shape that produced "…happens to the keep products
     // this channel imported".
-    name: "an action label interpolated into a sentence fails (F)",
+    name: 'an action label interpolated into a sentence fails (F)',
     files: migratedTree({
-      "packages/dashboard/app/(app)/regressed.tsx":
-        'import { useTranslation } from "@/lib/i18n";\n'
-        + "export const A = () => {\n"
-        + "  const { t } = useTranslation();\n"
-        + '  return <Text>{t("products.greeting", { name: t("common.cancel").toLowerCase() })}</Text>;\n'
-        + "};\n",
+      'packages/dashboard/app/(app)/regressed.tsx':
+        'import { useTranslation } from "@/lib/i18n";\n' +
+        'export const A = () => {\n' +
+        '  const { t } = useTranslation();\n' +
+        '  return <Text>{t("products.greeting", { name: t("common.cancel").toLowerCase() })}</Text>;\n' +
+        '};\n',
     }),
     expectExit: 1,
     expectOutput: "is BOTH an action control's label and a value interpolated into a sentence",
@@ -453,17 +468,17 @@ const cases = [
     // The negative half, and the one that decides whether F is worth having: a
     // key that is only ever a sentence value must not fire just because some
     // OTHER key is a button label.
-    name: "a key interpolated but never used as a control label passes (F)",
+    name: 'a key interpolated but never used as a control label passes (F)',
     files: migratedTree({
-      "packages/dashboard/app/(app)/fine.tsx":
-        'import { useTranslation } from "@/lib/i18n";\n'
-        + "export const A = () => {\n"
-        + "  const { t } = useTranslation();\n"
-        + '  return <Text>{t("products.greeting", { name: t("orders.status.paid") })}</Text>;\n'
-        + "};\n",
+      'packages/dashboard/app/(app)/fine.tsx':
+        'import { useTranslation } from "@/lib/i18n";\n' +
+        'export const A = () => {\n' +
+        '  const { t } = useTranslation();\n' +
+        '  return <Text>{t("products.greeting", { name: t("orders.status.paid") })}</Text>;\n' +
+        '};\n',
     }),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
   {
     // F's populations are its vacuity floor, and this is the case that proves
@@ -476,127 +491,127 @@ const cases = [
     // Named rather than a bare "below the": with the production floors this
     // fixture trips several, and a substring any of them would satisfy would
     // pass whether or not F's own floor exists.
-    expectOutput: "check F saw",
+    expectOutput: 'check F saw',
   },
   {
-    name: "a reintroduced JSX text node fails",
+    name: 'a reintroduced JSX text node fails',
     files: migratedTree({
-      "packages/dashboard/app/(app)/regressed.tsx":
-        "export const A = () => <Text>Save changes</Text>;\n",
+      'packages/dashboard/app/(app)/regressed.tsx':
+        'export const A = () => <Text>Save changes</Text>;\n',
     }),
     expectExit: 1,
     expectOutput: '"Save changes"',
   },
   {
-    name: "a reintroduced placeholder attribute fails",
+    name: 'a reintroduced placeholder attribute fails',
     files: migratedTree({
-      "packages/pos/components/regressed.tsx":
+      'packages/pos/components/regressed.tsx':
         'export const B = () => <Input placeholder="Scan a barcode" />;\n',
     }),
     expectExit: 1,
     expectOutput: '"Scan a barcode"',
   },
   {
-    name: "a reintroduced title/body pair on an empty state fails",
+    name: 'a reintroduced title/body pair on an empty state fails',
     files: migratedTree({
-      "packages/dashboard/components/regressed.tsx":
+      'packages/dashboard/components/regressed.tsx':
         'export const C = () => <Empty title="No access" body="You cannot see this." />;\n',
     }),
     expectExit: 1,
     expectOutput: '"No access"',
   },
   {
-    name: "a reintroduced label in module-scope data fails",
+    name: 'a reintroduced label in module-scope data fails',
     files: migratedTree({
-      "packages/dashboard/components/regressed.ts":
+      'packages/dashboard/components/regressed.ts':
         'export const NAV = [{ key: "a", label: "Register", href: "/" }];\n',
     }),
     expectExit: 1,
-    expectOutput: "property:label",
+    expectOutput: 'property:label',
   },
   {
-    name: "a reintroduced Alert.alert argument fails",
+    name: 'a reintroduced Alert.alert argument fails',
     files: migratedTree({
-      "packages/pos/components/regressed.tsx":
+      'packages/pos/components/regressed.tsx':
         'export const D = () => Alert.alert("Deleted", "The sale is gone.");\n',
     }),
     expectExit: 1,
-    expectOutput: "call:Alert.alert",
+    expectOutput: 'call:Alert.alert',
   },
   {
-    name: "a reintroduced toast message fails",
+    name: 'a reintroduced toast message fails',
     files: migratedTree({
-      "packages/dashboard/components/regressed.tsx":
+      'packages/dashboard/components/regressed.tsx':
         'export const T = () => toast.error("Could not save the product.");\n',
     }),
     expectExit: 1,
-    expectOutput: "call:toast.error",
+    expectOutput: 'call:toast.error',
   },
   {
-    name: "a reintroduced rail tooltip fails",
+    name: 'a reintroduced rail tooltip fails',
     files: migratedTree({
-      "packages/pos/components/regressed.tsx":
+      'packages/pos/components/regressed.tsx':
         'export const U = () => useRailTooltip("Expand sidebar");\n',
     }),
     expectExit: 1,
-    expectOutput: "call:useRailTooltip",
+    expectOutput: 'call:useRailTooltip',
   },
   {
-    name: "a plural built by concatenating an s fails",
+    name: 'a plural built by concatenating an s fails',
     files: migratedTree({
-      "packages/pos/components/regressed.tsx":
+      'packages/pos/components/regressed.tsx':
         'export const E = () => <Text>{`${n} item${n === 1 ? "" : "s"} in cart`}</Text>;\n',
     }),
     expectExit: 1,
-    expectOutput: "jsx-child",
+    expectOutput: 'jsx-child',
   },
   {
-    name: "a ternary between two English literals in a JSX child fails",
+    name: 'a ternary between two English literals in a JSX child fails',
     files: migratedTree({
-      "packages/dashboard/components/regressed.tsx":
+      'packages/dashboard/components/regressed.tsx':
         'export const F = () => <Text>{open ? "Open" : "Closed"}</Text>;\n',
     }),
     expectExit: 1,
-    expectOutput: "jsx-child",
+    expectOutput: 'jsx-child',
   },
   {
-    name: "a key-SHAPED literal that is not a real key still fails",
+    name: 'a key-SHAPED literal that is not a real key still fails',
     // The reason the analyser is given the app's real vocabulary rather than a
     // regex for "looks like a key": a typo renders a humanised guess of the
     // misspelling to a merchant, and a shape rule would wave it straight past.
     files: migratedTree({
-      "packages/dashboard/components/regressed.ts":
+      'packages/dashboard/components/regressed.ts':
         'export const NAV = [{ key: "a", label: "nav.regsiter" }];\n',
     }),
     expectExit: 1,
-    expectOutput: "nav.regsiter",
+    expectOutput: 'nav.regsiter',
   },
   {
-    name: "the reported finding names the file and the line",
+    name: 'the reported finding names the file and the line',
     files: migratedTree({
-      "packages/pos/components/regressed.tsx":
-        "export const G = () => (\n  <View>\n    <Text>Charge</Text>\n  </View>\n);\n",
+      'packages/pos/components/regressed.tsx':
+        'export const G = () => (\n  <View>\n    <Text>Charge</Text>\n  </View>\n);\n',
     }),
     expectExit: 1,
-    expectOutput: "packages/pos/components/regressed.tsx:3:",
+    expectOutput: 'packages/pos/components/regressed.tsx:3:',
   },
 
   // ------------------------------------------------ the must-NOT-fire cases ---
 
   {
-    name: "Tailwind classes, routes, permissions and query keys do NOT fire",
+    name: 'Tailwind classes, routes, permissions and query keys do NOT fire',
     files: migratedTree({
-      "packages/dashboard/components/identifiers.tsx":
-        'export const H = () => <View className="ms-2 flex-row items-center rounded-lg border px-3" />;\n'
-        + 'export const routes = { orders: "/orders", settings: "/settings/store" };\n'
-        + 'export const perms = ["store:manage", "orders:read"] as const;\n'
-        + 'export const q = ["stores", id, "products"] as const;\n'
-        + 'export const providers = { shopify: "shopify", woocommerce: "woocommerce" };\n'
-        + 'export const load = () => fetch("/api/products", { method: "POST" });\n'
-        + "export const V = () => toast.error(error.message);\n",
+      'packages/dashboard/components/identifiers.tsx':
+        'export const H = () => <View className="ms-2 flex-row items-center rounded-lg border px-3" />;\n' +
+        'export const routes = { orders: "/orders", settings: "/settings/store" };\n' +
+        'export const perms = ["store:manage", "orders:read"] as const;\n' +
+        'export const q = ["stores", id, "products"] as const;\n' +
+        'export const providers = { shopify: "shopify", woocommerce: "woocommerce" };\n' +
+        'export const load = () => fetch("/api/products", { method: "POST" });\n' +
+        'export const V = () => toast.error(error.message);\n',
     }),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
   {
     // The mutation test for the widening itself, and this case is where it
@@ -606,41 +621,42 @@ const cases = [
     // either direction, and "the storefront is scanned" would then rest on the
     // OWNERS entry alone, which is exactly the kind of claim a prefix matching
     // nothing satisfies silently.
-    name: "the storefront IS in scope and DOES fire (#435)",
+    name: 'the storefront IS in scope and DOES fire (#435)',
     files: migratedTree({
-      "packages/frontend/components/hardcoded.tsx":
+      'packages/frontend/components/hardcoded.tsx':
         'export const I = () => <View><Text>Add to cart</Text><Input placeholder="Search" /></View>;\n',
     }),
     expectExit: 1,
     // The file and the string in ONE substring, so the case cannot be satisfied
     // by a finding in some other file happening to sit beside the right text.
-    expectOutput: 'packages/frontend/components/hardcoded.tsx:1: hardcoded user-facing string '
-      + '[jsx-text]\n    "Add to cart"',
+    expectOutput:
+      'packages/frontend/components/hardcoded.tsx:1: hardcoded user-facing string ' +
+      '[jsx-text]\n    "Add to cart"',
   },
   {
-    name: "a non-source file in the scanned tree does NOT fire",
+    name: 'a non-source file in the scanned tree does NOT fire',
     files: migratedTree({
-      "packages/dashboard/README.md": "The Save button says `Save`.\n",
-      "packages/pos/global.css": '.a { content: "Charge"; }\n',
+      'packages/dashboard/README.md': 'The Save button says `Save`.\n',
+      'packages/pos/global.css': '.a { content: "Charge"; }\n',
     }),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
   {
-    name: "a pluralised key is credited to the call site that names its parent",
+    name: 'a pluralised key is credited to the call site that names its parent',
     // `cart.lineCount.one` / `.other` are named by nothing; `cart.lineCount` is.
     files: migratedTree(),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
 
   // ------------------------------------------------------- B: bundle parity ---
 
   {
-    name: "a key missing from a sibling bundle fails",
+    name: 'a key missing from a sibling bundle fails',
     files: (() => {
       const files = migratedTree();
-      files["packages/dashboard/lib/i18n/locales/de.json"] = bundle((value) => {
+      files['packages/dashboard/lib/i18n/locales/de.json'] = bundle((value) => {
         delete value.orders.status.paid;
         return value;
       });
@@ -650,11 +666,11 @@ const cases = [
     expectOutput: 'missing key "orders.status.paid"',
   },
   {
-    name: "a key that exists only in a sibling bundle fails",
+    name: 'a key that exists only in a sibling bundle fails',
     files: (() => {
       const files = migratedTree();
-      files["packages/pos/lib/i18n/locales/es.json"] = bundle((value) => {
-        value.orders.status.refunded = "Reembolsado";
+      files['packages/pos/lib/i18n/locales/es.json'] = bundle((value) => {
+        value.orders.status.refunded = 'Reembolsado';
         return value;
       });
       return files;
@@ -663,17 +679,17 @@ const cases = [
     expectOutput: 'does not exist in en.json',
   },
   {
-    name: "a renamed placeholder fails",
+    name: 'a renamed placeholder fails',
     files: (() => {
       const files = migratedTree();
-      files["packages/dashboard/lib/i18n/locales/fr.json"] = bundle((value) => {
-        value.products.greeting = "Bonjour, %{nom}";
+      files['packages/dashboard/lib/i18n/locales/fr.json'] = bundle((value) => {
+        value.products.greeting = 'Bonjour, %{nom}';
         return value;
       });
       return files;
     })(),
     expectExit: 1,
-    expectOutput: "carries placeholders",
+    expectOutput: 'carries placeholders',
   },
   {
     // G' (#437). The slot is named `scope`, which i18n-js reads as an option
@@ -686,11 +702,11 @@ const cases = [
     // were deleted.
     name: "a placeholder named after an i18n-js option fails (G')",
     files: treeWithBundle((value) => {
-      value.products.greeting = "Hello %{scope}";
+      value.products.greeting = 'Hello %{scope}';
       return value;
     }),
     expectExit: 1,
-    expectOutput: "an i18n-js OPTION rather than a slot",
+    expectOutput: 'an i18n-js OPTION rather than a slot',
   },
   {
     // The negative half, and the one that keeps G' from being switched off: a
@@ -698,36 +714,36 @@ const cases = [
     name: "a plural key's own %{count} does NOT fire G'",
     files: migratedTree(),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
   {
-    name: "a bundle leaf that is not a string fails",
+    name: 'a bundle leaf that is not a string fails',
     files: treeWithBundle((value) => {
-      value.common.save = ["Save"];
+      value.common.save = ['Save'];
       return value;
     }),
     expectExit: 1,
-    expectOutput: "is an array",
+    expectOutput: 'is an array',
   },
   {
-    name: "a bundle that is not valid JSON fails",
+    name: 'a bundle that is not valid JSON fails',
     files: migratedTree({
-      "packages/pos/lib/i18n/locales/ru.json": "{ not json\n",
+      'packages/pos/lib/i18n/locales/ru.json': '{ not json\n',
     }),
     expectExit: 1,
-    expectOutput: "not valid JSON",
+    expectOutput: 'not valid JSON',
   },
 
   // ------------------------------------------- C: referential integrity ------
 
   {
-    name: "a t() call naming a key that does not exist fails",
+    name: 'a t() call naming a key that does not exist fails',
     files: migratedTree({
-      "packages/dashboard/components/regressed.tsx":
+      'packages/dashboard/components/regressed.tsx':
         'export const J = () => <Text>{t("orders.status.doesNotExist")}</Text>;\n',
     }),
     expectExit: 1,
-    expectOutput: "names no key in",
+    expectOutput: 'names no key in',
   },
   {
     // #598: `sectionTitleKey` is `function sectionTitleKey(signal) { return
@@ -737,46 +753,46 @@ const cases = [
     // resolved nor counted. This is that exact shape, reduced to one call
     // site, with its map's key ABSENT from the bundle: the adverse case a
     // healthy alias resolver must fail on.
-    name: "a t() call through a map-alias function naming a key that does not exist fails",
+    name: 'a t() call through a map-alias function naming a key that does not exist fails',
     files: migratedTree({
-      "packages/dashboard/lib/labels.ts":
-        'export const STATUS_KEYS = { paid: "orders.status.doesNotExist" };\n'
-        + "export function statusKey(status) {\n"
-        + "  return STATUS_KEYS[status];\n"
-        + "}\n",
-      "packages/dashboard/components/StatusBadge.tsx":
-        'import { useTranslation } from "@/lib/i18n";\n'
-        + 'import { statusKey } from "../lib/labels";\n'
-        + "export function StatusBadge({ status }) {\n"
-        + "  const { t } = useTranslation();\n"
-        + "  return <Text>{t(statusKey(status))}</Text>;\n"
-        + "}\n",
+      'packages/dashboard/lib/labels.ts':
+        'export const STATUS_KEYS = { paid: "orders.status.doesNotExist" };\n' +
+        'export function statusKey(status) {\n' +
+        '  return STATUS_KEYS[status];\n' +
+        '}\n',
+      'packages/dashboard/components/StatusBadge.tsx':
+        'import { useTranslation } from "@/lib/i18n";\n' +
+        'import { statusKey } from "../lib/labels";\n' +
+        'export function StatusBadge({ status }) {\n' +
+        '  const { t } = useTranslation();\n' +
+        '  return <Text>{t(statusKey(status))}</Text>;\n' +
+        '}\n',
     }),
     expectExit: 1,
-    expectOutput: "names no key in",
+    expectOutput: 'names no key in',
   },
   {
     // The positive control's twin: the identical shape, but the map's key
     // EXISTS (an already-referenced key, so part C's OWN dead-key direction
     // has nothing to say either). Proves the alias resolving is not itself
     // what fails the case above — the missing key is.
-    name: "a t() call through a map-alias function passes when the key exists",
+    name: 'a t() call through a map-alias function passes when the key exists',
     files: migratedTree({
-      "packages/dashboard/lib/labels.ts":
-        'export const STATUS_KEYS = { paid: "orders.status.paid" };\n'
-        + "export function statusKey(status) {\n"
-        + "  return STATUS_KEYS[status];\n"
-        + "}\n",
-      "packages/dashboard/components/StatusBadge.tsx":
-        'import { useTranslation } from "@/lib/i18n";\n'
-        + 'import { statusKey } from "../lib/labels";\n'
-        + "export function StatusBadge({ status }) {\n"
-        + "  const { t } = useTranslation();\n"
-        + "  return <Text>{t(statusKey(status))}</Text>;\n"
-        + "}\n",
+      'packages/dashboard/lib/labels.ts':
+        'export const STATUS_KEYS = { paid: "orders.status.paid" };\n' +
+        'export function statusKey(status) {\n' +
+        '  return STATUS_KEYS[status];\n' +
+        '}\n',
+      'packages/dashboard/components/StatusBadge.tsx':
+        'import { useTranslation } from "@/lib/i18n";\n' +
+        'import { statusKey } from "../lib/labels";\n' +
+        'export function StatusBadge({ status }) {\n' +
+        '  const { t } = useTranslation();\n' +
+        '  return <Text>{t(statusKey(status))}</Text>;\n' +
+        '}\n',
     }),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
   {
     // The alias resolver's own precision: `statusKey` here returns key
@@ -786,36 +802,36 @@ const cases = [
     // that does not exist, and the guard must NOT resolve it (which would be
     // guessing at which branch runs) — it must stay green, counting the call
     // as unreadable rather than either failing on it or vouching for it.
-    name: "a multi-branch key-returning helper is not treated as an alias and does not fail",
+    name: 'a multi-branch key-returning helper is not treated as an alias and does not fail',
     files: migratedTree({
-      "packages/dashboard/lib/labels.ts":
-        "export function statusKey(status) {\n"
-        + '  if (status === "paid") return "orders.status.paid";\n'
-        + '  return "orders.status.doesNotExist";\n'
-        + "}\n",
-      "packages/dashboard/components/StatusBadge.tsx":
-        'import { useTranslation } from "@/lib/i18n";\n'
-        + 'import { statusKey } from "../lib/labels";\n'
-        + "export function StatusBadge({ status }) {\n"
-        + "  const { t } = useTranslation();\n"
-        + "  return <Text>{t(statusKey(status))}</Text>;\n"
-        + "}\n",
+      'packages/dashboard/lib/labels.ts':
+        'export function statusKey(status) {\n' +
+        '  if (status === "paid") return "orders.status.paid";\n' +
+        '  return "orders.status.doesNotExist";\n' +
+        '}\n',
+      'packages/dashboard/components/StatusBadge.tsx':
+        'import { useTranslation } from "@/lib/i18n";\n' +
+        'import { statusKey } from "../lib/labels";\n' +
+        'export function StatusBadge({ status }) {\n' +
+        '  const { t } = useTranslation();\n' +
+        '  return <Text>{t(statusKey(status))}</Text>;\n' +
+        '}\n',
     }),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
   {
-    name: "a key nothing references fails — the label-map regression",
+    name: 'a key nothing references fails — the label-map regression',
     // The shape a reviewer would not catch: the map goes back to English, the
     // JSX still renders, and the key it used to name is now dead.
     files: (() => {
       const files = migratedTree();
-      files["packages/dashboard/app/(app)/index.tsx"] = files[
-        "packages/dashboard/app/(app)/index.tsx"
-      ].replace('<Text>{t("orders.status.paid")}</Text>', "<Text>{STATUS.paid}</Text>");
-      files["packages/pos/app/(app)/index.tsx"] = files["packages/pos/app/(app)/index.tsx"].replace(
+      files['packages/dashboard/app/(app)/index.tsx'] = files[
+        'packages/dashboard/app/(app)/index.tsx'
+      ].replace('<Text>{t("orders.status.paid")}</Text>', '<Text>{STATUS.paid}</Text>');
+      files['packages/pos/app/(app)/index.tsx'] = files['packages/pos/app/(app)/index.tsx'].replace(
         '<Text>{t("orders.status.paid")}</Text>',
-        "<Text>{STATUS.paid}</Text>",
+        '<Text>{STATUS.paid}</Text>',
       );
       return files;
     })(),
@@ -833,18 +849,20 @@ const cases = [
     // sees it, because the key it used to name is now referenced by nothing.
     files: (() => {
       const files = migratedTree();
-      files["packages/ui/src/lib/condition.ts"] = files["packages/ui/src/lib/condition.ts"]
-        .replace('new: "ui.condition.label.new"', 'new: "New"');
+      files['packages/ui/src/lib/condition.ts'] = files['packages/ui/src/lib/condition.ts'].replace(
+        'new: "ui.condition.label.new"',
+        'new: "New"',
+      );
       return files;
     })(),
     expectExit: 1,
     expectOutput: '"ui.condition.label.new" is named by no string literal in packages/ui',
   },
   {
-    name: "a shared sentence missing from one locale fails",
+    name: 'a shared sentence missing from one locale fails',
     files: (() => {
       const files = migratedTree();
-      files["packages/ui/src/i18n/locales/de.json"] = sharedBundle((value) => {
+      files['packages/ui/src/i18n/locales/de.json'] = sharedBundle((value) => {
         delete value.ui.condition.label.new;
         return value;
       });
@@ -863,23 +881,23 @@ const cases = [
     // @mercaria/ui fails the build instead of shipping in English to the eleven
     // languages that cannot read it.
     files: migratedTree({
-      "packages/ui/src/components/StillEnglish.tsx":
+      'packages/ui/src/components/StillEnglish.tsx':
         'export const S = () => <Empty title="Nothing here" body="Try another filter." />;\n',
     }),
     expectExit: 1,
-    expectOutput: "hardcoded user-facing string",
+    expectOutput: 'hardcoded user-facing string',
   },
   {
-    name: "an app bundle claiming the reserved `ui` namespace fails",
+    name: 'an app bundle claiming the reserved `ui` namespace fails',
     files: (() => {
       const files = migratedTree();
-      files["packages/dashboard/lib/i18n/locales/en.json"] = bundle((value) => {
-        value.ui = { somethingElse: "Hello" };
+      files['packages/dashboard/lib/i18n/locales/en.json'] = bundle((value) => {
+        value.ui = { somethingElse: 'Hello' };
         return value;
       });
       for (const locale of APP_LOCALES.dashboard) {
         files[`packages/dashboard/lib/i18n/locales/${locale}.json`] = bundle((value) => {
-          value.ui = { somethingElse: "Hello" };
+          value.ui = { somethingElse: 'Hello' };
           return value;
         });
       }
@@ -903,28 +921,28 @@ const cases = [
     files: (() => {
       const files = migratedTree();
       const claimNamespace = (value) => {
-        value.ui = { somethingElse: "Hello" };
+        value.ui = { somethingElse: 'Hello' };
         return value;
       };
-      files["packages/frontend/lib/i18n/locales/en.json"] = bundle(claimNamespace);
+      files['packages/frontend/lib/i18n/locales/en.json'] = bundle(claimNamespace);
       for (const locale of APP_LOCALES.frontend) {
         files[`packages/frontend/lib/i18n/locales/${locale}.json`] = bundle(claimNamespace);
       }
-      files["packages/frontend/app/index.tsx"] = files["packages/frontend/app/index.tsx"].replace(
+      files['packages/frontend/app/index.tsx'] = files['packages/frontend/app/index.tsx'].replace(
         '<Text>{t("nav.register")}</Text>',
         '<Text>{t("nav.register")}</Text>\n    <Text>{t("ui.somethingElse")}</Text>',
       );
       return files;
     })(),
     expectExit: 1,
-    expectOutput: "packages/frontend/lib/i18n/locales/en.json: has a top-level \"ui\" key",
+    expectOutput: 'packages/frontend/lib/i18n/locales/en.json: has a top-level "ui" key',
   },
   {
-    name: "a shared bundle with a key outside the reserved namespace fails",
+    name: 'a shared bundle with a key outside the reserved namespace fails',
     files: (() => {
       const files = migratedTree();
-      files["packages/ui/src/i18n/locales/en.json"] = sharedBundle((value) => {
-        value.loose = { key: "Escaped the namespace" };
+      files['packages/ui/src/i18n/locales/en.json'] = sharedBundle((value) => {
+        value.loose = { key: 'Escaped the namespace' };
         return value;
       });
       return files;
@@ -933,51 +951,51 @@ const cases = [
     expectOutput: 'only top-level key must be "ui"',
   },
   {
-    name: "an app root that stops mounting the provider fails, import intact",
+    name: 'an app root that stops mounting the provider fails, import intact',
     // The regression a substring check cannot see, and the one that actually
     // happens: somebody refactors the tree and the element goes while the
     // import stays. Every shared sentence then falls back to English silently.
     files: (() => {
       const files = migratedTree();
-      files["packages/pos/app/_layout.tsx"] = rootLayout()
-        .replace("    <SharedUiTranslationProvider t={t}>\n", "")
-        .replace("    </SharedUiTranslationProvider>\n", "");
+      files['packages/pos/app/_layout.tsx'] = rootLayout()
+        .replace('    <SharedUiTranslationProvider t={t}>\n', '')
+        .replace('    </SharedUiTranslationProvider>\n', '');
       return files;
     })(),
     expectExit: 1,
-    expectOutput: "packages/pos/app/_layout.tsx: does not mount <SharedUiTranslationProvider>",
+    expectOutput: 'packages/pos/app/_layout.tsx: does not mount <SharedUiTranslationProvider>',
   },
   {
-    name: "a NEW app is covered by D and E without editing the guard",
+    name: 'a NEW app is covered by D and E without editing the guard',
     // Both populations are derived from the tracked listing. A hand list would
     // report this tree clean — and "found fewer roots" reads exactly like
     // "there are fewer roots".
     files: migratedTree({
-      "packages/kiosk/app/_layout.tsx":
-        "export default function RootLayout() { return <Stack />; }\n",
+      'packages/kiosk/app/_layout.tsx':
+        'export default function RootLayout() { return <Stack />; }\n',
     }),
     expectExit: 1,
-    expectOutput: "packages/kiosk/app/_layout.tsx: does not mount <SharedUiTranslationProvider>",
+    expectOutput: 'packages/kiosk/app/_layout.tsx: does not mount <SharedUiTranslationProvider>',
   },
 
   // ------------------------------------------------------ the meta failures ---
 
   {
-    name: "the guard carries no exception list to go stale",
+    name: 'the guard carries no exception list to go stale',
     // Asserted on the SOURCE rather than by a fixture: the design decision is
     // that there is nothing to excuse, so the failure to catch is somebody
     // adding a list back and quietly excusing a screen.
-    guardSourceMustNotContain: ["KNOWN_EXCEPTIONS"],
+    guardSourceMustNotContain: ['KNOWN_EXCEPTIONS'],
     files: migratedTree(),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
   {
-    name: "a broken file listing cannot pass silently (vacuity floors)",
+    name: 'a broken file listing cannot pass silently (vacuity floors)',
     files: migratedTree(),
     realFloors: true,
     expectExit: 1,
-    expectOutput: "below the 60 floor",
+    expectOutput: 'below the 60 floor',
   },
   {
     // #528. `hardcodedStrings: false` discarded an owner's check-A findings with
@@ -986,11 +1004,11 @@ const cases = [
     // on the SOURCE, like the exception-list case above and for the same reason:
     // the failure to catch is somebody restoring the boolean, and no fixture
     // tree can see a decision that was made in the config.
-    name: "no owner disables check A outright — a mid-extraction owner pins a COUNT",
-    guardSourceMustNotContain: ["hardcodedStrings: false"],
+    name: 'no owner disables check A outright — a mid-extraction owner pins a COUNT',
+    guardSourceMustNotContain: ['hardcodedStrings: false'],
     files: migratedTree(),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
   {
     // The pin is skipped on a fixture tree (`fixtureFloors`), so `realFloors` is
@@ -1008,52 +1026,52 @@ const cases = [
     name: "a mid-extraction owner's pinned hardcoded count is compared, not carried",
     patchGuard: (source) => {
       const patched = source.replace(
-        "    hardcodedStrings: true,\n    // Check F is off here",
-        "    hardcodedStrings: 999,\n    // Check F is off here",
+        '    hardcodedStrings: true,\n    // Check F is off here',
+        '    hardcodedStrings: 999,\n    // Check F is off here',
       );
-      if (patched === source) throw new Error("patchGuard: the `ui` owner anchor moved");
+      if (patched === source) throw new Error('patchGuard: the `ui` owner anchor moved');
       return patched;
     },
     files: migratedTree(),
     realFloors: true,
     expectExit: 1,
-    expectOutput: "expected exactly 999",
+    expectOutput: 'expected exactly 999',
   },
   {
-    name: "a missing en.json is a loud failure",
+    name: 'a missing en.json is a loud failure',
     files: (() => {
       const files = migratedTree();
-      delete files["packages/pos/lib/i18n/locales/en.json"];
+      delete files['packages/pos/lib/i18n/locales/en.json'];
       return files;
     })(),
     expectExit: 1,
-    expectOutput: "is missing",
+    expectOutput: 'is missing',
   },
   {
-    name: "a tracked file the working tree lost is a loud failure, not a stack trace",
+    name: 'a tracked file the working tree lost is a loud failure, not a stack trace',
     files: migratedTree({
-      "packages/dashboard/components/vanished.tsx":
+      'packages/dashboard/components/vanished.tsx':
         'export const K = () => <Text>{t("common.save")}</Text>;\n',
     }),
-    removeAfterAdd: ["packages/dashboard/components/vanished.tsx"],
+    removeAfterAdd: ['packages/dashboard/components/vanished.tsx'],
     expectExit: 1,
-    expectOutput: "could not be read",
+    expectOutput: 'could not be read',
   },
   {
     // I (#542). Through the REAL guard on a REAL file listing rather than only
     // through the in-process controls, because the two can come apart: the
     // controls call `analyseSource` directly, and the population it fires on is
     // assembled by the caller.
-    name: "a key map rendered without t() fails — the #542 regression",
+    name: 'a key map rendered without t() fails — the #542 regression',
     files: migratedTree({
-      "packages/dashboard/lib/status-labels.ts":
+      'packages/dashboard/lib/status-labels.ts':
         'export const STATUS_KEYS = { paid: "orders.status.paid" };\n',
-      "packages/dashboard/app/(app)/keys.tsx":
-        'import { STATUS_KEYS } from "@/lib/status-labels";\n'
-        + "export const S = ({ order }) => <Text>{STATUS_KEYS[order.status]}</Text>;\n",
+      'packages/dashboard/app/(app)/keys.tsx':
+        'import { STATUS_KEYS } from "@/lib/status-labels";\n' +
+        'export const S = ({ order }) => <Text>{STATUS_KEYS[order.status]}</Text>;\n',
     }),
     expectExit: 1,
-    expectOutput: "renders a TRANSLATION KEY, not a sentence",
+    expectOutput: 'renders a TRANSLATION KEY, not a sentence',
   },
   {
     // The other half, and the one that decides whether this check survives its
@@ -1061,23 +1079,23 @@ const cases = [
     // legitimate shapes at once — returned, held in a record, bound to a const,
     // and tested for presence — because the rule keyed on "a read outside `t(`"
     // fires on every one of them and reports 33 findings on the real tree.
-    name: "a key legitimately in flight to t() does NOT fire check I",
+    name: 'a key legitimately in flight to t() does NOT fire check I',
     files: migratedTree({
-      "packages/dashboard/lib/status-labels.ts":
-        'export const STATUS_KEYS = { paid: "orders.status.paid" };\n'
-        + "export function statusKey(s) { return STATUS_KEYS[s]; }\n"
-        + 'export const ROWS = [{ key: "paid", labelKey: STATUS_KEYS.paid }];\n',
-      "packages/dashboard/app/(app)/keys.tsx":
-        'import { STATUS_KEYS } from "@/lib/status-labels";\n'
-        + "export const A = ({ order }) => {\n"
-        + "  const copy = STATUS_KEYS[order.status];\n"
-        + "  return <Text>{t(copy)}</Text>;\n"
-        + "};\n"
-        + "export const B = ({ order }) => "
-        + "<Text>{STATUS_KEYS[order.status] ? t(STATUS_KEYS[order.status]) : null}</Text>;\n",
+      'packages/dashboard/lib/status-labels.ts':
+        'export const STATUS_KEYS = { paid: "orders.status.paid" };\n' +
+        'export function statusKey(s) { return STATUS_KEYS[s]; }\n' +
+        'export const ROWS = [{ key: "paid", labelKey: STATUS_KEYS.paid }];\n',
+      'packages/dashboard/app/(app)/keys.tsx':
+        'import { STATUS_KEYS } from "@/lib/status-labels";\n' +
+        'export const A = ({ order }) => {\n' +
+        '  const copy = STATUS_KEYS[order.status];\n' +
+        '  return <Text>{t(copy)}</Text>;\n' +
+        '};\n' +
+        'export const B = ({ order }) => ' +
+        '<Text>{STATUS_KEYS[order.status] ? t(STATUS_KEYS[order.status]) : null}</Text>;\n',
     }),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
   {
     // J (#530). The pin is skipped on a fixture tree, so `realFloors` is the
@@ -1105,14 +1123,14 @@ const cases = [
     // where the case below asserts it for one whose residual was just cleared.
     name: "check J's pinned wire-identifier count is compared, not carried",
     files: migratedTree({
-      "packages/pos/app/(app)/receipt.tsx":
-        "export const A = ({ order }) => <View>\n"
-        + "  <Text>{order.status}</Text>\n"
-        + "</View>;\n",
+      'packages/pos/app/(app)/receipt.tsx':
+        'export const A = ({ order }) => <View>\n' +
+        '  <Text>{order.status}</Text>\n' +
+        '</View>;\n',
     }),
     realFloors: true,
     expectExit: 1,
-    expectOutput: "packages/pos: 1 wire identifier(s) rendered raw to a reader, expected exactly 0",
+    expectOutput: 'packages/pos: 1 wire identifier(s) rendered raw to a reader, expected exactly 0',
   },
   {
     // I's vacuity floor, same technique and same reason. A fixture tree carries
@@ -1122,7 +1140,7 @@ const cases = [
     files: migratedTree(),
     realFloors: true,
     expectExit: 1,
-    expectOutput: "renderable key map(s), below the",
+    expectOutput: 'renderable key map(s), below the',
   },
   {
     // K's residual pin, same technique as J's above and for the same reason: on
@@ -1132,7 +1150,7 @@ const cases = [
     files: migratedTree(),
     realFloors: true,
     expectExit: 1,
-    expectOutput: "missing for a category the locale CAN select, expected exactly",
+    expectOutput: 'missing for a category the locale CAN select, expected exactly',
   },
   {
     // K's vacuity floor. A fixture bundle holds one plural key, so under
@@ -1143,7 +1161,7 @@ const cases = [
     files: migratedTree(),
     realFloors: true,
     expectExit: 1,
-    expectOutput: "plural key(s) in",
+    expectOutput: 'plural key(s) in',
   },
   {
     // J's negative half, through the real guard: the two field names measured
@@ -1159,19 +1177,19 @@ const cases = [
     // read as coverage. Pinning the count instead asserts BOTH directions in one
     // case: the real defect below counts, and the two verbatim spellings beside
     // it do not.
-    name: "check J counts a wire enum and NOT a verbatim code or currency",
+    name: 'check J counts a wire enum and NOT a verbatim code or currency',
     files: migratedTree({
-      "packages/dashboard/app/(app)/codes.tsx":
-        "export const A = ({ code, price, order }) => <View>\n"
-        + "  <Text>{code.code}</Text>\n"
-        + "  <Text>{price.currency}</Text>\n"
-        + "  <Text>{code.label}</Text>\n"
-        + "  <Text>{order.status}</Text>\n"
-        + "</View>;\n",
+      'packages/dashboard/app/(app)/codes.tsx':
+        'export const A = ({ code, price, order }) => <View>\n' +
+        '  <Text>{code.code}</Text>\n' +
+        '  <Text>{price.currency}</Text>\n' +
+        '  <Text>{code.label}</Text>\n' +
+        '  <Text>{order.status}</Text>\n' +
+        '</View>;\n',
     }),
     realFloors: true,
     expectExit: 1,
-    expectOutput: "packages/dashboard: 1 wire identifier(s) rendered raw to a reader",
+    expectOutput: 'packages/dashboard: 1 wire identifier(s) rendered raw to a reader',
   },
   {
     // J''s pin, J's technique and J's reason: on a fixture tree the pin is
@@ -1180,15 +1198,15 @@ const cases = [
     // no residual — the one where a broken detector is invisible.
     name: "check J's fallback pin is compared, not carried",
     files: migratedTree({
-      "packages/pos/app/(app)/receipt.tsx":
-        "export const A = ({ order, K }) => <View>\n"
-        + "  <Text>{K[order.status] ? K[order.status] : order.status}</Text>\n"
-        + "</View>;\n",
+      'packages/pos/app/(app)/receipt.tsx':
+        'export const A = ({ order, K }) => <View>\n' +
+        '  <Text>{K[order.status] ? K[order.status] : order.status}</Text>\n' +
+        '</View>;\n',
     }),
     realFloors: true,
     expectExit: 1,
     expectOutput:
-      "packages/pos: 1 key lookup(s) falling back to the raw subscript, expected exactly 0",
+      'packages/pos: 1 key lookup(s) falling back to the raw subscript, expected exactly 0',
   },
   {
     // J''s negative half, through the real guard and asserted as a COUNT for the
@@ -1199,16 +1217,16 @@ const cases = [
     // that fired on either is the version somebody switches off.
     name: "check J' counts a subscript fallback and NOT a key or empty fallback",
     files: migratedTree({
-      "packages/dashboard/app/(app)/fallbacks.tsx":
-        "export const A = ({ K, UNKNOWN_KEY, item, warning }) => <View>\n"
-        + "  <Text>{K[item] ?? UNKNOWN_KEY}</Text>\n"
-        + '  <Text>{K[warning] ? K[warning] : ""}</Text>\n'
-        + "  <Text>{K[item] ?? item}</Text>\n"
-        + "</View>;\n",
+      'packages/dashboard/app/(app)/fallbacks.tsx':
+        'export const A = ({ K, UNKNOWN_KEY, item, warning }) => <View>\n' +
+        '  <Text>{K[item] ?? UNKNOWN_KEY}</Text>\n' +
+        '  <Text>{K[warning] ? K[warning] : ""}</Text>\n' +
+        '  <Text>{K[item] ?? item}</Text>\n' +
+        '</View>;\n',
     }),
     realFloors: true,
     expectExit: 1,
-    expectOutput: "packages/dashboard: 1 key lookup(s) falling back to the raw subscript",
+    expectOutput: 'packages/dashboard: 1 key lookup(s) falling back to the raw subscript',
   },
   // --------------------------------------------------- L: no blank value ---
   //
@@ -1218,11 +1236,11 @@ const cases = [
   // to A, B, C, D, E, F, G, G' and K together.
 
   {
-    name: "an EMPTY sibling value fails (L)",
+    name: 'an EMPTY sibling value fails (L)',
     files: (() => {
       const files = migratedTree();
-      files["packages/dashboard/lib/i18n/locales/de.json"] = bundle((value) => {
-        value.common.save = "";
+      files['packages/dashboard/lib/i18n/locales/de.json'] = bundle((value) => {
+        value.common.save = '';
         return value;
       });
       return files;
@@ -1233,15 +1251,15 @@ const cases = [
     expectOutput: 'packages/dashboard/lib/i18n/locales/de.json: "common.save" is EMPTY',
   },
   {
-    name: "a WHITESPACE-ONLY sibling value fails (L)",
+    name: 'a WHITESPACE-ONLY sibling value fails (L)',
     // Separate from the case above rather than folded into it: `""` and `"   "`
     // reach the predicate by different routes (`length === 0` versus
     // `trim().length === 0`), so a check written with `=== ""` passes this one
     // while claiming to cover both.
     files: (() => {
       const files = migratedTree();
-      files["packages/dashboard/lib/i18n/locales/de.json"] = bundle((value) => {
-        value.common.save = "   ";
+      files['packages/dashboard/lib/i18n/locales/de.json'] = bundle((value) => {
+        value.common.save = '   ';
         return value;
       });
       return files;
@@ -1250,15 +1268,15 @@ const cases = [
     expectOutput: 'packages/dashboard/lib/i18n/locales/de.json: "common.save" is WHITESPACE-ONLY',
   },
   {
-    name: "a blank ENGLISH value fails too (L)",
+    name: 'a blank ENGLISH value fails too (L)',
     // The English bundle is what the other eleven fall back to, so a blank there
     // is blank in every language at once — and a loop written to skip `en`, the
     // way check B's parity loop correctly does, would miss the worst case while
     // catching the milder ones.
     files: (() => {
       const files = migratedTree();
-      files["packages/dashboard/lib/i18n/locales/en.json"] = bundle((value) => {
-        value.common.cancel = "";
+      files['packages/dashboard/lib/i18n/locales/en.json'] = bundle((value) => {
+        value.common.cancel = '';
         return value;
       });
       return files;
@@ -1281,20 +1299,23 @@ const cases = [
     //
     // So this case pins the boundary: L is about a value with no CONTENT, never
     // about a value with the WRONG content, which no static check can decide.
-    files: treeWithBundle((value) => {
-      value.channelName = "Shopify";
-      return value;
-    }, {
-      // Dashboard only: `treeWithBundle` mutates the DASHBOARD's bundles, so a
-      // call site in another app would name a key that app's en.json lacks and
-      // this case would go red on check C instead of on L.
-      "packages/dashboard/app/(app)/channel.tsx":
-        'import { useTranslation } from "@/lib/i18n";\n'
-        + "export default function S() { const { t } = useTranslation();\n"
-        + '  return <View><Text>{t("channelName")}</Text></View>; }\n',
-    }),
+    files: treeWithBundle(
+      (value) => {
+        value.channelName = 'Shopify';
+        return value;
+      },
+      {
+        // Dashboard only: `treeWithBundle` mutates the DASHBOARD's bundles, so a
+        // call site in another app would name a key that app's en.json lacks and
+        // this case would go red on check C instead of on L.
+        'packages/dashboard/app/(app)/channel.tsx':
+          'import { useTranslation } from "@/lib/i18n";\n' +
+          'export default function S() { const { t } = useTranslation();\n' +
+          '  return <View><Text>{t("channelName")}</Text></View>; }\n',
+      },
+    ),
     expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectOutput: 'i18n string guard passed',
   },
 ];
 
@@ -1305,32 +1326,32 @@ const cases = [
  * green, since none of them depends on the controls existing.
  */
 async function assertGuardSource() {
-  const source = await readFile(validator, "utf8");
+  const source = await readFile(validator, 'utf8');
   const required = [
-    "CONTROL_MUST_FIND",
-    "CONTROL_MUST_NOT_FIND",
+    'CONTROL_MUST_FIND',
+    'CONTROL_MUST_NOT_FIND',
     // #437's own detector has its own pair, and its negative half is the one
     // that matters: it is what stops `mountsSharedUiProvider` degrading into a
     // substring match that an import alone satisfies.
-    "PROVIDER_CONTROL_MOUNTED",
-    "PROVIDER_CONTROL_NOT_MOUNTED",
+    'PROVIDER_CONTROL_MOUNTED',
+    'PROVIDER_CONTROL_NOT_MOUNTED',
     // #436's pair. `PLURAL_SHAPE_CONTROLS` exercises K's own clauses; the sweep
     // is the one that cannot be replaced by a fixture, because what it asserts
     // is that the guard's permitted set and the RUNTIME's chain are still the
     // same fact — a property of two modules, not of any tree.
-    "PLURAL_SHAPE_CONTROLS",
-    "PLURAL_SWEEP_COUNTS",
+    'PLURAL_SHAPE_CONTROLS',
+    'PLURAL_SWEEP_COUNTS',
     // #596's pair. All four of J''s owner pins are 0 or a frozen residual, so
     // nothing in the real tree would go red if the detector broke — these are
     // the whole of what keeps those four numbers meaningful.
-    "WIRE_FALLBACK_MUST_FIND",
-    "WIRE_FALLBACK_MUST_NOT_FIND",
-    "positive control failed",
-    "negative control failed",
+    'WIRE_FALLBACK_MUST_FIND',
+    'WIRE_FALLBACK_MUST_NOT_FIND',
+    'positive control failed',
+    'negative control failed',
   ];
   const missing = required.filter((token) => !source.includes(token));
   if (missing.length > 0) {
-    return `guard source no longer carries ${missing.join(", ")} — its self-controls were removed`;
+    return `guard source no longer carries ${missing.join(', ')} — its self-controls were removed`;
   }
   return null;
 }
@@ -1352,29 +1373,33 @@ async function assertGuardSource() {
  */
 async function assertCheckFCatchesTheRealDefect() {
   const target = resolve(
-    repositoryRoot, "packages/dashboard/app/(app)/channels/[connectionId].tsx",
+    repositoryRoot,
+    'packages/dashboard/app/(app)/channels/[connectionId].tsx',
   );
-  const original = await readFile(target, "utf8");
+  const original = await readFile(target, 'utf8');
   // The screen's quote style is the formatter's decision (Biome: single), so the
   // premise and the mutation follow whichever one the file spells.
   const q = original.includes("{t('channels.disconnect.intro')}") ? "'" : '"';
   const FIXED = `{t(${q}channels.disconnect.intro${q})}`;
-  const REGRESSED = `{t(${q}channels.disconnect.intro${q}, {\n`
-    + "            policy: t(DISCONNECT_POLICY_LABEL_KEYS[policy]).toLowerCase(),\n"
-    + "          })}";
+  const REGRESSED =
+    `{t(${q}channels.disconnect.intro${q}, {\n` +
+    '            policy: t(DISCONNECT_POLICY_LABEL_KEYS[policy]).toLowerCase(),\n' +
+    '          })}';
 
   // Measure the premise before relying on it: if the screen no longer spells the
   // fixed form, this test would "pass" by mutating nothing.
   if (!original.includes(FIXED)) {
-    return `${target} does not contain ${FIXED} — the premise of this mutation is gone, `
-      + "so a green run here would mean nothing";
+    return (
+      `${target} does not contain ${FIXED} — the premise of this mutation is gone, ` +
+      'so a green run here would mean nothing'
+    );
   }
 
   try {
     await writeFile(target, original.replace(FIXED, REGRESSED));
-    const mutated = await readFile(target, "utf8");
-    if (mutated === original) return "the mutation did not apply — the file is byte-identical";
-    if (!mutated.includes("DISCONNECT_POLICY_LABEL_KEYS[policy]).toLowerCase()")) {
+    const mutated = await readFile(target, 'utf8');
+    if (mutated === original) return 'the mutation did not apply — the file is byte-identical';
+    if (!mutated.includes('DISCONNECT_POLICY_LABEL_KEYS[policy]).toLowerCase()')) {
       return "the mutation applied but does not carry #442's shape";
     }
 
@@ -1389,23 +1414,25 @@ async function assertCheckFCatchesTheRealDefect() {
       return "check F did not fail on #442's own defect, reintroduced into its own file";
     }
     for (const expected of [
-      "channels.disconnect.policy.keepListings",
+      'channels.disconnect.policy.keepListings',
       "is BOTH an action control's label and a value interpolated into a sentence",
-      "SegmentedControlItem",
+      'SegmentedControlItem',
     ]) {
       if (!output.includes(expected)) {
-        return `the guard failed but never mentioned ${JSON.stringify(expected)} — `
-          + "it went red for some other reason";
+        return (
+          `the guard failed but never mentioned ${JSON.stringify(expected)} — ` +
+          'it went red for some other reason'
+        );
       }
     }
   } finally {
     await writeFile(target, original);
   }
 
-  const restored = await readFile(target, "utf8");
-  if (restored !== original) return "the file was NOT restored byte-for-byte";
+  const restored = await readFile(target, 'utf8');
+  if (restored !== original) return 'the file was NOT restored byte-for-byte';
   if (!restored.includes(FIXED) || restored.includes(REGRESSED)) {
-    return "the restore left the mutation behind";
+    return 'the restore left the mutation behind';
   }
   // The restore is only proven by the guard going green again: a file that was
   // rewritten wrongly would still differ from `original` in ways this test's own
@@ -1417,7 +1444,7 @@ async function assertCheckFCatchesTheRealDefect() {
   });
   refuseOnCrash(after, "check F's restore verification");
   if (after.exitCode !== 0) {
-    return "the guard is still red after the restore — the working tree was left mutated";
+    return 'the guard is still red after the restore — the working tree was left mutated';
   }
   return null;
 }
@@ -1441,7 +1468,7 @@ for (const testCase of cases) {
     problems.push(`expected output to contain ${JSON.stringify(testCase.expectOutput)}`);
   }
   for (const token of testCase.guardSourceMustNotContain ?? []) {
-    if ((await readFile(validator, "utf8")).includes(token)) {
+    if ((await readFile(validator, 'utf8')).includes(token)) {
       problems.push(`the guard source still carries ${token}`);
     }
   }
@@ -1450,7 +1477,7 @@ for (const testCase of cases) {
     failed += 1;
     console.error(`FAIL  ${testCase.name}`);
     for (const problem of problems) console.error(`        ${problem}`);
-    console.error(`        --- guard output ---\n${output.replace(/^/gm, "        ")}`);
+    console.error(`        --- guard output ---\n${output.replace(/^/gm, '        ')}`);
   } else {
     console.log(`ok    ${testCase.name}`);
   }
@@ -1461,7 +1488,7 @@ if (sourceProblem) {
   failed += 1;
   console.error(`FAIL  the guard keeps its own controls\n        ${sourceProblem}`);
 } else {
-  console.log("ok    the guard keeps its own controls");
+  console.log('ok    the guard keeps its own controls');
 }
 
 const realTreeProblem = await assertCheckFCatchesTheRealDefect();
@@ -1469,7 +1496,7 @@ if (realTreeProblem) {
   failed += 1;
   console.error(`FAIL  check F catches #442 in the real tree\n        ${realTreeProblem}`);
 } else {
-  console.log("ok    check F catches #442 in the real tree");
+  console.log('ok    check F catches #442 in the real tree');
 }
 
 if (failed > 0) {

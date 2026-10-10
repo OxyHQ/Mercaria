@@ -203,9 +203,7 @@ export async function transitionSupplierRecovery(
     .set({
       state: input.to,
       ...(input.creditedAmount === undefined ? {} : { creditedAmount: input.creditedAmount }),
-      ...(input.creditedCurrency === undefined
-        ? {}
-        : { creditedCurrency: input.creditedCurrency }),
+      ...(input.creditedCurrency === undefined ? {} : { creditedCurrency: input.creditedCurrency }),
       ...(input.creditNoteReference === undefined
         ? {}
         : { creditNoteReference: input.creditNoteReference }),

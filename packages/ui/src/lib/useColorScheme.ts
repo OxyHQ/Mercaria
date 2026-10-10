@@ -15,8 +15,7 @@ export function useColorScheme() {
   const { mode, setMode } = useBloomTheme();
   const theme = useTheme();
 
-  const effectiveMode: Exclude<ThemeMode, 'adaptive'> =
-    mode === 'adaptive' ? 'system' : mode;
+  const effectiveMode: Exclude<ThemeMode, 'adaptive'> = mode === 'adaptive' ? 'system' : mode;
   // NativeWind's `colorScheme` is `ColorSchemeName` ('light' | 'dark' |
   // 'unspecified' | null | undefined); collapse anything that is not an
   // explicit 'dark' to 'light' for the system case.

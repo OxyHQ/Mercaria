@@ -56,22 +56,14 @@ router.post('/', validateBody(saveProductSchema), saveProductHandler);
  * buyer never saved — which is what "idempotent under repeated taps" needs at
  * the HTTP layer as well as in the database.
  */
-router.get(
-  '/:canonicalProductId',
-  validateId('canonicalProductId'),
-  getProductSaveHandler,
-);
+router.get('/:canonicalProductId', validateId('canonicalProductId'), getProductSaveHandler);
 router.patch(
   '/:canonicalProductId',
   validateId('canonicalProductId'),
   validateBody(updateProductSaveSchema),
   updateProductSaveHandler,
 );
-router.delete(
-  '/:canonicalProductId',
-  validateId('canonicalProductId'),
-  unsaveProductHandler,
-);
+router.delete('/:canonicalProductId', validateId('canonicalProductId'), unsaveProductHandler);
 
 /**
  * The ONE route keyed on a save id, because a split resolution is about one

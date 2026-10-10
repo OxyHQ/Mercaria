@@ -875,8 +875,7 @@ export const CHANNEL_COLLECTION_MAPPING_STATES = [
   'target_automated',
 ] as const;
 
-export type ChannelCollectionMappingState =
-  (typeof CHANNEL_COLLECTION_MAPPING_STATES)[number];
+export type ChannelCollectionMappingState = (typeof CHANNEL_COLLECTION_MAPPING_STATES)[number];
 
 /** One stored mapping row, resolved against both ends. */
 export interface ChannelCollectionMappingRow {

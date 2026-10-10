@@ -145,7 +145,10 @@ export async function recordSupplierProviderEvent(
         .insert(supplierProviderEvents)
         .values(values)
         .onConflictDoNothing({
-          target: [supplierProviderEvents.supplierAccountId, supplierProviderEvents.providerEventId],
+          target: [
+            supplierProviderEvents.supplierAccountId,
+            supplierProviderEvents.providerEventId,
+          ],
           where: sql`${supplierProviderEvents.providerEventId} is not null`,
         })
         .returning(PUBLIC_PROVIDER_EVENT_COLUMNS)

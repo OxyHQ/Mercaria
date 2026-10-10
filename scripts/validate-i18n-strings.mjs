@@ -206,11 +206,11 @@
  * Usage:  bun scripts/validate-i18n-strings.mjs
  */
 
-import { spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { spawnSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // The REAL runtime module, imported and RUN rather than described — the
 // `validate-rtl-direction.mjs` idiom, and the only thing that makes check K's
@@ -223,8 +223,8 @@ import {
   cldrCardinalCategories,
   pluralCategoryChain,
   selectablePluralCategories,
-} from "../packages/ui/src/i18n/plurals.ts";
-import { SUPPORTED_LOCALES } from "../packages/ui/src/i18n/locales.ts";
+} from '../packages/ui/src/i18n/plurals.ts';
+import { SUPPORTED_LOCALES } from '../packages/ui/src/i18n/locales.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -234,7 +234,7 @@ const here = dirname(fileURLToPath(import.meta.url));
  */
 const repositoryRoot = process.env.I18N_VALIDATOR_ROOT
   ? resolve(process.env.I18N_VALIDATOR_ROOT)
-  : resolve(here, "..");
+  : resolve(here, '..');
 
 /**
  * Fixture trees are a handful of files and a handful of keys, so the real floors
@@ -242,11 +242,11 @@ const repositoryRoot = process.env.I18N_VALIDATOR_ROOT
  * it never removes them, so a fixture run still catches a traversal that found
  * nothing.
  */
-const fixtureFloors = process.env.I18N_VALIDATOR_FIXTURE_FLOORS === "1";
+const fixtureFloors = process.env.I18N_VALIDATOR_FIXTURE_FLOORS === '1';
 
 // Resolved from THIS repository rather than from the tree being scanned, so a
 // fixture root with no node_modules of its own still parses.
-const ts = createRequire(resolve(here, "../package.json"))("typescript");
+const ts = createRequire(resolve(here, '../package.json'))('typescript');
 
 /**
  * Everything that OWNS a bundle set.
@@ -284,9 +284,9 @@ const ts = createRequire(resolve(here, "../package.json"))("typescript");
  */
 const OWNERS = [
   {
-    name: "frontend",
-    prefix: "packages/frontend/",
-    locales: "packages/frontend/lib/i18n/locales",
+    name: 'frontend',
+    prefix: 'packages/frontend/',
+    locales: 'packages/frontend/lib/i18n/locales',
     hardcodedStrings: true,
     actionLabelCopy: true,
     // Measured on the tree that joined this list (#435b): 194 source files,
@@ -338,9 +338,9 @@ const OWNERS = [
     minimumPluralKeys: 10,
   },
   {
-    name: "dashboard",
-    prefix: "packages/dashboard/",
-    locales: "packages/dashboard/lib/i18n/locales",
+    name: 'dashboard',
+    prefix: 'packages/dashboard/',
+    locales: 'packages/dashboard/lib/i18n/locales',
     hardcodedStrings: true,
     actionLabelCopy: true,
     // Per-owner rather than one total: a traversal that broke for one of them
@@ -383,9 +383,9 @@ const OWNERS = [
     minimumPluralKeys: 15,
   },
   {
-    name: "pos",
-    prefix: "packages/pos/",
-    locales: "packages/pos/lib/i18n/locales",
+    name: 'pos',
+    prefix: 'packages/pos/',
+    locales: 'packages/pos/lib/i18n/locales',
     hardcodedStrings: true,
     actionLabelCopy: true,
     minimumSourceFiles: 30,
@@ -413,9 +413,9 @@ const OWNERS = [
     minimumPluralKeys: 3,
   },
   {
-    name: "ui",
-    prefix: "packages/ui/",
-    locales: "packages/ui/src/i18n/locales",
+    name: 'ui',
+    prefix: 'packages/ui/',
+    locales: 'packages/ui/src/i18n/locales',
     // Measured at 2cf4889d, which is #534's merge — that PR took six sentences
     // out of `commercial-copy.ts` and the pin came down from 156 with it. #437's
     // last three maps then took it 150 -> 149: only ONE, because check A counts
@@ -545,13 +545,13 @@ const OWNERS = [
 ];
 
 /** The reserved top-level key `mergeSharedUiCopy` merges shared copy under. */
-const SHARED_UI_NAMESPACE = "ui";
+const SHARED_UI_NAMESPACE = 'ui';
 
 /** The owner whose bundles ARE the shared copy — the only one that may use it. */
-const SHARED_UI_OWNER = "ui";
+const SHARED_UI_OWNER = 'ui';
 
 /** The component every app's root layout must mount (#437 check E). */
-const SHARED_UI_PROVIDER = "SharedUiTranslationProvider";
+const SHARED_UI_PROVIDER = 'SharedUiTranslationProvider';
 
 /**
  * Every app root, DERIVED from the tracked listing rather than written out.
@@ -582,24 +582,24 @@ const SOURCE_FILE = /\.tsx?$/;
  * flagged `className="px-4"` would be switched off the day it landed.
  */
 const USER_FACING_JSX_ATTRIBUTES = new Set([
-  "accessibilityHint",
-  "accessibilityLabel",
-  "actionLabel",
-  "alt",
-  "body",
-  "cancelText",
-  "confirmText",
-  "description",
-  "emptyText",
-  "heading",
-  "headline",
-  "hint",
-  "label",
-  "message",
-  "placeholder",
-  "submitText",
-  "subtitle",
-  "title",
+  'accessibilityHint',
+  'accessibilityLabel',
+  'actionLabel',
+  'alt',
+  'body',
+  'cancelText',
+  'confirmText',
+  'description',
+  'emptyText',
+  'heading',
+  'headline',
+  'hint',
+  'label',
+  'message',
+  'placeholder',
+  'submitText',
+  'subtitle',
+  'title',
 ]);
 
 /**
@@ -611,18 +611,18 @@ const USER_FACING_JSX_ATTRIBUTES = new Set([
  * more likely to be a handler or a form target.
  */
 const USER_FACING_OBJECT_PROPERTIES = new Set([
-  "action",
-  "actionLabel",
-  "body",
-  "description",
-  "heading",
-  "headline",
-  "hint",
-  "label",
-  "message",
-  "placeholder",
-  "subtitle",
-  "title",
+  'action',
+  'actionLabel',
+  'body',
+  'description',
+  'heading',
+  'headline',
+  'hint',
+  'label',
+  'message',
+  'placeholder',
+  'subtitle',
+  'title',
 ]);
 
 /**
@@ -634,13 +634,13 @@ const USER_FACING_OBJECT_PROPERTIES = new Set([
  * would flag every `fetch`, every query key and every `router.push`.
  */
 const USER_FACING_CALLEES = new Set([
-  "Alert.alert",
-  "Alert.prompt",
-  "toast.error",
-  "toast.info",
-  "toast.success",
-  "toast.warning",
-  "useRailTooltip",
+  'Alert.alert',
+  'Alert.prompt',
+  'toast.error',
+  'toast.info',
+  'toast.success',
+  'toast.warning',
+  'useRailTooltip',
 ]);
 
 /**
@@ -658,14 +658,14 @@ const USER_FACING_CALLEES = new Set([
  * disconnect button read as control labels and F reported two false positives.
  */
 const ACTION_CONTROL_ELEMENTS = new Set([
-  "AlertDialogAction",
-  "AlertDialogCancel",
-  "Button",
-  "DropdownMenuItem",
-  "MenuItem",
-  "SegmentedControlItem",
-  "SelectItem",
-  "TabsTrigger",
+  'AlertDialogAction',
+  'AlertDialogCancel',
+  'Button',
+  'DropdownMenuItem',
+  'MenuItem',
+  'SegmentedControlItem',
+  'SelectItem',
+  'TabsTrigger',
 ]);
 
 /**
@@ -739,9 +739,9 @@ function wireIdentifierFallback(node, sourceFile) {
     lookup = node.condition;
     fallback = node.whenFalse;
   } else if (
-    ts.isBinaryExpression(node)
-    && (node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
-      || node.operatorToken.kind === ts.SyntaxKind.BarBarToken)
+    ts.isBinaryExpression(node) &&
+    (node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken ||
+      node.operatorToken.kind === ts.SyntaxKind.BarBarToken)
   ) {
     lookup = node.left;
     fallback = node.right;
@@ -755,20 +755,20 @@ function wireIdentifierFallback(node, sourceFile) {
 }
 
 const WIRE_ENUM_FIELDS = new Set([
-  "channel",
-  "condition",
-  "country",
-  "kind",
-  "level",
-  "market",
-  "mode",
-  "provider",
-  "reason",
-  "role",
-  "source",
-  "state",
-  "status",
-  "type",
+  'channel',
+  'condition',
+  'country',
+  'kind',
+  'level',
+  'market',
+  'mode',
+  'provider',
+  'reason',
+  'role',
+  'source',
+  'state',
+  'status',
+  'type',
 ]);
 
 /** Below this, the file listing is broken — and a broken listing reports a clean tree. */
@@ -783,8 +783,8 @@ const floorFor = (value) => (fixtureFloors ? 1 : value);
  * this is belt-and-braces against someone moving them.
  */
 const GUARD_OWN_FILES = new Set([
-  "scripts/validate-i18n-strings.mjs",
-  "scripts/test-validate-i18n-strings.mjs",
+  'scripts/validate-i18n-strings.mjs',
+  'scripts/test-validate-i18n-strings.mjs',
 ]);
 
 /**
@@ -816,15 +816,15 @@ const findings = [];
 
 /** Every file git tracks, repo-relative — so ignored and generated files cannot count. */
 function trackedFiles() {
-  const listed = spawnSync("git", ["ls-files", "-z"], {
+  const listed = spawnSync('git', ['ls-files', '-z'], {
     cwd: repositoryRoot,
-    encoding: "utf8",
+    encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   });
   if (listed.status !== 0) {
     throw new Error(`git ls-files failed in ${repositoryRoot}: ${listed.stderr ?? listed.error}`);
   }
-  return listed.stdout.split("\0").filter(Boolean);
+  return listed.stdout.split('\0').filter(Boolean);
 }
 
 const hasLetter = (value) => /\p{L}/u.test(value);
@@ -841,7 +841,7 @@ function literalText(node) {
   if (ts.isStringLiteral(node)) return node.text;
   if (ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)) {
     const chunks = templateChunks(node).filter(hasLetter);
-    return chunks.length > 0 ? chunks.join(" ") : null;
+    return chunks.length > 0 ? chunks.join(' ') : null;
   }
   return null;
 }
@@ -854,9 +854,9 @@ function literalText(node) {
  * Nothing in either app has one, and part C is what keeps the far end honest.
  */
 const isTranslateCall = (node) =>
-  ts.isCallExpression(node)
-  && ((ts.isIdentifier(node.expression) && node.expression.text === "t")
-    || (ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === "t"));
+  ts.isCallExpression(node) &&
+  ((ts.isIdentifier(node.expression) && node.expression.text === 't') ||
+    (ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 't'));
 
 /** The dotted name of a call's callee, for the `Alert.alert` check. */
 function calleeName(node) {
@@ -925,14 +925,19 @@ export function isKeyMap({ flat, byProp }, knownKeys) {
 /** Every module-scope `const X = { … }` in one file, by name. */
 export function collectKeyMaps(relativePath, text) {
   const sourceFile = ts.createSourceFile(
-    relativePath, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX,
+    relativePath,
+    text,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
   );
   const maps = new Map();
   for (const statement of sourceFile.statements) {
     if (!ts.isVariableStatement(statement)) continue;
     for (const declaration of statement.declarationList.declarations) {
       if (!ts.isIdentifier(declaration.name)) continue;
-      if (!declaration.initializer || !ts.isObjectLiteralExpression(declaration.initializer)) continue;
+      if (!declaration.initializer || !ts.isObjectLiteralExpression(declaration.initializer))
+        continue;
       maps.set(declaration.name.text, readKeyMap(declaration.initializer));
     }
   }
@@ -965,7 +970,11 @@ export function collectKeyMaps(relativePath, text) {
  */
 export function collectKeyMapAliases(relativePath, text) {
   const sourceFile = ts.createSourceFile(
-    relativePath, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX,
+    relativePath,
+    text,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
   );
   const aliases = new Map();
   for (const statement of sourceFile.statements) {
@@ -976,7 +985,8 @@ export function collectKeyMapAliases(relativePath, text) {
     const [only, ...rest] = statement.body.statements;
     if (rest.length > 0 || !only || !ts.isReturnStatement(only) || !only.expression) continue;
     const returnExpr = only.expression;
-    if (!ts.isElementAccessExpression(returnExpr) || !ts.isIdentifier(returnExpr.expression)) continue;
+    if (!ts.isElementAccessExpression(returnExpr) || !ts.isIdentifier(returnExpr.expression))
+      continue;
     if (!ts.isIdentifier(returnExpr.argumentExpression)) continue;
     if (returnExpr.argumentExpression.text !== parameter.name.text) continue;
     aliases.set(statement.name.text, returnExpr.expression.text);
@@ -1056,8 +1066,8 @@ function jsxTagName(element) {
 function actionControlAncestor(node) {
   for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent) {
     if (ts.isJsxAttribute(ancestor)) {
-      const readable = ts.isIdentifier(ancestor.name)
-        && USER_FACING_JSX_ATTRIBUTES.has(ancestor.name.text);
+      const readable =
+        ts.isIdentifier(ancestor.name) && USER_FACING_JSX_ATTRIBUTES.has(ancestor.name.text);
       if (!readable) return null;
       const owner = ancestor.parent?.parent;
       if (!owner) return null;
@@ -1096,7 +1106,11 @@ function actionControlAncestor(node) {
  * asserting against a second copy of the rules.
  */
 export function analyseSource(
-  relativePath, text, knownKeys, sharedKeyMaps = new Map(), keyMapNames = new Set(),
+  relativePath,
+  text,
+  knownKeys,
+  sharedKeyMaps = new Map(),
+  keyMapNames = new Set(),
   sharedKeyMapAliases = new Map(),
 ) {
   const sourceFile = ts.createSourceFile(
@@ -1142,7 +1156,8 @@ export function analyseSource(
   // `section-title.ts`) still resolves from `DiscoveryFeed.tsx`, which only
   // reads the shared bag.
   const keyMapAliases = new Map(sharedKeyMapAliases);
-  for (const [name, mapName] of collectKeyMapAliases(relativePath, text)) keyMapAliases.set(name, mapName);
+  for (const [name, mapName] of collectKeyMapAliases(relativePath, text))
+    keyMapAliases.set(name, mapName);
 
   // I: which of those maps hold KEYS rather than anything else a module-scope
   // record might hold. The caller supplies the app-wide answer (a map is
@@ -1162,7 +1177,7 @@ export function analyseSource(
       file: relativePath,
       line: lineOf(node),
       kind,
-      text: value.trim().replace(/\s+/g, " ").slice(0, 120),
+      text: value.trim().replace(/\s+/g, ' ').slice(0, 120),
     });
   };
 
@@ -1203,8 +1218,12 @@ export function analyseSource(
       inspectUserFacing(node.right, kind);
       return;
     }
-    if (ts.isCallExpression(node) || ts.isPropertyAccessExpression(node)
-      || ts.isElementAccessExpression(node) || ts.isIdentifier(node)) {
+    if (
+      ts.isCallExpression(node) ||
+      ts.isPropertyAccessExpression(node) ||
+      ts.isElementAccessExpression(node) ||
+      ts.isIdentifier(node)
+    ) {
       // A value composed elsewhere. Following it is a type-checker's job, not a
       // syntactic guard's; part C is what keeps the far end honest.
       translatedPositions += 1;
@@ -1250,9 +1269,10 @@ export function analyseSource(
       for (const span of node.templateSpans) inspectKeyRender(span.expression, kind);
       return;
     }
-    const isRead = (ts.isElementAccessExpression(node) || ts.isPropertyAccessExpression(node))
-      && ts.isIdentifier(node.expression)
-      && renderableKeyMaps.has(node.expression.text);
+    const isRead =
+      (ts.isElementAccessExpression(node) || ts.isPropertyAccessExpression(node)) &&
+      ts.isIdentifier(node.expression) &&
+      renderableKeyMaps.has(node.expression.text);
     if (isRead) {
       rawKeyRenderSites.push({
         line: lineOf(node),
@@ -1275,15 +1295,18 @@ export function analyseSource(
     // prose containing the literal `toLocaleDateString`, and a text scan would
     // report the file it just cleaned. There is no node for a comment here, so
     // the population is the CALLS.
-    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
-      && DEVICE_LOCALE_METHODS.has(node.expression.name.text)) {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      DEVICE_LOCALE_METHODS.has(node.expression.name.text)
+    ) {
       const first = node.arguments[0];
       // An explicit `undefined` is the device locale exactly as an omitted
       // argument is — the same defect wearing a more deliberate face — so both
       // count. Anything else has NAMED a locale and is what the remedy looks
       // like.
-      const namesNoLocale = first === undefined
-        || (ts.isIdentifier(first) && first.text === "undefined");
+      const namesNoLocale =
+        first === undefined || (ts.isIdentifier(first) && first.text === 'undefined');
       if (namesNoLocale) {
         deviceLocaleFormatSites.push({
           line: lineOf(node),
@@ -1311,7 +1334,7 @@ export function analyseSource(
         if (keys === null) {
           referentialUnreadableSources.push({
             line: lineOf(node),
-            source: first ? first.getText(sourceFile) : "<none>",
+            source: first ? first.getText(sourceFile) : '<none>',
           });
         } else {
           for (const key of keys) translateKeys.push({ key, line: lineOf(node) });
@@ -1327,8 +1350,9 @@ export function analyseSource(
         const keys = resolveTranslateKeys(node.arguments[0], keyMaps, keyMapAliases);
         if (keys === null) {
           unreadableKeySources.push({
-            line: lineOf(node), role: "control-label",
-            source: node.arguments[0] ? node.arguments[0].getText(sourceFile) : "<none>",
+            line: lineOf(node),
+            role: 'control-label',
+            source: node.arguments[0] ? node.arguments[0].getText(sourceFile) : '<none>',
           });
         } else {
           for (const key of keys) controlLabelSites.push({ key, line: lineOf(node), tag });
@@ -1339,23 +1363,25 @@ export function analyseSource(
       if (values && ts.isObjectLiteralExpression(values)) {
         const frame = ts.isStringLiteralLike(node.arguments[0])
           ? node.arguments[0].text
-          : "<computed>";
+          : '<computed>';
         for (const property of values.properties) {
           if (!ts.isPropertyAssignment(property)) continue;
           // Unwrap the `.toLowerCase()` / `.trim()` chain #442 itself used —
           // matching the bare call only would miss the exact shape F exists for.
           let value = property.initializer;
           while (
-            ts.isCallExpression(value)
-            && ts.isPropertyAccessExpression(value.expression)
-            && !isTranslateCall(value)
-          ) value = value.expression.expression;
+            ts.isCallExpression(value) &&
+            ts.isPropertyAccessExpression(value.expression) &&
+            !isTranslateCall(value)
+          )
+            value = value.expression.expression;
           if (!isTranslateCall(value)) continue;
           const keys = resolveTranslateKeys(value.arguments[0], keyMaps, keyMapAliases);
           if (keys === null) {
             unreadableKeySources.push({
-              line: lineOf(node), role: "interpolated",
-              source: value.arguments[0] ? value.arguments[0].getText(sourceFile) : "<none>",
+              line: lineOf(node),
+              role: 'interpolated',
+              source: value.arguments[0] ? value.arguments[0].getText(sourceFile) : '<none>',
             });
           } else {
             for (const key of keys) interpolatedSites.push({ key, line: lineOf(node), frame });
@@ -1366,19 +1392,19 @@ export function analyseSource(
 
     // A. JSX text: `<Text>Save</Text>`
     if (ts.isJsxText(node) && hasLetter(node.text)) {
-      report(node, "jsx-text", node.text);
+      report(node, 'jsx-text', node.text);
     }
 
     // A. A JSX CHILD expression: `<Text>{"Save"}</Text>`, `{n} item{n === 1 ? "" : "s"}`
     if (
-      ts.isJsxExpression(node)
-      && node.expression
-      && node.parent
-      && (ts.isJsxElement(node.parent) || ts.isJsxFragment(node.parent))
+      ts.isJsxExpression(node) &&
+      node.expression &&
+      node.parent &&
+      (ts.isJsxElement(node.parent) || ts.isJsxFragment(node.parent))
     ) {
-      inspectUserFacing(node.expression, "jsx-child");
+      inspectUserFacing(node.expression, 'jsx-child');
       // I. the same position, asking a different question: is this a KEY?
-      inspectKeyRender(node.expression, "jsx-child");
+      inspectKeyRender(node.expression, 'jsx-child');
 
       // J. a wire enum rendered raw (#530, the class #489 named).
       //
@@ -1386,8 +1412,10 @@ export function analyseSource(
       // positions check A also walks are where an `accessibilityLabel` or a
       // `testID` legitimately carries an identifier, and widening to them turned
       // a clean 13 into noise nobody would keep.
-      if (ts.isPropertyAccessExpression(node.expression)
-        && WIRE_ENUM_FIELDS.has(node.expression.name.text)) {
+      if (
+        ts.isPropertyAccessExpression(node.expression) &&
+        WIRE_ENUM_FIELDS.has(node.expression.name.text)
+      ) {
         wireIdentifierRenderSites.push({
           line: lineOf(node),
           field: node.expression.name.text,
@@ -1411,10 +1439,10 @@ export function analyseSource(
 
     // A. A user-facing ATTRIBUTE: `placeholder="Search"`
     if (
-      ts.isJsxAttribute(node)
-      && ts.isIdentifier(node.name)
-      && USER_FACING_JSX_ATTRIBUTES.has(node.name.text)
-      && node.initializer
+      ts.isJsxAttribute(node) &&
+      ts.isIdentifier(node.name) &&
+      USER_FACING_JSX_ATTRIBUTES.has(node.name.text) &&
+      node.initializer
     ) {
       const value = ts.isJsxExpression(node.initializer)
         ? node.initializer.expression
@@ -1425,9 +1453,9 @@ export function analyseSource(
 
     // A. A user-facing object PROPERTY: `{ label: "Register" }`
     if (
-      ts.isPropertyAssignment(node)
-      && (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name))
-      && USER_FACING_OBJECT_PROPERTIES.has(node.name.text)
+      ts.isPropertyAssignment(node) &&
+      (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name)) &&
+      USER_FACING_OBJECT_PROPERTIES.has(node.name.text)
     ) {
       inspectUserFacing(node.initializer, `property:${node.name.text}`);
       inspectKeyRender(node.initializer, `property:${node.name.text}`);
@@ -1502,9 +1530,9 @@ export function mountsSharedUiProvider(relativePath, text) {
   const visit = (node) => {
     if (mounted) return;
     if (
-      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node))
-      && ts.isIdentifier(node.tagName)
-      && node.tagName.text === SHARED_UI_PROVIDER
+      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+      ts.isIdentifier(node.tagName) &&
+      node.tagName.text === SHARED_UI_PROVIDER
     ) {
       mounted = true;
       return;
@@ -1519,14 +1547,14 @@ export function mountsSharedUiProvider(relativePath, text) {
 function flatten(value, prefix, into, file) {
   for (const [name, child] of Object.entries(value)) {
     const path = prefix ? `${prefix}.${name}` : name;
-    if (typeof child === "string") {
+    if (typeof child === 'string') {
       into.set(path, child);
-    } else if (child && typeof child === "object" && !Array.isArray(child)) {
+    } else if (child && typeof child === 'object' && !Array.isArray(child)) {
       flatten(child, path, into, file);
     } else {
       failures.push(
-        `${file}: "${path}" is ${Array.isArray(child) ? "an array" : typeof child}. A bundle holds `
-        + "strings and nested objects only — i18n-js renders anything else as [object Object].",
+        `${file}: "${path}" is ${Array.isArray(child) ? 'an array' : typeof child}. A bundle holds ` +
+          'strings and nested objects only — i18n-js renders anything else as [object Object].',
       );
     }
   }
@@ -1542,10 +1570,10 @@ function flatten(value, prefix, into, file) {
  * literal `"orders"` in a query key mark every `orders.*` key used, which is
  * most of a bundle.
  */
-const PLURAL_CATEGORIES = new Set(["zero", "one", "two", "few", "many", "other"]);
+const PLURAL_CATEGORIES = new Set(['zero', 'one', 'two', 'few', 'many', 'other']);
 
 function pluralParentOf(key) {
-  const cut = key.lastIndexOf(".");
+  const cut = key.lastIndexOf('.');
   if (cut < 0) return null;
   return PLURAL_CATEGORIES.has(key.slice(cut + 1)) ? key.slice(0, cut) : null;
 }
@@ -1570,14 +1598,14 @@ function pluralParentOf(key) {
 function collectPlurals(value, prefix, into) {
   const entries = Object.entries(value);
   if (
-    entries.length > 0
-    && entries.every(([name, child]) => PLURAL_CATEGORIES.has(name) && typeof child === "string")
+    entries.length > 0 &&
+    entries.every(([name, child]) => PLURAL_CATEGORIES.has(name) && typeof child === 'string')
   ) {
     into.set(prefix, new Map(entries));
     return;
   }
   for (const [name, child] of entries) {
-    if (child && typeof child === "object" && !Array.isArray(child)) {
+    if (child && typeof child === 'object' && !Array.isArray(child)) {
       collectPlurals(child, prefix ? `${prefix}.${name}` : name, into);
     }
   }
@@ -1585,7 +1613,7 @@ function collectPlurals(value, prefix, into) {
 
 /** `packages/pos/lib/i18n/locales/pt-BR.json` -> `pt-BR`, or null if unknown. */
 function localeOfBundlePath(path) {
-  const stem = path.slice(path.lastIndexOf("/") + 1).replace(/\.json$/u, "");
+  const stem = path.slice(path.lastIndexOf('/') + 1).replace(/\.json$/u, '');
   return SUPPORTED_LOCALES.includes(stem) ? stem : null;
 }
 
@@ -1618,18 +1646,18 @@ function pluralShapeOf({ path, locale, englishPlurals, plurals }) {
     const forms = plurals.get(key);
     if (!forms || forms.size === 0) {
       failures.push(
-        `${path}: "${key}" is a plural key in en.json and is missing or not a plural object here. `
-        + "i18n-js resolves the whole object from ONE locale, so there is no per-category fallback "
-        + "to English — every count on this screen would render missingTranslation.",
+        `${path}: "${key}" is a plural key in en.json and is missing or not a plural object here. ` +
+          'i18n-js resolves the whole object from ONE locale, so there is no per-category fallback ' +
+          'to English — every count on this screen would render missingTranslation.',
       );
       continue;
     }
 
-    if (!forms.has("other")) {
+    if (!forms.has('other')) {
       failures.push(
-        `${path}: "${key}" carries {${[...forms.keys()].join(", ")}} and no "other". That is the `
-        + "terminal rung of the category chain, so every count whose own category is absent renders "
-        + "NOTHING rather than an approximate form.",
+        `${path}: "${key}" carries {${[...forms.keys()].join(', ')}} and no "other". That is the ` +
+          'terminal rung of the category chain, so every count whose own category is absent renders ' +
+          'NOTHING rather than an approximate form.',
       );
     }
 
@@ -1638,9 +1666,9 @@ function pluralShapeOf({ path, locale, englishPlurals, plurals }) {
     for (const category of englishForms.keys()) {
       if (!selectable.includes(category) || forms.has(category)) continue;
       failures.push(
-        `${path}: "${key}" is missing "${category}", which en.json uses and ${locale} can select. `
-        + "Dropping it renders the `other` form at a count the language distinguishes — the exact "
-        + "defect #436 exists to remove, arrived at from the other direction.",
+        `${path}: "${key}" is missing "${category}", which en.json uses and ${locale} can select. ` +
+          'Dropping it renders the `other` form at a count the language distinguishes — the exact ' +
+          'defect #436 exists to remove, arrived at from the other direction.',
       );
     }
 
@@ -1655,19 +1683,19 @@ function pluralShapeOf({ path, locale, englishPlurals, plurals }) {
     // translation. It is still held to a SUBSET, so an invented or renamed
     // placeholder is caught in `zero` exactly as anywhere else — what is
     // permitted is dropping one, not inventing one.
-    const englishPlaceholders = placeholdersOf(englishForms.get("other") ?? "");
-    const englishNames = new Set(englishPlaceholders ? englishPlaceholders.split(",") : []);
+    const englishPlaceholders = placeholdersOf(englishForms.get('other') ?? '');
+    const englishNames = new Set(englishPlaceholders ? englishPlaceholders.split(',') : []);
     for (const [category, value] of forms) {
       if (!selectable.includes(category)) unreachable.push(`${key}.${category}`);
       const own = placeholdersOf(value);
-      const foreign = (own ? own.split(",") : []).filter((name) => !englishNames.has(name));
-      const wrong = category === "zero" ? foreign.length > 0 : own !== englishPlaceholders;
+      const foreign = (own ? own.split(',') : []).filter((name) => !englishNames.has(name));
+      const wrong = category === 'zero' ? foreign.length > 0 : own !== englishPlaceholders;
       if (wrong) {
         failures.push(
-          `${path}: "${key}.${category}" carries placeholders {${own || "none"}} but en.json's `
-          + `"${key}.other" carries {${englishPlaceholders || "none"}}. A renamed placeholder `
-          + "renders the literal %{count} to a shopper."
-          + (category === "zero" ? "" : " Only a `zero` form may drop one."),
+          `${path}: "${key}.${category}" carries placeholders {${own || 'none'}} but en.json's ` +
+            `"${key}.other" carries {${englishPlaceholders || 'none'}}. A renamed placeholder ` +
+            'renders the literal %{count} to a shopper.' +
+            (category === 'zero' ? '' : ' Only a `zero` form may drop one.'),
         );
       }
     }
@@ -1691,9 +1719,9 @@ function pluralShapeOf({ path, locale, englishPlurals, plurals }) {
  * fire on `packages/ui/src/lib/format.ts` itself.
  */
 const DEVICE_LOCALE_METHODS = new Set([
-  "toLocaleDateString",
-  "toLocaleString",
-  "toLocaleTimeString",
+  'toLocaleDateString',
+  'toLocaleString',
+  'toLocaleTimeString',
 ]);
 
 /**
@@ -1712,12 +1740,15 @@ const DEVICE_LOCALE_METHODS = new Set([
 const FOREIGN_PLACEHOLDER = /\{\{[^{}]*\}\}/g;
 
 /** Every `{{…}}` in a bundle value — the input to check G and to its controls. */
-const foreignPlaceholdersOf = (value) => [...String(value).matchAll(FOREIGN_PLACEHOLDER)]
-  .map((match) => match[0]);
+const foreignPlaceholdersOf = (value) =>
+  [...String(value).matchAll(FOREIGN_PLACEHOLDER)].map((match) => match[0]);
 
 const PLACEHOLDER = /%\{([^}]+)\}/g;
 const placeholdersOf = (value) =>
-  [...value.matchAll(PLACEHOLDER)].map((match) => match[1]).sort().join(",");
+  [...value.matchAll(PLACEHOLDER)]
+    .map((match) => match[1])
+    .sort()
+    .join(',');
 
 /**
  * A placeholder whose NAME i18n-js consumes as an OPTION (#437, check G').
@@ -1745,20 +1776,20 @@ const placeholdersOf = (value) =>
  * than a live defect, and #436's plural pins are what watch that boundary.
  */
 const RESERVED_I18N_OPTIONS = new Set([
-  "scope",
-  "locale",
-  "defaults",
-  "defaultValue",
-  "missingBehavior",
-  "missingBehaviour",
-  "missingTranslationPrefix",
+  'scope',
+  'locale',
+  'defaults',
+  'defaultValue',
+  'missingBehavior',
+  'missingBehaviour',
+  'missingTranslationPrefix',
 ]);
 
 /** Every reserved-name placeholder in a value — check G''s input and controls. */
-const reservedPlaceholdersOf = (value) => [...String(value).matchAll(PLACEHOLDER)]
-  .map((match) => match[1].trim())
-  .filter((name) => RESERVED_I18N_OPTIONS.has(name));
-
+const reservedPlaceholdersOf = (value) =>
+  [...String(value).matchAll(PLACEHOLDER)]
+    .map((match) => match[1].trim())
+    .filter((name) => RESERVED_I18N_OPTIONS.has(name));
 
 /** Every key `t()` can resolve: the leaves, plus the parent of a plural pair. */
 function resolvableKeys(flat) {
@@ -1779,11 +1810,11 @@ function resolvableKeys(flat) {
  */
 async function readTracked(path) {
   try {
-    return await readFile(resolve(repositoryRoot, path), "utf8");
+    return await readFile(resolve(repositoryRoot, path), 'utf8');
   } catch (error) {
     failures.push(
-      `${path} is tracked by git but could not be read (${error.code ?? error.message}) — `
-      + "the working tree disagrees with the index, so this scan was incomplete",
+      `${path} is tracked by git but could not be read (${error.code ?? error.message}) — ` +
+        'the working tree disagrees with the index, so this scan was incomplete',
     );
     return null;
   }
@@ -1808,7 +1839,7 @@ const pluralKeysByApp = new Map();
 const topLevelKeysByPath = new Map();
 for (const app of OWNERS) {
   const bundlePaths = tracked.filter(
-    (path) => path.startsWith(`${app.locales}/`) && path.endsWith(".json"),
+    (path) => path.startsWith(`${app.locales}/`) && path.endsWith('.json'),
   );
   if (bundlePaths.length === 0) {
     failures.push(
@@ -1829,10 +1860,10 @@ for (const app of OWNERS) {
     }
     topLevelKeysByPath.set(path, Object.keys(parsed));
     const flat = new Map();
-    flatten(parsed, "", flat, path);
+    flatten(parsed, '', flat, path);
     flatByLocale.set(path, flat);
     const plurals = new Map();
-    collectPlurals(parsed, "", plurals);
+    collectPlurals(parsed, '', plurals);
     pluralsByLocale.set(path, plurals);
   }
   bundlesByApp.set(app.name, flatByLocale);
@@ -1859,16 +1890,19 @@ const knownKeysByApp = new Map(
  * reports.
  */
 const CONTROL_MUST_FIND = [
-  { id: "jsx-text", source: "const A = () => <Text>Save changes</Text>;" },
-  { id: "jsx-child-string", source: 'const A = () => <Text>{"Save changes"}</Text>;' },
-  { id: "jsx-child-template", source: "const A = () => <Text>{`${n} items in cart`}</Text>;" },
-  { id: "jsx-child-ternary", source: 'const A = () => <Text>{n === 1 ? "item" : "items"}</Text>;' },
-  { id: "attribute", source: 'const A = () => <Input placeholder="Search products" />;' },
-  { id: "attribute-expression", source: 'const A = () => <Input placeholder={"Search products"} />;' },
-  { id: "object-property", source: 'export const NAV = [{ key: "a", label: "Register" }];' },
-  { id: "alert-argument", source: 'Alert.alert("Deleted", "The product is gone.");' },
-  { id: "toast-argument", source: 'toast.error("Could not save the product.");' },
-  { id: "tooltip-argument", source: 'const tip = useRailTooltip("Expand sidebar");' },
+  { id: 'jsx-text', source: 'const A = () => <Text>Save changes</Text>;' },
+  { id: 'jsx-child-string', source: 'const A = () => <Text>{"Save changes"}</Text>;' },
+  { id: 'jsx-child-template', source: 'const A = () => <Text>{`${n} items in cart`}</Text>;' },
+  { id: 'jsx-child-ternary', source: 'const A = () => <Text>{n === 1 ? "item" : "items"}</Text>;' },
+  { id: 'attribute', source: 'const A = () => <Input placeholder="Search products" />;' },
+  {
+    id: 'attribute-expression',
+    source: 'const A = () => <Input placeholder={"Search products"} />;',
+  },
+  { id: 'object-property', source: 'export const NAV = [{ key: "a", label: "Register" }];' },
+  { id: 'alert-argument', source: 'Alert.alert("Deleted", "The product is gone.");' },
+  { id: 'toast-argument', source: 'toast.error("Could not save the product.");' },
+  { id: 'tooltip-argument', source: 'const tip = useRailTooltip("Expand sidebar");' },
 ];
 
 /**
@@ -1897,13 +1931,13 @@ const CONTROL_MUST_NOT_FIND = [
  * fails" case below has something to be absent from.
  */
 const CONTROL_KEYS = new Set([
-  "a.b",
-  "c.d",
-  "nav.register",
-  "products.deleted",
-  "products.deletedBody",
-  "products.searchPlaceholder",
-  "register.title",
+  'a.b',
+  'c.d',
+  'nav.register',
+  'products.deleted',
+  'products.deletedBody',
+  'products.searchPlaceholder',
+  'register.title',
 ]);
 
 for (const control of CONTROL_MUST_FIND) {
@@ -1914,18 +1948,18 @@ for (const control of CONTROL_MUST_FIND) {
   );
   if (found.length === 0) {
     failures.push(
-      `positive control failed: ${control.id} produced no finding for ${JSON.stringify(control.source)} — `
-      + "the analyser is broken, and a broken analyser reports a clean tree",
+      `positive control failed: ${control.id} produced no finding for ${JSON.stringify(control.source)} — ` +
+        'the analyser is broken, and a broken analyser reports a clean tree',
     );
   }
 }
 for (const source of CONTROL_MUST_NOT_FIND) {
-  const { findings: found } = analyseSource("control/negative.tsx", source, CONTROL_KEYS);
+  const { findings: found } = analyseSource('control/negative.tsx', source, CONTROL_KEYS);
   if (found.length > 0) {
     failures.push(
-      `negative control failed: ${JSON.stringify(source)} produced ${found.length} finding(s) `
-      + `(${found.map((f) => f.kind).join(", ")}) — the analyser is too broad and would be `
-      + "disabled by whoever hit it",
+      `negative control failed: ${JSON.stringify(source)} produced ${found.length} finding(s) ` +
+        `(${found.map((f) => f.kind).join(', ')}) — the analyser is too broad and would be ` +
+        'disabled by whoever hit it',
     );
   }
 }
@@ -1933,14 +1967,14 @@ for (const source of CONTROL_MUST_NOT_FIND) {
 // measuring something other than what it claims to.
 {
   const remedy = analyseSource(
-    "control/translated.tsx",
+    'control/translated.tsx',
     'const A = () => <><Text>{t("a.b")}</Text><Input placeholder={t("c.d")} /></>;',
     CONTROL_KEYS,
   );
   if (remedy.translatedPositions < 2) {
     failures.push(
-      `positive control failed: a file with two t() positions counted ${remedy.translatedPositions} — `
-      + "the translated-position floor cannot detect a broken traversal",
+      `positive control failed: a file with two t() positions counted ${remedy.translatedPositions} — ` +
+        'the translated-position floor cannot detect a broken traversal',
     );
   }
 }
@@ -1960,16 +1994,22 @@ for (const source of CONTROL_MUST_NOT_FIND) {
 for (const seeded of ['{{count}}/1000 characters', 'Hello {{ name }}', '{{a}} and {{b}}']) {
   if (foreignPlaceholdersOf(seeded).length === 0) {
     failures.push(
-      `positive control failed: check G found no foreign placeholder in ${JSON.stringify(seeded)} — `
-      + "the detector is broken, and a broken detector reports a clean bundle set",
+      `positive control failed: check G found no foreign placeholder in ${JSON.stringify(seeded)} — ` +
+        'the detector is broken, and a broken detector reports a clean bundle set',
     );
   }
 }
-for (const safe of ['%{count}/1000 characters', 'Order %{number}', 'no placeholder at all', '{}', '{ }']) {
+for (const safe of [
+  '%{count}/1000 characters',
+  'Order %{number}',
+  'no placeholder at all',
+  '{}',
+  '{ }',
+]) {
   if (foreignPlaceholdersOf(safe).length > 0) {
     failures.push(
-      `negative control failed: check G fired on ${JSON.stringify(safe)}, which is the CORRECT `
-      + "i18n-js spelling — a guard that flags the remedy gets disabled",
+      `negative control failed: check G fired on ${JSON.stringify(safe)}, which is the CORRECT ` +
+        'i18n-js spelling — a guard that flags the remedy gets disabled',
     );
   }
 }
@@ -1982,19 +2022,28 @@ for (const safe of ['%{count}/1000 characters', 'Order %{number}', 'no placehold
  * The negatives carry the ones that would make this unusable if it fired on
  * them — `%{count}` on a plural key, and every ordinary slot name #437 shipped.
  */
-for (const seeded of ['%{subject}. Rated %{scope}.', 'No %{scope} yet.', '%{locale} and %{defaults}']) {
+for (const seeded of [
+  '%{subject}. Rated %{scope}.',
+  'No %{scope} yet.',
+  '%{locale} and %{defaults}',
+]) {
   if (reservedPlaceholdersOf(seeded).length === 0) {
     failures.push(
-      `positive control failed: check G' found no reserved placeholder in ${JSON.stringify(seeded)} `
-      + "— the detector is broken, and a broken detector reports a clean bundle set",
+      `positive control failed: check G' found no reserved placeholder in ${JSON.stringify(seeded)} ` +
+        '— the detector is broken, and a broken detector reports a clean bundle set',
     );
   }
 }
-for (const safe of ['%{count} items', '%{subject}: %{rating}', '%{conditions} · %{offers}', 'no placeholder at all']) {
+for (const safe of [
+  '%{count} items',
+  '%{subject}: %{rating}',
+  '%{conditions} · %{offers}',
+  'no placeholder at all',
+]) {
   if (reservedPlaceholdersOf(safe).length > 0) {
     failures.push(
-      `negative control failed: check G' fired on ${JSON.stringify(safe)}, which names no i18n-js `
-      + "option — a guard that flags a legitimate slot gets disabled",
+      `negative control failed: check G' fired on ${JSON.stringify(safe)}, which names no i18n-js ` +
+        'option — a guard that flags a legitimate slot gets disabled',
     );
   }
 }
@@ -2007,39 +2056,39 @@ for (const safe of ['%{count} items', '%{subject}: %{rating}', '%{conditions} ·
  * fire: a call that NAMES a locale, and the `formatDate` remedy itself.
  */
 const deviceLocaleFindings = (source) =>
-  analyseSource("control/device-locale.tsx", source, CONTROL_KEYS).deviceLocaleFormatSites;
+  analyseSource('control/device-locale.tsx', source, CONTROL_KEYS).deviceLocaleFormatSites;
 
 const DEVICE_LOCALE_MUST_FIND = [
-  "const d = new Date(x).toLocaleDateString();",
-  "const d = new Date(x).toLocaleString();",
-  "const d = new Date(x).toLocaleTimeString();",
+  'const d = new Date(x).toLocaleDateString();',
+  'const d = new Date(x).toLocaleString();',
+  'const d = new Date(x).toLocaleTimeString();',
   // The explicit `undefined` — the same defect wearing a more deliberate face.
   'const d = new Date(x).toLocaleDateString(undefined, { year: "numeric" });',
 ];
 const DEVICE_LOCALE_MUST_NOT_FIND = [
-  "const d = new Date(x).toLocaleDateString(locale);",
+  'const d = new Date(x).toLocaleDateString(locale);',
   'const d = new Date(x).toLocaleString(locale, { dateStyle: "medium" });',
-  "const d = formatDate(x, locale);",
-  "const d = formatDateTime(x, locale);",
+  'const d = formatDate(x, locale);',
+  'const d = formatDateTime(x, locale);',
   // The remedy's own implementation, which names the locale positionally.
   'const f = new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(parsed);',
   // A same-named method on something that is not a Date still takes a locale.
-  "const n = (1234.5).toLocaleString(locale);",
+  'const n = (1234.5).toLocaleString(locale);',
 ];
 
 for (const source of DEVICE_LOCALE_MUST_FIND) {
   if (deviceLocaleFindings(source).length === 0) {
     failures.push(
-      `positive control failed: check H produced no finding for ${JSON.stringify(source)} — `
-      + "the detector is broken, and a broken detector reports a clean app",
+      `positive control failed: check H produced no finding for ${JSON.stringify(source)} — ` +
+        'the detector is broken, and a broken detector reports a clean app',
     );
   }
 }
 for (const source of DEVICE_LOCALE_MUST_NOT_FIND) {
   if (deviceLocaleFindings(source).length > 0) {
     failures.push(
-      `negative control failed: check H fired on ${JSON.stringify(source)}, which NAMES a locale — `
-      + "a guard that flags the remedy gets disabled",
+      `negative control failed: check H fired on ${JSON.stringify(source)}, which NAMES a locale — ` +
+        'a guard that flags the remedy gets disabled',
     );
   }
 }
@@ -2048,13 +2097,13 @@ for (const source of DEVICE_LOCALE_MUST_NOT_FIND) {
 // text-based scan would report the file it had just cleaned.
 {
   const commented = deviceLocaleFindings(
-    "// Was `toLocaleDateString(undefined, …)`, which used the device locale.\n"
-    + "const d = formatDate(x, locale);",
+    '// Was `toLocaleDateString(undefined, …)`, which used the device locale.\n' +
+      'const d = formatDate(x, locale);',
   );
   if (commented.length > 0) {
     failures.push(
-      "negative control failed: check H fired on a COMMENT naming the method. It reads the AST, so "
-      + "this must be impossible — if it fires, the detector has been rewritten as a text scan",
+      'negative control failed: check H fired on a COMMENT naming the method. It reads the AST, so ' +
+        'this must be impossible — if it fires, the detector has been rewritten as a text scan',
     );
   }
 }
@@ -2076,32 +2125,32 @@ for (const source of DEVICE_LOCALE_MUST_NOT_FIND) {
  */
 const CONTROL_KEY_MAP = 'const M = { a: "a.b", c: "c.d" };\n';
 const rawKeyFindings = (source) =>
-  analyseSource("control/raw-key.tsx", CONTROL_KEY_MAP + source, CONTROL_KEYS).rawKeyRenderSites;
+  analyseSource('control/raw-key.tsx', CONTROL_KEY_MAP + source, CONTROL_KEYS).rawKeyRenderSites;
 
 const RAW_KEY_MUST_FIND = [
-  "const A = () => <Text>{M[x]}</Text>;",
-  "const A = () => <Text>{M.a}</Text>;",
+  'const A = () => <Text>{M[x]}</Text>;',
+  'const A = () => <Text>{M.a}</Text>;',
   // Inside a template — the id renders just as plainly with a middot after it.
-  "const A = () => <Text>{`${M[x]} · ${n}`}</Text>;",
+  'const A = () => <Text>{`${M[x]} · ${n}`}</Text>;',
   // One half translated and one half not is the exact shape #542 measured.
-  "const A = () => <Text>{t(M.a)} · {M[x]}</Text>;",
-  "const A = () => <Text>{ready ? M[x] : M.c}</Text>;",
+  'const A = () => <Text>{t(M.a)} · {M[x]}</Text>;',
+  'const A = () => <Text>{ready ? M[x] : M.c}</Text>;',
   'const A = () => <Input placeholder={M[x]} />;',
-  "const A = () => <Text>{M[x] ?? M.c}</Text>;",
+  'const A = () => <Text>{M[x] ?? M.c}</Text>;',
 ];
 const RAW_KEY_MUST_NOT_FIND = [
   // The remedy.
-  "const A = () => <Text>{t(M[x])}</Text>;",
-  "const A = () => <Text>{t(M.a)}</Text>;",
+  'const A = () => <Text>{t(M[x])}</Text>;',
+  'const A = () => <Text>{t(M.a)}</Text>;',
   'const A = () => <Input placeholder={t(M[x])} />;',
   // A key RETURNED for a caller to resolve — `basketResultTextKey`'s shape.
-  "export function labelKey(k) { return M[k]; }",
+  'export function labelKey(k) { return M[k]; }',
   // A key held in another record — `NEXT_STATUSES`' shape.
   "const NEXT = [{ key: 'shipped', labelKey: M.a }];",
   // A key bound to a const and resolved later — `STATE_COPY`'s shape.
-  "const A = () => { const copy = M[x]; return <Text>{t(copy)}</Text>; };",
+  'const A = () => { const copy = M[x]; return <Text>{t(copy)}</Text>; };',
   // The presence test: the guard reads the map, the render beside it is correct.
-  "const A = () => <Text>{M[x] ? t(M[x]) : fallback}</Text>;",
+  'const A = () => <Text>{M[x] ? t(M[x]) : fallback}</Text>;',
   // An import of the name is not a render of it.
   'import { M } from "./labels";\nconst A = () => <Text>{t("a.b")}</Text>;',
 ];
@@ -2109,18 +2158,18 @@ const RAW_KEY_MUST_NOT_FIND = [
 for (const source of RAW_KEY_MUST_FIND) {
   if (rawKeyFindings(source).length === 0) {
     failures.push(
-      `positive control failed: check I produced no finding for ${JSON.stringify(source)} — `
-      + "the detector is broken, and its answer for a broken detector and for a clean tree is the "
-      + "same zero",
+      `positive control failed: check I produced no finding for ${JSON.stringify(source)} — ` +
+        'the detector is broken, and its answer for a broken detector and for a clean tree is the ' +
+        'same zero',
     );
   }
 }
 for (const source of RAW_KEY_MUST_NOT_FIND) {
   if (rawKeyFindings(source).length > 0) {
     failures.push(
-      `negative control failed: check I fired on ${JSON.stringify(source)}, which is either the `
-      + "remedy or a key legitimately in FLIGHT to one — a guard that flags those reports 33 "
-      + "findings on a correct tree and gets deleted",
+      `negative control failed: check I fired on ${JSON.stringify(source)}, which is either the ` +
+        'remedy or a key legitimately in FLIGHT to one — a guard that flags those reports 33 ' +
+        'findings on a correct tree and gets deleted',
     );
   }
 }
@@ -2130,29 +2179,29 @@ for (const source of RAW_KEY_MUST_NOT_FIND) {
 // rather than against a key-SHAPED string.
 {
   const classes = analyseSource(
-    "control/not-a-key-map.tsx",
+    'control/not-a-key-map.tsx',
     'const CHIP = { ok: "bg-green-100", bad: "bg-red-100" };\nconst A = () => <Text>{CHIP[x]}</Text>;',
     CONTROL_KEYS,
   ).rawKeyRenderSites;
   if (classes.length > 0) {
     failures.push(
-      "negative control failed: check I fired on a record of CSS classes. Its population must be "
-      + "maps whose every value is a key the app can resolve — if this fires, `isKeyMap` has been "
-      + "loosened into a shape match",
+      'negative control failed: check I fired on a record of CSS classes. Its population must be ' +
+        'maps whose every value is a key the app can resolve — if this fires, `isKeyMap` has been ' +
+        'loosened into a shape match',
     );
   }
   // …and the same map with one value that is NOT a real key is not a key map
   // either, which is what stops a typo'd key from arming the check on a record
   // that is half something else.
   const partial = analyseSource(
-    "control/half-a-key-map.tsx",
+    'control/half-a-key-map.tsx',
     'const M = { a: "a.b", c: "not.a.real.key" };\nconst A = () => <Text>{M[x]}</Text>;',
     CONTROL_KEYS,
   ).rawKeyRenderSites;
   if (partial.length > 0) {
     failures.push(
-      "negative control failed: check I fired on a record holding a string that is NOT a key. "
-      + "`isKeyMap` requires EVERY value to resolve, so this must not fire",
+      'negative control failed: check I fired on a record holding a string that is NOT a key. ' +
+        '`isKeyMap` requires EVERY value to resolve, so this must not fire',
     );
   }
 }
@@ -2160,8 +2209,8 @@ for (const source of RAW_KEY_MUST_NOT_FIND) {
 // vacuously true and every `{}` in the tree joins I's population.
 if (isKeyMap({ flat: [], byProp: new Map() }, CONTROL_KEYS)) {
   failures.push(
-    "negative control failed: an EMPTY record read as a key map — `every` over nothing is "
-    + "vacuously true, so check I's population would swallow every `{}` in the tree",
+    'negative control failed: an EMPTY record read as a key map — `every` over nothing is ' +
+      "vacuously true, so check I's population would swallow every `{}` in the tree",
   );
 }
 
@@ -2179,50 +2228,50 @@ if (isKeyMap({ flat: [], byProp: new Map() }, CONTROL_KEYS)) {
  * tidy.
  */
 const wireIdentifierFindings = (source) =>
-  analyseSource("control/wire-identifier.tsx", source, CONTROL_KEYS).wireIdentifierRenderSites;
+  analyseSource('control/wire-identifier.tsx', source, CONTROL_KEYS).wireIdentifierRenderSites;
 
 const WIRE_IDENTIFIER_MUST_FIND = [
-  "const A = () => <Text>{order.status}</Text>;",
-  "const A = () => <Text>{run.kind}</Text>;",
-  "const A = () => <Text>{a.country}</Text>;",
-  "const A = () => <Text>{report.mode}</Text>;",
+  'const A = () => <Text>{order.status}</Text>;',
+  'const A = () => <Text>{run.kind}</Text>;',
+  'const A = () => <Text>{a.country}</Text>;',
+  'const A = () => <Text>{report.mode}</Text>;',
   // A deeper path still ends in the field that decides it.
-  "const A = () => <Text>{status.data.source.status}</Text>;",
+  'const A = () => <Text>{status.data.source.status}</Text>;',
 ];
 const WIRE_IDENTIFIER_MUST_NOT_FIND = [
   // The remedy, both spellings.
-  "const A = () => <Text>{t(ORDER_STATUS_LABEL_KEYS[order.status])}</Text>;",
-  "const A = () => <Text>{formatRegionName(a.country, locale)}</Text>;",
+  'const A = () => <Text>{t(ORDER_STATUS_LABEL_KEYS[order.status])}</Text>;',
+  'const A = () => <Text>{formatRegionName(a.country, locale)}</Text>;',
   // Ordinary display fields, which the naive "any bare identifier" rule the
   // issue first proposed would have fired on — that version is why this one is
   // keyed on the field name at all.
-  "const A = () => <Text>{seller.name}</Text>;",
-  "const A = () => <Text>{order.orderNumber}</Text>;",
-  "const A = () => <Text>{count}</Text>;",
-  "const A = () => <Text>{product.title}</Text>;",
+  'const A = () => <Text>{seller.name}</Text>;',
+  'const A = () => <Text>{order.orderNumber}</Text>;',
+  'const A = () => <Text>{count}</Text>;',
+  'const A = () => <Text>{product.title}</Text>;',
   // The two fields measured OUT of the list: both are identifiers shown
   // verbatim on purpose and neither has a localized form.
-  "const A = () => <Text>{code.code}</Text>;",
-  "const A = () => <Text>{price.currency}</Text>;",
+  'const A = () => <Text>{code.code}</Text>;',
+  'const A = () => <Text>{price.currency}</Text>;',
   // A wire field read somewhere that is not a render position.
-  "const A = () => <View testID={run.status} />;",
-  "const cls = CHIP[run.status];",
+  'const A = () => <View testID={run.status} />;',
+  'const cls = CHIP[run.status];',
 ];
 
 for (const source of WIRE_IDENTIFIER_MUST_FIND) {
   if (wireIdentifierFindings(source).length === 0) {
     failures.push(
-      `positive control failed: check J produced no finding for ${JSON.stringify(source)} — `
-      + "the detector is broken, and the POS owner's pin of ZERO would go on passing",
+      `positive control failed: check J produced no finding for ${JSON.stringify(source)} — ` +
+        "the detector is broken, and the POS owner's pin of ZERO would go on passing",
     );
   }
 }
 for (const source of WIRE_IDENTIFIER_MUST_NOT_FIND) {
   if (wireIdentifierFindings(source).length > 0) {
     failures.push(
-      `negative control failed: check J fired on ${JSON.stringify(source)}, which is either the `
-      + "remedy or an ordinary display value — this is the direction that gets a gate switched "
-      + "off, and it is the direction the issue's first phrasing failed in",
+      `negative control failed: check J fired on ${JSON.stringify(source)}, which is either the ` +
+        'remedy or an ordinary display value — this is the direction that gets a gate switched ' +
+        "off, and it is the direction the issue's first phrasing failed in",
     );
   }
 }
@@ -2241,48 +2290,48 @@ for (const source of WIRE_IDENTIFIER_MUST_NOT_FIND) {
  * identifier. Firing on those is the direction that gets a gate switched off.
  */
 const wireFallbackFindings = (source) =>
-  analyseSource("control/wire-fallback.tsx", source, CONTROL_KEYS).wireIdentifierFallbackSites;
+  analyseSource('control/wire-fallback.tsx', source, CONTROL_KEYS).wireIdentifierFallbackSites;
 
 const WIRE_FALLBACK_MUST_FIND = [
   // The two real sites, both spellings of the subscript.
-  "const A = () => <Text>{K[batch.status] ? t(K[batch.status]) : batch.status}</Text>;",
-  "const A = () => <Text>{K[item] ? t(K[item]) : item}</Text>;",
+  'const A = () => <Text>{K[batch.status] ? t(K[batch.status]) : batch.status}</Text>;',
+  'const A = () => <Text>{K[item] ? t(K[item]) : item}</Text>;',
   // Same defect, other operators.
-  "const A = () => <Text>{K[item] ?? item}</Text>;",
-  "const A = () => <Text>{K[item] || item}</Text>;",
+  'const A = () => <Text>{K[item] ?? item}</Text>;',
+  'const A = () => <Text>{K[item] || item}</Text>;',
   // The map's NAME is not the instrument, so a rename does not defeat it.
-  "const A = () => <Text>{anything[item] ? t(anything[item]) : item}</Text>;",
+  'const A = () => <Text>{anything[item] ? t(anything[item]) : item}</Text>;',
 ];
 const WIRE_FALLBACK_MUST_NOT_FIND = [
   // The remedy: exhaustive map, no branch left to take.
-  "const A = () => <Text>{t(K[batch.status])}</Text>;",
+  'const A = () => <Text>{t(K[batch.status])}</Text>;',
   // Both LIVE correct spellings — a fallback to a KEY, and to empty.
-  "const A = () => <Text>{t(AVAILABILITY_TEXT_KEYS[a] ?? AVAILABILITY_UNKNOWN_KEY)}</Text>;",
-  "const A = () => <Text>{WARNING_MESSAGE_KEYS[warning] ? t(WARNING_MESSAGE_KEYS[warning]) : \"\"}</Text>;",
+  'const A = () => <Text>{t(AVAILABILITY_TEXT_KEYS[a] ?? AVAILABILITY_UNKNOWN_KEY)}</Text>;',
+  'const A = () => <Text>{WARNING_MESSAGE_KEYS[warning] ? t(WARNING_MESSAGE_KEYS[warning]) : ""}</Text>;',
   // A fallback to a DIFFERENT value is not this shape.
-  "const A = () => <Text>{K[item] ? t(K[item]) : t(\"common.unknown\")}</Text>;",
-  "const A = () => <Text>{K[a] ? t(K[a]) : b}</Text>;",
+  'const A = () => <Text>{K[item] ? t(K[item]) : t("common.unknown")}</Text>;',
+  'const A = () => <Text>{K[a] ? t(K[a]) : b}</Text>;',
   // An ordinary conditional over a lookup that renders no identifier.
-  "const A = () => <Text>{K[item] ? t(K[item]) : null}</Text>;",
+  'const A = () => <Text>{K[item] ? t(K[item]) : null}</Text>;',
   // Not a render position: J' is a JSX CHILD check, for J's measured reason.
-  "const cls = CHIP[run.status] ?? run.status;",
-  "const A = () => <View testID={K[run.status] ?? run.status} />;",
+  'const cls = CHIP[run.status] ?? run.status;',
+  'const A = () => <View testID={K[run.status] ?? run.status} />;',
 ];
 
 for (const source of WIRE_FALLBACK_MUST_FIND) {
   if (wireFallbackFindings(source).length === 0) {
     failures.push(
-      `positive control failed: check J' produced no finding for ${JSON.stringify(source)} — `
-      + "the detector is broken, and all four owners' pins of ZERO would go on passing",
+      `positive control failed: check J' produced no finding for ${JSON.stringify(source)} — ` +
+        "the detector is broken, and all four owners' pins of ZERO would go on passing",
     );
   }
 }
 for (const source of WIRE_FALLBACK_MUST_NOT_FIND) {
   if (wireFallbackFindings(source).length > 0) {
     failures.push(
-      `negative control failed: check J' fired on ${JSON.stringify(source)}, which falls back to `
-      + "a KEY, to empty or to something other than its own subscript — none of those renders an "
-      + "identifier, and two of them are live in the storefront",
+      `negative control failed: check J' fired on ${JSON.stringify(source)}, which falls back to ` +
+        'a KEY, to empty or to something other than its own subscript — none of those renders an ' +
+        'identifier, and two of them are live in the storefront',
     );
   }
 }
@@ -2295,68 +2344,75 @@ for (const source of WIRE_FALLBACK_MUST_NOT_FIND) {
  * beside the tree scan rather than only in the self-test.
  */
 const actionLabelViolations = (source) => {
-  const result = analyseSource("control/action-label.tsx", source, CONTROL_KEYS);
+  const result = analyseSource('control/action-label.tsx', source, CONTROL_KEYS);
   const labels = new Set(result.controlLabelSites.map((site) => site.key));
   return result.interpolatedSites.filter((site) => labels.has(site.key));
 };
 
 const ACTION_LABEL_MUST_FIND = [
   {
-    id: "literal-key-reused",
-    source: 'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>'
-      + '<Button><Text>{t("a.b")}</Text></Button></>;',
+    id: 'literal-key-reused',
+    source:
+      'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>' +
+      '<Button><Text>{t("a.b")}</Text></Button></>;',
   },
   {
     // The other way a control carries its label. Nothing in this tree spells it
     // this way today, which is exactly why it needs a control: F would look
     // just as green if it could not see an attribute label at all.
-    id: "attribute-label-reused",
-    source: 'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>'
-      + '<Button title={t("a.b")} /></>;',
+    id: 'attribute-label-reused',
+    source:
+      'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>' +
+      '<Button title={t("a.b")} /></>;',
   },
   {
     // #442's exact shape: a record of label keys, indexed, lowercased, and
     // dropped into a frame — while the same record fills a segmented control.
-    id: "indexed-map-lowercased",
-    source: 'const M = { one: "a.b", two: "c.d" };\n'
-      + 'const A = () => <><Text>{t("frame.x", { v: t(M[k]).toLowerCase() })}</Text>'
-      + "{items.map((o) => <SegmentedControlItem key={o}><SegmentedControlItemText>{t(M[o])}</SegmentedControlItemText></SegmentedControlItem>)}</>;",
+    id: 'indexed-map-lowercased',
+    source:
+      'const M = { one: "a.b", two: "c.d" };\n' +
+      'const A = () => <><Text>{t("frame.x", { v: t(M[k]).toLowerCase() })}</Text>' +
+      '{items.map((o) => <SegmentedControlItem key={o}><SegmentedControlItemText>{t(M[o])}</SegmentedControlItemText></SegmentedControlItem>)}</>;',
   },
 ];
 
 const ACTION_LABEL_MUST_NOT_FIND = [
   {
-    id: "different-keys",
-    source: 'const A = () => <><Text>{t("frame.x", { v: t("c.d") })}</Text>'
-      + '<Button><Text>{t("a.b")}</Text></Button></>;',
+    id: 'different-keys',
+    source:
+      'const A = () => <><Text>{t("frame.x", { v: t("c.d") })}</Text>' +
+      '<Button><Text>{t("a.b")}</Text></Button></>;',
   },
   {
     // The false positive measured on the real tree: a t() in a PROP of a button
     // is a toast, not the button's label.
-    id: "key-only-in-a-handler",
-    source: 'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>'
-      + '<Button onPress={() => toast.success(t("a.b"))}><Text>{t("c.d")}</Text></Button></>;',
+    id: 'key-only-in-a-handler',
+    source:
+      'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>' +
+      '<Button onPress={() => toast.success(t("a.b"))}><Text>{t("c.d")}</Text></Button></>;',
   },
   {
     // A badge is not an action control: "Paid" is a term and reads correctly in
     // the appositive frames this surface uses.
-    id: "badge-label-interpolated",
-    source: 'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>'
-      + '<View><Text>{t("a.b")}</Text></View></>;',
+    id: 'badge-label-interpolated',
+    source:
+      'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>' +
+      '<View><Text>{t("a.b")}</Text></View></>;',
   },
   {
     // A whole tappable row is not a label — this is why Pressable is excluded.
-    id: "pressable-row",
-    source: 'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>'
-      + '<Pressable><Text>{t("a.b")}</Text></Pressable></>;',
+    id: 'pressable-row',
+    source:
+      'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>' +
+      '<Pressable><Text>{t("a.b")}</Text></Pressable></>;',
   },
 ];
 
 for (const control of ACTION_LABEL_MUST_FIND) {
   if (actionLabelViolations(control.source).length === 0) {
     failures.push(
-      `positive control failed: check F saw no violation in ${control.id} — F's answer on the real `
-      + "tree is an empty intersection, so a detector that finds nothing anywhere passes silently",
+      `positive control failed: check F saw no violation in ${control.id} — F's answer on the real ` +
+        'tree is an empty intersection, so a detector that finds nothing anywhere passes silently',
     );
   }
 }
@@ -2364,9 +2420,9 @@ for (const control of ACTION_LABEL_MUST_NOT_FIND) {
   const found = actionLabelViolations(control.source);
   if (found.length > 0) {
     failures.push(
-      `negative control failed: check F fired on ${control.id} (${found.map((s) => s.key).join(", ")}) `
-      + "— F would be flagging copy that is correct, and a guard whose cheapest green is busywork "
-      + "gets switched off",
+      `negative control failed: check F fired on ${control.id} (${found.map((s) => s.key).join(', ')}) ` +
+        '— F would be flagging copy that is correct, and a guard whose cheapest green is busywork ' +
+        'gets switched off',
     );
   }
 }
@@ -2382,12 +2438,13 @@ for (const control of ACTION_LABEL_MUST_NOT_FIND) {
  * nothing wrong" render identically otherwise. These tell the two apart.
  */
 const ALIAS_MAP_SOURCE = 'const M = { p: "a.b", q: "c.d" };\n';
-const aliasResolution = (body) => analyseSource("control/alias.tsx", ALIAS_MAP_SOURCE + body, CONTROL_KEYS);
+const aliasResolution = (body) =>
+  analyseSource('control/alias.tsx', ALIAS_MAP_SOURCE + body, CONTROL_KEYS);
 
 const ALIAS_MUST_RESOLVE = [
   {
     // sectionTitleKey's exact real shape.
-    id: "function-declaration",
+    id: 'function-declaration',
     body: 'function keyOf(k) { return M[k]; }\nconst A = () => <Text>{t(keyOf("p"))}</Text>;',
   },
 ];
@@ -2398,48 +2455,51 @@ const ALIAS_MUST_NOT_RESOLVE = [
     // LITERALS from an `if` chain, not a map lookup. Resolving "one of the
     // branches this function could take" would be a WIDER claim than
     // `MAP[expr]` itself makes.
-    id: "multi-branch-return",
-    body: 'function keyOf(k) { if (k === "p") return "a.b"; return "c.d"; }\n'
-      + 'const A = () => <Text>{t(keyOf("p"))}</Text>;',
+    id: 'multi-branch-return',
+    body:
+      'function keyOf(k) { if (k === "p") return "a.b"; return "c.d"; }\n' +
+      'const A = () => <Text>{t(keyOf("p"))}</Text>;',
   },
   {
     // Indexes a DIFFERENT identifier than its own sole parameter — not a
     // pass-through, so not this shape even though it superficially reads M.
-    id: "indexes-a-different-name",
-    body: 'const OTHER = { p: "a.b" };\n'
-      + "function keyOf(k) { return OTHER[k.length]; }\n"
-      + 'const A = () => <Text>{t(keyOf("p"))}</Text>;',
+    id: 'indexes-a-different-name',
+    body:
+      'const OTHER = { p: "a.b" };\n' +
+      'function keyOf(k) { return OTHER[k.length]; }\n' +
+      'const A = () => <Text>{t(keyOf("p"))}</Text>;',
   },
   {
     // More than one statement in the body — narrower than "the entire body is
     // one return", deliberately, so a helper that validates or logs first
     // does not get guessed at.
-    id: "two-statement-body",
-    body: "function keyOf(k) { const v = M[k]; return v; }\n"
-      + 'const A = () => <Text>{t(keyOf("p"))}</Text>;',
+    id: 'two-statement-body',
+    body:
+      'function keyOf(k) { const v = M[k]; return v; }\n' +
+      'const A = () => <Text>{t(keyOf("p"))}</Text>;',
   },
   {
     // An arrow function is not matched at all — every real instance in this
     // tree is a `function` declaration, and this control is what keeps that
     // true rather than assumed.
-    id: "arrow-function",
+    id: 'arrow-function',
     body: 'const keyOf = (k) => M[k];\nconst A = () => <Text>{t(keyOf("p"))}</Text>;',
   },
 ];
 
 for (const control of ALIAS_MUST_RESOLVE) {
   const result = aliasResolution(control.body);
-  if (!result.translateKeys.some((site) => site.key === "a.b")) {
+  if (!result.translateKeys.some((site) => site.key === 'a.b')) {
     failures.push(
-      `positive control failed: check C's alias resolver did not resolve ${control.id} to "a.b" — `
-      + "a function whose entire body is `return MAP[param];` must resolve exactly as `MAP[param]` "
-      + "itself does",
+      `positive control failed: check C's alias resolver did not resolve ${control.id} to "a.b" — ` +
+        'a function whose entire body is `return MAP[param];` must resolve exactly as `MAP[param]` ' +
+        'itself does',
     );
   }
   if (result.referentialUnreadableSources.length > 0) {
     failures.push(
-      `positive control failed: check C's alias resolver marked ${control.id} unreadable instead of `
-      + "resolving it",
+      `positive control failed: check C's alias resolver marked ${control.id} unreadable instead of ` +
+        'resolving it',
     );
   }
 }
@@ -2447,9 +2507,9 @@ for (const control of ALIAS_MUST_NOT_RESOLVE) {
   const result = aliasResolution(control.body);
   if (result.referentialUnreadableSources.length === 0) {
     failures.push(
-      `negative control failed: check C's alias resolver resolved ${control.id} — only a function whose `
-      + "entire body indexes a map by its own sole parameter is this shape, and guessing at anything "
-      + "wider is the false confidence #598 traced in the first place",
+      `negative control failed: check C's alias resolver resolved ${control.id} — only a function whose ` +
+        'entire body indexes a map by its own sole parameter is this shape, and guessing at anything ' +
+        'wider is the false confidence #598 traced in the first place',
     );
   }
 }
@@ -2491,32 +2551,32 @@ for (const locale of SUPPORTED_LOCALES) {
     const chain = pluralCategoryChain(locale, count);
     if (chain.length === 0) {
       failures.push(
-        `control failed: the plural chain for ${locale} at count ${count} is EMPTY — i18n-js walks `
-        + "the list and would fall straight to missingTranslation",
+        `control failed: the plural chain for ${locale} at count ${count} is EMPTY — i18n-js walks ` +
+          'the list and would fall straight to missingTranslation',
       );
       continue;
     }
-    if (chain[chain.length - 1] !== "other") {
+    if (chain[chain.length - 1] !== 'other') {
       failures.push(
-        `control failed: the plural chain for ${locale} at count ${count} is `
-        + `[${chain.join(", ")}] and does not END in "other". The terminal rung is what makes a `
-        + "missing `few` form render the approximate string instead of nothing at all.",
+        `control failed: the plural chain for ${locale} at count ${count} is ` +
+          `[${chain.join(', ')}] and does not END in "other". The terminal rung is what makes a ` +
+          'missing `few` form render the approximate string instead of nothing at all.',
       );
     }
     if (new Set(chain).size !== chain.length) {
       failures.push(
-        `control failed: the plural chain for ${locale} at count ${count} repeats a category `
-        + `([${chain.join(", ")}]) — a duplicate rung is a second lookup of a key that just missed`,
+        `control failed: the plural chain for ${locale} at count ${count} repeats a category ` +
+          `([${chain.join(', ')}]) — a duplicate rung is a second lookup of a key that just missed`,
       );
     }
     for (const category of chain) {
       reached.add(category);
       if (selectable.includes(category)) continue;
       failures.push(
-        `control failed: the plural chain for ${locale} at count ${count} asks for "${category}", `
-        + `which is not in selectablePluralCategories("${locale}") `
-        + `([${selectable.join(", ")}]). Check K would be REFUSING a form the runtime needs, or `
-        + "passing a bundle that cannot answer that count — the two halves of #436 have drifted.",
+        `control failed: the plural chain for ${locale} at count ${count} asks for "${category}", ` +
+          `which is not in selectablePluralCategories("${locale}") ` +
+          `([${selectable.join(', ')}]). Check K would be REFUSING a form the runtime needs, or ` +
+          'passing a bundle that cannot answer that count — the two halves of #436 have drifted.',
       );
     }
   }
@@ -2528,10 +2588,10 @@ for (const locale of SUPPORTED_LOCALES) {
   for (const category of cldrCardinalCategories(locale)) {
     if (reached.has(category)) continue;
     failures.push(
-      `control failed: no count in the sweep produced "${category}" for ${locale}, which CLDR says `
-      + "it has. Either the sweep no longer reaches that category — in which case K's residual "
-      + "count is measuring a category nothing can select — or the rule for this locale has "
-      + "collapsed onto a subset of its categories.",
+      `control failed: no count in the sweep produced "${category}" for ${locale}, which CLDR says ` +
+        "it has. Either the sweep no longer reaches that category — in which case K's residual " +
+        'count is measuring a category nothing can select — or the rule for this locale has ' +
+        'collapsed onto a subset of its categories.',
     );
   }
 }
@@ -2544,55 +2604,68 @@ for (const locale of SUPPORTED_LOCALES) {
  * fixed at one key with `one`/`other` and a `%{count}`, which is the shape all
  * 52 real ones have.
  */
-const K_ENGLISH = new Map([["items", new Map([["one", "%{count} item"], ["other", "%{count} items"]])]]);
-const asForms = (entries) => new Map([["items", new Map(Object.entries(entries))]]);
+const K_ENGLISH = new Map([
+  [
+    'items',
+    new Map([
+      ['one', '%{count} item'],
+      ['other', '%{count} items'],
+    ]),
+  ],
+]);
+const asForms = (entries) => new Map([['items', new Map(Object.entries(entries))]]);
 
 const PLURAL_SHAPE_CONTROLS = [
   {
-    id: "ru missing `other`",
-    locale: "ru",
-    forms: asForms({ one: "%{count} товар" }),
+    id: 'ru missing `other`',
+    locale: 'ru',
+    forms: asForms({ one: '%{count} товар' }),
     mustFail: /no "other"/u,
   },
   {
-    id: "ru missing `one`, which Russian selects at 21",
-    locale: "ru",
-    forms: asForms({ other: "%{count} товаров" }),
+    id: 'ru missing `one`, which Russian selects at 21',
+    locale: 'ru',
+    forms: asForms({ other: '%{count} товаров' }),
     mustFail: /is missing "one"/u,
   },
   {
-    id: "renamed placeholder in a form English has no twin for",
-    locale: "ru",
+    id: 'renamed placeholder in a form English has no twin for',
+    locale: 'ru',
     forms: asForms({
-      one: "%{count} товар", few: "%{n} товара", many: "%{count} товаров", other: "%{count} товаров",
+      one: '%{count} товар',
+      few: '%{n} товара',
+      many: '%{count} товаров',
+      other: '%{count} товаров',
     }),
     mustFail: /carries placeholders \{n\}/u,
   },
   {
-    id: "the key is absent entirely",
-    locale: "de",
+    id: 'the key is absent entirely',
+    locale: 'de',
     forms: new Map(),
     mustFail: /missing or not a plural object/u,
   },
   {
-    id: "ru carrying `few`/`many`, which en.json does not have",
-    locale: "ru",
+    id: 'ru carrying `few`/`many`, which en.json does not have',
+    locale: 'ru',
     forms: asForms({
-      one: "%{count} товар", few: "%{count} товара", many: "%{count} товаров",
-      other: "%{count} товаров",
+      one: '%{count} товар',
+      few: '%{count} товара',
+      many: '%{count} товаров',
+      other: '%{count} товаров',
     }),
     mustPass: true,
   },
   {
-    id: "ja carrying only `other`, its one category",
-    locale: "ja",
-    forms: asForms({ other: "商品 %{count} 件" }),
+    id: 'ja carrying only `other`, its one category',
+    locale: 'ja',
+    forms: asForms({ other: '商品 %{count} 件' }),
     mustPass: true,
   },
   {
-    id: "fr carrying an optional `zero`, which the chain does select",
-    locale: "fr",
-    forms: asForms({ zero: "aucun produit", one: "%{count} produit", other: "%{count} produits" }),
+    id: 'fr carrying an optional `zero`, which the chain does select',
+    locale: 'fr',
+    forms: asForms({ zero: 'aucun produit', one: '%{count} produit', other: '%{count} produits' }),
     mustPass: true,
     // `zero` is not in French's CLDR tuple, so it must not be counted as
     // unreachable either — the whole reason `selectable` and `required` differ.
@@ -2603,10 +2676,12 @@ const PLURAL_SHAPE_CONTROLS = [
     // not INVENT one, and without this control the exemption would be a hole
     // rather than a narrowing — which is how removing an exception removes a
     // check.
-    id: "a `zero` form inventing a placeholder English does not have",
-    locale: "fr",
+    id: 'a `zero` form inventing a placeholder English does not have',
+    locale: 'fr',
     forms: asForms({
-      zero: "aucun %{produit}", one: "%{count} produit", other: "%{count} produits",
+      zero: 'aucun %{produit}',
+      one: '%{count} produit',
+      other: '%{count} produits',
     }),
     mustFail: /"items\.zero" carries placeholders \{produit\}/u,
   },
@@ -2622,24 +2697,24 @@ for (const control of PLURAL_SHAPE_CONTROLS) {
   if (control.mustFail) {
     if (!result.failures.some((failure) => control.mustFail.test(failure))) {
       failures.push(
-        `positive control failed: check K did not report ${control.mustFail} for "${control.id}" — `
-        + `it said ${JSON.stringify(result.failures)}. K's answer on the real tree is silence, so a `
-        + "clause that stopped firing is invisible.",
+        `positive control failed: check K did not report ${control.mustFail} for "${control.id}" — ` +
+          `it said ${JSON.stringify(result.failures)}. K's answer on the real tree is silence, so a ` +
+          'clause that stopped firing is invisible.',
       );
     }
   }
   if (control.mustPass && result.failures.length > 0) {
     failures.push(
-      `negative control failed: check K rejected "${control.id}" (${result.failures.join("; ")}). `
-      + "That is a bundle #436 exists to make legal, and a guard that refuses the correct answer is "
-      + "one whoever hits it will loosen.",
+      `negative control failed: check K rejected "${control.id}" (${result.failures.join('; ')}). ` +
+        'That is a bundle #436 exists to make legal, and a guard that refuses the correct answer is ' +
+        'one whoever hits it will loosen.',
     );
   }
   if (control.mustNotBeUnreachable && result.unreachable.length > 0) {
     failures.push(
-      `negative control failed: check K counted ${result.unreachable.join(", ")} as unreachable in `
-      + `"${control.id}". The chain selects \`zero\` at count 0 in every locale, so counting it `
-      + "against the pin would push somebody to delete copy that renders.",
+      `negative control failed: check K counted ${result.unreachable.join(', ')} as unreachable in ` +
+        `"${control.id}". The chain selects \`zero\` at count 0 in every locale, so counting it ` +
+        'against the pin would push somebody to delete copy that renders.',
     );
   }
 }
@@ -2662,23 +2737,23 @@ const PROVIDER_CONTROL_NOT_MOUNTED = [
   `import { ${SHARED_UI_PROVIDER} } from "@mercaria/ui";\nconst A = () => <Stack />;`,
   `// mount the ${SHARED_UI_PROVIDER} here\nconst A = () => <Stack />;`,
   `const name = "${SHARED_UI_PROVIDER}";`,
-  "const A = () => <BloomThemeProvider><Stack /></BloomThemeProvider>;",
+  'const A = () => <BloomThemeProvider><Stack /></BloomThemeProvider>;',
 ];
 for (const source of PROVIDER_CONTROL_MOUNTED) {
-  if (!mountsSharedUiProvider("control/provider.tsx", source)) {
+  if (!mountsSharedUiProvider('control/provider.tsx', source)) {
     failures.push(
-      `positive control failed: ${JSON.stringify(source)} did not read as mounting `
-      + `${SHARED_UI_PROVIDER} — the detector is broken, and a broken detector reports every app `
-      + "as un-mounted, which is loud; this direction is the quiet one",
+      `positive control failed: ${JSON.stringify(source)} did not read as mounting ` +
+        `${SHARED_UI_PROVIDER} — the detector is broken, and a broken detector reports every app ` +
+        'as un-mounted, which is loud; this direction is the quiet one',
     );
   }
 }
 for (const source of PROVIDER_CONTROL_NOT_MOUNTED) {
-  if (mountsSharedUiProvider("control/provider.tsx", source)) {
+  if (mountsSharedUiProvider('control/provider.tsx', source)) {
     failures.push(
-      `negative control failed: ${JSON.stringify(source)} read as mounting ${SHARED_UI_PROVIDER} — `
-      + "the detector is a substring match, so an app that imports the provider and never renders "
-      + "it would pass while every shared sentence fell back to English",
+      `negative control failed: ${JSON.stringify(source)} read as mounting ${SHARED_UI_PROVIDER} — ` +
+        'the detector is a substring match, so an app that imports the provider and never renders ' +
+        'it would pass while every shared sentence fell back to English',
     );
   }
 }
@@ -2687,9 +2762,9 @@ for (const source of PROVIDER_CONTROL_NOT_MOUNTED) {
 
 const sources = tracked.filter(
   (path) =>
-    SOURCE_FILE.test(path)
-    && OWNERS.some((owner) => path.startsWith(owner.prefix))
-    && !GUARD_OWN_FILES.has(path),
+    SOURCE_FILE.test(path) &&
+    OWNERS.some((owner) => path.startsWith(owner.prefix)) &&
+    !GUARD_OWN_FILES.has(path),
 );
 
 let translatedPositions = 0;
@@ -2840,8 +2915,12 @@ const renderableKeyMapsByApp = new Map(OWNERS.map((owner) => [owner.name, new Se
 for (const [path, text] of textByPath) {
   const app = OWNERS.find((candidate) => path.startsWith(candidate.prefix));
   const result = analyseSource(
-    path, text, knownKeysByApp.get(app.name), keyMapsByApp.get(app.name),
-    renderableKeyMapsByApp.get(app.name), keyMapAliasesByApp.get(app.name),
+    path,
+    text,
+    knownKeysByApp.get(app.name),
+    keyMapsByApp.get(app.name),
+    renderableKeyMapsByApp.get(app.name),
+    keyMapAliasesByApp.get(app.name),
   );
   filesByApp.set(app.name, filesByApp.get(app.name) + 1);
   // H, I and J run for EVERY owner, including the one whose `actionLabelCopy` is
@@ -2859,7 +2938,8 @@ for (const [path, text] of textByPath) {
   const seenSoFar = renderableSeenByApp.get(app.name);
   renderableSeenByApp.set(
     app.name,
-    seenSoFar === null ? result.renderableKeyMapCount
+    seenSoFar === null
+      ? result.renderableKeyMapCount
       : Math.min(seenSoFar, result.renderableKeyMapCount),
   );
   for (const site of result.wireIdentifierRenderSites) {
@@ -2885,14 +2965,19 @@ for (const [path, text] of textByPath) {
   // both defines and is the heaviest caller of these alias functions, and
   // gating this the way F's bag is gated would leave it uncounted there.
   const referentialUnreadable = referentialUnreadableByApp.get(app.name);
-  for (const site of result.referentialUnreadableSources) referentialUnreadable.push({ ...site, file: path });
-  aliasResolvedByApp.set(app.name, aliasResolvedByApp.get(app.name) + result.aliasResolvedCallSites);
+  for (const site of result.referentialUnreadableSources)
+    referentialUnreadable.push({ ...site, file: path });
+  aliasResolvedByApp.set(
+    app.name,
+    aliasResolvedByApp.get(app.name) + result.aliasResolvedCallSites,
+  );
   // An owner that is only PART way through extraction contributes its literals
   // (part C needs them) and none of its check-A findings — but the findings are
   // COUNTED, and that count is pinned below. Discarding them outright is what
   // made a stalled conversion and a regressing one look the same (#528).
   if (app.hardcodedStrings === true) findings.push(...result.findings);
-  else pinnedHardcodedByApp.set(app.name, pinnedHardcodedByApp.get(app.name) + result.findings.length);
+  else
+    pinnedHardcodedByApp.set(app.name, pinnedHardcodedByApp.get(app.name) + result.findings.length);
   translatedPositions += result.translatedPositions;
   translatedByApp.set(app.name, translatedByApp.get(app.name) + result.translatedPositions);
   const seen = literalsByApp.get(app.name);
@@ -2915,36 +3000,35 @@ for (const app of OWNERS) {
 
   if (flatByLocale.size < floorFor(app.minimumLocales)) {
     failures.push(
-      `${app.name} has ${flatByLocale.size} locale bundles, below the `
-      + `${floorFor(app.minimumLocales)} floor — the parity check below compares every sibling `
-      + "against en.json, so with the siblings missing it compares nothing and reports clean",
+      `${app.name} has ${flatByLocale.size} locale bundles, below the ` +
+        `${floorFor(app.minimumLocales)} floor — the parity check below compares every sibling ` +
+        'against en.json, so with the siblings missing it compares nothing and reports clean',
     );
   }
 
   if (english.size < floorFor(app.minimumKeys)) {
     failures.push(
-      `${englishPath} holds ${english.size} keys, below the ${floorFor(app.minimumKeys)} floor — `
-      + "a bundle that small means the extraction regressed or the file listing is broken",
+      `${englishPath} holds ${english.size} keys, below the ${floorFor(app.minimumKeys)} floor — ` +
+        'a bundle that small means the extraction regressed or the file listing is broken',
     );
   }
 
   const scanned = filesByApp.get(app.name) ?? 0;
   if (scanned < floorFor(app.minimumSourceFiles)) {
     failures.push(
-      `${scanned} source files scanned under ${app.prefix}, below the `
-      + `${floorFor(app.minimumSourceFiles)} floor — a prefix that matches nothing reports a clean `
-      + "tree, and the repository-wide floor below cannot see one owner drop out",
+      `${scanned} source files scanned under ${app.prefix}, below the ` +
+        `${floorFor(app.minimumSourceFiles)} floor — a prefix that matches nothing reports a clean ` +
+        'tree, and the repository-wide floor below cannot see one owner drop out',
     );
   }
 
   const seen = translatedByApp.get(app.name) ?? 0;
-  if (app.minimumTranslatedPositions !== null
-    && seen < floorFor(app.minimumTranslatedPositions)) {
+  if (app.minimumTranslatedPositions !== null && seen < floorFor(app.minimumTranslatedPositions)) {
     failures.push(
-      `${seen} translated positions seen in packages/${app.name}, below the `
-      + `${floorFor(app.minimumTranslatedPositions)} floor — the analyser reached almost no `
-      + "user-facing position there, which is exactly what a fully extracted app would also look "
-      + "like if the traversal were broken",
+      `${seen} translated positions seen in packages/${app.name}, below the ` +
+        `${floorFor(app.minimumTranslatedPositions)} floor — the analyser reached almost no ` +
+        'user-facing position there, which is exactly what a fully extracted app would also look ' +
+        'like if the traversal were broken',
     );
   }
 
@@ -2959,11 +3043,11 @@ for (const app of OWNERS) {
   const renderable = renderableSeenByApp.get(app.name) ?? 0;
   if (renderable < floorFor(app.minimumRenderableKeyMaps)) {
     failures.push(
-      `packages/${app.name}: the analyser saw ${renderable} renderable key map(s), below the `
-      + `${floorFor(app.minimumRenderableKeyMaps)} floor — check I has almost nothing to fire on, `
-      + "which is indistinguishable from a tree where every key map is correctly wrapped in `t()`. "
-      + "Either the derivation broke, this app's copy moved somewhere `collectKeyMaps` cannot read "
-      + "it, or the population stopped being PASSED to `analyseSource`.",
+      `packages/${app.name}: the analyser saw ${renderable} renderable key map(s), below the ` +
+        `${floorFor(app.minimumRenderableKeyMaps)} floor — check I has almost nothing to fire on, ` +
+        'which is indistinguishable from a tree where every key map is correctly wrapped in `t()`. ' +
+        "Either the derivation broke, this app's copy moved somewhere `collectKeyMaps` cannot read " +
+        'it, or the population stopped being PASSED to `analyseSource`.',
     );
   }
 
@@ -2989,15 +3073,17 @@ for (const app of OWNERS) {
       if (underEnglishPlural(key)) continue;
       if (!flat.has(key)) {
         failures.push(
-          `${path}: missing key "${key}". enableFallback renders the ENGLISH string for it, so this `
-          + "screen looks translated in review and is not.",
+          `${path}: missing key "${key}". enableFallback renders the ENGLISH string for it, so this ` +
+            'screen looks translated in review and is not.',
         );
       }
     }
     for (const key of flat.keys()) {
       if (underEnglishPlural(key)) continue;
       if (!english.has(key)) {
-        failures.push(`${path}: key "${key}" does not exist in en.json — it can never be rendered.`);
+        failures.push(
+          `${path}: key "${key}" does not exist in en.json — it can never be rendered.`,
+        );
       }
     }
     for (const [key, value] of flat) {
@@ -3006,9 +3092,9 @@ for (const app of OWNERS) {
       if (source === undefined) continue;
       if (placeholdersOf(value) !== placeholdersOf(source)) {
         failures.push(
-          `${path}: "${key}" carries placeholders {${placeholdersOf(value) || "none"}} but en.json `
-          + `carries {${placeholdersOf(source) || "none"}}. A renamed placeholder renders the literal `
-          + "%{name} to a merchant.",
+          `${path}: "${key}" carries placeholders {${placeholdersOf(value) || 'none'}} but en.json ` +
+            `carries {${placeholdersOf(source) || 'none'}}. A renamed placeholder renders the literal ` +
+            '%{name} to a merchant.',
         );
       }
     }
@@ -3028,9 +3114,9 @@ for (const app of OWNERS) {
     const locale = localeOfBundlePath(path);
     if (locale === null) {
       failures.push(
-        `${path}: not a bundle for any locale in SUPPORTED_LOCALES. Check K validates plural `
-        + "categories against the locale's own CLDR set, and it has no set for a file it cannot "
-        + "name — so an unrecognised bundle is refused rather than skipped.",
+        `${path}: not a bundle for any locale in SUPPORTED_LOCALES. Check K validates plural ` +
+          "categories against the locale's own CLDR set, and it has no set for a file it cannot " +
+          'name — so an unrecognised bundle is refused rather than skipped.',
       );
       continue;
     }
@@ -3051,28 +3137,34 @@ for (const app of OWNERS) {
   // somebody paid part of it down, and a floor would fail the PR that pays any
   // of it down. Filling a form in, or deleting a dead one, moves the pin in the
   // same change — which is the point, because that is when a human decided.
-  if (!fixtureFloors && app.pluralCategoryResidual !== null
-    && categoryResidual !== app.pluralCategoryResidual) {
+  if (
+    !fixtureFloors &&
+    app.pluralCategoryResidual !== null &&
+    categoryResidual !== app.pluralCategoryResidual
+  ) {
     failures.push(
-      `packages/${app.name}: ${categoryResidual} plural form(s) missing for a category the locale `
-      + `CAN select, expected exactly ${app.pluralCategoryResidual}.\n`
-      + `      e.g. ${residualExamples.join("\n           ") || "(none)"}\n`
-      + "      These render the `other` form today — no worse than before #436 and no better. "
-      + "Writing them is grammar in languages nobody here can review, so they are counted rather "
-      + "than invented. If you ADDED forms, lower this owner's `pluralCategoryResidual`; if this "
-      + "rose, a bundle lost a form or a locale gained a category.",
+      `packages/${app.name}: ${categoryResidual} plural form(s) missing for a category the locale ` +
+        `CAN select, expected exactly ${app.pluralCategoryResidual}.\n` +
+        `      e.g. ${residualExamples.join('\n           ') || '(none)'}\n` +
+        '      These render the `other` form today — no worse than before #436 and no better. ' +
+        'Writing them is grammar in languages nobody here can review, so they are counted rather ' +
+        "than invented. If you ADDED forms, lower this owner's `pluralCategoryResidual`; if this " +
+        'rose, a bundle lost a form or a locale gained a category.',
     );
   }
-  if (!fixtureFloors && app.pluralUnreachableForms !== null
-    && unreachableForms !== app.pluralUnreachableForms) {
+  if (
+    !fixtureFloors &&
+    app.pluralUnreachableForms !== null &&
+    unreachableForms !== app.pluralUnreachableForms
+  ) {
     failures.push(
-      `packages/${app.name}: ${unreachableForms} plural form(s) the runtime can NEVER select, `
-      + `expected exactly ${app.pluralUnreachableForms}.\n`
-      + `      e.g. ${unreachableExamples.join("\n           ") || "(none)"}\n`
-      + "      Copy no count can reach. Today's are the `one` forms in ja and zh-Hans, whose only "
-      + "CLDR category is `other`; deleting them changes what count=1 renders wherever the two "
-      + "strings differ, which is a copy decision rather than a cleanup. A RISE here is a category "
-      + "written into a locale that has no such form — dead the day it landed.",
+      `packages/${app.name}: ${unreachableForms} plural form(s) the runtime can NEVER select, ` +
+        `expected exactly ${app.pluralUnreachableForms}.\n` +
+        `      e.g. ${unreachableExamples.join('\n           ') || '(none)'}\n` +
+        "      Copy no count can reach. Today's are the `one` forms in ja and zh-Hans, whose only " +
+        'CLDR category is `other`; deleting them changes what count=1 renders wherever the two ' +
+        'strings differ, which is a copy decision rather than a cleanup. A RISE here is a category ' +
+        'written into a locale that has no such form — dead the day it landed.',
     );
   }
 
@@ -3082,10 +3174,10 @@ for (const app of OWNERS) {
   // a plural is spelled would shrink silently and in the green direction.
   if (englishPlurals.size < floorFor(app.minimumPluralKeys)) {
     failures.push(
-      `packages/${app.name}: check K found ${englishPlurals.size} plural key(s) in ${englishPath}, `
-      + `below the ${floorFor(app.minimumPluralKeys)} floor — with that population empty K validates `
-      + "nothing and passes, which is indistinguishable from a bundle set whose plurals are all "
-      + "correct.",
+      `packages/${app.name}: check K found ${englishPlurals.size} plural key(s) in ${englishPath}, ` +
+        `below the ${floorFor(app.minimumPluralKeys)} floor — with that population empty K validates ` +
+        'nothing and passes, which is indistinguishable from a bundle set whose plurals are all ' +
+        'correct.',
     );
   }
 
@@ -3101,9 +3193,9 @@ for (const app of OWNERS) {
       const foreign = foreignPlaceholdersOf(value);
       if (foreign.length === 0) continue;
       failures.push(
-        `${path}: "${key}" carries ${foreign.join(", ")}, which i18n-js does NOT interpolate — it `
-        + "reads %{name}. The braces render literally to a shopper. Check B cannot see this: it "
-        + "compares bundles against each other, and all twelve can be wrong together.",
+        `${path}: "${key}" carries ${foreign.join(', ')}, which i18n-js does NOT interpolate — it ` +
+          'reads %{name}. The braces render literally to a shopper. Check B cannot see this: it ' +
+          'compares bundles against each other, and all twelve can be wrong together.',
       );
     }
   }
@@ -3118,11 +3210,11 @@ for (const app of OWNERS) {
       const reserved = reservedPlaceholdersOf(value);
       if (reserved.length === 0) continue;
       failures.push(
-        `${path}: "${key}" carries ${reserved.map((name) => `%{${name}}`).join(", ")}, whose name is `
-        + "an i18n-js OPTION rather than a slot. It is never interpolated: `scope` prefixes the key "
-        + "being looked up, so the call resolves to a key that does not exist and renders "
-        + '`[missing "…"]` in every language. Rename the slot — `subject`, `conditions`, anything '
-        + "that is not an option name.",
+        `${path}: "${key}" carries ${reserved.map((name) => `%{${name}}`).join(', ')}, whose name is ` +
+          'an i18n-js OPTION rather than a slot. It is never interpolated: `scope` prefixes the key ' +
+          'being looked up, so the call resolves to a key that does not exist and renders ' +
+          '`[missing "…"]` in every language. Rename the slot — `subject`, `conditions`, anything ' +
+          'that is not an option name.',
       );
     }
   }
@@ -3172,13 +3264,14 @@ for (const app of OWNERS) {
   for (const [path, flat] of flatByLocale) {
     for (const [key, value] of flat) {
       if (value.trim().length > 0) continue;
-      const shape = value.length === 0 ? "is EMPTY" : `is WHITESPACE-ONLY (${JSON.stringify(value)})`;
+      const shape =
+        value.length === 0 ? 'is EMPTY' : `is WHITESPACE-ONLY (${JSON.stringify(value)})`;
       failures.push(
-        `${path}: "${key}" ${shape}. i18n-js returns it verbatim — the key EXISTS, so `
-        + "enableFallback never engages and the control renders with no text at all. That is worse "
-        + "than a missing key, which at least falls back to English. Check B cannot see it: a blank "
-        + "value carries en.json's key and en.json's (empty) placeholder set, so parity is "
-        + "satisfied. Delete the key to fall back, or write the string.",
+        `${path}: "${key}" ${shape}. i18n-js returns it verbatim — the key EXISTS, so ` +
+          'enableFallback never engages and the control renders with no text at all. That is worse ' +
+          'than a missing key, which at least falls back to English. Check B cannot see it: a blank ' +
+          "value carries en.json's key and en.json's (empty) placeholder set, so parity is " +
+          'satisfied. Delete the key to fall back, or write the string.',
       );
     }
   }
@@ -3192,22 +3285,25 @@ for (const app of OWNERS) {
   // exercised on a fixture run — its positive and negative controls run on
   // EVERY invocation, which is what keeps this from being untested there.
   const deviceLocaleSites = deviceLocaleFormatsByApp.get(app.name) ?? [];
-  if (!fixtureFloors && app.deviceLocaleFormatSites !== null
-    && deviceLocaleSites.length !== app.deviceLocaleFormatSites) {
+  if (
+    !fixtureFloors &&
+    app.deviceLocaleFormatSites !== null &&
+    deviceLocaleSites.length !== app.deviceLocaleFormatSites
+  ) {
     const listing = deviceLocaleSites
       .map((site) => `${site.file}:${site.line} ${site.method}()`)
-      .join("\n      ");
+      .join('\n      ');
     failures.push(
-      `packages/${app.name}: ${deviceLocaleSites.length} date(s) formatted in the DEVICE locale, `
-      + `expected exactly ${app.deviceLocaleFormatSites}.\n`
-      + `      ${listing || "(none)"}\n`
-      + "      A `toLocale*String()` with no locale argument — or an explicit `undefined`, which is "
-      + "the same thing — renders in the DEVICE's language, so a shopper reading Mercaria in "
-      + "Japanese on an English phone gets an English date inside a Japanese sentence.\n"
-      + "      The remedy is `formatDate`/`formatDateTime` from @mercaria/ui with the locale "
-      + "`useTranslation()` already returns. If you FIXED some of these, lower the owner's "
-      + "`deviceLocaleFormatSites` in this file to the new count — it is an exact count, not a "
-      + "ceiling, so the number cannot quietly drift in either direction.",
+      `packages/${app.name}: ${deviceLocaleSites.length} date(s) formatted in the DEVICE locale, ` +
+        `expected exactly ${app.deviceLocaleFormatSites}.\n` +
+        `      ${listing || '(none)'}\n` +
+        '      A `toLocale*String()` with no locale argument — or an explicit `undefined`, which is ' +
+        "the same thing — renders in the DEVICE's language, so a shopper reading Mercaria in " +
+        'Japanese on an English phone gets an English date inside a Japanese sentence.\n' +
+        '      The remedy is `formatDate`/`formatDateTime` from @mercaria/ui with the locale ' +
+        "`useTranslation()` already returns. If you FIXED some of these, lower the owner's " +
+        '`deviceLocaleFormatSites` in this file to the new count — it is an exact count, not a ' +
+        'ceiling, so the number cannot quietly drift in either direction.',
     );
   }
 
@@ -3222,13 +3318,13 @@ for (const app of OWNERS) {
   // not this loop, are what prove the detector still works.
   for (const site of rawKeyRendersByApp.get(app.name) ?? []) {
     failures.push(
-      `${site.file}:${site.line}: \`${site.text}\` renders a TRANSLATION KEY, not a sentence — `
-      + `\`${site.map}\` holds keys and this ${site.kind} is missing its \`t(…)\`.\n`
-      + "      The screen shows the raw message id in EVERY locale, English included, so this is "
-      + "not a \"shows English to a Spanish reader\" bug somebody eventually reports — it is "
-      + "visible to everyone and to no other check here.\n"
-      + "      `tsc` cannot see it: a key and a sentence are both `string`. Wrap the read: "
-      + `\`t(${site.map}[…])\`.`,
+      `${site.file}:${site.line}: \`${site.text}\` renders a TRANSLATION KEY, not a sentence — ` +
+        `\`${site.map}\` holds keys and this ${site.kind} is missing its \`t(…)\`.\n` +
+        '      The screen shows the raw message id in EVERY locale, English included, so this is ' +
+        'not a "shows English to a Spanish reader" bug somebody eventually reports — it is ' +
+        'visible to everyone and to no other check here.\n' +
+        '      `tsc` cannot see it: a key and a sentence are both `string`. Wrap the read: ' +
+        `\`t(${site.map}[…])\`.`,
     );
   }
 
@@ -3241,22 +3337,25 @@ for (const app of OWNERS) {
   // it. Exact in both directions, so a NEW one fails immediately and fixing
   // some fails until the number comes down with them.
   const wireSites = wireIdentifierRendersByApp.get(app.name) ?? [];
-  if (!fixtureFloors && app.wireIdentifierRenderSites !== null
-    && wireSites.length !== app.wireIdentifierRenderSites) {
+  if (
+    !fixtureFloors &&
+    app.wireIdentifierRenderSites !== null &&
+    wireSites.length !== app.wireIdentifierRenderSites
+  ) {
     const listing = wireSites
       .map((site) => `${site.file}:${site.line} {${site.text}}`)
-      .join("\n      ");
+      .join('\n      ');
     failures.push(
-      `packages/${app.name}: ${wireSites.length} wire identifier(s) rendered raw to a reader, `
-      + `expected exactly ${app.wireIdentifierRenderSites}.\n`
-      + `      ${listing || "(none)"}\n`
-      + "      The English here is GENERATED AT RUNTIME from an identifier, so no literal-based "
-      + "instrument can find it: there is no key for parity or referential integrity to check, "
-      + "check A has no string to read, and `tsc` types it a perfectly good `string`.\n"
-      + "      The remedy is a key map (`SEARCH_RESULT_KIND_KEYS` in the storefront's `search.tsx`) "
-      + "or a localized lookup (`formatRegionName` for a country). If you FIXED some of these, "
-      + "lower the owner's `wireIdentifierRenderSites` in this file to the new count — an exact "
-      + "count, not a ceiling.",
+      `packages/${app.name}: ${wireSites.length} wire identifier(s) rendered raw to a reader, ` +
+        `expected exactly ${app.wireIdentifierRenderSites}.\n` +
+        `      ${listing || '(none)'}\n` +
+        '      The English here is GENERATED AT RUNTIME from an identifier, so no literal-based ' +
+        'instrument can find it: there is no key for parity or referential integrity to check, ' +
+        'check A has no string to read, and `tsc` types it a perfectly good `string`.\n' +
+        "      The remedy is a key map (`SEARCH_RESULT_KIND_KEYS` in the storefront's `search.tsx`) " +
+        'or a localized lookup (`formatRegionName` for a country). If you FIXED some of these, ' +
+        "lower the owner's `wireIdentifierRenderSites` in this file to the new count — an exact " +
+        'count, not a ceiling.',
     );
   }
 
@@ -3269,22 +3368,25 @@ for (const app of OWNERS) {
   // every locale. A gate's population is what it can SEE, and zero on one
   // instrument is not zero on the defect.
   const fallbackSites = wireIdentifierFallbacksByApp.get(app.name) ?? [];
-  if (!fixtureFloors && app.wireIdentifierFallbackSites !== null
-    && fallbackSites.length !== app.wireIdentifierFallbackSites) {
+  if (
+    !fixtureFloors &&
+    app.wireIdentifierFallbackSites !== null &&
+    fallbackSites.length !== app.wireIdentifierFallbackSites
+  ) {
     const listing = fallbackSites
       .map((site) => `${site.file}:${site.line} {${site.text}}`)
-      .join("\n      ");
+      .join('\n      ');
     failures.push(
-      `packages/${app.name}: ${fallbackSites.length} key lookup(s) falling back to the raw `
-      + `subscript, expected exactly ${app.wireIdentifierFallbackSites}.\n`
-      + `      ${listing || "(none)"}\n`
-      + "      `KEYS[x] ? t(KEYS[x]) : x` renders the WIRE VALUE on exactly the unmapped member "
-      + "a key map exists to catch, and it reads as more careful than the correct version. Check "
-      + "J cannot see it: J matches a bare property access and this is a conditional.\n"
-      + "      The remedy is to make the map exhaustive over the closed union — "
-      + "`Record<TheUnion, string>`, so a member added upstream fails `tsc` here — and then drop "
-      + "the branch, which has become unreachable. If the set is genuinely open, fall back to a "
-      + "KEY (`AVAILABILITY_UNKNOWN_KEY` in `OfferRow.tsx`), never to the subscript.",
+      `packages/${app.name}: ${fallbackSites.length} key lookup(s) falling back to the raw ` +
+        `subscript, expected exactly ${app.wireIdentifierFallbackSites}.\n` +
+        `      ${listing || '(none)'}\n` +
+        '      `KEYS[x] ? t(KEYS[x]) : x` renders the WIRE VALUE on exactly the unmapped member ' +
+        'a key map exists to catch, and it reads as more careful than the correct version. Check ' +
+        'J cannot see it: J matches a bare property access and this is a conditional.\n' +
+        '      The remedy is to make the map exhaustive over the closed union — ' +
+        '`Record<TheUnion, string>`, so a member added upstream fails `tsc` here — and then drop ' +
+        'the branch, which has become unreachable. If the set is genuinely open, fall back to a ' +
+        'KEY (`AVAILABILITY_UNKNOWN_KEY` in `OfferRow.tsx`), never to the subscript.',
     );
   }
 
@@ -3301,8 +3403,11 @@ for (const app of OWNERS) {
   // that only ratchets on regression stops describing the package the moment
   // somebody makes progress, and a number nobody maintains is one nobody reads.
   const pinnedHardcoded = pinnedHardcodedByApp.get(app.name) ?? 0;
-  if (!fixtureFloors && typeof app.hardcodedStrings === "number"
-    && pinnedHardcoded !== app.hardcodedStrings) {
+  if (
+    !fixtureFloors &&
+    typeof app.hardcodedStrings === 'number' &&
+    pinnedHardcoded !== app.hardcodedStrings
+  ) {
     const delta = pinnedHardcoded - app.hardcodedStrings;
     // Deliberately NOT a listing of the findings. This check COUNTS; it cannot
     // tell a new string from one that was always there, and printing forty of a
@@ -3310,21 +3415,23 @@ for (const app of OWNERS) {
     // while not being one. The reader's own diff is where that lives, and
     // saying so is more use than the dump.
     failures.push(
-      `packages/${app.name}: ${pinnedHardcoded} hardcoded user-facing string(s), expected `
-      + `exactly ${app.hardcodedStrings} (${delta > 0 ? `+${delta}` : delta}).\n`
-      + "      This owner is mid-extraction, so check A does not RAISE its findings — it pins their\n"
-      + "      COUNT, in both directions, the way H pins `deviceLocaleFormatSites`.\n"
-      + `      ${delta > 0
-        ? "The count went UP: your change introduced English copy into a package that is being "
-          + "extracted OUT of it.\n"
-          + "      This check counts and cannot say which strings are new — your own diff can. The "
-          + "remedy is to put\n      the copy in this package's own bundles under the reserved `ui` "
-          + "namespace, or to raise the pin\n      with a reason covering it."
-        : "The count went DOWN, which is progress: lower the owner's `hardcodedStrings` in this "
-          + "file to the\n      new count. It is an exact count rather than a ceiling, so it cannot "
-          + "quietly drift in either\n      direction, and a pin nobody maintains is one nobody "
-          + "reads."}\n`
-      + "      When it reaches 0, change `hardcodedStrings` to `true` and this owner is finished.",
+      `packages/${app.name}: ${pinnedHardcoded} hardcoded user-facing string(s), expected ` +
+        `exactly ${app.hardcodedStrings} (${delta > 0 ? `+${delta}` : delta}).\n` +
+        '      This owner is mid-extraction, so check A does not RAISE its findings — it pins their\n' +
+        '      COUNT, in both directions, the way H pins `deviceLocaleFormatSites`.\n' +
+        `      ${
+          delta > 0
+            ? 'The count went UP: your change introduced English copy into a package that is being ' +
+              'extracted OUT of it.\n' +
+              '      This check counts and cannot say which strings are new — your own diff can. The ' +
+              "remedy is to put\n      the copy in this package's own bundles under the reserved `ui` " +
+              'namespace, or to raise the pin\n      with a reason covering it.'
+            : "The count went DOWN, which is progress: lower the owner's `hardcodedStrings` in this " +
+              'file to the\n      new count. It is an exact count rather than a ceiling, so it cannot ' +
+              'quietly drift in either\n      direction, and a pin nobody maintains is one nobody ' +
+              'reads.'
+        }\n` +
+        '      When it reaches 0, change `hardcodedStrings` to `true` and this owner is finished.',
     );
   }
 
@@ -3333,8 +3440,8 @@ for (const app of OWNERS) {
   for (const key of english.keys()) {
     if (!literals.has(key) && !literals.has(pluralParentOf(key))) {
       failures.push(
-        `${englishPath}: "${key}" is named by no string literal in packages/${app.name}. Either it is `
-        + "dead copy, or the call site that used it was replaced with a hardcoded English string.",
+        `${englishPath}: "${key}" is named by no string literal in packages/${app.name}. Either it is ` +
+          'dead copy, or the call site that used it was replaced with a hardcoded English string.',
       );
     }
   }
@@ -3343,8 +3450,8 @@ for (const app of OWNERS) {
   for (const site of translateSitesByApp.get(app.name) ?? []) {
     if (resolvable.has(site.key)) continue;
     failures.push(
-      `${site.file}:${site.line}: t(${JSON.stringify(site.key)}) names no key in ${englishPath}. `
-      + "i18n-js renders a humanised guess of the key, which reads like real copy.",
+      `${site.file}:${site.line}: t(${JSON.stringify(site.key)}) names no key in ${englishPath}. ` +
+        'i18n-js renders a humanised guess of the key, which reads like real copy.',
     );
   }
 }
@@ -3363,9 +3470,9 @@ for (const [path, topLevel] of topLevelKeysByPath) {
   if (!path.startsWith(`${sharedOwner.locales}/`)) continue;
   if (topLevel.length !== 1 || topLevel[0] !== SHARED_UI_NAMESPACE) {
     failures.push(
-      `${path}: a shared bundle's only top-level key must be "${SHARED_UI_NAMESPACE}", found `
-      + `[${topLevel.join(", ")}]. Anything else is merged into every app's instance outside the `
-      + "reserved namespace, where it silently overwrites app copy or is overwritten by it.",
+      `${path}: a shared bundle's only top-level key must be "${SHARED_UI_NAMESPACE}", found ` +
+        `[${topLevel.join(', ')}]. Anything else is merged into every app's instance outside the ` +
+        'reserved namespace, where it silently overwrites app copy or is overwritten by it.',
     );
   }
 }
@@ -3373,9 +3480,9 @@ for (const [path, topLevel] of topLevelKeysByPath) {
 const appBundlePaths = tracked.filter((path) => APP_LOCALE_BUNDLE.test(path));
 if (appBundlePaths.length < MINIMUM_APP_BUNDLES) {
   failures.push(
-    `${appBundlePaths.length} app locale bundles found, below the ${MINIMUM_APP_BUNDLES} floor — `
-    + "the derivation matched almost nothing, and a derivation that matches nothing reports every "
-    + "app clean of the reserved-namespace collision",
+    `${appBundlePaths.length} app locale bundles found, below the ${MINIMUM_APP_BUNDLES} floor — ` +
+      'the derivation matched almost nothing, and a derivation that matches nothing reports every ' +
+      'app clean of the reserved-namespace collision',
   );
 }
 for (const path of appBundlePaths) {
@@ -3390,8 +3497,8 @@ for (const path of appBundlePaths) {
   }
   if (Object.prototype.hasOwnProperty.call(parsed, SHARED_UI_NAMESPACE)) {
     failures.push(
-      `${path}: has a top-level "${SHARED_UI_NAMESPACE}" key, which is reserved for `
-      + "@mercaria/ui's own copy (#437). mergeSharedUiCopy refuses this at boot; rename the app key.",
+      `${path}: has a top-level "${SHARED_UI_NAMESPACE}" key, which is reserved for ` +
+        "@mercaria/ui's own copy (#437). mergeSharedUiCopy refuses this at boot; rename the app key.",
     );
   }
 }
@@ -3401,8 +3508,8 @@ for (const path of appBundlePaths) {
 const rootLayouts = tracked.filter((path) => ROOT_LAYOUT.test(path));
 if (rootLayouts.length < MINIMUM_ROOT_LAYOUTS) {
   failures.push(
-    `${rootLayouts.length} app root layouts found, below the ${MINIMUM_ROOT_LAYOUTS} floor — `
-    + "the derivation matched almost nothing, so this check verified almost nothing",
+    `${rootLayouts.length} app root layouts found, below the ${MINIMUM_ROOT_LAYOUTS} floor — ` +
+      'the derivation matched almost nothing, so this check verified almost nothing',
   );
 }
 for (const path of rootLayouts) {
@@ -3410,9 +3517,9 @@ for (const path of rootLayouts) {
   if (text === null) continue;
   if (!mountsSharedUiProvider(path, text)) {
     failures.push(
-      `${path}: does not mount <${SHARED_UI_PROVIDER}>. Every component in @mercaria/ui that renders `
-      + "its own copy resolves through it; without one they fall back to that package's English "
-      + "silently, in an app whose own screens are correctly translated (#437).",
+      `${path}: does not mount <${SHARED_UI_PROVIDER}>. Every component in @mercaria/ui that renders ` +
+        "its own copy resolves through it; without one they fall back to that package's English " +
+        'silently, in an app whose own screens are correctly translated (#437).',
     );
   }
 }
@@ -3432,16 +3539,16 @@ for (const app of OWNERS) {
   // same clean run as a correct tree.
   if (controls.size < floorFor(app.minimumControlLabelKeys)) {
     failures.push(
-      `${app.name}: check F saw ${controls.size} keys rendered as an action control's label, `
-      + `below the ${floorFor(app.minimumControlLabelKeys)} floor — with that population empty F `
-      + "intersects nothing and passes, which is indistinguishable from a clean tree",
+      `${app.name}: check F saw ${controls.size} keys rendered as an action control's label, ` +
+        `below the ${floorFor(app.minimumControlLabelKeys)} floor — with that population empty F ` +
+        'intersects nothing and passes, which is indistinguishable from a clean tree',
     );
   }
   if (interpolated.size < floorFor(app.minimumInterpolatedKeys)) {
     failures.push(
-      `${app.name}: check F saw ${interpolated.size} keys interpolated into another translated `
-      + `sentence, below the ${floorFor(app.minimumInterpolatedKeys)} floor — same reason as above, `
-      + "from the other side of the intersection",
+      `${app.name}: check F saw ${interpolated.size} keys interpolated into another translated ` +
+        `sentence, below the ${floorFor(app.minimumInterpolatedKeys)} floor — same reason as above, ` +
+        'from the other side of the intersection',
     );
   }
 
@@ -3449,22 +3556,22 @@ for (const app of OWNERS) {
     const use = interpolated.get(key);
     if (!use) continue;
     failures.push(
-      `${key} is BOTH an action control's label and a value interpolated into a sentence (#442).\n`
-      + `    label       ${control.file}:${control.line} inside <${control.tag}>\n`
-      + `    interpolated ${use.file}:${use.line} into "${use.frame}"\n`
-      + "    An action label is an imperative — \"Keep products\", \"Produkte behalten\", "
-      + "\"Оставить товары\" — and a\n"
-      + "    sentence slot needs a term, so the frame reads \"…happens to the keep products this "
-      + "channel\n    imported\" in every language. Give the sentence its OWN key rather than "
-      + "reusing the label's.",
+      `${key} is BOTH an action control's label and a value interpolated into a sentence (#442).\n` +
+        `    label       ${control.file}:${control.line} inside <${control.tag}>\n` +
+        `    interpolated ${use.file}:${use.line} into "${use.frame}"\n` +
+        '    An action label is an imperative — "Keep products", "Produkte behalten", ' +
+        '"Оставить товары" — and a\n' +
+        '    sentence slot needs a term, so the frame reads "…happens to the keep products this ' +
+        'channel\n    imported" in every language. Give the sentence its OWN key rather than ' +
+        "reusing the label's.",
     );
   }
 }
 
 if (actionLabelOwners < floorFor(2)) {
   failures.push(
-    `check F ran over ${actionLabelOwners} owners, below the ${floorFor(2)} floor — `
-    + "an owner list that matched nothing runs F over nothing and reports clean",
+    `check F ran over ${actionLabelOwners} owners, below the ${floorFor(2)} floor — ` +
+      'an owner list that matched nothing runs F over nothing and reports clean',
   );
 }
 
@@ -3472,83 +3579,99 @@ if (actionLabelOwners < floorFor(2)) {
 
 if (sources.length < MINIMUM_SOURCE_FILES) {
   failures.push(
-    `${sources.length} source files scanned is below the ${MINIMUM_SOURCE_FILES} floor — `
-    + "the file listing is probably broken, and a broken listing reports a clean tree",
+    `${sources.length} source files scanned is below the ${MINIMUM_SOURCE_FILES} floor — ` +
+      'the file listing is probably broken, and a broken listing reports a clean tree',
   );
 }
 
 // ------------------------------------------------------------------ verdict --
 
 if (findings.length > 0 || failures.length > 0) {
-  console.error("i18n string guard failed:\n");
+  console.error('i18n string guard failed:\n');
   for (const finding of findings) {
-    console.error(`  ${finding.file}:${finding.line}: hardcoded user-facing string [${finding.kind}]`);
+    console.error(
+      `  ${finding.file}:${finding.line}: hardcoded user-facing string [${finding.kind}]`,
+    );
     console.error(`    ${JSON.stringify(finding.text)}`);
     console.error(
-      "    Move it to that app's lib/i18n/locales/en.json, render it with t('key'), "
-      + "and translate it in every sibling bundle.\n",
+      "    Move it to that app's lib/i18n/locales/en.json, render it with t('key'), " +
+        'and translate it in every sibling bundle.\n',
     );
   }
   for (const failure of failures) console.error(`  ${failure}\n`);
   console.error(
-    "  The dashboard and POS were translated in #398. A hardcoded string is invisible to tsc,\n"
-    + "  to lint and to every build job — it just renders in English to somebody who does not read it.\n",
+    '  The dashboard and POS were translated in #398. A hardcoded string is invisible to tsc,\n' +
+      '  to lint and to every build job — it just renders in English to somebody who does not read it.\n',
   );
   process.exit(1);
 }
 
-const actionLabelSummary = OWNERS
-  .filter((owner) => owner.actionLabelCopy)
+const actionLabelSummary = OWNERS.filter((owner) => owner.actionLabelCopy)
   .map((owner) => {
     const unreadable = unreadableKeySourcesByApp.get(owner.name).length;
-    return `${owner.name} ${controlLabelKeysByApp.get(owner.name).size} label/`
-      + `${interpolatedKeysByApp.get(owner.name).size} interpolated`
-      + (unreadable > 0 ? ` (${unreadable} unreadable)` : "");
+    return (
+      `${owner.name} ${controlLabelKeysByApp.get(owner.name).size} label/` +
+      `${interpolatedKeysByApp.get(owner.name).size} interpolated` +
+      (unreadable > 0 ? ` (${unreadable} unreadable)` : '')
+    );
   })
-  .join(", ");
+  .join(', ');
 
 // Check C's alias resolution, for EVERY owner (never gated by
 // `actionLabelCopy` — see `referentialUnreadableByApp`'s own comment). Printed
 // as a count that resolved rather than only a pass, because "found no bad key"
 // and "resolved nothing and found no bad key" render identically otherwise —
 // exactly the gap #598 traced.
-const referentialSummary = OWNERS
-  .map((owner) => {
-    const unreadable = referentialUnreadableByApp.get(owner.name).length;
-    return `${owner.name} ${aliasResolvedByApp.get(owner.name)}`
-      + (unreadable > 0 ? ` (${unreadable} unreadable)` : "");
-  })
-  .join(", ");
+const referentialSummary = OWNERS.map((owner) => {
+  const unreadable = referentialUnreadableByApp.get(owner.name).length;
+  return (
+    `${owner.name} ${aliasResolvedByApp.get(owner.name)}` +
+    (unreadable > 0 ? ` (${unreadable} unreadable)` : '')
+  );
+}).join(', ');
 
 console.log(
-  `i18n string guard passed — ${sources.length} source files scanned across `
-  + `${OWNERS.map((owner) => owner.prefix).join(", ")}; ${translatedPositions} translated positions seen; `
-  + `${appBundlePaths.length} app bundles and ${rootLayouts.length} app roots checked for the `
-  + `reserved "${SHARED_UI_NAMESPACE}" namespace and <${SHARED_UI_PROVIDER}>; `
-  + `check C resolved ${referentialSummary} key-alias call site(s); `
-  + `check F intersected ${actionLabelSummary}; `
-  // Check I's population, reported for check F's reason: its finding count is
-  // ZERO on a healthy tree, so the only number that says the check was pointed
-  // at anything is the size of what it scanned.
-  + `check I watched ${OWNERS.map((owner) => `${owner.name} `
-    + `${renderableSeenByApp.get(owner.name) ?? 0}`).join("/")} key maps; `
-  // K's populations, reported for the same reason as I's: its healthy answer is
-  // silence, so the only numbers saying it was pointed at anything are how many
-  // plural keys it validated and how far the chain sweep reached.
-  + `check K validated ${OWNERS.map((owner) => `${owner.name} `
-    + `${pluralKeysByApp.get(owner.name) ?? 0}`).join("/")} plural keys against `
-  + `${SUPPORTED_LOCALES.length} locales, chain sweep reaching `
-  + `${[...pluralChainReach.values()].reduce((total, reached) => total + reached.size, 0)} `
-  + "locale/category pairs; "
-  + `${CONTROL_MUST_FIND.length + PROVIDER_CONTROL_MOUNTED.length + ACTION_LABEL_MUST_FIND.length
-    + DEVICE_LOCALE_MUST_FIND.length + RAW_KEY_MUST_FIND.length
-    + WIRE_IDENTIFIER_MUST_FIND.length + ALIAS_MUST_RESOLVE.length} `
-  + "positive and "
-  + `${CONTROL_MUST_NOT_FIND.length + PROVIDER_CONTROL_NOT_MOUNTED.length
-    + ACTION_LABEL_MUST_NOT_FIND.length + DEVICE_LOCALE_MUST_NOT_FIND.length
-    + RAW_KEY_MUST_NOT_FIND.length + WIRE_IDENTIFIER_MUST_NOT_FIND.length
-    + ALIAS_MUST_NOT_RESOLVE.length} `
-  + "negative controls run.",
+  `i18n string guard passed — ${sources.length} source files scanned across ` +
+    `${OWNERS.map((owner) => owner.prefix).join(', ')}; ${translatedPositions} translated positions seen; ` +
+    `${appBundlePaths.length} app bundles and ${rootLayouts.length} app roots checked for the ` +
+    `reserved "${SHARED_UI_NAMESPACE}" namespace and <${SHARED_UI_PROVIDER}>; ` +
+    `check C resolved ${referentialSummary} key-alias call site(s); ` +
+    `check F intersected ${actionLabelSummary}; ` +
+    // Check I's population, reported for check F's reason: its finding count is
+    // ZERO on a healthy tree, so the only number that says the check was pointed
+    // at anything is the size of what it scanned.
+    `check I watched ${OWNERS.map(
+      (owner) => `${owner.name} ` + `${renderableSeenByApp.get(owner.name) ?? 0}`,
+    ).join('/')} key maps; ` +
+    // K's populations, reported for the same reason as I's: its healthy answer is
+    // silence, so the only numbers saying it was pointed at anything are how many
+    // plural keys it validated and how far the chain sweep reached.
+    `check K validated ${OWNERS.map(
+      (owner) => `${owner.name} ` + `${pluralKeysByApp.get(owner.name) ?? 0}`,
+    ).join('/')} plural keys against ` +
+    `${SUPPORTED_LOCALES.length} locales, chain sweep reaching ` +
+    `${[...pluralChainReach.values()].reduce((total, reached) => total + reached.size, 0)} ` +
+    'locale/category pairs; ' +
+    `${
+      CONTROL_MUST_FIND.length +
+      PROVIDER_CONTROL_MOUNTED.length +
+      ACTION_LABEL_MUST_FIND.length +
+      DEVICE_LOCALE_MUST_FIND.length +
+      RAW_KEY_MUST_FIND.length +
+      WIRE_IDENTIFIER_MUST_FIND.length +
+      ALIAS_MUST_RESOLVE.length
+    } ` +
+    'positive and ' +
+    `${
+      CONTROL_MUST_NOT_FIND.length +
+      PROVIDER_CONTROL_NOT_MOUNTED.length +
+      ACTION_LABEL_MUST_NOT_FIND.length +
+      DEVICE_LOCALE_MUST_NOT_FIND.length +
+      RAW_KEY_MUST_NOT_FIND.length +
+      WIRE_IDENTIFIER_MUST_NOT_FIND.length +
+      ALIAS_MUST_NOT_RESOLVE.length
+    } ` +
+    'negative controls run.',
 );
 
 // Printed on every PASS, deliberately, and phrased as an exclusion rather than
@@ -3562,10 +3685,10 @@ console.log(
 // form stores KEYS in the map and writing English back leaves a key referenced
 // by nothing. The fourth cannot be caught by anything here: there is no literal.
 console.log(
-  "  Not decided by check A, and not a claim this run makes: a module-scope "
-  + "initializer holding sentences (array OR record), a function or `switch` "
-  + "that RETURNS copy, a parameter default, and text derived at runtime from "
-  + "an identifier (`kind.replace(/_/gu, ' ')`), which has no literal to find. "
-  + "Nor an English string thrown as an `Error` and rendered from "
-  + "`error.message`. See docs/app-i18n.md §\"What the guard cannot see\".",
+  '  Not decided by check A, and not a claim this run makes: a module-scope ' +
+    'initializer holding sentences (array OR record), a function or `switch` ' +
+    'that RETURNS copy, a parameter default, and text derived at runtime from ' +
+    "an identifier (`kind.replace(/_/gu, ' ')`), which has no literal to find. " +
+    'Nor an English string thrown as an `Error` and rendered from ' +
+    '`error.message`. See docs/app-i18n.md §"What the guard cannot see".',
 );

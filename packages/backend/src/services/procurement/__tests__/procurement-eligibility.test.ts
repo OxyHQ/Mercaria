@@ -91,10 +91,7 @@ describe('deriveProcurementEligibility', () => {
     ['agreement_not_approved', { agreement: agreement({ approvalState: 'draft' as const }) }],
     ['agreement_expired', { agreement: agreement({ expiresAt: PAST }) }],
     ['agreement_not_effective', { agreement: agreement({ effectiveAt: FUTURE }) }],
-    [
-      'agreement_rights_insufficient',
-      { agreement: agreement({ blindDropshipVerified: false }) },
-    ],
+    ['agreement_rights_insufficient', { agreement: agreement({ blindDropshipVerified: false }) }],
     [
       'destination_not_permitted',
       { agreement: agreement({ permittedDestinationCountries: ['FR'] }) },
@@ -108,10 +105,7 @@ describe('deriveProcurementEligibility', () => {
     ],
     ['offer_unmapped', { offer: offer({ canonicalVariantId: null }) }],
     ['offer_out_of_stock', { offer: offer({ availability: 'out_of_stock' as const }) }],
-    [
-      'destination_not_permitted',
-      { offer: offer({ eligibleDestinationCountries: ['FR'] }) },
-    ],
+    ['destination_not_permitted', { offer: offer({ eligibleDestinationCountries: ['FR'] }) }],
   ] as const)('reports %s when that fact alone fails', (reason, overrides) => {
     const verdict = derive(overrides);
     expect(verdict.eligible).toBe(false);
@@ -170,7 +164,11 @@ describe('deriveOfferFreshness', () => {
   it('expired beats stale, and the expiry boundary is inclusive', () => {
     expect(
       deriveOfferFreshness(
-        { lastConfirmedAt: new Date(NOW.getTime() - 7_200_000), quoteTtlSeconds: 60, expiresAt: NOW },
+        {
+          lastConfirmedAt: new Date(NOW.getTime() - 7_200_000),
+          quoteTtlSeconds: 60,
+          expiresAt: NOW,
+        },
         NOW,
       ),
     ).toBe('expired');
@@ -188,7 +186,10 @@ describe('deriveOfferFreshness', () => {
       ),
     ).toBe('stale');
     expect(
-      deriveOfferFreshness({ lastConfirmedAt: anHourAgo, quoteTtlSeconds: null, expiresAt: null }, NOW),
+      deriveOfferFreshness(
+        { lastConfirmedAt: anHourAgo, quoteTtlSeconds: null, expiresAt: null },
+        NOW,
+      ),
     ).toBe('fresh');
   });
 });
@@ -196,15 +197,17 @@ describe('deriveOfferFreshness', () => {
 describe('projectRetailOfferSourcingSeam — the structural leak gate', () => {
   it('carries EXACTLY the seam fields, nothing else', () => {
     const seam = projectRetailOfferSourcingSeam(offer(), { eligible: true, reasons: [] });
-    expect(Object.keys(seam).sort()).toEqual([
-      'availability',
-      'canonicalProductId',
-      'canonicalVariantId',
-      'eligibility',
-      'estimatedDeliveryDaysMin',
-      'estimatedDeliveryDaysMax',
-      'procurementOfferId',
-    ].sort());
+    expect(Object.keys(seam).sort()).toEqual(
+      [
+        'availability',
+        'canonicalProductId',
+        'canonicalVariantId',
+        'eligibility',
+        'estimatedDeliveryDaysMin',
+        'estimatedDeliveryDaysMax',
+        'procurementOfferId',
+      ].sort(),
+    );
   });
 
   it('has no property that could carry a cost, a currency of cost or a credential', () => {

@@ -260,10 +260,7 @@ describe('unknown emits NOTHING', () => {
       price: { known: false },
       availability: { known: false },
     };
-    const node = productNode(
-      facts({ offers: [unpriced, { ...unpriced, offerId: 'b' }] }),
-      ORIGIN,
-    );
+    const node = productNode(facts({ offers: [unpriced, { ...unpriced, offerId: 'b' }] }), ORIGIN);
     const aggregate = node.offers as Record<string, SeoJsonLdValue>;
     expect(aggregate.lowPrice).toBeUndefined();
     expect(aggregate.highPrice).toBeUndefined();
@@ -336,10 +333,7 @@ describe('the Product node', () => {
       for_parts: 'https://schema.org/DamagedCondition',
     };
     for (const [key, expected] of Object.entries(conditions)) {
-      const node = productNode(
-        facts({ offers: [{ ...NATIVE_OFFER, conditionKey: key }] }),
-        ORIGIN,
-      );
+      const node = productNode(facts({ offers: [{ ...NATIVE_OFFER, conditionKey: key }] }), ORIGIN);
       const offer = node.offers as Record<string, SeoJsonLdValue>;
       expect(offer.itemCondition, key).toBe(expected);
     }

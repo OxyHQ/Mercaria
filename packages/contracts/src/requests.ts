@@ -85,7 +85,9 @@ function refusingRelevanceWithoutQuery<Shape extends typeof productListShape>(sh
 export const MercariaProductSearchQuerySchema = refusingRelevanceWithoutQuery({
   ...productListShape,
   storeId: filterId.optional().describe('Only this store’s products. A gone store answers 410.'),
-  collectionId: filterId.optional().describe('Only this collection’s products. A gone collection answers 410.'),
+  collectionId: filterId
+    .optional()
+    .describe('Only this collection’s products. A gone collection answers 410.'),
 });
 
 /** `GET /stores/{id}/products`. */
@@ -107,7 +109,9 @@ export const MercariaLocationListQuerySchema = z.strictObject({
     .trim()
     .min(1)
     .max(128)
-    .describe('The GoWay place whose Mercaria locations to list. Required: there is no list of every location.'),
+    .describe(
+      'The GoWay place whose Mercaria locations to list. Required: there is no list of every location.',
+    ),
 });
 
 /** `GET /stores/{id}/collections` and `GET /collections/{id}/products`. */

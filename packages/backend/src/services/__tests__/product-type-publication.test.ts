@@ -428,7 +428,7 @@ describe('publication supersedes the incumbent, in that order', () => {
     }
   });
 
-  it('does not deprecate itself when it is already the key\'s published row', async () => {
+  it("does not deprecate itself when it is already the key's published row", async () => {
     findPublishedProductTypeDefinition.mockResolvedValue({ ...DEFINITION, lifecycle: 'published' });
     await publishProductTypeVersion(db, {
       definitionId: 'ptd_1',

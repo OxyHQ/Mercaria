@@ -33,11 +33,7 @@ import { DISCOUNT_ALLOCATION_TARGETS, orders } from './orders';
 import { customers, locations, stores } from './stores';
 
 /** `DraftOrder.status`. */
-export const DRAFT_ORDER_STATUSES: readonly DraftOrderStatus[] = [
-  'open',
-  'completed',
-  'cancelled',
-];
+export const DRAFT_ORDER_STATUSES: readonly DraftOrderStatus[] = ['open', 'completed', 'cancelled'];
 
 /**
  * `draft_orders` — the POS cart that converts into a paid order.
@@ -67,7 +63,9 @@ export const draftOrders = pgTable(
     customerId: text().references(() => customers.id, { onDelete: 'restrict' }),
     /** An Oxy account id — no foreign key. The member at the register. */
     createdByOxyUserId: text().notNull(),
-    status: text({ enum: asEnumValues(DRAFT_ORDER_STATUSES) }).notNull().default('open'),
+    status: text({ enum: asEnumValues(DRAFT_ORDER_STATUSES) })
+      .notNull()
+      .default('open'),
     discountCodes: text().array().notNull().default(sql`'{}'::text[]`),
     ...optionalAddressColumns('shippingAddress'),
 
@@ -209,11 +207,7 @@ export const draftOrderAppliedDiscounts = pgTable(
   },
   (t) => [
     checkOneOf('draft_order_applied_discounts_value_type_check', t.valueType, DISCOUNT_VALUE_TYPES),
-    checkOneOf(
-      'draft_order_applied_discounts_target_check',
-      t.target,
-      DISCOUNT_ALLOCATION_TARGETS,
-    ),
+    checkOneOf('draft_order_applied_discounts_target_check', t.target, DISCOUNT_ALLOCATION_TARGETS),
     ...currencyChecks('draft_order_applied_discounts', [t.amountCurrency]),
     check(
       'draft_order_applied_discounts_target_line_check',

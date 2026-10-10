@@ -37,7 +37,12 @@
 
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
-import { claimMergeJobs, claimSplitJobs, releaseMergeJob, releaseSplitJob } from '../../db/curation/jobRepository.js';
+import {
+  claimMergeJobs,
+  claimSplitJobs,
+  releaseMergeJob,
+  releaseSplitJob,
+} from '../../db/curation/jobRepository.js';
 import { resumeBlockedMergeJobs, runMergeJob } from './merge.service.js';
 import { resumeBlockedSplitJobs, runSplitJob } from './split.service.js';
 

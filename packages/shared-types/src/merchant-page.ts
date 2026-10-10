@@ -109,8 +109,7 @@ export interface MerchantPageOrganization {
  * different facts about the merchant and only one of them is a gap.
  */
 export const MERCHANT_ORGANIZATION_USEFULNESS = ['useful', 'same_name_as_merchant'] as const;
-export type MerchantOrganizationUsefulness =
-  (typeof MERCHANT_ORGANIZATION_USEFULNESS)[number];
+export type MerchantOrganizationUsefulness = (typeof MERCHANT_ORGANIZATION_USEFULNESS)[number];
 
 /* -------------------------------------------------------------------------- */
 /*  Claim and activation, in safe public language                               */
@@ -242,8 +241,7 @@ export type MerchantOutboundUnavailableReason =
  * check rather than a decision recorded only in prose.
  */
 export const MERCHANT_NATIVE_STORE_PRESENTATIONS = ['link'] as const;
-export type MerchantNativeStorePresentation =
-  (typeof MERCHANT_NATIVE_STORE_PRESENTATIONS)[number];
+export type MerchantNativeStorePresentation = (typeof MERCHANT_NATIVE_STORE_PRESENTATIONS)[number];
 
 /** The two presentations #73 considered and this domain refuses. */
 export const MERCHANT_REJECTED_NATIVE_STORE_PRESENTATIONS = ['redirect', 'embed'] as const;
@@ -548,7 +546,11 @@ export interface MerchantCatalogEntry {
   readonly name: string;
   readonly brand?: { readonly id: string; readonly slug: string; readonly name: string };
   readonly categoryId?: string;
-  readonly image?: { readonly fileId: string | null; readonly sourceUrl: string | null; readonly alt: string | null };
+  readonly image?: {
+    readonly fileId: string | null;
+    readonly sourceUrl: string | null;
+    readonly alt: string | null;
+  };
   /**
    * The offer this card is priced from: the cheapest CURRENT offer in scope.
    *

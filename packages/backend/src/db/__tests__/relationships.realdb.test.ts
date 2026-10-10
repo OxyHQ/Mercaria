@@ -264,7 +264,10 @@ describe('the per-kind endpoint CHECK constrains subject and object entity kinds
       },
       {
         kind: 'organization_manufactures' as const,
-        endpoints: { organizationId, productFamilyId: await mintProductFamily(`Endpoints Family ${RUN}`) },
+        endpoints: {
+          organizationId,
+          productFamilyId: await mintProductFamily(`Endpoints Family ${RUN}`),
+        },
       },
       {
         kind: 'merchant_official_channel_for_brand' as const,
@@ -294,7 +297,10 @@ describe('the per-kind endpoint CHECK constrains subject and object entity kinds
     // brand, a succession claim with one brand.
     const wrong = [
       { kind: 'organization_owns_brand' as const, endpoints: { organizationId, merchantId } },
-      { kind: 'merchant_official_channel_for_brand' as const, endpoints: { organizationId, brandId } },
+      {
+        kind: 'merchant_official_channel_for_brand' as const,
+        endpoints: { organizationId, brandId },
+      },
       { kind: 'organization_manufactures' as const, endpoints: { organizationId, brandId } },
       { kind: 'brand_succeeds_brand' as const, endpoints: { brandId } },
     ];
@@ -644,9 +650,7 @@ describe('four-eyes approval for high-impact official relationships', () => {
         reason: 'One operator trying to verify a badge alone.',
         actorOxyUserId: OPERATOR_A,
       }),
-    ).rejects.toSatisfy(
-      (error: unknown) => isMercariaError(error) && error.httpStatus === 403,
-    );
+    ).rejects.toSatisfy((error: unknown) => isMercariaError(error) && error.httpStatus === 403);
   });
 
   it('refuses the SAME operator approving twice — the index, not a comparison', async () => {
@@ -902,9 +906,7 @@ describe('revocation removes public status without erasing history (acceptance 3
     // rather than the system silently unverifying it.
     const view = await getRelationshipForOperator(relationship.id);
     expect(view.relationship.status).toBe('verified');
-    expect(view.conflicts.map((entry) => entry.kind)).toContain(
-      'verified_without_active_evidence',
-    );
+    expect(view.conflicts.map((entry) => entry.kind)).toContain('verified_without_active_evidence');
   });
 
   it('refuses to delete a relationship that has evidence — RESTRICT, not CASCADE', async () => {
@@ -1194,17 +1196,25 @@ describe('the Apple acceptance example', () => {
     await verifyThroughWorkflow(reseller.id);
 
     // The four assertions the example makes, in one market.
-    expect((await resolveOfficialChannel({ merchantId: appleStore, brandId: appleBrand, market: 'ES' })).badge).toBe(
-      'official_store',
-    );
-    expect((await resolveOfficialChannel({ merchantId: amazon, brandId: appleBrand, market: 'ES' })).badge).toBe(
-      'authorized_reseller',
-    );
+    expect(
+      (await resolveOfficialChannel({ merchantId: appleStore, brandId: appleBrand, market: 'ES' }))
+        .badge,
+    ).toBe('official_store');
+    expect(
+      (await resolveOfficialChannel({ merchantId: amazon, brandId: appleBrand, market: 'ES' }))
+        .badge,
+    ).toBe('authorized_reseller');
     // "A third-party Amazon seller can offer an iPhone with no official
     // relationship" — no row at all, and that is the normal state.
-    expect((await resolveOfficialChannel({ merchantId: thirdParty, brandId: appleBrand, market: 'ES' })).badge).toBeNull();
+    expect(
+      (await resolveOfficialChannel({ merchantId: thirdParty, brandId: appleBrand, market: 'ES' }))
+        .badge,
+    ).toBeNull();
     // Apple Store is not an official channel in a market it was not granted.
-    expect((await resolveOfficialChannel({ merchantId: appleStore, brandId: appleBrand, market: 'JP' })).badge).toBeNull();
+    expect(
+      (await resolveOfficialChannel({ merchantId: appleStore, brandId: appleBrand, market: 'JP' }))
+        .badge,
+    ).toBeNull();
 
     // The brand page lists the two SEPARATELY.
     const directory = await listBrandChannels({ brandId: appleBrand, market: 'ES' });

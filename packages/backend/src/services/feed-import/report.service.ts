@@ -36,7 +36,10 @@ import type {
 import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { findActiveCanonicalOwner } from '../../db/canonical/productIdentifierRepository.js';
-import { insertFeedImportReport, type FeedImportReportRow } from '../../db/feedImport/feedImportReportRepository.js';
+import {
+  insertFeedImportReport,
+  type FeedImportReportRow,
+} from '../../db/feedImport/feedImportReportRepository.js';
 import { normalizeIdentifier } from '../canonical/identifiers.js';
 import { redactSourceObservation } from '../ingestion/redact.js';
 import { boundedFailureNote } from './redact.js';
@@ -215,10 +218,7 @@ async function resolveIdentifierOwners(
 ): Promise<Set<string>> {
   const owners = new Set<string>();
   for (const identifier of record.identifiers) {
-    const normalization = normalizeIdentifier(
-      ASSERTED_SCHEME[identifier.scheme],
-      identifier.value,
-    );
+    const normalization = normalizeIdentifier(ASSERTED_SCHEME[identifier.scheme], identifier.value);
     if (normalization.kind !== 'valid') continue;
     const canonicalScheme = normalization.identifier.canonicalScheme;
     const canonicalValue = normalization.identifier.canonicalValue;

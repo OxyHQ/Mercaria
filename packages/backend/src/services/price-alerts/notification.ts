@@ -24,10 +24,7 @@
  * table nobody reviews, keyed on a field no client has ever set.
  */
 
-import type {
-  PriceAlertNotificationPayload,
-  PriceAlertTrigger,
-} from '@mercaria/shared-types';
+import type { PriceAlertNotificationPayload, PriceAlertTrigger } from '@mercaria/shared-types';
 import { CURRENCY_PRECISION, CURRENCY_SYMBOLS } from '@mercaria/shared-types';
 
 /** The structured half — the allow-list, as a value the gate walks. */
@@ -95,8 +92,7 @@ export function priceAlertNotificationCopy(trigger: PriceAlertTrigger): {
 } {
   const amount = formatAmount(trigger.amount);
   const target = formatAmount(trigger.target);
-  const basis =
-    trigger.basis === 'known_total' ? 'including delivery' : 'before delivery';
+  const basis = trigger.basis === 'known_total' ? 'including delivery' : 'before delivery';
   const segment = trigger.conditionGroup ? SEGMENT_TEXT[trigger.conditionGroup] : undefined;
   const where = trigger.nativeCheckoutEligible
     ? 'You can buy it on Mercaria.'

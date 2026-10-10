@@ -18,7 +18,11 @@
  * taken, and a partner's own ceiling is already published to them as a LIMIT.
  */
 
-import type { CurrencyCode, ReferralProgramUtilization, ReferralRewardState } from '@mercaria/shared-types';
+import type {
+  CurrencyCode,
+  ReferralProgramUtilization,
+  ReferralRewardState,
+} from '@mercaria/shared-types';
 import { REFERRAL_REWARD_STATES } from '@mercaria/shared-types';
 import { eq, sql } from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../../../db/postgres.js';

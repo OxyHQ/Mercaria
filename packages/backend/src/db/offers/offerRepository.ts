@@ -79,7 +79,13 @@ export interface OfferWithChannel {
 export type OfferPatch = Partial<
   Omit<
     InsertOfferInput,
-    'id' | 'kind' | 'canonicalVariantId' | 'firstSeenAt' | 'createdAt' | 'sourceKey' | 'commercialKey'
+    | 'id'
+    | 'kind'
+    | 'canonicalVariantId'
+    | 'firstSeenAt'
+    | 'createdAt'
+    | 'sourceKey'
+    | 'commercialKey'
   >
 >;
 
@@ -464,7 +470,9 @@ export async function listLapsedExternalOfferCandidates(
     })
     .from(offers)
     .leftJoin(sourceRecords, eq(sourceRecords.id, offers.sourceRecordId))
-    .where(and(eq(offers.status, 'active'), ne(offers.kind, 'native'), lte(offers.staleAt, input.now)))
+    .where(
+      and(eq(offers.status, 'active'), ne(offers.kind, 'native'), lte(offers.staleAt, input.now)),
+    )
     .orderBy(asc(offers.staleAt))
     .limit(input.limit);
   return rows;
@@ -637,12 +645,8 @@ export async function listOffersForComparison(
         // A market-less offer is published for everywhere, so a country filter
         // must ADMIT it. Dropping it would empty a Spanish product page of every
         // global feed's offers, which is the common case rather than an edge one.
-        query.country
-          ? or(eq(offers.country, query.country), isNull(offers.country))
-          : undefined,
-        query.kinds && query.kinds.length > 0
-          ? inArray(offers.kind, [...query.kinds])
-          : undefined,
+        query.country ? or(eq(offers.country, query.country), isNull(offers.country)) : undefined,
+        query.kinds && query.kinds.length > 0 ? inArray(offers.kind, [...query.kinds]) : undefined,
         query.availability && query.availability.length > 0
           ? inArray(offers.availability, [...query.availability])
           : undefined,

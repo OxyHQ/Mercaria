@@ -195,7 +195,9 @@ describe('the corpus this gate reads', () => {
     // smaller than its identifier set, and in practice most do.
     const narrower = MIGRATIONS.filter((migration) => {
       const all = new Set(migration.statements.flatMap((statement) => statement.objects));
-      return irreversibleStatements(migration).length > 0 && objectsAtRisk(migration).size < all.size;
+      return (
+        irreversibleStatements(migration).length > 0 && objectsAtRisk(migration).size < all.size
+      );
     });
     expect(narrower.length).toBeGreaterThanOrEqual(30);
   });
@@ -208,7 +210,7 @@ describe('every migration declares a rollback posture, and the SQL agrees with i
     );
     expect(
       offenders,
-      'Add `-- oxy:rollback=<posture>` beside the file\'s `-- oxy:deploy-phase=` line. ' +
+      "Add `-- oxy:rollback=<posture>` beside the file's `-- oxy:deploy-phase=` line. " +
         `Postures: ${ROLLBACK_POSTURES.join(' | ')}. See docs/runbooks/migration-rollback.md.`,
     ).toEqual([]);
   });
@@ -226,7 +228,7 @@ describe('every migration declares a rollback posture, and the SQL agrees with i
     ).toEqual([]);
   });
 
-  it('refuses every declaration the migration\'s own SQL contradicts', () => {
+  it("refuses every declaration the migration's own SQL contradicts", () => {
     const offenders = MIGRATIONS.filter((m) => faults(m).length > 0).map(
       (m) => `${m.file}: ${faults(m).join(' | ')}`,
     );
@@ -246,8 +248,7 @@ describe('every migration declares a rollback posture, and the SQL agrees with i
 
   it('is reading a corpus that CONTAINS citations, or the rule is free', () => {
     const citations = MIGRATIONS.reduce(
-      (total, m) =>
-        total + (m.note === null ? 0 : [...m.note.matchAll(/\b\d{4}\b/gu)].length),
+      (total, m) => total + (m.note === null ? 0 : [...m.note.matchAll(/\b\d{4}\b/gu)].length),
       0,
     );
     expect(citations).toBeGreaterThanOrEqual(40);
@@ -306,7 +307,9 @@ describe('the detectors themselves — mutation self-tests, in memory only', () 
       .filter((line) => !line.startsWith('-- oxy:rollback='))
       .join('\n');
     expect(mutated).not.toContain('oxy:rollback');
-    expect(faults(classifyText(mutated)).join(' ')).toMatch(/declares no `-- oxy:rollback=` marker/u);
+    expect(faults(classifyText(mutated)).join(' ')).toMatch(
+      /declares no `-- oxy:rollback=` marker/u,
+    );
   });
 
   it('catches TWO declarations, which a "has a marker" check calls healthy', () => {
@@ -332,7 +335,7 @@ describe('the detectors themselves — mutation self-tests, in memory only', () 
     // fail a compliant file, whose cheapest green is deleting the assertion.
     const mutated = ADDITIVE.replace(
       '-- oxy:rollback=derived',
-      '-- oxy:rollback=derived\n--   grep -c \'^-- oxy:rollback\' 0000_probe.sql   -> 1\n--   -- oxy:rollback=accepted would be wrong here',
+      "-- oxy:rollback=derived\n--   grep -c '^-- oxy:rollback' 0000_probe.sql   -> 1\n--   -- oxy:rollback=accepted would be wrong here",
     );
     const migration = classifyText(mutated);
     expect(migration.markerProblems).toEqual([]);
@@ -458,7 +461,7 @@ describe('the detectors themselves — mutation self-tests, in memory only', () 
     expect(faults(classifyText(readOnly))).toEqual([]);
 
     const writes = readOnly.replace(
-      'RAISE EXCEPTION \'empty\';',
+      "RAISE EXCEPTION 'empty';",
       'UPDATE "widgets" SET "kind" = \'a\';',
     );
     // The mutation APPLIED, which is the difference between a detector that
@@ -564,8 +567,9 @@ describe('the detectors themselves — mutation self-tests, in memory only', () 
 
       // 1. an index that is not a migration at all
       expect(
-        classify('w_kind_check is widened here; its previous form is in 0099')
-          .citationProblems.join(' '),
+        classify(
+          'w_kind_check is widened here; its previous form is in 0099',
+        ).citationProblems.join(' '),
       ).toMatch(/not a migration in this folder/u);
 
       // 2. an index that is LATER — the `0106` -> `0110` shape, and the one a
@@ -575,8 +579,9 @@ describe('the detectors themselves — mutation self-tests, in memory only', () 
         '-- oxy:deploy-phase=pre\n-- oxy:rollback=derived\nCREATE TABLE "y" ("id" text PRIMARY KEY NOT NULL);\n',
       );
       expect(
-        classify('w_kind_check is widened here; its previous form is in 0003')
-          .citationProblems.join(' '),
+        classify(
+          'w_kind_check is widened here; its previous form is in 0003',
+        ).citationProblems.join(' '),
       ).toMatch(/LATER than this migration/u);
 
       // 3. a plausible WRONG number: 0001 exists, is earlier, and holds nothing
@@ -637,9 +642,7 @@ describe('the detectors themselves — mutation self-tests, in memory only', () 
     ];
 
     for (const [sql, inverse, reason] of forms) {
-      const migration = classifyText(
-        `-- oxy:deploy-phase=pre\n-- oxy:rollback=derived\n${sql}\n`,
-      );
+      const migration = classifyText(`-- oxy:deploy-phase=pre\n-- oxy:rollback=derived\n${sql}\n`);
       expect(migration.statements, sql).toHaveLength(1);
       expect(migration.statements[0].inverse, sql).toBe(inverse);
       expect(migration.statements[0].reason, sql).toBe(reason);

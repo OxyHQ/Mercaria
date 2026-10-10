@@ -228,7 +228,9 @@ afterAll(async () => {
     await db.delete(listings).where(inArray(listings.id, createdListingIds));
   }
   if (createdAttributeIds.length > 0) {
-    await db.delete(attributeDefinitions).where(inArray(attributeDefinitions.id, createdAttributeIds));
+    await db
+      .delete(attributeDefinitions)
+      .where(inArray(attributeDefinitions.id, createdAttributeIds));
   }
   await closePostgres();
 });
@@ -263,7 +265,9 @@ describe('an axis CITES the registry, and the citation has to be true', () => {
 
   it('refuses an attribute the registry says does not define variants', async () => {
     const listingId = await makeListing('not-variant-defining');
-    const plain = await makeAttribute(`axes_plain_${RUN}`.toLowerCase(), { variantDefining: false });
+    const plain = await makeAttribute(`axes_plain_${RUN}`.toLowerCase(), {
+      variantDefining: false,
+    });
     await expectRaise(/not `variant_defining`/i, () =>
       db.insert(nativeListingVariantAxes).values(axisValues(listingId, plain)),
     );
@@ -538,7 +542,14 @@ describe('an assignment cites a claim that RESOLVED to something', () => {
           from native_variant_axis_assignments a
           join native_variant_attribute_claims c on c.id = a.source_claim_id
           join product_variants v on v.id = a.variant_id
-         where v.listing_id in ${createdListingIds.length > 0 ? sql`(${sql.join(createdListingIds.map((id) => sql`${id}`), sql`, `)})` : sql`(null)`}
+         where v.listing_id in ${
+           createdListingIds.length > 0
+             ? sql`(${sql.join(
+                 createdListingIds.map((id) => sql`${id}`),
+                 sql`, `,
+               )})`
+             : sql`(null)`
+         }
            and c.value_resolution ${predicate === 'resolved' ? sql`=` : sql`<>`} 'resolved'
       `);
       return Number(rows[0].n);
@@ -759,7 +770,10 @@ describe('a claim is what somebody SAID, and it stays that way', () => {
   it('accepts an unsettled claim carrying only its raw text', async () => {
     const listingId = await makeListing('claim-raw');
     const variant = await makeVariant(listingId, 'v');
-    const [row] = await db.insert(nativeVariantAttributeClaims).values(claimValues(variant)).returning();
+    const [row] = await db
+      .insert(nativeVariantAttributeClaims)
+      .values(claimValues(variant))
+      .returning();
     expect(row.attributeResolution).toBe('unresolved');
     expect(row.normalizedValue).toBeNull();
     // The generated lookup keys, folded by the DATABASE rather than by a writer.
@@ -792,7 +806,9 @@ describe('a claim is what somebody SAID, and it stays that way', () => {
     // auditable. Only the same sentence converges.
     const listingId = await makeListing('claim-changed');
     const variant = await makeVariant(listingId, 'v');
-    await db.insert(nativeVariantAttributeClaims).values(claimValues(variant, { rawValue: 'Black' }));
+    await db
+      .insert(nativeVariantAttributeClaims)
+      .values(claimValues(variant, { rawValue: 'Black' }));
     await db
       .insert(nativeVariantAttributeClaims)
       .values(claimValues(variant, { rawValue: 'Jet Black' }));
@@ -872,7 +888,10 @@ describe('a claim is what somebody SAID, and it stays that way', () => {
   it('freezes the assertion and lets the resolution move', async () => {
     const listingId = await makeListing('claim-frozen');
     const variant = await makeVariant(listingId, 'v');
-    const [row] = await db.insert(nativeVariantAttributeClaims).values(claimValues(variant)).returning();
+    const [row] = await db
+      .insert(nativeVariantAttributeClaims)
+      .values(claimValues(variant))
+      .returning();
 
     await db
       .update(nativeVariantAttributeClaims)
@@ -890,7 +909,10 @@ describe('a claim is what somebody SAID, and it stays that way', () => {
   it('refuses a DELETE while the subject exists, and permits the cascade', async () => {
     const listingId = await makeListing('claim-no-delete');
     const variant = await makeVariant(listingId, 'v');
-    const [row] = await db.insert(nativeVariantAttributeClaims).values(claimValues(variant)).returning();
+    const [row] = await db
+      .insert(nativeVariantAttributeClaims)
+      .values(claimValues(variant))
+      .returning();
 
     await expectRaise(/may not be deleted while its subject exists/i, () =>
       db.delete(nativeVariantAttributeClaims).where(eq(nativeVariantAttributeClaims.id, row.id)),

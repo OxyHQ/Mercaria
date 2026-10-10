@@ -60,9 +60,7 @@ import {
 } from '../canonical/attributeRepository.js';
 import { ensureCatalogSource } from '../canonical/provenanceRepository.js';
 import { createBrand } from '../../services/canonical/brand.service.js';
-import {
-  createProductFamily,
-} from '../../services/canonical/product-family.service.js';
+import { createProductFamily } from '../../services/canonical/product-family.service.js';
 import {
   applyProductSourceObservation,
   createCanonicalProduct,
@@ -90,18 +88,31 @@ import { reviewAggregates } from '../schema/reviews.js';
 
 // Only the external transports are replaced. Catalogue repositories and every
 // transaction below run against the real migrated PostgreSQL database.
-const { downloadImage, uploadImage } = vi.hoisted(() => ({ downloadImage: vi.fn(), uploadImage: vi.fn() }));
-vi.mock('@oxy.so/core/server', async importOriginal => ({
-  ...await importOriginal<typeof import('@oxy.so/core/server')>(), safeFetch: downloadImage,
+const { downloadImage, uploadImage } = vi.hoisted(() => ({
+  downloadImage: vi.fn(),
+  uploadImage: vi.fn(),
+}));
+vi.mock('@oxy.so/core/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
+  safeFetch: downloadImage,
 }));
 vi.mock('../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({ baseURL: 'https://api.oxy.so', serviceToken: async () => 'test-service-token' }),
+  oxyServiceClient: () => ({
+    baseURL: 'https://api.oxy.so',
+    serviceToken: async () => 'test-service-token',
+  }),
 }));
 beforeEach(() => {
   downloadImage.mockReset().mockImplementation(async () => ({
-    status: 200, headers: { 'content-type': 'image/png' }, response: Readable.from([Buffer.from('source image')]),
+    status: 200,
+    headers: { 'content-type': 'image/png' },
+    response: Readable.from([Buffer.from('source image')]),
   }));
-  uploadImage.mockReset().mockImplementation(async () => Response.json({ data: { file: { id: 'oxy-canonical-file', visibility: 'public' } } }));
+  uploadImage
+    .mockReset()
+    .mockImplementation(async () =>
+      Response.json({ data: { file: { id: 'oxy-canonical-file', visibility: 'public' } } }),
+    );
   vi.stubGlobal('fetch', uploadImage);
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -181,7 +192,9 @@ afterAll(async () => {
     await db
       .select({ id: canonicalVariants.id })
       .from(canonicalVariants)
-      .where(inArray(canonicalVariants.productId, createdProductIds.length ? createdProductIds : ['']))
+      .where(
+        inArray(canonicalVariants.productId, createdProductIds.length ? createdProductIds : ['']),
+      )
   ).map((row) => row.id);
 
   if (variantIds.length > 0) {
@@ -339,7 +352,10 @@ afterAll(async () => {
 });
 
 /** Assert a write is refused by the named CONSTRAINT KIND, not merely by an error. */
-async function expectRefused(kind: 'check' | 'unique', write: () => Promise<unknown>): Promise<void> {
+async function expectRefused(
+  kind: 'check' | 'unique',
+  write: () => Promise<unknown>,
+): Promise<void> {
   let caught: unknown;
   try {
     await write();
@@ -476,7 +492,10 @@ describe('acceptance 1 — one model, several capacities and colours, ONE produc
       valueType: 'measurement',
       unitFamily: 'digital_storage',
     });
-    const productId = await mintProduct({ label: 'Convergence Phone', axes: [storageKey, 'color'] });
+    const productId = await mintProduct({
+      label: 'Convergence Phone',
+      axes: [storageKey, 'color'],
+    });
 
     const first = await createVariant({
       productId,
@@ -923,35 +942,59 @@ describe('acceptance 4 — every selected field and image traces to provenance',
   it('leaves facts and the previous gallery unchanged when Oxy refuses an import', async () => {
     const productId = await mintProduct({ label: 'Failed Image Import Product' });
     const observation = {
-      productId, sourceId, externalId: `media-failure-${RUN}`, observedAt: new Date(),
-      method: 'connector_declared' as const, matchRule: 'test.media-failure', decidedByOxyUserId: OPERATOR,
-      fields: { description: 'Original description' }, images: [{ fileId: 'previous-oxy-file' }],
+      productId,
+      sourceId,
+      externalId: `media-failure-${RUN}`,
+      observedAt: new Date(),
+      method: 'connector_declared' as const,
+      matchRule: 'test.media-failure',
+      decidedByOxyUserId: OPERATOR,
+      fields: { description: 'Original description' },
+      images: [{ fileId: 'previous-oxy-file' }],
     };
     await applyProductSourceObservation(observation);
     expect(downloadImage).not.toHaveBeenCalled();
     uploadImage.mockImplementation(async () => new Response('denied', { status: 403 }));
-    await expect(applyProductSourceObservation({
-      ...observation, fields: { description: 'Must not replace the original' },
-      images: [{ sourceUrl: 'https://supplier.example/new.png' }],
-    })).rejects.toThrow(/not authorized/);
+    await expect(
+      applyProductSourceObservation({
+        ...observation,
+        fields: { description: 'Must not replace the original' },
+        images: [{ sourceUrl: 'https://supplier.example/new.png' }],
+      }),
+    ).rejects.toThrow(/not authorized/);
     const product = await getPublicCanonicalProduct(productId);
     expect(product?.description).toBe('Original description');
-    expect(product?.images.map(image => image.fileId)).toEqual(['previous-oxy-file']);
-    const records = await db.select().from(sourceRecords).where(eq(sourceRecords.externalId, observation.externalId));
+    expect(product?.images.map((image) => image.fileId)).toEqual(['previous-oxy-file']);
+    const records = await db
+      .select()
+      .from(sourceRecords)
+      .where(eq(sourceRecords.externalId, observation.externalId));
     expect(records).toHaveLength(1);
   });
 
   it('refuses source media without storage rights before any external IO', async () => {
     const productId = await mintProduct({ label: 'Nonstorable Image Product' });
     const restrictedSource = await ensureCatalogSource(db, {
-      kind: 'feed', name: `nonstorable-images-${RUN}`, mayDisplay: true, mayStore: false, attributionRequired: false,
+      kind: 'feed',
+      name: `nonstorable-images-${RUN}`,
+      mayDisplay: true,
+      mayStore: false,
+      attributionRequired: false,
     });
     createdSourceIds.push(restrictedSource.id);
-    await expect(applyProductSourceObservation({
-      productId, sourceId: restrictedSource.id, externalId: `nonstorable-${RUN}`, observedAt: new Date(),
-      method: 'connector_declared', matchRule: 'test.media-rights', decidedByOxyUserId: OPERATOR,
-      fields: {}, images: [{ sourceUrl: 'https://supplier.example/new.png' }],
-    })).rejects.toThrow(/storage and display rights/);
+    await expect(
+      applyProductSourceObservation({
+        productId,
+        sourceId: restrictedSource.id,
+        externalId: `nonstorable-${RUN}`,
+        observedAt: new Date(),
+        method: 'connector_declared',
+        matchRule: 'test.media-rights',
+        decidedByOxyUserId: OPERATOR,
+        fields: {},
+        images: [{ sourceUrl: 'https://supplier.example/new.png' }],
+      }),
+    ).rejects.toThrow(/storage and display rights/);
     expect(downloadImage).not.toHaveBeenCalled();
     expect(uploadImage).not.toHaveBeenCalled();
   });
@@ -1071,7 +1114,10 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
     createdAttributeKeys.push(key);
     await defineAttribute({ key, label: 'Weight', valueType: 'measurement', unitFamily: 'mass' });
     const productId = await mintProduct({ label: 'Unparsed Product', axes: [key] });
-    const created = await createVariant({ productId, options: [{ key, value: 'about 200 grams' }] });
+    const created = await createVariant({
+      productId,
+      options: [{ key, value: 'about 200 grams' }],
+    });
 
     const rows = await db
       .select()
@@ -1383,7 +1429,9 @@ describe('#629 — a multi-valued attribute keeps the order it declared', () => 
     ];
     const expected = declared.map((row) => row.value);
     const insertionOrder = [...declared].reverse();
-    const slotOrder = [...declared].sort((a, b) => `#${a.position}`.localeCompare(`#${b.position}`));
+    const slotOrder = [...declared].sort((a, b) =>
+      `#${a.position}`.localeCompare(`#${b.position}`),
+    );
 
     // Adversity ASSERTED, not hoped for: if either of these ever agreed with
     // `expected`, the assertions below would pass under a plan that supplied no

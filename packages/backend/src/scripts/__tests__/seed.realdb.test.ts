@@ -51,10 +51,7 @@ import * as schema from '../../db/schema/index.js';
 import type { Database } from '../../db/postgres.js';
 import { LISTING_OWNER_TYPES, listings } from '../../db/schema/catalog.js';
 import { listingConditionPhotos } from '../../db/schema/condition.js';
-import {
-  createMercariaTestDatabase,
-  dropMercariaTestDatabase,
-} from '../../db/testDatabase.js';
+import { createMercariaTestDatabase, dropMercariaTestDatabase } from '../../db/testDatabase.js';
 
 /** `packages/backend` — where the seed's own relative imports resolve from. */
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -125,10 +122,7 @@ afterAll(async () => {
 
 describe('the dev seed runs to completion against an empty migrated database', () => {
   it('exits 0', () => {
-    expect(
-      seedRun.code,
-      `the seed did not complete. Its output was:\n${seedRun.text}`,
-    ).toBe(0);
+    expect(seedRun.code, `the seed did not complete. Its output was:\n${seedRun.text}`).toBe(0);
   });
 
   it('produces listings of EVERY declared owner type, not just the store half', async () => {

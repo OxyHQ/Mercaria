@@ -412,10 +412,7 @@ describe('recomputeAggregate', () => {
     // never wrote anything would be indistinguishable from one that wrote 0.
     expect(rated).toEqual({ rating: 5, reviewCount: 1 });
 
-    await db
-      .update(reviews)
-      .set({ status: 'hidden' })
-      .where(eq(reviews.listingId, listingId));
+    await db.update(reviews).set({ status: 'hidden' }).where(eq(reviews.listingId, listingId));
 
     const hidden = await recomputeAggregate('listing', listingId);
 

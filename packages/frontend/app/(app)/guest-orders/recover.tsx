@@ -23,20 +23,20 @@
  * else produces exactly the same answer as typing none.
  */
 
-import { useState } from "react";
-import { Button } from "@oxy.so/bloom/button";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { View } from "react-native";
-import Head from "expo-router/head";
-import { SectionHeader, Text } from "@mercaria/ui";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { usePortalRecoveryRequest } from "@/lib/hooks/use-guest-portal";
-import { useTranslation } from "@/lib/i18n";
+import { useState } from 'react';
+import { Button } from '@oxy.so/bloom/button';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { View } from 'react-native';
+import Head from 'expo-router/head';
+import { SectionHeader, Text } from '@mercaria/ui';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { usePortalRecoveryRequest } from '@/lib/hooks/use-guest-portal';
+import { useTranslation } from '@/lib/i18n';
 
 function RecoverBody() {
   const { t } = useTranslation();
-  const [email, setEmail] = useState("");
-  const [orderNumber, setOrderNumber] = useState("");
+  const [email, setEmail] = useState('');
+  const [orderNumber, setOrderNumber] = useState('');
   const request = usePortalRecoveryRequest();
 
   const submit = () => {
@@ -44,61 +44,61 @@ function RecoverBody() {
     if (trimmed.length < 3) return;
     request.mutate({
       email: trimmed,
-      ...(orderNumber.trim() === "" ? {} : { orderNumber: orderNumber.trim() }),
+      ...(orderNumber.trim() === '' ? {} : { orderNumber: orderNumber.trim() }),
     });
   };
 
   if (request.isSuccess) {
     return (
       <View className="px-4 gap-4" accessibilityLiveRegion="polite">
-        <SectionHeader title={t("guestOrders.recover.sentTitle")} />
+        <SectionHeader title={t('guestOrders.recover.sentTitle')} />
         {/*
           The SERVER's sentence, rendered verbatim rather than reworded here:
           two places writing this message is two places for one of them to
           become more informative than the other.
         */}
         <Text className="text-sm text-muted-foreground">{request.data}</Text>
-        <Text className="text-sm text-muted-foreground">
-          {t("guestOrders.recover.sentBody")}
-        </Text>
+        <Text className="text-sm text-muted-foreground">{t('guestOrders.recover.sentBody')}</Text>
       </View>
     );
   }
 
   return (
     <View className="px-4 gap-4">
-      <SectionHeader title={t("guestOrders.recover.title")} />
-      <Text className="text-sm text-muted-foreground">
-        {t("guestOrders.recover.body")}
-      </Text>
+      <SectionHeader title={t('guestOrders.recover.title')} />
+      <Text className="text-sm text-muted-foreground">{t('guestOrders.recover.body')}</Text>
 
       <TextFieldInput
         value={email}
         onValueChange={setEmail}
-        placeholder={t("guestOrders.recover.emailPlaceholder")}
+        placeholder={t('guestOrders.recover.emailPlaceholder')}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
-        label={t("guestOrders.recover.emailLabel")}
+        label={t('guestOrders.recover.emailLabel')}
       />
       <TextFieldInput
         value={orderNumber}
         onValueChange={setOrderNumber}
-        placeholder={t("guestOrders.recover.orderNumberPlaceholder")}
+        placeholder={t('guestOrders.recover.orderNumberPlaceholder')}
         autoCapitalize="characters"
         autoCorrect={false}
-        label={t("guestOrders.recover.orderNumberLabel")}
+        label={t('guestOrders.recover.orderNumberLabel')}
       />
 
-      <Button tone="accent" onPress={submit} disabled={request.isPending || email.trim().length < 3}>
-        {request.isPending ? t("guestOrders.recover.sending") : t("guestOrders.sendAccessLink")}
+      <Button
+        tone="accent"
+        onPress={submit}
+        disabled={request.isPending || email.trim().length < 3}
+      >
+        {request.isPending ? t('guestOrders.recover.sending') : t('guestOrders.sendAccessLink')}
       </Button>
 
       {request.isError ? (
         // A network failure, which is the ONLY error this screen can see: the
         // server never reports a non-match as one.
         <Text className="text-sm text-muted-foreground" accessibilityRole="alert">
-          {t("guestOrders.recover.networkError")}
+          {t('guestOrders.recover.networkError')}
         </Text>
       ) : null}
     </View>
@@ -110,7 +110,7 @@ export default function GuestOrderRecoverScreen() {
   return (
     <ScreenShell contentClassName="pt-5 web:max-w-[720px]">
       <Head>
-        <title>{t("guestOrders.recover.pageTitle")}</title>
+        <title>{t('guestOrders.recover.pageTitle')}</title>
         <meta name="referrer" content="no-referrer" />
         <meta name="robots" content="noindex, nofollow" />
       </Head>

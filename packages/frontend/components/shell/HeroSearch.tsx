@@ -1,9 +1,9 @@
-import { STOREFRONT_NAV_FROM } from "@/lib/layout";
-import { merchantImageSource } from "@mercaria/ui";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Platform, Pressable, View, useWindowDimensions } from "react-native";
-import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { STOREFRONT_NAV_FROM } from '@/lib/layout';
+import { merchantImageSource } from '@mercaria/ui';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Platform, Pressable, View, useWindowDimensions } from 'react-native';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import Animated, {
   runOnJS,
   useAnimatedReaction,
@@ -13,11 +13,11 @@ import Animated, {
   useSharedValue,
   withTiming,
   type SharedValue,
-} from "react-native-reanimated";
-import { PriceDisplay, Text, type ProductSummary } from "@mercaria/ui";
-import type { StoreSummary } from "@mercaria/shared-types";
-import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
-import { ShoppingComposer } from "./ShoppingComposer";
+} from 'react-native-reanimated';
+import { PriceDisplay, Text, type ProductSummary } from '@mercaria/ui';
+import type { StoreSummary } from '@mercaria/shared-types';
+import { MercariaWordmark } from '@/components/ui/mercaria-wordmark';
+import { ShoppingComposer } from './ShoppingComposer';
 
 const CYCLE_MS = 7000;
 
@@ -52,9 +52,7 @@ function HeroCard({
 }) {
   const hover = useSharedValue(1);
   const style = useAnimatedStyle(() => {
-    const progress = reduced
-      ? 0
-      : (clock.value % CYCLE_MS) / (CYCLE_MS / 2) - 1;
+    const progress = reduced ? 0 : (clock.value % CYCLE_MS) / (CYCLE_MS / 2) - 1;
     const delayed = progress * (1 + (index % 4) / 25);
     const turn = Math.max(-1, Math.min(1, Math.pow(delayed, 23)));
     const opacity = Math.max(0, 1 - Math.pow(delayed, 22));
@@ -75,10 +73,7 @@ function HeroCard({
   });
   return (
     <Animated.View
-      style={[
-        { position: "absolute", left: x, top: y, width, zIndex: 1 },
-        style,
-      ]}
+      style={[{ position: 'absolute', left: x, top: y, width, zIndex: 1 }, style]}
       testID={`hero-card-${index}`}
     >
       <Pressable
@@ -134,9 +129,7 @@ export function HeroSearch({
   const pointerY = useSharedValue(0);
   const desktop = viewport >= STOREFRONT_NAV_FROM;
   const collageHeight = desktop ? Math.min(windowHeight * 0.4, 400) : 0;
-  const productWidth = desktop
-    ? Math.min(viewport * 0.12, 240)
-    : Math.min(width * 0.27, 132);
+  const productWidth = desktop ? Math.min(viewport * 0.12, 240) : Math.min(width * 0.27, 132);
   useFrameCallback((frame) => {
     if (active.value && !paused.value && !reduced)
       clock.value += Math.min(frame.timeSincePreviousFrame ?? 0, 50);
@@ -148,11 +141,10 @@ export function HeroSearch({
     },
   );
   useEffect(() => {
-    if (Platform.OS !== "web") return;
+    if (Platform.OS !== 'web') return;
     const hero: unknown = stage.current;
     const field: unknown = search.current;
-    if (!(hero instanceof HTMLElement) || !(field instanceof HTMLElement))
-      return;
+    if (!(hero instanceof HTMLElement) || !(field instanceof HTMLElement)) return;
     let onScreen = true;
     const updateActivity = () => {
       active.value = onScreen && !document.hidden;
@@ -168,28 +160,21 @@ export function HeroSearch({
     });
     observer.observe(hero);
     observer.observe(field);
-    document.addEventListener("visibilitychange", updateActivity);
+    document.addEventListener('visibilitychange', updateActivity);
     return () => {
       observer.disconnect();
-      document.removeEventListener("visibilitychange", updateActivity);
+      document.removeEventListener('visibilitychange', updateActivity);
     };
   }, [active, onVisibilityChange]);
 
   // These are the reference's circular card positions, centred on the search.
   const position = (index: number, merchant: boolean) => {
     const angle =
-      (index -
-        Math.PI * 0.2 -
-        (merchant ? 0 : 0.8) +
-        (index % 2) * Math.PI * 1.3) *
+      (index - Math.PI * 0.2 - (merchant ? 0 : 0.8) + (index % 2) * Math.PI * 1.3) *
       ((2 * Math.PI) / 10);
     if (Math.sin(angle) > 0) return null;
     const offset =
-      merchant && Math.cos(angle) > 0
-        ? 20
-        : !merchant && Math.cos(angle) < 0
-          ? -50
-          : 0;
+      merchant && Math.cos(angle) > 0 ? 20 : !merchant && Math.cos(angle) < 0 ? -50 : 0;
     return {
       x: width * (0.5 + 0.4 * Math.cos(angle)),
       y: collageHeight * (0.65 + 0.4 * Math.sin(angle)) + offset,
@@ -206,15 +191,13 @@ export function HeroSearch({
       ref={stage}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
       onPointerMove={(event) => {
-        if (reduced || event.nativeEvent.pointerType !== "mouse") return;
-        pointerX.value = withTiming(
-          (event.nativeEvent.pageX / viewport) * 2 - 1,
-          { duration: 200 },
-        );
-        pointerY.value = withTiming(
-          (event.nativeEvent.pageY / windowHeight) * 2 - 1,
-          { duration: 200 },
-        );
+        if (reduced || event.nativeEvent.pointerType !== 'mouse') return;
+        pointerX.value = withTiming((event.nativeEvent.pageX / viewport) * 2 - 1, {
+          duration: 200,
+        });
+        pointerY.value = withTiming((event.nativeEvent.pageY / windowHeight) * 2 - 1, {
+          duration: 200,
+        });
       }}
       onPointerLeave={() => {
         pointerX.value = withTiming(0);
@@ -250,7 +233,7 @@ export function HeroSearch({
                   }}
                   onPress={() =>
                     router.push({
-                      pathname: "/products/[id]",
+                      pathname: '/products/[id]',
                       params: { id: product.id },
                     })
                   }
@@ -262,10 +245,7 @@ export function HeroSearch({
                       contentFit="cover"
                     />
                     <View className="gap-1 px-1 pb-1">
-                      <Text
-                        numberOfLines={1}
-                        className="text-xs font-semibold text-foreground"
-                      >
+                      <Text numberOfLines={1} className="text-xs font-semibold text-foreground">
                         {product.title}
                       </Text>
                       <PriceDisplay
@@ -298,7 +278,7 @@ export function HeroSearch({
                   }}
                   onPress={() =>
                     router.push({
-                      pathname: "/stores/[handle]",
+                      pathname: '/stores/[handle]',
                       params: { handle: merchant.handle },
                     })
                   }
@@ -324,8 +304,7 @@ export function HeroSearch({
                       <Text
                         className="px-3 text-center text-base font-bold"
                         style={{
-                          color:
-                            merchant.textTone === "light" ? "white" : "black",
+                          color: merchant.textTone === 'light' ? 'white' : 'black',
                         }}
                       >
                         {merchant.name}
@@ -337,17 +316,14 @@ export function HeroSearch({
             })
           : null}
       </View>
-      <View
-        className="items-center px-4 pt-7 lg:-mt-16 lg:pt-0"
-        pointerEvents="box-none"
-      >
+      <View className="items-center px-4 pt-7 lg:-mt-16 lg:pt-0" pointerEvents="box-none">
         <View className="md:hidden" pointerEvents="none">
           <MercariaWordmark height={40} />
         </View>
         <View className="hidden md:flex" pointerEvents="none">
           <MercariaWordmark height={72} />
         </View>
-        {Platform.OS === "web" ? (
+        {Platform.OS === 'web' ? (
           <View
             ref={search}
             className="mt-6 w-full max-w-[600px]"

@@ -227,7 +227,10 @@ export async function runAdapterConformance(
   );
   if (adapterFailed(second)) {
     fail('idempotency', `a replayed idempotency key returned ${second.failure.kind}`);
-  } else if (adapterSucceeded(second) && second.value.providerOrderId !== first.value.providerOrderId) {
+  } else if (
+    adapterSucceeded(second) &&
+    second.value.providerOrderId !== first.value.providerOrderId
+  ) {
     fail(
       'idempotency',
       `a replayed idempotency key produced a SECOND order ` +

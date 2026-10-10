@@ -96,7 +96,10 @@ const draftImage = z
 export const patchSellerDraftSchema = z
   .object({
     currentStep: z.enum(enumValues(SELLER_DRAFT_STEPS)).optional(),
-    completedSteps: z.array(z.enum(enumValues(SELLER_DRAFT_STEPS))).max(12).optional(),
+    completedSteps: z
+      .array(z.enum(enumValues(SELLER_DRAFT_STEPS)))
+      .max(12)
+      .optional(),
     /** `null` REMOVES the match. An explicit null is the documented remedy. */
     canonicalProductId: z.string().min(1).nullable().optional(),
     canonicalVariantId: z.string().min(1).nullable().optional(),

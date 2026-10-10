@@ -187,7 +187,8 @@ const FOLLOW_SURFACE_PATHS: readonly string[] = CORPUS.filter((file) =>
  * predicate would sweep in every module that merely mentions a seller — which
  * is most of a marketplace backend.
  */
-const SELLER_DOMAIN_PATTERN = /^backend\/src\/(services\/sellers\/|controllers\/public-sellers|routes\/public-sellers|middleware\/seller-schemas)/;
+const SELLER_DOMAIN_PATTERN =
+  /^backend\/src\/(services\/sellers\/|controllers\/public-sellers|routes\/public-sellers|middleware\/seller-schemas)/;
 
 const SELLER_DOMAIN_PATHS: readonly string[] = CORPUS.map((file) => file.path).filter((path) =>
   SELLER_DOMAIN_PATTERN.test(path),
@@ -200,7 +201,8 @@ const MERCARIA_PERSON_KIND = /mercaria\.(seller|user|person|buyer|account)\b/;
 const REGISTER_KIND_CALL = /follows\.registerKind\s*\(/;
 
 /** A follow target URI built on a Mercaria host. */
-const MERCARIA_FOLLOW_URI = /['"`]https:\/\/(?:[a-z0-9-]+\.)?mercaria\.co\/(?:users|sellers|people)\//;
+const MERCARIA_FOLLOW_URI =
+  /['"`]https:\/\/(?:[a-z0-9-]+\.)?mercaria\.co\/(?:users|sellers|people)\//;
 
 /** Mercaria storing, serving or counting a follow relationship of its own. */
 const LOCAL_FOLLOW_STORAGE =
@@ -315,10 +317,10 @@ describe('no Mercaria person identity can be registered', () => {
     }
     expect(REGISTER_KIND_CALL.test('await oxyServices.follows.registerKind({ kind })')).toBe(true);
     expect(REGISTER_KIND_CALL.test('await oxyServices.follows.ensureTarget({ kind })')).toBe(false);
-    expect(MERCARIA_FOLLOW_URI.test("`https://mercaria.co/users/${id}`")).toBe(true);
-    expect(MERCARIA_FOLLOW_URI.test("`https://oxy.so/users/${id}`")).toBe(false);
+    expect(MERCARIA_FOLLOW_URI.test('`https://mercaria.co/users/${id}`')).toBe(true);
+    expect(MERCARIA_FOLLOW_URI.test('`https://oxy.so/users/${id}`')).toBe(false);
     // And the comment stripper does not eat code.
-    expect(stripComments("const a = 1; // mercaria.seller\n")).not.toContain('mercaria.seller');
+    expect(stripComments('const a = 1; // mercaria.seller\n')).not.toContain('mercaria.seller');
     expect(stripComments("const kind = 'mercaria.seller';\n")).toContain('mercaria.seller');
     expect(stripComments("const url = 'https://x/y';\n")).toContain('https://x/y');
   });
@@ -343,7 +345,9 @@ describe('Mercaria stores no follow state of its own', () => {
     // So the population is the whole CORPUS. Measured: the storage vocabulary
     // matches ZERO files across all five packages today, so this costs no
     // exclusion list and no false wall.
-    const offenders = CORPUS.filter((file) => LOCAL_FOLLOW_STORAGE.test(stripComments(file.source)));
+    const offenders = CORPUS.filter((file) =>
+      LOCAL_FOLLOW_STORAGE.test(stripComments(file.source)),
+    );
     expect(
       offenders.map((file) => file.path),
       'a module holds Mercaria follow state; the Oxy graph is the only authority',

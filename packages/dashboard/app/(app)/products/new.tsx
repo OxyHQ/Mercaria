@@ -1,25 +1,25 @@
-import React, { useState } from "react";
-import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { Trash2, Plus } from "lucide-react-native";
+import React, { useState } from 'react';
+import { View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { Trash2, Plus } from 'lucide-react-native';
 import type {
   CreateStoreProductInput,
   CreateStoreProductVariantInput,
   ListingOption,
-} from "@mercaria/shared-types";
-import { Text, toBloomIcon, useColorScheme } from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Textarea } from "@oxy.so/bloom/textarea";
-import { Button } from "@oxy.so/bloom/button";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { useTranslation } from "@/lib/i18n";
-import { useCreateProduct } from "@/lib/hooks/use-products";
-import { useActiveStoreContext } from "@/lib/hooks/use-stores";
-import { toMinorUnits } from "@/lib/money";
+} from '@mercaria/shared-types';
+import { Text, toBloomIcon, useColorScheme } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Textarea } from '@oxy.so/bloom/textarea';
+import { Button } from '@oxy.so/bloom/button';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { useTranslation } from '@/lib/i18n';
+import { useCreateProduct } from '@/lib/hooks/use-products';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
+import { toMinorUnits } from '@/lib/money';
 
 /** A single editable variant row in the builder. */
 interface VariantDraft {
@@ -33,7 +33,7 @@ interface VariantDraft {
 let draftCounter = 0;
 function newVariantDraft(): VariantDraft {
   draftCounter += 1;
-  return { key: `v${draftCounter}`, title: "", priceMajor: "", sku: "", available: "0" };
+  return { key: `v${draftCounter}`, title: '', priceMajor: '', sku: '', available: '0' };
 }
 
 export default function NewProductScreen() {
@@ -41,7 +41,7 @@ export default function NewProductScreen() {
   return (
     <>
       <Head>
-        <title>{t("products.new.documentTitle")}</title>
+        <title>{t('products.new.documentTitle')}</title>
       </Head>
       <RequireStore permission="products:write">
         {(storeId) => <NewProductBody storeId={storeId} />}
@@ -65,11 +65,11 @@ function NewProductBody({ storeId }: { storeId: string }) {
    */
   const { store } = useActiveStoreContext();
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
-  const [vendor, setVendor] = useState("");
-  const [optionName, setOptionName] = useState("");
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
+  const [vendor, setVendor] = useState('');
+  const [optionName, setOptionName] = useState('');
   const [variants, setVariants] = useState<VariantDraft[]>([newVariantDraft()]);
 
   const updateVariant = (key: string, patch: Partial<VariantDraft>) => {
@@ -86,11 +86,11 @@ function NewProductBody({ storeId }: { storeId: string }) {
 
   const submit = () => {
     if (!title.trim()) {
-      toast.error(t("products.new.titleRequired"));
+      toast.error(t('products.new.titleRequired'));
       return;
     }
     if (!category.trim()) {
-      toast.error(t("products.new.categoryRequired"));
+      toast.error(t('products.new.categoryRequired'));
       return;
     }
 
@@ -102,10 +102,10 @@ function NewProductBody({ storeId }: { storeId: string }) {
     for (const v of variants) {
       const priceMinor = toMinorUnits(v.priceMajor, currency);
       if (priceMinor === null) {
-        toast.error(t("products.new.variantPriceInvalid"));
+        toast.error(t('products.new.variantPriceInvalid'));
         return;
       }
-      const available = Number.parseInt(v.available || "0", 10);
+      const available = Number.parseInt(v.available || '0', 10);
       builtVariants.push({
         optionValues:
           optionName.trim() && v.title.trim()
@@ -139,49 +139,49 @@ function NewProductBody({ storeId }: { storeId: string }) {
 
     createProduct.mutate(input, {
       onSuccess: (listing) => {
-        toast.success(t("products.new.created"));
+        toast.success(t('products.new.created'));
         router.replace(`/products/${listing.id}`);
       },
-      onError: () => toast.error(t("products.new.createFailed")),
+      onError: () => toast.error(t('products.new.createFailed')),
     });
   };
 
   return (
-    <Screen title={t("products.new.title")} subtitle={t("products.new.subtitle")}>
+    <Screen title={t('products.new.title')} subtitle={t('products.new.subtitle')}>
       <View className="gap-5">
-        <Field label={t("common.title")}>
+        <Field label={t('common.title')}>
           <TextFieldInput
-            label={t("common.title")}
+            label={t('common.title')}
             value={title}
             onValueChange={setTitle}
-            placeholder={t("products.new.titlePlaceholder")}
+            placeholder={t('products.new.titlePlaceholder')}
           />
         </Field>
         <Textarea
-          label={t("common.description")}
+          label={t('common.description')}
           value={description}
           onValueChange={setDescription}
-          placeholder={t("products.new.descriptionPlaceholder")}
+          placeholder={t('products.new.descriptionPlaceholder')}
         />
         <View className="flex-row gap-3">
           <View className="flex-1">
-            <Field label={t("products.new.categoryLabel")}>
+            <Field label={t('products.new.categoryLabel')}>
               <TextFieldInput
-                label={t("products.new.categoryLabel")}
+                label={t('products.new.categoryLabel')}
                 value={category}
                 onValueChange={setCategory}
-                placeholder={t("products.new.categoryPlaceholder")}
+                placeholder={t('products.new.categoryPlaceholder')}
                 autoCapitalize="none"
               />
             </Field>
           </View>
           <View className="flex-1">
-            <Field label={t("products.new.vendorLabel")}>
+            <Field label={t('products.new.vendorLabel')}>
               <TextFieldInput
-                label={t("products.new.vendorLabel")}
+                label={t('products.new.vendorLabel')}
                 value={vendor}
                 onValueChange={setVendor}
-                placeholder={t("products.new.vendorPlaceholder")}
+                placeholder={t('products.new.vendorPlaceholder')}
               />
             </Field>
           </View>
@@ -189,14 +189,14 @@ function NewProductBody({ storeId }: { storeId: string }) {
 
         <View className="rounded-2xl border border-border bg-surface p-4">
           <Text className="mb-3 text-sm font-semibold text-foreground">
-            {t("products.new.optionsHeading")}
+            {t('products.new.optionsHeading')}
           </Text>
-          <Field label={t("products.new.optionNameLabel")}>
+          <Field label={t('products.new.optionNameLabel')}>
             <TextFieldInput
-              label={t("products.new.optionNameLabel")}
+              label={t('products.new.optionNameLabel')}
               value={optionName}
               onValueChange={setOptionName}
-              placeholder={t("products.new.optionNamePlaceholder")}
+              placeholder={t('products.new.optionNamePlaceholder')}
             />
           </Field>
 
@@ -205,7 +205,7 @@ function NewProductBody({ storeId }: { storeId: string }) {
               <View key={v.key} className="rounded-xl border border-border p-3">
                 <View className="mb-2 flex-row items-center justify-between">
                   <Text className="text-xs font-semibold text-muted-foreground">
-                    {t("products.new.variantIndex", { index: idx + 1 })}
+                    {t('products.new.variantIndex', { index: idx + 1 })}
                   </Text>
                   {variants.length > 1 ? (
                     <Pressable
@@ -218,21 +218,23 @@ function NewProductBody({ storeId }: { storeId: string }) {
                 </View>
                 {optionName.trim() ? (
                   <View className="mb-2">
-                    <Field label={t("products.new.optionValueLabel", { option: optionName.trim() })}>
+                    <Field
+                      label={t('products.new.optionValueLabel', { option: optionName.trim() })}
+                    >
                       <TextFieldInput
-                        label={t("products.new.optionValueLabel", { option: optionName.trim() })}
+                        label={t('products.new.optionValueLabel', { option: optionName.trim() })}
                         value={v.title}
                         onValueChange={(value) => updateVariant(v.key, { title: value })}
-                        placeholder={t("products.new.optionValuePlaceholder")}
+                        placeholder={t('products.new.optionValuePlaceholder')}
                       />
                     </Field>
                   </View>
                 ) : null}
                 <View className="flex-row gap-2">
                   <View className="flex-1">
-                    <Field label={t("products.priceLabel")}>
+                    <Field label={t('products.priceLabel')}>
                       <TextFieldInput
-                        label={t("products.priceLabel")}
+                        label={t('products.priceLabel')}
                         value={v.priceMajor}
                         onValueChange={(value) => updateVariant(v.key, { priceMajor: value })}
                         placeholder="0.00"
@@ -241,9 +243,9 @@ function NewProductBody({ storeId }: { storeId: string }) {
                     </Field>
                   </View>
                   <View className="flex-1">
-                    <Field label={t("products.stockLabel")}>
+                    <Field label={t('products.stockLabel')}>
                       <TextFieldInput
-                        label={t("products.stockLabel")}
+                        label={t('products.stockLabel')}
                         value={v.available}
                         onValueChange={(value) => updateVariant(v.key, { available: value })}
                         placeholder="0"
@@ -253,12 +255,12 @@ function NewProductBody({ storeId }: { storeId: string }) {
                   </View>
                 </View>
                 <View className="mt-2">
-                  <Field label={t("products.new.skuLabel")}>
+                  <Field label={t('products.new.skuLabel')}>
                     <TextFieldInput
-                      label={t("products.new.skuLabel")}
+                      label={t('products.new.skuLabel')}
                       value={v.sku}
                       onValueChange={(value) => updateVariant(v.key, { sku: value })}
-                      placeholder={t("products.new.skuPlaceholder")}
+                      placeholder={t('products.new.skuPlaceholder')}
                     />
                   </Field>
                 </View>
@@ -274,16 +276,26 @@ function NewProductBody({ storeId }: { storeId: string }) {
             leadingIcon={toBloomIcon(Plus)}
             onPress={() => setVariants((prev) => [...prev, newVariantDraft()])}
           >
-            {t("products.new.addVariant")}
+            {t('products.new.addVariant')}
           </Button>
         </View>
 
         <View className="flex-row gap-3">
-          <Button appearance="outline" tone="neutral" className="flex-1" onPress={() => router.back()}>
-            {t("common.cancel")}
+          <Button
+            appearance="outline"
+            tone="neutral"
+            className="flex-1"
+            onPress={() => router.back()}
+          >
+            {t('common.cancel')}
           </Button>
-          <Button tone="accent" className="flex-1" onPress={submit} loading={createProduct.isPending}>
-            {t("products.new.submit")}
+          <Button
+            tone="accent"
+            className="flex-1"
+            onPress={submit}
+            loading={createProduct.isPending}
+          >
+            {t('products.new.submit')}
           </Button>
         </View>
       </View>

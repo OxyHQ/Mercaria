@@ -200,10 +200,7 @@ export const referralPayoutBatches = pgTable(
     uniqueIndex('referral_payout_batches_open_key')
       .on(t.partnerId, t.currency)
       .where(sql`${t.status} in ('draft', 'approved', 'processing', 'failed')`),
-    index('referral_payout_batches_partner_created_at_idx').on(
-      t.partnerId,
-      t.createdAt.desc(),
-    ),
+    index('referral_payout_batches_partner_created_at_idx').on(t.partnerId, t.createdAt.desc()),
     index('referral_payout_batches_status_created_at_idx').on(t.status, t.createdAt),
   ],
 );
@@ -311,10 +308,7 @@ export const referralLedgerPostings = pgTable(
   (t) => [
     checkOneOf('referral_ledger_postings_kind_check', t.kind, REFERRAL_LEDGER_POSTING_KINDS),
     ...currencyChecks('referral_ledger_postings', [t.currency]),
-    check(
-      'referral_ledger_postings_identity_check',
-      sql`length(${t.idempotencyKey}) > 0`,
-    ),
+    check('referral_ledger_postings_identity_check', sql`length(${t.idempotencyKey}) > 0`),
     check('referral_ledger_postings_amount_check', sql`${t.amountMinor} > 0`),
     // Exactly the subjects each kind is ABOUT, and no others. A payout posting
     // naming a reward, or an accrual naming a batch, would make the trace
@@ -331,10 +325,7 @@ export const referralLedgerPostings = pgTable(
              and ${t.adjustmentId} is null and ${t.payoutBatchId} is null)`,
     ),
     uniqueIndex('referral_ledger_postings_idempotency_key_key').on(t.idempotencyKey),
-    index('referral_ledger_postings_partner_occurred_at_idx').on(
-      t.partnerId,
-      t.occurredAt.desc(),
-    ),
+    index('referral_ledger_postings_partner_occurred_at_idx').on(t.partnerId, t.occurredAt.desc()),
     index('referral_ledger_postings_reward_id_idx')
       .on(t.rewardId)
       .where(sql`${t.rewardId} is not null`),
@@ -397,10 +388,7 @@ export const referralRewardTransitions = pgTable(
     ),
     // A transition that changed nothing is not a transition; recording one would
     // make "did this reward move" unanswerable from the trail.
-    check(
-      'referral_reward_transitions_moves_check',
-      sql`${t.fromState} <> ${t.toState}`,
-    ),
+    check('referral_reward_transitions_moves_check', sql`${t.fromState} <> ${t.toState}`),
     check(
       'referral_reward_transitions_actor_check',
       sql`(${t.actorKind} = 'system') = (${t.actorRef} is null)`,

@@ -204,7 +204,9 @@ export async function countNamespace(
 
   const row = [...rows][0];
   if (row === undefined) {
-    throw new Error('The vertical census returned no row, which its own aggregates make impossible.');
+    throw new Error(
+      'The vertical census returned no row, which its own aggregates make impossible.',
+    );
   }
   return {
     categories: row.categories,

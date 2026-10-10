@@ -70,9 +70,7 @@ beforeEach(async () => {
 });
 
 async function dropSeeded(): Promise<void> {
-  await pg
-    .delete(moderationEnforcements)
-    .where(eq(moderationEnforcements.decisionId, DECISION_ID));
+  await pg.delete(moderationEnforcements).where(eq(moderationEnforcements.decisionId, DECISION_ID));
   const listingIds = seededListingIds.splice(0);
   if (listingIds.length > 0) {
     await pg.delete(listings).where(inArray(listings.id, listingIds));

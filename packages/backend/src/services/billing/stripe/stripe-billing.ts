@@ -293,9 +293,7 @@ export class StripeBillingProvider implements BillingProvider {
     }
   }
 
-  async retrieveSubscription(
-    providerSubscriptionId: string,
-  ): Promise<BillingSubscriptionSnapshot> {
+  async retrieveSubscription(providerSubscriptionId: string): Promise<BillingSubscriptionSnapshot> {
     assertBillingObjectId(providerSubscriptionId, 'subscription', 'retrieveSubscription');
     try {
       const subscription = await getStripeClient().subscriptions.retrieve(providerSubscriptionId);
@@ -306,9 +304,7 @@ export class StripeBillingProvider implements BillingProvider {
     }
   }
 
-  async cancelAtPeriodEnd(
-    providerSubscriptionId: string,
-  ): Promise<BillingSubscriptionSnapshot> {
+  async cancelAtPeriodEnd(providerSubscriptionId: string): Promise<BillingSubscriptionSnapshot> {
     assertBillingObjectId(providerSubscriptionId, 'subscription', 'cancelSubscription');
     try {
       const subscription = await getStripeClient().subscriptions.update(providerSubscriptionId, {

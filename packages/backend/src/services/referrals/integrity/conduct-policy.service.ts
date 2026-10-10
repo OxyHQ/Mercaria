@@ -105,9 +105,7 @@ export async function readActiveConductPolicy(
 }
 
 /** Every version, newest first — the operator's history. */
-export async function readConductPolicyVersions(): Promise<
-  readonly ReferralConductPolicyView[]
-> {
+export async function readConductPolicyVersions(): Promise<readonly ReferralConductPolicyView[]> {
   const rows = await findConductPolicyVersions(getDb(), REFERRAL_CONDUCT_POLICY_KEY);
   return rows.map(toConductPolicyView);
 }
@@ -136,9 +134,7 @@ export async function draftConductPolicy(input: {
     (kind) => !REFERRAL_PROHIBITED_CONDUCT_KINDS.includes(kind),
   );
   if (unknown.length > 0) {
-    throw validationError(
-      `Not prohibited conduct this program can express: ${unknown.join(', ')}`,
-    );
+    throw validationError(`Not prohibited conduct this program can express: ${unknown.join(', ')}`);
   }
 
   const db = getDb();

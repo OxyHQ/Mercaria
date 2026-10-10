@@ -110,7 +110,8 @@ export async function tracePriceAlert(alertId: string): Promise<PriceAlertTrace>
             evaluatedAt: alert.lastEvaluatedAt.toISOString(),
             // Derived from the reasons rather than stored a second time: a
             // stored outcome column could disagree with the list beside it.
-            outcome: alert.lastBlockReasons.length > 0 ? ('blocked' as const) : ('qualified' as const),
+            outcome:
+              alert.lastBlockReasons.length > 0 ? ('blocked' as const) : ('qualified' as const),
             reasons: alert.lastBlockReasons,
           },
         }
@@ -160,9 +161,7 @@ export interface PriceAlertMetrics {
   };
 }
 
-export async function readPriceAlertMetrics(
-  now: Date = new Date(),
-): Promise<PriceAlertMetrics> {
+export async function readPriceAlertMetrics(now: Date = new Date()): Promise<PriceAlertMetrics> {
   const since = new Date(now.getTime() - 24 * 60 * 60 * 1_000);
   const oldest = await readOldestEvaluationAge(now);
   return {

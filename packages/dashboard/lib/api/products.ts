@@ -11,9 +11,9 @@ import type {
   CreateStoreProductVariantInput,
   VariantOptionValue,
   InventoryLevelDTO,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 /** Partial variant payload accepted by `PATCH .../variants/:variantId`. */
 export interface UpdateVariantInput {

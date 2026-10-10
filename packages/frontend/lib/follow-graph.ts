@@ -137,4 +137,4 @@ async function registerStoreFollowKind(oxyServices: OxyServices): Promise<void> 
 
 /** A follow control's size, in Bloom's `Button` spelling — which
  * `FollowTargetButton` (`@oxy.so/services`) takes too. */
-export type FollowButtonSize = "sm" | "md" | "lg";
+export type FollowButtonSize = 'sm' | 'md' | 'lg';

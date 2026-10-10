@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -6,12 +6,12 @@ import {
   Text as NativeText,
   View,
   useWindowDimensions,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import type { ProductSummary } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { CurationImage } from "./CurationCard";
-import { ProductCard } from "./ProductCard";
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import type { ProductSummary } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { CurationImage } from './CurationCard';
+import { ProductCard } from './ProductCard';
 
 export interface EditorialStory {
   id: string;
@@ -26,12 +26,12 @@ function Reveal({
   children,
   reduced,
   immediate = false,
-  kind = "text",
+  kind = 'text',
 }: {
   children: ReactNode;
   reduced: boolean;
   immediate?: boolean;
-  kind?: "text" | "image" | "hero" | "quote";
+  kind?: 'text' | 'image' | 'hero' | 'quote';
 }) {
   const ref = useRef<View>(null);
   const opacity = useRef(new Animated.Value(1)).current;
@@ -40,7 +40,7 @@ function Reveal({
       opacity.setValue(1);
       return;
     }
-    if (Platform.OS !== "web") {
+    if (Platform.OS !== 'web') {
       opacity.setValue(0);
       const animation = Animated.timing(opacity, {
         toValue: 1,
@@ -53,18 +53,10 @@ function Reveal({
     const element: unknown = ref.current;
     if (!(element instanceof HTMLElement)) return;
     const duration =
-      kind === "hero"
-        ? 1250
-        : kind === "image"
-          ? 800
-          : kind === "quote"
-            ? 1120
-            : 1050;
+      kind === 'hero' ? 1250 : kind === 'image' ? 800 : kind === 'quote' ? 1120 : 1050;
     const words =
-      kind === "quote"
-        ? Array.from(
-            element.querySelectorAll('[data-testid="editorial-quote-word"]'),
-          )
+      kind === 'quote'
+        ? Array.from(element.querySelectorAll('[data-testid="editorial-quote-word"]'))
         : [];
     const targets = words.length ? words : [element];
     const animations = targets.map((target, index) =>
@@ -72,35 +64,34 @@ function Reveal({
         [
           {
             opacity: 0,
-            filter: `blur(${kind === "quote" ? 7 : 8}px)`,
+            filter: `blur(${kind === 'quote' ? 7 : 8}px)`,
             transform:
-              kind === "quote"
-                ? "none"
-                : kind === "hero"
-                  ? "scale(1.025)"
-                  : `translateY(${kind === "image" ? 40 : 24}px) scale(0.995)`,
+              kind === 'quote'
+                ? 'none'
+                : kind === 'hero'
+                  ? 'scale(1.025)'
+                  : `translateY(${kind === 'image' ? 40 : 24}px) scale(0.995)`,
           },
           {
             opacity: 1,
-            filter: "blur(0px)",
-            transform: "translateY(0) scale(1)",
+            filter: 'blur(0px)',
+            transform: 'translateY(0) scale(1)',
           },
         ],
         {
-          duration: kind === "quote" ? 400 : duration,
+          duration: kind === 'quote' ? 400 : duration,
           delay:
-            kind === "quote"
+            kind === 'quote'
               ? (index * 720) / Math.max(1, targets.length - 1)
-              : kind === "image"
+              : kind === 'image'
                 ? 120
                 : 0,
-          easing: "cubic-bezier(0.215, 0.61, 0.355, 1)",
-          fill: "backwards",
+          easing: 'cubic-bezier(0.215, 0.61, 0.355, 1)',
+          fill: 'backwards',
         },
       ),
     );
-    if (immediate)
-      return () => animations.forEach((animation) => animation.cancel());
+    if (immediate) return () => animations.forEach((animation) => animation.cancel());
     animations.forEach((animation) => animation.pause());
     const observer = new IntersectionObserver(
       (entries) => {
@@ -110,7 +101,7 @@ function Reveal({
         }
       },
       {
-        rootMargin: `0px 0px -${kind === "quote" ? 30 : kind === "image" ? 26 : 12}% 0px`,
+        rootMargin: `0px 0px -${kind === 'quote' ? 30 : kind === 'image' ? 26 : 12}% 0px`,
       },
     );
     observer.observe(element);
@@ -154,9 +145,9 @@ export function EditorialCuration({
   const tablet = width >= 768;
   const [reduced, setReduced] = useState(
     () =>
-      Platform.OS === "web" &&
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      Platform.OS === 'web' &&
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
   const main = useRef<View>(null);
   const heading = useRef<View>(null);
@@ -164,14 +155,11 @@ export function EditorialCuration({
   const content = useRef<View>(null);
   useEffect(() => {
     void AccessibilityInfo.isReduceMotionEnabled().then(setReduced);
-    const subscription = AccessibilityInfo.addEventListener(
-      "reduceMotionChanged",
-      setReduced,
-    );
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
     return () => subscription.remove();
   }, []);
   useEffect(() => {
-    if (Platform.OS !== "web" || width < 1024 || reduced) return;
+    if (Platform.OS !== 'web' || width < 1024 || reduced) return;
     const root: unknown = main.current,
       titleNode: unknown = heading.current,
       media: unknown = cover.current,
@@ -191,26 +179,19 @@ export function EditorialCuration({
       const mediaTop = media.getBoundingClientRect().top + window.scrollY;
       const target = Math.max(
         0,
-        Math.min(
-          1,
-          (window.scrollY - rootTop) / Math.max(1, mediaTop - rootTop),
-        ),
+        Math.min(1, (window.scrollY - rootTop) / Math.max(1, mediaTop - rootTop)),
       );
       progress +=
-        (target - progress) *
-        (1 - Math.exp(-Math.min(64, time - (lastTime || time - 16)) / 100));
+        (target - progress) * (1 - Math.exp(-Math.min(64, time - (lastTime || time - 16)) / 100));
       lastTime = time;
       titleNode.style.opacity = String(1 - progress);
       titleNode.style.filter = `blur(${progress * 10}px)`;
       titleNode.style.transform = `scale(${1 - progress * 0.1})`;
-      titleNode.style.transformOrigin = "center top";
+      titleNode.style.transformOrigin = 'center top';
       media.style.transform = `scale(${1 - progress * 0.05})`;
-      media.style.transformOrigin = "center top";
+      media.style.transformOrigin = 'center top';
       body.style.transform = `translateY(${-media.offsetHeight * 0.05 * progress}px)`;
-      frame =
-        Math.abs(target - progress) > 0.001
-          ? requestAnimationFrame(animate)
-          : 0;
+      frame = Math.abs(target - progress) > 0.001 ? requestAnimationFrame(animate) : 0;
     };
     const update = () => {
       if (!frame) {
@@ -218,18 +199,18 @@ export function EditorialCuration({
         frame = requestAnimationFrame(animate);
       }
     };
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
     update();
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-      titleNode.style.opacity = "";
-      titleNode.style.filter = "";
-      titleNode.style.transform = "";
-      media.style.transform = "";
-      body.style.transform = "";
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+      titleNode.style.opacity = '';
+      titleNode.style.filter = '';
+      titleNode.style.transform = '';
+      media.style.transform = '';
+      body.style.transform = '';
     };
   }, [reduced, width]);
 
@@ -245,8 +226,8 @@ export function EditorialCuration({
           ref={heading}
           className={
             tablet
-              ? `z-0 items-center ${reduced ? "" : "web:lg:sticky web:lg:top-[72px]"}`
-              : "absolute inset-x-0 bottom-0 z-20 px-4 pb-4"
+              ? `z-0 items-center ${reduced ? '' : 'web:lg:sticky web:lg:top-[72px]'}`
+              : 'absolute inset-x-0 bottom-0 z-20 px-4 pb-4'
           }
           testID="editorial-heading"
         >
@@ -284,41 +265,29 @@ export function EditorialCuration({
           <Reveal reduced={reduced} immediate kind="hero">
             <View style={{ aspectRatio: tablet ? 16 / 9 : 3 / 4 }}>
               <CurationImage
-                imageUrl={
-                  tablet ? heroImageUrl : (mobileHeroImageUrl ?? heroImageUrl)
-                }
+                imageUrl={tablet ? heroImageUrl : (mobileHeroImageUrl ?? heroImageUrl)}
                 fallbackImageUrl={fallback}
               />
             </View>
           </Reveal>
           {!tablet ? (
             <LinearGradient
-              colors={["transparent", "rgba(0,0,0,0.6)"]}
+              colors={['transparent', 'rgba(0,0,0,0.6)']}
               className="absolute inset-0"
               pointerEvents="none"
             />
           ) : null}
         </View>
       </View>
-      <View
-        ref={content}
-        className="relative z-10 px-4 md:px-0"
-        testID="curation-products"
-      >
+      <View ref={content} className="relative z-10 px-4 md:px-0" testID="curation-products">
         <Reveal reduced={reduced}>
           <View className="mx-auto mt-10 w-full max-w-[565px] lg:mt-16">
             <Text className="text-sm leading-[18px]">{introduction}</Text>
-            <Text className="mt-3 text-xs text-muted-foreground">
-              {previewLabel}
-            </Text>
+            <Text className="mt-3 text-xs text-muted-foreground">{previewLabel}</Text>
           </View>
         </Reveal>
         {stories.map((story) => (
-          <View
-            key={story.id}
-            className="mt-10 gap-10 lg:mt-16 lg:gap-16"
-            testID="editorial-story"
-          >
+          <View key={story.id} className="mt-10 gap-10 lg:mt-16 lg:gap-16" testID="editorial-story">
             {story.imageUrl ? (
               <Reveal reduced={reduced} kind="image">
                 <View
@@ -334,44 +303,30 @@ export function EditorialCuration({
             ) : null}
             <Reveal reduced={reduced}>
               <View className="mx-auto w-full max-w-[565px]">
-                <Text
-                  accessibilityRole="header"
-                  className="text-lg font-semibold leading-[20px]"
-                >
+                <Text accessibilityRole="header" className="text-lg font-semibold leading-[20px]">
                   {story.heading}
                 </Text>
                 {story.body ? (
-                  <Text className="mt-2 text-sm leading-[18px]">
-                    {story.body}
-                  </Text>
+                  <Text className="mt-2 text-sm leading-[18px]">{story.body}</Text>
                 ) : null}
               </View>
             </Reveal>
             <Reveal reduced={reduced}>
-              <View
-                className="mx-auto w-full max-w-[565px] gap-4"
-                testID="editorial-product-grid"
-              >
-                {Array.from(
-                  { length: Math.ceil(story.products.length / 2) },
-                  (_, row) => (
-                    <View key={row} className="flex-row gap-3">
-                      {[0, 1].map((column) => {
-                        const product = story.products[row * 2 + column];
-                        return (
-                          <View key={column} className="min-w-0 flex-1">
-                            {product ? (
-                              <ProductCard
-                                product={product}
-                                onPress={onPressProduct}
-                              />
-                            ) : null}
-                          </View>
-                        );
-                      })}
-                    </View>
-                  ),
-                )}
+              <View className="mx-auto w-full max-w-[565px] gap-4" testID="editorial-product-grid">
+                {Array.from({ length: Math.ceil(story.products.length / 2) }, (_, row) => (
+                  <View key={row} className="flex-row gap-3">
+                    {[0, 1].map((column) => {
+                      const product = story.products[row * 2 + column];
+                      return (
+                        <View key={column} className="min-w-0 flex-1">
+                          {product ? (
+                            <ProductCard product={product} onPress={onPressProduct} />
+                          ) : null}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
               </View>
             </Reveal>
             {story.quote ? (
@@ -387,9 +342,7 @@ export function EditorialCuration({
                   >
                     {story.quote.split(/\s+/).map((word, index) => (
                       <NativeText key={index}>
-                        <NativeText testID="editorial-quote-word">
-                          {word}
-                        </NativeText>{" "}
+                        <NativeText testID="editorial-quote-word">{word}</NativeText>{' '}
                       </NativeText>
                     ))}
                   </Text>

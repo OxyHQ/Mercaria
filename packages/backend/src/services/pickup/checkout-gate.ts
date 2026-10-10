@@ -174,7 +174,11 @@ export async function resolvePickupForCheckout(input: {
         pickupOffered: candidate.pickupOffered,
         pickupPaused: candidate.pickupPaused,
         restricted: candidate.restricted,
-        placeLinkGaps: placeLinkGaps({ locationId, goWayPlaceId: place.goWayPlaceId, lookup: place.lookup }),
+        placeLinkGaps: placeLinkGaps({
+          locationId,
+          goWayPlaceId: place.goWayPlaceId,
+          lookup: place.lookup,
+        }),
         locationActive: candidate.locationActive,
         storeActive: candidate.storeActive,
         ...(place.lookup?.kind === 'found' ? { opening: place.lookup.place.opening } : {}),
@@ -248,9 +252,12 @@ export async function resolvePickupForCheckout(input: {
  * moves. A delivery checkout never reaches this function, so it is unaffected.
  */
 function placeUnconfirmable(sellerKeys: readonly string[]): Error {
-  log.general.warn({ sellerKeys }, '[Pickup] checkout could not read the collection point from GoWay');
+  log.general.warn(
+    { sellerKeys },
+    '[Pickup] checkout could not read the collection point from GoWay',
+  );
   return serviceUnavailable(
-    'Collection in person cannot be confirmed right now, because the shop\'s location details are ' +
+    "Collection in person cannot be confirmed right now, because the shop's location details are " +
       'unavailable. Try again in a minute, or choose delivery.',
   );
 }

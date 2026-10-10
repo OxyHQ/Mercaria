@@ -28,7 +28,6 @@ import postgres from 'postgres';
 import { createMercariaTestDatabase, dropMercariaTestDatabase } from './src/db/testDatabase.js';
 import { TEST_POOL_SIZE } from './vitest.connection-budget.js';
 
-
 /**
  * The `max_locks_per_transaction` this suite requires of whatever server it is
  * pointed at.

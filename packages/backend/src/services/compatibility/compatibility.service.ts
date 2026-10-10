@@ -140,7 +140,11 @@ export async function readCompatibilityRelationPage(
   scope:
     | { readonly lookup: 'subject'; readonly subject: CompatibilitySubject }
     | { readonly lookup: 'target'; readonly target: CompatibilityTarget },
-  options: { readonly kinds?: readonly CompatibilityRelationKind[]; readonly market?: string; readonly limit: number },
+  options: {
+    readonly kinds?: readonly CompatibilityRelationKind[];
+    readonly market?: string;
+    readonly limit: number;
+  },
 ): Promise<CompatibilityRelationPage> {
   const read: CompatibilityReadOptions = {
     ...(options.kinds === undefined ? {} : { kinds: options.kinds }),

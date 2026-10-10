@@ -62,21 +62,19 @@ function notify(
 ): void {
   const checkoutGroupId = order.checkoutGroupId;
   if (checkoutGroupId === null) return;
-  void enqueueGuestMessage({ checkoutGroupId, kind, orderId: order.id, dedupeSuffix }, getDb()).catch(
-    (err: unknown) => {
-      log.guest.error(
-        { err, orderId: order.id, kind },
-        '[RetailService] failed to enqueue a message; the request stands',
-      );
-    },
-  );
+  void enqueueGuestMessage(
+    { checkoutGroupId, kind, orderId: order.id, dedupeSuffix },
+    getDb(),
+  ).catch((err: unknown) => {
+    log.guest.error(
+      { err, orderId: order.id, kind },
+      '[RetailService] failed to enqueue a message; the request stands',
+    );
+  });
 }
 
 /** Item 1 — "we have your request". */
-export function notifyRetailRequestReceived(
-  order: NotifiableRetailOrder,
-  requestId: string,
-): void {
+export function notifyRetailRequestReceived(order: NotifiableRetailOrder, requestId: string): void {
   notify(order, 'retail_service_request_received', requestId);
 }
 
@@ -146,10 +144,7 @@ export function notifyRetailServiceDelayed(
  * re-sent is better than one swallowed, and #127 experience rule 7 asks that
  * safety notices stay prominent.
  */
-export function notifyRetailSafetyNotice(
-  order: NotifiableRetailOrder,
-  requestId: string,
-): void {
+export function notifyRetailSafetyNotice(order: NotifiableRetailOrder, requestId: string): void {
   notify(order, 'retail_safety_notice', requestId);
 }
 
@@ -169,33 +164,21 @@ export function notifyRetailRequestClosed(
 }
 
 /** Item 2 — something needs the buyer before a deadline. #108's kind, reused. */
-export function notifyRetailActionRequired(
-  order: NotifiableRetailOrder,
-  requestId: string,
-): void {
+export function notifyRetailActionRequired(order: NotifiableRetailOrder, requestId: string): void {
   notify(order, 'buyer_action_required', requestId);
 }
 
 /** Item 9 — the money is coming. #110's kind, reused for the same fact. */
-export function notifyRetailRefundPending(
-  order: NotifiableRetailOrder,
-  requestId: string,
-): void {
+export function notifyRetailRefundPending(order: NotifiableRetailOrder, requestId: string): void {
   notify(order, 'refund_pending', requestId);
 }
 
 /** Item 9 — the rail settled. */
-export function notifyRetailRefundCompleted(
-  order: NotifiableRetailOrder,
-  requestId: string,
-): void {
+export function notifyRetailRefundCompleted(order: NotifiableRetailOrder, requestId: string): void {
   notify(order, 'refund_completed', requestId);
 }
 
 /** Item 9 — the rail refused, and Mercaria is fixing it. */
-export function notifyRetailRefundFailed(
-  order: NotifiableRetailOrder,
-  requestId: string,
-): void {
+export function notifyRetailRefundFailed(order: NotifiableRetailOrder, requestId: string): void {
   notify(order, 'refund_failed', requestId);
 }

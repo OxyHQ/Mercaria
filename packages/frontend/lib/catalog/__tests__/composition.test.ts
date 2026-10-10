@@ -43,11 +43,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { FacetSelectionEntry } from '@mercaria/shared-types';
-import {
-  parseFacetSelection,
-  serializeFacetSelection,
-  toggleFacetValue,
-} from '../facet-selection';
+import { parseFacetSelection, serializeFacetSelection, toggleFacetValue } from '../facet-selection';
 import { applyVariantChoice, composeVariantMatrix } from '../variant-axes';
 import { assessComparability, parseComparisonSubjects } from '../comparison';
 
@@ -95,9 +91,7 @@ describe('the facet selection URL grammar', () => {
     // own separators are not reserved in it. Percent-encoding is what makes the
     // parse total rather than dependent on the registry's naming taste.
     const values = ['a;b', 'c|d', 'e~f', 'g=h'];
-    const encoded = serializeFacetSelection([
-      { origin: 'attribute', facetKey: 'color', values },
-    ]);
+    const encoded = serializeFacetSelection([{ origin: 'attribute', facetKey: 'color', values }]);
     expect(parseFacetSelection(encoded).entries[0]?.values).toEqual(values);
   });
 
@@ -227,9 +221,9 @@ describe('the variant matrix', () => {
       selection: {},
     });
     expect(withheld.availabilityKnown).toBe(false);
-    expect(
-      withheld.axes.every((axis) => axis.values.every((value) => value.selectable)),
-    ).toBe(true);
+    expect(withheld.axes.every((axis) => axis.values.every((value) => value.selectable))).toBe(
+      true,
+    );
   });
 
   it('resolves a complete selection to exactly one configuration', () => {

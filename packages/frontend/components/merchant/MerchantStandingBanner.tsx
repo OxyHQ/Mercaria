@@ -1,10 +1,7 @@
-import { Pressable, View } from "react-native";
-import type {
-  MerchantPageStanding,
-  MerchantPublicStanding,
-} from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
+import { Pressable, View } from 'react-native';
+import type { MerchantPageStanding, MerchantPublicStanding } from '@mercaria/shared-types';
+import { Text } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The merchant's standing and the `Claim this merchant` action
@@ -34,18 +31,18 @@ import { useTranslation } from "@/lib/i18n";
  * one is referenced.
  */
 const STANDING_LABEL_KEYS: Readonly<Record<MerchantPublicStanding, string>> = {
-  unclaimed: "merchants.standing.label.unclaimed",
-  claim_in_progress: "merchants.standing.label.claimInProgress",
-  claimed: "merchants.standing.label.claimed",
-  selling_on_mercaria: "merchants.standing.label.sellingOnMercaria",
+  unclaimed: 'merchants.standing.label.unclaimed',
+  claim_in_progress: 'merchants.standing.label.claimInProgress',
+  claimed: 'merchants.standing.label.claimed',
+  selling_on_mercaria: 'merchants.standing.label.sellingOnMercaria',
 };
 Object.freeze(STANDING_LABEL_KEYS);
 
 const STANDING_EXPLANATION_KEYS: Readonly<Record<MerchantPublicStanding, string>> = {
-  unclaimed: "merchants.standing.explanation.unclaimed",
-  claim_in_progress: "merchants.standing.explanation.claimInProgress",
-  claimed: "merchants.standing.explanation.claimed",
-  selling_on_mercaria: "merchants.standing.explanation.sellingOnMercaria",
+  unclaimed: 'merchants.standing.explanation.unclaimed',
+  claim_in_progress: 'merchants.standing.explanation.claimInProgress',
+  claimed: 'merchants.standing.explanation.claimed',
+  selling_on_mercaria: 'merchants.standing.explanation.sellingOnMercaria',
 };
 Object.freeze(STANDING_EXPLANATION_KEYS);
 
@@ -66,7 +63,7 @@ export function MerchantStandingBanner({
           <Text
             className="text-xs font-semibold text-muted-foreground"
             accessibilityRole="text"
-            accessibilityLabel={t("merchants.standing.a11yLabel", { status: label })}
+            accessibilityLabel={t('merchants.standing.a11yLabel', { status: label })}
           >
             {label}
           </Text>
@@ -74,13 +71,13 @@ export function MerchantStandingBanner({
         {standing.eligibility.claimable ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t("merchants.standing.claim")}
-            accessibilityHint={t("merchants.standing.claimHint")}
+            accessibilityLabel={t('merchants.standing.claim')}
+            accessibilityHint={t('merchants.standing.claimHint')}
             onPress={onClaim}
             className="rounded-full border border-border px-4 py-2"
           >
             <Text className="text-sm font-medium text-foreground">
-              {t("merchants.standing.claim")}
+              {t('merchants.standing.claim')}
             </Text>
           </Pressable>
         ) : null}

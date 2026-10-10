@@ -57,7 +57,9 @@ export function resolveReferralDisclosure(version: string | undefined): {
   terms: ReferralDisclosureTerms;
   resolved: boolean;
 } {
-  const active = REFERRAL_DISCLOSURE_TERMS[REFERRAL_ACTIVE_DISCLOSURE_VERSION] as ReferralDisclosureTerms;
+  const active = REFERRAL_DISCLOSURE_TERMS[
+    REFERRAL_ACTIVE_DISCLOSURE_VERSION
+  ] as ReferralDisclosureTerms;
   if (version === undefined) return { terms: active, resolved: false };
   const found = REFERRAL_DISCLOSURE_TERMS[version];
   if (!found) return { terms: active, resolved: false };

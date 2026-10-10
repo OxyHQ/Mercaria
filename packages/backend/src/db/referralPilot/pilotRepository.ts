@@ -186,10 +186,7 @@ export async function findActiveReferralPilotCohort(
     .select(COHORT_COLUMNS)
     .from(referralPilotCohorts)
     .where(
-      and(
-        eq(referralPilotCohorts.programId, programId),
-        eq(referralPilotCohorts.status, 'active'),
-      ),
+      and(eq(referralPilotCohorts.programId, programId), eq(referralPilotCohorts.status, 'active')),
     )
     .limit(1);
   return row;
@@ -248,10 +245,7 @@ export async function recordReferralPilotReview(
       ...(input.closes ? { status: 'closed' as ReferralPilotCohortStatus } : {}),
     })
     .where(
-      and(
-        eq(referralPilotCohorts.id, input.cohortId),
-        isNull(referralPilotCohorts.reviewedAt),
-      ),
+      and(eq(referralPilotCohorts.id, input.cohortId), isNull(referralPilotCohorts.reviewedAt)),
     )
     .returning(COHORT_COLUMNS);
   return row;

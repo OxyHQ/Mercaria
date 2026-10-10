@@ -283,7 +283,8 @@ export async function transitionApplication(
     decisionMessage?: string | null;
   },
 ): Promise<ReferralApplicationRow | undefined> {
-  const decided = input.to === 'approved' || input.to === 'rejected' || input.to === 'changes_requested';
+  const decided =
+    input.to === 'approved' || input.to === 'rejected' || input.to === 'changes_requested';
   const [row] = await db
     .update(referralPartnerApplications)
     .set({

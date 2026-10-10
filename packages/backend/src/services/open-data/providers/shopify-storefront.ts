@@ -39,7 +39,15 @@ import {
   type OpenDataPageContext,
   type OpenDataProvider,
 } from '../provider.js';
-import { asArray, asNumber, asObject, asText, asTextList, decimalMoney, FactCollector } from '../read.js';
+import {
+  asArray,
+  asNumber,
+  asObject,
+  asText,
+  asTextList,
+  decimalMoney,
+  FactCollector,
+} from '../read.js';
 import { robotsAllows } from '../robots.js';
 
 export const SHOPIFY_STOREFRONT_PROVIDER = 'shopify_storefront';
@@ -92,18 +100,24 @@ async function readStore(context: OpenDataPageContext, origin: string): Promise<
   });
   for (const path of ['/meta.json', '/products.json']) {
     if (!robotsAllows(robots, ROBOTS_TOKEN, path)) {
-      throw new OpenDataConfigurationError(`${origin}/robots.txt disallows ${path}; this store is not read.`);
+      throw new OpenDataConfigurationError(
+        `${origin}/robots.txt disallows ${path}; this store is not read.`,
+      );
     }
   }
   const meta = asObject(
-    (await context.http.getJson(`${origin}/meta.json`, {
-      minIntervalMs: INTERVAL_MS,
-      ...(context.signal ? { signal: context.signal } : {}),
-    }))?.body,
+    (
+      await context.http.getJson(`${origin}/meta.json`, {
+        minIntervalMs: INTERVAL_MS,
+        ...(context.signal ? { signal: context.signal } : {}),
+      })
+    )?.body,
   );
   const currency = asText(meta?.currency);
   if (meta === undefined || currency === undefined || !/^[A-Z]{3}$/u.test(currency)) {
-    throw new OpenDataSchemaError(`${origin}/meta.json names no currency; is this a Shopify store?`);
+    throw new OpenDataSchemaError(
+      `${origin}/meta.json names no currency; is this a Shopify store?`,
+    );
   }
   return { name: asText(meta.name) ?? origin, currency, country: asText(meta.country) };
 }
@@ -111,7 +125,9 @@ async function readStore(context: OpenDataPageContext, origin: string): Promise<
 async function fetchStorefrontPage(context: OpenDataPageContext): Promise<OpenDataPage> {
   const origin = `https://${storeDomain(context.accountRef)}`;
   const store: StoreFacts =
-    context.cursor !== null && typeof context.cursor.c === 'string' && typeof context.cursor.n === 'string'
+    context.cursor !== null &&
+    typeof context.cursor.c === 'string' &&
+    typeof context.cursor.n === 'string'
       ? {
           name: context.cursor.n,
           currency: context.cursor.c,
@@ -121,10 +137,13 @@ async function fetchStorefrontPage(context: OpenDataPageContext): Promise<OpenDa
   const page = typeof context.cursor?.p === 'number' ? context.cursor.p : 1;
   const limit = Math.min(Math.max(context.pageSize, 1), PAGE_CAP);
 
-  const response = await context.http.getJson(`${origin}/products.json?limit=${String(limit)}&page=${String(page)}`, {
-    minIntervalMs: INTERVAL_MS,
-    ...(context.signal ? { signal: context.signal } : {}),
-  });
+  const response = await context.http.getJson(
+    `${origin}/products.json?limit=${String(limit)}&page=${String(page)}`,
+    {
+      minIntervalMs: INTERVAL_MS,
+      ...(context.signal ? { signal: context.signal } : {}),
+    },
+  );
   const body = asObject(response?.body);
   if (body === undefined || !Array.isArray(body.products)) {
     throw new OpenDataSchemaError(`${origin}/products.json has no \`products\` array.`);
@@ -135,12 +154,19 @@ async function fetchStorefrontPage(context: OpenDataPageContext): Promise<OpenDa
   for (const entry of products) {
     const product = asObject(entry);
     if (product === undefined) continue;
-    items.push(...toItems(product, { origin, store, territory: context.territories[0]?.toUpperCase() }));
+    items.push(
+      ...toItems(product, { origin, store, territory: context.territories[0]?.toUpperCase() }),
+    );
   }
   const next =
     products.length < limit
       ? null
-      : { p: page + 1, c: store.currency, n: store.name, ...(store.country === undefined ? {} : { k: store.country }) };
+      : {
+          p: page + 1,
+          c: store.currency,
+          n: store.name,
+          ...(store.country === undefined ? {} : { k: store.country }),
+        };
   return { items, next, complete: false };
 }
 
@@ -173,9 +199,14 @@ function realOptionNames(product: Readonly<Record<string, unknown>>): string[] {
 
 export function toItems(
   product: Readonly<Record<string, unknown>>,
-  context: { readonly origin: string; readonly store: StoreFacts; readonly territory: string | undefined },
+  context: {
+    readonly origin: string;
+    readonly store: StoreFacts;
+    readonly territory: string | undefined;
+  },
 ): OpenDataItem[] {
-  const productId = asText(product.id) ?? (asNumber(product.id) === undefined ? undefined : String(product.id));
+  const productId =
+    asText(product.id) ?? (asNumber(product.id) === undefined ? undefined : String(product.id));
   const title = asText(product.title);
   const handle = asText(product.handle);
   if (productId === undefined || title === undefined || handle === undefined) return [];
@@ -184,14 +215,22 @@ export function toItems(
   const description = htmlText(asText(product.body_html));
   const vendor = asText(product.vendor);
   const productType = asText(product.product_type);
-  const tags = Array.isArray(product.tags) ? asTextList(product.tags) : (asText(product.tags) ?? '').split(',').map((tag) => tag.trim()).filter((tag) => tag !== '');
-  const images = asArray(product.images).map((image) => asObject(image)).filter((image): image is Readonly<Record<string, unknown>> => image !== undefined);
+  const tags = Array.isArray(product.tags)
+    ? asTextList(product.tags)
+    : (asText(product.tags) ?? '')
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter((tag) => tag !== '');
+  const images = asArray(product.images)
+    .map((image) => asObject(image))
+    .filter((image): image is Readonly<Record<string, unknown>> => image !== undefined);
 
   const items: OpenDataItem[] = [];
   for (const entry of asArray(product.variants)) {
     const variant = asObject(entry);
     if (variant === undefined) continue;
-    const variantId = asText(variant.id) ?? (asNumber(variant.id) === undefined ? undefined : String(variant.id));
+    const variantId =
+      asText(variant.id) ?? (asNumber(variant.id) === undefined ? undefined : String(variant.id));
     const price = decimalMoney(variant.price, context.store.currency);
     if (variantId === undefined || price === undefined) continue;
     const compareAt = decimalMoney(variant.compare_at_price, context.store.currency);
@@ -241,7 +280,9 @@ export function toItems(
       ...(description === undefined ? {} : { description }),
       ...(sku === undefined ? {} : { merchantSku: sku }),
       price,
-      ...(compareAt === undefined || compareAt.amount <= price.amount ? {} : { compareAtPrice: compareAt }),
+      ...(compareAt === undefined || compareAt.amount <= price.amount
+        ? {}
+        : { compareAtPrice: compareAt }),
       conditionLabel: 'new',
       availability,
       ...(context.territory === undefined ? {} : { country: context.territory }),
@@ -254,8 +295,15 @@ export function toItems(
       externalType: 'offer',
       externalId: variantId,
       normalized,
-      ...(updatedAt === undefined || Number.isNaN(Date.parse(updatedAt)) ? {} : { sourceUpdatedAt: new Date(updatedAt) }),
-      raw: { productId, variantId, price: asText(variant.price) ?? null, available: available ?? null },
+      ...(updatedAt === undefined || Number.isNaN(Date.parse(updatedAt))
+        ? {}
+        : { sourceUpdatedAt: new Date(updatedAt) }),
+      raw: {
+        productId,
+        variantId,
+        price: asText(variant.price) ?? null,
+        available: available ?? null,
+      },
     });
   }
   return items;

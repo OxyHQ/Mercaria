@@ -183,8 +183,7 @@ export const MERCHANT_DEMAND_UNAVAILABLE_REASONS = [
 ] as const;
 
 /** One of {@link MERCHANT_DEMAND_UNAVAILABLE_REASONS}. */
-export type MerchantDemandUnavailableReason =
-  (typeof MERCHANT_DEMAND_UNAVAILABLE_REASONS)[number];
+export type MerchantDemandUnavailableReason = (typeof MERCHANT_DEMAND_UNAVAILABLE_REASONS)[number];
 
 /** The noun a count may be rendered with. There is no sales noun in this list. */
 export const MERCHANT_DEMAND_COUNT_NOUNS = [
@@ -316,8 +315,7 @@ export const MERCHANT_DEMAND_METRICS: readonly MerchantDemandMetricDefinition[] 
     kind: 'observed_interaction',
     unit: 'count',
     noun: 'views',
-    numerator:
-      '`product_page_view` events on canonical products this merchant currently offers',
+    numerator: '`product_page_view` events on canonical products this merchant currently offers',
     denominator: 'All `product_page_view` events in the window',
     source: 'analytics_events',
     humanOnly: true,
@@ -475,8 +473,7 @@ export const MERCHANT_DEMAND_METRICS: readonly MerchantDemandMetricDefinition[] 
     kind: 'native_gmv',
     unit: 'money',
     noun: 'orders',
-    numerator:
-      'Sum of the SHOP-currency grand totals of this merchant’s paid native orders',
+    numerator: 'Sum of the SHOP-currency grand totals of this merchant’s paid native orders',
     denominator: 'Not a rate — an amount from durable order records',
     source: 'orders',
     humanOnly: false,
@@ -1199,8 +1196,10 @@ export function scoreMerchantAcquisition(
   facts: MerchantAcquisitionFacts,
 ): MerchantAcquisitionScore {
   const contributingInputs: MerchantAcquisitionScoreInput[] = [];
-  const unmeasuredInputs: { input: MerchantAcquisitionScoreInput; reason: MerchantDemandUnavailableReason }[] =
-    [];
+  const unmeasuredInputs: {
+    input: MerchantAcquisitionScoreInput;
+    reason: MerchantDemandUnavailableReason;
+  }[] = [];
   let total = 0;
 
   for (const field of SCORE_INPUT_FIELDS) {
@@ -1214,9 +1213,7 @@ export function scoreMerchantAcquisition(
   }
 
   const scoreBps =
-    contributingInputs.length === 0
-      ? 0
-      : Math.round((total / contributingInputs.length) * 10_000);
+    contributingInputs.length === 0 ? 0 : Math.round((total / contributingInputs.length) * 10_000);
 
   return {
     scoreBps,

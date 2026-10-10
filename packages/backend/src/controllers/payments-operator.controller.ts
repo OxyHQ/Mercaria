@@ -371,7 +371,12 @@ function toRepairRequest(body: PaymentRepairInput, actor: string): RepairRequest
     return { ...base, action: body.action, paymentId: body.paymentId, orderId: body.orderId };
   }
   if (body.action === 'retry_transfer_reversal') {
-    return { ...base, action: body.action, subjectKind: body.subjectKind, subjectId: body.subjectId };
+    return {
+      ...base,
+      action: body.action,
+      subjectKind: body.subjectKind,
+      subjectId: body.subjectId,
+    };
   }
   return { ...base, action: body.action, refundId: body.refundId };
 }

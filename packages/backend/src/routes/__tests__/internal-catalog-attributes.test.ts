@@ -44,11 +44,7 @@ vi.mock('../../middleware/auth.js', () => ({
     next();
   },
   oxyClient: {},
-  optionalAuth: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
+  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
     next();
   },
 }));
@@ -135,11 +131,25 @@ const PATHS: readonly Route[] = [
   {
     method: 'POST',
     path: '/internal/catalog-attributes/definitions',
-    body: { key: 'screen_size', label: 'Screen size', valueType: 'measurement', unitFamily: 'length' },
+    body: {
+      key: 'screen_size',
+      label: 'Screen size',
+      valueType: 'measurement',
+      unitFamily: 'length',
+    },
   },
-  { method: 'POST', path: '/internal/catalog-attributes/definitions/screen_size/versions/1/publish' },
-  { method: 'POST', path: '/internal/catalog-attributes/definitions/screen_size/versions/1/deprecate' },
-  { method: 'POST', path: '/internal/catalog-attributes/definitions/screen_size/versions/1/retire' },
+  {
+    method: 'POST',
+    path: '/internal/catalog-attributes/definitions/screen_size/versions/1/publish',
+  },
+  {
+    method: 'POST',
+    path: '/internal/catalog-attributes/definitions/screen_size/versions/1/deprecate',
+  },
+  {
+    method: 'POST',
+    path: '/internal/catalog-attributes/definitions/screen_size/versions/1/retire',
+  },
   { method: 'GET', path: '/internal/catalog-attributes/definitions/screen_size/versions' },
   { method: 'GET', path: '/internal/catalog-attributes/definitions/screen_size' },
   {

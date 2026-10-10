@@ -93,9 +93,7 @@ export interface DiscrepancyReport {
  *   condition need it, so they can resolve the row they just opened rather than
  *   leaving an operator to close something the system has already fixed.
  */
-export async function reportDiscrepancy(
-  report: DiscrepancyReport,
-): Promise<PaymentDiscrepancyRow> {
+export async function reportDiscrepancy(report: DiscrepancyReport): Promise<PaymentDiscrepancyRow> {
   const severity = SEVERITY[report.kind];
   const { row, created } = await recordDiscrepancy(getDb(), { ...report, severity });
 

@@ -54,7 +54,10 @@ export interface NewRetailSupplierCredit {
  * document, a poll after a webhook and a sweep re-reading the same credit note
  * all derive this and converge on one row (#128 supplier-credit rule 4).
  */
-export function supplierCreditClaimKey(purchaseOrderId: string, providerDocumentId: string): string {
+export function supplierCreditClaimKey(
+  purchaseOrderId: string,
+  providerDocumentId: string,
+): string {
   return `${purchaseOrderId}:${providerDocumentId}`;
 }
 

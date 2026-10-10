@@ -45,4 +45,3 @@ export const REQUIRED_EXTENSIONS: readonly RequiredExtension[] = [
       'itself — no privileged provisioning step.',
   },
 ];
-

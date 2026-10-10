@@ -1,23 +1,23 @@
-import { View } from "react-native";
-import { Button } from "@oxy.so/bloom/button";
-import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
-import type { Review } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { View } from 'react-native';
+import { Button } from '@oxy.so/bloom/button';
+import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
+import type { Review } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import {
   REVIEW_DEFAULT_SCOPE_KEY,
   REVIEW_EMPTY_KEY,
   REVIEW_READ_MORE_KEY,
   REVIEW_UNVERIFIED_KEY,
   REVIEW_VERIFIED_RATINGS_KEY,
-} from "../../lib/marketplace-labels";
-import { Rating, RatingBar } from "@oxy.so/bloom/rating";
-import { useInView } from "@oxy.so/bloom/viewport";
-import { useFormatters } from "../../lib/use-formatters";
-import { useRatingDisplay } from "../../lib/rating-display";
-import { ReviewCard } from "./ReviewCard";
-import { REVIEW_PREVIEW_ARROW_BUTTON_PROPS, useShelfCarouselProps } from "../../lib/shelf-carousel";
-import { useColorScheme } from "../../lib/useColorScheme";
+} from '../../lib/marketplace-labels';
+import { Rating, RatingBar } from '@oxy.so/bloom/rating';
+import { useInView } from '@oxy.so/bloom/viewport';
+import { useFormatters } from '../../lib/use-formatters';
+import { useRatingDisplay } from '../../lib/rating-display';
+import { ReviewCard } from './ReviewCard';
+import { REVIEW_PREVIEW_ARROW_BUTTON_PROPS, useShelfCarouselProps } from '../../lib/shelf-carousel';
+import { useColorScheme } from '../../lib/useColorScheme';
 
 /** Star buckets, high → low, for the rating-distribution bars. */
 const RATING_BUCKETS = [5, 4, 3, 2, 1] as const;
@@ -97,7 +97,10 @@ export function ReviewSummaryCard({
   // which no bundle could reach. Resolved here instead, so a caller that
   // passes nothing gets the viewer's language rather than ours.
   const scopeText = scopeLabel ?? t(REVIEW_DEFAULT_SCOPE_KEY);
-  const distributionTotal = Object.values(distribution ?? {}).reduce((sum, count) => sum + count, 0);
+  const distributionTotal = Object.values(distribution ?? {}).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
   // The verified aggregate does not count unverified reviews. A zero here
   // must not hide those reviews or pretend their average is a verified one.
   const hasReviews = total > 0 || (unverified?.count ?? 0) > 0 || reviews.length > 0;
@@ -105,8 +108,8 @@ export function ReviewSummaryCard({
     <View
       className={
         embedded
-          ? "gap-space-16"
-          : "gap-space-16 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20"
+          ? 'gap-space-16'
+          : 'gap-space-16 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20'
       }
     >
       {showHeading ? <Text className="text-shop-subtitle text-text">{scopeText}</Text> : null}
@@ -122,65 +125,78 @@ export function ReviewSummaryCard({
             scoped sentence ("Product reviews. Average rating: 4.2. Reviews: 18.")
             for assistive technology. Decorative stars don't repeat it.
           */}
-          {total > 0 ? <View className="flex-row gap-space-24">
-            <View className="items-start gap-space-2">
-              <Text
-                testID="review-rating-average"
-                accessible
-                accessibilityRole="text"
-                accessibilityLabel={
-                  ratingDisplay({
-                    rating: average,
-                    reviews: total,
-                    subject: scopeText,
-                  }).accessibilityLabel
-                }
-                className="mb-space-2 text-shop-header text-text"
-              >
-                {formatRating(average)}
-              </Text>
-              <View aria-hidden accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-                <Rating
-                  {...ratingDisplay({ rating: average, variant: "stars", subject: scopeText })}
-                  variant="stars"
-                  showValue={false}
-                  starSize={20}
-                  color={isDarkColorScheme ? "#ffffff" : "#000000"}
-                  testID="review-summary-stars"
-                />
+          {total > 0 ? (
+            <View className="flex-row gap-space-24">
+              <View className="items-start gap-space-2">
+                <Text
+                  testID="review-rating-average"
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={
+                    ratingDisplay({
+                      rating: average,
+                      reviews: total,
+                      subject: scopeText,
+                    }).accessibilityLabel
+                  }
+                  className="mb-space-2 text-shop-header text-text"
+                >
+                  {formatRating(average)}
+                </Text>
+                <View
+                  aria-hidden
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <Rating
+                    {...ratingDisplay({ rating: average, variant: 'stars', subject: scopeText })}
+                    variant="stars"
+                    showValue={false}
+                    starSize={20}
+                    color={isDarkColorScheme ? '#ffffff' : '#000000'}
+                    testID="review-summary-stars"
+                  />
+                </View>
+                <Text className="text-shop-caption text-text">
+                  {t(verifiedOnly ? REVIEW_VERIFIED_RATINGS_KEY : 'ui.review.ratings', {
+                    ratings: formatReviewCount(total),
+                  })}
+                </Text>
               </View>
-              <Text className="text-shop-caption text-text">
-                {t(
-                  verifiedOnly
-                    ? REVIEW_VERIFIED_RATINGS_KEY
-                    : "ui.review.ratings",
-                  { ratings: formatReviewCount(total) },
-                )}
-              </Text>
+              {distribution ? (
+                <View
+                  {...histogramVisibility.targetProps}
+                  className="flex-1 justify-center gap-space-2"
+                  testID="review-rating-distribution"
+                >
+                  {RATING_BUCKETS.map((bucket) => {
+                    const count = distribution[bucket] ?? 0;
+                    return (
+                      <RatingBar
+                        key={bucket}
+                        label={String(bucket)}
+                        labelWidth={BUCKET_LABEL_WIDTH}
+                        testID={`rating-distribution-${bucket}`}
+                        className="gap-space-8"
+                        labelClassName={`text-center text-shop-badgeBold ${isDarkColorScheme ? 'text-white' : 'text-black'}`}
+                        trackClassName={`h-space-8 rounded-radius-8 ${isDarkColorScheme ? 'bg-[#ffffff0f]' : 'bg-[#183b4e0f]'}`}
+                        fillClassName={`rounded-radius-8 ${isDarkColorScheme ? 'bg-white' : 'bg-[#121212]'}`}
+                        value={distributionTotal > 0 ? count / distributionTotal : 0}
+                        max={1}
+                        reveal={{
+                          visible: histogramVisibility.inView,
+                          duration: 1000,
+                          delay: 300,
+                          easing: [0.4, 0, 0.2, 1],
+                          once: true,
+                        }}
+                      />
+                    );
+                  })}
+                </View>
+              ) : null}
             </View>
-            {distribution ? (
-              <View {...histogramVisibility.targetProps} className="flex-1 justify-center gap-space-2" testID="review-rating-distribution">
-                {RATING_BUCKETS.map((bucket) => {
-                  const count = distribution[bucket] ?? 0;
-                  return (
-                    <RatingBar
-                      key={bucket}
-                      label={String(bucket)}
-                      labelWidth={BUCKET_LABEL_WIDTH}
-                      testID={`rating-distribution-${bucket}`}
-                      className="gap-space-8"
-                      labelClassName={`text-center text-shop-badgeBold ${isDarkColorScheme ? "text-white" : "text-black"}`}
-                      trackClassName={`h-space-8 rounded-radius-8 ${isDarkColorScheme ? "bg-[#ffffff0f]" : "bg-[#183b4e0f]"}`}
-                      fillClassName={`rounded-radius-8 ${isDarkColorScheme ? "bg-white" : "bg-[#121212]"}`}
-                      value={distributionTotal > 0 ? count / distributionTotal : 0}
-                      max={1}
-                      reveal={{ visible: histogramVisibility.inView, duration: 1000, delay: 300, easing: [0.4, 0, 0.2, 1], once: true }}
-                    />
-                  );
-                })}
-              </View>
-            ) : null}
-          </View> : null}
+          ) : null}
 
           {unverified && unverified.count > 0 ? (
             <Text className="text-shop-caption text-text-tertiary">
@@ -221,11 +237,15 @@ export function ReviewSummaryCard({
               material="flat"
               onPress={onReadMore}
               accessibilityLabel={t(REVIEW_READ_MORE_KEY)}
-              className={`h-auto min-h-[44px] w-full items-center rounded-radius-max border-0 p-space-12 active:scale-[0.99] motion-reduce:active:scale-100 ${isDarkColorScheme
-                ? "bg-[#2a2a2a] hover:bg-[#404040]"
-                : "bg-[#f2f4f5] hover:bg-[#e1e4e5]"}`}
+              className={`h-auto min-h-[44px] w-full items-center rounded-radius-max border-0 p-space-12 active:scale-[0.99] motion-reduce:active:scale-100 ${
+                isDarkColorScheme
+                  ? 'bg-[#2a2a2a] hover:bg-[#404040]'
+                  : 'bg-[#f2f4f5] hover:bg-[#e1e4e5]'
+              }`}
             >
-              <Text className={`text-shop-buttonLarge ${isDarkColorScheme ? "text-white" : "text-black"}`}>
+              <Text
+                className={`text-shop-buttonLarge ${isDarkColorScheme ? 'text-white' : 'text-black'}`}
+              >
                 {t(REVIEW_READ_MORE_KEY)}
               </Text>
             </Button>

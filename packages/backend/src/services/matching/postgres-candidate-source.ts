@@ -35,10 +35,7 @@ import {
   listVariantAttributesForVariants,
   listVariantsForProducts,
 } from '../../db/canonical/canonicalVariantRepository.js';
-import {
-  findBrandsByIds,
-  listBrandAliasesForBrands,
-} from '../../db/canonical/brandRepository.js';
+import { findBrandsByIds, listBrandAliasesForBrands } from '../../db/canonical/brandRepository.js';
 import { findCanonicalValuesForVariants } from '../../db/canonical/productIdentifierRepository.js';
 import { resolveIdentifier } from '../canonical/product-identifier.service.js';
 import { normalizeIdentifier } from '../canonical/identifiers.js';
@@ -88,7 +85,8 @@ export class PostgresCandidateSource implements MatchCandidateSource {
       subject.kind === 'native_variant' && subject.productVariantId !== undefined
         ? (await findActiveLinkForVariant(this.db, subject.productVariantId))?.canonicalVariantId
         : subject.kind === 'source_record' && subject.sourceRecordId !== undefined
-          ? (await findActiveVariantLinkForSourceObjectOf(this.db, subject.sourceRecordId))?.variantId
+          ? (await findActiveVariantLinkForSourceObjectOf(this.db, subject.sourceRecordId))
+              ?.variantId
           : undefined;
     if (variantId === undefined) return null;
     const variants = await findCanonicalVariantsByIds(this.db, [variantId]);
@@ -246,9 +244,7 @@ export class PostgresCandidateSource implements MatchCandidateSource {
     }
 
     const brandIds = [
-      ...new Set(
-        live.flatMap((product) => (product.brandId === null ? [] : [product.brandId])),
-      ),
+      ...new Set(live.flatMap((product) => (product.brandId === null ? [] : [product.brandId]))),
     ];
     const brandRows = await findBrandsByIds(this.db, brandIds);
     const brandAliasRows = await listBrandAliasesForBrands(this.db, brandIds);
@@ -283,7 +279,8 @@ export class PostgresCandidateSource implements MatchCandidateSource {
       aliases: aliasesByProduct.get(product.id) ?? [],
       brandId: product.brandId,
       brandNames: product.brandId === null ? [] : (brandNames.get(product.brandId) ?? []),
-      categoryKey: product.categoryId === null ? null : (categorySlugs.get(product.categoryId) ?? null),
+      categoryKey:
+        product.categoryId === null ? null : (categorySlugs.get(product.categoryId) ?? null),
       modelCode: product.modelCode,
       variantDefiningAttributeKeys: product.variantDefiningAttributeKeys,
       // The canonical NAME classified by the same detector the subject uses, so

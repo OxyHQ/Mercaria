@@ -36,7 +36,11 @@ export async function authorizeMercariaCatalogInvocation(
 ): Promise<MercariaAuthorizationDecision> {
   const requiredPermission = STORE_TOOL_PERMISSIONS[toolName];
   if (!requiredPermission) {
-    if (toolName === 'searchProducts' || toolName === 'listBuyerOrders' || toolName === 'readBuyerOrder') {
+    if (
+      toolName === 'searchProducts' ||
+      toolName === 'listBuyerOrders' ||
+      toolName === 'readBuyerOrder'
+    ) {
       return { allowed: true };
     }
     return { allowed: false, reason: 'unknown_catalog_tool' };
@@ -52,4 +56,3 @@ export async function authorizeMercariaCatalogInvocation(
   }
   return { allowed: true };
 }
-

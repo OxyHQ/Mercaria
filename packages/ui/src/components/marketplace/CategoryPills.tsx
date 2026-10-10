@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { View, Pressable, ScrollView } from "react-native";
-import { Image } from "expo-image";
-import { Text } from "../ui/text";
-import type { CategoryPill } from "@mercaria/shared-types";
-import { ShopNavigationIcon } from "./ShopNavigationIcon";
-import { useColorScheme } from "../../lib/useColorScheme";
-import { categoryImageSource } from "../../lib/shop-category-images";
+import { useState } from 'react';
+import { View, Pressable, ScrollView } from 'react-native';
+import { Image } from 'expo-image';
+import { Text } from '../ui/text';
+import type { CategoryPill } from '@mercaria/shared-types';
+import { ShopNavigationIcon } from './ShopNavigationIcon';
+import { useColorScheme } from '../../lib/useColorScheme';
+import { categoryImageSource } from '../../lib/shop-category-images';
 
 /** Horizontal gap (px) between adjacent chips. */
 const CHIP_GAP = 8;
@@ -34,7 +34,12 @@ export function CategoryPills({ pills, onPressPill }: CategoryPillsProps) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: CONTENT_PADDING, gap: CHIP_GAP, flexGrow: 1, justifyContent: "center" }}
+        contentContainerStyle={{
+          paddingHorizontal: CONTENT_PADDING,
+          gap: CHIP_GAP,
+          flexGrow: 1,
+          justifyContent: 'center',
+        }}
       >
         {pills.map((pill) => (
           <CategoryPillChip key={pill.id} pill={pill} onPressPill={onPressPill} />
@@ -80,10 +85,7 @@ function CategoryPillChip({ pill, onPressPill }: CategoryPillChipProps) {
             <ShopNavigationIcon name="explore" size={18} fill={colors.foreground} />
           </View>
         )}
-        <View
-          pointerEvents="none"
-          className="absolute inset-0 rounded-full border border-border"
-        />
+        <View pointerEvents="none" className="absolute inset-0 rounded-full border border-border" />
       </View>
       <Text numberOfLines={1} className="text-sm font-medium text-foreground">
         {pill.name}

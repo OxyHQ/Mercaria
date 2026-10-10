@@ -34,7 +34,12 @@
  */
 
 import { FeedImportRefusal } from '../errors.js';
-import { addRawField, MAX_FLATTEN_DEPTH, type FeedParseOptions, type FeedRawRecord } from './types.js';
+import {
+  addRawField,
+  MAX_FLATTEN_DEPTH,
+  type FeedParseOptions,
+  type FeedRawRecord,
+} from './types.js';
 
 /** What the scanner emits. Elements, their attributes, and their text. */
 type XmlEvent =
@@ -358,25 +363,28 @@ function readStartTag(tag: string): XmlEvent {
  */
 function decodeXmlEntities(value: string): string {
   if (!value.includes('&')) return value;
-  return value.replace(/&(#x[0-9A-Fa-f]{1,6}|#\d{1,7}|amp|lt|gt|quot|apos);/gu, (match, entity: string) => {
-    switch (entity) {
-      case 'amp':
-        return '&';
-      case 'lt':
-        return '<';
-      case 'gt':
-        return '>';
-      case 'quot':
-        return '"';
-      case 'apos':
-        return "'";
-      default:
-        break;
-    }
-    const code = entity.startsWith('#x')
-      ? Number.parseInt(entity.slice(2), 16)
-      : Number.parseInt(entity.slice(1), 10);
-    if (!Number.isInteger(code) || code < 1 || code > 0x10ffff) return match;
-    return String.fromCodePoint(code);
-  });
+  return value.replace(
+    /&(#x[0-9A-Fa-f]{1,6}|#\d{1,7}|amp|lt|gt|quot|apos);/gu,
+    (match, entity: string) => {
+      switch (entity) {
+        case 'amp':
+          return '&';
+        case 'lt':
+          return '<';
+        case 'gt':
+          return '>';
+        case 'quot':
+          return '"';
+        case 'apos':
+          return "'";
+        default:
+          break;
+      }
+      const code = entity.startsWith('#x')
+        ? Number.parseInt(entity.slice(2), 16)
+        : Number.parseInt(entity.slice(1), 10);
+      if (!Number.isInteger(code) || code < 1 || code > 0x10ffff) return match;
+      return String.fromCodePoint(code);
+    },
+  );
 }

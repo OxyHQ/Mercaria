@@ -151,7 +151,10 @@ export interface BillingProvider {
    * paid for a month keeps the month. An operator terminating early is a
    * decision taken at the rail, and reconciliation brings it back.
    */
-  cancelAtPeriodEnd(providerSubscriptionId: string, idempotencyKey?: string): Promise<BillingSubscriptionSnapshot>;
+  cancelAtPeriodEnd(
+    providerSubscriptionId: string,
+    idempotencyKey?: string,
+  ): Promise<BillingSubscriptionSnapshot>;
 }
 
 const providers = new Map<BillingProviderId, BillingProvider>();

@@ -59,7 +59,10 @@ export interface PickupProximityRequest {
 
 export type PickupProximity =
   | { readonly known: true; readonly metres: number }
-  | { readonly known: false; readonly reason: 'pickup_locations_not_published' | 'viewer_location_absent' };
+  | {
+      readonly known: false;
+      readonly reason: 'pickup_locations_not_published' | 'viewer_location_absent';
+    };
 
 /**
  * Answer a pickup distance, or say why there is none.

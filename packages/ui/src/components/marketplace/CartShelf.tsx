@@ -1,11 +1,11 @@
-import { View } from "react-native";
-import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
-import type { CartGroup, CartVendor } from "@mercaria/shared-types";
-import { MerchantCartCard } from "./MerchantCartCard";
-import { SectionHeader } from "./SectionHeader";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import { CART_SHELF_TITLE_KEY } from "../../lib/marketplace-labels";
-import { uniqueByKey, useShelfCarouselProps } from "../../lib/shelf-carousel";
+import { View } from 'react-native';
+import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
+import type { CartGroup, CartVendor } from '@mercaria/shared-types';
+import { MerchantCartCard } from './MerchantCartCard';
+import { SectionHeader } from './SectionHeader';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
+import { CART_SHELF_TITLE_KEY } from '../../lib/marketplace-labels';
+import { uniqueByKey, useShelfCarouselProps } from '../../lib/shelf-carousel';
 
 /** Merchant cart-card slot width (px). */
 const CART_SLOT_WIDTH = 330;
@@ -57,11 +57,7 @@ export function CartShelf({
       >
         {rows.map((group) => (
           <CarouselItem key={group.sellerKey} width={CART_SLOT_WIDTH}>
-            <MerchantCartCard
-              group={group}
-              onPressVendor={onPressVendor}
-              onCheckout={onCheckout}
-            />
+            <MerchantCartCard group={group} onPressVendor={onPressVendor} onCheckout={onCheckout} />
           </CarouselItem>
         ))}
       </Carousel>

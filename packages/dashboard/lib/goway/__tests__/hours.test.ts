@@ -41,13 +41,22 @@ describe('weekTextOf and intervalsOf', () => {
     expect(week[1]).toBe('09:00-14:00, 17:00-20:00');
     expect(week[0]).toBe('');
     const back = intervalsOf(week);
-    expect(back.ok && [...back.intervals].sort((a, b) => a.day - b.day || a.opens.localeCompare(b.opens))).toEqual(
-      [...intervals],
-    );
+    expect(
+      back.ok &&
+        [...back.intervals].sort((a, b) => a.day - b.day || a.opens.localeCompare(b.opens)),
+    ).toEqual([...intervals]);
   });
 
   it('names the first unreadable day instead of sending a partial week', () => {
-    const week: WeekText = { 0: '', 1: '09:00-14:00', 2: 'nine to five', 3: '', 4: '', 5: '', 6: '' };
+    const week: WeekText = {
+      0: '',
+      1: '09:00-14:00',
+      2: 'nine to five',
+      3: '',
+      4: '',
+      5: '',
+      6: '',
+    };
     expect(intervalsOf(week)).toEqual({ ok: false, day: 2 });
   });
 });

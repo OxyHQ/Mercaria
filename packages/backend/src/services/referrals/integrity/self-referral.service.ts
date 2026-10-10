@@ -163,8 +163,7 @@ export async function collectSelfReferralFacts(
     // performed, which is the one thing `undefined` exists to prevent.
   }
 
-  const modeRule =
-    REFERRAL_ENROLLMENT_MODE_RULES[partner.enrollmentMode as ReferralEnrollmentMode];
+  const modeRule = REFERRAL_ENROLLMENT_MODE_RULES[partner.enrollmentMode as ReferralEnrollmentMode];
   if (modeRule !== undefined) {
     facts.enrollmentIsStaffOrTest = !modeRule.earnsProductionRewards;
   }

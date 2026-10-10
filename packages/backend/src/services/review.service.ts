@@ -462,7 +462,7 @@ async function hydrate(
     findReviewHelpfulness(rows.map((row) => row.id)),
   ]);
   const dimensions = groupDimensions(dimensionRows);
-  const helpfulCounts = new Map(helpfulness.map(row => [row.reviewId, row.helpfulnessCount]));
+  const helpfulCounts = new Map(helpfulness.map((row) => [row.reviewId, row.helpfulnessCount]));
   return {
     data: rows.map((row) => ({
       ...toReviewDTO(row, authorProfiles, dimensions, products, purchasedVariants),

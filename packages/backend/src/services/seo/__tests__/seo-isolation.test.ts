@@ -206,10 +206,14 @@ describe('the SEO surface exists — the vacuity floor', () => {
     // every scan below pass against an empty list.
     expect(domain.length).toBeGreaterThanOrEqual(10);
     for (const file of domain) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
     for (const file of outerSources()) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
   });
 
@@ -285,7 +289,9 @@ describe('WALL 2: the surface never sends anybody anywhere', () => {
     expect(OUTBOUND_COMPOSITION_REFERENCE.test('node.url = offer.destinationUrl;')).toBe(true);
     expect(OUTBOUND_COMPOSITION_REFERENCE.test('const url = `${trackingTemplate}`;')).toBe(true);
     expect(OUTBOUND_COMPOSITION_REFERENCE.test('res.redirect(301, location)')).toBe(true);
-    expect(OUTBOUND_COMPOSITION_REFERENCE.test('const host = outbound.destinationHost;')).toBe(false);
+    expect(OUTBOUND_COMPOSITION_REFERENCE.test('const host = outbound.destinationHost;')).toBe(
+      false,
+    );
   });
 });
 
@@ -304,7 +310,9 @@ describe('WALL 3: the surface cannot read commercial standing', () => {
   });
 
   it('the commercial detector actually detects — the mutation self-test', () => {
-    expect(COMMERCIAL_REFERENCE.test("import { planFee } from '../fees/order-fees.service.js';")).toBe(true);
+    expect(
+      COMMERCIAL_REFERENCE.test("import { planFee } from '../fees/order-fees.service.js';"),
+    ).toBe(true);
     expect(COMMERCIAL_REFERENCE.test('const commissionRate = 0.1;')).toBe(true);
     expect(COMMERCIAL_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
@@ -379,11 +387,13 @@ describe('WALL 5: the emitters cannot reach the database', () => {
       PERSISTENCE_REFERENCE.test(withoutTypeImports(withoutComments(source)));
     expect(scan("import { getDb } from '../../db/postgres.js';")).toBe(true);
     expect(scan("import { eq } from 'drizzle-orm';")).toBe(true);
-    expect(scan("import { listBrandSitemapPage } from '../../db/seo/seoRepository.js';")).toBe(true);
-    // The erased form, which is what a pure module legitimately uses.
-    expect(scan("import type { SeoSitemapCandidateRow } from '../../db/seo/seoRepository.js';")).toBe(
-      false,
+    expect(scan("import { listBrandSitemapPage } from '../../db/seo/seoRepository.js';")).toBe(
+      true,
     );
+    // The erased form, which is what a pure module legitimately uses.
+    expect(
+      scan("import type { SeoSitemapCandidateRow } from '../../db/seo/seoRepository.js';"),
+    ).toBe(false);
     expect(scan('const facts = productPageFacts(page, brand);')).toBe(false);
   });
 });

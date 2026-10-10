@@ -46,7 +46,11 @@ describe('remedies before anything was bought', () => {
   it('asks the SUPPLIER to cancel while an order is in flight', () => {
     expect(
       deriveDigitalRemedy(
-        facts({ purchaseOrderStatus: 'submitting', fulfilmentStatus: null, artifactDelivered: false }),
+        facts({
+          purchaseOrderStatus: 'submitting',
+          fulfilmentStatus: null,
+          artifactDelivered: false,
+        }),
       ).outcome,
     ).toBe('cancel_procurement');
   });
@@ -123,9 +127,9 @@ describe('a reported fault outranks everything below it', () => {
   });
 
   it('treats an ecosystem `invalid` verdict the same as a buyer report', () => {
-    expect(
-      deriveDigitalRemedy(facts({ revealed: true, redemptionState: 'invalid' })).outcome,
-    ).toBe('replace_artifact');
+    expect(deriveDigitalRemedy(facts({ revealed: true, redemptionState: 'invalid' })).outcome).toBe(
+      'replace_artifact',
+    );
   });
 });
 

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   ChannelApiKey,
   ChannelAuditEntry,
@@ -17,7 +17,7 @@ import type {
   SyncRun,
   SyncRunRecordFailurePage,
   UpdateSyncSettingsInput,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 import {
   fetchChannels,
   connectChannel,
@@ -47,8 +47,8 @@ import {
   startChannelOnboarding,
   type AdvanceChannelOnboardingInput,
   type ConnectKeyInput,
-} from "../api/channels";
-import { queryKeys } from "../queryKeys";
+} from '../api/channels';
+import { queryKeys } from '../queryKeys';
 
 /** The store's channel connections. */
 export function useChannels(storeId: string) {
@@ -152,10 +152,7 @@ export function useDisconnectChannel(storeId: string) {
   });
 }
 
-function invalidateChannelKeys(
-  queryClient: ReturnType<typeof useQueryClient>,
-  storeId: string,
-) {
+function invalidateChannelKeys(queryClient: ReturnType<typeof useQueryClient>, storeId: string) {
   queryClient.invalidateQueries({ queryKey: queryKeys.channelKeys(storeId) });
 }
 
@@ -201,10 +198,7 @@ export function useRevokeChannelKey(storeId: string) {
  * leave the readiness banner claiming a catalogue is live while the row beside
  * it says paused. One helper rather than three call sites remembering.
  */
-function invalidateChannelSurface(
-  queryClient: ReturnType<typeof useQueryClient>,
-  storeId: string,
-) {
+function invalidateChannelSurface(queryClient: ReturnType<typeof useQueryClient>, storeId: string) {
   queryClient.invalidateQueries({ queryKey: queryKeys.channels(storeId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.channelSummary(storeId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.channelReadiness(storeId) });
@@ -314,11 +308,8 @@ export function useChannelAudit(storeId: string) {
 export function usePauseChannel(storeId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: {
-      connectionId: string;
-      scope: ChannelPauseScope;
-      paused: boolean;
-    }) => pauseChannel(storeId, input.connectionId, { scope: input.scope, paused: input.paused }),
+    mutationFn: (input: { connectionId: string; scope: ChannelPauseScope; paused: boolean }) =>
+      pauseChannel(storeId, input.connectionId, { scope: input.scope, paused: input.paused }),
     onSuccess: () => invalidateChannelSurface(queryClient, storeId),
   });
 }
@@ -442,7 +433,7 @@ export function useChannelOnboardingSession(
       const session = query.state.data;
       // Nothing read yet: keep asking rather than deciding off an absence.
       if (!session) return OAUTH_HANDOFF_POLL_INTERVAL_MS;
-      if (session.state !== "in_progress") return false;
+      if (session.state !== 'in_progress') return false;
       if (session.connectionId !== undefined) return false;
       return OAUTH_HANDOFF_POLL_INTERVAL_MS;
     },

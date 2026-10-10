@@ -552,9 +552,7 @@ export async function clearPriceAlertAmbiguity(
 }
 
 /** The operator metric: how many alerts are in each state, right now. */
-export async function summarizePriceAlerts(
-  db: DatabaseOrTransaction = getDb(),
-): Promise<{
+export async function summarizePriceAlerts(db: DatabaseOrTransaction = getDb()): Promise<{
   enabled: number;
   paused: number;
   triggered: number;

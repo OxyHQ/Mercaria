@@ -33,7 +33,10 @@ import {
   upsertEnablement,
 } from '../db/searchIntent/benchmarkRepository.js';
 import { findTurn, readFallbackRate } from '../db/searchIntent/searchIntentRepository.js';
-import { INTENT_BENCHMARK_DATASET, coveredCaseKinds } from '../services/search-intent/benchmark/dataset.js';
+import {
+  INTENT_BENCHMARK_DATASET,
+  coveredCaseKinds,
+} from '../services/search-intent/benchmark/dataset.js';
 import { runIntentBenchmark } from '../services/search-intent/benchmark/runner.js';
 import { readSearchIntentCounters } from '../services/search-intent/metrics.js';
 import { shoppingIntentParserId } from '../services/search-intent/parser.port.js';
@@ -182,10 +185,7 @@ export async function runIntentBenchmarkHandler(req: Request, res: Response): Pr
 }
 
 /** `GET /internal/search-intent/benchmark-runs`. */
-export async function listIntentBenchmarkRunsHandler(
-  _req: Request,
-  res: Response,
-): Promise<void> {
+export async function listIntentBenchmarkRunsHandler(_req: Request, res: Response): Promise<void> {
   try {
     sendSuccess(res, await listBenchmarkRuns(50, getDb()));
   } catch (error) {
@@ -217,10 +217,7 @@ export async function listIntentBenchmarkRunsHandler(
  * (`INTENT_BENCHMARK_FLOOR_MEASURES`), so a comparison cannot read a ceiling as
  * a floor and enable a parser precisely when it is inventing requirements.
  */
-export async function publishIntentEnablementHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function publishIntentEnablementHandler(req: Request, res: Response): Promise<void> {
   const body = req.body as IntentEnablementBody;
   try {
     const run = await findBenchmarkRun(body.benchmarkRunId, getDb());
@@ -259,22 +256,26 @@ export async function publishIntentEnablementHandler(
       },
       getDb(),
     );
-    sendSuccess(res, {
-      enablement: row,
-      // The measurements are echoed BESIDE the enablement, with the direction of
-      // each stated, so the operator sees what they just enabled against rather
-      // than having to fetch the run again to find out.
-      measuredAgainst: {
-        schemaValidity: run.schemaValidity,
-        categoryAccuracy: run.categoryAccuracy,
-        hardConstraintRecall: run.hardConstraintRecall,
-        falseHardConstraintRate: run.falseHardConstraintRate,
-        clarificationPrecision: run.clarificationPrecision,
-        latencyP95Ms: run.latencyP95Ms,
-        sampleSize: run.sampleSize,
-        floorMeasures: INTENT_BENCHMARK_FLOOR_MEASURES,
+    sendSuccess(
+      res,
+      {
+        enablement: row,
+        // The measurements are echoed BESIDE the enablement, with the direction of
+        // each stated, so the operator sees what they just enabled against rather
+        // than having to fetch the run again to find out.
+        measuredAgainst: {
+          schemaValidity: run.schemaValidity,
+          categoryAccuracy: run.categoryAccuracy,
+          hardConstraintRecall: run.hardConstraintRecall,
+          falseHardConstraintRate: run.falseHardConstraintRate,
+          clarificationPrecision: run.clarificationPrecision,
+          latencyP95Ms: run.latencyP95Ms,
+          sampleSize: run.sampleSize,
+          floorMeasures: INTENT_BENCHMARK_FLOOR_MEASURES,
+        },
       },
-    }, 201);
+      201,
+    );
   } catch (error) {
     respondWithError(res, error, '[internal-search-intent] enablement failed');
   }

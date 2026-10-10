@@ -1,5 +1,9 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import type { Listing, PublicSellerListingsPage, PublicSellerProfile } from '@mercaria/shared-types';
+import type {
+  Listing,
+  PublicSellerListingsPage,
+  PublicSellerProfile,
+} from '@mercaria/shared-types';
 import { fetchSellerListings, fetchSellerProfile } from '../api/sellers';
 import { queryKeys } from './query-keys';
 
@@ -36,7 +40,13 @@ export function useSellerProfile(oxyUserId: string | undefined) {
  * catalogue that changes while it is being read.
  */
 export function useSellerListings(oxyUserId: string | undefined, enabled = true) {
-  return useInfiniteQuery<PublicSellerListingsPage<Listing>, Error, PublicSellerListingsPage<Listing>[], readonly unknown[], string | undefined>({
+  return useInfiniteQuery<
+    PublicSellerListingsPage<Listing>,
+    Error,
+    PublicSellerListingsPage<Listing>[],
+    readonly unknown[],
+    string | undefined
+  >({
     queryKey: queryKeys.sellers.listings(oxyUserId ?? ''),
     enabled: Boolean(oxyUserId) && enabled,
     staleTime: STALE_TIME,

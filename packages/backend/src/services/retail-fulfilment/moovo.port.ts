@@ -168,7 +168,10 @@ function unavailable<T>(operation: MoovoLogisticsOperation): MoovoOperationResul
 export const unregisteredMoovoLogisticsPort: MoovoLogisticsPort = {
   async registerTrackingOnlyTransport(request) {
     log.general.debug(
-      { sourceReference: request.sourceReference, owedBy: OPERATION_OWED_BY.register_tracking_only_transport },
+      {
+        sourceReference: request.sourceReference,
+        owedBy: OPERATION_OWED_BY.register_tracking_only_transport,
+      },
       '[RetailFulfilment] no Moovo port is registered; tracking-only registration refused',
     );
     return Promise.resolve(unavailable<MoovoTransportHandle>('register_tracking_only_transport'));
@@ -196,7 +199,10 @@ export const unregisteredMoovoLogisticsPort: MoovoLogisticsPort = {
   },
   async requestReturnTransport(request) {
     log.general.debug(
-      { sourceReference: request.sourceReference, owedBy: OPERATION_OWED_BY.request_return_transport },
+      {
+        sourceReference: request.sourceReference,
+        owedBy: OPERATION_OWED_BY.request_return_transport,
+      },
       '[RetailFulfilment] no Moovo port is registered; return transport refused',
     );
     return Promise.resolve(unavailable<MoovoTransportHandle>('request_return_transport'));

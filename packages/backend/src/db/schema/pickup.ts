@@ -195,7 +195,11 @@ export const locationPublications = pgTable(
   },
   (t) => [
     uniqueIndex('location_publications_location_id_key').on(t.locationId),
-    checkOneOf('location_publications_state_check', t.publicationState, LOCATION_PUBLICATION_STATES),
+    checkOneOf(
+      'location_publications_state_check',
+      t.publicationState,
+      LOCATION_PUBLICATION_STATES,
+    ),
     checkOneOf(
       'location_publications_inventory_source_check',
       t.inventorySource,
@@ -275,7 +279,12 @@ export const locationPublicationEvents = pgTable(
     occurredAt: timestamptz().notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index('location_publication_events_publication_id_occurred_idx').on(t.publicationId, t.occurredAt)],
+  (t) => [
+    index('location_publication_events_publication_id_occurred_idx').on(
+      t.publicationId,
+      t.occurredAt,
+    ),
+  ],
 );
 
 /**
@@ -344,7 +353,9 @@ export const orderPickups = pgTable(
     paymentRequirement: text({ enum: asEnumValues(PICKUP_PAYMENT_REQUIREMENTS) }).notNull(),
 
     // ── Operational state ────────────────────────────────────────────────────
-    state: text({ enum: asEnumValues(ORDER_PICKUP_STATES) }).notNull().default('awaiting_preparation'),
+    state: text({ enum: asEnumValues(ORDER_PICKUP_STATES) })
+      .notNull()
+      .default('awaiting_preparation'),
     readyAt: timestamptz(),
     collectedAt: timestamptz(),
     cancelledAt: timestamptz(),

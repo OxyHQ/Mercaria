@@ -31,7 +31,10 @@ import {
 
 describe('assertUsableCoordinate', () => {
   it('accepts a real position', () => {
-    expect(assertUsableCoordinate(41.3874, 2.1686)).toEqual({ latitude: 41.3874, longitude: 2.1686 });
+    expect(assertUsableCoordinate(41.3874, 2.1686)).toEqual({
+      latitude: 41.3874,
+      longitude: 2.1686,
+    });
   });
 
   it('REFUSES the null island, which a range check admits', () => {

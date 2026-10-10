@@ -64,9 +64,8 @@ export async function createPortalConfirmation(
 
 /** What the presented credential is and what it may do. */
 export async function getPortalSession(): Promise<GuestPortalSessionState> {
-  const { data } = await apiClient.get<ApiResponse<GuestPortalSessionState>>(
-    '/guest/orders/session',
-  );
+  const { data } =
+    await apiClient.get<ApiResponse<GuestPortalSessionState>>('/guest/orders/session');
   return unwrap(data, 'Portal access is not valid');
 }
 

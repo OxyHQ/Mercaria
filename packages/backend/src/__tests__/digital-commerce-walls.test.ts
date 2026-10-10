@@ -147,7 +147,11 @@ describe('boundary 3 and 4 — a URL is never the ownership record', () => {
   it('keeps `superseded` and `withdrawn` DOWNLOADABLE, and `restricted` not', () => {
     // ADR 0010 D7. A set listing only `published` would revoke every historical
     // purchase the moment a creator shipped an update.
-    expect([...DOWNLOADABLE_ASSET_VERSION_STATES]).toEqual(['published', 'superseded', 'withdrawn']);
+    expect([...DOWNLOADABLE_ASSET_VERSION_STATES]).toEqual([
+      'published',
+      'superseded',
+      'withdrawn',
+    ]);
   });
 
   it('shows a caller with NO right only previews and web derivatives', () => {
@@ -193,7 +197,9 @@ describe('boundary 1 and 5 — no fake stock, and a licence is not a price', () 
 
   it('carries NO training-use flag, because the permitting value does not exist', () => {
     // ADR 0010 D14. A nullable boolean is exactly how a default becomes negotiable.
-    const offenders = digitalColumnNames().filter(({ column }) => /train|ai_use|model_use/.test(column));
+    const offenders = digitalColumnNames().filter(({ column }) =>
+      /train|ai_use|model_use/.test(column),
+    );
     expect(offenders.map(({ table, column }) => `${table}.${column}`)).toEqual([]);
   });
 });

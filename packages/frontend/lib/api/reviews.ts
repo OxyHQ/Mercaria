@@ -35,7 +35,9 @@ export async function fetchListingReviews(
   params?: PaginationParams & ReviewListFilters,
 ): Promise<ListingReviewPage> {
   const { data } = await apiClient.get<ListingReviewPage>(`/listings/${listingId}/reviews`, {
-    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
+    params: params
+      ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined }
+      : undefined,
   });
   return data;
 }
@@ -51,7 +53,9 @@ export async function fetchStoreReviews(
   params?: PaginationParams & ReviewListFilters,
 ): Promise<PaginatedResponse<Review>> {
   const { data } = await apiClient.get<PaginatedResponse<Review>>(`/stores/${handle}/reviews`, {
-    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
+    params: params
+      ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined }
+      : undefined,
   });
   return data;
 }
@@ -75,7 +79,9 @@ export async function fetchProductReviews(
   params?: PaginationParams & ReviewListFilters,
 ): Promise<ScopedReviewPage> {
   const { data } = await apiClient.get<ScopedReviewPage>(`/reviews/product/${canonicalProductId}`, {
-    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
+    params: params
+      ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined }
+      : undefined,
   });
   return data;
 }
@@ -86,7 +92,9 @@ export async function fetchMerchantReviews(
   params?: PaginationParams & ReviewListFilters,
 ): Promise<ScopedReviewPage> {
   const { data } = await apiClient.get<ScopedReviewPage>(`/reviews/merchant/${merchantId}`, {
-    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
+    params: params
+      ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined }
+      : undefined,
   });
   return data;
 }
@@ -117,8 +125,14 @@ export async function fetchReviewHelpfulness(ids: string[]): Promise<ReviewHelpf
   return data.data;
 }
 
-export async function updateReviewHelpfulness(id: string, helpful: boolean): Promise<ReviewHelpfulness> {
-  const { data } = await apiClient.put<ApiResponse<ReviewHelpfulness>>(`/reviews/${id}/helpfulness`, { helpful });
+export async function updateReviewHelpfulness(
+  id: string,
+  helpful: boolean,
+): Promise<ReviewHelpfulness> {
+  const { data } = await apiClient.put<ApiResponse<ReviewHelpfulness>>(
+    `/reviews/${id}/helpfulness`,
+    { helpful },
+  );
   if (!data.success || !data.data) throw new Error('Failed to update review vote');
   return data.data;
 }

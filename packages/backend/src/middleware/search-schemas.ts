@@ -42,7 +42,10 @@ import {
 import { SEARCH_QUERY_MAX_LENGTH } from '../services/search/normalize.js';
 import { SEARCH_PAGE_LIMIT_MAX } from '../services/search/canonical-search.service.js';
 
-const RESULT_KIND_VALUES = SEARCH_RESULT_KINDS as readonly [SearchResultKind, ...SearchResultKind[]];
+const RESULT_KIND_VALUES = SEARCH_RESULT_KINDS as readonly [
+  SearchResultKind,
+  ...SearchResultKind[],
+];
 const CONDITION_GROUP_VALUES = CONDITION_GROUPS as readonly [ConditionGroup, ...ConditionGroup[]];
 const AVAILABILITY_VALUES = OFFER_AVAILABILITY_STATES as readonly [
   OfferAvailability,
@@ -52,22 +55,39 @@ const OFFER_KIND_VALUES = OFFER_KINDS as readonly [OfferKind, ...OfferKind[]];
 
 const entityId = z.string().trim().min(1).max(64);
 /** ISO 3166-1 alpha-2, matching `offers_country_check` rather than approximating it. */
-const market = z.string().trim().length(2).regex(/^[A-Za-z]{2}$/);
+const market = z
+  .string()
+  .trim()
+  .length(2)
+  .regex(/^[A-Za-z]{2}$/);
 /** The shape every currency column CHECK in this schema uses. */
-const currency = z.string().trim().regex(/^[A-Za-z]{3,4}$/);
+const currency = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z]{3,4}$/);
 
 /** A comma-separated query value, as a browser and a fetch client both send it. */
 function commaList<T extends string>(values: readonly [T, ...T[]]) {
   return z
     .string()
-    .transform((raw) => raw.split(',').map((part) => part.trim()).filter((part) => part !== ''))
+    .transform((raw) =>
+      raw
+        .split(',')
+        .map((part) => part.trim())
+        .filter((part) => part !== ''),
+    )
     .pipe(z.array(z.enum(values)).min(1).max(values.length));
 }
 
 /** A comma-separated list of opaque ids. */
 const idList = z
   .string()
-  .transform((raw) => raw.split(',').map((part) => part.trim()).filter((part) => part !== ''))
+  .transform((raw) =>
+    raw
+      .split(',')
+      .map((part) => part.trim())
+      .filter((part) => part !== ''),
+  )
   .pipe(z.array(entityId).min(1).max(50));
 
 /**
@@ -90,7 +110,10 @@ const attributeEntry = z
   .transform((raw, ctx) => {
     const separator = raw.indexOf(':');
     if (separator <= 0 || separator === raw.length - 1) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'expected `key:value` or `key:min..max`' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'expected `key:value` or `key:min..max`',
+      });
       return z.NEVER;
     }
     const key = raw.slice(0, separator).trim().toLowerCase();
@@ -99,7 +122,10 @@ const attributeEntry = z
     if (range.length === 2) {
       const min = range[0] === '' ? undefined : Number(range[0]);
       const max = range[1] === '' ? undefined : Number(range[1]);
-      if ((min !== undefined && !Number.isFinite(min)) || (max !== undefined && !Number.isFinite(max))) {
+      if (
+        (min !== undefined && !Number.isFinite(min)) ||
+        (max !== undefined && !Number.isFinite(max))
+      ) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'a range bound must be a number' });
         return z.NEVER;
       }
@@ -118,7 +144,12 @@ const attributeEntry = z
 
 const attributeList = z
   .string()
-  .transform((raw) => raw.split(',').map((part) => part.trim()).filter((part) => part !== ''))
+  .transform((raw) =>
+    raw
+      .split(',')
+      .map((part) => part.trim())
+      .filter((part) => part !== ''),
+  )
   .pipe(z.array(attributeEntry).min(1).max(10));
 
 /**
@@ -172,20 +203,14 @@ export const searchQuerySchema = z
       query.priceMin <= query.priceMax,
     { message: 'priceMin must not exceed priceMax', path: ['priceMin'] },
   )
-  .refine(
-    (query) => (query.nearLatitude === undefined) === (query.nearLongitude === undefined),
-    {
-      message: 'nearLatitude and nearLongitude must be given together',
-      path: ['nearLatitude'],
-    },
-  )
-  .refine(
-    (query) => query.nearRadiusMetres === undefined || query.nearLatitude !== undefined,
-    {
-      message: 'nearRadiusMetres needs a nearLatitude and nearLongitude to measure from',
-      path: ['nearRadiusMetres'],
-    },
-  );
+  .refine((query) => (query.nearLatitude === undefined) === (query.nearLongitude === undefined), {
+    message: 'nearLatitude and nearLongitude must be given together',
+    path: ['nearLatitude'],
+  })
+  .refine((query) => query.nearRadiusMetres === undefined || query.nearLatitude !== undefined, {
+    message: 'nearRadiusMetres needs a nearLatitude and nearLongitude to measure from',
+    path: ['nearRadiusMetres'],
+  });
 
 /**
  * `POST /internal/search/explain` — one query's full pipeline trace.

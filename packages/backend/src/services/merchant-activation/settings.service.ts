@@ -134,9 +134,7 @@ export async function holdStoreActivation(input: {
   reason: string;
   operatorOxyUserId: string;
 }): Promise<void> {
-  const applied = await getDb().transaction(async (tx) =>
-    applyPlatformHold(tx, input),
-  );
+  const applied = await getDb().transaction(async (tx) => applyPlatformHold(tx, input));
   if (!applied) throw conflict('This store is already held.');
   await observeMerchantActivation(input.storeId, {
     kind: 'operator',
@@ -150,9 +148,7 @@ export async function releaseStoreActivationHold(input: {
   storeId: string;
   operatorOxyUserId: string;
 }): Promise<void> {
-  const released = await getDb().transaction(async (tx) =>
-    releasePlatformHold(tx, input.storeId),
-  );
+  const released = await getDb().transaction(async (tx) => releasePlatformHold(tx, input.storeId));
   if (!released) throw conflict('This store is not currently held.');
   await observeMerchantActivation(input.storeId, {
     kind: 'operator',
@@ -162,9 +158,10 @@ export async function releaseStoreActivationHold(input: {
 }
 
 /** The hold's stated reason and actor — the operator trace only. */
-export async function readPlatformHoldDetail(storeId: string): Promise<
-  | { readonly reason: string; readonly heldByOxyUserId: string; readonly heldAt: string }
-  | undefined
+export async function readPlatformHoldDetail(
+  storeId: string,
+): Promise<
+  { readonly reason: string; readonly heldByOxyUserId: string; readonly heldAt: string } | undefined
 > {
   const row = await findMerchantActivationSettings(getDb(), storeId);
   if (!row || row.platformHeldAt === null) return undefined;

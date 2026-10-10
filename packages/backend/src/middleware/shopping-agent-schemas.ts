@@ -116,15 +116,26 @@ const line = z
     canonicalProductId: entityId,
     canonicalVariantId: entityId.optional(),
     quantity: z.number().int().min(1).max(999).optional(),
-    conditionGroups: z.array(z.enum(CONDITION_GROUP_VALUES)).max(CONDITION_GROUPS.length).optional(),
+    conditionGroups: z
+      .array(z.enum(CONDITION_GROUP_VALUES))
+      .max(CONDITION_GROUPS.length)
+      .optional(),
     merchantId: entityId.optional(),
   })
   .strict();
 
 const quietHours = z
   .object({
-    startMinute: z.number().int().min(0).max(SHOPPING_AGENT_MINUTES_PER_DAY - 1),
-    endMinute: z.number().int().min(0).max(SHOPPING_AGENT_MINUTES_PER_DAY - 1),
+    startMinute: z
+      .number()
+      .int()
+      .min(0)
+      .max(SHOPPING_AGENT_MINUTES_PER_DAY - 1),
+    endMinute: z
+      .number()
+      .int()
+      .min(0)
+      .max(SHOPPING_AGENT_MINUTES_PER_DAY - 1),
     timeZone: z.string().trim().min(1).max(64),
   })
   .strict();
@@ -143,9 +154,19 @@ const policyFields = {
   conditionGroups: z.array(z.enum(CONDITION_GROUP_VALUES)).max(CONDITION_GROUPS.length).optional(),
   excludedMerchantIds: z.array(entityId).max(50).optional(),
   triggerSources: z.array(z.enum(TRIGGER_SOURCE_VALUES)).min(1).max(3).optional(),
-  scheduleIntervalSeconds: z.number().int().min(900).max(90 * 24 * 60 * 60).optional(),
+  scheduleIntervalSeconds: z
+    .number()
+    .int()
+    .min(900)
+    .max(90 * 24 * 60 * 60)
+    .optional(),
   notificationChannels: z.array(z.enum(NOTIFICATION_CHANNEL_VALUES)).min(1).max(2).optional(),
-  cooldownSeconds: z.number().int().min(60).max(365 * 24 * 60 * 60).optional(),
+  cooldownSeconds: z
+    .number()
+    .int()
+    .min(60)
+    .max(365 * 24 * 60 * 60)
+    .optional(),
   quietHours: quietHours.optional(),
   locale: z.string().trim().min(2).max(35).optional(),
 } as const;

@@ -54,10 +54,7 @@ import { sourceRecords } from '../../db/schema/provenance.js';
 import { listApprovedOutboundHosts } from '../../db/affiliateOutbound/hostRepository.js';
 import { insertAffiliateOutboundClick } from '../../db/affiliateOutbound/clickRepository.js';
 import { assertOfferOutboundEligible } from '../offer-freshness/outbound-gate.js';
-import {
-  classifyReferralTraffic,
-  type ReferralTrafficSignals,
-} from '../referrals/traffic.js';
+import { classifyReferralTraffic, type ReferralTrafficSignals } from '../referrals/traffic.js';
 import { admitOutboundDestination, selectOutboundUrl } from './destination.js';
 import { verifyAffiliateOutboundToken } from './token.js';
 
@@ -95,10 +92,7 @@ export type OutboundRedirectDecision =
     };
 
 /** The offer's own source id, one hop from the observation it came from. */
-async function resolveSourceId(
-  offer: OfferRow,
-  db: DatabaseOrTransaction,
-): Promise<string | null> {
+async function resolveSourceId(offer: OfferRow, db: DatabaseOrTransaction): Promise<string | null> {
   if (offer.sourceRecordId === null) return null;
   const [row] = await db
     .select({ sourceId: sourceRecords.sourceId })
@@ -149,7 +143,12 @@ export async function resolveOutboundRedirect(
   /** Write the click row every path shares, and answer. */
   const record = async (
     outcome:
-      | { readonly kind: 'redirect'; readonly url: string; readonly host: string; readonly destinationKind: OutboundDestinationKind }
+      | {
+          readonly kind: 'redirect';
+          readonly url: string;
+          readonly host: string;
+          readonly destinationKind: OutboundDestinationKind;
+        }
       | { readonly kind: 'refused'; readonly reason: OutboundRedirectRefusalReason },
   ): Promise<OutboundRedirectDecision> => {
     const click = await insertAffiliateOutboundClick(
@@ -211,8 +210,7 @@ export async function resolveOutboundRedirect(
     return record({ kind: 'refused', reason: 'no_destination' });
   }
 
-  const approvedHosts =
-    sourceId === null ? [] : await listApprovedOutboundHosts(sourceId, db);
+  const approvedHosts = sourceId === null ? [] : await listApprovedOutboundHosts(sourceId, db);
   const admission = admitOutboundDestination({
     url,
     affiliateNetwork: offer.affiliateNetwork,

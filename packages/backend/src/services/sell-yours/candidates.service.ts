@@ -104,7 +104,11 @@ export async function findCandidatesByIdentifier(
     if (owner.variantId) {
       const [variant] = await findCanonicalVariantsByIds(db, [owner.variantId]);
       if (!variant) continue;
-      return toCandidates([variant.productId], 'identifier', new Map([[variant.productId, variant.id]]));
+      return toCandidates(
+        [variant.productId],
+        'identifier',
+        new Map([[variant.productId, variant.id]]),
+      );
     }
     if (owner.productId) {
       return toCandidates([owner.productId], 'identifier', new Map());

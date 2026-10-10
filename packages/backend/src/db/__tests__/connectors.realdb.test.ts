@@ -443,9 +443,9 @@ describe('the webhook-registration record (#218)', () => {
       caught = error;
     }
 
-    expect(
-      isUniqueViolation(caught, 'connection_webhook_failures_connection_id_topic_key'),
-    ).toBe(true);
+    expect(isUniqueViolation(caught, 'connection_webhook_failures_connection_id_topic_key')).toBe(
+      true,
+    );
   });
 
   it('permits the SAME topic on a DIFFERENT connection', async () => {
@@ -1413,9 +1413,12 @@ describe('sync_run_record_failures (#303)', () => {
       code: sqlState,
       ...(constraintName === undefined ? {} : { constraint_name: constraintName }),
     });
-    return Object.assign(new Error('Failed query: insert into "product_variants" … params: 7650, EUR'), {
-      cause,
-    });
+    return Object.assign(
+      new Error('Failed query: insert into "product_variants" … params: 7650, EUR'),
+      {
+        cause,
+      },
+    );
   }
 
   /**
@@ -1536,7 +1539,11 @@ describe('sync_run_record_failures (#303)', () => {
       counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
       failure: validationError('shopify credentials rejected'),
       recordFailures: [
-        { subjectType: 'product', externalId: 'woo-11', failure: validationError('a per-record reason') },
+        {
+          subjectType: 'product',
+          externalId: 'woo-11',
+          failure: validationError('a per-record reason'),
+        },
       ],
     });
 
@@ -1709,18 +1716,20 @@ describe('sync_run_record_failures (#303)', () => {
     // rolled back so the schema the rest of this file runs against is untouched.
     // Without this, "the bad insert was refused" is also what a row rejected for
     // an unrelated reason reports.
-    const seen = await db.transaction(async (tx) => {
-      await tx.execute(
-        sql`alter table sync_run_record_failures drop constraint sync_run_record_failures_reason_check`,
-      );
-      await rawInsert(tx, opened.id, { reasonCode: 'not_a_reason' });
-      const rows = await tx
-        .select()
-        .from(syncRunRecordFailures)
-        .where(eq(syncRunRecordFailures.runId, opened.id));
-      tx.rollback();
-      return rows;
-    }).catch(() => undefined);
+    const seen = await db
+      .transaction(async (tx) => {
+        await tx.execute(
+          sql`alter table sync_run_record_failures drop constraint sync_run_record_failures_reason_check`,
+        );
+        await rawInsert(tx, opened.id, { reasonCode: 'not_a_reason' });
+        const rows = await tx
+          .select()
+          .from(syncRunRecordFailures)
+          .where(eq(syncRunRecordFailures.runId, opened.id));
+        tx.rollback();
+        return rows;
+      })
+      .catch(() => undefined);
 
     // `tx.rollback()` throws by design, so the value never returns; what the
     // assertion needs is that the schema is BACK, which the next insert proves.
@@ -1736,9 +1745,7 @@ describe('sync_run_record_failures (#303)', () => {
     const conn = await makeConnection(storeId);
     const opened = await insertSyncRun(conn.id, 'backfill');
 
-    const refused = await rawInsert(db, opened.id, { externalId: '' }).catch(
-      (err: unknown) => err,
-    );
+    const refused = await rawInsert(db, opened.id, { externalId: '' }).catch((err: unknown) => err);
 
     expect(constraintNameOf(refused)).toBe('sync_run_record_failures_external_id_shape_check');
 
@@ -1830,7 +1837,14 @@ describe('the webhook registration SUCCESS state (#297)', () => {
    */
   function backfillStatement(): string {
     const migration = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'drizzle', '0074_tricky_hiroim.sql'),
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        '..',
+        '..',
+        'drizzle',
+        '0074_tricky_hiroim.sql',
+      ),
       'utf8',
     );
     const statement = migration

@@ -12,10 +12,7 @@
  */
 
 import { and, desc, eq } from 'drizzle-orm';
-import type {
-  MerchantActivationPolicyKey,
-  ProviderAccountOwnerType,
-} from '@mercaria/shared-types';
+import type { MerchantActivationPolicyKey, ProviderAccountOwnerType } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { getDb } from '../postgres.js';
 import { merchantActivationPolicyAcceptances } from '../schema/merchantActivation.js';

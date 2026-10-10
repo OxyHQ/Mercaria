@@ -169,7 +169,14 @@ export function observeCatalogRoute(input: {
 
   let bucket = buckets.get(key);
   if (!bucket) {
-    bucket = { requests: 0, serverErrors: 0, clientErrors: 0, notModified: 0, samples: [], writeCursor: 0 };
+    bucket = {
+      requests: 0,
+      serverErrors: 0,
+      clientErrors: 0,
+      notModified: 0,
+      samples: [],
+      writeCursor: 0,
+    };
     buckets.set(key, bucket);
   }
 

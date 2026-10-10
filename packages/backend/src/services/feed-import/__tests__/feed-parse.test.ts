@@ -220,7 +220,10 @@ describe('JSON and JSON Lines', () => {
         { id: '2', title: 'plain' },
       ],
     });
-    const records = await collect(chunked(json, 3), options({ format: 'json', recordPath: 'items' }));
+    const records = await collect(
+      chunked(json, 3),
+      options({ format: 'json', recordPath: 'items' }),
+    );
     expect(records.map((record) => record.fields.id)).toEqual(['1', '2']);
   });
 
@@ -240,7 +243,9 @@ describe('JSON and JSON Lines', () => {
   });
 
   it('isolates ONE bad JSON Lines record rather than failing the feed', async () => {
-    const jsonl = ['{"id":"1","title":"A"}', 'not json at all', '{"id":"2","title":"B"}'].join('\n');
+    const jsonl = ['{"id":"1","title":"A"}', 'not json at all', '{"id":"2","title":"B"}'].join(
+      '\n',
+    );
     const records = await collect(chunked(jsonl, 4), options({ format: 'jsonl' }));
     expect(records).toHaveLength(3);
     expect(records[1]?.fields.__malformed__).toBe('unparseable');
@@ -274,10 +279,7 @@ describe('gzip', () => {
       decodeText(decompressBytes(source(), 'gzip', LIMITS, meter), 'utf-8'),
       options({}),
     );
-    expect(records.map((record) => record.fields.title)).toEqual([
-      'Compressed',
-      'Also compressed',
-    ]);
+    expect(records.map((record) => record.fields.title)).toEqual(['Compressed', 'Also compressed']);
     expect(meter.decompressedBytes).toBe(Buffer.byteLength(csv, 'utf8'));
   });
 

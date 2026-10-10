@@ -1,16 +1,16 @@
-import { Pressable, View } from "react-native";
-import { Bell, BellOff, ChevronDown, ChevronRight, RefreshCw, Trash2 } from "lucide-react-native";
+import { Pressable, View } from 'react-native';
+import { Bell, BellOff, ChevronDown, ChevronRight, RefreshCw, Trash2 } from 'lucide-react-native';
 import type {
   ProductConstraint,
   ShoppingAgent,
   ShoppingAgentSplitResolution,
-} from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { PriceDisplay } from "../PriceDisplay";
-import { conditionGroupLabelKey } from "../../lib/condition";
-import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
-import { formatDateTime } from "../../lib/date";
-import { useFormatters } from "../../lib/use-formatters";
+} from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { PriceDisplay } from '../PriceDisplay';
+import { conditionGroupLabelKey } from '../../lib/condition';
+import { useSharedUiLocale, useSharedUiTranslation } from '../../i18n/ui-translation';
+import { formatDateTime } from '../../lib/date';
+import { useFormatters } from '../../lib/use-formatters';
 import {
   SHOPPING_AGENT_CARD_ANY_CONDITION_KEY,
   SHOPPING_AGENT_CARD_CHANNEL_SEPARATOR_KEY,
@@ -55,7 +55,7 @@ import {
   SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABEL_KEYS,
   SHOPPING_AGENT_PRICE_BASIS_LABEL_KEYS,
   SHOPPING_AGENT_STATE_LABEL_KEYS,
-} from "../../lib/shopping-agent-labels";
+} from '../../lib/shopping-agent-labels';
 
 /** Icon size for the row's trailing affordances. */
 const ICON_SIZE = 18;
@@ -130,8 +130,7 @@ export function ShoppingAgentCard({
     agent.lastEvaluatedAt === undefined ? null : formatDateTime(agent.lastEvaluatedAt, locale);
   const nextScheduled =
     agent.nextScheduledAt === undefined ? null : formatDateTime(agent.nextScheduledAt, locale);
-  const ambiguous =
-    agent.state === "blocked" && agent.ambiguityState === "ambiguous_after_split";
+  const ambiguous = agent.state === 'blocked' && agent.ambiguityState === 'ambiguous_after_split';
   const segments =
     agent.conditionGroups.length === 0
       ? t(SHOPPING_AGENT_CARD_ANY_CONDITION_KEY)
@@ -165,9 +164,7 @@ export function ShoppingAgentCard({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t(
-          expanded
-            ? SHOPPING_AGENT_CARD_HIDE_FINDINGS_KEY
-            : SHOPPING_AGENT_CARD_SHOW_FINDINGS_KEY,
+          expanded ? SHOPPING_AGENT_CARD_HIDE_FINDINGS_KEY : SHOPPING_AGENT_CARD_SHOW_FINDINGS_KEY,
           { name: agent.name },
         )}
         onPress={() => onToggleExpanded?.(agent)}
@@ -178,7 +175,8 @@ export function ShoppingAgentCard({
             {agent.name}
           </Text>
           <Text className="text-shop-caption text-text-tertiary">
-            {t(SHOPPING_AGENT_JOB_LABEL_KEYS[agent.kind])} · {t(SHOPPING_AGENT_STATE_LABEL_KEYS[agent.state])}
+            {t(SHOPPING_AGENT_JOB_LABEL_KEYS[agent.kind])} ·{' '}
+            {t(SHOPPING_AGENT_STATE_LABEL_KEYS[agent.state])}
           </Text>
         </View>
         {expanded ? (
@@ -198,7 +196,10 @@ export function ShoppingAgentCard({
           <Text className="text-shop-caption text-text-tertiary">
             {t(SHOPPING_AGENT_CARD_TARGET_PREFIX_KEY)}
           </Text>
-          <PriceDisplay price={agent.target} primaryClassName="text-shop-bodyTitleSmall text-text" />
+          <PriceDisplay
+            price={agent.target}
+            primaryClassName="text-shop-bodyTitleSmall text-text"
+          />
           <Text className="text-shop-caption text-text-tertiary">
             {t(SHOPPING_AGENT_PRICE_BASIS_LABEL_KEYS[agent.priceBasis])}
           </Text>
@@ -287,12 +288,12 @@ export function ShoppingAgentCard({
             <SplitChoice
               label={t(SHOPPING_AGENT_CARD_KEEP_SOURCE_KEY)}
               disabled={busy}
-              onPress={() => onResolveSplit?.(agent, "keep_source")}
+              onPress={() => onResolveSplit?.(agent, 'keep_source')}
             />
             <SplitChoice
               label={t(SHOPPING_AGENT_CARD_MOVE_TO_TARGET_KEY)}
               disabled={busy}
-              onPress={() => onResolveSplit?.(agent, "move_to_target")}
+              onPress={() => onResolveSplit?.(agent, 'move_to_target')}
             />
           </View>
         </View>
@@ -301,7 +302,7 @@ export function ShoppingAgentCard({
       <View className="flex-row items-center gap-space-12">
         {/* One look now (UX rule 5). Only `enabled` is evaluable, so it is the
             only state where offering this would be telling the truth. */}
-        {agent.state === "enabled" ? (
+        {agent.state === 'enabled' ? (
           <RowAction
             label={t(SHOPPING_AGENT_CARD_RUN_NOW_A11Y_KEY, { name: agent.name })}
             text={t(SHOPPING_AGENT_CARD_RUN_NOW_KEY)}
@@ -310,7 +311,7 @@ export function ShoppingAgentCard({
             onPress={() => onRunNow?.(agent)}
           />
         ) : null}
-        {agent.state === "enabled" ? (
+        {agent.state === 'enabled' ? (
           <RowAction
             label={t(SHOPPING_AGENT_CARD_PAUSE_A11Y_KEY, { name: agent.name })}
             text={t(SHOPPING_AGENT_CARD_PAUSE_KEY)}
@@ -320,7 +321,7 @@ export function ShoppingAgentCard({
           />
         ) : null}
         {/* Resume is offered for a PAUSED agent and never for a blocked one. */}
-        {agent.state === "paused" ? (
+        {agent.state === 'paused' ? (
           <RowAction
             label={t(SHOPPING_AGENT_CARD_RESUME_A11Y_KEY, { name: agent.name })}
             text={t(SHOPPING_AGENT_CARD_RESUME_KEY)}
@@ -376,7 +377,7 @@ function ConstraintLine({ constraint }: { constraint: ProductConstraint }) {
     <View className="flex-row items-start gap-space-4">
       <Text className="text-shop-caption text-text-tertiary">
         {t(
-          constraint.strength === "hard"
+          constraint.strength === 'hard'
             ? SHOPPING_AGENT_CARD_CONSTRAINT_HARD_KEY
             : SHOPPING_AGENT_CARD_CONSTRAINT_SOFT_KEY,
         )}
@@ -439,7 +440,7 @@ function SplitChoice({
 function formatMinuteOfDay(minute: number): string {
   const hours = Math.floor(minute / MINUTES_PER_HOUR);
   const minutes = minute % MINUTES_PER_HOUR;
-  return `${String(hours).padStart(CLOCK_PAD, "0")}:${String(minutes).padStart(CLOCK_PAD, "0")}`;
+  return `${String(hours).padStart(CLOCK_PAD, '0')}:${String(minutes).padStart(CLOCK_PAD, '0')}`;
 }
 
 /**

@@ -217,7 +217,9 @@ export async function setSourceObjectState(
     .update(catalogSourceObjects)
     .set({
       state: input.state,
-      ...(input.matchDecisionId === undefined ? {} : { lastMatchDecisionId: input.matchDecisionId }),
+      ...(input.matchDecisionId === undefined
+        ? {}
+        : { lastMatchDecisionId: input.matchDecisionId }),
       ...(input.offerId === undefined ? {} : { offerId: input.offerId }),
     })
     .where(eq(catalogSourceObjects.id, input.id));
@@ -408,7 +410,9 @@ export async function listSourceObjectsWithOffers(
   return db
     .select()
     .from(catalogSourceObjects)
-    .where(and(eq(catalogSourceObjects.sourceId, sourceId), isNotNull(catalogSourceObjects.offerId)))
+    .where(
+      and(eq(catalogSourceObjects.sourceId, sourceId), isNotNull(catalogSourceObjects.offerId)),
+    )
     .orderBy(asc(catalogSourceObjects.lastSeenAt))
     .limit(limit);
 }

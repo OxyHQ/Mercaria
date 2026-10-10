@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
-import { Loading } from "@oxy.so/bloom/loading";
-import Head from "expo-router/head";
-import { Users } from "lucide-react-native";
-import { openAccountDialog, useOxy } from "@oxy.so/services";
+import { useMemo, useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { Loading } from '@oxy.so/bloom/loading';
+import Head from 'expo-router/head';
+import { Users } from 'lucide-react-native';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
 import {
   REFERRAL_OUTSTANDING_KEYS,
   REFERRAL_PAYOUT_STATUS_KEYS,
@@ -15,7 +15,7 @@ import {
   describeWithheldRows,
   formatMoney,
   useSharedUiLocale,
-} from "@mercaria/ui";
+} from '@mercaria/ui';
 import {
   REFERRAL_PERFORMANCE_DIMENSIONS,
   type CurrencyCode,
@@ -25,13 +25,10 @@ import {
   type ReferralInstrumentStatus,
   type ReferralPerformanceDimension,
   type ReferralRewardState,
-} from "@mercaria/shared-types";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import {
-  useReferralDashboard,
-  useReferralPerformance,
-} from "@/lib/hooks/use-referral-partner";
-import { useTranslation } from "@/lib/i18n";
+} from '@mercaria/shared-types';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { useReferralDashboard, useReferralPerformance } from '@/lib/hooks/use-referral-partner';
+import { useTranslation } from '@/lib/i18n';
 
 /** Icon size for the empty-state badge. */
 const EMPTY_ICON_SIZE = 28;
@@ -54,14 +51,14 @@ const EMPTY_ICON_SIZE = 28;
  */
 const PAYOUT_READINESS_KEYS: Readonly<
   Record<
-    NonNullable<ReturnType<typeof useReferralDashboard>["data"]>["payouts"]["identity"],
+    NonNullable<ReturnType<typeof useReferralDashboard>['data']>['payouts']['identity'],
     string
   >
 > = {
-  unknown: "referral.payouts.readiness.unknown",
-  pending: "referral.payouts.readiness.pending",
-  ready: "referral.payouts.readiness.ready",
-  blocked: "referral.payouts.readiness.blocked",
+  unknown: 'referral.payouts.readiness.unknown',
+  pending: 'referral.payouts.readiness.pending',
+  ready: 'referral.payouts.readiness.ready',
+  blocked: 'referral.payouts.readiness.blocked',
 };
 Object.freeze(PAYOUT_READINESS_KEYS);
 
@@ -81,11 +78,11 @@ Object.freeze(PAYOUT_READINESS_KEYS);
  * from the i18n guard's `WIRE_ENUM_FIELDS`.
  */
 const INSTRUMENT_STATUS_KEYS: Readonly<Record<ReferralInstrumentStatus, string>> = {
-  active: "referral.instruments.status.active",
-  paused: "referral.instruments.status.paused",
-  expired: "referral.instruments.status.expired",
-  revoked: "referral.instruments.status.revoked",
-  retired: "referral.instruments.status.retired",
+  active: 'referral.instruments.status.active',
+  paused: 'referral.instruments.status.paused',
+  expired: 'referral.instruments.status.expired',
+  revoked: 'referral.instruments.status.revoked',
+  retired: 'referral.instruments.status.retired',
 };
 Object.freeze(INSTRUMENT_STATUS_KEYS);
 
@@ -123,7 +120,7 @@ export default function ReferralPartnerScreen() {
   const { t } = useTranslation();
   const { isAuthenticated } = useOxy();
   const dashboard = useReferralDashboard();
-  const [dimension, setDimension] = useState<ReferralPerformanceDimension>("date");
+  const [dimension, setDimension] = useState<ReferralPerformanceDimension>('date');
 
   const window = dashboard.data?.performance;
   const breakdown = useReferralPerformance({
@@ -134,7 +131,7 @@ export default function ReferralPartnerScreen() {
 
   // The dashboard's own trailing-30-day breakdown paints first, so the picker
   // never leaves the section blank while a second request is in flight.
-  const performance = dimension === "date" && window ? window : breakdown.data;
+  const performance = dimension === 'date' && window ? window : breakdown.data;
 
   const outstanding = useMemo(
     () => (dashboard.data?.enrollment.outstanding ?? []) as ReferralPartnerOutstandingItem[],
@@ -144,7 +141,7 @@ export default function ReferralPartnerScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>{t("referral.documentTitle")}</title>
+        <title>{t('referral.documentTitle')}</title>
       </Head>
 
       {/* NO inner `ScrollView`, which is `ScreenShell`'s own contract rather
@@ -159,7 +156,7 @@ export default function ReferralPartnerScreen() {
           convention followed and not a bug fixed; the NATIVE half is the real
           hazard and is UNVERIFIED here — no native build was run. */}
       <View className="gap-space-16 px-space-16 py-space-20">
-        <Text className="text-2xl font-bold text-foreground">{t("referral.title")}</Text>
+        <Text className="text-2xl font-bold text-foreground">{t('referral.title')}</Text>
 
         {!isAuthenticated ? (
           <SignedOutInvitation />
@@ -168,7 +165,7 @@ export default function ReferralPartnerScreen() {
             <Loading variant="inline" size="sm" />
           </View>
         ) : dashboard.isError ? (
-          <Text className="text-sm text-destructive">{t("referral.loadError")}</Text>
+          <Text className="text-sm text-destructive">{t('referral.loadError')}</Text>
         ) : !dashboard.data ? null : (
           <>
             {/* `agreementStanding` is deliberately NOT passed: `outstanding`
@@ -189,7 +186,7 @@ export default function ReferralPartnerScreen() {
             <PerformanceCard
               dimension={dimension}
               onDimension={setDimension}
-              loading={breakdown.isPending && dimension !== "date"}
+              loading={breakdown.isPending && dimension !== 'date'}
               performance={performance}
             />
 
@@ -209,10 +206,10 @@ function SignedOutInvitation() {
     <View className="items-center gap-space-12 rounded-2xl border border-border bg-surface px-space-16 py-space-32">
       <Users size={EMPTY_ICON_SIZE} className="text-muted-foreground" />
       <Text className="text-center text-base font-semibold text-foreground">
-        {t("referral.signedOut.title")}
+        {t('referral.signedOut.title')}
       </Text>
       <Text className="text-center text-sm text-muted-foreground">
-        {t("referral.signedOut.body")}
+        {t('referral.signedOut.body')}
       </Text>
       <Pressable
         accessibilityRole="button"
@@ -220,7 +217,7 @@ function SignedOutInvitation() {
         onPress={() => openAccountDialog()}
       >
         <Text className="text-sm font-semibold text-primary-foreground">
-          {t("referral.signedOut.action")}
+          {t('referral.signedOut.action')}
         </Text>
       </Pressable>
     </View>
@@ -242,23 +239,21 @@ function EnrollmentCard(props: {
 }) {
   const { t } = useTranslation();
   return (
-    <Section title={t("referral.standing.title")}>
+    <Section title={t('referral.standing.title')}>
       {/* Earning and WITHDRAWAL are two different answers with two different
           inputs; collapsing them into one progress bar is what makes a partner
           think their accrued balance is at risk because a form is unfinished,
           which it is not. */}
       <Text className="text-sm text-muted-foreground">
-        {props.earningStarted
-          ? t("referral.standing.earning")
-          : t("referral.standing.notEarning")}
+        {props.earningStarted ? t('referral.standing.earning') : t('referral.standing.notEarning')}
       </Text>
       {props.outstanding.length === 0 ? (
         <Text className="text-sm text-muted-foreground">
-          {t("referral.standing.nothingOutstanding")}
+          {t('referral.standing.nothingOutstanding')}
         </Text>
       ) : (
         <View className="gap-space-4">
-          <Text className="text-sm text-foreground">{t("referral.standing.beforePaid")}</Text>
+          <Text className="text-sm text-foreground">{t('referral.standing.beforePaid')}</Text>
           {props.outstanding.map((item) => (
             <Text key={item} className="text-sm text-muted-foreground">
               • {t(REFERRAL_OUTSTANDING_KEYS[item])}
@@ -268,7 +263,7 @@ function EnrollmentCard(props: {
               wrongly: nothing is lost and nothing expires while a form is
               unfinished. Payout is gated; accrual is not. */}
           <Text className="text-xs text-muted-foreground">
-            {t("referral.standing.accrualContinues")}
+            {t('referral.standing.accrualContinues')}
           </Text>
         </View>
       )}
@@ -279,18 +274,18 @@ function EnrollmentCard(props: {
 function ProgramsCard({
   programs,
 }: {
-  programs: NonNullable<ReturnType<typeof useReferralDashboard>["data"]>["programs"];
+  programs: NonNullable<ReturnType<typeof useReferralDashboard>['data']>['programs'];
 }) {
   const { t, locale } = useTranslation();
   if (programs.length === 0) {
     return (
-      <Section title={t("referral.programs.title")}>
-        <Text className="text-sm text-muted-foreground">{t("referral.programs.empty")}</Text>
+      <Section title={t('referral.programs.title')}>
+        <Text className="text-sm text-muted-foreground">{t('referral.programs.empty')}</Text>
       </Section>
     );
   }
   return (
-    <Section title={t("referral.programs.title")}>
+    <Section title={t('referral.programs.title')}>
       {programs.map((offer) => (
         <View key={`${offer.program.programId}:${offer.program.version}`} className="gap-space-4">
           <Text className="text-sm font-semibold text-foreground">{offer.program.name}</Text>
@@ -300,12 +295,12 @@ function ProgramsCard({
           </Text>
           <Text className="text-xs text-muted-foreground">{offer.program.publicTermsSummary}</Text>
           <Text className="text-xs text-muted-foreground">
-            {t("referral.programs.attributionWindow", {
+            {t('referral.programs.attributionWindow', {
               days: offer.program.attributionWindowDays,
-            })}{" "}
+            })}{' '}
             {offer.termsAccepted
-              ? t("referral.programs.termsAccepted")
-              : t("referral.programs.termsNotAccepted")}
+              ? t('referral.programs.termsAccepted')
+              : t('referral.programs.termsNotAccepted')}
           </Text>
           {/* No earnings projection, no "typical partner earns" figure: there is
               no field on the projection that could carry one, which is #147
@@ -323,14 +318,14 @@ function money(amountMinor: number, currency: CurrencyCode, locale: string): str
 function EarningsCard({
   earnings,
 }: {
-  earnings: NonNullable<ReturnType<typeof useReferralDashboard>["data"]>["earnings"];
+  earnings: NonNullable<ReturnType<typeof useReferralDashboard>['data']>['earnings'];
 }) {
   const { t } = useTranslation();
   const locale = useSharedUiLocale();
   return (
-    <Section title={t("referral.earnings.title")}>
+    <Section title={t('referral.earnings.title')}>
       {earnings.byCurrency.length === 0 ? (
-        <Text className="text-sm text-muted-foreground">{t("referral.earnings.empty")}</Text>
+        <Text className="text-sm text-muted-foreground">{t('referral.earnings.empty')}</Text>
       ) : (
         earnings.byCurrency.map((row: ReferralEarningsByCurrency) => (
           <View key={row.currency} className="gap-space-4">
@@ -344,11 +339,11 @@ function EarningsCard({
                 concatenation takes away from the translator. */}
             <Text className="text-sm text-foreground">
               {row.payoutMinimumMinor !== undefined
-                ? t("referral.earnings.availableNowWithMinimum", {
+                ? t('referral.earnings.availableNowWithMinimum', {
                     amount: money(row.payableNowMinor, row.currency, locale),
                     minimum: money(row.payoutMinimumMinor, row.currency, locale),
                   })
-                : t("referral.earnings.availableNow", {
+                : t('referral.earnings.availableNow', {
                     amount: money(row.payableNowMinor, row.currency, locale),
                   })}
             </Text>
@@ -357,15 +352,13 @@ function EarningsCard({
                 notices, and a partner asking about their balance is exactly who
                 must not be shown two numbers that disagree in silence. */}
             {!row.ledgerAgrees ? (
-              <Text className="text-xs text-destructive">
-                {t("referral.earnings.reconciling")}
-              </Text>
+              <Text className="text-xs text-destructive">{t('referral.earnings.reconciling')}</Text>
             ) : null}
           </View>
         ))
       )}
       <Text className="text-xs text-muted-foreground">
-        {t("referral.earnings.pendingConversions", { count: earnings.pendingConversions })}
+        {t('referral.earnings.pendingConversions', { count: earnings.pendingConversions })}
       </Text>
       <MetricDefinitions definitions={earnings.metrics} />
     </Section>
@@ -390,14 +383,14 @@ function StateRow({ state, amount }: { state: ReferralRewardState; amount: strin
 function PayoutCard({
   payouts,
 }: {
-  payouts: NonNullable<ReturnType<typeof useReferralDashboard>["data"]>["payouts"];
+  payouts: NonNullable<ReturnType<typeof useReferralDashboard>['data']>['payouts'];
 }) {
   const { t } = useTranslation();
   const locale = useSharedUiLocale();
   return (
-    <Section title={t("referral.payouts.title")}>
+    <Section title={t('referral.payouts.title')}>
       <Text className="text-sm text-muted-foreground">
-        {t("referral.payouts.summary", {
+        {t('referral.payouts.summary', {
           identity: t(PAYOUT_READINESS_KEYS[payouts.identity]),
           tax: t(PAYOUT_READINESS_KEYS[payouts.tax]),
           payout: t(PAYOUT_READINESS_KEYS[payouts.payout]),
@@ -405,19 +398,17 @@ function PayoutCard({
       </Text>
       {payouts.beneficiaryLast4 ? (
         <Text className="text-sm text-muted-foreground">
-          {t("referral.payouts.destinationEnding", { last4: payouts.beneficiaryLast4 })}
+          {t('referral.payouts.destinationEnding', { last4: payouts.beneficiaryLast4 })}
         </Text>
       ) : (
-        <Text className="text-sm text-muted-foreground">
-          {t("referral.payouts.noDestination")}
-        </Text>
+        <Text className="text-sm text-muted-foreground">{t('referral.payouts.noDestination')}</Text>
       )}
       {payouts.recentPayouts.length === 0 ? (
-        <Text className="text-sm text-muted-foreground">{t("referral.payouts.none")}</Text>
+        <Text className="text-sm text-muted-foreground">{t('referral.payouts.none')}</Text>
       ) : (
         payouts.recentPayouts.map((batch, index) => (
           <Text key={`${batch.date}:${index}`} className="text-sm text-foreground">
-            {batch.date} — {money(batch.netPayoutMinor, batch.currency, locale)} —{" "}
+            {batch.date} — {money(batch.netPayoutMinor, batch.currency, locale)} —{' '}
             {t(REFERRAL_PAYOUT_STATUS_KEYS[batch.status])}
           </Text>
         ))
@@ -431,13 +422,13 @@ function PerformanceCard(props: {
   onDimension: (next: ReferralPerformanceDimension) => void;
   loading: boolean;
   performance:
-    | NonNullable<ReturnType<typeof useReferralDashboard>["data"]>["performance"]
+    | NonNullable<ReturnType<typeof useReferralDashboard>['data']>['performance']
     | undefined;
 }) {
   const { t } = useTranslation();
   const { performance } = props;
   return (
-    <Section title={t("referral.performance.title")}>
+    <Section title={t('referral.performance.title')}>
       <View className="flex-row flex-wrap gap-space-8">
         {REFERRAL_PERFORMANCE_DIMENSIONS.map((option) => (
           <Pressable
@@ -446,19 +437,19 @@ function PerformanceCard(props: {
             accessibilityState={{ selected: option === props.dimension }}
             className={
               option === props.dimension
-                ? "rounded-full bg-primary px-space-12 py-space-4"
-                : "rounded-full border border-border px-space-12 py-space-4"
+                ? 'rounded-full bg-primary px-space-12 py-space-4'
+                : 'rounded-full border border-border px-space-12 py-space-4'
             }
             onPress={() => props.onDimension(option)}
           >
             <Text
               className={
                 option === props.dimension
-                  ? "text-xs font-semibold text-primary-foreground"
-                  : "text-xs text-foreground"
+                  ? 'text-xs font-semibold text-primary-foreground'
+                  : 'text-xs text-foreground'
               }
             >
-              {option.replace(/_/gu, " ")}
+              {option.replace(/_/gu, ' ')}
             </Text>
           </Pressable>
         ))}
@@ -469,7 +460,7 @@ function PerformanceCard(props: {
       ) : (
         <>
           <Text className="text-sm text-foreground">
-            {t("referral.performance.totals", {
+            {t('referral.performance.totals', {
               clicks: performance.totals.humanClicks,
               referrals: performance.totals.qualifiedConversions,
               from: performance.from,
@@ -480,13 +471,11 @@ function PerformanceCard(props: {
               docblock. They sit beside each other so anybody who wants the
               ratio takes it knowingly. */}
           {performance.rows.length === 0 && performance.withheldRowCount === 0 ? (
-            <Text className="text-sm text-muted-foreground">
-              {t("referral.performance.empty")}
-            </Text>
+            <Text className="text-sm text-muted-foreground">{t('referral.performance.empty')}</Text>
           ) : (
             performance.rows.map((row) => (
               <Text key={row.key} className="text-sm text-foreground">
-                {t("referral.performance.row", {
+                {t('referral.performance.row', {
                   label: row.label,
                   clicks: row.humanClicks,
                   referrals: row.qualifiedConversions,
@@ -513,21 +502,21 @@ function PerformanceCard(props: {
 function InstrumentsCard({
   instruments,
 }: {
-  instruments: NonNullable<ReturnType<typeof useReferralDashboard>["data"]>["instruments"];
+  instruments: NonNullable<ReturnType<typeof useReferralDashboard>['data']>['instruments'];
 }) {
   const { t } = useTranslation();
   return (
-    <Section title={t("referral.instruments.title")}>
+    <Section title={t('referral.instruments.title')}>
       {instruments.codes.length === 0 ? (
-        <Text className="text-sm text-muted-foreground">{t("referral.instruments.empty")}</Text>
+        <Text className="text-sm text-muted-foreground">{t('referral.instruments.empty')}</Text>
       ) : (
         instruments.codes.map((code) => (
           <View key={code.id} className="gap-space-2">
             <Text className="text-sm font-semibold text-foreground">{code.code}</Text>
             <Text className="text-xs text-muted-foreground">
               {t(INSTRUMENT_STATUS_KEYS[code.status])}
-              {code.market ? ` · ${code.market}` : ""}
-              {code.campaignRef ? ` · ${code.campaignRef}` : ""}
+              {code.market ? ` · ${code.market}` : ''}
+              {code.campaignRef ? ` · ${code.campaignRef}` : ''}
             </Text>
           </View>
         ))
@@ -535,7 +524,7 @@ function InstrumentsCard({
       {/* The disclosure a partner must publish, rendered VERBATIM and never
           summarised: it is Mercaria's published consumer-law statement, and a
           paraphrase is a different statement. */}
-      <Text className="text-sm text-foreground">{t("referral.instruments.disclosureIntro")}</Text>
+      <Text className="text-sm text-foreground">{t('referral.instruments.disclosureIntro')}</Text>
       <Text className="text-sm text-muted-foreground">“{instruments.disclosureText}”</Text>
     </Section>
   );
@@ -544,22 +533,22 @@ function InstrumentsCard({
 function SupportCard({
   support,
 }: {
-  support: NonNullable<ReturnType<typeof useReferralDashboard>["data"]>["support"];
+  support: NonNullable<ReturnType<typeof useReferralDashboard>['data']>['support'];
 }) {
   const { t } = useTranslation();
   return (
-    <Section title={t("referral.support.title")}>
+    <Section title={t('referral.support.title')}>
       {support.appealAvailable ? (
-        <Text className="text-sm text-foreground">{t("referral.support.appeal")}</Text>
+        <Text className="text-sm text-foreground">{t('referral.support.appeal')}</Text>
       ) : null}
       {/* Named seams, so the page promises nothing it cannot do. A support
           entry point that leads nowhere is worse than one that says the channel
           does not exist yet. */}
-      {support.unavailable.includes("dispute_thread_not_built") ? (
-        <Text className="text-sm text-muted-foreground">{t("referral.support.disputes")}</Text>
+      {support.unavailable.includes('dispute_thread_not_built') ? (
+        <Text className="text-sm text-muted-foreground">{t('referral.support.disputes')}</Text>
       ) : null}
-      {support.unavailable.includes("outbound_notification_transport_not_configured") ? (
-        <Text className="text-xs text-muted-foreground">{t("referral.support.noEmails")}</Text>
+      {support.unavailable.includes('outbound_notification_transport_not_configured') ? (
+        <Text className="text-xs text-muted-foreground">{t('referral.support.noEmails')}</Text>
       ) : null}
     </Section>
   );

@@ -118,13 +118,18 @@ export async function reassignIdentifier(input: ReassignIdentifierInput): Promis
     .from(targetTable)
     .where(sql`id = ${targetId}`)
     .limit(1);
-  if (!target[0]) throw notFound(`No entity ${targetId ?? '(none)'} to reassign the identifier to.`);
+  if (!target[0])
+    throw notFound(`No entity ${targetId ?? '(none)'} to reassign the identifier to.`);
 
   // The collision READ. It answers with the incumbent's id, which is what an
   // operator needs to decide whether they are correcting the wrong row.
   if (identifier.canonicalScheme && identifier.canonicalValue) {
     const incumbent = await db
-      .select({ id: productIdentifiers.id, productId: productIdentifiers.productId, variantId: productIdentifiers.variantId })
+      .select({
+        id: productIdentifiers.id,
+        productId: productIdentifiers.productId,
+        variantId: productIdentifiers.variantId,
+      })
       .from(productIdentifiers)
       .where(
         and(
@@ -250,7 +255,9 @@ export async function selectAttributeValue(input: SelectAttributeValueInput): Pr
     // the whole transaction with it. `sql.param` binds the array as ONE
     // parameter for postgres.js to serialize, which is the idiom every other
     // `::text[]` in this repository already uses.
-    const entityType: CurationSubjectType = value.productId ? 'canonical_product' : 'canonical_variant';
+    const entityType: CurationSubjectType = value.productId
+      ? 'canonical_product'
+      : 'canonical_variant';
     const definition = CURATED_ENTITIES[entityType];
     const entityId = value.productId ?? value.variantId;
     if (entityId) {
@@ -319,7 +326,12 @@ export interface SuppressInput {
  */
 export async function suppressEntity(input: SuppressInput): Promise<void> {
   const db = getDb();
-  const existing = await findOpenSuppression(input.entityType, input.entityId, 'public_discovery', db);
+  const existing = await findOpenSuppression(
+    input.entityType,
+    input.entityId,
+    'public_discovery',
+    db,
+  );
   if (existing) {
     throw conflict(
       `${input.entityType} ${input.entityId} is already suppressed (${existing.id}); lift that one first.`,

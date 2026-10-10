@@ -21,12 +21,7 @@ import type { Money } from './money';
  * applied to a scope — there is no editorial curation model, and no admin
  * surface behind these pages, so a shelf title names the ordering it used.
  */
-export type DiscoverySignal =
-  | 'top-rated'
-  | 'new'
-  | 'on-sale'
-  | 'best-selling'
-  | 'most-viewed';
+export type DiscoverySignal = 'top-rated' | 'new' | 'on-sale' | 'best-selling' | 'most-viewed';
 
 /** {@link DiscoverySignal}. Renders the CHECK on any column holding one. */
 export const DISCOVERY_SIGNALS: readonly DiscoverySignal[] = [

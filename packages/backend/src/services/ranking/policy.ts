@@ -37,11 +37,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import type {
-  RankingPolicy,
-  RankingPolicyArm,
-  RankingWeights,
-} from '@mercaria/shared-types';
+import type { RankingPolicy, RankingPolicyArm, RankingWeights } from '@mercaria/shared-types';
 
 /**
  * The one policy key this surface uses.
@@ -134,9 +130,7 @@ export function resolveRankingArm(input: {
   canaryShareBps: number;
 }): RankingPolicyArm {
   if (input.canaryShareBps <= 0) return 'active';
-  const digest = createHash('sha256')
-    .update(`${input.policyKey}:${input.subjectKey}`)
-    .digest();
+  const digest = createHash('sha256').update(`${input.policyKey}:${input.subjectKey}`).digest();
   // Four bytes is plenty of spread for a 0–9999 bucket and costs nothing to
   // read; `readUInt32BE` is exact where a float division of a hex string is not.
   const bucket = digest.readUInt32BE(0) % 10_000;

@@ -38,10 +38,7 @@ import {
   type DigitalSupplierApiCapability,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import {
-  digitalPurchaseOrderAttempts,
-  digitalPurchaseOrders,
-} from '../schema/digitalRetail.js';
+import { digitalPurchaseOrderAttempts, digitalPurchaseOrders } from '../schema/digitalRetail.js';
 
 export type DigitalPurchaseOrderRow = InferSelectModel<typeof digitalPurchaseOrders>;
 export type DigitalPurchaseOrderAttemptRow = InferSelectModel<typeof digitalPurchaseOrderAttempts>;

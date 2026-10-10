@@ -1,9 +1,9 @@
-import { Pressable, ScrollView, View } from "react-native";
-import { Image } from "expo-image";
-import { Rating } from "@oxy.so/bloom/rating";
-import { useOxy } from "@oxy.so/services";
-import { placeDisplayName, type Place } from "@goway.to/sdk";
-import type { MercariaLocation } from "@mercaria/contracts";
+import { Pressable, ScrollView, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Rating } from '@oxy.so/bloom/rating';
+import { useOxy } from '@oxy.so/services';
+import { placeDisplayName, type Place } from '@goway.to/sdk';
+import type { MercariaLocation } from '@mercaria/contracts';
 import {
   PICKUP_IDENTITY_REQUIREMENT_KEYS,
   PICKUP_PAYMENT_REQUIREMENT_KEYS,
@@ -14,11 +14,11 @@ import {
   formatWeekday,
   useRatingDisplay,
   useSharedUiTranslation,
-} from "@mercaria/ui";
-import { goWayClient } from "@/lib/goway-client";
-import { openGoWayLink } from "@/lib/goway";
-import { useGoWayPlace, useGoWayPlacePhotos, useStoreLocations } from "@/lib/hooks/use-visit-us";
-import { useTranslation } from "@/lib/i18n";
+} from '@mercaria/ui';
+import { goWayClient } from '@/lib/goway-client';
+import { openGoWayLink } from '@/lib/goway';
+import { useGoWayPlace, useGoWayPlacePhotos, useStoreLocations } from '@/lib/hooks/use-visit-us';
+import { useTranslation } from '@/lib/i18n';
 import {
   VISIT_ATTRIBUTE_GROUPS,
   calendarDate,
@@ -31,15 +31,15 @@ import {
   visitPhotos,
   weeklyHours,
   type VisitAttributeGroup,
-} from "@/lib/visit-us";
+} from '@/lib/visit-us';
 
 /** How close GoWay's map opens on a shop front: a street, not a city. */
 const MAP_ZOOM = 17;
 
 /** KEYS, resolved with `t()` at the render site. */
 const ATTRIBUTE_GROUP_KEYS: Readonly<Record<VisitAttributeGroup, string>> = {
-  accessibility: "store.visit.accessibility",
-  payment: "store.visit.payment",
+  accessibility: 'store.visit.accessibility',
+  payment: 'store.visit.payment',
 };
 
 /**
@@ -79,7 +79,7 @@ export function StoreVisitUs({
 
   return (
     <View className="mb-8">
-      <SectionHeader title={t("store.visit.heading")} />
+      <SectionHeader title={t('store.visit.heading')} />
       <View className="gap-4 px-4">
         {orderLocations(locations, focusLocationId).map((location) => (
           <StoreLocationCard key={location.ref.id} location={location} />
@@ -98,12 +98,14 @@ function StoreLocationCard({ location }: { location: MercariaLocation }) {
     return (
       <View
         className="min-h-40 justify-center gap-2 rounded-2xl border border-border bg-muted p-4"
-        accessibilityLabel={place.isError ? undefined : t("store.visit.loading")}
+        accessibilityLabel={place.isError ? undefined : t('store.visit.loading')}
       >
         {place.isError ? (
           <>
-            <Text className="text-sm text-muted-foreground">{t("store.visit.placeUnavailable")}</Text>
-            <GoWayLink label={t("store.visit.viewOnGoWay")} url={placeUrl} />
+            <Text className="text-sm text-muted-foreground">
+              {t('store.visit.placeUnavailable')}
+            </Text>
+            <GoWayLink label={t('store.visit.viewOnGoWay')} url={placeUrl} />
           </>
         ) : null}
       </View>
@@ -150,22 +152,32 @@ function PlaceCard({
         <Text className="text-lg font-bold text-foreground" accessibilityRole="header">
           {name}
         </Text>
-        {address === "" ? null : <Text className="text-sm text-muted-foreground">{address}</Text>}
-        <Text className="text-sm font-semibold text-foreground">{describeOpenState(uiT, placeOpenState(place, now))}</Text>
+        {address === '' ? null : <Text className="text-sm text-muted-foreground">{address}</Text>}
+        <Text className="text-sm font-semibold text-foreground">
+          {describeOpenState(uiT, placeOpenState(place, now))}
+        </Text>
       </View>
 
       <PlacePhotos placeId={place.id} placeName={name} />
 
       {week === null ? null : (
-        <View className="gap-1" accessibilityLabel={t("store.visit.hoursHeading")}>
-          <Text className="text-sm font-semibold text-foreground">{t("store.visit.hoursHeading")}</Text>
+        <View className="gap-1" accessibilityLabel={t('store.visit.hoursHeading')}>
+          <Text className="text-sm font-semibold text-foreground">
+            {t('store.visit.hoursHeading')}
+          </Text>
           {week.map((row) => (
             <View key={row.day} className="flex-row justify-between gap-4">
-              <Text className="text-sm text-muted-foreground">{formatWeekday(row.day, locale)}</Text>
+              <Text className="text-sm text-muted-foreground">
+                {formatWeekday(row.day, locale)}
+              </Text>
               <Text className="text-sm text-foreground">
                 {row.spans.length === 0
-                  ? t("store.visit.closedAllDay")
-                  : row.spans.map((span) => t("store.visit.span", { opens: span.opens, closes: span.closes })).join(", ")}
+                  ? t('store.visit.closedAllDay')
+                  : row.spans
+                      .map((span) =>
+                        t('store.visit.span', { opens: span.opens, closes: span.closes }),
+                      )
+                      .join(', ')}
               </Text>
             </View>
           ))}
@@ -174,25 +186,27 @@ function PlaceCard({
 
       {exceptions.length === 0 ? null : (
         <View className="gap-1">
-          <Text className="text-sm font-semibold text-foreground">{t("store.visit.exceptionsHeading")}</Text>
+          <Text className="text-sm font-semibold text-foreground">
+            {t('store.visit.exceptionsHeading')}
+          </Text>
           {exceptions.map((exception) => {
             const from = formatDate(calendarDate(exception.startsOn), locale) ?? exception.startsOn;
             const dates =
               exception.endsOn === exception.startsOn
                 ? from
-                : t("store.visit.dateRange", {
+                : t('store.visit.dateRange', {
                     from,
                     to: formatDate(calendarDate(exception.endsOn), locale) ?? exception.endsOn,
                   });
             const hours = exception.intervals
-              .map((span) => t("store.visit.span", { opens: span.opens, closes: span.closes }))
-              .join(", ");
+              .map((span) => t('store.visit.span', { opens: span.opens, closes: span.closes }))
+              .join(', ');
             return (
               <View key={exception.id}>
                 <Text className="text-sm text-foreground">
                   {exception.closed
-                    ? t("store.visit.exceptionClosed", { dates })
-                    : t("store.visit.exceptionHours", { dates, hours })}
+                    ? t('store.visit.exceptionClosed', { dates })
+                    : t('store.visit.exceptionHours', { dates, hours })}
                 </Text>
                 {exception.note === undefined ? null : (
                   <Text className="text-xs text-muted-foreground">{exception.note}</Text>
@@ -208,14 +222,19 @@ function PlaceCard({
         if (held.length === 0) return null;
         return (
           <View key={group} className="gap-2">
-            <Text className="text-sm font-semibold text-foreground">{t(ATTRIBUTE_GROUP_KEYS[group])}</Text>
+            <Text className="text-sm font-semibold text-foreground">
+              {t(ATTRIBUTE_GROUP_KEYS[group])}
+            </Text>
             <View className="flex-row flex-wrap gap-2">
               {held.map((attribute) => (
                 <View key={attribute.key} className="rounded-full border border-border px-3 py-1">
                   <Text className="text-xs text-foreground">
                     {attribute.valueLabel === undefined
                       ? attribute.label
-                      : t("store.visit.attributeValue", { attribute: attribute.label, value: attribute.valueLabel })}
+                      : t('store.visit.attributeValue', {
+                          attribute: attribute.label,
+                          value: attribute.valueLabel,
+                        })}
                   </Text>
                 </View>
               ))}
@@ -226,9 +245,11 @@ function PlaceCard({
 
       {location.pickup === null || !location.discoverable ? null : (
         <View className="gap-1">
-          <Text className="text-sm font-semibold text-foreground">{t("store.visit.collectHere")}</Text>
+          <Text className="text-sm font-semibold text-foreground">
+            {t('store.visit.collectHere')}
+          </Text>
           <Text className="text-xs text-muted-foreground">
-            {uiT(PICKUP_PAYMENT_REQUIREMENT_KEYS[location.pickup.paymentRequirement])}{" "}
+            {uiT(PICKUP_PAYMENT_REQUIREMENT_KEYS[location.pickup.paymentRequirement])}{' '}
             {uiT(PICKUP_IDENTITY_REQUIREMENT_KEYS[location.pickup.identityRequirement])}
           </Text>
           {location.pickup.instructions === null ? null : (
@@ -243,17 +264,20 @@ function PlaceCard({
           {...ratingDisplay({
             rating: place.rating.average,
             reviews,
-            subject: t("store.visit.placeRatingSubject", { place: name }),
-            variant: "stars",
+            subject: t('store.visit.placeRatingSubject', { place: name }),
+            variant: 'stars',
           })}
           variant="stars"
         />
       )}
 
       <View className="flex-row flex-wrap gap-x-4 gap-y-2">
-        <GoWayLink label={reviews === 0 ? t("store.visit.viewOnGoWay") : t("store.visit.reviewsOnGoWay")} url={placeUrl} />
         <GoWayLink
-          label={t("store.visit.openMap")}
+          label={reviews === 0 ? t('store.visit.viewOnGoWay') : t('store.visit.reviewsOnGoWay')}
+          url={placeUrl}
+        />
+        <GoWayLink
+          label={t('store.visit.openMap')}
           url={goWayClient.links.map({
             latitude: place.location.latitude,
             longitude: place.location.longitude,
@@ -273,13 +297,17 @@ function PlacePhotos({ placeId, placeName }: { placeId: string; placeName: strin
   const photos = visitPhotos(data ?? []);
   if (photos.length === 0) return null;
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ gap: 8 }}
+    >
       {photos.map((photo) => (
         <Image
           key={photo.id}
-          source={{ uri: oxyServices.assets.publicUrl(photo.fileId, "thumb") }}
+          source={{ uri: oxyServices.assets.publicUrl(photo.fileId, 'thumb') }}
           contentFit="cover"
-          accessibilityLabel={photo.caption ?? t("store.visit.photoLabel", { place: placeName })}
+          accessibilityLabel={photo.caption ?? t('store.visit.photoLabel', { place: placeName })}
           className="h-24 w-32 rounded-xl bg-background"
         />
       ))}
@@ -290,7 +318,12 @@ function PlacePhotos({ placeId, placeName }: { placeId: string; placeName: strin
 /** A link out to GoWay, opened in the browser or the GoWay app. */
 function GoWayLink({ label, url }: { label: string; url: string }) {
   return (
-    <Pressable accessibilityRole="link" accessibilityLabel={label} onPress={() => openGoWayLink(url)} className="self-start">
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      onPress={() => openGoWayLink(url)}
+      className="self-start"
+    >
       <Text className="text-sm font-semibold text-foreground underline">{label}</Text>
     </Pressable>
   );

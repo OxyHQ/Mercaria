@@ -36,7 +36,11 @@ export type Triangle = readonly [Vertex, Vertex, Vertex];
  */
 export function binaryStl(
   triangles: readonly Triangle[],
-  options?: { readonly header?: string; readonly declaredTriangles?: number; readonly trailingJunk?: number },
+  options?: {
+    readonly header?: string;
+    readonly declaredTriangles?: number;
+    readonly trailingJunk?: number;
+  },
 ): Uint8Array {
   const trailing = options?.trailingJunk ?? 0;
   const bytes = new Uint8Array(84 + triangles.length * 50 + trailing);
@@ -88,10 +92,26 @@ export function asciiStl(solids: readonly (readonly Triangle[])[]): Uint8Array {
  * proves the check can still say no.
  */
 export const CLOSED_TETRAHEDRON: readonly Triangle[] = [
-  [[0, 0, 0], [10, 0, 0], [0, 20, 0]],
-  [[0, 0, 0], [0, 20, 0], [0, 0, 30]],
-  [[0, 0, 0], [0, 0, 30], [10, 0, 0]],
-  [[10, 0, 0], [0, 0, 30], [0, 20, 0]],
+  [
+    [0, 0, 0],
+    [10, 0, 0],
+    [0, 20, 0],
+  ],
+  [
+    [0, 0, 0],
+    [0, 20, 0],
+    [0, 0, 30],
+  ],
+  [
+    [0, 0, 0],
+    [0, 0, 30],
+    [10, 0, 0],
+  ],
+  [
+    [10, 0, 0],
+    [0, 0, 30],
+    [0, 20, 0],
+  ],
 ];
 
 /** The same tetrahedron with one face removed: four edges are now used once. */
@@ -253,7 +273,11 @@ export function threeMfArchive(
 /** A 3MF model part holding one mesh, in `unit`. */
 export function threeMfModelXml(
   triangles: readonly Triangle[],
-  options?: { readonly unit?: string; readonly itemTransform?: string; readonly texturePath?: string },
+  options?: {
+    readonly unit?: string;
+    readonly itemTransform?: string;
+    readonly texturePath?: string;
+  },
 ): string {
   const vertices: string[] = [];
   const index = new Map<string, number>();
@@ -300,7 +324,9 @@ export function concat(parts: readonly Uint8Array[]): Uint8Array {
 }
 
 /** A PNG: the eight-byte signature and nothing that needs to be valid after it. */
-export const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
+export const PNG_BYTES = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4,
+]);
 /** A JPEG SOI marker. */
 export const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46]);
 /** A `%PDF-` header. */

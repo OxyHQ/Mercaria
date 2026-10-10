@@ -32,19 +32,13 @@
  */
 
 import type { Request, Response } from 'express';
-import type {
-  AssetDownloadRefusalReason,
-  BuyerAssetRightSummary,
-} from '@mercaria/shared-types';
+import type { AssetDownloadRefusalReason, BuyerAssetRightSummary } from '@mercaria/shared-types';
 import { config } from '../config/index.js';
 import { grantRight } from '../db/digital/rightRepository.js';
 import { findVariantById } from '../db/catalog/variantRepository.js';
 import { resolveDigitalLines } from '../services/checkout/digital-lines.js';
 import { buyerKeyForActor } from '../services/digital/buyer-key.js';
-import {
-  mintDownloadGrant,
-  redeemDownloadGrant,
-} from '../services/digital/download.service.js';
+import { mintDownloadGrant, redeemDownloadGrant } from '../services/digital/download.service.js';
 import { listBuyerLibrary } from '../services/digital/right.service.js';
 import { assetStorage, isDigitalStorageError } from '../services/digital/storage.js';
 import { sendSuccess, ErrorCodes } from '../utils/api-response.js';

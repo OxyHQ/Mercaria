@@ -463,9 +463,7 @@ describe('getDiscoveryFeed', () => {
     const stores = feed.sections.find((s): s is StoresSection => s.kind === 'stores');
     const card = stores?.stores.find((store) => store.id === storeId);
     expect(card).toBeDefined();
-    expect(card?.products.map((product) => product.id).sort()).toEqual(
-      [inParent, inChild].sort(),
-    );
+    expect(card?.products.map((product) => product.id).sort()).toEqual([inParent, inChild].sort());
     expect(card?.products.map((product) => product.id)).not.toContain(elsewhere);
   });
 

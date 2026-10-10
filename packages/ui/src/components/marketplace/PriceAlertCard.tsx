@@ -1,10 +1,10 @@
-import { Pressable, View } from "react-native";
-import { Bell, BellOff, Trash2 } from "lucide-react-native";
-import type { PriceAlert, PriceAlertSplitResolution } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { PriceDisplay } from "../PriceDisplay";
-import { conditionGroupLabelKey } from "../../lib/condition";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { Pressable, View } from 'react-native';
+import { Bell, BellOff, Trash2 } from 'lucide-react-native';
+import type { PriceAlert, PriceAlertSplitResolution } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { PriceDisplay } from '../PriceDisplay';
+import { conditionGroupLabelKey } from '../../lib/condition';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import {
   PRICE_ALERT_ANY_CONDITION_KEY,
   PRICE_ALERT_BASIS_LABEL_KEYS,
@@ -26,7 +26,7 @@ import {
   PRICE_ALERT_SELLER_SCOPE_LABEL_KEYS,
   PRICE_ALERT_SPLIT_EXPLANATION_KEY,
   PRICE_ALERT_TARGET_PREFIX_KEY,
-} from "../../lib/price-alert-labels";
+} from '../../lib/price-alert-labels';
 
 /** Icon size for the row's trailing affordances. */
 const ICON_SIZE = 18;
@@ -75,7 +75,7 @@ export function PriceAlertCard({
   onResolveSplit,
 }: PriceAlertCardProps) {
   const t = useSharedUiTranslation();
-  const ambiguous = alert.resolution.state === "ambiguous_after_split";
+  const ambiguous = alert.resolution.state === 'ambiguous_after_split';
   const basisText = t(PRICE_ALERT_BASIS_LABEL_KEYS[alert.basis]);
   const segments =
     alert.conditionGroups.length === 0
@@ -100,7 +100,10 @@ export function PriceAlertCard({
           <Text className="text-shop-caption text-text-tertiary">
             {t(PRICE_ALERT_TARGET_PREFIX_KEY)}
           </Text>
-          <PriceDisplay price={alert.target} primaryClassName="text-shop-bodyTitleSmall text-text" />
+          <PriceDisplay
+            price={alert.target}
+            primaryClassName="text-shop-bodyTitleSmall text-text"
+          />
           <Text className="text-shop-caption text-text-tertiary">{basisText}</Text>
         </View>
       </Pressable>
@@ -110,11 +113,11 @@ export function PriceAlertCard({
         {t(PRICE_ALERT_SCOPE_LINE_KEY, { segments, sellers })}
       </Text>
 
-      {alert.state === "triggered" ? (
+      {alert.state === 'triggered' ? (
         <Text className="text-shop-caption text-text-tertiary">{t(PRICE_ALERT_NOTIFIED_KEY)}</Text>
       ) : null}
 
-      {alert.state === "paused" && !ambiguous ? (
+      {alert.state === 'paused' && !ambiguous ? (
         <Text className="text-shop-caption text-text-tertiary">{t(PRICE_ALERT_PAUSED_KEY)}</Text>
       ) : null}
 
@@ -126,15 +129,15 @@ export function PriceAlertCard({
           <View className="flex-row gap-space-8">
             <SplitChoice
               label={t(PRICE_ALERT_KEEP_SOURCE_KEY)}
-              onPress={() => onResolveSplit?.(alert, "keep_source")}
+              onPress={() => onResolveSplit?.(alert, 'keep_source')}
             />
             <SplitChoice
               label={t(PRICE_ALERT_MOVE_TO_TARGET_KEY)}
-              onPress={() => onResolveSplit?.(alert, "move_to_target")}
+              onPress={() => onResolveSplit?.(alert, 'move_to_target')}
             />
             <SplitChoice
               label={t(PRICE_ALERT_KEEP_BOTH_KEY)}
-              onPress={() => onResolveSplit?.(alert, "keep_both")}
+              onPress={() => onResolveSplit?.(alert, 'keep_both')}
             />
           </View>
         </View>
@@ -146,7 +149,7 @@ export function PriceAlertCard({
           neither: it is finished rather than paused, and offering "resume" would
           claim a `once` alert can fire again.
         */}
-        {alert.state === "enabled" ? (
+        {alert.state === 'enabled' ? (
           <RowAction
             label={t(PRICE_ALERT_PAUSE_A11Y_KEY)}
             text={t(PRICE_ALERT_PAUSE_KEY)}
@@ -154,7 +157,7 @@ export function PriceAlertCard({
             onPress={() => onPause?.(alert)}
           />
         ) : null}
-        {alert.state === "paused" && !ambiguous ? (
+        {alert.state === 'paused' && !ambiguous ? (
           <RowAction
             label={t(PRICE_ALERT_RESUME_A11Y_KEY)}
             text={t(PRICE_ALERT_RESUME_KEY)}

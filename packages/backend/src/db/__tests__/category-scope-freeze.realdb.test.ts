@@ -54,10 +54,7 @@ import {
   attributeDefinitionCategories,
   attributeDefinitions,
 } from '../schema/attributeRegistry.js';
-import {
-  productTypeCategoryScopes,
-  productTypeDefinitions,
-} from '../schema/productTypes.js';
+import { productTypeCategoryScopes, productTypeDefinitions } from '../schema/productTypes.js';
 import { CATEGORY_SCOPE_DISPOSITIONS } from '../categoryScopeFreeze.js';
 
 let db: Database;
@@ -132,12 +129,10 @@ const FIXTURES: Record<string, ScopeFixture> = {
         );
     },
     deleteScope: async (parentId, categoryId) => {
-      await db
-        .delete(attributeDefinitionCategories)
-        .where(
-          sql`${attributeDefinitionCategories.attributeDefinitionId} = ${parentId}
+      await db.delete(attributeDefinitionCategories).where(
+        sql`${attributeDefinitionCategories.attributeDefinitionId} = ${parentId}
               and ${attributeDefinitionCategories.categoryId} = ${categoryId}`,
-        );
+      );
     },
     deleteParent: async (parentId) => {
       await db.delete(attributeDefinitions).where(eq(attributeDefinitions.id, parentId));
@@ -189,12 +184,10 @@ const FIXTURES: Record<string, ScopeFixture> = {
         );
     },
     deleteScope: async (parentId, categoryId) => {
-      await db
-        .delete(productTypeCategoryScopes)
-        .where(
-          sql`${productTypeCategoryScopes.productTypeDefinitionId} = ${parentId}
+      await db.delete(productTypeCategoryScopes).where(
+        sql`${productTypeCategoryScopes.productTypeDefinitionId} = ${parentId}
               and ${productTypeCategoryScopes.categoryId} = ${categoryId}`,
-        );
+      );
     },
     deleteParent: async (parentId) => {
       await db.delete(productTypeDefinitions).where(eq(productTypeDefinitions.id, parentId));

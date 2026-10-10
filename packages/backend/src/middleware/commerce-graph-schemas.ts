@@ -13,10 +13,7 @@
  */
 
 import { z } from 'zod';
-import {
-  NATIVE_STORE_LINK_METHODS,
-  type NativeStoreLinkMethod,
-} from '@mercaria/shared-types';
+import { NATIVE_STORE_LINK_METHODS, type NativeStoreLinkMethod } from '@mercaria/shared-types';
 
 const LINK_METHOD_VALUES = NATIVE_STORE_LINK_METHODS as readonly [
   NativeStoreLinkMethod,
@@ -52,14 +49,12 @@ export const storefrontLookupQuerySchema = z
     domain: domainSchema.optional(),
   })
   .strict()
-  .refine(
-    (query) => (query.provider === undefined) === (query.externalShopId === undefined),
-    { message: 'provider and externalShopId go together' },
-  )
-  .refine(
-    (query) => (query.provider !== undefined) !== (query.domain !== undefined),
-    { message: 'Provide exactly one of: provider+externalShopId, domain' },
-  );
+  .refine((query) => (query.provider === undefined) === (query.externalShopId === undefined), {
+    message: 'provider and externalShopId go together',
+  })
+  .refine((query) => (query.provider !== undefined) !== (query.domain !== undefined), {
+    message: 'Provide exactly one of: provider+externalShopId, domain',
+  });
 
 /**
  * `POST /internal/commerce-graph/native-store-links` — explicit ids, a method

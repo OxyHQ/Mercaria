@@ -1,5 +1,5 @@
-import { create } from "zustand";
-import type { Money } from "@mercaria/shared-types";
+import { create } from 'zustand';
+import type { Money } from '@mercaria/shared-types';
 
 /**
  * A single line on the LOCAL register cart — the ephemeral cart the operator
@@ -39,7 +39,7 @@ interface RegisterCartState {
    * Add a line. If the variant is already on the cart, increment its quantity
    * (capped at `available`); otherwise push a new line at quantity 1.
    */
-  addLine: (line: Omit<RegisterCartLine, "quantity">) => void;
+  addLine: (line: Omit<RegisterCartLine, 'quantity'>) => void;
   /** Set a line's quantity (0 removes it; capped at `available`). */
   setQuantity: (variantId: string, quantity: number) => void;
   /** Remove a line entirely. */
@@ -82,9 +82,7 @@ export const useRegisterCart = create<RegisterCartState>()((set) => ({
       }
       return {
         lines: state.lines.map((l) =>
-          l.variantId === variantId
-            ? { ...l, quantity: Math.min(quantity, l.available) }
-            : l,
+          l.variantId === variantId ? { ...l, quantity: Math.min(quantity, l.available) } : l,
         ),
       };
     }),
@@ -99,7 +97,5 @@ export const useRegisterCart = create<RegisterCartState>()((set) => ({
 
 /** Total units across every cart line (for the cart badge / count). */
 export function useRegisterCartCount(): number {
-  return useRegisterCart((state) =>
-    state.lines.reduce((sum, line) => sum + line.quantity, 0),
-  );
+  return useRegisterCart((state) => state.lines.reduce((sum, line) => sum + line.quantity, 0));
 }

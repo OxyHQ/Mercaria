@@ -93,7 +93,10 @@ function hasCode(code: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   resetStoreAccessCacheForTests();
-  insertStore.mockImplementation(async (values: Record<string, unknown>) => ({ id: STORE_ID, ...values }));
+  insertStore.mockImplementation(async (values: Record<string, unknown>) => ({
+    id: STORE_ID,
+    ...values,
+  }));
   updateStoreColumns.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({
     ...STORE,
     ...patch,
@@ -193,7 +196,9 @@ describe('setStorePermissionOverride — exceptions to the role map', () => {
   });
 
   it('refuses a permission the caller does not hold — no escalation by override', async () => {
-    await expect(write({ granted: ['store:manage'] })).rejects.toSatisfy(hasCode(ErrorCodes.FORBIDDEN));
+    await expect(write({ granted: ['store:manage'] })).rejects.toSatisfy(
+      hasCode(ErrorCodes.FORBIDDEN),
+    );
   });
 
   it('refuses one permission both granted and revoked', async () => {
@@ -267,6 +272,8 @@ describe('store.service.updateStoreSettings', () => {
 
     await expect(
       updateStoreSettings(STORE_ID, { policies: { refundPolicy: 'x' } }),
-    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.NOT_FOUND);
+    ).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.NOT_FOUND,
+    );
   });
 });

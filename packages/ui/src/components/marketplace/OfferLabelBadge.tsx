@@ -1,17 +1,17 @@
-import { View } from "react-native";
-import { Badge } from "@oxy.so/bloom/badge";
-import type { OfferLabelAward } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { formatDistance, formatMoney } from "../../lib/format";
+import { View } from 'react-native';
+import { Badge } from '@oxy.so/bloom/badge';
+import type { OfferLabelAward } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { formatDistance, formatMoney } from '../../lib/format';
 import {
   OFFER_LABEL_A11Y_WITH_BASIS_KEY,
   OFFER_LABEL_BADGE_WITH_BASIS_KEY,
   OFFER_LABEL_DAYS_KEY,
   offerLabelExplanationKey,
   offerLabelTextKey,
-} from "../../lib/offer-labels";
-import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
-import type { Translate } from "../../i18n/create-app-i18n";
+} from '../../lib/offer-labels';
+import { useSharedUiLocale, useSharedUiTranslation } from '../../i18n/ui-translation';
+import type { Translate } from '../../i18n/create-app-i18n';
 
 export interface OfferLabelBadgeProps {
   /** ONE award. A badge never summarises several (#74 §"Labels"). */
@@ -67,11 +67,15 @@ export function OfferLabelBadge({ award, showExplanation = false }: OfferLabelBa
           size="label-medium"
           variant="subtle"
           color="default"
-          content={basis === undefined ? label : t(OFFER_LABEL_BADGE_WITH_BASIS_KEY, { label, basis })}
+          content={
+            basis === undefined ? label : t(OFFER_LABEL_BADGE_WITH_BASIS_KEY, { label, basis })
+          }
         />
       </View>
       {showExplanation ? (
-        <Text className="text-shop-caption text-text-secondary">{t(offerLabelExplanationKey(award))}</Text>
+        <Text className="text-shop-caption text-text-secondary">
+          {t(offerLabelExplanationKey(award))}
+        </Text>
       ) : null}
     </View>
   );

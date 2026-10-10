@@ -26,7 +26,19 @@
  * under a heading that claims they are the best or the most.
  */
 
-import { and, desc, eq, getTableColumns, gt, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  lte,
+  or,
+  sql,
+} from 'drizzle-orm';
 import {
   DISCOVERY_WINDOWS,
   type DiscoverySignal,
@@ -164,9 +176,7 @@ async function findNewestListings(input: FindListingsBySignalInput): Promise<Lis
  * `discovery_signals.id`s a listing could have contributed into no single
  * row to break a tie on.
  */
-async function findBestSellingListings(
-  input: FindListingsBySignalInput,
-): Promise<ListingRecord[]> {
+async function findBestSellingListings(input: FindListingsBySignalInput): Promise<ListingRecord[]> {
   if (input.categoryIds.length === 0) return [];
   const ranked = getDb()
     .select({
@@ -216,9 +226,7 @@ async function findBestSellingListings(
  * multi-category `categoryIds` needs `MAX` grouped by subject, not a plain
  * join.
  */
-async function findMostViewedListings(
-  input: FindListingsBySignalInput,
-): Promise<ListingRecord[]> {
+async function findMostViewedListings(input: FindListingsBySignalInput): Promise<ListingRecord[]> {
   if (input.categoryIds.length === 0) return [];
   const ranked = getDb()
     .select({

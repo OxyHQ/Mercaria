@@ -38,7 +38,10 @@ import type {
 } from '@mercaria/shared-types';
 import { readRollups } from '../../db/analytics/rollupRepository.js';
 import { readTopQueries } from '../../db/analytics/searchQueryRepository.js';
-import { traceEventsByQuery, type AnalyticsEventTraceRow } from '../../db/analytics/eventRepository.js';
+import {
+  traceEventsByQuery,
+  type AnalyticsEventTraceRow,
+} from '../../db/analytics/eventRepository.js';
 import {
   countExposuresByVariant,
   readActiveExperiments,

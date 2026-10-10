@@ -98,7 +98,11 @@ export interface LiveCheckoutFacts {
 /** Satisfied, or refused with every reason it is not. */
 export type SupplierPreflightCheckoutDecision =
   | { satisfied: true; usage: SupplierQuoteUsage }
-  | { satisfied: false; usage: SupplierQuoteUsage; refusals: readonly SupplierPreflightCheckoutRefusal[] };
+  | {
+      satisfied: false;
+      usage: SupplierQuoteUsage;
+      refusals: readonly SupplierPreflightCheckoutRefusal[];
+    };
 
 /**
  * Whether a stored preflight still answers the question checkout is about to
@@ -147,10 +151,24 @@ export function assertPreflightSatisfiesCheckout(
     refusals.push('destination_changed');
   }
 
-  if (versionMoved(stored.sourcingPolicyKey, stored.sourcingPolicyVersion, live.sourcingPolicyKey, live.sourcingPolicyVersion)) {
+  if (
+    versionMoved(
+      stored.sourcingPolicyKey,
+      stored.sourcingPolicyVersion,
+      live.sourcingPolicyKey,
+      live.sourcingPolicyVersion,
+    )
+  ) {
     refusals.push('sourcing_policy_superseded');
   }
-  if (versionMoved(stored.pricingPolicyKey, stored.pricingPolicyVersion, live.pricingPolicyKey, live.pricingPolicyVersion)) {
+  if (
+    versionMoved(
+      stored.pricingPolicyKey,
+      stored.pricingPolicyVersion,
+      live.pricingPolicyKey,
+      live.pricingPolicyVersion,
+    )
+  ) {
     refusals.push('pricing_policy_superseded');
   }
   if (

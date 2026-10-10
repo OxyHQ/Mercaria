@@ -56,9 +56,10 @@ export async function mintGrant(
   tx?: DatabaseOrTransaction,
 ): Promise<PublicAssetDownloadGrantRow> {
   const db = tx ?? getDb();
-  const [row] = await db.insert(assetDownloadGrants).values({ ...input }).returning(
-    PUBLIC_GRANT_COLUMNS,
-  );
+  const [row] = await db
+    .insert(assetDownloadGrants)
+    .values({ ...input })
+    .returning(PUBLIC_GRANT_COLUMNS);
   return row;
 }
 

@@ -196,7 +196,12 @@ describe('a duplicate that differs only in normalization is one combination', ()
   });
 
   it('collapses onto ONE signature across case and surrounding and interior space', () => {
-    const spellings = ['Black Titanium', 'black titanium', '  BLACK TITANIUM  ', 'Black   Titanium'];
+    const spellings = [
+      'Black Titanium',
+      'black titanium',
+      '  BLACK TITANIUM  ',
+      'Black   Titanium',
+    ];
     const digests = new Set(spellings.map((raw) => typedVariantSignature([answered(raw)])));
     expect({ spellings: spellings.length, digests: digests.size }).toEqual({
       spellings: spellings.length,

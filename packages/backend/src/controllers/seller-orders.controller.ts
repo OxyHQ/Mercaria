@@ -22,7 +22,8 @@ export async function listSellerOrders(req: Request, res: Response): Promise<voi
   try {
     const oxyUserId = getRequiredOxyUserId(req);
     const { page, limit } = parsePagination(req.query);
-    const status = typeof req.query.status === 'string' ? (req.query.status as OrderStatus) : undefined;
+    const status =
+      typeof req.query.status === 'string' ? (req.query.status as OrderStatus) : undefined;
     const { data, total } = await getSellerOrders(oxyUserId, { status, page, limit });
     sendPaginated(res, data, buildPagination(page, limit, total));
   } catch (err) {
@@ -36,7 +37,10 @@ export async function fulfillOrderHandler(req: Request, res: Response): Promise<
   const id = routeParam(req, 'id');
   try {
     const oxyUserId = getRequiredOxyUserId(req);
-    const body = req.body as { status: 'processing' | 'shipped' | 'delivered'; trackingNumber?: string };
+    const body = req.body as {
+      status: 'processing' | 'shipped' | 'delivered';
+      trackingNumber?: string;
+    };
     const dto = await fulfillSellerOrder(oxyUserId, id, body);
     sendSuccess(res, dto);
   } catch (err) {

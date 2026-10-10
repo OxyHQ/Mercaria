@@ -123,7 +123,11 @@ export async function runFavoriteMigrationPage(
 
   for (const favorite of favorites) {
     try {
-      const outcome = await migrateOneFavorite(favorite, mappings.get(favorite.listingId) ?? [], dryRun);
+      const outcome = await migrateOneFavorite(
+        favorite,
+        mappings.get(favorite.listingId) ?? [],
+        dryRun,
+      );
       switch (outcome.kind) {
         case 'created':
           created += 1;
@@ -179,7 +183,10 @@ export async function runFavoriteMigrationPage(
 
 type MigrationOutcome =
   | { readonly kind: 'created' | 'converged'; readonly canonicalProductId: string }
-  | { readonly kind: 'unmatched' | 'pin_preserved' | 'already_migrated'; readonly canonicalProductId?: undefined };
+  | {
+      readonly kind: 'unmatched' | 'pin_preserved' | 'already_migrated';
+      readonly canonicalProductId?: undefined;
+    };
 
 /**
  * Examine ONE favorite.

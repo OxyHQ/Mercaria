@@ -22,17 +22,25 @@ export async function resolveOfferSources(
   db: DatabaseOrTransaction,
 ): Promise<Map<string, ProductPageOfferSource>> {
   const openData = offers.flatMap((offer) => {
-    const provider = offer.provenance.provider === undefined ? undefined : findOpenDataProvider(offer.provenance.provider);
+    const provider =
+      offer.provenance.provider === undefined
+        ? undefined
+        : findOpenDataProvider(offer.provenance.provider);
     return provider === undefined ? [] : [{ offer, provider }];
   });
   const observed = await findSourceRecordUpdatedAt(
     db,
-    openData.flatMap(({ offer }) => (offer.provenance.sourceRecordId === undefined ? [] : [offer.provenance.sourceRecordId])),
+    openData.flatMap(({ offer }) =>
+      offer.provenance.sourceRecordId === undefined ? [] : [offer.provenance.sourceRecordId],
+    ),
   );
 
   const result = new Map<string, ProductPageOfferSource>();
   for (const { offer, provider } of openData) {
-    const observedAt = offer.provenance.sourceRecordId === undefined ? undefined : observed.get(offer.provenance.sourceRecordId);
+    const observedAt =
+      offer.provenance.sourceRecordId === undefined
+        ? undefined
+        : observed.get(offer.provenance.sourceRecordId);
     result.set(offer.id, {
       name: provider.name,
       homepage: provider.homepage,

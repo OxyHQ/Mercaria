@@ -4,9 +4,9 @@ import type {
   Listing,
   CategoryNode,
   ProductVariantDTO,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 /** Query parameters accepted by the catalog browse (`GET /listings`). */
 export interface CatalogParams {
@@ -31,15 +31,13 @@ export interface CodeMatch {
  * PUBLIC (optionalAuth); the bearer token is attached by the interceptor but is
  * harmless. The offset path returns the canonical `PaginatedResponse<Listing>`.
  */
-export async function fetchCatalog(
-  params: CatalogParams,
-): Promise<PaginatedResponse<Listing>> {
+export async function fetchCatalog(params: CatalogParams): Promise<PaginatedResponse<Listing>> {
   const query: Record<string, string | boolean> = { storeId: params.storeId };
   if (params.q) query.q = params.q;
   if (params.category) query.category = params.category;
   if (params.inStock !== undefined) query.inStock = params.inStock;
 
-  const { data } = await apiClient.get<PaginatedResponse<Listing>>("/listings", {
+  const { data } = await apiClient.get<PaginatedResponse<Listing>>('/listings', {
     params: query,
   });
   return data;
@@ -53,7 +51,7 @@ export async function fetchListing(id: string): Promise<Listing> {
 
 /** GET /categories — the category taxonomy tree. */
 export async function fetchCategories(): Promise<CategoryNode[]> {
-  const { data } = await apiClient.get<ApiResponse<CategoryNode[]>>("/categories");
+  const { data } = await apiClient.get<ApiResponse<CategoryNode[]>>('/categories');
   return unwrap(data);
 }
 
@@ -63,18 +61,13 @@ export async function fetchCategories(): Promise<CategoryNode[]> {
  * sku/barcode/title), then returns the FIRST listing whose variant has an EXACT
  * `sku` or `barcode` match. Returns `null` when no exact match exists.
  */
-export async function lookupByCode(
-  storeId: string,
-  code: string,
-): Promise<CodeMatch | null> {
+export async function lookupByCode(storeId: string, code: string): Promise<CodeMatch | null> {
   const trimmed = code.trim();
-  if (trimmed === "") return null;
+  if (trimmed === '') return null;
 
   const { data } = await fetchCatalog({ storeId, q: trimmed });
   for (const listing of data) {
-    const variant = listing.variants.find(
-      (v) => v.sku === trimmed || v.barcode === trimmed,
-    );
+    const variant = listing.variants.find((v) => v.sku === trimmed || v.barcode === trimmed);
     if (variant) {
       return { listing, variant };
     }

@@ -198,7 +198,11 @@ export interface VerticalProductType {
   readonly name: string;
   readonly description: string;
   readonly categoryScopeKeys: readonly string[];
-  readonly groups: readonly { readonly key: string; readonly label: string; readonly position: number }[];
+  readonly groups: readonly {
+    readonly key: string;
+    readonly label: string;
+    readonly position: number;
+  }[];
   readonly fields: readonly VerticalProductTypeField[];
   readonly localizations: readonly VerticalLocalization[];
 }

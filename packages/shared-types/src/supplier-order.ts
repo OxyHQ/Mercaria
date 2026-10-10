@@ -715,7 +715,12 @@ export const SUPPLIER_EVENT_VERIFICATIONS: readonly SupplierEventVerification[] 
 ];
 
 /** Where one stored provider event stands in its processing. */
-export type SupplierEventStatus = 'received' | 'processing' | 'processed' | 'failed' | 'dead_letter';
+export type SupplierEventStatus =
+  | 'received'
+  | 'processing'
+  | 'processed'
+  | 'failed'
+  | 'dead_letter';
 
 /** {@link SupplierEventStatus} as the tuple the columns and CHECKs read. */
 export const SUPPLIER_EVENT_STATUSES: readonly SupplierEventStatus[] = [

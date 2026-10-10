@@ -52,7 +52,16 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { boolean, check, date, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  check,
+  date,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   EBAY_DISCOVERY_QUERY_KINDS,
@@ -220,7 +229,11 @@ export const ebayDiscoveryQueries = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('ebay_discovery_queries_marketplace_id_check', t.marketplaceId, EBAY_MARKETPLACE_IDS),
+    checkOneOf(
+      'ebay_discovery_queries_marketplace_id_check',
+      t.marketplaceId,
+      EBAY_MARKETPLACE_IDS,
+    ),
     checkOneOf('ebay_discovery_queries_query_kind_check', t.queryKind, EBAY_DISCOVERY_QUERY_KINDS),
     check(
       'ebay_discovery_queries_query_value_check',
@@ -303,7 +316,11 @@ export const ebayReconciliationSamples = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    checkOneOf('ebay_reconciliation_samples_finding_check', t.finding, EBAY_RECONCILIATION_FINDINGS),
+    checkOneOf(
+      'ebay_reconciliation_samples_finding_check',
+      t.finding,
+      EBAY_RECONCILIATION_FINDINGS,
+    ),
     check(
       'ebay_reconciliation_samples_external_id_check',
       sql`length(btrim(${t.externalId})) between 1 and 128`,

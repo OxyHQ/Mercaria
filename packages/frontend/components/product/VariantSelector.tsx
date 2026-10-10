@@ -76,7 +76,9 @@ export function VariantSelector({ variants, selectedVariantId, onSelect }: Varia
               }
               onPress={() => onSelect(variant.id)}
               className={`rounded-radius-max border px-space-16 py-space-8 ${
-                selectedVariantId === variant.id ? 'border-text bg-bg-fill' : 'border-border-secondary'
+                selectedVariantId === variant.id
+                  ? 'border-text bg-bg-fill'
+                  : 'border-border-secondary'
               }`}
             >
               <Text className="text-shop-buttonMedium text-text">{label}</Text>

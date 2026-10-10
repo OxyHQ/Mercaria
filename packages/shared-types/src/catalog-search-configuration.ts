@@ -79,7 +79,11 @@
  * numbers attached and belongs to `oxy-infra` rather than to this map.
  */
 
-import { MERCARIA_BASE_LOCALE, SUPPORTED_LOCALES, type SupportedLocale } from './catalog-localization';
+import {
+  MERCARIA_BASE_LOCALE,
+  SUPPORTED_LOCALES,
+  type SupportedLocale,
+} from './catalog-localization';
 
 /**
  * Every PostgreSQL text-search configuration Mercaria names.

@@ -44,7 +44,9 @@ export const MercariaCursorSchema = z.string().min(1).max(512).describe('An opaq
 export function mercariaPageSchema<Item extends z.ZodType>(item: Item) {
   return z.object({
     items: z.array(item),
-    nextCursor: MercariaCursorSchema.nullable().describe('The next page’s cursor, or null on the last page.'),
+    nextCursor: MercariaCursorSchema.nullable().describe(
+      'The next page’s cursor, or null on the last page.',
+    ),
   });
 }
 
@@ -59,7 +61,9 @@ type PageEnvelope = z.infer<ReturnType<typeof mercariaPageSchema<z.ZodUnknown>>>
  * optional, and a hand-written `nextCursor: string | null` would then disagree
  * with the schema it describes.
  */
-export type MercariaPage<Item> = { [Key in keyof PageEnvelope]: Key extends 'items' ? Item[] : PageEnvelope[Key] };
+export type MercariaPage<Item> = {
+  [Key in keyof PageEnvelope]: Key extends 'items' ? Item[] : PageEnvelope[Key];
+};
 
 export const MercariaProductSummaryPageSchema = mercariaPageSchema(MercariaProductSummarySchema);
 export const MercariaCollectionPageSchema = mercariaPageSchema(MercariaCollectionSchema);

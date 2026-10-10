@@ -144,8 +144,20 @@ describe('discovery_signals', () => {
     const parent = makeCategoryId();
     const subjectId = `listing-${uuidv7()}`;
     await db.insert(discoverySignals).values([
-      { subjectType: 'listing', subjectId, categoryId: leaf, window: '30d', computedAt: new Date() },
-      { subjectType: 'listing', subjectId, categoryId: parent, window: '30d', computedAt: new Date() },
+      {
+        subjectType: 'listing',
+        subjectId,
+        categoryId: leaf,
+        window: '30d',
+        computedAt: new Date(),
+      },
+      {
+        subjectType: 'listing',
+        subjectId,
+        categoryId: parent,
+        window: '30d',
+        computedAt: new Date(),
+      },
     ]);
     const rows = await db
       .select({ id: discoverySignals.id })
@@ -184,10 +196,12 @@ describe('discovery_sweep_cursors', () => {
     const idle = `realdb-discovery-job-${uuidv7()}`;
     const leased = `realdb-discovery-job-${uuidv7()}`;
     ownedCursorIds.push(idle, leased);
-    await db.insert(discoverySweepCursors).values([
-      { id: idle },
-      { id: leased, leaseOwner: 'owner', leaseExpiresAt: new Date(Date.now() + 60_000) },
-    ]);
+    await db
+      .insert(discoverySweepCursors)
+      .values([
+        { id: idle },
+        { id: leased, leaseOwner: 'owner', leaseExpiresAt: new Date(Date.now() + 60_000) },
+      ]);
     const rows = await db
       .select({ id: discoverySweepCursors.id })
       .from(discoverySweepCursors)

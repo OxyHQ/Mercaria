@@ -139,10 +139,7 @@ export async function savedItemsHandler(req: Request, res: Response): Promise<vo
   try {
     const oxyUserId = getRequiredOxyUserId(req);
     const { limit, cursor } = req.query as unknown as { limit: number; cursor?: string };
-    sendSuccess(
-      res,
-      await listSavedItems({ oxyUserId, limit, ...(cursor ? { cursor } : {}) }),
-    );
+    sendSuccess(res, await listSavedItems({ oxyUserId, limit, ...(cursor ? { cursor } : {}) }));
   } catch (err) {
     log.general.error({ err }, 'Failed to list saved items');
     respondWithError(res, err, 'Failed to load your saved items');

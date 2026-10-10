@@ -50,7 +50,10 @@ import {
   insertChallenge,
   insertEvidence,
 } from '../merchant-claims/merchantClaimRepository.js';
-import { createMerchant, getMerchantPublic } from '../../services/commerce-graph/merchant.service.js';
+import {
+  createMerchant,
+  getMerchantPublic,
+} from '../../services/commerce-graph/merchant.service.js';
 import { createStorefront } from '../../services/commerce-graph/storefront.service.js';
 import {
   contestClaim,
@@ -65,7 +68,10 @@ import {
   submitForReview,
   verifyClaim,
 } from '../../services/merchant-claims/merchant-claim.service.js';
-import { challengeTokenMatches, mintChallengeToken } from '../../services/merchant-claims/challenge-token.js';
+import {
+  challengeTokenMatches,
+  mintChallengeToken,
+} from '../../services/merchant-claims/challenge-token.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import type { StoreCaller } from '../../services/store-access.service.js';
 
@@ -83,7 +89,12 @@ const createdMerchantIds: string[] = [];
  * either, so the bearer is never used.
  */
 function claimantSession(oxyUserId: string): StoreCaller {
-  return { accountId: oxyUserId, actorAccountId: oxyUserId, delegated: false, accessToken: 'unused' };
+  return {
+    accountId: oxyUserId,
+    actorAccountId: oxyUserId,
+    delegated: false,
+    accessToken: 'unused',
+  };
 }
 
 beforeAll(async () => {
@@ -282,7 +293,11 @@ describe('acceptance 4 — two conflicting claimants cannot both be the sole ver
   it('refuses a second LIVE claim by the same claimant on one merchant', async () => {
     const merchantId = await mintMerchant('One Live Claim');
     const claimant = actor('olc');
-    await openClaim({ merchantId, claimant: claimantSession(claimant), method: 'business_document' });
+    await openClaim({
+      merchantId,
+      claimant: claimantSession(claimant),
+      method: 'business_document',
+    });
     await expect(
       openClaim({ merchantId, claimant: claimantSession(claimant), method: 'business_document' }),
     ).rejects.toSatisfy(
@@ -382,7 +397,11 @@ describe('acceptance 3 — a replayed, stolen or expired challenge verifies noth
     expect(challengeTokenMatches(instructionsA.token ?? '', digestB?.tokenHash ?? '')).toBe(false);
 
     await expect(
-      verifyClaim({ claimId: claimB.id, claimant: claimantSession(claimantB), token: instructionsA.token }),
+      verifyClaim({
+        claimId: claimB.id,
+        claimant: claimantSession(claimantB),
+        token: instructionsA.token,
+      }),
     ).rejects.toSatisfy(
       (error: unknown) => isMercariaError(error) && error.httpStatus === 400,
       "expected a 400 for another claim's token",
@@ -471,10 +490,7 @@ describe('acceptance 2 — a low-assurance proof cannot complete a claim on its 
     expect(submitted.state).toBe('review_pending');
 
     // The merchant is NOT claimed by a submission — only by a decision.
-    const [beforeDecision] = await db
-      .select()
-      .from(merchants)
-      .where(eq(merchants.id, merchantId));
+    const [beforeDecision] = await db.select().from(merchants).where(eq(merchants.id, merchantId));
     expect(beforeDecision?.claimState).toBe('unclaimed');
 
     const queue = await listClaimsForReview(['review_pending']);

@@ -114,10 +114,7 @@ describe('the pilot admits only what its published bounds name', () => {
       'admitted',
     );
     expect(
-      deriveReferralPilotAdmission(
-        state(),
-        entry({ at: new Date(bounds.startsAt.getTime() - 1) }),
-      ),
+      deriveReferralPilotAdmission(state(), entry({ at: new Date(bounds.startsAt.getTime() - 1) })),
     ).toEqual({ outcome: 'refused', reason: 'before_pilot_start' });
     expect(deriveReferralPilotAdmission(state(), entry({ at: bounds.endsAt }))).toEqual({
       outcome: 'refused',
@@ -422,7 +419,10 @@ describe('the report renders what it can and says what it cannot', () => {
     expect(report.netContributionMeasurable).toBe(false);
     expect(NET_CONTRIBUTION_COMPONENTS).toHaveLength(5);
     for (const key of NET_CONTRIBUTION_COMPONENTS) {
-      expect(REFERRAL_PILOT_MEASURES.some((measure) => measure.key === key), key).toBe(true);
+      expect(
+        REFERRAL_PILOT_MEASURES.some((measure) => measure.key === key),
+        key,
+      ).toBe(true);
     }
   });
 

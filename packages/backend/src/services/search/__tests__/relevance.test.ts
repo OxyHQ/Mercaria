@@ -69,14 +69,21 @@ describe('scoreEntityRelevance', () => {
 
   it('a former name outranks a marketing name at the same stage (#70 input 3)', () => {
     const former = scoreEntityRelevance({ stages: ['exact_alias'], aliasKind: 'former_name' });
-    const marketing = scoreEntityRelevance({ stages: ['exact_alias'], aliasKind: 'marketing_name' });
+    const marketing = scoreEntityRelevance({
+      stages: ['exact_alias'],
+      aliasKind: 'marketing_name',
+    });
     const misspelling = scoreEntityRelevance({ stages: ['exact_alias'], aliasKind: 'misspelling' });
     expect(former).toBeGreaterThan(marketing);
     expect(marketing).toBeGreaterThan(misspelling);
   });
 
   it('filter agreement refines within a stage and never across one', () => {
-    const agreeing = scoreEntityRelevance({ stages: ['lexical'], lexicalRank: 0.5, filterAgreement: 1 });
+    const agreeing = scoreEntityRelevance({
+      stages: ['lexical'],
+      lexicalRank: 0.5,
+      filterAgreement: 1,
+    });
     const disagreeing = scoreEntityRelevance({
       stages: ['lexical'],
       lexicalRank: 0.5,

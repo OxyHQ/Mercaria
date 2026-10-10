@@ -176,7 +176,12 @@ function ingestProduct(overrides: Partial<IngestProduct> = {}): IngestProduct {
     images: ['https://cdn.woo.com/img.jpg'],
     options: [],
     variants: [
-      { optionValues: [], price: { amount: 2500, currency: 'EUR' }, inventory: { available: 5 }, sku: 'SKU-1' },
+      {
+        optionValues: [],
+        price: { amount: 2500, currency: 'EUR' },
+        inventory: { available: 5 },
+        sku: 'SKU-1',
+      },
     ],
     vendor: 'Acme',
     productType: 'Widget',
@@ -224,8 +229,11 @@ const productsBody = (products: IngestProduct[]): IngestProductsInput => ({ prod
 
 beforeEach(() => {
   vi.clearAllMocks();
-  synchronizeStoreImages.mockReset().mockImplementation(async (_storeId: string, refs: string[]) =>
-    refs.map(ref => ref.startsWith('https:') ? 'oxy-imported-image' : ref));
+  synchronizeStoreImages
+    .mockReset()
+    .mockImplementation(async (_storeId: string, refs: string[]) =>
+      refs.map((ref) => (ref.startsWith('https:') ? 'oxy-imported-image' : ref)),
+    );
   resolveImportCategorySlug.mockResolvedValue('home');
   insertSyncRun.mockImplementation((connectionId: string, kind: string) =>
     Promise.resolve({ id: 'run-1', connectionId, kind }),
@@ -287,7 +295,9 @@ describe('ingestProducts — create path', () => {
     // of that second statement IS the fix, so its absence is the assertion.
     expect(provenancePatch()).toBeUndefined();
 
-    expect(result.results).toEqual([{ externalId: 'woo-1', action: 'created', listingId: 'listing-new' }]);
+    expect(result.results).toEqual([
+      { externalId: 'woo-1', action: 'created', listingId: 'listing-new' },
+    ]);
     expect(closedRun().status).toBe('completed');
     expect(closedRun().counts.created).toBe(1);
     expect(updateListing).not.toHaveBeenCalled();
@@ -325,7 +335,9 @@ describe('ingestProducts — create path', () => {
 describe('ingestProducts — update path respects overriddenFields', () => {
   it('skips a locally-pinned field but overwrites the rest', async () => {
     findConnection.mockResolvedValue(pushInConnection({ conflictPolicy: 'respect_overrides' }));
-    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-existing', ['title']));
+    findListingBySourceExternalId.mockResolvedValue(
+      sourcedListingRow('listing-existing', ['title']),
+    );
 
     const result = await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct()]));
 
@@ -372,7 +384,9 @@ describe('ingestProducts — update path respects overriddenFields', () => {
 
   it('connector_wins overwrites even locally-edited fields', async () => {
     findConnection.mockResolvedValue(pushInConnection({ conflictPolicy: 'connector_wins' }));
-    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-existing', ['title']));
+    findListingBySourceExternalId.mockResolvedValue(
+      sourcedListingRow('listing-existing', ['title']),
+    );
 
     await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct()]));
 
@@ -505,9 +519,7 @@ describe('connectPushIn', () => {
 });
 
 describe('ingestInventory', () => {
-  const inventoryBody = (
-    items: IngestInventoryInput['items'],
-  ): IngestInventoryInput => ({ items });
+  const inventoryBody = (items: IngestInventoryInput['items']): IngestInventoryInput => ({ items });
 
   it('sets stock on a single-variant listing at the default location', async () => {
     findConnection.mockResolvedValue(pushInConnection());
@@ -521,7 +533,11 @@ describe('ingestInventory', () => {
     );
 
     expect(setAvailable).toHaveBeenCalledWith('var-1', 'listing-1', 'loc-1', 7);
-    expect(result.results[0]).toEqual({ externalId: 'woo-1', action: 'updated', variantId: 'var-1' });
+    expect(result.results[0]).toEqual({
+      externalId: 'woo-1',
+      action: 'updated',
+      variantId: 'var-1',
+    });
   });
 
   it('maps a multi-variant listing by SKU', async () => {
@@ -608,9 +624,7 @@ describe('ingestInventory', () => {
     // second one that can drift.
     expect(closedRun().recordFailures).toHaveLength(1);
     expect(closedRun().recordFailures[0].externalId).toBe('woo-1');
-    expect((closedRun().recordFailures[0].failure as Error).message).toBe(
-      result.results[0].error,
-    );
+    expect((closedRun().recordFailures[0].failure as Error).message).toBe(result.results[0].error);
   });
 
   it('bounds the ambiguous message, which is unbounded in its CANDIDATE list', async () => {
@@ -676,10 +690,15 @@ describe('ingestProducts — synchronized media boundary', () => {
     findListingBySourceExternalId.mockResolvedValue(null);
     createStoreProduct.mockResolvedValue('listing-next');
     synchronizeStoreImages.mockRejectedValueOnce(new Error('Image storage unavailable'));
-    const result = await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([
-      ingestProduct({ externalId: 'failed' }), ingestProduct({ externalId: 'next' }),
-    ]));
-    expect(result.results.map(row => row.action)).toEqual(['failed', 'created']);
+    const result = await ingestProducts(
+      STORE_ID,
+      CONNECTION_ID,
+      productsBody([
+        ingestProduct({ externalId: 'failed' }),
+        ingestProduct({ externalId: 'next' }),
+      ]),
+    );
+    expect(result.results.map((row) => row.action)).toEqual(['failed', 'created']);
     expect(createStoreProduct).toHaveBeenCalledTimes(1);
     expect(createStoreProduct.mock.calls[0][1].imageFileIds).toEqual(['oxy-imported-image']);
   });

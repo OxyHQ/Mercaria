@@ -108,7 +108,13 @@ export async function startPlanCheckoutHandler(req: Request, res: Response): Pro
 /** POST /admin/stores/:storeId/plan/portal — open the hosted billing portal. */
 export async function openPlanPortalHandler(req: Request, res: Response): Promise<void> {
   try {
-    sendSuccess(res, await openMerchantBillingPortal({ storeId: routeParam(req, 'storeId'), idempotencyKey: billingIntent(req) }));
+    sendSuccess(
+      res,
+      await openMerchantBillingPortal({
+        storeId: routeParam(req, 'storeId'),
+        idempotencyKey: billingIntent(req),
+      }),
+    );
   } catch (err) {
     log.general.error({ err }, 'Failed to open the billing portal');
     respondWithBillingError(res, err, 'Failed to open the billing portal');

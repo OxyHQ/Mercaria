@@ -87,9 +87,7 @@ export async function fetchNearby(params: {
       ...(params.radiusMetres ? { radiusMetres: params.radiusMetres } : {}),
       ...(params.country ? { country: params.country } : {}),
       ...(params.currency ? { currency: params.currency } : {}),
-      ...(params.conditionKeys?.length
-        ? { conditionKeys: params.conditionKeys.join(',') }
-        : {}),
+      ...(params.conditionKeys?.length ? { conditionKeys: params.conditionKeys.join(',') } : {}),
       ...(params.withCheckoutEligibility ? { withCheckoutEligibility: 'true' } : {}),
       ...(params.locale ? { locale: params.locale } : {}),
       ...(params.limit ? { limit: params.limit } : {}),

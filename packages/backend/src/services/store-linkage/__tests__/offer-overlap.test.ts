@@ -12,15 +12,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  reconcileMerchantOfferOverlaps,
-  type OverlapCandidateOffer,
-} from '../offer-overlap.js';
+import { reconcileMerchantOfferOverlaps, type OverlapCandidateOffer } from '../offer-overlap.js';
 
 const T0 = new Date('2026-08-01T00:00:00.000Z');
 const T1 = new Date('2026-08-02T00:00:00.000Z');
 
-function offer(overrides: Partial<OverlapCandidateOffer> & { offerId: string }): OverlapCandidateOffer {
+function offer(
+  overrides: Partial<OverlapCandidateOffer> & { offerId: string },
+): OverlapCandidateOffer {
   return {
     canonicalVariantId: 'cv-1',
     kind: 'external',

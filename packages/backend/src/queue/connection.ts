@@ -30,7 +30,9 @@ export function isQueueEnabled(): boolean {
 export function getQueueConnection(): ConnectionOptions {
   const config = getRedisConnection();
   if (!config) {
-    throw new Error('getQueueConnection called without Redis configured (guard with isQueueEnabled)');
+    throw new Error(
+      'getQueueConnection called without Redis configured (guard with isQueueEnabled)',
+    );
   }
 
   const options: ConnectionOptions = {

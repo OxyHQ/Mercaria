@@ -100,13 +100,20 @@ export function locationWire(id = 'loc_1', handle = 'night-city-games'): Record<
       name: 'Night City Games',
       logoUrl: 'https://cdn.mercaria.co/s/logo.png',
     },
-    pickup: { identityRequirement: 'collection_code', paymentRequirement: 'prepaid', instructions: null },
+    pickup: {
+      identityRequirement: 'collection_code',
+      paymentRequirement: 'prepaid',
+      instructions: null,
+    },
     discoverable: true,
     url: `${WEB}/stores/${encodeURIComponent(handle)}?location=${encodeURIComponent(id)}`,
   };
 }
 
-export function locationProductWire(id = 'prod_1', exactQuantity?: number): Record<string, unknown> {
+export function locationProductWire(
+  id = 'prod_1',
+  exactQuantity?: number,
+): Record<string, unknown> {
   return {
     product: productSummaryWire(id),
     availability: 'low_stock',
@@ -115,6 +122,9 @@ export function locationProductWire(id = 'prod_1', exactQuantity?: number): Reco
   };
 }
 
-export function pageWire(items: unknown[], nextCursor: string | null = null): Record<string, unknown> {
+export function pageWire(
+  items: unknown[],
+  nextCursor: string | null = null,
+): Record<string, unknown> {
   return { items, nextCursor };
 }

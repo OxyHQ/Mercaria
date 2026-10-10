@@ -139,7 +139,17 @@ describe('~/AGENTS.md — no IP, raw, hashed or geo-derived, anywhere', () => {
     // The hashed and geo-derived forms, which the invariant forbids as explicitly
     // as the raw one and which a substring scan for "ip_address" would miss.
     assertEachOf(
-      ['ipAddress', 'ipHash', 'ipCountry', 'geoipRegion', 'deviceFingerprint', 'userAgent', 'postalCode', 'buyerKey', 'pseudonymousSessionId'],
+      [
+        'ipAddress',
+        'ipHash',
+        'ipCountry',
+        'geoipRegion',
+        'deviceFingerprint',
+        'userAgent',
+        'postalCode',
+        'buyerKey',
+        'pseudonymousSessionId',
+      ],
       9,
       (seeded) => {
         expect(forbiddenSegmentsIn(seeded), `${seeded} was not caught`).not.toEqual([]);
@@ -147,9 +157,13 @@ describe('~/AGENTS.md — no IP, raw, hashed or geo-derived, anywhere', () => {
     );
     // And the innocent names the sibling gate's rewrite had to rescue: a segment
     // match, not a substring match, is what keeps these legal.
-    assertEachOf(['latencyMs', 'supplyCountry', 'assetId', 'licenceVersionId', 'grossAmount'], 5, (innocent) => {
-      expect(forbiddenSegmentsIn(innocent), `${innocent} was wrongly caught`).toEqual([]);
-    });
+    assertEachOf(
+      ['latencyMs', 'supplyCountry', 'assetId', 'licenceVersionId', 'grossAmount'],
+      5,
+      (innocent) => {
+        expect(forbiddenSegmentsIn(innocent), `${innocent} was wrongly caught`).toEqual([]);
+      },
+    );
   });
 
   it('`supplyCountry` is the ONE place fact, and the narrower ones are forbidden', () => {
@@ -158,9 +172,13 @@ describe('~/AGENTS.md — no IP, raw, hashed or geo-derived, anywhere', () => {
     // an IP. So `country` must be legal and `region`, `postal` and the coordinate
     // family must not.
     expect(forbiddenSegmentsIn('supplyCountry')).toEqual([]);
-    assertEachOf(['supplyRegion', 'supplyPostalCode', 'supplyLatitude', 'supplyCity'], 4, (field) => {
-      expect(forbiddenSegmentsIn(field), `${field} is not forbidden`).not.toEqual([]);
-    });
+    assertEachOf(
+      ['supplyRegion', 'supplyPostalCode', 'supplyLatitude', 'supplyCity'],
+      4,
+      (field) => {
+        expect(forbiddenSegmentsIn(field), `${field} is not forbidden`).not.toEqual([]);
+      },
+    );
   });
 
   it('the forbidden list is a real list, not an empty one', () => {
@@ -222,14 +240,23 @@ describe('#1015 W13 — downloads and fee yield are not an organic-ranking boost
   });
 
   it('and the detector would notice if one did — the mutation self-test', () => {
-    const seeded = "import { computeLaunchMetrics } from '../services/digital/analytics/launch-metrics.js';";
+    const seeded =
+      "import { computeLaunchMetrics } from '../services/digital/analytics/launch-metrics.js';";
     expect(seeded.includes('digital/analytics')).toBe(true);
     const innocent = "import { rankOffers } from '../services/ranking/score.js';";
     expect(innocent.includes('digital/analytics')).toBe(false);
   });
 
   it('nothing here reads an ordering engine, a fee schedule, a plan or a referral', () => {
-    const FORBIDDEN = ['services/ranking', 'db/ranking', 'services/search', 'db/search', 'fees', 'merchantPlans', 'referral'] as const;
+    const FORBIDDEN = [
+      'services/ranking',
+      'db/ranking',
+      'services/search',
+      'db/search',
+      'fees',
+      'merchantPlans',
+      'referral',
+    ] as const;
     const offenders: string[] = [];
     for (const name of MODULES) {
       for (const specifier of [...codeOf(name).matchAll(/from\s+'([^']+)'/g)].map((m) => m[1])) {
@@ -254,9 +281,17 @@ describe('#1015 W13 — downloads and fee yield are not an organic-ranking boost
 
   it('and no output type is keyed by a thing ranking orders', () => {
     const offenders = declaredFieldNames().filter(({ field }) =>
-      ['listingId', 'offerId', 'variantId', 'canonicalProductId', 'canonicalVariantId', 'rank', 'score', 'boost', 'weight'].includes(
-        field,
-      ),
+      [
+        'listingId',
+        'offerId',
+        'variantId',
+        'canonicalProductId',
+        'canonicalVariantId',
+        'rank',
+        'score',
+        'boost',
+        'weight',
+      ].includes(field),
     );
     // `assetId` is deliberately allowed and is the finest grain here: an asset is
     // not a listing, a variant or an offer (ADR 0010 D2), and scoring an offer from

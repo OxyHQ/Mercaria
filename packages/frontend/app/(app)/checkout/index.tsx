@@ -1,15 +1,15 @@
-import { useMemo, useRef, useState } from "react";
-import { Button } from "@oxy.so/bloom/button";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { View, Pressable } from "react-native";
-import Head from "expo-router/head";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { openAccountDialog, useOxy } from "@oxy.so/services";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { PriceSummary } from "@oxy.so/bloom/price-breakdown";
-import { Check, Plus } from "lucide-react-native";
-import { nanoid } from "nanoid/non-secure";
+import { useMemo, useRef, useState } from 'react';
+import { Button } from '@oxy.so/bloom/button';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { View, Pressable } from 'react-native';
+import Head from 'expo-router/head';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import { PriceSummary } from '@oxy.so/bloom/price-breakdown';
+import { Check, Plus } from 'lucide-react-native';
+import { nanoid } from 'nanoid/non-secure';
 import type {
   Address,
   CartGroup,
@@ -17,7 +17,7 @@ import type {
   CheckoutPaymentHandoff,
   CheckoutPaymentStatus,
   Money,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 import {
   SectionHeader,
   Text,
@@ -27,8 +27,8 @@ import {
   CommercialDisclosure,
   commercialSellerLabel,
   toBloomIcon,
-} from "@mercaria/ui";
-import { ScreenShell } from "@/components/shell/ScreenShell";
+} from '@mercaria/ui';
+import { ScreenShell } from '@/components/shell/ScreenShell';
 import {
   CheckoutDestinationForm,
   EMPTY_CHECKOUT_DRAFT,
@@ -36,14 +36,14 @@ import {
   cleanContact,
   isDraftComplete,
   type CheckoutDestinationDraft,
-} from "@/components/checkout/CheckoutDestinationForm";
-import { toast } from "@oxy.so/bloom/toast";
-import { useCart } from "@/lib/hooks/use-cart";
-import { useAddresses } from "@/lib/hooks/use-addresses";
-import { useCheckout, useCheckoutPaymentStatus } from "@/lib/hooks/use-checkout";
-import { usePortalConfirmation } from "@/lib/hooks/use-guest-portal";
-import { useTranslation } from "@/lib/i18n";
-import { CardPaymentStep } from "@/components/payment/CardPaymentStep";
+} from '@/components/checkout/CheckoutDestinationForm';
+import { toast } from '@oxy.so/bloom/toast';
+import { useCart } from '@/lib/hooks/use-cart';
+import { useAddresses } from '@/lib/hooks/use-addresses';
+import { useCheckout, useCheckoutPaymentStatus } from '@/lib/hooks/use-checkout';
+import { usePortalConfirmation } from '@/lib/hooks/use-guest-portal';
+import { useTranslation } from '@/lib/i18n';
+import { CardPaymentStep } from '@/components/payment/CardPaymentStep';
 
 /** The stable seller-group key, matching the backend (`store:<id>` / `user:<id>`). */
 function groupKey(group: CartGroup): string {
@@ -62,7 +62,7 @@ function groupKey(group: CartGroup): string {
 function parseSellerKeys(seller: string | undefined): string[] {
   if (!seller) return [];
   return seller
-    .split(",")
+    .split(',')
     .map((key) => key.trim())
     .filter((key) => key.length > 0);
 }
@@ -89,15 +89,15 @@ function AddressOption({
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      accessibilityLabel={t("checkout.address.shipTo", { name: address.recipientName })}
+      accessibilityLabel={t('checkout.address.shipTo', { name: address.recipientName })}
       onPress={onSelect}
       className={`flex-row items-start gap-3 rounded-2xl border p-4 ${
-        selected ? "border-primary bg-muted/40" : "border-border bg-card"
+        selected ? 'border-primary bg-muted/40' : 'border-border bg-card'
       }`}
     >
       <View
         className={`mt-0.5 h-5 w-5 items-center justify-center rounded-full border ${
-          selected ? "border-primary bg-primary" : "border-border"
+          selected ? 'border-primary bg-primary' : 'border-border'
         }`}
       >
         {selected ? <Check size={12} className="text-primary-foreground" /> : null}
@@ -108,11 +108,11 @@ function AddressOption({
         </Text>
         <Text className="text-sm text-muted-foreground">
           {address.line1}
-          {address.line2 ? `, ${address.line2}` : ""}
+          {address.line2 ? `, ${address.line2}` : ''}
         </Text>
         <Text className="text-sm text-muted-foreground">
           {address.city}
-          {address.region ? `, ${address.region}` : ""} {address.postalCode},{" "}
+          {address.region ? `, ${address.region}` : ''} {address.postalCode},{' '}
           {formatRegionName(address.country, locale)}
         </Text>
       </View>
@@ -135,10 +135,15 @@ function SignInBenefit() {
   const { t } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
-      <Text className="text-sm font-semibold text-foreground">{t("checkout.signIn.title")}</Text>
-      <Text className="mt-1 text-sm text-muted-foreground">{t("checkout.signIn.body")}</Text>
-      <Button appearance="outline" tone="neutral" className="mt-3 self-start" onPress={() => openAccountDialog()}>
-        {t("checkout.signIn.action")}
+      <Text className="text-sm font-semibold text-foreground">{t('checkout.signIn.title')}</Text>
+      <Text className="mt-1 text-sm text-muted-foreground">{t('checkout.signIn.body')}</Text>
+      <Button
+        appearance="outline"
+        tone="neutral"
+        className="mt-3 self-start"
+        onPress={() => openAccountDialog()}
+      >
+        {t('checkout.signIn.action')}
       </Button>
     </View>
   );
@@ -162,7 +167,7 @@ function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
       <Text className="mb-3 text-sm font-semibold text-foreground">
-        {t("checkout.summary.title")}
+        {t('checkout.summary.title')}
       </Text>
       <View className="gap-4">
         {groups.map((group) => (
@@ -201,18 +206,18 @@ function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
         ))}
         {subtotalText ? (
           <PriceSummary
-            accessibilityLabel={t("checkout.summary.title")}
+            accessibilityLabel={t('checkout.summary.title')}
             lines={[]}
             total={{
-              label: t("checkout.summary.subtotal"),
+              label: t('checkout.summary.subtotal'),
               amount: subtotalText.primary,
               secondaryAmount: subtotalText.secondary ?? undefined,
-              note: t("checkout.summary.calculatedAtPlacement"),
+              note: t('checkout.summary.calculatedAtPlacement'),
             }}
           />
         ) : (
           <Text className="text-xs text-muted-foreground">
-            {t("checkout.summary.calculatedAtPlacement")}
+            {t('checkout.summary.calculatedAtPlacement')}
           </Text>
         )}
       </View>
@@ -251,7 +256,7 @@ function PaymentStep({
   onDone,
 }: {
   payment: CheckoutPaymentHandoff;
-  status: CheckoutPaymentStatus["status"];
+  status: CheckoutPaymentStatus['status'];
   awaiting: boolean;
   error: string | null;
   /** Whether this purchase was placed without an Oxy account (#107 client rule 8). */
@@ -266,15 +271,15 @@ function PaymentStep({
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
   const router = useRouter();
-  if (status === "succeeded") {
+  if (status === 'succeeded') {
     return (
       // A live region: this screen changes under the buyer while they are not
       // touching it (the poll answers), so a screen reader has to be told rather
       // than waiting to be asked.
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title={t("payment.received.title")} />
+        <SectionHeader title={t('payment.received.title')} />
         <View className="gap-4">
-          <Text className="text-sm text-muted-foreground">{t("payment.received.body")}</Text>
+          <Text className="text-sm text-muted-foreground">{t('payment.received.body')}</Text>
           {isGuest ? (
             /*
               A guest is still NOT sent to `/orders/...`: that route is
@@ -294,30 +299,30 @@ function PaymentStep({
               <View className="rounded-2xl border border-border bg-card p-4">
                 <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {orderNumbers.length > 1
-                    ? t("checkout.orderNumbers.headingOther")
-                    : t("checkout.orderNumbers.headingOne")}
+                    ? t('checkout.orderNumbers.headingOther')
+                    : t('checkout.orderNumbers.headingOne')}
                 </Text>
                 <Text className="mt-1 text-base font-bold text-foreground" selectable>
-                  {orderNumbers.join("  ·  ")}
+                  {orderNumbers.join('  ·  ')}
                 </Text>
                 <Text className="mt-2 text-sm text-muted-foreground">
-                  {t("checkout.orderNumbers.keepToHand")}
+                  {t('checkout.orderNumbers.keepToHand')}
                 </Text>
               </View>
               <Button appearance="outline" tone="neutral" onPress={onDone}>
-                {t("checkout.keepShopping")}
+                {t('checkout.keepShopping')}
               </Button>
               <Button
                 appearance="outline"
                 tone="neutral"
-                onPress={() => router.push("/guest-orders/recover")}
+                onPress={() => router.push('/guest-orders/recover')}
               >
-                {t("checkout.emailMeLink")}
+                {t('checkout.emailMeLink')}
               </Button>
             </>
           ) : (
             <Button tone="accent" onPress={onDone}>
-              {t("checkout.viewOrder")}
+              {t('checkout.viewOrder')}
             </Button>
           )}
         </View>
@@ -325,16 +330,16 @@ function PaymentStep({
     );
   }
 
-  if (status === "canceled") {
+  if (status === 'canceled') {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title={t("payment.cancelled.title")} />
+        <SectionHeader title={t('payment.cancelled.title')} />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">
-            {t("payment.cancelled.bodyItemsReturned")}
+            {t('payment.cancelled.bodyItemsReturned')}
           </Text>
           <Button appearance="outline" tone="neutral" onPress={onDone}>
-            {isGuest ? t("checkout.keepShopping") : t("checkout.backToOrders")}
+            {isGuest ? t('checkout.keepShopping') : t('checkout.backToOrders')}
           </Button>
         </View>
       </View>
@@ -344,15 +349,15 @@ function PaymentStep({
   if (awaiting) {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title={t("payment.confirming.title")} />
+        <SectionHeader title={t('payment.confirming.title')} />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">
-            {status === "requires_action" || status === "processing"
-              ? t("payment.confirming.bankStillCompleting")
-              : t("payment.confirming.checkingWithBank")}
+            {status === 'requires_action' || status === 'processing'
+              ? t('payment.confirming.bankStillCompleting')
+              : t('payment.confirming.checkingWithBank')}
           </Text>
           <Button appearance="outline" tone="neutral" onPress={onDone}>
-            {isGuest ? t("checkout.keepShopping") : t("checkout.checkLaterFromOrders")}
+            {isGuest ? t('checkout.keepShopping') : t('checkout.checkLaterFromOrders')}
           </Button>
         </View>
       </View>
@@ -361,10 +366,10 @@ function PaymentStep({
 
   return (
     <View className="px-4">
-      <SectionHeader title={t("payment.title")} />
+      <SectionHeader title={t('payment.title')} />
       <View className="gap-4">
         <View className="flex-row items-baseline justify-between">
-          <Text className="text-sm text-muted-foreground">{t("payment.totalToPay")}</Text>
+          <Text className="text-sm text-muted-foreground">{t('payment.totalToPay')}</Text>
           {/*
             `formatMoney` and NOT `PriceDisplay`: this figure is what the card
             will actually be charged, in the currency the payment was created in.
@@ -389,7 +394,7 @@ function PaymentStep({
           onCancelled={onCancelled}
           onFailed={onFailed}
         />
-        <Text className="text-xs text-muted-foreground">{t("payment.cardDetailsNotice")}</Text>
+        <Text className="text-xs text-muted-foreground">{t('payment.cardDetailsNotice')}</Text>
       </View>
       <View className="h-24" />
     </View>
@@ -428,7 +433,7 @@ function CheckoutBody() {
    * presses back should land on the collection they were looking at.
    */
   const [pickupDeclined, setPickupDeclined] = useState(false);
-  const [discountCode, setDiscountCode] = useState("");
+  const [discountCode, setDiscountCode] = useState('');
   /**
    * The typed destination and contact.
    *
@@ -520,9 +525,9 @@ function CheckoutBody() {
   if (targetGroups.length === 0) {
     return (
       <EmptyState
-        title={t("checkout.empty.title")}
-        description={t("checkout.empty.body")}
-        action={{ label: t("checkout.empty.backToCart"), onPress: () => router.replace("/cart") }}
+        title={t('checkout.empty.title')}
+        description={t('checkout.empty.body')}
+        action={{ label: t('checkout.empty.backToCart'), onPress: () => router.replace('/cart') }}
       />
     );
   }
@@ -548,7 +553,7 @@ function CheckoutBody() {
       // a credential minted into a log, so it is minted at the first moment
       // there is a client to hand it to — which is this one.
       if (checkoutGroupId === undefined) {
-        router.replace("/");
+        router.replace('/');
         return;
       }
       const toPortal = () =>
@@ -560,7 +565,7 @@ function CheckoutBody() {
       portalConfirmation.mutate(checkoutGroupId, { onSettled: toPortal });
       return;
     }
-    router.replace((orderId ? `/orders/${orderId}` : "/orders"));
+    router.replace(orderId ? `/orders/${orderId}` : '/orders');
   };
 
   /** The destination this press will send, or `null` when it is incomplete. */
@@ -572,14 +577,14 @@ function CheckoutBody() {
       // `PickupDestination` has no field for one.
       const pickupContact = cleanContact(draft.contact);
       if (pickupContact.email.length === 0) return null;
-      return { type: "pickup", locationId: pickupLocationId, pickupContact };
+      return { type: 'pickup', locationId: pickupLocationId, pickupContact };
     }
     if (usingSavedAddress && effectiveAddressId) {
-      return { type: "saved_address", addressId: effectiveAddressId };
+      return { type: 'saved_address', addressId: effectiveAddressId };
     }
     if (!isDraftComplete(draft)) return null;
     return {
-      type: "inline_shipping_address",
+      type: 'inline_shipping_address',
       address: cleanAddress(draft.address),
       // Opt-IN, and only ever true for a signed-in buyer — the form does not
       // render the control for anyone else.
@@ -592,8 +597,8 @@ function CheckoutBody() {
     if (!destination) {
       setFormError(
         collecting
-          ? t("checkout.error.collectionEmailRequired")
-          : t("checkout.error.emailAndAddressRequired"),
+          ? t('checkout.error.collectionEmailRequired')
+          : t('checkout.error.emailAndAddressRequired'),
       );
       return;
     }
@@ -602,7 +607,7 @@ function CheckoutBody() {
     // trip for a form the buyer can see is incomplete.
     const contact = cleanContact(draft.contact);
     if (!isAuthenticated && contact.email.length === 0) {
-      setFormError(t("checkout.error.receiptEmailRequired"));
+      setFormError(t('checkout.error.receiptEmailRequired'));
       return;
     }
     setFormError(null);
@@ -631,7 +636,7 @@ function CheckoutBody() {
           // before payments existed.
           if (!result.payment) {
             idempotencyKey.current = null;
-            toast.success(t("checkout.toast.orderPlaced"));
+            toast.success(t('checkout.toast.orderPlaced'));
             leaveCheckout(first?.id, result.checkoutGroupId);
             return;
           }
@@ -675,8 +680,8 @@ function CheckoutBody() {
           setSheetDone(false);
           toast.info(
             isAuthenticated
-              ? t("checkout.toast.reservedSignedIn")
-              : t("checkout.toast.reservedGuest"),
+              ? t('checkout.toast.reservedSignedIn')
+              : t('checkout.toast.reservedGuest'),
           );
           leaveCheckout(placed.firstOrderId, placed.checkoutGroupId);
         }}
@@ -694,7 +699,7 @@ function CheckoutBody() {
 
   return (
     <View className="px-4">
-      <SectionHeader title={t("checkout.title")} />
+      <SectionHeader title={t('checkout.title')} />
       <View className="gap-5">
         {/*
           Signing in is offered ONCE, at the top, as an alternative to a path
@@ -708,7 +713,7 @@ function CheckoutBody() {
         {isAuthenticated && savedAddresses.length > 0 ? (
           <View className="gap-3">
             <Text className="text-sm font-semibold text-foreground">
-              {t("checkout.shippingAddress")}
+              {t('checkout.shippingAddress')}
             </Text>
             {usingInlineAddress ? null : (
               <>
@@ -729,7 +734,7 @@ function CheckoutBody() {
               onPress={() => setUsingInlineAddress(!usingInlineAddress)}
               leadingIcon={toBloomIcon(Plus)}
             >
-              {usingInlineAddress ? t("checkout.useSavedAddress") : t("checkout.deliverElsewhere")}
+              {usingInlineAddress ? t('checkout.useSavedAddress') : t('checkout.deliverElsewhere')}
             </Button>
           </View>
         ) : null}
@@ -743,16 +748,16 @@ function CheckoutBody() {
           <View className="gap-3">
             <Text className="text-sm font-semibold text-foreground">
               {collecting
-                ? t("checkout.destination.collectInPerson")
+                ? t('checkout.destination.collectInPerson')
                 : isAuthenticated
-                  ? t("checkout.destination.deliverTo")
-                  : t("checkout.destination.continueAsGuest")}
+                  ? t('checkout.destination.deliverTo')
+                  : t('checkout.destination.continueAsGuest')}
             </Text>
             {isAuthenticated ? null : (
               <Text className="text-sm text-muted-foreground">
                 {collecting
-                  ? t("checkout.destination.guestPickupHint")
-                  : t("checkout.destination.guestDeliveryHint")}
+                  ? t('checkout.destination.guestPickupHint')
+                  : t('checkout.destination.guestDeliveryHint')}
               </Text>
             )}
             <View className="rounded-2xl border border-border bg-card p-4">
@@ -766,7 +771,7 @@ function CheckoutBody() {
                     : [
                         {
                           id: pickup,
-                          name: pickupName ?? t("checkout.destination.pickupFallbackName"),
+                          name: pickupName ?? t('checkout.destination.pickupFallbackName'),
                         },
                       ]
                 }
@@ -778,12 +783,12 @@ function CheckoutBody() {
         )}
 
         {/* Discount code (optional) */}
-        <Field label={t("checkout.discount.label")}>
+        <Field label={t('checkout.discount.label')}>
           <TextFieldInput
-            label={t("checkout.discount.accessibilityLabel")}
+            label={t('checkout.discount.accessibilityLabel')}
             value={discountCode}
             onValueChange={setDiscountCode}
-            placeholder={t("checkout.discount.placeholder")}
+            placeholder={t('checkout.discount.placeholder')}
             autoCapitalize="characters"
             autoCorrect={false}
           />
@@ -801,7 +806,7 @@ function CheckoutBody() {
         ) : null}
 
         <Button tone="accent" loading={checkout.isPending} onPress={onPlaceOrder}>
-          {t("checkout.placeOrder")}
+          {t('checkout.placeOrder')}
         </Button>
       </View>
       <View className="h-24" />
@@ -814,7 +819,7 @@ export default function CheckoutScreen() {
   return (
     <ScreenShell contentClassName="pt-5 web:max-w-[900px]">
       <Head>
-        <title>{t("checkout.pageTitle")}</title>
+        <title>{t('checkout.pageTitle')}</title>
       </Head>
       <CheckoutBody />
     </ScreenShell>

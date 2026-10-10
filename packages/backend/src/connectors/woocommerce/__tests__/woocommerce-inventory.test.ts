@@ -41,10 +41,39 @@ function getTransport(handler: (url: string) => WooCommerceHttpResponse): {
 function catalogPage(headers: Record<string, string> = { 'x-wp-totalpages': '1' }) {
   return ok(
     [
-      { id: 111, name: 'Tracked Simple', type: 'simple', price: '5.00', manage_stock: true, stock_quantity: 7, attributes: [], images: [], categories: [] },
-      { id: 222, name: 'Untracked Simple', type: 'simple', price: '5.00', manage_stock: false, stock_quantity: null, attributes: [], images: [], categories: [] },
+      {
+        id: 111,
+        name: 'Tracked Simple',
+        type: 'simple',
+        price: '5.00',
+        manage_stock: true,
+        stock_quantity: 7,
+        attributes: [],
+        images: [],
+        categories: [],
+      },
+      {
+        id: 222,
+        name: 'Untracked Simple',
+        type: 'simple',
+        price: '5.00',
+        manage_stock: false,
+        stock_quantity: null,
+        attributes: [],
+        images: [],
+        categories: [],
+      },
       { id: 333, name: 'Variable', type: 'variable', attributes: [], images: [], categories: [] },
-      { id: 555, name: 'Parent-tracked', type: 'variable', manage_stock: true, stock_quantity: 9, attributes: [], images: [], categories: [] },
+      {
+        id: 555,
+        name: 'Parent-tracked',
+        type: 'variable',
+        manage_stock: true,
+        stock_quantity: 9,
+        attributes: [],
+        images: [],
+        categories: [],
+      },
     ],
     headers,
   );
@@ -54,8 +83,24 @@ function variationsFor(url: string): WooCommerceHttpResponse | undefined {
   if (url.includes('/products/333/variations')) {
     return ok(
       [
-        { id: 3001, price: '5.00', regular_price: '5.00', sale_price: '', manage_stock: true, stock_quantity: 3, attributes: [] },
-        { id: 3002, price: '5.00', regular_price: '5.00', sale_price: '', manage_stock: false, stock_quantity: null, attributes: [] },
+        {
+          id: 3001,
+          price: '5.00',
+          regular_price: '5.00',
+          sale_price: '',
+          manage_stock: true,
+          stock_quantity: 3,
+          attributes: [],
+        },
+        {
+          id: 3002,
+          price: '5.00',
+          regular_price: '5.00',
+          sale_price: '',
+          manage_stock: false,
+          stock_quantity: null,
+          attributes: [],
+        },
       ],
       { 'x-wp-totalpages': '1' },
     );
@@ -63,7 +108,17 @@ function variationsFor(url: string): WooCommerceHttpResponse | undefined {
   if (url.includes('/products/555/variations')) {
     // A variation deferring to its parent's stock (`manage_stock: 'parent'`).
     return ok(
-      [{ id: 5001, price: '5.00', regular_price: '5.00', sale_price: '', manage_stock: 'parent', stock_quantity: null, attributes: [] }],
+      [
+        {
+          id: 5001,
+          price: '5.00',
+          regular_price: '5.00',
+          sale_price: '',
+          manage_stock: 'parent',
+          stock_quantity: null,
+          attributes: [],
+        },
+      ],
       { 'x-wp-totalpages': '1' },
     );
   }
@@ -106,7 +161,19 @@ describe('woocommerce fetchInventory', () => {
       return url.includes('page=2')
         ? catalogPage({ 'x-wp-totalpages': '2' })
         : ok(
-            [{ id: 888, name: 'Other', type: 'simple', price: '1.00', manage_stock: true, stock_quantity: 1, attributes: [], images: [], categories: [] }],
+            [
+              {
+                id: 888,
+                name: 'Other',
+                type: 'simple',
+                price: '1.00',
+                manage_stock: true,
+                stock_quantity: 1,
+                attributes: [],
+                images: [],
+                categories: [],
+              },
+            ],
             { 'x-wp-totalpages': '2' },
           );
     });

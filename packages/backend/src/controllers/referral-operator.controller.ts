@@ -23,10 +23,7 @@ import {
   listEarningDiscrepancies,
   transitionEarningDiscrepancy,
 } from '../db/referralEarnings/discrepancyRepository.js';
-import {
-  readProgramControls,
-  setProgramControls,
-} from '../services/referrals/controls.service.js';
+import { readProgramControls, setProgramControls } from '../services/referrals/controls.service.js';
 import { operatorAttributionTrace } from '../services/referrals/read.service.js';
 import {
   readReferralPartnerBalances,
@@ -139,10 +136,7 @@ export async function getReferralAttributionTraceHandler(
 //    the finding measured.
 
 /** `GET /internal/referrals/partners/:partnerId/earnings?programId=`. */
-export async function getReferralEarningsTraceHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function getReferralEarningsTraceHandler(req: Request, res: Response): Promise<void> {
   try {
     sendSuccess(
       res,
@@ -175,10 +169,7 @@ export async function getReferralPartnerBalancesHandler(
 }
 
 /** `POST /internal/referrals/partners/:partnerId/payout-batches`. */
-export async function openReferralPayoutBatchHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function openReferralPayoutBatchHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as {
       programId: string;
@@ -195,9 +186,7 @@ export async function openReferralPayoutBatchHandler(
         currency: body.currency,
         createdByOxyUserId: getRequiredOxyUserId(req),
         ...(body.finalPayout === undefined ? {} : { finalPayout: body.finalPayout }),
-        ...(body.withholdingMinor === undefined
-          ? {}
-          : { withholdingMinor: body.withholdingMinor }),
+        ...(body.withholdingMinor === undefined ? {} : { withholdingMinor: body.withholdingMinor }),
       }),
     );
   } catch (error: unknown) {
@@ -232,10 +221,7 @@ export async function approveReferralPayoutBatchHandler(
  * this is how a batch settles at all, which is why the surface stays mounted
  * while every lever is down.
  */
-export async function settleReferralPayoutBatchHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function settleReferralPayoutBatchHandler(req: Request, res: Response): Promise<void> {
   try {
     sendSuccess(res, await settlePayoutBatch({ batchId: routeParam(req, 'batchId') }));
   } catch (error: unknown) {
@@ -244,10 +230,7 @@ export async function settleReferralPayoutBatchHandler(
 }
 
 /** `POST /internal/referrals/payout-batches/:batchId/cancel`. */
-export async function cancelReferralPayoutBatchHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function cancelReferralPayoutBatchHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as { reason: string };
     sendSuccess(
@@ -290,10 +273,7 @@ export async function freezeReferralPartnerRewardsHandler(
 }
 
 /** `POST /internal/referrals/partners/:partnerId/unfreeze`. */
-export async function liftReferralPartnerFreezeHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function liftReferralPartnerFreezeHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as { reason: string };
     const actor = getRequiredOxyUserId(req);
@@ -313,10 +293,7 @@ export async function liftReferralPartnerFreezeHandler(
 }
 
 /** `POST /internal/referrals/partners/:partnerId/recoveries` — ADR 0005 R7. */
-export async function recordReferralRecoveryHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function recordReferralRecoveryHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as {
       recoveryRef: string;
@@ -409,16 +386,10 @@ export async function resolveReferralEarningDiscrepancyHandler(
  * Drives the same function the loop drives. It DETECTS and repairs nothing, so
  * an operator running it during an incident cannot make anything worse.
  */
-export async function runReferralReconciliationHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function runReferralReconciliationHandler(req: Request, res: Response): Promise<void> {
   try {
     const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
-    sendSuccess(
-      res,
-      await reconcileReferralEarnings({ limit: 25, ...(cursor ? { cursor } : {}) }),
-    );
+    sendSuccess(res, await reconcileReferralEarnings({ limit: 25, ...(cursor ? { cursor } : {}) }));
   } catch (error: unknown) {
     respondWithError(res, error, 'Failed to reconcile referral earnings');
   }

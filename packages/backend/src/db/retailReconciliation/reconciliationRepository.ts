@@ -31,8 +31,7 @@ import {
 /** One evaluation of the equation for one order. */
 export type RetailReconciliationRow = typeof retailReconciliations.$inferSelect;
 /** One of the twelve components of one revision. */
-export type RetailReconciliationComponentRow =
-  typeof retailReconciliationComponents.$inferSelect;
+export type RetailReconciliationComponentRow = typeof retailReconciliationComponents.$inferSelect;
 /** One authoritative record a revision consumed. */
 export type RetailReconciliationEvidenceRow = typeof retailReconciliationEvidence.$inferSelect;
 

@@ -311,13 +311,19 @@ async function checkPushReceipts(receiptIds: ExpoPushReceiptId[]): Promise<void>
       for (const [receiptId, receipt] of Object.entries(receipts)) {
         if (receipt.status === 'error') {
           const { message, details } = receipt;
-          log.general.warn({ receiptId, message, error: details?.error }, 'Expo push receipt error');
+          log.general.warn(
+            { receiptId, message, error: details?.error },
+            'Expo push receipt error',
+          );
 
           // Deactivate invalid device tokens
           if (details?.error === 'DeviceNotRegistered') {
             // We can't directly map receiptId -> token, but Expo will stop delivering
             // to unregistered devices. The token gets deactivated on the next send attempt.
-            log.general.info({ receiptId }, 'Device not registered — token will be deactivated on next send');
+            log.general.info(
+              { receiptId },
+              'Device not registered — token will be deactivated on next send',
+            );
           }
         }
       }
@@ -363,16 +369,22 @@ async function deliverWebPush(userId: string, notification: NotificationRecord):
         if (isGone) {
           // Subscription expired or invalid — deactivate
           await deactivateWebPushSubscriptionById(sub.id);
-          log.general.info({ userId, subscriptionId: sub.id }, 'Web push subscription expired, deactivated');
+          log.general.info(
+            { userId, subscriptionId: sub.id },
+            'Web push subscription expired, deactivated',
+          );
         } else {
-          log.general.warn({ err: error, userId, subscriptionId: sub.id }, 'Web push delivery failed');
+          log.general.warn(
+            { err: error, userId, subscriptionId: sub.id },
+            'Web push delivery failed',
+          );
         }
         throw error; // Re-throw so Promise.allSettled marks as rejected
       }
     }),
   );
 
-  return results.some(r => r.status === 'fulfilled');
+  return results.some((r) => r.status === 'fulfilled');
 }
 
 // ── Main send function ─────────────────────────────────────────────
@@ -387,8 +399,16 @@ async function deliverWebPush(userId: string, notification: NotificationRecord):
 export async function sendNotification(
   options: SendNotificationOptions,
 ): Promise<NotificationRecord> {
-  const { userId, type, title, body, priority = 'normal', data, conversationId, expiresAt } =
-    options;
+  const {
+    userId,
+    type,
+    title,
+    body,
+    priority = 'normal',
+    data,
+    conversationId,
+    expiresAt,
+  } = options;
 
   const channels = await resolveChannels(userId, options.channels);
 
@@ -444,10 +464,7 @@ export async function sendNotification(
 
   const persisted = await updateNotificationDeliveryStatus(notification.id, deliveryStatus);
 
-  log.general.info(
-    { type, userId, channels, title: title.slice(0, 50) },
-    'Notification sent',
-  );
+  log.general.info({ type, userId, channels, title: title.slice(0, 50) }, 'Notification sent');
 
   // `persisted` is null only if the row was deleted while the channels were in
   // flight. The caller asked for what was sent, so answer with the composed row

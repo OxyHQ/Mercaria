@@ -92,7 +92,10 @@ function nextAttemptAt(attempts: number, now: Date): Date {
  * from Stripe, which is also the more correct answer: by the time a dead letter
  * is replayed, the snapshot in the original delivery is history.
  */
-function contextFromRow(row: PaymentProviderEventRow, delivered?: Stripe.Event): StripeEventContext {
+function contextFromRow(
+  row: PaymentProviderEventRow,
+  delivered?: Stripe.Event,
+): StripeEventContext {
   const stored: unknown = row.objectIds;
   const objectIds =
     typeof stored === 'object' && stored !== null ? (stored as Record<string, string>) : {};
@@ -141,9 +144,7 @@ async function processClaimedEvent(input: {
   } catch (error: unknown) {
     const retryable = isRetryableProviderError(error);
     const deadLetter = !retryable || row.attempts >= config.payments.stripe.eventMaxAttempts;
-    const message = redactProviderMessage(
-      error instanceof Error ? error.message : String(error),
-    );
+    const message = redactProviderMessage(error instanceof Error ? error.message : String(error));
     await failProviderEvent(db, {
       eventId: row.id,
       leaseOwner,

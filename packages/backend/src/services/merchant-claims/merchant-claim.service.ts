@@ -221,9 +221,7 @@ export function toMerchantClaimDTO(
  * pending claim's id. `claim_in_progress` says only that somebody is midway —
  * which the button's absence would imply anyway — and never who.
  */
-export async function getClaimEligibility(
-  merchantId: string,
-): Promise<MerchantClaimEligibility> {
+export async function getClaimEligibility(merchantId: string): Promise<MerchantClaimEligibility> {
   const db = getDb();
   const merchant = await findMerchantById(db, merchantId);
   if (!merchant || merchant.status === 'suppressed') {
@@ -434,7 +432,7 @@ async function buildRequestedScope(params: {
   merchantId: string;
   storefrontIds: readonly string[];
   subject: { kind: 'domain' | 'connection'; ref: string } | null;
-}): Promise<RequestedScopeEntry[] > {
+}): Promise<RequestedScopeEntry[]> {
   const entries: RequestedScopeEntry[] = [{ kind: 'merchant', ref: params.merchantId }];
   if (params.subject !== null && params.subject.kind === 'domain') {
     entries.push({ kind: 'domain', ref: params.subject.ref });
@@ -560,7 +558,11 @@ async function assertIssuanceBudget(
     countChallengesForClaimantSince(db, claim.claimantOxyUserId, since),
     countChallengesForMerchantSince(db, claim.merchantId, since),
     claim.subjectKind !== null && claim.subjectRef !== null
-      ? countChallengesForSubjectSince(db, { kind: claim.subjectKind, ref: claim.subjectRef }, since)
+      ? countChallengesForSubjectSince(
+          db,
+          { kind: claim.subjectKind, ref: claim.subjectRef },
+          since,
+        )
       : Promise.resolve(0),
   ]);
 
@@ -1276,9 +1278,7 @@ export async function getClaimForClaimant(
 }
 
 /** Every claim a caller has opened, newest first. */
-export async function listClaimsForClaimant(
-  claimantOxyUserId: string,
-): Promise<MerchantClaim[]> {
+export async function listClaimsForClaimant(claimantOxyUserId: string): Promise<MerchantClaim[]> {
   const db = getDb();
   const rows = await findClaimsByClaimant(db, claimantOxyUserId, CLAIMANT_CLAIM_PAGE_SIZE);
   const out: MerchantClaim[] = [];

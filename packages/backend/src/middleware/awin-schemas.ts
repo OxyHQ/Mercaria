@@ -67,8 +67,16 @@ export const registerAwinSourceSchema = z
   .object({
     merchantId: z.string().min(1),
     storefrontId: z.string().min(1).optional(),
-    territories: z.array(z.string().regex(/^[A-Za-z]{2}$/u)).max(64).optional(),
-    freshnessTtlSeconds: z.number().int().min(60).max(30 * 24 * 60 * 60).optional(),
+    territories: z
+      .array(z.string().regex(/^[A-Za-z]{2}$/u))
+      .max(64)
+      .optional(),
+    freshnessTtlSeconds: z
+      .number()
+      .int()
+      .min(60)
+      .max(30 * 24 * 60 * 60)
+      .optional(),
     pageSize: z.number().int().min(1).max(5_000).optional(),
   })
   .strict();
@@ -79,7 +87,10 @@ export const recordAwinSampleSchema = z
     verdict: z.enum(AWIN_SAMPLE_VERDICTS as [string, ...string[]]),
     sampled: z.number().int().min(1).max(10_000),
     passedRows: z.number().int().min(0).max(10_000),
-    findings: z.array(z.enum(AWIN_SAMPLE_FINDINGS as [string, ...string[]])).max(16).optional(),
+    findings: z
+      .array(z.enum(AWIN_SAMPLE_FINDINGS as [string, ...string[]]))
+      .max(16)
+      .optional(),
     note: z.string().trim().min(1).max(2_000).optional(),
   })
   .strict();

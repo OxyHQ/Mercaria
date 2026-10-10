@@ -28,7 +28,7 @@ function toCurrencyCode(value: string): CurrencyCode | null {
 /** GET /rates — conversion rates for dual-currency display (PUBLIC). */
 export async function getRates(req: Request, res: Response): Promise<void> {
   try {
-    const base = ((req.query.base as string | undefined) ?? 'FAIR');
+    const base = (req.query.base as string | undefined) ?? 'FAIR';
     const baseCode = toCurrencyCode(base);
     if (!baseCode) {
       sendError(res, ErrorCodes.VALIDATION_ERROR, `Unsupported base currency: ${base}`, 400);
@@ -38,7 +38,10 @@ export async function getRates(req: Request, res: Response): Promise<void> {
     const rawQuote = req.query.quote as string | undefined;
     let quotes: CurrencyCode[];
     if (rawQuote) {
-      const tokens = rawQuote.split(',').map((t) => t.trim()).filter((t) => t.length > 0);
+      const tokens = rawQuote
+        .split(',')
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
       const parsed: CurrencyCode[] = [];
       for (const token of tokens) {
         const code = toCurrencyCode(token);

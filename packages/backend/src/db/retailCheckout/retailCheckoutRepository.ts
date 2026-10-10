@@ -269,7 +269,10 @@ export async function markRetailIntentRequested(
     .update(retailProcurementIntents)
     .set({ status: 'requested', requestedAt: input.at ?? new Date() })
     .where(
-      and(eq(retailProcurementIntents.id, input.id), eq(retailProcurementIntents.status, 'recorded')),
+      and(
+        eq(retailProcurementIntents.id, input.id),
+        eq(retailProcurementIntents.status, 'recorded'),
+      ),
     )
     .returning({ id: retailProcurementIntents.id });
   return rows.length > 0;

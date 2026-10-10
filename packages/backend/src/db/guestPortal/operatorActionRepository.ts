@@ -9,10 +9,7 @@
  */
 
 import { eq, sql } from 'drizzle-orm';
-import type {
-  GuestPortalOperatorAction,
-  GuestPortalOperatorOutcome,
-} from '@mercaria/shared-types';
+import type { GuestPortalOperatorAction, GuestPortalOperatorOutcome } from '@mercaria/shared-types';
 import { guestPortalOperatorActions } from '../schema/guestPortal.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 

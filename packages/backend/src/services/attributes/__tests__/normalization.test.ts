@@ -14,10 +14,7 @@ import {
   benchmarkResolved,
   fixtureDefinition,
 } from './fixtures/benchmark-catalog.js';
-import {
-  normalizeAttributeObservation,
-  normalizedFactsAgree,
-} from '../normalization.service.js';
+import { normalizeAttributeObservation, normalizedFactsAgree } from '../normalization.service.js';
 import { isMarketingClaim, MARKETING_PHRASE_COUNT } from '../marketing-claims.js';
 
 describe('the benchmark dataset', () => {
@@ -28,9 +25,7 @@ describe('the benchmark dataset', () => {
     expect(BENCHMARK_DEFINITIONS.length).toBeGreaterThanOrEqual(18);
     expect(BENCHMARK_OBSERVATIONS.length).toBeGreaterThanOrEqual(30);
 
-    const categories = new Set(
-      BENCHMARK_DEFINITIONS.flatMap((entry) => [...entry.categories]),
-    );
+    const categories = new Set(BENCHMARK_DEFINITIONS.flatMap((entry) => [...entry.categories]));
     expect([...categories].sort()).toEqual([
       'cameras',
       'headphones',
@@ -56,37 +51,38 @@ describe('the benchmark dataset', () => {
     }
   });
 
-  it.each(BENCHMARK_OBSERVATIONS.map((entry) => [entry.property, entry.attributeKey, entry.displayValue, entry] as const))(
-    '%s: %s = %s',
-    (_property, attributeKey, _display, entry) => {
-      const definition = benchmarkResolved(attributeKey);
-      const facts = normalizeAttributeObservation({
-        displayValue: entry.displayValue,
-        definition,
-        ...(entry.assumedUnit === undefined ? {} : { assumedUnit: entry.assumedUnit }),
-      });
+  it.each(
+    BENCHMARK_OBSERVATIONS.map(
+      (entry) => [entry.property, entry.attributeKey, entry.displayValue, entry] as const,
+    ),
+  )('%s: %s = %s', (_property, attributeKey, _display, entry) => {
+    const definition = benchmarkResolved(attributeKey);
+    const facts = normalizeAttributeObservation({
+      displayValue: entry.displayValue,
+      definition,
+      ...(entry.assumedUnit === undefined ? {} : { assumedUnit: entry.assumedUnit }),
+    });
 
-      expect(facts.length).toBeGreaterThan(0);
-      const first = facts[0];
-      if (!first) throw new Error('normalization produced no fact');
-      expect(first.normalizationState).toBe(entry.expected);
+    expect(facts.length).toBeGreaterThan(0);
+    const first = facts[0];
+    if (!first) throw new Error('normalization produced no fact');
+    expect(first.normalizationState).toBe(entry.expected);
 
-      if (entry.baseMagnitude !== undefined) {
-        expect(first.normalizedNumber).toBeCloseTo(entry.baseMagnitude, 6);
-      }
-      if (entry.normalizedText !== undefined) {
-        expect(first.normalizedText).toBe(entry.normalizedText);
-      }
-      if (entry.range !== undefined) {
-        expect(first.normalizedNumber).toBeCloseTo(entry.range[0], 6);
-        expect(first.normalizedNumberMax).toBeCloseTo(entry.range[1], 6);
-        expect(first.rangeLowerInclusive).toBe(true);
-        expect(first.rangeUpperInclusive).toBe(true);
-      }
-      // The source's own words survive every outcome, including every refusal.
-      expect(first.sourceDisplayValue).toBe(entry.displayValue);
-    },
-  );
+    if (entry.baseMagnitude !== undefined) {
+      expect(first.normalizedNumber).toBeCloseTo(entry.baseMagnitude, 6);
+    }
+    if (entry.normalizedText !== undefined) {
+      expect(first.normalizedText).toBe(entry.normalizedText);
+    }
+    if (entry.range !== undefined) {
+      expect(first.normalizedNumber).toBeCloseTo(entry.range[0], 6);
+      expect(first.normalizedNumberMax).toBeCloseTo(entry.range[1], 6);
+      expect(first.rangeLowerInclusive).toBe(true);
+      expect(first.rangeUpperInclusive).toBe(true);
+    }
+    // The source's own words survive every outcome, including every refusal.
+    expect(first.sourceDisplayValue).toBe(entry.displayValue);
+  });
 });
 
 describe('two equivalent measurements in different units', () => {
@@ -183,11 +179,7 @@ describe('set cardinality', () => {
       displayValue: 'USB C, HDMI, 3.5mm',
       definition,
     });
-    expect(facts.map((fact) => fact.normalizedText)).toEqual([
-      'usb_c',
-      'hdmi',
-      'headphone_jack',
-    ]);
+    expect(facts.map((fact) => fact.normalizedText)).toEqual(['usb_c', 'hdmi', 'headphone_jack']);
     expect(facts.map((fact) => fact.position)).toEqual([0, 1, 2]);
   });
 
@@ -205,9 +197,18 @@ describe('the five refusals are distinguishable', () => {
     const weight = benchmarkResolved('weight');
     const core = benchmarkResolved('core_count');
 
-    const unknownUnit = normalizeAttributeObservation({ displayValue: '12 parsecs', definition: screen });
-    const unparsed = normalizeAttributeObservation({ displayValue: 'about six inches', definition: screen });
-    const implausible = normalizeAttributeObservation({ displayValue: '0.148 g', definition: weight });
+    const unknownUnit = normalizeAttributeObservation({
+      displayValue: '12 parsecs',
+      definition: screen,
+    });
+    const unparsed = normalizeAttributeObservation({
+      displayValue: 'about six inches',
+      definition: screen,
+    });
+    const implausible = normalizeAttributeObservation({
+      displayValue: '0.148 g',
+      definition: weight,
+    });
     const outOfRange = normalizeAttributeObservation({ displayValue: '9000', definition: core });
 
     expect(unknownUnit[0]?.normalizationState).toBe('unknown_unit');
@@ -273,12 +274,16 @@ describe('marketing claims', () => {
     const objective = benchmarkResolved('build_material');
     const subjective = benchmarkResolved('editorial_style');
     expect(
-      normalizeAttributeObservation({ displayValue: 'Premium quality aluminium', definition: objective })[0]
-        ?.normalizationState,
+      normalizeAttributeObservation({
+        displayValue: 'Premium quality aluminium',
+        definition: objective,
+      })[0]?.normalizationState,
     ).toBe('marketing_claim');
     expect(
-      normalizeAttributeObservation({ displayValue: 'Premium quality finish', definition: subjective })[0]
-        ?.normalizationState,
+      normalizeAttributeObservation({
+        displayValue: 'Premium quality finish',
+        definition: subjective,
+      })[0]?.normalizationState,
     ).toBe('normalized');
   });
 });

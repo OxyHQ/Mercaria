@@ -12,18 +12,23 @@ export async function readListingBundleContents(
   conditionDetails: readonly Pick<ConditionDetailDTO, 'kind'>[],
 ): Promise<Record<string, ProductBundleContents>> {
   const ownedVariants = new Set(variantIds);
-  const links = (await findActiveLinksForListing(getDb(), listingId))
-    .filter(link => ownedVariants.has(link.productVariantId));
-  const contents = await readPublicBundleContentsForVariants(links.map(link => link.canonicalVariantId));
+  const links = (await findActiveLinksForListing(getDb(), listingId)).filter((link) =>
+    ownedVariants.has(link.productVariantId),
+  );
+  const contents = await readPublicBundleContentsForVariants(
+    links.map((link) => link.canonicalVariantId),
+  );
   const entries: [string, ProductBundleContents][] = [];
   // The catalog describes a complete pack. A seller's disclosed missing parts
   // prevent presenting that original composition as the contents of this copy.
-  const incomplete = conditionDetails.some(detail => detail.kind === 'missing_accessory');
+  const incomplete = conditionDetails.some((detail) => detail.kind === 'missing_accessory');
   for (const link of links) {
     const composition = contents.get(link.canonicalVariantId);
-    if (composition) entries.push([link.productVariantId, incomplete
-      ? { status: 'withheld', variantId: link.canonicalVariantId }
-      : composition]);
+    if (composition)
+      entries.push([
+        link.productVariantId,
+        incomplete ? { status: 'withheld', variantId: link.canonicalVariantId } : composition,
+      ]);
   }
   return Object.fromEntries(entries);
 }

@@ -23,8 +23,19 @@ function link(value: string, verification: PlaceCapability['verification']): Pla
   };
 }
 
-function claim(state: PlaceClaim['state'], placeId = 'gw_1', claimedAt = '2026-10-01T00:00:00.000Z'): PlaceClaim {
-  return { id: `c_${state}_${claimedAt}`, placeId, role: 'owner', state, oxyAccountId: 'org_1', claimedAt };
+function claim(
+  state: PlaceClaim['state'],
+  placeId = 'gw_1',
+  claimedAt = '2026-10-01T00:00:00.000Z',
+): PlaceClaim {
+  return {
+    id: `c_${state}_${claimedAt}`,
+    placeId,
+    role: 'owner',
+    state,
+    oxyAccountId: 'org_1',
+    claimedAt,
+  };
 }
 
 describe('storeLinkState', () => {
@@ -33,22 +44,30 @@ describe('storeLinkState', () => {
   });
 
   it('is verified only at a claimant or Oxy tier', () => {
-    expect(storeLinkState({ capabilities: [link('loc_1', 'business_asserted')] }, 'loc_1')).toBe('verified');
-    expect(storeLinkState({ capabilities: [link('loc_1', 'oxy_verified')] }, 'loc_1')).toBe('verified');
-    expect(storeLinkState({ capabilities: [link('loc_1', 'community_reported')] }, 'loc_1')).toBe('unverified');
+    expect(storeLinkState({ capabilities: [link('loc_1', 'business_asserted')] }, 'loc_1')).toBe(
+      'verified',
+    );
+    expect(storeLinkState({ capabilities: [link('loc_1', 'oxy_verified')] }, 'loc_1')).toBe(
+      'verified',
+    );
+    expect(storeLinkState({ capabilities: [link('loc_1', 'community_reported')] }, 'loc_1')).toBe(
+      'unverified',
+    );
   });
 
   it('reads the STRONGEST assertion: a business naming another location beats a community report of this one', () => {
-    const place = { capabilities: [link('loc_1', 'community_reported'), link('loc_2', 'business_asserted')] };
+    const place = {
+      capabilities: [link('loc_1', 'community_reported'), link('loc_2', 'business_asserted')],
+    };
     expect(storeLinkState(place, 'loc_1')).toBe('other_location');
   });
 });
 
 describe('claimOnPlace', () => {
   it('prefers an approved claim, then a pending one, and ignores other places', () => {
-    expect(claimOnPlace([claim('pending'), claim('approved'), claim('approved', 'gw_2')], 'gw_1')?.state).toBe(
-      'approved',
-    );
+    expect(
+      claimOnPlace([claim('pending'), claim('approved'), claim('approved', 'gw_2')], 'gw_1')?.state,
+    ).toBe('approved');
     expect(claimOnPlace([claim('rejected'), claim('pending')], 'gw_1')?.state).toBe('pending');
     expect(claimOnPlace([claim('approved', 'gw_2')], 'gw_1')).toBeUndefined();
   });

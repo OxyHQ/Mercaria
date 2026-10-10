@@ -354,7 +354,7 @@ export const REFERRAL_APPLICATION_ITEMS: readonly ReferralApplicationItem[] = [
     label: 'Oxy identity or verified organization',
     source: 'oxy_identity',
     reason:
-      'The record\'s owner IS the identity: a `user` partner is an Oxy account the ' +
+      "The record's owner IS the identity: a `user` partner is an Oxy account the " +
       'request authenticated as, and a `store` partner is a store the caller holds ' +
       '`store:manage` on. Copying either into this domain would be the profile mirror ' +
       'ADR 0003 D15 says does not exist.',
@@ -389,7 +389,7 @@ export const REFERRAL_APPLICATION_ITEMS: readonly ReferralApplicationItem[] = [
     source: 'tax_questionnaire',
     column: 'residency_country',
     reason:
-      'ADR 0005 D15 gate 2 already asks exactly this, and #146\'s own application rule ' +
+      "ADR 0005 D15 gate 2 already asks exactly this, and #146's own application rule " +
       'says not to collect tax-shaped data in a general profile form. A second country ' +
       'and a second participant-type enum here would be two representations of one ' +
       'fact, and the one that decides a payout would not be the one on the form.',
@@ -415,7 +415,7 @@ export const REFERRAL_APPLICATION_ITEMS: readonly ReferralApplicationItem[] = [
       'surface for content nobody shipped, and a `jsonb` answer bag is the mechanism ' +
       'by which an address reaches production (#77). When a program defines its first ' +
       'question it arrives as a code-constant registry beside the terms, the way the ' +
-      'tax questionnaire\'s declarations do.',
+      "tax questionnaire's declarations do.",
   },
   {
     item: 10,

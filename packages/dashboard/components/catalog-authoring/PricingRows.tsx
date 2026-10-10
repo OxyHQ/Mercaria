@@ -1,17 +1,21 @@
-import React, { useState } from "react";
-import { View } from "react-native";
-import type { AuthoringSchema, CurrencyCode } from "@mercaria/shared-types";
-import { ALL_CURRENCY_CODES } from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
-import { Switch } from "@oxy.so/bloom/switch";
-import { useTranslation } from "@/lib/i18n";
-import { findingMessageKey, findingsForVariant, type LocatedFinding } from "@/lib/authoring/findings";
-import type { VariantRow } from "@/lib/authoring/matrix";
-import { ValuePicker } from "./ValuePicker";
-import { axisSummary, variantAnchorId } from "./VariantRows";
+import React, { useState } from 'react';
+import { View } from 'react-native';
+import type { AuthoringSchema, CurrencyCode } from '@mercaria/shared-types';
+import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
+import { Text } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
+import { Switch } from '@oxy.so/bloom/switch';
+import { useTranslation } from '@/lib/i18n';
+import {
+  findingMessageKey,
+  findingsForVariant,
+  type LocatedFinding,
+} from '@/lib/authoring/findings';
+import type { VariantRow } from '@/lib/authoring/matrix';
+import { ValuePicker } from './ValuePicker';
+import { axisSummary, variantAnchorId } from './VariantRows';
 
 interface PricingRowsProps {
   readonly schema: AuthoringSchema;
@@ -56,8 +60,8 @@ export function PricingRows({
   disabled = false,
 }: PricingRowsProps) {
   const { t } = useTranslation();
-  const [bulkPrice, setBulkPrice] = useState("");
-  const [bulkStock, setBulkStock] = useState("");
+  const [bulkPrice, setBulkPrice] = useState('');
+  const [bulkStock, setBulkStock] = useState('');
 
   const enabled = rows.filter((row) => row.enabled);
   const positionByKey = new Map<string, number>();
@@ -72,20 +76,20 @@ export function PricingRows({
   };
 
   const currencyOptions = ALL_CURRENCY_CODES.map((code) => ({ id: code, label: code }));
-  const firstCurrency: CurrencyCode = enabled[0]?.currency ?? "FAIR";
+  const firstCurrency: CurrencyCode = enabled[0]?.currency ?? 'FAIR';
 
   return (
     <View className="gap-4">
       {enabled.length > 1 ? (
         <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
           <Text className="text-sm font-semibold text-foreground">
-            {t("products.wizard.pricing.bulkTitle")}
+            {t('products.wizard.pricing.bulkTitle')}
           </Text>
           <View className="flex-row flex-wrap gap-3">
             <View className="min-w-[9rem] flex-1">
-              <Field label={t("products.wizard.pricing.price")}>
+              <Field label={t('products.wizard.pricing.price')}>
                 <TextFieldInput
-                  label={t("products.wizard.pricing.bulkPriceLabel")}
+                  label={t('products.wizard.pricing.bulkPriceLabel')}
                   placeholder={null}
                   value={bulkPrice}
                   onValueChange={setBulkPrice}
@@ -95,9 +99,9 @@ export function PricingRows({
               </Field>
             </View>
             <View className="min-w-[9rem] flex-1">
-              <Field label={t("products.wizard.pricing.stock")}>
+              <Field label={t('products.wizard.pricing.stock')}>
                 <TextFieldInput
-                  label={t("products.wizard.pricing.bulkStockLabel")}
+                  label={t('products.wizard.pricing.bulkStockLabel')}
                   placeholder={null}
                   value={bulkStock}
                   onValueChange={setBulkStock}
@@ -107,13 +111,13 @@ export function PricingRows({
               </Field>
             </View>
             <View className="min-w-[9rem] flex-1">
-              <Field label={t("products.wizard.pricing.currency")}>
+              <Field label={t('products.wizard.pricing.currency')}>
                 <ValuePicker
                   options={currencyOptions}
                   selectedId={firstCurrency}
                   onSelect={(currency) => applyToAll({ currency })}
                   placeholder={firstCurrency}
-                  title={t("products.wizard.pricing.currency")}
+                  title={t('products.wizard.pricing.currency')}
                   disabled={disabled}
                 />
               </Field>
@@ -127,13 +131,11 @@ export function PricingRows({
             onPress={() =>
               applyToAll({
                 ...(bulkPrice.trim().length === 0 ? {} : { priceMajor: bulkPrice.trim() }),
-                ...(bulkStock.trim().length === 0
-                  ? {}
-                  : { inventoryAvailable: bulkStock.trim() }),
+                ...(bulkStock.trim().length === 0 ? {} : { inventoryAvailable: bulkStock.trim() }),
               })
             }
           >
-            {t("products.wizard.pricing.applyToAll")}
+            {t('products.wizard.pricing.applyToAll')}
           </Button>
         </View>
       ) : null}
@@ -149,14 +151,14 @@ export function PricingRows({
             className="gap-3 rounded-2xl border border-border bg-surface p-4"
           >
             <Text className="text-sm font-semibold text-foreground">
-              {summary.length > 0 ? summary : t("products.wizard.variants.singleVariant")}
+              {summary.length > 0 ? summary : t('products.wizard.variants.singleVariant')}
             </Text>
 
             <View className="flex-row flex-wrap gap-3">
               <View className="min-w-[9rem] flex-1">
-                <Field label={t("products.wizard.pricing.price")}>
+                <Field label={t('products.wizard.pricing.price')}>
                   <TextFieldInput
-                    label={t("products.wizard.pricing.price")}
+                    label={t('products.wizard.pricing.price')}
                     placeholder={null}
                     value={row.priceMajor}
                     onValueChange={(priceMajor) => update(row.key, { priceMajor })}
@@ -166,9 +168,9 @@ export function PricingRows({
                 </Field>
               </View>
               <View className="min-w-[9rem] flex-1">
-                <Field label={t("products.wizard.pricing.compareAt")}>
+                <Field label={t('products.wizard.pricing.compareAt')}>
                   <TextFieldInput
-                    label={t("products.wizard.pricing.compareAt")}
+                    label={t('products.wizard.pricing.compareAt')}
                     placeholder={null}
                     value={row.compareAtMajor}
                     onValueChange={(compareAtMajor) => update(row.key, { compareAtMajor })}
@@ -178,13 +180,13 @@ export function PricingRows({
                 </Field>
               </View>
               <View className="min-w-[9rem] flex-1">
-                <Field label={t("products.wizard.pricing.currency")}>
+                <Field label={t('products.wizard.pricing.currency')}>
                   <ValuePicker
                     options={currencyOptions}
                     selectedId={row.currency}
                     onSelect={(currency) => update(row.key, { currency })}
                     placeholder={row.currency}
-                    title={t("products.wizard.pricing.currency")}
+                    title={t('products.wizard.pricing.currency')}
                     disabled={disabled}
                   />
                 </Field>
@@ -193,9 +195,9 @@ export function PricingRows({
 
             <View className="flex-row flex-wrap items-end gap-3">
               <View className="min-w-[9rem] flex-1">
-                <Field label={t("products.wizard.pricing.stock")}>
+                <Field label={t('products.wizard.pricing.stock')}>
                   <TextFieldInput
-                    label={t("products.wizard.pricing.stock")}
+                    label={t('products.wizard.pricing.stock')}
                     placeholder={null}
                     value={row.inventoryAvailable}
                     onValueChange={(inventoryAvailable) => update(row.key, { inventoryAvailable })}
@@ -211,10 +213,10 @@ export function PricingRows({
                     update(row.key, { inventoryTracked })
                   }
                   disabled={disabled}
-                  accessibilityLabel={t("products.wizard.pricing.trackStock")}
+                  accessibilityLabel={t('products.wizard.pricing.trackStock')}
                 />
                 <Text className="text-sm text-muted-foreground">
-                  {t("products.wizard.pricing.trackStock")}
+                  {t('products.wizard.pricing.trackStock')}
                 </Text>
               </View>
             </View>
@@ -230,7 +232,7 @@ export function PricingRows({
 
       {enabled.length === 0 ? (
         <Text className="text-sm text-muted-foreground">
-          {t("products.wizard.pricing.noSoldVariants")}
+          {t('products.wizard.pricing.noSoldVariants')}
         </Text>
       ) : null}
     </View>

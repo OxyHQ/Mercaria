@@ -263,8 +263,10 @@ function storefrontEnglish(): Readonly<Record<string, string>> {
   walk(JSON.parse(raw), '');
   // The vacuity floor: an empty or moved bundle must fail HERE rather than make
   // every key below look absent.
-  expect(Object.keys(flat).length, 'the storefront en.json looks empty — did it move?')
-    .toBeGreaterThan(500);
+  expect(
+    Object.keys(flat).length,
+    'the storefront en.json looks empty — did it move?',
+  ).toBeGreaterThan(500);
   return flat;
 }
 
@@ -506,21 +508,29 @@ describe('the forbidden-field vocabularies name the prohibitions as values', () 
     // The static half. The RUNTIME half walks a real emitted card in
     // `db/__tests__/merchant-pages.realdb.test.ts` — neither sees what the
     // other does, and a key a spread put there is invisible to a source scan.
-    assertEachOf(['rating', 'ratingCount', 'reviewCount', 'merchantRating'] as const, 4, (field) => {
-      expect(MERCHANT_CATALOG_FORBIDDEN_ENTRY_FIELDS).toContain(field);
-    });
+    assertEachOf(
+      ['rating', 'ratingCount', 'reviewCount', 'merchantRating'] as const,
+      4,
+      (field) => {
+        expect(MERCHANT_CATALOG_FORBIDDEN_ENTRY_FIELDS).toContain(field);
+      },
+    );
   });
 
   it('the page names claim evidence, inferred addresses and store internals', () => {
-    assertEachOf([
-      'claimEvidence',
-      'reviewerNote',
-      'onboardingAddress',
-      'physicalLocations',
-      'storeMembers',
-    ] as const, 5, (field) => {
-      expect(MERCHANT_PAGE_FORBIDDEN_FIELDS).toContain(field);
-    });
+    assertEachOf(
+      [
+        'claimEvidence',
+        'reviewerNote',
+        'onboardingAddress',
+        'physicalLocations',
+        'storeMembers',
+      ] as const,
+      5,
+      (field) => {
+        expect(MERCHANT_PAGE_FORBIDDEN_FIELDS).toContain(field);
+      },
+    );
     // A vacuity floor on the vocabulary itself: a list somebody emptied would
     // satisfy nothing above and everything below.
     expect(MERCHANT_PAGE_FORBIDDEN_FIELDS.length).toBeGreaterThanOrEqual(20);

@@ -1,22 +1,22 @@
-import React, { useState } from "react";
-import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import Head from "expo-router/head";
-import * as WebBrowser from "expo-web-browser";
-import { ChevronLeft } from "lucide-react-native";
+import React, { useState } from 'react';
+import { View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import * as WebBrowser from 'expo-web-browser';
+import { ChevronLeft } from 'lucide-react-native';
 import type {
   MerchantEntitlementView,
   MerchantPlanCatalogEntry,
   MerchantPlanStatusView,
   MerchantSubscriptionStatus,
-} from "@mercaria/shared-types";
-import { Text, formatDate, useColorScheme, useFormatters } from "@mercaria/ui";
-import { Button } from "@oxy.so/bloom/button";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { PlanDesigns } from "@/components/settings/PlanDesigns";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { useTranslation } from "@/lib/i18n";
+} from '@mercaria/shared-types';
+import { Text, formatDate, useColorScheme, useFormatters } from '@mercaria/ui';
+import { Button } from '@oxy.so/bloom/button';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { PlanDesigns } from '@/components/settings/PlanDesigns';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { useTranslation } from '@/lib/i18n';
 import {
   useCancelPlan,
   useOpenBillingPortal,
@@ -24,7 +24,7 @@ import {
   usePlanStatus,
   useRefreshPlan,
   useStartPlanCheckout,
-} from "@/lib/hooks/use-plan";
+} from '@/lib/hooks/use-plan';
 
 /**
  * Plan & billing — what this store gets for nothing, and what a paid plan would
@@ -57,7 +57,7 @@ export default function PlanScreen() {
   return (
     <>
       <Head>
-        <title>{t("settings.plan.documentTitle")}</title>
+        <title>{t('settings.plan.documentTitle')}</title>
       </Head>
       <RequireStore permission="store:manage">
         {(storeId) => <PlanBody storeId={storeId} />}
@@ -79,31 +79,27 @@ function PlanBody({ storeId }: { storeId: string }) {
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
+      <Text className="text-sm font-medium text-foreground">{t('common.back')}</Text>
     </Pressable>
   );
 
   if (status.isPending) {
     return (
-      <Screen title={t("settings.plan.title")} action={back}>
+      <Screen title={t('settings.plan.title')} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (status.isError || !status.data) {
     return (
-      <Screen title={t("settings.plan.title")} action={back}>
-        <ScreenMessage title={t("settings.plan.loadFailed")} body={t("common.pleaseTryAgain")} />
+      <Screen title={t('settings.plan.title')} action={back}>
+        <ScreenMessage title={t('settings.plan.loadFailed')} body={t('common.pleaseTryAgain')} />
       </Screen>
     );
   }
 
   return (
-    <Screen
-      title={t("settings.plan.title")}
-      subtitle={t("settings.plan.subtitle")}
-      action={back}
-    >
+    <Screen title={t('settings.plan.title')} subtitle={t('settings.plan.subtitle')} action={back}>
       <View className="gap-4">
         <AlwaysIncluded />
         <CurrentPlan storeId={storeId} status={status.data} />
@@ -132,10 +128,10 @@ function AlwaysIncluded() {
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-foreground">
-        {t("settings.plan.alwaysIncludedTitle")}
+        {t('settings.plan.alwaysIncludedTitle')}
       </Text>
       <Text className="mt-1 text-xs text-muted-foreground">
-        {t("settings.plan.alwaysIncludedBody")}
+        {t('settings.plan.alwaysIncludedBody')}
       </Text>
     </View>
   );
@@ -150,28 +146,28 @@ function AlwaysIncluded() {
  */
 const STATUS_COPY: Record<MerchantSubscriptionStatus, { headingKey: string; bodyKey: string }> = {
   trialing: {
-    headingKey: "settings.plan.statuses.trialing.heading",
-    bodyKey: "settings.plan.statuses.trialing.body",
+    headingKey: 'settings.plan.statuses.trialing.heading',
+    bodyKey: 'settings.plan.statuses.trialing.body',
   },
   active: {
-    headingKey: "settings.plan.statuses.active.heading",
-    bodyKey: "settings.plan.statuses.active.body",
+    headingKey: 'settings.plan.statuses.active.heading',
+    bodyKey: 'settings.plan.statuses.active.body',
   },
   past_due: {
-    headingKey: "settings.plan.statuses.pastDue.heading",
-    bodyKey: "settings.plan.statuses.pastDue.body",
+    headingKey: 'settings.plan.statuses.pastDue.heading',
+    bodyKey: 'settings.plan.statuses.pastDue.body',
   },
   paused: {
-    headingKey: "settings.plan.statuses.paused.heading",
-    bodyKey: "settings.plan.statuses.paused.body",
+    headingKey: 'settings.plan.statuses.paused.heading',
+    bodyKey: 'settings.plan.statuses.paused.body',
   },
   cancelled: {
-    headingKey: "settings.plan.statuses.cancelled.heading",
-    bodyKey: "settings.plan.statuses.cancelled.body",
+    headingKey: 'settings.plan.statuses.cancelled.heading',
+    bodyKey: 'settings.plan.statuses.cancelled.body',
   },
   expired: {
-    headingKey: "settings.plan.statuses.expired.heading",
-    bodyKey: "settings.plan.statuses.expired.body",
+    headingKey: 'settings.plan.statuses.expired.heading',
+    bodyKey: 'settings.plan.statuses.expired.body',
   },
 };
 
@@ -202,7 +198,7 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
       const session = await portal.mutateAsync();
       await WebBrowser.openBrowserAsync(session.url);
     } catch {
-      toast.error(t("settings.plan.portalFailed"));
+      toast.error(t('settings.plan.portalFailed'));
     } finally {
       setOpening(false);
       // The browser closing is not evidence of anything — subscription state
@@ -215,7 +211,7 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-foreground">
-        {subscription ? subscription.planName : t("settings.plan.free")}
+        {subscription ? subscription.planName : t('settings.plan.free')}
       </Text>
       {copy ? (
         <>
@@ -224,23 +220,23 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
         </>
       ) : (
         <Text className="mt-1 text-xs text-muted-foreground">
-          {t("settings.plan.notOnPaidPlan")}
+          {t('settings.plan.notOnPaidPlan')}
         </Text>
       )}
 
       {graceEndsOn === null ? null : (
         <Text className="mt-2 text-xs text-muted-foreground">
-          {t("settings.plan.graceEndsOn", { date: graceEndsOn })}
+          {t('settings.plan.graceEndsOn', { date: graceEndsOn })}
         </Text>
       )}
       {endsOn === null ? null : (
         <Text className="mt-2 text-xs text-muted-foreground">
-          {t("settings.plan.endsOn", { date: endsOn })}
+          {t('settings.plan.endsOn', { date: endsOn })}
         </Text>
       )}
       {renewsOn === null ? null : (
         <Text className="mt-2 text-xs text-muted-foreground">
-          {t("settings.plan.renewsOn", { date: renewsOn })}
+          {t('settings.plan.renewsOn', { date: renewsOn })}
         </Text>
       )}
 
@@ -249,7 +245,7 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
       {status.portalAvailable ? (
         <View className="mt-4 flex-row gap-2">
           <Button tone="accent" onPress={openPortal} disabled={portal.isPending || opening}>
-            {t("settings.plan.manageBilling")}
+            {t('settings.plan.manageBilling')}
           </Button>
           {subscription && !subscription.cancelAt ? (
             <Button
@@ -257,12 +253,12 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
               tone="neutral"
               onPress={() => {
                 cancel.mutate(undefined, {
-                  onError: () => toast.error(t("settings.plan.cancelFailed")),
+                  onError: () => toast.error(t('settings.plan.cancelFailed')),
                 });
               }}
               disabled={cancel.isPending}
             >
-              {t("settings.plan.cancelPlan")}
+              {t('settings.plan.cancelPlan')}
             </Button>
           ) : null}
         </View>
@@ -282,7 +278,7 @@ function Entitlements({ entitlements }: { entitlements: readonly MerchantEntitle
   const { t } = useTranslation();
   if (entitlements.length === 0) {
     return (
-      <Text className="mt-3 text-xs text-muted-foreground">{t("settings.plan.noExtras")}</Text>
+      <Text className="mt-3 text-xs text-muted-foreground">{t('settings.plan.noExtras')}</Text>
     );
   }
   return (
@@ -291,11 +287,11 @@ function Entitlements({ entitlements }: { entitlements: readonly MerchantEntitle
         <View key={entitlement.capability} className="flex-row items-center justify-between">
           <Text className="text-xs text-foreground">{entitlement.capability}</Text>
           <Text className="text-xs text-muted-foreground">
-            {entitlement.limitKind === "flag"
-              ? t("settings.plan.usageIncluded")
+            {entitlement.limitKind === 'flag'
+              ? t('settings.plan.usageIncluded')
               : entitlement.limit === null
-                ? t("settings.plan.usageNoLimit", { used: entitlement.used })
-                : t("settings.plan.usageOfLimit", {
+                ? t('settings.plan.usageNoLimit', { used: entitlement.used })
+                : t('settings.plan.usageOfLimit', {
                     used: entitlement.used,
                     limit: entitlement.limit,
                   })}
@@ -327,16 +323,14 @@ function PlanComparison({
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
   if (loading) return null;
-  const paid = plans.filter((plan) => plan.tier === "paid");
+  const paid = plans.filter((plan) => plan.tier === 'paid');
   if (paid.length === 0) {
     return (
       <View className="rounded-2xl border border-border bg-surface p-4">
         <Text className="text-sm font-semibold text-foreground">
-          {t("settings.plan.paidPlansTitle")}
+          {t('settings.plan.paidPlansTitle')}
         </Text>
-        <Text className="mt-1 text-xs text-muted-foreground">
-          {t("settings.plan.noPaidPlans")}
-        </Text>
+        <Text className="mt-1 text-xs text-muted-foreground">{t('settings.plan.noPaidPlans')}</Text>
       </View>
     );
   }
@@ -344,22 +338,16 @@ function PlanComparison({
   return (
     <View className="gap-2">
       {paid.map((plan) => (
-        <View
-          key={plan.planId}
-          className="rounded-2xl border border-border bg-surface p-4"
-        >
+        <View key={plan.planId} className="rounded-2xl border border-border bg-surface p-4">
           <Text className="text-sm font-semibold text-foreground">{plan.name}</Text>
           <Text className="mt-1 text-xs text-muted-foreground">{plan.summary}</Text>
           <View className="mt-2 gap-1">
             {plan.prices.map((price) => (
-              <Text
-                key={`${price.currency}-${price.interval}`}
-                className="text-xs text-foreground"
-              >
+              <Text key={`${price.currency}-${price.interval}`} className="text-xs text-foreground">
                 {t(
-                  price.interval === "annual"
-                    ? "settings.plan.pricePerYear"
-                    : "settings.plan.pricePerMonth",
+                  price.interval === 'annual'
+                    ? 'settings.plan.pricePerYear'
+                    : 'settings.plan.pricePerMonth',
                   { price: formatMoney(price.unitPrice) },
                 )}
               </Text>
@@ -370,7 +358,7 @@ function PlanComparison({
               <Text key={capability.key} className="text-xs text-muted-foreground">
                 {capability.limit === null
                   ? capability.name
-                  : t("settings.plan.capabilityWithLimit", {
+                  : t('settings.plan.capabilityWithLimit', {
                       name: capability.name,
                       limit: capability.limit,
                     })}
@@ -379,7 +367,7 @@ function PlanComparison({
           </View>
           {plan.trialDays > 0 ? (
             <Text className="mt-2 text-xs text-muted-foreground">
-              {t("settings.plan.trialNotice", { count: plan.trialDays })}
+              {t('settings.plan.trialNotice', { count: plan.trialDays })}
             </Text>
           ) : null}
           {billingAvailable ? <UpgradeAction storeId={storeId} plan={plan} /> : null}
@@ -416,7 +404,7 @@ function UpgradeAction({ storeId, plan }: { storeId: string; plan: MerchantPlanC
       // run in one. On web this opens a new tab.
       await WebBrowser.openBrowserAsync(session.url);
     } catch {
-      toast.error(t("settings.plan.upgradeFailed"));
+      toast.error(t('settings.plan.upgradeFailed'));
     } finally {
       setOpening(false);
       // The browser closing is not evidence of anything — the subscription is
@@ -428,9 +416,8 @@ function UpgradeAction({ storeId, plan }: { storeId: string; plan: MerchantPlanC
   return (
     <View className="mt-3">
       <Button tone="accent" onPress={upgrade} disabled={checkout.isPending || opening}>
-        {t("settings.plan.choosePlan", { plan: plan.name })}
+        {t('settings.plan.choosePlan', { plan: plan.name })}
       </Button>
     </View>
   );
 }
-

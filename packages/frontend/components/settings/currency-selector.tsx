@@ -1,22 +1,15 @@
-import { View, Pressable } from "react-native";
-import { useOxy } from "@oxy.so/services";
-import { Coins, Check } from "lucide-react-native";
-import {
-  ALL_CURRENCY_CODES,
-  CURRENCY_SYMBOLS,
-  type CurrencyCode,
-} from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
-import { toast } from "@oxy.so/bloom/toast";
-import {
-  useCurrencyPreferenceQuery,
-  useUpdateCurrencyPreference,
-} from "@/lib/fx";
+import { View, Pressable } from 'react-native';
+import { useOxy } from '@oxy.so/services';
+import { Coins, Check } from 'lucide-react-native';
+import { ALL_CURRENCY_CODES, CURRENCY_SYMBOLS, type CurrencyCode } from '@mercaria/shared-types';
+import { Text } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
+import { toast } from '@oxy.so/bloom/toast';
+import { useCurrencyPreferenceQuery, useUpdateCurrencyPreference } from '@/lib/fx';
 
 /** Canonical default when the shopper has not chosen a display currency. */
-const DEFAULT_DISPLAY_CURRENCY: CurrencyCode = "FAIR";
+const DEFAULT_DISPLAY_CURRENCY: CurrencyCode = 'FAIR';
 
 /**
  * Storefront display-currency picker. Lets the shopper choose the PRIMARY
@@ -31,8 +24,7 @@ export function CurrencySelector() {
   const { data: preference } = useCurrencyPreferenceQuery();
   const updatePreference = useUpdateCurrencyPreference();
 
-  const selected: CurrencyCode =
-    preference?.preferredCurrency ?? DEFAULT_DISPLAY_CURRENCY;
+  const selected: CurrencyCode = preference?.preferredCurrency ?? DEFAULT_DISPLAY_CURRENCY;
 
   const onSelect = (code: CurrencyCode) => {
     if (code === selected || updatePreference.isPending) {
@@ -40,7 +32,7 @@ export function CurrencySelector() {
     }
     updatePreference.mutate(
       { preferredCurrency: code },
-      { onError: () => toast.error(t("settings.currency.updateFailed")) },
+      { onError: () => toast.error(t('settings.currency.updateFailed')) },
     );
   };
 
@@ -48,11 +40,9 @@ export function CurrencySelector() {
     <View className="gap-2">
       <View className="flex-row items-center gap-2">
         <Coins size={20} className="text-primary" />
-        <Text className="text-base font-semibold">{t("settings.currency.title")}</Text>
+        <Text className="text-base font-semibold">{t('settings.currency.title')}</Text>
       </View>
-      <Text className="text-sm text-muted-foreground">
-        {t("settings.currency.description")}
-      </Text>
+      <Text className="text-sm text-muted-foreground">{t('settings.currency.description')}</Text>
 
       {isAuthenticated ? (
         <View className="flex-row flex-wrap gap-2">
@@ -64,17 +54,15 @@ export function CurrencySelector() {
                 disabled={updatePreference.isPending}
                 onPress={() => onSelect(code)}
                 className={cn(
-                  "flex-row items-center gap-1.5 rounded-full border px-3.5 py-2",
-                  isSelected
-                    ? "border-primary bg-primary/10"
-                    : "border-border bg-background",
-                  updatePreference.isPending ? "opacity-60" : "",
+                  'flex-row items-center gap-1.5 rounded-full border px-3.5 py-2',
+                  isSelected ? 'border-primary bg-primary/10' : 'border-border bg-background',
+                  updatePreference.isPending ? 'opacity-60' : '',
                 )}
               >
                 <Text
                   className={cn(
-                    "text-sm font-medium",
-                    isSelected ? "text-foreground" : "text-muted-foreground",
+                    'text-sm font-medium',
+                    isSelected ? 'text-foreground' : 'text-muted-foreground',
                   )}
                 >
                   {`${CURRENCY_SYMBOLS[code]} ${code}`}
@@ -85,9 +73,7 @@ export function CurrencySelector() {
           })}
         </View>
       ) : (
-        <Text className="text-sm text-muted-foreground">
-          {t("settings.currency.signedOut")}
-        </Text>
+        <Text className="text-sm text-muted-foreground">{t('settings.currency.signedOut')}</Text>
       )}
     </View>
   );

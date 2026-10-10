@@ -187,7 +187,9 @@ describe('the navigation domain has no reach it should not have', () => {
     // scan below pass against an empty list.
     expect(domain.length).toBeGreaterThanOrEqual(11);
     for (const file of domain) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
   });
 
@@ -226,9 +228,13 @@ describe('the navigation domain has no reach it should not have', () => {
     // Walked from the REAL drizzle table, so a column added in a migration and
     // mirrored into the schema fails here rather than being described away.
     const columns = Object.keys(getTableColumns(navigationNodes));
-    assertEachOf(['label', 'name', 'title', 'description', 'accessibilityLabel'], 5, (forbidden) => {
-      expect(columns, `navigation_nodes must not carry ${forbidden}`).not.toContain(forbidden);
-    });
+    assertEachOf(
+      ['label', 'name', 'title', 'description', 'accessibilityLabel'],
+      5,
+      (forbidden) => {
+        expect(columns, `navigation_nodes must not carry ${forbidden}`).not.toContain(forbidden);
+      },
+    );
     // …and the positive control: the identity it DOES carry is present, so a
     // renamed table cannot pass this by having no columns to check.
     expect(columns).toContain('key');
@@ -250,20 +256,24 @@ describe('the navigation domain has no reach it should not have', () => {
       ['navigation_saved_queries', navigationSavedQueries],
     ] as const) {
       const columns = Object.keys(getTableColumns(table));
-      assertEachOf([
-        'categorySlug',
-        'categoryName',
-        'ancestorIds',
-        'ancestorSlugs',
-        'selectable',
-        'isActive',
-        'collectionHandle',
-        'collectionTitle',
-        'productIds',
-        'listingIds',
-      ], 10, (forbidden) => {
-        expect(columns, `${name} must not carry ${forbidden}`).not.toContain(forbidden);
-      });
+      assertEachOf(
+        [
+          'categorySlug',
+          'categoryName',
+          'ancestorIds',
+          'ancestorSlugs',
+          'selectable',
+          'isActive',
+          'collectionHandle',
+          'collectionTitle',
+          'productIds',
+          'listingIds',
+        ],
+        10,
+        (forbidden) => {
+          expect(columns, `${name} must not carry ${forbidden}`).not.toContain(forbidden);
+        },
+      );
     }
     // The pointers themselves ARE present — the wall is about SEMANTICS being
     // restated, not about a node being unable to point at anything.
@@ -292,9 +302,7 @@ describe('the navigation domain has no reach it should not have', () => {
     // agree — the assertion is BUILT from the constant rather than repeating it.
     const pending = navigationMigration();
     expect(pending).toContain(`hops >= ${NAVIGATION_MAX_DEPTH}`);
-    expect(pending).toContain(
-      `hops + coalesce(subtree_height, 0) >= ${NAVIGATION_MAX_DEPTH}`,
-    );
+    expect(pending).toContain(`hops + coalesce(subtree_height, 0) >= ${NAVIGATION_MAX_DEPTH}`);
     expect(pending).toContain(`deeper than ${NAVIGATION_MAX_DEPTH} levels`);
     // The positive control: the file really does hold the trigger this asserts
     // about, so a renamed or emptied file fails rather than matching nothing.
@@ -401,12 +409,14 @@ describe('the navigation domain has no reach it should not have', () => {
 describe('the detectors themselves', () => {
   it('WALL 1 fires on a category write and not on a category read', () => {
     expect(FOREIGN_WRITE_REFERENCE.test('await db.insert(categories).values(row);')).toBe(true);
-    expect(FOREIGN_WRITE_REFERENCE.test('await db.update(collections).set({ isPublished: true });')).toBe(
-      true,
-    );
-    expect(FOREIGN_WRITE_REFERENCE.test("import { insertCategory } from '../catalog/categoryRepository.js';")).toBe(
-      true,
-    );
+    expect(
+      FOREIGN_WRITE_REFERENCE.test('await db.update(collections).set({ isPublished: true });'),
+    ).toBe(true);
+    expect(
+      FOREIGN_WRITE_REFERENCE.test(
+        "import { insertCategory } from '../catalog/categoryRepository.js';",
+      ),
+    ).toBe(true);
     expect(FOREIGN_WRITE_REFERENCE.test('await syncListingFacets(db, listingId);')).toBe(true);
     // The measured false positives: this domain READS all four tables on every
     // request, and a detector that fired on those would be turned off.
@@ -423,7 +433,9 @@ describe('the detectors themselves', () => {
 
   it('WALL 2 fires on a ranking import and a ranking call', () => {
     expect(RANKING_REFERENCE.test("import { rankOffers } from '../ranking/rank.js';")).toBe(true);
-    expect(RANKING_REFERENCE.test("import { x } from '../../services/ranking/facts.js';")).toBe(true);
+    expect(RANKING_REFERENCE.test("import { x } from '../../services/ranking/facts.js';")).toBe(
+      true,
+    );
     expect(RANKING_REFERENCE.test('const ordered = rankOfferComparison(candidates);')).toBe(true);
     expect(RANKING_REFERENCE.test('const position = node.position;')).toBe(false);
   });
@@ -470,8 +482,7 @@ describe('the detectors themselves', () => {
  * `catalog-proposal-isolation.test.ts` uses for exactly that reason — rather than
  * deleting the wall.
  */
-const NAVIGATION_LEVER_PATTERN =
-  /from\s+['"][^'"]*\/config(?:\/[^'"]*)?['"]|process\s*\.\s*env\b/u;
+const NAVIGATION_LEVER_PATTERN = /from\s+['"][^'"]*\/config(?:\/[^'"]*)?['"]|process\s*\.\s*env\b/u;
 
 describe('the rollout lever gates the MOUNT and never a stored tree', () => {
   it('no module in the navigation population reaches configuration', () => {

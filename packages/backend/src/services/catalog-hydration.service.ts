@@ -183,10 +183,7 @@ function toVariantDTO(
   // its single Default-Title variant is created with no images and no surface to
   // attach one. Restating the rule here would be the second spelling that can
   // disagree.
-  dto.images = resolveVariantImages(
-    variantImages.map(toVariantImageDTO),
-    listingGallery,
-  );
+  dto.images = resolveVariantImages(variantImages.map(toVariantImageDTO), listingGallery);
   // #129: who is selling THIS configuration. Absent when the caller did not
   // resolve it — never defaulted to the listing owner, because an unanswered
   // question and "the catalogue owner sells it" are different claims and only
@@ -277,7 +274,7 @@ function toSeller(
     oxyUserId,
     displayName: oxyProfile?.displayName ?? oxyUserId,
     username: oxyProfile?.username ?? oxyUserId,
-    avatar: oxyProfile?.avatar ? resolveMedia(oxyProfile.avatar) : oxyProfile?.avatar ?? null,
+    avatar: oxyProfile?.avatar ? resolveMedia(oxyProfile.avatar) : (oxyProfile?.avatar ?? null),
     isVerified: profile?.isVerified ?? false,
   };
   if (profile && profile.reviewCount > 0) {
@@ -386,9 +383,7 @@ async function buildBrandResolver(
   listings: ListingRecord[],
 ): Promise<(listing: ListingRecord) => string> {
   const storeIds = [
-    ...new Set(
-      listings.flatMap((l) => (l.ownerType === 'store' && l.storeId ? [l.storeId] : [])),
-    ),
+    ...new Set(listings.flatMap((l) => (l.ownerType === 'store' && l.storeId ? [l.storeId] : []))),
   ];
   const userIds = [
     ...new Set(
@@ -490,9 +485,7 @@ function groupVariants(variants: VariantRecord[]): Map<string, VariantRecord[]> 
  * Load every batch a page of listings needs, so a caller that already has the
  * children (the feed builds shelves from one query) does not pay for them twice.
  */
-async function loadBatches(
-  listingIds: string[],
-): Promise<{
+async function loadBatches(listingIds: string[]): Promise<{
   variantsByListing: Map<string, VariantRecord[]>;
   optionValuesByVariant: Map<string, VariantOptionValueRecord[]>;
   variantImagesByVariant: Map<string, VariantImageRecord[]>;

@@ -40,13 +40,7 @@ vi.mock('../../lib/redis.js', () => ({
 }));
 
 import { MAX_MONEY_MINOR_UNITS, type CurrencyCode, type FxRates } from '@mercaria/shared-types';
-import {
-  getRates,
-  convert,
-  pairRate,
-  toDualMoney,
-  __resetFxCacheForTests,
-} from '../fx.service.js';
+import { getRates, convert, pairRate, toDualMoney, __resetFxCacheForTests } from '../fx.service.js';
 import { config } from '../../config/index.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
@@ -372,7 +366,7 @@ describe('convert — pairs, precision and rounding', () => {
     expect(result).toEqual({ amount: 13_673, currency: 'CAD' });
   });
 
-  it('rounds ONCE at the final step using half-even (banker\'s rounding)', () => {
+  it("rounds ONCE at the final step using half-even (banker's rounding)", () => {
     const rates = rateSet({ USD: 0.49 });
     // 0.5 FAIR × 0.49 = 0.245 USD → 24.5 cents → half-even → 24 (even neighbour).
     expect(convert({ amount: 50_000_000, currency: 'FAIR' }, 'USD', rates)).toEqual({
@@ -434,7 +428,7 @@ describe('convert — no currency is architecturally required', () => {
     expect(pairRate('EUR', 'USD', rates)).toBeCloseTo(1.1, 10);
   });
 
-  it('reads the identity from the rate map\'s OWN base, not from FAIR', () => {
+  it("reads the identity from the rate map's OWN base, not from FAIR", () => {
     // The base is 1 by definition even though the map lists no rate for it.
     const rates = rateSet({ USD: 1.1 }, 'EUR');
     expect(pairRate('EUR', 'USD', rates)).toBeCloseTo(1.1, 10);

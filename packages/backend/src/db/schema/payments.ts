@@ -251,10 +251,7 @@ export const providerAccounts = pgTable(
     // in the uniqueness below — the same trap `CONVENTIONS.md` records for a
     // sparse-unique column written `''` instead of NULL.
     check('provider_accounts_owner_id_check', sql`length(${t.ownerId}) > 0`),
-    check(
-      'provider_accounts_provider_account_id_check',
-      sql`length(${t.providerAccountId}) > 0`,
-    ),
+    check('provider_accounts_provider_account_id_check', sql`length(${t.providerAccountId}) > 0`),
     // ISO-3166-1 alpha-2, upper-cased — the form the allow-list is compared in.
     check(
       'provider_accounts_country_check',
@@ -352,7 +349,9 @@ export const payments = pgTable(
      * fund" always has exactly one answer.
      */
     orderId: text(),
-    status: text({ enum: asEnumValues(PAYMENT_STATUSES) }).notNull().default('created'),
+    status: text({ enum: asEnumValues(PAYMENT_STATUSES) })
+      .notNull()
+      .default('created'),
     ...money('presentment'),
     ...optionalMoney('platform'),
     // The presentment→platform conversion, captured at charge time. Same five
@@ -539,7 +538,9 @@ export const paymentProviderEvents = pgTable(
     /** The redacted summary — see the table docblock. */
     payloadSummary: jsonb().$type<Record<string, unknown>>().notNull(),
     receivedAt: timestamptz().notNull(),
-    status: text({ enum: asEnumValues(PROVIDER_EVENT_STATUSES) }).notNull().default('received'),
+    status: text({ enum: asEnumValues(PROVIDER_EVENT_STATUSES) })
+      .notNull()
+      .default('received'),
     attempts: integer().notNull().default(0),
     lastError: text(),
     processedAt: timestamptz(),
@@ -652,7 +653,9 @@ export const transfers = pgTable(
     provider: text({ enum: asEnumValues(PAYMENT_PROVIDER_IDS) }).notNull(),
     providerObjectId: text(),
     ...money('amount'),
-    status: text({ enum: asEnumValues(TRANSFER_STATUSES) }).notNull().default('pending'),
+    status: text({ enum: asEnumValues(TRANSFER_STATUSES) })
+      .notNull()
+      .default('pending'),
     /**
      * How much of `amount` has been reversed, in the SAME currency — so it is
      * an amount without a currency column of its own, exactly like
@@ -751,7 +754,9 @@ export const payouts = pgTable(
     amountAmount: bigint({ mode: 'number' }).notNull(),
     /** The SELLER's settlement currency — deliberately unchecked, see above. */
     amountCurrency: text().notNull(),
-    status: text({ enum: asEnumValues(PAYOUT_STATUSES) }).notNull().default('pending'),
+    status: text({ enum: asEnumValues(PAYOUT_STATUSES) })
+      .notNull()
+      .default('pending'),
     /** When the provider expects (or reported) the funds landing. */
     arrivalAt: timestamptz(),
     /** The provider's own failure code on a failed payout. */
@@ -884,10 +889,7 @@ export const disputes = pgTable(
     // A closed dispute has an outcome and an open one has none — the pair the
     // two readers above depend on, held together here rather than by whoever
     // writes the update.
-    check(
-      'disputes_outcome_closed_check',
-      sql`(${t.outcome} is null) = (${t.closedAt} is null)`,
-    ),
+    check('disputes_outcome_closed_check', sql`(${t.outcome} is null) = (${t.closedAt} is null)`),
     // A redelivered dispute event updates the row it already made.
     uniqueIndex('disputes_provider_dispute_id_key').on(t.provider, t.providerDisputeId),
     index('disputes_payment_id_created_at_idx').on(t.paymentId, t.createdAt.desc()),
@@ -895,9 +897,7 @@ export const disputes = pgTable(
       .on(t.orderId, t.createdAt.desc())
       .where(sql`${t.orderId} is not null`),
     // The operator queue: what is still open, soonest deadline first.
-    index('disputes_open_evidence_due_idx')
-      .on(t.evidenceDueBy)
-      .where(sql`${t.closedAt} is null`),
+    index('disputes_open_evidence_due_idx').on(t.evidenceDueBy).where(sql`${t.closedAt} is null`),
   ],
 );
 
@@ -944,7 +944,9 @@ export const paymentOutboxes = pgTable(
      * consumer through it (#45 API and events 6 and 8).
      */
     payload: jsonb().$type<Record<string, unknown>>().notNull(),
-    status: text({ enum: asEnumValues(PAYMENT_OUTBOX_STATUSES) }).notNull().default('pending'),
+    status: text({ enum: asEnumValues(PAYMENT_OUTBOX_STATUSES) })
+      .notNull()
+      .default('pending'),
     attempts: integer().notNull().default(0),
     availableAt: timestamptz().notNull(),
     /** Which task holds the lease. An opaque worker identity — no foreign key. */

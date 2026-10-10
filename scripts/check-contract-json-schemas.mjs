@@ -28,7 +28,7 @@
  * `test-check-contract-json-schemas.mjs` can mutation-test it.
  */
 
-import { CONTRACTS_ENTRY } from "./generate-public-openapi.mjs";
+import { CONTRACTS_ENTRY } from './generate-public-openapi.mjs';
 
 /**
  * The fewest names the contract has ever published. A floor, not an equality —
@@ -45,37 +45,43 @@ export function assertJsonSchemaSurface(contracts) {
   const convert = contracts.mercariaJsonSchema;
   const routes = contracts.MERCARIA_PUBLIC_ROUTES;
 
-  if (!Array.isArray(names)) return ["CONTRACT_JSON_SCHEMA_NAMES is not an array."];
-  if (schemas === null || typeof schemas !== "object") return ["CONTRACT_SCHEMAS is not an object."];
-  if (typeof convert !== "function") return ["mercariaJsonSchema is not a function."];
-  if (!Array.isArray(routes)) return ["MERCARIA_PUBLIC_ROUTES is not an array."];
+  if (!Array.isArray(names)) return ['CONTRACT_JSON_SCHEMA_NAMES is not an array.'];
+  if (schemas === null || typeof schemas !== 'object')
+    return ['CONTRACT_SCHEMAS is not an object.'];
+  if (typeof convert !== 'function') return ['mercariaJsonSchema is not a function.'];
+  if (!Array.isArray(routes)) return ['MERCARIA_PUBLIC_ROUTES is not an array.'];
 
   if (names.length < MINIMUM_PUBLISHED_NAMES) {
     failures.push(
       `only ${names.length} schema name(s) found, below the floor of ${MINIMUM_PUBLISHED_NAMES}: ` +
-        "the import is broken or names were removed.",
+        'the import is broken or names were removed.',
     );
   }
   const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
-  if (duplicates.length > 0) failures.push(`duplicate name(s): ${[...new Set(duplicates)].join(", ")}.`);
+  if (duplicates.length > 0)
+    failures.push(`duplicate name(s): ${[...new Set(duplicates)].join(', ')}.`);
 
   const declared = new Set(names);
   const registered = new Set(Object.keys(schemas));
   const missingSchema = [...declared].filter((name) => !registered.has(name));
   const missingName = [...registered].filter((name) => !declared.has(name));
   if (missingSchema.length > 0) {
-    failures.push(`named but absent from CONTRACT_SCHEMAS: ${missingSchema.join(", ")}. Asking for one throws.`);
+    failures.push(
+      `named but absent from CONTRACT_SCHEMAS: ${missingSchema.join(', ')}. Asking for one throws.`,
+    );
   }
   if (missingName.length > 0) {
     failures.push(
-      `in CONTRACT_SCHEMAS but not in CONTRACT_JSON_SCHEMA_NAMES: ${missingName.join(", ")}. ` +
-        "It never becomes an OpenAPI component.",
+      `in CONTRACT_SCHEMAS but not in CONTRACT_JSON_SCHEMA_NAMES: ${missingName.join(', ')}. ` +
+        'It never becomes an OpenAPI component.',
     );
   }
 
   for (const route of routes) {
     if (!declared.has(route.response)) {
-      failures.push(`route ${route.operationId} responds with \`${route.response}\`, which is not a declared name.`);
+      failures.push(
+        `route ${route.operationId} responds with \`${route.response}\`, which is not a declared name.`,
+      );
     }
   }
 
@@ -90,9 +96,9 @@ export function assertJsonSchemaSurface(contracts) {
       );
       continue;
     }
-    const keys = document !== null && typeof document === "object" ? Object.keys(document) : [];
+    const keys = document !== null && typeof document === 'object' ? Object.keys(document) : [];
     // `$schema` alone is what an unconstrained `z.unknown()` converts to.
-    if (keys.filter((key) => key !== "$schema").length === 0) {
+    if (keys.filter((key) => key !== '$schema').length === 0) {
       failures.push(`mercariaJsonSchema('${name}') returned no constraint at all.`);
     }
   }
@@ -104,7 +110,7 @@ if (import.meta.main) {
   const contracts = await import(CONTRACTS_ENTRY);
   const failures = assertJsonSchemaSurface(contracts);
   if (failures.length > 0) {
-    console.error("@mercaria/contracts has an unusable JSON Schema surface:\n");
+    console.error('@mercaria/contracts has an unusable JSON Schema surface:\n');
     for (const failure of failures) console.error(`- ${failure}`);
     process.exit(1);
   }

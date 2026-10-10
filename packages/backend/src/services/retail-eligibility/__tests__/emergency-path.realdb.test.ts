@@ -27,7 +27,10 @@ import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { canonicalProducts, canonicalVariants } from '../../../db/schema/canonicalCatalog.js';
 import { brands } from '../../../db/schema/organizations.js';
-import { createSupplier, transitionSupplierStatus } from '../../../db/procurement/supplierRepository.js';
+import {
+  createSupplier,
+  transitionSupplierStatus,
+} from '../../../db/procurement/supplierRepository.js';
 import {
   createSupplierAccount,
   transitionAccountState,
@@ -97,7 +100,10 @@ afterAll(async () => {
 
 /** A sha-256-shaped variant signature — the CHECK the canonical layer enforces. */
 function signature(): string {
-  return uuidv7().replace(/[^a-f0-9]/g, '').padEnd(64, '0').slice(0, 64);
+  return uuidv7()
+    .replace(/[^a-f0-9]/g, '')
+    .padEnd(64, '0')
+    .slice(0, 64);
 }
 
 /**

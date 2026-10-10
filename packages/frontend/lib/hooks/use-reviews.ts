@@ -32,7 +32,9 @@ export function useReviewHelpfulness(reviewIds: string[]) {
     queryFn: async () => {
       const batches: Promise<ReviewHelpfulness[]>[] = [];
       for (let start = 0; start < ids.length; start += REVIEW_HELPFULNESS_BATCH_LIMIT) {
-        batches.push(fetchReviewHelpfulness(ids.slice(start, start + REVIEW_HELPFULNESS_BATCH_LIMIT)));
+        batches.push(
+          fetchReviewHelpfulness(ids.slice(start, start + REVIEW_HELPFULNESS_BATCH_LIMIT)),
+        );
       }
       return (await Promise.all(batches)).flat();
     },
@@ -56,8 +58,9 @@ export function useUpdateReviewHelpfulness(reviewId: string) {
     onSuccess: async ({ account, vote }) => {
       const queryKey = queryKeys.reviews.helpfulnessAll(account);
       await queryClient.cancelQueries({ queryKey });
-      queryClient.setQueriesData<ReviewHelpfulness[]>({ queryKey }, previous =>
-        previous?.map(entry => entry.reviewId === vote.reviewId ? vote : entry));
+      queryClient.setQueriesData<ReviewHelpfulness[]>({ queryKey }, (previous) =>
+        previous?.map((entry) => (entry.reviewId === vote.reviewId ? vote : entry)),
+      );
       // Public page counts remain useful after signing out or reopening a sheet.
       for (const root of ['reviews', 'listings', 'stores']) {
         void queryClient.invalidateQueries({ queryKey: [root] });
@@ -107,7 +110,12 @@ export const REVIEW_SCOPE_HEADING_KEYS: Readonly<Record<ReviewScope, string>> = 
 Object.freeze(REVIEW_SCOPE_HEADING_KEYS);
 
 /** A canonical product's PRODUCT reviews plus the aggregate the page shows. */
-export function useProductScopeReviews(canonicalProductId: string | undefined, page = 1, limit = 12, query = '') {
+export function useProductScopeReviews(
+  canonicalProductId: string | undefined,
+  page = 1,
+  limit = 12,
+  query = '',
+) {
   return useQuery<ScopedReviewPage>({
     queryKey: queryKeys.reviews.product(canonicalProductId ?? '', page, limit, query),
     queryFn: () => fetchProductReviews(canonicalProductId ?? '', { page, limit, query }),
@@ -118,11 +126,17 @@ export function useProductScopeReviews(canonicalProductId: string | undefined, p
 }
 
 /** The full sheet appends server pages; preview queries keep their own shape. */
-export function useInfiniteProductReviews(scope: 'product' | 'p2p_listing', id: string, filters: ReviewListFilters = {}, limit = 12) {
+export function useInfiniteProductReviews(
+  scope: 'product' | 'p2p_listing',
+  id: string,
+  filters: ReviewListFilters = {},
+  limit = 12,
+) {
   return useInfiniteQuery({
-    queryKey: scope === 'product'
-      ? queryKeys.reviews.productInfinite(id, limit, filters)
-      : queryKeys.listings.infiniteReviews(id, limit, filters),
+    queryKey:
+      scope === 'product'
+        ? queryKeys.reviews.productInfinite(id, limit, filters)
+        : queryKeys.listings.infiniteReviews(id, limit, filters),
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       const params = { page: pageParam, limit, ...filters };
@@ -133,9 +147,8 @@ export function useInfiniteProductReviews(scope: 'product' | 'p2p_listing', id: 
       const page = await fetchListingReviews(id, params);
       return { ...page, aggregate: undefined };
     },
-    getNextPageParam: (lastPage) => lastPage.pagination.hasNextPage
-      ? lastPage.pagination.page + 1
-      : undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination.hasNextPage ? lastPage.pagination.page + 1 : undefined,
     enabled: !!id,
     staleTime: STALE_TIME,
     retry: 2,
@@ -143,7 +156,12 @@ export function useInfiniteProductReviews(scope: 'product' | 'p2p_listing', id: 
 }
 
 /** A merchant's SERVICE reviews plus the aggregate the page shows. */
-export function useMerchantReviews(merchantId: string | undefined, page = 1, limit = 12, query = '') {
+export function useMerchantReviews(
+  merchantId: string | undefined,
+  page = 1,
+  limit = 12,
+  query = '',
+) {
   return useQuery<ScopedReviewPage>({
     queryKey: queryKeys.reviews.merchant(merchantId ?? '', page, limit, query),
     queryFn: () => fetchMerchantReviews(merchantId ?? '', { page, limit, query }),
@@ -219,7 +237,9 @@ export function useCreateReview() {
       }
       if (review.listingId) {
         // The legacy listing feed and the listing's own projected rating.
-        void queryClient.invalidateQueries({ queryKey: queryKeys.listings.detail(review.listingId) });
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.listings.detail(review.listingId),
+        });
         void queryClient.invalidateQueries({
           queryKey: ['listings', review.listingId, 'reviews'],
         });

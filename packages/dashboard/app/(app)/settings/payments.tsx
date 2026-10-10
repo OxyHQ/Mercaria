@@ -1,24 +1,21 @@
-import React, { useState } from "react";
-import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import Head from "expo-router/head";
-import * as WebBrowser from "expo-web-browser";
-import { ChevronLeft } from "lucide-react-native";
-import type {
-  ProviderOnboardingState,
-  SellerPaymentSettings,
-} from "@mercaria/shared-types";
-import { Text, formatDate, useColorScheme } from "@mercaria/ui";
-import { Button } from "@oxy.so/bloom/button";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { useTranslation } from "@/lib/i18n";
+import React, { useState } from 'react';
+import { View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import * as WebBrowser from 'expo-web-browser';
+import { ChevronLeft } from 'lucide-react-native';
+import type { ProviderOnboardingState, SellerPaymentSettings } from '@mercaria/shared-types';
+import { Text, formatDate, useColorScheme } from '@mercaria/ui';
+import { Button } from '@oxy.so/bloom/button';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { useTranslation } from '@/lib/i18n';
 import {
   usePaymentSettings,
   useCreateOnboardingLink,
   useRefreshPaymentSettings,
-} from "@/lib/hooks/use-payments";
+} from '@/lib/hooks/use-payments';
 
 /**
  * Payments & payouts — the seller side of ADR 0001's connected account.
@@ -50,7 +47,7 @@ export default function PaymentsScreen() {
   return (
     <>
       <Head>
-        <title>{t("settings.payments.documentTitle")}</title>
+        <title>{t('settings.payments.documentTitle')}</title>
       </Head>
       <RequireStore permission="store:manage">
         {(storeId) => <PaymentsBody storeId={storeId} />}
@@ -71,23 +68,23 @@ function PaymentsBody({ storeId }: { storeId: string }) {
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
+      <Text className="text-sm font-medium text-foreground">{t('common.back')}</Text>
     </Pressable>
   );
 
   if (isPending) {
     return (
-      <Screen title={t("settings.payments.title")} action={back}>
+      <Screen title={t('settings.payments.title')} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (isError || !data) {
     return (
-      <Screen title={t("settings.payments.title")} action={back}>
+      <Screen title={t('settings.payments.title')} action={back}>
         <ScreenMessage
-          title={t("settings.payments.loadFailed")}
-          body={t("common.pleaseTryAgain")}
+          title={t('settings.payments.loadFailed')}
+          body={t('common.pleaseTryAgain')}
         />
       </Screen>
     );
@@ -95,8 +92,8 @@ function PaymentsBody({ storeId }: { storeId: string }) {
 
   return (
     <Screen
-      title={t("settings.payments.title")}
-      subtitle={t("settings.payments.subtitle")}
+      title={t('settings.payments.title')}
+      subtitle={t('settings.payments.subtitle')}
       action={back}
     >
       <PaymentsPanel storeId={storeId} settings={data} />
@@ -119,43 +116,43 @@ const STATE_COPY: Record<
   { headingKey: string; bodyKey: string; actionKey?: string }
 > = {
   not_connected: {
-    headingKey: "settings.payments.states.notConnected.heading",
-    bodyKey: "settings.payments.states.notConnected.body",
-    actionKey: "settings.payments.states.notConnected.action",
+    headingKey: 'settings.payments.states.notConnected.heading',
+    bodyKey: 'settings.payments.states.notConnected.body',
+    actionKey: 'settings.payments.states.notConnected.action',
   },
   action_required: {
-    headingKey: "settings.payments.states.actionRequired.heading",
-    bodyKey: "settings.payments.states.actionRequired.body",
-    actionKey: "settings.payments.states.actionRequired.action",
+    headingKey: 'settings.payments.states.actionRequired.heading',
+    bodyKey: 'settings.payments.states.actionRequired.body',
+    actionKey: 'settings.payments.states.actionRequired.action',
   },
   under_review: {
-    headingKey: "settings.payments.states.underReview.heading",
-    bodyKey: "settings.payments.states.underReview.body",
+    headingKey: 'settings.payments.states.underReview.heading',
+    bodyKey: 'settings.payments.states.underReview.body',
   },
   ready: {
-    headingKey: "settings.payments.states.ready.heading",
-    bodyKey: "settings.payments.states.ready.body",
-    actionKey: "settings.payments.states.ready.action",
+    headingKey: 'settings.payments.states.ready.heading',
+    bodyKey: 'settings.payments.states.ready.body',
+    actionKey: 'settings.payments.states.ready.action',
   },
   restricted: {
-    headingKey: "settings.payments.states.restricted.heading",
-    bodyKey: "settings.payments.states.restricted.body",
-    actionKey: "settings.payments.states.restricted.action",
+    headingKey: 'settings.payments.states.restricted.heading',
+    bodyKey: 'settings.payments.states.restricted.body',
+    actionKey: 'settings.payments.states.restricted.action',
   },
   disabled: {
-    headingKey: "settings.payments.states.disabled.heading",
-    bodyKey: "settings.payments.states.disabled.body",
+    headingKey: 'settings.payments.states.disabled.heading',
+    bodyKey: 'settings.payments.states.disabled.body',
   },
 };
 
 /** The visual weight each state carries. Never a colour used for anything else. */
 const STATE_TONE: Record<ProviderOnboardingState, string> = {
-  not_connected: "border-border bg-surface",
-  action_required: "border-border bg-surface",
-  under_review: "border-border bg-surface",
-  ready: "border-primary bg-surface",
-  restricted: "border-destructive bg-surface",
-  disabled: "border-destructive bg-surface",
+  not_connected: 'border-border bg-surface',
+  action_required: 'border-border bg-surface',
+  under_review: 'border-border bg-surface',
+  ready: 'border-primary bg-surface',
+  restricted: 'border-destructive bg-surface',
+  disabled: 'border-destructive bg-surface',
 };
 
 function PaymentsPanel({
@@ -189,7 +186,7 @@ function PaymentsPanel({
       // has actually told the backend by now.
       await refresh();
     } catch {
-      toast.error(t("settings.payments.openFailed"));
+      toast.error(t('settings.payments.openFailed'));
     } finally {
       setOpening(false);
     }
@@ -202,14 +199,19 @@ function PaymentsPanel({
         <Text className="mt-1 text-xs text-muted-foreground">{t(copy.bodyKey)}</Text>
 
         {copy.actionKey !== undefined && onboardingAvailable ? (
-          <Button tone="accent" onPress={startOnboarding} loading={busy} className="mt-4 self-start">
+          <Button
+            tone="accent"
+            onPress={startOnboarding}
+            loading={busy}
+            className="mt-4 self-start"
+          >
             {t(copy.actionKey)}
           </Button>
         ) : null}
 
         {!onboardingAvailable ? (
           <Text className="mt-3 text-xs text-muted-foreground">
-            {t("settings.payments.onboardingUnavailable")}
+            {t('settings.payments.onboardingUnavailable')}
           </Text>
         ) : null}
       </View>
@@ -235,28 +237,28 @@ function RequirementsCard({ settings }: { settings: SellerPaymentSettings }) {
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <Text className="mb-3 text-sm font-semibold text-foreground">
-        {t("settings.payments.outstandingTitle")}
+        {t('settings.payments.outstandingTitle')}
       </Text>
       <Row
-        label={t("settings.payments.neededNow")}
+        label={t('settings.payments.neededNow')}
         value={
           outstanding === 0
-            ? t("common.none")
-            : t("settings.payments.itemCount", { count: outstanding })
+            ? t('common.none')
+            : t('settings.payments.itemCount', { count: outstanding })
         }
       />
       {requirements.pendingVerification > 0 ? (
         <Row
-          label={t("settings.payments.beingReviewed")}
-          value={t("settings.payments.itemCount", { count: requirements.pendingVerification })}
+          label={t('settings.payments.beingReviewed')}
+          value={t('settings.payments.itemCount', { count: requirements.pendingVerification })}
         />
       ) : null}
       {/* `Row`'s value is the whole of what the row says, so an unformattable
           deadline drops the row rather than rendering "Invalid Date" beside a
           "Due by" label (#529). */}
-      {deadline === null ? null : <Row label={t("settings.payments.dueBy")} value={deadline} />}
+      {deadline === null ? null : <Row label={t('settings.payments.dueBy')} value={deadline} />}
       <Text className="mt-3 text-xs text-muted-foreground">
-        {t("settings.payments.requirementsNote")}
+        {t('settings.payments.requirementsNote')}
       </Text>
     </View>
   );
@@ -271,18 +273,18 @@ function PayoutDetailsCard({ settings }: { settings: SellerPaymentSettings }) {
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <Text className="mb-3 text-sm font-semibold text-foreground">
-        {t("settings.payments.payoutsTitle")}
+        {t('settings.payments.payoutsTitle')}
       </Text>
       {account.payoutCurrency !== undefined ? (
-        <Row label={t("settings.payments.paidOutIn")} value={account.payoutCurrency} />
+        <Row label={t('settings.payments.paidOutIn')} value={account.payoutCurrency} />
       ) : null}
       {account.payoutSchedule !== undefined ? (
         <Row
-          label={t("settings.payments.schedule")}
+          label={t('settings.payments.schedule')}
           value={
             account.payoutSchedule.delayDays === undefined
               ? account.payoutSchedule.interval
-              : t("settings.payments.scheduleWithDelay", {
+              : t('settings.payments.scheduleWithDelay', {
                   interval: account.payoutSchedule.interval,
                   count: account.payoutSchedule.delayDays,
                 })
@@ -290,7 +292,7 @@ function PayoutDetailsCard({ settings }: { settings: SellerPaymentSettings }) {
         />
       ) : null}
       {account.country !== undefined ? (
-        <Row label={t("settings.payments.registeredIn")} value={account.country} />
+        <Row label={t('settings.payments.registeredIn')} value={account.country} />
       ) : null}
     </View>
   );
@@ -311,7 +313,7 @@ function ReasonCodesCard({ settings }: { settings: SellerPaymentSettings }) {
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <Text className="mb-2 text-sm font-semibold text-foreground">
-        {t("settings.payments.reportedByStripe")}
+        {t('settings.payments.reportedByStripe')}
       </Text>
       {codes.map((code) => (
         <Text key={code} className="text-xs text-muted-foreground">
@@ -319,7 +321,7 @@ function ReasonCodesCard({ settings }: { settings: SellerPaymentSettings }) {
         </Text>
       ))}
       <Text className="mt-3 text-xs text-muted-foreground">
-        {t("settings.payments.quoteToSupport")}
+        {t('settings.payments.quoteToSupport')}
       </Text>
     </View>
   );

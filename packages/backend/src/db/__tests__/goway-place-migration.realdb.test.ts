@@ -62,15 +62,36 @@ const ROLLOUT_OWNER = 'oxy-owner-rollout';
 
 /** The retired role matrix `0161` measures "non-default" against. */
 const OWNER_DEFAULTS = [
-  'store:manage', 'members:manage', 'products:read', 'products:write', 'inventory:write',
-  'locations:write', 'collections:write', 'discounts:write', 'settings:write', 'orders:read',
-  'orders:fulfill', 'stats:read', 'customers:read', 'customers:write', 'draft_orders:write',
-  'refunds:write', 'channels:write', 'analytics:read',
+  'store:manage',
+  'members:manage',
+  'products:read',
+  'products:write',
+  'inventory:write',
+  'locations:write',
+  'collections:write',
+  'discounts:write',
+  'settings:write',
+  'orders:read',
+  'orders:fulfill',
+  'stats:read',
+  'customers:read',
+  'customers:write',
+  'draft_orders:write',
+  'refunds:write',
+  'channels:write',
+  'analytics:read',
 ];
 const ADMIN_DEFAULTS = OWNER_DEFAULTS.filter((p) => p !== 'store:manage');
 const STAFF_DEFAULTS = [
-  'products:read', 'products:write', 'inventory:write', 'orders:read', 'orders:fulfill',
-  'stats:read', 'customers:read', 'customers:write', 'draft_orders:write',
+  'products:read',
+  'products:write',
+  'inventory:write',
+  'orders:read',
+  'orders:fulfill',
+  'stats:read',
+  'customers:read',
+  'customers:write',
+  'draft_orders:write',
 ];
 
 /** When the previous image published `ROLLOUT_PUBLISHED`, during the rollout. */
@@ -84,7 +105,13 @@ let ownerAfterPre: Map<string, string | null>;
 let ledgerAfterPre: number;
 let storeMembersAfterPre: boolean;
 
-async function insertMember(storeId: string, oxyUserId: string, role: string, permissions: string[], joinedAt: string) {
+async function insertMember(
+  storeId: string,
+  oxyUserId: string,
+  role: string,
+  permissions: string[],
+  joinedAt: string,
+) {
   await client`
     insert into store_members (id, store_id, oxy_user_id, role, permissions, joined_at)
     values (${`member-${storeId}-${oxyUserId}`}, ${storeId}, ${oxyUserId}, ${role}, ${permissions}, ${joinedAt})
@@ -103,7 +130,13 @@ beforeAll(async () => {
   // A second `owner` who joined LATER, so the earliest one must win.
   await insertMember(STORE, SECOND_OWNER, 'owner', OWNER_DEFAULTS, '2025-02-01T00:00:00Z');
   await insertMember(STORE, FIRST_OWNER, 'owner', OWNER_DEFAULTS, '2025-01-01T00:00:00Z');
-  await insertMember(STORE, ADMIN, 'admin', [...ADMIN_DEFAULTS, 'store:manage'], '2025-03-01T00:00:00Z');
+  await insertMember(
+    STORE,
+    ADMIN,
+    'admin',
+    [...ADMIN_DEFAULTS, 'store:manage'],
+    '2025-03-01T00:00:00Z',
+  );
   await insertMember(STORE, STAFF, 'staff', STAFF_DEFAULTS, '2025-04-01T00:00:00Z');
 
   await client`
@@ -150,13 +183,18 @@ beforeAll(async () => {
   await applyMigrationsThrough(databaseUrl, '0162_naive_gauntlet', 'pre');
 
   const publications = await client`select location_id, published_at from location_publications`;
-  publishedAtAfterPre = new Map(publications.map((row) => [String(row.location_id), row.published_at as Date | null]));
+  publishedAtAfterPre = new Map(
+    publications.map((row) => [String(row.location_id), row.published_at as Date | null]),
+  );
   const stores = await client`select id, oxy_account_id from stores`;
-  ownerAfterPre = new Map(stores.map((row) => [String(row.id), row.oxy_account_id as string | null]));
+  ownerAfterPre = new Map(
+    stores.map((row) => [String(row.id), row.oxy_account_id as string | null]),
+  );
   const [ledger] = await client`select count(*)::int as n from drizzle.__drizzle_migrations`;
   ledgerAfterPre = Number(ledger.n);
   storeMembersAfterPre =
-    (await client`select 1 from information_schema.tables where table_name = 'store_members'`).length === 1;
+    (await client`select 1 from information_schema.tables where table_name = 'store_members'`)
+      .length === 1;
 
   // ── The rollout window ──────────────────────────────────────────────────────
   // The previous image creates a store the only way it knows: no owning
@@ -197,11 +235,12 @@ async function stateOf(locationId: string): Promise<string> {
 }
 
 async function publishedAtOf(locationId: string): Promise<Date | null> {
-  const [row] = await client`select published_at from location_publications where location_id = ${locationId}`;
+  const [row] =
+    await client`select published_at from location_publications where location_id = ${locationId}`;
   return row.published_at as Date | null;
 }
 
-describe('the pre phase, against the previous image\'s rows', () => {
+describe("the pre phase, against the previous image's rows", () => {
   it('applies all three pre migrations and neither post; the post run applies both', async () => {
     // 0000-0157 plus 0158, 0159 and 0160.
     expect(ledgerAfterPre).toBe(161);
@@ -250,7 +289,8 @@ describe('0161 on stores the previous image wrote', () => {
   });
 
   it('drops the member list and makes the owning account NOT NULL', async () => {
-    const tables = await client`select 1 from information_schema.tables where table_name = 'store_members'`;
+    const tables =
+      await client`select 1 from information_schema.tables where table_name = 'store_members'`;
     expect(tables).toHaveLength(0);
     const [column] = await client`
       select is_nullable from information_schema.columns
@@ -283,7 +323,7 @@ describe('0162 on publications the previous image wrote', () => {
     expect(String(events[0].note)).toMatch(/names no GoWay place/);
   });
 
-  it('keeps the withdrawn location\'s first publication, so the public read answers 410, not 404', async () => {
+  it("keeps the withdrawn location's first publication, so the public read answers 410, not 404", async () => {
     const publishedAt = await publishedAtOf(UNLINKED);
     expect(publishedAt).toBeInstanceOf(Date);
     // `0160` wrote it in the pre phase; the withdrawal moved nothing.
@@ -293,7 +333,9 @@ describe('0162 on publications the previous image wrote', () => {
   it('dates a location the previous image published during the rollout by its trail, then withdraws it', async () => {
     expect(await stateOf(ROLLOUT_PUBLISHED)).toBe('withdrawn');
     // Its trail entry, not the withdrawal's: the backfill re-ran BEFORE block 2.
-    expect((await publishedAtOf(ROLLOUT_PUBLISHED))?.getTime()).toBe(ROLLOUT_PUBLISHED_AT.getTime());
+    expect((await publishedAtOf(ROLLOUT_PUBLISHED))?.getTime()).toBe(
+      ROLLOUT_PUBLISHED_AT.getTime(),
+    );
     const events = await client`
       select kind, occurred_at from location_publication_events
       where publication_id = ${`publication-${ROLLOUT_PUBLISHED}`}
@@ -333,7 +375,9 @@ describe('0162 on publications the previous image wrote', () => {
       select table_name, column_name from information_schema.columns
       where table_name in ('location_publications', 'location_publication_events', 'listings', 'seller_listing_drafts')
     `;
-    const present = new Set(columns.map((row) => `${String(row.table_name)}.${String(row.column_name)}`));
+    const present = new Set(
+      columns.map((row) => `${String(row.table_name)}.${String(row.column_name)}`),
+    );
     expect(present.size, 'read no columns — a broken read, not a pass').toBeGreaterThan(40);
     for (const dropped of [
       'location_publications.display_name',

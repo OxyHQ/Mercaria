@@ -57,11 +57,7 @@
  * `categoryName` are absent on this scope: there is no one category to name.
  */
 
-import type {
-  DiscoveryScope,
-  DiscoverySignal,
-  DiscoverySignalPage,
-} from '@mercaria/shared-types';
+import type { DiscoveryScope, DiscoverySignal, DiscoverySignalPage } from '@mercaria/shared-types';
 import {
   findActiveCategories,
   findActiveCategoryByIdOrSlug,

@@ -18,9 +18,17 @@
  */
 
 import { z } from 'zod';
-import { MATCH_SUBJECT_KINDS, MATCH_SWEEP_JOBS, type MatchSubjectKind, type MatchSweepJob } from '@mercaria/shared-types';
+import {
+  MATCH_SUBJECT_KINDS,
+  MATCH_SWEEP_JOBS,
+  type MatchSubjectKind,
+  type MatchSweepJob,
+} from '@mercaria/shared-types';
 
-const SUBJECT_KIND_VALUES = MATCH_SUBJECT_KINDS as readonly [MatchSubjectKind, ...MatchSubjectKind[]];
+const SUBJECT_KIND_VALUES = MATCH_SUBJECT_KINDS as readonly [
+  MatchSubjectKind,
+  ...MatchSubjectKind[],
+];
 const SWEEP_JOB_VALUES = MATCH_SWEEP_JOBS as readonly [MatchSweepJob, ...MatchSweepJob[]];
 
 const entityId = z.string().trim().min(1).max(64);

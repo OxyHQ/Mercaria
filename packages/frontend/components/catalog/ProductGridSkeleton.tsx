@@ -1,5 +1,5 @@
-import { View } from "react-native";
-import * as Skeleton from "@oxy.so/bloom/skeleton";
+import { View } from 'react-native';
+import * as Skeleton from '@oxy.so/bloom/skeleton';
 
 /** Placeholder tiles: two full rows at the widest (four-column) breakpoint. */
 const TILE_COUNT = 8;

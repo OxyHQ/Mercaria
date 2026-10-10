@@ -179,9 +179,7 @@ export async function listRelationshipsForEntity(
 
   const filters = [
     ...endpointFilters,
-    input.kinds === undefined
-      ? undefined
-      : inArray(commerceRelationships.kind, [...input.kinds]),
+    input.kinds === undefined ? undefined : inArray(commerceRelationships.kind, [...input.kinds]),
     input.statuses === undefined
       ? undefined
       : inArray(commerceRelationships.status, [...input.statuses]),
@@ -363,10 +361,7 @@ export async function markSuperseded(
     .update(commerceRelationships)
     .set({ supersededById: input.supersededById })
     .where(
-      and(
-        eq(commerceRelationships.id, input.id),
-        isNull(commerceRelationships.supersededById),
-      ),
+      and(eq(commerceRelationships.id, input.id), isNull(commerceRelationships.supersededById)),
     )
     .returning();
   return row;

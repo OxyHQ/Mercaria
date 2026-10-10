@@ -193,11 +193,7 @@ export async function addReferralPilotThresholdHandler(
 ): Promise<void> {
   try {
     const body = req.body as Record<string, unknown>;
-    const scope = oneOf<ReferralPilotStopScope>(
-      REFERRAL_PILOT_STOP_SCOPES,
-      body['scope'],
-      'scope',
-    );
+    const scope = oneOf<ReferralPilotStopScope>(REFERRAL_PILOT_STOP_SCOPES, body['scope'], 'scope');
     // A market-scoped stop covers NOTHING today, because a touch carries no
     // market and the admission gate has none to compare (`stopCovers`). A
     // threshold that could never bite is worse than an absent one — it reads as
@@ -211,16 +207,8 @@ export async function addReferralPilotThresholdHandler(
     }
     await addReferralPilotThreshold({
       cohortId: requiredParam(req, 'cohortId'),
-      metric: oneOf<ReferralPilotStopMetric>(
-        REFERRAL_PILOT_STOP_METRICS,
-        body['metric'],
-        'metric',
-      ),
-      unit: oneOf<ReferralPilotThresholdUnit>(
-        REFERRAL_PILOT_THRESHOLD_UNITS,
-        body['unit'],
-        'unit',
-      ),
+      metric: oneOf<ReferralPilotStopMetric>(REFERRAL_PILOT_STOP_METRICS, body['metric'], 'metric'),
+      unit: oneOf<ReferralPilotThresholdUnit>(REFERRAL_PILOT_THRESHOLD_UNITS, body['unit'], 'unit'),
       thresholdValue: Number(body['thresholdValue']),
       windowHours: Number(body['windowHours']),
       scope,
@@ -263,9 +251,7 @@ export async function publishReferralPilotCohortHandler(
 
     const partners = await listReferralPilotPartners(cohortId);
     if (partners.length === 0) {
-      throw validationError(
-        'This cohort allow-lists no partner, so nobody could earn under it.',
-      );
+      throw validationError('This cohort allow-lists no partner, so nobody could earn under it.');
     }
 
     // #149 acceptance 7, as a refusal rather than a promise: a widening is a new
@@ -406,18 +392,10 @@ export async function raiseReferralPilotStopHandler(
 ): Promise<void> {
   try {
     const body = req.body as Record<string, unknown>;
-    const scope = oneOf<ReferralPilotStopScope>(
-      REFERRAL_PILOT_STOP_SCOPES,
-      body['scope'],
-      'scope',
-    );
+    const scope = oneOf<ReferralPilotStopScope>(REFERRAL_PILOT_STOP_SCOPES, body['scope'], 'scope');
     const result = await raiseReferralPilotStop({
       cohortId: requiredParam(req, 'cohortId'),
-      metric: oneOf<ReferralPilotStopMetric>(
-        REFERRAL_PILOT_STOP_METRICS,
-        body['metric'],
-        'metric',
-      ),
+      metric: oneOf<ReferralPilotStopMetric>(REFERRAL_PILOT_STOP_METRICS, body['metric'], 'metric'),
       scope,
       scopeRef: scope === 'pilot' ? '' : String(body['scopeRef']),
       raisedByOxyUserId: getRequiredOxyUserId(req),

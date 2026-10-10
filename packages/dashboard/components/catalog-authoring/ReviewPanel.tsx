@@ -1,23 +1,23 @@
-import React from "react";
-import { View } from "react-native";
-import type { AuthoringDraft, AuthoringSchema } from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
-import { ProductMedia } from "@/components/products/ProductMedia";
-import { useTranslation } from "@/lib/i18n";
-import { hasAnswer } from "@/lib/authoring/answers";
-import { toMinorUnits } from "@/lib/money";
+import React from 'react';
+import { View } from 'react-native';
+import type { AuthoringDraft, AuthoringSchema } from '@mercaria/shared-types';
+import { Text } from '@mercaria/ui';
+import { ProductMedia } from '@/components/products/ProductMedia';
+import { useTranslation } from '@/lib/i18n';
+import { hasAnswer } from '@/lib/authoring/answers';
+import { toMinorUnits } from '@/lib/money';
 import {
   effectiveRequirements,
   isVisible,
   productScopeFields,
   type WizardFormState,
-} from "@/lib/authoring/wizard-state";
-import { axisSummary } from "./VariantRows";
+} from '@/lib/authoring/wizard-state';
+import { axisSummary } from './VariantRows';
 import {
   anyUntranslated,
   authoringLabel,
   UNTRANSLATED_NOTICE_KEY,
-} from "@/lib/authoring/untranslated";
+} from '@/lib/authoring/untranslated';
 
 interface ReviewPanelProps {
   readonly draft: AuthoringDraft;
@@ -63,29 +63,29 @@ export function ReviewPanel({ draft, schema, form }: ReviewPanelProps) {
   // could travel on.
   const productTypeName = authoringLabel(
     schema.text.productTypeName,
-    { kind: "key", key: schema.productType.key },
+    { kind: 'key', key: schema.productType.key },
     t,
   );
-  const categoryName = authoringLabel(schema.text.categoryName, { kind: "unidentifiable" }, t);
+  const categoryName = authoringLabel(schema.text.categoryName, { kind: 'unidentifiable' }, t);
 
   return (
     <View className="gap-4">
-      <Section title={t("products.wizard.steps.classification")}>
-        <Row label={t("products.wizard.review.category")} value={categoryName.text} />
+      <Section title={t('products.wizard.steps.classification')}>
+        <Row label={t('products.wizard.review.category')} value={categoryName.text} />
         <Row
-          label={t("products.wizard.review.productType")}
-          value={t("products.wizard.review.productTypeVersion", {
+          label={t('products.wizard.review.productType')}
+          value={t('products.wizard.review.productTypeVersion', {
             name: productTypeName.text,
             version: draft.productType.version,
           })}
         />
-        <Row label={t("products.wizard.review.market")} value={draft.market} />
+        <Row label={t('products.wizard.review.market')} value={draft.market} />
         <Row
-          label={t("products.wizard.review.canonicalLink")}
+          label={t('products.wizard.review.canonicalLink')}
           value={
             form.selectedCanonicalProductId === null
-              ? t("products.wizard.review.canonicalNone")
-              : t("products.wizard.review.canonicalDeclared")
+              ? t('products.wizard.review.canonicalNone')
+              : t('products.wizard.review.canonicalDeclared')
           }
         />
         {anyUntranslated([categoryName, productTypeName]) ? (
@@ -93,17 +93,17 @@ export function ReviewPanel({ draft, schema, form }: ReviewPanelProps) {
         ) : null}
       </Section>
 
-      <Section title={t("products.wizard.steps.details")}>
+      <Section title={t('products.wizard.steps.details')}>
         <Row
-          label={t("products.wizard.review.fieldsAnswered")}
+          label={t('products.wizard.review.fieldsAnswered')}
           value={`${answered.length}/${visibleFields.length}`}
         />
       </Section>
 
-      <Section title={t("products.wizard.steps.variants")}>
-        <Row label={t("products.wizard.review.soldVariants")} value={String(soldRows.length)} />
+      <Section title={t('products.wizard.steps.variants')}>
+        <Row label={t('products.wizard.review.soldVariants')} value={String(soldRows.length)} />
         <Row
-          label={t("products.wizard.review.pricedVariants")}
+          label={t('products.wizard.review.pricedVariants')}
           value={`${priced.length}/${soldRows.length}`}
         />
         <View className="mt-1 gap-1">
@@ -111,30 +111,35 @@ export function ReviewPanel({ draft, schema, form }: ReviewPanelProps) {
             const summary = axisSummary(row, schema, t);
             return (
               <Text key={row.key} className="text-xs text-muted-foreground">
-                {summary.length > 0 ? summary : t("products.wizard.variants.singleVariant")}
+                {summary.length > 0 ? summary : t('products.wizard.variants.singleVariant')}
               </Text>
             );
           })}
           {soldRows.length > 8 ? (
             <Text className="text-xs text-muted-foreground">
-              {t("products.wizard.review.moreVariants", { count: soldRows.length - 8 })}
+              {t('products.wizard.review.moreVariants', { count: soldRows.length - 8 })}
             </Text>
           ) : null}
         </View>
       </Section>
 
-      <Section title={t("products.wizard.steps.listing")}>
-        <ProductMedia images={draft.imageFileIds.map((fileId, position) => ({ fileId, position }))} title={form.title} />
-        <Row
-          label={t("common.title")}
-          value={form.title.trim().length > 0 ? form.title.trim() : t("products.wizard.review.empty")}
+      <Section title={t('products.wizard.steps.listing')}>
+        <ProductMedia
+          images={draft.imageFileIds.map((fileId, position) => ({ fileId, position }))}
+          title={form.title}
         />
         <Row
-          label={t("common.description")}
+          label={t('common.title')}
+          value={
+            form.title.trim().length > 0 ? form.title.trim() : t('products.wizard.review.empty')
+          }
+        />
+        <Row
+          label={t('common.description')}
           value={
             form.description.trim().length > 0
-              ? t("products.wizard.review.provided")
-              : t("products.wizard.review.empty")
+              ? t('products.wizard.review.provided')
+              : t('products.wizard.review.empty')
           }
         />
       </Section>

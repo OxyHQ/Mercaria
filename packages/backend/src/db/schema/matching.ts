@@ -151,7 +151,9 @@ export const matchPolicyVersions = pgTable(
      * different rule set makes every recorded outcome ambiguous.
      */
     versionKey: text().notNull(),
-    status: text({ enum: asEnumValues(MATCH_POLICY_STATUSES) }).notNull().default('draft'),
+    status: text({ enum: asEnumValues(MATCH_POLICY_STATUSES) })
+      .notNull()
+      .default('draft'),
     description: text().notNull(),
 
     // ── The decision thresholds ──────────────────────────────────────────────
@@ -261,9 +263,7 @@ export const matchPolicyVersions = pgTable(
      * second answer is not a tie to break — it is two different sets of
      * decisions being written into one table under two rules.
      */
-    uniqueIndex('match_policy_versions_active_key')
-      .on(t.status)
-      .where(sql`${t.status} = 'active'`),
+    uniqueIndex('match_policy_versions_active_key').on(t.status).where(sql`${t.status} = 'active'`),
     index('match_policy_versions_status_idx').on(t.status, t.createdAt.desc()),
   ],
 );
@@ -606,7 +606,9 @@ export const matchDecisions = pgTable(
     /** How many candidates the pipeline actually considered, including rejected ones. */
     candidateCount: integer().notNull().default(0),
 
-    reviewState: text({ enum: asEnumValues(MATCH_REVIEW_STATES) }).notNull().default('not_required'),
+    reviewState: text({ enum: asEnumValues(MATCH_REVIEW_STATES) })
+      .notNull()
+      .default('not_required'),
     /** An Oxy account id — no foreign key. */
     reviewedByOxyUserId: text(),
     reviewedAt: timestamptz(),
@@ -795,10 +797,7 @@ export const matchDecisionCandidates = pgTable(
       sql`${t.canonicalProductId} is not null or ${t.canonicalVariantId} is not null`,
     ),
     check('match_decision_candidates_rank_check', sql`${t.rank} >= 1`),
-    check(
-      'match_decision_candidates_score_check',
-      sql`${t.score} >= 0 and ${t.score} <= 1`,
-    ),
+    check('match_decision_candidates_score_check', sql`${t.score} >= 0 and ${t.score} <= 1`),
     checkOneOf('match_decision_candidates_rejection_check', t.rejection, MATCH_BLOCKERS),
     /** A SELECTED candidate cannot simultaneously be a rejected one. */
     check(
@@ -909,9 +908,7 @@ export const matchBlockedPairs = pgTable(
       .on(t.subjectKey, t.targetKey)
       .where(sql`${t.clearedAt} is null`),
     /** The pipeline's own lookup: every open block for this subject, in one scan. */
-    index('match_blocked_pairs_subject_idx')
-      .on(t.subjectKey)
-      .where(sql`${t.clearedAt} is null`),
+    index('match_blocked_pairs_subject_idx').on(t.subjectKey).where(sql`${t.clearedAt} is null`),
     index('match_blocked_pairs_target_idx').on(t.targetKey),
   ],
 );
@@ -958,7 +955,9 @@ export const matchQueue = pgTable(
 
     requestedRevision: bigint({ mode: 'number' }).notNull().default(1),
     claimedRevision: bigint({ mode: 'number' }),
-    status: text({ enum: asEnumValues(MATCH_QUEUE_STATUSES) }).notNull().default('pending'),
+    status: text({ enum: asEnumValues(MATCH_QUEUE_STATUSES) })
+      .notNull()
+      .default('pending'),
     attempts: integer().notNull().default(0),
     availableAt: timestamptz().notNull(),
     /** Which task holds the lease. An opaque worker identity — no foreign key. */
@@ -1003,9 +1002,7 @@ export const matchQueue = pgTable(
       .on(t.leaseUntil, t.createdAt)
       .where(sql`${t.status} = 'processing'`),
     /** Queue AGE (operations 5): the oldest pending row, served by a backward scan. */
-    index('match_queue_age_idx')
-      .on(t.createdAt)
-      .where(sql`${t.status} = 'pending'`),
+    index('match_queue_age_idx').on(t.createdAt).where(sql`${t.status} = 'pending'`),
   ],
 );
 

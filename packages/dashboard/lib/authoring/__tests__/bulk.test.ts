@@ -70,10 +70,7 @@ describe('applySkuPrefix gives every sold row a DISTINCT code', () => {
    * it closes the gap rather than leaving a hole.
    */
   it('numbers by sent position and skips a row that is not sold', () => {
-    const result = applySkuPrefix(
-      [row(), row({ enabled: false, sku: 'UNTOUCHED' }), row()],
-      'ABC',
-    );
+    const result = applySkuPrefix([row(), row({ enabled: false, sku: 'UNTOUCHED' }), row()], 'ABC');
 
     expect(result.map((entry) => entry.sku)).toEqual(['ABC-1', 'UNTOUCHED', 'ABC-2']);
   });

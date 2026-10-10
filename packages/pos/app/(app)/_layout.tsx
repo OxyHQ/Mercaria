@@ -1,18 +1,18 @@
-import { Slot, Stack } from "expo-router";
-import { Platform } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AppShell, AppShellMenuButton } from "@oxy.so/bloom/app-shell";
-import { AppErrorBoundary } from "@/components/error-boundary";
-import { AuthGate } from "@/components/AuthGate";
-import { usePosSidebar } from "@/components/shell/usePosSidebar";
-import { BottomTabBar } from "@/components/shell/BottomTabBar";
-import { useTranslation } from "@/lib/i18n";
+import { Slot, Stack } from 'expo-router';
+import { Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AppShell, AppShellMenuButton } from '@oxy.so/bloom/app-shell';
+import { AppErrorBoundary } from '@/components/error-boundary';
+import { AuthGate } from '@/components/AuthGate';
+import { usePosSidebar } from '@/components/shell/usePosSidebar';
+import { BottomTabBar } from '@/components/shell/BottomTabBar';
+import { useTranslation } from '@/lib/i18n';
 
 const SCREEN_OPTIONS = { headerShown: false } as const;
 
 const GESTURE_ROOT_STYLE = { flex: 1 } as const;
 
-const IS_WEB = Platform.OS === "web";
+const IS_WEB = Platform.OS === 'web';
 
 /**
  * The shell, as a component of its own so it mounts INSIDE `AuthGate`: the
@@ -36,14 +36,14 @@ function Shell() {
       variant="dashboard"
       // WEB scrolls the DOCUMENT (sticky navigation, scroll restoration);
       // NATIVE is one fixed frame and each page owns its scroller (`Screen`).
-      scroll={IS_WEB ? "document" : "fixed"}
+      scroll={IS_WEB ? 'document' : 'fixed'}
       sidebar={sidebar}
       // The drawer carries the account footer, which the bottom bar does not,
       // so below `md` the header keeps its menu button — ours, for its label.
-      header={<AppShellMenuButton accessibilityLabel={t("nav.openNavigation")} />}
+      header={<AppShellMenuButton accessibilityLabel={t('nav.openNavigation')} />}
       bottomBar={<BottomTabBar />}
       navFrom="md"
-      drawerCloseLabel={t("nav.closeNavigation")}
+      drawerCloseLabel={t('nav.closeNavigation')}
     >
       {routed}
     </AppShell>

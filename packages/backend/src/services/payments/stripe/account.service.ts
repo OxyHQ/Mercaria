@@ -52,10 +52,7 @@ import {
 import { validationError } from '../../../lib/errors/error-codes.js';
 import { log } from '../../../lib/logger.js';
 import { enqueuePaymentEvent, providerAccountChangedEventId } from '../payment-outbox.service.js';
-import {
-  readSellerAccountStatus,
-  type SellerAccountOwner,
-} from '../provider-account.service.js';
+import { readSellerAccountStatus, type SellerAccountOwner } from '../provider-account.service.js';
 import {
   createStripeAccountLink,
   createStripeConnectedAccount,
@@ -241,7 +238,9 @@ export function snapshotStripeAccount(account: Stripe.Account): StripeAccountSna
     ...(typeof account.default_currency === 'string' && account.default_currency !== ''
       ? { defaultCurrency: account.default_currency.toUpperCase() }
       : {}),
-    ...(typeof schedule?.interval === 'string' ? { payoutScheduleInterval: schedule.interval } : {}),
+    ...(typeof schedule?.interval === 'string'
+      ? { payoutScheduleInterval: schedule.interval }
+      : {}),
     ...(typeof schedule?.delay_days === 'number'
       ? { payoutScheduleDelayDays: schedule.delay_days }
       : {}),
@@ -612,7 +611,9 @@ async function recordAccountChange(input: {
  *
  * @returns The row as it now stands, or `undefined` when the id is unknown here.
  */
-export async function syncAccountState(providerAccountId: string): Promise<ProviderAccountRow | undefined> {
+export async function syncAccountState(
+  providerAccountId: string,
+): Promise<ProviderAccountRow | undefined> {
   const row = await findProviderAccountByProviderId(getDb(), 'stripe', providerAccountId);
   if (!row) {
     log.general.warn(
@@ -647,7 +648,9 @@ export async function syncAccountRow(row: ProviderAccountRow): Promise<ProviderA
  *
  * @returns The row, or `undefined` when the account is unknown here.
  */
-export async function revokeAccount(providerAccountId: string): Promise<ProviderAccountRow | undefined> {
+export async function revokeAccount(
+  providerAccountId: string,
+): Promise<ProviderAccountRow | undefined> {
   const db = getDb();
   const row = await findProviderAccountByProviderId(db, 'stripe', providerAccountId);
   if (!row) {

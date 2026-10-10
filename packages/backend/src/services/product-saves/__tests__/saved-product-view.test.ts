@@ -67,9 +67,10 @@ describe('derivePriceChange', () => {
       known: false,
       reason: 'no_reference_price',
     });
-    expect(
-      derivePriceChange(REFERENCE, { state: 'none', reason: 'all_offers_retired' }),
-    ).toEqual({ known: false, reason: 'no_current_offer' });
+    expect(derivePriceChange(REFERENCE, { state: 'none', reason: 'all_offers_retired' })).toEqual({
+      known: false,
+      reason: 'no_current_offer',
+    });
   });
 
   it('an available offer with no PRICE is still "no current offer" to compare against', () => {

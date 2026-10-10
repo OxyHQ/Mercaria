@@ -46,7 +46,10 @@ import {
   type AdapterRecord,
   type CatalogSourceAdapter,
 } from '../adapter.js';
-import { feedCompletionVerdict, mayReportCompleteEnumeration } from '../../feed-import/completion.js';
+import {
+  feedCompletionVerdict,
+  mayReportCompleteEnumeration,
+} from '../../feed-import/completion.js';
 import { FeedImportRefusal, feedRefusalFetchKind } from '../../feed-import/errors.js';
 import type { FeedValidators } from '../../feed-import/fetch.js';
 import { openFeedOrigin } from '../../feed-import/open.js';
@@ -67,7 +70,10 @@ export interface ProductFeedAdapterDependencies {
   /** The ACTIVE mapping of one feed configuration, or `null`. */
   readonly resolveFeed: (configurationId: string) => Promise<ResolvedFeedImport | null>;
   /** Store the validators a conditional request will present next time. */
-  readonly recordValidators: (feed: ResolvedFeedImport, validators: FeedValidators) => Promise<void>;
+  readonly recordValidators: (
+    feed: ResolvedFeedImport,
+    validators: FeedValidators,
+  ) => Promise<void>;
   /** Turn a staged pass's issues into a `feed_import_reports` row. */
   readonly recordImportReport: (feed: ResolvedFeedImport, stage: FeedStage) => Promise<void>;
 }
@@ -156,7 +162,12 @@ async function fetchFeedPage(
     if (built === null) {
       // A 304. Zero records, and — critically — NOT an enumeration: reporting
       // one here would retire every object this source has.
-      return { records: [], nextCursor: null, complete: false, fetchDurationMs: Date.now() - startedAt };
+      return {
+        records: [],
+        nextCursor: null,
+        complete: false,
+        fetchDurationMs: Date.now() - startedAt,
+      };
     }
     await dependencies.recordImportReport(feed, built.stage);
     return page(feed, built.stage.manifest, 0, 0, request.pageSize, Date.now() - startedAt);
@@ -184,7 +195,14 @@ async function fetchFeedPage(
     // silently skip products.
     return page(feed, rebuilt.stage.manifest, 0, 0, request.pageSize, Date.now() - startedAt);
   }
-  return page(feed, rebuilt.stage.manifest, cursor.o, cursor.i, request.pageSize, Date.now() - startedAt);
+  return page(
+    feed,
+    rebuilt.stage.manifest,
+    cursor.o,
+    cursor.i,
+    request.pageSize,
+    Date.now() - startedAt,
+  );
 }
 
 /** Fetch and stage the whole feed, or report a 304 as `null`. */

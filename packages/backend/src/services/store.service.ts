@@ -54,9 +54,7 @@ function policyPatch(patch: UpdateStorePoliciesInput): Partial<StoreRow> {
     ...(patch.shippingNote !== undefined ? { policiesShippingNote: patch.shippingNote } : {}),
     ...(patch.refundPolicy !== undefined ? { policiesRefundPolicy: patch.refundPolicy } : {}),
     ...(patch.privacyPolicy !== undefined ? { policiesPrivacyPolicy: patch.privacyPolicy } : {}),
-    ...(patch.termsOfService !== undefined
-      ? { policiesTermsOfService: patch.termsOfService }
-      : {}),
+    ...(patch.termsOfService !== undefined ? { policiesTermsOfService: patch.termsOfService } : {}),
   };
 }
 
@@ -128,10 +126,7 @@ export async function getStore(storeId: string): Promise<StoreRow> {
 }
 
 /** Update a store's profile/policy fields. Returns the updated store. */
-export async function updateStore(
-  storeId: string,
-  patch: UpdateStoreInput,
-): Promise<StoreRow> {
+export async function updateStore(storeId: string, patch: UpdateStoreInput): Promise<StoreRow> {
   const updated = await updateStoreColumns(storeId, {
     ...(patch.name !== undefined ? { name: patch.name } : {}),
     ...(patch.description !== undefined ? { description: patch.description } : {}),
@@ -262,7 +257,9 @@ export async function setStorePermissionOverride(input: {
     (permission) => !callerAccess.permissions.includes(permission),
   );
   if (lacking.length > 0) {
-    throw forbidden(`You cannot grant or revoke a permission you do not hold: ${lacking.join(', ')}`);
+    throw forbidden(
+      `You cannot grant or revoke a permission you do not hold: ${lacking.join(', ')}`,
+    );
   }
 
   if (granted.length === 0 && revoked.length === 0) {

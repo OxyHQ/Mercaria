@@ -169,7 +169,11 @@ afterAll(async () => {
   // that the same trigger would block.
   await withTriggerToggleLock(db, async (tx) => {
     for (const [table, ids, trigger] of [
-      ['catalog_external_mapping_run_items', runIds, 'mercaria_catalog_external_run_item_no_delete'],
+      [
+        'catalog_external_mapping_run_items',
+        runIds,
+        'mercaria_catalog_external_run_item_no_delete',
+      ],
       ['catalog_external_mapping_reviews', reviewIds, 'mercaria_catalog_external_review_no_delete'],
       ['catalog_external_mappings', mappingIds, 'mercaria_catalog_external_mapping_no_delete'],
     ] as const) {
@@ -187,7 +191,9 @@ afterAll(async () => {
         .where(inArray(catalogExternalTokenObservations.id, observationIds));
     }
     if (runIds.length > 0) {
-      await tx.delete(catalogExternalMappingRuns).where(inArray(catalogExternalMappingRuns.id, runIds));
+      await tx
+        .delete(catalogExternalMappingRuns)
+        .where(inArray(catalogExternalMappingRuns.id, runIds));
     }
     if (reviewIds.length > 0) {
       await tx
@@ -195,10 +201,16 @@ afterAll(async () => {
         .where(inArray(catalogExternalMappingReviews.id, reviewIds));
     }
     if (mappingIds.length > 0) {
-      await tx.delete(catalogExternalMappings).where(inArray(catalogExternalMappings.id, mappingIds));
+      await tx
+        .delete(catalogExternalMappings)
+        .where(inArray(catalogExternalMappings.id, mappingIds));
     }
     for (const [table, ids, trigger] of [
-      ['catalog_external_mapping_run_items', runIds, 'mercaria_catalog_external_run_item_no_delete'],
+      [
+        'catalog_external_mapping_run_items',
+        runIds,
+        'mercaria_catalog_external_run_item_no_delete',
+      ],
       ['catalog_external_mapping_reviews', reviewIds, 'mercaria_catalog_external_review_no_delete'],
       ['catalog_external_mappings', mappingIds, 'mercaria_catalog_external_mapping_no_delete'],
     ] as const) {
@@ -217,7 +229,11 @@ describe('1-2. the one-to-many refusal, and the four-eyes CHECK that prices it',
     await db.insert(catalogExternalMappings).values(first);
     await approve(first.id, OPERATOR_A);
 
-    const second = proposal({ externalKey: key, targetAttributeKey: 'storage_capacity', version: 2 });
+    const second = proposal({
+      externalKey: key,
+      targetAttributeKey: 'storage_capacity',
+      version: 2,
+    });
     await db.insert(catalogExternalMappings).values(second);
     await expectRefusal(
       'a second live target with no fan-out',
@@ -299,11 +315,37 @@ describe('1-2. the one-to-many refusal, and the four-eyes CHECK that prices it',
 describe('3. the discriminated target, including the `else false` branch', () => {
   it('refuses every cross-dimension target', async () => {
     const cases: readonly (readonly [string, Record<string, unknown>])[] = [
-      ['attribute row carrying a unit code', { dimension: 'attribute', targetAttributeKey: 'x', targetUnitFamily: 'mass', targetUnitCode: 'g' }],
-      ['unit row carrying an attribute key', { dimension: 'unit', targetUnitFamily: 'mass', targetUnitCode: 'g', targetAttributeKey: 'x' }],
+      [
+        'attribute row carrying a unit code',
+        {
+          dimension: 'attribute',
+          targetAttributeKey: 'x',
+          targetUnitFamily: 'mass',
+          targetUnitCode: 'g',
+        },
+      ],
+      [
+        'unit row carrying an attribute key',
+        {
+          dimension: 'unit',
+          targetUnitFamily: 'mass',
+          targetUnitCode: 'g',
+          targetAttributeKey: 'x',
+        },
+      ],
       ['product_type row with no key', { dimension: 'product_type' }],
-      ['controlled_value with no attribute', { dimension: 'controlled_value', targetControlledValue: 'black' }],
-      ['size_system row carrying a pin', { dimension: 'size_system', targetSizeSystemKey: 'shoe.eu', targetProductTypeKey: 'smartphone' }],
+      [
+        'controlled_value with no attribute',
+        { dimension: 'controlled_value', targetControlledValue: 'black' },
+      ],
+      [
+        'size_system row carrying a pin',
+        {
+          dimension: 'size_system',
+          targetSizeSystemKey: 'shoe.eu',
+          targetProductTypeKey: 'smartphone',
+        },
+      ],
     ];
     for (const [label, target] of cases) {
       await expectRefusal(
@@ -385,11 +427,7 @@ describe('4-5. the two triggers on a mapping', () => {
       })
       .where(eq(catalogExternalMappings.id, id));
 
-    await expectRefusal(
-      'resurrecting a rejection',
-      () => approve(id, OPERATOR_B),
-      RAISE_EXCEPTION,
-    );
+    await expectRefusal('resurrecting a rejection', () => approve(id, OPERATOR_B), RAISE_EXCEPTION);
   });
 });
 
@@ -432,7 +470,10 @@ describe('6. one OPEN review per token, converged CONCURRENTLY', () => {
     await Promise.all([upsert(a), upsert(b)]);
 
     const rows = await db
-      .select({ id: catalogExternalMappingReviews.id, occurrences: catalogExternalMappingReviews.occurrences })
+      .select({
+        id: catalogExternalMappingReviews.id,
+        occurrences: catalogExternalMappingReviews.occurrences,
+      })
       .from(catalogExternalMappingReviews)
       .where(
         and(
@@ -625,8 +666,7 @@ describe('11. every DELETE trigger raises', () => {
     await db.insert(catalogExternalMappings).values(mapping);
     await expectRefusal(
       'deleting a mapping',
-      () =>
-        db.delete(catalogExternalMappings).where(eq(catalogExternalMappings.id, mapping.id)),
+      () => db.delete(catalogExternalMappings).where(eq(catalogExternalMappings.id, mapping.id)),
       RAISE_EXCEPTION,
     );
 
@@ -648,7 +688,9 @@ describe('11. every DELETE trigger raises', () => {
     await expectRefusal(
       'deleting a review',
       () =>
-        db.delete(catalogExternalMappingReviews).where(eq(catalogExternalMappingReviews.id, reviewId)),
+        db
+          .delete(catalogExternalMappingReviews)
+          .where(eq(catalogExternalMappingReviews.id, reviewId)),
       RAISE_EXCEPTION,
     );
   });

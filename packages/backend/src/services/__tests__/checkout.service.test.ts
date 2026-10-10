@@ -243,7 +243,12 @@ const ADDRESS_ID = uuidv7();
 const AT = new Date('2026-01-01T00:00:00.000Z');
 
 /** A cart item DTO as `getCart` returns it. */
-function cartItem(overrides: { listingId: string; variantId: string; amount?: number; quantity?: number }) {
+function cartItem(overrides: {
+  listingId: string;
+  variantId: string;
+  amount?: number;
+  quantity?: number;
+}) {
   return {
     listingId: overrides.listingId,
     variantId: overrides.variantId,
@@ -252,7 +257,10 @@ function cartItem(overrides: { listingId: string; variantId: string; amount?: nu
     unitPrice: { amount: overrides.amount ?? 1000, currency: 'FAIR' as const },
     quantity: overrides.quantity ?? 1,
     available: 10,
-    lineTotal: { amount: (overrides.amount ?? 1000) * (overrides.quantity ?? 1), currency: 'FAIR' as const },
+    lineTotal: {
+      amount: (overrides.amount ?? 1000) * (overrides.quantity ?? 1),
+      currency: 'FAIR' as const,
+    },
   };
 }
 
@@ -317,11 +325,7 @@ function listingRow(
  * pricing and the order money (default ⊜1000); both columns are nullable and
  * absent TOGETHER, which is the `product_variants_price_paired_check` shape.
  */
-function variantRow(
-  id: string,
-  listingId: string,
-  amount: number | null = 1000,
-): VariantRecord {
+function variantRow(id: string, listingId: string, amount: number | null = 1000): VariantRecord {
   return {
     id,
     listingId,
@@ -400,9 +404,11 @@ beforeEach(() => {
   findListingsByIds.mockReset();
   findVariantsByIds.mockReset();
   // The gallery and the variant option values are batched child reads now.
-  findListingChildren.mockReset().mockImplementation((listingIds: readonly string[]) =>
-    Promise.resolve(childrenWithOneImageEach(listingIds)),
-  );
+  findListingChildren
+    .mockReset()
+    .mockImplementation((listingIds: readonly string[]) =>
+      Promise.resolve(childrenWithOneImageEach(listingIds)),
+    );
   findVariantOptionValues.mockReset().mockResolvedValue(new Map());
   // No store docs found → shop currency falls back to a line's native currency (FAIR).
   findStoresByIds.mockReset().mockResolvedValue([]);
@@ -416,10 +422,14 @@ beforeEach(() => {
   redeemDiscountCode.mockReset().mockResolvedValue(true);
   findProviderAccountByOwner.mockReset();
   // Default pricing: zero discount/tax, subtotal derived from the group's lines.
-  calculateTotals.mockReset().mockImplementation((input: { lines: { unitPrice: { amount: number }; quantity: number }[] }) => {
-    const subtotal = input.lines.reduce((s, l) => s + l.unitPrice.amount * l.quantity, 0);
-    return Promise.resolve(pricingResultFor(input.lines.length, subtotal));
-  });
+  calculateTotals
+    .mockReset()
+    .mockImplementation(
+      (input: { lines: { unitPrice: { amount: number }; quantity: number }[] }) => {
+        const subtotal = input.lines.reduce((s, l) => s + l.unitPrice.amount * l.quantity, 0);
+        return Promise.resolve(pricingResultFor(input.lines.length, subtotal));
+      },
+    );
 });
 
 describe('checkout.service.checkout — multi-seller split', () => {
@@ -460,13 +470,21 @@ describe('checkout.service.checkout — multi-seller split', () => {
       Promise.resolve({ ...input, id: `order-${String(input.orderNumber)}` }),
     );
     summarizeOrders.mockImplementation((orders: unknown[]) =>
-      Promise.resolve(orders.map((_, i) => ({ id: `o${i}`, orderNumber: `MRC-00000${i}`, status: 'pending_payment' }))),
+      Promise.resolve(
+        orders.map((_, i) => ({
+          id: `o${i}`,
+          orderNumber: `MRC-00000${i}`,
+          status: 'pending_payment',
+        })),
+      ),
     );
 
     const result = await checkout(ACTOR, { addressId: ADDRESS_ID });
 
     expect(insertOrder).toHaveBeenCalledTimes(3);
-    const groupIds = insertOrder.mock.calls.map((c) => (c[0] as { checkoutGroupId: string }).checkoutGroupId);
+    const groupIds = insertOrder.mock.calls.map(
+      (c) => (c[0] as { checkoutGroupId: string }).checkoutGroupId,
+    );
     expect(new Set(groupIds).size).toBe(1);
     expect(result.checkoutGroupId).toBe(groupIds[0]);
     expect(result.orders).toHaveLength(3);
@@ -616,7 +634,9 @@ describe('checkout.service.checkout — idempotent replay', () => {
 
     const priorOrders = [{ id: 'o1', checkoutGroupId: storedGroupId }];
     findOrdersByCheckoutGroup.mockResolvedValueOnce(priorOrders);
-    summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000001', status: 'paid' }]);
+    summarizeOrders.mockResolvedValueOnce([
+      { id: 'o1', orderNumber: 'MRC-000001', status: 'paid' },
+    ]);
 
     const result = await checkout(ACTOR, { addressId: ADDRESS_ID }, 'idem-key-1');
 
@@ -639,7 +659,9 @@ describe('checkout.service.checkout — totals', () => {
       subtotal: { amount: 5000, currency: 'FAIR' },
     });
     findAddress.mockResolvedValueOnce(addressRow);
-    findListingsByIds.mockResolvedValueOnce([listingRow(L1, { ownerType: 'store', storeId: 'store-A' })]);
+    findListingsByIds.mockResolvedValueOnce([
+      listingRow(L1, { ownerType: 'store', storeId: 'store-A' }),
+    ]);
     // Native variant price ⊜2500 × 2 = the ⊜5000 line the mock pricing sums.
     findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1, 2500)]);
     // The snapshotted option values come from the variant's CHILD table.
@@ -650,7 +672,9 @@ describe('checkout.service.checkout — totals', () => {
     insertOrder.mockImplementation((input: Record<string, unknown>) =>
       Promise.resolve({ ...input, id: 'order-1' }),
     );
-    summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000010', status: 'pending_payment' }]);
+    summarizeOrders.mockResolvedValueOnce([
+      { id: 'o1', orderNumber: 'MRC-000010', status: 'pending_payment' },
+    ]);
 
     await checkout(ACTOR, { addressId: ADDRESS_ID });
 
@@ -695,7 +719,9 @@ describe('checkout.service.checkout — unpriced variant', () => {
       subtotal: { amount: 1000, currency: 'FAIR' },
     });
     findAddress.mockResolvedValueOnce(addressRow);
-    findListingsByIds.mockResolvedValueOnce([listingRow(L1, { ownerType: 'store', storeId: 'store-A' })]);
+    findListingsByIds.mockResolvedValueOnce([
+      listingRow(L1, { ownerType: 'store', storeId: 'store-A' }),
+    ]);
     // Both price columns NULL together — the shape the paired CHECK allows, and
     // the one the port made representable (Mongoose declared `price` required).
     findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1, null)]);
@@ -727,13 +753,17 @@ describe('checkout.service.checkout — discounts', () => {
       pendingDiscountCodes: ['WELCOME15'],
     });
     findAddress.mockResolvedValueOnce(addressRow);
-    findListingsByIds.mockResolvedValueOnce([listingRow(L1, { ownerType: 'store', storeId: 'store-A' })]);
+    findListingsByIds.mockResolvedValueOnce([
+      listingRow(L1, { ownerType: 'store', storeId: 'store-A' }),
+    ]);
     findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1)]);
     nextOrderNumber.mockResolvedValue('MRC-000020');
     insertOrder.mockImplementation((input: Record<string, unknown>) =>
       Promise.resolve({ ...input, id: 'order-1' }),
     );
-    summarizeOrders.mockResolvedValue([{ id: 'o1', orderNumber: 'MRC-000020', status: 'pending_payment' }]);
+    summarizeOrders.mockResolvedValue([
+      { id: 'o1', orderNumber: 'MRC-000020', status: 'pending_payment' },
+    ]);
 
     // Pricing returns a 15% order discount on the 1000 line (shop == presentment).
     calculateTotals.mockReset().mockResolvedValue({
@@ -765,7 +795,10 @@ describe('checkout.service.checkout — discounts', () => {
     await checkout(ACTOR, { addressId: ADDRESS_ID });
 
     const doc = insertOrder.mock.calls[0][0] as {
-      totals: { discountTotal: { shop: { amount: number } }; grandTotal: { shop: { amount: number } } };
+      totals: {
+        discountTotal: { shop: { amount: number } };
+        grandTotal: { shop: { amount: number } };
+      };
       appliedDiscounts: { code: string }[];
       items: { discountTotal?: { shop: { amount: number } } }[];
     };
@@ -792,7 +825,9 @@ describe('checkout.service.checkout — discounts', () => {
     getRedisClient.mockReturnValue(redis);
 
     findOrdersByCheckoutGroup.mockResolvedValueOnce([{ id: 'o1', checkoutGroupId: storedGroupId }]);
-    summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000020', status: 'paid' }]);
+    summarizeOrders.mockResolvedValueOnce([
+      { id: 'o1', orderNumber: 'MRC-000020', status: 'paid' },
+    ]);
 
     await checkout(ACTOR, { addressId: ADDRESS_ID, discountCodes: ['WELCOME15'] }, 'idem-key-2');
 
@@ -829,7 +864,9 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
     insertOrder.mockImplementation((input: Record<string, unknown>) =>
       Promise.resolve({ ...input, id: `order-${String(input.orderNumber)}` }),
     );
-    summarizeOrders.mockResolvedValue([{ id: 'o1', orderNumber: 'MRC-000030', status: 'pending_payment' }]);
+    summarizeOrders.mockResolvedValue([
+      { id: 'o1', orderNumber: 'MRC-000030', status: 'pending_payment' },
+    ]);
   }
 
   it('places only the requested seller group and removes just its lines (rest stays in cart)', async () => {
@@ -854,9 +891,7 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
 
     await expect(
       checkout(ACTOR, { addressId: ADDRESS_ID, sellerKeys: ['store:store-ZZZ'] }),
-    ).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
-    );
+    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT);
 
     expect(reserve).not.toHaveBeenCalled();
     expect(insertOrder).not.toHaveBeenCalled();

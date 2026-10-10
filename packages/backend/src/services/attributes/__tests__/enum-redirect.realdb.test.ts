@@ -22,10 +22,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
 import { isCheckViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
-import {
-  attributeDefinitions,
-  attributeEnumValues,
-} from '../../../db/schema/attributeRegistry.js';
+import { attributeDefinitions, attributeEnumValues } from '../../../db/schema/attributeRegistry.js';
 import {
   draftAttributeDefinition,
   publishAttributeDefinition,
@@ -71,7 +68,9 @@ afterAll(async () => {
       .update(attributeEnumValues)
       .set({ replacesEnumValueId: null })
       .where(inArray(attributeEnumValues.attributeDefinitionId, ids));
-    await db.delete(attributeEnumValues).where(inArray(attributeEnumValues.attributeDefinitionId, ids));
+    await db
+      .delete(attributeEnumValues)
+      .where(inArray(attributeEnumValues.attributeDefinitionId, ids));
     await db.delete(attributeDefinitions).where(inArray(attributeDefinitions.id, ids));
   }
   await closePostgres();

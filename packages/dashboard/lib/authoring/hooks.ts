@@ -21,7 +21,7 @@
  * reports an error instead of quietly falling back.
  */
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AuthoringCanonicalSearchResult,
   AuthoringCategoryOption,
@@ -31,8 +31,8 @@ import type {
   AuthoringSchema,
   AuthoringUpgradePreview,
   AuthoringValidationResult,
-} from "@mercaria/shared-types";
-import { queryKeys } from "../queryKeys";
+} from '@mercaria/shared-types';
+import { queryKeys } from '../queryKeys';
 import {
   applyDraftUpgrade,
   createProductDraft,
@@ -53,7 +53,7 @@ import {
   type DraftPublishOutcome,
   type DraftSaveOutcome,
   type PatchDraftPayload,
-} from "./api";
+} from './api';
 
 /** The whole surface is off or on for a deployment; one probe answers it. */
 export function useAuthoringAvailability(locale: string) {
@@ -74,9 +74,7 @@ export function useAuthoringCategories(parentId: string | null, locale: string, 
   return useQuery<readonly AuthoringCategoryOption[]>({
     queryKey: queryKeys.authoring.categories(parentId, locale),
     queryFn: () =>
-      fetchAuthoringCategories(
-        parentId === null ? { roots: true, locale } : { parentId, locale },
-      ),
+      fetchAuthoringCategories(parentId === null ? { roots: true, locale } : { parentId, locale }),
     enabled,
     staleTime: 5 * 60 * 1000,
   });
@@ -84,8 +82,8 @@ export function useAuthoringCategories(parentId: string | null, locale: string, 
 
 export function useAuthoringProductTypes(categoryId: string | null, locale: string) {
   return useQuery<readonly AuthoringProductTypeOption[]>({
-    queryKey: queryKeys.authoring.productTypes(categoryId ?? "", locale),
-    queryFn: () => fetchAuthoringProductTypes({ categoryId: categoryId ?? "", locale }),
+    queryKey: queryKeys.authoring.productTypes(categoryId ?? '', locale),
+    queryFn: () => fetchAuthoringProductTypes({ categoryId: categoryId ?? '', locale }),
     enabled: categoryId !== null,
     staleTime: 5 * 60 * 1000,
   });
@@ -110,16 +108,16 @@ export function useAuthoringSchema(params: {
   const version = params.version ?? null;
   return useQuery<AuthoringSchema>({
     queryKey: queryKeys.authoring.schema(
-      productTypeKey ?? "",
-      categoryId ?? "",
+      productTypeKey ?? '',
+      categoryId ?? '',
       market,
       locale,
       version,
     ),
     queryFn: () =>
       fetchAuthoringSchema({
-        productTypeKey: productTypeKey ?? "",
-        categoryId: categoryId ?? "",
+        productTypeKey: productTypeKey ?? '',
+        categoryId: categoryId ?? '',
         market,
         locale,
         ...(version === null ? {} : { version }),
@@ -139,10 +137,10 @@ export function useAuthoringSchema(params: {
  */
 export function useCanonicalSearch(params: {
   query: string;
-  kind?: "canonical_product" | "brand";
+  kind?: 'canonical_product' | 'brand';
   canonicalProductId?: string | null;
 }) {
-  const kind = params.kind ?? "canonical_product";
+  const kind = params.kind ?? 'canonical_product';
   const canonicalProductId = params.canonicalProductId ?? null;
   const trimmed = params.query.trim();
   return useQuery<AuthoringCanonicalSearchResult>({
@@ -169,11 +167,11 @@ export function useCanonicalSearch(params: {
  */
 export function useCanonicalVariants(canonicalProductId: string | null) {
   return useQuery<AuthoringCanonicalSearchResult>({
-    queryKey: queryKeys.authoring.canonicalSearch("", "canonical_variant", canonicalProductId),
+    queryKey: queryKeys.authoring.canonicalSearch('', 'canonical_variant', canonicalProductId),
     queryFn: () =>
       searchCanonicalCatalog({
-        q: canonicalProductId ?? "",
-        kind: "canonical_product",
+        q: canonicalProductId ?? '',
+        kind: 'canonical_product',
         ...(canonicalProductId === null ? {} : { canonicalProductId }),
       }),
     enabled: canonicalProductId !== null && canonicalProductId.length >= 2,
@@ -185,7 +183,7 @@ export function useCanonicalVariants(canonicalProductId: string | null) {
 /* Drafts                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export function useProductDrafts(storeId: string, status: AuthoringDraftStatus = "open") {
+export function useProductDrafts(storeId: string, status: AuthoringDraftStatus = 'open') {
   return useQuery<readonly AuthoringDraft[]>({
     queryKey: queryKeys.productDrafts.list(storeId, status),
     queryFn: () => listProductDrafts(storeId, { status }),
@@ -210,7 +208,7 @@ export function useCreateProductDraft(storeId: string) {
   return useMutation<AuthoringDraft, Error, CreateDraftPayload>({
     mutationFn: (payload) => createProductDraft(storeId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["stores", storeId, "product-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'product-drafts'] });
     },
   });
 }
@@ -226,7 +224,7 @@ export function useDiscardProductDraft(storeId: string) {
   return useMutation<AuthoringDraft, Error, { draftId: string; version: number }>({
     mutationFn: ({ draftId, version }) => discardProductDraft(storeId, draftId, version),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["stores", storeId, "product-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'product-drafts'] });
     },
   });
 }
@@ -251,7 +249,9 @@ export function useApplyDraftUpgrade(storeId: string, draftId: string) {
     mutationFn: (payload) => applyDraftUpgrade(storeId, draftId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.productDrafts.detail(storeId, draftId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.productDrafts.upgrade(storeId, draftId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.productDrafts.upgrade(storeId, draftId),
+      });
     },
   });
 }
@@ -269,9 +269,9 @@ export function usePublishProductDraft(storeId: string, draftId: string) {
   return useMutation<DraftPublishOutcome, Error, { idempotencyKey: string }>({
     mutationFn: ({ idempotencyKey }) => publishProductDraft(storeId, draftId, idempotencyKey),
     onSuccess: (outcome) => {
-      if (outcome.outcome !== "published") return;
-      queryClient.invalidateQueries({ queryKey: ["stores", storeId, "products"] });
-      queryClient.invalidateQueries({ queryKey: ["stores", storeId, "product-drafts"] });
+      if (outcome.outcome !== 'published') return;
+      queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'products'] });
+      queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'product-drafts'] });
     },
   });
 }

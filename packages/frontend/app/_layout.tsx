@@ -1,4 +1,4 @@
-import { isOxyFileId } from "@mercaria/shared-types";
+import { isOxyFileId } from '@mercaria/shared-types';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
 import { Slot, Stack } from 'expo-router';
@@ -58,7 +58,7 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
       const url = oxyServices.assets.publicUrl(fileId, variant);
       return url && url.startsWith('http') ? url : undefined;
     },
-    [oxyServices]
+    [oxyServices],
   );
 
   return (

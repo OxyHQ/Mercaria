@@ -51,23 +51,31 @@
  * Usage:  bun scripts/test-validate-catalog-identity-contracts.mjs
  */
 
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const validator = resolve(repositoryRoot, "scripts/validate-catalog-identity-contracts.mjs");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const validator = resolve(repositoryRoot, 'scripts/validate-catalog-identity-contracts.mjs');
 
-const CONTRACT_RELATIVE = "packages/shared-types/src";
-const PRODUCER_RELATIVE = "packages/backend/src/db/__tests__/catalog-identity-isolation.test.ts";
+const CONTRACT_RELATIVE = 'packages/shared-types/src';
+const PRODUCER_RELATIVE = 'packages/backend/src/db/__tests__/catalog-identity-isolation.test.ts';
 
 const failures = [];
 let cases = 0;
 
 /** A scratch root holding a verbatim copy of both populations the guard reads. */
 function makeTree() {
-  const root = mkdtempSync(join(tmpdir(), "catalog-contract-validator-"));
+  const root = mkdtempSync(join(tmpdir(), 'catalog-contract-validator-'));
   mkdirSync(join(root, CONTRACT_RELATIVE), { recursive: true });
   cpSync(join(repositoryRoot, CONTRACT_RELATIVE), join(root, CONTRACT_RELATIVE), {
     recursive: true,
@@ -86,16 +94,16 @@ function makeTree() {
  */
 function mutate(root, relativePath, transform) {
   const path = join(root, relativePath);
-  const before = readFileSync(path, "utf8");
+  const before = readFileSync(path, 'utf8');
   const after = transform(before);
   if (after === before) {
     throw new Error(
-      `mutation for ${relativePath} produced identical bytes — it never applied, which is `
-        + "indistinguishable from a mutation the guard survived",
+      `mutation for ${relativePath} produced identical bytes — it never applied, which is ` +
+        'indistinguishable from a mutation the guard survived',
     );
   }
   writeFileSync(path, after);
-  const readBack = readFileSync(path, "utf8");
+  const readBack = readFileSync(path, 'utf8');
   if (readBack !== after) {
     throw new Error(`mutation for ${relativePath} did not read back as written`);
   }
@@ -114,11 +122,11 @@ function mutate(root, relativePath, transform) {
  */
 function runAgainst(root) {
   const proc = Bun.spawnSync({
-    cmd: ["bun", validator],
+    cmd: ['bun', validator],
     cwd: repositoryRoot,
     env: { ...process.env, CATALOG_CONTRACT_VALIDATOR_ROOT: root },
-    stdout: "pipe",
-    stderr: "pipe",
+    stdout: 'pipe',
+    stderr: 'pipe',
   });
   return {
     exitCode: proc.exitCode,
@@ -149,27 +157,36 @@ function check(name, arrange, expectation) {
     // true cause, on the machine where it actually happened.
     if (signalCode) {
       failures.push(
-        `${name}: the guard's child process CRASHED (${signalCode}) rather than exiting — there is `
-          + "no output to check and no verdict to compare against `expect`. This is not a wrong "
-          + "message; the guard never produced one. Retry the run rather than reading this as a "
-          + `guard defect.\n${output.split("\n").map((line) => `      ${line}`).join("\n")}`,
+        `${name}: the guard's child process CRASHED (${signalCode}) rather than exiting — there is ` +
+          'no output to check and no verdict to compare against `expect`. This is not a wrong ' +
+          'message; the guard never produced one. Retry the run rather than reading this as a ' +
+          `guard defect.\n${output
+            .split('\n')
+            .map((line) => `      ${line}`)
+            .join('\n')}`,
       );
       return;
     }
     const red = exitCode !== 0;
-    if (red !== (expectation.expect === "red")) {
+    if (red !== (expectation.expect === 'red')) {
       failures.push(
-        `${name}: expected ${expectation.expect.toUpperCase()} but the guard exited ${exitCode}.\n`
-          + output.split("\n").map((line) => `      ${line}`).join("\n"),
+        `${name}: expected ${expectation.expect.toUpperCase()} but the guard exited ${exitCode}.\n` +
+          output
+            .split('\n')
+            .map((line) => `      ${line}`)
+            .join('\n'),
       );
       return;
     }
     for (const phrase of expectation.mentions ?? []) {
       if (output.includes(phrase)) continue;
       failures.push(
-        `${name}: the guard produced the right verdict but did not name ${JSON.stringify(phrase)}. `
-          + "A failure that does not identify the offending symbol and file sends the next reader "
-          + `to the wrong place.\n${output.split("\n").map((line) => `      ${line}`).join("\n")}`,
+        `${name}: the guard produced the right verdict but did not name ${JSON.stringify(phrase)}. ` +
+          'A failure that does not identify the offending symbol and file sends the next reader ' +
+          `to the wrong place.\n${output
+            .split('\n')
+            .map((line) => `      ${line}`)
+            .join('\n')}`,
       );
     }
   } catch (error) {
@@ -189,8 +206,8 @@ const append = (source, declaration) => `${source}\n${declaration}\n`;
 // Without this every RED below could be red because the copy is broken, the
 // floors are unmet or the producer did not come across — none of which has
 // anything to do with the mutation under test.
-check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
-  expect: "green",
+check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
+  expect: 'green',
   mentions: [
     // Counted from the guard's own output, never by arithmetic on the previous
     // figure: #367 W1's `taxonomy-classification.ts` added one module, and
@@ -349,8 +366,8 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // `ingestion.ts`'s `NormalizedSourceRecord` gained `productGroupKey`
     // (ADR 0016) — a source's own product id, opaque and source-scoped, not an
     // identity-shaped name. 136/2369/7900.
-    "walked 136 contract module(s), 2369 exported type(s), 7900 property signature(s)",
-    "check A arms exercised by real declarations: 6/9",
+    'walked 136 contract module(s), 2369 exported type(s), 7900 property signature(s)',
+    'check A arms exercised by real declarations: 6/9',
   ],
 });
 
@@ -358,61 +375,65 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
 /*  check A — every vocabulary arm, driven through the REAL file walk           */
 /* -------------------------------------------------------------------------- */
 
-const LIVE_ARMS = ["category", "productType", "brand", "brandName", "controlledValue", "categoryName"];
-const CONTROL_ONLY_ARMS = ["optionName", "attributeName", "productTypeName"];
+const LIVE_ARMS = [
+  'category',
+  'productType',
+  'brand',
+  'brandName',
+  'controlledValue',
+  'categoryName',
+];
+const CONTROL_ONLY_ARMS = ['optionName', 'attributeName', 'productTypeName'];
 
 for (const field of [...LIVE_ARMS, ...CONTROL_ONLY_ARMS]) {
   const live = LIVE_ARMS.includes(field);
   check(
-    `check A — a NEW \`${field}: string\` in a real contract module turns it RED `
-      + `(${live ? "an arm with live matches" : "an arm with NO live match"})`,
+    `check A — a NEW \`${field}: string\` in a real contract module turns it RED ` +
+      `(${live ? 'an arm with live matches' : 'an arm with NO live match'})`,
     (root) => {
       mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
         append(source, `export interface MutantSurface {\n  ${field}: string;\n}`),
       );
     },
     {
-      expect: "red",
-      mentions: [
-        "NEW ambiguous public catalog contract",
-        `product.ts:MutantSurface.${field}`,
-      ],
+      expect: 'red',
+      mentions: ['NEW ambiguous public catalog contract', `product.ts:MutantSurface.${field}`],
     },
   );
 }
 
 check(
-  "check A — the typed replacement beside it does NOT turn it red",
+  'check A — the typed replacement beside it does NOT turn it red',
   (root) => {
     mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
       append(
         source,
-        "export interface MutantTyped {\n  categoryId: string;\n  productTypeKey: string;\n"
-          + "  attributeDefinitionId: string;\n  categorySlug: string;\n}",
+        'export interface MutantTyped {\n  categoryId: string;\n  productTypeKey: string;\n' +
+          '  attributeDefinitionId: string;\n  categorySlug: string;\n}',
       ),
     );
   },
-  { expect: "green" },
+  { expect: 'green' },
 );
 
 check(
-  "check A — a closed union is not a bare string",
+  'check A — a closed union is not a bare string',
   (root) => {
     mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
       append(source, "export interface MutantUnion {\n  category: 'a' | 'b';\n}"),
     );
   },
-  { expect: "green" },
+  { expect: 'green' },
 );
 
 check(
-  "check A — an UNEXPORTED type is not a public contract",
+  'check A — an UNEXPORTED type is not a public contract',
   (root) => {
     mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
-      append(source, "interface MutantPrivate {\n  category: string;\n}"),
+      append(source, 'interface MutantPrivate {\n  category: string;\n}'),
     );
   },
-  { expect: "green" },
+  { expect: 'green' },
 );
 
 // The other half of the case directly above: an unexported type is invisible
@@ -421,19 +442,19 @@ check(
 // kinds). Named under the BASE, `MutantBase.category`, never the extending
 // `MutantSurface` — resolving inheritance is not re-homing the field.
 check(
-  "check A — a NEW ambiguous field on a NON-EXPORTED base an exported type extends turns it RED",
+  'check A — a NEW ambiguous field on a NON-EXPORTED base an exported type extends turns it RED',
   (root) => {
     mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
       append(
         source,
-        "interface MutantBase {\n  category: string;\n}\n"
-          + "export interface MutantSurface extends MutantBase {\n  id: string;\n}",
+        'interface MutantBase {\n  category: string;\n}\n' +
+          'export interface MutantSurface extends MutantBase {\n  id: string;\n}',
       ),
     );
   },
   {
-    expect: "red",
-    mentions: ["NEW ambiguous public catalog contract", "product.ts:MutantBase.category"],
+    expect: 'red',
+    mentions: ['NEW ambiguous public catalog contract', 'product.ts:MutantBase.category'],
   },
 );
 
@@ -447,25 +468,25 @@ check(
     mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
       append(
         source,
-        "export interface MutantExportedBase {\n  category: string;\n}\n"
-          + "export interface MutantSurface extends MutantExportedBase {\n  id: string;\n}",
+        'export interface MutantExportedBase {\n  category: string;\n}\n' +
+          'export interface MutantSurface extends MutantExportedBase {\n  id: string;\n}',
       ),
     );
   },
   {
-    expect: "red",
-    mentions: ["product.ts:MutantExportedBase.category"],
+    expect: 'red',
+    mentions: ['product.ts:MutantExportedBase.category'],
   },
 );
 
 check(
-  "check A — a nested object literal is reached (the descent is what finds `optionValues`)",
+  'check A — a nested object literal is reached (the descent is what finds `optionValues`)',
   (root) => {
     mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
-      append(source, "export interface MutantNested {\n  rows: { category: string }[];\n}"),
+      append(source, 'export interface MutantNested {\n  rows: { category: string }[];\n}'),
     );
   },
-  { expect: "red", mentions: ["product.ts:MutantNested.rows.category"] },
+  { expect: 'red', mentions: ['product.ts:MutantNested.rows.category'] },
 );
 
 // The shape that was invisible until the descent entered generic type
@@ -480,16 +501,16 @@ check(
     mutate(root, `${CONTRACT_RELATIVE}/product.ts`, (source) =>
       append(
         source,
-        "export interface MutantGeneric {\n  prefill: SellerPrefillField<{ category: string }>;\n"
-          + "  groups: Readonly<Record<string, { productType: string }>>;\n}",
+        'export interface MutantGeneric {\n  prefill: SellerPrefillField<{ category: string }>;\n' +
+          '  groups: Readonly<Record<string, { productType: string }>>;\n}',
       ),
     );
   },
   {
-    expect: "red",
+    expect: 'red',
     mentions: [
-      "product.ts:MutantGeneric.prefill.category",
-      "product.ts:MutantGeneric.groups.productType",
+      'product.ts:MutantGeneric.prefill.category',
+      'product.ts:MutantGeneric.groups.productType',
     ],
   },
 );
@@ -500,12 +521,12 @@ check(
     mutate(root, `${CONTRACT_RELATIVE}/variant.ts`, (source) =>
       append(
         source,
-        "export interface MutantGenericOption {\n"
-          + "  optionValues: SellerPrefillField<{ name: string; value: string }>;\n}",
+        'export interface MutantGenericOption {\n' +
+          '  optionValues: SellerPrefillField<{ name: string; value: string }>;\n}',
       ),
     );
   },
-  { expect: "red", mentions: ["variant.ts:MutantGenericOption.optionValues.name"] },
+  { expect: 'red', mentions: ['variant.ts:MutantGenericOption.optionValues.name'] },
 );
 
 /* -------------------------------------------------------------------------- */
@@ -513,67 +534,67 @@ check(
 /* -------------------------------------------------------------------------- */
 
 check(
-  "check B — a NEW option-shaped owner with a bare `name` turns it RED",
+  'check B — a NEW option-shaped owner with a bare `name` turns it RED',
   (root) => {
     mutate(root, `${CONTRACT_RELATIVE}/variant.ts`, (source) =>
-      append(source, "export interface MutantOption {\n  name: string;\n  value: string;\n}"),
+      append(source, 'export interface MutantOption {\n  name: string;\n  value: string;\n}'),
     );
   },
   {
-    expect: "red",
-    mentions: ["variant.ts:MutantOption.name", "variant.ts:MutantOption.value"],
+    expect: 'red',
+    mentions: ['variant.ts:MutantOption.name', 'variant.ts:MutantOption.value'],
   },
 );
 
 check(
-  "check B — a NEW inline `optionValues: { name; value }[]` turns it RED",
+  'check B — a NEW inline `optionValues: { name; value }[]` turns it RED',
   (root) => {
     mutate(root, `${CONTRACT_RELATIVE}/variant.ts`, (source) =>
       append(
         source,
-        "export interface MutantLine {\n  optionValues: { name: string; value: string }[];\n}",
+        'export interface MutantLine {\n  optionValues: { name: string; value: string }[];\n}',
       ),
     );
   },
-  { expect: "red", mentions: ["variant.ts:MutantLine.optionValues.name"] },
+  { expect: 'red', mentions: ['variant.ts:MutantLine.optionValues.name'] },
 );
 
 check(
-  "check B — the plural `axes` is matched, not only `axis`",
+  'check B — the plural `axes` is matched, not only `axis`',
   (root) => {
     mutate(root, `${CONTRACT_RELATIVE}/variant.ts`, (source) =>
-      append(source, "export interface MutantAxes {\n  axes: { value: string }[];\n}"),
+      append(source, 'export interface MutantAxes {\n  axes: { value: string }[];\n}'),
     );
   },
-  { expect: "red", mentions: ["variant.ts:MutantAxes.axes.value"] },
+  { expect: 'red', mentions: ['variant.ts:MutantAxes.axes.value'] },
 );
 
 check(
-  "check B — a substring is not a word: `taxes`, `taxonomy` and `adoptions` stay green",
-  (root) => {
-    mutate(root, `${CONTRACT_RELATIVE}/variant.ts`, (source) =>
-      append(
-        source,
-        "export interface MutantTaxes {\n  taxes: { value: string }[];\n"
-          + "  taxonomyRefinement: { name: string }[];\n  adoptions: { name: string }[];\n}",
-      ),
-    );
-  },
-  { expect: "green" },
-);
-
-check(
-  "check B — the typed axis assignment is not an ambiguous option",
+  'check B — a substring is not a word: `taxes`, `taxonomy` and `adoptions` stay green',
   (root) => {
     mutate(root, `${CONTRACT_RELATIVE}/variant.ts`, (source) =>
       append(
         source,
-        "export interface MutantTypedAxis {\n"
-          + "  optionValues: { attributeDefinitionId: string; normalizedValue: string }[];\n}",
+        'export interface MutantTaxes {\n  taxes: { value: string }[];\n' +
+          '  taxonomyRefinement: { name: string }[];\n  adoptions: { name: string }[];\n}',
       ),
     );
   },
-  { expect: "green" },
+  { expect: 'green' },
+);
+
+check(
+  'check B — the typed axis assignment is not an ambiguous option',
+  (root) => {
+    mutate(root, `${CONTRACT_RELATIVE}/variant.ts`, (source) =>
+      append(
+        source,
+        'export interface MutantTypedAxis {\n' +
+          '  optionValues: { attributeDefinitionId: string; normalizedValue: string }[];\n}',
+      ),
+    );
+  },
+  { expect: 'green' },
 );
 
 /* -------------------------------------------------------------------------- */
@@ -581,7 +602,7 @@ check(
 /* -------------------------------------------------------------------------- */
 
 check(
-  "an excused contract that DISAPPEARS turns it RED — the retirement is when somebody reads the entry",
+  'an excused contract that DISAPPEARS turns it RED — the retirement is when somebody reads the entry',
   (root) => {
     mutate(root, `${CONTRACT_RELATIVE}/listing.ts`, (source) => {
       // Byte-exact and COUPLED to the live declaration on purpose: the guard
@@ -591,32 +612,32 @@ check(
       // already fired once, on the commit that declared
       // `LEGACY_LISTING_CATEGORY_CONTRACT` beside the field.
       const target =
-        "  /**\n"
-        + "   * Category slug the listing belongs to (e.g. `electronics`) — the v1 spelling,\n"
-        + "   * DERIVED on every read from the leaf of `listings.category_slugs` and stored\n"
-        + "   * nowhere. See `LEGACY_LISTING_CATEGORY_CONTRACT` for what retires it.\n"
-        + "   */\n"
-        + "  category: string;\n";
+        '  /**\n' +
+        '   * Category slug the listing belongs to (e.g. `electronics`) — the v1 spelling,\n' +
+        '   * DERIVED on every read from the leaf of `listings.category_slugs` and stored\n' +
+        '   * nowhere. See `LEGACY_LISTING_CATEGORY_CONTRACT` for what retires it.\n' +
+        '   */\n' +
+        '  category: string;\n';
       if (!source.includes(target)) {
-        throw new Error("could not find `Listing.category` to remove — the fixture premise moved");
+        throw new Error('could not find `Listing.category` to remove — the fixture premise moved');
       }
-      return source.replace(target, "");
+      return source.replace(target, '');
     });
   },
   {
-    expect: "red",
-    mentions: ["excuses `listing.ts:Listing.category` 1 time(s) but the walk found 0"],
+    expect: 'red',
+    mentions: ['excuses `listing.ts:Listing.category` 1 time(s) but the walk found 0'],
   },
 );
 
 check(
-  "a SECOND occurrence of an already-excused field turns it RED — one excuse cannot cover two",
+  'a SECOND occurrence of an already-excused field turns it RED — one excuse cannot cover two',
   (root) => {
     mutate(root, `${CONTRACT_RELATIVE}/listing.ts`, (source) =>
-      append(source, "export interface Listing {\n  category: string;\n}"),
+      append(source, 'export interface Listing {\n  category: string;\n}'),
     );
   },
-  { expect: "red", mentions: ["occurs 2 time(s)", "excuses 1"] },
+  { expect: 'red', mentions: ['occurs 2 time(s)', 'excuses 1'] },
 );
 
 /* -------------------------------------------------------------------------- */
@@ -624,7 +645,7 @@ check(
 /* -------------------------------------------------------------------------- */
 
 check(
-  "a NARROWED vocabulary turns it RED rather than silently scanning for less",
+  'a NARROWED vocabulary turns it RED rather than silently scanning for less',
   (root) => {
     mutate(root, PRODUCER_RELATIVE, (source) =>
       source.replace(
@@ -634,40 +655,40 @@ check(
     );
   },
   {
-    expect: "red",
-    mentions: ["recovered 1 identity-shaped field name(s)", "does not contain \"optionName\""],
+    expect: 'red',
+    mentions: ['recovered 1 identity-shaped field name(s)', 'does not contain "optionName"'],
   },
 );
 
 check(
-  "a RENAMED producer declaration turns it RED — an unmatched pattern is a failure, not a pass",
+  'a RENAMED producer declaration turns it RED — an unmatched pattern is a failure, not a pass',
   (root) => {
     mutate(root, PRODUCER_RELATIVE, (source) =>
-      source.replace(/IDENTITY_SHAPED_FIELDS/gu, "RENAMED_IDENTITY_FIELDS"),
+      source.replace(/IDENTITY_SHAPED_FIELDS/gu, 'RENAMED_IDENTITY_FIELDS'),
     );
   },
-  { expect: "red", mentions: ["no longer declares `IDENTITY_SHAPED_FIELDS`"] },
+  { expect: 'red', mentions: ['no longer declares `IDENTITY_SHAPED_FIELDS`'] },
 );
 
 check(
-  "an element the reader cannot FOLD turns it RED rather than being skipped",
+  'an element the reader cannot FOLD turns it RED rather than being skipped',
   (root) => {
     mutate(root, PRODUCER_RELATIVE, (source) =>
       source.replace(
-        "const IDENTITY_SHAPED_FIELDS = [",
-        "const IDENTITY_SHAPED_FIELDS = [\n  SOME_IMPORTED_CONSTANT,",
+        'const IDENTITY_SHAPED_FIELDS = [',
+        'const IDENTITY_SHAPED_FIELDS = [\n  SOME_IMPORTED_CONSTANT,',
       ),
     );
   },
-  { expect: "red", mentions: ["cannot fold"] },
+  { expect: 'red', mentions: ['cannot fold'] },
 );
 
 check(
-  "a MISSING producer turns it RED — the vocabulary is never copied into the guard",
+  'a MISSING producer turns it RED — the vocabulary is never copied into the guard',
   (root) => {
     rmSync(join(root, PRODUCER_RELATIVE));
   },
-  { expect: "red", mentions: ["could not read the vocabulary's producer"] },
+  { expect: 'red', mentions: ["could not read the vocabulary's producer"] },
 );
 
 /* -------------------------------------------------------------------------- */
@@ -675,37 +696,37 @@ check(
 /* -------------------------------------------------------------------------- */
 
 check(
-  "a TRUNCATED contract surface turns it RED — a short walk reports a clean tree",
+  'a TRUNCATED contract surface turns it RED — a short walk reports a clean tree',
   (root) => {
     const dir = join(root, CONTRACT_RELATIVE);
-    const files = readdirSync(dir).filter((name) => name.endsWith(".ts"));
-    if (files.length < 100) throw new Error("the copied tree is already short — the premise moved");
+    const files = readdirSync(dir).filter((name) => name.endsWith('.ts'));
+    if (files.length < 100) throw new Error('the copied tree is already short — the premise moved');
     for (const name of files) {
-      if (["listing.ts", "variant.ts", "index.ts"].includes(name)) continue;
+      if (['listing.ts', 'variant.ts', 'index.ts'].includes(name)) continue;
       rmSync(join(dir, name));
     }
   },
-  { expect: "red", mentions: ["expected at least 110"] },
+  { expect: 'red', mentions: ['expected at least 110'] },
 );
 
 check(
-  "an EMPTIED contract module turns it RED — an empty file scans as a clean one",
+  'an EMPTIED contract module turns it RED — an empty file scans as a clean one',
   (root) => {
-    writeFileSync(join(root, `${CONTRACT_RELATIVE}/product.ts`), "");
+    writeFileSync(join(root, `${CONTRACT_RELATIVE}/product.ts`), '');
   },
-  { expect: "red", mentions: ["product.ts is empty"] },
+  { expect: 'red', mentions: ['product.ts is empty'] },
 );
 
 check(
-  "a SUBDIRECTORY under the flat population turns it RED — a one-level read would skip it",
+  'a SUBDIRECTORY under the flat population turns it RED — a one-level read would skip it',
   (root) => {
     mkdirSync(join(root, `${CONTRACT_RELATIVE}/catalog`), { recursive: true });
     writeFileSync(
       join(root, `${CONTRACT_RELATIVE}/catalog/nested.ts`),
-      "export interface Nested {\n  category: string;\n}\n",
+      'export interface Nested {\n  category: string;\n}\n',
     );
   },
-  { expect: "red", mentions: ["one level deep", "catalog"] },
+  { expect: 'red', mentions: ['one level deep', 'catalog'] },
 );
 
 /* -------------------------------------------------------------------------- */
@@ -715,8 +736,8 @@ check(
 const MINIMUM_CASES = 26;
 if (cases < MINIMUM_CASES) {
   failures.push(
-    `ran ${cases} case(s) but expected at least ${MINIMUM_CASES}. A self-test that stopped running `
-      + "its cases prints the same success line as one that ran them all.",
+    `ran ${cases} case(s) but expected at least ${MINIMUM_CASES}. A self-test that stopped running ` +
+      'its cases prints the same success line as one that ran them all.',
   );
 }
 
@@ -727,7 +748,7 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `\ntest-validate-catalog-identity-contracts: OK — ${cases} cases; every vocabulary arm, both `
-    + "checks, both directions of the excused set, the producer and every floor fire on a real "
-    + "copy of the tree.",
+  `\ntest-validate-catalog-identity-contracts: OK — ${cases} cases; every vocabulary arm, both ` +
+    'checks, both directions of the excused set, the producer and every floor fire on a real ' +
+    'copy of the tree.',
 );

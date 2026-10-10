@@ -303,7 +303,13 @@ async function mintOffer(input: {
 async function mintNativeStoreLink(merchantId: string, handle: string): Promise<string> {
   const [store] = await db
     .insert(stores)
-    .values({ oxyAccountId: 'oxy-account-fixture', handle, name: `MP store ${RUN}`, description: '', brandColor: '#000000' })
+    .values({
+      oxyAccountId: 'oxy-account-fixture',
+      handle,
+      name: `MP store ${RUN}`,
+      description: '',
+      brandColor: '#000000',
+    })
     .returning({ id: stores.id });
   if (!store) throw new Error('mintNativeStoreLink produced no store');
   created.stores.push(store.id);
@@ -513,7 +519,11 @@ describe('a marketplace channel keeps every seller distinct', () => {
       operatorMerchantId: platformId,
     });
     const { variantId } = await mintCanonicalVariant('named');
-    await mintOffer({ canonicalVariantId: variantId, merchantId: sellerId, storefrontId: channelId });
+    await mintOffer({
+      canonicalVariantId: variantId,
+      merchantId: sellerId,
+      storefrontId: channelId,
+    });
 
     const page = await getMerchantPage(sellerId);
 
@@ -591,7 +601,11 @@ describe('filters return only eligible current offers', () => {
 
     const filteredMerchantId = await mintMerchant('filtered');
     const { variantId } = await mintCanonicalVariant('filtered');
-    await mintOffer({ canonicalVariantId: variantId, merchantId: filteredMerchantId, country: 'ES' });
+    await mintOffer({
+      canonicalVariantId: variantId,
+      merchantId: filteredMerchantId,
+      country: 'ES',
+    });
     const filteredPage = await getMerchantCatalog({
       merchantId: filteredMerchantId,
       scope: { kind: 'merchant' },
@@ -620,8 +634,14 @@ describe('filters return only eligible current offers', () => {
 
   it('scopes a browse to one channel', async () => {
     const merchantId = await mintMerchant('chanfilter');
-    const channelA = await mintStorefront({ label: 'chanfilter-a', operatorMerchantId: merchantId });
-    const channelB = await mintStorefront({ label: 'chanfilter-b', operatorMerchantId: merchantId });
+    const channelA = await mintStorefront({
+      label: 'chanfilter-a',
+      operatorMerchantId: merchantId,
+    });
+    const channelB = await mintStorefront({
+      label: 'chanfilter-b',
+      operatorMerchantId: merchantId,
+    });
     const onA = await mintCanonicalVariant('chanfilter-a');
     const onB = await mintCanonicalVariant('chanfilter-b');
     await mintOffer({ canonicalVariantId: onA.variantId, merchantId, storefrontId: channelA });
@@ -695,8 +715,16 @@ describe('the offer-level view', () => {
     });
     const { variantId } = await mintCanonicalVariant('offerview');
 
-    await mintOffer({ canonicalVariantId: variantId, merchantId: platformId, storefrontId: channelId });
-    await mintOffer({ canonicalVariantId: variantId, merchantId: sellerId, storefrontId: channelId });
+    await mintOffer({
+      canonicalVariantId: variantId,
+      merchantId: platformId,
+      storefrontId: channelId,
+    });
+    await mintOffer({
+      canonicalVariantId: variantId,
+      merchantId: sellerId,
+      storefrontId: channelId,
+    });
 
     const scope = await resolveCatalogScope({
       merchantId: platformId,

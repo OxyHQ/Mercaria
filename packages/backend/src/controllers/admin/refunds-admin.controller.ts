@@ -11,11 +11,7 @@
 
 import type { Request, Response } from 'express';
 import type { CreateRefundInput } from '@mercaria/shared-types';
-import {
-  process as processRefund,
-  listForOrder,
-  getById,
-} from '../../services/refund.service.js';
+import { process as processRefund, listForOrder, getById } from '../../services/refund.service.js';
 import { sendSuccess } from '../../utils/api-response.js';
 import { respondWithError, notFound } from '../../lib/errors/error-codes.js';
 import { routeParam } from '../../utils/request.js';

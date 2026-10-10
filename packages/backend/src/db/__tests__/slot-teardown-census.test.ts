@@ -296,7 +296,9 @@ describe('the slot teardown census', () => {
     // The vacuity floor. A broken walk, a moved directory or an extension
     // filter that stopped matching all report the same clean zero as a correct
     // scan, and every assertion below would pass on each of them.
-    expect(sources.size, 'the walk read almost nothing — did the layout move?').toBeGreaterThan(300);
+    expect(sources.size, 'the walk read almost nothing — did the layout move?').toBeGreaterThan(
+      300,
+    );
     expect(
       holders.length,
       'no file holds a slot — the detector or the walk stopped working',

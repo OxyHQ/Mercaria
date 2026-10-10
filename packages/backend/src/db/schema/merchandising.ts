@@ -120,7 +120,9 @@ export const collections = pgTable(
     type: text({ enum: asEnumValues(COLLECTION_TYPES) }).notNull(),
     /** `rules.appliesDisjunctively` — the conditions themselves are a child table. */
     rulesAppliesDisjunctively: boolean().notNull().default(false),
-    sortOrder: text({ enum: asEnumValues(COLLECTION_SORT_ORDERS) }).notNull().default('manual'),
+    sortOrder: text({ enum: asEnumValues(COLLECTION_SORT_ORDERS) })
+      .notNull()
+      .default('manual'),
     seoTitle: text(),
     seoDescription: text(),
     isPublished: boolean().notNull().default(true),

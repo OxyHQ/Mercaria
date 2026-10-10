@@ -35,7 +35,8 @@ import {
  * fee module, a reference to a fee table object, or a raw-SQL mention of the
  * tables themselves.
  */
-const FEE_REFERENCE = /fees\/|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee/;
+const FEE_REFERENCE =
+  /fees\/|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee/;
 
 describe('organic ranking cannot read fee data', () => {
   it('walks the ranking surface rather than listing it, and every shape found something', () => {

@@ -68,7 +68,11 @@ describe('search cursors', () => {
   });
 
   it('round-trips a position and a depth', () => {
-    const encoded = encodeSearchCursor(fingerprint, { score: 0.734_5, kind: 'product', id: 'p1' }, 20);
+    const encoded = encodeSearchCursor(
+      fingerprint,
+      { score: 0.734_5, kind: 'product', id: 'p1' },
+      20,
+    );
     const decoded = decodeSearchCursor(encoded, fingerprint);
     expect(decoded).toEqual({ score: 0.734_5, kind: 'product', id: 'p1', depth: 20 });
   });
@@ -96,7 +100,9 @@ describe('search cursors', () => {
       expect(decodeSearchCursor(bad, fingerprint)).toBeNull();
     }
     // A well-formed cursor naming a kind this version does not have.
-    const forged = Buffer.from(`sc1|${fingerprint}|0|500000|listing|x`, 'utf8').toString('base64url');
+    const forged = Buffer.from(`sc1|${fingerprint}|0|500000|listing|x`, 'utf8').toString(
+      'base64url',
+    );
     expect(decodeSearchCursor(forged, fingerprint)).toBeNull();
   });
 

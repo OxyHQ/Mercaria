@@ -54,7 +54,9 @@ export async function recordRevision(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<CatalogRevisionRow> {
   if (input.reason.trim() === '') {
-    throw validationError('Every catalogue revision needs a reason; an unexplained change is not auditable.');
+    throw validationError(
+      'Every catalogue revision needs a reason; an unexplained change is not auditable.',
+    );
   }
   const actor = input.actorOxyUserId ?? null;
   if (input.actorKind === 'operator' && (actor === null || actor.trim() === '')) {
@@ -124,9 +126,7 @@ export async function recordCompensation(input: CompensateInput): Promise<Catalo
   }
   const existing = await findCompensationFor(input.revisionId, db);
   if (existing) {
-    throw conflict(
-      `Revision ${input.revisionId} was already compensated by ${existing.id}.`,
-    );
+    throw conflict(`Revision ${input.revisionId} was already compensated by ${existing.id}.`);
   }
   return recordRevision(
     {

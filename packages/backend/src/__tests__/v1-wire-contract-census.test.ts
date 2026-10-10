@@ -244,10 +244,9 @@ describe('v1 wire contracts — the derived population', () => {
     // `toBe`, never `toBeLessThanOrEqual`: a ceiling admits a proof being
     // deleted, and a floor admits a new un-gated contract. See
     // `V1_CONTRACTS_WITHOUT_PROOF`.
-    expect(
-      unproven.length,
-      `un-proven: ${unproven.map((entry) => entry.path).join(', ')}`,
-    ).toBe(V1_CONTRACTS_WITHOUT_PROOF);
+    expect(unproven.length, `un-proven: ${unproven.map((entry) => entry.path).join(', ')}`).toBe(
+      V1_CONTRACTS_WITHOUT_PROOF,
+    );
     expect(successors.length).toBe(V1_SUCCESSOR_MEMBERS);
   });
 });
@@ -311,7 +310,8 @@ describe('v1 wire contracts — every entry is bound to production', () => {
       // `canonical-search.service.js` cannot satisfy `search.service.js`.
       const imported = new RegExp(`['"][^'"]*['"/]${specifier.replace(/\./gu, '\\.')}['"]`, 'u');
       const importers = sources.filter(
-        (module) => module.path !== `backend/src/${entry.servedBy?.module}` && imported.test(module.text),
+        (module) =>
+          module.path !== `backend/src/${entry.servedBy?.module}` && imported.test(module.text),
       );
       expect(
         importers.length,
@@ -394,7 +394,7 @@ describe('v1 wire contracts — the derivation can fail', () => {
     expect(removed.derived).toEqual([]);
   });
 
-  it('a sibling member does not inherit its neighbour\'s v1 docblock', () => {
+  it("a sibling member does not inherit its neighbour's v1 docblock", () => {
     const both = fixture(
       [
         'export interface Sample {',

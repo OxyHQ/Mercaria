@@ -1,12 +1,12 @@
-import { useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
-import { useRouter } from "expo-router";
-import type { NearbyLocationResult } from "@mercaria/shared-types";
-import { NearbyLocationCard, Text } from "@mercaria/ui";
-import { NearbyOriginControl } from "@/components/nearby/NearbyOriginControl";
-import { useNearbyAvailability, useNearbyOrigin } from "@/lib/hooks/use-nearby";
-import { useTranslation } from "@/lib/i18n";
-import { openGoWayPlace } from "@/lib/goway";
+import { useMemo, useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import type { NearbyLocationResult } from '@mercaria/shared-types';
+import { NearbyLocationCard, Text } from '@mercaria/ui';
+import { NearbyOriginControl } from '@/components/nearby/NearbyOriginControl';
+import { useNearbyAvailability, useNearbyOrigin } from '@/lib/hooks/use-nearby';
+import { useTranslation } from '@/lib/i18n';
+import { openGoWayPlace } from '@/lib/goway';
 
 /**
  * "Available nearby" — the ONE nearby component every surface reuses
@@ -73,7 +73,7 @@ export interface NearbyAvailabilityProps {
 }
 
 /** How the loaded results are ordered. Both are facts; neither is a policy. */
-type NearbyOrder = "nearest" | "lowest_price";
+type NearbyOrder = 'nearest' | 'lowest_price';
 
 export function NearbyAvailability({
   canonicalProductId,
@@ -87,7 +87,7 @@ export function NearbyAvailability({
   const { t, locale } = useTranslation();
   const router = useRouter();
   const originState = useNearbyOrigin();
-  const [order, setOrder] = useState<NearbyOrder>("nearest");
+  const [order, setOrder] = useState<NearbyOrder>('nearest');
 
   const nearby = useNearbyAvailability({
     ...(canonicalProductId === undefined ? {} : { canonicalProductId }),
@@ -115,7 +115,7 @@ export function NearbyAvailability({
     // `nearest` returns the array UNTOUCHED: the server ordered it, and
     // re-sorting by a distance we coarsened would reshuffle equal-looking
     // neighbours for no reason.
-    if (order === "nearest") return results;
+    if (order === 'nearest') return results;
     return [...results].sort((a, b) => {
       // Only comparable within one currency. A page can legitimately mix them
       // (a border city, an external seller), and comparing raw minor units
@@ -136,9 +136,9 @@ export function NearbyAvailability({
   return (
     <View className="gap-space-12">
       <Text className="text-shop-sectionTitle text-text" accessibilityRole="header">
-        {t("nearby.heading")}
+        {t('nearby.heading')}
       </Text>
-      <Text className="text-shop-caption text-text-secondary">{t("nearby.intro")}</Text>
+      <Text className="text-shop-caption text-text-secondary">{t('nearby.intro')}</Text>
 
       <NearbyOriginControl
         originState={originState}
@@ -148,16 +148,16 @@ export function NearbyAvailability({
 
       {originState.origin === null ? (
         <Text className="text-shop-caption text-text-tertiary">
-          {t("nearby.chooseLocationPrompt")}
+          {t('nearby.chooseLocationPrompt')}
         </Text>
       ) : nearby.isLoading ? (
-        <Text className="text-shop-caption text-text-tertiary">{t("nearby.loading")}</Text>
+        <Text className="text-shop-caption text-text-tertiary">{t('nearby.loading')}</Text>
       ) : nearby.isError ? (
         <Text className="text-shop-caption text-text-tertiary" accessibilityRole="alert">
-          {t("nearby.error")}
+          {t('nearby.error')}
         </Text>
       ) : results.length === 0 ? (
-        <Text className="text-shop-caption text-text-tertiary">{t("nearby.empty")}</Text>
+        <Text className="text-shop-caption text-text-tertiary">{t('nearby.empty')}</Text>
       ) : (
         <View className="gap-space-12">
           {/*
@@ -168,8 +168,8 @@ export function NearbyAvailability({
           <View className="flex-row flex-wrap gap-space-8" accessibilityRole="radiogroup">
             {(
               [
-                ["nearest", "nearby.order.nearest"],
-                ["lowest_price", "nearby.order.lowestPrice"],
+                ['nearest', 'nearby.order.nearest'],
+                ['lowest_price', 'nearby.order.lowestPrice'],
               ] as const
             ).map(([value, labelKey]) => (
               <Pressable
@@ -180,15 +180,15 @@ export function NearbyAvailability({
                 onPress={() => setOrder(value)}
                 className={
                   order === value
-                    ? "rounded-radius-max bg-bg-fill-inverse px-space-12 py-space-6"
-                    : "rounded-radius-max border border-border-secondary px-space-12 py-space-6"
+                    ? 'rounded-radius-max bg-bg-fill-inverse px-space-12 py-space-6'
+                    : 'rounded-radius-max border border-border-secondary px-space-12 py-space-6'
                 }
               >
                 <Text
                   className={
                     order === value
-                      ? "text-shop-captionBold text-text-inverse"
-                      : "text-shop-captionBold text-text"
+                      ? 'text-shop-captionBold text-text-inverse'
+                      : 'text-shop-captionBold text-text'
                   }
                 >
                   {t(labelKey)}
@@ -202,9 +202,7 @@ export function NearbyAvailability({
               key={`${result.location.locationId}:${result.variantId}`}
               result={result}
               now={now}
-              onPressMerchant={(slug) =>
-                router.push(`/merchants/${slug}`)
-              }
+              onPressMerchant={(slug) => router.push(`/merchants/${slug}`)}
               onPressPlace={openGoWayPlace}
               {...(onSelectLocation === undefined ? {} : { onSelect: onSelectLocation })}
               {...(selectLabel === undefined ? {} : { selectLabel })}
@@ -220,7 +218,7 @@ export function NearbyAvailability({
           */}
           {hasMore ? (
             <Text className="text-shop-caption text-text-tertiary">
-              {t("nearby.moreBeyond", { count: results.length })}
+              {t('nearby.moreBeyond', { count: results.length })}
             </Text>
           ) : null}
 
@@ -233,12 +231,12 @@ export function NearbyAvailability({
           {onSeeCollectionOptions === undefined ? null : (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t("nearby.collectionOptionsLabel")}
+              accessibilityLabel={t('nearby.collectionOptionsLabel')}
               onPress={onSeeCollectionOptions}
               className="self-start rounded-radius-max bg-bg-fill-inverse px-space-16 py-space-8"
             >
               <Text className="text-shop-buttonSmall text-text-inverse">
-                {t("nearby.collectInPerson")}
+                {t('nearby.collectInPerson')}
               </Text>
             </Pressable>
           )}

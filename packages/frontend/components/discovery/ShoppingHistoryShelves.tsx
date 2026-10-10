@@ -1,11 +1,8 @@
-import { View } from "react-native";
-import { useRouter } from "expo-router";
-import { ProductShelf, ThreadShelf } from "@mercaria/ui";
-import {
-  useShoppingHistory,
-  useShoppingHistoryOwner,
-} from "@/lib/stores/shopping-history";
-import { useTranslation } from "@/lib/i18n";
+import { View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ProductShelf, ThreadShelf } from '@mercaria/ui';
+import { useShoppingHistory, useShoppingHistoryOwner } from '@/lib/stores/shopping-history';
+import { useTranslation } from '@/lib/i18n';
 
 export function ShoppingHistoryShelves() {
   const owner = useShoppingHistoryOwner();
@@ -22,7 +19,7 @@ export function ShoppingHistoryShelves() {
   return (
     <>
       <ThreadShelf
-        title={t("home.keepShopping")}
+        title={t('home.keepShopping')}
         items={recentThreads.map((thread) => {
           const date = new Date(thread.updatedAt);
           const today = date.toDateString() === new Date().toDateString();
@@ -31,9 +28,7 @@ export function ShoppingHistoryShelves() {
             title: thread.title,
             dateLabel: new Intl.DateTimeFormat(
               locale,
-              today
-                ? { hour: "numeric", minute: "2-digit" }
-                : { month: "long", day: "numeric" },
+              today ? { hour: 'numeric', minute: '2-digit' } : { month: 'long', day: 'numeric' },
             ).format(date),
             imageUrls: thread.messages
               .flatMap((message) =>
@@ -45,19 +40,17 @@ export function ShoppingHistoryShelves() {
           };
         })}
         onPress={(conversationId) =>
-          router.push({ pathname: "/thread", params: { conversationId } })
+          router.push({ pathname: '/thread', params: { conversationId } })
         }
       />
       {recentProducts.length ? (
         <View testID="recently-viewed-shelf">
           <ProductShelf
-            title={t("home.recentlyViewed")}
+            title={t('home.recentlyViewed')}
             items={recentProducts.slice(0, 12)}
             cardVariant="image-only"
-            onPressTitle={() => router.push("/recently-viewed")}
-            onPressItem={(id) =>
-              router.push({ pathname: "/products/[id]", params: { id } })
-            }
+            onPressTitle={() => router.push('/recently-viewed')}
+            onPressItem={(id) => router.push({ pathname: '/products/[id]', params: { id } })}
           />
         </View>
       ) : null}

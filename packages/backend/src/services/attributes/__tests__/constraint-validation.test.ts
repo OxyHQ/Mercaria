@@ -211,7 +211,9 @@ describe('meaningless constraints are refused before search', () => {
   it('accepts an enum ALIAS, since the same alias table normalizes stored values', async () => {
     const result = await validateConstraintSet(
       db,
-      set(attribute('c', 'charging_port', { op: 'eq', value: { type: 'string', value: 'Type-C' } })),
+      set(
+        attribute('c', 'charging_port', { op: 'eq', value: { type: 'string', value: 'Type-C' } }),
+      ),
     );
     expect(result.valid).toBe(true);
   });
@@ -337,15 +339,18 @@ describe('lifecycle', () => {
     registry.set(
       'retired_thing',
       fixtureDefinition(
-        { key: 'retired_thing', label: 'Retired', valueType: 'string', hardConstraintCapable: false },
+        {
+          key: 'retired_thing',
+          label: 'Retired',
+          valueType: 'string',
+          hardConstraintCapable: false,
+        },
         { lifecycleState: 'retired' },
       ),
     );
     const retired = await validateConstraintSet(
       db,
-      set(
-        attribute('c', 'retired_thing', { op: 'exists' }, { strength: 'preference' }),
-      ),
+      set(attribute('c', 'retired_thing', { op: 'exists' }, { strength: 'preference' })),
     );
     expect(retired.valid).toBe(false);
     if (retired.valid !== false) throw new Error('the set should have been refused');

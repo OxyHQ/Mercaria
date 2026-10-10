@@ -53,9 +53,7 @@ export async function fetchAttributeValues(
 ): Promise<readonly PublicAttributeValue[]> {
   const { data } = await apiClient.get<
     ApiResponse<{ entityKind: string; entityId: string; values: PublicAttributeValue[] }>
-  >(
-    `/catalog-attributes/values/${encodeURIComponent(entityKind)}/${encodeURIComponent(entityId)}`,
-  );
+  >(`/catalog-attributes/values/${encodeURIComponent(entityKind)}/${encodeURIComponent(entityId)}`);
   if (!data.success || !data.data) {
     throw new Error(data.error ?? data.message ?? 'Failed to load attribute values');
   }

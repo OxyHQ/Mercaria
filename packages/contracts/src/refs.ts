@@ -23,7 +23,13 @@ import { z } from 'zod';
 import { MercariaIdSchema } from './primitives';
 
 /** The entity kinds a portable reference can name. */
-export const MERCARIA_REF_KINDS = ['product', 'variant', 'store', 'collection', 'location'] as const;
+export const MERCARIA_REF_KINDS = [
+  'product',
+  'variant',
+  'store',
+  'collection',
+  'location',
+] as const;
 export type MercariaRefKind = (typeof MERCARIA_REF_KINDS)[number];
 
 /** A sellable product, by its globally unique id. */
@@ -36,7 +42,11 @@ export type MercariaProductRef = z.infer<typeof MercariaProductRefSchema>;
  * variant id because a variant is resolved THROUGH its product — there is no
  * public read of a lone variant.
  */
-const variantRef = z.object({ kind: z.literal('variant'), productId: MercariaIdSchema, variantId: MercariaIdSchema });
+const variantRef = z.object({
+  kind: z.literal('variant'),
+  productId: MercariaIdSchema,
+  variantId: MercariaIdSchema,
+});
 export const MercariaVariantRefSchema = variantRef.readonly();
 export type MercariaVariantRef = z.infer<typeof MercariaVariantRefSchema>;
 

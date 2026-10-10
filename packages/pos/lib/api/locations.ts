@@ -1,6 +1,6 @@
-import type { ApiResponse, Location } from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+import type { ApiResponse, Location } from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 /** GET /admin/stores/:storeId/locations — the store's stock locations. */
 export async function fetchLocations(storeId: string): Promise<Location[]> {

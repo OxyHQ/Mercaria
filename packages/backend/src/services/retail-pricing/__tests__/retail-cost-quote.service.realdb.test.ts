@@ -202,10 +202,7 @@ function composeInput(
 describe('composing a retail cost quote', () => {
   it('case 1: a same-currency quote is the exact sum, and nothing is converted', async () => {
     const policy = await makeActivePolicy();
-    const composed = await composeRetailCostQuote(
-      composeInput(policy, await makeSourcing()),
-      db,
-    );
+    const composed = await composeRetailCostQuote(composeInput(policy, await makeSourcing()), db);
 
     expect(composed.quote.customerTotalAmount).toBe(2_895);
     expect(composed.quote.buyerPayableAmount).toBe(2_895);

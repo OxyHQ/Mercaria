@@ -289,7 +289,13 @@ export type MerchantActivationBlockReason = (typeof MERCHANT_ACTIVATION_BLOCK_RE
  * `unevaluable` is only honest if it says whose gap it is — #112's device. A
  * reason with no owner is indistinguishable from a bug in this domain.
  */
-export const MERCHANT_ACTIVATION_INPUT_OWNERS = ['#93', '#108', '#110', '#111', 'deployment'] as const;
+export const MERCHANT_ACTIVATION_INPUT_OWNERS = [
+  '#93',
+  '#108',
+  '#110',
+  '#111',
+  'deployment',
+] as const;
 
 /** One of {@link MERCHANT_ACTIVATION_INPUT_OWNERS}. */
 export type MerchantActivationInputOwner = (typeof MERCHANT_ACTIVATION_INPUT_OWNERS)[number];

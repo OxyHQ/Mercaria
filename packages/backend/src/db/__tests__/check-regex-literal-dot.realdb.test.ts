@@ -155,9 +155,10 @@ describe('the CHECK constraints the migrated database actually holds', () => {
   it('reads enough of them to be measuring something', () => {
     // The vacuity floor. Without it every assertion below passes against a
     // query that returned nothing, which is the failure mode a census has.
-    expect(checks.length, 'no CHECK constraints found — did the chain apply?').toBeGreaterThanOrEqual(
-      MIN_CHECK_CONSTRAINTS,
-    );
+    expect(
+      checks.length,
+      'no CHECK constraints found — did the chain apply?',
+    ).toBeGreaterThanOrEqual(MIN_CHECK_CONSTRAINTS);
 
     const patterns = checks.flatMap((check) => extractRegexOperands(check.definition));
     expect(patterns.length).toBeGreaterThanOrEqual(MIN_REGEX_PATTERNS);
@@ -220,9 +221,7 @@ describe('the detector itself', () => {
     const definition = `CHECK ((((key)::text ~ '^a(.b)$'::text) AND ((key)::text !~ 'it''s\\.'::text)))`;
     expect(extractRegexOperands(definition)).toEqual(['^a(.b)$', "it's\\."]);
     expect(
-      extractRegexOperands(definition).filter(
-        (pattern) => wildcardDotOffsets(pattern).length > 0,
-      ),
+      extractRegexOperands(definition).filter((pattern) => wildcardDotOffsets(pattern).length > 0),
     ).toHaveLength(1);
   });
 });

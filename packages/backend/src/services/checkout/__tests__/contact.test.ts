@@ -54,9 +54,8 @@ describe('postal-code validation is country-aware and only where reliable', () =
 
   it('accepts a lower-case UK postcode and a Dutch one with no space', () => {
     expect(
-      normalizeCheckoutAddress(
-        address({ country: 'GB', postalCode: 'sw1a 1aa', city: 'London' }),
-      ).postalCode,
+      normalizeCheckoutAddress(address({ country: 'GB', postalCode: 'sw1a 1aa', city: 'London' }))
+        .postalCode,
       // Preserved as typed — the pattern matches case-insensitively, but the
       // stored value is the buyer's, because a carrier reads it back.
     ).toBe('sw1a 1aa');

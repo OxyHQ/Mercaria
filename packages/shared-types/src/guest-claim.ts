@@ -113,11 +113,7 @@ export type GuestClaimRevocationReason = (typeof GUEST_CLAIM_REVOCATION_REASONS)
  * the second approval is a separate REQUEST rather than a second id typed into
  * the first — one person can type two ids.
  */
-export const GUEST_CLAIM_REVOCATION_STATES = [
-  'pending_approval',
-  'executed',
-  'withdrawn',
-] as const;
+export const GUEST_CLAIM_REVOCATION_STATES = ['pending_approval', 'executed', 'withdrawn'] as const;
 
 /** One of {@link GUEST_CLAIM_REVOCATION_STATES}. */
 export type GuestClaimRevocationState = (typeof GUEST_CLAIM_REVOCATION_STATES)[number];

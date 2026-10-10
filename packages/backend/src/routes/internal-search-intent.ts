@@ -40,11 +40,7 @@ router.use(makeRateLimiter('admin'));
 router.get('/metrics', intentMetricsHandler);
 
 router.get('/benchmark-runs', listIntentBenchmarkRunsHandler);
-router.post(
-  '/benchmark-runs',
-  validateBody(intentBenchmarkRunSchema),
-  runIntentBenchmarkHandler,
-);
+router.post('/benchmark-runs', validateBody(intentBenchmarkRunSchema), runIntentBenchmarkHandler);
 
 router.get('/enablements', listIntentEnablementsHandler);
 router.post('/enablements', validateBody(intentEnablementSchema), publishIntentEnablementHandler);

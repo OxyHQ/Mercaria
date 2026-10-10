@@ -149,11 +149,7 @@ const REFERRAL_SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/
 function referralDomainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
   return [
     ...REFERRAL_OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
-    ...namedInSharedDirectories(
-      REFERRAL_SHARED_DIRECTORIES,
-      REFERRAL_DOMAIN_NAME_PATTERN,
-      readDir,
-    ),
+    ...namedInSharedDirectories(REFERRAL_SHARED_DIRECTORIES, REFERRAL_DOMAIN_NAME_PATTERN, readDir),
   ];
 }
 
@@ -219,8 +215,7 @@ const WALLS: Wall[] = [
     files: NON_SEAM_FILES,
     pattern:
       /from\s+['"][^'"]*(retail-checkout|retail-fulfilment|retail-pilot|supplier-orders|supplier-preflight|schema\/retailCheckout|schema\/supplier)[^'"]*['"]/,
-    probe:
-      "import { recordRetailCostVariance } from '../../retail-checkout/variance.service.js';",
+    probe: "import { recordRetailCostVariance } from '../../retail-checkout/variance.service.js';",
   },
   {
     // #144 isolation 7, ADR 0005 I1. Referral reward, partner tier, campaign
@@ -319,9 +314,9 @@ describe('referral reward funding isolation (static)', () => {
   }
 
   it('reads the ledger SCHEMA from exactly two files, and both only read', () => {
-    const ledgerImporters = REFERRAL_DOMAIN_FILES
-      .filter((path) => /from\s+['"][^'"]*schema\/ledger[^'"]*['"]/.test(code(path)))
-      .sort();
+    const ledgerImporters = REFERRAL_DOMAIN_FILES.filter((path) =>
+      /from\s+['"][^'"]*schema\/ledger[^'"]*['"]/.test(code(path)),
+    ).sort();
     // An EXACT set. #145 added the balance read and nothing else; a third file
     // reaching the ledger tables directly fails HERE.
     expect(ledgerImporters).toEqual([BALANCE_SEAM, LEDGER_SEAM].sort());
@@ -341,12 +336,18 @@ describe('referral reward funding isolation (static)', () => {
     // ledger repository is erased and passes; the SAME module imported as a
     // value still fires, which is what keeps `posting.service.ts` a seam rather
     // than an ordinary file.
-    const typeOnly = "import type { LedgerEntryInput } from '../../../db/payments/ledgerRepository.js';\n";
-    const value = "import { insertLedgerTransaction } from '../../../db/payments/ledgerRepository.js';\n";
+    const typeOnly =
+      "import type { LedgerEntryInput } from '../../../db/payments/ledgerRepository.js';\n";
+    const value =
+      "import { insertLedgerTransaction } from '../../../db/payments/ledgerRepository.js';\n";
     const wall = WALLS.find((candidate) => candidate.valueImportsOnly === true);
     expect(wall).toBeDefined();
     if (!wall) return;
-    expect(wall.pattern.test(typeOnly.replace(/import\s+type\s+\{[\s\S]*?\}\s+from\s+['"][^'"]*['"];?/g, ''))).toBe(false);
+    expect(
+      wall.pattern.test(
+        typeOnly.replace(/import\s+type\s+\{[\s\S]*?\}\s+from\s+['"][^'"]*['"];?/g, ''),
+      ),
+    ).toBe(false);
     expect(wall.pattern.test(value)).toBe(true);
   });
 
@@ -363,9 +364,13 @@ describe('referral reward funding isolation (static)', () => {
     // entries itself, so the account boundary it asserts is the one it writes.
     const posting = code(POSTING_SEAM);
     expect(posting.includes('assertReferralPosting')).toBe(true);
-    assertEachOf(['retail_cost_recovery', 'procurement_expense', 'commission_revenue'], 3, (forbidden) => {
-      expect(posting.includes(forbidden), `the writer names ${forbidden}`).toBe(false);
-    });
+    assertEachOf(
+      ['retail_cost_recovery', 'procurement_expense', 'commission_revenue'],
+      3,
+      (forbidden) => {
+        expect(posting.includes(forbidden), `the writer names ${forbidden}`).toBe(false);
+      },
+    );
     // The mutation self-test: the same scan against a seeded positive fires.
     expect("account: 'retail_cost_recovery',".includes('retail_cost_recovery')).toBe(true);
   });

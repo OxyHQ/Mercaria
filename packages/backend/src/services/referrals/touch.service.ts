@@ -137,7 +137,10 @@ export async function resolveReferralLink(
     link.destinationType !== null
       ? { destinationType: link.destinationType, destinationRef: link.destinationRef ?? undefined }
       : code.destinationType !== null
-        ? { destinationType: code.destinationType, destinationRef: code.destinationRef ?? undefined }
+        ? {
+            destinationType: code.destinationType,
+            destinationRef: code.destinationRef ?? undefined,
+          }
         : { destinationType: 'home' };
 
   return {
@@ -201,9 +204,15 @@ export async function registerLinkTouch(input: {
 
     const destination: ReferralDestination =
       link.destinationType !== null
-        ? { destinationType: link.destinationType, destinationRef: link.destinationRef ?? undefined }
+        ? {
+            destinationType: link.destinationType,
+            destinationRef: link.destinationRef ?? undefined,
+          }
         : code.destinationType !== null
-          ? { destinationType: code.destinationType, destinationRef: code.destinationRef ?? undefined }
+          ? {
+              destinationType: code.destinationType,
+              destinationRef: code.destinationRef ?? undefined,
+            }
           : { destinationType: 'home' };
 
     const touch = await writeTouch(tx, {
@@ -290,7 +299,10 @@ export async function registerCodeTouch(input: {
 
     const destination: ReferralDestination =
       code.destinationType !== null
-        ? { destinationType: code.destinationType, destinationRef: code.destinationRef ?? undefined }
+        ? {
+            destinationType: code.destinationType,
+            destinationRef: code.destinationRef ?? undefined,
+          }
         : { destinationType: 'home' };
 
     const touch = await writeTouch(tx, {

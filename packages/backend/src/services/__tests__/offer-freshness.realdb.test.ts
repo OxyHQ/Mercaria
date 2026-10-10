@@ -46,7 +46,10 @@ import { recordExternalOffer, listOffers } from '../offers/offer.service.js';
 import { findOfferById, retireOffers } from '../../db/offers/offerRepository.js';
 import { retireUnseen } from '../ingestion/ingest.service.js';
 import { runIngestionPage } from '../ingestion/ingest.service.js';
-import { registerCatalogSourceAdapter, unregisterCatalogSourceAdapter } from '../ingestion/registry.js';
+import {
+  registerCatalogSourceAdapter,
+  unregisterCatalogSourceAdapter,
+} from '../ingestion/registry.js';
 import { createFixtureAdapter, fixtureRecord } from '../ingestion/adapters/fixture.js';
 import { assertOfferOutboundEligible } from '../offer-freshness/outbound-gate.js';
 import { readSourceCatalogHealth } from '../offer-freshness/health.service.js';
@@ -129,7 +132,9 @@ beforeAll(async () => {
 afterAll(async () => {
   try {
     for (const provider of registeredProviders) unregisterCatalogSourceAdapter(provider);
-    await db.delete(offerRefreshTasks).where(inArray(offerRefreshTasks.sourceId, safeIds(createdSourceIds)));
+    await db
+      .delete(offerRefreshTasks)
+      .where(inArray(offerRefreshTasks.sourceId, safeIds(createdSourceIds)));
     await db
       .delete(catalogSourceRefreshLeases)
       .where(inArray(catalogSourceRefreshLeases.sourceId, safeIds(createdSourceIds)));
@@ -158,7 +163,9 @@ afterAll(async () => {
         where source_id = any(${sql.param(safeIds(createdSourceIds))}::text[])
       )`,
     );
-    await db.delete(sourceRecords).where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
+    await db
+      .delete(sourceRecords)
+      .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
     await db
       .delete(catalogSourceConfigs)
       .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
@@ -259,7 +266,9 @@ afterAll(async () => {
 });
 
 /** One canonical product plus its one variant — what an offer must point at. */
-async function mintCanonicalVariant(label: string): Promise<{ productId: string; variantId: string }> {
+async function mintCanonicalVariant(
+  label: string,
+): Promise<{ productId: string; variantId: string }> {
   const [product] = await db
     .insert(canonicalProducts)
     .values({
@@ -350,7 +359,10 @@ async function bringUpSource(
   label: string,
   options: { freshnessTtlSeconds?: number; mayStore?: boolean } = {},
 ): Promise<{ sourceId: string; provider: string; merchantId: string }> {
-  const provider = `freshness-${label}-${RUN}`.toLowerCase().replace(/[^a-z0-9_-]/gu, '').slice(0, 64);
+  const provider = `freshness-${label}-${RUN}`
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/gu, '')
+    .slice(0, 64);
   const merchantId = await mintMerchant(label);
   const resolved = await configureIngestionSource({
     name: `Freshness source ${label} ${RUN}`,
@@ -431,7 +443,12 @@ async function seedOffer(input: {
       ...(input.country === undefined ? {} : { country: input.country }),
       ...(input.network === undefined
         ? {}
-        : { affiliate: { network: input.network, ...(input.programRef === undefined ? {} : { programRef: input.programRef }) } }),
+        : {
+            affiliate: {
+              network: input.network,
+              ...(input.programRef === undefined ? {} : { programRef: input.programRef }),
+            },
+          }),
       observedAt,
       // The stored deadline is the PRE-FILTER; the live policy is the
       // authority. Both are stamped from the same contract here.
@@ -949,7 +966,9 @@ describe('acceptance 6 — anomaly fixtures quarantine bad output BEFORE publica
     // The one finding a page cannot make, and the one whose consequence is
     // destructive: a feed that dropped nine tenths of its rows must not have
     // them retired on its say-so.
-    const { sourceId, provider, merchantId } = await bringUpSource('disappear', { mayStore: false });
+    const { sourceId, provider, merchantId } = await bringUpSource('disappear', {
+      mayStore: false,
+    });
     await publishFreshness(sourceId);
 
     const objectIds: string[] = [];
@@ -1330,11 +1349,17 @@ describe('the refresh budget binds the FLEET, not a process', () => {
 
     if (first.outcome !== 'granted') throw new Error('unreachable: narrowed above');
     expect(
-      await releaseSourceRefreshLease({ leaseId: first.leaseId, leaseOwner: `task-a-${RUN}`, now }, db),
+      await releaseSourceRefreshLease(
+        { leaseId: first.leaseId, leaseOwner: `task-a-${RUN}`, now },
+        db,
+      ),
     ).toBe(true);
     // A release by somebody who does NOT own the lease changes nothing.
     expect(
-      await releaseSourceRefreshLease({ leaseId: first.leaseId, leaseOwner: `task-z-${RUN}`, now }, db),
+      await releaseSourceRefreshLease(
+        { leaseId: first.leaseId, leaseOwner: `task-z-${RUN}`, now },
+        db,
+      ),
     ).toBe(false);
   });
 });

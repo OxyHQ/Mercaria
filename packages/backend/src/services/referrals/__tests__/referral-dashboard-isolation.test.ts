@@ -174,10 +174,18 @@ describe('WALL 3 — the runtime projection walk', () => {
 
   it('passes a projection that carries only what A5 permits', () => {
     const safe = {
-      performance: { rows: [{ key: 'ES', label: 'ES', humanClicks: 40, qualifiedConversions: 11 }] },
+      performance: {
+        rows: [{ key: 'ES', label: 'ES', humanClicks: 40, qualifiedConversions: 11 }],
+      },
       earnings: {
         recentRewards: [
-          { date: '2026-08-01', state: 'held', netAmountMinor: 1200, currency: 'EUR', campaignRef: 'summer' },
+          {
+            date: '2026-08-01',
+            state: 'held',
+            netAmountMinor: 1200,
+            currency: 'EUR',
+            campaignRef: 'summer',
+          },
         ],
       },
     };
@@ -217,7 +225,9 @@ describe('WALL 4 — the performance dimensions are a closed, disjoint set', () 
 
 describe('WALL 5 — every published figure names its own definition', () => {
   it('has a definition for every key, and no orphan definition', () => {
-    expect([...REFERRAL_METRIC_KEYS].sort()).toEqual(Object.keys(REFERRAL_METRIC_DEFINITIONS).sort());
+    expect([...REFERRAL_METRIC_KEYS].sort()).toEqual(
+      Object.keys(REFERRAL_METRIC_DEFINITIONS).sort(),
+    );
     expect(REFERRAL_METRIC_KEYS.length).toBeGreaterThanOrEqual(9);
   });
 
@@ -256,15 +266,19 @@ describe('WALL 6 — no partner route can name a partner', () => {
     expect(source).toContain('makeReferralPartnerRouter');
     expect(source.length).toBeGreaterThan(4000);
 
-    assertEachOf([
-      /req\.params\.partnerId/u,
-      /req\.query\.partnerId/u,
-      /req\.body\.partnerId/u,
-      /params\.ownerId/u,
-      /query\.ownerType/u,
-    ], 5, (pattern) => {
-      expect(source).not.toMatch(pattern);
-    });
+    assertEachOf(
+      [
+        /req\.params\.partnerId/u,
+        /req\.query\.partnerId/u,
+        /req\.body\.partnerId/u,
+        /params\.ownerId/u,
+        /query\.ownerType/u,
+      ],
+      5,
+      (pattern) => {
+        expect(source).not.toMatch(pattern);
+      },
+    );
   });
 
   it('resolves every owner through the mount-supplied resolver', () => {
@@ -280,7 +294,6 @@ describe('WALL 6 — no partner route can name a partner', () => {
     expect(/req\.params\.partnerId/u.test('const id = req.params.partnerId;')).toBe(true);
   });
 });
-
 
 describe('the population every wall above is applied to (#460)', () => {
   it('nothing naming this sub-domain sits outside it', () => {
@@ -320,16 +333,33 @@ describe('the population every wall above is applied to (#460)', () => {
     // three other issues own. Each sibling is asserted to exist, so the
     // exclusion cannot go vacuous on a rename.
     const population = domainRelativePaths();
-    assertEachOf(['services/referrals/earnings/posting.service.ts', 'services/referrals/integrity/effects.ts', 'services/referrals/rewards/funding.ts'], 3, (sibling) => {
-      expect(
-        statSync(join(SRC_ROOT, sibling)).isFile(),
-        `${sibling} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-      expect(DASHBOARD_NAME_PATTERN.test(sibling), `${sibling} matches this sub-domain's name`).toBe(false);
-      expect(population, `${sibling} belongs to a sibling sub-domain`).not.toContain(sibling);
-    });
+    assertEachOf(
+      [
+        'services/referrals/earnings/posting.service.ts',
+        'services/referrals/integrity/effects.ts',
+        'services/referrals/rewards/funding.ts',
+      ],
+      3,
+      (sibling) => {
+        expect(
+          statSync(join(SRC_ROOT, sibling)).isFile(),
+          `${sibling} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+        expect(
+          DASHBOARD_NAME_PATTERN.test(sibling),
+          `${sibling} matches this sub-domain's name`,
+        ).toBe(false);
+        expect(population, `${sibling} belongs to a sibling sub-domain`).not.toContain(sibling);
+      },
+    );
     // …and the vacuity floor on the loop itself.
-    expect(['services/referrals/earnings/posting.service.ts', 'services/referrals/integrity/effects.ts', 'services/referrals/rewards/funding.ts'].length).toBeGreaterThanOrEqual(3);
+    expect(
+      [
+        'services/referrals/earnings/posting.service.ts',
+        'services/referrals/integrity/effects.ts',
+        'services/referrals/rewards/funding.ts',
+      ].length,
+    ).toBeGreaterThanOrEqual(3);
   });
 
   it('floors PER SHAPE, because the sources break independently', () => {

@@ -182,9 +182,7 @@ function stageRefinement(stage: SearchMatchStage, input: EntityRelevanceInput): 
     case 'exact_name':
       return Math.max(agreement, unit(input.tokenOverlap) * 0.5 + agreement * 0.5);
     case 'exact_alias':
-      return (
-        ALIAS_QUALITY[input.aliasKind ?? 'name_variant'] * 0.7 + agreement * 0.3
-      );
+      return ALIAS_QUALITY[input.aliasKind ?? 'name_variant'] * 0.7 + agreement * 0.3;
     case 'prefix':
       return unit(input.trigramSimilarity) * 0.6 + agreement * 0.4;
     case 'lexical':

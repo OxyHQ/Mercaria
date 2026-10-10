@@ -100,9 +100,10 @@ describe('cancellation eligibility', () => {
     expect(resolveCancellationEligibility(orderFacts({ status: 'refunded' })).verdict).toBe(
       'ineligible',
     );
-    expect(
-      resolveCancellationEligibility(orderFacts({ sourceExternalId: 'shopify-1' })),
-    ).toEqual({ verdict: 'ineligible', reason: 'external_order' });
+    expect(resolveCancellationEligibility(orderFacts({ sourceExternalId: 'shopify-1' }))).toEqual({
+      verdict: 'ineligible',
+      reason: 'external_order',
+    });
     expect(resolveCancellationEligibility(orderFacts({ shippingMethod: 'pickup' }))).toEqual({
       verdict: 'ineligible',
       reason: 'pickup_not_supported',
@@ -137,9 +138,9 @@ describe('return eligibility and its window', () => {
         }),
       ),
     ).toEqual(delivered);
-    expect(returnWindowAnchor(orderFacts({ statusHistory: [{ status: 'shipped', at: shipped }] }))).toEqual(
-      shipped,
-    );
+    expect(
+      returnWindowAnchor(orderFacts({ statusHistory: [{ status: 'shipped', at: shipped }] })),
+    ).toEqual(shipped);
   });
 
   it('uses the STORE window when there is one and the generous default when not', () => {
@@ -527,6 +528,8 @@ describe('the domain vocabularies', () => {
     expect(
       notifications.notifyCancellationReceived({ id: 'o', checkoutGroupId: null }, 'r'),
     ).toBeUndefined();
-    expect(notifications.notifyRefundPending({ id: 'o', checkoutGroupId: null }, 'r')).toBeUndefined();
+    expect(
+      notifications.notifyRefundPending({ id: 'o', checkoutGroupId: null }, 'r'),
+    ).toBeUndefined();
   });
 });

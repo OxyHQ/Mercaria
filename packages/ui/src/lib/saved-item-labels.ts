@@ -23,34 +23,34 @@
  * guard's count by nothing at all and takes four English sentences off the
  * screen.
  */
-export const SAVED_ITEM_REMOVE_PRODUCT_KEY = "ui.savedItem.removeProduct";
-export const SAVED_ITEM_REMOVE_LISTING_KEY = "ui.savedItem.removeListing";
-export const SAVED_ITEM_SAVED_PRODUCT_KEY = "ui.savedItem.savedProduct";
-export const SAVED_ITEM_SAVED_LISTING_KEY = "ui.savedItem.savedListing";
-export const SAVED_ITEM_PINNED_LISTING_KEY = "ui.savedItem.pinnedListing";
-export const SAVED_ITEM_CHEAPER_KEY = "ui.savedItem.cheaper";
-export const SAVED_ITEM_DEARER_KEY = "ui.savedItem.dearer";
-export const SAVED_ITEM_PEOPLE_SAVED_KEY = "ui.savedItem.peopleSaved";
-export const SAVED_ITEM_SPLIT_CHOOSE_KEY = "ui.savedItem.splitChoose";
-export const SAVED_ITEM_SPLIT_CHOOSE_A11Y_KEY = "ui.savedItem.splitChooseA11y";
-export const SAVED_ITEM_SET_ALERT_KEY = "ui.savedItem.setAlert";
-export const SAVED_ITEM_SET_ALERT_A11Y_KEY = "ui.savedItem.setAlertA11y";
-export const SAVED_ITEM_UNAVAILABLE_KEY = "ui.savedItem.unavailable";
-export const SAVED_ITEM_PRICE_UNPUBLISHED_KEY = "ui.savedItem.priceUnpublished";
-export const SAVED_ITEM_PRICE_IN_CURRENCY_KEY = "ui.savedItem.priceInCurrency";
-export const SAVED_ITEM_NO_OFFER_RECORDED_KEY = "ui.savedItem.noOffer.recorded";
-export const SAVED_ITEM_NO_OFFER_RETIRED_KEY = "ui.savedItem.noOffer.retired";
-export const SAVED_ITEM_NO_OFFER_FILTERED_KEY = "ui.savedItem.noOffer.filtered";
-export const SAVED_ITEM_NO_OFFER_GENERIC_KEY = "ui.savedItem.noOffer.generic";
+export const SAVED_ITEM_REMOVE_PRODUCT_KEY = 'ui.savedItem.removeProduct';
+export const SAVED_ITEM_REMOVE_LISTING_KEY = 'ui.savedItem.removeListing';
+export const SAVED_ITEM_SAVED_PRODUCT_KEY = 'ui.savedItem.savedProduct';
+export const SAVED_ITEM_SAVED_LISTING_KEY = 'ui.savedItem.savedListing';
+export const SAVED_ITEM_PINNED_LISTING_KEY = 'ui.savedItem.pinnedListing';
+export const SAVED_ITEM_CHEAPER_KEY = 'ui.savedItem.cheaper';
+export const SAVED_ITEM_DEARER_KEY = 'ui.savedItem.dearer';
+export const SAVED_ITEM_PEOPLE_SAVED_KEY = 'ui.savedItem.peopleSaved';
+export const SAVED_ITEM_SPLIT_CHOOSE_KEY = 'ui.savedItem.splitChoose';
+export const SAVED_ITEM_SPLIT_CHOOSE_A11Y_KEY = 'ui.savedItem.splitChooseA11y';
+export const SAVED_ITEM_SET_ALERT_KEY = 'ui.savedItem.setAlert';
+export const SAVED_ITEM_SET_ALERT_A11Y_KEY = 'ui.savedItem.setAlertA11y';
+export const SAVED_ITEM_UNAVAILABLE_KEY = 'ui.savedItem.unavailable';
+export const SAVED_ITEM_PRICE_UNPUBLISHED_KEY = 'ui.savedItem.priceUnpublished';
+export const SAVED_ITEM_PRICE_IN_CURRENCY_KEY = 'ui.savedItem.priceInCurrency';
+export const SAVED_ITEM_NO_OFFER_RECORDED_KEY = 'ui.savedItem.noOffer.recorded';
+export const SAVED_ITEM_NO_OFFER_RETIRED_KEY = 'ui.savedItem.noOffer.retired';
+export const SAVED_ITEM_NO_OFFER_FILTERED_KEY = 'ui.savedItem.noOffer.filtered';
+export const SAVED_ITEM_NO_OFFER_GENERIC_KEY = 'ui.savedItem.noOffer.generic';
 
 /** Why a saved product has nothing to buy, in the buyer's own language. */
 export function savedItemNoOfferKey(reason: string): string {
   switch (reason) {
-    case "no_offers_recorded":
+    case 'no_offers_recorded':
       return SAVED_ITEM_NO_OFFER_RECORDED_KEY;
-    case "all_offers_retired":
+    case 'all_offers_retired':
       return SAVED_ITEM_NO_OFFER_RETIRED_KEY;
-    case "no_eligible_offer":
+    case 'no_eligible_offer':
       return SAVED_ITEM_NO_OFFER_FILTERED_KEY;
     default:
       return SAVED_ITEM_NO_OFFER_GENERIC_KEY;

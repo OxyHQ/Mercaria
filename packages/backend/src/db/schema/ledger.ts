@@ -111,9 +111,7 @@ export const ledgerTransactions = pgTable(
     index('ledger_transactions_order_id_created_at_idx')
       .on(t.orderId, t.createdAt)
       .where(sql`${t.orderId} is not null`),
-    index('ledger_transactions_refund_id_idx')
-      .on(t.refundId)
-      .where(sql`${t.refundId} is not null`),
+    index('ledger_transactions_refund_id_idx').on(t.refundId).where(sql`${t.refundId} is not null`),
     index('ledger_transactions_kind_created_at_idx').on(t.kind, t.createdAt),
   ],
 );
@@ -180,11 +178,7 @@ export const ledgerEntries = pgTable(
     index('ledger_entries_transaction_id_idx').on(t.transactionId),
     // "What is the balance of this account in this currency?" — the account
     // statement every financial report is built from.
-    index('ledger_entries_account_currency_created_at_idx').on(
-      t.account,
-      t.currency,
-      t.createdAt,
-    ),
+    index('ledger_entries_account_currency_created_at_idx').on(t.account, t.currency, t.createdAt),
     // "What do we owe this seller?" — partial, because only the payable rows
     // carry an owner and the platform-wide rows would otherwise dominate it.
     index('ledger_entries_owner_created_at_idx')

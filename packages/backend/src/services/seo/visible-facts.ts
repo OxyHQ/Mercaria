@@ -244,15 +244,11 @@ export function listingPageFacts(listing: Listing): SeoVisibleFacts {
       { name: listing.title, path: listingPath },
     ],
     entityName: listing.title,
-    ...(listing.vendor === undefined || listing.vendor === ''
-      ? {}
-      : { brandName: listing.vendor }),
+    ...(listing.vendor === undefined || listing.vendor === '' ? {} : { brandName: listing.vendor }),
     gtins: [],
     offers: [offer],
     offerCurrency: listing.price.currency,
-    variantNames: listing.variants
-      .map((variant) => variant.title)
-      .filter((title) => title !== ''),
+    variantNames: listing.variants.map((variant) => variant.title).filter((title) => title !== ''),
   };
 }
 

@@ -30,10 +30,7 @@
  * because an adapter did not recognise a status code.
  */
 
-import type {
-  SupplierProviderErrorClass,
-  SupplierProviderFailure,
-} from '@mercaria/shared-types';
+import type { SupplierProviderErrorClass, SupplierProviderFailure } from '@mercaria/shared-types';
 import { SUPPLIER_PROVIDER_ERROR_RETRYABLE } from '@mercaria/shared-types';
 
 /**

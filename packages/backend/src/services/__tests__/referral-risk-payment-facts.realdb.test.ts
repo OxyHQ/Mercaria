@@ -65,12 +65,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, getDb, type Database } from '../../db/postgres.js';
-import {
-  disputes,
-  paymentAttempts,
-  payments,
-  providerAccounts,
-} from '../../db/schema/payments.js';
+import { disputes, paymentAttempts, payments, providerAccounts } from '../../db/schema/payments.js';
 import { orders } from '../../db/schema/orders.js';
 import {
   referralAttributions,
@@ -249,7 +244,9 @@ const DISPUTED_ORDERS = 2;
 const DECLINED_ATTEMPTS = 3;
 
 /** A partner with one code, one link and one link-click touch to hang attributions off. */
-async function seedFunnel(label: string): Promise<{ partnerId: string; codeId: string; touchId: string }> {
+async function seedFunnel(
+  label: string,
+): Promise<{ partnerId: string; codeId: string; touchId: string }> {
   const { row: partner } = await insertPartner(getDb(), {
     ownerType: 'user',
     ownerId: `owner-rpf-${label}-${TAG}`,
@@ -399,14 +396,16 @@ async function seedOrder(orderId: string, paymentId: string): Promise<void> {
 /** One payment aggregate the fixture's orders and disputes hang off. */
 async function seedPayment(): Promise<string> {
   const paymentId = uuidv7();
-  await getDb().insert(payments).values({
-    id: paymentId,
-    checkoutGroupId: `grp-rpf-${TAG}`,
-    provider: 'stripe',
-    status: 'succeeded',
-    presentmentAmount: 1_000,
-    presentmentCurrency: 'EUR',
-  });
+  await getDb()
+    .insert(payments)
+    .values({
+      id: paymentId,
+      checkoutGroupId: `grp-rpf-${TAG}`,
+      provider: 'stripe',
+      status: 'succeeded',
+      presentmentAmount: 1_000,
+      presentmentCurrency: 'EUR',
+    });
   trackedPaymentIds.push(paymentId);
   return paymentId;
 }
@@ -440,37 +439,43 @@ describe("#344's join produces the two facts the port was declared for", () => {
     }
 
     for (let i = 0; i < DISPUTED_ORDERS; i += 1) {
-      await getDb().insert(disputes).values({
-        id: uuidv7(),
-        provider: 'stripe',
-        providerDisputeId: `dp_rpf_${TAG}_${i}`,
-        paymentId,
-        orderId: orderIds[i],
-        amountAmount: 1_000,
-        amountCurrency: 'EUR',
-        status: 'needs_response',
-      });
+      await getDb()
+        .insert(disputes)
+        .values({
+          id: uuidv7(),
+          provider: 'stripe',
+          providerDisputeId: `dp_rpf_${TAG}_${i}`,
+          paymentId,
+          orderId: orderIds[i],
+          amountAmount: 1_000,
+          amountCurrency: 'EUR',
+          status: 'needs_response',
+        });
     }
 
     for (let i = 0; i < DECLINED_ATTEMPTS; i += 1) {
-      await getDb().insert(paymentAttempts).values({
-        id: uuidv7(),
-        paymentId,
-        sequence: i + 1,
-        provider: 'stripe',
-        status: 'failed',
-      });
+      await getDb()
+        .insert(paymentAttempts)
+        .values({
+          id: uuidv7(),
+          paymentId,
+          sequence: i + 1,
+          provider: 'stripe',
+          status: 'failed',
+        });
     }
     // The positive control on the decline count: a SUCCEEDED attempt on the same
     // payment must not be counted, so a producer that forgot its status filter
     // reports 4 rather than 3 and this file goes red.
-    await getDb().insert(paymentAttempts).values({
-      id: uuidv7(),
-      paymentId,
-      sequence: DECLINED_ATTEMPTS + 1,
-      provider: 'stripe',
-      status: 'succeeded',
-    });
+    await getDb()
+      .insert(paymentAttempts)
+      .values({
+        id: uuidv7(),
+        paymentId,
+        sequence: DECLINED_ATTEMPTS + 1,
+        provider: 'stripe',
+        status: 'succeeded',
+      });
   }, 180_000);
 
   it('the RATE is taken over the DOMAINs denominator, not over the cohort it was handed', async () => {
@@ -487,9 +492,7 @@ describe("#344's join produces the two facts the port was declared for", () => {
     const facts = await collectRiskSignalFacts(getDb(), { partnerId: funnel.partnerId, at });
 
     expect(facts.conversionsInWindow).toBe(WINDOW_CONVERSIONS);
-    expect(facts.disputeRateBps).toBe(
-      Math.round((DISPUTED_ORDERS * 10_000) / WINDOW_CONVERSIONS),
-    );
+    expect(facts.disputeRateBps).toBe(Math.round((DISPUTED_ORDERS * 10_000) / WINDOW_CONVERSIONS));
     expect(facts.disputeRateBps).toBe(800);
     // And the value a cohort-denominated join would have produced is a DIFFERENT
     // number, which is what makes the assertion above discriminating rather than
@@ -631,8 +634,9 @@ describe("#344's join produces the two facts the port was declared for", () => {
     expect(facts.conversionsInWindow).toBe(1);
     expect(facts.disputeRateBps).toBe(0);
     // Below `minimumRateSample`, so nothing fires — the floor, not the rate.
-    expect(deriveRiskSignals(facts).filter((s) => s.kind === 'refund_dispute_concentration'))
-      .toHaveLength(0);
+    expect(
+      deriveRiskSignals(facts).filter((s) => s.kind === 'refund_dispute_concentration'),
+    ).toHaveLength(0);
   });
 });
 
@@ -715,6 +719,9 @@ describe('a shared payout beneficiary is UNREPRESENTABLE, so the signal has no p
       where indexname in ('provider_accounts_provider_account_id_key', 'referral_partners_owner_key')
     `);
     const found = [...rows].map((r) => r.indexname).sort();
-    expect(found).toEqual(['provider_accounts_provider_account_id_key', 'referral_partners_owner_key']);
+    expect(found).toEqual([
+      'provider_accounts_provider_account_id_key',
+      'referral_partners_owner_key',
+    ]);
   });
 });

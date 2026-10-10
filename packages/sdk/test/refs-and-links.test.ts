@@ -18,7 +18,13 @@ import { fakeClient, ok } from './helpers';
 
 describe('ref constructors', () => {
   it('build frozen refs with exactly the contract keys', () => {
-    const refs = [productRef('p'), variantRef('p', 'v'), storeRef('s'), collectionRef('c'), locationRef('l')];
+    const refs = [
+      productRef('p'),
+      variantRef('p', 'v'),
+      storeRef('s'),
+      collectionRef('c'),
+      locationRef('l'),
+    ];
     expect(refs).toEqual([
       { kind: 'product', id: 'p' },
       { kind: 'variant', productId: 'p', variantId: 'v' },
@@ -49,8 +55,13 @@ describe('parseMercariaRef — untrusted input, strict', () => {
     expect(parsed).toEqual(stored);
     expect(parsed).not.toBe(stored);
     expect(Object.isFrozen(parsed)).toBe(true);
-    expect(parseMercariaRef(Object.freeze({ kind: 'store', id: 's' }))).toEqual({ kind: 'store', id: 's' });
-    expect(parseMercariaRef(Object.assign(Object.create(null), { kind: 'product', id: 'p' }))).toEqual({ kind: 'product', id: 'p' });
+    expect(parseMercariaRef(Object.freeze({ kind: 'store', id: 's' }))).toEqual({
+      kind: 'store',
+      id: 's',
+    });
+    expect(
+      parseMercariaRef(Object.assign(Object.create(null), { kind: 'product', id: 'p' })),
+    ).toEqual({ kind: 'product', id: 'p' });
   });
 
   it.each([
@@ -66,7 +77,13 @@ describe('parseMercariaRef — untrusted input, strict', () => {
     ['numeric id', { kind: 'store', id: 42 }],
     ['empty id', { kind: 'collection', id: '' }],
     ['blank id', { kind: 'collection', id: '   ' }],
-    ['class instance', new (class { kind = 'product'; id = 'p'; })()],
+    [
+      'class instance',
+      new (class {
+        kind = 'product';
+        id = 'p';
+      })(),
+    ],
   ])('rejects %s', (_name, value) => {
     expect(parseMercariaRef(value)).toBeNull();
     expect(isMercariaRef(value)).toBe(false);
@@ -116,7 +133,9 @@ describe('the string form', () => {
 
   it('rejects non-strings and refuses to format a malformed ref', () => {
     expect(parseMercariaRefString(42)).toBeNull();
-    expect(() => formatMercariaRef({ kind: 'product', id: '' } as MercariaRef)).toThrow(MercariaValidationError);
+    expect(() => formatMercariaRef({ kind: 'product', id: '' } as MercariaRef)).toThrow(
+      MercariaValidationError,
+    );
   });
 });
 
@@ -142,7 +161,9 @@ describe('links — identical to the server rules', () => {
 
   it('builds a collection link from the collection and its store handle', async () => {
     const { client } = fakeClient(({ url }) =>
-      url.includes('/collections/') ? ok(collectionWire('col/1', 'my shop')) : ok(storeWire('store_1', 'my shop')),
+      url.includes('/collections/')
+        ? ok(collectionWire('col/1', 'my shop'))
+        : ok(storeWire('store_1', 'my shop')),
     );
     const collection = await client.collections.get('col/1');
     const store = await client.stores.get('store_1');

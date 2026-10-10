@@ -236,7 +236,7 @@ export const RETAIL_FORBIDDEN_EVIDENCE_LABELS: Record<RetailForbiddenEvidenceKin
   price_comparison_feed:
     'a price-comparison or aggregator feed — an observation of what a retailer charges, with no counterparty and no grant',
   supplier_category_label:
-    "a supplier's own category label — a taxonomy string the supplier chose; compliance is never inferred from it (#121 \"Do not infer compliance from a supplier category label or logo\")",
+    'a supplier\'s own category label — a taxonomy string the supplier chose; compliance is never inferred from it (#121 "Do not infer compliance from a supplier category label or logo")',
   supplier_logo_or_branding:
     'a supplier logo or brand mark — a picture, reproducible by anyone, asserting nothing a counterparty agreed to',
   unverified_self_declaration:
@@ -1074,10 +1074,12 @@ export const RETAIL_ELIGIBILITY_AUDIT_ACTIONS: readonly RetailEligibilityAuditAc
 export type RetailExceptionState = 'requested' | 'approved' | 'rejected' | 'revoked' | 'expired';
 
 /** The exception states that are STORED — `expired` is derived from the clock. */
-export const RETAIL_EXCEPTION_STORED_STATES: readonly Exclude<
-  RetailExceptionState,
-  'expired'
->[] = ['requested', 'approved', 'rejected', 'revoked'];
+export const RETAIL_EXCEPTION_STORED_STATES: readonly Exclude<RetailExceptionState, 'expired'>[] = [
+  'requested',
+  'approved',
+  'rejected',
+  'revoked',
+];
 
 /** {@link RetailExceptionState} as the tuple derivations and DTOs read. */
 export const RETAIL_EXCEPTION_STATES: readonly RetailExceptionState[] = [

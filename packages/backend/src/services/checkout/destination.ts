@@ -36,11 +36,7 @@
  * remember correctly.
  */
 
-import type {
-  CheckoutDestination,
-  CheckoutInput,
-  ShippingMethod,
-} from '@mercaria/shared-types';
+import type { CheckoutDestination, CheckoutInput, ShippingMethod } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { findAddress } from '../../db/buyers/addressRepository.js';
 import { forbidden, notFound, validationError } from '../../lib/errors/error-codes.js';
@@ -159,9 +155,7 @@ export interface ResolvedCheckoutContract {
  */
 export function destinationFromInput(input: CheckoutInput): CheckoutDestination {
   if (input.destination && input.addressId !== undefined) {
-    throw validationError(
-      'Send either `destination` or the legacy `addressId`, not both.',
-    );
+    throw validationError('Send either `destination` or the legacy `addressId`, not both.');
   }
   if (input.destination) return input.destination;
   if (input.addressId !== undefined) {
@@ -218,7 +212,11 @@ export async function resolveCheckoutContract(
     ...(contact ? { contact } : {}),
     marketingOptIn: input.marketingOptIn === true,
     impliedShippingMethod:
-      fulfilment.kind === 'pickup' ? 'pickup' : fulfilment.kind === 'digital' ? 'digital' : undefined,
+      fulfilment.kind === 'pickup'
+        ? 'pickup'
+        : fulfilment.kind === 'digital'
+          ? 'digital'
+          : undefined,
     ...(digitalSupplyCountry ? { digitalSupplyCountry } : {}),
     digitalSupplyConsent: input.digitalSupplyConsent === true,
   };
@@ -284,9 +282,7 @@ async function resolveFulfilment(
         kind: 'shipping',
         address,
         source: 'inline_shipping_address',
-        ...(wantsSave
-          ? { saveToAddressBook: label ? { label } : {} }
-          : {}),
+        ...(wantsSave ? { saveToAddressBook: label ? { label } : {} } : {}),
       };
     }
 

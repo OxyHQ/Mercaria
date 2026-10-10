@@ -991,7 +991,8 @@ export const GUEST_DATA_INVENTORY: readonly GuestDataClassRecord[] = [
     dataClass: 'destination_snapshot',
     title: 'The shipping or pickup destination',
     owner: '#105',
-    purpose: 'Where the goods go. Snapshotted onto the order so a later address edit cannot move a parcel.',
+    purpose:
+      'Where the goods go. Snapshotted onto the order so a later address edit cannot move a parcel.',
     basis: 'contract_performance',
     sensitivity: 'identifying',
     encryptedAtRest: false,
@@ -1650,7 +1651,8 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
     title: 'Guest cart reads and writes',
     lever: 'GUEST_CART_ENABLED',
     scopes: ['environment'],
-    whenOff: 'Reads answer empty and writes are refused with GUEST_CART_DISABLED. The MERGE stays available.',
+    whenOff:
+      'Reads answer empty and writes are refused with GUEST_CART_DISABLED. The MERGE stays available.',
     affectsPlacedOrders: false,
     rollbackOrder: 3,
   },
@@ -1732,7 +1734,8 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
     title: 'Buyer cancellations, returns and support',
     lever: 'BUYER_REQUESTS_ENABLED',
     scopes: ['environment'],
-    whenOff: 'The buyer WRITE mount answers 503 under its own code. Filed requests keep being decided.',
+    whenOff:
+      'The buyer WRITE mount answers 503 under its own code. Filed requests keep being decided.',
     affectsPlacedOrders: false,
     rollbackOrder: 7,
   },
@@ -1803,11 +1806,13 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
   },
   {
     gate: 'security_review_complete',
-    title: 'Security review of session, CSRF, magic links, provider identity and order authorization',
+    title:
+      'Security review of session, CSRF, magic links, provider identity and order authorization',
     discipline: 'security',
     evidenceKind: 'document_approval',
     requiredFromStage: 'stage_1_staff_canary',
-    criterion: 'A recorded review covering all five surfaces, with no unresolved critical or high finding.',
+    criterion:
+      'A recorded review covering all five surfaces, with no unresolved critical or high finding.',
   },
   {
     gate: 'privacy_and_retention_review_complete',

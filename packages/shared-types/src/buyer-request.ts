@@ -63,8 +63,7 @@ export const BUYER_REQUEST_FORBIDDEN_IDENTIFIERS = [
 ] as const;
 
 /** One of {@link BUYER_REQUEST_FORBIDDEN_IDENTIFIERS}. */
-export type BuyerRequestForbiddenIdentifier =
-  (typeof BUYER_REQUEST_FORBIDDEN_IDENTIFIERS)[number];
+export type BuyerRequestForbiddenIdentifier = (typeof BUYER_REQUEST_FORBIDDEN_IDENTIFIERS)[number];
 
 /* -------------------------------------------------------------------------- */
 /*  Who acted                                                                  */
@@ -104,8 +103,7 @@ export const BUYER_REQUEST_COMPLETION_FAILURES = [
 ] as const;
 
 /** One of {@link BUYER_REQUEST_COMPLETION_FAILURES}. */
-export type BuyerRequestCompletionFailure =
-  (typeof BUYER_REQUEST_COMPLETION_FAILURES)[number];
+export type BuyerRequestCompletionFailure = (typeof BUYER_REQUEST_COMPLETION_FAILURES)[number];
 
 /**
  * Why a DECISION was refused — the bounded `detail` on a `decision_refused`
@@ -302,8 +300,7 @@ export const CANCELLATION_INELIGIBILITY_REASONS = [
 ] as const;
 
 /** One of {@link CANCELLATION_INELIGIBILITY_REASONS}. */
-export type CancellationIneligibilityReason =
-  (typeof CANCELLATION_INELIGIBILITY_REASONS)[number];
+export type CancellationIneligibilityReason = (typeof CANCELLATION_INELIGIBILITY_REASONS)[number];
 
 /**
  * The ineligibility reasons a RETURN is the buyer's next step for.
@@ -312,8 +309,9 @@ export type CancellationIneligibilityReason =
  * that offer as data rather than as a sentence in a template — so the storefront
  * renders a button from the same fact the service decided on.
  */
-export const CANCELLATION_REASONS_OFFERING_RETURN: readonly CancellationIneligibilityReason[] =
-  ['order_already_dispatched'];
+export const CANCELLATION_REASONS_OFFERING_RETURN: readonly CancellationIneligibilityReason[] = [
+  'order_already_dispatched',
+];
 
 /* -------------------------------------------------------------------------- */
 /*  Return requests                                                            */

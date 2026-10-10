@@ -13,10 +13,7 @@
  */
 
 import { z } from 'zod';
-import {
-  MERCARIA_PUBLIC_ERROR_STATUS,
-  type MercariaPublicErrorCode,
-} from './errors';
+import { MERCARIA_PUBLIC_ERROR_STATUS, type MercariaPublicErrorCode } from './errors';
 import {
   CONTRACT_JSON_SCHEMA_NAMES,
   JSON_SCHEMA_OPTIONS,
@@ -51,7 +48,8 @@ export type OpenApiDocument = {
 const schemaRef = (name: string) => ({ $ref: `#/components/schemas/${name}` });
 
 const ERROR_DESCRIPTIONS: Record<MercariaPublicErrorCode, string> = {
-  bad_request: 'Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.',
+  bad_request:
+    'Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.',
   unauthorized: 'No credentials, or credentials that did not verify.',
   forbidden: 'Authenticated, but not permitted.',
   not_found: 'The entity never existed, or the id is malformed.',
@@ -66,7 +64,11 @@ const ERROR_DESCRIPTIONS: Record<MercariaPublicErrorCode, string> = {
 
 /** A field's JSON Schema with the document-level keys a parameter must not carry. */
 function fieldSchema(field: z.ZodType): JsonSchemaDocument {
-  const { $schema: _schema, description: _description, ...schema } = z.toJSONSchema(field, JSON_SCHEMA_OPTIONS);
+  const {
+    $schema: _schema,
+    description: _description,
+    ...schema
+  } = z.toJSONSchema(field, JSON_SCHEMA_OPTIONS);
   return schema;
 }
 
@@ -96,7 +98,9 @@ function responses(route: MercariaPublicRoute): Record<string, unknown> {
       content: { 'application/json': { schema: schemaRef(route.response) } },
     },
   };
-  const codes = [...new Set<MercariaPublicErrorCode>([...MERCARIA_PUBLIC_UNIVERSAL_ERRORS, ...route.errors])];
+  const codes = [
+    ...new Set<MercariaPublicErrorCode>([...MERCARIA_PUBLIC_UNIVERSAL_ERRORS, ...route.errors]),
+  ];
   const byStatus = new Map<number, MercariaPublicErrorCode[]>();
   for (const code of codes) {
     const status = MERCARIA_PUBLIC_ERROR_STATUS[code];
@@ -143,7 +147,8 @@ function componentSchemas(): Record<string, JsonSchemaDocument> {
   const result: Record<string, JsonSchemaDocument> = {};
   for (const name of [...CONTRACT_JSON_SCHEMA_NAMES].sort()) {
     const converted = schemas[name];
-    if (converted === undefined) throw new Error(`the schema registry produced no component for ${name}`);
+    if (converted === undefined)
+      throw new Error(`the schema registry produced no component for ${name}`);
     const { $schema: _schema, $id: _id, ...schema } = converted;
     result[name] = schema;
   }
@@ -153,7 +158,9 @@ function componentSchemas(): Record<string, JsonSchemaDocument> {
 /** Build the OpenAPI document. Pure and deterministic. */
 export function mercariaPublicOpenApiDocument(): OpenApiDocument {
   const paths: Record<string, Record<string, unknown>> = {};
-  for (const route of [...MERCARIA_PUBLIC_ROUTES].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))) {
+  for (const route of [...MERCARIA_PUBLIC_ROUTES].sort((a, b) =>
+    a.path < b.path ? -1 : a.path > b.path ? 1 : 0,
+  )) {
     if (paths[route.path]?.[route.method] !== undefined) {
       throw new Error(`two registry entries describe ${route.method.toUpperCase()} ${route.path}`);
     }
@@ -182,7 +189,8 @@ export function mercariaPublicOpenApiDocument(): OpenApiDocument {
         oxyBearer: {
           type: 'http',
           scheme: 'bearer',
-          description: 'An Oxy access token. Optional; a token that does not verify is read as anonymous.',
+          description:
+            'An Oxy access token. Optional; a token that does not verify is read as anonymous.',
         },
       },
     },

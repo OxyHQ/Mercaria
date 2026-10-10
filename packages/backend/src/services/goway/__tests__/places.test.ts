@@ -48,8 +48,12 @@ function addPlace(id: string, locationId?: string): void {
     longitude: 2.17,
     timezone: 'Europe/Madrid',
     address: { countryCode: 'ES', city: 'Barcelona' },
-    hoursExceptions: [{ startsOn: '2025-12-25', endsOn: '2025-12-25', closed: true, note: 'Christmas' }],
-    ...(locationId === undefined ? {} : { storeLinks: [{ locationId, verification: 'business_asserted' }] }),
+    hoursExceptions: [
+      { startsOn: '2025-12-25', endsOn: '2025-12-25', closed: true, note: 'Christmas' },
+    ],
+    ...(locationId === undefined
+      ? {}
+      : { storeLinks: [{ locationId, verification: 'business_asserted' }] }),
   });
 }
 
@@ -85,16 +89,25 @@ describe('readPlaces', () => {
     goway.gone.set('gw_merged', 'gw_found');
     goway.gone.set('gw_removed', null);
 
-    const results = await readPlaces(['gw_found', 'gw_merged', 'gw_removed', 'gw_never', 'gw_found'], {
-      locale: 'ca',
-    });
+    const results = await readPlaces(
+      ['gw_found', 'gw_merged', 'gw_removed', 'gw_never', 'gw_found'],
+      {
+        locale: 'ca',
+      },
+    );
 
     expect(batchRequests()).toHaveLength(1);
     expect(goway.requests[0]).toContain('locale=ca');
     const found = results.get('gw_found');
-    expect(found).toMatchObject({ kind: 'found', stale: false, place: { id: 'gw_found', storeLink: { locationId: 'loc_1' } } });
+    expect(found).toMatchObject({
+      kind: 'found',
+      stale: false,
+      place: { id: 'gw_found', storeLink: { locationId: 'loc_1' } },
+    });
     // The batch carries hours exceptions, as the single read does.
-    expect(found?.kind === 'found' ? found.place.opening.hoursExceptions : undefined).toHaveLength(1);
+    expect(found?.kind === 'found' ? found.place.opening.hoursExceptions : undefined).toHaveLength(
+      1,
+    );
     expect(results.get('gw_merged')).toEqual({ kind: 'gone', mergedInto: 'gw_found' });
     expect(results.get('gw_removed')).toEqual({ kind: 'gone', mergedInto: null });
     expect(results.get('gw_never')).toEqual({ kind: 'not_found' });
@@ -117,7 +130,7 @@ describe('readPlaces', () => {
     expect([...results.values()].every((lookup) => lookup.kind === 'found')).toBe(true);
   });
 
-  it('caches each answer under the single read\'s key, and asks only for what is not fresh', async () => {
+  it("caches each answer under the single read's key, and asks only for what is not fresh", async () => {
     addPlace('gw_a');
     addPlace('gw_b');
     await readPlaces(['gw_a']);
@@ -133,7 +146,7 @@ describe('readPlaces', () => {
     expect(goway.requests).toHaveLength(0);
   });
 
-  it('answers an id GoWay\'s contract refuses as not_found, without letting it sink the batch', async () => {
+  it("answers an id GoWay's contract refuses as not_found, without letting it sink the batch", async () => {
     addPlace('gw_ok');
     const results = await readPlaces(['', '   ', 'x'.repeat(129), 'gw_ok']);
     expect(results.get('')).toEqual({ kind: 'not_found' });
@@ -152,7 +165,11 @@ describe('readPlaces', () => {
     goway.down = true;
     const results = await readPlaces(['gw_known', 'gw_unknown']);
 
-    expect(results.get('gw_known')).toMatchObject({ kind: 'found', stale: true, place: { id: 'gw_known' } });
+    expect(results.get('gw_known')).toMatchObject({
+      kind: 'found',
+      stale: true,
+      place: { id: 'gw_known' },
+    });
     expect(results.get('gw_unknown')).toEqual({ kind: 'unavailable' });
   });
 

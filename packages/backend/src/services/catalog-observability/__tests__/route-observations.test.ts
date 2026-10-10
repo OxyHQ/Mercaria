@@ -97,7 +97,12 @@ describe('the closed template set', () => {
 
   it('keys are METHOD-uppercased, so one route cannot become two buckets', () => {
     expect(routeObservationKey('get', SEARCH_ROUTE)).toBe(`GET ${SEARCH_ROUTE}`);
-    observeCatalogRoute({ method: 'get', route: SEARCH_ROUTE, statusCode: 200, durationMs: SOME_MS });
+    observeCatalogRoute({
+      method: 'get',
+      route: SEARCH_ROUTE,
+      statusCode: 200,
+      durationMs: SOME_MS,
+    });
     // Written lower-case and read upper-case: the same bucket, or a task serving
     // through one spelling would report nothing while the other read zero.
     expect(readRouteObservation('GET', SEARCH_ROUTE)?.requests).toBe(1);

@@ -1,5 +1,5 @@
-import * as React from "react";
-import type { CurrencyCode } from "@mercaria/shared-types";
+import * as React from 'react';
+import type { CurrencyCode } from '@mercaria/shared-types';
 
 /**
  * Display-side FX state shared with presentational price components.
@@ -35,7 +35,7 @@ export interface FxContextValue {
  * shows its own stored amount rather than a converted one.
  */
 const DEFAULT_FX_VALUE: FxContextValue = {
-  primaryCurrency: "FAIR",
+  primaryCurrency: 'FAIR',
   secondaryCurrency: null,
   dualDisplayEnabled: false,
   rates: {},

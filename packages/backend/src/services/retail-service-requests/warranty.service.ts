@@ -36,7 +36,10 @@ import {
   transitionRetailWarrantyCase,
   type RetailWarrantyCaseRow,
 } from '../../db/retailServiceRequests/warrantyRepository.js';
-import { appendRetailServiceEvent, findRetailServiceRequest } from '../../db/retailServiceRequests/requestRepository.js';
+import {
+  appendRetailServiceEvent,
+  findRetailServiceRequest,
+} from '../../db/retailServiceRequests/requestRepository.js';
 import { conflict, notFound } from '../../lib/errors/error-codes.js';
 import { retailDeciderAudit, type RetailServiceDecider } from './authorization.js';
 import { loadRetailServiceOrder } from './order-facts.js';
@@ -123,9 +126,7 @@ export async function advanceRetailWarrantyCase(
     // unrecordable.
     from: ['reported', 'assessing', 'awaiting_item', 'in_repair'],
     to: input.to,
-    ...(input.supplierResponse === undefined
-      ? {}
-      : { supplierResponse: input.supplierResponse }),
+    ...(input.supplierResponse === undefined ? {} : { supplierResponse: input.supplierResponse }),
     ...(input.supplierRespondedAt === undefined
       ? {}
       : { supplierRespondedAt: input.supplierRespondedAt }),

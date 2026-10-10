@@ -88,9 +88,7 @@ export function toCancellationRequestView(
     lines: lines.map(toLine),
     completionMode: request.completionMode,
     ...(request.decisionNote === null ? {} : { decisionNote: request.decisionNote }),
-    ...(request.completionFailure === null
-      ? {}
-      : { completionFailure: request.completionFailure }),
+    ...(request.completionFailure === null ? {} : { completionFailure: request.completionFailure }),
     createdAt: request.createdAt.toISOString(),
     decidedAt: request.decidedAt?.toISOString() ?? null,
     completedAt: request.completedAt?.toISOString() ?? null,
@@ -111,9 +109,7 @@ export function toMerchantCancellationRequestView(
     lines: lines.map(toLine),
     completionMode: request.completionMode,
     ...(request.decisionNote === null ? {} : { decisionNote: request.decisionNote }),
-    ...(request.completionFailure === null
-      ? {}
-      : { completionFailure: request.completionFailure }),
+    ...(request.completionFailure === null ? {} : { completionFailure: request.completionFailure }),
     createdAt: request.createdAt.toISOString(),
     decidedAt: request.decidedAt?.toISOString() ?? null,
     completedAt: request.completedAt?.toISOString() ?? null,
@@ -140,9 +136,7 @@ export function toReturnRequestView(
       ? {}
       : { returnInstructions: request.returnInstructions }),
     ...(request.decisionNote === null ? {} : { decisionNote: request.decisionNote }),
-    ...(request.completionFailure === null
-      ? {}
-      : { completionFailure: request.completionFailure }),
+    ...(request.completionFailure === null ? {} : { completionFailure: request.completionFailure }),
     returnWindowEndsAt: request.returnWindowEndsAt.toISOString(),
     shipBackDeadlineAt: request.shipBackDeadlineAt?.toISOString() ?? null,
     createdAt: request.createdAt.toISOString(),
@@ -174,9 +168,7 @@ export function toMerchantReturnRequestView(
       ? {}
       : { returnInstructions: request.returnInstructions }),
     ...(request.decisionNote === null ? {} : { decisionNote: request.decisionNote }),
-    ...(request.completionFailure === null
-      ? {}
-      : { completionFailure: request.completionFailure }),
+    ...(request.completionFailure === null ? {} : { completionFailure: request.completionFailure }),
     returnWindowEndsAt: request.returnWindowEndsAt.toISOString(),
     shipBackDeadlineAt: request.shipBackDeadlineAt?.toISOString() ?? null,
     createdAt: request.createdAt.toISOString(),

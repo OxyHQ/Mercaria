@@ -159,7 +159,8 @@ export async function decideRetailServiceRequest(
       shipBackDeadlineAt: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
       lines: record.lines.map((line) => ({
         orderItemId: line.orderItemId,
-        authorizedQuantity: input.approvedQuantities?.get(line.orderItemId) ?? line.requestedQuantity,
+        authorizedQuantity:
+          input.approvedQuantities?.get(line.orderItemId) ?? line.requestedQuantity,
       })),
     });
     await appendRetailServiceEvent({

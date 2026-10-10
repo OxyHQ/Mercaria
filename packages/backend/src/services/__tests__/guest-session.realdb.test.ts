@@ -185,9 +185,7 @@ describe('uniform rejection (acceptance 5)', () => {
     const { session } = await issueTracked();
 
     expect(svc.guestSessionStatus(session, now)).toBe('active');
-    expect(
-      svc.guestSessionStatus({ ...session, revokedAt: now }, now),
-    ).toBe('revoked');
+    expect(svc.guestSessionStatus({ ...session, revokedAt: now }, now)).toBe('revoked');
     expect(
       svc.guestSessionStatus(
         { ...session, revokedAt: now, convertedAt: now, convertedToOxyUserId: 'u1' },

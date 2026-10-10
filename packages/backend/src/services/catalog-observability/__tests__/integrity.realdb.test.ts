@@ -35,7 +35,12 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { sql, type SQL } from 'drizzle-orm';
 import type { CatalogIntegrityResult } from '@mercaria/shared-types';
 import { CATALOG_INTEGRITY_CHECK_KINDS } from '@mercaria/shared-types';
-import { closePostgres, connectPostgres, type Database, type Transaction } from '../../../db/postgres.js';
+import {
+  closePostgres,
+  connectPostgres,
+  type Database,
+  type Transaction,
+} from '../../../db/postgres.js';
 import {
   checkAncestryPathDrift,
   checkCategoryCycles,
@@ -439,7 +444,10 @@ describe('runCatalogIntegrityChecks', () => {
       expect(entry.sample.length, `${entry.kind}: more samples than findings`).toBeLessThanOrEqual(
         entry.findings,
       );
-      expect(Date.parse(entry.checkedAt), `${entry.kind}: checkedAt is not a timestamp`).not.toBeNaN();
+      expect(
+        Date.parse(entry.checkedAt),
+        `${entry.kind}: checkedAt is not a timestamp`,
+      ).not.toBeNaN();
     }
 
     // Printed on SUCCESS, not only on failure: `findings: 0` over a population
@@ -726,9 +734,10 @@ describe('checkOrphanedReferences', () => {
       const proposalsNamed = before.sample.filter((entry) =>
         entry.startsWith('catalog_proposals:'),
       );
-      expect(proposalsNamed.length, 'the crowd took no proposal slot in the sample').toBeGreaterThan(
-        0,
-      );
+      expect(
+        proposalsNamed.length,
+        'the crowd took no proposal slot in the sample',
+      ).toBeGreaterThan(0);
       expect(
         proposalsNamed.filter((entry) => !crowd.includes(entry.slice('catalog_proposals:'.length))),
         'a proposal this case did not create outranks the crowd',
@@ -1033,7 +1042,10 @@ describe('checkAncestryPathDrift', () => {
 /* -------------------------------------------------------------------------- */
 
 /** The store and listing a published draft needs to exist at all. */
-async function insertPublishedDraftFixtures(tx: Transaction, scope: string): Promise<{
+async function insertPublishedDraftFixtures(
+  tx: Transaction,
+  scope: string,
+): Promise<{
   storeId: string;
   listingId: string;
   categoryId: string;
@@ -1233,7 +1245,12 @@ describe('checkStalledQueueLeases', () => {
 
       const after = await checkStalledQueueLeases(tx);
       expect(after.findings - before.findings, 'both expired claims should be found').toBe(2);
-      expectNamed(after, 'a mapping run holding an expired claim', 'catalog_external_mapping_runs', runId);
+      expectNamed(
+        after,
+        'a mapping run holding an expired claim',
+        'catalog_external_mapping_runs',
+        runId,
+      );
       expectNamed(
         after,
         'a token observation holding an expired reprocess claim',

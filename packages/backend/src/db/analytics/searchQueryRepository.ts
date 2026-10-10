@@ -281,7 +281,9 @@ export async function sumSearchQueryTotalsForDay(
       duplicateRows: sql<number>`coalesce(sum(${analyticsSearchQueries.duplicateResultCount}), 0)::int`,
     })
     .from(analyticsSearchQueries)
-    .where(and(gte(analyticsSearchQueries.createdAt, from), lt(analyticsSearchQueries.createdAt, to)));
+    .where(
+      and(gte(analyticsSearchQueries.createdAt, from), lt(analyticsSearchQueries.createdAt, to)),
+    );
 
   const row = rows[0];
   return {

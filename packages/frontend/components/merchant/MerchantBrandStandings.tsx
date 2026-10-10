@@ -1,11 +1,8 @@
-import { Pressable, View } from "react-native";
-import { useRouter } from "expo-router";
-import type {
-  MerchantBrandStanding,
-  MerchantBrandStandingKind,
-} from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
+import { Pressable, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import type { MerchantBrandStanding, MerchantBrandStandingKind } from '@mercaria/shared-types';
+import { Text } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The three brand relationship states, with three different labels and three
@@ -41,16 +38,16 @@ import { useTranslation } from "@/lib/i18n";
  * alike in some language nobody on this team reviews.
  */
 const STANDING_LABEL_KEYS: Readonly<Record<MerchantBrandStandingKind, string>> = {
-  official_store: "merchants.brandStandings.label.officialStore",
-  authorized_reseller: "merchants.brandStandings.label.authorizedReseller",
-  no_verified_relationship: "merchants.brandStandings.label.noVerifiedRelationship",
+  official_store: 'merchants.brandStandings.label.officialStore',
+  authorized_reseller: 'merchants.brandStandings.label.authorizedReseller',
+  no_verified_relationship: 'merchants.brandStandings.label.noVerifiedRelationship',
 };
 Object.freeze(STANDING_LABEL_KEYS);
 
 const STANDING_EXPLANATION_KEYS: Readonly<Record<MerchantBrandStandingKind, string>> = {
-  official_store: "merchants.brandStandings.explanation.officialStore",
-  authorized_reseller: "merchants.brandStandings.explanation.authorizedReseller",
-  no_verified_relationship: "merchants.brandStandings.explanation.noVerifiedRelationship",
+  official_store: 'merchants.brandStandings.explanation.officialStore',
+  authorized_reseller: 'merchants.brandStandings.explanation.authorizedReseller',
+  no_verified_relationship: 'merchants.brandStandings.explanation.noVerifiedRelationship',
 };
 Object.freeze(STANDING_EXPLANATION_KEYS);
 
@@ -67,12 +64,12 @@ export function MerchantBrandStandings({
   return (
     <View className="gap-3 px-4 pt-8">
       <Text className="text-xs uppercase text-muted-foreground">
-        {t("merchants.brandStandings.title")}
+        {t('merchants.brandStandings.title')}
       </Text>
       <View
         className="gap-3"
         accessibilityRole="list"
-        accessibilityLabel={t("merchants.brandStandings.listLabel")}
+        accessibilityLabel={t('merchants.brandStandings.listLabel')}
       >
         {standings.map((standing) => (
           <View key={standing.brandId} className="gap-1">
@@ -94,14 +91,14 @@ export function MerchantBrandStandings({
             */}
             <Pressable
               accessibilityRole="link"
-              accessibilityLabel={t("merchants.brandStandings.a11yLabel", {
+              accessibilityLabel={t('merchants.brandStandings.a11yLabel', {
                 brand: standing.brandName,
                 standing: t(STANDING_LABEL_KEYS[standing.standing]),
                 explanation: t(STANDING_EXPLANATION_KEYS[standing.standing]),
               })}
               onPress={() =>
                 router.push({
-                  pathname: "/brands/[handle]",
+                  pathname: '/brands/[handle]',
                   params: { handle: standing.brandSlug },
                 })
               }
@@ -112,12 +109,12 @@ export function MerchantBrandStandings({
               </Text>
               <View
                 className={`rounded-full px-2 py-0.5 ${
-                  standing.badge === null ? "bg-muted" : "bg-success-subtle"
+                  standing.badge === null ? 'bg-muted' : 'bg-success-subtle'
                 }`}
               >
                 <Text
                   className={`text-xs font-semibold ${
-                    standing.badge === null ? "text-muted-foreground" : "text-success-text"
+                    standing.badge === null ? 'text-muted-foreground' : 'text-success-text'
                   }`}
                 >
                   {t(STANDING_LABEL_KEYS[standing.standing])}

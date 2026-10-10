@@ -94,7 +94,8 @@ export async function listAuditEvents(
   if (filter.subjectKind) {
     predicates.push(eq(catalogGovernanceAuditEvents.subjectKind, filter.subjectKind));
   }
-  if (filter.subjectId) predicates.push(eq(catalogGovernanceAuditEvents.subjectId, filter.subjectId));
+  if (filter.subjectId)
+    predicates.push(eq(catalogGovernanceAuditEvents.subjectId, filter.subjectId));
   if (filter.domains && filter.domains.length > 0) {
     predicates.push(inArray(catalogGovernanceAuditEvents.domain, [...filter.domains]));
   }

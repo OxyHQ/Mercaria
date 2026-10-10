@@ -209,8 +209,7 @@ function finishedRun(
     // writes and that function composes the message itself (#292). Spelling it
     // `outcome.failure` as a string here would make the mock a second, kinder
     // implementation of the one rule the column has.
-    error:
-      outcome.failure === undefined ? null : merchantFacingFailureMessage(outcome.failure),
+    error: outcome.failure === undefined ? null : merchantFacingFailureMessage(outcome.failure),
   };
 }
 
@@ -222,7 +221,9 @@ function finishedRun(
  * is the derived presence flag the push/disconnect paths read, and the envelope
  * itself only ever arrives through `findConnectionCredentials`.
  */
-function mockConnection(conflictPolicy: 'respect_overrides' | 'connector_wins' = 'respect_overrides') {
+function mockConnection(
+  conflictPolicy: 'respect_overrides' | 'connector_wins' = 'respect_overrides',
+) {
   return {
     id: CONNECTION_ID,
     storeId: STORE_ID,
@@ -260,7 +261,13 @@ function product(overrides: Partial<NormalizedProduct> = {}): NormalizedProduct 
     imageUrls: ['https://cdn.shopify.com/img.jpg'],
     variants: {
       enumeration: 'complete',
-      variants: [{ optionValues: [], price: { amount: 1999, currency: 'USD' }, inventory: { tracked: true, available: 3 } }],
+      variants: [
+        {
+          optionValues: [],
+          price: { amount: 1999, currency: 'USD' },
+          inventory: { tracked: true, available: 3 },
+        },
+      ],
     },
     ...overrides,
   };
@@ -341,8 +348,11 @@ function createdProvenance(): Record<string, unknown> | undefined {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  synchronizeStoreImages.mockReset().mockImplementation(async (_storeId: string, refs: string[]) =>
-    refs.map(ref => ref.startsWith('https:') ? 'oxy-imported-image' : ref));
+  synchronizeStoreImages
+    .mockReset()
+    .mockImplementation(async (_storeId: string, refs: string[]) =>
+      refs.map((ref) => (ref.startsWith('https:') ? 'oxy-imported-image' : ref)),
+    );
   process.env.CONNECTOR_DEFAULT_CATEGORY_SLUG = 'home';
   categorySlugExists.mockResolvedValue(true);
   decryptSecret.mockReturnValue(JSON.stringify({ accessToken: 'shpat_test' }));
@@ -485,12 +495,8 @@ describe('runBackfill — create path', () => {
     const winner = listingRow('listing-winner');
     // Null on the FIRST read (the create branch is entered) and the winner's row
     // on the re-read inside the catch.
-    findListingBySourceExternalId
-      .mockResolvedValueOnce(null)
-      .mockResolvedValue(winner);
-    createStoreProduct.mockRejectedValue(
-      uniqueViolation('listings_store_id_source_key_idx'),
-    );
+    findListingBySourceExternalId.mockResolvedValueOnce(null).mockResolvedValue(winner);
+    createStoreProduct.mockRejectedValue(uniqueViolation('listings_store_id_source_key_idx'));
     fetchProducts.mockResolvedValue({ products: [product()] });
 
     const run = await runBackfill(STORE_ID, CONNECTION_ID);
@@ -575,7 +581,15 @@ describe('runBackfill — update path respects overriddenFields', () => {
     findConnection.mockResolvedValue(mockConnection('respect_overrides'));
     findListingBySourceExternalId.mockResolvedValue(
       listingRow('listing-existing', {
-        overriddenFields: ['title', 'description', 'images', 'vendor', 'productType', 'handle', 'seo'],
+        overriddenFields: [
+          'title',
+          'description',
+          'images',
+          'vendor',
+          'productType',
+          'handle',
+          'seo',
+        ],
       }),
     );
     fetchProducts.mockResolvedValue({ products: [product()] });
@@ -717,7 +731,15 @@ describe('runBackfill — Fix 1: re-prices existing variants', () => {
     // but `price` is NOT pinned — the re-price alone must bump the outcome to updated.
     findListingBySourceExternalId.mockResolvedValue(
       listingRow('listing-existing', {
-        overriddenFields: ['title', 'description', 'images', 'vendor', 'productType', 'handle', 'seo'],
+        overriddenFields: [
+          'title',
+          'description',
+          'images',
+          'vendor',
+          'productType',
+          'handle',
+          'seo',
+        ],
       }),
     );
     stubExistingVariants([existingVariant()]);
@@ -783,7 +805,14 @@ describe('runBackfill — Fix 1: re-prices existing variants', () => {
         product({
           variants: {
             enumeration: 'complete',
-            variants: [{ optionValues: [], sku: 'ABC', price: { amount: 2500, currency: 'USD' }, inventory: { tracked: true, available: 1 } }],
+            variants: [
+              {
+                optionValues: [],
+                sku: 'ABC',
+                price: { amount: 2500, currency: 'USD' },
+                inventory: { tracked: true, available: 1 },
+              },
+            ],
           },
         }),
       ],
@@ -884,7 +913,9 @@ describe('runBackfill — Fix 3: delete reconciliation', () => {
     findConnection.mockResolvedValue(mockConnection());
     createStoreProduct.mockResolvedValue('listing-new');
     fetchProducts.mockResolvedValue({ products: [product({ externalId: 'p1' })] });
-    stubListingsByExternalId({ p2: listingRow('l2', { sourceExternalId: 'p2', status: 'archived' }) });
+    stubListingsByExternalId({
+      p2: listingRow('l2', { sourceExternalId: 'p2', status: 'archived' }),
+    });
     findListingsBySourceConnection.mockResolvedValue([
       listingRow('l2', { sourceExternalId: 'p2', status: 'archived' }),
     ]);
@@ -924,7 +955,9 @@ describe('runBackfill — synchronized media boundary', () => {
     findConnection.mockResolvedValue(mockConnection());
     findListingBySourceExternalId.mockResolvedValue(null);
     createStoreProduct.mockResolvedValue('listing-next');
-    fetchProducts.mockResolvedValue({ products: [product({ externalId: 'failed' }), product({ externalId: 'next' })] });
+    fetchProducts.mockResolvedValue({
+      products: [product({ externalId: 'failed' }), product({ externalId: 'next' })],
+    });
     synchronizeStoreImages.mockRejectedValueOnce(new Error('Image storage unavailable'));
     const run = await runBackfill(STORE_ID, CONNECTION_ID);
     expect(run.countsFailed).toBe(1);
@@ -947,7 +980,9 @@ describe('runBackfill — synchronized media boundary', () => {
 
   it('does not download images protected by the merchant override', async () => {
     findConnection.mockResolvedValue(mockConnection('respect_overrides'));
-    findListingBySourceExternalId.mockResolvedValue(listingRow('existing', { overriddenFields: ['images'] }));
+    findListingBySourceExternalId.mockResolvedValue(
+      listingRow('existing', { overriddenFields: ['images'] }),
+    );
     fetchProducts.mockResolvedValue({ products: [product()] });
     await runBackfill(STORE_ID, CONNECTION_ID);
     expect(synchronizeStoreImages).not.toHaveBeenCalled();

@@ -1,10 +1,10 @@
-import React from "react";
-import type { StyleProp, ViewStyle } from "react-native";
-import { useRouter } from "expo-router";
-import type { Money } from "@mercaria/shared-types";
-import { PriceDisplay } from "@mercaria/ui";
-import { Button } from "@oxy.so/bloom/button";
-import { useTranslation } from "@/lib/i18n";
+import React from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { useRouter } from 'expo-router';
+import type { Money } from '@mercaria/shared-types';
+import { PriceDisplay } from '@mercaria/ui';
+import { Button } from '@oxy.so/bloom/button';
+import { useTranslation } from '@/lib/i18n';
 
 interface ChargeButtonProps {
   /** Cart total shown in the label (formatted via PriceDisplay — never by hand). */
@@ -30,7 +30,7 @@ export function ChargeButton({ total, disabled, style }: ChargeButtonProps) {
     <Button
       tone="accent"
       size="lg"
-      onPress={() => router.push("/charge")}
+      onPress={() => router.push('/charge')}
       disabled={disabled}
       style={style}
       trailing={
@@ -40,7 +40,7 @@ export function ChargeButton({ total, disabled, style }: ChargeButtonProps) {
         />
       }
     >
-      {t("charge.action")}
+      {t('charge.action')}
     </Button>
   );
 }

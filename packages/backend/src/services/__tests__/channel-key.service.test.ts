@@ -180,11 +180,7 @@ describe('generateKey', () => {
 
   it('binds to a push-in connection when given a valid one', async () => {
     findConnection.mockResolvedValue({ id: 'conn-1', mode: 'push_in' });
-    const { apiKey } = await generateKey(
-      STORE_A,
-      { label: 'Bound', connectionId: 'conn-1' },
-      USER,
-    );
+    const { apiKey } = await generateKey(STORE_A, { label: 'Bound', connectionId: 'conn-1' }, USER);
     // The store scope IS the authorization — the read is `(storeId, connectionId)`.
     expect(findConnection).toHaveBeenCalledWith(STORE_A, 'conn-1');
     expect(apiKey.connectionId).toBe('conn-1');

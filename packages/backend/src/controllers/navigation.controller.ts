@@ -119,7 +119,11 @@ export async function replaceNavigationNodesHandler(req: Request, res: Response)
     nodes: Parameters<typeof replaceNavigationTreeNodes>[2];
   };
   try {
-    const nodeCount = await replaceNavigationTreeNodes(getDb(), routeParam(req, 'treeId'), body.nodes);
+    const nodeCount = await replaceNavigationTreeNodes(
+      getDb(),
+      routeParam(req, 'treeId'),
+      body.nodes,
+    );
     sendSuccess(res, { nodeCount });
   } catch (error) {
     respondWithError(res, error, 'Failed to replace the navigation tree nodes');

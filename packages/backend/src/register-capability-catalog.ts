@@ -20,7 +20,7 @@ async function main(): Promise<void> {
   if (!response.ok) {
     throw new Error(`Mercaria capability catalog registration failed (${response.status})`);
   }
-  const body = await response.json() as { registration?: { digest?: string } };
+  const body = (await response.json()) as { registration?: { digest?: string } };
   const digest = body.registration?.digest;
   if (typeof digest !== 'string' || digest.length === 0) {
     throw new Error('Mercaria capability catalog registration returned no digest');
@@ -32,4 +32,3 @@ void main().catch((error: unknown) => {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exitCode = 1;
 });
-

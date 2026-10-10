@@ -121,20 +121,19 @@ function relationshipRelativePaths(readDir: DirectoryReader = readSrcDirectory):
 
 function relationshipModules(): string[] {
   return relationshipRelativePaths()
-      .sort()
-      .map((entry) => {
-        const relative = entry;
-        // A derived population is only as honest as the assertion that every
-        // member resolves; a stale `readdirSync` would otherwise hand the scan
-        // names that no longer exist, which reads as a clean run.
-        expect(
-          statSync(join(SRC_ROOT, relative)).isFile(),
-          `${relative} is not a file — did it move?`,
-        ).toBe(true);
-        return relative;
-      });
+    .sort()
+    .map((entry) => {
+      const relative = entry;
+      // A derived population is only as honest as the assertion that every
+      // member resolves; a stale `readdirSync` would otherwise hand the scan
+      // names that no longer exist, which reads as a clean run.
+      expect(
+        statSync(join(SRC_ROOT, relative)).isFile(),
+        `${relative} is not a file — did it move?`,
+      ).toBe(true);
+      return relative;
+    });
 }
-
 
 /**
  * Reaching anything that could price a boost, from any direction. Matched on the
@@ -265,13 +264,17 @@ describe('verification is a trust attribute, never a purchasable boost', () => {
     }
     // …and does NOT drag in the two sibling sub-domains that share the
     // directory, or this wall would start firing at whoever edits a storefront.
-    assertEachOf([
-      'services/commerce-graph/merchant.service.ts',
-      'services/commerce-graph/storefront.service.ts',
-      'services/commerce-graph/native-store-link.service.ts',
-    ], 3, (foreign) => {
-      expect(modules, `${foreign} is a different sub-domain`).not.toContain(foreign);
-    });
+    assertEachOf(
+      [
+        'services/commerce-graph/merchant.service.ts',
+        'services/commerce-graph/storefront.service.ts',
+        'services/commerce-graph/native-store-link.service.ts',
+      ],
+      3,
+      (foreign) => {
+        expect(modules, `${foreign} is a different sub-domain`).not.toContain(foreign);
+      },
+    );
     expect(RELATIONSHIP_NAME_PATTERN.test('relationshipRepository.ts')).toBe(true);
     expect(RELATIONSHIP_NAME_PATTERN.test('relationships.ts')).toBe(true);
     expect(RELATIONSHIP_NAME_PATTERN.test('merchant.service.ts')).toBe(false);
@@ -327,9 +330,7 @@ describe('verification is a trust attribute, never a purchasable boost', () => {
       COMMERCIAL_REFERENCE.test("import { planFee } from '../fees/order-fees.service.js';"),
     ).toBe(true);
     expect(COMMERCIAL_REFERENCE.test('select * from order_fee_snapshots')).toBe(true);
-    expect(
-      COMMERCIAL_REFERENCE.test("import { getDb } from '../../db/postgres.js';"),
-    ).toBe(false);
+    expect(COMMERCIAL_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
 
   it('lets ranking read a verification through ONE named seam, and nowhere else', () => {
@@ -402,7 +403,9 @@ describe('verification is a trust attribute, never a purchasable boost', () => {
         relative,
       );
       const seam = readRankingSurfaceFile(relative);
-      expect(RELATIONSHIP_REFERENCE.test(seam), `${relative} no longer reads the domain`).toBe(true);
+      expect(RELATIONSHIP_REFERENCE.test(seam), `${relative} no longer reads the domain`).toBe(
+        true,
+      );
       expect(seam).toContain('findCurrentRelationships');
     }
   });
@@ -442,9 +445,9 @@ describe('verification is a trust attribute, never a purchasable boost', () => {
     // And the stated boundary: a TRAILING comment is NOT stripped, so it fails
     // LOUD rather than quiet. Pinned so that changing the stripper is a visible
     // decision rather than a silent widening.
-    expect(RELATIONSHIP_REFERENCE.test(stripComments('const x = 1; // commerce_relationships'))).toBe(
-      true,
-    );
+    expect(
+      RELATIONSHIP_REFERENCE.test(stripComments('const x = 1; // commerce_relationships')),
+    ).toBe(true);
   });
 });
 

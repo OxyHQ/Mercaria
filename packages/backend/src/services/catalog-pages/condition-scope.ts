@@ -30,9 +30,7 @@ import type { CatalogPriceConditionScope, ConditionGroup } from '@mercaria/share
 const NON_NEW_GROUPS: readonly ConditionGroup[] = ['open_box', 'refurbished', 'used', 'for_parts'];
 
 /** The condition coverage of a set of segments. */
-export function conditionScopeOf(
-  groups: readonly ConditionGroup[],
-): CatalogPriceConditionScope {
+export function conditionScopeOf(groups: readonly ConditionGroup[]): CatalogPriceConditionScope {
   if (groups.length === 0) return 'unknown';
   const hasNew = groups.includes('new');
   const hasOther = groups.some((group) => NON_NEW_GROUPS.includes(group));

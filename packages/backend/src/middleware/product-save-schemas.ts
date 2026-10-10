@@ -143,6 +143,4 @@ export const runMigrationSchema = z
  * states why in the same request — the `payment_repairs` discipline, applied to
  * the one power here that needs it.
  */
-export const eraseSubjectSchema = z
-  .object({ reason: z.string().trim().min(8).max(500) })
-  .strict();
+export const eraseSubjectSchema = z.object({ reason: z.string().trim().min(8).max(500) }).strict();

@@ -83,9 +83,7 @@ export function multiplyMoneyByQuantity(unit: Money, quantity: number, context: 
  * would be vacuously true and would put the stronger claim on a page describing
  * nothing.
  */
-export function resolveWatchlistBasis(
-  lines: readonly WatchlistTotalLine[],
-): WatchlistBasketBasis {
+export function resolveWatchlistBasis(lines: readonly WatchlistTotalLine[]): WatchlistBasketBasis {
   if (lines.length === 0) return 'item_price';
   return lines.every((line) => hasKnownDelivery(line.delivery)) ? 'delivered_total' : 'item_price';
 }

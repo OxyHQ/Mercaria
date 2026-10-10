@@ -14,7 +14,8 @@ import { ROUTES } from './paths.mjs';
 
 const GATE = /requireCatalogOperator|CATALOG_OPERATOR_OXY_USER_IDS/;
 const WRITE = /^router\.(post|patch|put|delete)\s*\(([\s\S]*?)\);$/gm;
-const TRAIL = /(?<![.\w])(recordAuditEvent|recordRevision|recordCompensation|insertReviewEvent)\s*\(/;
+const TRAIL =
+  /(?<![.\w])(recordAuditEvent|recordRevision|recordCompensation|insertReviewEvent)\s*\(/;
 const ACTOR = /[A-Za-z]+ByOxyUserId/;
 
 function importMap(file) {
@@ -26,7 +27,10 @@ function importMap(file) {
     const target = resolve(dirname(file), spec.replace(/\.js$/, '.ts'));
     if (!existsSync(target)) continue;
     for (const raw of m[1].split(',')) {
-      const name = raw.replace(/\btype\b/, '').split(/\s+as\s+/)[0].trim();
+      const name = raw
+        .replace(/\btype\b/, '')
+        .split(/\s+as\s+/)[0]
+        .trim();
       if (name) map.set(name, target);
     }
   }
@@ -64,7 +68,9 @@ let routes = 0;
 const tally = { handlerTrail: 0, hop2Trail: 0, hop2Actor: 0, neither: 0 };
 const neither = [];
 
-for (const name of readdirSync(ROUTES).filter((f) => f.endsWith('.ts')).sort()) {
+for (const name of readdirSync(ROUTES)
+  .filter((f) => f.endsWith('.ts'))
+  .sort()) {
   const file = join(ROUTES, name);
   const src = readFileSync(file, 'utf8');
   if (!GATE.test(src)) continue;

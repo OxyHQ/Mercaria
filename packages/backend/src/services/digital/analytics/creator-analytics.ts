@@ -47,11 +47,7 @@
 
 import { ANALYTICS_MERCHANT_MIN_COHORT, type CurrencyCode } from '@mercaria/shared-types';
 import type { DigitalLicenceUpdatePolicy } from '@mercaria/shared-types';
-import type {
-  DigitalAnalyticsFacts,
-  DigitalPriceClass,
-  DigitalSaleFact,
-} from './facts.js';
+import type { DigitalAnalyticsFacts, DigitalPriceClass, DigitalSaleFact } from './facts.js';
 import {
   summariseGeographicRevenue,
   type DigitalCurrencyAmount,

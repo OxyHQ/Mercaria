@@ -137,7 +137,9 @@ function statementRegion(): string {
   // carry a `$$`, or the walks below would toggle on prose again.
   for (const line of region.split('\n')) {
     if (!line.trimStart().startsWith('--')) continue;
-    expect(line.includes('$$'), `a comment in the statement region carries $$: ${line}`).toBe(false);
+    expect(line.includes('$$'), `a comment in the statement region carries $$: ${line}`).toBe(
+      false,
+    );
   }
   return region;
 }
@@ -234,9 +236,7 @@ describe('the one-to-many refusal is an INDEX, not a service comparison', () => 
   });
 
   it('every version of a decision about one token is unique', () => {
-    expect(indexNames(catalogExternalMappings)).toContain(
-      'catalog_external_mappings_version_key',
-    );
+    expect(indexNames(catalogExternalMappings)).toContain('catalog_external_mappings_version_key');
   });
 });
 
@@ -443,7 +443,9 @@ describe('the hand-written statements the migration carries', () => {
     const body = region.slice(from, to);
     // A vacuity floor on the slice: an empty body would report every column
     // unclassified, which is loud, but a SHORT one could silently match a few.
-    expect(body.length, `${input.functionName}'s body looks too short to be real`).toBeGreaterThan(400);
+    expect(body.length, `${input.functionName}'s body looks too short to be real`).toBeGreaterThan(
+      400,
+    );
 
     const columns = getTableColumns(input.table);
     const unclassified: string[] = [];
@@ -471,7 +473,10 @@ describe('the hand-written statements the migration carries', () => {
     // that silently exempts nothing — the `ID_COLUMNS_WITHOUT_FOREIGN_KEY`
     // ledger's own failure mode.
     for (const declared of Object.keys(input.mutable)) {
-      expect(columns[declared], `${input.functionName}: '${declared}' is not a column`).toBeDefined();
+      expect(
+        columns[declared],
+        `${input.functionName}: '${declared}' is not a column`,
+      ).toBeDefined();
     }
   }
 

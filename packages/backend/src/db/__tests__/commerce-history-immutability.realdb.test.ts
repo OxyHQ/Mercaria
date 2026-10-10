@@ -513,9 +513,7 @@ async function runProbes(): Promise<Probes> {
     await tx.execute(sql`create temp table probe_column_plan(tbl name, col name) on commit drop`);
     for (const entry of COMMERCE_HISTORY_DISPOSITIONS) {
       for (const column of entry.frozenColumns) {
-        await tx.execute(
-          sql`insert into probe_column_plan values (${entry.table}, ${column})`,
-        );
+        await tx.execute(sql`insert into probe_column_plan values (${entry.table}, ${column})`);
       }
     }
 
@@ -533,12 +531,8 @@ async function runProbes(): Promise<Probes> {
     await tx.execute(sql.raw(UNWIRED_PROBE_SQL));
 
     const rows = await tx.execute<RowProbe>(sql`select tbl, trigs, upd, del from probe_rows`);
-    const columns = await tx.execute<ColumnProbe>(
-      sql`select tbl, col, verdict from probe_columns`,
-    );
-    const unwired = await tx.execute<RowProbe>(
-      sql`select tbl, trigs, upd, del from probe_unwired`,
-    );
+    const columns = await tx.execute<ColumnProbe>(sql`select tbl, col, verdict from probe_columns`);
+    const unwired = await tx.execute<RowProbe>(sql`select tbl, trigs, upd, del from probe_unwired`);
 
     const triggerDefs = await tx.execute<{ tbl: string; def: string }>(sql.raw(TRIGGER_ARG_SQL));
     const enforcedColumns = new Map<string, readonly string[]>();
@@ -978,10 +972,7 @@ describe('each #367-line-75 trigger is individually load-bearing', () => {
    * one trigger removed is attributable to that removal rather than to the
    * clone being wrong.
    */
-  async function probeWithout(
-    testCase: (typeof CASES)[number],
-    omit: string,
-  ): Promise<string> {
+  async function probeWithout(testCase: (typeof CASES)[number], omit: string): Promise<string> {
     return db.transaction(async (tx) => {
       await tx.execute(
         sql.raw(`

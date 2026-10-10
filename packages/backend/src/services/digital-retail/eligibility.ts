@@ -213,10 +213,7 @@ export function deriveDigitalProcurementEligibility(
   if (input.offer.mappingStatus === 'ambiguous') reasons.add('offer_mapping_ambiguous');
   if (input.offer.canonicalVariantId === null) reasons.add('offer_unmapped');
 
-  if (
-    input.offer.availability === 'out_of_stock' ||
-    input.offer.availability === 'discontinued'
-  ) {
+  if (input.offer.availability === 'out_of_stock' || input.offer.availability === 'discontinued') {
     reasons.add('offer_out_of_stock');
   }
 

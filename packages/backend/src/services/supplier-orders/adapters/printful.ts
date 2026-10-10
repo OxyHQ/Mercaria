@@ -147,8 +147,33 @@ export const PRINTFUL_RATE_LIMIT = Object.freeze({
  * dispatch ADR 0004 forbids.
  */
 export const PRINTFUL_EU_FULFILMENT_COUNTRIES: readonly string[] = [
-  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU',
-  'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE',
+  'AT',
+  'BE',
+  'BG',
+  'HR',
+  'CY',
+  'CZ',
+  'DK',
+  'EE',
+  'FI',
+  'FR',
+  'DE',
+  'GR',
+  'HU',
+  'IE',
+  'IT',
+  'LV',
+  'LT',
+  'LU',
+  'MT',
+  'NL',
+  'PL',
+  'PT',
+  'RO',
+  'SK',
+  'SI',
+  'ES',
+  'SE',
 ];
 
 /**
@@ -352,7 +377,8 @@ function printfulMinorUnits(value: unknown, currency: CurrencyCode): number | nu
   // heuristic to an API field that is always a plain decimal point would read a
   // legitimate `1.234` as one thousand two hundred and thirty-four. An API
   // value is unambiguous, so the parser refuses anything that is not.
-  const text = typeof value === 'number' ? String(value) : typeof value === 'string' ? value.trim() : '';
+  const text =
+    typeof value === 'number' ? String(value) : typeof value === 'string' ? value.trim() : '';
   if (!/^\d+(\.\d+)?$/.test(text)) return null;
   const precision = CURRENCY_PRECISION[currency];
   if (precision === undefined) return null;
@@ -442,7 +468,9 @@ function unwrap(response: PrintfulResponse, operation: string): unknown {
   const detail = errorDetail(response);
   const reason = printfulReasonCode(response.status, detail);
   if (response.status === 429) {
-    const retryAfter = Number(response.headers['retry-after'] ?? response.headers['Retry-After'] ?? '');
+    const retryAfter = Number(
+      response.headers['retry-after'] ?? response.headers['Retry-After'] ?? '',
+    );
     throw new SupplierProviderError({
       message: `printful ${operation} was rate limited`,
       errorClass: 'quota',
@@ -522,7 +550,9 @@ function orderItems(
 }
 
 /** The recipient shape Printful's order and shipping-rate APIs take. */
-function recipient(destination: SupplierOrderSubmitInput['draft']['destination']): Record<string, unknown> {
+function recipient(
+  destination: SupplierOrderSubmitInput['draft']['destination'],
+): Record<string, unknown> {
   return {
     name: destination.recipient.name,
     ...(destination.recipient.company ? { company: destination.recipient.company } : {}),
@@ -550,9 +580,10 @@ function readOrderState(order: unknown, currency: CurrencyCode): SupplierOrderSt
   // a refusal with no next action. The provider's own sentence never lands —
   // only the closed code it maps to — so `providerMessage` stays null whatever
   // Printful wrote.
-  const failure = state === 'rejected' || state === 'cancelled'
-    ? (text(order, 'error') ?? text(order, 'reason') ?? text(order, 'dashboard_url') ?? '')
-    : '';
+  const failure =
+    state === 'rejected' || state === 'cancelled'
+      ? (text(order, 'error') ?? text(order, 'reason') ?? text(order, 'dashboard_url') ?? '')
+      : '';
   return {
     externalOrderId: externalOrderId === '' ? null : externalOrderId,
     state,
@@ -570,7 +601,8 @@ function readOrderState(order: unknown, currency: CurrencyCode): SupplierOrderSt
     shipments,
     // Printful accepts a cancellation only while an order has not entered
     // fulfilment; `fulfilled`, `canceled` and `failed` are past that point.
-    cancellable: providerState === 'draft' || providerState === 'pending' || providerState === 'onhold',
+    cancellable:
+      providerState === 'draft' || providerState === 'pending' || providerState === 'onhold',
   };
 }
 
@@ -630,7 +662,12 @@ const LOOKUP_PAGE_SIZE = 100;
 export function createPrintfulOrderAdapter(transport: PrintfulTransport): SupplierOrderAdapter {
   /** Every call shares the account gate and the credential. */
   const request = (
-    context: { providerAccountId: string; environment: 'test' | 'live'; credential: string; timeoutMs: number },
+    context: {
+      providerAccountId: string;
+      environment: 'test' | 'live';
+      credential: string;
+      timeoutMs: number;
+    },
     parts: Pick<PrintfulRequest, 'method' | 'path'> & Partial<PrintfulRequest>,
   ): PrintfulRequest => {
     assertPrintfulEnvironmentIsReachable(context.environment, context.credential);
@@ -685,7 +722,13 @@ export function createPrintfulOrderAdapter(transport: PrintfulTransport): Suppli
 
       const availability = await resolveAvailability(transport, context, identity.variantId);
       const unitCost = identity.price;
-      const shipping = await resolveShipping(transport, context, input, identity.variantId, currency);
+      const shipping = await resolveShipping(
+        transport,
+        context,
+        input,
+        identity.variantId,
+        currency,
+      );
 
       return {
         identity: 'confirmed',
@@ -752,7 +795,9 @@ export function createPrintfulOrderAdapter(transport: PrintfulTransport): Suppli
             external_id: input.draft.clientReference,
             recipient: recipient(input.draft.destination),
             order_items: orderItems(input.draft.lines),
-            ...(input.draft.shippingServiceCode ? { shipping: input.draft.shippingServiceCode } : {}),
+            ...(input.draft.shippingServiceCode
+              ? { shipping: input.draft.shippingServiceCode }
+              : {}),
             currency,
           },
         }),
@@ -831,7 +876,10 @@ export function createPrintfulOrderAdapter(transport: PrintfulTransport): Suppli
     async readOrder(input: SupplierOrderReadInput): Promise<SupplierOrderState> {
       const order = await call(
         transport,
-        request(input, { method: 'GET', path: `/v2/orders/${encodeURIComponent(input.externalOrderId)}` }),
+        request(input, {
+          method: 'GET',
+          path: `/v2/orders/${encodeURIComponent(input.externalOrderId)}`,
+        }),
         'order read',
       );
       return readOrderState(order, 'EUR');
@@ -955,7 +1003,10 @@ export function createPrintfulOrderAdapter(transport: PrintfulTransport): Suppli
     async readShipments(input: SupplierOrderReadInput): Promise<readonly SupplierShipment[]> {
       const order = await call(
         transport,
-        request(input, { method: 'GET', path: `/v2/orders/${encodeURIComponent(input.externalOrderId)}` }),
+        request(input, {
+          method: 'GET',
+          path: `/v2/orders/${encodeURIComponent(input.externalOrderId)}`,
+        }),
         'shipment read',
       );
       return readOrderState(order, 'EUR').shipments;
@@ -1087,7 +1138,12 @@ interface VariantIdentity {
 /** Confirm the exact catalogue variant and read its published price. */
 async function resolveVariant(
   transport: PrintfulTransport,
-  context: { providerAccountId: string; environment: 'test' | 'live'; credential: string; timeoutMs: number },
+  context: {
+    providerAccountId: string;
+    environment: 'test' | 'live';
+    credential: string;
+    timeoutMs: number;
+  },
   input: SupplierAdapterQuoteInput,
 ): Promise<VariantIdentity> {
   assertPrintfulEnvironmentIsReachable(context.environment, context.credential);
@@ -1117,7 +1173,12 @@ async function resolveVariant(
     // Printful answered about a DIFFERENT variant. #122 keeps `mismatched` and
     // `ambiguous` apart on purpose: this one is a catalogue correction (#59),
     // not an operator exception.
-    return { identity: 'mismatched', variantId: resolvedId, price: null, reasonCodes: ['sku_unknown'] };
+    return {
+      identity: 'mismatched',
+      variantId: resolvedId,
+      price: null,
+      reasonCodes: ['sku_unknown'],
+    };
   }
   const prices = await call(
     transport,
@@ -1138,7 +1199,10 @@ async function resolveVariant(
   const amount =
     priceCurrency !== null && priceCurrency.toUpperCase() !== currency
       ? null
-      : printfulMinorUnits(field(field(prices, 'product'), 'price') ?? field(prices, 'price'), currency);
+      : printfulMinorUnits(
+          field(field(prices, 'product'), 'price') ?? field(prices, 'price'),
+          currency,
+        );
   return { identity: 'confirmed', variantId: sku, price: amount, reasonCodes: [] };
 }
 
@@ -1160,7 +1224,12 @@ interface AvailabilityAnswer {
  */
 async function resolveAvailability(
   transport: PrintfulTransport,
-  context: { providerAccountId: string; environment: 'test' | 'live'; credential: string; timeoutMs: number },
+  context: {
+    providerAccountId: string;
+    environment: 'test' | 'live';
+    credential: string;
+    timeoutMs: number;
+  },
   variantId: string,
 ): Promise<AvailabilityAnswer> {
   const body = await call(
@@ -1186,7 +1255,8 @@ async function resolveAvailability(
   for (const entry of entries) {
     const region = (text(entry, 'selling_region_name') ?? '').toLowerCase();
     const status = (text(entry, 'availability') ?? '').toLowerCase();
-    const stocked = status === 'in stock' || status === 'in_stock' || status === 'stocked_on_demand';
+    const stocked =
+      status === 'in stock' || status === 'in_stock' || status === 'stocked_on_demand';
     if (!stocked) continue;
     anyStocked = true;
     if (PRINTFUL_EU_SELLING_REGIONS.includes(region)) {
@@ -1222,7 +1292,12 @@ interface ShippingAnswer {
  */
 async function resolveShipping(
   transport: PrintfulTransport,
-  context: { providerAccountId: string; environment: 'test' | 'live'; credential: string; timeoutMs: number },
+  context: {
+    providerAccountId: string;
+    environment: 'test' | 'live';
+    credential: string;
+    timeoutMs: number;
+  },
   input: SupplierAdapterQuoteInput,
   variantId: string,
   currency: CurrencyCode,
@@ -1287,7 +1362,12 @@ async function resolveShipping(
   }
 
   return {
-    quote: { basis: 'basket', cost: chosen.cost, serviceCode: chosen.serviceCode, guaranteed: false },
+    quote: {
+      basis: 'basket',
+      cost: chosen.cost,
+      serviceCode: chosen.serviceCode,
+      guaranteed: false,
+    },
     options,
     deliveryDaysMin: chosen.deliveryDaysMin,
     deliveryDaysMax: chosen.deliveryDaysMax,

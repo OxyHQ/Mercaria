@@ -118,7 +118,6 @@ vi.mock('../../db/orders/orderRepository.js', () => ({
   nextOrderNumber: (...args: unknown[]) => nextOrderNumber(...args),
 }));
 
-
 import { processConnectorWebhook } from '../connector-sync.service.js';
 
 /** A live WooCommerce pull connection (products + orders pulling) — FLAT columns. */
@@ -160,7 +159,17 @@ function wooOrderPayload() {
     billing: { first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com', country: 'GB' },
     shipping: {},
     line_items: [
-      { id: 1, name: 'Classic Tee', product_id: 111, variation_id: 999, quantity: 2, subtotal: '40.00', total: '40.00', sku: 'TEE-M', meta_data: [] },
+      {
+        id: 1,
+        name: 'Classic Tee',
+        product_id: 111,
+        variation_id: 999,
+        quantity: 2,
+        subtotal: '40.00',
+        total: '40.00',
+        sku: 'TEE-M',
+        meta_data: [],
+      },
     ],
     refunds: [],
   };
@@ -228,11 +237,13 @@ describe('provider-aware dispatch — WooCommerce product.deleted', () => {
   });
 
   it('ignores the webhook when product pull is disabled (no run, no write)', async () => {
-    findConnectionById.mockResolvedValue(
-      wooConnection({ syncSettingsProducts: 'off' }),
-    );
+    findConnectionById.mockResolvedValue(wooConnection({ syncSettingsProducts: 'off' }));
 
-    await processConnectorWebhook({ connectionId: 'conn-woo', topic: 'product.deleted', payload: { id: 1 } });
+    await processConnectorWebhook({
+      connectionId: 'conn-woo',
+      topic: 'product.deleted',
+      payload: { id: 1 },
+    });
 
     expect(insertSyncRun).not.toHaveBeenCalled();
     expect(findListingBySourceExternalId).not.toHaveBeenCalled();
@@ -253,7 +264,11 @@ describe('provider-aware dispatch — WooCommerce order.created / order.updated'
 
     expect(insertOrder).toHaveBeenCalledTimes(1);
     const [doc] = insertOrder.mock.calls[0];
-    expect(doc.source).toMatchObject({ provider: 'woocommerce', externalId: '727', connectionId: 'conn-woo' });
+    expect(doc.source).toMatchObject({
+      provider: 'woocommerce',
+      externalId: '727',
+      connectionId: 'conn-woo',
+    });
     // `payment` flattened into two columns; an external order settles off Oxy Pay.
     expect(doc.paymentStatus).toBe('paid');
     expect(doc.paymentProvider).toBe('external');
@@ -287,11 +302,13 @@ describe('provider-aware dispatch — WooCommerce order.created / order.updated'
   });
 
   it('ignores an order webhook when order pull is disabled', async () => {
-    findConnectionById.mockResolvedValue(
-      wooConnection({ syncSettingsOrders: 'off' }),
-    );
+    findConnectionById.mockResolvedValue(wooConnection({ syncSettingsOrders: 'off' }));
 
-    await processConnectorWebhook({ connectionId: 'conn-woo', topic: 'order.updated', payload: wooOrderPayload() });
+    await processConnectorWebhook({
+      connectionId: 'conn-woo',
+      topic: 'order.updated',
+      payload: wooOrderPayload(),
+    });
 
     expect(insertSyncRun).not.toHaveBeenCalled();
     expect(insertOrder).not.toHaveBeenCalled();

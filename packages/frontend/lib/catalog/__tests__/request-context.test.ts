@@ -118,14 +118,16 @@ describe('the dimensions are resolved from separate sources', () => {
 
   it('refuses a device region that is not two letters', () => {
     for (const raw of ['', '  ', 'DEU', 'D', '4X2', null]) {
-      expect(resolveCatalogRequestContext({ ...SPANISH_IN_GERMANY, deviceRegion: raw }).market)
-        .toBeUndefined();
+      expect(
+        resolveCatalogRequestContext({ ...SPANISH_IN_GERMANY, deviceRegion: raw }).market,
+      ).toBeUndefined();
     }
     // The positive control on the loop above: the reader does admit a real one,
     // case-normalized. Without this the loop passes against a reader that admits
     // nothing at all.
-    expect(resolveCatalogRequestContext({ ...SPANISH_IN_GERMANY, deviceRegion: 'de' }).market)
-      .toBe('DE');
+    expect(resolveCatalogRequestContext({ ...SPANISH_IN_GERMANY, deviceRegion: 'de' }).market).toBe(
+      'DE',
+    );
   });
 
   it('does not derive the currency from the locale or the market', () => {

@@ -94,9 +94,7 @@ function readString(source: Record<string, unknown>, key: string): string | null
 
 function parseNode(source: Record<string, unknown>): PlanNode {
   const rawChildren = source['Plans'];
-  const children = Array.isArray(rawChildren)
-    ? rawChildren.filter(isRecord).map(parseNode)
-    : [];
+  const children = Array.isArray(rawChildren) ? rawChildren.filter(isRecord).map(parseNode) : [];
   return {
     nodeType: readString(source, 'Node Type') ?? 'Unknown',
     relationName: readString(source, 'Relation Name'),

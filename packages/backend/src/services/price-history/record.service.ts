@@ -143,7 +143,8 @@ export async function recordOfferPriceObservation(
     // fix and both disappear together. `unknown` is passed through rather than
     // narrowed — it is a real member of the OFFER vocabulary and not of the
     // taxonomy, and the derivation is what refuses it entry to a series.
-    conditionKey: offer.condition === 'unknown' ? 'unknown' : narrowStoredCondition(offer.condition),
+    conditionKey:
+      offer.condition === 'unknown' ? 'unknown' : narrowStoredCondition(offer.condition),
     availability: offer.availability,
   };
 
@@ -164,7 +165,8 @@ export async function recordOfferPriceObservation(
 
   const decision = decideObservationWrite({
     terms,
-    previous: latest && previousTerms ? { terms: previousTerms, observedAt: latest.observedAt } : undefined,
+    previous:
+      latest && previousTerms ? { terms: previousTerms, observedAt: latest.observedAt } : undefined,
     observedAt: context.observedAt,
     anchorIntervalMs: config.priceHistory.anchorIntervalSeconds * 1_000,
   });
@@ -179,7 +181,9 @@ export async function recordOfferPriceObservation(
   // rather than describing the fields that moved: an operator reading the
   // trail needs to know that a human or a source revised an earlier reading,
   // which is a different fact from the price having changed.
-  const changeReasons = context.supersedesSnapshotId ? (['correction'] as const) : decision.changeReasons;
+  const changeReasons = context.supersedesSnapshotId
+    ? (['correction'] as const)
+    : decision.changeReasons;
 
   const snapshot = await insertPriceSnapshot(
     {
@@ -294,4 +298,3 @@ async function enqueueSeriesForOffer(
     }
   }
 }
-

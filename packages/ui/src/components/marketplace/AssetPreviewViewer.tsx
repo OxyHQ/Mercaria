@@ -1,16 +1,16 @@
-import { useCallback, useState, type ComponentType, type ReactNode } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
-import { Image } from "expo-image";
-import { Activity, Grid3x3, Maximize2, Minimize2, RotateCcw } from "lucide-react-native";
-import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import { useColorScheme } from "../../lib/useColorScheme";
+import { useCallback, useState, type ComponentType, type ReactNode } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Activity, Grid3x3, Maximize2, Minimize2, RotateCcw } from 'lucide-react-native';
+import { Text } from '../ui/text';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
+import { useColorScheme } from '../../lib/useColorScheme';
 import {
   assetPreviewKind,
   isAssetPreviewFile,
   type AssetPreviewRefusalReason,
   type AssetPreviewSource,
-} from "../../lib/asset-preview";
+} from '../../lib/asset-preview';
 import {
   ASSET_PREVIEW_REFUSAL_KEYS,
   ASSET_VIEWER_ANIMATION_KEY,
@@ -28,7 +28,7 @@ import {
   ASSET_VIEWER_STATISTICS_KEY,
   ASSET_VIEWER_STREAMED_ONLY_KEY,
   ASSET_VIEWER_WIREFRAME_KEY,
-} from "../../lib/digital-asset-labels";
+} from '../../lib/digital-asset-labels';
 
 /**
  * The public 3D preview (#1015 Workstream 4).
@@ -177,7 +177,7 @@ export function AssetPreviewViewer({
   const [fullscreen, setFullscreen] = useState(false);
 
   const screenIsWideEnough = width >= INTERACTIVE_MINIMUM_WIDTH;
-  const isModel = source !== undefined && assetPreviewKind(source) === "streamed_model";
+  const isModel = source !== undefined && assetPreviewKind(source) === 'streamed_model';
   const interactive = isModel && Renderer !== undefined && screenIsWideEnough;
 
   const view: AssetViewerViewState = {
@@ -198,8 +198,7 @@ export function AssetPreviewViewer({
    * where the fallback should be. `undefined` here is a real state and renders
    * the frame's own empty text rather than a failed load.
    */
-  const stillUri =
-    source === undefined ? undefined : isModel ? source.posterUri : source.uri;
+  const stillUri = source === undefined ? undefined : isModel ? source.posterUri : source.uri;
 
   /*
    * The renderer is mounted in exactly ONE place at a time — inline, or in the
@@ -266,7 +265,9 @@ export function AssetPreviewViewer({
         ) : null}
 
         <ControlButton
-          label={fullscreen ? t(ASSET_VIEWER_FULLSCREEN_CLOSE_KEY) : t(ASSET_VIEWER_FULLSCREEN_OPEN_KEY)}
+          label={
+            fullscreen ? t(ASSET_VIEWER_FULLSCREEN_CLOSE_KEY) : t(ASSET_VIEWER_FULLSCREEN_OPEN_KEY)
+          }
           onPress={() => setFullscreen((open) => !open)}
         >
           {fullscreen ? (
@@ -330,7 +331,9 @@ export function AssetPreviewViewer({
           </Text>
         ) : null}
         {interactive ? (
-          <Text className="text-shop-caption text-text-tertiary">{t(ASSET_VIEWER_GESTURES_KEY)}</Text>
+          <Text className="text-shop-caption text-text-tertiary">
+            {t(ASSET_VIEWER_GESTURES_KEY)}
+          </Text>
         ) : null}
         <Text className="text-shop-caption text-text-tertiary">
           {t(ASSET_VIEWER_NEVER_SOURCE_KEY)}
@@ -398,7 +401,7 @@ export function AssetPreviewViewer({
 const ANIMATION_ROW_STYLE = { gap: 8 } as const;
 
 /** The full-screen still fills the modal body rather than the frame's ratio. */
-const FULLSCREEN_IMAGE_STYLE = { flex: 1, width: "100%" } as const;
+const FULLSCREEN_IMAGE_STYLE = { flex: 1, width: '100%' } as const;
 
 /**
  * One control.
@@ -457,8 +460,8 @@ function ToggleButton({
       onPress={onPress}
       className={
         checked
-          ? "items-center justify-center rounded-radius-max bg-bg-fill-secondary p-space-8"
-          : "items-center justify-center rounded-radius-max border border-border-secondary p-space-8"
+          ? 'items-center justify-center rounded-radius-max bg-bg-fill-secondary p-space-8'
+          : 'items-center justify-center rounded-radius-max border border-border-secondary p-space-8'
       }
     >
       {children}
@@ -484,8 +487,8 @@ function AnimationChip({
       onPress={onPress}
       className={
         selected
-          ? "rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6"
-          : "rounded-radius-max border border-border-secondary px-space-12 py-space-6"
+          ? 'rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6'
+          : 'rounded-radius-max border border-border-secondary px-space-12 py-space-6'
       }
     >
       {/* Spelled as well as announced — the selected chip is never colour alone. */}

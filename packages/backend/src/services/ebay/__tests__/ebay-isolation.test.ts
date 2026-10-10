@@ -186,10 +186,12 @@ const GRANT_REFERENCE =
 const RANKING_REFERENCE = /rankOffers|offerRanking|services\/ranking\/|\.\.\/ranking\//;
 
 /** #37's outbound redirect. This domain models routing metadata and never routes. */
-const REDIRECT_REFERENCE = /outboundRedirect|redirect\.service|buildAffiliateUrl|services\/outbound\//;
+const REDIRECT_REFERENCE =
+  /outboundRedirect|redirect\.service|buildAffiliateUrl|services\/outbound\//;
 
 /** #116/#121's retail domain. An ingested offer must not make Mercaria the seller. */
-const RETAIL_REFERENCE = /retail-eligibility|retail-pricing|retailEligibility|retailPricing|mercaria_retail/;
+const RETAIL_REFERENCE =
+  /retail-eligibility|retail-pricing|retailEligibility|retailPricing|mercaria_retail/;
 
 /** Persisting a bearer token. There is no column that could hold one and no code that tries. */
 const TOKEN_PERSISTENCE =
@@ -229,8 +231,8 @@ describe('Mercaria never composes or mutates an EPN link (#64 §6 rule 3)', () =
 
   it('the link detectors actually detect — the mutation self-test', () => {
     const positives = [
-      "const url = `https://www.ebay.es/itm/${itemId}`;",
-      "const tracked = `${base}?campid=${campaignId}`;",
+      'const url = `https://www.ebay.es/itm/${itemId}`;',
+      'const tracked = `${base}?campid=${campaignId}`;',
       "parsed.searchParams.set('campid', campaignId);",
     ];
     positives.forEach((line, index) => {
@@ -271,7 +273,8 @@ describe('Mercaria never composes or mutates an EPN link (#64 §6 rule 3)', () =
     // literal host after the quote — so the control and the blind spot shared
     // one cause. Keying on the `/itm` PATH separates them: this line has no
     // `/itm` segment, and `/itm` appears nowhere in the domain outside a test.
-    const ordinary = "const url = `https://${EBAY_API_HOST[env]}${EBAY_BROWSE_SEARCH_PATH}?${params}`;";
+    const ordinary =
+      'const url = `https://${EBAY_API_HOST[env]}${EBAY_BROWSE_SEARCH_PATH}?${params}`;';
     for (const { name, pattern } of LINK_COMPOSITION) {
       expect(pattern.test(ordinary), `${name} detector fires on an ordinary API URL`).toBe(false);
     }
@@ -325,16 +328,18 @@ describe('an eBay ingestion grants nothing and ranks nothing', () => {
 
   it('the grant, ranking, redirect and retail detectors actually detect', () => {
     expect(
-      GRANT_REFERENCE.test("import { assertRelationship } from '../commerce-graph/relationship.service.js';"),
+      GRANT_REFERENCE.test(
+        "import { assertRelationship } from '../commerce-graph/relationship.service.js';",
+      ),
     ).toBe(true);
     expect(RANKING_REFERENCE.test("import { rankOffers } from '../ranking/rank.js';")).toBe(true);
     expect(REDIRECT_REFERENCE.test("import { buildAffiliateUrl } from '../outbound/x.js';")).toBe(
       true,
     );
-    expect(RETAIL_REFERENCE.test("import { getRetailEligibility } from '../retail-eligibility/x.js';")).toBe(
-      true,
-    );
-    const ordinary = "const offer = await recordExternalOffer(observation, now);";
+    expect(
+      RETAIL_REFERENCE.test("import { getRetailEligibility } from '../retail-eligibility/x.js';"),
+    ).toBe(true);
+    const ordinary = 'const offer = await recordExternalOffer(observation, now);';
     expect(GRANT_REFERENCE.test(ordinary)).toBe(false);
     expect(RANKING_REFERENCE.test(ordinary)).toBe(false);
   });
@@ -470,12 +475,15 @@ describe('#454: a relative import cannot walk around these detectors', () => {
       RANKING_REFERENCE.test("import { helper } from '../ranking/thing.service.js';"),
       "a module here reaches ranking as '../ranking/…' and that must not pass",
     ).toBe(true);
-    expect(RANKING_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';")).toBe(true);
+    expect(
+      RANKING_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';"),
+    ).toBe(true);
     // The negative half, or the widening would fire on ordinary imports.
-    expect(RANKING_REFERENCE.test("import { helper } from '../ranking-display/format.js';")).toBe(false);
+    expect(RANKING_REFERENCE.test("import { helper } from '../ranking-display/format.js';")).toBe(
+      false,
+    );
     expect(RANKING_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
-
 });
 
 /**

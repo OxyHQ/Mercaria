@@ -52,10 +52,7 @@ import {
   inspectCatalogLogValue,
   resetCatalogLogCounters,
 } from '../catalog-log.js';
-import {
-  CATALOG_OBSERVED_ROUTES,
-  resetCatalogRouteObservations,
-} from '../route-observations.js';
+import { CATALOG_OBSERVED_ROUTES, resetCatalogRouteObservations } from '../route-observations.js';
 import {
   pathnameOf,
   resolveObservedRouteTemplate,
@@ -214,7 +211,11 @@ describe('the correlation context', () => {
      */
     const timeline: string[] = [];
 
-    async function traced(tag: string, sleepMs: number, steps: number): Promise<readonly unknown[]> {
+    async function traced(
+      tag: string,
+      sleepMs: number,
+      steps: number,
+    ): Promise<readonly unknown[]> {
       const seen: unknown[] = [];
       for (let step = 0; step < steps; step += 1) {
         timeline.push(tag);
@@ -269,7 +270,9 @@ describe('the catalog log field allow-list', () => {
   it('is DISJOINT from the forbidden list, with a floor on both', () => {
     // The vacuity floor first: two empty lists are trivially disjoint, and a
     // tuple somebody emptied would pass the intersection test in silence.
-    expect(CATALOG_LOG_FORBIDDEN_FIELDS.length, 'the prohibition list is empty').toBeGreaterThan(20);
+    expect(CATALOG_LOG_FORBIDDEN_FIELDS.length, 'the prohibition list is empty').toBeGreaterThan(
+      20,
+    );
     expect(CATALOG_LOG_PERMITTED_FIELDS.length, 'the permitted list is empty').toBeGreaterThan(20);
 
     const permitted = new Set<string>(CATALOG_LOG_PERMITTED_FIELDS);
@@ -277,8 +280,8 @@ describe('the catalog log field allow-list', () => {
     expect(overlap, 'a forbidden field name is also a permitted one').toEqual([]);
 
     process.stdout.write(
-      `[census] catalog log fields: ${CATALOG_LOG_PERMITTED_FIELDS.length} permitted, `
-        + `${CATALOG_LOG_FORBIDDEN_FIELDS.length} forbidden, 0 overlapping\n`,
+      `[census] catalog log fields: ${CATALOG_LOG_PERMITTED_FIELDS.length} permitted, ` +
+        `${CATALOG_LOG_FORBIDDEN_FIELDS.length} forbidden, 0 overlapping\n`,
     );
   });
 
@@ -397,9 +400,9 @@ describe('the log value redaction guard', () => {
       expect(verdict.verdict, `an ordinary value was refused: ${value}`).toBe('permitted');
     }
     process.stdout.write(
-      `[census] guard corpus: ${FORBIDDEN_SAMPLES.length} refused, `
-        + `${PERMITTED_SAMPLES.length} permitted, `
-        + `${CATALOG_LOG_VALUE_REFUSAL_PATTERNS.length} patterns\n`,
+      `[census] guard corpus: ${FORBIDDEN_SAMPLES.length} refused, ` +
+        `${PERMITTED_SAMPLES.length} permitted, ` +
+        `${CATALOG_LOG_VALUE_REFUSAL_PATTERNS.length} patterns\n`,
     );
   });
 
@@ -549,8 +552,8 @@ describe('resolveObservedRouteTemplate', () => {
     // resolving nothing, and the middleware would be a no-op reporting health.
     expect(CATALOG_OBSERVED_ROUTES.length).toBeGreaterThan(0);
     process.stdout.write(
-      `[census] observed route templates: ${CATALOG_OBSERVED_ROUTES.length} `
-        + `(${CATALOG_OBSERVED_ROUTES.join(', ')})\n`,
+      `[census] observed route templates: ${CATALOG_OBSERVED_ROUTES.length} ` +
+        `(${CATALOG_OBSERVED_ROUTES.join(', ')})\n`,
     );
   });
 
@@ -571,12 +574,12 @@ describe('resolveObservedRouteTemplate', () => {
     expect(resolveObservedRouteTemplate('get', '/CATEGORIES')).toBe('/categories');
     // A parameterised template, which is the case that matters: `:productTypeKey`
     // must match exactly one segment and must not span a `/`.
-    expect(
-      resolveObservedRouteTemplate('GET', '/catalog-authoring/schemas/smartphone/'),
-    ).toBe('/catalog-authoring/schemas/:productTypeKey');
-    expect(
-      resolveObservedRouteTemplate('GET', '/CATALOG-AUTHORING/schemas/smartphone'),
-    ).toBe('/catalog-authoring/schemas/:productTypeKey');
+    expect(resolveObservedRouteTemplate('GET', '/catalog-authoring/schemas/smartphone/')).toBe(
+      '/catalog-authoring/schemas/:productTypeKey',
+    );
+    expect(resolveObservedRouteTemplate('GET', '/CATALOG-AUTHORING/schemas/smartphone')).toBe(
+      '/catalog-authoring/schemas/:productTypeKey',
+    );
     // ...and must NOT absorb a deeper path, which is how a template matcher ends
     // up reporting a bucket for traffic it never served.
     expect(

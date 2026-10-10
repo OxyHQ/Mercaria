@@ -1,9 +1,9 @@
-import React from "react";
-import { View, Pressable } from "react-native";
-import { Dialog, type DialogControlProps } from "@oxy.so/bloom/dialog";
-import type { Listing, ProductVariantDTO } from "@mercaria/shared-types";
-import { Text, PriceDisplay } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
+import React from 'react';
+import { View, Pressable } from 'react-native';
+import { Dialog, type DialogControlProps } from '@oxy.so/bloom/dialog';
+import type { Listing, ProductVariantDTO } from '@mercaria/shared-types';
+import { Text, PriceDisplay } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 /** Side-sheet width (px) — the old sheet's desktop width. */
 const SHEET_WIDTH = 400;
@@ -26,9 +26,14 @@ interface VariantPickerSheetProps {
  * itself from `useIsRtl()`: the sheet enters from the right in a left-to-right
  * till and from the left in a mirrored one (#429).
  */
-export function VariantPickerSheet({ control, listing, onPick, onClosed }: VariantPickerSheetProps) {
+export function VariantPickerSheet({
+  control,
+  listing,
+  onPick,
+  onClosed,
+}: VariantPickerSheetProps) {
   const { t } = useTranslation();
-  const title = listing?.title ?? t("catalog.chooseVariant");
+  const title = listing?.title ?? t('catalog.chooseVariant');
   return (
     <Dialog
       control={control}
@@ -52,8 +57,8 @@ export function VariantPickerSheet({ control, listing, onPick, onClosed }: Varia
                 accessibilityState={{ disabled }}
                 className={
                   disabled
-                    ? "min-h-[64px] rounded-2xl border border-border bg-muted p-4 opacity-50"
-                    : "min-h-[64px] rounded-2xl border border-border bg-surface p-4 active:opacity-80 web:hover:border-primary"
+                    ? 'min-h-[64px] rounded-2xl border border-border bg-muted p-4 opacity-50'
+                    : 'min-h-[64px] rounded-2xl border border-border bg-surface p-4 active:opacity-80 web:hover:border-primary'
                 }
               >
                 <View className="flex-row items-center justify-between gap-3">
@@ -61,8 +66,8 @@ export function VariantPickerSheet({ control, listing, onPick, onClosed }: Varia
                     <Text className="text-base font-semibold text-foreground">{variant.title}</Text>
                     <Text className="text-xs text-muted-foreground">
                       {disabled
-                        ? t("catalog.outOfStock")
-                        : t("catalog.availableCount", { count: variant.available })}
+                        ? t('catalog.outOfStock')
+                        : t('catalog.availableCount', { count: variant.available })}
                     </Text>
                   </View>
                   <PriceDisplay price={variant.price} />

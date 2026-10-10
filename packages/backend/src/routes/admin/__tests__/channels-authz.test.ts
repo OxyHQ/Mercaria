@@ -17,7 +17,9 @@ import { STORE_ROLE_PERMISSIONS, type StoreAccountRole } from '@mercaria/shared-
 
 vi.mock('../../../services/connector-sync.service.js', () => ({
   listConnections: vi.fn().mockResolvedValue([]),
-  buildConnectAuthorizeUrl: vi.fn().mockReturnValue('https://acme.myshopify.com/admin/oauth/authorize?x=1'),
+  buildConnectAuthorizeUrl: vi
+    .fn()
+    .mockReturnValue('https://acme.myshopify.com/admin/oauth/authorize?x=1'),
   connectWithApiKey: vi.fn().mockResolvedValue({ _id: '2'.repeat(24), status: 'connected' }),
   updateSyncSettings: vi.fn(),
   requestBackfill: vi.fn().mockResolvedValue(undefined),
@@ -56,10 +58,17 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+  await new Promise<void>((resolve, reject) =>
+    server.close((err) => (err ? reject(err) : resolve())),
+  );
 });
 
-async function call(path: string, method: string, role: StoreAccountRole, body?: unknown): Promise<number> {
+async function call(
+  path: string,
+  method: string,
+  role: StoreAccountRole,
+  body?: unknown,
+): Promise<number> {
   const res = await fetch(`${baseUrl}${path}`, {
     method,
     headers: { 'x-role': role, 'content-type': 'application/json' },
@@ -75,7 +84,9 @@ describe('channels router authz — editors lack channels:write', () => {
     expect(await call('/', 'GET', 'editor')).toBe(403);
   });
   it('403s editors on connect', async () => {
-    expect(await call('/shopify/connect', 'POST', 'editor', { shopDomain: 'acme.myshopify.com' })).toBe(403);
+    expect(
+      await call('/shopify/connect', 'POST', 'editor', { shopDomain: 'acme.myshopify.com' }),
+    ).toBe(403);
   });
   it('403s editors on connect-key (WooCommerce)', async () => {
     expect(
@@ -87,7 +98,9 @@ describe('channels router authz — editors lack channels:write', () => {
     ).toBe(403);
   });
   it('403s editors on settings patch', async () => {
-    expect(await call(`/${CONNECTION_ID}/settings`, 'PATCH', 'editor', { autoPublish: true })).toBe(403);
+    expect(await call(`/${CONNECTION_ID}/settings`, 'PATCH', 'editor', { autoPublish: true })).toBe(
+      403,
+    );
   });
   it('403s editors on sync', async () => {
     expect(await call(`/${CONNECTION_ID}/sync`, 'POST', 'editor')).toBe(403);
@@ -107,10 +120,14 @@ describe('channels router authz — admins pass the guard', () => {
     expect(await call('/', 'GET', 'admin')).toBe(200);
   });
   it('lets an admin start a connect (200 with an authorize URL)', async () => {
-    expect(await call('/shopify/connect', 'POST', 'admin', { shopDomain: 'acme.myshopify.com' })).toBe(200);
+    expect(
+      await call('/shopify/connect', 'POST', 'admin', { shopDomain: 'acme.myshopify.com' }),
+    ).toBe(200);
   });
   it('validates the connect body (400 on a non-myshopify domain even for admin)', async () => {
-    expect(await call('/shopify/connect', 'POST', 'admin', { shopDomain: 'evil.example.com' })).toBe(400);
+    expect(
+      await call('/shopify/connect', 'POST', 'admin', { shopDomain: 'evil.example.com' }),
+    ).toBe(400);
   });
   it('lets an admin connect WooCommerce with an API key (200)', async () => {
     expect(

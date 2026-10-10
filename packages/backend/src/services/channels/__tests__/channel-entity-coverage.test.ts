@@ -200,7 +200,7 @@ describe('#380 entity coverage — the provider census', () => {
         unclassified,
         'these provider members are in neither PROVIDER_ENTITY_MEMBERS nor ' +
           'PROVIDER_NON_ENTITY_MEMBERS. If one moves an entity, map it AND say what the ' +
-          "coverage now claims about that entity; if it does not, say so with a reason. A " +
+          'coverage now claims about that entity; if it does not, say so with a reason. A ' +
           'provider that grew a data path while the coverage still reported the entity as ' +
           'not synced is exactly what this gate exists to stop.',
       ).toEqual([]);
@@ -489,9 +489,9 @@ describe('#380 entity coverage — the never_synced claims are probed, not trust
         policy.kind,
         writesBreakdown
           ? `an imported order now carries its ${entity} breakdown, so CHANNEL_ENTITY_POLICY.` +
-            `${entity} must not say it is never exchanged — that claim is on a merchant's screen.`
+              `${entity} must not say it is never exchanged — that claim is on a merchant's screen.`
           : `an imported order writes an empty ${entity} breakdown again, so CHANNEL_ENTITY_POLICY.` +
-            `${entity} promises a merchant lines that never arrive.`,
+              `${entity} promises a merchant lines that never arrive.`,
       ).toBe(writesBreakdown ? 'partial_arrival' : 'never_synced');
     }
 
@@ -596,7 +596,7 @@ describe('#380 entity coverage — the never_synced claims are probed, not trust
           RULE_SHAPED_COLUMN_SEGMENTS.some((segment) => column.includes(segment)),
         ),
         `${table} grew a column describing the discount or tax RULE rather than its ` +
-          "application to one order. The channel screen tells a merchant the rule is not " +
+          'application to one order. The channel screen tells a merchant the rule is not ' +
           'created in Mercaria and cannot be edited or reused here; if it now is, that caveat ' +
           'is what has to change.',
       ).toEqual([]);

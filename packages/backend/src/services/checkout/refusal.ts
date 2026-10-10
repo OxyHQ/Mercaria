@@ -131,10 +131,7 @@ export class CheckoutRefusal extends MercariaError {
 }
 
 /** Refuse a checkout, naming the gate. The 409 and the message are unchanged. */
-export function checkoutRefusal(
-  reason: CheckoutRefusalReason,
-  message: string,
-): CheckoutRefusal {
+export function checkoutRefusal(reason: CheckoutRefusalReason, message: string): CheckoutRefusal {
   return new CheckoutRefusal(reason, message);
 }
 

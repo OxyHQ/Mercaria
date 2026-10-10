@@ -339,7 +339,9 @@ async function seedOrder(
     status: 'pending_payment',
     paymentStatus: 'unpaid',
     checkoutGroupId,
-    statusHistory: [{ status: 'pending_payment', at: new Date(), actorKind: 'oxy', byOxyUserId: who.buyer }],
+    statusHistory: [
+      { status: 'pending_payment', at: new Date(), actorKind: 'oxy', byOxyUserId: who.buyer },
+    ],
     appliedDiscounts: [],
     taxLines: [],
   });
@@ -869,11 +871,7 @@ describe('a payout for an account Mercaria has no row for', () => {
  */
 describe('connected-account readiness, end to end', () => {
   /** Sign and deliver one connect-scope account event. */
-  async function deliverAccountEvent(input: {
-    eventId: string;
-    type: string;
-    accountId: string;
-  }) {
+  async function deliverAccountEvent(input: { eventId: string; type: string; accountId: string }) {
     const payload = JSON.stringify({
       id: input.eventId,
       object: 'event',
@@ -1093,7 +1091,10 @@ describe('failure, dead-lettering and replay', () => {
     // A dead letter waits for a person, not a clock — so nothing picks it up on
     // its own, which is what makes it stay VISIBLE instead of quietly retrying.
     expect(dead[0]?.nextAttemptAt).toBeNull();
-    expect(await drainStripeEvents({ eventId: storedId })).toMatchObject({ processed: 0, failed: 0 });
+    expect(await drainStripeEvents({ eventId: storedId })).toMatchObject({
+      processed: 0,
+      failed: 0,
+    });
 
     // Now make the correlation resolvable — the operator's fix — and replay.
     const who = actors();

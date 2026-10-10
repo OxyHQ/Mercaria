@@ -55,7 +55,12 @@ import {
  */
 const router = Router({ mergeParams: true });
 
-router.get('/', requireStorePermission('orders:read'), validateQuery(orderListQuerySchema), listStoreOrders);
+router.get(
+  '/',
+  requireStorePermission('orders:read'),
+  validateQuery(orderListQuerySchema),
+  listStoreOrders,
+);
 router.get('/stats', requireStorePermission('stats:read'), getStoreStats);
 router.get('/:id', requireStorePermission('orders:read'), validateId('id'), getStoreOrder);
 
@@ -73,7 +78,12 @@ router.get('/:id', requireStorePermission('orders:read'), validateId('id'), getS
  * returns the NEW code because the shop is the party that has to tell the
  * customer it changed.
  */
-router.get('/:id/pickup', requireStorePermission('orders:read'), validateId('id'), getOrderPickupHandler);
+router.get(
+  '/:id/pickup',
+  requireStorePermission('orders:read'),
+  validateId('id'),
+  getOrderPickupHandler,
+);
 router.post(
   '/:id/pickup/ready',
   requireStorePermission('orders:fulfill'),

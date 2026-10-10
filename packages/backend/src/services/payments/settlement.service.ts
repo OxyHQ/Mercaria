@@ -151,7 +151,13 @@ export async function settlePaymentTransfers(paymentId: string): Promise<Settlem
     if (!order) continue;
 
     const amount: Money = { amount: Number(share.netMinor), currency: allocation.currency };
-    const result = await settleOneOrder({ payment, order, amount, sourcePaymentObjectId, provider });
+    const result = await settleOneOrder({
+      payment,
+      order,
+      amount,
+      sourcePaymentObjectId,
+      provider,
+    });
     outcome[result] += 1;
   }
 

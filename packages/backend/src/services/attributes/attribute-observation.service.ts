@@ -32,10 +32,7 @@
  *   watching the product row would never see this.
  */
 
-import {
-  type AttributeEntityKind,
-  type SourceLinkMethod,
-} from '@mercaria/shared-types';
+import { type AttributeEntityKind, type SourceLinkMethod } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import {
   clearAttributeValueSelection,
@@ -56,7 +53,10 @@ import {
 } from '../../db/attributes/attributeOpsRepository.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { normalizeAttributeKey } from '../canonical/variant-signature.js';
-import { resolveActiveDefinition, type ResolvedAttributeDefinition } from './definition-registry.service.js';
+import {
+  resolveActiveDefinition,
+  type ResolvedAttributeDefinition,
+} from './definition-registry.service.js';
 import {
   normalizeAttributeObservation,
   normalizedFactsAgree,

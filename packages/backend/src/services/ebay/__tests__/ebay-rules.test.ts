@@ -98,7 +98,10 @@ describe('the condition ruleset an operator publishes', () => {
 describe('the outbound destination is one eBay minted, or nothing', () => {
   it('prefers the affiliate URL, falls back to the plain one, and invents neither', () => {
     expect(
-      chooseEbayDestination({ affiliateWebUrl: 'https://ebay.es/a', itemWebUrl: 'https://ebay.es/p' }),
+      chooseEbayDestination({
+        affiliateWebUrl: 'https://ebay.es/a',
+        itemWebUrl: 'https://ebay.es/p',
+      }),
     ).toEqual({ kind: 'affiliate', url: 'https://ebay.es/a' });
     expect(chooseEbayDestination({ itemWebUrl: 'https://ebay.es/p' })).toEqual({
       kind: 'plain',
@@ -145,19 +148,19 @@ describe('the outbound destination is one eBay minted, or nothing', () => {
   });
 
   it('reports a lost attribution only for a NON-EMPTY page that carried none', () => {
-    expect(pageLostAttribution({ attributionRequested: true, itemCount: 5, affiliateUrlCount: 0 })).toBe(
-      true,
-    );
+    expect(
+      pageLostAttribution({ attributionRequested: true, itemCount: 5, affiliateUrlCount: 0 }),
+    ).toBe(true);
     // eBay legitimately omits the affiliate URL for individual items, so a
     // partial page is NOT a signal — an alarm on it would fire constantly.
-    expect(pageLostAttribution({ attributionRequested: true, itemCount: 5, affiliateUrlCount: 1 })).toBe(
-      false,
-    );
+    expect(
+      pageLostAttribution({ attributionRequested: true, itemCount: 5, affiliateUrlCount: 1 }),
+    ).toBe(false);
     // An empty page says nothing, and an unattributed deployment cannot lose
     // what it never asked for.
-    expect(pageLostAttribution({ attributionRequested: true, itemCount: 0, affiliateUrlCount: 0 })).toBe(
-      false,
-    );
+    expect(
+      pageLostAttribution({ attributionRequested: true, itemCount: 0, affiliateUrlCount: 0 }),
+    ).toBe(false);
     expect(
       pageLostAttribution({ attributionRequested: false, itemCount: 5, affiliateUrlCount: 0 }),
     ).toBe(false);
@@ -170,7 +173,10 @@ describe('money is parsed exactly or refused', () => {
       amount: 1_999,
       currency: 'EUR',
     });
-    expect(parseEbayMoney({ value: '5', currency: 'EUR' })).toEqual({ amount: 500, currency: 'EUR' });
+    expect(parseEbayMoney({ value: '5', currency: 'EUR' })).toEqual({
+      amount: 500,
+      currency: 'EUR',
+    });
     expect(parseEbayMoney({ value: '19.9', currency: 'EUR' })).toEqual({
       amount: 1_990,
       currency: 'EUR',
@@ -235,7 +241,9 @@ describe('normalizing one eBay item', () => {
     mpn: 'WH1000XM5B',
     image: { imageUrl: 'https://i.ebayimg.com/a.jpg' },
     itemLocation: { country: 'es', stateOrProvince: 'Madrid' },
-    estimatedAvailabilities: [{ estimatedAvailabilityStatus: 'IN_STOCK', estimatedAvailableQuantity: 3 }],
+    estimatedAvailabilities: [
+      { estimatedAvailabilityStatus: 'IN_STOCK', estimatedAvailableQuantity: 3 },
+    ],
   };
 
   it('maps the SELLER to the merchant hint and the marketplace to the storefront hint', () => {
@@ -374,7 +382,9 @@ describe('the provider error taxonomy', () => {
 
   it('honours a Retry-After in both RFC forms and refuses a third', () => {
     expect(readRetryAfterMs('120', NOW)).toBe(120_000);
-    expect(readRetryAfterMs(new Date(NOW.getTime() + 60_000).toUTCString(), NOW)).toBeGreaterThan(0);
+    expect(readRetryAfterMs(new Date(NOW.getTime() + 60_000).toUTCString(), NOW)).toBeGreaterThan(
+      0,
+    );
     // The fixture on the refusing side: an unparseable header must not become a
     // zero backoff, which would be the loosest possible reading.
     expect(readRetryAfterMs('soon', NOW)).toBeUndefined();
@@ -385,9 +395,9 @@ describe('the provider error taxonomy', () => {
     expect(readEbayErrorIds('not json')).toEqual([]);
     expect(readEbayErrorIds('<html>502</html>')).toEqual([]);
     expect(readEbayErrorIds(JSON.stringify({ errors: 'nope' }))).toEqual([]);
-    expect(readEbayErrorIds(JSON.stringify({ errors: [{ errorId: 'x' }, { errorId: 7 }] }))).toEqual([
-      7,
-    ]);
+    expect(
+      readEbayErrorIds(JSON.stringify({ errors: [{ errorId: 'x' }, { errorId: 7 }] })),
+    ).toEqual([7]);
   });
 });
 
@@ -401,7 +411,9 @@ describe('the cursor and the completeness claim', () => {
     expect(parseEbayCursor(null)).toEqual(EBAY_INITIAL_CURSOR);
     expect(parseEbayCursor('{')).toEqual(EBAY_INITIAL_CURSOR);
     expect(parseEbayCursor(JSON.stringify({ v: 2, phase: 'verify' }))).toEqual(EBAY_INITIAL_CURSOR);
-    expect(parseEbayCursor(JSON.stringify({ v: 1, phase: 'unknown' }))).toEqual(EBAY_INITIAL_CURSOR);
+    expect(parseEbayCursor(JSON.stringify({ v: 1, phase: 'unknown' }))).toEqual(
+      EBAY_INITIAL_CURSOR,
+    );
     expect(
       parseEbayCursor(JSON.stringify({ v: 1, phase: 'verify', targetIndex: -1, offset: 0 })),
     ).toEqual(EBAY_INITIAL_CURSOR);

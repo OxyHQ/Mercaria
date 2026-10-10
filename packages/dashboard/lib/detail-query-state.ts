@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios from 'axios';
 
 /** Only transient read failures may keep an already visible, store-scoped detail. */
 export function canRetainDetailData(error: unknown): boolean {

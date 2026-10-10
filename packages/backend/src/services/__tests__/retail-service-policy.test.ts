@@ -241,7 +241,11 @@ describe('eligibility is three-valued and every refusal names a next action', ()
     const verdict = deriveRetailServiceEligibility(
       eligibilityInput({ deadlines: { statutoryAt: deadline, commercialAt: null } }),
     );
-    expect(verdict).toEqual({ verdict: 'ineligible', reason: 'window_closed', deadlineAt: deadline });
+    expect(verdict).toEqual({
+      verdict: 'ineligible',
+      reason: 'window_closed',
+      deadlineAt: deadline,
+    });
   });
 
   it('the COMMERCIAL side keeps a request alive after the statutory one closes', () => {
@@ -284,9 +288,10 @@ describe('eligibility is three-valued and every refusal names a next action', ()
   });
 
   it('a category exception refuses, and it is checked before the window', () => {
-    expect(
-      deriveRetailServiceEligibility(eligibilityInput({ categoryExcluded: true })),
-    ).toEqual({ verdict: 'ineligible', reason: 'category_exception' });
+    expect(deriveRetailServiceEligibility(eligibilityInput({ categoryExcluded: true }))).toEqual({
+      verdict: 'ineligible',
+      reason: 'category_exception',
+    });
   });
 
   it('units already resolved cannot be claimed again', () => {
@@ -315,8 +320,20 @@ describe('only refund-shaped outcomes are deliverable, and that is stated', () =
 
 describe('the refund allocation is explicit, bounded and never over-refunds', () => {
   const lines = [
-    { orderItemId: 'item-a', quantity: 3, lineTotalMinor: 3000, discountTotalMinor: 300, taxMinor: 0 },
-    { orderItemId: 'item-b', quantity: 1, lineTotalMinor: 1000, discountTotalMinor: 0, taxMinor: 0 },
+    {
+      orderItemId: 'item-a',
+      quantity: 3,
+      lineTotalMinor: 3000,
+      discountTotalMinor: 300,
+      taxMinor: 0,
+    },
+    {
+      orderItemId: 'item-b',
+      quantity: 1,
+      lineTotalMinor: 1000,
+      discountTotalMinor: 0,
+      taxMinor: 0,
+    },
   ];
   const totals = {
     currency: 'EUR' as const,

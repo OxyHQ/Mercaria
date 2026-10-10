@@ -91,7 +91,11 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * sits outside the offer domain. A fourth `db/offer-…` or `services/ranking-…`
  * directory added tomorrow falls under this wall with no edit here.
  */
-function directoriesStartingWith(parent: string, prefix: string, readDir: DirectoryReader): string[] {
+function directoriesStartingWith(
+  parent: string,
+  prefix: string,
+  readDir: DirectoryReader,
+): string[] {
   return readDir(parent)
     .filter((entry) => entry.isDirectory() && entry.name !== '__tests__')
     .filter((entry) => entry.name.startsWith(prefix))
@@ -234,25 +238,34 @@ describe('the two populations are not vacuous', () => {
     const domain = offerRankingSources();
     expect(domain.length, 'the offer/ranking walk found too few files').toBeGreaterThanOrEqual(25);
     const from = (prefix: string) => domain.filter((f) => f.relative.startsWith(prefix)).length;
-    expect(from('services/offers/'), 'the offers service walk found nothing').toBeGreaterThanOrEqual(3);
+    expect(
+      from('services/offers/'),
+      'the offers service walk found nothing',
+    ).toBeGreaterThanOrEqual(3);
     expect(
       from('services/offer-freshness/'),
       'the offer-freshness service walk found nothing',
     ).toBeGreaterThanOrEqual(5);
-    expect(from('services/ranking/'), 'the ranking service walk found nothing').toBeGreaterThanOrEqual(
-      6,
+    expect(
+      from('services/ranking/'),
+      'the ranking service walk found nothing',
+    ).toBeGreaterThanOrEqual(6);
+    expect(from('db/offers/'), 'the offers repository walk found nothing').toBeGreaterThanOrEqual(
+      2,
     );
-    expect(from('db/offers/'), 'the offers repository walk found nothing').toBeGreaterThanOrEqual(2);
     expect(
       from('db/offerFreshness/'),
       'the offer-freshness repository walk found nothing',
     ).toBeGreaterThanOrEqual(4);
-    expect(from('db/ranking/'), 'the ranking repository walk found nothing').toBeGreaterThanOrEqual(1);
+    expect(from('db/ranking/'), 'the ranking repository walk found nothing').toBeGreaterThanOrEqual(
+      1,
+    );
     for (const file of domain) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(50);
-      expect(statSync(join(SRC_ROOT, file.relative)).isFile(), `${file.relative} is not a file`).toBe(
-        true,
-      );
+      expect(
+        statSync(join(SRC_ROOT, file.relative)).isFile(),
+        `${file.relative} is not a file`,
+      ).toBe(true);
     }
   });
 
@@ -267,17 +280,20 @@ describe('the two populations are not vacuous', () => {
     // five clears a scan that lost four fifths of the domain, in a gate whose
     // whole purpose is to notice exactly that. WALL 1's per-directory floors
     // (3/5/6/2/4/1 against 33) are the calibration this side now matches.
-    expect(from('services/discovery/'), 'the discovery service walk found nothing').toBeGreaterThanOrEqual(
-      2,
-    );
-    expect(from('db/discovery/'), 'the discovery repository walk found nothing').toBeGreaterThanOrEqual(
-      3,
-    );
+    expect(
+      from('services/discovery/'),
+      'the discovery service walk found nothing',
+    ).toBeGreaterThanOrEqual(2);
+    expect(
+      from('db/discovery/'),
+      'the discovery repository walk found nothing',
+    ).toBeGreaterThanOrEqual(3);
     for (const file of domain) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(50);
-      expect(statSync(join(SRC_ROOT, file.relative)).isFile(), `${file.relative} is not a file`).toBe(
-        true,
-      );
+      expect(
+        statSync(join(SRC_ROOT, file.relative)).isFile(),
+        `${file.relative} is not a file`,
+      ).toBe(true);
     }
   });
 });
@@ -352,7 +368,9 @@ describe('WALL 3 and 4: discovery_signals has one column per shelf, and no ratin
 describe('the detectors themselves', () => {
   it('DISCOVERY_REFERENCE fires on a real import and not on prose naming the domain', () => {
     expect(
-      DISCOVERY_REFERENCE.test("import { replaceWindow } from '../../db/discovery/discoverySignalRepository.js';"),
+      DISCOVERY_REFERENCE.test(
+        "import { replaceWindow } from '../../db/discovery/discoverySignalRepository.js';",
+      ),
     ).toBe(true);
     expect(
       DISCOVERY_REFERENCE.test("import { getDiscoveryFeed } from '../discovery/feed.service.js';"),
@@ -371,14 +389,18 @@ describe('the detectors themselves', () => {
   });
 
   it('OFFER_RANKING_REFERENCE fires on a real import and not on prose using "ranking" as a word', () => {
-    expect(OFFER_RANKING_REFERENCE.test("import { rankOffers } from '../ranking/ranking.js';")).toBe(
-      true,
-    );
     expect(
-      OFFER_RANKING_REFERENCE.test("import { rankingPolicyVersions } from '../../db/schema/ranking.js';"),
+      OFFER_RANKING_REFERENCE.test("import { rankOffers } from '../ranking/ranking.js';"),
     ).toBe(true);
     expect(
-      OFFER_RANKING_REFERENCE.test("import { findOfferById } from '../../db/offers/offerRepository.js';"),
+      OFFER_RANKING_REFERENCE.test(
+        "import { rankingPolicyVersions } from '../../db/schema/ranking.js';",
+      ),
+    ).toBe(true);
+    expect(
+      OFFER_RANKING_REFERENCE.test(
+        "import { findOfferById } from '../../db/offers/offerRepository.js';",
+      ),
     ).toBe(true);
     expect(
       OFFER_RANKING_REFERENCE.test("import { freshness } from '../offer-freshness/freshness.js';"),
@@ -390,9 +412,9 @@ describe('the detectors themselves', () => {
         '// require their own ranking column to be greater than zero: every counted',
       ),
     ).toBe(false);
-    expect(OFFER_RANKING_REFERENCE.test('// carries no order of its own — reapply the ranking')).toBe(
-      false,
-    );
+    expect(
+      OFFER_RANKING_REFERENCE.test('// carries no order of its own — reapply the ranking'),
+    ).toBe(false);
     expect(OFFER_RANKING_REFERENCE.test("import { getDb } from '../postgres.js';")).toBe(false);
   });
 

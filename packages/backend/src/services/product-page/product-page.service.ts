@@ -131,8 +131,11 @@ export async function readCanonicalProductPage(
   // one sentence the withheld branch exists to prevent.
   const countsAreMeaningful = offers.available === true;
 
-  const bundleVariantId = request.canonicalVariantId ?? (variants.length === 1 ? variants[0].id : undefined);
-  const bundleContents = bundleVariantId ? await readPublicBundleContents(bundleVariantId) : undefined;
+  const bundleVariantId =
+    request.canonicalVariantId ?? (variants.length === 1 ? variants[0].id : undefined);
+  const bundleContents = bundleVariantId
+    ? await readPublicBundleContents(bundleVariantId)
+    : undefined;
   const page: CanonicalProductPage = {
     product,
     ...(bundleContents ? { bundleContents } : {}),
@@ -169,7 +172,9 @@ export async function readCanonicalProductPage(
  */
 async function readPageVariants(
   productId: string,
-): Promise<{ id: string; name?: string; isDefault: boolean; options: ProductPageVariant['options'] }[]> {
+): Promise<
+  { id: string; name?: string; isDefault: boolean; options: ProductPageVariant['options'] }[]
+> {
   const rows = await listVariants(productId);
   const projected: {
     id: string;
@@ -329,17 +334,14 @@ async function readBrandChannels(
   const db = getDb();
   const [merchantRows, storefrontRows] = await Promise.all([
     findProductPageMerchants(db, [...new Set(rows.map((row) => row.subjectId))]),
-    findStorefrontsByIds(
-      db,
-      [...new Set(rows.map((row) => row.storefrontId).filter((id): id is string => !!id))],
-    ),
+    findStorefrontsByIds(db, [
+      ...new Set(rows.map((row) => row.storefrontId).filter((id): id is string => !!id)),
+    ]),
   ]);
   const merchantsById = new Map(merchantRows.map((row) => [row.id, row]));
   const storefrontsById = new Map(storefrontRows.map((row) => [row.id, row]));
 
-  const project = (
-    relationships: readonly (typeof rows)[number][],
-  ): ProductPageBrandChannel[] => {
+  const project = (relationships: readonly (typeof rows)[number][]): ProductPageBrandChannel[] => {
     const channels: ProductPageBrandChannel[] = [];
     for (const relationship of relationships) {
       const merchant = merchantsById.get(relationship.subjectId);

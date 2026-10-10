@@ -90,9 +90,7 @@ export const carts = pgTable(
       'carts_owner_exclusivity_check',
       sql`num_nonnulls(${t.oxyUserId}, ${t.guestSessionId}) = 1`,
     ),
-    uniqueIndex('carts_oxy_user_id_key')
-      .on(t.oxyUserId)
-      .where(sql`${t.oxyUserId} is not null`),
+    uniqueIndex('carts_oxy_user_id_key').on(t.oxyUserId).where(sql`${t.oxyUserId} is not null`),
     uniqueIndex('carts_guest_session_id_key')
       .on(t.guestSessionId)
       .where(sql`${t.guestSessionId} is not null`),
@@ -196,9 +194,7 @@ export const addresses = pgTable(
     // `address.service` promotes a new default by clearing the old one. Mongo
     // could not state the invariant that makes that correct; here at most one
     // address per user is default, so a half-finished promotion cannot persist.
-    uniqueIndex('addresses_oxy_user_id_default_key')
-      .on(t.oxyUserId)
-      .where(sql`${t.isDefault}`),
+    uniqueIndex('addresses_oxy_user_id_default_key').on(t.oxyUserId).where(sql`${t.isDefault}`),
   ],
 );
 
@@ -231,7 +227,9 @@ export const favorites = pgTable(
       .notNull()
       .references(() => listings.id, { onDelete: 'cascade' }),
     /** See the doc above. Defaulted so a v1 client's write is classified honestly. */
-    saveIntent: text({ enum: asEnumValues(LISTING_SAVE_INTENTS) }).notNull().default('listing_save'),
+    saveIntent: text({ enum: asEnumValues(LISTING_SAVE_INTENTS) })
+      .notNull()
+      .default('listing_save'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -344,7 +342,9 @@ export const feedback = pgTable(
     metadataPlatform: text(),
     metadataAppVersion: text(),
     metadataDeviceInfo: text(),
-    status: text({ enum: asEnumValues(FEEDBACK_STATUSES) }).notNull().default('pending'),
+    status: text({ enum: asEnumValues(FEEDBACK_STATUSES) })
+      .notNull()
+      .default('pending'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

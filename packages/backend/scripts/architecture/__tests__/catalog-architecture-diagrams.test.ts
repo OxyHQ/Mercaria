@@ -124,15 +124,23 @@ describe('the generated architecture diagrams cannot disagree with the schema', 
      * pair of sets. Floors, never equalities: the population grows without
      * anybody editing this file, which is the point.
      */
-    expect(created.length, 'the migration chain parsed to no tables at all').toBeGreaterThanOrEqual(400);
+    expect(created.length, 'the migration chain parsed to no tables at all').toBeGreaterThanOrEqual(
+      400,
+    );
     expect(population.size, 'the derived population is empty or tiny').toBeGreaterThanOrEqual(54);
     expect(tablesByName.size, 'the drizzle barrel exported no tables').toBeGreaterThanOrEqual(400);
-    expect(model.modules.length, 'no module row was parsed out of the ownership map').toBeGreaterThanOrEqual(12);
+    expect(
+      model.modules.length,
+      'no module row was parsed out of the ownership map',
+    ).toBeGreaterThanOrEqual(12);
     expect(
       model.edges.filter((edge) => population.has(edge.child)).length,
       'no foreign key was reflected out of the epic tables',
     ).toBeGreaterThanOrEqual(120);
-    expect(model.writers.size, 'the write census found no writer for any epic table').toBeGreaterThanOrEqual(50);
+    expect(
+      model.writers.size,
+      'the write census found no writer for any epic table',
+    ).toBeGreaterThanOrEqual(50);
   });
 
   it('THE INVERSE FLOOR: the detectors report something when the subject is PRESENT', () => {
@@ -143,9 +151,9 @@ describe('the generated architecture diagrams cannot disagree with the schema', 
      * driven against inputs built here, so neither can be satisfied by the real
      * documents happening to be correct.
      */
-    expect(unknownEntities(new Set(['category_aliases', 'a_table_that_was_never_created']))).toEqual([
-      'a_table_that_was_never_created',
-    ]);
+    expect(
+      unknownEntities(new Set(['category_aliases', 'a_table_that_was_never_created'])),
+    ).toEqual(['a_table_that_was_never_created']);
 
     // The dropped member is NAMED rather than recovered by re-sorting. The
     // population's insertion order is `localeCompare`d and `Array.sort()` is
@@ -189,8 +197,14 @@ describe('the generated architecture diagrams cannot disagree with the schema', 
      * are plausible and none of them is a table.
      */
     const entities = parseEntities(diagramDoc);
-    expect(entities.size, 'no entity was parsed out of the generated document').toBeGreaterThanOrEqual(60);
-    expect(unknownEntities(entities), 'these appear as entities and no drizzle table has that name').toEqual([]);
+    expect(
+      entities.size,
+      'no entity was parsed out of the generated document',
+    ).toBeGreaterThanOrEqual(60);
+    expect(
+      unknownEntities(entities),
+      'these appear as entities and no drizzle table has that name',
+    ).toEqual([]);
   });
 
   it('every table in the derived population appears as a node', () => {
@@ -205,9 +219,10 @@ describe('the generated architecture diagrams cannot disagree with the schema', 
 
   it('every relationship drawn is a real foreign key with the cardinality the schema proves', () => {
     const parsed = parseRelationships(diagramDoc);
-    expect(parsed.length, 'no relationship was parsed; the comparison below compares nothing').toBeGreaterThanOrEqual(
-      120,
-    );
+    expect(
+      parsed.length,
+      'no relationship was parsed; the comparison below compares nothing',
+    ).toBeGreaterThanOrEqual(120);
     expect(disagreeingRelationships(parsed, model.edges)).toEqual([]);
   });
 
@@ -239,14 +254,20 @@ describe('the generated architecture diagrams cannot disagree with the schema', 
      * landed is indistinguishable from one the detector survived.
      */
     const victim = 'catalog_governance_role_grants';
-    expect(population.has(victim), 'the mutation victim is not in the population to begin with').toBe(true);
+    expect(
+      population.has(victim),
+      'the mutation victim is not in the population to begin with',
+    ).toBe(true);
 
     const withoutVictim = diagramDoc
       .split('\n')
       .filter((line) => !line.includes(victim))
       .join('\n');
     const afterRemoval = parseEntities(withoutVictim);
-    expect(afterRemoval.has(victim), 'the mutation did not apply; what follows proves nothing').toBe(false);
+    expect(
+      afterRemoval.has(victim),
+      'the mutation did not apply; what follows proves nothing',
+    ).toBe(false);
     expect(missingFromDiagram(afterRemoval)).toEqual([victim]);
 
     const invented = 'catalog_tables_nobody_created';
@@ -293,7 +314,10 @@ describe("the glossary's hand-drawn diagram is gated against the same derivation
 
   it('MUTATION SELF-TEST: a flipped marker and an invented edge are both caught', () => {
     const target = 'listings }o--o| categories';
-    expect(glossaryDoc.includes(target), 'the mutation target is not in the glossary as written').toBe(true);
+    expect(
+      glossaryDoc.includes(target),
+      'the mutation target is not in the glossary as written',
+    ).toBe(true);
 
     // The exact regression this gate was built for: the optional parent read as
     // mandatory. It must be named, not merely counted.
@@ -319,7 +343,7 @@ describe("the glossary's hand-drawn diagram is gated against the same derivation
 });
 
 describe('the model is anchored to things that exist', () => {
-  it('BOUNDARY ANCHOR: 0088 is the epic\'s first migration, pinned to what it creates', () => {
+  it("BOUNDARY ANCHOR: 0088 is the epic's first migration, pinned to what it creates", () => {
     /**
      * The same anchor `catalog-table-ownership-census.test.ts` uses, applied
      * independently rather than imported from a test file. It is what stops the
@@ -332,12 +356,24 @@ describe('the model is anchored to things that exist', () => {
       .filter((entry) => entry.idx === FIRST_EPIC_MIGRATION_IDX)
       .map((entry) => entry.table)
       .sort();
-    expect(atBoundary).toEqual(['category_aliases', 'category_external_mappings', 'category_redirects']);
+    expect(atBoundary).toEqual([
+      'category_aliases',
+      'category_external_mappings',
+      'category_redirects',
+    ]);
 
     // And the constant agrees with the census that owns it, read out of that
     // file's source rather than imported from it.
     const censusSource = readFileSync(
-      join(REPO_ROOT, 'packages', 'backend', 'src', 'db', '__tests__', 'catalog-table-ownership-census.test.ts'),
+      join(
+        REPO_ROOT,
+        'packages',
+        'backend',
+        'src',
+        'db',
+        '__tests__',
+        'catalog-table-ownership-census.test.ts',
+      ),
       'utf8',
     );
     expect(
@@ -350,10 +386,13 @@ describe('the model is anchored to things that exist', () => {
   it('every table is grouped under exactly one module, and the grouping covers the population', () => {
     const seen = new Map<string, string[]>();
     for (const assignment of model.modules) {
-      for (const table of assignment.tables) seen.set(table, [...(seen.get(table) ?? []), assignment.module]);
+      for (const table of assignment.tables)
+        seen.set(table, [...(seen.get(table) ?? []), assignment.module]);
     }
     expect(
-      [...seen].filter(([, modules]) => modules.length > 1).map(([table, modules]) => `${table}: ${modules.join(', ')}`),
+      [...seen]
+        .filter(([, modules]) => modules.length > 1)
+        .map(([table, modules]) => `${table}: ${modules.join(', ')}`),
       'the ownership map names a table under more than one module, so the diagram would draw it twice',
     ).toEqual([]);
     expect(
@@ -423,19 +462,33 @@ describe('the model is anchored to things that exist', () => {
      * barrel. A stale path permits nothing and reads exactly like a correct run.
      */
     const sources = productionSources();
-    expect(sources.size, 'the production walk read almost nothing — did the layout move?').toBeGreaterThan(400);
+    expect(
+      sources.size,
+      'the production walk read almost nothing — did the layout move?',
+    ).toBeGreaterThan(400);
     let checked = 0;
     for (const [table, writers] of model.writers) {
-      expect(tablesByName.has(table), `the write census named \`${table}\` and no such table exists`).toBe(true);
+      expect(
+        tablesByName.has(table),
+        `the write census named \`${table}\` and no such table exists`,
+      ).toBe(true);
       for (const writer of writers) {
         for (const file of writer.files) {
           checked += 1;
-          expect(sources.has(file.split('/').join(sep)), `writer path is stale: ${file}`).toBe(true);
+          expect(sources.has(file.split('/').join(sep)), `writer path is stale: ${file}`).toBe(
+            true,
+          );
         }
-        expect(writer.operations.length, `\`${table}\` has a writer with no operation recorded`).toBeGreaterThan(0);
+        expect(
+          writer.operations.length,
+          `\`${table}\` has a writer with no operation recorded`,
+        ).toBeGreaterThan(0);
       }
     }
-    expect(checked, 'no writer file was checked; this test measured nothing').toBeGreaterThanOrEqual(50);
+    expect(
+      checked,
+      'no writer file was checked; this test measured nothing',
+    ).toBeGreaterThanOrEqual(50);
   });
 
   it('no schema symbol is imported under an alias, which the write census could not follow', () => {
@@ -449,12 +502,14 @@ describe('the model is anchored to things that exist', () => {
      * It is a real gate rather than a comment because it can fail: the pattern
      * is driven against a synthetic import below.
      */
-    const ALIASED_SCHEMA_IMPORT = /import\s*\{[^}]*?\b([A-Za-z_$][A-Za-z0-9_$]*)\s+as\s+[A-Za-z_$][A-Za-z0-9_$]*[^}]*\}\s*from\s*['"][^'"]*schema\/[^'"]*['"]/gs;
+    const ALIASED_SCHEMA_IMPORT =
+      /import\s*\{[^}]*?\b([A-Za-z_$][A-Za-z0-9_$]*)\s+as\s+[A-Za-z_$][A-Za-z0-9_$]*[^}]*\}\s*from\s*['"][^'"]*schema\/[^'"]*['"]/gs;
 
     const offenders: string[] = [];
     for (const [file, source] of productionSources()) {
       for (const match of source.matchAll(ALIASED_SCHEMA_IMPORT)) {
-        if (tableNameBySymbol.has(match[1])) offenders.push(`${file}: ${match[0].replace(/\s+/g, ' ').slice(0, 120)}`);
+        if (tableNameBySymbol.has(match[1]))
+          offenders.push(`${file}: ${match[0].replace(/\s+/g, ' ').slice(0, 120)}`);
       }
     }
     expect(
@@ -470,7 +525,9 @@ describe('the model is anchored to things that exist', () => {
       "import { categoryAliases as ca } from '../schema/taxonomy.js';\nconst x = ca;\n",
     );
     const matched = [...synthetic.matchAll(ALIASED_SCHEMA_IMPORT)].map((match) => match[1]);
-    expect(matched, 'the aliased-import detector cannot match an aliased import').toEqual(['categoryAliases']);
+    expect(matched, 'the aliased-import detector cannot match an aliased import').toEqual([
+      'categoryAliases',
+    ]);
     expect(tableNameBySymbol.has('categoryAliases')).toBe(true);
   });
 
@@ -482,9 +539,11 @@ describe('the model is anchored to things that exist', () => {
      * literals makes the raw-SQL half of the census answer a clean zero.
      */
     const stripped = stripComments(
-      ["// db.insert(commented)", "/* .update(alsoCommented) */", 'const q = sql`update category_aliases set x = 1`;'].join(
-        '\n',
-      ),
+      [
+        '// db.insert(commented)',
+        '/* .update(alsoCommented) */',
+        'const q = sql`update category_aliases set x = 1`;',
+      ].join('\n'),
     );
     expect(stripped).not.toContain('commented');
     expect(stripped).toContain('update category_aliases');

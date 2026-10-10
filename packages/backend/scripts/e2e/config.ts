@@ -57,10 +57,9 @@ export function readDriverConfig(): DriverConfig {
     oxyUserId: optional('E2E_OXY_USER_ID'),
     evidenceDir: required('E2E_EVIDENCE_DIR'),
     wooCredentialsFile:
-      optional('E2E_WOO_CREDENTIALS_FILE') ??
-      '/home/nate/.config/oxy/tokens/mercaria-woo-e2e.json',
+      optional('E2E_WOO_CREDENTIALS_FILE') ?? '/home/nate/.config/oxy/tokens/mercaria-woo-e2e.json',
     defaultCategorySlug: optional('CONNECTOR_DEFAULT_CATEGORY_SLUG') ?? 'home',
-  publicBaseUrl: optional('CONNECTOR_OAUTH_REDIRECT_BASE_URL'),
+    publicBaseUrl: optional('CONNECTOR_OAUTH_REDIRECT_BASE_URL'),
   };
 }
 

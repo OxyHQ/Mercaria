@@ -108,10 +108,10 @@
  * Usage:  bun scripts/validate-catalog-identity-contracts.mjs
  */
 
-import { createRequire } from "node:module";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { createRequire } from 'node:module';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -128,18 +128,18 @@ const here = dirname(fileURLToPath(import.meta.url));
  */
 const repositoryRoot = process.env.CATALOG_CONTRACT_VALIDATOR_ROOT
   ? resolve(process.env.CATALOG_CONTRACT_VALIDATOR_ROOT)
-  : resolve(here, "..");
+  : resolve(here, '..');
 
 // The real compiler, resolved from the repository's own `package.json` the way
 // `validate-facet-label-copy.mjs` does, so a copied tree with no
 // `node_modules` of its own still parses.
-const ts = createRequire(resolve(here, "../package.json"))("typescript");
+const ts = createRequire(resolve(here, '../package.json'))('typescript');
 
-const CONTRACT_DIR = join(repositoryRoot, "packages/shared-types/src");
+const CONTRACT_DIR = join(repositoryRoot, 'packages/shared-types/src');
 
 /** The backend gate that owns the vocabulary. */
-const PRODUCER = "packages/backend/src/db/__tests__/catalog-identity-isolation.test.ts";
-const PRODUCER_DECLARATION = "IDENTITY_SHAPED_FIELDS";
+const PRODUCER = 'packages/backend/src/db/__tests__/catalog-identity-isolation.test.ts';
+const PRODUCER_DECLARATION = 'IDENTITY_SHAPED_FIELDS';
 
 const failures = [];
 const notes = [];
@@ -180,7 +180,7 @@ const MINIMUM_VOCABULARY = 9;
  * goes red if the backend list is narrowed past the requirement that created
  * both of them — rather than silently scanning for a smaller set.
  */
-const VOCABULARY_MUST_CONTAIN = ["category", "optionName"];
+const VOCABULARY_MUST_CONTAIN = ['category', 'optionName'];
 
 /* -------------------------------------------------------------------------- */
 /*  Dispositions — a table, not a switch                                        */
@@ -199,44 +199,44 @@ const CONTRACT_DISPOSITIONS = {
   versioned_contract: {
     requiresSupersededBy: true,
     retiresWhen:
-      "no supported client version still sends or reads the field AND the typed replacement named "
-      + "in `supersededBy` is on the wire. A shipped mobile build cannot be recalled, so #367 "
-      + "deliberately did not break these (ADR 0007 D13; the `LEGACY_CONDITION_CONTRACT` shape).",
+      'no supported client version still sends or reads the field AND the typed replacement named ' +
+      'in `supersededBy` is on the wire. A shipped mobile build cannot be recalled, so #367 ' +
+      'deliberately did not break these (ADR 0007 D13; the `LEGACY_CONDITION_CONTRACT` shape).',
   },
   external_mirror: {
     requiresSupersededBy: false,
     retiresWhen:
-      "never by Mercaria alone. The field mirrors a vocabulary an external platform owns and is "
-      + "round-tripped back to it by the connector, so typing it would be a promise about somebody "
-      + "else's data. It retires when the connector stops carrying that platform field.",
+      'never by Mercaria alone. The field mirrors a vocabulary an external platform owns and is ' +
+      'round-tripped back to it by the connector, so typing it would be a promise about somebody ' +
+      "else's data. It retires when the connector stops carrying that platform field.",
   },
   external_observation: {
     requiresSupersededBy: false,
     retiresWhen:
-      "never. An ingestion adapter reports what a source SAID; #62's write boundary is that an "
-      + "adapter cannot name a Mercaria concept, and normalizing here would move that decision "
-      + "into the adapter. #58 is what resolves an observation to a typed concept.",
+      "never. An ingestion adapter reports what a source SAID; #62's write boundary is that an " +
+      'adapter cannot name a Mercaria concept, and normalizing here would move that decision ' +
+      'into the adapter. #58 is what resolves an observation to a typed concept.',
   },
   immutable_snapshot: {
     requiresSupersededBy: false,
     retiresWhen:
-      "never. This is a historical commercial record captured at the moment of the sale, and ADR "
-      + "0007 D13 restates that order, payment and refund snapshots are never rewritten — which is "
-      + "exactly what re-typing the field would require of every existing row.",
+      'never. This is a historical commercial record captured at the moment of the sale, and ADR ' +
+      '0007 D13 restates that order, payment and refund snapshots are never rewritten — which is ' +
+      'exactly what re-typing the field would require of every existing row.',
   },
   presentation: {
     requiresSupersededBy: false,
     retiresWhen:
-      "never. ADR 0007 D1: a label, name, description or slug IS presentation and is never "
-      + "identity. The field is a display string; identity is the typed sibling named in `why`, and "
-      + "removing the string would remove the words a person reads, not an ambiguity.",
+      'never. ADR 0007 D1: a label, name, description or slug IS presentation and is never ' +
+      'identity. The field is a display string; identity is the typed sibling named in `why`, and ' +
+      'removing the string would remove the words a person reads, not an ambiguity.',
   },
   scoped_key: {
     requiresSupersededBy: false,
     retiresWhen:
-      "never. The value is a stable machine key in ADR 0007 D1's own sense, made unambiguous by a "
-      + "typed sibling in the SAME type that says which registry it belongs to. Without that "
-      + "sibling it would be ambiguous, which is why the sibling is named in `why`.",
+      "never. The value is a stable machine key in ADR 0007 D1's own sense, made unambiguous by a " +
+      'typed sibling in the SAME type that says which registry it belongs to. Without that ' +
+      'sibling it would be ambiguous, which is why the sibling is named in `why`.',
   },
 };
 
@@ -255,349 +255,356 @@ const CONTRACT_DISPOSITIONS = {
 const LEGACY_AMBIGUOUS_CONTRACTS = [
   /* ---- check A: an ambiguous NAME on a bare string ---------------------- */
   {
-    file: "authoring-schema.ts",
-    path: "AuthoringCanonicalCandidate.brandName",
+    file: 'authoring-schema.ts',
+    path: 'AuthoringCanonicalCandidate.brandName',
     count: 1,
-    disposition: "presentation",
+    disposition: 'presentation',
     supersededBy: null,
     why:
-      "The candidate's identity is the `id` and `canonicalProductId` beside it; the authoring "
-      + "surface selects a row by id and shows this name so two similar products are "
-      + "distinguishable.",
+      "The candidate's identity is the `id` and `canonicalProductId` beside it; the authoring " +
+      'surface selects a row by id and shows this name so two similar products are ' +
+      'distinguishable.',
   },
   {
-    file: "catalog-external-mapping.ts",
-    path: "CatalogExternalTarget.controlledValue",
+    file: 'catalog-external-mapping.ts',
+    path: 'CatalogExternalTarget.controlledValue',
     count: 1,
-    disposition: "scoped_key",
+    disposition: 'scoped_key',
     supersededBy: null,
     why:
-      "An `attribute_enum_values.value` — already normalized — and the `attributeKey` in the SAME "
-      + "union member says which attribute's enumeration it belongs to. Both keys are frozen from "
-      + "insert by a trigger (ADR 0007 D1 rule 2).",
+      'An `attribute_enum_values.value` — already normalized — and the `attributeKey` in the SAME ' +
+      "union member says which attribute's enumeration it belongs to. Both keys are frozen from " +
+      'insert by a trigger (ADR 0007 D1 rule 2).',
   },
   {
-    file: "catalog-page.ts",
-    path: "CatalogStructuredData.brandName",
+    file: 'catalog-page.ts',
+    path: 'CatalogStructuredData.brandName',
     count: 1,
-    disposition: "presentation",
+    disposition: 'presentation',
     supersededBy: null,
     why:
-      "schema.org JSON-LD output. The `Organization.brand` property IS a name in that vocabulary, "
-      + "so an id here would be unpublishable; the identity behind the page is `BrandPage.brandId`.",
+      'schema.org JSON-LD output. The `Organization.brand` property IS a name in that vocabulary, ' +
+      'so an id here would be unpublishable; the identity behind the page is `BrandPage.brandId`.',
   },
   {
-    file: "discovery.ts",
-    path: "DiscoverySectionBase.categoryName",
+    file: 'discovery.ts',
+    path: 'DiscoverySectionBase.categoryName',
     count: 1,
-    disposition: "presentation",
+    disposition: 'presentation',
     supersededBy: null,
     why:
-      "The section's identity is `categoryHandle` beside it — a slug resolved server-side by "
-      + "`findActiveCategoryBySlug`. This exists only so a shelf heading can interpolate a display "
-      + "name (\"Top rated in Belleza\", never \"en belleza-y-cuidado\"); nothing looks this string "
-      + "up by anything but a person reading it.",
+      "The section's identity is `categoryHandle` beside it — a slug resolved server-side by " +
+      '`findActiveCategoryBySlug`. This exists only so a shelf heading can interpolate a display ' +
+      'name ("Top rated in Belleza", never "en belleza-y-cuidado"); nothing looks this string ' +
+      'up by anything but a person reading it.',
   },
   {
-    file: "discovery.ts",
-    path: "DiscoverySignalPage.categoryName",
+    file: 'discovery.ts',
+    path: 'DiscoverySignalPage.categoryName',
     count: 1,
-    disposition: "presentation",
+    disposition: 'presentation',
     supersededBy: null,
     why:
-      "The same field, the same reason, on the paged `GET /discovery/signal` response: identity is "
-      + "the `categoryHandle` carried beside it on this same DTO, and `categoryName` exists only so "
-      + "a client can render that page's own heading without a second lookup.",
+      'The same field, the same reason, on the paged `GET /discovery/signal` response: identity is ' +
+      'the `categoryHandle` carried beside it on this same DTO, and `categoryName` exists only so ' +
+      "a client can render that page's own heading without a second lookup.",
   },
   {
-    file: "integration.ts",
-    path: "IngestProduct.productType",
+    file: 'integration.ts',
+    path: 'IngestProduct.productType',
     count: 1,
-    disposition: "external_mirror",
+    disposition: 'external_mirror',
     supersededBy: null,
     why:
-      "The plugin push contract's mirror of the platform's own `product_type` free-text field. "
-      + "`catalog-identity-isolation.test.ts` excuses the matching `ingestProductSchema` field in "
-      + "the same words. Distinct from a product type DEFINITION, which is "
-      + "`listings.product_type_definition_id`.",
+      "The plugin push contract's mirror of the platform's own `product_type` free-text field. " +
+      '`catalog-identity-isolation.test.ts` excuses the matching `ingestProductSchema` field in ' +
+      'the same words. Distinct from a product type DEFINITION, which is ' +
+      '`listings.product_type_definition_id`.',
   },
   {
-    file: "listing.ts",
-    path: "Listing.category",
+    file: 'listing.ts',
+    path: 'Listing.category',
     count: 1,
-    disposition: "versioned_contract",
-    supersededBy: "categoryId (the typed identity exists as `listings.category_id`; it is not on the wire yet)",
+    disposition: 'versioned_contract',
+    supersededBy:
+      'categoryId (the typed identity exists as `listings.category_id`; it is not on the wire yet)',
     why:
-      "The v1 read contract. Served as the LEAF of the materialized slug path — "
-      + "`catalog-hydration.service.ts` derives it from `listing.categorySlugs`, the "
-      + "`condition` <- `itemCondition.key` projection shape. ADR 0007 D13 keeps the slug path as a "
-      + "v1 read contract, superseded by ids and retired once no reader remains.",
+      'The v1 read contract. Served as the LEAF of the materialized slug path — ' +
+      '`catalog-hydration.service.ts` derives it from `listing.categorySlugs`, the ' +
+      '`condition` <- `itemCondition.key` projection shape. ADR 0007 D13 keeps the slug path as a ' +
+      'v1 read contract, superseded by ids and retired once no reader remains.',
   },
   {
-    file: "listing.ts",
-    path: "Listing.productType",
+    file: 'listing.ts',
+    path: 'Listing.productType',
     count: 1,
-    disposition: "external_mirror",
+    disposition: 'external_mirror',
     supersededBy: null,
     why:
-      "The Shopify/WooCommerce merchandising string, written by `connector-sync.service.ts` on "
-      + "import and pushed BACK to the platform on export. Not a product type definition.",
+      'The Shopify/WooCommerce merchandising string, written by `connector-sync.service.ts` on ' +
+      'import and pushed BACK to the platform on export. Not a product type definition.',
   },
   {
-    file: "listing.ts",
-    path: "CreateP2PListingInput.category",
+    file: 'listing.ts',
+    path: 'CreateP2PListingInput.category',
     count: 1,
-    disposition: "versioned_contract",
-    supersededBy: "categoryId (the typed identity exists as `listings.category_id`; it is not on the wire yet)",
+    disposition: 'versioned_contract',
+    supersededBy:
+      'categoryId (the typed identity exists as `listings.category_id`; it is not on the wire yet)',
     why:
-      "The v1 write contract, the DTO half of `createP2PListingSchema` — which "
-      + "`catalog-identity-isolation.test.ts` already excuses on the request side. A shipped mobile "
-      + "build sends this field.",
+      'The v1 write contract, the DTO half of `createP2PListingSchema` — which ' +
+      '`catalog-identity-isolation.test.ts` already excuses on the request side. A shipped mobile ' +
+      'build sends this field.',
   },
   {
-    file: "listing.ts",
-    path: "CreateStoreProductInput.category",
+    file: 'listing.ts',
+    path: 'CreateStoreProductInput.category',
     count: 1,
-    disposition: "versioned_contract",
-    supersededBy: "categoryId (the typed identity exists as `listings.category_id`; it is not on the wire yet)",
+    disposition: 'versioned_contract',
+    supersededBy:
+      'categoryId (the typed identity exists as `listings.category_id`; it is not on the wire yet)',
     why:
-      "The v1 write contract, the DTO half of `createStoreProductSchema` — excused on the request "
-      + "side by `catalog-identity-isolation.test.ts` in the same words.",
+      'The v1 write contract, the DTO half of `createStoreProductSchema` — excused on the request ' +
+      'side by `catalog-identity-isolation.test.ts` in the same words.',
   },
   {
-    file: "listing.ts",
-    path: "CreateStoreProductInput.productType",
+    file: 'listing.ts',
+    path: 'CreateStoreProductInput.productType',
     count: 1,
-    disposition: "external_mirror",
+    disposition: 'external_mirror',
     supersededBy: null,
-    why: "The Shopify merchandising string a merchant types, mirrored to and from the platform.",
+    why: 'The Shopify merchandising string a merchant types, mirrored to and from the platform.',
   },
   {
-    file: "listing.ts",
-    path: "UpdateListingInput.productType",
+    file: 'listing.ts',
+    path: 'UpdateListingInput.productType',
     count: 1,
-    disposition: "external_mirror",
+    disposition: 'external_mirror',
     supersededBy: null,
     why:
-      "The same platform field on the PATCH shape; `connector-sync.service.ts` merges it under the "
-      + "pin policy rather than re-deriving it.",
+      'The same platform field on the PATCH shape; `connector-sync.service.ts` merges it under the ' +
+      'pin policy rather than re-deriving it.',
   },
   {
-    file: "listing.ts",
-    path: "ListingQuery.category",
+    file: 'listing.ts',
+    path: 'ListingQuery.category',
     count: 1,
-    disposition: "versioned_contract",
-    supersededBy: "categoryId (the typed identity exists as `listings.category_id`; it is not on the wire yet)",
+    disposition: 'versioned_contract',
+    supersededBy:
+      'categoryId (the typed identity exists as `listings.category_id`; it is not on the wire yet)',
     why:
-      "The v1 browse filter — a single category SLUG, matched against the GIN-indexed "
-      + "`listings.category_slugs`. ADR 0007 D13 retains those browse reads until no client sends "
-      + "the parameter.",
+      'The v1 browse filter — a single category SLUG, matched against the GIN-indexed ' +
+      '`listings.category_slugs`. ADR 0007 D13 retains those browse reads until no client sends ' +
+      'the parameter.',
   },
   {
-    file: "listing.ts",
-    path: "ListingQuery.productType",
+    file: 'listing.ts',
+    path: 'ListingQuery.productType',
     count: 1,
-    disposition: "external_mirror",
+    disposition: 'external_mirror',
     supersededBy: null,
     why: "Filters on the mirrored platform string a merchant's imported catalogue carries.",
   },
   {
-    file: "merchant-page.ts",
-    path: "MerchantBrandStanding.brandName",
+    file: 'merchant-page.ts',
+    path: 'MerchantBrandStanding.brandName',
     count: 1,
-    disposition: "presentation",
+    disposition: 'presentation',
     supersededBy: null,
-    why: "Sits directly beside `brandId` and `brandSlug` in the same type; identity is the id.",
+    why: 'Sits directly beside `brandId` and `brandSlug` in the same type; identity is the id.',
   },
   {
-    file: "product.ts",
-    path: "ProductSummary.brand",
+    file: 'product.ts',
+    path: 'ProductSummary.brand',
     count: 1,
-    disposition: "presentation",
+    disposition: 'presentation',
     supersededBy: null,
     why:
-      "A browse-card display string — its own docblock says \"Brand / seller short name shown above "
-      + "the title\", i.e. it is whichever of the two the card has. Identity for the card is `id`.",
+      'A browse-card display string — its own docblock says "Brand / seller short name shown above ' +
+      'the title", i.e. it is whichever of the two the card has. Identity for the card is `id`.',
   },
   {
-    file: "sell-yours.ts",
-    path: "SellerMatchCandidateDTO.brand",
+    file: 'sell-yours.ts',
+    path: 'SellerMatchCandidateDTO.brand',
     count: 1,
-    disposition: "presentation",
+    disposition: 'presentation',
     supersededBy: null,
     why:
-      "One candidate offered to a seller during identify. Its identity is the "
-      + "`canonicalProductId`/`canonicalVariantId` above it; this is the word that lets a person "
-      + "tell two candidates apart.",
+      'One candidate offered to a seller during identify. Its identity is the ' +
+      '`canonicalProductId`/`canonicalVariantId` above it; this is the word that lets a person ' +
+      'tell two candidates apart.',
   },
   {
-    file: "seo.ts",
-    path: "SeoVisibleFacts.brandName",
+    file: 'seo.ts',
+    path: 'SeoVisibleFacts.brandName',
     count: 1,
-    disposition: "presentation",
+    disposition: 'presentation',
     supersededBy: null,
-    why: "The words that go in a title tag and a meta description. Nothing resolves it.",
+    why: 'The words that go in a title tag and a meta description. Nothing resolves it.',
   },
 
   /* ---- check B: an ambiguous POSITION inside an option-shaped owner ------ */
   {
-    file: "draft-order.ts",
-    path: "DraftOrderLineItem.optionValues.name",
+    file: 'draft-order.ts',
+    path: 'DraftOrderLineItem.optionValues.name',
     count: 1,
-    disposition: "immutable_snapshot",
+    disposition: 'immutable_snapshot',
     supersededBy: null,
     why:
-      "Captured onto the POS line \"at the time the line was added\", beside the snapshotted "
-      + "`unitPrice` and `variantTitle`, and carried into the paid `Order` when the draft "
-      + "completes.",
+      'Captured onto the POS line "at the time the line was added", beside the snapshotted ' +
+      '`unitPrice` and `variantTitle`, and carried into the paid `Order` when the draft ' +
+      'completes.',
   },
   {
-    file: "draft-order.ts",
-    path: "DraftOrderLineItem.optionValues.value",
+    file: 'draft-order.ts',
+    path: 'DraftOrderLineItem.optionValues.value',
     count: 1,
-    disposition: "immutable_snapshot",
+    disposition: 'immutable_snapshot',
     supersededBy: null,
     why:
-      "The value half of the same snapshotted assignment — a POS line records \"Size: M\" as two "
-      + "free strings and the paid `Order` carries them forward unchanged.",
+      'The value half of the same snapshotted assignment — a POS line records "Size: M" as two ' +
+      'free strings and the paid `Order` carries them forward unchanged.',
   },
   {
-    file: "ingestion.ts",
-    path: "NormalizedSourceOption.name",
+    file: 'ingestion.ts',
+    path: 'NormalizedSourceOption.name',
     count: 1,
-    disposition: "external_observation",
+    disposition: 'external_observation',
     supersededBy: null,
     why:
-      "\"One observed option assignment\" as an adapter read it. #62's adapter signature returns no "
-      + "canonical id and has nowhere to put one; #58 is what resolves it.",
+      '"One observed option assignment" as an adapter read it. #62\'s adapter signature returns no ' +
+      'canonical id and has nowhere to put one; #58 is what resolves it.',
   },
   {
-    file: "ingestion.ts",
-    path: "NormalizedSourceOption.value",
+    file: 'ingestion.ts',
+    path: 'NormalizedSourceOption.value',
     count: 1,
-    disposition: "external_observation",
+    disposition: 'external_observation',
     supersededBy: null,
     why:
-      "The value half of the same observation. An adapter reports \"Colour: Black\" as the source "
-      + "spelled it, in the source's own language, and resolving it is #58's decision to make.",
+      'The value half of the same observation. An adapter reports "Colour: Black" as the source ' +
+      "spelled it, in the source's own language, and resolving it is #58's decision to make.",
   },
   {
-    file: "integration.ts",
-    path: "IngestOptionValue.name",
+    file: 'integration.ts',
+    path: 'IngestOptionValue.name',
     count: 1,
-    disposition: "external_mirror",
+    disposition: 'external_mirror',
     supersededBy: null,
     why: "The plugin push contract's mirror of the platform's own option-value pair.",
   },
   {
-    file: "integration.ts",
-    path: "IngestOptionValue.value",
+    file: 'integration.ts',
+    path: 'IngestOptionValue.value',
     count: 1,
-    disposition: "external_mirror",
+    disposition: 'external_mirror',
     supersededBy: null,
     why:
-      "The value half of the same mirrored pair. The plugin sends whatever the platform stored, "
-      + "and Mercaria pushes it back on export rather than reinterpreting it.",
+      'The value half of the same mirrored pair. The plugin sends whatever the platform stored, ' +
+      'and Mercaria pushes it back on export rather than reinterpreting it.',
   },
   {
-    file: "integration.ts",
-    path: "IngestProduct.options.name",
+    file: 'integration.ts',
+    path: 'IngestProduct.options.name',
     count: 1,
-    disposition: "external_mirror",
+    disposition: 'external_mirror',
     supersededBy: null,
-    why: "The option NAME as the external platform publishes it on the pushed product.",
+    why: 'The option NAME as the external platform publishes it on the pushed product.',
   },
   {
-    file: "integration.ts",
-    path: "IngestProduct.options.values",
+    file: 'integration.ts',
+    path: 'IngestProduct.options.values',
     count: 1,
-    disposition: "external_mirror",
-    supersededBy: null,
-    why:
-      "The allowed values as the external platform publishes them, in the platform's own order and "
-      + "spelling. Normalizing them here would silently rewrite a merchant's catalogue.",
-  },
-  {
-    file: "listing.ts",
-    path: "ListingOption.name",
-    count: 1,
-    disposition: "versioned_contract",
-    supersededBy: "NativeVariantAxisSummary.attributeKey / attributeDefinitionId (`variant-axis.ts`)",
-    why:
-      "ADR 0007 D6: `listing_options` and `product_variant_option_values` are RETAINED as legacy "
-      + "claims — \"Not dropped, not silently normalized\" — beside the typed axes, and the legacy "
-      + "free-text path survives the whole rollout.",
-  },
-  {
-    file: "listing.ts",
-    path: "ListingOption.values",
-    count: 1,
-    disposition: "versioned_contract",
-    supersededBy: "NativeVariantAxisSummary (`variant-axis.ts`), whose values are enum rows or base-unit magnitudes",
-    why:
-      "The values half of the same D6 legacy claim. An ambiguous legacy value stays text and stays "
-      + "in a review queue — `resolveLegacyOptionName` refuses a near-miss rather than inventing a "
-      + "normalization, because a near-miss is a miss.",
-  },
-  {
-    file: "listing.ts",
-    path: "CreateStoreProductVariantInput.optionValues.name",
-    count: 1,
-    disposition: "versioned_contract",
-    supersededBy: "TypedVariantAxisAssignment.attributeDefinitionId (`variant-axis.ts`)",
-    why:
-      "The v1 write shape a store product is created with. D6 keeps it accepting free text until "
-      + "the typed authoring path replaces the caller.",
-  },
-  {
-    file: "listing.ts",
-    path: "CreateStoreProductVariantInput.optionValues.value",
-    count: 1,
-    disposition: "versioned_contract",
-    supersededBy: "TypedVariantAxisAssignment.normalizedValue (`variant-axis.ts`)",
-    why:
-      "The value half of the same v1 write shape. A merchant types \"Rojo\"; nothing on this path "
-      + "claims to know which registry value that is.",
-  },
-  {
-    file: "order.ts",
-    path: "OrderItem.optionValues.name",
-    count: 1,
-    disposition: "immutable_snapshot",
+    disposition: 'external_mirror',
     supersededBy: null,
     why:
-      "\"Variant option assignments at purchase time\", beside `unitPrice` and `variantTitle` at "
-      + "purchase time. Re-typing it would rewrite what a buyer bought.",
+      "The allowed values as the external platform publishes them, in the platform's own order and " +
+      "spelling. Normalizing them here would silently rewrite a merchant's catalogue.",
   },
   {
-    file: "order.ts",
-    path: "OrderItem.optionValues.value",
+    file: 'listing.ts',
+    path: 'ListingOption.name',
     count: 1,
-    disposition: "immutable_snapshot",
+    disposition: 'versioned_contract',
+    supersededBy:
+      'NativeVariantAxisSummary.attributeKey / attributeDefinitionId (`variant-axis.ts`)',
+    why:
+      'ADR 0007 D6: `listing_options` and `product_variant_option_values` are RETAINED as legacy ' +
+      'claims — "Not dropped, not silently normalized" — beside the typed axes, and the legacy ' +
+      'free-text path survives the whole rollout.',
+  },
+  {
+    file: 'listing.ts',
+    path: 'ListingOption.values',
+    count: 1,
+    disposition: 'versioned_contract',
+    supersededBy:
+      'NativeVariantAxisSummary (`variant-axis.ts`), whose values are enum rows or base-unit magnitudes',
+    why:
+      'The values half of the same D6 legacy claim. An ambiguous legacy value stays text and stays ' +
+      'in a review queue — `resolveLegacyOptionName` refuses a near-miss rather than inventing a ' +
+      'normalization, because a near-miss is a miss.',
+  },
+  {
+    file: 'listing.ts',
+    path: 'CreateStoreProductVariantInput.optionValues.name',
+    count: 1,
+    disposition: 'versioned_contract',
+    supersededBy: 'TypedVariantAxisAssignment.attributeDefinitionId (`variant-axis.ts`)',
+    why:
+      'The v1 write shape a store product is created with. D6 keeps it accepting free text until ' +
+      'the typed authoring path replaces the caller.',
+  },
+  {
+    file: 'listing.ts',
+    path: 'CreateStoreProductVariantInput.optionValues.value',
+    count: 1,
+    disposition: 'versioned_contract',
+    supersededBy: 'TypedVariantAxisAssignment.normalizedValue (`variant-axis.ts`)',
+    why:
+      'The value half of the same v1 write shape. A merchant types "Rojo"; nothing on this path ' +
+      'claims to know which registry value that is.',
+  },
+  {
+    file: 'order.ts',
+    path: 'OrderItem.optionValues.name',
+    count: 1,
+    disposition: 'immutable_snapshot',
     supersededBy: null,
     why:
-      "The value half of the same purchase-time snapshot. What the buyer selected is part of the "
-      + "commercial record and is never recomputed from the variant's current axes.",
+      '"Variant option assignments at purchase time", beside `unitPrice` and `variantTitle` at ' +
+      'purchase time. Re-typing it would rewrite what a buyer bought.',
   },
   {
-    file: "variant.ts",
-    path: "VariantOptionValue.name",
+    file: 'order.ts',
+    path: 'OrderItem.optionValues.value',
     count: 1,
-    disposition: "versioned_contract",
-    supersededBy: "NativeVariantAxisAssignmentSummary.attributeKey (`variant-axis.ts`)",
+    disposition: 'immutable_snapshot',
+    supersededBy: null,
     why:
-      "The read projection of a D6 legacy claim — `ProductVariantDTO.optionValues` is what every "
-      + "current client renders a variant picker from.",
+      'The value half of the same purchase-time snapshot. What the buyer selected is part of the ' +
+      "commercial record and is never recomputed from the variant's current axes.",
   },
   {
-    file: "variant.ts",
-    path: "VariantOptionValue.value",
+    file: 'variant.ts',
+    path: 'VariantOptionValue.name',
     count: 1,
-    disposition: "versioned_contract",
-    supersededBy: "NativeVariantAxisAssignmentSummary.displayValue / normalizedValue (`variant-axis.ts`)",
+    disposition: 'versioned_contract',
+    supersededBy: 'NativeVariantAxisAssignmentSummary.attributeKey (`variant-axis.ts`)',
     why:
-      "The value half of the same read projection. Every current variant picker renders this pair, "
-      + "so it is served until the typed axes are on the wire.",
+      'The read projection of a D6 legacy claim — `ProductVariantDTO.optionValues` is what every ' +
+      'current client renders a variant picker from.',
+  },
+  {
+    file: 'variant.ts',
+    path: 'VariantOptionValue.value',
+    count: 1,
+    disposition: 'versioned_contract',
+    supersededBy:
+      'NativeVariantAxisAssignmentSummary.displayValue / normalizedValue (`variant-axis.ts`)',
+    why:
+      'The value half of the same read projection. Every current variant picker renders this pair, ' +
+      'so it is served until the typed axes are on the wire.',
   },
 ];
 
@@ -622,7 +629,7 @@ const EXPECTED_EXCUSED_ENTRIES = 34;
  * `axis` and therefore did NOT fire on `axes: { value: string }[]`. Its own
  * positive control caught that, which is the entire reason the control exists.
  */
-const OPTION_SHAPED_OWNER_WORDS = new Set(["option", "options", "axis", "axes"]);
+const OPTION_SHAPED_OWNER_WORDS = new Set(['option', 'options', 'axis', 'axes']);
 
 /**
  * Whole WORDS, never a substring.
@@ -634,13 +641,13 @@ const OPTION_SHAPED_OWNER_WORDS = new Set(["option", "options", "axis", "axes"])
  */
 function namesAnOptionAxis(ownerPath) {
   return ownerPath
-    .split(".")
-    .flatMap((segment) => segment.replace(/([a-z0-9])([A-Z])/gu, "$1 $2").split(/[^A-Za-z0-9]+/u))
+    .split('.')
+    .flatMap((segment) => segment.replace(/([a-z0-9])([A-Z])/gu, '$1 $2').split(/[^A-Za-z0-9]+/u))
     .some((word) => OPTION_SHAPED_OWNER_WORDS.has(word.toLowerCase()));
 }
 
 /** Members whose own name says nothing about what they identify. */
-const GENERIC_MEMBERS = new Set(["name", "value", "values"]);
+const GENERIC_MEMBERS = new Set(['name', 'value', 'values']);
 
 /* -------------------------------------------------------------------------- */
 /*  Parsing                                                                     */
@@ -654,9 +661,9 @@ function isBareString(type) {
   if (!hasString) return false;
   return type.types.every(
     (part) =>
-      part.kind === ts.SyntaxKind.StringKeyword
-      || part.kind === ts.SyntaxKind.UndefinedKeyword
-      || (ts.isLiteralTypeNode(part) && part.literal.kind === ts.SyntaxKind.NullKeyword),
+      part.kind === ts.SyntaxKind.StringKeyword ||
+      part.kind === ts.SyntaxKind.UndefinedKeyword ||
+      (ts.isLiteralTypeNode(part) && part.literal.kind === ts.SyntaxKind.NullKeyword),
   );
 }
 
@@ -681,7 +688,13 @@ function isBareStringArray(type) {
  * text scan of this repository fires on its own explanations.
  */
 function findAmbiguousContracts(fileName, text, vocabulary) {
-  const source = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const source = ts.createSourceFile(
+    fileName,
+    text,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
   const at = (node) => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
   const found = [];
   let members = 0;
@@ -702,14 +715,14 @@ function findAmbiguousContracts(fileName, text, vocabulary) {
     const path = `${ownerPath}.${name}`;
 
     if (isBareString(node.type) && vocabulary.has(name)) {
-      found.push({ file: fileName, path, line: at(node), check: "A", field: name });
+      found.push({ file: fileName, path, line: at(node), check: 'A', field: name });
     }
     if (
-      GENERIC_MEMBERS.has(name)
-      && (isBareString(node.type) || isBareStringArray(node.type))
-      && namesAnOptionAxis(ownerPath)
+      GENERIC_MEMBERS.has(name) &&
+      (isBareString(node.type) || isBareStringArray(node.type)) &&
+      namesAnOptionAxis(ownerPath)
     ) {
-      found.push({ file: fileName, path, line: at(node), check: "B", field: name });
+      found.push({ file: fileName, path, line: at(node), check: 'B', field: name });
     }
 
     // Nested object literals: `optionValues: { name: string; value: string }[]`
@@ -867,25 +880,31 @@ function readProducerVocabulary() {
   const path = join(repositoryRoot, PRODUCER);
   let text;
   try {
-    text = readFileSync(path, "utf8");
+    text = readFileSync(path, 'utf8');
   } catch (error) {
     failures.push(
-      `check 0: could not read the vocabulary's producer at ${PRODUCER}: ${String(error)}. `
-        + "The vocabulary is not copied here on purpose — two lists of which field names are "
-        + "identity-shaped would be two answers to one question.",
+      `check 0: could not read the vocabulary's producer at ${PRODUCER}: ${String(error)}. ` +
+        'The vocabulary is not copied here on purpose — two lists of which field names are ' +
+        'identity-shaped would be two answers to one question.',
     );
     return new Set();
   }
 
-  const source = ts.createSourceFile(PRODUCER, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const source = ts.createSourceFile(
+    PRODUCER,
+    text,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
   let literal = null;
   const visit = (node) => {
     if (
-      ts.isVariableDeclaration(node)
-      && ts.isIdentifier(node.name)
-      && node.name.text === PRODUCER_DECLARATION
-      && node.initializer !== undefined
-      && ts.isArrayLiteralExpression(node.initializer)
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === PRODUCER_DECLARATION &&
+      node.initializer !== undefined &&
+      ts.isArrayLiteralExpression(node.initializer)
     ) {
       literal = node.initializer;
       return;
@@ -896,10 +915,10 @@ function readProducerVocabulary() {
 
   if (literal === null) {
     failures.push(
-      `check 0: ${PRODUCER} no longer declares \`${PRODUCER_DECLARATION}\` as an array literal. `
-        + "An unmatched pattern is a FAILURE here, not a pass — a vocabulary that came back empty "
-        + "would report a perfectly clean tree. If the declaration moved, point this at its new "
-        + "home in the same change.",
+      `check 0: ${PRODUCER} no longer declares \`${PRODUCER_DECLARATION}\` as an array literal. ` +
+        'An unmatched pattern is a FAILURE here, not a pass — a vocabulary that came back empty ' +
+        'would report a perfectly clean tree. If the declaration moved, point this at its new ' +
+        'home in the same change.',
     );
     return new Set();
   }
@@ -907,10 +926,7 @@ function readProducerVocabulary() {
   /** Fold a `'a' + 'b' + 'c'` chain of string literals, or return null. */
   const fold = (node) => {
     if (ts.isStringLiteral(node)) return node.text;
-    if (
-      ts.isBinaryExpression(node)
-      && node.operatorToken.kind === ts.SyntaxKind.PlusToken
-    ) {
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
       const left = fold(node.left);
       const right = fold(node.right);
       return left === null || right === null ? null : left + right;
@@ -923,8 +939,8 @@ function readProducerVocabulary() {
     const folded = fold(element);
     if (folded === null) {
       failures.push(
-        `check 0: \`${PRODUCER_DECLARATION}\` carries an element this reader cannot fold `
-          + `(${element.getText(source)}). Skipping it would narrow the scan silently, so it fails.`,
+        `check 0: \`${PRODUCER_DECLARATION}\` carries an element this reader cannot fold ` +
+          `(${element.getText(source)}). Skipping it would narrow the scan silently, so it fails.`,
       );
       continue;
     }
@@ -937,23 +953,23 @@ const vocabulary = readProducerVocabulary();
 
 if (vocabulary.size < MINIMUM_VOCABULARY) {
   failures.push(
-    `check 0: recovered ${vocabulary.size} identity-shaped field name(s) from ${PRODUCER} but `
-      + `expected at least ${MINIMUM_VOCABULARY}. A short vocabulary scans for less and reports `
-      + "the same clean tree as a codebase with nothing to find.",
+    `check 0: recovered ${vocabulary.size} identity-shaped field name(s) from ${PRODUCER} but ` +
+      `expected at least ${MINIMUM_VOCABULARY}. A short vocabulary scans for less and reports ` +
+      'the same clean tree as a codebase with nothing to find.',
   );
 }
 for (const required of VOCABULARY_MUST_CONTAIN) {
   if (vocabulary.has(required)) continue;
   failures.push(
-    `check 0: the vocabulary recovered from ${PRODUCER} does not contain ${JSON.stringify(required)}, `
-      + "which epic #367 line 104 names by hand. Narrowing the backend list past the requirement "
-      + "that created it would silently narrow this gate too.",
+    `check 0: the vocabulary recovered from ${PRODUCER} does not contain ${JSON.stringify(required)}, ` +
+      'which epic #367 line 104 names by hand. Narrowing the backend list past the requirement ' +
+      'that created it would silently narrow this gate too.',
   );
 }
 if (vocabulary.size > 0) {
   notes.push(
-    `check 0: ${vocabulary.size} identity-shaped field name(s) read out of ${PRODUCER} `
-      + `(${[...vocabulary].sort().join(", ")}).`,
+    `check 0: ${vocabulary.size} identity-shaped field name(s) read out of ${PRODUCER} ` +
+      `(${[...vocabulary].sort().join(', ')}).`,
   );
 }
 
@@ -982,13 +998,13 @@ const derivedControls = [];
 for (const name of [...vocabulary].sort()) {
   derivedControls.push({
     code: `export interface T { ${name}: string; }`,
-    check: "A",
+    check: 'A',
     detected: true,
     why: `the vocabulary member ${JSON.stringify(name)} as a bare string`,
   });
   derivedControls.push({
     code: `export interface T { ${name}Id: string; }`,
-    check: "A",
+    check: 'A',
     detected: false,
     why: `${name}Id — the opaque-id form the vocabulary member must not swallow`,
   });
@@ -1006,50 +1022,195 @@ for (const name of [...vocabulary].sort()) {
 const DETECTOR_CONTROLS = [
   ...derivedControls,
   // A — must fire
-  { code: "export interface T { category?: string; }", check: "A", detected: true, why: "optional" },
-  { code: "export interface T { readonly brandName: string | null; }", check: "A", detected: true, why: "string | null" },
-  { code: "export type T = { productType: string };", check: "A", detected: true, why: "type alias literal" },
-  { code: "export type T = { kind: 'a' } | { kind: 'b'; category: string };", check: "A", detected: true, why: "union member" },
-  { code: "export interface T { nested: { category: string }[]; }", check: "A", detected: true, why: "nested object literal" },
-  { code: "export interface T { prefill: Field<{ category: string }>; }", check: "A", detected: true, why: "a type literal inside a generic's type arguments" },
-  { code: "export interface T { groups: Readonly<Record<string, { productType: string }>>; }", check: "A", detected: true, why: "a type literal two generics deep" },
+  {
+    code: 'export interface T { category?: string; }',
+    check: 'A',
+    detected: true,
+    why: 'optional',
+  },
+  {
+    code: 'export interface T { readonly brandName: string | null; }',
+    check: 'A',
+    detected: true,
+    why: 'string | null',
+  },
+  {
+    code: 'export type T = { productType: string };',
+    check: 'A',
+    detected: true,
+    why: 'type alias literal',
+  },
+  {
+    code: "export type T = { kind: 'a' } | { kind: 'b'; category: string };",
+    check: 'A',
+    detected: true,
+    why: 'union member',
+  },
+  {
+    code: 'export interface T { nested: { category: string }[]; }',
+    check: 'A',
+    detected: true,
+    why: 'nested object literal',
+  },
+  {
+    code: 'export interface T { prefill: Field<{ category: string }>; }',
+    check: 'A',
+    detected: true,
+    why: "a type literal inside a generic's type arguments",
+  },
+  {
+    code: 'export interface T { groups: Readonly<Record<string, { productType: string }>>; }',
+    check: 'A',
+    detected: true,
+    why: 'a type literal two generics deep',
+  },
   // A — must NOT fire
-  { code: "export interface T { categoryKey: string; }", check: "A", detected: false, why: "a stable machine key" },
-  { code: "export interface T { categorySlug: string; }", check: "A", detected: false, why: "declared presentation" },
-  { code: "export interface T { productTypeKey: string; }", check: "A", detected: false, why: "a stable machine key" },
-  { code: "export interface T { category: CategoryRef; }", check: "A", detected: false, why: "already typed" },
-  { code: "export interface T { category: 'a' | 'b'; }", check: "A", detected: false, why: "a closed union" },
-  { code: "interface T { category: string; }", check: "A", detected: false, why: "not exported" },
-  { code: "// category: string\nexport interface T { id: string; }", check: "A", detected: false, why: "a line comment" },
-  { code: "/** category: string */\nexport interface T { id: string; }", check: "A", detected: false, why: "a docblock" },
-  { code: "export const x = { category: 'string' };", check: "A", detected: false, why: "a value, not a type" },
+  {
+    code: 'export interface T { categoryKey: string; }',
+    check: 'A',
+    detected: false,
+    why: 'a stable machine key',
+  },
+  {
+    code: 'export interface T { categorySlug: string; }',
+    check: 'A',
+    detected: false,
+    why: 'declared presentation',
+  },
+  {
+    code: 'export interface T { productTypeKey: string; }',
+    check: 'A',
+    detected: false,
+    why: 'a stable machine key',
+  },
+  {
+    code: 'export interface T { category: CategoryRef; }',
+    check: 'A',
+    detected: false,
+    why: 'already typed',
+  },
+  {
+    code: "export interface T { category: 'a' | 'b'; }",
+    check: 'A',
+    detected: false,
+    why: 'a closed union',
+  },
+  { code: 'interface T { category: string; }', check: 'A', detected: false, why: 'not exported' },
+  {
+    code: '// category: string\nexport interface T { id: string; }',
+    check: 'A',
+    detected: false,
+    why: 'a line comment',
+  },
+  {
+    code: '/** category: string */\nexport interface T { id: string; }',
+    check: 'A',
+    detected: false,
+    why: 'a docblock',
+  },
+  {
+    code: "export const x = { category: 'string' };",
+    check: 'A',
+    detected: false,
+    why: 'a value, not a type',
+  },
   // B — must fire
-  { code: "export interface ListingOption { name: string; }", check: "B", detected: true, why: "an option-shaped owner" },
-  { code: "export interface O { optionValues: { name: string; value: string }[]; }", check: "B", detected: true, why: "a nested option pair" },
-  { code: "export interface VariantAxisClaim { values: string[]; }", check: "B", detected: true, why: "an axis-shaped owner, string[]" },
-  { code: "export interface O { axes: { value: string }[]; }", check: "B", detected: true, why: "an axis-shaped member path" },
-  { code: "export interface O { optionValues: readonly { name: string }[]; }", check: "B", detected: true, why: "readonly array" },
-  { code: "export interface O { optionValues: Field<{ name: string }>; }", check: "B", detected: true, why: "an option pair inside a generic's type arguments" },
+  {
+    code: 'export interface ListingOption { name: string; }',
+    check: 'B',
+    detected: true,
+    why: 'an option-shaped owner',
+  },
+  {
+    code: 'export interface O { optionValues: { name: string; value: string }[]; }',
+    check: 'B',
+    detected: true,
+    why: 'a nested option pair',
+  },
+  {
+    code: 'export interface VariantAxisClaim { values: string[]; }',
+    check: 'B',
+    detected: true,
+    why: 'an axis-shaped owner, string[]',
+  },
+  {
+    code: 'export interface O { axes: { value: string }[]; }',
+    check: 'B',
+    detected: true,
+    why: 'an axis-shaped member path',
+  },
+  {
+    code: 'export interface O { optionValues: readonly { name: string }[]; }',
+    check: 'B',
+    detected: true,
+    why: 'readonly array',
+  },
+  {
+    code: 'export interface O { optionValues: Field<{ name: string }>; }',
+    check: 'B',
+    detected: true,
+    why: "an option pair inside a generic's type arguments",
+  },
   // B — must NOT fire
-  { code: "export interface Store { name: string; }", check: "B", detected: false, why: "an ordinary name" },
-  { code: "export interface ListingOption { position: number; }", check: "B", detected: false, why: "not a generic member" },
-  { code: "export interface ListingOption { name: OptionName; }", check: "B", detected: false, why: "already typed" },
-  { code: "export interface O { optionValues: { attributeDefinitionId: string }[]; }", check: "B", detected: false, why: "the typed replacement" },
-  { code: "export interface Category { name: string; }", check: "B", detected: false, why: "a label is presentation (D1)" },
-  { code: "export interface TaxLine { value: string; }", check: "B", detected: false, why: "`taxes` contains `axes` — a substring match would file a tax line as an option" },
-  { code: "export interface T { taxonomyRefinement: { name: string }[]; }", check: "B", detected: false, why: "`taxonomy` contains `ax` and names no axis" },
-  { code: "export interface T { adoptions: { name: string }[]; }", check: "B", detected: false, why: "`adoptions` contains `option` as a substring and is not one" },
+  {
+    code: 'export interface Store { name: string; }',
+    check: 'B',
+    detected: false,
+    why: 'an ordinary name',
+  },
+  {
+    code: 'export interface ListingOption { position: number; }',
+    check: 'B',
+    detected: false,
+    why: 'not a generic member',
+  },
+  {
+    code: 'export interface ListingOption { name: OptionName; }',
+    check: 'B',
+    detected: false,
+    why: 'already typed',
+  },
+  {
+    code: 'export interface O { optionValues: { attributeDefinitionId: string }[]; }',
+    check: 'B',
+    detected: false,
+    why: 'the typed replacement',
+  },
+  {
+    code: 'export interface Category { name: string; }',
+    check: 'B',
+    detected: false,
+    why: 'a label is presentation (D1)',
+  },
+  {
+    code: 'export interface TaxLine { value: string; }',
+    check: 'B',
+    detected: false,
+    why: '`taxes` contains `axes` — a substring match would file a tax line as an option',
+  },
+  {
+    code: 'export interface T { taxonomyRefinement: { name: string }[]; }',
+    check: 'B',
+    detected: false,
+    why: '`taxonomy` contains `ax` and names no axis',
+  },
+  {
+    code: 'export interface T { adoptions: { name: string }[]; }',
+    check: 'B',
+    detected: false,
+    why: '`adoptions` contains `option` as a substring and is not one',
+  },
 ];
 
 for (const control of DETECTOR_CONTROLS) {
-  const { found } = findAmbiguousContracts("control.ts", control.code, vocabulary);
+  const { found } = findAmbiguousContracts('control.ts', control.code, vocabulary);
   const detected = found.some((hit) => hit.check === control.check);
   if (detected === control.detected) continue;
   failures.push(
-    `check ${control.check}: the detector's ${control.detected ? "POSITIVE" : "NEGATIVE"} control `
-      + `(${control.why}) ${detected ? "fired when it must not" : "did NOT fire"}. `
-      + `Source: ${JSON.stringify(control.code)}. A detector that cannot see a violation reports a `
-      + "clean tree, which is the same output as a clean tree.",
+    `check ${control.check}: the detector's ${control.detected ? 'POSITIVE' : 'NEGATIVE'} control ` +
+      `(${control.why}) ${detected ? 'fired when it must not' : 'did NOT fire'}. ` +
+      `Source: ${JSON.stringify(control.code)}. A detector that cannot see a violation reports a ` +
+      'clean tree, which is the same output as a clean tree.',
   );
 }
 
@@ -1071,14 +1232,14 @@ try {
   const directories = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
   if (directories.length > 0) {
     failures.push(
-      `the walk reads ${CONTRACT_DIR} one level deep, and it now contains `
-        + `${directories.length} subdirectory/subdirectories (${directories.join(", ")}). A `
-        + "one-level read of a nested tree scans less and reports the same clean line; make the "
-        + "walk recursive in the same change that adds the subdirectory.",
+      `the walk reads ${CONTRACT_DIR} one level deep, and it now contains ` +
+        `${directories.length} subdirectory/subdirectories (${directories.join(', ')}). A ` +
+        'one-level read of a nested tree scans less and reports the same clean line; make the ' +
+        'walk recursive in the same change that adds the subdirectory.',
     );
   }
   contractFiles = entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".ts") && entry.name !== "index.ts")
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts') && entry.name !== 'index.ts')
     .map((entry) => entry.name)
     .sort();
 } catch (error) {
@@ -1099,7 +1260,7 @@ for (const file of contractFiles) {
       failures.push(`${file} is empty — an empty contract file scans as a clean one.`);
       continue;
     }
-    text = readFileSync(path, "utf8");
+    text = readFileSync(path, 'utf8');
   } catch (error) {
     failures.push(`could not read ${file}: ${String(error)}`);
     continue;
@@ -1112,22 +1273,22 @@ for (const file of contractFiles) {
 
 if (contractFiles.length < MINIMUM_CONTRACT_FILES) {
   failures.push(
-    `walked ${contractFiles.length} contract module(s) in packages/shared-types/src but expected at `
-      + `least ${MINIMUM_CONTRACT_FILES}. A listing that came back short reports a clean surface, `
-      + "which is indistinguishable from a clean surface.",
+    `walked ${contractFiles.length} contract module(s) in packages/shared-types/src but expected at ` +
+      `least ${MINIMUM_CONTRACT_FILES}. A listing that came back short reports a clean surface, ` +
+      'which is indistinguishable from a clean surface.',
   );
 }
 if (scannedTypes < MINIMUM_EXPORTED_TYPES) {
   failures.push(
-    `found ${scannedTypes} exported type(s) but expected at least ${MINIMUM_EXPORTED_TYPES}. A parse `
-      + "that produced no declarations scans no members and reports nothing found.",
+    `found ${scannedTypes} exported type(s) but expected at least ${MINIMUM_EXPORTED_TYPES}. A parse ` +
+      'that produced no declarations scans no members and reports nothing found.',
   );
 }
 if (scannedMembers < MINIMUM_SCANNED_MEMBERS) {
   failures.push(
-    `scanned ${scannedMembers} property signature(s) but expected at least `
-      + `${MINIMUM_SCANNED_MEMBERS}. The two floors above are about the WALK; this one is about the `
-      + "recursion into it, and a `scanMember` that stopped descending would still meet them.",
+    `scanned ${scannedMembers} property signature(s) but expected at least ` +
+      `${MINIMUM_SCANNED_MEMBERS}. The two floors above are about the WALK; this one is about the ` +
+      'recursion into it, and a `scanMember` that stopped descending would still meet them.',
   );
 }
 
@@ -1154,22 +1315,22 @@ for (const entry of LEGACY_AMBIGUOUS_CONTRACTS) {
 for (const [key, count] of [...foundCounts].sort()) {
   const excused = excusedCounts.get(key) ?? 0;
   if (count === excused) continue;
-  const lines = foundLines.get(key).join(", ");
+  const lines = foundLines.get(key).join(', ');
   if (excused === 0) {
     failures.push(
-      `NEW ambiguous public catalog contract: \`${key}\` (line ${lines}) is a bare string where a `
-        + "typed catalog identity belongs. A free string cannot say which taxonomy it names, which "
-        + "locale it is in, or whether it is a label or a key (ADR 0007 D1, epic #367 line 104). "
-        + "Use an opaque id or a stable machine key — `categoryId`, `productTypeKey`, "
-        + "`attributeDefinitionId` — or, if this genuinely is a shipped v1 contract, an external "
-        + "platform's field, a purchase-time snapshot or presentation beside a typed id, add it to "
-        + "`LEGACY_AMBIGUOUS_CONTRACTS` in this file with its disposition and reason.",
+      `NEW ambiguous public catalog contract: \`${key}\` (line ${lines}) is a bare string where a ` +
+        'typed catalog identity belongs. A free string cannot say which taxonomy it names, which ' +
+        'locale it is in, or whether it is a label or a key (ADR 0007 D1, epic #367 line 104). ' +
+        'Use an opaque id or a stable machine key — `categoryId`, `productTypeKey`, ' +
+        '`attributeDefinitionId` — or, if this genuinely is a shipped v1 contract, an external ' +
+        "platform's field, a purchase-time snapshot or presentation beside a typed id, add it to " +
+        '`LEGACY_AMBIGUOUS_CONTRACTS` in this file with its disposition and reason.',
     );
   } else {
     failures.push(
-      `\`${key}\` occurs ${count} time(s) (line ${lines}) but `
-        + `LEGACY_AMBIGUOUS_CONTRACTS excuses ${excused}. An excusing entry that covers more than it `
-        + "says is how a second occurrence lands unreviewed.",
+      `\`${key}\` occurs ${count} time(s) (line ${lines}) but ` +
+        `LEGACY_AMBIGUOUS_CONTRACTS excuses ${excused}. An excusing entry that covers more than it ` +
+        'says is how a second occurrence lands unreviewed.',
     );
   }
 }
@@ -1178,10 +1339,10 @@ for (const [key, count] of [...excusedCounts].sort()) {
   const actual = foundCounts.get(key) ?? 0;
   if (actual >= count) continue;
   failures.push(
-    `LEGACY_AMBIGUOUS_CONTRACTS excuses \`${key}\` ${count} time(s) but the walk found ${actual}. `
-      + "If the contract retired, delete the entry in the same change — reading its retirement "
-      + "condition is the point of the entry existing. If the walk stopped seeing it, the detector "
-      + "is broken and every other entry here is unverified too.",
+    `LEGACY_AMBIGUOUS_CONTRACTS excuses \`${key}\` ${count} time(s) but the walk found ${actual}. ` +
+      'If the contract retired, delete the entry in the same change — reading its retirement ' +
+      'condition is the point of the entry existing. If the walk stopped seeing it, the detector ' +
+      'is broken and every other entry here is unverified too.',
   );
 }
 
@@ -1191,10 +1352,10 @@ for (const [key, count] of [...excusedCounts].sort()) {
 
 if (LEGACY_AMBIGUOUS_CONTRACTS.length !== EXPECTED_EXCUSED_ENTRIES) {
   failures.push(
-    `LEGACY_AMBIGUOUS_CONTRACTS has ${LEGACY_AMBIGUOUS_CONTRACTS.length} entries and `
-      + `EXPECTED_EXCUSED_ENTRIES is ${EXPECTED_EXCUSED_ENTRIES}. A list of excuses that can grow `
-      + "silently is the mechanism by which a gate erodes to `>= 0`; move the number in the same "
-      + "commit that moves the list, so the diff shows both.",
+    `LEGACY_AMBIGUOUS_CONTRACTS has ${LEGACY_AMBIGUOUS_CONTRACTS.length} entries and ` +
+      `EXPECTED_EXCUSED_ENTRIES is ${EXPECTED_EXCUSED_ENTRIES}. A list of excuses that can grow ` +
+      'silently is the mechanism by which a gate erodes to `>= 0`; move the number in the same ' +
+      'commit that moves the list, so the diff shows both.',
   );
 }
 
@@ -1202,29 +1363,29 @@ for (const entry of LEGACY_AMBIGUOUS_CONTRACTS) {
   const disposition = CONTRACT_DISPOSITIONS[entry.disposition];
   if (disposition === undefined) {
     failures.push(
-      `${asKey(entry)} claims the disposition ${JSON.stringify(entry.disposition)}, which is not in `
-        + `the closed set (${Object.keys(CONTRACT_DISPOSITIONS).join(", ")}). A free-text `
-        + "disposition is a reason nobody can check.",
+      `${asKey(entry)} claims the disposition ${JSON.stringify(entry.disposition)}, which is not in ` +
+        `the closed set (${Object.keys(CONTRACT_DISPOSITIONS).join(', ')}). A free-text ` +
+        'disposition is a reason nobody can check.',
     );
     continue;
   }
   if (disposition.requiresSupersededBy && !entry.supersededBy) {
     failures.push(
-      `${asKey(entry)} is a \`${entry.disposition}\` and names nothing in \`supersededBy\`. A `
-        + "versioned contract with no successor is a field nobody has decided about, which is the "
-        + "state this gate exists to end.",
+      `${asKey(entry)} is a \`${entry.disposition}\` and names nothing in \`supersededBy\`. A ` +
+        'versioned contract with no successor is a field nobody has decided about, which is the ' +
+        'state this gate exists to end.',
     );
   }
   if (!disposition.requiresSupersededBy && entry.supersededBy) {
     failures.push(
-      `${asKey(entry)} is a \`${entry.disposition}\` — which retires never — and names a successor. `
-        + "Either it is a versioned contract or nothing replaces it; both cannot be true.",
+      `${asKey(entry)} is a \`${entry.disposition}\` — which retires never — and names a successor. ` +
+        'Either it is a versioned contract or nothing replaces it; both cannot be true.',
     );
   }
-  if (typeof entry.why !== "string" || entry.why.length < 60) {
+  if (typeof entry.why !== 'string' || entry.why.length < 60) {
     failures.push(
-      `${asKey(entry)} carries no substantial reason. The reason is what the next reader uses to `
-        + "decide whether the entry is still true.",
+      `${asKey(entry)} carries no substantial reason. The reason is what the next reader uses to ` +
+        'decide whether the entry is still true.',
     );
   }
   if (!Number.isInteger(entry.count) || entry.count < 1) {
@@ -1238,8 +1399,8 @@ for (const entry of LEGACY_AMBIGUOUS_CONTRACTS) {
 
 const byCheck = (check) => found.filter((hit) => hit.check === check).length;
 notes.push(
-  `walked ${contractFiles.length} contract module(s), ${scannedTypes} exported type(s), `
-    + `${scannedMembers} property signature(s).`,
+  `walked ${contractFiles.length} contract module(s), ${scannedTypes} exported type(s), ` +
+    `${scannedMembers} property signature(s).`,
 );
 
 /**
@@ -1254,20 +1415,20 @@ notes.push(
  */
 const liveByName = new Map();
 for (const hit of found) {
-  if (hit.check !== "A") continue;
+  if (hit.check !== 'A') continue;
   liveByName.set(hit.field, (liveByName.get(hit.field) ?? 0) + 1);
 }
 const armsLive = [...vocabulary].filter((name) => (liveByName.get(name) ?? 0) > 0).sort();
 const armsControlOnly = [...vocabulary].filter((name) => (liveByName.get(name) ?? 0) === 0).sort();
 notes.push(
-  `check A arms exercised by real declarations: ${armsLive.length}/${vocabulary.size} `
-    + `(${armsLive.map((n) => `${n}×${liveByName.get(n)}`).join(", ") || "none"}). `
-    + `Proven only by the derived control: ${armsControlOnly.join(", ") || "none"}.`,
+  `check A arms exercised by real declarations: ${armsLive.length}/${vocabulary.size} ` +
+    `(${armsLive.map((n) => `${n}×${liveByName.get(n)}`).join(', ') || 'none'}). ` +
+    `Proven only by the derived control: ${armsControlOnly.join(', ') || 'none'}.`,
 );
 notes.push(
-  `check A (ambiguous name): ${byCheck("A")} occurrence(s). `
-    + `check B (ambiguous position in an option-shaped owner): ${byCheck("B")}. `
-    + `All ${LEGACY_AMBIGUOUS_CONTRACTS.length} are excused with a disposition and a reason.`,
+  `check A (ambiguous name): ${byCheck('A')} occurrence(s). ` +
+    `check B (ambiguous position in an option-shaped owner): ${byCheck('B')}. ` +
+    `All ${LEGACY_AMBIGUOUS_CONTRACTS.length} are excused with a disposition and a reason.`,
 );
 
 for (const note of notes) console.log(`  ${note}`);
@@ -1279,6 +1440,6 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "\nvalidate-catalog-identity-contracts: OK — no NEW ambiguous bare-string catalog identity in the "
-    + "published contract.",
+  '\nvalidate-catalog-identity-contracts: OK — no NEW ambiguous bare-string catalog identity in the ' +
+    'published contract.',
 );

@@ -7,40 +7,63 @@ import arabic from '../../../packages/ui/src/i18n/locales/ar.json';
 for (const width of [320, 390, 1440]) {
   const locale = width === 320 ? 'de' : 'en';
   const copy = (locale === 'de' ? german : english).ui;
-  test(`bundle recommendations use exact variants, keep failed adds retryable and open configurable packs at ${width}px`, async ({ page, request }) => {
+  test(`bundle recommendations use exact variants, keep failed adds retryable and open configurable packs at ${width}px`, async ({
+    page,
+    request,
+  }) => {
     const feed = await (await request.get('http://localhost:4160/feed')).json();
-    const summary = feed.data.sections.flatMap((section: { products?: Listing[] }) => section.products ?? [])
+    const summary = feed.data.sections
+      .flatMap((section: { products?: Listing[] }) => section.products ?? [])
       .find((listing: Listing) => listing.title === 'Brilliant Eye Brightener');
     expect(summary, 'Requires the local storefront seed').toBeTruthy();
-    const listing: Listing = (await (await request.get(`http://localhost:4160/listings/${summary.id}`)).json()).data;
+    const listing: Listing = (
+      await (await request.get(`http://localhost:4160/listings/${summary.id}`)).json()
+    ).data;
     const [source, alternate, singleVariant, configurableVariant] = listing.variants;
     const single: ListingBundleRecommendation = {
-      listingId: listing.id, variantId: singleVariant.id, title: 'Complete brightener set',
-      image: { ...listing.images[0], fileId: 'bundle-preview-file' }, price: { amount: 4200, currency: 'EUR' },
-      compareAtPrice: { amount: 4800, currency: 'EUR' }, action: 'add_to_cart',
+      listingId: listing.id,
+      variantId: singleVariant.id,
+      title: 'Complete brightener set',
+      image: { ...listing.images[0], fileId: 'bundle-preview-file' },
+      price: { amount: 4200, currency: 'EUR' },
+      compareAtPrice: { amount: 4800, currency: 'EUR' },
+      action: 'add_to_cart',
     };
     const configurable: ListingBundleRecommendation = {
-      listingId: listing.id, variantId: configurableVariant.id, title: 'Choose your brightener set',
+      listingId: listing.id,
+      variantId: configurableVariant.id,
+      title: 'Choose your brightener set',
       image: { ...listing.images[1], fileId: 'https://external-images.example.test/preview.png' },
-      price: { amount: 6000, currency: 'EUR' }, action: 'view_bundle',
+      price: { amount: 6000, currency: 'EUR' },
+      action: 'view_bundle',
     };
     const externalImages: string[] = [];
-    page.on('request', request => {
-      if (request.url().includes('external-images.example.test')) externalImages.push(request.url());
+    page.on('request', (request) => {
+      if (request.url().includes('external-images.example.test'))
+        externalImages.push(request.url());
     });
-    listing.bundlesByVariant = { [source.id]: [single, configurable], [alternate.id]: [configurable] };
-    await page.route(`**/listings/${listing.id}`, route => route.fulfill({ json: { success: true, data: listing } }));
+    listing.bundlesByVariant = {
+      [source.id]: [single, configurable],
+      [alternate.id]: [configurable],
+    };
+    await page.route(`**/listings/${listing.id}`, (route) =>
+      route.fulfill({ json: { success: true, data: listing } }),
+    );
     let releaseImage!: () => void;
-    const imageGate = new Promise<void>(resolve => { releaseImage = resolve; });
-    await page.route('https://cloud.oxy.so/bundle-preview-file?variant=thumb', async route => {
+    const imageGate = new Promise<void>((resolve) => {
+      releaseImage = resolve;
+    });
+    await page.route('https://cloud.oxy.so/bundle-preview-file?variant=thumb', async (route) => {
       await imageGate;
       await route.fulfill({ status: 404, body: '' });
     });
     const cart = (await (await request.get('http://localhost:4160/cart')).json()).data;
     const writes: unknown[] = [];
     let release!: () => void;
-    const gate = new Promise<void>(resolve => { release = resolve; });
-    await page.route('**/cart/items', async route => {
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/cart/items', async (route) => {
       if (route.request().method() !== 'POST') return route.continue();
       writes.push(route.request().postDataJSON());
       if (writes.length === 1) {
@@ -48,9 +71,15 @@ for (const width of [320, 390, 1440]) {
         await route.fulfill({ status: 409, json: { success: false, message: 'Stock changed' } });
       } else await route.fulfill({ json: { success: true, data: cart } });
     });
-    await page.addInitScript(locale => localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale }, version: 0 })), locale);
+    await page.addInitScript(
+      (locale) =>
+        localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale }, version: 0 })),
+      locale,
+    );
     await page.setViewportSize({ width, height: 1000 });
-    await page.goto(`/products/${listing.id}?variantId=${source.id}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`/products/${listing.id}?variantId=${source.id}`, {
+      waitUntil: 'domcontentloaded',
+    });
     const shelf = page.getByTestId('bundle-recommendations');
     await expect(shelf.getByRole('heading', { name: copy.bundle.andSave })).toBeVisible();
     const first = shelf.getByTestId('bundle-recommendation-card').first();
@@ -65,23 +94,39 @@ for (const width of [320, 390, 1440]) {
     await expect(imageSlot).toHaveCSS('width', '134px');
     if (width === 320) {
       await expect(first).toHaveCSS('width', '288px');
-      expect(await first.getByRole('button').evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+      expect(
+        await first
+          .getByRole('button')
+          .evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+      ).toBe(true);
     }
     await first.getByRole('button', { name: copy.purchase.addToCart, exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);
     await expect(first.getByRole('button')).toBeDisabled();
-    expect(writes[0]).toEqual({ listingId: single.listingId, variantId: single.variantId, quantity: 1 });
+    expect(writes[0]).toEqual({
+      listingId: single.listingId,
+      variantId: single.variantId,
+      quantity: 1,
+    });
     release();
     await expect(first.getByRole('alert')).toHaveText(copy.bundle.addFailed);
-    await expect(first.getByRole('button', { name: copy.purchase.addToCart, exact: true })).toBeEnabled();
+    await expect(
+      first.getByRole('button', { name: copy.purchase.addToCart, exact: true }),
+    ).toBeEnabled();
     await first.getByRole('button').click();
-    await expect(first.getByRole('button', { name: copy.purchase.added, exact: true })).toBeVisible();
+    await expect(
+      first.getByRole('button', { name: copy.purchase.added, exact: true }),
+    ).toBeVisible();
     expect(writes).toHaveLength(2);
     await expect(first.getByRole('alert')).toHaveCount(0);
     await page.getByRole('button', { name: `Shade: ${alternate.title}`, exact: true }).click();
     await expect(shelf.getByTestId('bundle-recommendation-card')).toHaveCount(1);
     await expect(shelf.getByRole('heading', { name: copy.bundle.together })).toBeVisible();
-    await expect(shelf.getByTestId('bundle-recommendation-image').getByText(copy.marketplace.noImage, { exact: true })).toBeVisible();
+    await expect(
+      shelf
+        .getByTestId('bundle-recommendation-image')
+        .getByText(copy.marketplace.noImage, { exact: true }),
+    ).toBeVisible();
     expect(externalImages).toEqual([]);
     await shelf.getByRole('button', { name: copy.bundle.view, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`variantId=${configurable.variantId}$`));
@@ -91,24 +136,38 @@ for (const width of [320, 390, 1440]) {
   });
 }
 
-
 for (const width of [820, 1440]) {
   for (const locale of ['en', 'ar']) {
-    test(`bundle carousel advances by visible groups at ${width}px in ${locale}`, async ({ page, request }) => {
+    test(`bundle carousel advances by visible groups at ${width}px in ${locale}`, async ({
+      page,
+      request,
+    }) => {
       const feed = await (await request.get('http://localhost:4160/feed')).json();
-      const summary = feed.data.sections.flatMap((section: { products?: Listing[] }) => section.products ?? [])
+      const summary = feed.data.sections
+        .flatMap((section: { products?: Listing[] }) => section.products ?? [])
         .find((listing: Listing) => listing.title === 'Brilliant Eye Brightener');
       expect(summary, 'Requires the local storefront seed').toBeTruthy();
-      const listing: Listing = (await (await request.get(`http://localhost:4160/listings/${summary.id}`)).json()).data;
+      const listing: Listing = (
+        await (await request.get(`http://localhost:4160/listings/${summary.id}`)).json()
+      ).data;
       const source = listing.variants[0];
       listing.bundlesByVariant = {
         [source.id]: listing.variants.slice(0, 7).map((variant, index) => ({
-          listingId: listing.id, variantId: variant.id, title: `Brightener pack ${index + 1}`,
-          price: { amount: 4200, currency: 'EUR' }, action: 'view_bundle',
+          listingId: listing.id,
+          variantId: variant.id,
+          title: `Brightener pack ${index + 1}`,
+          price: { amount: 4200, currency: 'EUR' },
+          action: 'view_bundle',
         })),
       };
-      await page.route(`**/listings/${listing.id}`, route => route.fulfill({ json: { success: true, data: listing } }));
-      await page.addInitScript(locale => localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale }, version: 0 })), locale);
+      await page.route(`**/listings/${listing.id}`, (route) =>
+        route.fulfill({ json: { success: true, data: listing } }),
+      );
+      await page.addInitScript(
+        (locale) =>
+          localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale }, version: 0 })),
+        locale,
+      );
       await page.setViewportSize({ width, height: 1000 });
       await page.goto(`/products/${listing.id}?variantId=${source.id}`);
       const shelf = page.getByTestId('bundle-recommendations');
@@ -128,9 +187,9 @@ for (const width of [820, 1440]) {
       const previous = shelf.getByRole('button', { name: copy.previous, exact: true });
       await expect(next).toBeVisible();
       await next.click();
-      await expect.poll(async () => Math.abs(await edge(group) - origin)).toBeLessThanOrEqual(2);
+      await expect.poll(async () => Math.abs((await edge(group)) - origin)).toBeLessThanOrEqual(2);
       await previous.click();
-      await expect.poll(async () => Math.abs(await edge(0) - origin)).toBeLessThanOrEqual(2);
+      await expect.poll(async () => Math.abs((await edge(0)) - origin)).toBeLessThanOrEqual(2);
       await expect(previous).toBeHidden();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
     });

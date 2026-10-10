@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
-import { View } from "react-native";
-import { cn } from "../../lib/cn";
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
+import { cn } from '../../lib/cn';
 
 export interface FeedGridProps<T> {
   /** Items laid out left-to-right, wrapping onto new rows. */
@@ -60,7 +60,7 @@ export function FeedGrid<T>({
     // spells `flex-row flex-wrap` for exactly that reason (e.g.
     // `SearchInterpretation.tsx`, `VariantSwatches.tsx`); omitting it here
     // would stack every slot in a single column instead of wrapping.
-    <View className={cn("flex-row flex-wrap -mx-space-4 md:-mx-space-8", rowGapClassName)}>
+    <View className={cn('flex-row flex-wrap -mx-space-4 md:-mx-space-8', rowGapClassName)}>
       {safeItems.map((item) => (
         <View key={keyExtractor(item)} className={slotClassName}>
           {renderItem(item)}

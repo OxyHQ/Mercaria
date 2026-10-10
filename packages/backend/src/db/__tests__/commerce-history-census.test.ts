@@ -203,10 +203,9 @@ describe('the order-history population is derived, not remembered', () => {
     // A frozen column must be named ONCE per table. A duplicate is how a list
     // that looks longer than it is passes the floor above while covering less.
     for (const entry of COMMERCE_HISTORY_DISPOSITIONS) {
-      expect(
-        new Set(entry.frozenColumns).size,
-        `${entry.table} names a frozen column twice`,
-      ).toBe(entry.frozenColumns.length);
+      expect(new Set(entry.frozenColumns).size, `${entry.table} names a frozen column twice`).toBe(
+        entry.frozenColumns.length,
+      );
     }
 
     // The payment and refund half specifically, so a regression that dropped
@@ -255,9 +254,7 @@ describe('the census itself goes red', () => {
       const config = getTableConfig(table);
       for (const foreignKey of config.foreignKeys) {
         if (
-          COMMERCE_HISTORY_ROOT_TABLES.includes(
-            getTableName(foreignKey.reference().foreignTable),
-          )
+          COMMERCE_HISTORY_ROOT_TABLES.includes(getTableName(foreignKey.reference().foreignTable))
         ) {
           directChildren.add(config.name);
         }

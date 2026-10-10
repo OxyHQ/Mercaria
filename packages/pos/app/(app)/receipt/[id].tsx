@@ -1,16 +1,16 @@
-import React from "react";
-import { View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { CheckCircle2 } from "lucide-react-native";
-import type { MerchantOrder } from "@mercaria/shared-types";
-import { Text, PriceDisplay, useColorScheme } from "@mercaria/ui";
-import { Button } from "@oxy.so/bloom/button";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { useOrder } from "@/lib/hooks/use-orders";
-import { useTranslation } from "@/lib/i18n";
-import { ORDER_CHANNEL_LABEL_KEYS, ORDER_STATUS_LABEL_KEYS } from "@/lib/order-labels";
+import React from 'react';
+import { View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { CheckCircle2 } from 'lucide-react-native';
+import type { MerchantOrder } from '@mercaria/shared-types';
+import { Text, PriceDisplay, useColorScheme } from '@mercaria/ui';
+import { Button } from '@oxy.so/bloom/button';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { useOrder } from '@/lib/hooks/use-orders';
+import { useTranslation } from '@/lib/i18n';
+import { ORDER_CHANNEL_LABEL_KEYS, ORDER_STATUS_LABEL_KEYS } from '@/lib/order-labels';
 
 /** The completed-sale receipt. Shipping is intentionally hidden for POS. */
 export default function ReceiptScreen() {
@@ -20,10 +20,10 @@ export default function ReceiptScreen() {
   return (
     <>
       <Head>
-        <title>{t("receipt.documentTitle")}</title>
+        <title>{t('receipt.documentTitle')}</title>
       </Head>
       <RequireStore permission="orders:read">
-        {(storeId) => <Receipt storeId={storeId} orderId={id ?? ""} />}
+        {(storeId) => <Receipt storeId={storeId} orderId={id ?? ''} />}
       </RequireStore>
     </>
   );
@@ -37,7 +37,7 @@ function Receipt({ storeId, orderId }: { storeId: string; orderId: string }) {
 
   if (isPending) {
     return (
-      <Screen title={t("receipt.title")}>
+      <Screen title={t('receipt.title')}>
         <ScreenLoading />
       </Screen>
     );
@@ -45,26 +45,26 @@ function Receipt({ storeId, orderId }: { storeId: string; orderId: string }) {
 
   if (isError || !order) {
     return (
-      <Screen title={t("receipt.title")}>
-        <ScreenMessage title={t("receipt.loadFailed")} body={t("receipt.loadFailedBody")} />
+      <Screen title={t('receipt.title')}>
+        <ScreenMessage title={t('receipt.loadFailed')} body={t('receipt.loadFailedBody')} />
       </Screen>
     );
   }
 
   return (
     <Screen
-      title={t("receipt.saleComplete")}
-      subtitle={t("receipt.orderNumber", { number: order.orderNumber })}
+      title={t('receipt.saleComplete')}
+      subtitle={t('receipt.orderNumber', { number: order.orderNumber })}
     >
       <View className="gap-5">
         <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-4">
           <CheckCircle2 size={28} color={colors.primary} />
           <View className="flex-1">
             <Text className="text-base font-semibold text-foreground">
-              {t("receipt.paymentRecorded")}
+              {t('receipt.paymentRecorded')}
             </Text>
             <Text className="text-sm text-muted-foreground">
-              {t("receipt.channelAndStatus", {
+              {t('receipt.channelAndStatus', {
                 channel: t(ORDER_CHANNEL_LABEL_KEYS[order.sourceChannel]),
                 status: t(ORDER_STATUS_LABEL_KEYS[order.status]),
               })}
@@ -75,13 +75,8 @@ function Receipt({ storeId, orderId }: { storeId: string; orderId: string }) {
         <OrderLines order={order} />
         <OrderTotals order={order} />
 
-        <Button
-          tone="accent"
-          size="lg"
-          onPress={() => router.replace("/")}
-          style={{ height: 64 }}
-        >
-          {t("receipt.newSale")}
+        <Button tone="accent" size="lg" onPress={() => router.replace('/')} style={{ height: 64 }}>
+          {t('receipt.newSale')}
         </Button>
       </View>
     </Screen>
@@ -92,7 +87,10 @@ function OrderLines({ order }: { order: MerchantOrder }) {
   return (
     <View className="gap-2 rounded-2xl border border-border bg-surface p-4">
       {order.items.map((item, index) => (
-        <View key={`${item.variantId}-${index}`} className="flex-row items-center justify-between gap-3">
+        <View
+          key={`${item.variantId}-${index}`}
+          className="flex-row items-center justify-between gap-3"
+        >
           <View className="flex-1">
             <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
               {item.title}
@@ -113,18 +111,21 @@ function OrderTotals({ order }: { order: MerchantOrder }) {
   const { totals } = order;
   return (
     <View className="gap-2 rounded-2xl border border-border bg-surface p-4">
-      <TotalRow label={t("receipt.subtotal")} price={<PriceDisplay price={totals.subtotal.shop} />} />
+      <TotalRow
+        label={t('receipt.subtotal')}
+        price={<PriceDisplay price={totals.subtotal.shop} />}
+      />
       {totals.discountTotal.shop.amount > 0 ? (
         <TotalRow
-          label={t("receipt.discount")}
+          label={t('receipt.discount')}
           price={<PriceDisplay price={totals.discountTotal.shop} />}
         />
       ) : null}
       {totals.tax.shop.amount > 0 ? (
-        <TotalRow label={t("receipt.tax")} price={<PriceDisplay price={totals.tax.shop} />} />
+        <TotalRow label={t('receipt.tax')} price={<PriceDisplay price={totals.tax.shop} />} />
       ) : null}
       <View className="mt-1 flex-row items-center justify-between border-t border-border pt-3">
-        <Text className="text-base font-bold text-foreground">{t("receipt.total")}</Text>
+        <Text className="text-base font-bold text-foreground">{t('receipt.total')}</Text>
         <PriceDisplay price={totals.grandTotal.shop} primaryClassName="text-base font-bold" />
       </View>
     </View>

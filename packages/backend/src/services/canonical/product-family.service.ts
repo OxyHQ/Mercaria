@@ -42,8 +42,7 @@ import {
   updateProductFamily as updateFamilyRow,
   type ProductFamilyRow,
 } from '../../db/canonical/productFamilyRepository.js';
-import {
-} from '../../db/canonical/canonicalProductRepository.js';
+import {} from '../../db/canonical/canonicalProductRepository.js';
 import { recordFieldProvenance } from '../../db/canonical/attributeRepository.js';
 import {
   findCatalogSourceById,
@@ -120,9 +119,7 @@ export async function createProductFamily(
         familyId: family.id,
         alias: name,
         kind: 'name_variant',
-        ...(input.actorOxyUserId === undefined
-          ? {}
-          : { createdByOxyUserId: input.actorOxyUserId }),
+        ...(input.actorOxyUserId === undefined ? {} : { createdByOxyUserId: input.actorOxyUserId }),
       });
       for (const alias of input.aliases ?? []) {
         await insertProductFamilyAlias(tx, {
@@ -265,9 +262,7 @@ export async function applyFamilySourceObservation(
 
     const payload: JsonValue = {
       ...(input.fields.name === undefined ? {} : { name: input.fields.name }),
-      ...(input.fields.description === undefined
-        ? {}
-        : { description: input.fields.description }),
+      ...(input.fields.description === undefined ? {} : { description: input.fields.description }),
     };
     const { record, inserted } = await recordSourceObservation(tx, {
       sourceId: input.sourceId,
@@ -317,10 +312,7 @@ export async function applyFamilySourceObservation(
       }
     }
 
-    if (
-      input.fields.description !== undefined &&
-      input.fields.description !== family.description
-    ) {
+    if (input.fields.description !== undefined && input.fields.description !== family.description) {
       if (pinned.has('description')) {
         conflicts.push({ field: 'description', reason: 'pinned' });
       } else if (family.description !== null && incomingStrength < existingStrength) {
@@ -354,7 +346,13 @@ export async function applyFamilySourceObservation(
       });
     }
 
-    return { family: updated, sourceRecordId: record.id, newObservation: inserted, applied, conflicts };
+    return {
+      family: updated,
+      sourceRecordId: record.id,
+      newObservation: inserted,
+      applied,
+      conflicts,
+    };
   });
 }
 
@@ -459,9 +457,7 @@ export async function resolveProductFamily(
 }
 
 /** The public read projection: verified facts plus safe source freshness. */
-export async function getPublicProductFamily(
-  idOrSlug: string,
-): Promise<ProductFamily | undefined> {
+export async function getPublicProductFamily(idOrSlug: string): Promise<ProductFamily | undefined> {
   const db = getDb();
   const row = await resolveProductFamily(idOrSlug);
   if (!row) return undefined;

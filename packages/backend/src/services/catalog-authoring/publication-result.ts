@@ -152,7 +152,7 @@ export async function composePublicationResult(
       productVariantId: variant.id,
       resolution,
       canonicalVariantId:
-        resolution === 'merchant_declared' ? canonicalByVariantId.get(variant.id) ?? null : null,
+        resolution === 'merchant_declared' ? (canonicalByVariantId.get(variant.id) ?? null) : null,
       axisSignature: signatureByVariantId.get(variant.id) ?? null,
       axisAssignmentCount: assignmentCounts.get(variant.id) ?? 0,
       merchantDeclaredClaimCount: claimCounts.get(variant.id) ?? 0,

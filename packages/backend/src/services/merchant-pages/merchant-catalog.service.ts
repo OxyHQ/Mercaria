@@ -161,7 +161,10 @@ export async function getMerchantCatalog(
     now,
   });
 
-  const offerRows = await loadOffersWithChannel(db, ranked.map((row) => row.offerId));
+  const offerRows = await loadOffersWithChannel(
+    db,
+    ranked.map((row) => row.offerId),
+  );
   const context = await buildOfferProjectionContext(offerRows, now, db);
   const projectedById = new Map<string, Offer>(
     offerRows.map((row) => [
@@ -268,7 +271,10 @@ export async function getMerchantOffers(query: MerchantCatalogQuery): Promise<Me
   });
 
   const page = rows.slice(0, query.limit);
-  const offerRows = await loadOffersWithChannel(db, page.map((row) => row.offerId));
+  const offerRows = await loadOffersWithChannel(
+    db,
+    page.map((row) => row.offerId),
+  );
   const context = await buildOfferProjectionContext(offerRows, now, db);
   const byId = new Map(
     offerRows.map((row) => [

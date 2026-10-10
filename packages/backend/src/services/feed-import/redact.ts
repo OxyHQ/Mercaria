@@ -50,7 +50,10 @@ export function redactFeedUrl(value: string | null | undefined): string | null {
  * same reason {@link redactFeedUrl} does.
  */
 export function redactFeedMessage(message: string): string {
-  return message.replace(/https?:\/\/[^\s"'<>]+/gu, (match) => redactFeedUrl(match) ?? FEED_REDACTED_PLACEHOLDER);
+  return message.replace(
+    /https?:\/\/[^\s"'<>]+/gu,
+    (match) => redactFeedUrl(match) ?? FEED_REDACTED_PLACEHOLDER,
+  );
 }
 
 /** A message bounded to what `feed_import_reports.failure_note` accepts. */

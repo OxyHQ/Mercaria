@@ -12,22 +12,24 @@ import type {
   OrderPickup,
   PickupCollectionCode,
   PickupCollectionEvent,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
-import type { StoreStats } from "./types";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
+import type { StoreStats } from './types';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/orders`;
 
 /** Status transitions the fulfilment UI may drive (subset of `OrderStatus`). */
-export type FulfillmentStatus = "processing" | "shipped" | "delivered" | "cancelled";
+export type FulfillmentStatus = 'processing' | 'shipped' | 'delivered' | 'cancelled';
 
 /** GET orders — paginated `OrderSummary` list, optionally filtered by status. */
 export async function fetchOrders(
   storeId: string,
   params: { page?: number; limit?: number; status?: OrderStatus } = {},
 ): Promise<PaginatedResponse<MerchantOrderSummary>> {
-  const { data } = await apiClient.get<PaginatedResponse<MerchantOrderSummary>>(base(storeId), { params });
+  const { data } = await apiClient.get<PaginatedResponse<MerchantOrderSummary>>(base(storeId), {
+    params,
+  });
   return data;
 }
 
@@ -49,7 +51,10 @@ export async function patchOrderStatus(
   id: string,
   body: { status: FulfillmentStatus; trackingNumber?: string; note?: string },
 ): Promise<MerchantOrder> {
-  const { data } = await apiClient.patch<ApiResponse<MerchantOrder>>(`${base(storeId)}/${id}/status`, body);
+  const { data } = await apiClient.patch<ApiResponse<MerchantOrder>>(
+    `${base(storeId)}/${id}/status`,
+    body,
+  );
   return unwrap(data);
 }
 
@@ -59,7 +64,10 @@ export async function createRefund(
   id: string,
   input: CreateRefundInput,
 ): Promise<Refund> {
-  const { data } = await apiClient.post<ApiResponse<Refund>>(`${base(storeId)}/${id}/refunds`, input);
+  const { data } = await apiClient.post<ApiResponse<Refund>>(
+    `${base(storeId)}/${id}/refunds`,
+    input,
+  );
   return unwrap(data);
 }
 
@@ -87,17 +95,11 @@ export interface OrderPickupDesk {
   readonly events: readonly PickupCollectionEvent[];
 }
 
-const pickupBase = (storeId: string, orderId: string) =>
-  `${base(storeId)}/${orderId}/pickup`;
+const pickupBase = (storeId: string, orderId: string) => `${base(storeId)}/${orderId}/pickup`;
 
 /** GET the collection snapshot and its audited trail. 404s on a delivery order. */
-export async function fetchOrderPickup(
-  storeId: string,
-  orderId: string,
-): Promise<OrderPickupDesk> {
-  const { data } = await apiClient.get<ApiResponse<OrderPickupDesk>>(
-    pickupBase(storeId, orderId),
-  );
+export async function fetchOrderPickup(storeId: string, orderId: string): Promise<OrderPickupDesk> {
+  const { data } = await apiClient.get<ApiResponse<OrderPickupDesk>>(pickupBase(storeId, orderId));
   return unwrap(data);
 }
 

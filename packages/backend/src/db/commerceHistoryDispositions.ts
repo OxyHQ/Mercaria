@@ -200,7 +200,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       'DELETE is ALLOWED and that is a decision, not an omission: the row names a grant, and ' +
       '`asset_download_grants.expires_at` sweeps expired grants away with `ON DELETE SET NULL` ' +
       'on this column — so refusing DELETE here would make the sweep impossible while buying ' +
-      'nothing, because an access log is operational evidence and a right\'s own history lives ' +
+      "nothing, because an access log is operational evidence and a right's own history lives " +
       'in `asset_right_events`, which refuses both.',
   },
   {
@@ -221,7 +221,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     frozenColumns: [],
     reason:
       "#1015's audit of what happened to a buyer's right, append-only by " +
-      '`asset_right_events_append_only` — `ledger_transactions`\' treatment, for the same reason: ' +
+      "`asset_right_events_append_only` — `ledger_transactions`' treatment, for the same reason: " +
       'this is what a chargeback and a takedown dispute are answered from, and a row that can be ' +
       'edited is not evidence.',
   },
@@ -261,14 +261,16 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: ['variant_id', 'requested_quantity'],
-    reason: 'What the buyer asked for is frozen; only `approved_quantity` moves, and it is what a refund reads.',
+    reason:
+      'What the buyer asked for is frozen; only `approved_quantity` moves, and it is what a refund reads.',
   },
   {
     table: 'cancellation_requests',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A live request: it is filed, decided, then completed, so its status column exists to move.',
+    reason:
+      'A live request: it is filed, decided, then completed, so its status column exists to move.',
   },
   {
     table: 'disputes',
@@ -287,35 +289,40 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A POS draft is a basket being built and is not commerce history until `complete` converts it to an order.',
+    reason:
+      'A POS draft is a basket being built and is not commerce history until `complete` converts it to an order.',
   },
   {
     table: 'draft_order_line_item_option_values',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A POS draft is a basket being built and is not commerce history until `complete` converts it to an order.',
+    reason:
+      'A POS draft is a basket being built and is not commerce history until `complete` converts it to an order.',
   },
   {
     table: 'draft_order_line_items',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A POS draft is a basket being built and is not commerce history until `complete` converts it to an order.',
+    reason:
+      'A POS draft is a basket being built and is not commerce history until `complete` converts it to an order.',
   },
   {
     table: 'draft_order_tax_lines',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A POS draft is a basket being built and is not commerce history until `complete` converts it to an order.',
+    reason:
+      'A POS draft is a basket being built and is not commerce history until `complete` converts it to an order.',
   },
   {
     table: 'draft_orders',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A POS draft is a basket being built; the immutable record is the `orders` row it converts into.',
+    reason:
+      'A POS draft is a basket being built; the immutable record is the `orders` row it converts into.',
   },
   {
     table: 'ledger_entries',
@@ -359,14 +366,16 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowUpdate: 'refused',
     rowDelete: 'refused',
     frozenColumns: [],
-    reason: "#88's per-line allocation of the marketplace fee the order was placed under, append-only by trigger.",
+    reason:
+      "#88's per-line allocation of the marketplace fee the order was placed under, append-only by trigger.",
   },
   {
     table: 'order_fee_snapshots',
     rowUpdate: 'refused',
     rowDelete: 'refused',
     frozenColumns: [],
-    reason: "#88's immutable fee snapshot, the only fee input the money path reads, append-only by trigger.",
+    reason:
+      "#88's immutable fee snapshot, the only fee input the money path reads, append-only by trigger.",
   },
   {
     table: 'order_item_option_values',
@@ -410,7 +419,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     reason:
       'One purchased line as it stood at checkout: what was sold, at what price, how many, and where ' +
       "from. #90's three condition columns keep their own bespoke trigger and the other twenty are " +
-      "`order_items_snapshot_immutable` (#367 line 75). NOT a whole-row freeze: `position` stays open because " +
+      '`order_items_snapshot_immutable` (#367 line 75). NOT a whole-row freeze: `position` stays open because ' +
       '`db/__tests__/condition.realdb.test.ts` asserts an ordinary UPDATE still succeeds there — a ' +
       "vacuity guard proving #90's trigger is column-scoped rather than a whole-row refusal, and one " +
       'worth keeping. DELETE stays open: the FK cascade from `orders`.',
@@ -435,7 +444,8 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       'identity_requirement',
       'payment_requirement',
     ],
-    reason: "#93's snapshot of the collection point as the buyer was shown it is frozen; the collection STATE on the same row moves.",
+    reason:
+      "#93's snapshot of the collection point as the buyer was shown it is frozen; the collection STATE on the same row moves.",
   },
   {
     table: 'order_status_history',
@@ -522,7 +532,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       'moderation hold, the claim pair and the connector-sync columns are all written today — so what ' +
       'was SOLD is frozen by column instead: the order number, the group, who sold it, the commercial ' +
       'model, the destination address snapshot and every money and FX column ' +
-      '(`orders_snapshot_immutable`, #367 line 75), on top of ADR 0003 D6/I7\'s four buyer-identity columns, ' +
+      "(`orders_snapshot_immutable`, #367 line 75), on top of ADR 0003 D6/I7's four buyer-identity columns, " +
       'which keep their own bespoke trigger because it must permit `claimed_by_oxy_user_id` value → ' +
       'NULL (an audited unclaim) and the write-once guard would refuse it. `created_at` is deliberately ' +
       'left open: it is the RESERVATION CLOCK that `checkout.stripe.realdb.test.ts` moves to travel ' +
@@ -617,7 +627,8 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A live credential: it is issued, rotated and revoked, and its collection EVENTS are the append-only record.',
+    reason:
+      'A live credential: it is issued, rotated and revoked, and its collection EVENTS are the append-only record.',
   },
   {
     table: 'pickup_collection_events',
@@ -702,7 +713,8 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowUpdate: 'refused',
     rowDelete: 'refused',
     frozenColumns: [],
-    reason: "#123 observes a variance and #128 recognizes it; the observation is append-only by trigger.",
+    reason:
+      '#123 observes a variance and #128 recognizes it; the observation is append-only by trigger.',
   },
   {
     table: 'retail_customer_adjustments',
@@ -724,7 +736,8 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A live coordination record between the card rail and the supplier, decided after it is opened.',
+    reason:
+      'A live coordination record between the card rail and the supplier, decided after it is opened.',
   },
   {
     table: 'retail_fulfilment_intents',
@@ -771,7 +784,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowDelete: 'allowed',
     frozenColumns: [],
     reason:
-      "#123 freezes the line at checkout — a revised total is a new quote and a new acceptance, never an edited line.",
+      '#123 freezes the line at checkout — a revised total is a new quote and a new acceptance, never an edited line.',
   },
   {
     table: 'retail_procurement_intents',
@@ -790,7 +803,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       'buyer_locked_total_currency',
     ],
     reason:
-      "#123's \"WHAT was promised, frozen at checkout\", which `schema/retailCheckout.ts` says twice and " +
+      '#123\'s "WHAT was promised, frozen at checkout", which `schema/retailCheckout.ts` says twice and ' +
       '`retailFulfilment.ts` cites as an immutable home. The row moves — an intent is recorded, ' +
       'requested, then resolved — so `status`, `requested_at`, `failure_kind` and `failure_detail` stay ' +
       'open and everything the purchase order is COMPOSED from is frozen ' +
@@ -818,7 +831,8 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'An open case an operator closes attributably, so the row moves once and is not a snapshot.',
+    reason:
+      'An open case an operator closes attributably, so the row moves once and is not a snapshot.',
   },
   {
     table: 'retail_reconciliation_operator_actions',
@@ -846,7 +860,8 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A live case: authorized, shipped, received, dispositioned, so its state columns exist to move.',
+    reason:
+      'A live case: authorized, shipped, received, dispositioned, so its state columns exist to move.',
   },
   {
     table: 'retail_return_line_dispositions',
@@ -860,7 +875,8 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'No database enforcement, and none is claimed; the request EVENTS beside it are the append-only record.',
+    reason:
+      'No database enforcement, and none is claimed; the request EVENTS beside it are the append-only record.',
   },
   {
     table: 'retail_service_request_events',
@@ -914,35 +930,40 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowUpdate: 'refused',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: "#110's return evidence refuses UPDATE, so what a buyer submitted cannot be swapped for something else.",
+    reason:
+      "#110's return evidence refuses UPDATE, so what a buyer submitted cannot be swapped for something else.",
   },
   {
     table: 'return_request_lines',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: ['variant_id', 'requested_quantity'],
-    reason: 'What the buyer asked to return is frozen; only `approved_quantity` moves, and it is what the refund reads.',
+    reason:
+      'What the buyer asked to return is frozen; only `approved_quantity` moves, and it is what the refund reads.',
   },
   {
     table: 'return_requests',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A live request: filed, approved, received, completed, so its status column exists to move.',
+    reason:
+      'A live request: filed, approved, received, completed, so its status column exists to move.',
   },
   {
     table: 'review_aggregates',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: "#76's aggregate is a PROJECTION that everything derives and nothing increments, so re-deriving it is the point.",
+    reason:
+      "#76's aggregate is a PROJECTION that everything derives and nothing increments, so re-deriving it is the point.",
   },
   {
     table: 'review_dimension_aggregates',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A projection rebuilt from the reviews beneath it, for the same reason as `review_aggregates`.',
+    reason:
+      'A projection rebuilt from the reviews beneath it, for the same reason as `review_aggregates`.',
   },
   {
     table: 'review_dimensions',
@@ -963,7 +984,8 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A reader may add or retract a helpfulness vote; it is mutable feedback, not a transaction snapshot.',
+    reason:
+      'A reader may add or retract a helpfulness vote; it is mutable feedback, not a transaction snapshot.',
   },
   {
     table: 'review_target_migrations',
@@ -977,7 +999,8 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
     frozenColumns: [],
-    reason: 'A review is the author\'s to edit and moderation may hide it, so the row moves by design.',
+    reason:
+      "A review is the author's to edit and moderation may hide it, so the row moves by design.",
   },
   {
     table: 'supplier_recoveries',
@@ -999,7 +1022,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowDelete: 'allowed',
     frozenColumns: [],
     reason:
-      'A thread is opened and closed; its MESSAGES are the append-only record. `drizzle/0054`\'s comment ' +
+      "A thread is opened and closed; its MESSAGES are the append-only record. `drizzle/0054`'s comment " +
       'reads as if the thread were covered too — it is not, and the trigger is on `support_messages`.',
   },
   {
@@ -1029,6 +1052,8 @@ export const COMMERCE_HISTORY_TABLES: readonly string[] = COMMERCE_HISTORY_DISPO
 );
 
 /** One table's declaration, or `undefined` when it has none. */
-export function commerceHistoryDispositionFor(table: string): CommerceHistoryDisposition | undefined {
+export function commerceHistoryDispositionFor(
+  table: string,
+): CommerceHistoryDisposition | undefined {
   return COMMERCE_HISTORY_DISPOSITIONS.find((entry) => entry.table === table);
 }

@@ -1,8 +1,8 @@
-import { Button } from "@oxy.so/bloom/button";
-import { FollowTargetButton, openAccountDialog, useOxy } from "@oxy.so/services";
-import { useTranslation } from "@/lib/i18n";
-import { useSellerFollowTarget } from "@/lib/hooks/use-seller-follow";
-import { type FollowButtonSize } from "@/lib/follow-graph";
+import { Button } from '@oxy.so/bloom/button';
+import { FollowTargetButton, openAccountDialog, useOxy } from '@oxy.so/services';
+import { useTranslation } from '@/lib/i18n';
+import { useSellerFollowTarget } from '@/lib/hooks/use-seller-follow';
+import { type FollowButtonSize } from '@/lib/follow-graph';
 
 /**
  * Follow a P2P SELLER — a person — backed by Oxy's user-owned follow graph
@@ -42,7 +42,7 @@ import { type FollowButtonSize } from "@/lib/follow-graph";
 export function SellerFollowButton({
   oxyUserId,
   displayName,
-  size = "md",
+  size = 'md',
 }: {
   oxyUserId: string;
   displayName: string;
@@ -77,9 +77,9 @@ export function SellerFollowButton({
       tone="accent"
       size={size}
       onPress={() => openAccountDialog()}
-      accessibilityLabel={t("sellers.follow.actionLabel", { name: displayName })}
+      accessibilityLabel={t('sellers.follow.actionLabel', { name: displayName })}
     >
-      {t("sellers.follow.action")}
+      {t('sellers.follow.action')}
     </Button>
   );
 }

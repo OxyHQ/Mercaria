@@ -29,4 +29,3 @@ export function invalidateOxyServiceToken(): void {
 export function resetOxyServiceClientForTests(): void {
   client = undefined;
 }
-

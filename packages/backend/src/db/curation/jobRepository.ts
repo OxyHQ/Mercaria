@@ -376,7 +376,12 @@ export async function cancelMergeJob(
 ): Promise<boolean> {
   const rows = await db
     .update(catalogMergeJobs)
-    .set({ status: 'cancelled', leaseOwner: null, leaseUntil: null, lastError: note.slice(0, CURATION_MAX_TEXT_LENGTH) })
+    .set({
+      status: 'cancelled',
+      leaseOwner: null,
+      leaseUntil: null,
+      lastError: note.slice(0, CURATION_MAX_TEXT_LENGTH),
+    })
     .where(
       and(
         eq(catalogMergeJobs.id, id),
@@ -398,7 +403,12 @@ export async function cancelSplitJob(
 ): Promise<boolean> {
   const rows = await db
     .update(catalogSplitJobs)
-    .set({ status: 'cancelled', leaseOwner: null, leaseUntil: null, lastError: note.slice(0, CURATION_MAX_TEXT_LENGTH) })
+    .set({
+      status: 'cancelled',
+      leaseOwner: null,
+      leaseUntil: null,
+      lastError: note.slice(0, CURATION_MAX_TEXT_LENGTH),
+    })
     .where(
       and(
         eq(catalogSplitJobs.id, id),
@@ -968,7 +978,10 @@ export async function insertSplitAssignment(
   itemRef: string,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<void> {
-  await db.insert(catalogSplitAssignments).values({ jobId, itemType, itemRef }).onConflictDoNothing();
+  await db
+    .insert(catalogSplitAssignments)
+    .values({ jobId, itemType, itemRef })
+    .onConflictDoNothing();
 }
 
 export async function listSplitAssignments(
@@ -1036,5 +1049,9 @@ export async function summarizeSplitAssignments(
     .from(catalogSplitAssignments)
     .where(eq(catalogSplitAssignments.jobId, jobId));
   const row = rows[0];
-  return { assigned: Number(row?.assigned ?? 0), applied: Number(row?.applied ?? 0), skipped: Number(row?.skipped ?? 0) };
+  return {
+    assigned: Number(row?.assigned ?? 0),
+    applied: Number(row?.applied ?? 0),
+    skipped: Number(row?.skipped ?? 0),
+  };
 }

@@ -46,10 +46,7 @@ import {
 } from '@mercaria/shared-types';
 import { categories, listings } from '../../db/schema/catalog.js';
 import { productTypeDefinitions, productTypeFields } from '../../db/schema/productTypes.js';
-import {
-  canonicalProductFamilies,
-  canonicalProducts,
-} from '../../db/schema/canonicalCatalog.js';
+import { canonicalProductFamilies, canonicalProducts } from '../../db/schema/canonicalCatalog.js';
 import {
   attributeDefinitions,
   attributeEnumValues,
@@ -416,10 +413,7 @@ export async function reviewCanonicalProductFamilyLocalization(
     .from(canonicalProductFamilyLocalizations)
     .where(
       and(
-        eq(
-          canonicalProductFamilyLocalizations.canonicalProductFamilyId,
-          canonicalProductFamilyId,
-        ),
+        eq(canonicalProductFamilyLocalizations.canonicalProductFamilyId, canonicalProductFamilyId),
         eq(canonicalProductFamilyLocalizations.locale, locale),
       ),
     )

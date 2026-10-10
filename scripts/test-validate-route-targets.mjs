@@ -25,15 +25,15 @@
  * guard works on a fixture tree.
  */
 
-import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
-import { readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const validator = resolve(repositoryRoot, "scripts/validate-route-targets.mjs");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const validator = resolve(repositoryRoot, 'scripts/validate-route-targets.mjs');
 
 let failures = 0;
 
@@ -44,31 +44,31 @@ function report(name, ok, detail) {
   }
   failures += 1;
   console.error(`  FAIL ${name}`);
-  if (detail) console.error(`       ${detail.split("\n").join("\n       ")}`);
+  if (detail) console.error(`       ${detail.split('\n').join('\n       ')}`);
 }
 
 /** Run the REAL guard against a scratch checkout. */
 async function runAgainst(files, { realFloors = false } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "route-target-validator-"));
+  const root = await mkdtemp(join(tmpdir(), 'route-target-validator-'));
   try {
     for (const [path, contents] of Object.entries(files)) {
       const full = join(root, path);
       await mkdir(dirname(full), { recursive: true });
       await writeFile(full, contents);
     }
-    spawnSync("git", ["-c", "init.defaultBranch=main", "init", "-q"], { cwd: root });
-    spawnSync("git", ["add", "-A", "-f"], { cwd: root });
+    spawnSync('git', ['-c', 'init.defaultBranch=main', 'init', '-q'], { cwd: root });
+    spawnSync('git', ['add', '-A', '-f'], { cwd: root });
 
     const env = { ...process.env, ROUTE_TARGET_VALIDATOR_ROOT: root };
-    if (!realFloors) env.ROUTE_TARGET_VALIDATOR_FIXTURE_FLOORS = "1";
+    if (!realFloors) env.ROUTE_TARGET_VALIDATOR_FIXTURE_FLOORS = '1';
 
-    const proc = spawnSync("bun", [validator], {
+    const proc = spawnSync('bun', [validator], {
       cwd: repositoryRoot,
       env,
-      encoding: "utf8",
+      encoding: 'utf8',
       maxBuffer: 32 * 1024 * 1024,
     });
-    return { exitCode: proc.status, output: `${proc.stdout ?? ""}${proc.stderr ?? ""}` };
+    return { exitCode: proc.status, output: `${proc.stdout ?? ''}${proc.stderr ?? ''}` };
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -80,43 +80,45 @@ async function runAgainst(files, { realFloors = false } = {}) {
  */
 function cleanTree(extra = {}) {
   return {
-    "packages/frontend/app/(app)/index.tsx": "export default function Home() { return null; }\n",
-    "packages/frontend/app/(app)/products/[id].tsx": "export default function P() { return null; }\n",
-    "packages/frontend/app/(app)/products/wizard/[draftId].tsx":
-      "export default function W() { return null; }\n",
-    "packages/frontend/app/(app)/checkout.tsx": "export default function C() { return null; }\n",
-    "packages/frontend/components/Nav.tsx":
-      "export function Nav() {\n"
-      + "  const router = useRouter();\n"
-      + "  return <Button onPress={() => router.push(`/products/${id}`)} />;\n"
-      + "}\n",
+    'packages/frontend/app/(app)/index.tsx': 'export default function Home() { return null; }\n',
+    'packages/frontend/app/(app)/products/[id].tsx':
+      'export default function P() { return null; }\n',
+    'packages/frontend/app/(app)/products/wizard/[draftId].tsx':
+      'export default function W() { return null; }\n',
+    'packages/frontend/app/(app)/checkout.tsx': 'export default function C() { return null; }\n',
+    'packages/frontend/components/Nav.tsx':
+      'export function Nav() {\n' +
+      '  const router = useRouter();\n' +
+      '  return <Button onPress={() => router.push(`/products/${id}`)} />;\n' +
+      '}\n',
 
-    "packages/dashboard/app/(app)/index.tsx": "export default function D() { return null; }\n",
-    "packages/dashboard/app/(app)/orders/[id].tsx": "export default function O() { return null; }\n",
-    "packages/dashboard/components/Rows.tsx":
-      "export function Rows() {\n"
-      + "  const router = useRouter();\n"
-      + "  return <Row onPress={() => router.push(`/orders/${order.id}`)} />;\n"
-      + "}\n",
+    'packages/dashboard/app/(app)/index.tsx': 'export default function D() { return null; }\n',
+    'packages/dashboard/app/(app)/orders/[id].tsx':
+      'export default function O() { return null; }\n',
+    'packages/dashboard/components/Rows.tsx':
+      'export function Rows() {\n' +
+      '  const router = useRouter();\n' +
+      '  return <Row onPress={() => router.push(`/orders/${order.id}`)} />;\n' +
+      '}\n',
 
-    "packages/pos/app/(app)/index.tsx": "export default function R() { return null; }\n",
-    "packages/pos/app/(app)/receipt/[id].tsx": "export default function Rc() { return null; }\n",
-    "packages/pos/components/Sales.tsx":
-      "export function Sales() {\n"
-      + "  const router = useRouter();\n"
-      + "  return <Row onPress={() => router.push({ pathname: '/receipt/[id]', params: { id } })} />;\n"
-      + "}\n",
+    'packages/pos/app/(app)/index.tsx': 'export default function R() { return null; }\n',
+    'packages/pos/app/(app)/receipt/[id].tsx': 'export default function Rc() { return null; }\n',
+    'packages/pos/components/Sales.tsx':
+      'export function Sales() {\n' +
+      '  const router = useRouter();\n' +
+      "  return <Row onPress={() => router.push({ pathname: '/receipt/[id]', params: { id } })} />;\n" +
+      '}\n',
     ...extra,
   };
 }
 
-console.log("validate-route-targets self-test\n");
+console.log('validate-route-targets self-test\n');
 
 // ------------------------------------------------------------ must PASS ---
 
 {
   const { exitCode, output } = await runAgainst(cleanTree());
-  report("a clean three-app tree passes", exitCode === 0, output);
+  report('a clean three-app tree passes', exitCode === 0, output);
 }
 
 {
@@ -124,75 +126,75 @@ console.log("validate-route-targets self-test\n");
   // must pass, or the failure there would be about the shape rather than the typo.
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/components/Deep.tsx":
-        "const go = () => router.push(`/products/wizard/${draft.id}`);\n",
+      'packages/frontend/components/Deep.tsx':
+        'const go = () => router.push(`/products/wizard/${draft.id}`);\n',
     }),
   );
-  report("a correct deep template target passes", exitCode === 0, output);
+  report('a correct deep template target passes', exitCode === 0, output);
 }
 
 {
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/components/Query.tsx":
-        "const go = () => router.push(`/checkout?${query.toString()}`);\n",
+      'packages/frontend/components/Query.tsx':
+        'const go = () => router.push(`/checkout?${query.toString()}`);\n',
     }),
   );
-  report("an interpolated QUERY on a real route passes", exitCode === 0, output);
+  report('an interpolated QUERY on a real route passes', exitCode === 0, output);
 }
 
 {
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/components/Group.tsx":
+      'packages/frontend/components/Group.tsx':
         "const go = () => router.push('/(app)/checkout');\n",
     }),
   );
-  report("an explicit (app) group segment passes", exitCode === 0, output);
+  report('an explicit (app) group segment passes', exitCode === 0, output);
 }
 
 {
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/app/+html.tsx":
-        "export default function Root() {\n"
-        + "  return <link rel=\"icon\" href=\"/icon-192.png\" />;\n"
-        + "}\n",
+      'packages/frontend/app/+html.tsx':
+        'export default function Root() {\n' +
+        '  return <link rel="icon" href="/icon-192.png" />;\n' +
+        '}\n',
     }),
   );
-  report("a static asset href in the web HTML shell passes", exitCode === 0, output);
+  report('a static asset href in the web HTML shell passes', exitCode === 0, output);
 }
 
 {
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/components/Seo.tsx":
-        "export const Seo = () => <link rel=\"canonical\" href=\"/not-a-route-at-all\" />;\n",
+      'packages/frontend/components/Seo.tsx':
+        'export const Seo = () => <link rel="canonical" href="/not-a-route-at-all" />;\n',
     }),
   );
-  report("a lowercase <link> href is not read as a route", exitCode === 0, output);
+  report('a lowercase <link> href is not read as a route', exitCode === 0, output);
 }
 
 {
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/components/Commented.tsx":
-        "// const dead = () => router.push(`/prodcuts/${id}`);\n"
-        + "/* router.push('/also-not-real') */\n"
-        + "export const A = () => null;\n",
+      'packages/frontend/components/Commented.tsx':
+        '// const dead = () => router.push(`/prodcuts/${id}`);\n' +
+        "/* router.push('/also-not-real') */\n" +
+        'export const A = () => null;\n',
     }),
   );
-  report("a commented-out dead target is not a finding", exitCode === 0, output);
+  report('a commented-out dead target is not a finding', exitCode === 0, output);
 }
 
 {
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/components/Helper.tsx":
+      'packages/frontend/components/Helper.tsx':
         "const go = () => router.push(buildHref('products', id));\n",
     }),
   );
-  report("a non-literal argument is unresolvable, not a failure", exitCode === 0, output);
+  report('a non-literal argument is unresolvable, not a failure', exitCode === 0, output);
 }
 
 // ------------------------------------------------------------ must FAIL ---
@@ -202,13 +204,13 @@ console.log("validate-route-targets self-test\n");
   // absorbs the typo and exits 0. Measured, on the real dashboard.
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/components/Deep.tsx":
-        "const go = () => router.push(`/products/wizrd/${draft.id}`);\n",
+      'packages/frontend/components/Deep.tsx':
+        'const go = () => router.push(`/products/wizrd/${draft.id}`);\n',
     }),
   );
   report(
-    "a deep-segment typo under a dynamic route FAILS (the #456 case)",
-    exitCode === 1 && output.includes("packages/frontend/components/Deep.tsx"),
+    'a deep-segment typo under a dynamic route FAILS (the #456 case)',
+    exitCode === 1 && output.includes('packages/frontend/components/Deep.tsx'),
     output,
   );
 }
@@ -216,13 +218,13 @@ console.log("validate-route-targets self-test\n");
 {
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/components/First.tsx":
-        "const go = () => router.push(`/prodcuts/${id}`);\n",
+      'packages/frontend/components/First.tsx':
+        'const go = () => router.push(`/prodcuts/${id}`);\n',
     }),
   );
   report(
-    "a first-segment typo FAILS",
-    exitCode === 1 && output.includes("packages/frontend/components/First.tsx"),
+    'a first-segment typo FAILS',
+    exitCode === 1 && output.includes('packages/frontend/components/First.tsx'),
     output,
   );
 }
@@ -232,13 +234,13 @@ console.log("validate-route-targets self-test\n");
   // after `(` was read, so both branches of a conditional went unchecked.
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/components/Ternary.tsx":
+      'packages/frontend/components/Ternary.tsx':
         "const go = () => router.push(orderId ? `/orders/${orderId}` : '/ordrs');\n",
     }),
   );
   report(
-    "a dead target in the SECOND branch of a ternary FAILS",
-    exitCode === 1 && output.includes("packages/frontend/components/Ternary.tsx"),
+    'a dead target in the SECOND branch of a ternary FAILS',
+    exitCode === 1 && output.includes('packages/frontend/components/Ternary.tsx'),
     output,
   );
 }
@@ -246,13 +248,13 @@ console.log("validate-route-targets self-test\n");
 {
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/components/Card.tsx":
-        "export const Card = () => <Link href=\"/nowhere-at-all\">go</Link>;\n",
+      'packages/frontend/components/Card.tsx':
+        'export const Card = () => <Link href="/nowhere-at-all">go</Link>;\n',
     }),
   );
   report(
-    "a capitalised <Link href> to a dead route FAILS",
-    exitCode === 1 && output.includes("packages/frontend/components/Card.tsx"),
+    'a capitalised <Link href> to a dead route FAILS',
+    exitCode === 1 && output.includes('packages/frontend/components/Card.tsx'),
     output,
   );
 }
@@ -260,13 +262,13 @@ console.log("validate-route-targets self-test\n");
 {
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/components/Obj.tsx":
+      'packages/frontend/components/Obj.tsx':
         "const go = () => router.push({ pathname: '/products/wizrd/[draftId]', params: {} });\n",
     }),
   );
   report(
-    "an object-form pathname to a dead route FAILS",
-    exitCode === 1 && output.includes("packages/frontend/components/Obj.tsx"),
+    'an object-form pathname to a dead route FAILS',
+    exitCode === 1 && output.includes('packages/frontend/components/Obj.tsx'),
     output,
   );
 }
@@ -274,13 +276,13 @@ console.log("validate-route-targets self-test\n");
 {
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/frontend/components/Renamed.tsx":
+      'packages/frontend/components/Renamed.tsx':
         "const nav = useRouter();\nconst go = () => nav.push('/nowhere');\n",
     }),
   );
   report(
-    "binding useRouter() to another name FAILS rather than going unscanned",
-    exitCode === 1 && output.includes("Renamed.tsx"),
+    'binding useRouter() to another name FAILS rather than going unscanned',
+    exitCode === 1 && output.includes('Renamed.tsx'),
     output,
   );
 }
@@ -288,13 +290,12 @@ console.log("validate-route-targets self-test\n");
 {
   const { exitCode, output } = await runAgainst(
     cleanTree({
-      "packages/ui/src/components/Bad.tsx":
-        "const go = () => router.push('/products/1');\n",
+      'packages/ui/src/components/Bad.tsx': "const go = () => router.push('/products/1');\n",
     }),
   );
   report(
-    "a navigation call inside the shared ui package FAILS",
-    exitCode === 1 && output.includes("packages/ui"),
+    'a navigation call inside the shared ui package FAILS',
+    exitCode === 1 && output.includes('packages/ui'),
     output,
   );
 }
@@ -303,13 +304,13 @@ console.log("validate-route-targets self-test\n");
   // An app whose tree vanished. The per-app floor is what must catch this, and
   // it is the assertion that cannot rot as the other apps grow.
   const tree = cleanTree();
-  delete tree["packages/pos/app/(app)/index.tsx"];
-  delete tree["packages/pos/app/(app)/receipt/[id].tsx"];
-  delete tree["packages/pos/components/Sales.tsx"];
+  delete tree['packages/pos/app/(app)/index.tsx'];
+  delete tree['packages/pos/app/(app)/receipt/[id].tsx'];
+  delete tree['packages/pos/components/Sales.tsx'];
   const { exitCode, output } = await runAgainst(tree);
   report(
-    "an app contributing no files FAILS its per-app floor by name",
-    exitCode === 1 && output.includes("pos"),
+    'an app contributing no files FAILS its per-app floor by name',
+    exitCode === 1 && output.includes('pos'),
     output,
   );
 }
@@ -319,8 +320,8 @@ console.log("validate-route-targets self-test\n");
   // seen to fire rather than assumed to.
   const { exitCode, output } = await runAgainst(cleanTree(), { realFloors: true });
   report(
-    "the real global floors fire on a tree far too small",
-    exitCode === 1 && output.includes("below the floor"),
+    'the real global floors fire on a tree far too small',
+    exitCode === 1 && output.includes('below the floor'),
     output,
   );
 }
@@ -328,16 +329,16 @@ console.log("validate-route-targets self-test\n");
 // ------------------------------------------- the exemption list is disciplined ---
 
 {
-  const source = readFileSync(validator, "utf8");
+  const source = readFileSync(validator, 'utf8');
   const match = /const KNOWN_EXCEPTIONS = \[([\s\S]*?)\];/.exec(source);
   const body = match ? match[1].trim() : null;
   report(
-    "KNOWN_EXCEPTIONS is empty, and adding one means adding a case here",
-    body === "",
-    "The list is empty on this branch because all three trees resolve clean. If you have added an "
-    + "entry, add a fixture case above that proves it excuses exactly what it claims and no more — "
-    + "an excusing entry is a predicate, not an identity. An entry must never be the way a genuinely "
-    + "dead route is made green.",
+    'KNOWN_EXCEPTIONS is empty, and adding one means adding a case here',
+    body === '',
+    'The list is empty on this branch because all three trees resolve clean. If you have added an ' +
+      'entry, add a fixture case above that proves it excuses exactly what it claims and no more — ' +
+      'an excusing entry is a predicate, not an identity. An entry must never be the way a genuinely ' +
+      'dead route is made green.',
   );
 }
 
@@ -356,65 +357,71 @@ console.log("validate-route-targets self-test\n");
  */
 {
   const candidates = spawnSync(
-    "git",
+    'git',
     [
-      "grep", "-l", "-E", "router\\.(push|replace)\\(`/",
-      "--", "packages/frontend", "packages/dashboard", "packages/pos",
+      'grep',
+      '-l',
+      '-E',
+      'router\\.(push|replace)\\(`/',
+      '--',
+      'packages/frontend',
+      'packages/dashboard',
+      'packages/pos',
     ],
-    { cwd: repositoryRoot, encoding: "utf8" },
+    { cwd: repositoryRoot, encoding: 'utf8' },
   );
-  const file = (candidates.stdout ?? "").split("\n").filter(Boolean)[0];
+  const file = (candidates.stdout ?? '').split('\n').filter(Boolean)[0];
 
   if (!file) {
     report(
-      "a real template-literal call site exists to mutate",
+      'a real template-literal call site exists to mutate',
       false,
-      "Found none. Either every target has moved to the object form — in which case delete this "
-      + "case deliberately — or the search stopped matching, in which case this whole case has been "
-      + "silently asserting nothing.",
+      'Found none. Either every target has moved to the object form — in which case delete this ' +
+        'case deliberately — or the search stopped matching, in which case this whole case has been ' +
+        'silently asserting nothing.',
     );
   } else {
     const full = resolve(repositoryRoot, file);
-    const original = readFileSync(full, "utf8");
+    const original = readFileSync(full, 'utf8');
     // Mutate the LAST static segment of the first template target in the file.
     const site = /router\.(?:push|replace)\(`(\/[A-Za-z0-9\-_/]*\/)\$\{/.exec(original);
 
     if (!site) {
       report(
-        "the real call site has a static prefix to mutate",
+        'the real call site has a static prefix to mutate',
         false,
-        `${file} matched the file search but not the prefix pattern — the two have drifted apart, `
-        + "so this case is measuring nothing.",
+        `${file} matched the file search but not the prefix pattern — the two have drifted apart, ` +
+          'so this case is measuring nothing.',
       );
     } else {
       const prefix = site[1];
-      const segments = prefix.split("/").filter(Boolean);
+      const segments = prefix.split('/').filter(Boolean);
       const mutatedPrefix = `/${[
         ...segments.slice(0, -1),
         `${segments[segments.length - 1]}-mercaria-not-a-route`,
-      ].join("/")}/`;
+      ].join('/')}/`;
       const mutated = original.replace(`\`${prefix}\${`, `\`${mutatedPrefix}\${`);
-      const line = original.slice(0, site.index).split("\n").length;
+      const line = original.slice(0, site.index).split('\n').length;
 
       try {
         writeFileSync(full, mutated);
 
         // PROVE the mutation applied before believing any exit code.
-        const onDisk = readFileSync(full, "utf8");
+        const onDisk = readFileSync(full, 'utf8');
         if (onDisk === original) {
           report(
-            "the real-tree mutation applied",
+            'the real-tree mutation applied',
             false,
-            `${file} is byte-identical after the write — the replacement matched nothing, and a `
-            + "mutation that never applied is indistinguishable from one that survived.",
+            `${file} is byte-identical after the write — the replacement matched nothing, and a ` +
+              'mutation that never applied is indistinguishable from one that survived.',
           );
         } else {
-          const red = spawnSync("bun", [validator], {
+          const red = spawnSync('bun', [validator], {
             cwd: repositoryRoot,
-            encoding: "utf8",
+            encoding: 'utf8',
             maxBuffer: 32 * 1024 * 1024,
           });
-          const output = `${red.stdout ?? ""}${red.stderr ?? ""}`;
+          const output = `${red.stdout ?? ''}${red.stderr ?? ''}`;
           report(
             `the real tree goes RED when ${file}:${line} is mistyped`,
             red.status === 1 && output.includes(file) && output.includes(`:${line}`),
@@ -425,26 +432,26 @@ console.log("validate-route-targets self-test\n");
         writeFileSync(full, original);
       }
 
-      const restored = readFileSync(full, "utf8");
+      const restored = readFileSync(full, 'utf8');
       report(`${file} is restored byte-for-byte`, restored === original);
 
-      const green = spawnSync("bun", [validator], {
+      const green = spawnSync('bun', [validator], {
         cwd: repositoryRoot,
-        encoding: "utf8",
+        encoding: 'utf8',
         maxBuffer: 32 * 1024 * 1024,
       });
       report(
-        "the real tree is GREEN again after the restore",
+        'the real tree is GREEN again after the restore',
         green.status === 0,
-        `${green.stdout ?? ""}${green.stderr ?? ""}`,
+        `${green.stdout ?? ''}${green.stderr ?? ''}`,
       );
     }
   }
 }
 
-console.log("");
+console.log('');
 if (failures > 0) {
   console.error(`validate-route-targets self-test: ${failures} case(s) failed.\n`);
   process.exit(1);
 }
-console.log("validate-route-targets self-test passed.\n");
+console.log('validate-route-targets self-test passed.\n');

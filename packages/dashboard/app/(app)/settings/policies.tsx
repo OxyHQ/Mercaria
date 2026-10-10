@@ -1,27 +1,27 @@
-import React, { useState } from "react";
-import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { ChevronLeft } from "lucide-react-native";
-import type { Store } from "@mercaria/shared-types";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Textarea } from "@oxy.so/bloom/textarea";
-import { Button } from "@oxy.so/bloom/button";
-import { Switch } from "@oxy.so/bloom/switch";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { useTranslation } from "@/lib/i18n";
-import { useStore, useUpdateStoreSettings } from "@/lib/hooks/use-stores";
+import React, { useState } from 'react';
+import { View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { ChevronLeft } from 'lucide-react-native';
+import type { Store } from '@mercaria/shared-types';
+import { Text, useColorScheme } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Textarea } from '@oxy.so/bloom/textarea';
+import { Button } from '@oxy.so/bloom/button';
+import { Switch } from '@oxy.so/bloom/switch';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { useTranslation } from '@/lib/i18n';
+import { useStore, useUpdateStoreSettings } from '@/lib/hooks/use-stores';
 
 export default function PoliciesScreen() {
   const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>{t("settings.policies.documentTitle")}</title>
+        <title>{t('settings.policies.documentTitle')}</title>
       </Head>
       <RequireStore permission="settings:write">
         {(storeId) => <PoliciesBody storeId={storeId} />}
@@ -42,23 +42,23 @@ function PoliciesBody({ storeId }: { storeId: string }) {
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
+      <Text className="text-sm font-medium text-foreground">{t('common.back')}</Text>
     </Pressable>
   );
 
   if (isPending) {
     return (
-      <Screen title={t("settings.policies.title")} action={back}>
+      <Screen title={t('settings.policies.title')} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (isError || !data) {
     return (
-      <Screen title={t("settings.policies.title")} action={back}>
+      <Screen title={t('settings.policies.title')} action={back}>
         <ScreenMessage
-          title={t("settings.policies.loadFailed")}
-          body={t("common.pleaseTryAgain")}
+          title={t('settings.policies.loadFailed')}
+          body={t('common.pleaseTryAgain')}
         />
       </Screen>
     );
@@ -66,8 +66,8 @@ function PoliciesBody({ storeId }: { storeId: string }) {
 
   return (
     <Screen
-      title={t("settings.policies.title")}
-      subtitle={t("settings.policies.subtitle")}
+      title={t('settings.policies.title')}
+      subtitle={t('settings.policies.subtitle')}
       action={back}
     >
       <PoliciesForm storeId={storeId} store={data} />
@@ -80,16 +80,16 @@ function PoliciesForm({ storeId, store }: { storeId: string; store: Store }) {
   const { t } = useTranslation();
 
   const [returnWindow, setReturnWindow] = useState(String(store.policies.returnWindowDays ?? 0));
-  const [refundPolicy, setRefundPolicy] = useState(store.policies.refundPolicy ?? "");
-  const [privacyPolicy, setPrivacyPolicy] = useState(store.policies.privacyPolicy ?? "");
-  const [termsOfService, setTermsOfService] = useState(store.policies.termsOfService ?? "");
+  const [refundPolicy, setRefundPolicy] = useState(store.policies.refundPolicy ?? '');
+  const [privacyPolicy, setPrivacyPolicy] = useState(store.policies.privacyPolicy ?? '');
+  const [termsOfService, setTermsOfService] = useState(store.policies.termsOfService ?? '');
   const [lowStockAlerts, setLowStockAlerts] = useState(
     store.notificationSettings?.lowStockAlerts ?? true,
   );
   const [orderEmails, setOrderEmails] = useState(store.notificationSettings?.orderEmails ?? true);
 
   const save = () => {
-    const parsedWindow = Number.parseInt(returnWindow || "0", 10);
+    const parsedWindow = Number.parseInt(returnWindow || '0', 10);
     updateSettings.mutate(
       {
         policies: {
@@ -101,76 +101,81 @@ function PoliciesForm({ storeId, store }: { storeId: string; store: Store }) {
         notificationSettings: { lowStockAlerts, orderEmails },
       },
       {
-        onSuccess: () => toast.success(t("settings.policies.saved")),
-        onError: () => toast.error(t("settings.policies.saveFailed")),
+        onSuccess: () => toast.success(t('settings.policies.saved')),
+        onError: () => toast.error(t('settings.policies.saveFailed')),
       },
     );
   };
 
   return (
     <View className="gap-5">
-      <Field label={t("settings.policies.returnWindowLabel")}>
+      <Field label={t('settings.policies.returnWindowLabel')}>
         <TextFieldInput
-          label={t("settings.policies.returnWindowLabel")}
+          label={t('settings.policies.returnWindowLabel')}
           value={returnWindow}
           onValueChange={setReturnWindow}
           keyboardType="number-pad"
           placeholder={null}
         />
       </Field>
-      <Field label={t("settings.policies.refundPolicyLabel")}>
+      <Field label={t('settings.policies.refundPolicyLabel')}>
         <Textarea
           autoResize
           value={refundPolicy}
           onValueChange={setRefundPolicy}
-          placeholder={t("settings.policies.refundPolicyPlaceholder")}
+          placeholder={t('settings.policies.refundPolicyPlaceholder')}
         />
       </Field>
-      <Field label={t("settings.policies.privacyPolicyLabel")}>
+      <Field label={t('settings.policies.privacyPolicyLabel')}>
         <Textarea
           autoResize
           value={privacyPolicy}
           onValueChange={setPrivacyPolicy}
-          placeholder={t("settings.policies.privacyPolicyPlaceholder")}
+          placeholder={t('settings.policies.privacyPolicyPlaceholder')}
         />
       </Field>
-      <Field label={t("settings.policies.termsLabel")}>
+      <Field label={t('settings.policies.termsLabel')}>
         <Textarea
           autoResize
           value={termsOfService}
           onValueChange={setTermsOfService}
-          placeholder={t("settings.policies.termsPlaceholder")}
+          placeholder={t('settings.policies.termsPlaceholder')}
         />
       </Field>
 
       <View className="rounded-2xl border border-border bg-surface p-4">
         <Text className="mb-3 text-sm font-semibold text-foreground">
-          {t("settings.policies.notifications")}
+          {t('settings.policies.notifications')}
         </Text>
         <View className="flex-row items-center justify-between py-2">
           <Text className="flex-1 text-sm text-foreground">
-            {t("settings.policies.lowStockAlerts")}
+            {t('settings.policies.lowStockAlerts')}
           </Text>
           <Switch
             checked={lowStockAlerts}
             onCheckedChange={setLowStockAlerts}
-            accessibilityLabel={t("settings.policies.lowStockAlerts")}
+            accessibilityLabel={t('settings.policies.lowStockAlerts')}
           />
         </View>
         <View className="flex-row items-center justify-between py-2">
           <Text className="flex-1 text-sm text-foreground">
-            {t("settings.policies.orderEmails")}
+            {t('settings.policies.orderEmails')}
           </Text>
           <Switch
             checked={orderEmails}
             onCheckedChange={setOrderEmails}
-            accessibilityLabel={t("settings.policies.orderEmails")}
+            accessibilityLabel={t('settings.policies.orderEmails')}
           />
         </View>
       </View>
 
-      <Button tone="accent" onPress={save} loading={updateSettings.isPending} className="self-start">
-        {t("settings.policies.saveSettings")}
+      <Button
+        tone="accent"
+        onPress={save}
+        loading={updateSettings.isPending}
+        className="self-start"
+      >
+        {t('settings.policies.saveSettings')}
       </Button>
     </View>
   );

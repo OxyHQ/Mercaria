@@ -178,9 +178,7 @@ describe('the handoff (ADR 0006 G10/G14)', () => {
     });
 
     expect(handoff?.methods).toEqual(['card', 'apple_pay', 'google_pay', 'link']);
-    expect(handoff?.returnUrl).toBe(
-      `https://mercaria.co/checkout/return?checkoutGroupId=${GROUP}`,
-    );
+    expect(handoff?.returnUrl).toBe(`https://mercaria.co/checkout/return?checkoutGroupId=${GROUP}`);
   });
 
   it('gives a guest and an Oxy buyer the SAME surfaces (ADR 0006 B11)', async () => {

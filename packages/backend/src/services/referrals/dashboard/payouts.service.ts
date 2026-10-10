@@ -166,7 +166,8 @@ export async function readPartnerPayoutReadiness(
     tax: tax.readiness,
     payout: readiness.payout,
     outstanding,
-    ...(maskBeneficiary(readiness.payoutBeneficiaryRef ?? partner.payoutBeneficiaryRef) !== undefined
+    ...(maskBeneficiary(readiness.payoutBeneficiaryRef ?? partner.payoutBeneficiaryRef) !==
+    undefined
       ? {
           beneficiaryLast4: maskBeneficiary(
             readiness.payoutBeneficiaryRef ?? partner.payoutBeneficiaryRef,

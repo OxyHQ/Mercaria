@@ -72,7 +72,8 @@ export function activationFacts(override: ActivationFactsOverride = {}): Merchan
       platformHeld: false,
       ...override.settings,
     },
-    merchant: override.merchant === undefined ? { id: 'm1', claimState: 'verified' } : override.merchant,
+    merchant:
+      override.merchant === undefined ? { id: 'm1', claimState: 'verified' } : override.merchant,
     channelReadiness: override.channelReadiness ?? READY_CHANNELS,
     railEnabled: override.railEnabled ?? true,
     paymentsReady: override.paymentsReady ?? true,

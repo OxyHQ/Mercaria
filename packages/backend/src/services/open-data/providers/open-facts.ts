@@ -45,7 +45,16 @@ import type {
   OpenDataProvider,
 } from '../provider.js';
 import { OpenDataSchemaError } from '../provider.js';
-import { asArray, asNumber, asObject, asText, asTextList, FactCollector, factKeySegment, gtinDigits } from '../read.js';
+import {
+  asArray,
+  asNumber,
+  asObject,
+  asText,
+  asTextList,
+  FactCollector,
+  factKeySegment,
+  gtinDigits,
+} from '../read.js';
 
 interface OpenFactsSite {
   readonly slug: string;
@@ -95,18 +104,67 @@ const COUNTRIES: Readonly<Record<string, { readonly tag: string; readonly langua
  * a visible absence rather than a silent new key.
  */
 const FIELDS = [
-  'code', 'product_name', 'product_name_es', 'product_name_en', 'product_name_fr', 'product_name_pt',
-  'product_name_it', 'product_name_de', 'generic_name', 'generic_name_es', 'brands', 'brands_tags',
-  'quantity', 'product_quantity', 'product_quantity_unit', 'serving_size', 'serving_quantity',
-  'categories_tags', 'labels_tags', 'origins_tags', 'manufacturing_places', 'stores', 'countries_tags',
-  'packaging_tags', 'packaging_materials_tags', 'packaging_recycling_tags', 'allergens_tags',
-  'traces_tags', 'additives_tags', 'ingredients_analysis_tags', 'food_groups_tags', 'pnns_groups_1',
-  'pnns_groups_2', 'ingredients_text', 'ingredients_text_es', 'ingredients_n', 'nutrient_levels',
-  'nutriments', 'nutriscore_grade', 'nutriscore_score', 'nova_group', 'ecoscore_grade',
-  'ecoscore_score', 'environmental_score_grade', 'environmental_score_score', 'image_front_url',
-  'image_ingredients_url', 'image_nutrition_url', 'image_packaging_url', 'lang', 'product_type',
-  'completeness', 'unique_scans_n', 'created_t', 'last_modified_t', 'emb_codes', 'link',
-  'periods_after_opening', 'conservation_conditions', 'customer_service', 'owner',
+  'code',
+  'product_name',
+  'product_name_es',
+  'product_name_en',
+  'product_name_fr',
+  'product_name_pt',
+  'product_name_it',
+  'product_name_de',
+  'generic_name',
+  'generic_name_es',
+  'brands',
+  'brands_tags',
+  'quantity',
+  'product_quantity',
+  'product_quantity_unit',
+  'serving_size',
+  'serving_quantity',
+  'categories_tags',
+  'labels_tags',
+  'origins_tags',
+  'manufacturing_places',
+  'stores',
+  'countries_tags',
+  'packaging_tags',
+  'packaging_materials_tags',
+  'packaging_recycling_tags',
+  'allergens_tags',
+  'traces_tags',
+  'additives_tags',
+  'ingredients_analysis_tags',
+  'food_groups_tags',
+  'pnns_groups_1',
+  'pnns_groups_2',
+  'ingredients_text',
+  'ingredients_text_es',
+  'ingredients_n',
+  'nutrient_levels',
+  'nutriments',
+  'nutriscore_grade',
+  'nutriscore_score',
+  'nova_group',
+  'ecoscore_grade',
+  'ecoscore_score',
+  'environmental_score_grade',
+  'environmental_score_score',
+  'image_front_url',
+  'image_ingredients_url',
+  'image_nutrition_url',
+  'image_packaging_url',
+  'lang',
+  'product_type',
+  'completeness',
+  'unique_scans_n',
+  'created_t',
+  'last_modified_t',
+  'emb_codes',
+  'link',
+  'periods_after_opening',
+  'conservation_conditions',
+  'customer_service',
+  'owner',
 ].join(',');
 
 /** The account ref that reads only the catalogue's demand, never the country search. */
@@ -131,11 +189,18 @@ export function createOpenFactsProvider(site: OpenFactsSite): OpenDataProvider {
   return provider;
 }
 
-export const openFactsProviders: readonly OpenDataProvider[] = OPEN_FACTS_SITES.map(createOpenFactsProvider);
+export const openFactsProviders: readonly OpenDataProvider[] =
+  OPEN_FACTS_SITES.map(createOpenFactsProvider);
 
-async function fetchTargeted(site: OpenFactsSite, context: OpenDataPageContext): Promise<OpenDataPage> {
+async function fetchTargeted(
+  site: OpenFactsSite,
+  context: OpenDataPageContext,
+): Promise<OpenDataPage> {
   const start = typeof context.cursor?.i === 'number' ? context.cursor.i : 0;
-  const ids = context.externalIds.slice(start, start + Math.min(context.pageSize, TARGETED_PAGE_CAP));
+  const ids = context.externalIds.slice(
+    start,
+    start + Math.min(context.pageSize, TARGETED_PAGE_CAP),
+  );
   const language = preferredLanguage(context.territories);
   const items: OpenDataItem[] = [];
   const removed: { externalType: 'product'; externalId: string }[] = [];
@@ -145,7 +210,11 @@ async function fetchTargeted(site: OpenFactsSite, context: OpenDataPageContext):
     if (code === undefined) continue;
     const response = await context.http.getJson(
       `https://${site.host}/api/v2/product/${code}.json?fields=${FIELDS}`,
-      { minIntervalMs: PRODUCT_INTERVAL_MS, allowNotFound: true, ...(context.signal ? { signal: context.signal } : {}) },
+      {
+        minIntervalMs: PRODUCT_INTERVAL_MS,
+        allowNotFound: true,
+        ...(context.signal ? { signal: context.signal } : {}),
+      },
     );
     const body = asObject(response?.body);
     const product = asObject(body?.product);
@@ -166,7 +235,10 @@ async function fetchTargeted(site: OpenFactsSite, context: OpenDataPageContext):
   };
 }
 
-async function fetchSearch(site: OpenFactsSite, context: OpenDataPageContext): Promise<OpenDataPage> {
+async function fetchSearch(
+  site: OpenFactsSite,
+  context: OpenDataPageContext,
+): Promise<OpenDataPage> {
   const demandOnly = context.accountRef === OPEN_FACTS_DEMAND_ONLY;
   // Phase 1: demand. A cursor with `w` is mid-demand; a cursor with `p` is in
   // the search; no cursor starts with demand when there is any.
@@ -181,7 +253,11 @@ async function fetchSearch(site: OpenFactsSite, context: OpenDataPageContext): P
         if (code === undefined) continue;
         const response = await context.http.getJson(
           `https://${site.host}/api/v2/product/${code}.json?fields=${FIELDS}`,
-          { minIntervalMs: PRODUCT_INTERVAL_MS, allowNotFound: true, ...(context.signal ? { signal: context.signal } : {}) },
+          {
+            minIntervalMs: PRODUCT_INTERVAL_MS,
+            allowNotFound: true,
+            ...(context.signal ? { signal: context.signal } : {}),
+          },
         );
         const body = asObject(response?.body);
         const product = asObject(body?.product);
@@ -213,10 +289,13 @@ async function fetchSearch(site: OpenFactsSite, context: OpenDataPageContext): P
   // A multi-country source walks the first and relies on a source per market.
   if (countries[0] !== undefined) params.set('countries_tags', countries[0]);
 
-  const response = await context.http.getJson(`https://${site.host}/api/v2/search?${params.toString()}`, {
-    minIntervalMs: SEARCH_INTERVAL_MS,
-    ...(context.signal ? { signal: context.signal } : {}),
-  });
+  const response = await context.http.getJson(
+    `https://${site.host}/api/v2/search?${params.toString()}`,
+    {
+      minIntervalMs: SEARCH_INTERVAL_MS,
+      ...(context.signal ? { signal: context.signal } : {}),
+    },
+  );
   const body = asObject(response?.body);
   if (body === undefined || !Array.isArray(body.products)) {
     throw new OpenDataSchemaError('the search response has no `products` array.');
@@ -229,7 +308,11 @@ async function fetchSearch(site: OpenFactsSite, context: OpenDataPageContext): P
     const product = asObject(entry);
     if (product === undefined) continue;
     const modified = asNumber(product.last_modified_t);
-    if (context.since !== null && modified !== undefined && modified * 1_000 < context.since.getTime()) {
+    if (
+      context.since !== null &&
+      modified !== undefined &&
+      modified * 1_000 < context.since.getTime()
+    ) {
       // Newest edit first: everything after this was already read last pass.
       reachedWatermark = true;
       break;
@@ -253,7 +336,11 @@ function preferredLanguage(territories: readonly string[]): string {
 }
 
 /** One product document → one record, or `null` when it has nothing to call it. */
-export function toItem(site: OpenFactsSite, product: Readonly<Record<string, unknown>>, language: string): OpenDataItem | null {
+export function toItem(
+  site: OpenFactsSite,
+  product: Readonly<Record<string, unknown>>,
+  language: string,
+): OpenDataItem | null {
   const code = gtinDigits(product.code);
   if (code === undefined) return null;
   const title =
@@ -263,9 +350,17 @@ export function toItem(site: OpenFactsSite, product: Readonly<Record<string, unk
     asText(product.generic_name);
   if (title === undefined) return null;
 
-  const brands = (asText(product.brands) ?? '').split(',').map((brand) => brand.trim()).filter((brand) => brand.length > 0);
+  const brands = (asText(product.brands) ?? '')
+    .split(',')
+    .map((brand) => brand.trim())
+    .filter((brand) => brand.length > 0);
   const categories = asTextList(product.categories_tags);
-  const media = [product.image_front_url, product.image_packaging_url, product.image_ingredients_url, product.image_nutrition_url]
+  const media = [
+    product.image_front_url,
+    product.image_packaging_url,
+    product.image_ingredients_url,
+    product.image_nutrition_url,
+  ]
     .map((value) => asText(value))
     .filter((value): value is string => value !== undefined);
   const lastModified = asNumber(product.last_modified_t);
@@ -283,7 +378,10 @@ export function toItem(site: OpenFactsSite, product: Readonly<Record<string, unk
     .text('nutriscore_grade', product.nutriscore_grade)
     .number('nutriscore_score', product.nutriscore_score)
     .number('nova_group', product.nova_group)
-    .text('ecoscore_grade', asText(product.environmental_score_grade) ?? asText(product.ecoscore_grade))
+    .text(
+      'ecoscore_grade',
+      asText(product.environmental_score_grade) ?? asText(product.ecoscore_grade),
+    )
     .number('ecoscore_score', product.environmental_score_score ?? product.ecoscore_score)
     .list('categories', categories)
     .list('labels', product.labels_tags)
@@ -301,7 +399,10 @@ export function toItem(site: OpenFactsSite, product: Readonly<Record<string, unk
     .list('food_groups', product.food_groups_tags)
     .text('pnns_group_1', product.pnns_groups_1)
     .text('pnns_group_2', product.pnns_groups_2)
-    .text('ingredients_text', asText(product[`ingredients_text_${language}`]) ?? asText(product.ingredients_text))
+    .text(
+      'ingredients_text',
+      asText(product[`ingredients_text_${language}`]) ?? asText(product.ingredients_text),
+    )
     .number('ingredients_count', product.ingredients_n)
     .text('emb_codes', product.emb_codes)
     .text('periods_after_opening', product.periods_after_opening)
@@ -326,7 +427,11 @@ export function toItem(site: OpenFactsSite, product: Readonly<Record<string, unk
       // `nova-group_100g` is a score smuggled into the nutrient table; it is
       // already a fact of its own.
       if (nutrient === 'nova-group' || nutrient.startsWith('nutrition-score')) continue;
-      facts.number(`nutrition.${factKeySegment(nutrient)}_100g`, value, asText(nutriments[`${nutrient}_unit`]));
+      facts.number(
+        `nutrition.${factKeySegment(nutrient)}_100g`,
+        value,
+        asText(nutriments[`${nutrient}_unit`]),
+      );
     }
   }
 
@@ -342,7 +447,9 @@ export function toItem(site: OpenFactsSite, product: Readonly<Record<string, unk
     ...(productLanguage === undefined ? {} : { language: productLanguage }),
     sourceUrl: `https://${site.host}/product/${code}`,
     ...(created === undefined ? {} : { sourceCreatedAt: new Date(created * 1_000).toISOString() }),
-    ...(lastModified === undefined ? {} : { sourceUpdatedAt: new Date(lastModified * 1_000).toISOString() }),
+    ...(lastModified === undefined
+      ? {}
+      : { sourceUpdatedAt: new Date(lastModified * 1_000).toISOString() }),
     facts: facts.toArray(),
   };
 

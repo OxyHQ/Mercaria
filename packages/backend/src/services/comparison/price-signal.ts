@@ -71,9 +71,7 @@ export async function readSubjectPriceSignal(
   input: PriceSignalInput,
 ): Promise<ComparisonPriceSignal | undefined> {
   const now = new Date();
-  const from = new Date(
-    now.getTime() - COMPARISON_PRICE_SIGNAL_WINDOW_DAYS * 24 * 60 * 60 * 1000,
-  );
+  const from = new Date(now.getTime() - COMPARISON_PRICE_SIGNAL_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
   let response: PriceHistoryResponse;
   try {

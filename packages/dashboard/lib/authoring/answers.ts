@@ -33,8 +33,8 @@ import type {
   AuthoringValueKind,
   ProductTypeRuleScalar,
   ProductTypeRuleValues,
-} from "@mercaria/shared-types";
-import type { DraftAnswerPayload, DraftFieldPayload } from "./api";
+} from '@mercaria/shared-types';
+import type { DraftAnswerPayload, DraftFieldPayload } from './api';
 
 /**
  * One thing an author has entered, before it is an answer.
@@ -45,18 +45,18 @@ import type { DraftAnswerPayload, DraftFieldPayload } from "./api";
  * discard the keystroke or store `1`.
  */
 export type DraftFieldEntry =
-  | { readonly kind: "text"; readonly ordinal: number; readonly text: string }
+  | { readonly kind: 'text'; readonly ordinal: number; readonly text: string }
   | {
-      readonly kind: "number";
+      readonly kind: 'number';
       readonly ordinal: number;
       readonly componentAxis: AttributeComponentAxis | null;
       readonly raw: string;
       readonly unit: string | null;
     }
-  | { readonly kind: "boolean"; readonly ordinal: number; readonly value: boolean }
-  | { readonly kind: "controlled_value"; readonly ordinal: number; readonly enumValueId: string }
+  | { readonly kind: 'boolean'; readonly ordinal: number; readonly value: boolean }
+  | { readonly kind: 'controlled_value'; readonly ordinal: number; readonly enumValueId: string }
   | {
-      readonly kind: "canonical_reference";
+      readonly kind: 'canonical_reference';
       readonly ordinal: number;
       readonly refKind: AuthoringCanonicalRefKind;
       readonly refId: string;
@@ -81,37 +81,37 @@ export type DraftFieldEntries = Readonly<Record<string, readonly DraftFieldEntry
  * the attribute's own column rather than from the answer.
  */
 export function expectedEntryKind(field: AuthoringField): AuthoringValueKind {
-  if (field.valuePolicy === "canonical_reference") return "canonical_reference";
+  if (field.valuePolicy === 'canonical_reference') return 'canonical_reference';
   switch (field.validation.valueType) {
-    case "boolean":
-      return "boolean";
-    case "integer":
-    case "decimal":
-    case "money":
-    case "measurement":
-    case "structured":
-      return "number";
-    case "enum":
-      return "controlled_value";
-    case "string":
-    case "date":
-      return "text";
+    case 'boolean':
+      return 'boolean';
+    case 'integer':
+    case 'decimal':
+    case 'money':
+    case 'measurement':
+    case 'structured':
+      return 'number';
+    case 'enum':
+      return 'controlled_value';
+    case 'string':
+    case 'date':
+      return 'text';
     default:
-      return "text";
+      return 'text';
   }
 }
 
 /** How many answers one cardinality admits. `null` means unbounded. */
 export function maxEntriesFor(field: AuthoringField): number | null {
   switch (field.validation.cardinality) {
-    case "single":
+    case 'single':
       return 1;
-    case "range":
+    case 'range':
       // A range is exactly two magnitudes, a low and a high. A third would be a
       // range with no meaning rather than a longer one.
       return 2;
-    case "set":
-    case "ordered_list":
+    case 'set':
+    case 'ordered_list':
       return null;
     default:
       return null;
@@ -126,7 +126,7 @@ export function maxEntriesFor(field: AuthoringField): number | null {
  * an author pressing "add another".
  */
 export function isRepeatable(field: AuthoringField): boolean {
-  if (field.validation.valueType === "structured") return false;
+  if (field.validation.valueType === 'structured') return false;
   const max = maxEntriesFor(field);
   return max === null || max > 1;
 }
@@ -147,22 +147,22 @@ export function emptyEntry(
   componentAxis: AttributeComponentAxis | null = null,
 ): DraftFieldEntry {
   switch (expectedEntryKind(field)) {
-    case "boolean":
-      return { kind: "boolean", ordinal, value: false };
-    case "number":
+    case 'boolean':
+      return { kind: 'boolean', ordinal, value: false };
+    case 'number':
       return {
-        kind: "number",
+        kind: 'number',
         ordinal,
         componentAxis,
-        raw: "",
+        raw: '',
         unit: field.validation.unitFamily === null ? null : field.validation.baseUnit,
       };
-    case "controlled_value":
-      return { kind: "controlled_value", ordinal, enumValueId: "" };
-    case "canonical_reference":
-      return { kind: "canonical_reference", ordinal, refKind: "brand", refId: "", refName: "" };
+    case 'controlled_value':
+      return { kind: 'controlled_value', ordinal, enumValueId: '' };
+    case 'canonical_reference':
+      return { kind: 'canonical_reference', ordinal, refKind: 'brand', refId: '', refName: '' };
     default:
-      return { kind: "text", ordinal, text: "" };
+      return { kind: 'text', ordinal, text: '' };
   }
 }
 
@@ -175,7 +175,7 @@ export function emptyEntry(
  * three boxes rather than discovering them from three errors.
  */
 export function initialEntries(field: AuthoringField): readonly DraftFieldEntry[] {
-  if (field.validation.valueType === "structured") {
+  if (field.validation.valueType === 'structured') {
     return field.validation.componentAxes.map((axis, index) => emptyEntry(field, index, axis));
   }
   return [emptyEntry(field, 0)];
@@ -212,11 +212,11 @@ export function parseEntryNumber(raw: string): number | null {
  */
 function toAnswer(entry: DraftFieldEntry): DraftAnswerPayload | null {
   switch (entry.kind) {
-    case "text": {
+    case 'text': {
       const text = entry.text.trim();
       return text.length === 0 ? null : { ordinal: entry.ordinal, text };
     }
-    case "number": {
+    case 'number': {
       const value = parseEntryNumber(entry.raw);
       if (value === null) return null;
       return {
@@ -228,13 +228,13 @@ function toAnswer(entry: DraftFieldEntry): DraftAnswerPayload | null {
           : { unit: entry.unit.trim() }),
       };
     }
-    case "boolean":
+    case 'boolean':
       return { ordinal: entry.ordinal, boolean: entry.value };
-    case "controlled_value":
+    case 'controlled_value':
       return entry.enumValueId.length === 0
         ? null
         : { ordinal: entry.ordinal, enumValueId: entry.enumValueId };
-    case "canonical_reference":
+    case 'canonical_reference':
       return entry.refId.length === 0
         ? null
         : { ordinal: entry.ordinal, canonicalRef: { kind: entry.refKind, id: entry.refId } };
@@ -275,38 +275,40 @@ export function hasAnswer(entries: readonly DraftFieldEntry[] | undefined): bool
 /** One stored value back into the entry an author edits. */
 function toEntry(value: AuthoringDraftValue): DraftFieldEntry | null {
   switch (value.kind) {
-    case "text":
-      return value.text === null ? null : { kind: "text", ordinal: value.ordinal, text: value.text };
-    case "number":
+    case 'text':
+      return value.text === null
+        ? null
+        : { kind: 'text', ordinal: value.ordinal, text: value.text };
+    case 'number':
       return value.number === null
         ? null
         : {
-            kind: "number",
+            kind: 'number',
             ordinal: value.ordinal,
             componentAxis: value.componentAxis,
             raw: String(value.number),
             unit: value.unit,
           };
-    case "boolean":
+    case 'boolean':
       return value.boolean === null
         ? null
-        : { kind: "boolean", ordinal: value.ordinal, value: value.boolean };
-    case "controlled_value":
+        : { kind: 'boolean', ordinal: value.ordinal, value: value.boolean };
+    case 'controlled_value':
       return value.enumValueId === null
         ? null
-        : { kind: "controlled_value", ordinal: value.ordinal, enumValueId: value.enumValueId };
-    case "canonical_reference":
+        : { kind: 'controlled_value', ordinal: value.ordinal, enumValueId: value.enumValueId };
+    case 'canonical_reference':
       return value.canonicalRefId === null || value.canonicalRefKind === null
         ? null
         : {
-            kind: "canonical_reference",
+            kind: 'canonical_reference',
             ordinal: value.ordinal,
             refKind: value.canonicalRefKind,
             refId: value.canonicalRefId,
             // The stored answer is an id; the NAME is fetched for display and is
             // absent until it is. Rendering the id would be showing somebody a
             // uuid and calling it a brand.
-            refName: "",
+            refName: '',
           };
     default:
       return null;
@@ -347,17 +349,17 @@ export function hydrateEntries(
 /** The comparable scalar of one entry, or `null` where there is not one. */
 function scalarOf(entry: DraftFieldEntry): ProductTypeRuleScalar | null {
   switch (entry.kind) {
-    case "text": {
+    case 'text': {
       const text = entry.text.trim();
       return text.length === 0 ? null : text;
     }
-    case "number":
+    case 'number':
       return parseEntryNumber(entry.raw);
-    case "boolean":
+    case 'boolean':
       return entry.value;
-    case "controlled_value":
+    case 'controlled_value':
       return entry.enumValueId.length === 0 ? null : entry.enumValueId;
-    case "canonical_reference":
+    case 'canonical_reference':
       return entry.refId.length === 0 ? null : entry.refId;
     default:
       return null;

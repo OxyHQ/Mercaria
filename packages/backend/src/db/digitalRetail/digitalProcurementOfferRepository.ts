@@ -31,7 +31,11 @@ import type {
   SupplierStatus,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import { digitalProcurementOffers, digitalSupplierCapabilities, digitalSupplyTerms } from '../schema/digitalRetail.js';
+import {
+  digitalProcurementOffers,
+  digitalSupplierCapabilities,
+  digitalSupplyTerms,
+} from '../schema/digitalRetail.js';
 import { supplierAccounts, supplierAgreements, suppliers } from '../schema/procurement.js';
 
 export type DigitalProcurementOfferRow = InferSelectModel<typeof digitalProcurementOffers>;
@@ -150,13 +154,22 @@ export async function findProcurementCandidates(
     })
     .from(digitalProcurementOffers)
     .innerJoin(suppliers, eq(suppliers.id, digitalProcurementOffers.supplierId))
-    .innerJoin(supplierAccounts, eq(supplierAccounts.id, digitalProcurementOffers.supplierAccountId))
-    .leftJoin(digitalSupplyTerms, eq(digitalSupplyTerms.id, digitalProcurementOffers.digitalSupplyTermsId))
+    .innerJoin(
+      supplierAccounts,
+      eq(supplierAccounts.id, digitalProcurementOffers.supplierAccountId),
+    )
+    .leftJoin(
+      digitalSupplyTerms,
+      eq(digitalSupplyTerms.id, digitalProcurementOffers.digitalSupplyTermsId),
+    )
     .leftJoin(supplierAgreements, eq(supplierAgreements.id, digitalSupplyTerms.agreementId))
     .leftJoin(
       digitalSupplierCapabilities,
       and(
-        eq(digitalSupplierCapabilities.supplierAccountId, digitalProcurementOffers.supplierAccountId),
+        eq(
+          digitalSupplierCapabilities.supplierAccountId,
+          digitalProcurementOffers.supplierAccountId,
+        ),
         eq(digitalSupplierCapabilities.capability, 'purchase'),
       ),
     )

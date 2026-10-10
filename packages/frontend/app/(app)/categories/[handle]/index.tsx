@@ -159,9 +159,7 @@ export default function CategoryScreen() {
           href={alternate.href}
         />
       ))}
-      {document?.robots === undefined ? null : (
-        <meta name="robots" content={document.robots} />
-      )}
+      {document?.robots === undefined ? null : <meta name="robots" content={document.robots} />}
       {/*
         The registry's own JSON-LD, composed from normalized facts and EMPTY
         whenever the document is not indexable (#75's contract). This renders

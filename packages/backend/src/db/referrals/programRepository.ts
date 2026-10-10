@@ -125,7 +125,9 @@ export async function insertProgramVersion(
     })
     .returning();
   if (!row) {
-    throw new Error(`referral_programs insert for ${input.programId} v${input.version} returned no row.`);
+    throw new Error(
+      `referral_programs insert for ${input.programId} v${input.version} returned no row.`,
+    );
   }
   return row;
 }

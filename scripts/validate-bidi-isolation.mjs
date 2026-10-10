@@ -84,9 +84,9 @@
  * Usage:  bun scripts/validate-bidi-isolation.mjs
  */
 
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   formatDistance,
@@ -96,21 +96,21 @@ import {
   formatRating,
   formatReviewCount,
   formatSourceMoney,
-} from "../packages/ui/src/lib/format.ts";
-import { formatDate, formatDateTime, formatWeekday } from "../packages/ui/src/lib/date.ts";
-import { formatRegionName } from "../packages/ui/src/lib/region.ts";
+} from '../packages/ui/src/lib/format.ts';
+import { formatDate, formatDateTime, formatWeekday } from '../packages/ui/src/lib/date.ts';
+import { formatRegionName } from '../packages/ui/src/lib/region.ts';
 // The SAME modules again, as namespaces, so the census below can enumerate what
 // they export rather than pattern-match the text that declares them (#491).
-import * as formatModule from "../packages/ui/src/lib/format.ts";
+import * as formatModule from '../packages/ui/src/lib/format.ts';
 // #488/#489's formatters live in their OWN modules — see each module's note on
 // why they are not in `format.ts`. Censused HERE rather than in a second guard,
 // because a date and a price have the same bidi problem and two scripts
 // answering that question could disagree about it.
-import * as dateModule from "../packages/ui/src/lib/date.ts";
-import * as regionModule from "../packages/ui/src/lib/region.ts";
-import * as byteSizeModule from "../packages/ui/src/lib/byte-size.ts";
-import * as plainNumberModule from "../packages/ui/src/lib/plain-number.ts";
-import { isolateBidi } from "../packages/ui/src/lib/bidi.ts";
+import * as dateModule from '../packages/ui/src/lib/date.ts';
+import * as regionModule from '../packages/ui/src/lib/region.ts';
+import * as byteSizeModule from '../packages/ui/src/lib/byte-size.ts';
+import * as plainNumberModule from '../packages/ui/src/lib/plain-number.ts';
+import { isolateBidi } from '../packages/ui/src/lib/bidi.ts';
 
 /**
  * The isolate code points, written as NUMBERS and defined here rather than
@@ -130,8 +130,8 @@ const ISOLATE_CODE_POINTS = new Set([
   RIGHT_TO_LEFT_ISOLATE,
 ]);
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const formatModulePath = resolve(repositoryRoot, "packages/ui/src/lib/format.ts");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const formatModulePath = resolve(repositoryRoot, 'packages/ui/src/lib/format.ts');
 
 /**
  * Every module whose exported formatters must return isolated strings.
@@ -143,30 +143,30 @@ const formatModulePath = resolve(repositoryRoot, "packages/ui/src/lib/format.ts"
  * census has instead of a bug. Each entry is floored individually below.
  */
 const FORMATTER_MODULES = [
-  { path: "packages/ui/src/lib/format.ts", module: formatModule, minimum: 6 },
-  { path: "packages/ui/src/lib/date.ts", module: dateModule, minimum: 3 },
-  { path: "packages/ui/src/lib/region.ts", module: regionModule, minimum: 1 },
+  { path: 'packages/ui/src/lib/format.ts', module: formatModule, minimum: 6 },
+  { path: 'packages/ui/src/lib/date.ts', module: dateModule, minimum: 3 },
+  { path: 'packages/ui/src/lib/region.ts', module: regionModule, minimum: 1 },
   // #1015's two. They arrived outside this census — it enumerates modules by
   // name and a new file is invisible to it — so a digital product page was
   // rendering two formatters this gate had never seen. Exactly the narrowing the
   // docblock above describes, arriving from the other direction: not a module
   // shrinking, a population growing past the list.
-  { path: "packages/ui/src/lib/byte-size.ts", module: byteSizeModule, minimum: 1 },
-  { path: "packages/ui/src/lib/plain-number.ts", module: plainNumberModule, minimum: 1 },
+  { path: 'packages/ui/src/lib/byte-size.ts', module: byteSizeModule, minimum: 1 },
+  { path: 'packages/ui/src/lib/plain-number.ts', module: plainNumberModule, minimum: 1 },
 ];
 
 /** `"abc"` → `"U+0061 U+0062 U+0063"`, so a failure message names what it saw. */
 function describeCodePoints(text) {
   return Array.from(text)
-    .map((character) => `U+${character.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}`)
-    .join(" ");
+    .map((character) => `U+${character.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`)
+    .join(' ');
 }
 
 /** The text a reader actually sees: every isolate character removed. */
 function visibleText(text) {
   return Array.from(text)
     .filter((character) => !ISOLATE_CODE_POINTS.has(character.codePointAt(0)))
-    .join("");
+    .join('');
 }
 
 const failures = [];
@@ -175,7 +175,7 @@ let assertionCount = 0;
 function check(description, condition, detail) {
   assertionCount += 1;
   if (!condition) {
-    failures.push(`${description}${detail === undefined ? "" : `\n      ${detail}`}`);
+    failures.push(`${description}${detail === undefined ? '' : `\n      ${detail}`}`);
   }
 }
 
@@ -244,78 +244,73 @@ function checkIsolatedExactly(formatterName, caseName, actual, expectedVisible) 
 // asserted explicitly further down as a CHANGE.
 // ---------------------------------------------------------------------------
 
-const EN = "en";
+const EN = 'en';
 
 checkIsolatedExactly(
-  "formatMoney",
-  "USD/en",
-  formatMoney({ amount: 14800, currency: "USD" }, EN),
-  "$148.00",
+  'formatMoney',
+  'USD/en',
+  formatMoney({ amount: 14800, currency: 'USD' }, EN),
+  '$148.00',
 );
 checkIsolatedExactly(
-  "formatMoney",
-  "FAIR (8dp)/en",
-  formatMoney({ amount: 14_800_000_000, currency: "FAIR" }, EN),
-  "⊜148.00",
+  'formatMoney',
+  'FAIR (8dp)/en',
+  formatMoney({ amount: 14_800_000_000, currency: 'FAIR' }, EN),
+  '⊜148.00',
 );
 checkIsolatedExactly(
-  "formatMoney",
-  "zero/en",
-  formatMoney({ amount: 0, currency: "EUR" }, EN),
-  "€0.00",
+  'formatMoney',
+  'zero/en',
+  formatMoney({ amount: 0, currency: 'EUR' }, EN),
+  '€0.00',
 );
 // A negative amount puts the minus BETWEEN the symbol and the digits, which is
 // the shape `ShoppingAgentFindingCard` avoids by rendering the sign as a word.
 // Isolation must not move it: this pins the whole token, sign included.
 checkIsolatedExactly(
-  "formatMoney",
-  "negative/en",
-  formatMoney({ amount: -500, currency: "USD" }, EN),
-  "$-5.00",
+  'formatMoney',
+  'negative/en',
+  formatMoney({ amount: -500, currency: 'USD' }, EN),
+  '$-5.00',
 );
 
 checkIsolatedExactly(
-  "formatSourceMoney",
-  "convertible currency/en",
-  formatSourceMoney({ amount: 12_999, currency: "USD" }, EN),
-  "129.99 USD",
+  'formatSourceMoney',
+  'convertible currency/en',
+  formatSourceMoney({ amount: 12_999, currency: 'USD' }, EN),
+  '129.99 USD',
 );
 
-checkIsolatedExactly("formatDistance", "metres/en", formatDistance(450, EN), "450 m");
-checkIsolatedExactly("formatDistance", "kilometres/en", formatDistance(2500, EN), "2.5 km");
+checkIsolatedExactly('formatDistance', 'metres/en', formatDistance(450, EN), '450 m');
+checkIsolatedExactly('formatDistance', 'kilometres/en', formatDistance(2500, EN), '2.5 km');
 
-checkIsolatedExactly("formatReviewCount", "bare/en", formatReviewCount(349, EN), "349");
-checkIsolatedExactly(
-  "formatReviewCount",
-  "abbreviated/en",
-  formatReviewCount(10_300, EN),
-  "10.3K",
-);
-checkIsolatedExactly("formatReviewCount", "rounded/en", formatReviewCount(1000, EN), "1K");
+checkIsolatedExactly('formatReviewCount', 'bare/en', formatReviewCount(349, EN), '349');
+checkIsolatedExactly('formatReviewCount', 'abbreviated/en', formatReviewCount(10_300, EN), '10.3K');
+checkIsolatedExactly('formatReviewCount', 'rounded/en', formatReviewCount(1000, EN), '1K');
 
-checkIsolatedExactly("formatPercent", "en", formatPercent(820, EN), "8.2%");
+checkIsolatedExactly('formatPercent', 'en', formatPercent(820, EN), '8.2%');
 // The sign is carried by which SENTENCE the caller selected, never by a minus.
-checkIsolatedExactly("formatPercent", "negative bps/en", formatPercent(-820, EN), "8.2%");
+checkIsolatedExactly('formatPercent', 'negative bps/en', formatPercent(-820, EN), '8.2%');
 // The `fractionDigits` parameter (#544). A published RATE cannot use the
 // default: at one decimal an 8.25% programme renders as `8.3%`, a WRONG NUMBER
 // rather than a rounding preference — so both ends of the range are pinned.
-checkIsolatedExactly("formatPercent", "0 digits/en", formatPercent(500, EN, 0), "5%");
-checkIsolatedExactly("formatPercent", "2 digits/en", formatPercent(825, EN, 2), "8.25%");
+checkIsolatedExactly('formatPercent', '0 digits/en', formatPercent(500, EN, 0), '5%');
+checkIsolatedExactly('formatPercent', '2 digits/en', formatPercent(825, EN, 2), '8.25%');
 // …and in a locale whose decimal separator differs, which is the whole reason
 // the numeral goes through a formatter rather than `.toFixed`.
 checkIsolatedExactly(
-  "formatPercent",
-  "2 digits/de",
-  formatPercent(825, "de", 2),
-  new Intl.NumberFormat("de", {
-    style: "percent",
+  'formatPercent',
+  '2 digits/de',
+  formatPercent(825, 'de', 2),
+  new Intl.NumberFormat('de', {
+    style: 'percent',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(825 / 10000),
 );
 
-checkIsolatedExactly("formatRating", "en", formatRating(4.5, EN), "4.5");
-checkIsolatedExactly("formatRating", "whole/en", formatRating(5, EN), "5.0");
+checkIsolatedExactly('formatRating', 'en', formatRating(4.5, EN), '4.5');
+checkIsolatedExactly('formatRating', 'whole/en', formatRating(5, EN), '5.0');
 
 // `formatDuration` (#437). Its visible text comes from CLDR's unit forms rather
 // than from arithmetic here — that is the point of it, since it replaced four
@@ -326,20 +321,20 @@ checkIsolatedExactly("formatRating", "whole/en", formatRating(5, EN), "5.0");
 // replaced got wrong (`1 minutes`), and it is also where an implementation that
 // pluralised by appending an "s" would still pass a 30-minute case.
 for (const [caseName, seconds, unit, value] of [
-  ["seconds/en", 30, "second", 30],
-  ["minutes/en", 300, "minute", 5],
-  ["one minute/en", 60, "minute", 1],
-  ["hours/en", 7200, "hour", 2],
-  ["days/en", 172800, "day", 2],
+  ['seconds/en', 30, 'second', 30],
+  ['minutes/en', 300, 'minute', 5],
+  ['one minute/en', 60, 'minute', 1],
+  ['hours/en', 7200, 'hour', 2],
+  ['days/en', 172800, 'day', 2],
 ]) {
   checkIsolatedExactly(
-    "formatDuration",
+    'formatDuration',
     caseName,
     formatDuration(seconds, EN),
     new Intl.NumberFormat(EN, {
-      style: "unit",
+      style: 'unit',
       unit,
-      unitDisplay: "long",
+      unitDisplay: 'long',
       maximumFractionDigits: 0,
     }).format(value),
   );
@@ -361,27 +356,27 @@ for (const [caseName, seconds, unit, value] of [
 // ---------------------------------------------------------------------------
 
 /** A fixed instant, mid-day UTC so no plausible zone offset moves the DATE. */
-const SAMPLE_INSTANT = new Date("2026-08-17T12:00:00.000Z");
+const SAMPLE_INSTANT = new Date('2026-08-17T12:00:00.000Z');
 
 checkIsolatedExactly(
-  "formatDate",
-  "en",
-  formatDate(SAMPLE_INSTANT, "en"),
-  new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(SAMPLE_INSTANT),
+  'formatDate',
+  'en',
+  formatDate(SAMPLE_INSTANT, 'en'),
+  new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(SAMPLE_INSTANT),
 );
 // A non-Latin locale, because the isolate has to survive a script whose digits
 // and month names are not the ones the LTR case exercises.
 checkIsolatedExactly(
-  "formatDate",
-  "ja",
-  formatDate(SAMPLE_INSTANT, "ja"),
-  new Intl.DateTimeFormat("ja", { dateStyle: "medium" }).format(SAMPLE_INSTANT),
+  'formatDate',
+  'ja',
+  formatDate(SAMPLE_INSTANT, 'ja'),
+  new Intl.DateTimeFormat('ja', { dateStyle: 'medium' }).format(SAMPLE_INSTANT),
 );
 checkIsolatedExactly(
-  "formatDateTime",
-  "en",
-  formatDateTime(SAMPLE_INSTANT, "en"),
-  new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(SAMPLE_INSTANT),
+  'formatDateTime',
+  'en',
+  formatDateTime(SAMPLE_INSTANT, 'en'),
+  new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(SAMPLE_INSTANT),
 );
 
 /**
@@ -389,45 +384,50 @@ checkIsolatedExactly(
  * so `1 + weekday` is `Date#getDay`'s numbering.
  */
 const WEEKDAY_REFERENCE = (weekday) => new Date(Date.UTC(2023, 0, 1 + weekday));
-const WEEKDAY_OPTIONS = { weekday: "long", timeZone: "UTC" };
+const WEEKDAY_OPTIONS = { weekday: 'long', timeZone: 'UTC' };
 
 checkIsolatedExactly(
-  "formatWeekday",
-  "en/Monday",
-  formatWeekday(1, "en"),
-  new Intl.DateTimeFormat("en", WEEKDAY_OPTIONS).format(WEEKDAY_REFERENCE(1)),
+  'formatWeekday',
+  'en/Monday',
+  formatWeekday(1, 'en'),
+  new Intl.DateTimeFormat('en', WEEKDAY_OPTIONS).format(WEEKDAY_REFERENCE(1)),
 );
 // `ar` is the case that matters: an RTL weekday name beside LTR opening hours
 // is exactly the mixed run the isolate exists for.
 checkIsolatedExactly(
-  "formatWeekday",
-  "ar/Sunday",
-  formatWeekday(0, "ar"),
-  new Intl.DateTimeFormat("ar", WEEKDAY_OPTIONS).format(WEEKDAY_REFERENCE(0)),
+  'formatWeekday',
+  'ar/Sunday',
+  formatWeekday(0, 'ar'),
+  new Intl.DateTimeFormat('ar', WEEKDAY_OPTIONS).format(WEEKDAY_REFERENCE(0)),
 );
 // The out-of-range answer is "" — NOT an isolated empty string, because an
 // opening-hours row with no day renders as nothing. Asserted here so a future
 // change that starts isolating it is caught: `\u2068\u2069` is not empty, and
 // a caller testing `.length` would silently start rendering a blank chip.
 check(
-  "formatWeekday out of range is a bare empty string",
-  formatWeekday(7, "en") === "",
-  `got ${JSON.stringify(formatWeekday(7, "en"))}`,
+  'formatWeekday out of range is a bare empty string',
+  formatWeekday(7, 'en') === '',
+  `got ${JSON.stringify(formatWeekday(7, 'en'))}`,
 );
 
 // `formatRegionName` resolves a name on this engine, so the LOCALIZED branch is
 // what gets pinned. "United States" is stable across ICU versions in a way a
 // date format is not, so it is written out.
-checkIsolatedExactly("formatRegionName", "resolved", formatRegionName("US", "en"), "United States");
-checkIsolatedExactly("formatRegionName", "localized", formatRegionName("ES", "es"), "España");
+checkIsolatedExactly('formatRegionName', 'resolved', formatRegionName('US', 'en'), 'United States');
+checkIsolatedExactly('formatRegionName', 'localized', formatRegionName('ES', 'es'), 'España');
 // The FALLBACK branch — a well-formed but unassigned subtag. `fallback: "none"`
 // answers `undefined` for it, and the code comes back isolated rather than the
 // engine echoing it back as though it had resolved.
-checkIsolatedExactly("formatRegionName", "unassigned code", formatRegionName("XX", "en"), "XX");
+checkIsolatedExactly('formatRegionName', 'unassigned code', formatRegionName('XX', 'en'), 'XX');
 // Lowercase input, which an API or a hand-typed form can supply: the name still
 // resolves, so the guard cannot be satisfied by a formatter that only handles
 // the canonical spelling.
-checkIsolatedExactly("formatRegionName", "lowercase", formatRegionName("gb", "en"), "United Kingdom");
+checkIsolatedExactly(
+  'formatRegionName',
+  'lowercase',
+  formatRegionName('gb', 'en'),
+  'United Kingdom',
+);
 
 // ---------------------------------------------------------------------------
 // A MALFORMED locale tag must DEGRADE, never throw.
@@ -443,29 +443,30 @@ checkIsolatedExactly("formatRegionName", "lowercase", formatRegionName("gb", "en
 // exactly as it did before #488, never worse.
 // ---------------------------------------------------------------------------
 
-for (const malformed of ["en_US", "zh_Hans_CN"]) {
+for (const malformed of ['en_US', 'zh_Hans_CN']) {
   checkIsolatedExactly(
-    "formatDate",
+    'formatDate',
     `malformed tag ${malformed} degrades`,
     formatDate(SAMPLE_INSTANT, malformed),
-    new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(SAMPLE_INSTANT),
+    new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(SAMPLE_INSTANT),
   );
 }
 checkIsolatedExactly(
-  "formatDateTime",
-  "malformed tag degrades",
-  formatDateTime(SAMPLE_INSTANT, "en_US"),
-  new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" })
-    .format(SAMPLE_INSTANT),
+  'formatDateTime',
+  'malformed tag degrades',
+  formatDateTime(SAMPLE_INSTANT, 'en_US'),
+  new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+    SAMPLE_INSTANT,
+  ),
 );
 // The same tag through the region formatter, which retries on the runtime
 // default before giving up — so a device with an odd tag still gets NAMES
 // rather than falling all the way back to bare codes.
 checkIsolatedExactly(
-  "formatRegionName",
-  "malformed tag still resolves a name",
-  formatRegionName("US", "en_US"),
-  new Intl.DisplayNames(undefined, { type: "region", fallback: "none" }).of("US"),
+  'formatRegionName',
+  'malformed tag still resolves a name',
+  formatRegionName('US', 'en_US'),
+  new Intl.DisplayNames(undefined, { type: 'region', fallback: 'none' }).of('US'),
 );
 
 // ---------------------------------------------------------------------------
@@ -474,9 +475,9 @@ checkIsolatedExactly(
 // ---------------------------------------------------------------------------
 
 check(
-  "formatSourceMoney refuses an unknown precision with null, not an isolated empty string",
-  formatSourceMoney({ amount: 129_900, currency: "RON" }, EN) === null,
-  `got ${JSON.stringify(formatSourceMoney({ amount: 129_900, currency: "RON" }, EN))}`,
+  'formatSourceMoney refuses an unknown precision with null, not an isolated empty string',
+  formatSourceMoney({ amount: 129_900, currency: 'RON' }, EN) === null,
+  `got ${JSON.stringify(formatSourceMoney({ amount: 129_900, currency: 'RON' }, EN))}`,
 );
 
 // ---------------------------------------------------------------------------
@@ -499,44 +500,39 @@ check(
 // ---------------------------------------------------------------------------
 
 checkIsolatedExactly(
-  "formatMoney",
-  "USD/de — decimal comma",
-  formatMoney({ amount: 14800, currency: "USD" }, "de"),
-  "$148,00",
+  'formatMoney',
+  'USD/de — decimal comma',
+  formatMoney({ amount: 14800, currency: 'USD' }, 'de'),
+  '$148,00',
 );
 checkIsolatedExactly(
-  "formatMoney",
-  "USD/es — decimal comma",
-  formatMoney({ amount: 14800, currency: "USD" }, "es"),
-  "$148,00",
+  'formatMoney',
+  'USD/es — decimal comma',
+  formatMoney({ amount: 14800, currency: 'USD' }, 'es'),
+  '$148,00',
 );
 checkIsolatedExactly(
-  "formatSourceMoney",
-  "convertible currency/de",
-  formatSourceMoney({ amount: 12_999, currency: "USD" }, "de"),
-  "129,99 USD",
+  'formatSourceMoney',
+  'convertible currency/de',
+  formatSourceMoney({ amount: 12_999, currency: 'USD' }, 'de'),
+  '129,99 USD',
 );
-checkIsolatedExactly(
-  "formatDistance",
-  "kilometres/de",
-  formatDistance(2500, "de"),
-  "2,5 km",
-);
-checkIsolatedExactly("formatRating", "de", formatRating(4.5, "de"), "4,5");
+checkIsolatedExactly('formatDistance', 'kilometres/de', formatDistance(2500, 'de'), '2,5 km');
+checkIsolatedExactly('formatRating', 'de', formatRating(4.5, 'de'), '4,5');
 // Abbreviation is a property of the LANGUAGE, not of the number: Japanese
 // groups by ten thousand and German does not abbreviate at this magnitude at
 // all. A hardcoded "K" is not a smaller version of either.
 checkIsolatedExactly(
-  "formatReviewCount",
-  "abbreviated/ja — 万, not K",
-  formatReviewCount(10_300, "ja"),
-  "1万",
+  'formatReviewCount',
+  'abbreviated/ja — 万, not K',
+  formatReviewCount(10_300, 'ja'),
+  '1万',
 );
 checkIsolatedExactly(
-  "formatReviewCount",
-  "abbreviated/de — not abbreviated at all",
-  formatReviewCount(10_300, "de"),
-  "10.300",
+  'formatReviewCount',
+  'abbreviated/de — not abbreviated at all',
+  formatReviewCount(10_300, 'de'),
+  '10.300',
 );
 
 /**
@@ -560,20 +556,28 @@ checkIsolatedExactly(
  * no gate that runs here can close it.
  */
 const localizedPairs = [
-  ["formatMoney", formatMoney({ amount: 14800, currency: "USD" }, EN), formatMoney({ amount: 14800, currency: "USD" }, "de")],
-  ["formatSourceMoney", formatSourceMoney({ amount: 12_999, currency: "USD" }, EN), formatSourceMoney({ amount: 12_999, currency: "USD" }, "de")],
-  ["formatDistance", formatDistance(2500, EN), formatDistance(2500, "de")],
-  ["formatReviewCount", formatReviewCount(10_300, EN), formatReviewCount(10_300, "ja")],
-  ["formatPercent", formatPercent(820, EN), formatPercent(820, "de")],
-  ["formatRating", formatRating(4.5, EN), formatRating(4.5, "de")],
+  [
+    'formatMoney',
+    formatMoney({ amount: 14800, currency: 'USD' }, EN),
+    formatMoney({ amount: 14800, currency: 'USD' }, 'de'),
+  ],
+  [
+    'formatSourceMoney',
+    formatSourceMoney({ amount: 12_999, currency: 'USD' }, EN),
+    formatSourceMoney({ amount: 12_999, currency: 'USD' }, 'de'),
+  ],
+  ['formatDistance', formatDistance(2500, EN), formatDistance(2500, 'de')],
+  ['formatReviewCount', formatReviewCount(10_300, EN), formatReviewCount(10_300, 'ja')],
+  ['formatPercent', formatPercent(820, EN), formatPercent(820, 'de')],
+  ['formatRating', formatRating(4.5, EN), formatRating(4.5, 'de')],
 ];
 
 for (const [name, english, localized] of localizedPairs) {
   check(
     `${name}: the locale reaches the output (en and a non-en locale differ)`,
     english !== localized,
-    `both rendered ${JSON.stringify(english)} — the locale argument is being ignored, `
-    + "so every reader gets English no matter what they chose",
+    `both rendered ${JSON.stringify(english)} — the locale argument is being ignored, ` +
+      'so every reader gets English no matter what they chose',
   );
 }
 
@@ -583,10 +587,10 @@ for (const [name, english, localized] of localizedPairs) {
  * — no ASCII digit survives — rather than as a literal, because the point is
  * the numbering system and not one particular spelling of 148.
  */
-const arabicMoney = visibleText(formatMoney({ amount: 14800, currency: "USD" }, "ar"));
+const arabicMoney = visibleText(formatMoney({ amount: 14800, currency: 'USD' }, 'ar'));
 check(
   "formatMoney/ar uses the locale's own digits (no ASCII digit in the figure)",
-  !/[0-9]/.test(arabicMoney.replace("$", "")),
+  !/[0-9]/.test(arabicMoney.replace('$', '')),
   `got ${JSON.stringify(arabicMoney)} — ${describeCodePoints(arabicMoney)}`,
 );
 
@@ -598,9 +602,9 @@ check(
  * decoration — and this is the only place it is exercised.
  */
 check(
-  "formatMoney degrades to the pre-#500 spelling on a malformed locale tag rather than throwing",
-  visibleText(formatMoney({ amount: 14800, currency: "USD" }, "en_US")) === "$148.00",
-  `got ${JSON.stringify(visibleText(formatMoney({ amount: 14800, currency: "USD" }, "en_US")))}`,
+  'formatMoney degrades to the pre-#500 spelling on a malformed locale tag rather than throwing',
+  visibleText(formatMoney({ amount: 14800, currency: 'USD' }, 'en_US')) === '$148.00',
+  `got ${JSON.stringify(visibleText(formatMoney({ amount: 14800, currency: 'USD' }, 'en_US')))}`,
 );
 
 /**
@@ -609,59 +613,59 @@ check(
  * than left to be discovered in a screenshot.
  */
 checkIsolatedExactly(
-  "formatMoney",
-  "grouped/en — the one English change",
-  formatMoney({ amount: 123_456, currency: "USD" }, EN),
-  "$1,234.56",
+  'formatMoney',
+  'grouped/en — the one English change',
+  formatMoney({ amount: 123_456, currency: 'USD' }, EN),
+  '$1,234.56',
 );
 
 // ---------------------------------------------------------------------------
 // `isolateBidi` itself: the properties the formatters rest on.
 // ---------------------------------------------------------------------------
 
-const wrapped = isolateBidi("$1.00");
+const wrapped = isolateBidi('$1.00');
 check(
-  "isolateBidi wraps plain text in one FSI/PDI pair",
+  'isolateBidi wraps plain text in one FSI/PDI pair',
   describeCodePoints(wrapped) === describeCodePoints(`\u2068$1.00\u2069`),
   `got ${describeCodePoints(wrapped)}`,
 );
 
 check(
-  "isolateBidi is idempotent — an already-isolated string is returned unchanged",
+  'isolateBidi is idempotent — an already-isolated string is returned unchanged',
   isolateBidi(wrapped) === wrapped,
   `got ${describeCodePoints(isolateBidi(wrapped))}`,
 );
 
 check(
-  "isolateBidi applied to formatter output does not double wrap",
-  isolateBidi(formatMoney({ amount: 100, currency: "USD" }, EN)) ===
-    formatMoney({ amount: 100, currency: "USD" }, EN),
-  `got ${describeCodePoints(isolateBidi(formatMoney({ amount: 100, currency: "USD" }, EN)))}`,
+  'isolateBidi applied to formatter output does not double wrap',
+  isolateBidi(formatMoney({ amount: 100, currency: 'USD' }, EN)) ===
+    formatMoney({ amount: 100, currency: 'USD' }, EN),
+  `got ${describeCodePoints(isolateBidi(formatMoney({ amount: 100, currency: 'USD' }, EN)))}`,
 );
 
 // The case a `startsWith`/`endsWith` idempotence test gets WRONG. Two isolated
 // fragments joined together begin with an initiator and end with a PDI, but the
 // JOIN between them is unprotected, so the concatenation must be wrapped again.
-const twoFragments = `${isolateBidi("a")}${isolateBidi("b")}`;
+const twoFragments = `${isolateBidi('a')}${isolateBidi('b')}`;
 check(
-  "isolateBidi wraps two concatenated isolates (the join is not protected by either)",
+  'isolateBidi wraps two concatenated isolates (the join is not protected by either)',
   isolateBidi(twoFragments) !== twoFragments &&
     Array.from(isolateBidi(twoFragments))[0].codePointAt(0) === FIRST_STRONG_ISOLATE,
   `got ${describeCodePoints(isolateBidi(twoFragments))}`,
 );
 
 check(
-  "isolateBidi leaves an empty string empty rather than emitting a bare isolate pair",
-  isolateBidi("") === "",
-  `got ${describeCodePoints(isolateBidi(""))}`,
+  'isolateBidi leaves an empty string empty rather than emitting a bare isolate pair',
+  isolateBidi('') === '',
+  `got ${describeCodePoints(isolateBidi(''))}`,
 );
 
 // An LRI-isolated string is already isolated and must not be re-wrapped, or a
 // caller that chose a direction on purpose would have it overridden.
 check(
-  "isolateBidi respects an existing LRI/PDI isolate",
-  isolateBidi("\u2066x\u2069") === "\u2066x\u2069",
-  `got ${describeCodePoints(isolateBidi("\u2066x\u2069"))}`,
+  'isolateBidi respects an existing LRI/PDI isolate',
+  isolateBidi('\u2066x\u2069') === '\u2066x\u2069',
+  `got ${describeCodePoints(isolateBidi('\u2066x\u2069'))}`,
 );
 
 // ---------------------------------------------------------------------------
@@ -680,49 +684,44 @@ check(
 // `byte` rather than a prefix and therefore the one most likely to be special-
 // cased away by a future edit.
 checkIsolatedExactly(
-  "formatByteSize",
-  "bytes/en",
+  'formatByteSize',
+  'bytes/en',
   byteSizeModule.formatByteSize(512, EN),
-  "512 byte",
+  '512 byte',
 );
 checkIsolatedExactly(
-  "formatByteSize",
-  "megabytes/en",
+  'formatByteSize',
+  'megabytes/en',
   byteSizeModule.formatByteSize(4_500_000, EN),
-  "4.5 MB",
+  '4.5 MB',
 );
 // An 8 GiB deliverable is `MAX_ASSET_FILE_BYTES`, so this is the real ceiling a
 // buyer sees rather than an invented large number.
 checkIsolatedExactly(
-  "formatByteSize",
-  "gigabytes/en",
+  'formatByteSize',
+  'gigabytes/en',
   byteSizeModule.formatByteSize(1_250_000_000, EN),
-  "1.3 GB",
+  '1.3 GB',
 );
 // Zero is a real answer — a file row carries a measured size and a preview can be
 // tiny — and it must still be isolated: an unwrapped "0" beside an Arabic label
 // is the same reordering bug at its least visible.
-checkIsolatedExactly(
-  "formatByteSize",
-  "zero/en",
-  byteSizeModule.formatByteSize(0, EN),
-  "0 byte",
-);
+checkIsolatedExactly('formatByteSize', 'zero/en', byteSizeModule.formatByteSize(0, EN), '0 byte');
 
 // A triangle count. Grouped, and the GROUPING is the thing isolation protects:
 // the separator is a weak character, so an un-isolated "42,180" next to Arabic
 // text can have its groups visually rearranged.
 checkIsolatedExactly(
-  "formatWholeNumber",
-  "grouped/en",
+  'formatWholeNumber',
+  'grouped/en',
   plainNumberModule.formatWholeNumber(42_180, EN),
-  "42,180",
+  '42,180',
 );
 checkIsolatedExactly(
-  "formatWholeNumber",
-  "zero/en",
+  'formatWholeNumber',
+  'zero/en',
   plainNumberModule.formatWholeNumber(0, EN),
-  "0",
+  '0',
 );
 
 const coveredFormatters = Array.from(exercisedFormatters);
@@ -752,12 +751,12 @@ const coveredFormatters = Array.from(exercisedFormatters);
  */
 const exportedFormatters = FORMATTER_MODULES.flatMap(({ module }) =>
   Object.entries(module)
-    .filter(([, value]) => typeof value === "function")
+    .filter(([, value]) => typeof value === 'function')
     .map(([name]) => name),
 );
 
 check(
-  "the module census found the formatters at all (a broken census reads as a clean zero)",
+  'the module census found the formatters at all (a broken census reads as a clean zero)',
   exportedFormatters.length > 0,
   `no callable exports found on ${formatModulePath}`,
 );
@@ -768,13 +767,13 @@ check(
 // population while the union stayed comfortably above any total floor, and the
 // exact reconciliation below would then reconcile the smaller set perfectly.
 for (const { path, module, minimum } of FORMATTER_MODULES) {
-  const own = Object.entries(module).filter(([, value]) => typeof value === "function");
+  const own = Object.entries(module).filter(([, value]) => typeof value === 'function');
   check(
     `${path} contributes at least ${minimum} formatter(s) to the census`,
     own.length >= minimum,
-    `found ${own.length} (${own.map(([name]) => name).join(", ") || "none"}) — the census shrank `
-    + "silently rather than failing. If you deliberately removed one, lower this module's "
-    + "`minimum` AND the union floor below, in the same change",
+    `found ${own.length} (${own.map(([name]) => name).join(', ') || 'none'}) — the census shrank ` +
+      "silently rather than failing. If you deliberately removed one, lower this module's " +
+      '`minimum` AND the union floor below, in the same change',
   );
 }
 
@@ -791,8 +790,8 @@ const MINIMUM_FORMATTER_MODULES = 5;
 check(
   `the census covers at least ${MINIMUM_FORMATTER_MODULES} modules`,
   FORMATTER_MODULES.length >= MINIMUM_FORMATTER_MODULES,
-  `only ${FORMATTER_MODULES.length} listed — a module dropped from FORMATTER_MODULES takes its `
-  + "own floor with it, so nothing else here would notice",
+  `only ${FORMATTER_MODULES.length} listed — a module dropped from FORMATTER_MODULES takes its ` +
+    'own floor with it, so nothing else here would notice',
 );
 
 /**
@@ -811,20 +810,20 @@ const MINIMUM_EXPORTED_FORMATTERS = 11;
 check(
   `at least ${MINIMUM_EXPORTED_FORMATTERS} formatters were found (vacuity floor on the census)`,
   exportedFormatters.length >= MINIMUM_EXPORTED_FORMATTERS,
-  `found ${exportedFormatters.length}: ${exportedFormatters.join(", ")}`,
+  `found ${exportedFormatters.length}: ${exportedFormatters.join(', ')}`,
 );
 
 const uncovered = exportedFormatters.filter((name) => !coveredFormatters.includes(name));
 const stale = coveredFormatters.filter((name) => !exportedFormatters.includes(name));
 check(
-  "every formatter exported by format.ts is covered by a case above",
+  'every formatter exported by format.ts is covered by a case above',
   uncovered.length === 0,
-  `exported but never exercised: ${uncovered.join(", ")} — add a checkIsolatedExactly case`,
+  `exported but never exercised: ${uncovered.join(', ')} — add a checkIsolatedExactly case`,
 );
 check(
-  "every formatter this gate exercises still exists in format.ts",
+  'every formatter this gate exercises still exists in format.ts',
   stale.length === 0,
-  `exercised here but not exported by format.ts: ${stale.join(", ")}`,
+  `exercised here but not exported by format.ts: ${stale.join(', ')}`,
 );
 
 /**
@@ -844,13 +843,17 @@ check(
 );
 
 if (failures.length > 0) {
-  console.error(`\nBidi isolation guard FAILED — ${failures.length} of ${assertionCount} checks:\n`);
+  console.error(
+    `\nBidi isolation guard FAILED — ${failures.length} of ${assertionCount} checks:\n`,
+  );
   for (const failure of failures) console.error(`  ✗ ${failure}`);
   console.error(
-    "\nDisplay formatters in packages/ui/src/lib/format.ts must return strings wrapped in",
-    "\nFSI (U+2068) ... PDI (U+2069). See packages/ui/src/lib/bidi.ts for why.\n",
+    '\nDisplay formatters in packages/ui/src/lib/format.ts must return strings wrapped in',
+    '\nFSI (U+2068) ... PDI (U+2069). See packages/ui/src/lib/bidi.ts for why.\n',
   );
   process.exit(1);
 }
 
-console.log(`Bidi isolation guard passed — ${assertionCount} assertions over ${exportedFormatters.length} formatters.`);
+console.log(
+  `Bidi isolation guard passed — ${assertionCount} assertions over ${exportedFormatters.length} formatters.`,
+);

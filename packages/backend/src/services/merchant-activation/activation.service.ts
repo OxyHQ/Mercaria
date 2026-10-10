@@ -137,7 +137,9 @@ function nativeCheckoutState(
   blocking: readonly MerchantActivationRequirementKey[],
 ): MerchantCheckoutState {
   if (blocking.length === 0) return 'enabled';
-  return blocking.length === 1 && blocking[0] === 'native_checkout_not_paused' ? 'paused' : 'disabled';
+  return blocking.length === 1 && blocking[0] === 'native_checkout_not_paused'
+    ? 'paused'
+    : 'disabled';
 }
 
 /** The guest version, with the fourth word. */
@@ -156,7 +158,9 @@ function guestCheckoutState(
 }
 
 /** Project the derivation for the merchant's own dashboard. */
-export function projectActivationState(derived: DerivedMerchantActivation): MerchantActivationState {
+export function projectActivationState(
+  derived: DerivedMerchantActivation,
+): MerchantActivationState {
   const { facts } = derived;
   return {
     storeId: facts.store.id,
@@ -231,7 +235,9 @@ function projectPolicies(
 }
 
 /** Derive and project in one call — the merchant surface's whole read. */
-export async function readMerchantActivationState(storeId: string): Promise<MerchantActivationState> {
+export async function readMerchantActivationState(
+  storeId: string,
+): Promise<MerchantActivationState> {
   const derived = await deriveMerchantActivation(storeId);
   if (!derived) throw notFound('Store not found');
   return projectActivationState(derived);

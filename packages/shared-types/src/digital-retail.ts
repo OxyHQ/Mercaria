@@ -178,14 +178,13 @@ export const DIGITAL_SUPPLY_PROVENANCES: readonly DigitalSupplyProvenance[] = [
  * A total map rather than an array index, so adding a member without deciding its
  * strength fails `tsc`.
  */
-export const DIGITAL_SUPPLY_PROVENANCE_STRENGTH: Readonly<
-  Record<DigitalSupplyProvenance, number>
-> = {
-  publisher_direct: 4,
-  authorized_distributor: 3,
-  authorized_wholesaler: 2,
-  approved_marketplace_supply: 1,
-};
+export const DIGITAL_SUPPLY_PROVENANCE_STRENGTH: Readonly<Record<DigitalSupplyProvenance, number>> =
+  {
+    publisher_direct: 4,
+    authorized_distributor: 3,
+    authorized_wholesaler: 2,
+    approved_marketplace_supply: 1,
+  };
 
 /**
  * What a digital supplier account's API can do — the adapter capability set

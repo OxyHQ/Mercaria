@@ -1,4 +1,4 @@
-import { isolateBidi } from "./bidi";
+import { isolateBidi } from './bidi';
 
 /**
  * Country names in the app's locale (#489).
@@ -62,16 +62,16 @@ function displayNamesFor(locale: string): Intl.DisplayNames | null {
   }
   let resolved: Intl.DisplayNames | null = null;
   // Feature-detected rather than assumed: see the module note on Hermes.
-  if (typeof (Intl as { DisplayNames?: unknown }).DisplayNames === "function") {
+  if (typeof (Intl as { DisplayNames?: unknown }).DisplayNames === 'function') {
     try {
-      resolved = new Intl.DisplayNames([locale], { type: "region", fallback: "none" });
+      resolved = new Intl.DisplayNames([locale], { type: 'region', fallback: 'none' });
     } catch {
       // A malformed OS tag (`en_US`) raises here exactly as it does for
       // `Intl.DateTimeFormat`. Retry on the runtime default before giving up,
       // so a device with an odd tag still gets names in SOME language rather
       // than bare codes.
       try {
-        resolved = new Intl.DisplayNames(undefined, { type: "region", fallback: "none" });
+        resolved = new Intl.DisplayNames(undefined, { type: 'region', fallback: 'none' });
       } catch {
         resolved = null;
       }
@@ -92,7 +92,7 @@ function displayNamesFor(locale: string): Intl.DisplayNames | null {
 export function formatRegionName(code: string, locale: string): string {
   const trimmed = code.trim();
   if (trimmed.length === 0) {
-    return "";
+    return '';
   }
   const upper = trimmed.toUpperCase();
   const fallback = isolateBidi(upper);
@@ -105,7 +105,7 @@ export function formatRegionName(code: string, locale: string): string {
   }
   try {
     const name = displayNames.of(upper);
-    return typeof name === "string" && name.length > 0 ? isolateBidi(name) : fallback;
+    return typeof name === 'string' && name.length > 0 ? isolateBidi(name) : fallback;
   } catch {
     // Unreachable for an alpha-2 code on a conforming engine — kept because the
     // cost of being wrong about that is a crashed checkout screen, and the

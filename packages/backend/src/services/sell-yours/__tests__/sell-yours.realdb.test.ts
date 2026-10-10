@@ -590,9 +590,7 @@ describe('a seller-declared match becomes an attachment', () => {
       ],
     });
 
-    await expect(publishSellerDraft(oxyUserId, draft.id)).rejects.toThrow(
-      /match_variant_missing/,
-    );
+    await expect(publishSellerDraft(oxyUserId, draft.id)).rejects.toThrow(/match_variant_missing/);
   });
 });
 

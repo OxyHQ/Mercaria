@@ -36,7 +36,7 @@ import type { MerchantOfferCensusRow } from '../../db/merchantPages/merchantCata
 function bucketsOf<TKey>(counts: ReadonlyMap<TKey, number>): MerchantOfferMixBucket<TKey>[] {
   return [...counts.entries()]
     .map(([key, count]) => ({ key, count }))
-    .sort((a, b) => (b.count - a.count) || String(a.key).localeCompare(String(b.key)));
+    .sort((a, b) => b.count - a.count || String(a.key).localeCompare(String(b.key)));
 }
 
 function add<TKey>(counts: Map<TKey, number>, key: TKey, count: number): void {

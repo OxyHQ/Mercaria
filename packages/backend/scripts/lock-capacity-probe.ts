@@ -113,7 +113,9 @@ function readNumericFlag(argv: readonly string[], name: string, fallback: number
     if (!arg.startsWith(prefix)) continue;
     const parsed = Number.parseInt(arg.slice(prefix.length), 10);
     if (Number.isNaN(parsed) || parsed < 1) {
-      throw new Error(`Unrecognised ${prefix}${arg.slice(prefix.length)} — expected a positive integer.`);
+      throw new Error(
+        `Unrecognised ${prefix}${arg.slice(prefix.length)} — expected a positive integer.`,
+      );
     }
     return parsed;
   }
@@ -185,7 +187,9 @@ function startLockSampler(adminUrl: string): { stop: () => Promise<number> } {
         // round under test is exhausting it, which is the outcome being measured.
         // Reported rather than swallowed, so a sampler that never sampled is
         // visible instead of reading as a peak of zero.
-        process.stdout.write(`    lock sample skipped: ${reason instanceof Error ? reason.message : String(reason)}\n`);
+        process.stdout.write(
+          `    lock sample skipped: ${reason instanceof Error ? reason.message : String(reason)}\n`,
+        );
       }
       await new Promise((resolve) => setTimeout(resolve, LOCK_SAMPLE_INTERVAL_MS));
     }
@@ -202,7 +206,10 @@ function startLockSampler(adminUrl: string): { stop: () => Promise<number> } {
 }
 
 /** Classify one migration failure without swallowing what it actually said. */
-function classifyFailure(reason: unknown): { outcome: 'lock_exhausted' | 'other_failure'; detail: string } {
+function classifyFailure(reason: unknown): {
+  outcome: 'lock_exhausted' | 'other_failure';
+  detail: string;
+} {
   const detail = reason instanceof Error ? reason.message : String(reason);
   return {
     outcome: detail.includes(LOCK_EXHAUSTION_MARKER) ? 'lock_exhausted' : 'other_failure',
@@ -224,7 +231,12 @@ async function runRound(adminUrl: string, concurrency: number): Promise<RoundRes
         return { startedAt, endedAt: Date.now(), outcome: 'migrated', detail: '' };
       } catch (reason: unknown) {
         const classified = classifyFailure(reason);
-        return { startedAt, endedAt: Date.now(), outcome: classified.outcome, detail: classified.detail };
+        return {
+          startedAt,
+          endedAt: Date.now(),
+          outcome: classified.outcome,
+          detail: classified.detail,
+        };
       }
     }),
   );
@@ -261,7 +273,15 @@ async function runRound(adminUrl: string, concurrency: number): Promise<RoundRes
     process.stdout.write(`    first non-lock failure: ${firstOther.detail.slice(0, 400)}\n`);
   }
 
-  return { concurrency, migrated, lockExhausted, otherFailures, maxIntervalOverlap: overlap, peakLocks, verdict };
+  return {
+    concurrency,
+    migrated,
+    lockExhausted,
+    otherFailures,
+    maxIntervalOverlap: overlap,
+    peakLocks,
+    verdict,
+  };
 }
 
 /** Report the server's own view of the lock table it was started with. */
@@ -292,7 +312,9 @@ async function main(): Promise<void> {
 
   const adminUrl = process.env.LOCK_PROBE_ADMIN_URL;
   if (!adminUrl) {
-    throw new Error('LOCK_PROBE_ADMIN_URL is required — a server this probe may create and drop databases on.');
+    throw new Error(
+      'LOCK_PROBE_ADMIN_URL is required — a server this probe may create and drop databases on.',
+    );
   }
 
   const options: ProbeOptions = {
@@ -343,6 +365,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+  process.stderr.write(
+    `${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
+  );
   process.exitCode = 1;
 });

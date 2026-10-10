@@ -122,10 +122,12 @@ function domainModules(): { path: string; source: string }[] {
  * number.
  */
 function expectEveryShapeFoundSomething(modules: { path: string }[]): void {
-  const from = (prefix: string) => modules.filter((module) => module.path.startsWith(prefix)).length;
-  expect(from('services/offer-freshness/'), 'the service walk found nothing').toBeGreaterThanOrEqual(
-    10,
-  );
+  const from = (prefix: string) =>
+    modules.filter((module) => module.path.startsWith(prefix)).length;
+  expect(
+    from('services/offer-freshness/'),
+    'the service walk found nothing',
+  ).toBeGreaterThanOrEqual(10);
   expect(from('db/offerFreshness/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(5);
   expect(from('routes/'), 'no freshness route was derived').toBeGreaterThanOrEqual(1);
   expect(from('controllers/'), 'no freshness controller was derived').toBeGreaterThanOrEqual(1);
@@ -216,10 +218,12 @@ const REDIRECT_COMPOSITION =
 
 /** #74's ranking, and the signal domains whose entry points this one publishes. */
 const RANKING_REFERENCE = /rankOffers|offerRanking|services\/ranking\/|\.\.\/ranking\//;
-const SIGNAL_DOMAIN_REFERENCE = /services\/analytics\/|\.\.\/analytics\/|services\/referrals\/|\.\.\/referrals\/|priceAlertRepository/;
+const SIGNAL_DOMAIN_REFERENCE =
+  /services\/analytics\/|\.\.\/analytics\/|services\/referrals\/|\.\.\/referrals\/|priceAlertRepository/;
 
 /** The cart, the checkout and the money path. */
-const COMMERCE_REFERENCE = /services\/cart|services\/checkout|services\/payments\/|\.\.\/payments\/|cartRepository/;
+const COMMERCE_REFERENCE =
+  /services\/cart|services\/checkout|services\/payments\/|\.\.\/payments\/|cartRepository/;
 
 describe('there is no global TTL, and the resolver cannot grow one', () => {
   it('the policy resolver imports no configuration', () => {
@@ -350,8 +354,10 @@ describe('the domain decides, and does not do another issue’s job', () => {
   });
 
   it('the mutation self-test: every detector IS able to fire', () => {
-    expect(REDIRECT_COMPOSITION.test("res.redirect(302, destination);")).toBe(true);
-    expect(REDIRECT_COMPOSITION.test("import { buildAffiliateUrl } from '../outbound/x.js';")).toBe(true);
+    expect(REDIRECT_COMPOSITION.test('res.redirect(302, destination);')).toBe(true);
+    expect(REDIRECT_COMPOSITION.test("import { buildAffiliateUrl } from '../outbound/x.js';")).toBe(
+      true,
+    );
     // The ranking probe used to import `rankOffers`, which the pattern matches
     // by FUNCTION NAME — so it passed without ever exercising the path
     // alternative beside it, and read as coverage of both. The symbol here is
@@ -367,7 +373,9 @@ describe('the domain decides, and does not do another issue’s job', () => {
     // module writes; it was the REGEX being asserted against itself.
     expect(SIGNAL_DOMAIN_REFERENCE.test("import { x } from '../analytics/seams.js';")).toBe(true);
     expect(SIGNAL_DOMAIN_REFERENCE.test("import { x } from '../referrals/touch.js';")).toBe(true);
-    expect(SIGNAL_DOMAIN_REFERENCE.test("import { x } from 'services/analytics/seams.js';")).toBe(true);
+    expect(SIGNAL_DOMAIN_REFERENCE.test("import { x } from 'services/analytics/seams.js';")).toBe(
+      true,
+    );
 
     // Both depths: the sibling form AND the one written from a nested module.
     expect(COMMERCE_REFERENCE.test("import { x } from '../payments/y.js';")).toBe(true);

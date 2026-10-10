@@ -258,7 +258,10 @@ export function orderingIsTotal(table: PgTable, properties: readonly string[]): 
   const compositePrimaryKey = config.primaryKeys[0]?.columns.map((column) => column.name) ?? [];
   const declaredPrimaryKey = primaryKey.length > 0 ? primaryKey : compositePrimaryKey;
   if (declaredPrimaryKey.length > 0 && declaredPrimaryKey.every((name) => ordered.has(name))) {
-    return { total: true, because: `the ordering covers the primary key (${declaredPrimaryKey.join(', ')})` };
+    return {
+      total: true,
+      because: `the ordering covers the primary key (${declaredPrimaryKey.join(', ')})`,
+    };
   }
 
   for (const unique of config.uniqueConstraints) {

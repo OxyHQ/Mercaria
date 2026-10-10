@@ -43,7 +43,8 @@ export default function CreatorScreen() {
   const slug = params.slug ?? '';
 
   const source = digitalCreatorPageSource(slug);
-  const title = source.kind === 'ready' ? source.value.creator.name : t('digital.creator.fallbackTitle');
+  const title =
+    source.kind === 'ready' ? source.value.creator.name : t('digital.creator.fallbackTitle');
 
   return (
     <ScreenShell contentClassName="pt-6">
@@ -62,7 +63,9 @@ export default function CreatorScreen() {
           <>
             {source.value.biography === undefined ? null : (
               /* The creator's own words, verbatim. */
-              <Text className="text-shop-bodySmall text-text-secondary">{source.value.biography}</Text>
+              <Text className="text-shop-bodySmall text-text-secondary">
+                {source.value.biography}
+              </Text>
             )}
             <View className="gap-space-8">
               <Text className="text-shop-captionBold text-text" accessibilityRole="header">

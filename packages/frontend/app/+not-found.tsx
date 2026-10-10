@@ -9,7 +9,10 @@ export default function NotFoundScreen() {
     <>
       <Head>
         <title>{t('shell.notFound.headTitle')}</title>
-        <meta name="description" content="The page you're looking for doesn't exist. Return to Mercaria to keep browsing." />
+        <meta
+          name="description"
+          content="The page you're looking for doesn't exist. Return to Mercaria to keep browsing."
+        />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <Stack.Screen options={{ title: t('shell.notFound.screenTitle') }} />

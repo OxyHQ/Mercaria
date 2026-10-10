@@ -1,17 +1,17 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   Collection,
   CreateCollectionInput,
   UpdateCollectionInput,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 import {
   fetchCollections,
   fetchCollection,
   createCollection,
   updateCollection,
   deleteCollection,
-} from "../api/collections";
-import { queryKeys } from "../queryKeys";
+} from '../api/collections';
+import { queryKeys } from '../queryKeys';
 
 /** The store's collections. */
 export function useCollections(storeId: string) {

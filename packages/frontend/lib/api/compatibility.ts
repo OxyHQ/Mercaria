@@ -1,8 +1,4 @@
-import type {
-  ApiResponse,
-  CompatibilitySubject,
-  PartFitmentsView,
-} from '@mercaria/shared-types';
+import type { ApiResponse, CompatibilitySubject, PartFitmentsView } from '@mercaria/shared-types';
 import apiClient from './client';
 
 /**
@@ -35,17 +31,14 @@ import apiClient from './client';
  */
 
 /** The vehicles one part is stated to fit, exclusions included. */
-export async function fetchPartFitments(
-  subject: CompatibilitySubject,
-): Promise<PartFitmentsView> {
+export async function fetchPartFitments(subject: CompatibilitySubject): Promise<PartFitmentsView> {
   const params =
     subject.kind === 'canonical_variant'
       ? { subjectVariantId: subject.variantId }
       : { subjectProductId: subject.productId };
-  const { data } = await apiClient.get<ApiResponse<PartFitmentsView>>(
-    '/compatibility/fitments',
-    { params },
-  );
+  const { data } = await apiClient.get<ApiResponse<PartFitmentsView>>('/compatibility/fitments', {
+    params,
+  });
   if (!data.success || !data.data) {
     throw new Error(data.error ?? data.message ?? 'Failed to load fitment');
   }

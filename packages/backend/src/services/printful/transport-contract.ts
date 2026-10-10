@@ -115,7 +115,10 @@ export class PrintfulTransportError extends Error {
   /** Whether waiting longer could plausibly help, from the transport's view. */
   readonly retryable: boolean;
 
-  constructor(message: string, options: { afterWrite: boolean; retryable: boolean; cause?: unknown }) {
+  constructor(
+    message: string,
+    options: { afterWrite: boolean; retryable: boolean; cause?: unknown },
+  ) {
     super(message, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'PrintfulTransportError';
     this.afterWrite = options.afterWrite;

@@ -32,13 +32,21 @@ const latitude = z.coerce.number().min(-90).max(90);
 const longitude = z.coerce.number().min(-180).max(180);
 const country = z.string().trim().length(2).toUpperCase();
 /** A BCP 47 tag, passed through to GoWay for a place's localized name. */
-const locale = z.string().trim().regex(/^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*$/, 'Use a BCP 47 tag');
+const locale = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*$/, 'Use a BCP 47 tag');
 
 /** A comma-separated list narrowed to a closed set, dropping nothing silently. */
 function commaList<T extends string>(values: readonly T[]) {
   return z
     .string()
-    .transform((raw) => raw.split(',').map((part) => part.trim()).filter((part) => part !== ''))
+    .transform((raw) =>
+      raw
+        .split(',')
+        .map((part) => part.trim())
+        .filter((part) => part !== ''),
+    )
     .pipe(z.array(z.enum(asEnumValues(values))).min(1));
 }
 
@@ -129,9 +137,7 @@ export const upsertLocationPublicationSchema = z
     goWayPlaceId: z.string().trim().min(1).max(128),
     pickupOffered: z.boolean(),
     pickupInstructions: z.string().trim().max(1000).optional(),
-    identityRequirement: z
-      .enum(asEnumValues(PICKUP_IDENTITY_REQUIREMENTS))
-      .optional(),
+    identityRequirement: z.enum(asEnumValues(PICKUP_IDENTITY_REQUIREMENTS)).optional(),
     inventorySource: z.enum(asEnumValues(LOCATION_INVENTORY_SOURCES)),
     // REQUIRED, with no default anywhere in the stack. A default here would be
     // the deployment-wide freshness TTL #68 forbids, arriving through a form.
@@ -171,7 +177,10 @@ export const markPickupReadySchema = z
 export const collectPickupSchema = z
   .object({
     code: z.string().trim().min(4).max(32).optional(),
-    override: z.object({ reason: z.string().trim().min(3).max(300) }).strict().optional(),
+    override: z
+      .object({ reason: z.string().trim().min(3).max(300) })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((body) => (body.code === undefined) !== (body.override === undefined), {
@@ -180,9 +189,7 @@ export const collectPickupSchema = z
   });
 
 /** `POST …/pickup/cancel`. */
-export const cancelPickupSchema = z
-  .object({ reason: z.string().trim().min(3).max(300) })
-  .strict();
+export const cancelPickupSchema = z.object({ reason: z.string().trim().min(3).max(300) }).strict();
 
 /** `POST …/pickup/rotate-code`. */
 export const rotateCollectionCodeSchema = z

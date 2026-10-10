@@ -1,4 +1,4 @@
-import type { TextTone } from "@mercaria/shared-types";
+import type { TextTone } from '@mercaria/shared-types';
 
 /**
  * Derives a full set of scoped shadcn theme-token overrides from a store's
@@ -62,7 +62,7 @@ function parseRgbString(value: string): Rgb | null {
 
 /** Parse `#RGB` / `#RRGGBB` into an {@link Rgb}, or `null` if it doesn't match. */
 function parseHexString(value: string): Rgb | null {
-  const hex = value.trim().replace(/^#/, "");
+  const hex = value.trim().replace(/^#/, '');
   if (hex.length === 3) {
     return {
       r: parseInt(hex[0] + hex[0], 16),
@@ -116,12 +116,9 @@ function mix(from: Rgb, to: Rgb, ratio: number): Rgb {
  * Build the scoped theme-token map for a store's palette. Pass the result to
  * NativeWind's `vars()` and apply it on a wrapper `View`.
  */
-export function storeThemeVars(
-  brandColor: string,
-  textTone: TextTone,
-): Record<string, string> {
+export function storeThemeVars(brandColor: string, textTone: TextTone): Record<string, string> {
   const brand = parseColor(brandColor);
-  const isLight = textTone === "light";
+  const isLight = textTone === 'light';
   const tone = isLight ? TONE_LIGHT_RGB : TONE_DARK_RGB;
 
   const brandValue = rgb(brand);
@@ -141,20 +138,20 @@ export function storeThemeVars(
     background: brandValue,
     foreground: toneValue,
     card: glassValue,
-    "card-foreground": toneValue,
+    'card-foreground': toneValue,
     popover: glassValue,
-    "popover-foreground": toneValue,
+    'popover-foreground': toneValue,
     secondary: glassValue,
-    "secondary-foreground": toneValue,
+    'secondary-foreground': toneValue,
     accent: glassValue,
-    "accent-foreground": toneValue,
+    'accent-foreground': toneValue,
     muted: glassValue,
-    "muted-foreground": mutedForegroundValue,
+    'muted-foreground': mutedForegroundValue,
     border: outlineValue,
     input: outlineValue,
     // Primary buttons read as tone-on-brand (tone fill, brand label).
     primary: toneValue,
-    "primary-foreground": brandValue,
+    'primary-foreground': brandValue,
     ring: toneValue,
   };
 

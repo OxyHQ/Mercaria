@@ -318,7 +318,11 @@ export const FOLDING_PROBES: readonly FoldingProbe[] = [
     locale: 'ca',
     stored: 'bicicletes vermelles',
     query: 'bicicleta vermella',
-    expected: { normalized_name: 'no_match', normalized_alias: 'no_match', search_vector: 'no_match' },
+    expected: {
+      normalized_name: 'no_match',
+      normalized_alias: 'no_match',
+      search_vector: 'no_match',
+    },
     note:
       'A MEASURED NEGATIVE, kept deliberately. The Catalan stemmer takes `bicicletes` to ' +
       '`biciclet` and `bicicleta` to `bicicl`, so it does NOT unify a real singular/plural ' +
@@ -342,7 +346,11 @@ export const FOLDING_PROBES: readonly FoldingProbe[] = [
     locale: 'ja',
     stored: 'guitars',
     query: 'guitar',
-    expected: { normalized_name: 'no_match', normalized_alias: 'no_match', search_vector: 'no_match' },
+    expected: {
+      normalized_name: 'no_match',
+      normalized_alias: 'no_match',
+      search_vector: 'no_match',
+    },
     note:
       'The other half. The SAME two words under a locale the map routes to `simple`, which ' +
       'splits and folds case and does nothing else — so the plural is not crossed. Together ' +
@@ -601,9 +609,7 @@ export function findFoldingVacuityViolations(
   // 1b. The drift tripwire beside it. #61's dataset is pure ASCII, where every
   //     fold is the identity and nothing can ever fail; a PROPORTION is what
   //     stops this corpus being diluted back to that by later additions.
-  const nonAscii = probes.filter(
-    (probe) => hasNonAscii(probe.stored) || hasNonAscii(probe.query),
-  );
+  const nonAscii = probes.filter((probe) => hasNonAscii(probe.stored) || hasNonAscii(probe.query));
   if (nonAscii.length < probes.length * NON_ASCII_PROBE_FRACTION) {
     violations.push(
       `Only ${String(nonAscii.length)} of ${String(probes.length)} probes carry a non-ASCII ` +

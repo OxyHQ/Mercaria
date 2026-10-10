@@ -198,8 +198,7 @@ export async function buildMerchantPlanStatus(input: {
     effectivePlanVersion: resolved.planVersion,
     entitlements,
     billingAvailable: merchantBillingAvailableForStore(input.storeId),
-    portalAvailable:
-      merchantBillingAvailableForStore(input.storeId) && customer !== undefined,
+    portalAvailable: merchantBillingAvailableForStore(input.storeId) && customer !== undefined,
   };
 }
 

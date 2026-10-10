@@ -73,9 +73,7 @@ export async function buildCanonicalPrefill(input: {
     variant ? listVariantAttributes(db, variant.id) : Promise.resolve([]),
     variant ? listIdentifiersForVariant(db, variant.id) : Promise.resolve([]),
     listCanonicalImages(db, { kind: 'product', id: product.id }),
-    variant
-      ? listCanonicalImages(db, { kind: 'variant', id: variant.id })
-      : Promise.resolve([]),
+    variant ? listCanonicalImages(db, { kind: 'variant', id: variant.id }) : Promise.resolve([]),
   ]);
 
   // The variant's own picture where there is one, else the product's. A variant
@@ -102,7 +100,9 @@ export async function buildCanonicalPrefill(input: {
     identifiers: identifiers
       .filter((identifier) => identifier.status === 'active')
       .map((identifier) =>
-        inherited(`${identifier.scheme}:${identifier.canonicalValue ?? identifier.normalizedValue}`),
+        inherited(
+          `${identifier.scheme}:${identifier.canonicalValue ?? identifier.normalizedValue}`,
+        ),
       ),
     variantAttributes: attributes.map((attribute) =>
       inherited({ key: attribute.attributeKey, value: attribute.displayValue }),

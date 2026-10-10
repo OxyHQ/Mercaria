@@ -17,7 +17,12 @@
  */
 
 import type { NormalizedSourceRecord } from '@mercaria/shared-types';
-import type { OpenDataItem, OpenDataPage, OpenDataPageContext, OpenDataProvider } from '../provider.js';
+import type {
+  OpenDataItem,
+  OpenDataPage,
+  OpenDataPageContext,
+  OpenDataProvider,
+} from '../provider.js';
 import { OpenDataSchemaError } from '../provider.js';
 import { asArray, asNumber, asObject, asText, decimalMoney, FactCollector } from '../read.js';
 
@@ -46,10 +51,13 @@ export const ygoprodeckProvider: OpenDataProvider = {
 async function fetchYgoprodeckPage(context: OpenDataPageContext): Promise<OpenDataPage> {
   const offset = typeof context.cursor?.o === 'number' ? context.cursor.o : 0;
   const num = Math.min(Math.max(context.pageSize, 1), PAGE_CAP);
-  const response = await context.http.getJson(`${BASE_URL}?num=${String(num)}&offset=${String(offset)}&misc=yes`, {
-    minIntervalMs: INTERVAL_MS,
-    ...(context.signal ? { signal: context.signal } : {}),
-  });
+  const response = await context.http.getJson(
+    `${BASE_URL}?num=${String(num)}&offset=${String(offset)}&misc=yes`,
+    {
+      minIntervalMs: INTERVAL_MS,
+      ...(context.signal ? { signal: context.signal } : {}),
+    },
+  );
   const body = asObject(response?.body);
   if (body === undefined || !Array.isArray(body.data)) {
     throw new OpenDataSchemaError('the cardinfo response has no `data` array.');
@@ -73,9 +81,12 @@ export function toItem(card: Readonly<Record<string, unknown>>): OpenDataItem | 
   const prices = asObject(asArray(card.card_prices)[0]);
   const price = decimalMoney(prices?.cardmarket_price, 'EUR');
   // A zero is YGOPRODeck saying it has no Cardmarket price, not a free card.
-  if (id === undefined || name === undefined || price === undefined || price.amount === 0) return null;
+  if (id === undefined || name === undefined || price === undefined || price.amount === 0)
+    return null;
 
-  const sets = asArray(card.card_sets).map((set) => asObject(set)).filter((set): set is Readonly<Record<string, unknown>> => set !== undefined);
+  const sets = asArray(card.card_sets)
+    .map((set) => asObject(set))
+    .filter((set): set is Readonly<Record<string, unknown>> => set !== undefined);
   const misc = asObject(asArray(card.misc_info)[0]);
   const facts = new FactCollector('ygoprodeck')
     .add('card_id', id)
@@ -90,9 +101,26 @@ export function toItem(card: Readonly<Record<string, unknown>>): OpenDataItem | 
     .number('level', card.level)
     .number('link_value', card.linkval)
     .number('scale', card.scale)
-    .add('set_names', [...new Set(sets.map((set) => asText(set.set_name)).filter((value): value is string => value !== undefined))])
-    .add('set_codes', sets.map((set) => asText(set.set_code)).filter((value): value is string => value !== undefined))
-    .add('rarities', [...new Set(sets.map((set) => asText(set.set_rarity)).filter((value): value is string => value !== undefined))])
+    .add('set_names', [
+      ...new Set(
+        sets
+          .map((set) => asText(set.set_name))
+          .filter((value): value is string => value !== undefined),
+      ),
+    ])
+    .add(
+      'set_codes',
+      sets
+        .map((set) => asText(set.set_code))
+        .filter((value): value is string => value !== undefined),
+    )
+    .add('rarities', [
+      ...new Set(
+        sets
+          .map((set) => asText(set.set_rarity))
+          .filter((value): value is string => value !== undefined),
+      ),
+    ])
     .number('tcgplayer_price', prices?.tcgplayer_price, 'USD')
     .number('ebay_price', prices?.ebay_price, 'USD')
     .number('amazon_price', prices?.amazon_price, 'USD')

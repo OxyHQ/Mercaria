@@ -52,11 +52,21 @@ function actorAccountId(claims: CapabilityTicketClaims): string {
 function registerRoute(tool: CatalogTool, handler: RequestHandler): void {
   const path = `/${tool.name}`;
   switch (tool.invocation.method) {
-    case 'GET': router.get(path, handler); break;
-    case 'POST': router.post(path, handler); break;
-    case 'PATCH': router.patch(path, handler); break;
-    case 'PUT': router.put(path, handler); break;
-    case 'DELETE': router.delete(path, handler); break;
+    case 'GET':
+      router.get(path, handler);
+      break;
+    case 'POST':
+      router.post(path, handler);
+      break;
+    case 'PATCH':
+      router.patch(path, handler);
+      break;
+    case 'PUT':
+      router.put(path, handler);
+      break;
+    case 'DELETE':
+      router.delete(path, handler);
+      break;
   }
 }
 
@@ -71,7 +81,10 @@ async function auditDenied(
     result: { status: 'denied', code },
     rollbackSupported: tool.rollback === 'supported',
   }).catch((error: unknown) => {
-    log.general.error({ err: error, ticketId: claims?.jti, tool: tool.name }, 'Capability denial audit failed');
+    log.general.error(
+      { err: error, ticketId: claims?.jti, tool: tool.name },
+      'Capability denial audit failed',
+    );
   });
 }
 
@@ -94,9 +107,10 @@ for (const tool of MERCARIA_CAPABILITY_CATALOG.tools.filter(({ exposure }) =>
     } catch (error) {
       const code = error instanceof CapabilityTicketError ? error.code : 'jwks_unavailable';
       response.status(code === 'jwks_unavailable' ? 503 : 401).json({
-        error: code === 'jwks_unavailable'
-          ? 'capability_authority_unavailable'
-          : 'invalid_capability_ticket',
+        error:
+          code === 'jwks_unavailable'
+            ? 'capability_authority_unavailable'
+            : 'invalid_capability_ticket',
         code,
       });
       return;
@@ -125,7 +139,7 @@ for (const tool of MERCARIA_CAPABILITY_CATALOG.tools.filter(({ exposure }) =>
     }
 
     try {
-      if (!await introspectMercariaCapabilityTicket(ticket, claims)) {
+      if (!(await introspectMercariaCapabilityTicket(ticket, claims))) {
         await auditDenied(ticket, tool, 'capability_revoked_or_denied', claims);
         response.status(403).json({ error: 'capability_revoked_or_denied' });
         return;
@@ -144,13 +158,19 @@ for (const tool of MERCARIA_CAPABILITY_CATALOG.tools.filter(({ exposure }) =>
         claims.resource.effectiveAccountId,
       );
     } catch (error) {
-      log.general.error({ err: error, ticketId: claims.jti }, 'Mercaria domain authorization failed');
+      log.general.error(
+        { err: error, ticketId: claims.jti },
+        'Mercaria domain authorization failed',
+      );
       await auditMercariaCapabilityTicket({
         ticket,
         result: { status: 'failed', code: 'domain_authority_unavailable' },
         rollbackSupported: tool.rollback === 'supported',
       }).catch((auditError: unknown) => {
-        log.general.error({ err: auditError, ticketId: claims.jti }, 'Capability failure audit failed');
+        log.general.error(
+          { err: auditError, ticketId: claims.jti },
+          'Capability failure audit failed',
+        );
       });
       response.status(503).json({ error: 'domain_authority_unavailable' });
       return;
@@ -161,9 +181,8 @@ for (const tool of MERCARIA_CAPABILITY_CATALOG.tools.filter(({ exposure }) =>
       return;
     }
 
-    const rawIdempotencyKey = typeof input.idempotencyKey === 'string'
-      ? input.idempotencyKey
-      : undefined;
+    const rawIdempotencyKey =
+      typeof input.idempotencyKey === 'string' ? input.idempotencyKey : undefined;
     const idempotencyKeyHash = rawIdempotencyKey
       ? createHash('sha256').update(rawIdempotencyKey).digest('hex')
       : undefined;
@@ -194,10 +213,16 @@ for (const tool of MERCARIA_CAPABILITY_CATALOG.tools.filter(({ exposure }) =>
         rollbackSupported: tool.rollback === 'supported',
         idempotencyKeyHash,
       }).catch((auditError: unknown) => {
-        log.general.error({ err: auditError, ticketId: claims.jti }, 'Capability failure audit failed');
+        log.general.error(
+          { err: auditError, ticketId: claims.jti },
+          'Capability failure audit failed',
+        );
       });
       if (!isMercariaError(error)) {
-        log.general.error({ err: error, ticketId: claims.jti, tool: tool.name }, 'Capability execution failed');
+        log.general.error(
+          { err: error, ticketId: claims.jti, tool: tool.name },
+          'Capability execution failed',
+        );
       }
       response.status(isMercariaError(error) ? error.httpStatus : 500).json({ error: code });
     }

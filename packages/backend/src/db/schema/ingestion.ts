@@ -76,7 +76,16 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { bigint, boolean, check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   CATALOG_REFRESH_MODES,
@@ -209,10 +218,7 @@ export const catalogSourceConfigs = pgTable(
      * feed that does not say which market it serves serves the ones its offers
      * name, and narrowing it to nothing would silently drop every offer.
      */
-    territories: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    territories: text().array().notNull().default(sql`'{}'::text[]`),
     /**
      * WHERE the credential lives, never the credential (issue source definition
      * 5, "secrets are never stored in public source records").
@@ -244,7 +250,9 @@ export const catalogSourceConfigs = pgTable(
     /** How many records one page may carry. Bounds the adapter, not the source. */
     pageSize: integer().notNull().default(200),
 
-    status: text({ enum: asEnumValues(CATALOG_SOURCE_STATUSES) }).notNull().default('draft'),
+    status: text({ enum: asEnumValues(CATALOG_SOURCE_STATUSES) })
+      .notNull()
+      .default('draft'),
     /** Who last moved the status, and why. An Oxy account id — no foreign key. */
     statusChangedByOxyUserId: text(),
     statusChangedAt: timestamptz(),
@@ -646,7 +654,9 @@ export const catalogSourceObjects = pgTable(
     /** When these facts stop being trustworthy — the config's TTL, applied. */
     staleAt: timestamptz().notNull(),
 
-    state: text({ enum: asEnumValues(CATALOG_SOURCE_OBJECT_STATES) }).notNull().default('observed'),
+    state: text({ enum: asEnumValues(CATALOG_SOURCE_OBJECT_STATES) })
+      .notNull()
+      .default('observed'),
     /**
      * The matcher's verdict, as a POINTER (issue observation 10/11).
      *
@@ -812,20 +822,14 @@ export const catalogSourceObjects = pgTable(
      * re-published by the next is the SAME object, and minting a second row
      * would strand its history and its blocked-pair record on the first.
      */
-    uniqueIndex('catalog_source_objects_identity_key').on(
-      t.sourceId,
-      t.externalType,
-      t.externalId,
-    ),
+    uniqueIndex('catalog_source_objects_identity_key').on(t.sourceId, t.externalType, t.externalId),
     /** The retirement sweep: which of this source's objects a run did not mention. */
     index('catalog_source_objects_source_seen_idx').on(t.sourceId, t.lastSeenAt),
     /** The freshness read, and the refresh sweep's own order. */
     index('catalog_source_objects_freshness_idx').on(t.sourceId, t.staleAt),
     /** The review backlog and the quarantine board, per source. */
     index('catalog_source_objects_state_idx').on(t.sourceId, t.state),
-    index('catalog_source_objects_offer_idx')
-      .on(t.offerId)
-      .where(sql`${t.offerId} is not null`),
+    index('catalog_source_objects_offer_idx').on(t.offerId).where(sql`${t.offerId} is not null`),
   ],
 );
 
@@ -859,7 +863,9 @@ export const catalogSourceRuns = pgTable(
       .notNull()
       .references(() => catalogSources.id, { onDelete: 'restrict' }),
     kind: text({ enum: asEnumValues(CATALOG_SOURCE_RUN_KINDS) }).notNull(),
-    status: text({ enum: asEnumValues(CATALOG_SOURCE_RUN_STATUSES) }).notNull().default('pending'),
+    status: text({ enum: asEnumValues(CATALOG_SOURCE_RUN_STATUSES) })
+      .notNull()
+      .default('pending'),
     /**
      * The health class this pass ended in. NULL while it runs — a CHECK, so a
      * finished run always says what happened and a running one never pretends
@@ -892,10 +898,7 @@ export const catalogSourceRuns = pgTable(
      * lives on the run rather than in the dispatcher's memory. Empty for every
      * whole-source mode, a CHECK.
      */
-    targetExternalIds: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    targetExternalIds: text().array().notNull().default(sql`'{}'::text[]`),
 
     // ── The intake partition (issue observability 2) ─────────────────────────
     fetched: integer().notNull().default(0),

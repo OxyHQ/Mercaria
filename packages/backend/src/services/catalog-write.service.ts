@@ -956,9 +956,7 @@ export async function createStoreProduct(
     // transaction, and two spellings of a product create would have to agree
     // about the condition default, the source default, the variant cap and
     // `published_at` forever.
-    listing = await getDb().transaction((tx) =>
-      createStoreProductWithin(tx, storeId, input, opts),
-    );
+    listing = await getDb().transaction((tx) => createStoreProductWithin(tx, storeId, input, opts));
   } catch (err) {
     // The incumbent is read AFTER the transaction has rolled back, on a fresh
     // connection: one failed statement aborts the whole transaction (`25P02`), so
@@ -1317,10 +1315,7 @@ export async function updateListing(
   // P2P price/quantity updates flow through the single variant, stored in its
   // NATIVE currency. Both target the FIRST variant by position, which is the one
   // `createP2PListing` made.
-  if (
-    listing.ownerType === 'user' &&
-    (patch.price !== undefined || patch.quantity !== undefined)
-  ) {
+  if (listing.ownerType === 'user' && (patch.price !== undefined || patch.quantity !== undefined)) {
     const [variant] = await findVariantsByListing(listingId);
     if (variant) {
       await updateVariantColumns(
@@ -1535,7 +1530,8 @@ export async function addVariant(
   // `ownerType: 'store'`). Stock the new variant at the caller's location, else
   // the store's default, so the level sum matches the scalar `available` just
   // written.
-  const stockLocationId = opts.locationId ?? (await resolveDefaultLocationId(String(listing.storeId)));
+  const stockLocationId =
+    opts.locationId ?? (await resolveDefaultLocationId(String(listing.storeId)));
   await insertLevels([
     {
       variantId: created.id,

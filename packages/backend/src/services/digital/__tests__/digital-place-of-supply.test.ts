@@ -97,7 +97,9 @@ beforeEach(() => {
 
 describe('a DIGITAL line is taxed on the consumer country', () => {
   it('matches a country-scoped rate for the supply country, not the shipping one', async () => {
-    findActiveTaxRates.mockResolvedValue([rate({ name: 'ES VAT', rateBps: 2100, regionCountry: 'ES' })]);
+    findActiveTaxRates.mockResolvedValue([
+      rate({ name: 'ES VAT', rateBps: 2100, regionCountry: 'ES' }),
+    ]);
     const result = await calculateTotals({
       storeId: STORE_ID,
       lines: [line('l1', 1000, true)],
@@ -111,7 +113,9 @@ describe('a DIGITAL line is taxed on the consumer country', () => {
   });
 
   it('does NOT match a rate for a different country', async () => {
-    findActiveTaxRates.mockResolvedValue([rate({ name: 'ES VAT', rateBps: 2100, regionCountry: 'ES' })]);
+    findActiveTaxRates.mockResolvedValue([
+      rate({ name: 'ES VAT', rateBps: 2100, regionCountry: 'ES' }),
+    ]);
     const result = await calculateTotals({
       storeId: STORE_ID,
       lines: [line('l1', 1000, true)],
@@ -129,7 +133,12 @@ describe('a DIGITAL line is taxed on the consumer country', () => {
     // the goods rule would have done.
     findActiveTaxRates.mockResolvedValue([
       rate({ name: 'Canary Islands', rateBps: 700, regionCountry: 'ES', regionRegion: 'CN' }),
-      rate({ name: 'Postcode rate', rateBps: 500, regionCountry: 'ES', regionPostalCodePattern: '^38' }),
+      rate({
+        name: 'Postcode rate',
+        rateBps: 500,
+        regionCountry: 'ES',
+        regionPostalCodePattern: '^38',
+      }),
     ]);
     const result = await calculateTotals({
       storeId: STORE_ID,
@@ -146,7 +155,9 @@ describe('a DIGITAL line is taxed on the consumer country', () => {
     // The loud failure, not a quiet fallback. A checkout that reached pricing
     // without establishing where a digital supply happened has a bug, and taxing it
     // at the shipping address would hide that bug behind a plausible invoice.
-    findActiveTaxRates.mockResolvedValue([rate({ name: 'ES VAT', rateBps: 2100, regionCountry: 'ES' })]);
+    findActiveTaxRates.mockResolvedValue([
+      rate({ name: 'ES VAT', rateBps: 2100, regionCountry: 'ES' }),
+    ]);
     const result = await calculateTotals({
       storeId: STORE_ID,
       lines: [line('l1', 1000, true)],
@@ -162,7 +173,13 @@ describe('a DIGITAL line is taxed on the consumer country', () => {
 describe('a PHYSICAL line is taxed exactly as it was before #1015', () => {
   it('still matches on country, region and postal code', async () => {
     findActiveTaxRates.mockResolvedValue([
-      rate({ name: 'Madrid', rateBps: 2100, regionCountry: 'ES', regionRegion: 'MD', regionPostalCodePattern: '^28' }),
+      rate({
+        name: 'Madrid',
+        rateBps: 2100,
+        regionCountry: 'ES',
+        regionRegion: 'MD',
+        regionPostalCodePattern: '^28',
+      }),
     ]);
     const result = await calculateTotals({
       storeId: STORE_ID,
@@ -178,7 +195,9 @@ describe('a PHYSICAL line is taxed exactly as it was before #1015', () => {
   it('does NOT borrow the digital supply country', async () => {
     // The mirror of the digital case, and the half a single order-level rule could
     // not hold: a physical line must not be taxed where the buyer says they are.
-    findActiveTaxRates.mockResolvedValue([rate({ name: 'DE VAT', rateBps: 1900, regionCountry: 'DE' })]);
+    findActiveTaxRates.mockResolvedValue([
+      rate({ name: 'DE VAT', rateBps: 1900, regionCountry: 'DE' }),
+    ]);
     const result = await calculateTotals({
       storeId: STORE_ID,
       lines: [line('l1', 1000)],
@@ -215,15 +234,20 @@ describe('a MIXED order taxes each half by its own rule', () => {
     // which is what makes the sum above evidence rather than a coincidence. A
     // single order-level rule could produce 590 only by applying one rate to both
     // lines, and that would show here as one line of 630 or 570.
-    expect(
-      new Map(result.taxLines.map((l) => [l.name, l.amount.amount])),
-    ).toEqual(new Map([['ES goods', 210], ['DE digital', 380]]));
+    expect(new Map(result.taxLines.map((l) => [l.name, l.amount.amount]))).toEqual(
+      new Map([
+        ['ES goods', 210],
+        ['DE digital', 380],
+      ]),
+    );
   });
 
   it('taxes BOTH halves when one country covers both', async () => {
     // The control for the case above: with one rate and one country, both lines
     // match — so the per-line dispatch is not simply refusing everything it can.
-    findActiveTaxRates.mockResolvedValue([rate({ name: 'ES VAT', rateBps: 2100, regionCountry: 'ES' })]);
+    findActiveTaxRates.mockResolvedValue([
+      rate({ name: 'ES VAT', rateBps: 2100, regionCountry: 'ES' }),
+    ]);
     const result = await calculateTotals({
       storeId: STORE_ID,
       lines: [line('parcel', 1000), line('download', 1000, true)],
@@ -245,7 +269,9 @@ describe('the evidence vocabulary admits nothing IP-derived', () => {
     // `ip_geolocation` from the accepted tuple is the decision; this is what makes
     // adding it a visible act rather than a quiet one.
     const accepted = new Set<string>(DIGITAL_SUPPLY_EVIDENCE_KINDS);
-    expect(FORBIDDEN_DIGITAL_SUPPLY_EVIDENCE_KINDS.filter((kind) => accepted.has(kind))).toEqual([]);
+    expect(FORBIDDEN_DIGITAL_SUPPLY_EVIDENCE_KINDS.filter((kind) => accepted.has(kind))).toEqual(
+      [],
+    );
     // Vacuity floors for both halves: an empty forbidden list would pass the
     // filter above for a reason that has nothing to do with disjointness.
     expect(FORBIDDEN_DIGITAL_SUPPLY_EVIDENCE_KINDS.length).toBeGreaterThanOrEqual(5);

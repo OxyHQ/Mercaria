@@ -110,9 +110,7 @@ export async function upsertDispute(
     })
     .returning();
   if (!row) {
-    throw new Error(
-      `Dispute ${input.provider}/${input.providerDisputeId} was not written.`,
-    );
+    throw new Error(`Dispute ${input.provider}/${input.providerDisputeId} was not written.`);
   }
   return { row, created: row.id === id };
 }
@@ -229,9 +227,7 @@ export async function findDisputeByProviderId(
   const [row] = await db
     .select()
     .from(disputes)
-    .where(
-      and(eq(disputes.provider, provider), eq(disputes.providerDisputeId, providerDisputeId)),
-    )
+    .where(and(eq(disputes.provider, provider), eq(disputes.providerDisputeId, providerDisputeId)))
     .limit(1);
   return row;
 }

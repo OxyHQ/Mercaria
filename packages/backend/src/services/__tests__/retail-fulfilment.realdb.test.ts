@@ -232,7 +232,10 @@ async function expectTriggerRefusal(run: () => Promise<unknown>, match: RegExp):
   } catch (err) {
     raised = err;
   }
-  expect(raised, `expected a trigger matching ${String(match)} to refuse the statement`).toBeDefined();
+  expect(
+    raised,
+    `expected a trigger matching ${String(match)} to refuse the statement`,
+  ).toBeDefined();
   const cause = (raised as { cause?: { message?: string } }).cause;
   const message = cause?.message ?? (raised as { message?: string }).message ?? '';
   expect(message).toMatch(match);
@@ -518,8 +521,10 @@ describe('the fulfilment intent’s immutable half', () => {
 
   it('writes the chosen mode ONCE and refuses a second value', async () => {
     const { intent } = await makeIntent();
-    expect((await chooseRetailFulfilmentMode({ id: intent.id, mode: 'supplier_controlled' }))?.fulfilmentMode)
-      .toBe('supplier_controlled');
+    expect(
+      (await chooseRetailFulfilmentMode({ id: intent.id, mode: 'supplier_controlled' }))
+        ?.fulfilmentMode,
+    ).toBe('supplier_controlled');
     // The CAS answers `undefined`, and the trigger refuses even a direct write.
     expect(await chooseRetailFulfilmentMode({ id: intent.id, mode: 'moovo_controlled' })).toBe(
       undefined,
@@ -732,10 +737,7 @@ describe('the delivery-promise trail', () => {
       observedAt: new Date('2026-08-11T10:00:00.000Z'),
     });
 
-    const view = await readRetailDeliveryPromiseView(
-      orderId,
-      new Date('2026-08-12T10:00:00.000Z'),
-    );
+    const view = await readRetailDeliveryPromiseView(orderId, new Date('2026-08-12T10:00:00.000Z'));
     expect(view.accepted).toMatchObject({ basis: 'guaranteed', kind: 'accepted_at_checkout' });
     // The current estimate is LATER than the promise and is reported as its own
     // value — a surface showing only one of them would tell a buyer either that

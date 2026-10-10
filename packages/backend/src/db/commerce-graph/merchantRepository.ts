@@ -72,7 +72,10 @@ export async function merchantSlugExists(
   db: DatabaseOrTransaction,
   slug: string,
 ): Promise<boolean> {
-  const [row] = await db.select({ id: merchants.id }).from(merchants).where(eq(merchants.slug, slug));
+  const [row] = await db
+    .select({ id: merchants.id })
+    .from(merchants)
+    .where(eq(merchants.slug, slug));
   return row !== undefined;
 }
 
@@ -188,7 +191,10 @@ export async function verifyMerchantDomain(
       verifiedByOxyUserId: input.verifiedByOxyUserId ?? null,
     })
     .where(
-      and(eq(merchantDomains.merchantId, input.merchantId), eq(merchantDomains.domain, input.domain)),
+      and(
+        eq(merchantDomains.merchantId, input.merchantId),
+        eq(merchantDomains.domain, input.domain),
+      ),
     )
     .returning();
   return row;

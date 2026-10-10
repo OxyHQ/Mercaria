@@ -1,8 +1,8 @@
-import React from "react";
-import { Linking, View, Pressable } from "react-native";
-import { Text } from "@mercaria/ui";
-import { Logo } from "@/components/Logo";
-import { useTranslation } from "@/lib/i18n";
+import React from 'react';
+import { Linking, View, Pressable } from 'react-native';
+import { Text } from '@mercaria/ui';
+import { Logo } from '@/components/Logo';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The footer's outbound policy links.
@@ -35,12 +35,12 @@ import { useTranslation } from "@/lib/i18n";
  */
 const FOOTER_LINKS = [
   {
-    labelKey: "shell.footer.links.privacy",
-    url: "https://oxy.so/company/transparency/policies/privacy",
+    labelKey: 'shell.footer.links.privacy',
+    url: 'https://oxy.so/company/transparency/policies/privacy',
   },
   {
-    labelKey: "shell.footer.links.terms",
-    url: "https://oxy.so/company/transparency/policies/terms-of-service",
+    labelKey: 'shell.footer.links.terms',
+    url: 'https://oxy.so/company/transparency/policies/terms-of-service',
   },
 ] as const;
 
@@ -56,7 +56,7 @@ export function Footer() {
     <View className="mt-8 border-t border-border px-6 py-8">
       <View className="flex-row items-center gap-2">
         <Logo size={20} />
-        <Text className="text-sm font-semibold text-foreground">{t("shell.footer.brand")}</Text>
+        <Text className="text-sm font-semibold text-foreground">{t('shell.footer.brand')}</Text>
       </View>
 
       <View className="mt-4 flex-row flex-wrap items-center gap-4">
@@ -76,7 +76,7 @@ export function Footer() {
       </View>
 
       <Text className="mt-4 text-xs text-muted-foreground">
-        {t("shell.footer.copyright", { year })}
+        {t('shell.footer.copyright', { year })}
       </Text>
     </View>
   );

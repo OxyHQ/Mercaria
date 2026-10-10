@@ -21,7 +21,11 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
-import { ANALYTICS_ENVELOPE_VERSION, ORDER_STATUSES, type OrderStatus } from '@mercaria/shared-types';
+import {
+  ANALYTICS_ENVELOPE_VERSION,
+  ORDER_STATUSES,
+  type OrderStatus,
+} from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { listings } from '../../db/schema/catalog.js';
 import { orderItems, orders } from '../../db/schema/orders.js';
@@ -268,7 +272,9 @@ afterEach(async () => {
   }
   // Categories are left standing — nothing deletes a category (`restrict`
   // everywhere), and this is a throwaway per-run database.
-  await db.delete(discoverySweepCursors).where(inArray(discoverySweepCursors.id, [DISCOVERY_SWEEP_JOB]));
+  await db
+    .delete(discoverySweepCursors)
+    .where(inArray(discoverySweepCursors.id, [DISCOVERY_SWEEP_JOB]));
 });
 
 afterAll(async () => {
@@ -450,7 +456,9 @@ describe('runDiscoverySweepOnce', () => {
         orderCount: discoverySignals.orderCount,
       })
       .from(discoverySignals)
-      .where(and(eq(discoverySignals.subjectId, storeId), eq(discoverySignals.categoryId, categoryId)));
+      .where(
+        and(eq(discoverySignals.subjectId, storeId), eq(discoverySignals.categoryId, categoryId)),
+      );
     expect(storeRows).toHaveLength(1);
     expect(storeRows[0]?.unitsSold).toBe(5);
     expect(storeRows[0]?.orderCount).toBe(2);

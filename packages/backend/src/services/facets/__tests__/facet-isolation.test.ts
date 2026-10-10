@@ -99,18 +99,25 @@ const MINIMUM_FRONTEND_FILES: Readonly<Record<string, number>> = {
 const FORBIDDEN_COMMERCIAL_REFERENCES: readonly { signal: string; pattern: RegExp }[] = [
   {
     signal: 'marketplace_fee',
-    pattern: /fees\/|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee/i,
+    pattern:
+      /fees\/|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee/i,
   },
   {
     signal: 'affiliate_commission',
     pattern: /commission|affiliate_reports|affiliateReport|awin_transactions|awinTransaction/i,
   },
-  { signal: 'referral_reward', pattern: /referrals\/|referral_|referralReward|referralAttribution/i },
+  {
+    signal: 'referral_reward',
+    pattern: /referrals\/|referral_|referralReward|referralAttribution/i,
+  },
   {
     signal: 'merchant_plan_tier',
     pattern: /proPlan|pro_plan|merchantPlan|subscriptionTier|billingPlan|merchant_plans/i,
   },
-  { signal: 'sponsored_placement', pattern: /sponsor|promotedPlacement|paidPlacement|adSlot|boostScore/i },
+  {
+    signal: 'sponsored_placement',
+    pattern: /sponsor|promotedPlacement|paidPlacement|adSlot|boostScore/i,
+  },
   {
     // Its own detector rather than a share of `sponsored_placement`'s: the
     // census below demanded one, which is the census working. A paid SLOT and a
@@ -124,7 +131,10 @@ const FORBIDDEN_COMMERCIAL_REFERENCES: readonly { signal: string; pattern: RegEx
     signal: 'retail_margin',
     pattern: /retail-pricing\/|retail_cost|retailCost|absorption_cap|retailMargin/i,
   },
-  { signal: 'payment_rail_preference', pattern: /faircoin|oxypay|oxy_pay|acceptsFair|stripe|peable/i },
+  {
+    signal: 'payment_rail_preference',
+    pattern: /faircoin|oxypay|oxy_pay|acceptsFair|stripe|peable/i,
+  },
   {
     // #74 is the ONE ordering authority. A facet module importing it would make
     // this one a second, and a facet rail is where that would be least visible.
@@ -148,7 +158,8 @@ const FORBIDDEN_HARDCODED_FILTERS: readonly { signal: string; pattern: RegExp }[
   },
   {
     signal: 'category_keyed_filter_function',
-    pattern: /\bfunction\s+(?:filters|facets)For(?:Category|Slug|Key)\b|\b(?:filters|facets)For(?:Category|Slug|Key)\s*[:=]\s*(?:\(|function)/,
+    pattern:
+      /\bfunction\s+(?:filters|facets)For(?:Category|Slug|Key)\b|\b(?:filters|facets)For(?:Category|Slug|Key)\s*[:=]\s*(?:\(|function)/,
   },
 ];
 // #723: the loop below is its only reader, so emptying this list makes it a no-op and
@@ -231,9 +242,10 @@ function backendPaths(): string[] {
 function assertBackendPopulationIsWhole(paths: readonly string[]): void {
   const from = (relative: string) =>
     paths.filter((path) => path.startsWith(join(SRC_ROOT, relative))).length;
-  expect(from('services/facets'), 'the facet service walk found too few files').toBeGreaterThanOrEqual(
-    MINIMUM_FACET_SERVICES,
-  );
+  expect(
+    from('services/facets'),
+    'the facet service walk found too few files',
+  ).toBeGreaterThanOrEqual(MINIMUM_FACET_SERVICES);
   expect(from('db/facets'), 'the facet repository walk found too few files').toBeGreaterThanOrEqual(
     MINIMUM_FACET_REPOSITORIES,
   );
@@ -289,7 +301,8 @@ describe('the facet domain cannot be bought', () => {
 
   it('every commercial detector actually detects — the mutation self-test', () => {
     const positives: Readonly<Record<string, string>> = {
-      marketplace_fee: "import { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';",
+      marketplace_fee:
+        "import { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';",
       affiliate_commission: 'const rate = await readAffiliateReport(offer).commission;',
       referral_reward: 'const boost = referralReward(candidate);',
       merchant_plan_tier: "if (merchant.subscriptionTier === 'pro') position -= 1;",
@@ -301,7 +314,8 @@ describe('the facet domain cannot be bought', () => {
     };
     // ONE shared negative that every detector must reject: an ordinary read of
     // the offer table, which every count in this domain performs.
-    const negative = "import { countOfferAvailabilityBuckets } from '../../db/facets/facetRepository.js';";
+    const negative =
+      "import { countOfferAvailabilityBuckets } from '../../db/facets/facetRepository.js';";
 
     for (const reference of FORBIDDEN_COMMERCIAL_REFERENCES) {
       const seeded = positives[reference.signal];
@@ -353,7 +367,7 @@ describe('no hard-coded per-category filter set exists in either package', () =>
       'const CATEGORY_LABELS: Readonly<Record<AbuseReportCategory, string>> = Object.freeze({',
       'const categories = list(params.categories);',
       'const definitions = await resolveDefinitionsForCategory(db, categoryId);',
-      "const facets = plan.filter((entry) => entry.suppression === undefined);",
+      'const facets = plan.filter((entry) => entry.suppression === undefined);',
     ];
     // #723: the loop below is its only reader, so emptying this list makes it a no-op and
     // nothing goes red. The floor is today's count: an addition passes it freely, while a
@@ -444,8 +458,14 @@ describe('no size-system conversion exists anywhere in the domain', () => {
    * way it would be broken is a helper, so the helper's shapes are scanned for.
    */
   const CONVERSION_PATTERNS: readonly { signal: string; pattern: RegExp }[] = [
-    { signal: 'size_conversion_helper', pattern: /\b(?:convertSize|toSizeSystem|sizeSystemMap|SIZE_CONVERSIONS?|euToUk|ukToEu)\b/i },
-    { signal: 'cross_attribute_bucket_merge', pattern: /\bmergeBuckets(?:Across|Between)\b|\bequivalentAttributeKeys\b/ },
+    {
+      signal: 'size_conversion_helper',
+      pattern: /\b(?:convertSize|toSizeSystem|sizeSystemMap|SIZE_CONVERSIONS?|euToUk|ukToEu)\b/i,
+    },
+    {
+      signal: 'cross_attribute_bucket_merge',
+      pattern: /\bmergeBuckets(?:Across|Between)\b|\bequivalentAttributeKeys\b/,
+    },
   ];
 
   it('the domain contains no size conversion', () => {
@@ -523,14 +543,16 @@ describe('the rollout lever gates the MOUNT, and the domain reaches no configura
   });
 
   it('MUTATION SELF-TEST: the detector fires on both spellings, and not on a comment', () => {
-    expect(FACET_LEVER_PATTERN.test(stripComments("import { config } from '../../config/index.js';"))).toBe(
+    expect(
+      FACET_LEVER_PATTERN.test(stripComments("import { config } from '../../config/index.js';")),
+    ).toBe(true);
+    expect(FACET_LEVER_PATTERN.test(stripComments('const on = process.env.FACETS_ENABLED;'))).toBe(
       true,
     );
     expect(
-      FACET_LEVER_PATTERN.test(stripComments('const on = process.env.FACETS_ENABLED;')),
-    ).toBe(true);
-    expect(
-      FACET_LEVER_PATTERN.test(stripComments("// import { config } from '../../config/index.js';\n")),
+      FACET_LEVER_PATTERN.test(
+        stripComments("// import { config } from '../../config/index.js';\n"),
+      ),
     ).toBe(false);
   });
 
@@ -579,7 +601,7 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     },
     {
       path: 'services/catalog-observability/facet-scope-sweep.ts',
-      why: "the catalogue-observability sweep that MEASURES facet scope; it observes, it does not serve",
+      why: 'the catalogue-observability sweep that MEASURES facet scope; it observes, it does not serve',
     },
   ] as const;
 
@@ -647,9 +669,10 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
 describe('a collection membership never becomes a product fact (ADR 0007 D3)', () => {
   it('scans a real population, and the scan reaches the corpus (vacuity floor)', () => {
     const paths = facetOwnedPaths();
-    expect(paths.length, `only ${String(paths.length)} owned modules walked`).toBeGreaterThanOrEqual(
-      MINIMUM_FACET_SERVICES + MINIMUM_FACET_REPOSITORIES,
-    );
+    expect(
+      paths.length,
+      `only ${String(paths.length)} owned modules walked`,
+    ).toBeGreaterThanOrEqual(MINIMUM_FACET_SERVICES + MINIMUM_FACET_REPOSITORIES);
     // The POSITIVE CONTROL. A walk returning empty strings clears the count
     // floor and reports a clean zero from every wall.
     const attributeHits = paths.filter((path) =>

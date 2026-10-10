@@ -46,13 +46,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { UNIT_FAMILIES, type UnitFamily } from '@mercaria/shared-types';
-import {
-  BASE_UNITS,
-  UNIT_DEFINITIONS,
-  convertUnit,
-  toBaseUnit,
-  unitFamilyOf,
-} from '../units.js';
+import { BASE_UNITS, UNIT_DEFINITIONS, convertUnit, toBaseUnit, unitFamilyOf } from '../units.js';
 
 /**
  * The three families #94 names, and the reason this file exists.
@@ -146,8 +140,14 @@ describe('cross-family refusal is a property of every family pair', () => {
     expect(crossFamilyChecks).toBe(UNIT_FAMILIES.length * (UNIT_FAMILIES.length - 1));
     expect(crossFamilyChecks).toBeGreaterThan(100);
 
-    expect(wrongfullyAnswered, `answered across dimensions: ${wrongfullyAnswered.join(', ')}`).toEqual([]);
-    expect(wrongfullyRefused, `refused within one dimension: ${wrongfullyRefused.join(', ')}`).toEqual([]);
+    expect(
+      wrongfullyAnswered,
+      `answered across dimensions: ${wrongfullyAnswered.join(', ')}`,
+    ).toEqual([]);
+    expect(
+      wrongfullyRefused,
+      `refused within one dimension: ${wrongfullyRefused.join(', ')}`,
+    ).toEqual([]);
   });
 
   it('holds for EVERY unit of a family, not just its base', () => {

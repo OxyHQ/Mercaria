@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   TaxRate,
   CreateTaxRateInput,
@@ -6,20 +6,10 @@ import type {
   Location,
   CreateLocationInput,
   UpdateLocationInput,
-} from "@mercaria/shared-types";
-import {
-  fetchTaxRates,
-  createTaxRate,
-  updateTaxRate,
-  deleteTaxRate,
-} from "../api/tax-rates";
-import {
-  fetchLocations,
-  createLocation,
-  updateLocation,
-  deleteLocation,
-} from "../api/locations";
-import { queryKeys } from "../queryKeys";
+} from '@mercaria/shared-types';
+import { fetchTaxRates, createTaxRate, updateTaxRate, deleteTaxRate } from '../api/tax-rates';
+import { fetchLocations, createLocation, updateLocation, deleteLocation } from '../api/locations';
+import { queryKeys } from '../queryKeys';
 
 // --- Tax rates -------------------------------------------------------------
 

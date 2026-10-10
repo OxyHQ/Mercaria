@@ -205,7 +205,9 @@ function listingSort(sort: MercariaProductSort): ListingQuery['sort'] {
 async function summarize(rows: ListingRecord[]): Promise<MercariaProductSummary[]> {
   if (rows.length === 0) return [];
   const storeIds = [
-    ...new Set(rows.flatMap((row) => (row.ownerType === 'store' && row.storeId ? [row.storeId] : []))),
+    ...new Set(
+      rows.flatMap((row) => (row.ownerType === 'store' && row.storeId ? [row.storeId] : [])),
+    ),
   ];
   const [hydrated, storeRows] = await Promise.all([
     hydrateListings(rows),
@@ -416,8 +418,15 @@ interface VouchedLocation {
  * @throws `service_unavailable` when GoWay could not be asked and nothing
  *   recent is cached.
  */
-function vouchedLocation(row: PublicLocationRow, lookup: PlaceLookup | null): VouchedLocation | null {
-  const gaps = placeLinkGaps({ locationId: row.locationId, goWayPlaceId: row.goWayPlaceId, lookup });
+function vouchedLocation(
+  row: PublicLocationRow,
+  lookup: PlaceLookup | null,
+): VouchedLocation | null {
+  const gaps = placeLinkGaps({
+    locationId: row.locationId,
+    goWayPlaceId: row.goWayPlaceId,
+    lookup,
+  });
   if (gaps.includes('goway_unavailable')) throw serviceUnavailable(PLACES_UNAVAILABLE);
   if (row.goWayPlaceId === null || placeLinkBroken(gaps)) return null;
   const blockers = locationCollectionBlockers({
@@ -446,8 +455,12 @@ async function publicLocationById(
   }
   const store = await findStoreById(row.storeId);
   if (!store || store.status !== 'active') throw gone(LOCATION_GONE);
-  if (row.publicationState !== 'published' || row.restricted || !row.locationActive) throw gone(LOCATION_GONE);
-  const vouched = vouchedLocation(row, row.goWayPlaceId === null ? null : await readPlace(row.goWayPlaceId));
+  if (row.publicationState !== 'published' || row.restricted || !row.locationActive)
+    throw gone(LOCATION_GONE);
+  const vouched = vouchedLocation(
+    row,
+    row.goWayPlaceId === null ? null : await readPlace(row.goWayPlaceId),
+  );
   if (vouched === null) throw gone(LOCATION_GONE);
   return { row, store, vouched };
 }
@@ -464,7 +477,11 @@ async function publicLocationPage(
 ): Promise<MercariaPage<MercariaLocation>> {
   const fingerprint = publicCursorFingerprint(kind, { ...scope });
   const offset = resolvePublicCursorOffset(params.cursor, kind, fingerprint);
-  const { rows, hasMore } = await findPublishedLocationsSlice(scope, offset, clampPublicPageLimit(offset, params.limit));
+  const { rows, hasMore } = await findPublishedLocationsSlice(
+    scope,
+    offset,
+    clampPublicPageLimit(offset, params.limit),
+  );
   const [lookups, storeRows] = await Promise.all([
     readPlaces(rows.flatMap((row) => (row.goWayPlaceId === null ? [] : [row.goWayPlaceId]))),
     findStoresByIds([...new Set(rows.map((row) => row.storeId))]),
@@ -475,10 +492,22 @@ async function publicLocationPage(
   // back shorter than `limit` with a next cursor — the offset counts rows.
   const items = rows.flatMap((row) => {
     const store = storeById.get(row.storeId);
-    const vouched = vouchedLocation(row, row.goWayPlaceId === null ? null : (lookups.get(row.goWayPlaceId) ?? null));
+    const vouched = vouchedLocation(
+      row,
+      row.goWayPlaceId === null ? null : (lookups.get(row.goWayPlaceId) ?? null),
+    );
     return store === undefined || vouched === null
       ? []
-      : [projectLocation(row, vouched.goWayPlaceId, store, vouched.discoverable, origin, resolveMedia)];
+      : [
+          projectLocation(
+            row,
+            vouched.goWayPlaceId,
+            store,
+            vouched.discoverable,
+            origin,
+            resolveMedia,
+          ),
+        ];
   });
   return { items, nextCursor: nextPublicCursor(kind, fingerprint, offset, rows.length, hasMore) };
 }
@@ -508,7 +537,14 @@ export async function listPublicStoreLocations(
 /** `GET /public/v1/locations/:id`. */
 export async function getPublicLocation(locationId: string): Promise<MercariaLocation> {
   const { row, store, vouched } = await publicLocationById(locationId);
-  return projectLocation(row, vouched.goWayPlaceId, store, vouched.discoverable, webOrigin(), resolveMedia);
+  return projectLocation(
+    row,
+    vouched.goWayPlaceId,
+    store,
+    vouched.discoverable,
+    webOrigin(),
+    resolveMedia,
+  );
 }
 
 /**
@@ -552,7 +588,10 @@ export async function listPublicLocationProducts(
   );
   const [summaries, levels] = await Promise.all([
     summarize(rows),
-    findLocationStockLevels(row.locationId, rows.map((listing) => listing.id)),
+    findLocationStockLevels(
+      row.locationId,
+      rows.map((listing) => listing.id),
+    ),
   ]);
   const levelsByListing = new Map<string, LocationStockLevel[]>();
   for (const level of levels) {

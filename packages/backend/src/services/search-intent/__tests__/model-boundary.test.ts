@@ -13,11 +13,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  boundedPhrase,
-  sanitizeQueryForModel,
-  scanCandidateForInjection,
-} from '../injection.js';
+import { boundedPhrase, sanitizeQueryForModel, scanCandidateForInjection } from '../injection.js';
 import { buildModelVocabulary, validateCandidate } from '../model-boundary.js';
 import { BENCHMARK_LAPTOP_DEFINITIONS } from '../benchmark/registry.js';
 
@@ -51,9 +47,7 @@ describe('the outbound vocabulary', () => {
     expect(ram?.label).toBe('Memory');
     expect(ram?.unitFamily).toBe('digital_storage');
     expect(ram?.hardConstraintCapable).toBe(true);
-    const backlit = vocabulary.attributes.find(
-      (attribute) => attribute.key === 'backlit_keyboard',
-    );
+    const backlit = vocabulary.attributes.find((attribute) => attribute.key === 'backlit_keyboard');
     expect(backlit?.hardConstraintCapable).toBe(false);
   });
 });

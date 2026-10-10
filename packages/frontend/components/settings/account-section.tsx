@@ -1,10 +1,10 @@
-import { View } from "react-native";
-import { Button } from "@oxy.so/bloom/button";
-import { Text, toBloomIcon } from "@mercaria/ui";
-import { useOxy } from "@oxy.so/services";
-import { useRouter, type RoutePath } from "expo-router";
-import { useTranslation } from "@/lib/i18n";
-import { ChevronRight, Package, MapPin, ListChecks, Bot, Users } from "lucide-react-native";
+import { View } from 'react-native';
+import { Button } from '@oxy.so/bloom/button';
+import { Text, toBloomIcon } from '@mercaria/ui';
+import { useOxy } from '@oxy.so/services';
+import { useRouter, type RoutePath } from 'expo-router';
+import { useTranslation } from '@/lib/i18n';
+import { ChevronRight, Package, MapPin, ListChecks, Bot, Users } from 'lucide-react-native';
 
 export function AccountSection() {
   const { user, showBottomSheet } = useOxy();
@@ -14,7 +14,7 @@ export function AccountSection() {
   // The API resolves the canonical display string; render it directly rather
   // than recomposing from first/last/full (Oxy name contract).
   const displayName = user?.name?.displayName;
-  const initial = (displayName?.[0] ?? "U").toUpperCase();
+  const initial = (displayName?.[0] ?? 'U').toUpperCase();
 
   // `RoutePath` rather than `string`: these destinations are literals written a
   // few lines below, so typing the parameter moves the check from nowhere to
@@ -31,9 +31,7 @@ export function AccountSection() {
         </View>
         <View className="flex-1">
           <Text className="text-lg font-semibold">{displayName}</Text>
-          {user?.email && (
-            <Text className="text-sm text-muted-foreground">{user.email}</Text>
-          )}
+          {user?.email && <Text className="text-sm text-muted-foreground">{user.email}</Text>}
         </View>
       </View>
 
@@ -42,22 +40,22 @@ export function AccountSection() {
         <Button
           appearance="outline"
           tone="neutral"
-          onPress={go("/(app)/orders")}
+          onPress={go('/(app)/orders')}
           leadingIcon={toBloomIcon(Package)}
           trailingIcon={toBloomIcon(ChevronRight)}
           textStyle={{ flex: 1 }}
         >
-          {t("settings.sections.orders")}
+          {t('settings.sections.orders')}
         </Button>
         <Button
           appearance="outline"
           tone="neutral"
-          onPress={go("/(app)/settings/addresses")}
+          onPress={go('/(app)/settings/addresses')}
           leadingIcon={toBloomIcon(MapPin)}
           trailingIcon={toBloomIcon(ChevronRight)}
           textStyle={{ flex: 1 }}
         >
-          {t("settings.sections.addresses")}
+          {t('settings.sections.addresses')}
         </Button>
         {/*
           The three rows below are the ONLY inbound edge each of these screens
@@ -76,22 +74,22 @@ export function AccountSection() {
         <Button
           appearance="outline"
           tone="neutral"
-          onPress={go("/(app)/watchlists")}
+          onPress={go('/(app)/watchlists')}
           leadingIcon={toBloomIcon(ListChecks)}
           trailingIcon={toBloomIcon(ChevronRight)}
           textStyle={{ flex: 1 }}
         >
-          {t("settings.sections.watchlists")}
+          {t('settings.sections.watchlists')}
         </Button>
         <Button
           appearance="outline"
           tone="neutral"
-          onPress={go("/(app)/shopping-agents")}
+          onPress={go('/(app)/shopping-agents')}
           leadingIcon={toBloomIcon(Bot)}
           trailingIcon={toBloomIcon(ChevronRight)}
           textStyle={{ flex: 1 }}
         >
-          {t("settings.sections.shoppingAgents")}
+          {t('settings.sections.shoppingAgents')}
         </Button>
         {/*
           Shown to every signed-in account, enrolled or not, because that is
@@ -104,12 +102,12 @@ export function AccountSection() {
         <Button
           appearance="outline"
           tone="neutral"
-          onPress={go("/(app)/referral-partner")}
+          onPress={go('/(app)/referral-partner')}
           leadingIcon={toBloomIcon(Users)}
           trailingIcon={toBloomIcon(ChevronRight)}
           textStyle={{ flex: 1 }}
         >
-          {t("settings.sections.referralPartner")}
+          {t('settings.sections.referralPartner')}
         </Button>
       </View>
 
@@ -117,11 +115,11 @@ export function AccountSection() {
       <Button
         appearance="outline"
         tone="neutral"
-        onPress={() => showBottomSheet?.("ManageAccount")}
+        onPress={() => showBottomSheet?.('ManageAccount')}
         trailingIcon={toBloomIcon(ChevronRight)}
         textStyle={{ flex: 1 }}
       >
-        {t("settings.account.title")}
+        {t('settings.account.title')}
       </Button>
     </View>
   );

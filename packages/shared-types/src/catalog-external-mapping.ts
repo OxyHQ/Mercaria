@@ -114,8 +114,7 @@ export const CATALOG_EXTERNAL_MAPPING_DIMENSIONS = [
 ] as const;
 
 /** One of {@link CATALOG_EXTERNAL_MAPPING_DIMENSIONS}. */
-export type CatalogExternalMappingDimension =
-  (typeof CATALOG_EXTERNAL_MAPPING_DIMENSIONS)[number];
+export type CatalogExternalMappingDimension = (typeof CATALOG_EXTERNAL_MAPPING_DIMENSIONS)[number];
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
@@ -291,8 +290,7 @@ export const CATALOG_EXTERNAL_TRANSFORM_REFUSALS = [
 ] as const;
 
 /** One of {@link CATALOG_EXTERNAL_TRANSFORM_REFUSALS}. */
-export type CatalogExternalTransformRefusal =
-  (typeof CATALOG_EXTERNAL_TRANSFORM_REFUSALS)[number];
+export type CatalogExternalTransformRefusal = (typeof CATALOG_EXTERNAL_TRANSFORM_REFUSALS)[number];
 
 /**
  * The longest external token this domain will read.
@@ -322,8 +320,7 @@ export const CATALOG_EXTERNAL_RESOLUTION_ORIGINS = [
 ] as const;
 
 /** One of {@link CATALOG_EXTERNAL_RESOLUTION_ORIGINS}. */
-export type CatalogExternalResolutionOrigin =
-  (typeof CATALOG_EXTERNAL_RESOLUTION_ORIGINS)[number];
+export type CatalogExternalResolutionOrigin = (typeof CATALOG_EXTERNAL_RESOLUTION_ORIGINS)[number];
 
 /**
  * Whether one recorded observation of a token resolved.
@@ -358,8 +355,7 @@ export const CATALOG_EXTERNAL_UNRESOLVED_REASONS = [
 ] as const;
 
 /** One of {@link CATALOG_EXTERNAL_UNRESOLVED_REASONS}. */
-export type CatalogExternalUnresolvedReason =
-  (typeof CATALOG_EXTERNAL_UNRESOLVED_REASONS)[number];
+export type CatalogExternalUnresolvedReason = (typeof CATALOG_EXTERNAL_UNRESOLVED_REASONS)[number];
 
 /**
  * What a mapping points at, per dimension.
@@ -536,8 +532,7 @@ export const CATALOG_EXTERNAL_REPROCESS_STATES = [
 ] as const;
 
 /** One of {@link CATALOG_EXTERNAL_REPROCESS_STATES}. */
-export type CatalogExternalReprocessState =
-  (typeof CATALOG_EXTERNAL_REPROCESS_STATES)[number];
+export type CatalogExternalReprocessState = (typeof CATALOG_EXTERNAL_REPROCESS_STATES)[number];
 
 /**
  * What a run concluded about one subject. The six are EXHAUSTIVE and their sum
@@ -563,8 +558,7 @@ export const CATALOG_EXTERNAL_REPROCESS_OUTCOMES = [
 ] as const;
 
 /** One of {@link CATALOG_EXTERNAL_REPROCESS_OUTCOMES}. */
-export type CatalogExternalReprocessOutcome =
-  (typeof CATALOG_EXTERNAL_REPROCESS_OUTCOMES)[number];
+export type CatalogExternalReprocessOutcome = (typeof CATALOG_EXTERNAL_REPROCESS_OUTCOMES)[number];
 
 /**
  * How much of a preview's impact figure is actually MEASURED.
@@ -583,8 +577,7 @@ export const CATALOG_EXTERNAL_IMPACT_COVERAGES = [
 ] as const;
 
 /** One of {@link CATALOG_EXTERNAL_IMPACT_COVERAGES}. */
-export type CatalogExternalImpactCoverage =
-  (typeof CATALOG_EXTERNAL_IMPACT_COVERAGES)[number];
+export type CatalogExternalImpactCoverage = (typeof CATALOG_EXTERNAL_IMPACT_COVERAGES)[number];
 
 /**
  * What a candidate mapping would change, counted, before anybody applies it.

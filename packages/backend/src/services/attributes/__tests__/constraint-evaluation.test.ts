@@ -84,7 +84,10 @@ describe('a hard constraint unsatisfied excludes', () => {
       predicate: { op: 'gte', value: { type: 'measurement', magnitude: 32, unit: 'GB' } },
     }) as HardConstraint;
 
-    const evaluation = evaluateCandidate(validated([constraint]), facts({ productFacts: [RAM_16GB] }));
+    const evaluation = evaluateCandidate(
+      validated([constraint]),
+      facts({ productFacts: [RAM_16GB] }),
+    );
     expect(evaluation.verdict).toBe('excluded');
     expect(evaluation.hardOutcomes[0]?.satisfaction).toBe('failed');
 
@@ -141,7 +144,10 @@ describe('missing data', () => {
       missingDataPolicy: 'exclude_when_unknown',
       predicate: { op: 'lte', value: { type: 'measurement', magnitude: 1.5, unit: 'kg' } },
     }) as HardConstraint;
-    const admitting = { ...excluding, missingDataPolicy: 'admit_and_report_unknown' } as HardConstraint;
+    const admitting = {
+      ...excluding,
+      missingDataPolicy: 'admit_and_report_unknown',
+    } as HardConstraint;
 
     const strict = evaluateCandidate(validated([excluding]), facts());
     expect(strict.verdict).toBe('excluded');
@@ -160,11 +166,25 @@ describe('variant scope', () => {
   const variantFacts = new Map<string, readonly EvaluableFact[]>([
     [
       'v-256',
-      [{ attributeKey: 'storage_capacity', definitionVersion: 1, normalizedNumber: 256e9, sourceBacked: true }],
+      [
+        {
+          attributeKey: 'storage_capacity',
+          definitionVersion: 1,
+          normalizedNumber: 256e9,
+          sourceBacked: true,
+        },
+      ],
     ],
     [
       'v-1tb',
-      [{ attributeKey: 'storage_capacity', definitionVersion: 1, normalizedNumber: 1e12, sourceBacked: true }],
+      [
+        {
+          attributeKey: 'storage_capacity',
+          definitionVersion: 1,
+          normalizedNumber: 1e12,
+          sourceBacked: true,
+        },
+      ],
     ],
   ]);
 
@@ -207,10 +227,26 @@ describe('the operator table', () => {
   const cases: readonly [string, AttributeConstraint['predicate'], boolean][] = [
     ['eq matches', { op: 'eq', value: { type: 'measurement', magnitude: 16, unit: 'GB' } }, true],
     ['ne matches', { op: 'ne', value: { type: 'measurement', magnitude: 8, unit: 'GB' } }, true],
-    ['gt is strict', { op: 'gt', value: { type: 'measurement', magnitude: 16, unit: 'GB' } }, false],
-    ['gte is inclusive', { op: 'gte', value: { type: 'measurement', magnitude: 16, unit: 'GB' } }, true],
-    ['lt is strict', { op: 'lt', value: { type: 'measurement', magnitude: 16, unit: 'GB' } }, false],
-    ['lte is inclusive', { op: 'lte', value: { type: 'measurement', magnitude: 16, unit: 'GB' } }, true],
+    [
+      'gt is strict',
+      { op: 'gt', value: { type: 'measurement', magnitude: 16, unit: 'GB' } },
+      false,
+    ],
+    [
+      'gte is inclusive',
+      { op: 'gte', value: { type: 'measurement', magnitude: 16, unit: 'GB' } },
+      true,
+    ],
+    [
+      'lt is strict',
+      { op: 'lt', value: { type: 'measurement', magnitude: 16, unit: 'GB' } },
+      false,
+    ],
+    [
+      'lte is inclusive',
+      { op: 'lte', value: { type: 'measurement', magnitude: 16, unit: 'GB' } },
+      true,
+    ],
     [
       'between, inclusive both ends',
       {
@@ -325,8 +361,20 @@ describe('the operator table', () => {
 
   it('matches a structured component by its AXIS and not by another axis', () => {
     const dimensions: EvaluableFact[] = [
-      { attributeKey: 'dimensions', definitionVersion: 1, normalizedNumber: 355.6, componentAxis: 'width', sourceBacked: true },
-      { attributeKey: 'dimensions', definitionVersion: 1, normalizedNumber: 16.5, componentAxis: 'depth', sourceBacked: true },
+      {
+        attributeKey: 'dimensions',
+        definitionVersion: 1,
+        normalizedNumber: 355.6,
+        componentAxis: 'width',
+        sourceBacked: true,
+      },
+      {
+        attributeKey: 'dimensions',
+        definitionVersion: 1,
+        normalizedNumber: 16.5,
+        componentAxis: 'depth',
+        sourceBacked: true,
+      },
     ];
     const thin = evaluateCandidate(
       validated([
@@ -382,7 +430,12 @@ describe('bounded OR groups', () => {
       validated([group('hard') as HardConstraint]),
       facts({
         productFacts: [
-          { attributeKey: 'ports', definitionVersion: 1, normalizedText: 'usb_c', sourceBacked: true },
+          {
+            attributeKey: 'ports',
+            definitionVersion: 1,
+            normalizedText: 'usb_c',
+            sourceBacked: true,
+          },
         ],
       }),
     );
@@ -394,7 +447,12 @@ describe('bounded OR groups', () => {
       validated([group('hard') as HardConstraint]),
       facts({
         productFacts: [
-          { attributeKey: 'ports', definitionVersion: 1, normalizedText: 'hdmi', sourceBacked: true },
+          {
+            attributeKey: 'ports',
+            definitionVersion: 1,
+            normalizedText: 'hdmi',
+            sourceBacked: true,
+          },
         ],
       }),
     );
@@ -424,7 +482,12 @@ describe('bounded OR groups', () => {
       validated([mixed as HardConstraint]),
       facts({
         productFacts: [
-          { attributeKey: 'ports', definitionVersion: 1, normalizedText: 'hdmi', sourceBacked: true },
+          {
+            attributeKey: 'ports',
+            definitionVersion: 1,
+            normalizedText: 'hdmi',
+            sourceBacked: true,
+          },
         ],
       }),
     );
@@ -457,7 +520,9 @@ describe('commerce constraints read offers and nothing else', () => {
       ],
     });
     const evaluation = evaluateCandidate(
-      validated([{ ...underThreeHundred, missingDataPolicy: 'admit_and_report_unknown' } as HardConstraint]),
+      validated([
+        { ...underThreeHundred, missingDataPolicy: 'admit_and_report_unknown' } as HardConstraint,
+      ]),
       withMsrp,
     );
     expect(evaluation.hardOutcomes[0]?.satisfaction).toBe('unknown');
@@ -553,7 +618,10 @@ describe('a text preference', () => {
   });
 
   it('is unknown, not failed, when there is no text at all', () => {
-    const evaluation = evaluateCandidate(validated([], [preference as PreferenceConstraint]), facts());
+    const evaluation = evaluateCandidate(
+      validated([], [preference as PreferenceConstraint]),
+      facts(),
+    );
     expect(evaluation.preferenceOutcomes[0]?.satisfaction).toBe('unknown');
   });
 });

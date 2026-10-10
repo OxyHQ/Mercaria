@@ -145,7 +145,7 @@ export async function getRetailEligibility(
   // rather than resolved to one of the two.
   if (query.canonicalVariantId && query.canonicalVariantId !== offer.canonicalVariantId) {
     throw validationError(
-      'canonicalVariantId does not match the procurement offer\'s own mapping. ' +
+      "canonicalVariantId does not match the procurement offer's own mapping. " +
         'Ask about the offer, or about the variant it actually maps to.',
     );
   }
@@ -221,8 +221,15 @@ export async function getRetailEligibility(
   );
   const fulfilmentOriginCountry = originProbe.fulfilmentOriginCountry;
 
-  const [categoryRule, marketCapability, resaleEvidence, complianceEvidence, suppressions,
-    exception, traceability] = await Promise.all([
+  const [
+    categoryRule,
+    marketCapability,
+    resaleEvidence,
+    complianceEvidence,
+    suppressions,
+    exception,
+    traceability,
+  ] = await Promise.all([
     policy && productContext.categoryKeys.length > 0
       ? findMostSpecificCategoryRule(db, policy.id, productContext.categoryKeys)
       : Promise.resolve(undefined),
@@ -512,7 +519,8 @@ function buildDerivationInput(parts: {
           permittedCurrencies: policy.permittedCurrencies,
           permittedFulfilmentMethods: policy.permittedFulfilmentMethods,
           permittedCustomerTypes: policy.permittedCustomerTypes,
-          requiredResaleEvidenceKinds: policy.requiredResaleEvidenceKinds as RetailResaleEvidenceKind[],
+          requiredResaleEvidenceKinds:
+            policy.requiredResaleEvidenceKinds as RetailResaleEvidenceKind[],
           requiredIdentifierSchemes: policy.requiredIdentifierSchemes,
           requireCountryOfOrigin: policy.requireCountryOfOrigin,
           requireResponsibleOperator: policy.requireResponsibleOperator,
@@ -555,8 +563,8 @@ function buildDerivationInput(parts: {
       ? {
           categoryKey: parts.categoryRule.categoryKey,
           admissibility: parts.categoryRule.admissibility,
-          requiredComplianceEvidenceKinds:
-            parts.categoryRule.requiredComplianceEvidenceKinds as RetailComplianceEvidenceKind[],
+          requiredComplianceEvidenceKinds: parts.categoryRule
+            .requiredComplianceEvidenceKinds as RetailComplianceEvidenceKind[],
           requiresAgeAssurance: parts.categoryRule.requiresAgeAssurance,
           dangerousGoodsRestricted: parts.categoryRule.dangerousGoodsRestricted,
           requiresAuthorizedDealer: parts.categoryRule.requiresAuthorizedDealer,

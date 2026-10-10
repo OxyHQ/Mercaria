@@ -288,9 +288,7 @@ export async function runAdapterOperation<T>(
       ok: false,
       failure: {
         kind: 'other',
-        messageRedacted: redactProviderMessage(
-          error instanceof Error ? error.message : error,
-        ),
+        messageRedacted: redactProviderMessage(error instanceof Error ? error.message : error),
       },
     };
   }

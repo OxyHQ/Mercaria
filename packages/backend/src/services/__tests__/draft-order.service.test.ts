@@ -307,18 +307,16 @@ beforeEach(() => {
   findDraftOrder.mockReset();
   // The default write echoes the draft back with the lines it was handed, which
   // is what the real repository returns after the wholesale replace.
-  replaceDraftPricing
-    .mockReset()
-    .mockImplementation((draftId: string, input: DraftPricing) =>
-      Promise.resolve(
-        mockDraft({
-          id: draftId,
-          lineItems: input.lineItems.map((item) =>
-            line(item.listingId, item.variantId, item.quantity, item.unitPrice.amount),
-          ) as unknown as DraftLineItemRecord[],
-        }),
-      ),
-    );
+  replaceDraftPricing.mockReset().mockImplementation((draftId: string, input: DraftPricing) =>
+    Promise.resolve(
+      mockDraft({
+        id: draftId,
+        lineItems: input.lineItems.map((item) =>
+          line(item.listingId, item.variantId, item.quantity, item.unitPrice.amount),
+        ) as unknown as DraftLineItemRecord[],
+      }),
+    ),
+  );
   markDraftConverted.mockReset().mockResolvedValue(true);
   updateDraftOrderRow.mockReset();
   findStoreById.mockReset().mockResolvedValue({ id: STORE, defaultCurrency: 'FAIR' });
@@ -341,9 +339,7 @@ describe('draft-order.service.addLine — a line needs a price', () => {
 
     await expect(
       addLine(STORE, DRAFT_ID, { listingId: L1, variantId: V1, quantity: 1 }),
-    ).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
-    );
+    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT);
 
     // Nothing was written and nothing was priced — the refusal happens before
     // either.
@@ -386,9 +382,7 @@ describe('draft-order.service.addLine — a line needs a price', () => {
 
     await expect(
       addLine(STORE, DRAFT_ID, { listingId: L1, variantId: V1, quantity: 1 }),
-    ).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
-    );
+    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT);
     expect(replaceDraftPricing).not.toHaveBeenCalled();
   });
 });
@@ -463,9 +457,7 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
      */
     findDraftOrder.mockResolvedValueOnce(mockDraft());
     findListingChildren.mockResolvedValue({
-      images: new Map([
-        [L1, [{ listingId: L1, fileId: 'file-l1', alt: null, position: 0 }]],
-      ]),
+      images: new Map([[L1, [{ listingId: L1, fileId: 'file-l1', alt: null, position: 0 }]]]),
       options: new Map(),
       collectionIds: new Map(),
     });

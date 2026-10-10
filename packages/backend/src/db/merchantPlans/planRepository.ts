@@ -306,11 +306,17 @@ export async function findMerchantPlanPriceByProviderId(
   db: DatabaseOrTransaction,
   input: { provider: BillingProviderId; livemode: boolean; providerPriceId: string },
 ): Promise<MerchantPlanPriceRow | undefined> {
-  const [row] = await db.select().from(merchantPlanPrices).where(and(
-    eq(merchantPlanPrices.provider, input.provider),
-    eq(merchantPlanPrices.livemode, input.livemode),
-    eq(merchantPlanPrices.providerPriceId, input.providerPriceId),
-  )).limit(1);
+  const [row] = await db
+    .select()
+    .from(merchantPlanPrices)
+    .where(
+      and(
+        eq(merchantPlanPrices.provider, input.provider),
+        eq(merchantPlanPrices.livemode, input.livemode),
+        eq(merchantPlanPrices.providerPriceId, input.providerPriceId),
+      ),
+    )
+    .limit(1);
   return row;
 }
 

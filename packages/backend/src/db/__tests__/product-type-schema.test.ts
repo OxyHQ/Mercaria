@@ -96,7 +96,9 @@ describe('the four tables are shaped the way ADR 0007 D5 states', () => {
     expect(partial?.config.where).toBeDefined();
     expect(dialect.sqlToQuery(partial?.config.where).sql).toContain("'published'");
     // And the exact-version identity every authored record cites.
-    expect(indexNames(productTypeDefinitions)).toContain('product_type_definitions_key_version_key');
+    expect(indexNames(productTypeDefinitions)).toContain(
+      'product_type_definitions_key_version_key',
+    );
   });
 
   it('gives the group a CONSTRAINT the field composite foreign key can target', () => {

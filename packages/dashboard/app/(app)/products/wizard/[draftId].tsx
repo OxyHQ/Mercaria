@@ -1,54 +1,54 @@
-import React, { useMemo, useState } from "react";
-import { View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import Head from "expo-router/head";
-import type { AuthoringDraft, AuthoringSchema } from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Textarea } from "@oxy.so/bloom/textarea";
-import { Button } from "@oxy.so/bloom/button";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { CanonicalSearchPanel } from "@/components/catalog-authoring/CanonicalSearchPanel";
-import { ErrorSummary } from "@/components/catalog-authoring/ErrorSummary";
-import { PricingRows } from "@/components/catalog-authoring/PricingRows";
-import { ProductFields } from "@/components/catalog-authoring/ProductFields";
-import { ProductMedia } from "@/components/products/ProductMedia";
-import { ReviewPanel } from "@/components/catalog-authoring/ReviewPanel";
-import { SaveStateBadge, StepNav } from "@/components/catalog-authoring/WizardChrome";
-import { VariantAxes } from "@/components/catalog-authoring/VariantAxes";
-import { VariantRows } from "@/components/catalog-authoring/VariantRows";
-import { useTranslation } from "@/lib/i18n";
-import { useAuthoringSchema, useProductDraft } from "@/lib/authoring/hooks";
-import { useDraftWizard } from "@/lib/authoring/use-draft-wizard";
-import { WIZARD_STEPS, type WizardStepId } from "@/lib/authoring/findings";
-import { scrollToFinding } from "@/lib/authoring/anchors";
+import React, { useMemo, useState } from 'react';
+import { View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import type { AuthoringDraft, AuthoringSchema } from '@mercaria/shared-types';
+import { Text } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Textarea } from '@oxy.so/bloom/textarea';
+import { Button } from '@oxy.so/bloom/button';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { CanonicalSearchPanel } from '@/components/catalog-authoring/CanonicalSearchPanel';
+import { ErrorSummary } from '@/components/catalog-authoring/ErrorSummary';
+import { PricingRows } from '@/components/catalog-authoring/PricingRows';
+import { ProductFields } from '@/components/catalog-authoring/ProductFields';
+import { ProductMedia } from '@/components/products/ProductMedia';
+import { ReviewPanel } from '@/components/catalog-authoring/ReviewPanel';
+import { SaveStateBadge, StepNav } from '@/components/catalog-authoring/WizardChrome';
+import { VariantAxes } from '@/components/catalog-authoring/VariantAxes';
+import { VariantRows } from '@/components/catalog-authoring/VariantRows';
+import { useTranslation } from '@/lib/i18n';
+import { useAuthoringSchema, useProductDraft } from '@/lib/authoring/hooks';
+import { useDraftWizard } from '@/lib/authoring/use-draft-wizard';
+import { WIZARD_STEPS, type WizardStepId } from '@/lib/authoring/findings';
+import { scrollToFinding } from '@/lib/authoring/anchors';
 import {
   anyUntranslated,
   authoringLabel,
   UNTRANSLATED_NOTICE_KEY,
-} from "@/lib/authoring/untranslated";
+} from '@/lib/authoring/untranslated';
 import {
   controlledValueStrings,
   generateMatrix,
   singleVariantRow,
   type MatrixAxis,
-} from "@/lib/authoring/matrix";
+} from '@/lib/authoring/matrix';
 import {
   DEFAULT_DRAFT_CURRENCY,
   fieldsByKey,
   isStepComplete,
   stepCompleteness,
-} from "@/lib/authoring/wizard-state";
+} from '@/lib/authoring/wizard-state';
 
 export default function ProductWizardScreen() {
   const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>{t("products.wizard.documentTitle")}</title>
+        <title>{t('products.wizard.documentTitle')}</title>
       </Head>
       <RequireStore permission="products:write">
         {(storeId) => <WizardLoader storeId={storeId} />}
@@ -73,14 +73,14 @@ export default function ProductWizardScreen() {
 function WizardLoader({ storeId }: { storeId: string }) {
   const { t, locale } = useTranslation();
   const params = useLocalSearchParams<{ draftId: string }>();
-  const draftId = typeof params.draftId === "string" ? params.draftId : "";
+  const draftId = typeof params.draftId === 'string' ? params.draftId : '';
   const draft = useProductDraft(storeId, draftId);
   const [reloadToken, setReloadToken] = useState(0);
 
   const schema = useAuthoringSchema({
     productTypeKey: draft.data?.productType.key ?? null,
     categoryId: draft.data?.categoryId ?? null,
-    market: draft.data?.market ?? "",
+    market: draft.data?.market ?? '',
     locale,
     version: draft.data?.productType.version ?? null,
   });
@@ -89,16 +89,16 @@ function WizardLoader({ storeId }: { storeId: string }) {
   if (draft.isError || draft.data === undefined) {
     return (
       <ScreenMessage
-        title={t("products.wizard.load.draftFailedTitle")}
-        body={t("products.wizard.load.draftFailedBody")}
+        title={t('products.wizard.load.draftFailedTitle')}
+        body={t('products.wizard.load.draftFailedBody')}
       />
     );
   }
   if (schema.isError || schema.data === undefined) {
     return (
       <ScreenMessage
-        title={t("products.wizard.load.schemaFailedTitle")}
-        body={t("products.wizard.load.schemaFailedBody")}
+        title={t('products.wizard.load.schemaFailedTitle')}
+        body={t('products.wizard.load.schemaFailedBody')}
       />
     );
   }
@@ -134,11 +134,11 @@ interface WizardBodyProps {
 function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
   const router = useRouter();
   const { t } = useTranslation();
-  const [step, setStep] = useState<WizardStepId>("classification");
+  const [step, setStep] = useState<WizardStepId>('classification');
   const [truncated, setTruncated] = useState(false);
 
-  const published = draft.status === "published";
-  const canEdit = schema.permissions.canEditDraft && draft.status === "open";
+  const published = draft.status === 'published';
+  const canEdit = schema.permissions.canEditDraft && draft.status === 'open';
 
   const wizard = useDraftWizard({ storeId, draftId: draft.id, draft, schema, canEdit });
   const { form, setForm, findings, saveState, conflicted } = wizard;
@@ -164,20 +164,20 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
   const publish = async () => {
     const outcome = await wizard.publish();
     if (outcome === null) return;
-    if (outcome.outcome === "refused") {
-      setStep("review");
+    if (outcome.outcome === 'refused') {
+      setStep('review');
       return;
     }
-    toast.success(t("products.wizard.publish.published"));
-    router.replace({ pathname: "/products/[id]", params: { id: outcome.listingId } });
+    toast.success(t('products.wizard.publish.published'));
+    router.replace({ pathname: '/products/[id]', params: { id: outcome.listingId } });
   };
 
   if (published) {
     return (
-      <Screen title={t("products.wizard.title")}>
+      <Screen title={t('products.wizard.title')}>
         <ScreenMessage
-          title={t("products.wizard.publish.alreadyPublishedTitle")}
-          body={t("products.wizard.publish.alreadyPublishedBody")}
+          title={t('products.wizard.publish.alreadyPublishedTitle')}
+          body={t('products.wizard.publish.alreadyPublishedBody')}
         />
         {draft.publishedListingId === null ? null : (
           <Button
@@ -185,12 +185,12 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
             className="self-center"
             onPress={() =>
               router.replace({
-                pathname: "/products/[id]",
-                params: { id: draft.publishedListingId ?? "" },
+                pathname: '/products/[id]',
+                params: { id: draft.publishedListingId ?? '' },
               })
             }
           >
-            {t("products.wizard.publish.openListing")}
+            {t('products.wizard.publish.openListing')}
           </Button>
         )}
       </Screen>
@@ -199,16 +199,13 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
 
   return (
     <Screen
-      title={t("products.wizard.title")}
+      title={t('products.wizard.title')}
       subtitle={
         // #740: a dotted product-type key rendered bare as a screen subtitle is
         // indistinguishable from a name somebody wrote. Marked, the key still
         // says WHICH type this draft is being authored against.
-        authoringLabel(
-          schema.text.productTypeName,
-          { kind: "key", key: schema.productType.key },
-          t,
-        ).text
+        authoringLabel(schema.text.productTypeName, { kind: 'key', key: schema.productType.key }, t)
+          .text
       }
       action={
         <SaveStateBadge
@@ -225,40 +222,33 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
       {conflicted ? (
         <View className="mb-4 gap-2 rounded-2xl border border-destructive bg-surface p-4">
           <Text className="text-sm font-semibold text-destructive">
-            {t("products.wizard.save.conflictTitle")}
+            {t('products.wizard.save.conflictTitle')}
           </Text>
           <Text className="text-xs text-muted-foreground">
-            {t("products.wizard.save.conflictBody")}
+            {t('products.wizard.save.conflictBody')}
           </Text>
-          <Button
-            appearance="outline"
-            tone="neutral"
-            className="self-start"
-            onPress={onReload}
-          >
-            {t("products.wizard.save.reload")}
+          <Button appearance="outline" tone="neutral" className="self-start" onPress={onReload}>
+            {t('products.wizard.save.reload')}
           </Button>
         </View>
       ) : null}
 
       {!canEdit && !conflicted ? (
         <View className="mb-4 rounded-2xl border border-border bg-surface p-4">
-          <Text className="text-sm text-muted-foreground">
-            {t("products.wizard.readOnly")}
-          </Text>
+          <Text className="text-sm text-muted-foreground">{t('products.wizard.readOnly')}</Text>
         </View>
       ) : null}
 
       <View className="gap-6">
-        {step === "classification" ? (
+        {step === 'classification' ? (
           <View className="gap-4">
             <ReviewPanelClassification draft={draft} schema={schema} />
             <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
               <Text className="text-sm font-semibold text-foreground">
-                {t("products.wizard.canonical.title")}
+                {t('products.wizard.canonical.title')}
               </Text>
               <Text className="text-xs text-muted-foreground">
-                {t("products.wizard.canonical.body")}
+                {t('products.wizard.canonical.body')}
               </Text>
               {schema.permissions.canSelectCanonicalEntity ? (
                 <CanonicalSearchPanel
@@ -267,7 +257,7 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
                     setForm((current) => ({
                       ...current,
                       selectedCanonicalProductId:
-                        candidate.kind === "canonical_product"
+                        candidate.kind === 'canonical_product'
                           ? candidate.id
                           : candidate.canonicalProductId,
                     }))
@@ -278,14 +268,14 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
                 />
               ) : (
                 <Text className="text-sm text-muted-foreground">
-                  {t("products.wizard.canonical.notPermitted")}
+                  {t('products.wizard.canonical.notPermitted')}
                 </Text>
               )}
             </View>
           </View>
         ) : null}
 
-        {step === "details" ? (
+        {step === 'details' ? (
           <ProductFields
             schema={schema}
             entries={form.productEntries}
@@ -295,7 +285,7 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
           />
         ) : null}
 
-        {step === "variants" ? (
+        {step === 'variants' ? (
           <View className="gap-5">
             <VariantAxes
               schema={schema}
@@ -325,13 +315,13 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
                   }))
                 }
               >
-                {t("products.wizard.variants.addSingle")}
+                {t('products.wizard.variants.addSingle')}
               </Button>
             ) : null}
           </View>
         ) : null}
 
-        {step === "pricing" ? (
+        {step === 'pricing' ? (
           <PricingRows
             schema={schema}
             rows={form.rows}
@@ -341,11 +331,11 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
           />
         ) : null}
 
-        {step === "listing" ? (
+        {step === 'listing' ? (
           <View className="gap-5">
-            <Field label={t("common.title")}>
+            <Field label={t('common.title')}>
               <TextFieldInput
-                label={t("common.title")}
+                label={t('common.title')}
                 placeholder={null}
                 value={form.title}
                 onValueChange={(title) => setForm((current) => ({ ...current, title }))}
@@ -353,24 +343,30 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
               />
             </Field>
             <Textarea
-              label={t("common.description")}
+              label={t('common.description')}
               value={form.description}
-              onValueChange={(description) =>
-                setForm((current) => ({ ...current, description }))
-              }
+              onValueChange={(description) => setForm((current) => ({ ...current, description }))}
               disabled={!canEdit}
             />
             <View className="gap-1.5 rounded-2xl border border-border bg-surface p-4">
-              {draft.imageFileIds.length ? <ProductMedia images={draft.imageFileIds.map((fileId, position) => ({ fileId, position }))} title={form.title} />
-                : <Text className="text-sm font-semibold text-foreground">{t("products.wizard.listing.mediaTitle")}</Text>}
+              {draft.imageFileIds.length ? (
+                <ProductMedia
+                  images={draft.imageFileIds.map((fileId, position) => ({ fileId, position }))}
+                  title={form.title}
+                />
+              ) : (
+                <Text className="text-sm font-semibold text-foreground">
+                  {t('products.wizard.listing.mediaTitle')}
+                </Text>
+              )}
               <Text className="text-xs text-muted-foreground">
-                {t("products.wizard.listing.mediaUnavailable")}
+                {t('products.wizard.listing.mediaUnavailable')}
               </Text>
             </View>
           </View>
         ) : null}
 
-        {step === "review" ? (
+        {step === 'review' ? (
           <View className="gap-4">
             <ReviewPanel draft={draft} schema={schema} form={form} />
             <ErrorSummary
@@ -389,7 +385,7 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
                 }}
                 loading={wizard.isValidating}
               >
-                {t("products.wizard.publish.check")}
+                {t('products.wizard.publish.check')}
               </Button>
               <Button
                 tone="accent"
@@ -399,23 +395,25 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
                 disabled={!canEdit || conflicted}
                 loading={wizard.isPublishing}
               >
-                {t("products.wizard.publish.publish")}
+                {t('products.wizard.publish.publish')}
               </Button>
             </View>
-            {wizard.validation !== null && wizard.validation.publishable && findings.length === 0 ? (
+            {wizard.validation !== null &&
+            wizard.validation.publishable &&
+            findings.length === 0 ? (
               <Text className="text-sm text-muted-foreground">
-                {t("products.wizard.publish.readyToPublish")}
+                {t('products.wizard.publish.readyToPublish')}
               </Text>
             ) : null}
           </View>
         ) : null}
 
-        {step !== "review" ? (
+        {step !== 'review' ? (
           <View className="flex-row items-center justify-between gap-3">
             <Text className="text-xs text-muted-foreground">
               {isStepComplete(completeness(step))
-                ? t("products.wizard.steps.complete")
-                : t("products.wizard.steps.incomplete")}
+                ? t('products.wizard.steps.complete')
+                : t('products.wizard.steps.incomplete')}
             </Text>
             <Button
               tone="accent"
@@ -425,7 +423,7 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
                 if (next !== undefined) setStep(next);
               }}
             >
-              {t("products.wizard.steps.next")}
+              {t('products.wizard.steps.next')}
             </Button>
           </View>
         ) : null}
@@ -446,17 +444,17 @@ function ReviewPanelClassification({
   // #740, and the same split `ReviewPanel` makes for the same reason: the
   // product type has a stable key worth marking up, the category has only a
   // UUID on this DTO and so gets no identifier at all.
-  const categoryName = authoringLabel(schema.text.categoryName, { kind: "unidentifiable" }, t);
+  const categoryName = authoringLabel(schema.text.categoryName, { kind: 'unidentifiable' }, t);
   const productTypeName = authoringLabel(
     schema.text.productTypeName,
-    { kind: "key", key: draft.productType.key },
+    { kind: 'key', key: draft.productType.key },
     t,
   );
   return (
     <View className="gap-1.5 rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-foreground">{categoryName.text}</Text>
       <Text className="text-xs text-muted-foreground">
-        {t("products.wizard.review.productTypeVersion", {
+        {t('products.wizard.review.productTypeVersion', {
           name: productTypeName.text,
           version: draft.productType.version,
         })}
@@ -465,13 +463,13 @@ function ReviewPanelClassification({
         {/* `language` and not `locale`: `locale` is an i18n-js OPTION, so it
             switches the lookup instead of filling the slot — this line rendered
             `[missing "…"]` until #437's check G' found it. */}
-        {t("products.wizard.review.marketAndLocale", {
+        {t('products.wizard.review.marketAndLocale', {
           market: draft.market,
           language: draft.locale,
         })}
       </Text>
       <Text className="text-xs text-muted-foreground">
-        {t("products.wizard.classification.pinned")}
+        {t('products.wizard.classification.pinned')}
       </Text>
       {anyUntranslated([categoryName, productTypeName]) ? (
         <Text className="text-xs text-muted-foreground">{t(UNTRANSLATED_NOTICE_KEY)}</Text>

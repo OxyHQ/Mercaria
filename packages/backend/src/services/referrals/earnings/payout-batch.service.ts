@@ -432,11 +432,14 @@ export async function settlePayoutBatch(input: {
 
   // ── 3. Record what happened ──────────────────────────────────────────────
   if (outcome.outcome === 'settled') {
-    const settled = await db.transaction(async (tx) => await applySettlement(tx, {
-      batchId: claim.batch.id,
-      providerReference: outcome.providerReference,
-      at,
-    }));
+    const settled = await db.transaction(
+      async (tx) =>
+        await applySettlement(tx, {
+          batchId: claim.batch.id,
+          providerReference: outcome.providerReference,
+          at,
+        }),
+    );
     if (!settled) return { outcome: 'not_claimable' };
     return { outcome: 'settled', batch: settled };
   }

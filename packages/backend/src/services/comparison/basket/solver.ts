@@ -165,8 +165,7 @@ export function solveBasket(input: SolveInput): SolveOutcome {
   const unresolved: BasketUnresolvedLine[] = [];
   for (const line of input.lines) {
     if (search.assignments.some((assignment) => assignment.line.lineId === line.lineId)) continue;
-    const reasons =
-      input.refusals.get(line.lineId) ??
+    const reasons = input.refusals.get(line.lineId) ??
       objectiveRefusals.get(line.lineId) ??
       search.unresolvedReasons.get(line.lineId) ?? ['no_eligible_offer'];
     unresolved.push({
@@ -300,7 +299,9 @@ function greedySearch(
         const alternative = (selectable.get(assignment.line.lineId) ?? [])
           .filter((candidate) => candidate.merchantKey === merchant)
           .sort((left, right) => compareCandidates(input.objective, left, right))[0];
-        return alternative === undefined ? assignment : { line: assignment.line, candidate: alternative };
+        return alternative === undefined
+          ? assignment
+          : { line: assignment.line, candidate: alternative };
       });
       const used = new Set(moved.map((assignment) => assignment.candidate.merchantKey));
       if (used.size > cap) continue;
@@ -530,7 +531,11 @@ function compareCandidates(
  * so this comparison is total and two structurally different plans of identical
  * cost always resolve the same way.
  */
-function betterPlan(objective: BasketObjective, candidate: BasketPlan, incumbent: BasketPlan): boolean {
+function betterPlan(
+  objective: BasketObjective,
+  candidate: BasketPlan,
+  incumbent: BasketPlan,
+): boolean {
   if (candidate.coveredLineIds.length !== incumbent.coveredLineIds.length) {
     return candidate.coveredLineIds.length > incumbent.coveredLineIds.length;
   }

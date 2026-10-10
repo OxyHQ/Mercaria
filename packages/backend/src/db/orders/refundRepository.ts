@@ -99,7 +99,12 @@ async function withLineItems(
     .from(refundLineItems)
     // `inArray`, never `${col} in ${jsArray}` — the raw form binds a TUPLE and
     // Postgres raises `op ANY/ALL (array) requires array on right side`.
-    .where(inArray(refundLineItems.refundId, rows.map((row) => row.id)))
+    .where(
+      inArray(
+        refundLineItems.refundId,
+        rows.map((row) => row.id),
+      ),
+    )
     .orderBy(asc(refundLineItems.position), asc(refundLineItems.id));
 
   const byRefund = new Map<string, RefundLineItemRow[]>();
@@ -158,11 +163,13 @@ export async function findRefundForStoreOrderReplay(
   const rows = await db
     .select()
     .from(refunds)
-    .where(and(
-      eq(refunds.storeId, storeId),
-      eq(refunds.orderId, orderId),
-      eq(refunds.idempotencyKey, idempotencyKey),
-    ))
+    .where(
+      and(
+        eq(refunds.storeId, storeId),
+        eq(refunds.orderId, orderId),
+        eq(refunds.idempotencyKey, idempotencyKey),
+      ),
+    )
     .limit(1);
   const [record] = await withLineItems(rows, db);
   return record ?? null;
@@ -492,9 +499,7 @@ export async function sumStoreRefunds(
   const [row] = await db
     .select({ total: sql<number>`coalesce(sum(${refunds.totalRefundedShopAmount}), 0)::bigint` })
     .from(refunds)
-    .where(
-      and(eq(refunds.storeId, storeId), eq(refunds.totalRefundedShopCurrency, shopCurrency)),
-    );
+    .where(and(eq(refunds.storeId, storeId), eq(refunds.totalRefundedShopCurrency, shopCurrency)));
   return Number(row?.total ?? 0);
 }
 

@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
-import { Linking, Pressable, View } from "react-native";
-import { Loading } from "@oxy.so/bloom/loading";
-import Head from "expo-router/head";
-import { useLocalSearchParams } from "expo-router";
+import { useMemo, useState } from 'react';
+import { Linking, Pressable, View } from 'react-native';
+import { Loading } from '@oxy.so/bloom/loading';
+import Head from 'expo-router/head';
+import { useLocalSearchParams } from 'expo-router';
 import {
   BasketPlanCard,
   ComparisonExplanationBlock,
@@ -10,26 +10,26 @@ import {
   Text,
   CONDITION_A11Y_LABEL_KEY,
   conditionGroupLabelKey,
-} from "@mercaria/ui";
+} from '@mercaria/ui';
 import type {
   BasketChannelPolicy,
   BasketObjective,
   BasketResult,
   ConditionGroup,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 import {
   BASKET_CHANNEL_POLICIES,
   BASKET_OBJECTIVES,
   CONDITION_GROUPS,
-} from "@mercaria/shared-types";
-import { ScreenShell } from "@/components/shell/ScreenShell";
+} from '@mercaria/shared-types';
+import { ScreenShell } from '@/components/shell/ScreenShell';
 import {
   useBasketSolution,
   useProductComparison,
   useRevalidateBasketPlan,
-} from "@/lib/hooks/use-comparison";
-import { assessComparability, parseComparisonSubjects } from "@/lib/catalog/comparison";
-import { useTranslation } from "@/lib/i18n";
+} from '@/lib/hooks/use-comparison';
+import { assessComparability, parseComparisonSubjects } from '@/lib/catalog/comparison';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The KEY of the words a shopper reads for each member of a server-owned
@@ -53,19 +53,19 @@ import { useTranslation } from "@/lib/i18n";
  * leaf is referenced.
  */
 const CHANNEL_LABEL_KEYS: Readonly<Record<BasketChannelPolicy, string>> = {
-  mixed: "compare.channel.mixed",
-  native_only: "compare.channel.nativeOnly",
-  external_only: "compare.channel.externalOnly",
-  official_only: "compare.channel.officialOnly",
+  mixed: 'compare.channel.mixed',
+  native_only: 'compare.channel.nativeOnly',
+  external_only: 'compare.channel.externalOnly',
+  official_only: 'compare.channel.officialOnly',
 };
 Object.freeze(CHANNEL_LABEL_KEYS);
 
 const OBJECTIVE_LABEL_KEYS: Readonly<Record<BasketObjective, string>> = {
-  cheapest_known_item_prices: "compare.objective.cheapestKnownItemPrices",
-  cheapest_known_total: "compare.objective.cheapestKnownTotal",
-  fewest_merchants: "compare.objective.fewestMerchants",
-  all_native: "compare.objective.allNative",
-  fastest_known_delivery: "compare.objective.fastestKnownDelivery",
+  cheapest_known_item_prices: 'compare.objective.cheapestKnownItemPrices',
+  cheapest_known_total: 'compare.objective.cheapestKnownTotal',
+  fewest_merchants: 'compare.objective.fewestMerchants',
+  all_native: 'compare.objective.allNative',
+  fastest_known_delivery: 'compare.objective.fastestKnownDelivery',
 };
 Object.freeze(OBJECTIVE_LABEL_KEYS);
 
@@ -104,10 +104,10 @@ export default function CompareScreen() {
   // compare one phone's 256 GB against another phone as a whole.
   const subjects = useMemo(() => parseComparisonSubjects(params.p), [params.p]);
   const handles = useMemo(() => subjects.map((subject) => subject.handle), [subjects]);
-  const watchlistId = typeof params.watchlist === "string" ? params.watchlist : undefined;
+  const watchlistId = typeof params.watchlist === 'string' ? params.watchlist : undefined;
 
-  const [channelPolicy, setChannelPolicy] = useState<BasketChannelPolicy>("mixed");
-  const [objective, setObjective] = useState<BasketObjective>("cheapest_known_item_prices");
+  const [channelPolicy, setChannelPolicy] = useState<BasketChannelPolicy>('mixed');
+  const [objective, setObjective] = useState<BasketObjective>('cheapest_known_item_prices');
   const [conditionGroups, setConditionGroups] = useState<readonly ConditionGroup[]>([]);
   const [actionNotice, setActionNotice] = useState<string | undefined>(undefined);
 
@@ -176,7 +176,7 @@ export default function CompareScreen() {
    * the server has confirmed the plan still describes what a shopper would pay.
    */
   async function actOnPlan(result: BasketResult, act: () => void): Promise<void> {
-    if (result.state !== "produced" || basket.data === undefined) return;
+    if (result.state !== 'produced' || basket.data === undefined) return;
     setActionNotice(undefined);
     const answer = await revalidate.mutateAsync({
       snapshot: basket.data.snapshot,
@@ -184,7 +184,7 @@ export default function CompareScreen() {
       records: basket.data.records,
     });
     if (!answer.mayProceed) {
-      setActionNotice(t("compare.notice.pricesChanged"));
+      setActionNotice(t('compare.notice.pricesChanged'));
       await basket.refetch();
       return;
     }
@@ -194,24 +194,24 @@ export default function CompareScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>{t("compare.pageTitle")}</title>
+        <title>{t('compare.pageTitle')}</title>
       </Head>
 
       <View className="gap-space-20 px-space-16 py-space-20">
-        <Text className="text-2xl font-bold text-foreground">{t("compare.heading")}</Text>
+        <Text className="text-2xl font-bold text-foreground">{t('compare.heading')}</Text>
 
         {handles.length < 2 && watchlistId === undefined ? (
-          <Text className="text-shop-body text-text-secondary">{t("compare.pickTwo")}</Text>
+          <Text className="text-shop-body text-text-secondary">{t('compare.pickTwo')}</Text>
         ) : null}
 
         {comparison.isLoading ? (
-          <Loading variant="inline" size="sm" accessibilityLabel={t("compare.comparingA11y")} />
+          <Loading variant="inline" size="sm" accessibilityLabel={t('compare.comparingA11y')} />
         ) : null}
         {comparison.error ? (
           <Text className="text-shop-body text-text-secondary">
             {comparison.error instanceof Error
               ? comparison.error.message
-              : t("compare.comparisonFailed")}
+              : t('compare.comparisonFailed')}
           </Text>
         ) : null}
 
@@ -227,42 +227,41 @@ export default function CompareScreen() {
               the table and a caveat — comparing a laptop against a tablet is a
               legitimate question whose answer has fewer shared rows.
             */}
-            {comparability?.kind === "no_shared_facts" ? (
-              <Text className="text-shop-body text-text-secondary">{t("compare.noSharedFacts")}</Text>
+            {comparability?.kind === 'no_shared_facts' ? (
+              <Text className="text-shop-body text-text-secondary">
+                {t('compare.noSharedFacts')}
+              </Text>
             ) : null}
-            {comparability?.kind === "comparable_across_categories" ? (
+            {comparability?.kind === 'comparable_across_categories' ? (
               <Text className="text-shop-caption text-text-secondary">
-                {t("compare.acrossCategories", { count: comparability.sharedRowCount })}
+                {t('compare.acrossCategories', { count: comparability.sharedRowCount })}
               </Text>
             ) : null}
 
             {/* The DETERMINISTIC table first, and the narrative after it. */}
-            {comparability?.kind === "no_shared_facts" ? null : (
-              <ComparisonTableView
-                table={comparison.data.input.table}
-                namesByRef={namesByRef}
-              />
+            {comparability?.kind === 'no_shared_facts' ? null : (
+              <ComparisonTableView table={comparison.data.input.table} namesByRef={namesByRef} />
             )}
             <ComparisonExplanationBlock explanation={comparison.data.explanation} />
             {comparison.data.input.gaps.length === 0 ? null : (
               <Text className="text-shop-caption text-text-secondary">
-                {t("compare.gaps", { count: comparison.data.input.gaps.length })}
+                {t('compare.gaps', { count: comparison.data.input.gaps.length })}
               </Text>
             )}
           </View>
         ) : null}
 
         <View className="gap-space-8">
-          <Text className="text-bodyBold text-text">{t("compare.whereToBuy")}</Text>
+          <Text className="text-bodyBold text-text">{t('compare.whereToBuy')}</Text>
           <ChoiceRow
-            label={t("compare.channelLabel")}
+            label={t('compare.channelLabel')}
             values={BASKET_CHANNEL_POLICIES}
             labelKeys={CHANNEL_LABEL_KEYS}
             value={channelPolicy}
             onChange={setChannelPolicy}
           />
           <ChoiceRow
-            label={t("compare.objectiveLabel")}
+            label={t('compare.objectiveLabel')}
             values={BASKET_OBJECTIVES}
             labelKeys={OBJECTIVE_LABEL_KEYS}
             value={objective}
@@ -276,11 +275,11 @@ export default function CompareScreen() {
         )}
 
         {basket.isLoading ? (
-          <Loading variant="inline" size="sm" accessibilityLabel={t("compare.planningA11y")} />
+          <Loading variant="inline" size="sm" accessibilityLabel={t('compare.planningA11y')} />
         ) : null}
         {basket.error ? (
           <Text className="text-shop-body text-text-secondary">
-            {basket.error instanceof Error ? basket.error.message : t("compare.basketFailed")}
+            {basket.error instanceof Error ? basket.error.message : t('compare.basketFailed')}
           </Text>
         ) : null}
 
@@ -288,19 +287,19 @@ export default function CompareScreen() {
           <BasketPlanCard
             key={result.kind}
             result={result}
-            {...(result.state === "produced" && basket.data?.actions[result.kind] !== undefined
+            {...(result.state === 'produced' && basket.data?.actions[result.kind] !== undefined
               ? { actions: basket.data.actions[result.kind] }
               : {})}
             onAddNativeToCart={() => {
               void actOnPlan(result, () => {
-                setActionNotice(t("compare.notice.addingToCart"));
+                setActionNotice(t('compare.notice.addingToCart'));
               });
             }}
             onOpenExternalMerchant={(index) => {
               void actOnPlan(result, () => {
                 const merchant = basket.data?.actions[result.kind]?.externalMerchants[index];
                 if (merchant?.destinationHost === undefined) {
-                  setActionNotice(t("compare.notice.noDestination"));
+                  setActionNotice(t('compare.notice.noDestination'));
                   return;
                 }
                 // The HOST is what the server discloses; the destination itself
@@ -349,22 +348,22 @@ function ChoiceRow<T extends string>({
             // reason `CONDITION_A11Y_LABEL_KEY` gives one component down:
             // French puts a space before the colon and Chinese uses a full-width
             // one, and a screen reader reads what the string says.
-            accessibilityLabel={t("compare.choiceA11y", {
+            accessibilityLabel={t('compare.choiceA11y', {
               label,
               choice: choice.label,
             })}
             onPress={() => onChange(choice.value)}
             className={
               choice.value === value
-                ? "rounded-radius-max bg-bg-fill-primary px-space-12 py-space-6"
-                : "rounded-radius-max border border-border-secondary px-space-12 py-space-6"
+                ? 'rounded-radius-max bg-bg-fill-primary px-space-12 py-space-6'
+                : 'rounded-radius-max border border-border-secondary px-space-12 py-space-6'
             }
           >
             <Text
               className={
                 choice.value === value
-                  ? "text-shop-captionBold text-text-inverted"
-                  : "text-shop-caption text-text"
+                  ? 'text-shop-captionBold text-text-inverted'
+                  : 'text-shop-caption text-text'
               }
             >
               {/* The selected state is announced AND spelled, never colour alone. */}
@@ -393,7 +392,7 @@ function ConditionRow({
   const { t } = useTranslation();
   return (
     <View className="gap-space-4">
-      <Text className="text-shop-caption text-text-secondary">{t("compare.conditionLabel")}</Text>
+      <Text className="text-shop-caption text-text-secondary">{t('compare.conditionLabel')}</Text>
       <View className="flex-row flex-wrap gap-space-8">
         {CONDITION_GROUPS.map((group) => {
           const selected = value.includes(group);
@@ -409,18 +408,18 @@ function ConditionRow({
                 label: t(conditionGroupLabelKey(group)),
               })}
               onPress={() =>
-                onChange(
-                  selected ? value.filter((entry) => entry !== group) : [...value, group],
-                )
+                onChange(selected ? value.filter((entry) => entry !== group) : [...value, group])
               }
               className={
                 selected
-                  ? "rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6"
-                  : "rounded-radius-max border border-border-secondary px-space-12 py-space-6"
+                  ? 'rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6'
+                  : 'rounded-radius-max border border-border-secondary px-space-12 py-space-6'
               }
             >
               <Text className="text-shop-caption text-text">
-                {selected ? `${t(conditionGroupLabelKey(group))} ✓` : t(conditionGroupLabelKey(group))}
+                {selected
+                  ? `${t(conditionGroupLabelKey(group))} ✓`
+                  : t(conditionGroupLabelKey(group))}
               </Text>
             </Pressable>
           );
@@ -429,4 +428,3 @@ function ConditionRow({
     </View>
   );
 }
-

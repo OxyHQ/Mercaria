@@ -57,10 +57,10 @@ import type {
   FacetCommerceDimension,
   FacetLabel,
   OfferAvailability,
-} from "@mercaria/shared-types";
-import { CONDITION_GROUPS, FACET_TAXONOMY_KEY } from "@mercaria/shared-types";
-import { conditionGroupLabelKey } from "./condition";
-import { formatRegionName } from "./region";
+} from '@mercaria/shared-types';
+import { CONDITION_GROUPS, FACET_TAXONOMY_KEY } from '@mercaria/shared-types';
+import { conditionGroupLabelKey } from './condition';
+import { formatRegionName } from './region';
 
 /**
  * Every facet TITLE the server reports as a stable key.
@@ -74,12 +74,12 @@ export type FacetStableTitle = FacetCommerceDimension | typeof FACET_TAXONOMY_KE
 
 /** The title copy for each stable-key facet. */
 export const FACET_TITLE_LABEL_KEYS: Readonly<Record<FacetStableTitle, string>> = {
-  offer_price: "ui.facet.title.offer_price",
-  availability: "ui.facet.title.availability",
-  condition: "ui.facet.title.condition",
-  market: "ui.facet.title.market",
-  offer_channel: "ui.facet.title.offer_channel",
-  category: "ui.facet.title.category",
+  offer_price: 'ui.facet.title.offer_price',
+  availability: 'ui.facet.title.availability',
+  condition: 'ui.facet.title.condition',
+  market: 'ui.facet.title.market',
+  offer_channel: 'ui.facet.title.offer_channel',
+  category: 'ui.facet.title.category',
 };
 
 /**
@@ -92,11 +92,11 @@ export const FACET_TITLE_LABEL_KEYS: Readonly<Record<FacetStableTitle, string>> 
  * behaviour.
  */
 export const FACET_AVAILABILITY_LABEL_KEYS: Readonly<Record<OfferAvailability, string>> = {
-  in_stock: "ui.facet.availability.in_stock",
-  out_of_stock: "ui.facet.availability.out_of_stock",
-  preorder: "ui.facet.availability.preorder",
-  unavailable: "ui.facet.availability.unavailable",
-  unknown: "ui.facet.availability.unknown",
+  in_stock: 'ui.facet.availability.in_stock',
+  out_of_stock: 'ui.facet.availability.out_of_stock',
+  preorder: 'ui.facet.availability.preorder',
+  unavailable: 'ui.facet.availability.unavailable',
+  unknown: 'ui.facet.availability.unknown',
 };
 
 /**
@@ -106,19 +106,19 @@ export const FACET_AVAILABILITY_LABEL_KEYS: Readonly<Record<OfferAvailability, s
  * that repository's SQL and nothing in shared-types names it. The completeness
  * gate therefore reads the SQL rather than this file — see the header.
  */
-export type FacetChannelBucket = "native" | "external";
+export type FacetChannelBucket = 'native' | 'external';
 
 /** The channel copy. */
 export const FACET_CHANNEL_LABEL_KEYS: Readonly<Record<FacetChannelBucket, string>> = {
-  native: "ui.facet.channel.native",
-  external: "ui.facet.channel.external",
+  native: 'ui.facet.channel.native',
+  external: 'ui.facet.channel.external',
 };
 
 /** The market sentinel: a NULL country, which means every market rather than none. */
-export const FACET_MARKET_ANY_BUCKET = "*";
+export const FACET_MARKET_ANY_BUCKET = '*';
 
 /** The copy for {@link FACET_MARKET_ANY_BUCKET}. */
-export const FACET_MARKET_ANY_LABEL_KEY = "ui.facet.market.any";
+export const FACET_MARKET_ANY_LABEL_KEY = 'ui.facet.market.any';
 
 /** Whether a string names a facet whose title this module holds copy for. */
 export function isFacetStableTitle(key: string): key is FacetStableTitle {
@@ -156,23 +156,23 @@ export function facetStableBucketText(
   translate: (key: string) => string,
   locale: string,
 ): string | null {
-  if (facetKey === "availability") {
+  if (facetKey === 'availability') {
     return Object.prototype.hasOwnProperty.call(FACET_AVAILABILITY_LABEL_KEYS, bucketKey)
       ? translate(FACET_AVAILABILITY_LABEL_KEYS[bucketKey as OfferAvailability])
       : null;
   }
-  if (facetKey === "offer_channel") {
+  if (facetKey === 'offer_channel') {
     return Object.prototype.hasOwnProperty.call(FACET_CHANNEL_LABEL_KEYS, bucketKey)
       ? translate(FACET_CHANNEL_LABEL_KEYS[bucketKey as FacetChannelBucket])
       : null;
   }
-  if (facetKey === "condition") {
+  if (facetKey === 'condition') {
     // #90's SEGMENT grain, which is what `facet.service.ts` reports through
     // `CONDITION_KEY_GROUP`. The copy already exists for all twelve locales, so
     // this dimension needs no key of its own here.
     return isConditionGroup(bucketKey) ? translate(conditionGroupLabelKey(bucketKey)) : null;
   }
-  if (facetKey === "market") {
+  if (facetKey === 'market') {
     if (bucketKey === FACET_MARKET_ANY_BUCKET) return translate(FACET_MARKET_ANY_LABEL_KEY);
     const region = formatRegionName(bucketKey, locale);
     return region.trim().length > 0 ? region : null;
@@ -201,7 +201,7 @@ export function facetTitleText(
   label: FacetLabel,
   translate: (key: string) => string,
 ): string {
-  if (label.source !== "stable_key") return label.text;
+  if (label.source !== 'stable_key') return label.text;
   const copyKey = facetTitleLabelKey(facetKey);
   return copyKey === null ? label.text : translate(copyKey);
 }
@@ -240,7 +240,7 @@ export function facetBucketText(
   translate: (key: string) => string,
   locale: string,
 ): string {
-  if (label.source !== "stable_key") return label.text;
+  if (label.source !== 'stable_key') return label.text;
   return facetStableBucketText(facetKey, bucketKey, translate, locale) ?? label.text;
 }
 

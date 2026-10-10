@@ -36,7 +36,9 @@ describe('the #74 offer-selection seam', () => {
     // The property the whole module exists for. A default that picked "the
     // cheapest" would be a ranking decision made under a name that does not say
     // so, and it would look exactly like #74 having shipped.
-    expect(selectSearchOffer({ canonicalProductId: 'p1', offers: [fakeOffer('o1')] })).toBeUndefined();
+    expect(
+      selectSearchOffer({ canonicalProductId: 'p1', offers: [fakeOffer('o1')] }),
+    ).toBeUndefined();
   });
 
   it('asks a registered selector and returns its answer', () => {
@@ -53,7 +55,9 @@ describe('the #74 offer-selection seam', () => {
 
   it('lets a selector DECLINE without emptying the result', () => {
     registerSearchOfferSelector(() => undefined);
-    expect(selectSearchOffer({ canonicalProductId: 'p1', offers: [fakeOffer('o1')] })).toBeUndefined();
+    expect(
+      selectSearchOffer({ canonicalProductId: 'p1', offers: [fakeOffer('o1')] }),
+    ).toBeUndefined();
   });
 
   it('a throwing selector degrades the result instead of failing the page', () => {
@@ -61,7 +65,9 @@ describe('the #74 offer-selection seam', () => {
     registerSearchOfferSelector(() => {
       throw new Error('selector exploded');
     });
-    expect(selectSearchOffer({ canonicalProductId: 'p1', offers: [fakeOffer('o1')] })).toBeUndefined();
+    expect(
+      selectSearchOffer({ canonicalProductId: 'p1', offers: [fakeOffer('o1')] }),
+    ).toBeUndefined();
   });
 
   it('a second registration REPLACES the first rather than stacking', () => {
@@ -81,9 +87,9 @@ describe('the #74 offer-selection seam', () => {
       availability: 'in_stock',
       rankingPolicyVersion: 'rp-second',
     }));
-    expect(selectSearchOffer({ canonicalProductId: 'p1', offers: [fakeOffer('o1')] })?.offerId).toBe(
-      'second',
-    );
+    expect(
+      selectSearchOffer({ canonicalProductId: 'p1', offers: [fakeOffer('o1')] })?.offerId,
+    ).toBe('second');
   });
 });
 

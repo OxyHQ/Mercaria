@@ -201,7 +201,9 @@ export default function DigitalAssetScreen() {
                   {t('digital.asset.guidanceTitle')}
                 </Text>
                 {/* The seller's own prose, verbatim. */}
-                <Text className="text-shop-bodySmall text-text-secondary">{view.sellerGuidance}</Text>
+                <Text className="text-shop-bodySmall text-text-secondary">
+                  {view.sellerGuidance}
+                </Text>
               </View>
             )}
 
@@ -232,7 +234,10 @@ export default function DigitalAssetScreen() {
                   reviews={reviews}
                   isLoading={reviewsQuery.isLoading}
                   onReadMore={() => setReviewsOpen(true)}
-                  onReviewPress={(id) => { setInitialReviewId(id); setReviewsOpen(true); }}
+                  onReviewPress={(id) => {
+                    setInitialReviewId(id);
+                    setReviewsOpen(true);
+                  }}
                   {...(aggregate === undefined ? {} : { unverified: aggregate.unverified })}
                 />
               </View>
@@ -248,7 +253,10 @@ export default function DigitalAssetScreen() {
           canonicalProductId={view.canonicalProductId}
           scope="product"
           initialReviewId={initialReviewId}
-          onClose={() => { setReviewsOpen(false); setInitialReviewId(undefined); }}
+          onClose={() => {
+            setReviewsOpen(false);
+            setInitialReviewId(undefined);
+          }}
         />
       ) : null}
     </ScreenShell>

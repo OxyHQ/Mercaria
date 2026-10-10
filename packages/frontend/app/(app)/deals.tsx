@@ -57,9 +57,7 @@ export default function DealsScreen() {
             href={alternate.href}
           />
         ))}
-        {document?.robots === undefined ? null : (
-          <meta name="robots" content={document.robots} />
-        )}
+        {document?.robots === undefined ? null : <meta name="robots" content={document.robots} />}
         {jsonLd === undefined ? null : (
           <script
             type="application/ld+json"
@@ -74,7 +72,10 @@ export default function DealsScreen() {
        * centred column. `explore.tsx` says the same thing at length.
        */}
       <View className="mb-space-32 web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
-        <Text className="text-center text-[36px] font-bold leading-[40px] tracking-tight text-text" accessibilityRole="header">
+        <Text
+          className="text-center text-[36px] font-bold leading-[40px] tracking-tight text-text"
+          accessibilityRole="header"
+        >
           {t('discovery.deals.title')}
         </Text>
 

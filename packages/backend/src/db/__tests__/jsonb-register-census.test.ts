@@ -222,15 +222,15 @@ const JSONB_COLUMN_BOUNDS: Readonly<Record<string, JsonbColumnBound>> = {
     bound: 'shape_bounded_only',
     mechanism: 'MAX_CONSTRAINTS_PER_SET',
     why:
-      'THIRTY-TWO constraints, at ingress: `createShoppingAgentSchema` and `updateShoppingAgentSchema` '
-      + 'both carry `z.array(productConstraintSchema).max(MAX_CONSTRAINTS_PER_SET)`. A COUNT bound and '
-      + 'not a size one — each element is itself unbounded — which is why this sits with the '
-      + 'payload_summary columns rather than with the two size CHECKs. '
-      + 'It binds every writer REACHABLE today and does so by reachability rather than by '
-      + 'construction: `agent.service.ts` is the only module that writes this column, its two exported '
-      + 'writers have exactly one caller each (`shopping-agents.controller.ts`), and both routes mount '
-      + '`validateBody`. A second caller of `createShoppingAgent` would bypass the bound silently, so '
-      + 'the completeness is a property of the current call graph and not of the column.',
+      'THIRTY-TWO constraints, at ingress: `createShoppingAgentSchema` and `updateShoppingAgentSchema` ' +
+      'both carry `z.array(productConstraintSchema).max(MAX_CONSTRAINTS_PER_SET)`. A COUNT bound and ' +
+      'not a size one — each element is itself unbounded — which is why this sits with the ' +
+      'payload_summary columns rather than with the two size CHECKs. ' +
+      'It binds every writer REACHABLE today and does so by reachability rather than by ' +
+      'construction: `agent.service.ts` is the only module that writes this column, its two exported ' +
+      'writers have exactly one caller each (`shopping-agents.controller.ts`), and both routes mount ' +
+      '`validateBody`. A second caller of `createShoppingAgent` would bypass the bound silently, so ' +
+      'the completeness is a property of the current call graph and not of the column.',
   },
 };
 
@@ -294,7 +294,10 @@ const SOURCE = [
 
 /** Does this symbol or constraint name appear anywhere in production source? */
 function resolvesInTree(symbol: string): boolean {
-  const pattern = new RegExp(`(?<![A-Za-z0-9_])${symbol.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}(?![A-Za-z0-9_])`, 'u');
+  const pattern = new RegExp(
+    `(?<![A-Za-z0-9_])${symbol.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}(?![A-Za-z0-9_])`,
+    'u',
+  );
   return SOURCE.some((file) => pattern.test(readFileSync(file, 'utf8')));
 }
 
@@ -318,9 +321,10 @@ describe('every registered jsonb column states how it is bounded', () => {
     // than pass as a string that matches nothing.
     const actual = new Set(jsonbColumnKeys());
     for (const key of Object.keys(JSONB_COLUMN_BOUNDS)) {
-      expect(actual.has(key), `the bound register names "${key}", which is not a jsonb column`).toBe(
-        true,
-      );
+      expect(
+        actual.has(key),
+        `the bound register names "${key}", which is not a jsonb column`,
+      ).toBe(true);
     }
   });
 
@@ -402,9 +406,9 @@ describe('the jsonb register covers every table', () => {
       .sort();
     expect(
       unregistered,
-      'a jsonb column landed on a table with no register row. `CONVENTIONS.md` says jsonb is for '
-        + 'genuinely shape-less data only — a price, an address or a set of totals is not. If this '
-        + 'one earned it, add the table and its count above; that line IS the register row.',
+      'a jsonb column landed on a table with no register row. `CONVENTIONS.md` says jsonb is for ' +
+        'genuinely shape-less data only — a price, an address or a set of totals is not. If this ' +
+        'one earned it, add the table and its count above; that line IS the register row.',
     ).toEqual([]);
   });
 
@@ -427,9 +431,7 @@ describe('the jsonb register covers every table', () => {
     // absence check whose detector cannot match reports the same clean pass
     // forever. This proves `jsonbColumnCount` returns a non-zero for a table
     // that genuinely has one.
-    const registered = tables.find(
-      (table) => getTableName(table) === 'moderation_outboxes',
-    );
+    const registered = tables.find((table) => getTableName(table) === 'moderation_outboxes');
     expect(registered, 'the control table is gone; pick another register entry').toBeDefined();
     if (registered !== undefined) expect(jsonbColumnCount(registered)).toBeGreaterThan(0);
     // And that it returns ZERO for one that does not, so the count is reading

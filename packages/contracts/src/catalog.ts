@@ -77,7 +77,11 @@ export const MercariaProductConditionSchema = z
   })
   .superRefine((condition, ctx) => {
     if (CONDITION_KEY_GROUP[condition.key] !== condition.group) {
-      ctx.addIssue({ code: 'custom', path: ['group'], message: `must be the group of condition "${condition.key}"` });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['group'],
+        message: `must be the group of condition "${condition.key}"`,
+      });
     }
   });
 export type MercariaProductCondition = z.infer<typeof MercariaProductConditionSchema>;
@@ -110,7 +114,9 @@ export const MercariaPurchaseOptionSchema = z.object({
   ref: MercariaVariantRefSchema,
   title: z.string().describe('The variant’s display title (e.g. `Blue / M`).'),
   price: MercariaMoneySchema,
-  compareAtPrice: MercariaMoneySchema.nullable().describe('The pre-discount price when on sale, else null.'),
+  compareAtPrice: MercariaMoneySchema.nullable().describe(
+    'The pre-discount price when on sale, else null.',
+  ),
   availability: MercariaProductAvailabilitySchema.exclude(['sold']),
 });
 export type MercariaPurchaseOption = z.infer<typeof MercariaPurchaseOptionSchema>;
@@ -120,7 +126,9 @@ const productSummaryShape = {
   title: z.string(),
   primaryImage: MercariaImageSchema.nullable().describe('The first gallery image, or null.'),
   price: MercariaMoneySchema.describe('The lowest current purchase-option price.'),
-  compareAtPrice: MercariaMoneySchema.nullable().describe('The cheapest option’s pre-discount price when on sale.'),
+  compareAtPrice: MercariaMoneySchema.nullable().describe(
+    'The cheapest option’s pre-discount price when on sale.',
+  ),
   priceRange: z
     .object({ min: MercariaMoneySchema, max: MercariaMoneySchema })
     .nullable()
@@ -146,7 +154,9 @@ export const MercariaProductSchema = z
     viewer: z
       .object({ saved: z.boolean() })
       .nullable()
-      .describe('Facts about the CALLER when the request carried a valid Oxy session; null anonymously.'),
+      .describe(
+        'Facts about the CALLER when the request carried a valid Oxy session; null anonymously.',
+      ),
   })
   .superRefine((product, ctx) => {
     // A variant is resolved THROUGH its product, so an option naming another
@@ -186,7 +196,12 @@ export const MercariaStoreSchema = z.object({
   logoUrl: MercariaHttpUrlSchema.nullable(),
   coverImageUrl: MercariaHttpUrlSchema.nullable(),
   brandColor: MercariaHexColorSchema,
-  rating: z.number().min(0).max(5).nullable().describe('Average rating 0–5, or null with no reviews.'),
+  rating: z
+    .number()
+    .min(0)
+    .max(5)
+    .nullable()
+    .describe('Average rating 0–5, or null with no reviews.'),
   reviewCount: MercariaCountSchema,
   url: MercariaHttpUrlSchema.describe('The canonical Mercaria web URL for this store.'),
 });

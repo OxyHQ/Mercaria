@@ -1,21 +1,21 @@
-import { useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   Store,
   StorePermission,
   CreateStoreInput,
   UpdateStoreInput,
   UpdateStoreSettingsInput,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 import {
   fetchMyStores,
   fetchStore,
   createStore,
   updateStore,
   updateStoreSettings,
-} from "../api/stores";
-import { queryKeys } from "../queryKeys";
-import { useActiveStore } from "../stores/active-store";
+} from '../api/stores';
+import { queryKeys } from '../queryKeys';
+import { useActiveStore } from '../stores/active-store';
 
 /** All stores the caller belongs to. */
 export function useMyStores() {
@@ -28,8 +28,8 @@ export function useMyStores() {
 /** A single store by id (enabled only when an id is provided). */
 export function useStore(storeId: string | null) {
   return useQuery<Store>({
-    queryKey: queryKeys.stores.detail(storeId ?? ""),
-    queryFn: () => fetchStore(storeId ?? ""),
+    queryKey: queryKeys.stores.detail(storeId ?? ''),
+    queryFn: () => fetchStore(storeId ?? ''),
     enabled: Boolean(storeId),
   });
 }
@@ -84,20 +84,14 @@ export function useActiveStoreContext() {
   const { activeStoreId } = useActiveStore();
   const { data: stores } = useMyStores();
 
-  const store = useMemo(
-    () => stores?.find((s) => s.id === activeStoreId),
-    [stores, activeStoreId],
-  );
+  const store = useMemo(() => stores?.find((s) => s.id === activeStoreId), [stores, activeStoreId]);
 
   const permissions = useMemo<Set<StorePermission>>(
     () => new Set<StorePermission>(store?.access.permissions ?? []),
     [store],
   );
 
-  const can = useMemo(
-    () => (perm: StorePermission) => permissions.has(perm),
-    [permissions],
-  );
+  const can = useMemo(() => (perm: StorePermission) => permissions.has(perm), [permissions]);
 
   return { activeStoreId, store, permissions, can };
 }

@@ -98,9 +98,7 @@ interface ListingRow {
  */
 const BARCODE_SCHEMES: readonly IdentifierScheme[] = ['ean', 'upc', 'gtin14', 'gtin8', 'isbn13'];
 
-export async function runProvisionalProductsPage(
-  context: StageContext,
-): Promise<StagePageResult> {
+export async function runProvisionalProductsPage(context: StageContext): Promise<StagePageResult> {
   const db = getDb();
   const cohort = cohortListingPredicate(context.cohort);
   const keyset: SQL | undefined =
@@ -130,10 +128,7 @@ export async function runProvisionalProductsPage(
   return { counters, nextCursor: nextKeysetCursor(rows, context.limit) };
 }
 
-async function decideListing(
-  context: StageContext,
-  listing: ListingRow,
-): Promise<SubjectVerdict> {
+async function decideListing(context: StageContext, listing: ListingRow): Promise<SubjectVerdict> {
   if (listing.ownerType !== 'store') {
     // Rule 1. A successful outcome, and the normal one for the P2P half of the
     // marketplace.
@@ -142,7 +137,11 @@ async function decideListing(
 
   const db = getDb();
   const variants = await db
-    .select({ id: productVariants.id, title: productVariants.title, barcode: productVariants.barcode })
+    .select({
+      id: productVariants.id,
+      title: productVariants.title,
+      barcode: productVariants.barcode,
+    })
     .from(productVariants)
     .where(eq(productVariants.listingId, listing.id))
     .orderBy(asc(productVariants.position), asc(productVariants.id));

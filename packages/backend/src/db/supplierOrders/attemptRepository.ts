@@ -180,7 +180,10 @@ export async function closeSupplierOrderAttempt(
       updatedAt: completedAt,
     })
     .where(
-      and(eq(supplierOrderAttempts.id, input.attemptId), eq(supplierOrderAttempts.outcome, 'in_flight')),
+      and(
+        eq(supplierOrderAttempts.id, input.attemptId),
+        eq(supplierOrderAttempts.outcome, 'in_flight'),
+      ),
     )
     .returning(PUBLIC_ATTEMPT_COLUMNS);
   return row;

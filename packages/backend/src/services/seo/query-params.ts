@@ -30,11 +30,7 @@
  * somebody else's domain.
  */
 
-import type {
-  PublicRouteId,
-  SeoCanonicalQueryKind,
-  SeoQueryKind,
-} from '@mercaria/shared-types';
+import type { PublicRouteId, SeoCanonicalQueryKind, SeoQueryKind } from '@mercaria/shared-types';
 import { SEO_CANONICAL_QUERY_KINDS, SEO_NON_CANONICAL_QUERY_KINDS } from '@mercaria/shared-types';
 
 /**
@@ -118,9 +114,7 @@ const CANONICAL_PARAMS_BY_ROUTE: Readonly<Record<PublicRouteId, readonly SeoCano
   });
 
 /** The canonical parameter kinds one route recognises. */
-export function canonicalParamsForRoute(
-  routeId: PublicRouteId,
-): readonly SeoCanonicalQueryKind[] {
+export function canonicalParamsForRoute(routeId: PublicRouteId): readonly SeoCanonicalQueryKind[] {
   return CANONICAL_PARAMS_BY_ROUTE[routeId];
 }
 

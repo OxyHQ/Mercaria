@@ -230,9 +230,17 @@ beforeAll(async () => {
   await db.insert(productTypeCategoryScopes).values([
     // Scoped to the shelf's PARENT with descendants, so the eligible case also
     // exercises the ancestry branch rather than only the direct one.
-    { productTypeDefinitionId: smartphone?.id ?? '', categoryId: categoryId('root'), includeDescendants: true },
+    {
+      productTypeDefinitionId: smartphone?.id ?? '',
+      categoryId: categoryId('root'),
+      includeDescendants: true,
+    },
     // Scoped somewhere this file's listings are not.
-    { productTypeDefinitionId: footwear?.id ?? '', categoryId: categoryId('otherShelf'), includeDescendants: false },
+    {
+      productTypeDefinitionId: footwear?.id ?? '',
+      categoryId: categoryId('otherShelf'),
+      includeDescendants: false,
+    },
   ]);
 
   for (const version of [smartphone, footwear]) {
@@ -252,7 +260,11 @@ beforeAll(async () => {
       { slug: `cbf-${RUN}-acme`, name: acmeName, normalizedName: normalizeEntityName(acmeName) },
       { slug: `cbf-${RUN}-dup-a`, name: dupName, normalizedName: normalizeEntityName(dupName) },
       { slug: `cbf-${RUN}-dup-b`, name: dupName, normalizedName: normalizeEntityName(dupName) },
-      { slug: `cbf-${RUN}-aliased`, name: aliasedName, normalizedName: normalizeEntityName(aliasedName) },
+      {
+        slug: `cbf-${RUN}-aliased`,
+        name: aliasedName,
+        normalizedName: normalizeEntityName(aliasedName),
+      },
     ])
     .returning({ id: brands.id });
   brandIds.push(...inserted.map((row) => row.id));
@@ -263,23 +275,91 @@ beforeAll(async () => {
 
   // --- listings -----------------------------------------------------------
   const shelfPath = [slug('root'), slug('shelf')];
-  await seedListing({ label: 'current', categoryId: categoryId('shelf'), categorySlugs: shelfPath, productType: `cbf_${RUN}_Smartphone`, vendor: acmeName });
-  await seedListing({ label: 'drifted', categoryId: categoryId('shelf'), categorySlugs: [slug('stale'), slug('shelf')], productType: 'Knitwear', vendor: `Nobody ${RUN} Ltd` });
-  await seedListing({ label: 'structural', categoryId: categoryId('structural'), categorySlugs: [slug('root'), slug('structural')] });
-  await seedListing({ label: 'mergedLive', categoryId: categoryId('mergedSrc'), categorySlugs: [slug('root'), slug('mergedSrc')] });
-  await seedListing({ label: 'mergedDead', categoryId: categoryId('mergedDead'), categorySlugs: [slug('root'), slug('mergedDead')] });
-  await seedListing({ label: 'deprecated', categoryId: categoryId('deprecated'), categorySlugs: [slug('root'), slug('deprecated')] });
-  await seedListing({ label: 'suppressed', categoryId: categoryId('suppressed'), categorySlugs: [slug('root'), slug('suppressed')] });
-  await seedListing({ label: 'unpublished', categoryId: categoryId('unpublished'), categorySlugs: [slug('root'), slug('unpublished')] });
-  await seedListing({ label: 'expired', categoryId: categoryId('expired'), categorySlugs: [slug('root'), slug('expired')] });
+  await seedListing({
+    label: 'current',
+    categoryId: categoryId('shelf'),
+    categorySlugs: shelfPath,
+    productType: `cbf_${RUN}_Smartphone`,
+    vendor: acmeName,
+  });
+  await seedListing({
+    label: 'drifted',
+    categoryId: categoryId('shelf'),
+    categorySlugs: [slug('stale'), slug('shelf')],
+    productType: 'Knitwear',
+    vendor: `Nobody ${RUN} Ltd`,
+  });
+  await seedListing({
+    label: 'structural',
+    categoryId: categoryId('structural'),
+    categorySlugs: [slug('root'), slug('structural')],
+  });
+  await seedListing({
+    label: 'mergedLive',
+    categoryId: categoryId('mergedSrc'),
+    categorySlugs: [slug('root'), slug('mergedSrc')],
+  });
+  await seedListing({
+    label: 'mergedDead',
+    categoryId: categoryId('mergedDead'),
+    categorySlugs: [slug('root'), slug('mergedDead')],
+  });
+  await seedListing({
+    label: 'deprecated',
+    categoryId: categoryId('deprecated'),
+    categorySlugs: [slug('root'), slug('deprecated')],
+  });
+  await seedListing({
+    label: 'suppressed',
+    categoryId: categoryId('suppressed'),
+    categorySlugs: [slug('root'), slug('suppressed')],
+  });
+  await seedListing({
+    label: 'unpublished',
+    categoryId: categoryId('unpublished'),
+    categorySlugs: [slug('root'), slug('unpublished')],
+  });
+  await seedListing({
+    label: 'expired',
+    categoryId: categoryId('expired'),
+    categorySlugs: [slug('root'), slug('expired')],
+  });
   await seedListing({ label: 'uncategorized', categorySlugs: [] });
   await seedListing({ label: 'orphanPath', categorySlugs: [slug('ghost')] });
-  await seedListing({ label: 'notEligible', categoryId: categoryId('shelf'), categorySlugs: shelfPath, productType: `cbf_${RUN}_Footwear` });
-  await seedListing({ label: 'unpublishedType', categoryId: categoryId('shelf'), categorySlugs: shelfPath, productType: `cbf_${RUN}_Drafted` });
-  await seedListing({ label: 'typeNoCategory', productType: `cbf_${RUN}_Smartphone`, vendor: dupName });
-  await seedListing({ label: 'moved', categoryId: categoryId('movedChild'), categorySlugs: [slug('root'), slug('movedParent'), slug('movedChild')] });
-  await seedListing({ label: 'aliasVendor', categoryId: categoryId('shelf'), categorySlugs: shelfPath, vendor: `OldName ${RUN}` });
-  await seedListing({ label: 'punctuationVendor', categoryId: categoryId('shelf'), categorySlugs: shelfPath, vendor: '!!!' });
+  await seedListing({
+    label: 'notEligible',
+    categoryId: categoryId('shelf'),
+    categorySlugs: shelfPath,
+    productType: `cbf_${RUN}_Footwear`,
+  });
+  await seedListing({
+    label: 'unpublishedType',
+    categoryId: categoryId('shelf'),
+    categorySlugs: shelfPath,
+    productType: `cbf_${RUN}_Drafted`,
+  });
+  await seedListing({
+    label: 'typeNoCategory',
+    productType: `cbf_${RUN}_Smartphone`,
+    vendor: dupName,
+  });
+  await seedListing({
+    label: 'moved',
+    categoryId: categoryId('movedChild'),
+    categorySlugs: [slug('root'), slug('movedParent'), slug('movedChild')],
+  });
+  await seedListing({
+    label: 'aliasVendor',
+    categoryId: categoryId('shelf'),
+    categorySlugs: shelfPath,
+    vendor: `OldName ${RUN}`,
+  });
+  await seedListing({
+    label: 'punctuationVendor',
+    categoryId: categoryId('shelf'),
+    categorySlugs: shelfPath,
+    vendor: '!!!',
+  });
 
   // --- and only now, the states the classifier is about -------------------
   await mergeCategory(categoryId('mergedSrc'), categoryId('shelf'), db);
@@ -538,15 +618,15 @@ describe('the vacuity floor', () => {
     // `resumeAfterListingId: null` then tells an operator there is nothing left
     // to do. Driven with a zero limit, which is what a broken keyset looks like
     // from outside the service.
-    await expect(
-      runLegacyCatalogClassification(db, { cohort, listingLimit: 0 }),
-    ).rejects.toThrow(/the pager is broken/iu);
+    await expect(runLegacyCatalogClassification(db, { cohort, listingLimit: 0 })).rejects.toThrow(
+      /the pager is broken/iu,
+    );
     await expect(runLegacyCategoryPathRepair(db, { cohort, listingLimit: 0 })).rejects.toThrow(
       /the pager is broken/iu,
     );
-    await expect(
-      runLegacyCatalogReconciliation(db, { cohort, listingLimit: 0 }),
-    ).rejects.toThrow(/the pager is broken/iu);
+    await expect(runLegacyCatalogReconciliation(db, { cohort, listingLimit: 0 })).rejects.toThrow(
+      /the pager is broken/iu,
+    );
   });
 
   it('does not throw on a resumed page, or on a cohort that is genuinely empty', async () => {

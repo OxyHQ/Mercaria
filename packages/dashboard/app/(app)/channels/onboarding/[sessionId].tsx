@@ -24,31 +24,31 @@
  * the activation gate — is the same for every channel.
  */
 
-import React, { useState } from "react";
-import { View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import Head from "expo-router/head";
-import * as WebBrowser from "expo-web-browser";
-import { Check, ExternalLink } from "lucide-react-native";
+import React, { useState } from 'react';
+import { View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import * as WebBrowser from 'expo-web-browser';
+import { Check, ExternalLink } from 'lucide-react-native';
 import type {
   ChannelOnboardingSession,
   ChannelOnboardingStep,
   ChannelTypeDescriptor,
-} from "@mercaria/shared-types";
-import { CHANNEL_ONBOARDING_STEPS } from "@mercaria/shared-types";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
+} from '@mercaria/shared-types';
+import { CHANNEL_ONBOARDING_STEPS } from '@mercaria/shared-types';
+import { Text, useColorScheme } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
 import {
   CHANNEL_TYPE_NAME_KEYS,
   ChannelCoverage,
   ChannelLimitationRow,
-} from "@/components/channels/channel-presentation";
-import { useTranslation } from "@/lib/i18n";
+} from '@/components/channels/channel-presentation';
+import { useTranslation } from '@/lib/i18n';
 import {
   useAbandonChannelOnboarding,
   useActivateChannelOnboarding,
@@ -58,20 +58,20 @@ import {
   useConnectChannel,
   useConnectKeyChannel,
   useGenerateChannelKey,
-} from "@/lib/hooks/use-channels";
+} from '@/lib/hooks/use-channels';
 
 /**
  * What each step is called, and what a merchant does there — translation KEYS
  * (#398), since module scope is evaluated before the locale store rehydrates.
  */
 const STEP_LABEL_KEYS: Record<ChannelOnboardingStep, string> = {
-  scope: "channels.wizard.step.scope",
-  select_channel: "channels.wizard.step.selectChannel",
-  connect: "channels.wizard.step.connect",
-  configure: "channels.wizard.step.configure",
-  map: "channels.wizard.step.map",
-  preview: "channels.wizard.step.preview",
-  activate: "channels.wizard.step.activate",
+  scope: 'channels.wizard.step.scope',
+  select_channel: 'channels.wizard.step.selectChannel',
+  connect: 'channels.wizard.step.connect',
+  configure: 'channels.wizard.step.configure',
+  map: 'channels.wizard.step.map',
+  preview: 'channels.wizard.step.preview',
+  activate: 'channels.wizard.step.activate',
 };
 
 /**
@@ -81,13 +81,13 @@ const STEP_LABEL_KEYS: Record<ChannelOnboardingStep, string> = {
  * blocker added server-side then fails `tsc` here, which is how a new reason
  * gets copy instead of falling through to "not ready".
  */
-const BLOCKER_COPY_KEYS: Record<ChannelOnboardingSession["activationBlockers"][number], string> = {
-  no_preview: "channels.wizard.blocker.noPreview",
-  preview_scanned_nothing: "channels.wizard.blocker.previewScannedNothing",
-  preview_all_invalid: "channels.wizard.blocker.previewAllInvalid",
-  channel_limitation: "channels.wizard.blocker.channelLimitation",
-  unsupported_direction: "channels.wizard.blocker.unsupportedDirection",
-  connection_not_connected: "channels.wizard.blocker.connectionNotConnected",
+const BLOCKER_COPY_KEYS: Record<ChannelOnboardingSession['activationBlockers'][number], string> = {
+  no_preview: 'channels.wizard.blocker.noPreview',
+  preview_scanned_nothing: 'channels.wizard.blocker.previewScannedNothing',
+  preview_all_invalid: 'channels.wizard.blocker.previewAllInvalid',
+  channel_limitation: 'channels.wizard.blocker.channelLimitation',
+  unsupported_direction: 'channels.wizard.blocker.unsupportedDirection',
+  connection_not_connected: 'channels.wizard.blocker.connectionNotConnected',
 };
 
 export default function ChannelOnboardingScreen() {
@@ -96,7 +96,7 @@ export default function ChannelOnboardingScreen() {
   return (
     <>
       <Head>
-        <title>{t("channels.wizard.documentTitle")}</title>
+        <title>{t('channels.wizard.documentTitle')}</title>
       </Head>
       <RequireStore permission="channels:write">
         {(storeId) => <WizardBody storeId={storeId} sessionId={sessionId} />}
@@ -127,8 +127,8 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
   if (session.isError || !session.data) {
     return (
       <ScreenMessage
-        title={t("channels.wizard.notFound")}
-        body={t("channels.wizard.notFoundBody")}
+        title={t('channels.wizard.notFound')}
+        body={t('channels.wizard.notFoundBody')}
       />
     );
   }
@@ -138,7 +138,7 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
     (entry) => entry.channelType === current.channelType,
   );
 
-  if (current.state === "activated") {
+  if (current.state === 'activated') {
     // A connected channel imports NOTHING until a resource is set to pull — every
     // direction defaults to `off` — so this panel used to end the flow by naming
     // the settings screen in prose and handing the merchant back to the index. It
@@ -146,30 +146,30 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
     // the old destination.
     const settingsHref =
       current.connectionId === undefined
-        ? ("/channels" as const)
+        ? ('/channels' as const)
         : ({
-            pathname: "/channels/[connectionId]" as const,
+            pathname: '/channels/[connectionId]' as const,
             params: { connectionId: current.connectionId },
           } as const);
     return (
       <Screen
-        title={t("channels.wizard.connectedTitle", {
+        title={t('channels.wizard.connectedTitle', {
           channel: t(CHANNEL_TYPE_NAME_KEYS[current.channelType]),
         })}
       >
         <View className="items-center justify-center rounded-2xl border border-border bg-surface py-12">
           <Text className="text-base font-semibold text-foreground">
-            {t("channels.wizard.allSet")}
+            {t('channels.wizard.allSet')}
           </Text>
           <Text className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
             {current.connectionId === undefined
-              ? t("channels.wizard.activeFeedBody")
-              : t("channels.wizard.activeConnectionBody")}
+              ? t('channels.wizard.activeFeedBody')
+              : t('channels.wizard.activeConnectionBody')}
           </Text>
           <Button tone="accent" className="mt-4" onPress={() => router.replace(settingsHref)}>
             {current.connectionId === undefined
-              ? t("channels.wizard.backToChannels")
-              : t("channels.wizard.chooseWhatToImport")}
+              ? t('channels.wizard.backToChannels')
+              : t('channels.wizard.chooseWhatToImport')}
           </Button>
         </View>
       </Screen>
@@ -179,18 +179,18 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
   const onActivate = () => {
     activate.mutate(current.id, {
       onSuccess: () => {
-        toast.success(t("channels.toast.channelActivated"));
-        router.replace("/channels");
+        toast.success(t('channels.toast.channelActivated'));
+        router.replace('/channels');
       },
       // The server's refusal is authoritative and already names its reasons; the
       // screen re-reads rather than inventing a second explanation.
-      onError: () => toast.error(t("channels.toast.notReadyToActivate")),
+      onError: () => toast.error(t('channels.toast.notReadyToActivate')),
     });
   };
 
   return (
     <Screen
-      title={t("channels.wizard.title", {
+      title={t('channels.wizard.title', {
         channel: t(CHANNEL_TYPE_NAME_KEYS[current.channelType]),
       })}
       subtitle={descriptor?.summary}
@@ -207,7 +207,7 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
             awaitingOAuth={oauthHandoffAt !== null}
             onOAuthHandoff={() => setOAuthHandoffAt(Date.now())}
             onConnected={(connectionId) =>
-              advance.mutate({ sessionId: current.id, step: "configure", connectionId })
+              advance.mutate({ sessionId: current.id, step: 'configure', connectionId })
             }
           />
         ) : (
@@ -215,8 +215,8 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
             session={current}
             onRecord={(preview) =>
               advance.mutate(
-                { sessionId: current.id, step: "preview", preview },
-                { onError: () => toast.error(t("channels.toast.previewSaveFailed")) },
+                { sessionId: current.id, step: 'preview', preview },
+                { onError: () => toast.error(t('channels.toast.previewSaveFailed')) },
               )
             }
           />
@@ -228,8 +228,8 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
           onActivate={onActivate}
           onAbandon={() =>
             abandon.mutate(current.id, {
-              onSuccess: () => router.replace("/channels"),
-              onError: () => toast.error(t("channels.toast.cancelFailed")),
+              onSuccess: () => router.replace('/channels'),
+              onError: () => toast.error(t('channels.toast.cancelFailed')),
             })
           }
         />
@@ -252,13 +252,13 @@ function Stepper({ current }: { current: ChannelOnboardingStep }) {
           <View
             key={step}
             className={`flex-row items-center gap-1.5 rounded-full px-3 py-1 ${
-              active ? "bg-primary/10" : "bg-muted"
+              active ? 'bg-primary/10' : 'bg-muted'
             }`}
           >
             {done ? <Check size={12} color={colors.primary} /> : null}
             <Text
               className={`text-[11px] font-semibold ${
-                active ? "text-primary" : "text-muted-foreground"
+                active ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
               {t(STEP_LABEL_KEYS[step])}
@@ -291,25 +291,25 @@ function ScopeAndRequirements({
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
       <View className="gap-1">
         <Text className="text-sm font-semibold text-foreground">
-          {t("channels.wizard.beforeYouStart")}
+          {t('channels.wizard.beforeYouStart')}
         </Text>
         <Text className="text-xs text-muted-foreground">
           {session.merchantId
-            ? t("channels.wizard.merchantLinked")
-            : t("channels.wizard.merchantNotLinked")}
+            ? t('channels.wizard.merchantLinked')
+            : t('channels.wizard.merchantNotLinked')}
         </Text>
       </View>
 
       <View className="gap-2">
         <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
-          {t("channels.wizard.youWillNeed")}
+          {t('channels.wizard.youWillNeed')}
         </Text>
         {descriptor.requirements.map((requirement) => (
           <View key={requirement.code} className="flex-row items-start gap-2">
             <Text className="text-xs text-muted-foreground">•</Text>
             <Text className="flex-1 text-xs text-muted-foreground">
               {requirement.summary}
-              {requirement.met === false ? t("channels.wizard.notSetUpYet") : ""}
+              {requirement.met === false ? t('channels.wizard.notSetUpYet') : ''}
             </Text>
           </View>
         ))}
@@ -323,7 +323,7 @@ function ScopeAndRequirements({
       */}
       <View className="gap-2 rounded-xl bg-muted p-3">
         <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
-          {t("channels.scope.title")}
+          {t('channels.scope.title')}
         </Text>
         <ChannelCoverage coverage={descriptor.entityCoverage} />
       </View>
@@ -331,7 +331,7 @@ function ScopeAndRequirements({
       {descriptor.limitations.length > 0 ? (
         <View className="gap-2 rounded-xl bg-muted p-3">
           <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
-            {t("channels.wizard.canAndCannot")}
+            {t('channels.wizard.canAndCannot')}
           </Text>
           {descriptor.limitations.map((limitation) => (
             <ChannelLimitationRow key={limitation.code} limitation={limitation} />
@@ -366,7 +366,7 @@ function ConnectStep({
 }) {
   const router = useRouter();
   const { t } = useTranslation();
-  if (session.channelType === "shopify") {
+  if (session.channelType === 'shopify') {
     return (
       <ShopifyConnect
         storeId={storeId}
@@ -376,20 +376,24 @@ function ConnectStep({
       />
     );
   }
-  if (session.channelType === "woocommerce") {
+  if (session.channelType === 'woocommerce') {
     return <WooCommerceConnect storeId={storeId} onConnected={onConnected} />;
   }
-  if (session.channelType === "woocommerce_plugin") {
+  if (session.channelType === 'woocommerce_plugin') {
     return <PluginConnect storeId={storeId} />;
   }
   return (
     <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-foreground">
-        {t("channels.wizard.feed.title")}
+        {t('channels.wizard.feed.title')}
       </Text>
-      <Text className="text-xs text-muted-foreground">{t("channels.wizard.feed.body")}</Text>
-      <Button appearance="outline" tone="neutral" onPress={() => router.push("/channels/feeds/new")}>
-        {t("channels.wizard.feed.create")}
+      <Text className="text-xs text-muted-foreground">{t('channels.wizard.feed.body')}</Text>
+      <Button
+        appearance="outline"
+        tone="neutral"
+        onPress={() => router.push('/channels/feeds/new')}
+      >
+        {t('channels.wizard.feed.create')}
       </Button>
     </View>
   );
@@ -409,13 +413,13 @@ function ShopifyConnect({
   const { colors } = useColorScheme();
   const { t } = useTranslation();
   const connect = useConnectChannel(storeId);
-  const [shopDomain, setShopDomain] = useState("");
+  const [shopDomain, setShopDomain] = useState('');
   const [redirecting, setRedirecting] = useState(false);
 
   const submit = async () => {
     const domain = shopDomain.trim().toLowerCase();
     if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(domain)) {
-      toast.error(t("channels.toast.invalidShopifyDomain"));
+      toast.error(t('channels.toast.invalidShopifyDomain'));
       return;
     }
     try {
@@ -425,7 +429,7 @@ function ShopifyConnect({
       // sees a token or a connection id — so the callback is the only thing that
       // can record which wizard the connect belonged to.
       const { authorizeUrl } = await connect.mutateAsync({
-        provider: "shopify",
+        provider: 'shopify',
         shopDomain: domain,
         onboardingSessionId: session.id,
       });
@@ -435,7 +439,7 @@ function ShopifyConnect({
       onHandoff();
       await WebBrowser.openBrowserAsync(authorizeUrl);
     } catch {
-      toast.error(t("channels.toast.shopifyConnectFailed"));
+      toast.error(t('channels.toast.shopifyConnectFailed'));
     } finally {
       setRedirecting(false);
     }
@@ -444,14 +448,14 @@ function ShopifyConnect({
   return (
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-foreground">
-        {t("channels.wizard.shopify.title")}
+        {t('channels.wizard.shopify.title')}
       </Text>
-      <Field label={t("channels.wizard.shopify.domainLabel")}>
+      <Field label={t('channels.wizard.shopify.domainLabel')}>
         <TextFieldInput
-          label={t("channels.wizard.shopify.domainLabel")}
+          label={t('channels.wizard.shopify.domainLabel')}
           value={shopDomain}
           onValueChange={setShopDomain}
-          placeholder={t("channels.wizard.shopify.domainPlaceholder")}
+          placeholder={t('channels.wizard.shopify.domainPlaceholder')}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
@@ -460,7 +464,7 @@ function ShopifyConnect({
       <View className="flex-row items-start gap-2 rounded-xl bg-muted p-3">
         <ExternalLink size={14} color={colors.mutedForeground} />
         <Text className="flex-1 text-xs text-muted-foreground">
-          {t("channels.wizard.shopify.authNote")}
+          {t('channels.wizard.shopify.authNote')}
         </Text>
       </View>
       {/*
@@ -473,17 +477,15 @@ function ShopifyConnect({
       {awaiting ? (
         <View className="gap-1 rounded-xl bg-primary/10 p-3">
           <Text className="text-xs font-semibold text-primary">
-            {t("channels.wizard.shopify.waitingTitle")}
+            {t('channels.wizard.shopify.waitingTitle')}
           </Text>
           <Text className="text-xs text-muted-foreground">
-            {t("channels.wizard.shopify.waitingBody")}
+            {t('channels.wizard.shopify.waitingBody')}
           </Text>
         </View>
       ) : null}
       <Button tone="accent" onPress={submit} loading={connect.isPending || redirecting}>
-        {awaiting
-          ? t("channels.wizard.shopify.openAgain")
-          : t("channels.wizard.shopify.continue")}
+        {awaiting ? t('channels.wizard.shopify.openAgain') : t('channels.wizard.shopify.continue')}
       </Button>
     </View>
   );
@@ -498,84 +500,84 @@ function WooCommerceConnect({
 }) {
   const { t } = useTranslation();
   const connect = useConnectKeyChannel(storeId);
-  const [siteUrl, setSiteUrl] = useState("");
-  const [consumerKey, setConsumerKey] = useState("");
-  const [consumerSecret, setConsumerSecret] = useState("");
+  const [siteUrl, setSiteUrl] = useState('');
+  const [consumerKey, setConsumerKey] = useState('');
+  const [consumerSecret, setConsumerSecret] = useState('');
 
   const submit = async () => {
     const shopDomain = siteUrl.trim();
     let isHttps = false;
     try {
-      isHttps = new URL(shopDomain).protocol === "https:";
+      isHttps = new URL(shopDomain).protocol === 'https:';
     } catch {
       isHttps = false;
     }
     if (!isHttps) {
-      toast.error(t("channels.toast.siteUrlMustBeHttps"));
+      toast.error(t('channels.toast.siteUrlMustBeHttps'));
       return;
     }
-    if (consumerKey.trim() === "" || consumerSecret.trim() === "") {
-      toast.error(t("channels.toast.consumerKeyAndSecretRequired"));
+    if (consumerKey.trim() === '' || consumerSecret.trim() === '') {
+      toast.error(t('channels.toast.consumerKeyAndSecretRequired'));
       return;
     }
     try {
       const connection = await connect.mutateAsync({
-        provider: "woocommerce",
+        provider: 'woocommerce',
         shopDomain,
         consumerKey: consumerKey.trim(),
         consumerSecret: consumerSecret.trim(),
       });
       // Cleared as soon as the server has them. They are never written to the
       // onboarding session — there is no field on it that could hold one.
-      setConsumerKey("");
-      setConsumerSecret("");
+      setConsumerKey('');
+      setConsumerSecret('');
       onConnected(connection.id);
-      toast.success(t("channels.toast.wooConnected"));
+      toast.success(t('channels.toast.wooConnected'));
     } catch {
-      toast.error(t("channels.toast.wooConnectFailed"));
+      toast.error(t('channels.toast.wooConnectFailed'));
     }
   };
 
   return (
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-foreground">
-        {t("channels.wizard.woo.title")}
+        {t('channels.wizard.woo.title')}
       </Text>
-      <Text className="text-xs text-muted-foreground">{t("channels.wizard.woo.body")}</Text>
-      <Field label={t("channels.wizard.woo.siteUrlLabel")}>
+      <Text className="text-xs text-muted-foreground">{t('channels.wizard.woo.body')}</Text>
+      <Field label={t('channels.wizard.woo.siteUrlLabel')}>
         <TextFieldInput
-          label={t("channels.wizard.woo.siteUrlLabel")}
+          label={t('channels.wizard.woo.siteUrlLabel')}
           value={siteUrl}
           onValueChange={setSiteUrl}
-          placeholder={t("channels.wizard.woo.siteUrlPlaceholder")}
+          placeholder={t('channels.wizard.woo.siteUrlPlaceholder')}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
         />
       </Field>
-      <Field label={t("channels.wizard.woo.consumerKeyLabel")}>
+      <Field label={t('channels.wizard.woo.consumerKeyLabel')}>
         <TextFieldInput
-          label={t("channels.wizard.woo.consumerKeyLabel")}
+          label={t('channels.wizard.woo.consumerKeyLabel')}
           value={consumerKey}
           onValueChange={setConsumerKey}
-          placeholder={t("channels.wizard.woo.consumerKeyPlaceholder")}
+          placeholder={t('channels.wizard.woo.consumerKeyPlaceholder')}
           autoCapitalize="none"
           autoCorrect={false}
         />
       </Field>
-      <Field label={t("channels.wizard.woo.consumerSecretLabel")}>
+      <Field label={t('channels.wizard.woo.consumerSecretLabel')}>
         <TextFieldInput
-          label={t("channels.wizard.woo.consumerSecretLabel")}
+          label={t('channels.wizard.woo.consumerSecretLabel')}
           value={consumerSecret}
           onValueChange={setConsumerSecret}
-          placeholder={t("channels.wizard.woo.consumerSecretPlaceholder")}
+          placeholder={t('channels.wizard.woo.consumerSecretPlaceholder')}
           autoCapitalize="none"
           autoCorrect={false}
           secureTextEntry
         />
       </Field>
       <Button tone="accent" onPress={submit} loading={connect.isPending}>
-        {t("channels.wizard.woo.connect")}
+        {t('channels.wizard.woo.connect')}
       </Button>
     </View>
   );
@@ -597,19 +599,19 @@ function PluginConnect({ storeId }: { storeId: string }) {
   return (
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-foreground">
-        {t("channels.wizard.plugin.title")}
+        {t('channels.wizard.plugin.title')}
       </Text>
-      <Text className="text-xs text-muted-foreground">{t("channels.wizard.plugin.body")}</Text>
+      <Text className="text-xs text-muted-foreground">{t('channels.wizard.plugin.body')}</Text>
       {minted ? (
         <View className="gap-1.5 rounded-xl bg-muted p-3">
           <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
-            {t("channels.wizard.plugin.keyHeading")}
+            {t('channels.wizard.plugin.keyHeading')}
           </Text>
           <Text selectable className="font-mono text-xs text-foreground">
             {minted}
           </Text>
           <Text className="text-[11px] text-muted-foreground">
-            {t("channels.wizard.plugin.keyNote")}
+            {t('channels.wizard.plugin.keyNote')}
           </Text>
         </View>
       ) : (
@@ -621,15 +623,15 @@ function PluginConnect({ storeId }: { storeId: string }) {
               // The label is stored on the key row and rendered back to the
               // merchant in the key list, so it is copy — the same default the
               // manual "Generate key" dialog suggests.
-              { label: t("channels.keys.labelPlaceholder") },
+              { label: t('channels.keys.labelPlaceholder') },
               {
                 onSuccess: (result) => setMinted(result.key),
-                onError: () => toast.error(t("channels.toast.keyCreateFailed")),
+                onError: () => toast.error(t('channels.toast.keyCreateFailed')),
               },
             )
           }
         >
-          {t("channels.wizard.plugin.createKey")}
+          {t('channels.wizard.plugin.createKey')}
         </Button>
       )}
     </View>
@@ -650,28 +652,26 @@ function PreviewStep({
   onRecord,
 }: {
   session: ChannelOnboardingSession;
-  onRecord: (preview: NonNullable<ChannelOnboardingSession["previewCounts"]>) => void;
+  onRecord: (preview: NonNullable<ChannelOnboardingSession['previewCounts']>) => void;
 }) {
   const { t } = useTranslation();
   const counts = session.previewCounts;
   return (
     <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-foreground">
-        {t("channels.wizard.preview.title")}
+        {t('channels.wizard.preview.title')}
       </Text>
       {counts ? (
         <View className="flex-row flex-wrap gap-4">
-          <PreviewCount label={t("channels.wizard.preview.scanned")} value={counts.scanned} />
-          <PreviewCount label={t("channels.wizard.preview.matched")} value={counts.matched} />
-          <PreviewCount label={t("common.new")} value={counts.created} />
-          <PreviewCount label={t("channels.wizard.preview.toReview")} value={counts.review} />
-          <PreviewCount label={t("channels.wizard.preview.invalid")} value={counts.invalid} />
-          <PreviewCount label={t("channels.wizard.preview.duplicate")} value={counts.duplicate} />
+          <PreviewCount label={t('channels.wizard.preview.scanned')} value={counts.scanned} />
+          <PreviewCount label={t('channels.wizard.preview.matched')} value={counts.matched} />
+          <PreviewCount label={t('common.new')} value={counts.created} />
+          <PreviewCount label={t('channels.wizard.preview.toReview')} value={counts.review} />
+          <PreviewCount label={t('channels.wizard.preview.invalid')} value={counts.invalid} />
+          <PreviewCount label={t('channels.wizard.preview.duplicate')} value={counts.duplicate} />
         </View>
       ) : (
-        <Text className="text-xs text-muted-foreground">
-          {t("channels.wizard.preview.body")}
-        </Text>
+        <Text className="text-xs text-muted-foreground">{t('channels.wizard.preview.body')}</Text>
       )}
       <Button
         appearance="outline"
@@ -686,9 +686,7 @@ function PreviewStep({
           )
         }
       >
-        {counts
-          ? t("channels.wizard.preview.rerun")
-          : t("channels.wizard.preview.run")}
+        {counts ? t('channels.wizard.preview.rerun') : t('channels.wizard.preview.run')}
       </Button>
     </View>
   );
@@ -722,7 +720,7 @@ function ActivationPanel({
       {blocked ? (
         <View className="gap-1.5">
           <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
-            {t("channels.wizard.beforeYouActivate")}
+            {t('channels.wizard.beforeYouActivate')}
           </Text>
           {session.activationBlockers.map((blocker) => (
             <Text key={blocker} className="text-xs text-muted-foreground">
@@ -732,15 +730,15 @@ function ActivationPanel({
         </View>
       ) : (
         <Text className="text-xs text-muted-foreground">
-          {t("channels.wizard.everythingChecksOut")}
+          {t('channels.wizard.everythingChecksOut')}
         </Text>
       )}
       <View className="flex-row gap-2">
         <Button tone="accent" disabled={blocked} loading={busy} onPress={onActivate}>
-          {t("channels.wizard.activateChannel")}
+          {t('channels.wizard.activateChannel')}
         </Button>
         <Button appearance="outline" tone="neutral" onPress={onAbandon}>
-          {t("common.cancel")}
+          {t('common.cancel')}
         </Button>
       </View>
     </View>

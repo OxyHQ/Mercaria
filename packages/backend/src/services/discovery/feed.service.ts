@@ -697,7 +697,9 @@ async function buildDealsFeed(): Promise<DiscoveryFeed> {
 
   const orderScoped = storeDiscounts.filter((d) => d.discount.appliesToScope === 'order');
   const productScoped = storeDiscounts.filter((d) => d.discount.appliesToScope === 'products');
-  const collectionScoped = storeDiscounts.filter((d) => d.discount.appliesToScope === 'collections');
+  const collectionScoped = storeDiscounts.filter(
+    (d) => d.discount.appliesToScope === 'collections',
+  );
 
   const [stores, wholeCatalogue, targetedProducts, targetedCollections] = await Promise.all([
     findStoresByIds(storeDiscounts.map((d) => d.storeId)),
@@ -738,7 +740,10 @@ async function buildDealsFeed(): Promise<DiscoveryFeed> {
   const children =
     featured.length > 0
       ? await findListingChildren(featured.map((l) => l.id))
-      : { images: new Map<string, ListingImageRecord[]>(), collectionIds: new Map<string, string[]>() };
+      : {
+          images: new Map<string, ListingImageRecord[]>(),
+          collectionIds: new Map<string, string[]>(),
+        };
 
   const sections: DiscoverySection[] = [];
   for (const { storeId, discount } of storeDiscounts) {

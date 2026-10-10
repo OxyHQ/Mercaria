@@ -120,9 +120,7 @@ const MARKER = /^-- oxy:rollback=(.*)$/u;
 
 /** The one accepted spelling, for a writer rather than a reader. */
 export function rollbackMarkerLine(posture: RollbackPosture, note?: string): string {
-  return note === undefined
-    ? `-- oxy:rollback=${posture}`
-    : `-- oxy:rollback=${posture}: ${note}`;
+  return note === undefined ? `-- oxy:rollback=${posture}` : `-- oxy:rollback=${posture}: ${note}`;
 }
 
 /** Why a statement's inverse cannot be produced from this file. */
@@ -202,7 +200,8 @@ function identifiersIn(statement: string): string[] {
   // pattern above misses every one of them. Found by the note rule refusing
   // four honest notes once whole-identifier matching landed.
   const trigger = TRIGGER_NAME.exec(statement);
-  if (trigger?.groups !== undefined) found.push(trigger.groups.name.replace(/"/gu, '').toLowerCase());
+  if (trigger?.groups !== undefined)
+    found.push(trigger.groups.name.replace(/"/gu, '').toLowerCase());
   const fn = FUNCTION_NAME.exec(statement);
   if (fn?.groups !== undefined) found.push(fn.groups.name.toLowerCase());
   return found;
@@ -296,7 +295,9 @@ function invert(normalised: string): { inverse: string | null; reason: Irreversi
     // in the statement for `RENAME TO`, and drizzle-kit also emits
     // `RENAME COLUMN a TO b`. Both carry both names, so this is derivable; it
     // is listed here so the ordering is visible and the corpus decides.
-    const renameTable = /^alter table (?<from>"[^"]+"|\S+) rename to (?<to>"[^"]+"|\S+)/iu.exec(sql);
+    const renameTable = /^alter table (?<from>"[^"]+"|\S+) rename to (?<to>"[^"]+"|\S+)/iu.exec(
+      sql,
+    );
     if (renameTable?.groups !== undefined) {
       return {
         inverse: `ALTER TABLE ${renameTable.groups.to} RENAME TO ${renameTable.groups.from};`,
@@ -333,8 +334,9 @@ function invert(normalised: string): { inverse: string | null; reason: Irreversi
     const { table, name } = addConstraint.groups;
     return { inverse: `ALTER TABLE ${table} DROP CONSTRAINT ${name};`, reason: null };
   }
-  const createIndex =
-    /^create (?:unique )?index (?:if not exists )?(?<name>"[^"]+"|\S+)/iu.exec(sql);
+  const createIndex = /^create (?:unique )?index (?:if not exists )?(?<name>"[^"]+"|\S+)/iu.exec(
+    sql,
+  );
   if (createIndex?.groups !== undefined) {
     return { inverse: `DROP INDEX ${createIndex.groups.name};`, reason: null };
   }
@@ -352,7 +354,10 @@ function invert(normalised: string): { inverse: string | null; reason: Irreversi
       // The forward direction tightens, which is why such a migration is
       // `post`. The BACKWARD direction relaxes, so it is derivable and
       // lossless — a real answer the phase marker cannot give.
-      return { inverse: `ALTER TABLE ${table} ALTER COLUMN ${column} DROP NOT NULL;`, reason: null };
+      return {
+        inverse: `ALTER TABLE ${table} ALTER COLUMN ${column} DROP NOT NULL;`,
+        reason: null,
+      };
     }
   }
 
@@ -495,7 +500,11 @@ function readMarker(text: string): Pick<MigrationRollback, 'declared' | 'note' |
     .filter((match): match is RegExpExecArray => match !== null);
 
   if (matches.length === 0) {
-    return { declared: null, note: null, markerProblems: ['declares no `-- oxy:rollback=` marker'] };
+    return {
+      declared: null,
+      note: null,
+      markerProblems: ['declares no `-- oxy:rollback=` marker'],
+    };
   }
   if (matches.length > 1) {
     problems.push(`declares ${matches.length} \`-- oxy:rollback=\` markers; exactly one is legal`);
@@ -555,8 +564,9 @@ export function classifyMigrations(folder: string): MigrationRollback[] {
       // migration that creates a table AND its trigger from scratch as having
       // destroyed something. Measured on `0052_abnormal_microbe.sql` and
       // `0056_many_pepper_potts.sql`, both of which introduce their tables.
-      const dropTrigger =
-        /^drop\s+trigger\s+(?:if exists\s+)?(?<name>"[^"]+"|[a-z0-9_]+)/iu.exec(statement);
+      const dropTrigger = /^drop\s+trigger\s+(?:if exists\s+)?(?<name>"[^"]+"|[a-z0-9_]+)/iu.exec(
+        statement,
+      );
       if (dropTrigger?.groups !== undefined) {
         const name = dropTrigger.groups.name.replace(/"/gu, '').toLowerCase();
         if (!definedBefore.has(name)) {
@@ -767,7 +777,9 @@ export function faults(migration: MigrationRollback): string[] {
         `declares \`derived\` but ${irreversible.length} statement(s) cannot be inverted from ` +
           `this file: ` +
           irreversible
-            .map((statement) => `line ${statement.line} (${statement.reason}) \`${statement.text}\``)
+            .map(
+              (statement) => `line ${statement.line} (${statement.reason}) \`${statement.text}\``,
+            )
             .join('; '),
       );
     }

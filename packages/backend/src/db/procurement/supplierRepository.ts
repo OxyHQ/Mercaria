@@ -165,7 +165,9 @@ export async function transitionSupplierStatus(
       .update(suppliers)
       .set({
         status: input.next,
-        ...(input.next === 'active' ? { activatedAt: at, deactivatedAt: null, deactivationReason: null } : {}),
+        ...(input.next === 'active'
+          ? { activatedAt: at, deactivatedAt: null, deactivationReason: null }
+          : {}),
         ...(input.next === 'deactivated'
           ? { deactivatedAt: at, deactivationReason: input.deactivationReason ?? null }
           : {}),

@@ -400,9 +400,7 @@ describe('the integrity vocabularies partition and derive correctly', () => {
     expect(REFERRAL_ENFORCEMENT_ACTION_EFFECTS.new_attribution_suspension).toEqual([
       'newAttributionSuspended',
     ]);
-    expect(REFERRAL_ENFORCEMENT_ACTION_EFFECTS.new_link_suspension).toEqual([
-      'newLinksSuspended',
-    ]);
+    expect(REFERRAL_ENFORCEMENT_ACTION_EFFECTS.new_link_suspension).toEqual(['newLinksSuspended']);
     expect(REFERRAL_ENFORCEMENT_ACTION_EFFECTS.payout_hold).toEqual(['payoutHeld']);
     expect(REFERRAL_ENFORCEMENT_ACTION_EFFECTS.partner_termination).toContain('payoutHeld');
     expect(REFERRAL_ENFORCEMENT_ACTION_EFFECTS.partner_termination).toContain('terminated');
@@ -451,7 +449,6 @@ describe('retention: raw evidence expires before financial records', () => {
   });
 });
 
-
 describe('the population every wall above is applied to (#460)', () => {
   it('nothing naming this sub-domain sits outside it', () => {
     assertNothingOutsideDomainPopulation({
@@ -493,16 +490,33 @@ describe('the population every wall above is applied to (#460)', () => {
     // three other issues own. Each sibling is asserted to exist, so the
     // exclusion cannot go vacuous on a rename.
     const population = domainRelativePaths();
-    assertEachOf(['services/referrals/earnings/posting.service.ts', 'services/referrals/rewards/funding.ts', 'services/referrals/dashboard/disclosure.ts'], 3, (sibling) => {
-      expect(
-        statSync(join(SRC_ROOT, sibling)).isFile(),
-        `${sibling} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-      expect(INTEGRITY_NAME_PATTERN.test(sibling), `${sibling} matches this sub-domain's name`).toBe(false);
-      expect(population, `${sibling} belongs to a sibling sub-domain`).not.toContain(sibling);
-    });
+    assertEachOf(
+      [
+        'services/referrals/earnings/posting.service.ts',
+        'services/referrals/rewards/funding.ts',
+        'services/referrals/dashboard/disclosure.ts',
+      ],
+      3,
+      (sibling) => {
+        expect(
+          statSync(join(SRC_ROOT, sibling)).isFile(),
+          `${sibling} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+        expect(
+          INTEGRITY_NAME_PATTERN.test(sibling),
+          `${sibling} matches this sub-domain's name`,
+        ).toBe(false);
+        expect(population, `${sibling} belongs to a sibling sub-domain`).not.toContain(sibling);
+      },
+    );
     // …and the vacuity floor on the loop itself.
-    expect(['services/referrals/earnings/posting.service.ts', 'services/referrals/rewards/funding.ts', 'services/referrals/dashboard/disclosure.ts'].length).toBeGreaterThanOrEqual(3);
+    expect(
+      [
+        'services/referrals/earnings/posting.service.ts',
+        'services/referrals/rewards/funding.ts',
+        'services/referrals/dashboard/disclosure.ts',
+      ].length,
+    ).toBeGreaterThanOrEqual(3);
   });
 
   it('floors PER SHAPE, because the sources break independently', () => {

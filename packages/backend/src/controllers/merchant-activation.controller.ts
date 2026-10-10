@@ -19,10 +19,7 @@
 
 import type { Request, Response } from 'express';
 import { getRequiredOxyUserId } from '@oxy.so/core/server';
-import type {
-  MerchantActivationPolicy,
-  MerchantActivationTrace,
-} from '@mercaria/shared-types';
+import type { MerchantActivationPolicy, MerchantActivationTrace } from '@mercaria/shared-types';
 import { MERCHANT_ACTIVATION_POLICIES } from '@mercaria/shared-types';
 import { config } from '../config/index.js';
 import { listPolicyAcceptancesForOwner } from '../db/merchantActivation/policyAcceptanceRepository.js';
@@ -185,7 +182,11 @@ export async function acceptSellerPolicyHandler(req: Request, res: Response): Pr
     });
     sendSuccess(
       res,
-      { policyKey: body.policyKey, policyVersion: body.policyVersion, acceptedAt: result.acceptedAt },
+      {
+        policyKey: body.policyKey,
+        policyVersion: body.policyVersion,
+        acceptedAt: result.acceptedAt,
+      },
       result.created ? 201 : 200,
     );
   } catch (err) {
@@ -276,7 +277,11 @@ export async function observeActivationHandler(req: Request, res: Response): Pro
       oxyUserId: getRequiredOxyUserId(req),
       cause: 'operator_reevaluation',
     });
-    sendSuccess(res, { storeId, transitions, sweepEnabled: config.merchantActivation.observationEnabled });
+    sendSuccess(res, {
+      storeId,
+      transitions,
+      sweepEnabled: config.merchantActivation.observationEnabled,
+    });
   } catch (err) {
     log.general.error({ err }, 'Failed to observe merchant activation');
     respondWithError(res, err, 'Failed to observe activation');

@@ -1,10 +1,10 @@
-import React from "react";
-import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import { ChevronsUpDown, Store as StoreIcon } from "lucide-react-native";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
-import { useActiveStoreContext } from "@/lib/hooks/use-stores";
+import React from 'react';
+import { View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ChevronsUpDown, Store as StoreIcon } from 'lucide-react-native';
+import { Text, useColorScheme } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
 
 /**
  * Compact active-store indicator + switcher. Tapping it returns to the store
@@ -19,9 +19,9 @@ export function StoreSwitcher() {
 
   return (
     <Pressable
-      onPress={() => router.push("/stores")}
+      onPress={() => router.push('/stores')}
       accessibilityRole="button"
-      accessibilityLabel={t("stores.switch")}
+      accessibilityLabel={t('stores.switch')}
       className="flex-row items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 active:opacity-80 web:hover:border-primary"
     >
       <View
@@ -31,7 +31,7 @@ export function StoreSwitcher() {
         <StoreIcon size={14} color="#fff" />
       </View>
       <Text className="max-w-[140px] text-sm font-semibold text-foreground" numberOfLines={1}>
-        {store?.name ?? t("stores.selectStore")}
+        {store?.name ?? t('stores.selectStore')}
       </Text>
       <ChevronsUpDown size={14} color={colors.mutedForeground} />
     </Pressable>

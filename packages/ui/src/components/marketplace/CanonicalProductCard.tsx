@@ -1,13 +1,13 @@
-import { Pressable, View } from "react-native";
-import { Image } from "expo-image";
-import { ALL_CURRENCY_CODES } from "@mercaria/shared-types";
+import { Pressable, View } from 'react-native';
+import { Image } from 'expo-image';
+import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
 import type {
   CatalogProductCard,
   CatalogPriceConditionScope,
   CurrencyCode,
-} from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+} from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import {
   CANONICAL_CARD_FROM_PRICE_KEY,
   CANONICAL_CARD_NO_OFFERS_KEY,
@@ -15,11 +15,11 @@ import {
   CANONICAL_CARD_PRICES_UNAVAILABLE_KEY,
   CANONICAL_CARD_PRICE_IN_CURRENCY_KEY,
   MARKETPLACE_NO_IMAGE_KEY,
-} from "../../lib/marketplace-labels";
-import { Rating } from "@oxy.so/bloom/rating";
-import { useFormatters } from "../../lib/use-formatters";
-import { useRatingDisplay } from "../../lib/rating-display";
-import { cn } from "../../lib/cn";
+} from '../../lib/marketplace-labels';
+import { Rating } from '@oxy.so/bloom/rating';
+import { useFormatters } from '../../lib/use-formatters';
+import { useRatingDisplay } from '../../lib/rating-display';
+import { cn } from '../../lib/cn';
 
 /**
  * One canonical PRODUCT in a grid (#72 product-browse rules 1–4).
@@ -47,10 +47,10 @@ import { cn } from "../../lib/cn";
 
 /** What each condition coverage SAYS above a price. */
 const CONDITION_SCOPE_TEXT: Readonly<Record<CatalogPriceConditionScope, string>> = Object.freeze({
-  new: "New",
-  used: "Pre-owned",
-  mixed: "New & pre-owned",
-  unknown: "Condition not stated",
+  new: 'New',
+  used: 'Pre-owned',
+  mixed: 'New & pre-owned',
+  unknown: 'Condition not stated',
 });
 
 export interface CanonicalProductCardProps {
@@ -84,7 +84,7 @@ export function CanonicalProductCard({
   const t = useSharedUiTranslation();
   const asset = product.image;
   const imageUrl =
-    asset?.state === "displayable" && resolveImage ? resolveImage(asset.fileId) : undefined;
+    asset?.state === 'displayable' && resolveImage ? resolveImage(asset.fileId) : undefined;
   const offers = product.offers;
   const lowestPrice = offers?.summary.lowestPrice;
   // Narrowed by MEMBERSHIP rather than an `as CurrencyCode` cast: `find` hands
@@ -95,7 +95,7 @@ export function CanonicalProductCard({
   );
 
   return (
-    <View className={cn("group flex flex-col gap-2", className)}>
+    <View className={cn('group flex flex-col gap-2', className)}>
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={product.name}
@@ -143,9 +143,7 @@ export function CanonicalProductCard({
             {t(CANONICAL_CARD_PRICES_UNAVAILABLE_KEY)}
           </Text>
         ) : offers === undefined || lowestPrice === undefined ? (
-          <Text className="text-xs text-muted-foreground">
-            {t(CANONICAL_CARD_NO_OFFERS_KEY)}
-          </Text>
+          <Text className="text-xs text-muted-foreground">{t(CANONICAL_CARD_NO_OFFERS_KEY)}</Text>
         ) : (
           <View className="flex flex-col">
             {/*

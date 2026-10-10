@@ -143,7 +143,8 @@ export const DIGITAL_METRICS: readonly DigitalMetricDefinition[] = Object.freeze
     key: 'digital_realized_fee',
     title: 'Realized platform fee',
     numerator: '',
-    denominator: 'Mercaria commission recorded in ledger_transactions for digital lines, per currency',
+    denominator:
+      'Mercaria commission recorded in ledger_transactions for digital lines, per currency',
     source: 'ledger_transactions',
     scope: ['deployment'],
     attributionLimit:
@@ -208,7 +209,7 @@ export const DIGITAL_METRICS: readonly DigitalMetricDefinition[] = Object.freeze
     scope: ['store', 'deployment'],
     attributionLimit:
       'Grouped on the update POLICY at deployment scope, because that is a closed three-member ' +
-      'tuple and comparable across creators. A licence NAME is a creator\'s own mutable display ' +
+      "tuple and comparable across creators. A licence NAME is a creator's own mutable display " +
       'copy, so the per-name mix is store-scoped only.',
   },
   {

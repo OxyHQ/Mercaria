@@ -29,7 +29,10 @@ export interface MercariaErrorOptions {
 }
 
 /** `options` with every property it leaves `undefined` taken from `defaults`. */
-function withDefaults<T extends MercariaErrorOptions>(options: T, defaults: MercariaErrorOptions): T {
+function withDefaults<T extends MercariaErrorOptions>(
+  options: T,
+  defaults: MercariaErrorOptions,
+): T {
   const merged: MercariaErrorOptions = { ...defaults };
   for (const [key, value] of Object.entries(options)) {
     if (value !== undefined) (merged as Record<string, unknown>)[key] = value;
@@ -92,7 +95,8 @@ export class MercariaError extends Error {
     const lineage: string[] = [];
     let current: typeof MercariaError | null = target;
     while (current !== null) {
-      if (Object.prototype.hasOwnProperty.call(current, 'errorName')) lineage.push(current.errorName);
+      if (Object.prototype.hasOwnProperty.call(current, 'errorName'))
+        lineage.push(current.errorName);
       if (current === MercariaError) break;
       current = Object.getPrototypeOf(current) as typeof MercariaError | null;
     }
@@ -106,7 +110,11 @@ export class MercariaError extends Error {
     // Non-enumerable, so serialising an error never walks into whatever a
     // `fetch` implementation attached to its own failure.
     if (options.cause !== undefined) {
-      Object.defineProperty(this, 'cause', { value: options.cause, enumerable: false, configurable: true });
+      Object.defineProperty(this, 'cause', {
+        value: options.cause,
+        enumerable: false,
+        configurable: true,
+      });
     }
 
     this.code = options.code ?? 'http_error';

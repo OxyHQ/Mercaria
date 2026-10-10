@@ -23,11 +23,7 @@ import { closePostgres, connectPostgres, type Database } from '../../../db/postg
 import { orders } from '../../../db/schema/orders.js';
 import { deleteTestStores } from '../../../db/__tests__/store-teardown.js';
 import { insertStore } from '../../../db/stores/storeRepository.js';
-import {
-  insertOrder,
-  nextOrderNumber,
-  type NewOrder,
-} from '../../../db/orders/orderRepository.js';
+import { insertOrder, nextOrderNumber, type NewOrder } from '../../../db/orders/orderRepository.js';
 import { createSupplier } from '../../../db/procurement/supplierRepository.js';
 import {
   createSupplierAccount,
@@ -192,9 +188,7 @@ function draftInput(
     itemsAmount: 4_000,
     shippingAmount: 400,
     totalAmount: 4_400,
-    lines: [
-      { supplierSku: 'SKU-A', quantity: 2, unitCostAmount: 2_000, lineTotalAmount: 4_000 },
-    ],
+    lines: [{ supplierSku: 'SKU-A', quantity: 2, unitCostAmount: 2_000, lineTotalAmount: 4_000 }],
   };
 }
 
@@ -276,9 +270,7 @@ describe('the lifecycle, end to end', () => {
     expect(submitted?.status).toBe('submitted');
     expect(submitted?.submissionAttempts).toBe(1);
     // The acceptance deadline is the agreement's SLA, snapshotted (48h).
-    expect(submitted?.acceptanceDeadlineAt?.getTime()).toBe(
-      submittedAt.getTime() + 48 * 3_600_000,
-    );
+    expect(submitted?.acceptanceDeadlineAt?.getTime()).toBe(submittedAt.getTime() + 48 * 3_600_000);
 
     const accepted = await applySupplierAcceptance({
       purchaseOrderId: purchaseOrder.id,
@@ -345,7 +337,9 @@ describe('the lifecycle, end to end', () => {
     expect(() => assertLegalPurchaseOrderTransition('delivered', 'submitted')).toThrow(
       /not a legal edge/,
     );
-    expect(() => assertLegalPurchaseOrderTransition('draft', 'accepted')).toThrow(/not a legal edge/);
+    expect(() => assertLegalPurchaseOrderTransition('draft', 'accepted')).toThrow(
+      /not a legal edge/,
+    );
     expect(() => assertLegalPurchaseOrderTransition('rejected', 'accepted')).toThrow(
       /not a legal edge/,
     );

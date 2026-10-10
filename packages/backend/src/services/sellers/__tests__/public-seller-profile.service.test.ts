@@ -253,7 +253,9 @@ describe('a trust-restricted seller', () => {
 describe('a deleted or unresolvable seller', () => {
   it('is a 404 from both surfaces', async () => {
     readSellerOxyUser.mockResolvedValue(null);
-    await expect(getPublicSellerProfile(SELLER_ID, null)).rejects.toMatchObject({ httpStatus: 404 });
+    await expect(getPublicSellerProfile(SELLER_ID, null)).rejects.toMatchObject({
+      httpStatus: 404,
+    });
     await expect(
       listPublicSellerListings(SELLER_ID, { limit: 10, viewer: null }),
     ).rejects.toMatchObject({ httpStatus: 404 });
@@ -306,8 +308,9 @@ describe('the listings keyset', () => {
     expect(page.nextCursor).toBe('2025-01-02T00:00:00.000Z|l2');
 
     findActiveSellerListingsKeyset.mockResolvedValue(rows.slice(0, 2));
-    expect((await listPublicSellerListings(SELLER_ID, { limit: 2, viewer: null })).nextCursor)
-      .toBeUndefined();
+    expect(
+      (await listPublicSellerListings(SELLER_ID, { limit: 2, viewer: null })).nextCursor,
+    ).toBeUndefined();
   });
 
   it('round-trips a cursor, including one on a NULL-published row', async () => {

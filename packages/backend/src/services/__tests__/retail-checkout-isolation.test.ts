@@ -287,20 +287,29 @@ describe('the Mercaria-retail checkout path cannot reach what it must not', () =
     // but is NOT a floor — it is circular, holding for any list including an
     // empty one.
     const from = (prefix: string) => RETAIL_PATHS.filter((path) => path.startsWith(prefix)).length;
-    expect(from('services/retail-checkout/'), 'the service walk found nothing').toBeGreaterThanOrEqual(3);
-    expect(from('db/retailCheckout/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(1);
+    expect(
+      from('services/retail-checkout/'),
+      'the service walk found nothing',
+    ).toBeGreaterThanOrEqual(3);
+    expect(from('db/retailCheckout/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(
+      1,
+    );
     expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
     // EXACT: both hand lists are identities, not predicates (#448).
     expect(ENTRY_PATHS.length, 'the entry list changed size').toBe(2);
     expect(FEE_PRICING_MODULES.length, 'a second fee-pricing module was excused').toBe(1);
     expect(POST_ENTRY_PATHS.length, 'the post-entry list changed size').toBe(5);
-    expect(RETAIL_PATHS.length, 'the retail path derivation found nothing').toBeGreaterThanOrEqual(7);
+    expect(RETAIL_PATHS.length, 'the retail path derivation found nothing').toBeGreaterThanOrEqual(
+      7,
+    );
     for (const path of RETAIL_PATHS) {
       expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
     }
     expect(RETAIL_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
     for (const path of FEE_PRICING_MODULES) {
-      expect(RETAIL_PATHS, `${path} is excused from the fee wall but is not in the path`).toContain(path);
+      expect(RETAIL_PATHS, `${path} is excused from the fee wall but is not in the path`).toContain(
+        path,
+      );
     }
     expect(scanned).toBe(RETAIL_PATHS.length);
   });
@@ -338,7 +347,10 @@ describe('the Mercaria-retail checkout path cannot reach what it must not', () =
     const planted = 'lib/retail-checkout-cache.ts';
     const seeded = domainNamedModules((relative) =>
       relative === 'lib'
-        ? [...readDirectory(relative), { name: 'retail-checkout-cache.ts', isDirectory: () => false, isFile: () => true }]
+        ? [
+            ...readDirectory(relative),
+            { name: 'retail-checkout-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
         : readDirectory(relative),
     );
     expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
@@ -377,7 +389,10 @@ describe('the Mercaria-retail checkout path cannot reach what it must not', () =
     const seededWith = (directory: string, added: string): string[] =>
       sharedSurface((relative) =>
         relative === directory
-          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          ? [
+              ...readDirectory(relative),
+              { name: added, isDirectory: () => false, isFile: () => true },
+            ]
           : readDirectory(relative),
       );
 
@@ -399,7 +414,10 @@ describe('the Mercaria-retail checkout path cannot reach what it must not', () =
     expect(
       sharedSurface((relative) =>
         relative === 'routes'
-          ? [...readDirectory(relative), { name: 'admin', isDirectory: () => true, isFile: () => false }]
+          ? [
+              ...readDirectory(relative),
+              { name: 'admin', isDirectory: () => true, isFile: () => false },
+            ]
           : relative === 'routes/admin'
             ? [{ name: 'retail-checkout.ts', isDirectory: () => false, isFile: () => true }]
             : readDirectory(relative),

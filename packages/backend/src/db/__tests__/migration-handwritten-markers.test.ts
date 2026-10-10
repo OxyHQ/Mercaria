@@ -93,7 +93,8 @@ const MARKER = /^--\s*oxy:handwritten-(begin|end)=([A-Za-z0-9_]+)\s*$/;
  * look; a plausible count does not**, which is why the floor below is per-FORM
  * rather than a total.
  */
-const HANDWRITTEN_STATEMENT = /^\s*create\s+(or\s+replace\s+)?(constraint\s+)?(trigger|function)\b/i;
+const HANDWRITTEN_STATEMENT =
+  /^\s*create\s+(or\s+replace\s+)?(constraint\s+)?(trigger|function)\b/i;
 
 /**
  * The same matcher WITHOUT the `CONSTRAINT` branch — a control, never a second
@@ -501,7 +502,9 @@ describe('statement separators', () => {
   it('quotes the separator token nowhere but at the end of a statement', () => {
     const offenders = SCANS.map((file) => ({ name: file.name, ...separatorPositions(file.text) }))
       .filter((file) => file.total !== file.endOfLine)
-      .map((file) => `${file.name}: ${file.total} occurrences but ${file.endOfLine} real separators`);
+      .map(
+        (file) => `${file.name}: ${file.total} occurrences but ${file.endOfLine} real separators`,
+      );
     expect(
       offenders,
       'The migrator splits on this token before anything parses a comment, so a prose mention ' +
@@ -516,7 +519,10 @@ describe('statement separators', () => {
     // `total === endOfLine` everywhere, trivially.
     const carrying = SCANS.filter((file) => separatorPositions(file.text).total > 0);
     expect(carrying.length).toBeGreaterThanOrEqual(40);
-    const separators = SCANS.reduce((total, file) => total + separatorPositions(file.text).total, 0);
+    const separators = SCANS.reduce(
+      (total, file) => total + separatorPositions(file.text).total,
+      0,
+    );
     expect(separators).toBeGreaterThanOrEqual(500);
   });
 
@@ -530,7 +536,10 @@ describe('statement separators', () => {
   it('is reading real function bodies, not a corpus without any', () => {
     // The floor for the two assertions above: both are trivially satisfied by a
     // corpus containing no `$$` at all.
-    const dollars = SCANS.reduce((total, file) => total + scanDollarQuoting(file.text).dollarQuotes, 0);
+    const dollars = SCANS.reduce(
+      (total, file) => total + scanDollarQuoting(file.text).dollarQuotes,
+      0,
+    );
     expect(dollars).toBeGreaterThanOrEqual(200);
   });
 });
@@ -705,7 +714,11 @@ describe('the detectors themselves — mutation self-tests, in memory only', () 
       let inside = false;
       let found = 0;
       for (let at = 0; at < text.length; at += 1) {
-        if (text.startsWith('$$', at)) { inside = !inside; at += 1; continue; }
+        if (text.startsWith('$$', at)) {
+          inside = !inside;
+          at += 1;
+          continue;
+        }
         if (text.startsWith(STATEMENT_BREAKPOINT, at) && inside) found += 1;
       }
       return found;
@@ -732,7 +745,10 @@ describe('the detectors themselves — mutation self-tests, in memory only', () 
     // …and the same file without the explanatory line is clean, which is the
     // control that makes the assertion above about the PROSE rather than about
     // the fixture.
-    const clean = documented.split('\n').filter((line) => !line.includes('like so')).join('\n');
+    const clean = documented
+      .split('\n')
+      .filter((line) => !line.includes('like so'))
+      .join('\n');
     const cleanPositions = separatorPositions(clean);
     expect(cleanPositions.total).toBe(cleanPositions.endOfLine);
     expect(cleanPositions.total).toBe(1);

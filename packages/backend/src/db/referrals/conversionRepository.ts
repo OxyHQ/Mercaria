@@ -114,10 +114,7 @@ export async function findConversionById(
   db: DatabaseOrTransaction,
   id: string,
 ): Promise<ReferralConversionRow | undefined> {
-  const [row] = await db
-    .select()
-    .from(referralConversions)
-    .where(eq(referralConversions.id, id));
+  const [row] = await db.select().from(referralConversions).where(eq(referralConversions.id, id));
   return row;
 }
 

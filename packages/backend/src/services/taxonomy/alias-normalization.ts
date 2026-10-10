@@ -97,7 +97,11 @@ export function catalogAliasCandidates(query: string): readonly string[] {
   // nothing but combining marks folds to the empty string — and two lists whose
   // indexes silently disagree is how the bare spelling of one n-gram ends up
   // beside the folded spelling of another.
-  const words = query.replace(/\s+/gu, ' ').trim().split(' ').filter((word) => word.length > 0);
+  const words = query
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .split(' ')
+    .filter((word) => word.length > 0);
   const candidates = new Set<string>();
   for (let start = 0; start < words.length; start += 1) {
     for (let size = 1; size <= MAX_CATALOG_ALIAS_WORDS && start + size <= words.length; size += 1) {

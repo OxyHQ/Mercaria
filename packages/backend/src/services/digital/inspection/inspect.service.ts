@@ -238,9 +238,9 @@ export async function inspectAssetFile(
  * answer to "is this version ready", decided by a worker with no view of the rest
  * of the submission.
  */
-export async function inspectAssetVersion(
-  job: { readonly versionId: string },
-): Promise<AssetVersionInspectionReport> {
+export async function inspectAssetVersion(job: {
+  readonly versionId: string;
+}): Promise<AssetVersionInspectionReport> {
   const files = await findVersionFiles(job.versionId);
   if (files.length === 0) {
     log.general.info(
@@ -346,7 +346,11 @@ async function examine(
 
   const verification = verifyFormat(file, bytes, budget);
   if (verification.kind === 'refused') {
-    return { scanVerdict: scan.verdict, outcome: verification.outcome, verified: verification.verified };
+    return {
+      scanVerdict: scan.verdict,
+      outcome: verification.outcome,
+      verified: verification.verified,
+    };
   }
 
   const verified = verification.verified;

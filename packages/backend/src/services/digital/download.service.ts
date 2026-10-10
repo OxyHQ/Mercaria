@@ -247,7 +247,15 @@ export async function redeemDownloadGrant(
     const reason: AssetDownloadRefusalReason =
       why === 'expired' ? 'grant_expired' : why === 'exhausted' ? 'grant_exhausted' : 'no_right';
     await recordDownloadEvent(
-      { rightId: null, grantId: null, fileId: null, requesterKey, kind: 'refused', refusalReason: reason, occurredAt: now },
+      {
+        rightId: null,
+        grantId: null,
+        fileId: null,
+        requesterKey,
+        kind: 'refused',
+        refusalReason: reason,
+        occurredAt: now,
+      },
       db,
     );
     return { outcome: 'refused', reason };

@@ -102,7 +102,16 @@ export const SIZE_DOMAINS: readonly SizeDomain[] = [
  * `brand_specific` is a manufacturer's own scale — a real and common case, and
  * the one where a universal conversion table is most obviously a fiction.
  */
-export type SizeRegion = 'eu' | 'uk' | 'us' | 'jp' | 'cn' | 'kr' | 'au' | 'international' | 'brand_specific';
+export type SizeRegion =
+  | 'eu'
+  | 'uk'
+  | 'us'
+  | 'jp'
+  | 'cn'
+  | 'kr'
+  | 'au'
+  | 'international'
+  | 'brand_specific';
 
 export const SIZE_REGIONS: readonly SizeRegion[] = [
   'eu',

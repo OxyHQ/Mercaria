@@ -349,7 +349,10 @@ describe('the alias space has two implementations, and they are pinned together'
        where d.adrelid = 'canonical_product_aliases'::regclass
          and a.attname = 'normalized_alias'
     `);
-    expect(row?.expression, 'canonical_product_aliases has no generated normalized_alias').toBeDefined();
+    expect(
+      row?.expression,
+      'canonical_product_aliases has no generated normalized_alias',
+    ).toBeDefined();
     expect(row?.expression ?? '').toMatch(/lower/i);
     expect(row?.expression ?? '').toMatch(/btrim/i);
     // And NOT a deeper fold: the alias column is case-only on purpose
@@ -379,9 +382,7 @@ describe('script integrity under `normalizeEntityName`', () => {
     // carries what each one returned beforehand so a regression stays legible.
     // See `docs/performance/folding-and-tokenization.md`.
     for (const sample of SCRIPT_INTEGRITY_SAMPLES) {
-      expect(normalizeEntityName(sample.input), `${sample.language} moved`).toBe(
-        sample.normalized,
-      );
+      expect(normalizeEntityName(sample.input), `${sample.language} moved`).toBe(sample.normalized);
     }
   });
 

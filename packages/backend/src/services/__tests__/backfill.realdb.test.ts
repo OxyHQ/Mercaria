@@ -149,7 +149,9 @@ afterAll(async () => {
       .from(nativeStoreLinks)
       .where(inArray(nativeStoreLinks.storeId, createdStoreIds));
     await db.delete(nativeStoreLinks).where(inArray(nativeStoreLinks.storeId, createdStoreIds));
-    const merchantIds = [...new Set([...links.map((row) => row.merchantId), ...createdMerchantIds])];
+    const merchantIds = [
+      ...new Set([...links.map((row) => row.merchantId), ...createdMerchantIds]),
+    ];
     if (merchantIds.length > 0) {
       await db.delete(merchants).where(inArray(merchants.id, merchantIds));
     }
@@ -460,230 +462,229 @@ describe('the catalogue backfill, against a real database', () => {
     ).rejects.toThrow(/does not operate on listings/);
   });
 
-  it(
-    'backfills a seeded store product into one canonical product, its variants and native offers (acceptance 1), leaves a P2P listing alone (acceptance 3), and never touches a placed order (acceptance 4)',
-    async () => {
-      const storeId = await seedStore('main');
-      const store = await seedListing({
-        ownerType: 'store',
-        storeId,
-        title: `Backfill Widget ${RUN}`,
-        // A GTIN-13 whose check digit validates, and a second variant with none —
-        // so both the identifier path and the no-identifier path are exercised.
-        variants: [
-          { title: 'Small', barcode: fixtureGtin(RUN, 1), size: 'Small' },
-          { title: 'Large', size: 'Large' },
-        ],
-      });
-      const p2p = await seedListing({
-        ownerType: 'user',
-        title: `P2P Widget ${RUN}`,
-        variants: [{ title: 'Default Title' }],
-      });
+  it('backfills a seeded store product into one canonical product, its variants and native offers (acceptance 1), leaves a P2P listing alone (acceptance 3), and never touches a placed order (acceptance 4)', async () => {
+    const storeId = await seedStore('main');
+    const store = await seedListing({
+      ownerType: 'store',
+      storeId,
+      title: `Backfill Widget ${RUN}`,
+      // A GTIN-13 whose check digit validates, and a second variant with none —
+      // so both the identifier path and the no-identifier path are exercised.
+      variants: [
+        { title: 'Small', barcode: fixtureGtin(RUN, 1), size: 'Small' },
+        { title: 'Large', size: 'Large' },
+      ],
+    });
+    const p2p = await seedListing({
+      ownerType: 'user',
+      title: `P2P Widget ${RUN}`,
+      variants: [{ title: 'Default Title' }],
+    });
 
-      // ACCEPTANCE 4's subject: a placed order against the very listing the
-      // migration is about to touch, so the probe is on the sharpest possible
-      // case rather than on an unrelated row.
-      const orderId = await seedOrder(store.listingId, store.variantIds[0] ?? '');
-      const ordersBefore = await orderFingerprint(orderId);
+    // ACCEPTANCE 4's subject: a placed order against the very listing the
+    // migration is about to touch, so the probe is on the sharpest possible
+    // case rather than on an unrelated row.
+    const orderId = await seedOrder(store.listingId, store.variantIds[0] ?? '');
+    const ordersBefore = await orderFingerprint(orderId);
 
-      // A DRAFT policy, deliberately never activated — see `matchVariant`.
-      const policy = await createMatchPolicyVersion({
-        versionKey: `backfill-${RUN}`,
-        description: 'backfill.realdb.test',
-        autoMinConfidence: 0.9,
-        reviewMinConfidence: 0.6,
-        minCandidateSeparation: 0.1,
-        maxCandidates: 20,
-        minTitleSimilarity: 0.5,
-        weightIdentifier: 4,
-        weightBrand: 2,
-        weightModel: 2,
-        weightAttribute: 1,
-        weightTitle: 1,
-        weightCategory: 1,
-        weightSemantic: 0,
-        semanticEnabled: false,
-        // The schema floors these at 0.95 / 20 — a launch threshold a tuning
-        // pass cannot quietly drop below.
-        minBenchmarkPrecision: 0.95,
-        minBenchmarkSamples: 20,
-        createdByOxyUserId: OPERATOR,
-      });
-      matchPolicy = policy;
+    // A DRAFT policy, deliberately never activated — see `matchVariant`.
+    const policy = await createMatchPolicyVersion({
+      versionKey: `backfill-${RUN}`,
+      description: 'backfill.realdb.test',
+      autoMinConfidence: 0.9,
+      reviewMinConfidence: 0.6,
+      minCandidateSeparation: 0.1,
+      maxCandidates: 20,
+      minTitleSimilarity: 0.5,
+      weightIdentifier: 4,
+      weightBrand: 2,
+      weightModel: 2,
+      weightAttribute: 1,
+      weightTitle: 1,
+      weightCategory: 1,
+      weightSemantic: 0,
+      semanticEnabled: false,
+      // The schema floors these at 0.95 / 20 — a launch threshold a tuning
+      // pass cannot quietly drop below.
+      minBenchmarkPrecision: 0.95,
+      minBenchmarkSamples: 20,
+      createdByOxyUserId: OPERATOR,
+    });
+    matchPolicy = policy;
 
-      // ── Stage 1: the store becomes a canonical merchant ────────────────────
-      await runToCompletion('store_merchants', 'apply');
-      const storeVerdict = await verdictFor('store_merchants', 'apply', `store:${storeId}`);
-      expect(storeVerdict?.outcome).toBe('created');
-      expect(storeVerdict?.reasonCode).toBe('merchant_minted');
+    // ── Stage 1: the store becomes a canonical merchant ────────────────────
+    await runToCompletion('store_merchants', 'apply');
+    const storeVerdict = await verdictFor('store_merchants', 'apply', `store:${storeId}`);
+    expect(storeVerdict?.outcome).toBe('created');
+    expect(storeVerdict?.reasonCode).toBe('merchant_minted');
 
-      const [link] = await db
-        .select({ merchantId: nativeStoreLinks.merchantId, method: nativeStoreLinks.verificationMethod })
-        .from(nativeStoreLinks)
-        .where(and(eq(nativeStoreLinks.storeId, storeId), eq(nativeStoreLinks.status, 'active')));
-      expect(link).toBeDefined();
-      expect(link.method).toBe('owner_authentication');
-      createdMerchantIds.push(link.merchantId);
+    const [link] = await db
+      .select({
+        merchantId: nativeStoreLinks.merchantId,
+        method: nativeStoreLinks.verificationMethod,
+      })
+      .from(nativeStoreLinks)
+      .where(and(eq(nativeStoreLinks.storeId, storeId), eq(nativeStoreLinks.status, 'active')));
+    expect(link).toBeDefined();
+    expect(link.method).toBe('owner_authentication');
+    createdMerchantIds.push(link.merchantId);
 
-      // ── Stage 3: hand every variant to the matcher, and drain it ───────────
-      await runToCompletion('variant_matching', 'apply');
-      for (const variantId of store.variantIds) await matchVariant(variantId);
+    // ── Stage 3: hand every variant to the matcher, and drain it ───────────
+    await runToCompletion('variant_matching', 'apply');
+    for (const variantId of store.variantIds) await matchVariant(variantId);
 
-      // ── Stage 4: the unmatched store listing mints a DRAFT product ─────────
-      await runToCompletion('provisional_products', 'apply');
+    // ── Stage 4: the unmatched store listing mints a DRAFT product ─────────
+    await runToCompletion('provisional_products', 'apply');
 
-      const storeListingVerdict = await verdictFor(
-        'provisional_products',
-        'apply',
-        `listing:${store.listingId}`,
+    const storeListingVerdict = await verdictFor(
+      'provisional_products',
+      'apply',
+      `listing:${store.listingId}`,
+    );
+    expect(storeListingVerdict?.outcome).toBe('created');
+    expect(storeListingVerdict?.reasonCode).toBe('provisional_product_minted');
+    expect(storeListingVerdict?.canonicalProductId).not.toBeNull();
+    const productId = storeListingVerdict?.canonicalProductId ?? '';
+    createdProductIds.push(productId);
+
+    // ACCEPTANCE 1: ONE product, one canonical variant per native variant, one
+    // ACTIVE attachment each.
+    const [product] = await db
+      .select({ status: canonicalProducts.status, name: canonicalProducts.name })
+      .from(canonicalProducts)
+      .where(eq(canonicalProducts.id, productId));
+    // DRAFT, never active: a product minted from one seller's listing title is
+    // a provisional guess, and promotion is #59's review.
+    expect(product.status).toBe('draft');
+    expect(product.name).toBe(`Backfill Widget ${RUN}`);
+
+    const canonicalVariantRows = await db
+      .select({ id: canonicalVariants.id })
+      .from(canonicalVariants)
+      .where(eq(canonicalVariants.productId, productId));
+    expect(canonicalVariantRows).toHaveLength(2);
+
+    const links = await db
+      .select({ method: nativeListingLinks.method, confidence: nativeListingLinks.confidence })
+      .from(nativeListingLinks)
+      .where(
+        and(
+          eq(nativeListingLinks.listingId, store.listingId),
+          eq(nativeListingLinks.status, 'active'),
+        ),
       );
-      expect(storeListingVerdict?.outcome).toBe('created');
-      expect(storeListingVerdict?.reasonCode).toBe('provisional_product_minted');
-      expect(storeListingVerdict?.canonicalProductId).not.toBeNull();
-      const productId = storeListingVerdict?.canonicalProductId ?? '';
-      createdProductIds.push(productId);
+    expect(links).toHaveLength(2);
+    for (const row of links) {
+      expect(row.method).toBe('backfill');
+      // CHECK-restricted to `matcher` rows: this attachment is certain by
+      // construction because the stage created both of its ends.
+      expect(row.confidence).toBeNull();
+    }
 
-      // ACCEPTANCE 1: ONE product, one canonical variant per native variant, one
-      // ACTIVE attachment each.
-      const [product] = await db
-        .select({ status: canonicalProducts.status, name: canonicalProducts.name })
-        .from(canonicalProducts)
-        .where(eq(canonicalProducts.id, productId));
-      // DRAFT, never active: a product minted from one seller's listing title is
-      // a provisional guess, and promotion is #59's review.
-      expect(product.status).toBe('draft');
-      expect(product.name).toBe(`Backfill Widget ${RUN}`);
+    // ACCEPTANCE 3: the P2P listing is reported and left entirely alone.
+    const p2pVerdict = await verdictFor(
+      'provisional_products',
+      'apply',
+      `listing:${p2p.listingId}`,
+    );
+    expect(p2pVerdict?.outcome).toBe('unmatched');
+    expect(p2pVerdict?.reasonCode).toBe('p2p_left_unattached');
+    const p2pLinks = await db
+      .select({ id: nativeListingLinks.id })
+      .from(nativeListingLinks)
+      .where(eq(nativeListingLinks.listingId, p2p.listingId));
+    expect(p2pLinks).toHaveLength(0);
 
-      const canonicalVariantRows = await db
-        .select({ id: canonicalVariants.id })
-        .from(canonicalVariants)
-        .where(eq(canonicalVariants.productId, productId));
-      expect(canonicalVariantRows).toHaveLength(2);
+    // ── Stage 5: the attached listing materializes its native offers ───────
+    await runToCompletion('native_offers', 'apply');
+    for (let i = 0; i < 5; i += 1) {
+      const drained = await drainOfferOutbox({ batchSize: 50 });
+      if (drained.claimed === 0) break;
+    }
 
-      const links = await db
-        .select({ method: nativeListingLinks.method, confidence: nativeListingLinks.confidence })
-        .from(nativeListingLinks)
-        .where(
-          and(
-            eq(nativeListingLinks.listingId, store.listingId),
-            eq(nativeListingLinks.status, 'active'),
-          ),
-        );
-      expect(links).toHaveLength(2);
-      for (const row of links) {
-        expect(row.method).toBe('backfill');
-        // CHECK-restricted to `matcher` rows: this attachment is certain by
-        // construction because the stage created both of its ends.
-        expect(row.confidence).toBeNull();
-      }
-
-      // ACCEPTANCE 3: the P2P listing is reported and left entirely alone.
-      const p2pVerdict = await verdictFor(
-        'provisional_products',
-        'apply',
-        `listing:${p2p.listingId}`,
+    const nativeOffers = await db
+      .select({ id: offers.id, canonicalVariantId: offers.canonicalVariantId })
+      .from(offers)
+      .where(
+        and(
+          eq(offers.listingId, store.listingId),
+          eq(offers.kind, 'native'),
+          eq(offers.status, 'active'),
+        ),
       );
-      expect(p2pVerdict?.outcome).toBe('unmatched');
-      expect(p2pVerdict?.reasonCode).toBe('p2p_left_unattached');
-      const p2pLinks = await db
-        .select({ id: nativeListingLinks.id })
-        .from(nativeListingLinks)
-        .where(eq(nativeListingLinks.listingId, p2p.listingId));
-      expect(p2pLinks).toHaveLength(0);
+    expect(nativeOffers).toHaveLength(2);
 
-      // ── Stage 5: the attached listing materializes its native offers ───────
-      await runToCompletion('native_offers', 'apply');
-      for (let i = 0; i < 5; i += 1) {
-        const drained = await drainOfferOutbox({ batchSize: 50 });
-        if (drained.claimed === 0) break;
-      }
+    // ── ACCEPTANCE 4: every placed order is byte-identical, `xmin` included ─
+    expect(await orderFingerprint(orderId)).toBe(ordersBefore);
 
-      const nativeOffers = await db
-        .select({ id: offers.id, canonicalVariantId: offers.canonicalVariantId })
-        .from(offers)
-        .where(
-          and(
-            eq(offers.listingId, store.listingId),
-            eq(offers.kind, 'native'),
-            eq(offers.status, 'active'),
+    // ── ACCEPTANCE 6: the consistency sweep finds nothing ──────────────────
+    await runToCompletion('consistency', 'apply');
+    const openFindings = await db
+      .select({ kind: catalogConsistencyFindings.kind })
+      .from(catalogConsistencyFindings)
+      .where(
+        and(
+          sql`${catalogConsistencyFindings.resolvedAt} is null`,
+          inArray(catalogConsistencyFindings.subjectKey, [
+            ...store.variantIds.map((id) => `product_variant:${id}`),
+            ...nativeOffers.map((offer) => `native_offer:${offer.id}`),
+          ]),
+        ),
+      );
+    expect(openFindings).toEqual([]);
+
+    // …and it FINDS the disagreement when one exists. Revoking an attachment
+    // leaves an active native offer with no active native source, which is
+    // acceptance 6's exact wording.
+    await db
+      .update(nativeListingLinks)
+      .set({
+        status: 'revoked',
+        revokedAt: new Date(),
+        revokedByOxyUserId: OPERATOR,
+        revokeReason: 'realdb consistency probe',
+      })
+      .where(
+        and(
+          eq(nativeListingLinks.listingId, store.listingId),
+          eq(nativeListingLinks.status, 'active'),
+        ),
+      );
+
+    await runToCompletion('consistency', 'apply');
+    const broken = await db
+      .select({ kind: catalogConsistencyFindings.kind })
+      .from(catalogConsistencyFindings)
+      .where(
+        and(
+          sql`${catalogConsistencyFindings.resolvedAt} is null`,
+          inArray(
+            catalogConsistencyFindings.subjectKey,
+            nativeOffers.map((offer) => `native_offer:${offer.id}`),
           ),
-        );
-      expect(nativeOffers).toHaveLength(2);
+        ),
+      );
+    expect(broken.length).toBeGreaterThan(0);
+    expect(broken.every((row) => row.kind === 'offer_without_active_link')).toBe(true);
 
-      // ── ACCEPTANCE 4: every placed order is byte-identical, `xmin` included ─
-      expect(await orderFingerprint(orderId)).toBe(ordersBefore);
-
-      // ── ACCEPTANCE 6: the consistency sweep finds nothing ──────────────────
-      await runToCompletion('consistency', 'apply');
-      const openFindings = await db
-        .select({ kind: catalogConsistencyFindings.kind })
-        .from(catalogConsistencyFindings)
-        .where(
-          and(
-            sql`${catalogConsistencyFindings.resolvedAt} is null`,
-            inArray(catalogConsistencyFindings.subjectKey, [
-              ...store.variantIds.map((id) => `product_variant:${id}`),
-              ...nativeOffers.map((offer) => `native_offer:${offer.id}`),
-            ]),
+    // …and it RESOLVES rather than accumulating once the offers are converged
+    // back into agreement with the (now unattached) listing.
+    await convergeNativeOffersForListing(store.listingId);
+    await runToCompletion('consistency', 'apply');
+    const stillOpen = await db
+      .select({ id: catalogConsistencyFindings.id })
+      .from(catalogConsistencyFindings)
+      .where(
+        and(
+          sql`${catalogConsistencyFindings.resolvedAt} is null`,
+          inArray(
+            catalogConsistencyFindings.subjectKey,
+            nativeOffers.map((offer) => `native_offer:${offer.id}`),
           ),
-        );
-      expect(openFindings).toEqual([]);
-
-      // …and it FINDS the disagreement when one exists. Revoking an attachment
-      // leaves an active native offer with no active native source, which is
-      // acceptance 6's exact wording.
-      await db
-        .update(nativeListingLinks)
-        .set({
-          status: 'revoked',
-          revokedAt: new Date(),
-          revokedByOxyUserId: OPERATOR,
-          revokeReason: 'realdb consistency probe',
-        })
-        .where(
-          and(
-            eq(nativeListingLinks.listingId, store.listingId),
-            eq(nativeListingLinks.status, 'active'),
-          ),
-        );
-
-      await runToCompletion('consistency', 'apply');
-      const broken = await db
-        .select({ kind: catalogConsistencyFindings.kind })
-        .from(catalogConsistencyFindings)
-        .where(
-          and(
-            sql`${catalogConsistencyFindings.resolvedAt} is null`,
-            inArray(
-              catalogConsistencyFindings.subjectKey,
-              nativeOffers.map((offer) => `native_offer:${offer.id}`),
-            ),
-          ),
-        );
-      expect(broken.length).toBeGreaterThan(0);
-      expect(broken.every((row) => row.kind === 'offer_without_active_link')).toBe(true);
-
-      // …and it RESOLVES rather than accumulating once the offers are converged
-      // back into agreement with the (now unattached) listing.
-      await convergeNativeOffersForListing(store.listingId);
-      await runToCompletion('consistency', 'apply');
-      const stillOpen = await db
-        .select({ id: catalogConsistencyFindings.id })
-        .from(catalogConsistencyFindings)
-        .where(
-          and(
-            sql`${catalogConsistencyFindings.resolvedAt} is null`,
-            inArray(
-              catalogConsistencyFindings.subjectKey,
-              nativeOffers.map((offer) => `native_offer:${offer.id}`),
-            ),
-          ),
-        );
-      expect(stillOpen).toEqual([]);
-    },
-    120_000,
-  );
+        ),
+      );
+    expect(stillOpen).toEqual([]);
+  }, 120_000);
 
   it('a DRY RUN reports the same subjects and writes nothing to the graph', async () => {
     const storeId = await seedStore('dry');
@@ -772,7 +773,7 @@ describe('the catalogue backfill, against a real database', () => {
     ).rejects.toThrow();
   });
 
-  it("refuses a counter set that does not add up to what was scanned", async () => {
+  it('refuses a counter set that does not add up to what was scanned', async () => {
     const { run } = await openCatalogBackfillRun({
       stage: 'search_reindex',
       mode: 'dry_run',

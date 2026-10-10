@@ -119,7 +119,11 @@ async function requireEntity(
   entityType: MergeableEntityType,
   id: string,
   db: DatabaseOrTransaction,
-): Promise<{ readonly status: string; readonly mergedIntoId: string | null; readonly name: string | null }> {
+): Promise<{
+  readonly status: string;
+  readonly mergedIntoId: string | null;
+  readonly name: string | null;
+}> {
   const definition = CURATED_ENTITIES[entityType];
   const rows = await db
     .select({
@@ -470,8 +474,7 @@ export async function resolveMergeConflict(
  */
 export type MergeJobCancellationState =
   /** The `allowed` branch carries no reason: there is none to read. */
-  | { readonly state: 'allowed' }
-  | { readonly state: 'refused'; readonly reason: string };
+  { readonly state: 'allowed' } | { readonly state: 'refused'; readonly reason: string };
 
 export function mergeJobCancellationState(job: CatalogMergeJobRow): MergeJobCancellationState {
   if (job.status === 'blocked') return { state: 'allowed' };
@@ -610,8 +613,7 @@ export async function cancelMerge(
  */
 export type MergeJobBlockingState =
   /** The `clear` branch carries no reason: there is none to read. */
-  | { readonly state: 'clear' }
-  | { readonly state: 'blocked'; readonly reason: string };
+  { readonly state: 'clear' } | { readonly state: 'blocked'; readonly reason: string };
 
 /**
  * The handle is REQUIRED, with no `= getDb()` default (#584/#599's ruling).
@@ -730,7 +732,10 @@ interface ResolutionPhaseOutcome extends PhaseOutcome {
 }
 
 /** `plan` — measure, probe every unique, and record what a person must decide. */
-async function runPlanPhase(job: CatalogMergeJobRow, db: DatabaseOrTransaction): Promise<PhaseOutcome> {
+async function runPlanPhase(
+  job: CatalogMergeJobRow,
+  db: DatabaseOrTransaction,
+): Promise<PhaseOutcome> {
   const detected = await detectMergeConflicts(job.entityType, job.loserId, job.winnerId, db);
   const recorded = await recordMergeConflicts(job.id, detected, db);
   return { rowsAffected: recorded };
@@ -1113,7 +1118,9 @@ async function runPhaseBody(
   if (phase === 'agents') return runAgentsPhase(job, db);
   if (phase === 'redirects') return runRedirectPhase(job, db);
   if (phase === 'rollups') {
-    return { rowsAffected: await rebuildEntityRollups(job.entityType, job.loserId, job.winnerId, db) };
+    return {
+      rowsAffected: await rebuildEntityRollups(job.entityType, job.loserId, job.winnerId, db),
+    };
   }
   return { rowsAffected: 0 };
 }
@@ -1137,10 +1144,7 @@ export interface RunMergeJobResult {
  * unit of retry the unit of work, which is what the phase records already
  * assume.
  */
-export async function runMergeJob(
-  jobId: string,
-  leaseOwner: string,
-): Promise<RunMergeJobResult> {
+export async function runMergeJob(jobId: string, leaseOwner: string): Promise<RunMergeJobResult> {
   const db = getDb();
   let job = await findMergeJobById(jobId, db);
   if (!job) throw notFound(`No merge job ${jobId}.`);

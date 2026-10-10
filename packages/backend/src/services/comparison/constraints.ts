@@ -53,9 +53,7 @@ export interface ConstraintColumnInput {
  * by the benchmark suite, because a result appearing in two of them would let a
  * client count "3 satisfied of 4" beside "2 failed".
  */
-export function buildConstraintColumn(
-  input: ConstraintColumnInput,
-): ComparisonConstraintColumn {
+export function buildConstraintColumn(input: ConstraintColumnInput): ComparisonConstraintColumn {
   const byId = new Map(input.constraints.map((constraint) => [constraint.id, constraint]));
 
   const satisfied: ComparisonConstraintResult[] = [];
@@ -70,7 +68,8 @@ export function buildConstraintColumn(
 
   for (const outcome of outcomes) {
     const constraint = byId.get(outcome.constraintId);
-    const applies = constraint === undefined || constraintApplies(constraint, input.declaredAttributeKeys);
+    const applies =
+      constraint === undefined || constraintApplies(constraint, input.declaredAttributeKeys);
     const satisfaction =
       outcome.satisfaction === 'unknown' && !applies ? 'not_applicable' : outcome.satisfaction;
 

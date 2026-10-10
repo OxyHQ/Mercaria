@@ -132,11 +132,7 @@ function resolveFxProvider(): FxProviderName {
 }
 
 /** How much of an enforcement plan is allowed to actually happen. */
-const ENFORCEMENT_MODES: readonly ModerationEnforcementMode[] = [
-  'observe',
-  'manual',
-  'automatic',
-];
+const ENFORCEMENT_MODES: readonly ModerationEnforcementMode[] = ['observe', 'manual', 'automatic'];
 
 /**
  * Resolve the enforcement mode, defaulting to the mode that changes nothing.
@@ -321,7 +317,9 @@ function resolveStorePickupEnabled(): boolean {
   if (!boolEnv('STORE_PICKUP_ENABLED', false)) return false;
 
   const missing = [
-    ...((process.env.PICKUP_COLLECTION_CODE_KEY?.trim() ?? '') === '' ? ['PICKUP_COLLECTION_CODE_KEY'] : []),
+    ...((process.env.PICKUP_COLLECTION_CODE_KEY?.trim() ?? '') === ''
+      ? ['PICKUP_COLLECTION_CODE_KEY']
+      : []),
     // Where a collection point IS comes from GoWay (ADR 0013): with no GoWay
     // to ask, every collection would be refused at checkout, one buyer at a
     // time, rather than once here.
@@ -472,10 +470,13 @@ function resolveBillingCohortConfigured(): boolean {
   const cohort = parseBillingCohort(strEnv('MERCHANT_BILLING_PEABLE_COHORT', ''));
   if (!cohort) return false;
   const key = strEnv('STRIPE_SECRET_KEY', '');
-  return /^sk_(?:live|test)_[A-Za-z0-9]+$/.test(key) &&
+  return (
+    /^sk_(?:live|test)_[A-Za-z0-9]+$/.test(key) &&
     key.startsWith('sk_live_') === cohort.livemode &&
     strEnv('STRIPE_WEBHOOK_SECRET', '') !== '' &&
-    strEnv('PEABLE_APP_PUBLIC_KEY', '') !== '' && strEnv('PEABLE_APP_SECRET', '') !== '';
+    strEnv('PEABLE_APP_PUBLIC_KEY', '') !== '' &&
+    strEnv('PEABLE_APP_SECRET', '') !== ''
+  );
 }
 
 /**
@@ -671,11 +672,7 @@ function resolveStripeEnabled(): boolean {
   if (!boolEnv('STRIPE_ENABLED', false)) return false;
 
   const missing = (
-    [
-      'STRIPE_SECRET_KEY',
-      'STRIPE_WEBHOOK_SECRET',
-      'STRIPE_CONNECT_WEBHOOK_SECRET',
-    ] as const
+    ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_CONNECT_WEBHOOK_SECRET'] as const
   ).filter((name) => (process.env[name]?.trim() ?? '') === '');
   if (missing.length === 0) return true;
 
@@ -1123,9 +1120,7 @@ function resolveAnalyticsOperatorIds(): readonly string[] {
  */
 function resolveMerchantDemandWindowDays(): number {
   const configured = intEnv('MERCHANT_DEMAND_DEFAULT_WINDOW_DAYS', 30);
-  return (MERCHANT_DEMAND_WINDOW_DAYS as readonly number[]).includes(configured)
-    ? configured
-    : 30;
+  return (MERCHANT_DEMAND_WINDOW_DAYS as readonly number[]).includes(configured) ? configured : 30;
 }
 
 /**
@@ -4390,7 +4385,10 @@ export const config: AppConfig = Object.freeze({
     notificationBatchSize: intEnv('PRICE_ALERT_NOTIFICATION_BATCH_SIZE', 50),
     notificationPollIntervalMs: intEnv('PRICE_ALERT_NOTIFICATION_POLL_INTERVAL_MS', 10_000),
     notificationLeaseMs: intEnv('PRICE_ALERT_NOTIFICATION_LEASE_MS', 60_000),
-    notificationMaxBackoffMs: intEnv('PRICE_ALERT_NOTIFICATION_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
+    notificationMaxBackoffMs: intEnv(
+      'PRICE_ALERT_NOTIFICATION_MAX_BACKOFF_MS',
+      6 * 60 * 60 * 1_000,
+    ),
     notificationMaxAttempts: intEnv('PRICE_ALERT_NOTIFICATION_MAX_ATTEMPTS', 8),
     traceLimit: intEnv('PRICE_ALERT_TRACE_LIMIT', 100),
   }),
@@ -4632,7 +4630,7 @@ export const config: AppConfig = Object.freeze({
       ZAR: numEnv('FX_STATIC_RATE_ZAR', 9.07),
       SGD: numEnv('FX_STATIC_RATE_SGD', 0.66),
       HKD: numEnv('FX_STATIC_RATE_HKD', 3.82),
-      AED: numEnv('FX_STATIC_RATE_AED', 1.80),
+      AED: numEnv('FX_STATIC_RATE_AED', 1.8),
     }),
   }),
   web: Object.freeze({
@@ -4698,8 +4696,7 @@ export const config: AppConfig = Object.freeze({
       connectWebhookSecret: strEnv('STRIPE_CONNECT_WEBHOOK_SECRET', ''),
       ...(process.env.STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS?.trim()
         ? {
-            connectWebhookSecretPrevious:
-              process.env.STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS.trim(),
+            connectWebhookSecretPrevious: process.env.STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS.trim(),
           }
         : {}),
       livemode: strEnv('STRIPE_SECRET_KEY', '').startsWith('sk_live_'),
@@ -4766,9 +4763,7 @@ export const config: AppConfig = Object.freeze({
     sessionIdleDays: intEnv('GUEST_SESSION_IDLE_DAYS', 30),
     sessionAbsoluteDays: intEnv('GUEST_SESSION_ABSOLUTE_DAYS', 90),
     checkoutRollout: Object.freeze({
-      blockedPlatforms: Object.freeze(
-        blockedListEnv('GUEST_CHECKOUT_BLOCKED_PLATFORMS', 'lower'),
-      ),
+      blockedPlatforms: Object.freeze(blockedListEnv('GUEST_CHECKOUT_BLOCKED_PLATFORMS', 'lower')),
       blockedMarkets: Object.freeze(blockedListEnv('GUEST_CHECKOUT_BLOCKED_MARKETS', 'upper')),
       blockedSellerKeys: Object.freeze(
         // NOT lower-cased: a seller key embeds a uuid, and folding its case
@@ -4782,9 +4777,7 @@ export const config: AppConfig = Object.freeze({
         blockedListEnv('GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS', 'lower'),
       ),
       sellerActivationRequired: boolEnv('GUEST_SELLER_ACTIVATION_REQUIRED', false),
-      blockedSuppliers: Object.freeze(
-        blockedListEnv('GUEST_CHECKOUT_BLOCKED_SUPPLIERS', 'lower'),
-      ),
+      blockedSuppliers: Object.freeze(blockedListEnv('GUEST_CHECKOUT_BLOCKED_SUPPLIERS', 'lower')),
     }),
     portal: Object.freeze({
       grantDays: intEnv('GUEST_PORTAL_GRANT_DAYS', 30),
@@ -4980,10 +4973,17 @@ export const config: AppConfig = Object.freeze({
     pollIntervalMs: intEnv('RETAIL_RECONCILIATION_POLL_INTERVAL_MS', 60_000),
   }),
   merchantBilling: Object.freeze({
-    peableCohortJson: (() => { const raw = strEnv('MERCHANT_BILLING_PEABLE_COHORT', ''); parseBillingCohort(raw); return raw; })(),
+    peableCohortJson: (() => {
+      const raw = strEnv('MERCHANT_BILLING_PEABLE_COHORT', '');
+      parseBillingCohort(raw);
+      return raw;
+    })(),
     enabled: resolveMerchantBillingEnabled(),
     reconciliationEnabled: boolEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_ENABLED', true),
-    reconciliationIntervalMs: intEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_INTERVAL_MS', 6 * 60 * MINUTE_MS),
+    reconciliationIntervalMs: intEnv(
+      'MERCHANT_SUBSCRIPTION_RECONCILIATION_INTERVAL_MS',
+      6 * 60 * MINUTE_MS,
+    ),
     reconciliationBatchSize: intEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_BATCH_SIZE', 50),
     // Spread-when-present, like the Stripe onboarding URLs: absent rather than
     // `''`, so opening a session names the missing variable instead of sending a

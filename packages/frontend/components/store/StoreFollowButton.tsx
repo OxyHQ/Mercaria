@@ -1,9 +1,9 @@
-import { Button } from "@oxy.so/bloom/button";
-import { FollowTargetButton, openAccountDialog, useOxy } from "@oxy.so/services";
-import type { StoreSummary } from "@mercaria/shared-types";
-import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
-import { useTranslation } from "@/lib/i18n";
-import { type FollowButtonSize } from "@/lib/follow-graph";
+import { Button } from '@oxy.so/bloom/button';
+import { FollowTargetButton, openAccountDialog, useOxy } from '@oxy.so/services';
+import type { StoreSummary } from '@mercaria/shared-types';
+import { useStoreFollowTarget } from '@/lib/hooks/use-store-follow';
+import { useTranslation } from '@/lib/i18n';
+import { type FollowButtonSize } from '@/lib/follow-graph';
 
 /**
  * Follow a store, backed by Oxy's user-owned follow graph.
@@ -46,7 +46,7 @@ import { type FollowButtonSize } from "@/lib/follow-graph";
  */
 export function StoreFollowButton({
   store,
-  size = "md",
+  size = 'md',
 }: {
   store: StoreSummary;
   size?: FollowButtonSize;
@@ -81,9 +81,9 @@ export function StoreFollowButton({
       tone="accent"
       size={size}
       onPress={() => openAccountDialog()}
-      accessibilityLabel={t("store.follow.followStore", { store: store.name })}
+      accessibilityLabel={t('store.follow.followStore', { store: store.name })}
     >
-      {t("store.follow.follow")}
+      {t('store.follow.follow')}
     </Button>
   );
 }

@@ -157,9 +157,7 @@ export type LegacyOptionNameResolution =
  * them is no rather than "not yet". The collision check comes next because an
  * ambiguous name has no single definition to ask anything else about.
  */
-export function resolveLegacyOptionName(
-  input: LegacyOptionNameInput,
-): LegacyOptionNameResolution {
+export function resolveLegacyOptionName(input: LegacyOptionNameInput): LegacyOptionNameResolution {
   const key = legacyOptionNameToKey(input.rawName);
   if (key === null) return { outcome: 'refused', refusal: 'unmapped' };
 

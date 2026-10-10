@@ -97,8 +97,12 @@ export async function buildPriceSignalContext(
 ): Promise<PriceSignalContext> {
   const scope: PriceSignalScope = {
     scopeKind: request.canonicalVariantId === undefined ? 'canonical_product' : 'canonical_variant',
-    ...(request.canonicalProductId === undefined ? {} : { canonicalProductId: request.canonicalProductId }),
-    ...(request.canonicalVariantId === undefined ? {} : { canonicalVariantId: request.canonicalVariantId }),
+    ...(request.canonicalProductId === undefined
+      ? {}
+      : { canonicalProductId: request.canonicalProductId }),
+    ...(request.canonicalVariantId === undefined
+      ? {}
+      : { canonicalVariantId: request.canonicalVariantId }),
     segment: request.segment,
     ...(request.market === undefined ? {} : { market: request.market }),
     currency: request.currency,
@@ -141,8 +145,9 @@ export async function buildPriceSignalContext(
         offer.delivery.known ? offer.delivery.cost.currency : undefined,
       ]),
     ),
-  ].filter((currency): currency is CurrencyCode =>
-    currency !== undefined && (ALL_CURRENCY_CODES as readonly string[]).includes(currency),
+  ].filter(
+    (currency): currency is CurrencyCode =>
+      currency !== undefined && (ALL_CURRENCY_CODES as readonly string[]).includes(currency),
   );
   const rates = await getRates(request.currency, quotes);
 
@@ -224,10 +229,7 @@ export async function buildPriceSignalContext(
             amount: converted.amount.amount,
             observedAt: request.now,
           });
-          values.set(
-            id,
-            priceValue(nativeTotal, converted.amount.amount, request.currency, rates),
-          );
+          values.set(id, priceValue(nativeTotal, converted.amount.amount, request.currency, rates));
         }
       }
     }
@@ -236,8 +238,12 @@ export async function buildPriceSignalContext(
   // ── The historical half, through #78's own derivation ────────────────────
   const derived = await derivePointsForScope(
     {
-      ...(request.canonicalProductId === undefined ? {} : { canonicalProductId: request.canonicalProductId }),
-      ...(request.canonicalVariantId === undefined ? {} : { canonicalVariantId: request.canonicalVariantId }),
+      ...(request.canonicalProductId === undefined
+        ? {}
+        : { canonicalProductId: request.canonicalProductId }),
+      ...(request.canonicalVariantId === undefined
+        ? {}
+        : { canonicalVariantId: request.canonicalVariantId }),
       ...(request.market === undefined ? {} : { market: request.market }),
       ...(request.focusMerchantId === undefined ? {} : { merchantId: request.focusMerchantId }),
       displayCurrency: request.currency,

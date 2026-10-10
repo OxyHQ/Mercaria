@@ -77,7 +77,11 @@ import type { AuthoringSchema } from '@mercaria/shared-types';
 
 import { connectPostgres, type Database, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { findCategoryByKey } from '../../db/taxonomy/taxonomyRepository.js';
-import { createDraft, patchDraft, validateStoreDraft } from '../../services/catalog-authoring/draft.service.js';
+import {
+  createDraft,
+  patchDraft,
+  validateStoreDraft,
+} from '../../services/catalog-authoring/draft.service.js';
 import { publishDraft } from '../../services/catalog-authoring/publish.service.js';
 import { composeAuthoringSchema } from '../../services/catalog-authoring/schema.service.js';
 import { foldLocale } from '../../services/catalog-localization/resolve.js';
@@ -86,7 +90,12 @@ import { convergeNativeOffersForListing } from '../../services/offers/native-off
 import { rankOfferComparison } from '../../services/ranking/comparison.service.js';
 import { readCanonicalProductPage } from '../../services/product-page/product-page.service.js';
 import { runCanonicalSearch } from '../../services/search/canonical-search.service.js';
-import { nsCategoryKey, nsKey, nsSlug, type VerticalNamespace } from '../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  nsSlug,
+  type VerticalNamespace,
+} from '../../scripts/seed-verticals/apply.js';
 import { FOOTWEAR_PACKAGE } from '../../scripts/seed-verticals/footwear.js';
 import { SMARTPHONE_PACKAGE } from '../../scripts/seed-verticals/smartphone.js';
 import {
@@ -118,9 +127,19 @@ interface Pair {
   readonly locale: string;
   readonly market: string;
   /** The footwear canonical configurations this pair lists. */
-  readonly footwear: readonly { readonly variantKey: string; readonly size: string; readonly color: string; readonly width: string }[];
+  readonly footwear: readonly {
+    readonly variantKey: string;
+    readonly size: string;
+    readonly color: string;
+    readonly width: string;
+  }[];
   /** The smartphone canonical configuration this pair lists. */
-  readonly phone: { readonly variantKey: string; readonly storageGb: number; readonly color: string; readonly region: string };
+  readonly phone: {
+    readonly variantKey: string;
+    readonly storageGb: number;
+    readonly color: string;
+    readonly region: string;
+  };
 }
 
 const PAIRS: readonly Pair[] = [
@@ -477,9 +496,7 @@ describe.each(PAIRS)('the footwear journey in $name', (pair) => {
     const narrowed = await resolveFacets(
       {
         scope: { kind: 'category', categoryId: mensCategoryId, includeDescendants: true },
-        selection: [
-          { origin: 'attribute', facetKey: nsKey(fwNs, 'shoe_width'), values: ['wide'] },
-        ],
+        selection: [{ origin: 'attribute', facetKey: nsKey(fwNs, 'shoe_width'), values: ['wide'] }],
         locale: pair.locale,
         displayCurrency: 'EUR',
       },
@@ -614,11 +631,15 @@ describe.each(PAIRS)('the smartphone existing-canonical journey in $name', (pair
             },
             {
               attributeKey: nsKey(phNs, 'phone_color'),
-              values: [{ enumValueId: await enumValueId(db, phNs, 'phone_color', pair.phone.color) }],
+              values: [
+                { enumValueId: await enumValueId(db, phNs, 'phone_color', pair.phone.color) },
+              ],
             },
             {
               attributeKey: nsKey(phNs, 'device_region'),
-              values: [{ enumValueId: await enumValueId(db, phNs, 'device_region', pair.phone.region) }],
+              values: [
+                { enumValueId: await enumValueId(db, phNs, 'device_region', pair.phone.region) },
+              ],
             },
           ],
         },

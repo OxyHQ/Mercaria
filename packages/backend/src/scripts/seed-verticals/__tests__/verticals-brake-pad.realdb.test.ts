@@ -39,7 +39,10 @@ import {
   listVehicleModels,
 } from '../../../db/compatibility/vehicleCatalogRepository.js';
 import { listFitmentsForVehicle } from '../../../db/compatibility/automotiveFitmentRepository.js';
-import { answerFitment, listVehiclesForPart } from '../../../services/compatibility/fitment.service.js';
+import {
+  answerFitment,
+  listVehiclesForPart,
+} from '../../../services/compatibility/fitment.service.js';
 import { listUnresolvedClaims } from '../../../db/compatibility/compatibilityClaimRepository.js';
 import { resolveFacets } from '../../../services/facets/facet.service.js';
 import { findCategoryByKey } from '../../../db/taxonomy/taxonomyRepository.js';
@@ -335,9 +338,9 @@ describe('reverse fitment', () => {
     // explain it, so an unexplained "sort of" has no row shape.
     const partial = pad.filter((row) => row.applicability === 'partially_applies');
     expect(partial).toHaveLength(1);
-    expect(
-      (partial[0]?.qualifiers ?? []).length > 0 || partial[0]?.conditionNote !== null,
-    ).toBe(true);
+    expect((partial[0]?.qualifiers ?? []).length > 0 || partial[0]?.conditionNote !== null).toBe(
+      true,
+    );
   });
 });
 
@@ -357,10 +360,7 @@ describe('the exclusion, and the asymmetry that makes it bite immediately', () =
     expect(exclusion?.verification).toBe('candidate');
     expect(exclusion?.applicability).toBe('does_not_apply');
 
-    const ancestry = await findVehicleAncestry(
-      ids.configurations.get('f30_320d_us') ?? '',
-      db,
-    );
+    const ancestry = await findVehicleAncestry(ids.configurations.get('f30_320d_us') ?? '', db);
     expect(ancestry).not.toBeNull();
     if (!ancestry) return;
     const answer = await answerFitment({
@@ -492,7 +492,11 @@ describe('ambiguous supplier claims are kept, never guessed', () => {
 
 describe('nothing about a vehicle can become a variant axis or a facet', () => {
   it('declares the fitment field at `compatibility` scope, which cannot be an axis', async () => {
-    const rows = await db.execute<{ attribute_key: string; scope: string; variant_capable: boolean }>(
+    const rows = await db.execute<{
+      attribute_key: string;
+      scope: string;
+      variant_capable: boolean;
+    }>(
       sql`
         select f.attribute_key, f.scope, f.variant_capable
         from product_type_fields f
@@ -630,7 +634,11 @@ describe('the part’s own facts', () => {
   });
 
   it('carries an MPN and a GTIN on the one variant', async () => {
-    const rows = await db.execute<{ scheme: string; normalized_value: string; canonical_value: string | null }>(
+    const rows = await db.execute<{
+      scheme: string;
+      normalized_value: string;
+      canonical_value: string | null;
+    }>(
       sql`
         select scheme, normalized_value, canonical_value
         from product_identifiers where variant_id = ${padVariantId} order by scheme

@@ -143,7 +143,9 @@ function projectProgram(row: ReferralProgramRow): ReferralProgramPartnerView {
     publicTermsSummary: row.publicTermsSummary,
     family: row.family,
     status: row.status,
-    ...(row.effectiveStartAt !== null ? { effectiveStartAt: row.effectiveStartAt.toISOString() } : {}),
+    ...(row.effectiveStartAt !== null
+      ? { effectiveStartAt: row.effectiveStartAt.toISOString() }
+      : {}),
     ...(row.effectiveEndAt !== null ? { effectiveEndAt: row.effectiveEndAt.toISOString() } : {}),
     attributionWindowDays: row.attributionWindowDays,
     termsVersion: row.termsVersion,

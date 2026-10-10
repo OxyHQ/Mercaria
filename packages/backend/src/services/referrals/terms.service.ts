@@ -103,7 +103,11 @@ export async function acceptPartnerTerms(input: {
   locale: string;
   actorOxyUserId: string;
   at?: Date;
-}): Promise<{ acceptance: ReferralTermsAcceptanceRow; created: boolean; partner: ReferralPartnerRow }> {
+}): Promise<{
+  acceptance: ReferralTermsAcceptanceRow;
+  created: boolean;
+  partner: ReferralPartnerRow;
+}> {
   const at = input.at ?? new Date();
 
   if (!LOCALE_PATTERN.test(input.locale)) {
@@ -113,7 +117,7 @@ export async function acceptPartnerTerms(input: {
     throw validationError(`Not a language tag: ${input.locale}`);
   }
   if (input.scope === 'program_terms' && (input.programId ?? '').trim().length === 0) {
-    throw validationError('Accepting a program\'s terms must name the program');
+    throw validationError("Accepting a program's terms must name the program");
   }
   if (input.scope === 'partner_agreement' && input.programId !== undefined) {
     throw validationError('The partner agreement is not scoped to a program');

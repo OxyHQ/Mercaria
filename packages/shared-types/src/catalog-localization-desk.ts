@@ -115,7 +115,9 @@ export function isLaunchLocale(locale: SupportedLocale): boolean {
  * simply not registered its fields yet — so the length is checked first.
  */
 function domainIsSellerAuthored(kind: LocalizedEntityKind): boolean {
-  const fields = LOCALIZED_FIELD_KEYS.filter((key) => CATALOG_LOCALIZED_FIELDS[key].entity === kind);
+  const fields = LOCALIZED_FIELD_KEYS.filter(
+    (key) => CATALOG_LOCALIZED_FIELDS[key].entity === kind,
+  );
   if (fields.length === 0) return false;
   return fields.every((key) => CATALOG_LOCALIZED_FIELDS[key].fieldClass === 'seller_authored');
 }
@@ -203,7 +205,10 @@ export const LOCALIZATION_COVERAGE_UNCOVERED_TABLES = [
  * without `strictNullChecks` TypeScript does not narrow a union on the
  * truthiness of a boolean-literal member.
  */
-export const LOCALIZATION_STALENESS_MECHANISMS = ['database_trigger', 'service_copy_forward'] as const;
+export const LOCALIZATION_STALENESS_MECHANISMS = [
+  'database_trigger',
+  'service_copy_forward',
+] as const;
 
 /** How a domain's translations come to be marked `stale`. */
 export type LocalizationStalenessMechanism = (typeof LOCALIZATION_STALENESS_MECHANISMS)[number];
@@ -340,10 +345,7 @@ export const LOCALIZATION_STALENESS_DETECTIONS: readonly LocalizationStalenessDe
     domain: 'canonical_product_family',
     mechanism: 'database_trigger',
     performedBy: 'mercaria_canonical_product_families_localization_stale',
-    watches: [
-      'canonical_product_families.name',
-      'canonical_product_families.description',
-    ],
+    watches: ['canonical_product_families.name', 'canonical_product_families.description'],
     unwatched: [],
     carriesForwardOnVersionBump: 'yes',
   },
@@ -425,12 +427,12 @@ export const LOCALIZATION_OWED_POPULATION_RULES: Readonly<Record<LocalizedEntity
       'translate.',
     product_type:
       'product_type_definitions VERSIONS whose lifecycle is published. Per version and not per ' +
-      'key, because a translation is of a MEANING and D5 freezes a published version\'s: a v2 ' +
-      'that changed what a field asks for must not inherit v1\'s help text. A draft or review ' +
+      "key, because a translation is of a MEANING and D5 freezes a published version's: a v2 " +
+      "that changed what a field asks for must not inherit v1's help text. A draft or review " +
       'version may still change meaning; a deprecated one accepts no new authoring.',
     attribute_value:
       'attribute_enum_values whose parent attribute_definitions.lifecycle_state is active. The ' +
-      'enum value carries no lifecycle of its own, so the definition\'s is the only statement ' +
+      "enum value carries no lifecycle of its own, so the definition's is the only statement " +
       'available about whether its labels are still worth translating.',
     canonical_product:
       "canonical_products whose status is 'active'. A draft is not copy anybody reads, a " +

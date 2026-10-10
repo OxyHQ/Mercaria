@@ -97,7 +97,9 @@ async function main(): Promise<void> {
 
   // Printed as one JSON object rather than prose, so a caller can loop on
   // `resumeAfterListingId` and an operator can diff two passes.
-  process.stdout.write(`${JSON.stringify({ ...report, hasMore: report.resumeAfterListingId !== null }, null, 2)}\n`);
+  process.stdout.write(
+    `${JSON.stringify({ ...report, hasMore: report.resumeAfterListingId !== null }, null, 2)}\n`,
+  );
 
   log.general.info(
     {

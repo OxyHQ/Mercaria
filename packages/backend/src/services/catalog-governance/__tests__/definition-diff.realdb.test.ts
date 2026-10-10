@@ -98,7 +98,8 @@ function citation(key: string): { id: string; key: string; version: number } {
 
 function categoryOf(key: string): string {
   const id = phones.handles.categoryIds.get(key);
-  if (id === undefined) throw new Error(`the smartphone package did not seed the category "${key}"`);
+  if (id === undefined)
+    throw new Error(`the smartphone package did not seed the category "${key}"`);
   return id;
 }
 

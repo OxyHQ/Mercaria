@@ -1,15 +1,15 @@
-import React from "react";
-import { View, Pressable } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { ChevronLeft, User } from "lucide-react-native";
-import type { Customer, OrderSummary } from "@mercaria/shared-types";
-import { Text, PriceDisplay, formatDate, useColorScheme } from "@mercaria/ui";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
-import { useCustomer, useCustomerOrders } from "@/lib/hooks/use-customers";
-import { useTranslation } from "@/lib/i18n";
+import React from 'react';
+import { View, Pressable } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { ChevronLeft, User } from 'lucide-react-native';
+import type { Customer, OrderSummary } from '@mercaria/shared-types';
+import { Text, PriceDisplay, formatDate, useColorScheme } from '@mercaria/ui';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
+import { useCustomer, useCustomerOrders } from '@/lib/hooks/use-customers';
+import { useTranslation } from '@/lib/i18n';
 
 export default function CustomerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -17,7 +17,7 @@ export default function CustomerDetailScreen() {
   return (
     <>
       <Head>
-        <title>{t("customers.detail.documentTitle")}</title>
+        <title>{t('customers.detail.documentTitle')}</title>
       </Head>
       <RequireStore permission="customers:read">
         {(storeId) => <CustomerDetailBody storeId={storeId} customerId={String(id)} />}
@@ -39,50 +39,49 @@ function CustomerDetailBody({ storeId, customerId }: { storeId: string; customer
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
+      <Text className="text-sm font-medium text-foreground">{t('common.back')}</Text>
     </Pressable>
   );
 
   if (customer.isPending) {
     return (
-      <Screen title={t("customers.detail.title")} action={back}>
+      <Screen title={t('customers.detail.title')} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (customer.isError || !customer.data) {
     return (
-      <Screen title={t("customers.detail.title")} action={back}>
-        <ScreenMessage
-          title={t("customers.detail.loadError")}
-          body={t("common.pleaseTryAgain")}
-        />
+      <Screen title={t('customers.detail.title')} action={back}>
+        <ScreenMessage title={t('customers.detail.loadError')} body={t('common.pleaseTryAgain')} />
       </Screen>
     );
   }
 
   const c = customer.data;
   const name =
-    c.displayName ?? c.email ?? (c.isWalkIn ? t("customers.walkIn") : t("customers.fallbackName"));
+    c.displayName ?? c.email ?? (c.isWalkIn ? t('customers.walkIn') : t('customers.fallbackName'));
 
   return (
-    <Screen title={name} subtitle={t("customers.detail.subtitle")} action={back}>
+    <Screen title={name} subtitle={t('customers.detail.subtitle')} action={back}>
       <View className="gap-5">
         <CustomerCard customer={c} name={name} />
         <View className="rounded-2xl border border-border bg-surface p-4">
           <Text className="mb-3 text-sm font-semibold text-foreground">
-            {t("customers.detail.orders")}
+            {t('customers.detail.orders')}
           </Text>
           {orders.isPending ? (
             <ScreenLoading />
           ) : (orders.data?.length ?? 0) === 0 ? (
-            <Text className="text-sm text-muted-foreground">
-              {t("customers.detail.noOrders")}
-            </Text>
+            <Text className="text-sm text-muted-foreground">{t('customers.detail.noOrders')}</Text>
           ) : (
             <View className="gap-2">
               {orders.data?.map((order) => (
-                <OrderRow key={order.id} order={order} onPress={() => router.push(`/orders/${order.id}`)} />
+                <OrderRow
+                  key={order.id}
+                  order={order}
+                  onPress={() => router.push(`/orders/${order.id}`)}
+                />
               ))}
             </View>
           )}
@@ -114,13 +113,13 @@ function CustomerCard({ customer, name }: { customer: Customer; name: string }) 
       <View className="mt-4 flex-row gap-4">
         <View className="flex-1">
           <Text className="text-xs uppercase text-muted-foreground">
-            {t("customers.detail.orders")}
+            {t('customers.detail.orders')}
           </Text>
           <Text className="text-lg font-bold text-foreground">{customer.stats.orderCount}</Text>
         </View>
         <View className="flex-1">
           <Text className="text-xs uppercase text-muted-foreground">
-            {t("customers.detail.lifetimeSpend")}
+            {t('customers.detail.lifetimeSpend')}
           </Text>
           <PriceDisplay price={customer.stats.totalSpent} primaryClassName="text-lg font-bold" />
         </View>
@@ -141,9 +140,7 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
         {/* The date stands alone under the order number, so an unformattable
             one renders nothing rather than "Invalid Date" — which is what the
             replaced expression produced, untranslated, in all twelve locales. */}
-        <Text className="text-xs text-muted-foreground">
-          {formatDate(order.createdAt, locale)}
-        </Text>
+        <Text className="text-xs text-muted-foreground">{formatDate(order.createdAt, locale)}</Text>
       </View>
       <PriceDisplay price={order.grandTotal.shop} primaryClassName="text-sm font-semibold" />
       <OrderStatusBadge status={order.status} />

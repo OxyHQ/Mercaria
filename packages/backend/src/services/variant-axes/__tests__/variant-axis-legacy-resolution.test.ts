@@ -339,9 +339,9 @@ describe('the VALUE half resolves through recorded evidence only', () => {
       baseUnit: 'B',
       enumValues: [],
     });
-    expect(
-      resolveLegacyOptionValue({ rawValue: 'about a lot', definition: storage }).outcome,
-    ).toBe('refused');
+    expect(resolveLegacyOptionValue({ rawValue: 'about a lot', definition: storage }).outcome).toBe(
+      'refused',
+    );
   });
 });
 
@@ -388,10 +388,18 @@ describe('which refusals this resolver can produce', () => {
     // a check that cannot fail, and pretending otherwise is how a closed set
     // reads as coverage it does not have.
     const produced = new Set<string>();
-    const cases: { rawName: string; definition: ResolvedAttributeDefinition | null; collides: boolean }[] = [
+    const cases: {
+      rawName: string;
+      definition: ResolvedAttributeDefinition | null;
+      collides: boolean;
+    }[] = [
       { rawName: 'Tono', definition: null, collides: false },
       { rawName: 'Price', definition: definition({ key: 'price' }), collides: false },
-      { rawName: 'Color', definition: definition({ key: 'color', variantDefining: false }), collides: false },
+      {
+        rawName: 'Color',
+        definition: definition({ key: 'color', variantDefining: false }),
+        collides: false,
+      },
       { rawName: 'Shoe Size', definition: definition({ key: 'shoe_size' }), collides: true },
     ];
     for (const testCase of cases) {

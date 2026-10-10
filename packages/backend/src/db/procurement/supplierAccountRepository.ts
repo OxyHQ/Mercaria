@@ -189,7 +189,9 @@ export async function transitionAccountState(
       ...(input.next === 'active' ? { activatedAt: at } : {}),
       updatedAt: at,
     })
-    .where(and(eq(supplierAccounts.id, input.accountId), eq(supplierAccounts.state, input.expected)))
+    .where(
+      and(eq(supplierAccounts.id, input.accountId), eq(supplierAccounts.state, input.expected)),
+    )
     .returning(ACCOUNT_COLUMNS);
   return row;
 }

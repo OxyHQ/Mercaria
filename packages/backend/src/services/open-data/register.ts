@@ -47,7 +47,8 @@ export function registerOpenDataAdapters(): void {
       createOpenDataAdapter(provider, {
         http,
         demandFor: (sourceId) => ({
-          gtins: (after, limit) => listGtinDemand(getDb(), { askingSourceId: sourceId, after, limit }),
+          gtins: (after, limit) =>
+            listGtinDemand(getDb(), { askingSourceId: sourceId, after, limit }),
         }),
       }),
     );

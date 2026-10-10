@@ -38,7 +38,10 @@ import {
 import { matchDecisions, matchPolicyVersions } from '../../db/schema/matching.js';
 import { merchants } from '../../db/schema/merchants.js';
 import { offers } from '../../db/schema/offers.js';
-import { catalogSourceDistributions, catalogSourceRunQuarantines } from '../../db/schema/offerFreshness.js';
+import {
+  catalogSourceDistributions,
+  catalogSourceRunQuarantines,
+} from '../../db/schema/offerFreshness.js';
 import { offerPriceSnapshots } from '../../db/schema/priceHistory.js';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
 import { openCatalogBackfillRun, runCatalogBackfillPage } from '../backfill/backfill.service.js';
@@ -46,13 +49,19 @@ import { ALL_COHORT } from '../backfill/cohort.js';
 import { createFixtureAdapter } from '../ingestion/adapters/fixture.js';
 import type { AdapterRecord } from '../ingestion/adapter.js';
 import { runIngestionPage } from '../ingestion/ingest.service.js';
-import { registerCatalogSourceAdapter, unregisterCatalogSourceAdapter } from '../ingestion/registry.js';
+import {
+  registerCatalogSourceAdapter,
+  unregisterCatalogSourceAdapter,
+} from '../ingestion/registry.js';
 import {
   changeIngestionSourceStatus,
   configureIngestionSource,
   publishIngestionSourcePolicy,
 } from '../ingestion/source.service.js';
-import { acquireActivePolicySlot, type ActivePolicySlot } from '../ingestion/__tests__/active-policy-slot.js';
+import {
+  acquireActivePolicySlot,
+  type ActivePolicySlot,
+} from '../ingestion/__tests__/active-policy-slot.js';
 
 /** The active-policy slot can wait behind a sibling file; see `active-policy-slot.ts`. */
 const POLICY_CASE_TIMEOUT_MS = 90_000;
@@ -119,7 +128,9 @@ async function bringUpSource(input: {
   rights: Partial<typeof FULL_RIGHTS> & { maySeedCatalog?: boolean };
 }): Promise<string> {
   const provider = `anchor_${input.label}_${RUN}`.toLowerCase();
-  registerCatalogSourceAdapter(createFixtureAdapter({ provider, kind: input.kind, pages: input.pages }));
+  registerCatalogSourceAdapter(
+    createFixtureAdapter({ provider, kind: input.kind, pages: input.pages }),
+  );
   registeredProviders.push(provider);
   cardProvider = provider;
   const resolved = await configureIngestionSource({
@@ -132,8 +143,18 @@ async function bringUpSource(input: {
   });
   const sourceId = resolved.source.config.sourceId;
   createdSourceIds.push(sourceId);
-  await publishIngestionSourcePolicy({ sourceId, reviewedByOxyUserId: OPERATOR, ...FULL_RIGHTS, ...input.rights });
-  await changeIngestionSourceStatus({ sourceId, status: 'active', actorOxyUserId: OPERATOR, reason: 'reference seeding test' });
+  await publishIngestionSourcePolicy({
+    sourceId,
+    reviewedByOxyUserId: OPERATOR,
+    ...FULL_RIGHTS,
+    ...input.rights,
+  });
+  await changeIngestionSourceStatus({
+    sourceId,
+    status: 'active',
+    actorOxyUserId: OPERATOR,
+    reason: 'reference seeding test',
+  });
   return sourceId;
 }
 
@@ -157,7 +178,12 @@ async function ingest(sourceId: string, now: Date): Promise<void> {
         leaseUntil: new Date(Date.now() + 120_000),
         startedAt: sql`coalesce(${catalogSourceRuns.startedAt}, now())`,
       })
-      .where(and(eq(catalogSourceRuns.id, run.id), inArray(catalogSourceRuns.status, ['pending', 'running'])));
+      .where(
+        and(
+          eq(catalogSourceRuns.id, run.id),
+          inArray(catalogSourceRuns.status, ['pending', 'running']),
+        ),
+      );
     const result = await runIngestionPage({ runId: run.id, leaseOwner });
     if (result.outcome !== null || result.skipped !== null) break;
   }
@@ -165,7 +191,12 @@ async function ingest(sourceId: string, now: Date): Promise<void> {
 
 /** Open a backfill run and page it to completion. */
 async function backfill(stage: CatalogBackfillStage, mode: CatalogBackfillMode): Promise<string> {
-  const { run } = await openCatalogBackfillRun({ stage, mode, cohort: ALL_COHORT, requestedByOxyUserId: OPERATOR });
+  const { run } = await openCatalogBackfillRun({
+    stage,
+    mode,
+    cohort: ALL_COHORT,
+    requestedByOxyUserId: OPERATOR,
+  });
   createdBackfillRunIds.push(run.id);
   for (let page = 0; page < 200; page += 1) {
     const result = await runCatalogBackfillPage(run.id, { limit: 200 });
@@ -175,14 +206,23 @@ async function backfill(stage: CatalogBackfillStage, mode: CatalogBackfillMode):
 }
 
 async function objectsOf(sourceId: string) {
-  return db.select().from(catalogSourceObjects).where(eq(catalogSourceObjects.sourceId, sourceId)).orderBy(catalogSourceObjects.externalId);
+  return db
+    .select()
+    .from(catalogSourceObjects)
+    .where(eq(catalogSourceObjects.sourceId, sourceId))
+    .orderBy(catalogSourceObjects.externalId);
 }
 
 async function recordFor(runId: string, sourceObjectId: string) {
   const [record] = await db
     .select()
     .from(catalogBackfillRecords)
-    .where(and(eq(catalogBackfillRecords.runId, runId), eq(catalogBackfillRecords.subjectKey, `source_object:${sourceObjectId}`)));
+    .where(
+      and(
+        eq(catalogBackfillRecords.runId, runId),
+        eq(catalogBackfillRecords.subjectKey, `source_object:${sourceObjectId}`),
+      ),
+    );
   return record;
 }
 
@@ -241,42 +281,103 @@ afterAll(async () => {
     for (const provider of registeredProviders) unregisterCatalogSourceAdapter(provider);
     const products = await seededProducts();
     const productIds = products.map((product) => product.id);
-    const variantIds = productIds.length === 0
-      ? []
-      : (await db.select({ id: canonicalVariants.id }).from(canonicalVariants).where(inArray(canonicalVariants.productId, productIds))).map((row) => row.id);
-    const safe = (ids: readonly string[]) => (ids.length === 0 ? ['00000000-0000-0000-0000-000000000000'] : [...ids]);
+    const variantIds =
+      productIds.length === 0
+        ? []
+        : (
+            await db
+              .select({ id: canonicalVariants.id })
+              .from(canonicalVariants)
+              .where(inArray(canonicalVariants.productId, productIds))
+          ).map((row) => row.id);
+    const safe = (ids: readonly string[]) =>
+      ids.length === 0 ? ['00000000-0000-0000-0000-000000000000'] : [...ids];
 
-    await db.delete(catalogBackfillRecords).where(inArray(catalogBackfillRecords.runId, safe(createdBackfillRunIds)));
-    await db.delete(catalogBackfillRuns).where(inArray(catalogBackfillRuns.id, safe(createdBackfillRunIds)));
-    await db.delete(catalogSourceObjects).where(inArray(catalogSourceObjects.sourceId, safe(createdSourceIds)));
-    const ownOffers = (await db.select({ id: offers.id }).from(offers).where(inArray(offers.merchantId, safe(createdMerchantIds)))).map((row) => row.id);
-    await db.delete(offerPriceSnapshots).where(inArray(offerPriceSnapshots.offerId, safe(ownOffers)));
+    await db
+      .delete(catalogBackfillRecords)
+      .where(inArray(catalogBackfillRecords.runId, safe(createdBackfillRunIds)));
+    await db
+      .delete(catalogBackfillRuns)
+      .where(inArray(catalogBackfillRuns.id, safe(createdBackfillRunIds)));
+    await db
+      .delete(catalogSourceObjects)
+      .where(inArray(catalogSourceObjects.sourceId, safe(createdSourceIds)));
+    const ownOffers = (
+      await db
+        .select({ id: offers.id })
+        .from(offers)
+        .where(inArray(offers.merchantId, safe(createdMerchantIds)))
+    ).map((row) => row.id);
+    await db
+      .delete(offerPriceSnapshots)
+      .where(inArray(offerPriceSnapshots.offerId, safe(ownOffers)));
     await db.delete(offers).where(inArray(offers.id, safe(ownOffers)));
-    await db.delete(catalogSourceRejections).where(inArray(catalogSourceRejections.sourceId, safe(createdSourceIds)));
-    await db.delete(catalogSourceRunQuarantines).where(inArray(catalogSourceRunQuarantines.sourceId, safe(createdSourceIds)));
-    await db.delete(catalogSourceDistributions).where(inArray(catalogSourceDistributions.sourceId, safe(createdSourceIds)));
-    await db.delete(catalogSourceRuns).where(inArray(catalogSourceRuns.sourceId, safe(createdSourceIds)));
-    await db.delete(canonicalVariantSourceLinks).where(inArray(canonicalVariantSourceLinks.variantId, safe(variantIds)));
-    await db.delete(canonicalProductSourceLinks).where(inArray(canonicalProductSourceLinks.productId, safe(productIds)));
-    await db.delete(productIdentifiers).where(inArray(productIdentifiers.variantId, safe(variantIds)));
-    const ownRecordIds = (await db.select({ id: sourceRecords.id }).from(sourceRecords).where(inArray(sourceRecords.sourceId, safe(createdSourceIds)))).map((row) => row.id);
-    await db.delete(matchDecisions).where(inArray(matchDecisions.sourceRecordId, safe(ownRecordIds)));
+    await db
+      .delete(catalogSourceRejections)
+      .where(inArray(catalogSourceRejections.sourceId, safe(createdSourceIds)));
+    await db
+      .delete(catalogSourceRunQuarantines)
+      .where(inArray(catalogSourceRunQuarantines.sourceId, safe(createdSourceIds)));
+    await db
+      .delete(catalogSourceDistributions)
+      .where(inArray(catalogSourceDistributions.sourceId, safe(createdSourceIds)));
+    await db
+      .delete(catalogSourceRuns)
+      .where(inArray(catalogSourceRuns.sourceId, safe(createdSourceIds)));
+    await db
+      .delete(canonicalVariantSourceLinks)
+      .where(inArray(canonicalVariantSourceLinks.variantId, safe(variantIds)));
+    await db
+      .delete(canonicalProductSourceLinks)
+      .where(inArray(canonicalProductSourceLinks.productId, safe(productIds)));
+    await db
+      .delete(productIdentifiers)
+      .where(inArray(productIdentifiers.variantId, safe(variantIds)));
+    const ownRecordIds = (
+      await db
+        .select({ id: sourceRecords.id })
+        .from(sourceRecords)
+        .where(inArray(sourceRecords.sourceId, safe(createdSourceIds)))
+    ).map((row) => row.id);
+    await db
+      .delete(matchDecisions)
+      .where(inArray(matchDecisions.sourceRecordId, safe(ownRecordIds)));
     await db.delete(sourceRecords).where(inArray(sourceRecords.sourceId, safe(createdSourceIds)));
-    await db.delete(catalogSourceConfigs).where(inArray(catalogSourceConfigs.sourceId, safe(createdSourceIds)));
+    await db
+      .delete(catalogSourceConfigs)
+      .where(inArray(catalogSourceConfigs.sourceId, safe(createdSourceIds)));
     await withTriggerToggleLock(db, async (tx) => {
-      await tx.execute(sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`);
-      await tx.delete(catalogSourcePolicies).where(inArray(catalogSourcePolicies.sourceId, safe(createdSourceIds)));
-      await tx.execute(sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`);
+      await tx.execute(
+        sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
+      );
+      await tx
+        .delete(catalogSourcePolicies)
+        .where(inArray(catalogSourcePolicies.sourceId, safe(createdSourceIds)));
+      await tx.execute(
+        sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
+      );
     });
     await db.delete(catalogSources).where(inArray(catalogSources.id, safe(createdSourceIds)));
     await deleteTestCanonicalRows(db, { productIds, variantIds });
     await db.delete(merchants).where(inArray(merchants.id, safe(createdMerchantIds)));
-    const stillCited = (await db.select({ id: matchDecisions.id }).from(matchDecisions).where(inArray(matchDecisions.policyVersionId, safe(createdPolicyIds))).limit(1)).length;
+    const stillCited = (
+      await db
+        .select({ id: matchDecisions.id })
+        .from(matchDecisions)
+        .where(inArray(matchDecisions.policyVersionId, safe(createdPolicyIds)))
+        .limit(1)
+    ).length;
     if (stillCited === 0) {
       await withTriggerToggleLock(db, async (tx) => {
-        await tx.execute(sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`);
-        await tx.delete(matchPolicyVersions).where(inArray(matchPolicyVersions.id, safe(createdPolicyIds)));
-        await tx.execute(sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`);
+        await tx.execute(
+          sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
+        );
+        await tx
+          .delete(matchPolicyVersions)
+          .where(inArray(matchPolicyVersions.id, safe(createdPolicyIds)));
+        await tx.execute(
+          sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
+        );
       });
     }
   } finally {
@@ -313,7 +414,10 @@ describe('ADR 0016: a source seeds products by its own product key', () => {
     expect(product?.status).toBe('draft');
     expect(product?.variantDefiningAttributeKeys).toEqual(['finish']);
 
-    const variants = await db.select().from(canonicalVariants).where(eq(canonicalVariants.productId, product?.id ?? ''));
+    const variants = await db
+      .select()
+      .from(canonicalVariants)
+      .where(eq(canonicalVariants.productId, product?.id ?? ''));
     expect(variants).toHaveLength(2);
 
     const objects = await objectsOf(cardSourceId);
@@ -334,7 +438,10 @@ describe('ADR 0016: a source seeds products by its own product key', () => {
     await backfill('reference_products', 'apply');
     const products = await seededProducts();
     expect(products).toHaveLength(1);
-    const variants = await db.select().from(canonicalVariants).where(eq(canonicalVariants.productId, products[0]?.id ?? ''));
+    const variants = await db
+      .select()
+      .from(canonicalVariants)
+      .where(eq(canonicalVariants.productId, products[0]?.id ?? ''));
     expect(variants).toHaveLength(2);
   });
 
@@ -346,15 +453,25 @@ describe('ADR 0016: a source seeds products by its own product key', () => {
   it('a new price is attached through the existing link, and moves the offer', async () => {
     unregisterCatalogSourceAdapter(cardProvider);
     registerCatalogSourceAdapter(
-      createFixtureAdapter({ provider: cardProvider, kind: 'marketplace_api', pages: [[cardRecord('Nonfoil', 30, LATER), cardRecord('Foil', 140, LATER)]] }),
+      createFixtureAdapter({
+        provider: cardProvider,
+        kind: 'marketplace_api',
+        pages: [[cardRecord('Nonfoil', 30, LATER), cardRecord('Foil', 140, LATER)]],
+      }),
     );
     await ingest(cardSourceId, LATER);
     const objects = await objectsOf(cardSourceId);
     const nonfoil = objects.find((object) => object.externalId.endsWith(':nonfoil'));
     expect(nonfoil?.state).toBe('offer_current');
-    const [decision] = await db.select().from(matchDecisions).where(eq(matchDecisions.id, nonfoil?.lastMatchDecisionId ?? ''));
+    const [decision] = await db
+      .select()
+      .from(matchDecisions)
+      .where(eq(matchDecisions.id, nonfoil?.lastMatchDecisionId ?? ''));
     expect(decision?.decidedStage).toBe('existing_source_link');
-    const [offer] = await db.select().from(offers).where(eq(offers.id, nonfoil?.offerId ?? ''));
+    const [offer] = await db
+      .select()
+      .from(offers)
+      .where(eq(offers.id, nonfoil?.offerId ?? ''));
     expect(offer?.priceAmount).toBe(30);
     expect(await seededProducts()).toHaveLength(1);
   });

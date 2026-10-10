@@ -55,11 +55,7 @@ import { config } from '../../config/index.js';
 import { boundedBytes, decodeText, decompressBytes, type FeedByteMeter } from './bytes.js';
 import { FeedImportRefusal } from './errors.js';
 import { mapFeedRecord, type MappedFeedRecord, type ResolvedFeedMapping } from './mapping.js';
-import {
-  streamFeedRecords,
-  type FeedParseOptions,
-  type FeedRawRecord,
-} from './parse/index.js';
+import { streamFeedRecords, type FeedParseOptions, type FeedRawRecord } from './parse/index.js';
 
 /** One mapped candidate, as a stage line holds it. Keys are short on purpose. */
 interface StagedLine {
@@ -191,7 +187,10 @@ export async function buildFeedStage(input: BuildStageInput): Promise<FeedStage>
   const hash = createHash('sha256');
   const meter: FeedByteMeter = { compressedBytes: 0, decompressedBytes: 0 };
 
-  const temporary = join(stageDirectory(), `pending-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.jsonl`);
+  const temporary = join(
+    stageDirectory(),
+    `pending-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.jsonl`,
+  );
   const handle = createWriteStream(temporary);
 
   let scanned = 0;
@@ -243,7 +242,11 @@ export async function buildFeedStage(input: BuildStageInput): Promise<FeedStage>
           ...(mapped.sourceUpdatedAt === null ? {} : { u: mapped.sourceUpdatedAt.toISOString() }),
         };
         if (!handle.write(`${JSON.stringify(line)}\n`)) {
-          await new Promise<void>((resolve) => handle.once('drain', () => { resolve(); }));
+          await new Promise<void>((resolve) =>
+            handle.once('drain', () => {
+              resolve();
+            }),
+          );
         }
       }
       if (input.sampleLimit !== undefined && scanned >= input.sampleLimit) break;
@@ -319,7 +322,12 @@ export async function readFeedStagePage(
     );
   }
   if (byteOffset >= size) {
-    return { records: [], nextByteOffset: byteOffset, nextRecordIndex: firstRecordIndex, done: true };
+    return {
+      records: [],
+      nextByteOffset: byteOffset,
+      nextRecordIndex: firstRecordIndex,
+      done: true,
+    };
   }
 
   const records: StagedRecord[] = [];

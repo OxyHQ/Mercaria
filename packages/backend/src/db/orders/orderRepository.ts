@@ -411,10 +411,7 @@ export interface OrderListFilter {
  * order — `position` for the three that had one, `at` for the append-only status
  * trail. `id` breaks a `position` tie so a page cannot wobble between requests.
  */
-async function withChildren(
-  rows: OrderRow[],
-  db: DatabaseOrTransaction,
-): Promise<OrderRecord[]> {
+async function withChildren(rows: OrderRow[], db: DatabaseOrTransaction): Promise<OrderRecord[]> {
   if (rows.length === 0) return [];
   const orderIds = rows.map((row) => row.id);
 
@@ -1057,11 +1054,7 @@ export async function buyerHasOrderFromSeller(
     .select({ id: orders.id })
     .from(orders)
     .where(
-      and(
-        buyerOrClaimantSql(buyerOxyUserId),
-        inArray(orders.status, [...statuses]),
-        sellerClause,
-      ),
+      and(buyerOrClaimantSql(buyerOxyUserId), inArray(orders.status, [...statuses]), sellerClause),
     )
     .limit(1);
   return rows.length > 0;
@@ -1470,10 +1463,7 @@ export async function setOrderStatus(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<void> {
   const run = async (tx: DatabaseOrTransaction): Promise<void> => {
-    await tx
-      .update(orders)
-      .set(transitionColumns(next, patch))
-      .where(eq(orders.id, orderId));
+    await tx.update(orders).set(transitionColumns(next, patch)).where(eq(orders.id, orderId));
     await appendStatusEvent(orderId, event, tx);
   };
   if ('transaction' in db) await db.transaction(run);
@@ -1816,4 +1806,3 @@ export async function findTopProducts(
     revenue: Number(row.revenue),
   }));
 }
-

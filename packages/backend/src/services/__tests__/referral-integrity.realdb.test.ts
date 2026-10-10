@@ -172,9 +172,7 @@ afterAll(async () => {
       .delete(referralRiskSignals)
       .where(inArray(referralRiskSignals.partnerId, trackedPartnerIds));
 
-    await db
-      .delete(referralEvents)
-      .where(inArray(referralEvents.subjectId, trackedPartnerIds));
+    await db.delete(referralEvents).where(inArray(referralEvents.subjectId, trackedPartnerIds));
     // This file now writes applications (the self-referral revision cases), so
     // its teardown is a writer of that table too.
     await db
@@ -220,7 +218,7 @@ describe('the forfeiture law is a row shape (ADR 0005 D17)', () => {
     // hold when a service bug, a future caller or `psql` gets it wrong.
     for (const action of REFERRAL_FORFEITING_ENFORCEMENT_ACTIONS) {
       await expectRejectedBy(
-      db.insert(referralEnforcementActions).values({
+        db.insert(referralEnforcementActions).values({
           partnerId,
           action,
           scope: action === 'attribution_invalidated' ? 'attribution' : 'conversion',
@@ -231,8 +229,8 @@ describe('the forfeiture law is a row shape (ADR 0005 D17)', () => {
           startsAt: new Date(),
           imposedByOxyUserId: OPERATOR_A,
         }),
-      /forfeiture_basis_check/,
-    );
+        /forfeiture_basis_check/,
+      );
     }
     // The floor: the loop must have run. A derived set that became empty would
     // pass every assertion above by making none.

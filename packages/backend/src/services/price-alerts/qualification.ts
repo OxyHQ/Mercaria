@@ -353,9 +353,7 @@ export function qualifyAlert(input: {
  * qualify. Reading it off the qualification would mean only a qualifying
  * evaluation could ever re-arm one, which is exactly backwards.
  */
-export function bestInScopeAmount(
-  qualification: PriceAlertQualification,
-): Money | undefined {
+export function bestInScopeAmount(qualification: PriceAlertQualification): Money | undefined {
   return qualification.outcome === 'qualified'
     ? qualification.amount
     : qualification.bestInScopeAmount;

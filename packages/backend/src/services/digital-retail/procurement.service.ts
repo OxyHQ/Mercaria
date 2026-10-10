@@ -398,7 +398,9 @@ export async function procureDigitalLine(
 
   const previous = await findPurchaseOrdersForLine(input.orderItemId, db);
   const tried = new Set(
-    previous.flatMap((row) => (row.digitalProcurementOfferId ? [row.digitalProcurementOfferId] : [])),
+    previous.flatMap((row) =>
+      row.digitalProcurementOfferId ? [row.digitalProcurementOfferId] : [],
+    ),
   );
   const maxAttempts = input.maxAttempts ?? DEFAULT_MAX_PROCUREMENT_ATTEMPTS;
   const purchaseOrderIds: string[] = previous.map((row) => row.id);
@@ -503,7 +505,10 @@ export async function procureDigitalLine(
       !preflight.value.fundingReady
     ) {
       lastFailure = {
-        kind: preflight.value.costAmount > input.maxAcceptedCostAmount ? 'price_changed' : 'out_of_stock',
+        kind:
+          preflight.value.costAmount > input.maxAcceptedCostAmount
+            ? 'price_changed'
+            : 'out_of_stock',
         messageRedacted: 'preflight answer no longer matches what the customer bought',
       };
       await failAttempt(purchaseOrder, 'pending', lastFailure, now, db);
@@ -631,7 +636,12 @@ async function failAttempt(
 /** Record an acceptance and its final cost, returning the moved row. */
 async function acceptPurchase(
   purchaseOrder: DigitalPurchaseOrderRow,
-  response: { providerOrderId: string; accepted: boolean; finalCostAmount: number | null; finalCostCurrency: string | null },
+  response: {
+    providerOrderId: string;
+    accepted: boolean;
+    finalCostAmount: number | null;
+    finalCostCurrency: string | null;
+  },
   now: Date,
   db: DatabaseOrTransaction,
 ): Promise<DigitalPurchaseOrderRow | null> {

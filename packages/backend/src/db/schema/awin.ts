@@ -159,7 +159,9 @@ export const awinAccounts = pgTable(
     /** WHERE the Publisher API token lives. #67 spends it; #66 never reads it. */
     publisherApiCredentialRef: text(),
 
-    state: text({ enum: asEnumValues(AWIN_ACCOUNT_STATES) }).notNull().default('active'),
+    state: text({ enum: asEnumValues(AWIN_ACCOUNT_STATES) })
+      .notNull()
+      .default('active'),
     stateReason: text({ enum: asEnumValues(AWIN_ACCOUNT_STATE_REASONS) }),
     stateChangedAt: timestamptz(),
     stateChangedByOxyUserId: text(),
@@ -282,7 +284,9 @@ export const awinAdvertisers = pgTable(
     membershipChangedAt: timestamptz(),
 
     /** What MERCARIA decided. The per-advertiser kill switch lives here. */
-    activation: text({ enum: asEnumValues(AWIN_ACTIVATIONS) }).notNull().default('candidate'),
+    activation: text({ enum: asEnumValues(AWIN_ACTIVATIONS) })
+      .notNull()
+      .default('candidate'),
     activationChangedAt: timestamptz(),
     activationChangedByOxyUserId: text(),
     activationNote: text(),
@@ -330,11 +334,7 @@ export const awinAdvertisers = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf(
-      'awin_advertisers_membership_check',
-      t.membershipStatus,
-      AWIN_MEMBERSHIP_STATUSES,
-    ),
+    checkOneOf('awin_advertisers_membership_check', t.membershipStatus, AWIN_MEMBERSHIP_STATUSES),
     checkOneOf('awin_advertisers_activation_check', t.activation, AWIN_ACTIVATIONS),
     check('awin_advertisers_advertiser_id_shape_check', sql`${t.advertiserId} ~ '^[0-9]{1,20}$'`),
     check(
@@ -439,10 +439,7 @@ export const awinFeeds = pgTable(
      * "never fabricate absent identifiers"). Constrained to the allow-list, so
      * a column Mercaria does not read cannot be recorded as one it does.
      */
-    declaredColumns: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    declaredColumns: text().array().notNull().default(sql`'{}'::text[]`),
 
     /**
      * There is deliberately NO per-feed identity-column set.
@@ -478,7 +475,10 @@ export const awinFeeds = pgTable(
       sql`btrim(${t.feedName}) <> ''
           and length(${t.feedName}) <= ${sql.raw(String(AWIN_MAX_HANDLE_LENGTH))}`,
     ),
-    check('awin_feeds_product_count_check', sql`${t.productCount} is null or ${t.productCount} >= 0`),
+    check(
+      'awin_feeds_product_count_check',
+      sql`${t.productCount} is null or ${t.productCount} >= 0`,
+    ),
     check('awin_feeds_mapping_version_check', sql`${t.mappingVersion} >= 1`),
     check(
       'awin_feeds_import_digest_shape_check',
@@ -600,10 +600,7 @@ export const awinAdvertiserQuality = pgTable(
      * which is the difference between a clean feed and a traversal that read
      * nothing, and they produce the same tidy report.
      */
-    check(
-      'awin_advertiser_quality_totals_check',
-      sql`${t.scanned} = ${t.mapped} + ${t.rejected}`,
-    ),
+    check('awin_advertiser_quality_totals_check', sql`${t.scanned} = ${t.mapped} + ${t.rejected}`),
     check(
       'awin_advertiser_quality_nonnegative_check',
       sql`${t.scanned} >= 0 and ${t.mapped} >= 0 and ${t.rejected} >= 0
@@ -653,10 +650,7 @@ export const awinAdvertiserQuality = pgTable(
                    and ${t.swapExampleDestinationHost} is not null))`,
     ),
     /** The board's read: this advertiser's history, newest first. */
-    index('awin_advertiser_quality_advertiser_measured_idx').on(
-      t.advertiserRowId,
-      t.measuredAt,
-    ),
+    index('awin_advertiser_quality_advertiser_measured_idx').on(t.advertiserRowId, t.measuredAt),
   ],
 );
 
@@ -692,16 +686,15 @@ export const awinLinkSamples = pgTable(
       .notNull()
       .references(() => awinFeeds.id, { onDelete: 'restrict' }),
 
-    verdict: text({ enum: asEnumValues(AWIN_SAMPLE_VERDICTS) }).notNull().default('pending'),
+    verdict: text({ enum: asEnumValues(AWIN_SAMPLE_VERDICTS) })
+      .notNull()
+      .default('pending'),
     /** How many rows were examined. The sample's own vacuity floor. */
     sampled: integer().notNull(),
     /** How many carried an APPROVED tracking link and a consistent destination. */
     passedRows: integer().notNull().default(0),
 
-    findings: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    findings: text().array().notNull().default(sql`'{}'::text[]`),
 
     /** WHO took it. A sample nobody signed is one nobody can be asked about. */
     takenByOxyUserId: text().notNull(),

@@ -172,10 +172,7 @@ export async function listDiscounts(storeId: string): Promise<DiscountRecord[]> 
 }
 
 /** Load one discount scoped to its store, or throw NOT_FOUND. */
-export async function getDiscount(
-  storeId: string,
-  discountId: string,
-): Promise<DiscountRecord> {
+export async function getDiscount(storeId: string, discountId: string): Promise<DiscountRecord> {
   const discount = await findDiscount(storeId, discountId);
   if (!discount) {
     throw notFound('Discount not found');

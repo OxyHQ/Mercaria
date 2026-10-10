@@ -289,8 +289,10 @@ const MEMBERSHIP_READ =
  * list nothing reads.
  */
 const GRANT_DETECTORS: Readonly<Record<string, RegExp>> = {
-  store_permission: /grantStorePermission|setStorePermissionOverride|upsertStorePermissionOverride|\.permissions\s*=|permissions:\s*\[/,
-  store_membership: /transferStoreOwnerAccount|oxyAccountId:\s*partner|members\.invite\(|accounts\.create\(/,
+  store_permission:
+    /grantStorePermission|setStorePermissionOverride|upsertStorePermissionOverride|\.permissions\s*=|permissions:\s*\[/,
+  store_membership:
+    /transferStoreOwnerAccount|oxyAccountId:\s*partner|members\.invite\(|accounts\.create\(/,
   merchant_claim: /merchant-claims\/|merchantClaimRepository|verifyMerchantClaim|claim_state/,
   payment_onboarding: /providerAccountRepository|insertProviderAccount|createOnboardingLink/,
   oxy_administrative_role: /setOxyRole|grantOxyRole|oxyAdmin|assignRole/,
@@ -332,16 +334,37 @@ const REVIEWER_NOTE_LEAK = /reviewerNote|reviewer_note/;
  * the others carry its number.
  */
 function assertReferralDomainIsWhole(): void {
-  const from = (prefix: string) => ENROLLMENT_PATHS.filter((path) => path.startsWith(prefix)).length;
-  expect(from('services/referrals/'), 'the referral service walk found too few modules').toBeGreaterThanOrEqual(48);
-  expect(from('services/referral-pilot/'), 'the pilot walk found too few modules').toBeGreaterThanOrEqual(4);
-  expect(from('db/referrals/'), 'the referral repository walk found too few modules').toBeGreaterThanOrEqual(17);
-  expect(from('db/referralEarnings/'), 'the earnings repository walk found too few modules').toBeGreaterThanOrEqual(5);
-  expect(from('db/referralIntegrity/'), 'the integrity repository walk found too few modules').toBeGreaterThanOrEqual(3);
-  expect(from('db/referralPilot/'), 'the pilot repository walk found too few modules').toBeGreaterThanOrEqual(2);
+  const from = (prefix: string) =>
+    ENROLLMENT_PATHS.filter((path) => path.startsWith(prefix)).length;
+  expect(
+    from('services/referrals/'),
+    'the referral service walk found too few modules',
+  ).toBeGreaterThanOrEqual(48);
+  expect(
+    from('services/referral-pilot/'),
+    'the pilot walk found too few modules',
+  ).toBeGreaterThanOrEqual(4);
+  expect(
+    from('db/referrals/'),
+    'the referral repository walk found too few modules',
+  ).toBeGreaterThanOrEqual(17);
+  expect(
+    from('db/referralEarnings/'),
+    'the earnings repository walk found too few modules',
+  ).toBeGreaterThanOrEqual(5);
+  expect(
+    from('db/referralIntegrity/'),
+    'the integrity repository walk found too few modules',
+  ).toBeGreaterThanOrEqual(3);
+  expect(
+    from('db/referralPilot/'),
+    'the pilot repository walk found too few modules',
+  ).toBeGreaterThanOrEqual(2);
   expect(from('controllers/'), 'no referral controller was derived').toBeGreaterThanOrEqual(7);
   expect(from('routes/'), 'no referral route was derived').toBeGreaterThanOrEqual(5);
-  expect(from('middleware/'), 'no referral middleware module was derived').toBeGreaterThanOrEqual(5);
+  expect(from('middleware/'), 'no referral middleware module was derived').toBeGreaterThanOrEqual(
+    5,
+  );
   expect(from('db/schema/'), 'no referral schema module was derived').toBeGreaterThanOrEqual(5);
   expect(ENROLLMENT_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
   for (const path of ENROLLMENT_PATHS) {
@@ -411,7 +434,10 @@ describe('the enrollment population is closed against the tree', () => {
     const planted = 'lib/referral-cache.ts';
     const seeded = domainNamedModules((relative) =>
       relative === 'lib'
-        ? [...readDirectory(relative), { name: 'referral-cache.ts', isDirectory: () => false, isFile: () => true }]
+        ? [
+            ...readDirectory(relative),
+            { name: 'referral-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
         : readDirectory(relative),
     );
     expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
@@ -426,18 +452,22 @@ describe('the enrollment population is closed against the tree', () => {
     // and the one the plant cannot see, since a plant absent from the real sweep
     // is reported outside a population built FROM that sweep exactly as it is
     // outside a correct one.
-    assertEachOf([
-      'services/referral-payouts/rail.ts',
-      'controllers/orders.controller.ts',
-      'db/schema/orders.ts',
-      'middleware/auth.ts',
-    ], 4, (foreign) => {
-      expect(ENROLLMENT_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
-      expect(
-        statSync(join(SRC_ROOT, foreign)).isFile(),
-        `${foreign} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-    });
+    assertEachOf(
+      [
+        'services/referral-payouts/rail.ts',
+        'controllers/orders.controller.ts',
+        'db/schema/orders.ts',
+        'middleware/auth.ts',
+      ],
+      4,
+      (foreign) => {
+        expect(ENROLLMENT_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+        expect(
+          statSync(join(SRC_ROOT, foreign)).isFile(),
+          `${foreign} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+      },
+    );
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
@@ -446,7 +476,10 @@ describe('the enrollment population is closed against the tree', () => {
     const seededWith = (directory: string, added: string): string[] =>
       referralNamed(directory, (relative) =>
         relative === directory
-          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          ? [
+              ...readDirectory(relative),
+              { name: added, isDirectory: () => false, isFile: () => true },
+            ]
           : readDirectory(relative),
       );
 
@@ -469,7 +502,10 @@ describe('the enrollment population is closed against the tree', () => {
     expect(
       referralNamed('routes', (relative) =>
         relative === 'routes'
-          ? [...readDirectory(relative), { name: 'internal', isDirectory: () => true, isFile: () => false }]
+          ? [
+              ...readDirectory(relative),
+              { name: 'internal', isDirectory: () => true, isFile: () => false },
+            ]
           : relative === 'routes/internal'
             ? [{ name: 'referral-audit.ts', isDirectory: () => false, isFile: () => true }]
             : readDirectory(relative),
@@ -495,7 +531,9 @@ describe('enrollment answers no permission question of its own', () => {
   });
 
   it('reads store MEMBERSHIP in exactly one module, for a stated reason', () => {
-    const readers = ENROLLMENT_PATHS.filter((path) => MEMBERSHIP_READ.test(readEnrollmentCode(path)));
+    const readers = ENROLLMENT_PATHS.filter((path) =>
+      MEMBERSHIP_READ.test(readEnrollmentCode(path)),
+    );
     // EXACT, never a floor: a second module reading membership is a decision
     // somebody takes rather than one that quietly joins an excused set. And
     // asserting the reader is still HERE is what stops the exemption going
@@ -510,7 +548,8 @@ describe('enrollment answers no permission question of its own', () => {
 
   it('scans a floor of modules per SHAPE, so a walk that collapsed cannot pass', () => {
     assertReferralDomainIsWhole();
-    for (const path of ENROLLMENT_PATHS) expect(readEnrollmentSource(path).length).toBeGreaterThan(200);
+    for (const path of ENROLLMENT_PATHS)
+      expect(readEnrollmentSource(path).length).toBeGreaterThan(200);
   });
 
   /**
@@ -541,7 +580,9 @@ describe('enrollment grants nothing and reaches no money', () => {
     // published prohibition. Neither half alone is a gate: a value with no
     // detector is a rule nothing enforces, and a detector with no value is one
     // nobody wrote down.
-    expect(Object.keys(GRANT_DETECTORS).sort()).toEqual([...REFERRAL_ENROLLMENT_FORBIDDEN_GRANTS].sort());
+    expect(Object.keys(GRANT_DETECTORS).sort()).toEqual(
+      [...REFERRAL_ENROLLMENT_FORBIDDEN_GRANTS].sort(),
+    );
 
     assertReferralDomainIsWhole();
     for (const path of ENROLLMENT_PATHS) {
@@ -598,7 +639,9 @@ describe('enrollment grants nothing and reaches no money', () => {
 
   it('the earnings exemption excuses exactly the modules that really post', () => {
     const excused = ENROLLMENT_PATHS.filter(
-      (path) => path.startsWith(LEDGER_POSTING_DIRECTORY) && PAYMENT_REFERENCE.test(readEnrollmentCode(path)),
+      (path) =>
+        path.startsWith(LEDGER_POSTING_DIRECTORY) &&
+        PAYMENT_REFERENCE.test(readEnrollmentCode(path)),
     );
     expect(
       excused.sort(),
@@ -609,7 +652,9 @@ describe('enrollment grants nothing and reaches no money', () => {
       'services/referrals/earnings/ledger-postings.ts',
       'services/referrals/earnings/posting.service.ts',
     ]);
-    const inDirectory = ENROLLMENT_PATHS.filter((path) => path.startsWith(LEDGER_POSTING_DIRECTORY));
+    const inDirectory = ENROLLMENT_PATHS.filter((path) =>
+      path.startsWith(LEDGER_POSTING_DIRECTORY),
+    );
     expect(inDirectory.length, 'the earnings walk found nothing').toBeGreaterThanOrEqual(11);
     expect(
       inDirectory.length,
@@ -645,7 +690,9 @@ describe('nothing fetches what an applicant typed', () => {
    * is where it belongs rather than spread across the domain.
    */
   it('parses URLs in exactly one module, and composes one in exactly one other', () => {
-    const parsers = ENROLLMENT_PATHS.filter((path) => /new URL\s*\(/.test(readEnrollmentCode(path)));
+    const parsers = ENROLLMENT_PATHS.filter((path) =>
+      /new URL\s*\(/.test(readEnrollmentCode(path)),
+    );
     // Two over the whole domain, and they do opposite things:
     // `application-answers.ts` PARSES an applicant's promotion URL to normalize
     // it, and `redirect.service.ts` COMPOSES the outbound destination behind an
@@ -707,15 +754,19 @@ describe('the closed vocabularies are complete', () => {
    */
   it('every rule column discriminates at least two modes', () => {
     const rules = Object.values(REFERRAL_ENROLLMENT_MODE_RULES);
-    assertEachOf([
-      'selfServe',
-      'requiresOperatorReview',
-      'requiresOperatorEvidence',
-      'earnsProductionRewards',
-    ] as const, 4, (key) => {
-      const values = new Set(rules.map((rule) => rule[key]));
-      expect(values.size, `${key} answers the same for every mode — it decides nothing`).toBe(2);
-    });
+    assertEachOf(
+      [
+        'selfServe',
+        'requiresOperatorReview',
+        'requiresOperatorEvidence',
+        'earnsProductionRewards',
+      ] as const,
+      4,
+      (key) => {
+        const values = new Set(rules.map((rule) => rule[key]));
+        expect(values.size, `${key} answers the same for every mode — it decides nothing`).toBe(2);
+      },
+    );
     const ownerScopes = new Set(rules.map((rule) => [...rule.eligibleOwnerTypes].sort().join(',')));
     expect(ownerScopes.size).toBeGreaterThan(1);
   });
@@ -727,7 +778,7 @@ describe('the closed vocabularies are complete', () => {
     expect(isolated).toEqual(['staff_test']);
   });
 
-  it('keeps #142\'s five partner states and adds four', () => {
+  it("keeps #142's five partner states and adds four", () => {
     // The MAPPING #146 recorded, asserted rather than described: `applied` IS
     // "submitted" and stays spelled `applied`, `invited` survives, and nothing
     // was removed. A narrowing here would strand every live row.
@@ -748,7 +799,7 @@ describe('the closed vocabularies are complete', () => {
  * every named column existing on the table it names — the last is what stops a
  * rename leaving a map that quietly points nowhere.
  */
-describe('every one of #146\'s ten application items is accounted for', () => {
+describe("every one of #146's ten application items is accounted for", () => {
   const TABLES = {
     application: referralPartnerApplications,
     partner: referralPartners,
@@ -756,9 +807,9 @@ describe('every one of #146\'s ten application items is accounted for', () => {
   } as const;
 
   it('covers items 1 to 10 exactly once', () => {
-    expect([...REFERRAL_APPLICATION_ITEMS].map((entry) => entry.item).sort((a, b) => a - b)).toEqual(
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    );
+    expect(
+      [...REFERRAL_APPLICATION_ITEMS].map((entry) => entry.item).sort((a, b) => a - b),
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 
   it('names a real column for every item that claims one', () => {
@@ -810,19 +861,27 @@ describe('every one of #146\'s ten application items is accounted for', () => {
  */
 describe('each detector actually detects (mutation self-test)', () => {
   it('fires on the thing it forbids', () => {
-    expect('const held = effectiveStorePermissions(role, override);').toMatch(PERMISSION_DERIVATION);
-    expect('const access = await resolveStoreAccess(caller, store);').toMatch(PERMISSION_DERIVATION);
+    expect('const held = effectiveStorePermissions(role, override);').toMatch(
+      PERMISSION_DERIVATION,
+    );
+    expect('const access = await resolveStoreAccess(caller, store);').toMatch(
+      PERMISSION_DERIVATION,
+    );
     // Every grant detector, against the write it forbids. A `Record` of
     // patterns is exactly the shape where one broken entry hides silently.
     const grantPositives: Readonly<Record<string, string>> = {
-      store_permission: "await upsertStorePermissionOverride({ storeId, oxyUserId, granted: ['products:write'] });",
-      store_membership: 'await oxy.accounts.members.invite(store.oxyAccountId, { usernameOrEmail, role });',
+      store_permission:
+        "await upsertStorePermissionOverride({ storeId, oxyUserId, granted: ['products:write'] });",
+      store_membership:
+        'await oxy.accounts.members.invite(store.oxyAccountId, { usernameOrEmail, role });',
       merchant_claim: "import { verifyMerchantClaim } from '../merchant-claims/claim.js';",
       payment_onboarding: 'await insertProviderAccount(tx, { provider, ownerType, ownerId });',
       oxy_administrative_role: "await grantOxyRole(oxyUserId, 'admin');",
       operator_allow_list: 'config.referrals.operatorOxyUserIds = [...ids, partner.ownerId];',
     };
-    expect(Object.keys(grantPositives).sort()).toEqual([...REFERRAL_ENROLLMENT_FORBIDDEN_GRANTS].sort());
+    expect(Object.keys(grantPositives).sort()).toEqual(
+      [...REFERRAL_ENROLLMENT_FORBIDDEN_GRANTS].sort(),
+    );
     for (const [grant, positive] of Object.entries(grantPositives)) {
       expect(positive, `the ${grant} detector matches nothing`).toMatch(GRANT_DETECTORS[grant]!);
     }
@@ -848,7 +907,9 @@ describe('each detector actually detects (mutation self-test)', () => {
     // The mount naming the permission it CONSUMES is the correct shape, and a
     // detector that flagged it would have its cheapest green be deleting the
     // gate — the failure mode #67's host-comparison detector was measured on.
-    expect("router.use(requireStorePermission('store:manage'));").not.toMatch(PERMISSION_DERIVATION);
+    expect("router.use(requireStorePermission('store:manage'));").not.toMatch(
+      PERMISSION_DERIVATION,
+    );
     for (const [grant, detector] of Object.entries(GRANT_DETECTORS)) {
       expect(
         "router.use(requireStorePermission('store:manage'));",

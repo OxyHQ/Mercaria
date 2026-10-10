@@ -196,7 +196,13 @@ async function createListing(input: {
 async function createStore(handle: string, ownerAccount: string): Promise<string> {
   const [store] = await db
     .insert(stores)
-    .values({ oxyAccountId: ownerAccount, handle, name: `L10n store ${RUN}`, description: '', brandColor: '#000000' })
+    .values({
+      oxyAccountId: ownerAccount,
+      handle,
+      name: `L10n store ${RUN}`,
+      description: '',
+      brandColor: '#000000',
+    })
     .returning({ id: stores.id });
   if (!store) throw new Error('createStore returned no row');
   storeIds.push(store.id);

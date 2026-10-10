@@ -74,11 +74,7 @@ export async function findAssetLicenceBySlug(
   tx?: DatabaseOrTransaction,
 ): Promise<AssetLicenceRow | null> {
   const db = tx ?? getDb();
-  const rows = await db
-    .select()
-    .from(assetLicences)
-    .where(eq(assetLicences.slug, slug))
-    .limit(50);
+  const rows = await db.select().from(assetLicences).where(eq(assetLicences.slug, slug)).limit(50);
   return rows.find((row) => row.storeId === storeId) ?? null;
 }
 
@@ -156,7 +152,10 @@ export async function findPublishedLicenceVersion(
     .select()
     .from(assetLicenceVersions)
     .where(
-      and(eq(assetLicenceVersions.licenceId, licenceId), eq(assetLicenceVersions.state, 'published')),
+      and(
+        eq(assetLicenceVersions.licenceId, licenceId),
+        eq(assetLicenceVersions.state, 'published'),
+      ),
     )
     .orderBy(desc(assetLicenceVersions.version))
     .limit(1);

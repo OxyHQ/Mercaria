@@ -42,7 +42,12 @@ import { makeVariantImageRouter } from '../../controllers/variant-images.control
 const router = Router({ mergeParams: true });
 
 router.get('/', requireStorePermission('products:read'), listProducts);
-router.post('/', requireStorePermission('products:write'), validateBody(createStoreProductSchema), createProduct);
+router.post(
+  '/',
+  requireStorePermission('products:write'),
+  validateBody(createStoreProductSchema),
+  createProduct,
+);
 
 router.get('/:id', requireStorePermission('products:read'), validateId('id'), getProduct);
 router.patch(

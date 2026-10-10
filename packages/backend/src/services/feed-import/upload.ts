@@ -175,7 +175,11 @@ export async function stageUploadedFeed(
       }
       hash.update(buffer);
       if (!handle.write(buffer)) {
-        await new Promise<void>((resolve) => handle.once('drain', () => { resolve(); }));
+        await new Promise<void>((resolve) =>
+          handle.once('drain', () => {
+            resolve();
+          }),
+        );
       }
     }
     if (detected === null) detected = detectUploadContainer(prefix);

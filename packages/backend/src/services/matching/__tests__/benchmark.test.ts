@@ -76,7 +76,9 @@ describe('the labelled matching benchmark', () => {
       'variant_only',
     ]);
 
-    expect(new Set(BENCHMARK_CASES.map((entry) => entry.categoryKey)).size).toBeGreaterThanOrEqual(4);
+    expect(new Set(BENCHMARK_CASES.map((entry) => entry.categoryKey)).size).toBeGreaterThanOrEqual(
+      4,
+    );
     expect(new Set(BENCHMARK_CASES.map((entry) => entry.sourceKey)).size).toBeGreaterThanOrEqual(4);
 
     // Both labels must be present, or precision and recall measure one half of
@@ -160,8 +162,12 @@ describe('the labelled matching benchmark', () => {
 
   it('reports per-category and per-source slices, each of them non-vacuous', async () => {
     const result = await runBenchmark(defaultBenchmarkPolicy());
-    const categories = result.slices.filter((slice) => slice.sourceKey === '*' && slice.categoryKey !== '*');
-    const sources = result.slices.filter((slice) => slice.categoryKey === '*' && slice.sourceKey !== '*');
+    const categories = result.slices.filter(
+      (slice) => slice.sourceKey === '*' && slice.categoryKey !== '*',
+    );
+    const sources = result.slices.filter(
+      (slice) => slice.categoryKey === '*' && slice.sourceKey !== '*',
+    );
 
     expect(categories.length).toBeGreaterThanOrEqual(4);
     expect(sources.length).toBeGreaterThanOrEqual(4);

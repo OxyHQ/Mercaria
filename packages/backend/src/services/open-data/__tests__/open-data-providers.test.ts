@@ -17,16 +17,30 @@ import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import type { CatalogRefreshMode, NormalizedSourceFact } from '@mercaria/shared-types';
 import { canonicalizeNormalizedRecord } from '../../ingestion/normalization.js';
-import { buildStoredPayload, normalizedFromStoredPayload, redactSourceObservation } from '../../ingestion/redact.js';
+import {
+  buildStoredPayload,
+  normalizedFromStoredPayload,
+  redactSourceObservation,
+} from '../../ingestion/redact.js';
 import type { OpenDataDownload, OpenDataHttp, OpenDataJsonResponse } from '../http.js';
-import type { OpenDataCursor, OpenDataDemand, OpenDataItem, OpenDataPage, OpenDataProvider } from '../provider.js';
+import type {
+  OpenDataCursor,
+  OpenDataDemand,
+  OpenDataItem,
+  OpenDataPage,
+  OpenDataProvider,
+} from '../provider.js';
 import { cheapSharkProvider } from '../providers/cheapshark.js';
 import { gogProvider } from '../providers/gog.js';
 import { mitecoFuelProvider } from '../providers/miteco-fuel.js';
 import { OPEN_FACTS_DEMAND_ONLY, openFactsProviders } from '../providers/open-facts.js';
 import { openPricesProvider } from '../providers/open-prices.js';
 import { scryfallProvider } from '../providers/scryfall.js';
-import { htmlText, shopifyStorefrontProvider, storeDomain } from '../providers/shopify-storefront.js';
+import {
+  htmlText,
+  shopifyStorefrontProvider,
+  storeDomain,
+} from '../providers/shopify-storefront.js';
 import { searchRows, steamStoreProvider, STEAM_MAX_RESULTS } from '../providers/steam-store.js';
 import { ygoprodeckProvider } from '../providers/ygoprodeck.js';
 import { SCRIPT_CORPUS } from '../../../__tests__/script-corpus.js';
@@ -66,7 +80,12 @@ function fakeHttp(routes: {
       requested.push(url);
       const path = routes.downloads?.[url];
       if (path === undefined) throw new Error(`unrouted download ${url}`);
-      return { path, confirmedAt: NOW, lastModified: null, digest: `${'a'.repeat(32)}${path.length.toString(16).padStart(32, '0')}` };
+      return {
+        path,
+        confirmedAt: NOW,
+        lastModified: null,
+        digest: `${'a'.repeat(32)}${path.length.toString(16).padStart(32, '0')}`,
+      };
     },
   };
 }
@@ -74,7 +93,16 @@ function fakeHttp(routes: {
 async function page(
   provider: OpenDataProvider,
   http: OpenDataHttp,
-  options: { accountRef?: string | null; territories?: string[]; mode?: CatalogRefreshMode; externalIds?: string[]; cursor?: OpenDataCursor | null; pageSize?: number; since?: Date | null; demand?: OpenDataDemand | null } = {},
+  options: {
+    accountRef?: string | null;
+    territories?: string[];
+    mode?: CatalogRefreshMode;
+    externalIds?: string[];
+    cursor?: OpenDataCursor | null;
+    pageSize?: number;
+    since?: Date | null;
+    demand?: OpenDataDemand | null;
+  } = {},
 ): Promise<OpenDataPage> {
   return provider.fetchPage({
     cursor: options.cursor ?? null,
@@ -110,32 +138,143 @@ function stored(item: OpenDataItem) {
   return { canonical, payload };
 }
 
-function fact(facts: readonly NormalizedSourceFact[] | undefined, key: string): NormalizedSourceFact['value'] | undefined {
+function fact(
+  facts: readonly NormalizedSourceFact[] | undefined,
+  key: string,
+): NormalizedSourceFact['value'] | undefined {
   return facts?.find((entry) => entry.key === key)?.value;
 }
 
 describe('Open Prices', () => {
   const directory = mkdtempSync(join(tmpdir(), 'open-prices-'));
   const locations = [
-    { id: 1, osm_brand: 'Mercadona', osm_name: 'Mercadona', osm_address_country_code: 'ES', osm_address_city: 'Madrid', osm_type: 'NODE', osm_id: 11, osm_tag_value: 'supermarket' },
-    { id: 2, osm_brand: 'Mercadona', osm_name: 'Mercadona', osm_address_country_code: 'ES', osm_address_city: 'Valencia', osm_type: 'WAY', osm_id: 22, osm_tag_value: 'supermarket' },
-    { id: 3, osm_brand: 'Mercadona', osm_name: 'Mercadona', osm_address_country_code: 'PT', osm_address_city: 'Porto', osm_type: 'NODE', osm_id: 33 },
-    { id: 4, osm_brand: 'Lidl', osm_name: 'Lidl', osm_address_country_code: 'ES', osm_address_city: 'Madrid', osm_type: 'NODE', osm_id: 44 },
+    {
+      id: 1,
+      osm_brand: 'Mercadona',
+      osm_name: 'Mercadona',
+      osm_address_country_code: 'ES',
+      osm_address_city: 'Madrid',
+      osm_type: 'NODE',
+      osm_id: 11,
+      osm_tag_value: 'supermarket',
+    },
+    {
+      id: 2,
+      osm_brand: 'Mercadona',
+      osm_name: 'Mercadona',
+      osm_address_country_code: 'ES',
+      osm_address_city: 'Valencia',
+      osm_type: 'WAY',
+      osm_id: 22,
+      osm_tag_value: 'supermarket',
+    },
+    {
+      id: 3,
+      osm_brand: 'Mercadona',
+      osm_name: 'Mercadona',
+      osm_address_country_code: 'PT',
+      osm_address_city: 'Porto',
+      osm_type: 'NODE',
+      osm_id: 33,
+    },
+    {
+      id: 4,
+      osm_brand: 'Lidl',
+      osm_name: 'Lidl',
+      osm_address_country_code: 'ES',
+      osm_address_city: 'Madrid',
+      osm_type: 'NODE',
+      osm_id: 44,
+    },
   ];
-  const base = { type: 'PRODUCT', currency: 'EUR', duplicate_of: null, created: '2025-09-01T10:00:00Z' };
+  const base = {
+    type: 'PRODUCT',
+    currency: 'EUR',
+    duplicate_of: null,
+    created: '2025-09-01T10:00:00Z',
+  };
   const prices = [
-    { ...base, id: 10, location_id: 1, product_code: '8480000160164', product_name: 'Tomate triturado', price: '0.850', date: '2025-09-01', proof_id: 5 },
-    { ...base, id: 11, location_id: 2, product_code: '8480000160164', product_name: null, price: '0.890', date: '2025-10-01', proof_id: null, price_is_discounted: true, price_without_discount: '1.050', discount_type: 'QUANTITY' },
-    { ...base, id: 12, location_id: 1, product_code: '8480000160164', price: '0.700', date: '2023-01-01' },
-    { ...base, id: 13, location_id: 3, product_code: '8480000160164', price: '0.100', date: '2025-10-02' },
-    { ...base, id: 14, location_id: 4, product_code: '4056489000000', price: '1.000', date: '2025-10-02' },
-    { ...base, id: 15, location_id: 1, product_code: null, type: 'CATEGORY', category_tag: 'en:apples', price: '2.000', date: '2025-10-02' },
-    { ...base, id: 16, location_id: 1, product_code: '8410000000000', price: '3.100', date: '2025-08-15', duplicate_of: 3 },
-    { ...base, id: 17, location_id: 1, product_code: '8410000000017', price: '2.500', date: '2025-08-15' },
+    {
+      ...base,
+      id: 10,
+      location_id: 1,
+      product_code: '8480000160164',
+      product_name: 'Tomate triturado',
+      price: '0.850',
+      date: '2025-09-01',
+      proof_id: 5,
+    },
+    {
+      ...base,
+      id: 11,
+      location_id: 2,
+      product_code: '8480000160164',
+      product_name: null,
+      price: '0.890',
+      date: '2025-10-01',
+      proof_id: null,
+      price_is_discounted: true,
+      price_without_discount: '1.050',
+      discount_type: 'QUANTITY',
+    },
+    {
+      ...base,
+      id: 12,
+      location_id: 1,
+      product_code: '8480000160164',
+      price: '0.700',
+      date: '2023-01-01',
+    },
+    {
+      ...base,
+      id: 13,
+      location_id: 3,
+      product_code: '8480000160164',
+      price: '0.100',
+      date: '2025-10-02',
+    },
+    {
+      ...base,
+      id: 14,
+      location_id: 4,
+      product_code: '4056489000000',
+      price: '1.000',
+      date: '2025-10-02',
+    },
+    {
+      ...base,
+      id: 15,
+      location_id: 1,
+      product_code: null,
+      type: 'CATEGORY',
+      category_tag: 'en:apples',
+      price: '2.000',
+      date: '2025-10-02',
+    },
+    {
+      ...base,
+      id: 16,
+      location_id: 1,
+      product_code: '8410000000000',
+      price: '3.100',
+      date: '2025-08-15',
+      duplicate_of: 3,
+    },
+    {
+      ...base,
+      id: 17,
+      location_id: 1,
+      product_code: '8410000000017',
+      price: '2.500',
+      date: '2025-08-15',
+    },
   ];
   const pricesPath = join(directory, 'prices.jsonl.gz');
   const locationsPath = join(directory, 'locations.jsonl.gz');
-  writeFileSync(pricesPath, gzipSync(`${prices.map((row) => JSON.stringify(row)).join('\n')}\nnot json\n`));
+  writeFileSync(
+    pricesPath,
+    gzipSync(`${prices.map((row) => JSON.stringify(row)).join('\n')}\nnot json\n`),
+  );
   writeFileSync(locationsPath, gzipSync(locations.map((row) => JSON.stringify(row)).join('\n')));
   const http = fakeHttp({
     downloads: {
@@ -177,13 +316,21 @@ describe('Open Prices', () => {
     expect(first.items).toHaveLength(1);
     expect(first.complete).toBe(false);
     expect(first.next).not.toBeNull();
-    const second = await page(openPricesProvider, http, { accountRef: 'mercadona', pageSize: 1, cursor: first.next });
+    const second = await page(openPricesProvider, http, {
+      accountRef: 'mercadona',
+      pageSize: 1,
+      cursor: first.next,
+    });
     expect(second.items.map((item) => item.externalId)).toEqual(['8480000160164']);
     expect(second.complete).toBe(true);
   });
 
   it('restarts a pass whose cursor names a different dump', async () => {
-    const result = await page(openPricesProvider, http, { accountRef: 'mercadona', pageSize: 1, cursor: { d: 'stale', o: 1 } });
+    const result = await page(openPricesProvider, http, {
+      accountRef: 'mercadona',
+      pageSize: 1,
+      cursor: { d: 'stale', o: 1 },
+    });
     expect(result.items.map((item) => item.externalId)).toEqual(['8410000000017']);
   });
 
@@ -212,7 +359,9 @@ describe('the Open Facts family', () => {
     expect(fact(canonical.facts, 'openfacts.nutriscore_grade')).toBe('b');
     expect(fact(canonical.facts, 'openfacts.nova_group')).toBe(4);
     expect(fact(canonical.facts, 'openfacts.product_quantity')).toBe(400);
-    expect(canonical.facts?.find((entry) => entry.key === 'openfacts.nutrition.energy_kcal_100g')).toEqual({
+    expect(
+      canonical.facts?.find((entry) => entry.key === 'openfacts.nutrition.energy_kcal_100g'),
+    ).toEqual({
       key: 'openfacts.nutrition.energy_kcal_100g',
       value: 29,
       unit: 'kcal',
@@ -221,7 +370,9 @@ describe('the Open Facts family', () => {
     expect(fact(canonical.facts, 'openfacts.labels')).toContain('en:organic');
     expect(fact(canonical.facts, 'openfacts.stores')).toEqual(['Mercadona']);
     expect(payload.facts).toEqual(canonical.facts);
-    expect(http.requested[0]).toContain('world.openfoodfacts.org/api/v2/product/8480000160164.json?fields=');
+    expect(http.requested[0]).toContain(
+      'world.openfoodfacts.org/api/v2/product/8480000160164.json?fields=',
+    );
   });
 
   it('reports a product the database no longer has as a removal', async () => {
@@ -232,18 +383,25 @@ describe('the Open Facts family', () => {
   });
 
   it('walks the country search newest-first and stops at the watermark', async () => {
-    const product = (fixture('open-food-facts-product.json') as { product: Record<string, unknown> }).product;
+    const product = (
+      fixture('open-food-facts-product.json') as { product: Record<string, unknown> }
+    ).product;
     const older = { ...product, code: '8410000000017', last_modified_t: 1_600_000_000 };
     const http = fakeHttp({ json: () => ({ body: { count: 500, products: [product, older] } }) });
-    const result = await page(food, http, { mode: 'query_driven', since: new Date('2025-01-01T00:00:00Z') });
+    const result = await page(food, http, {
+      mode: 'query_driven',
+      since: new Date('2025-01-01T00:00:00Z'),
+    });
     expect(result.items.map((item) => item.externalId)).toEqual(['8480000160164']);
     expect(result.next).toBeNull();
     expect(result.complete).toBe(false);
     expect(http.requested[0]).toContain('countries_tags=en%3Aspain');
   });
 
-  it('fetches the catalogue\'s demanded GTINs first, then hands over to the search', async () => {
-    const product = (fixture('open-food-facts-product.json') as { product: Record<string, unknown> }).product;
+  it("fetches the catalogue's demanded GTINs first, then hands over to the search", async () => {
+    const product = (
+      fixture('open-food-facts-product.json') as { product: Record<string, unknown> }
+    ).product;
     const asked: (string | null)[] = [];
     const demand: OpenDataDemand = {
       gtins: async (after) => {
@@ -267,11 +425,15 @@ describe('the Open Facts family', () => {
   });
 
   it('reads the demand alone, and never searches, for a demand-only source', async () => {
-    const product = (fixture('open-food-facts-product.json') as { product: Record<string, unknown> }).product;
+    const product = (
+      fixture('open-food-facts-product.json') as { product: Record<string, unknown> }
+    ).product;
     const demand: OpenDataDemand = {
       gtins: async (after) => (after === null ? ['8480000160164'] : []),
     };
-    const http = fakeHttp({ json: (url) => (url.includes('/product/') ? { body: { status: 1, product } } : null) });
+    const http = fakeHttp({
+      json: (url) => (url.includes('/product/') ? { body: { status: 1, product } } : null),
+    });
     const options = { mode: 'query_driven' as const, demand, accountRef: OPEN_FACTS_DEMAND_ONLY };
     const first = await page(food, http, options);
     expect(first.items.map((item) => item.externalId)).toEqual(['8480000160164']);
@@ -285,9 +447,14 @@ describe('the Open Facts family', () => {
   });
 
   it('goes straight to the search when nothing is demanded', async () => {
-    const product = (fixture('open-food-facts-product.json') as { product: Record<string, unknown> }).product;
+    const product = (
+      fixture('open-food-facts-product.json') as { product: Record<string, unknown> }
+    ).product;
     const http = fakeHttp({ json: () => ({ body: { count: 1, products: [product] } }) });
-    const result = await page(food, http, { mode: 'query_driven', demand: { gtins: async () => [] } });
+    const result = await page(food, http, {
+      mode: 'query_driven',
+      demand: { gtins: async () => [] },
+    });
     expect(result.items.map((item) => item.externalId)).toEqual(['8480000160164']);
     expect(http.requested[0]).toContain('/api/v2/search?');
   });
@@ -308,7 +475,8 @@ describe('MITECO fuel prices', () => {
   writeFileSync(listPath, `\uFEFF${readFileSync(join(FIXTURES, 'miteco-stations.json'), 'utf8')}`);
   const http = fakeHttp({
     downloads: {
-      'https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/': listPath,
+      'https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/':
+        listPath,
     },
   });
 
@@ -363,8 +531,12 @@ describe('CheapShark', () => {
   });
 
   it('refuses a store id CheapShark does not list as active', async () => {
-    await expect(page(cheapSharkProvider, http, { accountRef: '4' })).rejects.toThrow(/no active store/u);
-    await expect(page(cheapSharkProvider, http, { accountRef: 'steam' })).rejects.toThrow(/not a CheapShark store id/u);
+    await expect(page(cheapSharkProvider, http, { accountRef: '4' })).rejects.toThrow(
+      /no active store/u,
+    );
+    await expect(page(cheapSharkProvider, http, { accountRef: 'steam' })).rejects.toThrow(
+      /not a CheapShark store id/u,
+    );
   });
 });
 
@@ -401,11 +573,17 @@ describe('Scryfall', () => {
 describe('TCGdex', () => {
   it('reads a Spanish card with Cardmarket prices per finish', async () => {
     const http = fakeHttp({
-      json: (url) => (url.includes('/cards?') ? { body: [{ id: 'swsh3-136' }] } : { body: fixture('tcgdex-card.json') }),
+      json: (url) =>
+        url.includes('/cards?')
+          ? { body: [{ id: 'swsh3-136' }] }
+          : { body: fixture('tcgdex-card.json') },
     });
     const result = await page(tcgdexProvider, http, { pageSize: 10 });
     expect(result.next).toBeNull();
-    expect(result.items.map((item) => item.externalId)).toEqual(['swsh3-136:normal', 'swsh3-136:holo']);
+    expect(result.items.map((item) => item.externalId)).toEqual([
+      'swsh3-136:normal',
+      'swsh3-136:holo',
+    ]);
     const { canonical } = stored(result.items[0] as OpenDataItem);
     expect(canonical.title).toBe('Furret — Oscuridad Incandescente #136');
     expect(canonical.price).toEqual({ amount: 6, currency: 'EUR' });
@@ -415,7 +593,9 @@ describe('TCGdex', () => {
 
   it('refuses a language it does not read', async () => {
     const http = fakeHttp({ json: () => ({ body: [] }) });
-    await expect(page(tcgdexProvider, http, { accountRef: 'xx' })).rejects.toThrow(/not a TCGdex language/u);
+    await expect(page(tcgdexProvider, http, { accountRef: 'xx' })).rejects.toThrow(
+      /not a TCGdex language/u,
+    );
   });
 });
 
@@ -444,7 +624,10 @@ describe('Shopify storefronts (the shops on shop.app)', () => {
 
   it('reads robots, then the store, then one record per variant grouped by product', async () => {
     const http = store();
-    const result = await page(shopifyStorefrontProvider, http, { accountRef: 'pompeiibrand.com', pageSize: 250 });
+    const result = await page(shopifyStorefrontProvider, http, {
+      accountRef: 'pompeiibrand.com',
+      pageSize: 250,
+    });
     expect(http.requested.slice(0, 3)).toEqual([
       'https://pompeiibrand.com/robots.txt',
       'https://pompeiibrand.com/meta.json',
@@ -461,12 +644,16 @@ describe('Shopify storefronts (the shops on shop.app)', () => {
     expect(first?.normalized.availability).toBe('in_stock');
     expect(first?.normalized.merchantHint).toBe('Pompeii');
     expect(first?.normalized.brandHint).toBe('Pompeii');
-    expect(first?.normalized.sourceUrl).toBe(`https://pompeiibrand.com/products/vega-florentik-bordeaux?variant=${first?.externalId ?? ''}`);
+    expect(first?.normalized.sourceUrl).toBe(
+      `https://pompeiibrand.com/products/vega-florentik-bordeaux?variant=${first?.externalId ?? ''}`,
+    );
     expect(first?.normalized.description).toContain('Fabricados a mano en Portugal');
     expect(first?.normalized.description).not.toContain('<');
     expect(second?.normalized.availability).toBe('out_of_stock');
     expect(second?.normalized.compareAtPrice).toEqual({ amount: 19_900, currency: 'EUR' });
-    const facts = Object.fromEntries((first?.normalized.facts ?? []).map((fact) => [fact.key, fact.value]));
+    const facts = Object.fromEntries(
+      (first?.normalized.facts ?? []).map((fact) => [fact.key, fact.value]),
+    );
     expect(facts['shopify.store_country']).toBe('ES');
     expect(facts['shopify.product_type']).toBe('SHOE');
     expect(facts['shopify.tags']).toEqual(['mocasines', 'piel']);
@@ -476,16 +663,25 @@ describe('Shopify storefronts (the shops on shop.app)', () => {
 
   it('carries the store facts in the cursor instead of re-reading them', async () => {
     const http = store();
-    const result = await page(shopifyStorefrontProvider, http, { accountRef: 'pompeiibrand.com', pageSize: 1 });
+    const result = await page(shopifyStorefrontProvider, http, {
+      accountRef: 'pompeiibrand.com',
+      pageSize: 1,
+    });
     expect(result.next).toEqual({ p: 2, c: 'EUR', n: 'Pompeii', k: 'ES' });
     const again = store();
-    await page(shopifyStorefrontProvider, again, { accountRef: 'pompeiibrand.com', pageSize: 1, cursor: result.next });
+    await page(shopifyStorefrontProvider, again, {
+      accountRef: 'pompeiibrand.com',
+      pageSize: 1,
+      cursor: result.next,
+    });
     expect(again.requested).toEqual(['https://pompeiibrand.com/products.json?limit=1&page=2']);
   });
 
-  it('reads nothing a store\'s robots.txt disallows', async () => {
+  it("reads nothing a store's robots.txt disallows", async () => {
     const http = store('User-agent: *\nDisallow: /products.json\n');
-    await expect(page(shopifyStorefrontProvider, http, { accountRef: 'pompeiibrand.com' })).rejects.toThrow(OpenDataConfigurationError);
+    await expect(
+      page(shopifyStorefrontProvider, http, { accountRef: 'pompeiibrand.com' }),
+    ).rejects.toThrow(OpenDataConfigurationError);
     expect(http.requested).toEqual(['https://pompeiibrand.com/robots.txt']);
   });
 
@@ -500,7 +696,9 @@ describe('YGOPRODeck', () => {
     const body = fixture('ygoprodeck-cardinfo.json');
     const http = fakeHttp({ json: () => ({ body }) });
     const result = await page(ygoprodeckProvider, http, { pageSize: 2 });
-    expect(http.requested[0]).toBe('https://db.ygoprodeck.com/api/v7/cardinfo.php?num=2&offset=0&misc=yes');
+    expect(http.requested[0]).toBe(
+      'https://db.ygoprodeck.com/api/v7/cardinfo.php?num=2&offset=0&misc=yes',
+    );
     expect(result.items.map((item) => item.externalId)).toEqual(['17494901', '21831848']);
     const [first] = result.items;
     expect(first?.normalized.productGroupKey).toBe('17494901');
@@ -508,7 +706,9 @@ describe('YGOPRODeck', () => {
     expect(first?.normalized.merchantHint).toBe('Cardmarket');
     // Their images may not be hotlinked.
     expect(first?.normalized.media).toEqual([]);
-    const facts = Object.fromEntries((first?.normalized.facts ?? []).map((fact) => [fact.key, fact]));
+    const facts = Object.fromEntries(
+      (first?.normalized.facts ?? []).map((fact) => [fact.key, fact]),
+    );
     expect(facts['ygoprodeck.formats']?.value).toContain('TCG');
     expect(facts['ygoprodeck.tcgplayer_price']?.unit).toBe('USD');
     expect(result.next).toEqual({ o: 5002 });
@@ -557,9 +757,15 @@ describe('Steam store search', () => {
 
   it('stops at the pass depth, and refuses when robots.txt disallows the search', async () => {
     const http = fakeHttp({ json: () => ({ body }) });
-    const last = await page(steamStoreProvider, http, { pageSize: 100, cursor: { s: STEAM_MAX_RESULTS - 3 } });
+    const last = await page(steamStoreProvider, http, {
+      pageSize: 100,
+      cursor: { s: STEAM_MAX_RESULTS - 3 },
+    });
     expect(last.next).toBeNull();
-    const refused = fakeHttp({ text: () => 'User-agent: *\nDisallow: /search/\n', json: () => ({ body }) });
+    const refused = fakeHttp({
+      text: () => 'User-agent: *\nDisallow: /search/\n',
+      json: () => ({ body }),
+    });
     await expect(page(steamStoreProvider, refused, {})).rejects.toThrow(OpenDataConfigurationError);
   });
 });

@@ -48,7 +48,12 @@ export interface OfferRowProps {
   isUpdating?: boolean;
 }
 
-export function OfferRow({ row, onAddToCart, addToCartPending = false, isUpdating = false }: OfferRowProps) {
+export function OfferRow({
+  row,
+  onAddToCart,
+  addToCartPending = false,
+  isUpdating = false,
+}: OfferRowProps) {
   const router = useRouter();
   const { t } = useTranslation();
   const { offer, ranked, seller, outbound } = row;
@@ -115,7 +120,9 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false, isUpdatin
             }
             className="flex-1 items-center rounded-radius-max bg-bg-fill-inverse p-space-12"
           >
-            <Text className="text-shop-buttonMedium text-text-inverse">{t('offer.buyOnMercaria')}</Text>
+            <Text className="text-shop-buttonMedium text-text-inverse">
+              {t('offer.buyOnMercaria')}
+            </Text>
           </Pressable>
           <Pressable
             accessibilityRole="link"
@@ -123,7 +130,10 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false, isUpdatin
             disabled={isUpdating}
             accessibilityState={{ disabled: isUpdating }}
             onPress={() =>
-              router.push({ pathname: '/products/[id]', params: { id: outbound.listingId, variantId: outbound.productVariantId } })
+              router.push({
+                pathname: '/products/[id]',
+                params: { id: outbound.listingId, variantId: outbound.productVariantId },
+              })
             }
             className="items-center rounded-radius-max border border-border-secondary px-space-16 py-space-12"
           >
@@ -207,9 +217,7 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
         <Pressable
           accessibilityRole="link"
           accessibilityLabel={t('product.visitA11y', { name: seller.name })}
-          onPress={() =>
-            router.push(`/merchants/${seller.slug}`)
-          }
+          onPress={() => router.push(`/merchants/${seller.slug}`)}
         >
           <Text className="text-shop-bodyTitleSmall text-text">{seller.name}</Text>
         </Pressable>
@@ -232,9 +240,7 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={t('product.visitA11y', { name: seller.name })}
-        onPress={() =>
-          router.push(`/stores/${seller.handle}`)
-        }
+        onPress={() => router.push(`/stores/${seller.handle}`)}
       >
         <Text className="text-shop-bodyTitleSmall text-text">{seller.name}</Text>
       </Pressable>
@@ -246,9 +252,7 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={t('offer.visitProfileA11y', { name: seller.displayName })}
-        onPress={() =>
-          router.push(`/sellers/${encodeURIComponent(seller.oxyUserId)}`)
-        }
+        onPress={() => router.push(`/sellers/${encodeURIComponent(seller.oxyUserId)}`)}
       >
         <Text className="text-shop-bodyTitleSmall text-text">{seller.displayName}</Text>
       </Pressable>
@@ -286,7 +290,9 @@ function PriceBlock({
     return (
       <View className="items-end gap-space-2">
         <Text className="text-shop-bodyTitleLarge text-text">{formatMoney(price.amount)}</Text>
-        {source !== null && sourcePrice !== undefined && sourcePrice.currency !== price.amount.currency ? (
+        {source !== null &&
+        sourcePrice !== undefined &&
+        sourcePrice.currency !== price.amount.currency ? (
           <Text className="text-shop-caption text-text-secondary">
             {t('offer.listedAt', { amount: source })}
           </Text>

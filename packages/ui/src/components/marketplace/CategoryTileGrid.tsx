@@ -1,9 +1,9 @@
-import { useState, type ReactNode } from "react";
-import { Pressable, View, useWindowDimensions } from "react-native";
-import { Image } from "expo-image";
-import type { CategoryTile } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { categoryImageSource } from "../../lib/shop-category-images";
+import { useState, type ReactNode } from 'react';
+import { Pressable, View, useWindowDimensions } from 'react-native';
+import { Image } from 'expo-image';
+import type { CategoryTile } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { categoryImageSource } from '../../lib/shop-category-images';
 
 export interface CategoryShortcut {
   key: string;
@@ -28,15 +28,9 @@ export function CategoryTileGrid({
   const [width, setWidth] = useState(0);
   const columns = viewport >= 1024 ? 5 : viewport >= 640 ? 3 : 2;
   const gap = viewport >= 768 ? 16 : 12;
-  const cardWidth =
-    width > 0 ? (width - gap * (columns - 1)) / columns : undefined;
+  const cardWidth = width > 0 ? (width - gap * (columns - 1)) / columns : undefined;
   if (!tiles.length && !shortcuts.length) return null;
-  const renderTile = (
-    key: string,
-    label: string,
-    onPress: () => void,
-    preview: ReactNode,
-  ) => (
+  const renderTile = (key: string, label: string, onPress: () => void, preview: ReactNode) => (
     <Pressable
       key={key}
       accessibilityRole="link"
@@ -48,10 +42,7 @@ export function CategoryTileGrid({
       }}
       className="group rounded-[20px] bg-black/[0.04] p-4 dark:bg-white/[0.06] web:transition-colors web:duration-150 web:hover:bg-black/[0.07] web:motion-reduce:transition-none"
     >
-      <Text
-        className="mb-3 text-base font-semibold text-foreground"
-        numberOfLines={1}
-      >
+      <Text className="mb-3 text-base font-semibold text-foreground" numberOfLines={1}>
         {label}
       </Text>
       {preview}
@@ -99,12 +90,7 @@ export function CategoryTileGrid({
           ),
         )}
         {shortcuts.map((shortcut) =>
-          renderTile(
-            shortcut.key,
-            shortcut.label,
-            shortcut.onPress,
-            shortcut.preview,
-          ),
+          renderTile(shortcut.key, shortcut.label, shortcut.onPress, shortcut.preview),
         )}
       </View>
     </View>

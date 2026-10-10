@@ -93,9 +93,7 @@ export async function readBrandChannels(
         ...(relationship.storefrontId === null ? {} : { storefrontId: relationship.storefrontId }),
       });
     }
-    return entries.sort((left, right) =>
-      left.merchantName.localeCompare(right.merchantName, 'en'),
-    );
+    return entries.sort((left, right) => left.merchantName.localeCompare(right.merchantName, 'en'));
   };
 
   return {

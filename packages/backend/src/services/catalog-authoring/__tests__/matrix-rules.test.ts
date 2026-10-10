@@ -42,10 +42,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  MAX_VALUES_PER_VARIANT_AXIS,
-  MAX_VARIANT_AXES_PER_PRODUCT,
-} from '@mercaria/shared-types';
+import { MAX_VALUES_PER_VARIANT_AXIS, MAX_VARIANT_AXES_PER_PRODUCT } from '@mercaria/shared-types';
 import { config } from '../../../config/index.js';
 import {
   patchProductDraftSchema,
@@ -115,8 +112,10 @@ describe('the published axis count is the enforced axis count', () => {
     // Same published number, second enforcement site. `middleware/schemas.ts`
     // had no bound at all here until #906 and now imports the same symbol; if
     // it is ever re-pointed at a literal, this is where it surfaces.
-    expect(createStoreProductSchema.safeParse(storeProduct({ options: options(SERVED.maxAxes) })).success)
-      .toBe(true);
+    expect(
+      createStoreProductSchema.safeParse(storeProduct({ options: options(SERVED.maxAxes) }))
+        .success,
+    ).toBe(true);
     expect(
       createStoreProductSchema.safeParse(storeProduct({ options: options(SERVED.maxAxes + 1) }))
         .success,
@@ -131,8 +130,9 @@ describe('the published axis count is the enforced axis count', () => {
         value: 'v',
       }));
 
-    expect(updateVariantSchema.safeParse({ optionValues: optionValues(SERVED.maxAxes) }).success)
-      .toBe(true);
+    expect(
+      updateVariantSchema.safeParse({ optionValues: optionValues(SERVED.maxAxes) }).success,
+    ).toBe(true);
     expect(
       updateVariantSchema.safeParse({ optionValues: optionValues(SERVED.maxAxes + 1) }).success,
       'one optionValue past the published cap was accepted',
@@ -148,10 +148,14 @@ describe('the published values-per-axis count is the enforced one', () => {
         fields: [{ attributeKey: 'colour', values: values(n) }],
       }).success;
 
-    expect(patch(SERVED.maxValuesPerAxis), `${String(SERVED.maxValuesPerAxis)} values were refused`)
-      .toBe(true);
-    expect(patch(SERVED.maxValuesPerAxis + 1), 'one value past the published cap was accepted')
-      .toBe(false);
+    expect(
+      patch(SERVED.maxValuesPerAxis),
+      `${String(SERVED.maxValuesPerAxis)} values were refused`,
+    ).toBe(true);
+    expect(
+      patch(SERVED.maxValuesPerAxis + 1),
+      'one value past the published cap was accepted',
+    ).toBe(false);
   });
 
   it('the LEGACY store-product write applies it per option', () => {

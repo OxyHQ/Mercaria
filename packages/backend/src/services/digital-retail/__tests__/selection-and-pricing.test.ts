@@ -58,7 +58,11 @@ describe('the selector never returns an ineligible candidate', () => {
 
 describe('the ranking, in the order ADR 0011 D9 states', () => {
   it('prefers stronger provenance over a cheaper cost', () => {
-    const direct = candidate({ offerId: 'offer-a', provenance: 'publisher_direct', costAmount: 2_000 });
+    const direct = candidate({
+      offerId: 'offer-a',
+      provenance: 'publisher_direct',
+      costAmount: 2_000,
+    });
     const marketplace = candidate({
       offerId: 'offer-b',
       provenance: 'approved_marketplace_supply',
@@ -81,7 +85,10 @@ describe('the ranking, in the order ADR 0011 D9 states', () => {
     // decision on its first day, which is the opposite of what a record is for.
     const unmeasured = candidate({ offerId: 'offer-a', reliability: null });
     const worse = candidate({ offerId: 'offer-b', reliability: RELIABILITY_WITHOUT_HISTORY - 0.1 });
-    const better = candidate({ offerId: 'offer-c', reliability: RELIABILITY_WITHOUT_HISTORY + 0.1 });
+    const better = candidate({
+      offerId: 'offer-c',
+      reliability: RELIABILITY_WITHOUT_HISTORY + 0.1,
+    });
     const result = selectProcurementCandidate([unmeasured, worse, better]);
     if (!selectionRefused(result)) expect(result.candidate.offerId).toBe('offer-c');
   });

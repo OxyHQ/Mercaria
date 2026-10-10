@@ -114,7 +114,9 @@ async function verifyTarget(
         target.controlledValue,
         db,
       );
-      return present ? { verdict: 'resolvable' } : { verdict: 'unresolvable', reason: 'target_unresolvable' };
+      return present
+        ? { verdict: 'resolvable' }
+        : { verdict: 'unresolvable', reason: 'target_unresolvable' };
     }
     case 'unit': {
       // The canonical unit table is a code registry, so this needs no database

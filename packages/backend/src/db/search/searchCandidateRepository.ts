@@ -59,12 +59,7 @@ import {
   productIdentifiers,
 } from '../schema/canonicalCatalog.js';
 import { brandAliases, brands } from '../schema/organizations.js';
-import {
-  merchantAliases,
-  merchants,
-  storefrontAliases,
-  storefronts,
-} from '../schema/merchants.js';
+import { merchantAliases, merchants, storefrontAliases, storefronts } from '../schema/merchants.js';
 import { categories } from '../schema/catalog.js';
 
 /** An entity id with the signal its stage produced, 0–1. */
@@ -78,7 +73,6 @@ export interface AliasCandidate {
   readonly id: string;
   readonly aliasKind: CanonicalAliasKind;
 }
-
 
 /** The lifecycle statuses of the non-catalogue entities a search may show. */
 const SEARCHABLE_ENTITY_STATUSES = ['active'] as const;
@@ -527,7 +521,10 @@ export async function findFamilyAliasCandidates(
 ): Promise<AliasCandidate[]> {
   if (normalizedAlias.length === 0) return [];
   const rows = await db
-    .select({ id: canonicalProductFamilyAliases.familyId, aliasKind: canonicalProductFamilyAliases.kind })
+    .select({
+      id: canonicalProductFamilyAliases.familyId,
+      aliasKind: canonicalProductFamilyAliases.kind,
+    })
     .from(canonicalProductFamilyAliases)
     .innerJoin(
       canonicalProductFamilies,

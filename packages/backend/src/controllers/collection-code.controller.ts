@@ -32,10 +32,7 @@ import {
 } from '../services/orders/order-access.service.js';
 import { toOrderPortalGrant } from '../services/guest-portal/portal.service.js';
 import { findOrderPickup } from '../db/pickup/orderPickupRepository.js';
-import {
-  projectOrderPickup,
-  readCollectionCode,
-} from '../services/pickup/collection.service.js';
+import { projectOrderPickup, readCollectionCode } from '../services/pickup/collection.service.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 

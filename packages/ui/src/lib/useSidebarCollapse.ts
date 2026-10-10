@@ -1,7 +1,7 @@
-import { useCallback } from "react";
-import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCallback } from 'react';
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Persisted app-shell sidebar state, shared by every Mercaria app.
@@ -28,7 +28,7 @@ const useSidebarStore = create<SidebarState>()(
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
     }),
     {
-      name: "mercaria.ui.sidebar",
+      name: 'mercaria.ui.sidebar',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ sidebarOpen: state.sidebarOpen }),
     },
@@ -48,10 +48,7 @@ export function useSidebarCollapse() {
   const collapsed = !sidebarOpen;
   const collapse = useCallback(() => setSidebarOpen(false), [setSidebarOpen]);
   const expand = useCallback(() => setSidebarOpen(true), [setSidebarOpen]);
-  const setCollapsed = useCallback(
-    (next: boolean) => setSidebarOpen(!next),
-    [setSidebarOpen],
-  );
+  const setCollapsed = useCallback((next: boolean) => setSidebarOpen(!next), [setSidebarOpen]);
 
   return { collapsed, setCollapsed, collapse, expand, toggle: toggleSidebar };
 }

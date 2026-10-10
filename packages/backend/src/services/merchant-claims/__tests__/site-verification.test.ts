@@ -92,10 +92,7 @@ describe('reading a meta tag off a page', () => {
       ),
     ).toBe(true);
     expect(
-      metaTagCarriesToken(
-        `<meta content='${token}' name='mercaria-merchant-verification'>`,
-        token,
-      ),
+      metaTagCarriesToken(`<meta content='${token}' name='mercaria-merchant-verification'>`, token),
     ).toBe(true);
   });
 

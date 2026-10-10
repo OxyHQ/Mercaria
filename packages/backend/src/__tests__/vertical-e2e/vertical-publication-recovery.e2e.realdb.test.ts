@@ -60,9 +60,18 @@ import { sql } from 'drizzle-orm';
 import { connectPostgres, type Database } from '../../db/postgres.js';
 import { findCategoryByKey } from '../../db/taxonomy/taxonomyRepository.js';
 import { listDraftValues, listDraftVariants } from '../../db/catalogAuthoring/draftRepository.js';
-import { createDraft, patchDraft, readDraft, validateStoreDraft } from '../../services/catalog-authoring/draft.service.js';
+import {
+  createDraft,
+  patchDraft,
+  readDraft,
+  validateStoreDraft,
+} from '../../services/catalog-authoring/draft.service.js';
 import { publishDraft } from '../../services/catalog-authoring/publish.service.js';
-import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  type VerticalNamespace,
+} from '../../scripts/seed-verticals/apply.js';
 import { SMARTPHONE_PACKAGE } from '../../scripts/seed-verticals/smartphone.js';
 import {
   createTestStore,
@@ -71,7 +80,13 @@ import {
   verticalRunToken,
   type SeededVertical,
 } from '../../scripts/seed-verticals/__tests__/vertical-fixture.js';
-import { E2E_PERMISSIONS, countOne, countStoreListings, enumValueId, reportPopulation } from './journey.js';
+import {
+  E2E_PERMISSIONS,
+  countOne,
+  countStoreListings,
+  enumValueId,
+  reportPopulation,
+} from './journey.js';
 
 const TOKEN = verticalRunToken('pr');
 
@@ -142,10 +157,20 @@ async function axonAxes(entry: {
   readonly color: string;
   readonly region: string;
 }): Promise<
-  readonly { readonly attributeKey: string; readonly values: readonly { readonly enumValueId?: string; readonly number?: number; readonly unit?: string }[] }[]
+  readonly {
+    readonly attributeKey: string;
+    readonly values: readonly {
+      readonly enumValueId?: string;
+      readonly number?: number;
+      readonly unit?: string;
+    }[];
+  }[]
 > {
   return [
-    { attributeKey: nsKey(ns, 'storage_capacity'), values: [{ number: entry.storageGb, unit: 'GB' }] },
+    {
+      attributeKey: nsKey(ns, 'storage_capacity'),
+      values: [{ number: entry.storageGb, unit: 'GB' }],
+    },
     {
       attributeKey: nsKey(ns, 'phone_color'),
       values: [{ enumValueId: await enumValueId(db, ns, 'phone_color', entry.color) }],

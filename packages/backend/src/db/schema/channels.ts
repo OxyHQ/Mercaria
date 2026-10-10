@@ -62,8 +62,12 @@ export const channelOnboardingSessions = pgTable(
      * neither is a `connections.provider` value.
      */
     channelType: text({ enum: asEnumValues(CHANNEL_TYPE_IDS) }).notNull(),
-    state: text({ enum: asEnumValues(CHANNEL_ONBOARDING_STATES) }).notNull().default('in_progress'),
-    step: text({ enum: asEnumValues(CHANNEL_ONBOARDING_STEPS) }).notNull().default('scope'),
+    state: text({ enum: asEnumValues(CHANNEL_ONBOARDING_STATES) })
+      .notNull()
+      .default('in_progress'),
+    step: text({ enum: asEnumValues(CHANNEL_ONBOARDING_STEPS) })
+      .notNull()
+      .default('scope'),
 
     /**
      * The connection the credential step created or reused.

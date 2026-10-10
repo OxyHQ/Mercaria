@@ -3,10 +3,10 @@ import type {
   MerchantBillingSessionView,
   MerchantPlanCatalogEntry,
   MerchantPlanStatusView,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
-import { withBillingIntent } from "../billing/persisted-intent";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
+import { withBillingIntent } from '../billing/persisted-intent';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/plan`;
 
@@ -38,21 +38,28 @@ export async function fetchPlanCatalog(storeId: string): Promise<MerchantPlanCat
  */
 export async function startPlanCheckout(
   storeId: string,
-  input: { planId: string; interval: "monthly" | "annual"; currency: string },
+  input: { planId: string; interval: 'monthly' | 'annual'; currency: string },
 ): Promise<MerchantBillingSessionView> {
-  return withBillingIntent([storeId, "checkout", input.planId, input.interval, input.currency], async key => {
-    const { data } = await apiClient.post<ApiResponse<MerchantBillingSessionView>>(
-      `${base(storeId)}/checkout`, input, { headers: { "Idempotency-Key": key } },
-    );
-    return unwrap(data);
-  });
+  return withBillingIntent(
+    [storeId, 'checkout', input.planId, input.interval, input.currency],
+    async (key) => {
+      const { data } = await apiClient.post<ApiResponse<MerchantBillingSessionView>>(
+        `${base(storeId)}/checkout`,
+        input,
+        { headers: { 'Idempotency-Key': key } },
+      );
+      return unwrap(data);
+    },
+  );
 }
 
 /** POST for a hosted billing-portal URL — invoices, cards and cancellation. */
 export async function openBillingPortal(storeId: string): Promise<MerchantBillingSessionView> {
-  return withBillingIntent([storeId, "portal"], async key => {
+  return withBillingIntent([storeId, 'portal'], async (key) => {
     const { data } = await apiClient.post<ApiResponse<MerchantBillingSessionView>>(
-      `${base(storeId)}/portal`, {}, { headers: { "Idempotency-Key": key } },
+      `${base(storeId)}/portal`,
+      {},
+      { headers: { 'Idempotency-Key': key } },
     );
     return unwrap(data);
   });
@@ -60,9 +67,11 @@ export async function openBillingPortal(storeId: string): Promise<MerchantBillin
 
 /** POST to cancel at the end of the paid period. There is no immediate one. */
 export async function cancelPlan(storeId: string): Promise<MerchantPlanStatusView> {
-  return withBillingIntent([storeId, "cancel"], async key => {
+  return withBillingIntent([storeId, 'cancel'], async (key) => {
     const { data } = await apiClient.post<ApiResponse<MerchantPlanStatusView>>(
-      `${base(storeId)}/cancel`, {}, { headers: { "Idempotency-Key": key } },
+      `${base(storeId)}/cancel`,
+      {},
+      { headers: { 'Idempotency-Key': key } },
     );
     return unwrap(data);
   });

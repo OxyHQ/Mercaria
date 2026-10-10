@@ -8,17 +8,15 @@ interface AvatarProps {
   children?: React.ReactNode;
 }
 
-const Avatar = React.forwardRef<View, AvatarProps>(
-  ({ className, children, ...props }, ref) => (
-    <View
-      ref={ref}
-      className={cn('relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full', className)}
-      {...props}
-    >
-      {children}
-    </View>
-  )
-);
+const Avatar = React.forwardRef<View, AvatarProps>(({ className, children, ...props }, ref) => (
+  <View
+    ref={ref}
+    className={cn('relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full', className)}
+    {...props}
+  >
+    {children}
+  </View>
+));
 Avatar.displayName = 'Avatar';
 
 interface AvatarImageProps extends Omit<ImageProps, 'style'> {
@@ -27,12 +25,8 @@ interface AvatarImageProps extends Omit<ImageProps, 'style'> {
 
 const AvatarImage = React.forwardRef<React.ComponentRef<typeof Image>, AvatarImageProps>(
   ({ className, ...props }, ref) => (
-    <Image
-      ref={ref}
-      className={cn('aspect-square h-full w-full', className)}
-      {...props}
-    />
-  )
+    <Image ref={ref} className={cn('aspect-square h-full w-full', className)} {...props} />
+  ),
 );
 AvatarImage.displayName = 'AvatarImage';
 
@@ -47,13 +41,13 @@ const AvatarFallback = React.forwardRef<View, AvatarFallbackProps>(
       ref={ref}
       className={cn(
         'flex h-full w-full items-center justify-center rounded-full bg-muted',
-        className
+        className,
       )}
       {...props}
     >
       {children}
     </View>
-  )
+  ),
 );
 AvatarFallback.displayName = 'AvatarFallback';
 

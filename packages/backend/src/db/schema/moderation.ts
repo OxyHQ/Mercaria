@@ -121,11 +121,7 @@ export const abuseReports = pgTable(
   (t) => [
     checkOneOf('abuse_reports_reported_type_check', t.reportedType, ABUSE_REPORTED_TYPES),
     checkOneOf('abuse_reports_local_status_check', t.localStatus, ABUSE_REPORT_LOCAL_STATUSES),
-    checkEveryElementOf(
-      'abuse_reports_categories_check',
-      t.categories,
-      ABUSE_REPORT_CATEGORIES,
-    ),
+    checkEveryElementOf('abuse_reports_categories_check', t.categories, ABUSE_REPORT_CATEGORIES),
     // A report with no category is not a report. Mongoose's `required: true` on
     // an array accepts `[]`; this does not.
     check('abuse_reports_categories_present_check', sql`array_length(${t.categories}, 1) >= 1`),
@@ -361,11 +357,7 @@ export const moderationEnforcements = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf(
-      'moderation_enforcements_action_check',
-      t.action,
-      MODERATION_ENFORCEMENT_ACTIONS,
-    ),
+    checkOneOf('moderation_enforcements_action_check', t.action, MODERATION_ENFORCEMENT_ACTIONS),
     checkOneOf('moderation_enforcements_subject_type_check', t.subjectType, ABUSE_REPORTED_TYPES),
     checkOneOf(
       'moderation_enforcements_previous_listing_status_check',

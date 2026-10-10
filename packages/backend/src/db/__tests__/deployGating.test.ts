@@ -427,9 +427,7 @@ describe('ci.yml gives every commit on main its own verdict', () => {
 });
 
 describe('judgeJobs refuses the two shapes that read as green', () => {
-  const green = [
-    ...gateModule.REQUIRED_CI_JOBS.map((name) => ({ name, conclusion: 'success' })),
-  ];
+  const green = [...gateModule.REQUIRED_CI_JOBS.map((name) => ({ name, conclusion: 'success' }))];
 
   it('passes a run whose required jobs all succeeded', () => {
     expect(gateModule.judgeJobs(green)).toEqual([]);
@@ -454,7 +452,9 @@ describe('judgeJobs refuses the two shapes that read as green', () => {
 
   it('refuses a job that is still running rather than reading it as passed', () => {
     const running = green.map((job) =>
-      job.name === 'Lint & Test' ? { name: job.name, conclusion: null, status: 'in_progress' } : job,
+      job.name === 'Lint & Test'
+        ? { name: job.name, conclusion: null, status: 'in_progress' }
+        : job,
     );
     expect(gateModule.judgeJobs(running)).toEqual(['Lint & Test: in_progress']);
   });
@@ -516,9 +516,9 @@ describe('the gate distinguishes a transport fault from a refusal', () => {
   it('classifies the real error shape as transport, and a refusal as NOT', () => {
     expect(gateModule.isTransportError(socketError())).toBe(true);
     // The safety property: a deliberate refusal must never be retried.
-    expect(gateModule.isTransportError(new gateModule.GateFailure('CI run concluded failure'))).toBe(
-      false,
-    );
+    expect(
+      gateModule.isTransportError(new gateModule.GateFailure('CI run concluded failure')),
+    ).toBe(false);
     // And a bug in the script is not a network problem.
     expect(gateModule.isTransportError(new TypeError('x.map is not a function'))).toBe(false);
     expect(gateModule.isTransportError(undefined)).toBe(false);

@@ -135,8 +135,7 @@ export async function listLegacyListingPage(
 
   return {
     listings: page,
-    resumeAfterListingId:
-      page.length < input.limit ? null : (page[page.length - 1]?.id ?? null),
+    resumeAfterListingId: page.length < input.limit ? null : (page[page.length - 1]?.id ?? null),
   };
 }
 
@@ -364,9 +363,7 @@ export async function listCategoryActivityProjections(
       lifecycle: categories.lifecycle,
     })
     .from(categories)
-    .where(
-      input.afterCategoryId === null ? undefined : gt(categories.id, input.afterCategoryId),
-    )
+    .where(input.afterCategoryId === null ? undefined : gt(categories.id, input.afterCategoryId))
     .orderBy(asc(categories.id))
     .limit(input.limit);
 }

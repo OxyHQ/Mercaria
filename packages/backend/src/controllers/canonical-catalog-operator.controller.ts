@@ -267,4 +267,3 @@ export async function correctIdentifierHandler(req: Request, res: Response): Pro
     respondWithError(res, error, 'Correcting the identifier failed');
   }
 }
-

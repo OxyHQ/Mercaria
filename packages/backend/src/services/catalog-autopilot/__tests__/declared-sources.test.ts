@@ -22,14 +22,19 @@ describe('the declared open-data sources', () => {
       'tcgdex',
       'ygoprodeck',
     ]);
-    const chains = DECLARED_OPEN_DATA_SOURCES.filter((source) => source.provider === 'open_prices').map((source) => source.accountRef);
-    for (const chain of ['mercadona', 'lidl', 'carrefour', 'alcampo', 'supeco', 'dia']) expect(chains).toContain(chain);
+    const chains = DECLARED_OPEN_DATA_SOURCES.filter(
+      (source) => source.provider === 'open_prices',
+    ).map((source) => source.accountRef);
+    for (const chain of ['mercadona', 'lidl', 'carrefour', 'alcampo', 'supeco', 'dia'])
+      expect(chains).toContain(chain);
   });
 
   it('has unique names, and one source per (provider, account ref)', () => {
     const names = DECLARED_OPEN_DATA_SOURCES.map((source) => source.name);
     expect(new Set(names).size).toBe(names.length);
-    const feeds = DECLARED_OPEN_DATA_SOURCES.map((source) => `${source.provider}:${source.accountRef ?? ''}`);
+    const feeds = DECLARED_OPEN_DATA_SOURCES.map(
+      (source) => `${source.provider}:${source.accountRef ?? ''}`,
+    );
     expect(new Set(feeds).size).toBe(feeds.length);
   });
 
@@ -37,7 +42,8 @@ describe('the declared open-data sources', () => {
     for (const source of DECLARED_OPEN_DATA_SOURCES) {
       const provider = findOpenDataProvider(source.provider);
       expect(provider, source.name).toBeDefined();
-      if (provider?.accountRefRequired === true) expect(source.accountRef, source.name).not.toBeNull();
+      if (provider?.accountRefRequired === true)
+        expect(source.accountRef, source.name).not.toBeNull();
       expect(source.territories, source.name).toEqual(['ES']);
     }
   });
@@ -69,10 +75,15 @@ describe('the declared open-data sources', () => {
     for (const { name, rights } of DECLARED_OPEN_DATA_SOURCES) {
       // `publishIngestionSourcePolicy`'s own refusals, restated.
       expect(rights.mayCache && rights.cacheTtlSeconds > 0, name).toBe(true);
-      expect(rights.mayDisplay || (!rights.mayDisplayPrice && !rights.mayDisplayMedia), name).toBe(true);
+      expect(rights.mayDisplay || (!rights.mayDisplayPrice && !rights.mayDisplayMedia), name).toBe(
+        true,
+      );
       expect(rights.mayLinkOut || !rights.mayAppendAffiliateParams, name).toBe(true);
       expect(rights.maySeedCatalog ? rights.mayStore : true, name).toBe(true);
-      const extraction = findOpenDataProvider(DECLARED_OPEN_DATA_SOURCES.find((s) => s.name === name)?.provider ?? '')?.extraction === true;
+      const extraction =
+        findOpenDataProvider(
+          DECLARED_OPEN_DATA_SOURCES.find((s) => s.name === name)?.provider ?? '',
+        )?.extraction === true;
       // An extraction provider runs only under a robots-respecting policy with
       // a budget and an agent; nothing else extracts at all.
       expect(rights.extractionMode, name).toBe(extraction ? 'robots_respecting' : 'disallowed');
@@ -81,7 +92,11 @@ describe('the declared open-data sources', () => {
         expect(rights.extractionUserAgent, name).toMatch(/^Mercaria\//u);
       }
       expect(rights.attributionRequired, name).toBe(true);
-      expect(rights.termsVersion, name).toBe(findOpenDataProvider(DECLARED_OPEN_DATA_SOURCES.find((s) => s.name === name)?.provider ?? '')?.licence);
+      expect(rights.termsVersion, name).toBe(
+        findOpenDataProvider(
+          DECLARED_OPEN_DATA_SOURCES.find((s) => s.name === name)?.provider ?? '',
+        )?.licence,
+      );
     }
   });
 
@@ -116,11 +131,17 @@ describe('whether the autopilot republishes a policy', () => {
   });
 
   it('replaces its own policy once the declaration changed', () => {
-    expect(shouldPublishDeclaredPolicy(activePolicy({ mayIndex: !declared.mayIndex }), declared)).toBe(true);
+    expect(
+      shouldPublishDeclaredPolicy(activePolicy({ mayIndex: !declared.mayIndex }), declared),
+    ).toBe(true);
   });
 
   it("never replaces an operator's policy, even one that grants nothing", () => {
-    const suspended = activePolicy({ reviewedByOxyUserId: 'operator-1', mayDisplay: false, mayDisplayPrice: false });
+    const suspended = activePolicy({
+      reviewedByOxyUserId: 'operator-1',
+      mayDisplay: false,
+      mayDisplayPrice: false,
+    });
     expect(shouldPublishDeclaredPolicy(suspended, declared)).toBe(false);
   });
 });

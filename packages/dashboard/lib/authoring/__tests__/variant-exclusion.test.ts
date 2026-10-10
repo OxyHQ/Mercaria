@@ -44,11 +44,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type {
-  AuthoringField,
-  AuthoringSchema,
-  CurrencyCode,
-} from '@mercaria/shared-types';
+import type { AuthoringField, AuthoringSchema, CurrencyCode } from '@mercaria/shared-types';
 
 import {
   axisDedupeKey,
@@ -147,8 +143,10 @@ function row(
   axes: Readonly<Record<string, string>>,
   overrides: Partial<VariantRow> = {},
 ): VariantRow {
-  const entries: Record<string, readonly { kind: 'controlled_value'; ordinal: number; enumValueId: string }[]> =
-    {};
+  const entries: Record<
+    string,
+    readonly { kind: 'controlled_value'; ordinal: number; enumValueId: string }[]
+  > = {};
   for (const [key, valueId] of Object.entries(axes)) {
     entries[key] = [{ kind: 'controlled_value', ordinal: 0, enumValueId: valueId }];
   }
@@ -435,10 +433,7 @@ describe('a switched-off combination cannot block a publish', () => {
     // assertion above passes against a function that never blocks anything.
     const blocked = stepCompleteness(
       'variants',
-      formWith([
-        row('SOLD', { [COLOUR.key]: 'val-a', [SIZE.key]: 'val-s' }),
-        row('NOW-SOLD', {}),
-      ]),
+      formWith([row('SOLD', { [COLOUR.key]: 'val-a', [SIZE.key]: 'val-s' }), row('NOW-SOLD', {})]),
       SCHEMA,
     );
     expect(blocked.blocked).toBeGreaterThan(0);
@@ -485,10 +480,15 @@ describe('formSignature ignores a row nothing will send', () => {
    * no payload), so if the signature moved, every keystroke inside an excluded
    * row would cost an autosave request that sends a byte-identical body.
    */
-  it('does not change when a disabled row\'s axes are edited', () => {
+  it("does not change when a disabled row's axes are edited", () => {
     const sold = row('SOLD', { [COLOUR.key]: 'val-a' });
     const before = row('EXCLUDED', { [COLOUR.key]: 'val-b' }, { enabled: false });
-    const after = { ...before, axes: { [COLOUR.key]: [{ kind: 'controlled_value' as const, ordinal: 0, enumValueId: 'val-a' }] } };
+    const after = {
+      ...before,
+      axes: {
+        [COLOUR.key]: [{ kind: 'controlled_value' as const, ordinal: 0, enumValueId: 'val-a' }],
+      },
+    };
 
     expect(formSignature(formWith([sold, after]), SCHEMA, 1)).toBe(
       formSignature(formWith([sold, before]), SCHEMA, 1),
@@ -498,7 +498,9 @@ describe('formSignature ignores a row nothing will send', () => {
     // the equality above is not passing against a constant.
     const editedSold = {
       ...sold,
-      axes: { [COLOUR.key]: [{ kind: 'controlled_value' as const, ordinal: 0, enumValueId: 'val-b' }] },
+      axes: {
+        [COLOUR.key]: [{ kind: 'controlled_value' as const, ordinal: 0, enumValueId: 'val-b' }],
+      },
     };
     expect(formSignature(formWith([editedSold, before]), SCHEMA, 1)).not.toBe(
       formSignature(formWith([sold, before]), SCHEMA, 1),

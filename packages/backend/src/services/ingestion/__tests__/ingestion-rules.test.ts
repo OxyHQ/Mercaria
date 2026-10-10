@@ -133,7 +133,9 @@ describe('rights', () => {
   it('answers a cache TTL only while caching is permitted', () => {
     expect(cacheTtlSeconds('active', FULL)).toBe(600);
     expect(cacheTtlSeconds('revoked', FULL)).toBeNull();
-    expect(cacheTtlSeconds('active', { ...FULL, mayCache: false, cacheTtlSeconds: null })).toBeNull();
+    expect(
+      cacheTtlSeconds('active', { ...FULL, mayCache: false, cacheTtlSeconds: null }),
+    ).toBeNull();
   });
 });
 
@@ -176,9 +178,9 @@ describe('health', () => {
     // Saying `source_outage` would send somebody to check a service that is
     // answering perfectly well.
     expect(classifyRunOutcome({ ...base, refreshPermitted: false })).toBe('rights_suspended');
-    expect(
-      classifyRunOutcome({ ...base, refreshPermitted: false, failure: 'auth_failure' }),
-    ).toBe('rights_suspended');
+    expect(classifyRunOutcome({ ...base, refreshPermitted: false, failure: 'auth_failure' })).toBe(
+      'rights_suspended',
+    );
   });
 
   it('calls a page drift once enough of it was refused', () => {
@@ -277,8 +279,15 @@ describe('normalization', () => {
 
   it('drops a URL that is not an absolute http(s) one', () => {
     // A `javascript:` scheme in a URL field is a link Mercaria would render.
-    for (const hostile of ['javascript:alert(1)', 'data:text/html,x', '/relative/path', 'nonsense']) {
-      expect(canonicalizeNormalizedRecord({ ...bare, sourceUrl: hostile })?.sourceUrl).toBeUndefined();
+    for (const hostile of [
+      'javascript:alert(1)',
+      'data:text/html,x',
+      '/relative/path',
+      'nonsense',
+    ]) {
+      expect(
+        canonicalizeNormalizedRecord({ ...bare, sourceUrl: hostile })?.sourceUrl,
+      ).toBeUndefined();
     }
     expect(
       canonicalizeNormalizedRecord({ ...bare, sourceUrl: 'https://shop.example/p/1' })?.sourceUrl,
@@ -286,12 +295,20 @@ describe('normalization', () => {
   });
 
   it('drops a price that is not a non-negative integer in a shaped currency', () => {
-    expect(canonicalizeNormalizedRecord({ ...bare, price: { amount: -1, currency: 'EUR' } })?.price).toBeUndefined();
-    expect(canonicalizeNormalizedRecord({ ...bare, price: { amount: 19.99, currency: 'EUR' } })?.price).toBeUndefined();
-    expect(canonicalizeNormalizedRecord({ ...bare, price: { amount: 100, currency: 'euros' } })?.price).toBeUndefined();
+    expect(
+      canonicalizeNormalizedRecord({ ...bare, price: { amount: -1, currency: 'EUR' } })?.price,
+    ).toBeUndefined();
+    expect(
+      canonicalizeNormalizedRecord({ ...bare, price: { amount: 19.99, currency: 'EUR' } })?.price,
+    ).toBeUndefined();
+    expect(
+      canonicalizeNormalizedRecord({ ...bare, price: { amount: 100, currency: 'euros' } })?.price,
+    ).toBeUndefined();
     // A currency Mercaria does not PRESENT is still a currency a source trades
     // in — ADR 0002 D18's documented exception, applied before the row.
-    expect(canonicalizeNormalizedRecord({ ...bare, price: { amount: 100, currency: 'xbt' } })?.price).toEqual({
+    expect(
+      canonicalizeNormalizedRecord({ ...bare, price: { amount: 100, currency: 'xbt' } })?.price,
+    ).toEqual({
       amount: 100,
       currency: 'XBT',
     });
@@ -399,7 +416,10 @@ describe('redaction', () => {
     // observation per refresh forever.
     const huge = {
       ...record,
-      media: Array.from({ length: 24 }, (_, index) => `https://cdn.example/${'y'.repeat(1_900)}-${index}.jpg`),
+      media: Array.from(
+        { length: 24 },
+        (_, index) => `https://cdn.example/${'y'.repeat(1_900)}-${index}.jpg`,
+      ),
     };
     const result = redactSourceObservation(huge, {});
     const serialized = JSON.stringify(result?.payload ?? {});
@@ -456,13 +476,17 @@ describe('which offer kind a source produces', () => {
     // A floor under the case above: it would also pass if EVERY kind answered
     // `affiliate`, so the sweep has to contain at least one of each.
     expect(CATALOG_SOURCE_KINDS).toContain('affiliate_network');
-    expect(CATALOG_SOURCE_KINDS.filter((kind) => kind !== 'affiliate_network').length).toBeGreaterThan(0);
+    expect(
+      CATALOG_SOURCE_KINDS.filter((kind) => kind !== 'affiliate_network').length,
+    ).toBeGreaterThan(0);
   });
 
   it('needs BOTH rights for `affiliate` — outbound_link alone is `external`', () => {
     // Which is the honest degradation, not a defect: `destination.ts` says a
     // source with no `affiliate_params` right stored no routing metadata, so
     // the plain link is the correct thing to hand over.
-    expect(offerKindFor(rights('outbound_link'), 'affiliate_network', DESTINATION)).toBe('external');
+    expect(offerKindFor(rights('outbound_link'), 'affiliate_network', DESTINATION)).toBe(
+      'external',
+    );
   });
 });

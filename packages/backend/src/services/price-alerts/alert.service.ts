@@ -91,7 +91,9 @@ export interface CreatePriceAlertInput {
  * now — and asking a buyer to choose between a product and nothing is the one
  * shape the ambiguity prompt must not take.
  */
-async function readSplitTargets(rows: readonly PriceAlertRow[]): Promise<Map<string, string | null>> {
+async function readSplitTargets(
+  rows: readonly PriceAlertRow[],
+): Promise<Map<string, string | null>> {
   const jobIds = [...new Set(rows.flatMap((row) => (row.splitJobId ? [row.splitJobId] : [])))];
   if (jobIds.length === 0) return new Map();
   const jobs = await getDb()
@@ -300,7 +302,10 @@ export async function updatePriceAlert(
     );
   }
 
-  const target = patch.target ?? { amount: existing.targetAmount, currency: existing.targetCurrency };
+  const target = patch.target ?? {
+    amount: existing.targetAmount,
+    currency: existing.targetCurrency,
+  };
   assertSafeMoneyAmount(target.amount, 'priceAlert.target');
   if (target.amount <= 0) throw validationError('The target must be a positive amount.');
 
@@ -494,7 +499,10 @@ export async function suggestPriceAlertTarget(input: {
   for (const candidate of inSegment) {
     // `in`, not `.known` — `qualification.ts`'s note on `strict: false`.
     const { itemPrice, total } = candidate.admitted.facts;
-    if ('amount' in itemPrice && (bestItem === undefined || itemPrice.amount.amount < bestItem.amount)) {
+    if (
+      'amount' in itemPrice &&
+      (bestItem === undefined || itemPrice.amount.amount < bestItem.amount)
+    ) {
       bestItem = itemPrice.amount;
     }
     if ('amount' in total && (bestTotal === undefined || total.amount.amount < bestTotal.amount)) {

@@ -21,18 +21,18 @@
  * has committed.
  */
 
-import { Platform } from "react-native";
-import type { LocatedFinding } from "./findings";
+import { Platform } from 'react-native';
+import type { LocatedFinding } from './findings';
 
 /** The anchor id one finding names, or `null` when it names no control. */
 export function anchorForFinding(finding: LocatedFinding): string | null {
   const target = finding.target;
   switch (target.kind) {
-    case "product_field":
+    case 'product_field':
       return `authoring-field-${target.attributeKey}`;
-    case "variant_field":
+    case 'variant_field':
       return `authoring-variant-${target.position}`;
-    case "variant":
+    case 'variant':
       return `authoring-variant-${target.position}`;
     default:
       return null;
@@ -41,7 +41,7 @@ export function anchorForFinding(finding: LocatedFinding): string | null {
 
 /** Bring the control a finding names into view. Web only; see the module note. */
 export function scrollToFinding(finding: LocatedFinding): void {
-  if (Platform.OS !== "web") return;
+  if (Platform.OS !== 'web') return;
   const id = anchorForFinding(finding);
   if (id === null) return;
   // `requestAnimationFrame` rather than a timeout: the target is rendered by the
@@ -49,6 +49,6 @@ export function scrollToFinding(finding: LocatedFinding): void {
   requestAnimationFrame(() => {
     const element = document.getElementById(id);
     if (element === null) return;
-    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
 }

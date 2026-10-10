@@ -63,11 +63,19 @@ import {
 import { findCategoryByKey } from '../../../db/taxonomy/taxonomyRepository.js';
 import { governanceActor, type CatalogGovernanceActor } from '../actor.js';
 import { planChange } from '../change-request.service.js';
-import { GOVERNED_REFERENCE_PLAN, referenceColumnName, referenceTableName } from '../impact-plan.js';
+import {
+  GOVERNED_REFERENCE_PLAN,
+  referenceColumnName,
+  referenceTableName,
+} from '../impact-plan.js';
 import { resolveImpactSubjects } from '../impact-subjects.js';
 import { createDraft } from '../../catalog-authoring/draft.service.js';
 import { RETRIEVABLE_AUTHORING_LIFECYCLES } from '../../catalog-authoring/schema.service.js';
-import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  type VerticalNamespace,
+} from '../../../scripts/seed-verticals/apply.js';
 import { SMARTPHONE_PACKAGE } from '../../../scripts/seed-verticals/smartphone.js';
 import {
   createTestStore,
@@ -113,7 +121,9 @@ function actorWith(...roles: Parameters<typeof governanceActor>[1]): CatalogGove
  * `DATABASE_CASING` renders a name differently — and a lookup that matched
  * nothing would make every assertion below read `undefined` rather than fail.
  */
-function relationKeyOf(column: (typeof GOVERNED_REFERENCE_PLAN)['product_type_definition'][number]['column']): {
+function relationKeyOf(
+  column: (typeof GOVERNED_REFERENCE_PLAN)['product_type_definition'][number]['column'],
+): {
   table: string;
   column: string;
 } {
@@ -134,7 +144,10 @@ function countFor(
   const entry = counts.find(
     (count) => count.referenceTable === key.table && count.referenceColumn === key.column,
   );
-  expect(entry, `the impact report carries no measurement for ${key.table}.${key.column}`).toBeDefined();
+  expect(
+    entry,
+    `the impact report carries no measurement for ${key.table}.${key.column}`,
+  ).toBeDefined();
   return entry === undefined ? -1 : entry.rowCount;
 }
 
@@ -240,9 +253,7 @@ describe('planning a publication measures the population it disturbs', () => {
     // every assertion below would fail for a reason that has nothing to do with
     // the subject being measured.
     expect(planned.request.impact.coverage).toBe('measured');
-    expect(planned.request.impact.relationsCounted).toBe(
-      planned.request.impact.relationsDeclared,
-    );
+    expect(planned.request.impact.relationsCounted).toBe(planned.request.impact.relationsDeclared);
     expect(
       planned.request.impact.relationsCounted,
       `${String(planned.request.impact.relationsCounted)} relations counted`,
@@ -311,11 +322,12 @@ describe('a FIRST publication supersedes nothing, and says so with a measurement
     // nothing pinned elsewhere moves. It is not the same fact as a missing
     // measurement, and `relationsCounted` is what tells the two apart.
     expect(planned.request.impact.coverage).toBe('measured');
-    expect(planned.request.impact.relationsCounted).toBe(
-      planned.request.impact.relationsDeclared,
-    );
+    expect(planned.request.impact.relationsCounted).toBe(planned.request.impact.relationsDeclared);
     expect(
-      countFor(planned.request.impact.counts, relationKeyOf(catalogAuthoringDrafts.productTypeDefinitionId)),
+      countFor(
+        planned.request.impact.counts,
+        relationKeyOf(catalogAuthoringDrafts.productTypeDefinitionId),
+      ),
     ).toBe(0);
 
     // And the version really is unpublished, so the zero above is about the

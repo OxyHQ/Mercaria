@@ -101,9 +101,8 @@ const MISSING_KIND_REASON: Record<RetailCostComponentKind, RetailCostBlockReason
  * question that has not been posed yet, which is the whole difference between
  * "informational starting price" and "ineligible offer".
  */
-const DESTINATION_DEPENDENT_KINDS: ReadonlySet<RetailCostComponentKind> = new Set<
-  RetailCostComponentKind
->(['destination_shipping', 'tax_duty']);
+const DESTINATION_DEPENDENT_KINDS: ReadonlySet<RetailCostComponentKind> =
+  new Set<RetailCostComponentKind>(['destination_shipping', 'tax_duty']);
 
 /** The one-to-one mapping the `retail_cost_quotes` CHECK also enforces. */
 const PRESENTATION_BY_COMPLETENESS: Record<RetailQuoteCompleteness, RetailPricePresentation> = {

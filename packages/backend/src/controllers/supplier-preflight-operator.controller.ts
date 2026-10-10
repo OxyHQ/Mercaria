@@ -24,10 +24,7 @@
  */
 
 import type { NextFunction, Request, Response } from 'express';
-import type {
-  SupplierSuppressionKind,
-  SupplierSuppressionScope,
-} from '@mercaria/shared-types';
+import type { SupplierSuppressionKind, SupplierSuppressionScope } from '@mercaria/shared-types';
 import { SUPPLIER_FORBIDDEN_SOURCING_SIGNAL_LABELS } from '@mercaria/shared-types';
 import { getDb } from '../db/postgres.js';
 import { sendSuccess, sendError, ErrorCodes } from '../utils/api-response.js';

@@ -173,9 +173,7 @@ function bodyOf(source: string, symbol: string): string | undefined {
 }
 
 /** Every forbidden symbol reachable from `entry` through its named imports. */
-export function forbiddenSymbolsReachableFrom(
-  options: ImportClosureOptions,
-): ImportClosureResult {
+export function forbiddenSymbolsReachableFrom(options: ImportClosureOptions): ImportClosureResult {
   const readFile = options.readFile ?? ((path: string) => readFileSync(path, 'utf8'));
   const fileExists = options.fileExists ?? ((path: string) => existsSync(path));
   const resolveSpecifier = makeResolver(fileExists);

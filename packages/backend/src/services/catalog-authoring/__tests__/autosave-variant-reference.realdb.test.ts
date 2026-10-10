@@ -352,7 +352,10 @@ describe('an autosave of VARIANTS keeps the proposal blocking (#771)', () => {
     // Nothing was applied — a refusal that had already parked or updated a row
     // would be the collapse under another name.
     const rows = await listDraftVariants(db, draftId);
-    expect(rows.map((row) => row.id), 'a refused patch was partly applied').toEqual([variantId]);
+    expect(
+      rows.map((row) => row.id),
+      'a refused patch was partly applied',
+    ).toEqual([variantId]);
     expect(rows[0].position, 'a refused patch left a row parked').toBe(0);
     expect(await listOpenProposalsBlockingDraft(db, draftId)).toHaveLength(1);
   });

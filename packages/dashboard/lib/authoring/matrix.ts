@@ -31,20 +31,14 @@
  * `AuthoringField.variantCapable`, composed by the server.
  */
 
-import type { AuthoringField, AuthoringSchema, CurrencyCode } from "@mercaria/shared-types";
-import type { DraftVariantPayload } from "./api";
-import {
-  composeFieldPayload,
-  type DraftFieldEntries,
-  type DraftFieldEntry,
-} from "./answers";
-import { toMinorUnits } from "../money";
+import type { AuthoringField, AuthoringSchema, CurrencyCode } from '@mercaria/shared-types';
+import type { DraftVariantPayload } from './api';
+import { composeFieldPayload, type DraftFieldEntries, type DraftFieldEntry } from './answers';
+import { toMinorUnits } from '../money';
 
 /** Every field this product type lets an author vary along. */
 export function variantCapableFields(schema: AuthoringSchema): readonly AuthoringField[] {
-  return schema.fields.filter(
-    (field) => field.variantCapable && field.requirement !== "forbidden",
-  );
+  return schema.fields.filter((field) => field.variantCapable && field.requirement !== 'forbidden');
 }
 
 /** One axis the author has switched on, with the values they chose along it. */
@@ -89,7 +83,7 @@ export const MAX_MATRIX_ROWS = 200;
  * server's own comment on it.
  */
 function normalizeAxisValue(value: string): string {
-  return value.trim().replace(/\s+/gu, " ").toLowerCase();
+  return value.trim().replace(/\s+/gu, ' ').toLowerCase();
 }
 
 /** Every controlled value's canonical STRING, by id, across the whole schema. */
@@ -107,18 +101,18 @@ function normalizedEntryValue(
   valueStringById: ReadonlyMap<string, string>,
 ): string {
   switch (entry.kind) {
-    case "controlled_value":
+    case 'controlled_value':
       return normalizeAxisValue(valueStringById.get(entry.enumValueId) ?? entry.enumValueId);
-    case "canonical_reference":
+    case 'canonical_reference':
       return normalizeAxisValue(entry.refId);
-    case "text":
+    case 'text':
       return normalizeAxisValue(entry.text);
-    case "number":
+    case 'number':
       return normalizeAxisValue(entry.raw);
-    case "boolean":
-      return entry.value ? "true" : "false";
+    case 'boolean':
+      return entry.value ? 'true' : 'false';
     default:
-      return "";
+      return '';
   }
 }
 
@@ -147,7 +141,7 @@ export function axisDedupeKey(
     }
   }
   pairs.sort();
-  return pairs.join("|");
+  return pairs.join('|');
 }
 
 /**
@@ -191,13 +185,13 @@ export function singleVariantRow(currency: CurrencyCode): VariantRow {
     key: nextRowKey(),
     axes: {},
     enabled: true,
-    sku: "",
-    barcode: "",
-    priceMajor: "",
-    compareAtMajor: "",
+    sku: '',
+    barcode: '',
+    priceMajor: '',
+    compareAtMajor: '',
     currency,
     inventoryTracked: true,
-    inventoryAvailable: "0",
+    inventoryAvailable: '0',
     selectedCanonicalVariantId: null,
   };
 }
@@ -233,7 +227,9 @@ export function generateMatrix(
     // away what they typed and remount the inputs they are looking at.
     const [first] = options.existing;
     const collapsed =
-      first === undefined ? singleVariantRow(options.currency) : { ...first, axes: {}, enabled: true };
+      first === undefined
+        ? singleVariantRow(options.currency)
+        : { ...first, axes: {}, enabled: true };
     return { rows: [collapsed], truncated: false };
   }
 

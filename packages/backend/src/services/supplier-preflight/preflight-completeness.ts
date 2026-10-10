@@ -116,7 +116,11 @@ export function deriveSupplierPreflightCompleteness(
   ) {
     reasons.add('quantity_below_minimum');
   }
-  if (answer.packSize !== null && answer.packSize > 1 && input.requestedQuantity % answer.packSize !== 0) {
+  if (
+    answer.packSize !== null &&
+    answer.packSize > 1 &&
+    input.requestedQuantity % answer.packSize !== 0
+  ) {
     reasons.add('pack_size_violated');
   }
 

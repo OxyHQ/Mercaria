@@ -54,7 +54,8 @@ export function setTokenGetter(getter: () => string | null) {
  * The audit-only client class a guest session is issued to (ADR 0003 D3).
  * Never authorization, never a device binding — a dimension for operators.
  */
-const GUEST_CLIENT_CLASS = Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';
+const GUEST_CLIENT_CLASS =
+  Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';
 
 // Request interceptor: the Oxy bearer, and the guest credential's header half.
 apiClient.interceptors.request.use(
@@ -93,7 +94,7 @@ apiClient.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response interceptor: pick up an issued or rotated guest token (native only).
@@ -114,7 +115,7 @@ apiClient.interceptors.response.use(
   (error) => {
     // Let components handle auth errors
     return Promise.reject(error);
-  }
+  },
 );
 
 /**

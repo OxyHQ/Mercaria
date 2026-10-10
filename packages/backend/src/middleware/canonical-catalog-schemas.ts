@@ -191,10 +191,9 @@ export const identifierAssignSchema = z
     note: z.string().trim().max(2_000).optional(),
   })
   .strict()
-  .refine(
-    (body) => (body.productId === undefined) !== (body.variantId === undefined),
-    { message: 'Provide exactly one of: productId, variantId' },
-  );
+  .refine((body) => (body.productId === undefined) !== (body.variantId === undefined), {
+    message: 'Provide exactly one of: productId, variantId',
+  });
 
 /** `POST /internal/canonical-catalog/identifiers/:id/correct`. */
 export const identifierCorrectSchema = z
@@ -228,8 +227,10 @@ export const canonicalProductLookupQuerySchema = z
   })
   .refine(
     (query) =>
-      [query.identifier !== undefined, query.alias !== undefined, query.sourceId !== undefined].filter(
-        Boolean,
-      ).length === 1,
+      [
+        query.identifier !== undefined,
+        query.alias !== undefined,
+        query.sourceId !== undefined,
+      ].filter(Boolean).length === 1,
     { message: 'Provide exactly one of: scheme+identifier, alias, sourceId+externalId' },
   );

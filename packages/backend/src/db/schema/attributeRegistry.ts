@@ -66,10 +66,7 @@ import {
   UNIT_FAMILIES,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf, currencyChecks, CURRENCY_CODE_VALUES } from './columns';
-import {
-  localizationSettlementColumns,
-  localizationTextChecks,
-} from './localizationFamily';
+import { localizationSettlementColumns, localizationTextChecks } from './localizationFamily';
 import { categories } from './catalog';
 import { catalogSources } from './provenance';
 
@@ -135,7 +132,9 @@ export const attributeDefinitions = pgTable(
     label: text().notNull(),
     description: text(),
     valueType: text({ enum: asEnumValues(ATTRIBUTE_VALUE_TYPES) }).notNull(),
-    cardinality: text({ enum: asEnumValues(ATTRIBUTE_CARDINALITIES) }).notNull().default('single'),
+    cardinality: text({ enum: asEnumValues(ATTRIBUTE_CARDINALITIES) })
+      .notNull()
+      .default('single'),
     objectivity: text({ enum: asEnumValues(ATTRIBUTE_OBJECTIVITIES) })
       .notNull()
       .default('objective'),
@@ -238,13 +237,25 @@ export const attributeDefinitions = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('attribute_definitions_lifecycle_check', t.lifecycleState, ATTRIBUTE_LIFECYCLE_STATES),
+    checkOneOf(
+      'attribute_definitions_lifecycle_check',
+      t.lifecycleState,
+      ATTRIBUTE_LIFECYCLE_STATES,
+    ),
     checkOneOf('attribute_definitions_value_type_check', t.valueType, ATTRIBUTE_VALUE_TYPES),
     checkOneOf('attribute_definitions_cardinality_check', t.cardinality, ATTRIBUTE_CARDINALITIES),
     checkOneOf('attribute_definitions_objectivity_check', t.objectivity, ATTRIBUTE_OBJECTIVITIES),
     checkOneOf('attribute_definitions_unit_family_check', t.unitFamily, UNIT_FAMILIES),
-    checkOneOf('attribute_definitions_display_policy_check', t.displayPolicy, ATTRIBUTE_DISPLAY_POLICIES),
-    checkOneOf('attribute_definitions_evidence_policy_check', t.evidencePolicy, ATTRIBUTE_EVIDENCE_POLICIES),
+    checkOneOf(
+      'attribute_definitions_display_policy_check',
+      t.displayPolicy,
+      ATTRIBUTE_DISPLAY_POLICIES,
+    ),
+    checkOneOf(
+      'attribute_definitions_evidence_policy_check',
+      t.evidencePolicy,
+      ATTRIBUTE_EVIDENCE_POLICIES,
+    ),
     ...currencyChecks('attribute_definitions', [t.currency]),
     check('attribute_definitions_key_shape_check', sql`${t.key} ~ '^[a-z][a-z0-9_]*$'`),
     // A definition cannot replace itself. The `<> id` shape every supersession
@@ -639,9 +650,7 @@ export const attributeValueAliases = pgTable(
       .references(() => attributeEnumValues.id, { onDelete: 'cascade' }),
     /** The source's own spelling, verbatim. */
     alias: text().notNull(),
-    normalizedAlias: text()
-      .notNull()
-      .generatedAlwaysAs(sql`lower(btrim("alias"))`),
+    normalizedAlias: text().notNull().generatedAlwaysAs(sql`lower(btrim("alias"))`),
     /** Which source this spelling was seen from, when it came from one. */
     catalogSourceId: text().references(() => catalogSources.id, { onDelete: 'restrict' }),
     createdAt: createdAt(),
@@ -691,11 +700,7 @@ export const attributeSourceMappings = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf(
-      'attribute_source_mappings_axis_check',
-      t.componentAxis,
-      ATTRIBUTE_COMPONENT_AXES,
-    ),
+    checkOneOf('attribute_source_mappings_axis_check', t.componentAxis, ATTRIBUTE_COMPONENT_AXES),
     check(
       'attribute_source_mappings_field_shape_check',
       sql`${t.sourceField} = lower(btrim(${t.sourceField})) and ${t.sourceField} <> ''`,
@@ -739,7 +744,9 @@ export const attributeValueReviews = pgTable(
     attributeKey: text().notNull(),
     definitionVersion: integer().notNull(),
     reason: text({ enum: asEnumValues(ATTRIBUTE_REVIEW_REASONS) }).notNull(),
-    state: text({ enum: asEnumValues(ATTRIBUTE_REVIEW_STATES) }).notNull().default('open'),
+    state: text({ enum: asEnumValues(ATTRIBUTE_REVIEW_STATES) })
+      .notNull()
+      .default('open'),
     /** Higher is more urgent. Frozen at open time; see the doc above. */
     priority: integer().notNull().default(0),
     /** One line naming what disagrees, for a reviewer scanning the queue. */
@@ -814,7 +821,11 @@ export const attributeReindexRequests = pgTable(
     lastError: text(),
   },
   (t) => [
-    checkOneOf('attribute_reindex_requests_entity_kind_check', t.entityKind, ATTRIBUTE_ENTITY_KINDS),
+    checkOneOf(
+      'attribute_reindex_requests_entity_kind_check',
+      t.entityKind,
+      ATTRIBUTE_ENTITY_KINDS,
+    ),
     checkOneOf('attribute_reindex_requests_reason_check', t.reason, ATTRIBUTE_REINDEX_REASONS),
     check('attribute_reindex_requests_attempts_check', sql`${t.attempts} >= 0`),
     // A claim is a lease: an owner and a deadline travel together, and neither

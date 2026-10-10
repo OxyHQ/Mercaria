@@ -262,7 +262,9 @@ export async function calculateTotals(input: PricingInput): Promise<PricingResul
 
   const now = new Date();
   const normalizedCodes = new Set(
-    (input.discountCodes ?? []).map((code) => code.trim().toUpperCase()).filter((c) => c.length > 0),
+    (input.discountCodes ?? [])
+      .map((code) => code.trim().toUpperCase())
+      .filter((c) => c.length > 0),
   );
 
   // 2. Load store tax settings + active discounts + active tax rates (one query each).
@@ -366,7 +368,9 @@ function applyDiscounts(args: ApplyDiscountsArgs): ApplyDiscountsResult {
       candidates.push({ discount });
       continue;
     }
-    const matchedCode = discount.codes.find((c) => normalizedCodes.has(c.code.trim().toUpperCase()));
+    const matchedCode = discount.codes.find((c) =>
+      normalizedCodes.has(c.code.trim().toUpperCase()),
+    );
     if (matchedCode) {
       candidates.push({ discount, code: matchedCode.code });
     }
@@ -591,7 +595,9 @@ function computeBogo(
   getUnits.sort((a, b) => a.unitPrice - b.unitPrice || a.lineIndex - b.lineIndex);
 
   const getDiscountBps =
-    discount.valueType === 'free_item' ? DEFAULT_GET_DISCOUNT_BPS : get.discountPercent ?? DEFAULT_GET_DISCOUNT_BPS;
+    discount.valueType === 'free_item'
+      ? DEFAULT_GET_DISCOUNT_BPS
+      : (get.discountPercent ?? DEFAULT_GET_DISCOUNT_BPS);
 
   let amount = 0;
   for (const unit of getUnits) {
@@ -631,7 +637,13 @@ function lineMatchesAppliesTo(line: PricingLine, discount: DiscountRecord): bool
 function discountLeg(
   discount: DiscountRecord,
   leg: 'buy' | 'get',
-): { quantity: number; scope: DiscountLegScope; productIds: string[]; collectionIds: string[]; discountPercent: number | null } | null {
+): {
+  quantity: number;
+  scope: DiscountLegScope;
+  productIds: string[];
+  collectionIds: string[];
+  discountPercent: number | null;
+} | null {
   const quantity = leg === 'buy' ? discount.buyQuantity : discount.getQuantity;
   const scope = leg === 'buy' ? discount.buyScope : discount.getScope;
   if (quantity === null || scope === null) return null;
@@ -639,8 +651,7 @@ function discountLeg(
     quantity,
     scope,
     productIds: (leg === 'buy' ? discount.buyProductIds : discount.getProductIds) ?? [],
-    collectionIds:
-      (leg === 'buy' ? discount.buyCollectionIds : discount.getCollectionIds) ?? [],
+    collectionIds: (leg === 'buy' ? discount.buyCollectionIds : discount.getCollectionIds) ?? [],
     discountPercent:
       (leg === 'buy' ? discount.buyDiscountPercent : discount.getDiscountPercent) ?? null,
   };
@@ -704,8 +715,7 @@ function pickStack(
   const stack = [sorted[0]];
   for (let i = 1; i < sorted.length; i += 1) {
     const candidate = sorted[i];
-    const allCombine =
-      candidate.discount[flag] && stack.every((d) => d.discount[flag]);
+    const allCombine = candidate.discount[flag] && stack.every((d) => d.discount[flag]);
     if (allCombine) {
       stack.push(candidate);
     }
@@ -801,7 +811,11 @@ function applyTaxes(args: ApplyTaxesArgs): ApplyTaxesResult {
       }
     }
     if (lineAccrued > 0) {
-      taxLines.push({ name: rate.name, rateBps: rate.rateBps, amount: { amount: lineAccrued, currency } });
+      taxLines.push({
+        name: rate.name,
+        rateBps: rate.rateBps,
+        amount: { amount: lineAccrued, currency },
+      });
       if (!taxSettings.pricesIncludeTax) {
         taxTotal += lineAccrued;
       }

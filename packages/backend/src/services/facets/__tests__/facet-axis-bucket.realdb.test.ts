@@ -222,9 +222,7 @@ async function addOffer(canonicalVariantId: string): Promise<void> {
 
 /** Every product this run owns that satisfies one constraint on {@link KEY}. */
 async function filterByValue(value: string): Promise<string[]> {
-  const matched = await findProductIdsSatisfyingAttributes(db, PRODUCT_IDS, [
-    { key: KEY, value },
-  ]);
+  const matched = await findProductIdsSatisfyingAttributes(db, PRODUCT_IDS, [{ key: KEY, value }]);
   return [...matched].sort();
 }
 

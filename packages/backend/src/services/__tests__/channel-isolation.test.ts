@@ -325,15 +325,14 @@ describe('#87 — the vocabularies the schema is rendered from', () => {
     // regeneration, which is the failure mode `db:generate` reading a stale
     // `dist/` produces. Asserting the sets are non-empty and duplicate-free is
     // the cheap half of catching it.
-    assertEachOf([
-      CHANNEL_TYPE_IDS,
-      CHANNEL_ONBOARDING_STEPS,
-      CHANNEL_AUDIT_ACTIONS,
-      CHANNEL_LIMITATION_CODES,
-    ], 4, (tuple) => {
-      expect(tuple.length).toBeGreaterThan(0);
-      expect(new Set(tuple).size).toBe(tuple.length);
-    });
+    assertEachOf(
+      [CHANNEL_TYPE_IDS, CHANNEL_ONBOARDING_STEPS, CHANNEL_AUDIT_ACTIONS, CHANNEL_LIMITATION_CODES],
+      4,
+      (tuple) => {
+        expect(tuple.length).toBeGreaterThan(0);
+        expect(new Set(tuple).size).toBe(tuple.length);
+      },
+    );
   });
 
   it('the audit vocabulary carries no value-bearing action', () => {
@@ -373,10 +372,13 @@ describe('#454: a relative import cannot walk around these detectors', () => {
       RANKING_REFERENCE.test("import { helper } from '../ranking/thing.service.js';"),
       "a module here reaches ranking as '../ranking/…' and that must not pass",
     ).toBe(true);
-    expect(RANKING_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';")).toBe(true);
+    expect(
+      RANKING_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';"),
+    ).toBe(true);
     // The negative half, or the widening would fire on ordinary imports.
-    expect(RANKING_REFERENCE.test("import { helper } from '../ranking-display/format.js';")).toBe(false);
+    expect(RANKING_REFERENCE.test("import { helper } from '../ranking-display/format.js';")).toBe(
+      false,
+    );
     expect(RANKING_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
-
 });

@@ -233,10 +233,7 @@ export function deriveRiskSignals(
     });
   }
 
-  if (
-    facts.providerAdverseOutcomeCount !== undefined &&
-    facts.providerAdverseOutcomeCount > 0
-  ) {
+  if (facts.providerAdverseOutcomeCount !== undefined && facts.providerAdverseOutcomeCount > 0) {
     signals.push({
       kind: 'provider_risk_outcome',
       severity: 'elevated',

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   PaginatedResponse,
   Listing,
@@ -7,7 +7,7 @@ import type {
   CreateStoreProductInput,
   UpdateListingInput,
   CreateStoreProductVariantInput,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 import {
   fetchProducts,
   fetchProduct,
@@ -22,21 +22,34 @@ import {
   fetchVariantLevels,
   setVariantLevelInventory,
   type UpdateVariantInput,
-} from "../api/products";
-import { queryKeys } from "../queryKeys";
+} from '../api/products';
+import { queryKeys } from '../queryKeys';
 
 const PAGE_LIMIT = 20;
 
 /** Paginated product list for a store (search and status filtered before pagination). */
-export function useProducts(storeId: string, page: number, search: string, status: ListingStatus | "all" = "all") {
+export function useProducts(
+  storeId: string,
+  page: number,
+  search: string,
+  status: ListingStatus | 'all' = 'all',
+) {
   return useQuery<PaginatedResponse<Listing>>({
     queryKey: queryKeys.products.list(storeId, page, search, status),
-    queryFn: () => fetchProducts(storeId, { page, limit: PAGE_LIMIT, ...(search ? { search } : {}), ...(status !== "all" ? { status } : {}) }),
+    queryFn: () =>
+      fetchProducts(storeId, {
+        page,
+        limit: PAGE_LIMIT,
+        ...(search ? { search } : {}),
+        ...(status !== 'all' ? { status } : {}),
+      }),
     enabled: Boolean(storeId),
     placeholderData: (previous, query) =>
       query?.queryKey[1] === storeId &&
       (query.queryKey[3] as { search?: string; status?: string })?.search === search &&
-      (query.queryKey[3] as { status?: string })?.status === status ? previous : undefined,
+      (query.queryKey[3] as { status?: string })?.status === status
+        ? previous
+        : undefined,
   });
 }
 
@@ -59,11 +72,8 @@ export function useVariantLevels(storeId: string, productId: string, variantId: 
 }
 
 /** Invalidate every cached query for a store's products. */
-function invalidateProducts(
-  queryClient: ReturnType<typeof useQueryClient>,
-  storeId: string,
-) {
-  queryClient.invalidateQueries({ queryKey: ["stores", storeId, "products"] });
+function invalidateProducts(queryClient: ReturnType<typeof useQueryClient>, storeId: string) {
+  queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'products'] });
 }
 
 /** Create a product. */
@@ -118,8 +128,7 @@ export function useReleaseProductPins(storeId: string, productId: string) {
 export function useCreateVariant(storeId: string, productId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateStoreProductVariantInput) =>
-      createVariant(storeId, productId, input),
+    mutationFn: (input: CreateStoreProductVariantInput) => createVariant(storeId, productId, input),
     onSuccess: () => invalidateProducts(queryClient, storeId),
   });
 }

@@ -23,7 +23,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../catalog-media/sync.js', () => ({
-  synchronizeStoreImages: async (_store: string, refs: string[]) => refs.map(() => 'oxy-fixture-image'),
+  synchronizeStoreImages: async (_store: string, refs: string[]) =>
+    refs.map(() => 'oxy-fixture-image'),
 }));
 import type { SyncRunCounts } from '@mercaria/shared-types';
 import type { NormalizedProduct } from '../../connectors/types.js';
@@ -86,8 +87,7 @@ const findVariantsByListing = vi.fn();
 const findVariantsBySourceConnection = vi.fn();
 const updateVariantColumns = vi.fn();
 vi.mock('../../db/catalog/variantRepository.js', () => ({
-  findVariantBySourceInventoryItemId: (...a: unknown[]) =>
-    findVariantBySourceInventoryItemId(...a),
+  findVariantBySourceInventoryItemId: (...a: unknown[]) => findVariantBySourceInventoryItemId(...a),
   findVariantOptionValues: (...a: unknown[]) => findVariantOptionValues(...a),
   findVariantsByListing: (...a: unknown[]) => findVariantsByListing(...a),
   findVariantsBySourceConnection: (...a: unknown[]) => findVariantsBySourceConnection(...a),
@@ -293,7 +293,13 @@ function collectionProduct(): NormalizedProduct {
     collectionRefs: ['ext-col-1'],
     variants: {
       enumeration: 'complete',
-      variants: [{ optionValues: [], price: { amount: 1999, currency: 'USD' }, inventory: { tracked: true, available: 3 } }],
+      variants: [
+        {
+          optionValues: [],
+          price: { amount: 1999, currency: 'USD' },
+          inventory: { tracked: true, available: 3 },
+        },
+      ],
     },
   };
 }
@@ -412,8 +418,18 @@ function inventoryConnection(targetLocationId?: string) {
 /** The connector-sourced `product_variants` rows of the inventory connection. */
 function sourcedVariants(): unknown[] {
   return [
-    { id: 'v1', listingId: 'l1', sourceConnectionId: 'conn-inv', sourceExternalInventoryItemId: '111' },
-    { id: 'v2', listingId: 'l1', sourceConnectionId: 'conn-inv', sourceExternalInventoryItemId: '222' },
+    {
+      id: 'v1',
+      listingId: 'l1',
+      sourceConnectionId: 'conn-inv',
+      sourceExternalInventoryItemId: '111',
+    },
+    {
+      id: 'v2',
+      listingId: 'l1',
+      sourceConnectionId: 'conn-inv',
+      sourceExternalInventoryItemId: '222',
+    },
   ];
 }
 
@@ -507,7 +523,9 @@ describe('processConnectorWebhook — inventory_levels/update', () => {
   it('re-fetches the authoritative total and absolute-sets the mapped variant', async () => {
     findConnectionById.mockResolvedValue(inventoryConnection());
     findVariantBySourceInventoryItemId.mockResolvedValue({ id: 'v1', listingId: 'l1' });
-    const fetchInventory = vi.fn().mockResolvedValue([{ externalInventoryItemId: '111', available: 9 }]);
+    const fetchInventory = vi
+      .fn()
+      .mockResolvedValue([{ externalInventoryItemId: '111', available: 9 }]);
     getConnectorProvider.mockReturnValue({ fetchInventory });
 
     await processConnectorWebhook({
@@ -624,7 +642,10 @@ describe('pushOrderFulfillment — bidirectional gate + loop-safety', () => {
 
   it('does NOT push for a disconnected connection', async () => {
     findOrderById.mockResolvedValue(fulfilledOrder());
-    findConnectionById.mockResolvedValue({ ...fulfillmentConnection('bidirectional'), status: 'disconnected' });
+    findConnectionById.mockResolvedValue({
+      ...fulfillmentConnection('bidirectional'),
+      status: 'disconnected',
+    });
     const pushFulfillment = vi.fn();
     getConnectorProvider.mockReturnValue({ pushFulfillment });
 

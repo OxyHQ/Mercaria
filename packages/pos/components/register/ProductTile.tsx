@@ -1,9 +1,9 @@
-import React from "react";
-import { View, Pressable } from "react-native";
-import { Image } from "expo-image";
-import type { Listing } from "@mercaria/shared-types";
-import { Text, PriceDisplay } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
+import React from 'react';
+import { View, Pressable } from 'react-native';
+import { Image } from 'expo-image';
+import type { Listing } from '@mercaria/shared-types';
+import { Text, PriceDisplay } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 /** Crossfade duration (ms) for the tile image as it loads. */
 const IMAGE_TRANSITION_MS = 150;
@@ -33,15 +33,15 @@ export function ProductTile({ listing, imageUri, onPress }: ProductTileProps) {
       accessibilityState={{ disabled: outOfStock }}
       className={
         outOfStock
-          ? "overflow-hidden rounded-2xl border border-border bg-surface opacity-50"
-          : "overflow-hidden rounded-2xl border border-border bg-surface active:opacity-80 web:transition-colors web:hover:border-primary"
+          ? 'overflow-hidden rounded-2xl border border-border bg-surface opacity-50'
+          : 'overflow-hidden rounded-2xl border border-border bg-surface active:opacity-80 web:transition-colors web:hover:border-primary'
       }
     >
       <View className="aspect-square w-full bg-muted">
         {imageUri ? (
           <Image
             source={{ uri: imageUri }}
-            style={{ width: "100%", height: "100%" }}
+            style={{ width: '100%', height: '100%' }}
             contentFit="cover"
             transition={IMAGE_TRANSITION_MS}
           />
@@ -49,7 +49,7 @@ export function ProductTile({ listing, imageUri, onPress }: ProductTileProps) {
         {outOfStock ? (
           <View className="absolute start-2 top-2 rounded-full bg-foreground/80 px-2 py-1">
             <Text className="text-[11px] font-semibold text-background">
-              {t("catalog.soldOut")}
+              {t('catalog.soldOut')}
             </Text>
           </View>
         ) : null}
@@ -61,8 +61,8 @@ export function ProductTile({ listing, imageUri, onPress }: ProductTileProps) {
         <PriceDisplay price={listing.price} primaryClassName="text-sm font-bold" />
         <Text className="text-xs text-muted-foreground">
           {outOfStock
-            ? t("catalog.outOfStock")
-            : t("catalog.inStockCount", { count: listing.quantity })}
+            ? t('catalog.outOfStock')
+            : t('catalog.inStockCount', { count: listing.quantity })}
         </Text>
       </View>
     </Pressable>

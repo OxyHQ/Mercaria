@@ -22,9 +22,9 @@ import type {
   SyncRun,
   SyncRunRecordFailurePage,
   UpdateSyncSettingsInput,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/channels`;
 const keysBase = (storeId: string) => `/admin/stores/${storeId}/channel-keys`;
@@ -119,7 +119,7 @@ export async function updateChannelSettings(
  * outcome lands on the RUNS list, which the channels query re-reads.
  */
 export interface SyncChannelResult {
-  status: "enqueued";
+  status: 'enqueued';
   connectionId: string;
 }
 
@@ -145,7 +145,7 @@ export async function syncChannel(
  * a handful of calls to somebody else's platform and has not happened yet.
  */
 export interface ReregisterWebhooksResult {
-  status: "enqueued";
+  status: 'enqueued';
   connectionId: string;
 }
 
@@ -198,10 +198,7 @@ export async function generateChannelKey(
 }
 
 /** DELETE (revoke) a channel key. Resolves with the revoked key's metadata. */
-export async function revokeChannelKey(
-  storeId: string,
-  keyId: string,
-): Promise<ChannelApiKey> {
+export async function revokeChannelKey(storeId: string, keyId: string): Promise<ChannelApiKey> {
   const { data } = await apiClient.delete<ApiResponse<ChannelApiKey>>(
     `${keysBase(storeId)}/${keyId}`,
   );
@@ -236,9 +233,7 @@ export async function fetchChannelSummary(storeId: string): Promise<ChannelSumma
  * exactly what this endpoint replaces.
  */
 export async function fetchChannelReadiness(storeId: string): Promise<ChannelReadiness> {
-  const { data } = await apiClient.get<ApiResponse<ChannelReadiness>>(
-    `${base(storeId)}/readiness`,
-  );
+  const { data } = await apiClient.get<ApiResponse<ChannelReadiness>>(`${base(storeId)}/readiness`);
   return unwrap(data);
 }
 
@@ -346,9 +341,7 @@ export async function disconnectChannelWithPolicy(
 const onboardingBase = (storeId: string) => `${base(storeId)}/onboarding`;
 
 /** GET this store's onboarding sessions, newest first. */
-export async function fetchChannelOnboarding(
-  storeId: string,
-): Promise<ChannelOnboardingSession[]> {
+export async function fetchChannelOnboarding(storeId: string): Promise<ChannelOnboardingSession[]> {
   const { data } = await apiClient.get<ApiResponse<ChannelOnboardingSession[]>>(
     onboardingBase(storeId),
   );

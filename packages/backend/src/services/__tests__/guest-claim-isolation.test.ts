@@ -143,7 +143,10 @@ const CLAIM_PATHS = [
  * directory of their own, and `frontend/lib/` is ninety-odd files of which these
  * two are the claim client.
  */
-const CLAIM_UI_LIB_PATHS = ['frontend/lib/api/guest-claim.ts', 'frontend/lib/hooks/use-guest-claim.ts'];
+const CLAIM_UI_LIB_PATHS = [
+  'frontend/lib/api/guest-claim.ts',
+  'frontend/lib/hooks/use-guest-claim.ts',
+];
 
 /**
  * The claim SCREENS — RECURSIVELY (#668).
@@ -417,11 +420,23 @@ const CURRENCY_NAME_KEYS: readonly string[] = ['settings.currency.description'];
  */
 function assertClaimPopulationIsWhole(): void {
   const from = (prefix: string) => CLAIM_PATHS.filter((path) => path.startsWith(prefix)).length;
-  expect(from('services/guest-claims/'), 'the claim service walk found too few modules').toBeGreaterThanOrEqual(5);
-  expect(from('db/guestClaims/'), 'the claim repository walk found too few modules').toBeGreaterThanOrEqual(3);
-  expect(claimNamedSharedModules().length, 'no claim-named shared module was derived').toBeGreaterThanOrEqual(2);
+  expect(
+    from('services/guest-claims/'),
+    'the claim service walk found too few modules',
+  ).toBeGreaterThanOrEqual(5);
+  expect(
+    from('db/guestClaims/'),
+    'the claim repository walk found too few modules',
+  ).toBeGreaterThanOrEqual(3);
+  expect(
+    claimNamedSharedModules().length,
+    'no claim-named shared module was derived',
+  ).toBeGreaterThanOrEqual(2);
   expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
-  expect(claimScreens().length, 'the guest-orders screen walk found too few screens').toBeGreaterThanOrEqual(3);
+  expect(
+    claimScreens().length,
+    'the guest-orders screen walk found too few screens',
+  ).toBeGreaterThanOrEqual(3);
   expect(CLAIM_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
   for (const path of CLAIM_PATHS) {
     expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
@@ -471,7 +486,10 @@ describe('the guest claim path cannot reach what it must not', () => {
     const planted = 'lib/guest-claim-cache.ts';
     const seeded = domainNamedModules((relative) =>
       relative === 'lib'
-        ? [...readDirectory(relative), { name: 'guest-claim-cache.ts', isDirectory: () => false, isFile: () => true }]
+        ? [
+            ...readDirectory(relative),
+            { name: 'guest-claim-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
         : readDirectory(relative),
     );
     expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
@@ -489,18 +507,22 @@ describe('the guest claim path cannot reach what it must not', () => {
     // (Measured on `analytics-ranking-isolation.test.ts`, whose comment claims
     // its shared comparison closes this: mutating that wall's population to
     // `new Set(swept)` leaves all ten of its tests green.)
-    assertEachOf([
-      'controllers/orders.controller.ts',
-      'routes/cart.ts',
-      'db/schema/orders.ts',
-      'middleware/auth.ts',
-    ], 4, (foreign) => {
-      expect(CLAIM_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
-      expect(
-        statSync(join(SRC_ROOT, foreign)).isFile(),
-        `${foreign} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-    });
+    assertEachOf(
+      [
+        'controllers/orders.controller.ts',
+        'routes/cart.ts',
+        'db/schema/orders.ts',
+        'middleware/auth.ts',
+      ],
+      4,
+      (foreign) => {
+        expect(CLAIM_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+        expect(
+          statSync(join(SRC_ROOT, foreign)).isFile(),
+          `${foreign} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+      },
+    );
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
@@ -511,7 +533,10 @@ describe('the guest claim path cannot reach what it must not', () => {
     const seededWith = (directory: string, added: string): string[] =>
       claimNamedSharedModules((relative) =>
         relative === directory
-          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          ? [
+              ...readDirectory(relative),
+              { name: added, isDirectory: () => false, isFile: () => true },
+            ]
           : readDirectory(relative),
       );
 
@@ -531,7 +556,10 @@ describe('the guest claim path cannot reach what it must not', () => {
     expect(
       claimNamedSharedModules((relative) =>
         relative === 'routes'
-          ? [...readDirectory(relative), { name: 'admin', isDirectory: () => true, isFile: () => false }]
+          ? [
+              ...readDirectory(relative),
+              { name: 'admin', isDirectory: () => true, isFile: () => false },
+            ]
           : relative === 'routes/admin'
             ? [{ name: 'guest-claims.ts', isDirectory: () => false, isFile: () => true }]
             : readDirectory(relative),
@@ -658,9 +686,10 @@ describe('the guest claim path cannot reach what it must not', () => {
   it('no lever can hide an ownership record that already exists', () => {
     // An EXACT count on the exemptions, never a floor: a list of excuses that
     // may grow is the wall switching itself off a defensible module at a time.
-    expect(FLAG_READING_CLAIM_MODULES.length, 'a fourth module was excused from the flag wall').toBe(
-      3,
-    );
+    expect(
+      FLAG_READING_CLAIM_MODULES.length,
+      'a fourth module was excused from the flag wall',
+    ).toBe(3);
     expect(NO_FLAG_PATHS.length, 'the flag wall covers too few modules').toBeGreaterThanOrEqual(4);
 
     for (const relative of NO_FLAG_PATHS) {
@@ -692,12 +721,14 @@ describe('the guest claim path cannot reach what it must not', () => {
       // and an exemption keyed on the module rather than on the lever would
       // swallow it silently.
       const levers = [...code.matchAll(/config\.guest\.[A-Za-z.]+/gu)].map((match) => match[0]);
-      expect(levers.length, `${path} matched the flag detector but reads no named lever`).toBeGreaterThan(
-        0,
-      );
+      expect(
+        levers.length,
+        `${path} matched the flag detector but reads no named lever`,
+      ).toBeGreaterThan(0);
       for (const lever of levers) {
         expect(
-          reads.test(lever) || /\.(job[A-Za-z]*|pollIntervalMs|leaseMs|batchSize|maxAttempts)$/u.test(lever),
+          reads.test(lever) ||
+            /\.(job[A-Za-z]*|pollIntervalMs|leaseMs|batchSize|maxAttempts)$/u.test(lever),
           `${path} reads ${lever}, which is not the lever it was excused for`,
         ).toBe(true);
       }

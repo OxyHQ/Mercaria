@@ -102,7 +102,6 @@ async function resolveVersion(
   version: FeedConfigurationVersionRow,
   db: DatabaseOrTransaction,
 ): Promise<ResolvedFeedImport | null> {
-
   const secrets = await readFeedVersionSecrets(db, version.id);
   if (secrets === undefined) return null;
 

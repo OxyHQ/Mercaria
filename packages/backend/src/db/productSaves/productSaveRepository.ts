@@ -280,10 +280,7 @@ export async function clearProductSaveAmbiguity(
     .update(productSaves)
     .set({ resolutionState: 'resolved', ambiguousSplitJobId: null })
     .where(
-      and(
-        eq(productSaves.id, saveId),
-        eq(productSaves.resolutionState, 'ambiguous_after_split'),
-      ),
+      and(eq(productSaves.id, saveId), eq(productSaves.resolutionState, 'ambiguous_after_split')),
     )
     .returning({ id: productSaves.id });
   return rows.length > 0;

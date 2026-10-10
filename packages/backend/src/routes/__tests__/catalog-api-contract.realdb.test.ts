@@ -772,9 +772,9 @@ describe('localized category search', () => {
     expect(hits.length).toBeGreaterThanOrEqual(4);
     expect(new Set(hits.map((hit) => hit.match))).toEqual(new Set(['contains']));
     const repeat = await get(`/taxonomy/categories/search?q=${SEARCH_STEM}&locale=en&limit=50`);
-    expect((data(repeat)['hits'] as { category: { id: string } }[]).map((h) => h.category.id)).toEqual(
-      hits.map((hit) => hit.category.id),
-    );
+    expect(
+      (data(repeat)['hits'] as { category: { id: string } }[]).map((h) => h.category.id),
+    ).toEqual(hits.map((hit) => hit.category.id));
     // The suppressed and draft nodes carry the stem in their names and must not be
     // in a shopper's autocomplete — the control on the lifecycle filter.
     const ids = hits.map((hit) => hit.category.id);
@@ -797,18 +797,18 @@ describe('localized category search', () => {
       `/taxonomy/categories/search?q=${encodeURIComponent(`Sneakers ${SEARCH_STEM}`)}&locale=es`,
     );
     expect(spanish.status).toBe(200);
-    expect((data(spanish)['hits'] as { category: { id: string } }[]).map((h) => h.category.id)).not.toContain(
-      fx.midId,
-    );
+    expect(
+      (data(spanish)['hits'] as { category: { id: string } }[]).map((h) => h.category.id),
+    ).not.toContain(fx.midId);
     // POSITIVE CONTROL: the same query in the locale whose label DOES contain it
     // returns the row — so the case above is about the drop and not about the query
     // matching nothing.
     const english = await get(
       `/taxonomy/categories/search?q=${encodeURIComponent(`Sneakers ${SEARCH_STEM}`)}&locale=en`,
     );
-    expect((data(english)['hits'] as { category: { id: string } }[]).map((h) => h.category.id)).toEqual([
-      fx.midId,
-    ]);
+    expect(
+      (data(english)['hits'] as { category: { id: string } }[]).map((h) => h.category.id),
+    ).toEqual([fx.midId]);
   });
 
   it('answers a LIKE metacharacter query with no hits', async () => {
@@ -963,7 +963,7 @@ describe('the pre-existing catalogue reads still answer', () => {
   it('serves the PUBLISHED specification layout, and 404s an unpublished key', async () => {
     const answer = await get(`/product-types/${fx.productTypeKey}/specification-layout`);
     expect(answer.status).toBe(200);
-    expect((data(answer)['layout'] ?? data(answer))).toBeTruthy();
+    expect(data(answer)['layout'] ?? data(answer)).toBeTruthy();
     expect((await get(`/product-types/${TOKEN}_nothing/specification-layout`)).status).toBe(404);
   });
 });
@@ -1021,9 +1021,7 @@ describe('the authoring reads', () => {
     expect(first.status, JSON.stringify(first.body)).toBe(200);
     expect(first.etag).toBeTruthy();
     expect(first.cacheControl).toBe('private, no-cache');
-    expect(
-      (await get(path, { actor: MEMBER, ifNoneMatch: first.etag ?? '' })).status,
-    ).toBe(304);
+    expect((await get(path, { actor: MEMBER, ifNoneMatch: first.etag ?? '' })).status).toBe(304);
 
     // A different MARKET is a different composition, so the tag must differ and
     // the other market's tag must not be answered 304.
@@ -1085,12 +1083,14 @@ describe('the product drafts', () => {
     draftId = draft.id;
     expect(draft.version).toBe(1);
 
-    expect((await get(`/stores/${fx.storeId}/product-drafts/${draftId}`, { actor: MEMBER })).status).toBe(
-      200,
-    );
+    expect(
+      (await get(`/stores/${fx.storeId}/product-drafts/${draftId}`, { actor: MEMBER })).status,
+    ).toBe(200);
     const listed = await get(`/stores/${fx.storeId}/product-drafts?limit=10`, { actor: MEMBER });
     expect(listed.status).toBe(200);
-    expect((data(listed)['drafts'] as { id: string }[]).map((entry) => entry.id)).toContain(draftId);
+    expect((data(listed)['drafts'] as { id: string }[]).map((entry) => entry.id)).toContain(
+      draftId,
+    );
   });
 
   it('enforces the version compare-and-swap on a PATCH', async () => {
@@ -1344,9 +1344,11 @@ describe('exact schema-version retrieval after a newer version publishes', () =>
       { actor: MEMBER },
     );
     expect(pinned.status).toBe(200);
-    const pinnedType = (data(pinned)['schema'] as {
-      productType: { version: number; lifecycle: string };
-    }).productType;
+    const pinnedType = (
+      data(pinned)['schema'] as {
+        productType: { version: number; lifecycle: string };
+      }
+    ).productType;
     // The BOX: the exact version is still retrievable after a newer one published.
     expect(pinnedType.version).toBe(1);
 
@@ -1539,7 +1541,9 @@ function joinMount(mount: string, routePath: string): string {
 function mountRegexp(mount: string): RegExp {
   const pattern = mount
     .split('/')
-    .map((segment) => (segment.startsWith(':') ? '[^/]+' : segment.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')))
+    .map((segment) =>
+      segment.startsWith(':') ? '[^/]+' : segment.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'),
+    )
     .join('/');
   return new RegExp(`^${pattern}`, 'u');
 }
@@ -1646,7 +1650,9 @@ describe('the localization operator surface', () => {
 
   it('is allow-list gated: 401 unauthenticated, 403 for a non-operator', async () => {
     expect((await get('/internal/catalog-localization/alerts')).status).toBe(401);
-    expect((await get('/internal/catalog-localization/alerts', { actor: MEMBER })).status).toBe(403);
+    expect((await get('/internal/catalog-localization/alerts', { actor: MEMBER })).status).toBe(
+      403,
+    );
   });
 });
 
@@ -1660,9 +1666,9 @@ describe('the attribute routes nothing drove', () => {
     // `.strict()` plus a required id. Both directions, because a schema that
     // refused everything would pass the first alone.
     expect((await get('/catalog-attributes/facets')).status).toBe(400);
-    expect(
-      (await get(`/catalog-attributes/facets?categoryId=${fx.midId}&sneak=1`)).status,
-    ).toBe(400);
+    expect((await get(`/catalog-attributes/facets?categoryId=${fx.midId}&sneak=1`)).status).toBe(
+      400,
+    );
   });
 
   it('evaluates a constraint set against a product that does not exist', async () => {
@@ -1705,7 +1711,7 @@ describe('every registered route on the authoring, taxonomy and product-type sur
 
     const calls = CALLS.map((call) => ({
       method: call.method,
-      path: (call.path.split('?')[0] ?? call.path),
+      path: call.path.split('?')[0] ?? call.path,
     }));
     // A floor on the CALLS too: they are appended by the request helpers, so an
     // empty list would mean this describe ran before every other one.

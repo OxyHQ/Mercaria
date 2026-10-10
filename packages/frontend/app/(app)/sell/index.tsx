@@ -1,20 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
-import { Field } from "@oxy.so/bloom/field";
-import { Loading } from "@oxy.so/bloom/loading";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import Head from "expo-router/head";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { openAccountDialog, useOxy } from "@oxy.so/services";
-import { Text, formatDateTime } from "@mercaria/ui";
-import type { SellerDraftEntryPath } from "@mercaria/shared-types";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { useTranslation } from "@/lib/i18n";
+import { useEffect, useMemo, useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { Field } from '@oxy.so/bloom/field';
+import { Loading } from '@oxy.so/bloom/loading';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import Head from 'expo-router/head';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { Text, formatDateTime } from '@mercaria/ui';
+import type { SellerDraftEntryPath } from '@mercaria/shared-types';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { useTranslation } from '@/lib/i18n';
 import {
   useMatchCandidates,
   useSellerDrafts,
   useStartSellerDraft,
-} from "@/lib/hooks/use-sell-yours";
+} from '@/lib/hooks/use-sell-yours';
 
 /**
  * The IDENTIFY step (#91 entry paths 1–6).
@@ -54,8 +54,8 @@ export default function SellIndexScreen() {
     () => `sell-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     [],
   );
-  const [query, setQuery] = useState("");
-  const [scanned, setScanned] = useState("");
+  const [query, setQuery] = useState('');
+  const [scanned, setScanned] = useState('');
 
   const start = useStartSellerDraft();
   const drafts = useSellerDrafts();
@@ -70,7 +70,7 @@ export default function SellIndexScreen() {
     start.mutate(
       {
         clientDraftKey,
-        entryPath: (params.entryPath as SellerDraftEntryPath | undefined) ?? "canonical_product",
+        entryPath: (params.entryPath as SellerDraftEntryPath | undefined) ?? 'canonical_product',
         canonicalProductId: params.canonicalProductId,
         ...(params.canonicalVariantId ? { canonicalVariantId: params.canonicalVariantId } : {}),
       },
@@ -91,19 +91,17 @@ export default function SellIndexScreen() {
     return (
       <ScreenShell>
         <Head>
-          <title>{t("sell.index.documentTitle")}</title>
+          <title>{t('sell.index.documentTitle')}</title>
         </Head>
         <View className="items-center gap-4 py-16">
-          <Text className="text-lg font-medium">{t("sell.index.signIn.heading")}</Text>
-          <Text className="text-center text-muted-foreground">
-            {t("sell.index.signIn.body")}
-          </Text>
+          <Text className="text-lg font-medium">{t('sell.index.signIn.heading')}</Text>
+          <Text className="text-center text-muted-foreground">{t('sell.index.signIn.body')}</Text>
           <Pressable
             accessibilityRole="button"
             className="rounded-full bg-primary px-5 py-3"
             onPress={() => openAccountDialog()}
           >
-            <Text className="text-primary-foreground">{t("sell.index.signIn.action")}</Text>
+            <Text className="text-primary-foreground">{t('sell.index.signIn.action')}</Text>
           </Pressable>
         </View>
       </ScreenShell>
@@ -113,39 +111,39 @@ export default function SellIndexScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>{t("sell.index.documentTitle")}</title>
+        <title>{t('sell.index.documentTitle')}</title>
       </Head>
 
       <View className="gap-6 py-6">
-        <Text className="text-2xl font-semibold">{t("sell.index.heading")}</Text>
+        <Text className="text-2xl font-semibold">{t('sell.index.heading')}</Text>
 
         {arrivedFromProduct ? (
           <View className="flex-row items-center gap-3">
             <Loading variant="inline" size="sm" />
-            <Text className="text-muted-foreground">{t("sell.index.startingDraft")}</Text>
+            <Text className="text-muted-foreground">{t('sell.index.startingDraft')}</Text>
           </View>
         ) : null}
 
-        <Field label={t("sell.index.scan.label")}>
+        <Field label={t('sell.index.scan.label')}>
           <TextFieldInput
-            label={t("sell.index.scan.accessibilityLabel")}
-            placeholder={t("sell.index.scan.placeholder")}
+            label={t('sell.index.scan.accessibilityLabel')}
+            placeholder={t('sell.index.scan.placeholder')}
             value={scanned}
             onValueChange={(next) => {
               setScanned(next);
-              if (next) setQuery("");
+              if (next) setQuery('');
             }}
           />
         </Field>
 
-        <Field label={t("sell.index.search.label")}>
+        <Field label={t('sell.index.search.label')}>
           <TextFieldInput
-            label={t("sell.index.search.accessibilityLabel")}
-            placeholder={t("sell.index.search.placeholder")}
+            label={t('sell.index.search.accessibilityLabel')}
+            placeholder={t('sell.index.search.placeholder')}
             value={query}
             onValueChange={(next) => {
               setQuery(next);
-              if (next) setScanned("");
+              if (next) setScanned('');
             }}
           />
         </Field>
@@ -154,14 +152,14 @@ export default function SellIndexScreen() {
 
         {(candidates.data ?? []).map((candidate) => (
           <Pressable
-            key={`${candidate.canonicalProductId}:${candidate.canonicalVariantId ?? ""}`}
+            key={`${candidate.canonicalProductId}:${candidate.canonicalVariantId ?? ''}`}
             accessibilityRole="button"
             className="rounded-xl border border-border p-4"
             onPress={() =>
               start.mutate(
                 {
                   clientDraftKey,
-                  entryPath: scanned ? "identifier_scan" : "catalog_search",
+                  entryPath: scanned ? 'identifier_scan' : 'catalog_search',
                   canonicalProductId: candidate.canonicalProductId,
                   ...(candidate.canonicalVariantId
                     ? { canonicalVariantId: candidate.canonicalVariantId }
@@ -176,9 +174,9 @@ export default function SellIndexScreen() {
               <Text className="text-sm text-muted-foreground">{candidate.brand}</Text>
             ) : null}
             <Text className="text-xs text-muted-foreground">
-              {candidate.foundBy === "identifier"
-                ? t("sell.index.candidate.matchedByBarcode")
-                : t("sell.index.candidate.foundBySearch")}
+              {candidate.foundBy === 'identifier'
+                ? t('sell.index.candidate.matchedByBarcode')
+                : t('sell.index.candidate.foundBySearch')}
             </Text>
           </Pressable>
         ))}
@@ -189,20 +187,18 @@ export default function SellIndexScreen() {
           className="rounded-xl border border-border p-4"
           onPress={() =>
             start.mutate(
-              { clientDraftKey, entryPath: "unmatched" },
+              { clientDraftKey, entryPath: 'unmatched' },
               { onSuccess: (draft) => router.push(`/sell/${draft.id}`) },
             )
           }
         >
-          <Text className="text-base font-medium">{t("sell.index.unmatched.heading")}</Text>
-          <Text className="text-sm text-muted-foreground">
-            {t("sell.index.unmatched.body")}
-          </Text>
+          <Text className="text-base font-medium">{t('sell.index.unmatched.heading')}</Text>
+          <Text className="text-sm text-muted-foreground">{t('sell.index.unmatched.body')}</Text>
         </Pressable>
 
         {(drafts.data ?? []).length > 0 ? (
           <View className="gap-2 pt-4">
-            <Text className="text-sm font-medium">{t("sell.index.drafts.heading")}</Text>
+            <Text className="text-sm font-medium">{t('sell.index.drafts.heading')}</Text>
             {(drafts.data ?? []).map((draft) => {
               const when = formatDateTime(draft.updatedAt, locale);
               return (
@@ -212,7 +208,9 @@ export default function SellIndexScreen() {
                   className="rounded-xl border border-border p-4"
                   onPress={() => router.push(`/sell/${draft.id}`)}
                 >
-                  <Text className="text-base">{draft.title ?? t("sell.index.drafts.untitled")}</Text>
+                  <Text className="text-base">
+                    {draft.title ?? t('sell.index.drafts.untitled')}
+                  </Text>
                   {/* The sentence is "Saved <when> · step <n>", so an
                       unformattable timestamp drops the whole line rather than
                       interpolating a null — which i18n-js renders as the literal
@@ -220,7 +218,7 @@ export default function SellIndexScreen() {
                       openable. */}
                   {when === null ? null : (
                     <Text className="text-xs text-muted-foreground">
-                      {t("sell.index.drafts.savedAt", { when, step: draft.currentStep })}
+                      {t('sell.index.drafts.savedAt', { when, step: draft.currentStep })}
                     </Text>
                   )}
                 </Pressable>

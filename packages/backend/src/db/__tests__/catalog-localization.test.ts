@@ -205,9 +205,7 @@ describe('the localization vocabulary', () => {
     }
     // The whole rule, as a floor: if every class were granted, D4's exclusion of
     // legal and seller-authored text would be enforced by nothing.
-    expect(CROSS_MARKET_FALLBACK_FIELD_CLASSES.length).toBeLessThan(
-      LOCALIZED_FIELD_CLASSES.length,
-    );
+    expect(CROSS_MARKET_FALLBACK_FIELD_CLASSES.length).toBeLessThan(LOCALIZED_FIELD_CLASSES.length);
     expect(CROSS_MARKET_FALLBACK_FIELD_CLASSES).not.toContain('legal_text');
     // Still excluded, and this line is the one that must not be "fixed" when
     // seller-authored text starts falling back: what it gains is its OWN base
@@ -350,7 +348,9 @@ describe('the field registry', () => {
 });
 
 describe('the family census', () => {
-  const localizationTables = tables.filter((table) => getTableName(table).endsWith('_localizations'));
+  const localizationTables = tables.filter((table) =>
+    getTableName(table).endsWith('_localizations'),
+  );
 
   it('finds every `_localizations` table registered in the family list', () => {
     // The floor: a broken import or a renamed barrel would traverse nothing and
@@ -503,7 +503,7 @@ describe('the family census', () => {
     expect(columnsOf('category_localizations').size).toBeGreaterThan(7);
     expect(
       offenders,
-      "a catalogue entity has grown an accessibility-label column. Its accessible name is " +
+      'a catalogue entity has grown an accessibility-label column. Its accessible name is ' +
         "composed CLIENT-side from the entity's already-localized name plus a template in the " +
         'app bundle; a column here is a second copy of that name in the same row, drifting ' +
         'silently and audible only to a screen-reader user.',
@@ -894,8 +894,10 @@ describe('resolving a field', () => {
       candidates: [candidate('es', 'Zapatos')],
       baseValue: 'Shoes',
     });
-    expect(esOnly.outcome === 'resolved' && esOnly.value, 'the es row is not servable alone, so '
-      + 'the case above had only one real option').toBe('Zapatos');
+    expect(
+      esOnly.outcome === 'resolved' && esOnly.value,
+      'the es row is not servable alone, so ' + 'the case above had only one real option',
+    ).toBe('Zapatos');
 
     const mxOnly = resolveLocalizedField({
       field: 'category.name',
@@ -903,8 +905,10 @@ describe('resolving a field', () => {
       candidates: [candidate('es-mx', 'Tenis')],
       baseValue: 'Shoes',
     });
-    expect(mxOnly.outcome === 'resolved' && mxOnly.value, 'the es-mx row is not servable alone, '
-      + 'so the case above had only one real option').toBe('Tenis');
+    expect(
+      mxOnly.outcome === 'resolved' && mxOnly.value,
+      'the es-mx row is not servable alone, ' + 'so the case above had only one real option',
+    ).toBe('Tenis');
   });
 
   it('falls to the base value, which lives on the entity and never in a row', () => {
@@ -1037,7 +1041,10 @@ describe('resolving a slug', () => {
 });
 
 describe('the resolver takes its policy from the field, not from a literal', () => {
-  const SOURCE = readFileSync(join(BACKEND_SRC, 'services', 'catalog-localization', 'resolve.ts'), 'utf8');
+  const SOURCE = readFileSync(
+    join(BACKEND_SRC, 'services', 'catalog-localization', 'resolve.ts'),
+    'utf8',
+  );
 
   /**
    * Comment-stripped, because this module documents the policies it refuses to
@@ -1403,10 +1410,11 @@ describe('the hand-written trigger SQL', () => {
     const controlTable = tables.find(
       (candidateTable) => getTableName(candidateTable) === controlName,
     );
-    expect(controlTable, `${controlName} is not a real table; the control is a name only`).toBeDefined();
-    const controlColumns = new Set(
-      Object.values(getTableColumns(controlTable)).map(sqlColumnName),
-    );
+    expect(
+      controlTable,
+      `${controlName} is not a real table; the control is a name only`,
+    ).toBeDefined();
+    const controlColumns = new Set(Object.values(getTableColumns(controlTable)).map(sqlColumnName));
     expect(
       controlColumns.has('status'),
       `${controlName} has grown a status column, so it could now carry the guard — ` +
@@ -1623,9 +1631,7 @@ describe('the hand-written trigger SQL', () => {
   it('names the same settled statuses the tuple does', () => {
     const [file] = candidateSqlFiles();
     expect(file).toBeDefined();
-    expect(file.text).toContain(
-      `OLD.status IN ${renderList(HUMAN_SETTLED_LOCALIZATION_STATUSES)}`,
-    );
+    expect(file.text).toContain(`OLD.status IN ${renderList(HUMAN_SETTLED_LOCALIZATION_STATUSES)}`);
   });
 
   it('makes stale from the same statuses the tuple does, on every source table', () => {

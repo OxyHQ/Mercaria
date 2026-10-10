@@ -14,8 +14,14 @@ const objectOutput = { type: 'object', additionalProperties: true } as const;
 
 type ReadToolInput = Omit<
   CatalogTool,
-  'version' | 'capabilityPackage' | 'requiredCapabilities' | 'effect' |
-  'idempotency' | 'rollback' | 'exposure' | 'limitKeys'
+  | 'version'
+  | 'capabilityPackage'
+  | 'requiredCapabilities'
+  | 'effect'
+  | 'idempotency'
+  | 'rollback'
+  | 'exposure'
+  | 'limitKeys'
 > & {
   capability: string;
   limitKeys?: CatalogTool['limitKeys'];
@@ -46,7 +52,7 @@ export const MERCARIA_CAPABILITY_CATALOG: AppCapabilityCatalog = {
   tools: [
     readTool({
       name: 'searchProducts',
-      description: 'Search Mercaria\'s canonical product catalog.',
+      description: "Search Mercaria's canonical product catalog.",
       capability: 'commerce.search',
       inputSchema: {
         type: 'object',
@@ -105,8 +111,14 @@ export const MERCARIA_CAPABILITY_CATALOG: AppCapabilityCatalog = {
           status: {
             type: 'string',
             enum: [
-              'pending_payment', 'paid', 'processing', 'shipped', 'delivered',
-              'cancelled', 'refunded', 'partially_refunded',
+              'pending_payment',
+              'paid',
+              'processing',
+              'shipped',
+              'delivered',
+              'cancelled',
+              'refunded',
+              'partially_refunded',
             ],
           },
           page: { type: 'integer', minimum: 1 },
@@ -148,7 +160,8 @@ export const MERCARIA_CAPABILITY_CATALOG: AppCapabilityCatalog = {
             type: 'integer',
             minimum: 0,
             maximum: MAX_SAFE_MINOR_UNITS,
-            description: 'Hard ceiling in the order presentment currency; execution fails before effects if exceeded.',
+            description:
+              'Hard ceiling in the order presentment currency; execution fails before effects if exceeded.',
           },
           type: { type: 'string', enum: ['refund', 'return'] },
           reason: { type: 'string', maxLength: 2_000 },
@@ -170,9 +183,7 @@ export const MERCARIA_CAPABILITY_CATALOG: AppCapabilityCatalog = {
           },
           refundShipping: { type: 'boolean' },
         },
-        required: [
-          'idempotencyKey', 'storeId', 'orderId', 'maximumAmountMinor', 'lineItems',
-        ],
+        required: ['idempotencyKey', 'storeId', 'orderId', 'maximumAmountMinor', 'lineItems'],
         additionalProperties: false,
       },
       outputSchema: objectOutput,

@@ -32,7 +32,11 @@ interface DefinitionSpec {
   readonly unitFamily?: UnitFamily;
   readonly baseUnit?: string;
   readonly hardConstraintCapable?: boolean;
-  readonly enumValues?: readonly { readonly value: string; readonly label: string; readonly aliases?: readonly string[] }[];
+  readonly enumValues?: readonly {
+    readonly value: string;
+    readonly label: string;
+    readonly aliases?: readonly string[];
+  }[];
   /** Localized labels, so the label-matching pass is exercised in more than one language. */
   readonly labels?: readonly { readonly locale: string; readonly label: string }[];
 }

@@ -215,8 +215,7 @@ export const GUEST_CONTACT_VERIFICATION_STAGES = [
 ] as const;
 
 /** One of {@link GUEST_CONTACT_VERIFICATION_STAGES}. */
-export type GuestContactVerificationStage =
-  (typeof GUEST_CONTACT_VERIFICATION_STAGES)[number];
+export type GuestContactVerificationStage = (typeof GUEST_CONTACT_VERIFICATION_STAGES)[number];
 
 /**
  * The contact POLICY version a stored guest contact was captured under (#106

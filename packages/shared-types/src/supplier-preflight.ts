@@ -185,7 +185,7 @@ export const SUPPLIER_EMULATED_COMMITMENTS: readonly SupplierEmulatedCommitment[
 export const SUPPLIER_EMULATED_COMMITMENT_LABELS: Record<SupplierEmulatedCommitment, string> = {
   ...SUPPLIER_ORDER_EMULATED_COMMITMENT_LABELS,
   emulated_reservation:
-    'a local record named `reserved` for a supplier that made no commitment — a reservation row requires the supplier\'s own reservation id and expiry, both NOT NULL',
+    "a local record named `reserved` for a supplier that made no commitment — a reservation row requires the supplier's own reservation id and expiry, both NOT NULL",
   assumed_stock_on_timeout:
     'reading a provider timeout as availability — a timeout is `unknown`, which blocks checkout, and never `orderable`',
   inferred_price_guarantee:

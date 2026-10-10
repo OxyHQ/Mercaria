@@ -466,7 +466,11 @@ describe('judgeCoverage refuses the shapes that read as "everything shipped"', (
     // Otherwise a run stuck `queued` is a permanent way for this check to be
     // silent, which is the same silence it exists to break.
     const verdict = coverage.judgeCoverage({
-      runs: [done(1, 'aaaaaaaa', 'success', 0), done(2, 'bbbbbbbb', 'failure', 5), running(3, 'cccccccc', 6)],
+      runs: [
+        done(1, 'aaaaaaaa', 'success', 0),
+        done(2, 'bbbbbbbb', 'failure', 5),
+        running(3, 'cccccccc', 6),
+      ],
       now: minutes(6) + coverage.DEFAULT_STALE_RUN_MS + 1,
     });
     expect(verdict.state).toBe('uncovered');
@@ -562,7 +566,10 @@ describe('a deploy run states its own outcome, and the check reads the statement
   it('declares every half of the statement, exactly once, in the deploy job', () => {
     const names = declaredStepNames('deploy-aws.yml');
     for (const name of OUTCOME_STEP_NAMES) {
-      expect(names.filter((declared) => declared === name), `step "${name}"`).toHaveLength(1);
+      expect(
+        names.filter((declared) => declared === name),
+        `step "${name}"`,
+      ).toHaveLength(1);
     }
   });
 
@@ -705,9 +712,9 @@ describe('judgeDeployOutcome refuses every green it did not read a statement fro
   it('names the migrations when the image rolled and the database did not', () => {
     const verdict = coverage.judgeDeployOutcome({ jobs: runWith('negative', 'positive') });
     expect(verdict.state).toBe('hollow');
-    expect(verdict.halves.filter((half) => half.verdict === 'negative').map((h) => h.half)).toEqual([
-      MIGRATIONS.half,
-    ]);
+    expect(verdict.halves.filter((half) => half.verdict === 'negative').map((h) => h.half)).toEqual(
+      [MIGRATIONS.half],
+    );
   });
 
   it('reports the short-circuit, where neither half happened', () => {
@@ -936,9 +943,9 @@ describe('a healthy release must not read as hollow (the good-day baseline)', ()
     });
     const verdict = coverage.judgeDeployOutcome({ jobs });
     expect(verdict.state).toBe('hollow');
-    expect(verdict.halves.filter((half) => half.verdict === 'negative').map((h) => h.half)).toEqual([
-      'rollout',
-    ]);
+    expect(verdict.halves.filter((half) => half.verdict === 'negative').map((h) => h.half)).toEqual(
+      ['rollout'],
+    );
   });
 });
 
@@ -1052,9 +1059,9 @@ describe('#672 — migration containment is decided by content, never by history
     // The failure this whole check exists to stop, one level down. A propagated
     // read failure arrives as `null`, and rendering that as `applied` would be
     // the check overclaiming about itself.
-    expect(coverage.judgeMigrationContainment({ tipMigrations: null, appliedMigrations: [] }).state).toBe(
-      'unreadable',
-    );
+    expect(
+      coverage.judgeMigrationContainment({ tipMigrations: null, appliedMigrations: [] }).state,
+    ).toBe('unreadable');
     expect(
       coverage.judgeMigrationContainment({ tipMigrations: ['0001_a.sql'], appliedMigrations: null })
         .state,
@@ -1093,9 +1100,9 @@ describe('#672 — migration containment is decided by content, never by history
   });
 
   it('reads a declared phase, and calls a missing or doubled marker `unknown`', () => {
-    expect(coverage.declaredPhase(`-- a comment\n${coverage.POST_PHASE_MARKER}\nALTER TABLE x;`)).toBe(
-      'post',
-    );
+    expect(
+      coverage.declaredPhase(`-- a comment\n${coverage.POST_PHASE_MARKER}\nALTER TABLE x;`),
+    ).toBe('post');
     expect(coverage.declaredPhase(`${coverage.PRE_PHASE_MARKER}\nCREATE TABLE y;`)).toBe('pre');
     // There is no default phase — `db:generate` requires exactly one marker — so
     // neither and both are the same defect and neither may read as `pre`.

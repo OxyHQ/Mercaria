@@ -1,4 +1,4 @@
-import { isolateBidi } from "./bidi";
+import { isolateBidi } from './bidi';
 
 /**
  * A bare integer, spelled for the reader's locale and bidi-isolated.

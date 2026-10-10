@@ -227,9 +227,7 @@ export async function projectCandidate(
     conversionStage,
     scoreBps: row.candidate.scoreBps,
     scoreVersion: row.candidate.scoreVersion,
-    ...(row.candidate.scoredAt === null
-      ? {}
-      : { scoredAt: row.candidate.scoredAt.toISOString() }),
+    ...(row.candidate.scoredAt === null ? {} : { scoredAt: row.candidate.scoredAt.toISOString() }),
     contributingInputs: row.candidate.contributingInputs as MerchantAcquisitionScoreInput[],
     // Names only. Why each was unmeasurable is answered by the snapshot the
     // score cites, which carries a reason per metric — a reason copied onto the

@@ -169,12 +169,9 @@ export function createApp(): express.Express {
   // MCP owns its raw request body, exact protected-resource identity and OAuth
   // challenge. Keep it above every app parser and webhook router so no shared
   // middleware can consume or reinterpret the protocol request.
-  app.all(
-    mercariaMcpHttpService.protectedResourceMetadataPath,
-    (request, response) => {
-      mercariaMcpHttpService.handleProtectedResourceMetadata(request, response);
-    },
-  );
+  app.all(mercariaMcpHttpService.protectedResourceMetadataPath, (request, response) => {
+    mercariaMcpHttpService.handleProtectedResourceMetadata(request, response);
+  });
   app.all(mercariaMcpHttpService.mcpPath, (request, response) => {
     void mercariaMcpHttpService.handleMcp(request, response);
   });
@@ -215,7 +212,26 @@ export function createApp(): express.Express {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-Requested-With', 'Accept', 'Origin', 'X-Service-Name', 'X-Timestamp', 'X-Signature', 'X-Session-Id', 'X-Device-Info', 'X-Oxy-User-Id', 'X-Workspace-Id', 'X-Mercaria-Guest-Token', 'X-Mercaria-Guest-Transport', 'X-Mercaria-Guest-Client', 'X-Oxy-Edge-Region', 'X-Oxy-Activity-Id'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'Idempotency-Key',
+        'X-Requested-With',
+        'Accept',
+        'Origin',
+        'X-Service-Name',
+        'X-Timestamp',
+        'X-Signature',
+        'X-Session-Id',
+        'X-Device-Info',
+        'X-Oxy-User-Id',
+        'X-Workspace-Id',
+        'X-Mercaria-Guest-Token',
+        'X-Mercaria-Guest-Transport',
+        'X-Mercaria-Guest-Client',
+        'X-Oxy-Edge-Region',
+        'X-Oxy-Activity-Id',
+      ],
       optionsSuccessStatus: 200,
     })(req, res, next);
   });
@@ -1232,7 +1248,7 @@ export function createApp(): express.Express {
         // operator surface answers 404 on a deployment with no operators
         // precisely so its existence is not discoverable. Advertising it here
         // would undo that in the one place nobody thinks to look.
-      ]
+      ],
     });
   });
 
@@ -1248,20 +1264,23 @@ export function createApp(): express.Express {
    * request; anything else is a defect, logged, with a fixed message so no
    * internal text reaches a client.
    */
-  app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    const status =
-      typeof err === 'object' && err !== null && 'status' in err && typeof err.status === 'number'
-        ? err.status
-        : 500;
-    if (status >= 400 && status < 500) {
-      if (!res.headersSent) res.status(400).json(mercariaErrorBody('bad_request', 'The request could not be read'));
-      return;
-    }
-    log.general.error({ err }, 'Unhandled Express error');
-    if (!res.headersSent) {
-      res.status(500).json(mercariaErrorBody('internal_error', 'Something went wrong'));
-    }
-  });
+  app.use(
+    (err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      const status =
+        typeof err === 'object' && err !== null && 'status' in err && typeof err.status === 'number'
+          ? err.status
+          : 500;
+      if (status >= 400 && status < 500) {
+        if (!res.headersSent)
+          res.status(400).json(mercariaErrorBody('bad_request', 'The request could not be read'));
+        return;
+      }
+      log.general.error({ err }, 'Unhandled Express error');
+      if (!res.headersSent) {
+        res.status(500).json(mercariaErrorBody('internal_error', 'Something went wrong'));
+      }
+    },
+  );
 
   return app;
 }

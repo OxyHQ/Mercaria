@@ -156,9 +156,7 @@ export async function findDraft(
   const rows = await db
     .select()
     .from(catalogAuthoringDrafts)
-    .where(
-      and(eq(catalogAuthoringDrafts.id, draftId), eq(catalogAuthoringDrafts.storeId, storeId)),
-    )
+    .where(and(eq(catalogAuthoringDrafts.id, draftId), eq(catalogAuthoringDrafts.storeId, storeId)))
     .limit(1);
   return rows[0] ?? null;
 }
@@ -180,9 +178,7 @@ export async function lockDraftForPublish(
   const rows = await db
     .select()
     .from(catalogAuthoringDrafts)
-    .where(
-      and(eq(catalogAuthoringDrafts.id, draftId), eq(catalogAuthoringDrafts.storeId, storeId)),
-    )
+    .where(and(eq(catalogAuthoringDrafts.id, draftId), eq(catalogAuthoringDrafts.storeId, storeId)))
     .limit(1)
     .for('update');
   return rows[0] ?? null;
@@ -605,7 +601,9 @@ export async function replaceDraftVariants(
     const indices = [...freshByIndex.keys()];
     const inserted = await db
       .insert(catalogAuthoringDraftVariants)
-      .values(indices.map((index) => ({ draftId, ...(freshByIndex.get(index) as NewDraftVariant) })))
+      .values(
+        indices.map((index) => ({ draftId, ...(freshByIndex.get(index) as NewDraftVariant) })),
+      )
       .returning();
     indices.forEach((index, at) => rowByIndex.set(index, inserted[at]));
   }
@@ -816,7 +814,9 @@ export async function replaceProductScopeValues(
   }
 
   if (fresh.length > 0) {
-    await db.insert(catalogAuthoringDraftValues).values(fresh.map((value) => ({ draftId, ...value })));
+    await db
+      .insert(catalogAuthoringDraftValues)
+      .values(fresh.map((value) => ({ draftId, ...value })));
   }
 }
 
@@ -838,12 +838,7 @@ function draftVariantValueIdentity(value: {
   readonly componentAxis: string | null;
   readonly ordinal: number;
 }): string {
-  return JSON.stringify([
-    value.draftVariantId,
-    value.fieldId,
-    value.componentAxis,
-    value.ordinal,
-  ]);
+  return JSON.stringify([value.draftVariantId, value.fieldId, value.componentAxis, value.ordinal]);
 }
 
 /**

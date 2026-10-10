@@ -109,9 +109,7 @@ export async function revokeOutboundHost(
       revokedByOxyUserId: input.revokedByOxyUserId,
       revokedReason: input.revokedReason,
     })
-    .where(
-      and(eq(affiliateOutboundHosts.id, input.id), isNull(affiliateOutboundHosts.revokedAt)),
-    )
+    .where(and(eq(affiliateOutboundHosts.id, input.id), isNull(affiliateOutboundHosts.revokedAt)))
     .returning();
   return row;
 }

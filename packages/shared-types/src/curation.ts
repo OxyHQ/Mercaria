@@ -429,7 +429,10 @@ export const CATALOG_REVISION_ACTOR_KINDS: readonly CatalogRevisionActorKind[] =
  * merge, whose size is measured rather than assumed — see
  * `CURATION_LARGE_MERGE_IMPACT_THRESHOLD`.
  */
-export const CURATION_SECOND_APPROVAL_ACTIONS: readonly CatalogRevisionAction[] = ['merge', 'split'];
+export const CURATION_SECOND_APPROVAL_ACTIONS: readonly CatalogRevisionAction[] = [
+  'merge',
+  'split',
+];
 
 /**
  * The impact above which a merge or split is "large" and needs a second pair of
@@ -642,7 +645,10 @@ export const CATALOG_JOB_STATUSES: readonly CatalogJobStatus[] = [
 ];
 
 /** The statuses a dispatcher may claim. */
-export const CATALOG_JOB_CLAIMABLE_STATUSES: readonly CatalogJobStatus[] = ['pending', 'processing'];
+export const CATALOG_JOB_CLAIMABLE_STATUSES: readonly CatalogJobStatus[] = [
+  'pending',
+  'processing',
+];
 
 /**
  * A collision the database would refuse, which an operator must decide BEFORE

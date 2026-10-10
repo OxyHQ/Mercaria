@@ -179,7 +179,11 @@ function deriveSignals(
     outcomes.push(
       scored(
         'item_price',
-        normalizeLowerIsBetter(facts.itemPrice.amount.amount, ranges.itemPrice.min, ranges.itemPrice.max),
+        normalizeLowerIsBetter(
+          facts.itemPrice.amount.amount,
+          ranges.itemPrice.min,
+          ranges.itemPrice.max,
+        ),
         policy,
         `${facts.itemPrice.amount.amount} ${facts.itemPrice.amount.currency}`,
       ),
@@ -241,7 +245,11 @@ function deriveSignals(
     outcomes.push(
       scored(
         'delivery_speed',
-        normalizeLowerIsBetter(facts.deliveryMaxDays, ranges.deliveryDays.min, ranges.deliveryDays.max),
+        normalizeLowerIsBetter(
+          facts.deliveryMaxDays,
+          ranges.deliveryDays.min,
+          ranges.deliveryDays.max,
+        ),
         policy,
         `up to ${facts.deliveryMaxDays} days`,
       ),
@@ -251,7 +259,8 @@ function deriveSignals(
   }
 
   // 5 — condition.
-  const conditionScore = facts.condition === undefined ? null : conditionQualityScore(facts.condition);
+  const conditionScore =
+    facts.condition === undefined ? null : conditionQualityScore(facts.condition);
   if (conditionScore === null) {
     outcomes.push(unknown('condition', 'not_published', 'condition did not map onto the taxonomy'));
   } else {
@@ -373,7 +382,11 @@ function deriveSignals(
     outcomes.push(
       scored(
         'verified_relationship',
-        facts.relationship === 'official_channel' ? 1 : facts.relationship === 'authorized_reseller' ? 0.7 : 0,
+        facts.relationship === 'official_channel'
+          ? 1
+          : facts.relationship === 'authorized_reseller'
+            ? 0.7
+            : 0,
         policy,
         `verified relationship: ${facts.relationship}`,
       ),
@@ -485,7 +498,10 @@ function compareKeys(a: readonly number[], b: readonly number[]): number {
  * were ordered by total, then by a stable digest" instead of leaving a shopper
  * to guess. `undefined` means the score alone decided it.
  */
-function tieBreakerBetween(above: ScoredCandidate, below: ScoredCandidate): OfferTieBreaker | undefined {
+function tieBreakerBetween(
+  above: ScoredCandidate,
+  below: ScoredCandidate,
+): OfferTieBreaker | undefined {
   if (above.score !== below.score) return undefined;
   const aTotal = hasKnownTotal(above.candidate.facts.total)
     ? above.candidate.facts.total.amount.amount
@@ -563,8 +579,12 @@ export function rankOffers(input: OfferRankingInput): readonly RankedOffer[] {
     if (byIntent !== 0) return byIntent;
     if (a.score !== b.score) return a.score > b.score ? -1 : 1;
 
-    const aTotal = hasKnownTotal(a.candidate.facts.total) ? a.candidate.facts.total.amount.amount : null;
-    const bTotal = hasKnownTotal(b.candidate.facts.total) ? b.candidate.facts.total.amount.amount : null;
+    const aTotal = hasKnownTotal(a.candidate.facts.total)
+      ? a.candidate.facts.total.amount.amount
+      : null;
+    const bTotal = hasKnownTotal(b.candidate.facts.total)
+      ? b.candidate.facts.total.amount.amount
+      : null;
     if (aTotal !== null && bTotal !== null && aTotal !== bTotal) return aTotal - bTotal;
 
     const aPrice = hasKnownPrice(a.candidate.facts.itemPrice)

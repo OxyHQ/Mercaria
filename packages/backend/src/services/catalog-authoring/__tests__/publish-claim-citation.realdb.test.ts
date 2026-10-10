@@ -34,7 +34,11 @@ import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { findCategoryByKey } from '../../../db/taxonomy/taxonomyRepository.js';
 import { createDraft, patchDraft, validateStoreDraft } from '../draft.service.js';
 import { publishDraft } from '../publish.service.js';
-import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  type VerticalNamespace,
+} from '../../../scripts/seed-verticals/apply.js';
 import { SMARTPHONE_PACKAGE } from '../../../scripts/seed-verticals/smartphone.js';
 import {
   createTestStore,
@@ -86,7 +90,10 @@ interface PublishedListing {
  * normalized form is a base-unit magnitude and the enum's is its own canonical
  * string — so a citation that only worked for one of them would show here.
  */
-async function publishOne(suffix: string, skus: readonly [string, string]): Promise<PublishedListing> {
+async function publishOne(
+  suffix: string,
+  skus: readonly [string, string],
+): Promise<PublishedListing> {
   const draft = await createDraft(db, {
     storeId,
     actorOxyUserId: phones.actorOxyUserId,
@@ -190,7 +197,7 @@ describe('every typed axis value a publication writes CITES the claim it came fr
    * positive control, and without it a publication that wrote NULL into both
    * would satisfy an equality check.
    */
-  it('carries the DRAFT\'s product-type version onto the listing', async () => {
+  it("carries the DRAFT's product-type version onto the listing", async () => {
     const [row] = await db.execute<{
       listing_pin: string | null;
       draft_pin: string | null;

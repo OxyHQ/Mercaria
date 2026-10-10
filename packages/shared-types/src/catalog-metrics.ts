@@ -490,9 +490,9 @@ export const CATALOG_LATENCY_BUDGETS: readonly CatalogLatencyBudget[] = [
     title: 'Category tree',
     p95BudgetMs: 150,
     rationale:
-      'A single-statement read over the materialized ancestry path on a tree of thousands of '
-      + 'nodes. Measured at 1.1-2.6 ms p50 by the ancestry benchmark, so anything approaching '
-      + 'this is a plan change rather than load.',
+      'A single-statement read over the materialized ancestry path on a tree of thousands of ' +
+      'nodes. Measured at 1.1-2.6 ms p50 by the ancestry benchmark, so anything approaching ' +
+      'this is a plan change rather than load.',
   },
   {
     route: '/catalog-authoring/schemas/:productTypeKey',
@@ -500,10 +500,10 @@ export const CATALOG_LATENCY_BUDGETS: readonly CatalogLatencyBudget[] = [
     title: 'Authoring schema composition',
     p95BudgetMs: 400,
     rationale:
-      'Composes a category, a product-type version, its field groups and every referenced '
-      + 'attribute definition plus localizations. The memo serves the repeat and the ETag serves '
-      + 'a returning client; this budget is for the cold composition, which is what a merchant '
-      + 'opening a new form pays.',
+      'Composes a category, a product-type version, its field groups and every referenced ' +
+      'attribute definition plus localizations. The memo serves the repeat and the ETag serves ' +
+      'a returning client; this budget is for the cold composition, which is what a merchant ' +
+      'opening a new form pays.',
   },
   {
     route: '/search',
@@ -511,8 +511,8 @@ export const CATALOG_LATENCY_BUDGETS: readonly CatalogLatencyBudget[] = [
     title: 'Canonical search',
     p95BudgetMs: 600,
     rationale:
-      "#61 measured every canonical read in single-digit milliseconds at a million offers; the "
-      + 'headroom here is #70\'s staged retrieval and the per-page offer hydration on top of it.',
+      '#61 measured every canonical read in single-digit milliseconds at a million offers; the ' +
+      "headroom here is #70's staged retrieval and the per-page offer hydration on top of it.",
   },
   {
     route: '/facets',
@@ -520,10 +520,10 @@ export const CATALOG_LATENCY_BUDGETS: readonly CatalogLatencyBudget[] = [
     title: 'Facet generation',
     p95BudgetMs: 500,
     rationale:
-      'A POST because the facet request carries a filter set too large for a query string — not '
-      + 'a mutation. Several bucket aggregations over one category scope, measured at ten '
-      + 'statements per scope by the facet sweep, which is why the budget sits well above the '
-      + 'category tree.',
+      'A POST because the facet request carries a filter set too large for a query string — not ' +
+      'a mutation. Several bucket aggregations over one category scope, measured at ten ' +
+      'statements per scope by the facet sweep, which is why the budget sits well above the ' +
+      'category tree.',
   },
 ];
 
@@ -547,21 +547,21 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     title: 'Authoring schema fetch latency',
     kind: 'latency',
     numerator:
-      'Wall-clock milliseconds from route entry to response finish for '
-      + 'GET /catalog-authoring/schemas/:productTypeKey, observed in this process.',
+      'Wall-clock milliseconds from route entry to response finish for ' +
+      'GET /catalog-authoring/schemas/:productTypeKey, observed in this process.',
     denominator:
-      'The most recent bounded reservoir of such requests this process served, including 304s '
-      + 'and refusals. The reservoir size is reported as `observations` and is smaller than the '
-      + 'exact request count beside it.',
+      'The most recent bounded reservoir of such requests this process served, including 304s ' +
+      'and refusals. The reservoir size is reported as `observations` and is smaller than the ' +
+      'exact request count beside it.',
     window: 'since_process_start',
     source: 'route_observations',
     freshnessSeconds: 0,
     attributionLimit:
-      'Per ECS task and reset by every deploy, so it is a health signal and never a historical '
-      + 'series. Percentiles cover the reservoir rather than every request, so a task that has '
-      + 'served millions reports the tail of the recent few thousand. It also cannot separate '
-      + 'composition cost from memo service — read it beside '
-      + 'authoring_schema_client_cache_hit_rate, which says how many of these did no work.',
+      'Per ECS task and reset by every deploy, so it is a health signal and never a historical ' +
+      'series. Percentiles cover the reservoir rather than every request, so a task that has ' +
+      'served millions reports the tail of the recent few thousand. It also cannot separate ' +
+      'composition cost from memo service — read it beside ' +
+      'authoring_schema_client_cache_hit_rate, which says how many of these did no work.',
   },
   {
     key: 'authoring_schema_error_rate',
@@ -573,9 +573,9 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'route_observations',
     freshnessSeconds: 0,
     attributionLimit:
-      'Counts only 5xx. A composition REFUSAL (an unknown product type, a category outside a '
-      + "version's scope) is a 4xx and a correct answer, so folding it in would make a merchant "
-      + 'typing a bad category read as a server fault.',
+      'Counts only 5xx. A composition REFUSAL (an unknown product type, a category outside a ' +
+      "version's scope) is a 4xx and a correct answer, so folding it in would make a merchant " +
+      'typing a bad category read as a server fault.',
   },
   {
     key: 'authoring_schema_client_cache_hit_rate',
@@ -587,9 +587,9 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'route_observations',
     freshnessSeconds: 0,
     attributionLimit:
-      'This is the CLIENT-visible hit rate — how often a caller already held the composition. '
-      + 'It is not the server memo hit rate, which is a different number about a different '
-      + 'cache; see authoring_schema_memo_hit_rate, which is unmeasured.',
+      'This is the CLIENT-visible hit rate — how often a caller already held the composition. ' +
+      'It is not the server memo hit rate, which is a different number about a different ' +
+      'cache; see authoring_schema_memo_hit_rate, which is unmeasured.',
   },
   {
     key: 'authoring_schema_memo_hit_rate',
@@ -601,14 +601,14 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'route_observations',
     freshnessSeconds: 0,
     attributionLimit:
-      'Would say whether the revision-keyed memo is earning its place. A 304 rate cannot '
-      + 'substitute: a client with no ETag and a warm memo is a miss on one and a hit on the other.',
+      'Would say whether the revision-keyed memo is earning its place. A 304 rate cannot ' +
+      'substitute: a client with no ETag and a warm memo is a miss on one and a hit on the other.',
     unmeasured: {
       reason: 'not_instrumented',
       seam:
-        'services/catalog-authoring/schema.service.ts holds the memo (`remember`/`memo.get`) and '
-        + 'exposes no counter. Closing it is one exported stats function beside the memo, the '
-        + '`analyticsSinkStats` shape, and one call in each of the two branches.',
+        'services/catalog-authoring/schema.service.ts holds the memo (`remember`/`memo.get`) and ' +
+        'exposes no counter. Closing it is one exported stats function beside the memo, the ' +
+        '`analyticsSinkStats` shape, and one call in each of the two branches.',
     },
   },
 
@@ -623,24 +623,24 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_authoring_drafts',
     freshnessSeconds: 300,
     attributionLimit:
-      'A draft still open at the moment of reading is in the denominator and not the numerator, '
-      + 'so a healthy week of in-progress work depresses this. Read it with draft_open_count.',
+      'A draft still open at the moment of reading is in the denominator and not the numerator, ' +
+      'so a healthy week of in-progress work depresses this. Read it with draft_open_count.',
   },
   {
     key: 'draft_abandonment_rate',
     title: 'Draft abandonment rate',
     kind: 'ratio',
     numerator:
-      "catalog_authoring_drafts rows with status = 'discarded', plus rows still 'open' whose "
-      + 'expires_at has passed.',
+      "catalog_authoring_drafts rows with status = 'discarded', plus rows still 'open' whose " +
+      'expires_at has passed.',
     denominator: 'All catalog_authoring_drafts rows created in the window.',
     window: 'rolling_7d',
     source: 'catalog_authoring_drafts',
     freshnessSeconds: 300,
     attributionLimit:
-      'Cannot distinguish a merchant who gave up from one who started a draft twice and '
-      + 'discarded the duplicate. It says nothing about WHICH field stopped them — that is '
-      + 'draft_validation_failure_rate, which is unmeasured.',
+      'Cannot distinguish a merchant who gave up from one who started a draft twice and ' +
+      'discarded the duplicate. It says nothing about WHICH field stopped them — that is ' +
+      'draft_validation_failure_rate, which is unmeasured.',
   },
   {
     key: 'draft_open_count',
@@ -659,21 +659,21 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     kind: 'ratio',
     numerator: 'Publication attempts this process refused because the draft did not validate.',
     denominator:
-      'Publication attempts this process made. An attempt is a call that reached '
-      + "`validateDraftRow` from the PUBLISH path; `draft.service.ts`'s standalone validate is "
-      + 'not one, or the rate would report every keystroke a form validated.',
+      'Publication attempts this process made. An attempt is a call that reached ' +
+      "`validateDraftRow` from the PUBLISH path; `draft.service.ts`'s standalone validate is " +
+      'not one, or the rate would report every keystroke a form validated.',
     window: 'since_process_start',
     source: 'authoring_publication_attempts',
     freshnessSeconds: 0,
     attributionLimit:
-      'PROCESS-LOCAL and RESET BY EVERY DEPLOY — several tasks each count their own traffic, '
-      + 'and a deploy zeroes all of them. Read it as a rate, never as a total. It carries NO '
-      + 'per-code breakdown, deliberately: one refusal can carry several findings with '
-      + 'different codes, so codes do not PARTITION attempts and a `by` here would count one '
-      + 'refusal in several buckets while claiming to sum to the denominator. '
-      + 'draft_validation_failure_code_share answers "which codes" over the population where '
-      + 'they do partition. It also says nothing about whether the author fixed it: a merchant '
-      + 'who corrects a field and republishes is two attempts and one refusal.',
+      'PROCESS-LOCAL and RESET BY EVERY DEPLOY — several tasks each count their own traffic, ' +
+      'and a deploy zeroes all of them. Read it as a rate, never as a total. It carries NO ' +
+      'per-code breakdown, deliberately: one refusal can carry several findings with ' +
+      'different codes, so codes do not PARTITION attempts and a `by` here would count one ' +
+      'refusal in several buckets while claiming to sum to the denominator. ' +
+      'draft_validation_failure_code_share answers "which codes" over the population where ' +
+      'they do partition. It also says nothing about whether the author fixed it: a merchant ' +
+      'who corrects a field and republishes is two attempts and one refusal.',
   },
   {
     key: 'draft_validation_failure_code_share',
@@ -682,18 +682,18 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     numerator:
       'Findings of one AuthoringValidationCode on refused publication attempts, per bucket.',
     denominator:
-      'All findings on refused publication attempts. FINDINGS and not attempts, which is the '
-      + 'whole reason this is a second metric: a code partitions findings exactly, and an '
-      + 'attempt it does not partition at all.',
+      'All findings on refused publication attempts. FINDINGS and not attempts, which is the ' +
+      'whole reason this is a second metric: a code partitions findings exactly, and an ' +
+      'attempt it does not partition at all.',
     window: 'since_process_start',
     source: 'authoring_publication_attempts',
     freshnessSeconds: 0,
     attributionLimit:
-      'A SHARE of findings, so it cannot be read as "how many drafts failed this way" — one '
-      + 'draft missing four required fields contributes four. Bucketed by the closed '
-      + 'AUTHORING_VALIDATION_CODES tuple and never by attribute key, whose cardinality grows '
-      + 'with the registry; a per-attribute instrument is a different one with its own '
-      + 'disclosure argument. Process-local and reset by every deploy.',
+      'A SHARE of findings, so it cannot be read as "how many drafts failed this way" — one ' +
+      'draft missing four required fields contributes four. Bucketed by the closed ' +
+      'AUTHORING_VALIDATION_CODES tuple and never by attribute key, whose cardinality grows ' +
+      'with the registry; a per-attribute instrument is a different one with its own ' +
+      'disclosure argument. Process-local and reset by every deploy.',
   },
 
   /* ---- Resolution mix (W17 item 3) --------------------------------------- */
@@ -707,23 +707,23 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'native_listing_links',
     freshnessSeconds: 300,
     attributionLimit:
-      'A stock of links, not a flow of decisions: a link created a year ago counts the same as '
-      + 'one created today, so this moves slowly and a sudden change is a big change.',
+      'A stock of links, not a flow of decisions: a link created a year ago counts the same as ' +
+      'one created today, so this moves slowly and a sudden change is a big change.',
   },
   {
     key: 'automated_match_rate',
     title: 'Automated match rate',
     kind: 'ratio',
     numerator:
-      'native_listing_links rows whose method is an automated one (the matcher stages and '
-      + 'backfill), i.e. every method that is not merchant_declared or seller_declared.',
+      'native_listing_links rows whose method is an automated one (the matcher stages and ' +
+      'backfill), i.e. every method that is not merchant_declared or seller_declared.',
     denominator: 'All active native_listing_links rows.',
     window: 'instant',
     source: 'native_listing_links',
     freshnessSeconds: 300,
     attributionLimit:
-      'Says nothing about whether a match was CORRECT. #58 routes a heuristic match to review '
-      + 'precisely because nobody has agreed it; this counts it as matched.',
+      'Says nothing about whether a match was CORRECT. #58 routes a heuristic match to review ' +
+      'precisely because nobody has agreed it; this counts it as matched.',
   },
   {
     key: 'unresolved_subject_count',
@@ -735,8 +735,8 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'match_queue',
     freshnessSeconds: 60,
     attributionLimit:
-      'Queue DEPTH, which is not the same as lag: a deep queue draining fast is healthier than '
-      + 'a shallow one that is stuck. Read it with unresolved_subject_oldest_age.',
+      'Queue DEPTH, which is not the same as lag: a deep queue draining fast is healthier than ' +
+      'a shallow one that is stuck. Read it with unresolved_subject_oldest_age.',
   },
   {
     key: 'unresolved_subject_oldest_age',
@@ -748,8 +748,8 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'match_queue',
     freshnessSeconds: 60,
     attributionLimit:
-      'The lag signal. It is null-shaped when the queue is empty, which reads as measured with '
-      + 'zero population rather than as a healthy zero.',
+      'The lag signal. It is null-shaped when the queue is empty, which reads as measured with ' +
+      'zero population rather than as a healthy zero.',
   },
   {
     key: 'match_queue_dead_letter_count',
@@ -761,18 +761,18 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'match_queue',
     freshnessSeconds: 60,
     attributionLimit:
-      'The only dead-letter STATE reachable BY NAME in this chain, and it belongs to #58\'s match '
-      + "queue rather than to any of #367's own tables. It is no longer the only place a bounded "
-      + 'retry can be EXHAUSTED — #367 line 759 gave `catalog_backfill_runs` one — so the '
-      + 'difference from a `failed` backfill run is not that this queue retries and that one does '
-      + 'not. It is that this state is NAMED: a subject here has exhausted its retries and will '
-      + 'never be matched without an operator, and the status column says exactly that. A backfill '
-      + 'run names its cause in `terminal_cause`, so backfill_dead_letter_count beside this one '
-      + 'counts the same KIND of event over a different queue and the two are comparable. The '
-      + 'distinction that remains is where the fact lives: a dead-lettered subject here is a '
-      + 'STATUS, and there it is a status plus a cause, because that queue also ends in `failed` '
-      + 'when an operator stops a run. A dead-lettered subject does not disappear from the '
-      + 'catalogue, so the listing is live and unattached.',
+      "The only dead-letter STATE reachable BY NAME in this chain, and it belongs to #58's match " +
+      "queue rather than to any of #367's own tables. It is no longer the only place a bounded " +
+      'retry can be EXHAUSTED — #367 line 759 gave `catalog_backfill_runs` one — so the ' +
+      'difference from a `failed` backfill run is not that this queue retries and that one does ' +
+      'not. It is that this state is NAMED: a subject here has exhausted its retries and will ' +
+      'never be matched without an operator, and the status column says exactly that. A backfill ' +
+      'run names its cause in `terminal_cause`, so backfill_dead_letter_count beside this one ' +
+      'counts the same KIND of event over a different queue and the two are comparable. The ' +
+      'distinction that remains is where the fact lives: a dead-lettered subject here is a ' +
+      'STATUS, and there it is a status plus a cause, because that queue also ends in `failed` ' +
+      'when an operator stops a run. A dead-lettered subject does not disappear from the ' +
+      'catalogue, so the listing is live and unattached.',
   },
   {
     key: 'proposal_creation_count',
@@ -784,8 +784,8 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_proposals',
     freshnessSeconds: 300,
     attributionLimit:
-      'A rise can mean the taxonomy is missing concepts OR that more merchants are authoring. '
-      + 'It does not separate them; the completeness metrics are the other half.',
+      'A rise can mean the taxonomy is missing concepts OR that more merchants are authoring. ' +
+      'It does not separate them; the completeness metrics are the other half.',
   },
   {
     key: 'proposal_backlog_count',
@@ -797,8 +797,8 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_proposals',
     freshnessSeconds: 300,
     attributionLimit:
-      'Counts rows awaiting a person. A deferred proposal with a future deferred_until is in '
-      + 'here, so a planned deferral reads as backlog.',
+      'Counts rows awaiting a person. A deferred proposal with a future deferred_until is in ' +
+      'here, so a planned deferral reads as backlog.',
   },
   {
     key: 'proposal_backlog_oldest_age',
@@ -810,11 +810,11 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_proposals',
     freshnessSeconds: 300,
     attributionLimit:
-      'The oldest, not the median, because a queue is judged by the thing that has waited '
-      + 'longest — but it is the oldest of ALL open states, so a proposal parked on a merchant '
-      + 'who never replied dominates it forever. proposal_awaiting_operator_oldest_age is the '
-      + 'one that measures Mercaria\'s own responsiveness, and the full distribution is at '
-      + 'GET /internal/catalog-metrics/proposal-queue.',
+      'The oldest, not the median, because a queue is judged by the thing that has waited ' +
+      'longest — but it is the oldest of ALL open states, so a proposal parked on a merchant ' +
+      'who never replied dominates it forever. proposal_awaiting_operator_oldest_age is the ' +
+      "one that measures Mercaria's own responsiveness, and the full distribution is at " +
+      'GET /internal/catalog-metrics/proposal-queue.',
   },
   {
     key: 'proposal_backlog_awaiting_operator_count',
@@ -826,10 +826,10 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_proposals',
     freshnessSeconds: 300,
     attributionLimit:
-      'The share of the backlog that is Mercaria\'s to answer. It says nothing about how long '
-      + 'any of them has waited — read it with proposal_awaiting_operator_oldest_age — and a '
-      + 'proposal an operator has already opened and not decided is still in here, because '
-      + 'reading is not a state.',
+      "The share of the backlog that is Mercaria's to answer. It says nothing about how long " +
+      'any of them has waited — read it with proposal_awaiting_operator_oldest_age — and a ' +
+      'proposal an operator has already opened and not decided is still in here, because ' +
+      'reading is not a state.',
   },
   {
     key: 'proposal_backlog_awaiting_submitter_count',
@@ -841,10 +841,10 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_proposals',
     freshnessSeconds: 300,
     attributionLimit:
-      'Open, and NOT Mercaria\'s to answer: an operator asked and is waiting. It is separated '
-      + 'from the backlog for exactly that reason, and it is not a health signal on its own — a '
-      + 'large number can mean the form asks for too little or that reviewers ask for too much, '
-      + 'and this cannot tell those apart.',
+      "Open, and NOT Mercaria's to answer: an operator asked and is waiting. It is separated " +
+      'from the backlog for exactly that reason, and it is not a health signal on its own — a ' +
+      'large number can mean the form asks for too little or that reviewers ask for too much, ' +
+      'and this cannot tell those apart.',
   },
   {
     key: 'proposal_backlog_deferred_count',
@@ -856,10 +856,10 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_proposals',
     freshnessSeconds: 300,
     attributionLimit:
-      'Every deferral, whether its date has passed or not. A deferral whose date has passed is '
-      + 'back in the queue and is genuinely waiting; the split is deferredAheadCount on '
-      + 'GET /internal/catalog-metrics/proposal-queue, which this count deliberately does not '
-      + 'duplicate.',
+      'Every deferral, whether its date has passed or not. A deferral whose date has passed is ' +
+      'back in the queue and is genuinely waiting; the split is deferredAheadCount on ' +
+      'GET /internal/catalog-metrics/proposal-queue, which this count deliberately does not ' +
+      'duplicate.',
   },
   {
     key: 'proposal_awaiting_operator_oldest_age',
@@ -871,11 +871,11 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_proposals',
     freshnessSeconds: 300,
     attributionLimit:
-      'Mercaria\'s own worst response time, with the two waits that are not Mercaria\'s '
-      + '(needs_information, deferred) excluded. It is a MAXIMUM and says nothing about the '
-      + 'shape behind it: the age bands and percentiles at '
-      + 'GET /internal/catalog-metrics/proposal-queue are that, and the percentiles refuse to '
-      + 'answer below a population of twenty.',
+      "Mercaria's own worst response time, with the two waits that are not Mercaria's " +
+      '(needs_information, deferred) excluded. It is a MAXIMUM and says nothing about the ' +
+      'shape behind it: the age bands and percentiles at ' +
+      'GET /internal/catalog-metrics/proposal-queue are that, and the percentiles refuse to ' +
+      'answer below a population of twenty.',
   },
   {
     key: 'proposal_decision_count',
@@ -887,10 +887,10 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_proposals',
     freshnessSeconds: 300,
     attributionLimit:
-      'The service rate to read against proposal_creation_count\'s arrival rate — a backlog is '
-      + 'a stock and neither number alone says whether it is growing. It counts OPERATOR '
-      + 'decisions only: a withdrawal is the submitter closing their own request and stamps no '
-      + 'decided_at, so it is in neither this nor the backlog it left.',
+      "The service rate to read against proposal_creation_count's arrival rate — a backlog is " +
+      'a stock and neither number alone says whether it is growing. It counts OPERATOR ' +
+      'decisions only: a withdrawal is the submitter closing their own request and stamps no ' +
+      'decided_at, so it is in neither this nor the backlog it left.',
   },
   {
     key: 'proposal_sla_breach_count',
@@ -902,19 +902,19 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_proposals',
     freshnessSeconds: 300,
     attributionLimit:
-      'Would count rows past a target, which says nothing about how far past — the age bands '
-      + 'and the percentiles are that. It is unmeasured because no target exists, not because '
-      + 'the ages do not.',
+      'Would count rows past a target, which says nothing about how far past — the age bands ' +
+      'and the percentiles are that. It is unmeasured because no target exists, not because ' +
+      'the ages do not.',
     unmeasured: {
       reason: 'policy_target_undefined',
       seam:
-        'No review-time target is defined for a catalogue proposal anywhere in this repository. '
-        + 'The input is already published — depth and oldest age per open state, a five-band '
-        + 'waiting-age distribution and nearest-rank percentiles, all from '
-        + 'readProposalQueueAging — so what is owed is a decision on #367 Workstream 6 naming a '
-        + 'target per open state, plus the second member on CatalogProposalSlaVisibility that '
-        + 'carries it. Reporting zero here today would mean "nothing has breached a target that '
-        + 'does not exist", which is true and reads as healthy.',
+        'No review-time target is defined for a catalogue proposal anywhere in this repository. ' +
+        'The input is already published — depth and oldest age per open state, a five-band ' +
+        'waiting-age distribution and nearest-rank percentiles, all from ' +
+        'readProposalQueueAging — so what is owed is a decision on #367 Workstream 6 naming a ' +
+        'target per open state, plus the second member on CatalogProposalSlaVisibility that ' +
+        'carries it. Reporting zero here today would mean "nothing has breached a target that ' +
+        'does not exist", which is true and reads as healthy.',
     },
   },
 
@@ -929,8 +929,8 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_governance_quality',
     freshnessSeconds: 900,
     attributionLimit:
-      "Read through catalog-governance's readCatalogQuality, which is the one authority; this "
-      + 'domain re-derives nothing. It measures presence, never correctness.',
+      "Read through catalog-governance's readCatalogQuality, which is the one authority; this " +
+      'domain re-derives nothing. It measures presence, never correctness.',
   },
   {
     key: 'product_type_completeness',
@@ -942,8 +942,8 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_governance_quality',
     freshnessSeconds: 900,
     attributionLimit:
-      'A version with fields is not a version that models its category well. This is a floor, '
-      + 'not a quality score.',
+      'A version with fields is not a version that models its category well. This is a floor, ' +
+      'not a quality score.',
   },
   {
     key: 'attribute_localized_label_completeness',
@@ -955,11 +955,11 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'product_type_definitions',
     freshnessSeconds: 900,
     attributionLimit:
-      'This is LOCALIZED label coverage and deliberately not "does the attribute have a label": '
-      + 'attribute_definitions.label is NOT NULL, so a metric counting label presence would be '
-      + 'vacuously 100% and could never fall. It says nothing about whether the localized labels '
-      + 'that exist cover the locales this deployment serves — one label in one locale satisfies '
-      + 'it — and nothing about whether any of them is correct.',
+      'This is LOCALIZED label coverage and deliberately not "does the attribute have a label": ' +
+      'attribute_definitions.label is NOT NULL, so a metric counting label presence would be ' +
+      'vacuously 100% and could never fall. It says nothing about whether the localized labels ' +
+      'that exist cover the locales this deployment serves — one label in one locale satisfies ' +
+      'it — and nothing about whether any of them is correct.',
   },
 
   /* ---- Translation (W17 item 5) ------------------------------------------ */
@@ -973,12 +973,12 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_localization_completeness',
     freshnessSeconds: 900,
     attributionLimit:
-      'machine_translated is deliberately NOT in the numerator — counting it is how a locale '
-      + "reports 98% while a shopper reads a machine's guess at a legal category name. "
-      + 'The denominator is those THREE domains and not every localizable one: the desk also '
-      + 'measures product-type fields, canonical products, families and attribute definitions, '
-      + 'and widening this population would make the metric\'s own history incomparable, with '
-      + 'nothing in a stored series saying so (#565).',
+      'machine_translated is deliberately NOT in the numerator — counting it is how a locale ' +
+      "reports 98% while a shopper reads a machine's guess at a legal category name. " +
+      'The denominator is those THREE domains and not every localizable one: the desk also ' +
+      'measures product-type fields, canonical products, families and attribute definitions, ' +
+      "and widening this population would make the metric's own history incomparable, with " +
+      'nothing in a stored series saying so (#565).',
   },
   {
     key: 'translation_machine_share',
@@ -990,8 +990,8 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'category_localizations',
     freshnessSeconds: 900,
     attributionLimit:
-      'Of rows that EXIST. A locale with nothing translated has a machine share of zero and is '
-      + 'the worst case, not the best — read it against translation_coverage.',
+      'Of rows that EXIST. A locale with nothing translated has a machine share of zero and is ' +
+      'the worst case, not the best — read it against translation_coverage.',
   },
   {
     key: 'translation_stale_count',
@@ -1003,49 +1003,49 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'category_localizations',
     freshnessSeconds: 900,
     attributionLimit:
-      'Stale means the source moved after the translation was approved. It says nothing about '
-      + 'how wrong the translation now is.',
+      'Stale means the source moved after the translation was approved. It says nothing about ' +
+      'how wrong the translation now is.',
   },
   {
     key: 'translation_missing_count',
     title: 'Missing translations',
     kind: 'count',
     numerator:
-      'Eligible entity-locale pairs with no localization row at all, across categories, '
-      + 'product types and values.',
+      'Eligible entity-locale pairs with no localization row at all, across categories, ' +
+      'product types and values.',
     denominator: 'Not a ratio.',
     window: 'instant',
     source: 'catalog_localization_completeness',
     freshnessSeconds: 900,
     attributionLimit:
-      "ABSENCE of a row, and NOT a row whose status is 'missing'. The two are different facts "
-      + 'and are never summed: an absent pair is one nobody has looked at, and a `missing` row '
-      + 'is one somebody OPENED to say a translation is owed. A desk that has triaged its whole '
-      + 'backlog and one that has triaged none of it would otherwise report the same number '
-      + "with completely different next actions. The triage backlog is the governance queue's "
-      + '`missing_translation` depth, which is where a translator acts on it (#565).',
+      "ABSENCE of a row, and NOT a row whose status is 'missing'. The two are different facts " +
+      'and are never summed: an absent pair is one nobody has looked at, and a `missing` row ' +
+      'is one somebody OPENED to say a translation is owed. A desk that has triaged its whole ' +
+      'backlog and one that has triaged none of it would otherwise report the same number ' +
+      "with completely different next actions. The triage backlog is the governance queue's " +
+      '`missing_translation` depth, which is where a translator acts on it (#565).',
   },
   {
     key: 'translation_fallback_use_rate',
     title: 'Localized reads answered by a fallback',
     kind: 'ratio',
     numerator:
-      'Field resolutions this process answered from a LANGUAGE truncation or the BASE locale '
-      + 'rather than the locale asked for.',
+      'Field resolutions this process answered from a LANGUAGE truncation or the BASE locale ' +
+      'rather than the locale asked for.',
     denominator:
-      'Field resolutions this process performed, including the ones that resolved EXACTLY and '
-      + 'the ones that could not be answered at all. Traffic, not catalogue size — so the rate '
-      + 'falls when translation coverage rises rather than tracking how much catalogue exists.',
+      'Field resolutions this process performed, including the ones that resolved EXACTLY and ' +
+      'the ones that could not be answered at all. Traffic, not catalogue size — so the rate ' +
+      'falls when translation coverage rises rather than tracking how much catalogue exists.',
     window: 'since_process_start',
     source: 'localization_resolutions',
     freshnessSeconds: 0,
     attributionLimit:
-      'PROCESS-LOCAL and RESET BY EVERY DEPLOY. It counts FIELD resolutions, not requests: one '
-      + 'category page is many, so a page with one untranslated description is not "one '
-      + 'fallback read". `unavailable` is in the denominator and in no fallback bucket — a '
-      + 'field nobody could answer is not a fallback, and folding it in would make the rate '
-      + 'rise when text is MISSING rather than when it is merely untranslated. '
-      + 'translation_missing_count is the metric for that.',
+      'PROCESS-LOCAL and RESET BY EVERY DEPLOY. It counts FIELD resolutions, not requests: one ' +
+      'category page is many, so a page with one untranslated description is not "one ' +
+      'fallback read". `unavailable` is in the denominator and in no fallback bucket — a ' +
+      'field nobody could answer is not a fallback, and folding it in would make the rate ' +
+      'rise when text is MISSING rather than when it is merely untranslated. ' +
+      'translation_missing_count is the metric for that.',
   },
 
   /* ---- Taxonomy read (#913) ---------------------------------------------- */
@@ -1059,10 +1059,10 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'route_observations',
     freshnessSeconds: 0,
     attributionLimit:
-      'The route every shopper hits and the one with the TIGHTEST latency budget (150 ms), '
-      + 'mounted unconditionally — so unlike the authoring and facet rates beside it there is no '
-      + '`surface_not_mounted` branch, because there is no lever that can withdraw it. '
-      + 'Counts only 5xx, the `authoring_schema_error_rate` decision for the third and fourth time. A 4xx on this route is a CORRECT answer — a malformed request, an unknown handle, or a rollout lever answering 404 — and folding those in would make a stale client and a deliberately-off surface raise the same number a server fault does. `clientErrors` is recorded by the middleware for every observed route and is deliberately published by nothing (#913). Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it. `0 / 0` — a task that has served none of these — reports NO ratio, which is not a zero error rate.',
+      'The route every shopper hits and the one with the TIGHTEST latency budget (150 ms), ' +
+      'mounted unconditionally — so unlike the authoring and facet rates beside it there is no ' +
+      '`surface_not_mounted` branch, because there is no lever that can withdraw it. ' +
+      'Counts only 5xx, the `authoring_schema_error_rate` decision for the third and fourth time. A 4xx on this route is a CORRECT answer — a malformed request, an unknown handle, or a rollout lever answering 404 — and folding those in would make a stale client and a deliberately-off surface raise the same number a server fault does. `clientErrors` is recorded by the middleware for every observed route and is deliberately published by nothing (#913). Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it. `0 / 0` — a task that has served none of these — reports NO ratio, which is not a zero error rate.',
   },
 
   /* ---- Search (W17 item 6) ----------------------------------------------- */
@@ -1076,13 +1076,13 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'route_observations',
     freshnessSeconds: 0,
     attributionLimit:
-      'The ROUTE is mounted unconditionally; `CANONICAL_SEARCH` decides what it ANSWERS, and '
-      + 'with the default `off` — and under `shadow` — every request is a 404. So a default '
-      + 'deployment reads `0 / N` rather than an empty population, and that is the honest '
-      + 'reading: mounted and refusing is a different state from not mounted, and the requests '
-      + 'are real. A 5xx here is a genuine fault whatever the lever says, because `shadow` runs '
-      + 'the canonical query and the legacy one before answering 404. '
-      + 'Counts only 5xx, the `authoring_schema_error_rate` decision for the third and fourth time. A 4xx on this route is a CORRECT answer — a malformed request, an unknown handle, or a rollout lever answering 404 — and folding those in would make a stale client and a deliberately-off surface raise the same number a server fault does. `clientErrors` is recorded by the middleware for every observed route and is deliberately published by nothing (#913). Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it. `0 / 0` — a task that has served none of these — reports NO ratio, which is not a zero error rate.',
+      'The ROUTE is mounted unconditionally; `CANONICAL_SEARCH` decides what it ANSWERS, and ' +
+      'with the default `off` — and under `shadow` — every request is a 404. So a default ' +
+      'deployment reads `0 / N` rather than an empty population, and that is the honest ' +
+      'reading: mounted and refusing is a different state from not mounted, and the requests ' +
+      'are real. A 5xx here is a genuine fault whatever the lever says, because `shadow` runs ' +
+      'the canonical query and the legacy one before answering 404. ' +
+      'Counts only 5xx, the `authoring_schema_error_rate` decision for the third and fourth time. A 4xx on this route is a CORRECT answer — a malformed request, an unknown handle, or a rollout lever answering 404 — and folding those in would make a stale client and a deliberately-off surface raise the same number a server fault does. `clientErrors` is recorded by the middleware for every observed route and is deliberately published by nothing (#913). Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it. `0 / 0` — a task that has served none of these — reports NO ratio, which is not a zero error rate.',
   },
   {
     key: 'search_zero_result_rate_by_market',
@@ -1094,10 +1094,10 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'analytics_search_queries',
     freshnessSeconds: 900,
     attributionLimit:
-      'Rows with a NULL market are excluded from both halves rather than pooled into one bucket, '
-      + 'so this is a rate within known markets and not a rate over all search. Analytics '
-      + 'collection is off by default, so an empty population means "not collecting", not "no '
-      + 'searches".',
+      'Rows with a NULL market are excluded from both halves rather than pooled into one bucket, ' +
+      'so this is a rate within known markets and not a rate over all search. Analytics ' +
+      'collection is off by default, so an empty population means "not collecting", not "no ' +
+      'searches".',
   },
   {
     key: 'search_zero_result_rate_by_locale',
@@ -1109,13 +1109,13 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'analytics_search_queries',
     freshnessSeconds: 900,
     attributionLimit:
-      'A market is not a locale: one market serves several languages, and a zero-result rate '
-      + 'that is fine in one and terrible in another is exactly what the market split hides.',
+      'A market is not a locale: one market serves several languages, and a zero-result rate ' +
+      'that is fine in one and terrible in another is exactly what the market split hides.',
     unmeasured: {
       reason: 'dimension_absent_from_source',
       seam:
-        'analytics_search_queries has market and no locale column (#77 owns the table). Closing it '
-        + 'is one nullable text column plus the emit site in search-instrumentation.ts.',
+        'analytics_search_queries has market and no locale column (#77 owns the table). Closing it ' +
+        'is one nullable text column plus the emit site in search-instrumentation.ts.',
     },
   },
 
@@ -1126,15 +1126,15 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     kind: 'latency',
     numerator: 'Wall-clock milliseconds from route entry to response finish for POST /facets.',
     denominator:
-      'The most recent bounded reservoir of such requests this process served; `observations` '
-      + 'reports its size.',
+      'The most recent bounded reservoir of such requests this process served; `observations` ' +
+      'reports its size.',
     window: 'since_process_start',
     source: 'route_observations',
     freshnessSeconds: 0,
     attributionLimit:
-      'Per task, reset by every deploy, and percentiles cover the reservoir rather than every '
-      + 'request. It measures the whole request, so a slow facet plan and a slow serializer are '
-      + 'one number.',
+      'Per task, reset by every deploy, and percentiles cover the reservoir rather than every ' +
+      'request. It measures the whole request, so a slow facet plan and a slow serializer are ' +
+      'one number.',
   },
   {
     key: 'facet_generation_error_rate',
@@ -1146,18 +1146,18 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'route_observations',
     freshnessSeconds: 0,
     attributionLimit:
-      'The LIVE half of W17\'s "invalid facet generation", and it is deliberately not the whole '
-      + 'of it: this counts a generation that RAISED, which the controller answers 5xx. It cannot '
-      + 'see a facet that was generated, returned, and is unusable — nothing validates facet '
-      + 'OUTPUT anywhere in the domain, so that half of the item stays open rather than being '
-      + 'quietly reported as zero here. '
-      + 'Counts only 5xx. A refused sort key and a malformed request body are 4xx and are correct '
-      + 'answers, so folding them in would make a stale client read as a server fault — the '
-      + 'authoring_schema_error_rate decision, same reasoning one route over. '
-      + 'Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it, and '
-      + 'it answers "is this process failing facet requests now" rather than anything about last '
-      + 'week. `0 / 0` — a task that has served no facet request — reports NO ratio, which is not '
-      + 'a zero error rate.',
+      'The LIVE half of W17\'s "invalid facet generation", and it is deliberately not the whole ' +
+      'of it: this counts a generation that RAISED, which the controller answers 5xx. It cannot ' +
+      'see a facet that was generated, returned, and is unusable — nothing validates facet ' +
+      'OUTPUT anywhere in the domain, so that half of the item stays open rather than being ' +
+      'quietly reported as zero here. ' +
+      'Counts only 5xx. A refused sort key and a malformed request body are 4xx and are correct ' +
+      'answers, so folding them in would make a stale client read as a server fault — the ' +
+      'authoring_schema_error_rate decision, same reasoning one route over. ' +
+      'Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it, and ' +
+      'it answers "is this process failing facet requests now" rather than anything about last ' +
+      'week. `0 / 0` — a task that has served no facet request — reports NO ratio, which is not ' +
+      'a zero error rate.',
   },
   {
     key: 'facet_scope_empty_rate',
@@ -1169,9 +1169,9 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'facet_scope_sweep',
     freshnessSeconds: 3600,
     attributionLimit:
-      'A property of the CATALOGUE, not of traffic: it says which categories would render a bare '
-      + 'filter rail if somebody visited them, and nothing about whether anybody does. It is '
-      + 'sampled, so it is an estimate with a stated population.',
+      'A property of the CATALOGUE, not of traffic: it says which categories would render a bare ' +
+      'filter rail if somebody visited them, and nothing about whether anybody does. It is ' +
+      'sampled, so it is an estimate with a stated population.',
   },
   {
     key: 'facet_scope_generation_failure_rate',
@@ -1183,15 +1183,15 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'facet_scope_sweep',
     freshnessSeconds: 3600,
     attributionLimit:
-      'The BATCH half of W17\'s "invalid facet generation", and the denominator is the point: it '
-      + 'is `drawn` and NOT `sampled`, because a scope that raised has no empty-or-populated '
-      + 'verdict and is excluded from `facet_scope_empty_rate`\'s denominator entirely. So these '
-      + 'two metrics partition the drawn set between them and neither dilutes the other. '
-      + 'The sweep captures a bounded sample of the offending category ids beside this count; it '
-      + 'is NOT published here, because a metric breakdown must be a closed set of values and a '
-      + 'category id is neither closed nor a value — it is in the sweep result and the warn log. '
-      + 'A property of the CATALOGUE rather than of traffic, sampled, so it is an estimate with a '
-      + 'stated population.',
+      'The BATCH half of W17\'s "invalid facet generation", and the denominator is the point: it ' +
+      'is `drawn` and NOT `sampled`, because a scope that raised has no empty-or-populated ' +
+      "verdict and is excluded from `facet_scope_empty_rate`'s denominator entirely. So these " +
+      'two metrics partition the drawn set between them and neither dilutes the other. ' +
+      'The sweep captures a bounded sample of the offending category ids beside this count; it ' +
+      'is NOT published here, because a metric breakdown must be a closed set of values and a ' +
+      'category id is neither closed nor a value — it is in the sweep result and the warn log. ' +
+      'A property of the CATALOGUE rather than of traffic, sampled, so it is an estimate with a ' +
+      'stated population.',
   },
   {
     key: 'facet_usage_rate',
@@ -1203,13 +1203,13 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'analytics_search_queries',
     freshnessSeconds: 900,
     attributionLimit:
-      'Would say whether generated facets are worth generating. Distinct from '
-      + 'facet_scope_empty_rate, which says whether they exist.',
+      'Would say whether generated facets are worth generating. Distinct from ' +
+      'facet_scope_empty_rate, which says whether they exist.',
     unmeasured: {
       reason: 'client_signal_absent',
       seam:
-        '#77 defines no facet event and the storefront has no analytics client (#111 owns it). '
-        + 'Closing it is a facet_applied client event type plus its emitter.',
+        '#77 defines no facet event and the storefront has no analytics client (#111 owns it). ' +
+        'Closing it is a facet_applied client event type plus its emitter.',
     },
   },
 
@@ -1224,9 +1224,9 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_external_token_observations',
     freshnessSeconds: 900,
     attributionLimit:
-      'Counts DISTINCT tokens, not occurrences, so one unmapped token seen a million times '
-      + 'counts once. That is deliberate — coverage is about the vocabulary, and the occurrence '
-      + 'count is on the observation row for whoever prioritises.',
+      'Counts DISTINCT tokens, not occurrences, so one unmapped token seen a million times ' +
+      'counts once. That is deliberate — coverage is about the vocabulary, and the occurrence ' +
+      'count is on the observation row for whoever prioritises.',
   },
   {
     key: 'external_mapping_ambiguity',
@@ -1238,8 +1238,8 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_external_token_observations',
     freshnessSeconds: 900,
     attributionLimit:
-      'Ambiguity and absence need opposite work — one is a decision, the other is a mapping — '
-      + 'so the denominator is unresolved tokens and not all tokens.',
+      'Ambiguity and absence need opposite work — one is a decision, the other is a mapping — ' +
+      'so the denominator is unresolved tokens and not all tokens.',
   },
   {
     key: 'external_mapping_review_backlog',
@@ -1264,8 +1264,8 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_backfill_runs',
     freshnessSeconds: 300,
     attributionLimit:
-      'Runs, not records. A completed run over a cohort of one is a completed run; the record '
-      + 'tally is the population half and is reported beside it.',
+      'Runs, not records. A completed run over a cohort of one is a completed run; the record ' +
+      'tally is the population half and is reported beside it.',
   },
   {
     key: 'backfill_retry_count',
@@ -1277,8 +1277,8 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_backfill_records',
     freshnessSeconds: 300,
     attributionLimit:
-      'A record retried and then succeeded is counted the same as one retried and still failing. '
-      + 'The outcome column separates them and is reported as a breakdown.',
+      'A record retried and then succeeded is counted the same as one retried and still failing. ' +
+      'The outcome column separates them and is reported as a breakdown.',
   },
   {
     key: 'backfill_failed_run_count',
@@ -1290,18 +1290,18 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_backfill_runs',
     freshnessSeconds: 300,
     attributionLimit:
-      'A failed run keeps its cursor and an operator must RESTART it — nothing picks it up again. '
-      + "`RESUMABLE` is ['pending', 'paused'] and the claim admits only those or a `running` row "
-      + 'whose lease expired, so `failed` is terminal and UNCLAIMABLE. This is therefore work '
-      + 'STOPPED rather than work outstanding, and it is the number that answers "how many runs are '
-      + 'waiting for a person" — no retry clears a `failed` row, because since #367 line 759 '
-      + '`failed` is where the bounded retry STOPS rather than where it never began. It MIXES two '
-      + 'producers and that is deliberate: a run that exhausted `CATALOG_BACKFILL_MAX_ATTEMPTS` '
-      + 'consecutive failed pages, and one `cancelCatalogBackfillRun` stopped. Both are waiting for '
-      + 'a person, which is the question asked. Telling them apart is what `terminal_cause` '
-      + 'records, and backfill_dead_letter_count beside this one reads it — so this number is '
-      + 'always the LARGER of the two, and a gap between them is operator cancellations rather '
-      + 'than a discrepancy.',
+      'A failed run keeps its cursor and an operator must RESTART it — nothing picks it up again. ' +
+      "`RESUMABLE` is ['pending', 'paused'] and the claim admits only those or a `running` row " +
+      'whose lease expired, so `failed` is terminal and UNCLAIMABLE. This is therefore work ' +
+      'STOPPED rather than work outstanding, and it is the number that answers "how many runs are ' +
+      'waiting for a person" — no retry clears a `failed` row, because since #367 line 759 ' +
+      '`failed` is where the bounded retry STOPS rather than where it never began. It MIXES two ' +
+      'producers and that is deliberate: a run that exhausted `CATALOG_BACKFILL_MAX_ATTEMPTS` ' +
+      'consecutive failed pages, and one `cancelCatalogBackfillRun` stopped. Both are waiting for ' +
+      'a person, which is the question asked. Telling them apart is what `terminal_cause` ' +
+      'records, and backfill_dead_letter_count beside this one reads it — so this number is ' +
+      'always the LARGER of the two, and a gap between them is operator cancellations rather ' +
+      'than a discrepancy.',
   },
   {
     key: 'backfill_dead_letter_count',
@@ -1314,23 +1314,23 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'catalog_backfill_runs',
     freshnessSeconds: 300,
     attributionLimit:
-      'The NUMERATOR is the dead-letter COUNT and the ratio is its share of `failed`; the key '
-      + 'keeps its `_count` name because dashboards and runbooks cite it, and the number they '
-      + 'cite is the numerator. It is a ratio rather than a bare count because the breakdown is '
-      + 'what makes a zero readable, and in this registry a breakdown partitions a numerator and '
-      + 'a denominator. '
-      + 'RUNS that exhausted the bounded retry, and ONLY those. `failed` has a second producer — '
-      + '`cancelCatalogBackfillRun` — and counting an operator stopping a run as a dead letter '
-      + "would report a person's decision as a system failure, so the cause is a stored column and "
-      + 'this number reads it. It is not derivable: both candidate predicates over '
-      + '`consecutive_failures` are silently wrong, one because its ceiling is a mutable incident '
-      + 'lever and the other because a run cancelled after two bad pages carries a non-zero count. '
-      + 'The `by` breakdown carries every `failed` run, so what this number EXCLUDES is visible '
-      + 'beside it rather than inferred: `unrecorded` is the closed, finite population that ended '
-      + 'before the cause column existed (migration 0146), and `cause_missing` MUST BE ZERO once '
-      + '0147 has applied — a non-zero value there means either a rollout still in progress or a '
-      + 'producer of `failed` that does not name its cause, and it is the reason a zero here '
-      + 'cannot be mistaken for an instrument that stopped working.',
+      'The NUMERATOR is the dead-letter COUNT and the ratio is its share of `failed`; the key ' +
+      'keeps its `_count` name because dashboards and runbooks cite it, and the number they ' +
+      'cite is the numerator. It is a ratio rather than a bare count because the breakdown is ' +
+      'what makes a zero readable, and in this registry a breakdown partitions a numerator and ' +
+      'a denominator. ' +
+      'RUNS that exhausted the bounded retry, and ONLY those. `failed` has a second producer — ' +
+      '`cancelCatalogBackfillRun` — and counting an operator stopping a run as a dead letter ' +
+      "would report a person's decision as a system failure, so the cause is a stored column and " +
+      'this number reads it. It is not derivable: both candidate predicates over ' +
+      '`consecutive_failures` are silently wrong, one because its ceiling is a mutable incident ' +
+      'lever and the other because a run cancelled after two bad pages carries a non-zero count. ' +
+      'The `by` breakdown carries every `failed` run, so what this number EXCLUDES is visible ' +
+      'beside it rather than inferred: `unrecorded` is the closed, finite population that ended ' +
+      'before the cause column existed (migration 0146), and `cause_missing` MUST BE ZERO once ' +
+      '0147 has applied — a non-zero value there means either a rollout still in progress or a ' +
+      'producer of `failed` that does not name its cause, and it is the reason a zero here ' +
+      'cannot be mistaken for an instrument that stopped working.',
   },
   {
     key: 'reindex_pending_count',
@@ -1342,10 +1342,10 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'attribute_reindex_requests',
     freshnessSeconds: 300,
     attributionLimit:
-      'This number only grows. The queue has enqueuers, a deterministic id and a lease-shaped '
-      + 'schema, and NO consumer — nothing writes processed_at anywhere in the repository — so a '
-      + 'rising count is the expected reading and not an incident. See '
-      + 'reindex_throughput, which is unmeasured for the same reason.',
+      'This number only grows. The queue has enqueuers, a deterministic id and a lease-shaped ' +
+      'schema, and NO consumer — nothing writes processed_at anywhere in the repository — so a ' +
+      'rising count is the expected reading and not an incident. See ' +
+      'reindex_throughput, which is unmeasured for the same reason.',
   },
   {
     key: 'reindex_throughput',
@@ -1357,15 +1357,15 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     source: 'attribute_reindex_requests',
     freshnessSeconds: 300,
     attributionLimit:
-      'Would be the indexing-lag signal W17 asks for. Until a consumer exists, a throughput of '
-      + 'zero would be indistinguishable from a stalled one.',
+      'Would be the indexing-lag signal W17 asks for. Until a consumer exists, a throughput of ' +
+      'zero would be indistinguishable from a stalled one.',
     unmeasured: {
       reason: 'no_consumer_registered',
       seam:
-        'attribute_reindex_requests has no consumer: listPendingReindexRequests has exactly one '
-        + 'caller and it is a read-only operator listing, and processed_at is never written. '
-        + '#61 declined to build the drain because the refresh semantics belong to a projection '
-        + 'nobody has adopted. Closing it is that consumer.',
+        'attribute_reindex_requests has no consumer: listPendingReindexRequests has exactly one ' +
+        'caller and it is a read-only operator listing, and processed_at is never written. ' +
+        '#61 declined to build the drain because the refresh semantics belong to a projection ' +
+        'nobody has adopted. Closing it is that consumer.',
     },
   },
 
@@ -1375,39 +1375,39 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     title: 'Typed variant axis coverage',
     kind: 'ratio',
     numerator:
-      'Listings hydrated while VARIANT_AXIS_READS was shadow or on that DECLARED at least one '
-      + 'native_listing_variant_axes row.',
+      'Listings hydrated while VARIANT_AXIS_READS was shadow or on that DECLARED at least one ' +
+      'native_listing_variant_axes row.',
     denominator: 'All listings hydrated while that lever was shadow or on.',
     window: 'since_process_start',
     source: 'variant_axis_shadow',
     freshnessSeconds: 0,
     attributionLimit:
-      'This is the migration backlog weighted by TRAFFIC, not by catalogue size: a listing '
-      + 'nobody views is never counted. That is deliberate — it answers "how much of what '
-      + 'people actually read is typed" — and it is why it is not a substitute for counting '
-      + 'listing_options rows. Zero denominator means the lever is off, not that nobody '
-      + 'browsed.',
+      'This is the migration backlog weighted by TRAFFIC, not by catalogue size: a listing ' +
+      'nobody views is never counted. That is deliberate — it answers "how much of what ' +
+      'people actually read is typed" — and it is why it is not a substitute for counting ' +
+      'listing_options rows. Zero denominator means the lever is off, not that nobody ' +
+      'browsed.',
   },
   {
     key: 'variant_axis_shadow_divergence',
     title: 'Typed vs legacy option divergence',
     kind: 'ratio',
     numerator:
-      'Hydrated listings whose typed axes and legacy option values rendered DIFFERENT ordered '
-      + 'value sequences for some variant.',
+      'Hydrated listings whose typed axes and legacy option values rendered DIFFERENT ordered ' +
+      'value sequences for some variant.',
     denominator:
-      'Hydrated listings where BOTH representations carried something — agreed plus diverged. A '
-      + 'listing with no typed axes is not a disagreement and is excluded, or the rate would '
-      + 'track the backlog instead of the drift.',
+      'Hydrated listings where BOTH representations carried something — agreed plus diverged. A ' +
+      'listing with no typed axes is not a disagreement and is excluded, or the rate would ' +
+      'track the backlog instead of the drift.',
     window: 'since_process_start',
     source: 'variant_axis_shadow',
     freshnessSeconds: 0,
     attributionLimit:
-      'Compares VALUES only. An axis NAME differing is ADR 0007 D6 working — one definition '
-      + 'behind Color, Colour and Tono — so counting it would make every backfilled listing '
-      + 'permanently diverged and hide the drift this exists to find. Non-zero means a write '
-      + 'path moved product_variant_option_values without moving the typed axis (#905), which '
-      + 'is what VARIANT_AXIS_READS=on would then serve.',
+      'Compares VALUES only. An axis NAME differing is ADR 0007 D6 working — one definition ' +
+      'behind Color, Colour and Tono — so counting it would make every backfilled listing ' +
+      'permanently diverged and hide the drift this exists to find. Non-zero means a write ' +
+      'path moved product_variant_option_values without moving the typed axis (#905), which ' +
+      'is what VARIANT_AXIS_READS=on would then serve.',
   },
 ];
 

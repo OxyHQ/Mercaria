@@ -42,27 +42,27 @@ import type {
   ShoppingAgentState,
   ShoppingAgentSuppressionReason,
   ShoppingAgentTriggerSource,
-} from "@mercaria/shared-types";
-import type { Translate } from "../i18n/create-app-i18n";
+} from '@mercaria/shared-types';
+import type { Translate } from '../i18n/create-app-i18n';
 
 /** The short name of what an agent watches for. */
 export const SHOPPING_AGENT_JOB_LABEL_KEYS: Readonly<Record<ShoppingAgentJobKind, string>> = {
-  offer_price_threshold: "ui.shoppingAgent.job.label.offer_price_threshold",
-  used_or_refurbished_appearance: "ui.shoppingAgent.job.label.used_or_refurbished_appearance",
-  official_channel_availability: "ui.shoppingAgent.job.label.official_channel_availability",
-  basket_target_total: "ui.shoppingAgent.job.label.basket_target_total",
-  materially_better_plan: "ui.shoppingAgent.job.label.materially_better_plan",
-  constraint_satisfiable: "ui.shoppingAgent.job.label.constraint_satisfiable",
+  offer_price_threshold: 'ui.shoppingAgent.job.label.offer_price_threshold',
+  used_or_refurbished_appearance: 'ui.shoppingAgent.job.label.used_or_refurbished_appearance',
+  official_channel_availability: 'ui.shoppingAgent.job.label.official_channel_availability',
+  basket_target_total: 'ui.shoppingAgent.job.label.basket_target_total',
+  materially_better_plan: 'ui.shoppingAgent.job.label.materially_better_plan',
+  constraint_satisfiable: 'ui.shoppingAgent.job.label.constraint_satisfiable',
 };
 
 /** One line saying what the agent is actually watching for. */
 export const SHOPPING_AGENT_JOB_EXPLANATION_KEYS: Readonly<Record<ShoppingAgentJobKind, string>> = {
-  offer_price_threshold: "ui.shoppingAgent.job.explanation.offer_price_threshold",
-  used_or_refurbished_appearance: "ui.shoppingAgent.job.explanation.used_or_refurbished_appearance",
-  official_channel_availability: "ui.shoppingAgent.job.explanation.official_channel_availability",
-  basket_target_total: "ui.shoppingAgent.job.explanation.basket_target_total",
-  materially_better_plan: "ui.shoppingAgent.job.explanation.materially_better_plan",
-  constraint_satisfiable: "ui.shoppingAgent.job.explanation.constraint_satisfiable",
+  offer_price_threshold: 'ui.shoppingAgent.job.explanation.offer_price_threshold',
+  used_or_refurbished_appearance: 'ui.shoppingAgent.job.explanation.used_or_refurbished_appearance',
+  official_channel_availability: 'ui.shoppingAgent.job.explanation.official_channel_availability',
+  basket_target_total: 'ui.shoppingAgent.job.explanation.basket_target_total',
+  materially_better_plan: 'ui.shoppingAgent.job.explanation.materially_better_plan',
+  constraint_satisfiable: 'ui.shoppingAgent.job.explanation.constraint_satisfiable',
 };
 
 /**
@@ -73,28 +73,28 @@ export const SHOPPING_AGENT_JOB_EXPLANATION_KEYS: Readonly<Record<ShoppingAgentJ
  * they can answer (#97 model 9).
  */
 export const SHOPPING_AGENT_STATE_LABEL_KEYS: Readonly<Record<ShoppingAgentState, string>> = {
-  enabled: "ui.shoppingAgent.state.enabled",
-  paused: "ui.shoppingAgent.state.paused",
-  blocked: "ui.shoppingAgent.state.blocked",
-  completed: "ui.shoppingAgent.state.completed",
-  deleted: "ui.shoppingAgent.state.deleted",
+  enabled: 'ui.shoppingAgent.state.enabled',
+  paused: 'ui.shoppingAgent.state.paused',
+  blocked: 'ui.shoppingAgent.state.blocked',
+  completed: 'ui.shoppingAgent.state.completed',
+  deleted: 'ui.shoppingAgent.state.deleted',
 };
 
 /** What one evaluation concluded. Three values, three genuinely different facts. */
 export const SHOPPING_AGENT_OUTCOME_LABEL_KEYS: Readonly<
   Record<ShoppingAgentFindingOutcome, string>
 > = {
-  qualified: "ui.shoppingAgent.outcome.label.qualified",
-  not_qualified: "ui.shoppingAgent.outcome.label.not_qualified",
-  incomplete: "ui.shoppingAgent.outcome.label.incomplete",
+  qualified: 'ui.shoppingAgent.outcome.label.qualified',
+  not_qualified: 'ui.shoppingAgent.outcome.label.not_qualified',
+  incomplete: 'ui.shoppingAgent.outcome.label.incomplete',
 };
 
 export const SHOPPING_AGENT_OUTCOME_EXPLANATION_KEYS: Readonly<
   Record<ShoppingAgentFindingOutcome, string>
 > = {
-  qualified: "ui.shoppingAgent.outcome.explanation.qualified",
-  not_qualified: "ui.shoppingAgent.outcome.explanation.not_qualified",
-  incomplete: "ui.shoppingAgent.outcome.explanation.incomplete",
+  qualified: 'ui.shoppingAgent.outcome.explanation.qualified',
+  not_qualified: 'ui.shoppingAgent.outcome.explanation.not_qualified',
+  incomplete: 'ui.shoppingAgent.outcome.explanation.incomplete',
 };
 
 /**
@@ -107,104 +107,104 @@ export const SHOPPING_AGENT_OUTCOME_EXPLANATION_KEYS: Readonly<
 export const SHOPPING_AGENT_LIFECYCLE_LABEL_KEYS: Readonly<
   Record<ShoppingAgentFindingLifecycle, string>
 > = {
-  current: "ui.shoppingAgent.lifecycle.label.current",
-  superseded: "ui.shoppingAgent.lifecycle.label.superseded",
-  invalidated: "ui.shoppingAgent.lifecycle.label.invalidated",
+  current: 'ui.shoppingAgent.lifecycle.label.current',
+  superseded: 'ui.shoppingAgent.lifecycle.label.superseded',
+  invalidated: 'ui.shoppingAgent.lifecycle.label.invalidated',
 };
 
 export const SHOPPING_AGENT_LIFECYCLE_EXPLANATION_KEYS: Readonly<
   Record<ShoppingAgentFindingLifecycle, string>
 > = {
-  current: "ui.shoppingAgent.lifecycle.explanation.current",
-  superseded: "ui.shoppingAgent.lifecycle.explanation.superseded",
-  invalidated: "ui.shoppingAgent.lifecycle.explanation.invalidated",
+  current: 'ui.shoppingAgent.lifecycle.explanation.current',
+  superseded: 'ui.shoppingAgent.lifecycle.explanation.superseded',
+  invalidated: 'ui.shoppingAgent.lifecycle.explanation.invalidated',
 };
 
 /** Each reason names a fact the evaluation read, or failed to read. */
 export const SHOPPING_AGENT_INCOMPLETE_REASON_KEYS: Readonly<
   Record<ShoppingAgentIncompleteReason, string>
 > = {
-  offer_comparison_unavailable: "ui.shoppingAgent.incompleteReason.offer_comparison_unavailable",
-  no_eligible_offer: "ui.shoppingAgent.incompleteReason.no_eligible_offer",
-  price_not_convertible: "ui.shoppingAgent.incompleteReason.price_not_convertible",
-  delivery_cost_unknown: "ui.shoppingAgent.incompleteReason.delivery_cost_unknown",
-  basket_partially_covered: "ui.shoppingAgent.incompleteReason.basket_partially_covered",
-  constraint_set_invalid: "ui.shoppingAgent.incompleteReason.constraint_set_invalid",
-  constraint_facts_unavailable: "ui.shoppingAgent.incompleteReason.constraint_facts_unavailable",
-  agent_ambiguous_after_split: "ui.shoppingAgent.incompleteReason.agent_ambiguous_after_split",
-  no_comparable_prior_finding: "ui.shoppingAgent.incompleteReason.no_comparable_prior_finding",
-  catalogue_discovery_unavailable: "ui.shoppingAgent.incompleteReason.catalogue_discovery_unavailable",
+  offer_comparison_unavailable: 'ui.shoppingAgent.incompleteReason.offer_comparison_unavailable',
+  no_eligible_offer: 'ui.shoppingAgent.incompleteReason.no_eligible_offer',
+  price_not_convertible: 'ui.shoppingAgent.incompleteReason.price_not_convertible',
+  delivery_cost_unknown: 'ui.shoppingAgent.incompleteReason.delivery_cost_unknown',
+  basket_partially_covered: 'ui.shoppingAgent.incompleteReason.basket_partially_covered',
+  constraint_set_invalid: 'ui.shoppingAgent.incompleteReason.constraint_set_invalid',
+  constraint_facts_unavailable: 'ui.shoppingAgent.incompleteReason.constraint_facts_unavailable',
+  agent_ambiguous_after_split: 'ui.shoppingAgent.incompleteReason.agent_ambiguous_after_split',
+  no_comparable_prior_finding: 'ui.shoppingAgent.incompleteReason.no_comparable_prior_finding',
+  catalogue_discovery_unavailable:
+    'ui.shoppingAgent.incompleteReason.catalogue_discovery_unavailable',
 };
 
 /** How complete the evidence behind a finding was — separate from its outcome. */
 export const SHOPPING_AGENT_COMPLETENESS_LABEL_KEYS: Readonly<
   Record<ShoppingAgentEvidenceCompleteness, string>
 > = {
-  complete: "ui.shoppingAgent.completeness.complete",
-  partial: "ui.shoppingAgent.completeness.partial",
+  complete: 'ui.shoppingAgent.completeness.complete',
+  partial: 'ui.shoppingAgent.completeness.partial',
 };
 
 /** How fresh the offers behind a finding were. */
-export const SHOPPING_AGENT_FRESHNESS_LABEL_KEYS: Readonly<
-  Record<ShoppingAgentFreshness, string>
-> = {
-  current: "ui.shoppingAgent.freshness.current",
-  ageing: "ui.shoppingAgent.freshness.ageing",
-  unknown: "ui.shoppingAgent.freshness.unknown",
-};
+export const SHOPPING_AGENT_FRESHNESS_LABEL_KEYS: Readonly<Record<ShoppingAgentFreshness, string>> =
+  {
+    current: 'ui.shoppingAgent.freshness.current',
+    ageing: 'ui.shoppingAgent.freshness.ageing',
+    unknown: 'ui.shoppingAgent.freshness.unknown',
+  };
 
 /** Whether the plan behind a finding was PROVED best or merely the best found. */
 export const SHOPPING_AGENT_OPTIMALITY_LABEL_KEYS: Readonly<
   Record<ShoppingAgentOptimality, string>
 > = {
-  proven_optimal: "ui.shoppingAgent.optimality.proven_optimal",
-  approximate: "ui.shoppingAgent.optimality.approximate",
+  proven_optimal: 'ui.shoppingAgent.optimality.proven_optimal',
+  approximate: 'ui.shoppingAgent.optimality.approximate',
 };
 
 /** Which cost the objective is measured against. */
 export const SHOPPING_AGENT_PRICE_BASIS_LABEL_KEYS: Readonly<
   Record<ShoppingAgentPriceBasis, string>
 > = {
-  item_price: "ui.shoppingAgent.priceBasis.item_price",
-  delivered_total: "ui.shoppingAgent.priceBasis.delivered_total",
+  item_price: 'ui.shoppingAgent.priceBasis.item_price',
+  delivered_total: 'ui.shoppingAgent.priceBasis.delivered_total',
 };
 
 /** Which sellers an agent's plans may draw on. */
 export const SHOPPING_AGENT_CHANNEL_POLICY_LABEL_KEYS: Readonly<
   Record<ShoppingAgentChannelPolicy, string>
 > = {
-  native_only: "ui.shoppingAgent.channelPolicy.native_only",
-  external_only: "ui.shoppingAgent.channelPolicy.external_only",
-  official_only: "ui.shoppingAgent.channelPolicy.official_only",
-  mixed: "ui.shoppingAgent.channelPolicy.mixed",
+  native_only: 'ui.shoppingAgent.channelPolicy.native_only',
+  external_only: 'ui.shoppingAgent.channelPolicy.external_only',
+  official_only: 'ui.shoppingAgent.channelPolicy.official_only',
+  mixed: 'ui.shoppingAgent.channelPolicy.mixed',
 };
 
 /** What made an evaluation happen. */
 export const SHOPPING_AGENT_TRIGGER_SOURCE_LABEL_KEYS: Readonly<
   Record<ShoppingAgentTriggerSource, string>
 > = {
-  offer_change: "ui.shoppingAgent.triggerSource.offer_change",
-  scheduled: "ui.shoppingAgent.triggerSource.scheduled",
-  manual: "ui.shoppingAgent.triggerSource.manual",
+  offer_change: 'ui.shoppingAgent.triggerSource.offer_change',
+  scheduled: 'ui.shoppingAgent.triggerSource.scheduled',
+  manual: 'ui.shoppingAgent.triggerSource.manual',
 };
 
 /** Where a shopper hears about a match. */
 export const SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABEL_KEYS: Readonly<
   Record<ShoppingAgentNotificationChannel, string>
 > = {
-  oxy_notification: "ui.shoppingAgent.notificationChannel.oxy_notification",
-  email: "ui.shoppingAgent.notificationChannel.email",
+  oxy_notification: 'ui.shoppingAgent.notificationChannel.oxy_notification',
+  email: 'ui.shoppingAgent.notificationChannel.email',
 };
 
 export const SHOPPING_AGENT_NOTIFICATION_STATE_LABEL_KEYS: Readonly<
   Record<ShoppingAgentNotificationState, string>
 > = {
-  queued: "ui.shoppingAgent.notificationState.queued",
-  delivering: "ui.shoppingAgent.notificationState.delivering",
-  delivered: "ui.shoppingAgent.notificationState.delivered",
-  failed: "ui.shoppingAgent.notificationState.failed",
-  suppressed: "ui.shoppingAgent.notificationState.suppressed",
-  dead_letter: "ui.shoppingAgent.notificationState.dead_letter",
+  queued: 'ui.shoppingAgent.notificationState.queued',
+  delivering: 'ui.shoppingAgent.notificationState.delivering',
+  delivered: 'ui.shoppingAgent.notificationState.delivered',
+  failed: 'ui.shoppingAgent.notificationState.failed',
+  suppressed: 'ui.shoppingAgent.notificationState.suppressed',
+  dead_letter: 'ui.shoppingAgent.notificationState.dead_letter',
 };
 
 /**
@@ -217,23 +217,24 @@ export const SHOPPING_AGENT_NOTIFICATION_STATE_LABEL_KEYS: Readonly<
 export const SHOPPING_AGENT_SUPPRESSION_REASON_KEYS: Readonly<
   Record<ShoppingAgentSuppressionReason, string>
 > = {
-  cooldown_active: "ui.shoppingAgent.suppressionReason.cooldown_active",
-  not_materially_better: "ui.shoppingAgent.suppressionReason.not_materially_better",
-  agent_not_enabled: "ui.shoppingAgent.suppressionReason.agent_not_enabled",
-  agent_deleted: "ui.shoppingAgent.suppressionReason.agent_deleted",
-  finding_superseded: "ui.shoppingAgent.suppressionReason.finding_superseded",
-  destination_no_longer_eligible: "ui.shoppingAgent.suppressionReason.destination_no_longer_eligible",
-  channel_unavailable: "ui.shoppingAgent.suppressionReason.channel_unavailable",
+  cooldown_active: 'ui.shoppingAgent.suppressionReason.cooldown_active',
+  not_materially_better: 'ui.shoppingAgent.suppressionReason.not_materially_better',
+  agent_not_enabled: 'ui.shoppingAgent.suppressionReason.agent_not_enabled',
+  agent_deleted: 'ui.shoppingAgent.suppressionReason.agent_deleted',
+  finding_superseded: 'ui.shoppingAgent.suppressionReason.finding_superseded',
+  destination_no_longer_eligible:
+    'ui.shoppingAgent.suppressionReason.destination_no_longer_eligible',
+  channel_unavailable: 'ui.shoppingAgent.suppressionReason.channel_unavailable',
 };
 
 export const SHOPPING_AGENT_DELIVERY_FAILURE_KEYS: Readonly<
   Record<ShoppingAgentDeliveryFailure, string>
 > = {
-  transport_unconfigured: "ui.shoppingAgent.deliveryFailure.transport_unconfigured",
-  transport_rejected: "ui.shoppingAgent.deliveryFailure.transport_rejected",
-  transport_unavailable: "ui.shoppingAgent.deliveryFailure.transport_unavailable",
-  finding_unreadable: "ui.shoppingAgent.deliveryFailure.finding_unreadable",
-  unexpected_error: "ui.shoppingAgent.deliveryFailure.unexpected_error",
+  transport_unconfigured: 'ui.shoppingAgent.deliveryFailure.transport_unconfigured',
+  transport_rejected: 'ui.shoppingAgent.deliveryFailure.transport_rejected',
+  transport_unavailable: 'ui.shoppingAgent.deliveryFailure.transport_unavailable',
+  finding_unreadable: 'ui.shoppingAgent.deliveryFailure.finding_unreadable',
+  unexpected_error: 'ui.shoppingAgent.deliveryFailure.unexpected_error',
 };
 
 /**
@@ -247,10 +248,10 @@ export const SHOPPING_AGENT_DELIVERY_FAILURE_KEYS: Readonly<
  * model knows anything.
  */
 export const SHOPPING_AGENT_SUMMARY_SOURCE_KEYS: Readonly<
-  Record<"deterministic_template" | "provider", string>
+  Record<'deterministic_template' | 'provider', string>
 > = {
-  deterministic_template: "ui.shoppingAgent.summarySource.deterministic_template",
-  provider: "ui.shoppingAgent.summarySource.provider",
+  deterministic_template: 'ui.shoppingAgent.summarySource.deterministic_template',
+  provider: 'ui.shoppingAgent.summarySource.provider',
 };
 
 /**
@@ -262,8 +263,7 @@ export const SHOPPING_AGENT_SUMMARY_SOURCE_KEYS: Readonly<
  * the precedent: the sentence sits beside the figure rather than in a help page,
  * because the misreading happens where the figure is.
  */
-export const SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY =
-  "ui.shoppingAgent.observationDisclaimer";
+export const SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY = 'ui.shoppingAgent.observationDisclaimer';
 
 /**
  * One finding CARD's own chrome (#437).
@@ -282,12 +282,11 @@ export const SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY =
  * #436's residual for sentences that do not need them.
  */
 export const SHOPPING_AGENT_NO_EARLIER_COMPARISON_KEY =
-  "ui.shoppingAgent.finding.noEarlierComparison";
-export const SHOPPING_AGENT_REQUIREMENT_TALLY_KEY =
-  "ui.shoppingAgent.finding.requirementTally";
-export const SHOPPING_AGENT_UNKNOWN_VERDICT_KEY = "ui.shoppingAgent.finding.unknownVerdict";
-export const SHOPPING_AGENT_WHAT_IT_LOOKED_AT_KEY = "ui.shoppingAgent.finding.whatItLookedAt";
-export const SHOPPING_AGENT_OPEN_PRODUCT_KEY = "ui.shoppingAgent.finding.openProduct";
+  'ui.shoppingAgent.finding.noEarlierComparison';
+export const SHOPPING_AGENT_REQUIREMENT_TALLY_KEY = 'ui.shoppingAgent.finding.requirementTally';
+export const SHOPPING_AGENT_UNKNOWN_VERDICT_KEY = 'ui.shoppingAgent.finding.unknownVerdict';
+export const SHOPPING_AGENT_WHAT_IT_LOOKED_AT_KEY = 'ui.shoppingAgent.finding.whatItLookedAt';
+export const SHOPPING_AGENT_OPEN_PRODUCT_KEY = 'ui.shoppingAgent.finding.openProduct';
 /**
  * The miss branch for a requirement whose description was not supplied.
  *
@@ -297,12 +296,11 @@ export const SHOPPING_AGENT_OPEN_PRODUCT_KEY = "ui.shoppingAgent.finding.openPro
  * shopper is #596's defect, and the surrounding sentence already carries the
  * count, so a row with no description is still an honest row.
  */
-export const SHOPPING_AGENT_UNNAMED_REQUIREMENT_KEY =
-  "ui.shoppingAgent.finding.unnamedRequirement";
-export const SHOPPING_AGENT_OFFICIAL_CHANNEL_KEY = "ui.shoppingAgent.finding.officialChannel";
-export const SHOPPING_AGENT_DELTA_UNCHANGED_KEY = "ui.shoppingAgent.finding.deltaUnchanged";
-export const SHOPPING_AGENT_DELTA_LOWER_KEY = "ui.shoppingAgent.finding.deltaLower";
-export const SHOPPING_AGENT_DELTA_HIGHER_KEY = "ui.shoppingAgent.finding.deltaHigher";
+export const SHOPPING_AGENT_UNNAMED_REQUIREMENT_KEY = 'ui.shoppingAgent.finding.unnamedRequirement';
+export const SHOPPING_AGENT_OFFICIAL_CHANNEL_KEY = 'ui.shoppingAgent.finding.officialChannel';
+export const SHOPPING_AGENT_DELTA_UNCHANGED_KEY = 'ui.shoppingAgent.finding.deltaUnchanged';
+export const SHOPPING_AGENT_DELTA_LOWER_KEY = 'ui.shoppingAgent.finding.deltaLower';
+export const SHOPPING_AGENT_DELTA_HIGHER_KEY = 'ui.shoppingAgent.finding.deltaHigher';
 
 /** The short name of a job kind. */
 export function shoppingAgentJobLabel(t: Translate, kind: ShoppingAgentJobKind): string {
@@ -342,48 +340,41 @@ export function shoppingAgentJobExplanation(t: Translate, kind: ShoppingAgentJob
  * The one genuinely counted phrase in this card — the cooldown — is not a key at
  * all. It goes through `formatDuration`, which gets its plural forms from CLDR.
  */
-export const SHOPPING_AGENT_CARD_SHOW_FINDINGS_KEY = "ui.shoppingAgent.card.showFindings";
-export const SHOPPING_AGENT_CARD_HIDE_FINDINGS_KEY = "ui.shoppingAgent.card.hideFindings";
-export const SHOPPING_AGENT_CARD_ANY_CONDITION_KEY = "ui.shoppingAgent.card.anyCondition";
-export const SHOPPING_AGENT_CARD_PRICED_IN_KEY = "ui.shoppingAgent.card.pricedIn";
-export const SHOPPING_AGENT_CARD_IN_MARKET_KEY = "ui.shoppingAgent.card.inMarket";
-export const SHOPPING_AGENT_CARD_MERCHANTS_EXCLUDED_KEY =
-  "ui.shoppingAgent.card.merchantsExcluded";
-export const SHOPPING_AGENT_CARD_SCOPE_SEPARATOR_KEY = "ui.shoppingAgent.card.scopeSeparator";
-export const SHOPPING_AGENT_CARD_NO_CHANNELS_KEY = "ui.shoppingAgent.card.noChannels";
-export const SHOPPING_AGENT_CARD_CHANNEL_SEPARATOR_KEY =
-  "ui.shoppingAgent.card.channelSeparator";
-export const SHOPPING_AGENT_CARD_TARGET_PREFIX_KEY = "ui.shoppingAgent.card.targetPrefix";
-export const SHOPPING_AGENT_CARD_NOTIFY_POLICY_KEY = "ui.shoppingAgent.card.notifyPolicy";
+export const SHOPPING_AGENT_CARD_SHOW_FINDINGS_KEY = 'ui.shoppingAgent.card.showFindings';
+export const SHOPPING_AGENT_CARD_HIDE_FINDINGS_KEY = 'ui.shoppingAgent.card.hideFindings';
+export const SHOPPING_AGENT_CARD_ANY_CONDITION_KEY = 'ui.shoppingAgent.card.anyCondition';
+export const SHOPPING_AGENT_CARD_PRICED_IN_KEY = 'ui.shoppingAgent.card.pricedIn';
+export const SHOPPING_AGENT_CARD_IN_MARKET_KEY = 'ui.shoppingAgent.card.inMarket';
+export const SHOPPING_AGENT_CARD_MERCHANTS_EXCLUDED_KEY = 'ui.shoppingAgent.card.merchantsExcluded';
+export const SHOPPING_AGENT_CARD_SCOPE_SEPARATOR_KEY = 'ui.shoppingAgent.card.scopeSeparator';
+export const SHOPPING_AGENT_CARD_NO_CHANNELS_KEY = 'ui.shoppingAgent.card.noChannels';
+export const SHOPPING_AGENT_CARD_CHANNEL_SEPARATOR_KEY = 'ui.shoppingAgent.card.channelSeparator';
+export const SHOPPING_AGENT_CARD_TARGET_PREFIX_KEY = 'ui.shoppingAgent.card.targetPrefix';
+export const SHOPPING_AGENT_CARD_NOTIFY_POLICY_KEY = 'ui.shoppingAgent.card.notifyPolicy';
 export const SHOPPING_AGENT_CARD_NOTIFY_POLICY_QUIET_KEY =
-  "ui.shoppingAgent.card.notifyPolicyQuiet";
-export const SHOPPING_AGENT_CARD_REQUIREMENTS_KEY = "ui.shoppingAgent.card.requirements";
-export const SHOPPING_AGENT_CARD_WATCHING_KEY = "ui.shoppingAgent.card.watching";
-export const SHOPPING_AGENT_CARD_OPEN_PRODUCT_KEY = "ui.shoppingAgent.card.openProduct";
-export const SHOPPING_AGENT_CARD_LINE_KEY = "ui.shoppingAgent.card.line";
-export const SHOPPING_AGENT_CARD_SPLIT_EXPLANATION_KEY =
-  "ui.shoppingAgent.card.splitExplanation";
-export const SHOPPING_AGENT_CARD_SPLIT_STAYS_KEY = "ui.shoppingAgent.card.splitStays";
-export const SHOPPING_AGENT_CARD_SPLIT_MOVES_KEY = "ui.shoppingAgent.card.splitMoves";
-export const SHOPPING_AGENT_CARD_SPLIT_STAYS_A11Y_KEY =
-  "ui.shoppingAgent.card.splitStaysA11y";
-export const SHOPPING_AGENT_CARD_SPLIT_MOVES_A11Y_KEY =
-  "ui.shoppingAgent.card.splitMovesA11y";
-export const SHOPPING_AGENT_CARD_KEEP_SOURCE_KEY = "ui.shoppingAgent.card.keepSource";
-export const SHOPPING_AGENT_CARD_MOVE_TO_TARGET_KEY = "ui.shoppingAgent.card.moveToTarget";
-export const SHOPPING_AGENT_CARD_RUN_NOW_KEY = "ui.shoppingAgent.card.runNow";
-export const SHOPPING_AGENT_CARD_RUN_NOW_A11Y_KEY = "ui.shoppingAgent.card.runNowA11y";
-export const SHOPPING_AGENT_CARD_PAUSE_KEY = "ui.shoppingAgent.card.pause";
-export const SHOPPING_AGENT_CARD_PAUSE_A11Y_KEY = "ui.shoppingAgent.card.pauseA11y";
-export const SHOPPING_AGENT_CARD_RESUME_KEY = "ui.shoppingAgent.card.resume";
-export const SHOPPING_AGENT_CARD_RESUME_A11Y_KEY = "ui.shoppingAgent.card.resumeA11y";
-export const SHOPPING_AGENT_CARD_REMOVE_KEY = "ui.shoppingAgent.card.remove";
-export const SHOPPING_AGENT_CARD_REMOVE_A11Y_KEY = "ui.shoppingAgent.card.removeA11y";
-export const SHOPPING_AGENT_CARD_NEVER_LOOKED_KEY = "ui.shoppingAgent.card.neverLooked";
-export const SHOPPING_AGENT_CARD_NEVER_LOOKED_NEXT_KEY =
-  "ui.shoppingAgent.card.neverLookedNext";
-export const SHOPPING_AGENT_CARD_LAST_LOOKED_KEY = "ui.shoppingAgent.card.lastLooked";
-export const SHOPPING_AGENT_CARD_LAST_LOOKED_NEXT_KEY =
-  "ui.shoppingAgent.card.lastLookedNext";
-export const SHOPPING_AGENT_CARD_CONSTRAINT_HARD_KEY = "ui.shoppingAgent.card.constraintHard";
-export const SHOPPING_AGENT_CARD_CONSTRAINT_SOFT_KEY = "ui.shoppingAgent.card.constraintSoft";
+  'ui.shoppingAgent.card.notifyPolicyQuiet';
+export const SHOPPING_AGENT_CARD_REQUIREMENTS_KEY = 'ui.shoppingAgent.card.requirements';
+export const SHOPPING_AGENT_CARD_WATCHING_KEY = 'ui.shoppingAgent.card.watching';
+export const SHOPPING_AGENT_CARD_OPEN_PRODUCT_KEY = 'ui.shoppingAgent.card.openProduct';
+export const SHOPPING_AGENT_CARD_LINE_KEY = 'ui.shoppingAgent.card.line';
+export const SHOPPING_AGENT_CARD_SPLIT_EXPLANATION_KEY = 'ui.shoppingAgent.card.splitExplanation';
+export const SHOPPING_AGENT_CARD_SPLIT_STAYS_KEY = 'ui.shoppingAgent.card.splitStays';
+export const SHOPPING_AGENT_CARD_SPLIT_MOVES_KEY = 'ui.shoppingAgent.card.splitMoves';
+export const SHOPPING_AGENT_CARD_SPLIT_STAYS_A11Y_KEY = 'ui.shoppingAgent.card.splitStaysA11y';
+export const SHOPPING_AGENT_CARD_SPLIT_MOVES_A11Y_KEY = 'ui.shoppingAgent.card.splitMovesA11y';
+export const SHOPPING_AGENT_CARD_KEEP_SOURCE_KEY = 'ui.shoppingAgent.card.keepSource';
+export const SHOPPING_AGENT_CARD_MOVE_TO_TARGET_KEY = 'ui.shoppingAgent.card.moveToTarget';
+export const SHOPPING_AGENT_CARD_RUN_NOW_KEY = 'ui.shoppingAgent.card.runNow';
+export const SHOPPING_AGENT_CARD_RUN_NOW_A11Y_KEY = 'ui.shoppingAgent.card.runNowA11y';
+export const SHOPPING_AGENT_CARD_PAUSE_KEY = 'ui.shoppingAgent.card.pause';
+export const SHOPPING_AGENT_CARD_PAUSE_A11Y_KEY = 'ui.shoppingAgent.card.pauseA11y';
+export const SHOPPING_AGENT_CARD_RESUME_KEY = 'ui.shoppingAgent.card.resume';
+export const SHOPPING_AGENT_CARD_RESUME_A11Y_KEY = 'ui.shoppingAgent.card.resumeA11y';
+export const SHOPPING_AGENT_CARD_REMOVE_KEY = 'ui.shoppingAgent.card.remove';
+export const SHOPPING_AGENT_CARD_REMOVE_A11Y_KEY = 'ui.shoppingAgent.card.removeA11y';
+export const SHOPPING_AGENT_CARD_NEVER_LOOKED_KEY = 'ui.shoppingAgent.card.neverLooked';
+export const SHOPPING_AGENT_CARD_NEVER_LOOKED_NEXT_KEY = 'ui.shoppingAgent.card.neverLookedNext';
+export const SHOPPING_AGENT_CARD_LAST_LOOKED_KEY = 'ui.shoppingAgent.card.lastLooked';
+export const SHOPPING_AGENT_CARD_LAST_LOOKED_NEXT_KEY = 'ui.shoppingAgent.card.lastLookedNext';
+export const SHOPPING_AGENT_CARD_CONSTRAINT_HARD_KEY = 'ui.shoppingAgent.card.constraintHard';
+export const SHOPPING_AGENT_CARD_CONSTRAINT_SOFT_KEY = 'ui.shoppingAgent.card.constraintSoft';

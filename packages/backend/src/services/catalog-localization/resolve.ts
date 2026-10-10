@@ -282,9 +282,7 @@ export interface LocalizedFieldResolutionInput {
  * the chain continues past it, rather than ending the search. A withdrawn
  * Spanish name should produce the English one, not nothing.
  */
-export function resolveLocalizedField(
-  input: LocalizedFieldResolutionInput,
-): LocalizedResolution {
+export function resolveLocalizedField(input: LocalizedFieldResolutionInput): LocalizedResolution {
   const descriptor = CATALOG_LOCALIZED_FIELDS[input.field];
   const requested = foldLocale(input.requestedLocale);
   const plan = localeFallbackPlan(requested, descriptor.fallback);
@@ -361,9 +359,7 @@ export interface LocalizedSlugResolutionInput {
  * minted — and {@link BASE_LOCALE_PROVENANCE} is true of it. No policy can make
  * a slug seller-authored, because this function names its own field class.
  */
-export function resolveLocalizedSlug(
-  input: LocalizedSlugResolutionInput,
-): LocalizedSlugResolution {
+export function resolveLocalizedSlug(input: LocalizedSlugResolutionInput): LocalizedSlugResolution {
   const requested = foldLocale(input.requestedLocale);
   const plan = localeFallbackPlan(requested, fallbackPolicyForFieldClass('catalog_presentation'));
 

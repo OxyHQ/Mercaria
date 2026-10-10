@@ -29,7 +29,10 @@ import { log } from '../../../lib/logger.js';
 import { getDb } from '../../../db/postgres.js';
 import { listPartnersWithPostings } from '../../../db/referralEarnings/ledgerPostingRepository.js';
 import { findPartnerById } from '../../../db/referrals/partnerRepository.js';
-import { findOpenPayoutBatch, REFERRAL_PAYOUT_SYSTEM_ACTOR } from '../../../db/referralEarnings/payoutBatchRepository.js';
+import {
+  findOpenPayoutBatch,
+  REFERRAL_PAYOUT_SYSTEM_ACTOR,
+} from '../../../db/referralEarnings/payoutBatchRepository.js';
 import { readReferralPartnerLedgerBalances } from '../../../db/referralEarnings/partnerBalanceRepository.js';
 import { listRewardsInState } from '../../../db/referrals/rewardRepository.js';
 import { buildPayoutBatchForPartner, settleApprovedBatches } from './payout-batch.service.js';

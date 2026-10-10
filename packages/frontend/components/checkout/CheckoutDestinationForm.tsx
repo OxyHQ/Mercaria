@@ -1,12 +1,12 @@
-import { useMemo } from "react";
-import { Button } from "@oxy.so/bloom/button";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { View } from "react-native";
-import type { CheckoutAddressInput, CheckoutContactInput } from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
-import { Switch } from "@oxy.so/bloom/switch";
-import { useTranslation } from "@/lib/i18n";
+import { useMemo } from 'react';
+import { Button } from '@oxy.so/bloom/button';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { View } from 'react-native';
+import type { CheckoutAddressInput, CheckoutContactInput } from '@mercaria/shared-types';
+import { Text } from '@mercaria/ui';
+import { Switch } from '@oxy.so/bloom/switch';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The ONE inline destination + contact form, shared by guests and signed-in
@@ -47,13 +47,13 @@ export interface CheckoutDestinationDraft {
 /** An empty draft — the starting point for both actor kinds. */
 export const EMPTY_CHECKOUT_DRAFT: CheckoutDestinationDraft = {
   address: {
-    recipientName: "",
-    line1: "",
-    city: "",
-    postalCode: "",
-    country: "",
+    recipientName: '',
+    line1: '',
+    city: '',
+    postalCode: '',
+    country: '',
   },
-  contact: { email: "" },
+  contact: { email: '' },
   saveToAddressBook: false,
   marketingOptIn: false,
 };
@@ -152,12 +152,12 @@ export function CheckoutDestinationForm({
         and Stripe's integration expects an email to be collected before the
         payment surface renders (#105 frontend rule 5).
       */}
-      <Field label={t("checkout.form.emailLabel")} description={t("checkout.form.emailHelp")}>
+      <Field label={t('checkout.form.emailLabel')} description={t('checkout.form.emailHelp')}>
         <TextFieldInput
-          label={t("checkout.form.emailA11y")}
+          label={t('checkout.form.emailA11y')}
           value={draft.contact.email}
-          onValueChange={setContact("email")}
-          placeholder={t("checkout.form.emailPlaceholder")}
+          onValueChange={setContact('email')}
+          placeholder={t('checkout.form.emailPlaceholder')}
           keyboardType="email-address"
           inputMode="email"
           autoCapitalize="none"
@@ -171,22 +171,22 @@ export function CheckoutDestinationForm({
       {offersPickup ? (
         <View className="gap-2">
           <Text className="text-sm font-semibold text-foreground">
-            {t("checkout.form.deliveryMethodTitle")}
+            {t('checkout.form.deliveryMethodTitle')}
           </Text>
           <View className="flex-row gap-2">
             <Button
-              appearance={collecting ? "outline" : "solid"}
-              tone={collecting ? "neutral" : "accent"}
+              appearance={collecting ? 'outline' : 'solid'}
+              tone={collecting ? 'neutral' : 'accent'}
               pressed={!collecting}
               onPress={() => onChangePickupLocation?.(undefined)}
             >
-              {t("checkout.form.deliverToAddress")}
+              {t('checkout.form.deliverToAddress')}
             </Button>
             {pickupLocations.map((location) => (
               <Button
                 key={location.id}
-                appearance={pickupLocationId === location.id ? "solid" : "outline"}
-                tone={pickupLocationId === location.id ? "accent" : "neutral"}
+                appearance={pickupLocationId === location.id ? 'solid' : 'outline'}
+                tone={pickupLocationId === location.id ? 'accent' : 'neutral'}
                 pressed={pickupLocationId === location.id}
                 onPress={() => onChangePickupLocation?.(location.id)}
               >
@@ -203,11 +203,11 @@ export function CheckoutDestinationForm({
         needs no invented street.
       */}
       {collecting ? (
-        <Field label={t("checkout.form.pickupPhoneLabel")}>
+        <Field label={t('checkout.form.pickupPhoneLabel')}>
           <TextFieldInput
-            label={t("checkout.form.pickupPhoneA11y")}
-            value={draft.contact.phone ?? ""}
-            onValueChange={setContact("phone")}
+            label={t('checkout.form.pickupPhoneA11y')}
+            value={draft.contact.phone ?? ''}
+            onValueChange={setContact('phone')}
             placeholder="+34 600 000 000"
             keyboardType="phone-pad"
             inputMode="tel"
@@ -217,46 +217,46 @@ export function CheckoutDestinationForm({
         </Field>
       ) : (
         <>
-          <Field label={t("checkout.form.recipientLabel")}>
+          <Field label={t('checkout.form.recipientLabel')}>
             <TextFieldInput
-              label={t("checkout.form.recipientA11y")}
+              label={t('checkout.form.recipientA11y')}
               value={draft.address.recipientName}
-              onValueChange={setAddress("recipientName")}
-              placeholder={t("checkout.form.recipientPlaceholder")}
+              onValueChange={setAddress('recipientName')}
+              placeholder={t('checkout.form.recipientPlaceholder')}
               autoComplete="name"
               textContentType="name"
               returnKeyType="next"
             />
           </Field>
-          <Field label={t("checkout.form.line1Label")}>
+          <Field label={t('checkout.form.line1Label')}>
             <TextFieldInput
-              label={t("checkout.form.line1A11y")}
+              label={t('checkout.form.line1A11y')}
               value={draft.address.line1}
-              onValueChange={setAddress("line1")}
-              placeholder={t("checkout.form.line1Placeholder")}
+              onValueChange={setAddress('line1')}
+              placeholder={t('checkout.form.line1Placeholder')}
               autoComplete="street-address"
               textContentType="streetAddressLine1"
               returnKeyType="next"
             />
           </Field>
-          <Field label={t("checkout.form.line2Label")}>
+          <Field label={t('checkout.form.line2Label')}>
             <TextFieldInput
-              label={t("checkout.form.line2A11y")}
-              value={draft.address.line2 ?? ""}
-              onValueChange={setAddress("line2")}
-              placeholder={t("checkout.form.line2Placeholder")}
+              label={t('checkout.form.line2A11y')}
+              value={draft.address.line2 ?? ''}
+              onValueChange={setAddress('line2')}
+              placeholder={t('checkout.form.line2Placeholder')}
               textContentType="streetAddressLine2"
               returnKeyType="next"
             />
           </Field>
           <View className="flex-row gap-3">
             <View className="flex-1">
-              <Field label={t("checkout.form.cityLabel")}>
+              <Field label={t('checkout.form.cityLabel')}>
                 <TextFieldInput
-                  label={t("checkout.form.cityLabel")}
+                  label={t('checkout.form.cityLabel')}
                   value={draft.address.city}
-                  onValueChange={setAddress("city")}
-                  placeholder={t("checkout.form.cityPlaceholder")}
+                  onValueChange={setAddress('city')}
+                  placeholder={t('checkout.form.cityPlaceholder')}
                   autoComplete="postal-address-locality"
                   textContentType="addressCity"
                   returnKeyType="next"
@@ -264,12 +264,12 @@ export function CheckoutDestinationForm({
               </Field>
             </View>
             <View className="flex-1">
-              <Field label={t("checkout.form.regionLabel")}>
+              <Field label={t('checkout.form.regionLabel')}>
                 <TextFieldInput
-                  label={t("checkout.form.regionA11y")}
-                  value={draft.address.region ?? ""}
-                  onValueChange={setAddress("region")}
-                  placeholder={t("checkout.form.regionPlaceholder")}
+                  label={t('checkout.form.regionA11y')}
+                  value={draft.address.region ?? ''}
+                  onValueChange={setAddress('region')}
+                  placeholder={t('checkout.form.regionPlaceholder')}
                   autoComplete="postal-address-region"
                   textContentType="addressState"
                   returnKeyType="next"
@@ -279,11 +279,11 @@ export function CheckoutDestinationForm({
           </View>
           <View className="flex-row gap-3">
             <View className="flex-1">
-              <Field label={t("checkout.form.postalLabel")}>
+              <Field label={t('checkout.form.postalLabel')}>
                 <TextFieldInput
-                  label={t("checkout.form.postalA11y")}
+                  label={t('checkout.form.postalA11y')}
                   value={draft.address.postalCode}
-                  onValueChange={setAddress("postalCode")}
+                  onValueChange={setAddress('postalCode')}
                   placeholder="46004"
                   inputMode="text"
                   autoComplete="postal-code"
@@ -293,12 +293,12 @@ export function CheckoutDestinationForm({
               </Field>
             </View>
             <View className="flex-1">
-              <Field label={t("checkout.form.countryLabel")}>
+              <Field label={t('checkout.form.countryLabel')}>
                 <TextFieldInput
-                  label={t("checkout.form.countryA11y")}
+                  label={t('checkout.form.countryA11y')}
                   value={draft.address.country}
-                  onValueChange={setAddress("country")}
-                  placeholder={t("checkout.form.countryPlaceholder")}
+                  onValueChange={setAddress('country')}
+                  placeholder={t('checkout.form.countryPlaceholder')}
                   autoCapitalize="characters"
                   autoCorrect={false}
                   maxLength={2}
@@ -309,11 +309,11 @@ export function CheckoutDestinationForm({
               </Field>
             </View>
           </View>
-          <Field label={t("checkout.form.deliveryPhoneLabel")}>
+          <Field label={t('checkout.form.deliveryPhoneLabel')}>
             <TextFieldInput
-              label={t("checkout.form.deliveryPhoneA11y")}
-              value={draft.address.phone ?? ""}
-              onValueChange={setAddress("phone")}
+              label={t('checkout.form.deliveryPhoneA11y')}
+              value={draft.address.phone ?? ''}
+              onValueChange={setAddress('phone')}
               placeholder="+34 600 000 000"
               keyboardType="phone-pad"
               inputMode="tel"
@@ -332,11 +332,11 @@ export function CheckoutDestinationForm({
       */}
       {canSaveToAddressBook && !collecting ? (
         <View className="flex-row items-center justify-between gap-3">
-          <Text className="flex-1 text-sm text-foreground">{t("checkout.form.saveAddress")}</Text>
+          <Text className="flex-1 text-sm text-foreground">{t('checkout.form.saveAddress')}</Text>
           <Switch
             checked={draft.saveToAddressBook}
             onCheckedChange={(next) => onChange({ ...draft, saveToAddressBook: next })}
-            accessibilityLabel={t("checkout.form.saveAddress")}
+            accessibilityLabel={t('checkout.form.saveAddress')}
           />
         </View>
       ) : null}
@@ -348,13 +348,11 @@ export function CheckoutDestinationForm({
         buying does not depend on it.
       */}
       <View className="flex-row items-center justify-between gap-3">
-        <Text className="flex-1 text-sm text-foreground">
-          {t("checkout.form.marketingOptIn")}
-        </Text>
+        <Text className="flex-1 text-sm text-foreground">{t('checkout.form.marketingOptIn')}</Text>
         <Switch
           checked={draft.marketingOptIn}
           onCheckedChange={(next) => onChange({ ...draft, marketingOptIn: next })}
-          accessibilityLabel={t("checkout.form.marketingOptInA11y")}
+          accessibilityLabel={t('checkout.form.marketingOptInA11y')}
         />
       </View>
 
@@ -364,9 +362,7 @@ export function CheckoutDestinationForm({
         of collection — and it is short enough to be true: the fulfilment
         snapshot and nothing else.
       */}
-      <Text className="text-xs text-muted-foreground">
-        {t("checkout.form.sellerDataNotice")}
-      </Text>
+      <Text className="text-xs text-muted-foreground">{t('checkout.form.sellerDataNotice')}</Text>
     </View>
   );
 }

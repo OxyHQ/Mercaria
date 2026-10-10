@@ -392,7 +392,9 @@ export function readChannelLeanings(foldedQuery: string): ChannelLeanings {
     ...(official === undefined ? {} : { officialChannelOnly: { phrase: official } }),
     ...(native === undefined ? {} : { nativeOnly: { phrase: native } }),
     ...(nearby === undefined ? {} : { nearby: { phrase: nearby } }),
-    ...(inStock === undefined ? {} : { availability: { value: 'in_stock' as const, phrase: inStock } }),
+    ...(inStock === undefined
+      ? {}
+      : { availability: { value: 'in_stock' as const, phrase: inStock } }),
   };
 }
 
@@ -613,7 +615,10 @@ export function readStatedStrength(foldedQuery: string): 'hard' | 'preference' |
  * "product-use intent expressed as bounded tags" buys.
  */
 const USE_TAG_PHRASES: readonly DictionaryEntry<ShoppingUseTag>[] = [
-  { value: 'gaming', phrases: ['gaming', 'for games', 'para juegos', 'para gaming', 'zum spielen'] },
+  {
+    value: 'gaming',
+    phrases: ['gaming', 'for games', 'para juegos', 'para gaming', 'zum spielen'],
+  },
   {
     value: 'photography',
     phrases: ['photography', 'for photos', 'fotografia', 'para fotos', 'fotografie'],
@@ -630,7 +635,10 @@ const USE_TAG_PHRASES: readonly DictionaryEntry<ShoppingUseTag>[] = [
     value: 'programming',
     phrases: ['programming', 'for coding', 'programar', 'programacion', 'programmieren'],
   },
-  { value: 'office_work', phrases: ['office work', 'for work', 'para trabajar', 'para la oficina'] },
+  {
+    value: 'office_work',
+    phrases: ['office work', 'for work', 'para trabajar', 'para la oficina'],
+  },
   { value: 'study', phrases: ['for study', 'for school', 'para estudiar', 'para la universidad'] },
   { value: 'travel', phrases: ['for travel', 'para viajar', 'de viaje', 'zum reisen'] },
   { value: 'commuting', phrases: ['commuting', 'for commuting', 'para el trabajo diario'] },
@@ -639,13 +647,19 @@ const USE_TAG_PHRASES: readonly DictionaryEntry<ShoppingUseTag>[] = [
   { value: 'cooking', phrases: ['cooking', 'for the kitchen', 'para cocinar', 'cocina'] },
   { value: 'gardening', phrases: ['gardening', 'for the garden', 'jardineria', 'para el jardin'] },
   { value: 'home_repair', phrases: ['diy', 'home repair', 'bricolaje', 'para reparar'] },
-  { value: 'childcare', phrases: ['for kids', 'for a baby', 'para ninos', 'para bebe', 'infantil'] },
+  {
+    value: 'childcare',
+    phrases: ['for kids', 'for a baby', 'para ninos', 'para bebe', 'infantil'],
+  },
   { value: 'pets', phrases: ['for pets', 'for a dog', 'for a cat', 'para mascotas', 'para perro'] },
   {
     value: 'accessibility',
     phrases: ['accessible', 'accessibility', 'accesible', 'accesibilidad', 'movilidad reducida'],
   },
-  { value: 'gift', phrases: ['as a gift', 'for a gift', 'de regalo', 'para regalar', 'als geschenk'] },
+  {
+    value: 'gift',
+    phrases: ['as a gift', 'for a gift', 'de regalo', 'para regalar', 'als geschenk'],
+  },
 ];
 
 /** Which use tags a query named, bounded by the caller. */
@@ -688,9 +702,15 @@ const CATEGORY_COLLOQUIALISMS: readonly DictionaryEntry<string>[] = [
     phrases: ['ordenador de sobremesa', 'sobremesa', 'torre', 'pc de escritorio', 'desktop pc'],
   },
   { value: 'televisions', phrases: ['tele', 'tv', 'televisor', 'televisio', 'fernseher'] },
-  { value: 'headphones', phrases: ['cascos', 'auriculares', 'audifonos', 'kopfhorer', 'ecouteurs'] },
+  {
+    value: 'headphones',
+    phrases: ['cascos', 'auriculares', 'audifonos', 'kopfhorer', 'ecouteurs'],
+  },
   { value: 'tablets', phrases: ['tableta', 'tablet', 'tauleta'] },
-  { value: 'cameras', phrases: ['camara', 'camara de fotos', 'camera', 'kamera', 'appareil photo'] },
+  {
+    value: 'cameras',
+    phrases: ['camara', 'camara de fotos', 'camera', 'kamera', 'appareil photo'],
+  },
   { value: 'washing-machines', phrases: ['lavadora', 'rentadora', 'waschmaschine', 'lave linge'] },
   { value: 'refrigerators', phrases: ['nevera', 'frigorifico', 'nevera', 'kuhlschrank', 'frigo'] },
   { value: 'bicycles', phrases: ['bici', 'bicicleta', 'bicicletes', 'fahrrad', 'velo'] },

@@ -122,7 +122,11 @@ export interface ProductBundleComponent {
 
 /** A withheld component makes the whole composition unavailable, never partial. */
 export type ProductBundleContents =
-  | { readonly status: 'available'; readonly variantId: string; readonly components: readonly ProductBundleComponent[] }
+  | {
+      readonly status: 'available';
+      readonly variantId: string;
+      readonly components: readonly ProductBundleComponent[];
+    }
   | { readonly status: 'withheld'; readonly variantId: string };
 
 /* ────────────────────────────────────────────────────────────────────────── */

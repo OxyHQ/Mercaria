@@ -90,10 +90,7 @@ describe('the whole-tree sweep', () => {
   it('names a root-level module without a leading slash', () => {
     const readDir: DirectoryReader = (relative) =>
       relative === '' ? [file('widget.ts'), directory('lib')] : [file('widget-cache.ts')];
-    expect(sweepSrcTreeForDomain(/widget/i, readDir)).toEqual([
-      'lib/widget-cache.ts',
-      'widget.ts',
-    ]);
+    expect(sweepSrcTreeForDomain(/widget/i, readDir)).toEqual(['lib/widget-cache.ts', 'widget.ts']);
   });
 
   it('reaches the real tree at a depth no gate lists', () => {
@@ -158,9 +155,10 @@ describe('assertNothingOutsideDomainPopulation', () => {
     'metrics.ts',
   ].map((file) => ({
     path: `services/digital/analytics/${file}`,
-    why: "#1015 W13's creator analytics — the DIGITAL domain, which shares the word "
-      + 'and nothing else. Unreachable from this one in both directions, asserted by '
-      + 'analytics-ranking-isolation.test.ts.',
+    why:
+      "#1015 W13's creator analytics — the DIGITAL domain, which shares the word " +
+      'and nothing else. Unreachable from this one in both directions, asserted by ' +
+      'analytics-ranking-isolation.test.ts.',
   }));
 
   it('passes on a population that really covers the tree', () => {
@@ -358,7 +356,10 @@ describe('assertNothingOutsideDomainPopulation', () => {
         pattern: /analytics/i,
         notThisDomain: [
           ...DIGITAL_CREATOR_ANALYTICS,
-          { path: 'services/analytics-that-never-existed.ts', why: 'a stale exemption, by construction' },
+          {
+            path: 'services/analytics-that-never-existed.ts',
+            why: 'a stale exemption, by construction',
+          },
         ],
         expectedExclusions: DIGITAL_CREATOR_ANALYTICS.length + 1,
         sweepFloor: 20,
@@ -403,9 +404,7 @@ describe('assertNothingOutsideDomainPopulation', () => {
       assertNothingOutsideDomainPopulation({
         population: analyticsPopulation,
         pattern: /analytics/i,
-        notThisDomain: [
-          { path: 'db/schema/analytics.ts', why: 'a second entry nobody declared' },
-        ],
+        notThisDomain: [{ path: 'db/schema/analytics.ts', why: 'a second entry nobody declared' }],
         expectedExclusions: 0,
         sweepFloor: 20,
         plantIn: 'lib',

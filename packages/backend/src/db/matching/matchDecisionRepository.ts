@@ -108,7 +108,10 @@ export async function upsertMatchDecision(
   db: DatabaseOrTransaction,
   input: UpsertMatchDecisionInput,
 ): Promise<MatchDecisionRow> {
-  if (input.blockers.includes('conflicting_identifier') && input.conflictingIdentifiers.length === 0) {
+  if (
+    input.blockers.includes('conflicting_identifier') &&
+    input.conflictingIdentifiers.length === 0
+  ) {
     throw new UnexplainedConflictError(input.subjectKey);
   }
 

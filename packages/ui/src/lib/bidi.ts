@@ -47,21 +47,17 @@
  */
 
 /** FIRST STRONG ISOLATE — opens a run whose direction is read off its own content. */
-const FIRST_STRONG_ISOLATE = "\u2068";
+const FIRST_STRONG_ISOLATE = '\u2068';
 
 /** POP DIRECTIONAL ISOLATE — closes the innermost open isolate. */
-const POP_DIRECTIONAL_ISOLATE = "\u2069";
+const POP_DIRECTIONAL_ISOLATE = '\u2069';
 
 /**
  * Every character that OPENS an isolate: `LRI` (U+2066), `RLI` (U+2067) and
  * `FSI` (U+2068). All three are recognised so text a caller deliberately
  * isolated left-to-right is left exactly as it is rather than wrapped again.
  */
-const ISOLATE_INITIATORS: ReadonlySet<string> = new Set([
-  "\u2066",
-  "\u2067",
-  FIRST_STRONG_ISOLATE,
-]);
+const ISOLATE_INITIATORS: ReadonlySet<string> = new Set(['\u2066', '\u2067', FIRST_STRONG_ISOLATE]);
 
 /**
  * Whether `text` is ALREADY exactly one balanced isolate spanning the whole

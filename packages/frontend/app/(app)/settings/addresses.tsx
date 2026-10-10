@@ -1,20 +1,20 @@
-import { useState } from "react";
-import { Button } from "@oxy.so/bloom/button";
-import { View, ScrollView, Pressable } from "react-native";
-import { useOxy } from "@oxy.so/services";
-import { Check, Plus, Trash2 } from "lucide-react-native";
-import type { Address, CreateAddressInput } from "@mercaria/shared-types";
-import { Text, formatRegionName, toBloomIcon } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
-import { SettingsHeader } from "@/components/settings/settings-header";
-import { AddressForm } from "@/components/address/AddressForm";
-import { toast } from "@oxy.so/bloom/toast";
+import { useState } from 'react';
+import { Button } from '@oxy.so/bloom/button';
+import { View, ScrollView, Pressable } from 'react-native';
+import { useOxy } from '@oxy.so/services';
+import { Check, Plus, Trash2 } from 'lucide-react-native';
+import type { Address, CreateAddressInput } from '@mercaria/shared-types';
+import { Text, formatRegionName, toBloomIcon } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
+import { SettingsHeader } from '@/components/settings/settings-header';
+import { AddressForm } from '@/components/address/AddressForm';
+import { toast } from '@oxy.so/bloom/toast';
 import {
   useAddresses,
   useCreateAddress,
   useUpdateAddress,
   useDeleteAddress,
-} from "@/lib/hooks/use-addresses";
+} from '@/lib/hooks/use-addresses';
 
 function AddressCard({
   address,
@@ -39,7 +39,7 @@ function AddressCard({
             {address.isDefault ? (
               <View className="rounded-full bg-muted px-2 py-0.5">
                 <Text className="text-[11px] font-medium text-muted-foreground">
-                  {t("address.list.default")}
+                  {t('address.list.default')}
                 </Text>
               </View>
             ) : null}
@@ -51,7 +51,7 @@ function AddressCard({
           ) : null}
           <Text className="text-sm text-muted-foreground">
             {address.city}
-            {address.region ? `, ${address.region}` : ""} {address.postalCode}
+            {address.region ? `, ${address.region}` : ''} {address.postalCode}
           </Text>
           <Text className="text-sm text-muted-foreground">
             {formatRegionName(address.country, locale)}
@@ -59,7 +59,7 @@ function AddressCard({
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t("address.list.deleteLabel")}
+          accessibilityLabel={t('address.list.deleteLabel')}
           disabled={isMutating}
           onPress={onDelete}
           className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
@@ -77,7 +77,7 @@ function AddressCard({
           onPress={onSetDefault}
           leadingIcon={toBloomIcon(Check)}
         >
-          {t("address.list.setDefault")}
+          {t('address.list.setDefault')}
         </Button>
       ) : null}
     </View>
@@ -93,14 +93,13 @@ function AddressesBody() {
   const deleteAddress = useDeleteAddress();
   const [adding, setAdding] = useState(false);
 
-  const isMutating =
-    createAddress.isPending || updateAddress.isPending || deleteAddress.isPending;
+  const isMutating = createAddress.isPending || updateAddress.isPending || deleteAddress.isPending;
 
   if (!isAuthenticated) {
     return (
       <View className="items-center py-16">
         <Text className="text-center text-sm text-muted-foreground">
-          {t("address.list.signedOut")}
+          {t('address.list.signedOut')}
         </Text>
       </View>
     );
@@ -109,10 +108,10 @@ function AddressesBody() {
   const onCreate = (input: CreateAddressInput) => {
     createAddress.mutate(input, {
       onSuccess: () => {
-        toast.success(t("address.toast.saved"));
+        toast.success(t('address.toast.saved'));
         setAdding(false);
       },
-      onError: () => toast.error(t("address.toast.saveFailed")),
+      onError: () => toast.error(t('address.toast.saveFailed')),
     });
   };
 
@@ -128,7 +127,7 @@ function AddressesBody() {
       ) : (
         <>
           {list.length === 0 && !adding ? (
-            <Text className="text-sm text-muted-foreground">{t("address.list.empty")}</Text>
+            <Text className="text-sm text-muted-foreground">{t('address.list.empty')}</Text>
           ) : null}
 
           {list.map((address) => (
@@ -139,13 +138,13 @@ function AddressesBody() {
               onSetDefault={() =>
                 updateAddress.mutate(
                   { id: address.id, input: { isDefault: true } },
-                  { onError: () => toast.error(t("address.toast.updateFailed")) },
+                  { onError: () => toast.error(t('address.toast.updateFailed')) },
                 )
               }
               onDelete={() =>
                 deleteAddress.mutate(address.id, {
-                  onSuccess: () => toast.success(t("address.toast.removed")),
-                  onError: () => toast.error(t("address.toast.removeFailed")),
+                  onSuccess: () => toast.success(t('address.toast.removed')),
+                  onError: () => toast.error(t('address.toast.removeFailed')),
                 })
               }
             />
@@ -154,7 +153,7 @@ function AddressesBody() {
           {adding ? (
             <View className="rounded-2xl border border-border bg-card p-4">
               <Text className="mb-3 text-sm font-semibold text-foreground">
-                {t("address.list.newAddress")}
+                {t('address.list.newAddress')}
               </Text>
               <AddressForm
                 onSubmit={onCreate}
@@ -170,7 +169,7 @@ function AddressesBody() {
               onPress={() => setAdding(true)}
               leadingIcon={toBloomIcon(Plus)}
             >
-              {t("address.list.addAddress")}
+              {t('address.list.addAddress')}
             </Button>
           )}
         </>
@@ -183,7 +182,7 @@ export default function SettingsAddressesScreen() {
   const { t } = useTranslation();
   return (
     <View className="flex-1 bg-background">
-      <SettingsHeader title={t("settings.sections.addresses")} />
+      <SettingsHeader title={t('settings.sections.addresses')} />
       <ScrollView className="flex-1" contentContainerClassName="p-5 max-w-2xl">
         <AddressesBody />
       </ScrollView>

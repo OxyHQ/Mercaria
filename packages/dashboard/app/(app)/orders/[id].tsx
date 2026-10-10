@@ -1,11 +1,11 @@
-import React, { useState } from "react";
-import type { AccentTone } from "@oxy.so/bloom/theme";
-import { Badge } from "@oxy.so/bloom/badge";
-import { View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { Package, UserRound } from "lucide-react-native";
-import type { MerchantOrder, OrderItem, Refund, RefundProviderState } from "@mercaria/shared-types";
+import React, { useState } from 'react';
+import type { AccentTone } from '@oxy.so/bloom/theme';
+import { Badge } from '@oxy.so/bloom/badge';
+import { View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { Package, UserRound } from 'lucide-react-native';
+import type { MerchantOrder, OrderItem, Refund, RefundProviderState } from '@mercaria/shared-types';
 import {
   Text,
   PriceDisplay,
@@ -13,27 +13,27 @@ import {
   formatDateTime,
   formatRegionName,
   useColorScheme,
-} from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
-import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen } from "@/components/shell/Screen";
-import { canRetainDetailData } from "@/lib/detail-query-state";
-import { DetailContent } from "@/components/shell/DetailContent";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { OrderStatusBadge, ORDER_STATUS_LABEL_KEYS } from "@/components/orders/OrderStatusBadge";
-import { PickupDeskCard } from "@/components/orders/PickupDeskCard";
+} from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
+import { Dialog, useDialogControl, type DialogControlProps } from '@oxy.so/bloom/dialog';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen } from '@/components/shell/Screen';
+import { canRetainDetailData } from '@/lib/detail-query-state';
+import { DetailContent } from '@/components/shell/DetailContent';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { OrderStatusBadge, ORDER_STATUS_LABEL_KEYS } from '@/components/orders/OrderStatusBadge';
+import { PickupDeskCard } from '@/components/orders/PickupDeskCard';
 import {
   useOrder,
   usePatchOrderStatus,
   useCreateRefund,
   useOrderRefunds,
-} from "@/lib/hooks/use-orders";
-import { useActiveStoreContext } from "@/lib/hooks/use-stores";
-import { useTranslation } from "@/lib/i18n";
-import type { FulfillmentStatus } from "@/lib/api/orders";
+} from '@/lib/hooks/use-orders';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
+import { useTranslation } from '@/lib/i18n';
+import type { FulfillmentStatus } from '@/lib/api/orders';
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -41,10 +41,12 @@ export default function OrderDetailScreen() {
   return (
     <>
       <Head>
-        <title>{t("orders.detail.documentTitle")}</title>
+        <title>{t('orders.detail.documentTitle')}</title>
       </Head>
       <RequireStore permission="orders:read">
-        {(storeId) => <OrderDetailBody key={`${storeId}:${id}`} storeId={storeId} orderId={String(id)} />}
+        {(storeId) => (
+          <OrderDetailBody key={`${storeId}:${id}`} storeId={storeId} orderId={String(id)} />
+        )}
       </RequireStore>
     </>
   );
@@ -53,74 +55,147 @@ export default function OrderDetailScreen() {
 function OrderDetailBody({ storeId, orderId }: { storeId: string; orderId: string }) {
   const router = useRouter();
   const { t } = useTranslation();
-  const { data: cached, error, isPending, isFetching, isError, refetch } = useOrder(storeId, orderId);
+  const {
+    data: cached,
+    error,
+    isPending,
+    isFetching,
+    isError,
+    refetch,
+  } = useOrder(storeId, orderId);
   const data = canRetainDetailData(error) ? cached : undefined;
-  return <Screen title={data?.orderNumber ?? t("orders.detail.title")} subtitle={t("orders.detail.subtitle")}
-    action={<Button appearance="outline" material="flat" onPress={() => router.replace("/orders")}>{t("common.back")}</Button>}>
-    <DetailContent testID="merchant-order-detail" hasData={Boolean(data)} pending={isPending} fetching={isFetching}
-      error={isError} errorTitle={t("orders.detail.loadFailed")} onRetry={() => { void refetch(); }}>
-      {data ? <OrderContent key={`${storeId}:${data.id}`} storeId={storeId} order={data} /> : null}
-    </DetailContent>
-  </Screen>;
+  return (
+    <Screen
+      title={data?.orderNumber ?? t('orders.detail.title')}
+      subtitle={t('orders.detail.subtitle')}
+      action={
+        <Button appearance="outline" material="flat" onPress={() => router.replace('/orders')}>
+          {t('common.back')}
+        </Button>
+      }
+    >
+      <DetailContent
+        testID="merchant-order-detail"
+        hasData={Boolean(data)}
+        pending={isPending}
+        fetching={isFetching}
+        error={isError}
+        errorTitle={t('orders.detail.loadFailed')}
+        onRetry={() => {
+          void refetch();
+        }}
+      >
+        {data ? (
+          <OrderContent key={`${storeId}:${data.id}`} storeId={storeId} order={data} />
+        ) : null}
+      </DetailContent>
+    </Screen>
+  );
 }
 
 function OrderContent({ storeId, order }: { storeId: string; order: MerchantOrder }) {
   const { t, locale } = useTranslation();
   const { colors } = useColorScheme();
-  return <View className="gap-4">
-    <View className="flex-row flex-wrap items-center justify-between gap-2">
-      <OrderStatusBadge status={order.status} />
-      <Text className="text-xs text-muted-foreground">{formatDateTime(order.createdAt, locale)}</Text>
-    </View>
-    <View className="items-stretch gap-4 lg:flex-row lg:items-start">
-      <View className="min-w-0 gap-4 lg:flex-1" testID="merchant-order-main">
-        <ItemsCard items={order.items} />
-        <TotalsCard order={order} />
-        {/* Collection is an existing handover path; it must remain distinct from shipping. */}
-        <PickupDeskCard storeId={storeId} orderId={order.id} />
-        <RefundsCard storeId={storeId} order={order} />
-        <FulfillmentCard storeId={storeId} order={order} />
-        <StatusHistoryCard order={order} />
+  return (
+    <View className="gap-4">
+      <View className="flex-row flex-wrap items-center justify-between gap-2">
+        <OrderStatusBadge status={order.status} />
+        <Text className="text-xs text-muted-foreground">
+          {formatDateTime(order.createdAt, locale)}
+        </Text>
       </View>
-      <View className="min-w-0 gap-4 lg:w-72" testID="merchant-order-customer">
-        <View className="gap-3 rounded-xl border border-border bg-white p-4 dark:bg-surface">
-          <Text className="text-sm font-semibold text-foreground">{t("resourceList.customer")}</Text>
-          <View className="flex-row items-center gap-3">
-            <View className="h-9 w-9 items-center justify-center rounded-full bg-muted"><UserRound size={18} color={colors.mutedForeground} /></View>
-            {/* MerchantBuyerLabel is the complete permitted identity projection. */}
-            <Text className="min-w-0 flex-1 text-sm text-foreground">{order.buyer.displayLabel}</Text>
-          </View>
+      <View className="items-stretch gap-4 lg:flex-row lg:items-start">
+        <View className="min-w-0 gap-4 lg:flex-1" testID="merchant-order-main">
+          <ItemsCard items={order.items} />
+          <TotalsCard order={order} />
+          {/* Collection is an existing handover path; it must remain distinct from shipping. */}
+          <PickupDeskCard storeId={storeId} orderId={order.id} />
+          <RefundsCard storeId={storeId} order={order} />
+          <FulfillmentCard storeId={storeId} order={order} />
+          <StatusHistoryCard order={order} />
         </View>
-        <ShippingAddressCard order={order} />
+        <View className="min-w-0 gap-4 lg:w-72" testID="merchant-order-customer">
+          <View className="gap-3 rounded-xl border border-border bg-white p-4 dark:bg-surface">
+            <Text className="text-sm font-semibold text-foreground">
+              {t('resourceList.customer')}
+            </Text>
+            <View className="flex-row items-center gap-3">
+              <View className="h-9 w-9 items-center justify-center rounded-full bg-muted">
+                <UserRound size={18} color={colors.mutedForeground} />
+              </View>
+              {/* MerchantBuyerLabel is the complete permitted identity projection. */}
+              <Text className="min-w-0 flex-1 text-sm text-foreground">
+                {order.buyer.displayLabel}
+              </Text>
+            </View>
+          </View>
+          <ShippingAddressCard order={order} />
+        </View>
       </View>
     </View>
-  </View>;
+  );
 }
 
 function ItemsCard({ items }: { items: OrderItem[] }) {
   const { t } = useTranslation();
   const { colors } = useColorScheme();
-  return <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
-    <Text className="mb-4 text-sm font-semibold text-foreground">{t("orders.detail.items")}</Text>
-    <View className="gap-4">{items.map((item, idx) => <View key={`${item.variantId}-${idx}`} testID="merchant-order-item" className="flex-row items-start gap-3">
-      {/* Legacy snapshot imageUrl is not an Oxy file ID. Keep its space until the media DTO is migrated. */}
-      <View className="h-12 w-12 items-center justify-center rounded-lg border border-border bg-muted"><Package size={22} color={colors.mutedForeground} /></View>
-      <View className="min-w-0 flex-1 gap-1">
-        <Text className="text-sm font-semibold text-foreground">{item.title}</Text>
-        <Text className="text-xs text-muted-foreground">{t("orders.detail.itemVariantQuantity", { variant: item.variantTitle, quantity: item.quantity })}</Text>
-        <View className="flex-row flex-wrap items-center justify-between gap-2">
-          <View className="flex-row items-center gap-1"><Text className="text-xs text-muted-foreground">{t("resourceList.price")}</Text><PriceDisplay price={item.unitPrice.shop} primaryClassName="text-xs text-muted-foreground" /></View>
-          <PriceDisplay price={item.lineTotal.shop} primaryClassName="text-sm font-semibold" />
-        </View>
+  return (
+    <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
+      <Text className="mb-4 text-sm font-semibold text-foreground">{t('orders.detail.items')}</Text>
+      <View className="gap-4">
+        {items.map((item, idx) => (
+          <View
+            key={`${item.variantId}-${idx}`}
+            testID="merchant-order-item"
+            className="flex-row items-start gap-3"
+          >
+            {/* Legacy snapshot imageUrl is not an Oxy file ID. Keep its space until the media DTO is migrated. */}
+            <View className="h-12 w-12 items-center justify-center rounded-lg border border-border bg-muted">
+              <Package size={22} color={colors.mutedForeground} />
+            </View>
+            <View className="min-w-0 flex-1 gap-1">
+              <Text className="text-sm font-semibold text-foreground">{item.title}</Text>
+              <Text className="text-xs text-muted-foreground">
+                {t('orders.detail.itemVariantQuantity', {
+                  variant: item.variantTitle,
+                  quantity: item.quantity,
+                })}
+              </Text>
+              <View className="flex-row flex-wrap items-center justify-between gap-2">
+                <View className="flex-row items-center gap-1">
+                  <Text className="text-xs text-muted-foreground">{t('resourceList.price')}</Text>
+                  <PriceDisplay
+                    price={item.unitPrice.shop}
+                    primaryClassName="text-xs text-muted-foreground"
+                  />
+                </View>
+                <PriceDisplay
+                  price={item.lineTotal.shop}
+                  primaryClassName="text-sm font-semibold"
+                />
+              </View>
+            </View>
+          </View>
+        ))}
       </View>
-    </View>)}</View>
-  </View>;
+    </View>
+  );
 }
 
-function TotalRow({ label, amount, bold }: { label: string; amount: React.ReactNode; bold?: boolean }) {
+function TotalRow({
+  label,
+  amount,
+  bold,
+}: {
+  label: string;
+  amount: React.ReactNode;
+  bold?: boolean;
+}) {
   return (
     <View className="flex-row items-center justify-between">
-      <Text className={bold ? "text-sm font-semibold text-foreground" : "text-sm text-muted-foreground"}>
+      <Text
+        className={bold ? 'text-sm font-semibold text-foreground' : 'text-sm text-muted-foreground'}
+      >
         {label}
       </Text>
       {amount}
@@ -133,31 +208,40 @@ function TotalsCard({ order }: { order: MerchantOrder }) {
   const { totals } = order;
   return (
     <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
-      <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.totals.heading")}</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">
+        {t('orders.totals.heading')}
+      </Text>
       <View className="gap-2">
         <TotalRow
-          label={t("orders.totals.subtotal")}
+          label={t('orders.totals.subtotal')}
           amount={<PriceDisplay price={totals.subtotal.shop} primaryClassName="text-sm" />}
         />
         {totals.discountTotal.shop.amount > 0 ? (
           <TotalRow
-            label={t("orders.totals.discounts")}
-            amount={<PriceDisplay price={totals.discountTotal.shop} primaryClassName="text-sm text-destructive" />}
+            label={t('orders.totals.discounts')}
+            amount={
+              <PriceDisplay
+                price={totals.discountTotal.shop}
+                primaryClassName="text-sm text-destructive"
+              />
+            }
           />
         ) : null}
         <TotalRow
-          label={t("orders.totals.tax")}
+          label={t('orders.totals.tax')}
           amount={<PriceDisplay price={totals.tax.shop} primaryClassName="text-sm" />}
         />
         <TotalRow
-          label={t("orders.totals.shipping")}
+          label={t('orders.totals.shipping')}
           amount={<PriceDisplay price={totals.shipping.shop} primaryClassName="text-sm" />}
         />
         <View className="my-1 h-px bg-border" />
         <TotalRow
-          label={t("orders.totals.total")}
+          label={t('orders.totals.total')}
           bold
-          amount={<PriceDisplay price={totals.grandTotal.shop} primaryClassName="text-base font-bold" />}
+          amount={
+            <PriceDisplay price={totals.grandTotal.shop} primaryClassName="text-base font-bold" />
+          }
         />
       </View>
     </View>
@@ -176,21 +260,23 @@ function ShippingAddressCard({ order }: { order: MerchantOrder }) {
     return (
       <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
         <Text className="mb-2 text-sm font-semibold text-foreground">
-          {t("orders.detail.shipTo")}
+          {t('orders.detail.shipTo')}
         </Text>
-        <Text className="text-sm text-muted-foreground">{t("orders.detail.shipToNone")}</Text>
+        <Text className="text-sm text-muted-foreground">{t('orders.detail.shipToNone')}</Text>
       </View>
     );
   }
   return (
     <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
-      <Text className="mb-2 text-sm font-semibold text-foreground">{t("orders.detail.shipTo")}</Text>
+      <Text className="mb-2 text-sm font-semibold text-foreground">
+        {t('orders.detail.shipTo')}
+      </Text>
       <Text className="text-sm text-foreground">{a.recipientName}</Text>
       <Text className="text-sm text-muted-foreground">{a.line1}</Text>
       {a.line2 ? <Text className="text-sm text-muted-foreground">{a.line2}</Text> : null}
       <Text className="text-sm text-muted-foreground">
         {a.city}
-        {a.region ? `, ${a.region}` : ""} {a.postalCode}
+        {a.region ? `, ${a.region}` : ''} {a.postalCode}
       </Text>
       {/* The country is an ISO alpha-2 CODE on the wire (#560). #513 fixed
           this exact shape on the storefront; the remedy is the same import. */}
@@ -203,16 +289,16 @@ function StatusHistoryCard({ order }: { order: MerchantOrder }) {
   const { t, locale } = useTranslation();
   return (
     <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
-      <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.detail.history")}</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">
+        {t('orders.detail.history')}
+      </Text>
       <View className="gap-2">
         {order.statusHistory.map((event, idx) => (
           <View key={`${event.status}-${idx}`} className="gap-2 border-b border-border pb-3">
             <View className="flex-row flex-wrap items-center gap-2">
               <OrderStatusBadge status={event.status} />
               {event.note ? (
-                <Text className="min-w-0 flex-1 text-xs text-muted-foreground">
-                  {event.note}
-                </Text>
+                <Text className="min-w-0 flex-1 text-xs text-muted-foreground">{event.note}</Text>
               ) : null}
             </View>
             <Text className="text-xs text-muted-foreground">
@@ -240,10 +326,10 @@ function StatusHistoryCard({ order }: { order: MerchantOrder }) {
  */
 const REFUND_STATE_CHIPS: Record<RefundProviderState, { labelKey: string; tone: AccentTone }> = {
   // Approved and moving, but NOT yet in the buyer's hands — muted, not a success tone.
-  pending: { labelKey: "orders.refundState.pending", tone: "default" },
-  succeeded: { labelKey: "orders.refundState.succeeded", tone: "primary" },
-  failed: { labelKey: "orders.refundState.failed", tone: "error" },
-  canceled: { labelKey: "orders.refundState.canceled", tone: "default" },
+  pending: { labelKey: 'orders.refundState.pending', tone: 'default' },
+  succeeded: { labelKey: 'orders.refundState.succeeded', tone: 'primary' },
+  failed: { labelKey: 'orders.refundState.failed', tone: 'error' },
+  canceled: { labelKey: 'orders.refundState.canceled', tone: 'default' },
 };
 
 function RefundsCard({ storeId, order }: { storeId: string; order: MerchantOrder }) {
@@ -261,7 +347,9 @@ function RefundsCard({ storeId, order }: { storeId: string; order: MerchantOrder
 
   return (
     <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
-      <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.detail.refunds")}</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">
+        {t('orders.detail.refunds')}
+      </Text>
       <View className="gap-3">
         {data.map((refund) => (
           <RefundRow key={refund.id} refund={refund} />
@@ -285,7 +373,7 @@ function RefundRow({ refund }: { refund: Refund }) {
       <View className="flex-row items-center justify-between gap-3">
         <View className="flex-1">
           <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
-            {refund.rmaNumber ?? t("orders.detail.refundFallbackLabel")}
+            {refund.rmaNumber ?? t('orders.detail.refundFallbackLabel')}
           </Text>
           <Text className="text-xs text-muted-foreground">
             {formatDate(refund.createdAt, locale)}
@@ -299,9 +387,9 @@ function RefundRow({ refund }: { refund: Refund }) {
       {/* The rail's own code, shown verbatim apart from the underscores: it is a
           merchant-safe machine code, and inventing prose around it would put
           words in the provider's mouth about why the money did not move. */}
-      {state === "failed" && refund.providerFailureCode ? (
+      {state === 'failed' && refund.providerFailureCode ? (
         <Text className="text-xs text-destructive">
-          {refund.providerFailureCode.replace(/_/g, " ")}
+          {refund.providerFailureCode.replace(/_/g, ' ')}
         </Text>
       ) : null}
     </View>
@@ -317,10 +405,10 @@ function RefundRow({ refund }: { refund: Refund }) {
  * ACTION "Cancel", not the status "Cancelled".
  */
 const NEXT_STATUSES: { key: FulfillmentStatus; labelKey: string }[] = [
-  { key: "processing", labelKey: ORDER_STATUS_LABEL_KEYS.processing },
-  { key: "shipped", labelKey: ORDER_STATUS_LABEL_KEYS.shipped },
-  { key: "delivered", labelKey: ORDER_STATUS_LABEL_KEYS.delivered },
-  { key: "cancelled", labelKey: "common.cancel" },
+  { key: 'processing', labelKey: ORDER_STATUS_LABEL_KEYS.processing },
+  { key: 'shipped', labelKey: ORDER_STATUS_LABEL_KEYS.shipped },
+  { key: 'delivered', labelKey: ORDER_STATUS_LABEL_KEYS.delivered },
+  { key: 'cancelled', labelKey: 'common.cancel' },
 ];
 
 /**
@@ -330,28 +418,31 @@ const NEXT_STATUSES: { key: FulfillmentStatus; labelKey: string }[] = [
  * split rule 5 of the extraction contract forbids.
  */
 const TRANSITION_TOAST_KEYS: Record<FulfillmentStatus, string> = {
-  processing: "orders.detail.markedProcessing",
-  shipped: "orders.detail.markedShipped",
-  delivered: "orders.detail.markedDelivered",
-  cancelled: "orders.detail.markedCancelled",
+  processing: 'orders.detail.markedProcessing',
+  shipped: 'orders.detail.markedShipped',
+  delivered: 'orders.detail.markedDelivered',
+  cancelled: 'orders.detail.markedCancelled',
 };
 
 function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantOrder }) {
   const { t } = useTranslation();
   const { can } = useActiveStoreContext();
   const patch = usePatchOrderStatus(storeId, order.id);
-  const [tracking, setTracking] = useState(order.shipping.trackingNumber ?? "");
+  const [tracking, setTracking] = useState(order.shipping.trackingNumber ?? '');
   const refundControl = useDialogControl();
 
-  const canFulfil = can("orders:fulfill");
-  const canRefund = can("refunds:write");
+  const canFulfil = can('orders:fulfill');
+  const canRefund = can('refunds:write');
 
   const transition = (status: FulfillmentStatus) => {
     patch.mutate(
-      { status, ...(status === "shipped" && tracking.trim() ? { trackingNumber: tracking.trim() } : {}) },
+      {
+        status,
+        ...(status === 'shipped' && tracking.trim() ? { trackingNumber: tracking.trim() } : {}),
+      },
       {
         onSuccess: () => toast.success(t(TRANSITION_TOAST_KEYS[status])),
-        onError: () => toast.error(t("orders.detail.updateFailed")),
+        onError: () => toast.error(t('orders.detail.updateFailed')),
       },
     );
   };
@@ -363,7 +454,7 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
   return (
     <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
       <Text className="mb-3 text-sm font-semibold text-foreground">
-        {t("orders.detail.fulfilment")}
+        {t('orders.detail.fulfilment')}
       </Text>
 
       {/* Shipping carrier UI is intentionally hidden (Moovo integration pending);
@@ -371,12 +462,12 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
       {canFulfil ? (
         <>
           <View className="mb-3">
-            <Field label={t("orders.detail.trackingLabel")}>
+            <Field label={t('orders.detail.trackingLabel')}>
               <TextFieldInput
-                label={t("orders.detail.trackingLabel")}
+                label={t('orders.detail.trackingLabel')}
                 value={tracking}
                 onValueChange={setTracking}
-                placeholder={t("orders.detail.trackingPlaceholder")}
+                placeholder={t('orders.detail.trackingPlaceholder')}
               />
             </Field>
           </View>
@@ -385,8 +476,8 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
               <Button
                 key={s.key}
                 size="sm"
-                appearance={s.key === "cancelled" ? "outline" : "solid"}
-                tone={s.key === "cancelled" ? "neutral" : "accent"}
+                appearance={s.key === 'cancelled' ? 'outline' : 'solid'}
+                tone={s.key === 'cancelled' ? 'neutral' : 'accent'}
                 onPress={() => transition(s.key)}
                 loading={patch.isPending}
               >
@@ -398,16 +489,17 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
       ) : null}
 
       {canRefund ? (
-        <Button tone="danger" className="mt-4 self-start" size="sm" onPress={() => refundControl.open()}>
-          {t("orders.detail.refund")}
+        <Button
+          tone="danger"
+          className="mt-4 self-start"
+          size="sm"
+          onPress={() => refundControl.open()}
+        >
+          {t('orders.detail.refund')}
         </Button>
       ) : null}
 
-      <RefundDialog
-        storeId={storeId}
-        order={order}
-        control={refundControl}
-      />
+      <RefundDialog storeId={storeId} order={order} control={refundControl} />
     </View>
   );
 }
@@ -424,18 +516,18 @@ function RefundDialog({
   const { t } = useTranslation();
   const createRefund = useCreateRefund(storeId, order.id);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState('');
 
   const submit = () => {
     const lineItems = order.items
       .map((item) => {
-        const qty = Number.parseInt(quantities[item.variantId] ?? "0", 10) || 0;
+        const qty = Number.parseInt(quantities[item.variantId] ?? '0', 10) || 0;
         return { variantId: item.variantId, quantity: Math.min(qty, item.quantity) };
       })
       .filter((line) => line.quantity > 0);
 
     if (lineItems.length === 0) {
-      toast.error(t("orders.refund.quantityRequired"));
+      toast.error(t('orders.refund.quantityRequired'));
       return;
     }
 
@@ -443,27 +535,30 @@ function RefundDialog({
       { lineItems, ...(reason.trim() ? { reason: reason.trim() } : {}) },
       {
         onSuccess: () => {
-          toast.success(t("orders.refund.processed"));
+          toast.success(t('orders.refund.processed'));
           control.close();
           setQuantities({});
-          setReason("");
+          setReason('');
         },
-        onError: () => toast.error(t("orders.refund.failed")),
+        onError: () => toast.error(t('orders.refund.failed')),
       },
     );
   };
 
   return (
-    <Dialog control={control} title={t("orders.refund.dialogTitle")}>
+    <Dialog control={control} title={t('orders.refund.dialogTitle')}>
       <View className="gap-3">
         {order.items.map((item, idx) => (
-          <View key={`${item.variantId}-${idx}`} className="flex-row items-center justify-between gap-3">
+          <View
+            key={`${item.variantId}-${idx}`}
+            className="flex-row items-center justify-between gap-3"
+          >
             <View className="flex-1">
               <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
                 {item.title}
               </Text>
               <Text className="text-xs text-muted-foreground">
-                {t("orders.refund.itemMax", {
+                {t('orders.refund.itemMax', {
                   variant: item.variantTitle,
                   quantity: item.quantity,
                 })}
@@ -471,8 +566,8 @@ function RefundDialog({
             </View>
             <View className="w-20">
               <TextFieldInput
-                label={t("orders.refund.quantityLabel", { item: item.title })}
-                value={quantities[item.variantId] ?? ""}
+                label={t('orders.refund.quantityLabel', { item: item.title })}
+                value={quantities[item.variantId] ?? ''}
                 onValueChange={(value) =>
                   setQuantities((prev) => ({ ...prev, [item.variantId]: value }))
                 }
@@ -482,16 +577,16 @@ function RefundDialog({
             </View>
           </View>
         ))}
-        <Field label={t("orders.refund.reasonLabel")}>
+        <Field label={t('orders.refund.reasonLabel')}>
           <TextFieldInput
-            label={t("orders.refund.reasonLabel")}
+            label={t('orders.refund.reasonLabel')}
             value={reason}
             onValueChange={setReason}
-            placeholder={t("orders.refund.reasonPlaceholder")}
+            placeholder={t('orders.refund.reasonPlaceholder')}
           />
         </Field>
         <Button tone="danger" onPress={submit} loading={createRefund.isPending} className="mt-1">
-          {t("orders.refund.submit")}
+          {t('orders.refund.submit')}
         </Button>
       </View>
     </Dialog>

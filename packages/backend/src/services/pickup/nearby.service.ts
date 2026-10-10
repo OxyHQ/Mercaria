@@ -139,8 +139,12 @@ export async function findNearbyAvailability(
   });
 
   const candidates = await findCollectableAtLocations({
-    ...(request.canonicalVariantId === undefined ? {} : { canonicalVariantId: request.canonicalVariantId }),
-    ...(request.canonicalProductId === undefined ? {} : { canonicalProductId: request.canonicalProductId }),
+    ...(request.canonicalVariantId === undefined
+      ? {}
+      : { canonicalVariantId: request.canonicalVariantId }),
+    ...(request.canonicalProductId === undefined
+      ? {}
+      : { canonicalProductId: request.canonicalProductId }),
     links: page.items.map(toLink),
     ...(request.currency === undefined ? {} : { currency: request.currency }),
     ...(request.conditionKeys === undefined ? {} : { conditionKeys: request.conditionKeys }),
@@ -193,15 +197,21 @@ export async function findNearbyAvailability(
             at,
           });
 
-    results.push(projectResult(candidate, place, distanceOf(candidate, distances), at, eligibility));
+    results.push(
+      projectResult(candidate, place, distanceOf(candidate, distances), at, eligibility),
+    );
   }
 
   return {
     results,
     ...(page.nextCursor === null ? {} : { nextCursor: page.nextCursor }),
     origin: { source: request.originSource, cell, radiusMetres },
-    ...(request.canonicalProductId === undefined ? {} : { canonicalProductId: request.canonicalProductId }),
-    ...(request.canonicalVariantId === undefined ? {} : { canonicalVariantId: request.canonicalVariantId }),
+    ...(request.canonicalProductId === undefined
+      ? {}
+      : { canonicalProductId: request.canonicalProductId }),
+    ...(request.canonicalVariantId === undefined
+      ? {}
+      : { canonicalVariantId: request.canonicalVariantId }),
   };
 }
 
@@ -256,8 +266,12 @@ export async function suggestNearbyPlaces(input: {
       limit: TOWN_PLACE_SCAN,
     });
     const locationCount = await countCollectableAtLocations({
-      ...(input.canonicalVariantId === undefined ? {} : { canonicalVariantId: input.canonicalVariantId }),
-      ...(input.canonicalProductId === undefined ? {} : { canonicalProductId: input.canonicalProductId }),
+      ...(input.canonicalVariantId === undefined
+        ? {}
+        : { canonicalVariantId: input.canonicalVariantId }),
+      ...(input.canonicalProductId === undefined
+        ? {}
+        : { canonicalProductId: input.canonicalProductId }),
       links: near.items.map(toLink),
     });
     if (locationCount === 0) continue;
@@ -327,12 +341,20 @@ export async function findLinkedLocationsNear(input: {
  * @throws {GoWayUnavailableError} When GoWay cannot answer.
  */
 export async function findNearestCollectionByVariant(
-  input: { variantIds: readonly string[]; latitude: number; longitude: number; radiusMetres: number },
+  input: {
+    variantIds: readonly string[];
+    latitude: number;
+    longitude: number;
+    radiusMetres: number;
+  },
   db?: DatabaseOrTransaction,
 ): Promise<ReadonlyMap<string, number>> {
   if (input.variantIds.length === 0) return new Map();
   const near = await findLinkedLocationsNear(input);
-  const pairs = await findCollectableVariantLocations({ variantIds: input.variantIds, links: near.map(toLink) }, db);
+  const pairs = await findCollectableVariantLocations(
+    { variantIds: input.variantIds, links: near.map(toLink) },
+    db,
+  );
   const distances = new Map(near.map((item) => [linkKey(item), item.distanceMetres]));
 
   const nearest = new Map<string, number>();
@@ -352,7 +374,12 @@ export async function findNearestCollectionByVariant(
  * @throws {GoWayUnavailableError} When GoWay cannot answer.
  */
 export async function findCanonicalProductsCollectableNear(
-  input: { canonicalProductIds: readonly string[]; latitude: number; longitude: number; radiusMetres: number },
+  input: {
+    canonicalProductIds: readonly string[];
+    latitude: number;
+    longitude: number;
+    radiusMetres: number;
+  },
   db?: DatabaseOrTransaction,
 ): Promise<ReadonlySet<string>> {
   if (input.canonicalProductIds.length === 0) return new Set();
@@ -384,7 +411,10 @@ function linkKey(link: { locationId: string; placeId: string }): string {
 }
 
 function distanceOf(candidate: NearbyCandidateRow, distances: ReadonlyMap<string, number>): number {
-  return distances.get(linkKey({ locationId: candidate.locationId, placeId: candidate.goWayPlaceId })) ?? 0;
+  return (
+    distances.get(linkKey({ locationId: candidate.locationId, placeId: candidate.goWayPlaceId })) ??
+    0
+  );
 }
 
 /** Nearest first, as GoWay measured; location then variant breaks a tie, so a page never reorders. */
@@ -468,7 +498,9 @@ function projectResult(
   // Unreachable while the trust rule refuses a place with no country or zone;
   // a projection that guessed either would describe a place nobody published.
   if (address === null || place.timezone === undefined) {
-    throw new Error(`GoWay place ${place.id} passed the trust rule without a country or a timezone`);
+    throw new Error(
+      `GoWay place ${place.id} passed the trust rule without a country or a timezone`,
+    );
   }
 
   const location: PublicPickupLocation = {
@@ -477,7 +509,9 @@ function projectResult(
     displayName: place.displayName,
     address,
     timezone: place.timezone,
-    ...(candidate.merchantId === null || candidate.merchantName === null || candidate.merchantSlug === null
+    ...(candidate.merchantId === null ||
+    candidate.merchantName === null ||
+    candidate.merchantSlug === null
       ? {}
       : {
           merchant: {
@@ -492,9 +526,13 @@ function projectResult(
     openState: openStateOf(place.opening, at),
     hours: weeklyHoursOf(place.opening),
     hoursExceptions: hoursExceptionsOf(place.opening),
-    ...(Object.keys(place.accessibility).length === 0 ? {} : { accessibility: place.accessibility }),
+    ...(Object.keys(place.accessibility).length === 0
+      ? {}
+      : { accessibility: place.accessibility }),
     ...(Object.keys(place.contact).length === 0 ? {} : { contact: place.contact }),
-    ...(candidate.pickupInstructions === null ? {} : { pickupInstructions: candidate.pickupInstructions }),
+    ...(candidate.pickupInstructions === null
+      ? {}
+      : { pickupInstructions: candidate.pickupInstructions }),
     identityRequirement: candidate.identityRequirement,
     paymentRequirement: candidate.paymentRequirement,
   };

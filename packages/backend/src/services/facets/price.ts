@@ -61,7 +61,11 @@ export interface ConvertedPriceBounds {
  * the reason is decided rather than inferred from a thrown `convert`.
  */
 export async function convertPriceBound(
-  bound: { readonly currency: CurrencyCode; readonly minMinor?: number; readonly maxMinor?: number },
+  bound: {
+    readonly currency: CurrencyCode;
+    readonly minMinor?: number;
+    readonly maxMinor?: number;
+  },
   presentCurrencies: readonly string[],
 ): Promise<ConvertedPriceBounds> {
   const present = [...new Set(presentCurrencies)];

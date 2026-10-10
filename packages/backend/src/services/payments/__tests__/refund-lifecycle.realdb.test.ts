@@ -614,7 +614,9 @@ async function seedSettledOrder(
 /** Every ledger entry this payment produced, flattened for assertion. */
 async function ledgerFor(
   paymentId: string,
-): Promise<{ kind: string; account: string; currency: string; amount: bigint; orderId: string | null }[]> {
+): Promise<
+  { kind: string; account: string; currency: string; amount: bigint; orderId: string | null }[]
+> {
   const rows = await db
     .select({
       kind: ledgerSchema.ledgerTransactions.kind,
@@ -649,16 +651,11 @@ async function ledgerBalance(paymentId: string): Promise<Record<string, bigint>>
 }
 
 /** What one account holds for one payment, in one currency. */
-async function accountTotal(
-  paymentId: string,
-  account: string,
-  orderId?: string,
-): Promise<bigint> {
+async function accountTotal(paymentId: string, account: string, orderId?: string): Promise<bigint> {
   const entries = await ledgerFor(paymentId);
   return entries
     .filter(
-      (entry) =>
-        entry.account === account && (orderId === undefined || entry.orderId === orderId),
+      (entry) => entry.account === account && (orderId === undefined || entry.orderId === orderId),
     )
     .reduce((sum, entry) => sum + entry.amount, 0n);
 }
@@ -678,7 +675,10 @@ async function transferFor(paymentId: string, orderId: string) {
     .select()
     .from(paymentSchema.transfers)
     .where(
-      and(eq(paymentSchema.transfers.paymentId, paymentId), eq(paymentSchema.transfers.orderId, orderId)),
+      and(
+        eq(paymentSchema.transfers.paymentId, paymentId),
+        eq(paymentSchema.transfers.orderId, orderId),
+      ),
     );
   return row;
 }
@@ -730,7 +730,9 @@ describe('a merchant refund on a settled Stripe order', () => {
     const refund = await processRefund(
       fixture.storeId,
       fixture.orderId,
-      { lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }] },
+      {
+        lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }],
+      },
       fixture.ownerId,
     );
 
@@ -779,7 +781,10 @@ describe('a merchant refund on a settled Stripe order', () => {
 
     // A full refund of the whole order, so the order is `refunded`.
     const [order] = await db
-      .select({ status: orderSchema.orders.status, paymentStatus: orderSchema.orders.paymentStatus })
+      .select({
+        status: orderSchema.orders.status,
+        paymentStatus: orderSchema.orders.paymentStatus,
+      })
       .from(orderSchema.orders)
       .where(eq(orderSchema.orders.id, fixture.orderId));
     expect(order?.status).toBe('refunded');
@@ -836,9 +841,9 @@ describe('a merchant refund on a settled Stripe order', () => {
     expect(transfer?.reversedAmount).toBe(platformGross);
     expect(transfer?.status).toBe('reversed');
     expect(api.reversalCalls).toHaveLength(2);
-    expect(
-      api.reversalCalls.reduce((sum, call) => sum + Number(call.params.amount), 0),
-    ).toBe(platformGross);
+    expect(api.reversalCalls.reduce((sum, call) => sum + Number(call.params.amount), 0)).toBe(
+      platformGross,
+    );
 
     // The seller's payable nets to zero: credited by the charge, settled by the
     // transfer, charged by two refunds and recovered by two reversals.
@@ -873,7 +878,9 @@ describe('a merchant refund on a settled Stripe order', () => {
     await deliver({
       id: `evt_charge_refunded_${RUN}_${refund.id}`,
       type: 'charge.refunded',
-      data: { object: { id: fixture.chargeId, object: 'charge', payment_intent: fixture.intentId } },
+      data: {
+        object: { id: fixture.chargeId, object: 'charge', payment_intent: fixture.intentId },
+      },
     });
 
     expect(await availableFor(fixture.orderId)).toBe(afterCommerce);
@@ -902,7 +909,9 @@ describe('a reversal the rail refuses', () => {
     const refund = await processRefund(
       fixture.storeId,
       fixture.orderId,
-      { lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }] },
+      {
+        lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }],
+      },
       fixture.ownerId,
     );
 
@@ -929,7 +938,12 @@ describe('a reversal the rail refuses', () => {
     const raised = await db
       .select()
       .from(paymentSchema.paymentOutboxes)
-      .where(eq(paymentSchema.paymentOutboxes.id, `payment:reversal_failed:${refund.id}:${fixture.orderId}`));
+      .where(
+        eq(
+          paymentSchema.paymentOutboxes.id,
+          `payment:reversal_failed:${refund.id}:${fixture.orderId}`,
+        ),
+      );
     expect(raised).toHaveLength(1);
   });
 
@@ -985,7 +999,9 @@ describe('a refund the rail refuses outright', () => {
     const refund = await processRefund(
       fixture.storeId,
       fixture.orderId,
-      { lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }] },
+      {
+        lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }],
+      },
       fixture.ownerId,
     );
 
@@ -1320,7 +1336,9 @@ describe('a restated Stripe fee', () => {
     await deliver({
       id: `evt_charge_updated_${RUN}`,
       type: 'charge.updated',
-      data: { object: { id: fixture.chargeId, object: 'charge', payment_intent: fixture.intentId } },
+      data: {
+        object: { id: fixture.chargeId, object: 'charge', payment_intent: fixture.intentId },
+      },
     });
 
     expect(await accountTotal(fixture.paymentId, 'processor_expense')).toBe(BigInt(restated));
@@ -1335,7 +1353,9 @@ describe('a restated Stripe fee', () => {
     await deliver({
       id: `evt_charge_updated_again_${RUN}`,
       type: 'charge.updated',
-      data: { object: { id: fixture.chargeId, object: 'charge', payment_intent: fixture.intentId } },
+      data: {
+        object: { id: fixture.chargeId, object: 'charge', payment_intent: fixture.intentId },
+      },
     });
     expect(await accountTotal(fixture.paymentId, 'processor_expense')).toBe(BigInt(restated));
     expect(
@@ -1418,7 +1438,9 @@ describe('the marketplace fee (#88) on the settled money path', () => {
     await processRefund(
       fixture.storeId,
       fixture.orderId,
-      { lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }] },
+      {
+        lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }],
+      },
       fixture.ownerId,
     );
 
@@ -1443,7 +1465,11 @@ describe('the marketplace fee (#88) on the settled money path', () => {
     await processRefund(
       fixture.storeId,
       fixture.orderId,
-      { lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: false }] },
+      {
+        lineItems: [
+          { variantId: await firstVariant(fixture.orderId), quantity: 1, restock: false },
+        ],
+      },
       fixture.ownerId,
     );
 

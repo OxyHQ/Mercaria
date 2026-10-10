@@ -159,8 +159,8 @@ export const V1_WIRE_CONTRACTS: readonly V1WireContract[] = [
     servedBy: null,
     provenBy: null,
     why:
-      'The #90 AUTHORITY, not a v1 contract. Its docblock names v1 only to say that `condition` '
-      + 'below is its derived projection, which is exactly the sentence the derivation matches on.',
+      'The #90 AUTHORITY, not a v1 contract. Its docblock names v1 only to say that `condition` ' +
+      'below is its derived projection, which is exactly the sentence the derivation matches on.',
   },
   {
     path: 'Listing.condition',
@@ -168,13 +168,16 @@ export const V1_WIRE_CONTRACTS: readonly V1WireContract[] = [
     direction: 'read',
     supersededBy: 'itemCondition',
     servedBy: LISTING_HYDRATION,
-    provenBy: { file: SERVING_PROOF, title: 'serves the v1 binary condition derived from itemCondition.key' },
+    provenBy: {
+      file: SERVING_PROOF,
+      title: 'serves the v1 binary condition derived from itemCondition.key',
+    },
     why:
-      'The v1 binary read, computed from `itemCondition.key` on every read and stored nowhere '
-      + '(`LEGACY_CONDITION_CONTRACT`). The pure mapping `legacyBinaryConditionFor` was already '
-      + 'pinned exhaustively by `condition-taxonomy.test.ts`; the CALL at the hydration site was '
-      + 'not, which is the green-and-inert shape — hardcoding the value there left the whole '
-      + 'suite green.',
+      'The v1 binary read, computed from `itemCondition.key` on every read and stored nowhere ' +
+      '(`LEGACY_CONDITION_CONTRACT`). The pure mapping `legacyBinaryConditionFor` was already ' +
+      'pinned exhaustively by `condition-taxonomy.test.ts`; the CALL at the hydration site was ' +
+      'not, which is the green-and-inert shape — hardcoding the value there left the whole ' +
+      'suite green.',
   },
   {
     path: 'Listing.category',
@@ -182,12 +185,15 @@ export const V1_WIRE_CONTRACTS: readonly V1WireContract[] = [
     direction: 'read',
     supersededBy: 'categoryId (`listings.category_id`; not published on any DTO yet)',
     servedBy: LISTING_HYDRATION,
-    provenBy: { file: SERVING_PROOF, title: 'serves the v1 category slug as the LEAF of the materialized path' },
+    provenBy: {
+      file: SERVING_PROOF,
+      title: 'serves the v1 category slug as the LEAF of the materialized path',
+    },
     why:
-      'The v1 category read, derived from the leaf of `listings.category_slugs` '
-      + '(`LEGACY_LISTING_CATEGORY_CONTRACT`, ADR 0007 D13). Its EXISTENCE is gated twice — '
-      + '`catalog-identity-isolation.test.ts` CLAUSE 3 and '
-      + '`scripts/validate-catalog-identity-contracts.mjs` — and its VALUE was gated nowhere.',
+      'The v1 category read, derived from the leaf of `listings.category_slugs` ' +
+      '(`LEGACY_LISTING_CATEGORY_CONTRACT`, ADR 0007 D13). Its EXISTENCE is gated twice — ' +
+      '`catalog-identity-isolation.test.ts` CLAUSE 3 and ' +
+      '`scripts/validate-catalog-identity-contracts.mjs` — and its VALUE was gated nowhere.',
   },
   {
     path: 'CreateP2PListingInput.condition',
@@ -209,14 +215,14 @@ export const V1_WIRE_CONTRACTS: readonly V1WireContract[] = [
     servedBy: { module: 'services/catalog-write.service.ts', symbol: 'createP2PListing' },
     provenBy: null,
     why:
-      'The v1 slug on a P2P create. No proof is claimed here, and the reason is a limit of what '
-      + 'was measured rather than a finding: the 28 `createP2PListing(`/`createStoreProduct(` call '
-      + 'sites across 8 test files all pass `category:` as fixture input, and whether any of them '
-      + 'asserts that the SLUG resolved to the right `category_id` is not a question grep can '
-      + 'settle — the tree carries 39 assertions naming `categoryId`/`categorySlugs` and they are '
-      + 'about other things. Closing it means a realdb case against a provisioned taxonomy that '
-      + 'creates with a slug and reads the resolved identity back, which is a different harness '
-      + 'from the read proofs here.',
+      'The v1 slug on a P2P create. No proof is claimed here, and the reason is a limit of what ' +
+      'was measured rather than a finding: the 28 `createP2PListing(`/`createStoreProduct(` call ' +
+      'sites across 8 test files all pass `category:` as fixture input, and whether any of them ' +
+      'asserts that the SLUG resolved to the right `category_id` is not a question grep can ' +
+      'settle — the tree carries 39 assertions naming `categoryId`/`categorySlugs` and they are ' +
+      'about other things. Closing it means a realdb case against a provisioned taxonomy that ' +
+      'creates with a slug and reads the resolved identity back, which is a different harness ' +
+      'from the read proofs here.',
   },
   {
     path: 'CreateStoreProductInput.condition',
@@ -238,8 +244,8 @@ export const V1_WIRE_CONTRACTS: readonly V1WireContract[] = [
     servedBy: { module: 'services/catalog-write.service.ts', symbol: 'createStoreProduct' },
     provenBy: null,
     why:
-      'The v1 slug on a store create. No proof is claimed, for the reason its P2P sibling states — '
-      + 'both go through the same `resolveCategory` step and one realdb case would close both.',
+      'The v1 slug on a store create. No proof is claimed, for the reason its P2P sibling states — ' +
+      'both go through the same `resolveCategory` step and one realdb case would close both.',
   },
   {
     path: 'ListingQuery.category',
@@ -247,11 +253,14 @@ export const V1_WIRE_CONTRACTS: readonly V1WireContract[] = [
     direction: 'query',
     supersededBy: 'categoryId',
     servedBy: LISTING_QUERY_FILTERS,
-    provenBy: { file: SERVING_PROOF, title: 'carries the v1 category slug through to the repository filter' },
+    provenBy: {
+      file: SERVING_PROOF,
+      title: 'carries the v1 category slug through to the repository filter',
+    },
     why:
-      'The v1 category FILTER. `toFilters` is the one translation and had no test importer in the '
-      + 'repository at all — a query contract fails by returning the wrong ROWS, which reads as an '
-      + 'empty catalogue rather than as an error.',
+      'The v1 category FILTER. `toFilters` is the one translation and had no test importer in the ' +
+      'repository at all — a query contract fails by returning the wrong ROWS, which reads as an ' +
+      'empty catalogue rather than as an error.',
   },
   {
     path: 'ListingQuery.condition',
@@ -259,12 +268,15 @@ export const V1_WIRE_CONTRACTS: readonly V1WireContract[] = [
     direction: 'query',
     supersededBy: 'conditionKeys / conditionGroups',
     servedBy: LISTING_QUERY_FILTERS,
-    provenBy: { file: SERVING_PROOF, title: 'widens a v1 `used` filter to every non-new condition GROUP' },
+    provenBy: {
+      file: SERVING_PROOF,
+      title: 'widens a v1 `used` filter to every non-new condition GROUP',
+    },
     why:
-      'The v1 condition FILTER, and the widening is the load-bearing part: `used` must select '
-      + 'every non-`new` GROUP, because a v1 client cannot name a segment and meant "not '
-      + 'factory-sealed". Mapping it to one key hides refurbished and for-parts listings from '
-      + 'every shipped mobile build, silently.',
+      'The v1 condition FILTER, and the widening is the load-bearing part: `used` must select ' +
+      'every non-`new` GROUP, because a v1 client cannot name a segment and meant "not ' +
+      'factory-sealed". Mapping it to one key hides refurbished and for-parts listings from ' +
+      'every shipped mobile build, silently.',
   },
 
   /* ---- order.ts --------------------------------------------------------- */
@@ -279,14 +291,14 @@ export const V1_WIRE_CONTRACTS: readonly V1WireContract[] = [
       title: 'serves the v1 buyer id on an oxy-origin order',
     },
     why:
-      'The v1 buyer read (#106, ADR 0003 D6). It was the worst-exposed of the four: there was no '
-      + '`order-hydration.service` test file at all, every test referencing `hydrateOrders` '
-      + 'MOCKED it, and the field is OPTIONAL on `Order` — so unlike `Listing.condition` not even '
-      + 'its PRESENCE was gated, and deleting the serving line left `tsc` and all 10,500 tests '
-      + 'green. The proof also pins the two failures either side of it: a CLAIMED guest order '
-      + 'must not carry the claimant (a silent misattribution that looks exactly like the field '
-      + 'working), and a MERCHANT projection must not carry it at all — checked on the emitted '
-      + 'object, because `MerchantOrder`\'s `Omit` cannot see a runtime spread.',
+      'The v1 buyer read (#106, ADR 0003 D6). It was the worst-exposed of the four: there was no ' +
+      '`order-hydration.service` test file at all, every test referencing `hydrateOrders` ' +
+      'MOCKED it, and the field is OPTIONAL on `Order` — so unlike `Listing.condition` not even ' +
+      'its PRESENCE was gated, and deleting the serving line left `tsc` and all 10,500 tests ' +
+      'green. The proof also pins the two failures either side of it: a CLAIMED guest order ' +
+      'must not carry the claimant (a silent misattribution that looks exactly like the field ' +
+      'working), and a MERCHANT projection must not carry it at all — checked on the emitted ' +
+      "object, because `MerchantOrder`'s `Omit` cannot see a runtime spread.",
   },
   {
     path: 'CheckoutInput.destination',
@@ -296,8 +308,8 @@ export const V1_WIRE_CONTRACTS: readonly V1WireContract[] = [
     servedBy: null,
     provenBy: null,
     why:
-      'The #105 SUCCESSOR, not a v1 contract. Its docblock says the field is required "unless the '
-      + 'v1 `addressId` is used", which is the sentence the derivation matches on.',
+      'The #105 SUCCESSOR, not a v1 contract. Its docblock says the field is required "unless the ' +
+      'v1 `addressId` is used", which is the sentence the derivation matches on.',
   },
   {
     path: 'CheckoutInput.addressId',
@@ -310,10 +322,10 @@ export const V1_WIRE_CONTRACTS: readonly V1WireContract[] = [
       title: 'maps a v1 `addressId` body to a saved_address destination',
     },
     why:
-      'The only v1 contract that was already gated, and the POSITIVE CONTROL for the whole '
-      + 'measurement: deleting its mapping branch turns 5 files and 29 tests red. Its docblock is '
-      + 'also the precedent every proof here follows — "exported so the contract-version tests can '
-      + 'drive it directly".',
+      'The only v1 contract that was already gated, and the POSITIVE CONTROL for the whole ' +
+      'measurement: deleting its mapping branch turns 5 files and 29 tests red. Its docblock is ' +
+      'also the precedent every proof here follows — "exported so the contract-version tests can ' +
+      'drive it directly".',
   },
 
   /* ---- taxonomy.ts / taxonomy-classification.ts ------------------------- */
@@ -325,25 +337,28 @@ export const V1_WIRE_CONTRACTS: readonly V1WireContract[] = [
     servedBy: { module: 'db/taxonomy/taxonomyRepository.ts', symbol: 'toTaxonomyCategory' },
     provenBy: null,
     why:
-      'ADR 0007 D13 retains `categories.ancestor_slugs` as a v1 read contract, retired in a later '
-      + '`post` migration once no reader remains. Different failure mode from the projections '
-      + 'above — it is a STORED column served verbatim, so what would remove it is a migration, '
-      + 'and `migration-rollback-posture.test.ts` covers that side. What is UNGATED is the READ: '
-      + 'all six `expect(...ancestorSlugs)` sites in the repository assert the COLUMN through a '
-      + 'direct `db.select`, never the served field, which is the misleading part — the column '
-      + 'maintenance is well tested and reads as coverage for the projection.',
+      'ADR 0007 D13 retains `categories.ancestor_slugs` as a v1 read contract, retired in a later ' +
+      '`post` migration once no reader remains. Different failure mode from the projections ' +
+      'above — it is a STORED column served verbatim, so what would remove it is a migration, ' +
+      'and `migration-rollback-posture.test.ts` covers that side. What is UNGATED is the READ: ' +
+      'all six `expect(...ancestorSlugs)` sites in the repository assert the COLUMN through a ' +
+      'direct `db.select`, never the served field, which is the misleading part — the column ' +
+      'maintenance is well tested and reads as coverage for the projection.',
   },
   {
     path: 'PrimaryClassification.ancestorSlugs',
     file: 'taxonomy-classification.ts',
     direction: 'read',
     supersededBy: 'ancestorIds',
-    servedBy: { module: 'db/taxonomy/classificationRepository.ts', symbol: 'findProductClassification' },
+    servedBy: {
+      module: 'db/taxonomy/classificationRepository.ts',
+      symbol: 'findProductClassification',
+    },
     provenBy: null,
     why:
-      'The same D13 v1 read contract on the classification projection, ungated for the same '
-      + 'reason. `taxonomy-classification.realdb.test.ts` uses `ancestorSlugs` only as INSERT '
-      + 'fixture values and asserts `categoryId` on the responses.',
+      'The same D13 v1 read contract on the classification projection, ungated for the same ' +
+      'reason. `taxonomy-classification.realdb.test.ts` uses `ancestorSlugs` only as INSERT ' +
+      'fixture values and asserts `categoryId` on the responses.',
   },
 ];
 

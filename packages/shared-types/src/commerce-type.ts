@@ -324,9 +324,7 @@ export type CommerceTypeDisposition =
  * be classified is as much a decision as one that must, and a map able to
  * express only "we sell it" would force whoever wrote it to leave the rest out.
  */
-export const COMMERCE_TYPE_DISPOSITIONS: Readonly<
-  Record<CommerceType, CommerceTypeDisposition>
-> = {
+export const COMMERCE_TYPE_DISPOSITIONS: Readonly<Record<CommerceType, CommerceTypeDisposition>> = {
   physical_good: {
     verdict: 'classified',
     mechanism:
@@ -455,47 +453,47 @@ export const DIGITAL_GOOD_PREREQUISITE_DISCHARGES: Readonly<
 > = {
   delivery_destination: {
     mechanism:
-      'A fourth checkout destination, `digital_delivery`, which carries no place at all — not an address with empty fields. It is REFUSED for any checkout containing a physical line, so it cannot become a way to buy a chair with no address, and the refusal is the server\'s own check against the resolved cart rather than a client assertion.',
+      "A fourth checkout destination, `digital_delivery`, which carries no place at all — not an address with empty fields. It is REFUSED for any checkout containing a physical line, so it cannot become a way to buy a chair with no address, and the refusal is the server's own check against the resolved cart rather than a client assertion.",
     citation:
-      "CHECKOUT_DESTINATION_TYPES `digital_delivery`; services/checkout/destination.ts `DigitalFulfilment`; services/checkout.service.ts `refuseDigitalDestinationForPhysicalLines`",
+      'CHECKOUT_DESTINATION_TYPES `digital_delivery`; services/checkout/destination.ts `DigitalFulfilment`; services/checkout.service.ts `refuseDigitalDestinationForPhysicalLines`',
     decision: 'ADR 0010 D8',
   },
   order_address_snapshot: {
     mechanism:
       "The five required address columns on `orders` became nullable and a CHECK took their place: a `digital` order must have them ALL NULL and every other order must have them ALL NOT NULL. That is stronger than the NOT NULL it replaces, because NOT NULL permitted a fabricated street and the CHECK forbids one — #1015 boundary 16's 'no fake shipping records' is now a constraint rather than a convention.",
-    citation: "orders_shipping_address_digital_check; db/schema/orders.ts",
+    citation: 'orders_shipping_address_digital_check; db/schema/orders.ts',
     decision: 'ADR 0010 D8',
   },
   fulfilment_completion_signal: {
     mechanism:
-      "A ninth order status, `digitally_delivered`, and a fourth fulfilment method, `digital`. The method joins SHIPPING_METHODS rather than making `orders.shipping_method` nullable, following `pickup` — which has been a non-shipping member of that tuple since #93 and makes the tuple a FULFILMENT vocabulary under a legacy name.",
-    citation: "ORDER_STATUSES `digitally_delivered`; SHIPPING_METHODS `digital`",
+      'A ninth order status, `digitally_delivered`, and a fourth fulfilment method, `digital`. The method joins SHIPPING_METHODS rather than making `orders.shipping_method` nullable, following `pickup` — which has been a non-shipping member of that tuple since #93 and makes the tuple a FULFILMENT vocabulary under a legacy name.',
+    citation: 'ORDER_STATUSES `digitally_delivered`; SHIPPING_METHODS `digital`',
     decision: 'ADR 0010 D9',
   },
   entitlement_delivery: {
     mechanism:
       'The whole of #1015 Workstream 2: an `asset_rights` row is the durable thing a buyer holds, created idempotently from the paid order state, and a download is authorized against it and served through a short-lived grant that is never logged. No permanent URL exists anywhere in the domain.',
-    citation: "db/schema/digitalRights.ts `assetRights`; services/digital/right.service.ts",
+    citation: 'db/schema/digitalRights.ts `assetRights`; services/digital/right.service.ts',
     decision: 'ADR 0010 D5',
   },
   tax_place_of_supply: {
     mechanism:
       "A place of supply per LINE rather than per order: a physical line is still matched on the shipping country, region and postal code, and a digital line is matched on the consumer's country alone. The two rules are selected by the line, so a mixed order taxes each half correctly and neither borrows the other's evidence.",
     citation:
-      "DigitalPlaceOfSupply; services/pricing.service.ts `rateMatchesPlaceOfSupply`; orders.digital_supply_country",
+      'DigitalPlaceOfSupply; services/pricing.service.ts `rateMatchesPlaceOfSupply`; orders.digital_supply_country',
     decision: 'ADR 0010 D10',
   },
   condition_semantics: {
     mechanism:
-      "A digital line carries NO condition, and a CHECK says so: `order_items.condition_key` must be NULL when the line names an asset version. ITEM_CONDITION_KEYS is untouched — adding a `not_applicable` member would have given every PHYSICAL listing a way to decline to describe itself, which is exactly the erosion #90 was built against.",
-    citation: "order_items_digital_no_condition_check; db/schema/orders.ts",
+      'A digital line carries NO condition, and a CHECK says so: `order_items.condition_key` must be NULL when the line names an asset version. ITEM_CONDITION_KEYS is untouched — adding a `not_applicable` member would have given every PHYSICAL listing a way to decline to describe itself, which is exactly the erosion #90 was built against.',
+    citation: 'order_items_digital_no_condition_check; db/schema/orders.ts',
     decision: 'ADR 0010 D11',
   },
   withdrawal_and_guarantee_terms: {
     mechanism:
-      "A closed DIGITAL_WITHDRAWAL_BASES vocabulary plus a consent timestamp on the order, paired by a CHECK: a `waived_on_immediate_supply` order cannot exist without the instant the buyer acknowledged the waiver. The goods conformity guarantee is replaced by conformity with the DESCRIBED deliverable, which is answerable only because measured facts and seller claims are separate tables.",
+      'A closed DIGITAL_WITHDRAWAL_BASES vocabulary plus a consent timestamp on the order, paired by a CHECK: a `waived_on_immediate_supply` order cannot exist without the instant the buyer acknowledged the waiver. The goods conformity guarantee is replaced by conformity with the DESCRIBED deliverable, which is answerable only because measured facts and seller claims are separate tables.',
     citation:
-      "DIGITAL_WITHDRAWAL_BASES; DIGITAL_CONFORMITY_BASIS; orders_digital_withdrawal_consent_check",
+      'DIGITAL_WITHDRAWAL_BASES; DIGITAL_CONFORMITY_BASIS; orders_digital_withdrawal_consent_check',
     decision: 'ADR 0010 D11',
   },
 };

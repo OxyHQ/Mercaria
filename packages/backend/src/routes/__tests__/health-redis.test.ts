@@ -73,9 +73,7 @@ afterEach(async () => {
   else process.env.REDIS_URL = originalRedisUrl;
 });
 
-async function startTcpServer(
-  onConnection: (socket: net.Socket) => void,
-): Promise<number> {
+async function startTcpServer(onConnection: (socket: net.Socket) => void): Promise<number> {
   const server = net.createServer((socket) => {
     acceptedSockets.push(socket);
     onConnection(socket);

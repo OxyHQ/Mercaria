@@ -52,7 +52,9 @@ describe('classifyMerchantFacingFailure', () => {
     // The two lead a merchant to opposite places. A duplicate is normally two
     // deliveries of one record racing and resolves itself; a check violation is
     // a rule that will keep refusing every run until something changes.
-    const duplicate = classifyMerchantFacingFailure(driverError('23505', 'orders_store_id_source_key'));
+    const duplicate = classifyMerchantFacingFailure(
+      driverError('23505', 'orders_store_id_source_key'),
+    );
     const other = classifyMerchantFacingFailure(driverError('23514', 'listings_status_check'));
 
     expect(duplicate.reasonCode).toBe('duplicate_record');

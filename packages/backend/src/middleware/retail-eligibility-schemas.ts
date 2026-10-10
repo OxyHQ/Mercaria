@@ -59,7 +59,9 @@ const CURRENCY_VALUES = values(ALL_CURRENCY_CODES as readonly CurrencyCode[]);
 const CHANNEL_VALUES = values(AGREEMENT_CHANNELS as readonly AgreementChannel[]);
 const METHOD_VALUES = values(RETAIL_FULFILMENT_METHODS as readonly RetailFulfilmentMethod[]);
 const CUSTOMER_TYPE_VALUES = values(RETAIL_CUSTOMER_TYPES as readonly RetailCustomerType[]);
-const RESALE_KIND_VALUES = values(RETAIL_RESALE_EVIDENCE_KINDS as readonly RetailResaleEvidenceKind[]);
+const RESALE_KIND_VALUES = values(
+  RETAIL_RESALE_EVIDENCE_KINDS as readonly RetailResaleEvidenceKind[],
+);
 const COMPLIANCE_KIND_VALUES = values(
   RETAIL_COMPLIANCE_EVIDENCE_KINDS as readonly RetailComplianceEvidenceKind[],
 );
@@ -74,7 +76,9 @@ const FINALITY_VALUES = values(RETAIL_PRICE_FINALITIES as readonly RetailPriceFi
 const SUPPRESSION_SCOPE_VALUES = values(
   RETAIL_SUPPRESSION_SCOPES as readonly RetailSuppressionScope[],
 );
-const SUPPRESSION_KIND_VALUES = values(RETAIL_SUPPRESSION_KINDS as readonly RetailSuppressionKind[]);
+const SUPPRESSION_KIND_VALUES = values(
+  RETAIL_SUPPRESSION_KINDS as readonly RetailSuppressionKind[],
+);
 const SUPPRESSION_SEVERITY_VALUES = values(
   RETAIL_SUPPRESSION_SEVERITIES as readonly RetailSuppressionSeverity[],
 );
@@ -89,7 +93,9 @@ const SUPPRESSION_SOURCE_VALUES = values(
  * this field, which is the `RESERVED_OFFER_FACT_KEYS` device: the strongest
  * version of a rule is the one with no representation.
  */
-const WAIVABLE_REASON_VALUES = values(RETAIL_WAIVABLE_REASONS as readonly RetailEligibilityReason[]);
+const WAIVABLE_REASON_VALUES = values(
+  RETAIL_WAIVABLE_REASONS as readonly RetailEligibilityReason[],
+);
 
 /** ISO-3166-1 alpha-2, upper-cased. A real shape, not a length check. */
 const countryCode = z
@@ -128,7 +134,10 @@ const minorUnits = z
  */
 export const retailEligibilityPolicyCreateSchema = z
   .object({
-    policyKey: z.string().trim().regex(/^[a-z0-9][a-z0-9-]{1,63}$/),
+    policyKey: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9][a-z0-9-]{1,63}$/),
     version: z.number().int().min(1),
     name: z.string().trim().min(1).max(200),
     summary: z.string().trim().min(1).max(2_000),
@@ -159,10 +168,9 @@ export const retailEligibilityPolicyCreateSchema = z
     reason,
   })
   .strict()
-  .refine(
-    (b) => (b.maxOrderValueMinor === undefined) === (b.maxOrderValueCurrency === undefined),
-    { message: 'an order-value ceiling is an amount AND a currency, or neither' },
-  );
+  .refine((b) => (b.maxOrderValueMinor === undefined) === (b.maxOrderValueCurrency === undefined), {
+    message: 'an order-value ceiling is an amount AND a currency, or neither',
+  });
 
 /** Activating or retiring a version — an audited act, so a reason is mandatory. */
 export const retailEligibilityPolicyDecisionSchema = z.object({ reason }).strict();
@@ -361,9 +369,7 @@ export const retailEligibilityTraceSchema = z
  * shape — a hand-written duplicate of a schema is a second place for the two to
  * disagree, and the one that wins at runtime is the schema.
  */
-export type RetailEligibilityPolicyCreateBody = z.infer<
-  typeof retailEligibilityPolicyCreateSchema
->;
+export type RetailEligibilityPolicyCreateBody = z.infer<typeof retailEligibilityPolicyCreateSchema>;
 export type RetailCategoryRuleBody = z.infer<typeof retailCategoryRuleSchema>;
 export type RetailMarketCapabilityBody = z.infer<typeof retailMarketCapabilitySchema>;
 export type RetailResaleEvidenceBody = z.infer<typeof retailResaleEvidenceSchema>;

@@ -209,9 +209,7 @@ export function computeLaunchMetrics(input: {
 
 /* -------------------------------------------------------------------------- */
 
-function publishedByVertical(
-  facts: DigitalAnalyticsFacts,
-): { vertical: string; count: number }[] {
+function publishedByVertical(facts: DigitalAnalyticsFacts): { vertical: string; count: number }[] {
   const byVertical = new Map<string, Set<string>>();
   for (const publication of facts.publications) {
     const bucket = byVertical.get(publication.vertical) ?? new Set<string>();
@@ -224,7 +222,12 @@ function publishedByVertical(
 }
 
 function deploymentMoney(
-  sales: readonly { currency: CurrencyCode; grossAmount: number; realizedFeeAmount: number; creatorEarningsAmount: number }[],
+  sales: readonly {
+    currency: CurrencyCode;
+    grossAmount: number;
+    realizedFeeAmount: number;
+    creatorEarningsAmount: number;
+  }[],
 ): DeploymentMoneyTotals[] {
   const byCurrency = new Map<CurrencyCode, { gmv: number; fee: number; earnings: number }>();
   for (const sale of sales) {

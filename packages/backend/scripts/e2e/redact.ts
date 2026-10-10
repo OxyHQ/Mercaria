@@ -58,20 +58,35 @@ const IDENTIFIER_TAIL_LENGTH = 4;
  */
 const FORBIDDEN_SHAPES: ReadonlyArray<{ readonly label: string; readonly pattern: RegExp }> = [
   { label: 'mercaria channel key (mck_…)', pattern: /\bmck_[A-Za-z0-9_-]{8,}/g },
-  { label: 'shopify access token (shpat_/shpca_/shppa_)', pattern: /\bshp(at|ca|pa)_[A-Za-z0-9]{8,}/g },
+  {
+    label: 'shopify access token (shpat_/shpca_/shppa_)',
+    pattern: /\bshp(at|ca|pa)_[A-Za-z0-9]{8,}/g,
+  },
   { label: 'woocommerce consumer key (ck_…)', pattern: /\bck_[0-9a-f]{16,}/gi },
   { label: 'woocommerce consumer secret (cs_…)', pattern: /\bcs_[0-9a-f]{16,}/gi },
-  { label: 'stripe secret/webhook key (sk_/rk_/whsec_)', pattern: /\b(sk|rk)_(live|test)_[A-Za-z0-9]{8,}|\bwhsec_[A-Za-z0-9]{8,}/g },
+  {
+    label: 'stripe secret/webhook key (sk_/rk_/whsec_)',
+    pattern: /\b(sk|rk)_(live|test)_[A-Za-z0-9]{8,}|\bwhsec_[A-Za-z0-9]{8,}/g,
+  },
   // The Shopify OAuth CALLBACK, which is exactly what a connection observation
   // captured right after a connect can carry. `shpat_` covers the token the code
   // is exchanged FOR; the code itself, and the `hmac` that authenticates the
   // callback, have no prefix and would otherwise pass. Reported by the Shopify
   // driver, which captures state at that precise moment.
-  { label: 'oauth authorization code / callback hmac query parameter', pattern: /\b(code|hmac)=[A-Za-z0-9._-]{16,}/gi },
+  {
+    label: 'oauth authorization code / callback hmac query parameter',
+    pattern: /\b(code|hmac)=[A-Za-z0-9._-]{16,}/gi,
+  },
   { label: 'guest session token (mgs_/mgx_/mgp_)', pattern: /\bmg[sxp]_[A-Za-z0-9_-]{8,}/g },
   { label: 'HTTP basic-auth userinfo in a URL', pattern: /\bhttps?:\/\/[^/\s:@]+:[^/\s@]+@/gi },
-  { label: 'Authorization header value', pattern: /\bauthorization"?\s*[:=]\s*"?\s*(bearer|basic)\s+\S+/gi },
-  { label: 'consumer_key/consumer_secret query parameter', pattern: /\bconsumer_(key|secret)=[^&"'\s]+/gi },
+  {
+    label: 'Authorization header value',
+    pattern: /\bauthorization"?\s*[:=]\s*"?\s*(bearer|basic)\s+\S+/gi,
+  },
+  {
+    label: 'consumer_key/consumer_secret query parameter',
+    pattern: /\bconsumer_(key|secret)=[^&"'\s]+/gi,
+  },
   { label: 'email address', pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g },
   { label: 'JWT', pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g },
 ];
@@ -217,7 +232,7 @@ export function assertScanWasNotVacuous(report: ScanReport): void {
   if (report.registeredSecrets === 0) {
     throw new Error(
       'Redaction scan ran with an EMPTY secret registry. The shape patterns alone cannot ' +
-        'see this run\'s own consumer secret, which carries no prefix. Register the run\'s ' +
+        "see this run's own consumer secret, which carries no prefix. Register the run's " +
         'credentials before writing evidence.',
     );
   }
@@ -287,7 +302,10 @@ export function redactErrorText(value: string | null | undefined): string | null
   if (value === null || value === undefined) return null;
   return String(value)
     .replace(/(https?:\/\/)[^/\s:@]+:[^/\s@]+@/gi, '$1<userinfo-removed>@')
-    .replace(/(\?|&)(consumer_key|consumer_secret|access_token|token|key|secret)=[^&\s"']*/gi, '$1$2=<redacted>')
+    .replace(
+      /(\?|&)(consumer_key|consumer_secret|access_token|token|key|secret)=[^&\s"']*/gi,
+      '$1$2=<redacted>',
+    )
     .slice(0, 600);
 }
 

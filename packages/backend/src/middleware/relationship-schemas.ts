@@ -41,8 +41,14 @@ const STATUS_VALUES = RELATIONSHIP_VERIFICATION_STATES as readonly [
 
 const entityId = z.string().trim().min(1).max(64);
 /** ISO 3166-1 alpha-2, matching the column's own CHECK rather than approximating it. */
-const territory = z.string().trim().regex(/^[A-Za-z]{2}$/);
-const language = z.string().trim().regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/);
+const territory = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z]{2}$/);
+const language = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/);
 const reason = z.string().trim().min(10).max(2_000);
 
 /** `POST /internal/commerce-graph/relationships` — assert a CLAIM, never a verdict. */

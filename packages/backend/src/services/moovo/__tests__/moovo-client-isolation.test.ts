@@ -74,9 +74,7 @@ function domainModules(readDir: DirectoryReader = readSrcDirectory): string[] {
 function readCode(path: string): string {
   const source = readFileSync(join(SRC_ROOT, path), 'utf8');
   expect(source.length, `${path} looks empty — did it move?`).toBeGreaterThan(200);
-  const stripped = source
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const stripped = source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1');
   expect(
     stripped.replace(/\s+/g, '').length,
     `${path} has almost no code left after comment stripping — check the stripper`,
@@ -107,8 +105,7 @@ const DUPLICATE_SERVICE_AUTH =
   /createOxyAuthMiddleware|createOptionalOxyAuth|requireOxyAuth|serviceAuth\s*\(|jwtVerify|jwks|decodeJwt|new\s+JwksClient|tokenCache|cachedToken/i;
 
 /** A credential read straight out of the environment (#156 acceptance 7). */
-const INLINE_CREDENTIAL =
-  /process\.env\.[A-Z_]*(SECRET|TOKEN|API_KEY|APIKEY|CREDENTIAL|PASSWORD)/;
+const INLINE_CREDENTIAL = /process\.env\.[A-Z_]*(SECRET|TOKEN|API_KEY|APIKEY|CREDENTIAL|PASSWORD)/;
 
 describe('#156 — the Moovo client is the only way out, and it holds no credential', () => {
   it('scans every module in the domain, and there are some', () => {
@@ -233,17 +230,20 @@ describe('the population the five walls above are applied to (#460)', () => {
     // An exclusion for a module that would TRIP a wall is a hole; one for a
     // module that would pass is a statement about who owns it. Measured here
     // rather than asserted in prose, because the second is what this claims.
-    assertEachOf([
-      'services/retail-fulfilment/moovo.port.ts',
-      'services/retail-fulfilment/moovo-request.ts',
-    ], 2, (foreign) => {
-      const code = readCode(foreign);
-      expect(CARRIER_CLIENT.test(code), `${foreign} reaches a carrier`).toBe(false);
-      expect(OUTBOUND_HTTP.test(code), `${foreign} calls out directly`).toBe(false);
-      expect(BUYER_IMPERSONATION.test(code), `${foreign} forwards a user credential`).toBe(false);
-      expect(DUPLICATE_SERVICE_AUTH.test(code), `${foreign} re-implements service auth`).toBe(false);
-      expect(INLINE_CREDENTIAL.test(code), `${foreign} reads a secret directly`).toBe(false);
-    });
+    assertEachOf(
+      ['services/retail-fulfilment/moovo.port.ts', 'services/retail-fulfilment/moovo-request.ts'],
+      2,
+      (foreign) => {
+        const code = readCode(foreign);
+        expect(CARRIER_CLIENT.test(code), `${foreign} reaches a carrier`).toBe(false);
+        expect(OUTBOUND_HTTP.test(code), `${foreign} calls out directly`).toBe(false);
+        expect(BUYER_IMPERSONATION.test(code), `${foreign} forwards a user credential`).toBe(false);
+        expect(DUPLICATE_SERVICE_AUTH.test(code), `${foreign} re-implements service auth`).toBe(
+          false,
+        );
+        expect(INLINE_CREDENTIAL.test(code), `${foreign} reads a secret directly`).toBe(false);
+      },
+    );
   });
 
   it('the derivation RECURSES, which the readdirSync it replaces did not', () => {
@@ -260,8 +260,9 @@ describe('the population the five walls above are applied to (#460)', () => {
           ? [{ name: 'http.ts', isDirectory: () => false, isFile: () => true }]
           : readSrcDirectory(relative);
     expect(domainModules(seeded)).toContain('services/moovo/transports/http.ts');
-    expect(domainModules(), 'the seeded subdirectory exists on disk, so this proves nothing').not.toContain(
-      'services/moovo/transports/http.ts',
-    );
+    expect(
+      domainModules(),
+      'the seeded subdirectory exists on disk, so this proves nothing',
+    ).not.toContain('services/moovo/transports/http.ts');
   });
 });

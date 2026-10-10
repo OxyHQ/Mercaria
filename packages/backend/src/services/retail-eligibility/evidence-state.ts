@@ -48,10 +48,7 @@ export function deriveEvidenceState(
 }
 
 /** Whether this evidence currently authorizes anything. The only accepting state. */
-export function isEvidenceEffective(
-  evidence: EvidenceStateFacts,
-  now: Date = new Date(),
-): boolean {
+export function isEvidenceEffective(evidence: EvidenceStateFacts, now: Date = new Date()): boolean {
   return deriveEvidenceState(evidence, now) === 'verified';
 }
 

@@ -28,8 +28,7 @@ const findStoreById = vi.fn();
 
 vi.mock('../../db/orders/orderRepository.js', () => ({
   countOrdersByStatus: (...args: unknown[]) => countOrdersByStatus(...args),
-  countPaidOrdersBySourceChannel: (...args: unknown[]) =>
-    countPaidOrdersBySourceChannel(...args),
+  countPaidOrdersBySourceChannel: (...args: unknown[]) => countPaidOrdersBySourceChannel(...args),
   sumPaidRevenue: (...args: unknown[]) => sumPaidRevenue(...args),
   sumPaidRevenueByBucket: (...args: unknown[]) => sumPaidRevenueByBucket(...args),
   findTopProducts: (...args: unknown[]) => findTopProducts(...args),

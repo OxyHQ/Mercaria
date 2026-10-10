@@ -32,10 +32,7 @@ export async function createAddress(input: CreateAddressInput): Promise<Address>
 }
 
 /** Partially update an address (incl. promoting it to default). */
-export async function updateAddress(
-  id: string,
-  input: UpdateAddressInput,
-): Promise<Address> {
+export async function updateAddress(id: string, input: UpdateAddressInput): Promise<Address> {
   const { data } = await apiClient.patch<ApiResponse<Address>>(`/addresses/${id}`, input);
   if (!data.success || !data.data) {
     throw new Error(data.error ?? data.message ?? 'Failed to update address');

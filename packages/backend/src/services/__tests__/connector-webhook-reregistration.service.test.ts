@@ -61,8 +61,7 @@ vi.mock('../../db/connectors/connectionRepository.js', () => ({
   findConnection: (...a: unknown[]) => findConnection(...a),
   findConnectionsNeedingWebhookRegistration: (...a: unknown[]) =>
     findConnectionsNeedingWebhookRegistration(...a),
-  claimConnectionWebhookRegistration: (...a: unknown[]) =>
-    claimConnectionWebhookRegistration(...a),
+  claimConnectionWebhookRegistration: (...a: unknown[]) => claimConnectionWebhookRegistration(...a),
   completeConnectionWebhookRegistration: (...a: unknown[]) =>
     completeConnectionWebhookRegistration(...a),
   releaseConnectionWebhookRegistration: (...a: unknown[]) =>
@@ -113,8 +112,7 @@ vi.mock('../../connectors/config.js', () => ({
   getOAuthRedirectUri: () => 'https://api.mercaria.test/channels/oauth/woocommerce/callback',
 }));
 vi.mock('../../queue/producers.js', () => ({
-  enqueueConnectionWebhookReregister: (...a: unknown[]) =>
-    enqueueConnectionWebhookReregister(...a),
+  enqueueConnectionWebhookReregister: (...a: unknown[]) => enqueueConnectionWebhookReregister(...a),
   enqueueConnectionBackfill: vi.fn(),
   enqueueOrderSync: vi.fn(),
   enqueueInventorySync: vi.fn(),
@@ -271,7 +269,10 @@ describe('#262 re-registration — where the retry stops', () => {
     });
 
     expect(outcome).toBe('registered');
-    expect(completeConnectionWebhookRegistration).toHaveBeenCalledWith('conn-1', expect.any(String));
+    expect(completeConnectionWebhookRegistration).toHaveBeenCalledWith(
+      'conn-1',
+      expect.any(String),
+    );
     expect(releaseConnectionWebhookRegistration).not.toHaveBeenCalled();
   });
 
@@ -353,9 +354,9 @@ describe('#262 re-registration — where the retry stops', () => {
       failures: [{ topic: 'product.updated', reason: 'permission_denied' }],
     });
 
-    expect(
-      await reregisterConnectionWebhooks('store-1', 'conn-1', { countsAsAttempt: true }),
-    ).toBe('dead_lettered');
+    expect(await reregisterConnectionWebhooks('store-1', 'conn-1', { countsAsAttempt: true })).toBe(
+      'dead_lettered',
+    );
 
     vi.clearAllMocks();
     findConnection.mockResolvedValue(connection());
@@ -368,9 +369,9 @@ describe('#262 re-registration — where the retry stops', () => {
       failures: [{ topic: 'product.updated', reason: 'platform_error' }],
     });
 
-    expect(
-      await reregisterConnectionWebhooks('store-1', 'conn-1', { countsAsAttempt: true }),
-    ).toBe('retry_scheduled');
+    expect(await reregisterConnectionWebhooks('store-1', 'conn-1', { countsAsAttempt: true })).toBe(
+      'retry_scheduled',
+    );
   });
 
   it('RELEASES the lease when the registration THREW rather than stranding the claim', async () => {
@@ -402,9 +403,9 @@ describe('#262 re-registration — where the retry stops', () => {
     });
 
     expect(outcome).toBe('dead_lettered');
-    expect(
-      releaseConnectionWebhookRegistration.mock.calls[0][0],
-    ).toEqual(expect.objectContaining({ deadLettered: true }));
+    expect(releaseConnectionWebhookRegistration.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ deadLettered: true }),
+    );
     // The half that makes the state ambiguous to a client: nothing was recorded,
     // so there is no topic to name and no refusal row to key a headline on.
     expect(
@@ -513,9 +514,7 @@ describe('#262 — the merchant entry point validates, then enqueues', () => {
   it('404s a connection that is not this store’s, and enqueues nothing', async () => {
     findConnection.mockResolvedValue(null);
 
-    await expect(requestWebhookReregistration('store-1', 'conn-1')).rejects.toThrow(
-      /not found/i,
-    );
+    await expect(requestWebhookReregistration('store-1', 'conn-1')).rejects.toThrow(/not found/i);
     expect(enqueueConnectionWebhookReregister).not.toHaveBeenCalled();
   });
 

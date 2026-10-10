@@ -121,7 +121,10 @@ describe('STORE_ROLE_PERMISSIONS — the one role map', () => {
   });
 
   it('developer connects channels; billing reads money; viewer reads the trading record', () => {
-    expect([...STORE_ROLE_PERMISSIONS.developer].sort()).toEqual(['channels:write', 'products:read']);
+    expect([...STORE_ROLE_PERMISSIONS.developer].sort()).toEqual([
+      'channels:write',
+      'products:read',
+    ]);
     expect([...STORE_ROLE_PERMISSIONS.billing].sort()).toEqual([
       'analytics:read',
       'orders:read',
@@ -168,13 +171,19 @@ describe('effectiveStorePermissions — (role defaults ∪ granted) − revoked'
   });
 
   it('keeps vocabulary order, so two sets compare meaningfully', () => {
-    const effective = effectiveStorePermissions('viewer', { granted: ['store:manage'], revoked: [] });
+    const effective = effectiveStorePermissions('viewer', {
+      granted: ['store:manage'],
+      revoked: [],
+    });
     expect(effective[0]).toBe('store:manage');
   });
 });
 
 describe('requireStorePermission', () => {
-  function run(access: StoreAccess | undefined, perm: StorePermission): MockRes & { nextCalled: boolean } {
+  function run(
+    access: StoreAccess | undefined,
+    perm: StorePermission,
+  ): MockRes & { nextCalled: boolean } {
     const res = mockRes() as MockRes & { nextCalled: boolean };
     res.nextCalled = false;
     requireStorePermission(perm)({ storeAccess: access } as unknown as Request, res, () => {
@@ -184,11 +193,16 @@ describe('requireStorePermission', () => {
   }
 
   it('passes when the resolved permissions hold it', () => {
-    expect(run({ role: 'editor', permissions: ['products:write'] }, 'products:write').nextCalled).toBe(true);
+    expect(
+      run({ role: 'editor', permissions: ['products:write'] }, 'products:write').nextCalled,
+    ).toBe(true);
   });
 
   it('403s when they do not, naming the permission', () => {
-    const res = run({ role: 'admin', permissions: [...STORE_ROLE_PERMISSIONS.admin] }, 'store:manage');
+    const res = run(
+      { role: 'admin', permissions: [...STORE_ROLE_PERMISSIONS.admin] },
+      'store:manage',
+    );
     expect(res.nextCalled).toBe(false);
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json.mock.calls[0]?.[0]?.message).toContain('store:manage');
@@ -214,7 +228,9 @@ describe('loadStore', () => {
 
   it('the owning account acting as itself is the owner, with no round trip', async () => {
     findStoreById.mockResolvedValue({ id: STORE_ID, oxyAccountId: ALICE });
-    const { status, access } = await load(request(ALICE, { actorAccountId: ALICE, delegated: false }));
+    const { status, access } = await load(
+      request(ALICE, { actorAccountId: ALICE, delegated: false }),
+    );
     expect(status).toBeNull();
     expect(access).toEqual({ role: 'owner', permissions: [...STORE_PERMISSIONS] });
     expect(readCallerAccountRole).not.toHaveBeenCalled();
@@ -232,7 +248,10 @@ describe('loadStore', () => {
 
   it('a member gets their role’s permissions, adjusted by their override', async () => {
     readCallerAccountRole.mockResolvedValue('editor');
-    findStorePermissionOverride.mockResolvedValue({ granted: ['refunds:write'], revoked: ['discounts:write'] });
+    findStorePermissionOverride.mockResolvedValue({
+      granted: ['refunds:write'],
+      revoked: ['discounts:write'],
+    });
     const { access } = await load(request(ALICE, { actorAccountId: ALICE, delegated: false }));
     expect(findStorePermissionOverride).toHaveBeenCalledWith(STORE_ID, ALICE);
     expect(access?.permissions).toContain('refunds:write');
@@ -246,7 +265,9 @@ describe('loadStore', () => {
 
   it('FAILS CLOSED with a 503 when Oxy cannot answer', async () => {
     readCallerAccountRole.mockRejectedValue(serviceUnavailable('Oxy is down'));
-    expect((await load(request(ALICE, { actorAccountId: ALICE, delegated: false }))).status).toBe(503);
+    expect((await load(request(ALICE, { actorAccountId: ALICE, delegated: false }))).status).toBe(
+      503,
+    );
   });
 
   it('reuses a role per ACTOR, and never shares one between two people', async () => {

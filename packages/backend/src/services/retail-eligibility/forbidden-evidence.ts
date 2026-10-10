@@ -53,13 +53,22 @@ interface ForbiddenPattern {
  */
 const FORBIDDEN_PATTERNS: readonly ForbiddenPattern[] = [
   { kind: 'affiliate_product_feed', pattern: /affiliate.*(feed|catalog|catalogue|datafeed)/ },
-  { kind: 'affiliate_program_membership', pattern: /affiliate|partnerprogram|commissionjunction|awin/ },
-  { kind: 'price_comparison_feed', pattern: /pricecomparison|comparisonfeed|aggregatorfeed|shoppingfeed/ },
+  {
+    kind: 'affiliate_program_membership',
+    pattern: /affiliate|partnerprogram|commissionjunction|awin/,
+  },
+  {
+    kind: 'price_comparison_feed',
+    pattern: /pricecomparison|comparisonfeed|aggregatorfeed|shoppingfeed/,
+  },
   { kind: 'api_key_possession', pattern: /apikey|accesstoken|clientsecret|credential/ },
   { kind: 'public_api_access', pattern: /publicapi|openapi|apiaccess|developerapi/ },
   { kind: 'public_product_page', pattern: /productpage|publicpage|weblisting|storefronturl/ },
   { kind: 'placed_consumer_order', pattern: /placedorder|testorder|consumerorder|trialpurchase/ },
-  { kind: 'consumer_account_capability', pattern: /consumeraccount|retailaccount|customeraccount|primeaccount/ },
+  {
+    kind: 'consumer_account_capability',
+    pattern: /consumeraccount|retailaccount|customeraccount|primeaccount/,
+  },
   { kind: 'marketplace_seller_account', pattern: /selleraccount|marketplaceaccount|sellercentral/ },
   { kind: 'supplier_category_label', pattern: /categorylabel|categorytag|suppliercategory/ },
   { kind: 'supplier_logo_or_branding', pattern: /logo|brandmark|trademarkimage/ },
@@ -86,9 +95,7 @@ function normalize(value: string): string {
  * order. Pure — the same input always yields the same matches, so a refusal is
  * reproducible in a test and in an operator's terminal.
  */
-export function detectForbiddenResaleEvidence(
-  values: readonly string[],
-): ForbiddenEvidenceMatch[] {
+export function detectForbiddenResaleEvidence(values: readonly string[]): ForbiddenEvidenceMatch[] {
   const matches: ForbiddenEvidenceMatch[] = [];
   for (const value of values) {
     const haystack = normalize(value);
@@ -113,10 +120,7 @@ export function detectForbiddenResaleEvidence(
  * @param context Where the attempt arrived, so the message says which surface
  *   refused it.
  */
-export function assertNoForbiddenResaleEvidence(
-  values: readonly string[],
-  context: string,
-): void {
+export function assertNoForbiddenResaleEvidence(values: readonly string[], context: string): void {
   const matches = detectForbiddenResaleEvidence(values);
   if (matches.length === 0) {
     return;

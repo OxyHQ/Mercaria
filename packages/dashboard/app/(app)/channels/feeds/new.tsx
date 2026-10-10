@@ -13,25 +13,25 @@
  *    it has no default there for the same reason.
  */
 
-import React, { useState } from "react";
-import { View } from "react-native";
-import { useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { useTranslation } from "@/lib/i18n";
-import { useCreateFeed } from "@/lib/hooks/use-feeds";
+import React, { useState } from 'react';
+import { View } from 'react-native';
+import { useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { useTranslation } from '@/lib/i18n';
+import { useCreateFeed } from '@/lib/hooks/use-feeds';
 
 export default function NewFeedScreen() {
   const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>{t("feeds.new.documentTitle")}</title>
+        <title>{t('feeds.new.documentTitle')}</title>
       </Head>
       <RequireStore permission="channels:write">
         {(storeId) => <NewFeedBody storeId={storeId} />}
@@ -44,28 +44,28 @@ function NewFeedBody({ storeId }: { storeId: string }) {
   const router = useRouter();
   const { t } = useTranslation();
   const create = useCreateFeed(storeId);
-  const [label, setLabel] = useState("");
-  const [sourceName, setSourceName] = useState("");
-  const [identityColumns, setIdentityColumns] = useState("");
+  const [label, setLabel] = useState('');
+  const [sourceName, setSourceName] = useState('');
+  const [identityColumns, setIdentityColumns] = useState('');
 
   const submit = () => {
     if (label.trim().length === 0) {
-      toast.error(t("feeds.toast.nameRequired"));
+      toast.error(t('feeds.toast.nameRequired'));
       return;
     }
     if (sourceName.trim().length < 3) {
-      toast.error(t("feeds.toast.sourceNameTooShort"));
+      toast.error(t('feeds.toast.sourceNameTooShort'));
       return;
     }
     // Bounded to four server-side: a composite key longer than that is a row
     // hash wearing a key, and it re-mints the catalogue every time a column
     // moves.
     const identityKeyFields = identityColumns
-      .split(",")
+      .split(',')
       .map((column) => column.trim())
       .filter((column) => column.length > 0);
     if (identityKeyFields.length === 0) {
-      toast.error(t("feeds.toast.identityColumnsRequired"));
+      toast.error(t('feeds.toast.identityColumnsRequired'));
       return;
     }
 
@@ -73,48 +73,48 @@ function NewFeedBody({ storeId }: { storeId: string }) {
       { label: label.trim(), sourceName: sourceName.trim(), identityKeyFields },
       {
         onSuccess: (feed) => {
-          toast.success(t("feeds.toast.created"));
+          toast.success(t('feeds.toast.created'));
           router.replace(`/channels/feeds/${feed.id}`);
         },
-        onError: () => toast.error(t("feeds.toast.createFailed")),
+        onError: () => toast.error(t('feeds.toast.createFailed')),
       },
     );
   };
 
   return (
-    <Screen title={t("feeds.new.title")} subtitle={t("feeds.new.subtitle")}>
+    <Screen title={t('feeds.new.title')} subtitle={t('feeds.new.subtitle')}>
       <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
-        <Field label={t("feeds.new.nameLabel")}>
+        <Field label={t('feeds.new.nameLabel')}>
           <TextFieldInput
-            label={t("feeds.new.nameLabel")}
+            label={t('feeds.new.nameLabel')}
             value={label}
             onValueChange={setLabel}
-            placeholder={t("feeds.new.namePlaceholder")}
+            placeholder={t('feeds.new.namePlaceholder')}
           />
         </Field>
-        <Field label={t("feeds.new.sourceNameLabel")} description={t("feeds.new.sourceNameHint")}>
+        <Field label={t('feeds.new.sourceNameLabel')} description={t('feeds.new.sourceNameHint')}>
           <TextFieldInput
-            label={t("feeds.new.sourceNameLabel")}
+            label={t('feeds.new.sourceNameLabel')}
             value={sourceName}
             onValueChange={setSourceName}
-            placeholder={t("feeds.new.sourceNamePlaceholder")}
+            placeholder={t('feeds.new.sourceNamePlaceholder')}
           />
         </Field>
         <Field
-          label={t("feeds.new.identityColumnsLabel")}
-          description={t("feeds.new.identityColumnsHint")}
+          label={t('feeds.new.identityColumnsLabel')}
+          description={t('feeds.new.identityColumnsHint')}
         >
           <TextFieldInput
-            label={t("feeds.new.identityColumnsLabel")}
+            label={t('feeds.new.identityColumnsLabel')}
             value={identityColumns}
             onValueChange={setIdentityColumns}
-            placeholder={t("feeds.new.identityColumnsPlaceholder")}
+            placeholder={t('feeds.new.identityColumnsPlaceholder')}
             autoCapitalize="none"
             autoCorrect={false}
           />
         </Field>
         <Button tone="accent" onPress={submit} loading={create.isPending}>
-          {t("feeds.new.create")}
+          {t('feeds.new.create')}
         </Button>
       </View>
     </Screen>

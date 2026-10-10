@@ -159,7 +159,11 @@ describe('deriveOnboardingState', () => {
   it('is under_review when documents are submitted and being checked', () => {
     expect(
       deriveOnboardingState(
-        readySnapshot({ payoutsEnabled: false, transfersCapability: 'inactive', pendingVerification: 3 }),
+        readySnapshot({
+          payoutsEnabled: false,
+          transfersCapability: 'inactive',
+          pendingVerification: 3,
+        }),
         { revoked: false },
       ),
     ).toBe('under_review');
@@ -275,7 +279,9 @@ describe('snapshotStripeAccount', () => {
     // a sentence — or a name — becomes `other` rather than being forwarded into
     // Mercaria's database and rendered in a seller's dashboard.
     const snapshot = snapshotStripeAccount(
-      stripeAccount({ requirements: { disabled_reason: 'Rejected: contact Jane Doe (jane@x.test)' } }),
+      stripeAccount({
+        requirements: { disabled_reason: 'Rejected: contact Jane Doe (jane@x.test)' },
+      }),
     );
     expect(snapshot.disabledReasonCodes).toEqual(['other']);
   });
@@ -288,7 +294,9 @@ describe('snapshotStripeAccount', () => {
   });
 
   it('reports no reason codes when the account is not disabled', () => {
-    const snapshot = snapshotStripeAccount(stripeAccount({ requirements: { disabled_reason: null } }));
+    const snapshot = snapshotStripeAccount(
+      stripeAccount({ requirements: { disabled_reason: null } }),
+    );
     expect(snapshot.disabledReasonCodes).toEqual([]);
   });
 });

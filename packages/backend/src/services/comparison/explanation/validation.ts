@@ -126,9 +126,7 @@ export function validateExplanationDraft(
 
   checkConstraintEchoes(pkg, draft, rejections);
 
-  return rejections.length === 0
-    ? { state: 'accepted', draft }
-    : { state: 'rejected', rejections };
+  return rejections.length === 0 ? { state: 'accepted', draft } : { state: 'rejected', rejections };
 }
 
 /** One sentence: length, citations, numbers and topic. */
@@ -183,7 +181,9 @@ function checkConstraintEchoes(
     rejections.push({ reason: 'schema_invalid', detail: 'constraintEchoes must be an array' });
     return;
   }
-  const byRef = new Map(pkg.constraints.map((constraint) => [constraint.constraintRef, constraint]));
+  const byRef = new Map(
+    pkg.constraints.map((constraint) => [constraint.constraintRef, constraint]),
+  );
   for (const echo of draft.constraintEchoes) {
     const constraint = byRef.get(echo.constraintRef);
     if (constraint === undefined) {

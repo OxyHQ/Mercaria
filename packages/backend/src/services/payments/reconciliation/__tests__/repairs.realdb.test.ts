@@ -544,10 +544,7 @@ describe('retry_withheld_transfer', () => {
       .select()
       .from((await import('../../../../db/schema/payments.js')).transfers)
       .where(
-        eq(
-          (await import('../../../../db/schema/payments.js')).transfers.orderId,
-          scenario.orderId,
-        ),
+        eq((await import('../../../../db/schema/payments.js')).transfers.orderId, scenario.orderId),
       );
     expect(transfers).toHaveLength(1);
 

@@ -25,7 +25,11 @@
  * because it could not compile.
  */
 
-import { CATALOG_REFRESH_MODES, type CatalogRefreshMode, type CatalogSourceKind } from '@mercaria/shared-types';
+import {
+  CATALOG_REFRESH_MODES,
+  type CatalogRefreshMode,
+  type CatalogSourceKind,
+} from '@mercaria/shared-types';
 import {
   CatalogSourceFetchError,
   type AdapterFetchPage,

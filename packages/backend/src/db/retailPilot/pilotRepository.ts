@@ -426,7 +426,8 @@ export async function findLatestSupplierFunding(
   supplierAccountId: string,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<
-  { balanceMinor: number; currency: string; observedAt: Date; source: SupplierFundingSource } | undefined
+  | { balanceMinor: number; currency: string; observedAt: Date; source: SupplierFundingSource }
+  | undefined
 > {
   const [row] = await db
     .select({

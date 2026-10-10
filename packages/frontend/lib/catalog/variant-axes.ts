@@ -191,9 +191,7 @@ export function composeVariantMatrix(input: VariantMatrixInput): VariantMatrix {
   for (const definition of input.definitions) byKey.set(definition.key, definition);
 
   const { keys, source } = resolveAxisKeys(input.product, input.variants);
-  const availabilityKnown = input.variants.some(
-    (variant) => variant.offerCount !== undefined,
-  );
+  const availabilityKnown = input.variants.some((variant) => variant.offerCount !== undefined);
 
   const axes: VariantAxis[] = keys.map((key) => {
     // The values this axis offers, in the order the configurations list them,
