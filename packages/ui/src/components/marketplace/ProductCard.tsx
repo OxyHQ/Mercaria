@@ -199,7 +199,7 @@ export function ProductCard({
         <Pressable
           accessibilityRole="link"
           accessibilityLabel={product.title}
-          className="flex flex-col ps-1 leading-[16px]"
+          className="flex flex-col ps-1"
         >
           <Text numberOfLines={1} className="text-xs text-muted-foreground">
             {product.brand}

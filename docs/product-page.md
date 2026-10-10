@@ -506,3 +506,10 @@ It works through native flex layout and leaves existing class-sized grids
 unchanged. Live browser checks cover Oxy image delivery, navigation, exclusion
 and responsive geometry in English/Arabic; pagination tests vary only read
 responses built from the real local category DTO.
+
+Product-card typography belongs to each text component. Do not place an absolute
+`leading-[16px]` on the wrapping Pressable: native inherited line-height treats
+that value as a multiplier, making 12dp text occupy 192dp before font padding.
+Removing that inherited override retains each child's `text-xs` typography.
+On Pixel8a, the title's measured bounds shrink from 504px to 48px; keyboard and
+new-tab navigation also pass at 390px and 1440px in the browser.
