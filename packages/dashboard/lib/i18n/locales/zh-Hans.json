@@ -886,14 +886,16 @@
     },
     "refund": {
       "dialogTitle": "订单退款",
-      "failed": "无法处理退款",
+      "failed": "无法确认退款。请使用相同信息重试以检查结果。",
       "itemMax": "%{variant} · 最多 %{quantity}",
-      "processed": "退款已处理",
       "quantityLabel": "%{item} 的退款数量",
       "quantityRequired": "请输入要退款的数量",
       "reasonLabel": "原因（选填）",
       "reasonPlaceholder": "为什么要退这笔款？",
-      "submit": "处理退款"
+      "submit": "处理退款",
+      "loadFailed": "无法加载以前的退款。请在提交前重试。",
+      "quantityInvalid": "请输入0到%{quantity}之间的整数。",
+      "unavailable": "此订单无法退款。"
     },
     "refundState": {
       "canceled": "已取消",

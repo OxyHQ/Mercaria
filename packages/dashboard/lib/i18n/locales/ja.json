@@ -886,14 +886,16 @@
     },
     "refund": {
       "dialogTitle": "注文を返金",
-      "failed": "返金を処理できませんでした",
+      "failed": "返金を確認できませんでした。同じ内容で再試行して結果を確認してください。",
       "itemMax": "%{variant} · 最大%{quantity}",
-      "processed": "返金を処理しました",
       "quantityLabel": "%{item} の返金数量",
       "quantityRequired": "返金する数量を入力してください",
       "reasonLabel": "理由（任意）",
       "reasonPlaceholder": "返金の理由は？",
-      "submit": "返金を処理"
+      "submit": "返金を処理",
+      "loadFailed": "以前の返金を読み込めませんでした。送信前に再試行してください。",
+      "quantityInvalid": "0から%{quantity}までの整数を入力してください。",
+      "unavailable": "この注文は返金できません。"
     },
     "refundState": {
       "canceled": "キャンセル済み",

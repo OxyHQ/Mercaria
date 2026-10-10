@@ -886,14 +886,16 @@
     },
     "refund": {
       "dialogTitle": "Bestellung erstatten",
-      "failed": "Die Rückerstattung konnte nicht durchgeführt werden",
+      "failed": "Die Erstattung konnte nicht bestätigt werden. Versuche es mit denselben Angaben erneut, um das Ergebnis zu prüfen.",
       "itemMax": "%{variant} · max. %{quantity}",
-      "processed": "Rückerstattung durchgeführt",
       "quantityLabel": "Erstattungsmenge für %{item}",
       "quantityRequired": "Geben Sie eine zu erstattende Menge ein",
       "reasonLabel": "Grund (optional)",
       "reasonPlaceholder": "Warum wird erstattet?",
-      "submit": "Rückerstattung durchführen"
+      "submit": "Rückerstattung durchführen",
+      "loadFailed": "Frühere Erstattungen konnten nicht geladen werden. Versuche es vor dem Absenden erneut.",
+      "quantityInvalid": "Gib eine ganze Menge zwischen 0 und %{quantity} ein.",
+      "unavailable": "Für diese Bestellung ist keine Erstattung möglich."
     },
     "refundState": {
       "canceled": "Abgebrochen",

@@ -65,11 +65,11 @@ export function useStoreStats(storeId: string) {
 }
 
 /** Refunds processed against an order. */
-export function useOrderRefunds(storeId: string, orderId: string) {
+export function useOrderRefunds(storeId: string, orderId: string, enabled = true) {
   return useQuery<Refund[]>({
     queryKey: queryKeys.orders.refunds(storeId, orderId),
     queryFn: () => fetchOrderRefunds(storeId, orderId),
-    enabled: Boolean(storeId) && Boolean(orderId),
+    enabled: enabled && Boolean(storeId) && Boolean(orderId),
   });
 }
 

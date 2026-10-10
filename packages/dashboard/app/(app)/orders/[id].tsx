@@ -17,7 +17,7 @@ import {
 import { Field } from "@oxy.so/bloom/field";
 import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Button } from "@oxy.so/bloom/button";
-import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
+import { RefundDialog } from "@/components/orders/RefundDialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { canRetainDetailData } from "@/lib/detail-query-state";
@@ -28,7 +28,6 @@ import { PickupDeskCard } from "@/components/orders/PickupDeskCard";
 import {
   useOrder,
   usePatchOrderStatus,
-  useCreateRefund,
   useOrderRefunds,
 } from "@/lib/hooks/use-orders";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
@@ -341,7 +340,7 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
   const { can } = useActiveStoreContext();
   const patch = usePatchOrderStatus(storeId, order.id);
   const [tracking, setTracking] = useState(order.shipping.trackingNumber ?? "");
-  const refundControl = useDialogControl();
+  const [refundOpen, setRefundOpen] = useState(false);
 
   const canFulfil = can("orders:fulfill");
   const canRefund = can("refunds:write");
@@ -398,7 +397,7 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
       ) : null}
 
       {canRefund ? (
-        <Button tone="danger" className="mt-4 self-start" size="sm" onPress={() => refundControl.open()}>
+        <Button tone="danger" className="mt-4 self-start" size="sm" onPress={() => setRefundOpen(true)}>
           {t("orders.detail.refund")}
         </Button>
       ) : null}
@@ -406,94 +405,9 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
       <RefundDialog
         storeId={storeId}
         order={order}
-        control={refundControl}
+        open={refundOpen}
+        onClose={() => setRefundOpen(false)}
       />
     </View>
-  );
-}
-
-function RefundDialog({
-  storeId,
-  order,
-  control,
-}: {
-  storeId: string;
-  order: MerchantOrder;
-  control: DialogControlProps;
-}) {
-  const { t } = useTranslation();
-  const createRefund = useCreateRefund(storeId, order.id);
-  const [quantities, setQuantities] = useState<Record<string, string>>({});
-  const [reason, setReason] = useState("");
-
-  const submit = () => {
-    const lineItems = order.items
-      .map((item) => {
-        const qty = Number.parseInt(quantities[item.variantId] ?? "0", 10) || 0;
-        return { variantId: item.variantId, quantity: Math.min(qty, item.quantity) };
-      })
-      .filter((line) => line.quantity > 0);
-
-    if (lineItems.length === 0) {
-      toast.error(t("orders.refund.quantityRequired"));
-      return;
-    }
-
-    createRefund.mutate(
-      { lineItems, ...(reason.trim() ? { reason: reason.trim() } : {}) },
-      {
-        onSuccess: () => {
-          toast.success(t("orders.refund.processed"));
-          control.close();
-          setQuantities({});
-          setReason("");
-        },
-        onError: () => toast.error(t("orders.refund.failed")),
-      },
-    );
-  };
-
-  return (
-    <Dialog control={control} title={t("orders.refund.dialogTitle")}>
-      <View className="gap-3">
-        {order.items.map((item, idx) => (
-          <View key={`${item.variantId}-${idx}`} className="flex-row items-center justify-between gap-3">
-            <View className="flex-1">
-              <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
-                {item.title}
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                {t("orders.refund.itemMax", {
-                  variant: item.variantTitle,
-                  quantity: item.quantity,
-                })}
-              </Text>
-            </View>
-            <View className="w-20">
-              <TextFieldInput
-                label={t("orders.refund.quantityLabel", { item: item.title })}
-                value={quantities[item.variantId] ?? ""}
-                onValueChange={(value) =>
-                  setQuantities((prev) => ({ ...prev, [item.variantId]: value }))
-                }
-                keyboardType="number-pad"
-                placeholder="0"
-              />
-            </View>
-          </View>
-        ))}
-        <Field label={t("orders.refund.reasonLabel")}>
-          <TextFieldInput
-            label={t("orders.refund.reasonLabel")}
-            value={reason}
-            onValueChange={setReason}
-            placeholder={t("orders.refund.reasonPlaceholder")}
-          />
-        </Field>
-        <Button tone="danger" onPress={submit} loading={createRefund.isPending} className="mt-1">
-          {t("orders.refund.submit")}
-        </Button>
-      </View>
-    </Dialog>
   );
 }

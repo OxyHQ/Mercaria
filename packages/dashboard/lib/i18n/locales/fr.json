@@ -900,14 +900,16 @@
     },
     "refund": {
       "dialogTitle": "Rembourser la commande",
-      "failed": "Impossible de traiter le remboursement",
+      "failed": "Le remboursement n’a pas pu être confirmé. Réessayez avec les mêmes informations pour vérifier le résultat.",
       "itemMax": "%{variant} · max. %{quantity}",
-      "processed": "Remboursement effectué",
       "quantityLabel": "Quantité à rembourser pour %{item}",
       "quantityRequired": "Saisissez une quantité à rembourser",
       "reasonLabel": "Motif (facultatif)",
       "reasonPlaceholder": "Pourquoi ce remboursement ?",
-      "submit": "Effectuer le remboursement"
+      "submit": "Effectuer le remboursement",
+      "loadFailed": "Impossible de charger les remboursements précédents. Réessayez avant de valider.",
+      "quantityInvalid": "Saisissez une quantité entière entre 0 et %{quantity}.",
+      "unavailable": "Cette commande ne peut pas être remboursée."
     },
     "refundState": {
       "canceled": "Annulé",

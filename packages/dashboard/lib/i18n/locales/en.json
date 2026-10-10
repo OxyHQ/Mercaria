@@ -886,14 +886,16 @@
     },
     "refund": {
       "dialogTitle": "Refund order",
-      "failed": "Couldn't process the refund",
+      "failed": "Couldn’t confirm the refund. Retry with the same details to check the result.",
       "itemMax": "%{variant} · max %{quantity}",
-      "processed": "Refund processed",
       "quantityLabel": "Refund quantity for %{item}",
       "quantityRequired": "Enter a quantity to refund",
       "reasonLabel": "Reason (optional)",
       "reasonPlaceholder": "Why is this being refunded?",
-      "submit": "Process refund"
+      "submit": "Process refund",
+      "loadFailed": "Couldn’t load previous refunds. Retry before submitting.",
+      "quantityInvalid": "Enter a whole quantity from 0 to %{quantity}.",
+      "unavailable": "This order is not available for refunds."
     },
     "refundState": {
       "canceled": "Canceled",

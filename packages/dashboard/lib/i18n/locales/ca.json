@@ -900,14 +900,16 @@
     },
     "refund": {
       "dialogTitle": "Reemborsa la comanda",
-      "failed": "No s'ha pogut tramitar el reemborsament",
+      "failed": "No s’ha pogut confirmar el reemborsament. Torna-ho a provar amb les mateixes dades per comprovar el resultat.",
       "itemMax": "%{variant} · màx. %{quantity}",
-      "processed": "Reemborsament tramitat",
       "quantityLabel": "Quantitat a reemborsar de %{item}",
       "quantityRequired": "Introdueix una quantitat per reemborsar",
       "reasonLabel": "Motiu (opcional)",
       "reasonPlaceholder": "Per què es reemborsa?",
-      "submit": "Tramita el reemborsament"
+      "submit": "Tramita el reemborsament",
+      "loadFailed": "No s’han pogut carregar els reemborsaments anteriors. Torna-ho a provar abans d’enviar.",
+      "quantityInvalid": "Introdueix una quantitat entera entre 0 i %{quantity}.",
+      "unavailable": "Aquesta comanda no admet reemborsaments."
     },
     "refundState": {
       "canceled": "Cancel·lat",

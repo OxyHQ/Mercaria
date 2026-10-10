@@ -900,14 +900,16 @@
     },
     "refund": {
       "dialogTitle": "Reembolsar el pedido",
-      "failed": "No se ha podido procesar el reembolso",
+      "failed": "No se pudo confirmar el reembolso. Reintenta con los mismos datos para comprobar el resultado.",
       "itemMax": "%{variant} · máx. %{quantity}",
-      "processed": "Reembolso procesado",
       "quantityLabel": "Cantidad a reembolsar de %{item}",
       "quantityRequired": "Introduce una cantidad a reembolsar",
       "reasonLabel": "Motivo (opcional)",
       "reasonPlaceholder": "¿Por qué se reembolsa?",
-      "submit": "Procesar el reembolso"
+      "submit": "Procesar el reembolso",
+      "loadFailed": "No se pudieron cargar los reembolsos anteriores. Reintenta antes de enviar.",
+      "quantityInvalid": "Introduce una cantidad entera entre 0 y %{quantity}.",
+      "unavailable": "Este pedido no admite reembolsos."
     },
     "refundState": {
       "canceled": "Cancelado",
