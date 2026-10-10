@@ -46,6 +46,19 @@ export function MarketplaceSheet({ open, onClose, title, testID, headingGap = 16
       placement="end"
       width={wide ? 500 : width}
       minSideGutter={0}
+      backdrop={{
+        blurIntensity: 0,
+        dimOpacity: 1,
+        dimGradient: {
+          direction: "start-to-end",
+          stops: [
+            { offset: 0, color: "rgba(0,0,0,0)" },
+            { offset: 0.6975, color: "rgba(0,0,0,0.36)" },
+            { offset: 1, color: "rgba(0,0,0,0.36)" },
+          ],
+        },
+      }}
+      transition={{ duration: 300, easing: [0, 0, 0.58, 1] }}
       inset={wide ? { top: 16, bottom: 16, left: 16, right: 16 } : { top: 0, bottom: 0, left: 0, right: 0 }}
       material="flat"
       panelStyle={[surfaceStyle({ curve: "round", radius: wide ? 24 : 0 }), {
@@ -62,6 +75,7 @@ export function MarketplaceSheet({ open, onClose, title, testID, headingGap = 16
         <ViewportScrollView
           {...scrollViewProps}
           viewportRoot
+          showsVerticalScrollIndicator={false}
           ref={scrollRef}
           className={`my-space-24 min-h-0 flex-1 ${Platform.OS === "web" ? "shop-sheet-scroll" : ""}`}
           contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 40, paddingBottom: 40 }}

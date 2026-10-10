@@ -1229,6 +1229,45 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
   });
 }
 
+for (const { width, locale, reducedMotion } of [
+  { width: 1440, locale: "en", reducedMotion: "no-preference" },
+  { width: 390, locale: "ar", reducedMotion: "reduce" },
+] as const) {
+  test(`product sheets mirror the gradient and restore focus at ${width}px in ${locale}`, async ({ page, request }) => {
+    const product = await seededProduct(request);
+    await page.route(`**/listings/${product.id}`, async route => {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.data.description = "A carefully made item for everyday use. ".repeat(20);
+      await route.fulfill({ response, json: body });
+    });
+    await page.addInitScript(locale => {
+      localStorage.setItem("i18n-storage", JSON.stringify({ state: { locale }, version: 0 }));
+    }, locale);
+    await page.setViewportSize({ width, height: 1000 });
+    await page.emulateMedia({ reducedMotion });
+    await page.goto(`/products/${product.id}`);
+    const trigger = page.getByTestId("product-description").getByRole("button");
+    await trigger.click();
+    const panel = page.getByTestId("product-description-dialog");
+    await expect(panel).toBeVisible();
+    const gradient = page.locator('[style*="linear-gradient"]').filter({ hasNot: page.locator("img") });
+    const dim = gradient.filter({ visible: true }).filter({ hasNot: page.getByRole("dialog") });
+    // Inspect the visible backdrop itself: no page blur or extra solid dim layer.
+    await expect.poll(() => dim.evaluateAll(nodes => nodes.map(node => {
+      const paint = getComputedStyle(node);
+      return { image: paint.backgroundImage, opacity: paint.opacity, blur: paint.backdropFilter };
+    }).filter(paint => paint.image.includes("69.75%")))).toEqual([{
+      image: `linear-gradient(${locale === "ar" ? 270 : 90}deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.36) 69.75%, rgba(0, 0, 0, 0.36) 100%)`,
+      opacity: "1",
+      blur: "none",
+    }]);
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+}
+
 test("short product descriptions are complete without a redundant read-more control", async ({ page, request }) => {
   const product = await seededProduct(request);
   const description = "Made with cotton.\n\nWash at 30°C.";
